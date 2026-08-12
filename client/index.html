@@ -476,7 +476,7 @@
     .hero-showcase{ display:none; }
     header{ padding:1.1rem 1.2rem; justify-content:space-between; }
     nav{ gap:1rem; }
-    nav a:not(.btn-list){ display:none; }
+    nav > *:not(.btn-list){ display:none; }
     .hero{ padding:1rem 6vw 4rem; min-height:80vh; }
   }
 
@@ -749,9 +749,8 @@
 
 <header>
   <nav>
-    <a href="#guests">For guests</a>
-    <a href="#hosts">For hosts</a>
     <a href="#how">How it works</a>
+    <a href="login.html">Log in</a>
     <button type="button" class="btn-ghost" id="open-account-modal">Create account</button>
     <a href="list.html" class="btn-list">List your space</a>
   </nav>
