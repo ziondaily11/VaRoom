@@ -278,6 +278,18 @@
 
   nav a:hover{ color:var(--red); }
 
+  .btn-ghost{
+    background:transparent;
+    border:1.5px solid var(--ink);
+    color:var(--ink);
+    padding:.65rem 1.2rem;
+    border-radius:100px;
+    font-size:.9rem;
+    font-weight:600;
+    transition:background .2s ease, color .2s ease;
+  }
+  .btn-ghost:hover{ background:var(--ink); color:var(--white); }
+
   .btn-list{
     background:var(--ink);
     color:var(--white);
@@ -467,6 +479,252 @@
     nav a:not(.btn-list){ display:none; }
     .hero{ padding:1rem 6vw 4rem; min-height:80vh; }
   }
+
+  /* ---------- INFO SECTIONS ---------- */
+
+  .info-section{
+    padding:5.5rem 8vw;
+    scroll-margin-top:2rem;
+  }
+
+  .info-section.alt-bg{
+    background:var(--white);
+  }
+
+  .info-inner{
+    max-width:680px;
+    margin:0 auto;
+  }
+
+  .info-inner.wide{ max-width:1040px; }
+
+  .section-eyebrow{
+    font-size:.85rem;
+    font-weight:600;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--red-deep);
+    margin-bottom:.6rem;
+  }
+
+  .info-section h2{
+    font-family:var(--font-display);
+    font-weight:600;
+    font-size:clamp(1.8rem, 3.6vw, 2.6rem);
+    line-height:1.15;
+    margin-bottom:1rem;
+    max-width:16ch;
+  }
+
+  .info-section p{
+    font-size:1.05rem;
+    line-height:1.6;
+    color:#3a2e2c;
+    max-width:52ch;
+  }
+
+  .info-section .btn-list{
+    display:inline-block;
+    margin-top:1.6rem;
+  }
+
+  .steps-grid{
+    display:grid;
+    grid-template-columns:repeat(3, 1fr);
+    gap:1.6rem;
+    margin-top:2.2rem;
+  }
+
+  .step-card{
+    background:var(--paper);
+    border:1px solid rgba(26,18,16,.08);
+    border-radius:16px;
+    padding:1.6rem 1.4rem;
+  }
+
+  .info-section.alt-bg .step-card{ background:var(--paper); }
+
+  .step-num{
+    width:34px; height:34px;
+    border-radius:50%;
+    background:var(--red);
+    color:var(--white);
+    font-weight:700;
+    font-size:.95rem;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    margin-bottom:.9rem;
+  }
+
+  .step-card h3{
+    font-size:1.05rem;
+    font-weight:600;
+    margin-bottom:.4rem;
+  }
+
+  .step-card p{
+    font-size:.92rem;
+    color:#6a5b57;
+    max-width:none;
+  }
+
+  @media (max-width:800px){
+    .steps-grid{ grid-template-columns:1fr; }
+  }
+
+  /* ---------- ACCOUNT MODAL ---------- */
+
+  .modal-overlay{
+    position:fixed;
+    inset:0;
+    z-index:100;
+    display:none;
+    align-items:center;
+    justify-content:center;
+    padding:1.5rem;
+  }
+
+  .modal-overlay.open{ display:flex; }
+
+  .modal-backdrop{
+    position:absolute;
+    inset:0;
+    background:rgba(26,18,16,.55);
+    backdrop-filter:blur(2px);
+    opacity:0;
+    transition:opacity .25s ease;
+  }
+
+  .modal-overlay.open .modal-backdrop{ opacity:1; }
+
+  .modal-card{
+    position:relative;
+    background:var(--paper);
+    border-radius:22px;
+    max-width:460px;
+    width:100%;
+    padding:2.2rem 2rem;
+    box-shadow:0 40px 80px -30px rgba(26,18,16,.5);
+    opacity:0;
+    transform:translateY(16px) scale(.98);
+    transition:opacity .25s ease, transform .25s ease;
+  }
+
+  .modal-overlay.open .modal-card{
+    opacity:1;
+    transform:translateY(0) scale(1);
+  }
+
+  .modal-close{
+    position:absolute;
+    top:1.1rem;
+    right:1.2rem;
+    background:transparent;
+    font-size:1.4rem;
+    line-height:1;
+    color:#7a6b67;
+    padding:.2rem .4rem;
+    border-radius:8px;
+  }
+  .modal-close:hover{ color:var(--ink); background:rgba(26,18,16,.06); }
+
+  .modal-back{
+    background:transparent;
+    color:#7a6b67;
+    font-size:.85rem;
+    font-weight:600;
+    padding:0;
+    margin-bottom:1rem;
+  }
+  .modal-back:hover{ color:var(--ink); }
+
+  .modal-step[hidden]{ display:none; }
+
+  .modal-card h2{
+    font-family:var(--font-display);
+    font-weight:600;
+    font-size:1.55rem;
+    margin-bottom:.4rem;
+  }
+
+  .modal-sub{
+    font-size:.95rem;
+    color:#3a2e2c;
+    margin-bottom:1.5rem;
+  }
+
+  .role-options{
+    display:flex;
+    flex-direction:column;
+    gap:.9rem;
+  }
+
+  .role-card{
+    text-align:left;
+    background:var(--white);
+    border:1.5px solid rgba(26,18,16,.1);
+    border-radius:16px;
+    padding:1.1rem 1.2rem;
+    display:flex;
+    flex-direction:column;
+    gap:.3rem;
+    transition:border-color .2s ease, transform .2s ease;
+  }
+  .role-card:hover{ border-color:var(--red); transform:translateY(-2px); }
+
+  .role-title{
+    font-weight:700;
+    font-size:1rem;
+    color:var(--ink);
+  }
+
+  .role-desc{
+    font-size:.85rem;
+    color:#6a5b57;
+    line-height:1.45;
+  }
+
+  .auth-options{
+    display:flex;
+    flex-direction:column;
+    gap:.8rem;
+    margin-top:.4rem;
+  }
+
+  .auth-btn{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:.6rem;
+    padding:.85rem 1.2rem;
+    border-radius:12px;
+    font-weight:600;
+    font-size:.95rem;
+    width:100%;
+  }
+
+  .auth-email{
+    background:var(--ink);
+    color:var(--white);
+    transition:background .2s ease;
+  }
+  .auth-email:hover{ background:var(--red); }
+
+  .auth-google{
+    background:var(--white);
+    border:1.5px solid rgba(26,18,16,.15);
+    color:var(--ink);
+    opacity:.6;
+    cursor:not-allowed;
+  }
+
+  .auth-note{
+    font-size:.8rem;
+    color:#7a6b67;
+    text-align:center;
+    margin-top:.9rem;
+  }
 </style>
 </head>
 <body>
@@ -494,7 +752,8 @@
     <a href="#guests">For guests</a>
     <a href="#hosts">For hosts</a>
     <a href="#how">How it works</a>
-    <a href="#list" class="btn-list">List your space</a>
+    <button type="button" class="btn-ghost" id="open-account-modal">Create account</button>
+    <a href="list.html" class="btn-list">List your space</a>
   </nav>
 </header>
 
@@ -505,7 +764,7 @@
     <h1>The room was there.<br>Now it's <em>visible.</em></h1>
     <p class="sub">VaRoom connects verified hosts, hotels and Airbnbs with people looking for a place to stay — by real, GPS-checked location, not luck or a poster on a gate.</p>
 
-    <p class="alt-cta">Own a hotel, Airbnb, event venue, office, shop, or rooms to let or sell? <a href="#list">List your space →</a></p>
+    <p class="alt-cta">Own a hotel, Airbnb, event venue, office, shop, or rooms to let or sell? <a href="list.html">List your space →</a></p>
 
     <div class="trust-strip">
       <div class="trust-item"><span class="trust-dot"></span>GPS-verified listings</div>
@@ -523,7 +782,81 @@
       <div class="cat-card"><span class="cat-dot"></span><div><p class="cat-name">Properties to let or buy</p><p class="cat-sub">Long-term rentals and sales</p></div></div>
     </div>
   </section>
+
+  <section id="guests" class="info-section">
+    <div class="info-inner">
+      <p class="section-eyebrow">For guests</p>
+      <h2>Find a place you'll actually like.</h2>
+      <p>Search real listings by location — Airbnbs, hotels, offices, shops, event venues and rooms to let — all GPS-verified so what you see is what's actually there. No walking door to door, no risky middlemen, no settling because time ran out.</p>
+    </div>
+  </section>
+
+  <section id="hosts" class="info-section alt-bg">
+    <div class="info-inner">
+      <p class="section-eyebrow">For hosts &amp; providers</p>
+      <h2>Your vacant room isn't a scarcity problem. It's a visibility one.</h2>
+      <p>List once and be found by real, ready clients — instead of relying on a poster at the gate or a saturated social feed. Get a verified badge, direct bookings, and escrow-backed payments with no agent fees eating your margin.</p>
+      <a href="list.html" class="btn-list">List your space</a>
+    </div>
+  </section>
+
+  <section id="how" class="info-section">
+    <div class="info-inner wide">
+      <p class="section-eyebrow">How it works</p>
+      <h2>Three steps, either side of the marketplace.</h2>
+      <div class="steps-grid">
+        <div class="step-card">
+          <div class="step-num">1</div>
+          <h3>List or search</h3>
+          <p>Providers upload photos and a location. Guests search by area — Nairobi, Nakuru, wherever.</p>
+        </div>
+        <div class="step-card">
+          <div class="step-num">2</div>
+          <h3>Get verified</h3>
+          <p>GPS checks the listing's real location before it goes live, so guests aren't gambling on an address.</p>
+        </div>
+        <div class="step-card">
+          <div class="step-num">3</div>
+          <h3>Book directly</h3>
+          <p>Payment is handled through VaRoom — no agent in the middle, and refund protection if a place doesn't match.</p>
+        </div>
+      </div>
+    </div>
+  </section>
 </main>
+
+<div class="modal-overlay" id="account-modal" aria-hidden="true">
+  <div class="modal-backdrop" data-close></div>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <button type="button" class="modal-close" data-close aria-label="Close">&times;</button>
+
+    <div class="modal-step" data-step="role">
+      <h2 id="modal-title">Join VaRoom</h2>
+      <p class="modal-sub">How are you using VaRoom?</p>
+      <div class="role-options">
+        <button type="button" class="role-card" data-role="host">
+          <span class="role-title">Register as Host</span>
+          <span class="role-desc">Here to list and showcase your spaces — Airbnbs, hotels, venues, offices, shops, or property.</span>
+        </button>
+        <button type="button" class="role-card" data-role="client">
+          <span class="role-title">Register as Client</span>
+          <span class="role-desc">Here to find suitable places for events and stays.</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="modal-step" data-step="auth" hidden>
+      <button type="button" class="modal-back" data-back>&larr; Back</button>
+      <h2>Register as <span id="role-label"></span></h2>
+      <p class="modal-sub" id="role-sub"></p>
+      <div class="auth-options">
+        <a href="#" class="auth-btn auth-email" id="email-signup-link">Register with email</a>
+        <button type="button" class="auth-btn auth-google" disabled title="Coming soon">Register with Google</button>
+      </div>
+      <p class="auth-note">Google sign-in isn't connected yet — email registration is ready now.</p>
+    </div>
+  </div>
+</div>
 
 <script>
   (function(){
@@ -573,6 +906,73 @@
     document.addEventListener('click', function(){
       if(!settled) settle();
     }, { once:true });
+  })();
+</script>
+
+<script>
+  (function(){
+    var modal = document.getElementById('account-modal');
+    var roleStep = modal.querySelector('[data-step="role"]');
+    var authStep = modal.querySelector('[data-step="auth"]');
+    var roleLabel = document.getElementById('role-label');
+    var roleSub = document.getElementById('role-sub');
+    var emailLink = document.getElementById('email-signup-link');
+
+    var roleContent = {
+      host: {
+        label: 'Host',
+        sub: 'List and showcase your spaces — Airbnbs, hotels, venues, offices, shops, or property.',
+        href: 'signup-host.html'
+      },
+      client: {
+        label: 'Client',
+        sub: 'Find suitable places for events and stays.',
+        href: 'signup-client.html'
+      }
+    };
+
+    function openModal(){
+      modal.classList.add('open');
+      modal.setAttribute('aria-hidden', 'false');
+      showStep('role');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeModal(){
+      modal.classList.remove('open');
+      modal.setAttribute('aria-hidden', 'true');
+      document.body.style.overflow = '';
+    }
+
+    function showStep(step){
+      roleStep.hidden = step !== 'role';
+      authStep.hidden = step !== 'auth';
+    }
+
+    document.getElementById('open-account-modal').addEventListener('click', openModal);
+
+    modal.querySelectorAll('[data-close]').forEach(function(el){
+      el.addEventListener('click', closeModal);
+    });
+
+    document.addEventListener('keydown', function(e){
+      if(e.key === 'Escape' && modal.classList.contains('open')) closeModal();
+    });
+
+    modal.querySelectorAll('.role-card').forEach(function(card){
+      card.addEventListener('click', function(){
+        var role = card.getAttribute('data-role');
+        var content = roleContent[role];
+        roleLabel.textContent = content.label;
+        roleSub.textContent = content.sub;
+        emailLink.setAttribute('href', content.href);
+        showStep('auth');
+      });
+    });
+
+    modal.querySelector('[data-back]').addEventListener('click', function(){
+      showStep('role');
+    });
   })();
 </script>
 
