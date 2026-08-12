@@ -34,11 +34,29 @@
   form{ display:flex; flex-direction:column; gap:1.2rem; }
   .field{ display:flex; flex-direction:column; gap:.4rem; }
   label{ font-size:.9rem; font-weight:600; }
-  input{ font-family:inherit; font-size:1rem; padding:.85rem 1rem; border:1px solid rgba(26,18,16,.15); border-radius:12px; background:var(--white); color:var(--ink); }
+  input{ font-family:inherit; font-size:1rem; padding:.85rem 1rem; border:1px solid rgba(26,18,16,.15); border-radius:12px; background:var(--white); color:var(--ink); width:100%; }
   input:focus{ outline:none; border-color:var(--red); }
+  input.input-error{ border-color:var(--red); }
+
+  .password-wrap{ position:relative; }
+  .password-wrap input{ padding-right:2.8rem; }
+  .toggle-eye{
+    position:absolute; right:.7rem; top:50%; transform:translateY(-50%);
+    background:none; border:none; cursor:pointer; padding:.3rem;
+    display:flex; align-items:center; justify-content:center;
+    color:#7a6b67;
+  }
+  .toggle-eye:hover{ color:var(--red); }
+  .toggle-eye svg{ width:20px; height:20px; }
+
+  .field-error{ font-size:.82rem; color:var(--red); display:none; }
+  .field-error.show{ display:block; }
+  .field-success{ font-size:.82rem; color:#2e7d32; display:none; }
+  .field-success.show{ display:block; }
 
   .submit-btn{ background:var(--ink); color:var(--white); padding:1rem 1.6rem; border-radius:100px; font-weight:600; font-size:1rem; margin-top:.6rem; transition:background .2s ease; }
   .submit-btn:hover{ background:var(--red); }
+  .submit-btn:disabled{ background:#c9c0bd; cursor:not-allowed; }
 
   .form-note{ font-size:.85rem; color:#7a6b67; text-align:center; margin-top:.4rem; }
 
@@ -70,9 +88,25 @@
     </div>
     <div class="field">
       <label for="password">Password</label>
-      <input type="password" id="password" name="password" required minlength="8">
+      <div class="password-wrap">
+        <input type="password" id="password" name="password" required minlength="8">
+        <button type="button" class="toggle-eye" data-target="password" aria-label="Show password">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
     </div>
-    <button type="submit" class="submit-btn">Create client account</button>
+    <div class="field">
+      <label for="confirm-password">Confirm password</label>
+      <div class="password-wrap">
+        <input type="password" id="confirm-password" name="confirm-password" required minlength="8">
+        <button type="button" class="toggle-eye" data-target="confirm-password" aria-label="Show password">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+      <p class="field-error" id="password-mismatch-error">Passwords don't match.</p>
+      <p class="field-success" id="password-match-success">Passwords match.</p>
+    </div>
+    <button type="submit" class="submit-btn" id="submit-btn">Create client account</button>
     <p class="form-note">This form is a working preview — accounts aren't saved anywhere yet.</p>
   </form>
 
@@ -83,13 +117,67 @@
 
 <script src="js/supabase-client.js"></script>
 <script>
+  // Eye toggle for both password fields
+  document.querySelectorAll('.toggle-eye').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      const targetId = btn.getAttribute('data-target');
+      const input = document.getElementById(targetId);
+      const isHidden = input.type === 'password';
+      input.type = isHidden ? 'text' : 'password';
+      btn.setAttribute('aria-label', isHidden ? 'Hide password' : 'Show password');
+    });
+  });
+
+  // Real-time password match checking
+  const passwordInput = document.getElementById('password');
+  const confirmInput = document.getElementById('confirm-password');
+  const mismatchError = document.getElementById('password-mismatch-error');
+  const matchSuccess = document.getElementById('password-match-success');
+  const submitBtn = document.getElementById('submit-btn');
+
+  function checkPasswordMatch(){
+    const password = passwordInput.value;
+    const confirm = confirmInput.value;
+
+    if (confirm.length === 0) {
+      // Nothing typed yet in confirm field — don't show anything
+      mismatchError.classList.remove('show');
+      matchSuccess.classList.remove('show');
+      confirmInput.classList.remove('input-error');
+      submitBtn.disabled = false;
+      return;
+    }
+
+    if (password !== confirm) {
+      mismatchError.classList.add('show');
+      matchSuccess.classList.remove('show');
+      confirmInput.classList.add('input-error');
+      submitBtn.disabled = true;
+    } else {
+      mismatchError.classList.remove('show');
+      matchSuccess.classList.add('show');
+      confirmInput.classList.remove('input-error');
+      submitBtn.disabled = false;
+    }
+  }
+
+  passwordInput.addEventListener('input', checkPasswordMatch);
+  confirmInput.addEventListener('input', checkPasswordMatch);
+
   document.getElementById('client-signup-form').addEventListener('submit', async function(e){
     e.preventDefault();
 
     const name = document.getElementById('name').value;
     const email = document.getElementById('email').value;
-    const password = document.getElementById('password').value;
+    const password = passwordInput.value;
+    const confirmPassword = confirmInput.value;
     const successMsg = document.getElementById('success-msg');
+
+    if (password !== confirmPassword) {
+      mismatchError.classList.add('show');
+      confirmInput.focus();
+      return;
+    }
 
     const { data, error } = await supabaseClient.auth.signUp({
       email: email,

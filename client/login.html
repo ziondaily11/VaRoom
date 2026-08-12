@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;0,9..144,900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
     --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#1A1210; --paper:#FBF4F1;
@@ -33,16 +34,29 @@
   form{ display:flex; flex-direction:column; gap:1.2rem; }
   .field{ display:flex; flex-direction:column; gap:.4rem; }
   label{ font-size:.9rem; font-weight:600; }
-  input{ font-family:inherit; font-size:1rem; padding:.85rem 1rem; border:1px solid rgba(26,18,16,.15); border-radius:12px; background:var(--white); color:var(--ink); }
+  input{ font-family:inherit; font-size:1rem; padding:.85rem 1rem; border:1px solid rgba(26,18,16,.15); border-radius:12px; background:var(--white); color:var(--ink); width:100%; }
   input:focus{ outline:none; border-color:var(--red); }
+
+  .password-wrap{ position:relative; }
+  .password-wrap input{ padding-right:2.8rem; }
+  .toggle-eye{
+    position:absolute; right:.7rem; top:50%; transform:translateY(-50%);
+    background:none; border:none; cursor:pointer; padding:.3rem;
+    display:flex; align-items:center; justify-content:center;
+    color:#7a6b67;
+  }
+  .toggle-eye:hover{ color:var(--red); }
+  .toggle-eye svg{ width:20px; height:20px; }
 
   .submit-btn{ background:var(--ink); color:var(--white); padding:1rem 1.6rem; border-radius:100px; font-weight:600; font-size:1rem; margin-top:.6rem; transition:background .2s ease; }
   .submit-btn:hover{ background:var(--red); }
+  .submit-btn:disabled{ background:#c9c0bd; cursor:not-allowed; }
 
   .form-note{ font-size:.85rem; color:#7a6b67; text-align:center; margin-top:.4rem; }
 
   .success-msg{ display:none; background:#F4EDE4; border:1px solid rgba(26,18,16,.1); border-radius:14px; padding:1.4rem 1.6rem; margin-top:1.6rem; font-size:.95rem; }
   .success-msg.show{ display:block; }
+  .success-msg.error{ background:#FBE9E9; border-color:rgba(196,30,58,.3); color:var(--red-deep); }
   .success-msg a{ color:var(--red); font-weight:600; border-bottom:1.5px solid var(--red); }
 </style>
 </head>
@@ -65,24 +79,88 @@
     </div>
     <div class="field">
       <label for="password">Password</label>
-      <input type="password" id="password" name="password" required minlength="8">
+      <div class="password-wrap">
+        <input type="password" id="password" name="password" required minlength="8">
+        <button type="button" class="toggle-eye" data-target="password" aria-label="Show password">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
     </div>
-    <button type="submit" class="submit-btn">Log in</button>
-    <p class="form-note">This form is a working preview — no accounts exist yet, so any email/password will "work."</p>
+    <button type="submit" class="submit-btn" id="submit-btn">Log in</button>
+    <p class="form-note" id="form-note">Logging in checks your email and password against your real VaRoom account.</p>
   </form>
 
   <p class="form-note" style="margin-top:1.2rem;">New to VaRoom? <a href="index.html" style="color:var(--red); font-weight:600;">Create an account</a></p>
 
-  <div class="success-msg" id="success-msg">
-    Preview only — nothing was actually checked. Once the backend's connected, this is where you'd land on your dashboard.
-  </div>
+  <div class="success-msg" id="success-msg"></div>
 </main>
 
+<script src="js/supabase-client.js"></script>
 <script>
-  document.getElementById('login-form').addEventListener('submit', function(e){
+  // Eye toggle
+  document.querySelectorAll('.toggle-eye').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      const targetId = btn.getAttribute('data-target');
+      const input = document.getElementById(targetId);
+      const isHidden = input.type === 'password';
+      input.type = isHidden ? 'text' : 'password';
+      btn.setAttribute('aria-label', isHidden ? 'Hide password' : 'Show password');
+    });
+  });
+
+  document.getElementById('login-form').addEventListener('submit', async function(e){
     e.preventDefault();
-    document.getElementById('success-msg').classList.add('show');
-    document.getElementById('success-msg').scrollIntoView({ behavior:'smooth', block:'center' });
+
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+    const successMsg = document.getElementById('success-msg');
+    const submitBtn = document.getElementById('submit-btn');
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Logging in...';
+
+    const { data, error } = await supabaseClient.auth.signInWithPassword({
+      email: email,
+      password: password
+    });
+
+    if (error) {
+      successMsg.textContent = 'Login failed: ' + error.message;
+      successMsg.classList.add('show', 'error');
+      successMsg.scrollIntoView({ behavior:'smooth', block:'center' });
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Log in';
+      return;
+    }
+
+    // Look up the user's role so we know where to send them
+    const { data: profile, error: profileError } = await supabaseClient
+      .from('profiles')
+      .select('role, full_name')
+      .eq('id', data.user.id)
+      .single();
+
+    if (profileError || !profile) {
+      successMsg.textContent = 'Logged in, but could not load your profile: ' + (profileError ? profileError.message : 'no profile found');
+      successMsg.classList.add('show', 'error');
+      successMsg.scrollIntoView({ behavior:'smooth', block:'center' });
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Log in';
+      return;
+    }
+
+    successMsg.classList.remove('error');
+    successMsg.textContent = 'Welcome back, ' + profile.full_name + '! Redirecting...';
+    successMsg.classList.add('show');
+    successMsg.scrollIntoView({ behavior:'smooth', block:'center' });
+
+    setTimeout(function(){
+      if (profile.role === 'host') {
+        window.location.href = 'list.html';
+      } else {
+        window.location.href = 'index.html';
+      }
+    }, 1200);
   });
 </script>
 
