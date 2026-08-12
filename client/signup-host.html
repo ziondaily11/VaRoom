@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;0,9..144,900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
     --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#1A1210; --paper:#FBF4F1;
@@ -80,11 +81,42 @@
   </div>
 </main>
 
+<script src="js/supabase-client.js"></script>
 <script>
-  document.getElementById('host-signup-form').addEventListener('submit', function(e){
+  document.getElementById('host-signup-form').addEventListener('submit', async function(e){
     e.preventDefault();
-    document.getElementById('success-msg').classList.add('show');
-    document.getElementById('success-msg').scrollIntoView({ behavior:'smooth', block:'center' });
+
+    const name = document.getElementById('name').value;
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+    const successMsg = document.getElementById('success-msg');
+
+    const { data, error } = await supabaseClient.auth.signUp({
+      email: email,
+      password: password
+    });
+
+    if (error) {
+      successMsg.textContent = 'Something went wrong: ' + error.message;
+      successMsg.classList.add('show');
+      successMsg.scrollIntoView({ behavior:'smooth', block:'center' });
+      return;
+    }
+
+    const { error: profileError } = await supabaseClient
+      .from('profiles')
+      .insert({ id: data.user.id, role: 'host', full_name: name });
+
+    if (profileError) {
+      successMsg.textContent = 'Account created, but profile setup failed: ' + profileError.message;
+      successMsg.classList.add('show');
+      successMsg.scrollIntoView({ behavior:'smooth', block:'center' });
+      return;
+    }
+
+    successMsg.innerHTML = 'Account created! Check your email to confirm, then <a href="list.html">list your first space →</a>';
+    successMsg.classList.add('show');
+    successMsg.scrollIntoView({ behavior:'smooth', block:'center' });
   });
 </script>
 
