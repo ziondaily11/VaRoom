@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>List your space — VaRoom</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;0,9..144,900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#1A1210; --paper:#FBF4F1;
+    --font-display:'Fraunces', serif; --font-body:'Inter', sans-serif;
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  body{ font-family:var(--font-body); background:var(--paper); color:var(--ink); min-height:100vh; }
+  a{ color:inherit; text-decoration:none; }
+  button{ font-family:inherit; cursor:pointer; border:none; }
+  :focus-visible{ outline:3px solid var(--red-deep); outline-offset:3px; }
+
+  header{ display:flex; align-items:center; justify-content:space-between; padding:1.5rem 2.5rem; }
+  .logo{ font-family:var(--font-display); font-weight:900; font-size:1.55rem; display:flex; align-items:baseline; }
+  .logo .va{ color:var(--red); -webkit-text-stroke:1.5px var(--ink); text-shadow:-1px -1px 0 var(--ink), 1px -1px 0 var(--ink), -1px 1px 0 var(--ink), 1px 1px 0 var(--ink); }
+  .logo .pin{ width:.34em; height:.34em; border-radius:50% 50% 50% 0; background:var(--red); transform:rotate(-45deg); margin:0 .05em 0 .08em; align-self:flex-start; margin-top:.08em; }
+  .back-link{ font-size:.9rem; font-weight:500; }
+  .back-link:hover{ color:var(--red); }
+
+  main{ max-width:520px; margin:0 auto; padding:2rem 6vw 6rem; }
+  .eyebrow{ font-size:.85rem; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--red-deep); margin-bottom:.7rem; }
+  h1{ font-family:var(--font-display); font-weight:600; font-size:clamp(1.9rem, 4vw, 2.5rem); line-height:1.1; margin-bottom:.8rem; }
+  .sub{ font-size:1rem; line-height:1.6; color:#3a2e2c; margin-bottom:2.2rem; }
+
+  form{ display:flex; flex-direction:column; gap:1.2rem; }
+  .field{ display:flex; flex-direction:column; gap:.4rem; }
+  label{ font-size:.9rem; font-weight:600; }
+  input, textarea, select{ font-family:inherit; font-size:1rem; padding:.85rem 1rem; border:1px solid rgba(26,18,16,.15); border-radius:12px; background:var(--white); color:var(--ink); width:100%; }
+  textarea{ resize:vertical; min-height:100px; }
+  input:focus, textarea:focus, select:focus{ outline:none; border-color:var(--red); }
+
+  .placeholder-box{
+    border:1.5px dashed rgba(26,18,16,.25); border-radius:12px; padding:1.6rem 1rem;
+    text-align:center; color:#7a6b67; font-size:.9rem; background:rgba(255,255,255,.4);
+  }
+
+  .submit-btn{ background:var(--ink); color:var(--white); padding:1rem 1.6rem; border-radius:100px; font-weight:600; font-size:1rem; margin-top:.6rem; transition:background .2s ease; }
+  .submit-btn:hover{ background:var(--red); }
+  .submit-btn:disabled{ background:#c9c0bd; cursor:not-allowed; }
+
+  .form-note{ font-size:.85rem; color:#7a6b67; text-align:center; margin-top:.4rem; }
+
+  .success-msg{ display:none; background:#F4EDE4; border:1px solid rgba(26,18,16,.1); border-radius:14px; padding:1.4rem 1.6rem; margin-top:1.6rem; font-size:.95rem; }
+  .success-msg.show{ display:block; }
+  .success-msg.error{ background:#FBE9E9; border-color:rgba(196,30,58,.3); color:var(--red-deep); }
+  .success-msg a{ color:var(--red); font-weight:600; border-bottom:1.5px solid var(--red); }
+
+  .checking-msg{ text-align:center; padding:3rem 0; color:#7a6b67; }
+</style>
+</head>
+<body>
+
+<header>
+  <a href="index.html" class="logo"><span class="va">Va</span><span class="pin"></span><span class="room">Room</span></a>
+  <a href="index.html" class="back-link">← Back to VaRoom</a>
+</header>
+
+<main>
+  <div id="checking-auth" class="checking-msg">Checking your account...</div>
+
+  <div id="listing-page" style="display:none;">
+    <p class="eyebrow">List your space</p>
+    <h1>Add a new listing.</h1>
+    <p class="sub">Fill in the details below. Your listing goes live once it's saved.</p>
+
+    <form id="list-form">
+      <div class="field">
+        <label for="title">Title</label>
+        <input type="text" id="title" name="title" required placeholder="e.g. Cozy 2-bedroom Airbnb near campus">
+      </div>
+
+      <div class="field">
+        <label for="category">Category</label>
+        <select id="category" name="category" required>
+          <option value="" disabled selected>Choose a category</option>
+          <option value="airbnb">Airbnb</option>
+          <option value="hotel">Hotel</option>
+          <option value="venue">Event ground / venue</option>
+          <option value="office">Office</option>
+          <option value="shop">Shop</option>
+          <option value="property">Property to let or buy</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="description">Description</label>
+        <textarea id="description" name="description" required placeholder="Describe the space — size, amenities, what makes it a good fit"></textarea>
+      </div>
+
+      <div class="field">
+        <label for="location_text">Location</label>
+        <input type="text" id="location_text" name="location_text" required placeholder="e.g. Kilimani, Nairobi">
+      </div>
+
+      <div class="field">
+        <label>Photos</label>
+        <div class="placeholder-box">Photo upload isn't wired up yet — this listing will save without photos for now.</div>
+      </div>
+
+      <button type="submit" class="submit-btn" id="submit-btn">Publish listing</button>
+      <p class="form-note">Location is GPS-verified before your listing goes fully live.</p>
+    </form>
+
+    <div class="success-msg" id="success-msg"></div>
+  </div>
+</main>
+
+<script src="js/supabase-client.js"></script>
+<script>
+  const checkingAuth = document.getElementById('checking-auth');
+  const listingPage = document.getElementById('listing-page');
+  let currentUser = null;
+
+  (async function checkAuth(){
+    const { data: { session } } = await supabaseClient.auth.getSession();
+
+    if (!session) {
+      window.location.href = 'login.html';
+      return;
+    }
+
+    currentUser = session.user;
+
+    // Confirm this user is actually a host, not a client
+    const { data: profile, error: profileError } = await supabaseClient
+      .from('profiles')
+      .select('role')
+      .eq('id', currentUser.id)
+      .single();
+
+    if (profileError || !profile || profile.role !== 'host') {
+      checkingAuth.textContent = 'Only host accounts can list a space. Redirecting...';
+      setTimeout(function(){ window.location.href = 'index.html'; }, 1500);
+      return;
+    }
+
+    checkingAuth.style.display = 'none';
+    listingPage.style.display = 'block';
+  })();
+
+  document.getElementById('list-form').addEventListener('submit', async function(e){
+    e.preventDefault();
+
+    const title = document.getElementById('title').value;
+    const category = document.getElementById('category').value;
+    const description = document.getElementById('description').value;
+    const locationText = document.getElementById('location_text').value;
+    const successMsg = document.getElementById('success-msg');
+    const submitBtn = document.getElementById('submit-btn');
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Publishing...';
+
+    const { data, error } = await supabaseClient
+      .from('listings')
+      .insert({
+        host_id: currentUser.id,
+        title: title,
+        category: category,
+        description: description,
+        location_text: locationText,
+        verified: false
+      })
+      .select()
+      .single();
+
+    if (error) {
+      successMsg.textContent = 'Something went wrong: ' + error.message;
+      successMsg.classList.add('show', 'error');
+      successMsg.scrollIntoView({ behavior:'smooth', block:'center' });
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Publish listing';
+      return;
+    }
+
+    successMsg.classList.remove('error');
+    successMsg.textContent = 'Listing published! It\'s pending location verification before it shows to clients.';
+    successMsg.classList.add('show');
+    successMsg.scrollIntoView({ behavior:'smooth', block:'center' });
+
+    document.getElementById('list-form').reset();
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Publish listing';
+  });
+</script>
+
+</body>
+</html>
