@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;0,9..144,900;1,9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
     --red:#C41E3A;
@@ -316,6 +317,7 @@
     opacity:0;
     transition:opacity .6s ease;
   }
+
   body.settle .menu-toggle, body.no-anim .menu-toggle{
     opacity:1;
     transition-delay:.15s;
@@ -777,9 +779,9 @@
     background:var(--white);
     border:1.5px solid rgba(26,18,16,.15);
     color:var(--ink);
-    opacity:.6;
-    cursor:not-allowed;
+    transition:border-color .2s ease;
   }
+  .auth-google:hover{ border-color:var(--red); }
 
   .auth-note{
     font-size:.8rem;
@@ -922,13 +924,14 @@
       <p class="modal-sub" id="role-sub"></p>
       <div class="auth-options">
         <a href="#" class="auth-btn auth-email" id="email-signup-link">Register with email</a>
-        <button type="button" class="auth-btn auth-google" disabled title="Coming soon">Register with Google</button>
+        <button type="button" class="auth-btn auth-google" id="google-auth-btn">Continue with Google</button>
       </div>
-      <p class="auth-note">Google sign-in isn't connected yet — email registration is ready now.</p>
+      <p class="auth-note">You'll be signed up and logged in right away.</p>
     </div>
   </div>
 </div>
 
+<script src="js/supabase-client.js"></script>
 <script>
   (function(){
     var prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -990,6 +993,8 @@
     var emailLink = document.getElementById('email-signup-link');
     var menuToggle = document.getElementById('menu-toggle');
     var mobileNav = document.getElementById('mobile-nav');
+    var googleBtn = document.getElementById('google-auth-btn');
+    var selectedRole = null;
 
     var roleContent = {
       host: {
@@ -1055,6 +1060,7 @@
     modal.querySelectorAll('.role-card').forEach(function(card){
       card.addEventListener('click', function(){
         var role = card.getAttribute('data-role');
+        selectedRole = role;
         var content = roleContent[role];
         roleLabel.textContent = content.label;
         roleSub.textContent = content.sub;
@@ -1065,6 +1071,17 @@
 
     modal.querySelector('[data-back]').addEventListener('click', function(){
       showStep('role');
+    });
+
+    // Google sign-in — remembers the role chosen in the previous step
+    googleBtn.addEventListener('click', async function(){
+      if (selectedRole === 'host' || selectedRole === 'client') {
+        sessionStorage.setItem('varoom_intended_role', selectedRole);
+      }
+      await supabaseClient.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: window.location.origin + '/auth-callback.html' }
+      });
     });
   })();
 </script>
