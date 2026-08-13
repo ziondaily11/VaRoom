@@ -52,6 +52,22 @@
   .submit-btn:hover{ background:var(--red); }
   .submit-btn:disabled{ background:#c9c0bd; cursor:not-allowed; }
 
+  .divider{
+    display:flex; align-items:center; gap:.9rem;
+    margin:.4rem 0; color:#7a6b67; font-size:.85rem;
+  }
+  .divider::before, .divider::after{
+    content:''; flex:1; height:1px; background:rgba(26,18,16,.12);
+  }
+
+  .google-btn{
+    display:flex; align-items:center; justify-content:center; gap:.6rem;
+    background:var(--white); border:1.5px solid rgba(26,18,16,.15); color:var(--ink);
+    padding:.85rem 1.2rem; border-radius:12px; font-weight:600; font-size:.95rem;
+    width:100%; transition:border-color .2s ease;
+  }
+  .google-btn:hover{ border-color:var(--red); }
+
   .form-note{ font-size:.85rem; color:#7a6b67; text-align:center; margin-top:.4rem; }
 
   .success-msg{ display:none; background:#F4EDE4; border:1px solid rgba(26,18,16,.1); border-radius:14px; padding:1.4rem 1.6rem; margin-top:1.6rem; font-size:.95rem; }
@@ -71,6 +87,10 @@
   <p class="eyebrow">Welcome back</p>
   <h1>Log in to VaRoom.</h1>
   <p class="sub">Access your host or client account.</p>
+
+  <button type="button" class="google-btn" id="google-auth-btn">Continue with Google</button>
+
+  <div class="divider">or</div>
 
   <form id="login-form">
     <div class="field">
@@ -105,6 +125,14 @@
       const isHidden = input.type === 'password';
       input.type = isHidden ? 'text' : 'password';
       btn.setAttribute('aria-label', isHidden ? 'Hide password' : 'Show password');
+    });
+  });
+
+  // Google sign in
+  document.getElementById('google-auth-btn').addEventListener('click', async function(){
+    await supabaseClient.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin + '/auth-callback.html' }
     });
   });
 
