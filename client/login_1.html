@@ -61,12 +61,12 @@
   }
 
   .google-btn{
-    display:flex; align-items:center; justify-content:center; gap:.6rem;
-    background:var(--white); border:1.5px solid rgba(26,18,16,.15); color:var(--ink);
-    padding:.85rem 1.2rem; border-radius:12px; font-weight:600; font-size:.95rem;
-    width:100%; transition:border-color .2s ease;
+    display:flex; align-items:center; justify-content:center; gap:.7rem;
+    background:var(--white); border:1px solid #dadce0; color:#3c4043;
+    padding:.8rem 1.2rem; border-radius:12px; font-weight:500; font-size:.95rem;
+    width:100%; transition:box-shadow .2s ease, border-color .2s ease;
   }
-  .google-btn:hover{ border-color:var(--red); }
+  .google-btn:hover{ border-color:#c6c9cc; box-shadow:0 1px 3px rgba(60,64,67,.15); }
 
   .form-note{ font-size:.85rem; color:#7a6b67; text-align:center; margin-top:.4rem; }
 
@@ -88,7 +88,15 @@
   <h1>Log in to VaRoom.</h1>
   <p class="sub">Access your host or client account.</p>
 
-  <button type="button" class="google-btn" id="google-auth-btn">Continue with Google</button>
+  <button type="button" class="google-btn" id="google-auth-btn">
+    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+      <path fill="#4285F4" d="M17.64 9.2045c0-.6381-.0573-1.2518-.1636-1.8409H9v3.4814h4.8436c-.2086 1.125-.8427 2.0782-1.7959 2.7164v2.2581h2.9087c1.7018-1.5668 2.6836-3.874 2.6836-6.615z"/>
+      <path fill="#34A853" d="M9 18c2.43 0 4.4673-.806 5.9564-2.1805l-2.9087-2.2581c-.8059.54-1.8368.8591-3.0477.8591-2.3441 0-4.3282-1.5831-5.0359-3.7104H.9573v2.3318C2.4382 15.9832 5.4818 18 9 18z"/>
+      <path fill="#FBBC05" d="M3.9641 10.71c-.18-.54-.2827-1.1168-.2827-1.71s.1027-1.17.2827-1.71V4.9582H.9573C.3477 6.1732 0 7.5477 0 9s.3477 2.8268.9573 4.0418L3.9641 10.71z"/>
+      <path fill="#EA4335" d="M9 3.5795c1.3214 0 2.5077.4541 3.4405 1.346l2.5813-2.5814C13.4632.8918 11.4259 0 9 0 5.4818 0 2.4382 2.0168.9573 4.9582L3.9641 7.29C4.6718 5.1627 6.6559 3.5795 9 3.5795z"/>
+    </svg>
+    Continue with Google
+  </button>
 
   <div class="divider">or</div>
 
@@ -186,7 +194,7 @@
       if (profile.role === 'host') {
         window.location.href = 'list.html';
       } else {
-        window.location.href = 'index.html';
+        window.location.href = 'client-home.html';
       }
     }, 1200);
   });
