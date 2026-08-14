@@ -38,10 +38,31 @@
   textarea{ resize:vertical; min-height:100px; }
   input:focus, textarea:focus, select:focus{ outline:none; border-color:var(--red); }
 
-  .placeholder-box{
+  .photo-hint{ font-size:.8rem; color:#7a6b67; }
+
+  .photo-dropzone{
     border:1.5px dashed rgba(26,18,16,.25); border-radius:12px; padding:1.6rem 1rem;
     text-align:center; color:#7a6b67; font-size:.9rem; background:rgba(255,255,255,.4);
+    cursor:pointer; transition:border-color .2s ease, background .2s ease;
   }
+  .photo-dropzone:hover, .photo-dropzone.dragover{ border-color:var(--red); background:rgba(255,255,255,.7); }
+  .photo-dropzone input[type="file"]{ display:none; }
+
+  .photo-preview-grid{
+    display:grid; grid-template-columns:repeat(auto-fill, minmax(90px, 1fr)); gap:.6rem;
+    margin-top:.9rem;
+  }
+  .photo-thumb{ position:relative; border-radius:10px; overflow:hidden; aspect-ratio:1/1; background:var(--paper); }
+  .photo-thumb img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .photo-thumb .remove-photo{
+    position:absolute; top:4px; right:4px; width:22px; height:22px; border-radius:50%;
+    background:rgba(26,18,16,.75); color:var(--white); font-size:.8rem; line-height:1;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .photo-thumb .remove-photo:hover{ background:var(--red); }
+
+  .photo-error{ font-size:.82rem; color:var(--red); display:none; margin-top:.3rem; }
+  .photo-error.show{ display:block; }
 
   .submit-btn{ background:var(--ink); color:var(--white); padding:1rem 1.6rem; border-radius:100px; font-weight:600; font-size:1rem; margin-top:.6rem; transition:background .2s ease; }
   .submit-btn:hover{ background:var(--red); }
@@ -102,8 +123,14 @@
       </div>
 
       <div class="field">
-        <label>Photos</label>
-        <div class="placeholder-box">Photo upload isn't wired up yet — this listing will save without photos for now.</div>
+        <label for="photo-input">Photos</label>
+        <p class="photo-hint">Up to 6 photos, JPG/PNG/WEBP, 5MB max each. Optional, but listings with photos get noticed more.</p>
+        <label class="photo-dropzone" id="photo-dropzone" for="photo-input">
+          <span id="dropzone-text">Click to choose photos, or drag them here</span>
+          <input type="file" id="photo-input" accept="image/png,image/jpeg,image/webp" multiple>
+        </label>
+        <p class="photo-error" id="photo-error"></p>
+        <div class="photo-preview-grid" id="photo-preview"></div>
       </div>
 
       <button type="submit" class="submit-btn" id="submit-btn">Publish listing</button>
@@ -130,7 +157,6 @@
 
     currentUser = session.user;
 
-    // Confirm this user is actually a host, not a client
     const { data: profile, error: profileError } = await supabaseClient
       .from('profiles')
       .select('role')
@@ -146,6 +172,103 @@
     checkingAuth.style.display = 'none';
     listingPage.style.display = 'block';
   })();
+
+  // ---------- Photo selection, preview, validation ----------
+  const MAX_PHOTOS = 6;
+  const MAX_SIZE_BYTES = 5 * 1024 * 1024;
+  const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+
+  let selectedFiles = [];
+
+  const photoInput = document.getElementById('photo-input');
+  const photoDropzone = document.getElementById('photo-dropzone');
+  const photoPreview = document.getElementById('photo-preview');
+  const photoError = document.getElementById('photo-error');
+  const dropzoneText = document.getElementById('dropzone-text');
+
+  function showPhotoError(msg){
+    photoError.textContent = msg;
+    photoError.classList.add('show');
+  }
+  function clearPhotoError(){
+    photoError.classList.remove('show');
+  }
+
+  function addFiles(fileList){
+    clearPhotoError();
+    const incoming = Array.from(fileList);
+
+    for (const file of incoming) {
+      if (selectedFiles.length >= MAX_PHOTOS) {
+        showPhotoError('You can add up to ' + MAX_PHOTOS + ' photos.');
+        break;
+      }
+      if (!ALLOWED_TYPES.includes(file.type)) {
+        showPhotoError('"' + file.name + '" isn\'t a supported image type — use JPG, PNG, or WEBP.');
+        continue;
+      }
+      if (file.size > MAX_SIZE_BYTES) {
+        showPhotoError('"' + file.name + '" is over 5MB — pick a smaller file.');
+        continue;
+      }
+      const isDuplicate = selectedFiles.some(function(f){
+        return f.name === file.name && f.size === file.size;
+      });
+      if (isDuplicate) continue;
+
+      selectedFiles.push(file);
+    }
+
+    renderPreviews();
+  }
+
+  function renderPreviews(){
+    photoPreview.innerHTML = '';
+    dropzoneText.textContent = selectedFiles.length === 0
+      ? 'Click to choose photos, or drag them here'
+      : selectedFiles.length + ' of ' + MAX_PHOTOS + ' photos selected — click to add more';
+
+    selectedFiles.forEach(function(file, index){
+      const url = URL.createObjectURL(file);
+      const thumb = document.createElement('div');
+      thumb.className = 'photo-thumb';
+      thumb.innerHTML = '<img src="' + url + '" alt="Selected photo">' +
+        '<button type="button" class="remove-photo" data-index="' + index + '" aria-label="Remove photo">&times;</button>';
+      photoPreview.appendChild(thumb);
+    });
+
+    photoPreview.querySelectorAll('.remove-photo').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        const idx = parseInt(btn.getAttribute('data-index'), 10);
+        selectedFiles.splice(idx, 1);
+        clearPhotoError();
+        renderPreviews();
+      });
+    });
+  }
+
+  photoInput.addEventListener('change', function(){
+    addFiles(photoInput.files);
+    photoInput.value = ''; // allow re-selecting the same file later if removed
+  });
+
+  photoDropzone.addEventListener('dragover', function(e){
+    e.preventDefault();
+    photoDropzone.classList.add('dragover');
+  });
+  photoDropzone.addEventListener('dragleave', function(){
+    photoDropzone.classList.remove('dragover');
+  });
+  photoDropzone.addEventListener('drop', function(e){
+    e.preventDefault();
+    photoDropzone.classList.remove('dragover');
+    addFiles(e.dataTransfer.files);
+  });
+
+  // ---------- Form submit: create listing, then upload photos ----------
+  function sanitizeFilename(name){
+    return name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+  }
 
   document.getElementById('list-form').addEventListener('submit', async function(e){
     e.preventDefault();
@@ -182,12 +305,57 @@
       return;
     }
 
+    const listingId = data.id;
+    let uploadedCount = 0;
+    let failedCount = 0;
+
+    if (selectedFiles.length > 0) {
+      for (let i = 0; i < selectedFiles.length; i++) {
+        const file = selectedFiles[i];
+        submitBtn.textContent = 'Uploading photo ' + (i + 1) + ' of ' + selectedFiles.length + '...';
+
+        const path = currentUser.id + '/' + listingId + '/' + Date.now() + '_' + i + '_' + sanitizeFilename(file.name);
+
+        const { error: uploadError } = await supabaseClient
+          .storage
+          .from('listing-photos')
+          .upload(path, file, { upsert: false });
+
+        if (uploadError) {
+          failedCount++;
+          continue;
+        }
+
+        const { error: photoRowError } = await supabaseClient
+          .from('listing_photos')
+          .insert({ listing_id: listingId, storage_path: path });
+
+        if (photoRowError) {
+          failedCount++;
+        } else {
+          uploadedCount++;
+        }
+      }
+    }
+
     successMsg.classList.remove('error');
-    successMsg.textContent = 'Listing published! It\'s pending location verification before it shows to clients.';
+    let message = 'Listing published! It\'s pending location verification before it shows to clients.';
+    if (selectedFiles.length > 0) {
+      if (failedCount === 0) {
+        message += ' All ' + uploadedCount + ' photo' + (uploadedCount === 1 ? '' : 's') + ' uploaded successfully.';
+      } else if (uploadedCount > 0) {
+        message += ' ' + uploadedCount + ' of ' + selectedFiles.length + ' photos uploaded — ' + failedCount + ' failed. You can try adding them again from a future edit screen once that\'s built.';
+      } else {
+        message += ' Your photos didn\'t upload — the listing is still live without them for now.';
+      }
+    }
+    successMsg.textContent = message;
     successMsg.classList.add('show');
     successMsg.scrollIntoView({ behavior:'smooth', block:'center' });
 
     document.getElementById('list-form').reset();
+    selectedFiles = [];
+    renderPreviews();
     submitBtn.disabled = false;
     submitBtn.textContent = 'Publish listing';
   });
