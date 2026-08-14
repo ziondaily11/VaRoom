@@ -107,12 +107,10 @@
       <p class="field-success" id="password-match-success">Passwords match.</p>
     </div>
     <button type="submit" class="submit-btn" id="submit-btn">Create client account</button>
-    <p class="form-note">This form is a working preview — accounts aren't saved anywhere yet.</p>
+    <p class="form-note">Creates a real VaRoom account — you'll get a confirmation email before you can sign in.</p>
   </form>
 
-  <div class="success-msg" id="success-msg">
-    Preview only — no account was actually created. Once the backend's connected, you'd land here and continue to <a href="index.html">start exploring listings →</a>
-  </div>
+  <div class="success-msg" id="success-msg"></div>
 </main>
 
 <script src="js/supabase-client.js"></script>
@@ -140,7 +138,6 @@
     const confirm = confirmInput.value;
 
     if (confirm.length === 0) {
-      // Nothing typed yet in confirm field — don't show anything
       mismatchError.classList.remove('show');
       matchSuccess.classList.remove('show');
       confirmInput.classList.remove('input-error');
@@ -194,7 +191,15 @@
       return;
     }
 
-    successMsg.innerHTML = 'Account created! Check your email to confirm, then <a href="index.html">start exploring listings →</a>';
+    // If email confirmation is off, Supabase returns an active session
+    // immediately — go straight to auth-callback.html, which creates the
+    // profiles row using the role we just set above.
+    if (data.session) {
+      window.location.href = 'auth-callback.html';
+      return;
+    }
+
+    successMsg.innerHTML = 'Account created! Check your email to confirm, then come back and <a href="login.html">log in →</a>';
     successMsg.classList.add('show');
     successMsg.scrollIntoView({ behavior:'smooth', block:'center' });
   });
