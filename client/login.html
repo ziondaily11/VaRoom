@@ -172,7 +172,7 @@
     // Look up the user's role so we know where to send them
     const { data: profile, error: profileError } = await supabaseClient
       .from('profiles')
-      .select('role, full_name')
+      .select('role, full_name, onboarding_completed')
       .eq('id', data.user.id)
       .single();
 
@@ -191,12 +191,14 @@
     successMsg.scrollIntoView({ behavior:'smooth', block:'center' });
 
     setTimeout(function(){
-      if (profile.role === 'host') {
-        window.location.href = 'host-home.html';
-      } else {
-        window.location.href = 'client-home.html';
-      }
-    }, 1200);
+  if (!profile.onboarding_completed) {
+    window.location.href = 'onboarding.html';
+  } else if (profile.role === 'host') {
+    window.location.href = 'host-home.html';
+  } else {
+    window.location.href = 'client-home.html';
+  }
+}, 1200);
   });
 </script>
 

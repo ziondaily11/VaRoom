@@ -143,7 +143,7 @@
     // Does a profile already exist for this user?
     const { data: profile, error: profileError } = await supabaseClient
       .from('profiles')
-      .select('role')
+      .select('role, onboarding_completed')
       .eq('id', user.id)
       .maybeSingle();
 
@@ -198,13 +198,17 @@
       redirectByRole(role);
     }
 
-    function redirectByRole(role){
-      if (role === 'host') {
-        window.location.href = 'host-home.html';
-      } else {
-        window.location.href = 'client-home.html';
-      }
-    }
+    function redirectByRole(role, onboardingCompleted){
+          if (!onboardingCompleted) {
+            window.location.href = 'onboarding.html';
+            return;
+          }
+          if (role === 'host') {
+            window.location.href = 'host-home.html';
+          } else {
+            window.location.href = 'client-home.html';
+          }
+        }
   })();
 </script>
 
