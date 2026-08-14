@@ -102,12 +102,10 @@
       <p class="field-error" id="password-mismatch-error">Passwords don't match.</p>
     </div>
     <button type="submit" class="submit-btn">Create host account</button>
-    <p class="form-note">This form is a working preview — accounts aren't saved anywhere yet.</p>
+    <p class="form-note">Creates a real VaRoom account — you'll get a confirmation email before you can sign in.</p>
   </form>
 
-  <div class="success-msg" id="success-msg">
-    Preview only — no account was actually created. Once the backend's connected, you'd land here and continue to <a href="list.html">list your first space →</a>
-  </div>
+  <div class="success-msg" id="success-msg"></div>
 </main>
 
 <script src="js/supabase-client.js"></script>
@@ -142,7 +140,10 @@
 
     const { data, error } = await supabaseClient.auth.signUp({
       email: email,
-      password: password
+      password: password,
+      options: {
+        data: { role: 'host', full_name: name }
+      }
     });
 
     if (error) {
@@ -152,18 +153,15 @@
       return;
     }
 
-    const { error: profileError } = await supabaseClient
-      .from('profiles')
-      .insert({ id: data.user.id, role: 'host', full_name: name });
-
-    if (profileError) {
-      successMsg.textContent = 'Account created, but profile setup failed: ' + profileError.message;
-      successMsg.classList.add('show');
-      successMsg.scrollIntoView({ behavior:'smooth', block:'center' });
+    // If email confirmation is off, Supabase returns an active session
+    // immediately — in that case we can go straight to auth-callback.html,
+    // which will create the profiles row using the role we just set above.
+    if (data.session) {
+      window.location.href = 'auth-callback.html';
       return;
     }
 
-    successMsg.innerHTML = 'Account created! Check your email to confirm, then <a href="list.html">list your first space →</a>';
+    successMsg.innerHTML = 'Account created! Check your email to confirm, then come back and <a href="login.html">log in →</a>';
     successMsg.classList.add('show');
     successMsg.scrollIntoView({ behavior:'smooth', block:'center' });
   });

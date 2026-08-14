@@ -158,8 +158,11 @@
       return;
     }
 
-    // Brand new user. Did they already tell us their role from the signup modal?
-    const intendedRole = sessionStorage.getItem('varoom_intended_role');
+    // Brand new user. Did they already tell us their role from the signup
+    // modal (sessionStorage, same-tab only) or the signup form itself
+    // (user_metadata, set at signUp() time — survives new tabs/devices,
+    // e.g. clicking an email confirmation link)?
+    const intendedRole = sessionStorage.getItem('varoom_intended_role') || user.user_metadata.role;
     const fullName = user.user_metadata.full_name || user.user_metadata.name || user.email;
 
     if (intendedRole === 'host' || intendedRole === 'client') {
