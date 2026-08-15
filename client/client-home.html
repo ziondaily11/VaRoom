@@ -289,7 +289,7 @@
         <button type="button" class="search-btn" id="search-btn" aria-label="Search">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         </button>
-        <input type="text" id="search-input" placeholder="Search by location — try 'Westlands' or 'Nakuru'">
+        <input type="text" id="search-input" placeholder="Search by location or @username">
       </div>
       <div class="topbar-right">
         <button type="button" class="icon-btn" title="Notifications (coming soon)">
@@ -469,22 +469,57 @@
       );
     }
 
+    const FEED_SELECT = 'id,title,description,location_text,category,verified,created_at,host:profiles(full_name,verified,avatar_url,username),listing_photos(storage_path)';
+
     async function loadFeed(){
       feedList.innerHTML = '<p class="state-msg">Loading listings…</p>';
 
-      let query = supabaseClient
-        .from('listings')
-        .select('id,title,description,location_text,category,verified,created_at,host:profiles(full_name,verified,avatar_url,username),listing_photos(storage_path)')
-        .order('created_at', { ascending:false });
+      const term = searchTerm.trim();
 
-      if (currentCategory !== 'all') {
-        query = query.eq('category', currentCategory);
-      }
-      if (searchTerm.trim()) {
-        query = query.ilike('location_text', '%' + searchTerm.trim() + '%');
+      function withCategory(q){
+        return currentCategory !== 'all' ? q.eq('category', currentCategory) : q;
       }
 
-      const { data, error } = await query;
+      let data, error;
+
+      if (!term) {
+        const res = await withCategory(
+          supabaseClient.from('listings').select(FEED_SELECT).order('created_at', { ascending:false })
+        );
+        data = res.data; error = res.error;
+      } else {
+        // Search matches location text OR the host's username (usernames
+        // are unique, so this is a fast way to jump straight to one host's
+        // listings). Run as two queries and merge, rather than a single
+        // raw filter string, to avoid escaping issues with special
+        // characters in what someone types.
+        const locQuery = withCategory(
+          supabaseClient.from('listings').select(FEED_SELECT).ilike('location_text', '%' + term + '%')
+        );
+
+        const { data: matchingHosts } = await supabaseClient
+          .from('profiles')
+          .select('id')
+          .ilike('username', '%' + term + '%');
+        const hostIds = (matchingHosts || []).map(function(p){ return p.id; });
+
+        const hostQuery = hostIds.length > 0
+          ? withCategory(supabaseClient.from('listings').select(FEED_SELECT).in('host_id', hostIds))
+          : Promise.resolve({ data: [], error: null });
+
+        const [locRes, hostRes] = await Promise.all([locQuery, hostQuery]);
+
+        if (locRes.error) { data = null; error = locRes.error; }
+        else if (hostRes.error) { data = null; error = hostRes.error; }
+        else {
+          const seen = new Set();
+          data = [];
+          (locRes.data || []).concat(hostRes.data || []).forEach(function(listing){
+            if (!seen.has(listing.id)) { seen.add(listing.id); data.push(listing); }
+          });
+          data.sort(function(a, b){ return new Date(b.created_at) - new Date(a.created_at); });
+        }
+      }
 
       if (error) {
         feedList.innerHTML = '<p class="state-msg">Couldn\'t load listings: ' + escapeHtml(error.message) + '</p>';
@@ -492,7 +527,7 @@
       }
 
       if (!data || data.length === 0) {
-        feedList.innerHTML = '<p class="state-msg">No listings match yet — try a different category or search.</p>';
+        feedList.innerHTML = '<p class="state-msg">No listings match yet — try a different category, location, or @username.</p>';
         return;
       }
 
