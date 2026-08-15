@@ -498,7 +498,7 @@
             '<div class="card-avatar">' + avatarHtml + '</div>' +
             '<div>' +
               '<div class="card-host-name">' + escapeHtml(host.full_name || 'Host') + (host.verified ? '<span class="verified-tick">✔</span>' : '') + '</div>' +
-              '<div class="card-location">' + escapeHtml(listing.location_text) + '</div>' +
+              '<div class="card-location">' + (host.username ? '@' + escapeHtml(host.username) + ' · ' : '') + escapeHtml(listing.location_text) + '</div>' +
             '</div>' +
             '<div class="card-time">' + timeAgo(listing.created_at) + '</div>' +
           '</div>' +
@@ -523,7 +523,7 @@
 
       let query = supabaseClient
         .from('listings')
-        .select('id,title,description,location_text,category,verified,created_at,host:profiles(full_name,verified,avatar_url),listing_photos(storage_path)')
+        .select('id,title,description,location_text,category,verified,created_at,host:profiles(full_name,verified,avatar_url,username),listing_photos(storage_path)')
         .order('created_at', { ascending:false });
 
       if (showOnlyMine) query = query.eq('host_id', currentUser.id);
