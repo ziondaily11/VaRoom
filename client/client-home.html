@@ -141,8 +141,9 @@
     width:40px; height:40px; border-radius:50%;
     background:var(--red-deep); color:var(--white);
     display:flex; align-items:center; justify-content:center;
-    font-weight:700; font-size:.95rem; flex-shrink:0;
+    font-weight:700; font-size:.95rem; flex-shrink:0; overflow:hidden;
   }
+  .card-avatar img{ width:100%; height:100%; object-fit:cover; }
   .card-host-name{ font-weight:700; font-size:.95rem; display:flex; align-items:center; gap:.35rem; }
   .verified-tick{ color:var(--red); font-size:.85rem; }
   .card-location{ font-size:.8rem; color:var(--muted); }
@@ -338,7 +339,7 @@
 
     const { data: profile } = await supabaseClient
       .from('profiles')
-      .select('role, full_name')
+      .select('role, full_name, avatar_url')
       .eq('id', currentUser.id)
       .maybeSingle();
 
@@ -348,11 +349,16 @@
     }
 
     if (profile.role === 'host') {
-      window.location.href = 'list.html';
+      window.location.href = 'host-home.html';
       return;
     }
 
-    document.getElementById('user-avatar').textContent = (profile.full_name || '?').charAt(0).toUpperCase();
+    const ownAvatarUrl = resolveAvatarUrl(profile.avatar_url);
+    if (ownAvatarUrl) {
+      document.getElementById('user-avatar').innerHTML = '<img src="' + ownAvatarUrl + '" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">';
+    } else {
+      document.getElementById('user-avatar').textContent = (profile.full_name || '?').charAt(0).toUpperCase();
+    }
 
     // ---------- Bookmarks ----------
     const { data: bookmarks } = await supabaseClient
@@ -400,6 +406,15 @@
       return div.innerHTML;
     }
 
+    // Handles avatar_url whether it's a relative storage path (correct,
+    // current format) or a full URL (legacy rows saved by an earlier
+    // version of onboarding.html) — so old data still renders correctly.
+    function resolveAvatarUrl(avatarValue){
+      if (!avatarValue) return null;
+      if (avatarValue.indexOf('http') === 0) return avatarValue;
+      return supabaseClient.storage.from('avatars').getPublicUrl(avatarValue).data.publicUrl;
+    }
+
     // ---------- Render ----------
     function renderCard(listing){
       const host = listing.host || {};
@@ -408,6 +423,10 @@
       });
 
       const initial = (host.full_name || '?').charAt(0).toUpperCase();
+      const hostAvatarUrl = resolveAvatarUrl(host.avatar_url);
+      const avatarHtml = hostAvatarUrl
+        ? '<img src="' + hostAvatarUrl + '" alt="">'
+        : initial;
       const isBookmarked = bookmarkedIds.has(listing.id);
 
       let photosHtml = '';
@@ -423,7 +442,7 @@
       return (
         '<div class="card">' +
           '<div class="card-head">' +
-            '<div class="card-avatar">' + initial + '</div>' +
+            '<div class="card-avatar">' + avatarHtml + '</div>' +
             '<div>' +
               '<div class="card-host-name">' + escapeHtml(host.full_name || 'Host') +
                 (host.verified ? '<span class="verified-tick">✔</span>' : '') +
@@ -455,7 +474,7 @@
 
       let query = supabaseClient
         .from('listings')
-        .select('id,title,description,location_text,category,verified,created_at,host:profiles(full_name,verified),listing_photos(storage_path)')
+        .select('id,title,description,location_text,category,verified,created_at,host:profiles(full_name,verified,avatar_url),listing_photos(storage_path)')
         .order('created_at', { ascending:false });
 
       if (currentCategory !== 'all') {
@@ -540,7 +559,7 @@
           feedList.innerHTML = '<p class="state-msg">Loading saved listings…</p>';
           supabaseClient
             .from('listings')
-            .select('id,title,description,location_text,category,verified,created_at,host:profiles(full_name,verified),listing_photos(storage_path)')
+            .select('id,title,description,location_text,category,verified,created_at,host:profiles(full_name,verified,avatar_url),listing_photos(storage_path)')
             .in('id', Array.from(bookmarkedIds))
             .then(function(res){
               if (!res.data || res.data.length === 0) {

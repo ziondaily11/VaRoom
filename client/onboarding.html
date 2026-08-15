@@ -292,15 +292,18 @@
         return;
       }
 
-      const { data: urlData } = supabaseClient.storage.from('avatars').getPublicUrl(filePath);
-      uploadedPath = urlData.publicUrl;
-
       const reader = new FileReader();
       reader.onload = function(e){
         uploadLabel.innerHTML = '<img src="' + e.target.result + '" alt="Your profile photo">' +
           '<div class="plus-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>';
       };
       reader.readAsDataURL(file);
+
+      // Store the relative storage path, not the full public URL — every
+      // other place that reads avatar_url (profile.html, client-home.html,
+      // host-home.html) converts path -> public URL at render time via
+      // getPublicUrl(). Saving a full URL here would break those.
+      uploadedPath = filePath;
 
       msg.textContent = 'Photo ready.';
       msg.className = 'field-msg success';

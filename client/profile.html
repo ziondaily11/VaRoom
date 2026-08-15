@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Your profile — VaRoom</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;0,9..144,900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#1A1210; --paper:#FBF4F1;
+    --muted:#7a6b67;
+    --font-display:'Fraunces', serif; --font-body:'Inter', sans-serif;
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  body{ font-family:var(--font-body); background:var(--paper); color:var(--ink); min-height:100vh; }
+  a{ color:inherit; text-decoration:none; }
+  button{ font-family:inherit; cursor:pointer; border:none; background:none; }
+  :focus-visible{ outline:3px solid var(--red-deep); outline-offset:3px; }
+
+  header{ display:flex; align-items:center; justify-content:space-between; padding:1.5rem 2.5rem; }
+  .logo{ font-family:var(--font-display); font-weight:900; font-size:1.55rem; display:flex; align-items:baseline; }
+  .logo .va{ color:var(--red); -webkit-text-stroke:1.5px var(--ink); text-shadow:-1px -1px 0 var(--ink), 1px -1px 0 var(--ink), -1px 1px 0 var(--ink), 1px 1px 0 var(--ink); }
+  .logo .pin{ width:.34em; height:.34em; border-radius:50% 50% 50% 0; background:var(--red); transform:rotate(-45deg); margin:0 .05em 0 .08em; align-self:flex-start; margin-top:.08em; }
+  .back-link{ font-size:.9rem; font-weight:500; }
+  .back-link:hover{ color:var(--red); }
+
+  main{ max-width:520px; margin:0 auto; padding:2rem 6vw 6rem; }
+
+  .checking-msg{ text-align:center; padding:3rem 0; color:var(--muted); }
+
+  .eyebrow{ font-size:.85rem; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--red-deep); margin-bottom:.7rem; }
+  h1{ font-family:var(--font-display); font-weight:600; font-size:clamp(1.9rem, 4vw, 2.5rem); line-height:1.1; margin-bottom:2rem; }
+
+  .avatar-section{ display:flex; flex-direction:column; align-items:center; gap:.9rem; margin-bottom:2.4rem; }
+
+  .avatar-wrap{ position:relative; width:120px; height:120px; }
+  .avatar-circle{
+    width:120px; height:120px; border-radius:50%;
+    background:var(--red); color:var(--white);
+    display:flex; align-items:center; justify-content:center;
+    font-weight:700; font-size:2.4rem;
+    overflow:hidden;
+  }
+  .avatar-circle img{ width:100%; height:100%; object-fit:cover; }
+
+  .avatar-upload-btn{
+    position:absolute; bottom:0; right:0;
+    width:38px; height:38px; border-radius:50%;
+    background:var(--ink); color:var(--white);
+    display:flex; align-items:center; justify-content:center;
+    border:3px solid var(--paper);
+  }
+  .avatar-upload-btn:hover{ background:var(--red); }
+  .avatar-upload-btn input[type="file"]{ display:none; }
+
+  .avatar-status{ font-size:.85rem; color:var(--muted); min-height:1.2em; }
+  .avatar-status.error{ color:var(--red); }
+
+  .role-badge{
+    display:inline-block; font-size:.78rem; font-weight:700;
+    padding:.3rem .8rem; border-radius:100px;
+    background:#FBE4E7; color:var(--red-deep);
+    text-transform:capitalize;
+  }
+
+  .field{ display:flex; flex-direction:column; gap:.4rem; margin-bottom:1.2rem; }
+  label{ font-size:.9rem; font-weight:600; }
+  input{ font-family:inherit; font-size:1rem; padding:.85rem 1rem; border:1px solid rgba(26,18,16,.15); border-radius:12px; background:var(--white); color:var(--ink); width:100%; }
+  input:focus{ outline:none; border-color:var(--red); }
+  input:disabled{ background:rgba(26,18,16,.04); color:var(--muted); }
+
+  .save-btn{ background:var(--ink); color:var(--white); padding:1rem 1.6rem; border-radius:100px; font-weight:600; font-size:1rem; margin-top:.6rem; width:100%; transition:background .2s ease; }
+  .save-btn:hover{ background:var(--red); }
+  .save-btn:disabled{ background:#c9c0bd; cursor:not-allowed; }
+
+  .save-msg{ display:none; background:#F4EDE4; border:1px solid rgba(26,18,16,.1); border-radius:14px; padding:1.1rem 1.3rem; margin-top:1.2rem; font-size:.9rem; text-align:center; }
+  .save-msg.show{ display:block; }
+  .save-msg.error{ background:#FBE9E9; border-color:rgba(196,30,58,.3); color:var(--red-deep); }
+</style>
+</head>
+<body>
+
+<header>
+  <a href="index.html" class="logo"><span class="va">Va</span><span class="pin"></span><span class="room">Room</span></a>
+  <a href="#" class="back-link" id="back-link">← Back to dashboard</a>
+</header>
+
+<main>
+  <div id="checking-auth" class="checking-msg">Loading your profile...</div>
+
+  <div id="profile-page" style="display:none;">
+    <p class="eyebrow">Your profile</p>
+    <h1>Profile settings</h1>
+
+    <div class="avatar-section">
+      <div class="avatar-wrap">
+        <div class="avatar-circle" id="avatar-circle">·</div>
+        <label class="avatar-upload-btn" for="avatar-input" aria-label="Change photo">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2Z"/><circle cx="12" cy="13" r="4"/></svg>
+          <input type="file" id="avatar-input" accept="image/png,image/jpeg,image/webp">
+        </label>
+      </div>
+      <span class="role-badge" id="role-badge">Host</span>
+      <p class="avatar-status" id="avatar-status">Click the camera icon to add a photo</p>
+    </div>
+
+    <div class="field">
+      <label for="full-name">Full name</label>
+      <input type="text" id="full-name" required>
+    </div>
+
+    <div class="field">
+      <label for="phone">Phone number</label>
+      <input type="tel" id="phone" placeholder="e.g. 07XX XXX XXX">
+    </div>
+
+    <div class="field">
+      <label for="email">Email</label>
+      <input type="email" id="email" disabled>
+    </div>
+
+    <button type="button" class="save-btn" id="save-btn">Save changes</button>
+    <div class="save-msg" id="save-msg"></div>
+  </div>
+</main>
+
+<script src="js/supabase-client.js"></script>
+<script>
+  (async function(){
+    const checkingAuth = document.getElementById('checking-auth');
+    const profilePage = document.getElementById('profile-page');
+    let currentUser = null;
+    let currentRole = null;
+
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session) { window.location.href = 'login.html'; return; }
+    currentUser = session.user;
+
+    const { data: profile, error: profileError } = await supabaseClient
+      .from('profiles')
+      .select('role, full_name, phone, avatar_url')
+      .eq('id', currentUser.id)
+      .maybeSingle();
+
+    if (profileError || !profile) { window.location.href = 'login.html'; return; }
+
+    currentRole = profile.role;
+    document.getElementById('back-link').setAttribute('href', currentRole === 'host' ? 'host-home.html' : 'client-home.html');
+    document.getElementById('role-badge').textContent = currentRole;
+    document.getElementById('full-name').value = profile.full_name || '';
+    document.getElementById('phone').value = profile.phone || '';
+    document.getElementById('email').value = currentUser.email || '';
+
+    const avatarCircle = document.getElementById('avatar-circle');
+    function renderAvatar(avatarUrl){
+      if (avatarUrl) {
+        const publicUrl = avatarUrl.indexOf('http') === 0
+          ? avatarUrl
+          : supabaseClient.storage.from('avatars').getPublicUrl(avatarUrl).data.publicUrl;
+        avatarCircle.innerHTML = '<img src="' + publicUrl + '" alt="Your profile photo">';
+      } else {
+        avatarCircle.textContent = (profile.full_name || '?').charAt(0).toUpperCase();
+      }
+    }
+    renderAvatar(profile.avatar_url);
+
+    checkingAuth.style.display = 'none';
+    profilePage.style.display = 'block';
+
+    // ---------- Avatar upload ----------
+    const avatarInput = document.getElementById('avatar-input');
+    const avatarStatus = document.getElementById('avatar-status');
+    const MAX_AVATAR_BYTES = 3 * 1024 * 1024;
+    const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+
+    avatarInput.addEventListener('change', async function(){
+      const file = avatarInput.files[0];
+      if (!file) return;
+
+      avatarStatus.classList.remove('error');
+
+      if (!ALLOWED_TYPES.includes(file.type)) {
+        avatarStatus.textContent = 'Use a JPG, PNG, or WEBP image.';
+        avatarStatus.classList.add('error');
+        return;
+      }
+      if (file.size > MAX_AVATAR_BYTES) {
+        avatarStatus.textContent = 'Image is over 3MB — pick a smaller file.';
+        avatarStatus.classList.add('error');
+        return;
+      }
+
+      // Optimistic local preview while it uploads
+      const previewUrl = URL.createObjectURL(file);
+      avatarCircle.innerHTML = '<img src="' + previewUrl + '" alt="Your profile photo">';
+      avatarStatus.textContent = 'Uploading...';
+
+      const ext = file.name.split('.').pop().toLowerCase();
+      const path = currentUser.id + '/avatar_' + Date.now() + '.' + ext;
+
+      const { error: uploadError } = await supabaseClient
+        .storage
+        .from('avatars')
+        .upload(path, file, { upsert: false });
+
+      if (uploadError) {
+        avatarStatus.textContent = 'Upload failed: ' + uploadError.message;
+        avatarStatus.classList.add('error');
+        renderAvatar(profile.avatar_url);
+        return;
+      }
+
+      const { error: updateError } = await supabaseClient
+        .from('profiles')
+        .update({ avatar_url: path })
+        .eq('id', currentUser.id);
+
+      if (updateError) {
+        avatarStatus.textContent = 'Saved the photo, but couldn\'t update your profile: ' + updateError.message;
+        avatarStatus.classList.add('error');
+        return;
+      }
+
+      profile.avatar_url = path;
+      avatarStatus.textContent = 'Photo updated.';
+    });
+
+    // ---------- Save name / phone ----------
+    document.getElementById('save-btn').addEventListener('click', async function(){
+      const saveBtn = document.getElementById('save-btn');
+      const saveMsg = document.getElementById('save-msg');
+      const fullName = document.getElementById('full-name').value.trim();
+      const phone = document.getElementById('phone').value.trim();
+
+      if (!fullName) {
+        saveMsg.textContent = 'Full name can\'t be empty.';
+        saveMsg.className = 'save-msg show error';
+        return;
+      }
+
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Saving...';
+
+      const { error } = await supabaseClient
+        .from('profiles')
+        .update({ full_name: fullName, phone: phone || null })
+        .eq('id', currentUser.id);
+
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Save changes';
+
+      if (error) {
+        saveMsg.textContent = 'Something went wrong: ' + error.message;
+        saveMsg.className = 'save-msg show error';
+        return;
+      }
+
+      saveMsg.textContent = 'Saved.';
+      saveMsg.className = 'save-msg show';
+    });
+  })();
+</script>
+
+</body>
+</html>
