@@ -152,21 +152,22 @@
       return;
     }
 
-    if (profile) {
-      // Existing user — route by their saved role
-      redirectByRole(profile.role);
+    if (profile && profile.role) {
+      // Fully resolved existing user — route by their saved role and onboarding status
+      redirectByRole(profile.role, profile.onboarding_completed);
       return;
     }
 
-    // Brand new user. Did they already tell us their role from the signup
-    // modal (sessionStorage, same-tab only) or the signup form itself
-    // (user_metadata, set at signUp() time — survives new tabs/devices,
-    // e.g. clicking an email confirmation link)?
+    // Either no profile row exists yet (rare — the DB trigger should
+    // normally have created one), or it exists but role is still null
+    // (e.g. a Google sign-in, since Google has no channel to tell the
+    // trigger which role was intended). Either way, we need to resolve
+    // the role now.
     const intendedRole = sessionStorage.getItem('varoom_intended_role') || user.user_metadata.role;
     const fullName = user.user_metadata.full_name || user.user_metadata.name || user.email;
 
     if (intendedRole === 'host' || intendedRole === 'client') {
-      await createProfileAndRedirect(intendedRole, fullName);
+      await setRoleAndRedirect(intendedRole, fullName);
       return;
     }
 
@@ -180,22 +181,28 @@
         rolePicker.style.display = 'none';
         loadingText.textContent = 'Setting up your account';
         loading.style.display = 'flex';
-        await createProfileAndRedirect(role, fullName);
+        await setRoleAndRedirect(role, fullName);
       });
     });
 
-    async function createProfileAndRedirect(role, name){
-      const { error: insertError } = await supabaseClient
+    async function setRoleAndRedirect(role, name){
+      // Upsert rather than insert: the DB trigger has very likely already
+      // created this row (with role=null), so we need to update it, not
+      // create a second conflicting one. This also safely covers the rare
+      // case where no row exists at all yet.
+      const { error: upsertError } = await supabaseClient
         .from('profiles')
-        .insert({ id: user.id, role: role, full_name: name });
+        .upsert({ id: user.id, role: role, full_name: name }, { onConflict: 'id' });
 
-      if (insertError) {
-        showError('Signed in, but could not finish setting up your profile: ' + insertError.message);
+      if (upsertError) {
+        showError('Signed in, but could not finish setting up your profile: ' + upsertError.message);
         return;
       }
 
       sessionStorage.removeItem('varoom_intended_role');
-      redirectByRole(role);
+      // A user who just had their role resolved for the first time hasn't
+      // been through onboarding yet.
+      redirectByRole(role, false);
     }
 
     function redirectByRole(role, onboardingCompleted){
