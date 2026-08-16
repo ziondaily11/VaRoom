@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Settings — VaRoom</title>
+<script>
+  // Apply saved theme before paint, to avoid a flash of the wrong theme
+  (function(){
+    try{
+      var saved = localStorage.getItem('varoom_theme') || 'system';
+      var resolved = saved === 'system'
+        ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+        : saved;
+      document.documentElement.setAttribute('data-theme', resolved);
+    }catch(e){}
+  })();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;0,9..144,900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#1A1210; --paper:#FBF4F1;
+    --muted:#7a6b67;
+    --font-display:'Fraunces', serif; --font-body:'Inter', sans-serif;
+  }
+  [data-theme="dark"]{
+    --white:#241C1A; --paper:#15100F; --ink:#F5EFEC; --muted:#B8ACA8;
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  body{ font-family:var(--font-body); background:var(--paper); color:var(--ink); min-height:100vh; transition:background .2s ease, color .2s ease; }
+  a{ color:inherit; text-decoration:none; }
+  button{ font-family:inherit; cursor:pointer; border:none; background:none; }
+  :focus-visible{ outline:3px solid var(--red-deep); outline-offset:3px; }
+
+  header{ display:flex; align-items:center; justify-content:space-between; padding:1.5rem 2.5rem; }
+  .logo{ font-family:var(--font-display); font-weight:900; font-size:1.55rem; display:flex; align-items:baseline; }
+  .logo .va{ color:var(--red); -webkit-text-stroke:1.5px var(--ink); text-shadow:-1px -1px 0 var(--ink), 1px -1px 0 var(--ink), -1px 1px 0 var(--ink), 1px 1px 0 var(--ink); }
+  .logo .pin{ width:.34em; height:.34em; border-radius:50% 50% 50% 0; background:var(--red); transform:rotate(-45deg); margin:0 .05em 0 .08em; align-self:flex-start; margin-top:.08em; }
+  .back-link{ font-size:.9rem; font-weight:500; }
+  .back-link:hover{ color:var(--red); }
+
+  main{ max-width:640px; margin:0 auto; padding:1rem 6vw 6rem; }
+  .checking-msg{ text-align:center; padding:3rem 0; color:var(--muted); }
+
+  .page-title{ font-family:var(--font-display); font-weight:600; font-size:clamp(1.9rem, 4vw, 2.5rem); margin-bottom:2rem; }
+
+  .settings-section{ margin-bottom:2.6rem; }
+  .section-title{ font-size:1.05rem; font-weight:700; margin-bottom:.3rem; }
+  .section-sub{ font-size:.85rem; color:var(--muted); margin-bottom:1.2rem; line-height:1.5; }
+
+  .card{ background:var(--white); border:1px solid rgba(128,110,100,.15); border-radius:16px; padding:1.4rem 1.5rem; }
+
+  .field{ display:flex; flex-direction:column; gap:.4rem; margin-bottom:1.1rem; }
+  .field:last-child{ margin-bottom:0; }
+  label{ font-size:.88rem; font-weight:600; }
+  input, select{
+    font-family:inherit; font-size:.95rem; padding:.75rem .9rem;
+    border:1px solid rgba(128,110,100,.25); border-radius:10px;
+    background:var(--paper); color:var(--ink); width:100%;
+  }
+  input:focus, select:focus{ outline:none; border-color:var(--red); }
+
+  .row-2{ display:grid; grid-template-columns:1fr auto; gap:.7rem; align-items:end; }
+  @media (max-width:480px){ .row-2{ grid-template-columns:1fr; } }
+
+  .btn{
+    background:var(--ink); color:var(--paper); padding:.75rem 1.2rem; border-radius:10px;
+    font-weight:600; font-size:.88rem; white-space:nowrap; transition:opacity .2s ease;
+  }
+  .btn:hover{ opacity:.85; }
+  .btn:disabled{ opacity:.5; cursor:not-allowed; }
+  .btn-danger{ background:var(--red); color:var(--white); }
+  .btn-danger:hover{ background:var(--red-deep); opacity:1; }
+  .btn-ghost{ background:transparent; border:1.5px solid rgba(128,110,100,.3); color:var(--ink); }
+
+  .inline-msg{ font-size:.82rem; margin-top:.5rem; }
+  .inline-msg.success{ color:#2e7d32; }
+  .inline-msg.error{ color:var(--red); }
+
+  /* Toggle switches */
+  .toggle-row{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:.9rem 0; border-bottom:1px solid rgba(128,110,100,.12);
+  }
+  .toggle-row:last-child{ border-bottom:none; }
+  .toggle-label{ font-size:.92rem; font-weight:500; }
+  .toggle-desc{ font-size:.78rem; color:var(--muted); margin-top:.15rem; }
+
+  .switch{ position:relative; width:44px; height:26px; flex-shrink:0; }
+  .switch input{ opacity:0; width:0; height:0; }
+  .switch-track{
+    position:absolute; inset:0; background:rgba(128,110,100,.3); border-radius:100px;
+    transition:background .2s ease; cursor:pointer;
+  }
+  .switch-track::before{
+    content:''; position:absolute; width:20px; height:20px; left:3px; top:3px;
+    background:var(--white); border-radius:50%; transition:transform .2s ease;
+  }
+  .switch input:checked + .switch-track{ background:var(--red); }
+  .switch input:checked + .switch-track::before{ transform:translateX(18px); }
+
+  /* Appearance pills */
+  .appearance-options{ display:flex; gap:.7rem; flex-wrap:wrap; }
+  .appearance-pill{
+    display:flex; align-items:center; gap:.5rem;
+    border:1.5px solid rgba(128,110,100,.25); border-radius:12px;
+    padding:.7rem 1.1rem; font-size:.88rem; font-weight:600; color:var(--ink);
+  }
+  .appearance-pill.active{ border-color:var(--red); background:rgba(196,30,58,.08); color:var(--red-deep); }
+
+  .note-box{
+    background:rgba(196,30,58,.06); border:1px solid rgba(196,30,58,.15);
+    border-radius:12px; padding:.9rem 1.1rem; font-size:.82rem; color:var(--muted); line-height:1.5;
+    margin-top:1rem;
+  }
+
+  .danger-zone{ border-color:rgba(196,30,58,.3); }
+  .danger-text{ font-size:.88rem; line-height:1.5; margin-bottom:1rem; color:var(--muted); }
+
+  .delete-confirm{ display:none; margin-top:1rem; padding-top:1rem; border-top:1px solid rgba(196,30,58,.2); }
+  .delete-confirm.show{ display:block; }
+  .delete-confirm input{ margin:.6rem 0; }
+
+  .logout-section{ margin-top:2.6rem; }
+</style>
+</head>
+<body>
+
+<header>
+  <a href="index.html" class="logo"><span class="va">Va</span><span class="pin"></span><span class="room">Room</span></a>
+  <a href="#" class="back-link" id="back-link">← Back to dashboard</a>
+</header>
+
+<main>
+  <div id="checking-auth" class="checking-msg">Loading your settings...</div>
+
+  <div id="settings-page" style="display:none;">
+    <h1 class="page-title">Settings</h1>
+
+    <!-- Account & Security -->
+    <section class="settings-section">
+      <p class="section-title">Account &amp; Security</p>
+      <p class="section-sub">Manage your login email, password, and phone number.</p>
+      <div class="card">
+        <div class="field">
+          <label for="email-input">Email</label>
+          <div class="row-2">
+            <input type="email" id="email-input">
+            <button type="button" class="btn" id="save-email-btn">Update email</button>
+          </div>
+          <p class="inline-msg" id="email-msg"></p>
+        </div>
+
+        <div class="field">
+          <label for="phone-input">Phone number</label>
+          <div class="row-2">
+            <input type="tel" id="phone-input" placeholder="e.g. 07XX XXX XXX">
+            <button type="button" class="btn" id="save-phone-btn">Update phone</button>
+          </div>
+          <p class="inline-msg" id="phone-msg"></p>
+        </div>
+
+        <div class="field">
+          <label for="new-password-input">New password</label>
+          <input type="password" id="new-password-input" placeholder="At least 8 characters" minlength="8">
+        </div>
+        <div class="field">
+          <label for="confirm-password-input">Confirm new password</label>
+          <div class="row-2">
+            <input type="password" id="confirm-password-input" minlength="8">
+            <button type="button" class="btn" id="save-password-btn">Update password</button>
+          </div>
+          <p class="inline-msg" id="password-msg"></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Notifications -->
+    <section class="settings-section">
+      <p class="section-title">Notifications</p>
+      <p class="section-sub">Choose what you'd like to hear from VaRoom about.</p>
+      <div class="card">
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-label">Messages</div>
+          </div>
+          <label class="switch"><input type="checkbox" id="notify-messages"><span class="switch-track"></span></label>
+        </div>
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-label">Bookings</div>
+          </div>
+          <label class="switch"><input type="checkbox" id="notify-bookings"><span class="switch-track"></span></label>
+        </div>
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-label">Important account updates</div>
+          </div>
+          <label class="switch"><input type="checkbox" id="notify-account-updates"><span class="switch-track"></span></label>
+        </div>
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-label">Promotional &amp; marketing</div>
+          </div>
+          <label class="switch"><input type="checkbox" id="notify-marketing"><span class="switch-track"></span></label>
+        </div>
+      </div>
+      <div class="note-box">Your preferences are saved now, but VaRoom doesn't send messages or booking notifications yet since chat and bookings aren't built. These will take effect automatically once those features launch.</div>
+    </section>
+
+    <!-- Appearance -->
+    <section class="settings-section">
+      <p class="section-title">Appearance</p>
+      <p class="section-sub">Applies here and across your VaRoom dashboard right now.</p>
+      <div class="appearance-options" id="appearance-options">
+        <button type="button" class="appearance-pill" data-theme-choice="light">☀️ Light</button>
+        <button type="button" class="appearance-pill" data-theme-choice="dark">🌙 Dark</button>
+        <button type="button" class="appearance-pill" data-theme-choice="system">🖥️ System</button>
+      </div>
+    </section>
+
+    <!-- Privacy -->
+    <section class="settings-section">
+      <p class="section-title">Privacy</p>
+      <p class="section-sub">Control what other people can see or do.</p>
+      <div class="card">
+        <div class="field">
+          <label for="profile-visibility">Profile visibility</label>
+          <select id="profile-visibility">
+            <option value="public">Public — visible to anyone browsing VaRoom</option>
+            <option value="private">Private</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="who-can-message">Who can message you</label>
+          <select id="who-can-message">
+            <option value="everyone">Everyone</option>
+            <option value="no_one">No one</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="location-visibility">Location visibility</label>
+          <select id="location-visibility">
+            <option value="exact">Exact location</option>
+            <option value="general_area">General area only</option>
+            <option value="hidden">Hidden</option>
+          </select>
+        </div>
+        <button type="button" class="btn" id="save-privacy-btn">Save privacy settings</button>
+        <p class="inline-msg" id="privacy-msg"></p>
+      </div>
+      <div class="note-box">These are saved for later — messaging and location-based search aren't fully built yet, so they're not enforced in the app just yet.</div>
+    </section>
+
+    <!-- Delete account -->
+    <section class="settings-section">
+      <p class="section-title">Account</p>
+      <div class="card danger-zone">
+        <p class="danger-text">Deleting your account permanently removes your profile. This can't be undone.</p>
+        <button type="button" class="btn btn-ghost" id="show-delete-confirm">Delete account</button>
+
+        <div class="delete-confirm" id="delete-confirm">
+          <p class="danger-text">This is permanent. Type <strong>DELETE</strong> below to confirm.</p>
+          <input type="text" id="delete-confirm-input" placeholder="Type DELETE">
+          <button type="button" class="btn btn-danger" id="confirm-delete-btn" disabled>Permanently delete my account</button>
+          <p class="inline-msg" id="delete-msg"></p>
+        </div>
+      </div>
+    </section>
+
+    <section class="logout-section">
+      <button type="button" class="btn btn-ghost" id="logout-btn">Log out</button>
+    </section>
+  </div>
+</main>
+
+<script src="js/supabase-client.js"></script>
+<script>
+  (async function(){
+    const checkingAuth = document.getElementById('checking-auth');
+    const settingsPage = document.getElementById('settings-page');
+    let currentUser = null;
+    let currentRole = null;
+
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session) { window.location.href = 'login.html'; return; }
+    currentUser = session.user;
+
+    const { data: profile, error: profileError } = await supabaseClient
+      .from('profiles')
+      .select('role, phone, theme_preference, notify_messages, notify_bookings, notify_account_updates, notify_marketing, profile_visibility, who_can_message, location_visibility')
+      .eq('id', currentUser.id)
+      .maybeSingle();
+
+    if (profileError || !profile) { window.location.href = 'login.html'; return; }
+
+    currentRole = profile.role;
+    document.getElementById('back-link').setAttribute('href', currentRole === 'host' ? 'host-home.html' : 'client-home.html');
+
+    // ---------- Populate current values ----------
+    document.getElementById('email-input').value = currentUser.email || '';
+    document.getElementById('phone-input').value = profile.phone || '';
+    document.getElementById('notify-messages').checked = profile.notify_messages;
+    document.getElementById('notify-bookings').checked = profile.notify_bookings;
+    document.getElementById('notify-account-updates').checked = profile.notify_account_updates;
+    document.getElementById('notify-marketing').checked = profile.notify_marketing;
+    document.getElementById('profile-visibility').value = profile.profile_visibility;
+    document.getElementById('who-can-message').value = profile.who_can_message;
+    document.getElementById('location-visibility').value = profile.location_visibility;
+
+    checkingAuth.style.display = 'none';
+    settingsPage.style.display = 'block';
+
+    // ---------- Account & Security ----------
+    document.getElementById('save-email-btn').addEventListener('click', async function(){
+      const msg = document.getElementById('email-msg');
+      const newEmail = document.getElementById('email-input').value.trim();
+      if (!newEmail || newEmail === currentUser.email) return;
+
+      const { error } = await supabaseClient.auth.updateUser({ email: newEmail });
+      if (error) {
+        msg.textContent = error.message;
+        msg.className = 'inline-msg error';
+        return;
+      }
+      msg.textContent = 'Check both your old and new email for confirmation links — the change applies once confirmed.';
+      msg.className = 'inline-msg success';
+    });
+
+    document.getElementById('save-phone-btn').addEventListener('click', async function(){
+      const msg = document.getElementById('phone-msg');
+      const phone = document.getElementById('phone-input').value.trim();
+
+      const { error } = await supabaseClient.from('profiles').update({ phone: phone || null }).eq('id', currentUser.id);
+      if (error) {
+        msg.textContent = error.message;
+        msg.className = 'inline-msg error';
+        return;
+      }
+      msg.textContent = 'Saved.';
+      msg.className = 'inline-msg success';
+    });
+
+    document.getElementById('save-password-btn').addEventListener('click', async function(){
+      const msg = document.getElementById('password-msg');
+      const newPassword = document.getElementById('new-password-input').value;
+      const confirmPassword = document.getElementById('confirm-password-input').value;
+
+      if (newPassword.length < 8) {
+        msg.textContent = 'Password must be at least 8 characters.';
+        msg.className = 'inline-msg error';
+        return;
+      }
+      if (newPassword !== confirmPassword) {
+        msg.textContent = "Passwords don't match.";
+        msg.className = 'inline-msg error';
+        return;
+      }
+
+      const { error } = await supabaseClient.auth.updateUser({ password: newPassword });
+      if (error) {
+        msg.textContent = error.message;
+        msg.className = 'inline-msg error';
+        return;
+      }
+      msg.textContent = 'Password updated.';
+      msg.className = 'inline-msg success';
+      document.getElementById('new-password-input').value = '';
+      document.getElementById('confirm-password-input').value = '';
+    });
+
+    // ---------- Notifications (save immediately on toggle) ----------
+    const notifFields = {
+      'notify-messages': 'notify_messages',
+      'notify-bookings': 'notify_bookings',
+      'notify-account-updates': 'notify_account_updates',
+      'notify-marketing': 'notify_marketing'
+    };
+    Object.keys(notifFields).forEach(function(id){
+      document.getElementById(id).addEventListener('change', async function(e){
+        const update = {};
+        update[notifFields[id]] = e.target.checked;
+        await supabaseClient.from('profiles').update(update).eq('id', currentUser.id);
+      });
+    });
+
+    // ---------- Appearance ----------
+    const appearanceOptions = document.querySelectorAll('.appearance-pill');
+
+    function applyTheme(choice){
+      const resolved = choice === 'system'
+        ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+        : choice;
+      document.documentElement.setAttribute('data-theme', resolved);
+    }
+
+    function setActiveAppearancePill(choice){
+      appearanceOptions.forEach(function(pill){
+        pill.classList.toggle('active', pill.getAttribute('data-theme-choice') === choice);
+      });
+    }
+
+    setActiveAppearancePill(profile.theme_preference);
+    applyTheme(profile.theme_preference);
+
+    appearanceOptions.forEach(function(pill){
+      pill.addEventListener('click', async function(){
+        const choice = pill.getAttribute('data-theme-choice');
+        setActiveAppearancePill(choice);
+        applyTheme(choice);
+        localStorage.setItem('varoom_theme', choice);
+        await supabaseClient.from('profiles').update({ theme_preference: choice }).eq('id', currentUser.id);
+      });
+    });
+
+    // ---------- Privacy ----------
+    document.getElementById('save-privacy-btn').addEventListener('click', async function(){
+      const msg = document.getElementById('privacy-msg');
+      const { error } = await supabaseClient.from('profiles').update({
+        profile_visibility: document.getElementById('profile-visibility').value,
+        who_can_message: document.getElementById('who-can-message').value,
+        location_visibility: document.getElementById('location-visibility').value
+      }).eq('id', currentUser.id);
+
+      if (error) {
+        msg.textContent = error.message;
+        msg.className = 'inline-msg error';
+        return;
+      }
+      msg.textContent = 'Saved.';
+      msg.className = 'inline-msg success';
+    });
+
+    // ---------- Delete account ----------
+    document.getElementById('show-delete-confirm').addEventListener('click', function(){
+      document.getElementById('delete-confirm').classList.add('show');
+    });
+
+    document.getElementById('delete-confirm-input').addEventListener('input', function(e){
+      document.getElementById('confirm-delete-btn').disabled = e.target.value !== 'DELETE';
+    });
+
+    document.getElementById('confirm-delete-btn').addEventListener('click', function(){
+      const msg = document.getElementById('delete-msg');
+      // Account deletion needs a backend endpoint using the Supabase
+      // service-role key (a regular client can't delete its own auth.users
+      // row). That endpoint exists in server/server.js, but the Express
+      // server isn't deployed anywhere live yet — only the static client/
+      // folder is, via Vercel. Being upfront about that here rather than
+      // silently failing a network call to a URL that doesn't exist.
+      msg.textContent = "Account deletion needs a small backend step that isn't deployed yet. Reach out via Help & Support and we'll remove your account manually in the meantime.";
+      msg.className = 'inline-msg error';
+    });
+
+    // ---------- Log out ----------
+    document.getElementById('logout-btn').addEventListener('click', async function(){
+      await supabaseClient.auth.signOut();
+      window.location.href = 'index.html';
+    });
+  })();
+</script>
+
+</body>
+</html>
