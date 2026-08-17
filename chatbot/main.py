@@ -15,11 +15,11 @@ server/. Hosts two related but independent features:
 
 Both use Google's Gemini API (free tier). Elie additionally needs real
 (read-only, service-role) Supabase access to search listings and check
-premium status -- this is the first time this service talks to the
-database.
+premium status.
 """
 
 import os
+import re
 import json
 import httpx
 from fastapi import FastAPI, Header, HTTPException
@@ -43,10 +43,28 @@ SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
 VALID_CATEGORIES = {"airbnb", "hotel", "venue", "office", "shop", "property"}
 
+CATEGORY_KEYWORDS = {
+    "airbnb": "airbnb",
+    "airbnbs": "airbnb",
+    "hotel": "hotel",
+    "hotels": "hotel",
+    "venue": "venue",
+    "venues": "venue",
+    "event": "venue",
+    "wedding": "venue",
+    "office": "office",
+    "offices": "office",
+    "shop": "shop",
+    "shops": "shop",
+    "property": "property",
+    "land": "property",
+    "house": "property",
+}
+
 app = FastAPI(
     title="VaRoom Chatbot Service",
     description="Standalone microservice for the host reply assistant and Elie, the client search assistant.",
-    version="0.3.0",
+    version="0.3.2",
 )
 
 app.add_middleware(
@@ -57,12 +75,7 @@ app.add_middleware(
 )
 
 
-# ============================================================
-# Shared: Gemini call
-# ============================================================
-
 async def call_gemini(prompt: str) -> Optional[str]:
-    """Returns Gemini's raw text response, or None if the call fails."""
     if not GEMINI_API_KEY:
         return None
 
@@ -81,10 +94,6 @@ async def call_gemini(prompt: str) -> Optional[str]:
     except Exception:
         return None
 
-
-# ============================================================
-# /reply -- host-side assistant (unchanged from before)
-# ============================================================
 
 class ReplyRequest(BaseModel):
     message: str
@@ -134,14 +143,9 @@ async def generate_ai_reply(payload: ReplyRequest) -> Optional[str]:
 
 @app.post("/reply", response_model=ReplyResponse)
 async def reply(payload: ReplyRequest):
-    """Placeholder-turned-real host reply assistant. See module docstring."""
     ai_reply = await generate_ai_reply(payload)
     return ReplyResponse(reply=ai_reply or canned_reply(payload))
 
-
-# ============================================================
-# Elie -- client-side search assistant
-# ============================================================
 
 class ElieSearchRequest(BaseModel):
     message: str
@@ -152,15 +156,6 @@ class ElieSearchResponse(BaseModel):
 
 
 async def verify_supabase_user(access_token: str) -> Optional[dict]:
-    """
-    Confirms the access token actually belongs to a real, currently
-    logged-in Supabase user, and returns their user record (id, email)
-    if so. Returns None if the token is missing, expired, or invalid.
-
-    This is what stops someone from just claiming to be a premium user —
-    they'd need a real, valid session token, which only comes from
-    actually being logged in.
-    """
     if not SUPABASE_URL or not SUPABASE_ANON_KEY:
         return None
 
@@ -181,8 +176,6 @@ async def verify_supabase_user(access_token: str) -> Optional[dict]:
 
 
 async def get_profile(user_id: str) -> Optional[dict]:
-    """Reads a profile row using the service-role key (bypasses RLS —
-    this is a trusted backend call, not something exposed to the caller)."""
     if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
         return None
 
@@ -206,54 +199,116 @@ async def get_profile(user_id: str) -> Optional[dict]:
         return None
 
 
+def extract_first_json_object(text: str) -> Optional[dict]:
+    """Pulls the first {...} JSON object out of Gemini's response, no
+    matter what text (markdown fences, a preamble sentence) surrounds it."""
+    match = re.search(r"\{.*\}", text, re.DOTALL)
+    if not match:
+        return None
+    try:
+        return json.loads(match.group(0))
+    except Exception:
+        return None
+
+
+def keyword_fallback_intent(message: str) -> dict:
+    """Used only if Gemini's call fails entirely or returns nothing
+    parseable — a simple keyword match instead of no filtering at all."""
+    lower = message.lower()
+    category = None
+    for keyword, value in CATEGORY_KEYWORDS.items():
+        if keyword in lower:
+            category = value
+            break
+
+    words = message.split()
+    location = None
+    for i, word in enumerate(words):
+        cleaned_word = word.strip(".,!?")
+        if i > 0 and cleaned_word[:1].isupper() and cleaned_word.lower() not in CATEGORY_KEYWORDS:
+            location = cleaned_word
+            break
+
+    return {"category": category, "location": location}
+
+
 async def extract_search_intent(message: str) -> dict:
-    """
-    Uses Gemini to turn a natural-language request into structured
-    search filters. Falls back to "no filters" (search everything) if
-    the AI call fails or returns something we can't parse — Elie should
-    degrade gracefully, not hard-fail, if Gemini has a bad moment.
-    """
     prompt = (
         "Extract search filters from this message about finding a place "
         "on VaRoom, a hospitality marketplace. Respond with ONLY a JSON "
-        "object, no other text, no markdown formatting, in exactly this "
-        "shape:\n"
+        "object and nothing else — no explanation, no markdown formatting, "
+        "no preamble — in exactly this shape:\n"
         '{"category": one of ["airbnb","hotel","venue","office","shop","property"] or null, '
-        '"location": a city or area name as a string, or null}\n\n'
+        '"location": the single city or area name only (e.g. "Nairobi", not '
+        '"Nairobi, Kenya" or a full address), as a string, or null}\n\n'
         f"Message: {message}"
     )
 
     raw = await call_gemini(prompt)
-    if not raw:
-        return {"category": None, "location": None}
+    parsed = extract_first_json_object(raw) if raw else None
 
-    cleaned = raw.strip().strip("`")
-    if cleaned.lower().startswith("json"):
-        cleaned = cleaned[4:].strip()
-
-    try:
-        parsed = json.loads(cleaned)
+    if parsed is not None:
         category = parsed.get("category")
         if category not in VALID_CATEGORIES:
             category = None
         return {"category": category, "location": parsed.get("location")}
-    except Exception:
-        return {"category": None, "location": None}
+
+    return keyword_fallback_intent(message)
 
 
-async def search_listings(category: Optional[str], location: Optional[str]) -> list:
-    """Searches real listings in Supabase. Read-only, limited to 5 results."""
+def build_word_or_filter(text: str, field: str) -> Optional[str]:
+    """
+    Builds a PostgREST OR filter matching ANY significant word in `text`
+    against `field`. Word-based rather than a single exact-substring match:
+    a location like "Nairobi, Kenya" extracted by Gemini should still
+    correctly match a listing stored as "Kilimani, Nairobi", since they
+    share the word "Nairobi". A single strict substring match would miss
+    that entirely and under-return valid results.
+    """
+    words = [w.strip(",.") for w in text.split() if len(w.strip(",.")) > 2]
+    if not words:
+        return None
+    conditions = ",".join(f"{field}.ilike.*{w}*" for w in words)
+    return f"({conditions})"
+
+
+async def search_listings(category: Optional[str], location: Optional[str], raw_message: str) -> list:
+    """
+    Searches real listings in Supabase, read-only, limited to 5 results,
+    GPS-verified listings surfaced first. category (when present) is a
+    strict, exact match. location (when present) uses word-based OR
+    matching, not a single exact-substring match, so slightly different
+    phrasing doesn't cause valid matches to be missed. If NEITHER category
+    nor location could be determined at all, falls back to a broad keyword
+    search using the raw message instead of an unfiltered "return
+    everything" query.
+    """
     if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
         return []
 
     params = {
         "select": "id,title,description,category,location_text,verified,host_id",
+        "order": "verified.desc",
         "limit": "5",
     }
+
     if category:
         params["category"] = f"eq.{category}"
+
     if location:
-        params["location_text"] = f"ilike.*{location}*"
+        location_filter = build_word_or_filter(location, "location_text")
+        if location_filter:
+            params["or"] = location_filter
+
+    if not category and not location:
+        significant_words = [w.strip(".,!?") for w in raw_message.split() if len(w.strip(".,!?")) > 3]
+        if not significant_words:
+            return []
+        conditions = ",".join(
+            f"title.ilike.*{w}*,description.ilike.*{w}*,location_text.ilike.*{w}*"
+            for w in significant_words[:3]
+        )
+        params["or"] = f"({conditions})"
 
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
@@ -271,13 +326,7 @@ async def search_listings(category: Optional[str], location: Optional[str]) -> l
         return []
 
 
-def format_results_reply(listings: list, original_message: str) -> str:
-    """
-    Turns raw listing rows into a friendly reply. Deliberately does NOT
-    mention price or availability as if they were checked — those fields
-    don't exist in the database yet, so claiming to have checked them
-    would be inventing information.
-    """
+def format_results_reply(listings: list, original_message: str, category: Optional[str], location: Optional[str]) -> str:
     if not listings:
         return (
             "I couldn't find any listings matching that right now — "
@@ -287,10 +336,17 @@ def format_results_reply(listings: list, original_message: str) -> str:
     lines = [f"Here's what I found for \"{original_message}\":\n"]
     for listing in listings:
         title = listing.get("title", "Untitled listing")
-        location = listing.get("location_text", "location not specified")
+        loc = listing.get("location_text", "location not specified")
         verified = listing.get("verified", False)
         badge = " (GPS-verified)" if verified else ""
-        lines.append(f"• {title} — {location}{badge}")
+        lines.append(f"• {title} — {loc}{badge}")
+
+    if not category and not location:
+        lines.append(
+            "\n(I couldn't pin down an exact category or location from your message, "
+            "so these are broader matches — try being more specific, e.g. "
+            "\"Airbnbs in Nairobi\", for tighter results.)"
+        )
 
     lines.append(
         "\nPrice and availability aren't tracked on VaRoom yet, so I can't "
@@ -301,12 +357,6 @@ def format_results_reply(listings: list, original_message: str) -> str:
 
 @app.post("/elie/search", response_model=ElieSearchResponse)
 async def elie_search(payload: ElieSearchRequest, authorization: Optional[str] = Header(None)):
-    """
-    Elie's search endpoint. Requires a real, valid Supabase session token
-    in the Authorization header (Bearer <token>) — this identifies who's
-    actually asking, so premium status can't be faked by just passing a
-    user_id in the request body.
-    """
     if not authorization or not authorization.lower().startswith("bearer "):
         raise HTTPException(status_code=401, detail="Missing or invalid Authorization header.")
 
@@ -328,17 +378,15 @@ async def elie_search(payload: ElieSearchRequest, authorization: Optional[str] =
         )
 
     intent = await extract_search_intent(payload.message)
-    listings = await search_listings(intent.get("category"), intent.get("location"))
-    return ElieSearchResponse(reply=format_results_reply(listings, payload.message))
+    category = intent.get("category")
+    location = intent.get("location")
 
+    listings = await search_listings(category, location, payload.message)
+    return ElieSearchResponse(reply=format_results_reply(listings, payload.message, category, location))
 
-# ============================================================
-# Health check
-# ============================================================
 
 @app.get("/health")
 def health_check():
-    """Liveness check, plus a quick look at what's actually configured."""
     return {
         "status": "ok",
         "ai_configured": bool(GEMINI_API_KEY),
