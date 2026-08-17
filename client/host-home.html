@@ -545,7 +545,9 @@
             '<span class="badge badge-soon" title="Escrow-backed payments are on the roadmap, not live yet">Escrow protected — soon</span>' +
           '</div>' +
           '<div class="action-row">' +
-            '<span class="action-btn disabled" title="Coming soon">Book</span>' +
+            (listing.host_id === currentUser.id
+              ? '<span class="action-btn disabled" title="This is your listing">Book</span>'
+              : '<a href="booking.html?listing=' + listing.id + '" class="action-btn">Book</a>') +
             (listing.host_id === currentUser.id
               ? '<span class="action-btn disabled" title="This is your listing">Chat</span>'
               : '<button type="button" class="action-btn chat-btn" data-listing-id="' + listing.id + '" data-host-id="' + listing.host_id + '">Chat</button>') +

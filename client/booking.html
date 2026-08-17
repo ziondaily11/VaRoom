@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Book — VaRoom</title>
+<script>
+  (function(){
+    try{
+      var saved = localStorage.getItem('varoom_theme') || 'system';
+      var resolved = saved === 'system'
+        ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+        : saved;
+      document.documentElement.setAttribute('data-theme', resolved);
+    }catch(e){}
+  })();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;0,9..144,900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#1A1210; --paper:#FBF4F1;
+    --muted:#7a6b67;
+    --font-display:'Fraunces', serif; --font-body:'Inter', sans-serif;
+  }
+  [data-theme="dark"]{
+    --white:#241C1A; --paper:#15100F; --ink:#F5EFEC; --muted:#B8ACA8;
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  body{ font-family:var(--font-body); background:var(--paper); color:var(--ink); min-height:100vh; transition:background .2s ease, color .2s ease; }
+  a{ color:inherit; text-decoration:none; }
+  button{ font-family:inherit; cursor:pointer; border:none; background:none; }
+  :focus-visible{ outline:3px solid var(--red-deep); outline-offset:3px; }
+
+  header{ display:flex; align-items:center; justify-content:space-between; padding:1.5rem 2.5rem; }
+  .logo{ font-family:var(--font-display); font-weight:900; font-size:1.55rem; display:flex; align-items:baseline; }
+  .logo .va{ color:var(--red); -webkit-text-stroke:1.5px var(--ink); text-shadow:-1px -1px 0 var(--ink), 1px -1px 0 var(--ink), -1px 1px 0 var(--ink), 1px 1px 0 var(--ink); }
+  .logo .pin{ width:.34em; height:.34em; border-radius:50% 50% 50% 0; background:var(--red); transform:rotate(-45deg); margin:0 .05em 0 .08em; align-self:flex-start; margin-top:.08em; }
+  .back-link{ font-size:.9rem; font-weight:500; }
+  .back-link:hover{ color:var(--red); }
+
+  main{ max-width:520px; margin:0 auto; padding:1rem 6vw 6rem; }
+  .checking-msg{ text-align:center; padding:3rem 0; color:var(--muted); }
+
+  /* ---------- Date-selection card ---------- */
+  .picker-card{
+    background:var(--white); border:1px solid rgba(128,110,100,.15); border-radius:18px;
+    padding:1.5rem 1.6rem; margin-bottom:1.4rem;
+  }
+  .picker-title{ font-family:var(--font-display); font-weight:600; font-size:1.2rem; margin-bottom:.3rem; }
+  .picker-sub{ font-size:.85rem; color:var(--muted); margin-bottom:1.1rem; line-height:1.5; }
+
+  .field{ display:flex; flex-direction:column; gap:.4rem; margin-bottom:1rem; }
+  label{ font-size:.86rem; font-weight:600; }
+  input, select{
+    font-family:inherit; font-size:.95rem; padding:.75rem .9rem;
+    border:1px solid rgba(128,110,100,.25); border-radius:10px;
+    background:var(--paper); color:var(--ink); width:100%;
+  }
+  input:focus, select:focus{ outline:none; border-color:var(--red); }
+
+  .cal-header{ display:flex; align-items:center; justify-content:space-between; margin:.3rem 0 .8rem; }
+  .cal-title{ font-weight:700; font-size:.95rem; }
+  .cal-nav{ display:flex; gap:.4rem; }
+  .cal-nav button{ width:30px; height:30px; border-radius:8px; background:var(--paper); display:flex; align-items:center; justify-content:center; }
+  .cal-nav button:hover{ background:rgba(196,30,58,.1); }
+
+  .cal-grid{ display:grid; grid-template-columns:repeat(7, 1fr); gap:.3rem; margin-bottom:.6rem; }
+  .cal-dow{ font-size:.66rem; font-weight:700; color:var(--muted); text-align:center; padding:.3rem 0; }
+  .cal-day{
+    aspect-ratio:1/1; display:flex; align-items:center; justify-content:center;
+    border-radius:8px; font-size:.78rem; background:var(--paper); color:var(--ink);
+    border:1.5px solid transparent;
+  }
+  .cal-day.closed{ opacity:.25; cursor:not-allowed; }
+  .cal-day.open{ cursor:pointer; }
+  .cal-day.open:hover{ border-color:var(--red); }
+  .cal-day.in-range{ background:rgba(196,30,58,.15); color:var(--ink); }
+  .cal-day.range-end{ background:var(--red); color:#fff; }
+  .cal-day.empty{ visibility:hidden; }
+
+  .cal-legend{ font-size:.75rem; color:var(--muted); }
+
+  .range-summary{ font-size:.85rem; font-weight:600; margin-top:.8rem; padding-top:.8rem; border-top:1px solid rgba(128,110,100,.12); }
+
+  /* ---------- Summary card (the mockup) ---------- */
+  .summary-card{
+    position:relative; border-radius:20px; overflow:hidden; color:#fff;
+    min-height:280px; display:flex; flex-direction:column; justify-content:flex-end;
+    background:linear-gradient(135deg, var(--red) 0%, var(--red-deep) 100%);
+  }
+  .summary-card img.bg-photo{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; z-index:0; }
+  .summary-card::after{
+    content:''; position:absolute; inset:0; z-index:1;
+    background:linear-gradient(to top, rgba(0,0,0,.75) 0%, rgba(0,0,0,.15) 55%, rgba(0,0,0,.05) 100%);
+  }
+  .summary-content{ position:relative; z-index:2; padding:1.4rem; }
+
+  .save-icon{
+    position:absolute; top:1rem; right:1rem; z-index:3;
+    width:38px; height:38px; border-radius:50%; background:rgba(0,0,0,.35);
+    display:flex; align-items:center; justify-content:center; color:#fff;
+  }
+  .save-icon:hover{ background:rgba(0,0,0,.5); }
+  .save-icon.saved{ color:var(--red); }
+
+  .badge-row{ display:flex; gap:.4rem; margin-bottom:.6rem; flex-wrap:wrap; }
+  .mini-badge{ font-size:.68rem; font-weight:700; padding:.25rem .6rem; border-radius:100px; background:rgba(255,255,255,.18); backdrop-filter:blur(4px); }
+
+  .summary-title{ font-family:var(--font-display); font-weight:600; font-size:1.3rem; margin-bottom:.3rem; }
+  .summary-loc{ font-size:.85rem; opacity:.9; display:flex; align-items:center; gap:.3rem; margin-bottom:.3rem; }
+  .summary-size{ font-size:.82rem; opacity:.85; margin-bottom:.7rem; }
+  .summary-price{ font-family:var(--font-display); font-weight:700; font-size:1.35rem; }
+  .summary-price span{ font-family:var(--font-body); font-weight:500; font-size:.85rem; opacity:.85; }
+
+  .details-box{
+    background:var(--white); border:1px solid rgba(128,110,100,.15); border-radius:14px;
+    padding:1.1rem 1.3rem; margin-top:1rem; font-size:.88rem;
+  }
+  .details-row{ display:flex; justify-content:space-between; padding:.4rem 0; }
+  .details-row.total{ border-top:1px solid rgba(128,110,100,.15); margin-top:.4rem; padding-top:.7rem; font-weight:700; }
+  .details-label{ color:var(--muted); }
+
+  .confirm-btn{
+    background:var(--red); color:#fff; padding:1.05rem 1.6rem; border-radius:100px;
+    font-weight:600; font-size:1rem; width:100%; margin-top:1.2rem; transition:background .2s ease;
+  }
+  .confirm-btn:hover{ background:var(--red-deep); }
+  .confirm-btn:disabled{ background:#c9c0bd; cursor:not-allowed; }
+
+  .form-note{ font-size:.82rem; color:var(--muted); text-align:center; margin-top:.6rem; }
+
+  .success-msg{ display:none; background:var(--white); border:1px solid rgba(128,110,100,.15); border-radius:14px; padding:1.4rem 1.6rem; margin-top:1.4rem; font-size:.95rem; text-align:center; }
+  .success-msg.show{ display:block; }
+  .success-msg.error{ background:#FBE9E9; border-color:rgba(196,30,58,.3); color:var(--red-deep); }
+</style>
+</head>
+<body>
+
+<header>
+  <a href="index.html" class="logo"><span class="va">Va</span><span class="pin"></span><span class="room">Room</span></a>
+  <a href="#" class="back-link" id="back-link">← Back</a>
+</header>
+
+<main>
+  <div id="checking-auth" class="checking-msg">Loading...</div>
+  <div id="booking-page" style="display:none;"></div>
+</main>
+
+<script src="js/supabase-client.js"></script>
+<script>
+  (async function(){
+    const checkingAuth = document.getElementById('checking-auth');
+    const bookingPage = document.getElementById('booking-page');
+    const params = new URLSearchParams(window.location.search);
+    const listingId = params.get('listing');
+
+    let currentUser = null;
+    let currentRole = null;
+
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session) { window.location.href = 'login.html'; return; }
+    currentUser = session.user;
+
+    const { data: profile } = await supabaseClient.from('profiles').select('role').eq('id', currentUser.id).maybeSingle();
+    if (!profile) { window.location.href = 'login.html'; return; }
+    currentRole = profile.role;
+    document.getElementById('back-link').setAttribute('href', currentRole === 'host' ? 'host-home.html' : 'client-home.html');
+
+    if (!listingId) { checkingAuth.textContent = 'No listing specified.'; return; }
+
+    function escapeHtml(str){ const d = document.createElement('div'); d.textContent = str || ''; return d.innerHTML; }
+
+    const { data: listing, error: listingError } = await supabaseClient
+      .from('listings')
+      .select('id,title,description,location_text,category,verified,host_id,' +
+        'host:profiles(full_name,verified),listing_photos(storage_path),' +
+        'listing_booking_details(*)')
+      .eq('id', listingId)
+      .maybeSingle();
+
+    if (listingError || !listing) { checkingAuth.textContent = "Couldn't load that listing."; return; }
+
+    if (listing.host_id === currentUser.id) {
+      checkingAuth.textContent = "This is your own listing — you can't book it.";
+      return;
+    }
+
+    const details = listing.listing_booking_details;
+    if (!details) {
+      checkingAuth.textContent = 'This listing has no booking details set up yet.';
+      return;
+    }
+
+    const SHORT_STAY = ['airbnb', 'hotel', 'venue'];
+    const isShortStay = SHORT_STAY.includes(listing.category);
+    const isHourly = details.price_unit === 'hour';
+
+    let bgPhotoUrl = null;
+    if (listing.listing_photos && listing.listing_photos.length > 0) {
+      bgPhotoUrl = supabaseClient.storage.from('listing-photos').getPublicUrl(listing.listing_photos[0].storage_path).data.publicUrl;
+    }
+
+    // ---------- Booked/pending dates to grey out (short-stay only) ----------
+    let unavailableDates = new Set();
+    let openDates = new Set();
+    if (isShortStay) {
+      const { data: avail } = await supabaseClient.from('availability').select('date').eq('listing_id', listingId);
+      (avail || []).forEach(function(a){ openDates.add(a.date); });
+
+      const { data: existingBookings } = await supabaseClient
+        .from('bookings').select('start_date,end_date,status').eq('listing_id', listingId).in('status', ['pending','approved']);
+      (existingBookings || []).forEach(function(b){
+        if (!b.start_date || !b.end_date) return;
+        let d = new Date(b.start_date);
+        const end = new Date(b.end_date);
+        while (d <= end) {
+          unavailableDates.add(d.toISOString().slice(0,10));
+          d.setDate(d.getDate() + 1);
+        }
+      });
+    }
+
+    // ---------- Render page shell ----------
+    let pickerHtml = '';
+    if (isShortStay && isHourly) {
+      pickerHtml =
+        '<div class="picker-card">' +
+          '<p class="picker-title">Pick a date &amp; duration</p>' +
+          '<p class="picker-sub">Choose an open date and how many hours you need.</p>' +
+          '<div id="cal-container"></div>' +
+          '<div class="field" style="margin-top:1rem;">' +
+            '<label for="hours-input">Hours</label>' +
+            '<input type="number" id="hours-input" min="1" value="1">' +
+          '</div>' +
+        '</div>';
+    } else if (isShortStay) {
+      pickerHtml =
+        '<div class="picker-card">' +
+          '<p class="picker-title">Pick your dates</p>' +
+          '<p class="picker-sub">Tap a check-in date, then a check-out date. Only open dates can be selected.</p>' +
+          '<div id="cal-container"></div>' +
+          '<p class="range-summary" id="range-summary">No dates selected yet.</p>' +
+        '</div>';
+    } else {
+      const minDate = details.available_from || new Date().toISOString().slice(0,10);
+      pickerHtml =
+        '<div class="picker-card">' +
+          '<p class="picker-title">Move-in details</p>' +
+          '<p class="picker-sub">' + (details.available_from ? 'Available from ' + escapeHtml(details.available_from) + '.' : 'Choose your desired start date.') + '</p>' +
+          '<div class="field">' +
+            '<label for="lease-start">Desired start date</label>' +
+            '<input type="date" id="lease-start" min="' + minDate + '" value="' + minDate + '">' +
+          '</div>' +
+          '<div class="field">' +
+            '<label for="lease-months">Lease length (months)</label>' +
+            '<input type="number" id="lease-months" min="1" value="' + (details.min_lease_months || 1) + '">' +
+          '</div>' +
+        '</div>';
+    }
+
+    const badges = [];
+    if (listing.verified) badges.push('📍 GPS verified');
+    if (listing.host.verified) badges.push('✔ Verified host');
+
+    bookingPage.innerHTML =
+      pickerHtml +
+      '<div class="summary-card" id="summary-card">' +
+        (bgPhotoUrl ? '<img class="bg-photo" src="' + bgPhotoUrl + '" alt="">' : '') +
+        '<button type="button" class="save-icon" id="save-icon" aria-label="Save">' +
+          '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z"/></svg>' +
+        '</button>' +
+        '<div class="summary-content">' +
+          (badges.length ? '<div class="badge-row">' + badges.map(function(b){ return '<span class="mini-badge">' + b + '</span>'; }).join('') + '</div>' : '') +
+          '<div class="summary-title">' + escapeHtml(listing.title) + '</div>' +
+          '<div class="summary-loc">📍 ' + escapeHtml(listing.location_text) + '</div>' +
+          (details.size_or_type ? '<div class="summary-size">' + escapeHtml(details.size_or_type) + '</div>' : '') +
+          '<div class="summary-price">KSh ' + Number(details.price_amount).toLocaleString() + ' <span>/ ' + details.price_unit + '</span></div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="details-box" id="details-box"></div>' +
+      '<button type="button" class="confirm-btn" id="confirm-btn" disabled>Confirm booking</button>' +
+      '<p class="form-note">This creates a request — the host needs to approve it before it\'s confirmed.</p>' +
+      '<div class="success-msg" id="success-msg"></div>';
+
+    checkingAuth.style.display = 'none';
+    bookingPage.style.display = 'block';
+
+    // ---------- Save/bookmark ----------
+    const { data: existingBookmark } = await supabaseClient
+      .from('bookmarks').select('id').eq('client_id', currentUser.id).eq('listing_id', listingId).maybeSingle();
+    const saveIcon = document.getElementById('save-icon');
+    if (existingBookmark) saveIcon.classList.add('saved');
+    saveIcon.addEventListener('click', async function(){
+      if (saveIcon.classList.contains('saved')) {
+        await supabaseClient.from('bookmarks').delete().eq('client_id', currentUser.id).eq('listing_id', listingId);
+        saveIcon.classList.remove('saved');
+      } else {
+        await supabaseClient.from('bookmarks').insert({ client_id: currentUser.id, listing_id: listingId });
+        saveIcon.classList.add('saved');
+      }
+    });
+
+    // ---------- Price / details calculation ----------
+    const detailsBox = document.getElementById('details-box');
+    const confirmBtn = document.getElementById('confirm-btn');
+
+    function updateDetailsBox(nightsOrHours, label, extraFee){
+      const rate = Number(details.price_amount);
+      const base = rate * nightsOrHours;
+      const total = base + (extraFee || 0);
+      let html =
+        '<div class="details-row"><span class="details-label">' + label + '</span><span>KSh ' + base.toLocaleString() + '</span></div>';
+      if (extraFee) {
+        html += '<div class="details-row"><span class="details-label">Cleaning fee</span><span>KSh ' + extraFee.toLocaleString() + '</span></div>';
+      }
+      html += '<div class="details-row total"><span>Total</span><span>KSh ' + total.toLocaleString() + '</span></div>';
+      detailsBox.innerHTML = html;
+      return total;
+    }
+
+    let computedTotal = 0;
+    let selectedStart = null, selectedEnd = null;
+
+    if (isShortStay && isHourly) {
+      // ---------- Single date + hours ----------
+      let calMonth = new Date().getMonth(), calYear = new Date().getFullYear();
+      let pickedDate = null;
+
+      function renderCal(){
+        const container = document.getElementById('cal-container');
+        const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+        const firstDay = new Date(calYear, calMonth, 1).getDay();
+        const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+        let html = '<div class="cal-header"><div class="cal-title">' + monthNames[calMonth] + ' ' + calYear + '</div>' +
+          '<div class="cal-nav"><button type="button" id="cal-prev">‹</button><button type="button" id="cal-next">›</button></div></div>' +
+          '<div class="cal-grid">' + ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(function(d){ return '<div class="cal-dow">' + d + '</div>'; }).join('');
+        for (let i=0;i<firstDay;i++) html += '<div class="cal-day empty"></div>';
+        for (let d=1; d<=daysInMonth; d++) {
+          const dateStr = calYear + '-' + String(calMonth+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+          const isOpen = openDates.has(dateStr) && !unavailableDates.has(dateStr);
+          const isPicked = dateStr === pickedDate;
+          html += '<div class="cal-day ' + (isOpen ? 'open' : 'closed') + (isPicked ? ' range-end' : '') + '" data-date="' + dateStr + '">' + d + '</div>';
+        }
+        html += '</div><p class="cal-legend">Greyed dates aren\'t open yet</p>';
+        container.innerHTML = html;
+
+        container.querySelectorAll('.cal-day.open').forEach(function(cell){
+          cell.addEventListener('click', function(){
+            pickedDate = cell.getAttribute('data-date');
+            selectedStart = pickedDate;
+            renderCal();
+            recalc();
+          });
+        });
+        document.getElementById('cal-prev').addEventListener('click', function(){ calMonth--; if(calMonth<0){calMonth=11;calYear--;} renderCal(); });
+        document.getElementById('cal-next').addEventListener('click', function(){ calMonth++; if(calMonth>11){calMonth=0;calYear++;} renderCal(); });
+      }
+      renderCal();
+
+      const hoursInput = document.getElementById('hours-input');
+      function recalc(){
+        const hours = parseInt(hoursInput.value, 10) || 0;
+        computedTotal = updateDetailsBox(hours, hours + ' hour' + (hours===1?'':'s'), null);
+        confirmBtn.disabled = !(selectedStart && hours > 0);
+      }
+      hoursInput.addEventListener('input', recalc);
+      recalc();
+
+    } else if (isShortStay) {
+      // ---------- Date range (check-in / check-out) ----------
+      let calMonth = new Date().getMonth(), calYear = new Date().getFullYear();
+
+      function isRangeValid(start, end){
+        let d = new Date(start);
+        const endD = new Date(end);
+        while (d <= endD) {
+          const ds = d.toISOString().slice(0,10);
+          if (!openDates.has(ds) || unavailableDates.has(ds)) return false;
+          d.setDate(d.getDate() + 1);
+        }
+        return true;
+      }
+
+      function renderCal(){
+        const container = document.getElementById('cal-container');
+        const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+        const firstDay = new Date(calYear, calMonth, 1).getDay();
+        const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+        let html = '<div class="cal-header"><div class="cal-title">' + monthNames[calMonth] + ' ' + calYear + '</div>' +
+          '<div class="cal-nav"><button type="button" id="cal-prev">‹</button><button type="button" id="cal-next">›</button></div></div>' +
+          '<div class="cal-grid">' + ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(function(d){ return '<div class="cal-dow">' + d + '</div>'; }).join('');
+        for (let i=0;i<firstDay;i++) html += '<div class="cal-day empty"></div>';
+        for (let d=1; d<=daysInMonth; d++) {
+          const dateStr = calYear + '-' + String(calMonth+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+          const isOpen = openDates.has(dateStr) && !unavailableDates.has(dateStr);
+          let cls = isOpen ? 'open' : 'closed';
+          if (selectedStart && dateStr === selectedStart) cls += ' range-end';
+          if (selectedEnd && dateStr === selectedEnd) cls += ' range-end';
+          if (selectedStart && selectedEnd && dateStr > selectedStart && dateStr < selectedEnd) cls += ' in-range';
+          html += '<div class="cal-day ' + cls + '" data-date="' + dateStr + '">' + d + '</div>';
+        }
+        html += '</div><p class="cal-legend">Greyed dates aren\'t open yet</p>';
+        container.innerHTML = html;
+
+        container.querySelectorAll('.cal-day.open').forEach(function(cell){
+          cell.addEventListener('click', function(){
+            const dateStr = cell.getAttribute('data-date');
+            if (!selectedStart || (selectedStart && selectedEnd)) {
+              selectedStart = dateStr; selectedEnd = null;
+            } else if (dateStr > selectedStart) {
+              if (isRangeValid(selectedStart, dateStr)) {
+                selectedEnd = dateStr;
+              } else {
+                document.getElementById('range-summary').textContent = 'Some dates in that range aren\'t open — pick a different check-out.';
+                selectedStart = dateStr; selectedEnd = null;
+              }
+            } else {
+              selectedStart = dateStr; selectedEnd = null;
+            }
+            renderCal();
+            recalc();
+          });
+        });
+        document.getElementById('cal-prev').addEventListener('click', function(){ calMonth--; if(calMonth<0){calMonth=11;calYear--;} renderCal(); });
+        document.getElementById('cal-next').addEventListener('click', function(){ calMonth++; if(calMonth>11){calMonth=0;calYear++;} renderCal(); });
+      }
+      renderCal();
+
+      function recalc(){
+        const summary = document.getElementById('range-summary');
+        if (selectedStart && selectedEnd) {
+          const nights = Math.round((new Date(selectedEnd) - new Date(selectedStart)) / 86400000);
+          summary.textContent = selectedStart + ' → ' + selectedEnd + ' (' + nights + ' night' + (nights===1?'':'s') + ')';
+          computedTotal = updateDetailsBox(nights, nights + ' night' + (nights===1?'':'s'), details.cleaning_fee || null);
+          confirmBtn.disabled = false;
+        } else if (selectedStart) {
+          summary.textContent = 'Check-in: ' + selectedStart + ' — now pick a check-out date.';
+          confirmBtn.disabled = true;
+        } else {
+          summary.textContent = 'No dates selected yet.';
+          confirmBtn.disabled = true;
+        }
+      }
+
+    } else {
+      // ---------- Long-term ----------
+      const leaseMonthsInput = document.getElementById('lease-months');
+      function recalc(){
+        const months = parseInt(leaseMonthsInput.value, 10) || 0;
+        computedTotal = updateDetailsBox(months, months + ' month' + (months===1?'':'s'), null);
+        confirmBtn.disabled = months < 1;
+      }
+      leaseMonthsInput.addEventListener('input', recalc);
+      recalc();
+    }
+
+    // ---------- Confirm booking ----------
+    confirmBtn.addEventListener('click', async function(){
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = 'Sending request...';
+
+      const payload = {
+        listing_id: listingId,
+        host_id: listing.host_id,
+        client_id: currentUser.id,
+        price_unit: details.price_unit,
+        total_price: computedTotal
+      };
+
+      if (isShortStay && isHourly) {
+        payload.start_date = selectedStart;
+        payload.hours = parseInt(document.getElementById('hours-input').value, 10);
+      } else if (isShortStay) {
+        payload.start_date = selectedStart;
+        payload.end_date = selectedEnd;
+      } else {
+        payload.lease_start_date = document.getElementById('lease-start').value;
+        payload.lease_months = parseInt(document.getElementById('lease-months').value, 10);
+      }
+
+      const { error } = await supabaseClient.from('bookings').insert(payload);
+      const successMsg = document.getElementById('success-msg');
+
+      if (error) {
+        successMsg.textContent = 'Something went wrong: ' + error.message;
+        successMsg.classList.add('show', 'error');
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Confirm booking';
+        return;
+      }
+
+      successMsg.textContent = 'Request sent! The host has 48 hours to respond — you\'ll be notified either way.';
+      successMsg.classList.add('show');
+      confirmBtn.style.display = 'none';
+      successMsg.scrollIntoView({ behavior:'smooth', block:'center' });
+    });
+  })();
+</script>
+
+</body>
+</html>

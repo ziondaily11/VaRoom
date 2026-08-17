@@ -4,6 +4,17 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>List your space — VaRoom</title>
+<script>
+  (function(){
+    try{
+      var saved = localStorage.getItem('varoom_theme') || 'system';
+      var resolved = saved === 'system'
+        ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+        : saved;
+      document.documentElement.setAttribute('data-theme', resolved);
+    }catch(e){}
+  })();
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;0,9..144,900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -11,10 +22,14 @@
 <style>
   :root{
     --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#1A1210; --paper:#FBF4F1;
+    --muted:#7a6b67;
     --font-display:'Fraunces', serif; --font-body:'Inter', sans-serif;
   }
+  [data-theme="dark"]{
+    --white:#241C1A; --paper:#15100F; --ink:#F5EFEC; --muted:#B8ACA8;
+  }
   *{ margin:0; padding:0; box-sizing:border-box; }
-  body{ font-family:var(--font-body); background:var(--paper); color:var(--ink); min-height:100vh; }
+  body{ font-family:var(--font-body); background:var(--paper); color:var(--ink); min-height:100vh; transition:background .2s ease, color .2s ease; }
   a{ color:inherit; text-decoration:none; }
   button{ font-family:inherit; cursor:pointer; border:none; }
   :focus-visible{ outline:3px solid var(--red-deep); outline-offset:3px; }
@@ -26,56 +41,120 @@
   .back-link{ font-size:.9rem; font-weight:500; }
   .back-link:hover{ color:var(--red); }
 
-  main{ max-width:520px; margin:0 auto; padding:2rem 6vw 6rem; }
-  .eyebrow{ font-size:.85rem; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--red-deep); margin-bottom:.7rem; }
-  h1{ font-family:var(--font-display); font-weight:600; font-size:clamp(1.9rem, 4vw, 2.5rem); line-height:1.1; margin-bottom:.8rem; }
-  .sub{ font-size:1rem; line-height:1.6; color:#3a2e2c; margin-bottom:2.2rem; }
+  main{ max-width:1100px; margin:0 auto; padding:1.5rem 4vw 6rem; }
+  .checking-msg{ text-align:center; padding:3rem 0; color:var(--muted); }
 
-  form{ display:flex; flex-direction:column; gap:1.2rem; }
-  .field{ display:flex; flex-direction:column; gap:.4rem; }
-  label{ font-size:.9rem; font-weight:600; }
-  input, textarea, select{ font-family:inherit; font-size:1rem; padding:.85rem 1rem; border:1px solid rgba(26,18,16,.15); border-radius:12px; background:var(--white); color:var(--ink); width:100%; }
-  textarea{ resize:vertical; min-height:100px; }
+  .eyebrow{ font-size:.85rem; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--red-deep); margin-bottom:.6rem; }
+  h1{ font-family:var(--font-display); font-weight:600; font-size:clamp(1.9rem, 3.6vw, 2.4rem); line-height:1.1; margin-bottom:.6rem; }
+  .sub{ font-size:.98rem; line-height:1.6; color:var(--muted); margin-bottom:1.8rem; }
+
+  .cards-grid{ display:grid; grid-template-columns:1fr 1fr; gap:1.6rem; align-items:start; }
+
+  .form-card{
+    background:var(--white); border:1px solid rgba(128,110,100,.15); border-radius:18px;
+    padding:1.6rem 1.7rem;
+  }
+  .card-heading{ font-family:var(--font-display); font-weight:600; font-size:1.25rem; margin-bottom:.3rem; }
+  .card-heading-sub{ font-size:.85rem; color:var(--muted); margin-bottom:1.3rem; }
+
+  .field{ display:flex; flex-direction:column; gap:.4rem; margin-bottom:1.1rem; }
+  .field:last-child{ margin-bottom:0; }
+  .field-row{ display:grid; grid-template-columns:1fr 1fr; gap:.8rem; }
+  label{ font-size:.88rem; font-weight:600; }
+  input, textarea, select{
+    font-family:inherit; font-size:.95rem; padding:.75rem .9rem;
+    border:1px solid rgba(128,110,100,.25); border-radius:10px;
+    background:var(--paper); color:var(--ink); width:100%;
+  }
+  textarea{ resize:vertical; min-height:90px; }
   input:focus, textarea:focus, select:focus{ outline:none; border-color:var(--red); }
 
-  .photo-hint{ font-size:.8rem; color:#7a6b67; }
+  .checkbox-row{ display:flex; align-items:center; gap:.6rem; }
+  .checkbox-row input{ width:auto; }
+  .checkbox-row label{ font-weight:500; }
+
+  .photo-hint{ font-size:.78rem; color:var(--muted); }
 
   .photo-dropzone{
-    border:1.5px dashed rgba(26,18,16,.25); border-radius:12px; padding:1.6rem 1rem;
-    text-align:center; color:#7a6b67; font-size:.9rem; background:rgba(255,255,255,.4);
-    cursor:pointer; transition:border-color .2s ease, background .2s ease;
+    border:1.5px dashed rgba(128,110,100,.3); border-radius:12px; padding:1.3rem 1rem;
+    text-align:center; color:var(--muted); font-size:.88rem; cursor:pointer;
+    transition:border-color .2s ease;
   }
-  .photo-dropzone:hover, .photo-dropzone.dragover{ border-color:var(--red); background:rgba(255,255,255,.7); }
+  .photo-dropzone:hover, .photo-dropzone.dragover{ border-color:var(--red); }
   .photo-dropzone input[type="file"]{ display:none; }
 
-  .photo-preview-grid{
-    display:grid; grid-template-columns:repeat(auto-fill, minmax(90px, 1fr)); gap:.6rem;
-    margin-top:.9rem;
-  }
+  .photo-preview-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(80px, 1fr)); gap:.5rem; margin-top:.8rem; }
   .photo-thumb{ position:relative; border-radius:10px; overflow:hidden; aspect-ratio:1/1; background:var(--paper); }
   .photo-thumb img{ width:100%; height:100%; object-fit:cover; display:block; }
   .photo-thumb .remove-photo{
-    position:absolute; top:4px; right:4px; width:22px; height:22px; border-radius:50%;
-    background:rgba(26,18,16,.75); color:var(--white); font-size:.8rem; line-height:1;
-    display:flex; align-items:center; justify-content:center;
+    position:absolute; top:4px; right:4px; width:20px; height:20px; border-radius:50%;
+    background:rgba(26,18,16,.75); color:var(--white); font-size:.75rem; line-height:1;
+    display:flex; align-items:center; justify-content:center; border:none;
   }
   .photo-thumb .remove-photo:hover{ background:var(--red); }
 
-  .photo-error{ font-size:.82rem; color:var(--red); display:none; margin-top:.3rem; }
+  .photo-error{ font-size:.8rem; color:var(--red); display:none; margin-top:.3rem; }
   .photo-error.show{ display:block; }
 
-  .submit-btn{ background:var(--ink); color:var(--white); padding:1rem 1.6rem; border-radius:100px; font-weight:600; font-size:1rem; margin-top:.6rem; transition:background .2s ease; }
-  .submit-btn:hover{ background:var(--red); }
+  .booking-group{ display:none; }
+  .booking-group.active{ display:block; }
+  .booking-hint{ font-size:.8rem; color:var(--muted); margin-bottom:1.2rem; line-height:1.5; }
+
+  /* ---------- Calendar ---------- */
+  .cal-header{ display:flex; align-items:center; justify-content:space-between; margin-bottom:.8rem; }
+  .cal-title{ font-weight:700; font-size:.95rem; }
+  .cal-nav{ display:flex; gap:.4rem; }
+  .cal-nav button{ width:30px; height:30px; border-radius:8px; background:var(--paper); display:flex; align-items:center; justify-content:center; }
+  .cal-nav button:hover{ background:rgba(196,30,58,.1); }
+
+  .cal-quick{ display:flex; gap:.6rem; margin-bottom:.9rem; }
+  .cal-quick button{ font-size:.78rem; font-weight:600; padding:.4rem .8rem; border-radius:100px; background:var(--paper); color:var(--ink); }
+  .cal-quick button:hover{ background:rgba(196,30,58,.1); }
+
+  .cal-grid{ display:grid; grid-template-columns:repeat(7, 1fr); gap:.3rem; }
+  .cal-dow{ font-size:.68rem; font-weight:700; color:var(--muted); text-align:center; padding:.3rem 0; }
+  .cal-day{
+    aspect-ratio:1/1; display:flex; align-items:center; justify-content:center;
+    border-radius:8px; font-size:.8rem; background:var(--paper); color:var(--ink);
+    cursor:pointer; border:1.5px solid transparent;
+  }
+  .cal-day:hover{ border-color:var(--red); }
+  .cal-day.selected{ background:#2E7D32; color:#fff; }
+  .cal-day.past{ opacity:.3; cursor:not-allowed; }
+  .cal-day.empty{ visibility:hidden; cursor:default; }
+
+  .cal-legend{ font-size:.76rem; color:var(--muted); margin-top:.7rem; }
+
+  .step-nav{ display:none; gap:.8rem; margin-top:1.4rem; }
+  .step-btn{
+    padding:.9rem 1.4rem; border-radius:100px; font-weight:600; font-size:.92rem;
+  }
+  .step-btn.next{ background:var(--ink); color:var(--white); flex:1; }
+  .step-btn.next:hover{ background:var(--red); }
+  .step-btn.back{ background:transparent; border:1.5px solid rgba(128,110,100,.3); color:var(--ink); }
+
+  .submit-row{ margin-top:1.6rem; }
+  .submit-btn{ background:var(--red); color:var(--white); padding:1.05rem 1.6rem; border-radius:100px; font-weight:600; font-size:1rem; width:100%; transition:background .2s ease; }
+  .submit-btn:hover{ background:var(--red-deep); }
   .submit-btn:disabled{ background:#c9c0bd; cursor:not-allowed; }
 
-  .form-note{ font-size:.85rem; color:#7a6b67; text-align:center; margin-top:.4rem; }
+  .form-note{ font-size:.83rem; color:var(--muted); text-align:center; margin-top:.6rem; }
 
-  .success-msg{ display:none; background:#F4EDE4; border:1px solid rgba(26,18,16,.1); border-radius:14px; padding:1.4rem 1.6rem; margin-top:1.6rem; font-size:.95rem; }
+  .success-msg{ display:none; background:var(--white); border:1px solid rgba(128,110,100,.15); border-radius:14px; padding:1.4rem 1.6rem; margin-top:1.6rem; font-size:.95rem; }
   .success-msg.show{ display:block; }
   .success-msg.error{ background:#FBE9E9; border-color:rgba(196,30,58,.3); color:var(--red-deep); }
   .success-msg a{ color:var(--red); font-weight:600; border-bottom:1.5px solid var(--red); }
 
-  .checking-msg{ text-align:center; padding:3rem 0; color:#7a6b67; }
+  @media (max-width:860px){
+    .cards-grid{ grid-template-columns:1fr; }
+    .form-card{ display:none; }
+    .form-card.active-mobile-step{ display:block; }
+    .step-nav{ display:flex; }
+    .card-2-submit-row{ display:block; }
+  }
+  @media (min-width:861px){
+    .step-nav{ display:none !important; }
+  }
 </style>
 </head>
 <body>
@@ -91,50 +170,165 @@
   <div id="listing-page" style="display:none;">
     <p class="eyebrow">List your space</p>
     <h1>Add a new listing.</h1>
-    <p class="sub">Fill in the details below. Your listing goes live once it's saved.</p>
+    <p class="sub">Fill in the space details and how it's booked. Your listing goes live once it's saved.</p>
 
     <form id="list-form">
-      <div class="field">
-        <label for="title">Title</label>
-        <input type="text" id="title" name="title" required placeholder="e.g. Cozy 2-bedroom Airbnb near campus">
-      </div>
+      <div class="cards-grid">
 
-      <div class="field">
-        <label for="category">Category</label>
-        <select id="category" name="category" required>
-          <option value="" disabled selected>Choose a category</option>
-          <option value="airbnb">Airbnb</option>
-          <option value="hotel">Hotel</option>
-          <option value="venue">Event ground / venue</option>
-          <option value="office">Office</option>
-          <option value="shop">Shop</option>
-          <option value="property">Property to let or buy</option>
-        </select>
-      </div>
+        <!-- CARD 1: Listing details -->
+        <div class="form-card active-mobile-step" id="card-listing">
+          <p class="card-heading">Listing details</p>
+          <p class="card-heading-sub">What it is, and what it looks like.</p>
 
-      <div class="field">
-        <label for="description">Description</label>
-        <textarea id="description" name="description" required placeholder="Describe the space — size, amenities, what makes it a good fit"></textarea>
-      </div>
+          <div class="field">
+            <label for="title">Title</label>
+            <input type="text" id="title" name="title" required placeholder="e.g. Cozy 2-bedroom Airbnb near campus">
+          </div>
 
-      <div class="field">
-        <label for="location_text">Location</label>
-        <input type="text" id="location_text" name="location_text" required placeholder="e.g. Kilimani, Nairobi">
-      </div>
+          <div class="field">
+            <label for="category">Category</label>
+            <select id="category" name="category" required>
+              <option value="" disabled selected>Choose a category</option>
+              <option value="airbnb">Airbnb</option>
+              <option value="hotel">Hotel</option>
+              <option value="venue">Event ground / venue</option>
+              <option value="office">Office</option>
+              <option value="shop">Shop</option>
+              <option value="property">Property to let or buy</option>
+            </select>
+          </div>
 
-      <div class="field">
-        <label for="photo-input">Photos</label>
-        <p class="photo-hint">Up to 6 photos, JPG/PNG/WEBP, 5MB max each. Optional, but listings with photos get noticed more.</p>
-        <label class="photo-dropzone" id="photo-dropzone" for="photo-input">
-          <span id="dropzone-text">Click to choose photos, or drag them here</span>
-          <input type="file" id="photo-input" accept="image/png,image/jpeg,image/webp" multiple>
-        </label>
-        <p class="photo-error" id="photo-error"></p>
-        <div class="photo-preview-grid" id="photo-preview"></div>
-      </div>
+          <div class="field">
+            <label for="description">Description</label>
+            <textarea id="description" name="description" required placeholder="Describe the space — amenities, what makes it a good fit"></textarea>
+          </div>
 
-      <button type="submit" class="submit-btn" id="submit-btn">Publish listing</button>
-      <p class="form-note">Location is GPS-verified before your listing goes fully live.</p>
+          <div class="field">
+            <label for="location_text">Location</label>
+            <input type="text" id="location_text" name="location_text" required placeholder="e.g. Kilimani, Nairobi">
+          </div>
+
+          <div class="field">
+            <label for="photo-input">Photos</label>
+            <p class="photo-hint">Up to 6 photos, JPG/PNG/WEBP, 5MB max each. Optional, but listings with photos get noticed more.</p>
+            <label class="photo-dropzone" id="photo-dropzone" for="photo-input">
+              <span id="dropzone-text">Click to choose photos, or drag them here</span>
+              <input type="file" id="photo-input" accept="image/png,image/jpeg,image/webp" multiple>
+            </label>
+            <p class="photo-error" id="photo-error"></p>
+            <div class="photo-preview-grid" id="photo-preview"></div>
+          </div>
+
+          <div class="step-nav">
+            <button type="button" class="step-btn next" id="next-btn">Next: Booking details →</button>
+          </div>
+        </div>
+
+        <!-- CARD 2: Booking details -->
+        <div class="form-card" id="card-booking">
+          <p class="card-heading">Booking details</p>
+          <p class="card-heading-sub" id="booking-heading-sub">Choose a category on the left to continue.</p>
+
+          <div class="field">
+            <label for="price-amount">Price (KES)</label>
+            <div class="field-row">
+              <input type="number" id="price-amount" name="price-amount" min="0" step="1" placeholder="e.g. 3500">
+              <select id="price-unit" name="price-unit"></select>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="size-or-type" id="size-label">Size / Type</label>
+            <input type="text" id="size-or-type" name="size-or-type" placeholder="e.g. 2 bedrooms">
+          </div>
+
+          <!-- Short-stay fields: Airbnb, Hotel, Event ground -->
+          <div class="booking-group" id="short-stay-fields">
+            <div class="field-row">
+              <div class="field">
+                <label for="max-guests">Max guests</label>
+                <input type="number" id="max-guests" min="1" placeholder="e.g. 4">
+              </div>
+              <div class="field">
+                <label for="min-stay">Min. stay (nights)</label>
+                <input type="number" id="min-stay" min="1" placeholder="e.g. 2">
+              </div>
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label for="checkin-time">Check-in time</label>
+                <input type="time" id="checkin-time">
+              </div>
+              <div class="field">
+                <label for="checkout-time">Check-out time</label>
+                <input type="time" id="checkout-time">
+              </div>
+            </div>
+            <div class="field">
+              <label for="cleaning-fee">Cleaning fee (KES, optional)</label>
+              <input type="number" id="cleaning-fee" min="0" placeholder="Leave blank if none">
+            </div>
+            <div class="field">
+              <label for="cancellation-policy">Cancellation policy</label>
+              <select id="cancellation-policy">
+                <option value="flexible">Flexible</option>
+                <option value="moderate" selected>Moderate</option>
+                <option value="strict">Strict</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label>Availability</label>
+              <p class="booking-hint">Tap dates to open them for booking. Clients will only be able to request dates you've opened here.</p>
+              <div class="cal-quick">
+                <button type="button" id="cal-open-30">Open next 30 days</button>
+                <button type="button" id="cal-clear">Clear all</button>
+              </div>
+              <div class="cal-header">
+                <div class="cal-title" id="cal-title"></div>
+                <div class="cal-nav">
+                  <button type="button" id="cal-prev" aria-label="Previous month">‹</button>
+                  <button type="button" id="cal-next" aria-label="Next month">›</button>
+                </div>
+              </div>
+              <div class="cal-grid" id="cal-grid"></div>
+              <p class="cal-legend">🟩 Open for booking &nbsp;·&nbsp; tap to toggle</p>
+            </div>
+          </div>
+
+          <!-- Long-term fields: Office, Shop, Property -->
+          <div class="booking-group" id="long-term-fields">
+            <div class="field">
+              <label for="available-from">Available from</label>
+              <input type="date" id="available-from">
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label for="min-lease">Min. lease (months)</label>
+                <input type="number" id="min-lease" min="1" placeholder="e.g. 6">
+              </div>
+              <div class="field">
+                <label for="deposit-amount">Deposit (KES, optional)</label>
+                <input type="number" id="deposit-amount" min="0" placeholder="Leave blank if none">
+              </div>
+            </div>
+            <div class="checkbox-row">
+              <input type="checkbox" id="utilities-included">
+              <label for="utilities-included">Utilities included in price</label>
+            </div>
+          </div>
+
+          <div class="step-nav">
+            <button type="button" class="step-btn back" id="back-btn">← Back</button>
+          </div>
+
+          <div class="submit-row">
+            <button type="submit" class="submit-btn" id="submit-btn">Publish listing</button>
+            <p class="form-note">Location is GPS-verified before your listing goes fully live.</p>
+          </div>
+        </div>
+
+      </div>
     </form>
 
     <div class="success-msg" id="success-msg"></div>
@@ -149,19 +343,11 @@
 
   (async function checkAuth(){
     const { data: { session } } = await supabaseClient.auth.getSession();
-
-    if (!session) {
-      window.location.href = 'login.html';
-      return;
-    }
-
+    if (!session) { window.location.href = 'login.html'; return; }
     currentUser = session.user;
 
     const { data: profile, error: profileError } = await supabaseClient
-      .from('profiles')
-      .select('role')
-      .eq('id', currentUser.id)
-      .single();
+      .from('profiles').select('role').eq('id', currentUser.id).single();
 
     if (profileError || !profile || profile.role !== 'host') {
       checkingAuth.textContent = 'Only host accounts can list a space. Redirecting...';
@@ -173,11 +359,128 @@
     listingPage.style.display = 'block';
   })();
 
+  // ---------- Category-driven booking fields ----------
+  const SHORT_STAY = ['airbnb', 'hotel', 'venue'];
+  const LONG_TERM = ['office', 'shop', 'property'];
+
+  const sizeLabels = {
+    airbnb: 'Size (e.g. 2 bedrooms)', hotel: 'Room size / type', venue: 'Capacity (e.g. seats 50)',
+    office: 'Size (e.g. 10 x 10m)', shop: 'Size (e.g. 10 x 10m)', property: 'Type (e.g. bedsitter, 1 bedroom)'
+  };
+  const sizePlaceholders = {
+    airbnb: 'e.g. 2 bedrooms, 1 bath', hotel: 'e.g. Deluxe double room', venue: 'e.g. Seats up to 50',
+    office: 'e.g. 10 x 10m, open plan', shop: 'e.g. 10 x 10m, street-facing', property: 'e.g. Bedsitter, 1 bedroom'
+  };
+
+  const priceUnitField = document.getElementById('price-unit');
+  const shortStayFields = document.getElementById('short-stay-fields');
+  const longTermFields = document.getElementById('long-term-fields');
+  const bookingSub = document.getElementById('booking-heading-sub');
+  const sizeLabel = document.getElementById('size-label');
+  const sizeInput = document.getElementById('size-or-type');
+
+  document.getElementById('category').addEventListener('change', function(e){
+    const cat = e.target.value;
+    sizeLabel.textContent = sizeLabels[cat] || 'Size / Type';
+    sizeInput.placeholder = sizePlaceholders[cat] || '';
+
+    if (SHORT_STAY.includes(cat)) {
+      priceUnitField.innerHTML = '<option value="hour">Per hour</option><option value="night" selected>Per night</option>';
+      shortStayFields.classList.add('active');
+      longTermFields.classList.remove('active');
+      bookingSub.textContent = 'Priced per night or hour, with real availability.';
+    } else if (LONG_TERM.includes(cat)) {
+      priceUnitField.innerHTML = '<option value="month" selected>Per month</option>';
+      longTermFields.classList.add('active');
+      shortStayFields.classList.remove('active');
+      bookingSub.textContent = 'Priced per month, for longer-term arrangements.';
+    }
+  });
+
+  // ---------- Mobile step navigation ----------
+  const cardListing = document.getElementById('card-listing');
+  const cardBooking = document.getElementById('card-booking');
+
+  document.getElementById('next-btn').addEventListener('click', function(){
+    const requiredFields = cardListing.querySelectorAll('[required]');
+    for (const field of requiredFields) {
+      if (!field.checkValidity()) { field.reportValidity(); return; }
+    }
+    cardListing.classList.remove('active-mobile-step');
+    cardBooking.classList.add('active-mobile-step');
+    window.scrollTo({ top:0, behavior:'smooth' });
+  });
+
+  document.getElementById('back-btn').addEventListener('click', function(){
+    cardBooking.classList.remove('active-mobile-step');
+    cardListing.classList.add('active-mobile-step');
+    window.scrollTo({ top:0, behavior:'smooth' });
+  });
+
+  // ---------- Availability calendar ----------
+  let calMonth = new Date().getMonth();
+  let calYear = new Date().getFullYear();
+  const openDates = new Set(); // 'YYYY-MM-DD' strings
+
+  function fmtDate(y, m, d){
+    return y + '-' + String(m + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+  }
+
+  function renderCalendar(){
+    const grid = document.getElementById('cal-grid');
+    const title = document.getElementById('cal-title');
+    const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    title.textContent = monthNames[calMonth] + ' ' + calYear;
+
+    const firstDay = new Date(calYear, calMonth, 1).getDay();
+    const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+    const today = new Date(); today.setHours(0,0,0,0);
+
+    let html = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(function(d){ return '<div class="cal-dow">' + d + '</div>'; }).join('');
+    for (let i = 0; i < firstDay; i++) html += '<div class="cal-day empty"></div>';
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = fmtDate(calYear, calMonth, d);
+      const cellDate = new Date(calYear, calMonth, d);
+      const isPast = cellDate < today;
+      const isSelected = openDates.has(dateStr);
+      html += '<div class="cal-day' + (isPast ? ' past' : '') + (isSelected ? ' selected' : '') + '" data-date="' + dateStr + '">' + d + '</div>';
+    }
+    grid.innerHTML = html;
+
+    grid.querySelectorAll('.cal-day:not(.empty):not(.past)').forEach(function(cell){
+      cell.addEventListener('click', function(){
+        const dateStr = cell.getAttribute('data-date');
+        if (openDates.has(dateStr)) { openDates.delete(dateStr); cell.classList.remove('selected'); }
+        else { openDates.add(dateStr); cell.classList.add('selected'); }
+      });
+    });
+  }
+
+  document.getElementById('cal-prev').addEventListener('click', function(){
+    calMonth--; if (calMonth < 0) { calMonth = 11; calYear--; } renderCalendar();
+  });
+  document.getElementById('cal-next').addEventListener('click', function(){
+    calMonth++; if (calMonth > 11) { calMonth = 0; calYear++; } renderCalendar();
+  });
+  document.getElementById('cal-open-30').addEventListener('click', function(){
+    const today = new Date();
+    for (let i = 0; i < 30; i++) {
+      const d = new Date(today); d.setDate(today.getDate() + i);
+      openDates.add(fmtDate(d.getFullYear(), d.getMonth(), d.getDate()));
+    }
+    renderCalendar();
+  });
+  document.getElementById('cal-clear').addEventListener('click', function(){
+    openDates.clear();
+    renderCalendar();
+  });
+  renderCalendar();
+
   // ---------- Photo selection, preview, validation ----------
   const MAX_PHOTOS = 6;
   const MAX_SIZE_BYTES = 5 * 1024 * 1024;
   const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
-
   let selectedFiles = [];
 
   const photoInput = document.getElementById('photo-input');
@@ -186,39 +489,19 @@
   const photoError = document.getElementById('photo-error');
   const dropzoneText = document.getElementById('dropzone-text');
 
-  function showPhotoError(msg){
-    photoError.textContent = msg;
-    photoError.classList.add('show');
-  }
-  function clearPhotoError(){
-    photoError.classList.remove('show');
-  }
+  function showPhotoError(msg){ photoError.textContent = msg; photoError.classList.add('show'); }
+  function clearPhotoError(){ photoError.classList.remove('show'); }
 
   function addFiles(fileList){
     clearPhotoError();
     const incoming = Array.from(fileList);
-
     for (const file of incoming) {
-      if (selectedFiles.length >= MAX_PHOTOS) {
-        showPhotoError('You can add up to ' + MAX_PHOTOS + ' photos.');
-        break;
-      }
-      if (!ALLOWED_TYPES.includes(file.type)) {
-        showPhotoError('"' + file.name + '" isn\'t a supported image type — use JPG, PNG, or WEBP.');
-        continue;
-      }
-      if (file.size > MAX_SIZE_BYTES) {
-        showPhotoError('"' + file.name + '" is over 5MB — pick a smaller file.');
-        continue;
-      }
-      const isDuplicate = selectedFiles.some(function(f){
-        return f.name === file.name && f.size === file.size;
-      });
-      if (isDuplicate) continue;
-
+      if (selectedFiles.length >= MAX_PHOTOS) { showPhotoError('You can add up to ' + MAX_PHOTOS + ' photos.'); break; }
+      if (!ALLOWED_TYPES.includes(file.type)) { showPhotoError('"' + file.name + '" isn\'t a supported image type.'); continue; }
+      if (file.size > MAX_SIZE_BYTES) { showPhotoError('"' + file.name + '" is over 5MB.'); continue; }
+      if (selectedFiles.some(function(f){ return f.name === file.name && f.size === file.size; })) continue;
       selectedFiles.push(file);
     }
-
     renderPreviews();
   }
 
@@ -227,7 +510,6 @@
     dropzoneText.textContent = selectedFiles.length === 0
       ? 'Click to choose photos, or drag them here'
       : selectedFiles.length + ' of ' + MAX_PHOTOS + ' photos selected — click to add more';
-
     selectedFiles.forEach(function(file, index){
       const url = URL.createObjectURL(file);
       const thumb = document.createElement('div');
@@ -236,40 +518,23 @@
         '<button type="button" class="remove-photo" data-index="' + index + '" aria-label="Remove photo">&times;</button>';
       photoPreview.appendChild(thumb);
     });
-
     photoPreview.querySelectorAll('.remove-photo').forEach(function(btn){
       btn.addEventListener('click', function(){
-        const idx = parseInt(btn.getAttribute('data-index'), 10);
-        selectedFiles.splice(idx, 1);
+        selectedFiles.splice(parseInt(btn.getAttribute('data-index'), 10), 1);
         clearPhotoError();
         renderPreviews();
       });
     });
   }
 
-  photoInput.addEventListener('change', function(){
-    addFiles(photoInput.files);
-    photoInput.value = ''; // allow re-selecting the same file later if removed
-  });
+  photoInput.addEventListener('change', function(){ addFiles(photoInput.files); photoInput.value = ''; });
+  photoDropzone.addEventListener('dragover', function(e){ e.preventDefault(); photoDropzone.classList.add('dragover'); });
+  photoDropzone.addEventListener('dragleave', function(){ photoDropzone.classList.remove('dragover'); });
+  photoDropzone.addEventListener('drop', function(e){ e.preventDefault(); photoDropzone.classList.remove('dragover'); addFiles(e.dataTransfer.files); });
 
-  photoDropzone.addEventListener('dragover', function(e){
-    e.preventDefault();
-    photoDropzone.classList.add('dragover');
-  });
-  photoDropzone.addEventListener('dragleave', function(){
-    photoDropzone.classList.remove('dragover');
-  });
-  photoDropzone.addEventListener('drop', function(e){
-    e.preventDefault();
-    photoDropzone.classList.remove('dragover');
-    addFiles(e.dataTransfer.files);
-  });
+  function sanitizeFilename(name){ return name.replace(/[^a-zA-Z0-9.\-_]/g, '_'); }
 
-  // ---------- Form submit: create listing, then upload photos ----------
-  function sanitizeFilename(name){
-    return name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
-  }
-
+  // ---------- Submit ----------
   document.getElementById('list-form').addEventListener('submit', async function(e){
     e.preventDefault();
 
@@ -277,87 +542,90 @@
     const category = document.getElementById('category').value;
     const description = document.getElementById('description').value;
     const locationText = document.getElementById('location_text').value;
+    const priceAmount = document.getElementById('price-amount').value;
     const successMsg = document.getElementById('success-msg');
     const submitBtn = document.getElementById('submit-btn');
+
+    if (!category) { alert('Please choose a category.'); return; }
+    if (!priceAmount) { document.getElementById('price-amount').focus(); return; }
 
     submitBtn.disabled = true;
     submitBtn.textContent = 'Publishing...';
 
     const { data, error } = await supabaseClient
       .from('listings')
-      .insert({
-        host_id: currentUser.id,
-        title: title,
-        category: category,
-        description: description,
-        location_text: locationText,
-        verified: false
-      })
-      .select()
-      .single();
+      .insert({ host_id: currentUser.id, title, category, description, location_text: locationText, verified: false })
+      .select().single();
 
     if (error) {
       successMsg.textContent = 'Something went wrong: ' + error.message;
       successMsg.classList.add('show', 'error');
       successMsg.scrollIntoView({ behavior:'smooth', block:'center' });
-      submitBtn.disabled = false;
-      submitBtn.textContent = 'Publish listing';
+      submitBtn.disabled = false; submitBtn.textContent = 'Publish listing';
       return;
     }
 
     const listingId = data.id;
-    let uploadedCount = 0;
-    let failedCount = 0;
 
+    // ---------- Booking details ----------
+    const bookingDetails = {
+      listing_id: listingId,
+      price_amount: parseFloat(priceAmount),
+      price_unit: document.getElementById('price-unit').value,
+      size_or_type: sizeInput.value || null
+    };
+
+    if (SHORT_STAY.includes(category)) {
+      bookingDetails.max_guests = document.getElementById('max-guests').value ? parseInt(document.getElementById('max-guests').value, 10) : null;
+      bookingDetails.min_stay_nights = document.getElementById('min-stay').value ? parseInt(document.getElementById('min-stay').value, 10) : null;
+      bookingDetails.checkin_time = document.getElementById('checkin-time').value || null;
+      bookingDetails.checkout_time = document.getElementById('checkout-time').value || null;
+      bookingDetails.cleaning_fee = document.getElementById('cleaning-fee').value ? parseFloat(document.getElementById('cleaning-fee').value) : null;
+      bookingDetails.cancellation_policy = document.getElementById('cancellation-policy').value;
+    } else {
+      bookingDetails.available_from = document.getElementById('available-from').value || null;
+      bookingDetails.min_lease_months = document.getElementById('min-lease').value ? parseInt(document.getElementById('min-lease').value, 10) : null;
+      bookingDetails.deposit_amount = document.getElementById('deposit-amount').value ? parseFloat(document.getElementById('deposit-amount').value) : null;
+      bookingDetails.utilities_included = document.getElementById('utilities-included').checked;
+    }
+
+    await supabaseClient.from('listing_booking_details').insert(bookingDetails);
+
+    // ---------- Availability (short-stay only) ----------
+    if (SHORT_STAY.includes(category) && openDates.size > 0) {
+      const rows = Array.from(openDates).map(function(d){ return { listing_id: listingId, date: d }; });
+      await supabaseClient.from('availability').insert(rows);
+    }
+
+    // ---------- Photos ----------
+    let uploadedCount = 0, failedCount = 0;
     if (selectedFiles.length > 0) {
       for (let i = 0; i < selectedFiles.length; i++) {
         const file = selectedFiles[i];
         submitBtn.textContent = 'Uploading photo ' + (i + 1) + ' of ' + selectedFiles.length + '...';
-
         const path = currentUser.id + '/' + listingId + '/' + Date.now() + '_' + i + '_' + sanitizeFilename(file.name);
-
-        const { error: uploadError } = await supabaseClient
-          .storage
-          .from('listing-photos')
-          .upload(path, file, { upsert: false });
-
-        if (uploadError) {
-          failedCount++;
-          continue;
-        }
-
-        const { error: photoRowError } = await supabaseClient
-          .from('listing_photos')
-          .insert({ listing_id: listingId, storage_path: path });
-
-        if (photoRowError) {
-          failedCount++;
-        } else {
-          uploadedCount++;
-        }
+        const { error: uploadError } = await supabaseClient.storage.from('listing-photos').upload(path, file, { upsert: false });
+        if (uploadError) { failedCount++; continue; }
+        const { error: photoRowError } = await supabaseClient.from('listing_photos').insert({ listing_id: listingId, storage_path: path });
+        if (photoRowError) failedCount++; else uploadedCount++;
       }
     }
 
     successMsg.classList.remove('error');
     let message = 'Listing published! It\'s pending location verification before it shows to clients.';
     if (selectedFiles.length > 0) {
-      if (failedCount === 0) {
-        message += ' All ' + uploadedCount + ' photo' + (uploadedCount === 1 ? '' : 's') + ' uploaded successfully.';
-      } else if (uploadedCount > 0) {
-        message += ' ' + uploadedCount + ' of ' + selectedFiles.length + ' photos uploaded — ' + failedCount + ' failed. You can try adding them again from a future edit screen once that\'s built.';
-      } else {
-        message += ' Your photos didn\'t upload — the listing is still live without them for now.';
-      }
+      if (failedCount === 0) message += ' All ' + uploadedCount + ' photo' + (uploadedCount === 1 ? '' : 's') + ' uploaded successfully.';
+      else if (uploadedCount > 0) message += ' ' + uploadedCount + ' of ' + selectedFiles.length + ' photos uploaded — ' + failedCount + ' failed.';
+      else message += ' Your photos didn\'t upload — the listing is still live without them for now.';
     }
     successMsg.textContent = message;
     successMsg.classList.add('show');
     successMsg.scrollIntoView({ behavior:'smooth', block:'center' });
 
     document.getElementById('list-form').reset();
-    selectedFiles = [];
-    renderPreviews();
-    submitBtn.disabled = false;
-    submitBtn.textContent = 'Publish listing';
+    selectedFiles = []; renderPreviews();
+    openDates.clear(); renderCalendar();
+    submitBtn.disabled = false; submitBtn.textContent = 'Publish listing';
   });
 </script>
 
