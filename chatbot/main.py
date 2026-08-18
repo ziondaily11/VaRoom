@@ -6,12 +6,13 @@ server/. Hosts two related but independent features:
 
 - POST /reply       - host-side assistant, auto-replies to a client
                        inquiry using whatever listing context is passed
-                       in. Does NOT touch Supabase or check premium
-                       status yet (see README for why).
-- POST /elie/search  - "Elie", the client-side search assistant. Takes a
-                       natural-language request, searches real listings
-                       in Supabase, and returns matches. Gated to clients
-                       with profiles.elie_premium = true.
+                       in.
+- POST /elie/search  - "Elie", the client-side search assistant. Handles
+                       both ordinary conversation (greetings, "what can
+                       you do") and real listing searches. Search results
+                       come back as structured data (not a flat string),
+                       so the frontend can render them as real cards,
+                       grouped by host, with actual booking links.
 
 Both use Google's Gemini API (free tier). Elie additionally needs real
 (read-only, service-role) Supabase access to search listings and check
@@ -25,7 +26,7 @@ import httpx
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -44,27 +45,24 @@ SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 VALID_CATEGORIES = {"airbnb", "hotel", "venue", "office", "shop", "property"}
 
 CATEGORY_KEYWORDS = {
-    "airbnb": "airbnb",
-    "airbnbs": "airbnb",
-    "hotel": "hotel",
-    "hotels": "hotel",
-    "venue": "venue",
-    "venues": "venue",
-    "event": "venue",
-    "wedding": "venue",
-    "office": "office",
-    "offices": "office",
-    "shop": "shop",
-    "shops": "shop",
-    "property": "property",
-    "land": "property",
-    "house": "property",
+    "airbnb": "airbnb", "airbnbs": "airbnb",
+    "hotel": "hotel", "hotels": "hotel",
+    "venue": "venue", "venues": "venue", "event": "venue", "wedding": "venue",
+    "office": "office", "offices": "office",
+    "shop": "shop", "shops": "shop",
+    "property": "property", "land": "property", "house": "property",
+}
+
+GREETING_WORDS = {
+    "hi", "hey", "hello", "hiya", "yo", "sup", "howdy",
+    "hey elie", "hi elie", "hello elie", "morning", "good morning",
+    "good afternoon", "good evening", "thanks", "thank you", "ok", "okay",
 }
 
 app = FastAPI(
     title="VaRoom Chatbot Service",
     description="Standalone microservice for the host reply assistant and Elie, the client search assistant.",
-    version="0.3.2",
+    version="0.4.0",
 )
 
 app.add_middleware(
@@ -94,6 +92,10 @@ async def call_gemini(prompt: str) -> Optional[str]:
     except Exception:
         return None
 
+
+# ============================================================
+# /reply -- host-side assistant (unchanged)
+# ============================================================
 
 class ReplyRequest(BaseModel):
     message: str
@@ -129,12 +131,10 @@ async def generate_ai_reply(payload: ReplyRequest) -> Optional[str]:
 
     prompt = (
         "You are a helpful assistant replying on behalf of a host on VaRoom, "
-        "a hospitality marketplace (Airbnbs, hotels, event venues, offices, "
-        "shops, and property listings). A prospective client sent this message "
-        "about a listing. Write a short, friendly, helpful reply (2-4 sentences) "
-        "as if you were the host. Do not invent specific facts (like exact price "
-        "or availability dates) that weren't given to you — if you don't know "
-        "something, say the host will confirm shortly.\n\n"
+        "a hospitality marketplace. A prospective client sent this message "
+        "about a listing. Write a short, friendly reply (2-4 sentences) as "
+        "if you were the host. Do not invent specific facts you weren't "
+        "given.\n\n"
         f"{context_block}\n\n"
         f"Client's message: {payload.message}"
     )
@@ -147,18 +147,38 @@ async def reply(payload: ReplyRequest):
     return ReplyResponse(reply=ai_reply or canned_reply(payload))
 
 
+# ============================================================
+# Elie -- client-side search assistant
+# ============================================================
+
 class ElieSearchRequest(BaseModel):
     message: str
 
 
+class ElieHost(BaseModel):
+    id: Optional[str] = None
+    full_name: Optional[str] = None
+    username: Optional[str] = None
+    verified: Optional[bool] = False
+
+
+class ElieListing(BaseModel):
+    id: str
+    title: str
+    location_text: Optional[str] = None
+    category: Optional[str] = None
+    verified: Optional[bool] = False
+    host: Optional[ElieHost] = None
+
+
 class ElieSearchResponse(BaseModel):
     reply: str
+    listings: Optional[List[ElieListing]] = None
 
 
 async def verify_supabase_user(access_token: str) -> Optional[dict]:
     if not SUPABASE_URL or not SUPABASE_ANON_KEY:
         return None
-
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.get(
@@ -178,15 +198,11 @@ async def verify_supabase_user(access_token: str) -> Optional[dict]:
 async def get_profile(user_id: str) -> Optional[dict]:
     if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
         return None
-
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.get(
                 f"{SUPABASE_URL}/rest/v1/profiles",
-                params={
-                    "id": f"eq.{user_id}",
-                    "select": "role,elie_premium,city,full_name",
-                },
+                params={"id": f"eq.{user_id}", "select": "role,elie_premium,city,full_name"},
                 headers={
                     "apikey": SUPABASE_SERVICE_ROLE_KEY,
                     "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
@@ -200,8 +216,6 @@ async def get_profile(user_id: str) -> Optional[dict]:
 
 
 def extract_first_json_object(text: str) -> Optional[dict]:
-    """Pulls the first {...} JSON object out of Gemini's response, no
-    matter what text (markdown fences, a preamble sentence) surrounds it."""
     match = re.search(r"\{.*\}", text, re.DOTALL)
     if not match:
         return None
@@ -211,16 +225,72 @@ def extract_first_json_object(text: str) -> Optional[dict]:
         return None
 
 
-def keyword_fallback_intent(message: str) -> dict:
-    """Used only if Gemini's call fails entirely or returns nothing
-    parseable — a simple keyword match instead of no filtering at all."""
-    lower = message.lower()
-    category = None
-    for keyword, value in CATEGORY_KEYWORDS.items():
-        if keyword in lower:
-            category = value
-            break
+def is_probably_greeting(message: str) -> bool:
+    """Cheap, reliable check used as a first pass before ever calling
+    Gemini — catches the most common case (a plain greeting) instantly
+    and for free, and acts as a safety net if the AI classification call
+    below fails entirely."""
+    cleaned = message.strip().lower().strip("!.? ")
+    if cleaned in GREETING_WORDS:
+        return True
+    # Very short messages with no digits and none of the category words
+    # are almost never real search requests.
+    if len(cleaned) <= 20 and not any(k in cleaned for k in CATEGORY_KEYWORDS):
+        words = cleaned.split()
+        if len(words) <= 3:
+            return True
+    return False
 
+
+async def classify_message(message: str) -> dict:
+    """
+    Single Gemini call that both classifies the message AND extracts
+    search filters when relevant — keeps this to one AI call instead of
+    two. Returns:
+      {"intent": "chat", "chat_reply": "..."}                    or
+      {"intent": "search", "category": ..., "location": ...}
+    """
+    if is_probably_greeting(message):
+        return {
+            "intent": "chat",
+            "chat_reply": (
+                "Hey! I'm Elie — I can help you find a place on VaRoom. "
+                "Try something like \"Airbnbs in Nairobi\" or \"event venues in Nakuru\"."
+            ),
+        }
+
+    prompt = (
+        "You are Elie, a friendly search assistant on VaRoom, a hospitality "
+        "marketplace (Airbnbs, hotels, event venues, offices, shops, and "
+        "property listings). Decide whether this message is (a) general "
+        "conversation — a greeting, thanks, or a question about what you "
+        "can do — or (b) an actual request to search for a place.\n\n"
+        "Respond with ONLY a JSON object, nothing else, in exactly one of "
+        "these two shapes:\n"
+        'If general conversation: {"intent": "chat", "chat_reply": a short, '
+        'warm, helpful reply (1-3 sentences), as Elie}\n'
+        'If a search request: {"intent": "search", "category": one of '
+        '["airbnb","hotel","venue","office","shop","property"] or null, '
+        '"location": the single city or area name only, or null}\n\n'
+        f"Message: {message}"
+    )
+
+    raw = await call_gemini(prompt)
+    parsed = extract_first_json_object(raw) if raw else None
+
+    if parsed and parsed.get("intent") == "chat" and parsed.get("chat_reply"):
+        return {"intent": "chat", "chat_reply": parsed["chat_reply"]}
+
+    if parsed and parsed.get("intent") == "search":
+        category = parsed.get("category")
+        if category not in VALID_CATEGORIES:
+            category = None
+        return {"intent": "search", "category": category, "location": parsed.get("location")}
+
+    # Gemini failed or returned something unparseable — fall back to the
+    # simple keyword search we had before, treating it as a search intent.
+    lower = message.lower()
+    category = next((v for k, v in CATEGORY_KEYWORDS.items() if k in lower), None)
     words = message.split()
     location = None
     for i, word in enumerate(words):
@@ -228,43 +298,10 @@ def keyword_fallback_intent(message: str) -> dict:
         if i > 0 and cleaned_word[:1].isupper() and cleaned_word.lower() not in CATEGORY_KEYWORDS:
             location = cleaned_word
             break
-
-    return {"category": category, "location": location}
-
-
-async def extract_search_intent(message: str) -> dict:
-    prompt = (
-        "Extract search filters from this message about finding a place "
-        "on VaRoom, a hospitality marketplace. Respond with ONLY a JSON "
-        "object and nothing else — no explanation, no markdown formatting, "
-        "no preamble — in exactly this shape:\n"
-        '{"category": one of ["airbnb","hotel","venue","office","shop","property"] or null, '
-        '"location": the single city or area name only (e.g. "Nairobi", not '
-        '"Nairobi, Kenya" or a full address), as a string, or null}\n\n'
-        f"Message: {message}"
-    )
-
-    raw = await call_gemini(prompt)
-    parsed = extract_first_json_object(raw) if raw else None
-
-    if parsed is not None:
-        category = parsed.get("category")
-        if category not in VALID_CATEGORIES:
-            category = None
-        return {"category": category, "location": parsed.get("location")}
-
-    return keyword_fallback_intent(message)
+    return {"intent": "search", "category": category, "location": location}
 
 
 def build_word_or_filter(text: str, field: str) -> Optional[str]:
-    """
-    Builds a PostgREST OR filter matching ANY significant word in `text`
-    against `field`. Word-based rather than a single exact-substring match:
-    a location like "Nairobi, Kenya" extracted by Gemini should still
-    correctly match a listing stored as "Kilimani, Nairobi", since they
-    share the word "Nairobi". A single strict substring match would miss
-    that entirely and under-return valid results.
-    """
     words = [w.strip(",.") for w in text.split() if len(w.strip(",.")) > 2]
     if not words:
         return None
@@ -274,27 +311,22 @@ def build_word_or_filter(text: str, field: str) -> Optional[str]:
 
 async def search_listings(category: Optional[str], location: Optional[str], raw_message: str) -> list:
     """
-    Searches real listings in Supabase, read-only, limited to 5 results,
-    GPS-verified listings surfaced first. category (when present) is a
-    strict, exact match. location (when present) uses word-based OR
-    matching, not a single exact-substring match, so slightly different
-    phrasing doesn't cause valid matches to be missed. If NEITHER category
-    nor location could be determined at all, falls back to a broad keyword
-    search using the raw message instead of an unfiltered "return
-    everything" query.
+    Searches real listings, GPS-verified first, including each listing's
+    host (name, username, verified) so results can be grouped and linked
+    properly on the frontend. Returns raw dicts (not the pydantic model)
+    since some rows may need light reshaping before validation.
     """
     if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
         return []
 
     params = {
-        "select": "id,title,description,category,location_text,verified,host_id",
+        "select": "id,title,description,category,location_text,verified,host_id,host:profiles(full_name,username,verified)",
         "order": "verified.desc",
-        "limit": "5",
+        "limit": "8",
     }
 
     if category:
         params["category"] = f"eq.{category}"
-
     if location:
         location_filter = build_word_or_filter(location, "location_text")
         if location_filter:
@@ -326,35 +358,6 @@ async def search_listings(category: Optional[str], location: Optional[str], raw_
         return []
 
 
-def format_results_reply(listings: list, original_message: str, category: Optional[str], location: Optional[str]) -> str:
-    if not listings:
-        return (
-            "I couldn't find any listings matching that right now — "
-            "try broadening your search, or check back soon as more spaces get listed."
-        )
-
-    lines = [f"Here's what I found for \"{original_message}\":\n"]
-    for listing in listings:
-        title = listing.get("title", "Untitled listing")
-        loc = listing.get("location_text", "location not specified")
-        verified = listing.get("verified", False)
-        badge = " (GPS-verified)" if verified else ""
-        lines.append(f"• {title} — {loc}{badge}")
-
-    if not category and not location:
-        lines.append(
-            "\n(I couldn't pin down an exact category or location from your message, "
-            "so these are broader matches — try being more specific, e.g. "
-            "\"Airbnbs in Nairobi\", for tighter results.)"
-        )
-
-    lines.append(
-        "\nPrice and availability aren't tracked on VaRoom yet, so I can't "
-        "confirm those — you'd need to message the host directly for that."
-    )
-    return "\n".join(lines)
-
-
 @app.post("/elie/search", response_model=ElieSearchResponse)
 async def elie_search(payload: ElieSearchRequest, authorization: Optional[str] = Header(None)):
     if not authorization or not authorization.lower().startswith("bearer "):
@@ -377,12 +380,29 @@ async def elie_search(payload: ElieSearchRequest, authorization: Optional[str] =
             reply="Elie is a premium feature — upgrade your VaRoom account to search with Elie."
         )
 
-    intent = await extract_search_intent(payload.message)
-    category = intent.get("category")
-    location = intent.get("location")
+    classification = await classify_message(payload.message)
 
-    listings = await search_listings(category, location, payload.message)
-    return ElieSearchResponse(reply=format_results_reply(listings, payload.message, category, location))
+    if classification["intent"] == "chat":
+        return ElieSearchResponse(reply=classification["chat_reply"], listings=None)
+
+    category = classification.get("category")
+    location = classification.get("location")
+    raw_listings = await search_listings(category, location, payload.message)
+
+    if not raw_listings:
+        return ElieSearchResponse(
+            reply=(
+                "I couldn't find any listings matching that right now — "
+                "try broadening your search, or check back soon as more spaces get listed."
+            ),
+            listings=None,
+        )
+
+    intro = f"Here's what I found for \"{payload.message}\":"
+    if not category and not location:
+        intro += " (I couldn't pin down an exact category or location, so these are broader matches.)"
+
+    return ElieSearchResponse(reply=intro, listings=raw_listings)
 
 
 @app.get("/health")
