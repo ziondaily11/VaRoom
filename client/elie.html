@@ -297,7 +297,7 @@
       );
     }
 
-    function addElieResults(replyText, listings, filters, originalQuery){
+    function addElieResults(replyText, listings, filters, originalQuery, suggestion){
       addElieTextMessage(replyText);
 
       const filterBarHtml = buildFilterBar(filters, originalQuery);
@@ -382,6 +382,10 @@
 
       chatArea.appendChild(wrap);
       chatArea.scrollTop = chatArea.scrollHeight;
+
+      if (suggestion) {
+        addElieTextMessage(suggestion);
+      }
     }
 
     async function sendToElie(message){
@@ -415,7 +419,7 @@
         }
 
         if (data.listings && data.listings.length > 0) {
-          addElieResults(data.reply, data.listings, data.filters, message);
+          addElieResults(data.reply, data.listings, data.filters, message, data.suggestion);
         } else {
           addElieTextMessage(data.reply);
         }

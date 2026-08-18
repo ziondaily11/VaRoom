@@ -23,6 +23,7 @@ premium status.
 import os
 import re
 import json
+import random
 import httpx
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -63,6 +64,40 @@ GREETING_WORDS = {
     "hey elie", "hi elie", "hello elie", "morning", "good morning",
     "good afternoon", "good evening", "thanks", "thank you", "ok", "okay",
 }
+
+FAREWELL_WORDS = {
+    "bye", "goodbye", "good bye", "see you", "see ya", "later",
+    "cya", "farewell", "night", "good night",
+}
+
+# Varied first-contact replies so Elie doesn't sound like a canned bot
+# repeating itself every time. Picked at random on greetings.
+GREETING_REPLIES = [
+    "Hey! I'm Elie — tell me what kind of space you're after and I'll dig through VaRoom for you.",
+    "Hi there! Looking for a place to stay, host an event, or set up shop? Just describe it and I'll get searching.",
+    "Hey, good to see you. Give me a location or vibe you're after — \"Airbnbs in Nairobi\", \"venues in Nakuru\" — and I'll take it from there.",
+    "Hello! I'm Elie, your VaRoom search buddy. What are you hunting for today?",
+    "Hey! No need to scroll and filter — just tell me what you need and where, and I'll bring back real listings.",
+    "Hi! Ready when you are — describe the space you want and I'll go find it.",
+]
+
+FAREWELL_REPLIES = [
+    "Bye for now — come find me whenever you're ready to search again.",
+    "Take care! I'll be here when you need to find another space.",
+    "See you around — good luck with the search!",
+    "Later! Ping me anytime you want to look for something new.",
+    "Bye! Hope you find exactly what you're looking for.",
+]
+
+# Follow-up nudges shown after a successful search, so results don't just
+# end abruptly — varied on purpose.
+SEARCH_FOLLOWUPS = [
+    "Want me to narrow this down by price or number of guests?",
+    "If none of these quite fit, tell me what to change and I'll try again.",
+    "Say the word if you want me to check a different area too.",
+    "I can filter further — just tell me what's off about these.",
+    "Let me know if you'd like something bigger, cheaper, or closer to town.",
+]
 
 app = FastAPI(
     title="VaRoom Chatbot Service",
@@ -196,6 +231,7 @@ class ElieSearchResponse(BaseModel):
     reply: str
     listings: Optional[List[ElieListing]] = None
     filters: Optional[ElieFilters] = None
+    suggestion: Optional[str] = None
 
 
 async def verify_supabase_user(access_token: str) -> Optional[dict]:
@@ -264,6 +300,14 @@ def is_probably_greeting(message: str) -> bool:
     return False
 
 
+def is_probably_farewell(message: str) -> bool:
+    """Same idea as is_probably_greeting, but for sign-offs — checked
+    first so 'good bye elie' etc. gets a farewell reply, not a generic
+    greeting reply."""
+    cleaned = message.strip().lower().strip("!.? ")
+    return any(word in cleaned for word in FAREWELL_WORDS)
+
+
 def extract_price(text: str) -> Optional[float]:
     """Best-effort price extraction for the non-Gemini fallback path.
     Handles '2k', 'ksh 6000', 'under 6,000', plain 4-7 digit numbers."""
@@ -302,14 +346,11 @@ async def classify_message(message: str) -> dict:
       {"intent": "search", "category": ..., "location": ...,
        "max_price": ..., "guests": ...}
     """
+    if is_probably_farewell(message):
+        return {"intent": "chat", "chat_reply": random.choice(FAREWELL_REPLIES)}
+
     if is_probably_greeting(message):
-        return {
-            "intent": "chat",
-            "chat_reply": (
-                "Hey! I'm Elie — I can help you find a place on VaRoom. "
-                "Try something like \"Airbnbs in Nairobi\" or \"event venues in Nakuru\"."
-            ),
-        }
+        return {"intent": "chat", "chat_reply": random.choice(GREETING_REPLIES)}
 
     prompt = (
         "You are Elie, a friendly search assistant on VaRoom, a hospitality "
@@ -320,7 +361,9 @@ async def classify_message(message: str) -> dict:
         "Respond with ONLY a JSON object, nothing else, in exactly one of "
         "these two shapes:\n"
         'If general conversation: {"intent": "chat", "chat_reply": a short, '
-        'warm, helpful reply (1-3 sentences), as Elie}\n'
+        'warm reply (1-3 sentences), as Elie — write like a real person '
+        'texting, casual and varied, never stiff or repetitive, no corporate '
+        'phrasing}\n'
         'If a search request: {"intent": "search", "category": one of '
         '["airbnb","hotel","venue","office","shop","property"] or null, '
         '"location": the single city or area name only, or null, '
@@ -529,7 +572,12 @@ async def elie_search(payload: ElieSearchRequest, authorization: Optional[str] =
     if not category and not location and not max_price and not guests:
         intro += " (I couldn't pin down exact filters, so these are broader matches.)"
 
-    return ElieSearchResponse(reply=intro, listings=raw_listings, filters=filters)
+    return ElieSearchResponse(
+        reply=intro,
+        listings=raw_listings,
+        filters=filters,
+        suggestion=random.choice(SEARCH_FOLLOWUPS),
+    )
 
 
 @app.get("/health")
