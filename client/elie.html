@@ -112,10 +112,20 @@
     padding:.8rem 1rem; border-top:1px solid rgba(26,18,16,.05);
   }
   .listing-row:first-of-type{ border-top:none; }
+  .listing-photo{
+    width:56px; height:56px; border-radius:10px; object-fit:cover; flex-shrink:0;
+    background:var(--paper); border:1px solid rgba(26,18,16,.06);
+  }
+  .listing-photo.placeholder{
+    display:flex; align-items:center; justify-content:center;
+    color:var(--muted); font-size:1.1rem;
+  }
   .listing-info{ flex:1; min-width:0; }
   .listing-title{ font-weight:600; font-size:.87rem; margin-bottom:.15rem; }
   .listing-meta{ font-size:.78rem; color:var(--muted); display:flex; align-items:center; gap:.4rem; flex-wrap:wrap; }
   .listing-verified{ color:var(--red); }
+  .listing-price{ font-weight:700; font-size:.85rem; color:var(--ink); margin-top:.2rem; }
+  .listing-price span{ font-weight:500; color:var(--muted); font-size:.75rem; }
 
   .book-link{
     flex-shrink:0; background:var(--red); color:var(--white);
@@ -123,6 +133,20 @@
     transition:background .2s ease;
   }
   .book-link:hover{ background:var(--red-deep); }
+
+  .filter-bar{
+    display:flex; align-items:center; gap:.5rem; flex-wrap:wrap;
+    margin-bottom:.2rem;
+  }
+  .filter-chip{
+    background:var(--white); border:1px solid rgba(26,18,16,.1); border-radius:100px;
+    padding:.35rem .75rem; font-size:.76rem; color:var(--ink); display:flex; align-items:center; gap:.3rem;
+  }
+  .edit-search-chip{
+    margin-left:auto; background:none; border:1px solid var(--red); color:var(--red);
+    border-radius:100px; padding:.35rem .75rem; font-size:.76rem; font-weight:600;
+  }
+  .edit-search-chip:hover{ background:var(--red); color:var(--white); }
 
   .input-row{
     display:flex; align-items:flex-end; gap:.7rem;
@@ -249,8 +273,47 @@
       return row;
     }
 
-    function addElieResults(replyText, listings){
+    function formatPrice(listing){
+      if (listing.price_amount === null || listing.price_amount === undefined) return '';
+      const amount = 'KSh ' + Number(listing.price_amount).toLocaleString();
+      const unit = listing.price_unit ? ' <span>/ ' + escapeHtml(listing.price_unit) + '</span>' : '';
+      return amount + unit;
+    }
+
+    function buildFilterBar(filters, originalQuery){
+      if (!filters) return '';
+      const chips = [];
+      if (filters.location) chips.push(filters.location);
+      if (filters.guests) chips.push(filters.guests + (filters.guests === 1 ? ' Guest' : ' Guests'));
+      if (filters.category) chips.push(filters.category.charAt(0).toUpperCase() + filters.category.slice(1));
+      if (filters.max_price) chips.push('Under KSh ' + Number(filters.max_price).toLocaleString());
+      if (chips.length === 0) return '';
+
+      return (
+        '<div class="filter-bar">' +
+          chips.map(function(c){ return '<span class="filter-chip">' + escapeHtml(c) + '</span>'; }).join('') +
+          '<button type="button" class="edit-search-chip" data-edit-query="' + escapeHtml(originalQuery) + '">Edit search</button>' +
+        '</div>'
+      );
+    }
+
+    function addElieResults(replyText, listings, filters, originalQuery){
       addElieTextMessage(replyText);
+
+      const filterBarHtml = buildFilterBar(filters, originalQuery);
+      if (filterBarHtml) {
+        const filterRow = document.createElement('div');
+        filterRow.className = 'results-wrap';
+        filterRow.style.marginBottom = '-.4rem';
+        filterRow.innerHTML = filterBarHtml;
+        chatArea.appendChild(filterRow);
+        filterRow.querySelector('.edit-search-chip').addEventListener('click', function(){
+          chatInput.value = this.getAttribute('data-edit-query');
+          chatInput.focus();
+          chatInput.style.height = 'auto';
+          chatInput.style.height = Math.min(chatInput.scrollHeight, 120) + 'px';
+        });
+      }
 
       const groups = {};
       const groupOrder = [];
@@ -287,16 +350,28 @@
           '</div>';
 
         const rowsHtml = group.listings.map(function(listing){
+          const photoHtml = listing.photo_url
+            ? '<img class="listing-photo" src="' + escapeHtml(listing.photo_url) + '" alt="" loading="lazy">'
+            : '<div class="listing-photo placeholder">🏠</div>';
+
+          const metaBits = [];
+          if (listing.location_text) metaBits.push(escapeHtml(listing.location_text));
+          if (listing.size_or_type) metaBits.push(escapeHtml(listing.size_or_type));
+          if (listing.max_guests) metaBits.push('Up to ' + listing.max_guests + ' guests');
+
+          const priceHtml = formatPrice(listing);
+
           return (
             '<div class="listing-row">' +
+              photoHtml +
               '<div class="listing-info">' +
-                '<div class="listing-title">' + escapeHtml(listing.title) + '</div>' +
-                '<div class="listing-meta">' +
-                  escapeHtml(listing.location_text || '') +
-                  (listing.verified ? '<span class="listing-verified">· GPS verified</span>' : '') +
+                '<div class="listing-title">' + escapeHtml(listing.title) +
+                  (listing.verified ? '<span class="listing-verified"> · GPS verified</span>' : '') +
                 '</div>' +
+                '<div class="listing-meta">' + metaBits.join(' · ') + '</div>' +
+                (priceHtml ? '<div class="listing-price">' + priceHtml + '</div>' : '') +
               '</div>' +
-              '<a href="booking.html?listing=' + encodeURIComponent(listing.id) + '" class="book-link">Book</a>' +
+              '<a href="booking.html?listing=' + encodeURIComponent(listing.id) + '" class="book-link">View &amp; book</a>' +
             '</div>'
           );
         }).join('');
@@ -340,7 +415,7 @@
         }
 
         if (data.listings && data.listings.length > 0) {
-          addElieResults(data.reply, data.listings);
+          addElieResults(data.reply, data.listings, data.filters, message);
         } else {
           addElieTextMessage(data.reply);
         }

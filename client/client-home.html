@@ -172,19 +172,64 @@
   .card-location{ font-size:.8rem; color:var(--muted); }
   .card-time{ margin-left:auto; font-size:.78rem; color:var(--muted); }
 
+  .card-menu-wrap{ position:relative; margin-left:.4rem; }
+  .card-menu-btn{
+    width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    color:var(--muted); background:none; border:none; cursor:pointer; flex-shrink:0;
+  }
+  .card-menu-btn:hover{ background:var(--paper); color:var(--ink); }
+
+  .card-menu-dropdown{
+    display:none; position:absolute; top:32px; right:0; z-index:20;
+    background:var(--white); border:1px solid rgba(128,110,100,.15); border-radius:12px;
+    box-shadow:0 12px 30px -10px rgba(26,18,16,.3); min-width:170px; padding:.4rem;
+  }
+  .card-menu-dropdown.open{ display:block; }
+  .card-menu-item{
+    display:block; width:100%; text-align:left; padding:.6rem .8rem; border-radius:8px;
+    font-size:.85rem; font-weight:500; color:var(--red-deep); background:none; border:none; cursor:pointer;
+  }
+  .card-menu-item:hover{ background:rgba(196,30,58,.08); }
+
+  .report-modal-overlay{
+    display:none; position:fixed; inset:0; z-index:250;
+    background:rgba(26,18,16,.5); align-items:center; justify-content:center; padding:1.2rem;
+  }
+  .report-modal-overlay.open{ display:flex; }
+  .report-modal{
+    background:var(--white); border-radius:18px; padding:1.6rem 1.7rem; max-width:420px; width:100%;
+  }
+  .report-modal h3{ font-family:var(--font-display); font-weight:600; font-size:1.2rem; margin-bottom:.4rem; }
+  .report-modal p{ font-size:.85rem; color:var(--muted); margin-bottom:1.1rem; line-height:1.5; }
+  .report-modal .field{ display:flex; flex-direction:column; gap:.4rem; margin-bottom:1rem; }
+  .report-modal label{ font-size:.86rem; font-weight:600; }
+  .report-modal select, .report-modal textarea{
+    font-family:inherit; font-size:.92rem; padding:.7rem .85rem; border:1px solid rgba(128,110,100,.25);
+    border-radius:10px; background:var(--paper); color:var(--ink); width:100%;
+  }
+  .report-modal textarea{ min-height:80px; resize:vertical; }
+  .report-modal-actions{ display:flex; gap:.7rem; margin-top:1.2rem; }
+  .report-modal-actions button{ flex:1; padding:.8rem 1rem; border-radius:100px; font-weight:600; font-size:.9rem; }
+  .report-cancel-btn{ background:transparent; border:1.5px solid rgba(128,110,100,.3); color:var(--ink); }
+  .report-submit-btn{ background:var(--red); color:#fff; }
+  .report-submit-btn:hover{ background:var(--red-deep); }
+  .report-modal-msg{ font-size:.83rem; margin-top:.7rem; text-align:center; }
+  .report-modal-msg.error{ color:var(--red); }
+  .report-modal-msg.success{ color:#2e7d32; }
+
   .card-desc{ font-size:.92rem; line-height:1.5; margin-bottom:.9rem; }
 
   .card-photos{
     display:grid; grid-template-columns:1fr 1fr; gap:.5rem;
     border-radius:12px; overflow:hidden; margin-bottom:.9rem;
   }
-  .card-photos img{ width:100%; height:180px; object-fit:cover; display:block; }
+  .card-photos img{ width:100%; height:260px; object-fit:cover; display:block; }
   .card-photos.single{ grid-template-columns:1fr; }
-  .card-photos.single img{ height:240px; }
+  .card-photos.single img{ height:340px; }
 
   .photo-placeholder{
     grid-column:1 / -1;
-    height:180px; border-radius:12px;
+    height:260px; border-radius:12px;
     background:linear-gradient(135deg, var(--red) 0%, var(--red-deep) 100%);
     display:flex; align-items:center; justify-content:center;
     color:rgba(255,255,255,.85); font-size:.85rem; font-weight:600;
@@ -267,6 +312,30 @@
 <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
 
 <div class="toast" id="toast"></div>
+
+<div class="report-modal-overlay" id="report-modal-overlay">
+  <div class="report-modal">
+    <h3>Report this listing</h3>
+    <p>Help us keep VaRoom trustworthy. Reports are reviewed by our team — false reports don't automatically penalize a host.</p>
+    <div class="field">
+      <label for="report-reason">Reason</label>
+      <select id="report-reason">
+        <option value="fraudulent">Fraudulent — this host is scamming or misrepresenting</option>
+        <option value="misleading_info">Misleading information — details don't match reality</option>
+        <option value="other">Other</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="report-details">Details (optional)</label>
+      <textarea id="report-details" placeholder="Anything else we should know"></textarea>
+    </div>
+    <div class="report-modal-actions">
+      <button type="button" class="report-cancel-btn" id="report-cancel-btn">Cancel</button>
+      <button type="button" class="report-submit-btn" id="report-submit-btn">Submit report</button>
+    </div>
+    <p class="report-modal-msg" id="report-modal-msg"></p>
+  </div>
+</div>
 
 <div class="app-shell">
 
@@ -537,6 +606,15 @@
               '<div class="card-location">' + (host.username ? '@' + escapeHtml(host.username) + ' · ' : '') + escapeHtml(listing.location_text) + '</div>' +
             '</div>' +
             '<div class="card-time">' + timeAgo(listing.created_at) + '</div>' +
+            (listing.host_id === currentUser.id ? '' :
+            '<div class="card-menu-wrap">' +
+              '<button type="button" class="card-menu-btn" data-menu-toggle="' + listing.id + '" aria-label="More options">' +
+                '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>' +
+              '</button>' +
+              '<div class="card-menu-dropdown" id="menu-' + listing.id + '">' +
+                '<button type="button" class="card-menu-item report-trigger" data-listing-id="' + listing.id + '" data-host-id="' + listing.host_id + '">Report</button>' +
+              '</div>' +
+            '</div>') +
           '</div>' +
           '<p class="card-desc">' + escapeHtml(listing.description || listing.title) + '</p>' +
           photosHtml +
@@ -592,7 +670,71 @@
           startChat(btn.getAttribute('data-listing-id'), btn.getAttribute('data-host-id'));
         });
       });
+      container.querySelectorAll('[data-menu-toggle]').forEach(function(btn){
+        btn.addEventListener('click', function(e){
+          e.stopPropagation();
+          const dropdown = document.getElementById('menu-' + btn.getAttribute('data-menu-toggle'));
+          const isOpen = dropdown.classList.contains('open');
+          document.querySelectorAll('.card-menu-dropdown.open').forEach(function(d){ d.classList.remove('open'); });
+          if (!isOpen) dropdown.classList.add('open');
+        });
+      });
+      container.querySelectorAll('.report-trigger').forEach(function(btn){
+        btn.addEventListener('click', function(e){
+          e.stopPropagation();
+          document.querySelectorAll('.card-menu-dropdown.open').forEach(function(d){ d.classList.remove('open'); });
+          openReportModal(btn.getAttribute('data-listing-id'), btn.getAttribute('data-host-id'));
+        });
+      });
     }
+
+    document.addEventListener('click', function(){
+      document.querySelectorAll('.card-menu-dropdown.open').forEach(function(d){ d.classList.remove('open'); });
+    });
+
+    // ---------- Report modal ----------
+    const reportOverlay = document.getElementById('report-modal-overlay');
+    let reportTargetListingId = null, reportTargetHostId = null;
+
+    function openReportModal(listingId, hostId){
+      reportTargetListingId = listingId;
+      reportTargetHostId = hostId;
+      document.getElementById('report-reason').value = 'fraudulent';
+      document.getElementById('report-details').value = '';
+      document.getElementById('report-modal-msg').textContent = '';
+      document.getElementById('report-submit-btn').style.display = 'block';
+      reportOverlay.classList.add('open');
+    }
+    function closeReportModal(){ reportOverlay.classList.remove('open'); }
+
+    document.getElementById('report-cancel-btn').addEventListener('click', closeReportModal);
+    reportOverlay.addEventListener('click', function(e){ if (e.target === reportOverlay) closeReportModal(); });
+
+    document.getElementById('report-submit-btn').addEventListener('click', async function(){
+      const btn = this;
+      const msg = document.getElementById('report-modal-msg');
+      btn.disabled = true; btn.textContent = 'Submitting...';
+
+      const { error } = await supabaseClient.from('reports').insert({
+        reporter_id: currentUser.id,
+        host_id: reportTargetHostId,
+        listing_id: reportTargetListingId,
+        reason: document.getElementById('report-reason').value,
+        details: document.getElementById('report-details').value || null
+      });
+
+      btn.disabled = false; btn.textContent = 'Submit report';
+
+      if (error) {
+        msg.textContent = error.message;
+        msg.className = 'report-modal-msg error';
+        return;
+      }
+      msg.textContent = 'Report submitted. Thank you for helping keep VaRoom trustworthy.';
+      msg.className = 'report-modal-msg success';
+      btn.style.display = 'none';
+      setTimeout(closeReportModal, 1800);
+    });
 
     async function loadFeed(){
       feedList.innerHTML = '<p class="state-msg">Loading listings…</p>';
