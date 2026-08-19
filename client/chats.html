@@ -117,6 +117,18 @@
 
   .checking-msg{ text-align:center; padding:4rem 0; color:var(--muted); }
 
+  .away-banner{
+    display:flex; align-items:center; gap:.5rem; margin:.9rem 1.4rem 0;
+    background:rgba(196,30,58,.07); border:1px solid rgba(196,30,58,.18); border-radius:10px;
+    padding:.6rem .8rem; font-size:.8rem; color:var(--red-deep); line-height:1.4;
+  }
+
+  .msg-bubble.auto-reply{ border:1px dashed rgba(196,30,58,.35); }
+  .auto-reply-tag{
+    display:inline-block; font-size:.66rem; font-weight:700; letter-spacing:.02em;
+    text-transform:uppercase; color:var(--red); margin-bottom:.2rem;
+  }
+
   @media (max-width:760px){
     .chat-shell{ grid-template-columns:1fr; }
     .conv-list{ display:block; }
@@ -162,6 +174,8 @@
     let activeConversationId = null;
     let realtimeChannel = null;
 
+    const CHATBOT_REPLY_URL = 'https://varoom.onrender.com/reply';
+
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (!session) { window.location.href = 'login.html'; return; }
     currentUser = session.user;
@@ -199,7 +213,7 @@
       const { data, error } = await supabaseClient
         .from('conversations')
         .select('id,listing_id,host_id,client_id,last_message_at,' +
-          'host:profiles!conversations_host_id_fkey(full_name,avatar_url),' +
+          'host:profiles!conversations_host_id_fkey(full_name,avatar_url,away_mode),' +
           'client:profiles!conversations_client_id_fkey(full_name,avatar_url),' +
           'listing:listings(title,location_text,listing_photos(storage_path))')
         .or('host_id.eq.' + currentUser.id + ',client_id.eq.' + currentUser.id)
@@ -293,6 +307,9 @@
             '<div class="listing-context-loc">' + escapeHtml(conv.listing.location_text) + '</div>' +
           '</div>' +
         '</div>' +
+        (!isHost && other.away_mode
+          ? '<div class="away-banner">🌙 This host is away right now — Elie may help answer using real listing details while they\'re offline.</div>'
+          : '') +
         '<div class="messages-area" id="messages-area"></div>' +
         '<div class="composer">' +
           '<input type="text" id="message-input" placeholder="Write a message…" autocomplete="off">' +
@@ -317,6 +334,31 @@
       const input = document.getElementById('message-input');
       const sendBtn = document.getElementById('send-btn');
 
+      async function triggerAutoReplyIfAway(messageBody){
+        try {
+          const { data: { session: freshSession } } = await supabaseClient.auth.getSession();
+          if (!freshSession) return;
+          await fetch(CHATBOT_REPLY_URL, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ' + freshSession.access_token
+            },
+            body: JSON.stringify({
+              conversation_id: convId,
+              listing_id: conv.listing_id,
+              message: messageBody
+            })
+          });
+          // No manual render needed — a real reply, if any, lands via the
+          // realtime subscription already listening on this conversation.
+        } catch (err) {
+          // Silent by design: a failed auto-reply shouldn't alarm the
+          // client or block their own message from having sent — the
+          // host will still see and can answer it themselves.
+        }
+      }
+
       async function sendMessage(){
         const body = input.value.trim();
         if (!body) return;
@@ -334,6 +376,10 @@
         input.value = '';
         appendMessage(inserted, true);
         await supabaseClient.from('conversations').update({ last_message_at: new Date().toISOString() }).eq('id', convId);
+
+        if (!isHost) {
+          triggerAutoReplyIfAway(body);
+        }
       }
 
       sendBtn.addEventListener('click', sendMessage);
@@ -346,7 +392,7 @@
     async function loadMessages(convId){
       const { data } = await supabaseClient
         .from('messages')
-        .select('id, sender_id, body, created_at')
+        .select('id, sender_id, body, created_at, is_auto_reply')
         .eq('conversation_id', convId)
         .order('created_at', { ascending:true });
 
@@ -361,9 +407,10 @@
       if (area.querySelector('[data-message-id="' + m.id + '"]')) return; // avoid duplicate from realtime echo
 
       const bubble = document.createElement('div');
-      bubble.className = 'msg-bubble ' + (isMine ? 'mine' : 'theirs');
+      bubble.className = 'msg-bubble ' + (isMine ? 'mine' : 'theirs') + (m.is_auto_reply ? ' auto-reply' : '');
       bubble.setAttribute('data-message-id', m.id);
-      bubble.innerHTML = escapeHtml(m.body) + '<div class="msg-time">' + timeAgo(m.created_at) + '</div>';
+      const tagHtml = m.is_auto_reply ? '<span class="auto-reply-tag">Auto-reply from Elie</span><br>' : '';
+      bubble.innerHTML = tagHtml + escapeHtml(m.body) + '<div class="msg-time">' + timeAgo(m.created_at) + '</div>';
       area.appendChild(bubble);
       area.scrollTop = area.scrollHeight;
     }
