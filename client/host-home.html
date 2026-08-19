@@ -148,6 +148,24 @@
   }
   .list-btn-primary:hover{ background:var(--red-deep); }
 
+  .away-toggle-wrap{
+    display:flex; align-items:center; gap:.6rem;
+    background:var(--white); border:1px solid rgba(26,18,16,.08); border-radius:100px;
+    padding:.5rem .9rem .5rem .6rem;
+  }
+  .away-toggle-label{ font-size:.85rem; font-weight:600; }
+  .away-toggle-sub{ font-size:.72rem; color:var(--muted); }
+  .away-switch{
+    position:relative; width:40px; height:22px; border-radius:100px;
+    background:rgba(26,18,16,.15); flex-shrink:0; transition:background .2s ease;
+  }
+  .away-switch.on{ background:var(--red); }
+  .away-switch .knob{
+    position:absolute; top:2px; left:2px; width:18px; height:18px; border-radius:50%;
+    background:var(--white); transition:transform .2s ease;
+  }
+  .away-switch.on .knob{ transform:translateX(18px); }
+
   .stats-card{
     background:var(--white); border:1px solid rgba(26,18,16,.08); border-radius:16px;
     padding:1.2rem 1.4rem; margin-bottom:1.6rem;
@@ -428,6 +446,14 @@
         </a>
       </div>
 
+      <button type="button" class="away-toggle-wrap" id="away-toggle-wrap" style="margin-bottom:1.4rem;">
+        <div class="away-switch" id="away-switch"><div class="knob"></div></div>
+        <div style="text-align:left;">
+          <div class="away-toggle-label" id="away-toggle-label">Away mode</div>
+          <div class="away-toggle-sub">When on, Elie can answer client questions using your real listing details while you're offline.</div>
+        </div>
+      </button>
+
       <div class="stats-card">
         <div class="stats-head">
           <h2>Your spaces at a glance</h2>
@@ -518,7 +544,7 @@
 
     const { data: profile } = await supabaseClient
       .from('profiles')
-      .select('role, full_name, verified, avatar_url')
+      .select('role, full_name, verified, avatar_url, away_mode')
       .eq('id', currentUser.id)
       .maybeSingle();
 
@@ -548,6 +574,32 @@
       verifyBox.className = 'verify-box not-verified';
       verifyBox.innerHTML = '<strong>Get verified</strong>Verification isn\'t self-serve yet — reach out via Help &amp; Support to get your blue tick.';
     }
+
+    // ---------- Away mode ----------
+    let awayMode = !!profile.away_mode;
+    const awaySwitch = document.getElementById('away-switch');
+    const awayLabel = document.getElementById('away-toggle-label');
+
+    function renderAwayState(){
+      awaySwitch.classList.toggle('on', awayMode);
+      awayLabel.textContent = awayMode ? 'Away mode — on' : 'Away mode';
+    }
+    renderAwayState();
+
+    document.getElementById('away-toggle-wrap').addEventListener('click', async function(){
+      const next = !awayMode;
+      const { error } = await supabaseClient
+        .from('profiles')
+        .update({ away_mode: next })
+        .eq('id', currentUser.id);
+      if (error) {
+        showToast("Couldn't update away mode: " + error.message);
+        return;
+      }
+      awayMode = next;
+      renderAwayState();
+      showToast(awayMode ? "Away mode on — Elie can now answer for you." : 'Away mode off.');
+    });
 
     // ---------- Your listings count (real) ----------
     const { count: listingCount } = await supabaseClient
