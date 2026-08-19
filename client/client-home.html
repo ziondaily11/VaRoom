@@ -845,7 +845,8 @@
     } else {
       console.warn('notifications-widget.js failed to load — notifications are disabled for this session.');
     }
-    document.getElementById('notif-nav-item').addEventListener('click', function(){
+    document.getElementById('notif-nav-item').addEventListener('click', function(e){
+      e.stopPropagation();
       document.getElementById('notif-bell').click();
     });
 
