@@ -49,8 +49,7 @@
   .logo{ font-family:var(--font-display); font-weight:900; font-size:1.4rem; display:flex; align-items:baseline; padding:0 .4rem; }
   .logo .va{ color:var(--red); -webkit-text-stroke:1.5px var(--ink); text-shadow:-1px -1px 0 var(--ink), 1px -1px 0 var(--ink), -1px 1px 0 var(--ink), 1px 1px 0 var(--ink); }
   .logo .pin{ width:.34em; height:.34em; border-radius:50% 50% 50% 0; background:var(--red); transform:rotate(-45deg); margin:0 .05em 0 .08em; align-self:flex-start; margin-top:.08em; }
-  .elie-icon{ display:inline-flex; align-items:baseline; font-family:var(--font-display); font-weight:900; font-size:1.05rem; color:var(--red); flex-shrink:0; }
-  .elie-pin{ width:.3em; height:.3em; border-radius:50% 50% 50% 0; background:var(--red); transform:rotate(-45deg); margin-left:.06em; align-self:flex-start; margin-top:.05em; display:inline-block; }
+  .elie-logo-nav{ width:22px; height:22px; object-fit:contain; flex-shrink:0; }
   .beta-pill{ margin-left:auto; font-size:.68rem; font-weight:600; background:#FBE4E7; color:var(--red-deep); padding:.15rem .5rem; border-radius:100px; }
   .nav-group{ display:flex; flex-direction:column; gap:.2rem; }
   .nav-label{ font-size:.72rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); padding:.6rem .6rem .3rem; }
@@ -333,10 +332,7 @@
 <!-- Elie -->
 <nav class="nav-group">
   <a href="elie.html" class="nav-item">
-    <span class="elie-icon">
-      <span>E</span>
-      <span class="elie-pin"></span>
-    </span>
+    <img src="elie-logo.png" alt="Elie" class="elie-logo-nav">
     Elie
     <span class="beta-pill">Free preview</span>
   </a>
@@ -488,6 +484,10 @@
       <a href="chats.html" class="bottom-bar-item">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z"/></svg>
         Chats
+      </a>
+      <a href="elie.html" class="bottom-bar-item">
+        <img src="elie-logo.png" alt="Elie" style="width:20px;height:20px;object-fit:contain;">
+        Elie
       </a>
       <button type="button" class="bottom-bar-item" id="you-tab">
         <span class="avatar-mini" id="bottom-avatar">·</span>
