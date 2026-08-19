@@ -840,7 +840,11 @@
       el.addEventListener('click', closeSidebar);
     });
     document.getElementById('you-tab').addEventListener('click', openSidebar);
-    initNotifications(supabaseClient, currentUser);
+    if (typeof initNotifications === 'function') {
+      initNotifications(supabaseClient, currentUser);
+    } else {
+      console.warn('notifications-widget.js failed to load — notifications are disabled for this session.');
+    }
     document.getElementById('notif-nav-item').addEventListener('click', function(){
       document.getElementById('notif-bell').click();
     });

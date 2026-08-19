@@ -54,7 +54,7 @@ function initNotifications(supabaseClient, currentUser) {
 
   async function loadNotifications() {
     const list = document.getElementById('notif-list');
-    list.innerHTML = '<p style="padding:1.2rem;color:var(--muted);font-size:.85rem;text-align:center;">Loading…</p>';
+    list.innerHTML = '<p style="padding:1.8rem;color:var(--muted);font-size:.85rem;text-align:center;">Loading…</p>';
 
     const { data } = await supabaseClient
       .from('notifications')
@@ -64,7 +64,12 @@ function initNotifications(supabaseClient, currentUser) {
       .limit(20);
 
     if (!data || data.length === 0) {
-      list.innerHTML = '<p style="padding:1.4rem;color:var(--muted);font-size:.85rem;text-align:center;">No notifications yet.</p>';
+      list.innerHTML =
+        '<div style="padding:2.2rem 1.4rem;text-align:center;">' +
+          '<div style="font-size:1.9rem;margin-bottom:.5rem;line-height:1;">🔔</div>' +
+          '<p style="color:var(--ink);font-size:.88rem;font-weight:600;margin-bottom:.25rem;">No notifications yet</p>' +
+          '<p style="color:var(--muted);font-size:.8rem;">We\'ll let you know when something needs your attention.</p>' +
+        '</div>';
       return;
     }
 
