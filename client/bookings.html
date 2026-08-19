@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bookings — VaRoom</title>
+<script>
+  (function(){
+    try{
+      var saved = localStorage.getItem('varoom_theme') || 'system';
+      var resolved = saved === 'system'
+        ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+        : saved;
+      document.documentElement.setAttribute('data-theme', resolved);
+    }catch(e){}
+  })();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;0,9..144,900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#1A1210; --paper:#FBF4F1;
+    --muted:#7a6b67;
+    --font-display:'Fraunces', serif; --font-body:'Inter', sans-serif;
+  }
+  [data-theme="dark"]{
+    --white:#241C1A; --paper:#15100F; --ink:#F5EFEC; --muted:#B8ACA8;
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  body{ font-family:var(--font-body); background:var(--paper); color:var(--ink); min-height:100vh; transition:background .2s ease, color .2s ease; }
+  a{ color:inherit; text-decoration:none; }
+  button{ font-family:inherit; cursor:pointer; border:none; background:none; }
+  :focus-visible{ outline:3px solid var(--red-deep); outline-offset:3px; }
+
+  header{ display:flex; align-items:center; justify-content:space-between; padding:1.5rem 2.5rem; }
+  .logo{ font-family:var(--font-display); font-weight:900; font-size:1.55rem; display:flex; align-items:baseline; }
+  .logo .va{ color:var(--red); -webkit-text-stroke:1.5px var(--ink); text-shadow:-1px -1px 0 var(--ink), 1px -1px 0 var(--ink), -1px 1px 0 var(--ink), 1px 1px 0 var(--ink); }
+  .logo .pin{ width:.34em; height:.34em; border-radius:50% 50% 50% 0; background:var(--red); transform:rotate(-45deg); margin:0 .05em 0 .08em; align-self:flex-start; margin-top:.08em; }
+  .back-link{ font-size:.9rem; font-weight:500; }
+  .back-link:hover{ color:var(--red); }
+
+  main{ max-width:720px; margin:0 auto; padding:1rem 6vw 6rem; }
+  .checking-msg{ text-align:center; padding:3rem 0; color:var(--muted); }
+
+  h1{ font-family:var(--font-display); font-weight:600; font-size:clamp(1.9rem, 4vw, 2.4rem); margin-bottom:1.6rem; }
+
+  .tabs{ display:flex; gap:.6rem; margin-bottom:1.6rem; }
+  .tab{ padding:.55rem 1.1rem; border-radius:100px; font-size:.88rem; font-weight:600; background:var(--white); border:1px solid rgba(128,110,100,.15); color:var(--ink); }
+  .tab.active{ background:var(--red); color:#fff; border-color:var(--red); }
+
+  .section-label{ font-size:.8rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin:1.6rem 0 .8rem; }
+  .section-label:first-of-type{ margin-top:0; }
+
+  .state-msg{ color:var(--muted); font-size:.92rem; padding:1.6rem 0; text-align:center; }
+
+  .booking-card{
+    background:var(--white); border:1px solid rgba(128,110,100,.15); border-radius:16px;
+    padding:1.2rem 1.4rem; margin-bottom:1rem;
+  }
+  .bk-top{ display:flex; align-items:center; gap:.8rem; margin-bottom:.7rem; }
+  .bk-avatar{
+    width:38px; height:38px; border-radius:50%; background:var(--red-deep); color:#fff;
+    display:flex; align-items:center; justify-content:center; font-weight:700; font-size:.9rem; flex-shrink:0; overflow:hidden;
+  }
+  .bk-avatar img{ width:100%; height:100%; object-fit:cover; }
+  .bk-name{ font-weight:700; font-size:.92rem; }
+  .bk-listing{ font-size:.8rem; color:var(--red-deep); font-weight:600; }
+  .bk-status{ margin-left:auto; font-size:.72rem; font-weight:700; padding:.25rem .7rem; border-radius:100px; text-transform:capitalize; }
+  .bk-status.pending{ background:#FFF3CD; color:#8A6D00; }
+  .bk-status.approved{ background:#EAF4EE; color:#1E6B3C; }
+  .bk-status.declined{ background:#FBE9E9; color:var(--red-deep); }
+  .bk-status.expired{ background:rgba(128,110,100,.12); color:var(--muted); }
+
+  .bk-details{ font-size:.88rem; line-height:1.6; color:var(--ink); margin-bottom:.9rem; }
+  .bk-details .label{ color:var(--muted); }
+
+  .bk-actions{ display:flex; gap:.7rem; }
+  .bk-btn{ flex:1; padding:.7rem 1rem; border-radius:100px; font-weight:600; font-size:.86rem; }
+  .bk-approve{ background:var(--red); color:#fff; }
+  .bk-approve:hover{ background:var(--red-deep); }
+  .bk-decline{ background:transparent; border:1.5px solid rgba(128,110,100,.3); color:var(--ink); }
+  .bk-decline:hover{ border-color:var(--red); color:var(--red); }
+  .bk-btn:disabled{ opacity:.5; cursor:not-allowed; }
+
+  .bk-note{ font-size:.8rem; color:var(--red); margin-top:.6rem; }
+</style>
+</head>
+<body>
+
+<header>
+  <a href="index.html" class="logo"><span class="va">Va</span><span class="pin"></span><span class="room">Room</span></a>
+  <a href="#" class="back-link" id="back-link">← Back to dashboard</a>
+</header>
+
+<main>
+  <div id="checking-auth" class="checking-msg">Loading your bookings...</div>
+
+  <div id="bookings-page" style="display:none;">
+    <h1>Bookings</h1>
+    <div class="tabs">
+      <button class="tab active" data-tab="received">Requests received</button>
+      <button class="tab" data-tab="sent">Your requests</button>
+    </div>
+    <div id="received-panel"></div>
+    <div id="sent-panel" style="display:none;"></div>
+  </div>
+</main>
+
+<script src="js/supabase-client.js"></script>
+<script>
+  (async function(){
+    const checkingAuth = document.getElementById('checking-auth');
+    const bookingsPage = document.getElementById('bookings-page');
+
+    let currentUser = null, currentRole = null;
+
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session) { window.location.href = 'login.html'; return; }
+    currentUser = session.user;
+
+    const { data: profile } = await supabaseClient.from('profiles').select('role').eq('id', currentUser.id).maybeSingle();
+    if (!profile) { window.location.href = 'login.html'; return; }
+    currentRole = profile.role;
+    document.getElementById('back-link').setAttribute('href', currentRole === 'host' ? 'host-home.html' : 'client-home.html');
+
+    function escapeHtml(str){ const d = document.createElement('div'); d.textContent = str || ''; return d.innerHTML; }
+    function timeAgo(dateStr){
+      const diffMs = Date.now() - new Date(dateStr).getTime();
+      const mins = Math.floor(diffMs / 60000);
+      if (mins < 1) return 'just now';
+      if (mins < 60) return mins + 'm ago';
+      const hrs = Math.floor(mins / 60);
+      if (hrs < 24) return hrs + 'h ago';
+      return Math.floor(hrs / 24) + 'd ago';
+    }
+    function resolveAvatarUrl(v){
+      if (!v) return null;
+      if (v.indexOf('http') === 0) return v;
+      return supabaseClient.storage.from('avatars').getPublicUrl(v).data.publicUrl;
+    }
+
+    // ---------- Lazy 48h expiry sweep ----------
+    const cutoff = new Date(Date.now() - 48 * 3600 * 1000).toISOString();
+    await supabaseClient
+      .from('bookings')
+      .update({ status: 'expired', responded_at: new Date().toISOString() })
+      .eq('status', 'pending')
+      .lt('created_at', cutoff)
+      .or('host_id.eq.' + currentUser.id + ',client_id.eq.' + currentUser.id);
+
+    function describeBooking(b){
+      if (b.hours) return b.start_date + ' · ' + b.hours + ' hour' + (b.hours === 1 ? '' : 's');
+      if (b.start_date && b.end_date) return b.start_date + ' → ' + b.end_date;
+      if (b.lease_start_date) return 'From ' + b.lease_start_date + ' · ' + b.lease_months + ' month' + (b.lease_months === 1 ? '' : 's');
+      return '';
+    }
+
+    async function loadReceived(){
+      const panel = document.getElementById('received-panel');
+      panel.innerHTML = '<p class="state-msg">Loading…</p>';
+
+      const { data, error } = await supabaseClient
+        .from('bookings')
+        .select('id,status,start_date,end_date,hours,lease_start_date,lease_months,total_price,price_unit,created_at,' +
+          'listing:listings(title,location_text),client:profiles!bookings_client_id_fkey(full_name,avatar_url,username)')
+        .eq('host_id', currentUser.id)
+        .order('created_at', { ascending:false });
+
+      if (error) { panel.innerHTML = '<p class="state-msg">Couldn\'t load: ' + escapeHtml(error.message) + '</p>'; return; }
+      if (!data || data.length === 0) { panel.innerHTML = '<p class="state-msg">No booking requests yet.</p>'; return; }
+
+      const pending = data.filter(function(b){ return b.status === 'pending'; });
+      const others = data.filter(function(b){ return b.status !== 'pending'; });
+
+      let html = '';
+      if (pending.length > 0) html += '<p class="section-label">Awaiting your response</p>' + pending.map(renderReceivedCard).join('');
+      if (others.length > 0) html += '<p class="section-label">Past requests</p>' + others.map(renderReceivedCard).join('');
+      panel.innerHTML = html;
+
+      panel.querySelectorAll('[data-approve]').forEach(function(btn){
+        btn.addEventListener('click', function(){ respondToBooking(btn.getAttribute('data-approve'), 'approved'); });
+      });
+      panel.querySelectorAll('[data-decline]').forEach(function(btn){
+        btn.addEventListener('click', function(){ respondToBooking(btn.getAttribute('data-decline'), 'declined'); });
+      });
+    }
+
+    function renderReceivedCard(b){
+      const client = b.client || {};
+      const initial = (client.full_name || '?').charAt(0).toUpperCase();
+      const avatarUrl = resolveAvatarUrl(client.avatar_url);
+      const avatarHtml = avatarUrl ? '<img src="' + avatarUrl + '" alt="">' : initial;
+
+      return (
+        '<div class="booking-card">' +
+          '<div class="bk-top">' +
+            '<div class="bk-avatar">' + avatarHtml + '</div>' +
+            '<div>' +
+              '<div class="bk-name">' + escapeHtml(client.full_name || 'VaRoom user') + '</div>' +
+              '<div class="bk-listing">' + escapeHtml(b.listing.title) + '</div>' +
+            '</div>' +
+            '<span class="bk-status ' + b.status + '">' + b.status + '</span>' +
+          '</div>' +
+          '<div class="bk-details">' +
+            '<span class="label">When:</span> ' + escapeHtml(describeBooking(b)) + '<br>' +
+            '<span class="label">Total:</span> KSh ' + Number(b.total_price).toLocaleString() + '<br>' +
+            '<span class="label">Requested:</span> ' + timeAgo(b.created_at) +
+          '</div>' +
+          (b.status === 'pending'
+            ? '<div class="bk-actions">' +
+                '<button type="button" class="bk-btn bk-approve" data-approve="' + b.id + '">Approve</button>' +
+                '<button type="button" class="bk-btn bk-decline" data-decline="' + b.id + '">Decline</button>' +
+              '</div>' +
+              '<p class="bk-note" id="note-' + b.id + '"></p>'
+            : '')
+        + '</div>'
+      );
+    }
+
+    async function respondToBooking(bookingId, newStatus){
+      if (newStatus === 'approved') {
+        // Conflict prevention: check for an already-approved booking on the
+        // same listing that overlaps these dates before allowing approval.
+        const { data: thisBooking } = await supabaseClient.from('bookings').select('*').eq('id', bookingId).single();
+
+        const { data: approvedOnListing } = await supabaseClient
+          .from('bookings').select('start_date,end_date,lease_start_date')
+          .eq('listing_id', thisBooking.listing_id).eq('status', 'approved');
+
+        let conflict = false;
+        if (thisBooking.start_date && thisBooking.end_date) {
+          conflict = (approvedOnListing || []).some(function(ob){
+            if (!ob.start_date || !ob.end_date) return false;
+            return thisBooking.start_date <= ob.end_date && thisBooking.end_date >= ob.start_date;
+          });
+        } else if (thisBooking.lease_start_date) {
+          conflict = (approvedOnListing || []).some(function(ob){ return !!ob.lease_start_date; });
+        }
+
+        if (conflict) {
+          const note = document.getElementById('note-' + bookingId);
+          if (note) note.textContent = "Can't approve — this overlaps a booking you've already approved for this listing.";
+          return;
+        }
+      }
+
+      const { error } = await supabaseClient
+        .from('bookings')
+        .update({ status: newStatus, responded_at: new Date().toISOString() })
+        .eq('id', bookingId);
+
+      if (error) {
+        const note = document.getElementById('note-' + bookingId);
+        if (note) note.textContent = error.message;
+        return;
+      }
+
+      // Notify the client
+      const { data: b } = await supabaseClient.from('bookings').select('client_id, listing:listings(title)').eq('id', bookingId).single();
+      await supabaseClient.from('notifications').insert({
+        user_id: b.client_id,
+        type: newStatus === 'approved' ? 'booking_approved' : 'booking_declined',
+        message: 'Your booking request for "' + b.listing.title + '" was ' + newStatus + '.',
+        booking_id: bookingId
+      });
+
+      loadReceived();
+    }
+
+    async function loadSent(){
+      const panel = document.getElementById('sent-panel');
+      panel.innerHTML = '<p class="state-msg">Loading…</p>';
+
+      const { data, error } = await supabaseClient
+        .from('bookings')
+        .select('id,status,start_date,end_date,hours,lease_start_date,lease_months,total_price,created_at,' +
+          'listing:listings(title,location_text),host:profiles!bookings_host_id_fkey(full_name,avatar_url,username)')
+        .eq('client_id', currentUser.id)
+        .order('created_at', { ascending:false });
+
+      if (error) { panel.innerHTML = '<p class="state-msg">Couldn\'t load: ' + escapeHtml(error.message) + '</p>'; return; }
+      if (!data || data.length === 0) { panel.innerHTML = '<p class="state-msg">You haven\'t requested any bookings yet.</p>'; return; }
+
+      panel.innerHTML = data.map(function(b){
+        const host = b.host || {};
+        const initial = (host.full_name || '?').charAt(0).toUpperCase();
+        const avatarUrl = resolveAvatarUrl(host.avatar_url);
+        const avatarHtml = avatarUrl ? '<img src="' + avatarUrl + '" alt="">' : initial;
+
+        return (
+          '<div class="booking-card">' +
+            '<div class="bk-top">' +
+              '<div class="bk-avatar">' + avatarHtml + '</div>' +
+              '<div>' +
+                '<div class="bk-name">' + escapeHtml(host.full_name || 'VaRoom user') + '</div>' +
+                '<div class="bk-listing">' + escapeHtml(b.listing.title) + '</div>' +
+              '</div>' +
+              '<span class="bk-status ' + b.status + '">' + b.status + '</span>' +
+            '</div>' +
+            '<div class="bk-details">' +
+              '<span class="label">When:</span> ' + escapeHtml(describeBooking(b)) + '<br>' +
+              '<span class="label">Total:</span> KSh ' + Number(b.total_price).toLocaleString() + '<br>' +
+              '<span class="label">Requested:</span> ' + timeAgo(b.created_at) +
+            '</div>' +
+          '</div>'
+        );
+      }).join('');
+    }
+
+    document.querySelectorAll('.tab').forEach(function(tab){
+      tab.addEventListener('click', function(){
+        document.querySelectorAll('.tab').forEach(function(t){ t.classList.remove('active'); });
+        tab.classList.add('active');
+        const which = tab.getAttribute('data-tab');
+        document.getElementById('received-panel').style.display = which === 'received' ? 'block' : 'none';
+        document.getElementById('sent-panel').style.display = which === 'sent' ? 'block' : 'none';
+      });
+    });
+
+    await loadReceived();
+    await loadSent();
+
+    checkingAuth.style.display = 'none';
+    bookingsPage.style.display = 'block';
+  })();
+</script>
+
+</body>
+</html>
