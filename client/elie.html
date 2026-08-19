@@ -233,6 +233,13 @@
 <script>
   (async function(){
     const ELIE_API_URL = 'https://varoom.onrender.com/elie/search';
+    const conversationHistory = []; // [{role:'user'|'elie', text:'...'}], last-6 sent with each request
+
+    function rememberTurn(role, text){
+      if (!text) return;
+      conversationHistory.push({ role: role, text: text });
+      if (conversationHistory.length > 12) conversationHistory.splice(0, conversationHistory.length - 12);
+    }
 
     const checking = document.getElementById('checking');
     const app = document.getElementById('elie-app');
@@ -276,6 +283,7 @@
       row.innerHTML = '<div class="msg-bubble">' + escapeHtml(text) + '</div>';
       chatArea.appendChild(row);
       chatArea.scrollTop = chatArea.scrollHeight;
+      rememberTurn('user', text);
     }
 
     function addElieTextMessage(text, opts){
@@ -288,6 +296,7 @@
         '<div class="' + bubbleClass + '">' + escapeHtml(text) + '</div>';
       chatArea.appendChild(row);
       chatArea.scrollTop = chatArea.scrollHeight;
+      if (!opts.loading && !opts.error) rememberTurn('elie', text);
       return row;
     }
 
@@ -445,7 +454,7 @@
             'Content-Type': 'application/json',
             'Authorization': 'Bearer ' + freshSession.access_token
           },
-          body: JSON.stringify({ message: message })
+          body: JSON.stringify({ message: message, history: conversationHistory.slice(-6) })
         });
 
         const data = await response.json();

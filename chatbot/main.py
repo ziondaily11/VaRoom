@@ -246,8 +246,14 @@ async def reply(payload: ReplyRequest, authorization: Optional[str] = Header(Non
 # Elie -- client-side search assistant
 # ============================================================
 
+class ElieHistoryTurn(BaseModel):
+    role: str  # "user" or "elie"
+    text: str
+
+
 class ElieSearchRequest(BaseModel):
     message: str
+    history: Optional[List[ElieHistoryTurn]] = None
 
 
 class ElieHost(BaseModel):
@@ -535,7 +541,7 @@ def extract_guests(text: str) -> Optional[int]:
     return None
 
 
-async def classify_message(message: str) -> dict:
+async def classify_message(message: str, history: Optional[List[dict]] = None) -> dict:
     """
     Single Gemini call that both classifies the message AND extracts
     search filters when relevant — keeps this to one AI call instead of
@@ -543,32 +549,59 @@ async def classify_message(message: str) -> dict:
       {"intent": "chat", "chat_reply": "..."}                    or
       {"intent": "search", "category": ..., "location": ...,
        "max_price": ..., "guests": ...}
+
+    `history` is a short list of recent {"role": "user"|"elie", "text": ...}
+    turns. It matters a lot: without it, a reply like "yeah" or "am good
+    thanks" — which only makes sense as a response to Elie's own last
+    question — gets misread as a fresh, context-free message. The cheap
+    greeting/farewell fast paths below are skipped once there's real
+    history, since "short message" stops being a reliable greeting signal
+    mid-conversation.
     """
-    if is_probably_farewell(message):
+    has_history = bool(history)
+
+    if not has_history and is_probably_farewell(message):
         return {"intent": "chat", "chat_reply": random.choice(FAREWELL_REPLIES)}
 
-    if is_probably_greeting(message):
+    if not has_history and is_probably_greeting(message):
         return {"intent": "chat", "chat_reply": random.choice(GREETING_REPLIES)}
+
+    history_block = ""
+    if has_history:
+        lines = []
+        for turn in history[-6:]:
+            speaker = "Elie" if turn.get("role") == "elie" else "Guest"
+            lines.append(f"{speaker}: {turn.get('text', '')}")
+        history_block = "Recent conversation so far:\n" + "\n".join(lines) + "\n\n"
 
     prompt = (
         "You are Elie, a friendly search assistant on VaRoom, a hospitality "
         "marketplace (Airbnbs, hotels, event venues, offices, shops, and "
-        "property listings). Decide whether this message is (a) general "
-        "conversation — a greeting, thanks, goodbye, or a question about "
-        "what you can do — or (b) an actual request to search for a place.\n\n"
+        "property listings).\n\n"
+        f"{history_block}"
+        "Decide whether the guest's LATEST message is (a) general "
+        "conversation — a greeting, thanks, goodbye, a short reply/"
+        "acknowledgment to what Elie just said (like \"yeah\", \"sure\", "
+        "\"no thanks\", \"am good\"), or a question about what you can do "
+        "— or (b) an actual request to search for a place (new criteria, "
+        "a location, a category, a budget, etc). If the recent conversation "
+        "shows Elie just asked a question and the guest's latest message "
+        "is a short reply to it rather than a new place description, treat "
+        "it as general conversation and respond naturally in context — "
+        "don't force it into a search.\n\n"
         "Respond with ONLY a JSON object, nothing else, in exactly one of "
         "these two shapes:\n"
         'If general conversation: {"intent": "chat", "chat_reply": a short, '
         'warm reply (1-3 sentences), as Elie — write like a real person '
         'texting, casual and varied, never stiff or repetitive, no corporate '
-        'phrasing}\n'
+        'phrasing, and stay coherent with what was just said}\n'
         'If a search request: {"intent": "search", "category": one of '
         '["airbnb","hotel","venue","office","shop","property"] or null, '
         '"location": the single city or area name only, or null, '
         '"max_price": a number in Kenyan Shillings if the person gave a '
         'budget or price ceiling (convert "2k" to 2000), or null, '
         '"guests": an integer number of guests/people if mentioned, or null}\n\n'
-        f"Message: {message}"
+        f"Guest's latest message: {message}"
     )
 
     raw = await call_gemini(prompt)
@@ -589,8 +622,15 @@ async def classify_message(message: str) -> dict:
             "guests": parsed.get("guests"),
         }
 
-    # Gemini failed or returned something unparseable — fall back to the
-    # simple keyword/regex search we had before, treating it as a search intent.
+    # Gemini failed or returned something unparseable. If there's no
+    # conversation history to worry about, fall back to the old
+    # keyword/regex search. If there IS history and this looks like a
+    # short reply rather than a real query, don't force a search — that's
+    # exactly the "am good thanks" failure mode this whole function exists
+    # to avoid.
+    if has_history and is_probably_greeting(message):
+        return {"intent": "chat", "chat_reply": "Sounds good! Let me know if you want to search for something else."}
+
     lower = message.lower()
     category = next((v for k, v in CATEGORY_KEYWORDS.items() if k in lower), None)
     words = message.split()
@@ -742,7 +782,8 @@ async def elie_search(payload: ElieSearchRequest, authorization: Optional[str] =
             reply="Elie is a premium feature — upgrade your VaRoom account to search with Elie."
         )
 
-    classification = await classify_message(payload.message)
+    history_dicts = [{"role": t.role, "text": t.text} for t in payload.history] if payload.history else None
+    classification = await classify_message(payload.message, history_dicts)
 
     if classification["intent"] == "chat":
         return ElieSearchResponse(reply=classification["chat_reply"], listings=None)
