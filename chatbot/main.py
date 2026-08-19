@@ -311,19 +311,39 @@ async def verify_supabase_user(access_token: str) -> Optional[dict]:
 async def get_profile(user_id: str) -> Optional[dict]:
     if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
         return None
+    headers = {
+        "apikey": SUPABASE_SERVICE_ROLE_KEY,
+        "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+    }
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.get(
                 f"{SUPABASE_URL}/rest/v1/profiles",
                 params={"id": f"eq.{user_id}", "select": "role,elie_premium,city,full_name,away_mode"},
-                headers={
-                    "apikey": SUPABASE_SERVICE_ROLE_KEY,
-                    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-                },
+                headers=headers,
             )
             response.raise_for_status()
             rows = response.json()
             return rows[0] if rows else None
+    except Exception:
+        pass
+
+    # away_mode may not exist on profiles yet (pending Supabase migration) —
+    # retry without it so search/profile lookups can never be broken by that.
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(
+                f"{SUPABASE_URL}/rest/v1/profiles",
+                params={"id": f"eq.{user_id}", "select": "role,elie_premium,city,full_name"},
+                headers=headers,
+            )
+            response.raise_for_status()
+            rows = response.json()
+            if not rows:
+                return None
+            row = rows[0]
+            row["away_mode"] = False
+            return row
     except Exception:
         return None
 

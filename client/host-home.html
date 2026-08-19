@@ -150,19 +150,19 @@
 
   .away-toggle-wrap{
     display:flex; align-items:center; gap:.6rem;
-    background:var(--white); border:1px solid rgba(26,18,16,.08); border-radius:100px;
-    padding:.5rem .9rem .5rem .6rem;
+    background:rgba(196,30,58,.07); border:1px solid rgba(196,30,58,.22); border-radius:100px;
+    padding:.5rem .9rem .5rem .6rem; color:var(--ink); cursor:pointer;
   }
   .away-toggle-label{ font-size:.85rem; font-weight:600; }
   .away-toggle-sub{ font-size:.72rem; color:var(--muted); }
   .away-switch{
     position:relative; width:40px; height:22px; border-radius:100px;
-    background:rgba(26,18,16,.15); flex-shrink:0; transition:background .2s ease;
+    background:rgba(196,30,58,.25); flex-shrink:0; transition:background .2s ease;
   }
   .away-switch.on{ background:var(--red); }
   .away-switch .knob{
     position:absolute; top:2px; left:2px; width:18px; height:18px; border-radius:50%;
-    background:var(--white); transition:transform .2s ease;
+    background:#FFFFFF; box-shadow:0 1px 3px rgba(0,0,0,.3); transition:transform .2s ease;
   }
   .away-switch.on .knob{ transform:translateX(18px); }
 
@@ -544,12 +544,28 @@
 
     const { data: profile } = await supabaseClient
       .from('profiles')
-      .select('role, full_name, verified, avatar_url, away_mode')
+      .select('role, full_name, verified, avatar_url')
       .eq('id', currentUser.id)
       .maybeSingle();
 
     if (!profile) { window.location.href = 'login.html'; return; }
     if (profile.role === 'client') { window.location.href = 'client-home.html'; return; }
+
+    // Fetched separately and tolerantly — if away_mode doesn't exist yet
+    // (e.g. the Supabase column hasn't been added), login must still work.
+    let awayModeColumnAvailable = true;
+    try {
+      const { data: awayRow, error: awayErr } = await supabaseClient
+        .from('profiles')
+        .select('away_mode')
+        .eq('id', currentUser.id)
+        .maybeSingle();
+      if (awayErr) throw awayErr;
+      profile.away_mode = awayRow ? awayRow.away_mode : false;
+    } catch (e) {
+      awayModeColumnAvailable = false;
+      profile.away_mode = false;
+    }
 
     const firstName = (profile.full_name || 'there').split(' ')[0];
     const hour = new Date().getHours();
@@ -586,20 +602,26 @@
     }
     renderAwayState();
 
-    document.getElementById('away-toggle-wrap').addEventListener('click', async function(){
-      const next = !awayMode;
-      const { error } = await supabaseClient
-        .from('profiles')
-        .update({ away_mode: next })
-        .eq('id', currentUser.id);
-      if (error) {
-        showToast("Couldn't update away mode: " + error.message);
-        return;
-      }
-      awayMode = next;
-      renderAwayState();
-      showToast(awayMode ? "Away mode on — Elie can now answer for you." : 'Away mode off.');
-    });
+    if (!awayModeColumnAvailable) {
+      document.getElementById('away-toggle-wrap').addEventListener('click', function(){
+        showToast("Away mode isn't set up in the database yet — add the away_mode column to profiles first.");
+      });
+    } else {
+      document.getElementById('away-toggle-wrap').addEventListener('click', async function(){
+        const next = !awayMode;
+        const { error } = await supabaseClient
+          .from('profiles')
+          .update({ away_mode: next })
+          .eq('id', currentUser.id);
+        if (error) {
+          showToast("Couldn't update away mode: " + error.message);
+          return;
+        }
+        awayMode = next;
+        renderAwayState();
+        showToast(awayMode ? "Away mode on — Elie can now answer for you." : 'Away mode off.');
+      });
+    }
 
     // ---------- Your listings count (real) ----------
     const { count: listingCount } = await supabaseClient
