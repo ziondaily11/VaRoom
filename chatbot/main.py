@@ -61,6 +61,18 @@ CATEGORY_KEYWORDS = {
     "property": "property", "land": "property", "house": "property",
 }
 
+# Used only in the no-Gemini fallback path, so location extraction doesn't
+# depend on the guest happening to capitalize a place name (they usually
+# don't when typing on a phone). Not exhaustive — just common Kenyan
+# areas VaRoom listings actually use today; extend as new cities/areas
+# come up in real listings.
+KNOWN_LOCATIONS = [
+    "nairobi", "kilimani", "westlands", "nakuru", "mombasa", "kisumu",
+    "eldoret", "thika", "karen", "lavington", "kileleshwa", "runda",
+    "langata", "ngong", "ruaka", "kiambu", "machakos", "naivasha", "diani",
+    "malindi", "nyeri", "kitengela", "syokimau", "ruiru", "juja",
+]
+
 GREETING_WORDS = {
     "hi", "hey", "hello", "hiya", "yo", "sup", "howdy",
     "hey elie", "hi elie", "hello elie", "morning", "good morning",
@@ -678,7 +690,11 @@ async def classify_message(message: str, history: Optional[List[dict]] = None) -
         '"location": the single city or area name only, or null, '
         '"max_price": a number in Kenyan Shillings if the person gave a '
         'budget or price ceiling (convert "2k" to 2000), or null, '
-        '"guests": an integer number of guests/people if mentioned, or null}\n\n'
+        '"guests": an integer number of guests/people if mentioned, or null, '
+        '"intro": a short, warm sentence (under 15 words) telling the guest '
+        'you searched and are showing results — vary the phrasing every '
+        'time, write it like a real person not a template, and reply in '
+        'the same language(s) the guest used}\n\n'
         "CARRYING OVER FILTERS ACROSS TURNS: if the recent conversation shows "
         "the guest already searching for something and their latest message "
         "only tweaks or corrects ONE part of it (a new area, a different "
@@ -713,6 +729,7 @@ async def classify_message(message: str, history: Optional[List[dict]] = None) -
             "location": parsed.get("location"),
             "max_price": parsed.get("max_price"),
             "guests": parsed.get("guests"),
+            "intro": parsed.get("intro"),
         }
 
     # Gemini failed or returned something unparseable. Don't blindly treat
@@ -734,13 +751,22 @@ async def classify_message(message: str, history: Optional[List[dict]] = None) -
 
     lower = message.lower()
     category = next((v for k, v in CATEGORY_KEYWORDS.items() if k in lower), None)
-    words = message.split()
+
     location = None
-    for i, word in enumerate(words):
-        cleaned_word = word.strip(".,!?")
-        if i > 0 and cleaned_word[:1].isupper() and cleaned_word.lower() not in CATEGORY_KEYWORDS:
-            location = cleaned_word
+    for known in KNOWN_LOCATIONS:
+        if known in lower:
+            location = known.title()
             break
+    if not location:
+        # Last resort: a capitalized word not otherwise explained, for
+        # areas not in the known list yet.
+        words = message.split()
+        for i, word in enumerate(words):
+            cleaned_word = word.strip(".,!?")
+            if i > 0 and cleaned_word[:1].isupper() and cleaned_word.lower() not in CATEGORY_KEYWORDS:
+                location = cleaned_word
+                break
+
     max_price = extract_price(message)
     guests = extract_guests(message)
 
@@ -916,9 +942,11 @@ async def elie_search(payload: ElieSearchRequest, authorization: Optional[str] =
             filters=filters,
         )
 
-    intro = f"Here's what I found for \"{payload.message}\":"
-    if not category and not location and not max_price and not guests:
-        intro += " (I couldn't pin down exact filters, so these are broader matches.)"
+    intro = classification.get("intro")
+    if not intro:
+        intro = f"Here's what I found for \"{payload.message}\":"
+        if not category and not location and not max_price and not guests:
+            intro += " (I couldn't pin down exact filters, so these are broader matches.)"
 
     return ElieSearchResponse(
         reply=intro,
