@@ -227,6 +227,28 @@
   .attention-clear-title{ font-size:.88rem; font-weight:600; }
   .attention-clear-sub{ font-size:.78rem; color:var(--muted); }
 
+  /* ---------- LISTINGS AT A GLANCE ---------- */
+  .listings-glance-card{
+    background:var(--white); border:1px solid rgba(26,18,16,.08); border-radius:16px;
+    padding:1.2rem 1.4rem;
+  }
+  .listings-glance-grid{ display:grid; grid-template-columns:1fr 1fr; gap:.6rem; }
+  .glance-tile{ background:var(--paper); border-radius:12px; overflow:hidden; display:block; }
+  .glance-thumb{
+    height:64px; background:rgba(26,18,16,.06); color:var(--muted);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .glance-thumb img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .glance-body{ padding:.5rem .6rem; }
+  .glance-title{ font-size:.78rem; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .glance-sub{ font-size:.7rem; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .glance-tile.add-tile{
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:.3rem; color:var(--muted); min-height:104px; font-size:.78rem; font-weight:600;
+    border:1px dashed rgba(26,18,16,.18); background:transparent;
+  }
+  .glance-tile.add-tile:hover{ color:var(--red); border-color:var(--red); }
+
   /* ---------- NO LISTINGS EMPTY STATE ---------- */
   .empty-state-card{
     background:var(--white); border:1px dashed rgba(26,18,16,.18); border-radius:16px;
@@ -569,6 +591,14 @@
         </a>
       </div>
 
+      <div class="listings-glance-card" id="listings-glance-card" style="display:none;">
+        <div class="stats-head">
+          <h2>Your listings at a glance</h2>
+          <a href="#" id="glance-view-all">View all</a>
+        </div>
+        <div class="listings-glance-grid" id="listings-glance-grid"></div>
+      </div>
+
       <div class="attention-card" id="attention-card" style="display:none;">
         <div class="stats-head">
           <h2>Needs your attention</h2>
@@ -717,6 +747,18 @@
       document.getElementById('no-listings-card').style.display = 'block';
     }
 
+    // Fetched once, shared by the listings-glance grid and the
+    // "missing photos" check below — real category + photo data only.
+    let hostListings = [];
+    if (listingCount > 0) {
+      const { data: hostListingsData } = await supabaseClient
+        .from('listings')
+        .select('id,title,category,created_at,listing_photos(storage_path)')
+        .eq('host_id', currentUser.id)
+        .order('created_at', { ascending:false });
+      hostListings = hostListingsData || [];
+    }
+
     // ---------- Pending approval, approved bookings, inquiries (real) ----------
     const { count: pendingCount } = await supabaseClient
       .from('bookings').select('id', { count: 'exact', head: true })
@@ -732,6 +774,62 @@
       .from('conversations').select('id', { count: 'exact', head: true })
       .eq('host_id', currentUser.id);
     document.getElementById('stat-inquiries').textContent = inquiriesCount ?? 0;
+
+    // ---------- Listings at a glance (real thumbnails + category, no invented stats) ----------
+    if (hostListings.length > 0) {
+      const categoryMeta = {
+        airbnb:   { label:'Airbnb',       icon:'home' },
+        hotel:    { label:'Hotel',        icon:'building' },
+        venue:    { label:'Event venue',  icon:'building' },
+        office:   { label:'Office',       icon:'building' },
+        shop:     { label:'Shop',         icon:'store' },
+        property: { label:'Property',     icon:'home' }
+      };
+      const glanceIcons = {
+        home: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9a1 1 0 0 0 1 1H9a1 1 0 0 0 1-1v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4a1 1 0 0 0 1 1h2.5a1 1 0 0 0 1-1v-9"/></svg>',
+        building: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="1"/><path d="M9 21v-4h6v4M9 7h.01M9 11h.01M15 7h.01M15 11h.01"/></svg>',
+        store: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l1.5-5h15L21 9"/><path d="M3 9v10a1 1 0 0 0 1 1h4v-6h8v6h4a1 1 0 0 0 1-1V9"/><path d="M3 9h18"/></svg>'
+      };
+
+      const showAddTile = hostListings.length < 4;
+      const shown = hostListings.slice(0, showAddTile ? 3 : 4);
+
+      const tilesHtml = shown.map(function(l){
+        const meta = categoryMeta[l.category] || { label: l.category || 'Listing', icon:'home' };
+        const photos = l.listing_photos || [];
+        let thumbHtml = glanceIcons[meta.icon];
+        if (photos.length > 0 && photos[0].storage_path) {
+          const url = supabaseClient.storage.from('listing-photos').getPublicUrl(photos[0].storage_path).data.publicUrl;
+          thumbHtml = '<img src="' + url + '" alt="">';
+        }
+        const sub = photos.length === 0 ? 'Draft · no photos' : meta.label;
+        return (
+          '<div class="glance-tile">' +
+            '<div class="glance-thumb">' + thumbHtml + '</div>' +
+            '<div class="glance-body">' +
+              '<div class="glance-title">' + escapeHtml(l.title) + '</div>' +
+              '<div class="glance-sub">' + escapeHtml(sub) + '</div>' +
+            '</div>' +
+          '</div>'
+        );
+      }).join('');
+
+      const addTileHtml = showAddTile
+        ? '<a href="list.html" class="glance-tile add-tile">' +
+            '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>' +
+            'Add listing' +
+          '</a>'
+        : '';
+
+      document.getElementById('listings-glance-grid').innerHTML = tilesHtml + addTileHtml;
+      document.getElementById('listings-glance-card').style.display = 'block';
+
+      document.getElementById('glance-view-all').addEventListener('click', function(e){
+        e.preventDefault();
+        showMyListingsView();
+        document.querySelector('.feed-area').scrollIntoView({ behavior:'smooth' });
+      });
+    }
 
     // ---------- Needs your attention (real data only — no invented signals) ----------
     if (listingCount > 0) (async function loadAttention(){
@@ -798,12 +896,7 @@
       }
 
       // 3) Your listings with no photos uploaded
-      const { data: myListingsWithPhotos } = await supabaseClient
-        .from('listings')
-        .select('id,title,created_at,listing_photos(id)')
-        .eq('host_id', currentUser.id);
-
-      (myListingsWithPhotos || [])
+      hostListings
         .filter(function(l){ return !l.listing_photos || l.listing_photos.length === 0; })
         .slice(0, 3)
         .forEach(function(l){
