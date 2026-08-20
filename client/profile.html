@@ -490,7 +490,9 @@
       }
     });
 
-    const profileUrl = window.location.href;
+    const profileUrl = profile.username
+      ? window.location.origin + '/u/' + profile.username
+      : window.location.href;
     document.getElementById('share-x').href = 'https://twitter.com/intent/tweet?url=' + encodeURIComponent(profileUrl);
     document.getElementById('share-linkedin').href = 'https://www.linkedin.com/sharing/share-offsite/?url=' + encodeURIComponent(profileUrl);
     document.getElementById('share-whatsapp').href = 'https://wa.me/?text=' + encodeURIComponent(profileUrl);
