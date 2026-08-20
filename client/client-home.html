@@ -175,6 +175,12 @@
     .right-rail{ display:none; }
   }
 
+  .update-card{ padding-bottom:.9rem; border-bottom:1px solid rgba(26,18,16,.08); }
+  .update-card:last-child{ border-bottom:none; padding-bottom:0; }
+  .update-img{ width:100%; border-radius:10px; margin-bottom:.5rem; display:block; }
+  .update-title{ font-weight:700; font-size:.88rem; margin-bottom:.2rem; }
+  .update-body{ font-size:.82rem; color:#3a2e2c; line-height:1.4; }
+
   h1.feed-title{
     font-family:var(--font-display); font-weight:600; font-size:1.5rem; margin-bottom:1.2rem;
   }
@@ -475,6 +481,15 @@
             <button type="button" class="rail-view-all" data-soon="Browsing all destinations">View all</button>
           </div>
           <div class="dest-grid" id="dest-grid">
+            <p class="state-msg" style="padding:0;font-size:.85rem;">Loading…</p>
+          </div>
+        </div>
+
+        <div class="rail-card">
+          <div class="rail-card-head">
+            <h2>VaRoom Updates</h2>
+          </div>
+          <div id="varoom-updates" style="display:flex;flex-direction:column;gap:.9rem;">
             <p class="state-msg" style="padding:0;font-size:.85rem;">Loading…</p>
           </div>
         </div>
@@ -1041,8 +1056,36 @@
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
+    async function loadVaroomUpdates(){
+      const wrap = document.getElementById('varoom-updates');
+      if (!wrap) return;
+
+      const { data, error } = await supabaseClient
+        .from('varoom_updates')
+        .select('id,title,body,image_url,created_at')
+        .order('created_at', { ascending:false })
+        .limit(3);
+
+      if (error || !data || data.length === 0){
+        wrap.innerHTML = '<p class="state-msg" style="padding:0;font-size:.85rem;">No updates yet.</p>';
+        return;
+      }
+
+      wrap.innerHTML = data.map(function(u){
+        const img = u.image_url ? '<img src="' + u.image_url + '" alt="" class="update-img">' : '';
+        return (
+          '<div class="update-card">' +
+            img +
+            '<div class="update-title">' + u.title + '</div>' +
+            '<div class="update-body">' + u.body + '</div>' +
+          '</div>'
+        );
+      }).join('');
+    }
+
     loadFeed();
     loadDestinations();
+    loadVaroomUpdates();
   })();
 </script>
 
