@@ -1,0 +1,264 @@
+from __future__ import annotations
+
+import asyncio
+import json
+import logging
+import re
+import time
+import xml.etree.ElementTree as ET
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
+from html.parser import HTMLParser
+from typing import Iterable
+from urllib.parse import urljoin
+
+import httpx
+
+from .config import Settings
+from .models import CandidateArticle, NewsEvent, NewsItem, Source
+from .normalizer import canonicalise_url, clean_html, content_hash
+from .repository import MemoryNewsRepository, SupabaseNewsRepository
+
+logger = logging.getLogger(__name__)
+Repository = MemoryNewsRepository | SupabaseNewsRepository
+
+
+class _ArticleHTMLParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.title: list[str] = []
+        self.text: list[str] = []
+        self.links: list[tuple[str, str]] = []
+        self._in_title = False
+        self._skip_depth = 0
+        self._anchor: str | None = None
+        self._anchor_text: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        attributes = dict(attrs)
+        if tag in {"script", "style", "noscript"}:
+            self._skip_depth += 1
+        if tag == "title":
+            self._in_title = True
+        if tag == "a" and attributes.get("href"):
+            self._anchor, self._anchor_text = attributes["href"], []
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag in {"script", "style", "noscript"} and self._skip_depth:
+            self._skip_depth -= 1
+        if tag == "title":
+            self._in_title = False
+        if tag == "a" and self._anchor:
+            text = " ".join(self._anchor_text).strip()
+            if text:
+                self.links.append((self._anchor, text))
+            self._anchor = None
+
+    def handle_data(self, data: str) -> None:
+        if self._skip_depth:
+            return
+        value = data.strip()
+        if not value:
+            return
+        self.text.append(value)
+        if self._in_title:
+            self.title.append(value)
+        if self._anchor is not None:
+            self._anchor_text.append(value)
+
+
+class SourceCollector:
+    def __init__(self, repository: Repository, settings: Settings) -> None:
+        self.repository, self.settings = repository, settings
+        self._last_request_at: dict[str, float] = {}
+
+    async def collect_due_sources(self) -> dict[str, int]:
+        sources = await self.repository.list_sources(active_only=True)
+        totals = {"sources_checked": 0, "candidates": 0, "new_items": 0, "duplicates": 0, "failures": 0}
+        for source in sources:
+            if not self._is_due(source):
+                continue
+            result = await self.collect_source(source)
+            totals["sources_checked"] += 1
+            for key in ("candidates", "new_items", "duplicates", "failures"):
+                totals[key] += result[key]
+        return totals
+
+    async def collect_source(self, source: Source) -> dict[str, int]:
+        started = datetime.now(timezone.utc)
+        result = {"candidates": 0, "new_items": 0, "duplicates": 0, "failures": 0}
+        try:
+            candidates = await self._discover(source)
+            candidates = [await self._materialise_article(source, candidate) for candidate in candidates]
+            result["candidates"] = len(candidates)
+            for candidate in candidates:
+                stored, duplicate = await self._store_candidate(source, candidate)
+                result["duplicates" if duplicate else "new_items"] += 1
+            source.last_successful_fetch_at = datetime.now(timezone.utc)
+            await self.repository.upsert_source(source)
+            await self.repository.add_event(NewsEvent(source_id=source.id, event_type="source_fetch_succeeded", payload={
+                "started_at": started.isoformat(), "candidates": result["candidates"], "new_items": result["new_items"],
+                "duplicates": result["duplicates"],
+            }))
+        except Exception as error:  # A source failure must never stop other sources.
+            logger.warning("Source %s failed: %s", source.name, error)
+            result["failures"] = 1
+            source.last_failed_fetch_at = datetime.now(timezone.utc)
+            await self.repository.upsert_source(source)
+            await self.repository.add_event(NewsEvent(source_id=source.id, event_type="source_fetch_failed", payload={
+                "started_at": started.isoformat(), "error": str(error)[:1000],
+            }))
+        return result
+
+    @staticmethod
+    def _is_due(source: Source) -> bool:
+        last_check = max((value for value in (source.last_successful_fetch_at, source.last_failed_fetch_at) if value), default=None)
+        if not last_check:
+            return True
+        if last_check.tzinfo is None:
+            last_check = last_check.replace(tzinfo=timezone.utc)
+        return (datetime.now(timezone.utc) - last_check).total_seconds() >= source.schedule_minutes * 60
+
+    async def _discover(self, source: Source) -> list[CandidateArticle]:
+        config = source.parser_config
+        if source.fetch_method == "manual":
+            urls = config.get("urls", [])
+            return [await self._fetch_article(source, url) for url in urls]
+        endpoint = config.get("discovery_url") or source.base_url
+        body = await self._fetch(endpoint)
+        if source.fetch_method in {"rss", "atom"}:
+            return self._parse_feed(source, body, endpoint)
+        if source.fetch_method == "sitemap":
+            return self._parse_sitemap(source, body, endpoint)
+        if source.fetch_method == "api":
+            return self._parse_api(source, body, endpoint)
+        if source.fetch_method == "html":
+            return self._parse_html_discovery(source, body, endpoint)
+        raise ValueError(f"Unsupported fetch method: {source.fetch_method}")
+
+    async def _fetch(self, url: str) -> str:
+        origin = re.sub(r"^(https?://[^/]+).*$", r"\1", url)
+        delay = self.settings.min_request_interval_seconds - (time.monotonic() - self._last_request_at.get(origin, 0))
+        if delay > 0:
+            await asyncio.sleep(delay)
+        headers = {"User-Agent": self.settings.fetch_user_agent, "Accept": "application/rss+xml, application/atom+xml, application/xml, text/html, application/json;q=0.9"}
+        last_error: Exception | None = None
+        for attempt in range(self.settings.fetch_retry_attempts):
+            try:
+                async with httpx.AsyncClient(timeout=self.settings.fetch_timeout_seconds, follow_redirects=True, headers=headers) as client:
+                    async with client.stream("GET", url) as response:
+                        response.raise_for_status()
+                        chunks: list[bytes] = []
+                        total = 0
+                        async for chunk in response.aiter_bytes():
+                            total += len(chunk)
+                            if total > self.settings.fetch_max_bytes:
+                                raise ValueError("Response exceeded NEWS_FETCH_MAX_BYTES")
+                            chunks.append(chunk)
+                self._last_request_at[origin] = time.monotonic()
+                return b"".join(chunks).decode("utf-8", errors="replace")
+            except (httpx.HTTPError, ValueError) as error:
+                last_error = error
+                if attempt + 1 < self.settings.fetch_retry_attempts:
+                    await asyncio.sleep(0.5 * (2 ** attempt))
+        raise RuntimeError(f"Fetch failed for {url}: {last_error}")
+
+    async def _fetch_article(self, source: Source, url: str, title: str | None = None, published_at: datetime | None = None) -> CandidateArticle:
+        html = await self._fetch(url)
+        parser = _ArticleHTMLParser()
+        parser.feed(html)
+        return CandidateArticle(source_id=source.id, source_url=url, source_title=title or " ".join(parser.title) or url,
+                                source_published_at=published_at, original_content=html, clean_text=" ".join(parser.text))
+
+    async def _materialise_article(self, source: Source, candidate: CandidateArticle) -> CandidateArticle:
+        """Fetch a discovered article when only a feed excerpt/link was available."""
+        if len(candidate.clean_text) >= 500:
+            return candidate
+        article = await self._fetch_article(source, candidate.source_url, candidate.source_title, candidate.source_published_at)
+        return article if article.clean_text else candidate
+
+    def _parse_feed(self, source: Source, body: str, base_url: str) -> list[CandidateArticle]:
+        root = ET.fromstring(body)
+        articles: list[CandidateArticle] = []
+        for entry in root.findall(".//item") + root.findall(".//{http://www.w3.org/2005/Atom}entry"):
+            title = self._element_text(entry, "title") or "Untitled source item"
+            url = self._element_text(entry, "link")
+            if not url:
+                link = entry.find("{http://www.w3.org/2005/Atom}link")
+                url = link.attrib.get("href") if link is not None else None
+            if not url:
+                continue
+            description = self._element_text(entry, "description") or self._element_text(entry, "summary") or ""
+            published = self._parse_date(self._element_text(entry, "pubDate") or self._element_text(entry, "published") or self._element_text(entry, "updated"))
+            articles.append(CandidateArticle(source_id=source.id, source_url=urljoin(base_url, url), source_title=title,
+                                             source_published_at=published, original_content=description, clean_text=clean_html(description)))
+        return articles
+
+    def _parse_sitemap(self, source: Source, body: str, base_url: str) -> list[CandidateArticle]:
+        root = ET.fromstring(body)
+        articles: list[CandidateArticle] = []
+        for location in root.findall(".//{*}loc")[:200]:
+            url = (location.text or "").strip()
+            if url:
+                articles.append(CandidateArticle(source_id=source.id, source_url=urljoin(base_url, url), source_title=url, clean_text=""))
+        return articles
+
+    def _parse_api(self, source: Source, body: str, base_url: str) -> list[CandidateArticle]:
+        payload = json.loads(body)
+        config = source.parser_config
+        items = payload
+        for key in config.get("items_path", "items").split("."):
+            items = items.get(key, []) if isinstance(items, dict) else []
+        if not isinstance(items, list):
+            raise ValueError("API parser items path did not resolve to a list")
+        url_key, title_key, text_key = config.get("url_key", "url"), config.get("title_key", "title"), config.get("text_key", "content")
+        return [CandidateArticle(source_id=source.id, source_url=urljoin(base_url, str(row[url_key])),
+                                 source_title=str(row.get(title_key) or row[url_key]), original_content=str(row.get(text_key) or ""),
+                                 clean_text=clean_html(str(row.get(text_key) or "")))
+                for row in items if isinstance(row, dict) and row.get(url_key)]
+
+    def _parse_html_discovery(self, source: Source, body: str, base_url: str) -> list[CandidateArticle]:
+        parser = _ArticleHTMLParser()
+        parser.feed(body)
+        pattern = source.parser_config.get("url_contains", "")
+        return [CandidateArticle(source_id=source.id, source_url=urljoin(base_url, href), source_title=title, clean_text="")
+                for href, title in parser.links if not pattern or pattern in href][:100]
+
+    @staticmethod
+    def _element_text(entry: ET.Element, name: str) -> str | None:
+        element = entry.find(name)
+        if element is None:
+            element = entry.find(f"{{http://www.w3.org/2005/Atom}}{name}")
+        return (element.text or "").strip() if element is not None and element.text else None
+
+    @staticmethod
+    def _parse_date(value: str | None) -> datetime | None:
+        if not value:
+            return None
+        try:
+            return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            try:
+                return parsedate_to_datetime(value)
+            except (TypeError, ValueError):
+                return None
+
+    async def _store_candidate(self, source: Source, candidate: CandidateArticle) -> tuple[NewsItem | None, bool]:
+        canonical_url = canonicalise_url(candidate.source_url)
+        text = candidate.clean_text or candidate.source_title
+        digest = content_hash(text)
+        duplicate = await self.repository.find_by_canonical_url(canonical_url)
+        duplicate = duplicate or await self.repository.find_by_content_hash(digest)
+        duplicate = duplicate or await self.repository.find_similar_title(candidate.source_title)
+        if duplicate:
+            await self.repository.add_event(NewsEvent(source_id=source.id, news_id=duplicate.id, event_type="duplicate_detected", payload={
+                "candidate_url": candidate.source_url, "canonical_url": canonical_url,
+            }))
+            return None, True
+        item = NewsItem(source_id=source.id, source_url=candidate.source_url, canonical_url=canonical_url,
+                        source_title=candidate.source_title[:1000], source_published_at=candidate.source_published_at,
+                        original_content=candidate.original_content, clean_text=candidate.clean_text,
+                        source_tier=source.trust_tier, content_hash=digest)
+        saved = await self.repository.save_item(item)
+        await self.repository.add_event(NewsEvent(source_id=source.id, news_id=saved.id, event_type="item_discovered", payload={"canonical_url": canonical_url}))
+        return saved, False

@@ -65,11 +65,16 @@ GREETING_WORDS = {
     "hi", "hey", "hello", "hiya", "yo", "sup", "howdy",
     "hey elie", "hi elie", "hello elie", "morning", "good morning",
     "good afternoon", "good evening", "thanks", "thank you", "ok", "okay",
+    # Swahili / Sheng — common in Kenya, VaRoom's actual market
+    "niaje", "sasa", "mambo", "vipi", "poa", "sawa", "asante", "karibu",
+    "habari", "salama",
 }
 
 FAREWELL_WORDS = {
     "bye", "goodbye", "good bye", "see you", "see ya", "later",
     "cya", "farewell", "night", "good night",
+    # Swahili / Sheng
+    "kwaheri", "tutaonana", "baadaye",
 }
 
 # Varied first-contact replies so Elie doesn't sound like a canned bot
@@ -608,7 +613,10 @@ async def classify_message(message: str, history: Optional[List[dict]] = None) -
     prompt = (
         "You are Elie, a friendly search assistant on VaRoom, a hospitality "
         "marketplace (Airbnbs, hotels, event venues, offices, shops, and "
-        "property listings).\n\n"
+        "property listings) based in Kenya. Guests often mix Swahili or "
+        "Sheng into English (\"niaje\", \"poa\", \"nataka nyumba Nairobi\", "
+        "\"niko na budget ya 5k\") — treat that as completely normal, not a "
+        "language error, and reply in whichever language(s) the guest used.\n\n"
         f"{history_block}"
         "Decide whether the guest's LATEST message is (a) general "
         "conversation — a greeting, thanks, goodbye, a short reply/"

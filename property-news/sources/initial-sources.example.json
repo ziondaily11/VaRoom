@@ -1,0 +1,35 @@
+[
+  {
+    "name": "State Department for Lands and Physical Planning (candidate)",
+    "base_url": "https://lands.go.ke",
+    "source_type": "government",
+    "trust_tier": 1,
+    "fetch_method": "html",
+    "schedule_minutes": 60,
+    "active": false,
+    "parser_config": {"discovery_url": "https://lands.go.ke", "url_contains": "/"},
+    "activation_note": "Verify robots.txt, current technical access, terms, and a narrow article selector before activating."
+  },
+  {
+    "name": "Parliament of Kenya (candidate)",
+    "base_url": "https://www.parliament.go.ke",
+    "source_type": "parliamentary",
+    "trust_tier": 1,
+    "fetch_method": "html",
+    "schedule_minutes": 60,
+    "active": false,
+    "parser_config": {"discovery_url": "https://www.parliament.go.ke", "url_contains": "/"},
+    "activation_note": "Activate only after confirming a property-relevant feed or page and collection permission."
+  },
+  {
+    "name": "Nairobi City County (candidate)",
+    "base_url": "https://nairobi.go.ke",
+    "source_type": "county",
+    "trust_tier": 1,
+    "fetch_method": "html",
+    "schedule_minutes": 120,
+    "active": false,
+    "parser_config": {"discovery_url": "https://nairobi.go.ke", "url_contains": "/"},
+    "activation_note": "Confirm the current official notices route and public-participation pages before enabling."
+  }
+]
