@@ -141,8 +141,39 @@
     font-weight:700; font-size:.9rem;
   }
 
+  /* ---------- CONTENT ROW (feed + right rail) ---------- */
+  .content-row{ display:flex; align-items:flex-start; }
+
   /* ---------- FEED ---------- */
-  .feed-area{ padding:1.8rem 2rem 4rem; max-width:760px; }
+  .feed-area{ padding:1.8rem 2rem 4rem; max-width:760px; flex:1 1 auto; min-width:0; }
+
+  /* ---------- RIGHT RAIL ---------- */
+  .right-rail{ width:320px; flex:0 0 320px; padding:1.8rem 2rem 4rem 0; display:flex; flex-direction:column; gap:1.5rem; }
+
+  .rail-card{ background:var(--white); border:1px solid rgba(26,18,16,.08); border-radius:18px; padding:1.3rem; }
+  .rail-card-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem; }
+  .rail-card-head h2{ font-family:var(--font-display); font-weight:600; font-size:1.05rem; }
+  .rail-view-all{ font-size:.78rem; font-weight:600; color:var(--red); }
+  .rail-view-all:hover{ text-decoration:underline; }
+
+  .dest-grid{ display:grid; grid-template-columns:1fr 1fr; gap:.7rem; }
+  .dest-card{
+    position:relative; border-radius:12px; overflow:hidden; aspect-ratio:4/3;
+    cursor:pointer; border:none; padding:0; display:block; width:100%;
+  }
+  .dest-card img{ width:100%; height:100%; object-fit:cover; display:block; transition:transform .3s ease; }
+  .dest-card:hover img{ transform:scale(1.06); }
+  .dest-card-overlay{
+    position:absolute; inset:0; display:flex; flex-direction:column; justify-content:flex-end;
+    padding:.6rem .7rem; color:#fff;
+    background:linear-gradient(to top, rgba(0,0,0,.75) 0%, rgba(0,0,0,0) 65%);
+  }
+  .dest-card-name{ font-weight:700; font-size:.82rem; }
+  .dest-card-count{ font-size:.68rem; opacity:.85; }
+
+  @media (max-width:1180px){
+    .right-rail{ display:none; }
+  }
 
   h1.feed-title{
     font-family:var(--font-display); font-weight:600; font-size:1.5rem; margin-bottom:1.2rem;
@@ -420,20 +451,34 @@
       </div>
     </header>
 
-    <div class="feed-area">
-      <h1 class="feed-title" id="feed-title">Find the perfect space</h1>
+    <div class="content-row">
+      <div class="feed-area">
+        <h1 class="feed-title" id="feed-title">Find the perfect space</h1>
 
-      <div class="tabs" id="tabs">
-        <button class="tab active" data-category="all">All</button>
-        <button class="tab" data-category="airbnb">Airbnbs</button>
-        <button class="tab" data-category="hotel">Hotels</button>
-        <button class="tab" data-category="venue">Event Venues</button>
-        <button class="tab" data-category="office">Offices</button>
-        <button class="tab" data-category="shop">Shops</button>
-        <button class="tab" data-category="property">Property</button>
+        <div class="tabs" id="tabs">
+          <button class="tab active" data-category="all">All</button>
+          <button class="tab" data-category="airbnb">Airbnbs</button>
+          <button class="tab" data-category="hotel">Hotels</button>
+          <button class="tab" data-category="venue">Event Venues</button>
+          <button class="tab" data-category="office">Offices</button>
+          <button class="tab" data-category="shop">Shops</button>
+          <button class="tab" data-category="property">Property</button>
+        </div>
+
+        <div id="feed-list"></div>
       </div>
 
-      <div id="feed-list"></div>
+      <aside class="right-rail">
+        <div class="rail-card">
+          <div class="rail-card-head">
+            <h2>Popular destinations</h2>
+            <button type="button" class="rail-view-all" data-soon="Browsing all destinations">View all</button>
+          </div>
+          <div class="dest-grid" id="dest-grid">
+            <p class="state-msg" style="padding:0;font-size:.85rem;">Loading…</p>
+          </div>
+        </div>
+      </aside>
     </div>
 
     <nav class="bottom-bar">
@@ -478,7 +523,13 @@
 
     const feedList = document.getElementById('feed-list');
     const tabsEl = document.getElementById('tabs');
-    const searchInput = document.getElementById('search-input');
+    const DESTINATIONS = [
+      { city: 'Nairobi', file: 'assets/destinations/nairobi.jpg' },
+      { city: 'Mombasa', file: 'assets/destinations/mombasa.jpg' },
+      { city: 'Diani',   file: 'assets/destinations/diani.jpg' },
+      { city: 'Kisumu',  file: 'assets/destinations/kisumu.jpg' },
+      { city: 'Nakuru',  file: 'assets/destinations/nakuru.jpg' }
+    ];
 
     // ---------- Auth guard ----------
     const { data: { session } } = await supabaseClient.auth.getSession();
@@ -944,7 +995,53 @@
       window.location.href = 'index.html';
     });
 
+    async function loadDestinations(){
+      const grid = document.getElementById('dest-grid');
+      if (!grid) return;
+
+      const counts = await Promise.all(DESTINATIONS.map(function(d){
+        return supabaseClient
+          .from('listings')
+          .select('id', { count: 'exact', head: true })
+          .ilike('location_text', '%' + d.city + '%');
+      }));
+
+      grid.innerHTML = DESTINATIONS.map(function(d, i){
+        const count = (counts[i] && typeof counts[i].count === 'number') ? counts[i].count : 0;
+        const countLabel = count > 0 ? (count + (count === 1 ? ' place' : ' places')) : 'New';
+        return (
+          '<button type="button" class="dest-card" data-city="' + d.city + '">' +
+            '<img src="' + d.file + '" alt="' + d.city + '" loading="lazy">' +
+            '<div class="dest-card-overlay">' +
+              '<div class="dest-card-name">' + d.city + '</div>' +
+              '<div class="dest-card-count">' + countLabel + '</div>' +
+            '</div>' +
+          '</button>'
+        );
+      }).join('');
+
+      grid.querySelectorAll('.dest-card').forEach(function(btn){
+        btn.addEventListener('click', function(){
+          goToCityListings(btn.getAttribute('data-city'));
+        });
+      });
+    }
+
+    function goToCityListings(city){
+      setActiveNav('explore');
+      currentView = 'explore';
+      document.getElementById('feed-title').textContent = city + ' listings';
+      currentCategory = 'all';
+      tabsEl.querySelectorAll('.tab').forEach(function(t){ t.classList.remove('active'); });
+      tabsEl.querySelector('[data-category="all"]').classList.add('active');
+      searchTerm = city;
+      searchInput.value = city;
+      loadFeed();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
     loadFeed();
+    loadDestinations();
   })();
 </script>
 
