@@ -88,12 +88,25 @@ GREETING_REPLIES = [
     "Hi! Ready when you are — describe the space you want and I'll go find it.",
 ]
 
+GREETING_REPLIES_SW = [
+    "Niaje! Mimi ni Elie — niambie unatafuta nafasi gani na wapi, nikusaidie kutafuta VaRoom.",
+    "Mambo! Unatafuta airbnb, venue, ama ofisi? Niambie tu na nitakutafutia.",
+    "Sasa! Nipo hapa kukusaidia kupata nafasi VaRoom — niambie unahitaji nini na wapi.",
+    "Poa! Elie hapa — niambie unatafuta place gani, nikupatie matokeo halisi.",
+]
+
 FAREWELL_REPLIES = [
     "Bye for now — come find me whenever you're ready to search again.",
     "Take care! I'll be here when you need to find another space.",
     "See you around — good luck with the search!",
     "Later! Ping me anytime you want to look for something new.",
     "Bye! Hope you find exactly what you're looking for.",
+]
+
+FAREWELL_REPLIES_SW = [
+    "Kwaheri! Nipo hapa ukihitaji kutafuta nafasi tena.",
+    "Sawa, tutaonana! Nakutakia bahati nzuri na search yako.",
+    "Baadaye! Nikupigie tu ukihitaji msaada zaidi.",
 ]
 
 # Follow-up nudges shown after a successful search, so results don't just
@@ -113,6 +126,11 @@ CHAT_FALLBACK_REPLIES = [
     "I'm here — tell me what kind of space you're looking for and I'll go find it.",
     "Happy to help! Describe the place you need (like \"Airbnbs in Nairobi\") and I'll search.",
     "I'm Elie, your VaRoom search assistant — give me a location or type of space and I'll get started.",
+]
+
+CHAT_FALLBACK_REPLIES_SW = [
+    "Nipo hapa — niambie unatafuta nafasi gani nikusaidie.",
+    "Karibu! Niambie unahitaji nini (mfano \"airbnb Nairobi\") nikutafutie.",
 ]
 
 app = FastAPI(
@@ -548,6 +566,21 @@ def is_probably_farewell(message: str) -> bool:
     return any(word in cleaned for word in FAREWELL_WORDS)
 
 
+SWAHILI_FLAVOR_WORDS = {
+    "niaje", "sasa", "mambo", "vipi", "poa", "sawa", "asante", "karibu",
+    "habari", "salama", "kwaheri", "tutaonana", "baadaye", "nataka",
+    "nyumba", "chini", "ya", "sio", "si", "tufanye", "niko", "nikupatie",
+}
+
+
+def is_swahili_flavored(message: str) -> bool:
+    """Cheap word-overlap check — good enough to decide which language
+    pool a hardcoded fast-path reply should come from. Not meant to be a
+    real language detector; Gemini itself handles the nuanced cases."""
+    words = set(message.lower().replace(",", " ").replace("!", " ").split())
+    return bool(words & SWAHILI_FLAVOR_WORDS)
+
+
 def extract_price(text: str) -> Optional[float]:
     """Best-effort price extraction for the non-Gemini fallback path.
     Handles '2k', 'ksh 6000', 'under 6,000', plain 4-7 digit numbers."""
@@ -597,10 +630,12 @@ async def classify_message(message: str, history: Optional[List[dict]] = None) -
     has_history = bool(history)
 
     if not has_history and is_probably_farewell(message):
-        return {"intent": "chat", "chat_reply": random.choice(FAREWELL_REPLIES)}
+        pool = FAREWELL_REPLIES_SW if is_swahili_flavored(message) else FAREWELL_REPLIES
+        return {"intent": "chat", "chat_reply": random.choice(pool)}
 
     if not has_history and is_probably_greeting(message):
-        return {"intent": "chat", "chat_reply": random.choice(GREETING_REPLIES)}
+        pool = GREETING_REPLIES_SW if is_swahili_flavored(message) else GREETING_REPLIES
+        return {"intent": "chat", "chat_reply": random.choice(pool)}
 
     history_block = ""
     if has_history:
@@ -644,6 +679,21 @@ async def classify_message(message: str, history: Optional[List[dict]] = None) -
         '"max_price": a number in Kenyan Shillings if the person gave a '
         'budget or price ceiling (convert "2k" to 2000), or null, '
         '"guests": an integer number of guests/people if mentioned, or null}\n\n'
+        "CARRYING OVER FILTERS ACROSS TURNS: if the recent conversation shows "
+        "the guest already searching for something and their latest message "
+        "only tweaks or corrects ONE part of it (a new area, a different "
+        "budget, more guests), extract the FULL set of filters — keep "
+        "whatever they didn't mention or change from the earlier search, and "
+        "only override what they explicitly changed. Never drop the earlier "
+        "filters just because the latest message alone doesn't repeat them. "
+        "This applies across languages too — \"sio X\" / \"si X\" means "
+        "\"not X\", so \"sio kilimani, tufanye westlands\" after a search for "
+        "airbnbs in Kilimani under 5000 means: category=airbnb (carried "
+        "over), location=Westlands (corrected), max_price=5000 (carried "
+        "over, unchanged). Always extract the location precisely whenever a "
+        "specific place name is mentioned, even briefly (\"in westlands\", "
+        "\"near westlands\", \"westlands area\") — don't leave it null just "
+        "because the message is short.\n\n"
         f"Guest's latest message: {message}"
     )
 
@@ -670,7 +720,8 @@ async def classify_message(message: str, history: Optional[List[dict]] = None) -
     # chit-chat into a "couldn't find any listings" response. Only fall
     # back to search when there's an actual signal to search on.
     if has_history and is_probably_farewell(message):
-        return {"intent": "chat", "chat_reply": random.choice(FAREWELL_REPLIES)}
+        pool = FAREWELL_REPLIES_SW if is_swahili_flavored(message) else FAREWELL_REPLIES
+        return {"intent": "chat", "chat_reply": random.choice(pool)}
 
     if has_history and is_probably_greeting(message):
         # This heuristic can't tell a genuine fresh "hi" apart from a short
@@ -678,7 +729,8 @@ async def classify_message(message: str, history: Optional[List[dict]] = None) -
         # the surface. Rather than hardcode one sentence that's wrong half
         # the time, use the same varied greeting pool; it reads reasonably
         # either way and never repeats verbatim.
-        return {"intent": "chat", "chat_reply": random.choice(GREETING_REPLIES)}
+        pool = GREETING_REPLIES_SW if is_swahili_flavored(message) else GREETING_REPLIES
+        return {"intent": "chat", "chat_reply": random.choice(pool)}
 
     lower = message.lower()
     category = next((v for k, v in CATEGORY_KEYWORDS.items() if k in lower), None)
@@ -694,7 +746,8 @@ async def classify_message(message: str, history: Optional[List[dict]] = None) -
 
     has_search_signal = bool(category or location or max_price or guests)
     if not has_search_signal:
-        return {"intent": "chat", "chat_reply": random.choice(CHAT_FALLBACK_REPLIES)}
+        pool = CHAT_FALLBACK_REPLIES_SW if is_swahili_flavored(message) else CHAT_FALLBACK_REPLIES
+        return {"intent": "chat", "chat_reply": random.choice(pool)}
 
     return {
         "intent": "search",
