@@ -175,6 +175,9 @@
     let realtimeChannel = null;
 
     const CHATBOT_REPLY_URL = 'https://varoom.onrender.com/reply';
+    // Same cold-start mitigation as elie.html — wake the service up as
+    // soon as the chat page opens, not only when an auto-reply is needed.
+    fetch('https://varoom.onrender.com/health').catch(function(){});
 
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (!session) { window.location.href = 'login.html'; return; }

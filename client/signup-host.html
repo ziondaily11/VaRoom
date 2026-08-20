@@ -53,8 +53,14 @@
 
   .submit-btn{ background:var(--ink); color:var(--white); padding:1rem 1.6rem; border-radius:100px; font-weight:600; font-size:1rem; margin-top:.6rem; transition:background .2s ease; }
   .submit-btn:hover{ background:var(--red); }
+  .submit-btn:disabled{ background:#c9c0bd; cursor:not-allowed; }
 
   .form-note{ font-size:.85rem; color:#7a6b67; text-align:center; margin-top:.4rem; }
+  .consent-row{ display:flex; align-items:flex-start; gap:.6rem; font-size:.85rem; line-height:1.5; color:#3a2e2c; }
+  .consent-row input[type="checkbox"]{ margin-top:.2rem; width:1.05rem; height:1.05rem; accent-color:var(--red); flex-shrink:0; cursor:pointer; }
+  .consent-row label{ font-weight:400; cursor:pointer; }
+  .consent-row a{ color:var(--red-deep); font-weight:600; border-bottom:1.5px solid var(--red-deep); }
+  .consent-row a:hover{ color:var(--red); border-color:var(--red); }
 
   .success-msg{ display:none; background:#F4EDE4; border:1px solid rgba(26,18,16,.1); border-radius:14px; padding:1.4rem 1.6rem; margin-top:1.6rem; font-size:.95rem; }
   .success-msg.show{ display:block; }
@@ -101,7 +107,11 @@
       </div>
       <p class="field-error" id="password-mismatch-error">Passwords don't match.</p>
     </div>
-    <button type="submit" class="submit-btn">Create host account</button>
+    <div class="consent-row">
+      <input type="checkbox" id="consent-check" required>
+      <label for="consent-check">I agree to the <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a> and <a href="terms.html" target="_blank" rel="noopener">Terms of Service</a>.</label>
+    </div>
+    <button type="submit" class="submit-btn" id="submit-btn" disabled>Create host account</button>
     <p class="form-note">Creates a real VaRoom account — you'll get a confirmation email before you can sign in.</p>
   </form>
 
@@ -121,6 +131,13 @@
     });
   });
 
+  // Consent checkbox gates the submit button
+  const consentCheck = document.getElementById('consent-check');
+  const submitBtn = document.getElementById('submit-btn');
+  consentCheck.addEventListener('change', function(){
+    submitBtn.disabled = !consentCheck.checked;
+  });
+
   document.getElementById('host-signup-form').addEventListener('submit', async function(e){
     e.preventDefault();
 
@@ -137,6 +154,11 @@
       return;
     }
     mismatchError.classList.remove('show');
+
+    if (!consentCheck.checked) {
+      consentCheck.focus();
+      return;
+    }
 
     const { data, error } = await supabaseClient.auth.signUp({
       email: email,

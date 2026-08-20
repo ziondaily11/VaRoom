@@ -249,6 +249,12 @@
     const sendBtn = document.getElementById('send-btn');
     const backLink = document.getElementById('back-link');
 
+    // Fire-and-forget: wakes the Render service up the instant this page
+    // opens, so a cold start happens while the person is reading/typing
+    // instead of after they hit send. Ignored if it fails — the real
+    // request will just take the full cold-start hit as before.
+    fetch('https://varoom.onrender.com/health').catch(function(){});
+
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (!session) {
       window.location.href = 'login.html';
