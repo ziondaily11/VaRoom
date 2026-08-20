@@ -1004,6 +1004,8 @@
     var mobileNav = document.getElementById('mobile-nav');
     var googleBtn = document.getElementById('google-auth-btn');
     var selectedRole = null;
+    var urlParams = new URLSearchParams(window.location.search);
+    var pendingRedirect = urlParams.get('redirect');
 
     var roleContent = {
       host: {
@@ -1073,7 +1075,7 @@
         var content = roleContent[role];
         roleLabel.textContent = content.label;
         roleSub.textContent = content.sub;
-        emailLink.setAttribute('href', content.href);
+        emailLink.setAttribute('href', content.href + (pendingRedirect ? '?redirect=' + encodeURIComponent(pendingRedirect) : ''));
         showStep('auth');
       });
     });
@@ -1089,7 +1091,10 @@
       }
       await supabaseClient.auth.signInWithOAuth({
         provider: 'google',
-        options: { redirectTo: window.location.origin + '/auth-callback.html' }
+        options: {
+          redirectTo: window.location.origin + '/auth-callback.html' +
+            (pendingRedirect ? '?redirect=' + encodeURIComponent(pendingRedirect) : '')
+        }
       });
     });
   })();

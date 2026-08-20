@@ -163,7 +163,7 @@
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (!session) {
       const returnTo = window.location.pathname + window.location.search;
-      window.location.href = 'signup-client.html?redirect=' + encodeURIComponent(returnTo);
+      window.location.href = 'index.html?redirect=' + encodeURIComponent(returnTo);
       return;
     }
     currentUser = session.user;
