@@ -372,6 +372,17 @@
     .host-rail{ position:static; padding-top:0; padding-bottom:6rem; }
     .feed-area{ padding:0 1rem 1.4rem; }
 
+    body{ height:auto; overflow:visible; }
+    .app-shell{ height:auto; overflow:visible; }
+    .main-col{ height:auto; overflow-y:visible; }
+
+    .dash-top{ flex-wrap:nowrap; align-items:center; }
+    .list-btn-top{
+      padding:0; width:42px; height:42px; border-radius:50%;
+      justify-content:center; flex-shrink:0;
+    }
+    .list-btn-top .btn-label{ display:none; }
+
     .sidebar .nav-item[data-mobile-hide]{ display:none; }
     .topbar{ position:sticky; top:0; z-index:100; }
 
@@ -543,9 +554,9 @@
           <p class="greeting-sub">Ready to list your next space?</p>
           <p class="mobile-mini-stats" id="mobile-mini-stats"></p>
         </div>
-        <a href="list.html" class="list-btn-primary">
+        <a href="list.html" class="list-btn-primary list-btn-top">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          List a new space
+          <span class="btn-label">List a new space</span>
         </a>
       </div>
 
@@ -1365,6 +1376,7 @@
     document.querySelectorAll('.bottom-bar-item[data-bottom-nav]').forEach(function(item){
       item.addEventListener('click', function(){
         viewHandlers[item.getAttribute('data-bottom-nav')]();
+        window.scrollTo({ top:0, behavior:'smooth' });
         document.querySelector('.main-col').scrollTo({ top:0, behavior:'smooth' });
       });
     });
