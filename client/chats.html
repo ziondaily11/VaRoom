@@ -334,6 +334,15 @@
       await loadMessages(convId, other);
       subscribeToConversation(convId, other);
 
+      // Mark the other person's messages as read now that this thread is open.
+      supabaseClient
+        .from('messages')
+        .update({ is_read: true })
+        .eq('conversation_id', convId)
+        .eq('is_read', false)
+        .neq('sender_id', currentUser.id)
+        .then(function(){});
+
       const input = document.getElementById('message-input');
       const sendBtn = document.getElementById('send-btn');
 
