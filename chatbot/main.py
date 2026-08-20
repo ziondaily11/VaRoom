@@ -24,6 +24,7 @@ import os
 import re
 import json
 import random
+import asyncio
 import httpx
 from datetime import datetime, timezone
 from fastapi import FastAPI, Header, HTTPException
@@ -123,24 +124,45 @@ app.add_middleware(
 )
 
 
-async def call_gemini(prompt: str) -> Optional[str]:
+async def call_gemini(prompt: str, max_attempts: int = 3) -> Optional[str]:
     if not GEMINI_API_KEY:
         return None
 
     request_body = {"contents": [{"parts": [{"text": prompt}]}]}
+    backoff_seconds = [0.5, 1.5]  # between attempts 1->2 and 2->3
 
-    try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            response = await client.post(
-                GEMINI_URL,
-                params={"key": GEMINI_API_KEY},
-                json=request_body,
-            )
-            response.raise_for_status()
-            data = response.json()
-            return data["candidates"][0]["content"]["parts"][0]["text"].strip()
-    except Exception:
-        return None
+    for attempt in range(max_attempts):
+        try:
+            async with httpx.AsyncClient(timeout=20.0) as client:
+                response = await client.post(
+                    GEMINI_URL,
+                    params={"key": GEMINI_API_KEY},
+                    json=request_body,
+                )
+                response.raise_for_status()
+                data = response.json()
+                return data["candidates"][0]["content"]["parts"][0]["text"].strip()
+
+        except httpx.HTTPStatusError as e:
+            status = e.response.status_code
+            # 4xx (bad key, bad request, quota exhausted) won't fix itself
+            # on retry — fail fast instead of wasting the user's wait time.
+            if 400 <= status < 500:
+                print(f"[Gemini] non-retryable {status}: {e.response.text[:300]}")
+                return None
+            print(f"[Gemini] server error {status} on attempt {attempt + 1}/{max_attempts}")
+
+        except (httpx.TimeoutException, httpx.TransportError) as e:
+            print(f"[Gemini] network/timeout on attempt {attempt + 1}/{max_attempts}: {e}")
+
+        except Exception as e:
+            print(f"[Gemini] unexpected error on attempt {attempt + 1}/{max_attempts}: {e}")
+
+        if attempt < max_attempts - 1:
+            await asyncio.sleep(backoff_seconds[attempt])
+
+    print("[Gemini] all attempts failed — falling back to non-AI logic.")
+    return None
 
 
 # ============================================================
@@ -639,8 +661,16 @@ async def classify_message(message: str, history: Optional[List[dict]] = None) -
     # this as a search — that's exactly what used to turn ordinary
     # chit-chat into a "couldn't find any listings" response. Only fall
     # back to search when there's an actual signal to search on.
+    if has_history and is_probably_farewell(message):
+        return {"intent": "chat", "chat_reply": random.choice(FAREWELL_REPLIES)}
+
     if has_history and is_probably_greeting(message):
-        return {"intent": "chat", "chat_reply": "Sounds good! Let me know if you want to search for something else."}
+        # This heuristic can't tell a genuine fresh "hi" apart from a short
+        # acknowledgment like "yeah" or "thanks" — both look the same on
+        # the surface. Rather than hardcode one sentence that's wrong half
+        # the time, use the same varied greeting pool; it reads reasonably
+        # either way and never repeats verbatim.
+        return {"intent": "chat", "chat_reply": random.choice(GREETING_REPLIES)}
 
     lower = message.lower()
     category = next((v for k, v in CATEGORY_KEYWORDS.items() if k in lower), None)
