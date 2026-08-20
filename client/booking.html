@@ -161,7 +161,11 @@
     let currentRole = null;
 
     const { data: { session } } = await supabaseClient.auth.getSession();
-    if (!session) { window.location.href = 'login.html'; return; }
+    if (!session) {
+      const returnTo = window.location.pathname + window.location.search;
+      window.location.href = 'signup-client.html?redirect=' + encodeURIComponent(returnTo);
+      return;
+    }
     currentUser = session.user;
 
     const { data: profile } = await supabaseClient.from('profiles').select('role').eq('id', currentUser.id).maybeSingle();
