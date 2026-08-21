@@ -6,6 +6,7 @@ from typing import Protocol
 
 import httpx
 
+from .config import Settings
 from .constants import PROPERTY_CATEGORIES, RegulatoryStatus
 from .models import NewsAnalysis, NewsItem, Source
 from .risk import assess_risk
@@ -64,6 +65,18 @@ class NewsAnalyzer(Protocol):
     async def analyse(self, item: NewsItem, source: Source) -> NewsAnalysis: ...
 
 
+def _editor_prompt(item: NewsItem, source: Source) -> str:
+    schema = NewsAnalysis.model_json_schema()
+    return (
+        "You are VaRoom's property-news editor. Return only JSON matching the supplied schema. "
+        "Use only source-supported facts. Never state a proposal as approved, enacted, or effective. "
+        "Do not give legal, financial, or investment advice. Mark irrelevant material as relevant=false. "
+        "Do not invent dates, locations, sources, or outcomes.\n\n"
+        f"Source tier: {source.trust_tier}; source: {source.name}\nTitle: {item.source_title}\n"
+        f"Text: {item.clean_text[:12000]}\n\nSchema: {json.dumps(schema)}"
+    )
+
+
 class RulesBasedNewsAnalyzer:
     """Conservative fallback used when an approved AI provider is not configured."""
 
@@ -106,14 +119,7 @@ class OpenAICompatibleNewsAnalyzer:
         self.base_url, self.api_key, self.model = base_url.rstrip("/"), api_key, model
 
     async def analyse(self, item: NewsItem, source: Source) -> NewsAnalysis:
-        schema = NewsAnalysis.model_json_schema()
-        prompt = (
-            "You are VaRoom's property-news editor. Return only JSON matching the supplied schema. "
-            "Use only source-supported facts. Never state a proposal as approved, enacted, or effective. "
-            "Do not give legal or financial advice.\n\n"
-            f"Source tier: {source.trust_tier}; source: {source.name}\nTitle: {item.source_title}\n"
-            f"Text: {item.clean_text[:12000]}\n\nSchema: {json.dumps(schema)}"
-        )
+        prompt = _editor_prompt(item, source)
         payload = {"model": self.model, "messages": [{"role": "user", "content": prompt}], "response_format": {"type": "json_object"}}
         headers = {"Authorization": f"Bearer {self.api_key}"}
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -125,3 +131,37 @@ class OpenAICompatibleNewsAnalyzer:
         risk, reasons = assess_risk(f"{item.source_title}\n{item.clean_text}", analysis.regulatory_status, source.trust_tier)
         return analysis.model_copy(update={"source_tier": source.trust_tier, "risk_level": risk, "risk_reasons": reasons,
                                            "model_provider": "openai-compatible", "model_version": self.model})
+
+
+class GeminiNewsAnalyzer:
+    """Gemini JSON-mode adapter using VaRoom's existing server-side Gemini credential."""
+
+    def __init__(self, api_key: str, model: str) -> None:
+        self.api_key, self.model = api_key, model
+
+    async def analyse(self, item: NewsItem, source: Source) -> NewsAnalysis:
+        payload = {
+            "contents": [{"role": "user", "parts": [{"text": _editor_prompt(item, source)}]}],
+            "generationConfig": {"temperature": 0.1, "responseMimeType": "application/json"},
+        }
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent"
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(url, params={"key": self.api_key}, json=payload)
+            response.raise_for_status()
+        candidates = response.json().get("candidates") or []
+        parts = candidates[0].get("content", {}).get("parts", []) if candidates else []
+        content = "".join(str(part.get("text", "")) for part in parts)
+        if not content:
+            raise ValueError("Gemini returned no JSON analysis")
+        analysis = NewsAnalysis.model_validate_json(content)
+        risk, reasons = assess_risk(f"{item.source_title}\n{item.clean_text}", analysis.regulatory_status, source.trust_tier)
+        return analysis.model_copy(update={"source_tier": source.trust_tier, "risk_level": risk, "risk_reasons": reasons,
+                                           "model_provider": "gemini", "model_version": self.model})
+
+
+def build_analyzer(config: Settings) -> NewsAnalyzer:
+    if config.ai_provider == "gemini" and config.ai_api_key and config.ai_model:
+        return GeminiNewsAnalyzer(config.ai_api_key, config.ai_model)
+    if config.ai_provider == "openai-compatible" and config.ai_base_url and config.ai_api_key and config.ai_model:
+        return OpenAICompatibleNewsAnalyzer(config.ai_base_url, config.ai_api_key, config.ai_model)
+    return RulesBasedNewsAnalyzer()

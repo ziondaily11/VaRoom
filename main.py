@@ -21,11 +21,13 @@ premium status.
 """
 
 import os
+import sys
 import re
 import json
 import random
 import httpx
 from datetime import datetime, timezone
+from pathlib import Path
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -844,3 +846,14 @@ def health_check():
         "ai_configured": bool(GEMINI_API_KEY),
         "supabase_configured": bool(SUPABASE_URL and SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY),
     }
+
+
+# Property News remains an isolated FastAPI subsystem. Appending this mount
+# after the established routes preserves the chatbot API while exposing the
+# public news API on the existing trusted Render origin.
+_property_news_directory = Path(__file__).resolve().parent / "property-news"
+if _property_news_directory.is_dir():
+    sys.path.insert(0, str(_property_news_directory))
+    from app.api import create_app as create_property_news_app
+
+    app.mount("/", create_property_news_app())

@@ -25,7 +25,14 @@ class ProcessingService:
             raise LookupError("News source not found")
         item.review_status = ReviewStatus.PROCESSING
         await self.repository.save_item(item)
-        analysis = await self.analyzer.analyse(item, source)
+        try:
+            analysis = await self.analyzer.analyse(item, source)
+        except Exception as error:
+            item.review_status = ReviewStatus.FAILED
+            await self.repository.save_item(item)
+            await self.repository.add_event(NewsEvent(news_id=item.id, source_id=item.source_id,
+                event_type="item_processing_failed", payload={"error": str(error)[:1000]}))
+            raise
         await self.repository.save_analysis(item.id, analysis)
         item = item.model_copy(update={
             "varoom_title": analysis.varoom_title, "varoom_summary": analysis.varoom_summary,
