@@ -81,17 +81,26 @@
   .thread-header-name{ font-weight:700; font-size:.95rem; }
 
   .listing-context{
-    display:flex; align-items:center; gap:.7rem; margin:.9rem 1.4rem 0;
+    display:flex; align-items:center; gap:.9rem; margin:.9rem 1.4rem 0;
     background:var(--white); border:1px solid rgba(128,110,100,.15); border-radius:12px;
-    padding:.7rem .9rem;
+    padding:.8rem .9rem;
   }
   .listing-context-thumb{
-    width:44px; height:44px; border-radius:8px; background:linear-gradient(135deg, var(--red) 0%, var(--red-deep) 100%);
+    width:64px; height:64px; border-radius:10px; background:linear-gradient(135deg, var(--red) 0%, var(--red-deep) 100%);
     flex-shrink:0; overflow:hidden;
   }
   .listing-context-thumb img{ width:100%; height:100%; object-fit:cover; }
-  .listing-context-title{ font-size:.85rem; font-weight:700; }
-  .listing-context-loc{ font-size:.76rem; color:var(--muted); }
+  .listing-context-info{ flex:1; min-width:0; }
+  .listing-context-title{ font-size:.87rem; font-weight:700; }
+  .listing-context-loc{ font-size:.76rem; color:var(--muted); margin-top:.1rem; }
+  .listing-context-meta{ font-size:.76rem; color:var(--muted); margin-top:.2rem; }
+  .listing-context-price{ font-size:.85rem; font-weight:700; color:var(--ink); margin-top:.2rem; }
+  .listing-context-price span{ font-weight:500; color:var(--muted); font-size:.74rem; }
+  .listing-context-book{
+    flex-shrink:0; background:var(--red); color:var(--white);
+    font-size:.78rem; font-weight:600; padding:.5rem 1rem; border-radius:100px;
+  }
+  .listing-context-book:hover{ background:var(--red-deep); }
 
   .messages-area{ flex:1; overflow-y:auto; padding:1.2rem 1.4rem; display:flex; flex-direction:column; gap:.6rem; }
 
@@ -124,25 +133,6 @@
   }
 
   .msg-bubble.auto-reply{ border:1px dashed rgba(196,30,58,.35); }
-
-  .msg-booking-wrap{ align-self:center; max-width:88%; width:100%; }
-  .msg-booking-card{
-    background:var(--white); border:1px solid rgba(196,30,58,.2); border-radius:16px;
-    padding:.9rem 1rem; font-size:.86rem;
-  }
-  .mbc-head{ font-size:.78rem; font-weight:700; color:var(--red-deep); margin-bottom:.6rem; }
-  .mbc-body{ display:flex; gap:.7rem; margin-bottom:.7rem; }
-  .mbc-thumb{ width:56px; height:56px; border-radius:10px; overflow:hidden; flex-shrink:0; background:var(--paper); }
-  .mbc-thumb img{ width:100%; height:100%; object-fit:cover; display:block; }
-  .mbc-info{ min-width:0; }
-  .mbc-title{ font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .mbc-when{ font-size:.78rem; color:var(--muted); margin:.1rem 0; }
-  .mbc-price{ font-weight:700; color:var(--red); }
-  .mbc-btn{
-    display:block; text-align:center; background:var(--red); color:#fff;
-    font-weight:700; font-size:.82rem; padding:.6rem; border-radius:100px;
-  }
-  .mbc-btn:hover{ background:var(--red-deep); }
   .auto-reply-tag{
     display:inline-block; font-size:.66rem; font-weight:700; letter-spacing:.02em;
     text-transform:uppercase; color:var(--red); margin-bottom:.2rem;
@@ -237,7 +227,8 @@
         .select('id,listing_id,host_id,client_id,last_message_at,' +
           'host:profiles!conversations_host_id_fkey(full_name,avatar_url,away_mode),' +
           'client:profiles!conversations_client_id_fkey(full_name,avatar_url),' +
-          'listing:listings(title,location_text,listing_photos(storage_path))')
+          'listing:listings(title,location_text,listing_photos(storage_path),' +
+          'booking_details:listing_booking_details(price_amount,price_unit,size_or_type,max_guests))')
         .or('host_id.eq.' + currentUser.id + ',client_id.eq.' + currentUser.id)
         .order('last_message_at', { ascending:false });
 
@@ -314,6 +305,17 @@
         thumbHtml = '<img src="' + url + '" alt="">';
       }
 
+      let booking = conv.listing.booking_details;
+      if (Array.isArray(booking)) booking = booking[0] || null;
+
+      const metaBits = [];
+      if (booking && booking.size_or_type) metaBits.push(escapeHtml(booking.size_or_type));
+      if (booking && booking.max_guests) metaBits.push('Up to ' + booking.max_guests + ' guests');
+
+      const priceHtml = (booking && booking.price_amount !== null && booking.price_amount !== undefined)
+        ? 'KSh ' + Number(booking.price_amount).toLocaleString() + (booking.price_unit ? ' <span>/ ' + escapeHtml(booking.price_unit) + '</span>' : '')
+        : '';
+
       threadPanel.innerHTML =
         '<div class="thread-header">' +
           '<button type="button" class="thread-back" id="thread-back-btn" aria-label="Back">' +
@@ -324,10 +326,13 @@
         '</div>' +
         '<div class="listing-context">' +
           '<div class="listing-context-thumb">' + thumbHtml + '</div>' +
-          '<div>' +
+          '<div class="listing-context-info">' +
             '<div class="listing-context-title">' + escapeHtml(conv.listing.title) + '</div>' +
             '<div class="listing-context-loc">' + escapeHtml(conv.listing.location_text) + '</div>' +
+            (metaBits.length ? '<div class="listing-context-meta">' + metaBits.join(' · ') + '</div>' : '') +
+            (priceHtml ? '<div class="listing-context-price">' + priceHtml + '</div>' : '') +
           '</div>' +
+          '<a href="booking.html?listing=' + encodeURIComponent(conv.listing_id) + '" class="listing-context-book">View &amp; book</a>' +
         '</div>' +
         (!isHost && other.away_mode
           ? '<div class="away-banner">🌙 This host is away right now — Elie may help answer using real listing details while they\'re offline.</div>'
@@ -352,15 +357,6 @@
 
       await loadMessages(convId, other);
       subscribeToConversation(convId, other);
-
-      // Mark the other person's messages as read now that this thread is open.
-      supabaseClient
-        .from('messages')
-        .update({ is_read: true })
-        .eq('conversation_id', convId)
-        .eq('is_read', false)
-        .neq('sender_id', currentUser.id)
-        .then(function(){});
 
       const input = document.getElementById('message-input');
       const sendBtn = document.getElementById('send-btn');
@@ -423,9 +419,7 @@
     async function loadMessages(convId){
       const { data } = await supabaseClient
         .from('messages')
-        .select('id, sender_id, body, created_at, is_auto_reply, booking_id, ' +
-          'booking:bookings(id,status,total_price,start_date,end_date,hours,lease_start_date,lease_months,' +
-          'listing:listings(title,listing_photos(storage_path)))')
+        .select('id, sender_id, body, created_at, is_auto_reply')
         .eq('conversation_id', convId)
         .order('created_at', { ascending:true });
 
@@ -434,56 +428,14 @@
       (data || []).forEach(function(m){ appendMessage(m, m.sender_id === currentUser.id); });
     }
 
-    function describeBookingShort(b){
-      if (b.hours) return b.start_date + ' · ' + b.hours + ' hour' + (b.hours === 1 ? '' : 's');
-      if (b.start_date && b.end_date) return b.start_date + ' → ' + b.end_date;
-      if (b.lease_start_date) return 'From ' + b.lease_start_date + ' · ' + b.lease_months + ' month' + (b.lease_months === 1 ? '' : 's');
-      return '';
-    }
-
-    function bookingCardHtml(m){
-      const b = m.booking;
-      if (!b) return '<div class="msg-booking-card">' + escapeHtml(m.body) + '</div>';
-      const listing = b.listing || {};
-      const photos = listing.listing_photos || [];
-      let thumbHtml = '';
-      if (photos.length > 0 && photos[0].storage_path) {
-        const url = supabaseClient.storage.from('listing-photos').getPublicUrl(photos[0].storage_path).data.publicUrl;
-        thumbHtml = '<img src="' + url + '" alt="">';
-      }
-      return (
-        '<div class="msg-booking-card">' +
-          '<div class="mbc-head">✓ Booking Approved</div>' +
-          '<div class="mbc-body">' +
-            '<div class="mbc-thumb">' + thumbHtml + '</div>' +
-            '<div class="mbc-info">' +
-              '<div class="mbc-title">' + escapeHtml(listing.title || 'Listing') + '</div>' +
-              '<div class="mbc-when">' + escapeHtml(describeBookingShort(b)) + '</div>' +
-              '<div class="mbc-price">KSh ' + Number(b.total_price).toLocaleString() + '</div>' +
-            '</div>' +
-          '</div>' +
-          '<a href="booking-approved.html?id=' + b.id + '" class="mbc-btn">Review &amp; Pay →</a>' +
-        '</div>'
-      );
-    }
-
     function appendMessage(m, isMine){
       const area = document.getElementById('messages-area');
       if (!area) return;
       if (area.querySelector('[data-message-id="' + m.id + '"]')) return; // avoid duplicate from realtime echo
 
       const bubble = document.createElement('div');
-      bubble.setAttribute('data-message-id', m.id);
-
-      if (m.booking_id) {
-        bubble.className = 'msg-booking-wrap';
-        bubble.innerHTML = bookingCardHtml(m) + '<div class="msg-time" style="text-align:center;">' + timeAgo(m.created_at) + '</div>';
-        area.appendChild(bubble);
-        area.scrollTop = area.scrollHeight;
-        return;
-      }
-
       bubble.className = 'msg-bubble ' + (isMine ? 'mine' : 'theirs') + (m.is_auto_reply ? ' auto-reply' : '');
+      bubble.setAttribute('data-message-id', m.id);
       const tagHtml = m.is_auto_reply ? '<span class="auto-reply-tag">Auto-reply from Elie</span><br>' : '';
       bubble.innerHTML = tagHtml + escapeHtml(m.body) + '<div class="msg-time">' + timeAgo(m.created_at) + '</div>';
       area.appendChild(bubble);
@@ -500,10 +452,6 @@
           filter: 'conversation_id=eq.' + convId
         }, function(payload){
           if (payload.new.sender_id !== currentUser.id) {
-            // Realtime payloads don't include joined booking/listing data,
-            // so a live booking-card message briefly renders as plain text
-            // until the thread is reopened — bookingCardHtml() falls back
-            // safely rather than erroring.
             appendMessage(payload.new, false);
           }
         })

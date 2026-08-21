@@ -252,12 +252,27 @@ def format_listing_facts(ctx: Optional[dict]) -> str:
 
 def canned_reply(ctx: Optional[dict]) -> str:
     title = ctx.get("title") if ctx else None
-    if title:
+    if not title:
+        return "Thanks for reaching out! The host is away right now but will get back to you personally as soon as they're able to."
+
+    facts = []
+    if ctx.get("price_amount") is not None:
+        unit = ctx.get("price_unit") or "night"
+        facts.append(f"KSh {ctx['price_amount']} per {unit}")
+    if ctx.get("size_or_type"):
+        facts.append(ctx["size_or_type"])
+    if ctx.get("max_guests"):
+        facts.append(f"up to {ctx['max_guests']} guests")
+
+    if facts:
         return (
-            f"Thanks for your interest in {title}! The host is away right now but will "
-            "get back to you personally as soon as they're able to."
+            f"Thanks for your interest in {title}! Quick facts while the host is away: "
+            f"{', '.join(facts)}. They'll get back to you personally with anything else."
         )
-    return "Thanks for reaching out! The host is away right now but will get back to you personally as soon as they're able to."
+    return (
+        f"Thanks for your interest in {title}! The host is away right now but will "
+        "get back to you personally as soon as they're able to."
+    )
 
 
 async def generate_ai_reply(message: str, listing_ctx: Optional[dict]) -> Optional[str]:
