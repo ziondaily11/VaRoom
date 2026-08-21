@@ -131,6 +131,22 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(processed_high.risk_level, RiskLevel.HIGH)
         self.assertEqual(processed_high.review_status, ReviewStatus.PENDING_REVIEW)
 
+    async def test_processing_failure_redacts_sensitive_url_parameters(self):
+        class FailingAnalyzer:
+            async def analyse(self, _item, _source):
+                raise RuntimeError("Provider failed at https://example.test/?key=secret-value&mode=json")
+
+        item = NewsItem(source_id=self.source.id, source_url="https://source1.example.test/failure",
+                        canonical_url="https://source1.example.test/failure", source_title="Land registry update",
+                        clean_text="Land registry update in Nairobi.", source_tier=1, content_hash="a" * 64)
+        await self.repository.save_item(item)
+        with self.assertRaises(RuntimeError):
+            await ProcessingService(self.repository, FailingAnalyzer()).process(item.id)
+        event = self.repository.events[-1]
+        self.assertEqual(event.event_type, "item_processing_failed")
+        self.assertNotIn("secret-value", event.payload["error"])
+        self.assertIn("key=[redacted]", event.payload["error"])
+
     async def test_critical_item_cannot_bypass_review(self):
         item = NewsItem(source_id=self.source.id, source_url="https://source1.example.test/claim", canonical_url="https://source1.example.test/claim",
                         source_title="Rumour of title cancelled", clean_text="Unverified rumour that a title cancelled affects ownership.", source_tier=1,
