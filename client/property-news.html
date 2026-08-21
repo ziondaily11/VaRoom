@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Property News on VaRoom</title>
+<link rel="icon" href="favicon/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon/favicon-32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="favicon/favicon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;0,9..144,900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{ --red:#C41E3A; --red-deep:#8F1229; --white:#fff; --ink:#1A1210; --paper:#FBF4F1; --muted:#7a6b67; --font-display:'Fraunces',Georgia,serif; --font-body:'Inter',Arial,sans-serif; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; min-height:100vh; font-family:var(--font-body); background:var(--paper); color:var(--ink); }
+  a{ color:inherit; text-decoration:none; }
+  :focus-visible{ outline:3px solid var(--red-deep); outline-offset:3px; }
+  .topbar{ display:flex; align-items:center; gap:1rem; padding:1.15rem max(1.2rem, calc((100vw - 1040px) / 2)); background:var(--white); border-bottom:1px solid rgba(26,18,16,.08); }
+  .brand{ font-family:var(--font-display); font-size:1.45rem; font-weight:900; }
+  .brand .va{ color:var(--red); -webkit-text-stroke:1.5px var(--ink); text-shadow:-1px -1px 0 var(--ink),1px -1px 0 var(--ink),-1px 1px 0 var(--ink),1px 1px 0 var(--ink); }
+  .brand .pin{ display:inline-block; width:.34em; height:.34em; margin:0 .05em .03em .08em; border-radius:50% 50% 50% 0; background:var(--red); transform:rotate(-45deg); }
+  .back-link{ margin-left:auto; color:var(--red); font-size:.9rem; font-weight:600; }
+  .back-link:hover{ color:var(--red-deep); }
+  main{ width:min(100%, 860px); margin:0 auto; padding:2.4rem 1.2rem 4rem; }
+  .eyebrow{ color:var(--red); font-size:.72rem; letter-spacing:.09em; text-transform:uppercase; font-weight:700; margin:0 0 .45rem; }
+  h1{ margin:0; font:700 clamp(1.9rem, 4vw, 2.65rem)/1.12 var(--font-display); }
+  .intro{ max-width:640px; margin:.7rem 0 1.8rem; color:var(--muted); font-size:.96rem; line-height:1.55; }
+  .news-list{ display:grid; gap:1rem; }
+  .news-card{ display:block; padding:1.25rem 1.35rem; background:var(--white); border:1px solid rgba(26,18,16,.08); border-radius:16px; transition:transform .18s ease, box-shadow .18s ease; }
+  .news-card:hover{ transform:translateY(-2px); box-shadow:0 12px 28px -18px rgba(26,18,16,.46); }
+  .news-card h2{ margin:0; font:700 1.25rem/1.28 var(--font-display); }
+  .news-card p{ margin:.6rem 0 .8rem; color:var(--muted); font-size:.9rem; line-height:1.5; }
+  .meta{ display:flex; flex-wrap:wrap; align-items:center; gap:.42rem; color:var(--muted); font-size:.78rem; }
+  .status{ display:inline-flex; width:max-content; margin-top:.75rem; padding:.22rem .52rem; border-radius:100px; background:#FBE4E7; color:var(--red-deep); font-size:.67rem; font-weight:700; letter-spacing:.05em; }
+  .status.approved,.status.effective{ background:#EAF4EE; color:#1E6B3C; }
+  .status.market{ background:#E9F0FB; color:#1A4E8F; }
+  .detail{ display:none; }
+  .detail-card{ background:var(--white); border:1px solid rgba(26,18,16,.08); border-radius:18px; padding:clamp(1.35rem, 4vw, 2.25rem); }
+  .detail .article-meta{ margin:1rem 0 1.25rem; }
+  .detail-summary{ font-size:1.05rem; line-height:1.62; color:#3e302c; margin:1.25rem 0; }
+  .detail-body{ color:#4b3d38; font-size:.94rem; line-height:1.65; white-space:pre-line; }
+  .fact-grid{ display:grid; grid-template-columns:repeat(3, 1fr); gap:.75rem; margin:1.5rem 0; padding:1rem 0; border-top:1px solid rgba(26,18,16,.08); border-bottom:1px solid rgba(26,18,16,.08); }
+  .fact-label{ display:block; margin-bottom:.16rem; color:var(--muted); font-size:.7rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; }
+  .fact-value{ font-size:.86rem; line-height:1.35; }
+  .source-box{ margin-top:1.5rem; padding:1rem 1.1rem; border-radius:12px; background:var(--paper); font-size:.87rem; line-height:1.5; }
+  .source-link{ display:inline-flex; margin-top:.4rem; color:var(--red); font-weight:600; }
+  .source-link:hover{ color:var(--red-deep); }
+  .state{ padding:2.6rem 1.25rem; text-align:center; border-radius:16px; background:var(--white); border:1px solid rgba(26,18,16,.08); color:var(--muted); line-height:1.5; }
+  .state.error{ color:var(--red-deep); }
+  .skeleton{ height:148px; border-radius:16px; background:linear-gradient(90deg,rgba(26,18,16,.05),rgba(26,18,16,.1),rgba(26,18,16,.05)); background-size:200% 100%; animation:shimmer 1.35s ease-in-out infinite; }
+  @keyframes shimmer{ 0%{ background-position:200% 0; }100%{ background-position:-200% 0; } }
+  @media (max-width:600px){ .topbar{ padding:1rem; } main{ padding:1.8rem 1rem 3rem; } .fact-grid{ grid-template-columns:1fr; } .news-card{ padding:1.1rem; } }
+</style>
+</head>
+<body>
+  <header class="topbar">
+    <a href="host-home.html" class="brand" aria-label="VaRoom dashboard"><span class="va">Va</span><span class="pin"></span>Room</a>
+    <a href="host-home.html" class="back-link">← Back to dashboard</a>
+  </header>
+  <main>
+    <section id="news-index" aria-live="polite">
+      <p class="eyebrow">Property Intelligence</p>
+      <h1>Property News on VaRoom</h1>
+      <p class="intro">Relevant Kenyan property updates, presented with their source and regulatory status.</p>
+      <div class="news-list" id="news-list"><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div>
+    </section>
+    <article class="detail" id="news-detail" aria-live="polite"></article>
+  </main>
+  <script src="js/property-news-api.js"></script>
+  <script>
+    (function(){
+      function escapeHtml(value){ const element = document.createElement('div'); element.textContent = value || ''; return element.innerHTML; }
+      function location(news){ const values = [].concat(news.counties || [], news.towns || []).filter(Boolean); return values.filter(function(value, index){ return values.findIndex(function(other){ return String(other).toLowerCase() === String(value).toLowerCase(); }) === index; }).join(' · ') || 'Kenya'; }
+      function date(value){ if (!value) return 'Publication date unavailable'; const valueDate = new Date(value); return Number.isNaN(valueDate.getTime()) ? 'Publication date unavailable' : valueDate.toLocaleDateString(undefined, { year:'numeric', month:'long', day:'numeric' }); }
+      function status(news){
+        const value = String(news.regulatory_status || '').toLowerCase();
+        const labels = { proposed:'PROPOSED', under_consideration:'UNDER REVIEW', public_participation:'PUBLIC INPUT', approved:'APPROVED', enacted:'ENACTED', effective:'EFFECTIVE', suspended:'SUSPENDED', rejected:'REJECTED', amended:'AMENDED', reported:'UPDATE' };
+        if (labels[value]) return { label:labels[value], className:value };
+        return news.category === 'market' ? { label:'MARKET UPDATE', className:'market' } : null;
+      }
+      function statusHtml(news){ const value = status(news); return value ? '<span class="status ' + value.className + '">' + value.label + '</span>' : ''; }
+      function safeSourceUrl(value){ return /^https?:\/\//i.test(String(value || '')) ? String(value) : ''; }
+      function card(news){ const source = news.source || {}; return '<a class="news-card" href="property-news.html?id=' + encodeURIComponent(news.id) + '"><h2>' + escapeHtml(news.title) + '</h2><p>' + escapeHtml(news.summary || 'Read the latest property update from VaRoom.') + '</p><div class="meta"><span>' + escapeHtml(location(news)) + '</span><span>•</span><span>' + escapeHtml(date(source.published_at || news.published_at)) + '</span><span>•</span><span>' + escapeHtml(source.name || 'Source') + '</span></div>' + statusHtml(news) + '</a>'; }
+      function showError(target, message){ target.innerHTML = '<div class="state error">' + escapeHtml(message) + '</div>'; }
+      async function showIndex(){
+        const list = document.getElementById('news-list');
+        try { const items = await VaRoomPropertyNews.all(50); list.innerHTML = Array.isArray(items) && items.length ? items.map(card).join('') : '<div class="state">Nothing new right now. We\'ll bring you relevant property updates as they happen.</div>'; }
+        catch (error) { console.warn('Property news could not be loaded:', error); showError(list, 'Property news is temporarily unavailable.'); }
+      }
+      async function showDetail(id){
+        const index = document.getElementById('news-index'); const detail = document.getElementById('news-detail'); index.style.display = 'none'; detail.style.display = 'block'; detail.innerHTML = '<div class="skeleton"></div>';
+        try {
+          const news = await VaRoomPropertyNews.get(id); const source = news.source || {}; const articleDate = source.published_at || news.published_at;
+          const sourceUrl = safeSourceUrl(source.url);
+          const sourceLink = sourceUrl ? '<br><a class="source-link" href="' + escapeHtml(sourceUrl) + '" target="_blank" rel="noopener noreferrer">Read the original source →</a>' : '';
+          detail.innerHTML = '<div class="detail-card"><p class="eyebrow">Property Intelligence</p><h1>' + escapeHtml(news.title) + '</h1><div class="article-meta meta"><span>' + escapeHtml(location(news)) + '</span><span>•</span><span>' + escapeHtml(date(articleDate)) + '</span></div>' + statusHtml(news) + '<p class="detail-summary">' + escapeHtml(news.summary || '') + '</p>' + (news.body ? '<div class="detail-body">' + escapeHtml(news.body) + '</div>' : '') + '<div class="fact-grid"><div><span class="fact-label">Location</span><span class="fact-value">' + escapeHtml(location(news)) + '</span></div><div><span class="fact-label">Current status</span><span class="fact-value">' + escapeHtml(status(news) ? status(news).label : 'Reported update') + '</span></div><div><span class="fact-label">Published</span><span class="fact-value">' + escapeHtml(date(articleDate)) + '</span></div></div><div class="source-box"><strong>Source: ' + escapeHtml(source.name || 'Original source') + '</strong><br>This VaRoom summary is based on the linked source. Regulatory status reflects the published record and is not legal advice.' + sourceLink + '</div></div>';
+        } catch (error) { console.warn('Property news detail could not be loaded:', error); showError(detail, 'This property news item is temporarily unavailable.'); }
+      }
+      const newsId = new URLSearchParams(window.location.search).get('id');
+      if (newsId) showDetail(newsId); else showIndex();
+    })();
+  </script>
+</body>
+</html>

@@ -38,10 +38,11 @@ async function proxyPropertyNews(req, res) {
     const body = await response.text();
     res.status(response.status);
     res.set('Content-Type', response.headers.get('content-type') || 'application/json; charset=utf-8');
-    res.set('Cache-Control', 'public, max-age=60');
+    res.set('Cache-Control', response.ok ? 'public, max-age=60' : 'no-store');
     return res.send(body);
   } catch (error) {
     console.error('Property news proxy failed:', error.message);
+    res.set('Cache-Control', 'no-store');
     return res.status(502).json({ error: 'Property news is temporarily unavailable.' });
   } finally {
     clearTimeout(timeout);

@@ -113,6 +113,33 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
 
 
 class ApiSecurityTests(unittest.IsolatedAsyncioTestCase):
+    async def test_public_news_excludes_pending_and_rejected_items(self):
+        repository = MemoryNewsRepository()
+        news_source = source()
+        await repository.upsert_source(news_source)
+        states = [
+            ("published", ReviewStatus.PUBLISHED, "7" * 64),
+            ("pending", ReviewStatus.PENDING_REVIEW, "8" * 64),
+            ("rejected", ReviewStatus.REJECTED, "9" * 64),
+        ]
+        for suffix, review_status, digest in states:
+            item = NewsItem(
+                source_id=news_source.id, source_url=f"https://source1.example.test/{suffix}",
+                canonical_url=f"https://source1.example.test/{suffix}", source_title=f"{suffix} property update",
+                clean_text="Property update", varoom_title=f"{suffix} property update", varoom_summary="Summary",
+                category="property", source_tier=1, content_hash=digest, review_status=review_status,
+                published_at=datetime.now(timezone.utc) if review_status is ReviewStatus.PUBLISHED else None,
+            )
+            await repository.save_item(item)
+        app = create_app(Settings(public_rate_limit_per_minute=100), repository)
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.get("/api/news/latest?limit=4")
+        self.assertEqual(response.status_code, 200)
+        response_data = response.json()
+        self.assertEqual([entry["title"] for entry in response_data], ["published property update"])
+        self.assertNotIn("clean_text", response_data[0])
+
     async def test_unauthorised_admin_action_is_denied(self):
         repository = MemoryNewsRepository()
         app = create_app(Settings(admin_api_key="test-admin-key", public_rate_limit_per_minute=100), repository)
