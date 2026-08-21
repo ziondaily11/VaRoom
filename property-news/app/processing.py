@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from datetime import datetime, timezone
 from uuid import UUID
 
@@ -10,6 +11,11 @@ from .repository import MemoryNewsRepository, SupabaseNewsRepository
 from .risk import allows_auto_publish
 
 Repository = MemoryNewsRepository | SupabaseNewsRepository
+_SENSITIVE_URL_PARAMETER = re.compile(r"(?i)([?&](?:api[_-]?key|key|token|access_token)=)[^&\s'\"]+")
+
+
+def _safe_error_message(error: Exception) -> str:
+    return _SENSITIVE_URL_PARAMETER.sub(r"\1[redacted]", str(error))[:1000]
 
 
 class ProcessingService:
@@ -31,7 +37,7 @@ class ProcessingService:
             item.review_status = ReviewStatus.FAILED
             await self.repository.save_item(item)
             await self.repository.add_event(NewsEvent(news_id=item.id, source_id=item.source_id,
-                event_type="item_processing_failed", payload={"error": str(error)[:1000]}))
+                event_type="item_processing_failed", payload={"error": _safe_error_message(error)}))
             raise
         await self.repository.save_analysis(item.id, analysis)
         item = item.model_copy(update={
