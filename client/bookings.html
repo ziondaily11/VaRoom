@@ -77,7 +77,7 @@
   .bk-details .label{ color:var(--muted); }
 
   .bk-actions{ display:flex; gap:.7rem; }
-  .bk-btn{ flex:1; padding:.7rem 1rem; border-radius:100px; font-weight:600; font-size:.86rem; }
+  .bk-btn{ flex:1; padding:.7rem 1rem; border-radius:100px; font-weight:600; font-size:.86rem; text-align:center; display:inline-block; }
   .bk-approve{ background:var(--red); color:#fff; }
   .bk-approve:hover{ background:var(--red-deep); }
   .bk-decline{ background:transparent; border:1.5px solid rgba(128,110,100,.3); color:var(--ink); }
@@ -304,6 +304,9 @@
               '<span class="label">Total:</span> KSh ' + Number(b.total_price).toLocaleString() + '<br>' +
               '<span class="label">Requested:</span> ' + timeAgo(b.created_at) +
             '</div>' +
+            (b.status === 'approved'
+              ? '<div class="bk-actions"><a href="booking-approved.html?id=' + b.id + '" class="bk-btn bk-approve">Review &amp; Pay →</a></div>'
+              : '') +
           '</div>'
         );
       }).join('');

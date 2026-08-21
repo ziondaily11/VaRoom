@@ -175,6 +175,55 @@
     .right-rail{ display:none; }
   }
 
+  .mobile-dest-row{ display:none; }
+  .mobile-widget-slot{ display:none; }
+
+  @media (max-width:1180px){
+    .mobile-dest-row{
+      display:flex; gap:.7rem; overflow-x:auto; padding-bottom:.3rem; margin-bottom:1.4rem;
+      scrollbar-width:none;
+    }
+    .mobile-dest-row::-webkit-scrollbar{ display:none; }
+    .mobile-dest-card{
+      position:relative; flex:0 0 110px; height:130px; border-radius:14px; overflow:hidden;
+      border:none; padding:0; cursor:pointer;
+    }
+    .mobile-dest-card img{ width:100%; height:100%; object-fit:cover; display:block; }
+    .mobile-dest-card-overlay{
+      position:absolute; inset:0; display:flex; flex-direction:column; justify-content:flex-end;
+      padding:.5rem; color:#fff;
+      background:linear-gradient(to top, rgba(0,0,0,.75) 0%, rgba(0,0,0,0) 65%);
+    }
+    .mobile-dest-card-name{ font-weight:700; font-size:.78rem; }
+    .mobile-dest-card-count{ font-size:.64rem; opacity:.85; }
+
+    .mobile-widget-slot{ display:block; margin-bottom:1.4rem; }
+    .mobile-widget-card{
+      background:var(--white); border:1px solid rgba(26,18,16,.08); border-radius:18px; padding:1.3rem;
+    }
+    .mobile-widget-head{ margin-bottom:1rem; }
+    .mobile-widget-head h2{ font-family:var(--font-display); font-weight:600; font-size:1.05rem; }
+
+    .reco-row{ display:flex; gap:.8rem; overflow-x:auto; scrollbar-width:none; }
+    .reco-row::-webkit-scrollbar{ display:none; }
+    .reco-card{
+      position:relative; flex:0 0 150px; height:110px; border-radius:12px; overflow:hidden; display:block;
+    }
+    .reco-card img{ width:100%; height:100%; object-fit:cover; display:block; }
+    .reco-card-overlay{
+      position:absolute; inset:0; display:flex; flex-direction:column; justify-content:flex-end;
+      padding:.5rem; color:#fff;
+      background:linear-gradient(to top, rgba(0,0,0,.75) 0%, rgba(0,0,0,0) 60%);
+    }
+    .reco-card-title{ font-weight:700; font-size:.76rem; line-height:1.2; }
+    .reco-card-loc{ font-size:.66rem; opacity:.85; margin-top:.1rem; }
+  }
+
+  .bottom-bar-elie .elie-badge{
+    width:30px; height:30px; border-radius:50%; background:var(--red);
+    display:flex; align-items:center; justify-content:center; margin-bottom:-2px;
+  }
+
   .update-card{ padding-bottom:.9rem; border-bottom:1px solid rgba(26,18,16,.08); }
   .update-card:last-child{ border-bottom:none; padding-bottom:0; }
   .update-img{ width:100%; border-radius:10px; margin-bottom:.5rem; display:block; }
@@ -471,6 +520,8 @@
           <button class="tab" data-category="property">Property</button>
         </div>
 
+        <div class="mobile-dest-row" id="mobile-dest-row"></div>
+
         <div id="feed-list"></div>
       </div>
 
@@ -501,26 +552,22 @@
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9a1 1 0 0 0 1 1H9a1 1 0 0 0 1-1v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4a1 1 0 0 0 1 1h2.5a1 1 0 0 0 1-1v-9"/></svg>
         Home
       </button>
-      <button type="button" class="bottom-bar-item" data-bottom-nav="explore">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m15 9-2 6-6 2 2-6 6-2Z"/></svg>
-        Explore
-      </button>
-      <button type="button" class="bottom-bar-item" data-bottom-nav="saved">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h12a1 1 0 0 1 1 1V21l-7-4-7 4V4.5a1 1 0 0 1 1-1Z"/></svg>
-        Saved
-      </button>
+      <a href="bookings.html" class="bottom-bar-item">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="2"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>
+        Bookings
+      </a>
       <a href="chats.html" class="bottom-bar-item">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z"/></svg>
         Chats
       </a>
-      <a href="elie.html" class="bottom-bar-item">
-        <img src="elie-logo.png" alt="Elie" style="width:20px;height:20px;object-fit:contain;">
+      <a href="elie.html" class="bottom-bar-item bottom-bar-elie">
+        <span class="elie-badge"><img src="elie-logo.png" alt="" style="width:18px;height:18px;object-fit:contain;"></span>
         Elie
       </a>
-      <button type="button" class="bottom-bar-item" id="you-tab">
+      <a href="profile.html" class="bottom-bar-item">
         <span class="avatar-mini" id="bottom-avatar">·</span>
-        You
-      </button>
+        Profile
+      </a>
     </nav>
   </div>
 </div>
@@ -809,6 +856,58 @@
       setTimeout(closeReportModal, 1800);
     });
 
+    async function loadRecommended(){
+      const row = document.getElementById('reco-row');
+      if (!row) return;
+
+      const { data } = await supabaseClient
+        .from('listings')
+        .select('id,title,location_text,category,listing_photos(storage_path)')
+        .order('created_at', { ascending:false })
+        .limit(6);
+
+      if (!data || data.length === 0){
+        row.innerHTML = '<p class="state-msg" style="padding:0;font-size:.85rem;">Nothing to show yet.</p>';
+        return;
+      }
+
+      row.innerHTML = data.map(function(l){
+        let img = '';
+        if (l.listing_photos && l.listing_photos.length > 0){
+          img = '<img src="' + supabaseClient.storage.from('listing-photos').getPublicUrl(l.listing_photos[0].storage_path).data.publicUrl + '" alt="">';
+        }
+        return (
+          '<a class="reco-card" href="booking.html?listing=' + l.id + '">' +
+            img +
+            '<div class="reco-card-overlay">' +
+              '<div class="reco-card-title">' + escapeHtml(l.title) + '</div>' +
+              '<div class="reco-card-loc">' + escapeHtml(l.location_text || '') + '</div>' +
+            '</div>' +
+          '</a>'
+        );
+      }).join('');
+    }
+
+    // Builds the "Recommended for you" + "VaRoom Updates" widget block that
+    // gets spliced into the mobile feed after the first post. Real data is
+    // filled in afterward by loadRecommended() / loadVaroomUpdates().
+    function mobileWidgetsBlock(){
+      return (
+        '<div class="mobile-widget-slot">' +
+          '<div class="mobile-widget-card">' +
+            '<div class="mobile-widget-head"><h2>Recommended for you</h2></div>' +
+            '<div class="reco-row" id="reco-row"><p class="state-msg" style="padding:0;font-size:.85rem;">Loading…</p></div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="mobile-widget-slot">' +
+          '<div class="mobile-widget-card">' +
+            '<div class="mobile-widget-head"><h2>VaRoom Updates</h2></div>' +
+            '<div id="varoom-updates-mobile" style="display:flex;flex-direction:column;gap:.9rem;"><p class="state-msg" style="padding:0;font-size:.85rem;">Loading…</p></div>' +
+          '</div>' +
+        '</div>'
+      );
+    }
+
     async function loadFeed(){
       feedList.innerHTML = '<p class="state-msg">Loading listings…</p>';
 
@@ -874,8 +973,18 @@
         return;
       }
 
-      feedList.innerHTML = data.map(renderCard).join('');
+      const cardsHtml = data.map(renderCard);
+      const showMobileWidgets = currentView === 'home' && currentCategory === 'all' && !term &&
+        window.matchMedia('(max-width:1180px)').matches;
+      if (showMobileWidgets) {
+        cardsHtml.splice(1, 0, mobileWidgetsBlock());
+      }
+      feedList.innerHTML = cardsHtml.join('');
       attachCardListeners(feedList);
+      if (showMobileWidgets) {
+        loadRecommended();
+        loadVaroomUpdates('varoom-updates-mobile');
+      }
     }
 
     // ---------- Toast (honest "coming soon" feedback) ----------
@@ -910,7 +1019,6 @@
     sidebar.querySelectorAll('.nav-item, .logout-btn').forEach(function(el){
       el.addEventListener('click', closeSidebar);
     });
-    document.getElementById('you-tab').addEventListener('click', openSidebar);
     if (typeof initNotifications === 'function') {
       initNotifications(supabaseClient, currentUser);
     } else {
@@ -1011,9 +1119,18 @@
       window.location.href = 'index.html';
     });
 
+    function wireDestClicks(container){
+      container.querySelectorAll('[data-city]').forEach(function(btn){
+        btn.addEventListener('click', function(){
+          goToCityListings(btn.getAttribute('data-city'));
+        });
+      });
+    }
+
     async function loadDestinations(){
       const grid = document.getElementById('dest-grid');
-      if (!grid) return;
+      const mobileRow = document.getElementById('mobile-dest-row');
+      if (!grid && !mobileRow) return;
 
       const counts = await Promise.all(DESTINATIONS.map(function(d){
         return supabaseClient
@@ -1022,25 +1139,39 @@
           .ilike('location_text', '%' + d.city + '%');
       }));
 
-      grid.innerHTML = DESTINATIONS.map(function(d, i){
-        const count = (counts[i] && typeof counts[i].count === 'number') ? counts[i].count : 0;
-        const countLabel = count > 0 ? (count + (count === 1 ? ' place' : ' places')) : 'New';
-        return (
-          '<button type="button" class="dest-card" data-city="' + d.city + '">' +
-            '<img src="' + d.file + '" alt="' + d.city + '" loading="lazy">' +
-            '<div class="dest-card-overlay">' +
-              '<div class="dest-card-name">' + d.city + '</div>' +
-              '<div class="dest-card-count">' + countLabel + '</div>' +
-            '</div>' +
-          '</button>'
-        );
-      }).join('');
+      if (grid) {
+        grid.innerHTML = DESTINATIONS.map(function(d, i){
+          const count = (counts[i] && typeof counts[i].count === 'number') ? counts[i].count : 0;
+          const countLabel = count > 0 ? (count + (count === 1 ? ' place' : ' places')) : 'New';
+          return (
+            '<button type="button" class="dest-card" data-city="' + d.city + '">' +
+              '<img src="' + d.file + '" alt="' + d.city + '" loading="lazy">' +
+              '<div class="dest-card-overlay">' +
+                '<div class="dest-card-name">' + d.city + '</div>' +
+                '<div class="dest-card-count">' + countLabel + '</div>' +
+              '</div>' +
+            '</button>'
+          );
+        }).join('');
+        wireDestClicks(grid);
+      }
 
-      grid.querySelectorAll('.dest-card').forEach(function(btn){
-        btn.addEventListener('click', function(){
-          goToCityListings(btn.getAttribute('data-city'));
-        });
-      });
+      if (mobileRow) {
+        mobileRow.innerHTML = DESTINATIONS.map(function(d, i){
+          const count = (counts[i] && typeof counts[i].count === 'number') ? counts[i].count : 0;
+          const countLabel = count > 0 ? (count + (count === 1 ? ' place' : ' places')) : 'New';
+          return (
+            '<button type="button" class="mobile-dest-card" data-city="' + d.city + '">' +
+              '<img src="' + d.file + '" alt="' + d.city + '" loading="lazy">' +
+              '<div class="mobile-dest-card-overlay">' +
+                '<div class="mobile-dest-card-name">' + d.city + '</div>' +
+                '<div class="mobile-dest-card-count">' + countLabel + '</div>' +
+              '</div>' +
+            '</button>'
+          );
+        }).join('');
+        wireDestClicks(mobileRow);
+      }
     }
 
     function goToCityListings(city){
@@ -1056,8 +1187,8 @@
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    async function loadVaroomUpdates(){
-      const wrap = document.getElementById('varoom-updates');
+    async function loadVaroomUpdates(targetId){
+      const wrap = document.getElementById(targetId);
       if (!wrap) return;
 
       const { data, error } = await supabaseClient
@@ -1083,9 +1214,14 @@
       }).join('');
     }
 
-    loadFeed();
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('view') === 'saved') {
+      showSavedView();
+    } else {
+      loadFeed();
+    }
     loadDestinations();
-    loadVaroomUpdates();
+    loadVaroomUpdates('varoom-updates');
   })();
 </script>
 

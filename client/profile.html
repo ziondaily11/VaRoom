@@ -138,6 +138,18 @@
   .save-msg{ display:none; background:var(--white); border:1px solid var(--card-border); border-radius:14px; padding:1.1rem 1.3rem; margin-top:1.2rem; font-size:.9rem; text-align:center; }
   .save-msg.show{ display:block; }
   .save-msg.error{ border-color:rgba(196,30,58,.4); color:var(--red-deep); }
+
+  .quick-links{ border:1px solid var(--card-border); border-radius:20px; overflow:hidden; margin-top:1.5rem; }
+  .quick-link{
+    display:flex; align-items:center; gap:.8rem; width:100%; text-align:left;
+    padding:1rem 1.2rem; font-size:.9rem; font-weight:600; color:var(--ink);
+    border-bottom:1px solid var(--card-border);
+  }
+  .quick-link:last-child{ border-bottom:none; }
+  .quick-link:hover{ background:var(--white); }
+  .quick-link svg{ width:18px; height:18px; flex-shrink:0; color:var(--red); }
+  .quick-link.logout{ color:var(--red); }
+  .quick-link.logout svg{ color:var(--red); }
 </style>
 </head>
 <body>
@@ -270,6 +282,21 @@
       </div>
     </div>
 
+    <div class="quick-links">
+      <a href="client-home.html?view=saved" class="quick-link" id="saved-link" style="display:none;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h12a1 1 0 0 1 1 1V21l-7-4-7 4V4.5a1 1 0 0 1 1-1Z"/></svg>
+        Saved listings
+      </a>
+      <a href="settings.html" class="quick-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>
+        Settings
+      </a>
+      <button type="button" class="quick-link logout" id="logout-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        Log out
+      </button>
+    </div>
+
     <div class="save-msg" id="save-msg"></div>
   </div>
 </main>
@@ -296,6 +323,15 @@
     profile = fetchedProfile;
 
     document.getElementById('back-link').setAttribute('href', profile.role === 'host' ? 'host-home.html' : 'client-home.html');
+
+    if (profile.role !== 'host') {
+      document.getElementById('saved-link').style.display = 'flex';
+    }
+
+    document.getElementById('logout-btn').addEventListener('click', async function(){
+      await supabaseClient.auth.signOut();
+      window.location.href = 'index.html';
+    });
 
     // ---------- Render read-only values ----------
     function renderValues(){

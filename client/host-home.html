@@ -254,6 +254,25 @@
   }
   .glance-tile.add-tile:hover{ color:var(--red); border-color:var(--red); }
 
+  /* ---------- VAROOM UPDATES ---------- */
+  .varoom-updates-card{
+    background:var(--white); border:1px solid rgba(26,18,16,.08); border-radius:16px;
+    padding:1.2rem 1.4rem;
+  }
+  .update-card{ padding-bottom:.9rem; border-bottom:1px solid rgba(26,18,16,.08); }
+  .update-card:last-child{ border-bottom:none; padding-bottom:0; }
+  .update-img{ width:100%; border-radius:10px; margin-bottom:.5rem; display:block; }
+  .update-title{ font-weight:700; font-size:.88rem; margin-bottom:.2rem; }
+  .update-body{ font-size:.82rem; color:var(--muted); line-height:1.4; }
+
+  .mobile-widget-slot{ display:none; }
+
+  /* The mobile "Needs your attention" banner is a separate element from the
+     desktop one in .host-rail — kept fully hidden outside mobile widths so
+     it can never appear twice, and only shown (via .show, added by JS) when
+     there's real pending activity. No "all caught up" state on mobile. */
+  #attention-card-mobile{ display:none; }
+
   /* ---------- NO LISTINGS EMPTY STATE ---------- */
   .empty-state-card{
     background:var(--white); border:1px dashed rgba(26,18,16,.18); border-radius:16px;
@@ -388,6 +407,13 @@
 
     /* Your listings at a glance grid stays desktop-only — real photos/category tiles, too heavy for mobile. */
     .listings-glance-card{ display:none !important; }
+
+    /* Desktop attention card is replaced on mobile by #attention-card-mobile,
+       positioned at the top of the feed instead of below it. */
+    #attention-card{ display:none !important; }
+    #attention-card-mobile.show{ display:block; margin-bottom:1.4rem; }
+
+    .mobile-widget-slot{ display:block; margin-bottom:1.4rem; }
 
     /* Compact away mode */
     .away-toggle-wrap{ padding:.55rem .85rem .55rem .55rem; margin-bottom:1.1rem; }
@@ -605,6 +631,13 @@
     </div>
 
     <div class="feed-area">
+      <div class="attention-card" id="attention-card-mobile">
+        <div class="stats-head">
+          <h2>Needs your attention</h2>
+          <a href="#" id="attention-view-all-mobile">View all →</a>
+        </div>
+        <div class="attention-list" id="attention-list-mobile"></div>
+      </div>
       <div id="feed-list"></div>
     </div>
     </div>
@@ -636,6 +669,15 @@
           <a href="#" id="attention-view-all">View all →</a>
         </div>
         <div class="attention-list" id="attention-list"></div>
+      </div>
+
+      <div class="varoom-updates-card">
+        <div class="stats-head">
+          <h2>VaRoom Updates</h2>
+        </div>
+        <div id="varoom-updates" style="display:flex;flex-direction:column;gap:.9rem;">
+          <p class="state-msg" style="padding:0;font-size:.85rem;">Loading…</p>
+        </div>
       </div>
     </aside>
     </div>
@@ -942,8 +984,37 @@
           });
         });
 
+      function renderAttentionRows(items){
+        return items.slice(0, 6).map(function(it){
+          return (
+            '<div class="attention-row">' +
+              '<div class="attention-icon">' + it.icon + '</div>' +
+              '<div class="attention-body">' +
+                '<div class="attention-title">' + escapeHtml(it.title) + '</div>' +
+                '<div class="attention-sub">' + escapeHtml(it.sub || '') + '</div>' +
+              '</div>' +
+              (it.isMyListings
+                ? '<a href="#" class="attention-link" data-attention-mylistings>View →</a>'
+                : '<a href="' + it.href + '" class="attention-link">View →</a>') +
+            '</div>'
+          );
+        }).join('');
+      }
+
+      function wireMyListingsLinks(container){
+        container.querySelectorAll('[data-attention-mylistings]').forEach(function(a){
+          a.addEventListener('click', function(e){
+            e.preventDefault();
+            showMyListingsView();
+            document.querySelector('.feed-area').scrollIntoView({ behavior:'smooth' });
+          });
+        });
+      }
+
       const attentionCard = document.getElementById('attention-card');
       const attentionList = document.getElementById('attention-list');
+      const attentionCardMobile = document.getElementById('attention-card-mobile');
+      const attentionListMobile = document.getElementById('attention-list-mobile');
 
       if (items.length === 0) {
         attentionList.innerHTML =
@@ -957,35 +1028,21 @@
             '</div>' +
           '</div>';
         attentionCard.style.display = 'block';
+        // Mobile version stays hidden entirely when there's nothing pending —
+        // no "all caught up" banner taking up space at the top of the feed.
         return;
       }
 
       items.sort(function(a, b){ return new Date(b.time) - new Date(a.time); });
 
-      attentionList.innerHTML = items.slice(0, 6).map(function(it){
-        return (
-          '<div class="attention-row">' +
-            '<div class="attention-icon">' + it.icon + '</div>' +
-            '<div class="attention-body">' +
-              '<div class="attention-title">' + escapeHtml(it.title) + '</div>' +
-              '<div class="attention-sub">' + escapeHtml(it.sub || '') + '</div>' +
-            '</div>' +
-            (it.isMyListings
-              ? '<a href="#" class="attention-link" data-attention-mylistings>View →</a>'
-              : '<a href="' + it.href + '" class="attention-link">View →</a>') +
-          '</div>'
-        );
-      }).join('');
-
-      attentionList.querySelectorAll('[data-attention-mylistings]').forEach(function(a){
-        a.addEventListener('click', function(e){
-          e.preventDefault();
-          showMyListingsView();
-          document.querySelector('.feed-area').scrollIntoView({ behavior:'smooth' });
-        });
-      });
-
+      const rowsHtml = renderAttentionRows(items);
+      attentionList.innerHTML = rowsHtml;
+      wireMyListingsLinks(attentionList);
       attentionCard.style.display = 'block';
+
+      attentionListMobile.innerHTML = rowsHtml;
+      wireMyListingsLinks(attentionListMobile);
+      attentionCardMobile.classList.add('show');
     })();
 
     // ---------- Bookmarks ----------
@@ -1194,6 +1251,44 @@
       setTimeout(closeReportModal, 1800);
     });
 
+    async function loadVaroomUpdates(targetId){
+      const wrap = document.getElementById(targetId);
+      if (!wrap) return;
+
+      const { data, error } = await supabaseClient
+        .from('varoom_updates')
+        .select('id,title,body,image_url,created_at')
+        .order('created_at', { ascending:false })
+        .limit(3);
+
+      if (error || !data || data.length === 0){
+        wrap.innerHTML = '<p class="state-msg" style="padding:0;font-size:.85rem;">No updates yet.</p>';
+        return;
+      }
+
+      wrap.innerHTML = data.map(function(u){
+        const img = u.image_url ? '<img src="' + u.image_url + '" alt="" class="update-img">' : '';
+        return (
+          '<div class="update-card">' +
+            img +
+            '<div class="update-title">' + u.title + '</div>' +
+            '<div class="update-body">' + u.body + '</div>' +
+          '</div>'
+        );
+      }).join('');
+    }
+
+    function mobileVaroomUpdatesBlock(){
+      return (
+        '<div class="mobile-widget-slot">' +
+          '<div class="varoom-updates-card">' +
+            '<div class="stats-head"><h2>VaRoom Updates</h2></div>' +
+            '<div id="varoom-updates-mobile" style="display:flex;flex-direction:column;gap:.9rem;"><p class="state-msg" style="padding:0;font-size:.85rem;">Loading…</p></div>' +
+          '</div>' +
+        '</div>'
+      );
+    }
+
     async function loadFeed(){
       feedList.innerHTML = '<p class="state-msg">Loading listings…</p>';
 
@@ -1247,8 +1342,17 @@
         return;
       }
 
-      feedList.innerHTML = data.map(renderCard).join('');
+      const cardsHtml = data.map(renderCard);
+      const showMobileWidget = !showOnlyMine && currentCategory === 'all' && !term &&
+        window.matchMedia('(max-width:860px)').matches;
+      if (showMobileWidget) {
+        cardsHtml.splice(1, 0, mobileVaroomUpdatesBlock());
+      }
+      feedList.innerHTML = cardsHtml.join('');
       attachCardListeners(feedList);
+      if (showMobileWidget) {
+        loadVaroomUpdates('varoom-updates-mobile');
+      }
     }
 
     tabsEl.querySelectorAll('.tab').forEach(function(tab){
@@ -1391,8 +1495,13 @@
       e.preventDefault();
       document.getElementById('notif-bell').click();
     });
+    document.getElementById('attention-view-all-mobile').addEventListener('click', function(e){
+      e.preventDefault();
+      document.getElementById('notif-bell').click();
+    });
 
     loadFeed();
+    loadVaroomUpdates('varoom-updates');
   })();
 </script>
 
