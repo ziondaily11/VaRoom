@@ -4,6 +4,7 @@ import asyncio
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
+from unittest.mock import patch
 
 import httpx
 
@@ -13,11 +14,13 @@ from app.collector import SourceCollector
 from app.config import Settings
 from app.constants import RegulatoryStatus, ReviewStatus, RiskLevel
 from app.models import CandidateArticle, NewsItem, ReviewAction, Source
+from app.jobs import run_collection_job
 from app.normalizer import canonicalise_url, content_hash
 from app.processing import ProcessingService
 from app.repository import MemoryNewsRepository
 from app.retrieval import NewsRetrievalService
 from app.review import ReviewService
+from app.seed_sources import upsert_official_lands_source
 
 
 def source(*, tier: int = 1, active: bool = True) -> Source:
@@ -54,6 +57,41 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         title_changed = first.model_copy(update={"source_url": "https://source1.example.test/c", "clean_text": "different evidence", "source_title": "Nairobi property update!"})
         _, title_duplicate = await collector._store_candidate(self.source, title_changed)
         self.assertTrue(title_duplicate)
+
+    async def test_collection_persists_fetch_telemetry_and_returns_new_item_ids(self):
+        collector = SourceCollector(self.repository, Settings())
+        candidate = CandidateArticle(source_id=self.source.id, source_url="https://source1.example.test/digitisation",
+                                     source_title="Land registry digitisation", clean_text="Land registry digitisation in Nairobi. " * 20)
+
+        async def discover(_source):
+            return [candidate]
+
+        collector._discover = discover  # type: ignore[method-assign]
+        result = await collector.collect_due_sources()
+        self.assertEqual(result["new_items"], 1)
+        self.assertEqual(len(result["new_item_ids"]), 1)
+        self.assertEqual(len(self.repository.fetch_runs), 1)
+        self.assertEqual(next(iter(self.repository.fetch_runs.values()))["result"], "succeeded")
+
+    async def test_scheduled_job_processes_and_publishes_a_safe_new_item(self):
+        candidate = CandidateArticle(source_id=self.source.id, source_url="https://source1.example.test/safe-update",
+                                     source_title="Land registry digitisation update", clean_text="Land registry digitisation in Nairobi. " * 20)
+
+        async def discover(_collector, _source):
+            return [candidate]
+
+        with patch.object(SourceCollector, "_discover", new=discover):
+            result = await run_collection_job(self.repository, Settings())
+        self.assertEqual(result["new_items"], 1)
+        self.assertEqual(result["processed"], 1)
+        self.assertEqual(result["published"], 1)
+
+    async def test_verified_source_seed_is_idempotent(self):
+        first = await upsert_official_lands_source(self.repository, activate=True)
+        second = await upsert_official_lands_source(self.repository, activate=True)
+        self.assertTrue(first.active)
+        self.assertEqual(first.id, second.id)
+        self.assertEqual(len(await self.repository.list_sources()), 2)
 
     async def test_regulatory_statuses_preserve_source_meaning(self):
         analyzer = RulesBasedNewsAnalyzer()
@@ -147,6 +185,18 @@ class ApiSecurityTests(unittest.IsolatedAsyncioTestCase):
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
             response = await client.get("/api/admin/news/pending")
         self.assertEqual(response.status_code, 401)
+
+    async def test_collection_endpoint_requires_its_own_secret(self):
+        repository = MemoryNewsRepository()
+        app = create_app(Settings(scheduler_secret="scheduler-key", supabase_url="https://example.test",
+                                  supabase_service_role_key="server-only", public_rate_limit_per_minute=100), repository)
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            denied = await client.post("/api/internal/jobs/collect")
+            accepted = await client.post("/api/internal/jobs/collect", headers={"Authorization": "Bearer scheduler-key"})
+        self.assertEqual(denied.status_code, 401)
+        self.assertEqual(accepted.status_code, 200)
+        self.assertEqual(accepted.json()["sources_checked"], 0)
 
 
 class MigrationSafetyTests(unittest.TestCase):

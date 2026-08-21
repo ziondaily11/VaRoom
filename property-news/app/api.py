@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import hmac
 import time
 from collections import defaultdict, deque
@@ -11,14 +12,16 @@ from uuid import UUID
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 
-from .analysis import OpenAICompatibleNewsAnalyzer, RulesBasedNewsAnalyzer
+from .analysis import build_analyzer
 from .config import Settings, settings
 from .constants import ReviewStatus
 from .models import ReviewAction
 from .processing import ProcessingService
-from .repository import MemoryNewsRepository, SupabaseNewsRepository, build_repository
+from .repository import MemoryNewsRepository, PropertyNewsRepositoryUnavailable, SupabaseNewsRepository, build_repository
 from .retrieval import NewsRetrievalService
 from .review import ReviewService
+from .jobs import run_collection_job
+from .seed_sources import upsert_official_lands_source
 
 Repository = MemoryNewsRepository | SupabaseNewsRepository
 
@@ -27,10 +30,7 @@ class ServiceContainer:
     def __init__(self, repository: Repository, config: Settings) -> None:
         self.repository = repository
         self.config = config
-        if config.ai_provider == "openai-compatible" and config.ai_base_url and config.ai_api_key and config.ai_model:
-            self.analyzer = OpenAICompatibleNewsAnalyzer(config.ai_base_url, config.ai_api_key, config.ai_model)
-        else:
-            self.analyzer = RulesBasedNewsAnalyzer()
+        self.analyzer = build_analyzer(config)
         self.processing = ProcessingService(repository, self.analyzer)
         self.review = ReviewService(repository)
         self.retrieval = NewsRetrievalService(repository)
@@ -51,6 +51,7 @@ def create_app(config: Settings = settings, repository: Repository | None = None
     store = repository or build_repository(config)
     services = ServiceContainer(store, config)
     request_log: dict[str, deque[float]] = defaultdict(deque)
+    collection_lock = asyncio.Lock()
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -62,6 +63,10 @@ def create_app(config: Settings = settings, repository: Repository | None = None
     app = FastAPI(title="VaRoom Property News Service", version="0.1.0", lifespan=lifespan,
                   description="Isolated Phase 1 property-news service. It is not yet wired into the VaRoom application.")
     app.state.services = services
+
+    @app.exception_handler(PropertyNewsRepositoryUnavailable)
+    async def property_news_repository_unavailable(_request: Request, error: PropertyNewsRepositoryUnavailable):
+        return JSONResponse({"detail": str(error)}, status_code=503, headers={"Cache-Control": "no-store"})
 
     @app.middleware("http")
     async def rate_limit_public_requests(request: Request, call_next):
@@ -85,6 +90,13 @@ def create_app(config: Settings = settings, repository: Repository | None = None
         token = authorization.removeprefix("Bearer ") if authorization else ""
         if not hmac.compare_digest(token, config.admin_api_key):
             raise HTTPException(status_code=401, detail="Admin authentication failed.")
+
+    async def require_scheduler(authorization: str | None = Header(default=None)) -> None:
+        if not config.scheduler_secret:
+            raise HTTPException(status_code=503, detail="Collection endpoint is disabled until NEWS_SCHEDULER_SECRET is configured.")
+        token = authorization.removeprefix("Bearer ") if authorization else ""
+        if not hmac.compare_digest(token, config.scheduler_secret):
+            raise HTTPException(status_code=401, detail="Collection authentication failed.")
 
     @app.get("/health")
     async def health(service: ServiceContainer = Depends(container)):
@@ -173,6 +185,22 @@ def create_app(config: Settings = settings, repository: Repository | None = None
     @app.get("/api/admin/sources/health", dependencies=[Depends(require_admin)])
     async def sources_health(service: ServiceContainer = Depends(container)):
         return await service.repository.source_health()
+
+    @app.post("/api/internal/jobs/collect", dependencies=[Depends(require_scheduler)])
+    async def collect_due_news(service: ServiceContainer = Depends(container)):
+        if not config.supabase_configured:
+            raise HTTPException(status_code=503, detail="Collection requires the server-side Supabase configuration.")
+        if collection_lock.locked():
+            raise HTTPException(status_code=409, detail="A collection run is already in progress.")
+        async with collection_lock:
+            return await run_collection_job(service.repository, config, service.analyzer)
+
+    @app.post("/api/internal/sources/seed-official-lands", dependencies=[Depends(require_scheduler)])
+    async def seed_official_lands(service: ServiceContainer = Depends(container)):
+        if not config.supabase_configured:
+            raise HTTPException(status_code=503, detail="Source registration requires the server-side Supabase configuration.")
+        source = await upsert_official_lands_source(service.repository, activate=True)
+        return {"id": str(source.id), "name": source.name, "active": source.active}
 
     return app
 

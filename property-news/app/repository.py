@@ -4,7 +4,7 @@ import copy
 from datetime import datetime, timezone
 from difflib import SequenceMatcher
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import httpx
 
@@ -17,6 +17,10 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+class PropertyNewsRepositoryUnavailable(RuntimeError):
+    """The additive schema is missing or has not reached PostgREST's cache yet."""
+
+
 class MemoryNewsRepository:
     """A deterministic development repository; never selected in deployed production."""
 
@@ -26,6 +30,7 @@ class MemoryNewsRepository:
         self.events: list[NewsEvent] = []
         self.analyses: dict[UUID, NewsAnalysis] = {}
         self.reviews: list[dict[str, Any]] = []
+        self.fetch_runs: dict[UUID, dict[str, Any]] = {}
 
     async def upsert_source(self, source: Source) -> Source:
         source.updated_at = _now()
@@ -81,6 +86,19 @@ class MemoryNewsRepository:
     async def add_review(self, review: dict[str, Any]) -> None:
         self.reviews.append(copy.deepcopy(review))
 
+    async def start_fetch_run(self, source_id: UUID, started_at: datetime) -> UUID:
+        run_id = uuid4()
+        self.fetch_runs[run_id] = {"id": run_id, "source_id": source_id, "started_at": started_at, "result": "running"}
+        return run_id
+
+    async def finish_fetch_run(self, run_id: UUID, *, result: str, ended_at: datetime, discovered_count: int,
+                               new_item_count: int, duplicate_count: int, error_message: str | None = None) -> None:
+        run = self.fetch_runs[run_id]
+        run.update({"result": result, "ended_at": ended_at, "discovered_count": discovered_count,
+                    "new_item_count": new_item_count, "duplicate_count": duplicate_count,
+                    "error_message": error_message,
+                    "duration_ms": max(0, int((ended_at - run["started_at"]).total_seconds() * 1000))})
+
     async def list_items(self, *, published_only: bool = False) -> list[NewsItem]:
         values = list(self.items.values())
         if published_only:
@@ -128,6 +146,15 @@ class SupabaseNewsRepository:
                        payload: Any = None, prefer: str | None = None) -> Any:
         headers = {"Prefer": prefer} if prefer else None
         response = await self.client.request(method, f"{self.url}/rest/v1/{table}", params=params, json=payload, headers=headers)
+        if response.status_code == 404:
+            try:
+                code = response.json().get("code")
+            except ValueError:
+                code = None
+            if code == "PGRST205":
+                raise PropertyNewsRepositoryUnavailable(
+                    "Property News tables are unavailable. Apply the additive migration and refresh PostgREST schema visibility."
+                )
         response.raise_for_status()
         if not response.content:
             return None
@@ -191,6 +218,18 @@ class SupabaseNewsRepository:
 
     async def add_review(self, review: dict[str, Any]) -> None:
         await self._request("POST", "news_reviews", payload=review, prefer="return=minimal")
+
+    async def start_fetch_run(self, source_id: UUID, started_at: datetime) -> UUID:
+        rows = await self._request("POST", "source_fetch_runs", payload={"source_id": str(source_id), "started_at": started_at.isoformat(), "result": "running"},
+                                   prefer="return=representation")
+        return UUID(rows[0]["id"])
+
+    async def finish_fetch_run(self, run_id: UUID, *, result: str, ended_at: datetime, discovered_count: int,
+                               new_item_count: int, duplicate_count: int, error_message: str | None = None) -> None:
+        await self._request("PATCH", "source_fetch_runs", params={"id": f"eq.{run_id}"}, payload={
+            "result": result, "ended_at": ended_at.isoformat(), "discovered_count": discovered_count,
+            "new_item_count": new_item_count, "duplicate_count": duplicate_count, "error_message": error_message,
+        }, prefer="return=minimal")
 
     async def list_items(self, *, published_only: bool = False) -> list[NewsItem]:
         params = {"select": "*", "order": "published_at.desc.nullslast,created_at.desc"}

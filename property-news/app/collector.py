@@ -9,8 +9,9 @@ import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from html.parser import HTMLParser
-from typing import Iterable
-from urllib.parse import urljoin
+from typing import Any, Iterable
+from urllib.parse import urljoin, urlparse
+from uuid import UUID
 
 import httpx
 
@@ -72,9 +73,10 @@ class SourceCollector:
         self.repository, self.settings = repository, settings
         self._last_request_at: dict[str, float] = {}
 
-    async def collect_due_sources(self) -> dict[str, int]:
+    async def collect_due_sources(self) -> dict[str, Any]:
         sources = await self.repository.list_sources(active_only=True)
-        totals = {"sources_checked": 0, "candidates": 0, "new_items": 0, "duplicates": 0, "failures": 0}
+        totals: dict[str, Any] = {"sources_checked": 0, "candidates": 0, "new_items": 0, "duplicates": 0,
+                                  "failures": 0, "new_item_ids": []}
         for source in sources:
             if not self._is_due(source):
                 continue
@@ -82,32 +84,47 @@ class SourceCollector:
             totals["sources_checked"] += 1
             for key in ("candidates", "new_items", "duplicates", "failures"):
                 totals[key] += result[key]
+            totals["new_item_ids"].extend(result["new_item_ids"])
         return totals
 
-    async def collect_source(self, source: Source) -> dict[str, int]:
+    async def collect_source(self, source: Source) -> dict[str, Any]:
         started = datetime.now(timezone.utc)
-        result = {"candidates": 0, "new_items": 0, "duplicates": 0, "failures": 0}
+        result: dict[str, Any] = {"candidates": 0, "new_items": 0, "duplicates": 0, "failures": 0, "new_item_ids": []}
+        run_id: UUID | None = None
         try:
+            run_id = await self.repository.start_fetch_run(source.id, started)
             candidates = await self._discover(source)
             candidates = [await self._materialise_article(source, candidate) for candidate in candidates]
             result["candidates"] = len(candidates)
             for candidate in candidates:
                 stored, duplicate = await self._store_candidate(source, candidate)
                 result["duplicates" if duplicate else "new_items"] += 1
+                if stored:
+                    result["new_item_ids"].append(stored.id)
             source.last_successful_fetch_at = datetime.now(timezone.utc)
             await self.repository.upsert_source(source)
             await self.repository.add_event(NewsEvent(source_id=source.id, event_type="source_fetch_succeeded", payload={
                 "started_at": started.isoformat(), "candidates": result["candidates"], "new_items": result["new_items"],
                 "duplicates": result["duplicates"],
             }))
+            await self.repository.finish_fetch_run(run_id, result="succeeded", ended_at=datetime.now(timezone.utc),
+                                                   discovered_count=result["candidates"], new_item_count=result["new_items"],
+                                                   duplicate_count=result["duplicates"])
         except Exception as error:  # A source failure must never stop other sources.
             logger.warning("Source %s failed: %s", source.name, error)
             result["failures"] = 1
             source.last_failed_fetch_at = datetime.now(timezone.utc)
-            await self.repository.upsert_source(source)
-            await self.repository.add_event(NewsEvent(source_id=source.id, event_type="source_fetch_failed", payload={
-                "started_at": started.isoformat(), "error": str(error)[:1000],
-            }))
+            try:
+                await self.repository.upsert_source(source)
+                await self.repository.add_event(NewsEvent(source_id=source.id, event_type="source_fetch_failed", payload={
+                    "started_at": started.isoformat(), "error": str(error)[:1000],
+                }))
+                if run_id:
+                    await self.repository.finish_fetch_run(run_id, result="failed", ended_at=datetime.now(timezone.utc),
+                                                           discovered_count=result["candidates"], new_item_count=result["new_items"],
+                                                           duplicate_count=result["duplicates"], error_message=str(error)[:1000])
+            except Exception as persistence_error:
+                logger.error("Could not persist failure telemetry for source %s: %s", source.name, persistence_error)
         return result
 
     @staticmethod
@@ -123,18 +140,22 @@ class SourceCollector:
         config = source.parser_config
         if source.fetch_method == "manual":
             urls = config.get("urls", [])
-            return [await self._fetch_article(source, url) for url in urls]
+            return [await self._fetch_article(source, url) for url in urls if self._is_allowed_source_url(source, url)]
         endpoint = config.get("discovery_url") or source.base_url
+        if not self._is_allowed_source_url(source, endpoint):
+            raise ValueError("Discovery URL is not an approved source host")
         body = await self._fetch(endpoint)
         if source.fetch_method in {"rss", "atom"}:
-            return self._parse_feed(source, body, endpoint)
-        if source.fetch_method == "sitemap":
-            return self._parse_sitemap(source, body, endpoint)
-        if source.fetch_method == "api":
-            return self._parse_api(source, body, endpoint)
-        if source.fetch_method == "html":
-            return self._parse_html_discovery(source, body, endpoint)
-        raise ValueError(f"Unsupported fetch method: {source.fetch_method}")
+            candidates = self._parse_feed(source, body, endpoint)
+        elif source.fetch_method == "sitemap":
+            candidates = self._parse_sitemap(source, body, endpoint)
+        elif source.fetch_method == "api":
+            candidates = self._parse_api(source, body, endpoint)
+        elif source.fetch_method == "html":
+            candidates = self._parse_html_discovery(source, body, endpoint)
+        else:
+            raise ValueError(f"Unsupported fetch method: {source.fetch_method}")
+        return [candidate for candidate in candidates if self._is_allowed_source_url(source, candidate.source_url)]
 
     async def _fetch(self, url: str) -> str:
         origin = re.sub(r"^(https?://[^/]+).*$", r"\1", url)
@@ -164,6 +185,8 @@ class SourceCollector:
         raise RuntimeError(f"Fetch failed for {url}: {last_error}")
 
     async def _fetch_article(self, source: Source, url: str, title: str | None = None, published_at: datetime | None = None) -> CandidateArticle:
+        if not self._is_allowed_source_url(source, url):
+            raise ValueError("Article URL is not an approved source host")
         html = await self._fetch(url)
         parser = _ArticleHTMLParser()
         parser.feed(html)
@@ -221,8 +244,37 @@ class SourceCollector:
         parser = _ArticleHTMLParser()
         parser.feed(body)
         pattern = source.parser_config.get("url_contains", "")
-        return [CandidateArticle(source_id=source.id, source_url=urljoin(base_url, href), source_title=title, clean_text="")
-                for href, title in parser.links if not pattern or pattern in href][:100]
+        url_regex = source.parser_config.get("url_regex")
+        compiled_regex = re.compile(url_regex) if isinstance(url_regex, str) and url_regex else None
+        excluded = [value for value in source.parser_config.get("exclude_url_contains", []) if isinstance(value, str)]
+        max_articles = min(max(int(source.parser_config.get("max_articles", 100)), 1), 100)
+        seen: set[str] = set()
+        articles: list[CandidateArticle] = []
+        for href, title in parser.links:
+            if (pattern and pattern not in href) or any(value in href for value in excluded):
+                continue
+            path = urlparse(href).path or href
+            if compiled_regex and not compiled_regex.search(path):
+                continue
+            url = urljoin(base_url, href)
+            canonical = canonicalise_url(url)
+            if canonical in seen:
+                continue
+            seen.add(canonical)
+            articles.append(CandidateArticle(source_id=source.id, source_url=url, source_title=title, clean_text=""))
+            if len(articles) >= max_articles:
+                break
+        return articles
+
+    @staticmethod
+    def _is_allowed_source_url(source: Source, url: str) -> bool:
+        parsed = urlparse(url)
+        if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+            return False
+        source_host = urlparse(source.base_url).hostname
+        extra_hosts = source.parser_config.get("allowed_hosts", [])
+        allowed_hosts = {host.lower() for host in [source_host, *extra_hosts] if isinstance(host, str) and host}
+        return parsed.hostname.lower() in allowed_hosts
 
     @staticmethod
     def _element_text(entry: ET.Element, name: str) -> str | None:
