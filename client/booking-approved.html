@@ -229,7 +229,7 @@
       <p class="pay-note" id="pay-note">
         Online payment isn't live on VaRoom just yet — we'll let you know the moment it is.
         In the meantime, please coordinate payment for this booking directly with your host via
-        <a href="chats.html">chat</a>.
+        <a href="chats.html" id="pay-note-chat-link">chat</a>.
       </p>
 
       <div class="help-box">
@@ -238,7 +238,7 @@
           <div class="help-title">Need help?</div>
           <div class="help-sub">If you have any questions, you can reply in this chat or contact our support team.</div>
         </div>
-        <a href="chats.html" class="help-btn">Contact Support ›</a>
+        <a href="chats.html" id="help-chat-link" class="help-btn">Contact Support ›</a>
       </div>
     </div>
   </div>
@@ -287,7 +287,7 @@
 
     const { data: booking, error } = await supabaseClient
       .from('bookings')
-      .select('id,status,client_id,host_id,price_unit,total_price,start_date,end_date,hours,lease_start_date,lease_months,' +
+      .select('id,status,client_id,host_id,listing_id,price_unit,total_price,start_date,end_date,hours,lease_start_date,lease_months,' +
         'listing:listings(title,location_text,listing_photos(storage_path)),' +
         'host:profiles!bookings_host_id_fkey(full_name,avatar_url)')
       .eq('id', bookingId)
@@ -370,6 +370,24 @@
     document.getElementById('pay-btn').addEventListener('click', function(){
       document.getElementById('pay-note').style.display = 'block';
     });
+
+    // Point "Contact Support" and the chat link straight at the real
+    // conversation with this host, instead of a generic chats list.
+    supabaseClient
+      .from('conversations')
+      .upsert(
+        { listing_id: booking.listing_id, host_id: booking.host_id, client_id: currentUser.id },
+        { onConflict: 'listing_id,client_id' }
+      )
+      .select()
+      .single()
+      .then(function(result){
+        if (result.data) {
+          const chatUrl = 'chats.html?c=' + result.data.id;
+          document.getElementById('help-chat-link').setAttribute('href', chatUrl);
+          document.getElementById('pay-note-chat-link').setAttribute('href', chatUrl);
+        }
+      });
 
     document.getElementById('cancel-btn').addEventListener('click', async function(){
       if (!confirm('Cancel this booking? This can\'t be undone.')) return;

@@ -258,13 +258,36 @@
       }
 
       // Notify the client
-      const { data: b } = await supabaseClient.from('bookings').select('client_id, listing:listings(title)').eq('id', bookingId).single();
+      const { data: b } = await supabaseClient.from('bookings').select('client_id, listing_id, total_price, listing:listings(title)').eq('id', bookingId).single();
       await supabaseClient.from('notifications').insert({
         user_id: b.client_id,
         type: newStatus === 'approved' ? 'booking_approved' : 'booking_declined',
         message: 'Your booking request for "' + b.listing.title + '" was ' + newStatus + '.',
         booking_id: bookingId
       });
+
+      // On approval, also drop a message into the real chat thread with this
+      // client so the booking (and a way to pay) shows up where they'll see it.
+      if (newStatus === 'approved') {
+        const { data: conv } = await supabaseClient
+          .from('conversations')
+          .upsert(
+            { listing_id: b.listing_id, host_id: currentUser.id, client_id: b.client_id },
+            { onConflict: 'listing_id,client_id' }
+          )
+          .select()
+          .single();
+
+        if (conv) {
+          await supabaseClient.from('messages').insert({
+            conversation_id: conv.id,
+            sender_id: currentUser.id,
+            body: 'Booking approved — "' + b.listing.title + '", KSh ' + Number(b.total_price).toLocaleString() + '. Tap to review and pay.',
+            booking_id: bookingId
+          });
+          await supabaseClient.from('conversations').update({ last_message_at: new Date().toISOString() }).eq('id', conv.id);
+        }
+      }
 
       loadReceived();
     }
