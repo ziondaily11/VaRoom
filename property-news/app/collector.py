@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 import re
+import ssl
 import time
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
@@ -14,6 +15,7 @@ from urllib.parse import urljoin, urlparse
 from uuid import UUID
 
 import httpx
+import truststore
 
 from .config import Settings
 from .models import CandidateArticle, NewsEvent, NewsItem, Source
@@ -72,6 +74,9 @@ class SourceCollector:
     def __init__(self, repository: Repository, settings: Settings) -> None:
         self.repository, self.settings = repository, settings
         self._last_request_at: dict[str, float] = {}
+        # Keep certificate verification enabled while using the deployment
+        # host's maintained CA store for official government sources.
+        self._ssl_context = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
 
     async def collect_due_sources(self) -> dict[str, Any]:
         sources = await self.repository.list_sources(active_only=True)
@@ -166,7 +171,8 @@ class SourceCollector:
         last_error: Exception | None = None
         for attempt in range(self.settings.fetch_retry_attempts):
             try:
-                async with httpx.AsyncClient(timeout=self.settings.fetch_timeout_seconds, follow_redirects=True, headers=headers) as client:
+                async with httpx.AsyncClient(timeout=self.settings.fetch_timeout_seconds, follow_redirects=True,
+                                             headers=headers, verify=self._ssl_context) as client:
                     async with client.stream("GET", url) as response:
                         response.raise_for_status()
                         chunks: list[bytes] = []
