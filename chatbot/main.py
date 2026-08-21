@@ -26,7 +26,7 @@ import json
 import random
 import asyncio
 import httpx
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date, timedelta
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -275,19 +275,83 @@ def canned_reply(ctx: Optional[dict]) -> str:
     )
 
 
-async def generate_ai_reply(message: str, listing_ctx: Optional[dict]) -> Optional[str]:
+async def generate_ai_reply(message: str, listing_ctx: Optional[dict]) -> Optional[dict]:
+    """Returns {"reply": str, "booking_start_date": "YYYY-MM-DD" or None,
+    "nights": int or None} — or None if Gemini is unreachable. Booking
+    fields are only meaningful when the listing prices per night; other
+    pricing types (hourly, lease) aren't handled by this yet."""
     facts = format_listing_facts(listing_ctx)
+    today = datetime.now(timezone.utc).date().isoformat()
     prompt = (
         "You are standing in for a VaRoom host who is currently away, replying to a "
-        "prospective guest's message on their behalf. Write a short, warm, human reply "
-        "(2-4 sentences), as if you were the host texting back. Use ONLY the verified "
-        "facts below — never invent a price, date, amenity, or policy that isn't listed. "
-        "If the guest asks about something not covered by these facts, say the host will "
-        "confirm that personally rather than guessing.\n\n"
+        f"prospective guest's message on their behalf. Today's date is {today}.\n\n"
+        "Write a short, warm, human reply (2-4 sentences), as if you were the host "
+        "texting back. Use ONLY the verified facts below — never invent a price, "
+        "date, amenity, or policy that isn't listed. If the guest asks about "
+        "something not covered by these facts, say the host will confirm that "
+        "personally rather than guessing.\n\n"
+        "If the guest clearly COMMITS to a specific check-in date and length of "
+        "stay in nights (not just asking whether dates are free, but actually "
+        "saying when they want to arrive and for how long), extract it so a real "
+        "booking request can be created for the host to approve. Convert relative "
+        "dates (\"25th of this month\", \"next Friday\", \"tomorrow\") into an "
+        "absolute date using today's date above. Only do this when the listing "
+        "prices per night (see facts). If you extract dates, phrase your reply as "
+        "confirming you've sent the request to the host for approval — don't just "
+        "discuss it hypothetically. If the guest is only asking about "
+        "availability/price with no firm commitment, leave the date fields null.\n\n"
         f"Verified listing facts:\n{facts}\n\n"
-        f"Guest's message: {message}"
+        f"Guest's message: {message}\n\n"
+        "Respond with ONLY a JSON object, nothing else:\n"
+        '{"reply": your reply text as described above, '
+        '"booking_start_date": "YYYY-MM-DD" or null, "nights": integer or null}'
     )
-    return await call_gemini(prompt)
+    raw = await call_gemini(prompt)
+    if not raw:
+        return None
+    parsed = extract_first_json_object(raw)
+    if not parsed or not parsed.get("reply"):
+        return None
+    return {
+        "reply": parsed["reply"],
+        "booking_start_date": parsed.get("booking_start_date"),
+        "nights": parsed.get("nights"),
+    }
+
+
+async def insert_booking_request(
+    listing_id: str, host_id: str, client_id: str,
+    start_date: str, end_date: str, price_unit: str, total_price: float,
+) -> Optional[dict]:
+    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+        return None
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.post(
+                f"{SUPABASE_URL}/rest/v1/bookings",
+                params={"select": "id"},
+                json={
+                    "listing_id": listing_id,
+                    "host_id": host_id,
+                    "client_id": client_id,
+                    "status": "pending",
+                    "start_date": start_date,
+                    "end_date": end_date,
+                    "price_unit": price_unit,
+                    "total_price": total_price,
+                },
+                headers={
+                    "apikey": SUPABASE_SERVICE_ROLE_KEY,
+                    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+                    "Content-Type": "application/json",
+                    "Prefer": "return=representation",
+                },
+            )
+            response.raise_for_status()
+            rows = response.json()
+            return rows[0] if rows else None
+    except Exception:
+        return None
 
 
 @app.post("/reply", response_model=ReplyResponse)
@@ -313,8 +377,30 @@ async def reply(payload: ReplyRequest, authorization: Optional[str] = Header(Non
         return ReplyResponse(reply="", skipped=True)
 
     listing_ctx = await get_listing_context(payload.listing_id)
-    ai_reply = await generate_ai_reply(payload.message, listing_ctx)
-    reply_text = ai_reply or canned_reply(listing_ctx)
+    ai_result = await generate_ai_reply(payload.message, listing_ctx)
+    reply_text = ai_result["reply"] if ai_result else canned_reply(listing_ctx)
+
+    # Only attempt a real booking when Gemini extracted a firm date + night
+    # count, the listing prices per night, and the numbers are sane.
+    if ai_result and listing_ctx and listing_ctx.get("price_unit") == "night" and listing_ctx.get("price_amount") is not None:
+        start_str = ai_result.get("booking_start_date")
+        nights = ai_result.get("nights")
+        if start_str and isinstance(nights, int) and 0 < nights <= 365:
+            try:
+                start_date = date.fromisoformat(start_str)
+                end_date = start_date + timedelta(days=nights)
+                total_price = float(listing_ctx["price_amount"]) * nights
+                await insert_booking_request(
+                    listing_id=payload.listing_id,
+                    host_id=conversation["host_id"],
+                    client_id=conversation["client_id"],
+                    start_date=start_date.isoformat(),
+                    end_date=end_date.isoformat(),
+                    price_unit="night",
+                    total_price=total_price,
+                )
+            except (ValueError, TypeError):
+                pass  # unparseable date from Gemini — skip booking, keep the text reply
 
     inserted = await insert_auto_reply(payload.conversation_id, conversation["host_id"], reply_text)
     if inserted:
