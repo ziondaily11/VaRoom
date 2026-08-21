@@ -21,12 +21,13 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
-    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#1A1210; --paper:#FBF4F1;
+    --red:#1A1210; --red-deep:#000000; --white:#FFFFFF; --ink:#1A1210; --paper:#FBF4F1;
     --muted:#7a6b67;
     --font-display:'Fraunces', serif; --font-body:'Inter', sans-serif;
   }
   [data-theme="dark"]{
     --white:#241C1A; --paper:#15100F; --ink:#F5EFEC; --muted:#B8ACA8;
+    --red:#FFFFFF; --red-deep:#D8D0CC;
   }
   *{ margin:0; padding:0; box-sizing:border-box; }
   body{ font-family:var(--font-body); background:var(--paper); color:var(--ink); min-height:100vh; transition:background .2s ease, color .2s ease; }
@@ -140,11 +141,13 @@
 
   .away-banner{
     display:flex; align-items:center; gap:.5rem; margin:.9rem 1.4rem 0;
-    background:rgba(196,30,58,.07); border:1px solid rgba(196,30,58,.18); border-radius:10px;
+    background:rgba(26,18,16,.07); border:1px solid rgba(26,18,16,.18); border-radius:10px;
     padding:.6rem .8rem; font-size:.8rem; color:var(--red-deep); line-height:1.4;
   }
+  [data-theme="dark"] .away-banner{ background:rgba(255,255,255,.08); border-color:rgba(255,255,255,.2); }
 
-  .msg-bubble.auto-reply{ border:1px dashed rgba(196,30,58,.35); }
+  .msg-bubble.auto-reply{ border:1px dashed rgba(26,18,16,.35); }
+  [data-theme="dark"] .msg-bubble.auto-reply{ border-color:rgba(255,255,255,.35); }
   .auto-reply-tag{
     display:inline-block; font-size:.66rem; font-weight:700; letter-spacing:.02em;
     text-transform:uppercase; color:var(--red); margin-bottom:.2rem;
