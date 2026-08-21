@@ -145,6 +145,20 @@ CHAT_FALLBACK_REPLIES_SW = [
     "Karibu! Niambie unahitaji nini (mfano \"airbnb Nairobi\") nikutafutie.",
 ]
 
+# Last-resort only — used when Gemini can't even write the no-results
+# reply itself. Kept varied and language-matched so it's never a robotic
+# repeat, but the real fix is generate_no_results_reply() below.
+NO_RESULTS_FALLBACK = [
+    "I couldn't find anything matching that right now — try a different area or budget, or check back soon as more spaces get listed.",
+    "No luck this time — want to try a nearby area or a different price range?",
+    "Nothing matched that search — more listings get added often, so it's worth trying again soon.",
+]
+
+NO_RESULTS_FALLBACK_SW = [
+    "Sikupata kitu kinachofaa hivi sasa — jaribu eneo au bei tofauti, ama rudi baadaye.",
+    "Hakuna iliyopatikana kwa hiyo search — unaweza jaribu area nyingine?",
+]
+
 app = FastAPI(
     title="VaRoom Chatbot Service",
     description="Standalone microservice for the host reply assistant and Elie, the client search assistant.",
@@ -723,6 +737,34 @@ def extract_guests(text: str) -> Optional[int]:
     return None
 
 
+async def generate_no_results_reply(message: str, history: Optional[List[dict]] = None) -> Optional[str]:
+    """A search came back empty. Instead of a fixed template, have Elie
+    write a short, natural response that matches the guest's actual tone
+    and language (including Swahili/Sheng) — an apologetic guest gets a
+    gentler reply than a casual one, and the language always matches."""
+    history_block = ""
+    if history:
+        lines = []
+        for turn in history[-6:]:
+            speaker = "Elie" if turn.get("role") == "elie" else "Guest"
+            lines.append(f"{speaker}: {turn.get('text', '')}")
+        history_block = "Recent conversation so far:\n" + "\n".join(lines) + "\n\n"
+
+    prompt = (
+        "You are Elie, VaRoom's search assistant based in Kenya. You just "
+        "searched for the guest's request below and found NO matching "
+        "listings. Write a short (1-2 sentence) reply acknowledging that — "
+        "match the guest's tone and language exactly (including Swahili or "
+        "Sheng if they used it), vary your phrasing, never sound like a "
+        "canned template. Gently suggest trying a different area, budget, "
+        "or category, or checking back later. Don't over-apologize.\n\n"
+        f"{history_block}"
+        f"Guest's message: {message}\n\n"
+        "Respond with ONLY the reply text, nothing else — no quotes, no JSON."
+    )
+    return await call_gemini(prompt)
+
+
 async def classify_message(message: str, history: Optional[List[dict]] = None) -> dict:
     """
     Single Gemini call that both classifies the message AND extracts
@@ -1034,11 +1076,12 @@ async def elie_search(payload: ElieSearchRequest, authorization: Optional[str] =
     filters = ElieFilters(category=category, location=location, max_price=max_price, guests=guests)
 
     if not raw_listings:
+        no_results_reply = await generate_no_results_reply(payload.message, history_dicts)
+        if not no_results_reply:
+            pool = NO_RESULTS_FALLBACK_SW if is_swahili_flavored(payload.message) else NO_RESULTS_FALLBACK
+            no_results_reply = random.choice(pool)
         return ElieSearchResponse(
-            reply=(
-                "I couldn't find any listings matching that right now — "
-                "try broadening your search, or check back soon as more spaces get listed."
-            ),
+            reply=no_results_reply,
             listings=None,
             filters=filters,
         )
