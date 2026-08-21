@@ -6,6 +6,7 @@ const supabaseAdmin = require('./lib/supabaseClient');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const PROPERTY_NEWS_API_URL = (process.env.PROPERTY_NEWS_API_URL || '').replace(/\/$/, '');
 
 app.use(express.json());
 
@@ -16,6 +17,39 @@ app.use(express.static(path.join(__dirname, '..', 'client')));
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', service: 'varoom-server' });
 });
+
+// Public Property News is served by the isolated Phase 1 FastAPI service.
+// The browser stays on the VaRoom origin and never receives database or
+// service-role credentials. Only public /api/news routes are proxied here;
+// review and pipeline routes remain private to the property-news service.
+async function proxyPropertyNews(req, res) {
+  if (!PROPERTY_NEWS_API_URL) {
+    return res.status(503).json({ error: 'Property news is not configured yet.' });
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+  try {
+    const upstream = new URL(req.originalUrl, `${PROPERTY_NEWS_API_URL}/`);
+    const response = await fetch(upstream, {
+      headers: { Accept: 'application/json' },
+      signal: controller.signal,
+    });
+    const body = await response.text();
+    res.status(response.status);
+    res.set('Content-Type', response.headers.get('content-type') || 'application/json; charset=utf-8');
+    res.set('Cache-Control', 'public, max-age=60');
+    return res.send(body);
+  } catch (error) {
+    console.error('Property news proxy failed:', error.message);
+    return res.status(502).json({ error: 'Property news is temporarily unavailable.' });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+app.get('/api/news', proxyPropertyNews);
+app.get('/api/news/*', proxyPropertyNews);
 
 // Quick way to confirm the Supabase connection actually works once you've
 // filled in server/.env and run the schema SQL.

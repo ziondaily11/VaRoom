@@ -149,7 +149,8 @@
   }
   .dash-main{ min-width:0; }
   .host-rail{
-    position:sticky; top:1.2rem; padding-top:1.8rem;
+    /* The information rail must grow with its cards, including Property News. */
+    position:static; padding-top:1.8rem;
     display:flex; flex-direction:column; gap:1.6rem;
   }
 
@@ -264,6 +265,36 @@
   .update-img{ width:100%; border-radius:10px; margin-bottom:.5rem; display:block; }
   .update-title{ font-weight:700; font-size:.88rem; margin-bottom:.2rem; }
   .update-body{ font-size:.82rem; color:var(--muted); line-height:1.4; }
+
+  /* ---------- PROPERTY NEWS ---------- */
+  .property-news-card{
+    background:var(--white); border:1px solid rgba(26,18,16,.08); border-radius:16px;
+    padding:1.2rem 1.4rem;
+  }
+  .property-news-list{ display:flex; flex-direction:column; gap:.1rem; }
+  .property-news-item{
+    display:block; padding:.8rem 0; border-bottom:1px solid rgba(26,18,16,.08);
+    border-radius:8px;
+  }
+  .property-news-item:first-child{ padding-top:.1rem; }
+  .property-news-item:last-child{ border-bottom:none; padding-bottom:.1rem; }
+  .property-news-item:hover .property-news-title{ color:var(--red-deep); }
+  .property-news-title{ font-size:.88rem; font-weight:700; line-height:1.35; transition:color .2s ease; }
+  .property-news-meta{ display:flex; align-items:center; flex-wrap:wrap; gap:.35rem; margin-top:.35rem; color:var(--muted); font-size:.74rem; }
+  .property-news-status{
+    display:inline-flex; align-items:center; width:max-content; margin-top:.45rem;
+    border-radius:100px; padding:.18rem .48rem; background:#FBE4E7; color:var(--red-deep);
+    font-size:.64rem; font-weight:700; letter-spacing:.05em;
+  }
+  .property-news-status.status-effective, .property-news-status.status-approved{ background:#EAF4EE; color:#1E6B3C; }
+  .property-news-status.status-market{ background:#E9F0FB; color:#1A4E8F; }
+  .property-news-empty, .property-news-error{ color:var(--muted); font-size:.82rem; line-height:1.5; padding:.2rem 0; }
+  .property-news-error{ color:var(--red-deep); }
+  .property-news-skeleton{ height:58px; border-radius:10px; margin:.25rem 0; background:linear-gradient(90deg, rgba(26,18,16,.05), rgba(26,18,16,.1), rgba(26,18,16,.05)); background-size:200% 100%; animation:news-shimmer 1.35s ease-in-out infinite; }
+  .property-news-view-all{ display:inline-flex; margin-top:.85rem; font-size:.82rem; font-weight:600; color:var(--red); }
+  .property-news-view-all:hover{ color:var(--red-deep); }
+  .property-news-mobile-slot{ display:none; }
+  @keyframes news-shimmer{ 0%{ background-position:200% 0; } 100%{ background-position:-200% 0; } }
 
   .mobile-widget-slot{ display:none; }
 
@@ -414,6 +445,8 @@
     #attention-card-mobile.show{ display:block; margin-bottom:1.4rem; }
 
     .mobile-widget-slot{ display:block; margin-bottom:1.4rem; }
+    .host-rail .property-news-card{ display:none; }
+    .property-news-mobile-slot{ display:block; margin:0 0 1.4rem; }
 
     /* Compact away mode */
     .away-toggle-wrap{ padding:.55rem .85rem .55rem .55rem; margin-bottom:1.1rem; }
@@ -638,6 +671,15 @@
         </div>
         <div class="attention-list" id="attention-list-mobile"></div>
       </div>
+      <div class="property-news-mobile-slot">
+        <section class="property-news-card" aria-labelledby="property-news-mobile-title">
+          <div class="stats-head"><h2 id="property-news-mobile-title">Your Property News on VaRoom</h2></div>
+          <div class="property-news-list" id="property-news-mobile-list" aria-live="polite">
+            <div class="property-news-skeleton"></div><div class="property-news-skeleton"></div><div class="property-news-skeleton"></div>
+          </div>
+          <a class="property-news-view-all" href="property-news.html">View all news →</a>
+        </section>
+      </div>
       <div id="feed-list"></div>
     </div>
     </div>
@@ -670,6 +712,14 @@
         </div>
         <div class="attention-list" id="attention-list"></div>
       </div>
+
+      <section class="property-news-card" aria-labelledby="property-news-title">
+        <div class="stats-head"><h2 id="property-news-title">Your Property News on VaRoom</h2></div>
+        <div class="property-news-list" id="property-news-list" aria-live="polite">
+          <div class="property-news-skeleton"></div><div class="property-news-skeleton"></div><div class="property-news-skeleton"></div>
+        </div>
+        <a class="property-news-view-all" href="property-news.html">View all news →</a>
+      </section>
 
       <div class="varoom-updates-card">
         <div class="stats-head">
@@ -709,6 +759,7 @@
 
 <script src="js/supabase-client.js"></script>
 <script src="js/notifications-widget.js"></script>
+<script src="js/property-news-api.js"></script>
 <script>
   (async function(){
     let currentUser = null;
@@ -1070,6 +1121,60 @@
       const hrs = Math.floor(mins / 60);
       if (hrs < 24) return hrs + 'h ago';
       return Math.floor(hrs / 24) + 'd ago';
+    }
+
+    function propertyNewsLocation(news){
+      const places = [].concat(news.counties || [], news.towns || []);
+      const uniquePlaces = places.filter(function(place, index){
+        return place && places.findIndex(function(other){ return String(other).toLowerCase() === String(place).toLowerCase(); }) === index;
+      });
+      return uniquePlaces.join(' · ') || 'Kenya';
+    }
+
+    function propertyNewsStatus(news){
+      const status = String(news.regulatory_status || '').toLowerCase();
+      const labels = {
+        proposed:'PROPOSED', under_consideration:'UNDER REVIEW', public_participation:'PUBLIC INPUT',
+        approved:'APPROVED', enacted:'ENACTED', effective:'EFFECTIVE', suspended:'SUSPENDED',
+        rejected:'REJECTED', amended:'AMENDED', reported:'UPDATE'
+      };
+      if (labels[status]) return { label:labels[status], className:status };
+      if (news.category === 'market') return { label:'MARKET UPDATE', className:'market' };
+      if (news.risk_level === 'high') return { label:'IMPORTANT', className:'important' };
+      return null;
+    }
+
+    function propertyNewsItemsHtml(items){
+      return items.slice(0, 4).map(function(news){
+        const source = news.source || {};
+        const publicationTime = source.published_at || news.published_at;
+        const status = propertyNewsStatus(news);
+        return (
+          '<a class="property-news-item" href="property-news.html?id=' + encodeURIComponent(news.id) + '">' +
+            '<div class="property-news-title">' + escapeHtml(news.title || 'Property update') + '</div>' +
+            '<div class="property-news-meta"><span>' + escapeHtml(propertyNewsLocation(news)) + '</span><span>•</span><span>' + escapeHtml(publicationTime ? timeAgo(publicationTime) : 'Recently') + '</span></div>' +
+            (status ? '<span class="property-news-status status-' + status.className + '">' + status.label + '</span>' : '') +
+          '</a>'
+        );
+      }).join('');
+    }
+
+    function renderPropertyNews(state, items){
+      const containers = [document.getElementById('property-news-list'), document.getElementById('property-news-mobile-list')];
+      const html = state === 'ready'
+        ? (items.length ? propertyNewsItemsHtml(items) : '<p class="property-news-empty">Nothing new right now. We\'ll bring you relevant property updates as they happen.</p>')
+        : '<p class="property-news-error">Property news is temporarily unavailable.</p>';
+      containers.forEach(function(container){ if (container) container.innerHTML = html; });
+    }
+
+    async function loadPropertyNews(){
+      try {
+        const news = await VaRoomPropertyNews.latest(4);
+        renderPropertyNews('ready', Array.isArray(news) ? news : []);
+      } catch (error) {
+        console.warn('Property news could not be loaded:', error);
+        renderPropertyNews('error', []);
+      }
     }
 
     function categoryLabel(cat){
@@ -1502,6 +1607,7 @@
 
     loadFeed();
     loadVaroomUpdates('varoom-updates');
+    loadPropertyNews();
   })();
 </script>
 
