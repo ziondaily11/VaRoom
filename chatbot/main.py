@@ -21,12 +21,14 @@ premium status.
 """
 
 import os
+import sys
 import re
 import json
 import random
 import asyncio
 import httpx
 from datetime import datetime, timezone, date, timedelta
+from pathlib import Path
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -1107,3 +1109,14 @@ def health_check():
         "ai_configured": bool(GEMINI_API_KEY),
         "supabase_configured": bool(SUPABASE_URL and SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY),
     }
+
+
+# Render starts this chatbot entrypoint. Mount the isolated Property News
+# service here as well, after the established chatbot routes, so existing
+# VaRoom endpoints keep their current precedence and behavior.
+_property_news_directory = Path(__file__).resolve().parent.parent / "property-news"
+if _property_news_directory.is_dir():
+    sys.path.insert(0, str(_property_news_directory))
+    from app.api import create_app as create_property_news_app
+
+    app.mount("/", create_property_news_app())
