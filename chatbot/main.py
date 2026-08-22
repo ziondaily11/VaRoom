@@ -21,14 +21,12 @@ premium status.
 """
 
 import os
-import sys
 import re
 import json
 import random
 import asyncio
 import httpx
 from datetime import datetime, timezone, date, timedelta
-from pathlib import Path
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -291,7 +289,7 @@ def canned_reply(ctx: Optional[dict]) -> str:
     )
 
 
-async def generate_ai_reply(message: str, listing_ctx: Optional[dict]) -> Optional[dict]:
+async def generate_ai_reply(message: str, listing_ctx: Optional[dict], history_block: str = "") -> Optional[dict]:
     """Returns {"reply": str, "booking_start_date": "YYYY-MM-DD" or None,
     "nights": int or None} — or None if Gemini is unreachable. Booking
     fields are only meaningful when the listing prices per night; other
@@ -301,11 +299,16 @@ async def generate_ai_reply(message: str, listing_ctx: Optional[dict]) -> Option
     prompt = (
         "You are standing in for a VaRoom host who is currently away, replying to a "
         f"prospective guest's message on their behalf. Today's date is {today}.\n\n"
-        "Write a short, warm, human reply (2-4 sentences), as if you were the host "
-        "texting back. Use ONLY the verified facts below — never invent a price, "
-        "date, amenity, or policy that isn't listed. If the guest asks about "
-        "something not covered by these facts, say the host will confirm that "
-        "personally rather than guessing.\n\n"
+        "This is a text conversation, not a listing description — keep it SHORT. "
+        "Match the guest's tone: a casual \"hi\" or \"let's book it\" gets a short, "
+        "casual reply, not a recap of every fact. Only state the specific facts the "
+        "guest is actually asking about right now — don't repeat information you "
+        "(the host) already gave earlier in this conversation (see below) unless "
+        "they're asking again. One or two sentences is usually enough; only go "
+        "longer if the guest asked several distinct questions at once. Use ONLY "
+        "the verified facts below — never invent a price, date, amenity, or policy "
+        "that isn't listed. If asked something not covered, say the host will "
+        "confirm that personally rather than guessing.\n\n"
         "If the guest clearly COMMITS to a specific check-in date and length of "
         "stay in nights (not just asking whether dates are free, but actually "
         "saying when they want to arrive and for how long), extract it so a real "
@@ -313,13 +316,14 @@ async def generate_ai_reply(message: str, listing_ctx: Optional[dict]) -> Option
         "dates (\"25th of this month\", \"next Friday\", \"tomorrow\") into an "
         "absolute date using today's date above. Only do this when the listing "
         "prices per night (see facts). If you extract dates, phrase your reply as "
-        "confirming you've sent the request to the host for approval — don't just "
-        "discuss it hypothetically. If the guest is only asking about "
+        "confirming you've sent the request to the host for approval — briefly, "
+        "don't re-list every fact again. If the guest is only asking about "
         "availability/price with no firm commitment, leave the date fields null.\n\n"
+        f"{history_block}"
         f"Verified listing facts:\n{facts}\n\n"
-        f"Guest's message: {message}\n\n"
+        f"Guest's latest message: {message}\n\n"
         "Respond with ONLY a JSON object, nothing else:\n"
-        '{"reply": your reply text as described above, '
+        '{"reply": your short reply text as described above, '
         '"booking_start_date": "YYYY-MM-DD" or null, "nights": integer or null}'
     )
     raw = await call_gemini(prompt)
@@ -393,7 +397,8 @@ async def reply(payload: ReplyRequest, authorization: Optional[str] = Header(Non
         return ReplyResponse(reply="", skipped=True)
 
     listing_ctx = await get_listing_context(payload.listing_id)
-    ai_result = await generate_ai_reply(payload.message, listing_ctx)
+    history_block = await get_recent_reply_history(payload.conversation_id, conversation["host_id"])
+    ai_result = await generate_ai_reply(payload.message, listing_ctx, history_block)
     reply_text = ai_result["reply"] if ai_result else canned_reply(listing_ctx)
 
     # Only attempt a real booking when Gemini extracted a firm date + night
@@ -555,6 +560,41 @@ async def get_conversation(conversation_id: str) -> Optional[dict]:
             return rows[0] if rows else None
     except Exception:
         return None
+
+
+async def get_recent_reply_history(conversation_id: str, host_id: str, limit: int = 8) -> str:
+    """Fetches the last few messages in this conversation and formats them
+    as a chat transcript, so the auto-reply stops re-explaining the whole
+    listing from scratch every single turn. Returns an empty string on
+    any failure — the reply still works, just without memory that time."""
+    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+        return ""
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(
+                f"{SUPABASE_URL}/rest/v1/messages",
+                params={
+                    "conversation_id": f"eq.{conversation_id}",
+                    "select": "sender_id,body,created_at",
+                    "order": "created_at.desc",
+                    "limit": str(limit),
+                },
+                headers={
+                    "apikey": SUPABASE_SERVICE_ROLE_KEY,
+                    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+                },
+            )
+            response.raise_for_status()
+            rows = list(reversed(response.json()))
+            if not rows:
+                return ""
+            lines = []
+            for row in rows:
+                speaker = "You (the host)" if row.get("sender_id") == host_id else "Guest"
+                lines.append(f"{speaker}: {row.get('body', '')}")
+            return "Recent conversation so far:\n" + "\n".join(lines) + "\n\n"
+    except Exception:
+        return ""
 
 
 async def get_listing_context(listing_id: str) -> Optional[dict]:
@@ -1109,14 +1149,3 @@ def health_check():
         "ai_configured": bool(GEMINI_API_KEY),
         "supabase_configured": bool(SUPABASE_URL and SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY),
     }
-
-
-# Render starts this chatbot entrypoint. Mount the isolated Property News
-# service here as well, after the established chatbot routes, so existing
-# VaRoom endpoints keep their current precedence and behavior.
-_property_news_directory = Path(__file__).resolve().parent.parent / "property-news"
-if _property_news_directory.is_dir():
-    sys.path.insert(0, str(_property_news_directory))
-    from app.api import create_app as create_property_news_app
-
-    app.mount("/", create_property_news_app())
