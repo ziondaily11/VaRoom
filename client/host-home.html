@@ -279,8 +279,8 @@
   .property-news-item:first-child{ padding-top:.1rem; }
   .property-news-item:last-child{ border-bottom:none; padding-bottom:.1rem; }
   .property-news-item:hover .property-news-title{ color:var(--red-deep); }
-  .property-news-image-wrap{ display:none; overflow:hidden; margin:0 0 .65rem; border-radius:10px; background:rgba(26,18,16,.04); }
-  .property-news-image-wrap.is-loaded{ display:block; }
+  .property-news-image-wrap{ display:block; height:0; overflow:hidden; margin:0; border-radius:10px; background:rgba(26,18,16,.04); opacity:0; }
+  .property-news-image-wrap.is-loaded{ height:108px; margin:0 0 .65rem; opacity:1; }
   .property-news-image{ display:block; width:100%; height:108px; object-fit:cover; }
   .property-news-kicker{ color:var(--red); font-size:.62rem; font-weight:800; letter-spacing:.1em; text-transform:uppercase; margin-bottom:.22rem; }
   .property-news-title{ font-size:.88rem; font-weight:700; line-height:1.35; transition:color .2s ease; }
@@ -1170,7 +1170,7 @@
         const status = propertyNewsStatus(news);
         const sourceName = propertyNewsSource(news);
         const image = typeof news.image_url === 'string' && news.image_url.trim()
-          ? '<div class="property-news-image-wrap"><img class="property-news-image" src="' + escapeHtml(news.image_url) + '" alt="" loading="lazy" decoding="async"></div>'
+          ? '<div class="property-news-image-wrap"><img class="property-news-image" src="' + escapeHtml(news.image_url) + '" alt="" decoding="async"></div>'
           : '';
         return (
           '<a class="property-news-item" href="property-news.html?id=' + encodeURIComponent(news.id) + '">' +
