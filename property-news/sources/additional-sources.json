@@ -1,0 +1,114 @@
+[
+  {
+    "name": "Ardhisasa National",
+    "base_url": "https://ardhisasa.lands.go.ke",
+    "source_type": "government",
+    "trust_tier": 1,
+    "fetch_method": "html",
+    "schedule_minutes": 120,
+    "active": false,
+    "parser_config": {
+      "discovery_url": "https://ardhisasa.lands.go.ke",
+      "url_regex": "^/[a-z-]+/?$",
+      "exclude_url_contains": ["/account", "/login", "/register"],
+      "max_articles": 15
+    },
+    "activation_note": "Official Kenya land information platform. Verify current news/announcements section before activation."
+  },
+  {
+    "name": "National Land Commission",
+    "base_url": "https://landcommission.go.ke",
+    "source_type": "government",
+    "trust_tier": 1,
+    "fetch_method": "html",
+    "schedule_minutes": 120,
+    "active": false,
+    "parser_config": {
+      "discovery_url": "https://landcommission.go.ke",
+      "url_regex": "^/[a-z-]+/?$",
+      "exclude_url_contains": ["/about", "/contact", "/downloads"],
+      "max_articles": 20
+    },
+    "activation_note": "Constitutional commission for land management. Verify media center/news section exists before activation."
+  },
+  {
+    "name": "eCitizen",
+    "base_url": "https://ag.ecitizen.go.ke",
+    "source_type": "government",
+    "trust_tier": 1,
+    "fetch_method": "html",
+    "schedule_minutes": 180,
+    "active": false,
+    "parser_config": {
+      "discovery_url": "https://ag.ecitizen.go.ke",
+      "url_regex": "^/[a-z-]+/?$",
+      "exclude_url_contains": ["/sign-in", "/sign-up", "/services"],
+      "max_articles": 10
+    },
+    "activation_note": "Government services portal. Verify if property-related announcements exist before activation."
+  },
+  {
+    "name": "Business Daily Real Estate",
+    "base_url": "https://www.businessdailyafrica.com",
+    "source_type": "news",
+    "trust_tier": 2,
+    "fetch_method": "html",
+    "schedule_minutes": 60,
+    "active": false,
+    "parser_config": {
+      "discovery_url": "https://www.businessdailyafrica.com/bd/markets/real-estate",
+      "url_regex": "^/bd/markets/real-estate/[a-z0-9-]+/?$",
+      "exclude_url_contains": ["/bd/markets/real-estate$", "/author"],
+      "max_articles": 25
+    },
+    "activation_note": "Established business publication. Verify terms of use and RSS availability before activation."
+  },
+  {
+    "name": "The Standard Real Estate",
+    "base_url": "https://www.thestandard.ke",
+    "source_type": "news",
+    "trust_tier": 2,
+    "fetch_method": "html",
+    "schedule_minutes": 60,
+    "active": false,
+    "parser_config": {
+      "discovery_url": "https://www.thestandard.ke/business/category/46/real-estate",
+      "url_regex": "^/business/real-estate/[a-z0-9-]+/?$",
+      "exclude_url_contains": ["/business/category/46/real-estate$", "/author"],
+      "max_articles": 25
+    },
+    "activation_note": "Major Kenyan news outlet. Verify RSS feed and terms before activation."
+  },
+  {
+    "name": "The Kenyan Wall Street",
+    "base_url": "https://kenyanwallstreet.com",
+    "source_type": "industry",
+    "trust_tier": 2,
+    "fetch_method": "html",
+    "schedule_minutes": 90,
+    "active": false,
+    "parser_config": {
+      "discovery_url": "https://kenyanwallstreet.com/category/real-estate",
+      "url_regex": "^/diaspora-|/newsletter/[a-z0-9-]+/?$",
+      "exclude_url_contains": ["/category", "/investment"],
+      "max_articles": 15
+    },
+    "activation_note": "Financial analysis publication. Verify newsletter/article structure before activation."
+  },
+  {
+    "name": "HassConsult Research",
+    "base_url": "https://www.hassconsult.com",
+    "source_type": "research",
+    "trust_tier": 2,
+    "fetch_method": "html",
+    "schedule_minutes": 180,
+    "active": false,
+    "parser_config": {
+      "discovery_url": "https://www.hassconsult.com/hassindex",
+      "url_regex": "^/hassindex|/insights|/post/[a-z0-9-]+/?$",
+      "exclude_url_contains": ["/services", "/contact"],
+      "max_articles": 10
+    },
+    "activation_note": "Leading property research firm. Verify if they publish regular research updates before activation."
+  }
+]
