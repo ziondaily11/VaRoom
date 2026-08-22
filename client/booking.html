@@ -485,7 +485,7 @@
         payload.lease_months = parseInt(document.getElementById('lease-months').value, 10);
       }
 
-      const { error } = await supabaseClient.from('bookings').insert(payload);
+      const { data: newBooking, error } = await supabaseClient.from('bookings').insert(payload).select('id').single();
       const successMsg = document.getElementById('success-msg');
 
       if (error) {
@@ -499,7 +499,8 @@
       await supabaseClient.from('notifications').insert({
         user_id: listing.host_id,
         type: 'booking_request',
-        message: 'New booking request for "' + listing.title + '".'
+        message: 'New booking request for "' + listing.title + '".',
+        booking_id: newBooking ? newBooking.id : null
       });
 
       successMsg.textContent = 'Request sent! The host has 48 hours to respond — you\'ll be notified either way.';

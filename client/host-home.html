@@ -113,7 +113,7 @@
   .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
 
   /* ---------- MAIN COLUMN ---------- */
-  .main-col{ display:flex; flex-direction:column; height:100vh; overflow-y:auto; }
+  .main-col{ display:flex; flex-direction:column; height:100vh; overflow:hidden; }
 
   .topbar{
     display:flex; align-items:center; gap:1rem;
@@ -148,13 +148,15 @@
 
   .dash-body{
     display:grid; grid-template-columns:1fr 320px; gap:1.8rem;
-    align-items:start; padding:0 2rem;
+    align-items:stretch; padding:0 2rem;
+    flex:1 1 auto; min-height:0; overflow:hidden;
   }
-  .dash-main{ min-width:0; }
+  .dash-main{ min-width:0; overflow-y:auto; height:100%; padding-bottom:2rem; }
   .host-rail{
     /* The information rail must grow with its cards, including Property News. */
     position:static; padding-top:1.8rem;
     display:flex; flex-direction:column; gap:1.6rem;
+    overflow-y:auto; height:100%; padding-bottom:2rem;
   }
 
   .dash-top{ display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; flex-wrap:wrap; margin-bottom:1.6rem; }
@@ -431,13 +433,14 @@
     .sidebar.mobile-open{ transform:translateX(0); }
 
     .dash-header{ padding:1.4rem 0 0; }
-    .dash-body{ grid-template-columns:1fr; padding:0 1rem; gap:1.2rem; }
-    .host-rail{ position:static; padding-top:0; padding-bottom:6rem; }
+    .dash-body{ grid-template-columns:1fr; padding:0 1rem; gap:1.2rem; flex:initial; overflow:visible; }
+    .dash-main{ overflow-y:visible; height:auto; padding-bottom:0; }
+    .host-rail{ position:static; padding-top:0; padding-bottom:6rem; overflow-y:visible; height:auto; }
     .feed-area{ padding:0 1rem 1.4rem; }
 
-    body{ height:auto; overflow:visible; }
-    .app-shell{ height:auto; overflow:visible; }
-    .main-col{ height:auto; overflow-y:visible; }
+    body{ height:auto; overflow-y:visible; overflow-x:hidden; }
+    .app-shell{ height:auto; overflow-y:visible; overflow-x:hidden; }
+    .main-col{ height:auto; overflow-y:visible; overflow-x:hidden; }
 
     .dash-top{ flex-wrap:nowrap; align-items:center; }
     .list-btn-top{
@@ -1633,6 +1636,8 @@
     document.querySelectorAll('.nav-item[data-nav]').forEach(function(item){
       item.addEventListener('click', function(){
         viewHandlers[item.getAttribute('data-nav')]();
+        const dashMain = document.querySelector('.dash-main');
+        if (dashMain) dashMain.scrollTo({ top:0, behavior:'smooth' });
       });
     });
 
@@ -1640,7 +1645,8 @@
       item.addEventListener('click', function(){
         viewHandlers[item.getAttribute('data-bottom-nav')]();
         window.scrollTo({ top:0, behavior:'smooth' });
-        document.querySelector('.main-col').scrollTo({ top:0, behavior:'smooth' });
+        const dashMain = document.querySelector('.dash-main');
+        if (dashMain) dashMain.scrollTo({ top:0, behavior:'smooth' });
       });
     });
 

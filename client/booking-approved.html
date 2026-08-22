@@ -23,6 +23,7 @@
   :root{
     --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#1A1210; --paper:#FBF4F1;
     --muted:#7a6b67;
+    --green:#1E6B3C; --green-deep:#153E24;
     --font-display:'Fraunces', serif; --font-body:'Inter', sans-serif;
   }
   [data-theme="dark"]{
@@ -52,11 +53,11 @@
   }
   .hero-check{
     width:56px; height:56px; margin:0 auto 1.1rem; border-radius:50%;
-    border:2px solid var(--red); display:flex; align-items:center; justify-content:center;
-    color:var(--red);
+    border:2px solid var(--green); display:flex; align-items:center; justify-content:center;
+    color:var(--green);
   }
   .hero h1{ font-family:var(--font-display); font-weight:700; font-size:1.6rem; margin-bottom:.5rem; }
-  .hero h1 .accent{ color:var(--red); }
+  .hero h1 .accent{ color:var(--green); }
   .hero p{ font-size:.88rem; color:#C9BDB8; max-width:340px; margin:0 auto; }
 
   /* ---------- Card ---------- */
@@ -88,22 +89,22 @@
   .host-name{ font-size:.86rem; font-weight:600; }
 
   .details-title{ display:flex; align-items:center; gap:.5rem; font-weight:700; font-size:.95rem; margin-bottom:.8rem; }
-  .details-title svg{ color:var(--red); flex-shrink:0; }
+  .details-title svg{ color:var(--green); flex-shrink:0; }
   .details-row{
     display:flex; align-items:center; justify-content:space-between; gap:1rem;
     padding:.6rem 0; border-bottom:1px solid rgba(26,18,16,.07); font-size:.88rem;
   }
   .details-row:last-child{ border-bottom:none; }
   .details-row .drow-label{ display:flex; align-items:center; gap:.55rem; color:var(--muted); }
-  .details-row .drow-label svg{ color:var(--red); flex-shrink:0; }
+  .details-row .drow-label svg{ color:var(--green); flex-shrink:0; }
   .details-row .drow-val{ font-weight:600; text-align:right; }
-  .details-row.total .drow-val{ color:var(--red); font-weight:700; font-size:1.05rem; }
+  .details-row.total .drow-val{ color:var(--green); font-weight:700; font-size:1.05rem; }
 
   .secure-banner{
-    display:flex; gap:.7rem; align-items:flex-start; background:rgba(196,30,58,.07);
+    display:flex; gap:.7rem; align-items:flex-start; background:rgba(30,107,60,.07);
     border-radius:14px; padding:.9rem 1rem; margin:1.4rem 0;
   }
-  .secure-banner svg{ color:var(--red); flex-shrink:0; margin-top:.1rem; }
+  .secure-banner svg{ color:var(--green); flex-shrink:0; margin-top:.1rem; }
   .secure-title{ font-size:.86rem; font-weight:700; margin-bottom:.15rem; }
   .secure-sub{ font-size:.78rem; color:var(--muted); line-height:1.45; }
 
@@ -115,14 +116,14 @@
   .btn-outline{ background:var(--white); border:1.5px solid var(--red); color:var(--red); }
   .btn-outline:hover{ background:rgba(196,30,58,.06); }
   .btn-outline:disabled{ opacity:.5; cursor:default; }
-  .btn-primary{ background:var(--red); color:#fff; }
-  .btn-primary:hover{ background:var(--red-deep); }
+  .btn-primary{ background:var(--green); color:#fff; }
+  .btn-primary:hover{ background:var(--green-deep); }
 
   .pay-note{
     display:none; font-size:.8rem; color:var(--muted); background:var(--paper);
     border-radius:12px; padding:.8rem 1rem; margin:-.4rem 0 1.2rem; line-height:1.5;
   }
-  .pay-note a{ color:var(--red); font-weight:600; }
+  .pay-note a{ color:var(--green); font-weight:600; }
 
   .help-box{
     display:flex; align-items:center; gap:.8rem; flex-wrap:wrap;
