@@ -86,6 +86,33 @@
     background:#FBE9E9; border:1px solid rgba(196,30,58,.3); color:var(--red-deep);
     border-radius:14px; padding:1.4rem 1.6rem; font-size:.95rem; text-align:center;
   }
+
+  .link-issue-panel{
+    background:var(--white); border:1px solid rgba(26,18,16,.1); border-radius:16px;
+    padding:1.8rem 1.6rem; text-align:center; width:100%;
+  }
+  .link-issue-icon{
+    width:52px; height:52px; margin:0 auto 1rem; border-radius:50%;
+    background:rgba(196,30,58,.08); display:flex; align-items:center; justify-content:center; color:var(--red-deep);
+  }
+  .link-issue-panel h2{ font-family:var(--font-display); font-weight:600; font-size:1.25rem; margin-bottom:.6rem; }
+  .link-issue-sub{ font-size:.88rem; color:#3a2e2c; line-height:1.55; margin-bottom:1.3rem; }
+  .link-issue-panel input{
+    font-family:inherit; font-size:.92rem; padding:.75rem .9rem; border:1px solid rgba(26,18,16,.15);
+    border-radius:12px; background:var(--paper); color:var(--ink); width:100%; margin-bottom:.8rem;
+  }
+  .link-issue-panel input:focus{ outline:none; border-color:var(--red); }
+  .resend-btn{
+    background:var(--white); border:1.5px solid var(--red); color:var(--red-deep);
+    padding:.65rem 1.3rem; border-radius:100px; font-weight:600; font-size:.85rem; width:100%;
+  }
+  .resend-btn:hover{ background:rgba(196,30,58,.06); }
+  .resend-btn:disabled{ opacity:.5; cursor:not-allowed; border-color:rgba(26,18,16,.15); color:#7a6b67; }
+  .resend-cooldown{ font-size:.78rem; color:#7a6b67; display:block; margin-top:.5rem; }
+  .resend-feedback{ font-size:.82rem; color:#2e7d32; margin-top:.7rem; min-height:1.2em; }
+  .resend-feedback.error{ color:var(--red); }
+  .link-issue-footer{ font-size:.85rem; color:#7a6b67; margin-top:1.2rem; }
+  .link-issue-footer a{ color:var(--red); font-weight:600; }
 </style>
 </head>
 <body>
@@ -114,6 +141,28 @@
   </div>
 
   <div id="error-box" style="display:none;" class="error-msg"></div>
+
+  <div id="expired-panel" class="link-issue-panel" style="display:none;">
+    <div class="link-issue-icon">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+    </div>
+    <h2>This link has expired</h2>
+    <p class="link-issue-sub">Verification links only last a little while. Enter your email and we'll send a fresh one.</p>
+    <input type="email" id="expired-email-input" placeholder="you@example.com" autocomplete="email">
+    <button type="button" class="resend-btn" id="expired-resend-btn">Send new link</button>
+    <span class="resend-cooldown" id="expired-cooldown"></span>
+    <p class="resend-feedback" id="expired-feedback"></p>
+    <p class="link-issue-footer">Already have an account? <a href="login.html">Log in</a></p>
+  </div>
+
+  <div id="invalid-panel" class="link-issue-panel" style="display:none;">
+    <div class="link-issue-icon">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </div>
+    <h2>This link isn't valid</h2>
+    <p class="link-issue-sub">It may have already been used, or the link got cut off. If you're not signed in yet, try logging in or requesting a new verification email.</p>
+    <p class="link-issue-footer" style="margin-top:0;"><a href="login.html">Log in</a> · <a href="index.html">Create an account</a></p>
+  </div>
 </main>
 
 <script src="js/supabase-client.js"></script>
@@ -123,6 +172,17 @@
     const loadingText = document.getElementById('loading-text');
     const rolePicker = document.getElementById('role-picker');
     const errorBox = document.getElementById('error-box');
+    const expiredPanel = document.getElementById('expired-panel');
+    const invalidPanel = document.getElementById('invalid-panel');
+
+    // Capture any Supabase-reported auth error from the URL before anything
+    // else runs. Never log these params — description text can occasionally
+    // echo back token-adjacent details, so this stays out of the console.
+    const hashParams = new URLSearchParams((window.location.hash || '').replace(/^#/, ''));
+    const queryParams = new URLSearchParams(window.location.search || '');
+    const authErrorCode = hashParams.get('error_code') || queryParams.get('error_code') || '';
+    const authErrorDescription = hashParams.get('error_description') || queryParams.get('error_description') || '';
+    const hasAuthError = !!(hashParams.get('error') || queryParams.get('error'));
 
     function showError(message){
       loading.style.display = 'none';
@@ -130,9 +190,95 @@
       errorBox.style.display = 'block';
     }
 
+    function showExpiredPanel(){
+      loading.style.display = 'none';
+      expiredPanel.style.display = 'block';
+
+      let cooldownTimer = null;
+      function startCooldown(seconds){
+        const btn = document.getElementById('expired-resend-btn');
+        const cooldownEl = document.getElementById('expired-cooldown');
+        clearInterval(cooldownTimer);
+        let remaining = seconds;
+        if (remaining <= 0) { btn.disabled = false; cooldownEl.textContent = ''; return; }
+        btn.disabled = true;
+        cooldownEl.textContent = 'You can resend in ' + remaining + 's';
+        cooldownTimer = setInterval(function(){
+          remaining -= 1;
+          if (remaining <= 0) {
+            clearInterval(cooldownTimer);
+            btn.disabled = false;
+            cooldownEl.textContent = '';
+          } else {
+            cooldownEl.textContent = 'You can resend in ' + remaining + 's';
+          }
+        }, 1000);
+      }
+
+      document.getElementById('expired-resend-btn').addEventListener('click', async function(){
+        const emailInput = document.getElementById('expired-email-input');
+        const feedback = document.getElementById('expired-feedback');
+        const email = emailInput.value.trim();
+
+        if (!email) {
+          feedback.classList.add('error');
+          feedback.textContent = 'Enter the email you signed up with.';
+          emailInput.focus();
+          return;
+        }
+
+        feedback.classList.remove('error');
+        feedback.textContent = 'Sending…';
+
+        const { error: resendError } = await supabaseClient.auth.resend({
+          type: 'signup',
+          email: email,
+          options: { emailRedirectTo: window.location.origin + '/auth-callback.html' }
+        });
+
+        // Keep this generic either way — don't confirm/deny whether the
+        // email is registered, and don't surface raw provider error text.
+        if (resendError && resendError.message && /rate/i.test(resendError.message)) {
+          feedback.classList.add('error');
+          feedback.textContent = "You've requested a few of these already — please wait a bit before trying again.";
+          startCooldown(60);
+          return;
+        }
+
+        feedback.textContent = "If that email has a pending verification, we've sent a new link.";
+        startCooldown(45);
+      });
+    }
+
+    function showInvalidPanel(){
+      loading.style.display = 'none';
+      invalidPanel.style.display = 'block';
+    }
+
     const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
 
-    if (sessionError || !session) {
+    // A session takes priority over any error param in the URL: it means
+    // this link (or an earlier click of it) already succeeded, or the user
+    // is already signed in from before — either way, just continue in.
+    if (!session) {
+      if (hasAuthError) {
+        const looksExpired = /expired/i.test(authErrorCode) || /expired/i.test(authErrorDescription);
+        if (looksExpired) {
+          showExpiredPanel();
+        } else {
+          showInvalidPanel();
+        }
+        return;
+      }
+
+      if (sessionError) {
+        showError('Something went wrong signing you in. Please try again from the login page.');
+        setTimeout(function(){ window.location.href = 'login.html'; }, 2500);
+        return;
+      }
+
+      // No session, no reported error, and nothing else to go on (e.g. this
+      // page was opened directly with no token at all).
       showError('Something went wrong signing you in. Please try again from the login page.');
       setTimeout(function(){ window.location.href = 'login.html'; }, 2500);
       return;
