@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Payments — VaRoom</title>
+<script>
+  (function(){
+    try{
+      var saved = localStorage.getItem('varoom_theme') || 'system';
+      var resolved = saved === 'system'
+        ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+        : saved;
+      document.documentElement.setAttribute('data-theme', resolved);
+    }catch(e){}
+  })();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;0,9..144,900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#1A1210; --paper:#FBF4F1;
+    --muted:#7a6b67;
+    --font-display:'Fraunces', serif; --font-body:'Inter', sans-serif;
+  }
+  [data-theme="dark"]{
+    --white:#241C1A; --paper:#15100F; --ink:#F5EFEC; --muted:#B8ACA8;
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  body{ font-family:var(--font-body); background:var(--paper); color:var(--ink); min-height:100vh; transition:background .2s ease, color .2s ease; }
+  a{ color:inherit; text-decoration:none; }
+  button{ font-family:inherit; cursor:pointer; border:none; background:none; }
+  :focus-visible{ outline:3px solid var(--red-deep); outline-offset:3px; }
+
+  header{ display:flex; align-items:center; justify-content:space-between; padding:1.5rem 2.5rem; }
+  .logo{ font-family:var(--font-display); font-weight:900; font-size:1.55rem; display:flex; align-items:baseline; }
+  .logo .va{ color:var(--red); }
+  .logo .pin{ width:.34em; height:.34em; border-radius:50% 50% 50% 0; background:var(--red); transform:rotate(-45deg); margin:0 .05em 0 .08em; align-self:flex-start; margin-top:.08em; }
+  .back-link{ font-size:.9rem; font-weight:500; color:var(--muted); }
+  .back-link:hover{ color:var(--red); }
+
+  main{ max-width:920px; margin:0 auto; padding:1rem 6vw 6rem; }
+  .checking-msg{ text-align:center; padding:5rem 0; color:var(--muted); }
+
+  .page-head{ display:flex; align-items:center; gap:.7rem; flex-wrap:wrap; margin-bottom:.4rem; }
+  h1{ font-family:var(--font-display); font-weight:600; font-size:clamp(1.9rem, 4vw, 2.4rem); }
+  .page-sub{ color:var(--muted); font-size:.92rem; margin-bottom:1.8rem; }
+
+  .badge{ display:inline-flex; align-items:center; gap:.3rem; font-size:.76rem; font-weight:600; padding:.3rem .65rem; border-radius:100px; }
+  .badge-soon{ background:rgba(26,18,16,.05); color:var(--muted); font-weight:500; }
+  [data-theme="dark"] .badge-soon{ background:rgba(255,255,255,.08); }
+
+  .section-label{ font-size:.8rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin:2.2rem 0 .8rem; }
+  .section-label:first-of-type{ margin-top:0; }
+
+  .state-msg{ color:var(--muted); font-size:.92rem; padding:2rem 0; text-align:center; }
+  .state-msg.error{ color:var(--red-deep); }
+  .skeleton{ background:linear-gradient(90deg, rgba(128,110,100,.08) 25%, rgba(128,110,100,.15) 37%, rgba(128,110,100,.08) 63%); background-size:400% 100%; animation:shimmer 1.4s ease infinite; border-radius:14px; }
+  @keyframes shimmer{ 0%{background-position:100% 0;} 100%{background-position:-100% 0;} }
+
+  /* ---------- Balance cards ---------- */
+  .balance-grid{ display:grid; grid-template-columns:repeat(4, 1fr); gap:.9rem; }
+  .bal-card{ background:var(--white); border:1px solid rgba(128,110,100,.15); border-radius:16px; padding:1.1rem 1.2rem; }
+  .bal-card.skeleton{ height:92px; border:none; }
+  .bal-label{ font-size:.78rem; color:var(--muted); font-weight:600; display:flex; align-items:center; gap:.35rem; margin-bottom:.4rem; }
+  .bal-value{ font-family:var(--font-display); font-weight:700; font-size:1.5rem; }
+  .bal-card.available .bal-value{ color:var(--red-deep); }
+  .bal-sub{ font-size:.76rem; color:var(--muted); margin-top:.25rem; }
+  .info-dot{ width:14px; height:14px; border-radius:50%; border:1.3px solid var(--muted); display:inline-flex; align-items:center; justify-content:center; font-size:.62rem; cursor:help; flex-shrink:0; }
+
+  /* ---------- Payout method + schedule ---------- */
+  .row-2{ display:grid; grid-template-columns:1fr 1fr; gap:.9rem; }
+  .panel{ background:var(--white); border:1px solid rgba(128,110,100,.15); border-radius:16px; padding:1.2rem 1.3rem; }
+  .panel-title{ font-size:.82rem; font-weight:700; margin-bottom:.9rem; display:flex; align-items:center; gap:.4rem; }
+  .method-row{ display:flex; align-items:center; gap:.8rem; }
+  .method-icon{ width:38px; height:38px; border-radius:10px; background:var(--paper); border:1px solid rgba(128,110,100,.15); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .method-name{ font-weight:700; font-size:.9rem; }
+  .method-detail{ font-size:.8rem; color:var(--muted); font-variant-numeric:tabular-nums; }
+  .panel-link{ font-size:.8rem; font-weight:600; color:var(--red-deep); margin-top:.9rem; display:inline-block; }
+  .panel-link:hover{ text-decoration:underline; }
+
+  .schedule-pills{ display:flex; gap:.5rem; margin-bottom:.9rem; flex-wrap:wrap; }
+  .schedule-pill{ padding:.4rem .85rem; border-radius:100px; font-size:.78rem; font-weight:600; border:1px solid rgba(128,110,100,.2); color:var(--muted); }
+  .schedule-pill.active{ background:var(--red); color:#fff; border-color:var(--red); }
+  .schedule-pill.locked{ opacity:.5; cursor:not-allowed; }
+  .next-payout-date{ font-family:var(--font-display); font-weight:600; font-size:1.15rem; }
+
+  /* ---------- Transaction / payout history ---------- */
+  .hist-card{ background:var(--white); border:1px solid rgba(128,110,100,.15); border-radius:14px; padding:1rem 1.2rem; margin-bottom:.7rem; display:flex; align-items:center; gap:.9rem; }
+  .hist-icon{ width:36px; height:36px; border-radius:10px; background:var(--paper); display:flex; align-items:center; justify-content:center; flex-shrink:0; color:var(--muted); }
+  .hist-main{ flex:1; min-width:0; }
+  .hist-title{ font-weight:700; font-size:.88rem; }
+  .hist-sub{ font-size:.78rem; color:var(--muted); margin-top:.1rem; }
+  .hist-right{ text-align:right; flex-shrink:0; }
+  .hist-amount{ font-weight:700; font-size:.92rem; font-variant-numeric:tabular-nums; }
+  .hist-amount.pending{ color:var(--muted); }
+  .status-chip{ display:inline-block; margin-top:.3rem; font-size:.7rem; font-weight:700; padding:.2rem .6rem; border-radius:100px; text-transform:capitalize; }
+  .status-chip.paid, .status-chip.completed{ background:#EAF4EE; color:#1E6B3C; }
+  .status-chip.pending, .status-chip.scheduled{ background:#FFF3CD; color:#8A6D00; }
+  .status-chip.processing{ background:#E9F0FB; color:#1A4E8F; }
+  .status-chip.failed{ background:#FBE9E9; color:var(--red-deep); }
+
+  @media (max-width:820px){
+    .balance-grid{ grid-template-columns:repeat(2, 1fr); }
+    .row-2{ grid-template-columns:1fr; }
+  }
+  @media (max-width:520px){
+    header{ padding:1.1rem 1.3rem; }
+    main{ padding:0 5vw 6rem; }
+    .balance-grid{ grid-template-columns:1fr 1fr; gap:.6rem; }
+    .bal-card{ padding:.85rem .9rem; }
+    .bal-value{ font-size:1.2rem; }
+    .hist-card{ padding:.85rem .9rem; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <a href="host-home.html" class="logo"><span class="va">Va</span><span class="pin"></span><span class="room">Room</span></a>
+  <a href="host-home.html" class="back-link">← Back to dashboard</a>
+</header>
+
+<main>
+  <div id="checking-auth" class="checking-msg">Loading your payments…</div>
+
+  <div id="payments-page" style="display:none;">
+    <div class="page-head">
+      <h1>Payments</h1>
+      <span class="badge badge-soon" title="Live payouts go live once Paystack is connected — figures below are illustrative.">Preview data</span>
+    </div>
+    <p class="page-sub">Your earnings, payout status and transaction history in one place.</p>
+
+    <div id="balance-section">
+      <div class="balance-grid">
+        <div class="bal-card skeleton"></div>
+        <div class="bal-card skeleton"></div>
+        <div class="bal-card skeleton"></div>
+        <div class="bal-card skeleton"></div>
+      </div>
+    </div>
+
+    <p class="section-label">Payout</p>
+    <div class="row-2" id="payout-section">
+      <div class="panel"><div class="skeleton" style="height:70px;"></div></div>
+      <div class="panel"><div class="skeleton" style="height:70px;"></div></div>
+    </div>
+
+    <p class="section-label">Payout history</p>
+    <div id="payout-history"><p class="state-msg">Loading…</p></div>
+
+    <p class="section-label">Transaction history</p>
+    <div id="transaction-history"><p class="state-msg">Loading…</p></div>
+  </div>
+</main>
+
+<script src="js/supabase-client.js"></script>
+<script>
+  (async function(){
+    const checkingAuth = document.getElementById('checking-auth');
+    const paymentsPage = document.getElementById('payments-page');
+
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session) { window.location.href = 'login.html'; return; }
+    const currentUser = session.user;
+
+    const { data: profile, error: profileError } = await supabaseClient
+      .from('profiles').select('role,full_name').eq('id', currentUser.id).single();
+
+    if (profileError || !profile || profile.role !== 'host') {
+      checkingAuth.textContent = 'Only host accounts have a payments dashboard. Redirecting…';
+      setTimeout(function(){ window.location.href = 'index.html'; }, 1500);
+      return;
+    }
+
+    checkingAuth.style.display = 'none';
+    paymentsPage.style.display = 'block';
+
+    function ksh(n){ return 'KSh ' + Number(n || 0).toLocaleString(); }
+    function escapeHtml(str){ const d = document.createElement('div'); d.textContent = str || ''; return d.innerHTML; }
+
+    const iconWallet = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-1"/><path d="M17 12h4v4h-4a2 2 0 0 1 0-4Z"/></svg>';
+    const iconClock = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>';
+    const iconStack = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 2 9 5-9 5-9-5 9-5Z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/></svg>';
+    const iconCal = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="2"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>';
+    const iconMpesa = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/></svg>';
+    const iconBooking = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="2"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>';
+
+    // ---------- TODO(backend): swap this mock fetch for the real payments API. ----------
+    // Shape mirrors what Paystack-backed endpoints should return once Codex wires
+    // transaction init/verify + webhooks (see brief §9 — payment status, amounts and
+    // payout eligibility are backend-owned; the client only renders what it's given).
+    function fetchPaymentsData(){
+      return new Promise(function(resolve){
+        setTimeout(function(){
+          resolve({
+            balances: {
+              available: 42500, pending: 18200, totalEarned: 386400,
+              nextPayout: { date: '2026-08-29', status: 'scheduled', destination: 'M-Pesa •••• 4821' }
+            },
+            payoutMethod: { type: 'mpesa', label: 'M-Pesa', destination: '•••• 4821' },
+            payoutSchedule: { current: 'monthly', options: ['weekly', 'monthly', 'daily', 'manual'], available: ['monthly'] },
+            payoutHistory: [
+              { id: 'po_1', amount: 61200, status: 'paid', date: '2026-07-29', destination: 'M-Pesa •••• 4821' },
+              { id: 'po_2', amount: 48900, status: 'paid', date: '2026-06-29', destination: 'M-Pesa •••• 4821' },
+              { id: 'po_3', amount: 42500, status: 'scheduled', date: '2026-08-29', destination: 'M-Pesa •••• 4821' }
+            ],
+            transactions: [
+              { id: 'tx_1', listing: 'Sunset Loft, Kilimani', amount: 14500, fee: 725, hostEarnings: 13775, status: 'paid', date: '2026-08-18' },
+              { id: 'tx_2', listing: 'Two Rivers Studio', amount: 9800, fee: 490, hostEarnings: 9310, status: 'pending', date: '2026-08-20' },
+              { id: 'tx_3', listing: 'Karen Garden Villa', amount: 22000, fee: 1100, hostEarnings: 20900, status: 'paid', date: '2026-08-12' }
+            ]
+          });
+        }, 500);
+      });
+    }
+
+    function renderBalances(b){
+      document.getElementById('balance-section').innerHTML =
+        '<div class="balance-grid">' +
+          '<div class="bal-card available">' +
+            '<div class="bal-label">' + iconWallet + ' Available balance <span class="info-dot" title="Eligible for payout now.">i</span></div>' +
+            '<div class="bal-value">' + ksh(b.available) + '</div>' +
+          '</div>' +
+          '<div class="bal-card">' +
+            '<div class="bal-label">' + iconClock + ' Pending earnings <span class="info-dot" title="Not yet released — releases after checkout, per booking.">i</span></div>' +
+            '<div class="bal-value">' + ksh(b.pending) + '</div>' +
+            '<div class="bal-sub">Not yet available</div>' +
+          '</div>' +
+          '<div class="bal-card">' +
+            '<div class="bal-label">' + iconStack + ' Total earned</div>' +
+            '<div class="bal-value">' + ksh(b.totalEarned) + '</div>' +
+            '<div class="bal-sub">Lifetime</div>' +
+          '</div>' +
+          '<div class="bal-card">' +
+            '<div class="bal-label">' + iconCal + ' Next payout</div>' +
+            '<div class="bal-value" style="font-size:1.1rem;">' + new Date(b.nextPayout.date + 'T00:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric'}) + '</div>' +
+            '<div class="bal-sub"><span class="status-chip ' + b.nextPayout.status + '">' + b.nextPayout.status + '</span></div>' +
+          '</div>' +
+        '</div>';
+    }
+
+    function renderPayout(method, schedule, nextPayout){
+      document.getElementById('payout-section').innerHTML =
+        '<div class="panel">' +
+          '<div class="panel-title">Payout method</div>' +
+          '<div class="method-row">' +
+            '<div class="method-icon">' + iconMpesa + '</div>' +
+            '<div><div class="method-name">' + escapeHtml(method.label) + '</div><div class="method-detail">' + escapeHtml(method.destination) + '</div></div>' +
+          '</div>' +
+          '<a href="settings.html" class="panel-link">Manage payout settings →</a>' +
+        '</div>' +
+        '<div class="panel">' +
+          '<div class="panel-title">Payout schedule</div>' +
+          '<div class="schedule-pills">' +
+            schedule.options.map(function(opt){
+              const isActive = opt === schedule.current;
+              const isLocked = schedule.available.indexOf(opt) === -1;
+              return '<span class="schedule-pill' + (isActive ? ' active' : '') + (isLocked ? ' locked' : '') + '"' +
+                (isLocked ? ' title="Coming later — Monthly only for now"' : '') + '>' +
+                opt.charAt(0).toUpperCase() + opt.slice(1) + '</span>';
+            }).join('') +
+          '</div>' +
+          '<div class="next-payout-date">' + new Date(nextPayout.date + 'T00:00:00').toLocaleDateString(undefined,{weekday:'long', month:'short', day:'numeric'}) + '</div>' +
+          '<div class="bal-sub">Next payout to ' + escapeHtml(method.destination) + '</div>' +
+        '</div>';
+    }
+
+    function renderPayoutHistory(list){
+      const el = document.getElementById('payout-history');
+      if (!list || list.length === 0) { el.innerHTML = '<p class="state-msg">No payouts yet — they\'ll show up here once your first one is scheduled.</p>'; return; }
+      el.innerHTML = list.map(function(p){
+        return (
+          '<div class="hist-card">' +
+            '<div class="hist-icon">' + iconWallet + '</div>' +
+            '<div class="hist-main">' +
+              '<div class="hist-title">Payout to ' + escapeHtml(p.destination) + '</div>' +
+              '<div class="hist-sub">' + new Date(p.date + 'T00:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}) + '</div>' +
+            '</div>' +
+            '<div class="hist-right">' +
+              '<div class="hist-amount">' + ksh(p.amount) + '</div>' +
+              '<span class="status-chip ' + p.status + '">' + p.status + '</span>' +
+            '</div>' +
+          '</div>'
+        );
+      }).join('');
+    }
+
+    function renderTransactions(list){
+      const el = document.getElementById('transaction-history');
+      if (!list || list.length === 0) { el.innerHTML = '<p class="state-msg">No transactions yet — they\'ll appear here as bookings are paid for.</p>'; return; }
+      el.innerHTML = list.map(function(t){
+        return (
+          '<div class="hist-card">' +
+            '<div class="hist-icon">' + iconBooking + '</div>' +
+            '<div class="hist-main">' +
+              '<div class="hist-title">' + escapeHtml(t.listing) + '</div>' +
+              '<div class="hist-sub">Booking ' + ksh(t.amount) + ' · fee ' + ksh(t.fee) + ' · ' + new Date(t.date + 'T00:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric'}) + '</div>' +
+            '</div>' +
+            '<div class="hist-right">' +
+              '<div class="hist-amount' + (t.status === 'pending' ? ' pending' : '') + '">' + ksh(t.hostEarnings) + '</div>' +
+              '<span class="status-chip ' + t.status + '">' + t.status + '</span>' +
+            '</div>' +
+          '</div>'
+        );
+      }).join('');
+    }
+
+    try {
+      const data = await fetchPaymentsData();
+      renderBalances(data.balances);
+      renderPayout(data.payoutMethod, data.payoutSchedule, data.balances.nextPayout);
+      renderPayoutHistory(data.payoutHistory);
+      renderTransactions(data.transactions);
+    } catch (e) {
+      document.getElementById('balance-section').innerHTML = '<p class="state-msg error">Couldn\'t load your payments right now. Try refreshing.</p>';
+      document.getElementById('payout-section').innerHTML = '';
+      document.getElementById('payout-history').innerHTML = '';
+      document.getElementById('transaction-history').innerHTML = '';
+    }
+  })();
+</script>
+
+</body>
+</html>

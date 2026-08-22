@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Analytics — VaRoom</title>
+<script>
+  (function(){
+    try{
+      var saved = localStorage.getItem('varoom_theme') || 'system';
+      var resolved = saved === 'system'
+        ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+        : saved;
+      document.documentElement.setAttribute('data-theme', resolved);
+    }catch(e){}
+  })();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;0,9..144,900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#1A1210; --paper:#FBF4F1;
+    --muted:#7a6b67;
+    --font-display:'Fraunces', serif; --font-body:'Inter', sans-serif;
+  }
+  [data-theme="dark"]{
+    --white:#241C1A; --paper:#15100F; --ink:#F5EFEC; --muted:#B8ACA8;
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  body{ font-family:var(--font-body); background:var(--paper); color:var(--ink); min-height:100vh; transition:background .2s ease, color .2s ease; }
+  a{ color:inherit; text-decoration:none; }
+  button{ font-family:inherit; cursor:pointer; border:none; background:none; }
+  :focus-visible{ outline:3px solid var(--red-deep); outline-offset:3px; }
+
+  header{ display:flex; align-items:center; justify-content:space-between; padding:1.5rem 2.5rem; }
+  .logo{ font-family:var(--font-display); font-weight:900; font-size:1.55rem; display:flex; align-items:baseline; }
+  .logo .va{ color:var(--red); }
+  .logo .pin{ width:.34em; height:.34em; border-radius:50% 50% 50% 0; background:var(--red); transform:rotate(-45deg); margin:0 .05em 0 .08em; align-self:flex-start; margin-top:.08em; }
+  .back-link{ font-size:.9rem; font-weight:500; color:var(--muted); }
+  .back-link:hover{ color:var(--red); }
+
+  main{ max-width:920px; margin:0 auto; padding:1rem 6vw 6rem; }
+  .checking-msg{ text-align:center; padding:5rem 0; color:var(--muted); }
+
+  .page-head{ display:flex; align-items:center; justify-content:space-between; gap:.9rem; flex-wrap:wrap; margin-bottom:.4rem; }
+  .page-head-left{ display:flex; align-items:center; gap:.7rem; flex-wrap:wrap; }
+  h1{ font-family:var(--font-display); font-weight:600; font-size:clamp(1.9rem, 4vw, 2.4rem); }
+  .page-sub{ color:var(--muted); font-size:.92rem; margin-bottom:1.6rem; }
+
+  .badge{ display:inline-flex; align-items:center; gap:.3rem; font-size:.76rem; font-weight:600; padding:.3rem .65rem; border-radius:100px; }
+  .badge-soon{ background:rgba(26,18,16,.05); color:var(--muted); font-weight:500; }
+  [data-theme="dark"] .badge-soon{ background:rgba(255,255,255,.08); }
+
+  .range-select{ display:flex; gap:.4rem; background:var(--white); border:1px solid rgba(128,110,100,.15); border-radius:100px; padding:.25rem; }
+  .range-btn{ padding:.4rem .85rem; border-radius:100px; font-size:.8rem; font-weight:600; color:var(--muted); }
+  .range-btn.active{ background:var(--red); color:#fff; }
+
+  .section-label{ font-size:.8rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin:2.2rem 0 .8rem; }
+  .section-label:first-of-type{ margin-top:0; }
+  .state-msg{ color:var(--muted); font-size:.92rem; padding:2rem 0; text-align:center; }
+  .state-msg.error{ color:var(--red-deep); }
+  .skeleton{ background:linear-gradient(90deg, rgba(128,110,100,.08) 25%, rgba(128,110,100,.15) 37%, rgba(128,110,100,.08) 63%); background-size:400% 100%; animation:shimmer 1.4s ease infinite; border-radius:14px; }
+  @keyframes shimmer{ 0%{background-position:100% 0;} 100%{background-position:-100% 0;} }
+
+  .stat-grid{ display:grid; grid-template-columns:repeat(4, 1fr); gap:.9rem; }
+  .stat-card{ background:var(--white); border:1px solid rgba(128,110,100,.15); border-radius:16px; padding:1.1rem 1.2rem; }
+  .stat-card.skeleton{ height:88px; border:none; }
+  .stat-label{ font-size:.78rem; color:var(--muted); font-weight:600; margin-bottom:.4rem; }
+  .stat-value{ font-family:var(--font-display); font-weight:700; font-size:1.4rem; }
+  .stat-delta{ font-size:.76rem; font-weight:600; margin-top:.25rem; }
+  .stat-delta.up{ color:#1E6B3C; }
+  .stat-delta.down{ color:var(--red-deep); }
+
+  .chart-panel{ background:var(--white); border:1px solid rgba(128,110,100,.15); border-radius:16px; padding:1.3rem 1.4rem 1rem; }
+  .chart-title{ font-size:.82rem; font-weight:700; margin-bottom:1rem; }
+  .bar-chart{ display:flex; align-items:flex-end; gap:.6rem; height:150px; }
+  .bar-col{ flex:1; display:flex; flex-direction:column; align-items:center; gap:.4rem; height:100%; justify-content:flex-end; }
+  .bar{ width:100%; max-width:34px; background:var(--red); border-radius:6px 6px 2px 2px; transition:height .4s ease; position:relative; }
+  .bar:hover{ background:var(--red-deep); }
+  .bar-label{ font-size:.68rem; color:var(--muted); font-weight:600; }
+
+  .listing-row{ display:flex; align-items:center; gap:.9rem; background:var(--white); border:1px solid rgba(128,110,100,.15); border-radius:14px; padding:.9rem 1.1rem; margin-bottom:.6rem; }
+  .listing-rank{ font-family:var(--font-display); font-weight:700; font-size:1.1rem; color:var(--muted); width:1.6rem; flex-shrink:0; }
+  .listing-main{ flex:1; min-width:0; }
+  .listing-name{ font-weight:700; font-size:.9rem; }
+  .listing-sub{ font-size:.78rem; color:var(--muted); }
+  .listing-rev{ font-weight:700; font-size:.9rem; font-variant-numeric:tabular-nums; flex-shrink:0; }
+
+  @media (max-width:820px){
+    .stat-grid{ grid-template-columns:repeat(2, 1fr); }
+  }
+  @media (max-width:520px){
+    header{ padding:1.1rem 1.3rem; }
+    main{ padding:0 5vw 6rem; }
+    .stat-grid{ gap:.6rem; }
+    .stat-card{ padding:.85rem .9rem; }
+    .stat-value{ font-size:1.15rem; }
+    .bar-chart{ height:120px; }
+    .chart-panel{ padding:1.1rem 1rem .9rem; overflow-x:auto; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <a href="host-home.html" class="logo"><span class="va">Va</span><span class="pin"></span><span class="room">Room</span></a>
+  <a href="host-home.html" class="back-link">← Back to dashboard</a>
+</header>
+
+<main>
+  <div id="checking-auth" class="checking-msg">Loading your analytics…</div>
+
+  <div id="analytics-page" style="display:none;">
+    <div class="page-head">
+      <div class="page-head-left">
+        <h1>Analytics</h1>
+        <span class="badge badge-soon" title="Figures below are illustrative until live payments are connected.">Preview data</span>
+      </div>
+      <div class="range-select" id="range-select">
+        <button type="button" class="range-btn" data-range="7">7d</button>
+        <button type="button" class="range-btn active" data-range="30">30d</button>
+        <button type="button" class="range-btn" data-range="90">90d</button>
+      </div>
+    </div>
+    <p class="page-sub">How your listings are performing, at a glance.</p>
+
+    <div id="stat-section">
+      <div class="stat-grid">
+        <div class="stat-card skeleton"></div>
+        <div class="stat-card skeleton"></div>
+        <div class="stat-card skeleton"></div>
+        <div class="stat-card skeleton"></div>
+      </div>
+    </div>
+
+    <p class="section-label">Revenue over time</p>
+    <div id="chart-section"><div class="chart-panel"><div class="skeleton" style="height:150px;"></div></div></div>
+
+    <p class="section-label">Top-performing listings</p>
+    <div id="top-listings"><p class="state-msg">Loading…</p></div>
+  </div>
+</main>
+
+<script src="js/supabase-client.js"></script>
+<script>
+  (async function(){
+    const checkingAuth = document.getElementById('checking-auth');
+    const analyticsPage = document.getElementById('analytics-page');
+
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session) { window.location.href = 'login.html'; return; }
+    const currentUser = session.user;
+
+    const { data: profile, error: profileError } = await supabaseClient
+      .from('profiles').select('role').eq('id', currentUser.id).single();
+
+    if (profileError || !profile || profile.role !== 'host') {
+      checkingAuth.textContent = 'Only host accounts have analytics. Redirecting…';
+      setTimeout(function(){ window.location.href = 'index.html'; }, 1500);
+      return;
+    }
+
+    checkingAuth.style.display = 'none';
+    analyticsPage.style.display = 'block';
+
+    function ksh(n){ return 'KSh ' + Number(n || 0).toLocaleString(); }
+    function escapeHtml(str){ const d = document.createElement('div'); d.textContent = str || ''; return d.innerHTML; }
+
+    // ---------- TODO(backend): swap this mock fetch for real aggregate endpoints. ----------
+    // Shape mirrors backend-computed analytics aggregates (see brief §6 / §9) — the
+    // client never computes revenue/refund figures itself, only renders what's returned.
+    function fetchAnalyticsData(rangeDays){
+      return new Promise(function(resolve){
+        setTimeout(function(){
+          const points = rangeDays === 7 ? 7 : (rangeDays === 90 ? 12 : 10);
+          const revenueSeries = Array.from({ length: points }, function(_, i){
+            const base = 8000 + Math.round(Math.sin(i / 2) * 3000 + i * 400);
+            return { label: rangeDays === 90 ? 'W' + (i + 1) : 'D' + (i + 1), value: Math.max(1200, base) };
+          });
+          resolve({
+            stats: {
+              revenue: 214600, revenueDeltaPct: 12.4,
+              completedBookings: 31, avgBookingValue: 15625,
+              refundImpact: -8200, refundDeltaPct: -3.1,
+              payoutTotals: 168900
+            },
+            revenueSeries: revenueSeries,
+            topListings: [
+              { name: 'Sunset Loft, Kilimani', bookings: 9, revenue: 74800 },
+              { name: 'Karen Garden Villa', bookings: 6, revenue: 58200 },
+              { name: 'Two Rivers Studio', bookings: 11, revenue: 51900 },
+              { name: 'Westlands One-Bed', bookings: 5, revenue: 29700 }
+            ]
+          });
+        }, 500);
+      });
+    }
+
+    function renderStats(s){
+      document.getElementById('stat-section').innerHTML =
+        '<div class="stat-grid">' +
+          '<div class="stat-card"><div class="stat-label">Revenue</div><div class="stat-value">' + ksh(s.revenue) + '</div><div class="stat-delta up">↑ ' + s.revenueDeltaPct + '%</div></div>' +
+          '<div class="stat-card"><div class="stat-label">Completed bookings</div><div class="stat-value">' + s.completedBookings + '</div></div>' +
+          '<div class="stat-card"><div class="stat-label">Avg. booking value</div><div class="stat-value">' + ksh(s.avgBookingValue) + '</div></div>' +
+          '<div class="stat-card"><div class="stat-label">Cancellations / refunds</div><div class="stat-value">' + ksh(s.refundImpact) + '</div><div class="stat-delta down">↓ ' + Math.abs(s.refundDeltaPct) + '%</div></div>' +
+        '</div>';
+    }
+
+    function renderChart(series){
+      const max = Math.max.apply(null, series.map(function(p){ return p.value; }));
+      document.getElementById('chart-section').innerHTML =
+        '<div class="chart-panel">' +
+          '<div class="chart-title">Booking revenue</div>' +
+          '<div class="bar-chart">' +
+            series.map(function(p){
+              const h = Math.max(6, Math.round((p.value / max) * 130));
+              return '<div class="bar-col"><div class="bar" style="height:' + h + 'px" title="' + ksh(p.value) + '"></div><div class="bar-label">' + p.label + '</div></div>';
+            }).join('') +
+          '</div>' +
+        '</div>';
+    }
+
+    function renderTopListings(list){
+      const el = document.getElementById('top-listings');
+      if (!list || list.length === 0) { el.innerHTML = '<p class="state-msg">No bookings yet — top listings will show up here once you have some.</p>'; return; }
+      el.innerHTML = list.map(function(l, i){
+        return (
+          '<div class="listing-row">' +
+            '<div class="listing-rank">' + (i + 1) + '</div>' +
+            '<div class="listing-main">' +
+              '<div class="listing-name">' + escapeHtml(l.name) + '</div>' +
+              '<div class="listing-sub">' + l.bookings + ' booking' + (l.bookings === 1 ? '' : 's') + '</div>' +
+            '</div>' +
+            '<div class="listing-rev">' + ksh(l.revenue) + '</div>' +
+          '</div>'
+        );
+      }).join('');
+    }
+
+    async function loadRange(rangeDays){
+      document.getElementById('stat-section').innerHTML = '<div class="stat-grid"><div class="stat-card skeleton"></div><div class="stat-card skeleton"></div><div class="stat-card skeleton"></div><div class="stat-card skeleton"></div></div>';
+      document.getElementById('chart-section').innerHTML = '<div class="chart-panel"><div class="skeleton" style="height:150px;"></div></div>';
+      document.getElementById('top-listings').innerHTML = '<p class="state-msg">Loading…</p>';
+      try {
+        const data = await fetchAnalyticsData(rangeDays);
+        renderStats(data.stats);
+        renderChart(data.revenueSeries);
+        renderTopListings(data.topListings);
+      } catch (e) {
+        document.getElementById('stat-section').innerHTML = '<p class="state-msg error">Couldn\'t load analytics right now. Try refreshing.</p>';
+        document.getElementById('chart-section').innerHTML = '';
+        document.getElementById('top-listings').innerHTML = '';
+      }
+    }
+
+    document.querySelectorAll('.range-btn').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        document.querySelectorAll('.range-btn').forEach(function(b){ b.classList.remove('active'); });
+        btn.classList.add('active');
+        loadRange(parseInt(btn.getAttribute('data-range'), 10));
+      });
+    });
+
+    await loadRange(30);
+  })();
+</script>
+
+</body>
+</html>
