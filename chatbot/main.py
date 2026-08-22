@@ -267,7 +267,10 @@ def format_listing_facts(ctx: Optional[dict]) -> str:
 def canned_reply(ctx: Optional[dict]) -> str:
     title = ctx.get("title") if ctx else None
     if not title:
-        return "Thanks for reaching out! The host is away right now but will get back to you personally as soon as they're able to."
+        return random.choice([
+            "Thanks for reaching out! The host is away right now but will get back to you personally as soon as they're able to.",
+            "Hey, thanks for the message! The host's away at the moment — they'll reply personally soon.",
+        ])
 
     facts = []
     if ctx.get("price_amount") is not None:
@@ -279,10 +282,12 @@ def canned_reply(ctx: Optional[dict]) -> str:
         facts.append(f"up to {ctx['max_guests']} guests")
 
     if facts:
-        return (
-            f"Thanks for your interest in {title}! Quick facts while the host is away: "
-            f"{', '.join(facts)}. They'll get back to you personally with anything else."
-        )
+        fact_str = ", ".join(facts)
+        return random.choice([
+            f"Quick facts on {title} while the host's away: {fact_str}. They'll follow up personally soon!",
+            f"Thanks for your interest in {title}! Just so you have it: {fact_str}. Host will confirm anything else personally.",
+            f"While the host's offline — {title} is {fact_str}. They'll be in touch soon!",
+        ])
     return (
         f"Thanks for your interest in {title}! The host is away right now but will "
         "get back to you personally as soon as they're able to."
