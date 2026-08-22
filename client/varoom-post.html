@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;0,9..144,900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<link rel="icon" href="favicon/favicon.ico" sizes="any">
+<link rel="icon" href="/favicon/favicon.ico" sizes="any">
 <style>
   :root{
     --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#1A1210; --paper:#FBF4F1;
@@ -38,12 +38,12 @@
   form{ display:flex; flex-direction:column; gap:1.3rem; }
   .field{ display:flex; flex-direction:column; gap:.45rem; }
   label{ font-size:.82rem; font-weight:600; color:#d8cdc8; letter-spacing:.01em; }
-  input[type="text"], textarea{
+  textarea{
     font-family:inherit; font-size:.95rem; padding:.85rem 1rem; border-radius:12px;
     border:1px solid var(--studio-border); background:var(--studio-panel); color:#F2E9E5; width:100%;
+    resize:vertical; min-height:120px; line-height:1.5;
   }
-  input[type="text"]:focus, textarea:focus{ outline:none; border-color:var(--red); }
-  textarea{ resize:vertical; min-height:110px; line-height:1.5; }
+  textarea:focus{ outline:none; border-color:var(--red); }
 
   .file-drop{
     border:1.5px dashed var(--studio-border); border-radius:14px; padding:1.4rem;
@@ -57,8 +57,17 @@
   }
   .file-drop-text{ font-size:.85rem; color:#c9beb9; }
   .file-drop-text strong{ color:#F2E9E5; }
-  #image-input{ display:none; }
-  .file-selected{ font-size:.8rem; color:#7fbf7f; margin-top:.3rem; }
+  #photos-input{ display:none; }
+
+  .photo-previews{ display:flex; flex-wrap:wrap; gap:.6rem; margin-top:.2rem; }
+  .photo-preview{ position:relative; width:84px; height:84px; border-radius:10px; overflow:hidden; }
+  .photo-preview img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .photo-preview-remove{
+    position:absolute; top:.25rem; right:.25rem; width:20px; height:20px; border-radius:50%;
+    background:rgba(0,0,0,.65); color:#fff; display:flex; align-items:center; justify-content:center;
+    font-size:.75rem;
+  }
+  .photo-preview-remove:hover{ background:var(--red); }
 
   .submit-btn{
     background:var(--red); color:#fff; padding:1rem 1.6rem; border-radius:100px;
@@ -80,16 +89,15 @@
     border:1px solid rgba(26,18,16,.08);
   }
   .preview-card-head{ font-family:var(--font-display); font-weight:600; font-size:1rem; margin-bottom:1rem; }
-  .preview-update{ padding-bottom:0; }
-  .preview-update img{ width:100%; border-radius:10px; margin-bottom:.5rem; display:block; max-height:160px; object-fit:cover; }
-  .preview-title{ font-weight:700; font-size:.88rem; margin-bottom:.2rem; }
-  .preview-body{ font-size:.82rem; color:#3a2e2c; line-height:1.4; white-space:pre-wrap; }
+  .preview-caption{ font-size:.85rem; line-height:1.5; white-space:pre-wrap; margin-bottom:.6rem; }
+  .preview-photos{ display:grid; grid-template-columns:1fr 1fr; gap:.4rem; }
+  .preview-photos img{ width:100%; aspect-ratio:1/1; object-fit:cover; border-radius:8px; display:block; }
   .preview-placeholder{ font-size:.82rem; color:#a99b96; font-style:italic; }
 
   .recent-list{ margin-top:2rem; }
   .recent-item{ padding:.8rem 0; border-bottom:1px solid var(--studio-border); font-size:.82rem; display:flex; justify-content:space-between; gap:1rem; }
   .recent-item:last-child{ border-bottom:none; }
-  .recent-item-title{ color:#F2E9E5; font-weight:600; }
+  .recent-item-title{ color:#F2E9E5; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .recent-item-date{ color:#8f817c; white-space:nowrap; }
 </style>
 </head>
@@ -109,31 +117,27 @@
 <main>
   <div>
     <h1>Post an update</h1>
-    <p class="lead">This publishes directly to the "VaRoom Updates" widget on the client home feed. Keep it short — title + a couple of sentences works best.</p>
+    <p class="lead">This publishes directly to the "VaRoom Updates" widget on the client and host home feeds. Just write what's happening — photos are optional.</p>
 
     <form id="update-form">
       <div class="field">
-        <label for="title">Title</label>
-        <input type="text" id="title" name="title" placeholder="What's new on VaRoom" required maxlength="80">
+        <label for="caption">Caption</label>
+        <textarea id="caption" name="caption" placeholder="What's new on VaRoom…" required maxlength="500"></textarea>
       </div>
 
       <div class="field">
-        <label for="body">Body</label>
-        <textarea id="body" name="body" placeholder="Tell users what's happening…" required maxlength="400"></textarea>
-      </div>
-
-      <div class="field">
-        <label>Image (optional)</label>
+        <label>Photos (optional)</label>
         <label class="file-drop" id="file-drop-label">
           <div class="file-drop-icon">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
           </div>
           <div>
-            <div class="file-drop-text"><strong>Click to upload</strong> an image</div>
-            <div class="file-drop-text" id="file-name-display">PNG or JPG, up to 5MB</div>
+            <div class="file-drop-text"><strong>Click to upload</strong> one or more photos</div>
+            <div class="file-drop-text" id="file-count-display">PNG or JPG, up to 5MB each</div>
           </div>
         </label>
-        <input type="file" id="image-input" accept="image/png, image/jpeg, image/webp">
+        <input type="file" id="photos-input" accept="image/png, image/jpeg, image/webp" multiple>
+        <div class="photo-previews" id="photo-previews"></div>
       </div>
 
       <button type="submit" class="submit-btn" id="submit-btn">Publish update</button>
@@ -147,67 +151,97 @@
     <div class="preview-label">Live preview</div>
     <div class="preview-card">
       <div class="preview-card-head">VaRoom Updates</div>
-      <div class="preview-update" id="preview-update">
+      <div id="preview-body">
         <p class="preview-placeholder">Start typing to see how this looks on the site…</p>
       </div>
     </div>
   </div>
 </main>
 
-<script src="js/supabase-client.js"></script>
+<script src="/js/supabase-client.js"></script>
 <script>
 (function(){
-  const titleInput = document.getElementById('title');
-  const bodyInput = document.getElementById('body');
-  const imageInput = document.getElementById('image-input');
-  const fileDropLabel = document.getElementById('file-drop-label');
-  const fileNameDisplay = document.getElementById('file-name-display');
-  const previewUpdate = document.getElementById('preview-update');
+  const captionInput = document.getElementById('caption');
+  const photosInput = document.getElementById('photos-input');
+  const fileCountDisplay = document.getElementById('file-count-display');
+  const photoPreviewsEl = document.getElementById('photo-previews');
+  const previewBody = document.getElementById('preview-body');
   const form = document.getElementById('update-form');
   const submitBtn = document.getElementById('submit-btn');
   const statusMsg = document.getElementById('status-msg');
   const recentList = document.getElementById('recent-list');
 
-  let selectedFile = null;
-  let selectedFileDataUrl = null;
+  let selectedFiles = []; // { file, dataUrl }
+
+  function renderPhotoPreviews(){
+    photoPreviewsEl.innerHTML = selectedFiles.map(function(item, i){
+      return (
+        '<div class="photo-preview">' +
+          '<img src="' + item.dataUrl + '" alt="">' +
+          '<button type="button" class="photo-preview-remove" data-index="' + i + '">✕</button>' +
+        '</div>'
+      );
+    }).join('');
+
+    photoPreviewsEl.querySelectorAll('.photo-preview-remove').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        selectedFiles.splice(parseInt(btn.getAttribute('data-index'), 10), 1);
+        renderPhotoPreviews();
+        renderPreview();
+      });
+    });
+
+    fileCountDisplay.textContent = selectedFiles.length > 0
+      ? (selectedFiles.length + ' photo' + (selectedFiles.length > 1 ? 's' : '') + ' selected — click to add more')
+      : 'PNG or JPG, up to 5MB each';
+  }
 
   function renderPreview(){
-    const title = titleInput.value.trim();
-    const body = bodyInput.value.trim();
+    const caption = captionInput.value.trim();
 
-    if (!title && !body && !selectedFileDataUrl){
-      previewUpdate.innerHTML = '<p class="preview-placeholder">Start typing to see how this looks on the site…</p>';
+    if (!caption && selectedFiles.length === 0){
+      previewBody.innerHTML = '<p class="preview-placeholder">Start typing to see how this looks on the site…</p>';
       return;
     }
 
-    const img = selectedFileDataUrl ? '<img src="' + selectedFileDataUrl + '" alt="">' : '';
-    previewUpdate.innerHTML =
-      img +
-      '<div class="preview-title">' + (title || 'Untitled') + '</div>' +
-      '<div class="preview-body">' + (body || '') + '</div>';
+    const photosHtml = selectedFiles.length > 0
+      ? '<div class="preview-photos">' + selectedFiles.map(function(item){
+          return '<img src="' + item.dataUrl + '" alt="">';
+        }).join('') + '</div>'
+      : '';
+
+    previewBody.innerHTML =
+      (caption ? '<div class="preview-caption">' + caption.replace(/</g, '&lt;') + '</div>' : '') +
+      photosHtml;
   }
 
-  titleInput.addEventListener('input', renderPreview);
-  bodyInput.addEventListener('input', renderPreview);
+  captionInput.addEventListener('input', renderPreview);
 
-  imageInput.addEventListener('change', function(){
-    const file = imageInput.files[0];
-    if (!file) return;
-    selectedFile = file;
-    fileNameDisplay.textContent = file.name;
+  photosInput.addEventListener('change', function(){
+    const files = Array.from(photosInput.files);
+    let remaining = files.length;
+    if (remaining === 0) return;
 
-    const reader = new FileReader();
-    reader.onload = function(e){
-      selectedFileDataUrl = e.target.result;
-      renderPreview();
-    };
-    reader.readAsDataURL(file);
+    files.forEach(function(file){
+      const reader = new FileReader();
+      reader.onload = function(e){
+        selectedFiles.push({ file: file, dataUrl: e.target.result });
+        remaining--;
+        if (remaining === 0) {
+          renderPhotoPreviews();
+          renderPreview();
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+
+    photosInput.value = '';
   });
 
   async function loadRecent(){
     const { data, error } = await supabaseClient
       .from('varoom_updates')
-      .select('id,title,created_at')
+      .select('id,body,created_at')
       .order('created_at', { ascending:false })
       .limit(5);
 
@@ -221,9 +255,10 @@
       data.map(function(u){
         const d = new Date(u.created_at);
         const dateStr = d.toLocaleDateString('en-GB', { day:'numeric', month:'short' });
+        const snippet = (u.body || '').slice(0, 40) + ((u.body || '').length > 40 ? '…' : '');
         return (
           '<div class="recent-item">' +
-            '<span class="recent-item-title">' + u.title + '</span>' +
+            '<span class="recent-item-title">' + snippet + '</span>' +
             '<span class="recent-item-date">' + dateStr + '</span>' +
           '</div>'
         );
@@ -237,38 +272,36 @@
     submitBtn.textContent = 'Publishing…';
 
     try {
-      let imageUrl = null;
+      let imageUrls = [];
 
-      if (selectedFile){
-        const ext = selectedFile.name.split('.').pop();
+      for (const item of selectedFiles) {
+        const ext = item.file.name.split('.').pop();
         const path = 'updates/' + Date.now() + '-' + Math.random().toString(36).slice(2) + '.' + ext;
 
         const { error: uploadError } = await supabaseClient.storage
           .from('update-images')
-          .upload(path, selectedFile);
+          .upload(path, item.file);
 
         if (uploadError) throw uploadError;
 
-        imageUrl = supabaseClient.storage.from('update-images').getPublicUrl(path).data.publicUrl;
+        imageUrls.push(supabaseClient.storage.from('update-images').getPublicUrl(path).data.publicUrl);
       }
 
       const { error: insertError } = await supabaseClient
         .from('varoom_updates')
         .insert({
-          title: titleInput.value.trim(),
-          body: bodyInput.value.trim(),
-          image_url: imageUrl
+          body: captionInput.value.trim(),
+          image_urls: imageUrls.length > 0 ? imageUrls : null
         });
 
       if (insertError) throw insertError;
 
-      statusMsg.textContent = 'Published! It\'s now live on the client home feed.';
+      statusMsg.textContent = 'Published! It\'s now live on the home feeds.';
       statusMsg.classList.add('show', 'ok');
 
       form.reset();
-      selectedFile = null;
-      selectedFileDataUrl = null;
-      fileNameDisplay.textContent = 'PNG or JPG, up to 5MB';
+      selectedFiles = [];
+      renderPhotoPreviews();
       renderPreview();
       loadRecent();
 

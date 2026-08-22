@@ -2,6 +2,10 @@
 // host-home.html. Call initNotifications(supabaseClient, currentUser)
 // once the page has confirmed the user is logged in. Expects a
 // <button id="notif-bell"> to already exist in the page.
+//
+// The dropdown panel is viewport-fixed (not relatively positioned to the
+// bell) so it works correctly whether the bell lives in a top bar or a
+// bottom nav bar, without needing per-page positioning tweaks.
 
 function initNotifications(supabaseClient, currentUser) {
   const bellBtn = document.getElementById('notif-bell');
@@ -14,18 +18,18 @@ function initNotifications(supabaseClient, currentUser) {
   bellBtn.style.position = 'relative';
   bellBtn.appendChild(badge);
 
-  // Dropdown panel
+  // Dropdown panel — fixed to the viewport, bottom-right, sitting above
+  // wherever the trigger physically is (top bar or bottom nav).
   const panel = document.createElement('div');
   panel.id = 'notif-panel';
-  panel.style.cssText = 'display:none;position:absolute;top:44px;right:0;z-index:120;width:320px;max-height:420px;overflow-y:auto;background:var(--white);border:1px solid rgba(128,110,100,.15);border-radius:14px;box-shadow:0 20px 45px -15px rgba(26,18,16,.35);';
+  panel.style.cssText = 'display:none;position:fixed;bottom:5.5rem;right:1rem;left:auto;top:auto;z-index:250;width:320px;max-width:calc(100vw - 2rem);max-height:420px;overflow-y:auto;background:var(--white);border:1px solid rgba(128,110,100,.15);border-radius:14px;box-shadow:0 20px 45px -15px rgba(26,18,16,.35);';
   panel.innerHTML =
     '<div style="padding:.9rem 1rem;border-bottom:1px solid rgba(128,110,100,.12);font-weight:700;font-size:.92rem;display:flex;justify-content:space-between;align-items:center;">' +
       '<span>Notifications</span>' +
       '<button type="button" id="notif-mark-all" style="font-size:.76rem;font-weight:600;color:#C41E3A;background:none;border:none;cursor:pointer;">Mark all read</button>' +
     '</div>' +
     '<div id="notif-list"></div>';
-  bellBtn.parentElement.style.position = 'relative';
-  bellBtn.parentElement.appendChild(panel);
+  document.body.appendChild(panel);
 
   function escapeHtml(str) {
     const d = document.createElement('div');

@@ -135,6 +135,9 @@
   .icon-btn{ color:var(--muted); position:relative; }
   .icon-btn:hover{ color:var(--ink); }
 
+  .topbar-avatar-btn{ flex-shrink:0; display:flex; }
+  .topbar-avatar-btn:hover .avatar-circle{ outline:2px solid rgba(196,30,58,.25); outline-offset:2px; }
+
   .avatar-circle{
     width:38px; height:38px; border-radius:50%;
     background:var(--red); color:var(--white);
@@ -228,6 +231,8 @@
 
   .update-card{ padding-bottom:.9rem; border-bottom:1px solid rgba(26,18,16,.08); }
   .update-card:last-child{ border-bottom:none; padding-bottom:0; }
+  .update-photos{ display:grid; grid-template-columns:repeat(auto-fit, minmax(70px, 1fr)); gap:.4rem; margin-bottom:.5rem; }
+  .update-photos .update-img{ width:100%; aspect-ratio:1/1; object-fit:cover; margin-bottom:0; border-radius:8px; }
   .update-img{ width:100%; border-radius:10px; margin-bottom:.5rem; display:block; }
   .update-title{ font-weight:700; font-size:.88rem; margin-bottom:.2rem; }
   .update-body{ font-size:.82rem; color:#c9beb9; line-height:1.4; }
@@ -564,17 +569,14 @@
 
   <div class="main-col">
     <header class="topbar">
+      <button type="button" class="topbar-avatar-btn" id="topbar-avatar-btn" aria-label="Open menu">
+        <div class="avatar-circle" id="user-avatar">·</div>
+      </button>
       <div class="search-wrap">
         <button type="button" class="search-btn" id="search-btn" aria-label="Search">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         </button>
         <input type="text" id="search-input" placeholder="Search by location or @username">
-      </div>
-      <div class="topbar-right">
-        <button type="button" class="icon-btn" id="notif-bell" title="Notifications">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-        </button>
-        <div class="avatar-circle" id="user-avatar">·</div>
       </div>
     </header>
 
@@ -648,10 +650,10 @@
         <span class="elie-badge"><img src="elie-logo.png" alt="" style="width:18px;height:18px;object-fit:contain;"></span>
         Elie
       </a>
-      <a href="profile.html" class="bottom-bar-item">
-        <span class="avatar-mini" id="bottom-avatar">·</span>
-        Profile
-      </a>
+      <button type="button" class="bottom-bar-item" id="notif-bell">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        Notifications
+      </button>
     </nav>
   </div>
 </div>
@@ -713,11 +715,9 @@
     if (ownAvatarUrl) {
       const avatarImgHtml = '<img src="' + ownAvatarUrl + '" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">';
       document.getElementById('user-avatar').innerHTML = avatarImgHtml;
-      document.getElementById('bottom-avatar').innerHTML = avatarImgHtml;
     } else {
       const initial = (profile.full_name || '?').charAt(0).toUpperCase();
       document.getElementById('user-avatar').textContent = initial;
-      document.getElementById('bottom-avatar').textContent = initial;
     }
 
     // ---------- Bookmarks ----------
@@ -1198,6 +1198,7 @@
     sidebar.querySelectorAll('.nav-item, .logout-btn').forEach(function(el){
       el.addEventListener('click', closeSidebar);
     });
+    document.getElementById('topbar-avatar-btn').addEventListener('click', openSidebar);
     if (typeof initNotifications === 'function') {
       initNotifications(supabaseClient, currentUser);
     } else {
@@ -1419,7 +1420,7 @@
 
       const { data, error } = await supabaseClient
         .from('varoom_updates')
-        .select('id,title,body,image_url,created_at')
+        .select('id,body,image_url,image_urls,created_at')
         .order('created_at', { ascending:false })
         .limit(3);
 
@@ -1429,11 +1430,15 @@
       }
 
       wrap.innerHTML = data.map(function(u){
-        const img = u.image_url ? '<img src="' + u.image_url + '" alt="" class="update-img">' : '';
+        const photos = (u.image_urls && u.image_urls.length > 0) ? u.image_urls : (u.image_url ? [u.image_url] : []);
+        const photosHtml = photos.length > 0
+          ? '<div class="update-photos">' + photos.map(function(url){
+              return '<img src="' + url + '" alt="" class="update-img">';
+            }).join('') + '</div>'
+          : '';
         return (
           '<div class="update-card">' +
-            img +
-            '<div class="update-title">' + u.title + '</div>' +
+            photosHtml +
             '<div class="update-body">' + u.body + '</div>' +
           '</div>'
         );

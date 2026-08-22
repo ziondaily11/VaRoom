@@ -140,6 +140,13 @@
 
     const user = session.user;
 
+    // VaRoom's own official account lands on the updates composer instead
+    // of a normal host/client dashboard, regardless of how it signed in.
+    if (user.email === 'varoonhq@gmail.com') {
+      window.location.href = 'varoom-post.html';
+      return;
+    }
+
     // Does a profile already exist for this user?
     const { data: profile, error: profileError } = await supabaseClient
       .from('profiles')
