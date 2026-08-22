@@ -55,14 +55,15 @@
   .detail-sub{ color:var(--muted); font-size:.88rem; margin:.3rem 0 1.8rem 3.15rem; }
 
   /* ---------- Category list (main screen) ---------- */
-  .cat-list{ display:flex; flex-direction:column; gap:.7rem; }
+  .cat-list{ display:flex; flex-direction:column; }
   .cat-row{
-    display:flex; align-items:center; gap:1rem; background:var(--white);
-    border:1px solid var(--line); border-radius:16px; padding:1.1rem 1.2rem; text-align:left; width:100%;
+    display:flex; align-items:center; gap:1rem; background:transparent;
+    border:none; border-bottom:1px solid var(--line); border-radius:0; padding:1.1rem .2rem; text-align:left; width:100%;
   }
-  .cat-row:hover{ border-color:rgba(26,18,16,.25); }
+  .cat-row:last-child{ border-bottom:none; }
+  .cat-row:hover{ background:var(--paper); }
   .cat-row.disabled{ opacity:.55; cursor:default; }
-  .cat-row.disabled:hover{ border-color:var(--line); }
+  .cat-row.disabled:hover{ background:transparent; }
   .cat-icon{
     width:44px; height:44px; border-radius:12px; background:var(--paper); border:1px solid var(--line);
     display:flex; align-items:center; justify-content:center; flex-shrink:0; color:var(--ink);
