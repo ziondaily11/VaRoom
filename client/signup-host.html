@@ -69,6 +69,21 @@
   .success-msg{ display:none; background:#F4EDE4; border:1px solid rgba(26,18,16,.1); border-radius:14px; padding:1.4rem 1.6rem; margin-top:1.6rem; font-size:.95rem; }
   .success-msg.show{ display:block; }
   .success-msg a{ color:var(--red); font-weight:600; border-bottom:1.5px solid var(--red); }
+
+  .pending-panel{ display:none; background:var(--white); border:1px solid rgba(26,18,16,.1); border-radius:16px; padding:1.8rem 1.6rem; margin-top:1.6rem; text-align:center; }
+  .pending-panel.show{ display:block; }
+  .pending-icon{ width:52px; height:52px; margin:0 auto 1rem; border-radius:50%; background:rgba(196,30,58,.08); display:flex; align-items:center; justify-content:center; color:var(--red-deep); }
+  .pending-panel h2{ font-family:var(--font-display); font-weight:600; font-size:1.3rem; margin-bottom:.6rem; }
+  .pending-sub{ font-size:.9rem; color:#3a2e2c; line-height:1.55; margin-bottom:1.3rem; }
+  .resend-row{ display:flex; align-items:center; justify-content:center; gap:.7rem; flex-wrap:wrap; }
+  .resend-btn{ background:var(--white); border:1.5px solid var(--red); color:var(--red-deep); padding:.6rem 1.2rem; border-radius:100px; font-weight:600; font-size:.85rem; }
+  .resend-btn:hover{ background:rgba(196,30,58,.06); }
+  .resend-btn:disabled{ opacity:.5; cursor:not-allowed; border-color:rgba(26,18,16,.15); color:#7a6b67; }
+  .resend-cooldown{ font-size:.8rem; color:#7a6b67; }
+  .resend-feedback{ font-size:.82rem; color:#2e7d32; margin-top:.8rem; min-height:1.2em; }
+  .resend-feedback.error{ color:var(--red); }
+  .pending-footer{ font-size:.85rem; color:#7a6b67; margin-top:1.2rem; }
+  .pending-footer a{ color:var(--red); font-weight:600; }
 </style>
 </head>
 <body>
@@ -120,6 +135,20 @@
   </form>
 
   <div class="success-msg" id="success-msg"></div>
+
+  <div class="pending-panel" id="pending-panel">
+    <div class="pending-icon">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
+    </div>
+    <h2>Check your email</h2>
+    <p class="pending-sub">We've sent a verification link to <strong id="pending-email"></strong>. Open it to finish creating your account — you'll be signed in automatically, no need to log in again.</p>
+    <div class="resend-row">
+      <button type="button" class="resend-btn" id="resend-btn" disabled>Resend verification email</button>
+      <span class="resend-cooldown" id="resend-cooldown"></span>
+    </div>
+    <p class="resend-feedback" id="resend-feedback"></p>
+    <p class="pending-footer">Already verified on another device? <a href="login.html">Log in</a></p>
+  </div>
 </main>
 
 <script src="js/supabase-client.js"></script>
@@ -168,7 +197,8 @@
       email: email,
       password: password,
       options: {
-        data: { role: 'host', full_name: name }
+        data: { role: 'host', full_name: name },
+        emailRedirectTo: window.location.origin + '/auth-callback.html'
       }
     });
 
@@ -187,9 +217,59 @@
       return;
     }
 
-    successMsg.innerHTML = 'Account created! Check your email to confirm, then come back and <a href="login.html">log in →</a>';
-    successMsg.classList.add('show');
-    successMsg.scrollIntoView({ behavior:'smooth', block:'center' });
+    document.getElementById('host-signup-form').style.display = 'none';
+    document.getElementById('pending-email').textContent = email;
+    const pendingPanel = document.getElementById('pending-panel');
+    pendingPanel.classList.add('show');
+    pendingPanel.scrollIntoView({ behavior:'smooth', block:'center' });
+    startResendCooldown(45); // signup already sent one — hold resend briefly to avoid a duplicate tap
+  });
+
+  // ---------- Resend verification (rate-limited, generic feedback) ----------
+  let resendCooldownTimer = null;
+  function startResendCooldown(seconds){
+    const btn = document.getElementById('resend-btn');
+    const cooldownEl = document.getElementById('resend-cooldown');
+    clearInterval(resendCooldownTimer);
+    let remaining = seconds;
+    if (remaining <= 0) { btn.disabled = false; cooldownEl.textContent = ''; return; }
+    btn.disabled = true;
+    cooldownEl.textContent = 'You can resend in ' + remaining + 's';
+    resendCooldownTimer = setInterval(function(){
+      remaining -= 1;
+      if (remaining <= 0) {
+        clearInterval(resendCooldownTimer);
+        btn.disabled = false;
+        cooldownEl.textContent = '';
+      } else {
+        cooldownEl.textContent = 'You can resend in ' + remaining + 's';
+      }
+    }, 1000);
+  }
+
+  document.getElementById('resend-btn').addEventListener('click', async function(){
+    const btn = this;
+    const feedback = document.getElementById('resend-feedback');
+    const emailToResend = document.getElementById('email').value;
+    btn.disabled = true;
+    feedback.classList.remove('error');
+    feedback.textContent = 'Sending…';
+
+    const { error: resendError } = await supabaseClient.auth.resend({
+      type: 'signup',
+      email: emailToResend,
+      options: { emailRedirectTo: window.location.origin + '/auth-callback.html' }
+    });
+
+    if (resendError) {
+      feedback.classList.add('error');
+      feedback.textContent = "Couldn't resend right now — please wait a moment and try again.";
+      startResendCooldown(30);
+      return;
+    }
+
+    feedback.textContent = 'Verification email sent — check your inbox.';
+    startResendCooldown(60);
   });
 </script>
 
