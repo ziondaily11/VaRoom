@@ -177,11 +177,13 @@
   }
 
   .mobile-dest-row{ display:none; }
+  .mobile-dest-section{ display:none; }
   .mobile-widget-slot{ display:none; }
 
   @media (max-width:1180px){
+    .mobile-dest-section{ display:block; margin-bottom:1.4rem; }
     .mobile-dest-row{
-      display:flex; gap:.7rem; overflow-x:auto; padding-bottom:.3rem; margin-bottom:1.4rem;
+      display:flex; gap:.7rem; overflow-x:auto; -webkit-overflow-scrolling:touch; padding-bottom:.3rem; margin-bottom:0;
       scrollbar-width:none;
     }
     .mobile-dest-row::-webkit-scrollbar{ display:none; }
@@ -520,7 +522,13 @@
           <button class="tab" data-category="property">Property</button>
         </div>
 
-        <div class="mobile-dest-row" id="mobile-dest-row"></div>
+        <div class="mobile-dest-section" id="mobile-dest-section">
+          <div class="mobile-widget-head" style="display:flex;align-items:center;justify-content:space-between;">
+            <h2>Popular destinations</h2>
+            <button type="button" class="rail-view-all" data-soon="Browsing all destinations">View all</button>
+          </div>
+          <div class="mobile-dest-row" id="mobile-dest-row"></div>
+        </div>
 
         <div id="feed-list"></div>
       </div>
@@ -863,11 +871,13 @@
       const { data } = await supabaseClient
         .from('listings')
         .select('id,title,location_text,category,listing_photos(storage_path)')
+        .eq('is_promoted', true)
         .order('created_at', { ascending:false })
         .limit(6);
 
       if (!data || data.length === 0){
-        row.innerHTML = '<p class="state-msg" style="padding:0;font-size:.85rem;">Nothing to show yet.</p>';
+        const slot = row.closest('.mobile-widget-slot');
+        if (slot) slot.style.display = 'none';
         return;
       }
 

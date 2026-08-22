@@ -20,8 +20,11 @@ async def run_collection_job(repository=None, config=settings, analyzer: NewsAna
     processor = ProcessingService(store, analyzer or build_analyzer(config))
     collected = await collector.collect_due_sources()
     result = {key: int(collected[key]) for key in ("sources_checked", "candidates", "new_items", "duplicates", "failures")}
-    result.update({"processed": 0, "published": 0, "pending_review": 0, "archived": 0, "processing_failures": 0})
-    for item_id in collected["new_item_ids"]:
+    failed_item_ids = [item.id for item in await store.list_failed_items()]
+    item_ids = list(dict.fromkeys([*collected["new_item_ids"], *failed_item_ids]))
+    result.update({"processed": 0, "published": 0, "pending_review": 0, "archived": 0,
+                   "processing_failures": 0, "retried": len(failed_item_ids)})
+    for item_id in item_ids:
         try:
             item = await processor.process(item_id)
             result["processed"] += 1

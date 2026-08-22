@@ -26,7 +26,7 @@ def _first_set(*names: str) -> str | None:
     return next((value for name in names if (value := os.getenv(name))), None)
 
 
-_default_ai_provider = os.getenv("NEWS_AI_PROVIDER") or ("gemini" if os.getenv("GEMINI_API_KEY") else "rules")
+_default_ai_provider = os.getenv("NEWS_AI_PROVIDER") or "rules"
 _default_ai_model = _first_set("NEWS_AI_MODEL", "GEMINI_MODEL") or (
     "gemini-2.5-flash" if _default_ai_provider.lower() == "gemini" else None
 )

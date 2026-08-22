@@ -108,6 +108,9 @@ class MemoryNewsRepository:
     async def list_pending_review(self) -> list[NewsItem]:
         return [item for item in await self.list_items() if item.review_status is ReviewStatus.PENDING_REVIEW]
 
+    async def list_failed_items(self, limit: int = 25) -> list[NewsItem]:
+        return [item for item in await self.list_items() if item.review_status is ReviewStatus.FAILED][:limit]
+
     async def source_health(self) -> list[dict[str, Any]]:
         result: list[dict[str, Any]] = []
         for source in await self.list_sources():
@@ -239,6 +242,12 @@ class SupabaseNewsRepository:
 
     async def list_pending_review(self) -> list[NewsItem]:
         rows = await self._request("GET", "news_items", params={"select": "*", "review_status": "eq.pending_review", "order": "risk_level.desc,created_at.desc"})
+        return [self._item(row) for row in rows]
+
+    async def list_failed_items(self, limit: int = 25) -> list[NewsItem]:
+        rows = await self._request("GET", "news_items", params={
+            "select": "*", "review_status": "eq.failed", "order": "updated_at.asc", "limit": str(limit),
+        })
         return [self._item(row) for row in rows]
 
     async def source_health(self) -> list[dict[str, Any]]:
