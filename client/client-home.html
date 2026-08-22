@@ -23,6 +23,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;0,9..144,900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="js/property-news-bar.css">
 <style>
   :root{
     --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#1A1210; --paper:#FBF4F1;
@@ -634,8 +635,13 @@
         </div>
 
         <div class="property-news-widget">
-          <div class="property-news-widget-head"><h2>Property News</h2></div>
-          <div class="client-property-news-list" id="client-property-news" aria-live="polite"><p class="state-msg" style="padding:0;font-size:.85rem;">Loading…</p></div>
+          <div class="property-news-widget-head">
+            <h2>Property News</h2>
+            <button class="property-news-bar-refresh" id="property-news-refresh" title="Refresh news">Refresh</button>
+          </div>
+          <div class="property-news-bar" id="client-property-news-bar" aria-live="polite">
+            <div class="property-news-loading">Loading property news…</div>
+          </div>
           <a class="client-property-news-view-all" href="property-news.html">View all news →</a>
         </div>
       </aside>
@@ -668,6 +674,7 @@
 
 <script src="js/supabase-client.js"></script>
 <script src="js/notifications-widget.js"></script>
+<script src="js/property-news-bar.js"></script>
 <script>
   (async function(){
     let currentUser = null;
