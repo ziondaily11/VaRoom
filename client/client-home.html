@@ -232,6 +232,27 @@
   .update-title{ font-weight:700; font-size:.88rem; margin-bottom:.2rem; }
   .update-body{ font-size:.82rem; color:#c9beb9; line-height:1.4; }
 
+  /* ---------- PROPERTY NEWS ---------- */
+  .property-news-widget{ background:var(--white); border:1px solid rgba(26,18,16,.08); border-radius:16px; padding:1.2rem 1.4rem; }
+  .property-news-widget-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:.75rem; }
+  .property-news-widget-head h2{ font-family:var(--font-display); font-size:1.05rem; font-weight:600; }
+  .client-property-news-list{ display:flex; flex-direction:column; gap:.1rem; }
+  .client-property-news-item{ display:block; padding:.75rem 0; border-bottom:1px solid rgba(26,18,16,.08); }
+  .client-property-news-item:last-child{ border-bottom:none; padding-bottom:.1rem; }
+  .client-property-news-main{ display:block; color:inherit; }
+  .client-property-news-image-wrap{ height:0; overflow:hidden; margin:0; border-radius:10px; opacity:0; }
+  .client-property-news-image-wrap.is-loaded{ height:104px; margin:0 0 .55rem; opacity:1; }
+  .client-property-news-image{ display:block; width:100%; height:104px; object-fit:cover; }
+  .client-property-news-kicker{ color:var(--red); font-size:.62rem; font-weight:800; letter-spacing:.1em; text-transform:uppercase; margin-bottom:.2rem; }
+  .client-property-news-title{ font:700 .9rem/1.32 var(--font-display); }
+  .client-property-news-meta{ display:flex; flex-wrap:wrap; gap:.3rem; margin-top:.32rem; color:var(--muted); font-size:.7rem; }
+  .client-property-news-source{ margin-top:.25rem; color:var(--muted); font-size:.67rem; line-height:1.35; }
+  .client-property-news-source-link{ color:inherit; text-decoration:underline; text-decoration-color:rgba(196,30,58,.38); text-underline-offset:2px; }
+  .client-property-news-source-link:hover{ color:var(--red-deep); text-decoration-color:currentColor; }
+  .client-property-news-empty,.client-property-news-error{ color:var(--muted); font-size:.82rem; line-height:1.45; }
+  .client-property-news-view-all{ display:inline-flex; margin-top:.7rem; color:var(--red); font-size:.78rem; font-weight:600; }
+  .client-property-news-view-all:hover{ color:var(--red-deep); }
+
   h1.feed-title{
     font-family:var(--font-display); font-weight:600; font-size:1.5rem; margin-bottom:1.2rem;
   }
@@ -600,6 +621,12 @@
           <div id="varoom-updates" style="display:flex;flex-direction:column;gap:.9rem;">
             <p class="state-msg" style="padding:0;font-size:.85rem;">Loading…</p>
           </div>
+        </div>
+
+        <div class="property-news-widget">
+          <div class="property-news-widget-head"><h2>Property News</h2></div>
+          <div class="client-property-news-list" id="client-property-news" aria-live="polite"><p class="state-msg" style="padding:0;font-size:.85rem;">Loading…</p></div>
+          <a class="client-property-news-view-all" href="property-news.html">View all news →</a>
         </div>
       </aside>
     </div>
@@ -1048,6 +1075,13 @@
             '<div class="mobile-widget-head"><h2>VaRoom Updates</h2></div>' +
             '<div id="varoom-updates-mobile" style="display:flex;flex-direction:column;gap:.9rem;"><p class="state-msg" style="padding:0;font-size:.85rem;">Loading…</p></div>' +
           '</div>' +
+        '</div>' +
+        '<div class="mobile-widget-slot">' +
+          '<div class="mobile-widget-card property-news-widget">' +
+            '<div class="property-news-widget-head"><h2>Property News</h2></div>' +
+            '<div class="client-property-news-list" id="client-property-news-mobile" aria-live="polite"><p class="state-msg" style="padding:0;font-size:.85rem;">Loading…</p></div>' +
+            '<a class="client-property-news-view-all" href="property-news.html">View all news →</a>' +
+          '</div>' +
         '</div>'
       );
     }
@@ -1331,6 +1365,53 @@
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
+    function clientPropertyNewsSourceUrl(news){
+      const value = news && news.source && news.source.url;
+      return /^https?:\/\//i.test(String(value || '')) ? String(value) : '';
+    }
+
+    function wireClientPropertyNewsImages(container){
+      container.querySelectorAll('.client-property-news-image').forEach(function(image){
+        const wrapper = image.closest('.client-property-news-image-wrap');
+        image.addEventListener('load', function(){ if (wrapper) wrapper.classList.add('is-loaded'); }, { once:true });
+        image.addEventListener('error', function(){ if (wrapper) wrapper.remove(); }, { once:true });
+        if (image.complete && image.naturalWidth > 0 && wrapper) wrapper.classList.add('is-loaded');
+      });
+    }
+
+    function clientPropertyNewsHtml(items){
+      return items.slice(0, 3).map(function(news){
+        const source = news.source || {};
+        const sourceUrl = clientPropertyNewsSourceUrl(news);
+        const sourceName = typeof source.name === 'string' && source.name.trim() ? source.name.trim() : '';
+        const image = typeof news.image_url === 'string' && news.image_url.trim()
+          ? '<div class="client-property-news-image-wrap"><img class="client-property-news-image" src="' + escapeHtml(news.image_url) + '" alt="" decoding="async"></div>'
+          : '';
+        const sourceHtml = sourceName
+          ? '<div class="client-property-news-source">' + (sourceUrl
+            ? '<a class="client-property-news-source-link" href="' + escapeHtml(sourceUrl) + '" target="_blank" rel="noopener noreferrer">Source · ' + escapeHtml(sourceName) + '</a>'
+            : 'Source · ' + escapeHtml(sourceName)) + '</div>'
+          : '';
+        const dateValue = source.published_at || news.published_at;
+        return '<article class="client-property-news-item"><a class="client-property-news-main" href="property-news.html?id=' + encodeURIComponent(news.id) + '">' + image + '<div class="client-property-news-kicker">Property News</div><div class="client-property-news-title">' + escapeHtml(news.title || 'Property update') + '</div><div class="client-property-news-meta"><span>' + escapeHtml([].concat(news.counties || [], news.towns || []).filter(Boolean).slice(0, 3).join(' · ') || 'Kenya') + '</span><span>•</span><span>' + escapeHtml(dateValue ? timeAgo(dateValue) : 'Recently') + '</span></div></a>' + sourceHtml + '</article>';
+      }).join('');
+    }
+
+    async function loadClientPropertyNews(){
+      const containers = [document.getElementById('client-property-news'), document.getElementById('client-property-news-mobile')].filter(Boolean);
+      if (!containers.length) return;
+      try {
+        const response = await fetch('/api/news/latest?limit=3', { headers:{ Accept:'application/json' } });
+        if (!response.ok) throw new Error('Property News request failed');
+        const items = await response.json();
+        const html = Array.isArray(items) && items.length ? clientPropertyNewsHtml(items) : '<p class="client-property-news-empty">Nothing new right now.</p>';
+        containers.forEach(function(container){ container.innerHTML = html; wireClientPropertyNewsImages(container); });
+      } catch (error) {
+        console.warn('Property News could not be loaded:', error);
+        containers.forEach(function(container){ container.innerHTML = '<p class="client-property-news-error">Property News is temporarily unavailable.</p>'; });
+      }
+    }
+
     async function loadVaroomUpdates(targetId){
       const wrap = document.getElementById(targetId);
       if (!wrap) return;
@@ -1366,6 +1447,7 @@
     }
     loadDestinations();
     loadVaroomUpdates('varoom-updates');
+    loadClientPropertyNews();
   })();
 </script>
 

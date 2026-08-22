@@ -32,6 +32,13 @@
   .news-card h2{ margin:0; font:700 1.25rem/1.28 var(--font-display); }
   .news-card p{ margin:.6rem 0 .8rem; color:var(--muted); font-size:.9rem; line-height:1.5; }
   .meta{ display:flex; flex-wrap:wrap; align-items:center; gap:.42rem; color:var(--muted); font-size:.78rem; }
+  .news-card-main{ display:block; }
+  .news-card-image-wrap{ height:0; overflow:hidden; margin:0; border-radius:12px; opacity:0; }
+  .news-card-image-wrap.is-loaded{ height:170px; margin:.85rem 0 .65rem; opacity:1; }
+  .news-card-image{ display:block; width:100%; height:170px; object-fit:cover; }
+  .news-card-source{ margin-top:.65rem; color:var(--muted); font-size:.74rem; line-height:1.35; }
+  .news-card-source-link{ color:inherit; text-decoration:underline; text-decoration-color:rgba(196,30,58,.38); text-underline-offset:2px; }
+  .news-card-source-link:hover{ color:var(--red-deep); text-decoration-color:currentColor; }
   .status{ display:inline-flex; width:max-content; margin-top:.75rem; padding:.22rem .52rem; border-radius:100px; background:#FBE4E7; color:var(--red-deep); font-size:.67rem; font-weight:700; letter-spacing:.05em; }
   .status.approved,.status.effective{ background:#EAF4EE; color:#1E6B3C; }
   .status.market{ background:#E9F0FB; color:#1A4E8F; }
@@ -44,13 +51,16 @@
   .fact-label{ display:block; margin-bottom:.16rem; color:var(--muted); font-size:.7rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; }
   .fact-value{ font-size:.86rem; line-height:1.35; }
   .source-box{ margin-top:1.5rem; padding:1rem 1.1rem; border-radius:12px; background:var(--paper); font-size:.87rem; line-height:1.5; }
+  .detail-image-wrap{ height:0; overflow:hidden; margin:0; border-radius:14px; opacity:0; }
+  .detail-image-wrap.is-loaded{ height:min(360px, 42vw); margin:1.15rem 0 0; opacity:1; }
+  .detail-image{ display:block; width:100%; height:100%; object-fit:cover; }
   .source-link{ display:inline-flex; margin-top:.4rem; color:var(--red); font-weight:600; }
   .source-link:hover{ color:var(--red-deep); }
   .state{ padding:2.6rem 1.25rem; text-align:center; border-radius:16px; background:var(--white); border:1px solid rgba(26,18,16,.08); color:var(--muted); line-height:1.5; }
   .state.error{ color:var(--red-deep); }
   .skeleton{ height:148px; border-radius:16px; background:linear-gradient(90deg,rgba(26,18,16,.05),rgba(26,18,16,.1),rgba(26,18,16,.05)); background-size:200% 100%; animation:shimmer 1.35s ease-in-out infinite; }
   @keyframes shimmer{ 0%{ background-position:200% 0; }100%{ background-position:-200% 0; } }
-  @media (max-width:600px){ .topbar{ padding:1rem; } main{ padding:1.8rem 1rem 3rem; } .fact-grid{ grid-template-columns:1fr; } .news-card{ padding:1.1rem; } }
+  @media (max-width:600px){ .topbar{ padding:1rem; } main{ padding:1.8rem 1rem 3rem; } .fact-grid{ grid-template-columns:1fr; } .news-card{ padding:1.1rem; } .news-card-image-wrap.is-loaded{ height:150px; } .news-card-image{ height:150px; } .detail-image-wrap.is-loaded{ height:220px; } }
 </style>
 </head>
 <body>
@@ -81,11 +91,14 @@
       }
       function statusHtml(news){ const value = status(news); return value ? '<span class="status ' + value.className + '">' + value.label + '</span>' : ''; }
       function safeSourceUrl(value){ return /^https?:\/\//i.test(String(value || '')) ? String(value) : ''; }
-      function card(news){ const source = news.source || {}; return '<a class="news-card" href="property-news.html?id=' + encodeURIComponent(news.id) + '"><h2>' + escapeHtml(news.title) + '</h2><p>' + escapeHtml(news.summary || 'Read the latest property update from VaRoom.') + '</p><div class="meta"><span>' + escapeHtml(location(news)) + '</span><span>•</span><span>' + escapeHtml(date(source.published_at || news.published_at)) + '</span><span>•</span><span>' + escapeHtml(source.name || 'Source') + '</span></div>' + statusHtml(news) + '</a>'; }
+      function sourceHtml(news, className){ const source = news.source || {}; if (!source.name) return ''; const url = safeSourceUrl(source.url); return '<div class="' + className + '">' + (url ? '<a class="news-card-source-link" href="' + escapeHtml(url) + '" target="_blank" rel="noopener noreferrer">Source · ' + escapeHtml(source.name) + '</a>' : 'Source · ' + escapeHtml(source.name)) + '</div>'; }
+      function wireImages(root){ root.querySelectorAll('.news-card-image,.detail-image').forEach(function(image){ const wrapper = image.closest('.news-card-image-wrap,.detail-image-wrap'); image.addEventListener('load', function(){ if (wrapper) wrapper.classList.add('is-loaded'); }, { once:true }); image.addEventListener('error', function(){ if (wrapper) wrapper.remove(); }, { once:true }); if (image.complete && image.naturalWidth > 0 && wrapper) wrapper.classList.add('is-loaded'); }); }
+      function imageHtml(news, wrapClass, imageClass){ return typeof news.image_url === 'string' && news.image_url.trim() ? '<div class="' + wrapClass + '"><img class="' + imageClass + '" src="' + escapeHtml(news.image_url) + '" alt="" decoding="async"></div>' : ''; }
+      function card(news){ const source = news.source || {}; return '<article class="news-card"><a class="news-card-main" href="property-news.html?id=' + encodeURIComponent(news.id) + '"><h2>' + escapeHtml(news.title) + '</h2><p>' + escapeHtml(news.summary || 'Read the latest property update from VaRoom.') + '</p><div class="meta"><span>' + escapeHtml(location(news)) + '</span><span>•</span><span>' + escapeHtml(date(source.published_at || news.published_at)) + '</span></div>' + imageHtml(news, 'news-card-image-wrap', 'news-card-image') + '</a>' + sourceHtml(news, 'news-card-source') + statusHtml(news) + '</article>'; }
       function showError(target, message){ target.innerHTML = '<div class="state error">' + escapeHtml(message) + '</div>'; }
       async function showIndex(){
         const list = document.getElementById('news-list');
-        try { const items = await VaRoomPropertyNews.all(50); list.innerHTML = Array.isArray(items) && items.length ? items.map(card).join('') : '<div class="state">Nothing new right now. We\'ll bring you relevant property updates as they happen.</div>'; }
+        try { const items = await VaRoomPropertyNews.all(50); list.innerHTML = Array.isArray(items) && items.length ? items.map(card).join('') : '<div class="state">Nothing new right now. We\'ll bring you relevant property updates as they happen.</div>'; wireImages(list); }
         catch (error) { console.warn('Property news could not be loaded:', error); showError(list, 'Property news is temporarily unavailable.'); }
       }
       async function showDetail(id){
@@ -93,8 +106,9 @@
         try {
           const news = await VaRoomPropertyNews.get(id); const source = news.source || {}; const articleDate = source.published_at || news.published_at;
           const sourceUrl = safeSourceUrl(source.url);
-          const sourceLink = sourceUrl ? '<br><a class="source-link" href="' + escapeHtml(sourceUrl) + '" target="_blank" rel="noopener noreferrer">Read the original source →</a>' : '';
-          detail.innerHTML = '<div class="detail-card"><p class="eyebrow">Property Intelligence</p><h1>' + escapeHtml(news.title) + '</h1><div class="article-meta meta"><span>' + escapeHtml(location(news)) + '</span><span>•</span><span>' + escapeHtml(date(articleDate)) + '</span></div>' + statusHtml(news) + '<p class="detail-summary">' + escapeHtml(news.summary || '') + '</p>' + (news.body ? '<div class="detail-body">' + escapeHtml(news.body) + '</div>' : '') + '<div class="fact-grid"><div><span class="fact-label">Location</span><span class="fact-value">' + escapeHtml(location(news)) + '</span></div><div><span class="fact-label">Current status</span><span class="fact-value">' + escapeHtml(status(news) ? status(news).label : 'Reported update') + '</span></div><div><span class="fact-label">Published</span><span class="fact-value">' + escapeHtml(date(articleDate)) + '</span></div></div><div class="source-box"><strong>Source: ' + escapeHtml(source.name || 'Original source') + '</strong><br>This VaRoom summary is based on the linked source. Regulatory status reflects the published record and is not legal advice.' + sourceLink + '</div></div>';
+          const sourceHeading = source.name && sourceUrl ? '<a class="source-link" href="' + escapeHtml(sourceUrl) + '" target="_blank" rel="noopener noreferrer">Source · ' + escapeHtml(source.name) + '</a>' : (source.name ? '<strong>Source · ' + escapeHtml(source.name) + '</strong>' : '');
+          const sourceBox = source.name ? '<div class="source-box">' + sourceHeading + '<br>This VaRoom summary is based on the linked source. Regulatory status reflects the published record and is not legal advice.</div>' : '';
+          detail.innerHTML = '<div class="detail-card"><p class="eyebrow">Property Intelligence</p><h1>' + escapeHtml(news.title) + '</h1><div class="article-meta meta"><span>' + escapeHtml(location(news)) + '</span><span>•</span><span>' + escapeHtml(date(articleDate)) + '</span></div>' + imageHtml(news, 'detail-image-wrap', 'detail-image') + statusHtml(news) + '<p class="detail-summary">' + escapeHtml(news.summary || '') + '</p>' + (news.body ? '<div class="detail-body">' + escapeHtml(news.body) + '</div>' : '') + '<div class="fact-grid"><div><span class="fact-label">Location</span><span class="fact-value">' + escapeHtml(location(news)) + '</span></div><div><span class="fact-label">Current status</span><span class="fact-value">' + escapeHtml(status(news) ? status(news).label : 'Reported update') + '</span></div><div><span class="fact-label">Published</span><span class="fact-value">' + escapeHtml(date(articleDate)) + '</span></div></div>' + sourceBox + '</div>'; wireImages(detail);
         } catch (error) { console.warn('Property news detail could not be loaded:', error); showError(detail, 'This property news item is temporarily unavailable.'); }
       }
       const newsId = new URLSearchParams(window.location.search).get('id');

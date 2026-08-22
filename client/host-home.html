@@ -286,6 +286,9 @@
   .property-news-title{ font-size:.88rem; font-weight:700; line-height:1.35; transition:color .2s ease; }
   .property-news-meta{ display:flex; align-items:center; flex-wrap:wrap; gap:.35rem; margin-top:.35rem; color:var(--muted); font-size:.74rem; }
   .property-news-source{ margin-top:.28rem; color:var(--muted); font-size:.68rem; line-height:1.35; }
+  .property-news-source-link{ color:inherit; text-decoration:underline; text-decoration-color:rgba(196,30,58,.38); text-underline-offset:2px; }
+  .property-news-source-link:hover{ color:var(--red-deep); text-decoration-color:currentColor; }
+  .property-news-detail-link{ display:block; color:inherit; }
   .property-news-status{
     display:inline-flex; align-items:center; width:max-content; margin-top:.45rem;
     border-radius:100px; padding:.18rem .48rem; background:#FBE4E7; color:var(--red-deep);
@@ -1154,6 +1157,11 @@
       return source && typeof source.name === 'string' && source.name.trim() ? source.name.trim() : '';
     }
 
+    function propertyNewsSourceUrl(news){
+      const value = news && news.source && news.source.url;
+      return /^https?:\/\//i.test(String(value || '')) ? String(value) : '';
+    }
+
     function wirePropertyNewsImages(container){
       container.querySelectorAll('.property-news-image').forEach(function(image){
         const wrapper = image.closest('.property-news-image-wrap');
@@ -1169,18 +1177,26 @@
         const publicationTime = source.published_at || news.published_at;
         const status = propertyNewsStatus(news);
         const sourceName = propertyNewsSource(news);
+        const sourceUrl = propertyNewsSourceUrl(news);
         const image = typeof news.image_url === 'string' && news.image_url.trim()
           ? '<div class="property-news-image-wrap"><img class="property-news-image" src="' + escapeHtml(news.image_url) + '" alt="" decoding="async"></div>'
           : '';
+        const sourceAttribution = sourceName
+          ? '<div class="property-news-source">' + (sourceUrl
+            ? '<a class="property-news-source-link" href="' + escapeHtml(sourceUrl) + '" target="_blank" rel="noopener noreferrer">Source · ' + escapeHtml(sourceName) + '</a>'
+            : 'Source · ' + escapeHtml(sourceName)) + '</div>'
+          : '';
         return (
-          '<a class="property-news-item" href="property-news.html?id=' + encodeURIComponent(news.id) + '">' +
-            image +
-            '<div class="property-news-kicker">Property News</div>' +
-            '<div class="property-news-title">' + escapeHtml(news.title || 'Property update') + '</div>' +
-            '<div class="property-news-meta"><span>' + escapeHtml(propertyNewsLocation(news)) + '</span><span>•</span><span>' + escapeHtml(publicationTime ? timeAgo(publicationTime) : 'Recently') + '</span></div>' +
-            (sourceName ? '<div class="property-news-source">Source · ' + escapeHtml(sourceName) + '</div>' : '') +
+          '<article class="property-news-item">' +
+            '<a class="property-news-detail-link" href="property-news.html?id=' + encodeURIComponent(news.id) + '">' +
+              image +
+              '<div class="property-news-kicker">Property News</div>' +
+              '<div class="property-news-title">' + escapeHtml(news.title || 'Property update') + '</div>' +
+              '<div class="property-news-meta"><span>' + escapeHtml(propertyNewsLocation(news)) + '</span><span>•</span><span>' + escapeHtml(publicationTime ? timeAgo(publicationTime) : 'Recently') + '</span></div>' +
+            '</a>' +
+            sourceAttribution +
             (status ? '<span class="property-news-status status-' + status.className + '">' + status.label + '</span>' : '') +
-          '</a>'
+          '</article>'
         );
       }).join('');
     }
