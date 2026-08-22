@@ -21,6 +21,7 @@ from .repository import MemoryNewsRepository, PropertyNewsRepositoryUnavailable,
 from .retrieval import NewsRetrievalService
 from .review import ReviewService
 from .jobs import run_collection_job
+from .media import extract_article_image_url
 from .seed_sources import upsert_official_lands_source
 
 Repository = MemoryNewsRepository | SupabaseNewsRepository
@@ -37,12 +38,21 @@ class ServiceContainer:
 
 
 def _public_item(item, source) -> dict[str, Any]:
+    source_payload = None
+    image_url = None
+    if source:
+        source_payload = {
+            "name": source.name,
+            "url": item.source_url,
+            "tier": item.source_tier,
+            "published_at": item.source_published_at,
+        }
+        image_url = extract_article_image_url(item.original_content, item.source_url, source.base_url)
     return {
         "id": str(item.id), "title": item.varoom_title or item.source_title, "summary": item.varoom_summary,
         "body": item.varoom_body, "category": item.category, "topics": item.topics, "counties": item.counties,
         "towns": item.towns, "regulatory_status": item.regulatory_status, "affected_groups": item.affected_groups,
-        "risk_level": item.risk_level, "source": {"name": source.name if source else "Unknown source", "url": item.source_url,
-                    "tier": item.source_tier, "published_at": item.source_published_at},
+        "risk_level": item.risk_level, "source": source_payload, "image_url": image_url,
         "published_at": item.published_at,
     }
 

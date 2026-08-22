@@ -14,6 +14,7 @@ from app.collector import SourceCollector
 from app.config import Settings
 from app.constants import RegulatoryStatus, ReviewStatus, RiskLevel
 from app.models import CandidateArticle, NewsItem, ReviewAction, Source
+from app.media import extract_article_image_url
 from app.jobs import run_collection_job
 from app.normalizer import canonicalise_url, content_hash
 from app.processing import ProcessingService
@@ -35,6 +36,17 @@ class NormalisationTests(unittest.TestCase):
 
     def test_content_hash_is_whitespace_and_case_stable(self):
         self.assertEqual(content_hash("A  Property\nUpdate"), content_hash("a property update"))
+
+    def test_article_image_uses_trusted_source_media_and_skips_logo(self):
+        html = '<img class="logo-site" src="/logo.png"><img src="/sites/default/files/story.jpeg" alt="Registry">'
+        self.assertEqual(
+            extract_article_image_url(html, "https://source1.example.test/story", "https://source1.example.test"),
+            "https://source1.example.test/sites/default/files/story.jpeg",
+        )
+
+    def test_article_image_is_optional_and_rejects_external_media(self):
+        html = '<meta property="og:image" content="https://cdn.example.test/story.jpeg">'
+        self.assertIsNone(extract_article_image_url(html, "https://source1.example.test/story", "https://source1.example.test"))
 
 
 class PipelineTests(unittest.IsolatedAsyncioTestCase):
@@ -183,6 +195,7 @@ class ApiSecurityTests(unittest.IsolatedAsyncioTestCase):
                 clean_text="Property update", varoom_title=f"{suffix} property update", varoom_summary="Summary",
                 category="property", source_tier=1, content_hash=digest, review_status=review_status,
                 published_at=datetime.now(timezone.utc) if review_status is ReviewStatus.PUBLISHED else None,
+                original_content='<img src="/story.jpeg" alt="Story">' if review_status is ReviewStatus.PUBLISHED else None,
             )
             await repository.save_item(item)
         app = create_app(Settings(public_rate_limit_per_minute=100), repository)
@@ -193,6 +206,8 @@ class ApiSecurityTests(unittest.IsolatedAsyncioTestCase):
         response_data = response.json()
         self.assertEqual([entry["title"] for entry in response_data], ["published property update"])
         self.assertNotIn("clean_text", response_data[0])
+        self.assertEqual(response_data[0]["source"]["name"], news_source.name)
+        self.assertEqual(response_data[0]["image_url"], "https://source1.example.test/story.jpeg")
 
     async def test_unauthorised_admin_action_is_denied(self):
         repository = MemoryNewsRepository()

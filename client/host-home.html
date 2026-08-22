@@ -279,8 +279,13 @@
   .property-news-item:first-child{ padding-top:.1rem; }
   .property-news-item:last-child{ border-bottom:none; padding-bottom:.1rem; }
   .property-news-item:hover .property-news-title{ color:var(--red-deep); }
+  .property-news-image-wrap{ display:none; overflow:hidden; margin:0 0 .65rem; border-radius:10px; background:rgba(26,18,16,.04); }
+  .property-news-image-wrap.is-loaded{ display:block; }
+  .property-news-image{ display:block; width:100%; height:108px; object-fit:cover; }
+  .property-news-kicker{ color:var(--red); font-size:.62rem; font-weight:800; letter-spacing:.1em; text-transform:uppercase; margin-bottom:.22rem; }
   .property-news-title{ font-size:.88rem; font-weight:700; line-height:1.35; transition:color .2s ease; }
   .property-news-meta{ display:flex; align-items:center; flex-wrap:wrap; gap:.35rem; margin-top:.35rem; color:var(--muted); font-size:.74rem; }
+  .property-news-source{ margin-top:.28rem; color:var(--muted); font-size:.68rem; line-height:1.35; }
   .property-news-status{
     display:inline-flex; align-items:center; width:max-content; margin-top:.45rem;
     border-radius:100px; padding:.18rem .48rem; background:#FBE4E7; color:var(--red-deep);
@@ -1144,15 +1149,36 @@
       return null;
     }
 
+    function propertyNewsSource(news){
+      const source = news && news.source;
+      return source && typeof source.name === 'string' && source.name.trim() ? source.name.trim() : '';
+    }
+
+    function wirePropertyNewsImages(container){
+      container.querySelectorAll('.property-news-image').forEach(function(image){
+        const wrapper = image.closest('.property-news-image-wrap');
+        image.addEventListener('load', function(){ if (wrapper) wrapper.classList.add('is-loaded'); }, { once:true });
+        image.addEventListener('error', function(){ if (wrapper) wrapper.remove(); }, { once:true });
+        if (image.complete && image.naturalWidth > 0 && wrapper) wrapper.classList.add('is-loaded');
+      });
+    }
+
     function propertyNewsItemsHtml(items){
       return items.slice(0, 4).map(function(news){
         const source = news.source || {};
         const publicationTime = source.published_at || news.published_at;
         const status = propertyNewsStatus(news);
+        const sourceName = propertyNewsSource(news);
+        const image = typeof news.image_url === 'string' && news.image_url.trim()
+          ? '<div class="property-news-image-wrap"><img class="property-news-image" src="' + escapeHtml(news.image_url) + '" alt="" loading="lazy" decoding="async"></div>'
+          : '';
         return (
           '<a class="property-news-item" href="property-news.html?id=' + encodeURIComponent(news.id) + '">' +
+            image +
+            '<div class="property-news-kicker">Property News</div>' +
             '<div class="property-news-title">' + escapeHtml(news.title || 'Property update') + '</div>' +
             '<div class="property-news-meta"><span>' + escapeHtml(propertyNewsLocation(news)) + '</span><span>•</span><span>' + escapeHtml(publicationTime ? timeAgo(publicationTime) : 'Recently') + '</span></div>' +
+            (sourceName ? '<div class="property-news-source">Source · ' + escapeHtml(sourceName) + '</div>' : '') +
             (status ? '<span class="property-news-status status-' + status.className + '">' + status.label + '</span>' : '') +
           '</a>'
         );
@@ -1164,7 +1190,7 @@
       const html = state === 'ready'
         ? (items.length ? propertyNewsItemsHtml(items) : '<p class="property-news-empty">Nothing new right now. We\'ll bring you relevant property updates as they happen.</p>')
         : '<p class="property-news-error">Property news is temporarily unavailable.</p>';
-      containers.forEach(function(container){ if (container) container.innerHTML = html; });
+      containers.forEach(function(container){ if (container) { container.innerHTML = html; wirePropertyNewsImages(container); } });
     }
 
     async function loadPropertyNews(){
