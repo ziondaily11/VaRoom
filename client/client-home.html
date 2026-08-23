@@ -23,7 +23,6 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;0,9..144,900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<link rel="stylesheet" href="js/property-news-bar.css">
 <style>
   :root{
     --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#1A1210; --paper:#FBF4F1;
@@ -190,6 +189,7 @@
 
   @media (max-width:1180px){
     .mobile-dest-section{ display:block; margin-bottom:1.4rem; }
+    .mobile-property-news-section{ display:block; margin-bottom:1.4rem; }
     .mobile-dest-row{
       display:flex; gap:.7rem; overflow-x:auto; -webkit-overflow-scrolling:touch; padding-bottom:.3rem; margin-bottom:0;
       scrollbar-width:none;
@@ -246,9 +246,13 @@
   .property-news-widget{ background:var(--white); border:1px solid rgba(26,18,16,.08); border-radius:16px; padding:1.2rem 1.4rem; }
   .property-news-widget-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:.75rem; }
   .property-news-widget-head h2{ font-family:var(--font-display); font-size:1.05rem; font-weight:600; }
-  .client-property-news-list{ display:flex; flex-direction:column; gap:.1rem; }
-  .client-property-news-item{ display:block; padding:.75rem 0; border-bottom:1px solid rgba(26,18,16,.08); }
-  .client-property-news-item:last-child{ border-bottom:none; padding-bottom:.1rem; }
+  .property-news-bar-refresh{ font-size:.78rem; color:var(--muted); background:none; border:none; cursor:pointer; padding:.3rem .5rem; border-radius:6px; }
+  .property-news-bar-refresh:hover{ background:var(--paper); color:var(--ink); }
+  .client-property-news-list{ display:flex; flex-direction:column; gap:.7rem; }
+  .client-property-news-item{
+    display:block; background:var(--paper); border:1px solid rgba(26,18,16,.08);
+    border-radius:14px; padding:.9rem 1rem;
+  }
   .client-property-news-main{ display:block; color:inherit; }
   .client-property-news-image-wrap{ height:0; overflow:hidden; margin:0; border-radius:10px; opacity:0; }
   .client-property-news-image-wrap.is-loaded{ height:104px; margin:0 0 .55rem; opacity:1; }
@@ -262,6 +266,9 @@
   .client-property-news-empty,.client-property-news-error{ color:var(--muted); font-size:.82rem; line-height:1.45; }
   .client-property-news-view-all{ display:inline-flex; margin-top:.7rem; color:var(--red); font-size:.78rem; font-weight:600; }
   .client-property-news-view-all:hover{ color:var(--red-deep); }
+
+  /* Mobile: its own section above the feed, not spliced between listing posts */
+  .mobile-property-news-section{ display:none; }
 
   h1.feed-title{
     font-family:var(--font-display); font-weight:600; font-size:1.5rem; margin-bottom:1.2rem;
@@ -611,6 +618,19 @@
           <div class="mobile-dest-row" id="mobile-dest-row"></div>
         </div>
 
+        <div class="mobile-property-news-section" id="mobile-property-news-section">
+          <div class="mobile-widget-card property-news-widget">
+            <div class="property-news-widget-head">
+              <h2>Property News</h2>
+              <button class="property-news-bar-refresh" id="property-news-refresh-mobile" title="Refresh news">Refresh</button>
+            </div>
+            <div class="client-property-news-list" id="client-property-news-mobile" aria-live="polite">
+              <p class="state-msg" style="padding:0;font-size:.85rem;">Loading…</p>
+            </div>
+            <a class="client-property-news-view-all" href="property-news.html">View all news →</a>
+          </div>
+        </div>
+
         <div id="feed-list"></div>
       </div>
 
@@ -639,8 +659,8 @@
             <h2>Property News</h2>
             <button class="property-news-bar-refresh" id="property-news-refresh" title="Refresh news">Refresh</button>
           </div>
-          <div class="property-news-bar" id="client-property-news-bar" aria-live="polite">
-            <div class="property-news-loading">Loading property news…</div>
+          <div class="client-property-news-list" id="client-property-news" aria-live="polite">
+            <p class="state-msg" style="padding:0;font-size:.85rem;">Loading…</p>
           </div>
           <a class="client-property-news-view-all" href="property-news.html">View all news →</a>
         </div>
@@ -674,7 +694,6 @@
 
 <script src="js/supabase-client.js"></script>
 <script src="js/notifications-widget.js"></script>
-<script src="js/property-news-bar.js"></script>
 <script>
   (async function(){
     let currentUser = null;
@@ -1075,8 +1094,11 @@
     }
 
     // Builds the "Recommended for you" + "VaRoom Updates" widget block that
-    // gets spliced into the mobile feed after the first post. Real data is
-    // filled in afterward by loadRecommended() / loadVaroomUpdates().
+    // gets spliced into the mobile feed after the first post. Property News
+    // is deliberately NOT part of this block — it has its own standalone
+    // section above the feed (#mobile-property-news-section) so it isn't
+    // mixed in between listing posts. Real data is filled in afterward by
+    // loadRecommended() / loadVaroomUpdates().
     function mobileWidgetsBlock(){
       return (
         '<div class="mobile-widget-slot">' +
@@ -1089,13 +1111,6 @@
           '<div class="mobile-widget-card">' +
             '<div class="mobile-widget-head"><h2>VaRoom Updates</h2></div>' +
             '<div id="varoom-updates-mobile" style="display:flex;flex-direction:column;gap:.9rem;"><p class="state-msg" style="padding:0;font-size:.85rem;">Loading…</p></div>' +
-          '</div>' +
-        '</div>' +
-        '<div class="mobile-widget-slot">' +
-          '<div class="mobile-widget-card property-news-widget">' +
-            '<div class="property-news-widget-head"><h2>Property News</h2></div>' +
-            '<div class="client-property-news-list" id="client-property-news-mobile" aria-live="polite"><p class="state-msg" style="padding:0;font-size:.85rem;">Loading…</p></div>' +
-            '<a class="client-property-news-view-all" href="property-news.html">View all news →</a>' +
           '</div>' +
         '</div>'
       );
@@ -1177,7 +1192,6 @@
       if (showMobileWidgets) {
         loadRecommended();
         loadVaroomUpdates('varoom-updates-mobile');
-        loadClientPropertyNews();
       }
     }
 
@@ -1382,6 +1396,14 @@
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
+    // Each news box is shown for a fixed window after it was published,
+    // then disappears on its own rather than sitting there indefinitely.
+    const PROPERTY_NEWS_DISPLAY_MS = 60 * 60 * 1000; // 1 hour
+    const PROPERTY_NEWS_REFRESH_MS = 5 * 60 * 1000; // re-check for new items every 5 minutes
+    let propertyNewsItems = [];
+    let propertyNewsRefreshTimer = null;
+    let propertyNewsExpiryTimer = null;
+
     function clientPropertyNewsSourceUrl(news){
       const value = news && news.source && news.source.url;
       return /^https?:\/\//i.test(String(value || '')) ? String(value) : '';
@@ -1414,6 +1436,28 @@
       }).join('');
     }
 
+    // Drops items whose published time is older than the display window.
+    // Items with no date at all are kept, since there's no age to judge.
+    function freshPropertyNews(items){
+      const now = Date.now();
+      return (items || []).filter(function(news){
+        const source = news.source || {};
+        const publishedAt = source.published_at || news.published_at;
+        if (!publishedAt) return true;
+        const publishedTime = new Date(publishedAt).getTime();
+        if (isNaN(publishedTime)) return true;
+        return (now - publishedTime) <= PROPERTY_NEWS_DISPLAY_MS;
+      });
+    }
+
+    function renderPropertyNewsContainers(){
+      const containers = [document.getElementById('client-property-news'), document.getElementById('client-property-news-mobile')].filter(Boolean);
+      if (!containers.length) return;
+      const fresh = freshPropertyNews(propertyNewsItems);
+      const html = fresh.length ? clientPropertyNewsHtml(fresh) : '<p class="client-property-news-empty">Nothing new right now.</p>';
+      containers.forEach(function(container){ container.innerHTML = html; wireClientPropertyNewsImages(container); });
+    }
+
     async function loadClientPropertyNews(){
       const containers = [document.getElementById('client-property-news'), document.getElementById('client-property-news-mobile')].filter(Boolean);
       if (!containers.length) return;
@@ -1421,13 +1465,27 @@
         const response = await fetch('/api/news/latest?limit=3', { headers:{ Accept:'application/json' } });
         if (!response.ok) throw new Error('Property News request failed');
         const items = await response.json();
-        const html = Array.isArray(items) && items.length ? clientPropertyNewsHtml(items) : '<p class="client-property-news-empty">Nothing new right now.</p>';
-        containers.forEach(function(container){ container.innerHTML = html; wireClientPropertyNewsImages(container); });
+        propertyNewsItems = Array.isArray(items) ? items : [];
+        renderPropertyNewsContainers();
       } catch (error) {
         console.warn('Property News could not be loaded:', error);
         containers.forEach(function(container){ container.innerHTML = '<p class="client-property-news-error">Property News is temporarily unavailable.</p>'; });
       }
     }
+
+    function startPropertyNewsTimers(){
+      clearInterval(propertyNewsRefreshTimer);
+      clearInterval(propertyNewsExpiryTimer);
+      propertyNewsRefreshTimer = setInterval(loadClientPropertyNews, PROPERTY_NEWS_REFRESH_MS);
+      // Checked more often than the refetch so a box disappears close to
+      // on-time once its hour is up, without waiting on the next fetch.
+      propertyNewsExpiryTimer = setInterval(renderPropertyNewsContainers, 60 * 1000);
+    }
+
+    const propertyNewsRefreshBtn = document.getElementById('property-news-refresh');
+    if (propertyNewsRefreshBtn) propertyNewsRefreshBtn.addEventListener('click', loadClientPropertyNews);
+    const propertyNewsRefreshBtnMobile = document.getElementById('property-news-refresh-mobile');
+    if (propertyNewsRefreshBtnMobile) propertyNewsRefreshBtnMobile.addEventListener('click', loadClientPropertyNews);
 
     async function loadVaroomUpdates(targetId){
       const wrap = document.getElementById(targetId);
@@ -1469,6 +1527,7 @@
     loadDestinations();
     loadVaroomUpdates('varoom-updates');
     loadClientPropertyNews();
+    startPropertyNewsTimers();
   })();
 </script>
 
