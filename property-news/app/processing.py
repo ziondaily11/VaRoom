@@ -8,7 +8,6 @@ from .analysis import NewsAnalyzer
 from .constants import ReviewStatus
 from .models import NewsEvent, NewsItem
 from .repository import MemoryNewsRepository, SupabaseNewsRepository
-from .risk import allows_auto_publish
 
 Repository = MemoryNewsRepository | SupabaseNewsRepository
 _SENSITIVE_URL_PARAMETER = re.compile(r"(?i)([?&](?:api[_-]?key|key|token|access_token)=)[^&\s'\"]+")
@@ -51,11 +50,15 @@ class ProcessingService:
         if not analysis.relevant:
             item.review_status = ReviewStatus.ARCHIVED
             event_type = "item_rejected_irrelevant"
-        elif self._valid_for_auto_publish(item) and allows_auto_publish(item.risk_level, item.source_tier, item.confidence_score):
+        elif self._valid_for_auto_publish(item):
+            # Risk level, source tier, and confidence are still computed and stored
+            # on the item/event for auditing, but no longer gate publishing.
             item.review_status = ReviewStatus.PUBLISHED
             item.published_at = datetime.now(timezone.utc)
             event_type = "item_auto_published"
         else:
+            # Only reached when required fields (title/summary/category/url/text)
+            # are missing, i.e. the analyzer produced an incomplete result.
             item.review_status = ReviewStatus.PENDING_REVIEW
             event_type = "item_queued_for_review"
         saved = await self.repository.save_item(item)
