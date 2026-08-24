@@ -1,7 +1,7 @@
 {
   "rewrites": [
-    { "source": "/api/news", "destination": "https://varoom.onrender.com/api/news" },
-    { "source": "/api/news/:path*", "destination": "https://varoom.onrender.com/api/news/:path*" },
+    { "source": "/api/news", "destination": "https://varoom-1.onrender.com/api/news" },
+    { "source": "/api/news/:path*", "destination": "https://varoom-1.onrender.com/api/news/:path*" },
     { "source": "/u/:username", "destination": "/profile-public.html" }
   ]
 }
