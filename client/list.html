@@ -582,11 +582,11 @@
             <button type="button" class="step-btn back" data-back>← Back</button>
           </div>
         </div>
-        <div class="step-photo" style="background-image:url('assets/listing-wizard/step-5.jpg');">
-          <div class="step-photo-badge"><span class="check">✓</span> Ready to publish</div>
+        <div class="step-photo" id="review-hero-photo" style="background-image:url('assets/listing-wizard/step-5.jpg');">
+          <div class="step-photo-badge" id="review-hero-badge"><span class="check">✓</span> Ready to publish</div>
           <div class="step-photo-caption">
-            <h3>A place worth remembering.</h3>
-            <p>Once you publish, your space is ready for people to picture themselves in it.</p>
+            <h3 id="review-hero-title">A place worth remembering.</h3>
+            <p id="review-hero-sub">Once you publish, your space is ready for people to picture themselves in it.</p>
           </div>
         </div>
       </section>
@@ -803,12 +803,29 @@
       : '<span class="check" style="color:var(--red)">!</span> Location skipped — add it later from your listing settings';
 
     const thumbSlot = document.getElementById('review-thumb');
+    const heroPhoto = document.getElementById('review-hero-photo');
+    const heroBadge = document.getElementById('review-hero-badge');
+    const heroTitle = document.getElementById('review-hero-title');
+    const heroSub = document.getElementById('review-hero-sub');
+    const priceLine = amount ? ('KES ' + Number(amount).toLocaleString() + unitLabel()) : 'Price not set';
+
     if (selectedFiles.length > 0) {
       thumbSlot.classList.remove('placeholder');
-      thumbSlot.innerHTML = '<img src="' + URL.createObjectURL(selectedFiles[0]) + '" alt="Cover photo" style="width:100%;height:100%;object-fit:cover;border-radius:10px;">';
+      const coverUrl = URL.createObjectURL(selectedFiles[0]);
+      thumbSlot.innerHTML = '<img src="' + coverUrl + '" alt="Cover photo" style="width:100%;height:100%;object-fit:cover;border-radius:10px;">';
+      // Bigger view of the actual listing, using the host's own cover photo
+      // instead of stock mood photography, with real details floating on it.
+      heroPhoto.style.backgroundImage = "url('" + coverUrl + "')";
+      heroBadge.innerHTML = '<span class="check">✓</span> Your cover photo';
+      heroTitle.textContent = title;
+      heroSub.textContent = [CATEGORY_LABELS[category] || 'Listing', priceLine].filter(Boolean).join(' · ');
     } else {
       thumbSlot.classList.add('placeholder');
       thumbSlot.textContent = 'No photo';
+      heroPhoto.style.backgroundImage = "url('assets/listing-wizard/step-5.jpg')";
+      heroBadge.innerHTML = '<span class="check">✓</span> Ready to publish';
+      heroTitle.textContent = 'A place worth remembering.';
+      heroSub.textContent = 'No photos added — you can still publish and add them later.';
     }
   }
 
