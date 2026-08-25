@@ -177,6 +177,11 @@
   .vrm-picker-address{ margin-top:8px; font-size:.85rem; color:#555; }
   .location-hint-pill{ display:inline-flex; align-items:center; gap:.4rem; font-size:.78rem; font-weight:600; background:rgba(26,18,16,.08); color:var(--wz-ink-onlight); padding:.5rem .8rem; border-radius:100px; margin-top:1rem; }
   .location-hint-pill .check{ color:#2E7D32; font-weight:800; }
+  .location-hint-pill.not-ready{ background:rgba(196,30,58,.1); color:var(--red-deep); }
+  .location-hint-pill.not-ready .check{ color:var(--red-deep); }
+  .location-picker-fallback{ border:1.5px dashed var(--wz-cream-border); border-radius:12px; padding:1.4rem 1.1rem; font-size:.85rem; color:var(--wz-cream-text-muted); text-align:center; }
+  .skip-link{ display:block; text-align:center; font-size:.8rem; font-weight:600; color:var(--wz-cream-text-muted); margin-top:.9rem; text-decoration:underline; }
+  .skip-link:hover{ color:var(--red-deep); }
 
   /* ============ PHOTOS STEP ============ */
   .photo-hint{ font-size:.78rem; margin-bottom:.9rem; }
@@ -357,13 +362,14 @@
               <input type="hidden" id="location_city" name="location_city">
               <input type="hidden" id="location_country" name="location_country">
             </div>
-            <span class="location-hint-pill"><span class="check">✓</span> Use current GPS location · confirm before publishing</span>
+            <span class="location-hint-pill" id="location-hint-pill"><span class="check">✓</span> Use current GPS location · confirm before publishing</span>
           </div>
 
           <div class="panel-actions">
             <button type="button" class="step-btn back" data-back>← Back</button>
             <button type="button" class="step-btn next" data-next>Continue to photos →</button>
           </div>
+          <button type="button" class="skip-link" id="skip-location">Skip for now — add the exact location later →</button>
         </div>
         <div class="step-photo" style="background-image:url('assets/listing-wizard/step-2.jpg');">
           <div class="step-photo-badge"><span class="check">✓</span> Location confirmed</div>
@@ -563,7 +569,7 @@
             </div>
             <ul class="review-checklist">
               <li><span class="check">✓</span> Details and description added</li>
-              <li><span class="check">✓</span> Location pinned and ready for GPS verification</li>
+              <li id="review-location-line"><span class="check">✓</span> Location pinned and ready for GPS verification</li>
               <li><span class="check">✓</span> Pricing and booking terms set</li>
             </ul>
           </div>
@@ -626,19 +632,36 @@
   })();
 
   // ---------- Location picker ----------
+  // The map picker isn't wired up yet (expected end of this week), so this
+  // guards against a missing/broken VaroomMaps global instead of throwing
+  // and taking down the rest of the wizard. Location becomes a skippable
+  // step until the widget is ready — see #skip-location below.
   function initLocationPicker(){
-    VaroomMaps.createLocationPicker({
-      container: document.getElementById('location-picker'),
-      onConfirm: function(loc){
-        document.getElementById('location_lat').value = loc.lat;
-        document.getElementById('location_lng').value = loc.lng;
-        document.getElementById('location_place_id').value = loc.place_id || '';
-        document.getElementById('location_formatted_address').value = loc.formatted_address || '';
-        document.getElementById('location_neighborhood').value = loc.neighborhood || '';
-        document.getElementById('location_city').value = loc.city || '';
-        document.getElementById('location_country').value = loc.country || '';
+    const container = document.getElementById('location-picker');
+    const hintPill = document.getElementById('location-hint-pill');
+    try {
+      if (typeof VaroomMaps === 'undefined' || !VaroomMaps.createLocationPicker) {
+        throw new Error('VaroomMaps not available');
       }
-    });
+      VaroomMaps.createLocationPicker({
+        container: container,
+        onConfirm: function(loc){
+          document.getElementById('location_lat').value = loc.lat;
+          document.getElementById('location_lng').value = loc.lng;
+          document.getElementById('location_place_id').value = loc.place_id || '';
+          document.getElementById('location_formatted_address').value = loc.formatted_address || '';
+          document.getElementById('location_neighborhood').value = loc.neighborhood || '';
+          document.getElementById('location_city').value = loc.city || '';
+          document.getElementById('location_country').value = loc.country || '';
+          hintPill.classList.remove('not-ready');
+          hintPill.innerHTML = '<span class="check">✓</span> Location confirmed';
+        }
+      });
+    } catch (err) {
+      container.innerHTML = '<div class="location-picker-fallback">Map picker isn\'t connected yet. You can skip this step for now and add the exact location once it\'s ready.</div>';
+      hintPill.classList.add('not-ready');
+      hintPill.innerHTML = '<span class="check">!</span> Location not set — you can skip this step for now';
+    }
   }
 
   // ---------- Category-driven booking fields ----------
@@ -717,16 +740,14 @@
     for (const field of required) {
       if (!field.checkValidity()) { field.reportValidity(); return false; }
     }
-    if (n === 2) {
-      const lat = document.getElementById('location_lat').value;
-      const lng = document.getElementById('location_lng').value;
-      if (!lat || !lng) {
-        alert("Please set the property's location on the map before continuing.");
-        return false;
-      }
-    }
+    // Location (step 2) is intentionally not required here — the map picker
+    // isn't wired up yet. See #skip-location and initLocationPicker().
     return true;
   }
+
+  document.getElementById('skip-location').addEventListener('click', function(){
+    goToStep(currentStep + 1);
+  });
 
   function goToStep(n){
     if (n < 1) n = 1;
@@ -774,6 +795,12 @@
     document.getElementById('review-price').textContent = amount
       ? 'KES ' + Number(amount).toLocaleString() + unitLabel()
       : 'Price not set';
+
+    const locationLine = document.getElementById('review-location-line');
+    const hasLocation = document.getElementById('location_lat').value && document.getElementById('location_lng').value;
+    locationLine.innerHTML = hasLocation
+      ? '<span class="check">✓</span> Location pinned and ready for GPS verification'
+      : '<span class="check" style="color:var(--red)">!</span> Location skipped — add it later from your listing settings';
 
     const thumbSlot = document.getElementById('review-thumb');
     if (selectedFiles.length > 0) {
@@ -967,15 +994,18 @@
         // formatted_address, which only ever go through
         // server/lib/locationAccess.js). It must therefore only ever hold
         // the general area, never the exact formatted address.
-        location_text: [locationNeighborhood, locationCity].filter(Boolean).join(', ') || locationCity || locationCountry,
-        latitude: parseFloat(locationLat),
-        longitude: parseFloat(locationLng),
+        location_text: [locationNeighborhood, locationCity].filter(Boolean).join(', ') || locationCity || locationCountry || 'Location to be added',
+        latitude: locationLat ? parseFloat(locationLat) : null,
+        longitude: locationLng ? parseFloat(locationLng) : null,
         place_id: locationPlaceId || null,
         formatted_address: locationFormattedAddress || null,
         neighborhood: locationNeighborhood || null,
         city: locationCity || null,
         country: locationCountry || null,
-        location_status: 'confirmed',
+        // 'confirmed' only when the picker actually returned coordinates;
+        // 'pending' means the host skipped location for now (map picker
+        // not wired up yet) and it still needs to be added and verified.
+        location_status: (locationLat && locationLng) ? 'confirmed' : 'pending',
       })
       .select().single();
 
