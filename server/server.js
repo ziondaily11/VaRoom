@@ -3,6 +3,7 @@ require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const supabaseAdmin = require('./lib/supabaseClient');
+const { getListingLocation, getBookingLocation } = require('./lib/locationAccess');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -88,6 +89,50 @@ app.post('/api/delete-account', async (req, res) => {
   // profiles row is deleted automatically via the ON DELETE CASCADE
   // foreign key back to auth.users, set up in the original schema.
   res.json({ success: true });
+});
+
+// Resolves the calling user from an optional Bearer token. Returns null
+// (not an error) when there is no token — location endpoints allow
+// anonymous callers and just fall back to Level 1 Public data for them.
+async function getRequestingUserId(req) {
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  if (!token) return null;
+
+  const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
+  if (error || !user) return null;
+  return user.id;
+}
+
+// Google Maps Integration, Phase 1: the only routes allowed to read
+// listings.latitude/longitude or bookings.location_snapshot. See
+// server/lib/locationAccess.js for the access-level rules this enforces.
+app.get('/api/listings/:id/location', async (req, res) => {
+  const requestingUserId = await getRequestingUserId(req);
+  const result = await getListingLocation(supabaseAdmin, {
+    listingId: req.params.id,
+    requestingUserId,
+  });
+  if (result.error) {
+    return res.status(404).json({ error: result.error });
+  }
+  res.json(result);
+});
+
+app.get('/api/bookings/:id/location', async (req, res) => {
+  const requestingUserId = await getRequestingUserId(req);
+  if (!requestingUserId) {
+    return res.status(401).json({ error: 'Login required' });
+  }
+  const result = await getBookingLocation(supabaseAdmin, {
+    bookingId: req.params.id,
+    requestingUserId,
+  });
+  if (result.error) {
+    const status = result.error === 'Not authorized to view this booking' ? 403 : 404;
+    return res.status(status).json({ error: result.error });
+  }
+  res.json(result);
 });
 
 app.listen(PORT, () => {
