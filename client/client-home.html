@@ -298,6 +298,8 @@
   .card-host-name{ font-weight:700; font-size:.95rem; display:flex; align-items:center; gap:.35rem; }
   .verified-tick{ color:var(--red); font-size:.85rem; }
   .card-location{ font-size:.8rem; color:var(--muted); }
+  .card-map-link{ color:var(--red); font-weight:600; }
+  .card-map-link:hover{ text-decoration:underline; }
   .card-time{ margin-left:auto; font-size:.78rem; color:var(--muted); }
 
   .card-menu-wrap{ position:relative; margin-left:.4rem; }
@@ -848,7 +850,9 @@
               '<div class="card-host-name">' + escapeHtml(host.full_name || 'Host') +
                 (host.verified ? '<span class="verified-tick">✔</span>' : '') +
               '</div>' +
-              '<div class="card-location">' + (host.username ? '@' + escapeHtml(host.username) + ' · ' : '') + escapeHtml(listing.location_text) + '</div>' +
+              '<div class="card-location">' + (host.username ? '@' + escapeHtml(host.username) + ' · ' : '') + escapeHtml(listing.location_text) +
+                ' · <a href="map.html?listing=' + listing.id + '" class="card-map-link">View on Map</a>' +
+              '</div>' +
             '</div>' +
             '<div class="card-time">' + timeAgo(listing.created_at) + '</div>' +
             (listing.host_id === currentUser.id ? '' :

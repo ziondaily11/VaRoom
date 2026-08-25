@@ -3,6 +3,7 @@ require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const supabaseAdmin = require('./lib/supabaseClient');
+const { getListingLocation, getBookingLocation, getListingDistance } = require('./lib/locationAccess');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -88,6 +89,79 @@ app.post('/api/delete-account', async (req, res) => {
   // profiles row is deleted automatically via the ON DELETE CASCADE
   // foreign key back to auth.users, set up in the original schema.
   res.json({ success: true });
+});
+
+// Resolves the calling user from an optional Bearer token. Returns null
+// (not an error) when there is no token — location endpoints allow
+// anonymous callers and just fall back to Level 1 Public data for them.
+async function getRequestingUserId(req) {
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  if (!token) return null;
+
+  const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
+  if (error || !user) return null;
+  return user.id;
+}
+
+// Google Maps Integration, Phase 1: the only routes allowed to read
+// listings.latitude/longitude or bookings.location_snapshot. See
+// server/lib/locationAccess.js for the access-level rules this enforces.
+app.get('/api/listings/:id/location', async (req, res) => {
+  const requestingUserId = await getRequestingUserId(req);
+  const result = await getListingLocation(supabaseAdmin, {
+    listingId: req.params.id,
+    requestingUserId,
+  });
+  if (result.error) {
+    return res.status(404).json({ error: result.error });
+  }
+  res.json(result);
+});
+
+app.get('/api/bookings/:id/location', async (req, res) => {
+  const requestingUserId = await getRequestingUserId(req);
+  if (!requestingUserId) {
+    return res.status(401).json({ error: 'Login required' });
+  }
+  const result = await getBookingLocation(supabaseAdmin, {
+    bookingId: req.params.id,
+    requestingUserId,
+  });
+  if (result.error) {
+    const status = result.error === 'Not authorized to view this booking' ? 403 : 404;
+    return res.status(status).json({ error: result.error });
+  }
+  res.json(result);
+});
+
+// Public config the frontend needs to boot the Google Maps JS SDK. Returns
+// apiKey: null (not an error) when GOOGLE_MAPS_API_KEY isn't set yet, so
+// every map-dependent screen can degrade gracefully instead of breaking
+// while the key is being provisioned.
+app.get('/api/maps-config', (req, res) => {
+  res.json({ apiKey: process.env.GOOGLE_MAPS_API_KEY || null });
+});
+
+// Distance is derived server-side from the listing's private coordinates
+// and the caller's own coordinates (sent in the query string, only ever
+// after the browser's own geolocation permission prompt) — the listing's
+// coordinates themselves are never sent back (spec section 11).
+app.get('/api/listings/:id/distance', async (req, res) => {
+  const lat = parseFloat(req.query.lat);
+  const lng = parseFloat(req.query.lng);
+  if (Number.isNaN(lat) || Number.isNaN(lng)) {
+    return res.status(400).json({ error: 'lat and lng query params are required' });
+  }
+  const result = await getListingDistance(supabaseAdmin, {
+    listingId: req.params.id,
+    userLat: lat,
+    userLng: lng,
+  });
+  if (result.error) {
+    return res.status(404).json({ error: result.error });
+  }
+  res.json(result);
 });
 
 app.listen(PORT, () => {
