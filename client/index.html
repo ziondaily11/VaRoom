@@ -1939,9 +1939,9 @@
       </div>
     </div>
 
-    <!-- Feature image — uses landing102.jpg (the Kilimani room photo) -->
+    <!-- Feature image — woman at desk = landing101.jpg -->
     <div class="feature-panel">
-      <img src="assets/landing102.jpg" alt="Kilimani, Nairobi — 2 bed apartment" loading="lazy" />
+      <img src="assets/landing101.jpg" alt="Kilimani, Nairobi — 2 bed apartment" loading="lazy" />
       <div class="feature-panel-shade"></div>
       <div class="feature-counter"><strong>01</strong> / 03</div>
       <div class="feature-copy">
@@ -2097,9 +2097,9 @@
      HOSTS
 ============================================================ -->
 <section class="hosts" id="hosts">
-  <!-- Host image — uses landing101.jpg -->
+  <!-- Host image — night house shot = landing102.jpg -->
   <div class="host-image">
-    <img src="assets/landing101.jpg" alt="Host reviewing their listing" loading="lazy" />
+    <img src="assets/landing102.jpg" alt="Host reviewing their listing" loading="lazy" />
     <div class="host-image-shade"></div>
     <div class="host-image-caption">
       <small>From a space</small>
@@ -2206,7 +2206,7 @@
   <!-- Live listing showcase -->
   <div class="listing-showcase">
     <div class="listing-photo">
-      <img src="assets/landing102.jpg" alt="The Greenhouse, Kilimani Nairobi" loading="lazy" />
+      <img id="showcase-photo" src="assets/landing102.jpg" alt="Verified listing" loading="lazy" style="transition:opacity 0.4s;" />
       <div class="listing-verified-badge">
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
         Verified location
@@ -2217,11 +2217,11 @@
     </div>
 
     <div class="listing-detail">
-      <div class="listing-meta">Airbnb · Kilimani, Nairobi</div>
-      <div class="listing-price">KSh 8,500<span style="font-size:13px;font-weight:400;color:var(--muted)">/night</span></div>
-      <h2 class="listing-name">The Greenhouse</h2>
+      <div class="listing-meta" id="showcase-meta">Airbnb · Kilimani, Nairobi</div>
+      <div class="listing-price" id="showcase-price">KSh 8,500<span style="font-size:13px;font-weight:400;color:var(--muted)">/night</span></div>
+      <h2 class="listing-name" id="showcase-title">The Greenhouse</h2>
 
-      <div class="listing-attrs">
+      <div class="listing-attrs" id="showcase-attrs">
         <span class="listing-attr">2 bedrooms</span>
         <span class="listing-attr">4 guests</span>
         <span class="listing-attr">Pool</span>
@@ -2546,6 +2546,79 @@
   document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') closeDrawer();
   });
+})();
+</script>
+
+
+<script>
+/* ── Wire listing showcase to real Supabase listing ── */
+(async function loadShowcaseListing() {
+  try {
+    // Fetch one verified airbnb listing with a photo
+    var res = await supabaseClient
+      .from('listings')
+      .select('id, title, category, location_text, price_per_night, bedrooms, max_guests, amenities, listing_photos(storage_path)')
+      .eq('is_verified', true)
+      .not('listing_photos', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (res.error || !res.data) return; // fallback to static content
+
+    var listing = res.data;
+
+    // Update photo
+    var photo = listing.listing_photos && listing.listing_photos[0];
+    if (photo) {
+      var photoUrl = supabaseClient.storage.from('listing-photos').getPublicUrl(photo.storage_path).data.publicUrl;
+      var img = document.getElementById('showcase-photo');
+      if (img) {
+        img.style.opacity = '0';
+        img.onload = function() { img.style.opacity = '1'; };
+        img.src = photoUrl;
+        img.alt = listing.title;
+      }
+    }
+
+    // Update meta
+    var meta = document.getElementById('showcase-meta');
+    if (meta) {
+      var cat = listing.category ? listing.category.charAt(0).toUpperCase() + listing.category.slice(1) : 'Listing';
+      meta.textContent = cat + ' · ' + (listing.location_text || '');
+    }
+
+    // Update price
+    var priceEl = document.getElementById('showcase-price');
+    if (priceEl && listing.price_per_night) {
+      priceEl.innerHTML = 'KSh ' + Number(listing.price_per_night).toLocaleString() +
+        '<span style="font-size:13px;font-weight:400;color:var(--muted)">/night</span>';
+    }
+
+    // Update title
+    var titleEl = document.getElementById('showcase-title');
+    if (titleEl) titleEl.textContent = listing.title;
+
+    // Update attrs
+    var attrsEl = document.getElementById('showcase-attrs');
+    if (attrsEl) {
+      var attrs = [];
+      if (listing.bedrooms)   attrs.push(listing.bedrooms + ' bedroom' + (listing.bedrooms > 1 ? 's' : ''));
+      if (listing.max_guests) attrs.push(listing.max_guests + ' guests');
+      if (listing.amenities && Array.isArray(listing.amenities)) {
+        listing.amenities.slice(0, 2).forEach(function(a) { attrs.push(a); });
+      }
+      if (attrs.length > 0) {
+        attrsEl.innerHTML = attrs.map(function(a) {
+          return '<span class="listing-attr">' + a + '</span>';
+        }).join('');
+      }
+    }
+
+  } catch(e) {
+    // silently fall back to static placeholder content
+    console.log('Showcase: using static fallback', e.message);
+  }
 })();
 </script>
 
