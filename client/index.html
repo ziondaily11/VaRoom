@@ -2555,30 +2555,46 @@
 (async function loadShowcaseListing() {
   try {
     // Fetch one verified airbnb listing with a photo
+    // Try multiple columns for photo path — different installs may use different column names
     var res = await supabaseClient
       .from('listings')
-      .select('id, title, category, location_text, price_per_night, bedrooms, max_guests, amenities, listing_photos(storage_path)')
+      .select(`id, title, category, location_text, price_per_night, bedrooms, max_guests, amenities,
+               listing_photos(storage_path, photo_path, url, file_path)`)
       .eq('is_verified', true)
-      .not('listing_photos', 'is', null)
       .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
+      .limit(8);  // fetch several so we can find one with a photo
+
+    // pick the first one that has at least one photo
+    var listing = null;
+    if (res.data) {
+      listing = res.data.find(function(l) {
+        return l.listing_photos && l.listing_photos.length > 0;
+      }) || res.data[0]; // fallback to first listing even without photo
+    }
+    if (!listing) { var res = { error: true }; }
+    else { var res = { error: false, data: listing }; }
 
     if (res.error || !res.data) return; // fallback to static content
 
     var listing = res.data;
 
-    // Update photo
+    // Update photo — always pull the real listing photo from Supabase
     var photo = listing.listing_photos && listing.listing_photos[0];
-    if (photo) {
-      var photoUrl = supabaseClient.storage.from('listing-photos').getPublicUrl(photo.storage_path).data.publicUrl;
-      var img = document.getElementById('showcase-photo');
-      if (img) {
-        img.style.opacity = '0';
-        img.onload = function() { img.style.opacity = '1'; };
-        img.src = photoUrl;
-        img.alt = listing.title;
-      }
+    var img = document.getElementById('showcase-photo');
+    if (photo && img) {
+      var photoPath = photo.storage_path || photo.photo_path || photo.url || photo.file_path;
+      var photoUrl = photoPath && !photoPath.startsWith('http')
+        ? supabaseClient.storage.from('listing-photos').getPublicUrl(photoPath).data.publicUrl
+        : photoPath;
+      img.style.opacity = '0';
+      img.onload  = function() { img.style.opacity = '1'; };
+      img.onerror = function() { img.style.opacity = '1'; };
+      img.src = photoUrl;
+      img.alt = listing.title;
+    } else if (img) {
+      // Listing exists but has no photo yet — show a dark gradient placeholder
+      img.removeAttribute('src');
+      img.style.cssText += 'background:linear-gradient(135deg,#1a1210,#8f1229);opacity:1;';
     }
 
     // Update meta
