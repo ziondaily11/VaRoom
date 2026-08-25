@@ -114,6 +114,90 @@
     .nav-button:hover,
     .primary-button:hover { background: var(--deep-red); }
 
+    /* Get started ghost button */
+    .btn-get-started {
+      padding: 10px 18px;
+      border-radius: 999px;
+      background: transparent;
+      color: white;
+      font: 600 11px var(--mono);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      border: 1px solid rgba(255,255,255,0.5);
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .btn-get-started:hover { background: rgba(255,255,255,0.12); border-color: white; }
+
+    /* Hamburger */
+    .nav-hamburger {
+      display: none;
+      flex-direction: column;
+      gap: 5px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 4px;
+      z-index: 102;
+    }
+    .nav-hamburger span {
+      display: block;
+      width: 22px;
+      height: 2px;
+      background: white;
+      border-radius: 2px;
+      transition: transform 0.3s ease, opacity 0.3s ease;
+    }
+    .nav-hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+    .nav-hamburger.open span:nth-child(2) { opacity: 0; }
+    .nav-hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+    /* Mobile drawer */
+    .mobile-nav-drawer {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 99;
+      background: var(--ink);
+      color: white;
+      padding: 100px 8vw 50px;
+      flex-direction: column;
+      overflow-y: auto;
+    }
+    .mobile-nav-drawer.open { display: flex; }
+
+    .mobile-nav-links a {
+      display: block;
+      padding: 18px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      font: 400 30px var(--serif);
+      color: white;
+      letter-spacing: -1px;
+    }
+    .mobile-nav-links a:first-child { border-top: 1px solid rgba(255,255,255,0.1); }
+
+    .mobile-nav-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 36px;
+    }
+    .mobile-nav-actions a,
+    .mobile-nav-actions button {
+      display: block;
+      width: 100%;
+      padding: 14px 20px;
+      border-radius: 999px;
+      font: 600 11px var(--mono);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      text-align: center;
+      cursor: pointer;
+    }
+    .mob-signin { background: transparent; border: 1px solid rgba(255,255,255,0.35); color: white; }
+    .mob-getstarted { background: rgba(255,255,255,0.1); border: none; color: white; }
+    .mob-explore { background: var(--crimson); border: none; color: white; }
+
     /* ============================================================
        HERO
     ============================================================ */
@@ -1557,6 +1641,18 @@
     .footer-socials a { color: rgba(255,255,255,0.55); }
     .footer-socials a:hover { color: white; }
 
+    /* Elie screenshot */
+    .elie-screenshot {
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 14px 14px 0 rgba(26,18,16,0.25);
+    }
+    .elie-screenshot img {
+      width: 100%;
+      display: block;
+      border-radius: 8px;
+    }
+
     /* ============================================================
        ACCOUNT MODAL (from existing site — preserved verbatim)
     ============================================================ */
@@ -1619,7 +1715,8 @@
        RESPONSIVE
     ============================================================ */
     @media (max-width: 900px) {
-      .nav nav, .nav-actions .btn-signin { display: none; }
+      .nav nav, .nav-actions { display: none; }
+      .nav-hamburger { display: flex; }
 
       .hero h1 { font-size: 60px; letter-spacing: -4px; }
       .hero-card { right: 6vw; bottom: 8%; width: 200px; }
@@ -1689,9 +1786,28 @@
 
   <div class="nav-actions">
     <a href="login.html" class="btn-signin">Sign in</a>
+    <button type="button" class="btn-get-started open-account-trigger">Get started</button>
     <button type="button" class="nav-button open-account-trigger">Explore spaces →</button>
   </div>
+  <button type="button" class="nav-hamburger" id="nav-hamburger" aria-label="Open menu">
+    <span></span><span></span><span></span>
+  </button>
 </header>
+
+<!-- Mobile nav drawer -->
+<div class="mobile-nav-drawer" id="mobile-nav-drawer">
+  <div class="mobile-nav-links">
+    <a href="#discover" class="mob-nav-link">Explore</a>
+    <a href="#how-it-works" class="mob-nav-link">How it works</a>
+    <a href="#hosts" class="mob-nav-link">For hosts</a>
+    <a href="#elie" class="mob-nav-link">Elie</a>
+  </div>
+  <div class="mobile-nav-actions">
+    <a href="login.html" class="mob-signin">Sign in</a>
+    <button type="button" class="mob-getstarted open-account-trigger">Get started</button>
+    <button type="button" class="mob-explore open-account-trigger">Explore spaces →</button>
+  </div>
+</div>
 
 <!-- ============================================================
      HERO
@@ -1970,56 +2086,10 @@
       <a href="elie.html" class="elie-start">Start a conversation →</a>
     </div>
 
-    <!-- Elie chat UI -->
-    <div class="elie-chat">
-      <div class="chat-header">
-        <div class="chat-header-left">
-          <span class="chat-live-dot"></span>
-          Elie is listening
-        </div>
-        <span class="chat-header-right">V / 05</span>
-      </div>
-
-      <div class="chat-message">
-        <small>You</small>
-        <div class="chat-bubble">Find me a quiet Airbnb in Nairobi with a pool.</div>
-      </div>
-
-      <div class="chat-message elie-reply">
-        <small>Elie</small>
-        <div class="chat-bubble">I found a few spaces that feel right. Start here:</div>
-      </div>
-
-      <div class="chat-result">
-        <div class="chat-result-info">
-          <strong>The Greenhouse</strong>
-          <small>Kilimani, Nairobi · Pool</small>
-        </div>
-        <span class="chat-result-heart">♡</span>
-      </div>
-
-      <div class="chat-result">
-        <div class="chat-result-info">
-          <strong>Amani House</strong>
-          <small>Diani, Kwale · Garden</small>
-        </div>
-        <span class="chat-result-heart">♡</span>
-      </div>
-
-      <div class="chat-input-bar">
-        <input type="text" placeholder="Ask for a place, a feeling, a plan…" readonly />
-        <button class="chat-send" onclick="window.location.href='elie.html'">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round">
-            <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
-          </svg>
-        </button>
-      </div>
+    <!-- Elie screenshot -->
+    <div class="elie-screenshot">
+      <img src="assets/elie.jpg" alt="Elie AI assistant in action" />
     </div>
-  </div>
-
-  <!-- Elie image slot — place assets/elie.jpg and it auto-loads -->
-  <div id="elie-image-slot" style="display:none; margin-top:40px;">
-    <img src="assets/elie.jpg" alt="Elie" style="width:100%;max-height:300px;object-fit:cover;" onerror="this.parentElement.style.display='none';" />
   </div>
 </section>
 
@@ -2029,7 +2099,7 @@
 <section class="hosts" id="hosts">
   <!-- Host image — uses landing101.jpg -->
   <div class="host-image">
-    <img src="assets/landing102.jpg" alt="Host reviewing their listing" loading="lazy" />
+    <img src="assets/landing101.jpg" alt="Host reviewing their listing" loading="lazy" />
     <div class="host-image-shade"></div>
     <div class="host-image-caption">
       <small>From a space</small>
@@ -2444,6 +2514,37 @@
           (pendingRedirect ? '?redirect=' + encodeURIComponent(pendingRedirect) : '')
       }
     });
+  });
+})();
+
+/* ── Mobile nav hamburger ── */
+(function() {
+  var hamburger = document.getElementById('nav-hamburger');
+  var drawer    = document.getElementById('mobile-nav-drawer');
+  if (!hamburger || !drawer) return;
+
+  function toggleDrawer() {
+    var isOpen = drawer.classList.toggle('open');
+    hamburger.classList.toggle('open', isOpen);
+    document.body.style.overflow = isOpen ? 'hidden' : '';
+  }
+
+  function closeDrawer() {
+    drawer.classList.remove('open');
+    hamburger.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  hamburger.addEventListener('click', toggleDrawer);
+
+  // close on link click
+  drawer.querySelectorAll('.mob-nav-link').forEach(function(a) {
+    a.addEventListener('click', closeDrawer);
+  });
+
+  // close on Escape
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeDrawer();
   });
 })();
 </script>
