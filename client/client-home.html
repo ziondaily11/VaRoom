@@ -300,6 +300,9 @@
   .card-location{ font-size:.8rem; color:var(--muted); }
   .card-map-link{ color:var(--red); font-weight:600; }
   .card-map-link:hover{ text-decoration:underline; }
+  .card-distance-btn{ background:none; border:none; padding:0; font:inherit; font-size:.8rem; color:var(--red); font-weight:600; cursor:pointer; }
+  .card-distance-btn:hover{ text-decoration:underline; }
+  .card-distance-result{ font-size:.8rem; color:var(--muted); }
   .card-time{ margin-left:auto; font-size:.78rem; color:var(--muted); }
 
   .card-menu-wrap{ position:relative; margin-left:.4rem; }
@@ -852,6 +855,8 @@
               '</div>' +
               '<div class="card-location">' + (host.username ? '@' + escapeHtml(host.username) + ' · ' : '') + escapeHtml(listing.location_text) +
                 ' · <a href="map.html?listing=' + listing.id + '" class="card-map-link">View on Map</a>' +
+                ' · <button type="button" class="card-distance-btn" data-listing-id="' + listing.id + '">Show distance</button>' +
+                '<span class="card-distance-result" id="distance-' + listing.id + '"></span>' +
               '</div>' +
             '</div>' +
             '<div class="card-time">' + timeAgo(listing.created_at) + '</div>' +
@@ -907,6 +912,46 @@
     }
 
     function attachCardListeners(container){
+      container.querySelectorAll('.card-distance-btn').forEach(function(btn){
+        btn.addEventListener('click', function(){
+          // Spec section 7: only ever ask for location permission when the
+          // user has just triggered a feature that needs it — never on load.
+          const id = btn.getAttribute('data-listing-id');
+          const resultEl = document.getElementById('distance-' + id);
+          if (!navigator.geolocation) {
+            resultEl.textContent = 'Location not supported on this device.';
+            return;
+          }
+          btn.textContent = 'Locating…';
+          btn.disabled = true;
+          navigator.geolocation.getCurrentPosition(
+            async function(pos){
+              try {
+                const res = await fetch('/api/listings/' + id + '/distance?lat=' + pos.coords.latitude + '&lng=' + pos.coords.longitude);
+                const data = await res.json();
+                if (data.distance_km != null) {
+                  resultEl.textContent = ' · ' + data.distance_km + ' km away';
+                  btn.style.display = 'none';
+                } else {
+                  // No fake distance shown — this listing has no confirmed
+                  // location yet, so the number would be meaningless.
+                  resultEl.textContent = ' · distance unavailable';
+                  btn.style.display = 'none';
+                }
+              } catch (err) {
+                resultEl.textContent = ' · could not get distance';
+                btn.disabled = false;
+                btn.textContent = 'Show distance';
+              }
+            },
+            function(){
+              resultEl.textContent = ' · location permission denied';
+              btn.disabled = false;
+              btn.textContent = 'Show distance';
+            }
+          );
+        });
+      });
       container.querySelectorAll('.bookmark-btn').forEach(function(btn){
         btn.addEventListener('click', async function(){
           const id = btn.getAttribute('data-listing-id');

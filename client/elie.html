@@ -613,7 +613,7 @@
             : '<div class="listing-photo placeholder">🏠</div>';
 
           const metaBits = [];
-          if (listing.location_text) metaBits.push(escapeHtml(listing.location_text));
+          if (listing.location_text) metaBits.push(escapeHtml(listing.location_text) + ' · <a href="map.html?listing=' + encodeURIComponent(listing.id) + '" style="color:var(--red,#C41E3A);font-weight:600;">View on Map</a>');
           if (listing.size_or_type) metaBits.push(escapeHtml(listing.size_or_type));
           if (listing.max_guests) metaBits.push('Up to ' + listing.max_guests + ' guests');
 
