@@ -3,7 +3,7 @@ require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const supabaseAdmin = require('./lib/supabaseClient');
-const { getListingLocation, getBookingLocation } = require('./lib/locationAccess');
+const { getListingLocation, getBookingLocation, getListingDistance } = require('./lib/locationAccess');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -131,6 +131,35 @@ app.get('/api/bookings/:id/location', async (req, res) => {
   if (result.error) {
     const status = result.error === 'Not authorized to view this booking' ? 403 : 404;
     return res.status(status).json({ error: result.error });
+  }
+  res.json(result);
+});
+
+// Public config the frontend needs to boot the Google Maps JS SDK. Returns
+// apiKey: null (not an error) when GOOGLE_MAPS_API_KEY isn't set yet, so
+// every map-dependent screen can degrade gracefully instead of breaking
+// while the key is being provisioned.
+app.get('/api/maps-config', (req, res) => {
+  res.json({ apiKey: process.env.GOOGLE_MAPS_API_KEY || null });
+});
+
+// Distance is derived server-side from the listing's private coordinates
+// and the caller's own coordinates (sent in the query string, only ever
+// after the browser's own geolocation permission prompt) — the listing's
+// coordinates themselves are never sent back (spec section 11).
+app.get('/api/listings/:id/distance', async (req, res) => {
+  const lat = parseFloat(req.query.lat);
+  const lng = parseFloat(req.query.lng);
+  if (Number.isNaN(lat) || Number.isNaN(lng)) {
+    return res.status(400).json({ error: 'lat and lng query params are required' });
+  }
+  const result = await getListingDistance(supabaseAdmin, {
+    listingId: req.params.id,
+    userLat: lat,
+    userLng: lng,
+  });
+  if (result.error) {
+    return res.status(404).json({ error: result.error });
   }
   res.json(result);
 });

@@ -188,8 +188,48 @@ function fullListingLocation(listing) {
   };
 }
 
+/**
+ * Haversine distance in kilometers between two lat/lng points. Used so the
+ * client can be told "4.8 km away" without ever receiving the listing's
+ * actual coordinates (spec section 5/9/11 — distance is a derived number,
+ * not a reason to expose the source coordinates).
+ */
+function haversineKm(lat1, lng1, lat2, lng2) {
+  const toRad = (deg) => (deg * Math.PI) / 180;
+  const R = 6371; // Earth radius, km
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+/**
+ * Returns { distance_km } for a listing given the requesting user's own
+ * coordinates, or { distance_km: null } if the listing has no confirmed
+ * location yet. Never returns the listing's own lat/lng.
+ */
+async function getListingDistance(supabaseAdmin, { listingId, userLat, userLng }) {
+  const { data: listing, error } = await supabaseAdmin
+    .from('listings')
+    .select('latitude, longitude, location_status')
+    .eq('id', listingId)
+    .single();
+
+  if (error || !listing) {
+    return { error: 'Listing not found' };
+  }
+  if (listing.location_status !== 'confirmed' || listing.latitude == null || listing.longitude == null) {
+    return { distance_km: null };
+  }
+  const distance_km = haversineKm(userLat, userLng, listing.latitude, listing.longitude);
+  return { distance_km: Math.round(distance_km * 10) / 10 };
+}
+
 module.exports = {
   getListingLocation,
   getBookingLocation,
   snapshotBookingLocationOnApproval,
+  getListingDistance,
 };

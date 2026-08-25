@@ -424,7 +424,9 @@
 
     const listing = booking.listing || {};
     document.getElementById('listing-title').textContent = listing.title || 'Listing';
-    document.getElementById('listing-loc').textContent = listing.location_text || '';
+    document.getElementById('listing-loc').innerHTML =
+      escapeHtml(listing.location_text || '') +
+      ' · <a href="map.html?booking=' + booking.id + '" style="color:var(--red);font-weight:600;">View map &amp; directions</a>';
 
     const photos = listing.listing_photos || [];
     const photoEl = document.getElementById('listing-photo');
