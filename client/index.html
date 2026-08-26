@@ -9,6 +9,19 @@
   <link rel="icon" type="image/png" sizes="16x16" href="favicon/favicon-16.png">
   <link rel="apple-touch-icon" sizes="180x180" href="favicon/favicon-180.png">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Google Identity Services — One Tap -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <!-- One Tap prompt container -->
+  <div id="g_id_onload"
+    data-client_id="GOOGLE_CLIENT_ID"
+    data-auto_prompt="true"
+    data-auto_select="false"
+    data-cancel_on_tap_outside="false"
+    data-callback="handleOneTapCredential"
+    data-prompt_parent_id="one-tap-container"
+    data-itp_support="true">
+  </div>
+  <div id="one-tap-container" style="position:fixed;top:70px;right:24px;z-index:9999;"></div>
   <style>
     /* ============================================================
        TOKENS
@@ -2636,6 +2649,48 @@
     console.log('Showcase: using static fallback', e.message);
   }
 })();
+</script>
+
+
+<script>
+/* ── Google One Tap ── */
+async function handleOneTapCredential(response) {
+  try {
+    // Exchange the Google ID token with Supabase
+    var { data, error } = await supabaseClient.auth.signInWithIdToken({
+      provider: 'google',
+      token: response.credential,
+    });
+
+    if (error) throw error;
+
+    // Route based on role
+    var role = data.user && data.user.user_metadata && data.user.user_metadata.role;
+    if (role === 'host') {
+      window.location.href = 'host-home.html';
+    } else if (role === 'client') {
+      window.location.href = 'client-home.html';
+    } else {
+      // New user — no role yet, open the account modal to pick one
+      // Store credential temporarily
+      sessionStorage.setItem('varoom_onetap_session', 'true');
+      document.querySelector('.open-account-trigger') && document.querySelector('.open-account-trigger').click();
+    }
+  } catch(e) {
+    console.warn('One Tap sign-in failed:', e.message);
+  }
+}
+
+/* Initialise One Tap after page loads — delay slightly so it feels natural */
+window.addEventListener('load', function() {
+  setTimeout(function() {
+    if (window.google && window.google.accounts) {
+      // Replace GOOGLE_CLIENT_ID in the div above with your actual client ID
+      // from Google Cloud Console > APIs & Services > Credentials
+      // It looks like: 123456789-abc.apps.googleusercontent.com
+    }
+  }, 2500); // show after 2.5s of browsing
+});
 </script>
 
 </body>
