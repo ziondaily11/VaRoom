@@ -28,28 +28,58 @@
     --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#1A1210; --paper:#FBF4F1;
     --muted:#7a6b67;
     --font-display:'Fraunces', serif; --font-body:'Inter', sans-serif;
+    /* Glass sidebar tokens — same treatment on every app page (dashboards,
+       settings, profile, etc.), theme-aware rather than a fixed dark theme. */
+    --glass-bg:rgba(255,255,255,.55);
+    --glass-border:rgba(255,255,255,.6);
+    --glass-shadow:0 24px 55px rgba(26,18,16,.10);
+    --glow-a:rgba(196,30,58,.14);
+    --glow-b:rgba(196,30,58,.09);
   }
   [data-theme="dark"]{
     --white:#241C1A; --paper:#15100F; --ink:#F5EFEC; --muted:#B8ACA8;
+    --glass-bg:rgba(28,20,18,.55);
+    --glass-border:rgba(255,255,255,.09);
+    --glass-shadow:0 24px 55px rgba(0,0,0,.5);
+    --glow-a:rgba(196,30,58,.30);
+    --glow-b:rgba(196,30,58,.16);
   }
   *{ margin:0; padding:0; box-sizing:border-box; }
   html{ overflow-x:hidden; }
-  body{ font-family:var(--font-body); background:var(--paper); color:var(--ink); min-height:100vh; overflow-x:hidden; transition:background .2s ease, color .2s ease; }
+  body{
+    font-family:var(--font-body); color:var(--ink); min-height:100vh; overflow-x:hidden;
+    transition:background .2s ease, color .2s ease;
+    background:
+      radial-gradient(640px circle at 6% 12%, var(--glow-a), transparent 60%),
+      radial-gradient(560px circle at 92% 85%, var(--glow-b), transparent 60%),
+      var(--paper);
+    background-attachment:fixed;
+  }
   a{ color:inherit; text-decoration:none; }
   button{ font-family:inherit; cursor:pointer; border:none; background:none; }
   :focus-visible{ outline:3px solid var(--red-deep); outline-offset:3px; }
   ul{ list-style:none; }
 
-  .app-shell{ display:grid; grid-template-columns:240px 1fr; min-height:100vh; }
+  .app-shell{ display:grid; grid-template-columns:272px 1fr; min-height:100vh; }
 
-  /* ---------- SIDEBAR ---------- */
+  /* ---------- SIDEBAR (glass) ---------- */
   .sidebar{
-    background:var(--white);
-    border-right:1px solid rgba(26,18,16,.08);
+    position:sticky;
+    top:1rem;
+    align-self:start;
+    height:calc(100vh - 2rem);
+    margin:1rem 0 1rem 1rem;
+    background:var(--glass-bg);
+    backdrop-filter:blur(22px) saturate(140%);
+    -webkit-backdrop-filter:blur(22px) saturate(140%);
+    border:1px solid var(--glass-border);
+    border-radius:22px;
+    box-shadow:var(--glass-shadow);
     padding:1.6rem 1.2rem;
     display:flex;
     flex-direction:column;
     gap:1.6rem;
+    overflow:visible;
   }
 
   .logo{ font-family:var(--font-display); font-weight:900; font-size:1.4rem; display:flex; align-items:baseline; padding:0 .4rem; }
@@ -429,6 +459,9 @@
       position:fixed;
       inset:0 auto 0 0;
       width:260px;
+      height:100vh;
+      margin:0;
+      border-radius:0;
       z-index:200;
       transform:translateX(-100%);
       transition:transform .25s ease;

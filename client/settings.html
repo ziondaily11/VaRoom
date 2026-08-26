@@ -29,13 +29,33 @@
     --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#1A1210; --paper:#FBF4F1;
     --muted:#7a6b67; --line:rgba(26,18,16,.12);
     --font-display:'Fraunces', serif; --font-body:'Inter', sans-serif;
+    /* Glass sidebar tokens — identical to client-home.html / host-home.html,
+       so the sidebar looks and behaves the same on every app page. */
+    --glass-bg:rgba(255,255,255,.55);
+    --glass-border:rgba(255,255,255,.6);
+    --glass-shadow:0 24px 55px rgba(26,18,16,.10);
+    --glow-a:rgba(196,30,58,.14);
+    --glow-b:rgba(196,30,58,.09);
   }
   [data-theme="dark"]{
     --white:#241C1A; --paper:#15100F; --ink:#F5EFEC; --muted:#B8ACA8; --line:rgba(255,255,255,.12);
+    --glass-bg:rgba(28,20,18,.55);
+    --glass-border:rgba(255,255,255,.09);
+    --glass-shadow:0 24px 55px rgba(0,0,0,.5);
+    --glow-a:rgba(196,30,58,.30);
+    --glow-b:rgba(196,30,58,.16);
   }
   *{ margin:0; padding:0; box-sizing:border-box; }
   html{ overflow-x:hidden; }
-  body{ font-family:var(--font-body); background:var(--paper); color:var(--ink); min-height:100vh; overflow-x:hidden; transition:background .2s ease, color .2s ease; }
+  body{
+    font-family:var(--font-body); color:var(--ink); min-height:100vh; overflow-x:hidden;
+    transition:background .2s ease, color .2s ease;
+    background:
+      radial-gradient(640px circle at 6% 12%, var(--glow-a), transparent 60%),
+      radial-gradient(560px circle at 92% 85%, var(--glow-b), transparent 60%),
+      var(--paper);
+    background-attachment:fixed;
+  }
   a{ color:inherit; text-decoration:none; }
   button{ font-family:inherit; cursor:pointer; border:none; background:none; color:inherit; }
   :focus-visible{ outline:3px solid var(--ink); outline-offset:3px; }
@@ -45,30 +65,32 @@
   .logo .va{ color:var(--red); }
 
   /* =====================================================================
-     SIDEBAR — copied verbatim (same classes, same nav content, same hrefs)
-     from client-home.html / host-home.html. client-home.html and
-     host-home.html themselves are NOT modified by this page; this is an
-     independent copy so Settings can present the identical navigation.
-     The only additions here are: the Settings link gets .active, and a
-     couple of items that are pure client-side view-toggles on the
-     dashboards (Explore/Saved/My Listings, the notif bell) are wired via
-     JS to navigate back to the right dashboard instead of doing nothing.
+     SIDEBAR — same glass treatment, same classes, same nav content, same
+     hrefs as client-home.html / host-home.html (which are unmodified by
+     this page). This is an independent copy so Settings can present the
+     identical navigation and identical look. The only additions here:
+     the Settings link gets .active, and a couple of items that are pure
+     client-side view-toggles on the dashboards (Explore/Saved/My
+     Listings, the notif bell) are wired via JS to navigate back to the
+     right dashboard instead of doing nothing.
      ===================================================================== */
-  .app-shell{ display:grid; grid-template-columns:264px 1fr; min-height:100vh; }
+  .app-shell{ display:grid; grid-template-columns:272px 1fr; min-height:100vh; }
 
-  /* The "calm box" — a floating rounded card holding the sidebar, unique
-     to this page's presentation. Sticky so it stays put as the (possibly
-     long) settings content scrolls past beside it. */
+  /* Positions the floating glass sidebar and keeps it pinned as the
+     (possibly long) settings content scrolls past beside it. Two sidebar
+     variants (client/host) live inside; only one is ever shown. */
   .sidebar-shell{
-    position:sticky; top:0; align-self:start;
-    height:100vh; padding:1.4rem 0 1.4rem 1.4rem;
+    position:sticky; top:1rem; align-self:start;
+    height:calc(100vh - 2rem); padding:0 0 0 1rem;
   }
   .sidebar{
     height:100%;
-    background:var(--white);
-    border:1px solid var(--line);
-    border-radius:20px;
-    box-shadow:0 18px 40px rgba(26,18,16,.08);
+    background:var(--glass-bg);
+    backdrop-filter:blur(22px) saturate(140%);
+    -webkit-backdrop-filter:blur(22px) saturate(140%);
+    border:1px solid var(--glass-border);
+    border-radius:22px;
+    box-shadow:var(--glass-shadow);
     padding:1.6rem 1.2rem;
     display:flex;
     flex-direction:column;
@@ -77,7 +99,7 @@
   /* Client: fixed in place, no internal scroll — its nav list is short
      enough that it never needs to move. */
   #sidebar-client{ overflow:visible; }
-  /* Host: same calm box, but its longer nav list scrolls within the box
+  /* Host: same glass box, but its longer nav list scrolls within the box
      itself, clipped at the box's rounded edges — the box never grows or
      moves, only its contents shift. */
   #sidebar-host{ overflow-y:auto; scrollbar-width:none; }
@@ -277,10 +299,11 @@
     .app-shell{ grid-template-columns:1fr; }
 
     .sidebar-shell{
-      position:fixed; inset:0 auto 0 0; width:280px; height:100vh;
-      z-index:200; padding:1rem; transform:translateX(-100%);
+      position:fixed; inset:0 auto 0 0; width:260px; height:100vh;
+      z-index:200; padding:0; transform:translateX(-100%);
       transition:transform .25s ease;
     }
+    .sidebar-shell .sidebar{ border-radius:0; height:100vh; }
     .sidebar-shell.mobile-open{ transform:translateX(0); }
     .sidebar{ box-shadow:0 0 40px rgba(26,18,16,.25); }
 
