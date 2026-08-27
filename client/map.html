@@ -109,14 +109,33 @@
     let result;
     try {
       const res = await fetch(endpoint, { headers });
-      result = await res.json();
+      const raw = await res.text();
+      // A non-JSON response (an HTML 404/error page, most likely) means the
+      // map backend isn't reachable from here yet — show a calm status
+      // instead of the raw parse error.
+      try {
+        result = JSON.parse(raw);
+      } catch (parseErr) {
+        showIntegrationPending();
+        return;
+      }
       if (!res.ok) throw new Error(result.error || 'Could not load location');
     } catch (err) {
-      sheetTitle.textContent = 'Could not load location';
-      sheetSub.textContent = err.message || '';
+      showIntegrationPending();
       return;
     }
     renderResult(result);
+  }
+
+  function showIntegrationPending(){
+    sheetTitle.textContent = 'Map integration in progress';
+    sheetSub.textContent = "We're still connecting this feature — the map and directions will be available here soon.";
+    sheetStatus.style.display = 'none';
+    directionsBtn.disabled = true;
+    document.getElementById('vrm-map-canvas').style.display = 'flex';
+    document.getElementById('vrm-map-canvas').style.alignItems = 'center';
+    document.getElementById('vrm-map-canvas').style.justifyContent = 'center';
+    document.getElementById('vrm-map-canvas').textContent = '🗺️ Coming soon';
   }
 
   function renderResult(result){
