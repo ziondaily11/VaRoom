@@ -57,17 +57,40 @@
   .btn-primary{ background:var(--red); border-color:var(--red); color:#fff; }
   .btn[disabled]{ opacity:.5; pointer-events:none; }
 
-  .pending-map{ width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.9rem; background:linear-gradient(180deg, #f3ede9, #e5ddd8); }
+  .pending-map{ width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1.1rem; background:linear-gradient(180deg, #f3ede9, #e5ddd8); }
   [data-theme="dark"] .pending-map{ background:linear-gradient(180deg, #241c1a, #1a1412); }
-  .pending-map svg{ width:150px; height:auto; }
-  .pending-kenya{ fill:none; stroke:var(--red); stroke-width:2.2; stroke-linejoin:round; opacity:.85; }
-  .pending-pin-ring{ fill:none; stroke:var(--red); stroke-width:2; opacity:0; transform-origin:center; animation:pending-ping 2.2s ease-out infinite; }
+
+  .pending-globe-wrap{ position:relative; width:150px; height:150px; }
+  .pending-globe{
+    width:150px; height:150px; border-radius:50%; overflow:hidden; position:relative;
+    background: radial-gradient(circle at 35% 30%, #e8c9c9, #C41E3A 55%, #6e1020 100%);
+    box-shadow: inset -14px -14px 30px rgba(0,0,0,.45), inset 8px 8px 18px rgba(255,255,255,.25), 0 8px 20px rgba(0,0,0,.2);
+  }
+  .pending-globe::before{
+    /* Longitude stripes — animated horizontally to read as rotation on a sphere. */
+    content:""; position:absolute; inset:0;
+    background-image: repeating-linear-gradient(90deg, rgba(255,255,255,.35) 0 2px, transparent 2px 20px);
+    animation: pending-globe-spin 3.5s linear infinite;
+    mix-blend-mode: overlay;
+  }
+  .pending-globe::after{
+    /* Latitude lines, static, curved via radial fade for a subtle sphere feel. */
+    content:""; position:absolute; inset:0; border-radius:50%;
+    background-image: repeating-linear-gradient(0deg, rgba(255,255,255,.18) 0 1px, transparent 1px 26px);
+    opacity:.6;
+  }
+  @keyframes pending-globe-spin{
+    from{ background-position:0 0; }
+    to{ background-position:-150px 0; }
+  }
+
+  .pending-pin-ring{ position:absolute; top:58%; left:53%; width:16px; height:16px; margin:-8px 0 0 -8px; border-radius:50%; border:2px solid #fff; opacity:0; animation:pending-ping 2.2s ease-out infinite; }
   .pending-pin-ring.r2{ animation-delay:.7s; }
-  .pending-pin-dot{ fill:var(--red); }
+  .pending-pin-dot{ position:absolute; top:58%; left:53%; width:8px; height:8px; margin:-4px 0 0 -4px; border-radius:50%; background:#fff; box-shadow:0 0 4px rgba(0,0,0,.4); }
   .pending-map-label{ font-size:.85rem; color:var(--muted); text-align:center; max-width:220px; line-height:1.5; }
   @keyframes pending-ping{
-    0%{ transform:scale(0.3); opacity:.9; }
-    100%{ transform:scale(2.6); opacity:0; }
+    0%{ transform:scale(0.5); opacity:.9; }
+    100%{ transform:scale(2.8); opacity:0; }
   }
   @media (min-width: 860px){
     .map-layout{ flex-direction:row; }
@@ -145,21 +168,15 @@
     sheetStatus.style.display = 'none';
     directionsBtn.disabled = true;
     var canvas = document.getElementById('vrm-map-canvas');
+    // JS comments only — this string is inlined as HTML, so no // or /* */ inside it.
     canvas.innerHTML =
       '<div class="pending-map">' +
-        '<svg viewBox="0 -30 200 260" xmlns="http://www.w3.org/2000/svg">' +
-          // Simplified, decorative Kenya silhouette (not surveyed cartography) —
-          // traces the recognizable features: the Turkana/Ilemi spike in the
-          // north, the Somali border running SE to the coast, the Indian Ocean
-          // coastline down to the Tanzania border, and the Lake Victoria bite
-          // in the southwest.
-          '<path class="pending-kenya" d="M58 -25 L68 20 L102 12 L142 32 L172 62 L184 88 L170 118 L154 153 L144 178 L108 194 L74 206 L56 196 L44 182 L60 166 L40 150 L30 108 L33 62 L46 20 Z"/>' +
-          '<g transform="translate(90,150)">' +
-            '<circle class="pending-pin-ring" r="8"/>' +
-            '<circle class="pending-pin-ring r2" r="8"/>' +
-            '<circle class="pending-pin-dot" r="5"/>' +
-          '</g>' +
-        '</svg>' +
+        '<div class="pending-globe-wrap">' +
+          '<div class="pending-globe"></div>' +
+          '<div class="pending-pin-ring"></div>' +
+          '<div class="pending-pin-ring r2"></div>' +
+          '<div class="pending-pin-dot"></div>' +
+        '</div>' +
         '<div class="pending-map-label">Nairobi and beyond — VaRoom\'s live map is on its way.</div>' +
       '</div>';
   }
