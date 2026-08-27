@@ -293,6 +293,31 @@
       flex: 1;
     }
 
+    .mob-role-selector {
+      display: flex;
+      width: 100%;
+      background: #140f0e;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 999px;
+      padding: 4px;
+    }
+    .mob-role-chip {
+      flex: 1;
+      height: 38px;
+      border-radius: 999px;
+      background: transparent;
+      border: none;
+      color: rgba(255,255,255,0.6);
+      font: 600 13px var(--sans);
+      cursor: pointer;
+      transition: background-color 0.2s, color 0.2s;
+    }
+    .mob-role-chip.active {
+      background: #251d1b;
+      color: white;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+
     .mob-auth-alert {
       padding: 10px 14px;
       border-radius: 10px;
@@ -2032,6 +2057,21 @@
   <form class="mob-auth-form-container" id="mob-auth-form" novalidate>
     <div class="mob-auth-alert" id="mob-auth-alert"></div>
 
+    <!-- Role selection for sign-up mode -->
+    <div class="mob-role-selector" id="mob-role-selector" style="display:none; gap:10px; margin-bottom:2px;">
+      <button type="button" class="mob-role-chip active" data-role="client">Client</button>
+      <button type="button" class="mob-role-chip" data-role="host">Host</button>
+    </div>
+
+    <!-- Full name for sign-up mode -->
+    <div class="mob-input-wrap" id="mob-name-wrap" style="display:none;">
+      <svg class="mob-input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
+        <circle cx="12" cy="7" r="4"/>
+      </svg>
+      <input type="text" id="mob-auth-name" placeholder="Full name" autocomplete="name" />
+    </div>
+
     <div class="mob-input-wrap">
       <svg class="mob-input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
@@ -2061,10 +2101,11 @@
       <span>Continue with Google</span>
     </button>
 
-    <p class="mob-auth-footer">
-      Don't have an account? <a href="signup-client.html" class="mob-signup-link">Sign Up</a>
+    <p class="mob-auth-footer" id="mob-auth-footer">
+      <span id="mob-footer-label">Don't have an account?</span>
+      <button type="button" class="mob-signup-link" id="mob-toggle-mode-btn" style="background:none; border:none; cursor:pointer; font-size:inherit; font-family:inherit;">Sign Up</button>
     </p>
-    <p style="text-align:center; margin-top:4px;">
+    <p id="mob-forgot-wrap" style="text-align:center; margin-top:2px;">
       <a href="forgot-password.html" style="font-size:12px; color:rgba(255,255,255,0.45); text-decoration:none;">Forgot password?</a>
     </p>
   </form>
@@ -2788,18 +2829,62 @@
   var sheet = document.getElementById('mobile-auth-sheet');
   var closeBtn = document.getElementById('mobile-auth-close');
   var authForm = document.getElementById('mob-auth-form');
+  var headingEl = document.getElementById('mob-auth-heading');
+  var roleSelector = document.getElementById('mob-role-selector');
+  var roleChips = document.querySelectorAll('.mob-role-chip');
+  var nameWrap = document.getElementById('mob-name-wrap');
+  var nameInput = document.getElementById('mob-auth-name');
   var emailInput = document.getElementById('mob-auth-email');
   var passInput = document.getElementById('mob-auth-password');
   var submitBtn = document.getElementById('mob-submit-btn');
+  var submitBtnText = submitBtn ? submitBtn.querySelector('.btn-text') : null;
   var googleBtn = document.getElementById('mob-google-btn');
   var alertEl = document.getElementById('mob-auth-alert');
+  var toggleModeBtn = document.getElementById('mob-toggle-mode-btn');
+  var footerLabel = document.getElementById('mob-footer-label');
+  var forgotWrap = document.getElementById('mob-forgot-wrap');
 
   if (!sheet) return;
 
-  function showAlert(msg) {
+  var currentMode = 'login'; // 'login' or 'signup'
+  var selectedRole = 'client';
+
+  function setMode(mode) {
+    currentMode = mode;
+    clearAlert();
+
+    if (mode === 'signup') {
+      if (headingEl) headingEl.textContent = 'Create your account';
+      if (roleSelector) roleSelector.style.display = 'flex';
+      if (nameWrap) nameWrap.style.display = 'block';
+      if (submitBtnText) submitBtnText.textContent = 'Create account';
+      if (footerLabel) footerLabel.textContent = 'Already have an account?';
+      if (toggleModeBtn) toggleModeBtn.textContent = 'Log In';
+      if (forgotWrap) forgotWrap.style.display = 'none';
+    } else {
+      if (headingEl) headingEl.textContent = 'Welcome back';
+      if (roleSelector) roleSelector.style.display = 'none';
+      if (nameWrap) nameWrap.style.display = 'none';
+      if (submitBtnText) submitBtnText.textContent = 'Continue with Email';
+      if (footerLabel) footerLabel.textContent = "Don't have an account?";
+      if (toggleModeBtn) toggleModeBtn.textContent = 'Sign Up';
+      if (forgotWrap) forgotWrap.style.display = 'block';
+    }
+  }
+
+  function showAlert(msg, isSuccess) {
     if (!alertEl) return;
     alertEl.textContent = msg;
     alertEl.style.display = 'block';
+    if (isSuccess) {
+      alertEl.style.background = 'rgba(46,125,50,0.2)';
+      alertEl.style.borderColor = 'rgba(76,175,80,0.4)';
+      alertEl.style.color = '#a5d6a7';
+    } else {
+      alertEl.style.background = 'rgba(196,30,58,0.18)';
+      alertEl.style.borderColor = 'rgba(196,30,58,0.4)';
+      alertEl.style.color = '#ff8093';
+    }
   }
 
   function clearAlert() {
@@ -2808,8 +2893,9 @@
     alertEl.style.display = 'none';
   }
 
-  function openSheet() {
+  function openSheet(initialMode) {
     clearAlert();
+    setMode(initialMode === 'signup' ? 'signup' : 'login');
     sheet.classList.add('open');
     document.body.style.overflow = 'hidden';
   }
@@ -2820,12 +2906,28 @@
   }
 
   if (triggerBtn) {
-    triggerBtn.addEventListener('click', openSheet);
+    triggerBtn.addEventListener('click', function () { openSheet('login'); });
   }
 
   if (closeBtn) {
     closeBtn.addEventListener('click', closeSheet);
   }
+
+  if (toggleModeBtn) {
+    toggleModeBtn.addEventListener('click', function (e) {
+      e.preventDefault();
+      setMode(currentMode === 'login' ? 'signup' : 'login');
+    });
+  }
+
+  // Role chip selection
+  roleChips.forEach(function (chip) {
+    chip.addEventListener('click', function () {
+      roleChips.forEach(function (c) { c.classList.remove('active'); });
+      chip.classList.add('active');
+      selectedRole = chip.getAttribute('data-role') || 'client';
+    });
+  });
 
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape' && sheet.classList.contains('open')) {
@@ -2833,7 +2935,7 @@
     }
   });
 
-  // Handle Email + Password Sign In
+  // Handle Submit (Sign In or Sign Up)
   if (authForm) {
     authForm.addEventListener('submit', async function (e) {
       e.preventDefault();
@@ -2841,6 +2943,13 @@
 
       var email = (emailInput && emailInput.value || '').trim();
       var pass = (passInput && passInput.value || '');
+      var name = (nameInput && nameInput.value || '').trim();
+
+      if (currentMode === 'signup' && !name) {
+        showAlert('Please enter your full name.');
+        if (nameInput) nameInput.focus();
+        return;
+      }
 
       if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         showAlert('Please enter a valid email address.');
@@ -2848,8 +2957,8 @@
         return;
       }
 
-      if (!pass) {
-        showAlert('Please enter your password.');
+      if (!pass || pass.length < 6) {
+        showAlert('Password must be at least 6 characters.');
         if (passInput) passInput.focus();
         return;
       }
@@ -2858,24 +2967,56 @@
       submitBtn.disabled = true;
 
       try {
-        var { data, error } = await supabaseClient.auth.signInWithPassword({
-          email: email,
-          password: pass
-        });
-
-        if (error) throw error;
-
-        var user = data && data.user;
-        var role = (user && user.user_metadata && user.user_metadata.role) || 'client';
         var redirect = new URLSearchParams(window.location.search).get('redirect');
 
-        window.location.href = redirect || (role === 'host' ? 'host-home.html' : 'client-home.html');
+        if (currentMode === 'signup') {
+          // Sign Up
+          var { data: signUpData, error: signUpError } = await supabaseClient.auth.signUp({
+            email: email,
+            password: pass,
+            options: {
+              data: {
+                full_name: name,
+                role: selectedRole
+              }
+            }
+          });
+
+          if (signUpError) throw signUpError;
+
+          if (signUpData && signUpData.user && signUpData.user.identities && signUpData.user.identities.length === 0) {
+            showAlert('An account with this email already exists. Please log in.');
+            setMode('login');
+            return;
+          }
+
+          if (signUpData && signUpData.session) {
+            // Auto signed in
+            window.location.href = redirect || (selectedRole === 'host' ? 'host-home.html' : 'client-home.html');
+          } else {
+            showAlert('Account created! Please check your email to verify your account.', true);
+          }
+
+        } else {
+          // Sign In
+          var { data: signInData, error: signInError } = await supabaseClient.auth.signInWithPassword({
+            email: email,
+            password: pass
+          });
+
+          if (signInError) throw signInError;
+
+          var user = signInData && signInData.user;
+          var role = (user && user.user_metadata && user.user_metadata.role) || 'client';
+
+          window.location.href = redirect || (role === 'host' ? 'host-home.html' : 'client-home.html');
+        }
 
       } catch (err) {
-        var msg = err.message || 'Login failed. Please check your credentials.';
+        var msg = err.message || 'Authentication failed. Please try again.';
         if (/invalid/i.test(msg)) msg = 'Incorrect email or password.';
         if (/confirm/i.test(msg)) msg = 'Please verify your email before logging in.';
-        showAlert(msg);
+        showAlert(msg, false);
       } finally {
         submitBtn.classList.remove('loading');
         submitBtn.disabled = false;
@@ -2883,11 +3024,14 @@
     });
   }
 
-  // Handle Google OAuth Sign In
+  // Handle Google OAuth
   if (googleBtn) {
     googleBtn.addEventListener('click', async function () {
       try {
         var redirect = new URLSearchParams(window.location.search).get('redirect');
+        if (currentMode === 'signup' && selectedRole) {
+          sessionStorage.setItem('varoom_intended_role', selectedRole);
+        }
         await supabaseClient.auth.signInWithOAuth({
           provider: 'google',
           options: {
@@ -2896,7 +3040,7 @@
           }
         });
       } catch (err) {
-        showAlert('Google sign-in failed. Please try again.');
+        showAlert('Google sign-in failed. Please try again.', false);
       }
     });
   }
