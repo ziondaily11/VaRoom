@@ -141,8 +141,7 @@
   .topbar{
     display:flex; align-items:center; gap:1rem;
     padding:1.2rem 2rem;
-    border-bottom:1px solid rgba(26,18,16,.08);
-    background:var(--white);
+    background:transparent;
   }
 
   .search-wrap{
@@ -237,8 +236,9 @@
 
   /* ---------- ATTENTION PANEL ---------- */
   .attention-card{
-    background:var(--white); border:1px solid rgba(26,18,16,.08); border-radius:16px;
-    padding:1.2rem 1.4rem;
+    background:var(--glass-bg); backdrop-filter:blur(22px) saturate(140%); -webkit-backdrop-filter:blur(22px) saturate(140%);
+    border:1px solid var(--glass-border); box-shadow:var(--glass-shadow); border-radius:16px;
+    padding:1rem 1.1rem;
   }
   .attention-list{ display:flex; flex-direction:column; }
   .attention-row{
@@ -514,7 +514,11 @@
     .list-btn-top .btn-label{ display:none; }
 
     .sidebar .nav-item[data-mobile-hide]{ display:none; }
-    .topbar{ position:sticky; top:0; z-index:100; }
+    .topbar{
+      position:sticky; top:0; z-index:100;
+      background:var(--glass-bg);
+      backdrop-filter:blur(18px) saturate(140%); -webkit-backdrop-filter:blur(18px) saturate(140%);
+    }
 
     /* Your listings at a glance grid stays desktop-only — real photos/category tiles, too heavy for mobile. */
     .listings-glance-card{ display:none !important; }
