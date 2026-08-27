@@ -33,30 +33,37 @@
       window.location.href = redirect || 'client-home.html';
     };
 
-    document.addEventListener('DOMContentLoaded', function () {
+    window.initializeGoogleOneTap = function () {
       const gsiNode = document.getElementById('g_id_onload');
       const oneTapContainer = document.getElementById('one-tap-container');
-      if (!gsiNode) return;
+      if (!gsiNode || !oneTapContainer) return;
 
-      if (window.GOOGLE_CLIENT_ID && window.GOOGLE_CLIENT_ID !== '369292685051-ibng5c6hcuqs20fkfuk5ljip74fka3if.apps.googleusercontent.com') {
-        gsiNode.setAttribute('data-client_id', window.GOOGLE_CLIENT_ID);
-        gsiNode.setAttribute('data-callback', 'handleOneTapCredential');
-        gsiNode.setAttribute('data-auto_prompt', 'true');
-        gsiNode.setAttribute('data-auto_select', 'false');
-        gsiNode.setAttribute('data-cancel_on_tap_outside', 'false');
-        gsiNode.setAttribute('data-prompt_parent_id', 'one-tap-container');
-        gsiNode.setAttribute('data-itp_support', 'true');
+      if (window.GOOGLE_CLIENT_ID) {
+        if (!window.google || !window.google.accounts || !window.google.accounts.id) {
+          window.setTimeout(window.initializeGoogleOneTap, 100);
+          return;
+        }
+
+        window.google.accounts.id.initialize({
+          client_id: window.GOOGLE_CLIENT_ID,
+          callback: window.handleOneTapCredential,
+          cancel_on_tap_outside: false,
+          itp_support: true
+        });
+        window.google.accounts.id.prompt();
       } else {
         console.warn('Google One Tap disabled because GOOGLE_CLIENT_ID is not set.');
         gsiNode.remove();
         if (oneTapContainer) oneTapContainer.remove();
       }
-    });
+    };
+
+    window.setTimeout(window.initializeGoogleOneTap, 2500);
   </script>
   <!-- Google Identity Services — One Tap -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <!-- One Tap prompt container -->
-  <div id="g_id_onload" data-client_id="369292685051-ibng5c6hcuqs20fkfuk5ljip74fka3if.apps.googleusercontent.com" data-auto_prompt="true" data-auto_select="false" data-cancel_on_tap_outside="false" data-callback="handleOneTapCredential" data-prompt_parent_id="one-tap-container" data-itp_support="true"></div>
+  <div id="g_id_onload" data-auto_prompt="false"></div>
   <div id="one-tap-container" style="position:fixed;top:70px;right:24px;z-index:9999;"></div>
   <style>
     /* ============================================================
@@ -2570,7 +2577,8 @@
 })();
 </script>
 
-Wire listing showcase to real Supabase listing ── */
+<script>
+/* ── Wire listing showcase to real Supabase listing ── */
 (async function loadShowcaseListing() {
   try {
     // Fetch one verified airbnb listing with a photo
