@@ -147,10 +147,14 @@
     var canvas = document.getElementById('vrm-map-canvas');
     canvas.innerHTML =
       '<div class="pending-map">' +
-        '<svg viewBox="0 0 200 220" xmlns="http://www.w3.org/2000/svg">' +
-          // Stylized, simplified Kenya silhouette (decorative — not surveyed cartography).
-          '<path class="pending-kenya" d="M70 18 L118 14 L142 40 L150 70 L138 92 L150 110 L146 140 L128 150 L132 172 L110 198 L90 188 L78 200 L58 180 L64 154 L48 138 L52 108 L38 90 L46 60 L60 40 Z"/>' +
-          '<g transform="translate(100,100)">' +
+        '<svg viewBox="0 -30 200 260" xmlns="http://www.w3.org/2000/svg">' +
+          // Simplified, decorative Kenya silhouette (not surveyed cartography) —
+          // traces the recognizable features: the Turkana/Ilemi spike in the
+          // north, the Somali border running SE to the coast, the Indian Ocean
+          // coastline down to the Tanzania border, and the Lake Victoria bite
+          // in the southwest.
+          '<path class="pending-kenya" d="M58 -25 L68 20 L102 12 L142 32 L172 62 L184 88 L170 118 L154 153 L144 178 L108 194 L74 206 L56 196 L44 182 L60 166 L40 150 L30 108 L33 62 L46 20 Z"/>' +
+          '<g transform="translate(90,150)">' +
             '<circle class="pending-pin-ring" r="8"/>' +
             '<circle class="pending-pin-ring r2" r="8"/>' +
             '<circle class="pending-pin-dot" r="5"/>' +
