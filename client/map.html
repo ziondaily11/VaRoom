@@ -57,6 +57,18 @@
   .btn-primary{ background:var(--red); border-color:var(--red); color:#fff; }
   .btn[disabled]{ opacity:.5; pointer-events:none; }
 
+  .pending-map{ width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.9rem; background:linear-gradient(180deg, #f3ede9, #e5ddd8); }
+  [data-theme="dark"] .pending-map{ background:linear-gradient(180deg, #241c1a, #1a1412); }
+  .pending-map svg{ width:150px; height:auto; }
+  .pending-kenya{ fill:none; stroke:var(--red); stroke-width:2.2; stroke-linejoin:round; opacity:.85; }
+  .pending-pin-ring{ fill:none; stroke:var(--red); stroke-width:2; opacity:0; transform-origin:center; animation:pending-ping 2.2s ease-out infinite; }
+  .pending-pin-ring.r2{ animation-delay:.7s; }
+  .pending-pin-dot{ fill:var(--red); }
+  .pending-map-label{ font-size:.85rem; color:var(--muted); text-align:center; max-width:220px; line-height:1.5; }
+  @keyframes pending-ping{
+    0%{ transform:scale(0.3); opacity:.9; }
+    100%{ transform:scale(2.6); opacity:0; }
+  }
   @media (min-width: 860px){
     .map-layout{ flex-direction:row; }
     .sheet{ width:380px; border-radius:0; box-shadow:none; border-left:1px solid rgba(128,110,100,.15); overflow-y:auto; }
@@ -132,10 +144,20 @@
     sheetSub.textContent = "We're still connecting this feature — the map and directions will be available here soon.";
     sheetStatus.style.display = 'none';
     directionsBtn.disabled = true;
-    document.getElementById('vrm-map-canvas').style.display = 'flex';
-    document.getElementById('vrm-map-canvas').style.alignItems = 'center';
-    document.getElementById('vrm-map-canvas').style.justifyContent = 'center';
-    document.getElementById('vrm-map-canvas').textContent = '🗺️ Coming soon';
+    var canvas = document.getElementById('vrm-map-canvas');
+    canvas.innerHTML =
+      '<div class="pending-map">' +
+        '<svg viewBox="0 0 200 220" xmlns="http://www.w3.org/2000/svg">' +
+          // Stylized, simplified Kenya silhouette (decorative — not surveyed cartography).
+          '<path class="pending-kenya" d="M70 18 L118 14 L142 40 L150 70 L138 92 L150 110 L146 140 L128 150 L132 172 L110 198 L90 188 L78 200 L58 180 L64 154 L48 138 L52 108 L38 90 L46 60 L60 40 Z"/>' +
+          '<g transform="translate(100,100)">' +
+            '<circle class="pending-pin-ring" r="8"/>' +
+            '<circle class="pending-pin-ring r2" r="8"/>' +
+            '<circle class="pending-pin-dot" r="5"/>' +
+          '</g>' +
+        '</svg>' +
+        '<div class="pending-map-label">Nairobi and beyond — VaRoom\'s live map is on its way.</div>' +
+      '</div>';
   }
 
   function renderResult(result){
