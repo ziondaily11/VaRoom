@@ -14,6 +14,108 @@ app.use(express.json());
 // Serve the frontend (client/) as static files
 app.use(express.static(path.join(__dirname, '..', 'client')));
 
+// Rate-limit in-memory tracker for OTP requests
+const otpRequestTracker = new Map();
+
+// Dedicated Password Reset OTP request endpoint
+app.post('/api/auth/forgot-password', async (req, res) => {
+  const { email } = req.body || {};
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ error: 'Please enter a valid email address' });
+  }
+
+  const normalizedEmail = email.trim().toLowerCase();
+
+  // Rate limiting: 60s cooldown per email
+  const lastSent = otpRequestTracker.get(normalizedEmail);
+  const now = Date.now();
+  if (lastSent && (now - lastSent) < 60000) {
+    const waitSeconds = Math.ceil((60000 - (now - lastSent)) / 1000);
+    return res.status(429).json({
+      error: `Please wait ${waitSeconds}s before requesting another code.`
+    });
+  }
+
+  try {
+    // 1. Generate real recovery OTP via Supabase admin
+    const { data, error } = await supabaseAdmin.auth.admin.generateLink({
+      type: 'recovery',
+      email: normalizedEmail
+    });
+
+    if (error) {
+      console.log(`Password reset requested for non-existent user: ${normalizedEmail}`);
+      return res.json({
+        success: true,
+        message: "If an account exists for this email, we've sent you a verification code."
+      });
+    }
+
+    const otpCode = data.properties && data.properties.email_otp;
+    otpRequestTracker.set(normalizedEmail, now);
+
+    // 2. If RESEND_API_KEY is configured on the server, dispatch the OTP-only email via Resend
+    const resendApiKey = process.env.RESEND_API_KEY;
+    if (resendApiKey && otpCode) {
+      const fromEmail = process.env.RESEND_FROM_EMAIL || 'VaRoom <onboarding@resend.dev>';
+      const emailHtml = `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 28px 24px; color: #1a1210; background: #ffffff; border: 1px solid #d9c9c2; border-radius: 8px;">
+          <h2 style="font-size: 20px; font-weight: 700; color: #1a1210; margin: 0 0 12px;">Reset your VaRoom password</h2>
+          <p style="font-size: 14px; color: #756661; line-height: 1.5; margin: 0 0 20px;">
+            We received a request to reset your VaRoom password.
+          </p>
+          <p style="font-size: 13px; font-weight: 600; color: #1a1210; margin: 0 0 8px;">
+            Your verification code is:
+          </p>
+          <div style="background: #fbf4f1; border: 1.5px solid #d9c9c2; border-radius: 6px; padding: 14px; text-align: center; margin: 0 0 20px;">
+            <span style="font-family: 'SFMono-Regular', Consolas, Menlo, monospace; font-size: 32px; font-weight: 700; letter-spacing: 6px; color: #c41e3a;">${otpCode}</span>
+          </div>
+          <p style="font-size: 13px; color: #756661; line-height: 1.5; margin: 0 0 16px;">
+            This code expires in 10 minutes.
+          </p>
+          <p style="font-size: 12px; color: #9e8e89; line-height: 1.5; margin: 0; border-top: 1px solid #eae1dc; padding-top: 14px;">
+            If you did not request a password reset, you can safely ignore this email.
+          </p>
+        </div>
+      `;
+
+      try {
+        const emailRes = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${resendApiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            from: fromEmail,
+            to: normalizedEmail,
+            subject: 'Reset your VaRoom password',
+            html: emailHtml
+          })
+        });
+
+        if (!emailRes.ok) {
+          const errBody = await emailRes.text();
+          console.error('Resend API error:', errBody);
+        } else {
+          console.log(`Dispatched 6-digit OTP email to ${normalizedEmail} via Resend`);
+        }
+      } catch (sendErr) {
+        console.error('Failed to send email via Resend:', sendErr.message);
+      }
+    }
+
+    return res.json({
+      success: true,
+      message: "If an account exists for this email, we've sent you a verification code."
+    });
+
+  } catch (err) {
+    console.error('Forgot password error:', err);
+    return res.status(500).json({ error: 'Could not process password reset request.' });
+  }
+});
+
 // Placeholder API route — real listing/provider/client routes will live in ./routes
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', service: 'varoom-server' });
