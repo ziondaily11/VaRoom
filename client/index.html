@@ -640,8 +640,8 @@
       min-height: 100vh;
       display: flex;
       flex-direction: column;
-      justify-content: flex-end;
-      padding: 140px 6vw 70px;
+      justify-content: center;
+      padding: 120px 6vw 50px;
       overflow: hidden;
       background:
         radial-gradient(ellipse 90% 60% at 50% -10%, rgba(45, 25, 30, 0.6) 0%, transparent 80%),
@@ -654,14 +654,14 @@
     /* Giant Atmospheric Ghost Wordmark */
     .hero-giant-wordmark {
       position: absolute;
-      top: 8%;
+      top: 6%;
       left: 50%;
       transform: translateX(-50%);
       font-family: var(--sans);
-      font-size: clamp(90px, 20vw, 300px);
+      font-size: clamp(80px, 18vw, 260px);
       font-weight: 800;
       letter-spacing: -0.05em;
-      color: rgba(255, 255, 255, 0.08);
+      color: rgba(255, 255, 255, 0.07);
       text-shadow: 0 0 80px rgba(0, 0, 0, 0.6);
       pointer-events: none;
       user-select: none;
@@ -671,8 +671,8 @@
     }
 
     @keyframes wordmarkFloat {
-      0%, 100% { transform: translate(-50%, 0); opacity: 0.08; }
-      50% { transform: translate(-50%, -10px); opacity: 0.12; }
+      0%, 100% { transform: translate(-50%, 0); opacity: 0.07; }
+      50% { transform: translate(-50%, -10px); opacity: 0.11; }
     }
 
     /* Animated text highlights */
@@ -695,17 +695,19 @@
     .hero-main-row {
       position: relative;
       z-index: 2;
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-end;
+      display: grid;
+      grid-template-columns: 1.05fr 1fr;
+      align-items: center;
       gap: 36px;
       width: 100%;
-      max-width: 1320px;
+      max-width: 1360px;
       margin: 0 auto;
     }
 
     .hero-text-col {
-      max-width: 680px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
     }
 
     .eyebrow {
@@ -720,8 +722,9 @@
       border: 1px solid rgba(255, 255, 255, 0.12);
       border-radius: 999px;
       padding: 5px 14px;
-      margin-bottom: 22px;
+      margin-bottom: 18px;
       backdrop-filter: blur(10px);
+      width: fit-content;
     }
 
     .eyebrow-dot {
@@ -739,18 +742,131 @@
     }
 
     .hero h1 {
-      margin: 0 0 16px;
-      font: 700 clamp(44px, 5.8vw, 84px) / 1.02 var(--sans);
-      letter-spacing: -2.5px;
+      margin: 0 0 14px;
+      font: 700 clamp(38px, 4.6vw, 68px) / 1.05 var(--sans);
+      letter-spacing: -2px;
       color: #ffffff;
     }
 
     .hero-copy {
-      max-width: 400px;
+      max-width: 480px;
       color: rgba(255, 255, 255, 0.72);
-      line-height: 1.6;
+      line-height: 1.55;
       font-size: 15px;
-      margin-bottom: 0;
+      margin-bottom: 22px;
+    }
+
+    .hero-quick-tags {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+    }
+
+    .hero-tag-chip {
+      font: 500 11px var(--mono);
+      color: rgba(255, 255, 255, 0.65);
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 4px 10px;
+      border-radius: 999px;
+      text-decoration: none;
+      transition: all 0.2s ease;
+    }
+    .hero-tag-chip:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: white;
+      border-color: rgba(255, 255, 255, 0.25);
+    }
+
+    /* Hero Live Motion Deck Container (Right Column above the fold) */
+    .hero-live-deck {
+      background: rgba(14, 9, 8, 0.84);
+      backdrop-filter: blur(24px) saturate(180%);
+      -webkit-backdrop-filter: blur(24px) saturate(180%);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 24px;
+      padding: 18px;
+      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      position: relative;
+      overflow: hidden;
+      animation: deckFloat 6s ease-in-out infinite;
+    }
+
+    @keyframes deckFloat {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-5px); }
+    }
+
+    .hero-deck-nav {
+      display: flex;
+      gap: 4px;
+      overflow-x: auto;
+      background: rgba(255, 255, 255, 0.04);
+      padding: 4px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .hero-deck-tab {
+      padding: 7px 14px;
+      border-radius: 999px;
+      background: transparent;
+      border: none;
+      color: rgba(255, 255, 255, 0.6);
+      font: 600 11px var(--sans);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      position: relative;
+      overflow: hidden;
+      white-space: nowrap;
+      transition: all 0.2s ease;
+    }
+
+    .hero-deck-tab:hover {
+      color: white;
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    .hero-deck-tab.active {
+      background: rgba(255, 255, 255, 0.14);
+      color: white;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+    }
+
+    .hero-deck-tab .tab-timer {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      height: 2px;
+      background: linear-gradient(90deg, #e0314b, #ff6b81);
+      width: 0%;
+      border-radius: 2px;
+    }
+
+    .hero-deck-tab.active .tab-timer {
+      animation: tabTimerProgress 5.5s linear infinite;
+    }
+
+    .hero-deck-stage {
+      min-height: 330px;
+      position: relative;
+    }
+
+    .hero-deck-slide {
+      display: none;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .hero-deck-slide.active {
+      display: flex;
+      animation: slideInMotion 0.35s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
     /* Floating Frosted Search Pill (StayGo Style) */
@@ -933,6 +1049,525 @@
       letter-spacing: 3px;
       color: rgba(255,255,255,0.35);
       white-space: nowrap;
+    }
+
+    /* ============================================================
+       LIVING MOTION DECK (App Pages in Real-Time Motion)
+    ============================================================ */
+    .motion-deck {
+      background: #080504;
+      color: white;
+      padding: 90px 6vw;
+      position: relative;
+      overflow: hidden;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .motion-deck-bg-grid {
+      position: absolute;
+      inset: 0;
+      background-image: radial-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+      background-size: 32px 32px;
+      pointer-events: none;
+      opacity: 0.7;
+    }
+
+    .motion-deck-header {
+      max-width: 1320px;
+      margin: 0 auto 44px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      flex-wrap: wrap;
+      gap: 24px;
+      position: relative;
+      z-index: 2;
+    }
+
+    .motion-deck-title-wrap .section-label {
+      margin-bottom: 12px;
+    }
+
+    .motion-deck-title-wrap h2 {
+      font: 700 clamp(32px, 4.2vw, 56px) / 1.08 var(--sans);
+      letter-spacing: -2px;
+      color: white;
+      margin: 0;
+    }
+
+    .motion-deck-nav {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      background: rgba(255, 255, 255, 0.04);
+      padding: 5px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(14px);
+    }
+
+    .motion-deck-tab {
+      padding: 9px 18px;
+      border-radius: 999px;
+      background: transparent;
+      border: none;
+      color: rgba(255, 255, 255, 0.6);
+      font: 600 12px var(--sans);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .motion-deck-tab:hover {
+      color: white;
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    .motion-deck-tab.active {
+      background: rgba(255, 255, 255, 0.12);
+      color: white;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    }
+
+    .motion-deck-tab .tab-timer {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      height: 2px;
+      background: linear-gradient(90deg, #e0314b, #ff6b81);
+      width: 0%;
+      border-radius: 2px;
+    }
+
+    .motion-deck-tab.active .tab-timer {
+      animation: tabTimerProgress 6s linear infinite;
+    }
+
+    @keyframes tabTimerProgress {
+      from { width: 0%; }
+      to { width: 100%; }
+    }
+
+    .motion-deck-stage {
+      max-width: 1320px;
+      margin: 0 auto;
+      min-height: 480px;
+      position: relative;
+      z-index: 2;
+    }
+
+    .motion-slide {
+      display: none;
+    }
+
+    .motion-slide.active {
+      display: grid;
+      grid-template-columns: 1fr 1.25fr;
+      gap: 48px;
+      align-items: center;
+      animation: slideInMotion 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes slideInMotion {
+      from { opacity: 0; transform: translateY(14px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .slide-info-col {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .slide-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 12px;
+      border-radius: 999px;
+      font: 600 10px var(--mono);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      background: rgba(196, 30, 58, 0.15);
+      border: 1px solid rgba(196, 30, 58, 0.3);
+      color: #ff8093;
+      width: fit-content;
+    }
+
+    .slide-info-col h3 {
+      font: 700 clamp(26px, 3.2vw, 40px) / 1.15 var(--sans);
+      letter-spacing: -1px;
+      margin: 0;
+      color: white;
+    }
+
+    .slide-info-col p {
+      font-size: 15px;
+      line-height: 1.6;
+      color: rgba(255, 255, 255, 0.7);
+      margin: 0;
+      max-width: 440px;
+    }
+
+    .slide-features-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 4px;
+    }
+
+    .slide-feature-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.85);
+    }
+
+    .slide-feature-item svg {
+      color: #22c55e;
+      flex-shrink: 0;
+    }
+
+    .slide-action-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 13px 26px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #e52d47 0%, #c41e3a 60%, #9e142b 100%);
+      color: white;
+      font: 600 13px var(--sans);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      cursor: pointer;
+      width: fit-content;
+      margin-top: 10px;
+      box-shadow: 0 6px 20px rgba(196, 30, 58, 0.4);
+      transition: all 0.25s ease;
+    }
+
+    .slide-action-btn:hover {
+      box-shadow: 0 8px 26px rgba(196, 30, 58, 0.6);
+      transform: translateY(-2px);
+    }
+
+    /* Motion Preview Device Screen Container */
+    .slide-preview-col {
+      background: rgba(18, 12, 10, 0.85);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 20px;
+      padding: 24px;
+      box-shadow: 0 30px 70px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+      position: relative;
+      overflow: hidden;
+      min-height: 420px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    /* 1. Stays Motion Reel */
+    .stays-motion-track {
+      display: flex;
+      gap: 18px;
+      animation: staysTrackScroll 18s linear infinite;
+    }
+    .stays-motion-track:hover {
+      animation-play-state: paused;
+    }
+
+    @keyframes staysTrackScroll {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(-50%); }
+    }
+
+    .stay-preview-card {
+      width: 250px;
+      flex-shrink: 0;
+      background: #140f0e;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+      transition: transform 0.25s ease, border-color 0.25s ease;
+    }
+    .stay-preview-card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(255, 255, 255, 0.25);
+    }
+
+    .stay-preview-card img {
+      width: 100%;
+      height: 150px;
+      object-fit: cover;
+      display: block;
+    }
+
+    .stay-card-body {
+      padding: 14px;
+    }
+    .stay-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+    .stay-card-title {
+      font: 700 14px var(--sans);
+      color: white;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .stay-card-rating {
+      font-size: 11px;
+      color: #fbbf24;
+      font-weight: 600;
+    }
+    .stay-card-loc {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.6);
+      margin-bottom: 8px;
+    }
+    .stay-card-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 13px;
+    }
+    .stay-card-price {
+      font-weight: 700;
+      color: #ff8093;
+    }
+
+    /* 2. Elie Live Chat Simulation */
+    .elie-chat-mock {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      width: 100%;
+      max-width: 440px;
+      margin: 0 auto;
+    }
+
+    .chat-bubble-user {
+      align-self: flex-end;
+      background: linear-gradient(135deg, #e0314b, #c41e3a);
+      color: white;
+      padding: 12px 16px;
+      border-radius: 18px 18px 4px 18px;
+      font-size: 13px;
+      line-height: 1.45;
+      max-width: 85%;
+      box-shadow: 0 4px 14px rgba(196, 30, 58, 0.3);
+      animation: userBubblePop 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes userBubblePop {
+      from { opacity: 0; transform: translateY(10px) scale(0.95); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .chat-bubble-elie {
+      align-self: flex-start;
+      background: #201716;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: white;
+      padding: 14px 16px;
+      border-radius: 18px 18px 18px 4px;
+      font-size: 13px;
+      line-height: 1.5;
+      max-width: 90%;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+      animation: elieBubblePop 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes elieBubblePop {
+      from { opacity: 0; transform: translateY(10px) scale(0.95); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .elie-matched-card {
+      margin-top: 10px;
+      background: #140f0e;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 10px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .elie-matched-card img {
+      width: 60px;
+      height: 60px;
+      border-radius: 8px;
+      object-fit: cover;
+    }
+    .elie-matched-info {
+      flex: 1;
+    }
+    .elie-matched-info strong {
+      display: block;
+      font-size: 12px;
+      color: white;
+    }
+    .elie-matched-info span {
+      font-size: 11px;
+      color: #ff8093;
+    }
+
+    /* 3. Live Radar Map Mockup */
+    .radar-map-container {
+      position: relative;
+      width: 100%;
+      height: 340px;
+      background: #0d0807;
+      border-radius: 14px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .radar-sweep {
+      position: absolute;
+      width: 320px;
+      height: 320px;
+      border-radius: 50%;
+      background: conic-gradient(from 0deg, rgba(34, 197, 94, 0.25) 0deg, transparent 60deg, transparent 360deg);
+      animation: radarSweepAnim 4s linear infinite;
+    }
+
+    @keyframes radarSweepAnim {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    .radar-circle {
+      position: absolute;
+      border-radius: 50%;
+      border: 1px dashed rgba(255, 255, 255, 0.15);
+    }
+    .radar-circle:nth-child(1) { width: 120px; height: 120px; }
+    .radar-circle:nth-child(2) { width: 220px; height: 220px; }
+    .radar-circle:nth-child(3) { width: 300px; height: 300px; }
+
+    .map-pin-pulse {
+      position: absolute;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+    }
+    .map-pin-pulse .pin-dot {
+      width: 12px;
+      height: 12px;
+      background: var(--crimson);
+      border-radius: 50%;
+      box-shadow: 0 0 14px #e0314b;
+      position: relative;
+    }
+    .map-pin-pulse .pin-dot::after {
+      content: '';
+      position: absolute;
+      inset: -6px;
+      border-radius: 50%;
+      border: 1.5px solid var(--crimson);
+      animation: beaconRing 2s infinite;
+    }
+    .map-pin-pulse .pin-tag {
+      background: rgba(14, 9, 8, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 999px;
+      padding: 3px 8px;
+      font: 600 10px var(--mono);
+      color: white;
+      white-space: nowrap;
+    }
+
+    /* 4. Host Live Dashboard Mockup */
+    .host-dashboard-mock {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      width: 100%;
+    }
+    .host-metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+    .host-metric-card {
+      background: #140f0e;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 14px;
+    }
+    .host-metric-card small {
+      display: block;
+      font: 10px var(--mono);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: rgba(255, 255, 255, 0.5);
+      margin-bottom: 4px;
+    }
+    .host-metric-card strong {
+      font: 700 18px var(--sans);
+      color: #ff8093;
+    }
+    .host-live-alert {
+      background: rgba(34, 197, 94, 0.12);
+      border: 1px solid rgba(34, 197, 94, 0.3);
+      color: #86efac;
+      padding: 12px 16px;
+      border-radius: 10px;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      animation: alertSlideIn 0.5s ease;
+    }
+    @keyframes alertSlideIn {
+      from { opacity: 0; transform: translateY(-8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* 5. Live Chat & Instant Booking Mockup */
+    .instant-chat-mock {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      width: 100%;
+    }
+    .instant-approval-banner {
+      background: rgba(196, 30, 58, 0.18);
+      border: 1px solid rgba(196, 30, 58, 0.4);
+      color: #ff8093;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .motion-deck { padding: 60px 5vw; }
+      .motion-slide.active { grid-template-columns: 1fr; gap: 32px; }
+      .slide-preview-col { min-height: 360px; padding: 16px; }
+      .motion-deck-nav { width: 100%; justify-content: flex-start; overflow-x: auto; }
+      .host-metrics-grid { grid-template-columns: 1fr; }
     }
 
     /* ============================================================
@@ -2241,20 +2876,18 @@
       .mobile-nav-btn:hover { background: var(--deep-red); }
 
       .hero {
-        padding: 110px 5vw 40px;
-        min-height: 100vh;
-        justify-content: flex-end;
+        padding: 100px 5vw 40px;
+        min-height: auto;
       }
       .hero-main-row {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 24px;
+        grid-template-columns: 1fr;
+        gap: 28px;
       }
       .hero-giant-wordmark {
-        top: 13%;
+        top: 8%;
         font-size: clamp(65px, 18vw, 120px);
       }
-      .hero h1 { font-size: clamp(38px, 9vw, 56px); letter-spacing: -1.5px; }
+      .hero h1 { font-size: clamp(34px, 8vw, 48px); letter-spacing: -1.5px; }
       .hero-card { display: none; }
       .search-box-pill {
         max-width: 100%;
@@ -2413,18 +3046,18 @@
 </div>
 
 <!-- ============================================================
-     HERO (StayGo-Inspired Hero UI with Atmospheric Depth)
+     HERO (StayGo-Inspired Hero UI with Living Motion Deck)
 ============================================================ -->
 <section class="hero">
   <!-- Giant Atmospheric Ghost Wordmark Backdrop -->
   <div class="hero-giant-wordmark" aria-hidden="true">VaRoom</div>
 
   <div class="hero-main-row">
-    <!-- Headline & Copy Column -->
+    <!-- Headline & Search Column (Left) -->
     <div class="hero-text-col">
       <div class="eyebrow">
         <span class="eyebrow-dot"></span>
-        The places of Kenya, in one room
+        Live in Kenya · The spaces of Kenya, in one room
       </div>
 
       <h1>
@@ -2433,54 +3066,247 @@
       </h1>
 
       <p class="hero-copy">
-        Real spaces. Real people. A better way to find where you're going next.
+        Real spaces. Real people. A living ecosystem of curated stays, AI natural search, and verified radar GPS.
       </p>
+
+      <!-- Floating Frosted Search Pill (StayGo Style) -->
+      <form class="search-box-pill" id="hero-search-form">
+        <div class="search-location-pill">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11Z"/>
+            <circle cx="12" cy="10" r="2.5"/>
+          </svg>
+          <input type="text" id="search-location-input" placeholder="Search Nairobi, Diani, Kilimani..." autocomplete="off" />
+        </div>
+
+        <div class="search-divider-pill"></div>
+
+        <div class="space-type-pill">
+          <select id="search-category" aria-label="Select space category">
+            <option value="">Any space ⌄</option>
+            <option value="airbnb">Airbnb / Stay</option>
+            <option value="hotel">Hotel</option>
+            <option value="venue">Event venue</option>
+            <option value="office">Office</option>
+            <option value="shop">Shop</option>
+            <option value="property">Property</option>
+          </select>
+        </div>
+
+        <button type="submit" class="search-submit-pill">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <span>Search</span>
+        </button>
+      </form>
+
+      <!-- Quick Jump Categories -->
+      <div class="hero-quick-tags">
+        <a href="client-home.html?category=airbnb" class="hero-tag-chip">✨ Airbnbs</a>
+        <a href="client-home.html?category=hotel" class="hero-tag-chip">🏨 Hotels</a>
+        <a href="map.html" class="hero-tag-chip">📍 GPS Map</a>
+        <a href="elie.html" class="hero-tag-chip">🤖 Ask Elie</a>
+        <a href="list.html" class="hero-tag-chip">🔑 Host a Space</a>
+      </div>
     </div>
 
-    <!-- Floating Frosted Search Pill (StayGo Style) -->
-    <form class="search-box-pill" id="hero-search-form">
-      <div class="search-location-pill">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-          <path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11Z"/>
-          <circle cx="12" cy="10" r="2.5"/>
-        </svg>
-        <input type="text" id="search-location-input" placeholder="Search destination, city, area..." autocomplete="off" />
+    <!-- Living Motion Deck Column (Right - Active Above The Fold) -->
+    <div class="hero-live-deck" id="hero-live-deck">
+      <!-- Mini Switcher Tabs with Auto-Timer Progress -->
+      <div class="hero-deck-nav" id="hero-deck-tabs">
+        <button type="button" class="hero-deck-tab active" data-slide="0">
+          <span>✨ Stays</span>
+          <div class="tab-timer"></div>
+        </button>
+        <button type="button" class="hero-deck-tab" data-slide="1">
+          <span>🤖 Elie AI</span>
+          <div class="tab-timer"></div>
+        </button>
+        <button type="button" class="hero-deck-tab" data-slide="2">
+          <span>📍 Live Map</span>
+          <div class="tab-timer"></div>
+        </button>
+        <button type="button" class="hero-deck-tab" data-slide="3">
+          <span>🔑 Host</span>
+          <div class="tab-timer"></div>
+        </button>
+        <button type="button" class="hero-deck-tab" data-slide="4">
+          <span>💬 Book</span>
+          <div class="tab-timer"></div>
+        </button>
       </div>
 
-      <div class="search-divider-pill"></div>
+      <!-- Living Deck Stage -->
+      <div class="hero-deck-stage">
+        <!-- Slide 0: Stays Explorer in Motion -->
+        <div class="hero-deck-slide active" data-index="0">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span style="font:600 10px var(--mono); text-transform:uppercase; letter-spacing:1px; color:#ff8093;">🏨 Explore Stays · Live Feed</span>
+            <a href="client-home.html" style="font-size:11px; color:rgba(255,255,255,0.7); text-decoration:none;">View all →</a>
+          </div>
 
-      <div class="space-type-pill">
-        <select id="search-category" aria-label="Select space category">
-          <option value="">Any space ⌄</option>
-          <option value="airbnb">Airbnb / Stay</option>
-          <option value="hotel">Hotel</option>
-          <option value="venue">Event venue</option>
-          <option value="office">Office</option>
-          <option value="shop">Shop</option>
-          <option value="property">Property</option>
-        </select>
+          <div class="stays-motion-track">
+            <!-- Card 1 -->
+            <div class="stay-preview-card">
+              <img src="assets/landing101.jpg" alt="Kilimani Suite" loading="lazy" />
+              <div class="stay-card-body">
+                <div class="stay-card-header">
+                  <span class="stay-card-title">Kilimani Glass Suite</span>
+                  <span class="stay-card-rating">★ 4.96</span>
+                </div>
+                <div class="stay-card-loc">Kilimani, Nairobi · 2 Bed</div>
+                <div class="stay-card-footer">
+                  <span class="stay-card-price">KSh 8,500/nt</span>
+                  <span style="color:#22c55e; font-size:10px; font-weight:600;">✓ Instant Book</span>
+                </div>
+              </div>
+            </div>
+            <!-- Card 2 -->
+            <div class="stay-preview-card">
+              <img src="assets/landing102.jpg" alt="Diani Beach Villa" loading="lazy" />
+              <div class="stay-card-body">
+                <div class="stay-card-header">
+                  <span class="stay-card-title">Diani Coastal Villa</span>
+                  <span class="stay-card-rating">★ 4.98</span>
+                </div>
+                <div class="stay-card-loc">Diani Beach, Coast · 4 Bed</div>
+                <div class="stay-card-footer">
+                  <span class="stay-card-price">KSh 18,000/nt</span>
+                  <span style="color:#22c55e; font-size:10px; font-weight:600;">✓ Ocean View</span>
+                </div>
+              </div>
+            </div>
+            <!-- Card 3 -->
+            <div class="stay-preview-card">
+              <img src="assets/landing103.jpg" alt="Karen Sanctuary" loading="lazy" />
+              <div class="stay-card-body">
+                <div class="stay-card-header">
+                  <span class="stay-card-title">Karen Forest Sanctuary</span>
+                  <span class="stay-card-rating">★ 4.92</span>
+                </div>
+                <div class="stay-card-loc">Karen, Nairobi · 3 Bed</div>
+                <div class="stay-card-footer">
+                  <span class="stay-card-price">KSh 12,500/nt</span>
+                  <span style="color:#22c55e; font-size:10px; font-weight:600;">✓ Fireplace</span>
+                </div>
+              </div>
+            </div>
+            <!-- Duplicate for infinite track -->
+            <div class="stay-preview-card">
+              <img src="assets/landing101.jpg" alt="Kilimani Suite" loading="lazy" />
+              <div class="stay-card-body">
+                <div class="stay-card-header">
+                  <span class="stay-card-title">Kilimani Glass Suite</span>
+                  <span class="stay-card-rating">★ 4.96</span>
+                </div>
+                <div class="stay-card-loc">Kilimani, Nairobi · 2 Bed</div>
+                <div class="stay-card-footer">
+                  <span class="stay-card-price">KSh 8,500/nt</span>
+                  <span style="color:#22c55e; font-size:10px; font-weight:600;">✓ Instant Book</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Slide 1: Elie AI in Motion -->
+        <div class="hero-deck-slide" data-index="1">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span style="font:600 10px var(--mono); text-transform:uppercase; letter-spacing:1px; color:#ff8093;">🤖 Elie AI Assistant · Natural Search</span>
+            <a href="elie.html" style="font-size:11px; color:rgba(255,255,255,0.7); text-decoration:none;">Open Elie →</a>
+          </div>
+          <div class="elie-chat-mock">
+            <div class="chat-bubble-user">
+              "Elie, find me a quiet 2-bed in Kilimani with automatic solar backup and fiber WiFi under 9k."
+            </div>
+            <div class="chat-bubble-elie">
+              "Found 3 verified stays matching your request in Kilimani with 24/7 backup power and >100 Mbps WiFi."
+              <div class="elie-matched-card">
+                <img src="assets/landing101.jpg" alt="The Greenhouse" />
+                <div class="elie-matched-info">
+                  <strong>The Greenhouse Kilimani</strong>
+                  <span>KSh 8,500/nt · ★ 4.96</span>
+                </div>
+                <a href="client-home.html" style="background:#c41e3a; color:white; font-size:10px; padding:5px 10px; border-radius:999px; font-weight:600; text-decoration:none;">View</a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Slide 2: GPS Live Map in Motion -->
+        <div class="hero-deck-slide" data-index="2">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span style="font:600 10px var(--mono); text-transform:uppercase; letter-spacing:1px; color:#ff8093;">📍 Radar GPS Verification · Live Map</span>
+            <a href="map.html" style="font-size:11px; color:rgba(255,255,255,0.7); text-decoration:none;">Full map →</a>
+          </div>
+          <div class="radar-map-container" style="height:260px;">
+            <div class="radar-circle"></div>
+            <div class="radar-circle"></div>
+            <div class="radar-sweep"></div>
+            <div class="map-pin-pulse" style="top: 35%; left: 45%;">
+              <div class="pin-dot"></div>
+              <div class="pin-tag">Kilimani (24 stays)</div>
+            </div>
+            <div class="map-pin-pulse" style="top: 62%; left: 68%;">
+              <div class="pin-dot"></div>
+              <div class="pin-tag">Diani Beach (18 stays)</div>
+            </div>
+            <div class="map-pin-pulse" style="top: 55%; left: 25%;">
+              <div class="pin-dot"></div>
+              <div class="pin-tag">Karen Sanctuary (12 stays)</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Slide 3: Host Studio in Motion -->
+        <div class="hero-deck-slide" data-index="3">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span style="font:600 10px var(--mono); text-transform:uppercase; letter-spacing:1px; color:#ff8093;">🔑 Host Studio · Real-Time Dashboard</span>
+            <a href="list.html" style="font-size:11px; color:rgba(255,255,255,0.7); text-decoration:none;">List space →</a>
+          </div>
+          <div class="host-dashboard-mock">
+            <div class="host-live-alert">
+              <span style="font-size:14px;">✨</span>
+              <span><strong>New Booking:</strong> Joy M. booked 3 nights in Kilimani (+KSh 25,500)</span>
+            </div>
+            <div class="host-metrics-grid">
+              <div class="host-metric-card">
+                <small>Monthly Payout</small>
+                <strong>KSh 185,000</strong>
+              </div>
+              <div class="host-metric-card">
+                <small>Occupancy</small>
+                <strong style="color:#86efac;">94.2%</strong>
+              </div>
+              <div class="host-metric-card">
+                <small>Rating</small>
+                <strong style="color:#fbbf24;">4.98 ★</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Slide 4: Instant Booking & Chat in Motion -->
+        <div class="hero-deck-slide" data-index="4">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span style="font:600 10px var(--mono); text-transform:uppercase; letter-spacing:1px; color:#ff8093;">💬 Community & Live Handover</span>
+            <a href="login.html" style="font-size:11px; color:rgba(255,255,255,0.7); text-decoration:none;">Sign in →</a>
+          </div>
+          <div class="instant-chat-mock">
+            <div class="instant-approval-banner">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+              <span>Booking Confirmed · Check-in Aug 28, 2:00 PM</span>
+            </div>
+            <div class="chat-bubble-user">
+              "Hi Alex! Is there a secure gate access code for late night check-in?"
+            </div>
+            <div class="chat-bubble-elie" style="background:#1a1210;">
+              "Hello Joy! Yes, your smart lock code is <strong>#4829</strong>, and our 24/7 security guard is at the front gate to welcome you."
+            </div>
+          </div>
+        </div>
       </div>
-
-      <button type="submit" class="search-submit-pill">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
-          <circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-        </svg>
-        <span>Search</span>
-      </button>
-    </form>
-  </div>
-
-  <!-- Floating verified listing card -->
-  <div class="hero-card">
-    <div class="verified-tag">
-      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
-      Verified location
-    </div>
-    <h3>The Greenhouse</h3>
-    <p>Kilimani · Nairobi</p>
-    <div class="card-footer">
-      <span>2 bed apartment</span>
-      <span style="color:#ff8093; font-weight:600;">KSh 8,500 / night</span>
     </div>
   </div>
 
@@ -3066,6 +3892,75 @@
       }
     });
   });
+})();
+</script>
+
+<script>
+/* ── Living Motion Deck Controller (Auto-cycling in Hero above fold) ── */
+(function () {
+  var tabs = document.querySelectorAll('#hero-deck-tabs .hero-deck-tab');
+  var slides = document.querySelectorAll('.hero-deck-stage .hero-deck-slide');
+  var deckSection = document.getElementById('hero-live-deck');
+  if (!tabs.length || !slides.length) return;
+
+  var currentSlide = 0;
+  var totalSlides = tabs.length;
+  var autoInterval = null;
+  var isPaused = false;
+  var slideDuration = 5500; // 5.5s per slide
+
+  function goToSlide(index) {
+    currentSlide = index;
+
+    tabs.forEach(function (tab, i) {
+      if (i === index) {
+        tab.classList.add('active');
+      } else {
+        tab.classList.remove('active');
+      }
+    });
+
+    slides.forEach(function (slide, i) {
+      if (i === index) {
+        slide.classList.add('active');
+      } else {
+        slide.classList.remove('active');
+      }
+    });
+  }
+
+  function nextSlide() {
+    if (!isPaused) {
+      var next = (currentSlide + 1) % totalSlides;
+      goToSlide(next);
+    }
+  }
+
+  function startAutoCycle() {
+    stopAutoCycle();
+    autoInterval = setInterval(nextSlide, slideDuration);
+  }
+
+  function stopAutoCycle() {
+    if (autoInterval) {
+      clearInterval(autoInterval);
+      autoInterval = null;
+    }
+  }
+
+  tabs.forEach(function (tab, i) {
+    tab.addEventListener('click', function () {
+      goToSlide(i);
+      startAutoCycle();
+    });
+  });
+
+  if (deckSection) {
+    deckSection.addEventListener('mouseenter', function () { isPaused = true; });
+    deckSection.addEventListener('mouseleave', function () { isPaused = false; });
+  }
+
+  startAutoCycle();
 })();
 </script>
 
