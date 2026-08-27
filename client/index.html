@@ -13,15 +13,17 @@
     window.VAROOM_SUPABASE_URL = window.VAROOM_SUPABASE_URL || 'https://deaphymimdaygeavhyek.supabase.co';
     window.VAROOM_SUPABASE_ANON_KEY = window.VAROOM_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRlYXBoeW1pbWRheWdlYXZoeWVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY1MjAwNDQsImV4cCI6MjEwMjA5NjA0NH0.rbgVhuZCK1fZP7gKV5oO1OUvIT61ir23VhAYm8739SI';
     window.GOOGLE_CLIENT_ID = window.GOOGLE_CLIENT_ID || '369292685051-ibng5c6hcuqs20fkfuk5ljip74fka3if.apps.googleusercontent.com';
+    window.VAROOM_GOOGLE_NONCE = null;
 
     window.handleOneTapCredential = async function (response) {
-      if (!response || !response.credential || !window.supabaseClient) {
+      if (!response || !response.credential || !window.supabaseClient || !window.VAROOM_GOOGLE_NONCE) {
         return;
       }
 
       const { error } = await window.supabaseClient.auth.signInWithIdToken({
         provider: 'google',
-        token: response.credential
+        token: response.credential,
+        nonce: window.VAROOM_GOOGLE_NONCE
       });
 
       if (error) {
@@ -33,10 +35,10 @@
       window.location.href = redirect || 'client-home.html';
     };
 
-    window.initializeGoogleOneTap = function () {
-      const gsiNode = document.getElementById('g_id_onload');
+    window.initializeGoogleOneTap = async function () {
       const oneTapContainer = document.getElementById('one-tap-container');
-      if (!gsiNode || !oneTapContainer) return;
+      if (!oneTapContainer) return;
+      if (window.VAROOM_GOOGLE_ONE_TAP_INITIALIZED) return;
 
       if (window.GOOGLE_CLIENT_ID) {
         if (!window.google || !window.google.accounts || !window.google.accounts.id) {
@@ -44,16 +46,29 @@
           return;
         }
 
+        const randomBytes = new Uint8Array(32);
+        window.crypto.getRandomValues(randomBytes);
+        const rawNonce = Array.from(randomBytes, function (byte) {
+          return byte.toString(16).padStart(2, '0');
+        }).join('');
+        const hashedNonce = Array.from(new Uint8Array(
+          await window.crypto.subtle.digest('SHA-256', new TextEncoder().encode(rawNonce))
+        ), function (byte) {
+          return byte.toString(16).padStart(2, '0');
+        }).join('');
+
+        window.VAROOM_GOOGLE_NONCE = rawNonce;
         window.google.accounts.id.initialize({
           client_id: window.GOOGLE_CLIENT_ID,
           callback: window.handleOneTapCredential,
+          nonce: hashedNonce,
           cancel_on_tap_outside: false,
           itp_support: true
         });
+        window.VAROOM_GOOGLE_ONE_TAP_INITIALIZED = true;
         window.google.accounts.id.prompt();
       } else {
         console.warn('Google One Tap disabled because GOOGLE_CLIENT_ID is not set.');
-        gsiNode.remove();
         if (oneTapContainer) oneTapContainer.remove();
       }
     };
@@ -63,7 +78,6 @@
   <!-- Google Identity Services — One Tap -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <!-- One Tap prompt container -->
-  <div id="g_id_onload" data-auto_prompt="false"></div>
   <div id="one-tap-container" style="position:fixed;top:70px;right:24px;z-index:9999;"></div>
   <style>
     /* ============================================================
@@ -2509,7 +2523,7 @@
     var pendingRedirect = urlParams.get('redirect');
 
     var roleContent = {
-      host: { label: 'Host', sub: 'List and showcase your spaces ? Airbnbs, hotels, venues, offices, shops, or property.', href: 'signup-host.html' },
+      host: { label: 'Host', sub: 'List and showcase your spaces — Airbnbs, hotels, venues, offices, shops, or property.', href: 'signup-host.html' },
       client: { label: 'Client', sub: 'Find suitable places for events and stays.', href: 'signup-client.html' }
     };
 
@@ -2574,6 +2588,36 @@
       });
     }
   }
+})();
+</script>
+
+<script>
+(function () {
+  var hamburger = document.getElementById('nav-hamburger');
+  var drawer = document.getElementById('mobile-nav-drawer');
+  if (!hamburger || !drawer) return;
+
+  function toggleDrawer() {
+    var isOpen = drawer.classList.toggle('open');
+    hamburger.classList.toggle('open', isOpen);
+    document.body.style.overflow = isOpen ? 'hidden' : '';
+  }
+
+  function closeDrawer() {
+    drawer.classList.remove('open');
+    hamburger.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  hamburger.addEventListener('click', toggleDrawer);
+
+  drawer.querySelectorAll('.mob-nav-link').forEach(function (link) {
+    link.addEventListener('click', closeDrawer);
+  });
+
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape') closeDrawer();
+  });
 })();
 </script>
 
