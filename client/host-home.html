@@ -234,12 +234,7 @@
     .stats-row{ grid-template-columns:1fr 1fr; row-gap:1.2rem; }
   }
 
-  /* ---------- ATTENTION PANEL ---------- */
-  .attention-card{
-    background:var(--glass-bg); backdrop-filter:blur(22px) saturate(140%); -webkit-backdrop-filter:blur(22px) saturate(140%);
-    border:1px solid var(--glass-border); box-shadow:var(--glass-shadow); border-radius:16px;
-    padding:1rem 1.1rem;
-  }
+  /* ---------- ATTENTION ROW STYLES (reused inside .notif-panel-card) ---------- */
   .attention-list{ display:flex; flex-direction:column; }
   .attention-row{
     display:flex; align-items:center; gap:.8rem;
@@ -308,10 +303,14 @@
     padding:1rem 1.1rem;
   }
 
-  /* ---------- NOTIFICATIONS PANEL (right rail, glass) ----------
-     Real data only: reuses the same "Needs your attention" signal set
-     (pending bookings, unread messages, missing photos) already computed
-     in loadAttention() — no separate/invented notification stream. */
+  /* ---------- NOTIFICATIONS PANEL (glass) ----------
+     This is now the single notifications surface — "Needs your attention"
+     was merged into it. Real data only: pending bookings, unread messages,
+     missing photos. Row markup/styles (.attention-row etc.) are reused
+     here unchanged; only the card wrapper and header are notif-specific.
+     #notif-panel-card is the desktop (right-rail) copy; #notif-panel-card-mobile
+     is the mobile copy shown inline in the feed, since mobile no longer
+     has a bottom-bar bell as a separate entry point. */
   .notif-panel-card{
     background:var(--glass-bg); backdrop-filter:blur(22px) saturate(140%); -webkit-backdrop-filter:blur(22px) saturate(140%);
     border:1px solid var(--glass-border); border-radius:16px; box-shadow:var(--glass-shadow);
@@ -327,19 +326,8 @@
     margin-left:auto; font-size:.7rem; font-weight:700; background:var(--red); color:#fff;
     padding:.2rem .55rem; border-radius:100px; flex-shrink:0;
   }
-  .notif-panel-view{ color:var(--muted); flex-shrink:0; display:flex; }
-  .notif-panel-view:hover{ color:var(--red); }
-  .notif-panel-list{ display:flex; flex-direction:column; }
-  .notif-panel-row{ display:flex; gap:.7rem; padding:.55rem 0; border-bottom:1px solid rgba(26,18,16,.08); }
-  .notif-panel-row:first-child{ padding-top:0; }
-  .notif-panel-row:last-child{ border-bottom:none; padding-bottom:0; }
-  .notif-panel-icon{
-    width:30px; height:30px; border-radius:9px; background:rgba(196,30,58,.1); color:var(--red-deep);
-    display:flex; align-items:center; justify-content:center; flex-shrink:0;
-  }
-  .notif-panel-body{ min-width:0; }
-  .notif-panel-title{ font-size:.83rem; font-weight:600; }
-  .notif-panel-sub{ font-size:.75rem; color:var(--muted); line-height:1.35; margin-top:.1rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .notif-panel-badge[hidden]{ display:none; }
+  #notif-panel-card-mobile{ display:none; margin-bottom:1.4rem; }
   .property-news-list{ display:flex; flex-direction:column; gap:.1rem; }
   .property-news-item{
     display:block; padding:.8rem 0; border-bottom:1px solid rgba(26,18,16,.08);
@@ -374,12 +362,6 @@
   @keyframes news-shimmer{ 0%{ background-position:200% 0; } 100%{ background-position:-200% 0; } }
 
   .mobile-widget-slot{ display:none; }
-
-  /* The mobile "Needs your attention" banner is a separate element from the
-     desktop one in .host-rail — kept fully hidden outside mobile widths so
-     it can never appear twice, and only shown (via .show, added by JS) when
-     there's real pending activity. No "all caught up" state on mobile. */
-  #attention-card-mobile{ display:none; }
 
   /* ---------- NO LISTINGS EMPTY STATE ---------- */
   .empty-state-card{
@@ -523,10 +505,12 @@
     /* Your listings at a glance grid stays desktop-only — real photos/category tiles, too heavy for mobile. */
     .listings-glance-card{ display:none !important; }
 
-    /* Desktop attention card is replaced on mobile by #attention-card-mobile,
-       positioned at the top of the feed instead of below it. */
-    #attention-card{ display:none !important; }
-    #attention-card-mobile.show{ display:block; margin-bottom:1.4rem; }
+    /* Desktop Notifications card is replaced on mobile by #notif-panel-card-mobile,
+       positioned at the top of the feed instead of in the (now hidden) rail.
+       It always shows once populated — including the "all caught up" state —
+       since mobile no longer has a separate bell as a fallback entry point. */
+    #notif-panel-card{ display:none !important; }
+    #notif-panel-card-mobile{ display:block; margin-bottom:1.4rem; }
 
     .mobile-widget-slot{ display:block; margin-bottom:1.4rem; }
     .host-rail .property-news-card{ display:none; }
@@ -753,12 +737,15 @@
     </div>
 
     <div class="feed-area">
-      <div class="attention-card" id="attention-card-mobile">
-        <div class="stats-head">
-          <h2>Needs your attention</h2>
-          <a href="#" id="attention-view-all-mobile">View all →</a>
+      <div class="notif-panel-card" id="notif-panel-card-mobile">
+        <div class="notif-panel-head">
+          <span class="notif-panel-bell">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          </span>
+          <h2>Notifications</h2>
+          <span class="notif-panel-badge" id="notif-panel-badge-mobile">0 new</span>
         </div>
-        <div class="attention-list" id="attention-list-mobile"></div>
+        <div class="attention-list" id="notif-panel-list-mobile"></div>
       </div>
       <div class="property-news-mobile-slot">
         <section class="property-news-card" aria-labelledby="property-news-mobile-title">
@@ -781,11 +768,8 @@
           </span>
           <h2>Notifications</h2>
           <span class="notif-panel-badge" id="notif-panel-badge">0 new</span>
-          <button type="button" class="notif-panel-view" id="notif-panel-view" aria-label="View all notifications">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
-          </button>
         </div>
-        <div class="notif-panel-list" id="notif-panel-list"></div>
+        <div class="attention-list" id="notif-panel-list"></div>
       </div>
 
       <div class="empty-state-card" id="no-listings-card" style="display:none;">
@@ -806,14 +790,6 @@
           <a href="#" id="glance-view-all">View all</a>
         </div>
         <div class="listings-glance-grid" id="listings-glance-grid"></div>
-      </div>
-
-      <div class="attention-card" id="attention-card" style="display:none;">
-        <div class="stats-head">
-          <h2>Needs your attention</h2>
-          <a href="#" id="attention-view-all">View all →</a>
-        </div>
-        <div class="attention-list" id="attention-list"></div>
       </div>
 
       <section class="property-news-card" aria-labelledby="property-news-title">
@@ -852,16 +828,11 @@
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="2"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>
         Bookings
       </a>
-      <button type="button" class="bottom-bar-item" id="notif-bell">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-        Notifications
-      </button>
     </nav>
   </div>
 </div>
 
 <script src="js/supabase-client.js"></script>
-<script src="js/notifications-widget.js"></script>
 <script src="js/property-news-api.js"></script>
 <script>
   (async function(){
@@ -1057,8 +1028,10 @@
       });
     }
 
-    // ---------- Needs your attention (real data only — no invented signals) ----------
-    if (listingCount > 0) (async function loadAttention(){
+    // ---------- Notifications (real data only — no invented signals) ----------
+    // Formerly two components ("Notifications" + "Needs your attention");
+    // merged into one, since the same real signals were powering both.
+    if (listingCount > 0) (async function loadNotifications(){
       const items = [];
       const iconCalendar = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="2"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>';
       const iconMessage = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z"/></svg>';
@@ -1113,7 +1086,11 @@
               title: 'New message' + (conv.client && conv.client.full_name ? ' from ' + conv.client.full_name : ''),
               sub: conv.listing ? conv.listing.title : '',
               time: m.created_at,
-              href: 'chats.html'
+              // NOTE: assumes chats.html reads a `conversation` query param to
+              // open that specific thread directly. I don't have chats.html's
+              // source to confirm this — if it uses a different param name (or
+              // none), update this href to match.
+              href: 'chats.html?conversation=' + m.conversation_id
             });
           });
         } catch (e) {
@@ -1136,7 +1113,7 @@
           });
         });
 
-      function renderAttentionRows(items){
+      function renderNotifRows(items){
         return items.slice(0, 6).map(function(it){
           return (
             '<div class="attention-row">' +
@@ -1163,56 +1140,45 @@
         });
       }
 
-      const attentionCard = document.getElementById('attention-card');
-      const attentionList = document.getElementById('attention-list');
-      const attentionCardMobile = document.getElementById('attention-card-mobile');
-      const attentionListMobile = document.getElementById('attention-list-mobile');
+      const allCaughtUpHtml =
+        '<div class="attention-clear">' +
+          '<div class="attention-icon">' +
+            '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>' +
+          '</div>' +
+          '<div>' +
+            '<div class="attention-clear-title">You\'re all caught up</div>' +
+            '<div class="attention-clear-sub">No pending requests, unread messages, or missing photos.</div>' +
+          '</div>' +
+        '</div>';
+
+      const notifCard = document.getElementById('notif-panel-card');
+      const notifBadge = document.getElementById('notif-panel-badge');
+      const notifList = document.getElementById('notif-panel-list');
+      const notifCardMobile = document.getElementById('notif-panel-card-mobile');
+      const notifBadgeMobile = document.getElementById('notif-panel-badge-mobile');
+      const notifListMobile = document.getElementById('notif-panel-list-mobile');
 
       if (items.length === 0) {
-        attentionList.innerHTML =
-          '<div class="attention-clear">' +
-            '<div class="attention-icon">' +
-              '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>' +
-            '</div>' +
-            '<div>' +
-              '<div class="attention-clear-title">You\'re all caught up</div>' +
-              '<div class="attention-clear-sub">No pending requests, unread messages, or missing photos.</div>' +
-            '</div>' +
-          '</div>';
-        attentionCard.style.display = 'block';
-        // Mobile version stays hidden entirely when there's nothing pending —
-        // no "all caught up" banner taking up space at the top of the feed.
+        notifBadge.setAttribute('hidden', ''); notifBadgeMobile.setAttribute('hidden', '');
+        notifList.innerHTML = allCaughtUpHtml;
+        notifListMobile.innerHTML = allCaughtUpHtml;
+        notifCard.style.display = 'block';
         return;
       }
 
       items.sort(function(a, b){ return new Date(b.time) - new Date(a.time); });
 
-      // Notifications panel (right rail) — same real items, compact preview.
-      const notifCard = document.getElementById('notif-panel-card');
-      const notifBadge = document.getElementById('notif-panel-badge');
-      const notifList = document.getElementById('notif-panel-list');
+      notifBadge.removeAttribute('hidden'); notifBadgeMobile.removeAttribute('hidden');
       notifBadge.textContent = items.length + ' new';
-      notifList.innerHTML = items.slice(0, 3).map(function(it){
-        return (
-          '<div class="notif-panel-row">' +
-            '<div class="notif-panel-icon">' + it.icon + '</div>' +
-            '<div class="notif-panel-body">' +
-              '<div class="notif-panel-title">' + escapeHtml(it.title) + '</div>' +
-              '<div class="notif-panel-sub">' + escapeHtml(it.sub || '') + '</div>' +
-            '</div>' +
-          '</div>'
-        );
-      }).join('');
+      notifBadgeMobile.textContent = items.length + ' new';
+
+      const rowsHtml = renderNotifRows(items);
+      notifList.innerHTML = rowsHtml;
+      wireMyListingsLinks(notifList);
       notifCard.style.display = 'block';
 
-      const rowsHtml = renderAttentionRows(items);
-      attentionList.innerHTML = rowsHtml;
-      wireMyListingsLinks(attentionList);
-      attentionCard.style.display = 'block';
-
-      attentionListMobile.innerHTML = rowsHtml;
-      wireMyListingsLinks(attentionListMobile);
-      attentionCardMobile.classList.add('show');
+      notifListMobile.innerHTML = rowsHtml;
+      wireMyListingsLinks(notifListMobile);
     })();
 
     // ---------- Bookmarks ----------
@@ -1653,14 +1619,15 @@
         showToast(el.getAttribute('data-soon') + ' is coming soon.');
       });
     });
-    if (typeof initNotifications === 'function') {
-      initNotifications(supabaseClient, currentUser);
-    } else {
-      console.warn('notifications-widget.js failed to load — notifications are disabled for this session.');
-    }
+    // Sidebar "Notifications" nav item now scrolls to the real Notifications
+    // card instead of opening the old separate bell widget (removed — this
+    // card is self-contained on real Supabase data).
     document.getElementById('notif-nav-item').addEventListener('click', function(e){
       e.stopPropagation();
-      document.getElementById('notif-bell').click();
+      const target = document.getElementById('notif-panel-card-mobile').offsetParent
+        ? document.getElementById('notif-panel-card-mobile')
+        : document.getElementById('notif-panel-card');
+      target.scrollIntoView({ behavior:'smooth', block:'start' });
     });
 
     // ---------- Mobile sidebar drawer (doubles as the "You" menu on mobile) ----------
@@ -1756,19 +1723,6 @@
       e.preventDefault();
       showMyListingsView();
       document.querySelector('.feed-area').scrollIntoView({ behavior:'smooth' });
-    });
-
-    document.getElementById('attention-view-all').addEventListener('click', function(e){
-      e.preventDefault();
-      document.getElementById('notif-bell').click();
-    });
-    document.getElementById('notif-panel-view').addEventListener('click', function(e){
-      e.preventDefault();
-      document.getElementById('notif-bell').click();
-    });
-    document.getElementById('attention-view-all-mobile').addEventListener('click', function(e){
-      e.preventDefault();
-      document.getElementById('notif-bell').click();
     });
 
     loadFeed();
