@@ -20,7 +20,7 @@ from .processing import ProcessingService
 from .repository import MemoryNewsRepository, PropertyNewsRepositoryUnavailable, SupabaseNewsRepository, build_repository
 from .retrieval import NewsRetrievalService
 from .review import ReviewService
-from .jobs import run_collection_job
+from .jobs import run_collection_job, run_reprocess_job
 from .media import extract_article_image_url
 from .seed_sources import upsert_official_lands_source
 
@@ -204,6 +204,18 @@ def create_app(config: Settings = settings, repository: Repository | None = None
             raise HTTPException(status_code=409, detail="A collection run is already in progress.")
         async with collection_lock:
             return await run_collection_job(service.repository, config, service.analyzer)
+
+    @app.post("/api/admin/jobs/reprocess-existing", dependencies=[Depends(require_admin)])
+    async def reprocess_existing_news(limit: int = Query(default=20, ge=1, le=100), service: ServiceContainer = Depends(container)):
+        """One-off maintenance: re-fetch/re-clean existing items with the current
+        extraction logic. Call repeatedly with a modest limit to work through a
+        backlog in batches rather than one long-running request."""
+        if not config.supabase_configured:
+            raise HTTPException(status_code=503, detail="Reprocessing requires the server-side Supabase configuration.")
+        if collection_lock.locked():
+            raise HTTPException(status_code=409, detail="A collection run is already in progress.")
+        async with collection_lock:
+            return await run_reprocess_job(service.repository, config, service.analyzer, limit=limit)
 
     @app.post("/api/internal/sources/seed-official-lands", dependencies=[Depends(require_scheduler)])
     async def seed_official_lands(service: ServiceContainer = Depends(container)):

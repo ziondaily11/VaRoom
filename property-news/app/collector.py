@@ -15,6 +15,7 @@ from urllib.parse import urljoin, urlparse
 from uuid import UUID
 
 import httpx
+import trafilatura
 import truststore
 
 from .config import Settings
@@ -194,10 +195,28 @@ class SourceCollector:
         if not self._is_allowed_source_url(source, url):
             raise ValueError("Article URL is not an approved source host")
         html = await self._fetch(url)
-        parser = _ArticleHTMLParser()
-        parser.feed(html)
-        return CandidateArticle(source_id=source.id, source_url=url, source_title=title or " ".join(parser.title) or url,
-                                source_published_at=published_at, original_content=html, clean_text=" ".join(parser.text))
+
+        # trafilatura isolates the actual article content from surrounding page
+        # chrome (nav menus, account links, bylines, footers) — the hand-rolled
+        # parser below only ever stripped <script>/<style>/<noscript> and would
+        # otherwise happily concatenate an entire site's navigation into the
+        # "article" text. Only fall back to the naive parser if trafilatura
+        # can't extract anything usable for this particular page.
+        extracted_text = trafilatura.extract(html, include_comments=False, include_tables=False)
+        metadata = trafilatura.extract_metadata(html)
+        extracted_title = (metadata.title if metadata else None) or None
+
+        if extracted_text and len(extracted_text) >= 200:
+            clean_text = extracted_text
+            resolved_title = title or extracted_title or url
+        else:
+            parser = _ArticleHTMLParser()
+            parser.feed(html)
+            clean_text = " ".join(parser.text)
+            resolved_title = title or extracted_title or " ".join(parser.title) or url
+
+        return CandidateArticle(source_id=source.id, source_url=url, source_title=resolved_title,
+                                source_published_at=published_at, original_content=html, clean_text=clean_text)
 
     async def _materialise_article(self, source: Source, candidate: CandidateArticle) -> CandidateArticle:
         """Fetch a discovered article when only a feed excerpt/link was available."""

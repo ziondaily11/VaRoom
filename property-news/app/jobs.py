@@ -39,6 +39,47 @@ async def run_collection_job(repository=None, config=settings, analyzer: NewsAna
     return result
 
 
+async def run_reprocess_job(repository=None, config=settings, analyzer: NewsAnalyzer | None = None,
+                             limit: int = 20) -> dict[str, int]:
+    """Re-fetch and re-clean existing items using the current extraction logic.
+
+    Items collected before the trafilatura-based extraction fix may have
+    clean_text contaminated with page chrome (nav menus, account links,
+    bylines) that a naive full-page text parser picked up. This re-fetches
+    each item's source_url through the same (now-fixed) _fetch_article path
+    the normal collector uses, then re-runs analysis so summaries/titles are
+    regenerated from the cleaned text. Capped by `limit` per call so a large
+    backlog can be worked through in safe batches rather than one long run.
+    """
+    store = repository or build_repository(config)
+    collector = SourceCollector(store, config)
+    processor = ProcessingService(store, analyzer or build_analyzer(config))
+    result = {"checked": 0, "reprocessed": 0, "fetch_failures": 0, "processing_failures": 0}
+    items = await store.list_items(published_only=False)
+    for item in items[:limit]:
+        result["checked"] += 1
+        source = await store.get_source(item.source_id)
+        if not source:
+            result["fetch_failures"] += 1
+            continue
+        try:
+            candidate = await collector._fetch_article(source, item.source_url,
+                                                        published_at=item.source_published_at)
+        except Exception:
+            result["fetch_failures"] += 1
+            continue
+        item.clean_text = candidate.clean_text
+        item.original_content = candidate.original_content
+        item.source_title = candidate.source_title
+        await store.save_item(item)
+        try:
+            await processor.process(item.id)
+            result["reprocessed"] += 1
+        except Exception:
+            result["processing_failures"] += 1
+    return result
+
+
 async def run(collect_due: bool, health_check: bool) -> None:
     repository = build_repository(settings)
     try:
