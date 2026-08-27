@@ -9,6 +9,19 @@
   <link rel="icon" type="image/png" sizes="16x16" href="favicon/favicon-16.png">
   <link rel="apple-touch-icon" sizes="180x180" href="favicon/favicon-180.png">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Google Identity Services — One Tap -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <!-- One Tap prompt container -->
+  <div id="g_id_onload"
+    data-client_id="369292685051-ibng5c6hcuqs20fkfuk5ljip74fka3if.apps.googleusercontent.com"
+    data-auto_prompt="true"
+    data-auto_select="false"
+    data-cancel_on_tap_outside="false"
+    data-callback="handleOneTapCredential"
+    data-prompt_parent_id="one-tap-container"
+    data-itp_support="true">
+  </div>
+  <div id="one-tap-container" style="position:fixed;top:70px;right:24px;z-index:9999;"></div>
   <style>
     /* ============================================================
        TOKENS
@@ -2636,6 +2649,43 @@
     console.log('Showcase: using static fallback', e.message);
   }
 })();
+</script>
+
+
+<script>
+/* ── Google One Tap ── */
+async function handleOneTapCredential(response) {
+  console.log('[OneTap] credential received, exchanging with Supabase...');
+  try {
+    if (!response || !response.credential) throw new Error('No credential in One Tap response');
+
+    var result = await supabaseClient.auth.signInWithIdToken({
+      provider: 'google',
+      token: response.credential,
+    });
+
+    console.log('[OneTap] Supabase result:', result);
+
+    if (result.error) throw result.error;
+    if (!result.data || !result.data.user) throw new Error('No user returned');
+
+    var role = result.data.user.user_metadata && result.data.user.user_metadata.role;
+    console.log('[OneTap] role:', role);
+
+    if (role === 'host') {
+      window.location.href = 'host-home.html';
+    } else if (role === 'client') {
+      window.location.href = 'client-home.html';
+    } else {
+      // New user via Google — no VaRoom role yet, go to login to complete setup
+      sessionStorage.setItem('varoom_onetap_session', 'true');
+      window.location.href = 'login.html';
+    }
+
+  } catch(e) {
+    console.error('[OneTap] failed:', e.message, e);
+  }
+}
 </script>
 
 </body>
