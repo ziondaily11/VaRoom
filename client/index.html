@@ -9,18 +9,61 @@
   <link rel="icon" type="image/png" sizes="16x16" href="favicon/favicon-16.png">
   <link rel="apple-touch-icon" sizes="180x180" href="favicon/favicon-180.png">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    window.VAROOM_SUPABASE_URL = window.VAROOM_SUPABASE_URL || 'https://deaphymimdaygeavhyek.supabase.co';
+    window.VAROOM_SUPABASE_ANON_KEY = window.VAROOM_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRlYXBoeW1pbWRheWdlYXZoeWVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY1MjAwNDQsImV4cCI6MjEwMjA5NjA0NH0.rbgVhuZCK1fZP7gKV5oO1OUvIT61ir23VhAYm8739SI';
+    window.GOOGLE_CLIENT_ID = window.GOOGLE_CLIENT_ID || '369292685051-ibng5c6hcuqs20fkfuk5ljip74fka3if.apps.googleusercontent.com';
+
+    window.handleOneTapCredential = async function (response) {
+      if (!response || !response.credential || !window.supabaseClient) {
+        return;
+      }
+
+      const { error } = await window.supabaseClient.auth.signInWithIdToken({
+        provider: 'google',
+        token: response.credential
+      });
+
+      if (error) {
+        console.error('Google One Tap sign-in failed:', error);
+        return;
+      }
+
+      const redirect = new URLSearchParams(window.location.search).get('redirect');
+      window.location.href = redirect || 'client-home.html';
+    };
+
+    window.initializeGoogleOneTap = function () {
+      const gsiNode = document.getElementById('g_id_onload');
+      const oneTapContainer = document.getElementById('one-tap-container');
+      if (!gsiNode || !oneTapContainer) return;
+
+      if (window.GOOGLE_CLIENT_ID) {
+        if (!window.google || !window.google.accounts || !window.google.accounts.id) {
+          window.setTimeout(window.initializeGoogleOneTap, 100);
+          return;
+        }
+
+        window.google.accounts.id.initialize({
+          client_id: window.GOOGLE_CLIENT_ID,
+          callback: window.handleOneTapCredential,
+          cancel_on_tap_outside: false,
+          itp_support: true
+        });
+        window.google.accounts.id.prompt();
+      } else {
+        console.warn('Google One Tap disabled because GOOGLE_CLIENT_ID is not set.');
+        gsiNode.remove();
+        if (oneTapContainer) oneTapContainer.remove();
+      }
+    };
+
+    window.setTimeout(window.initializeGoogleOneTap, 2500);
+  </script>
   <!-- Google Identity Services — One Tap -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <!-- One Tap prompt container -->
-  <div id="g_id_onload"
-    data-client_id="GOOGLE_CLIENT_ID"
-    data-auto_prompt="true"
-    data-auto_select="false"
-    data-cancel_on_tap_outside="false"
-    data-callback="handleOneTapCredential"
-    data-prompt_parent_id="one-tap-container"
-    data-itp_support="true">
-  </div>
+  <div id="g_id_onload" data-auto_prompt="false"></div>
   <div id="one-tap-container" style="position:fixed;top:70px;right:24px;z-index:9999;"></div>
   <style>
     /* ============================================================
@@ -2404,48 +2447,48 @@
      SCRIPTS
 ============================================================ -->
 
-<!-- Supabase client — same pattern as existing site -->
+<!-- Supabase client ? same pattern as existing site -->
 <script>
-  const SUPABASE_URL = 'https://deaphymimdaygeavhyek.supabase.co';
-  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRlYXBoeW1pbWRheWdlYXZoeWVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY1MjAwNDQsImV4cCI6MjEwMjA5NjA0NH0.placeholder';
-  // supabaseClient is initialised in js/supabase-client.js — load that first if it exists,
-  // otherwise fall back to initialising here so the page still works standalone.
-  window.GOOGLE_CLIENT_IDsupabaseClient = window.supabaseClient || supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  window.VAROOM_SUPABASE_URL = window.VAROOM_SUPABASE_URL || 'https://deaphymimdaygeavhyek.supabase.co';
+  window.VAROOM_SUPABASE_ANON_KEY = window.VAROOM_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRlYXBoeW1pbWRheWdlYXZoeWVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY1MjAwNDQsImV4cCI6MjEwMjA5NjA0NH0.rbgVhuZCK1fZP7gKV5oO1OUvIT61ir23VhAYm8739SI';
+  if (!window.supabaseClient) {
+    window.supabaseClient = window.supabase.createClient(window.VAROOM_SUPABASE_URL, window.VAROOM_SUPABASE_ANON_KEY);
+  }
 </script>
-<script src="js/supabase-client.js" onerror="console.warn('supabase-client.js not found – using inline client')"></script>
 
 <script>
 (function () {
-  /* ── Nav scroll shadow ── */
   var nav = document.getElementById('site-nav');
-  window.addEventListener('scroll', function () {
-    nav.classList.toggle('scrolled', window.scrollY > 60);
-  }, { passive: true });
+  if (nav) {
+    window.addEventListener('scroll', function () {
+      nav.classList.toggle('scrolled', window.scrollY > 60);
+    }, { passive: true });
+  }
 
-  /* ── Hero search → auth gate ── */
-  document.getElementById('hero-search-form').addEventListener('submit', async function (e) {
-    e.preventDefault();
-    var city     = document.getElementById('search-location-input').value.trim();
-    var category = document.getElementById('search-category').value;
-    var target   = 'client-home.html' +
-      ((city || category)
-        ? '?' + [city ? 'city=' + encodeURIComponent(city) : '',
-                  category ? 'category=' + encodeURIComponent(category) : '']
-                .filter(Boolean).join('&')
-        : '');
-    try {
-      var res = await supabaseClient.auth.getSession();
-      if (res.data && res.data.session) {
-        window.location.href = target;
-      } else {
+  var heroForm = document.getElementById('hero-search-form');
+  if (heroForm) {
+    heroForm.addEventListener('submit', async function (e) {
+      e.preventDefault();
+      var city = document.getElementById('search-location-input').value.trim();
+      var category = document.getElementById('search-category').value;
+      var target = 'client-home.html' +
+        ((city || category)
+          ? '?' + [city ? 'city=' + encodeURIComponent(city) : '', category ? 'category=' + encodeURIComponent(category) : '']
+              .filter(Boolean).join('&')
+          : '');
+      try {
+        var res = await supabaseClient.auth.getSession();
+        if (res.data && res.data.session) {
+          window.location.href = target;
+        } else {
+          window.location.href = 'login.html?redirect=' + encodeURIComponent(target);
+        }
+      } catch (_) {
         window.location.href = 'login.html?redirect=' + encodeURIComponent(target);
       }
-    } catch (_) {
-      window.location.href = 'login.html?redirect=' + encodeURIComponent(target);
-    }
-  });
+    });
+  }
 
-  /* ── Elie image slot: show if file exists ── */
   var elieImg = document.querySelector('#elie-image-slot img');
   if (elieImg) {
     elieImg.addEventListener('load', function () {
@@ -2453,115 +2496,86 @@
     });
   }
 
-  /* ── Account modal — exact logic from existing site ── */
-  var modal        = document.getElementById('account-modal');
-  var roleStep     = modal.querySelector('[data-step="role"]');
-  var authStep     = modal.querySelector('[data-step="auth"]');
-  var roleLabel    = document.getElementById('role-label');
-  var roleSub      = document.getElementById('role-sub');
-  var emailLink    = document.getElementById('email-signup-link');
-  var googleBtn    = document.getElementById('google-auth-btn');
-  var selectedRole = null;
-  var urlParams    = new URLSearchParams(window.location.search);
-  var pendingRedirect = urlParams.get('redirect');
+  var modal = document.getElementById('account-modal');
+  if (modal) {
+    var roleStep = modal.querySelector('[data-step="role"]');
+    var authStep = modal.querySelector('[data-step="auth"]');
+    var roleLabel = document.getElementById('role-label');
+    var roleSub = document.getElementById('role-sub');
+    var emailLink = document.getElementById('email-signup-link');
+    var googleBtn = document.getElementById('google-auth-btn');
+    var selectedRole = null;
+    var urlParams = new URLSearchParams(window.location.search);
+    var pendingRedirect = urlParams.get('redirect');
 
-  var roleContent = {
-    host:   { label: 'Host',   sub: 'List and showcase your spaces — Airbnbs, hotels, venues, offices, shops, or property.', href: 'signup-host.html' },
-    client: { label: 'Client', sub: 'Find suitable places for events and stays.', href: 'signup-client.html' }
-  };
+    var roleContent = {
+      host: { label: 'Host', sub: 'List and showcase your spaces ? Airbnbs, hotels, venues, offices, shops, or property.', href: 'signup-host.html' },
+      client: { label: 'Client', sub: 'Find suitable places for events and stays.', href: 'signup-client.html' }
+    };
 
-  function openModal() {
-    modal.classList.add('open');
-    modal.setAttribute('aria-hidden', 'false');
-    showStep('role');
-    document.body.style.overflow = 'hidden';
-  }
-
-  function closeModal() {
-    modal.classList.remove('open');
-    modal.setAttribute('aria-hidden', 'true');
-    document.body.style.overflow = '';
-  }
-
-  function showStep(step) {
-    roleStep.hidden = step !== 'role';
-    authStep.hidden = step !== 'auth';
-  }
-
-  document.querySelectorAll('.open-account-trigger').forEach(function (btn) {
-    btn.addEventListener('click', openModal);
-  });
-
-  modal.querySelectorAll('[data-close]').forEach(function (el) {
-    el.addEventListener('click', closeModal);
-  });
-
-  document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && modal.classList.contains('open')) closeModal();
-  });
-
-  modal.querySelectorAll('.role-card').forEach(function (card) {
-    card.addEventListener('click', function () {
-      var role    = card.getAttribute('data-role');
-      selectedRole = role;
-      var content = roleContent[role];
-      roleLabel.textContent = content.label;
-      roleSub.textContent   = content.sub;
-      emailLink.setAttribute('href', content.href + (pendingRedirect ? '?redirect=' + encodeURIComponent(pendingRedirect) : ''));
-      showStep('auth');
-    });
-  });
-
-  modal.querySelector('[data-back]').addEventListener('click', function () {
-    showStep('role');
-  });
-
-  googleBtn.addEventListener('click', async function () {
-    if (selectedRole === 'host' || selectedRole === 'client') {
-      sessionStorage.setItem('varoom_intended_role', selectedRole);
+    function openModal() {
+      modal.classList.add('open');
+      modal.setAttribute('aria-hidden', 'false');
+      showStep('role');
+      document.body.style.overflow = 'hidden';
     }
-    await supabaseClient.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: window.location.origin + '/auth-callback.html' +
-          (pendingRedirect ? '?redirect=' + encodeURIComponent(pendingRedirect) : '')
-      }
+
+    function closeModal() {
+      modal.classList.remove('open');
+      modal.setAttribute('aria-hidden', 'true');
+      document.body.style.overflow = '';
+    }
+
+    function showStep(step) {
+      roleStep.hidden = step !== 'role';
+      authStep.hidden = step !== 'auth';
+    }
+
+    document.querySelectorAll('.open-account-trigger').forEach(function (btn) {
+      btn.addEventListener('click', openModal);
     });
-  });
-})();
 
-/* ── Mobile nav hamburger ── */
-(function() {
-  var hamburger = document.getElementById('nav-hamburger');
-  var drawer    = document.getElementById('mobile-nav-drawer');
-  if (!hamburger || !drawer) return;
+    modal.querySelectorAll('[data-close]').forEach(function (el) {
+      el.addEventListener('click', closeModal);
+    });
 
-  function toggleDrawer() {
-    var isOpen = drawer.classList.toggle('open');
-    hamburger.classList.toggle('open', isOpen);
-    document.body.style.overflow = isOpen ? 'hidden' : '';
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && modal.classList.contains('open')) closeModal();
+    });
+
+    modal.querySelectorAll('.role-card').forEach(function (card) {
+      card.addEventListener('click', function () {
+        var role = card.getAttribute('data-role');
+        selectedRole = role;
+        var content = roleContent[role];
+        roleLabel.textContent = content.label;
+        roleSub.textContent = content.sub;
+        emailLink.setAttribute('href', content.href + (pendingRedirect ? '?redirect=' + encodeURIComponent(pendingRedirect) : ''));
+        showStep('auth');
+      });
+    });
+
+    modal.querySelector('[data-back]').addEventListener('click', function () {
+      showStep('role');
+    });
+
+    if (googleBtn) {
+      googleBtn.addEventListener('click', async function () {
+        if (selectedRole === 'host' || selectedRole === 'client') {
+          sessionStorage.setItem('varoom_intended_role', selectedRole);
+        }
+        await supabaseClient.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: window.location.origin + '/auth-callback.html' +
+              (pendingRedirect ? '?redirect=' + encodeURIComponent(pendingRedirect) : '')
+          }
+        });
+      });
+    }
   }
-
-  function closeDrawer() {
-    drawer.classList.remove('open');
-    hamburger.classList.remove('open');
-    document.body.style.overflow = '';
-  }
-
-  hamburger.addEventListener('click', toggleDrawer);
-
-  // close on link click
-  drawer.querySelectorAll('.mob-nav-link').forEach(function(a) {
-    a.addEventListener('click', closeDrawer);
-  });
-
-  // close on Escape
-  document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') closeDrawer();
-  });
 })();
 </script>
-
 
 <script>
 /* ── Wire listing showcase to real Supabase listing ── */
