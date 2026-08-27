@@ -218,48 +218,6 @@
       }
     }
 
-    .nav-live-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 4px 10px;
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 999px;
-      font: 600 10px var(--mono);
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
-      color: rgba(255, 255, 255, 0.7);
-      backdrop-filter: blur(8px);
-      transition: all 0.2s ease;
-    }
-    .nav-live-badge:hover {
-      background: rgba(255, 255, 255, 0.1);
-      border-color: rgba(255, 255, 255, 0.2);
-      color: white;
-    }
-
-    .beacon-pulse {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: #22c55e;
-      position: relative;
-    }
-    .beacon-pulse::after {
-      content: '';
-      position: absolute;
-      inset: -3px;
-      border-radius: 50%;
-      border: 1.5px solid #22c55e;
-      animation: beaconRing 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
-    }
-
-    @keyframes beaconRing {
-      0% { transform: scale(0.6); opacity: 1; }
-      100% { transform: scale(2.2); opacity: 0; }
-    }
-
     /* Living Center Nav Links Pill */
     .nav-center-pill {
       display: flex;
@@ -675,23 +633,6 @@
       50% { transform: translate(-50%, -10px); opacity: 0.11; }
     }
 
-    /* Animated text highlights */
-    .hero-highlight-text {
-      background: linear-gradient(135deg, #ffffff 0%, #ff8093 30%, #ffc480 65%, #ffffff 100%);
-      background-size: 250% auto;
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      animation: textGradientSweep 7s linear infinite;
-      display: inline;
-      font-style: italic;
-    }
-
-    @keyframes textGradientSweep {
-      0% { background-position: 0% 50%; }
-      50% { background-position: 100% 50%; }
-      100% { background-position: 0% 50%; }
-    }
-
     .hero-main-row {
       position: relative;
       z-index: 2;
@@ -748,35 +689,17 @@
       color: #ffffff;
     }
 
+    .hero h1 em {
+      font-style: italic;
+      color: #ff8093;
+    }
+
     .hero-copy {
       max-width: 480px;
       color: rgba(255, 255, 255, 0.72);
       line-height: 1.55;
       font-size: 15px;
       margin-bottom: 22px;
-    }
-
-    .hero-quick-tags {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      margin-top: 14px;
-    }
-
-    .hero-tag-chip {
-      font: 500 11px var(--mono);
-      color: rgba(255, 255, 255, 0.65);
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      padding: 4px 10px;
-      border-radius: 999px;
-      text-decoration: none;
-      transition: all 0.2s ease;
-    }
-    .hero-tag-chip:hover {
-      background: rgba(255, 255, 255, 0.12);
-      color: white;
-      border-color: rgba(255, 255, 255, 0.25);
     }
 
     /* Hero Live Motion Deck Container (Right Column above the fold) */
@@ -2857,7 +2780,7 @@
     @media (max-width: 900px) {
       .nav-wrapper { padding: 12px 14px; }
       .nav-wrapper.scrolled { padding: 10px 14px; }
-      .nav-center-pill, .nav-actions, .nav-live-badge { display: none; }
+      .nav-center-pill, .nav-actions { display: none; }
       .mobile-nav-btn {
         display: inline-flex;
         align-items: center;
@@ -2949,10 +2872,6 @@
   <header class="nav" id="site-nav">
     <div class="logo-container">
       <a href="#" class="logo">VaRoom<span class="logo-dot">.</span></a>
-      <span class="nav-live-badge">
-        <span class="beacon-pulse"></span>
-        <span>Live in Kenya</span>
-      </span>
     </div>
 
     <nav class="nav-center-pill" id="nav-center-pill">
@@ -3057,16 +2976,16 @@
     <div class="hero-text-col">
       <div class="eyebrow">
         <span class="eyebrow-dot"></span>
-        Live in Kenya · The spaces of Kenya, in one room
+        The places of Kenya, in one room
       </div>
 
       <h1>
         Find the place<br />
-        <span class="hero-highlight-text">that feels like yours.</span>
+        <em>that feels like yours.</em>
       </h1>
 
       <p class="hero-copy">
-        Real spaces. Real people. A living ecosystem of curated stays, AI natural search, and verified radar GPS.
+        Real spaces. Real people. A better way to find where you're going next.
       </p>
 
       <!-- Floating Frosted Search Pill (StayGo Style) -->
@@ -3076,7 +2995,7 @@
             <path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11Z"/>
             <circle cx="12" cy="10" r="2.5"/>
           </svg>
-          <input type="text" id="search-location-input" placeholder="Search Nairobi, Diani, Kilimani..." autocomplete="off" />
+          <input type="text" id="search-location-input" placeholder="Search destination, city, area..." autocomplete="off" />
         </div>
 
         <div class="search-divider-pill"></div>
@@ -3100,15 +3019,6 @@
           <span>Search</span>
         </button>
       </form>
-
-      <!-- Quick Jump Categories -->
-      <div class="hero-quick-tags">
-        <a href="client-home.html?category=airbnb" class="hero-tag-chip">✨ Airbnbs</a>
-        <a href="client-home.html?category=hotel" class="hero-tag-chip">🏨 Hotels</a>
-        <a href="map.html" class="hero-tag-chip">📍 GPS Map</a>
-        <a href="elie.html" class="hero-tag-chip">🤖 Ask Elie</a>
-        <a href="list.html" class="hero-tag-chip">🔑 Host a Space</a>
-      </div>
     </div>
 
     <!-- Living Motion Deck Column (Right - Active Above The Fold) -->
@@ -3116,23 +3026,23 @@
       <!-- Mini Switcher Tabs with Auto-Timer Progress -->
       <div class="hero-deck-nav" id="hero-deck-tabs">
         <button type="button" class="hero-deck-tab active" data-slide="0">
-          <span>✨ Stays</span>
+          <span>Stays</span>
           <div class="tab-timer"></div>
         </button>
         <button type="button" class="hero-deck-tab" data-slide="1">
-          <span>🤖 Elie AI</span>
+          <span>Elie AI</span>
           <div class="tab-timer"></div>
         </button>
         <button type="button" class="hero-deck-tab" data-slide="2">
-          <span>📍 Live Map</span>
+          <span>Live Map</span>
           <div class="tab-timer"></div>
         </button>
         <button type="button" class="hero-deck-tab" data-slide="3">
-          <span>🔑 Host</span>
+          <span>Host Studio</span>
           <div class="tab-timer"></div>
         </button>
         <button type="button" class="hero-deck-tab" data-slide="4">
-          <span>💬 Book</span>
+          <span>Instant Booking</span>
           <div class="tab-timer"></div>
         </button>
       </div>
@@ -3142,7 +3052,7 @@
         <!-- Slide 0: Stays Explorer in Motion -->
         <div class="hero-deck-slide active" data-index="0">
           <div style="display:flex; justify-content:space-between; align-items:center;">
-            <span style="font:600 10px var(--mono); text-transform:uppercase; letter-spacing:1px; color:#ff8093;">🏨 Explore Stays · Live Feed</span>
+            <span style="font:600 10px var(--mono); text-transform:uppercase; letter-spacing:1px; color:#ff8093;">Explore Stays · Live Feed</span>
             <a href="client-home.html" style="font-size:11px; color:rgba(255,255,255,0.7); text-decoration:none;">View all →</a>
           </div>
 
@@ -3153,12 +3063,12 @@
               <div class="stay-card-body">
                 <div class="stay-card-header">
                   <span class="stay-card-title">Kilimani Glass Suite</span>
-                  <span class="stay-card-rating">★ 4.96</span>
+                  <span class="stay-card-rating">4.96 rating</span>
                 </div>
                 <div class="stay-card-loc">Kilimani, Nairobi · 2 Bed</div>
                 <div class="stay-card-footer">
                   <span class="stay-card-price">KSh 8,500/nt</span>
-                  <span style="color:#22c55e; font-size:10px; font-weight:600;">✓ Instant Book</span>
+                  <span style="color:#22c55e; font-size:10px; font-weight:600;">Instant Book</span>
                 </div>
               </div>
             </div>
@@ -3168,12 +3078,12 @@
               <div class="stay-card-body">
                 <div class="stay-card-header">
                   <span class="stay-card-title">Diani Coastal Villa</span>
-                  <span class="stay-card-rating">★ 4.98</span>
+                  <span class="stay-card-rating">4.98 rating</span>
                 </div>
                 <div class="stay-card-loc">Diani Beach, Coast · 4 Bed</div>
                 <div class="stay-card-footer">
                   <span class="stay-card-price">KSh 18,000/nt</span>
-                  <span style="color:#22c55e; font-size:10px; font-weight:600;">✓ Ocean View</span>
+                  <span style="color:#22c55e; font-size:10px; font-weight:600;">Ocean View</span>
                 </div>
               </div>
             </div>
@@ -3183,12 +3093,12 @@
               <div class="stay-card-body">
                 <div class="stay-card-header">
                   <span class="stay-card-title">Karen Forest Sanctuary</span>
-                  <span class="stay-card-rating">★ 4.92</span>
+                  <span class="stay-card-rating">4.92 rating</span>
                 </div>
                 <div class="stay-card-loc">Karen, Nairobi · 3 Bed</div>
                 <div class="stay-card-footer">
                   <span class="stay-card-price">KSh 12,500/nt</span>
-                  <span style="color:#22c55e; font-size:10px; font-weight:600;">✓ Fireplace</span>
+                  <span style="color:#22c55e; font-size:10px; font-weight:600;">Fireplace</span>
                 </div>
               </div>
             </div>
@@ -3198,12 +3108,12 @@
               <div class="stay-card-body">
                 <div class="stay-card-header">
                   <span class="stay-card-title">Kilimani Glass Suite</span>
-                  <span class="stay-card-rating">★ 4.96</span>
+                  <span class="stay-card-rating">4.96 rating</span>
                 </div>
                 <div class="stay-card-loc">Kilimani, Nairobi · 2 Bed</div>
                 <div class="stay-card-footer">
                   <span class="stay-card-price">KSh 8,500/nt</span>
-                  <span style="color:#22c55e; font-size:10px; font-weight:600;">✓ Instant Book</span>
+                  <span style="color:#22c55e; font-size:10px; font-weight:600;">Instant Book</span>
                 </div>
               </div>
             </div>
@@ -3213,7 +3123,7 @@
         <!-- Slide 1: Elie AI in Motion -->
         <div class="hero-deck-slide" data-index="1">
           <div style="display:flex; justify-content:space-between; align-items:center;">
-            <span style="font:600 10px var(--mono); text-transform:uppercase; letter-spacing:1px; color:#ff8093;">🤖 Elie AI Assistant · Natural Search</span>
+            <span style="font:600 10px var(--mono); text-transform:uppercase; letter-spacing:1px; color:#ff8093;">Elie AI Assistant · Natural Search</span>
             <a href="elie.html" style="font-size:11px; color:rgba(255,255,255,0.7); text-decoration:none;">Open Elie →</a>
           </div>
           <div class="elie-chat-mock">
@@ -3226,7 +3136,7 @@
                 <img src="assets/landing101.jpg" alt="The Greenhouse" />
                 <div class="elie-matched-info">
                   <strong>The Greenhouse Kilimani</strong>
-                  <span>KSh 8,500/nt · ★ 4.96</span>
+                  <span>KSh 8,500/nt · 4.96 rating</span>
                 </div>
                 <a href="client-home.html" style="background:#c41e3a; color:white; font-size:10px; padding:5px 10px; border-radius:999px; font-weight:600; text-decoration:none;">View</a>
               </div>
@@ -3237,7 +3147,7 @@
         <!-- Slide 2: GPS Live Map in Motion -->
         <div class="hero-deck-slide" data-index="2">
           <div style="display:flex; justify-content:space-between; align-items:center;">
-            <span style="font:600 10px var(--mono); text-transform:uppercase; letter-spacing:1px; color:#ff8093;">📍 Radar GPS Verification · Live Map</span>
+            <span style="font:600 10px var(--mono); text-transform:uppercase; letter-spacing:1px; color:#ff8093;">Radar GPS Verification · Live Map</span>
             <a href="map.html" style="font-size:11px; color:rgba(255,255,255,0.7); text-decoration:none;">Full map →</a>
           </div>
           <div class="radar-map-container" style="height:260px;">
@@ -3262,12 +3172,11 @@
         <!-- Slide 3: Host Studio in Motion -->
         <div class="hero-deck-slide" data-index="3">
           <div style="display:flex; justify-content:space-between; align-items:center;">
-            <span style="font:600 10px var(--mono); text-transform:uppercase; letter-spacing:1px; color:#ff8093;">🔑 Host Studio · Real-Time Dashboard</span>
+            <span style="font:600 10px var(--mono); text-transform:uppercase; letter-spacing:1px; color:#ff8093;">Host Studio · Real-Time Dashboard</span>
             <a href="list.html" style="font-size:11px; color:rgba(255,255,255,0.7); text-decoration:none;">List space →</a>
           </div>
           <div class="host-dashboard-mock">
             <div class="host-live-alert">
-              <span style="font-size:14px;">✨</span>
               <span><strong>New Booking:</strong> Joy M. booked 3 nights in Kilimani (+KSh 25,500)</span>
             </div>
             <div class="host-metrics-grid">
@@ -3281,7 +3190,7 @@
               </div>
               <div class="host-metric-card">
                 <small>Rating</small>
-                <strong style="color:#fbbf24;">4.98 ★</strong>
+                <strong style="color:#fbbf24;">4.98</strong>
               </div>
             </div>
           </div>
@@ -3290,7 +3199,7 @@
         <!-- Slide 4: Instant Booking & Chat in Motion -->
         <div class="hero-deck-slide" data-index="4">
           <div style="display:flex; justify-content:space-between; align-items:center;">
-            <span style="font:600 10px var(--mono); text-transform:uppercase; letter-spacing:1px; color:#ff8093;">💬 Community & Live Handover</span>
+            <span style="font:600 10px var(--mono); text-transform:uppercase; letter-spacing:1px; color:#ff8093;">Community & Live Handover</span>
             <a href="login.html" style="font-size:11px; color:rgba(255,255,255,0.7); text-decoration:none;">Sign in →</a>
           </div>
           <div class="instant-chat-mock">
@@ -3326,7 +3235,7 @@
   <div class="mark">V</div>
 
   <p>
-    VaRoom is a <span class="hero-highlight-text">living map</span> of the spaces that make Kenya feel like home—
+    VaRoom is a living map of the spaces that make Kenya feel like home—
     whether you're staying for a night, opening a new chapter, or making
     room for your next idea.
   </p>
@@ -3344,7 +3253,7 @@
     <div>
       <h2>
         There's a space<br />
-        <span class="hero-highlight-text">for every version</span><br />
+        <em>for every version</em><br />
         of you.
       </h2>
 
@@ -3394,7 +3303,7 @@
 
     <h2>
       Look closer.<br />
-      <span class="hero-highlight-text">Land better.</span>
+      <em>Land better.</em>
     </h2>
 
     <p class="manifesto-copy">
@@ -3450,7 +3359,7 @@
       <span class="map-label-karen">Karen</span>
 
       <div class="verified-box">
-        <strong>✓ Location verified</strong>
+        <strong><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" style="display:inline-block; vertical-align:-1px; margin-right:4px;"><polyline points="20 6 9 17 4 12"/></svg>Location verified</strong>
         <small>Coordinates confirmed</small>
       </div>
     </div>
@@ -3462,7 +3371,7 @@
 
     <h2>
       Know where<br />
-      <span class="hero-highlight-text">you're going.</span>
+      <em>you're going.</em>
     </h2>
 
     <p>
@@ -3505,7 +3414,7 @@
 
       <h2>
         Tell Elie<br />
-        <span class="hero-highlight-text">what you need.</span>
+        <em>what you need.</em>
       </h2>
 
       <p class="elie-desc">
@@ -3542,7 +3451,7 @@
 
     <h2>
       Your space<br />
-      <span class="hero-highlight-text">deserves to be found.</span>
+      <em>deserves to be found.</em>
     </h2>
 
     <p>
@@ -3584,7 +3493,7 @@
     <div>
       <h2>
         Ask the question<br />
-        <span class="hero-highlight-text">before you arrive.</span>
+        <em>before you arrive.</em>
       </h2>
     </div>
     <div class="convo-header-right">
@@ -3697,7 +3606,7 @@
 
   <h2>
     Make a little more<br />
-    <span class="hero-highlight-text">room for life.</span>
+    <em>room for life.</em>
   </h2>
 
   <a href="#discover" class="primary-button" style="display:inline-flex;align-items:center;gap:8px;">
