@@ -360,7 +360,10 @@
       </div>
 
       <div class="field">
-        <label for="password">Password</label>
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:5px;">
+          <label for="password" style="margin-bottom:0;">Password</label>
+          <a href="forgot-password.html" class="forgot-link" id="forgot-link" style="font-size:12px; color:var(--crimson); font-weight:600; text-decoration:none;">Forgot password?</a>
+        </div>
         <div class="field-wrap">
           <input type="password" id="password" placeholder="Enter your password" autocomplete="current-password" required style="padding-right:40px;" />
           <button type="button" class="toggle-pw" id="toggle-pw" aria-label="Show password">
@@ -398,6 +401,13 @@
   var alertBox  = document.getElementById('form-alert');
   var submitBtn = document.getElementById('submit-btn');
   var redirect  = new URLSearchParams(window.location.search).get('redirect');
+
+  if (redirect) {
+    var forgotLink = document.getElementById('forgot-link');
+    if (forgotLink) forgotLink.href = 'forgot-password.html?redirect=' + encodeURIComponent(redirect);
+    var createLink = document.getElementById('create-link');
+    if (createLink) createLink.href = 'index.html?redirect=' + encodeURIComponent(redirect);
+  }
 
   function showAlert(msg, type) {
     alertBox.textContent = msg;

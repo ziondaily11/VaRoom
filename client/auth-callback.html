@@ -285,6 +285,12 @@
     }
 
     const user = session.user;
+    const authType = hashParams.get('type') || queryParams.get('type') || '';
+
+    if (authType === 'recovery') {
+      window.location.href = 'forgot-password.html?mode=reset';
+      return;
+    }
 
     // VaRoom's own official account lands on the updates composer instead
     // of a normal host/client dashboard, regardless of how it signed in.
