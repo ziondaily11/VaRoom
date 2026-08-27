@@ -199,74 +199,217 @@
     }
     .btn-get-started:hover { background: rgba(255,255,255,0.12); border-color: white; }
 
-    /* Hamburger */
-    .nav-hamburger {
+    /* ============================================================
+       MOBILE AUTH SHEET & NAV (Replacing hamburger menu)
+    ============================================================ */
+    .mobile-nav-btn {
       display: none;
-      flex-direction: column;
-      gap: 5px;
-      background: none;
-      border: none;
-      cursor: pointer;
-      padding: 4px;
-      z-index: 102;
     }
-    .nav-hamburger span {
-      display: block;
-      width: 22px;
-      height: 2px;
-      background: white;
-      border-radius: 2px;
-      transition: transform 0.3s ease, opacity 0.3s ease;
-    }
-    .nav-hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
-    .nav-hamburger.open span:nth-child(2) { opacity: 0; }
-    .nav-hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
 
-    /* Mobile drawer */
-    .mobile-nav-drawer {
+    .mobile-auth-sheet {
       display: none;
       position: fixed;
       inset: 0;
-      z-index: 99;
-      background: var(--ink);
+      z-index: 9999;
+      background: #080504;
       color: white;
-      padding: 100px 8vw 50px;
       flex-direction: column;
       overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
     }
-    .mobile-nav-drawer.open { display: flex; }
+    .mobile-auth-sheet.open {
+      display: flex;
+      animation: sheetFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes sheetFadeIn {
+      from { opacity: 0; transform: translateY(14px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
 
-    .mobile-nav-links a {
-      display: block;
-      padding: 18px 0;
-      border-bottom: 1px solid rgba(255,255,255,0.1);
-      font: 400 30px var(--serif);
+    .mobile-auth-close {
+      position: absolute;
+      top: 18px;
+      right: 20px;
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.12);
+      backdrop-filter: blur(10px);
       color: white;
-      letter-spacing: -1px;
+      border: 1px solid rgba(255,255,255,0.15);
+      font-size: 22px;
+      line-height: 1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+      transition: background 0.2s, transform 0.15s;
     }
-    .mobile-nav-links a:first-child { border-top: 1px solid rgba(255,255,255,0.1); }
+    .mobile-auth-close:hover {
+      background: rgba(255,255,255,0.22);
+      transform: scale(1.05);
+    }
 
-    .mobile-nav-actions {
+    .mob-auth-hero {
+      position: relative;
+      width: 100%;
+      height: 38vh;
+      min-height: 220px;
+      max-height: 320px;
+      background: url("assets/landing101.jpg") center top / cover no-repeat;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .mob-auth-hero-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(8,5,4,0) 0%, rgba(8,5,4,0.3) 45%, rgba(8,5,4,0.85) 80%, #080504 100%);
       display: flex;
       flex-direction: column;
-      gap: 12px;
-      margin-top: 36px;
+      justify-content: flex-end;
+      align-items: center;
+      padding-bottom: 8px;
     }
-    .mobile-nav-actions a,
-    .mobile-nav-actions button {
-      display: block;
-      width: 100%;
-      padding: 14px 20px;
-      border-radius: 999px;
-      font: 600 11px var(--mono);
-      text-transform: uppercase;
-      letter-spacing: 1px;
+
+    .mob-auth-title {
+      font-family: var(--sans);
+      font-size: clamp(26px, 6.5vw, 32px);
+      font-weight: 700;
+      color: white;
+      margin: 0;
+      letter-spacing: -0.5px;
       text-align: center;
-      cursor: pointer;
     }
-    .mob-signin { background: transparent; border: 1px solid rgba(255,255,255,0.35); color: white; }
-    .mob-getstarted { background: rgba(255,255,255,0.1); border: none; color: white; }
-    .mob-explore { background: var(--crimson); border: none; color: white; }
+
+    .mob-auth-form-container {
+      width: 100%;
+      max-width: 380px;
+      margin: 0 auto;
+      padding: 12px 24px 44px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      flex: 1;
+    }
+
+    .mob-auth-alert {
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-size: 13px;
+      background: rgba(196,30,58,0.18);
+      border: 1px solid rgba(196,30,58,0.4);
+      color: #ff8093;
+      text-align: center;
+      display: none;
+      line-height: 1.45;
+    }
+
+    .mob-input-wrap {
+      position: relative;
+      width: 100%;
+    }
+    .mob-input-icon {
+      position: absolute;
+      left: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: rgba(255,255,255,0.4);
+      pointer-events: none;
+    }
+    .mob-input-wrap input {
+      width: 100%;
+      height: 52px;
+      background: #181211;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 12px;
+      padding: 0 16px 0 46px;
+      color: white;
+      font: 14px var(--sans);
+      outline: none;
+      transition: border-color 0.2s, background-color 0.2s, box-shadow 0.2s;
+    }
+    .mob-input-wrap input::placeholder {
+      color: rgba(255,255,255,0.38);
+    }
+    .mob-input-wrap input:focus {
+      border-color: rgba(255,255,255,0.35);
+      background: #201716;
+      box-shadow: 0 0 0 3px rgba(196,30,58,0.15);
+    }
+
+    .btn-mob-continue {
+      width: 100%;
+      height: 50px;
+      border-radius: 999px;
+      background: linear-gradient(180deg, #e0314b 0%, #c41e3a 100%);
+      color: white;
+      font: 600 14px var(--sans);
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 6px 24px rgba(196,30,58,0.35);
+      margin-top: 4px;
+      transition: transform 0.15s, opacity 0.2s, box-shadow 0.2s;
+    }
+    .btn-mob-continue:hover {
+      box-shadow: 0 8px 28px rgba(196,30,58,0.45);
+    }
+    .btn-mob-continue:active {
+      transform: scale(0.98);
+    }
+    .btn-mob-continue.loading .btn-text { display: none; }
+    .btn-mob-continue.loading .mob-spinner { display: block; }
+
+    .mob-spinner {
+      display: none;
+      width: 18px;
+      height: 18px;
+      border: 2.5px solid rgba(255,255,255,0.35);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    .btn-mob-google {
+      width: 100%;
+      height: 50px;
+      border-radius: 999px;
+      background: #140f0e;
+      border: 1px solid rgba(255,255,255,0.12);
+      color: white;
+      font: 600 14px var(--sans);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      box-shadow: 0 4px 18px rgba(0,0,0,0.4);
+      transition: background-color 0.2s, border-color 0.2s;
+    }
+    .btn-mob-google:hover {
+      background: #1c1514;
+      border-color: rgba(255,255,255,0.22);
+    }
+
+    .mob-auth-footer {
+      text-align: center;
+      font-size: 13px;
+      color: rgba(255,255,255,0.5);
+      margin-top: 22px;
+      line-height: 1.5;
+    }
+    .mob-signup-link {
+      color: #e0314b;
+      font-weight: 600;
+      text-decoration: none;
+      margin-left: 4px;
+    }
+    .mob-signup-link:hover {
+      text-decoration: underline;
+    }
 
     /* ============================================================
        HERO
@@ -1781,12 +1924,24 @@
     .auth-google:hover{ border-color:var(--crimson); }
     .auth-note{ font-size:.78rem; color:var(--muted); text-align:center; margin-top:.85rem; }
 
-    /* ============================================================
-       RESPONSIVE
-    ============================================================ */
     @media (max-width: 900px) {
       .nav nav, .nav-actions { display: none; }
-      .nav-hamburger { display: flex; }
+      .mobile-nav-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 8px 18px;
+        border-radius: 999px;
+        background: var(--crimson);
+        color: white;
+        font: 600 11px var(--mono);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        border: none;
+        cursor: pointer;
+        transition: background 0.2s, transform 0.15s;
+      }
+      .mobile-nav-btn:hover { background: var(--deep-red); }
 
       .hero h1 { font-size: 60px; letter-spacing: -4px; }
       .hero-card { right: 6vw; bottom: 8%; width: 200px; }
@@ -1859,24 +2014,60 @@
     <button type="button" class="btn-get-started open-account-trigger">Get started</button>
     <button type="button" class="nav-button open-account-trigger">Explore spaces →</button>
   </div>
-  <button type="button" class="nav-hamburger" id="nav-hamburger" aria-label="Open menu">
-    <span></span><span></span><span></span>
-  </button>
+  <button type="button" class="mobile-nav-btn" id="mobile-nav-btn">Sign in</button>
 </header>
 
-<!-- Mobile nav drawer -->
-<div class="mobile-nav-drawer" id="mobile-nav-drawer">
-  <div class="mobile-nav-links">
-    <a href="#discover" class="mob-nav-link">Explore</a>
-    <a href="#how-it-works" class="mob-nav-link">How it works</a>
-    <a href="#hosts" class="mob-nav-link">For hosts</a>
-    <a href="#elie" class="mob-nav-link">Elie</a>
+<!-- ============================================================
+     MOBILE AUTH SHEET (Replacing hamburger drawer)
+============================================================ -->
+<div class="mobile-auth-sheet" id="mobile-auth-sheet" role="dialog" aria-modal="true" aria-labelledby="mob-auth-heading">
+  <button type="button" class="mobile-auth-close" id="mobile-auth-close" aria-label="Close">&times;</button>
+  
+  <div class="mob-auth-hero">
+    <div class="mob-auth-hero-overlay">
+      <h1 class="mob-auth-title" id="mob-auth-heading">Welcome back</h1>
+    </div>
   </div>
-  <div class="mobile-nav-actions">
-    <a href="login.html" class="mob-signin">Sign in</a>
-    <button type="button" class="mob-getstarted open-account-trigger">Get started</button>
-    <button type="button" class="mob-explore open-account-trigger">Explore spaces →</button>
-  </div>
+
+  <form class="mob-auth-form-container" id="mob-auth-form" novalidate>
+    <div class="mob-auth-alert" id="mob-auth-alert"></div>
+
+    <div class="mob-input-wrap">
+      <svg class="mob-input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+      </svg>
+      <input type="email" id="mob-auth-email" placeholder="Email address" autocomplete="email" required />
+    </div>
+
+    <div class="mob-input-wrap">
+      <svg class="mob-input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+      </svg>
+      <input type="password" id="mob-auth-password" placeholder="Password" autocomplete="current-password" required />
+    </div>
+
+    <button type="submit" class="btn-mob-continue" id="mob-submit-btn">
+      <span class="btn-text">Continue with Email</span>
+      <div class="mob-spinner"></div>
+    </button>
+
+    <button type="button" class="btn-mob-google" id="mob-google-btn">
+      <svg width="18" height="18" viewBox="0 0 48 48">
+        <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+        <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+        <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+        <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+      </svg>
+      <span>Continue with Google</span>
+    </button>
+
+    <p class="mob-auth-footer">
+      Don't have an account? <a href="signup-client.html" class="mob-signup-link">Sign Up</a>
+    </p>
+    <p style="text-align:center; margin-top:4px;">
+      <a href="forgot-password.html" style="font-size:12px; color:rgba(255,255,255,0.45); text-decoration:none;">Forgot password?</a>
+    </p>
+  </form>
 </div>
 
 <!-- ============================================================
@@ -2593,31 +2784,122 @@
 
 <script>
 (function () {
-  var hamburger = document.getElementById('nav-hamburger');
-  var drawer = document.getElementById('mobile-nav-drawer');
-  if (!hamburger || !drawer) return;
+  var triggerBtn = document.getElementById('mobile-nav-btn');
+  var sheet = document.getElementById('mobile-auth-sheet');
+  var closeBtn = document.getElementById('mobile-auth-close');
+  var authForm = document.getElementById('mob-auth-form');
+  var emailInput = document.getElementById('mob-auth-email');
+  var passInput = document.getElementById('mob-auth-password');
+  var submitBtn = document.getElementById('mob-submit-btn');
+  var googleBtn = document.getElementById('mob-google-btn');
+  var alertEl = document.getElementById('mob-auth-alert');
 
-  function toggleDrawer() {
-    var isOpen = drawer.classList.toggle('open');
-    hamburger.classList.toggle('open', isOpen);
-    document.body.style.overflow = isOpen ? 'hidden' : '';
+  if (!sheet) return;
+
+  function showAlert(msg) {
+    if (!alertEl) return;
+    alertEl.textContent = msg;
+    alertEl.style.display = 'block';
   }
 
-  function closeDrawer() {
-    drawer.classList.remove('open');
-    hamburger.classList.remove('open');
+  function clearAlert() {
+    if (!alertEl) return;
+    alertEl.textContent = '';
+    alertEl.style.display = 'none';
+  }
+
+  function openSheet() {
+    clearAlert();
+    sheet.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeSheet() {
+    sheet.classList.remove('open');
     document.body.style.overflow = '';
   }
 
-  hamburger.addEventListener('click', toggleDrawer);
+  if (triggerBtn) {
+    triggerBtn.addEventListener('click', openSheet);
+  }
 
-  drawer.querySelectorAll('.mob-nav-link').forEach(function (link) {
-    link.addEventListener('click', closeDrawer);
+  if (closeBtn) {
+    closeBtn.addEventListener('click', closeSheet);
+  }
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && sheet.classList.contains('open')) {
+      closeSheet();
+    }
   });
 
-  document.addEventListener('keydown', function (event) {
-    if (event.key === 'Escape') closeDrawer();
-  });
+  // Handle Email + Password Sign In
+  if (authForm) {
+    authForm.addEventListener('submit', async function (e) {
+      e.preventDefault();
+      clearAlert();
+
+      var email = (emailInput && emailInput.value || '').trim();
+      var pass = (passInput && passInput.value || '');
+
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        showAlert('Please enter a valid email address.');
+        if (emailInput) emailInput.focus();
+        return;
+      }
+
+      if (!pass) {
+        showAlert('Please enter your password.');
+        if (passInput) passInput.focus();
+        return;
+      }
+
+      submitBtn.classList.add('loading');
+      submitBtn.disabled = true;
+
+      try {
+        var { data, error } = await supabaseClient.auth.signInWithPassword({
+          email: email,
+          password: pass
+        });
+
+        if (error) throw error;
+
+        var user = data && data.user;
+        var role = (user && user.user_metadata && user.user_metadata.role) || 'client';
+        var redirect = new URLSearchParams(window.location.search).get('redirect');
+
+        window.location.href = redirect || (role === 'host' ? 'host-home.html' : 'client-home.html');
+
+      } catch (err) {
+        var msg = err.message || 'Login failed. Please check your credentials.';
+        if (/invalid/i.test(msg)) msg = 'Incorrect email or password.';
+        if (/confirm/i.test(msg)) msg = 'Please verify your email before logging in.';
+        showAlert(msg);
+      } finally {
+        submitBtn.classList.remove('loading');
+        submitBtn.disabled = false;
+      }
+    });
+  }
+
+  // Handle Google OAuth Sign In
+  if (googleBtn) {
+    googleBtn.addEventListener('click', async function () {
+      try {
+        var redirect = new URLSearchParams(window.location.search).get('redirect');
+        await supabaseClient.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: window.location.origin + '/auth-callback.html' +
+              (redirect ? '?redirect=' + encodeURIComponent(redirect) : '')
+          }
+        });
+      } catch (err) {
+        showAlert('Google sign-in failed. Please try again.');
+      }
+    });
+  }
 })();
 </script>
 
