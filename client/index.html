@@ -2410,7 +2410,7 @@
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRlYXBoeW1pbWRheWdlYXZoeWVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY1MjAwNDQsImV4cCI6MjEwMjA5NjA0NH0.placeholder';
   // supabaseClient is initialised in js/supabase-client.js — load that first if it exists,
   // otherwise fall back to initialising here so the page still works standalone.
-  window.supabaseClient = window.supabaseClient || supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  window.GOOGLE_CLIENT_IDsupabaseClient = window.supabaseClient || supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 </script>
 <script src="js/supabase-client.js" onerror="console.warn('supabase-client.js not found – using inline client')"></script>
 
