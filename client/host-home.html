@@ -645,7 +645,7 @@
 
     <nav class="nav-group">
       <p class="nav-label">Account</p>
-      <a href="profile.html" class="nav-item">
+      <a href="profile.html" class="nav-item" id="profile-nav-link">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.5-7 8-7s8 3 8 7"/></svg>
         Profile
       </a>
@@ -853,7 +853,7 @@
 
     const { data: profile } = await supabaseClient
       .from('profiles')
-      .select('role, full_name, verified, avatar_url')
+      .select('role, full_name, verified, avatar_url, username')
       .eq('id', currentUser.id)
       .maybeSingle();
 
@@ -877,6 +877,15 @@
     }
 
     const firstName = (profile.full_name || 'there').split(' ')[0];
+
+    // Wire profile nav link to include username so it doesn't just reload
+    const profileNavLink = document.getElementById('profile-nav-link');
+    if (profileNavLink) {
+      const profileHref = profile.username
+        ? 'profile.html?u=' + encodeURIComponent(profile.username)
+        : 'profile.html?u=' + currentUser.id;
+      profileNavLink.setAttribute('href', profileHref);
+    }
     const hour = new Date().getHours();
     const timeGreeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
     document.getElementById('greeting').textContent = timeGreeting + ', ' + firstName + ' 👋';
