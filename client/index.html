@@ -2972,7 +2972,7 @@
   <div class="hero-giant-wordmark" aria-hidden="true">VaRoom</div>
 
   <div class="hero-main-row">
-    <!-- Headline Column (Left) -->
+    <!-- Headline & Search Column (Left) -->
     <div class="hero-text-col">
       <h1>
         Find the place<br />
@@ -2982,8 +2982,37 @@
       <p class="hero-copy">
         Real spaces. Real people. A better way to find where you're going next.
       </p>
+
     </div>
-    <template>
+
+    <!-- Living Motion Deck Column (Right - Active Above The Fold) -->
+    <div class="hero-live-deck" id="hero-live-deck" hidden>
+      <!-- Mini Switcher Tabs with Auto-Timer Progress -->
+      <div class="hero-deck-nav" id="hero-deck-tabs">
+        <button type="button" class="hero-deck-tab active" data-slide="0">
+          <span>Stays</span>
+          <div class="tab-timer"></div>
+        </button>
+        <button type="button" class="hero-deck-tab" data-slide="1">
+          <span>Elie AI</span>
+          <div class="tab-timer"></div>
+        </button>
+        <button type="button" class="hero-deck-tab" data-slide="2">
+          <span>Live Map</span>
+          <div class="tab-timer"></div>
+        </button>
+        <button type="button" class="hero-deck-tab" data-slide="3">
+          <span>Host Studio</span>
+          <div class="tab-timer"></div>
+        </button>
+        <button type="button" class="hero-deck-tab" data-slide="4">
+          <span>Instant Booking</span>
+          <div class="tab-timer"></div>
+        </button>
+      </div>
+
+      <!-- Living Deck Stage -->
+      <div class="hero-deck-stage">
         <!-- Slide 0: Stays Explorer in Motion -->
         <div class="hero-deck-slide active" data-index="0">
           <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -3004,7 +3033,6 @@
                 <div class="stay-card-footer">
                   <span class="stay-card-price">KSh 8,500/nt</span>
                   <span style="color:#22c55e; font-size:10px; font-weight:600;">Instant Book</span>
-                </div>
                 </div>
               </div>
             </div>
@@ -3051,6 +3079,7 @@
                   <span class="stay-card-price">KSh 8,500/nt</span>
                   <span style="color:#22c55e; font-size:10px; font-weight:600;">Instant Book</span>
                 </div>
+              </div>
             </div>
           </div>
         </div>
@@ -3075,6 +3104,7 @@
                 </div>
                 <a href="client-home.html" style="background:#c41e3a; color:white; font-size:10px; padding:5px 10px; border-radius:999px; font-weight:600; text-decoration:none;">View</a>
               </div>
+            </div>
           </div>
         </div>
 
@@ -3151,7 +3181,6 @@
         </div>
       </div>
     </div>
-    </template>
   </div>
 
   <!-- Scroll cue -->
