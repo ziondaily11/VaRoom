@@ -843,6 +843,98 @@
   document.getElementById('loading-state').style.display = 'none';
   document.getElementById('profile-content').style.display = 'block';
 
+  /* ── Profile actions ── */
+  document.getElementById('edit-profile-btn').addEventListener('click', function(){
+    document.getElementById('edit-fullname').value = profileData.full_name || '';
+    document.getElementById('edit-username').value = profileData.username || '';
+    document.getElementById('edit-phone').value = profileData.phone || '';
+    document.getElementById('edit-bio').value = profileData.bio || '';
+    document.getElementById('edit-location').value = profileData.city || '';
+    document.getElementById('edit-msg').textContent = '';
+    document.getElementById('edit-modal').classList.add('open');
+  });
+
+  document.getElementById('edit-cancel').addEventListener('click', function(){
+    document.getElementById('edit-modal').classList.remove('open');
+  });
+
+  document.getElementById('edit-modal').addEventListener('click', function(e){
+    if (e.target === this) this.classList.remove('open');
+  });
+
+  const sharePanel = document.getElementById('share-panel');
+  const profileUrl = profileData.username
+    ? window.location.origin + '/u/' + encodeURIComponent(profileData.username)
+    : window.location.origin + '/profile.html';
+
+  async function shareProfile(){
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: (profileData.full_name || 'VaRoom profile') + ' — VaRoom',
+          text: 'Check out this VaRoom profile',
+          url: profileUrl
+        });
+        return;
+      } catch (error) {
+        if (error.name === 'AbortError') return;
+      }
+    }
+    sharePanel.classList.add('show');
+  }
+
+  document.getElementById('share-profile-btn').addEventListener('click', shareProfile);
+  document.getElementById('share-profile-btn-visitor').addEventListener('click', shareProfile);
+  document.getElementById('share-x').href = 'https://twitter.com/intent/tweet?url=' + encodeURIComponent(profileUrl);
+  document.getElementById('share-wa').href = 'https://wa.me/?text=' + encodeURIComponent(profileUrl);
+  document.getElementById('share-email').href = 'mailto:?subject=' + encodeURIComponent('Check out this VaRoom profile') + '&body=' + encodeURIComponent(profileUrl);
+
+  document.getElementById('copy-link-btn').addEventListener('click', async function(){
+    const el = document.getElementById('copy-link-text');
+    try {
+      await navigator.clipboard.writeText(profileUrl);
+      el.textContent = 'Copied!';
+      setTimeout(function(){ el.textContent = 'Copy link'; }, 2000);
+    } catch (error) {
+      el.textContent = 'Couldn\'t copy';
+    }
+  });
+
+  document.getElementById('edit-save').addEventListener('click', async function(){
+    const btn = this;
+    const fullName = document.getElementById('edit-fullname').value.trim();
+    const username = document.getElementById('edit-username').value.trim();
+    const phone    = document.getElementById('edit-phone').value.trim();
+    const bio      = document.getElementById('edit-bio').value.trim();
+    const location = document.getElementById('edit-location').value.trim();
+
+    if (!fullName) { document.getElementById('edit-msg').textContent = 'Full name is required.'; return; }
+
+    btn.disabled = true; btn.textContent = 'Saving…';
+
+    const { error } = await supabaseClient.from('profiles').update({
+      full_name: fullName,
+      username: username || null,
+      phone: phone || null,
+      bio: bio || null,
+      city: location || null
+    }).eq('id', currentUser.id);
+
+    btn.disabled = false; btn.textContent = 'Save changes';
+
+    if (error) { document.getElementById('edit-msg').textContent = error.message; return; }
+
+    profileData.full_name = fullName;
+    profileData.username  = username || null;
+    profileData.phone     = phone || null;
+    profileData.bio       = bio || null;
+    profileData.city      = location || null;
+
+    renderProfile();
+    document.getElementById('edit-modal').classList.remove('open');
+    showToast('Profile saved ✓');
+  });
+
   /* ── Fetch and render listings ── */
   const { data: listings } = await supabaseClient
     .from('listings')
@@ -929,81 +1021,6 @@
     await supabaseClient.from('profiles').update({ avatar_url: path }).eq('id', currentUser.id);
     profileData.avatar_url = path;
     showToast('Photo updated ✓');
-  });
-
-  /* ── Edit modal ── */
-  document.getElementById('edit-profile-btn').addEventListener('click', function(){
-    document.getElementById('edit-fullname').value = profileData.full_name || '';
-    document.getElementById('edit-username').value = profileData.username || '';
-    document.getElementById('edit-phone').value = profileData.phone || '';
-    document.getElementById('edit-bio').value = profileData.bio || '';
-    document.getElementById('edit-location').value = profileData.city || '';
-    document.getElementById('edit-msg').textContent = '';
-    document.getElementById('edit-modal').classList.add('open');
-  });
-
-  document.getElementById('edit-cancel').addEventListener('click', function(){
-    document.getElementById('edit-modal').classList.remove('open');
-  });
-
-  document.getElementById('edit-modal').addEventListener('click', function(e){
-    if (e.target === this) this.classList.remove('open');
-  });
-
-  document.getElementById('edit-save').addEventListener('click', async function(){
-    const btn = this;
-    const fullName = document.getElementById('edit-fullname').value.trim();
-    const username = document.getElementById('edit-username').value.trim();
-    const phone    = document.getElementById('edit-phone').value.trim();
-    const bio      = document.getElementById('edit-bio').value.trim();
-    const location = document.getElementById('edit-location').value.trim();
-
-    if (!fullName) { document.getElementById('edit-msg').textContent = 'Full name is required.'; return; }
-
-    btn.disabled = true; btn.textContent = 'Saving…';
-
-    const { error } = await supabaseClient.from('profiles').update({
-      full_name: fullName,
-      username: username || null,
-      phone: phone || null,
-      bio: bio || null,
-      city: location || null
-    }).eq('id', currentUser.id);
-
-    btn.disabled = false; btn.textContent = 'Save changes';
-
-    if (error) { document.getElementById('edit-msg').textContent = error.message; return; }
-
-    profileData.full_name = fullName;
-    profileData.username  = username || null;
-    profileData.phone     = phone || null;
-    profileData.bio       = bio || null;
-    profileData.city      = location || null;
-
-    renderProfile();
-    document.getElementById('edit-modal').classList.remove('open');
-    showToast('Profile saved ✓');
-  });
-
-  /* ── Share panel ── */
-  const sharePanel  = document.getElementById('share-panel');
-  const profileUrl  = profileData.username
-    ? window.location.origin + '/u/' + encodeURIComponent(profileData.username)
-    : window.location.origin + '/profile.html';
-
-  function toggleShare(){ sharePanel.classList.toggle('show'); }
-
-  document.getElementById('share-profile-btn') && document.getElementById('share-profile-btn').addEventListener('click', toggleShare);
-  document.getElementById('share-profile-btn-visitor') && document.getElementById('share-profile-btn-visitor').addEventListener('click', toggleShare);
-
-  document.getElementById('share-x').href = 'https://twitter.com/intent/tweet?url=' + encodeURIComponent(profileUrl);
-  document.getElementById('share-wa').href = 'https://wa.me/?text=' + encodeURIComponent(profileUrl);
-  document.getElementById('share-email').href = 'mailto:?subject=' + encodeURIComponent('Check out this VaRoom profile') + '&body=' + encodeURIComponent(profileUrl);
-
-  document.getElementById('copy-link-btn').addEventListener('click', async function(){
-    const el = document.getElementById('copy-link-text');
-    try { await navigator.clipboard.writeText(profileUrl); el.textContent = 'Copied!'; setTimeout(function(){ el.textContent = 'Copy link'; }, 2000); }
-    catch(e){ el.textContent = 'Couldn\'t copy'; }
   });
 
   /* ── Mobile hamburger ── */
