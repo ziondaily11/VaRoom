@@ -477,7 +477,7 @@
       <textarea id="edit-bio" placeholder="Tell people a bit about yourself…" maxlength="200"></textarea>
     </div>
     <div class="modal-field">
-      <label>Location</label>
+      <label>City</label>
       <input type="text" id="edit-location" placeholder="e.g. Nairobi, Kenya" />
     </div>
     <div class="modal-actions">
@@ -730,7 +730,7 @@
   let profileData = null;
   let isOwner = false;
 
-  const SELECT = 'id, role, full_name, username, phone, bio, avatar_url, location, created_at';
+  const SELECT = 'id, role, full_name, username, phone, bio, avatar_url, city, created_at';
   // UUID pattern — ?u= can be a username OR a UUID (fallback when no username set)
   const isUUID = viewUsername && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(viewUsername);
   async function loadProfile(column, value){
@@ -744,7 +744,7 @@
       // available in an older database schema.
       result = await supabaseClient
         .from('profiles')
-        .select('id, role, full_name, username, bio, avatar_url, location, created_at')
+        .select('id, role, full_name, username, bio, avatar_url, city, created_at')
         .eq(column, value)
         .maybeSingle();
       if (result.error) {
@@ -836,9 +836,9 @@
     }
 
     // Location
-    if (profileData.location) {
+    if (profileData.city) {
       document.getElementById('meta-location').style.display = 'flex';
-      document.getElementById('meta-location-text').textContent = profileData.location;
+      document.getElementById('meta-location-text').textContent = profileData.city;
     }
 
     // Hosting since
@@ -904,7 +904,7 @@
   const count = listings ? listings.length : 0;
   document.getElementById('listings-count').textContent =
     count + ' space' + (count !== 1 ? 's' : '') +
-    (profileData.location ? ' in ' + profileData.location : '');
+    (profileData.city ? ' in ' + profileData.city : '');
 
   const CAT_LABELS = { airbnb:'Airbnb', hotel:'Hotel', venue:'Event Venue', office:'Office', shop:'Shop', property:'Property' };
 
@@ -987,7 +987,7 @@
     document.getElementById('edit-username').value = profileData.username || '';
     document.getElementById('edit-phone').value = profileData.phone || '';
     document.getElementById('edit-bio').value = profileData.bio || '';
-    document.getElementById('edit-location').value = profileData.location || '';
+    document.getElementById('edit-location').value = profileData.city || '';
     document.getElementById('edit-msg').textContent = '';
     document.getElementById('edit-modal').classList.add('open');
   });
@@ -1017,7 +1017,7 @@
       username: username || null,
       phone: phone || null,
       bio: bio || null,
-      location: location || null
+      city: location || null
     }).eq('id', currentUser.id);
 
     btn.disabled = false; btn.textContent = 'Save changes';
@@ -1028,7 +1028,7 @@
     profileData.username  = username || null;
     profileData.phone     = phone || null;
     profileData.bio       = bio || null;
-    profileData.location  = location || null;
+    profileData.city      = location || null;
 
     renderProfile();
     document.getElementById('edit-modal').classList.remove('open');
