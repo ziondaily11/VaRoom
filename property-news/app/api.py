@@ -12,6 +12,7 @@ from uuid import UUID
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 
+import logging
 from .analysis import build_analyzer, format_location_display
 from .config import Settings, settings
 from .constants import ReviewStatus
@@ -22,9 +23,10 @@ from .retrieval import NewsRetrievalService
 from .review import ReviewService
 from .jobs import run_collection_job, run_reprocess_job
 from .media import extract_article_image_url
-from .seed_sources import upsert_official_lands_source
+from .seed_sources import seed_verified_sources, upsert_official_lands_source
 
 Repository = MemoryNewsRepository | SupabaseNewsRepository
+logger = logging.getLogger("property_news.api")
 
 
 class ServiceContainer:
@@ -68,7 +70,32 @@ def create_app(config: Settings = settings, repository: Repository | None = None
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         app.state.services = services
+        scheduler_task = None
+        if config.supabase_configured:
+            async def _background_scheduler():
+                await asyncio.sleep(4)
+                try:
+                    await seed_verified_sources(store, activate=True)
+                except Exception as err:
+                    logger.warning("Automated source seed notice: %s", err)
+                while True:
+                    try:
+                        if not collection_lock.locked():
+                            async with collection_lock:
+                                await run_collection_job(store, config, services.analyzer)
+                    except Exception as err:
+                        logger.warning("Automated collection run notice: %s", err)
+                    await asyncio.sleep(60 * 60)
+
+            scheduler_task = asyncio.create_task(_background_scheduler())
+
         yield
+        if scheduler_task:
+            scheduler_task.cancel()
+            try:
+                await scheduler_task
+            except asyncio.CancelledError:
+                pass
         if isinstance(store, SupabaseNewsRepository):
             await store.close()
 
