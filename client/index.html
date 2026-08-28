@@ -97,14 +97,21 @@
     }
 
     * { box-sizing: border-box; }
-    html { scroll-behavior: smooth; }
-
+    html {
+      scroll-behavior: smooth;
+      scrollbar-width: none;
+    }
+    html::-webkit-scrollbar,
+    body::-webkit-scrollbar {
+      display: none;
+    }
     body {
       margin: 0;
       background: var(--paper);
       color: var(--ink);
       font-family: var(--sans);
       overflow-x: hidden;
+      scrollbar-width: none;
     }
 
     a { color: inherit; text-decoration: none; }
@@ -274,6 +281,24 @@
       transform: translateY(-0.5px);
     }
 
+    .btn-signup {
+      font: 600 11px var(--mono);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: white;
+      padding: 9px 16px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.06);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .btn-signup:hover {
+      background: rgba(255, 255, 255, 0.14);
+      border-color: rgba(255, 255, 255, 0.4);
+      transform: translateY(-0.5px);
+    }
+
     .btn-get-started {
       padding: 9px 18px;
       border-radius: 999px;
@@ -356,6 +381,9 @@
        MOBILE AUTH SHEET & NAV (Replacing hamburger menu)
     ============================================================ */
     .mobile-nav-btn {
+      display: none;
+    }
+    .mobile-nav-actions {
       display: none;
     }
 
@@ -2611,26 +2639,49 @@
       .nav-wrapper { padding: 12px 14px; }
       .nav-wrapper.scrolled { padding: 10px 14px; }
       .nav-center-pill, .nav-actions { display: none; }
-      .mobile-nav-btn {
+      .mobile-nav-actions {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .mobile-nav-actions a,
+      .mobile-nav-actions button {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        padding: 8px 18px;
+        min-height: 34px;
+        padding: 8px 12px;
         border-radius: 999px;
-        background: var(--crimson);
-        color: white;
         font: 600 11px var(--mono);
         text-transform: uppercase;
         letter-spacing: 1px;
-        border: none;
         cursor: pointer;
-        transition: background 0.2s, transform 0.15s;
+        transition: background 0.2s, border-color 0.2s, transform 0.15s;
       }
-      .mobile-nav-btn:hover { background: var(--deep-red); }
+      .mobile-nav-signin {
+        color: rgba(255, 255, 255, 0.9);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        background: rgba(255, 255, 255, 0.06);
+      }
+      .mobile-nav-signup {
+        color: white;
+        border: 1px solid var(--crimson);
+        background: var(--crimson);
+      }
+      .mobile-nav-signin:hover,
+      .mobile-nav-signup:hover {
+        background: var(--deep-red);
+        border-color: var(--deep-red);
+        transform: translateY(-0.5px);
+      }
 
       .hero {
-        padding: 100px 5vw 40px;
-        min-height: auto;
+        min-height: 100vh;
+        min-height: 100svh;
+        height: 100vh;
+        height: 100svh;
+        padding: 96px 5vw 40px;
+        background-size: cover;
       }
       .hero-main-row {
         grid-template-columns: 1fr;
@@ -2648,7 +2699,12 @@
       }
       .search-divider-pill, .space-type-pill { display: none; }
 
-      .intro { grid-template-columns: 1fr; gap: 24px; padding: 60px 7vw; }
+      .intro {
+        grid-template-columns: 1fr;
+        gap: 24px;
+        min-height: 100svh;
+        padding: 60px 7vw;
+      }
       .intro-link { margin-left: 0; }
 
       .discover-grid,
@@ -2711,6 +2767,7 @@
 
     <div class="nav-actions">
       <a href="login.html" class="btn-signin">Sign in</a>
+      <button type="button" class="btn-signup open-account-trigger">Sign up</button>
       <button type="button" class="btn-get-started open-account-trigger">Get started</button>
       <button type="button" class="nav-button open-account-trigger">
         <span>Explore spaces</span>
@@ -2718,7 +2775,10 @@
       </button>
     </div>
 
-    <button type="button" class="mobile-nav-btn" id="mobile-nav-btn">Sign in</button>
+    <div class="mobile-nav-actions">
+      <a href="login.html" class="mobile-nav-signin">Sign in</a>
+      <button type="button" class="mobile-nav-signup open-account-trigger">Sign up</button>
+    </div>
     <div class="nav-scroll-progress" id="nav-scroll-progress"></div>
   </header>
 </div>
@@ -3550,6 +3610,7 @@
 </script>
 
 <script>
+(function () {
   var elieImg = document.querySelector('#elie-image-slot img');
   if (elieImg) {
     elieImg.addEventListener('load', function () {
