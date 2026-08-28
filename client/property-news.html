@@ -80,7 +80,22 @@
   <script>
     (function(){
       function escapeHtml(value){ const element = document.createElement('div'); element.textContent = value || ''; return element.innerHTML; }
-      function location(news){ const values = [].concat(news.counties || [], news.towns || []).filter(Boolean); return values.filter(function(value, index){ return values.findIndex(function(other){ return String(other).toLowerCase() === String(value).toLowerCase(); }) === index; }).join(' · ') || 'Kenya'; }
+      function detailedLocation(news){
+        const values = [].concat(news.counties || [], news.towns || []).filter(Boolean);
+        const unique = values.filter(function(value, index){
+          return values.findIndex(function(other){ return String(other).toLowerCase() === String(value).toLowerCase(); }) === index;
+        });
+        return unique.join(' · ') || 'Kenya';
+      }
+      function cardLocation(news){
+        if (news.location_summary) return news.location_summary;
+        const values = [].concat(news.counties || [], news.towns || []).filter(Boolean);
+        const unique = values.filter(function(value, index){
+          return values.findIndex(function(other){ return String(other).toLowerCase() === String(value).toLowerCase(); }) === index;
+        });
+        if (unique.length > 5) return 'National · Kenya';
+        return unique.join(' · ') || 'Kenya';
+      }
       function date(value){ if (!value) return 'Publication date unavailable'; const valueDate = new Date(value); return Number.isNaN(valueDate.getTime()) ? 'Publication date unavailable' : valueDate.toLocaleDateString(undefined, { year:'numeric', month:'long', day:'numeric' }); }
       function status(news){
         const value = String(news.regulatory_status || '').toLowerCase();
@@ -92,8 +107,8 @@
       function safeSourceUrl(value){ return /^https?:\/\//i.test(String(value || '')) ? String(value) : ''; }
       function sourceHtml(news, className){ const source = news.source || {}; if (!source.name) return ''; const url = safeSourceUrl(source.url); return '<div class="' + className + '">' + (url ? '<a class="news-card-source-link" href="' + escapeHtml(url) + '" target="_blank" rel="noopener noreferrer">Source · ' + escapeHtml(source.name) + '</a>' : 'Source · ' + escapeHtml(source.name)) + '</div>'; }
       function wireImages(root){ root.querySelectorAll('.news-card-image,.detail-image').forEach(function(image){ const wrapper = image.closest('.news-card-image-wrap,.detail-image-wrap'); image.addEventListener('load', function(){ if (wrapper) wrapper.classList.add('is-loaded'); }, { once:true }); image.addEventListener('error', function(){ if (wrapper) wrapper.remove(); }, { once:true }); if (image.complete && image.naturalWidth > 0 && wrapper) wrapper.classList.add('is-loaded'); }); }
-      function imageHtml(news, wrapClass, imageClass){ return typeof news.image_url === 'string' && news.image_url.trim() ? '<div class="' + wrapClass + '"><img class="' + imageClass + '" src="' + escapeHtml(news.image_url) + '" alt="" decoding="async"></div>' : ''; }
-      function card(news){ const source = news.source || {}; return '<article class="news-card"><a class="news-card-main" href="property-news.html?id=' + encodeURIComponent(news.id) + '"><h2>' + escapeHtml(news.title) + '</h2><p>' + escapeHtml(news.summary || 'Read the latest property update from VaRoom.') + '</p><div class="meta"><span>' + escapeHtml(location(news)) + '</span><span>•</span><span>' + escapeHtml(date(source.published_at || news.published_at)) + '</span></div>' + imageHtml(news, 'news-card-image-wrap', 'news-card-image') + '</a>' + sourceHtml(news, 'news-card-source') + statusHtml(news) + '</article>'; }
+      function imageHtml(news, wrapClass, imageClass){ return typeof news.image_url === 'string' && news.image_url.trim() ? '<div class="' + wrapClass + '"><img class="' + imageClass + '" src="' + escapeHtml(news.image_url) + '" alt="" decoding="async" loading="lazy"></div>' : ''; }
+      function card(news){ const source = news.source || {}; return '<article class="news-card"><a class="news-card-main" href="property-news.html?id=' + encodeURIComponent(news.id) + '"><h2>' + escapeHtml(news.title) + '</h2><p>' + escapeHtml(news.summary || 'Read the latest property update from VaRoom.') + '</p><div class="meta"><span>' + escapeHtml(cardLocation(news)) + '</span><span>•</span><span>' + escapeHtml(date(source.published_at || news.published_at)) + '</span></div>' + imageHtml(news, 'news-card-image-wrap', 'news-card-image') + '</a>' + sourceHtml(news, 'news-card-source') + statusHtml(news) + '</article>'; }
       function showError(target, message){ target.innerHTML = '<div class="state error">' + escapeHtml(message) + '</div>'; }
       async function showIndex(){
         const list = document.getElementById('news-list');
@@ -107,7 +122,7 @@
           const sourceUrl = safeSourceUrl(source.url);
           const sourceHeading = source.name && sourceUrl ? '<a class="source-link" href="' + escapeHtml(sourceUrl) + '" target="_blank" rel="noopener noreferrer">Source · ' + escapeHtml(source.name) + '</a>' : (source.name ? '<strong>Source · ' + escapeHtml(source.name) + '</strong>' : '');
           const sourceBox = source.name ? '<div class="source-box">' + sourceHeading + '<br>This VaRoom summary is based on the linked source. Regulatory status reflects the published record and is not legal advice.</div>' : '';
-          detail.innerHTML = '<div class="detail-card"><p class="eyebrow">Property Intelligence</p><h1>' + escapeHtml(news.title) + '</h1><div class="article-meta meta"><span>' + escapeHtml(location(news)) + '</span><span>•</span><span>' + escapeHtml(date(articleDate)) + '</span></div>' + imageHtml(news, 'detail-image-wrap', 'detail-image') + statusHtml(news) + '<p class="detail-summary">' + escapeHtml(news.summary || '') + '</p>' + (news.body ? '<div class="detail-body">' + escapeHtml(news.body) + '</div>' : '') + '<div class="fact-grid"><div><span class="fact-label">Location</span><span class="fact-value">' + escapeHtml(location(news)) + '</span></div><div><span class="fact-label">Current status</span><span class="fact-value">' + escapeHtml(status(news) ? status(news).label : 'Reported update') + '</span></div><div><span class="fact-label">Published</span><span class="fact-value">' + escapeHtml(date(articleDate)) + '</span></div></div>' + sourceBox + '</div>'; wireImages(detail);
+          detail.innerHTML = '<div class="detail-card"><p class="eyebrow">Property Intelligence</p><h1>' + escapeHtml(news.title) + '</h1><div class="article-meta meta"><span>' + escapeHtml(detailedLocation(news)) + '</span><span>•</span><span>' + escapeHtml(date(articleDate)) + '</span></div>' + imageHtml(news, 'detail-image-wrap', 'detail-image') + statusHtml(news) + '<p class="detail-summary">' + escapeHtml(news.summary || '') + '</p>' + (news.body ? '<div class="detail-body">' + escapeHtml(news.body) + '</div>' : '') + '<div class="fact-grid"><div><span class="fact-label">Location</span><span class="fact-value">' + escapeHtml(detailedLocation(news)) + '</span></div><div><span class="fact-label">Current status</span><span class="fact-value">' + escapeHtml(status(news) ? status(news).label : 'Reported update') + '</span></div><div><span class="fact-label">Published</span><span class="fact-value">' + escapeHtml(date(articleDate)) + '</span></div></div>' + sourceBox + '</div>'; wireImages(detail);
         } catch (error) { console.warn('Property news detail could not be loaded:', error); showError(detail, 'This property news item is temporarily unavailable.'); }
       }
       const newsId = new URLSearchParams(window.location.search).get('id');

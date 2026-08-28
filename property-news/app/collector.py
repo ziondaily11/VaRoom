@@ -19,6 +19,7 @@ import trafilatura
 import truststore
 
 from .config import Settings
+from .media import extract_article_image_url
 from .models import CandidateArticle, NewsEvent, NewsItem, Source
 from .normalizer import canonicalise_url, clean_html, content_hash
 from .repository import MemoryNewsRepository, SupabaseNewsRepository
@@ -78,16 +79,43 @@ class SourceCollector:
         # Keep certificate verification enabled while using the deployment
         # host's maintained CA store for official government sources.
         self._ssl_context = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        self._client: httpx.AsyncClient | None = None
+
+    async def _get_client(self) -> httpx.AsyncClient:
+        if self._client is None or self._client.is_closed:
+            headers = {
+                "User-Agent": self.settings.fetch_user_agent,
+                "Accept": "application/rss+xml, application/atom+xml, application/xml, text/html, application/json;q=0.9"
+            }
+            self._client = httpx.AsyncClient(
+                timeout=self.settings.fetch_timeout_seconds,
+                follow_redirects=True,
+                headers=headers,
+                verify=self._ssl_context,
+                limits=httpx.Limits(max_keepalive_connections=20, max_connections=50)
+            )
+        return self._client
+
+    async def close(self) -> None:
+        if self._client and not self._client.is_closed:
+            await self._client.aclose()
 
     async def collect_due_sources(self) -> dict[str, Any]:
         sources = await self.repository.list_sources(active_only=True)
-        totals: dict[str, Any] = {"sources_checked": 0, "candidates": 0, "new_items": 0, "duplicates": 0,
+        due_sources = [source for source in sources if self._is_due(source)]
+        totals: dict[str, Any] = {"sources_checked": len(due_sources), "candidates": 0, "new_items": 0, "duplicates": 0,
                                   "failures": 0, "new_item_ids": []}
-        for source in sources:
-            if not self._is_due(source):
-                continue
-            result = await self.collect_source(source)
-            totals["sources_checked"] += 1
+        if not due_sources:
+            return totals
+
+        semaphore = asyncio.Semaphore(4)
+
+        async def _bounded_collect(source: Source) -> dict[str, Any]:
+            async with semaphore:
+                return await self.collect_source(source)
+
+        results = await asyncio.gather(*[_bounded_collect(source) for source in due_sources], return_exceptions=False)
+        for result in results:
             for key in ("candidates", "new_items", "duplicates", "failures"):
                 totals[key] += result[key]
             totals["new_item_ids"].extend(result["new_item_ids"])
@@ -99,8 +127,16 @@ class SourceCollector:
         run_id: UUID | None = None
         try:
             run_id = await self.repository.start_fetch_run(source.id, started)
-            candidates = await self._discover(source)
-            candidates = [await self._materialise_article(source, candidate) for candidate in candidates]
+            raw_candidates = await self._discover(source)
+
+            # Materialize articles with bounded concurrency (up to 5 concurrently per source)
+            semaphore = asyncio.Semaphore(5)
+
+            async def _bounded_materialise(candidate: CandidateArticle) -> CandidateArticle:
+                async with semaphore:
+                    return await self._materialise_article(source, candidate)
+
+            candidates = await asyncio.gather(*[_bounded_materialise(c) for c in raw_candidates])
             result["candidates"] = len(candidates)
             for candidate in candidates:
                 stored, duplicate = await self._store_candidate(source, candidate)
@@ -168,21 +204,19 @@ class SourceCollector:
         delay = self.settings.min_request_interval_seconds - (time.monotonic() - self._last_request_at.get(origin, 0))
         if delay > 0:
             await asyncio.sleep(delay)
-        headers = {"User-Agent": self.settings.fetch_user_agent, "Accept": "application/rss+xml, application/atom+xml, application/xml, text/html, application/json;q=0.9"}
+        client = await self._get_client()
         last_error: Exception | None = None
         for attempt in range(self.settings.fetch_retry_attempts):
             try:
-                async with httpx.AsyncClient(timeout=self.settings.fetch_timeout_seconds, follow_redirects=True,
-                                             headers=headers, verify=self._ssl_context) as client:
-                    async with client.stream("GET", url) as response:
-                        response.raise_for_status()
-                        chunks: list[bytes] = []
-                        total = 0
-                        async for chunk in response.aiter_bytes():
-                            total += len(chunk)
-                            if total > self.settings.fetch_max_bytes:
-                                raise ValueError("Response exceeded NEWS_FETCH_MAX_BYTES")
-                            chunks.append(chunk)
+                async with client.stream("GET", url) as response:
+                    response.raise_for_status()
+                    chunks: list[bytes] = []
+                    total = 0
+                    async for chunk in response.aiter_bytes():
+                        total += len(chunk)
+                        if total > self.settings.fetch_max_bytes:
+                            raise ValueError("Response exceeded NEWS_FETCH_MAX_BYTES")
+                        chunks.append(chunk)
                 self._last_request_at[origin] = time.monotonic()
                 return b"".join(chunks).decode("utf-8", errors="replace")
             except (httpx.HTTPError, ValueError) as error:
@@ -196,15 +230,11 @@ class SourceCollector:
             raise ValueError("Article URL is not an approved source host")
         html = await self._fetch(url)
 
-        # trafilatura isolates the actual article content from surrounding page
-        # chrome (nav menus, account links, bylines, footers) — the hand-rolled
-        # parser below only ever stripped <script>/<style>/<noscript> and would
-        # otherwise happily concatenate an entire site's navigation into the
-        # "article" text. Only fall back to the naive parser if trafilatura
-        # can't extract anything usable for this particular page.
-        extracted_text = trafilatura.extract(html, include_comments=False, include_tables=False)
-        metadata = trafilatura.extract_metadata(html)
+        # Offload synchronous trafilatura extraction to threadpool to avoid blocking event loop
+        extracted_text = await asyncio.to_thread(trafilatura.extract, html, include_comments=False, include_tables=False)
+        metadata = await asyncio.to_thread(trafilatura.extract_metadata, html)
         extracted_title = (metadata.title if metadata else None) or None
+        image_url = extract_article_image_url(html, url, source.base_url)
 
         if extracted_text and len(extracted_text) >= 200:
             clean_text = extracted_text
@@ -216,7 +246,8 @@ class SourceCollector:
             resolved_title = title or extracted_title or " ".join(parser.title) or url
 
         return CandidateArticle(source_id=source.id, source_url=url, source_title=resolved_title,
-                                source_published_at=published_at, original_content=html, clean_text=clean_text)
+                                source_published_at=published_at, original_content=html, clean_text=clean_text,
+                                image_url=image_url)
 
     async def _materialise_article(self, source: Source, candidate: CandidateArticle) -> CandidateArticle:
         """Fetch a discovered article when only a feed excerpt/link was available."""
@@ -335,6 +366,7 @@ class SourceCollector:
         item = NewsItem(source_id=source.id, source_url=candidate.source_url, canonical_url=canonical_url,
                         source_title=candidate.source_title[:1000], source_published_at=candidate.source_published_at,
                         original_content=candidate.original_content, clean_text=candidate.clean_text,
+                        image_url=candidate.image_url,
                         source_tier=source.trust_tier, content_hash=digest)
         saved = await self.repository.save_item(item)
         await self.repository.add_event(NewsEvent(source_id=source.id, news_id=saved.id, event_type="item_discovered", payload={"canonical_url": canonical_url}))

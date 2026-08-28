@@ -12,7 +12,7 @@ from uuid import UUID
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 
-from .analysis import build_analyzer
+from .analysis import build_analyzer, format_location_display
 from .config import Settings, settings
 from .constants import ReviewStatus
 from .models import ReviewAction
@@ -39,7 +39,6 @@ class ServiceContainer:
 
 def _public_item(item, source) -> dict[str, Any]:
     source_payload = None
-    image_url = None
     if source:
         source_payload = {
             "name": source.name,
@@ -47,11 +46,14 @@ def _public_item(item, source) -> dict[str, Any]:
             "tier": item.source_tier,
             "published_at": item.source_published_at,
         }
+    image_url = item.image_url
+    if not image_url and source and getattr(item, "original_content", None):
         image_url = extract_article_image_url(item.original_content, item.source_url, source.base_url)
     return {
         "id": str(item.id), "title": item.varoom_title or item.source_title, "summary": item.varoom_summary,
         "body": item.varoom_body, "category": item.category, "topics": item.topics, "counties": item.counties,
-        "towns": item.towns, "regulatory_status": item.regulatory_status, "affected_groups": item.affected_groups,
+        "towns": item.towns, "location_summary": format_location_display(item.counties, item.towns),
+        "regulatory_status": item.regulatory_status, "affected_groups": item.affected_groups,
         "risk_level": item.risk_level, "source": source_payload, "image_url": image_url,
         "published_at": item.published_at,
     }
@@ -114,9 +116,10 @@ def create_app(config: Settings = settings, repository: Repository | None = None
                 "ai_provider": service.analyzer.__class__.__name__}
 
     @app.get("/api/news/latest")
-    async def latest_news(limit: int = Query(default=10, ge=1, le=50), service: ServiceContainer = Depends(container)):
-        items = await service.repository.list_items(published_only=True)
-        return [ _public_item(item, await service.repository.get_source(item.source_id)) for item in items[:limit] ]
+    async def latest_news(limit: int = Query(default=2, ge=1, le=50), service: ServiceContainer = Depends(container)):
+        items = await service.repository.list_items(published_only=True, limit=limit)
+        sources_map = await service.repository.get_sources_map([item.source_id for item in items])
+        return [ _public_item(item, sources_map.get(item.source_id)) for item in items ]
 
     @app.get("/api/news/search")
     async def search_news(q: str = Query(min_length=2), category: str | None = None, county: str | None = None,
@@ -152,7 +155,9 @@ def create_app(config: Settings = settings, repository: Repository | None = None
                     (not town or town.lower() in {value.lower() for value in item.towns}) and
                     (not regulatory_status or item.regulatory_status.value == regulatory_status.lower()) and
                     (not source or item.source_id == source))
-        return [_public_item(item, await service.repository.get_source(item.source_id)) for item in items if matches(item)][:limit]
+        filtered = [item for item in items if matches(item)][:limit]
+        sources_map = await service.repository.get_sources_map([item.source_id for item in filtered])
+        return [_public_item(item, sources_map.get(item.source_id)) for item in filtered]
 
     @app.get("/api/elie/news-search")
     async def elie_news_search(q: str = Query(min_length=2), county: str | None = None, regulatory_status: str | None = None,
@@ -164,7 +169,8 @@ def create_app(config: Settings = settings, repository: Repository | None = None
     @app.get("/api/admin/news/pending", dependencies=[Depends(require_admin)])
     async def pending_review(service: ServiceContainer = Depends(container)):
         items = await service.repository.list_pending_review()
-        return [{"item": item.model_dump(mode="json"), "source": (await service.repository.get_source(item.source_id)).model_dump(mode="json") if await service.repository.get_source(item.source_id) else None}
+        sources_map = await service.repository.get_sources_map([item.source_id for item in items])
+        return [{"item": item.model_dump(mode="json"), "source": sources_map.get(item.source_id).model_dump(mode="json") if sources_map.get(item.source_id) else None}
                 for item in items]
 
     async def review_action(news_id: UUID, action: ReviewAction, reviewer: str | None, service: ServiceContainer):

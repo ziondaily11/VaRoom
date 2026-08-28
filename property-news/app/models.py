@@ -32,6 +32,7 @@ class CandidateArticle(BaseModel):
     source_published_at: datetime | None = None
     original_content: str | None = None
     clean_text: str = ""
+    image_url: str | None = None
 
 
 class NewsAnalysis(BaseModel):
@@ -50,6 +51,7 @@ class NewsAnalysis(BaseModel):
     source_tier: int = Field(ge=1, le=4)
     risk_level: RiskLevel = RiskLevel.MEDIUM
     risk_reasons: list[str] = Field(default_factory=list)
+    image_url: str | None = None
     model_provider: str = "rules"
     model_version: str = "rules-v1"
 
@@ -85,6 +87,7 @@ class NewsItem(BaseModel):
     review_status: ReviewStatus = ReviewStatus.DISCOVERED
     reviewed_by: UUID | None = None
     published_at: datetime | None = None
+    image_url: str | None = None
     content_hash: str
     timeline_id: UUID | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -120,6 +123,7 @@ class RetrievalEvidence(BaseModel):
     risk_level: RiskLevel
     relevance_score: float
     source_tier: int
+    image_url: str | None = None
 
 
 class RetrievalResponse(BaseModel):

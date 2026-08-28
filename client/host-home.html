@@ -1217,11 +1217,15 @@
       return Math.floor(hrs / 24) + 'd ago';
     }
 
+    let hostPropertyNewsCache = [];
+
     function propertyNewsLocation(news){
-      const places = [].concat(news.counties || [], news.towns || []);
+      if (news && news.location_summary) return news.location_summary;
+      const places = [].concat((news && news.counties) || [], (news && news.towns) || []);
       const uniquePlaces = places.filter(function(place, index){
         return place && places.findIndex(function(other){ return String(other).toLowerCase() === String(place).toLowerCase(); }) === index;
       });
+      if (uniquePlaces.length > 5) return 'National · Kenya';
       return uniquePlaces.join(' · ') || 'Kenya';
     }
 
@@ -1258,14 +1262,14 @@
     }
 
     function propertyNewsItemsHtml(items){
-      return items.slice(0, 4).map(function(news){
+      return items.slice(0, 2).map(function(news){
         const source = news.source || {};
         const publicationTime = source.published_at || news.published_at;
         const status = propertyNewsStatus(news);
         const sourceName = propertyNewsSource(news);
         const sourceUrl = propertyNewsSourceUrl(news);
         const image = typeof news.image_url === 'string' && news.image_url.trim()
-          ? '<div class="property-news-image-wrap"><img class="property-news-image" src="' + escapeHtml(news.image_url) + '" alt="" decoding="async"></div>'
+          ? '<div class="property-news-image-wrap"><img class="property-news-image" src="' + escapeHtml(news.image_url) + '" alt="" decoding="async" loading="lazy"></div>'
           : '';
         const sourceAttribution = sourceName
           ? '<div class="property-news-source">' + (sourceUrl
@@ -1297,11 +1301,20 @@
 
     async function loadPropertyNews(){
       try {
-        const news = await VaRoomPropertyNews.latest(4);
-        renderPropertyNews('ready', Array.isArray(news) ? news : []);
+        const news = await VaRoomPropertyNews.latest(2);
+        if (Array.isArray(news) && news.length > 0) {
+          hostPropertyNewsCache = news.slice(0, 2);
+          renderPropertyNews('ready', hostPropertyNewsCache);
+        } else if (hostPropertyNewsCache.length > 0) {
+          renderPropertyNews('ready', hostPropertyNewsCache);
+        } else {
+          renderPropertyNews('ready', []);
+        }
       } catch (error) {
-        console.warn('Property news could not be loaded:', error);
-        renderPropertyNews('error', []);
+        console.warn('Property news notice:', error.message || error);
+        if (!hostPropertyNewsCache.length) {
+          renderPropertyNews('error', []);
+        }
       }
     }
 

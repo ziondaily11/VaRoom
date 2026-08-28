@@ -65,15 +65,36 @@ class NewsAnalyzer(Protocol):
     async def analyse(self, item: NewsItem, source: Source) -> NewsAnalysis: ...
 
 
+def format_location_display(counties: list[str] | None, towns: list[str] | None, max_count: int = 5) -> str:
+    """Format location string. If more than max_count locations, summarize to a general term."""
+    raw = [value.strip() for value in (counties or []) + (towns or []) if value and value.strip()]
+    unique_locations: list[str] = []
+    seen = set()
+    for loc in raw:
+        low = loc.lower()
+        if low not in seen:
+            seen.add(low)
+            unique_locations.append(loc)
+    if len(unique_locations) > max_count:
+        return "National · Kenya"
+    return " · ".join(unique_locations) if unique_locations else "Kenya"
+
+
 def _editor_prompt(item: NewsItem, source: Source) -> str:
     schema = NewsAnalysis.model_json_schema()
     return (
-        "You are VaRoom's property-news editor. Return only JSON matching the supplied schema. "
-        "Use only source-supported facts. Never state a proposal as approved, enacted, or effective. "
-        "Do not give legal, financial, or investment advice. Mark irrelevant material as relevant=false. "
-        "Do not invent dates, locations, sources, or outcomes.\n\n"
-        f"Source tier: {source.trust_tier}; source: {source.name}\nTitle: {item.source_title}\n"
-        f"Text: {item.clean_text[:12000]}\n\nSchema: {json.dumps(schema)}"
+        "You are VaRoom's property-news editor specializing in Kenyan real estate, housing, land policies, and zoning. "
+        "Return strictly valid JSON matching the supplied schema.\n\n"
+        "Editorial Rules:\n"
+        "- Generate a crisp, objective, 1-2 sentence summary (under 280 characters) explaining the direct impact on Kenyan property owners, buyers, tenants, or developers.\n"
+        "- Use only source-supported facts. Never invent dates, locations, or regulations.\n"
+        "- Accurately detect regulatory status (e.g. proposed, public_participation, approved, enacted, effective). Never state a proposal or draft bill as approved, enacted, or in effect.\n"
+        "- Extract specific Kenyan counties and towns mentioned. If the update applies nationally across all of Kenya or has more than 5 locations, identify it as national.\n"
+        "- Mark irrelevant non-property news as relevant=false.\n\n"
+        f"Source Tier: {source.trust_tier} | Source Name: {source.name}\n"
+        f"Source Title: {item.source_title}\n"
+        f"Article Content:\n{item.clean_text[:12000]}\n\n"
+        f"JSON Schema:\n{json.dumps(schema)}"
     )
 
 
@@ -92,7 +113,7 @@ class RulesBasedNewsAnalyzer:
         facts = [{"statement": sentence} for sentence in _sentences(item.clean_text)
                  if re.search(r"\d|proposed|approved|effective|gazette|rate|tax", sentence, flags=re.I)][:6]
         summary_sentences = _sentences(item.clean_text)[:2]
-        summary = " ".join(summary_sentences)[:700] if summary_sentences else None
+        summary = " ".join(summary_sentences)[:300] if summary_sentences else None
         risk, reasons = assess_risk(text, status, source.trust_tier)
         confidence = 0.82 if relevant and source.trust_tier <= 2 else (0.62 if relevant else 0.95)
         return NewsAnalysis(
@@ -100,7 +121,8 @@ class RulesBasedNewsAnalyzer:
             regulatory_status=status, affected_groups=_affected_groups(lowered), key_facts=facts,
             varoom_title=item.source_title if relevant else None, varoom_summary=summary if relevant else None,
             varoom_body=summary if relevant else None, confidence_score=confidence, source_tier=source.trust_tier,
-            risk_level=risk, risk_reasons=reasons, model_provider="rules", model_version="rules-v1",
+            risk_level=risk, risk_reasons=reasons, image_url=item.image_url,
+            model_provider="rules", model_version="rules-v1",
         )
 
 
@@ -117,19 +139,23 @@ class OpenAICompatibleNewsAnalyzer:
 
     def __init__(self, base_url: str, api_key: str, model: str) -> None:
         self.base_url, self.api_key, self.model = base_url.rstrip("/"), api_key, model
+        self._client = httpx.AsyncClient(timeout=30.0, limits=httpx.Limits(max_keepalive_connections=10, max_connections=20))
+
+    async def close(self) -> None:
+        await self._client.aclose()
 
     async def analyse(self, item: NewsItem, source: Source) -> NewsAnalysis:
         prompt = _editor_prompt(item, source)
         payload = {"model": self.model, "messages": [{"role": "user", "content": prompt}], "response_format": {"type": "json_object"}}
         headers = {"Authorization": f"Bearer {self.api_key}"}
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(f"{self.base_url}/chat/completions", json=payload, headers=headers)
-            response.raise_for_status()
+        response = await self._client.post(f"{self.base_url}/chat/completions", json=payload, headers=headers)
+        response.raise_for_status()
         content = response.json()["choices"][0]["message"]["content"]
         analysis = NewsAnalysis.model_validate_json(content)
         # Deterministic policy is authoritative over model self-assessment.
         risk, reasons = assess_risk(f"{item.source_title}\n{item.clean_text}", analysis.regulatory_status, source.trust_tier)
         return analysis.model_copy(update={"source_tier": source.trust_tier, "risk_level": risk, "risk_reasons": reasons,
+                                           "image_url": item.image_url or analysis.image_url,
                                            "model_provider": "openai-compatible", "model_version": self.model})
 
 
@@ -138,6 +164,10 @@ class GeminiNewsAnalyzer:
 
     def __init__(self, api_key: str, model: str) -> None:
         self.api_key, self.model = api_key, model
+        self._client = httpx.AsyncClient(timeout=30.0, limits=httpx.Limits(max_keepalive_connections=10, max_connections=20))
+
+    async def close(self) -> None:
+        await self._client.aclose()
 
     async def analyse(self, item: NewsItem, source: Source) -> NewsAnalysis:
         payload = {
@@ -145,9 +175,8 @@ class GeminiNewsAnalyzer:
             "generationConfig": {"temperature": 0.1, "responseMimeType": "application/json"},
         }
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent"
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(url, params={"key": self.api_key}, json=payload)
-            response.raise_for_status()
+        response = await self._client.post(url, params={"key": self.api_key}, json=payload)
+        response.raise_for_status()
         candidates = response.json().get("candidates") or []
         parts = candidates[0].get("content", {}).get("parts", []) if candidates else []
         content = "".join(str(part.get("text", "")) for part in parts)
@@ -156,6 +185,7 @@ class GeminiNewsAnalyzer:
         analysis = NewsAnalysis.model_validate_json(content)
         risk, reasons = assess_risk(f"{item.source_title}\n{item.clean_text}", analysis.regulatory_status, source.trust_tier)
         return analysis.model_copy(update={"source_tier": source.trust_tier, "risk_level": risk, "risk_reasons": reasons,
+                                           "image_url": item.image_url or analysis.image_url,
                                            "model_provider": "gemini", "model_version": self.model})
 
 

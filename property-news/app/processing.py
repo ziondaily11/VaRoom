@@ -8,6 +8,7 @@ from .analysis import NewsAnalyzer
 from .constants import ReviewStatus
 from .models import NewsEvent, NewsItem
 from .repository import MemoryNewsRepository, SupabaseNewsRepository
+from .risk import allows_auto_publish
 
 Repository = MemoryNewsRepository | SupabaseNewsRepository
 _SENSITIVE_URL_PARAMETER = re.compile(r"(?i)([?&](?:api[_-]?key|key|token|access_token)=)[^&\s'\"]+")
@@ -39,26 +40,23 @@ class ProcessingService:
                 event_type="item_processing_failed", payload={"error": _safe_error_message(error)}))
             raise
         await self.repository.save_analysis(item.id, analysis)
+        image_url = item.image_url or analysis.image_url
         item = item.model_copy(update={
             "varoom_title": analysis.varoom_title, "varoom_summary": analysis.varoom_summary,
             "varoom_body": analysis.varoom_body, "category": analysis.category, "topics": analysis.topics,
             "counties": analysis.counties, "towns": analysis.towns, "regulatory_status": analysis.regulatory_status,
             "affected_groups": analysis.affected_groups, "key_facts": analysis.key_facts,
             "risk_level": analysis.risk_level, "confidence_score": analysis.confidence_score,
-            "source_tier": analysis.source_tier,
+            "source_tier": analysis.source_tier, "image_url": image_url,
         })
         if not analysis.relevant:
             item.review_status = ReviewStatus.ARCHIVED
             event_type = "item_rejected_irrelevant"
-        elif self._valid_for_auto_publish(item):
-            # Risk level, source tier, and confidence are still computed and stored
-            # on the item/event for auditing, but no longer gate publishing.
+        elif allows_auto_publish(analysis.risk_level, analysis.source_tier, analysis.confidence_score) and self._valid_for_auto_publish(item):
             item.review_status = ReviewStatus.PUBLISHED
             item.published_at = datetime.now(timezone.utc)
             event_type = "item_auto_published"
         else:
-            # Only reached when required fields (title/summary/category/url/text)
-            # are missing, i.e. the analyzer produced an incomplete result.
             item.review_status = ReviewStatus.PENDING_REVIEW
             event_type = "item_queued_for_review"
         saved = await self.repository.save_item(item)

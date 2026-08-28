@@ -44,13 +44,18 @@ class NewsRetrievalService:
             authority = (5 - item.source_tier) / 4
             geography = 0.2 if county and county.lower() in {value.lower() for value in item.counties} else 0
             scored.append((keyword_score * 0.55 + authority * 0.25 + recency * 0.20 + geography, item))
+        top_items = [item for _, item in sorted(scored, key=lambda row: row[0], reverse=True)[:min(max(limit, 1), 50)]]
+        sources_map = await self.repository.get_sources_map([item.source_id for item in top_items])
         evidence: list[RetrievalEvidence] = []
-        for score, item in sorted(scored, key=lambda row: row[0], reverse=True)[:min(max(limit, 1), 50)]:
-            source = await self.repository.get_source(item.source_id)
-            evidence.append(RetrievalEvidence(id=item.id, title=item.varoom_title or item.source_title, summary=item.varoom_summary,
+        for (score, item) in sorted(scored, key=lambda row: row[0], reverse=True)[:len(top_items)]:
+            source = sources_map.get(item.source_id)
+            evidence.append(RetrievalEvidence(
+                id=item.id, title=item.varoom_title or item.source_title, summary=item.varoom_summary,
                 source_name=source.name if source else "Unknown source", source_url=item.source_url,
                 source_published_at=item.source_published_at, counties=item.counties, towns=item.towns, category=item.category,
-                regulatory_status=item.regulatory_status, risk_level=item.risk_level, relevance_score=round(score, 3), source_tier=item.source_tier))
+                regulatory_status=item.regulatory_status, risk_level=item.risk_level, relevance_score=round(score, 3),
+                source_tier=item.source_tier, image_url=item.image_url
+            ))
         return RetrievalResponse(query=query, evidence=evidence, applied_filters={"category": category, "county": county, "town": town,
             "regulatory_status": regulatory_status, "days": days})
 

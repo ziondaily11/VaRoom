@@ -47,6 +47,10 @@ class MemoryNewsRepository:
         source = self.sources.get(source_id)
         return copy.deepcopy(source) if source else None
 
+    async def get_sources_map(self, source_ids: Iterable[UUID]) -> dict[UUID, Source]:
+        unique_ids = set(source_ids)
+        return {sid: copy.deepcopy(self.sources[sid]) for sid in unique_ids if sid in self.sources}
+
     async def save_item(self, item: NewsItem) -> NewsItem:
         item.updated_at = _now()
         self.items[item.id] = copy.deepcopy(item)
@@ -99,11 +103,17 @@ class MemoryNewsRepository:
                     "error_message": error_message,
                     "duration_ms": max(0, int((ended_at - run["started_at"]).total_seconds() * 1000))})
 
-    async def list_items(self, *, published_only: bool = False) -> list[NewsItem]:
+    async def list_items(self, *, published_only: bool = False, limit: int | None = None,
+                         offset: int = 0, select_fields: str | None = None) -> list[NewsItem]:
         values = list(self.items.values())
         if published_only:
             values = [item for item in values if item.review_status is ReviewStatus.PUBLISHED and item.published_at]
-        return [copy.deepcopy(item) for item in sorted(values, key=lambda item: item.published_at or item.created_at, reverse=True)]
+        sorted_items = [copy.deepcopy(item) for item in sorted(values, key=lambda item: item.published_at or item.created_at, reverse=True)]
+        if offset:
+            sorted_items = sorted_items[offset:]
+        if limit is not None:
+            sorted_items = sorted_items[:limit]
+        return sorted_items
 
     async def list_pending_review(self) -> list[NewsItem]:
         return [item for item in await self.list_items() if item.review_status is ReviewStatus.PENDING_REVIEW]
@@ -186,6 +196,14 @@ class SupabaseNewsRepository:
         rows = await self._request("GET", "news_sources", params={"select": "*", "id": f"eq.{source_id}", "limit": "1"})
         return self._source(rows[0]) if rows else None
 
+    async def get_sources_map(self, source_ids: Iterable[UUID]) -> dict[UUID, Source]:
+        unique_ids = [str(sid) for sid in set(source_ids) if sid]
+        if not unique_ids:
+            return {}
+        ids_param = f"in.({','.join(unique_ids)})"
+        rows = await self._request("GET", "news_sources", params={"select": "*", "id": ids_param})
+        return {UUID(row["id"]): self._source(row) for row in rows}
+
     async def save_item(self, item: NewsItem) -> NewsItem:
         data = item.model_dump(mode="json")
         rows = await self._request("POST", "news_items", payload=data, prefer="resolution=merge-duplicates,return=representation")
@@ -204,11 +222,12 @@ class SupabaseNewsRepository:
         return self._item(rows[0]) if rows else None
 
     async def find_similar_title(self, title: str, threshold: float = 0.92) -> NewsItem | None:
-        # Exact/title similarity is deliberately evaluated in the application so
-        # PostgreSQL extensions are not a migration prerequisite.
-        candidates = await self._request("GET", "news_items", params={"select": "*", "limit": "250", "order": "created_at.desc"})
-        return next((self._item(row) for row in candidates
-                     if SequenceMatcher(None, title.lower(), row["source_title"].lower()).ratio() >= threshold), None)
+        # Fetch only id and source_title to avoid heavy bandwidth/HTML parsing
+        candidates = await self._request("GET", "news_items", params={"select": "id,source_title", "limit": "100", "order": "created_at.desc"})
+        for row in candidates:
+            if SequenceMatcher(None, title.lower(), row["source_title"].lower()).ratio() >= threshold:
+                return await self.get_item(UUID(row["id"]))
+        return None
 
     async def save_analysis(self, news_id: UUID, analysis: NewsAnalysis) -> None:
         payload = analysis.model_dump(mode="json") | {"news_id": str(news_id)}
@@ -234,19 +253,27 @@ class SupabaseNewsRepository:
             "new_item_count": new_item_count, "duplicate_count": duplicate_count, "error_message": error_message,
         }, prefer="return=minimal")
 
-    async def list_items(self, *, published_only: bool = False) -> list[NewsItem]:
-        params = {"select": "*", "order": "published_at.desc.nullslast,created_at.desc"}
+    async def list_items(self, *, published_only: bool = False, limit: int | None = None,
+                         offset: int = 0, select_fields: str | None = None) -> list[NewsItem]:
+        fields = select_fields or "id,source_id,source_url,canonical_url,source_title,source_published_at,fetched_at,clean_text,varoom_title,varoom_summary,varoom_body,category,topics,counties,towns,regulatory_status,affected_groups,key_facts,risk_level,confidence_score,source_tier,review_status,reviewed_by,published_at,image_url,content_hash,timeline_id,created_at,updated_at"
+        params = {"select": fields, "order": "published_at.desc.nullslast,created_at.desc"}
         if published_only:
             params["review_status"] = "eq.published"
+        if limit is not None:
+            params["limit"] = str(limit)
+        if offset:
+            params["offset"] = str(offset)
         return [self._item(row) for row in await self._request("GET", "news_items", params=params)]
 
     async def list_pending_review(self) -> list[NewsItem]:
-        rows = await self._request("GET", "news_items", params={"select": "*", "review_status": "eq.pending_review", "order": "risk_level.desc,created_at.desc"})
+        fields = "id,source_id,source_url,canonical_url,source_title,source_published_at,fetched_at,clean_text,varoom_title,varoom_summary,varoom_body,category,topics,counties,towns,regulatory_status,affected_groups,key_facts,risk_level,confidence_score,source_tier,review_status,reviewed_by,published_at,image_url,content_hash,timeline_id,created_at,updated_at"
+        rows = await self._request("GET", "news_items", params={"select": fields, "review_status": "eq.pending_review", "order": "risk_level.desc,created_at.desc"})
         return [self._item(row) for row in rows]
 
     async def list_failed_items(self, limit: int = 25) -> list[NewsItem]:
+        fields = "id,source_id,source_url,canonical_url,source_title,source_published_at,fetched_at,clean_text,varoom_title,varoom_summary,varoom_body,category,topics,counties,towns,regulatory_status,affected_groups,key_facts,risk_level,confidence_score,source_tier,review_status,reviewed_by,published_at,image_url,content_hash,timeline_id,created_at,updated_at"
         rows = await self._request("GET", "news_items", params={
-            "select": "*", "review_status": "eq.failed", "order": "updated_at.asc", "limit": str(limit),
+            "select": fields, "review_status": "eq.failed", "order": "updated_at.asc", "limit": str(limit),
         })
         return [self._item(row) for row in rows]
 

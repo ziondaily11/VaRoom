@@ -1449,17 +1449,25 @@
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    // Each news box is shown for a fixed window after it was published,
-    // then disappears on its own rather than sitting there indefinitely.
-    const PROPERTY_NEWS_DISPLAY_MS = 60 * 60 * 1000; // 1 hour
-    const PROPERTY_NEWS_REFRESH_MS = 5 * 60 * 1000; // re-check for new items every 5 minutes
+    // Property News: Display 2 items max, refresh every 2 hours if new queue exists,
+    // otherwise existing approved news stays intact.
+    const PROPERTY_NEWS_REFRESH_MS = 2 * 60 * 60 * 1000; // 2 hours
     let propertyNewsItems = [];
     let propertyNewsRefreshTimer = null;
-    let propertyNewsExpiryTimer = null;
 
     function clientPropertyNewsSourceUrl(news){
       const value = news && news.source && news.source.url;
       return /^https?:\/\//i.test(String(value || '')) ? String(value) : '';
+    }
+
+    function clientPropertyNewsLocation(news){
+      if (news && news.location_summary) return news.location_summary;
+      const values = [].concat((news && news.counties) || [], (news && news.towns) || []).filter(Boolean);
+      const unique = values.filter(function(v, i){
+        return values.findIndex(function(o){ return String(o).toLowerCase() === String(v).toLowerCase(); }) === i;
+      });
+      if (unique.length > 5) return 'National · Kenya';
+      return unique.join(' · ') || 'Kenya';
     }
 
     function wireClientPropertyNewsImages(container){
@@ -1472,12 +1480,12 @@
     }
 
     function clientPropertyNewsHtml(items){
-      return items.slice(0, 3).map(function(news){
+      return items.slice(0, 2).map(function(news){
         const source = news.source || {};
         const sourceUrl = clientPropertyNewsSourceUrl(news);
         const sourceName = typeof source.name === 'string' && source.name.trim() ? source.name.trim() : '';
         const image = typeof news.image_url === 'string' && news.image_url.trim()
-          ? '<div class="client-property-news-image-wrap"><img class="client-property-news-image" src="' + escapeHtml(news.image_url) + '" alt="" decoding="async"></div>'
+          ? '<div class="client-property-news-image-wrap"><img class="client-property-news-image" src="' + escapeHtml(news.image_url) + '" alt="" decoding="async" loading="lazy"></div>'
           : '';
         const sourceHtml = sourceName
           ? '<div class="client-property-news-source">' + (sourceUrl
@@ -1485,29 +1493,14 @@
             : 'Source · ' + escapeHtml(sourceName)) + '</div>'
           : '';
         const dateValue = source.published_at || news.published_at;
-        return '<article class="client-property-news-item"><a class="client-property-news-main" href="property-news.html?id=' + encodeURIComponent(news.id) + '">' + image + '<div class="client-property-news-kicker">Property News</div><div class="client-property-news-title">' + escapeHtml(news.title || 'Property update') + '</div><div class="client-property-news-meta"><span>' + escapeHtml([].concat(news.counties || [], news.towns || []).filter(Boolean).slice(0, 3).join(' · ') || 'Kenya') + '</span><span>•</span><span>' + escapeHtml(dateValue ? timeAgo(dateValue) : 'Recently') + '</span></div></a>' + sourceHtml + '</article>';
+        return '<article class="client-property-news-item"><a class="client-property-news-main" href="property-news.html?id=' + encodeURIComponent(news.id) + '">' + image + '<div class="client-property-news-kicker">Property News</div><div class="client-property-news-title">' + escapeHtml(news.title || 'Property update') + '</div><div class="client-property-news-meta"><span>' + escapeHtml(clientPropertyNewsLocation(news)) + '</span><span>•</span><span>' + escapeHtml(dateValue ? timeAgo(dateValue) : 'Recently') + '</span></div></a>' + sourceHtml + '</article>';
       }).join('');
-    }
-
-    // Drops items whose published time is older than the display window.
-    // Items with no date at all are kept, since there's no age to judge.
-    function freshPropertyNews(items){
-      const now = Date.now();
-      return (items || []).filter(function(news){
-        const source = news.source || {};
-        const publishedAt = source.published_at || news.published_at;
-        if (!publishedAt) return true;
-        const publishedTime = new Date(publishedAt).getTime();
-        if (isNaN(publishedTime)) return true;
-        return (now - publishedTime) <= PROPERTY_NEWS_DISPLAY_MS;
-      });
     }
 
     function renderPropertyNewsContainers(){
       const containers = [document.getElementById('client-property-news'), document.getElementById('client-property-news-mobile')].filter(Boolean);
       if (!containers.length) return;
-      const fresh = freshPropertyNews(propertyNewsItems);
-      const html = fresh.length ? clientPropertyNewsHtml(fresh) : '<p class="client-property-news-empty">Nothing new right now.</p>';
+      const html = propertyNewsItems.length ? clientPropertyNewsHtml(propertyNewsItems) : '<p class="client-property-news-empty">Nothing new right now.</p>';
       containers.forEach(function(container){ container.innerHTML = html; wireClientPropertyNewsImages(container); });
     }
 
@@ -1515,24 +1508,26 @@
       const containers = [document.getElementById('client-property-news'), document.getElementById('client-property-news-mobile')].filter(Boolean);
       if (!containers.length) return;
       try {
-        const response = await fetch('/api/news/latest?limit=3', { headers:{ Accept:'application/json' } });
+        const response = await fetch('/api/news/latest?limit=2', { headers:{ Accept:'application/json' } });
         if (!response.ok) throw new Error('Property News request failed');
         const items = await response.json();
-        propertyNewsItems = Array.isArray(items) ? items : [];
-        renderPropertyNewsContainers();
+        if (Array.isArray(items) && items.length > 0) {
+          propertyNewsItems = items.slice(0, 2);
+          renderPropertyNewsContainers();
+        } else if (!propertyNewsItems.length) {
+          renderPropertyNewsContainers();
+        }
       } catch (error) {
-        console.warn('Property News could not be loaded:', error);
-        containers.forEach(function(container){ container.innerHTML = '<p class="client-property-news-error">Property News is temporarily unavailable.</p>'; });
+        console.warn('Property News notice:', error.message || error);
+        if (!propertyNewsItems.length) {
+          containers.forEach(function(container){ container.innerHTML = '<p class="client-property-news-error">Property News is temporarily unavailable.</p>'; });
+        }
       }
     }
 
     function startPropertyNewsTimers(){
       clearInterval(propertyNewsRefreshTimer);
-      clearInterval(propertyNewsExpiryTimer);
       propertyNewsRefreshTimer = setInterval(loadClientPropertyNews, PROPERTY_NEWS_REFRESH_MS);
-      // Checked more often than the refetch so a box disappears close to
-      // on-time once its hour is up, without waiting on the next fetch.
-      propertyNewsExpiryTimer = setInterval(renderPropertyNewsContainers, 60 * 1000);
     }
 
     const propertyNewsRefreshBtn = document.getElementById('property-news-refresh');

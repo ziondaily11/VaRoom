@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 import httpx
 
-from app.analysis import RulesBasedNewsAnalyzer
+from app.analysis import RulesBasedNewsAnalyzer, format_location_display
 from app.api import create_app
 from app.collector import SourceCollector
 from app.config import Settings
@@ -47,6 +47,14 @@ class NormalisationTests(unittest.TestCase):
     def test_article_image_is_optional_and_rejects_external_media(self):
         html = '<meta property="og:image" content="https://cdn.example.test/story.jpeg">'
         self.assertIsNone(extract_article_image_url(html, "https://source1.example.test/story", "https://source1.example.test"))
+
+    def test_location_formatting_summarizes_when_over_five_locations(self):
+        self.assertEqual(format_location_display(["Nairobi", "Kiambu"], ["Thika"]), "Nairobi · Kiambu · Thika")
+        self.assertEqual(format_location_display([], []), "Kenya")
+        self.assertEqual(
+            format_location_display(["Nairobi", "Kiambu", "Machakos", "Nakuru", "Mombasa", "Kisumu"], []),
+            "National · Kenya"
+        )
 
 
 class PipelineTests(unittest.IsolatedAsyncioTestCase):
@@ -177,6 +185,14 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(result.evidence), 1)
         self.assertEqual(result.evidence[0].regulatory_status, RegulatoryStatus.PROPOSED)
 
+    async def test_batch_source_mapping_in_repository(self):
+        source2 = source(tier=2)
+        await self.repository.upsert_source(source2)
+        source_map = await self.repository.get_sources_map([self.source.id, source2.id])
+        self.assertEqual(len(source_map), 2)
+        self.assertIn(self.source.id, source_map)
+        self.assertIn(source2.id, source_map)
+
 
 class ApiSecurityTests(unittest.IsolatedAsyncioTestCase):
     async def test_public_news_excludes_pending_and_rejected_items(self):
@@ -208,6 +224,28 @@ class ApiSecurityTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("clean_text", response_data[0])
         self.assertEqual(response_data[0]["source"]["name"], news_source.name)
         self.assertEqual(response_data[0]["image_url"], "https://source1.example.test/story.jpeg")
+        self.assertEqual(response_data[0]["location_summary"], "Kenya")
+
+    async def test_latest_news_defaults_to_two_items(self):
+        repository = MemoryNewsRepository()
+        news_source = source()
+        await repository.upsert_source(news_source)
+        for i in range(5):
+            item = NewsItem(
+                source_id=news_source.id, source_url=f"https://source1.example.test/item{i}",
+                canonical_url=f"https://source1.example.test/item{i}", source_title=f"Property update {i}",
+                clean_text="Property update", varoom_title=f"Property update {i}", varoom_summary="Summary",
+                category="property", source_tier=1, content_hash=f"{i}" * 64, review_status=ReviewStatus.PUBLISHED,
+                published_at=datetime.now(timezone.utc),
+            )
+            await repository.save_item(item)
+        app = create_app(Settings(public_rate_limit_per_minute=100), repository)
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.get("/api/news/latest")
+        self.assertEqual(response.status_code, 200)
+        response_data = response.json()
+        self.assertEqual(len(response_data), 2)
 
     async def test_unauthorised_admin_action_is_denied(self):
         repository = MemoryNewsRepository()
@@ -238,6 +276,10 @@ class MigrationSafetyTests(unittest.TestCase):
             self.assertIn(f"alter table public.{table} enable row level security", migration)
         self.assertNotIn("drop table", migration)
         self.assertIn("property_news_public_items", migration)
+
+    def test_performance_migration_file_exists_and_adds_image_column(self):
+        migration = (Path(__file__).parents[1] / "supabase" / "migrations" / "20260828_000002_property_news_performance.sql").read_text(encoding="utf-8").lower()
+        self.assertIn("add column if not exists image_url", migration)
 
 
 if __name__ == "__main__":

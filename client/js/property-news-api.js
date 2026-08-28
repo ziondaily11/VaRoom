@@ -12,7 +12,7 @@
   }
 
   window.VaRoomPropertyNews = {
-    latest: function(limit){ return request('/api/news/latest?limit=' + encodeURIComponent(limit || 4)); },
+    latest: function(limit){ return request('/api/news/latest?limit=' + encodeURIComponent(limit || 2)); },
     all: function(limit){ return request('/api/news?limit=' + encodeURIComponent(limit || 50)); },
     get: function(id){ return request('/api/news/' + encodeURIComponent(id)); }
   };

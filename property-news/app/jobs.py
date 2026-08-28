@@ -18,25 +18,39 @@ async def run_collection_job(repository=None, config=settings, analyzer: NewsAna
     store = repository or build_repository(config)
     collector = SourceCollector(store, config)
     processor = ProcessingService(store, analyzer or build_analyzer(config))
-    collected = await collector.collect_due_sources()
-    result = {key: int(collected[key]) for key in ("sources_checked", "candidates", "new_items", "duplicates", "failures")}
-    failed_item_ids = [item.id for item in await store.list_failed_items()]
-    item_ids = list(dict.fromkeys([*collected["new_item_ids"], *failed_item_ids]))
-    result.update({"processed": 0, "published": 0, "pending_review": 0, "archived": 0,
-                   "processing_failures": 0, "retried": len(failed_item_ids)})
-    for item_id in item_ids:
-        try:
-            item = await processor.process(item_id)
-            result["processed"] += 1
-            if item.review_status is ReviewStatus.PUBLISHED:
-                result["published"] += 1
-            elif item.review_status is ReviewStatus.PENDING_REVIEW:
-                result["pending_review"] += 1
-            elif item.review_status is ReviewStatus.ARCHIVED:
-                result["archived"] += 1
-        except Exception:
-            result["processing_failures"] += 1
-    return result
+    try:
+        collected = await collector.collect_due_sources()
+        result = {key: int(collected[key]) for key in ("sources_checked", "candidates", "new_items", "duplicates", "failures")}
+        failed_item_ids = [item.id for item in await store.list_failed_items()]
+        item_ids = list(dict.fromkeys([*collected["new_item_ids"], *failed_item_ids]))
+        result.update({"processed": 0, "published": 0, "pending_review": 0, "archived": 0,
+                       "processing_failures": 0, "retried": len(failed_item_ids)})
+        
+        # Bounded concurrency for LLM/rule processing (up to 5 items concurrently)
+        semaphore = asyncio.Semaphore(5)
+        
+        async def _bounded_process(item_id):
+            async with semaphore:
+                try:
+                    return await processor.process(item_id)
+                except Exception:
+                    return None
+
+        processed_items = await asyncio.gather(*[_bounded_process(iid) for iid in item_ids])
+        for item in processed_items:
+            if item is None:
+                result["processing_failures"] += 1
+            else:
+                result["processed"] += 1
+                if item.review_status is ReviewStatus.PUBLISHED:
+                    result["published"] += 1
+                elif item.review_status is ReviewStatus.PENDING_REVIEW:
+                    result["pending_review"] += 1
+                elif item.review_status is ReviewStatus.ARCHIVED:
+                    result["archived"] += 1
+        return result
+    finally:
+        await collector.close()
 
 
 async def run_reprocess_job(repository=None, config=settings, analyzer: NewsAnalyzer | None = None,

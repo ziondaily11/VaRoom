@@ -86,6 +86,7 @@ create table if not exists public.news_items (
   review_status text not null default 'discovered' check (review_status in ('discovered', 'processing', 'analysed', 'pending_review', 'approved', 'published', 'rejected', 'failed', 'archived')),
   reviewed_by uuid references auth.users(id) on delete set null,
   published_at timestamptz,
+  image_url text,
   content_hash text not null check (content_hash ~ '^[a-f0-9]{64}$'),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -114,6 +115,7 @@ create table if not exists public.news_analysis (
   risk_reasons jsonb not null default '[]'::jsonb check (jsonb_typeof(risk_reasons) = 'array'),
   model_provider text not null,
   model_version text not null,
+  image_url text,
   created_at timestamptz not null default now()
 );
 
@@ -229,7 +231,7 @@ as
 select
   n.id, n.varoom_title as title, n.varoom_summary as summary, n.varoom_body as body,
   n.category, n.topics, n.counties, n.towns, n.regulatory_status, n.affected_groups,
-  n.risk_level, n.source_url, n.source_published_at, n.published_at,
+  n.risk_level, n.source_url, n.image_url, n.source_published_at, n.published_at,
   s.name as source_name, n.source_tier
 from public.news_items n
 join public.news_sources s on s.id = n.source_id

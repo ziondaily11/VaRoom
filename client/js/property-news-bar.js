@@ -1,14 +1,14 @@
-/* Property News Bar Component - Auto-refreshing, time-filtered news display */
+/* Property News Bar Component - Auto-refreshing, time-filtered news display (max 2 items, 2-hour rotation) */
 (function(window){
   'use strict';
 
   // Configuration
   const CONFIG = {
-    refreshInterval: 5 * 60 * 1000, // 5 minutes in milliseconds
-    maxItems: 10, // Maximum number of news items to display
-    newsAgeLimit: 60 * 60 * 1000, // 1 hour in milliseconds
-    storageKey: 'varoom_property_news_cache',
-    storageKeyTimestamp: 'varoom_property_news_timestamp'
+    refreshInterval: 2 * 60 * 60 * 1000, // 2 hours in milliseconds
+    maxItems: 2, // Only 2 news can be up at the same time
+    cacheTtl: 2 * 60 * 60 * 1000, // 2 hours cache TTL
+    storageKey: 'varoom_property_news_cache_v2',
+    storageKeyTimestamp: 'varoom_property_news_timestamp_v2'
   };
 
   // Cache management
@@ -19,11 +19,8 @@
         const timestamp = localStorage.getItem(CONFIG.storageKeyTimestamp);
         if (cached && timestamp) {
           const data = JSON.parse(cached);
-          const age = Date.now() - parseInt(timestamp);
-          // Return cached data if it's less than 2 minutes old
-          if (age < 2 * 60 * 1000) {
-            return data;
-          }
+          const age = Date.now() - parseInt(timestamp, 10);
+          return { items: data, isFresh: age < CONFIG.cacheTtl, age: age };
         }
       } catch (e) {
         console.warn('Property news cache read error:', e);
@@ -69,14 +66,6 @@
       if (diffHours < 24) return diffHours + 'h ago';
       if (diffDays < 7) return diffDays + 'd ago';
       return past.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-    },
-    
-    isOlderThan: function(date, limitMs) {
-      if (!date) return false;
-      const now = new Date();
-      const past = new Date(date);
-      const diffMs = now - past;
-      return diffMs > limitMs;
     }
   };
 
@@ -89,12 +78,15 @@
     },
     
     location: function(news) {
+      if (news.location_summary) return news.location_summary;
       const values = [].concat(news.counties || [], news.towns || []).filter(Boolean);
-      return values.filter(function(value, index) {
+      const unique = values.filter(function(value, index) {
         return values.findIndex(function(other) {
           return String(other).toLowerCase() === String(value).toLowerCase();
         }) === index;
-      }).join(' · ') || 'Kenya';
+      });
+      if (unique.length > 5) return 'National · Kenya';
+      return unique.join(' · ') || 'Kenya';
     },
     
     status: function(news) {
@@ -123,40 +115,46 @@
   // Property News Bar Component
   function PropertyNewsBar(containerId, options) {
     this.container = document.getElementById(containerId);
+    this.containerId = containerId;
     this.options = Object.assign({}, CONFIG, options);
     this.refreshTimer = null;
     this.isLoading = false;
-    this.lastFetchTime = null;
+    this.currentItems = [];
   }
 
   PropertyNewsBar.prototype = {
     init: function() {
       if (!this.container) {
-        console.error('Property news bar container not found:', this.containerId);
         return;
       }
       
-      // Load initial data
+      // Load initial data (from cache if fresh, or fetch)
       this.loadNews();
       
-      // Start auto-refresh
+      // Start 2-hour auto-refresh rotation
       this.startAutoRefresh();
     },
     
-    loadNews: async function() {
+    loadNews: async function(forceFetch) {
       if (this.isLoading) return;
       
-      this.isLoading = true;
-      this.renderLoading();
-      
       try {
-        // Try cache first
+        // Check cache first
         const cached = cache.get();
-        if (cached) {
-          this.renderNews(cached);
+        if (cached && cached.items && cached.items.length) {
+          this.currentItems = cached.items.slice(0, this.options.maxItems);
+          this.renderNews(this.currentItems);
+          // If cache is still fresh and not forced, no need to make network request
+          if (cached.isFresh && !forceFetch) {
+            return;
+          }
+        } else if (!this.currentItems.length) {
+          this.renderLoading();
         }
+
+        this.isLoading = true;
         
-        // Fetch fresh data
+        // Fetch latest news from backend proxy
         const response = await fetch('/api/news/latest?limit=' + this.options.maxItems, {
           headers: { Accept: 'application/json' }
         });
@@ -167,70 +165,51 @@
         
         const items = await response.json();
         
-        // Apply time-based filtering
-        const filteredItems = this.filterByTime(items);
-        
-        // Update cache
-        cache.set(filteredItems);
-        
-        // Render filtered results
-        this.renderNews(filteredItems);
-        this.lastFetchTime = Date.now();
-        
+        if (Array.isArray(items) && items.length > 0) {
+          const freshItems = items.slice(0, this.options.maxItems);
+          this.currentItems = freshItems;
+          cache.set(freshItems);
+          this.renderNews(freshItems);
+        } else if (!this.currentItems.length) {
+          this.renderEmpty();
+        }
+        // If items are empty or unchanged, existing news remains intact
       } catch (error) {
-        console.warn('Property news load error:', error);
-        this.renderError();
+        console.warn('Property news load notice:', error.message || error);
+        if (!this.currentItems.length) {
+          this.renderError();
+        }
       } finally {
         this.isLoading = false;
       }
     },
     
-    filterByTime: function(items) {
-      if (!Array.isArray(items) || items.length === 0) return [];
-      
-      // If we have multiple items, filter out old ones
-      if (items.length > 1) {
-        const now = Date.now();
-        const oneHourAgo = now - this.options.newsAgeLimit;
-        
-        // Keep only items published within the last hour
-        const recentItems = items.filter(function(item) {
-          const publishedAt = item.source?.published_at || item.published_at;
-          if (!publishedAt) return true; // Keep items without dates
-          
-          const publishTime = new Date(publishedAt).getTime();
-          return publishTime > oneHourAgo;
-        });
-        
-        // If we have recent items, return only those
-        if (recentItems.length > 0) {
-          return recentItems;
-        }
-      }
-      
-      // If single item or no recent items, return all items (up to max)
-      return items.slice(0, this.options.maxItems);
-    },
-    
     renderLoading: function() {
-      this.container.innerHTML = '<div class="property-news-loading">Loading property news…</div>';
+      if (this.container) {
+        this.container.innerHTML = '<div class="property-news-loading">Loading property news…</div>';
+      }
     },
     
     renderError: function() {
-      this.container.innerHTML = '<div class="property-news-error">Property news temporarily unavailable</div>';
+      if (this.container) {
+        this.container.innerHTML = '<div class="property-news-error">Property news temporarily unavailable</div>';
+      }
     },
     
     renderEmpty: function() {
-      this.container.innerHTML = '<div class="property-news-empty">No recent property news</div>';
+      if (this.container) {
+        this.container.innerHTML = '<div class="property-news-empty">No recent property news</div>';
+      }
     },
     
     renderNews: function(items) {
+      if (!this.container) return;
       if (!Array.isArray(items) || items.length === 0) {
         this.renderEmpty();
         return;
       }
       
-      const html = items.map(function(item) {
+      const html = items.slice(0, this.options.maxItems).map(function(item) {
         return this.renderNewsItem(item);
       }.bind(this)).join('');
       
@@ -252,7 +231,7 @@
       
       let imageHtml = '';
       if (imageUrl) {
-        imageHtml = '<div class="property-news-bar-image-wrap"><img class="property-news-bar-image" src="' + htmlUtils.escape(imageUrl) + '" alt="" decoding="async"></div>';
+        imageHtml = '<div class="property-news-bar-image-wrap"><img class="property-news-bar-image" src="' + htmlUtils.escape(imageUrl) + '" alt="" decoding="async" loading="lazy"></div>';
       }
       
       let statusHtml = '';
@@ -285,6 +264,7 @@
     },
     
     wireImages: function() {
+      if (!this.container) return;
       this.container.querySelectorAll('.property-news-bar-image').forEach(function(image) {
         const wrapper = image.closest('.property-news-bar-image-wrap');
         if (wrapper) {
@@ -309,7 +289,7 @@
       }
       
       this.refreshTimer = setInterval(function() {
-        this.loadNews();
+        this.loadNews(true);
       }.bind(this), this.options.refreshInterval);
     },
     
@@ -321,7 +301,7 @@
     },
     
     refresh: function() {
-      this.loadNews();
+      this.loadNews(true);
     },
     
     destroy: function() {
@@ -340,7 +320,8 @@
     const containers = ['property-news-bar', 'client-property-news-bar', 'host-property-news-bar'];
     containers.forEach(function(id) {
       const element = document.getElementById(id);
-      if (element) {
+      if (element && !element.dataset.newsInitialized) {
+        element.dataset.newsInitialized = 'true';
         new PropertyNewsBar(id).init();
       }
     });
