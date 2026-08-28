@@ -10,20 +10,19 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
-    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --on-accent:#FFFFFF;
-    --ink:#1A1210; --paper:#FBF4F1; --surface-muted:#F5EFEC;
+    --red:#C41E3A; --red-deep:#8F1229; --accent:#C41E3A; --accent-deep:#8F1229;
+    --accent-soft:#FBE4E7; --white:#FFFFFF; --on-accent:#FFFFFF;
+    --ink:#1A1210; --paper:#FBF4F1; --panel:#FCFBFA; --surface-muted:#F5EFEC;
     --line:rgba(26,18,16,.15); --line-soft:rgba(26,18,16,.08);
-    --muted:#7a6b67;
+    --muted:#7a6b67; --soft:#F4F1F0; --success:#C41E3A;
     --font-display:'Fraunces', serif; --font-body:'Inter', sans-serif;
   }
   [data-theme="dark"]{
     --white:#241C1A; --on-accent:#FFFFFF; --paper:#15100F; --surface-muted:#1B1412;
-    --ink:#F5EFEC; --muted:#B8ACA8;
+    --ink:#F5EFEC; --muted:#B8ACA8; --red-deep:#F0A5B2; --accent:#F0A5B2;
     --line:rgba(255,255,255,.15); --line-soft:rgba(255,255,255,.08);
-    --accent:#C41E3A; --accent-deep:#8F1229; --accent-soft:#FBE4E7;
-    --white:#FFFFFF; --ink:#1A1210; --paper:#F8F7F6; --panel:#FCFBFA;
-    --muted:#766E6A; --line:#E8E4E2; --soft:#F4F1F0;
-    --success:#C41E3A; --font-display:'Fraunces', serif; --font-body:'Inter', sans-serif;
+    --accent-deep:#F0A5B2; --accent-soft:rgba(240,165,178,.18);
+    --panel:#1B1412; --soft:#241C1A; --success:#F0A5B2;
   }
   *{ margin:0; padding:0; box-sizing:border-box; }
   body{ font-family:var(--font-body); background:var(--paper); color:var(--ink); height:100vh; overflow:hidden; transition:background .2s ease, color .2s ease; }
@@ -348,6 +347,18 @@
     let activeConversationId = null;
     let realtimeChannel = null;
 
+    function resolveTheme(choice){
+      return choice === 'system'
+        ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+        : choice;
+    }
+
+    function applyTheme(choice){
+      const resolved = resolveTheme(choice);
+      document.documentElement.setAttribute('data-theme', resolved);
+      localStorage.setItem('varoom_theme', choice);
+    }
+
     const CHATBOT_REPLY_URL = 'https://varoom.onrender.com/reply';
     // Same cold-start mitigation as elie.html — wake the service up as
     // soon as the chat page opens, not only when an auto-reply is needed.
@@ -358,9 +369,10 @@
     currentUser = session.user;
 
     const { data: profile } = await supabaseClient
-      .from('profiles').select('role,full_name,avatar_url').eq('id', currentUser.id).maybeSingle();
+      .from('profiles').select('role, theme_preference, full_name, avatar_url').eq('id', currentUser.id).maybeSingle();
     if (!profile) { window.location.href = 'login.html'; return; }
     currentRole = profile.role;
+    applyTheme(profile.theme_preference || localStorage.getItem('varoom_theme') || 'system');
     document.getElementById('back-link').setAttribute('href', currentRole === 'host' ? 'host-home.html' : 'client-home.html');
     document.getElementById('home-nav').setAttribute('href', currentRole === 'host' ? 'host-home.html' : 'client-home.html');
     const railProfile = document.querySelector('.rail-profile');
