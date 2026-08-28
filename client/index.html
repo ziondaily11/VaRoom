@@ -2986,7 +2986,7 @@
     </div>
 
     <!-- Living Motion Deck Column (Right - Active Above The Fold) -->
-    <div class="hero-live-deck" id="hero-live-deck" hidden>
+    <div class="hero-live-deck" id="hero-live-deck" hidden aria-hidden="true">
       <!-- Mini Switcher Tabs with Auto-Timer Progress -->
       <div class="hero-deck-nav" id="hero-deck-tabs">
         <button type="button" class="hero-deck-tab active" data-slide="0">
@@ -3767,101 +3767,6 @@
   });
 })();
 </script>
-
-<script>
-/* ── Living Motion Deck Controller (Auto-cycling in Hero above fold) ── */
-(function () {
-  var tabs = document.querySelectorAll('#hero-deck-tabs .hero-deck-tab');
-  var slides = document.querySelectorAll('.hero-deck-stage .hero-deck-slide');
-  var deckSection = document.getElementById('hero-live-deck');
-  if (!tabs.length || !slides.length) return;
-
-  var currentSlide = 0;
-  var totalSlides = tabs.length;
-  var autoInterval = null;
-  var isPaused = false;
-  var slideDuration = 5500; // 5.5s per slide
-
-  function goToSlide(index) {
-    currentSlide = index;
-
-    tabs.forEach(function (tab, i) {
-      if (i === index) {
-        tab.classList.add('active');
-      } else {
-        tab.classList.remove('active');
-      }
-    });
-
-    slides.forEach(function (slide, i) {
-      if (i === index) {
-        slide.classList.add('active');
-      } else {
-        slide.classList.remove('active');
-      }
-    });
-  }
-
-  function nextSlide() {
-    if (!isPaused) {
-      var next = (currentSlide + 1) % totalSlides;
-      goToSlide(next);
-    }
-  }
-
-  function startAutoCycle() {
-    stopAutoCycle();
-    autoInterval = setInterval(nextSlide, slideDuration);
-  }
-
-  function stopAutoCycle() {
-    if (autoInterval) {
-      clearInterval(autoInterval);
-      autoInterval = null;
-    }
-  }
-
-  tabs.forEach(function (tab, i) {
-    tab.addEventListener('click', function () {
-      goToSlide(i);
-      startAutoCycle();
-    });
-  });
-
-  if (deckSection) {
-    deckSection.addEventListener('mouseenter', function () { isPaused = true; });
-    deckSection.addEventListener('mouseleave', function () { isPaused = false; });
-  }
-
-  startAutoCycle();
-})();
-</script>
-
-<script>
-(function () {
-  var heroForm = document.getElementById('hero-search-form');
-  if (heroForm) {
-    heroForm.addEventListener('submit', async function (e) {
-      e.preventDefault();
-      var city = document.getElementById('search-location-input').value.trim();
-      var category = document.getElementById('search-category').value;
-      var target = 'client-home.html' +
-        ((city || category)
-          ? '?' + [city ? 'city=' + encodeURIComponent(city) : '', category ? 'category=' + encodeURIComponent(category) : '']
-              .filter(Boolean).join('&')
-          : '');
-      try {
-        var res = await supabaseClient.auth.getSession();
-        if (res.data && res.data.session) {
-          window.location.href = target;
-        } else {
-          window.location.href = 'login.html?redirect=' + encodeURIComponent(target);
-        }
-      } catch (_) {
-        window.location.href = 'login.html?redirect=' + encodeURIComponent(target);
-      }
-    });
-  }
 
   var elieImg = document.querySelector('#elie-image-slot img');
   if (elieImg) {
