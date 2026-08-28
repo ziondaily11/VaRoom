@@ -281,24 +281,6 @@
       transform: translateY(-0.5px);
     }
 
-    .btn-signup {
-      font: 600 11px var(--mono);
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      color: white;
-      padding: 9px 16px;
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 999px;
-      background: rgba(255, 255, 255, 0.06);
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-    .btn-signup:hover {
-      background: rgba(255, 255, 255, 0.14);
-      border-color: rgba(255, 255, 255, 0.4);
-      transform: translateY(-0.5px);
-    }
-
     .btn-get-started {
       padding: 9px 18px;
       border-radius: 999px;
@@ -2767,7 +2749,6 @@
 
     <div class="nav-actions">
       <a href="login.html" class="btn-signin">Sign in</a>
-      <button type="button" class="btn-signup open-account-trigger">Sign up</button>
       <button type="button" class="btn-get-started open-account-trigger">Get started</button>
       <button type="button" class="nav-button open-account-trigger">
         <span>Explore spaces</span>
@@ -2776,8 +2757,8 @@
     </div>
 
     <div class="mobile-nav-actions">
-      <a href="login.html" class="mobile-nav-signin">Sign in</a>
-      <button type="button" class="mobile-nav-signup open-account-trigger">Sign up</button>
+      <button type="button" class="mobile-nav-signin" id="mobile-nav-btn">Sign in</button>
+      <button type="button" class="mobile-nav-signup" id="mobile-signup-btn">Sign up</button>
     </div>
     <div class="nav-scroll-progress" id="nav-scroll-progress"></div>
   </header>
@@ -3702,6 +3683,7 @@
 <script>
 (function () {
   var triggerBtn = document.getElementById('mobile-nav-btn');
+  var signupBtn = document.getElementById('mobile-signup-btn');
   var sheet = document.getElementById('mobile-auth-sheet');
   var closeBtn = document.getElementById('mobile-auth-close');
   var authForm = document.getElementById('mob-auth-form');
@@ -3783,6 +3765,10 @@
 
   if (triggerBtn) {
     triggerBtn.addEventListener('click', function () { openSheet('login'); });
+  }
+
+  if (signupBtn) {
+    signupBtn.addEventListener('click', function () { openSheet('signup'); });
   }
 
   if (closeBtn) {
