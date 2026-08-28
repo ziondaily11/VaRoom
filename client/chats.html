@@ -91,6 +91,15 @@
   .rail-profile{ width:32px; height:32px; border-radius:50%; color:#fff; background:#413735; display:grid; place-items:center; font-weight:700; font-size:.72rem; }
 
   .chat-stage{ min-width:0; min-height:0; border:1px solid var(--chat-border); border-radius:16px; overflow:hidden; background:var(--chat-surface); display:flex; flex-direction:column; }
+  /* Keep legacy chat selectors readable while isolating personalization from
+     the surrounding navigation and application shell. */
+  .chat-stage{
+    --white:var(--chat-surface); --panel:var(--chat-background); --paper:var(--chat-background);
+    --ink:var(--chat-text); --muted:var(--chat-text-muted); --line:var(--chat-border);
+    --line-soft:color-mix(in srgb, var(--chat-border) 55%, transparent);
+    --accent:var(--chat-primary); --accent-deep:var(--chat-primary-hover);
+    --accent-soft:color-mix(in srgb, var(--chat-primary) 12%, transparent);
+  }
   header{ flex:0 0 auto; min-height:72px; display:flex; align-items:center; gap:1.5rem; padding:0 1.4rem; border-bottom:1px solid var(--chat-border); background:var(--chat-header); color:var(--chat-text); }
   .page-title{ font-size:1.55rem; font-weight:700; letter-spacing:-.04em; white-space:nowrap; }
   .logo{ display:none; }
@@ -136,6 +145,8 @@
   }
   .conv-avatar{ width:40px; height:40px; border-radius:50%; background:#4B403D; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:.9rem; flex-shrink:0; overflow:hidden; position:relative; }
   .conv-avatar img{ width:100%; height:100%; object-fit:cover; }
+  .conv-avatar.elie-avatar{ background:var(--chat-primary); padding:.35rem; }
+  .conv-avatar.elie-avatar img{ object-fit:contain; }
   .conv-avatar:after{ content:''; position:absolute; width:9px; height:9px; background:var(--success); border:2px solid var(--panel); right:0; bottom:0; border-radius:50%; }
   .conv-info{ flex:1; min-width:0; }
   .conv-name{ font-weight:700; font-size:.84rem; line-height:1.2; }
@@ -319,11 +330,8 @@
     <a href="bookings.html" class="rail-link" aria-label="Bookings">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
     </a>
-    <a href="analytics.html" class="rail-link" aria-label="Analytics">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
-    </a>
-    <a href="payments.html" class="rail-link" aria-label="Payments">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h3"/></svg>
+    <a href="elie.html" class="rail-link" aria-label="Elie">
+      <img src="elie-logo.png" alt="Elie" style="width:24px;height:24px;object-fit:contain;">
     </a>
     <a href="profile.html" class="rail-link" aria-label="Profile">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="4"/><path d="M5.5 21a6.5 6.5 0 0 1 13 0"/></svg>
@@ -573,7 +581,17 @@
         if (!previewByConv[m.conversation_id]) previewByConv[m.conversation_id] = m.body;
       });
 
-      convListEl.innerHTML = conversations.map(function(conv){
+      const elieItem =
+        '<button type="button" class="conv-item elie-conversation" data-elie="true">' +
+          '<div class="conv-avatar elie-avatar"><img src="elie-logo.png" alt=""></div>' +
+          '<div class="conv-info">' +
+            '<div class="conv-name">Elie</div>' +
+            '<div class="conv-listing">VaRoom search assistant</div>' +
+            '<div class="conv-preview">Find a space with Elie</div>' +
+          '</div>' +
+        '</button>';
+
+      convListEl.innerHTML = elieItem + conversations.map(function(conv){
         const isHost = conv.host_id === currentUser.id;
         const other = (isHost ? conv.client : conv.host) || {};
         const initial = (other.full_name || '?').charAt(0).toUpperCase();
@@ -597,6 +615,10 @@
 
       convListEl.querySelectorAll('.conv-item').forEach(function(btn){
         btn.addEventListener('click', function(){
+          if (btn.getAttribute('data-elie') === 'true') {
+            window.location.href = 'elie.html';
+            return;
+          }
           openConversation(btn.getAttribute('data-conv-id'));
         });
       });
