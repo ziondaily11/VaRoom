@@ -113,20 +113,6 @@
     padding:1.2rem 2rem;
     background:transparent;
   }
-  .topbar-avatar-btn{ flex-shrink:0; display:flex; }
-  .topbar-avatar-btn:hover .avatar-circle{ outline:2px solid rgba(196,30,58,.25); outline-offset:2px; }
-
-  .avatar-circle{
-    width:38px; height:38px; border-radius:50%;
-    background:var(--red); color:var(--white);
-    display:flex; align-items:center; justify-content:center;
-    font-weight:700; font-size:.9rem; overflow:hidden;
-  }
-  .avatar-circle img{ width:100%; height:100%; object-fit:cover; }
-
-  .topbar-back{ margin-left:auto; font-size:.88rem; font-weight:500; color:var(--muted); display:flex; align-items:center; gap:.4rem; }
-  .topbar-back:hover{ color:var(--ink); }
-
   .preview-badge{
     display:inline-flex; align-items:center; gap:.4rem;
     font-size:.78rem; font-weight:600; background:rgba(196,30,58,.1); color:var(--red-deep);
@@ -225,20 +211,6 @@
   }
   .btn-solid:hover{ background:var(--red-deep); }
   .btn-solid svg{ width:14px; height:14px; }
-
-  /* ============================================================
-     PREVIEW BANNER (shown when viewing own profile as visitor)
-  ============================================================ */
-  .preview-banner{
-    display:none;
-    background:#FBE4E7; color:var(--red-deep);
-    border-radius:12px; padding:.75rem 1.1rem;
-    font-size:.85rem; font-weight:600;
-    margin-bottom:1.5rem;
-    align-items:center; gap:.6rem;
-  }
-  .preview-banner.show{ display:flex; }
-  .preview-banner a{ text-decoration:underline; margin-left:auto; font-size:.82rem; }
 
   /* ============================================================
      LISTINGS GRID
@@ -412,7 +384,12 @@
 
     .profile-scroll{ padding:0 1.2rem 7rem; overflow-y:visible; }
 
-    .profile-header{ flex-direction:column; gap:1.2rem; padding:1.6rem 0 1.6rem; }
+    .profile-header{
+      flex-direction:column; align-items:center; gap:1.2rem;
+      padding:1.6rem 0 1.6rem; text-align:center;
+    }
+    .profile-info{ width:100%; }
+    .profile-meta, .profile-actions{ justify-content:center; }
     .profile-avatar{ width:80px; height:80px; font-size:1.9rem; }
     .avatar-upload-btn{ width:26px; height:26px; }
 
@@ -437,13 +414,12 @@
       padding:.3rem .6rem; background:none; border:none; font-family:inherit; cursor:pointer;
     }
     .bottom-bar-item.active{ color:var(--red-deep); }
-    .bottom-bar-item .avatar-mini{
-      width:20px; height:20px; border-radius:50%; overflow:hidden;
-      background:var(--red); color:var(--white);
-      display:flex; align-items:center; justify-content:center;
-      font-size:.62rem; font-weight:700;
+    .bottom-bar-item .notification-icon{ position:relative; display:flex; }
+    .bottom-bar-item .notification-count{
+      position:absolute; top:-7px; right:-11px; min-width:15px; height:15px;
+      padding:0 4px; border-radius:999px; background:var(--red); color:var(--white);
+      font-size:.58rem; line-height:15px; font-weight:700;
     }
-    .bottom-bar-item .avatar-mini img{ width:100%; height:100%; object-fit:cover; }
   }
 
   @media (max-width:500px){
@@ -477,7 +453,7 @@
       <textarea id="edit-bio" placeholder="Tell people a bit about yourself…" maxlength="200"></textarea>
     </div>
     <div class="modal-field">
-      <label>Location</label>
+      <label>City</label>
       <input type="text" id="edit-location" placeholder="e.g. Nairobi, Kenya" />
     </div>
     <div class="modal-actions">
@@ -506,6 +482,10 @@
       <a href="host-home.html" class="nav-item" data-nav="explore">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m15 9-2 6-6 2 2-6 6-2Z"/></svg>
         Explore
+      </a>
+      <a href="host-home.html" class="nav-item">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1Z"/><path d="M9 21v-6h6v6"/></svg>
+        Home
       </a>
       <a href="saved.html" class="nav-item" data-nav="saved">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h12a1 1 0 0 1 1 1V21l-7-4-7 4V4.5a1 1 0 0 1 1-1Z"/></svg>
@@ -561,29 +541,10 @@
 
     <!-- Topbar -->
     <header class="topbar">
-      <button type="button" class="topbar-avatar-btn" id="topbar-avatar-btn" aria-label="Open menu">
-        <div class="avatar-circle" id="topbar-avatar">·</div>
-      </button>
-
-      <div id="topbar-right" style="margin-left:auto;display:flex;align-items:center;gap:.9rem;">
-        <!-- Preview as visitor toggle (owner only) -->
-        <button type="button" id="preview-toggle" style="display:none;"
-          class="btn-outline" style="font-size:.8rem;">
-          Preview as visitor
-        </button>
-        <a href="host-home.html" class="topbar-back">← Back to dashboard</a>
-      </div>
     </header>
 
     <!-- Profile content -->
     <div class="profile-scroll" id="profile-scroll">
-
-      <!-- Preview mode banner -->
-      <div class="preview-banner" id="preview-banner">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/></svg>
-        You're viewing your public profile as a visitor
-        <a href="#" id="exit-preview">← Exit preview</a>
-      </div>
 
       <!-- Loading -->
       <div id="loading-state" style="text-align:center;padding:4rem 0;color:var(--muted);">Loading profile…</div>
@@ -701,9 +662,12 @@
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z"/></svg>
     Chats
   </button>
-  <button class="bottom-bar-item active">
-    <div class="avatar-mini" id="bottom-bar-avatar">·</div>
-    Profile
+  <button type="button" class="bottom-bar-item" id="mobile-notifications-btn">
+    <span class="notification-icon">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      <span class="notification-count" id="mobile-notification-count" style="display:none;"></span>
+    </span>
+    Notifications
   </button>
 </nav>
 
@@ -724,83 +688,85 @@
   /* ── Determine whose profile to show ── */
   const params = new URLSearchParams(window.location.search);
   const viewUsername = params.get('u') || null; // ?u=ziondaily11 for public links
-  const isPreview = params.get('preview') === '1';
 
   /* ── Fetch profile ── */
   let profileData = null;
   let isOwner = false;
 
-  const SELECT = 'id, role, full_name, username, phone, bio, avatar_url, location, created_at';
+  const SELECT = 'id, role, full_name, username, phone, bio, avatar_url, city, created_at';
   // UUID pattern — ?u= can be a username OR a UUID (fallback when no username set)
   const isUUID = viewUsername && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(viewUsername);
+  async function loadProfile(column, value){
+    let result = await supabaseClient
+      .from('profiles')
+      .select(SELECT)
+      .eq(column, value)
+      .maybeSingle();
+    if (result.error) {
+      // Keep rendering the profile if an optional profile column is not
+      // available in an older database schema.
+      result = await supabaseClient
+        .from('profiles')
+        .select('id, role, full_name, username, bio, avatar_url, city, created_at')
+        .eq(column, value)
+        .maybeSingle();
+      if (result.error) {
+        console.error('Unable to load profile:', result.error);
+        return null;
+      }
+    }
+    return result.data;
+  }
 
   if (viewUsername) {
     if (isUUID) {
       // Passed as UUID — look up by id
-      const { data } = await supabaseClient
-        .from('profiles')
-        .select(SELECT)
-        .eq('id', viewUsername)
-        .maybeSingle();
-      profileData = data;
+      profileData = await loadProfile('id', viewUsername);
     } else {
       // Passed as username string
-      const { data } = await supabaseClient
-        .from('profiles')
-        .select(SELECT)
-        .eq('username', viewUsername)
-        .maybeSingle();
-      profileData = data;
+      profileData = await loadProfile('username', viewUsername);
       // If username lookup fails, try by id as last resort
       if (!profileData) {
-        const { data: byId } = await supabaseClient
-          .from('profiles')
-          .select(SELECT)
-          .eq('id', viewUsername)
-          .maybeSingle();
-        profileData = byId;
+        profileData = await loadProfile('id', viewUsername);
       }
     }
     isOwner = profileData && profileData.id === currentUser.id;
   } else {
     // No ?u= param — show own profile
-    const { data } = await supabaseClient
-      .from('profiles')
-      .select(SELECT)
-      .eq('id', currentUser.id)
-      .maybeSingle();
-    profileData = data;
+    profileData = await loadProfile('id', currentUser.id);
     isOwner = true;
   }
 
   // Last resort — if still nothing, load current user's own profile
   if (!profileData) {
-    const { data } = await supabaseClient
-      .from('profiles')
-      .select(SELECT)
-      .eq('id', currentUser.id)
-      .maybeSingle();
-    profileData = data;
+    profileData = await loadProfile('id', currentUser.id);
     isOwner = true;
   }
 
-  if (!profileData) { window.location.href = 'host-home.html'; return; }
-
-  /* ── Topbar avatar ── */
-  const topbarAv = document.getElementById('topbar-avatar');
-  const { data: myProfile } = await supabaseClient.from('profiles').select('avatar_url, full_name').eq('id', currentUser.id).maybeSingle();
-  if (myProfile) {
-    if (myProfile.avatar_url) {
-      const url = myProfile.avatar_url.startsWith('http') ? myProfile.avatar_url
-        : supabaseClient.storage.from('avatars').getPublicUrl(myProfile.avatar_url).data.publicUrl;
-      topbarAv.innerHTML = '<img src="' + url + '" alt="">';
-    } else {
-      topbarAv.textContent = (myProfile.full_name || '?').charAt(0).toUpperCase();
-    }
-    // Bottom bar avatar
-    const bbAv = document.getElementById('bottom-bar-avatar');
-    bbAv.textContent = (myProfile.full_name || '?').charAt(0).toUpperCase();
+  if (!profileData) {
+    document.getElementById('loading-state').textContent =
+      'Unable to load your profile. Check your connection and try again.';
+    return;
   }
+
+  const notificationCount = document.getElementById('mobile-notification-count');
+  async function refreshNotificationCount(){
+    const { count, error } = await supabaseClient
+      .from('notifications')
+      .select('id', { count:'exact', head:true })
+      .eq('user_id', currentUser.id)
+      .eq('read', false);
+    if (error) return;
+    notificationCount.textContent = count > 99 ? '99+' : String(count || '');
+    notificationCount.style.display = count > 0 ? 'block' : 'none';
+  }
+  refreshNotificationCount();
+  supabaseClient.channel('profile-notifications-' + currentUser.id)
+    .on('postgres_changes', {
+      event:'*', schema:'public', table:'notifications',
+      filter:'user_id=eq.' + currentUser.id
+    }, refreshNotificationCount)
+    .subscribe();
 
   /* ── Render profile header ── */
   function renderProfile(){
@@ -831,14 +797,14 @@
       bioEl.textContent = profileData.bio;
       bioEl.classList.remove('empty');
     } else {
-      bioEl.textContent = isOwner && !isPreview ? 'Add a bio to tell people about yourself.' : '';
+      bioEl.textContent = isOwner ? 'Add a bio to tell people about yourself.' : '';
       bioEl.classList.add('empty');
     }
 
     // Location
-    if (profileData.location) {
+    if (profileData.city) {
       document.getElementById('meta-location').style.display = 'flex';
-      document.getElementById('meta-location-text').textContent = profileData.location;
+      document.getElementById('meta-location-text').textContent = profileData.city;
     }
 
     // Hosting since
@@ -853,21 +819,13 @@
     const firstName = (profileData.full_name || 'host').split(' ')[0];
     document.getElementById('ask-name').textContent = firstName;
 
-    // Actions — owner vs visitor vs preview
-    const showingAsVisitor = !isOwner || isPreview;
+    // Actions — owner vs visitor
+    const showingAsVisitor = !isOwner;
     document.getElementById('owner-actions').style.display = (!showingAsVisitor) ? 'flex' : 'none';
     document.getElementById('visitor-actions').style.display = showingAsVisitor ? 'flex' : 'none';
 
-    // Camera button — owner only and not preview
-    document.getElementById('avatar-upload-label').style.display = (!showingAsVisitor) ? 'flex' : 'none';
-
-    // Preview toggle — owner only
-    document.getElementById('preview-toggle').style.display = isOwner ? 'flex' : 'none';
-
-    // Preview banner
-    if (isPreview) {
-      document.getElementById('preview-banner').classList.add('show');
-    }
+    // Camera button — owner only
+    document.getElementById('avatar-upload-label').style.display = isOwner ? 'flex' : 'none';
 
     // Listings heading
     document.getElementById('listings-heading').textContent =
@@ -878,18 +836,96 @@
   document.getElementById('loading-state').style.display = 'none';
   document.getElementById('profile-content').style.display = 'block';
 
-  /* ── Preview toggle ── */
-  document.getElementById('preview-toggle').addEventListener('click', function(){
-    const url = new URL(window.location.href);
-    url.searchParams.set('preview', '1');
-    window.location.href = url.toString();
+  /* ── Profile actions ── */
+  document.getElementById('edit-profile-btn').addEventListener('click', function(){
+    document.getElementById('edit-fullname').value = profileData.full_name || '';
+    document.getElementById('edit-username').value = profileData.username || '';
+    document.getElementById('edit-phone').value = profileData.phone || '';
+    document.getElementById('edit-bio').value = profileData.bio || '';
+    document.getElementById('edit-location').value = profileData.city || '';
+    document.getElementById('edit-msg').textContent = '';
+    document.getElementById('edit-modal').classList.add('open');
   });
 
-  document.getElementById('exit-preview') && document.getElementById('exit-preview').addEventListener('click', function(e){
-    e.preventDefault();
-    const url = new URL(window.location.href);
-    url.searchParams.delete('preview');
-    window.location.href = url.toString();
+  document.getElementById('edit-cancel').addEventListener('click', function(){
+    document.getElementById('edit-modal').classList.remove('open');
+  });
+
+  document.getElementById('edit-modal').addEventListener('click', function(e){
+    if (e.target === this) this.classList.remove('open');
+  });
+
+  const sharePanel = document.getElementById('share-panel');
+  const profileUrl = profileData.username
+    ? window.location.origin + '/u/' + encodeURIComponent(profileData.username)
+    : window.location.origin + '/profile.html';
+
+  async function shareProfile(){
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: (profileData.full_name || 'VaRoom profile') + ' — VaRoom',
+          text: 'Check out this VaRoom profile',
+          url: profileUrl
+        });
+        return;
+      } catch (error) {
+        if (error.name === 'AbortError') return;
+      }
+    }
+    sharePanel.classList.add('show');
+  }
+
+  document.getElementById('share-profile-btn').addEventListener('click', shareProfile);
+  document.getElementById('share-profile-btn-visitor').addEventListener('click', shareProfile);
+  document.getElementById('share-x').href = 'https://twitter.com/intent/tweet?url=' + encodeURIComponent(profileUrl);
+  document.getElementById('share-wa').href = 'https://wa.me/?text=' + encodeURIComponent(profileUrl);
+  document.getElementById('share-email').href = 'mailto:?subject=' + encodeURIComponent('Check out this VaRoom profile') + '&body=' + encodeURIComponent(profileUrl);
+
+  document.getElementById('copy-link-btn').addEventListener('click', async function(){
+    const el = document.getElementById('copy-link-text');
+    try {
+      await navigator.clipboard.writeText(profileUrl);
+      el.textContent = 'Copied!';
+      setTimeout(function(){ el.textContent = 'Copy link'; }, 2000);
+    } catch (error) {
+      el.textContent = 'Couldn\'t copy';
+    }
+  });
+
+  document.getElementById('edit-save').addEventListener('click', async function(){
+    const btn = this;
+    const fullName = document.getElementById('edit-fullname').value.trim();
+    const username = document.getElementById('edit-username').value.trim();
+    const phone    = document.getElementById('edit-phone').value.trim();
+    const bio      = document.getElementById('edit-bio').value.trim();
+    const location = document.getElementById('edit-location').value.trim();
+
+    if (!fullName) { document.getElementById('edit-msg').textContent = 'Full name is required.'; return; }
+
+    btn.disabled = true; btn.textContent = 'Saving…';
+
+    const { error } = await supabaseClient.from('profiles').update({
+      full_name: fullName,
+      username: username || null,
+      phone: phone || null,
+      bio: bio || null,
+      city: location || null
+    }).eq('id', currentUser.id);
+
+    btn.disabled = false; btn.textContent = 'Save changes';
+
+    if (error) { document.getElementById('edit-msg').textContent = error.message; return; }
+
+    profileData.full_name = fullName;
+    profileData.username  = username || null;
+    profileData.phone     = phone || null;
+    profileData.bio       = bio || null;
+    profileData.city      = location || null;
+
+    renderProfile();
+    document.getElementById('edit-modal').classList.remove('open');
+    showToast('Profile saved ✓');
   });
 
   /* ── Fetch and render listings ── */
@@ -897,21 +933,20 @@
     .from('listings')
     .select('id, title, category, location_text, price_per_night, price_per_month, availability_status, listing_photos(storage_path, photo_path)')
     .eq('host_id', profileData.id)
-    .eq('is_verified', true)
     .order('created_at', { ascending: false });
 
   const grid = document.getElementById('listings-grid');
   const count = listings ? listings.length : 0;
   document.getElementById('listings-count').textContent =
     count + ' space' + (count !== 1 ? 's' : '') +
-    (profileData.location ? ' in ' + profileData.location : '');
+    (profileData.city ? ' in ' + profileData.city : '');
 
   const CAT_LABELS = { airbnb:'Airbnb', hotel:'Hotel', venue:'Event Venue', office:'Office', shop:'Shop', property:'Property' };
 
   if (!listings || listings.length === 0) {
     grid.innerHTML = '<div class="listings-empty">' +
       '<div class="listings-empty-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 8v8M8 12h8"/></svg></div>' +
-      (isOwner && !isPreview ? 'No verified listings yet. <a href="list.html" style="color:var(--red);font-weight:600;">List your first space →</a>' : 'No listings yet.') +
+      (isOwner ? 'No listings yet. <a href="list.html" style="color:var(--red);font-weight:600;">List your first space →</a>' : 'No listings yet.') +
       '</div>';
     return;
   }
@@ -981,88 +1016,9 @@
     showToast('Photo updated ✓');
   });
 
-  /* ── Edit modal ── */
-  document.getElementById('edit-profile-btn').addEventListener('click', function(){
-    document.getElementById('edit-fullname').value = profileData.full_name || '';
-    document.getElementById('edit-username').value = profileData.username || '';
-    document.getElementById('edit-phone').value = profileData.phone || '';
-    document.getElementById('edit-bio').value = profileData.bio || '';
-    document.getElementById('edit-location').value = profileData.location || '';
-    document.getElementById('edit-msg').textContent = '';
-    document.getElementById('edit-modal').classList.add('open');
-  });
-
-  document.getElementById('edit-cancel').addEventListener('click', function(){
-    document.getElementById('edit-modal').classList.remove('open');
-  });
-
-  document.getElementById('edit-modal').addEventListener('click', function(e){
-    if (e.target === this) this.classList.remove('open');
-  });
-
-  document.getElementById('edit-save').addEventListener('click', async function(){
-    const btn = this;
-    const fullName = document.getElementById('edit-fullname').value.trim();
-    const username = document.getElementById('edit-username').value.trim();
-    const phone    = document.getElementById('edit-phone').value.trim();
-    const bio      = document.getElementById('edit-bio').value.trim();
-    const location = document.getElementById('edit-location').value.trim();
-
-    if (!fullName) { document.getElementById('edit-msg').textContent = 'Full name is required.'; return; }
-
-    btn.disabled = true; btn.textContent = 'Saving…';
-
-    const { error } = await supabaseClient.from('profiles').update({
-      full_name: fullName,
-      username: username || null,
-      phone: phone || null,
-      bio: bio || null,
-      location: location || null
-    }).eq('id', currentUser.id);
-
-    btn.disabled = false; btn.textContent = 'Save changes';
-
-    if (error) { document.getElementById('edit-msg').textContent = error.message; return; }
-
-    profileData.full_name = fullName;
-    profileData.username  = username || null;
-    profileData.phone     = phone || null;
-    profileData.bio       = bio || null;
-    profileData.location  = location || null;
-
-    renderProfile();
-    document.getElementById('edit-modal').classList.remove('open');
-    showToast('Profile saved ✓');
-  });
-
-  /* ── Share panel ── */
-  const sharePanel  = document.getElementById('share-panel');
-  const profileUrl  = profileData.username
-    ? window.location.origin + '/profile.html?u=' + profileData.username
-    : window.location.origin + '/profile.html?u=' + profileData.id;
-
-  function toggleShare(){ sharePanel.classList.toggle('show'); }
-
-  document.getElementById('share-profile-btn') && document.getElementById('share-profile-btn').addEventListener('click', toggleShare);
-  document.getElementById('share-profile-btn-visitor') && document.getElementById('share-profile-btn-visitor').addEventListener('click', toggleShare);
-
-  document.getElementById('share-x').href = 'https://twitter.com/intent/tweet?url=' + encodeURIComponent(profileUrl);
-  document.getElementById('share-wa').href = 'https://wa.me/?text=' + encodeURIComponent(profileUrl);
-  document.getElementById('share-email').href = 'mailto:?subject=' + encodeURIComponent('Check out this VaRoom profile') + '&body=' + encodeURIComponent(profileUrl);
-
-  document.getElementById('copy-link-btn').addEventListener('click', async function(){
-    const el = document.getElementById('copy-link-text');
-    try { await navigator.clipboard.writeText(profileUrl); el.textContent = 'Copied!'; setTimeout(function(){ el.textContent = 'Copy link'; }, 2000); }
-    catch(e){ el.textContent = 'Couldn\'t copy'; }
-  });
-
   /* ── Mobile hamburger ── */
   const sidebar   = document.getElementById('sidebar');
   const backdrop  = document.getElementById('sidebar-backdrop');
-  document.getElementById('topbar-avatar-btn').addEventListener('click', function(){
-    sidebar.classList.toggle('mobile-open');
-    backdrop.classList.toggle('show');
-  });
   backdrop.addEventListener('click', function(){
     sidebar.classList.remove('mobile-open');
     backdrop.classList.remove('show');
@@ -1077,6 +1033,9 @@
   document.querySelectorAll('.bottom-bar-item[data-nav]').forEach(function(btn){
     btn.addEventListener('click', function(){
       window.location.href = bottomNavMap[btn.getAttribute('data-nav')] || '#';
+    });
+    document.getElementById('mobile-notifications-btn').addEventListener('click', function(){
+      window.location.href = 'notifications.html';
     });
   });
 
