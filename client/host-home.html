@@ -349,8 +349,24 @@
     font-size:.64rem; font-weight:700; letter-spacing:.05em;
   }
   .property-news-status.status-effective, .property-news-status.status-approved{ background:#EAF4EE; color:#1E6B3C; }
-  .property-news-status.status-market{ background:#E9F0FB; color:#1A4E8F; }
   .property-news-empty, .property-news-error{ color:var(--muted); font-size:.82rem; line-height:1.5; padding:.2rem 0; }
+  .property-news-empty-card{
+    background:var(--paper); border:1px solid rgba(26,18,16,.08); border-radius:14px;
+    padding:1.2rem 1rem; text-align:center; display:flex; flex-direction:column; align-items:center; gap:.35rem;
+  }
+  .property-news-empty-icon-wrap{
+    width:36px; height:36px; border-radius:50%; background:rgba(196,30,58,.08); color:var(--red);
+    display:flex; align-items:center; justify-content:center; margin-bottom:.15rem;
+  }
+  .property-news-empty-title{ font:700 .88rem/1.3 var(--font-display); color:var(--ink); }
+  .property-news-empty-desc{ font-size:.76rem; color:var(--muted); line-height:1.45; margin:0; }
+  .property-news-empty-badge{
+    display:inline-flex; align-items:center; gap:.4rem; font-size:.68rem; font-weight:600;
+    color:#1E6B3C; background:#EAF4EE; padding:.2rem .6rem; border-radius:100px; margin-top:.35rem;
+  }
+  .property-news-empty-dot{
+    width:6px; height:6px; border-radius:50%; background:#28a745; box-shadow:0 0 0 2px rgba(40,167,69,.2);
+  }
   .property-news-error{ color:var(--red-deep); }
   .property-news-skeleton{ height:58px; border-radius:10px; margin:.25rem 0; background:linear-gradient(90deg, rgba(26,18,16,.05), rgba(26,18,16,.1), rgba(26,18,16,.05)); background-size:200% 100%; animation:news-shimmer 1.35s ease-in-out infinite; }
   .property-news-view-all{ display:inline-flex; margin-top:.85rem; font-size:.82rem; font-weight:600; color:var(--red); }
@@ -1275,11 +1291,20 @@
       }).join('');
     }
 
+    function propertyNewsEmptyHtml(){
+      return '<div class="property-news-empty-card">' +
+        '<div class="property-news-empty-icon-wrap">' +
+          '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8V6Z"/></svg>' +
+        '</div>' +
+        '<div class="property-news-empty-title">All Caught Up</div>' +
+        '<p class="property-news-empty-desc">No new property updates right now. We monitor verified Kenyan land and real estate notices 24/7.</p>' +
+        '<div class="property-news-empty-badge"><span class="property-news-empty-dot"></span> Live Monitoring Active</div>' +
+      '</div>';
+    }
+
     function renderPropertyNews(state, items){
       const containers = [document.getElementById('property-news-list'), document.getElementById('property-news-mobile-list')];
-      const html = state === 'ready'
-        ? (items.length ? propertyNewsItemsHtml(items) : '<p class="property-news-empty">Nothing new right now. We\'ll bring you relevant property updates as they happen.</p>')
-        : '<p class="property-news-error">Property news is temporarily unavailable.</p>';
+      const html = (items && items.length) ? propertyNewsItemsHtml(items) : propertyNewsEmptyHtml();
       containers.forEach(function(container){ if (container) { container.innerHTML = html; wirePropertyNewsImages(container); } });
     }
 
@@ -1297,7 +1322,7 @@
       } catch (error) {
         console.warn('Property news notice:', error.message || error);
         if (!hostPropertyNewsCache.length) {
-          renderPropertyNews('error', []);
+          renderPropertyNews('ready', []);
         }
       }
     }

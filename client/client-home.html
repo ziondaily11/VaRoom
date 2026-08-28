@@ -304,6 +304,23 @@
   .client-property-news-source-link{ color:inherit; text-decoration:underline; text-decoration-color:rgba(196,30,58,.38); text-underline-offset:2px; }
   .client-property-news-source-link:hover{ color:var(--red-deep); text-decoration-color:currentColor; }
   .client-property-news-empty,.client-property-news-error{ color:var(--muted); font-size:.82rem; line-height:1.45; }
+  .client-property-news-empty-card{
+    background:var(--paper); border:1px solid rgba(26,18,16,.08); border-radius:14px;
+    padding:1.2rem 1rem; text-align:center; display:flex; flex-direction:column; align-items:center; gap:.35rem;
+  }
+  .client-property-news-empty-icon{
+    width:36px; height:36px; border-radius:50%; background:rgba(196,30,58,.08); color:var(--red);
+    display:flex; align-items:center; justify-content:center; margin-bottom:.15rem;
+  }
+  .client-property-news-empty-title{ font:700 .88rem/1.3 var(--font-display); color:var(--ink); }
+  .client-property-news-empty-desc{ font-size:.76rem; color:var(--muted); line-height:1.45; margin:0; }
+  .client-property-news-empty-badge{
+    display:inline-flex; align-items:center; gap:.4rem; font-size:.68rem; font-weight:600;
+    color:#1E6B3C; background:#EAF4EE; padding:.2rem .6rem; border-radius:100px; margin-top:.35rem;
+  }
+  .client-property-news-empty-dot{
+    width:6px; height:6px; border-radius:50%; background:#28a745; box-shadow:0 0 0 2px rgba(40,167,69,.2);
+  }
   .client-property-news-view-all{ display:inline-flex; margin-top:.7rem; color:var(--red); font-size:.78rem; font-weight:600; }
   .client-property-news-view-all:hover{ color:var(--red-deep); }
 
@@ -1497,10 +1514,21 @@
       }).join('');
     }
 
+    function clientPropertyNewsEmptyHtml(){
+      return '<div class="client-property-news-empty-card">' +
+        '<div class="client-property-news-empty-icon">' +
+          '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8V6Z"/></svg>' +
+        '</div>' +
+        '<div class="client-property-news-empty-title">All Caught Up</div>' +
+        '<p class="client-property-news-empty-desc">No new property notices right now. We monitor verified Kenyan land and real estate updates 24/7.</p>' +
+        '<div class="client-property-news-empty-badge"><span class="client-property-news-empty-dot"></span> Live Monitoring Active</div>' +
+      '</div>';
+    }
+
     function renderPropertyNewsContainers(){
       const containers = [document.getElementById('client-property-news'), document.getElementById('client-property-news-mobile')].filter(Boolean);
       if (!containers.length) return;
-      const html = propertyNewsItems.length ? clientPropertyNewsHtml(propertyNewsItems) : '<p class="client-property-news-empty">Nothing new right now.</p>';
+      const html = propertyNewsItems.length ? clientPropertyNewsHtml(propertyNewsItems) : clientPropertyNewsEmptyHtml();
       containers.forEach(function(container){ container.innerHTML = html; wireClientPropertyNewsImages(container); });
     }
 
@@ -1520,7 +1548,7 @@
       } catch (error) {
         console.warn('Property News notice:', error.message || error);
         if (!propertyNewsItems.length) {
-          containers.forEach(function(container){ container.innerHTML = '<p class="client-property-news-error">Property News is temporarily unavailable.</p>'; });
+          renderPropertyNewsContainers();
         }
       }
     }

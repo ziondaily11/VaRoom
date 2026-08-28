@@ -186,6 +186,66 @@
   text-align: center;
 }
 
+.property-news-empty-card {
+  background: var(--paper, #FAF6F4);
+  border: 1px solid rgba(26, 18, 16, 0.08);
+  border-radius: 14px;
+  padding: 1.2rem 1rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.property-news-empty-icon-wrap {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: rgba(196, 30, 58, 0.08);
+  color: var(--red, #C41E3A);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.15rem;
+}
+
+.property-news-empty-title {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--ink, #1A1210);
+  line-height: 1.3;
+}
+
+.property-news-empty-desc {
+  font-size: 0.76rem;
+  color: var(--muted, #7a6b67);
+  line-height: 1.45;
+  margin: 0;
+  max-width: 280px;
+}
+
+.property-news-empty-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #1E6B3C;
+  background: #EAF4EE;
+  padding: 0.2rem 0.6rem;
+  border-radius: 100px;
+  margin-top: 0.35rem;
+}
+
+.property-news-empty-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #28a745;
+  box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.2);
+}
+
 .property-news-error {
   color: var(--red-deep, #8F1229);
 }
@@ -228,6 +288,29 @@
 [data-theme="dark"] .property-news-loading,
 [data-theme="dark"] .property-news-empty {
   color: var(--muted, #B8ACA8);
+}
+
+[data-theme="dark"] .property-news-empty-card {
+  background: var(--paper, #15100F);
+  border-color: rgba(245, 239, 236, 0.08);
+}
+
+[data-theme="dark"] .property-news-empty-title {
+  color: var(--ink, #F5EFEC);
+}
+
+[data-theme="dark"] .property-news-empty-desc {
+  color: var(--muted, #B8ACA8);
+}
+
+[data-theme="dark"] .property-news-empty-badge {
+  background: rgba(30, 107, 60, 0.2);
+  color: #72D596;
+}
+
+[data-theme="dark"] .property-news-empty-dot {
+  background: #72D596;
+  box-shadow: 0 0 0 2px rgba(114, 213, 150, 0.25);
 }
 
 [data-theme="dark"] .property-news-error {

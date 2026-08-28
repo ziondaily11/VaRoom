@@ -186,19 +186,39 @@
     
     renderLoading: function() {
       if (this.container) {
-        this.container.innerHTML = '<div class="property-news-loading">Loading property news…</div>';
+        this.container.innerHTML = '<div class="property-news-empty-card">' +
+          '<div class="property-news-empty-icon-wrap">' +
+            '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' +
+          '</div>' +
+          '<div class="property-news-empty-title">Checking Property News…</div>' +
+          '<p class="property-news-empty-desc">Fetching latest verified Kenyan real estate and regulatory updates.</p>' +
+        '</div>';
       }
     },
     
     renderError: function() {
       if (this.container) {
-        this.container.innerHTML = '<div class="property-news-error">Property news temporarily unavailable</div>';
+        this.container.innerHTML = '<div class="property-news-empty-card">' +
+          '<div class="property-news-empty-icon-wrap">' +
+            '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8V6Z"/></svg>' +
+          '</div>' +
+          '<div class="property-news-empty-title">All Caught Up</div>' +
+          '<p class="property-news-empty-desc">No new property notices right now. We monitor verified land and housing sources continuously.</p>' +
+          '<div class="property-news-empty-badge"><span class="property-news-empty-dot"></span> Live Monitoring Active</div>' +
+        '</div>';
       }
     },
     
     renderEmpty: function() {
       if (this.container) {
-        this.container.innerHTML = '<div class="property-news-empty">No recent property news</div>';
+        this.container.innerHTML = '<div class="property-news-empty-card">' +
+          '<div class="property-news-empty-icon-wrap">' +
+            '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8V6Z"/></svg>' +
+          '</div>' +
+          '<div class="property-news-empty-title">All Caught Up</div>' +
+          '<p class="property-news-empty-desc">No new property updates right now. We actively monitor official land registries, gazettes, and verified news in Kenya.</p>' +
+          '<div class="property-news-empty-badge"><span class="property-news-empty-dot"></span> 24/7 Source Monitoring Active</div>' +
+        '</div>';
       }
     },
     

@@ -168,6 +168,12 @@ class SupabaseNewsRepository:
                 raise PropertyNewsRepositoryUnavailable(
                     "Property News tables are unavailable. Apply the additive migration and refresh PostgREST schema visibility."
                 )
+        # If a query fails with 400 on an explicit select (e.g. image_url column not yet applied on Supabase), fallback to select=*
+        if response.status_code == 400 and params and "select" in params and params["select"] != "*":
+            fallback_params = dict(params)
+            fallback_params["select"] = "*"
+            response = await self.client.request(method, f"{self.url}/rest/v1/{table}", params=fallback_params, json=payload, headers=headers)
+
         response.raise_for_status()
         if not response.content:
             return None
@@ -206,7 +212,14 @@ class SupabaseNewsRepository:
 
     async def save_item(self, item: NewsItem) -> NewsItem:
         data = item.model_dump(mode="json")
-        rows = await self._request("POST", "news_items", payload=data, prefer="resolution=merge-duplicates,return=representation")
+        try:
+            rows = await self._request("POST", "news_items", payload=data, prefer="resolution=merge-duplicates,return=representation")
+        except httpx.HTTPStatusError as error:
+            if error.response.status_code == 400 and "image_url" in data:
+                data_no_img = {k: v for k, v in data.items() if k != "image_url"}
+                rows = await self._request("POST", "news_items", payload=data_no_img, prefer="resolution=merge-duplicates,return=representation")
+            else:
+                raise
         return self._item(rows[0])
 
     async def get_item(self, item_id: UUID) -> NewsItem | None:
@@ -222,17 +235,28 @@ class SupabaseNewsRepository:
         return self._item(rows[0]) if rows else None
 
     async def find_similar_title(self, title: str, threshold: float = 0.92) -> NewsItem | None:
-        # Fetch only id and source_title to avoid heavy bandwidth/HTML parsing
-        candidates = await self._request("GET", "news_items", params={"select": "id,source_title", "limit": "100", "order": "created_at.desc"})
+        # Fetch id and source_title with fallback if needed
+        try:
+            candidates = await self._request("GET", "news_items", params={"select": "id,source_title", "limit": "100", "order": "created_at.desc"})
+        except Exception:
+            candidates = await self._request("GET", "news_items", params={"select": "*", "limit": "100", "order": "created_at.desc"})
         for row in candidates:
-            if SequenceMatcher(None, title.lower(), row["source_title"].lower()).ratio() >= threshold:
+            if SequenceMatcher(None, title.lower(), str(row.get("source_title", "")).lower()).ratio() >= threshold:
                 return await self.get_item(UUID(row["id"]))
         return None
 
     async def save_analysis(self, news_id: UUID, analysis: NewsAnalysis) -> None:
         payload = analysis.model_dump(mode="json") | {"news_id": str(news_id)}
-        await self._request("POST", "news_analysis", params={"on_conflict": "news_id"}, payload=payload,
-                            prefer="resolution=merge-duplicates,return=minimal")
+        try:
+            await self._request("POST", "news_analysis", params={"on_conflict": "news_id"}, payload=payload,
+                                prefer="resolution=merge-duplicates,return=minimal")
+        except httpx.HTTPStatusError as error:
+            if error.response.status_code == 400 and "image_url" in payload:
+                payload_no_img = {k: v for k, v in payload.items() if k != "image_url"}
+                await self._request("POST", "news_analysis", params={"on_conflict": "news_id"}, payload=payload_no_img,
+                                    prefer="resolution=merge-duplicates,return=minimal")
+            else:
+                raise
 
     async def add_event(self, event: NewsEvent) -> NewsEvent:
         rows = await self._request("POST", "news_events", payload=event.model_dump(mode="json"), prefer="return=representation")

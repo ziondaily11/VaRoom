@@ -8,8 +8,11 @@ alter table if exists public.news_items
 alter table if exists public.news_analysis
   add column if not exists image_url text;
 
+-- Drop existing view first so column structure can be updated without 42P16 error
+drop view if exists public.property_news_public_items cascade;
+
 -- Update the public projection view to include image_url
-create or replace view public.property_news_public_items
+create view public.property_news_public_items
 with (security_barrier = true)
 as
 select
