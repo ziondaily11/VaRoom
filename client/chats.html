@@ -29,7 +29,7 @@
   }
   [data-theme="dark"]{
     --white:#241C1A; --on-accent:#FFFFFF; --paper:#15100F; --surface-muted:#1B1412;
-    --ink:#F5EFEC; --muted:#B8ACA8;
+    --ink:#F5EFEC; --muted:#B8ACA8; --red-deep:#F0A5B2;
     --line:rgba(255,255,255,.15); --line-soft:rgba(255,255,255,.08);
   }
   *{ margin:0; padding:0; box-sizing:border-box; }
@@ -200,6 +200,18 @@
     let activeConversationId = null;
     let realtimeChannel = null;
 
+    function resolveTheme(choice){
+      return choice === 'system'
+        ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+        : choice;
+    }
+
+    function applyTheme(choice){
+      const resolved = resolveTheme(choice);
+      document.documentElement.setAttribute('data-theme', resolved);
+      localStorage.setItem('varoom_theme', choice);
+    }
+
     const CHATBOT_REPLY_URL = 'https://varoom.onrender.com/reply';
     // Same cold-start mitigation as elie.html — wake the service up as
     // soon as the chat page opens, not only when an auto-reply is needed.
@@ -210,9 +222,10 @@
     currentUser = session.user;
 
     const { data: profile } = await supabaseClient
-      .from('profiles').select('role').eq('id', currentUser.id).maybeSingle();
+      .from('profiles').select('role, theme_preference').eq('id', currentUser.id).maybeSingle();
     if (!profile) { window.location.href = 'login.html'; return; }
     currentRole = profile.role;
+    applyTheme(profile.theme_preference || localStorage.getItem('varoom_theme') || 'system');
     document.getElementById('back-link').setAttribute('href', currentRole === 'host' ? 'host-home.html' : 'client-home.html');
 
     function escapeHtml(str){
