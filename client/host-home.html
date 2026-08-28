@@ -308,9 +308,7 @@
      was merged into it. Real data only: pending bookings, unread messages,
      missing photos. Row markup/styles (.attention-row etc.) are reused
      here unchanged; only the card wrapper and header are notif-specific.
-     #notif-panel-card is the desktop (right-rail) copy; #notif-panel-card-mobile
-     is the mobile copy shown inline in the feed, since mobile no longer
-     has a bottom-bar bell as a separate entry point. */
+     #notif-panel-card is the desktop right-rail notifications surface. */
   .notif-panel-card{
     background:var(--glass-bg); backdrop-filter:blur(22px) saturate(140%); -webkit-backdrop-filter:blur(22px) saturate(140%);
     border:1px solid var(--glass-border); border-radius:16px; box-shadow:var(--glass-shadow);
@@ -327,7 +325,6 @@
     padding:.2rem .55rem; border-radius:100px; flex-shrink:0;
   }
   .notif-panel-badge[hidden]{ display:none; }
-  #notif-panel-card-mobile{ display:none; margin-bottom:1.4rem; }
   .property-news-list{ display:flex; flex-direction:column; gap:.1rem; }
   .property-news-item{
     display:block; padding:.8rem 0; border-bottom:1px solid rgba(26,18,16,.08);
@@ -505,12 +502,7 @@
     /* Your listings at a glance grid stays desktop-only — real photos/category tiles, too heavy for mobile. */
     .listings-glance-card{ display:none !important; }
 
-    /* Desktop Notifications card is replaced on mobile by #notif-panel-card-mobile,
-       positioned at the top of the feed instead of in the (now hidden) rail.
-       It always shows once populated — including the "all caught up" state —
-       since mobile no longer has a separate bell as a fallback entry point. */
     #notif-panel-card{ display:none !important; }
-    #notif-panel-card-mobile{ display:block; margin-bottom:1.4rem; }
 
     .mobile-widget-slot{ display:block; margin-bottom:1.4rem; }
     .host-rail .property-news-card{ display:none; }
@@ -540,6 +532,13 @@
       padding:.3rem .6rem; background:none; border:none; font-family:inherit; cursor:pointer;
     }
     .bottom-bar-item.active{ color:var(--red-deep); }
+    .bottom-notification-icon{ position:relative; display:flex; }
+    .bottom-notification-count{
+      position:absolute; top:-7px; right:-11px; min-width:15px; height:15px;
+      padding:0 4px; border-radius:999px; background:var(--red); color:var(--white);
+      font-size:.58rem; line-height:15px; font-weight:700;
+    }
+    .bottom-notification-count[hidden]{ display:none; }
     .bottom-bar-item .avatar-mini{
       width:20px; height:20px; border-radius:50%; overflow:hidden;
       background:var(--red); color:var(--white); display:flex; align-items:center; justify-content:center;
@@ -737,16 +736,6 @@
     </div>
 
     <div class="feed-area">
-      <div class="notif-panel-card" id="notif-panel-card-mobile">
-        <div class="notif-panel-head">
-          <span class="notif-panel-bell">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-          </span>
-          <h2>Notifications</h2>
-          <span class="notif-panel-badge" id="notif-panel-badge-mobile">0 new</span>
-        </div>
-        <div class="attention-list" id="notif-panel-list-mobile"></div>
-      </div>
       <div class="property-news-mobile-slot">
         <section class="property-news-card" aria-labelledby="property-news-mobile-title">
           <div class="stats-head"><h2 id="property-news-mobile-title">Your Property News on VaRoom</h2></div>
@@ -828,6 +817,13 @@
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="2"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>
         Bookings
       </a>
+      <button type="button" class="bottom-bar-item" id="mobile-notifications-btn">
+        <span class="bottom-notification-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 0-3.46 0"/></svg>
+          <span class="bottom-notification-count" id="mobile-notification-count" hidden></span>
+        </span>
+        Notifications
+      </button>
     </nav>
   </div>
 </div>
@@ -1155,31 +1151,27 @@
       const notifCard = document.getElementById('notif-panel-card');
       const notifBadge = document.getElementById('notif-panel-badge');
       const notifList = document.getElementById('notif-panel-list');
-      const notifCardMobile = document.getElementById('notif-panel-card-mobile');
-      const notifBadgeMobile = document.getElementById('notif-panel-badge-mobile');
-      const notifListMobile = document.getElementById('notif-panel-list-mobile');
+      const mobileNotificationCount = document.getElementById('mobile-notification-count');
 
       if (items.length === 0) {
-        notifBadge.setAttribute('hidden', ''); notifBadgeMobile.setAttribute('hidden', '');
+        mobileNotificationCount.setAttribute('hidden', '');
+        notifBadge.setAttribute('hidden', '');
         notifList.innerHTML = allCaughtUpHtml;
-        notifListMobile.innerHTML = allCaughtUpHtml;
         notifCard.style.display = 'block';
         return;
       }
 
       items.sort(function(a, b){ return new Date(b.time) - new Date(a.time); });
 
-      notifBadge.removeAttribute('hidden'); notifBadgeMobile.removeAttribute('hidden');
+      mobileNotificationCount.textContent = items.length > 99 ? '99+' : items.length;
+      mobileNotificationCount.removeAttribute('hidden');
+      notifBadge.removeAttribute('hidden');
       notifBadge.textContent = items.length + ' new';
-      notifBadgeMobile.textContent = items.length + ' new';
 
       const rowsHtml = renderNotifRows(items);
       notifList.innerHTML = rowsHtml;
       wireMyListingsLinks(notifList);
       notifCard.style.display = 'block';
-
-      notifListMobile.innerHTML = rowsHtml;
-      wireMyListingsLinks(notifListMobile);
     })();
 
     // ---------- Bookmarks ----------
@@ -1620,15 +1612,10 @@
         showToast(el.getAttribute('data-soon') + ' is coming soon.');
       });
     });
-    // Sidebar "Notifications" nav item now scrolls to the real Notifications
-    // card instead of opening the old separate bell widget (removed — this
-    // card is self-contained on real Supabase data).
+    // Open the dedicated notifications view from the sidebar.
     document.getElementById('notif-nav-item').addEventListener('click', function(e){
-      e.stopPropagation();
-      const target = document.getElementById('notif-panel-card-mobile').offsetParent
-        ? document.getElementById('notif-panel-card-mobile')
-        : document.getElementById('notif-panel-card');
-      target.scrollIntoView({ behavior:'smooth', block:'start' });
+      e.preventDefault();
+      window.location.href = 'notifications.html';
     });
 
     // ---------- Mobile sidebar drawer (doubles as the "You" menu on mobile) ----------
@@ -1718,6 +1705,9 @@
         const dashMain = document.querySelector('.dash-main');
         if (dashMain) dashMain.scrollTo({ top:0, behavior:'smooth' });
       });
+    });
+    document.getElementById('mobile-notifications-btn').addEventListener('click', function(){
+      window.location.href = 'notifications.html';
     });
 
     document.getElementById('view-all-listings').addEventListener('click', function(e){
