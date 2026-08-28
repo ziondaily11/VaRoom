@@ -730,20 +730,54 @@
   let profileData = null;
   let isOwner = false;
 
+  const SELECT = 'id, role, full_name, username, phone, bio, avatar_url, location, created_at';
+  // UUID pattern — ?u= can be a username OR a UUID (fallback when no username set)
+  const isUUID = viewUsername && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(viewUsername);
+
   if (viewUsername) {
-    // Viewing someone else's profile by username
-    const { data } = await supabaseClient
-      .from('profiles')
-      .select('id, role, full_name, username, phone, bio, avatar_url, location, created_at')
-      .eq('username', viewUsername)
-      .maybeSingle();
-    profileData = data;
+    if (isUUID) {
+      // Passed as UUID — look up by id
+      const { data } = await supabaseClient
+        .from('profiles')
+        .select(SELECT)
+        .eq('id', viewUsername)
+        .maybeSingle();
+      profileData = data;
+    } else {
+      // Passed as username string
+      const { data } = await supabaseClient
+        .from('profiles')
+        .select(SELECT)
+        .eq('username', viewUsername)
+        .maybeSingle();
+      profileData = data;
+      // If username lookup fails, try by id as last resort
+      if (!profileData) {
+        const { data: byId } = await supabaseClient
+          .from('profiles')
+          .select(SELECT)
+          .eq('id', viewUsername)
+          .maybeSingle();
+        profileData = byId;
+      }
+    }
     isOwner = profileData && profileData.id === currentUser.id;
   } else {
-    // Own profile
+    // No ?u= param — show own profile
     const { data } = await supabaseClient
       .from('profiles')
-      .select('id, role, full_name, username, phone, bio, avatar_url, location, created_at')
+      .select(SELECT)
+      .eq('id', currentUser.id)
+      .maybeSingle();
+    profileData = data;
+    isOwner = true;
+  }
+
+  // Last resort — if still nothing, load current user's own profile
+  if (!profileData) {
+    const { data } = await supabaseClient
+      .from('profiles')
+      .select(SELECT)
       .eq('id', currentUser.id)
       .maybeSingle();
     profileData = data;
