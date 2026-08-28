@@ -158,7 +158,9 @@
     document.getElementById('profile-username').textContent = '@' + profile.username;
 
     const bioEl = document.getElementById('profile-bio');
-    if (profile.bio) {
+    if (profile.role !== 'host') {
+      bioEl.remove();
+    } else if (profile.bio) {
       bioEl.textContent = profile.bio;
     } else {
       bioEl.remove();
