@@ -113,20 +113,6 @@
     padding:1.2rem 2rem;
     background:transparent;
   }
-  .topbar-avatar-btn{ flex-shrink:0; display:flex; }
-  .topbar-avatar-btn:hover .avatar-circle{ outline:2px solid rgba(196,30,58,.25); outline-offset:2px; }
-
-  .avatar-circle{
-    width:38px; height:38px; border-radius:50%;
-    background:var(--red); color:var(--white);
-    display:flex; align-items:center; justify-content:center;
-    font-weight:700; font-size:.9rem; overflow:hidden;
-  }
-  .avatar-circle img{ width:100%; height:100%; object-fit:cover; }
-
-  .topbar-back{ margin-left:auto; font-size:.88rem; font-weight:500; color:var(--muted); display:flex; align-items:center; gap:.4rem; }
-  .topbar-back:hover{ color:var(--ink); }
-
   .preview-badge{
     display:inline-flex; align-items:center; gap:.4rem;
     font-size:.78rem; font-weight:600; background:rgba(196,30,58,.1); color:var(--red-deep);
@@ -493,6 +479,10 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m15 9-2 6-6 2 2-6 6-2Z"/></svg>
         Explore
       </a>
+      <a href="host-home.html" class="nav-item">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1Z"/><path d="M9 21v-6h6v6"/></svg>
+        Home
+      </a>
       <a href="saved.html" class="nav-item" data-nav="saved">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h12a1 1 0 0 1 1 1V21l-7-4-7 4V4.5a1 1 0 0 1 1-1Z"/></svg>
         Saved
@@ -547,13 +537,6 @@
 
     <!-- Topbar -->
     <header class="topbar">
-      <button type="button" class="topbar-avatar-btn" id="topbar-avatar-btn" aria-label="Open menu">
-        <div class="avatar-circle" id="topbar-avatar">·</div>
-      </button>
-
-      <div id="topbar-right" style="margin-left:auto;display:flex;align-items:center;gap:.9rem;">
-        <a href="host-home.html" class="topbar-back">← Back to dashboard</a>
-      </div>
     </header>
 
     <!-- Profile content -->
@@ -759,17 +742,8 @@
     return;
   }
 
-  /* ── Topbar avatar ── */
-  const topbarAv = document.getElementById('topbar-avatar');
   const { data: myProfile } = await supabaseClient.from('profiles').select('avatar_url, full_name').eq('id', currentUser.id).maybeSingle();
   if (myProfile) {
-    if (myProfile.avatar_url) {
-      const url = myProfile.avatar_url.startsWith('http') ? myProfile.avatar_url
-        : supabaseClient.storage.from('avatars').getPublicUrl(myProfile.avatar_url).data.publicUrl;
-      topbarAv.innerHTML = '<img src="' + url + '" alt="">';
-    } else {
-      topbarAv.textContent = (myProfile.full_name || '?').charAt(0).toUpperCase();
-    }
     // Bottom bar avatar
     const bbAv = document.getElementById('bottom-bar-avatar');
     bbAv.textContent = (myProfile.full_name || '?').charAt(0).toUpperCase();
@@ -1026,10 +1000,6 @@
   /* ── Mobile hamburger ── */
   const sidebar   = document.getElementById('sidebar');
   const backdrop  = document.getElementById('sidebar-backdrop');
-  document.getElementById('topbar-avatar-btn').addEventListener('click', function(){
-    sidebar.classList.toggle('mobile-open');
-    backdrop.classList.toggle('show');
-  });
   backdrop.addEventListener('click', function(){
     sidebar.classList.remove('mobile-open');
     backdrop.classList.remove('show');
