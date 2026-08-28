@@ -733,58 +733,58 @@
   const SELECT = 'id, role, full_name, username, phone, bio, avatar_url, location, created_at';
   // UUID pattern — ?u= can be a username OR a UUID (fallback when no username set)
   const isUUID = viewUsername && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(viewUsername);
+  async function loadProfile(column, value){
+    let result = await supabaseClient
+      .from('profiles')
+      .select(SELECT)
+      .eq(column, value)
+      .maybeSingle();
+    if (result.error) {
+      // Keep rendering the profile if an optional profile column is not
+      // available in an older database schema.
+      result = await supabaseClient
+        .from('profiles')
+        .select('id, role, full_name, username, bio, avatar_url, location, created_at')
+        .eq(column, value)
+        .maybeSingle();
+      if (result.error) {
+        console.error('Unable to load profile:', result.error);
+        return null;
+      }
+    }
+    return result.data;
+  }
 
   if (viewUsername) {
     if (isUUID) {
       // Passed as UUID — look up by id
-      const { data } = await supabaseClient
-        .from('profiles')
-        .select(SELECT)
-        .eq('id', viewUsername)
-        .maybeSingle();
-      profileData = data;
+      profileData = await loadProfile('id', viewUsername);
     } else {
       // Passed as username string
-      const { data } = await supabaseClient
-        .from('profiles')
-        .select(SELECT)
-        .eq('username', viewUsername)
-        .maybeSingle();
-      profileData = data;
+      profileData = await loadProfile('username', viewUsername);
       // If username lookup fails, try by id as last resort
       if (!profileData) {
-        const { data: byId } = await supabaseClient
-          .from('profiles')
-          .select(SELECT)
-          .eq('id', viewUsername)
-          .maybeSingle();
-        profileData = byId;
+        profileData = await loadProfile('id', viewUsername);
       }
     }
     isOwner = profileData && profileData.id === currentUser.id;
   } else {
     // No ?u= param — show own profile
-    const { data } = await supabaseClient
-      .from('profiles')
-      .select(SELECT)
-      .eq('id', currentUser.id)
-      .maybeSingle();
-    profileData = data;
+    profileData = await loadProfile('id', currentUser.id);
     isOwner = true;
   }
 
   // Last resort — if still nothing, load current user's own profile
   if (!profileData) {
-    const { data } = await supabaseClient
-      .from('profiles')
-      .select(SELECT)
-      .eq('id', currentUser.id)
-      .maybeSingle();
-    profileData = data;
+    profileData = await loadProfile('id', currentUser.id);
     isOwner = true;
   }
 
-  if (!profileData) { window.location.href = 'host-home.html'; return; }
+  if (!profileData) {
+    document.getElementById('loading-state').textContent =
+      'Unable to load your profile. Check your connection and try again.';
+    return;
+  }
 
   /* ── Topbar avatar ── */
   const topbarAv = document.getElementById('topbar-avatar');
@@ -1038,8 +1038,8 @@
   /* ── Share panel ── */
   const sharePanel  = document.getElementById('share-panel');
   const profileUrl  = profileData.username
-    ? window.location.origin + '/profile.html?u=' + profileData.username
-    : window.location.origin + '/profile.html?u=' + profileData.id;
+    ? window.location.origin + '/u/' + encodeURIComponent(profileData.username)
+    : window.location.origin + '/profile.html';
 
   function toggleShare(){ sharePanel.classList.toggle('show'); }
 
