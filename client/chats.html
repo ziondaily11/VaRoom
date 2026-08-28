@@ -153,6 +153,7 @@
   .elie-example{ display:inline-block; margin-top:.8rem; padding:.45rem .7rem; border:1px solid var(--chat-border); border-radius:999px; color:var(--chat-primary); font-size:.72rem; }
   .elie-details-copy{ color:var(--chat-text-muted); font-size:.75rem; line-height:1.55; }
   .elie-details-copy strong{ display:block; color:var(--chat-text); margin-bottom:.35rem; }
+  .elie-typing{ align-self:flex-start; display:flex; align-items:center; gap:.5rem; color:var(--chat-text-muted); font-size:.72rem; }
   .conv-avatar:after{ content:''; position:absolute; width:9px; height:9px; background:var(--success); border:2px solid var(--panel); right:0; bottom:0; border-radius:50%; }
   .conv-info{ flex:1; min-width:0; }
   .conv-name{ font-weight:700; font-size:.84rem; line-height:1.2; }
@@ -436,6 +437,7 @@
     let realtimeChannel = null;
     let chatTheme = 'varoom-red';
     let chatBackground = 'clean';
+    let latestElieSession = null;
 
     function resolveTheme(choice){
       return choice === 'system'
@@ -569,8 +571,19 @@
 
       conversations = data || [];
 
+      const elieItem =
+        '<button type="button" class="conv-item elie-conversation" data-elie="true">' +
+          '<div class="conv-avatar elie-avatar"><img src="elie-logo.png" alt=""></div>' +
+          '<div class="conv-info">' +
+            '<div class="conv-name">Elie</div>' +
+            '<div class="conv-listing">VaRoom search assistant</div>' +
+            '<div class="conv-preview">' + escapeHtml(latestElieSession && latestElieSession.title || 'Find a space with Elie') + '</div>' +
+          '</div>' +
+        '</button>';
+
       if (conversations.length === 0) {
-        convListEl.innerHTML = '<p class="empty-list">No chats yet. Tap "Chat" on a listing to start one.</p>';
+        convListEl.innerHTML = elieItem + '<p class="empty-list">No host chats yet. Start with Elie or tap "Chat" on a listing.</p>';
+        bindConversationItems();
         return;
       }
 
@@ -586,16 +599,6 @@
       (recentMessages || []).forEach(function(m){
         if (!previewByConv[m.conversation_id]) previewByConv[m.conversation_id] = m.body;
       });
-
-      const elieItem =
-        '<button type="button" class="conv-item elie-conversation" data-elie="true">' +
-          '<div class="conv-avatar elie-avatar"><img src="elie-logo.png" alt=""></div>' +
-          '<div class="conv-info">' +
-            '<div class="conv-name">Elie</div>' +
-            '<div class="conv-listing">VaRoom search assistant</div>' +
-            '<div class="conv-preview">Find a space with Elie</div>' +
-          '</div>' +
-        '</button>';
 
       convListEl.innerHTML = elieItem + conversations.map(function(conv){
         const isHost = conv.host_id === currentUser.id;
@@ -619,6 +622,10 @@
         );
       }).join('');
 
+      bindConversationItems();
+    }
+
+    function bindConversationItems(){
       convListEl.querySelectorAll('.conv-item').forEach(function(btn){
         btn.addEventListener('click', function(){
           if (btn.getAttribute('data-elie') === 'true') {
@@ -638,7 +645,18 @@
       });
     }
 
-    function openElieConversation(){
+    async function loadLatestElieSession(){
+      const { data, error } = await supabaseClient
+        .from('elie_sessions')
+        .select('id,title,updated_at')
+        .eq('user_id', currentUser.id)
+        .order('updated_at', { ascending:false })
+        .limit(1)
+        .maybeSingle();
+      if (!error) latestElieSession = data;
+    }
+
+    async function openElieConversation(){
       activeConversationId = null;
       convListEl.querySelectorAll('.conv-item').forEach(function(btn){
         btn.classList.toggle('active', btn.getAttribute('data-elie') === 'true');
@@ -697,11 +715,54 @@
 
       const input = document.getElementById('message-input');
       const sendBtn = document.getElementById('send-btn');
+      let activeElieSessionId = latestElieSession && latestElieSession.id;
       const history = [];
+      const area = document.getElementById('messages-area');
+
+      if (activeElieSessionId) {
+        const { data: savedMessages } = await supabaseClient
+          .from('elie_messages')
+          .select('role,body')
+          .eq('session_id', activeElieSessionId)
+          .order('created_at', { ascending:true });
+        if (savedMessages && savedMessages.length) {
+          area.querySelector('.elie-intro').remove();
+          savedMessages.forEach(function(message){
+            const bubble = document.createElement('div');
+            bubble.className = 'msg-bubble ' + (message.role === 'user' ? 'mine' : 'theirs');
+            bubble.textContent = message.body;
+            area.appendChild(bubble);
+            history.push({ role: message.role === 'user' ? 'user' : 'elie', text: message.body });
+          });
+          area.scrollTop = area.scrollHeight;
+        }
+      }
+
+      async function persistElieMessage(role, text){
+        if (!text) return;
+        if (!activeElieSessionId) {
+          const { data: session } = await supabaseClient
+            .from('elie_sessions')
+            .insert({ user_id: currentUser.id, title: text.slice(0, 60) })
+            .select('id,title,updated_at')
+            .single();
+          if (session) {
+            activeElieSessionId = session.id;
+            latestElieSession = session;
+          }
+        }
+        if (!activeElieSessionId) return;
+        await supabaseClient.from('elie_messages').insert({
+          session_id: activeElieSessionId, user_id: currentUser.id, role: role, body: text
+        });
+        await supabaseClient.from('elie_sessions')
+          .update({ updated_at: new Date().toISOString() })
+          .eq('id', activeElieSessionId);
+      }
+
       async function sendToElie(){
         const message = input.value.trim();
         if (!message || sendBtn.disabled) return;
-        const area = document.getElementById('messages-area');
         const intro = area.querySelector('.elie-intro');
         if (intro) intro.remove();
         const userBubble = document.createElement('div');
@@ -711,6 +772,12 @@
         input.value = '';
         sendBtn.disabled = true;
         history.push({ role:'user', text:message });
+        persistElieMessage('user', message);
+        const typing = document.createElement('div');
+        typing.className = 'elie-typing';
+        typing.innerHTML = '<div class="msg-bubble theirs"><div class="typing-dots"><span></span><span></span><span></span></div></div><span>Elie is searching…</span>';
+        area.appendChild(typing);
+        area.scrollTop = area.scrollHeight;
         try {
           const { data: { session: freshSession } } = await supabaseClient.auth.getSession();
           if (!freshSession) { window.location.href = 'login.html'; return; }
@@ -720,12 +787,15 @@
             body:JSON.stringify({ message:message, history:history.slice(-6) })
           });
           const data = await response.json();
+          typing.remove();
           const reply = document.createElement('div');
           reply.className = 'msg-bubble theirs';
           reply.innerHTML = '<span class="auto-reply-tag">Elie</span><br>' + escapeHtml(response.ok ? (data.reply || 'I could not find a matching result.') : (data.detail || 'Elie is unavailable right now.'));
           area.appendChild(reply);
           history.push({ role:'elie', text:data.reply || '' });
+          persistElieMessage('elie', data.reply || '');
         } catch (error) {
+          typing.remove();
           const reply = document.createElement('div');
           reply.className = 'msg-bubble theirs';
           reply.textContent = 'Could not reach Elie right now. Please try again.';
@@ -1016,6 +1086,7 @@
     }
 
     // ---------- Init ----------
+    await loadLatestElieSession();
     await loadConversations();
     checkingAuth.style.display = 'none';
     chatShell.style.display = 'grid';
