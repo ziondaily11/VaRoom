@@ -121,6 +121,14 @@ class MemoryNewsRepository:
     async def list_failed_items(self, limit: int = 25) -> list[NewsItem]:
         return [item for item in await self.list_items() if item.review_status is ReviewStatus.FAILED][:limit]
 
+    async def archive_all_published(self) -> int:
+        count = 0
+        for item in self.items.values():
+            if item.review_status == ReviewStatus.PUBLISHED:
+                item.review_status = ReviewStatus.ARCHIVED
+                count += 1
+        return count
+
     async def source_health(self) -> list[dict[str, Any]]:
         result: list[dict[str, Any]] = []
         for source in await self.list_sources():
@@ -304,6 +312,14 @@ class SupabaseNewsRepository:
     async def source_health(self) -> list[dict[str, Any]]:
         rows = await self._request("GET", "news_sources", params={"select": "id,name,active,last_successful_fetch_at,last_failed_fetch_at", "order": "name.asc"})
         return rows
+
+    async def archive_all_published(self) -> int:
+        try:
+            rows = await self._request("PATCH", "news_items", params={"review_status": "eq.published"},
+                                       payload={"review_status": "archived"}, prefer="return=representation")
+            return len(rows) if isinstance(rows, list) else 0
+        except Exception:
+            return 0
 
 
 def build_repository(settings: Settings) -> MemoryNewsRepository | SupabaseNewsRepository:

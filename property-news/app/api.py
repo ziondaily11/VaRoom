@@ -71,7 +71,7 @@ def create_app(config: Settings = settings, repository: Repository | None = None
     async def lifespan(app: FastAPI):
         app.state.services = services
         scheduler_task = None
-        if config.supabase_configured:
+        if config.supabase_configured and config.enable_background_scheduler and config.environment not in {"test", "testing"}:
             async def _background_scheduler():
                 await asyncio.sleep(4)
                 try:
@@ -249,6 +249,18 @@ def create_app(config: Settings = settings, repository: Repository | None = None
             raise HTTPException(status_code=409, detail="A collection run is already in progress.")
         async with collection_lock:
             return await run_reprocess_job(service.repository, config, service.analyzer, limit=limit)
+
+    @app.post("/api/admin/news/archive-all-published", dependencies=[Depends(require_admin)])
+    async def archive_all_published_news(service: ServiceContainer = Depends(container)):
+        count = await service.repository.archive_all_published()
+        return {"archived_count": count}
+
+    @app.post("/api/internal/sources/seed-verified", dependencies=[Depends(require_scheduler)])
+    async def seed_sources(service: ServiceContainer = Depends(container)):
+        if not config.supabase_configured:
+            raise HTTPException(status_code=503, detail="Source registration requires the server-side Supabase configuration.")
+        sources = await seed_verified_sources(service.repository, activate=True)
+        return [{"id": str(s.id), "name": s.name, "active": s.active} for s in sources]
 
     @app.post("/api/internal/sources/seed-official-lands", dependencies=[Depends(require_scheduler)])
     async def seed_official_lands(service: ServiceContainer = Depends(container)):

@@ -50,6 +50,7 @@ class Settings:
     public_rate_limit_per_minute: int = _int("NEWS_PUBLIC_RATE_LIMIT_PER_MINUTE", 60)
     admin_api_key: str | None = os.getenv("NEWS_ADMIN_API_KEY") or None
     scheduler_secret: str | None = os.getenv("NEWS_SCHEDULER_SECRET") or None
+    enable_background_scheduler: bool = os.getenv("NEWS_ENABLE_BACKGROUND_SCHEDULER", "true").lower() in {"1", "true", "yes"}
 
     @property
     def supabase_configured(self) -> bool:

@@ -30,4 +30,4 @@ def assess_risk(text: str, regulatory_status: RegulatoryStatus, source_tier: int
 
 
 def allows_auto_publish(risk_level: RiskLevel, source_tier: int, confidence_score: float) -> bool:
-    return risk_level is RiskLevel.LOW and source_tier <= 2 and confidence_score >= 0.75
+    return risk_level in {RiskLevel.LOW, RiskLevel.MEDIUM} and source_tier <= 2 and confidence_score >= 0.70
