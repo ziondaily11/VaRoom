@@ -227,20 +227,6 @@
   .btn-solid svg{ width:14px; height:14px; }
 
   /* ============================================================
-     PREVIEW BANNER (shown when viewing own profile as visitor)
-  ============================================================ */
-  .preview-banner{
-    display:none;
-    background:#FBE4E7; color:var(--red-deep);
-    border-radius:12px; padding:.75rem 1.1rem;
-    font-size:.85rem; font-weight:600;
-    margin-bottom:1.5rem;
-    align-items:center; gap:.6rem;
-  }
-  .preview-banner.show{ display:flex; }
-  .preview-banner a{ text-decoration:underline; margin-left:auto; font-size:.82rem; }
-
-  /* ============================================================
      LISTINGS GRID
   ============================================================ */
   .listings-section-head{
@@ -566,24 +552,12 @@
       </button>
 
       <div id="topbar-right" style="margin-left:auto;display:flex;align-items:center;gap:.9rem;">
-        <!-- Preview as visitor toggle (owner only) -->
-        <button type="button" id="preview-toggle" style="display:none;"
-          class="btn-outline" style="font-size:.8rem;">
-          Preview as visitor
-        </button>
         <a href="host-home.html" class="topbar-back">← Back to dashboard</a>
       </div>
     </header>
 
     <!-- Profile content -->
     <div class="profile-scroll" id="profile-scroll">
-
-      <!-- Preview mode banner -->
-      <div class="preview-banner" id="preview-banner">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/></svg>
-        You're viewing your public profile as a visitor
-        <a href="#" id="exit-preview">← Exit preview</a>
-      </div>
 
       <!-- Loading -->
       <div id="loading-state" style="text-align:center;padding:4rem 0;color:var(--muted);">Loading profile…</div>
@@ -724,7 +698,6 @@
   /* ── Determine whose profile to show ── */
   const params = new URLSearchParams(window.location.search);
   const viewUsername = params.get('u') || null; // ?u=ziondaily11 for public links
-  const isPreview = params.get('preview') === '1';
 
   /* ── Fetch profile ── */
   let profileData = null;
@@ -831,7 +804,7 @@
       bioEl.textContent = profileData.bio;
       bioEl.classList.remove('empty');
     } else {
-      bioEl.textContent = isOwner && !isPreview ? 'Add a bio to tell people about yourself.' : '';
+      bioEl.textContent = isOwner ? 'Add a bio to tell people about yourself.' : '';
       bioEl.classList.add('empty');
     }
 
@@ -853,21 +826,13 @@
     const firstName = (profileData.full_name || 'host').split(' ')[0];
     document.getElementById('ask-name').textContent = firstName;
 
-    // Actions — owner vs visitor vs preview
-    const showingAsVisitor = !isOwner || isPreview;
+    // Actions — owner vs visitor
+    const showingAsVisitor = !isOwner;
     document.getElementById('owner-actions').style.display = (!showingAsVisitor) ? 'flex' : 'none';
     document.getElementById('visitor-actions').style.display = showingAsVisitor ? 'flex' : 'none';
 
-    // Camera button — owner only and not preview
-    document.getElementById('avatar-upload-label').style.display = (!showingAsVisitor) ? 'flex' : 'none';
-
-    // Preview toggle — owner only
-    document.getElementById('preview-toggle').style.display = isOwner ? 'flex' : 'none';
-
-    // Preview banner
-    if (isPreview) {
-      document.getElementById('preview-banner').classList.add('show');
-    }
+    // Camera button — owner only
+    document.getElementById('avatar-upload-label').style.display = isOwner ? 'flex' : 'none';
 
     // Listings heading
     document.getElementById('listings-heading').textContent =
@@ -878,26 +843,11 @@
   document.getElementById('loading-state').style.display = 'none';
   document.getElementById('profile-content').style.display = 'block';
 
-  /* ── Preview toggle ── */
-  document.getElementById('preview-toggle').addEventListener('click', function(){
-    const url = new URL(window.location.href);
-    url.searchParams.set('preview', '1');
-    window.location.href = url.toString();
-  });
-
-  document.getElementById('exit-preview') && document.getElementById('exit-preview').addEventListener('click', function(e){
-    e.preventDefault();
-    const url = new URL(window.location.href);
-    url.searchParams.delete('preview');
-    window.location.href = url.toString();
-  });
-
   /* ── Fetch and render listings ── */
   const { data: listings } = await supabaseClient
     .from('listings')
     .select('id, title, category, location_text, price_per_night, price_per_month, availability_status, listing_photos(storage_path, photo_path)')
     .eq('host_id', profileData.id)
-    .eq('is_verified', true)
     .order('created_at', { ascending: false });
 
   const grid = document.getElementById('listings-grid');
@@ -911,7 +861,7 @@
   if (!listings || listings.length === 0) {
     grid.innerHTML = '<div class="listings-empty">' +
       '<div class="listings-empty-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 8v8M8 12h8"/></svg></div>' +
-      (isOwner && !isPreview ? 'No verified listings yet. <a href="list.html" style="color:var(--red);font-weight:600;">List your first space →</a>' : 'No listings yet.') +
+      (isOwner ? 'No listings yet. <a href="list.html" style="color:var(--red);font-weight:600;">List your first space →</a>' : 'No listings yet.') +
       '</div>';
     return;
   }
