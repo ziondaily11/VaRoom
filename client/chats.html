@@ -28,32 +28,32 @@
     --accent-deep:#F0A5B2; --accent-soft:rgba(240,165,178,.18);
     --panel:#1B1412; --soft:#241C1A; --success:#F0A5B2;
   }
-  [data-chat-theme="ocean"]{
+  .chat-stage[data-chat-theme="ocean"]{
     --chat-primary:#2563EB; --chat-primary-hover:#1D4ED8; --chat-message-user:#2563EB;
     --chat-message-client:#EFF6FF; --chat-surface:#FFFFFF; --chat-header:#FFFFFF;
     --chat-background:#F8FAFC; --chat-user-text:#FFFFFF; --chat-text:#111827;
     --chat-text-muted:#64748B; --chat-border:rgba(30,64,175,.18); --chat-icon:#475569;
   }
-  [data-chat-theme="emerald"]{
+  .chat-stage[data-chat-theme="emerald"]{
     --chat-primary:#16A34A; --chat-primary-hover:#15803D; --chat-message-user:#16A34A;
     --chat-message-client:#F0FDF4; --chat-surface:#FFFFFF; --chat-header:#FFFFFF;
     --chat-background:#F8FAFC; --chat-user-text:#FFFFFF; --chat-text:#111827;
     --chat-text-muted:#64748B; --chat-border:rgba(22,101,52,.18); --chat-icon:#475569;
   }
-  [data-chat-theme="violet"]{
+  .chat-stage[data-chat-theme="violet"]{
     --chat-primary:#7C3AED; --chat-primary-hover:#6D28D9; --chat-message-user:#7C3AED;
     --chat-message-client:#F5F3FF; --chat-surface:#FFFFFF; --chat-header:#FFFFFF;
     --chat-background:#FAF9FF; --chat-user-text:#FFFFFF; --chat-text:#111827;
     --chat-text-muted:#6B7280; --chat-border:rgba(109,40,217,.18); --chat-icon:#4B5563;
   }
-  [data-chat-theme="dark"]{
+  .chat-stage[data-chat-theme="dark"]{
     --chat-primary:#EF4444; --chat-primary-hover:#DC2626; --chat-message-user:#EF4444;
     --chat-message-client:#27272A; --chat-surface:#18181B; --chat-header:#18181B;
     --chat-background:#09090B; --chat-user-text:#FFFFFF; --chat-text:#FAFAFA;
     --chat-text-muted:#A1A1AA; --chat-border:rgba(255,255,255,.16); --chat-icon:#D4D4D8;
   }
-  [data-chat-background="soft"]{ --chat-background:#F1F5F9; }
-  [data-chat-background="dark"]{ --chat-background:#18181B; }
+  .chat-stage[data-chat-background="soft"]{ --chat-background:#F1F5F9; }
+  .chat-stage[data-chat-background="dark"]{ --chat-background:#18181B; }
   *{ margin:0; padding:0; box-sizing:border-box; }
   body{ font-family:var(--font-body); background:var(--paper); color:var(--ink); height:100vh; overflow:hidden; transition:background .2s ease, color .2s ease; }
   a{ color:inherit; text-decoration:none; }
@@ -408,6 +408,7 @@
     const threadPanel = document.getElementById('thread-panel');
     const detailsPanel = document.getElementById('details-panel');
     const chatSearch = document.getElementById('chat-search');
+    const chatStage = document.querySelector('.chat-stage');
     const personalizeButton = document.getElementById('personalize-btn');
     const personalizeMenu = document.getElementById('personalize-menu');
     const themeOptions = document.querySelectorAll('[data-chat-theme-choice]');
@@ -437,8 +438,8 @@
     function applyChatPersonalisation(theme, background){
       chatTheme = ['varoom-red', 'ocean', 'emerald', 'violet', 'dark'].indexOf(theme) >= 0 ? theme : 'varoom-red';
       chatBackground = ['clean', 'soft', 'dark'].indexOf(background) >= 0 ? background : 'clean';
-      document.documentElement.setAttribute('data-chat-theme', chatTheme);
-      document.documentElement.setAttribute('data-chat-background', chatBackground);
+      chatStage.setAttribute('data-chat-theme', chatTheme);
+      chatStage.setAttribute('data-chat-background', chatBackground);
       themeOptions.forEach(function(option){
         option.setAttribute('aria-checked', option.getAttribute('data-chat-theme-choice') === chatTheme ? 'true' : 'false');
       });
