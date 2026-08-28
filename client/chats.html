@@ -21,13 +21,16 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
-    --red:#1A1210; --red-deep:#000000; --white:#FFFFFF; --ink:#1A1210; --paper:#FBF4F1;
+    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --on-accent:#FFFFFF;
+    --ink:#1A1210; --paper:#FBF4F1; --surface-muted:#F5EFEC;
+    --line:rgba(26,18,16,.15); --line-soft:rgba(26,18,16,.08);
     --muted:#7a6b67;
     --font-display:'Fraunces', serif; --font-body:'Inter', sans-serif;
   }
   [data-theme="dark"]{
-    --white:#241C1A; --paper:#15100F; --ink:#F5EFEC; --muted:#B8ACA8;
-    --red:#FFFFFF; --red-deep:#D8D0CC;
+    --white:#241C1A; --on-accent:#FFFFFF; --paper:#15100F; --surface-muted:#1B1412;
+    --ink:#F5EFEC; --muted:#B8ACA8;
+    --line:rgba(255,255,255,.15); --line-soft:rgba(255,255,255,.08);
   }
   *{ margin:0; padding:0; box-sizing:border-box; }
   body{ font-family:var(--font-body); background:var(--paper); color:var(--ink); min-height:100vh; transition:background .2s ease, color .2s ease; }
@@ -35,27 +38,27 @@
   button{ font-family:inherit; cursor:pointer; border:none; background:none; }
   :focus-visible{ outline:3px solid var(--red-deep); outline-offset:3px; }
 
-  header{ display:flex; align-items:center; justify-content:space-between; padding:1.1rem 1.6rem; border-bottom:1px solid rgba(128,110,100,.15); }
+  header{ display:flex; align-items:center; justify-content:space-between; padding:1.1rem 1.6rem; border-bottom:1px solid var(--line); background:var(--white); }
   .logo{ font-family:var(--font-display); font-weight:900; font-size:1.4rem; display:flex; align-items:baseline; }
   .logo .va{ color:var(--red); }
   .back-link{ font-size:.88rem; font-weight:500; }
   .back-link:hover{ color:var(--red); }
 
-  .chat-shell{ display:grid; grid-template-columns:320px 1fr; height:calc(100vh - 61px); }
+  .chat-shell{ display:grid; grid-template-columns:320px 1fr; height:calc(100vh - 61px); background:var(--paper); }
 
   /* ---------- CONVERSATION LIST ---------- */
-  .conv-list{ border-right:1px solid rgba(128,110,100,.15); overflow-y:auto; }
+  .conv-list{ border-right:1px solid var(--line); overflow-y:auto; background:var(--white); }
   .conv-list-title{ font-family:var(--font-display); font-weight:600; font-size:1.15rem; padding:1.2rem 1.2rem .8rem; }
 
   .conv-item{
     display:flex; align-items:center; gap:.7rem; width:100%; text-align:left;
-    padding:.8rem 1.2rem; border-bottom:1px solid rgba(128,110,100,.08);
+    padding:.8rem 1.2rem; border-bottom:1px solid var(--line-soft);
   }
   .conv-item:hover{ background:var(--white); }
   .conv-item.active{ background:var(--white); border-left:3px solid var(--red); }
 
   .conv-avatar{
-    width:42px; height:42px; border-radius:50%; background:var(--red-deep); color:var(--white);
+    width:42px; height:42px; border-radius:50%; background:var(--red); color:var(--on-accent);
     display:flex; align-items:center; justify-content:center; font-weight:700; font-size:.95rem;
     flex-shrink:0; overflow:hidden;
   }
@@ -70,19 +73,19 @@
   .empty-list{ padding:2rem 1.2rem; color:var(--muted); font-size:.88rem; text-align:center; }
 
   /* ---------- THREAD ---------- */
-  .thread-panel{ display:flex; flex-direction:column; height:100%; }
+  .thread-panel{ display:flex; flex-direction:column; height:100%; background:var(--paper); }
   .thread-empty{ flex:1; display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:.95rem; text-align:center; padding:2rem; }
 
   .thread-header{
     display:flex; align-items:center; gap:.7rem; padding:.9rem 1.4rem;
-    border-bottom:1px solid rgba(128,110,100,.15); background:var(--white);
+    border-bottom:1px solid var(--line); background:var(--white);
   }
   .thread-back{ display:none; }
   .thread-header-name{ font-weight:700; font-size:.95rem; }
 
   .listing-context{
     display:flex; align-items:center; gap:.9rem; margin:.9rem 1.4rem 0;
-    background:var(--white); border:1px solid rgba(128,110,100,.15); border-radius:12px;
+    background:var(--white); border:1px solid var(--line); border-radius:12px;
     padding:.8rem .9rem;
   }
   .listing-context-thumb{
@@ -97,7 +100,7 @@
   .listing-context-price{ font-size:.85rem; font-weight:700; color:var(--ink); margin-top:.2rem; }
   .listing-context-price span{ font-weight:500; color:var(--muted); font-size:.74rem; }
   .listing-context-book{
-    flex-shrink:0; background:var(--red); color:var(--white);
+    flex-shrink:0; background:var(--red); color:var(--on-accent);
     font-size:.78rem; font-weight:600; padding:.5rem 1rem; border-radius:100px;
   }
   .listing-context-book:hover{ background:var(--red-deep); }
@@ -105,8 +108,8 @@
   .messages-area{ flex:1; overflow-y:auto; padding:1.2rem 1.4rem; display:flex; flex-direction:column; gap:.6rem; }
 
   .msg-bubble{ max-width:70%; padding:.6rem .9rem; border-radius:16px; font-size:.9rem; line-height:1.4; }
-  .msg-bubble.mine{ align-self:flex-end; background:var(--red); color:var(--white); border-bottom-right-radius:4px; }
-  .msg-bubble.theirs{ align-self:flex-start; background:var(--white); border:1px solid rgba(128,110,100,.15); border-bottom-left-radius:4px; }
+  .msg-bubble.mine{ align-self:flex-end; background:var(--red); color:var(--on-accent); border-bottom-right-radius:4px; }
+  .msg-bubble.theirs{ align-self:flex-start; background:var(--white); border:1px solid var(--line); border-bottom-left-radius:4px; }
 
   .typing-dots{ display:flex; align-items:center; gap:.28rem; padding:.15rem 0; }
   .typing-dots span{
@@ -122,15 +125,15 @@
   .msg-time{ font-size:.68rem; opacity:.7; margin-top:.25rem; }
 
   .composer{
-    display:flex; gap:.7rem; padding:1rem 1.4rem; border-top:1px solid rgba(128,110,100,.15); background:var(--white);
+    display:flex; gap:.7rem; padding:1rem 1.4rem; border-top:1px solid var(--line); background:var(--white);
   }
   .composer input{
     flex:1; font-family:inherit; font-size:.92rem; padding:.75rem 1rem;
-    border:1px solid rgba(128,110,100,.25); border-radius:100px; background:var(--paper); color:var(--ink);
+    border:1px solid var(--line); border-radius:100px; background:var(--surface-muted); color:var(--ink);
   }
   .composer input:focus{ outline:none; border-color:var(--red); }
   .composer button{
-    background:var(--red); color:var(--white); width:42px; height:42px; border-radius:50%;
+    background:var(--red); color:var(--on-accent); width:42px; height:42px; border-radius:50%;
     display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:background .2s ease;
   }
   .composer button:hover{ background:var(--red-deep); }
