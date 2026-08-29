@@ -71,21 +71,23 @@ def create_app(config: Settings = settings, repository: Repository | None = None
     async def lifespan(app: FastAPI):
         app.state.services = services
         scheduler_task = None
-        if config.supabase_configured and config.enable_background_scheduler and config.environment not in {"test", "testing"}:
-                await asyncio.sleep(4)
-                try:
-                    await seed_verified_sources(store, activate=True)
-                except Exception as err:
-                    logger.warning("Automated source seed notice: %s", err)
-                while True:
-                    try:
-                        if not collection_lock.locked():
-                            async with collection_lock:
-                                await run_collection_job(store, config, services.analyzer)
-                    except Exception as err:
-                        logger.warning("Automated collection run notice: %s", err)
-                    await asyncio.sleep(60 * 60)
 
+        async def _background_scheduler():
+            await asyncio.sleep(4)
+            try:
+                await seed_verified_sources(store, activate=True)
+            except Exception as err:
+                logger.warning("Automated source seed notice: %s", err)
+            while True:
+                try:
+                    if not collection_lock.locked():
+                        async with collection_lock:
+                            await run_collection_job(store, config, services.analyzer)
+                except Exception as err:
+                    logger.warning("Automated collection run notice: %s", err)
+                await asyncio.sleep(60 * 60)
+
+        if config.supabase_configured and config.enable_background_scheduler and config.environment not in {"test", "testing"}:
             scheduler_task = asyncio.create_task(_background_scheduler())
 
         yield
