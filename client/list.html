@@ -1037,7 +1037,7 @@
       // 'confirmed' only when the picker actually returned coordinates;
       // 'pending' means the host skipped location for now (map picker
       // not wired up yet) and it still needs to be added and verified.
-      location_status: (locationLat && locationLng) ? 'confirmed' : 'pending',
+      ...(locationLat && locationLng ? { location_status: 'confirmed' } : { location_status: 'pending' }),
     };
 
     let { data, error } = await supabaseClient
@@ -1045,13 +1045,12 @@
       .insert(listingPayload)
       .select().single();
 
-    if (error && /column.*city.*listings|column.*neighborhood.*listings|column.*country.*listings|schema cache/i.test(error.message)) {
+    if (error && /column.*(city|neighborhood|country|location_status|formatted_address|place_id).*listings|schema cache/i.test(error.message)) {
       const fallbackPayload = {
         host_id: currentUser.id, title, category, description, verified: false,
         location_text: [locationNeighborhood, locationCity].filter(Boolean).join(', ') || locationCity || locationCountry || 'Location to be added',
         latitude: locationLat ? parseFloat(locationLat) : null,
         longitude: locationLng ? parseFloat(locationLng) : null,
-        location_status: (locationLat && locationLng) ? 'confirmed' : 'pending',
       };
       ({ data, error } = await supabaseClient.from('listings').insert(fallbackPayload).select().single());
     }
