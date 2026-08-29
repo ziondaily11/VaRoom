@@ -26,6 +26,8 @@ from .repository import MemoryNewsRepository, SupabaseNewsRepository
 
 logger = logging.getLogger(__name__)
 Repository = MemoryNewsRepository | SupabaseNewsRepository
+FAILURE_RETRY_SECONDS = 15 * 60
+GENERIC_LINK_TEXTS = {"read more", "click here", "learn more", "continue", "more", "here", "news"}
 
 
 class _ArticleHTMLParser(HTMLParser):
@@ -136,7 +138,16 @@ class SourceCollector:
                 async with semaphore:
                     return await self._materialise_article(source, candidate)
 
-            candidates = await asyncio.gather(*[_bounded_materialise(c) for c in raw_candidates])
+            materialised = await asyncio.gather(
+                *[_bounded_materialise(c) for c in raw_candidates],
+                return_exceptions=True,
+            )
+            candidates: list[CandidateArticle] = []
+            for candidate, article in zip(raw_candidates, materialised):
+                if isinstance(article, Exception):
+                    logger.warning("Article fetch failed for %s: %s", candidate.source_url, article)
+                    continue
+                candidates.append(article)
             result["candidates"] = len(candidates)
             for candidate in candidates:
                 stored, duplicate = await self._store_candidate(source, candidate)
@@ -170,13 +181,22 @@ class SourceCollector:
         return result
 
     @staticmethod
+    def _aware(value: datetime | None) -> datetime | None:
+        if value is None:
+            return None
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+
+    @staticmethod
     def _is_due(source: Source) -> bool:
-        last_check = max((value for value in (source.last_successful_fetch_at, source.last_failed_fetch_at) if value), default=None)
-        if not last_check:
+        now = datetime.now(timezone.utc)
+        last_success = SourceCollector._aware(source.last_successful_fetch_at)
+        last_fail = SourceCollector._aware(source.last_failed_fetch_at)
+        if last_fail and (not last_success or last_fail > last_success):
+            retry_after = min(FAILURE_RETRY_SECONDS, source.schedule_minutes * 60)
+            return (now - last_fail).total_seconds() >= retry_after
+        if not last_success:
             return True
-        if last_check.tzinfo is None:
-            last_check = last_check.replace(tzinfo=timezone.utc)
-        return (datetime.now(timezone.utc) - last_check).total_seconds() >= source.schedule_minutes * 60
+        return (now - last_success).total_seconds() >= source.schedule_minutes * 60
 
     async def _discover(self, source: Source) -> list[CandidateArticle]:
         config = source.parser_config
@@ -236,14 +256,15 @@ class SourceCollector:
         extracted_title = (metadata.title if metadata else None) or None
         image_url = extract_article_image_url(html, url, source.base_url)
 
+        usable_title = SourceCollector._usable_title(title)
         if extracted_text and len(extracted_text) >= 200:
             clean_text = extracted_text
-            resolved_title = title or extracted_title or url
+            resolved_title = usable_title or extracted_title or url
         else:
             parser = _ArticleHTMLParser()
             parser.feed(html)
             clean_text = " ".join(parser.text)
-            resolved_title = title or extracted_title or " ".join(parser.title) or url
+            resolved_title = usable_title or extracted_title or " ".join(parser.title) or url
 
         return CandidateArticle(source_id=source.id, source_url=url, source_title=resolved_title,
                                 source_published_at=published_at, original_content=html, clean_text=clean_text,
@@ -317,10 +338,20 @@ class SourceCollector:
             if canonical in seen:
                 continue
             seen.add(canonical)
-            articles.append(CandidateArticle(source_id=source.id, source_url=url, source_title=title, clean_text=""))
+            articles.append(CandidateArticle(
+                source_id=source.id, source_url=url,
+                source_title=self._usable_title(title) or url, clean_text="",
+            ))
             if len(articles) >= max_articles:
                 break
         return articles
+
+    @staticmethod
+    def _usable_title(value: str | None) -> str:
+        stripped = " ".join((value or "").split())
+        if not stripped or stripped.lower() in GENERIC_LINK_TEXTS:
+            return ""
+        return stripped
 
     @staticmethod
     def _is_allowed_source_url(source: Source, url: str) -> bool:
@@ -363,6 +394,9 @@ class SourceCollector:
                 "candidate_url": candidate.source_url, "canonical_url": canonical_url,
             }))
             return None, True
+        usable_title = self._usable_title(candidate.source_title)
+        if len((candidate.clean_text or "").strip()) < 80 and (not usable_title or usable_title == candidate.source_url):
+            return None, False
         item = NewsItem(source_id=source.id, source_url=candidate.source_url, canonical_url=canonical_url,
                         source_title=candidate.source_title[:1000], source_published_at=candidate.source_published_at,
                         original_content=candidate.original_content, clean_text=candidate.clean_text,
