@@ -31,4 +31,4 @@ The migration also supports `analysed`, `approved`, `rejected`, `failed`, and `a
 
 ## Scheduling
 
-Run `python -m app.jobs --collect-due` from a platform cron/worker. Production scheduling is intentionally not enabled by a web request. Source intervals are database values: use 30-60 minutes for priority official sources and 1-3 hours for county/news sources after verification.
+Production collection is the GitHub Actions workflow `.github/workflows/property-news-collector.yml` (wake the Render service, then POST `/api/internal/jobs/collect`). Do not also run an in-process hourly collector on the web service; the two jobs share a lock and GitHub `curl --fail` treated 409 as a failed run. Local/ops can still run `python -m app.jobs --collect-due`. Source intervals are database values: use 30-60 minutes for priority official sources and 1-3 hours for county/news sources after verification. After a failed fetch, the collector retries that source after 15 minutes rather than waiting the full interval.
