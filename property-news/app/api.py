@@ -72,6 +72,7 @@ def create_app(config: Settings = settings, repository: Repository | None = None
         app.state.services = services
         scheduler_task = None
         if config.supabase_configured and config.enable_background_scheduler and config.environment not in {"test", "testing"}:
+            async def _background_scheduler():
                 await asyncio.sleep(4)
                 try:
                     await seed_verified_sources(store, activate=True)
@@ -250,6 +251,18 @@ def create_app(config: Settings = settings, repository: Repository | None = None
             return await run_reprocess_job(service.repository, config, service.analyzer, limit=limit)
 
     @app.post("/api/admin/news/archive-all-published", dependencies=[Depends(require_admin)])
+    async def archive_all_published_news(service: ServiceContainer = Depends(container)):
+        count = await service.repository.archive_all_published()
+        return {"archived_count": count}
+
+    @app.post("/api/internal/sources/seed-verified", dependencies=[Depends(require_scheduler)])
+    async def seed_sources(service: ServiceContainer = Depends(container)):
+        if not config.supabase_configured:
+            raise HTTPException(status_code=503, detail="Source registration requires the server-side Supabase configuration.")
+        sources = await seed_verified_sources(service.repository, activate=True)
+        return [{"id": str(s.id), "name": s.name, "active": s.active} for s in sources]
+
+    @app.post("/api/internal/sources/seed-official-lands", dependencies=[Depends(require_scheduler)])
     async def seed_official_lands(service: ServiceContainer = Depends(container)):
         if not config.supabase_configured:
             raise HTTPException(status_code=503, detail="Source registration requires the server-side Supabase configuration.")
