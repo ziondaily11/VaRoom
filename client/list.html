@@ -1017,43 +1017,22 @@
 
     const listingPayload = {
       host_id: currentUser.id, title, category, description, verified: false,
-      // location_text is read directly by public feed queries with no
-      // access-level gating (unlike latitude/longitude, place_id, and
-      // formatted_address, which only ever go through
-      // server/lib/locationAccess.js). It must therefore only ever hold
-      // the general area, never the exact formatted address.
+      // Maps are still being integrated, so location is intentionally optional for now.
+      // Keep the listing publish flow working without any location fields until the
+      // mapping experience is live again.
       location_text: [locationNeighborhood, locationCity].filter(Boolean).join(', ') || locationCity || locationCountry || 'Location to be added',
-      latitude: locationLat ? parseFloat(locationLat) : null,
-      longitude: locationLng ? parseFloat(locationLng) : null,
-      // Only include the location metadata keys when they were actually supplied.
-      // Some live projects do not yet have the newer location columns in the
-      // schema cache, so sending empty values or missing columns can crash the
-      // listing publish flow before the migration catches up.
+      ...(locationLat && locationLng ? { latitude: parseFloat(locationLat), longitude: parseFloat(locationLng) } : {}),
       ...(locationPlaceId ? { place_id: locationPlaceId } : {}),
       ...(locationFormattedAddress ? { formatted_address: locationFormattedAddress } : {}),
       ...(locationNeighborhood ? { neighborhood: locationNeighborhood } : {}),
       ...(locationCity ? { city: locationCity } : {}),
       ...(locationCountry ? { country: locationCountry } : {}),
-      // 'confirmed' only when the picker actually returned coordinates;
-      // 'pending' means the host skipped location for now (map picker
-      // not wired up yet) and it still needs to be added and verified.
-      ...(locationLat && locationLng ? { location_status: 'confirmed' } : { location_status: 'pending' }),
     };
 
-    let { data, error } = await supabaseClient
+    const { data, error } = await supabaseClient
       .from('listings')
       .insert(listingPayload)
       .select().single();
-
-    if (error && /column.*(city|neighborhood|country|location_status|formatted_address|place_id).*listings|schema cache/i.test(error.message)) {
-      const fallbackPayload = {
-        host_id: currentUser.id, title, category, description, verified: false,
-        location_text: [locationNeighborhood, locationCity].filter(Boolean).join(', ') || locationCity || locationCountry || 'Location to be added',
-        latitude: locationLat ? parseFloat(locationLat) : null,
-        longitude: locationLng ? parseFloat(locationLng) : null,
-      };
-      ({ data, error } = await supabaseClient.from('listings').insert(fallbackPayload).select().single());
-    }
 
     if (error) {
       successMsgInner.textContent = 'Something went wrong: ' + error.message;
@@ -1115,7 +1094,7 @@
     }
 
     successMsg.classList.remove('error');
-    let message = 'Listing published! It\'s pending location verification before it shows to clients.';
+    let message = 'Listing published! You can add the exact location later from your listing settings.';
     if (selectedFiles.length > 0) {
       if (failedCount === 0) message += ' All ' + uploadedCount + ' media item' + (uploadedCount === 1 ? '' : 's') + ' uploaded successfully.';
       else if (uploadedCount > 0) message += ' ' + uploadedCount + ' of ' + selectedFiles.length + ' media items uploaded — ' + failedCount + ' failed.';
