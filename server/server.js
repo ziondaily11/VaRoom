@@ -4,12 +4,16 @@ const express = require('express');
 const path = require('path');
 const supabaseAdmin = require('./lib/supabaseClient');
 const { getListingLocation, getBookingLocation, getListingDistance } = require('./lib/locationAccess');
+const videoRoutes = require('./routes/videoRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const PROPERTY_NEWS_API_URL = (process.env.PROPERTY_NEWS_API_URL || '').replace(/\/$/, '');
 
 app.use(express.json());
+
+// Mount video upload routes
+app.use('/api', videoRoutes);
 
 // Serve the frontend (client/) as static files
 app.use(express.static(path.join(__dirname, '..', 'client')));
