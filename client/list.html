@@ -1015,29 +1015,46 @@
     submitBtn.disabled = true;
     submitBtn.textContent = 'Publishing...';
 
-    const { data, error } = await supabaseClient
+    const listingPayload = {
+      host_id: currentUser.id, title, category, description, verified: false,
+      // location_text is read directly by public feed queries with no
+      // access-level gating (unlike latitude/longitude, place_id, and
+      // formatted_address, which only ever go through
+      // server/lib/locationAccess.js). It must therefore only ever hold
+      // the general area, never the exact formatted address.
+      location_text: [locationNeighborhood, locationCity].filter(Boolean).join(', ') || locationCity || locationCountry || 'Location to be added',
+      latitude: locationLat ? parseFloat(locationLat) : null,
+      longitude: locationLng ? parseFloat(locationLng) : null,
+      // Only include the location metadata keys when they were actually supplied.
+      // Some live projects do not yet have the newer location columns in the
+      // schema cache, so sending empty values or missing columns can crash the
+      // listing publish flow before the migration catches up.
+      ...(locationPlaceId ? { place_id: locationPlaceId } : {}),
+      ...(locationFormattedAddress ? { formatted_address: locationFormattedAddress } : {}),
+      ...(locationNeighborhood ? { neighborhood: locationNeighborhood } : {}),
+      ...(locationCity ? { city: locationCity } : {}),
+      ...(locationCountry ? { country: locationCountry } : {}),
+      // 'confirmed' only when the picker actually returned coordinates;
+      // 'pending' means the host skipped location for now (map picker
+      // not wired up yet) and it still needs to be added and verified.
+      location_status: (locationLat && locationLng) ? 'confirmed' : 'pending',
+    };
+
+    let { data, error } = await supabaseClient
       .from('listings')
-      .insert({
+      .insert(listingPayload)
+      .select().single();
+
+    if (error && /column.*city.*listings|column.*neighborhood.*listings|column.*country.*listings|schema cache/i.test(error.message)) {
+      const fallbackPayload = {
         host_id: currentUser.id, title, category, description, verified: false,
-        // location_text is read directly by public feed queries with no
-        // access-level gating (unlike latitude/longitude, place_id, and
-        // formatted_address, which only ever go through
-        // server/lib/locationAccess.js). It must therefore only ever hold
-        // the general area, never the exact formatted address.
         location_text: [locationNeighborhood, locationCity].filter(Boolean).join(', ') || locationCity || locationCountry || 'Location to be added',
         latitude: locationLat ? parseFloat(locationLat) : null,
         longitude: locationLng ? parseFloat(locationLng) : null,
-        place_id: locationPlaceId || null,
-        formatted_address: locationFormattedAddress || null,
-        neighborhood: locationNeighborhood || null,
-        city: locationCity || null,
-        country: locationCountry || null,
-        // 'confirmed' only when the picker actually returned coordinates;
-        // 'pending' means the host skipped location for now (map picker
-        // not wired up yet) and it still needs to be added and verified.
         location_status: (locationLat && locationLng) ? 'confirmed' : 'pending',
-      })
-      .select().single();
+      };
+      ({ data, error } = await supabaseClient.from('listings').insert(fallbackPayload).select().single());
+    }
 
     if (error) {
       successMsgInner.textContent = 'Something went wrong: ' + error.message;
