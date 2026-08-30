@@ -1075,9 +1075,9 @@
     }
 
     // ---------- Photos / videos ----------
-    // NOTE: order_index / is_cover are new columns this redesign relies on
-    // (drag-to-reorder + designated cover photo). Confirm listing_photos has
-    // them before deploying, or drop these two keys from the insert below.
+    // Keep this insert compatible with the existing listing_photos table.
+    // Ordering and cover selection are handled by the selected file order
+    // until those optional columns are present in the live schema.
     let uploadedCount = 0, failedCount = 0;
     if (selectedFiles.length > 0) {
       for (let i = 0; i < selectedFiles.length; i++) {
@@ -1087,7 +1087,7 @@
         const { error: uploadError } = await supabaseClient.storage.from('listing-photos').upload(path, file, { upsert: false });
         if (uploadError) { failedCount++; continue; }
         const { error: photoRowError } = await supabaseClient.from('listing_photos').insert({
-          listing_id: listingId, storage_path: path, order_index: i, is_cover: i === 0
+          listing_id: listingId, storage_path: path
         });
         if (photoRowError) failedCount++; else uploadedCount++;
       }
