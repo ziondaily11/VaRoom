@@ -956,7 +956,7 @@
   /* ── Fetch and render listings ── */
   const { data: listings, error: listingsError } = await supabaseClient
     .from('listings')
-    .select('id, title, category, location_text, created_at, listing_photos(storage_path, photo_path), listing_booking_details(price_amount, price_unit)')
+    .select('id, title, category, location_text, created_at, listing_photos(storage_path), listing_booking_details(price_amount, price_unit)')
     .eq('host_id', profileData.id)
     .order('created_at', { ascending: false });
 
