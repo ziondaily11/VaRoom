@@ -312,10 +312,12 @@
   .state-msg{ color:var(--muted); font-size:.95rem; padding:2rem 0; text-align:center; }
 
   .card{
-    background:rgba(26,18,16,.72); border:1px solid rgba(255,255,255,.16); border-radius:18px;
+    background:rgba(255,255,255,.58); border:1px solid rgba(255,255,255,.72); border-radius:18px;
     backdrop-filter:blur(18px) saturate(125%); -webkit-backdrop-filter:blur(18px) saturate(125%);
-    box-shadow:0 16px 36px rgba(26,18,16,.16); padding:1rem; margin-bottom:1.1rem; color:#F5EFEC;
+    box-shadow:0 16px 36px rgba(26,18,16,.16); padding:1rem; margin-bottom:1.1rem; color:var(--ink);
+    display:flex; flex-direction:column;
   }
+  [data-theme="dark"] .card{ background:rgba(255,255,255,.12); border-color:rgba(255,255,255,.22); color:#F5EFEC; }
 
   .card-head{ display:flex; align-items:center; gap:.65rem; margin-bottom:.35rem; }
   .card-avatar{
@@ -377,7 +379,8 @@
   .report-modal-msg.error{ color:var(--red); }
   .report-modal-msg.success{ color:#2e7d32; }
 
-  .card-caption{ font-size:.78rem; line-height:1.4; margin:0 0 .65rem; color:rgba(245,239,236,.8); overflow-wrap:anywhere; }
+  .card-caption{ font-size:.78rem; line-height:1.4; margin:0 0 .65rem; color:var(--muted); overflow-wrap:anywhere; }
+  [data-theme="dark"] .card-caption{ color:rgba(245,239,236,.8); }
 
   .card-photos{
     display:grid; grid-template-columns:1fr 1fr; gap:.5rem;
@@ -404,14 +407,15 @@
   .badge-host{ background:#E9F0FB; color:#1A4E8F; }
   .badge-soon{ background:rgba(26,18,16,.05); color:var(--muted); font-weight:500; }
 
-  .action-row{ display:flex; align-items:center; gap:.7rem; padding:.55rem .1rem 0; border-top:1px solid rgba(255,255,255,.14); }
+  .action-row{ display:flex; align-items:center; gap:.7rem; margin-top:auto; padding:.55rem .1rem 0; border-top:1px solid rgba(255,255,255,.3); }
 
   .action-btn{
     display:flex; align-items:center; gap:.4rem;
     font-size:.85rem; font-weight:600; color:var(--ink);
-    padding:.35rem .45rem; border-radius:8px; color:rgba(245,239,236,.9);
+    padding:.35rem .45rem; border-radius:8px; color:var(--ink);
   }
-  .action-btn:hover{ background:rgba(255,255,255,.1); }
+  [data-theme="dark"] .action-btn{ color:rgba(245,239,236,.9); }
+  .action-btn:hover{ background:rgba(255,255,255,.2); }
   .action-btn.disabled{ color:var(--muted); cursor:default; }
   .action-btn.disabled:hover{ background:none; }
 
@@ -929,11 +933,6 @@
           '</div>' +
           '<p class="card-caption">' + escapeHtml(listing.description || listing.title) + '</p>' +
           photosHtml +
-          '<div class="badge-row">' +
-            (listing.verified ? '<span class="badge badge-verified">📍 GPS verified</span>' : '') +
-            (host.verified ? '<span class="badge badge-host">✔ Verified host</span>' : '') +
-            '<span class="badge badge-soon" title="Escrow-backed payments are on the roadmap, not live yet">Escrow protected — soon</span>' +
-          '</div>' +
           '<div class="action-row">' +
             (listing.host_id === currentUser.id
               ? '<span class="action-btn disabled" title="This is your listing">' + ICON_BOOK + 'Book</span>'

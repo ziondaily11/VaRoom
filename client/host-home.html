@@ -398,10 +398,12 @@
   .state-msg{ color:var(--muted); font-size:.95rem; padding:2rem 0; text-align:center; }
 
   .card{
-    background:rgba(26,18,16,.72); border:1px solid rgba(255,255,255,.16); border-radius:18px;
+    background:rgba(255,255,255,.58); border:1px solid rgba(255,255,255,.72); border-radius:18px;
     backdrop-filter:blur(18px) saturate(125%); -webkit-backdrop-filter:blur(18px) saturate(125%);
-    box-shadow:0 16px 36px rgba(26,18,16,.16); padding:1rem; margin-bottom:1.1rem; color:#F5EFEC;
+    box-shadow:0 16px 36px rgba(26,18,16,.16); padding:1rem; margin-bottom:1.1rem; color:var(--ink);
+    display:flex; flex-direction:column;
   }
+  [data-theme="dark"] .card{ background:rgba(255,255,255,.12); border-color:rgba(255,255,255,.22); color:#F5EFEC; }
   .card-head{ display:flex; align-items:center; gap:.65rem; margin-bottom:.35rem; }
   .card-avatar{ width:40px; height:40px; border-radius:50%; background:var(--red-deep); color:var(--white); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:.95rem; flex-shrink:0; overflow:hidden; }
   .card-avatar img{ width:100%; height:100%; object-fit:cover; }
@@ -457,7 +459,8 @@
   .report-modal-msg.error{ color:var(--red); }
   .report-modal-msg.success{ color:#2e7d32; }
 
-  .card-caption{ font-size:.78rem; line-height:1.4; margin:0 0 .65rem; color:rgba(245,239,236,.8); overflow-wrap:anywhere; }
+  .card-caption{ font-size:.78rem; line-height:1.4; margin:0 0 .65rem; color:var(--muted); overflow-wrap:anywhere; }
+  [data-theme="dark"] .card-caption{ color:rgba(245,239,236,.8); }
   .card-photos{ display:grid; grid-template-columns:1fr 1fr; gap:.5rem; border-radius:14px; overflow:hidden; margin-bottom:.65rem; }
   .card-photos img{ width:100%; height:auto; aspect-ratio:4/3; object-fit:cover; display:block; }
   .card-photos.single{ grid-template-columns:1fr; }
@@ -477,9 +480,10 @@
   .badge-verified{ background:#EAF4EE; color:#1E6B3C; }
   .badge-host{ background:#E9F0FB; color:#1A4E8F; }
   .badge-soon{ background:rgba(26,18,16,.05); color:var(--muted); font-weight:500; }
-  .action-row{ display:flex; align-items:center; gap:.7rem; padding:.55rem .1rem 0; border-top:1px solid rgba(255,255,255,.14); }
-  .action-btn{ display:flex; align-items:center; gap:.4rem; font-size:.85rem; font-weight:600; color:rgba(245,239,236,.9); padding:.35rem .45rem; border-radius:8px; }
-  .action-btn:hover{ background:rgba(255,255,255,.1); }
+  .action-row{ display:flex; align-items:center; gap:.7rem; margin-top:auto; padding:.55rem .1rem 0; border-top:1px solid rgba(255,255,255,.3); }
+  .action-btn{ display:flex; align-items:center; gap:.4rem; font-size:.85rem; font-weight:600; color:var(--ink); padding:.35rem .45rem; border-radius:8px; }
+  [data-theme="dark"] .action-btn{ color:rgba(245,239,236,.9); }
+  .action-btn:hover{ background:rgba(255,255,255,.2); }
   .action-btn.disabled{ color:var(--muted); cursor:default; }
   .action-btn.disabled:hover{ background:none; }
   .bookmark-btn{ margin-left:auto; color:var(--muted); }
@@ -1470,10 +1474,6 @@
         ? '<img src="' + hostAvatarUrl + '" alt="">'
         : initial;
       const isBookmarked = bookmarkedIds.has(listing.id);
-      const uploadButton = listing.host_id === currentUser.id
-        ? '<div class="host-video-upload"><label class="host-video-upload-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/><path d="M5 5h14v14H5z"/></svg> Upload video<input type="file" accept="video/mp4,video/quicktime,video/webm" data-upload-listing-id="' + listing.id + '"></label></div>'
-        : '';
-
       let photosHtml = '';
       if (photos.length === 0) {
         photosHtml = '<div class="card-photos"><div class="photo-placeholder">' + categoryLabel(listing.category) + ' — photos coming soon</div></div>';
@@ -1507,12 +1507,6 @@
           '</div>' +
           '<p class="card-caption">' + escapeHtml(listing.description || listing.title) + '</p>' +
           photosHtml +
-          uploadButton +
-          '<div class="badge-row">' +
-            (listing.verified ? '<span class="badge badge-verified">📍 GPS verified</span>' : '') +
-            (host.verified ? '<span class="badge badge-host">✔ Verified host</span>' : '') +
-            '<span class="badge badge-soon" title="Escrow-backed payments are on the roadmap, not live yet">Escrow protected — soon</span>' +
-          '</div>' +
           '<div class="action-row">' +
             (listing.host_id === currentUser.id
               ? '<span class="action-btn disabled" title="This is your listing">' + ICON_BOOK + 'Book</span>'
