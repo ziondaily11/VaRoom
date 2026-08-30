@@ -312,11 +312,12 @@
   .state-msg{ color:var(--muted); font-size:.95rem; padding:2rem 0; text-align:center; }
 
   .card{
-    background:var(--white); border:1px solid rgba(26,18,16,.08); border-radius:18px;
-    padding:1.3rem; margin-bottom:1.4rem;
+    background:rgba(26,18,16,.72); border:1px solid rgba(255,255,255,.16); border-radius:18px;
+    backdrop-filter:blur(18px) saturate(125%); -webkit-backdrop-filter:blur(18px) saturate(125%);
+    box-shadow:0 16px 36px rgba(26,18,16,.16); padding:1rem; margin-bottom:1.1rem; color:#F5EFEC;
   }
 
-  .card-head{ display:flex; align-items:center; gap:.7rem; margin-bottom:.7rem; }
+  .card-head{ display:flex; align-items:center; gap:.65rem; margin-bottom:.35rem; }
   .card-avatar{
     width:40px; height:40px; border-radius:50%;
     background:var(--red-deep); color:var(--white);
@@ -329,14 +330,14 @@
   .card-location{ font-size:.8rem; color:var(--muted); }
   .card-map-link{ color:var(--red); font-weight:600; }
   .card-map-link:hover{ text-decoration:underline; }
-  .card-time{ margin-left:auto; font-size:.78rem; color:var(--muted); }
+  .card-time{ margin-left:auto; font-size:.72rem; color:rgba(245,239,236,.66); }
 
   .card-menu-wrap{ position:relative; margin-left:.4rem; }
   .card-menu-btn{
     width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center;
     color:var(--muted); background:none; border:none; cursor:pointer; flex-shrink:0;
   }
-  .card-menu-btn:hover{ background:var(--paper); color:var(--ink); }
+  .card-menu-btn:hover{ background:rgba(255,255,255,.1); color:#fff; }
 
   .card-menu-dropdown{
     display:none; position:absolute; top:32px; right:0; z-index:20;
@@ -376,15 +377,15 @@
   .report-modal-msg.error{ color:var(--red); }
   .report-modal-msg.success{ color:#2e7d32; }
 
-  .card-desc{ font-size:.92rem; line-height:1.5; margin-bottom:.9rem; }
+  .card-caption{ font-size:.78rem; line-height:1.4; margin:0 0 .65rem; color:rgba(245,239,236,.8); overflow-wrap:anywhere; }
 
   .card-photos{
     display:grid; grid-template-columns:1fr 1fr; gap:.5rem;
-    border-radius:12px; overflow:hidden; margin-bottom:.9rem;
+    border-radius:14px; overflow:hidden; margin-bottom:.65rem;
   }
-  .card-photos img{ width:100%; height:260px; object-fit:cover; display:block; }
+  .card-photos img{ width:100%; height:auto; aspect-ratio:4/3; object-fit:cover; display:block; }
   .card-photos.single{ grid-template-columns:1fr; }
-  .card-photos.single img{ height:340px; }
+  .card-photos.single img{ aspect-ratio:4/3; }
 
   .photo-placeholder{
     grid-column:1 / -1;
@@ -403,14 +404,14 @@
   .badge-host{ background:#E9F0FB; color:#1A4E8F; }
   .badge-soon{ background:rgba(26,18,16,.05); color:var(--muted); font-weight:500; }
 
-  .action-row{ display:flex; align-items:center; gap:.9rem; padding-top:.9rem; border-top:1px solid rgba(26,18,16,.06); }
+  .action-row{ display:flex; align-items:center; gap:.7rem; padding:.55rem .1rem 0; border-top:1px solid rgba(255,255,255,.14); }
 
   .action-btn{
     display:flex; align-items:center; gap:.4rem;
     font-size:.85rem; font-weight:600; color:var(--ink);
-    padding:.5rem .9rem; border-radius:10px;
+    padding:.35rem .45rem; border-radius:8px; color:rgba(245,239,236,.9);
   }
-  .action-btn:hover{ background:var(--paper); }
+  .action-btn:hover{ background:rgba(255,255,255,.1); }
   .action-btn.disabled{ color:var(--muted); cursor:default; }
   .action-btn.disabled:hover{ background:none; }
 
@@ -419,9 +420,9 @@
   .bookmark-btn.saved{ color:var(--red); }
 
   .card-photos img{ cursor:pointer; }
-  .card-video{ position:relative; border-radius:12px; overflow:hidden; margin-bottom:.9rem; background:#000; }
-  .card-video video{ display:block; width:100%; height:260px; object-fit:cover; background:#000; }
-  .card-video.single video{ height:340px; }
+  .card-video{ position:relative; border-radius:14px; overflow:hidden; margin-bottom:.65rem; background:#000; }
+  .card-video video{ display:block; width:100%; height:auto; aspect-ratio:4/3; object-fit:cover; background:#000; }
+  .card-video.single video{ aspect-ratio:4/3; }
 
   /* ---------- LIGHTBOX ---------- */
   .lightbox-overlay{
@@ -926,7 +927,7 @@
               '</div>' +
             '</div>') +
           '</div>' +
-          '<p class="card-desc">' + escapeHtml(listing.description || listing.title) + '</p>' +
+          '<p class="card-caption">' + escapeHtml(listing.description || listing.title) + '</p>' +
           photosHtml +
           '<div class="badge-row">' +
             (listing.verified ? '<span class="badge badge-verified">📍 GPS verified</span>' : '') +

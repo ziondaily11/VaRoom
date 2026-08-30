@@ -397,8 +397,12 @@
 
   .state-msg{ color:var(--muted); font-size:.95rem; padding:2rem 0; text-align:center; }
 
-  .card{ background:var(--white); border:1px solid rgba(26,18,16,.08); border-radius:18px; padding:1.3rem; margin-bottom:1.4rem; }
-  .card-head{ display:flex; align-items:center; gap:.7rem; margin-bottom:.7rem; }
+  .card{
+    background:rgba(26,18,16,.72); border:1px solid rgba(255,255,255,.16); border-radius:18px;
+    backdrop-filter:blur(18px) saturate(125%); -webkit-backdrop-filter:blur(18px) saturate(125%);
+    box-shadow:0 16px 36px rgba(26,18,16,.16); padding:1rem; margin-bottom:1.1rem; color:#F5EFEC;
+  }
+  .card-head{ display:flex; align-items:center; gap:.65rem; margin-bottom:.35rem; }
   .card-avatar{ width:40px; height:40px; border-radius:50%; background:var(--red-deep); color:var(--white); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:.95rem; flex-shrink:0; overflow:hidden; }
   .card-avatar img{ width:100%; height:100%; object-fit:cover; }
   .card-host-name{ font-weight:700; font-size:.95rem; display:flex; align-items:center; gap:.35rem; }
@@ -406,14 +410,14 @@
   .card-location{ font-size:.8rem; color:var(--muted); }
   .card-map-link{ color:var(--red); font-weight:600; }
   .card-map-link:hover{ text-decoration:underline; }
-  .card-time{ margin-left:auto; font-size:.78rem; color:var(--muted); }
+  .card-time{ margin-left:auto; font-size:.72rem; color:rgba(245,239,236,.66); }
 
   .card-menu-wrap{ position:relative; margin-left:.4rem; }
   .card-menu-btn{
     width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center;
     color:var(--muted); background:none; border:none; cursor:pointer; flex-shrink:0;
   }
-  .card-menu-btn:hover{ background:var(--paper); color:var(--ink); }
+  .card-menu-btn:hover{ background:rgba(255,255,255,.1); color:#fff; }
 
   .card-menu-dropdown{
     display:none; position:absolute; top:32px; right:0; z-index:20;
@@ -453,15 +457,15 @@
   .report-modal-msg.error{ color:var(--red); }
   .report-modal-msg.success{ color:#2e7d32; }
 
-  .card-desc{ font-size:.92rem; line-height:1.5; margin-bottom:.9rem; }
-  .card-photos{ display:grid; grid-template-columns:1fr 1fr; gap:.5rem; border-radius:12px; overflow:hidden; margin-bottom:.9rem; }
-  .card-photos img{ width:100%; height:260px; object-fit:cover; display:block; }
+  .card-caption{ font-size:.78rem; line-height:1.4; margin:0 0 .65rem; color:rgba(245,239,236,.8); overflow-wrap:anywhere; }
+  .card-photos{ display:grid; grid-template-columns:1fr 1fr; gap:.5rem; border-radius:14px; overflow:hidden; margin-bottom:.65rem; }
+  .card-photos img{ width:100%; height:auto; aspect-ratio:4/3; object-fit:cover; display:block; }
   .card-photos.single{ grid-template-columns:1fr; }
-  .card-photos.single img{ height:340px; }
-  .card-video{ position:relative; border-radius:12px; overflow:hidden; margin-bottom:.9rem; background:#000; }
-  .card-video video{ display:block; width:100%; height:260px; object-fit:cover; background:#000; }
-  .card-video.single video{ height:340px; }
-  .host-video-upload{ margin:0 0 .9rem; }
+  .card-photos.single img{ aspect-ratio:4/3; }
+  .card-video{ position:relative; border-radius:14px; overflow:hidden; margin-bottom:.65rem; background:#000; }
+  .card-video video{ display:block; width:100%; height:auto; aspect-ratio:4/3; object-fit:cover; background:#000; }
+  .card-video.single video{ aspect-ratio:4/3; }
+  .host-video-upload{ margin:0 0 .65rem; }
   .host-video-upload-btn{
     display:inline-flex; align-items:center; gap:.5rem; padding:.5rem .8rem; border-radius:999px;
     background:#FBE4E7; color:var(--red-deep); font-size:.76rem; font-weight:700; cursor:pointer;
@@ -473,9 +477,9 @@
   .badge-verified{ background:#EAF4EE; color:#1E6B3C; }
   .badge-host{ background:#E9F0FB; color:#1A4E8F; }
   .badge-soon{ background:rgba(26,18,16,.05); color:var(--muted); font-weight:500; }
-  .action-row{ display:flex; align-items:center; gap:.9rem; padding-top:.9rem; border-top:1px solid rgba(26,18,16,.06); }
-  .action-btn{ display:flex; align-items:center; gap:.4rem; font-size:.85rem; font-weight:600; color:var(--ink); padding:.5rem .9rem; border-radius:10px; }
-  .action-btn:hover{ background:var(--paper); }
+  .action-row{ display:flex; align-items:center; gap:.7rem; padding:.55rem .1rem 0; border-top:1px solid rgba(255,255,255,.14); }
+  .action-btn{ display:flex; align-items:center; gap:.4rem; font-size:.85rem; font-weight:600; color:rgba(245,239,236,.9); padding:.35rem .45rem; border-radius:8px; }
+  .action-btn:hover{ background:rgba(255,255,255,.1); }
   .action-btn.disabled{ color:var(--muted); cursor:default; }
   .action-btn.disabled:hover{ background:none; }
   .bookmark-btn{ margin-left:auto; color:var(--muted); }
@@ -1450,6 +1454,11 @@
       }
     }
 
+    const ICON_BOOK = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="16" rx="2"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>';
+    const ICON_CHAT = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z"/></svg>';
+    const ICON_BOOKMARK_OUTLINE = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3.5h12a1 1 0 0 1 1 1V21l-7-4-7 4V4.5a1 1 0 0 1 1-1Z"/></svg>';
+    const ICON_BOOKMARK_FILLED = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M6 3.5h12a1 1 0 0 1 1 1V21l-7-4-7 4V4.5a1 1 0 0 1 1-1Z"/></svg>';
+
     function renderCard(listing){
       const host = listing.host || {};
       const photos = (listing.listing_photos || []).map(function(p){
@@ -1496,7 +1505,7 @@
               '</div>' +
             '</div>') +
           '</div>' +
-          '<p class="card-desc">' + escapeHtml(listing.description || listing.title) + '</p>' +
+          '<p class="card-caption">' + escapeHtml(listing.description || listing.title) + '</p>' +
           photosHtml +
           uploadButton +
           '<div class="badge-row">' +
@@ -1506,12 +1515,14 @@
           '</div>' +
           '<div class="action-row">' +
             (listing.host_id === currentUser.id
-              ? '<span class="action-btn disabled" title="This is your listing">Book</span>'
-              : '<a href="booking.html?listing=' + listing.id + '" class="action-btn">Book</a>') +
+              ? '<span class="action-btn disabled" title="This is your listing">' + ICON_BOOK + 'Book</span>'
+              : '<a href="booking.html?listing=' + listing.id + '" class="action-btn">' + ICON_BOOK + 'Book</a>') +
             (listing.host_id === currentUser.id
-              ? '<span class="action-btn disabled" title="This is your listing">Chat</span>'
-              : '<button type="button" class="action-btn chat-btn" data-listing-id="' + listing.id + '" data-host-id="' + listing.host_id + '">Chat</button>') +
-            '<button type="button" class="action-btn bookmark-btn ' + (isBookmarked ? 'saved' : '') + '" data-listing-id="' + listing.id + '">' + (isBookmarked ? '★ Saved' : '☆ Save') + '</button>' +
+              ? '<span class="action-btn disabled" title="This is your listing">' + ICON_CHAT + 'Chat</span>'
+              : '<button type="button" class="action-btn chat-btn" data-listing-id="' + listing.id + '" data-host-id="' + listing.host_id + '">' + ICON_CHAT + 'Chat</button>') +
+            '<button type="button" class="action-btn bookmark-btn ' + (isBookmarked ? 'saved' : '') + '" data-listing-id="' + listing.id + '">' +
+              (isBookmarked ? ICON_BOOKMARK_FILLED + 'Saved' : ICON_BOOKMARK_OUTLINE + 'Save') +
+            '</button>' +
           '</div>' +
         '</div>'
       );
