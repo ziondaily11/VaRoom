@@ -1074,7 +1074,7 @@
       await supabaseClient.from('availability').insert(rows);
     }
 
-    // ---------- Photos ----------
+    // ---------- Photos / videos ----------
     // NOTE: order_index / is_cover are new columns this redesign relies on
     // (drag-to-reorder + designated cover photo). Confirm listing_photos has
     // them before deploying, or drop these two keys from the insert below.
@@ -1093,12 +1093,25 @@
       }
     }
 
+    if (selectedFiles.length > 0 && failedCount > 0) {
+      await supabaseClient.from('listing_photos').delete().eq('listing_id', listingId);
+      await supabaseClient.from('listing_booking_details').delete().eq('listing_id', listingId);
+      if (SHORT_STAY.includes(category) && openDates.size > 0) {
+        await supabaseClient.from('availability').delete().eq('listing_id', listingId);
+      }
+      await supabaseClient.from('listings').delete().eq('id', listingId);
+
+      successMsgInner.textContent = 'Media upload failed, so the listing was not published. Please try again with the selected files.';
+      successMsg.classList.add('show', 'error');
+      successMsg.scrollIntoView({ behavior:'smooth', block:'center' });
+      submitBtn.disabled = false; submitBtn.textContent = 'Publish listing ✓';
+      return;
+    }
+
     successMsg.classList.remove('error');
     let message = 'Listing published! You can add the exact location later from your listing settings.';
     if (selectedFiles.length > 0) {
-      if (failedCount === 0) message += ' All ' + uploadedCount + ' media item' + (uploadedCount === 1 ? '' : 's') + ' uploaded successfully.';
-      else if (uploadedCount > 0) message += ' ' + uploadedCount + ' of ' + selectedFiles.length + ' media items uploaded — ' + failedCount + ' failed.';
-      else message += ' Your media didn\'t upload — the listing is still live without them for now.';
+      message += ' All ' + uploadedCount + ' media item' + (uploadedCount === 1 ? '' : 's') + ' uploaded successfully.';
     }
     successMsgInner.textContent = message;
     successMsg.classList.add('show');
