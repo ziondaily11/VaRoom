@@ -11,18 +11,19 @@ Property News is mounted in the established Render FastAPI service (`main.py`) a
    - existing `GEMINI_API_KEY` (Property News uses it automatically), or `NEWS_AI_PROVIDER`, `NEWS_AI_API_KEY`, and `NEWS_AI_MODEL`
    - a new high-entropy `NEWS_SCHEDULER_SECRET`
    - optional `NEWS_ENVIRONMENT=production`, `NEWS_LOG_LEVEL=INFO`, and fetch limits from `.env.example`
-4. Set GitHub repository secrets:
-   - `PROPERTY_NEWS_SCHEDULER_URL=https://varoom.onrender.com/api/internal/jobs/collect`
+4. Set GitHub repository secrets (the frontend already proxies news to this host):
+   - `PROPERTY_NEWS_SCHEDULER_URL=https://varoom-1.onrender.com/api/internal/jobs/collect`
    - `NEWS_SCHEDULER_SECRET` matching the Render secret exactly
+   - Leave `NEWS_ENABLE_BACKGROUND_SCHEDULER` unset or `false` on Render so GitHub Actions is the only collector.
 5. After Render is healthy and the migration is visible through PostgREST, activate the verified official Lands source once:
 
    ```sh
    curl --fail --request POST \
      --header "Authorization: Bearer $NEWS_SCHEDULER_SECRET" \
-     https://varoom.onrender.com/api/internal/sources/seed-official-lands
+     https://varoom-1.onrender.com/api/internal/sources/seed-official-lands
    ```
 
-6. Run the **Property News collector** GitHub Actions workflow once from the Actions tab, then allow its twice-hourly schedule to continue independently of any laptop.
+6. Run the **Property News collector** GitHub Actions workflow once from the Actions tab. That workflow is the cron: it wakes Render, then POSTs collect. GitHub may delay scheduled runs; do not add a second in-process cron on the web service.
 7. Verify `https://varoom.co.ke/api/news/latest?limit=1` and the host dashboard after a published low-risk item is available. High-risk and ownership-sensitive items must remain in review.
 
 ## Failure handling and rollback

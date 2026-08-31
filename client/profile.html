@@ -94,6 +94,7 @@
   .nav-item:hover{ background:var(--paper); }
   .nav-item.active{ background:#FBE4E7; color:var(--red-deep); font-weight:600; }
   .nav-item svg{ flex-shrink:0; }
+  .host-only-nav{ display:none; }
 
   .list-space-btn{
     display:flex; align-items:center; gap:.5rem;
@@ -448,7 +449,7 @@
       <label>Phone</label>
       <input type="tel" id="edit-phone" placeholder="07XX XXX XXX" />
     </div>
-    <div class="modal-field">
+    <div class="modal-field" id="edit-bio-field">
       <label>Bio</label>
       <textarea id="edit-bio" placeholder="Tell people a bit about yourself…" maxlength="200"></textarea>
     </div>
@@ -505,7 +506,7 @@
       </a>
     </nav>
 
-    <nav class="nav-group">
+    <nav class="nav-group host-only-nav" id="host-tools-nav">
       <p class="nav-label">Host</p>
       <a href="list.html" class="list-space-btn">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -684,6 +685,20 @@
   const { data: { session } } = await supabaseClient.auth.getSession();
   if (!session) { window.location.href = 'login.html'; return; }
   const currentUser = session.user;
+  const { data: currentProfile, error: currentProfileError } = await supabaseClient
+    .from('profiles')
+    .select('role')
+    .eq('id', currentUser.id)
+    .maybeSingle();
+  if (currentProfileError || !currentProfile) {
+    window.location.href = 'login.html';
+    return;
+  }
+  const currentRole = currentProfile.role || 'client';
+  const dashboardHref = currentRole === 'host' ? 'host-home.html' : 'client-home.html';
+  document.querySelectorAll('a[href="host-home.html"]').forEach(function(link){
+    if (!link.closest('#host-tools-nav')) link.setAttribute('href', dashboardHref);
+  });
 
   /* ── Determine whose profile to show ── */
   const params = new URLSearchParams(window.location.search);
@@ -770,6 +785,10 @@
 
   /* ── Render profile header ── */
   function renderProfile(){
+    const isClientOwner = isOwner && currentRole !== 'host';
+    document.getElementById('host-tools-nav').style.display = currentRole === 'host' ? 'flex' : 'none';
+    document.getElementById('edit-bio-field').style.display = isClientOwner ? 'none' : 'block';
+
     // Avatar
     const av = document.getElementById('profile-avatar');
     if (profileData.avatar_url) {
@@ -793,10 +812,14 @@
 
     // Bio
     const bioEl = document.getElementById('profile-bio');
-    if (profileData.bio) {
+    if (isClientOwner) {
+      bioEl.style.display = 'none';
+    } else if (profileData.bio) {
+      bioEl.style.display = 'block';
       bioEl.textContent = profileData.bio;
       bioEl.classList.remove('empty');
     } else {
+      bioEl.style.display = 'block';
       bioEl.textContent = isOwner ? 'Add a bio to tell people about yourself.' : '';
       bioEl.classList.add('empty');
     }
@@ -821,15 +844,16 @@
 
     // Actions — owner vs visitor
     const showingAsVisitor = !isOwner;
-    document.getElementById('owner-actions').style.display = (!showingAsVisitor) ? 'flex' : 'none';
+    document.getElementById('owner-actions').style.display = (!showingAsVisitor && !isClientOwner) ? 'flex' : 'none';
     document.getElementById('visitor-actions').style.display = showingAsVisitor ? 'flex' : 'none';
 
     // Camera button — owner only
     document.getElementById('avatar-upload-label').style.display = isOwner ? 'flex' : 'none';
 
     // Listings heading
+    document.getElementById('listings-section').style.display = isClientOwner ? 'none' : 'block';
     document.getElementById('listings-heading').textContent =
-      'Places by ' + firstName;
+      isClientOwner ? '' : 'Places by ' + firstName;
   }
 
   renderProfile();
@@ -841,7 +865,7 @@
     document.getElementById('edit-fullname').value = profileData.full_name || '';
     document.getElementById('edit-username').value = profileData.username || '';
     document.getElementById('edit-phone').value = profileData.phone || '';
-    document.getElementById('edit-bio').value = profileData.bio || '';
+    document.getElementById('edit-bio').value = currentRole === 'host' ? (profileData.bio || '') : '';
     document.getElementById('edit-location').value = profileData.city || '';
     document.getElementById('edit-msg').textContent = '';
     document.getElementById('edit-modal').classList.add('open');
@@ -905,13 +929,14 @@
 
     btn.disabled = true; btn.textContent = 'Saving…';
 
-    const { error } = await supabaseClient.from('profiles').update({
+    const update = {
       full_name: fullName,
       username: username || null,
       phone: phone || null,
-      bio: bio || null,
       city: location || null
-    }).eq('id', currentUser.id);
+    };
+    if (currentRole === 'host') update.bio = bio || null;
+    const { error } = await supabaseClient.from('profiles').update(update).eq('id', currentUser.id);
 
     btn.disabled = false; btn.textContent = 'Save changes';
 
@@ -920,7 +945,7 @@
     profileData.full_name = fullName;
     profileData.username  = username || null;
     profileData.phone     = phone || null;
-    profileData.bio       = bio || null;
+    if (currentRole === 'host') profileData.bio = bio || null;
     profileData.city      = location || null;
 
     renderProfile();
@@ -929,13 +954,18 @@
   });
 
   /* ── Fetch and render listings ── */
-  const { data: listings } = await supabaseClient
+  const { data: listings, error: listingsError } = await supabaseClient
     .from('listings')
-    .select('id, title, category, location_text, price_per_night, price_per_month, availability_status, listing_photos(storage_path, photo_path)')
+    .select('id, title, category, location_text, created_at, listing_photos(storage_path), listing_booking_details(price_amount, price_unit)')
     .eq('host_id', profileData.id)
     .order('created_at', { ascending: false });
 
   const grid = document.getElementById('listings-grid');
+  if (listingsError) {
+    console.error('Could not load host listings:', listingsError);
+    grid.innerHTML = '<div class="listings-empty">Couldn\'t load your listings right now. Please refresh and try again.</div>';
+    return;
+  }
   const count = listings ? listings.length : 0;
   document.getElementById('listings-count').textContent =
     count + ' space' + (count !== 1 ? 's' : '') +
@@ -962,8 +992,13 @@
   }
 
   function priceLabel(listing){
-    if (listing.price_per_night) return 'KSh ' + Number(listing.price_per_night).toLocaleString() + ' / night';
-    if (listing.price_per_month) return 'KSh ' + Number(listing.price_per_month).toLocaleString() + ' / month';
+    const details = Array.isArray(listing.listing_booking_details)
+      ? listing.listing_booking_details[0]
+      : listing.listing_booking_details;
+    if (details && details.price_amount) {
+      const unit = details.price_unit === 'month' ? 'month' : details.price_unit === 'hour' ? 'hour' : 'night';
+      return 'KSh ' + Number(details.price_amount).toLocaleString() + ' / ' + unit;
+    }
     return '';
   }
 
