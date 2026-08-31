@@ -160,6 +160,14 @@ router.post('/properties/:propertyId/videos/upload-init', async (req, res) => {
       extension
     );
 
+    // Generate the presigned URL before creating the database record so a
+    // missing R2 configuration cannot leave an unusable pending row behind.
+    const uploadAuthorization = await mediaStorageService.generateR2UploadAuthorization(
+      objectKey,
+      mimeType,
+      fileSize
+    );
+
     // Step 8: Create pending media record in database
     const { data: mediaRecord, error: insertError } = await supabaseAdmin
       .from('property_media')
@@ -187,19 +195,13 @@ router.post('/properties/:propertyId/videos/upload-init', async (req, res) => {
       return res.status(500).json({ error: 'Failed to initialize upload' });
     }
 
-    // Step 9: Generate short-lived upload authorization
-    const uploadAuthorization = mediaStorageService.generateR2UploadAuthorization(
-      objectKey,
-      mimeType,
-      fileSize
-    );
-
-    // Step 10: Return only what the frontend needs (never expose secret keys)
+    // Step 9: Return only what the frontend needs (never expose secret keys)
     res.status(200).json({
       success: true,
       mediaId: mediaId,
       uploadId: uploadId,
       uploadAuthorization: {
+        uploadUrl: uploadAuthorization.uploadUrl,
         endpoint: uploadAuthorization.endpoint,
         bucketName: uploadAuthorization.bucketName,
         objectKey: uploadAuthorization.objectKey,
@@ -504,8 +506,7 @@ router.get('/properties/:propertyId/media', async (req, res) => {
       .eq('property_id', propertyId)
       .eq('visibility', 'public')
       .is('deleted_at', null)
-      .neq('status', 'failed')
-      .neq('status', 'deleted')
+      .eq('status', 'ready')
       .order('sort_order', { ascending: true });
 
     if (mediaError) {

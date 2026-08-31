@@ -1404,6 +1404,23 @@
       return supabaseClient.storage.from('avatars').getPublicUrl(avatarValue).data.publicUrl;
     }
 
+    function getVideoDuration(file){
+      return new Promise(function(resolve, reject){
+        const url = URL.createObjectURL(file);
+        const video = document.createElement('video');
+        video.preload = 'metadata';
+        video.onloadedmetadata = function(){
+          URL.revokeObjectURL(url);
+          Number.isFinite(video.duration) ? resolve(video.duration) : reject(new Error('Unable to read video duration'));
+        };
+        video.onerror = function(){
+          URL.revokeObjectURL(url);
+          reject(new Error('Unable to read video duration'));
+        };
+        video.src = url;
+      });
+    }
+
     async function getListingVideoUrl(listingId){
       const { data: { session } } = await supabaseClient.auth.getSession();
       const token = session && session.access_token ? session.access_token : null;
@@ -1442,8 +1459,16 @@
         return;
       }
 
-      if (file.size > 80 * 1024 * 1024) {
-        showToast('Video must be 80MB or less.');
+      let durationSeconds;
+      try {
+        durationSeconds = await getVideoDuration(file);
+      } catch (error) {
+        showToast('Could not read the video duration.');
+        input.value = '';
+        return;
+      }
+      if (durationSeconds > 90) {
+        showToast('Video must be 90 seconds or less.');
         input.value = '';
         return;
       }
@@ -1464,7 +1489,8 @@
           body: JSON.stringify({
             filename: file.name,
             mimeType: file.type || 'video/mp4',
-            fileSize: file.size
+            fileSize: file.size,
+            durationSeconds: durationSeconds
           })
         });
         const initPayload = await initRes.json().catch(function(){ return {}; });

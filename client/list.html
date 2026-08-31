@@ -902,7 +902,7 @@
   // ---------- Photo selection, preview, drag-to-reorder, validation ----------
   const MAX_PHOTOS = 6;
   const MAX_SIZE_BYTES = 5 * 1024 * 1024;
-  const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'video/mp4', 'video/quicktime', 'video/webm'];
+  const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'video/mp4', 'video/quicktime'];
   let selectedFiles = [];
   let dragFromIndex = null;
 
@@ -921,7 +921,10 @@
     for (const file of incoming) {
       if (selectedFiles.length >= MAX_PHOTOS) { showPhotoError('You can add up to ' + MAX_PHOTOS + ' photos or videos.'); break; }
       if (!ALLOWED_TYPES.includes(file.type)) { showPhotoError('"' + file.name + '" isn\'t a supported photo or video type.'); continue; }
-      if (file.size > MAX_SIZE_BYTES) { showPhotoError('"' + file.name + '" is over 5MB.'); continue; }
+      if (!file.type.startsWith('video/') && file.size > MAX_SIZE_BYTES) {
+        showPhotoError('"' + file.name + '" is over 5MB.');
+        continue;
+      }
       if (selectedFiles.some(function(f){ return f.name === file.name && f.size === file.size; })) continue;
       selectedFiles.push(file);
     }
@@ -985,6 +988,88 @@
   photoDropzone.addEventListener('drop', function(e){ e.preventDefault(); photoDropzone.classList.remove('dragover'); addFiles(e.dataTransfer.files); });
 
   function sanitizeFilename(name){ return name.replace(/[^a-zA-Z0-9.\-_]/g, '_'); }
+
+  function getVideoDuration(file){
+    return new Promise(function(resolve, reject){
+      const url = URL.createObjectURL(file);
+      const video = document.createElement('video');
+      video.preload = 'metadata';
+      video.onloadedmetadata = function(){
+        URL.revokeObjectURL(url);
+        if (Number.isFinite(video.duration)) resolve(video.duration);
+        else reject(new Error('Unable to read video duration'));
+      };
+      video.onerror = function(){
+        URL.revokeObjectURL(url);
+        reject(new Error('Unable to read video duration'));
+      };
+      video.src = url;
+    });
+  }
+
+  async function uploadVideoToR2(file, listingId){
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session || !session.access_token) throw new Error('Your session expired. Please sign in again.');
+
+    const durationSeconds = await getVideoDuration(file);
+    if (durationSeconds > 90) throw new Error('Videos must be 90 seconds or less.');
+
+    let mediaId = null;
+    try {
+      const initResponse = await fetch('/api/properties/' + encodeURIComponent(listingId) + '/videos/upload-init', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + session.access_token
+        },
+        body: JSON.stringify({
+          filename: file.name,
+          mimeType: file.type,
+          fileSize: file.size,
+          durationSeconds: durationSeconds
+        })
+      });
+      const initPayload = await initResponse.json().catch(function(){ return {}; });
+      if (!initResponse.ok) throw new Error(initPayload.error || 'Video upload could not start.');
+      mediaId = initPayload.mediaId;
+
+      const authorization = initPayload.uploadAuthorization || {};
+      if (!authorization.uploadUrl) throw new Error('Video upload did not return a signed storage URL.');
+
+      const uploadResponse = await fetch(authorization.uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': authorization.contentType || file.type },
+        body: file
+      });
+      if (!uploadResponse.ok) throw new Error('Video upload to Cloudflare R2 failed.');
+
+      const completeResponse = await fetch('/api/properties/' + encodeURIComponent(listingId) +
+        '/videos/' + encodeURIComponent(mediaId) + '/complete', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer ' + session.access_token
+          },
+          body: JSON.stringify({ uploadId: initPayload.uploadId })
+        });
+      const completePayload = await completeResponse.json().catch(function(){ return {}; });
+      if (!completeResponse.ok) throw new Error(completePayload.error || 'Video upload could not be finalized.');
+      return mediaId;
+    } catch (error) {
+      if (mediaId) error.mediaId = mediaId;
+      throw error;
+    }
+  }
+
+  async function deleteVideoFromR2(listingId, mediaId){
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session || !session.access_token || !mediaId) return;
+    await fetch('/api/properties/' + encodeURIComponent(listingId) + '/videos/' +
+      encodeURIComponent(mediaId), {
+        method: 'DELETE',
+        headers: { Authorization: 'Bearer ' + session.access_token }
+      });
+  }
 
   // ---------- Submit ----------
   document.getElementById('list-form').addEventListener('submit', async function(e){
@@ -1079,10 +1164,23 @@
     // Ordering and cover selection are handled by the selected file order
     // until those optional columns are present in the live schema.
     let uploadedCount = 0, failedCount = 0;
+    const videoMediaIds = [];
     if (selectedFiles.length > 0) {
       for (let i = 0; i < selectedFiles.length; i++) {
         const file = selectedFiles[i];
         submitBtn.textContent = 'Uploading media ' + (i + 1) + ' of ' + selectedFiles.length + '...';
+        if (file.type && file.type.startsWith('video/')) {
+          try {
+            const mediaId = await uploadVideoToR2(file, listingId);
+            videoMediaIds.push(mediaId);
+            uploadedCount++;
+          } catch (error) {
+            if (error.mediaId) videoMediaIds.push(error.mediaId);
+            failedCount++;
+          }
+          continue;
+        }
+
         const path = currentUser.id + '/' + listingId + '/' + Date.now() + '_' + i + '_' + sanitizeFilename(file.name);
         const { error: uploadError } = await supabaseClient.storage.from('listing-photos').upload(path, file, { upsert: false });
         if (uploadError) { failedCount++; continue; }
@@ -1094,6 +1192,9 @@
     }
 
     if (selectedFiles.length > 0 && failedCount > 0) {
+      for (const mediaId of videoMediaIds) {
+        await deleteVideoFromR2(listingId, mediaId);
+      }
       await supabaseClient.from('listing_photos').delete().eq('listing_id', listingId);
       await supabaseClient.from('listing_booking_details').delete().eq('listing_id', listingId);
       if (SHORT_STAY.includes(category) && openDates.size > 0) {
