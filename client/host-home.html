@@ -1370,11 +1370,10 @@
       return supabaseClient.storage.from('avatars').getPublicUrl(avatarValue).data.publicUrl;
     }
 
-    async function getListingVideoUrl(listingId, listingStatus){
+    async function getListingVideoUrl(listingId){
       const { data: { session } } = await supabaseClient.auth.getSession();
       const token = session && session.access_token ? session.access_token : null;
       if (!token) return null;
-      if (listingStatus && listingStatus !== 'published') return null;
       try {
         const response = await fetch('/api/properties/' + encodeURIComponent(listingId) + '/media', {
           headers: { Authorization: 'Bearer ' + token }
@@ -1548,7 +1547,7 @@
       );
     }
 
-    const FEED_SELECT = 'id,status,title,description,location_text,category,verified,created_at,host_id,host:profiles(full_name,verified,avatar_url,username),listing_photos(storage_path)';
+    const FEED_SELECT = 'id,title,description,location_text,category,verified,created_at,host_id,host:profiles(full_name,verified,avatar_url,username),listing_photos(storage_path)';
 
     async function startChat(listingId, hostId){
       const { data, error } = await supabaseClient
@@ -1747,7 +1746,7 @@
       }
 
       for (const listing of data) {
-        listingVideoUrls[listing.id] = await getListingVideoUrl(listing.id, listing.status);
+        listingVideoUrls[listing.id] = await getListingVideoUrl(listing.id);
       }
 
       const cardsHtml = data.map(renderCard);
