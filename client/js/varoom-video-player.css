@@ -4,6 +4,28 @@
   overflow: hidden;
 }
 
+.varoom-video-player:fullscreen {
+  width: 100vw;
+  height: 100vh;
+  display: grid;
+  place-items: center;
+}
+
+.varoom-video-player:fullscreen > video {
+  object-fit: contain;
+}
+
+.varoom-video-player:-webkit-full-screen {
+  width: 100vw;
+  height: 100vh;
+  display: grid;
+  place-items: center;
+}
+
+.varoom-video-player:-webkit-full-screen > video {
+  object-fit: contain;
+}
+
 .varoom-video-player > video {
   display: block;
   width: 100%;
@@ -40,11 +62,20 @@
 
 .varoom-video-player:hover .varoom-video-controls,
 .varoom-video-player:focus-within .varoom-video-controls,
-.varoom-video-player.is-playing .varoom-video-controls,
 .varoom-video-player.is-ended .varoom-video-controls,
-.varoom-video-player.is-error .varoom-video-controls {
+.varoom-video-player.is-error .varoom-video-controls,
+.varoom-video-player:fullscreen .varoom-video-controls,
+.varoom-video-player.is-fullscreen .varoom-video-controls {
   opacity: 1;
   pointer-events: auto;
+}
+
+.varoom-video-time {
+  flex: 0 0 auto;
+  min-width: 5.5rem;
+  font-size: .72rem;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
 }
 
 .varoom-video-control {
@@ -130,4 +161,25 @@
 @media (prefers-reduced-motion: reduce) {
   .varoom-video-controls { transition: none; }
   .varoom-video-player.is-buffering .varoom-video-status::before { animation: none; }
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .varoom-video-controls {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .varoom-video-player:fullscreen .varoom-video-controls,
+  .varoom-video-player:-webkit-full-screen .varoom-video-controls,
+  .varoom-video-player.is-fullscreen .varoom-video-controls,
+  .varoom-video-player.controls-visible .varoom-video-controls,
+  .varoom-video-player.is-ended .varoom-video-controls,
+  .varoom-video-player.is-error .varoom-video-controls {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .varoom-video-player:not(:fullscreen):not(:-webkit-full-screen):not(.is-fullscreen) .varoom-video-controls {
+    display: none;
+  }
 }
