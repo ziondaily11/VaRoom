@@ -865,14 +865,10 @@
       return session && session.access_token ? session.access_token : null;
     }
 
-    async function loadListingVideoUrls(listingIds, listingMap){
+    async function loadListingVideoUrls(listingIds){
       if (!listingIds.length) return;
       const token = await getAuthToken();
       for (const listingId of listingIds) {
-        const listing = listingMap && listingMap.get ? listingMap.get(listingId) : null;
-        if (!listing || (listing.status && listing.status !== 'published' && (!currentUser || listing.host_id !== currentUser.id))) {
-          continue;
-        }
         try {
           const response = await fetch('/api/properties/' + encodeURIComponent(listingId) + '/media', {
             headers: token ? { Authorization: 'Bearer ' + token } : {}
@@ -894,7 +890,7 @@
             videoUrlByListing[listingId] = playback.url;
           }
         } catch (error) {
-          // Ignore transient media-load failures for draft or unavailable listings.
+          // Ignore transient media-load failures for unavailable listings.
         }
       }
     }
@@ -966,7 +962,7 @@
       );
     }
 
-    const FEED_SELECT = 'id,status,title,description,location_text,category,verified,created_at,host_id,host:profiles(full_name,verified,avatar_url,username),listing_photos(storage_path)';
+    const FEED_SELECT = 'id,title,description,location_text,category,verified,created_at,host_id,host:profiles(full_name,verified,avatar_url,username),listing_photos(storage_path)';
 
     async function startChat(listingId, hostId){
       const { data, error } = await supabaseClient
@@ -1276,8 +1272,7 @@
       }
 
       const listingIds = data.map(function(l){ return l.id; });
-      const listingMap = new Map(data.map(function(l){ return [l.id, l]; }));
-      await loadListingVideoUrls(listingIds, listingMap);
+      await loadListingVideoUrls(listingIds);
       const cardsHtml = data.map(renderCard);
       const showMobileWidgets = currentView === 'home' && currentCategory === 'all' && !term &&
         window.matchMedia('(max-width:1180px)').matches;
