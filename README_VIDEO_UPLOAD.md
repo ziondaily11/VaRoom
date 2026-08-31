@@ -104,7 +104,7 @@ VIDEO_UPLOADS_ENABLED=true                  # Enable/disable uploads
 VIDEO_PREMIUM_REQUIRED=false                # Dev: false, Prod: true
 VIDEO_MAX_FILE_SIZE_MB=500                  # Max file size
 VIDEO_MAX_COUNT_PER_PROPERTY=10             # Max videos per property
-VIDEO_MAX_DURATION_SECONDS=3600             # Max duration (future use)
+VIDEO_MAX_DURATION_SECONDS=90               # Max video duration in seconds
 VIDEO_CLEANUP_GRACE_PERIOD_HOURS=1          # Orphan cleanup grace period
 VIDEO_CLEANUP_DRY_RUN=false                 # Cleanup dry-run mode
 ```

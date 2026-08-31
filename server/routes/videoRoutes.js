@@ -94,12 +94,18 @@ router.post('/properties/:propertyId/videos/upload-init', async (req, res) => {
     }
 
     const propertyId = req.params.propertyId;
-    const { filename, mimeType, fileSize } = req.body;
+    const { filename, mimeType, fileSize, durationSeconds } = req.body;
 
     // Step 2: Validate input
     if (!filename || !mimeType || typeof fileSize !== 'number') {
       return res.status(400).json({
         error: 'Missing or invalid request parameters (filename, mimeType, fileSize required)',
+      });
+    }
+
+    if (durationSeconds !== undefined && (typeof durationSeconds !== 'number' || !Number.isFinite(durationSeconds))) {
+      return res.status(400).json({
+        error: 'durationSeconds must be a number when provided',
       });
     }
 
@@ -133,7 +139,8 @@ router.post('/properties/:propertyId/videos/upload-init', async (req, res) => {
     const { valid, error: validationError } = videoEntitlement.validateVideoFile(
       filename,
       mimeType,
-      fileSize
+      fileSize,
+      durationSeconds
     );
 
     if (!valid) {
@@ -486,13 +493,13 @@ router.get('/properties/:propertyId/media', async (req, res) => {
       .single();
 
     if (listingError || !listing) {
-      return res.status(404).json({ error: 'Property not found' });
+      return res.status(200).json({ media: [] });
     }
 
     // Step 2: Check authorization (public only, or owner, or authorized guest)
     // For MVP, just check if published or user is owner
     if (listing.status !== 'published' && listing.host_id !== userId) {
-      return res.status(403).json({ error: 'Not authorized to view this property' });
+      return res.status(200).json({ media: [] });
     }
 
     // Step 3: Fetch media sorted by order

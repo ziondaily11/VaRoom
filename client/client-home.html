@@ -887,14 +887,24 @@
     const ICON_BOOKMARK_OUTLINE = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h12a1 1 0 0 1 1 1V21l-7-4-7 4V4.5a1 1 0 0 1 1-1Z"/></svg>';
     const ICON_BOOKMARK_FILLED = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h12a1 1 0 0 1 1 1V21l-7-4-7 4V4.5a1 1 0 0 1 1-1Z"/></svg>';
 
-    async function loadListingVideoUrls(listingIds){
+    async function getAuthToken(){
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      return session && session.access_token ? session.access_token : null;
+    }
+
+    async function loadListingVideoUrls(listingIds, listingMap){
       if (!listingIds.length) return;
-      const token = localStorage.getItem('sb-access-token') || sessionStorage.getItem('sb-access-token');
+      const token = await getAuthToken();
       for (const listingId of listingIds) {
+        const listing = listingMap && listingMap.get ? listingMap.get(listingId) : null;
+        if (!listing || (listing.status && listing.status !== 'published' && (!currentUser || listing.host_id !== currentUser.id))) {
+          continue;
+        }
         try {
           const response = await fetch('/api/properties/' + encodeURIComponent(listingId) + '/media', {
             headers: token ? { Authorization: 'Bearer ' + token } : {}
           });
+          if (response.status === 403 || response.status === 404) continue;
           if (!response.ok) continue;
           const payload = await response.json();
           const media = Array.isArray(payload.media) ? payload.media : [];
@@ -904,13 +914,14 @@
           const playbackRes = await fetch('/api/media/' + encodeURIComponent(mediaId) + '/playback', {
             headers: token ? { Authorization: 'Bearer ' + token } : {}
           });
+          if (playbackRes.status === 403 || playbackRes.status === 404) continue;
           if (!playbackRes.ok) continue;
           const playback = await playbackRes.json();
           if (playback && playback.url) {
             videoUrlByListing[listingId] = playback.url;
           }
         } catch (error) {
-          console.warn('Could not load listing videos.', error);
+          // Ignore transient media-load failures for draft or unavailable listings.
         }
       }
     }
@@ -991,7 +1002,7 @@
       );
     }
 
-    const FEED_SELECT = 'id,title,description,location_text,category,verified,created_at,host_id,host:profiles(full_name,verified,avatar_url,username),listing_photos(storage_path)';
+    const FEED_SELECT = 'id,status,title,description,location_text,category,verified,created_at,host_id,host:profiles(full_name,verified,avatar_url,username),listing_photos(storage_path)';
 
     async function startChat(listingId, hostId){
       const { data, error } = await supabaseClient
@@ -1382,7 +1393,8 @@
       }
 
       const listingIds = data.map(function(l){ return l.id; });
-      await loadListingVideoUrls(listingIds);
+      const listingMap = new Map(data.map(function(l){ return [l.id, l]; }));
+      await loadListingVideoUrls(listingIds, listingMap);
       const cardsHtml = data.map(renderCard);
       const showMobileWidgets = currentView === 'home' && currentCategory === 'all' && !term &&
         window.matchMedia('(max-width:1180px)').matches;

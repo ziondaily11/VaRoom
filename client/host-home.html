@@ -1370,13 +1370,16 @@
       return supabaseClient.storage.from('avatars').getPublicUrl(avatarValue).data.publicUrl;
     }
 
-    async function getListingVideoUrl(listingId){
-      const token = localStorage.getItem('sb-access-token') || sessionStorage.getItem('sb-access-token');
+    async function getListingVideoUrl(listingId, listingStatus){
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      const token = session && session.access_token ? session.access_token : null;
       if (!token) return null;
+      if (listingStatus && listingStatus !== 'published') return null;
       try {
         const response = await fetch('/api/properties/' + encodeURIComponent(listingId) + '/media', {
           headers: { Authorization: 'Bearer ' + token }
         });
+        if (response.status === 403 || response.status === 404) return null;
         if (!response.ok) return null;
         const payload = await response.json();
         const media = Array.isArray(payload.media) ? payload.media : [];
@@ -1385,11 +1388,11 @@
         const playbackRes = await fetch('/api/media/' + encodeURIComponent(videoItem.id) + '/playback', {
           headers: { Authorization: 'Bearer ' + token }
         });
+        if (playbackRes.status === 403 || playbackRes.status === 404) return null;
         if (!playbackRes.ok) return null;
         const playback = await playbackRes.json();
         return playback && playback.url ? playback.url : null;
       } catch (error) {
-        console.warn('Could not load video for listing', listingId, error);
         return null;
       }
     }
@@ -1488,6 +1491,7 @@
       const photos = (listing.listing_photos || []).map(function(p){
         return supabaseClient.storage.from('listing-photos').getPublicUrl(p.storage_path).data.publicUrl;
       });
+      const videoUrl = listingVideoUrls[listing.id] || null;
       const initial = (host.full_name || '?').charAt(0).toUpperCase();
       const hostAvatarUrl = resolveAvatarUrl(host.avatar_url);
       const avatarHtml = hostAvatarUrl
@@ -1495,7 +1499,9 @@
         : initial;
       const isBookmarked = bookmarkedIds.has(listing.id);
       let photosHtml = '';
-      if (photos.length === 0) {
+      if (videoUrl) {
+        photosHtml = '<div class="card-video single"><video muted playsinline loop preload="metadata" src="' + videoUrl + '" data-listing-id="' + listing.id + '"></video></div>';
+      } else if (photos.length === 0) {
         photosHtml = '<div class="card-photos"><div class="photo-placeholder">' + categoryLabel(listing.category) + ' — photos coming soon</div></div>';
       } else {
         const cls = photos.length === 1 ? 'card-photos single' : 'card-photos';
@@ -1542,7 +1548,7 @@
       );
     }
 
-    const FEED_SELECT = 'id,title,description,location_text,category,verified,created_at,host_id,host:profiles(full_name,verified,avatar_url,username),listing_photos(storage_path)';
+    const FEED_SELECT = 'id,status,title,description,location_text,category,verified,created_at,host_id,host:profiles(full_name,verified,avatar_url,username),listing_photos(storage_path)';
 
     async function startChat(listingId, hostId){
       const { data, error } = await supabaseClient
@@ -1685,6 +1691,8 @@
       );
     }
 
+    const listingVideoUrls = {};
+
     async function loadFeed(){
       feedList.innerHTML = '<p class="state-msg">Loading listings…</p>';
 
@@ -1736,6 +1744,10 @@
       if (!data || data.length === 0) {
         feedList.innerHTML = '<p class="state-msg">' + (showOnlyMine ? 'You haven\'t listed a space yet.' : 'No listings match yet — try a different category, location, or @username.') + '</p>';
         return;
+      }
+
+      for (const listing of data) {
+        listingVideoUrls[listing.id] = await getListingVideoUrl(listing.id, listing.status);
       }
 
       const cardsHtml = data.map(renderCard);

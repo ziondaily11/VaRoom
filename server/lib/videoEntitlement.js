@@ -13,7 +13,7 @@ const VIDEO_UPLOADS_ENABLED = process.env.VIDEO_UPLOADS_ENABLED === 'true';
 const VIDEO_PREMIUM_REQUIRED = process.env.VIDEO_PREMIUM_REQUIRED === 'true';
 const VIDEO_MAX_FILE_SIZE_MB = parseInt(process.env.VIDEO_MAX_FILE_SIZE_MB || '500', 10);
 const VIDEO_MAX_COUNT_PER_PROPERTY = parseInt(process.env.VIDEO_MAX_COUNT_PER_PROPERTY || '10', 10);
-const VIDEO_MAX_DURATION_SECONDS = parseInt(process.env.VIDEO_MAX_DURATION_SECONDS || '3600', 10);
+const VIDEO_MAX_DURATION_SECONDS = parseInt(process.env.VIDEO_MAX_DURATION_SECONDS || '90', 10);
 
 /**
  * Check if a user can upload a video for a property
@@ -132,10 +132,10 @@ async function getPropertyVideoCount(supabaseAdmin, propertyId) {
 }
 
 /**
- * Validate video file before upload
- * Checks MIME type, file size, and other constraints
+ * Validate video file before upload.
+ * Enforces duration-based limit instead of file-size-based restriction.
  */
-function validateVideoFile(fileName, mimeType, fileSizeBytes) {
+function validateVideoFile(fileName, mimeType, fileSizeBytes, durationSeconds = null) {
   // Allowed MIME types (conservative baseline per spec)
   const ALLOWED_MIME_TYPES = [
     'video/mp4',
@@ -150,13 +150,13 @@ function validateVideoFile(fileName, mimeType, fileSizeBytes) {
     };
   }
 
-  // Validate file size
-  const maxFileBytes = VIDEO_MAX_FILE_SIZE_MB * 1024 * 1024;
-  if (fileSizeBytes > maxFileBytes) {
-    return {
-      valid: false,
-      error: `File exceeds maximum size of ${VIDEO_MAX_FILE_SIZE_MB}MB.`,
-    };
+  if (typeof durationSeconds === 'number' && Number.isFinite(durationSeconds)) {
+    if (durationSeconds > VIDEO_MAX_DURATION_SECONDS) {
+      return {
+        valid: false,
+        error: `Video must be ${VIDEO_MAX_DURATION_SECONDS} seconds or less.`,
+      };
+    }
   }
 
   return {
