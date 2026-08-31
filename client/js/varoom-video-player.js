@@ -90,6 +90,90 @@
     }
   }
 
+  function createViewerDetails(wrapper) {
+    var video = wrapper.querySelector('video');
+    var source = wrapper._varoomSource || wrapper.closest('.card, .listing-card');
+    var details = document.createElement('div');
+    details.className = 'varoom-video-viewer-details';
+    if (!source) return details;
+
+    var identity = document.createElement('div');
+    identity.className = 'varoom-video-viewer-identity';
+    var avatar = source && source.querySelector('.card-avatar, .listing-host-avatar, .host-avatar');
+    if (video.dataset.videoAvatar) {
+      var avatarImage = document.createElement('img');
+      avatarImage.src = video.dataset.videoAvatar;
+      avatarImage.alt = '';
+      identity.appendChild(avatarImage);
+    } else if (avatar) identity.appendChild(avatar.cloneNode(true));
+    var identityText = document.createElement('div');
+    identityText.className = 'varoom-video-viewer-identity-text';
+    var name = source && source.querySelector('.card-host-name, .listing-host-name, .host-name');
+    var username = source && source.querySelector('.listing-host-username, .host-username');
+    if (video.dataset.videoHostName) {
+      var dataName = document.createElement('span');
+      dataName.textContent = video.dataset.videoHostName;
+      dataName.className = 'varoom-video-viewer-host-name';
+      identityText.appendChild(dataName);
+    } else if (name) {
+      var nameClone = name.cloneNode(true);
+      nameClone.className = 'varoom-video-viewer-host-name';
+      identityText.appendChild(nameClone);
+    }
+    if (video.dataset.videoUsername) {
+      var dataUsername = document.createElement('span');
+      dataUsername.textContent = video.dataset.videoUsername;
+      dataUsername.className = 'varoom-video-viewer-host-username';
+      identityText.appendChild(dataUsername);
+    } else if (username) {
+      var usernameClone = username.cloneNode(true);
+      usernameClone.className = 'varoom-video-viewer-host-username';
+      identityText.appendChild(usernameClone);
+    }
+    identity.appendChild(identityText);
+    details.appendChild(identity);
+
+    var caption = source && source.querySelector('.card-caption, .listing-caption');
+    if (video.dataset.videoCaption) {
+      var dataCaption = document.createElement('p');
+      dataCaption.className = 'varoom-video-viewer-caption';
+      dataCaption.textContent = video.dataset.videoCaption;
+      details.appendChild(dataCaption);
+    } else if (caption && caption.textContent.trim()) {
+      var captionClone = caption.cloneNode(true);
+      captionClone.className = 'varoom-video-viewer-caption';
+      details.appendChild(captionClone);
+    }
+
+    var sourceActions = source.querySelector('.action-row');
+    if (sourceActions) {
+      var actions = document.createElement('div');
+      actions.className = 'varoom-video-viewer-actions';
+      Array.prototype.forEach.call(sourceActions.querySelectorAll('.action-btn'), function (sourceAction) {
+        var action = sourceAction.cloneNode(true);
+        action.classList.add('varoom-video-viewer-action');
+        action.addEventListener('click', function (event) {
+          event.preventDefault();
+          event.stopPropagation();
+          sourceAction.click();
+          window.setTimeout(function () {
+            action.className = sourceAction.className + ' varoom-video-viewer-action';
+            action.innerHTML = sourceAction.innerHTML;
+          }, 250);
+        });
+        actions.appendChild(action);
+      });
+      details.appendChild(actions);
+    }
+    return details;
+  }
+
+  function updateViewerDetails(slide, wrapper) {
+    var existing = slide.querySelector('.varoom-video-viewer-details');
+    if (existing) existing.remove();
+    slide.appendChild(createViewerDetails(wrapper));
+  }
+
   function createViewer(wrappers, selectedWrapper) {
     viewer = document.createElement('div');
     viewer.className = 'varoom-video-viewer';
@@ -102,11 +186,13 @@
 
     wrappers.forEach(function (wrapper) {
       var placeholder = document.createComment('varoom-video-placeholder');
+      wrapper._varoomSource = wrapper.closest('.card, .listing-card');
       wrapper.parentNode.insertBefore(placeholder, wrapper);
       viewerState.placeholders.push({ wrapper: wrapper, placeholder: placeholder });
       var slide = document.createElement('section');
       slide.className = 'varoom-video-viewer-slide';
       slide.appendChild(wrapper);
+      updateViewerDetails(slide, wrapper);
       viewerTrack.appendChild(slide);
     });
 
@@ -168,6 +254,7 @@
     if (viewerState.observer) viewerState.observer.disconnect();
     viewerWrappers.forEach(function (wrapper) {
       wrapper.classList.remove('is-fullscreen', 'controls-visible');
+      delete wrapper._varoomSource;
       updateFullscreenButton(wrapper);
     });
     if (viewer) viewer.remove();
@@ -194,6 +281,7 @@
       video.preload = Math.abs(wrapperIndex - index) <= 1 ? 'metadata' : 'none';
     });
     activeWrapper.classList.add('is-fullscreen');
+    updateViewerDetails(slide, activeWrapper);
     updateFullscreenButton(activeWrapper);
     playWrapper(activeWrapper);
   }
