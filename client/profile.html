@@ -23,6 +23,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;0,9..144,900;1,9..144,500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="js/varoom-video-player.css">
 <style>
   :root{
     --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#1A1210; --paper:#FBF4F1;
@@ -1037,7 +1038,7 @@
   function getListingMediaMarkup(listing){
     const videoUrl = listingVideoUrls[listing.id];
     if (videoUrl) {
-      return '<div class="listing-thumb"><video muted autoplay playsinline loop preload="metadata" src="' + videoUrl + '" style="width:100%;height:100%;object-fit:cover;display:block;background:#000;"></video><span class="listing-cat-pill">' + (CAT_LABELS[listing.category] || listing.category) + '</span></div>';
+      return '<div class="listing-thumb"><video muted playsinline preload="none" src="' + videoUrl + '" style="width:100%;height:100%;object-fit:cover;display:block;background:#000;"></video><span class="listing-cat-pill">' + (CAT_LABELS[listing.category] || listing.category) + '</span></div>';
     }
     const photoUrl = getPhotoUrl(listing);
     const thumb = photoUrl ? '<img src="' + photoUrl + '" alt="' + listing.title + '" loading="lazy">' : '';
@@ -1129,5 +1130,6 @@
 
 })();
 </script>
+<script src="js/varoom-video-player.js"></script>
 </body>
 </html>
