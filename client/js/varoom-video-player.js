@@ -5,6 +5,11 @@
   var observedVideos = new WeakSet();
   var savedMuted = sessionStorage.getItem(MUTE_KEY);
   var defaultMuted = savedMuted === null ? true : savedMuted === 'true';
+  var viewer = null;
+  var viewerTrack = null;
+  var viewerWrappers = [];
+  var viewerState = null;
+  var activeWrapper = null;
 
   function isMobile() {
     return window.matchMedia('(hover: none) and (pointer: coarse)').matches;
@@ -45,9 +50,23 @@
     button.setAttribute('aria-label', video.ended ? 'Replay video' : (video.paused ? 'Play video' : 'Pause video'));
   }
 
+  function showControls(wrapper) {
+    wrapper.classList.add('controls-visible');
+    clearTimeout(wrapper._controlsTimer);
+    if (viewerState && activeWrapper === wrapper) {
+      wrapper._controlsTimer = setTimeout(function () {
+        if (!wrapper.querySelector('.varoom-video-progress:active')) wrapper.classList.remove('controls-visible');
+      }, 2800);
+    }
+  }
+
+  function hideControls(wrapper) {
+    wrapper.classList.remove('controls-visible');
+  }
+
   function updateFullscreenButton(wrapper) {
     var button = wrapper.querySelector('[data-video-action="fullscreen"]');
-    var active = fullscreenElement() === wrapper;
+    var active = viewerState && activeWrapper === wrapper;
     button.innerHTML = icon(active ? 'exitFullscreen' : 'fullscreen');
     button.setAttribute('aria-label', active ? 'Exit fullscreen' : 'Enter fullscreen');
     wrapper.classList.toggle('is-fullscreen', active);
@@ -55,37 +74,148 @@
     else hideControls(wrapper);
   }
 
-  function showControls(wrapper) {
-    wrapper.classList.add('controls-visible');
-    clearTimeout(wrapper._controlsTimer);
-    if (fullscreenElement() === wrapper) {
-      wrapper._controlsTimer = setTimeout(function () {
-        if (!wrapper.querySelector('.varoom-video-progress:active')) hideControls(wrapper);
-      }, 2800);
-    }
-  }
-
-  function hideControls(wrapper) {
-    if (fullscreenElement() === wrapper) wrapper.classList.remove('controls-visible');
-  }
-
-  function requestFullscreen(wrapper, video) {
-    if (fullscreenElement() === wrapper) {
-      var exit = document.exitFullscreen || document.webkitExitFullscreen;
-      if (exit) exit.call(document);
+  function requestNativeFullscreen() {
+    var request = viewer.requestFullscreen || viewer.webkitRequestFullscreen;
+    if (!request) {
+      console.warn('Continuous fullscreen video viewing is not supported by this browser');
+      closeViewer();
       return;
     }
-    var request = wrapper.requestFullscreen || wrapper.webkitRequestFullscreen;
-    if (request) {
-      var result = request.call(wrapper);
-      if (result && result.catch) result.catch(function (error) {
+    var result = request.call(viewer);
+    if (result && result.catch) {
+      result.catch(function (error) {
         console.warn('Fullscreen request was blocked:', error);
+        closeViewer();
       });
-    } else if (video.webkitEnterFullscreen) {
-      video.webkitEnterFullscreen();
-    } else {
-      console.warn('Fullscreen is not supported by this browser');
     }
+  }
+
+  function createViewer(wrappers, selectedWrapper) {
+    viewer = document.createElement('div');
+    viewer.className = 'varoom-video-viewer';
+    viewer.setAttribute('aria-label', 'VaRoom video viewer');
+    viewer.innerHTML = '<button type="button" class="varoom-video-viewer-close" aria-label="Close fullscreen video viewer">×</button><div class="varoom-video-viewer-track"></div>';
+    viewerTrack = viewer.querySelector('.varoom-video-viewer-track');
+    document.body.appendChild(viewer);
+    viewerWrappers = wrappers;
+    viewerState = { selectedWrapper: selectedWrapper, placeholders: [], feedScrollX: window.scrollX, feedScrollY: window.scrollY };
+
+    wrappers.forEach(function (wrapper) {
+      var placeholder = document.createComment('varoom-video-placeholder');
+      wrapper.parentNode.insertBefore(placeholder, wrapper);
+      viewerState.placeholders.push({ wrapper: wrapper, placeholder: placeholder });
+      var slide = document.createElement('section');
+      slide.className = 'varoom-video-viewer-slide';
+      slide.appendChild(wrapper);
+      viewerTrack.appendChild(slide);
+    });
+
+    viewer.querySelector('.varoom-video-viewer-close').addEventListener('click', function (event) {
+      event.stopPropagation();
+      closeViewer();
+    });
+    viewerTrack.addEventListener('scroll', function () {
+      showControls(activeWrapper);
+    }, { passive: true });
+
+    var selectedIndex = wrappers.indexOf(selectedWrapper);
+    viewerTrack.scrollTop = Math.max(0, selectedIndex) * window.innerHeight;
+    activeWrapper = selectedWrapper;
+    selectedWrapper.classList.add('is-fullscreen');
+    selectedWrapper.querySelector('video').preload = 'metadata';
+    updateFullscreenButton(selectedWrapper);
+    wrappers.forEach(function (wrapper) {
+      wrapper.querySelector('video').preload = wrapper === selectedWrapper ? 'metadata' : 'none';
+    });
+    requestNativeFullscreen();
+    playWrapper(selectedWrapper);
+    observeViewer();
+  }
+
+  function openViewer(selectedWrapper) {
+    if (viewerState) {
+      viewerTrack.querySelectorAll('.varoom-video-viewer-slide').forEach(function (slide, index) {
+        if (viewerWrappers[index] === selectedWrapper) viewerTrack.scrollTop = index * window.innerHeight;
+      });
+      return;
+    }
+    var wrappers = Array.prototype.slice.call(document.querySelectorAll('.varoom-video-player'));
+    if (!wrappers.length) return;
+    createViewer(wrappers, selectedWrapper);
+  }
+
+  function restoreWrappers() {
+    if (!viewerState) return;
+    viewerState.placeholders.forEach(function (entry) {
+      entry.placeholder.parentNode.replaceChild(entry.wrapper, entry.placeholder);
+    });
+    viewerState.placeholders = [];
+  }
+
+  function closeViewer() {
+    if (!viewerState) return;
+    var fullscreen = fullscreenElement();
+    if (fullscreen === viewer) {
+      var exit = document.exitFullscreen || document.webkitExitFullscreen;
+      if (exit) {
+        exit.call(document);
+        return;
+      }
+    }
+    var feedScrollX = viewerState.feedScrollX;
+    var feedScrollY = viewerState.feedScrollY;
+    restoreWrappers();
+    if (viewerState.observer) viewerState.observer.disconnect();
+    viewerWrappers.forEach(function (wrapper) {
+      wrapper.classList.remove('is-fullscreen', 'controls-visible');
+      updateFullscreenButton(wrapper);
+    });
+    if (viewer) viewer.remove();
+    viewer = null;
+    viewerTrack = null;
+    viewerWrappers = [];
+    viewerState = null;
+    activeWrapper = null;
+    window.scrollTo(feedScrollX, feedScrollY);
+  }
+
+  function updateViewerActive(slide) {
+    if (!viewerState) return;
+    var index = Array.prototype.indexOf.call(viewerTrack.children, slide);
+    if (index < 0 || viewerWrappers[index] === activeWrapper) return;
+    if (activeWrapper) {
+      activeWrapper.classList.remove('is-fullscreen', 'controls-visible');
+      activeWrapper.querySelector('video').pause();
+      updateFullscreenButton(activeWrapper);
+    }
+    activeWrapper = viewerWrappers[index];
+    viewerWrappers.forEach(function (wrapper, wrapperIndex) {
+      var video = wrapper.querySelector('video');
+      video.preload = Math.abs(wrapperIndex - index) <= 1 ? 'metadata' : 'none';
+    });
+    activeWrapper.classList.add('is-fullscreen');
+    updateFullscreenButton(activeWrapper);
+    playWrapper(activeWrapper);
+  }
+
+  function observeViewer() {
+    if (!('IntersectionObserver' in window)) return;
+    var observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting && entry.intersectionRatio >= .7) updateViewerActive(entry.target);
+      });
+    }, { root: viewerTrack, threshold: [.7] });
+    Array.prototype.forEach.call(viewerTrack.children, function (slide) { observer.observe(slide); });
+    viewerState.observer = observer;
+  }
+
+  function playWrapper(wrapper) {
+    var video = wrapper.querySelector('video');
+    stopOtherVideos(video);
+    video.play().catch(function (error) {
+      console.warn('Video playback was blocked or failed:', error);
+      setStatus(wrapper, 'Tap play to start', false);
+    });
   }
 
   function enhance(video) {
@@ -138,57 +268,35 @@
       mobileMuteButton.setAttribute('aria-label', label);
     }
 
-    function play() {
-      stopOtherVideos(video);
-      video.play().catch(function (error) {
-        console.warn('Video playback was blocked or failed:', error);
-        setStatus(wrapper, 'Tap play to start', false);
-      });
-    }
-
-    function handleVideoTap(event) {
-      if (event.target.closest('.varoom-video-controls')) return;
-      if (isMobile() && !fullscreenElement()) {
-        requestFullscreen(wrapper, video);
-        play();
-        return;
-      }
-      if (video.paused || video.ended) {
-        if (video.ended) video.currentTime = 0;
-        play();
-      } else video.pause();
-    }
-
     playButton.addEventListener('click', function (event) {
       event.stopPropagation();
       if (video.paused || video.ended) {
         if (video.ended) video.currentTime = 0;
-        play();
+        playWrapper(wrapper);
       } else video.pause();
       showControls(wrapper);
     });
-    muteButton.addEventListener('click', function (event) {
+    function toggleMute(event) {
       event.stopPropagation();
       video.muted = !video.muted;
       sessionStorage.setItem(MUTE_KEY, String(video.muted));
       updateMuteButton();
+    }
+    muteButton.addEventListener('click', function (event) {
+      toggleMute(event);
       showControls(wrapper);
     });
-    mobileMuteButton.addEventListener('click', function (event) {
-      event.stopPropagation();
-      video.muted = !video.muted;
-      sessionStorage.setItem(MUTE_KEY, String(video.muted));
-      updateMuteButton();
-    });
+    mobileMuteButton.addEventListener('click', toggleMute);
     fullscreenButton.addEventListener('click', function (event) {
       event.stopPropagation();
-      requestFullscreen(wrapper, video);
+      if (viewerState && activeWrapper === wrapper) closeViewer();
+      else openViewer(wrapper);
     });
     wrapper.querySelector('.varoom-video-error-retry').addEventListener('click', function (event) {
       event.stopPropagation();
       setStatus(wrapper, 'Loading…', false);
       video.load();
-      play();
+      playWrapper(wrapper);
     });
     progress.addEventListener('pointerdown', function () { showControls(wrapper); });
     progress.addEventListener('input', function () {
@@ -198,9 +306,28 @@
       }
     });
     wrapper.addEventListener('pointerdown', function () {
-      if (fullscreenElement() === wrapper) showControls(wrapper);
+      if (viewerState && activeWrapper === wrapper) showControls(wrapper);
     });
-    video.addEventListener('click', handleVideoTap);
+    wrapper.addEventListener('mouseenter', function () {
+      if (!isMobile()) showControls(wrapper);
+    });
+    wrapper.addEventListener('mouseleave', function () {
+      if (!isMobile() && viewerState && activeWrapper === wrapper) {
+        clearTimeout(wrapper._controlsTimer);
+        wrapper._controlsTimer = setTimeout(function () { hideControls(wrapper); }, 900);
+      }
+    });
+    video.addEventListener('click', function (event) {
+      if (event.target.closest('.varoom-video-controls') || event.target.closest('.varoom-video-mobile-mute')) return;
+      if (isMobile() && !viewerState) {
+        openViewer(wrapper);
+        return;
+      }
+      if (video.paused || video.ended) {
+        if (video.ended) video.currentTime = 0;
+        playWrapper(wrapper);
+      } else video.pause();
+    });
     video.addEventListener('play', function () {
       stopOtherVideos(video);
       wrapper.classList.add('is-playing');
@@ -241,31 +368,34 @@
     updatePlayButton(wrapper, video);
     updateMuteButton();
     updateFullscreenButton(wrapper);
-    observe(video);
+    observe(video, wrapper);
   }
 
-  function observe(video) {
+  function observe(video, wrapper) {
     if (!('IntersectionObserver' in window) || observedVideos.has(video)) return;
     observedVideos.add(video);
     var observer = new IntersectionObserver(function (entries) {
       entries.forEach(function (entry) {
-        if (entry.isIntersecting) video.preload = 'metadata';
+        if (viewerState) return;
+        if (entry.isIntersecting) {
+          video.preload = 'metadata';
+          if (!viewerState) playWrapper(wrapper);
+        }
         else if (!video.paused) video.pause();
       });
     }, { rootMargin: '160px 0px', threshold: 0.1 });
     observer.observe(video);
   }
 
+  document.addEventListener('fullscreenchange', function () {
+    if (viewerState && fullscreenElement() !== viewer) closeViewer();
+  });
+  document.addEventListener('webkitfullscreenchange', function () {
+    if (viewerState && fullscreenElement() !== viewer) closeViewer();
+  });
   function scan(root) {
     (root || document).querySelectorAll('video[data-listing-id], .listing-thumb video').forEach(enhance);
   }
-
-  document.addEventListener('fullscreenchange', function () {
-    document.querySelectorAll('.varoom-video-player').forEach(updateFullscreenButton);
-  });
-  document.addEventListener('webkitfullscreenchange', function () {
-    document.querySelectorAll('.varoom-video-player').forEach(updateFullscreenButton);
-  });
   scan(document);
   new MutationObserver(function (records) {
     records.forEach(function (record) {
@@ -275,6 +405,6 @@
     });
   }).observe(document.body, { childList: true, subtree: true });
   document.addEventListener('visibilitychange', function () {
-    if (document.hidden) document.querySelectorAll('.varoom-video-player > video').forEach(function (video) { video.pause(); });
+    if (document.hidden && !viewerState) document.querySelectorAll('.varoom-video-player > video').forEach(function (video) { video.pause(); });
   });
 })();

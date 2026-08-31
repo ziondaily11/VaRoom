@@ -4,6 +4,63 @@
   overflow: hidden;
 }
 
+.varoom-video-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: #000;
+}
+
+.varoom-video-viewer:fullscreen,
+.varoom-video-viewer:-webkit-full-screen {
+  width: 100vw;
+  height: 100vh;
+}
+
+.varoom-video-viewer-track {
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scroll-snap-type: y mandatory;
+  scrollbar-width: none;
+}
+
+.varoom-video-viewer-track::-webkit-scrollbar {
+  display: none;
+}
+
+.varoom-video-viewer-slide {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+
+.varoom-video-viewer-slide .varoom-video-player {
+  width: 100%;
+  height: 100%;
+}
+
+.varoom-video-viewer-slide .varoom-video-player > video {
+  object-fit: cover;
+}
+
+.varoom-video-viewer-close {
+  position: absolute;
+  top: max(.8rem, env(safe-area-inset-top));
+  right: max(.8rem, env(safe-area-inset-right));
+  z-index: 3;
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 50%;
+  color: #fff;
+  background: rgba(0, 0, 0, .5);
+  font-size: 1.8rem;
+  line-height: 1;
+}
+
 .varoom-video-player:fullscreen {
   width: 100vw;
   height: 100vh;
@@ -73,9 +130,18 @@
 .varoom-video-player.is-ended .varoom-video-controls,
 .varoom-video-player.is-error .varoom-video-controls,
 .varoom-video-player:fullscreen .varoom-video-controls,
-.varoom-video-player.is-fullscreen .varoom-video-controls {
+.varoom-video-player.controls-visible .varoom-video-controls {
   opacity: 1;
   pointer-events: auto;
+}
+
+.varoom-video-viewer .varoom-video-player:not(.is-fullscreen) .varoom-video-controls {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.varoom-video-viewer .varoom-video-player:not(.is-fullscreen) .varoom-video-mobile-mute {
+  display: none;
 }
 
 .varoom-video-time {
@@ -218,12 +284,15 @@
 
   .varoom-video-player:fullscreen .varoom-video-controls,
   .varoom-video-player:-webkit-full-screen .varoom-video-controls,
-  .varoom-video-player.is-fullscreen .varoom-video-controls,
   .varoom-video-player.controls-visible .varoom-video-controls,
   .varoom-video-player.is-ended .varoom-video-controls,
   .varoom-video-player.is-error .varoom-video-controls {
     opacity: 1;
     pointer-events: auto;
+  }
+
+  .varoom-video-viewer .varoom-video-player.is-fullscreen .varoom-video-controls {
+    display: flex;
   }
 
   .varoom-video-player:not(:fullscreen):not(:-webkit-full-screen):not(.is-fullscreen) .varoom-video-controls {
