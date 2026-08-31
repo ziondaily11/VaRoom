@@ -102,6 +102,7 @@
     wrapper.appendChild(video);
     wrapper.insertAdjacentHTML('beforeend',
       '<div class="varoom-video-status" role="status"><span class="varoom-video-status-text"></span><br><button type="button" class="varoom-video-error-retry">Retry</button></div>' +
+      '<button type="button" class="varoom-video-control varoom-video-mobile-mute" data-video-action="mobile-mute" aria-label="Unmute video"></button>' +
       '<div class="varoom-video-controls" aria-label="Video controls">' +
         '<button type="button" class="varoom-video-control" data-video-action="play" aria-label="Play video"></button>' +
         '<input class="varoom-video-progress" type="range" min="0" max="100" value="0" step="0.1" aria-label="Video progress">' +
@@ -112,6 +113,7 @@
 
     var playButton = wrapper.querySelector('[data-video-action="play"]');
     var muteButton = wrapper.querySelector('[data-video-action="mute"]');
+    var mobileMuteButton = wrapper.querySelector('[data-video-action="mobile-mute"]');
     var fullscreenButton = wrapper.querySelector('[data-video-action="fullscreen"]');
     var progress = wrapper.querySelector('.varoom-video-progress');
     var timeLabel = wrapper.querySelector('.varoom-video-time');
@@ -121,9 +123,19 @@
       return Math.floor(seconds / 60) + ':' + String(Math.floor(seconds % 60)).padStart(2, '0');
     }
 
+    function updateProgress(value) {
+      var percent = Math.max(0, Math.min(100, Number(value) || 0));
+      progress.value = String(percent);
+      progress.style.setProperty('--video-progress', percent + '%');
+    }
+
     function updateMuteButton() {
-      muteButton.innerHTML = icon(video.muted ? 'muted' : 'volume');
-      muteButton.setAttribute('aria-label', video.muted ? 'Unmute video' : 'Mute video');
+      var label = video.muted ? 'Unmute video' : 'Mute video';
+      var markup = icon(video.muted ? 'muted' : 'volume');
+      muteButton.innerHTML = markup;
+      muteButton.setAttribute('aria-label', label);
+      mobileMuteButton.innerHTML = markup;
+      mobileMuteButton.setAttribute('aria-label', label);
     }
 
     function play() {
@@ -162,6 +174,12 @@
       updateMuteButton();
       showControls(wrapper);
     });
+    mobileMuteButton.addEventListener('click', function (event) {
+      event.stopPropagation();
+      video.muted = !video.muted;
+      sessionStorage.setItem(MUTE_KEY, String(video.muted));
+      updateMuteButton();
+    });
     fullscreenButton.addEventListener('click', function (event) {
       event.stopPropagation();
       requestFullscreen(wrapper, video);
@@ -176,6 +194,7 @@
     progress.addEventListener('input', function () {
       if (Number.isFinite(video.duration) && video.duration > 0) {
         video.currentTime = (Number(progress.value) / 100) * video.duration;
+        updateProgress(progress.value);
       }
     });
     wrapper.addEventListener('pointerdown', function () {
@@ -195,12 +214,12 @@
     });
     video.addEventListener('timeupdate', function () {
       if (Number.isFinite(video.duration) && video.duration > 0) {
-        progress.value = String((video.currentTime / video.duration) * 100);
+        updateProgress((video.currentTime / video.duration) * 100);
         timeLabel.textContent = formatTime(video.currentTime) + ' / ' + formatTime(video.duration);
       }
     });
     video.addEventListener('loadedmetadata', function () {
-      progress.value = '0';
+      updateProgress(0);
       timeLabel.textContent = '0:00 / ' + formatTime(video.duration);
       setStatus(wrapper, '', false);
     });
