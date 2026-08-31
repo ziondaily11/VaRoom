@@ -94,12 +94,18 @@ router.post('/properties/:propertyId/videos/upload-init', async (req, res) => {
     }
 
     const propertyId = req.params.propertyId;
-    const { filename, mimeType, fileSize } = req.body;
+    const { filename, mimeType, fileSize, durationSeconds } = req.body;
 
     // Step 2: Validate input
     if (!filename || !mimeType || typeof fileSize !== 'number') {
       return res.status(400).json({
         error: 'Missing or invalid request parameters (filename, mimeType, fileSize required)',
+      });
+    }
+
+    if (durationSeconds !== undefined && (typeof durationSeconds !== 'number' || !Number.isFinite(durationSeconds))) {
+      return res.status(400).json({
+        error: 'durationSeconds must be a number when provided',
       });
     }
 
@@ -133,7 +139,8 @@ router.post('/properties/:propertyId/videos/upload-init', async (req, res) => {
     const { valid, error: validationError } = videoEntitlement.validateVideoFile(
       filename,
       mimeType,
-      fileSize
+      fileSize,
+      durationSeconds
     );
 
     if (!valid) {
