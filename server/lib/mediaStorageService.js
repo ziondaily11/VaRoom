@@ -3,25 +3,63 @@
  *
  * Abstracts media storage operations (R2 for videos, Supabase Storage for photos).
  * Centralizes credentials, URL generation, and provider-specific logic.
- * This allows future provider changes without rewriting upload/download code.
+ *
+ * R2 is S3-compatible, so we use the AWS SDK v3 to properly sign every
+ * request (uploads, playback, existence checks, deletes). Cloudflare R2
+ * rejects unsigned requests on private buckets, which is why the previous
+ * version of this file (plain fetch calls, unsigned URLs) never worked.
+ *
+ * Install first:
+ *   npm install @aws-sdk/client-s3 @aws-sdk/s3-request-presigner
  */
 
 require('dotenv').config();
 const supabase = require('./supabaseClient');
+const {
+  S3Client,
+  PutObjectCommand,
+  HeadObjectCommand,
+  GetObjectCommand,
+  DeleteObjectCommand,
+} = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
 const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID;
 const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME;
 const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID;
 const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY;
-const R2_ENDPOINT = process.env.R2_ENDPOINT;
+const R2_ENDPOINT = process.env.R2_ENDPOINT; // e.g. https://<account_id>.r2.cloudflarestorage.com
 const ENVIRONMENT = process.env.NODE_ENV || 'development';
 
-// Validate R2 configuration
-if (!R2_ACCOUNT_ID || !R2_BUCKET_NAME || !R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY || !R2_ENDPOINT) {
+const R2_CONFIGURED = Boolean(
+  R2_ACCOUNT_ID && R2_BUCKET_NAME && R2_ACCESS_KEY_ID && R2_SECRET_ACCESS_KEY && R2_ENDPOINT
+);
+
+if (!R2_CONFIGURED) {
   console.warn(
     'WARNING: R2 credentials incomplete. Video upload will not work. ' +
     'Ensure R2_ACCOUNT_ID, R2_BUCKET_NAME, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, and R2_ENDPOINT are set.'
   );
+}
+
+// Single shared S3 client configured for R2's S3-compatible endpoint.
+// region is required by the SDK but ignored by R2 — 'auto' is the
+// conventional value Cloudflare's own docs use.
+const s3Client = R2_CONFIGURED
+  ? new S3Client({
+      region: 'auto',
+      endpoint: R2_ENDPOINT,
+      credentials: {
+        accessKeyId: R2_ACCESS_KEY_ID,
+        secretAccessKey: R2_SECRET_ACCESS_KEY,
+      },
+    })
+  : null;
+
+function assertConfigured() {
+  if (!R2_CONFIGURED || !s3Client) {
+    throw new Error('R2 credentials not configured');
+  }
 }
 
 /**
@@ -41,88 +79,84 @@ function generateR2ObjectKey(hostId, propertyId, mediaId, extension) {
 }
 
 /**
- * Generate a short-lived signed URL for R2 upload
- * Uses AWS Signature Version 4 (R2 compatible)
+ * Generate a short-lived signed PUT URL for uploading directly to R2.
+ *
+ * The frontend uploads the raw file bytes with:
+ *   fetch(uploadUrl, { method: 'PUT', headers: { 'Content-Type': contentType }, body: file })
+ *
+ * No access keys ever reach the browser — only this single-use, expiring URL.
  */
-function generateR2UploadAuthorization(objectKey, contentType, maxFileSize) {
-  if (!R2_ENDPOINT || !R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY) {
-    throw new Error('R2 credentials not configured');
-  }
+async function generateR2UploadAuthorization(objectKey, contentType, maxFileSize) {
+  assertConfigured();
 
-  // For now, return the necessary parameters for client to generate a signed request
-  // or use presigned POST. In production, consider using S3 SDK for better signing.
+  const command = new PutObjectCommand({
+    Bucket: R2_BUCKET_NAME,
+    Key: objectKey,
+    ContentType: contentType || 'video/mp4',
+  });
+
+  const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 30 * 60 }); // 30 min
+
   return {
+    uploadUrl,
     endpoint: R2_ENDPOINT,
     bucketName: R2_BUCKET_NAME,
-    accessKeyId: R2_ACCESS_KEY_ID,
-    objectKey: objectKey,
+    objectKey,
     contentType: contentType || 'video/mp4',
     maxFileSize: maxFileSize || 500 * 1024 * 1024, // 500MB default
-    // In a real implementation, sign this with AWS Signature V4
-    // For now, the frontend will use presigned POST or multipart upload
+    expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
   };
 }
 
 /**
- * Generate a short-lived signed URL for R2 playback
- * Returns a URL valid for a limited time (default 1 hour)
+ * Generate a short-lived signed GET URL for video playback.
  */
 async function generateR2PlaybackUrl(objectKey, expiresInSeconds = 3600) {
-  if (!R2_ENDPOINT || !R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY) {
-    throw new Error('R2 credentials not configured');
-  }
+  assertConfigured();
 
-  // Construct a simple signed URL (full implementation would use AWS SDK)
-  // For now, return a basic URL that would need to be signed server-side
-  // In production, use AWS SDK to generate presigned GET URL
-  const url = `${R2_ENDPOINT}/${R2_BUCKET_NAME}/${objectKey}`;
-  
-  // TODO: Implement proper AWS Signature V4 signing for controlled access
-  // For MVP, R2 bucket should have restricted access policy that requires auth
+  const command = new GetObjectCommand({
+    Bucket: R2_BUCKET_NAME,
+    Key: objectKey,
+  });
+
+  const url = await getSignedUrl(s3Client, command, { expiresIn: expiresInSeconds });
+
   return {
-    url: url,
+    url,
     expiresAt: new Date(Date.now() + expiresInSeconds * 1000),
   };
 }
 
 /**
- * Verify that an object exists in R2
- * Used during upload completion to confirm the file was actually uploaded
+ * Verify that an object exists in R2 (signed HEAD request).
+ * Used during upload completion to confirm the file was actually uploaded.
  */
 async function verifyR2ObjectExists(objectKey) {
-  if (!R2_ENDPOINT || !R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY) {
-    throw new Error('R2 credentials not configured');
-  }
+  assertConfigured();
 
   try {
-    const response = await fetch(`${R2_ENDPOINT}/${R2_BUCKET_NAME}/${objectKey}`, {
-      method: 'HEAD',
-    });
-    return response.ok;
+    await s3Client.send(new HeadObjectCommand({ Bucket: R2_BUCKET_NAME, Key: objectKey }));
+    return true;
   } catch (error) {
+    // HeadObject throws (404-equivalent) when the object doesn't exist —
+    // that's an expected "not found", not a real error, so don't log it as one.
+    if (error.$metadata && error.$metadata.httpStatusCode === 404) {
+      return false;
+    }
     console.error('Error verifying R2 object:', error);
     return false;
   }
 }
 
 /**
- * Delete an object from R2
- * Called when a user deletes a video or cleanup is needed
+ * Delete an object from R2 (signed DELETE request).
+ * Called when a user deletes a video or cleanup is needed.
  */
 async function deleteR2Object(objectKey) {
-  if (!R2_ENDPOINT || !R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY) {
-    throw new Error('R2 credentials not configured');
-  }
+  assertConfigured();
 
   try {
-    const response = await fetch(`${R2_ENDPOINT}/${R2_BUCKET_NAME}/${objectKey}`, {
-      method: 'DELETE',
-    });
-    
-    if (!response.ok) {
-      throw new Error(`R2 deletion failed: ${response.statusText}`);
-    }
-    
+    await s3Client.send(new DeleteObjectCommand({ Bucket: R2_BUCKET_NAME, Key: objectKey }));
     return { success: true };
   } catch (error) {
     console.error('Error deleting R2 object:', error);
