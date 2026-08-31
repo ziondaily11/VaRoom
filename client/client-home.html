@@ -525,6 +525,11 @@
     .card-photos{ gap:.3rem; }
     .card-photos img{ height:clamp(220px, 52vw, 460px); }
     .card-photos.single img{ height:clamp(250px, 60vw, 520px); }
+    .media-carousel{ margin-bottom:.55rem; }
+    .media-slide img{ height:clamp(220px, 52vw, 460px); }
+    .media-carousel.single-media .media-slide img{ height:clamp(250px, 60vw, 520px); }
+    .media-index-pill{ top:.55rem; right:.55rem; font-size:.66rem; }
+    .media-dots{ padding-top:.4rem; }
 
     .bottom-bar{
       display:flex; align-items:center; justify-content:space-around;
@@ -664,7 +669,9 @@
   <div class="main-col">
     <header class="topbar">
       <button type="button" class="topbar-avatar-btn" id="topbar-avatar-btn" aria-label="Open menu">
-        <div class="avatar-circle" id="user-avatar">·</div>
+        <div class="avatar-circle" id="user-avatar" aria-hidden="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+        </div>
       </button>
       <div class="search-wrap">
         <button type="button" class="search-btn" id="search-btn" aria-label="Search">
