@@ -947,7 +947,7 @@
 
       let photosHtml = '';
       if (videoUrl) {
-        photosHtml = '<div class="card-video single"><video muted playsinline preload="none" src="' + videoUrl + '" data-listing-id="' + listing.id + '"></video></div>';
+        photosHtml = '<div class="card-video single"><video muted playsinline preload="none" src="' + videoUrl + '" data-listing-id="' + listing.id + '" data-video-host-name="' + escapeHtml(host.full_name || 'Host') + '" data-video-username="' + escapeHtml(host.username ? '@' + host.username : '') + '" data-video-avatar="' + escapeHtml(hostAvatarUrl || '') + '" data-video-caption="' + escapeHtml(listing.description || listing.title) + '"></video></div>';
       } else if (photos.length === 0) {
         photosHtml = '<div class="card-photos"><div class="photo-placeholder">' + categoryLabel(listing.category) + ' — photos coming soon</div></div>';
       } else if (photos.length === 1) {

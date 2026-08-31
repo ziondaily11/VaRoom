@@ -1035,10 +1035,19 @@
     return supabaseClient.storage.from('listing-photos').getPublicUrl(path).data.publicUrl;
   }
 
+  function escapeAttr(value){
+    const div = document.createElement('div');
+    div.textContent = value || '';
+    return div.innerHTML;
+  }
+
   function getListingMediaMarkup(listing){
     const videoUrl = listingVideoUrls[listing.id];
     if (videoUrl) {
-      return '<div class="listing-thumb"><video muted playsinline preload="none" src="' + videoUrl + '" style="width:100%;height:100%;object-fit:cover;display:block;background:#000;"></video><span class="listing-cat-pill">' + (CAT_LABELS[listing.category] || listing.category) + '</span></div>';
+      const avatarUrl = profileData.avatar_url
+        ? (profileData.avatar_url.startsWith('http') ? profileData.avatar_url : supabaseClient.storage.from('avatars').getPublicUrl(profileData.avatar_url).data.publicUrl)
+        : '';
+      return '<div class="listing-thumb"><video muted playsinline preload="none" src="' + videoUrl + '" data-video-host-name="' + escapeAttr(profileData.full_name || 'Host') + '" data-video-username="' + escapeAttr(profileData.username ? '@' + profileData.username : '') + '" data-video-avatar="' + escapeAttr(avatarUrl) + '" data-video-caption="' + escapeAttr(listing.title) + '" style="width:100%;height:100%;object-fit:cover;display:block;background:#000;"></video><span class="listing-cat-pill">' + (CAT_LABELS[listing.category] || listing.category) + '</span></div>';
     }
     const photoUrl = getPhotoUrl(listing);
     const thumb = photoUrl ? '<img src="' + photoUrl + '" alt="' + listing.title + '" loading="lazy">' : '';
