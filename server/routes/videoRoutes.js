@@ -493,13 +493,13 @@ router.get('/properties/:propertyId/media', async (req, res) => {
       .single();
 
     if (listingError || !listing) {
-      return res.status(404).json({ error: 'Property not found' });
+      return res.status(200).json({ media: [] });
     }
 
     // Step 2: Check authorization (public only, or owner, or authorized guest)
     // For MVP, just check if published or user is owner
     if (listing.status !== 'published' && listing.host_id !== userId) {
-      return res.status(403).json({ error: 'Not authorized to view this property' });
+      return res.status(200).json({ media: [] });
     }
 
     // Step 3: Fetch media sorted by order

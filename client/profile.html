@@ -956,7 +956,7 @@
   /* ── Fetch and render listings ── */
   const { data: listings, error: listingsError } = await supabaseClient
     .from('listings')
-    .select('id, title, category, location_text, created_at, listing_photos(storage_path), listing_booking_details(price_amount, price_unit)')
+    .select('id, status, title, category, location_text, created_at, listing_photos(storage_path), listing_booking_details(price_amount, price_unit)')
     .eq('host_id', profileData.id)
     .order('created_at', { ascending: false });
 
@@ -973,16 +973,28 @@
 
   const CAT_LABELS = { airbnb:'Airbnb', hotel:'Hotel', venue:'Event Venue', office:'Office', shop:'Shop', property:'Property' };
   const listingVideoUrls = {};
+  async function getAuthToken(){
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    return session && session.access_token ? session.access_token : null;
+  }
+  const authToken = await getAuthToken();
   for (const listing of (listings || [])) {
     try {
-      const token = localStorage.getItem('sb-access-token') || sessionStorage.getItem('sb-access-token');
-      if (!token) {
+      if (listing.status && listing.status !== 'published' && !isOwner) {
+        listingVideoUrls[listing.id] = null;
+        continue;
+      }
+      if (!authToken) {
         listingVideoUrls[listing.id] = null;
         continue;
       }
       const mediaResponse = await fetch('/api/properties/' + encodeURIComponent(listing.id) + '/media', {
-        headers: { Authorization: 'Bearer ' + token }
+        headers: { Authorization: 'Bearer ' + authToken }
       });
+      if (mediaResponse.status === 403 || mediaResponse.status === 404) {
+        listingVideoUrls[listing.id] = null;
+        continue;
+      }
       if (!mediaResponse.ok) {
         listingVideoUrls[listing.id] = null;
         continue;
@@ -995,12 +1007,15 @@
         continue;
       }
       const playbackResponse = await fetch('/api/media/' + encodeURIComponent(videoItem.id) + '/playback', {
-        headers: { Authorization: 'Bearer ' + token }
+        headers: { Authorization: 'Bearer ' + authToken }
       });
+      if (playbackResponse.status === 403 || playbackResponse.status === 404) {
+        listingVideoUrls[listing.id] = null;
+        continue;
+      }
       const playbackPayload = playbackResponse.ok ? await playbackResponse.json() : null;
       listingVideoUrls[listing.id] = playbackPayload && playbackPayload.url ? playbackPayload.url : null;
     } catch (error) {
-      console.warn('Could not load listing video', listing.id, error);
       listingVideoUrls[listing.id] = null;
     }
   }

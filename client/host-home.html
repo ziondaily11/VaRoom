@@ -1370,13 +1370,16 @@
       return supabaseClient.storage.from('avatars').getPublicUrl(avatarValue).data.publicUrl;
     }
 
-    async function getListingVideoUrl(listingId){
-      const token = localStorage.getItem('sb-access-token') || sessionStorage.getItem('sb-access-token');
+    async function getListingVideoUrl(listingId, listingStatus){
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      const token = session && session.access_token ? session.access_token : null;
       if (!token) return null;
+      if (listingStatus && listingStatus !== 'published') return null;
       try {
         const response = await fetch('/api/properties/' + encodeURIComponent(listingId) + '/media', {
           headers: { Authorization: 'Bearer ' + token }
         });
+        if (response.status === 403 || response.status === 404) return null;
         if (!response.ok) return null;
         const payload = await response.json();
         const media = Array.isArray(payload.media) ? payload.media : [];
@@ -1385,11 +1388,11 @@
         const playbackRes = await fetch('/api/media/' + encodeURIComponent(videoItem.id) + '/playback', {
           headers: { Authorization: 'Bearer ' + token }
         });
+        if (playbackRes.status === 403 || playbackRes.status === 404) return null;
         if (!playbackRes.ok) return null;
         const playback = await playbackRes.json();
         return playback && playback.url ? playback.url : null;
       } catch (error) {
-        console.warn('Could not load video for listing', listingId, error);
         return null;
       }
     }
@@ -1545,7 +1548,7 @@
       );
     }
 
-    const FEED_SELECT = 'id,title,description,location_text,category,verified,created_at,host_id,host:profiles(full_name,verified,avatar_url,username),listing_photos(storage_path)';
+    const FEED_SELECT = 'id,status,title,description,location_text,category,verified,created_at,host_id,host:profiles(full_name,verified,avatar_url,username),listing_photos(storage_path)';
 
     async function startChat(listingId, hostId){
       const { data, error } = await supabaseClient
@@ -1744,7 +1747,7 @@
       }
 
       for (const listing of data) {
-        listingVideoUrls[listing.id] = await getListingVideoUrl(listing.id);
+        listingVideoUrls[listing.id] = await getListingVideoUrl(listing.id, listing.status);
       }
 
       const cardsHtml = data.map(renderCard);
