@@ -473,6 +473,33 @@
   .card-photos img{ width:100%; height:clamp(220px, 30vw, 420px); object-fit:cover; display:block; }
   .card-photos.single{ grid-template-columns:1fr; }
   .card-photos.single img{ height:clamp(260px, 42vw, 540px); }
+  .media-carousel{
+    position:relative; overflow:hidden; border-radius:12px; margin-bottom:.75rem; background:#000;
+    touch-action:pan-y; user-select:none; -webkit-user-select:none;
+  }
+  .media-carousel.single-media{ border-radius:12px; }
+  .media-slide-track{
+    display:flex; width:100%; transition:transform .28s ease;
+    will-change:transform;
+  }
+  .media-slide{ flex:0 0 100%; width:100%; }
+  .media-slide img{ display:block; width:100%; height:clamp(220px, 30vw, 420px); object-fit:cover; }
+  .media-carousel.single-media .media-slide img{ height:clamp(260px, 42vw, 540px); }
+  .media-index-pill{
+    position:absolute; top:.7rem; right:.7rem; z-index:2;
+    border-radius:999px; padding:.28rem .6rem; background:rgba(26,18,16,.52);
+    color:#fff; font-size:.72rem; font-weight:700; line-height:1;
+    backdrop-filter:blur(6px);
+  }
+  .media-dots{
+    display:flex; justify-content:center; align-items:center; gap:.38rem;
+    padding:.45rem 0 0; min-height:16px;
+  }
+  .media-dot{
+    width:6px; height:6px; border-radius:50%; background:rgba(26,18,16,.25);
+    transition:all .2s ease; display:inline-block;
+  }
+  .media-dot.active{ background:var(--red); transform:scale(1.2); }
   .card-video{ position:relative; border-radius:12px; overflow:hidden; margin-bottom:.75rem; background:#000; }
   .card-video video{ display:block; width:100%; height:clamp(220px, 30vw, 420px); object-fit:cover; background:#000; }
   .card-video.single video{ height:clamp(260px, 42vw, 540px); }
@@ -526,6 +553,11 @@
     .card-photos{ gap:.3rem; }
     .card-photos img{ height:clamp(220px, 52vw, 460px); }
     .card-photos.single img{ height:clamp(250px, 60vw, 520px); }
+    .media-carousel{ margin-bottom:.55rem; }
+    .media-slide img{ height:clamp(220px, 52vw, 460px); }
+    .media-carousel.single-media .media-slide img{ height:clamp(250px, 60vw, 520px); }
+    .media-index-pill{ top:.55rem; right:.55rem; font-size:.66rem; }
+    .media-dots{ padding-top:.4rem; }
 
     body{ height:auto; overflow-y:visible; overflow-x:hidden; }
     .app-shell{ height:auto; overflow-y:visible; overflow-x:hidden; }
@@ -1504,11 +1536,20 @@
         photosHtml = '<div class="card-video single"><video muted playsinline loop preload="metadata" src="' + videoUrl + '" data-listing-id="' + listing.id + '"></video></div>';
       } else if (photos.length === 0) {
         photosHtml = '<div class="card-photos"><div class="photo-placeholder">' + categoryLabel(listing.category) + ' — photos coming soon</div></div>';
+      } else if (photos.length === 1) {
+        photosHtml = '<div class="media-carousel single-media" data-listing-id="' + listing.id + '" data-photo-count="1">'
+          + '<div class="media-slide-track">'
+          + '<div class="media-slide"><img src="' + photos[0] + '" alt="' + escapeHtml(listing.title) + '" loading="lazy" data-listing-id="' + listing.id + '" data-photo-index="0"></div>'
+          + '</div>'
+          + '</div>';
       } else {
-        const cls = photos.length === 1 ? 'card-photos single' : 'card-photos';
-        photosHtml = '<div class="' + cls + '">' + photos.slice(0, 2).map(function(url){
-          return '<img src="' + url + '" alt="' + escapeHtml(listing.title) + '" loading="lazy">';
-        }).join('') + '</div>';
+        photosHtml = '<div class="media-carousel" data-listing-id="' + listing.id + '" data-photo-count="' + photos.length + '">'
+          + '<div class="media-index-pill">1/' + photos.length + '</div>'
+          + '<div class="media-slide-track">' + photos.map(function(url, i){
+              return '<div class="media-slide"><img src="' + url + '" alt="' + escapeHtml(listing.title) + '" loading="lazy" data-listing-id="' + listing.id + '" data-photo-index="' + i + '"></div>';
+            }).join('') + '</div>'
+          + '<div class="media-dots">' + photos.map(function(_, i){ return '<span class="media-dot ' + (i === 0 ? 'active' : '') + '" data-index="' + i + '"></span>'; }).join('') + '</div>'
+          + '</div>';
       }
 
       return (
@@ -1568,6 +1609,22 @@
       window.location.href = 'chats.html?c=' + data.id;
     }
 
+    function applyCarouselState(carousel, activeIndex){
+      const track = carousel.querySelector('.media-slide-track');
+      if (!track) return;
+      const count = carousel.getAttribute('data-photo-count') ? parseInt(carousel.getAttribute('data-photo-count'), 10) : 0;
+      if (!count) return;
+      track.style.transform = 'translateX(' + (-(activeIndex * 100)) + '%)';
+      const dots = carousel.querySelectorAll('.media-dot');
+      dots.forEach(function(dot, idx){
+        dot.classList.toggle('active', idx === activeIndex);
+      });
+      const pill = carousel.querySelector('.media-index-pill');
+      if (pill) {
+        pill.textContent = (activeIndex + 1) + '/' + count;
+      }
+    }
+
     function attachCardListeners(container){
       container.querySelectorAll('.bookmark-btn').forEach(function(btn){
         btn.addEventListener('click', async function(){
@@ -1579,6 +1636,70 @@
       container.querySelectorAll('.chat-btn').forEach(function(btn){
         btn.addEventListener('click', function(){
           startChat(btn.getAttribute('data-listing-id'), btn.getAttribute('data-host-id'));
+        });
+      });
+      container.querySelectorAll('.media-carousel').forEach(function(carousel){
+        const count = parseInt(carousel.getAttribute('data-photo-count') || '0', 10);
+        if (count <= 1) return;
+        let activeIndex = 0;
+        let startX = 0;
+        let currentX = 0;
+        let dragging = false;
+
+        function updateIndex(nextIndex){
+          activeIndex = Math.max(0, Math.min(count - 1, nextIndex));
+          applyCarouselState(carousel, activeIndex);
+        }
+
+        carousel.addEventListener('pointerdown', function(e){
+          dragging = true;
+          startX = e.clientX;
+          currentX = e.clientX;
+          const track = carousel.querySelector('.media-slide-track');
+          if (track) track.style.transition = 'none';
+          carousel.setPointerCapture(e.pointerId);
+          carousel.style.cursor = 'grabbing';
+        });
+
+        carousel.addEventListener('pointermove', function(e){
+          if (!dragging) return;
+          currentX = e.clientX;
+          const delta = currentX - startX;
+          const track = carousel.querySelector('.media-slide-track');
+          if (!track) return;
+          if (Math.abs(delta) > 6) {
+            track.style.transform = 'translateX(' + (-(activeIndex * 100) + (delta / carousel.clientWidth) * 100) + '%)';
+          }
+        });
+
+        carousel.addEventListener('pointerup', function(e){
+          if (!dragging) return;
+          dragging = false;
+          carousel.style.cursor = '';
+          const track = carousel.querySelector('.media-slide-track');
+          if (track) track.style.transition = '';
+          const delta = currentX - startX;
+          if (Math.abs(delta) > 40) {
+            updateIndex(activeIndex + (delta < 0 ? 1 : -1));
+          } else {
+            applyCarouselState(carousel, activeIndex);
+          }
+          try { carousel.releasePointerCapture(e.pointerId); } catch (error) {}
+        });
+
+        carousel.addEventListener('pointerleave', function(){
+          if (!dragging) return;
+          dragging = false;
+          carousel.style.cursor = '';
+          const track = carousel.querySelector('.media-slide-track');
+          if (track) track.style.transition = '';
+          applyCarouselState(carousel, activeIndex);
+        });
+
+        carousel.addEventListener('click', function(e){
+          if (e.target && e.target.classList && e.target.classList.contains('media-dot')) {
+            updateIndex(parseInt(e.target.getAttribute('data-index'), 10));
+          }
         });
       });
       container.querySelectorAll('[data-upload-listing-id]').forEach(function(input){
