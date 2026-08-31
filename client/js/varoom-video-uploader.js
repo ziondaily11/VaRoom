@@ -9,7 +9,7 @@ class VaRoomVideoUploader {
   constructor(containerId, options = {}) {
     this.container = document.getElementById(containerId);
     this.options = {
-      maxFileSize: 500 * 1024 * 1024, // 500MB
+      maxDurationSeconds: 90,
       allowedMimeTypes: ['video/mp4', 'video/quicktime'],
       onProgress: options.onProgress || (() => {}),
       onSuccess: options.onSuccess || (() => {}),
@@ -40,7 +40,7 @@ class VaRoomVideoUploader {
           >
             + Add Video
           </button>
-          <p class="video-hint">MP4 or MOV, up to ${this.options.maxFileSize / 1024 / 1024 | 0}MB</p>
+          <p class="video-hint">MP4 or MOV, up to ${this.options.maxDurationSeconds}s</p>
         </div>
         <div id="video-uploads-list" class="video-uploads-list"></div>
       </div>
@@ -68,19 +68,29 @@ class VaRoomVideoUploader {
   }
 
   async startUpload(file) {
-    // Validation
-    if (file.size > this.options.maxFileSize) {
-      this.options.onError({
-        fileName: file.name,
-        error: `File exceeds maximum size of ${this.options.maxFileSize / 1024 / 1024 | 0}MB`,
-      });
-      return;
-    }
-
     if (!this.options.allowedMimeTypes.includes(file.type)) {
       this.options.onError({
         fileName: file.name,
         error: `Format not supported. Please use MP4 or MOV.`,
+      });
+      return;
+    }
+
+    let durationSeconds = null;
+    try {
+      durationSeconds = await this.getVideoDuration(file);
+    } catch (error) {
+      this.options.onError({
+        fileName: file.name,
+        error: 'Could not read video length. Please try another MP4 or MOV file.',
+      });
+      return;
+    }
+
+    if (durationSeconds > this.options.maxDurationSeconds) {
+      this.options.onError({
+        fileName: file.name,
+        error: `Video must be ${this.options.maxDurationSeconds} seconds or less.`,
       });
       return;
     }
@@ -102,7 +112,7 @@ class VaRoomVideoUploader {
 
     try {
       // Step 1: Request upload authorization from backend
-      const initResponse = await this.requestUploadInit(file.name, file.type, file.size);
+      const initResponse = await this.requestUploadInit(file.name, file.type, file.size, durationSeconds);
 
       if (!initResponse.success) {
         throw new Error(initResponse.error || 'Upload initialization failed');
@@ -151,7 +161,24 @@ class VaRoomVideoUploader {
     }
   }
 
-  async requestUploadInit(fileName, mimeType, fileSize) {
+  getVideoDuration(file) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const video = document.createElement('video');
+      video.preload = 'metadata';
+      video.onloadedmetadata = () => {
+        URL.revokeObjectURL(url);
+        resolve(video.duration);
+      };
+      video.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error('Unable to read video duration'));
+      };
+      video.src = url;
+    });
+  }
+
+  async requestUploadInit(fileName, mimeType, fileSize, durationSeconds) {
     const response = await fetch(
       `/api/properties/${this.options.propertyId}/videos/upload-init`,
       {
@@ -164,6 +191,7 @@ class VaRoomVideoUploader {
           filename: fileName,
           mimeType: mimeType,
           fileSize: fileSize,
+          durationSeconds: durationSeconds,
         }),
       }
     );

@@ -894,14 +894,20 @@
     const ICON_BOOKMARK_OUTLINE = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h12a1 1 0 0 1 1 1V21l-7-4-7 4V4.5a1 1 0 0 1 1-1Z"/></svg>';
     const ICON_BOOKMARK_FILLED = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h12a1 1 0 0 1 1 1V21l-7-4-7 4V4.5a1 1 0 0 1 1-1Z"/></svg>';
 
+    async function getAuthToken(){
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      return session && session.access_token ? session.access_token : null;
+    }
+
     async function loadListingVideoUrls(listingIds){
       if (!listingIds.length) return;
-      const token = localStorage.getItem('sb-access-token') || sessionStorage.getItem('sb-access-token');
+      const token = await getAuthToken();
       for (const listingId of listingIds) {
         try {
           const response = await fetch('/api/properties/' + encodeURIComponent(listingId) + '/media', {
             headers: token ? { Authorization: 'Bearer ' + token } : {}
           });
+          if (response.status === 403 || response.status === 404) continue;
           if (!response.ok) continue;
           const payload = await response.json();
           const media = Array.isArray(payload.media) ? payload.media : [];
@@ -911,13 +917,14 @@
           const playbackRes = await fetch('/api/media/' + encodeURIComponent(mediaId) + '/playback', {
             headers: token ? { Authorization: 'Bearer ' + token } : {}
           });
+          if (playbackRes.status === 403 || playbackRes.status === 404) continue;
           if (!playbackRes.ok) continue;
           const playback = await playbackRes.json();
           if (playback && playback.url) {
             videoUrlByListing[listingId] = playback.url;
           }
         } catch (error) {
-          console.warn('Could not load listing videos.', error);
+          // Ignore transient media-load failures for unavailable listings.
         }
       }
     }

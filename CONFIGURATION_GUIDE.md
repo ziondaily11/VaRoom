@@ -106,7 +106,7 @@ VIDEO_MAX_FILE_SIZE_MB=500
 VIDEO_MAX_COUNT_PER_PROPERTY=10
 
 # Maximum video duration (in seconds)
-VIDEO_MAX_DURATION_SECONDS=3600
+VIDEO_MAX_DURATION_SECONDS=90
 
 # Supported formats (comma-separated MIME types)
 VIDEO_ALLOWED_FORMATS=video/mp4,video/quicktime,video/webm
