@@ -240,14 +240,17 @@ class VaRoomVideoUploader {
         reject(new Error('Upload cancelled'));
       });
 
-      // Construct R2 upload URL and headers
-      const uploadUrl = `${auth.endpoint}/${auth.bucketName}/${auth.objectKey}`;
+      if (!auth.uploadUrl) {
+        reject(new Error('Upload authorization missing a signed upload URL'));
+        return;
+      }
+
+      // Use the exact presigned URL returned by the server. Reconstructing an
+      // R2 URL would drop the signature and fail against a private bucket.
+      const uploadUrl = auth.uploadUrl;
 
       xhr.open('PUT', uploadUrl, true);
-      xhr.setRequestHeader('Content-Type', auth.contentType);
-
-      // In production, add proper R2 authorization headers here
-      // For now, assuming bucket has appropriate CORS/auth policy
+      xhr.setRequestHeader('Content-Type', auth.contentType || file.type || 'video/mp4');
 
       xhr.send(file);
     });
