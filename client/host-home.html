@@ -1473,18 +1473,19 @@
         }
 
         const auth = initPayload.uploadAuthorization || {};
-        if (auth.endpoint && auth.objectKey) {
-          const uploadUrl = String(auth.endpoint).replace(/\/$/, '') + '/' + encodeURIComponent(auth.bucketName || '') + '/' + encodeURIComponent(auth.objectKey);
-          const uploadRes = await fetch(uploadUrl, {
+        if (auth.uploadUrl) {
+          const uploadRes = await fetch(auth.uploadUrl, {
             method: 'PUT',
             headers: {
-              'Content-Type': file.type || 'video/mp4'
+              'Content-Type': auth.contentType || file.type || 'video/mp4'
             },
             body: file
           });
           if (!uploadRes.ok) {
             throw new Error('Video upload to storage failed');
           }
+        } else {
+          throw new Error('Upload authorization missing a valid upload URL');
         }
 
         const completeRes = await fetch('/api/properties/' + encodeURIComponent(listingId) + '/videos/' + encodeURIComponent(initPayload.mediaId) + '/complete', {
