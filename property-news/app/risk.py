@@ -30,4 +30,12 @@ def assess_risk(text: str, regulatory_status: RegulatoryStatus, source_tier: int
 
 
 def allows_auto_publish(risk_level: RiskLevel, source_tier: int, confidence_score: float) -> bool:
-    return risk_level in {RiskLevel.LOW, RiskLevel.MEDIUM} and source_tier <= 2 and confidence_score >= 0.70
+    """Risk is impact, not truth. High-impact official and news stories may publish.
+
+    Critical (rumour/fraud/seizure language) still needs review, including from
+    tier-1 sources, because those claims can be ownership-sensitive even when the
+    rest of the article is genuine.
+    """
+    if source_tier > 2 or confidence_score < 0.70:
+        return False
+    return risk_level in {RiskLevel.LOW, RiskLevel.MEDIUM, RiskLevel.HIGH}

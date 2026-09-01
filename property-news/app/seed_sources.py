@@ -52,9 +52,10 @@ VERIFIED_SOURCES = [
         "fetch_method": "html",
         "schedule_minutes": 120,
         "parser_config": {
-            "discovery_url": "https://landcommission.go.ke",
-            "url_regex": r"^/[a-z-]+/?$",
-            "exclude_url_contains": ["/about", "/contact", "/downloads"],
+            "discovery_url": "https://landcommission.go.ke/news",
+            "url_regex": r"^/[a-z0-9]+(?:-[a-z0-9]+){2,}/?$",
+            "exclude_url_contains": ["/about", "/contact", "/downloads", "/milestones", "/news"],
+            "allowed_hosts": ["landcommission.go.ke", "www.landcommission.go.ke"],
             "max_articles": 15,
         },
     }

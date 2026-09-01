@@ -71,23 +71,16 @@ def create_app(config: Settings = settings, repository: Repository | None = None
     async def lifespan(app: FastAPI):
         app.state.services = services
         scheduler_task = None
-        if config.supabase_configured and config.enable_background_scheduler and config.environment not in {"test", "testing"}:
-            async def _background_scheduler():
-                await asyncio.sleep(4)
-                try:
-                    await seed_verified_sources(store, activate=True)
-                except Exception as err:
-                    logger.warning("Automated source seed notice: %s", err)
-                while True:
-                    try:
-                        if not collection_lock.locked():
-                            async with collection_lock:
-                                await run_collection_job(store, config, services.analyzer)
-                    except Exception as err:
-                        logger.warning("Automated collection run notice: %s", err)
-                    await asyncio.sleep(60 * 60)
 
-            scheduler_task = asyncio.create_task(_background_scheduler())
+        async def _seed_verified_sources():
+            await asyncio.sleep(4)
+            try:
+                await seed_verified_sources(store, activate=True)
+            except Exception as err:
+                logger.warning("Automated source seed notice: %s", err)
+
+        if config.supabase_configured and config.environment not in {"test", "testing"}:
+            scheduler_task = asyncio.create_task(_seed_verified_sources())
 
         yield
         if scheduler_task:
@@ -229,14 +222,26 @@ def create_app(config: Settings = settings, repository: Repository | None = None
     async def sources_health(service: ServiceContainer = Depends(container)):
         return await service.repository.source_health()
 
+    async def _run_locked_job(job):
+        try:
+            await asyncio.wait_for(collection_lock.acquire(), timeout=120)
+        except TimeoutError:
+            return {
+                "status": "already_running",
+                "sources_checked": 0, "candidates": 0, "new_items": 0, "duplicates": 0, "failures": 0,
+                "processed": 0, "published": 0, "pending_review": 0, "archived": 0,
+                "processing_failures": 0, "retried": 0,
+            }
+        try:
+            return await job()
+        finally:
+            collection_lock.release()
+
     @app.post("/api/internal/jobs/collect", dependencies=[Depends(require_scheduler)])
     async def collect_due_news(service: ServiceContainer = Depends(container)):
         if not config.supabase_configured:
             raise HTTPException(status_code=503, detail="Collection requires the server-side Supabase configuration.")
-        if collection_lock.locked():
-            raise HTTPException(status_code=409, detail="A collection run is already in progress.")
-        async with collection_lock:
-            return await run_collection_job(service.repository, config, service.analyzer)
+        return await _run_locked_job(lambda: run_collection_job(service.repository, config, service.analyzer))
 
     @app.post("/api/admin/jobs/reprocess-existing", dependencies=[Depends(require_admin)])
     async def reprocess_existing_news(limit: int = Query(default=20, ge=1, le=100), service: ServiceContainer = Depends(container)):
@@ -245,10 +250,7 @@ def create_app(config: Settings = settings, repository: Repository | None = None
         backlog in batches rather than one long-running request."""
         if not config.supabase_configured:
             raise HTTPException(status_code=503, detail="Reprocessing requires the server-side Supabase configuration.")
-        if collection_lock.locked():
-            raise HTTPException(status_code=409, detail="A collection run is already in progress.")
-        async with collection_lock:
-            return await run_reprocess_job(service.repository, config, service.analyzer, limit=limit)
+        return await _run_locked_job(lambda: run_reprocess_job(service.repository, config, service.analyzer, limit=limit))
 
     @app.post("/api/admin/news/archive-all-published", dependencies=[Depends(require_admin)])
     async def archive_all_published_news(service: ServiceContainer = Depends(container)):

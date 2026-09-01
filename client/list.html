@@ -395,10 +395,10 @@
 
           <div class="step-fields">
             <div class="field">
-              <p class="photo-hint">Up to 6 photos · JPG, PNG or WEBP · 5MB max each. Optional, but listings with photos get noticed more.</p>
+              <p class="photo-hint">Up to 6 photos or videos · JPG, PNG, WEBP, MP4, MOV or WEBM · 5MB max each. Optional, but listings with visuals get noticed more.</p>
               <label class="photo-dropzone" id="photo-dropzone" for="photo-input">
-                <span id="dropzone-text">Click to choose photos, or drag them here</span>
-                <input type="file" id="photo-input" accept="image/png,image/jpeg,image/webp" multiple>
+                <span id="dropzone-text">Click to choose photos or videos, or drag them here</span>
+                <input type="file" id="photo-input" accept="image/png,image/jpeg,image/webp,video/mp4,video/quicktime,video/webm" multiple>
               </label>
               <p class="photo-error" id="photo-error"></p>
               <div class="photo-preview-grid" id="photo-preview"></div>
@@ -811,21 +811,31 @@
 
     if (selectedFiles.length > 0) {
       thumbSlot.classList.remove('placeholder');
-      const coverUrl = URL.createObjectURL(selectedFiles[0]);
-      thumbSlot.innerHTML = '<img src="' + coverUrl + '" alt="Cover photo" style="width:100%;height:100%;object-fit:cover;border-radius:10px;">';
-      // Bigger view of the actual listing, using the host's own cover photo
-      // instead of stock mood photography, with real details floating on it.
-      heroPhoto.style.backgroundImage = "url('" + coverUrl + "')";
-      heroBadge.innerHTML = '<span class="check">✓</span> Your cover photo';
+      const coverFile = selectedFiles[0];
+      const coverUrl = URL.createObjectURL(coverFile);
+      const isVideo = coverFile.type && coverFile.type.startsWith('video/');
+
+      if (isVideo) {
+        thumbSlot.innerHTML = '<video src="' + coverUrl + '" autoplay muted loop playsinline style="width:100%;height:100%;object-fit:cover;border-radius:10px;display:block;"></video>';
+        heroPhoto.innerHTML = '<video src="' + coverUrl + '" autoplay muted loop playsinline style="width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block;"></video>';
+        heroPhoto.style.backgroundImage = 'none';
+      } else {
+        thumbSlot.innerHTML = '<img src="' + coverUrl + '" alt="Cover photo" style="width:100%;height:100%;object-fit:cover;border-radius:10px;">';
+        heroPhoto.innerHTML = '';
+        heroPhoto.style.backgroundImage = "url('" + coverUrl + "')";
+      }
+
+      heroBadge.innerHTML = '<span class="check">✓</span> Your cover ' + (isVideo ? 'video' : 'photo');
       heroTitle.textContent = title;
       heroSub.textContent = [CATEGORY_LABELS[category] || 'Listing', priceLine].filter(Boolean).join(' · ');
     } else {
       thumbSlot.classList.add('placeholder');
-      thumbSlot.textContent = 'No photo';
+      thumbSlot.textContent = 'No media';
+      heroPhoto.innerHTML = '';
       heroPhoto.style.backgroundImage = "url('assets/listing-wizard/step-5.jpg')";
       heroBadge.innerHTML = '<span class="check">✓</span> Ready to publish';
       heroTitle.textContent = 'A place worth remembering.';
-      heroSub.textContent = 'No photos added — you can still publish and add them later.';
+      heroSub.textContent = 'No photos or videos added — you can still publish and add them later.';
     }
   }
 
@@ -892,7 +902,7 @@
   // ---------- Photo selection, preview, drag-to-reorder, validation ----------
   const MAX_PHOTOS = 6;
   const MAX_SIZE_BYTES = 5 * 1024 * 1024;
-  const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+  const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'video/mp4', 'video/quicktime'];
   let selectedFiles = [];
   let dragFromIndex = null;
 
@@ -909,9 +919,12 @@
     clearPhotoError();
     const incoming = Array.from(fileList);
     for (const file of incoming) {
-      if (selectedFiles.length >= MAX_PHOTOS) { showPhotoError('You can add up to ' + MAX_PHOTOS + ' photos.'); break; }
-      if (!ALLOWED_TYPES.includes(file.type)) { showPhotoError('"' + file.name + '" isn\'t a supported image type.'); continue; }
-      if (file.size > MAX_SIZE_BYTES) { showPhotoError('"' + file.name + '" is over 5MB.'); continue; }
+      if (selectedFiles.length >= MAX_PHOTOS) { showPhotoError('You can add up to ' + MAX_PHOTOS + ' photos or videos.'); break; }
+      if (!ALLOWED_TYPES.includes(file.type)) { showPhotoError('"' + file.name + '" isn\'t a supported photo or video type.'); continue; }
+      if (!file.type.startsWith('video/') && file.size > MAX_SIZE_BYTES) {
+        showPhotoError('"' + file.name + '" is over 5MB.');
+        continue;
+      }
       if (selectedFiles.some(function(f){ return f.name === file.name && f.size === file.size; })) continue;
       selectedFiles.push(file);
     }
@@ -921,15 +934,18 @@
   function renderPreviews(){
     photoPreview.innerHTML = '';
     dropzoneText.textContent = selectedFiles.length === 0
-      ? 'Click to choose photos, or drag them here'
-      : selectedFiles.length + ' of ' + MAX_PHOTOS + ' photos selected — drag to reorder, first is the cover';
+      ? 'Click to choose photos or videos, or drag them here'
+      : selectedFiles.length + ' of ' + MAX_PHOTOS + ' photos/videos selected — drag to reorder, first is the cover';
     selectedFiles.forEach(function(file, index){
       const url = URL.createObjectURL(file);
+      const isVideo = file.type && file.type.startsWith('video/');
       const thumb = document.createElement('div');
       thumb.className = 'photo-thumb';
       thumb.draggable = true;
       thumb.dataset.index = index;
-      thumb.innerHTML = '<img src="' + url + '" alt="Selected photo">' +
+      thumb.innerHTML = (isVideo
+        ? '<video src="' + url + '" muted playsinline preload="metadata" style="width:100%;height:100%;object-fit:cover;display:block;"></video>'
+        : '<img src="' + url + '" alt="Selected photo">') +
         (index === 0 ? '<span class="cover-tag">Cover</span>' : '') +
         '<button type="button" class="remove-photo" data-index="' + index + '" aria-label="Remove photo">&times;</button>';
       photoPreview.appendChild(thumb);
@@ -973,6 +989,88 @@
 
   function sanitizeFilename(name){ return name.replace(/[^a-zA-Z0-9.\-_]/g, '_'); }
 
+  function getVideoDuration(file){
+    return new Promise(function(resolve, reject){
+      const url = URL.createObjectURL(file);
+      const video = document.createElement('video');
+      video.preload = 'metadata';
+      video.onloadedmetadata = function(){
+        URL.revokeObjectURL(url);
+        if (Number.isFinite(video.duration)) resolve(video.duration);
+        else reject(new Error('Unable to read video duration'));
+      };
+      video.onerror = function(){
+        URL.revokeObjectURL(url);
+        reject(new Error('Unable to read video duration'));
+      };
+      video.src = url;
+    });
+  }
+
+  async function uploadVideoToR2(file, listingId){
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session || !session.access_token) throw new Error('Your session expired. Please sign in again.');
+
+    const durationSeconds = await getVideoDuration(file);
+    if (durationSeconds > 90) throw new Error('Videos must be 90 seconds or less.');
+
+    let mediaId = null;
+    try {
+      const initResponse = await fetch('/api/properties/' + encodeURIComponent(listingId) + '/videos/upload-init', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + session.access_token
+        },
+        body: JSON.stringify({
+          filename: file.name,
+          mimeType: file.type,
+          fileSize: file.size,
+          durationSeconds: durationSeconds
+        })
+      });
+      const initPayload = await initResponse.json().catch(function(){ return {}; });
+      if (!initResponse.ok) throw new Error(initPayload.error || 'Video upload could not start.');
+      mediaId = initPayload.mediaId;
+
+      const authorization = initPayload.uploadAuthorization || {};
+      if (!authorization.uploadUrl) throw new Error('Video upload did not return a signed storage URL.');
+
+      const uploadResponse = await fetch(authorization.uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': authorization.contentType || file.type },
+        body: file
+      });
+      if (!uploadResponse.ok) throw new Error('Video upload to Cloudflare R2 failed.');
+
+      const completeResponse = await fetch('/api/properties/' + encodeURIComponent(listingId) +
+        '/videos/' + encodeURIComponent(mediaId) + '/complete', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer ' + session.access_token
+          },
+          body: JSON.stringify({ uploadId: initPayload.uploadId })
+        });
+      const completePayload = await completeResponse.json().catch(function(){ return {}; });
+      if (!completeResponse.ok) throw new Error(completePayload.error || 'Video upload could not be finalized.');
+      return mediaId;
+    } catch (error) {
+      if (mediaId) error.mediaId = mediaId;
+      throw error;
+    }
+  }
+
+  async function deleteVideoFromR2(listingId, mediaId){
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session || !session.access_token || !mediaId) return;
+    await fetch('/api/properties/' + encodeURIComponent(listingId) + '/videos/' +
+      encodeURIComponent(mediaId), {
+        method: 'DELETE',
+        headers: { Authorization: 'Bearer ' + session.access_token }
+      });
+  }
+
   // ---------- Submit ----------
   document.getElementById('list-form').addEventListener('submit', async function(e){
     e.preventDefault();
@@ -1002,28 +1100,23 @@
     submitBtn.disabled = true;
     submitBtn.textContent = 'Publishing...';
 
+    const listingPayload = {
+      host_id: currentUser.id, title, category, description, verified: false,
+      // Maps are still being integrated, so location is intentionally optional for now.
+      // Keep the listing publish flow working without any location fields until the
+      // mapping experience is live again.
+      location_text: [locationNeighborhood, locationCity].filter(Boolean).join(', ') || locationCity || locationCountry || 'Location to be added',
+      ...(locationLat && locationLng ? { latitude: parseFloat(locationLat), longitude: parseFloat(locationLng) } : {}),
+      ...(locationPlaceId ? { place_id: locationPlaceId } : {}),
+      ...(locationFormattedAddress ? { formatted_address: locationFormattedAddress } : {}),
+      ...(locationNeighborhood ? { neighborhood: locationNeighborhood } : {}),
+      ...(locationCity ? { city: locationCity } : {}),
+      ...(locationCountry ? { country: locationCountry } : {}),
+    };
+
     const { data, error } = await supabaseClient
       .from('listings')
-      .insert({
-        host_id: currentUser.id, title, category, description, verified: false,
-        // location_text is read directly by public feed queries with no
-        // access-level gating (unlike latitude/longitude, place_id, and
-        // formatted_address, which only ever go through
-        // server/lib/locationAccess.js). It must therefore only ever hold
-        // the general area, never the exact formatted address.
-        location_text: [locationNeighborhood, locationCity].filter(Boolean).join(', ') || locationCity || locationCountry || 'Location to be added',
-        latitude: locationLat ? parseFloat(locationLat) : null,
-        longitude: locationLng ? parseFloat(locationLng) : null,
-        place_id: locationPlaceId || null,
-        formatted_address: locationFormattedAddress || null,
-        neighborhood: locationNeighborhood || null,
-        city: locationCity || null,
-        country: locationCountry || null,
-        // 'confirmed' only when the picker actually returned coordinates;
-        // 'pending' means the host skipped location for now (map picker
-        // not wired up yet) and it still needs to be added and verified.
-        location_status: (locationLat && locationLng) ? 'confirmed' : 'pending',
-      })
+      .insert(listingPayload)
       .select().single();
 
     if (error) {
@@ -1066,31 +1159,60 @@
       await supabaseClient.from('availability').insert(rows);
     }
 
-    // ---------- Photos ----------
-    // NOTE: order_index / is_cover are new columns this redesign relies on
-    // (drag-to-reorder + designated cover photo). Confirm listing_photos has
-    // them before deploying, or drop these two keys from the insert below.
+    // ---------- Photos / videos ----------
+    // Keep this insert compatible with the existing listing_photos table.
+    // Ordering and cover selection are handled by the selected file order
+    // until those optional columns are present in the live schema.
     let uploadedCount = 0, failedCount = 0;
+    const videoMediaIds = [];
     if (selectedFiles.length > 0) {
       for (let i = 0; i < selectedFiles.length; i++) {
         const file = selectedFiles[i];
-        submitBtn.textContent = 'Uploading photo ' + (i + 1) + ' of ' + selectedFiles.length + '...';
+        submitBtn.textContent = 'Uploading media ' + (i + 1) + ' of ' + selectedFiles.length + '...';
+        if (file.type && file.type.startsWith('video/')) {
+          try {
+            const mediaId = await uploadVideoToR2(file, listingId);
+            videoMediaIds.push(mediaId);
+            uploadedCount++;
+          } catch (error) {
+            if (error.mediaId) videoMediaIds.push(error.mediaId);
+            failedCount++;
+          }
+          continue;
+        }
+
         const path = currentUser.id + '/' + listingId + '/' + Date.now() + '_' + i + '_' + sanitizeFilename(file.name);
         const { error: uploadError } = await supabaseClient.storage.from('listing-photos').upload(path, file, { upsert: false });
         if (uploadError) { failedCount++; continue; }
         const { error: photoRowError } = await supabaseClient.from('listing_photos').insert({
-          listing_id: listingId, storage_path: path, order_index: i, is_cover: i === 0
+          listing_id: listingId, storage_path: path
         });
         if (photoRowError) failedCount++; else uploadedCount++;
       }
     }
 
+    if (selectedFiles.length > 0 && failedCount > 0) {
+      for (const mediaId of videoMediaIds) {
+        await deleteVideoFromR2(listingId, mediaId);
+      }
+      await supabaseClient.from('listing_photos').delete().eq('listing_id', listingId);
+      await supabaseClient.from('listing_booking_details').delete().eq('listing_id', listingId);
+      if (SHORT_STAY.includes(category) && openDates.size > 0) {
+        await supabaseClient.from('availability').delete().eq('listing_id', listingId);
+      }
+      await supabaseClient.from('listings').delete().eq('id', listingId);
+
+      successMsgInner.textContent = 'Media upload failed, so the listing was not published. Please try again with the selected files.';
+      successMsg.classList.add('show', 'error');
+      successMsg.scrollIntoView({ behavior:'smooth', block:'center' });
+      submitBtn.disabled = false; submitBtn.textContent = 'Publish listing ✓';
+      return;
+    }
+
     successMsg.classList.remove('error');
-    let message = 'Listing published! It\'s pending location verification before it shows to clients.';
+    let message = 'Listing published! You can add the exact location later from your listing settings.';
     if (selectedFiles.length > 0) {
-      if (failedCount === 0) message += ' All ' + uploadedCount + ' photo' + (uploadedCount === 1 ? '' : 's') + ' uploaded successfully.';
-      else if (uploadedCount > 0) message += ' ' + uploadedCount + ' of ' + selectedFiles.length + ' photos uploaded — ' + failedCount + ' failed.';
-      else message += ' Your photos didn\'t upload — the listing is still live without them for now.';
+      message += ' All ' + uploadedCount + ' media item' + (uploadedCount === 1 ? '' : 's') + ' uploaded successfully.';
     }
     successMsgInner.textContent = message;
     successMsg.classList.add('show');

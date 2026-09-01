@@ -1,0 +1,236 @@
+/**
+ * VaRoom Video Uploader Styles
+ * Integrated with VaRoom design system
+ */
+
+.video-uploader {
+  margin: 1.5rem 0;
+}
+
+.video-uploader-input-zone {
+  background: var(--white, #ffffff);
+  border: 2px dashed rgba(196, 30, 58, 0.3);
+  border-radius: 12px;
+  padding: 2rem;
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.video-uploader-input-zone:hover {
+  border-color: var(--red, #C41E3A);
+  background: rgba(196, 30, 58, 0.02);
+}
+
+.video-select-btn {
+  display: inline-block;
+  padding: 0.75rem 1.5rem;
+  background: var(--red, #C41E3A);
+  color: white;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  border: none;
+  margin-bottom: 0.5rem;
+}
+
+.video-select-btn:hover {
+  background: var(--red-deep, #8F1229);
+}
+
+.video-select-btn:active {
+  transform: scale(0.98);
+}
+
+.video-hint {
+  font-size: 0.85rem;
+  color: var(--muted, #7a6b67);
+  margin: 0;
+}
+
+.video-uploads-list {
+  margin-top: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.upload-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  background: var(--white, #ffffff);
+  border: 1px solid rgba(128, 110, 100, 0.15);
+  border-radius: 10px;
+  transition: all 0.2s ease;
+}
+
+.upload-item.status-initializing,
+.upload-item.status-uploading,
+.upload-item.status-verifying {
+  border-color: rgba(196, 30, 58, 0.3);
+  background: rgba(196, 30, 58, 0.02);
+}
+
+.upload-item.status-complete {
+  border-color: rgba(0, 150, 0, 0.3);
+  background: rgba(0, 150, 0, 0.02);
+}
+
+.upload-item.status-failed {
+  border-color: rgba(220, 53, 69, 0.3);
+  background: rgba(220, 53, 69, 0.02);
+}
+
+.upload-icon {
+  font-size: 1.5rem;
+  flex: none;
+}
+
+.upload-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.upload-name {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--ink, #1A1210);
+  word-break: break-word;
+  margin-bottom: 0.3rem;
+}
+
+.upload-status {
+  font-size: 0.85rem;
+  color: var(--muted, #7a6b67);
+}
+
+.upload-error {
+  font-size: 0.85rem;
+  color: #dc3545;
+  font-weight: 500;
+}
+
+.upload-progress {
+  margin-top: 0.5rem;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 6px;
+  background: rgba(128, 110, 100, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 0.3rem;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--red, #C41E3A), var(--red-deep, #8F1229));
+  transition: width 0.3s ease;
+}
+
+.progress-text {
+  font-size: 0.75rem;
+  color: var(--muted, #7a6b67);
+  text-align: right;
+}
+
+.upload-actions,
+.upload-cancel-btn,
+.upload-remove-btn,
+.upload-retry-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.upload-actions {
+  flex: none;
+  gap: 0.5rem;
+}
+
+.upload-cancel-btn,
+.upload-remove-btn,
+.upload-retry-btn {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.85rem;
+  border: 1px solid rgba(128, 110, 100, 0.2);
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.upload-cancel-btn:hover,
+.upload-remove-btn:hover {
+  background: rgba(220, 53, 69, 0.1);
+  border-color: rgba(220, 53, 69, 0.3);
+  color: #dc3545;
+}
+
+.upload-retry-btn {
+  background: var(--red, #C41E3A);
+  color: white;
+  border-color: var(--red, #C41E3A);
+}
+
+.upload-retry-btn:hover {
+  background: var(--red-deep, #8F1229);
+  border-color: var(--red-deep, #8F1229);
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .video-uploader-input-zone {
+    padding: 1.5rem 1rem;
+  }
+
+  .upload-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .upload-actions {
+    width: 100%;
+  }
+
+  .upload-cancel-btn {
+    margin-left: auto;
+  }
+
+  .progress-text {
+    text-align: left;
+  }
+}
+
+/* Dark theme support */
+[data-theme="dark"] .video-uploader-input-zone {
+  background: var(--white, #241C1A);
+  border-color: rgba(196, 30, 58, 0.2);
+}
+
+[data-theme="dark"] .video-uploader-input-zone:hover {
+  background: rgba(196, 30, 58, 0.05);
+}
+
+[data-theme="dark"] .upload-item {
+  background: var(--white, #241C1A);
+  border-color: rgba(196, 30, 58, 0.2);
+}
+
+[data-theme="dark"] .upload-item.status-initializing,
+[data-theme="dark"] .upload-item.status-uploading,
+[data-theme="dark"] .upload-item.status-verifying {
+  background: rgba(196, 30, 58, 0.08);
+}
+
+[data-theme="dark"] .upload-item.status-complete {
+  background: rgba(0, 150, 0, 0.08);
+}
+
+[data-theme="dark"] .upload-item.status-failed {
+  background: rgba(220, 53, 69, 0.08);
+}

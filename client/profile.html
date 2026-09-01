@@ -23,6 +23,9 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;0,9..144,900;1,9..144,500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="js/varoom-video-player.css">
+<link rel="stylesheet" href="js/skeleton-loader.css">
+<script src="js/skeleton-loader.js"></script>
 <style>
   :root{
     --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#1A1210; --paper:#FBF4F1;
@@ -548,7 +551,12 @@
     <div class="profile-scroll" id="profile-scroll">
 
       <!-- Loading -->
-      <div id="loading-state" style="text-align:center;padding:4rem 0;color:var(--muted);">Loading profile…</div>
+      <div id="loading-state" style="text-align:center;padding:2rem;">
+        <div style="display:inline-block;width:80px;height:80px;border-radius:50%;background:rgba(128,110,100,.08);animation:skeleton-shimmer 2s infinite;margin-bottom:1.5rem;"></div>
+        <div style="height:1.8rem;width:40%;background:rgba(128,110,100,.08);border-radius:4px;animation:skeleton-shimmer 2s infinite;margin:0 auto .8rem;"></div>
+        <div style="height:1rem;width:60%;background:rgba(128,110,100,.08);border-radius:4px;animation:skeleton-shimmer 2s infinite;margin:0 auto 2rem;"></div>
+        <div style="height:2.5rem;width:45%;background:rgba(128,110,100,.08);border-radius:100px;animation:skeleton-shimmer 2s infinite;margin:0 auto;"></div>
+      </div>
 
       <!-- Profile -->
       <div id="profile-content" style="display:none;">
@@ -954,19 +962,67 @@
   });
 
   /* ── Fetch and render listings ── */
-  const { data: listings } = await supabaseClient
+  const { data: listings, error: listingsError } = await supabaseClient
     .from('listings')
-    .select('id, title, category, location_text, price_per_night, price_per_month, availability_status, listing_photos(storage_path, photo_path)')
+    .select('id, title, category, location_text, created_at, listing_photos(storage_path), listing_booking_details(price_amount, price_unit)')
     .eq('host_id', profileData.id)
     .order('created_at', { ascending: false });
 
   const grid = document.getElementById('listings-grid');
+  if (listingsError) {
+    console.error('Could not load host listings:', listingsError);
+    grid.innerHTML = '<div class="listings-empty">Couldn\'t load your listings right now. Please refresh and try again.</div>';
+    return;
+  }
   const count = listings ? listings.length : 0;
   document.getElementById('listings-count').textContent =
     count + ' space' + (count !== 1 ? 's' : '') +
     (profileData.city ? ' in ' + profileData.city : '');
 
   const CAT_LABELS = { airbnb:'Airbnb', hotel:'Hotel', venue:'Event Venue', office:'Office', shop:'Shop', property:'Property' };
+  const listingVideoUrls = {};
+  async function getAuthToken(){
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    return session && session.access_token ? session.access_token : null;
+  }
+  const authToken = await getAuthToken();
+  for (const listing of (listings || [])) {
+    try {
+      if (!authToken) {
+        listingVideoUrls[listing.id] = null;
+        continue;
+      }
+      const mediaResponse = await fetch('/api/properties/' + encodeURIComponent(listing.id) + '/media', {
+        headers: { Authorization: 'Bearer ' + authToken }
+      });
+      if (mediaResponse.status === 403 || mediaResponse.status === 404) {
+        listingVideoUrls[listing.id] = null;
+        continue;
+      }
+      if (!mediaResponse.ok) {
+        listingVideoUrls[listing.id] = null;
+        continue;
+      }
+      const mediaPayload = await mediaResponse.json();
+      const media = Array.isArray(mediaPayload.media) ? mediaPayload.media : [];
+      const videoItem = media.find(function(item){ return item && item.type === 'video'; });
+      if (!videoItem || !videoItem.id) {
+        listingVideoUrls[listing.id] = null;
+        continue;
+      }
+      const playbackResponse = await fetch('/api/media/' + encodeURIComponent(videoItem.id) + '/playback', {
+        headers: { Authorization: 'Bearer ' + authToken }
+      });
+      if (playbackResponse.status === 403 || playbackResponse.status === 404) {
+        listingVideoUrls[listing.id] = null;
+        continue;
+      }
+      const playbackPayload = playbackResponse.ok ? await playbackResponse.json() : null;
+      listingVideoUrls[listing.id] = playbackPayload && playbackPayload.url ? playbackPayload.url : null;
+    } catch (error) {
+      listingVideoUrls[listing.id] = null;
+    }
+  }
 
   if (!listings || listings.length === 0) {
     grid.innerHTML = '<div class="listings-empty">' +
@@ -986,9 +1042,33 @@
     return supabaseClient.storage.from('listing-photos').getPublicUrl(path).data.publicUrl;
   }
 
+  function escapeAttr(value){
+    const div = document.createElement('div');
+    div.textContent = value || '';
+    return div.innerHTML;
+  }
+
+  function getListingMediaMarkup(listing){
+    const videoUrl = listingVideoUrls[listing.id];
+    if (videoUrl) {
+      const avatarUrl = profileData.avatar_url
+        ? (profileData.avatar_url.startsWith('http') ? profileData.avatar_url : supabaseClient.storage.from('avatars').getPublicUrl(profileData.avatar_url).data.publicUrl)
+        : '';
+      return '<div class="listing-thumb"><video muted playsinline preload="none" src="' + videoUrl + '" data-video-host-name="' + escapeAttr(profileData.full_name || 'Host') + '" data-video-username="' + escapeAttr(profileData.username ? '@' + profileData.username : '') + '" data-video-avatar="' + escapeAttr(avatarUrl) + '" data-video-caption="' + escapeAttr(listing.title) + '" style="width:100%;height:100%;object-fit:cover;display:block;background:#000;"></video><span class="listing-cat-pill">' + (CAT_LABELS[listing.category] || listing.category) + '</span></div>';
+    }
+    const photoUrl = getPhotoUrl(listing);
+    const thumb = photoUrl ? '<img src="' + photoUrl + '" alt="' + listing.title + '" loading="lazy">' : '';
+    return '<div class="listing-thumb">' + thumb + '<span class="listing-cat-pill">' + (CAT_LABELS[listing.category] || listing.category) + '</span></div>';
+  }
+
   function priceLabel(listing){
-    if (listing.price_per_night) return 'KSh ' + Number(listing.price_per_night).toLocaleString() + ' / night';
-    if (listing.price_per_month) return 'KSh ' + Number(listing.price_per_month).toLocaleString() + ' / month';
+    const details = Array.isArray(listing.listing_booking_details)
+      ? listing.listing_booking_details[0]
+      : listing.listing_booking_details;
+    if (details && details.price_amount) {
+      const unit = details.price_unit === 'month' ? 'month' : details.price_unit === 'hour' ? 'hour' : 'night';
+      return 'KSh ' + Number(details.price_amount).toLocaleString() + ' / ' + unit;
+    }
     return '';
   }
 
@@ -1000,14 +1080,8 @@
   }
 
   grid.innerHTML = listings.map(function(l){
-    const photoUrl = getPhotoUrl(l);
-    const thumb = photoUrl
-      ? '<img src="' + photoUrl + '" alt="' + l.title + '" loading="lazy">'
-      : '';
     return '<a class="listing-card" href="listing.html?id=' + l.id + '">' +
-      '<div class="listing-thumb">' + thumb +
-        '<span class="listing-cat-pill">' + (CAT_LABELS[l.category] || l.category) + '</span>' +
-      '</div>' +
+      getListingMediaMarkup(l) +
       '<div class="listing-card-body">' +
         '<div class="listing-card-title">' + l.title + '</div>' +
         '<div class="listing-card-loc">' + (l.location_text || '') + '</div>' +
@@ -1072,5 +1146,6 @@
 
 })();
 </script>
+<script src="js/varoom-video-player.js"></script>
 </body>
 </html>
