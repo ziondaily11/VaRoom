@@ -24,6 +24,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;0,9..144,900;1,9..144,500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="js/varoom-video-player.css">
+<link rel="stylesheet" href="js/skeleton-loader.css">
+<script src="js/skeleton-loader.js"></script>
 <style>
   :root{
     --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#1A1210; --paper:#FBF4F1;
@@ -549,7 +551,12 @@
     <div class="profile-scroll" id="profile-scroll">
 
       <!-- Loading -->
-      <div id="loading-state" style="text-align:center;padding:4rem 0;color:var(--muted);">Loading profile…</div>
+      <div id="loading-state" style="text-align:center;padding:2rem;">
+        <div style="display:inline-block;width:80px;height:80px;border-radius:50%;background:rgba(128,110,100,.08);animation:skeleton-shimmer 2s infinite;margin-bottom:1.5rem;"></div>
+        <div style="height:1.8rem;width:40%;background:rgba(128,110,100,.08);border-radius:4px;animation:skeleton-shimmer 2s infinite;margin:0 auto .8rem;"></div>
+        <div style="height:1rem;width:60%;background:rgba(128,110,100,.08);border-radius:4px;animation:skeleton-shimmer 2s infinite;margin:0 auto 2rem;"></div>
+        <div style="height:2.5rem;width:45%;background:rgba(128,110,100,.08);border-radius:100px;animation:skeleton-shimmer 2s infinite;margin:0 auto;"></div>
+      </div>
 
       <!-- Profile -->
       <div id="profile-content" style="display:none;">

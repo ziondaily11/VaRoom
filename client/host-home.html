@@ -23,7 +23,9 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;0,9..144,900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="js/varoom-video-player.css">
+<link rel="stylesheet" href="js/skeleton-loader.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/skeleton-loader.js"></script>
 <style>
   :root{
     --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#1A1210; --paper:#FBF4F1;
@@ -1844,7 +1846,7 @@
     const listingVideoUrls = {};
 
     async function loadFeed(){
-      feedList.innerHTML = '<p class="state-msg">Loading listings…</p>';
+      feedList.innerHTML = window.SkeletonLoader.feedCards(3);
 
       const term = searchTerm.trim();
 
@@ -2008,7 +2010,7 @@
     function showSavedView(){
       setActiveNav('saved');
       showOnlyMine = false;
-      feedList.innerHTML = '<p class="state-msg">Loading saved listings…</p>';
+      feedList.innerHTML = window.SkeletonLoader.feedCards(3);
       supabaseClient
         .from('listings')
         .select(FEED_SELECT)
