@@ -52,7 +52,7 @@
   :focus-visible{ outline:3px solid var(--red-deep); outline-offset:3px; }
   ul{ list-style:none; }
 
-  .app-shell{ display:grid; grid-template-columns:272px 1fr; height:100vh; overflow:hidden; }
+  .app-shell{ display:grid; grid-template-columns:320px minmax(0,1fr); height:100vh; overflow:hidden; }
 
   /* ---------- SIDEBAR (glass) ----------
      No position:sticky needed — the whole app-shell is a fixed-height row
@@ -67,10 +67,10 @@
     border:1px solid var(--glass-border);
     border-radius:22px;
     box-shadow:var(--glass-shadow);
-    padding:1.6rem 1.2rem;
+    padding:1.6rem 1.2rem 1.2rem;
     display:flex;
     flex-direction:column;
-    gap:1.6rem;
+    gap:1.4rem;
     overflow:visible;
   }
 
@@ -82,12 +82,13 @@
   .nav-label{ font-size:.72rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); padding:.6rem .6rem .3rem; }
 
   .nav-item{
-    display:flex; align-items:center; gap:.7rem;
-    padding:.6rem .7rem; border-radius:10px;
-    font-size:.92rem; font-weight:500; color:var(--ink);
+    display:flex; align-items:center; gap:.8rem;
+    padding:.72rem .8rem; border-radius:10px;
+    font-size:.95rem; font-weight:500; color:var(--ink);
     cursor:pointer;
   }
   .nav-item:hover{ background:var(--paper); }
+  .nav-item svg{ width:19px; height:19px; }
   .nav-item.active{ background:#FBE4E7; color:var(--red-deep); font-weight:600; }
   .nav-item svg{ flex-shrink:0; }
 
@@ -165,13 +166,20 @@
      Fills the remaining height below the topbar. min-height:0 is required
      so its two children (.feed-area, .right-rail) can each scroll on their
      own instead of growing the whole row to fit their content. */
-  .content-row{ display:flex; align-items:stretch; min-width:0; flex:1 1 auto; min-height:0; overflow:hidden; }
+  .content-row{
+    display:grid;
+    grid-template-columns: minmax(0, 1fr) minmax(560px, 760px) minmax(290px, 430px);
+    align-items:start;
+    min-width:0; flex:1 1 auto; min-height:0; overflow:hidden;
+    gap:0;
+  }
 
   /* ---------- FEED ----------
      Scrolls independently of the sidebar and right rail. */
   .feed-area{
-    padding:1.8rem 2rem 4rem; max-width:760px; flex:1 1 auto; min-width:0;
+    padding:1.8rem 2rem 4rem; width:100%; max-width:760px; min-width:0;
     height:100%; overflow-y:auto; scrollbar-width:none;
+    margin:0 auto; border-right:1px solid rgba(26,18,16,.08);
   }
   .feed-area::-webkit-scrollbar{ display:none; }
 
@@ -180,9 +188,10 @@
      itself is now a fixed-height flex row rather than part of a scrolling
      page, so each column just scrolls its own contents in place. */
   .right-rail{
-    width:320px; flex:0 0 320px; padding:1.8rem 2rem 4rem 0;
+    width:100%; max-width:430px; padding:1.8rem 1.8rem 4rem 1.2rem;
     display:flex; flex-direction:column; gap:1.5rem;
     height:100%; overflow-y:auto; scrollbar-width:none;
+    justify-self:end; border-left:1px solid rgba(26,18,16,.08);
   }
   .right-rail::-webkit-scrollbar{ display:none; }
 
@@ -207,8 +216,16 @@
   .dest-card-name{ font-weight:700; font-size:.82rem; }
   .dest-card-count{ font-size:.68rem; opacity:.85; }
 
+  @media (max-width:1360px){
+    .content-row{ grid-template-columns: minmax(0, 1fr) minmax(0, 700px) minmax(260px, 360px); }
+    .feed-area{ padding-inline:1.6rem; }
+    .right-rail{ padding-right:1.2rem; }
+  }
+
   @media (max-width:1180px){
     .right-rail{ display:none; }
+    .content-row{ grid-template-columns: minmax(0, 1fr) minmax(0, 760px); }
+    .feed-area{ margin:0 auto; }
   }
 
   .mobile-dest-row{ display:none; }
@@ -312,8 +329,8 @@
   .state-msg{ color:var(--muted); font-size:.95rem; padding:2rem 0; text-align:center; }
 
   .card{
-    background:var(--white); border:1px solid rgba(26,18,16,.08); border-radius:18px;
-    padding:1.3rem; margin-bottom:1.4rem;
+    background:transparent; border:none; border-bottom:1px solid rgba(26,18,16,.08);
+    border-radius:0; padding:1.1rem 0 1.4rem; margin:0 0 0;
   }
 
   .card-head{ display:flex; align-items:center; gap:.7rem; margin-bottom:.7rem; }
