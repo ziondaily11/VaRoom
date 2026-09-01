@@ -29,6 +29,12 @@
     --accent-deep:#F0A5B2; --accent-soft:rgba(240,165,178,.18);
     --panel:#1B1412; --soft:#241C1A; --success:#F0A5B2;
   }
+  .chat-stage[data-chat-theme="varoom-red"]{
+    --chat-primary:#C41E3A; --chat-primary-hover:#8F1229; --chat-message-user:#C41E3A;
+    --chat-message-client:#FFFFFF; --chat-surface:#FFFFFF; --chat-header:#FFFFFF;
+    --chat-background:#FCFBFA; --chat-user-text:#FFFFFF; --chat-text:#111827;
+    --chat-text-muted:#64748B; --chat-border:rgba(26,18,16,.15); --chat-icon:#475569;
+  }
   .chat-stage[data-chat-theme="ocean"]{
     --chat-primary:#2563EB; --chat-primary-hover:#1D4ED8; --chat-message-user:#2563EB;
     --chat-message-client:#EFF6FF; --chat-surface:#FFFFFF; --chat-header:#FFFFFF;
@@ -53,6 +59,54 @@
     --chat-background:#09090B; --chat-user-text:#FFFFFF; --chat-text:#FAFAFA;
     --chat-text-muted:#A1A1AA; --chat-border:rgba(255,255,255,.16); --chat-icon:#D4D4D8;
   }
+  .chat-stage[data-chat-theme="green-white"]{
+    --chat-primary:#1FAE6A; --chat-primary-hover:#188A52; --chat-message-user:#1FAE6A;
+    --chat-message-client:#F2FFF6; --chat-surface:#FFFFFF; --chat-header:#FFFFFF;
+    --chat-background:#F4FBF6; --chat-user-text:#FFFFFF; --chat-text:#111827;
+    --chat-text-muted:#5B6B73; --chat-border:rgba(31,174,106,.17); --chat-icon:#4B5563;
+  }
+  .chat-stage[data-chat-theme="light-green-white"]{
+    --chat-primary:#8BCF7D; --chat-primary-hover:#6FB862; --chat-message-user:#8BCF7D;
+    --chat-message-client:#F4FDF2; --chat-surface:#FFFFFF; --chat-header:#FFFFFF;
+    --chat-background:#F8FCF6; --chat-user-text:#14331D; --chat-text:#173320;
+    --chat-text-muted:#5B6B5C; --chat-border:rgba(107,164,97,.17); --chat-icon:#4E6B52;
+  }
+  .chat-stage[data-chat-theme="blue-grey"]{
+    --chat-primary:#2C77D8; --chat-primary-hover:#1F5DB1; --chat-message-user:#2C77D8;
+    --chat-message-client:#EEF5FF; --chat-surface:#FFFFFF; --chat-header:#FFFFFF;
+    --chat-background:#F4F7FB; --chat-user-text:#FFFFFF; --chat-text:#111827;
+    --chat-text-muted:#64748B; --chat-border:rgba(44,119,216,.17); --chat-icon:#475569;
+  }
+  .chat-stage[data-chat-theme="black-white"]{
+    --chat-primary:#121212; --chat-primary-hover:#2B2B2B; --chat-message-user:#121212;
+    --chat-message-client:#F7F7F7; --chat-surface:#FFFFFF; --chat-header:#FFFFFF;
+    --chat-background:#F7F7F7; --chat-user-text:#FFFFFF; --chat-text:#111827;
+    --chat-text-muted:#4B5563; --chat-border:rgba(17,17,17,.12); --chat-icon:#374151;
+  }
+  .chat-stage[data-chat-theme="black-grey"]{
+    --chat-primary:#1F1F1F; --chat-primary-hover:#2B2B2B; --chat-message-user:#1F1F1F;
+    --chat-message-client:#ECECEC; --chat-surface:#FFFFFF; --chat-header:#FFFFFF;
+    --chat-background:#F3F3F3; --chat-user-text:#FFFFFF; --chat-text:#111827;
+    --chat-text-muted:#5D6470; --chat-border:rgba(31,31,31,.12); --chat-icon:#4B5563;
+  }
+  .chat-stage[data-chat-theme="purple-grey"]{
+    --chat-primary:#7B62C9; --chat-primary-hover:#5C4AA8; --chat-message-user:#7B62C9;
+    --chat-message-client:#F3F0FF; --chat-surface:#FFFFFF; --chat-header:#FFFFFF;
+    --chat-background:#F7F5FF; --chat-user-text:#FFFFFF; --chat-text:#1F2937;
+    --chat-text-muted:#697489; --chat-border:rgba(123,98,201,.16); --chat-icon:#4B5563;
+  }
+  .chat-stage[data-chat-theme="purple-white"]{
+    --chat-primary:#A06BEA; --chat-primary-hover:#7D52C9; --chat-message-user:#A06BEA;
+    --chat-message-client:#F9F3FF; --chat-surface:#FFFFFF; --chat-header:#FFFFFF;
+    --chat-background:#F9F5FF; --chat-user-text:#FFFFFF; --chat-text:#1F2937;
+    --chat-text-muted:#5A6473; --chat-border:rgba(160,107,234,.18); --chat-icon:#4B5563;
+  }
+  .chat-stage[data-chat-theme="light-orange-white"]{
+    --chat-primary:#F1A75A; --chat-primary-hover:#D98A2E; --chat-message-user:#F1A75A;
+    --chat-message-client:#FFF6EE; --chat-surface:#FFFFFF; --chat-header:#FFFFFF;
+    --chat-background:#FFF8F3; --chat-user-text:#1F2937; --chat-text:#2B221B;
+    --chat-text-muted:#7A5F4A; --chat-border:rgba(241,167,90,.2); --chat-icon:#775B4C;
+  }
   .chat-stage[data-chat-background="soft"]{ --chat-background:#F1F5F9; }
   .chat-stage[data-chat-background="dark"]{ --chat-background:#18181B; }
   *{ margin:0; padding:0; box-sizing:border-box; }
@@ -60,19 +114,19 @@
   a{ color:inherit; text-decoration:none; }
   button{ font-family:inherit; cursor:pointer; border:none; background:none; }
   :focus-visible{ outline:3px solid var(--accent); outline-offset:3px; }
-
+ 
   header{ display:flex; align-items:center; justify-content:space-between; padding:1.1rem 1.6rem; border-bottom:1px solid var(--line); background:var(--white); }
   .logo{ font-family:var(--font-display); font-weight:900; font-size:1.4rem; display:flex; align-items:baseline; }
   .logo .va{ color:var(--red); }
   .back-link{ font-size:.88rem; font-weight:500; }
   .back-link:hover{ color:var(--red); }
-
+ 
   .chat-shell{ display:grid; grid-template-columns:320px 1fr; height:calc(100vh - 61px); background:var(--paper); }
-
+ 
   /* ---------- CONVERSATION LIST ---------- */
   .conv-list{ border-right:1px solid var(--line); overflow-y:auto; background:var(--white); }
   .conv-list-title{ font-family:var(--font-display); font-weight:600; font-size:1.15rem; padding:1.2rem 1.2rem .8rem; }
-
+ 
   .conv-item{
     display:flex; align-items:center; gap:.7rem; width:100%; text-align:left;
     padding:.8rem 1.2rem; border-bottom:1px solid var(--line-soft);
@@ -90,7 +144,7 @@
   .rail-link.active:before{ content:''; width:3px; height:25px; border-radius:4px; background:var(--accent); position:absolute; left:-.65rem; }
   .rail-spacer{ flex:1; }
   .rail-profile{ width:32px; height:32px; border-radius:50%; color:#fff; background:#413735; display:grid; place-items:center; font-weight:700; font-size:.72rem; }
-
+ 
   .chat-stage{ min-width:0; min-height:0; border:1px solid var(--chat-border); border-radius:16px; overflow:hidden; background:var(--chat-surface); display:flex; flex-direction:column; }
   /* Keep legacy chat selectors readable while isolating personalization from
      the surrounding navigation and application shell. */
@@ -112,17 +166,82 @@
   .personalize-wrap{ position:relative; }
   .personalize-btn{ width:34px; height:34px; display:grid; place-items:center; color:var(--chat-icon); border:1px solid var(--chat-border); border-radius:9px; }
   .personalize-btn:hover,.personalize-btn[aria-expanded="true"]{ color:var(--chat-primary); border-color:var(--chat-primary); background:color-mix(in srgb, var(--chat-primary) 10%, transparent); }
-  .personalize-menu{ position:absolute; z-index:5; right:0; top:calc(100% + .55rem); width:250px; padding:1rem; border:1px solid var(--chat-border); border-radius:12px; background:var(--chat-surface); color:var(--chat-text); box-shadow:0 16px 36px rgba(0,0,0,.16); }
+  .personalize-menu{ position:absolute; z-index:5; right:0; top:calc(100% + .55rem); width:min(440px,83vw); padding:1rem; border:1px solid var(--chat-border); border-radius:16px; background:var(--chat-surface); color:var(--chat-text); box-shadow:0 18px 44px rgba(15,23,42,.18); }
   .personalize-menu[hidden]{ display:none; }
-  .personalize-menu h2{ font-size:.86rem; margin-bottom:.7rem; }
-  .personalize-menu h3{ color:var(--chat-text-muted); font-size:.68rem; letter-spacing:.06em; text-transform:uppercase; margin:1rem 0 .45rem; }
-  .theme-options,.background-options{ display:grid; gap:.4rem; }
-  .theme-option,.background-option{ display:flex; align-items:center; gap:.55rem; padding:.48rem .55rem; border:1px solid transparent; border-radius:8px; color:inherit; text-align:left; font-size:.78rem; }
-  .theme-option:hover,.background-option:hover{ background:var(--chat-background); }
-  .theme-option[aria-checked="true"],.background-option[aria-checked="true"]{ border-color:var(--chat-primary); background:color-mix(in srgb, var(--chat-primary) 10%, transparent); font-weight:700; }
-  .theme-swatch{ width:16px; height:16px; border-radius:50%; background:var(--swatch); border:1px solid rgba(0,0,0,.15); flex-shrink:0; }
-  .reset-theme{ width:100%; border-top:1px solid var(--chat-border); margin-top:.85rem; padding-top:.75rem; color:var(--chat-primary); font-size:.76rem; font-weight:700; text-align:left; }
-  .personalize-status{ color:var(--chat-text-muted); font-size:.68rem; line-height:1.35; margin-top:.55rem; }
+  .personalize-topbar{ display:flex; align-items:center; justify-content:space-between; gap:.75rem; margin-bottom:.9rem; }
+  .personalize-copy h2{ font-size:1rem; margin:0; }
+  .personalize-copy p{ color:var(--chat-text-muted); font-size:.7rem; margin-top:.18rem; }
+  .theme-preview-toggle{ width:34px; height:34px; border-radius:10px; border:1px solid var(--chat-border); color:var(--chat-icon); display:grid; place-items:center; }
+  .theme-preview-toggle.is-dark{ background:rgba(15,23,42,.92); color:#F8FAFC; border-color:rgba(15,23,42,.92); }
+  .theme-grid{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.7rem; max-height:290px; overflow:auto; padding-right:.15rem; }
+  .theme-card{ position:relative; padding:.35rem; border:1px solid var(--chat-border); border-radius:12px; background:var(--chat-background); transition:border-color .15s ease, transform .15s ease, box-shadow .15s ease; }
+  .theme-card:hover{ transform:translateY(-1px); }
+  .theme-card.is-selected{ border-color:var(--chat-primary); box-shadow:0 0 0 2px color-mix(in srgb, var(--chat-primary) 18%, transparent); }
+  .theme-card.is-selected .theme-card-status{ opacity:1; }
+  .theme-card:last-child{ margin-bottom:.15rem; }
+  .theme-mini{ width:100%; height:110px; border-radius:10px; padding:.4rem; border:1px solid rgba(0,0,0,.04); background:var(--theme-bg, #F8FAFC); color:var(--theme-text,#111827); overflow:hidden; }
+  .theme-card[data-theme-id="varoom-red"] .theme-mini{ --theme-bg:#FCFBFA; --theme-text:#111827; }
+  .theme-card[data-theme-id="green-white"] .theme-mini{ --theme-bg:#F4FBF6; --theme-text:#111827; }
+  .theme-card[data-theme-id="light-green-white"] .theme-mini{ --theme-bg:#F8FCF6; --theme-text:#173320; }
+  .theme-card[data-theme-id="blue-grey"] .theme-mini{ --theme-bg:#F4F7FB; --theme-text:#111827; }
+  .theme-card[data-theme-id="black-white"] .theme-mini{ --theme-bg:#F7F7F7; --theme-text:#111827; }
+  .theme-card[data-theme-id="black-grey"] .theme-mini{ --theme-bg:#F3F3F3; --theme-text:#111827; }
+  .theme-card[data-theme-id="purple-grey"] .theme-mini{ --theme-bg:#F7F5FF; --theme-text:#1F2937; }
+  .theme-card[data-theme-id="purple-white"] .theme-mini{ --theme-bg:#F9F5FF; --theme-text:#1F2937; }
+  .theme-card[data-theme-id="light-orange-white"] .theme-mini{ --theme-bg:#FFF8F3; --theme-text:#2B221B; }
+  .theme-mini-top{ display:flex; align-items:center; justify-content:space-between; padding:.2rem .15rem .35rem; font-size:.56rem; font-weight:700; }
+  .theme-mini-dots{ display:flex; gap:.18rem; }
+  .theme-mini-dots span{ width:6px; height:6px; border-radius:50%; background:rgba(15,23,42,.18); }
+  .theme-mini-thread{ display:flex; flex-direction:column; gap:.28rem; padding-top:.1rem; }
+  .theme-mini-separator{ display:flex; justify-content:center; font-size:.46rem; color:rgba(15,23,42,.5); }
+  .theme-mini-msg{ max-width:74%; padding:.36rem .42rem; border-radius:9px; font-size:.42rem; line-height:1.25; }
+  .theme-mini-msg.theirs{ background:var(--theme-recipient, #EEF2F7); color:var(--theme-text,#111827); align-self:flex-start; }
+  .theme-mini-msg.mine{ background:var(--theme-sender, #1FAE6A); color:#fff; align-self:flex-end; }
+  .theme-card[data-theme-id="varoom-red"] .theme-mini-msg.theirs{ --theme-recipient:#F7F5F4; }
+  .theme-card[data-theme-id="varoom-red"] .theme-mini-msg.mine{ --theme-sender:#C41E3A; }
+  .theme-card[data-theme-id="green-white"] .theme-mini-msg.theirs{ --theme-recipient:#EDF9F1; }
+  .theme-card[data-theme-id="green-white"] .theme-mini-msg.mine{ --theme-sender:#1FAE6A; }
+  .theme-card[data-theme-id="light-green-white"] .theme-mini-msg.theirs{ --theme-recipient:#F1F9EE; }
+  .theme-card[data-theme-id="light-green-white"] .theme-mini-msg.mine{ --theme-sender:#8BCF7D; }
+  .theme-card[data-theme-id="blue-grey"] .theme-mini-msg.theirs{ --theme-recipient:#E8F0FF; }
+  .theme-card[data-theme-id="blue-grey"] .theme-mini-msg.mine{ --theme-sender:#2C77D8; }
+  .theme-card[data-theme-id="black-white"] .theme-mini-msg.theirs{ --theme-recipient:#F0F0F0; }
+  .theme-card[data-theme-id="black-white"] .theme-mini-msg.mine{ --theme-sender:#121212; }
+  .theme-card[data-theme-id="black-grey"] .theme-mini-msg.theirs{ --theme-recipient:#EAEAEA; }
+  .theme-card[data-theme-id="black-grey"] .theme-mini-msg.mine{ --theme-sender:#1F1F1F; }
+  .theme-card[data-theme-id="purple-grey"] .theme-mini-msg.theirs{ --theme-recipient:#ECE7FF; }
+  .theme-card[data-theme-id="purple-grey"] .theme-mini-msg.mine{ --theme-sender:#7B62C9; }
+  .theme-card[data-theme-id="purple-white"] .theme-mini-msg.theirs{ --theme-recipient:#F4EFFF; }
+  .theme-card[data-theme-id="purple-white"] .theme-mini-msg.mine{ --theme-sender:#A06BEA; }
+  .theme-card[data-theme-id="light-orange-white"] .theme-mini-msg.theirs{ --theme-recipient:#FFF0E0; }
+  .theme-card[data-theme-id="light-orange-white"] .theme-mini-msg.mine{ --theme-sender:#F1A75A; }
+  .theme-card-title{ display:flex; align-items:center; justify-content:space-between; gap:.25rem; padding:.45rem .2rem .15rem; font-size:.66rem; font-weight:700; }
+  .theme-card-status{ opacity:0; font-size:.55rem; color:var(--chat-primary); }
+  .theme-preview-panel{ margin-top:.9rem; border:1px solid var(--chat-border); border-radius:14px; background:var(--chat-background); padding:.8rem; }
+  .theme-preview-shell{ position:relative; border:1px solid rgba(15,23,42,.08); border-radius:12px; overflow:hidden; background:var(--preview-bg,#F8FAFC); color:var(--preview-text,#111827); }
+  .theme-preview-shell[data-appearance="dark"]{ --preview-bg:#14181D; --preview-text:#F8FAFC; --preview-surface:#1B2228; --preview-header:#171C22; --preview-muted:#AAB5C0; --preview-border:rgba(148,163,184,.16); --preview-sender:#EF4444; --preview-recipient:#2D3748; }
+  .theme-preview-shell{ --preview-bg:var(--chat-background); --preview-surface:var(--chat-surface); --preview-header:var(--chat-header); --preview-text:var(--chat-text); --preview-muted:var(--chat-text-muted); --preview-border:var(--chat-border); --preview-sender:var(--chat-primary); --preview-recipient:var(--chat-message-client); }
+  .theme-preview-header{ display:flex; align-items:center; justify-content:space-between; padding:.6rem .7rem; background:var(--preview-header); border-bottom:1px solid var(--preview-border); }
+  .theme-preview-header-left{ display:flex; align-items:center; gap:.5rem; }
+  .theme-preview-avatar{ width:28px; height:28px; border-radius:50%; background:var(--preview-sender); color:#fff; display:grid; place-items:center; font-size:.68rem; font-weight:700; }
+  .theme-preview-person{ display:flex; flex-direction:column; gap:.08rem; }
+  .theme-preview-person strong{ font-size:.66rem; }
+  .theme-preview-person span{ font-size:.52rem; color:var(--preview-muted); }
+  .theme-preview-mode{ font-size:.62rem; color:var(--preview-muted); }
+  .theme-preview-thread{ background:var(--preview-bg); padding:.6rem .55rem .8rem; display:flex; flex-direction:column; gap:.35rem; }
+  .theme-preview-separator{ align-self:center; padding:.07rem .46rem; border-radius:999px; background:rgba(148,163,184,.12); color:var(--preview-muted); font-size:.46rem; }
+  .preview-bubble{ max-width:78%; padding:.42rem .52rem; border-radius:10px; font-size:.56rem; line-height:1.4; }
+  .preview-bubble.theirs{ background:var(--preview-recipient); color:var(--preview-text); align-self:flex-start; border:1px solid var(--preview-border); }
+  .preview-bubble.mine{ background:var(--preview-sender); color:var(--preview-sender-text, #FFFFFF); align-self:flex-end; }
+  .theme-preview-composer{ display:flex; align-items:center; gap:.35rem; padding:.55rem .62rem; border-top:1px solid var(--preview-border); background:var(--preview-header); }
+  .theme-preview-composer .compose-pill{ flex:1; height:24px; border-radius:999px; background:rgba(148,163,184,.12); border:1px solid var(--preview-border); }
+  .theme-preview-composer .send-pill{ width:24px; height:24px; border-radius:50%; background:var(--preview-sender); color:#fff; }
+  .personalize-actions{ display:flex; justify-content:space-between; gap:.6rem; margin-top:.9rem; }
+  .reset-theme, .theme-apply-btn{ min-height:38px; border-radius:10px; font-weight:700; }
+  .reset-theme{ flex:1; border:1px solid var(--chat-border); color:var(--chat-text); background:transparent; }
+  .theme-apply-btn{ flex:1; background:var(--chat-primary); color:#fff; }
+  .theme-apply-btn:hover{ background:var(--chat-primary-hover); }
+  .personalize-status{ min-height:18px; color:var(--chat-text-muted); font-size:.68rem; line-height:1.35; margin-top:.6rem; }
   .back-link{ font-size:.8rem; font-weight:650; padding:.55rem .75rem; color:var(--ink); border:1px solid var(--line); border-radius:9px; white-space:nowrap; }
   .back-link:hover{ border-color:var(--accent); color:var(--accent); }
 
@@ -364,22 +483,140 @@
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6 7 7M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4"/><circle cx="12" cy="12" r="4"/></svg>
         </button>
         <div class="personalize-menu" id="personalize-menu" hidden>
-          <h2>Personalize chat</h2>
-          <h3>Theme</h3>
-          <div class="theme-options" role="radiogroup" aria-label="Chat theme">
-            <button type="button" class="theme-option" data-chat-theme-choice="varoom-red" role="radio"><span class="theme-swatch" style="--swatch:#C41E3A"></span>VaRoom Red</button>
-            <button type="button" class="theme-option" data-chat-theme-choice="ocean" role="radio"><span class="theme-swatch" style="--swatch:#2563EB"></span>Ocean</button>
-            <button type="button" class="theme-option" data-chat-theme-choice="emerald" role="radio"><span class="theme-swatch" style="--swatch:#16A34A"></span>Emerald</button>
-            <button type="button" class="theme-option" data-chat-theme-choice="violet" role="radio"><span class="theme-swatch" style="--swatch:#7C3AED"></span>Violet</button>
-            <button type="button" class="theme-option" data-chat-theme-choice="dark" role="radio"><span class="theme-swatch" style="--swatch:#18181B"></span>Dark</button>
+          <div class="personalize-topbar">
+            <div class="personalize-copy">
+              <h2>Chat theme</h2>
+              <p>Preview chat styles before applying</p>
+            </div>
+            <button type="button" class="theme-preview-toggle" id="theme-preview-dark-toggle" aria-label="Preview dark mode" aria-pressed="false">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 0 1 11.2 3a9 9 0 1 0 9.8 9.8Z"/></svg>
+            </button>
           </div>
-          <h3>Background</h3>
-          <div class="background-options" role="radiogroup" aria-label="Chat background">
-            <button type="button" class="background-option" data-chat-background-choice="clean" role="radio">Clean</button>
-            <button type="button" class="background-option" data-chat-background-choice="soft" role="radio">Soft</button>
-            <button type="button" class="background-option" data-chat-background-choice="dark" role="radio">Dark</button>
+          <div class="theme-grid" id="theme-grid" aria-label="Available chat theme previews">
+            <button type="button" class="theme-card is-selected" data-theme-id="varoom-red" aria-pressed="true">
+              <div class="theme-mini">
+                <div class="theme-mini-top"><span>VaRoom</span><span class="theme-mini-dots"><span></span><span></span><span></span></span></div>
+                <div class="theme-mini-thread">
+                  <div class="theme-mini-separator">Today</div>
+                  <div class="theme-mini-msg theirs">Hi, I’m looking for a quiet place near the city.</div>
+                  <div class="theme-mini-msg mine">I can help shortlist a few options for you.</div>
+                </div>
+              </div>
+              <div class="theme-card-title"><span>VaRoom red</span><span class="theme-card-status">Selected</span></div>
+            </button>
+            <button type="button" class="theme-card" data-theme-id="green-white" aria-pressed="false">
+              <div class="theme-mini">
+                <div class="theme-mini-top"><span>VaRoom</span><span class="theme-mini-dots"><span></span><span></span><span></span></span></div>
+                <div class="theme-mini-thread">
+                  <div class="theme-mini-separator">Today</div>
+                  <div class="theme-mini-msg theirs">Could you show me a green, modern home?</div>
+                  <div class="theme-mini-msg mine">Absolutely — I’ve got a few options ready.</div>
+                </div>
+              </div>
+              <div class="theme-card-title"><span>Green + White</span><span class="theme-card-status">Preview</span></div>
+            </button>
+            <button type="button" class="theme-card" data-theme-id="light-green-white" aria-pressed="false">
+              <div class="theme-mini">
+                <div class="theme-mini-top"><span>VaRoom</span><span class="theme-mini-dots"><span></span><span></span><span></span></span></div>
+                <div class="theme-mini-thread">
+                  <div class="theme-mini-separator">Today</div>
+                  <div class="theme-mini-msg theirs">I need a calm, airy space for a weekend trip.</div>
+                  <div class="theme-mini-msg mine">I’ve matched the right mix of comfort and value.</div>
+                </div>
+              </div>
+              <div class="theme-card-title"><span>Light green</span><span class="theme-card-status">Preview</span></div>
+            </button>
+            <button type="button" class="theme-card" data-theme-id="blue-grey" aria-pressed="false">
+              <div class="theme-mini">
+                <div class="theme-mini-top"><span>VaRoom</span><span class="theme-mini-dots"><span></span><span></span><span></span></span></div>
+                <div class="theme-mini-thread">
+                  <div class="theme-mini-separator">Today</div>
+                  <div class="theme-mini-msg theirs">I need a cosy apartment with a skyline view.</div>
+                  <div class="theme-mini-msg mine">I’ve shortlisted a few with good value.</div>
+                </div>
+              </div>
+              <div class="theme-card-title"><span>Blue + Grey</span><span class="theme-card-status">Preview</span></div>
+            </button>
+            <button type="button" class="theme-card" data-theme-id="black-white" aria-pressed="false">
+              <div class="theme-mini">
+                <div class="theme-mini-top"><span>VaRoom</span><span class="theme-mini-dots"><span></span><span></span><span></span></span></div>
+                <div class="theme-mini-thread">
+                  <div class="theme-mini-separator">Today</div>
+                  <div class="theme-mini-msg theirs">I want the most polished place available right now.</div>
+                  <div class="theme-mini-msg mine">I found a few strong matches with excellent reviews.</div>
+                </div>
+              </div>
+              <div class="theme-card-title"><span>Black + White</span><span class="theme-card-status">Preview</span></div>
+            </button>
+            <button type="button" class="theme-card" data-theme-id="black-grey" aria-pressed="false">
+              <div class="theme-mini">
+                <div class="theme-mini-top"><span>VaRoom</span><span class="theme-mini-dots"><span></span><span></span><span></span></span></div>
+                <div class="theme-mini-thread">
+                  <div class="theme-mini-separator">Today</div>
+                  <div class="theme-mini-msg theirs">Let’s compare a few options before booking.</div>
+                  <div class="theme-mini-msg mine">I can narrow the shortlist by budget and location.</div>
+                </div>
+              </div>
+              <div class="theme-card-title"><span>Black + Grey</span><span class="theme-card-status">Preview</span></div>
+            </button>
+            <button type="button" class="theme-card" data-theme-id="purple-grey" aria-pressed="false">
+              <div class="theme-mini">
+                <div class="theme-mini-top"><span>VaRoom</span><span class="theme-mini-dots"><span></span><span></span><span></span></span></div>
+                <div class="theme-mini-thread">
+                  <div class="theme-mini-separator">Today</div>
+                  <div class="theme-mini-msg theirs">I’m looking for an upscale, design-led space.</div>
+                  <div class="theme-mini-msg mine">I’ve found a few premium options to compare.</div>
+                </div>
+              </div>
+              <div class="theme-card-title"><span>Purple + Grey</span><span class="theme-card-status">Preview</span></div>
+            </button>
+            <button type="button" class="theme-card" data-theme-id="purple-white" aria-pressed="false">
+              <div class="theme-mini">
+                <div class="theme-mini-top"><span>VaRoom</span><span class="theme-mini-dots"><span></span><span></span><span></span></span></div>
+                <div class="theme-mini-thread">
+                  <div class="theme-mini-separator">Today</div>
+                  <div class="theme-mini-msg theirs">Show me polished, statement homes in the city centre.</div>
+                  <div class="theme-mini-msg mine">I’ve pulled together the best fits for your brief.</div>
+                </div>
+              </div>
+              <div class="theme-card-title"><span>Purple + White</span><span class="theme-card-status">Preview</span></div>
+            </button>
+            <button type="button" class="theme-card" data-theme-id="light-orange-white" aria-pressed="false">
+              <div class="theme-mini">
+                <div class="theme-mini-top"><span>VaRoom</span><span class="theme-mini-dots"><span></span><span></span><span></span></span></div>
+                <div class="theme-mini-thread">
+                  <div class="theme-mini-separator">Today</div>
+                  <div class="theme-mini-msg theirs">I need a warm, welcoming place with a bit of character.</div>
+                  <div class="theme-mini-msg mine">I’ve found a few warm-toned spaces that fit well.</div>
+                </div>
+              </div>
+              <div class="theme-card-title"><span>Orange + White</span><span class="theme-card-status">Preview</span></div>
+            </button>
           </div>
-          <button type="button" class="reset-theme" id="reset-chat-theme">Reset to VaRoom default</button>
+          <div class="theme-preview-panel">
+            <div class="theme-preview-shell" id="theme-preview-shell" data-appearance="light">
+              <div class="theme-preview-header">
+                <div class="theme-preview-header-left">
+                  <div class="theme-preview-avatar">E</div>
+                  <div class="theme-preview-person"><strong>Elie</strong><span>Search assistant</span></div>
+                </div>
+                <div class="theme-preview-mode">Light</div>
+              </div>
+              <div class="theme-preview-thread">
+                <div class="theme-preview-separator">Today</div>
+                <div class="preview-bubble theirs">Hi, I’m looking for a quiet, well-priced apartment in Nairobi.</div>
+                <div class="preview-bubble mine">I’ve found a few strong options around your budget and needs.</div>
+              </div>
+              <div class="theme-preview-composer">
+                <div class="compose-pill"></div>
+                <div class="send-pill"></div>
+              </div>
+            </div>
+          </div>
+          <div class="personalize-actions">
+            <button type="button" class="reset-theme" id="reset-chat-theme">Reset</button>
+            <button type="button" class="theme-apply-btn" id="apply-chat-theme">Apply</button>
+          </div>
           <p class="personalize-status" id="personalize-status" role="status" aria-live="polite"></p>
         </div>
       </div>
@@ -427,8 +664,10 @@
     const chatStage = document.querySelector('.chat-stage');
     const personalizeButton = document.getElementById('personalize-btn');
     const personalizeMenu = document.getElementById('personalize-menu');
-    const themeOptions = document.querySelectorAll('[data-chat-theme-choice]');
-    const backgroundOptions = document.querySelectorAll('[data-chat-background-choice]');
+    const themeCards = document.querySelectorAll('.theme-card');
+    const themePreviewShell = document.getElementById('theme-preview-shell');
+    const previewDarkToggle = document.getElementById('theme-preview-dark-toggle');
+    const applyChatThemeBtn = document.getElementById('apply-chat-theme');
     const personalizeStatus = document.getElementById('personalize-status');
 
     let currentUser = null;
@@ -439,6 +678,20 @@
     let chatTheme = 'varoom-red';
     let chatBackground = 'clean';
     let latestElieSession = null;
+    let pendingChatTheme = 'varoom-red';
+    let previewDarkMode = false;
+
+    const themePaletteMap = {
+      'varoom-red': { sender:'#C41E3A', recipient:'#F5F2F1', bg:'#FCFBFA', bgDark:'#111827', header:'#FFFFFF', headerDark:'#171C22', text:'#111827', textDark:'#F8FAFC', muted:'#64748B', mutedDark:'#AAB5C0', previewRecipient:'#F5F2F1' },
+      'green-white': { sender:'#1FAE6A', recipient:'#EDF9F1', bg:'#F4FBF6', bgDark:'#0F172A', header:'#FFFFFF', headerDark:'#171C22', text:'#111827', textDark:'#F8FAFC', muted:'#5B6B73', mutedDark:'#AAB5C0', previewRecipient:'#EDF9F1' },
+      'light-green-white': { sender:'#8BCF7D', recipient:'#F1F9EE', bg:'#F8FCF6', bgDark:'#111827', header:'#FFFFFF', headerDark:'#171C22', text:'#173320', textDark:'#F8FAFC', muted:'#5B6B5C', mutedDark:'#AAB5C0', previewRecipient:'#F1F9EE' },
+      'blue-grey': { sender:'#2C77D8', recipient:'#E8F0FF', bg:'#F4F7FB', bgDark:'#111827', header:'#FFFFFF', headerDark:'#171C22', text:'#111827', textDark:'#F8FAFC', muted:'#64748B', mutedDark:'#AAB5C0', previewRecipient:'#E8F0FF' },
+      'black-white': { sender:'#121212', recipient:'#F0F0F0', bg:'#F7F7F7', bgDark:'#0F172A', header:'#FFFFFF', headerDark:'#171C22', text:'#111827', textDark:'#F8FAFC', muted:'#4B5563', mutedDark:'#AAB5C0', previewRecipient:'#F0F0F0' },
+      'black-grey': { sender:'#1F1F1F', recipient:'#EAEAEA', bg:'#F3F3F3', bgDark:'#111827', header:'#FFFFFF', headerDark:'#171C22', text:'#111827', textDark:'#F8FAFC', muted:'#5D6470', mutedDark:'#AAB5C0', previewRecipient:'#EAEAEA' },
+      'purple-grey': { sender:'#7B62C9', recipient:'#ECE7FF', bg:'#F7F5FF', bgDark:'#111827', header:'#FFFFFF', headerDark:'#171C22', text:'#1F2937', textDark:'#F8FAFC', muted:'#697489', mutedDark:'#AAB5C0', previewRecipient:'#ECE7FF' },
+      'purple-white': { sender:'#A06BEA', recipient:'#F4EFFF', bg:'#F9F5FF', bgDark:'#111827', header:'#FFFFFF', headerDark:'#171C22', text:'#1F2937', textDark:'#F8FAFC', muted:'#5A6473', mutedDark:'#AAB5C0', previewRecipient:'#F4EFFF' },
+      'light-orange-white': { sender:'#F1A75A', recipient:'#FFF0E0', bg:'#FFF8F3', bgDark:'#111827', header:'#FFFFFF', headerDark:'#171C22', text:'#2B221B', textDark:'#F8FAFC', muted:'#7A5F4A', mutedDark:'#AAB5C0', previewRecipient:'#FFF0E0' }
+    };
 
     function resolveTheme(choice){
       return choice === 'system'
@@ -452,18 +705,47 @@
       localStorage.setItem('varoom_theme', choice);
     }
 
-    function applyChatPersonalisation(theme, background){
-      chatTheme = ['varoom-red', 'ocean', 'emerald', 'violet', 'dark'].indexOf(theme) >= 0 ? theme : 'varoom-red';
+    function sanitizeTheme(themeName){
+      const validThemes = Object.keys(themePaletteMap);
+      return validThemes.indexOf(themeName) >= 0 ? themeName : 'varoom-red';
+    }
+
+    function applyChatPersonalisation(theme, background, options){
+      const persist = !!(options && options.persist);
+      chatTheme = sanitizeTheme(theme);
       chatBackground = ['clean', 'soft', 'dark'].indexOf(background) >= 0 ? background : 'clean';
       chatStage.setAttribute('data-chat-theme', chatTheme);
       chatStage.setAttribute('data-chat-background', chatBackground);
-      themeOptions.forEach(function(option){
-        option.setAttribute('aria-checked', option.getAttribute('data-chat-theme-choice') === chatTheme ? 'true' : 'false');
-      });
-      backgroundOptions.forEach(function(option){
-        option.setAttribute('aria-checked', option.getAttribute('data-chat-background-choice') === chatBackground ? 'true' : 'false');
-      });
       localStorage.setItem('varoom_chat_preferences', JSON.stringify({ chatTheme: chatTheme, chatBackground: chatBackground }));
+      if (persist) {
+        saveChatPersonalisation();
+      }
+    }
+
+    function updateThemePreview(){
+      const themeKey = sanitizeTheme(pendingChatTheme || chatTheme);
+      const palette = themePaletteMap[themeKey] || themePaletteMap['varoom-red'];
+      const activeDark = !!previewDarkMode;
+      const shell = themePreviewShell;
+      const modeLabel = shell.querySelector('.theme-preview-mode');
+      const avatar = shell.querySelector('.theme-preview-avatar');
+      shell.setAttribute('data-appearance', activeDark ? 'dark' : 'light');
+      shell.style.setProperty('--preview-bg', activeDark ? palette.bgDark : palette.bg);
+      shell.style.setProperty('--preview-header', activeDark ? palette.headerDark : palette.header);
+      shell.style.setProperty('--preview-text', activeDark ? palette.textDark : palette.text);
+      shell.style.setProperty('--preview-muted', activeDark ? palette.mutedDark : palette.muted);
+      shell.style.setProperty('--preview-sender', palette.sender);
+      shell.style.setProperty('--preview-recipient', palette.previewRecipient);
+      shell.style.setProperty('--preview-border', activeDark ? 'rgba(148,163,184,0.16)' : 'rgba(15,23,42,0.08)');
+      avatar.style.background = palette.sender;
+      modeLabel.textContent = activeDark ? 'Dark' : 'Light';
+      themeCards.forEach(function(card){
+        const selected = card.getAttribute('data-theme-id') === themeKey;
+        card.classList.toggle('is-selected', selected);
+        card.setAttribute('aria-pressed', selected ? 'true' : 'false');
+        const status = card.querySelector('.theme-card-status');
+        if (status) status.textContent = selected ? 'Selected' : 'Preview';
+      });
     }
 
     async function saveChatPersonalisation(){
@@ -503,26 +785,55 @@
     const railProfile = document.querySelector('.rail-profile');
     if (profile.full_name) railProfile.textContent = profile.full_name.split(/\s+/).map(function(part){ return part.charAt(0); }).join('').slice(0, 2).toUpperCase();
 
+    pendingChatTheme = sanitizeTheme((chatProfile && chatProfile.chat_theme_preference) || storedChatPreferences.chatTheme || 'varoom-red');
+    chatTheme = pendingChatTheme;
+    chatBackground = ['clean', 'soft', 'dark'].indexOf((chatProfile && chatProfile.chat_background_preference) || storedChatPreferences.chatBackground || 'clean') >= 0
+      ? ((chatProfile && chatProfile.chat_background_preference) || storedChatPreferences.chatBackground || 'clean')
+      : 'clean';
+    applyChatPersonalisation(chatTheme, chatBackground);
+    updateThemePreview();
+
     personalizeButton.addEventListener('click', function(){
       const isOpen = personalizeButton.getAttribute('aria-expanded') === 'true';
       personalizeButton.setAttribute('aria-expanded', String(!isOpen));
       personalizeMenu.hidden = isOpen;
+      if (!personalizeMenu.hidden) {
+        pendingChatTheme = sanitizeTheme(chatTheme);
+        previewDarkMode = false;
+        previewDarkToggle.classList.remove('is-dark');
+        previewDarkToggle.setAttribute('aria-pressed', 'false');
+        updateThemePreview();
+      }
     });
-    themeOptions.forEach(function(option){
-      option.addEventListener('click', function(){
-        applyChatPersonalisation(option.getAttribute('data-chat-theme-choice'), chatBackground);
-        saveChatPersonalisation();
+    themeCards.forEach(function(card){
+      card.addEventListener('click', function(){
+        pendingChatTheme = sanitizeTheme(card.getAttribute('data-theme-id'));
+        personalizeStatus.textContent = 'Previewing ' + (card.querySelector('.theme-card-title span') || {}).textContent || 'theme';
+        updateThemePreview();
       });
     });
-    backgroundOptions.forEach(function(option){
-      option.addEventListener('click', function(){
-        applyChatPersonalisation(chatTheme, option.getAttribute('data-chat-background-choice'));
-        saveChatPersonalisation();
-      });
+    previewDarkToggle.addEventListener('click', function(){
+      previewDarkMode = !previewDarkMode;
+      previewDarkToggle.classList.toggle('is-dark', previewDarkMode);
+      previewDarkToggle.setAttribute('aria-pressed', String(previewDarkMode));
+      updateThemePreview();
+      personalizeStatus.textContent = previewDarkMode ? 'Preview is in dark mode.' : 'Preview is in light mode.';
     });
     document.getElementById('reset-chat-theme').addEventListener('click', function(){
-      applyChatPersonalisation('varoom-red', 'clean');
-      saveChatPersonalisation();
+      pendingChatTheme = 'varoom-red';
+      previewDarkMode = false;
+      previewDarkToggle.classList.remove('is-dark');
+      previewDarkToggle.setAttribute('aria-pressed', 'false');
+      updateThemePreview();
+      personalizeStatus.textContent = 'Preview reset to VaRoom default.';
+    });
+    applyChatThemeBtn.addEventListener('click', async function(){
+      pendingChatTheme = sanitizeTheme(pendingChatTheme);
+      chatTheme = pendingChatTheme;
+      applyChatPersonalisation(chatTheme, chatBackground, { persist: true });
+      personalizeMenu.hidden = true;
+      personalizeButton.setAttribute('aria-expanded', 'false');
+      personalizeStatus.textContent = 'Theme applied to your chat.';
     });
     document.addEventListener('click', function(event){
       if (!personalizeMenu.hidden && !event.target.closest('.personalize-wrap')) {
