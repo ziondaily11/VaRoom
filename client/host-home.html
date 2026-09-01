@@ -60,7 +60,12 @@
   button{ font-family:inherit; cursor:pointer; border:none; background:none; }
   :focus-visible{ outline:3px solid var(--red-deep); outline-offset:3px; }
 
-  .app-shell{ display:grid; grid-template-columns:282px 1fr; height:100vh; overflow:hidden; }
+  .app-shell{
+    display:grid;
+    grid-template-columns: 280px minmax(0, 1fr);
+    height:100vh;
+    overflow:hidden;
+  }
 
   /* ---------- SIDEBAR (glass) ---------- */
   .sidebar{
@@ -139,7 +144,13 @@
   .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
 
   /* ---------- MAIN COLUMN ---------- */
-  .main-col{ display:flex; flex-direction:column; height:100vh; overflow:hidden; }
+  .main-col{
+    display:flex;
+    flex-direction:column;
+    height:100vh;
+    overflow:hidden;
+    min-width:0;
+  }
 
   .topbar{
     display:flex; align-items:center; gap:1rem;
@@ -176,22 +187,55 @@
   .dash-header{ padding:1.8rem 0 0; }
 
   .dash-body{
-    display:grid; grid-template-columns:1fr 320px; gap:1.1rem;
-    align-items:stretch; padding:0 1.4rem;
-    flex:1 1 auto; min-height:0; overflow:hidden;
+    display:grid;
+    grid-template-columns: minmax(620px, 760px) minmax(280px, 360px);
+    align-items:start;
+    padding:0 1.4rem;
+    flex:1 1 auto;
+    min-height:0;
+    overflow:hidden;
+    gap:0;
+    width:100%;
   }
-  .dash-main{ min-width:0; overflow-y:auto; height:100%; padding-bottom:2rem; scrollbar-width:none; }
+  .dash-main{
+    min-width:620px;
+    overflow-y:auto;
+    height:100%;
+    padding-bottom:2rem;
+    scrollbar-width:none;
+    border-right:1px solid rgba(26,18,16,.08);
+  }
   .dash-main::-webkit-scrollbar{ display:none; }
   .host-rail{
     /* The information rail must grow with its cards, including Property News. */
-    position:static; padding-top:1.8rem;
-    display:flex; flex-direction:column; gap:1.1rem;
-    overflow-y:auto; height:100%; padding-bottom:2rem;
+    position:static;
+    padding:1.8rem 1.2rem 2rem 1.2rem;
+    display:flex;
+    flex-direction:column;
+    gap:1.1rem;
+    overflow-y:auto;
+    height:100%;
     scrollbar-width:none;
+    border-left:1px solid rgba(26,18,16,.08);
+    justify-self:end;
   }
   .host-rail::-webkit-scrollbar{ display:none; }
 
   .dash-top{ display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; flex-wrap:wrap; margin-bottom:1.6rem; }
+
+  .dash-header,
+  .feed-area {
+    max-width:760px;
+    width:100%;
+    margin:0 auto;
+  }
+
+  .feed-area {
+    min-width:620px;
+    padding-bottom:2rem;
+    border-right:none;
+    box-sizing:border-box;
+  }
 
   h1.greeting{ font-family:var(--font-display); font-weight:600; font-size:1.7rem; margin-bottom:.3rem; }
   .greeting-sub{ font-size:.95rem; color:var(--muted); }
@@ -236,6 +280,26 @@
   .stat-num{ font-family:var(--font-display); font-size:1.6rem; font-weight:700; }
   .stat-label{ font-size:.78rem; color:var(--muted); }
   .stat.stub .stat-num{ color:var(--muted); font-size:1.1rem; font-family:var(--font-body); font-weight:600; }
+
+  @media (max-width:1360px){
+    .dash-body{
+      grid-template-columns: minmax(540px, 680px) minmax(260px, 340px);
+    }
+    .dash-header,
+    .feed-area {
+      max-width:680px;
+      min-width:540px;
+    }
+    .dash-main{ min-width:540px; }
+  }
+
+  @media (max-width:1180px){
+    .host-rail{ display:none; }
+    .dash-body{ grid-template-columns: minmax(0, 760px); }
+    .dash-main{ min-width:0; }
+    .dash-header,
+    .feed-area{ min-width:0; max-width:760px; }
+  }
 
   @media (max-width:700px){
     .stats-row{ grid-template-columns:1fr 1fr; row-gap:1.2rem; }

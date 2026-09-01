@@ -55,7 +55,12 @@
   :focus-visible{ outline:3px solid var(--red-deep); outline-offset:3px; }
   ul{ list-style:none; }
 
-  .app-shell{ display:grid; grid-template-columns:320px minmax(0,1fr); height:100vh; overflow:hidden; }
+  .app-shell{
+    display:grid;
+    grid-template-columns: 280px minmax(0, 1fr);
+    height:100vh;
+    overflow:hidden;
+  }
 
   /* ---------- SIDEBAR (glass) ----------
      No position:sticky needed — the whole app-shell is a fixed-height row
@@ -135,7 +140,13 @@
   .bottom-bar{ display:none; }
 
   /* ---------- MAIN COLUMN ---------- */
-  .main-col{ display:flex; flex-direction:column; height:100vh; overflow:hidden; min-width:0; }
+  .main-col{
+    display:flex;
+    flex-direction:column;
+    height:100vh;
+    overflow:hidden;
+    min-width:0;
+  }
 
   .topbar{
     display:flex; align-items:center; gap:1rem;
@@ -177,19 +188,30 @@
      own instead of growing the whole row to fit their content. */
   .content-row{
     display:grid;
-    grid-template-columns: minmax(0, 1fr) minmax(560px, 760px) minmax(290px, 430px);
+    grid-template-columns: minmax(620px, 760px) minmax(280px, 420px);
     align-items:start;
-    min-width:0; flex:1 1 auto; min-height:0; overflow:hidden;
+    min-width:0;
+    flex:1 1 auto;
+    min-height:0;
+    overflow:hidden;
     gap:0;
+    width:100%;
+    max-width:100%;
   }
 
   /* ---------- FEED ----------
      Scrolls independently of the sidebar and right rail. */
   .feed-area{
-    padding:1.8rem 2rem 4rem; width:100%; max-width:760px; min-width:0;
-    padding:1.2rem 1.25rem 4rem; max-width:760px; flex:1 1 auto; min-width:0;
-    height:100%; overflow-y:auto; scrollbar-width:none;
-    margin:0 auto; border-right:1px solid rgba(26,18,16,.08);
+    width:100%;
+    max-width:760px;
+    min-width:620px;
+    padding:1.8rem 2rem 4rem;
+    height:100%;
+    overflow-y:auto;
+    scrollbar-width:none;
+    margin:0 auto;
+    border-right:1px solid rgba(26,18,16,.08);
+    box-sizing:border-box;
   }
   .feed-area::-webkit-scrollbar{ display:none; }
 
@@ -198,10 +220,18 @@
      itself is now a fixed-height flex row rather than part of a scrolling
      page, so each column just scrolls its own contents in place. */
   .right-rail{
-    width:100%; max-width:430px; padding:1.8rem 1.8rem 4rem 1.2rem;
-    display:flex; flex-direction:column; gap:1.5rem;
-    height:100%; overflow-y:auto; scrollbar-width:none;
-    justify-self:end; border-left:1px solid rgba(26,18,16,.08);
+    width:100%;
+    max-width:420px;
+    padding:1.8rem 1.8rem 4rem 1.2rem;
+    display:flex;
+    flex-direction:column;
+    gap:1.5rem;
+    height:100%;
+    overflow-y:auto;
+    scrollbar-width:none;
+    justify-self:end;
+    border-left:1px solid rgba(26,18,16,.08);
+    box-sizing:border-box;
   }
   .right-rail::-webkit-scrollbar{ display:none; }
 
@@ -227,15 +257,15 @@
   .dest-card-count{ font-size:.68rem; opacity:.85; }
 
   @media (max-width:1360px){
-    .content-row{ grid-template-columns: minmax(0, 1fr) minmax(0, 700px) minmax(260px, 360px); }
-    .feed-area{ padding-inline:1.6rem; }
+    .content-row{ grid-template-columns: minmax(540px, 680px) minmax(260px, 360px); }
+    .feed-area{ min-width:540px; padding-inline:1.6rem; }
     .right-rail{ padding-right:1.2rem; }
   }
 
   @media (max-width:1180px){
     .right-rail{ display:none; }
-    .content-row{ grid-template-columns: minmax(0, 1fr) minmax(0, 760px); }
-    .feed-area{ margin:0 auto; }
+    .content-row{ grid-template-columns: minmax(0, 760px); }
+    .feed-area{ margin:0 auto; min-width:0; }
   }
 
   .mobile-dest-row{ display:none; }
