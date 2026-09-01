@@ -1,0 +1,372 @@
+/* Skeleton Loading System */
+
+.skeleton {
+  position: relative;
+  background: var(--white, #ffffff);
+  color: transparent;
+  overflow: hidden;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .skeleton::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .3), transparent);
+    animation: skeleton-shimmer 2s infinite;
+  }
+}
+
+@keyframes skeleton-shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.skeleton.pulse {
+  animation: skeleton-pulse 2s ease-in-out infinite;
+}
+
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .6; }
+}
+
+/* Card Skeleton */
+.skeleton-card {
+  background: var(--white, #ffffff);
+  border: 1px solid rgba(128, 110, 100, .15);
+  border-radius: 16px;
+  padding: 0;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+.skeleton-card-media {
+  width: 100%;
+  height: clamp(220px, 30vw, 420px);
+  background: rgba(128, 110, 100, .08);
+  animation: skeleton-shimmer 2s infinite;
+}
+
+.skeleton-card-body {
+  padding: 1rem;
+}
+
+.skeleton-card-head {
+  display: flex;
+  align-items: center;
+  gap: .7rem;
+  margin-bottom: .8rem;
+}
+
+.skeleton-card-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: rgba(128, 110, 100, .12);
+  flex-shrink: 0;
+  animation: skeleton-shimmer 2s infinite;
+}
+
+.skeleton-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: .4rem;
+  flex: 1;
+}
+
+.skeleton-line {
+  height: .8rem;
+  background: rgba(128, 110, 100, .08);
+  border-radius: 4px;
+  animation: skeleton-shimmer 2s infinite;
+}
+
+.skeleton-line.short {
+  width: 60%;
+}
+
+.skeleton-line.medium {
+  width: 80%;
+}
+
+.skeleton-card-caption {
+  height: 1.2rem;
+  background: rgba(128, 110, 100, .08);
+  border-radius: 4px;
+  margin: .8rem 0 .8rem;
+  animation: skeleton-shimmer 2s infinite;
+}
+
+.skeleton-card-caption-2 {
+  height: 1.2rem;
+  width: 90%;
+  background: rgba(128, 110, 100, .08);
+  border-radius: 4px;
+  animation: skeleton-shimmer 2s infinite;
+}
+
+.skeleton-card-actions {
+  display: flex;
+  gap: .7rem;
+  margin-top: .8rem;
+}
+
+.skeleton-action-btn {
+  height: 2.2rem;
+  min-width: 3rem;
+  background: rgba(128, 110, 100, .08);
+  border-radius: 100px;
+  flex: 1;
+  animation: skeleton-shimmer 2s infinite;
+}
+
+/* Feed Skeleton Container */
+.skeleton-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Profile/Listing Grid Skeleton */
+.skeleton-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 1rem;
+}
+
+.skeleton-grid-item {
+  aspect-ratio: 1;
+  background: rgba(128, 110, 100, .08);
+  border-radius: 12px;
+  animation: skeleton-shimmer 2s infinite;
+}
+
+/* Booking Card Skeleton */
+.skeleton-booking-card {
+  background: var(--white, #ffffff);
+  border: 1px solid rgba(128, 110, 100, .15);
+  border-radius: 16px;
+  padding: 1.2rem 1.4rem;
+  margin-bottom: 1rem;
+}
+
+.skeleton-bk-top {
+  display: flex;
+  align-items: center;
+  gap: .8rem;
+  margin-bottom: .8rem;
+}
+
+.skeleton-bk-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: rgba(128, 110, 100, .12);
+  flex-shrink: 0;
+  animation: skeleton-shimmer 2s infinite;
+}
+
+.skeleton-bk-text {
+  display: flex;
+  flex-direction: column;
+  gap: .4rem;
+  flex: 1;
+}
+
+.skeleton-bk-status {
+  width: 5rem;
+  height: 1.5rem;
+  border-radius: 100px;
+  background: rgba(128, 110, 100, .08);
+  animation: skeleton-shimmer 2s infinite;
+}
+
+.skeleton-bk-details {
+  display: flex;
+  flex-direction: column;
+  gap: .6rem;
+  margin-bottom: .9rem;
+}
+
+.skeleton-bk-detail-line {
+  height: 1rem;
+  background: rgba(128, 110, 100, .08);
+  border-radius: 4px;
+  animation: skeleton-shimmer 2s infinite;
+}
+
+.skeleton-bk-detail-line.short {
+  width: 50%;
+}
+
+.skeleton-bk-actions {
+  display: flex;
+  gap: .7rem;
+}
+
+.skeleton-bk-action {
+  height: 2.2rem;
+  flex: 1;
+  background: rgba(128, 110, 100, .08);
+  border-radius: 100px;
+  animation: skeleton-shimmer 2s infinite;
+}
+
+/* Chat Skeleton */
+.skeleton-chat-item {
+  padding: 1rem;
+  border-bottom: 1px solid rgba(128, 110, 100, .1);
+  display: flex;
+  gap: .8rem;
+}
+
+.skeleton-chat-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(128, 110, 100, .12);
+  flex-shrink: 0;
+  animation: skeleton-shimmer 2s infinite;
+}
+
+.skeleton-chat-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: .4rem;
+}
+
+.skeleton-chat-name {
+  height: .9rem;
+  width: 40%;
+  background: rgba(128, 110, 100, .08);
+  border-radius: 4px;
+  animation: skeleton-shimmer 2s infinite;
+}
+
+.skeleton-chat-message {
+  height: .85rem;
+  width: 65%;
+  background: rgba(128, 110, 100, .08);
+  border-radius: 4px;
+  animation: skeleton-shimmer 2s infinite;
+}
+
+.skeleton-chat-time {
+  height: .75rem;
+  width: 20%;
+  background: rgba(128, 110, 100, .08);
+  border-radius: 4px;
+  animation: skeleton-shimmer 2s infinite;
+  margin-top: .2rem;
+}
+
+/* Notification Skeleton */
+.skeleton-notification {
+  padding: 1rem;
+  border-bottom: 1px solid rgba(128, 110, 100, .1);
+  display: flex;
+  gap: .6rem;
+}
+
+.skeleton-notif-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(128, 110, 100, .08);
+  flex-shrink: 0;
+  animation: skeleton-shimmer 2s infinite;
+}
+
+.skeleton-notif-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: .4rem;
+}
+
+.skeleton-notif-title {
+  height: .85rem;
+  background: rgba(128, 110, 100, .08);
+  border-radius: 4px;
+  animation: skeleton-shimmer 2s infinite;
+}
+
+.skeleton-notif-text {
+  height: .75rem;
+  width: 85%;
+  background: rgba(128, 110, 100, .08);
+  border-radius: 4px;
+  animation: skeleton-shimmer 2s infinite;
+}
+
+/* Tab/Navigation Skeleton */
+.skeleton-tabs {
+  display: flex;
+  gap: .6rem;
+  margin-bottom: 1.6rem;
+}
+
+.skeleton-tab {
+  height: 2rem;
+  min-width: 5rem;
+  background: rgba(128, 110, 100, .08);
+  border-radius: 100px;
+  animation: skeleton-shimmer 2s infinite;
+}
+
+/* Page Title Skeleton */
+.skeleton-title {
+  height: 2rem;
+  width: 30%;
+  background: rgba(128, 110, 100, .08);
+  border-radius: 4px;
+  margin-bottom: 1.6rem;
+  animation: skeleton-shimmer 2s infinite;
+}
+
+/* Dark theme support */
+[data-theme="dark"] .skeleton {
+  background: var(--white, #241c1a);
+}
+
+[data-theme="dark"] .skeleton-card {
+  background: var(--white, #241c1a);
+}
+
+[data-theme="dark"] .skeleton-line,
+[data-theme="dark"] .skeleton-card-caption,
+[data-theme="dark"] .skeleton-card-caption-2,
+[data-theme="dark"] .skeleton-action-btn,
+[data-theme="dark"] .skeleton-grid-item,
+[data-theme="dark"] .skeleton-bk-detail-line,
+[data-theme="dark"] .skeleton-bk-action,
+[data-theme="dark"] .skeleton-chat-name,
+[data-theme="dark"] .skeleton-chat-message,
+[data-theme="dark"] .skeleton-chat-time,
+[data-theme="dark"] .skeleton-notif-title,
+[data-theme="dark"] .skeleton-notif-text,
+[data-theme="dark"] .skeleton-tab,
+[data-theme="dark"] .skeleton-title {
+  background: rgba(245, 239, 236, .08);
+}
+
+[data-theme="dark"] .skeleton-card-avatar,
+[data-theme="dark"] .skeleton-bk-avatar,
+[data-theme="dark"] .skeleton-chat-avatar,
+[data-theme="dark"] .skeleton-notif-icon {
+  background: rgba(245, 239, 236, .12);
+}
+
+[data-theme="dark"] .skeleton-booking-card,
+[data-theme="dark"] .skeleton-chat-item {
+  background: var(--white, #241c1a);
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .skeleton-grid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  }
+}

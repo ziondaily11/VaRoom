@@ -17,8 +17,9 @@
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;0,9..144,900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="js/skeleton-loader.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/skeleton-loader.js"></script>
 <style>
   :root{
     --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#1A1210; --paper:#FBF4F1;
@@ -158,7 +159,7 @@
 
     async function loadReceived(){
       const panel = document.getElementById('received-panel');
-      panel.innerHTML = '<p class="state-msg">Loading…</p>';
+      panel.innerHTML = window.SkeletonLoader.bookingCards(3);
 
       const { data, error } = await supabaseClient
         .from('bookings')
@@ -293,7 +294,7 @@
 
     async function loadSent(){
       const panel = document.getElementById('sent-panel');
-      panel.innerHTML = '<p class="state-msg">Loading…</p>';
+      panel.innerHTML = window.SkeletonLoader.bookingCards(3);
 
       const { data, error } = await supabaseClient
         .from('bookings')
