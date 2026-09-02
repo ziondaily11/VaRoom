@@ -16,7 +16,11 @@ app.use(express.json());
 app.use('/api', videoRoutes);
 
 // Serve the frontend (client/) as static files
-app.use(express.static(path.join(__dirname, '..', 'client')));
+const clientDirectory = path.join(__dirname, '..', 'client');
+app.use(express.static(clientDirectory));
+app.get('/', (_req, res) => {
+  res.sendFile(path.join(clientDirectory, 'legacy-pages', 'index.html'));
+});
 
 // Rate-limit in-memory tracker for OTP requests
 const otpRequestTracker = new Map();
