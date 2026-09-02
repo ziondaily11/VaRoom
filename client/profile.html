@@ -11,11 +11,8 @@
 <script>
   (function(){
     try{
-      var saved = localStorage.getItem('varoom_theme') || 'system';
-      var resolved = saved === 'system'
-        ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-        : saved;
-      document.documentElement.setAttribute('data-theme', resolved);
+      document.documentElement.setAttribute('data-theme', 'light');
+      try { localStorage.setItem('varoom_theme', 'light'); } catch (e) {}
     }catch(e){}
   })();
 </script>
@@ -38,12 +35,12 @@
     --glow-b:rgba(196,30,58,.09);
   }
   [data-theme="dark"]{
-    --white:#241C1A; --paper:#15100F; --ink:#F5EFEC; --muted:#B8ACA8; --card-border:rgba(255,255,255,.1);
-    --glass-bg:rgba(28,20,18,.55);
-    --glass-border:rgba(255,255,255,.09);
-    --glass-shadow:0 24px 55px rgba(0,0,0,.5);
-    --glow-a:transparent;
-    --glow-b:transparent;
+    --white:#FFFFFF; --paper:#FBF4F1; --ink:#1A1210; --muted:#7a6b67; --card-border:rgba(26,18,16,.1);
+    --glass-bg:rgba(255,255,255,.55);
+    --glass-border:rgba(255,255,255,.6);
+    --glass-shadow:0 24px 55px rgba(26,18,16,.10);
+    --glow-a:rgba(196,30,58,.14);
+    --glow-b:rgba(196,30,58,.09);
   }
   *{ margin:0; padding:0; box-sizing:border-box; }
   body{
