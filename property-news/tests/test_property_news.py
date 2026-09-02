@@ -247,6 +247,26 @@ class ApiSecurityTests(unittest.IsolatedAsyncioTestCase):
         response_data = response.json()
         self.assertEqual(len(response_data), 2)
 
+    async def test_latest_news_excludes_published_items_without_publication_time(self):
+        repository = MemoryNewsRepository()
+        news_source = source()
+        await repository.upsert_source(news_source)
+        for suffix, published_at in (("visible", datetime.now(timezone.utc)), ("missing-date", None)):
+            item = NewsItem(
+                source_id=news_source.id, source_url=f"https://source1.example.test/{suffix}",
+                canonical_url=f"https://source1.example.test/{suffix}", source_title=f"{suffix} property update",
+                clean_text="Property update", varoom_title=f"{suffix} property update", varoom_summary="Summary",
+                category="property", source_tier=1, content_hash=("a" if suffix == "visible" else "b") * 64,
+                review_status=ReviewStatus.PUBLISHED, published_at=published_at,
+            )
+            await repository.save_item(item)
+        app = create_app(Settings(public_rate_limit_per_minute=100), repository)
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.get("/api/news/latest?limit=4")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([entry["title"] for entry in response.json()], ["visible property update"])
+
     async def test_unauthorised_admin_action_is_denied(self):
         repository = MemoryNewsRepository()
         app = create_app(Settings(admin_api_key="test-admin-key", public_rate_limit_per_minute=100), repository)

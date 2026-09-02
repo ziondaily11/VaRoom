@@ -1672,13 +1672,9 @@
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    // Each news box is shown for a fixed window after it was published,
-    // then disappears on its own rather than sitting there indefinitely.
-    const PROPERTY_NEWS_DISPLAY_MS = 60 * 60 * 1000; // 1 hour
     const PROPERTY_NEWS_REFRESH_MS = 5 * 60 * 1000; // re-check for new items every 5 minutes
     let propertyNewsItems = [];
     let propertyNewsRefreshTimer = null;
-    let propertyNewsExpiryTimer = null;
 
     function clientPropertyNewsSourceUrl(news){
       const value = news && news.source && news.source.url;
@@ -1712,25 +1708,10 @@
       }).join('');
     }
 
-    // Drops items whose published time is older than the display window.
-    // Items with no date at all are kept, since there's no age to judge.
-    function freshPropertyNews(items){
-      const now = Date.now();
-      return (items || []).filter(function(news){
-        const source = news.source || {};
-        const publishedAt = source.published_at || news.published_at;
-        if (!publishedAt) return true;
-        const publishedTime = new Date(publishedAt).getTime();
-        if (isNaN(publishedTime)) return true;
-        return (now - publishedTime) <= PROPERTY_NEWS_DISPLAY_MS;
-      });
-    }
-
     function renderPropertyNewsContainers(){
       const containers = [document.getElementById('client-property-news'), document.getElementById('client-property-news-mobile')].filter(Boolean);
       if (!containers.length) return;
-      const fresh = freshPropertyNews(propertyNewsItems);
-      const html = fresh.length ? clientPropertyNewsHtml(fresh) : '<p class="client-property-news-empty">Nothing new right now.</p>';
+      const html = propertyNewsItems.length ? clientPropertyNewsHtml(propertyNewsItems) : '<p class="client-property-news-empty">Nothing new right now.</p>';
       containers.forEach(function(container){ container.innerHTML = html; wireClientPropertyNewsImages(container); });
     }
 
@@ -1751,11 +1732,7 @@
 
     function startPropertyNewsTimers(){
       clearInterval(propertyNewsRefreshTimer);
-      clearInterval(propertyNewsExpiryTimer);
       propertyNewsRefreshTimer = setInterval(loadClientPropertyNews, PROPERTY_NEWS_REFRESH_MS);
-      // Checked more often than the refetch so a box disappears close to
-      // on-time once its hour is up, without waiting on the next fetch.
-      propertyNewsExpiryTimer = setInterval(renderPropertyNewsContainers, 60 * 1000);
     }
 
     const propertyNewsRefreshBtn = document.getElementById('property-news-refresh');

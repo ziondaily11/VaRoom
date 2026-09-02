@@ -113,7 +113,7 @@ class RulesBasedNewsAnalyzer:
         facts = [{"statement": sentence} for sentence in _sentences(item.clean_text)
                  if re.search(r"\d|proposed|approved|effective|gazette|rate|tax", sentence, flags=re.I)][:6]
         summary_sentences = _sentences(item.clean_text)[:2]
-        summary = " ".join(summary_sentences)[:300] if summary_sentences else None
+        summary = " ".join(summary_sentences)[:280] if summary_sentences else None
         risk, reasons = assess_risk(text, status, source.trust_tier)
         confidence = 0.82 if relevant and source.trust_tier <= 2 else (0.62 if relevant else 0.95)
         return NewsAnalysis(
