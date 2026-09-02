@@ -259,12 +259,12 @@ class SourceCollector:
         usable_title = SourceCollector._usable_title(title)
         if extracted_text and len(extracted_text) >= 200:
             clean_text = extracted_text
-            resolved_title = usable_title or extracted_title or url
+            resolved_title = extracted_title or usable_title or url
         else:
             parser = _ArticleHTMLParser()
             parser.feed(html)
             clean_text = " ".join(parser.text)
-            resolved_title = usable_title or extracted_title or " ".join(parser.title) or url
+            resolved_title = extracted_title or usable_title or " ".join(parser.title) or url
 
         return CandidateArticle(source_id=source.id, source_url=url, source_title=resolved_title,
                                 source_published_at=published_at, original_content=html, clean_text=clean_text,

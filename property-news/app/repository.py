@@ -291,6 +291,7 @@ class SupabaseNewsRepository:
         params = {"select": fields, "order": "published_at.desc.nullslast,created_at.desc"}
         if published_only:
             params["review_status"] = "eq.published"
+            params["published_at"] = "not.is.null"
         if limit is not None:
             params["limit"] = str(limit)
         if offset:
