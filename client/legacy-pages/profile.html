@@ -50,9 +50,62 @@
   /* ============================================================
      APP SHELL — thin wrapper, layout lives in .profile-desktop-shell
   ============================================================ */
-  .page-loading{
-    position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
-    background:var(--paper); color:var(--ink); font-size:0.95rem; font-weight:600; z-index:20;
+
+  /* ── Skeleton loading screen (mirrors the real layout while data loads) ── */
+  @keyframes skel-shimmer{
+    0%{ background-position:-150% 0; }
+    100%{ background-position:150% 0; }
+  }
+  .skel{
+    background:linear-gradient(90deg, var(--card-border) 25%, var(--card-bg) 50%, var(--card-border) 75%);
+    background-size:200% 100%;
+    animation:skel-shimmer 1.4s ease-in-out infinite;
+    border-radius:8px;
+  }
+  .skel-circle{ border-radius:50%; flex-shrink:0; }
+  .skel-pill{ border-radius:999px; }
+
+  .skeleton-shell{
+    position:fixed; inset:0; z-index:20;
+    display:grid; grid-template-columns:260px minmax(0,1fr) 330px;
+    height:100vh; overflow:hidden; background:var(--paper);
+  }
+  .skeleton-sidebar{
+    background:var(--sidebar-bg); border-right:1px solid var(--card-border);
+    padding:18px 12px 14px; display:flex; flex-direction:column; gap:10px;
+  }
+  .skeleton-sidebar .skel-logo{ width:90px; height:22px; margin:0 10px 14px; }
+  .skeleton-sidebar .skel-nav-item{ height:38px; margin:0 2px; border-radius:10px; }
+
+  .skeleton-main{ background:var(--main-bg); border-right:1px solid var(--card-border); padding:16px 20px 30px; }
+  .skel-topbar{ display:flex; justify-content:flex-end; align-items:center; gap:12px; padding:4px 4px 8px; }
+  .skel-topbar .skel-circle{ width:36px; height:36px; }
+  .skel-topbar .skel-pill{ width:110px; height:36px; }
+  .skeleton-card{
+    background:var(--card-bg); border:1px solid var(--card-border); border-radius:18px;
+    padding:18px; display:flex; gap:18px; align-items:center; margin-top:4px;
+  }
+  .skeleton-card .skel-circle{ width:92px; height:92px; }
+  .skeleton-card-lines{ flex:1; display:flex; flex-direction:column; gap:10px; }
+  .skeleton-card-lines .skel{ height:14px; }
+  .skeleton-card-lines .skel:first-child{ height:20px; width:45%; }
+  .skel-section-title{ height:16px; width:35%; margin:26px 0 14px; }
+  .skeleton-booking{ height:124px; border-radius:14px; margin-bottom:12px; }
+
+  .skeleton-rail{ background:var(--rail-bg); padding:16px 16px 20px; display:flex; flex-direction:column; gap:16px; }
+  .skel-rail-card{ background:var(--card-bg); border:1px solid var(--card-border); border-radius:14px; padding:16px; }
+  .skel-rail-title{ height:14px; width:55%; margin-bottom:14px; }
+  .skel-stats-row{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .skel-stats-row .skel{ height:78px; border-radius:12px; }
+  .skel-bar{ height:8px; border-radius:999px; margin:10px 0; }
+  .skel-check{ height:12px; width:70%; margin-bottom:10px; }
+
+  @media (max-width:1100px){
+    .skeleton-shell{ grid-template-columns:220px minmax(0,1fr) 290px; }
+  }
+  @media (max-width:930px){
+    .skeleton-shell{ grid-template-columns:1fr; }
+    .skeleton-sidebar, .skeleton-rail{ display:none; }
   }
 
   .profile-desktop-shell{
@@ -371,6 +424,29 @@
     .booking-thumb{ width:100%; }
     .booking-price-box{ text-align:left; }
     .listings-grid{ grid-template-columns:1fr 1fr; gap:.8rem; }
+
+    /* ── Mobile page switch: Profile ⇄ Stats ── */
+    .mobile-page-switch{
+      display:flex; gap:6px; margin:4px 0 16px; background:var(--card-bg); border:1px solid var(--card-border);
+      border-radius:999px; padding:4px;
+    }
+    .mobile-page-btn{
+      flex:1; text-align:center; padding:9px 10px; border-radius:999px; font-size:13px; font-weight:700;
+      color:var(--muted); background:transparent; cursor:pointer;
+    }
+    .mobile-page-btn.active{ background:#fce9ec; color:#8f1229; }
+
+    body.mobile-page-stats .profile-card,
+    body.mobile-page-stats .content-section,
+    body.mobile-page-stats .profile-actions,
+    body.mobile-page-stats .share-panel,
+    body.mobile-page-stats #listings-section{ display:none; }
+
+    body.mobile-page-stats .profile-rail{ display:flex; }
+    body:not(.mobile-page-stats) .profile-rail{ display:none; }
+  }
+  @media (min-width: 931px){
+    .mobile-page-switch{ display:none; }
   }
   @media (max-width:500px){
     .listings-grid{ grid-template-columns:1fr; }
@@ -414,7 +490,49 @@
   </div>
 </div>
 
-<div id="loading-state" class="page-loading" aria-live="polite">Loading your profile…</div>
+<div id="loading-state" class="skeleton-shell" aria-live="polite" aria-busy="true">
+  <div class="skeleton-sidebar">
+    <div class="skel skel-logo"></div>
+    <div class="skel skel-nav-item"></div>
+    <div class="skel skel-nav-item"></div>
+    <div class="skel skel-nav-item"></div>
+    <div class="skel skel-nav-item"></div>
+  </div>
+  <div class="skeleton-main">
+    <div class="skel-topbar">
+      <div class="skel skel-circle"></div>
+      <div class="skel skel-circle"></div>
+      <div class="skel skel-pill"></div>
+    </div>
+    <div class="skeleton-card">
+      <div class="skel skel-circle"></div>
+      <div class="skeleton-card-lines">
+        <div class="skel"></div>
+        <div class="skel" style="width:30%;"></div>
+        <div class="skel" style="width:50%;"></div>
+      </div>
+    </div>
+    <div class="skel skel-section-title"></div>
+    <div class="skel skeleton-booking"></div>
+    <div class="skel skeleton-booking"></div>
+  </div>
+  <div class="skeleton-rail">
+    <div class="skel-rail-card">
+      <div class="skel skel-rail-title"></div>
+      <div class="skel-stats-row">
+        <div class="skel"></div>
+        <div class="skel"></div>
+      </div>
+    </div>
+    <div class="skel-rail-card">
+      <div class="skel skel-rail-title"></div>
+      <div class="skel skel-bar"></div>
+      <div class="skel skel-check"></div>
+      <div class="skel skel-check"></div>
+      <div class="skel skel-check"></div>
+    </div>
+  </div>
+</div>
 
 <div id="profile-content" style="display:none;">
   <div class="profile-desktop-shell">
@@ -484,6 +602,11 @@
           </button>
         </div>
       </header>
+
+      <div class="mobile-page-switch" id="mobile-page-switch">
+        <button type="button" class="mobile-page-btn active" data-page="profile">Profile</button>
+        <button type="button" class="mobile-page-btn" data-page="stats">Stats</button>
+      </div>
 
       <div class="profile-card">
         <div class="profile-card-body">
@@ -748,7 +871,7 @@
   const loadingState = document.getElementById('loading-state');
   if (!profileData) {
     if (loadingState) {
-      loadingState.textContent = 'Unable to load your profile. Check your connection and try again.';
+      loadingState.innerHTML = '<div style="grid-column:1/-1; display:flex; align-items:center; justify-content:center; height:100vh; padding:2rem; text-align:center; color:var(--ink); font-size:0.95rem; font-weight:600;">Unable to load your profile. Check your connection and try again.</div>';
     }
     return;
   }
@@ -966,6 +1089,18 @@
       if (tabRoutes[key]) window.location.href = tabRoutes[key];
     });
   });
+
+  /* ── Mobile page switch: Profile ⇄ Stats (the right rail becomes a second page on phones) ── */
+  const mobilePageSwitch = document.getElementById('mobile-page-switch');
+  if (mobilePageSwitch) {
+    mobilePageSwitch.querySelectorAll('.mobile-page-btn').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        mobilePageSwitch.querySelectorAll('.mobile-page-btn').forEach(function(b){ b.classList.remove('active'); });
+        btn.classList.add('active');
+        document.body.classList.toggle('mobile-page-stats', btn.getAttribute('data-page') === 'stats');
+      });
+    });
+  }
 
   /* ── Profile actions ── */
   function openEditModal(){
