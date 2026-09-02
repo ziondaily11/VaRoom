@@ -3,7 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Bookings — VaRoom</title>
+<title>My Bookings — VaRoom</title>
+<link rel="icon" href="favicon/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon/favicon-16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="favicon/favicon-180.png">
 <script>
   (function(){
     try{
@@ -17,6 +21,7 @@
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;0,9..144,900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="js/skeleton-loader.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/skeleton-loader.js"></script>
@@ -25,314 +30,578 @@
     --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#1A1210; --paper:#FBF4F1;
     --muted:#7a6b67;
     --font-display:'Fraunces', serif; --font-body:'Inter', sans-serif;
+    --glass-bg:rgba(255,255,255,.55);
+    --glass-border:rgba(255,255,255,.6);
+    --glass-shadow:0 24px 55px rgba(26,18,16,.10);
+    --line:rgba(26,18,16,.10);
+    --line-soft:rgba(26,18,16,.06);
   }
   [data-theme="dark"]{
     --white:#241C1A; --paper:#15100F; --ink:#F5EFEC; --muted:#B8ACA8;
+    --glass-bg:rgba(28,20,18,.55);
+    --glass-border:rgba(255,255,255,.09);
+    --glass-shadow:0 24px 55px rgba(0,0,0,.5);
+    --line:rgba(255,255,255,.12);
+    --line-soft:rgba(255,255,255,.07);
   }
   *{ margin:0; padding:0; box-sizing:border-box; }
-  body{ font-family:var(--font-body); background:var(--paper); color:var(--ink); min-height:100vh; transition:background .2s ease, color .2s ease; }
+  html{ overflow-x:hidden; }
+  body{
+    font-family:var(--font-body); color:var(--ink); height:100vh; overflow:hidden;
+    transition:background .2s ease, color .2s ease;
+    background:var(--paper);
+  }
   a{ color:inherit; text-decoration:none; }
   button{ font-family:inherit; cursor:pointer; border:none; background:none; }
   :focus-visible{ outline:3px solid var(--red-deep); outline-offset:3px; }
+  ul{ list-style:none; }
 
-  header{ display:flex; align-items:center; justify-content:space-between; padding:1.5rem 2.5rem; }
-  .logo{ font-family:var(--font-display); font-weight:900; font-size:1.55rem; display:flex; align-items:baseline; }
+  .app-shell{
+    display:grid;
+    grid-template-columns: 280px minmax(0, 1fr);
+    height:100vh;
+    overflow:hidden;
+  }
+
+  /* ---------- SIDEBAR (shared across app pages) ---------- */
+  .sidebar{
+    height:100vh; margin:0; background:transparent; border:none;
+    border-right:1px solid var(--line); border-radius:0; box-shadow:none;
+    padding:1.4rem 1.2rem 1.2rem; display:flex; flex-direction:column; gap:1.4rem;
+    overflow-y:auto; scrollbar-width:none;
+  }
+  .sidebar::-webkit-scrollbar{ display:none; }
+
+  .logo{ font-family:var(--font-display); font-weight:900; font-size:1.4rem; display:flex; align-items:baseline; padding:0 .4rem; }
   .logo .va{ color:var(--red); }
-  .back-link{ font-size:.9rem; font-weight:500; }
+  .elie-logo-nav{ width:22px; height:22px; object-fit:contain; flex-shrink:0; }
+  .beta-pill{ margin-left:auto; font-size:.68rem; font-weight:600; background:#FBE4E7; color:var(--red-deep); padding:.15rem .5rem; border-radius:100px; }
+  .nav-group{ display:flex; flex-direction:column; gap:.2rem; }
+  .nav-label{ font-size:.72rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); padding:.6rem .6rem .3rem; }
+
+  .nav-item{
+    display:flex; align-items:center; gap:.8rem; padding:.72rem .8rem; border-radius:10px;
+    font-size:.95rem; font-weight:500; color:var(--ink); cursor:pointer;
+  }
+  .nav-item:hover{ background:var(--paper); }
+  .nav-item svg{ width:19px; height:19px; flex-shrink:0; }
+  .nav-item.active{ background:#FBE4E7; color:var(--red-deep); font-weight:600; }
+
+  .sidebar-note{
+    margin-top:auto; background:#FBE4E7; border-radius:14px; padding:1rem 1.1rem;
+    font-size:.82rem; line-height:1.5; color:var(--red-deep);
+  }
+  .sidebar-note strong{ display:block; margin-bottom:.2rem; }
+  .logout-btn{ color:var(--red); font-weight:600; font-size:.9rem; padding:.5rem .7rem; text-align:left; }
+
+  .toast{
+    position:fixed; bottom:1.5rem; left:50%; transform:translateX(-50%) translateY(20px);
+    background:var(--ink); color:var(--white); padding:.8rem 1.4rem; border-radius:100px;
+    font-size:.88rem; font-weight:600; z-index:300; opacity:0; pointer-events:none;
+    transition:opacity .25s ease, transform .25s ease;
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+  .sidebar-backdrop{ display:none; position:fixed; inset:0; background:rgba(26,18,16,.45); z-index:190; }
+  .sidebar-backdrop.show{ display:block; }
+
+  /* ---------- MAIN COLUMN ---------- */
+  .main-col{ display:flex; flex-direction:column; height:100vh; overflow:hidden; min-width:0; }
+
+  .topbar{ display:flex; align-items:center; gap:1rem; padding:1.2rem 2rem; background:transparent; }
+  .topbar-avatar-btn{ display:none; }
+  .avatar-circle{
+    width:38px; height:38px; border-radius:50%; background:var(--red); color:var(--white);
+    display:flex; align-items:center; justify-content:center; font-weight:700; font-size:.9rem;
+  }
+  .back-link{ font-size:.88rem; font-weight:600; color:var(--muted); }
   .back-link:hover{ color:var(--red); }
 
-  main{ max-width:720px; margin:0 auto; padding:1rem 6vw 6rem; }
-  .checking-msg{ text-align:center; padding:3rem 0; color:var(--muted); }
+  .content-row{
+    display:grid; grid-template-columns: minmax(560px, 760px) minmax(280px, 380px);
+    align-items:start; min-width:0; flex:1 1 auto; min-height:0; overflow:hidden; gap:0; width:100%; max-width:100%;
+  }
 
-  h1{ font-family:var(--font-display); font-weight:600; font-size:clamp(1.9rem, 4vw, 2.4rem); margin-bottom:1.6rem; }
+  .feed-area{
+    width:100%; max-width:760px; min-width:560px; padding:.6rem 2rem 4rem;
+    height:100%; overflow-y:auto; scrollbar-width:none; margin:0 auto;
+    border-right:1px solid var(--line); box-sizing:border-box;
+  }
+  .feed-area::-webkit-scrollbar{ display:none; }
 
-  .tabs{ display:flex; gap:.6rem; margin-bottom:1.6rem; }
-  .tab{ padding:.55rem 1.1rem; border-radius:100px; font-size:.88rem; font-weight:600; background:var(--white); border:1px solid rgba(128,110,100,.15); color:var(--ink); }
-  .tab.active{ background:var(--red); color:#fff; border-color:var(--red); }
+  .right-rail{
+    width:100%; max-width:380px; padding:.6rem 1.8rem 4rem 1.2rem;
+    display:flex; flex-direction:column; gap:1.3rem; height:100%; overflow-y:auto;
+    scrollbar-width:none; justify-self:end; border-left:1px solid var(--line); box-sizing:border-box;
+  }
+  .right-rail::-webkit-scrollbar{ display:none; }
 
-  .section-label{ font-size:.8rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin:1.6rem 0 .8rem; }
-  .section-label:first-of-type{ margin-top:0; }
+  @media (max-width:1180px){
+    .right-rail{ display:none; }
+    .content-row{ grid-template-columns: minmax(0, 760px); }
+    .feed-area{ margin:0 auto; min-width:0; border-right:none; }
+  }
+  @media (max-width:860px){
+    body{ height:auto; overflow:visible; }
+    .app-shell{ grid-template-columns:1fr; height:auto; overflow:visible; }
+    .main-col{ height:auto; overflow:visible; }
+    .content-row{ flex:initial; min-height:0; overflow:visible; }
+    .feed-area{ height:auto; overflow-y:visible; }
+    .sidebar{
+      position:fixed; inset:0 auto 0 0; width:80vw; max-width:360px; height:100vh; margin:0;
+      border-radius:0; z-index:200; transform:translateX(-100%); transition:transform .25s ease;
+      box-shadow:0 0 40px rgba(26,18,16,.25);
+    }
+    .sidebar.mobile-open{ transform:translateX(0); }
+    .topbar-avatar-btn{ flex-shrink:0; display:flex; }
+    .feed-area{ padding:.6rem .9rem 5.5rem; }
+  }
 
-  .state-msg{ color:var(--muted); font-size:.92rem; padding:1.6rem 0; text-align:center; }
+  /* ---------- PAGE HEADER ---------- */
+  .page-title{ font-family:var(--font-display); font-weight:600; font-size:clamp(1.7rem, 3vw, 2.1rem); }
+  .page-subtitle{ font-size:.88rem; color:var(--muted); margin-top:.25rem; margin-bottom:1.4rem; }
 
+  .tabs{ display:flex; gap:1.6rem; border-bottom:1px solid var(--line); margin-bottom:1.4rem; }
+  .tab{
+    padding:0 0 .8rem; font-size:.9rem; font-weight:600; color:var(--muted);
+    border-bottom:2px solid transparent; margin-bottom:-1px;
+  }
+  .tab.active{ color:var(--red); border-bottom-color:var(--red); }
+
+  .state-msg{ color:var(--muted); font-size:.92rem; padding:2.2rem 0; text-align:center; }
+
+  /* ---------- BOOKING CARD ---------- */
   .booking-card{
-    background:var(--white); border:1px solid rgba(128,110,100,.15); border-radius:16px;
-    padding:1.2rem 1.4rem; margin-bottom:1rem;
+    display:flex; gap:1.1rem; background:var(--white); border:1px solid var(--line);
+    border-radius:16px; padding:1rem; margin-bottom:1rem;
   }
-  .bk-top{ display:flex; align-items:center; gap:.8rem; margin-bottom:.7rem; }
-  .bk-avatar{
-    width:38px; height:38px; border-radius:50%; background:var(--red-deep); color:#fff;
-    display:flex; align-items:center; justify-content:center; font-weight:700; font-size:.9rem; flex-shrink:0; overflow:hidden;
+  .bk-thumb{
+    width:130px; height:130px; border-radius:12px; overflow:hidden; flex-shrink:0;
+    background:linear-gradient(135deg, var(--red) 0%, var(--red-deep) 100%);
+    display:flex; align-items:center; justify-content:center; color:rgba(255,255,255,.85); font-size:.72rem; font-weight:600; text-align:center;
   }
-  .bk-avatar img{ width:100%; height:100%; object-fit:cover; }
-  .bk-name{ font-weight:700; font-size:.92rem; }
-  .bk-listing{ font-size:.8rem; color:var(--red-deep); font-weight:600; }
-  .bk-status{ margin-left:auto; font-size:.72rem; font-weight:700; padding:.25rem .7rem; border-radius:100px; text-transform:capitalize; }
-  .bk-status.pending{ background:#FFF3CD; color:#8A6D00; }
+  .bk-thumb img{ width:100%; height:100%; object-fit:cover; display:block; }
+
+  .bk-main{ flex:1; min-width:0; display:flex; flex-direction:column; }
+  .bk-top-row{ display:flex; align-items:flex-start; gap:.6rem; }
+  .bk-title{ font-weight:700; font-size:1rem; line-height:1.3; }
+  .bk-loc{ font-size:.8rem; color:var(--muted); margin-top:.15rem; }
+  .bk-status{ margin-left:auto; font-size:.68rem; font-weight:700; padding:.28rem .7rem; border-radius:100px; text-transform:uppercase; letter-spacing:.03em; white-space:nowrap; }
   .bk-status.approved{ background:#EAF4EE; color:#1E6B3C; }
+  .bk-status.pending{ background:#FFF3CD; color:#8A6D00; }
   .bk-status.declined{ background:#FBE9E9; color:var(--red-deep); }
   .bk-status.expired{ background:rgba(128,110,100,.12); color:var(--muted); }
 
-  .bk-details{ font-size:.88rem; line-height:1.6; color:var(--ink); margin-bottom:.9rem; }
-  .bk-details .label{ color:var(--muted); }
+  .bk-meta{ display:flex; flex-wrap:wrap; gap:.3rem 1.1rem; font-size:.78rem; color:var(--muted); margin-top:.6rem; }
+  .bk-meta b{ color:var(--ink); font-weight:600; }
+  .bk-price{ font-size:.86rem; font-weight:700; color:var(--red-deep); margin-top:.45rem; }
+  .bk-price span{ font-weight:500; color:var(--muted); font-size:.76rem; }
 
-  .bk-actions{ display:flex; gap:.7rem; }
-  .bk-btn{ flex:1; padding:.7rem 1rem; border-radius:100px; font-weight:600; font-size:.86rem; text-align:center; display:inline-block; }
-  .bk-approve{ background:var(--red); color:#fff; }
-  .bk-approve:hover{ background:var(--red-deep); }
-  .bk-decline{ background:transparent; border:1.5px solid rgba(128,110,100,.3); color:var(--ink); }
-  .bk-decline:hover{ border-color:var(--red); color:var(--red); }
+  .bk-bottom-row{ display:flex; align-items:center; gap:.6rem; margin-top:auto; padding-top:.8rem; }
+  .bk-host{ display:flex; align-items:center; gap:.5rem; }
+  .bk-host-avatar{
+    width:26px; height:26px; border-radius:50%; overflow:hidden; background:var(--red-deep); color:#fff;
+    display:flex; align-items:center; justify-content:center; font-size:.68rem; font-weight:700; flex-shrink:0;
+  }
+  .bk-host-avatar img{ width:100%; height:100%; object-fit:cover; }
+  .bk-host-name{ font-size:.78rem; font-weight:600; }
+  .bk-msg-link{ font-size:.78rem; font-weight:600; color:var(--red); }
+  .bk-msg-link:hover{ text-decoration:underline; }
+
+  .bk-actions{ margin-left:auto; display:flex; gap:.5rem; }
+  .bk-btn{ padding:.5rem .9rem; border-radius:100px; font-weight:600; font-size:.78rem; white-space:nowrap; }
+  .bk-btn-outline{ border:1.5px solid rgba(128,110,100,.3); color:var(--ink); }
+  .bk-btn-outline:hover{ border-color:var(--red); color:var(--red); }
+  .bk-btn-solid{ background:var(--red); color:#fff; }
+  .bk-btn-solid:hover{ background:var(--red-deep); }
   .bk-btn:disabled{ opacity:.5; cursor:not-allowed; }
+  .bk-note{ font-size:.76rem; color:var(--red); margin-top:.4rem; }
 
-  .bk-note{ font-size:.8rem; color:var(--red); margin-top:.6rem; }
+  @media (max-width:520px){
+    .booking-card{ flex-direction:column; }
+    .bk-thumb{ width:100%; height:150px; }
+    .bk-bottom-row{ flex-wrap:wrap; }
+    .bk-actions{ margin-left:0; width:100%; }
+    .bk-btn{ flex:1; text-align:center; }
+  }
+
+  /* ---------- RIGHT RAIL: stats + calendar ---------- */
+  .rail-card{ background:var(--white); border:1px solid var(--line); border-radius:18px; padding:1.3rem; }
+  .rail-card h2{ font-family:var(--font-display); font-weight:600; font-size:1.02rem; margin-bottom:1rem; }
+
+  .stat-row{ display:flex; flex-direction:column; gap:.9rem; }
+  .stat-item{ padding-bottom:.9rem; border-bottom:1px solid var(--line-soft); }
+  .stat-item:last-child{ border-bottom:none; padding-bottom:0; }
+  .stat-label{ font-size:.68rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--muted); margin-bottom:.2rem; }
+  .stat-value{ font-family:var(--font-display); font-weight:700; font-size:1.4rem; color:var(--red-deep); }
+
+  .cal-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:.8rem; }
+  .cal-month{ font-weight:700; font-size:.85rem; }
+  .cal-active-tag{ font-size:.68rem; font-weight:700; color:var(--red); }
+  .cal-grid{ display:grid; grid-template-columns:repeat(7, 1fr); gap:.3rem; text-align:center; }
+  .cal-dow{ font-size:.64rem; font-weight:700; color:var(--muted); padding-bottom:.3rem; }
+  .cal-day{ font-size:.74rem; padding:.4rem 0; border-radius:8px; color:var(--ink); }
+  .cal-day.muted{ color:var(--muted); opacity:.4; }
+  .cal-day.booked{ background:var(--red); color:#fff; font-weight:700; }
 </style>
 </head>
 <body>
 
-<header>
-  <a href="/" class="logo"><span class="va">Va</span><span class="room">Room</span></a>
-  <a href="#" class="back-link" id="back-link">← Back to dashboard</a>
-</header>
+<div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+<div class="toast" id="toast"></div>
 
-<main>
-  <div id="checking-auth" class="checking-msg">Loading your bookings...</div>
+<div class="app-shell">
 
-  <div id="bookings-page" style="display:none;">
-    <h1>Bookings</h1>
-    <div class="tabs">
-      <button class="tab active" data-tab="received">Requests received</button>
-      <button class="tab" data-tab="sent">Your requests</button>
+  <aside class="sidebar" id="sidebar">
+    <a href="/client-home" class="logo"><span class="va">Va</span><span class="room">Room</span></a>
+
+    <nav class="nav-group">
+      <a href="/elie" class="nav-item">
+        <img src="elie-logo.png" alt="Elie" class="elie-logo-nav">
+        Elie
+        <span class="beta-pill">Free preview</span>
+      </a>
+    </nav>
+
+    <nav class="nav-group">
+      <a href="/client-home" class="nav-item">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9a1 1 0 0 0 1 1H9a1 1 0 0 0 1-1v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4a1 1 0 0 0 1 1h2.5a1 1 0 0 0 1-1v-9"/></svg>
+        Home
+      </a>
+      <a href="/client-home?view=explore" class="nav-item">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m15 9-2 6-6 2 2-6 6-2Z"/></svg>
+        Explore
+      </a>
+      <a href="/client-home?view=saved" class="nav-item">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h12a1 1 0 0 1 1 1V21l-7-4-7 4V4.5a1 1 0 0 1 1-1Z"/></svg>
+        Saved
+      </a>
+    </nav>
+
+    <nav class="nav-group">
+      <p class="nav-label">My activity</p>
+      <a href="/bookings" class="nav-item active">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="2"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>
+        Bookings
+      </a>
+      <a href="/chats" class="nav-item">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z"/></svg>
+        Chats
+      </a>
+      <a href="/transactions" class="nav-item">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><path d="M7 15h4"/></svg>
+        Transactions
+      </a>
+      <button type="button" class="nav-item" id="notif-nav-item">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        Notifications
+      </button>
+    </nav>
+
+    <nav class="nav-group">
+      <p class="nav-label">Account</p>
+      <a href="/profile" class="nav-item">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.5-7 8-7s8 3 8 7"/></svg>
+        Profile
+      </a>
+      <a href="/settings" class="nav-item">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>
+        Settings
+      </a>
+      <a href="/#how" class="nav-item">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 4.9.8c0 1.6-2.4 1.9-2.4 3.5"/><path d="M12 17.2v.1"/></svg>
+        Help &amp; Support
+      </a>
+    </nav>
+
+    <div class="sidebar-note">
+      <strong>Book with confidence</strong>
+      GPS-verified listings and verified hosts help you know what's real before you reach out.
     </div>
-    <div id="received-panel"></div>
-    <div id="sent-panel" style="display:none;"></div>
+
+    <button type="button" class="logout-btn" id="logout-btn">Log out</button>
+  </aside>
+
+  <div class="main-col">
+    <header class="topbar">
+      <button type="button" class="topbar-avatar-btn" id="topbar-avatar-btn" aria-label="Open menu">
+        <div class="avatar-circle" aria-hidden="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+        </div>
+      </button>
+      <a href="/client-home" class="back-link">← Back to dashboard</a>
+    </header>
+
+    <div class="content-row">
+      <div class="feed-area">
+        <div id="checking-auth" class="state-msg">Loading your bookings...</div>
+
+        <div id="bookings-page" style="display:none;">
+          <h1 class="page-title">My Bookings</h1>
+          <p class="page-subtitle">Manage your verified stays, event venues, and workstations in Kenya.</p>
+
+          <div class="tabs">
+            <button class="tab active" data-tab="upcoming">Upcoming Bookings</button>
+            <button class="tab" data-tab="past">Past Stays</button>
+            <button class="tab" data-tab="cancelled">Cancelled</button>
+          </div>
+
+          <div id="upcoming-panel"></div>
+          <div id="past-panel" style="display:none;"></div>
+          <div id="cancelled-panel" style="display:none;"></div>
+        </div>
+      </div>
+
+      <aside class="right-rail">
+        <div class="rail-card">
+          <h2>Stats Summary</h2>
+          <div class="stat-row" id="stats-summary">
+            <div class="stat-item">
+              <div class="stat-label">Total Bookings</div>
+              <div class="stat-value">—</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="rail-card">
+          <div class="cal-head">
+            <span class="cal-month" id="cal-month-label">This month</span>
+            <span class="cal-active-tag">Active Month</span>
+          </div>
+          <div class="cal-grid" id="cal-grid"></div>
+        </div>
+      </aside>
+    </div>
   </div>
-</main>
+</div>
 
 <script src="js/supabase-client.js"></script>
+<script src="js/notifications-widget.js"></script>
 <script>
   (async function(){
     const checkingAuth = document.getElementById('checking-auth');
     const bookingsPage = document.getElementById('bookings-page');
 
-    let currentUser = null, currentRole = null;
+    let currentUser = null;
 
+    // ---------- Auth guard (client-only page) ----------
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (!session) { window.location.href = '/login'; return; }
     currentUser = session.user;
 
     const { data: profile } = await supabaseClient.from('profiles').select('role').eq('id', currentUser.id).maybeSingle();
     if (!profile) { window.location.href = '/login'; return; }
-    currentRole = profile.role;
-    document.getElementById('back-link').setAttribute('href', currentRole === 'host' ? '/host-home' : '/client-home');
+    if (profile.role === 'host') { window.location.href = '/host-home'; return; }
 
     function escapeHtml(str){ const d = document.createElement('div'); d.textContent = str || ''; return d.innerHTML; }
-    function timeAgo(dateStr){
-      const diffMs = Date.now() - new Date(dateStr).getTime();
-      const mins = Math.floor(diffMs / 60000);
-      if (mins < 1) return 'just now';
-      if (mins < 60) return mins + 'm ago';
-      const hrs = Math.floor(mins / 60);
-      if (hrs < 24) return hrs + 'h ago';
-      return Math.floor(hrs / 24) + 'd ago';
-    }
+
     function resolveAvatarUrl(v){
       if (!v) return null;
       if (v.indexOf('http') === 0) return v;
       return supabaseClient.storage.from('avatars').getPublicUrl(v).data.publicUrl;
     }
+    function resolvePhotoUrl(path){
+      return supabaseClient.storage.from('listing-photos').getPublicUrl(path).data.publicUrl;
+    }
 
-    // ---------- Lazy 48h expiry sweep ----------
+    // ---------- Lazy 48h expiry sweep (same behaviour as before) ----------
     const cutoff = new Date(Date.now() - 48 * 3600 * 1000).toISOString();
     await supabaseClient
       .from('bookings')
       .update({ status: 'expired', responded_at: new Date().toISOString() })
       .eq('status', 'pending')
       .lt('created_at', cutoff)
-      .or('host_id.eq.' + currentUser.id + ',client_id.eq.' + currentUser.id);
+      .eq('client_id', currentUser.id);
 
-    function describeBooking(b){
+    function describeDates(b){
       if (b.hours) return b.start_date + ' · ' + b.hours + ' hour' + (b.hours === 1 ? '' : 's');
       if (b.start_date && b.end_date) return b.start_date + ' → ' + b.end_date;
       if (b.lease_start_date) return 'From ' + b.lease_start_date + ' · ' + b.lease_months + ' month' + (b.lease_months === 1 ? '' : 's');
       return '';
     }
+    // The end-of-stay date used to sort a booking into upcoming vs past.
+    function endMoment(b){
+      if (b.end_date) return new Date(b.end_date);
+      if (b.start_date) return new Date(b.start_date);
+      if (b.lease_start_date) {
+        const d = new Date(b.lease_start_date);
+        d.setMonth(d.getMonth() + (b.lease_months || 0));
+        return d;
+      }
+      return new Date(b.created_at);
+    }
 
-    async function loadReceived(){
-      const panel = document.getElementById('received-panel');
-      panel.innerHTML = window.SkeletonLoader.bookingCards(3);
+    const BOOKINGS_SELECT = 'id,status,start_date,end_date,hours,lease_start_date,lease_months,total_price,price_unit,created_at,' +
+      'listing:listings(id,title,location_text,listing_photos(storage_path)),' +
+      'host:profiles!bookings_host_id_fkey(id,full_name,avatar_url,username)';
 
+    let allBookings = [];
+
+    async function loadAllBookings(){
       const { data, error } = await supabaseClient
         .from('bookings')
-        .select('id,status,start_date,end_date,hours,lease_start_date,lease_months,total_price,price_unit,created_at,' +
-          'listing:listings(title,location_text),client:profiles!bookings_client_id_fkey(full_name,avatar_url,username)')
-        .eq('host_id', currentUser.id)
-        .order('created_at', { ascending:false });
-
-      if (error) { panel.innerHTML = '<p class="state-msg">Couldn\'t load: ' + escapeHtml(error.message) + '</p>'; return; }
-      if (!data || data.length === 0) { panel.innerHTML = '<p class="state-msg">No booking requests yet.</p>'; return; }
-
-      const pending = data.filter(function(b){ return b.status === 'pending'; });
-      const others = data.filter(function(b){ return b.status !== 'pending'; });
-
-      let html = '';
-      if (pending.length > 0) html += '<p class="section-label">Awaiting your response</p>' + pending.map(renderReceivedCard).join('');
-      if (others.length > 0) html += '<p class="section-label">Past requests</p>' + others.map(renderReceivedCard).join('');
-      panel.innerHTML = html;
-
-      panel.querySelectorAll('[data-approve]').forEach(function(btn){
-        btn.addEventListener('click', function(){ respondToBooking(btn.getAttribute('data-approve'), 'approved'); });
-      });
-      panel.querySelectorAll('[data-decline]').forEach(function(btn){
-        btn.addEventListener('click', function(){ respondToBooking(btn.getAttribute('data-decline'), 'declined'); });
-      });
-    }
-
-    function renderReceivedCard(b){
-      const client = b.client || {};
-      const initial = (client.full_name || '?').charAt(0).toUpperCase();
-      const avatarUrl = resolveAvatarUrl(client.avatar_url);
-      const avatarHtml = avatarUrl ? '<img src="' + avatarUrl + '" alt="">' : initial;
-
-      return (
-        '<div class="booking-card">' +
-          '<div class="bk-top">' +
-            '<div class="bk-avatar">' + avatarHtml + '</div>' +
-            '<div>' +
-              '<div class="bk-name">' + escapeHtml(client.full_name || 'VaRoom user') + '</div>' +
-              '<div class="bk-listing">' + escapeHtml(b.listing.title) + '</div>' +
-            '</div>' +
-            '<span class="bk-status ' + b.status + '">' + b.status + '</span>' +
-          '</div>' +
-          '<div class="bk-details">' +
-            '<span class="label">When:</span> ' + escapeHtml(describeBooking(b)) + '<br>' +
-            '<span class="label">Total:</span> KSh ' + Number(b.total_price).toLocaleString() + '<br>' +
-            '<span class="label">Requested:</span> ' + timeAgo(b.created_at) +
-          '</div>' +
-          (b.status === 'pending'
-            ? '<div class="bk-actions">' +
-                '<button type="button" class="bk-btn bk-approve" data-approve="' + b.id + '">Approve</button>' +
-                '<button type="button" class="bk-btn bk-decline" data-decline="' + b.id + '">Decline</button>' +
-              '</div>' +
-              '<p class="bk-note" id="note-' + b.id + '"></p>'
-            : '')
-        + '</div>'
-      );
-    }
-
-    async function respondToBooking(bookingId, newStatus){
-      if (newStatus === 'approved') {
-        // Conflict prevention: check for an already-approved booking on the
-        // same listing that overlaps these dates before allowing approval.
-        const { data: thisBooking } = await supabaseClient.from('bookings').select('*').eq('id', bookingId).single();
-
-        const { data: approvedOnListing } = await supabaseClient
-          .from('bookings').select('start_date,end_date,lease_start_date')
-          .eq('listing_id', thisBooking.listing_id).eq('status', 'approved');
-
-        let conflict = false;
-        if (thisBooking.start_date && thisBooking.end_date) {
-          conflict = (approvedOnListing || []).some(function(ob){
-            if (!ob.start_date || !ob.end_date) return false;
-            return thisBooking.start_date <= ob.end_date && thisBooking.end_date >= ob.start_date;
-          });
-        } else if (thisBooking.lease_start_date) {
-          conflict = (approvedOnListing || []).some(function(ob){ return !!ob.lease_start_date; });
-        }
-
-        if (conflict) {
-          const note = document.getElementById('note-' + bookingId);
-          if (note) note.textContent = "Can't approve — this overlaps a booking you've already approved for this listing.";
-          return;
-        }
-      }
-
-      const { error } = await supabaseClient
-        .from('bookings')
-        .update({ status: newStatus, responded_at: new Date().toISOString() })
-        .eq('id', bookingId);
-
-      if (error) {
-        const note = document.getElementById('note-' + bookingId);
-        if (note) note.textContent = error.message;
-        return;
-      }
-
-      // Notify the client
-      const { data: b } = await supabaseClient.from('bookings').select('client_id, listing_id, total_price, listing:listings(title)').eq('id', bookingId).single();
-      await supabaseClient.from('notifications').insert({
-        user_id: b.client_id,
-        type: newStatus === 'approved' ? 'booking_approved' : 'booking_declined',
-        message: 'Your booking request for "' + b.listing.title + '" was ' + newStatus + '.',
-        booking_id: bookingId
-      });
-
-      // On approval, also drop a message into the real chat thread with this
-      // client so the booking (and a way to pay) shows up where they'll see it.
-      if (newStatus === 'approved') {
-        const { data: conv } = await supabaseClient
-          .from('conversations')
-          .upsert(
-            { listing_id: b.listing_id, host_id: currentUser.id, client_id: b.client_id },
-            { onConflict: 'listing_id,client_id' }
-          )
-          .select()
-          .single();
-
-        if (conv) {
-          await supabaseClient.from('messages').insert({
-            conversation_id: conv.id,
-            sender_id: currentUser.id,
-            body: 'Booking approved — "' + b.listing.title + '", KSh ' + Number(b.total_price).toLocaleString() + '. Tap to review and pay.',
-            booking_id: bookingId
-          });
-          await supabaseClient.from('conversations').update({ last_message_at: new Date().toISOString() }).eq('id', conv.id);
-        }
-      }
-
-      loadReceived();
-    }
-
-    async function loadSent(){
-      const panel = document.getElementById('sent-panel');
-      panel.innerHTML = window.SkeletonLoader.bookingCards(3);
-
-      const { data, error } = await supabaseClient
-        .from('bookings')
-        .select('id,status,start_date,end_date,hours,lease_start_date,lease_months,total_price,created_at,' +
-          'listing:listings(title,location_text),host:profiles!bookings_host_id_fkey(full_name,avatar_url,username)')
+        .select(BOOKINGS_SELECT)
         .eq('client_id', currentUser.id)
         .order('created_at', { ascending:false });
 
-      if (error) { panel.innerHTML = '<p class="state-msg">Couldn\'t load: ' + escapeHtml(error.message) + '</p>'; return; }
-      if (!data || data.length === 0) { panel.innerHTML = '<p class="state-msg">You haven\'t requested any bookings yet.</p>'; return; }
+      if (error) { return { error: error }; }
+      return { data: data || [] };
+    }
 
-      panel.innerHTML = data.map(function(b){
-        const host = b.host || {};
-        const initial = (host.full_name || '?').charAt(0).toUpperCase();
-        const avatarUrl = resolveAvatarUrl(host.avatar_url);
-        const avatarHtml = avatarUrl ? '<img src="' + avatarUrl + '" alt="">' : initial;
+    function renderCard(b, opts){
+      opts = opts || {};
+      const host = b.host || {};
+      const listing = b.listing || {};
+      const initial = (host.full_name || '?').charAt(0).toUpperCase();
+      const hostAvatarUrl = resolveAvatarUrl(host.avatar_url);
+      const hostAvatarHtml = hostAvatarUrl ? '<img src="' + hostAvatarUrl + '" alt="">' : initial;
 
-        return (
-          '<div class="booking-card">' +
-            '<div class="bk-top">' +
-              '<div class="bk-avatar">' + avatarHtml + '</div>' +
+      const photos = listing.listing_photos || [];
+      const thumbHtml = photos.length > 0
+        ? '<img src="' + resolvePhotoUrl(photos[0].storage_path) + '" alt="">'
+        : escapeHtml(listing.title || 'VaRoom');
+
+      const perUnit = b.price_unit ? ' / ' + b.price_unit : (b.hours ? ' / stay' : ' / night');
+
+      return (
+        '<div class="booking-card">' +
+          '<div class="bk-thumb">' + thumbHtml + '</div>' +
+          '<div class="bk-main">' +
+            '<div class="bk-top-row">' +
               '<div>' +
-                '<div class="bk-name">' + escapeHtml(host.full_name || 'VaRoom user') + '</div>' +
-                '<div class="bk-listing">' + escapeHtml(b.listing.title) + '</div>' +
+                '<div class="bk-title">' + escapeHtml(listing.title || 'Listing') + '</div>' +
+                '<div class="bk-loc">📍 ' + escapeHtml(listing.location_text || '') + '</div>' +
               '</div>' +
-              '<span class="bk-status ' + b.status + '">' + b.status + '</span>' +
+              '<span class="bk-status ' + b.status + '">' + (b.status === 'declined' ? 'cancelled' : b.status) + '</span>' +
             '</div>' +
-            '<div class="bk-details">' +
-              '<span class="label">When:</span> ' + escapeHtml(describeBooking(b)) + '<br>' +
-              '<span class="label">Total:</span> KSh ' + Number(b.total_price).toLocaleString() + '<br>' +
-              '<span class="label">Requested:</span> ' + timeAgo(b.created_at) +
+            '<div class="bk-meta">' +
+              '<span><b>Dates</b> ' + escapeHtml(describeDates(b)) + '</span>' +
             '</div>' +
-            (b.status === 'approved'
-              ? '<div class="bk-actions"><a href="/booking-approved?id=' + b.id + '" class="bk-btn bk-approve">Review &amp; Pay →</a></div>'
-              : '') +
-          '</div>'
-        );
-      }).join('');
+            '<div class="bk-price">KES ' + Number(b.total_price).toLocaleString() + '<span>' + perUnit + '</span></div>' +
+            '<div class="bk-bottom-row">' +
+              '<div class="bk-host">' +
+                '<div class="bk-host-avatar">' + hostAvatarHtml + '</div>' +
+                '<div class="bk-host-name">' + escapeHtml(host.full_name || 'Host') + '</div>' +
+              '</div>' +
+              '<button type="button" class="bk-msg-link" data-msg-host="' + (host.id || '') + '" data-msg-listing="' + (listing.id || '') + '">Message Host</button>' +
+              '<div class="bk-actions">' +
+                (opts.showCancel ? '<button type="button" class="bk-btn bk-btn-outline" data-cancel="' + b.id + '">Cancel Booking</button>' : '') +
+                '<a href="/booking-approved?id=' + b.id + '" class="bk-btn bk-btn-solid">View Details</a>' +
+              '</div>' +
+            '</div>' +
+            (opts.showCancel ? '<p class="bk-note" id="cancel-note-' + b.id + '"></p>' : '') +
+          '</div>' +
+        '</div>'
+      );
+    }
+
+    function attachCardActions(panel){
+      panel.querySelectorAll('[data-msg-host]').forEach(function(btn){
+        btn.addEventListener('click', async function(){
+          const hostId = btn.getAttribute('data-msg-host');
+          const listingId = btn.getAttribute('data-msg-listing');
+          if (!hostId || !listingId) return;
+          const { data, error } = await supabaseClient
+            .from('conversations')
+            .upsert({ listing_id: listingId, host_id: hostId, client_id: currentUser.id }, { onConflict: 'listing_id,client_id' })
+            .select().single();
+          if (error) { showToast("Couldn't open that chat: " + error.message); return; }
+          window.location.href = '/chats?c=' + data.id;
+        });
+      });
+      panel.querySelectorAll('[data-cancel]').forEach(function(btn){
+        btn.addEventListener('click', function(){ cancelBooking(btn.getAttribute('data-cancel')); });
+      });
+    }
+
+    async function cancelBooking(bookingId){
+      const note = document.getElementById('cancel-note-' + bookingId);
+      const { data: b, error: fetchErr } = await supabaseClient
+        .from('bookings').select('host_id, listing_id, listing:listings(title)').eq('id', bookingId).single();
+      if (fetchErr) { if (note) note.textContent = fetchErr.message; return; }
+
+      const { error } = await supabaseClient
+        .from('bookings')
+        .update({ status: 'declined', responded_at: new Date().toISOString() })
+        .eq('id', bookingId);
+
+      if (error) { if (note) note.textContent = error.message; return; }
+
+      await supabaseClient.from('notifications').insert({
+        user_id: b.host_id,
+        type: 'booking_declined',
+        message: 'A guest cancelled their booking for "' + (b.listing ? b.listing.title : 'your listing') + '".',
+        booking_id: bookingId
+      });
+
+      showToast('Booking cancelled.');
+      renderAllPanels();
+    }
+
+    function computeStats(bookings){
+      const approved = bookings.filter(function(b){ return b.status === 'approved'; });
+      const now = new Date();
+      const upcoming = approved.filter(function(b){ return endMoment(b) >= now; });
+      const totalInvested = approved.reduce(function(sum, b){ return sum + Number(b.total_price || 0); }, 0);
+      return { total: approved.length, upcoming: upcoming.length, invested: totalInvested };
+    }
+
+    function renderStats(bookings){
+      const stats = computeStats(bookings);
+      document.getElementById('stats-summary').innerHTML =
+        '<div class="stat-item"><div class="stat-label">Total Bookings</div><div class="stat-value">' + stats.total + ' Stay' + (stats.total === 1 ? '' : 's') + '</div></div>' +
+        '<div class="stat-item"><div class="stat-label">Upcoming</div><div class="stat-value">' + stats.upcoming + ' Booked</div></div>' +
+        '<div class="stat-item"><div class="stat-label">Total Invested</div><div class="stat-value">KES ' + stats.invested.toLocaleString() + '</div></div>';
+    }
+
+    // Static, illustrative calendar for the active month — not wired to
+    // actual booked-date data yet.
+    function renderCalendarPlaceholder(){
+      const now = new Date();
+      const monthLabel = now.toLocaleString('en-US', { month:'long', year:'numeric' });
+      document.getElementById('cal-month-label').textContent = monthLabel;
+
+      const dows = ['S','M','T','W','T','F','S'];
+      const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const startOffset = firstOfMonth.getDay();
+      const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+
+      let html = dows.map(function(d){ return '<div class="cal-dow">' + d + '</div>'; }).join('');
+      for (let i = 0; i < startOffset; i++) html += '<div class="cal-day muted"></div>';
+      for (let d = 1; d <= daysInMonth; d++) {
+        const isToday = d === now.getDate();
+        html += '<div class="cal-day' + (isToday ? ' booked' : '') + '">' + d + '</div>';
+      }
+      document.getElementById('cal-grid').innerHTML = html;
+    }
+
+    function renderAllPanels(){
+      const now = new Date();
+      const upcoming = allBookings.filter(function(b){ return b.status === 'approved' && endMoment(b) >= now; });
+      const past = allBookings.filter(function(b){ return b.status === 'approved' && endMoment(b) < now; });
+      const cancelled = allBookings.filter(function(b){ return b.status === 'declined' || b.status === 'expired'; });
+
+      const upcomingPanel = document.getElementById('upcoming-panel');
+      const pastPanel = document.getElementById('past-panel');
+      const cancelledPanel = document.getElementById('cancelled-panel');
+
+      upcomingPanel.innerHTML = upcoming.length
+        ? upcoming.map(function(b){ return renderCard(b, { showCancel:true }); }).join('')
+        : '<p class="state-msg">No upcoming bookings — your next confirmed stay will show up here.</p>';
+
+      pastPanel.innerHTML = past.length
+        ? past.map(function(b){ return renderCard(b, { showCancel:false }); }).join('')
+        : '<p class="state-msg">No past stays yet.</p>';
+
+      cancelledPanel.innerHTML = cancelled.length
+        ? cancelled.map(function(b){ return renderCard(b, { showCancel:false }); }).join('')
+        : '<p class="state-msg">Nothing cancelled or expired.</p>';
+
+      attachCardActions(upcomingPanel);
+      attachCardActions(pastPanel);
+      attachCardActions(cancelledPanel);
+
+      renderStats(allBookings);
     }
 
     document.querySelectorAll('.tab').forEach(function(tab){
@@ -340,13 +609,54 @@
         document.querySelectorAll('.tab').forEach(function(t){ t.classList.remove('active'); });
         tab.classList.add('active');
         const which = tab.getAttribute('data-tab');
-        document.getElementById('received-panel').style.display = which === 'received' ? 'block' : 'none';
-        document.getElementById('sent-panel').style.display = which === 'sent' ? 'block' : 'none';
+        document.getElementById('upcoming-panel').style.display = which === 'upcoming' ? 'block' : 'none';
+        document.getElementById('past-panel').style.display = which === 'past' ? 'block' : 'none';
+        document.getElementById('cancelled-panel').style.display = which === 'cancelled' ? 'block' : 'none';
       });
     });
 
-    await loadReceived();
-    await loadSent();
+    // ---------- Toast ----------
+    const toastEl = document.getElementById('toast');
+    let toastTimeout;
+    function showToast(message){
+      clearTimeout(toastTimeout);
+      toastEl.textContent = message;
+      toastEl.classList.add('show');
+      toastTimeout = setTimeout(function(){ toastEl.classList.remove('show'); }, 2200);
+    }
+
+    // ---------- Mobile sidebar drawer ----------
+    const sidebar = document.getElementById('sidebar');
+    const backdrop = document.getElementById('sidebar-backdrop');
+    function openSidebar(){ sidebar.classList.add('mobile-open'); backdrop.classList.add('show'); }
+    function closeSidebar(){ sidebar.classList.remove('mobile-open'); backdrop.classList.remove('show'); }
+    backdrop.addEventListener('click', closeSidebar);
+    sidebar.querySelectorAll('.nav-item, .logout-btn').forEach(function(el){ el.addEventListener('click', closeSidebar); });
+    document.getElementById('topbar-avatar-btn').addEventListener('click', openSidebar);
+
+    if (typeof initNotifications === 'function') {
+      initNotifications(supabaseClient, currentUser);
+    }
+    document.getElementById('notif-nav-item').addEventListener('click', function(e){
+      e.stopPropagation();
+      const bell = document.getElementById('notif-bell');
+      if (bell) bell.click();
+    });
+
+    document.getElementById('logout-btn').addEventListener('click', async function(){
+      await supabaseClient.auth.signOut();
+      window.location.href = '/';
+    });
+
+    // ---------- Boot ----------
+    const result = await loadAllBookings();
+    if (result.error) {
+      document.getElementById('upcoming-panel').innerHTML = '<p class="state-msg">Couldn\'t load bookings: ' + escapeHtml(result.error.message) + '</p>';
+    } else {
+      allBookings = result.data;
+      renderAllPanels();
+    }
+    renderCalendarPlaceholder();
 
     checkingAuth.style.display = 'none';
     bookingsPage.style.display = 'block';
