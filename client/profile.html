@@ -29,420 +29,45 @@
     --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#1A1210; --paper:#FBF4F1;
     --muted:#7a6b67; --card-border:rgba(26,18,16,.1);
     --font-display:'Fraunces', serif; --font-body:'Inter', sans-serif;
-    --glass-bg:rgba(255,255,255,.55);
-    --glass-border:rgba(255,255,255,.6);
-    --glass-shadow:0 24px 55px rgba(26,18,16,.10);
-    --glow-a:rgba(196,30,58,.14);
-    --glow-b:rgba(196,30,58,.09);
   }
   [data-theme="dark"]{
     --white:#FFFFFF; --paper:#FBF4F1; --ink:#1A1210; --muted:#7a6b67; --card-border:rgba(26,18,16,.1);
-    --glass-bg:rgba(255,255,255,.55);
-    --glass-border:rgba(255,255,255,.6);
-    --glass-shadow:0 24px 55px rgba(26,18,16,.10);
-    --glow-a:rgba(196,30,58,.14);
-    --glow-b:rgba(196,30,58,.09);
   }
   *{ margin:0; padding:0; box-sizing:border-box; }
-  body{
-    font-family:var(--font-body); color:var(--ink); height:100vh; overflow:hidden;
-    transition:background .2s ease, color .2s ease;
-    background:
-      radial-gradient(640px circle at 6% 12%, var(--glow-a), transparent 60%),
-      radial-gradient(560px circle at 92% 85%, var(--glow-b), transparent 60%),
-      var(--paper);
-  }
   a{ color:inherit; text-decoration:none; }
   button{ font-family:inherit; cursor:pointer; border:none; background:none; }
   :focus-visible{ outline:3px solid var(--red-deep); outline-offset:3px; }
   img{ display:block; max-width:100%; }
 
-  /* ============================================================
-     APP SHELL — matches host-home exactly
-  ============================================================ */
-  .app-shell{ display:grid; grid-template-columns:282px 1fr; height:100vh; overflow:hidden; }
-
-  /* ── SIDEBAR ── */
-  .sidebar{
-    background:var(--glass-bg);
-    backdrop-filter:blur(22px) saturate(140%);
-    -webkit-backdrop-filter:blur(22px) saturate(140%);
-    border:1px solid var(--glass-border);
-    border-radius:22px;
-    box-shadow:var(--glass-shadow);
-    margin:1rem 0 1rem 1rem;
-    padding:1.6rem 1.2rem;
-    display:flex; flex-direction:column; gap:1.4rem;
-    height:calc(100vh - 2rem);
-    overflow-y:auto; scrollbar-width:none;
-  }
-  .sidebar::-webkit-scrollbar{ display:none; }
-
-  .logo{ font-family:var(--font-display); font-weight:900; font-size:1.4rem; display:flex; align-items:baseline; padding:0 .4rem; }
-  .logo .va{ color:var(--red); }
-
-  .elie-logo-nav{ width:22px; height:22px; object-fit:contain; flex-shrink:0; }
-  .beta-pill{ margin-left:auto; font-size:.68rem; font-weight:600; background:#FBE4E7; color:var(--red-deep); padding:.15rem .5rem; border-radius:100px; }
-
-  .nav-group{ display:flex; flex-direction:column; gap:.2rem; }
-  .nav-label{ font-size:.72rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); padding:.6rem .6rem .3rem; }
-
-  .nav-item{
-    display:flex; align-items:center; gap:.7rem;
-    padding:.6rem .7rem; border-radius:10px;
-    font-size:.92rem; font-weight:500; color:var(--ink); cursor:pointer;
-  }
-  .nav-item:hover{ background:var(--paper); }
-  .nav-item.active{ background:#FBE4E7; color:var(--red-deep); font-weight:600; }
-  .nav-item svg{ flex-shrink:0; }
-  .host-only-nav{ display:none; }
-
-  .list-space-btn{
-    display:flex; align-items:center; gap:.5rem;
-    border:1.5px solid var(--red); color:var(--red);
-    border-radius:10px; padding:.6rem .7rem;
-    font-size:.9rem; font-weight:600;
-  }
-  .list-space-btn:hover{ background:#FBE4E7; }
-
-  .logout-btn{ color:var(--red); font-weight:600; font-size:.9rem; padding:.5rem .7rem; text-align:left; }
-
-  /* ── MAIN COLUMN ── */
-  .main-col{ display:flex; flex-direction:column; height:100vh; overflow:hidden; }
-
-  .topbar{
-    display:flex; align-items:center; gap:1rem;
-    padding:1.2rem 2rem;
-    background:transparent;
-  }
-  .preview-badge{
-    display:inline-flex; align-items:center; gap:.4rem;
-    font-size:.78rem; font-weight:600; background:rgba(196,30,58,.1); color:var(--red-deep);
-    padding:.3rem .8rem; border-radius:100px; border:1px solid rgba(196,30,58,.2);
-  }
-
-  /* ── PROFILE CONTENT SCROLL AREA ── */
-  .profile-scroll{
-    flex:1; overflow-y:auto; overflow-x:hidden;
-    padding:0 2.5rem 6rem;
-    scrollbar-width:none;
-  }
-  .profile-scroll::-webkit-scrollbar{ display:none; }
-
-  /* ============================================================
-     PROFILE HEADER
-  ============================================================ */
-  .profile-header{
-    display:flex; align-items:flex-start; gap:2rem;
-    padding:2.2rem 0 2rem;
-    border-bottom:1px solid var(--card-border);
-    margin-bottom:2rem;
-  }
-
-  /* Avatar */
-  .profile-avatar-wrap{ position:relative; flex-shrink:0; }
-
-  .profile-avatar{
-    width:96px; height:96px; border-radius:50%;
-    background:var(--red); color:var(--white);
-    display:flex; align-items:center; justify-content:center;
-    font-family:var(--font-display); font-weight:700; font-size:2.2rem;
-    overflow:hidden; flex-shrink:0;
-  }
-  .profile-avatar img{ width:100%; height:100%; object-fit:cover; }
-
-  .avatar-upload-btn{
-    position:absolute; bottom:0; right:0;
-    width:30px; height:30px; border-radius:50%;
-    background:var(--ink); color:var(--white);
-    display:flex; align-items:center; justify-content:center;
-    border:2.5px solid var(--paper); cursor:pointer;
-  }
-  .avatar-upload-btn:hover{ background:var(--red); }
-  .avatar-upload-btn input[type="file"]{ display:none; }
-  .avatar-upload-btn svg{ width:13px; height:13px; }
-
-  /* Profile info */
-  .profile-info{ flex:1; min-width:0; }
-
-  .profile-role-badge{
-    display:inline-block;
-    font-size:.72rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase;
-    color:var(--red-deep); margin-bottom:.5rem;
-  }
-
-  .profile-name{
-    font-family:var(--font-display); font-weight:700;
-    font-size:clamp(1.6rem, 3vw, 2.4rem); line-height:1.05;
-    letter-spacing:-1px; margin-bottom:.3rem;
-  }
-
-  .profile-username{ font-size:.9rem; color:var(--muted); margin-bottom:.8rem; }
-
-  .profile-bio{
-    font-size:.95rem; line-height:1.65; color:var(--ink);
-    max-width:560px; margin-bottom:.9rem;
-  }
-  .profile-bio.empty{ color:var(--muted); font-style:italic; }
-
-  .profile-meta{
-    display:flex; align-items:center; gap:1.2rem; flex-wrap:wrap;
-    font-size:.84rem; color:var(--muted); margin-bottom:1.2rem;
-  }
-  .profile-meta-item{ display:flex; align-items:center; gap:.35rem; }
-  .profile-meta-item svg{ width:14px; height:14px; color:var(--red); flex-shrink:0; }
-
-  /* Action buttons */
-  .profile-actions{ display:flex; gap:.7rem; flex-wrap:wrap; }
-
-  .btn-outline{
-    display:inline-flex; align-items:center; gap:.4rem;
-    font-size:.85rem; font-weight:600; padding:.6rem 1.2rem;
-    border-radius:100px; border:1.5px solid var(--card-border);
-    color:var(--ink); background:var(--white);
-    transition:border-color .2s ease, background .2s ease;
-  }
-  .btn-outline:hover{ border-color:var(--red); color:var(--red); }
-  .btn-outline svg{ width:14px; height:14px; }
-
-  .btn-solid{
-    display:inline-flex; align-items:center; gap:.4rem;
-    font-size:.85rem; font-weight:600; padding:.6rem 1.2rem;
-    border-radius:100px; background:var(--red); color:var(--white);
-    transition:background .2s ease;
-  }
-  .btn-solid:hover{ background:var(--red-deep); }
-  .btn-solid svg{ width:14px; height:14px; }
-
-  /* ============================================================
-     LISTINGS GRID
-  ============================================================ */
-  .listings-section-head{
-    display:flex; align-items:baseline; justify-content:space-between;
-    margin-bottom:1.2rem;
-  }
-
-  .listings-section-head h2{
-    font-family:var(--font-display); font-weight:600;
-    font-size:clamp(1.2rem, 2vw, 1.5rem); letter-spacing:-.5px;
-  }
-  .listings-count{ font-size:.85rem; color:var(--muted); margin-left:.6rem; }
-
-  .listings-grid{
-    display:grid;
-    grid-template-columns:repeat(auto-fill, minmax(260px, 1fr));
-    gap:1.1rem;
-    margin-bottom:3rem;
-  }
-
-  /* Listing card */
-  .listing-card{
-    background:var(--white); border:1px solid var(--card-border);
-    border-radius:16px; overflow:hidden;
-    transition:transform .18s ease, box-shadow .18s ease;
-    cursor:pointer;
-  }
-  .listing-card:hover{ transform:translateY(-3px); box-shadow:0 16px 40px -18px rgba(26,18,16,.3); }
-
-  .listing-thumb{
-    position:relative; height:180px;
-    background:linear-gradient(135deg, var(--red) 0%, var(--red-deep) 100%);
-    overflow:hidden;
-  }
-  .listing-thumb img{ width:100%; height:100%; object-fit:cover; }
-
-  .listing-cat-pill{
-    position:absolute; top:.7rem; left:.7rem;
-    font-size:.66rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em;
-    background:rgba(255,255,255,.92); color:var(--ink);
-    padding:.25rem .6rem; border-radius:100px;
-  }
-
-  .listing-card-body{ padding:1rem 1.1rem 1.2rem; }
-
-  .listing-card-title{ font-family:var(--font-display); font-weight:600; font-size:1rem; margin-bottom:.25rem; line-height:1.25; }
-  .listing-card-loc{ font-size:.8rem; color:var(--muted); margin-bottom:.5rem; }
-  .listing-card-attrs{ font-size:.78rem; color:var(--muted); margin-bottom:.7rem; }
-
-  .listing-card-footer{ display:flex; align-items:center; justify-content:space-between; }
-  .listing-card-price{ font-size:.88rem; font-weight:700; }
-  .listing-card-status{
-    font-size:.72rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase;
-    color:var(--red-deep);
-  }
-  .listing-card-status.available{ color:#1E6B3C; }
-  .listing-card-status.booked{ color:#7a6b67; }
-
-  /* Empty state */
-  .listings-empty{
-    grid-column:1/-1; text-align:center; padding:3rem 1.5rem;
-    color:var(--muted); font-size:.92rem; line-height:1.6;
-  }
-  .listings-empty-icon{
-    width:48px; height:48px; border-radius:50%;
-    background:rgba(196,30,58,.08); color:var(--red-deep);
-    display:flex; align-items:center; justify-content:center;
-    margin:0 auto 1rem;
+  body{
+    font-family:var(--font-body); color:var(--ink);
+    background:#0b0a0a; padding:18px 18px 0; min-height:100vh; overflow:hidden;
   }
 
   /* ============================================================
-     EDIT MODAL
+     APP SHELL — thin wrapper, layout lives in .profile-desktop-shell
   ============================================================ */
-  .modal-overlay{
-    display:none; position:fixed; inset:0; z-index:300;
-    background:rgba(26,18,16,.5);
-    align-items:center; justify-content:center; padding:1.5rem;
-  }
-  .modal-overlay.open{ display:flex; }
-
-  .modal-card{
-    background:var(--paper); border-radius:20px; max-width:460px; width:100%;
-    padding:2rem 1.8rem;
-    box-shadow:0 40px 80px -30px rgba(26,18,16,.5);
-  }
-
-  .modal-card h2{
-    font-family:var(--font-display); font-weight:600; font-size:1.3rem;
-    margin-bottom:1.4rem;
-  }
-
-  .modal-field{ margin-bottom:1rem; }
-  .modal-field label{ display:block; font-size:.78rem; font-weight:700; margin-bottom:.4rem; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); }
-  .modal-field input, .modal-field textarea{
-    width:100%; padding:.7rem .9rem;
-    border:1px solid var(--card-border); border-radius:10px;
-    background:var(--white); color:var(--ink);
-    font-family:inherit; font-size:.9rem;
-  }
-  .modal-field input:focus, .modal-field textarea:focus{ outline:none; border-color:var(--red); }
-  .modal-field textarea{ resize:vertical; min-height:80px; line-height:1.5; }
-
-  .modal-actions{ display:flex; gap:.8rem; margin-top:1.4rem; }
-  .modal-actions button{ flex:1; padding:.8rem; border-radius:100px; font-weight:600; font-size:.9rem; }
-  .modal-cancel{ background:transparent; border:1.5px solid var(--card-border); color:var(--ink); }
-  .modal-cancel:hover{ border-color:var(--muted); }
-  .modal-save{ background:var(--red); color:#fff; }
-  .modal-save:hover{ background:var(--red-deep); }
-  .modal-save:disabled{ opacity:.6; cursor:not-allowed; }
-  .modal-msg{ font-size:.82rem; margin-top:.8rem; text-align:center; color:var(--red); }
-
-  /* ============================================================
-     SHARE PANEL
-  ============================================================ */
-  .share-panel{
-    display:none; background:var(--white); border:1px solid var(--card-border);
-    border-radius:16px; padding:1.3rem 1.5rem; margin-top:1rem; margin-bottom:2rem;
-  }
-  .share-panel.show{ display:block; }
-  .share-panel-title{ font-weight:700; font-size:.95rem; color:var(--red); margin-bottom:1rem; padding-bottom:.8rem; border-bottom:1px solid var(--card-border); }
-  .share-row{ display:flex; align-items:center; justify-content:space-between; gap:1rem; margin-bottom:1rem; flex-wrap:wrap; }
-  .share-row-label{ font-size:.85rem; font-weight:600; }
-  .copy-btn{
-    display:inline-flex; align-items:center; gap:.4rem;
-    font-size:.8rem; font-weight:600; padding:.5rem 1rem;
-    border-radius:100px; border:1.5px solid var(--red); color:var(--red);
-  }
-  .copy-btn:hover{ background:var(--red); color:#fff; }
-  .share-icons{ display:flex; gap:.8rem; }
-  .share-icon{
-    width:42px; height:42px; border-radius:50%; border:1.5px solid var(--red); color:var(--red);
-    display:flex; align-items:center; justify-content:center;
-  }
-  .share-icon:hover{ background:var(--red); color:#fff; }
-  .share-icon svg{ width:17px; height:17px; }
-
-  /* ============================================================
-     TOAST
-  ============================================================ */
-  .toast{
-    position:fixed; bottom:1.5rem; left:50%; transform:translateX(-50%) translateY(20px);
-    background:var(--ink); color:var(--white); padding:.8rem 1.4rem; border-radius:100px;
-    font-size:.88rem; font-weight:600; z-index:400; opacity:0; pointer-events:none;
-    transition:opacity .25s ease, transform .25s ease;
-  }
-  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
-
-  /* ============================================================
-     MOBILE
-  ============================================================ */
-  .sidebar-backdrop{ display:none; position:fixed; inset:0; background:rgba(26,18,16,.45); z-index:190; }
-  .sidebar-backdrop.show{ display:block; }
-  .bottom-bar{ display:none; }
-
-  @media (max-width:860px){
-    .app-shell{ grid-template-columns:1fr; }
-
-    .sidebar{
-      position:fixed; inset:0 auto 0 0; width:260px; height:100vh;
-      margin:0; border-radius:0; z-index:200;
-      transform:translateX(-100%); transition:transform .25s ease;
-      box-shadow:0 0 40px rgba(26,18,16,.25);
-    }
-    .sidebar.mobile-open{ transform:translateX(0); }
-
-    body{ height:auto; overflow-y:auto; overflow-x:hidden; }
-    .app-shell{ height:auto; overflow-y:visible; overflow-x:hidden; }
-    .main-col{ height:auto; overflow-y:visible; }
-
-    .profile-scroll{ padding:0 1.2rem 7rem; overflow-y:visible; }
-
-    .profile-header{
-      flex-direction:column; align-items:center; gap:1.2rem;
-      padding:1.6rem 0 1.6rem; text-align:center;
-    }
-    .profile-info{ width:100%; }
-    .profile-meta, .profile-actions{ justify-content:center; }
-    .profile-avatar{ width:80px; height:80px; font-size:1.9rem; }
-    .avatar-upload-btn{ width:26px; height:26px; }
-
-    .listings-grid{ grid-template-columns:1fr 1fr; gap:.8rem; }
-
-    .topbar{
-      position:sticky; top:0; z-index:100;
-      background:var(--glass-bg);
-      backdrop-filter:blur(18px) saturate(140%);
-      -webkit-backdrop-filter:blur(18px) saturate(140%);
-    }
-
-    .bottom-bar{
-      display:flex; align-items:center; justify-content:space-around;
-      position:fixed; bottom:0; left:0; right:0; z-index:150;
-      background:var(--white); border-top:1px solid rgba(26,18,16,.08);
-      padding:.6rem 0 calc(.6rem + env(safe-area-inset-bottom));
-    }
-    .bottom-bar-item{
-      display:flex; flex-direction:column; align-items:center; gap:.2rem;
-      font-size:.66rem; font-weight:600; color:var(--muted);
-      padding:.3rem .6rem; background:none; border:none; font-family:inherit; cursor:pointer;
-    }
-    .bottom-bar-item.active{ color:var(--red-deep); }
-    .bottom-bar-item .notification-icon{ position:relative; display:flex; }
-    .bottom-bar-item .notification-count{
-      position:absolute; top:-7px; right:-11px; min-width:15px; height:15px;
-      padding:0 4px; border-radius:999px; background:var(--red); color:var(--white);
-      font-size:.58rem; line-height:15px; font-weight:700;
-    }
-  }
-
-  @media (max-width:500px){
-    .listings-grid{ grid-template-columns:1fr; }
+  .page-loading{
+    position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+    background:var(--paper); color:var(--ink); font-size:0.95rem; font-weight:600; z-index:20;
   }
 
   .profile-desktop-shell{
     display:grid; grid-template-columns: 260px minmax(0, 1fr) 330px; gap:0;
-    width:100%; max-width:1260px; margin:0 auto; min-height:calc(100vh - 2rem);
+    width:100%; max-width:1260px; margin:0 auto; min-height:calc(100vh - 18px);
     background:rgba(255,255,255,0.96); border:1px solid rgba(26,18,16,0.08);
     border-radius:18px; box-shadow:0 18px 60px rgba(12,10,10,0.08);
     overflow:hidden;
   }
-  body{
-    background:#0b0a0a; padding:18px 18px 0; min-height:100vh; overflow:hidden;
-  }
+
+  /* ── LEFT SIDEBAR ── */
   .profile-sidebar{
-    background:#fff; border-right:1px solid rgba(26,18,16,0.08); padding:18px 12px 14px; display:flex; flex-direction:column; gap:18px;
+    background:#fff; border-right:1px solid rgba(26,18,16,0.08); padding:18px 12px 14px;
+    display:flex; flex-direction:column; gap:18px;
   }
   .brand-logo{ display:flex; align-items:baseline; padding:0 10px; font-family:'Fraunces', serif; font-size:22px; font-weight:900; letter-spacing:-0.04em; }
   .brand-logo .va{ color:#c41e3a; }
+
   .nav-group{ display:flex; flex-direction:column; gap:4px; }
   .nav-group-compact{ margin-top:4px; }
   .nav-label{ padding:8px 12px 6px; font-size:11px; color:#7a6b67; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; }
@@ -453,6 +78,7 @@
   .nav-item svg{ width:17px; height:17px; flex-shrink:0; }
   .nav-item.active{ background:#fce9ec; color:#8f1229; font-weight:600; }
   .nav-item:hover{ background:#f7f3f2; }
+
   .sidebar-promo-card{
     margin-top:auto; border:1px solid rgba(196,30,58,0.12); background:#fff6f7; border-radius:14px; overflow:hidden;
     box-shadow:0 8px 24px rgba(196, 30, 58, 0.05);
@@ -466,6 +92,7 @@
   .logout-btn{ margin-top:12px; text-align:left; color:#c41e3a; font-weight:600; padding:8px 10px; border-radius:8px; }
   .logout-btn:hover{ background:#fce9ec; }
 
+  /* ── CENTER COLUMN ── */
   .profile-main{ background:#f7f5f4; border-right:1px solid rgba(26,18,16,0.08); padding:16px 20px 30px; }
   .profile-topbar{ display:flex; align-items:center; justify-content:space-between; padding:4px 4px 8px; }
   .topbar-spacer{ flex:1; }
@@ -473,7 +100,7 @@
   .topbar-icon{ width:36px; height:36px; border-radius:50%; background:#fff; border:1px solid rgba(26,18,16,0.08); color:#1a1210; display:flex; align-items:center; justify-content:center; }
   .topbar-icon svg{ width:16px; height:16px; }
   .topbar-user{ display:flex; align-items:center; gap:8px; background:#fff; border:1px solid rgba(26,18,16,0.08); border-radius:999px; padding:4px 10px 4px 6px; color:#1a1210; font-weight:600; }
-  .topbar-user-avatar{ width:30px; height:30px; border-radius:50%; background:linear-gradient(135deg, #181412, #3b312e); color:#fff; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; }
+  .topbar-user-avatar{ width:30px; height:30px; border-radius:50%; background:linear-gradient(135deg, #181412, #3b312e); color:#fff; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; overflow:hidden; }
   .topbar-user svg{ width:14px; height:14px; }
 
   .profile-card{ background:#fff; border:1px solid rgba(26,18,16,0.08); border-radius:18px; padding:0; margin-top:4px; }
@@ -534,6 +161,27 @@
   .trip-status{ display:inline-flex; align-items:center; gap:4px; padding:4px 8px; border-radius:999px; background:#e7f7ed; color:#2d7a4d; font-weight:700; }
   .trip-status::before{ content:'✓'; font-size:10px; }
 
+  .profile-actions{ display:flex; gap:.7rem; flex-wrap:wrap; }
+  .hidden-actions{ display:none; }
+  .btn-outline{
+    display:inline-flex; align-items:center; gap:.4rem;
+    font-size:.85rem; font-weight:600; padding:.6rem 1.2rem;
+    border-radius:100px; border:1.5px solid var(--card-border);
+    color:var(--ink); background:var(--white);
+    transition:border-color .2s ease, background .2s ease;
+  }
+  .btn-outline:hover{ border-color:var(--red); color:var(--red); }
+  .btn-outline svg{ width:14px; height:14px; }
+  .btn-solid{
+    display:inline-flex; align-items:center; gap:.4rem;
+    font-size:.85rem; font-weight:600; padding:.6rem 1.2rem;
+    border-radius:100px; background:var(--red); color:var(--white);
+    transition:background .2s ease;
+  }
+  .btn-solid:hover{ background:var(--red-deep); }
+  .btn-solid svg{ width:14px; height:14px; }
+
+  /* ── RIGHT RAIL ── */
   .profile-rail{ background:#fbfaf9; padding:16px 16px 20px; display:flex; flex-direction:column; gap:16px; }
   .rail-card{ background:#fff; border:1px solid rgba(26,18,16,0.08); border-radius:14px; padding:16px; }
   .rail-card h3{ font-size:14px; font-weight:700; margin:0; }
@@ -568,12 +216,146 @@
   .help-card p{ font-size:12px; color:#7a6b67; margin:0 0 12px; }
   .help-button{ width:100%; background:transparent; border:1px solid rgba(196,30,58,0.5); color:#c41e3a; padding:9px 10px; border-radius:10px; font-weight:700; }
 
-  .hidden-actions{ display:none; }
-  .share-panel{ display:none; }
-  .page-loading{
-    position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
-    background:var(--paper); color:var(--ink); font-size:0.95rem; font-weight:600; z-index:20;
+  /* ============================================================
+     LISTINGS (host listings shown when viewing another user's profile)
+  ============================================================ */
+  .listings-section-head{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom:1.2rem; }
+  .listings-section-head h2{ font-family:var(--font-display); font-weight:600; font-size:clamp(1.2rem, 2vw, 1.5rem); letter-spacing:-.5px; }
+  .listings-count{ font-size:.85rem; color:var(--muted); margin-left:.6rem; }
+  .listings-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:1.1rem; margin-bottom:3rem; }
+  .listing-card{
+    background:var(--white); border:1px solid var(--card-border);
+    border-radius:16px; overflow:hidden;
+    transition:transform .18s ease, box-shadow .18s ease;
+    cursor:pointer;
   }
+  .listing-card:hover{ transform:translateY(-3px); box-shadow:0 16px 40px -18px rgba(26,18,16,.3); }
+  .listing-thumb{ position:relative; height:180px; background:linear-gradient(135deg, var(--red) 0%, var(--red-deep) 100%); overflow:hidden; }
+  .listing-thumb img{ width:100%; height:100%; object-fit:cover; }
+  .listing-cat-pill{
+    position:absolute; top:.7rem; left:.7rem;
+    font-size:.66rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em;
+    background:rgba(255,255,255,.92); color:var(--ink);
+    padding:.25rem .6rem; border-radius:100px;
+  }
+  .listing-card-body{ padding:1rem 1.1rem 1.2rem; }
+  .listing-card-title{ font-family:var(--font-display); font-weight:600; font-size:1rem; margin-bottom:.25rem; line-height:1.25; }
+  .listing-card-loc{ font-size:.8rem; color:var(--muted); margin-bottom:.5rem; }
+  .listing-card-footer{ display:flex; align-items:center; justify-content:space-between; }
+  .listing-card-price{ font-size:.88rem; font-weight:700; }
+  .listing-card-status{ font-size:.72rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--red-deep); }
+  .listing-card-status.available{ color:#1E6B3C; }
+  .listing-card-status.booked{ color:#7a6b67; }
+  .listings-empty{ grid-column:1/-1; text-align:center; padding:3rem 1.5rem; color:var(--muted); font-size:.92rem; line-height:1.6; }
+  .listings-empty-icon{
+    width:48px; height:48px; border-radius:50%;
+    background:rgba(196,30,58,.08); color:var(--red-deep);
+    display:flex; align-items:center; justify-content:center;
+    margin:0 auto 1rem;
+  }
+
+  /* ============================================================
+     EDIT MODAL
+  ============================================================ */
+  .modal-overlay{
+    display:none; position:fixed; inset:0; z-index:300;
+    background:rgba(26,18,16,.5);
+    align-items:center; justify-content:center; padding:1.5rem;
+  }
+  .modal-overlay.open{ display:flex; }
+  .modal-card{
+    background:var(--paper); border-radius:20px; max-width:460px; width:100%;
+    padding:2rem 1.8rem;
+    box-shadow:0 40px 80px -30px rgba(26,18,16,.5);
+  }
+  .modal-card h2{ font-family:var(--font-display); font-weight:600; font-size:1.3rem; margin-bottom:1.4rem; }
+  .modal-field{ margin-bottom:1rem; }
+  .modal-field label{ display:block; font-size:.78rem; font-weight:700; margin-bottom:.4rem; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); }
+  .modal-field input, .modal-field textarea{
+    width:100%; padding:.7rem .9rem;
+    border:1px solid var(--card-border); border-radius:10px;
+    background:var(--white); color:var(--ink);
+    font-family:inherit; font-size:.9rem;
+  }
+  .modal-field input:focus, .modal-field textarea:focus{ outline:none; border-color:var(--red); }
+  .modal-field textarea{ resize:vertical; min-height:80px; line-height:1.5; }
+  .modal-actions{ display:flex; gap:.8rem; margin-top:1.4rem; }
+  .modal-actions button{ flex:1; padding:.8rem; border-radius:100px; font-weight:600; font-size:.9rem; }
+  .modal-cancel{ background:transparent; border:1.5px solid var(--card-border); color:var(--ink); }
+  .modal-cancel:hover{ border-color:var(--muted); }
+  .modal-save{ background:var(--red); color:#fff; }
+  .modal-save:hover{ background:var(--red-deep); }
+  .modal-save:disabled{ opacity:.6; cursor:not-allowed; }
+  .modal-msg{ font-size:.82rem; margin-top:.8rem; text-align:center; color:var(--red); }
+
+  /* ============================================================
+     SHARE PANEL
+  ============================================================ */
+  .share-panel{
+    display:none; background:var(--white); border:1px solid var(--card-border);
+    border-radius:16px; padding:1.3rem 1.5rem; margin:1rem auto 2rem; max-width:1260px;
+  }
+  .share-panel.show{ display:block; }
+  .share-panel-title{ font-weight:700; font-size:.95rem; color:var(--red); margin-bottom:1rem; padding-bottom:.8rem; border-bottom:1px solid var(--card-border); }
+  .share-row{ display:flex; align-items:center; justify-content:space-between; gap:1rem; margin-bottom:1rem; flex-wrap:wrap; }
+  .share-row-label{ font-size:.85rem; font-weight:600; }
+  .copy-btn{
+    display:inline-flex; align-items:center; gap:.4rem;
+    font-size:.8rem; font-weight:600; padding:.5rem 1rem;
+    border-radius:100px; border:1.5px solid var(--red); color:var(--red);
+  }
+  .copy-btn:hover{ background:var(--red); color:#fff; }
+  .share-icons{ display:flex; gap:.8rem; }
+  .share-icon{
+    width:42px; height:42px; border-radius:50%; border:1.5px solid var(--red); color:var(--red);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .share-icon:hover{ background:var(--red); color:#fff; }
+  .share-icon svg{ width:17px; height:17px; }
+
+  /* ============================================================
+     TOAST
+  ============================================================ */
+  .toast{
+    position:fixed; bottom:1.5rem; left:50%; transform:translateX(-50%) translateY(20px);
+    background:var(--ink); color:var(--white); padding:.8rem 1.4rem; border-radius:100px;
+    font-size:.88rem; font-weight:600; z-index:400; opacity:0; pointer-events:none;
+    transition:opacity .25s ease, transform .25s ease;
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+  /* ============================================================
+     MOBILE BOTTOM BAR (only nav for narrow viewports)
+  ============================================================ */
+  .sidebar-backdrop{ display:none; position:fixed; inset:0; background:rgba(26,18,16,.45); z-index:190; }
+  .sidebar-backdrop.show{ display:block; }
+  .bottom-bar{ display:none; }
+
+  @media (max-width:860px){
+    .bottom-bar{
+      display:flex; align-items:center; justify-content:space-around;
+      position:fixed; bottom:0; left:0; right:0; z-index:150;
+      background:var(--white); border-top:1px solid rgba(26,18,16,.08);
+      padding:.6rem 0 calc(.6rem + env(safe-area-inset-bottom));
+    }
+    .bottom-bar-item{
+      display:flex; flex-direction:column; align-items:center; gap:.2rem;
+      font-size:.66rem; font-weight:600; color:var(--muted);
+      padding:.3rem .6rem; background:none; border:none; font-family:inherit; cursor:pointer;
+    }
+    .bottom-bar-item.active{ color:var(--red-deep); }
+    .bottom-bar-item .notification-icon{ position:relative; display:flex; }
+    .bottom-bar-item .notification-count{
+      position:absolute; top:-7px; right:-11px; min-width:15px; height:15px;
+      padding:0 4px; border-radius:999px; background:var(--red); color:var(--white);
+      font-size:.58rem; line-height:15px; font-weight:700;
+    }
+    body{ padding-bottom:70px; }
+  }
+
+  /* ============================================================
+     RESPONSIVE — profile-desktop-shell breakpoints
+  ============================================================ */
   @media (max-width: 1100px){
     .profile-desktop-shell{ grid-template-columns: 220px minmax(0, 1fr) 290px; }
     .profile-hero{ width:220px; }
@@ -591,6 +373,11 @@
     .booking-item{ grid-template-columns:1fr; }
     .booking-thumb{ width:100%; }
     .booking-price-box{ text-align:left; }
+    .listings-grid{ grid-template-columns:1fr 1fr; gap:.8rem; padding:0 1.2rem; }
+    .listings-section-head{ padding:0 1.2rem; }
+  }
+  @media (max-width:500px){
+    .listings-grid{ grid-template-columns:1fr; }
   }
 </style>
 </head>
@@ -631,250 +418,236 @@
   </div>
 </div>
 
-<div class="app-shell">
-  <div id="loading-state" class="page-loading" aria-live="polite">Loading your profile…</div>
+<div id="loading-state" class="page-loading" aria-live="polite">Loading your profile…</div>
 
-  <div id="profile-content" style="display:none;">
-        <div class="profile-desktop-shell">
-          <aside class="profile-sidebar" id="sidebar">
-            <a href="client-home.html" class="brand-logo"><span class="va">Va</span><span class="room">Room</span></a>
+<div id="profile-content" style="display:none;">
+  <div class="profile-desktop-shell">
+    <aside class="profile-sidebar" id="sidebar">
+      <a href="client-home.html" class="brand-logo"><span class="va">Va</span><span class="room">Room</span></a>
 
-            <nav class="nav-group">
-              <a class="nav-item" href="client-home.html">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m15 9-2 6-6 2 2-6 6-2Z"/></svg>
-                Explore
-              </a>
-              <a class="nav-item" href="list.html">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1Z"/><path d="M9 21v-6h6v6"/></svg>
-                Properties
-              </a>
-              <a class="nav-item" href="list.html">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15.5V7.5A2.5 2.5 0 0 1 6.5 5h11A2.5 2.5 0 0 1 20 7.5v8A2.5 2.5 0 0 1 17.5 18H6.5A2.5 2.5 0 0 1 4 15.5Z"/><path d="M8 9h8M8 13h6"/></svg>
-                Experiences
-              </a>
-              <a class="nav-item" href="list.html">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14M6 12h12M8 16h8"/><rect x="3" y="4" width="18" height="16" rx="2"/></svg>
-                Deals
-              </a>
-              <a class="nav-item active" href="signup-host.html">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7 13.5 14.5 9.5 10.5 3 17"/><path d="M21 7h-6M21 7v6"/></svg>
-                Become a Host
-              </a>
-            </nav>
+      <nav class="nav-group">
+        <a class="nav-item" href="client-home.html">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1Z"/><path d="M9 21v-6h6v6"/></svg>
+          Home
+        </a>
+        <a class="nav-item" href="client-home.html">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m15 9-2 6-6 2 2-6 6-2Z"/></svg>
+          Explore
+        </a>
+        <a class="nav-item" href="client-home.html#saved">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h12a1 1 0 0 1 1 1V21l-7-4-7 4V4.5a1 1 0 0 1 1-1Z"/></svg>
+          Saved
+        </a>
+        <a class="nav-item" href="signup-host.html">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7 13.5 14.5 9.5 10.5 3 17"/><path d="M21 7h-6M21 7v6"/></svg>
+          Become a Host
+        </a>
+      </nav>
 
-            <div class="nav-group nav-group-compact">
-              <div class="nav-label">My Activity</div>
-              <a class="nav-item" href="bookings.html">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="2"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>
-                Bookings
-              </a>
-              <a class="nav-item" href="chats.html">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z"/></svg>
-                Chats
-              </a>
-              <a class="nav-item" href="client-home.html#saved">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h12a1 1 0 0 1 1 1V21l-7-4-7 4V4.5a1 1 0 0 1 1-1Z"/></svg>
-                Saved
-              </a>
-            </div>
+      <div class="nav-group nav-group-compact">
+        <div class="nav-label">My Activity</div>
+        <a class="nav-item" href="bookings.html">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="2"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>
+          Bookings
+        </a>
+        <a class="nav-item" href="chats.html">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z"/></svg>
+          Chats
+        </a>
+      </div>
 
-            <div class="nav-group nav-group-compact">
-              <div class="nav-label">Account</div>
-              <a class="nav-item active" href="profile.html">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.5-7 8-7s8 3 8 7"/></svg>
-                Profile
-              </a>
-              <a class="nav-item" href="settings.html">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>
-                Settings
-              </a>
-            </div>
+      <div class="nav-group nav-group-compact">
+        <div class="nav-label">Account</div>
+        <a class="nav-item active" href="profile.html">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.5-7 8-7s8 3 8 7"/></svg>
+          Profile
+        </a>
+        <a class="nav-item" href="settings.html">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>
+          Settings
+        </a>
+      </div>
 
-            <div class="sidebar-promo-card">
-              <div class="promo-photo"></div>
-              <div class="promo-copy">
-                <div class="promo-small">Earn more</div>
-                <div class="promo-title">Become a Host</div>
-              </div>
-            </div>
-
-            <button type="button" class="logout-btn" id="logout-btn">Log out</button>
-          </aside>
-
-          <main class="profile-main">
-            <header class="profile-topbar">
-              <div class="topbar-spacer"></div>
-              <div class="topbar-actions">
-                <button class="topbar-icon" type="button" aria-label="Toggle theme">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
-                </button>
-                <button class="topbar-icon" type="button" aria-label="Notifications">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-                </button>
-                <button class="topbar-user" type="button">
-                  <div class="topbar-user-avatar" id="topbar-avatar">•</div>
-                  <span id="topbar-name">User</span>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-                </button>
-              </div>
-            </header>
-
-            <div class="profile-card">
-              <div class="profile-card-body">
-                <div class="profile-personal">
-                  <div class="profile-avatar-wrap">
-                    <div class="profile-avatar" id="profile-avatar">•</div>
-                    <label class="avatar-upload-btn" id="avatar-upload-label" for="avatar-input" aria-label="Change photo" style="display:none;">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2Z"/><circle cx="12" cy="13" r="4"/></svg>
-                      <input type="file" id="avatar-input" accept="image/png,image/jpeg,image/webp">
-                    </label>
-                  </div>
-
-                  <div class="profile-details">
-                    <h1 id="profile-header-name">Profile</h1>
-                    <div class="profile-handle" id="profile-username">@username</div>
-                    <div class="profile-line" id="profile-email">email@example.com</div>
-                    <div class="profile-meta-row">
-                      <span class="meta-item" id="profile-location">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>
-                        <span id="profile-location-text">Location</span>
-                      </span>
-                      <span class="meta-item" id="profile-since">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3.5" y="5" width="17" height="16" rx="2"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>
-                        <span id="profile-since-text">Member since</span>
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="profile-hero" id="profile-hero-photo"></div>
-              </div>
-
-              <div class="profile-tabs" role="tablist" aria-label="Profile sections">
-                <button type="button" class="tab-item active">Bookings</button>
-                <button type="button" class="tab-item">Saved</button>
-                <button type="button" class="tab-item">Chats <span class="tab-pill">2</span></button>
-                <button type="button" class="tab-item">Settings</button>
-              </div>
-            </div>
-
-            <div class="content-section">
-              <div class="section-header">
-                <h2>Upcoming Bookings</h2>
-                <a href="bookings.html">View all bookings <span>→</span></a>
-              </div>
-              <div id="upcoming-bookings" class="booking-list"></div>
-            </div>
-
-            <div class="content-section">
-              <div class="section-header">
-                <h2>Past Trips</h2>
-                <a href="bookings.html">View all trips <span>→</span></a>
-              </div>
-              <div id="past-trips" class="trip-grid"></div>
-            </div>
-
-            <div class="profile-actions hidden-actions" id="owner-actions" style="display:none;">
-              <button type="button" class="btn-outline" id="edit-profile-btn">Edit profile</button>
-              <button type="button" class="btn-outline" id="share-profile-btn">Share profile</button>
-            </div>
-            <div class="profile-actions hidden-actions" id="visitor-actions" style="display:none;">
-              <a href="chats.html" class="btn-solid" id="ask-host-btn">Ask <span id="ask-name">host</span></a>
-              <button type="button" class="btn-outline" id="share-profile-btn-visitor">Share profile</button>
-            </div>
-          </main>
-
-          <aside class="profile-rail">
-            <div class="rail-card">
-              <h3>Your Stats</h3>
-              <div class="stats-row">
-                <div class="stats-box">
-                  <div class="stats-icon red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v4M16 3v4M4 9h16"/><rect x="3" y="5" width="18" height="16" rx="2"/></svg></div>
-                  <div class="stats-value" id="stat-bookings">0</div>
-                  <div class="stats-label">Total stays</div>
-                </div>
-                <div class="stats-box">
-                  <div class="stats-icon green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h12a1 1 0 0 1 1 1V21l-7-4-7 4V4.5a1 1 0 0 1 1-1Z"/></svg></div>
-                  <div class="stats-value" id="stat-saved">0</div>
-                  <div class="stats-label">Saved properties</div>
-                </div>
-              </div>
-            </div>
-
-            <div class="rail-card">
-              <div class="rail-row">
-                <h3>Profile Completion</h3>
-                <span id="profile-completion-value">80%</span>
-              </div>
-              <div class="completion-bar"><span id="completion-bar"></span></div>
-              <p class="dark-note">Complete your profile to unlock exclusive deals!</p>
-              <ul class="check-list">
-                <li class="check-item complete">Verify Email</li>
-                <li class="check-item complete">Add Profile Photo</li>
-                <li class="check-item complete">Add Phone Number</li>
-                <li class="check-item incomplete">Add ID Verification</li>
-              </ul>
-            </div>
-
-            <div class="rail-card">
-              <h3>Quick Actions</h3>
-              <div class="action-list">
-                <button class="action-item" type="button"><span class="action-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg></span> Edit Profile <span class="chevron">›</span></button>
-                <button class="action-item" type="button"><span class="action-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><path d="M7 15h4"/></svg></span> Payment Methods <span class="chevron">›</span></button>
-                <button class="action-item" type="button"><span class="action-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12h6"/><path d="M12 9v6"/><path d="M8 19h8a4 4 0 0 0 4-4V7a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v8a4 4 0 0 0 4 4Z"/></svg></span> ID Verification <span class="verified-tag">Verified</span></button>
-                <button class="action-item" type="button"><span class="action-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14 21 3"/><path d="M21 3h-8"/><path d="M21 3v8"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></svg></span> Refer &amp; Earn <span class="chevron">›</span></button>
-              </div>
-            </div>
-
-            <div class="rail-card help-card">
-              <div class="help-head">
-                <div class="help-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19.5 12a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z"/><path d="M9.5 9.5a2.5 2.5 0 0 1 5 0c0 1.8-2.5 2.2-2.5 5"/><path d="M12 17h.01"/></svg></div>
-                <h3>Need Help?</h3>
-              </div>
-              <p>Our support team is here for you.</p>
-              <button class="help-button" type="button">Contact Support</button>
-            </div>
-          </aside>
+      <div class="sidebar-promo-card">
+        <div class="promo-photo"></div>
+        <div class="promo-copy">
+          <div class="promo-small">Earn more</div>
+          <div class="promo-title">Become a Host</div>
         </div>
+      </div>
 
-        <!-- Share panel -->
-        <div class="share-panel" id="share-panel">
-          <div class="share-panel-title">Share this profile</div>
-          <div class="share-row">
-            <span class="share-row-label">Share via</span>
-            <button type="button" class="copy-btn" id="copy-link-btn">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-              <span id="copy-link-text">Copy link</span>
-            </button>
-          </div>
-          <div class="share-icons">
-            <a class="share-icon" id="share-x" target="_blank" rel="noopener" aria-label="Share on X">
-              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.9 2H22l-7.6 8.7L23.3 22h-6.9l-5.4-6.6L4.8 22H1.6l8.1-9.3L1 2h7l4.9 6z"/></svg>
-            </a>
-            <a class="share-icon" id="share-wa" target="_blank" rel="noopener" aria-label="Share on WhatsApp">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
-            </a>
-            <a class="share-icon" id="share-email" aria-label="Share via email">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 6c0-1.1-.9-2-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6Z"/><path d="m22 6-10 7L2 6"/></svg>
-            </a>
-          </div>
+      <button type="button" class="logout-btn" id="logout-btn">Log out</button>
+    </aside>
+
+    <main class="profile-main">
+      <header class="profile-topbar">
+        <div class="topbar-spacer"></div>
+        <div class="topbar-actions">
+          <button class="topbar-icon" type="button" aria-label="Toggle theme">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
+          </button>
+          <button class="topbar-icon" type="button" aria-label="Notifications">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          </button>
+          <button class="topbar-user" type="button">
+            <div class="topbar-user-avatar" id="topbar-avatar">•</div>
+            <span id="topbar-name">User</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
         </div>
+      </header>
 
-        <div id="listings-section" style="display:none;">
-          <div class="listings-section-head">
-            <div>
-              <h2 id="listings-heading">Places</h2>
-              <span class="listings-count" id="listings-count"></span>
+      <div class="profile-card">
+        <div class="profile-card-body">
+          <div class="profile-personal">
+            <div class="profile-avatar-wrap">
+              <div class="profile-avatar" id="profile-avatar">•</div>
+              <label class="avatar-upload-btn" id="avatar-upload-label" for="avatar-input" aria-label="Change photo" style="display:none;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2Z"/><circle cx="12" cy="13" r="4"/></svg>
+                <input type="file" id="avatar-input" accept="image/png,image/jpeg,image/webp">
+              </label>
+            </div>
+
+            <div class="profile-details">
+              <h1 id="profile-header-name">Profile</h1>
+              <div class="profile-handle" id="profile-username">@username</div>
+              <div class="profile-line" id="profile-email">email@example.com</div>
+              <div class="profile-meta-row">
+                <span class="meta-item" id="profile-location">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>
+                  <span id="profile-location-text">Location</span>
+                </span>
+                <span class="meta-item" id="profile-since">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3.5" y="5" width="17" height="16" rx="2"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>
+                  <span id="profile-since-text">Member since</span>
+                </span>
+              </div>
             </div>
           </div>
-          <div class="listings-grid" id="listings-grid"></div>
+
+          <div class="profile-hero" id="profile-hero-photo"></div>
         </div>
-      </div><!-- /#profile-content -->
-    </div><!-- /.profile-scroll -->
 
-  </div><!-- /.main-col -->
+        <div class="profile-tabs" role="tablist" aria-label="Profile sections">
+          <button type="button" class="tab-item active">Bookings</button>
+          <button type="button" class="tab-item">Saved</button>
+          <button type="button" class="tab-item">Chats <span class="tab-pill">2</span></button>
+          <button type="button" class="tab-item">Settings</button>
+        </div>
+      </div>
 
-</div><!-- /.app-shell -->
+      <div class="content-section">
+        <div class="section-header">
+          <h2>Upcoming Bookings</h2>
+          <a href="bookings.html">View all bookings <span>→</span></a>
+        </div>
+        <div id="upcoming-bookings" class="booking-list"></div>
+      </div>
+
+      <div class="content-section">
+        <div class="section-header">
+          <h2>Past Trips</h2>
+          <a href="bookings.html">View all trips <span>→</span></a>
+        </div>
+        <div id="past-trips" class="trip-grid"></div>
+      </div>
+
+      <div class="profile-actions hidden-actions" id="owner-actions" style="display:none;">
+        <button type="button" class="btn-outline" id="edit-profile-btn">Edit profile</button>
+        <button type="button" class="btn-outline" id="share-profile-btn">Share profile</button>
+      </div>
+      <div class="profile-actions hidden-actions" id="visitor-actions" style="display:none;">
+        <a href="chats.html" class="btn-solid" id="ask-host-btn">Ask <span id="ask-name">host</span></a>
+        <button type="button" class="btn-outline" id="share-profile-btn-visitor">Share profile</button>
+      </div>
+    </main>
+
+    <aside class="profile-rail">
+      <div class="rail-card">
+        <h3>Your Stats</h3>
+        <div class="stats-row">
+          <div class="stats-box">
+            <div class="stats-icon red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v4M16 3v4M4 9h16"/><rect x="3" y="5" width="18" height="16" rx="2"/></svg></div>
+            <div class="stats-value" id="stat-bookings">0</div>
+            <div class="stats-label">Total stays</div>
+          </div>
+          <div class="stats-box">
+            <div class="stats-icon green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h12a1 1 0 0 1 1 1V21l-7-4-7 4V4.5a1 1 0 0 1 1-1Z"/></svg></div>
+            <div class="stats-value" id="stat-saved">0</div>
+            <div class="stats-label">Saved properties</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="rail-card">
+        <div class="rail-row">
+          <h3>Profile Completion</h3>
+          <span id="profile-completion-value">80%</span>
+        </div>
+        <div class="completion-bar"><span id="completion-bar"></span></div>
+        <p class="dark-note">Complete your profile to unlock exclusive deals!</p>
+        <ul class="check-list">
+          <li class="check-item complete">Verify Email</li>
+          <li class="check-item complete">Add Profile Photo</li>
+          <li class="check-item complete">Add Phone Number</li>
+          <li class="check-item incomplete">Add ID Verification</li>
+        </ul>
+      </div>
+
+      <div class="rail-card">
+        <h3>Quick Actions</h3>
+        <div class="action-list">
+          <button class="action-item" type="button" id="quick-edit-profile"><span class="action-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg></span> Edit Profile <span class="chevron">›</span></button>
+          <button class="action-item" type="button"><span class="action-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><path d="M7 15h4"/></svg></span> Payment Methods <span class="chevron">›</span></button>
+          <button class="action-item" type="button"><span class="action-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12h6"/><path d="M12 9v6"/><path d="M8 19h8a4 4 0 0 0 4-4V7a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v8a4 4 0 0 0 4 4Z"/></svg></span> ID Verification <span class="verified-tag">Verified</span></button>
+          <button class="action-item" type="button"><span class="action-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14 21 3"/><path d="M21 3h-8"/><path d="M21 3v8"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></svg></span> Refer &amp; Earn <span class="chevron">›</span></button>
+        </div>
+      </div>
+
+      <div class="rail-card help-card">
+        <div class="help-head">
+          <div class="help-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19.5 12a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z"/><path d="M9.5 9.5a2.5 2.5 0 0 1 5 0c0 1.8-2.5 2.2-2.5 5"/><path d="M12 17h.01"/></svg></div>
+          <h3>Need Help?</h3>
+        </div>
+        <p>Our support team is here for you.</p>
+        <button class="help-button" type="button">Contact Support</button>
+      </div>
+    </aside>
+  </div>
+
+  <!-- Share panel -->
+  <div class="share-panel" id="share-panel">
+    <div class="share-panel-title">Share this profile</div>
+    <div class="share-row">
+      <span class="share-row-label">Share via</span>
+      <button type="button" class="copy-btn" id="copy-link-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        <span id="copy-link-text">Copy link</span>
+      </button>
+    </div>
+    <div class="share-icons">
+      <a class="share-icon" id="share-x" target="_blank" rel="noopener" aria-label="Share on X">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.9 2H22l-7.6 8.7L23.3 22h-6.9l-5.4-6.6L4.8 22H1.6l8.1-9.3L1 2h7l4.9 6z"/></svg>
+      </a>
+      <a class="share-icon" id="share-wa" target="_blank" rel="noopener" aria-label="Share on WhatsApp">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+      </a>
+      <a class="share-icon" id="share-email" aria-label="Share via email">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 6c0-1.1-.9-2-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6Z"/><path d="m22 6-10 7L2 6"/></svg>
+      </a>
+    </div>
+  </div>
+
+  <div id="listings-section" style="display:none;">
+    <div class="listings-section-head">
+      <div>
+        <h2 id="listings-heading">Places</h2>
+        <span class="listings-count" id="listings-count"></span>
+      </div>
+    </div>
+    <div class="listings-grid" id="listings-grid"></div>
+  </div>
+</div><!-- /#profile-content -->
 
 <!-- Mobile bottom bar -->
 <nav class="bottom-bar" id="bottom-bar">
@@ -1043,7 +816,7 @@
     document.getElementById('avatar-upload-label').style.display = isOwner ? 'flex' : 'none';
 
     const showingAsVisitor = !isOwner;
-    document.getElementById('owner-actions').style.display = showingAsVisitor ? 'none' : 'none';
+    document.getElementById('owner-actions').style.display = showingAsVisitor ? 'none' : 'flex';
     document.getElementById('visitor-actions').style.display = showingAsVisitor ? 'flex' : 'none';
   }
 
@@ -1162,7 +935,7 @@
   renderProfileCompletion(80);
 
   /* ── Profile actions ── */
-  document.getElementById('edit-profile-btn').addEventListener('click', function(){
+  function openEditModal(){
     document.getElementById('edit-fullname').value = profileData.full_name || '';
     document.getElementById('edit-username').value = profileData.username || '';
     document.getElementById('edit-phone').value = profileData.phone || '';
@@ -1170,7 +943,9 @@
     document.getElementById('edit-location').value = profileData.city || '';
     document.getElementById('edit-msg').textContent = '';
     document.getElementById('edit-modal').classList.add('open');
-  });
+  }
+  document.getElementById('edit-profile-btn').addEventListener('click', openEditModal);
+  document.getElementById('quick-edit-profile').addEventListener('click', openEditModal);
 
   document.getElementById('edit-cancel').addEventListener('click', function(){
     document.getElementById('edit-modal').classList.remove('open');
@@ -1262,12 +1037,17 @@
     .order('created_at', { ascending: false });
 
   const grid = document.getElementById('listings-grid');
+  const listingsSection = document.getElementById('listings-section');
   if (listingsError) {
     console.error('Could not load host listings:', listingsError);
     grid.innerHTML = '<div class="listings-empty">Couldn\'t load your listings right now. Please refresh and try again.</div>';
+    listingsSection.style.display = 'block';
     return;
   }
   const count = listings ? listings.length : 0;
+  if (count > 0 || isOwner) {
+    listingsSection.style.display = 'block';
+  }
   document.getElementById('listings-count').textContent =
     count + ' space' + (count !== 1 ? 's' : '') +
     (profileData.city ? ' in ' + profileData.city : '');
@@ -1408,14 +1188,6 @@
     showToast('Photo updated ✓');
   });
 
-  /* ── Mobile hamburger ── */
-  const sidebar   = document.getElementById('sidebar');
-  const backdrop  = document.getElementById('sidebar-backdrop');
-  backdrop.addEventListener('click', function(){
-    sidebar.classList.remove('mobile-open');
-    backdrop.classList.remove('show');
-  });
-
   /* ── Mobile bottom bar nav ── */
   const bottomNavMap = {
     explore: 'host-home.html',
@@ -1426,9 +1198,9 @@
     btn.addEventListener('click', function(){
       window.location.href = bottomNavMap[btn.getAttribute('data-nav')] || '#';
     });
-    document.getElementById('mobile-notifications-btn').addEventListener('click', function(){
-      window.location.href = 'notifications.html';
-    });
+  });
+  document.getElementById('mobile-notifications-btn').addEventListener('click', function(){
+    window.location.href = 'notifications.html';
   });
 
   /* ── Logout ── */
