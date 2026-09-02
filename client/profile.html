@@ -572,6 +572,10 @@
 
   .hidden-actions{ display:none; }
   .share-panel{ display:none; }
+  .page-loading{
+    position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+    background:var(--paper); color:var(--ink); font-size:0.95rem; font-weight:600; z-index:20;
+  }
   @media (max-width: 1100px){
     .profile-desktop-shell{ grid-template-columns: 220px minmax(0, 1fr) 290px; }
     .profile-hero{ width:220px; }
@@ -630,6 +634,7 @@
 </div>
 
 <div class="app-shell">
+  <div id="loading-state" class="page-loading" aria-live="polite">Loading your profile…</div>
 
   <div id="profile-content" style="display:none;">
         <div class="profile-desktop-shell">
@@ -982,9 +987,11 @@
     isOwner = true;
   }
 
+  const loadingState = document.getElementById('loading-state');
   if (!profileData) {
-    document.getElementById('loading-state').textContent =
-      'Unable to load your profile. Check your connection and try again.';
+    if (loadingState) {
+      loadingState.textContent = 'Unable to load your profile. Check your connection and try again.';
+    }
     return;
   }
 
@@ -1106,8 +1113,9 @@
   }
 
   renderProfile();
-  document.getElementById('loading-state').style.display = 'none';
-  document.getElementById('profile-content').style.display = 'block';
+  const profileContent = document.getElementById('profile-content');
+  if (loadingState) loadingState.style.display = 'none';
+  if (profileContent) profileContent.style.display = 'block';
 
   async function loadClientBookings(){
     const { data, error } = await supabaseClient
