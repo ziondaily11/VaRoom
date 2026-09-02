@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Welcome to VaRoom</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;0,9..144,900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#1A1210; --paper:#FBF4F1;
+    --font-display:'Fraunces', serif; --font-body:'Inter', sans-serif;
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  body{
+    font-family:var(--font-body); background:var(--paper); color:var(--ink);
+    min-height:100vh; display:flex; align-items:center; justify-content:center;
+    padding:2rem 1.2rem;
+  }
+  a{ color:inherit; text-decoration:none; }
+  button{ font-family:inherit; cursor:pointer; border:none; }
+  input, select{ font-family:inherit; }
+
+  .card{
+    position:relative;
+    background:var(--white);
+    border-radius:24px;
+    max-width:460px;
+    width:100%;
+    padding:2rem 2rem 2.2rem;
+    box-shadow:0 30px 70px -30px rgba(26,18,16,.35);
+  }
+
+  .card-top{
+    display:flex; align-items:center; justify-content:space-between;
+    margin-bottom:1.6rem;
+  }
+
+  .logo{ font-family:var(--font-display); font-weight:900; font-size:1.3rem; display:flex; align-items:baseline; }
+  .logo .va{ color:var(--red); }
+
+  .step-badge{
+    font-size:.78rem; font-weight:600; color:var(--red-deep);
+    background:rgba(196,30,58,.09); padding:.3rem .7rem; border-radius:100px;
+  }
+
+  .icon-circle{
+    width:110px; height:110px; border-radius:50%;
+    background:rgba(196,30,58,.09);
+    display:flex; align-items:center; justify-content:center;
+    margin:.4rem auto 1.6rem;
+  }
+  .icon-circle svg{ width:44px; height:44px; color:var(--red); }
+
+  h1{
+    font-family:var(--font-display); font-weight:600;
+    font-size:1.6rem; line-height:1.2; text-align:center;
+    margin-bottom:.6rem;
+  }
+
+  .step-sub{
+    font-size:.95rem; color:#6a5b57; text-align:center; line-height:1.5;
+    margin-bottom:1.6rem;
+  }
+
+  .field{ display:flex; flex-direction:column; gap:.4rem; margin-bottom:1rem; }
+  label{ font-size:.85rem; font-weight:600; }
+  input[type="text"], input[type="tel"]{
+    font-size:1rem; padding:.85rem 1rem; border:1px solid rgba(26,18,16,.15);
+    border-radius:12px; background:var(--white); color:var(--ink); width:100%;
+  }
+  input:focus{ outline:none; border-color:var(--red); }
+
+  .field-msg{ font-size:.82rem; min-height:1.2em; }
+  .field-msg.error{ color:var(--red-deep); }
+  .field-msg.success{ color:#2e7d32; }
+
+  .suggestion-chips{ display:flex; flex-wrap:wrap; gap:.5rem; margin-top:.3rem; }
+  .chip{
+    background:var(--paper); border:1px solid rgba(26,18,16,.12);
+    padding:.4rem .8rem; border-radius:100px; font-size:.85rem; font-weight:600;
+  }
+  .chip:hover{ border-color:var(--red); color:var(--red); }
+
+  .avatar-upload{
+    width:130px; height:130px; border-radius:50%; margin:.4rem auto 1.6rem;
+    background:rgba(196,30,58,.09); display:flex; align-items:center; justify-content:center;
+    position:relative; overflow:hidden; cursor:pointer;
+  }
+  .avatar-upload img{ width:100%; height:100%; object-fit:cover; }
+  .avatar-upload svg{ width:44px; height:44px; color:var(--red); }
+  .avatar-upload .plus-badge{
+    position:absolute; bottom:4px; right:4px; width:32px; height:32px; border-radius:50%;
+    background:var(--red); color:var(--white); display:flex; align-items:center; justify-content:center;
+    border:3px solid var(--white);
+  }
+  .avatar-upload .plus-badge svg{ width:16px; height:16px; color:var(--white); }
+
+  .checkbox-grid{ display:flex; flex-direction:column; gap:.6rem; margin-bottom:.6rem; }
+  .checkbox-card{
+    display:flex; align-items:center; gap:.7rem;
+    border:1.5px solid rgba(26,18,16,.1); border-radius:14px; padding:.85rem 1rem;
+    cursor:pointer; transition:border-color .15s ease, background .15s ease;
+  }
+  .checkbox-card:hover{ border-color:var(--red); }
+  .checkbox-card.checked{ border-color:var(--red); background:rgba(196,30,58,.06); }
+  .checkbox-card input{ width:18px; height:18px; accent-color:var(--red); }
+  .checkbox-card span{ font-weight:600; font-size:.95rem; }
+
+  .choice-cards{ display:flex; flex-direction:column; gap:.8rem; margin-bottom:.6rem; }
+  .choice-card{
+    text-align:left; border:1.5px solid rgba(26,18,16,.1); border-radius:14px;
+    padding:1rem 1.1rem; cursor:pointer; transition:border-color .15s ease, transform .15s ease;
+    width:100%; background:var(--white);
+  }
+  .choice-card:hover{ border-color:var(--red); transform:translateY(-1px); }
+  .choice-card.selected{ border-color:var(--red); background:rgba(196,30,58,.06); }
+  .choice-title{ font-weight:700; font-size:.98rem; }
+  .choice-desc{ font-size:.83rem; color:#6a5b57; margin-top:.15rem; }
+
+  .primary-btn{
+    display:flex; align-items:center; justify-content:center; gap:.5rem;
+    background:var(--red); color:var(--white); width:100%;
+    padding:.95rem 1.2rem; border-radius:100px; font-weight:600; font-size:.98rem;
+    transition:background .2s ease; margin-top:.4rem;
+  }
+  .primary-btn:hover{ background:var(--red-deep); }
+  .primary-btn:disabled{ background:#d9b8bd; cursor:not-allowed; }
+
+  .skip-btn{
+    display:block; width:100%; text-align:center; background:transparent;
+    color:var(--red); font-weight:600; font-size:.92rem; padding:.9rem; margin-top:.5rem;
+  }
+  .skip-btn:hover{ text-decoration:underline; }
+
+  .reassure{
+    display:flex; align-items:center; justify-content:center; gap:.4rem;
+    font-size:.78rem; color:#8a7d79; text-align:center; margin-top:1.2rem;
+  }
+  .reassure svg{ width:13px; height:13px; flex-shrink:0; }
+
+  .progress-dots{ display:flex; justify-content:center; gap:.4rem; margin-top:1.6rem; }
+  .progress-dots .dot{ width:7px; height:7px; border-radius:50%; background:rgba(26,18,16,.15); }
+  .progress-dots .dot.active{ background:var(--red); width:20px; border-radius:100px; transition:width .2s ease; }
+
+  .checking-msg{ text-align:center; color:#7a6b67; padding:3rem 0; }
+  input[type="file"]{ display:none; }
+</style>
+</head>
+<body>
+
+<div id="checking" class="checking-msg">Loading...</div>
+
+<div class="card" id="onboarding-card" style="display:none;">
+  <div class="card-top">
+    <span class="logo"><span class="va">Va</span><span class="room">Room</span></span>
+    <span class="step-badge" id="step-badge">1 of 6</span>
+  </div>
+
+  <div id="step-content"></div>
+
+  <div class="progress-dots" id="progress-dots"></div>
+</div>
+
+<script src="js/supabase-client.js"></script>
+<script>
+(async function(){
+  const checking = document.getElementById('checking');
+  const card = document.getElementById('onboarding-card');
+  const stepBadge = document.getElementById('step-badge');
+  const stepContent = document.getElementById('step-content');
+  const progressDots = document.getElementById('progress-dots');
+
+  const CATEGORIES = [
+    { value: 'airbnb', label: 'Airbnbs' },
+    { value: 'hotel', label: 'Hotels' },
+    { value: 'venue', label: 'Event grounds & venues' },
+    { value: 'office', label: 'Offices' },
+    { value: 'shop', label: 'Shops' },
+    { value: 'property', label: 'Property to let or buy' }
+  ];
+
+  // ---- Auth + profile check ----
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  if (!session) {
+    window.location.href = '/login';
+    return;
+  }
+  const user = session.user;
+
+  const { data: profile, error: profileError } = await supabaseClient
+    .from('profiles')
+    .select('role, username, onboarding_completed')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  if (profileError || !profile) {
+    window.location.href = '/login';
+    return;
+  }
+
+  if (profile.onboarding_completed) {
+    window.location.href = profile.role === 'host' ? '/host-home' : '/client-home';
+    return;
+  }
+
+  const role = profile.role;
+
+  // Steps: 4 shared, then 2 role-specific
+  const steps = role === 'host'
+    ? ['photo', 'username', 'city', 'phone', 'host_categories', 'host_type']
+    : ['photo', 'username', 'city', 'phone', 'client_categories', 'client_timeline'];
+
+  let currentStep = 0;
+  const answers = {}; // collected as user goes, applied on finish
+
+  checking.style.display = 'none';
+  card.style.display = 'block';
+  renderStep();
+
+  function renderDots(){
+    progressDots.innerHTML = '';
+    steps.forEach(function(_, i){
+      const dot = document.createElement('span');
+      dot.className = 'dot' + (i === currentStep ? ' active' : '');
+      progressDots.appendChild(dot);
+    });
+  }
+
+  function goNext(){
+    if (currentStep < steps.length - 1) {
+      currentStep++;
+      renderStep();
+    } else {
+      finishOnboarding();
+    }
+  }
+
+  function renderStep(){
+    stepBadge.textContent = (currentStep + 1) + ' of ' + steps.length;
+    renderDots();
+    const step = steps[currentStep];
+    if (step === 'photo') renderPhotoStep();
+    else if (step === 'username') renderUsernameStep();
+    else if (step === 'city') renderCityStep();
+    else if (step === 'phone') renderPhoneStep();
+    else if (step === 'host_categories') renderCategoriesStep('host');
+    else if (step === 'client_categories') renderCategoriesStep('client');
+    else if (step === 'host_type') renderHostTypeStep();
+    else if (step === 'client_timeline') renderTimelineStep();
+  }
+
+  // ---- Step: Profile photo ----
+  function renderPhotoStep(){
+    stepContent.innerHTML =
+      '<label for="avatar-input" class="avatar-upload" id="avatar-upload">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>' +
+        '<div class="plus-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>' +
+      '</label>' +
+      '<input type="file" id="avatar-input" accept="image/*">' +
+      '<h1>Let\'s put a face to your VaRoom profile.</h1>' +
+      '<p class="step-sub">Add a photo so people know who they\'re interacting with.</p>' +
+      '<p class="field-msg" id="photo-msg" style="text-align:center;"></p>' +
+      '<button class="primary-btn" id="photo-next" disabled>Continue</button>' +
+      '<button class="skip-btn" id="photo-skip">Skip for now</button>' +
+      reassureHtml();
+
+    const input = document.getElementById('avatar-input');
+    const uploadLabel = document.getElementById('avatar-upload');
+    const nextBtn = document.getElementById('photo-next');
+    const msg = document.getElementById('photo-msg');
+    let uploadedPath = null;
+
+    input.addEventListener('change', async function(){
+      const file = input.files[0];
+      if (!file) return;
+
+      msg.textContent = 'Uploading...';
+      msg.className = 'field-msg';
+      const filePath = user.id + '/' + Date.now() + '-' + file.name;
+
+      const { error: uploadError } = await supabaseClient.storage
+        .from('avatars')
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) {
+        msg.textContent = 'Upload failed: ' + uploadError.message;
+        msg.className = 'field-msg error';
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = function(e){
+        uploadLabel.innerHTML = '<img src="' + e.target.result + '" alt="Your profile photo">' +
+          '<div class="plus-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>';
+      };
+      reader.readAsDataURL(file);
+
+      // Store the relative storage path, not the full public URL — every
+      // other place that reads avatar_url (/profile, /client-home,
+      // /host-home) converts path -> public URL at render time via
+      // getPublicUrl(). Saving a full URL here would break those.
+      uploadedPath = filePath;
+
+      msg.textContent = 'Photo ready.';
+      msg.className = 'field-msg success';
+      nextBtn.disabled = false;
+    });
+
+    nextBtn.addEventListener('click', function(){
+      if (uploadedPath) answers.avatar_url = uploadedPath;
+      goNext();
+    });
+    document.getElementById('photo-skip').addEventListener('click', goNext);
+  }
+
+  // ---- Step: Username ----
+  function renderUsernameStep(){
+    stepContent.innerHTML =
+      iconCircle('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/>') +
+      '<h1>Pick your VaRoom username.</h1>' +
+      '<p class="step-sub">This is how people will find and mention you. You already have one — feel free to keep it or change it.</p>' +
+      '<div class="field">' +
+        '<label for="username-input">Username</label>' +
+        '<input type="text" id="username-input" value="' + (profile.username || '') + '" maxlength="20">' +
+        '<p class="field-msg" id="username-msg"></p>' +
+        '<div class="suggestion-chips" id="username-suggestions"></div>' +
+      '</div>' +
+      '<button class="primary-btn" id="username-next">Continue</button>' +
+      '<button class="skip-btn" id="username-skip">Skip for now</button>' +
+      reassureHtml();
+
+    const input = document.getElementById('username-input');
+    const msg = document.getElementById('username-msg');
+    const suggestions = document.getElementById('username-suggestions');
+    const nextBtn = document.getElementById('username-next');
+
+    nextBtn.addEventListener('click', async function(){
+      const desired = input.value.trim().toLowerCase();
+
+      if (desired === profile.username) {
+        goNext();
+        return;
+      }
+
+      nextBtn.disabled = true;
+      nextBtn.textContent = 'Checking...';
+      suggestions.innerHTML = '';
+
+      const { error } = await supabaseClient.rpc('set_username', { new_username: desired });
+
+      nextBtn.disabled = false;
+      nextBtn.textContent = 'Continue';
+
+      if (error) {
+        msg.textContent = error.message;
+        msg.className = 'field-msg error';
+
+        const { data: alts } = await supabaseClient.rpc('suggest_username_alternatives', { desired: desired, limit_count: 3 });
+        if (alts && alts.length) {
+          suggestions.innerHTML = alts.map(function(name){
+            return '<button type="button" class="chip" data-name="' + name + '">' + name + '</button>';
+          }).join('');
+          suggestions.querySelectorAll('.chip').forEach(function(chip){
+            chip.addEventListener('click', function(){
+              input.value = chip.getAttribute('data-name');
+              msg.textContent = '';
+              suggestions.innerHTML = '';
+            });
+          });
+        }
+        return;
+      }
+
+      msg.textContent = 'Username saved!';
+      msg.className = 'field-msg success';
+      goNext();
+    });
+
+    document.getElementById('username-skip').addEventListener('click', goNext);
+  }
+
+  // ---- Step: City ----
+  function renderCityStep(){
+    stepContent.innerHTML =
+      iconCircle('<path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/>') +
+      '<h1>Where are you based?</h1>' +
+      '<p class="step-sub">Helps us show you relevant listings and let others know your general area.</p>' +
+      '<div class="field">' +
+        '<label for="city-input">City / Area</label>' +
+        '<input type="text" id="city-input" placeholder="e.g. Nairobi">' +
+      '</div>' +
+      '<button class="primary-btn" id="city-next">Continue</button>' +
+      '<button class="skip-btn" id="city-skip">Skip for now</button>' +
+      reassureHtml();
+
+    document.getElementById('city-next').addEventListener('click', function(){
+      const value = document.getElementById('city-input').value.trim();
+      if (value) answers.city = value;
+      goNext();
+    });
+    document.getElementById('city-skip').addEventListener('click', goNext);
+  }
+
+  // ---- Step: Phone ----
+  function renderPhoneStep(){
+    stepContent.innerHTML =
+      iconCircle('<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92Z"/>') +
+      '<h1>Add a way to reach you.</h1>' +
+      '<p class="step-sub">Hosts and clients can use this to follow up when needed.</p>' +
+      '<div class="field">' +
+        '<label for="phone-input">Phone number</label>' +
+        '<input type="tel" id="phone-input" placeholder="e.g. 0712 345 678">' +
+      '</div>' +
+      '<button class="primary-btn" id="phone-next">Continue</button>' +
+      '<button class="skip-btn" id="phone-skip">Skip for now</button>' +
+      reassureHtml();
+
+    document.getElementById('phone-next').addEventListener('click', function(){
+      const value = document.getElementById('phone-input').value.trim();
+      if (value) answers.phone = value;
+      goNext();
+    });
+    document.getElementById('phone-skip').addEventListener('click', goNext);
+  }
+
+  // ---- Step: Categories (host lists / client interested) ----
+  function renderCategoriesStep(mode){
+    const isHost = mode === 'host';
+    stepContent.innerHTML =
+      iconCircle('<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>') +
+      '<h1>' + (isHost ? 'What will you be listing?' : 'What are you interested in?') + '</h1>' +
+      '<p class="step-sub">' + (isHost ? 'Pick as many as apply — you can list more than one type of space.' : 'Pick as many as you like. We\'ll use this to show you relevant listings first.') + '</p>' +
+      '<div class="checkbox-grid" id="category-grid"></div>' +
+      '<button class="primary-btn" id="categories-next">Continue</button>' +
+      '<button class="skip-btn" id="categories-skip">Skip for now</button>' +
+      reassureHtml();
+
+    const grid = document.getElementById('category-grid');
+    const selected = new Set();
+
+    CATEGORIES.forEach(function(cat){
+      const row = document.createElement('label');
+      row.className = 'checkbox-card';
+      row.innerHTML = '<input type="checkbox" value="' + cat.value + '"><span>' + cat.label + '</span>';
+      const checkbox = row.querySelector('input');
+      checkbox.addEventListener('change', function(){
+        if (checkbox.checked) { selected.add(cat.value); row.classList.add('checked'); }
+        else { selected.delete(cat.value); row.classList.remove('checked'); }
+      });
+      grid.appendChild(row);
+    });
+
+    document.getElementById('categories-next').addEventListener('click', function(){
+      if (selected.size > 0) {
+        answers[isHost ? 'listing_categories' : 'interested_categories'] = Array.from(selected);
+      }
+      goNext();
+    });
+    document.getElementById('categories-skip').addEventListener('click', goNext);
+  }
+
+  // ---- Step: Host type (individual / business) ----
+  function renderHostTypeStep(){
+    stepContent.innerHTML =
+      iconCircle('<path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1M9 13h1M14 9h1M14 13h1"/>') +
+      '<h1>How are you listing?</h1>' +
+      '<p class="step-sub">Lets us show your spaces the right way to guests.</p>' +
+      '<div class="choice-cards">' +
+        '<button type="button" class="choice-card" data-type="individual">' +
+          '<div class="choice-title">As an individual</div>' +
+          '<div class="choice-desc">Listing your own space(s), not on behalf of a company.</div>' +
+        '</button>' +
+        '<button type="button" class="choice-card" data-type="business">' +
+          '<div class="choice-title">As a business</div>' +
+          '<div class="choice-desc">Hotel, agency, or company listing multiple spaces.</div>' +
+        '</button>' +
+      '</div>' +
+      '<div class="field" id="business-name-field" style="display:none;">' +
+        '<label for="business-name-input">Business name</label>' +
+        '<input type="text" id="business-name-input" placeholder="e.g. Kuvule Suites">' +
+      '</div>' +
+      '<button class="primary-btn" id="hosttype-next" disabled>Continue</button>' +
+      '<button class="skip-btn" id="hosttype-skip">Skip for now</button>' +
+      reassureHtml();
+
+    let chosenType = null;
+    const nextBtn = document.getElementById('hosttype-next');
+    const businessField = document.getElementById('business-name-field');
+
+    document.querySelectorAll('.choice-card').forEach(function(cardEl){
+      cardEl.addEventListener('click', function(){
+        document.querySelectorAll('.choice-card').forEach(function(c){ c.classList.remove('selected'); });
+        cardEl.classList.add('selected');
+        chosenType = cardEl.getAttribute('data-type');
+        businessField.style.display = chosenType === 'business' ? 'flex' : 'none';
+        nextBtn.disabled = false;
+      });
+    });
+
+    nextBtn.addEventListener('click', function(){
+      if (chosenType) {
+        answers.host_type = chosenType;
+        if (chosenType === 'business') {
+          const name = document.getElementById('business-name-input').value.trim();
+          if (name) answers.business_name = name;
+        }
+      }
+      goNext();
+    });
+    document.getElementById('hosttype-skip').addEventListener('click', goNext);
+  }
+
+  // ---- Step: Client timeline ----
+  function renderTimelineStep(){
+    stepContent.innerHTML =
+      iconCircle('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/>') +
+      '<h1>How soon are you looking?</h1>' +
+      '<p class="step-sub">Just helps us understand where you\'re at — no pressure either way.</p>' +
+      '<div class="choice-cards">' +
+        '<button type="button" class="choice-card" data-timeline="soon">' +
+          '<div class="choice-title">Looking soon</div>' +
+          '<div class="choice-desc">I need something in the near future.</div>' +
+        '</button>' +
+        '<button type="button" class="choice-card" data-timeline="browsing">' +
+          '<div class="choice-title">Just browsing</div>' +
+          '<div class="choice-desc">Exploring what\'s out there for now.</div>' +
+        '</button>' +
+      '</div>' +
+      '<button class="primary-btn" id="timeline-next" disabled>Continue</button>' +
+      '<button class="skip-btn" id="timeline-skip">Skip for now</button>' +
+      reassureHtml();
+
+    let chosen = null;
+    const nextBtn = document.getElementById('timeline-next');
+
+    document.querySelectorAll('.choice-card').forEach(function(cardEl){
+      cardEl.addEventListener('click', function(){
+        document.querySelectorAll('.choice-card').forEach(function(c){ c.classList.remove('selected'); });
+        cardEl.classList.add('selected');
+        chosen = cardEl.getAttribute('data-timeline');
+        nextBtn.disabled = false;
+      });
+    });
+
+    nextBtn.addEventListener('click', function(){
+      if (chosen) answers.looking_timeline = chosen;
+      goNext();
+    });
+    document.getElementById('timeline-skip').addEventListener('click', goNext);
+  }
+
+  // ---- Finish ----
+  async function finishOnboarding(){
+    stepContent.innerHTML = '<p class="step-sub" style="padding:2rem 0;">Saving your profile...</p>';
+
+    const fieldsToSave = {};
+    ['avatar_url', 'city', 'phone', 'listing_categories', 'interested_categories', 'host_type', 'business_name', 'looking_timeline']
+      .forEach(function(key){
+        if (answers[key] !== undefined) fieldsToSave[key] = answers[key];
+      });
+
+    if (Object.keys(fieldsToSave).length > 0) {
+      await supabaseClient.from('profiles').update(fieldsToSave).eq('id', user.id);
+    }
+
+    await supabaseClient.rpc('complete_onboarding');
+
+    window.location.href = role === 'host' ? '/host-home' : '/client-home';
+  }
+
+  // ---- Shared UI helpers ----
+  function iconCircle(pathContent){
+    return '<div class="icon-circle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + pathContent + '</svg></div>';
+  }
+
+  function reassureHtml(){
+    return '<p class="reassure"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>You can change this anytime in your profile.</p>';
+  }
+})();
+</script>
+
+</body>
+</html>

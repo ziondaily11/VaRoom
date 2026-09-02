@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Elie — VaRoom</title>
+<link rel="icon" type="image/png" href="elie-logo.png">
+<script>
+  (function(){
+    try{
+      var saved = localStorage.getItem('varoom_theme') || 'system';
+      var resolved = saved === 'system'
+        ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+        : saved;
+      document.documentElement.setAttribute('data-theme', resolved);
+    }catch(e){}
+  })();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;0,9..144,900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --red:#1A1210; --red-deep:#000000; --white:#FFFFFF; --ink:#1A1210; --paper:#FBF4F1;
+    --muted:#7a6b67;
+    --font-display:'Fraunces', serif; --font-body:'Inter', sans-serif;
+  }
+  [data-theme="dark"]{
+    --white:#241C1A; --paper:#15100F; --ink:#F5EFEC; --muted:#B8ACA8;
+    --red:#FFFFFF; --red-deep:#D8D0CC;
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  body{ font-family:var(--font-body); background:var(--paper); color:var(--ink); min-height:100vh; transition:background .2s ease, color .2s ease; }
+  a{ color:inherit; text-decoration:none; }
+  button{ font-family:inherit; cursor:pointer; border:none; background:none; }
+  :focus-visible{ outline:3px solid var(--red-deep); outline-offset:3px; }
+
+  .page{ max-width:640px; margin:0 auto; min-height:100vh; display:flex; flex-direction:column; }
+
+  header{
+    display:flex; align-items:center; gap:.9rem;
+    padding:1.1rem 1.3rem; border-bottom:1px solid rgba(26,18,16,.08);
+    background:var(--white);
+  }
+  .back-btn{ color:var(--muted); display:flex; align-items:center; padding:.3rem; border-radius:8px; }
+  .back-btn:hover{ background:var(--paper); color:var(--ink); }
+
+  .elie-logo-header{ width:34px; height:34px; object-fit:contain; flex-shrink:0; }
+
+  .header-text h1{ font-family:var(--font-display); font-weight:700; font-size:1.15rem; line-height:1.1; }
+  .header-text p{ font-size:.78rem; color:var(--muted); margin-top:.1rem; }
+
+  .beta-note{
+    margin-left:auto; font-size:.7rem; font-weight:600; color:var(--red-deep);
+    background:rgba(26,18,16,.08); padding:.25rem .6rem; border-radius:100px; white-space:nowrap;
+  }
+  [data-theme="dark"] .beta-note{ background:rgba(255,255,255,.12); }
+
+  .header-icon-btn{
+    color:var(--muted); display:flex; align-items:center; justify-content:center;
+    width:34px; height:34px; border-radius:8px; flex-shrink:0;
+  }
+  .header-icon-btn:hover{ background:var(--paper); color:var(--red); }
+
+  .history-backdrop{
+    display:none; position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:140;
+  }
+  .history-backdrop.open{ display:block; }
+  .history-panel{
+    position:fixed; top:0; right:-320px; width:300px; height:100%; z-index:150;
+    background:var(--white); box-shadow:-10px 0 30px rgba(0,0,0,.15);
+    transition:right .25s ease; display:flex; flex-direction:column;
+  }
+  .history-panel.open{ right:0; }
+  .history-panel-head{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:1.1rem 1.2rem; border-bottom:1px solid rgba(26,18,16,.08);
+    font-family:var(--font-display); font-weight:700; font-size:1rem;
+  }
+  #history-list{ flex:1; overflow-y:auto; padding:.6rem; }
+  .history-item{
+    display:block; width:100%; text-align:left; padding:.7rem .8rem; border-radius:10px;
+    font-size:.85rem; color:var(--ink); margin-bottom:.15rem;
+  }
+  .history-item:hover{ background:var(--paper); }
+  .history-item.active{ background:rgba(26,18,16,.08); }
+  [data-theme="dark"] .history-item.active{ background:rgba(255,255,255,.10); }
+  .history-item-title{ font-weight:600; margin-bottom:.15rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .history-item-date{ font-size:.72rem; color:var(--muted); }
+  .history-empty{ padding:1.4rem .8rem; color:var(--muted); font-size:.85rem; text-align:center; }
+
+  .chat-area{ flex:1; overflow-y:auto; padding:1.4rem 1.3rem; display:flex; flex-direction:column; gap:1rem; }
+
+  .intro-card{
+    background:var(--white); border:1px solid rgba(26,18,16,.08); border-radius:16px;
+    padding:1.3rem 1.4rem; margin-bottom:.4rem;
+  }
+  .intro-card h2{ font-family:var(--font-display); font-weight:600; font-size:1.15rem; margin-bottom:.5rem; }
+  .intro-card p{ font-size:.9rem; line-height:1.55; color:var(--muted); }
+  .intro-examples{ display:flex; flex-direction:column; gap:.5rem; margin-top:.9rem; }
+  .example-chip{
+    text-align:left; background:var(--paper); border:1px solid rgba(26,18,16,.08); border-radius:12px;
+    padding:.65rem .9rem; font-size:.85rem; color:var(--ink);
+  }
+  .example-chip:hover{ border-color:var(--red); }
+
+  .msg-row{ display:flex; gap:.6rem; max-width:100%; }
+  .msg-row.user{ justify-content:flex-end; }
+
+  .msg-avatar{
+    width:34px; height:34px; border-radius:10px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    background:rgba(26,18,16,.08);
+  }
+  [data-theme="dark"] .msg-avatar{ background:rgba(255,255,255,.10); }
+  .msg-avatar img{ width:100%; height:100%; object-fit:contain; }
+
+  .msg-bubble{
+    max-width:78%; padding:.75rem 1rem; border-radius:16px;
+    font-size:.9rem; line-height:1.55; white-space:pre-wrap;
+  }
+  .msg-row.elie .msg-bubble{ background:var(--white); border:1px solid rgba(26,18,16,.08); border-bottom-left-radius:4px; }
+  .msg-row.user .msg-bubble{ background:var(--red); color:var(--white); border-bottom-right-radius:4px; }
+
+  .msg-bubble.loading{ color:var(--muted); font-style:italic; }
+
+  .typing-dots{ display:flex; align-items:center; gap:.28rem; padding:.2rem 0; }
+  .typing-dots span{
+    width:7px; height:7px; border-radius:50%; background:var(--muted);
+    animation:typing-bounce 1.1s infinite ease-in-out;
+  }
+  .typing-dots span:nth-child(2){ animation-delay:.15s; }
+  .typing-dots span:nth-child(3){ animation-delay:.3s; }
+  @keyframes typing-bounce{
+    0%, 60%, 100%{ transform:translateY(0); opacity:.5; }
+    30%{ transform:translateY(-4px); opacity:1; }
+  }
+  .typing-slow-note{
+    font-size:.72rem; color:var(--muted); margin-top:.35rem;
+    opacity:0; animation:fade-in .5s ease forwards;
+  }
+  @keyframes fade-in{ to{ opacity:1; } }
+  .msg-bubble.error{ background:#FBE4E7; color:var(--red-deep); border-color:rgba(196,30,58,.2); }
+
+  .results-wrap{ margin-left:36px; display:flex; flex-direction:column; gap:1rem; }
+
+  .host-group{
+    background:var(--white); border:1px solid rgba(26,18,16,.08); border-radius:16px;
+    overflow:hidden;
+  }
+  .host-group-head{
+    display:flex; align-items:center; gap:.6rem;
+    padding:.8rem 1rem; background:var(--paper); border-bottom:1px solid rgba(26,18,16,.06);
+  }
+  .host-mini-avatar{
+    width:26px; height:26px; border-radius:50%; background:var(--red-deep); color:var(--white);
+    display:flex; align-items:center; justify-content:center; font-weight:700; font-size:.75rem; flex-shrink:0;
+  }
+  .host-group-name{ font-weight:700; font-size:.85rem; display:flex; align-items:center; gap:.3rem; }
+  .host-verified-tick{ color:var(--red); font-size:.8rem; }
+  .host-username{ font-size:.78rem; color:var(--muted); }
+
+  .listing-row{
+    display:flex; align-items:center; gap:.8rem;
+    padding:.8rem 1rem; border-top:1px solid rgba(26,18,16,.05);
+  }
+  .listing-row:first-of-type{ border-top:none; }
+  .listing-photo{
+    width:92px; height:92px; border-radius:12px; object-fit:cover; flex-shrink:0;
+    background:var(--paper); border:1px solid rgba(26,18,16,.06);
+  }
+  .listing-photo.placeholder{
+    display:flex; align-items:center; justify-content:center;
+    color:var(--muted); font-size:1.6rem;
+  }
+  .listing-info{ flex:1; min-width:0; }
+  .listing-title{ font-weight:600; font-size:.87rem; margin-bottom:.15rem; }
+  .listing-meta{ font-size:.78rem; color:var(--muted); display:flex; align-items:center; gap:.4rem; flex-wrap:wrap; }
+  .listing-verified{ color:var(--red); }
+  .listing-price{ font-weight:700; font-size:.85rem; color:var(--ink); margin-top:.2rem; }
+  .listing-price span{ font-weight:500; color:var(--muted); font-size:.75rem; }
+
+  .book-link{
+    flex-shrink:0; background:var(--red); color:var(--white);
+    font-size:.78rem; font-weight:600; padding:.45rem .9rem; border-radius:100px;
+    transition:background .2s ease;
+  }
+  .book-link:hover{ background:var(--red-deep); }
+
+  .filter-bar{
+    display:flex; align-items:center; gap:.5rem; flex-wrap:wrap;
+    margin-bottom:.2rem;
+  }
+  .filter-chip{
+    background:var(--white); border:1px solid rgba(26,18,16,.1); border-radius:100px;
+    padding:.35rem .75rem; font-size:.76rem; color:var(--ink); display:flex; align-items:center; gap:.3rem;
+  }
+  .edit-search-chip{
+    margin-left:auto; background:none; border:1px solid var(--red); color:var(--red);
+    border-radius:100px; padding:.35rem .75rem; font-size:.76rem; font-weight:600;
+  }
+  .edit-search-chip:hover{ background:var(--red); color:var(--white); }
+
+  .input-row{
+    display:flex; align-items:flex-end; gap:.7rem;
+    padding:1rem 1.3rem calc(1rem + env(safe-area-inset-bottom));
+    border-top:1px solid rgba(26,18,16,.08); background:var(--white);
+  }
+  .input-row textarea{
+    flex:1; resize:none; max-height:120px; font-family:inherit; font-size:.92rem;
+    background:var(--paper); border:1px solid rgba(26,18,16,.1); border-radius:14px;
+    padding:.75rem 1rem; color:var(--ink);
+  }
+  .input-row textarea:focus{ outline:none; border-color:var(--red); }
+
+  .send-btn{
+    width:42px; height:42px; border-radius:50%; flex-shrink:0;
+    background:var(--red); color:var(--white);
+    display:flex; align-items:center; justify-content:center;
+    transition:background .2s ease;
+  }
+  .send-btn:hover{ background:var(--red-deep); }
+  .send-btn:disabled{ background:#d9b8bd; cursor:not-allowed; }
+
+  .checking-msg{ text-align:center; color:var(--muted); padding:3rem 0; }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <div id="checking" class="checking-msg">Loading…</div>
+
+  <div id="elie-app" style="display:none; flex:1; display:flex; flex-direction:column;">
+    <header>
+      <a href="#" id="back-link" class="back-btn" aria-label="Back">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+      </a>
+      <img src="elie-logo.png" alt="Elie" class="elie-logo-header">
+      <div class="header-text">
+        <h1>Elie</h1>
+        <p>Your VaRoom search assistant</p>
+      </div>
+      <span class="beta-note">Free preview</span>
+      <button type="button" class="header-icon-btn" id="new-chat-btn" aria-label="New chat" title="New chat">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      </button>
+      <button type="button" class="header-icon-btn" id="history-btn" aria-label="Recent chats" title="Recent chats">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+      </button>
+    </header>
+
+    <div class="history-backdrop" id="history-backdrop"></div>
+    <div class="history-panel" id="history-panel">
+      <div class="history-panel-head">
+        <span>Recent chats</span>
+        <button type="button" id="history-close-btn" aria-label="Close" style="color:var(--muted);">✕</button>
+      </div>
+      <div id="history-list"></div>
+    </div>
+
+    <div class="chat-area" id="chat-area">
+      <div class="intro-card">
+        <h2>Ask Elie to find you a space.</h2>
+        <p>Instead of scrolling and filtering yourself, just describe what you're looking for — Elie will search real VaRoom listings and bring back matches, GPS-verified ones first.</p>
+        <div class="intro-examples">
+          <button type="button" class="example-chip" data-example="Airbnbs in Nairobi">"Airbnbs in Nairobi"</button>
+          <button type="button" class="example-chip" data-example="Event venues in Nakuru">"Event venues in Nakuru"</button>
+          <button type="button" class="example-chip" data-example="Offices in Westlands">"Offices in Westlands"</button>
+        </div>
+      </div>
+    </div>
+
+    <form class="input-row" id="chat-form">
+      <textarea id="chat-input" rows="1" placeholder="Ask Elie..." required></textarea>
+      <button type="submit" class="send-btn" id="send-btn" aria-label="Send">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      </button>
+    </form>
+  </div>
+</div>
+
+<script src="js/supabase-client.js"></script>
+<script>
+  (async function(){
+    const ELIE_API_URL = 'https://varoom.onrender.com/elie/search';
+    const conversationHistory = []; // [{role:'user'|'elie', text:'...'}], last-6 sent with each request
+    let activeSessionId = null; // null until the first message of a chat is sent (lazy-created)
+    let currentUserId = null;
+    let introHtml = '';
+
+    function rememberTurn(role, text){
+      if (!text) return;
+      conversationHistory.push({ role: role, text: text });
+      if (conversationHistory.length > 12) conversationHistory.splice(0, conversationHistory.length - 12);
+    }
+
+    const checking = document.getElementById('checking');
+    const app = document.getElementById('elie-app');
+    const chatArea = document.getElementById('chat-area');
+    const chatForm = document.getElementById('chat-form');
+    const chatInput = document.getElementById('chat-input');
+    const sendBtn = document.getElementById('send-btn');
+    const backLink = document.getElementById('back-link');
+
+    // Fire-and-forget: wakes the Render service up the instant this page
+    // opens, so a cold start happens while the person is reading/typing
+    // instead of after they hit send. Ignored if it fails — the real
+    // request will just take the full cold-start hit as before.
+    fetch('https://varoom.onrender.com/health').catch(function(){});
+
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session) {
+      window.location.href = '/login';
+      return;
+    }
+
+    const { data: profile } = await supabaseClient
+      .from('profiles')
+      .select('role')
+      .eq('id', session.user.id)
+      .maybeSingle();
+
+    if (!profile) {
+      window.location.href = '/login';
+      return;
+    }
+
+    backLink.setAttribute('href', profile.role === 'host' ? '/host-home' : '/client-home');
+
+    currentUserId = session.user.id;
+    checking.style.display = 'none';
+    app.style.display = 'flex';
+
+    const introCardEl = chatArea.querySelector('.intro-card');
+    if (introCardEl) introHtml = introCardEl.outerHTML;
+
+    function escapeHtml(str){
+      const div = document.createElement('div');
+      div.textContent = str || '';
+      return div.innerHTML;
+    }
+
+    // ---------- Session persistence (Recent chats) ----------
+
+    async function ensureSession(firstMessageText){
+      if (activeSessionId) return activeSessionId;
+      try {
+        const { data, error } = await supabaseClient
+          .from('elie_sessions')
+          .insert({ user_id: currentUserId, title: firstMessageText.slice(0, 60) })
+          .select()
+          .single();
+        if (error) throw error;
+        activeSessionId = data.id;
+      } catch (err) {
+        // Persistence failing shouldn't block the actual conversation —
+        // Elie just won't be resumable later this one time.
+        activeSessionId = null;
+      }
+      return activeSessionId;
+    }
+
+    async function persistMessage(role, text){
+      if (!text) return;
+      try {
+        await ensureSession(role === 'user' ? text : 'New conversation');
+        if (!activeSessionId) return;
+        await supabaseClient.from('elie_messages').insert({
+          session_id: activeSessionId, user_id: currentUserId, role: role, body: text
+        });
+        await supabaseClient.from('elie_sessions')
+          .update({ updated_at: new Date().toISOString() })
+          .eq('id', activeSessionId);
+      } catch (err) {
+        // Silent — a failed save shouldn't interrupt the live conversation.
+      }
+    }
+
+    function timeAgo(dateStr){
+      const diffMs = Date.now() - new Date(dateStr).getTime();
+      const mins = Math.floor(diffMs / 60000);
+      if (mins < 1) return 'just now';
+      if (mins < 60) return mins + 'm ago';
+      const hrs = Math.floor(mins / 60);
+      if (hrs < 24) return hrs + 'h ago';
+      return Math.floor(hrs / 24) + 'd ago';
+    }
+
+    async function loadSessions(){
+      const listEl = document.getElementById('history-list');
+      listEl.innerHTML = '<p class="history-empty">Loading…</p>';
+      try {
+        const { data, error } = await supabaseClient
+          .from('elie_sessions')
+          .select('id,title,updated_at')
+          .eq('user_id', currentUserId)
+          .order('updated_at', { ascending: false })
+          .limit(20);
+        if (error) throw error;
+
+        if (!data || data.length === 0) {
+          listEl.innerHTML = '<p class="history-empty">No past chats yet — they\'ll show up here once you start one.</p>';
+          return;
+        }
+
+        listEl.innerHTML = data.map(function(s){
+          const title = s.title ? escapeHtml(s.title) : 'New conversation';
+          const activeClass = s.id === activeSessionId ? ' active' : '';
+          return (
+            '<button type="button" class="history-item' + activeClass + '" data-session-id="' + s.id + '">' +
+              '<div class="history-item-title">' + title + '</div>' +
+              '<div class="history-item-date">' + timeAgo(s.updated_at) + '</div>' +
+            '</button>'
+          );
+        }).join('');
+
+        listEl.querySelectorAll('.history-item').forEach(function(btn){
+          btn.addEventListener('click', function(){
+            openSession(this.getAttribute('data-session-id'));
+          });
+        });
+      } catch (err) {
+        listEl.innerHTML = '<p class="history-empty">Couldn\'t load past chats right now.</p>';
+      }
+    }
+
+    function showIntro(){
+      chatArea.innerHTML = introHtml;
+      document.querySelectorAll('.example-chip').forEach(function(chip){
+        chip.addEventListener('click', function(){
+          chatInput.value = chip.getAttribute('data-example');
+          chatForm.requestSubmit();
+        });
+      });
+    }
+
+    function newChat(){
+      activeSessionId = null;
+      conversationHistory.length = 0;
+      showIntro();
+      closeHistoryPanel();
+    }
+
+    async function openSession(sessionId){
+      activeSessionId = sessionId;
+      conversationHistory.length = 0;
+      chatArea.innerHTML = '';
+      closeHistoryPanel();
+
+      try {
+        const { data, error } = await supabaseClient
+          .from('elie_messages')
+          .select('role,body')
+          .eq('session_id', sessionId)
+          .order('created_at', { ascending: true });
+        if (error) throw error;
+
+        if (!data || data.length === 0) {
+          showIntro();
+          return;
+        }
+        data.forEach(function(m){
+          if (m.role === 'user') addUserMessage(m.body);
+          else addElieTextMessage(m.body);
+        });
+      } catch (err) {
+        addElieTextMessage("Couldn't load that conversation right now.", { error: true });
+      }
+    }
+
+    function openHistoryPanel(){
+      document.getElementById('history-panel').classList.add('open');
+      document.getElementById('history-backdrop').classList.add('open');
+      loadSessions();
+    }
+
+    function closeHistoryPanel(){
+      document.getElementById('history-panel').classList.remove('open');
+      document.getElementById('history-backdrop').classList.remove('open');
+    }
+
+    document.getElementById('new-chat-btn').addEventListener('click', newChat);
+    document.getElementById('history-btn').addEventListener('click', openHistoryPanel);
+    document.getElementById('history-close-btn').addEventListener('click', closeHistoryPanel);
+    document.getElementById('history-backdrop').addEventListener('click', closeHistoryPanel);
+
+    function addUserMessage(text){
+      const row = document.createElement('div');
+      row.className = 'msg-row user';
+      row.innerHTML = '<div class="msg-bubble">' + escapeHtml(text) + '</div>';
+      chatArea.appendChild(row);
+      chatArea.scrollTop = chatArea.scrollHeight;
+      rememberTurn('user', text);
+    }
+
+    function addElieTextMessage(text, opts){
+      opts = opts || {};
+      const row = document.createElement('div');
+      row.className = 'msg-row elie';
+      const bubbleClass = 'msg-bubble' + (opts.loading ? ' loading' : '') + (opts.error ? ' error' : '');
+      row.innerHTML =
+        '<div class="msg-avatar"><img src="elie-logo.png" alt="Elie"></div>' +
+        '<div class="' + bubbleClass + '">' + escapeHtml(text) + '</div>';
+      chatArea.appendChild(row);
+      chatArea.scrollTop = chatArea.scrollHeight;
+      if (!opts.loading && !opts.error) rememberTurn('elie', text);
+      return row;
+    }
+
+    function addTypingIndicator(){
+      const row = document.createElement('div');
+      row.className = 'msg-row elie';
+      row.innerHTML =
+        '<div class="msg-avatar"><img src="elie-logo.png" alt="Elie"></div>' +
+        '<div class="msg-bubble" id="typing-bubble"><div class="typing-dots"><span></span><span></span><span></span></div></div>';
+      chatArea.appendChild(row);
+      chatArea.scrollTop = chatArea.scrollHeight;
+
+      const slowTimer = setTimeout(function(){
+        const bubble = row.querySelector('#typing-bubble');
+        if (!bubble) return;
+        const note = document.createElement('div');
+        note.className = 'typing-slow-note';
+        note.textContent = "Still on it — just waking up.";
+        bubble.appendChild(note);
+        chatArea.scrollTop = chatArea.scrollHeight;
+      }, 10000);
+
+      row._clearSlowTimer = function(){ clearTimeout(slowTimer); };
+      return row;
+    }
+
+    function formatPrice(listing){
+      if (listing.price_amount === null || listing.price_amount === undefined) return '';
+      const amount = 'KSh ' + Number(listing.price_amount).toLocaleString();
+      const unit = listing.price_unit ? ' <span>/ ' + escapeHtml(listing.price_unit) + '</span>' : '';
+      return amount + unit;
+    }
+
+    function buildFilterBar(filters, originalQuery){
+      if (!filters) return '';
+      const chips = [];
+      if (filters.location) chips.push(filters.location);
+      if (filters.guests) chips.push(filters.guests + (filters.guests === 1 ? ' Guest' : ' Guests'));
+      if (filters.category) chips.push(filters.category.charAt(0).toUpperCase() + filters.category.slice(1));
+      if (filters.max_price) chips.push('Under KSh ' + Number(filters.max_price).toLocaleString());
+      if (chips.length === 0) return '';
+
+      return (
+        '<div class="filter-bar">' +
+          chips.map(function(c){ return '<span class="filter-chip">' + escapeHtml(c) + '</span>'; }).join('') +
+          '<button type="button" class="edit-search-chip" data-edit-query="' + escapeHtml(originalQuery) + '">Edit search</button>' +
+        '</div>'
+      );
+    }
+
+    function addElieResults(replyText, listings, filters, originalQuery, suggestion){
+      addElieTextMessage(replyText);
+
+      const filterBarHtml = buildFilterBar(filters, originalQuery);
+      if (filterBarHtml) {
+        const filterRow = document.createElement('div');
+        filterRow.className = 'results-wrap';
+        filterRow.style.marginBottom = '-.4rem';
+        filterRow.innerHTML = filterBarHtml;
+        chatArea.appendChild(filterRow);
+        filterRow.querySelector('.edit-search-chip').addEventListener('click', function(){
+          chatInput.value = this.getAttribute('data-edit-query');
+          chatInput.focus();
+          chatInput.style.height = 'auto';
+          chatInput.style.height = Math.min(chatInput.scrollHeight, 120) + 'px';
+        });
+      }
+
+      const groups = {};
+      const groupOrder = [];
+      listings.forEach(function(listing){
+        const host = listing.host || {};
+        const key = host.username || host.full_name || 'host-' + (listing.host_id || 'unknown');
+        if (!groups[key]) {
+          groups[key] = { host: host, listings: [] };
+          groupOrder.push(key);
+        }
+        groups[key].listings.push(listing);
+      });
+
+      const wrap = document.createElement('div');
+      wrap.className = 'results-wrap';
+
+      groupOrder.forEach(function(key){
+        const group = groups[key];
+        const host = group.host;
+        const initial = (host.full_name || '?').charAt(0).toUpperCase();
+
+        const card = document.createElement('div');
+        card.className = 'host-group';
+
+        const headHtml =
+          '<div class="host-group-head">' +
+            '<div class="host-mini-avatar">' + initial + '</div>' +
+            '<div>' +
+              '<div class="host-group-name">' + escapeHtml(host.full_name || 'Host') +
+                (host.verified ? '<span class="host-verified-tick">✔</span>' : '') +
+              '</div>' +
+              (host.username ? '<div class="host-username">@' + escapeHtml(host.username) + '</div>' : '') +
+            '</div>' +
+          '</div>';
+
+        const rowsHtml = group.listings.map(function(listing){
+          const photoHtml = listing.photo_url
+            ? '<img class="listing-photo" src="' + escapeHtml(listing.photo_url) + '" alt="" loading="lazy">'
+            : '<div class="listing-photo placeholder">🏠</div>';
+
+          const metaBits = [];
+          if (listing.location_text) metaBits.push(escapeHtml(listing.location_text));
+          if (listing.size_or_type) metaBits.push(escapeHtml(listing.size_or_type));
+          if (listing.max_guests) metaBits.push('Up to ' + listing.max_guests + ' guests');
+
+          const priceHtml = formatPrice(listing);
+
+          return (
+            '<div class="listing-row">' +
+              photoHtml +
+              '<div class="listing-info">' +
+                '<div class="listing-title">' + escapeHtml(listing.title) +
+                  (listing.verified ? '<span class="listing-verified"> · GPS verified</span>' : '') +
+                '</div>' +
+                '<div class="listing-meta">' + metaBits.join(' · ') + '</div>' +
+                (priceHtml ? '<div class="listing-price">' + priceHtml + '</div>' : '') +
+              '</div>' +
+              '<a href="/booking?listing=' + encodeURIComponent(listing.id) + '" class="book-link">View &amp; book</a>' +
+            '</div>'
+          );
+        }).join('');
+
+        card.innerHTML = headHtml + rowsHtml;
+        wrap.appendChild(card);
+      });
+
+      chatArea.appendChild(wrap);
+      chatArea.scrollTop = chatArea.scrollHeight;
+
+      if (suggestion) {
+        addElieTextMessage(suggestion);
+      }
+    }
+
+    async function sendToElie(message){
+      const { data: { session: freshSession } } = await supabaseClient.auth.getSession();
+      if (!freshSession) {
+        window.location.href = '/login';
+        return;
+      }
+
+      const loadingRow = addTypingIndicator();
+
+      try {
+        const response = await fetch(ELIE_API_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + freshSession.access_token
+          },
+          body: JSON.stringify({ message: message, history: conversationHistory.slice(-6) })
+        });
+
+        const data = await response.json();
+        loadingRow._clearSlowTimer();
+        loadingRow.remove();
+
+        if (!response.ok) {
+          addElieTextMessage(data.detail || 'Something went wrong reaching Elie. Please try again.', { error: true });
+          return;
+        }
+
+        if (data.listings && data.listings.length > 0) {
+          addElieResults(data.reply, data.listings, data.filters, message, data.suggestion);
+          persistMessage('elie', data.reply);
+          if (data.suggestion) persistMessage('elie', data.suggestion);
+        } else {
+          addElieTextMessage(data.reply);
+          persistMessage('elie', data.reply);
+        }
+      } catch (err) {
+        loadingRow._clearSlowTimer();
+        loadingRow.remove();
+        addElieTextMessage("Couldn't reach Elie right now — check your connection and try again.", { error: true });
+      }
+    }
+
+    chatForm.addEventListener('submit', function(e){
+      e.preventDefault();
+      const message = chatInput.value.trim();
+      if (!message) return;
+
+      addUserMessage(message);
+      persistMessage('user', message);
+      chatInput.value = '';
+      chatInput.style.height = 'auto';
+      sendBtn.disabled = true;
+
+      sendToElie(message).finally(function(){
+        sendBtn.disabled = false;
+        chatInput.focus();
+      });
+    });
+
+    chatInput.addEventListener('input', function(){
+      chatInput.style.height = 'auto';
+      chatInput.style.height = Math.min(chatInput.scrollHeight, 120) + 'px';
+    });
+
+    chatInput.addEventListener('keydown', function(e){
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        chatForm.requestSubmit();
+      }
+    });
+
+    document.querySelectorAll('.example-chip').forEach(function(chip){
+      chip.addEventListener('click', function(){
+        chatInput.value = chip.getAttribute('data-example');
+        chatForm.requestSubmit();
+      });
+    });
+  })();
+</script>
+
+</body>
+</html>

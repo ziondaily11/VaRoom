@@ -1,0 +1,1812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VaRoom — Find your space</title>
+<link rel="icon" href="favicon/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon/favicon-16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="favicon/favicon-180.png">
+<script>
+  (function(){
+    try{
+      var saved = localStorage.getItem('varoom_theme') || 'system';
+      var resolved = saved === 'system'
+        ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+        : saved;
+      document.documentElement.setAttribute('data-theme', resolved);
+    }catch(e){}
+  })();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;0,9..144,900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="js/varoom-video-player.css">
+<link rel="stylesheet" href="js/skeleton-loader.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/skeleton-loader.js"></script>
+<style>
+  :root{
+    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#1A1210; --paper:#FBF4F1;
+    --muted:#7a6b67;
+    --font-display:'Fraunces', serif; --font-body:'Inter', sans-serif;
+    /* Glass sidebar tokens — same treatment on every app page (dashboards,
+       settings, profile, etc.), theme-aware rather than a fixed dark theme. */
+    --glass-bg:rgba(255,255,255,.55);
+    --glass-border:rgba(255,255,255,.6);
+    --glass-shadow:0 24px 55px rgba(26,18,16,.10);
+    /* Shared divider color for the three-column line-separator layout —
+       same visual weight in light and dark, just flipped polarity. */
+    --line:rgba(26,18,16,.10);
+    --line-soft:rgba(26,18,16,.06);
+  }
+  [data-theme="dark"]{
+    --white:#241C1A; --paper:#15100F; --ink:#F5EFEC; --muted:#B8ACA8;
+    --glass-bg:rgba(28,20,18,.55);
+    --glass-border:rgba(255,255,255,.09);
+    --glass-shadow:0 24px 55px rgba(0,0,0,.5);
+    --line:rgba(255,255,255,.12);
+    --line-soft:rgba(255,255,255,.07);
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  html{ overflow-x:hidden; }
+  body{
+    font-family:var(--font-body); color:var(--ink); height:100vh; overflow:hidden;
+    transition:background .2s ease, color .2s ease;
+    background:var(--paper);
+  }
+  a{ color:inherit; text-decoration:none; }
+  button{ font-family:inherit; cursor:pointer; border:none; background:none; }
+  :focus-visible{ outline:3px solid var(--red-deep); outline-offset:3px; }
+  ul{ list-style:none; }
+
+  .app-shell{
+    display:grid;
+    grid-template-columns: 280px minmax(0, 1fr);
+    height:100vh;
+    overflow:hidden;
+  }
+
+  /* ---------- SIDEBAR (line-separated column) ----------
+     No card chrome — just a full-height column divided from the feed by a
+     single border line, matching the feed/right-rail treatment. Scrolls
+     independently of the other two columns via its own overflow-y. */
+  .sidebar{
+    height:100vh;
+    margin:0;
+    background:transparent;
+    border:none;
+    border-right:1px solid var(--line);
+    border-radius:0;
+    box-shadow:none;
+    padding:1.4rem 1.2rem 1.2rem;
+    display:flex;
+    flex-direction:column;
+    gap:1.4rem;
+    overflow-y:auto;
+    scrollbar-width:none;
+  }
+  .sidebar::-webkit-scrollbar{ display:none; }
+
+  .logo{ font-family:var(--font-display); font-weight:900; font-size:1.4rem; display:flex; align-items:baseline; padding:0 .4rem; }
+  .logo .va{ color:var(--red); }
+  .elie-logo-nav{ width:22px; height:22px; object-fit:contain; flex-shrink:0; }
+  .beta-pill{ margin-left:auto; font-size:.68rem; font-weight:600; background:#FBE4E7; color:var(--red-deep); padding:.15rem .5rem; border-radius:100px; }
+  .nav-group{ display:flex; flex-direction:column; gap:.2rem; }
+  .nav-label{ font-size:.72rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); padding:.6rem .6rem .3rem; }
+
+  .nav-item{
+    display:flex; align-items:center; gap:.8rem;
+    padding:.72rem .8rem; border-radius:10px;
+    font-size:.95rem; font-weight:500; color:var(--ink);
+    cursor:pointer;
+  }
+  .nav-item:hover{ background:var(--paper); }
+  .nav-item svg{ width:19px; height:19px; }
+  .nav-item.active{ background:#FBE4E7; color:var(--red-deep); font-weight:600; }
+  .nav-item svg{ flex-shrink:0; }
+
+  .nav-item.soon{ color:var(--muted); cursor:default; }
+  .nav-item.soon:hover{ background:none; }
+
+  /* soon-active: same look as .soon, but a real clickable <button> that
+     gives honest "coming soon" feedback instead of being inert */
+  button.nav-item.soon-active{
+    width:100%; text-align:left; font-family:inherit; color:var(--muted);
+  }
+  button.nav-item.soon-active:hover{ background:var(--paper); color:var(--ink); }
+
+  .soon-pill{
+    margin-left:auto; font-size:.68rem; font-weight:600;
+    background:rgba(26,18,16,.06); color:var(--muted);
+    padding:.15rem .5rem; border-radius:100px;
+  }
+
+  .sidebar-note{
+    margin-top:auto;
+    background:#FBE4E7;
+    border-radius:14px;
+    padding:1rem 1.1rem;
+    font-size:.82rem;
+    line-height:1.5;
+    color:var(--red-deep);
+  }
+  .sidebar-note strong{ display:block; margin-bottom:.2rem; }
+
+  .logout-btn{ color:var(--red); font-weight:600; font-size:.9rem; padding:.5rem .7rem; text-align:left; }
+
+  .toast{
+    position:fixed; bottom:1.5rem; left:50%; transform:translateX(-50%) translateY(20px);
+    background:var(--ink); color:var(--white); padding:.8rem 1.4rem; border-radius:100px;
+    font-size:.88rem; font-weight:600; z-index:300; opacity:0; pointer-events:none;
+    transition:opacity .25s ease, transform .25s ease;
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+  .bottom-bar{ display:none; }
+
+  /* ---------- MAIN COLUMN ---------- */
+  .main-col{
+    display:flex;
+    flex-direction:column;
+    height:100vh;
+    overflow:hidden;
+    min-width:0;
+  }
+
+  .topbar{
+    display:flex; align-items:center; gap:1rem;
+    padding:1.2rem 2rem;
+    background:transparent;
+  }
+
+  .search-wrap{
+    flex:1; display:flex; align-items:center; gap:.6rem;
+    background:var(--paper); border-radius:100px; padding:.6rem 1rem;
+    outline:1px solid rgba(196,30,58,.45);
+    box-shadow:0 0 12px rgba(196,30,58,.2);
+    max-width:520px;
+  }
+  .search-wrap input{
+    flex:1; border:none; background:transparent; font-family:inherit; font-size:.92rem; color:var(--ink);
+  }
+  .search-wrap input:focus{ outline:none; }
+  .search-wrap:focus-within{
+    outline-color:var(--red);
+    box-shadow:0 0 0 2px rgba(196,30,58,.14), 0 0 18px rgba(196,30,58,.35);
+  }
+  .search-btn{ color:var(--muted); display:flex; align-items:center; }
+  .search-btn:hover{ color:var(--red); }
+
+  .topbar-right{ margin-left:auto; display:flex; align-items:center; gap:1.4rem; }
+  .icon-btn{ color:var(--muted); position:relative; }
+  .icon-btn:hover{ color:var(--ink); }
+
+  .topbar-avatar-btn{ display:none; }
+  .avatar-circle{
+    width:38px; height:38px; border-radius:50%; background:var(--red); color:var(--white);
+    display:flex; align-items:center; justify-content:center; font-weight:700; font-size:.9rem;
+  }
+
+  /* ---------- CONTENT ROW (feed + right rail) ----------
+     Fills the remaining height below the topbar. min-height:0 is required
+     so its two children (.feed-area, .right-rail) can each scroll on their
+     own instead of growing the whole row to fit their content. */
+  .content-row{
+    display:grid;
+    grid-template-columns: minmax(620px, 760px) minmax(280px, 420px);
+    align-items:start;
+    min-width:0;
+    flex:1 1 auto;
+    min-height:0;
+    overflow:hidden;
+    gap:0;
+    width:100%;
+    max-width:100%;
+  }
+
+  /* ---------- FEED ----------
+     Scrolls independently of the sidebar and right rail. */
+  .feed-area{
+    width:100%;
+    max-width:760px;
+    min-width:620px;
+    padding:1.8rem 2rem 4rem;
+    height:100%;
+    overflow-y:auto;
+    scrollbar-width:none;
+    margin:0 auto;
+    border-right:1px solid var(--line);
+    box-sizing:border-box;
+  }
+  .feed-area::-webkit-scrollbar{ display:none; }
+
+  /* ---------- RIGHT RAIL ----------
+     Scrolls independently too — no longer position:sticky, since the row
+     itself is now a fixed-height flex row rather than part of a scrolling
+     page, so each column just scrolls its own contents in place. */
+  .right-rail{
+    width:100%;
+    max-width:420px;
+    padding:1.8rem 1.8rem 4rem 1.2rem;
+    display:flex;
+    flex-direction:column;
+    gap:1.5rem;
+    height:100%;
+    overflow-y:auto;
+    scrollbar-width:none;
+    justify-self:end;
+    border-left:1px solid var(--line);
+    box-sizing:border-box;
+  }
+  .right-rail::-webkit-scrollbar{ display:none; }
+
+  .rail-card{ background:var(--white); border:1px solid var(--line); border-radius:18px; padding:1.3rem; }
+  .rail-card-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem; }
+  .rail-card-head h2{ font-family:var(--font-display); font-weight:600; font-size:1.05rem; }
+  .rail-view-all{ font-size:.78rem; font-weight:600; color:var(--red); }
+  .rail-view-all:hover{ text-decoration:underline; }
+
+  .dest-grid{ display:grid; grid-template-columns:1fr 1fr; gap:.7rem; }
+  .dest-card{
+    position:relative; border-radius:12px; overflow:hidden; aspect-ratio:4/3;
+    cursor:pointer; border:none; padding:0; display:block; width:100%;
+  }
+  .dest-card img{ width:100%; height:100%; object-fit:cover; display:block; transition:transform .3s ease; }
+  .dest-card:hover img{ transform:scale(1.06); }
+  .dest-card-overlay{
+    position:absolute; inset:0; display:flex; flex-direction:column; justify-content:flex-end;
+    padding:.6rem .7rem; color:#fff;
+    background:linear-gradient(to top, rgba(0,0,0,.75) 0%, rgba(0,0,0,0) 65%);
+  }
+  .dest-card-name{ font-weight:700; font-size:.82rem; }
+  .dest-card-count{ font-size:.68rem; opacity:.85; }
+
+  @media (max-width:1360px){
+    .content-row{ grid-template-columns: minmax(540px, 680px) minmax(260px, 360px); }
+    .feed-area{ min-width:540px; padding-inline:1.6rem; }
+    .right-rail{ padding-right:1.2rem; }
+  }
+
+  @media (max-width:1180px){
+    .right-rail{ display:none; }
+    .content-row{ grid-template-columns: minmax(0, 760px); }
+    .feed-area{ margin:0 auto; min-width:0; }
+  }
+
+  .mobile-dest-row{ display:none; }
+  .mobile-dest-section{ display:none; }
+  .mobile-widget-slot{ display:none; }
+
+  @media (max-width:1180px){
+    .mobile-dest-section{ display:block; margin-bottom:1.4rem; }
+    .mobile-property-news-section{ display:block; margin-bottom:1.4rem; }
+    .mobile-dest-row{
+      display:flex; gap:.7rem; overflow-x:auto; -webkit-overflow-scrolling:touch; padding-bottom:.3rem; margin-bottom:0;
+      scrollbar-width:none;
+    }
+    .mobile-dest-row::-webkit-scrollbar{ display:none; }
+    .mobile-dest-card{
+      position:relative; flex:0 0 110px; height:130px; border-radius:14px; overflow:hidden;
+      border:none; padding:0; cursor:pointer;
+    }
+    .mobile-dest-card img{ width:100%; height:100%; object-fit:cover; display:block; }
+    .mobile-dest-card-overlay{
+      position:absolute; inset:0; display:flex; flex-direction:column; justify-content:flex-end;
+      padding:.5rem; color:#fff;
+      background:linear-gradient(to top, rgba(0,0,0,.75) 0%, rgba(0,0,0,0) 65%);
+    }
+    .mobile-dest-card-name{ font-weight:700; font-size:.78rem; }
+    .mobile-dest-card-count{ font-size:.64rem; opacity:.85; }
+
+    .mobile-widget-slot{ display:block; margin-bottom:1.4rem; }
+    .mobile-widget-card{
+      background:var(--white); border:1px solid var(--line); border-radius:18px; padding:1.3rem;
+    }
+    .mobile-widget-head{ margin-bottom:1rem; }
+    .mobile-widget-head h2{ font-family:var(--font-display); font-weight:600; font-size:1.05rem; }
+
+    .reco-row{ display:grid; grid-template-columns:1fr 1fr; gap:.7rem; }
+    .reco-card{
+      position:relative; border-radius:12px; overflow:hidden; aspect-ratio:4/3; display:block;
+    }
+    .reco-card img{ width:100%; height:100%; object-fit:cover; display:block; }
+    .reco-card-overlay{
+      position:absolute; inset:0; display:flex; flex-direction:column; justify-content:flex-end;
+      padding:.5rem; color:#fff;
+      background:linear-gradient(to top, rgba(0,0,0,.75) 0%, rgba(0,0,0,0) 60%);
+    }
+    .reco-card-title{ font-weight:700; font-size:.76rem; line-height:1.2; }
+    .reco-card-loc{ font-size:.66rem; opacity:.85; margin-top:.1rem; }
+  }
+
+  .bottom-bar-elie .elie-badge{
+    width:30px; height:30px; border-radius:50%; background:var(--red);
+    display:flex; align-items:center; justify-content:center; margin-bottom:-2px;
+  }
+
+  .update-card{ padding-bottom:.9rem; border-bottom:1px solid var(--line); }
+  .update-card:last-child{ border-bottom:none; padding-bottom:0; }
+  .update-photos{ display:grid; grid-template-columns:repeat(auto-fit, minmax(70px, 1fr)); gap:.4rem; margin-bottom:.5rem; }
+  .update-photos .update-img{ width:100%; aspect-ratio:1/1; object-fit:cover; margin-bottom:0; border-radius:8px; }
+  .update-img{ width:100%; border-radius:10px; margin-bottom:.5rem; display:block; }
+  .update-title{ font-weight:700; font-size:.88rem; margin-bottom:.2rem; }
+  .update-body{ font-size:.82rem; color:#c9beb9; line-height:1.4; }
+
+  /* ---------- PROPERTY NEWS ---------- */
+  .property-news-widget{
+    background:transparent; border-top:1px solid var(--line); border-bottom:1px solid var(--line);
+    border-left:none; border-right:none; border-radius:0; padding:1rem 0; margin:0 0 1rem;
+  }
+  .property-news-widget-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:.75rem; }
+  .property-news-widget-head h2{ font-family:var(--font-display); font-size:1.05rem; font-weight:600; }
+  .property-news-bar-refresh{ font-size:.78rem; color:var(--muted); background:none; border:none; cursor:pointer; padding:.3rem .5rem; border-radius:6px; }
+  .property-news-bar-refresh:hover{ background:var(--paper); color:var(--ink); }
+  .client-property-news-list{ display:flex; flex-direction:column; gap:.7rem; }
+  .client-property-news-item{
+    display:block; background:var(--paper); border:1px solid var(--line);
+    border-radius:12px; padding:.9rem 1rem;
+  }
+  .client-property-news-main{ display:block; color:inherit; }
+  .client-property-news-image-wrap{ height:0; overflow:hidden; margin:0; border-radius:10px; opacity:0; }
+  .client-property-news-image-wrap.is-loaded{ height:104px; margin:0 0 .55rem; opacity:1; }
+  .client-property-news-image{ display:block; width:100%; height:104px; object-fit:cover; }
+  .client-property-news-kicker{ color:var(--red); font-size:.62rem; font-weight:800; letter-spacing:.1em; text-transform:uppercase; margin-bottom:.2rem; }
+  .client-property-news-title{ font:700 .9rem/1.32 var(--font-display); }
+  .client-property-news-meta{ display:flex; flex-wrap:wrap; gap:.3rem; margin-top:.32rem; color:var(--muted); font-size:.7rem; }
+  .client-property-news-source{ margin-top:.25rem; color:var(--muted); font-size:.67rem; line-height:1.35; }
+  .client-property-news-source-link{ color:inherit; text-decoration:underline; text-decoration-color:rgba(196,30,58,.38); text-underline-offset:2px; }
+  .client-property-news-source-link:hover{ color:var(--red-deep); text-decoration-color:currentColor; }
+  .client-property-news-empty,.client-property-news-error{ color:var(--muted); font-size:.82rem; line-height:1.45; }
+  .client-property-news-view-all{ display:inline-flex; margin-top:.7rem; color:var(--red); font-size:.78rem; font-weight:600; }
+  .client-property-news-view-all:hover{ color:var(--red-deep); }
+
+  /* Mobile: its own section above the feed, not spliced between listing posts */
+  .mobile-property-news-section{ display:none; }
+
+  h1.feed-title{
+    font-family:var(--font-display); font-weight:600; font-size:1.5rem; margin-bottom:1.2rem;
+  }
+
+  .tabs{ display:flex; flex-wrap:wrap; gap:.6rem; margin-bottom:1.6rem; }
+  .tab{
+    padding:.5rem 1.1rem; border-radius:100px; font-size:.88rem; font-weight:600;
+    background:var(--white); border:1px solid rgba(26,18,16,.1); color:var(--ink);
+  }
+  .tab.active{ background:var(--red); color:var(--white); border-color:var(--red); }
+
+  .state-msg{ color:var(--muted); font-size:.95rem; padding:2rem 0; text-align:center; }
+
+  /* Compact, X-style post card: a narrow fixed avatar column on the left,
+     everything else (name, caption, media, actions) in a second column
+     that starts a little right of the avatar and stays aligned under the
+     name — instead of caption/media running flush from the card edge. */
+  .card{
+    display:flex; align-items:flex-start; gap:.65rem;
+    background:transparent; border:none; border-bottom:1px solid var(--line);
+    border-radius:0; padding:.7rem 0; margin:0;
+    color:var(--ink);
+  }
+  .card:first-child{ padding-top:0; }
+
+  .card-avatar{
+    width:34px; height:34px; border-radius:50%; flex-shrink:0; overflow:hidden;
+    background:var(--red-deep); color:var(--white);
+    display:flex; align-items:center; justify-content:center;
+    font-weight:700; font-size:.85rem; margin-top:.1rem;
+  }
+  .card-avatar img{ width:100%; height:100%; object-fit:cover; }
+
+  .card-body{ flex:1; min-width:0; }
+
+  .card-head{ display:flex; align-items:flex-start; gap:.5rem; margin-bottom:.4rem; }
+  .card-host-name{ font-weight:700; font-size:.87rem; display:flex; align-items:center; gap:.3rem; line-height:1.3; }
+  .verified-tick{ color:var(--red); font-size:.78rem; }
+  .card-location{ font-size:.74rem; color:var(--muted); line-height:1.3; }
+  .card-map-link{ color:var(--red); font-weight:600; }
+  .card-map-link:hover{ text-decoration:underline; }
+  .card-time{ margin-left:auto; font-size:.68rem; color:var(--muted); white-space:nowrap; }
+  .card-menu-wrap{ position:relative; margin-left:.2rem; }
+  .card-menu-btn{
+    width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    color:var(--muted); background:none; border:none; cursor:pointer; flex-shrink:0;
+  }
+  .card-menu-btn:hover{ background:rgba(255,255,255,.1); color:#fff; }
+
+  .card-menu-dropdown{
+    display:none; position:absolute; top:32px; right:0; z-index:20;
+    background:var(--white); border:1px solid rgba(128,110,100,.15); border-radius:12px;
+    box-shadow:0 12px 30px -10px rgba(26,18,16,.3); min-width:170px; padding:.4rem;
+  }
+  .card-menu-dropdown.open{ display:block; }
+  .card-menu-item{
+    display:block; width:100%; text-align:left; padding:.6rem .8rem; border-radius:8px;
+    font-size:.85rem; font-weight:500; color:var(--red-deep); background:none; border:none; cursor:pointer;
+  }
+  .card-menu-item:hover{ background:rgba(196,30,58,.08); }
+
+  .report-modal-overlay{
+    display:none; position:fixed; inset:0; z-index:250;
+    background:rgba(26,18,16,.5); align-items:center; justify-content:center; padding:1.2rem;
+  }
+  .report-modal-overlay.open{ display:flex; }
+  .report-modal{
+    background:var(--white); border-radius:18px; padding:1.6rem 1.7rem; max-width:420px; width:100%;
+  }
+  .report-modal h3{ font-family:var(--font-display); font-weight:600; font-size:1.2rem; margin-bottom:.4rem; }
+  .report-modal p{ font-size:.85rem; color:var(--muted); margin-bottom:1.1rem; line-height:1.5; }
+  .report-modal .field{ display:flex; flex-direction:column; gap:.4rem; margin-bottom:1rem; }
+  .report-modal label{ font-size:.86rem; font-weight:600; }
+  .report-modal select, .report-modal textarea{
+    font-family:inherit; font-size:.92rem; padding:.7rem .85rem; border:1px solid rgba(128,110,100,.25);
+    border-radius:10px; background:var(--paper); color:var(--ink); width:100%;
+  }
+  .report-modal textarea{ min-height:80px; resize:vertical; }
+  .report-modal-actions{ display:flex; gap:.7rem; margin-top:1.2rem; }
+  .report-modal-actions button{ flex:1; padding:.8rem 1rem; border-radius:100px; font-weight:600; font-size:.9rem; }
+  .report-cancel-btn{ background:transparent; border:1.5px solid rgba(128,110,100,.3); color:var(--ink); }
+  .report-submit-btn{ background:var(--red); color:#fff; }
+  .report-submit-btn:hover{ background:var(--red-deep); }
+  .report-modal-msg{ font-size:.83rem; margin-top:.7rem; text-align:center; }
+  .report-modal-msg.error{ color:var(--red); }
+  .report-modal-msg.success{ color:#2e7d32; }
+
+  .card-caption, .card-desc{ font-size:.87rem; line-height:1.42; margin:0 0 .5rem; color:var(--muted); overflow-wrap:anywhere; }
+  [data-theme="dark"] .card-caption, [data-theme="dark"] .card-desc{ color:rgba(245,239,236,.8); }
+
+  .card-photos{
+    display:grid; grid-template-columns:1fr 1fr; gap:.35rem;
+    border-radius:12px; overflow:hidden; margin-bottom:.55rem;
+  }
+  .card-photos img{ width:100%; height:clamp(160px, 22vw, 300px); object-fit:cover; display:block; }
+  .card-photos.single{ grid-template-columns:1fr; }
+  .card-photos.single img{ height:clamp(190px, 30vw, 380px); }
+  .media-carousel{
+    position:relative; overflow:hidden; border-radius:12px; margin-bottom:.55rem; background:#000;
+    touch-action:pan-y; user-select:none; -webkit-user-select:none;
+  }
+  .media-carousel.single-media{ border-radius:12px; }
+  .media-slide-track{
+    display:flex; width:100%; transition:transform .28s ease;
+    will-change:transform;
+  }
+  .media-slide{ flex:0 0 100%; width:100%; }
+  .media-slide img{ display:block; width:100%; height:clamp(160px, 22vw, 300px); object-fit:cover; }
+  .media-carousel.single-media .media-slide img{ height:clamp(190px, 30vw, 380px); }
+  .media-index-pill{
+    position:absolute; top:.7rem; right:.7rem; z-index:2;
+    border-radius:999px; padding:.28rem .6rem; background:rgba(26,18,16,.52);
+    color:#fff; font-size:.72rem; font-weight:700; line-height:1;
+    backdrop-filter:blur(6px);
+  }
+  .media-dots{
+    display:flex; justify-content:center; align-items:center; gap:.38rem;
+    padding:.45rem 0 0; min-height:16px;
+  }
+  .media-dot{
+    width:6px; height:6px; border-radius:50%; background:rgba(26,18,16,.25);
+    transition:all .2s ease; display:inline-block;
+  }
+  .media-dot.active{ background:var(--red); transform:scale(1.2); }
+  .card-video{ position:relative; border-radius:12px; overflow:hidden; margin-bottom:.55rem; background:#000; }
+  .card-video video{ display:block; width:100%; height:clamp(160px, 22vw, 300px); object-fit:cover; background:#000; }
+  .card-video.single video{ height:clamp(190px, 30vw, 380px); }
+  .host-video-upload{ margin:0 0 .55rem; }
+  .host-video-upload-btn{
+    display:inline-flex; align-items:center; gap:.5rem; padding:.5rem .8rem; border-radius:999px;
+    background:#FBE4E7; color:var(--red-deep); font-size:.76rem; font-weight:700; cursor:pointer;
+  }
+  .host-video-upload input{ display:none; }
+  .photo-placeholder{ grid-column:1 / -1; height:clamp(160px, 22vw, 300px); border-radius:12px; background:linear-gradient(135deg, var(--red) 0%, var(--red-deep) 100%); display:flex; align-items:center; justify-content:center; color:rgba(255,255,255,.85); font-size:.85rem; font-weight:600; }
+  .badge-row{ display:flex; flex-wrap:wrap; gap:.5rem; margin-bottom:.7rem; }
+
+  .badge{ display:flex; align-items:center; gap:.3rem; font-size:.76rem; font-weight:600; padding:.3rem .65rem; border-radius:100px; }
+  .badge-verified{ background:#EAF4EE; color:#1E6B3C; }
+  .badge-host{ background:#E9F0FB; color:#1A4E8F; }
+  .badge-soon{ background:rgba(26,18,16,.05); color:var(--muted); font-weight:500; }
+
+  .action-row{ display:flex; align-items:center; gap:.4rem; padding-top:.4rem; border-top:none; }
+
+  .action-btn{
+    display:flex; align-items:center; gap:.3rem;
+    font-size:.76rem; font-weight:600; color:var(--muted);
+    padding:.35rem .55rem; border-radius:999px;
+  }
+  .action-btn:hover{ color:var(--red); background:var(--line-soft); }
+  .bookmark-btn{ margin-left:auto; color:var(--muted); }
+  .bookmark-btn:hover{ color:var(--red); }
+  .bookmark-btn.saved{ color:var(--red); }
+
+  .card-photos img{ cursor:pointer; }
+
+  /* ---------- LIGHTBOX ---------- */
+  .lightbox-overlay{
+    display:none; position:fixed; inset:0; background:rgba(10,7,6,.94); z-index:400;
+    align-items:center; justify-content:center;
+  }
+  .lightbox-overlay.open{ display:flex; }
+  .lightbox-stage{ position:relative; width:100%; height:100%; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+  .lightbox-img{ max-width:92vw; max-height:82vh; object-fit:contain; user-select:none; -webkit-user-drag:none; }
+  .lightbox-close{
+    position:absolute; top:1.2rem; right:1.2rem; width:42px; height:42px; border-radius:50%;
+    background:rgba(255,255,255,.12); color:#fff; display:flex; align-items:center; justify-content:center;
+  }
+  .lightbox-close:hover{ background:rgba(255,255,255,.22); }
+  .lightbox-nav{
+    position:absolute; top:50%; transform:translateY(-50%); width:46px; height:46px; border-radius:50%;
+    background:rgba(255,255,255,.12); color:#fff; display:flex; align-items:center; justify-content:center;
+  }
+  .lightbox-nav:hover{ background:rgba(255,255,255,.22); }
+  .lightbox-nav.prev{ left:1rem; }
+  .lightbox-nav.next{ right:1rem; }
+  .lightbox-counter{
+    position:absolute; bottom:1.4rem; left:50%; transform:translateX(-50%);
+    color:#fff; font-size:.82rem; font-weight:600; background:rgba(255,255,255,.12);
+    padding:.35rem .9rem; border-radius:100px;
+  }
+  @media (max-width:640px){
+    .lightbox-nav{ width:38px; height:38px; }
+    .lightbox-nav.prev{ left:.5rem; }
+    .lightbox-nav.next{ right:.5rem; }
+  }
+
+  @media (max-width:860px){
+    body{ height:auto; overflow:visible; }
+    .app-shell{ grid-template-columns:1fr; height:auto; overflow:visible; }
+    .main-col{ height:auto; overflow:visible; }
+    .content-row{ flex:initial; min-height:0; overflow:visible; }
+    .feed-area{ height:auto; overflow-y:visible; }
+    .right-rail{ display:none; height:auto; overflow-y:visible; }
+    .app-shell{ grid-template-columns:1fr; }
+
+    .sidebar{
+      position:fixed;
+      inset:0 auto 0 0;
+      width:80vw;
+      max-width:360px;
+      height:100vh;
+      margin:0;
+      border-radius:0;
+      z-index:200;
+      transform:translateX(-100%);
+      transition:transform .25s ease;
+      box-shadow:0 0 40px rgba(26,18,16,.25);
+    }
+    .sidebar.mobile-open{ transform:translateX(0); }
+
+    .sidebar-backdrop{
+      display:none;
+      position:fixed;
+      inset:0;
+      background:rgba(26,18,16,.45);
+      z-index:190;
+    }
+    .sidebar-backdrop.show{ display:block; }
+
+    .sidebar .nav-item[data-mobile-hide]{ display:none; }
+
+    .topbar-avatar-btn{ flex-shrink:0; display:flex; }
+    .topbar-avatar-btn:hover .avatar-circle{ outline:2px solid rgba(196,30,58,.25); outline-offset:2px; }
+
+    .feed-area{ padding:.75rem .7rem 5.5rem; }
+
+    .card{ padding-top:.8rem; }
+    .card-photos{ gap:.3rem; }
+    .card-photos img{ height:clamp(220px, 52vw, 460px); }
+    .card-photos.single img{ height:clamp(250px, 60vw, 520px); }
+    .media-carousel{ margin-bottom:.55rem; }
+    .media-slide img{ height:clamp(220px, 52vw, 460px); }
+    .media-carousel.single-media .media-slide img{ height:clamp(250px, 60vw, 520px); }
+    .media-index-pill{ top:.55rem; right:.55rem; font-size:.66rem; }
+    .media-dots{ padding-top:.4rem; }
+
+    .bottom-bar{
+      display:flex; align-items:center; justify-content:space-around;
+      position:fixed; bottom:0; left:0; right:0; z-index:150;
+      background:var(--white); border-top:1px solid var(--line);
+      padding:.6rem 0 calc(.6rem + env(safe-area-inset-bottom));
+    }
+    .bottom-bar-item{
+      display:flex; flex-direction:column; align-items:center; gap:.2rem;
+      font-size:.66rem; font-weight:600; color:var(--muted);
+      padding:.3rem .6rem; background:none; border:none; font-family:inherit; cursor:pointer;
+    }
+    .bottom-bar-item.active{ color:var(--red-deep); }
+    .bottom-bar-item .avatar-mini{
+      width:20px; height:20px; border-radius:50%; overflow:hidden;
+      background:var(--red); color:var(--white); display:flex; align-items:center; justify-content:center;
+      font-size:.62rem; font-weight:700;
+    }
+    .bottom-bar-item .avatar-mini img{ width:100%; height:100%; object-fit:cover; }
+  }
+</style>
+</head>
+<body>
+
+<div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
+<div class="toast" id="toast"></div>
+
+<div class="lightbox-overlay" id="lightbox-overlay">
+  <div class="lightbox-stage">
+    <button type="button" class="lightbox-close" id="lightbox-close" aria-label="Close">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+    <button type="button" class="lightbox-nav prev" id="lightbox-prev" aria-label="Previous photo">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <img class="lightbox-img" id="lightbox-img" src="" alt="">
+    <button type="button" class="lightbox-nav next" id="lightbox-next" aria-label="Next photo">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>
+    <div class="lightbox-counter" id="lightbox-counter"></div>
+  </div>
+</div>
+
+<div class="report-modal-overlay" id="report-modal-overlay">
+  <div class="report-modal">
+    <h3>Report this listing</h3>
+    <p>Help us keep VaRoom trustworthy. Reports are reviewed by our team — false reports don't automatically penalize a host.</p>
+    <div class="field">
+      <label for="report-reason">Reason</label>
+      <select id="report-reason">
+        <option value="fraudulent">Fraudulent — this host is scamming or misrepresenting</option>
+        <option value="misleading_info">Misleading information — details don't match reality</option>
+        <option value="other">Other</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="report-details">Details (optional)</label>
+      <textarea id="report-details" placeholder="Anything else we should know"></textarea>
+    </div>
+    <div class="report-modal-actions">
+      <button type="button" class="report-cancel-btn" id="report-cancel-btn">Cancel</button>
+      <button type="button" class="report-submit-btn" id="report-submit-btn">Submit report</button>
+    </div>
+    <p class="report-modal-msg" id="report-modal-msg"></p>
+  </div>
+</div>
+
+<div class="app-shell">
+
+  <aside class="sidebar" id="sidebar">
+    <a href="/client-home" class="logo"><span class="va">Va</span><span class="room">Room</span></a>
+
+    <nav class="nav-group">
+      <a href="/elie" class="nav-item">
+        <img src="elie-logo.png" alt="Elie" class="elie-logo-nav">
+        Elie
+        <span class="beta-pill">Free preview</span>
+      </a>
+    </nav>
+
+    <nav class="nav-group">
+      <div class="nav-item" data-nav="explore" data-mobile-hide>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m15 9-2 6-6 2 2-6 6-2Z"/></svg>
+        Explore
+      </div>
+      <div class="nav-item" data-nav="saved" data-mobile-hide>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h12a1 1 0 0 1 1 1V21l-7-4-7 4V4.5a1 1 0 0 1 1-1Z"/></svg>
+        Saved
+      </div>
+    </nav>
+
+    <nav class="nav-group">
+      <p class="nav-label">My activity</p>
+      <a href="/bookings" class="nav-item">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="2"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>
+        Bookings
+      </a>
+      <a href="/chats" class="nav-item" data-mobile-hide>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z"/></svg>
+        Chats
+      </a>
+      <a href="/transactions" class="nav-item">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><path d="M7 15h4"/></svg>
+        Transactions
+      </a>
+      <button type="button" class="nav-item" id="notif-nav-item">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        Notifications
+      </button>
+    </nav>
+
+    <nav class="nav-group">
+      <p class="nav-label">Account</p>
+      <a href="/profile" class="nav-item">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.5-7 8-7s8 3 8 7"/></svg>
+        Profile
+      </a>
+      <a href="/settings" class="nav-item">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>
+        Settings
+      </a>
+      <a href="/#how" class="nav-item">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 4.9.8c0 1.6-2.4 1.9-2.4 3.5"/><path d="M12 17.2v.1"/></svg>
+        Help &amp; Support
+      </a>
+    </nav>
+
+    <div class="sidebar-note">
+      <strong>Book with confidence</strong>
+      GPS-verified listings and verified hosts help you know what's real before you reach out.
+    </div>
+
+    <button type="button" class="logout-btn" id="logout-btn">Log out</button>
+  </aside>
+
+  <div class="main-col">
+    <header class="topbar">
+      <button type="button" class="topbar-avatar-btn" id="topbar-avatar-btn" aria-label="Open menu">
+        <div class="avatar-circle" id="user-avatar" aria-hidden="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+        </div>
+      </button>
+      <div class="search-wrap">
+        <button type="button" class="search-btn" id="search-btn" aria-label="Search">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </button>
+        <input type="text" id="search-input" placeholder="Search by location or @username">
+      </div>
+    </header>
+
+    <div class="content-row">
+      <div class="feed-area">
+        <h1 class="feed-title" id="feed-title">Find the perfect space</h1>
+
+        <div class="tabs" id="tabs">
+          <button class="tab active" data-category="all">All</button>
+          <button class="tab" data-category="airbnb">Airbnbs</button>
+          <button class="tab" data-category="hotel">Hotels</button>
+          <button class="tab" data-category="venue">Event Venues</button>
+          <button class="tab" data-category="office">Offices</button>
+          <button class="tab" data-category="shop">Shops</button>
+          <button class="tab" data-category="property">Property</button>
+        </div>
+
+        <div class="mobile-dest-section" id="mobile-dest-section">
+          <div class="mobile-widget-head" style="display:flex;align-items:center;justify-content:space-between;">
+            <h2>Popular destinations</h2>
+            <button type="button" class="rail-view-all" data-soon="Browsing all destinations">View all</button>
+          </div>
+          <div class="mobile-dest-row" id="mobile-dest-row"></div>
+        </div>
+
+        <div class="mobile-property-news-section" id="mobile-property-news-section">
+          <div class="mobile-widget-card property-news-widget">
+            <div class="property-news-widget-head">
+              <h2>Property News</h2>
+              <button class="property-news-bar-refresh" id="property-news-refresh-mobile" title="Refresh news">Refresh</button>
+            </div>
+            <div class="client-property-news-list" id="client-property-news-mobile" aria-live="polite">
+              <p class="state-msg" style="padding:0;font-size:.85rem;">Loading…</p>
+            </div>
+            <a class="client-property-news-view-all" href="/property-news">View all news →</a>
+          </div>
+        </div>
+
+        <div id="feed-list"></div>
+      </div>
+
+      <aside class="right-rail">
+        <div class="rail-card">
+          <div class="rail-card-head">
+            <h2>Popular destinations</h2>
+            <button type="button" class="rail-view-all" data-soon="Browsing all destinations">View all</button>
+          </div>
+          <div class="dest-grid" id="dest-grid">
+            <p class="state-msg" style="padding:0;font-size:.85rem;">Loading…</p>
+          </div>
+        </div>
+
+        <div class="rail-card">
+          <div class="rail-card-head">
+            <h2>VaRoom Updates</h2>
+          </div>
+          <div id="varoom-updates" style="display:flex;flex-direction:column;gap:.9rem;">
+            <p class="state-msg" style="padding:0;font-size:.85rem;">Loading…</p>
+          </div>
+        </div>
+
+        <div class="property-news-widget">
+          <div class="property-news-widget-head">
+            <h2>Property News</h2>
+            <button class="property-news-bar-refresh" id="property-news-refresh" title="Refresh news">Refresh</button>
+          </div>
+          <div class="client-property-news-list" id="client-property-news" aria-live="polite">
+            <p class="state-msg" style="padding:0;font-size:.85rem;">Loading…</p>
+          </div>
+          <a class="client-property-news-view-all" href="/property-news">View all news →</a>
+        </div>
+      </aside>
+    </div>
+
+    <nav class="bottom-bar">
+      <button type="button" class="bottom-bar-item active" data-bottom-nav="home">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9a1 1 0 0 0 1 1H9a1 1 0 0 0 1-1v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4a1 1 0 0 0 1 1h2.5a1 1 0 0 0 1-1v-9"/></svg>
+        Home
+      </button>
+      <a href="/bookings" class="bottom-bar-item">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="2"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>
+        Bookings
+      </a>
+      <a href="/chats" class="bottom-bar-item">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z"/></svg>
+        Chats
+      </a>
+      <a href="/elie" class="bottom-bar-item bottom-bar-elie">
+        <span class="elie-badge"><img src="elie-logo.png" alt="" style="width:18px;height:18px;object-fit:contain;"></span>
+        Elie
+      </a>
+      <button type="button" class="bottom-bar-item" id="notif-bell">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        Notifications
+      </button>
+    </nav>
+  </div>
+</div>
+
+<script src="js/supabase-client.js"></script>
+<script src="js/notifications-widget.js"></script>
+<script>
+  (async function(){
+    let currentUser = null;
+    let currentCategory = 'all';
+    let searchTerm = '';
+    let bookmarkedIds = new Set();
+    let currentView = 'home';
+    let interestedCategories = [];
+
+    const feedList = document.getElementById('feed-list');
+    const tabsEl = document.getElementById('tabs');
+    const searchInput = document.getElementById('search-input');
+    const DESTINATIONS = [
+      { city: 'Nairobi', file: 'assets/destinations/nairobi.jpg' },
+      { city: 'Mombasa', file: 'assets/destinations/mombasa.jpg' },
+      { city: 'Diani',   file: 'assets/destinations/diani.jpg' },
+      { city: 'Kisumu',  file: 'assets/destinations/kisumu.jpg' },
+      { city: 'Nakuru',  file: 'assets/destinations/nakuru.jpg' }
+    ];
+
+    // ---------- Auth guard ----------
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session) {
+      window.location.href = '/login';
+      return;
+    }
+    currentUser = session.user;
+
+    const { data: profile } = await supabaseClient
+      .from('profiles')
+      .select('role, full_name, avatar_url, interested_categories')
+      .eq('id', currentUser.id)
+      .maybeSingle();
+
+    if (!profile) {
+      window.location.href = '/login';
+      return;
+    }
+
+    if (profile.role === 'host') {
+      window.location.href = '/host-home';
+      return;
+    }
+
+    interestedCategories = (profile.interested_categories || [])
+      .map(function(c){ return (c || '').toString().trim().toLowerCase(); })
+      .filter(Boolean);
+    if (interestedCategories.length > 0) {
+      document.getElementById('feed-title').textContent = 'For you';
+    }
+
+    // ---------- Bookmarks ----------
+    const { data: bookmarks } = await supabaseClient
+      .from('bookmarks')
+      .select('listing_id')
+      .eq('client_id', currentUser.id);
+
+    if (bookmarks) {
+      bookmarkedIds = new Set(bookmarks.map(function(b){ return b.listing_id; }));
+    }
+
+    async function toggleBookmark(listingId, btn){
+      if (bookmarkedIds.has(listingId)) {
+        await supabaseClient.from('bookmarks').delete()
+          .eq('client_id', currentUser.id).eq('listing_id', listingId);
+        bookmarkedIds.delete(listingId);
+        btn.classList.remove('saved');
+      } else {
+        await supabaseClient.from('bookmarks').insert({ client_id: currentUser.id, listing_id: listingId });
+        bookmarkedIds.add(listingId);
+        btn.classList.add('saved');
+      }
+    }
+
+    // ---------- Helpers ----------
+    function timeAgo(dateStr){
+      const diffMs = Date.now() - new Date(dateStr).getTime();
+      const mins = Math.floor(diffMs / 60000);
+      if (mins < 1) return 'just now';
+      if (mins < 60) return mins + 'm ago';
+      const hrs = Math.floor(mins / 60);
+      if (hrs < 24) return hrs + 'h ago';
+      const days = Math.floor(hrs / 24);
+      return days + 'd ago';
+    }
+
+    function categoryLabel(cat){
+      const labels = { airbnb:'Airbnb', hotel:'Hotel', venue:'Event Venue', office:'Office', shop:'Shop', property:'Property' };
+      return labels[cat] || cat;
+    }
+
+    function escapeHtml(str){
+      const div = document.createElement('div');
+      div.textContent = str || '';
+      return div.innerHTML;
+    }
+
+    // Handles avatar_url whether it's a relative storage path (correct,
+    // current format) or a full URL (legacy rows saved by an earlier
+    // version of /onboarding) — so old data still renders correctly.
+    function resolveAvatarUrl(avatarValue){
+      if (!avatarValue) return null;
+      if (avatarValue.indexOf('http') === 0) return avatarValue;
+      return supabaseClient.storage.from('avatars').getPublicUrl(avatarValue).data.publicUrl;
+    }
+
+    // ---------- Render ----------
+    const photosByListing = {};
+    const videoUrlByListing = {};
+
+    const ICON_BOOK = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="2"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>';
+    const ICON_CHAT = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z"/></svg>';
+    const ICON_BOOKMARK_OUTLINE = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h12a1 1 0 0 1 1 1V21l-7-4-7 4V4.5a1 1 0 0 1 1-1Z"/></svg>';
+    const ICON_BOOKMARK_FILLED = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h12a1 1 0 0 1 1 1V21l-7-4-7 4V4.5a1 1 0 0 1 1-1Z"/></svg>';
+
+    async function getAuthToken(){
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      return session && session.access_token ? session.access_token : null;
+    }
+
+    async function loadListingVideoUrls(listingIds){
+      if (!listingIds.length) return;
+      const token = await getAuthToken();
+      for (const listingId of listingIds) {
+        try {
+          const response = await fetch('/api/properties/' + encodeURIComponent(listingId) + '/media', {
+            headers: token ? { Authorization: 'Bearer ' + token } : {}
+          });
+          if (response.status === 403 || response.status === 404) continue;
+          if (!response.ok) continue;
+          const payload = await response.json();
+          const media = Array.isArray(payload.media) ? payload.media : [];
+          const videoItems = media.filter(function(item){ return item && item.type === 'video'; });
+          if (!videoItems.length) continue;
+          const mediaId = videoItems[0].id;
+          const playbackRes = await fetch('/api/media/' + encodeURIComponent(mediaId) + '/playback', {
+            headers: token ? { Authorization: 'Bearer ' + token } : {}
+          });
+          if (playbackRes.status === 403 || playbackRes.status === 404) continue;
+          if (!playbackRes.ok) continue;
+          const playback = await playbackRes.json();
+          if (playback && playback.url) {
+            videoUrlByListing[listingId] = playback.url;
+          }
+        } catch (error) {
+          // Ignore transient media-load failures for unavailable listings.
+        }
+      }
+    }
+
+    function renderCard(listing){
+      const host = listing.host || {};
+      const photos = (listing.listing_photos || []).map(function(p){
+        return supabaseClient.storage.from('listing-photos').getPublicUrl(p.storage_path).data.publicUrl;
+      });
+      const videoUrl = videoUrlByListing[listing.id] || null;
+
+      const initial = (host.full_name || '?').charAt(0).toUpperCase();
+      const hostAvatarUrl = resolveAvatarUrl(host.avatar_url);
+      const avatarHtml = hostAvatarUrl
+        ? '<img src="' + hostAvatarUrl + '" alt="">'
+        : initial;
+      const isBookmarked = bookmarkedIds.has(listing.id);
+      photosByListing[listing.id] = photos;
+
+      let photosHtml = '';
+      if (videoUrl) {
+        photosHtml = '<div class="card-video single"><video muted playsinline preload="none" src="' + videoUrl + '" data-listing-id="' + listing.id + '" data-video-host-name="' + escapeHtml(host.full_name || 'Host') + '" data-video-username="' + escapeHtml(host.username ? '@' + host.username : '') + '" data-video-avatar="' + escapeHtml(hostAvatarUrl || '') + '" data-video-caption="' + escapeHtml(listing.description || listing.title) + '"></video></div>';
+      } else if (photos.length === 0) {
+        photosHtml = '<div class="card-photos"><div class="photo-placeholder">' + categoryLabel(listing.category) + ' — photos coming soon</div></div>';
+      } else if (photos.length === 1) {
+        photosHtml = '<div class="media-carousel single-media" data-listing-id="' + listing.id + '" data-photo-count="1">'
+          + '<div class="media-slide-track">'
+          + '<div class="media-slide"><img src="' + photos[0] + '" alt="' + escapeHtml(listing.title) + '" loading="lazy" data-listing-id="' + listing.id + '" data-photo-index="0"></div>'
+          + '</div>'
+          + '</div>';
+      } else {
+        photosHtml = '<div class="media-carousel" data-listing-id="' + listing.id + '" data-photo-count="' + photos.length + '">'
+          + '<div class="media-index-pill">1/' + photos.length + '</div>'
+          + '<div class="media-slide-track">' + photos.map(function(url, i){
+              return '<div class="media-slide"><img src="' + url + '" alt="' + escapeHtml(listing.title) + '" loading="lazy" data-listing-id="' + listing.id + '" data-photo-index="' + i + '"></div>';
+            }).join('') + '</div>'
+          + '<div class="media-dots">' + photos.map(function(_, i){ return '<span class="media-dot ' + (i === 0 ? 'active' : '') + '" data-index="' + i + '"></span>'; }).join('') + '</div>'
+          + '</div>';
+      }
+
+      return (
+        '<div class="card">' +
+          '<div class="card-avatar">' + avatarHtml + '</div>' +
+          '<div class="card-body">' +
+            '<div class="card-head">' +
+              '<div>' +
+                '<div class="card-host-name">' + escapeHtml(host.full_name || 'Host') +
+                  (host.verified ? '<span class="verified-tick">✔</span>' : '') +
+                '</div>' +
+                '<div class="card-location">' + (host.username ? '@' + escapeHtml(host.username) + ' · ' : '') + escapeHtml(listing.location_text) +
+                  ' · <a href="/map?listing=' + listing.id + '" class="card-map-link">View on Map</a>' +
+                '</div>' +
+              '</div>' +
+              '<div class="card-time">' + timeAgo(listing.created_at) + '</div>' +
+              (listing.host_id === currentUser.id ? '' :
+              '<div class="card-menu-wrap">' +
+                '<button type="button" class="card-menu-btn" data-menu-toggle="' + listing.id + '" aria-label="More options">' +
+                  '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>' +
+                '</button>' +
+                '<div class="card-menu-dropdown" id="menu-' + listing.id + '">' +
+                  '<button type="button" class="card-menu-item report-trigger" data-listing-id="' + listing.id + '" data-host-id="' + listing.host_id + '">Report</button>' +
+                '</div>' +
+              '</div>') +
+            '</div>' +
+            '<p class="card-caption">' + escapeHtml(listing.description || listing.title) + '</p>' +
+            photosHtml +
+            '<div class="action-row">' +
+              (listing.host_id === currentUser.id
+                ? '<span class="action-btn disabled" title="This is your listing">' + ICON_BOOK + 'Book</span>'
+                : '<a href="/booking?listing=' + listing.id + '" class="action-btn">' + ICON_BOOK + 'Book</a>') +
+              (listing.host_id === currentUser.id
+                ? '<span class="action-btn disabled" title="This is your listing">' + ICON_CHAT + 'Chat</span>'
+                : '<button type="button" class="action-btn chat-btn" data-listing-id="' + listing.id + '" data-host-id="' + listing.host_id + '">' + ICON_CHAT + 'Chat</button>') +
+              '<button type="button" class="action-btn bookmark-btn ' + (isBookmarked ? 'saved' : '') + '" data-listing-id="' + listing.id + '">' +
+                (isBookmarked ? ICON_BOOKMARK_FILLED + 'Saved' : ICON_BOOKMARK_OUTLINE + 'Save') +
+              '</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>'
+      );
+    }
+
+    const FEED_SELECT = 'id,title,description,location_text,category,verified,created_at,host_id,host:profiles(full_name,verified,avatar_url,username),listing_photos(storage_path)';
+
+    async function startChat(listingId, hostId){
+      const { data, error } = await supabaseClient
+        .from('conversations')
+        .upsert(
+          { listing_id: listingId, host_id: hostId, client_id: currentUser.id },
+          { onConflict: 'listing_id,client_id' }
+        )
+        .select()
+        .single();
+
+      if (error) {
+        showToast("Couldn't start that chat: " + error.message);
+        return;
+      }
+      window.location.href = '/chats?c=' + data.id;
+    }
+
+    function applyCarouselState(carousel, activeIndex){
+      const track = carousel.querySelector('.media-slide-track');
+      if (!track) return;
+      const count = carousel.getAttribute('data-photo-count') ? parseInt(carousel.getAttribute('data-photo-count'), 10) : 0;
+      if (!count) return;
+      const translate = -(activeIndex * 100) + '%';
+      track.style.transform = 'translateX(' + translate + ')';
+      const dots = carousel.querySelectorAll('.media-dot');
+      dots.forEach(function(dot, idx){
+        dot.classList.toggle('active', idx === activeIndex);
+      });
+      const pill = carousel.querySelector('.media-index-pill');
+      if (pill) {
+        pill.textContent = (activeIndex + 1) + '/' + count;
+      }
+    }
+
+    function attachCardListeners(container){
+      container.querySelectorAll('.bookmark-btn').forEach(function(btn){
+        btn.addEventListener('click', async function(){
+          const id = btn.getAttribute('data-listing-id');
+          await toggleBookmark(id, btn);
+          const saved = bookmarkedIds.has(id);
+          btn.classList.toggle('saved', saved);
+          btn.innerHTML = saved ? (ICON_BOOKMARK_FILLED + 'Saved') : (ICON_BOOKMARK_OUTLINE + 'Save');
+        });
+      });
+      container.querySelectorAll('.media-slide img[data-listing-id], .card-photos img[data-listing-id]').forEach(function(img){
+        img.addEventListener('click', function(){
+          openLightbox(img.getAttribute('data-listing-id'), parseInt(img.getAttribute('data-photo-index'), 10));
+        });
+      });
+      container.querySelectorAll('.media-carousel').forEach(function(carousel){
+        const count = parseInt(carousel.getAttribute('data-photo-count') || '0', 10);
+        if (count <= 1) return;
+        let activeIndex = 0;
+        let startX = 0;
+        let currentX = 0;
+        let dragging = false;
+
+        function updateIndex(nextIndex){
+          activeIndex = Math.max(0, Math.min(count - 1, nextIndex));
+          applyCarouselState(carousel, activeIndex);
+        }
+
+        carousel.addEventListener('pointerdown', function(e){
+          dragging = true;
+          startX = e.clientX;
+          currentX = e.clientX;
+          const track = carousel.querySelector('.media-slide-track');
+          if (track) track.style.transition = 'none';
+          carousel.setPointerCapture(e.pointerId);
+          carousel.style.cursor = 'grabbing';
+        });
+
+        carousel.addEventListener('pointermove', function(e){
+          if (!dragging) return;
+          currentX = e.clientX;
+          const delta = currentX - startX;
+          const track = carousel.querySelector('.media-slide-track');
+          if (!track) return;
+          if (Math.abs(delta) > 6) {
+            track.style.transform = 'translateX(' + (-(activeIndex * 100) + (delta / carousel.clientWidth) * 100) + '%)';
+          }
+        });
+
+        carousel.addEventListener('pointerup', function(e){
+          if (!dragging) return;
+          dragging = false;
+          carousel.style.cursor = '';
+          const track = carousel.querySelector('.media-slide-track');
+          if (track) track.style.transition = '';
+          const delta = currentX - startX;
+          if (Math.abs(delta) > 40) {
+            updateIndex(activeIndex + (delta < 0 ? 1 : -1));
+          } else {
+            applyCarouselState(carousel, activeIndex);
+          }
+          try { carousel.releasePointerCapture(e.pointerId); } catch (error) {}
+        });
+
+        carousel.addEventListener('pointerleave', function(){
+          if (!dragging) return;
+          dragging = false;
+          carousel.style.cursor = '';
+          const track = carousel.querySelector('.media-slide-track');
+          if (track) track.style.transition = '';
+          applyCarouselState(carousel, activeIndex);
+        });
+
+        carousel.addEventListener('click', function(e){
+          if (e.target && e.target.classList && e.target.classList.contains('media-dot')) {
+            updateIndex(parseInt(e.target.getAttribute('data-index'), 10));
+          }
+        });
+      });
+      container.querySelectorAll('.chat-btn').forEach(function(btn){
+        btn.addEventListener('click', function(){
+          startChat(btn.getAttribute('data-listing-id'), btn.getAttribute('data-host-id'));
+        });
+      });
+      container.querySelectorAll('[data-menu-toggle]').forEach(function(btn){
+        btn.addEventListener('click', function(e){
+          e.stopPropagation();
+          const dropdown = document.getElementById('menu-' + btn.getAttribute('data-menu-toggle'));
+          const isOpen = dropdown.classList.contains('open');
+          document.querySelectorAll('.card-menu-dropdown.open').forEach(function(d){ d.classList.remove('open'); });
+          if (!isOpen) dropdown.classList.add('open');
+        });
+      });
+      container.querySelectorAll('.report-trigger').forEach(function(btn){
+        btn.addEventListener('click', function(e){
+          e.stopPropagation();
+          document.querySelectorAll('.card-menu-dropdown.open').forEach(function(d){ d.classList.remove('open'); });
+          openReportModal(btn.getAttribute('data-listing-id'), btn.getAttribute('data-host-id'));
+        });
+      });
+    }
+
+    document.addEventListener('click', function(){
+      document.querySelectorAll('.card-menu-dropdown.open').forEach(function(d){ d.classList.remove('open'); });
+    });
+
+    // ---------- Lightbox ----------
+    const lightboxOverlay = document.getElementById('lightbox-overlay');
+    const lightboxImg = document.getElementById('lightbox-img');
+    const lightboxCounter = document.getElementById('lightbox-counter');
+    const lightboxPrev = document.getElementById('lightbox-prev');
+    const lightboxNext = document.getElementById('lightbox-next');
+    let lightboxPhotos = [];
+    let lightboxIndex = 0;
+
+    function renderLightbox(){
+      lightboxImg.src = lightboxPhotos[lightboxIndex];
+      lightboxCounter.textContent = (lightboxIndex + 1) + ' / ' + lightboxPhotos.length;
+      const multi = lightboxPhotos.length > 1;
+      lightboxPrev.style.display = multi ? 'flex' : 'none';
+      lightboxNext.style.display = multi ? 'flex' : 'none';
+      lightboxCounter.style.display = multi ? 'block' : 'none';
+    }
+
+    function openLightbox(listingId, startIndex){
+      const photos = photosByListing[listingId];
+      if (!photos || photos.length === 0) return;
+      lightboxPhotos = photos;
+      lightboxIndex = startIndex || 0;
+      renderLightbox();
+      lightboxOverlay.classList.add('open');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeLightbox(){
+      lightboxOverlay.classList.remove('open');
+      document.body.style.overflow = '';
+    }
+
+    function lightboxGoPrev(){
+      lightboxIndex = (lightboxIndex - 1 + lightboxPhotos.length) % lightboxPhotos.length;
+      renderLightbox();
+    }
+    function lightboxGoNext(){
+      lightboxIndex = (lightboxIndex + 1) % lightboxPhotos.length;
+      renderLightbox();
+    }
+
+    document.getElementById('lightbox-close').addEventListener('click', closeLightbox);
+    lightboxPrev.addEventListener('click', lightboxGoPrev);
+    lightboxNext.addEventListener('click', lightboxGoNext);
+
+    lightboxOverlay.addEventListener('click', function(e){
+      if (e.target === lightboxOverlay || e.target.classList.contains('lightbox-stage')) {
+        closeLightbox();
+      }
+    });
+
+    document.addEventListener('keydown', function(e){
+      if (!lightboxOverlay.classList.contains('open')) return;
+      if (e.key === 'Escape') closeLightbox();
+      if (e.key === 'ArrowLeft') lightboxGoPrev();
+      if (e.key === 'ArrowRight') lightboxGoNext();
+    });
+
+    // Swipe support
+    let touchStartX = 0;
+    lightboxOverlay.addEventListener('touchstart', function(e){
+      touchStartX = e.changedTouches[0].clientX;
+    }, { passive:true });
+    lightboxOverlay.addEventListener('touchend', function(e){
+      const dx = e.changedTouches[0].clientX - touchStartX;
+      if (Math.abs(dx) < 40) return;
+      if (dx < 0) lightboxGoNext(); else lightboxGoPrev();
+    }, { passive:true });
+
+    // ---------- Report modal ----------
+    const reportOverlay = document.getElementById('report-modal-overlay');
+    let reportTargetListingId = null, reportTargetHostId = null;
+
+    function openReportModal(listingId, hostId){
+      reportTargetListingId = listingId;
+      reportTargetHostId = hostId;
+      document.getElementById('report-reason').value = 'fraudulent';
+      document.getElementById('report-details').value = '';
+      document.getElementById('report-modal-msg').textContent = '';
+      document.getElementById('report-submit-btn').style.display = 'block';
+      reportOverlay.classList.add('open');
+    }
+    function closeReportModal(){ reportOverlay.classList.remove('open'); }
+
+    document.getElementById('report-cancel-btn').addEventListener('click', closeReportModal);
+    reportOverlay.addEventListener('click', function(e){ if (e.target === reportOverlay) closeReportModal(); });
+
+    document.getElementById('report-submit-btn').addEventListener('click', async function(){
+      const btn = this;
+      const msg = document.getElementById('report-modal-msg');
+      btn.disabled = true; btn.textContent = 'Submitting...';
+
+      const { error } = await supabaseClient.from('reports').insert({
+        reporter_id: currentUser.id,
+        host_id: reportTargetHostId,
+        listing_id: reportTargetListingId,
+        reason: document.getElementById('report-reason').value,
+        details: document.getElementById('report-details').value || null
+      });
+
+      btn.disabled = false; btn.textContent = 'Submit report';
+
+      if (error) {
+        msg.textContent = error.message;
+        msg.className = 'report-modal-msg error';
+        return;
+      }
+      msg.textContent = 'Report submitted. Thank you for helping keep VaRoom trustworthy.';
+      msg.className = 'report-modal-msg success';
+      btn.style.display = 'none';
+      setTimeout(closeReportModal, 1800);
+    });
+
+    async function loadRecommended(){
+      const row = document.getElementById('reco-row');
+      if (!row) return;
+
+      const { data } = await supabaseClient
+        .from('listings')
+        .select('id,title,location_text,category,listing_photos(storage_path)')
+        .eq('is_promoted', true)
+        .order('created_at', { ascending:false })
+        .limit(6);
+
+      if (!data || data.length === 0){
+        const slot = row.closest('.mobile-widget-slot');
+        if (slot) slot.style.display = 'none';
+        return;
+      }
+
+      row.innerHTML = data.map(function(l){
+        let img = '';
+        if (l.listing_photos && l.listing_photos.length > 0){
+          img = '<img src="' + supabaseClient.storage.from('listing-photos').getPublicUrl(l.listing_photos[0].storage_path).data.publicUrl + '" alt="">';
+        }
+        return (
+          '<a class="reco-card" href="/booking?listing=' + l.id + '">' +
+            img +
+            '<div class="reco-card-overlay">' +
+              '<div class="reco-card-title">' + escapeHtml(l.title) + '</div>' +
+              '<div class="reco-card-loc">' + escapeHtml(l.location_text || '') + '</div>' +
+            '</div>' +
+          '</a>'
+        );
+      }).join('');
+    }
+
+    // Builds the "Recommended for you" + "VaRoom Updates" widget block that
+    // gets spliced into the mobile feed after the first post. Property News
+    // is deliberately NOT part of this block — it has its own standalone
+    // section above the feed (#mobile-property-news-section) so it isn't
+    // mixed in between listing posts. Real data is filled in afterward by
+    // loadRecommended() / loadVaroomUpdates().
+    function mobileWidgetsBlock(){
+      return (
+        '<div class="mobile-widget-slot">' +
+          '<div class="mobile-widget-card">' +
+            '<div class="mobile-widget-head"><h2>Recommended for you</h2></div>' +
+            '<div class="reco-row" id="reco-row"><p class="state-msg" style="padding:0;font-size:.85rem;">Loading…</p></div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="mobile-widget-slot">' +
+          '<div class="mobile-widget-card">' +
+            '<div class="mobile-widget-head"><h2>VaRoom Updates</h2></div>' +
+            '<div id="varoom-updates-mobile" style="display:flex;flex-direction:column;gap:.9rem;"><p class="state-msg" style="padding:0;font-size:.85rem;">Loading…</p></div>' +
+          '</div>' +
+        '</div>'
+      );
+    }
+
+    async function loadFeed(){
+      feedList.innerHTML = window.SkeletonLoader.feedCards(3);
+
+      const term = searchTerm.trim();
+
+      function withCategory(q){
+        if (currentCategory !== 'all') return q.eq('category', currentCategory);
+        if (currentView === 'home' && interestedCategories.length > 0) return q.in('category', interestedCategories);
+        return q;
+      }
+
+      let data, error;
+
+      if (!term) {
+        const res = await withCategory(
+          supabaseClient.from('listings').select(FEED_SELECT).order('created_at', { ascending:false })
+        );
+        data = res.data; error = res.error;
+      } else {
+        // Search matches location text OR the host's username (usernames
+        // are unique, so this is a fast way to jump straight to one host's
+        // listings). Run as two queries and merge, rather than a single
+        // raw filter string, to avoid escaping issues with special
+        // characters in what someone types.
+        const locQuery = withCategory(
+          supabaseClient.from('listings').select(FEED_SELECT).ilike('location_text', '%' + term + '%')
+        );
+
+        const { data: matchingHosts } = await supabaseClient
+          .from('profiles')
+          .select('id')
+          .ilike('username', '%' + term + '%');
+        const hostIds = (matchingHosts || []).map(function(p){ return p.id; });
+
+        const hostQuery = hostIds.length > 0
+          ? withCategory(supabaseClient.from('listings').select(FEED_SELECT).in('host_id', hostIds))
+          : Promise.resolve({ data: [], error: null });
+
+        const [locRes, hostRes] = await Promise.all([locQuery, hostQuery]);
+
+        if (locRes.error) { data = null; error = locRes.error; }
+        else if (hostRes.error) { data = null; error = hostRes.error; }
+        else {
+          const seen = new Set();
+          data = [];
+          (locRes.data || []).concat(hostRes.data || []).forEach(function(listing){
+            if (!seen.has(listing.id)) { seen.add(listing.id); data.push(listing); }
+          });
+          data.sort(function(a, b){ return new Date(b.created_at) - new Date(a.created_at); });
+        }
+      }
+
+      if (error) {
+        feedList.innerHTML = '<p class="state-msg">Couldn\'t load listings: ' + escapeHtml(error.message) + '</p>';
+        return;
+      }
+
+      if (!data || data.length === 0) {
+        const isEmptyHome = currentView === 'home' && currentCategory === 'all' && !term && interestedCategories.length > 0;
+        feedList.innerHTML = '<p class="state-msg">' + (isEmptyHome
+          ? 'Nothing matching your interests yet — try Explore to see everything.'
+          : 'No listings match yet — try a different category, location, or @username.') + '</p>';
+        return;
+      }
+
+      const listingIds = data.map(function(l){ return l.id; });
+      await loadListingVideoUrls(listingIds);
+      const cardsHtml = data.map(renderCard);
+      const showMobileWidgets = currentView === 'home' && currentCategory === 'all' && !term &&
+        window.matchMedia('(max-width:1180px)').matches;
+      if (showMobileWidgets) {
+        cardsHtml.splice(1, 0, mobileWidgetsBlock());
+      }
+      feedList.innerHTML = cardsHtml.join('');
+      attachCardListeners(feedList);
+      if (showMobileWidgets) {
+        loadRecommended();
+        loadVaroomUpdates('varoom-updates-mobile');
+      }
+    }
+
+    // ---------- Toast (honest "coming soon" feedback) ----------
+    const toastEl = document.getElementById('toast');
+    let toastTimeout;
+    function showToast(message){
+      clearTimeout(toastTimeout);
+      toastEl.textContent = message;
+      toastEl.classList.add('show');
+      toastTimeout = setTimeout(function(){ toastEl.classList.remove('show'); }, 2200);
+    }
+    document.querySelectorAll('[data-soon]').forEach(function(el){
+      el.addEventListener('click', function(){
+        showToast(el.getAttribute('data-soon') + ' is coming soon.');
+      });
+    });
+
+    // ---------- Mobile sidebar drawer (doubles as the "You" menu on mobile) ----------
+    const sidebar = document.getElementById('sidebar');
+    const backdrop = document.getElementById('sidebar-backdrop');
+
+    function openSidebar(){
+      sidebar.classList.add('mobile-open');
+      backdrop.classList.add('show');
+    }
+    function closeSidebar(){
+      sidebar.classList.remove('mobile-open');
+      backdrop.classList.remove('show');
+    }
+
+    backdrop.addEventListener('click', closeSidebar);
+    sidebar.querySelectorAll('.nav-item, .logout-btn').forEach(function(el){
+      el.addEventListener('click', closeSidebar);
+    });
+    document.getElementById('topbar-avatar-btn').addEventListener('click', openSidebar);
+    if (typeof initNotifications === 'function') {
+      initNotifications(supabaseClient, currentUser);
+    } else {
+      console.warn('notifications-widget.js failed to load — notifications are disabled for this session.');
+    }
+    document.getElementById('notif-nav-item').addEventListener('click', function(e){
+      e.stopPropagation();
+      document.getElementById('notif-bell').click();
+    });
+
+    // ---------- Shared view switching (sidebar nav-items + bottom bar both call these) ----------
+    function setActiveNav(viewName){
+      document.querySelectorAll('.nav-item[data-nav]').forEach(function(n){
+        n.classList.toggle('active', n.getAttribute('data-nav') === viewName);
+      });
+      document.querySelectorAll('.bottom-bar-item[data-bottom-nav]').forEach(function(n){
+        n.classList.toggle('active', n.getAttribute('data-bottom-nav') === viewName);
+      });
+    }
+
+    function resetFilters(){
+      currentCategory = 'all';
+      searchTerm = '';
+      searchInput.value = '';
+      tabsEl.querySelectorAll('.tab').forEach(function(t){ t.classList.remove('active'); });
+      tabsEl.querySelector('[data-category="all"]').classList.add('active');
+    }
+
+    function showHomeView(){
+      setActiveNav('home');
+      currentView = 'home';
+      document.getElementById('feed-title').textContent = interestedCategories.length > 0 ? 'For you' : 'Find the perfect space';
+      resetFilters();
+      loadFeed();
+    }
+
+    function showExploreView(){
+      setActiveNav('explore');
+      currentView = 'explore';
+      document.getElementById('feed-title').textContent = 'Explore everything';
+      resetFilters();
+      loadFeed();
+    }
+
+    function showSavedView(){
+      setActiveNav('saved');
+      document.getElementById('feed-title').textContent = 'Saved';
+      feedList.innerHTML = window.SkeletonLoader.feedCards(3);
+      supabaseClient
+        .from('listings')
+        .select(FEED_SELECT)
+        .in('id', Array.from(bookmarkedIds))
+        .then(function(res){
+          if (!res.data || res.data.length === 0) {
+            feedList.innerHTML = '<p class="state-msg">Nothing saved yet — tap the bookmark icon on a listing to save it here.</p>';
+            return;
+          }
+          feedList.innerHTML = res.data.map(renderCard).join('');
+          attachCardListeners(feedList);
+        });
+    }
+
+    const viewHandlers = { home: showHomeView, explore: showExploreView, saved: showSavedView };
+
+    document.querySelectorAll('.nav-item[data-nav]').forEach(function(item){
+      item.addEventListener('click', function(){
+        viewHandlers[item.getAttribute('data-nav')]();
+      });
+    });
+
+    document.querySelectorAll('.bottom-bar-item[data-bottom-nav]').forEach(function(item){
+      item.addEventListener('click', function(){
+        viewHandlers[item.getAttribute('data-bottom-nav')]();
+      });
+    });
+
+    // ---------- Events ----------
+    tabsEl.querySelectorAll('.tab').forEach(function(tab){
+      tab.addEventListener('click', function(){
+        tabsEl.querySelectorAll('.tab').forEach(function(t){ t.classList.remove('active'); });
+        tab.classList.add('active');
+        currentCategory = tab.getAttribute('data-category');
+        loadFeed();
+      });
+    });
+
+    let searchDebounce;
+    searchInput.addEventListener('input', function(){
+      clearTimeout(searchDebounce);
+      searchDebounce = setTimeout(function(){
+        searchTerm = searchInput.value;
+        loadFeed();
+      }, 350);
+    });
+
+    document.getElementById('logout-btn').addEventListener('click', async function(){
+      await supabaseClient.auth.signOut();
+      window.location.href = '/';
+    });
+
+    function wireDestClicks(container){
+      container.querySelectorAll('[data-city]').forEach(function(btn){
+        btn.addEventListener('click', function(){
+          goToCityListings(btn.getAttribute('data-city'));
+        });
+      });
+    }
+
+    async function loadDestinations(){
+      const grid = document.getElementById('dest-grid');
+      const mobileRow = document.getElementById('mobile-dest-row');
+      if (!grid && !mobileRow) return;
+
+      const counts = await Promise.all(DESTINATIONS.map(function(d){
+        return supabaseClient
+          .from('listings')
+          .select('id', { count: 'exact', head: true })
+          .ilike('location_text', '%' + d.city + '%');
+      }));
+
+      if (grid) {
+        grid.innerHTML = DESTINATIONS.map(function(d, i){
+          const count = (counts[i] && typeof counts[i].count === 'number') ? counts[i].count : 0;
+          const countLabel = count > 0 ? (count + (count === 1 ? ' place' : ' places')) : 'New';
+          return (
+            '<button type="button" class="dest-card" data-city="' + d.city + '">' +
+              '<img src="' + d.file + '" alt="' + d.city + '" loading="lazy">' +
+              '<div class="dest-card-overlay">' +
+                '<div class="dest-card-name">' + d.city + '</div>' +
+                '<div class="dest-card-count">' + countLabel + '</div>' +
+              '</div>' +
+            '</button>'
+          );
+        }).join('');
+        wireDestClicks(grid);
+      }
+
+      if (mobileRow) {
+        mobileRow.innerHTML = DESTINATIONS.map(function(d, i){
+          const count = (counts[i] && typeof counts[i].count === 'number') ? counts[i].count : 0;
+          const countLabel = count > 0 ? (count + (count === 1 ? ' place' : ' places')) : 'New';
+          return (
+            '<button type="button" class="mobile-dest-card" data-city="' + d.city + '">' +
+              '<img src="' + d.file + '" alt="' + d.city + '" loading="lazy">' +
+              '<div class="mobile-dest-card-overlay">' +
+                '<div class="mobile-dest-card-name">' + d.city + '</div>' +
+                '<div class="mobile-dest-card-count">' + countLabel + '</div>' +
+              '</div>' +
+            '</button>'
+          );
+        }).join('');
+        wireDestClicks(mobileRow);
+      }
+    }
+
+    function goToCityListings(city){
+      setActiveNav('explore');
+      currentView = 'explore';
+      document.getElementById('feed-title').textContent = city + ' listings';
+      currentCategory = 'all';
+      tabsEl.querySelectorAll('.tab').forEach(function(t){ t.classList.remove('active'); });
+      tabsEl.querySelector('[data-category="all"]').classList.add('active');
+      searchTerm = city;
+      searchInput.value = city;
+      loadFeed();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // Each news box is shown for a fixed window after it was published,
+    // then disappears on its own rather than sitting there indefinitely.
+    const PROPERTY_NEWS_DISPLAY_MS = 60 * 60 * 1000; // 1 hour
+    const PROPERTY_NEWS_REFRESH_MS = 5 * 60 * 1000; // re-check for new items every 5 minutes
+    let propertyNewsItems = [];
+    let propertyNewsRefreshTimer = null;
+    let propertyNewsExpiryTimer = null;
+
+    function clientPropertyNewsSourceUrl(news){
+      const value = news && news.source && news.source.url;
+      return /^https?:\/\//i.test(String(value || '')) ? String(value) : '';
+    }
+
+    function wireClientPropertyNewsImages(container){
+      container.querySelectorAll('.client-property-news-image').forEach(function(image){
+        const wrapper = image.closest('.client-property-news-image-wrap');
+        image.addEventListener('load', function(){ if (wrapper) wrapper.classList.add('is-loaded'); }, { once:true });
+        image.addEventListener('error', function(){ if (wrapper) wrapper.remove(); }, { once:true });
+        if (image.complete && image.naturalWidth > 0 && wrapper) wrapper.classList.add('is-loaded');
+      });
+    }
+
+    function clientPropertyNewsHtml(items){
+      return items.slice(0, 3).map(function(news){
+        const source = news.source || {};
+        const sourceUrl = clientPropertyNewsSourceUrl(news);
+        const sourceName = typeof source.name === 'string' && source.name.trim() ? source.name.trim() : '';
+        const image = typeof news.image_url === 'string' && news.image_url.trim()
+          ? '<div class="client-property-news-image-wrap"><img class="client-property-news-image" src="' + escapeHtml(news.image_url) + '" alt="" decoding="async"></div>'
+          : '';
+        const sourceHtml = sourceName
+          ? '<div class="client-property-news-source">' + (sourceUrl
+            ? '<a class="client-property-news-source-link" href="' + escapeHtml(sourceUrl) + '" target="_blank" rel="noopener noreferrer">Source · ' + escapeHtml(sourceName) + '</a>'
+            : 'Source · ' + escapeHtml(sourceName)) + '</div>'
+          : '';
+        const dateValue = source.published_at || news.published_at;
+        return '<article class="client-property-news-item"><a class="client-property-news-main" href="/property-news?id=' + encodeURIComponent(news.id) + '">' + image + '<div class="client-property-news-kicker">Property News</div><div class="client-property-news-title">' + escapeHtml(news.title || 'Property update') + '</div><div class="client-property-news-meta"><span>' + escapeHtml([].concat(news.counties || [], news.towns || []).filter(Boolean).slice(0, 3).join(' · ') || 'Kenya') + '</span><span>•</span><span>' + escapeHtml(dateValue ? timeAgo(dateValue) : 'Recently') + '</span></div></a>' + sourceHtml + '</article>';
+      }).join('');
+    }
+
+    // Drops items whose published time is older than the display window.
+    // Items with no date at all are kept, since there's no age to judge.
+    function freshPropertyNews(items){
+      const now = Date.now();
+      return (items || []).filter(function(news){
+        const source = news.source || {};
+        const publishedAt = source.published_at || news.published_at;
+        if (!publishedAt) return true;
+        const publishedTime = new Date(publishedAt).getTime();
+        if (isNaN(publishedTime)) return true;
+        return (now - publishedTime) <= PROPERTY_NEWS_DISPLAY_MS;
+      });
+    }
+
+    function renderPropertyNewsContainers(){
+      const containers = [document.getElementById('client-property-news'), document.getElementById('client-property-news-mobile')].filter(Boolean);
+      if (!containers.length) return;
+      const fresh = freshPropertyNews(propertyNewsItems);
+      const html = fresh.length ? clientPropertyNewsHtml(fresh) : '<p class="client-property-news-empty">Nothing new right now.</p>';
+      containers.forEach(function(container){ container.innerHTML = html; wireClientPropertyNewsImages(container); });
+    }
+
+    async function loadClientPropertyNews(){
+      const containers = [document.getElementById('client-property-news'), document.getElementById('client-property-news-mobile')].filter(Boolean);
+      if (!containers.length) return;
+      try {
+        const response = await fetch('/api/news/latest?limit=3', { headers:{ Accept:'application/json' } });
+        if (!response.ok) throw new Error('Property News request failed');
+        const items = await response.json();
+        propertyNewsItems = Array.isArray(items) ? items : [];
+        renderPropertyNewsContainers();
+      } catch (error) {
+        console.warn('Property News could not be loaded:', error);
+        containers.forEach(function(container){ container.innerHTML = '<p class="client-property-news-error">Property News is temporarily unavailable.</p>'; });
+      }
+    }
+
+    function startPropertyNewsTimers(){
+      clearInterval(propertyNewsRefreshTimer);
+      clearInterval(propertyNewsExpiryTimer);
+      propertyNewsRefreshTimer = setInterval(loadClientPropertyNews, PROPERTY_NEWS_REFRESH_MS);
+      // Checked more often than the refetch so a box disappears close to
+      // on-time once its hour is up, without waiting on the next fetch.
+      propertyNewsExpiryTimer = setInterval(renderPropertyNewsContainers, 60 * 1000);
+    }
+
+    const propertyNewsRefreshBtn = document.getElementById('property-news-refresh');
+    if (propertyNewsRefreshBtn) propertyNewsRefreshBtn.addEventListener('click', loadClientPropertyNews);
+    const propertyNewsRefreshBtnMobile = document.getElementById('property-news-refresh-mobile');
+    if (propertyNewsRefreshBtnMobile) propertyNewsRefreshBtnMobile.addEventListener('click', loadClientPropertyNews);
+
+    async function loadVaroomUpdates(targetId){
+      const wrap = document.getElementById(targetId);
+      if (!wrap) return;
+
+      const { data, error } = await supabaseClient
+        .from('varoom_updates')
+        .select('id,body,image_url,image_urls,created_at')
+        .order('created_at', { ascending:false })
+        .limit(3);
+
+      if (error || !data || data.length === 0){
+        wrap.innerHTML = '<p class="state-msg" style="padding:0;font-size:.85rem;">No updates yet.</p>';
+        return;
+      }
+
+      wrap.innerHTML = data.map(function(u){
+        const photos = (u.image_urls && u.image_urls.length > 0) ? u.image_urls : (u.image_url ? [u.image_url] : []);
+        const photosHtml = photos.length > 0
+          ? '<div class="update-photos">' + photos.map(function(url){
+              return '<img src="' + url + '" alt="" class="update-img">';
+            }).join('') + '</div>'
+          : '';
+        return (
+          '<div class="update-card">' +
+            photosHtml +
+            '<div class="update-body">' + u.body + '</div>' +
+          '</div>'
+        );
+      }).join('');
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('view') === 'saved') {
+      showSavedView();
+    } else {
+      loadFeed();
+    }
+    loadDestinations();
+    loadVaroomUpdates('varoom-updates');
+    loadClientPropertyNews();
+    startPropertyNewsTimers();
+  })();
+  </script>
+<script src="js/varoom-video-player.js"></script>
+
+</body>
+</html>

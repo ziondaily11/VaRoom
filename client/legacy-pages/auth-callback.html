@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Signing you in — VaRoom</title>
+<link rel="icon" href="favicon/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon/favicon-16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="favicon/favicon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;0,9..144,900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#1A1210; --paper:#FBF4F1;
+    --font-display:'Fraunces', serif; --font-body:'Inter', sans-serif;
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  body{ font-family:var(--font-body); background:var(--paper); color:var(--ink); min-height:100vh; }
+  button{ font-family:inherit; cursor:pointer; border:none; }
+
+  main{ max-width:460px; margin:0 auto; padding:6vh 6vw; min-height:100vh; display:flex; flex-direction:column; justify-content:center; align-items:center; }
+
+  .loading{ display:flex; flex-direction:column; align-items:center; gap:.9rem; }
+
+  .brand-lockup{ display:flex; align-items:center; gap:.6rem; }
+
+  .brand-vr-icon{ width:40px; height:40px; object-fit:contain; flex-shrink:0; }
+
+  .brand-divider{ width:1px; height:1.6rem; background:rgba(26,18,16,.18); flex-shrink:0; }
+
+  .brand-wordmark{
+    font-family:var(--font-display);
+    font-weight:900;
+    font-size:1.9rem;
+    line-height:1;
+  }
+  .brand-wordmark .va{
+    color:var(--red);
+  }
+  .brand-wordmark .room{ color:var(--ink); }
+
+  .brand-tagline{
+    font-size:.78rem; font-weight:600; letter-spacing:.08em; text-transform:uppercase;
+    color:#7a6b67; margin-top:-.2rem;
+  }
+
+  .loading-spinner{
+    width:22px; height:22px; border-radius:50%;
+    border:2.5px solid rgba(26,18,16,.12); border-top-color:var(--red);
+    animation:spin .8s linear infinite; margin-top:.2rem;
+  }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+
+  @media (prefers-reduced-motion: reduce){
+    .loading-spinner{ animation:none; }
+  }
+
+  .loading-text{ font-size:.9rem; color:#7a6b67; }
+
+  h1{
+    font-family:var(--font-display); font-weight:600;
+    font-size:1.8rem; margin-bottom:.6rem; text-align:center;
+  }
+  .sub{ font-size:1rem; color:#3a2e2c; text-align:center; margin-bottom:2rem; }
+
+  .role-options{ display:flex; flex-direction:column; gap:.9rem; width:100%; }
+
+  .role-card{
+    text-align:left; background:var(--white); border:1.5px solid rgba(26,18,16,.1);
+    border-radius:16px; padding:1.1rem 1.2rem; display:flex; flex-direction:column; gap:.3rem;
+    transition:border-color .2s ease, transform .2s ease; width:100%;
+  }
+  .role-card:hover{ border-color:var(--red); transform:translateY(-2px); }
+
+  .role-title{ font-weight:700; font-size:1rem; color:var(--ink); }
+  .role-desc{ font-size:.85rem; color:#6a5b57; line-height:1.45; }
+
+  .error-msg{
+    background:#FBE9E9; border:1px solid rgba(196,30,58,.3); color:var(--red-deep);
+    border-radius:14px; padding:1.4rem 1.6rem; font-size:.95rem; text-align:center;
+  }
+
+  .link-issue-panel{
+    background:var(--white); border:1px solid rgba(26,18,16,.1); border-radius:16px;
+    padding:1.8rem 1.6rem; text-align:center; width:100%;
+  }
+  .link-issue-icon{
+    width:52px; height:52px; margin:0 auto 1rem; border-radius:50%;
+    background:rgba(196,30,58,.08); display:flex; align-items:center; justify-content:center; color:var(--red-deep);
+  }
+  .link-issue-panel h2{ font-family:var(--font-display); font-weight:600; font-size:1.25rem; margin-bottom:.6rem; }
+  .link-issue-sub{ font-size:.88rem; color:#3a2e2c; line-height:1.55; margin-bottom:1.3rem; }
+  .link-issue-panel input{
+    font-family:inherit; font-size:.92rem; padding:.75rem .9rem; border:1px solid rgba(26,18,16,.15);
+    border-radius:12px; background:var(--paper); color:var(--ink); width:100%; margin-bottom:.8rem;
+  }
+  .link-issue-panel input:focus{ outline:none; border-color:var(--red); }
+  .resend-btn{
+    background:var(--white); border:1.5px solid var(--red); color:var(--red-deep);
+    padding:.65rem 1.3rem; border-radius:100px; font-weight:600; font-size:.85rem; width:100%;
+  }
+  .resend-btn:hover{ background:rgba(196,30,58,.06); }
+  .resend-btn:disabled{ opacity:.5; cursor:not-allowed; border-color:rgba(26,18,16,.15); color:#7a6b67; }
+  .resend-cooldown{ font-size:.78rem; color:#7a6b67; display:block; margin-top:.5rem; }
+  .resend-feedback{ font-size:.82rem; color:#2e7d32; margin-top:.7rem; min-height:1.2em; }
+  .resend-feedback.error{ color:var(--red); }
+  .link-issue-footer{ font-size:.85rem; color:#7a6b67; margin-top:1.2rem; }
+  .link-issue-footer a{ color:var(--red); font-weight:600; }
+</style>
+</head>
+<body>
+
+<main>
+  <div id="loading" class="loading">
+    <div class="brand-lockup">
+      <img src="favicon/favicon-96.png" alt="VaRoom" class="brand-vr-icon">
+      <span class="brand-divider"></span>
+      <span class="brand-wordmark"><span class="va">Va</span><span class="room">Room</span></span>
+    </div>
+    <p class="brand-tagline">Find. List. Book.</p>
+    <p class="loading-text" id="loading-text">Signing you in…</p>
+    <div class="loading-spinner" aria-hidden="true"></div>
+  </div>
+
+  <div id="role-picker" style="display:none; width:100%;">
+    <h1>Almost there.</h1>
+    <p class="sub">How are you using VaRoom?</p>
+    <div class="role-options">
+      <button type="button" class="role-card" data-role="host">
+        <span class="role-title">I'm a Host</span>
+        <span class="role-desc">List and showcase your spaces — Airbnbs, hotels, venues, offices, shops, or property.</span>
+      </button>
+      <button type="button" class="role-card" data-role="client">
+        <span class="role-title">I'm a Client</span>
+        <span class="role-desc">Find suitable places for events and stays.</span>
+      </button>
+    </div>
+  </div>
+
+  <div id="error-box" style="display:none;" class="error-msg"></div>
+
+  <div id="expired-panel" class="link-issue-panel" style="display:none;">
+    <div class="link-issue-icon">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+    </div>
+    <h2>This link has expired</h2>
+    <p class="link-issue-sub">Verification links only last a little while. Enter your email and we'll send a fresh one.</p>
+    <input type="email" id="expired-email-input" placeholder="you@example.com" autocomplete="email">
+    <button type="button" class="resend-btn" id="expired-resend-btn">Send new link</button>
+    <span class="resend-cooldown" id="expired-cooldown"></span>
+    <p class="resend-feedback" id="expired-feedback"></p>
+    <p class="link-issue-footer">Already have an account? <a href="/login">Log in</a></p>
+  </div>
+
+  <div id="invalid-panel" class="link-issue-panel" style="display:none;">
+    <div class="link-issue-icon">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </div>
+    <h2>This link isn't valid</h2>
+    <p class="link-issue-sub">It may have already been used, or the link got cut off. If you're not signed in yet, try logging in or requesting a new verification email.</p>
+    <p class="link-issue-footer" style="margin-top:0;"><a href="/login">Log in</a> · <a href="/">Create an account</a></p>
+  </div>
+</main>
+
+<script src="js/supabase-client.js"></script>
+<script>
+  (async function(){
+    const loading = document.getElementById('loading');
+    const loadingText = document.getElementById('loading-text');
+    const rolePicker = document.getElementById('role-picker');
+    const errorBox = document.getElementById('error-box');
+    const expiredPanel = document.getElementById('expired-panel');
+    const invalidPanel = document.getElementById('invalid-panel');
+
+    // Capture any Supabase-reported auth error from the URL before anything
+    // else runs. Never log these params — description text can occasionally
+    // echo back token-adjacent details, so this stays out of the console.
+    const hashParams = new URLSearchParams((window.location.hash || '').replace(/^#/, ''));
+    const queryParams = new URLSearchParams(window.location.search || '');
+    const authErrorCode = hashParams.get('error_code') || queryParams.get('error_code') || '';
+    const authErrorDescription = hashParams.get('error_description') || queryParams.get('error_description') || '';
+    const hasAuthError = !!(hashParams.get('error') || queryParams.get('error'));
+
+    function showError(message){
+      loading.style.display = 'none';
+      errorBox.textContent = message;
+      errorBox.style.display = 'block';
+    }
+
+    function showExpiredPanel(){
+      loading.style.display = 'none';
+      expiredPanel.style.display = 'block';
+
+      let cooldownTimer = null;
+      function startCooldown(seconds){
+        const btn = document.getElementById('expired-resend-btn');
+        const cooldownEl = document.getElementById('expired-cooldown');
+        clearInterval(cooldownTimer);
+        let remaining = seconds;
+        if (remaining <= 0) { btn.disabled = false; cooldownEl.textContent = ''; return; }
+        btn.disabled = true;
+        cooldownEl.textContent = 'You can resend in ' + remaining + 's';
+        cooldownTimer = setInterval(function(){
+          remaining -= 1;
+          if (remaining <= 0) {
+            clearInterval(cooldownTimer);
+            btn.disabled = false;
+            cooldownEl.textContent = '';
+          } else {
+            cooldownEl.textContent = 'You can resend in ' + remaining + 's';
+          }
+        }, 1000);
+      }
+
+      document.getElementById('expired-resend-btn').addEventListener('click', async function(){
+        const emailInput = document.getElementById('expired-email-input');
+        const feedback = document.getElementById('expired-feedback');
+        const email = emailInput.value.trim();
+
+        if (!email) {
+          feedback.classList.add('error');
+          feedback.textContent = 'Enter the email you signed up with.';
+          emailInput.focus();
+          return;
+        }
+
+        feedback.classList.remove('error');
+        feedback.textContent = 'Sending…';
+
+        const { error: resendError } = await supabaseClient.auth.resend({
+          type: 'signup',
+          email: email,
+          options: { emailRedirectTo: window.location.origin + '//auth-callback' }
+        });
+
+        // Keep this generic either way — don't confirm/deny whether the
+        // email is registered, and don't surface raw provider error text.
+        if (resendError && resendError.message && /rate/i.test(resendError.message)) {
+          feedback.classList.add('error');
+          feedback.textContent = "You've requested a few of these already — please wait a bit before trying again.";
+          startCooldown(60);
+          return;
+        }
+
+        feedback.textContent = "If that email has a pending verification, we've sent a new link.";
+        startCooldown(45);
+      });
+    }
+
+    function showInvalidPanel(){
+      loading.style.display = 'none';
+      invalidPanel.style.display = 'block';
+    }
+
+    const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
+
+    // A session takes priority over any error param in the URL: it means
+    // this link (or an earlier click of it) already succeeded, or the user
+    // is already signed in from before — either way, just continue in.
+    if (!session) {
+      if (hasAuthError) {
+        const looksExpired = /expired/i.test(authErrorCode) || /expired/i.test(authErrorDescription);
+        if (looksExpired) {
+          showExpiredPanel();
+        } else {
+          showInvalidPanel();
+        }
+        return;
+      }
+
+      if (sessionError) {
+        showError('Something went wrong signing you in. Please try again from the login page.');
+        setTimeout(function(){ window.location.href = '/login'; }, 2500);
+        return;
+      }
+
+      // No session, no reported error, and nothing else to go on (e.g. this
+      // page was opened directly with no token at all).
+      showError('Something went wrong signing you in. Please try again from the login page.');
+      setTimeout(function(){ window.location.href = '/login'; }, 2500);
+      return;
+    }
+
+    const user = session.user;
+    const authType = hashParams.get('type') || queryParams.get('type') || '';
+
+    if (authType === 'recovery') {
+      window.location.href = '/forgot-password?mode=reset';
+      return;
+    }
+
+    // VaRoom's own official account lands on the updates composer instead
+    // of a normal host/client dashboard, regardless of how it signed in.
+    if (user.email === 'varoonhq@gmail.com') {
+      window.location.href = '/varoom-post';
+      return;
+    }
+
+    // Does a profile already exist for this user?
+    const { data: profile, error: profileError } = await supabaseClient
+      .from('profiles')
+      .select('role, onboarding_completed')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    if (profileError) {
+      showError('Signed in, but could not check your profile: ' + profileError.message);
+      return;
+    }
+
+    if (profile && profile.role) {
+      // Fully resolved existing user — route by their saved role and onboarding status
+      redirectByRole(profile.role, profile.onboarding_completed);
+      return;
+    }
+
+    // Either no profile row exists yet (rare — the DB trigger should
+    // normally have created one), or it exists but role is still null
+    // (e.g. a Google sign-in, since Google has no channel to tell the
+    // trigger which role was intended). Either way, we need to resolve
+    // the role now.
+    const intendedRole = sessionStorage.getItem('varoom_intended_role') || user.user_metadata.role;
+    const fullName = user.user_metadata.full_name || user.user_metadata.name || user.email;
+
+    if (intendedRole === 'host' || intendedRole === 'client') {
+      await setRoleAndRedirect(intendedRole, fullName);
+      return;
+    }
+
+    // No prior intent recorded — ask now
+    loading.style.display = 'none';
+    rolePicker.style.display = 'block';
+
+    document.querySelectorAll('.role-card').forEach(function(card){
+      card.addEventListener('click', async function(){
+        const role = card.getAttribute('data-role');
+        rolePicker.style.display = 'none';
+        loadingText.textContent = 'Setting up your account';
+        loading.style.display = 'flex';
+        await setRoleAndRedirect(role, fullName);
+      });
+    });
+
+    async function setRoleAndRedirect(role, name){
+      // Upsert rather than insert: the DB trigger has very likely already
+      // created this row (with role=null), so we need to update it, not
+      // create a second conflicting one. This also safely covers the rare
+      // case where no row exists at all yet.
+      const { error: upsertError } = await supabaseClient
+        .from('profiles')
+        .upsert({ id: user.id, role: role, full_name: name }, { onConflict: 'id' });
+
+      if (upsertError) {
+        showError('Signed in, but could not finish setting up your profile: ' + upsertError.message);
+        return;
+      }
+
+      sessionStorage.removeItem('varoom_intended_role');
+      // A user who just had their role resolved for the first time hasn't
+      // been through onboarding yet.
+      redirectByRole(role, false);
+    }
+
+    function redirectByRole(role, onboardingCompleted){
+          if (!onboardingCompleted) {
+            window.location.href = '/onboarding';
+            return;
+          }
+          if (role === 'host') {
+            window.location.href = '/host-home';
+          } else {
+            window.location.href = '/client-home';
+          }
+        }
+  })();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Create host account — VaRoom</title>
+  <link rel="icon" href="favicon/favicon.ico" sizes="any">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --paper: #080504;
+      --surface: #140f0e;
+      --ink: #ffffff;
+      --muted: #9e8e89;
+      --line: rgba(255,255,255,0.12);
+      --crimson: #c41e3a;
+      --deep-red: #8f1229;
+      --serif: Georgia, "Times New Roman", serif;
+      --sans: Arial, Helvetica, sans-serif;
+      --mono: "SFMono-Regular", Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; max-height: 100vh; overflow: hidden; }
+
+    body {
+      font-family: var(--sans);
+      background: var(--paper);
+      color: var(--ink);
+      height: 100vh;
+    }
+
+    a { color: inherit; text-decoration: none; }
+
+    /* ── Top bar ── */
+    .topbar {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 5vw;
+      background: transparent;
+    }
+
+    .logo {
+      font: 700 24px var(--serif);
+      letter-spacing: -1px;
+      color: white;
+    }
+    .logo span { color: var(--crimson); }
+
+    .back-link {
+      font: 11px var(--mono);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: color 0.2s;
+    }
+    .back-link:hover { color: white; }
+
+    /* ── Layout ── */
+    .page {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      height: 100vh;
+      overflow: hidden;
+      background: var(--paper);
+    }
+
+    /* ── Left photo panel ── */
+    .photo-panel {
+      position: relative;
+      overflow: hidden;
+      height: 100vh;
+    }
+
+    .photo-panel img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center;
+    }
+
+    .photo-wordmark {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font: 700 clamp(32px, 4vw, 56px) var(--serif);
+      letter-spacing: -2px;
+      color: white;
+      text-shadow: 0 2px 20px rgba(0,0,0,0.6);
+      white-space: nowrap;
+      z-index: 2;
+    }
+    .photo-wordmark .dot { color: var(--crimson); }
+
+    .photo-caption {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      padding: 24px 28px;
+      background: linear-gradient(180deg, transparent 0%, rgba(8,5,4,0.7) 40%, rgba(8,5,4,0.95) 100%);
+      color: white;
+      z-index: 2;
+    }
+    .photo-caption p {
+      font: 400 20px var(--serif);
+      line-height: 1.3;
+    }
+
+    /* ── Right form panel ── */
+    .form-panel {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 0 7vw;
+      overflow-y: auto;
+      height: 100vh;
+      background: var(--paper);
+    }
+
+    .form-eyebrow {
+      font: 10px var(--mono);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: #e0314b;
+      margin-bottom: 14px;
+    }
+
+    .form-title {
+      font: 400 clamp(32px, 4vw, 48px) var(--serif);
+      letter-spacing: -1.5px;
+      line-height: 1.1;
+      margin-bottom: 12px;
+      color: white;
+    }
+
+    .form-sub {
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.6;
+      margin-bottom: 14px;
+      max-width: 380px;
+    }
+
+    /* Form fields */
+    .field {
+      margin-bottom: 12px;
+    }
+
+    .field input {
+      width: 100%;
+      padding: 13px 16px;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 10px;
+      background: #181211;
+      font: 14px var(--sans);
+      color: white;
+      outline: none;
+      transition: border-color 0.2s, background-color 0.2s;
+    }
+
+    .field input::placeholder { color: rgba(255,255,255,0.35); }
+    .field input:focus { border-color: rgba(255,255,255,0.35); background: #201716; }
+    .field input.error { border-color: var(--crimson); }
+
+    .field-error {
+      font-size: 11px;
+      color: #ff8093;
+      margin-top: 4px;
+      display: none;
+    }
+
+    /* Checkbox */
+    .checkbox-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin: 4px 0 16px;
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .checkbox-row input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      margin-top: 2px;
+      flex-shrink: 0;
+      accent-color: var(--crimson);
+      cursor: pointer;
+    }
+
+    .checkbox-row a { color: #e0314b; }
+    .checkbox-row a:hover { text-decoration: underline; }
+
+    /* Submit button */
+    .btn-submit {
+      width: 100%;
+      padding: 15px;
+      background: linear-gradient(180deg, #e0314b 0%, #c41e3a 100%);
+      color: white;
+      border: none;
+      border-radius: 999px;
+      font: 600 14px var(--sans);
+      cursor: pointer;
+      transition: transform 0.15s, opacity 0.2s, box-shadow 0.2s;
+      box-shadow: 0 4px 20px rgba(196,30,58,0.35);
+      position: relative;
+    }
+    .btn-submit:hover { box-shadow: 0 6px 24px rgba(196,30,58,0.45); }
+    .btn-submit:active { transform: scale(0.98); }
+    .btn-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .btn-submit .spinner {
+      display: none;
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,0.4);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin: 0 auto;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .btn-submit.loading .btn-text { display: none; }
+    .btn-submit.loading .spinner { display: block; }
+
+    .form-note {
+      text-align: center;
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 10px;
+      line-height: 1.5;
+    }
+
+    .form-switch {
+      text-align: center;
+      margin-top: 14px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .form-switch a { color: #e0314b; font-weight: 600; }
+    .form-switch a:hover { text-decoration: underline; }
+
+    /* Alert */
+    .alert {
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      margin-bottom: 18px;
+      display: none;
+      line-height: 1.5;
+    }
+    .alert.error { background: rgba(196,30,58,0.18); color: #ff8093; border: 1px solid rgba(196,30,58,0.4); }
+    .alert.success { background: rgba(46,125,50,0.2); color: #a5d6a7; border: 1px solid rgba(76,175,80,0.4); }
+    .alert.show { display: block; }
+
+    /* ── Mobile ── */
+    @media (max-width: 760px) {
+      html, body { overflow: auto; }
+      .page { grid-template-columns: 1fr; height: auto; }
+      .photo-panel { display: none; }
+      .topbar { background: transparent; }
+      .form-panel {
+        padding: 85px 7vw 50px;
+        max-width: 100%;
+        justify-content: flex-start;
+        height: auto;
+        overflow-y: visible;
+        background: #080504;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <a href="/" class="logo">VaRoom<span>.</span></a>
+  <a href="/" class="back-link">← Back to VaRoom</a>
+</div>
+
+<div class="page">
+
+  <!-- Left: photo -->
+  <div class="photo-panel">
+    <img src="assets/auth-bg.jpg" alt="A home for every kind of place" />
+    <div class="photo-wordmark">VaRoom<span class="dot">.</span></div>
+    <div class="photo-caption">A home for every kind of place.</div>
+  </div>
+
+  <!-- Right: form -->
+  <div class="form-panel">
+    <p class="form-eyebrow">Register as host</p>
+    <h1 class="form-title">Create your host account.</h1>
+    <p class="form-sub">List and showcase your spaces — Airbnbs, hotels, venues, offices, shops, or property to let or sell.</p>
+
+    <div class="alert" id="form-alert"></div>
+
+    <form id="signup-form" novalidate>
+      <div class="field">
+        <input type="text" id="fullname" placeholder="Full name" autocomplete="name" required />
+        <div class="field-error" id="err-fullname">Please enter your full name</div>
+      </div>
+
+      <div class="field">
+        <input type="email" id="email" placeholder="Email address" autocomplete="email" required />
+        <div class="field-error" id="err-email">Please enter a valid email address</div>
+      </div>
+
+      <div class="field">
+        <input type="password" id="password" placeholder="Password" autocomplete="new-password" required />
+        <div class="field-error" id="err-password">Password must be at least 8 characters</div>
+      </div>
+
+      <div class="field">
+        <input type="password" id="confirm-password" placeholder="Confirm password" autocomplete="new-password" required />
+        <div class="field-error" id="err-confirm">Passwords do not match</div>
+      </div>
+
+      <div class="checkbox-row">
+        <input type="checkbox" id="agree" required />
+        <label for="agree">I agree to the <a href="/privacy">Privacy Policy</a> and <a href="/terms">Terms of Service</a>.</label>
+      </div>
+
+      <button type="submit" class="btn-submit" id="submit-btn">
+        <span class="btn-text">Create host account</span>
+        <div class="spinner"></div>
+      </button>
+
+      <p class="form-note">We'll send a confirmation email to help you finish setting up.</p>
+      <p class="form-switch">Already have an account? <a href="/login">Log in</a></p>
+    </form>
+  </div>
+
+</div>
+
+<script src="js/supabase-client.js" onerror="console.warn('supabase-client.js not found')"></script>
+<script>
+  const SUPABASE_URL  = 'https://deaphymimdaygeavhyek.supabase.co';
+  const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRlYXBoeW1pbWRheWdlYXZoeWVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY1MjAwNDQsImV4cCI6MjEwMjA5NjA0NH0.placeholder';
+  window.supabaseClient = window.supabaseClient || supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+  var form      = document.getElementById('signup-form');
+  var submitBtn = document.getElementById('submit-btn');
+  var alertBox  = document.getElementById('form-alert');
+
+  function showAlert(msg, type) {
+    alertBox.textContent = msg;
+    alertBox.className = 'alert ' + type + ' show';
+  }
+
+  function clearAlert() {
+    alertBox.className = 'alert';
+  }
+
+  function setError(fieldId, errId, show) {
+    var input = document.getElementById(fieldId);
+    var err   = document.getElementById(errId);
+    if (show) {
+      input.classList.add('error');
+      err.style.display = 'block';
+    } else {
+      input.classList.remove('error');
+      err.style.display = 'none';
+    }
+    return show;
+  }
+
+  function validate() {
+    var name     = document.getElementById('fullname').value.trim();
+    var email    = document.getElementById('email').value.trim();
+    var pass     = document.getElementById('password').value;
+    var confirm  = document.getElementById('confirm-password').value;
+    var agreed   = document.getElementById('agree').checked;
+    var valid    = true;
+
+    if (setError('fullname', 'err-fullname', name.length < 2)) valid = false;
+    if (setError('email', 'err-email', !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) valid = false;
+    if (setError('password', 'err-password', pass.length < 8)) valid = false;
+    if (setError('confirm-password', 'err-confirm', pass !== confirm)) valid = false;
+
+    if (!agreed) {
+      showAlert('Please agree to the Privacy Policy and Terms of Service.', 'error');
+      valid = false;
+    }
+    return valid;
+  }
+
+  form.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    clearAlert();
+    if (!validate()) return;
+
+    var name    = document.getElementById('fullname').value.trim();
+    var email   = document.getElementById('email').value.trim();
+    var pass    = document.getElementById('password').value;
+    var redirect = new URLSearchParams(window.location.search).get('redirect');
+
+    submitBtn.classList.add('loading');
+    submitBtn.disabled = true;
+
+    try {
+      var { data, error } = await supabaseClient.auth.signUp({
+        email: email,
+        password: pass,
+        options: {
+          data: {
+            full_name: name,
+            role: 'host'
+          },
+          emailRedirectTo: window.location.origin + '//auth-callback' +
+            (redirect ? '?redirect=' + encodeURIComponent(redirect) : '')
+        }
+      });
+
+      if (error) throw error;
+
+      // Store intended role
+      sessionStorage.setItem('varoom_intended_role', 'host');
+
+      // If email confirmation required
+      if (data.user && !data.session) {
+        showAlert('Account created! Check your email to confirm and finish setting up.', 'success');
+        form.reset();
+      } else if (data.session) {
+        // Auto-confirmed — go to host onboarding
+        window.location.href = redirect || '/onboarding';
+      }
+
+    } catch(err) {
+      var msg = err.message || 'Something went wrong. Please try again.';
+      if (msg.includes('already registered')) {
+        msg = 'An account with this email already exists. <a href="/login" style="color:var(--deep-red);font-weight:600;">Log in instead</a>';
+        alertBox.innerHTML = msg;
+        alertBox.className = 'alert error show';
+      } else {
+        showAlert(msg, 'error');
+      }
+    } finally {
+      submitBtn.classList.remove('loading');
+      submitBtn.disabled = false;
+    }
+  });
+
+  // Clear errors on input
+  ['fullname','email','password','confirm-password'].forEach(function(id) {
+    document.getElementById(id).addEventListener('input', function() {
+      this.classList.remove('error');
+    });
+  });
+</script>
+</body>
+</html>

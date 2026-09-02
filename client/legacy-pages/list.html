@@ -1,0 +1,1230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>List your space — VaRoom</title>
+<script>
+  (function(){
+    try{
+      var saved = localStorage.getItem('varoom_theme') || 'system';
+      var resolved = saved === 'system'
+        ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+        : saved;
+      document.documentElement.setAttribute('data-theme', resolved);
+    }catch(e){}
+  })();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;0,9..144,900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#1A1210; --paper:#FBF4F1;
+    --muted:#7a6b67;
+    --font-display:'Fraunces', serif; --font-body:'Inter', sans-serif;
+
+    /* Wizard-specific tokens. Fixed editorial palette — intentionally not
+       swapped by the light/dark theme toggle, which only affects the
+       surrounding site chrome (header, success/error states). */
+    --wz-dark:#1B120F;
+    --wz-dark-2:#241B18;
+    --wz-dark-border:rgba(255,255,255,.10);
+    --wz-cream:#F4E9DC;
+    --wz-cream-2:#EBDCC9;
+    --wz-cream-border:rgba(26,18,16,.12);
+    --wz-ink-onlight:#241A16;
+    --wz-cream-text-muted:#6b584c;
+  }
+  [data-theme="dark"]{
+    --white:#241C1A; --paper:#15100F; --ink:#F5EFEC; --muted:#B8ACA8;
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  body{ font-family:var(--font-body); background:var(--paper); color:var(--ink); min-height:100vh; transition:background .2s ease, color .2s ease; }
+  a{ color:inherit; text-decoration:none; }
+  button{ font-family:inherit; cursor:pointer; border:none; background:none; }
+  :focus-visible{ outline:3px solid var(--red-deep); outline-offset:3px; }
+
+  header{ display:flex; align-items:center; justify-content:space-between; padding:1.5rem 2.5rem; }
+  .logo{ font-family:var(--font-display); font-weight:900; font-size:1.55rem; display:flex; align-items:baseline; }
+  .logo .va{ color:var(--red); }
+  .back-link{ font-size:.9rem; font-weight:500; }
+  .back-link:hover{ color:var(--red); }
+
+  .checking-msg{ text-align:center; padding:6rem 0; color:var(--muted); }
+
+  /* ============ WIZARD SHELL ============ */
+  .wizard{ background:#0E0A09; min-height:100vh; padding:0 0 3rem; }
+  .wizard-top-nav{ display:flex; align-items:center; justify-content:space-between; padding:1.4rem 2.5rem; }
+  .wizard-top-nav .logo{ color:#F5EFEC; }
+  .wizard-top-nav .logo .va{ color:var(--red); }
+  .wizard-top-nav .back-link{ font-size:.88rem; color:#B8ACA8; }
+  .wizard-top-nav .back-link:hover{ color:#fff; }
+
+  .wizard-shell{ max-width:1240px; margin:.5rem auto 0; padding:0 2.2vw; }
+
+  .step-frame{ display:none; }
+  .step-frame.active{ display:grid; grid-template-columns:minmax(340px,460px) 1fr; border-radius:22px; overflow:hidden; min-height:640px; box-shadow:0 30px 70px rgba(0,0,0,.45); }
+
+  /* -- Panel tones -- */
+  .step-panel{ padding:2.6rem 2.6rem 2.4rem; display:flex; flex-direction:column; }
+  .tone-dark .step-panel{ background:var(--wz-dark); color:#F5EFEC; }
+  .tone-cream .step-panel{ background:var(--wz-cream); color:var(--wz-ink-onlight); }
+  .tone-red .step-panel{ background:var(--red); color:#fff; }
+
+  .panel-brand{ display:flex; align-items:center; gap:.5rem; font-family:var(--font-display); font-weight:800; font-size:1.05rem; margin-bottom:1.9rem; }
+  .panel-brand .roof{ width:0; height:0; border-left:7px solid transparent; border-right:7px solid transparent; border-bottom:10px solid var(--red); }
+  .tone-red .panel-brand .roof{ border-bottom-color:#fff; }
+  .tone-dark .panel-brand{ color:#F5EFEC; }
+  .tone-cream .panel-brand{ color:var(--wz-ink-onlight); }
+  .tone-red .panel-brand{ color:#fff; }
+
+  .progress-row{ display:flex; align-items:center; gap:.9rem; margin-bottom:1.8rem; }
+  .progress-ring{ position:relative; width:60px; height:60px; border-radius:50%; flex:none;
+    background:conic-gradient(var(--ring-fg) calc(var(--pct) * 3.6deg), var(--ring-bg) 0deg); }
+  .progress-ring::after{ content:''; position:absolute; inset:6px; border-radius:50%; background:var(--ring-hole); }
+  .progress-ring span{ position:relative; z-index:1; display:flex; align-items:center; justify-content:center; width:100%; height:100%; font-size:.72rem; font-weight:700; }
+  .tone-dark .progress-ring{ --ring-fg:var(--red); --ring-bg:rgba(255,255,255,.14); --ring-hole:var(--wz-dark); }
+  .tone-cream .progress-ring{ --ring-fg:var(--red); --ring-bg:rgba(26,18,16,.12); --ring-hole:var(--wz-cream); }
+  .tone-red .progress-ring{ --ring-fg:#fff; --ring-bg:rgba(255,255,255,.28); --ring-hole:var(--red); }
+
+  .progress-text{ font-size:.78rem; }
+  .progress-text .step-count{ font-weight:700; }
+  .tone-dark .progress-text{ color:#D8CBC6; }
+  .tone-cream .progress-text{ color:var(--wz-cream-text-muted); }
+  .tone-red .progress-text{ color:rgba(255,255,255,.85); }
+
+  .step-eyebrow{ font-size:.78rem; font-weight:700; letter-spacing:.13em; text-transform:uppercase; margin-bottom:.6rem; }
+  .tone-dark .step-eyebrow, .tone-red .step-eyebrow{ color:rgba(255,255,255,.65); }
+  .tone-cream .step-eyebrow{ color:var(--red-deep); }
+
+  .step-title{ font-family:var(--font-display); font-weight:600; font-size:clamp(1.65rem,2.6vw,2.05rem); line-height:1.12; margin-bottom:.6rem; }
+  .step-sub{ font-size:.92rem; line-height:1.55; margin-bottom:1.7rem; }
+  .tone-dark .step-sub{ color:#C9BDB8; }
+  .tone-cream .step-sub{ color:var(--wz-cream-text-muted); }
+  .tone-red .step-sub{ color:rgba(255,255,255,.88); }
+
+  .step-fields{ flex:1; }
+  .field{ display:flex; flex-direction:column; gap:.4rem; margin-bottom:1.05rem; }
+  .field:last-child{ margin-bottom:0; }
+  .field-row{ display:grid; grid-template-columns:1fr 1fr; gap:.7rem; }
+  label{ font-size:.85rem; font-weight:600; }
+  input, textarea, select{
+    font-family:inherit; font-size:.93rem; padding:.72rem .85rem;
+    border-radius:10px; width:100%; border:1px solid transparent;
+  }
+  .tone-dark input, .tone-dark textarea, .tone-dark select{ background:var(--wz-dark-2); color:#F5EFEC; border-color:var(--wz-dark-border); }
+  .tone-dark input::placeholder, .tone-dark textarea::placeholder{ color:#8d7d78; }
+  .tone-cream input, .tone-cream textarea, .tone-cream select{ background:#fff; color:var(--wz-ink-onlight); border-color:var(--wz-cream-border); }
+  .tone-red input, .tone-red textarea, .tone-red select{ background:rgba(255,255,255,.14); color:#fff; border-color:rgba(255,255,255,.3); }
+  .tone-red input::placeholder{ color:rgba(255,255,255,.65); }
+  textarea{ resize:vertical; min-height:80px; }
+  input:focus, textarea:focus, select:focus{ outline:none; border-color:currentColor; }
+
+  .checkbox-row{ display:flex; align-items:center; gap:.6rem; }
+  .checkbox-row input{ width:auto; }
+  .checkbox-row label{ font-weight:500; }
+
+  /* -- Step nav buttons -- */
+  .panel-actions{ display:flex; align-items:center; gap:.9rem; margin-top:1.6rem; }
+  .step-btn{ padding:.9rem 1.4rem; border-radius:100px; font-weight:600; font-size:.9rem; display:inline-flex; align-items:center; gap:.4rem; white-space:nowrap; }
+  .step-btn.next{ background:var(--red); color:#fff; flex:1; justify-content:center; }
+  .step-btn.next:hover{ background:var(--red-deep); }
+  .tone-red .step-btn.next{ background:#fff; color:var(--red-deep); }
+  .tone-red .step-btn.next:hover{ background:#f2e4e4; }
+  .step-btn.back{ background:transparent; font-weight:600; font-size:.86rem; }
+  .tone-dark .step-btn.back{ color:#C9BDB8; }
+  .tone-cream .step-btn.back{ color:var(--wz-cream-text-muted); }
+  .tone-red .step-btn.back{ color:rgba(255,255,255,.85); }
+  .step-btn.back:hover{ text-decoration:underline; }
+  .step-btn:disabled{ opacity:.55; cursor:not-allowed; }
+
+  /* ============ PHOTO SIDE PANEL ============ */
+  .step-photo{ position:relative; background-size:cover; background-position:center; min-height:340px; }
+  .step-photo::after{ content:''; position:absolute; inset:0; background:linear-gradient(180deg, rgba(0,0,0,0) 45%, rgba(0,0,0,.72) 100%); }
+  .step-photo-badge{
+    position:absolute; top:1.3rem; left:1.3rem; z-index:1; background:rgba(20,14,12,.72); color:#fff;
+    font-size:.8rem; font-weight:600; padding:.5rem .9rem; border-radius:100px; display:flex; align-items:center; gap:.4rem;
+    backdrop-filter:blur(4px);
+  }
+  .step-photo-badge .check{ color:#7ED6A5; font-weight:800; }
+  .step-photo-caption{ position:absolute; left:1.6rem; right:1.6rem; bottom:1.6rem; z-index:1; color:#fff; }
+  .step-photo-caption h3{ font-family:var(--font-display); font-weight:600; font-size:1.5rem; margin-bottom:.3rem; }
+  .step-photo-caption p{ font-size:.88rem; color:rgba(255,255,255,.85); max-width:36ch; }
+
+  /* ============ STEP TRACKER ============ */
+  .step-tracker{ max-width:1240px; margin:2.2rem auto 0; padding:0 2.2vw; display:grid; grid-template-columns:repeat(5,1fr); gap:.8rem; }
+  .tracker-item{ background:#17110F; border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:.85rem 1rem; cursor:default; }
+  .tracker-item.completed{ cursor:pointer; }
+  .tracker-item .t-num{ font-size:.72rem; font-weight:700; letter-spacing:.08em; color:#7a6b67; display:block; margin-bottom:.15rem; }
+  .tracker-item .t-label{ font-size:.83rem; font-weight:600; color:#8d7d78; }
+  .tracker-item.active{ background:#241B18; border-color:rgba(196,30,58,.4); }
+  .tracker-item.active .t-num{ color:var(--red); }
+  .tracker-item.active .t-label{ color:#F5EFEC; }
+  .tracker-item.completed .t-label{ color:#C9BDB8; }
+  .tracker-item.completed .t-num:before{ content:'✓ '; color:#7ED6A5; }
+
+  /* ============ LOCATION PICKER (unstyled base kept from original widget) ============ */
+  .vrm-picker-search{ width:100%; box-sizing:border-box; margin-bottom:10px; }
+  .vrm-picker-map-wrap{ position:relative; width:100%; height:220px; border-radius:12px; overflow:hidden; background:#eee; }
+  .vrm-picker-map{ width:100%; height:100%; }
+  .vrm-picker-pin{ position:absolute; top:50%; left:50%; transform:translate(-50%,-100%); font-size:32px; pointer-events:none; filter:drop-shadow(0 2px 3px rgba(0,0,0,.3)); }
+  .vrm-picker-actions{ display:flex; gap:10px; margin-top:10px; flex-wrap:wrap; }
+  .vrm-picker-current, .vrm-picker-confirm{ padding:9px 14px; border-radius:8px; border:1px solid #ddd; background:#fff; cursor:pointer; font-size:.9rem; }
+  .vrm-picker-confirm{ background:var(--red); color:#fff; border-color:var(--red); }
+  .vrm-picker-confirm:disabled{ background:#ddd; border-color:#ddd; color:#888; cursor:not-allowed; }
+  .vrm-picker-address{ margin-top:8px; font-size:.85rem; color:#555; }
+  .location-hint-pill{ display:inline-flex; align-items:center; gap:.4rem; font-size:.78rem; font-weight:600; background:rgba(26,18,16,.08); color:var(--wz-ink-onlight); padding:.5rem .8rem; border-radius:100px; margin-top:1rem; }
+  .location-hint-pill .check{ color:#2E7D32; font-weight:800; }
+  .location-hint-pill.not-ready{ background:rgba(196,30,58,.1); color:var(--red-deep); }
+  .location-hint-pill.not-ready .check{ color:var(--red-deep); }
+  .location-picker-fallback{ border:1.5px dashed var(--wz-cream-border); border-radius:12px; padding:1.4rem 1.1rem; font-size:.85rem; color:var(--wz-cream-text-muted); text-align:center; }
+  .skip-link{ display:block; text-align:center; font-size:.8rem; font-weight:600; color:var(--wz-cream-text-muted); margin-top:.9rem; text-decoration:underline; }
+  .skip-link:hover{ color:var(--red-deep); }
+
+  /* ============ PHOTOS STEP ============ */
+  .photo-hint{ font-size:.78rem; margin-bottom:.9rem; }
+  .tone-dark .photo-hint{ color:#B8ACA8; }
+  .photo-dropzone{
+    border:1.5px dashed var(--wz-dark-border); border-radius:12px; padding:1.2rem 1rem;
+    text-align:center; font-size:.86rem; cursor:pointer; transition:border-color .2s ease; display:block;
+  }
+  .tone-dark .photo-dropzone{ color:#B8ACA8; }
+  .photo-dropzone:hover, .photo-dropzone.dragover{ border-color:var(--red); }
+  .photo-dropzone input[type="file"]{ display:none; }
+
+  .photo-preview-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(76px, 1fr)); gap:.5rem; margin-top:.8rem; }
+  .photo-thumb{ position:relative; border-radius:10px; overflow:hidden; aspect-ratio:1/1; background:var(--wz-dark-2); cursor:grab; }
+  .photo-thumb:active{ cursor:grabbing; }
+  .photo-thumb.drag-over{ outline:2px dashed var(--red); outline-offset:2px; }
+  .photo-thumb img{ width:100%; height:100%; object-fit:cover; display:block; pointer-events:none; }
+  .photo-thumb .remove-photo{
+    position:absolute; top:4px; right:4px; width:20px; height:20px; border-radius:50%;
+    background:rgba(0,0,0,.75); color:#fff; font-size:.75rem; line-height:1;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .photo-thumb .remove-photo:hover{ background:var(--red); }
+  .photo-thumb .cover-tag{
+    position:absolute; bottom:4px; left:4px; background:var(--red); color:#fff; font-size:.62rem; font-weight:700;
+    letter-spacing:.04em; text-transform:uppercase; padding:.2rem .45rem; border-radius:100px;
+  }
+  .photo-error{ font-size:.8rem; color:#ff9d9d; display:none; margin-top:.4rem; }
+  .photo-error.show{ display:block; }
+
+  /* ============ PRICING STEP ============ */
+  .price-preview{ margin-bottom:1.4rem; }
+  .price-preview .amount{ font-family:var(--font-display); font-weight:700; font-size:2.3rem; line-height:1; }
+  .price-preview .unit{ font-size:.95rem; font-weight:500; color:rgba(255,255,255,.85); }
+  .booking-group{ display:none; }
+  .booking-group.active{ display:block; }
+  .booking-hint{ font-size:.8rem; margin-bottom:1rem; line-height:1.5; color:rgba(255,255,255,.8); }
+
+  .cal-header{ display:flex; align-items:center; justify-content:space-between; margin-bottom:.7rem; }
+  .cal-title{ font-weight:700; font-size:.9rem; }
+  .cal-nav{ display:flex; gap:.4rem; }
+  .cal-nav button{ width:28px; height:28px; border-radius:8px; background:rgba(255,255,255,.14); display:flex; align-items:center; justify-content:center; color:#fff; }
+  .cal-nav button:hover{ background:rgba(255,255,255,.24); }
+  .cal-quick{ display:flex; gap:.6rem; margin-bottom:.8rem; }
+  .cal-quick button{ font-size:.75rem; font-weight:600; padding:.4rem .75rem; border-radius:100px; background:rgba(255,255,255,.14); color:#fff; }
+  .cal-quick button:hover{ background:rgba(255,255,255,.24); }
+  .cal-grid{ display:grid; grid-template-columns:repeat(7, 1fr); gap:.25rem; }
+  .cal-dow{ font-size:.62rem; font-weight:700; color:rgba(255,255,255,.6); text-align:center; padding:.2rem 0; }
+  .cal-day{
+    aspect-ratio:1/1; display:flex; align-items:center; justify-content:center;
+    border-radius:7px; font-size:.75rem; background:rgba(255,255,255,.1); color:#fff;
+    cursor:pointer; border:1.5px solid transparent;
+  }
+  .cal-day:hover{ border-color:#fff; }
+  .cal-day.selected{ background:#2E7D32; color:#fff; }
+  .cal-day.past{ opacity:.3; cursor:not-allowed; }
+  .cal-day.empty{ visibility:hidden; cursor:default; }
+  .cal-legend{ font-size:.72rem; color:rgba(255,255,255,.75); margin-top:.6rem; }
+
+  /* ============ REVIEW STEP ============ */
+  .review-card{ background:var(--wz-dark); color:#F5EFEC; border-radius:14px; padding:1rem; display:flex; gap:.9rem; align-items:center; margin-bottom:1.2rem; }
+  .review-card .review-thumb{ width:64px; height:64px; border-radius:10px; object-fit:cover; background:var(--wz-dark-2); flex:none; }
+  .review-card .review-thumb.placeholder{ display:flex; align-items:center; justify-content:center; font-size:.65rem; color:#8d7d78; text-align:center; padding:.3rem; }
+  .review-card h4{ font-family:var(--font-display); font-weight:600; font-size:1.05rem; margin-bottom:.15rem; }
+  .review-card .review-meta{ font-size:.8rem; color:#C9BDB8; margin-bottom:.2rem; }
+  .review-card .review-price{ font-size:.85rem; font-weight:700; color:var(--red); }
+  .review-checklist{ font-size:.83rem; color:var(--wz-cream-text-muted); line-height:1.9; margin-bottom:1.4rem; }
+  .review-checklist li{ list-style:none; display:flex; gap:.5rem; }
+  .review-checklist .check{ color:#2E7D32; font-weight:800; }
+
+  .submit-row{ margin-top:auto; }
+  .submit-btn{ background:var(--red); color:#fff; padding:1.05rem 1.6rem; border-radius:100px; font-weight:600; font-size:1rem; width:100%; transition:background .2s ease; display:flex; align-items:center; justify-content:center; gap:.5rem; }
+  .submit-btn:hover{ background:var(--red-deep); }
+  .submit-btn:disabled{ background:#c9c0bd; cursor:not-allowed; }
+  .form-note{ font-size:.8rem; text-align:center; margin-top:.7rem; color:var(--wz-cream-text-muted); }
+
+  .success-msg{ display:none; max-width:1240px; margin:2rem auto 0; padding:0 2.2vw; }
+  .success-msg .inner{ background:var(--white); border:1px solid rgba(128,110,100,.15); border-radius:14px; padding:1.4rem 1.6rem; font-size:.95rem; color:var(--ink); }
+  .success-msg.show{ display:block; }
+  .success-msg.error .inner{ background:#FBE9E9; border-color:rgba(196,30,58,.3); color:var(--red-deep); }
+  .success-msg a{ color:var(--red); font-weight:600; border-bottom:1.5px solid var(--red); }
+
+  @media (max-width:900px){
+    .step-frame.active{ grid-template-columns:1fr; }
+    .step-photo{ min-height:200px; order:-1; }
+    .step-tracker{ grid-template-columns:repeat(2,1fr); }
+  }
+  @media (max-width:520px){
+    .wizard-top-nav{ padding:1.1rem 1.3rem; }
+    .step-panel{ padding:2rem 1.4rem 1.8rem; }
+    .field-row{ grid-template-columns:1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="checking-msg" id="checking-auth">Checking your account...</div>
+
+<div class="wizard" id="listing-page" style="display:none;">
+  <nav class="wizard-top-nav">
+    <a href="/" class="logo"><span class="va">Va</span><span class="room">Room</span></a>
+    <a href="/" class="back-link">← Back to VaRoom</a>
+  </nav>
+
+  <form id="list-form">
+    <div class="wizard-shell">
+
+      <!-- STEP 1 — About the property -->
+      <section class="step-frame active tone-dark" data-step="1">
+        <div class="step-panel">
+          <div class="panel-brand"><span class="roof"></span> VaRoom</div>
+          <div class="progress-row">
+            <div class="progress-ring" style="--pct:20"><span>20%</span></div>
+            <div class="progress-text"><span class="step-count">01 / 05</span><br>Start with the essentials</div>
+          </div>
+
+          <p class="step-eyebrow">01 — About the property</p>
+          <h1 class="step-title">Let's create your listing.</h1>
+          <p class="step-sub">A few thoughtful details now, then VaRoom turns your space into a place people can picture themselves in.</p>
+
+          <div class="step-fields">
+            <div class="field">
+              <label for="title">Title</label>
+              <input type="text" id="title" name="title" required placeholder="e.g. Cozy 2-bedroom Airbnb near campus">
+            </div>
+            <div class="field">
+              <label for="category">Category</label>
+              <select id="category" name="category" required>
+                <option value="" disabled selected>Choose a category</option>
+                <option value="airbnb">Airbnb</option>
+                <option value="hotel">Hotel</option>
+                <option value="venue">Event ground / venue</option>
+                <option value="office">Office</option>
+                <option value="shop">Shop</option>
+                <option value="property">Property to let or buy</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="description">Description</label>
+              <textarea id="description" name="description" required placeholder="Describe the space — amenities, what makes it a good fit"></textarea>
+            </div>
+          </div>
+
+          <div class="panel-actions">
+            <button type="button" class="step-btn next" data-next>Continue to location →</button>
+          </div>
+        </div>
+        <div class="step-photo" style="background-image:url('assets/listing-wizard/step-1.jpg');">
+          <div class="step-photo-badge"><span class="check">✓</span> Your listing, coming to life</div>
+          <div class="step-photo-caption">
+            <h3>A place worth remembering.</h3>
+            <p>Thoughtfully stage the moments that make this property feel like home.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- STEP 2 — Location & verification -->
+      <section class="step-frame tone-cream" data-step="2">
+        <div class="step-panel">
+          <div class="panel-brand"><span class="roof"></span> VaRoom</div>
+          <div class="progress-row">
+            <div class="progress-ring" style="--pct:40"><span>40%</span></div>
+            <div class="progress-text"><span class="step-count">02 / 05</span><br>Pin the exact spot</div>
+          </div>
+
+          <p class="step-eyebrow">02 — Location</p>
+          <h1 class="step-title">Place it on the map.</h1>
+          <p class="step-sub">Search an area, building, or street, then move the pin to the exact property.</p>
+
+          <div class="step-fields">
+            <div class="field">
+              <div id="location-picker"></div>
+              <input type="hidden" id="location_lat" name="location_lat">
+              <input type="hidden" id="location_lng" name="location_lng">
+              <input type="hidden" id="location_place_id" name="location_place_id">
+              <input type="hidden" id="location_formatted_address" name="location_formatted_address">
+              <input type="hidden" id="location_neighborhood" name="location_neighborhood">
+              <input type="hidden" id="location_city" name="location_city">
+              <input type="hidden" id="location_country" name="location_country">
+            </div>
+            <span class="location-hint-pill" id="location-hint-pill"><span class="check">✓</span> Use current GPS location · confirm before publishing</span>
+          </div>
+
+          <div class="panel-actions">
+            <button type="button" class="step-btn back" data-back>← Back</button>
+            <button type="button" class="step-btn next" data-next>Continue to photos →</button>
+          </div>
+          <button type="button" class="skip-link" id="skip-location">Skip for now — add the exact location later →</button>
+        </div>
+        <div class="step-photo" style="background-image:url('assets/listing-wizard/step-2.jpg');">
+          <div class="step-photo-badge"><span class="check">✓</span> Location confirmed</div>
+          <div class="step-photo-caption">
+            <h3>Every street has a story.</h3>
+            <p>An accurate pin means guests find you on the first try, every time.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- STEP 3 — Photos & gallery -->
+      <section class="step-frame tone-dark" data-step="3">
+        <div class="step-panel">
+          <div class="panel-brand"><span class="roof"></span> VaRoom</div>
+          <div class="progress-row">
+            <div class="progress-ring" style="--pct:60"><span>60%</span></div>
+            <div class="progress-text"><span class="step-count">03 / 05</span><br>Arrange the story</div>
+          </div>
+
+          <p class="step-eyebrow">03 — Photos</p>
+          <h1 class="step-title">Arrange the story.</h1>
+          <p class="step-sub">Choose a cover, add your best angles, then drag to set the order.</p>
+
+          <div class="step-fields">
+            <div class="field">
+              <p class="photo-hint">Up to 6 photos or videos · JPG, PNG, WEBP, MP4, MOV or WEBM · 5MB max each. Optional, but listings with visuals get noticed more.</p>
+              <label class="photo-dropzone" id="photo-dropzone" for="photo-input">
+                <span id="dropzone-text">Click to choose photos or videos, or drag them here</span>
+                <input type="file" id="photo-input" accept="image/png,image/jpeg,image/webp,video/mp4,video/quicktime,video/webm" multiple>
+              </label>
+              <p class="photo-error" id="photo-error"></p>
+              <div class="photo-preview-grid" id="photo-preview"></div>
+            </div>
+          </div>
+
+          <div class="panel-actions">
+            <button type="button" class="step-btn back" data-back>← Back</button>
+            <button type="button" class="step-btn next" data-next>Continue to pricing →</button>
+          </div>
+        </div>
+        <div class="step-photo" style="background-image:url('assets/listing-wizard/step-3.jpg');">
+          <div class="step-photo-badge"><span class="check">✓</span> Gallery ready</div>
+          <div class="step-photo-caption">
+            <h3>Show, don't just tell.</h3>
+            <p>Great photos are the first thing a guest trusts about a space.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- STEP 4 — Pricing & booking -->
+      <section class="step-frame tone-red" data-step="4">
+        <div class="step-panel">
+          <div class="panel-brand"><span class="roof"></span> VaRoom</div>
+          <div class="progress-row">
+            <div class="progress-ring" style="--pct:80"><span>80%</span></div>
+            <div class="progress-text"><span class="step-count">04 / 05</span><br>Set the terms</div>
+          </div>
+
+          <p class="step-eyebrow">04 — Pricing & booking</p>
+          <h1 class="step-title" id="pricing-heading">Make every night clear.</h1>
+          <p class="step-sub" id="booking-heading-sub">Choose a category on step 1 to continue.</p>
+
+          <div class="price-preview">
+            <span class="amount" id="price-preview-amount">KES 0</span>
+            <span class="unit" id="price-preview-unit"> / night</span>
+          </div>
+
+          <div class="step-fields">
+            <div class="field field-row">
+              <div class="field">
+                <label for="price-amount">Price (KES)</label>
+                <input type="number" id="price-amount" name="price-amount" min="0" step="1" placeholder="e.g. 3500">
+              </div>
+              <div class="field">
+                <label for="price-unit">&nbsp;</label>
+                <select id="price-unit" name="price-unit"></select>
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="size-or-type" id="size-label">Size / Type</label>
+              <input type="text" id="size-or-type" name="size-or-type" placeholder="e.g. 2 bedrooms">
+            </div>
+
+            <!-- Short-stay fields: Airbnb, Hotel, Event ground -->
+            <div class="booking-group" id="short-stay-fields">
+              <div class="field-row">
+                <div class="field">
+                  <label for="max-guests">Max guests</label>
+                  <input type="number" id="max-guests" min="1" placeholder="e.g. 4">
+                </div>
+                <div class="field">
+                  <label for="min-stay">Min. stay (nights)</label>
+                  <input type="number" id="min-stay" min="1" placeholder="e.g. 2">
+                </div>
+              </div>
+              <div class="field-row">
+                <div class="field">
+                  <label for="checkin-time">Check-in time</label>
+                  <input type="time" id="checkin-time">
+                </div>
+                <div class="field">
+                  <label for="checkout-time">Check-out time</label>
+                  <input type="time" id="checkout-time">
+                </div>
+              </div>
+              <div class="field">
+                <label for="cleaning-fee">Cleaning fee (KES, optional)</label>
+                <input type="number" id="cleaning-fee" min="0" placeholder="Leave blank if none">
+              </div>
+              <div class="field">
+                <label for="cancellation-policy">Cancellation policy</label>
+                <select id="cancellation-policy">
+                  <option value="flexible">Flexible</option>
+                  <option value="moderate" selected>Moderate</option>
+                  <option value="strict">Strict</option>
+                </select>
+              </div>
+
+              <div class="field">
+                <label>Availability</label>
+                <p class="booking-hint">Tap dates to open them for booking. Clients will only be able to request dates you've opened here.</p>
+                <div class="cal-quick">
+                  <button type="button" id="cal-open-30">Open next 30 days</button>
+                  <button type="button" id="cal-clear">Clear all</button>
+                </div>
+                <div class="cal-header">
+                  <div class="cal-title" id="cal-title"></div>
+                  <div class="cal-nav">
+                    <button type="button" id="cal-prev" aria-label="Previous month">‹</button>
+                    <button type="button" id="cal-next" aria-label="Next month">›</button>
+                  </div>
+                </div>
+                <div class="cal-grid" id="cal-grid"></div>
+                <p class="cal-legend">🟩 Open for booking &nbsp;·&nbsp; tap to toggle</p>
+              </div>
+            </div>
+
+            <!-- Long-term fields: Office, Shop, Property -->
+            <div class="booking-group" id="long-term-fields">
+              <div class="field">
+                <label for="available-from">Available from</label>
+                <input type="date" id="available-from">
+              </div>
+              <div class="field-row">
+                <div class="field">
+                  <label for="min-lease">Min. lease (months)</label>
+                  <input type="number" id="min-lease" min="1" placeholder="e.g. 6">
+                </div>
+                <div class="field">
+                  <label for="deposit-amount">Deposit (KES, optional)</label>
+                  <input type="number" id="deposit-amount" min="0" placeholder="Leave blank if none">
+                </div>
+              </div>
+              <div class="checkbox-row">
+                <input type="checkbox" id="utilities-included">
+                <label for="utilities-included">Utilities included in price</label>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel-actions">
+            <button type="button" class="step-btn back" data-back>← Back</button>
+            <button type="button" class="step-btn next" data-next>Continue to review →</button>
+          </div>
+        </div>
+        <div class="step-photo" style="background-image:url('assets/listing-wizard/step-4.jpg');">
+          <div class="step-photo-badge"><span class="check">✓</span> Pricing set</div>
+          <div class="step-photo-caption">
+            <h3>Every night, accounted for.</h3>
+            <p>Set the terms once — VaRoom handles the requests from here.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- STEP 5 — Review & publish -->
+      <section class="step-frame tone-cream" data-step="5">
+        <div class="step-panel">
+          <div class="panel-brand"><span class="roof"></span> VaRoom</div>
+          <div class="progress-row">
+            <div class="progress-ring" style="--pct:100"><span>100%</span></div>
+            <div class="progress-text"><span class="step-count">05 / 05</span><br>Last look, then live</div>
+          </div>
+
+          <p class="step-eyebrow">05 — Review & publish</p>
+          <h1 class="step-title">Ready when you are.</h1>
+          <p class="step-sub">One last look, then it's live for people to see.</p>
+
+          <div class="step-fields">
+            <div class="review-card">
+              <div class="review-thumb placeholder" id="review-thumb">No photo</div>
+              <div>
+                <h4 id="review-title">Untitled listing</h4>
+                <div class="review-meta" id="review-meta">—</div>
+                <div class="review-price" id="review-price">—</div>
+              </div>
+            </div>
+            <ul class="review-checklist">
+              <li><span class="check">✓</span> Details and description added</li>
+              <li id="review-location-line"><span class="check">✓</span> Location pinned and ready for GPS verification</li>
+              <li><span class="check">✓</span> Pricing and booking terms set</li>
+            </ul>
+          </div>
+
+          <div class="submit-row">
+            <button type="submit" class="submit-btn" id="submit-btn">Publish listing <span>✓</span></button>
+            <p class="form-note">Goes live once saved, subject to GPS location verification.</p>
+          </div>
+          <div class="panel-actions" style="margin-top:1rem;">
+            <button type="button" class="step-btn back" data-back>← Back</button>
+          </div>
+        </div>
+        <div class="step-photo" id="review-hero-photo" style="background-image:url('assets/listing-wizard/step-5.jpg');">
+          <div class="step-photo-badge" id="review-hero-badge"><span class="check">✓</span> Ready to publish</div>
+          <div class="step-photo-caption">
+            <h3 id="review-hero-title">A place worth remembering.</h3>
+            <p id="review-hero-sub">Once you publish, your space is ready for people to picture themselves in it.</p>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </form>
+
+  <div class="step-tracker" id="step-tracker">
+    <div class="tracker-item active" data-step-link="1"><span class="t-num">01</span><span class="t-label">About the property</span></div>
+    <div class="tracker-item" data-step-link="2"><span class="t-num">02</span><span class="t-label">Location & verification</span></div>
+    <div class="tracker-item" data-step-link="3"><span class="t-num">03</span><span class="t-label">Photos & gallery</span></div>
+    <div class="tracker-item" data-step-link="4"><span class="t-num">04</span><span class="t-label">Pricing & booking</span></div>
+    <div class="tracker-item" data-step-link="5"><span class="t-num">05</span><span class="t-label">Review & publish</span></div>
+  </div>
+
+  <div class="success-msg" id="success-msg"><div class="inner" id="success-msg-inner"></div></div>
+</div>
+
+<script src="js/supabase-client.js"></script>
+<script src="js/varoom-maps.js"></script>
+<script>
+  const checkingAuth = document.getElementById('checking-auth');
+  const listingPage = document.getElementById('listing-page');
+  let currentUser = null;
+
+  (async function checkAuth(){
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session) { window.location.href = '/login'; return; }
+    currentUser = session.user;
+
+    const { data: profile, error: profileError } = await supabaseClient
+      .from('profiles').select('role').eq('id', currentUser.id).single();
+
+    if (profileError || !profile || profile.role !== 'host') {
+      checkingAuth.textContent = 'Only host accounts can list a space. Redirecting...';
+      setTimeout(function(){ window.location.href = '/'; }, 1500);
+      return;
+    }
+
+    checkingAuth.style.display = 'none';
+    listingPage.style.display = 'block';
+    initLocationPicker();
+  })();
+
+  // ---------- Location picker ----------
+  // The map picker isn't wired up yet (expected end of this week), so this
+  // guards against a missing/broken VaroomMaps global instead of throwing
+  // and taking down the rest of the wizard. Location becomes a skippable
+  // step until the widget is ready — see #skip-location below.
+  function initLocationPicker(){
+    const container = document.getElementById('location-picker');
+    const hintPill = document.getElementById('location-hint-pill');
+    try {
+      if (typeof VaroomMaps === 'undefined' || !VaroomMaps.createLocationPicker) {
+        throw new Error('VaroomMaps not available');
+      }
+      VaroomMaps.createLocationPicker({
+        container: container,
+        onConfirm: function(loc){
+          document.getElementById('location_lat').value = loc.lat;
+          document.getElementById('location_lng').value = loc.lng;
+          document.getElementById('location_place_id').value = loc.place_id || '';
+          document.getElementById('location_formatted_address').value = loc.formatted_address || '';
+          document.getElementById('location_neighborhood').value = loc.neighborhood || '';
+          document.getElementById('location_city').value = loc.city || '';
+          document.getElementById('location_country').value = loc.country || '';
+          hintPill.classList.remove('not-ready');
+          hintPill.innerHTML = '<span class="check">✓</span> Location confirmed';
+        }
+      });
+    } catch (err) {
+      container.innerHTML = '<div class="location-picker-fallback">Map picker isn\'t connected yet. You can skip this step for now and add the exact location once it\'s ready.</div>';
+      hintPill.classList.add('not-ready');
+      hintPill.innerHTML = '<span class="check">!</span> Location not set — you can skip this step for now';
+    }
+  }
+
+  // ---------- Category-driven booking fields ----------
+  const SHORT_STAY = ['airbnb', 'hotel', 'venue'];
+  const LONG_TERM = ['office', 'shop', 'property'];
+  const CATEGORY_LABELS = {
+    airbnb: 'Airbnb', hotel: 'Hotel', venue: 'Event ground / venue',
+    office: 'Office', shop: 'Shop', property: 'Property to let or buy'
+  };
+
+  const sizeLabels = {
+    airbnb: 'Size (e.g. 2 bedrooms)', hotel: 'Room size / type', venue: 'Capacity (e.g. seats 50)',
+    office: 'Size (e.g. 10 x 10m)', shop: 'Size (e.g. 10 x 10m)', property: 'Type (e.g. bedsitter, 1 bedroom)'
+  };
+  const sizePlaceholders = {
+    airbnb: 'e.g. 2 bedrooms, 1 bath', hotel: 'e.g. Deluxe double room', venue: 'e.g. Seats up to 50',
+    office: 'e.g. 10 x 10m, open plan', shop: 'e.g. 10 x 10m, street-facing', property: 'e.g. Bedsitter, 1 bedroom'
+  };
+  const pricingHeadings = {
+    airbnb: 'Make every night clear.', hotel: 'Make every night clear.', venue: 'Make every booking clear.',
+    office: 'Make every month clear.', shop: 'Make every month clear.', property: 'Make every month clear.'
+  };
+
+  const priceUnitField = document.getElementById('price-unit');
+  const shortStayFields = document.getElementById('short-stay-fields');
+  const longTermFields = document.getElementById('long-term-fields');
+  const bookingSub = document.getElementById('booking-heading-sub');
+  const sizeLabel = document.getElementById('size-label');
+  const sizeInput = document.getElementById('size-or-type');
+  const pricingHeading = document.getElementById('pricing-heading');
+
+  document.getElementById('category').addEventListener('change', function(e){
+    const cat = e.target.value;
+    sizeLabel.textContent = sizeLabels[cat] || 'Size / Type';
+    sizeInput.placeholder = sizePlaceholders[cat] || '';
+    pricingHeading.textContent = pricingHeadings[cat] || 'Make every booking clear.';
+
+    if (SHORT_STAY.includes(cat)) {
+      priceUnitField.innerHTML = '<option value="hour">Per hour</option><option value="night" selected>Per night</option>';
+      shortStayFields.classList.add('active');
+      longTermFields.classList.remove('active');
+      bookingSub.textContent = 'Priced per night or hour, with real availability.';
+    } else if (LONG_TERM.includes(cat)) {
+      priceUnitField.innerHTML = '<option value="month" selected>Per month</option>';
+      longTermFields.classList.add('active');
+      shortStayFields.classList.remove('active');
+      bookingSub.textContent = 'Priced per month, for longer-term arrangements.';
+    }
+    updatePricePreview();
+  });
+
+  function unitLabel(){
+    const val = priceUnitField.value;
+    if (val === 'hour') return ' / hour';
+    if (val === 'month') return ' / month';
+    return ' / night';
+  }
+  function updatePricePreview(){
+    const amount = document.getElementById('price-amount').value;
+    document.getElementById('price-preview-amount').textContent = 'KES ' + (amount ? Number(amount).toLocaleString() : '0');
+    document.getElementById('price-preview-unit').textContent = unitLabel();
+  }
+  document.getElementById('price-amount').addEventListener('input', updatePricePreview);
+  priceUnitField.addEventListener('change', updatePricePreview);
+
+  // ---------- Step navigation ----------
+  const TOTAL_STEPS = 5;
+  let currentStep = 1;
+  let furthestStep = 1;
+  const stepFrames = Array.from(document.querySelectorAll('.step-frame'));
+  const trackerItems = Array.from(document.querySelectorAll('.tracker-item'));
+
+  function validateStep(n){
+    const frame = document.querySelector('.step-frame[data-step="' + n + '"]');
+    const required = frame.querySelectorAll('[required]');
+    for (const field of required) {
+      if (!field.checkValidity()) { field.reportValidity(); return false; }
+    }
+    // Location (step 2) is intentionally not required here — the map picker
+    // isn't wired up yet. See #skip-location and initLocationPicker().
+    return true;
+  }
+
+  document.getElementById('skip-location').addEventListener('click', function(){
+    goToStep(currentStep + 1);
+  });
+
+  function goToStep(n){
+    if (n < 1) n = 1;
+    if (n > TOTAL_STEPS) n = TOTAL_STEPS;
+    currentStep = n;
+    if (n > furthestStep) furthestStep = n;
+
+    stepFrames.forEach(function(f){ f.classList.toggle('active', Number(f.dataset.step) === n); });
+    trackerItems.forEach(function(t){
+      const step = Number(t.dataset.stepLink);
+      t.classList.toggle('active', step === n);
+      t.classList.toggle('completed', step < furthestStep || (step < n));
+    });
+    if (n === 5) renderReviewSummary();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  document.querySelectorAll('[data-next]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      if (!validateStep(currentStep)) return;
+      goToStep(currentStep + 1);
+    });
+  });
+  document.querySelectorAll('[data-back]').forEach(function(btn){
+    btn.addEventListener('click', function(){ goToStep(currentStep - 1); });
+  });
+  trackerItems.forEach(function(t){
+    t.addEventListener('click', function(){
+      const target = Number(t.dataset.stepLink);
+      if (target <= furthestStep) goToStep(target);
+    });
+  });
+
+  // ---------- Review summary ----------
+  function renderReviewSummary(){
+    const title = document.getElementById('title').value || 'Untitled listing';
+    const category = document.getElementById('category').value;
+    const city = document.getElementById('location_city').value;
+    const neighborhood = document.getElementById('location_neighborhood').value;
+    const amount = document.getElementById('price-amount').value;
+
+    document.getElementById('review-title').textContent = title;
+    document.getElementById('review-meta').textContent =
+      [CATEGORY_LABELS[category] || 'Listing', [neighborhood, city].filter(Boolean).join(', ') || city].filter(Boolean).join(' · ');
+    document.getElementById('review-price').textContent = amount
+      ? 'KES ' + Number(amount).toLocaleString() + unitLabel()
+      : 'Price not set';
+
+    const locationLine = document.getElementById('review-location-line');
+    const hasLocation = document.getElementById('location_lat').value && document.getElementById('location_lng').value;
+    locationLine.innerHTML = hasLocation
+      ? '<span class="check">✓</span> Location pinned and ready for GPS verification'
+      : '<span class="check" style="color:var(--red)">!</span> Location skipped — add it later from your listing settings';
+
+    const thumbSlot = document.getElementById('review-thumb');
+    const heroPhoto = document.getElementById('review-hero-photo');
+    const heroBadge = document.getElementById('review-hero-badge');
+    const heroTitle = document.getElementById('review-hero-title');
+    const heroSub = document.getElementById('review-hero-sub');
+    const priceLine = amount ? ('KES ' + Number(amount).toLocaleString() + unitLabel()) : 'Price not set';
+
+    if (selectedFiles.length > 0) {
+      thumbSlot.classList.remove('placeholder');
+      const coverFile = selectedFiles[0];
+      const coverUrl = URL.createObjectURL(coverFile);
+      const isVideo = coverFile.type && coverFile.type.startsWith('video/');
+
+      if (isVideo) {
+        thumbSlot.innerHTML = '<video src="' + coverUrl + '" autoplay muted loop playsinline style="width:100%;height:100%;object-fit:cover;border-radius:10px;display:block;"></video>';
+        heroPhoto.innerHTML = '<video src="' + coverUrl + '" autoplay muted loop playsinline style="width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block;"></video>';
+        heroPhoto.style.backgroundImage = 'none';
+      } else {
+        thumbSlot.innerHTML = '<img src="' + coverUrl + '" alt="Cover photo" style="width:100%;height:100%;object-fit:cover;border-radius:10px;">';
+        heroPhoto.innerHTML = '';
+        heroPhoto.style.backgroundImage = "url('" + coverUrl + "')";
+      }
+
+      heroBadge.innerHTML = '<span class="check">✓</span> Your cover ' + (isVideo ? 'video' : 'photo');
+      heroTitle.textContent = title;
+      heroSub.textContent = [CATEGORY_LABELS[category] || 'Listing', priceLine].filter(Boolean).join(' · ');
+    } else {
+      thumbSlot.classList.add('placeholder');
+      thumbSlot.textContent = 'No media';
+      heroPhoto.innerHTML = '';
+      heroPhoto.style.backgroundImage = "url('assets/listing-wizard/step-5.jpg')";
+      heroBadge.innerHTML = '<span class="check">✓</span> Ready to publish';
+      heroTitle.textContent = 'A place worth remembering.';
+      heroSub.textContent = 'No photos or videos added — you can still publish and add them later.';
+    }
+  }
+
+  // ---------- Availability calendar ----------
+  let calMonth = new Date().getMonth();
+  let calYear = new Date().getFullYear();
+  const openDates = new Set(); // 'YYYY-MM-DD' strings
+
+  function fmtDate(y, m, d){
+    return y + '-' + String(m + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+  }
+
+  function renderCalendar(){
+    const grid = document.getElementById('cal-grid');
+    const title = document.getElementById('cal-title');
+    const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    title.textContent = monthNames[calMonth] + ' ' + calYear;
+
+    const firstDay = new Date(calYear, calMonth, 1).getDay();
+    const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+    const today = new Date(); today.setHours(0,0,0,0);
+
+    let html = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(function(d){ return '<div class="cal-dow">' + d + '</div>'; }).join('');
+    for (let i = 0; i < firstDay; i++) html += '<div class="cal-day empty"></div>';
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = fmtDate(calYear, calMonth, d);
+      const cellDate = new Date(calYear, calMonth, d);
+      const isPast = cellDate < today;
+      const isSelected = openDates.has(dateStr);
+      html += '<div class="cal-day' + (isPast ? ' past' : '') + (isSelected ? ' selected' : '') + '" data-date="' + dateStr + '">' + d + '</div>';
+    }
+    grid.innerHTML = html;
+
+    grid.querySelectorAll('.cal-day:not(.empty):not(.past)').forEach(function(cell){
+      cell.addEventListener('click', function(){
+        const dateStr = cell.getAttribute('data-date');
+        if (openDates.has(dateStr)) { openDates.delete(dateStr); cell.classList.remove('selected'); }
+        else { openDates.add(dateStr); cell.classList.add('selected'); }
+      });
+    });
+  }
+
+  document.getElementById('cal-prev').addEventListener('click', function(){
+    calMonth--; if (calMonth < 0) { calMonth = 11; calYear--; } renderCalendar();
+  });
+  document.getElementById('cal-next').addEventListener('click', function(){
+    calMonth++; if (calMonth > 11) { calMonth = 0; calYear++; } renderCalendar();
+  });
+  document.getElementById('cal-open-30').addEventListener('click', function(){
+    const today = new Date();
+    for (let i = 0; i < 30; i++) {
+      const d = new Date(today); d.setDate(today.getDate() + i);
+      openDates.add(fmtDate(d.getFullYear(), d.getMonth(), d.getDate()));
+    }
+    renderCalendar();
+  });
+  document.getElementById('cal-clear').addEventListener('click', function(){
+    openDates.clear();
+    renderCalendar();
+  });
+  renderCalendar();
+
+  // ---------- Photo selection, preview, drag-to-reorder, validation ----------
+  const MAX_PHOTOS = 6;
+  const MAX_SIZE_BYTES = 5 * 1024 * 1024;
+  const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'video/mp4', 'video/quicktime'];
+  let selectedFiles = [];
+  let dragFromIndex = null;
+
+  const photoInput = document.getElementById('photo-input');
+  const photoDropzone = document.getElementById('photo-dropzone');
+  const photoPreview = document.getElementById('photo-preview');
+  const photoError = document.getElementById('photo-error');
+  const dropzoneText = document.getElementById('dropzone-text');
+
+  function showPhotoError(msg){ photoError.textContent = msg; photoError.classList.add('show'); }
+  function clearPhotoError(){ photoError.classList.remove('show'); }
+
+  function addFiles(fileList){
+    clearPhotoError();
+    const incoming = Array.from(fileList);
+    for (const file of incoming) {
+      if (selectedFiles.length >= MAX_PHOTOS) { showPhotoError('You can add up to ' + MAX_PHOTOS + ' photos or videos.'); break; }
+      if (!ALLOWED_TYPES.includes(file.type)) { showPhotoError('"' + file.name + '" isn\'t a supported photo or video type.'); continue; }
+      if (!file.type.startsWith('video/') && file.size > MAX_SIZE_BYTES) {
+        showPhotoError('"' + file.name + '" is over 5MB.');
+        continue;
+      }
+      if (selectedFiles.some(function(f){ return f.name === file.name && f.size === file.size; })) continue;
+      selectedFiles.push(file);
+    }
+    renderPreviews();
+  }
+
+  function renderPreviews(){
+    photoPreview.innerHTML = '';
+    dropzoneText.textContent = selectedFiles.length === 0
+      ? 'Click to choose photos or videos, or drag them here'
+      : selectedFiles.length + ' of ' + MAX_PHOTOS + ' photos/videos selected — drag to reorder, first is the cover';
+    selectedFiles.forEach(function(file, index){
+      const url = URL.createObjectURL(file);
+      const isVideo = file.type && file.type.startsWith('video/');
+      const thumb = document.createElement('div');
+      thumb.className = 'photo-thumb';
+      thumb.draggable = true;
+      thumb.dataset.index = index;
+      thumb.innerHTML = (isVideo
+        ? '<video src="' + url + '" muted playsinline preload="metadata" style="width:100%;height:100%;object-fit:cover;display:block;"></video>'
+        : '<img src="' + url + '" alt="Selected photo">') +
+        (index === 0 ? '<span class="cover-tag">Cover</span>' : '') +
+        '<button type="button" class="remove-photo" data-index="' + index + '" aria-label="Remove photo">&times;</button>';
+      photoPreview.appendChild(thumb);
+    });
+    photoPreview.querySelectorAll('.remove-photo').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        selectedFiles.splice(parseInt(btn.getAttribute('data-index'), 10), 1);
+        clearPhotoError();
+        renderPreviews();
+      });
+    });
+    // Drag-to-reorder
+    photoPreview.querySelectorAll('.photo-thumb').forEach(function(thumb){
+      thumb.addEventListener('dragstart', function(){
+        dragFromIndex = parseInt(thumb.dataset.index, 10);
+      });
+      thumb.addEventListener('dragover', function(e){
+        e.preventDefault();
+        thumb.classList.add('drag-over');
+      });
+      thumb.addEventListener('dragleave', function(){
+        thumb.classList.remove('drag-over');
+      });
+      thumb.addEventListener('drop', function(e){
+        e.preventDefault();
+        thumb.classList.remove('drag-over');
+        const toIndex = parseInt(thumb.dataset.index, 10);
+        if (dragFromIndex === null || dragFromIndex === toIndex) return;
+        const [moved] = selectedFiles.splice(dragFromIndex, 1);
+        selectedFiles.splice(toIndex, 0, moved);
+        dragFromIndex = null;
+        renderPreviews();
+      });
+    });
+  }
+
+  photoInput.addEventListener('change', function(){ addFiles(photoInput.files); photoInput.value = ''; });
+  photoDropzone.addEventListener('dragover', function(e){ e.preventDefault(); photoDropzone.classList.add('dragover'); });
+  photoDropzone.addEventListener('dragleave', function(){ photoDropzone.classList.remove('dragover'); });
+  photoDropzone.addEventListener('drop', function(e){ e.preventDefault(); photoDropzone.classList.remove('dragover'); addFiles(e.dataTransfer.files); });
+
+  function sanitizeFilename(name){ return name.replace(/[^a-zA-Z0-9.\-_]/g, '_'); }
+
+  function getVideoDuration(file){
+    return new Promise(function(resolve, reject){
+      const url = URL.createObjectURL(file);
+      const video = document.createElement('video');
+      video.preload = 'metadata';
+      video.onloadedmetadata = function(){
+        URL.revokeObjectURL(url);
+        if (Number.isFinite(video.duration)) resolve(video.duration);
+        else reject(new Error('Unable to read video duration'));
+      };
+      video.onerror = function(){
+        URL.revokeObjectURL(url);
+        reject(new Error('Unable to read video duration'));
+      };
+      video.src = url;
+    });
+  }
+
+  async function uploadVideoToR2(file, listingId){
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session || !session.access_token) throw new Error('Your session expired. Please sign in again.');
+
+    const durationSeconds = await getVideoDuration(file);
+    if (durationSeconds > 90) throw new Error('Videos must be 90 seconds or less.');
+
+    let mediaId = null;
+    try {
+      const initResponse = await fetch('/api/properties/' + encodeURIComponent(listingId) + '/videos/upload-init', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + session.access_token
+        },
+        body: JSON.stringify({
+          filename: file.name,
+          mimeType: file.type,
+          fileSize: file.size,
+          durationSeconds: durationSeconds
+        })
+      });
+      const initPayload = await initResponse.json().catch(function(){ return {}; });
+      if (!initResponse.ok) throw new Error(initPayload.error || 'Video upload could not start.');
+      mediaId = initPayload.mediaId;
+
+      const authorization = initPayload.uploadAuthorization || {};
+      if (!authorization.uploadUrl) throw new Error('Video upload did not return a signed storage URL.');
+
+      const uploadResponse = await fetch(authorization.uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': authorization.contentType || file.type },
+        body: file
+      });
+      if (!uploadResponse.ok) throw new Error('Video upload to Cloudflare R2 failed.');
+
+      const completeResponse = await fetch('/api/properties/' + encodeURIComponent(listingId) +
+        '/videos/' + encodeURIComponent(mediaId) + '/complete', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer ' + session.access_token
+          },
+          body: JSON.stringify({ uploadId: initPayload.uploadId })
+        });
+      const completePayload = await completeResponse.json().catch(function(){ return {}; });
+      if (!completeResponse.ok) throw new Error(completePayload.error || 'Video upload could not be finalized.');
+      return mediaId;
+    } catch (error) {
+      if (mediaId) error.mediaId = mediaId;
+      throw error;
+    }
+  }
+
+  async function deleteVideoFromR2(listingId, mediaId){
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session || !session.access_token || !mediaId) return;
+    await fetch('/api/properties/' + encodeURIComponent(listingId) + '/videos/' +
+      encodeURIComponent(mediaId), {
+        method: 'DELETE',
+        headers: { Authorization: 'Bearer ' + session.access_token }
+      });
+  }
+
+  // ---------- Submit ----------
+  document.getElementById('list-form').addEventListener('submit', async function(e){
+    e.preventDefault();
+
+    // Final guard: revalidate every step, in case someone reached step 5
+    // via the tracker without the normal Next-button checks.
+    for (let s = 1; s <= 4; s++) {
+      if (!validateStep(s)) { goToStep(s); return; }
+    }
+
+    const title = document.getElementById('title').value;
+    const category = document.getElementById('category').value;
+    const description = document.getElementById('description').value;
+    const priceAmount = document.getElementById('price-amount').value;
+    const successMsg = document.getElementById('success-msg');
+    const successMsgInner = document.getElementById('success-msg-inner');
+    const submitBtn = document.getElementById('submit-btn');
+
+    const locationLat = document.getElementById('location_lat').value;
+    const locationLng = document.getElementById('location_lng').value;
+    const locationPlaceId = document.getElementById('location_place_id').value;
+    const locationFormattedAddress = document.getElementById('location_formatted_address').value;
+    const locationNeighborhood = document.getElementById('location_neighborhood').value;
+    const locationCity = document.getElementById('location_city').value;
+    const locationCountry = document.getElementById('location_country').value;
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Publishing...';
+
+    const listingPayload = {
+      host_id: currentUser.id, title, category, description, verified: false,
+      // Maps are still being integrated, so location is intentionally optional for now.
+      // Keep the listing publish flow working without any location fields until the
+      // mapping experience is live again.
+      location_text: [locationNeighborhood, locationCity].filter(Boolean).join(', ') || locationCity || locationCountry || 'Location to be added',
+      ...(locationLat && locationLng ? { latitude: parseFloat(locationLat), longitude: parseFloat(locationLng) } : {}),
+      ...(locationPlaceId ? { place_id: locationPlaceId } : {}),
+      ...(locationFormattedAddress ? { formatted_address: locationFormattedAddress } : {}),
+      ...(locationNeighborhood ? { neighborhood: locationNeighborhood } : {}),
+      ...(locationCity ? { city: locationCity } : {}),
+      ...(locationCountry ? { country: locationCountry } : {}),
+    };
+
+    const { data, error } = await supabaseClient
+      .from('listings')
+      .insert(listingPayload)
+      .select().single();
+
+    if (error) {
+      successMsgInner.textContent = 'Something went wrong: ' + error.message;
+      successMsg.classList.add('show', 'error');
+      successMsg.scrollIntoView({ behavior:'smooth', block:'center' });
+      submitBtn.disabled = false; submitBtn.textContent = 'Publish listing ✓';
+      return;
+    }
+
+    const listingId = data.id;
+
+    // ---------- Booking details ----------
+    const bookingDetails = {
+      listing_id: listingId,
+      price_amount: parseFloat(priceAmount),
+      price_unit: document.getElementById('price-unit').value,
+      size_or_type: sizeInput.value || null
+    };
+
+    if (SHORT_STAY.includes(category)) {
+      bookingDetails.max_guests = document.getElementById('max-guests').value ? parseInt(document.getElementById('max-guests').value, 10) : null;
+      bookingDetails.min_stay_nights = document.getElementById('min-stay').value ? parseInt(document.getElementById('min-stay').value, 10) : null;
+      bookingDetails.checkin_time = document.getElementById('checkin-time').value || null;
+      bookingDetails.checkout_time = document.getElementById('checkout-time').value || null;
+      bookingDetails.cleaning_fee = document.getElementById('cleaning-fee').value ? parseFloat(document.getElementById('cleaning-fee').value) : null;
+      bookingDetails.cancellation_policy = document.getElementById('cancellation-policy').value;
+    } else {
+      bookingDetails.available_from = document.getElementById('available-from').value || null;
+      bookingDetails.min_lease_months = document.getElementById('min-lease').value ? parseInt(document.getElementById('min-lease').value, 10) : null;
+      bookingDetails.deposit_amount = document.getElementById('deposit-amount').value ? parseFloat(document.getElementById('deposit-amount').value) : null;
+      bookingDetails.utilities_included = document.getElementById('utilities-included').checked;
+    }
+
+    await supabaseClient.from('listing_booking_details').insert(bookingDetails);
+
+    // ---------- Availability (short-stay only) ----------
+    if (SHORT_STAY.includes(category) && openDates.size > 0) {
+      const rows = Array.from(openDates).map(function(d){ return { listing_id: listingId, date: d }; });
+      await supabaseClient.from('availability').insert(rows);
+    }
+
+    // ---------- Photos / videos ----------
+    // Keep this insert compatible with the existing listing_photos table.
+    // Ordering and cover selection are handled by the selected file order
+    // until those optional columns are present in the live schema.
+    let uploadedCount = 0, failedCount = 0;
+    const videoMediaIds = [];
+    if (selectedFiles.length > 0) {
+      for (let i = 0; i < selectedFiles.length; i++) {
+        const file = selectedFiles[i];
+        submitBtn.textContent = 'Uploading media ' + (i + 1) + ' of ' + selectedFiles.length + '...';
+        if (file.type && file.type.startsWith('video/')) {
+          try {
+            const mediaId = await uploadVideoToR2(file, listingId);
+            videoMediaIds.push(mediaId);
+            uploadedCount++;
+          } catch (error) {
+            if (error.mediaId) videoMediaIds.push(error.mediaId);
+            failedCount++;
+          }
+          continue;
+        }
+
+        const path = currentUser.id + '/' + listingId + '/' + Date.now() + '_' + i + '_' + sanitizeFilename(file.name);
+        const { error: uploadError } = await supabaseClient.storage.from('listing-photos').upload(path, file, { upsert: false });
+        if (uploadError) { failedCount++; continue; }
+        const { error: photoRowError } = await supabaseClient.from('listing_photos').insert({
+          listing_id: listingId, storage_path: path
+        });
+        if (photoRowError) failedCount++; else uploadedCount++;
+      }
+    }
+
+    if (selectedFiles.length > 0 && failedCount > 0) {
+      for (const mediaId of videoMediaIds) {
+        await deleteVideoFromR2(listingId, mediaId);
+      }
+      await supabaseClient.from('listing_photos').delete().eq('listing_id', listingId);
+      await supabaseClient.from('listing_booking_details').delete().eq('listing_id', listingId);
+      if (SHORT_STAY.includes(category) && openDates.size > 0) {
+        await supabaseClient.from('availability').delete().eq('listing_id', listingId);
+      }
+      await supabaseClient.from('listings').delete().eq('id', listingId);
+
+      successMsgInner.textContent = 'Media upload failed, so the listing was not published. Please try again with the selected files.';
+      successMsg.classList.add('show', 'error');
+      successMsg.scrollIntoView({ behavior:'smooth', block:'center' });
+      submitBtn.disabled = false; submitBtn.textContent = 'Publish listing ✓';
+      return;
+    }
+
+    successMsg.classList.remove('error');
+    let message = 'Listing published! You can add the exact location later from your listing settings.';
+    if (selectedFiles.length > 0) {
+      message += ' All ' + uploadedCount + ' media item' + (uploadedCount === 1 ? '' : 's') + ' uploaded successfully.';
+    }
+    successMsgInner.textContent = message;
+    successMsg.classList.add('show');
+    successMsg.scrollIntoView({ behavior:'smooth', block:'center' });
+
+    document.getElementById('list-form').reset();
+    selectedFiles = []; renderPreviews();
+    openDates.clear(); renderCalendar();
+    submitBtn.disabled = false; submitBtn.textContent = 'Publish listing ✓';
+    furthestStep = 1; goToStep(1);
+  });
+</script>
+
+</body>
+</html>
