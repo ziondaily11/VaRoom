@@ -91,17 +91,7 @@
   .nav-item.active{ background:#fce9ec; color:#8f1229; font-weight:600; }
   .nav-item:hover{ background:#f7f3f2; }
 
-  .sidebar-promo-card{
-    margin-top:auto; border:1px solid rgba(196,30,58,0.12); background:#fff6f7; border-radius:14px; overflow:hidden;
-    box-shadow:0 8px 24px rgba(196, 30, 58, 0.05);
-  }
-  .promo-photo{
-    height:84px; background:linear-gradient(135deg, rgba(196,30,58,0.35), rgba(196,30,58,0.08)), url('https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=900&q=80') center/cover no-repeat;
-  }
-  .promo-copy{ padding:10px 12px 12px; }
-  .promo-small{ font-size:11px; color:#8f1229; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; }
-  .promo-title{ font-size:14px; font-weight:700; color:var(--ink); }
-  .logout-btn{ margin-top:12px; text-align:left; color:#c41e3a; font-weight:600; padding:8px 10px; border-radius:8px; }
+  .logout-btn{ margin-top:auto; text-align:left; color:#c41e3a; font-weight:600; padding:8px 10px; border-radius:8px; }
   .logout-btn:hover{ background:#fce9ec; }
 
   /* ── CENTER COLUMN ── */
@@ -126,8 +116,8 @@
   }
   .profile-avatar img{ width:100%; height:100%; object-fit:cover; display:block; }
   .avatar-upload-btn{
-    position:absolute; right:-2px; bottom:0; width:30px; height:30px; border-radius:50%; background:var(--ink); color:#fff;
-    display:flex; align-items:center; justify-content:center; border:2px solid #fff; cursor:pointer;
+    position:absolute; right:-2px; bottom:0; width:30px; height:30px; border-radius:50%; background:#1a1210; color:#fff;
+    display:flex; align-items:center; justify-content:center; border:2px solid var(--card-bg); cursor:pointer;
   }
   .avatar-upload-btn input{ display:none; }
   .avatar-upload-btn svg{ width:13px; height:13px; }
@@ -149,7 +139,7 @@
   .section-header a{ color:#c41e3a; font-size:12px; font-weight:600; display:inline-flex; align-items:center; gap:6px; }
   .booking-list{ display:flex; flex-direction:column; gap:12px; }
   .booking-item{
-    display:grid; grid-template-columns: 160px 1fr auto; align-items:center; gap:14px; background:#fff; border:1px solid var(--card-border);
+    display:grid; grid-template-columns: 160px 1fr auto; align-items:center; gap:14px; background:var(--card-bg); border:1px solid var(--card-border);
     border-radius:14px; padding:10px; overflow:hidden;
   }
   .booking-thumb{ width:160px; height:104px; border-radius:12px; background-size:cover; background-position:center; }
@@ -161,7 +151,7 @@
   .booking-price-box{ min-width:120px; text-align:right; }
   .booking-price-box .price-total{ font-size:14px; font-weight:700; color:var(--ink); }
   .booking-price-box .price-nights{ font-size:11px; color:var(--muted); }
-  .booking-button{ margin-top:8px; border:1px solid rgba(26,18,16,0.2); border-radius:8px; background:#fff; color:var(--ink); font-weight:600; padding:8px 12px; }
+  .booking-button{ margin-top:8px; border:1px solid var(--card-border); border-radius:8px; background:var(--card-bg); color:var(--ink); font-weight:600; padding:8px 12px; }
   .trip-grid{ display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:14px; }
   .trip-card{ background:var(--card-bg); border:1px solid var(--card-border); border-radius:14px; padding:8px 8px 12px; }
   .trip-image{ height:110px; border-radius:10px; background-size:cover; background-position:center; }
@@ -176,7 +166,7 @@
     display:inline-flex; align-items:center; gap:.4rem;
     font-size:.85rem; font-weight:600; padding:.6rem 1.2rem;
     border-radius:100px; border:1.5px solid var(--card-border);
-    color:var(--ink); background:var(--white);
+    color:var(--ink); background:var(--card-bg);
     transition:border-color .2s ease, background .2s ease;
   }
   .btn-outline:hover{ border-color:var(--red); color:var(--red); }
@@ -214,7 +204,7 @@
   .check-item.incomplete::before{ content:'•'; color:#d5c8c3; }
   .action-list{ margin-top:10px; display:flex; flex-direction:column; gap:10px; }
   .action-item{ width:100%; display:flex; align-items:center; gap:12px; background:transparent; border:none; color:var(--ink); font-weight:600; padding:8px 0; text-align:left; }
-  .action-icon{ width:28px; height:28px; border:1px solid var(--card-border); border-radius:8px; display:flex; align-items:center; justify-content:center; background:#fff; }
+  .action-icon{ width:28px; height:28px; border:1px solid var(--card-border); border-radius:8px; display:flex; align-items:center; justify-content:center; background:var(--card-bg); }
   .action-icon svg{ width:14px; height:14px; }
   .chevron{ margin-left:auto; color:var(--muted); font-size:18px; }
   .verified-tag{ margin-left:auto; background:#eaf7ee; color:#2d7a4d; font-size:10px; font-weight:700; padding:4px 8px; border-radius:999px; }
@@ -233,7 +223,7 @@
   .listings-count{ font-size:.85rem; color:var(--muted); margin-left:.6rem; }
   .listings-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:1.1rem; margin-bottom:3rem; }
   .listing-card{
-    background:var(--white); border:1px solid var(--card-border);
+    background:var(--card-bg); border:1px solid var(--card-border);
     border-radius:16px; overflow:hidden;
     transition:transform .18s ease, box-shadow .18s ease;
     cursor:pointer;
@@ -283,7 +273,7 @@
   .modal-field input, .modal-field textarea{
     width:100%; padding:.7rem .9rem;
     border:1px solid var(--card-border); border-radius:10px;
-    background:var(--white); color:var(--ink);
+    background:var(--paper); color:var(--ink);
     font-family:inherit; font-size:.9rem;
   }
   .modal-field input:focus, .modal-field textarea:focus{ outline:none; border-color:var(--red); }
@@ -327,7 +317,7 @@
   ============================================================ */
   .toast{
     position:fixed; bottom:1.5rem; left:50%; transform:translateX(-50%) translateY(20px);
-    background:var(--ink); color:var(--white); padding:.8rem 1.4rem; border-radius:100px;
+    background:#1a1210; color:#fff; padding:.8rem 1.4rem; border-radius:100px;
     font-size:.88rem; font-weight:600; z-index:400; opacity:0; pointer-events:none;
     transition:opacity .25s ease, transform .25s ease;
   }
@@ -344,7 +334,7 @@
     .bottom-bar{
       display:flex; align-items:center; justify-content:space-around;
       position:fixed; bottom:0; left:0; right:0; z-index:150;
-      background:var(--white); border-top:1px solid rgba(26,18,16,.08);
+      background:var(--card-bg); border-top:1px solid var(--card-border);
       padding:.6rem 0 calc(.6rem + env(safe-area-inset-bottom));
     }
     .bottom-bar-item{
@@ -472,14 +462,6 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>
           Settings
         </a>
-      </div>
-
-      <div class="sidebar-promo-card">
-        <div class="promo-photo"></div>
-        <div class="promo-copy">
-          <div class="promo-small">Earn more</div>
-          <div class="promo-title">Become a Host</div>
-        </div>
       </div>
 
       <button type="button" class="logout-btn" id="logout-btn">Log out</button>
