@@ -118,8 +118,8 @@
 <body>
 
 <header>
-  <a href="host-home.html" class="logo"><span class="va">Va</span><span class="room">Room</span></a>
-  <a href="host-home.html" class="back-link">← Back to dashboard</a>
+  <a href="/host-home" class="logo"><span class="va">Va</span><span class="room">Room</span></a>
+  <a href="/host-home" class="back-link">← Back to dashboard</a>
 </header>
 
 <main>
@@ -162,7 +162,7 @@
     const paymentsPage = document.getElementById('payments-page');
 
     const { data: { session } } = await supabaseClient.auth.getSession();
-    if (!session) { window.location.href = 'login.html'; return; }
+    if (!session) { window.location.href = '/login'; return; }
     const currentUser = session.user;
 
     const { data: profile, error: profileError } = await supabaseClient
@@ -170,7 +170,7 @@
 
     if (profileError || !profile || profile.role !== 'host') {
       checkingAuth.textContent = 'Only host accounts have a payments dashboard. Redirecting…';
-      setTimeout(function(){ window.location.href = 'index.html'; }, 1500);
+      setTimeout(function(){ window.location.href = '/'; }, 1500);
       return;
     }
 
@@ -249,7 +249,7 @@
             '<div class="method-icon">' + iconMpesa + '</div>' +
             '<div><div class="method-name">' + escapeHtml(method.label) + '</div><div class="method-detail">' + escapeHtml(method.destination) + '</div></div>' +
           '</div>' +
-          '<a href="settings.html" class="panel-link">Manage payout settings →</a>' +
+          '<a href="/settings" class="panel-link">Manage payout settings →</a>' +
         '</div>' +
         '<div class="panel">' +
           '<div class="panel-title">Payout schedule</div>' +

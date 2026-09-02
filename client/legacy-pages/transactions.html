@@ -94,8 +94,8 @@
 <body>
 
 <header>
-  <a href="client-home.html" class="logo"><span class="va">Va</span><span class="room">Room</span></a>
-  <a href="client-home.html" class="back-link">← Back to dashboard</a>
+  <a href="/client-home" class="logo"><span class="va">Va</span><span class="room">Room</span></a>
+  <a href="/client-home" class="back-link">← Back to dashboard</a>
 </header>
 
 <main>
@@ -130,12 +130,12 @@
     const txPage = document.getElementById('transactions-page');
 
     const { data: { session } } = await supabaseClient.auth.getSession();
-    if (!session) { window.location.href = 'login.html'; return; }
+    if (!session) { window.location.href = '/login'; return; }
     const currentUser = session.user;
 
     const { data: profile, error: profileError } = await supabaseClient
       .from('profiles').select('role').eq('id', currentUser.id).single();
-    if (profileError || !profile) { window.location.href = 'login.html'; return; }
+    if (profileError || !profile) { window.location.href = '/login'; return; }
 
     checkingAuth.style.display = 'none';
     txPage.style.display = 'block';

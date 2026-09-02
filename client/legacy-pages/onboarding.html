@@ -185,7 +185,7 @@
   // ---- Auth + profile check ----
   const { data: { session } } = await supabaseClient.auth.getSession();
   if (!session) {
-    window.location.href = 'login.html';
+    window.location.href = '/login';
     return;
   }
   const user = session.user;
@@ -197,12 +197,12 @@
     .maybeSingle();
 
   if (profileError || !profile) {
-    window.location.href = 'login.html';
+    window.location.href = '/login';
     return;
   }
 
   if (profile.onboarding_completed) {
-    window.location.href = profile.role === 'host' ? 'host-home.html' : 'client-home.html';
+    window.location.href = profile.role === 'host' ? '/host-home' : '/client-home';
     return;
   }
 
@@ -299,8 +299,8 @@
       reader.readAsDataURL(file);
 
       // Store the relative storage path, not the full public URL — every
-      // other place that reads avatar_url (profile.html, client-home.html,
-      // host-home.html) converts path -> public URL at render time via
+      // other place that reads avatar_url (/profile, /client-home,
+      // /host-home) converts path -> public URL at render time via
       // getPublicUrl(). Saving a full URL here would break those.
       uploadedPath = filePath;
 
@@ -568,7 +568,7 @@
 
     await supabaseClient.rpc('complete_onboarding');
 
-    window.location.href = role === 'host' ? 'host-home.html' : 'client-home.html';
+    window.location.href = role === 'host' ? '/host-home' : '/client-home';
   }
 
   // ---- Shared UI helpers ----

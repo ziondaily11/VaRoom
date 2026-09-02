@@ -152,7 +152,7 @@
     <button type="button" class="resend-btn" id="expired-resend-btn">Send new link</button>
     <span class="resend-cooldown" id="expired-cooldown"></span>
     <p class="resend-feedback" id="expired-feedback"></p>
-    <p class="link-issue-footer">Already have an account? <a href="login.html">Log in</a></p>
+    <p class="link-issue-footer">Already have an account? <a href="/login">Log in</a></p>
   </div>
 
   <div id="invalid-panel" class="link-issue-panel" style="display:none;">
@@ -161,7 +161,7 @@
     </div>
     <h2>This link isn't valid</h2>
     <p class="link-issue-sub">It may have already been used, or the link got cut off. If you're not signed in yet, try logging in or requesting a new verification email.</p>
-    <p class="link-issue-footer" style="margin-top:0;"><a href="login.html">Log in</a> · <a href="index.html">Create an account</a></p>
+    <p class="link-issue-footer" style="margin-top:0;"><a href="/login">Log in</a> · <a href="/">Create an account</a></p>
   </div>
 </main>
 
@@ -233,7 +233,7 @@
         const { error: resendError } = await supabaseClient.auth.resend({
           type: 'signup',
           email: email,
-          options: { emailRedirectTo: window.location.origin + '/auth-callback.html' }
+          options: { emailRedirectTo: window.location.origin + '//auth-callback' }
         });
 
         // Keep this generic either way — don't confirm/deny whether the
@@ -273,14 +273,14 @@
 
       if (sessionError) {
         showError('Something went wrong signing you in. Please try again from the login page.');
-        setTimeout(function(){ window.location.href = 'login.html'; }, 2500);
+        setTimeout(function(){ window.location.href = '/login'; }, 2500);
         return;
       }
 
       // No session, no reported error, and nothing else to go on (e.g. this
       // page was opened directly with no token at all).
       showError('Something went wrong signing you in. Please try again from the login page.');
-      setTimeout(function(){ window.location.href = 'login.html'; }, 2500);
+      setTimeout(function(){ window.location.href = '/login'; }, 2500);
       return;
     }
 
@@ -288,14 +288,14 @@
     const authType = hashParams.get('type') || queryParams.get('type') || '';
 
     if (authType === 'recovery') {
-      window.location.href = 'forgot-password.html?mode=reset';
+      window.location.href = '/forgot-password?mode=reset';
       return;
     }
 
     // VaRoom's own official account lands on the updates composer instead
     // of a normal host/client dashboard, regardless of how it signed in.
     if (user.email === 'varoonhq@gmail.com') {
-      window.location.href = 'varoom-post.html';
+      window.location.href = '/varoom-post';
       return;
     }
 
@@ -366,13 +366,13 @@
 
     function redirectByRole(role, onboardingCompleted){
           if (!onboardingCompleted) {
-            window.location.href = 'onboarding.html';
+            window.location.href = '/onboarding';
             return;
           }
           if (role === 'host') {
-            window.location.href = 'host-home.html';
+            window.location.href = '/host-home';
           } else {
-            window.location.href = 'client-home.html';
+            window.location.href = '/client-home';
           }
         }
   })();

@@ -468,24 +468,24 @@
 <body>
 <div class="chat-app">
   <nav class="app-rail" aria-label="Primary navigation">
-    <a href="index.html" class="brand-mark" aria-label="VaRoom home"><span>V</span></a>
-    <a href="client-home.html" class="rail-link" id="home-nav" aria-label="Home">
+    <a href="/" class="brand-mark" aria-label="VaRoom home"><span>V</span></a>
+    <a href="/client-home" class="rail-link" id="home-nav" aria-label="Home">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1Z"/><path d="M9 21v-7h6v7"/></svg>
     </a>
-    <a href="chats.html" class="rail-link active" aria-current="page" aria-label="Chats">
+    <a href="/chats" class="rail-link active" aria-current="page" aria-label="Chats">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7A8.38 8.38 0 0 1 4 11.5a8.5 8.5 0 0 1 4.7-7.6A8.38 8.38 0 0 1 12.5 3h.5a8.48 8.48 0 0 1 8 8v.5Z"/></svg>
     </a>
-    <a href="bookings.html" class="rail-link" aria-label="Bookings">
+    <a href="/bookings" class="rail-link" aria-label="Bookings">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
     </a>
-    <a href="elie.html" class="rail-link" aria-label="Elie">
+    <a href="/elie" class="rail-link" aria-label="Elie">
       <img src="elie-logo.png" alt="Elie" style="width:24px;height:24px;object-fit:contain;">
     </a>
-    <a href="profile.html" class="rail-link" aria-label="Profile">
+    <a href="/profile" class="rail-link" aria-label="Profile">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="4"/><path d="M5.5 21a6.5 6.5 0 0 1 13 0"/></svg>
     </a>
     <span class="rail-spacer"></span>
-    <a href="settings.html" class="rail-link" aria-label="Settings">
+    <a href="/settings" class="rail-link" aria-label="Settings">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.1 2.1-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56v.1h-3v-.1a1.7 1.7 0 0 0-1.03-1.56 1.7 1.7 0 0 0-1.88.34l-.06.06-2.1-2.1.06-.06A1.7 1.7 0 0 0 7.06 15a1.7 1.7 0 0 0-1.56-1.03h-.1v-3h.1A1.7 1.7 0 0 0 7.06 9.94a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.1-2.1.06.06a1.7 1.7 0 0 0 1.88.34 1.7 1.7 0 0 0 1.03-1.56v-.1h3v.1a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.88-.34l.06-.06 2.1 2.1-.06.06a1.7 1.7 0 0 0-.34 1.88 1.7 1.7 0 0 0 1.56 1.03h.1v3h-.1A1.7 1.7 0 0 0 19.4 15Z"/></svg>
     </a>
     <div class="rail-profile" aria-label="Your profile">VR</div>
@@ -781,17 +781,17 @@
     }
 
     const CHATBOT_REPLY_URL = 'https://varoom.onrender.com/reply';
-    // Same cold-start mitigation as elie.html — wake the service up as
+    // Same cold-start mitigation as /elie — wake the service up as
     // soon as the chat page opens, not only when an auto-reply is needed.
     fetch('https://varoom.onrender.com/health').catch(function(){});
 
     const { data: { session } } = await supabaseClient.auth.getSession();
-    if (!session) { window.location.href = 'login.html'; return; }
+    if (!session) { window.location.href = '/login'; return; }
     currentUser = session.user;
 
     const { data: profile } = await supabaseClient
       .from('profiles').select('role, theme_preference, full_name, avatar_url').eq('id', currentUser.id).maybeSingle();
-    if (!profile) { window.location.href = 'login.html'; return; }
+    if (!profile) { window.location.href = '/login'; return; }
     currentRole = profile.role;
     applyTheme(profile.theme_preference || localStorage.getItem('varoom_theme') || 'system');
     let storedChatPreferences = {};
@@ -802,8 +802,8 @@
       chatProfile && chatProfile.chat_theme_preference || storedChatPreferences.chatTheme || 'varoom-red',
       chatProfile && chatProfile.chat_background_preference || storedChatPreferences.chatBackground || 'clean'
     );
-    document.getElementById('back-link').setAttribute('href', currentRole === 'host' ? 'host-home.html' : 'client-home.html');
-    document.getElementById('home-nav').setAttribute('href', currentRole === 'host' ? 'host-home.html' : 'client-home.html');
+    document.getElementById('back-link').setAttribute('href', currentRole === 'host' ? '/host-home' : '/client-home');
+    document.getElementById('home-nav').setAttribute('href', currentRole === 'host' ? '/host-home' : '/client-home');
     const railProfile = document.querySelector('.rail-profile');
     if (profile.full_name) railProfile.textContent = profile.full_name.split(/\s+/).map(function(part){ return part.charAt(0); }).join('').slice(0, 2).toUpperCase();
 
@@ -1114,7 +1114,7 @@
         area.scrollTop = area.scrollHeight;
         try {
           const { data: { session: freshSession } } = await supabaseClient.auth.getSession();
-          if (!freshSession) { window.location.href = 'login.html'; return; }
+          if (!freshSession) { window.location.href = '/login'; return; }
           const response = await fetch('https://varoom.onrender.com/elie/search', {
             method:'POST',
             headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer ' + freshSession.access_token },
@@ -1211,7 +1211,7 @@
             (metaBits.length ? '<div class="listing-context-meta">' + metaBits.join(' · ') + '</div>' : '') +
             (priceHtml ? '<div class="listing-context-price">' + priceHtml + '</div>' : '') +
           '</div>' +
-          '<a href="booking.html?listing=' + encodeURIComponent(conv.listing_id) + '" class="listing-context-book">View &amp; book</a>' +
+          '<a href="/booking?listing=' + encodeURIComponent(conv.listing_id) + '" class="listing-context-book">View &amp; book</a>' +
         '</div>' +
         (!isHost && other.away_mode
           ? '<div class="away-banner">🌙 This host is away right now — Elie may help answer using real listing details while they\'re offline.</div>'
@@ -1247,7 +1247,7 @@
         '</div>' +
         '<div class="details-section">' +
           '<div class="details-heading">Related listing</div>' +
-          '<a class="related-listing" href="booking.html?listing=' + encodeURIComponent(conv.listing_id) + '">' +
+          '<a class="related-listing" href="/booking?listing=' + encodeURIComponent(conv.listing_id) + '">' +
             '<div class="listing-context-thumb">' + thumbHtml + '</div>' +
             '<div style="min-width:0"><div class="related-listing-title">' + escapeHtml(listingTitle) + '</div><div class="related-listing-sub">View property details</div></div>' +
           '</a>' +

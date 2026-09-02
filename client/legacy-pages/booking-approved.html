@@ -230,7 +230,7 @@
 
 <header>
   <div class="logo"><span class="va">Va</span><span class="room">Room</span></div>
-  <a href="bookings.html" class="back-link" id="back-link">‹ Back to bookings</a>
+  <a href="/bookings" class="back-link" id="back-link">‹ Back to bookings</a>
 </header>
 
 <main>
@@ -296,7 +296,7 @@
       <p class="pay-note" id="pay-note">
         Online payment isn't live on VaRoom just yet — we'll let you know the moment it is.
         In the meantime, please coordinate payment for this booking directly with your host via
-        <a href="chats.html" id="pay-note-chat-link">chat</a>.
+        <a href="/chats" id="pay-note-chat-link">chat</a>.
       </p>
 
       <div class="help-box">
@@ -305,7 +305,7 @@
           <div class="help-title">Need help?</div>
           <div class="help-sub">If you have any questions, you can reply in this chat or contact our support team.</div>
         </div>
-        <a href="chats.html" id="help-chat-link" class="help-btn">Contact Support ›</a>
+        <a href="/chats" id="help-chat-link" class="help-btn">Contact Support ›</a>
       </div>
     </div>
   </div>
@@ -314,7 +314,7 @@
     <div class="state-card">
       <h2 id="status-title"></h2>
       <p id="status-sub"></p>
-      <a href="bookings.html" class="btn-primary">Back to bookings</a>
+      <a href="/bookings" class="btn-primary">Back to bookings</a>
     </div>
   </div>
 </main>
@@ -393,12 +393,12 @@
     const bookingId = params.get('id');
 
     const { data: { session } } = await supabaseClient.auth.getSession();
-    if (!session) { window.location.href = 'login.html'; return; }
+    if (!session) { window.location.href = '/login'; return; }
     const currentUser = session.user;
 
     const { data: profile } = await supabaseClient.from('profiles').select('role,full_name').eq('id', currentUser.id).maybeSingle();
-    if (!profile) { window.location.href = 'login.html'; return; }
-    document.getElementById('back-link').setAttribute('href', profile.role === 'host' ? 'bookings.html' : 'bookings.html');
+    if (!profile) { window.location.href = '/login'; return; }
+    document.getElementById('back-link').setAttribute('href', profile.role === 'host' ? '/bookings' : '/bookings');
 
     if (!bookingId) { showStatus("No booking specified", "We couldn't find which booking you meant to open."); return; }
 
@@ -426,7 +426,7 @@
     document.getElementById('listing-title').textContent = listing.title || 'Listing';
     document.getElementById('listing-loc').innerHTML =
       escapeHtml(listing.location_text || '') +
-      ' · <a href="map.html?booking=' + booking.id + '" style="color:var(--red);font-weight:600;">View map &amp; directions</a>';
+      ' · <a href="/map?booking=' + booking.id + '" style="color:var(--red);font-weight:600;">View map &amp; directions</a>';
 
     const photos = listing.listing_photos || [];
     const photoEl = document.getElementById('listing-photo');
@@ -555,7 +555,7 @@
         title.textContent = "Online payment isn't connected yet";
         sub.textContent = 'This is a preview of the payment flow — nothing was charged. In the meantime, coordinate payment for this booking directly with your host via chat.';
         primaryBtn.textContent = 'Message host';
-        primaryBtn.onclick = function(){ window.location.href = document.getElementById('pay-note-chat-link').getAttribute('href') || 'chats.html'; };
+        primaryBtn.onclick = function(){ window.location.href = document.getElementById('pay-note-chat-link').getAttribute('href') || '/chats'; };
       }
     }
 
@@ -585,7 +585,7 @@
       .single()
       .then(function(result){
         if (result.data) {
-          const chatUrl = 'chats.html?c=' + result.data.id;
+          const chatUrl = '/chats?c=' + result.data.id;
           document.getElementById('help-chat-link').setAttribute('href', chatUrl);
           document.getElementById('pay-note-chat-link').setAttribute('href', chatUrl);
         }

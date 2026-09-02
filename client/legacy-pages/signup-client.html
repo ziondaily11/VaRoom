@@ -323,8 +323,8 @@
 <body>
 
 <div class="topbar">
-  <a href="index.html" class="logo">VaRoom<span>.</span></a>
-  <a href="index.html" class="back-link">← Back to VaRoom</a>
+  <a href="/" class="logo">VaRoom<span>.</span></a>
+  <a href="/" class="back-link">← Back to VaRoom</a>
 </div>
 
 <div class="page">
@@ -380,7 +380,7 @@
 
       <div class="checkbox-row">
         <input type="checkbox" id="agree" required />
-        <label for="agree">I agree to the <a href="privacy.html">Privacy Policy</a> and <a href="terms.html">Terms of Service</a>.</label>
+        <label for="agree">I agree to the <a href="/privacy">Privacy Policy</a> and <a href="/terms">Terms of Service</a>.</label>
       </div>
 
       <button type="submit" class="btn-submit" id="submit-btn">
@@ -389,7 +389,7 @@
       </button>
 
       <p class="form-note">We'll send a confirmation email to help you finish setting up.</p>
-      <p class="form-switch">Already have an account? <a href="login.html">Log in</a></p>
+      <p class="form-switch">Already have an account? <a href="/login">Log in</a></p>
     </form>
   </div>
 
@@ -453,7 +453,7 @@
     await supabaseClient.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.origin + '/auth-callback.html' +
+        redirectTo: window.location.origin + '//auth-callback' +
           (redirect ? '?redirect=' + encodeURIComponent(redirect) : '')
       }
     });
@@ -481,7 +481,7 @@
             full_name: name,
             role: 'client'
           },
-          emailRedirectTo: window.location.origin + '/auth-callback.html' +
+          emailRedirectTo: window.location.origin + '//auth-callback' +
             (redirect ? '?redirect=' + encodeURIComponent(redirect) : '')
         }
       });
@@ -494,13 +494,13 @@
         showAlert('Account created! Check your email to confirm and start exploring.', 'success');
         form.reset();
       } else if (data.session) {
-        window.location.href = redirect || 'client-home.html';
+        window.location.href = redirect || '/client-home';
       }
 
     } catch(err) {
       var msg = err.message || 'Something went wrong. Please try again.';
       if (msg.includes('already registered')) {
-        alertBox.innerHTML = 'An account with this email already exists. <a href="login.html" style="color:var(--deep-red);font-weight:600;">Log in instead</a>';
+        alertBox.innerHTML = 'An account with this email already exists. <a href="/login" style="color:var(--deep-red);font-weight:600;">Log in instead</a>';
         alertBox.className = 'alert error show';
       } else {
         showAlert(msg, 'error');

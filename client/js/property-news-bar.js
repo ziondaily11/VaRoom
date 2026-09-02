@@ -268,7 +268,7 @@
       sourceHtml += '</div>';
       
       return '<article class="property-news-bar-item">' +
-        '<a class="property-news-bar-link" href="property-news.html?id=' + htmlUtils.escape(item.id) + '">' +
+        '<a class="property-news-bar-link" href="/property-news?id=' + htmlUtils.escape(item.id) + '">' +
           imageHtml +
           '<div class="property-news-bar-kicker">Property News</div>' +
           '<div class="property-news-bar-title">' + htmlUtils.escape(item.title || 'Property update') + '</div>' +

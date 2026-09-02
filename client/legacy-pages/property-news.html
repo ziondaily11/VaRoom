@@ -81,8 +81,8 @@
 </head>
 <body>
   <header class="topbar">
-    <a href="host-home.html" class="brand" aria-label="VaRoom dashboard"><span class="va">Va</span><span class="room">Room</span></a>
-    <a href="host-home.html" class="back-link">← Back to dashboard</a>
+    <a href="/host-home" class="brand" aria-label="VaRoom dashboard"><span class="va">Va</span><span class="room">Room</span></a>
+    <a href="/host-home" class="back-link">← Back to dashboard</a>
   </header>
   <main>
     <section id="news-index" aria-live="polite">
@@ -125,7 +125,7 @@
       function sourceHtml(news, className){ const source = news.source || {}; if (!source.name) return ''; const url = safeSourceUrl(source.url); return '<div class="' + className + '">' + (url ? '<a class="news-card-source-link" href="' + escapeHtml(url) + '" target="_blank" rel="noopener noreferrer">Source · ' + escapeHtml(source.name) + '</a>' : 'Source · ' + escapeHtml(source.name)) + '</div>'; }
       function wireImages(root){ root.querySelectorAll('.news-card-image,.detail-image').forEach(function(image){ const wrapper = image.closest('.news-card-image-wrap,.detail-image-wrap'); image.addEventListener('load', function(){ if (wrapper) wrapper.classList.add('is-loaded'); }, { once:true }); image.addEventListener('error', function(){ if (wrapper) wrapper.remove(); }, { once:true }); if (image.complete && image.naturalWidth > 0 && wrapper) wrapper.classList.add('is-loaded'); }); }
       function imageHtml(news, wrapClass, imageClass){ return typeof news.image_url === 'string' && news.image_url.trim() ? '<div class="' + wrapClass + '"><img class="' + imageClass + '" src="' + escapeHtml(news.image_url) + '" alt="" decoding="async" loading="lazy"></div>' : ''; }
-      function card(news){ const source = news.source || {}; return '<article class="news-card"><a class="news-card-main" href="property-news.html?id=' + encodeURIComponent(news.id) + '"><h2>' + escapeHtml(news.title) + '</h2><p>' + escapeHtml(news.summary || 'Read the latest property update from VaRoom.') + '</p><div class="meta"><span>' + escapeHtml(cardLocation(news)) + '</span><span>•</span><span>' + escapeHtml(date(source.published_at || news.published_at)) + '</span></div>' + imageHtml(news, 'news-card-image-wrap', 'news-card-image') + '</a>' + sourceHtml(news, 'news-card-source') + statusHtml(news) + '</article>'; }
+      function card(news){ const source = news.source || {}; return '<article class="news-card"><a class="news-card-main" href="/property-news?id=' + encodeURIComponent(news.id) + '"><h2>' + escapeHtml(news.title) + '</h2><p>' + escapeHtml(news.summary || 'Read the latest property update from VaRoom.') + '</p><div class="meta"><span>' + escapeHtml(cardLocation(news)) + '</span><span>•</span><span>' + escapeHtml(date(source.published_at || news.published_at)) + '</span></div>' + imageHtml(news, 'news-card-image-wrap', 'news-card-image') + '</a>' + sourceHtml(news, 'news-card-source') + statusHtml(news) + '</article>'; }
       function emptyIndexHtml(){
         return '<div class="state">' +
           '<div class="state-icon-wrap">' +

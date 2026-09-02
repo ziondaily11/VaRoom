@@ -311,7 +311,7 @@
 
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (!session) {
-      window.location.href = 'login.html';
+      window.location.href = '/login';
       return;
     }
 
@@ -322,11 +322,11 @@
       .maybeSingle();
 
     if (!profile) {
-      window.location.href = 'login.html';
+      window.location.href = '/login';
       return;
     }
 
-    backLink.setAttribute('href', profile.role === 'host' ? 'host-home.html' : 'client-home.html');
+    backLink.setAttribute('href', profile.role === 'host' ? '/host-home' : '/client-home');
 
     currentUserId = session.user.id;
     checking.style.display = 'none';
@@ -629,7 +629,7 @@
                 '<div class="listing-meta">' + metaBits.join(' · ') + '</div>' +
                 (priceHtml ? '<div class="listing-price">' + priceHtml + '</div>' : '') +
               '</div>' +
-              '<a href="booking.html?listing=' + encodeURIComponent(listing.id) + '" class="book-link">View &amp; book</a>' +
+              '<a href="/booking?listing=' + encodeURIComponent(listing.id) + '" class="book-link">View &amp; book</a>' +
             '</div>'
           );
         }).join('');
@@ -649,7 +649,7 @@
     async function sendToElie(message){
       const { data: { session: freshSession } } = await supabaseClient.auth.getSession();
       if (!freshSession) {
-        window.location.href = 'login.html';
+        window.location.href = '/login';
         return;
       }
 

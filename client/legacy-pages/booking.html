@@ -139,7 +139,7 @@
 <body>
 
 <header>
-  <a href="index.html" class="logo"><span class="va">Va</span><span class="room">Room</span></a>
+  <a href="/" class="logo"><span class="va">Va</span><span class="room">Room</span></a>
   <a href="#" class="back-link" id="back-link">← Back</a>
 </header>
 
@@ -162,15 +162,15 @@
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (!session) {
       const returnTo = window.location.pathname + window.location.search;
-      window.location.href = 'index.html?redirect=' + encodeURIComponent(returnTo);
+      window.location.href = '/?redirect=' + encodeURIComponent(returnTo);
       return;
     }
     currentUser = session.user;
 
     const { data: profile } = await supabaseClient.from('profiles').select('role').eq('id', currentUser.id).maybeSingle();
-    if (!profile) { window.location.href = 'login.html'; return; }
+    if (!profile) { window.location.href = '/login'; return; }
     currentRole = profile.role;
-    document.getElementById('back-link').setAttribute('href', currentRole === 'host' ? 'host-home.html' : 'client-home.html');
+    document.getElementById('back-link').setAttribute('href', currentRole === 'host' ? '/host-home' : '/client-home');
 
     if (!listingId) { checkingAuth.textContent = 'No listing specified.'; return; }
 

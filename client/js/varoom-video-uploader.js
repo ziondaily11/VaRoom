@@ -418,7 +418,7 @@ class VaRoomVideoUploader {
   }
 }
 
-// Export for use in list.html
+// Export for use in /list
 if (typeof window !== 'undefined') {
   window.VaRoomVideoUploader = VaRoomVideoUploader;
 }

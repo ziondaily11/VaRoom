@@ -282,8 +282,8 @@
 
 <div class="wizard" id="listing-page" style="display:none;">
   <nav class="wizard-top-nav">
-    <a href="index.html" class="logo"><span class="va">Va</span><span class="room">Room</span></a>
-    <a href="index.html" class="back-link">← Back to VaRoom</a>
+    <a href="/" class="logo"><span class="va">Va</span><span class="room">Room</span></a>
+    <a href="/" class="back-link">← Back to VaRoom</a>
   </nav>
 
   <form id="list-form">
@@ -614,7 +614,7 @@
 
   (async function checkAuth(){
     const { data: { session } } = await supabaseClient.auth.getSession();
-    if (!session) { window.location.href = 'login.html'; return; }
+    if (!session) { window.location.href = '/login'; return; }
     currentUser = session.user;
 
     const { data: profile, error: profileError } = await supabaseClient
@@ -622,7 +622,7 @@
 
     if (profileError || !profile || profile.role !== 'host') {
       checkingAuth.textContent = 'Only host accounts can list a space. Redirecting...';
-      setTimeout(function(){ window.location.href = 'index.html'; }, 1500);
+      setTimeout(function(){ window.location.href = '/'; }, 1500);
       return;
     }
 

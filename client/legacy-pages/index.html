@@ -32,7 +32,7 @@
       }
 
       const redirect = new URLSearchParams(window.location.search).get('redirect');
-      window.location.href = redirect || 'client-home.html';
+      window.location.href = redirect || '/client-home';
     };
 
     window.initializeGoogleOneTap = async function () {
@@ -2748,7 +2748,7 @@
     </nav>
 
     <div class="nav-actions">
-      <a href="login.html" class="btn-signin">Sign in</a>
+      <a href="/login" class="btn-signin">Sign in</a>
       <button type="button" class="btn-get-started open-account-trigger">Get started</button>
       <button type="button" class="nav-button open-account-trigger">
         <span>Explore spaces</span>
@@ -2828,7 +2828,7 @@
       <button type="button" class="mob-signup-link" id="mob-toggle-mode-btn" style="background:none; border:none; cursor:pointer; font-size:inherit; font-family:inherit;">Sign Up</button>
     </p>
     <p id="mob-forgot-wrap" style="text-align:center; margin-top:2px;">
-      <a href="forgot-password.html" style="font-size:12px; color:rgba(255,255,255,0.45); text-decoration:none;">Forgot password?</a>
+      <a href="/forgot-password" style="font-size:12px; color:rgba(255,255,255,0.45); text-decoration:none;">Forgot password?</a>
     </p>
   </form>
 </div>
@@ -2886,7 +2886,7 @@
         <div class="hero-deck-slide active" data-index="0">
           <div style="display:flex; justify-content:space-between; align-items:center;">
             <span style="font:600 10px var(--mono); text-transform:uppercase; letter-spacing:1px; color:#c41e3a;">Explore Stays · Live Feed</span>
-            <a href="client-home.html" style="font-size:11px; color:rgba(255,255,255,0.7); text-decoration:none;">View all →</a>
+            <a href="/client-home" style="font-size:11px; color:rgba(255,255,255,0.7); text-decoration:none;">View all →</a>
           </div>
 
           <div class="stays-motion-track">
@@ -2957,7 +2957,7 @@
         <div class="hero-deck-slide" data-index="1">
           <div style="display:flex; justify-content:space-between; align-items:center;">
             <span style="font:600 10px var(--mono); text-transform:uppercase; letter-spacing:1px; color:#c41e3a;">Elie AI Assistant · Natural Search</span>
-            <a href="elie.html" style="font-size:11px; color:rgba(255,255,255,0.7); text-decoration:none;">Open Elie →</a>
+            <a href="/elie" style="font-size:11px; color:rgba(255,255,255,0.7); text-decoration:none;">Open Elie →</a>
           </div>
           <div class="elie-chat-mock">
             <div class="chat-bubble-user">
@@ -2971,7 +2971,7 @@
                   <strong>The Greenhouse Kilimani</strong>
                   <span>KSh 8,500/nt · 4.96 rating</span>
                 </div>
-                <a href="client-home.html" style="background:#c41e3a; color:white; font-size:10px; padding:5px 10px; border-radius:999px; font-weight:600; text-decoration:none;">View</a>
+                <a href="/client-home" style="background:#c41e3a; color:white; font-size:10px; padding:5px 10px; border-radius:999px; font-weight:600; text-decoration:none;">View</a>
               </div>
             </div>
           </div>
@@ -2981,7 +2981,7 @@
         <div class="hero-deck-slide" data-index="2">
           <div style="display:flex; justify-content:space-between; align-items:center;">
             <span style="font:600 10px var(--mono); text-transform:uppercase; letter-spacing:1px; color:#c41e3a;">Radar GPS Verification · Live Map</span>
-            <a href="map.html" style="font-size:11px; color:rgba(255,255,255,0.7); text-decoration:none;">Full map →</a>
+            <a href="/map" style="font-size:11px; color:rgba(255,255,255,0.7); text-decoration:none;">Full map →</a>
           </div>
           <div class="radar-map-container" style="height:260px;">
             <div class="radar-circle"></div>
@@ -3006,7 +3006,7 @@
         <div class="hero-deck-slide" data-index="3">
           <div style="display:flex; justify-content:space-between; align-items:center;">
             <span style="font:600 10px var(--mono); text-transform:uppercase; letter-spacing:1px; color:#c41e3a;">Host Studio · Real-Time Dashboard</span>
-            <a href="list.html" style="font-size:11px; color:rgba(255,255,255,0.7); text-decoration:none;">List space →</a>
+            <a href="/list" style="font-size:11px; color:rgba(255,255,255,0.7); text-decoration:none;">List space →</a>
           </div>
           <div class="host-dashboard-mock">
             <div class="host-live-alert">
@@ -3033,7 +3033,7 @@
         <div class="hero-deck-slide" data-index="4">
           <div style="display:flex; justify-content:space-between; align-items:center;">
             <span style="font:600 10px var(--mono); text-transform:uppercase; letter-spacing:1px; color:#c41e3a;">Community & Live Handover</span>
-            <a href="login.html" style="font-size:11px; color:rgba(255,255,255,0.7); text-decoration:none;">Sign in →</a>
+            <a href="/login" style="font-size:11px; color:rgba(255,255,255,0.7); text-decoration:none;">Sign in →</a>
           </div>
           <div class="instant-chat-mock">
             <div class="instant-approval-banner">
@@ -3255,7 +3255,7 @@
         details that matter and brings the right spaces into view.
       </p>
 
-      <a href="elie.html" class="elie-start">Start a conversation →</a>
+      <a href="/elie" class="elie-start">Start a conversation →</a>
     </div>
 
     <!-- Elie screenshot -->
@@ -3310,7 +3310,7 @@
       </div>
     </div>
 
-    <a href="list.html" class="primary-button" style="display:inline-flex;align-items:center;gap:8px;width:fit-content;">
+    <a href="/list" class="primary-button" style="display:inline-flex;align-items:center;gap:8px;width:fit-content;">
       List your space →
     </a>
   </div>
@@ -3426,13 +3426,13 @@
       </div>
       <div class="footer-links-col">
         <strong>For hosts</strong>
-        <a href="list.html">List a property</a>
-        <a href="list.html">Host tools</a>
-        <a href="list.html">Host support</a>
+        <a href="/list">List a property</a>
+        <a href="/list">Host tools</a>
+        <a href="/list">Host support</a>
       </div>
       <div class="footer-links-col">
         <strong>Product</strong>
-        <a href="elie.html">Elie</a>
+        <a href="/elie">Elie</a>
         <a href="#how-it-works">Trust &amp; location</a>
         <a href="#discover">Saved spaces</a>
       </div>
@@ -3612,8 +3612,8 @@
     var pendingRedirect = urlParams.get('redirect');
 
     var roleContent = {
-      host: { label: 'Host', sub: 'List and showcase your spaces — Airbnbs, hotels, venues, offices, shops, or property.', href: 'signup-host.html' },
-      client: { label: 'Client', sub: 'Find suitable places for events and stays.', href: 'signup-client.html' }
+      host: { label: 'Host', sub: 'List and showcase your spaces — Airbnbs, hotels, venues, offices, shops, or property.', href: '/signup-host' },
+      client: { label: 'Client', sub: 'Find suitable places for events and stays.', href: '/signup-client' }
     };
 
     function openModal() {
@@ -3670,7 +3670,7 @@
         await supabaseClient.auth.signInWithOAuth({
           provider: 'google',
           options: {
-            redirectTo: window.location.origin + '/auth-callback.html' +
+            redirectTo: window.location.origin + '//auth-callback' +
               (pendingRedirect ? '?redirect=' + encodeURIComponent(pendingRedirect) : '')
           }
         });
@@ -3854,7 +3854,7 @@
 
           if (signUpData && signUpData.session) {
             // Auto signed in
-            window.location.href = redirect || (selectedRole === 'host' ? 'host-home.html' : 'client-home.html');
+            window.location.href = redirect || (selectedRole === 'host' ? '/host-home' : '/client-home');
           } else {
             showAlert('Account created! Please check your email to verify your account.', true);
           }
@@ -3871,7 +3871,7 @@
           var user = signInData && signInData.user;
           var role = (user && user.user_metadata && user.user_metadata.role) || 'client';
 
-          window.location.href = redirect || (role === 'host' ? 'host-home.html' : 'client-home.html');
+          window.location.href = redirect || (role === 'host' ? '/host-home' : '/client-home');
         }
 
       } catch (err) {
@@ -3897,7 +3897,7 @@
         await supabaseClient.auth.signInWithOAuth({
           provider: 'google',
           options: {
-            redirectTo: window.location.origin + '/auth-callback.html' +
+            redirectTo: window.location.origin + '//auth-callback' +
               (redirect ? '?redirect=' + encodeURIComponent(redirect) : '')
           }
         });
@@ -4060,7 +4060,7 @@
       await supabaseClient.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin + '/auth-callback.html'
+          redirectTo: window.location.origin + '//auth-callback'
         }
       });
     } catch(e) {

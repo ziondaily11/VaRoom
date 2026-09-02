@@ -328,8 +328,8 @@
 
 <!-- Top bar -->
 <div class="topbar">
-  <a href="index.html" class="logo"><span class="va">Va</span>Room<span style="color:var(--crimson)">.</span></a>
-  <a href="index.html" class="back-link">← Back to VaRoom</a>
+  <a href="/" class="logo"><span class="va">Va</span>Room<span style="color:var(--crimson)">.</span></a>
+  <a href="/" class="back-link">← Back to VaRoom</a>
 </div>
 
 <div class="page">
@@ -375,7 +375,7 @@
       <div class="field">
         <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:5px;">
           <label for="password" style="margin-bottom:0;">Password</label>
-          <a href="forgot-password.html" class="forgot-link" id="forgot-link" style="font-size:12px; color:var(--crimson); font-weight:600; text-decoration:none;">Forgot password?</a>
+          <a href="/forgot-password" class="forgot-link" id="forgot-link" style="font-size:12px; color:var(--crimson); font-weight:600; text-decoration:none;">Forgot password?</a>
         </div>
         <div class="field-wrap">
           <input type="password" id="password" placeholder="Enter your password" autocomplete="current-password" required style="padding-right:40px;" />
@@ -395,7 +395,7 @@
     </form>
 
     <p class="form-note">Logging in checks your email and password against your real VaRoom account.</p>
-    <p class="form-switch">New to VaRoom? <a href="index.html" id="create-link">Create an account</a></p>
+    <p class="form-switch">New to VaRoom? <a href="/" id="create-link">Create an account</a></p>
   </div>
 
 </div>
@@ -417,9 +417,9 @@
 
   if (redirect) {
     var forgotLink = document.getElementById('forgot-link');
-    if (forgotLink) forgotLink.href = 'forgot-password.html?redirect=' + encodeURIComponent(redirect);
+    if (forgotLink) forgotLink.href = '/forgot-password?redirect=' + encodeURIComponent(redirect);
     var createLink = document.getElementById('create-link');
-    if (createLink) createLink.href = 'index.html?redirect=' + encodeURIComponent(redirect);
+    if (createLink) createLink.href = '/?redirect=' + encodeURIComponent(redirect);
   }
 
   function showAlert(msg, type) {
@@ -442,7 +442,7 @@
       var { error } = await supabaseClient.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin + '/auth-callback.html' +
+          redirectTo: window.location.origin + '//auth-callback' +
             (redirect ? '?redirect=' + encodeURIComponent(redirect) : '')
         }
       });
@@ -489,7 +489,7 @@
       if (error) throw error;
 
       var role = data.user.user_metadata && data.user.user_metadata.role;
-      window.location.href = redirect || (role === 'host' ? 'host-home.html' : 'client-home.html');
+      window.location.href = redirect || (role === 'host' ? '/host-home' : '/client-home');
 
     } catch(err) {
       var msg = err.message || 'Login failed. Please try again.';
@@ -515,7 +515,7 @@
       var { data } = await supabaseClient.auth.getSession();
       if (data && data.session) {
         var role = data.session.user.user_metadata && data.session.user.user_metadata.role;
-        window.location.href = redirect || (role === 'host' ? 'host-home.html' : 'client-home.html');
+        window.location.href = redirect || (role === 'host' ? '/host-home' : '/client-home');
       }
     } catch(e) {}
   })();

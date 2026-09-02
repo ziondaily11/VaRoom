@@ -1,10 +1,10 @@
-// Shared notification bell widget — used by client-home.html and
-// host-home.html. Call initNotifications(supabaseClient, currentUser)
+// Shared notification bell widget — used by /client-home and
+// /host-home. Call initNotifications(supabaseClient, currentUser)
 // once the page has confirmed the user is logged in. Expects a
 // <button id="notif-bell"> to already exist in the page.
 //
 // On mobile widths, tapping the bell navigates to the dedicated full-page
-// notifications.html screen instead of opening the dropdown — a small
+// /notifications screen instead of opening the dropdown — a small
 // floating panel isn't a good fit for a phone. On wider screens, it opens
 // the compact dropdown panel as before.
 //
@@ -53,7 +53,7 @@ function initNotifications(supabaseClient, currentUser) {
 
   // Dropdown panel — fixed to the viewport, bottom-right, sitting above
   // wherever the trigger physically is (top bar or bottom nav). Only used
-  // on desktop widths; mobile taps navigate to notifications.html instead.
+  // on desktop widths; mobile taps navigate to /notifications instead.
   const panel = document.createElement('div');
   panel.id = 'notif-panel';
   panel.style.cssText = 'display:none;position:fixed;bottom:5.5rem;right:1rem;left:auto;top:auto;z-index:250;width:320px;max-width:calc(100vw - 2rem);max-height:420px;overflow-y:auto;background:var(--white);border:1px solid rgba(128,110,100,.15);border-radius:14px;box-shadow:0 20px 45px -15px rgba(26,18,16,.35);';
@@ -112,7 +112,7 @@ function initNotifications(supabaseClient, currentUser) {
 
     list.querySelectorAll('.notif-row[data-booking-id]').forEach(function (row) {
       row.addEventListener('click', function () {
-        window.location.href = 'booking-approved.html?id=' + row.getAttribute('data-booking-id');
+        window.location.href = '/booking-approved?id=' + row.getAttribute('data-booking-id');
       });
     });
 
@@ -126,7 +126,7 @@ function initNotifications(supabaseClient, currentUser) {
 
   bellBtn.addEventListener('click', function (e) {
     if (window.matchMedia(NOTIF_MOBILE_BREAKPOINT).matches) {
-      window.location.href = 'notifications.html';
+      window.location.href = '/notifications';
       return;
     }
     e.stopPropagation();
