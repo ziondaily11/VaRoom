@@ -399,7 +399,7 @@
 <script>
   const SUPABASE_URL  = 'https://deaphymimdaygeavhyek.supabase.co';
   const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRlYXBoeW1pbWRheWdlYXZoeWVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY1MjAwNDQsImV4cCI6MjEwMjA5NjA0NH0.placeholder';
-  window.supabaseClient = window.supabaseClient || supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+  window.supabaseClient = window.supabaseClient || window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
   var form      = document.getElementById('signup-form');
   var submitBtn = document.getElementById('submit-btn');
@@ -453,7 +453,7 @@
     await supabaseClient.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.origin + '//auth-callback' +
+        redirectTo: window.location.origin + '/auth-callback' +
           (redirect ? '?redirect=' + encodeURIComponent(redirect) : '')
       }
     });
@@ -481,7 +481,7 @@
             full_name: name,
             role: 'client'
           },
-          emailRedirectTo: window.location.origin + '//auth-callback' +
+          emailRedirectTo: window.location.origin + '/auth-callback' +
             (redirect ? '?redirect=' + encodeURIComponent(redirect) : '')
         }
       });

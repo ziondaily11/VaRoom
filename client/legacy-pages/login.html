@@ -408,7 +408,7 @@
     // Anon key loaded from js/supabase-client.js — if that file is missing,
     // replace 'YOUR_ANON_KEY' with your actual anon key from Supabase dashboard
     const SUPABASE_ANON = window.SUPABASE_ANON_KEY || 'YOUR_ANON_KEY';
-    window.supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+    window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
   }
 
   var alertBox  = document.getElementById('form-alert');
@@ -442,7 +442,7 @@
       var { error } = await supabaseClient.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin + '//auth-callback' +
+          redirectTo: window.location.origin + '/auth-callback' +
             (redirect ? '?redirect=' + encodeURIComponent(redirect) : '')
         }
       });

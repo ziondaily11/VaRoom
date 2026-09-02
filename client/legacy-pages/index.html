@@ -2922,7 +2922,7 @@
             </div>
             <!-- Card 3 -->
             <div class="stay-preview-card">
-              <img src="assets/landing103.jpg" alt="Karen Sanctuary" loading="lazy" />
+              <img src="assets/landing102.jpg" alt="Karen Sanctuary" loading="lazy" />
               <div class="stay-card-body">
                 <div class="stay-card-header">
                   <span class="stay-card-title">Karen Forest Sanctuary</span>
@@ -3670,7 +3670,7 @@
         await supabaseClient.auth.signInWithOAuth({
           provider: 'google',
           options: {
-            redirectTo: window.location.origin + '//auth-callback' +
+            redirectTo: window.location.origin + '/auth-callback' +
               (pendingRedirect ? '?redirect=' + encodeURIComponent(pendingRedirect) : '')
           }
         });
@@ -3897,7 +3897,7 @@
         await supabaseClient.auth.signInWithOAuth({
           provider: 'google',
           options: {
-            redirectTo: window.location.origin + '//auth-callback' +
+            redirectTo: window.location.origin + '/auth-callback' +
               (redirect ? '?redirect=' + encodeURIComponent(redirect) : '')
           }
         });
@@ -4060,7 +4060,7 @@
       await supabaseClient.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin + '//auth-callback'
+          redirectTo: window.location.origin + '/auth-callback'
         }
       });
     } catch(e) {

@@ -233,7 +233,7 @@
         const { error: resendError } = await supabaseClient.auth.resend({
           type: 'signup',
           email: email,
-          options: { emailRedirectTo: window.location.origin + '//auth-callback' }
+          options: { emailRedirectTo: window.location.origin + '/auth-callback' }
         });
 
         // Keep this generic either way — don't confirm/deny whether the

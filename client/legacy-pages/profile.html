@@ -1000,7 +1000,7 @@
   const sharePanel = document.getElementById('share-panel');
   const profileUrl = profileData.username
     ? window.location.origin + '/u/' + encodeURIComponent(profileData.username)
-    : window.location.origin + '//profile';
+    : window.location.origin + '/profile';
 
   async function shareProfile(){
     if (navigator.share) {
