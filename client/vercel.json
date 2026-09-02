@@ -9,8 +9,9 @@
     { "source": "/api/news", "destination": "https://varoom-1.onrender.com/api/news" },
     { "source": "/api/news/:path*", "destination": "https://varoom-1.onrender.com/api/news/:path*" },
     { "source": "/api/maps-config", "destination": "https://varoom-1.onrender.com/api/maps-config" },
-    { "source": "/api/listings/:path*", "destination": "https://varoom-1.onrender.com/api/listings/:path*" },
-    { "source": "/api/bookings/:path*", "destination": "https://varoom-1.onrender.com/api/bookings/:path*" },
+    { "source": "/api/listings/:path*", "destination": "https://server-4jlx.onrender.com/api/listings/:path*" },
+    { "source": "/api/bookings/:path*", "destination": "https://server-4jlx.onrender.com/api/bookings/:path*" },
+    { "source": "/api/:path*", "destination": "https://server-4jlx.onrender.com/api/:path*" },
     { "source": "/u/:username", "destination": "/profile-public" }
   ]
 }

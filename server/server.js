@@ -15,11 +15,53 @@ app.use(express.json());
 // Mount video upload routes
 app.use('/api', videoRoutes);
 
-// Serve the frontend (client/) as static files
+// Serve the Next.js public assets when this service is used as the web host.
 const clientDirectory = path.join(__dirname, '..', 'client');
-app.use(express.static(clientDirectory));
-app.get('/', (_req, res) => {
-  res.sendFile(path.join(clientDirectory, 'legacy-pages', 'index.html'));
+const legacyPagesDirectory = path.join(clientDirectory, 'legacy-pages');
+app.use(express.static(path.join(clientDirectory, 'public')));
+
+const pageTemplates = {
+  '/': 'index.html',
+  '/login': 'login.html',
+  '/register': 'signup-client.html',
+  '/signup-client': 'signup-client.html',
+  '/signup-host': 'signup-host.html',
+  '/bookings': 'bookings.html',
+  '/properties': 'list.html',
+  '/list': 'list.html',
+  '/client-home': 'client-home.html',
+  '/host-home': 'host-home.html',
+  '/booking': 'booking.html',
+  '/booking-approved': 'booking-approved.html',
+  '/chats': 'chats.html',
+  '/chat': 'chats.html',
+  '/analytics': 'analytics.html',
+  '/auth-callback': 'auth-callback.html',
+  '/forgot-password': 'forgot-password.html',
+  '/elie': 'elie.html',
+  '/map': 'map.html',
+  '/notifications': 'notifications.html',
+  '/onboarding': 'onboarding.html',
+  '/payments': 'payments.html',
+  '/privacy': 'privacy.html',
+  '/profile-public': 'profile-public.html',
+  '/profile': 'profile.html',
+  '/property-news': 'property-news.html',
+  '/settings': 'settings.html',
+  '/terms': 'terms.html',
+  '/transactions': 'transactions.html',
+  '/varoom-post': 'varoom-post.html',
+  '/landing-page': 'landing page.html'
+};
+
+Object.entries(pageTemplates).forEach(([route, template]) => {
+  app.get(route, (_req, res) => {
+    res.sendFile(path.join(legacyPagesDirectory, template));
+  });
+});
+
+app.get('/u/:username', (_req, res) => {
+  res.sendFile(path.join(legacyPagesDirectory, 'profile-public.html'));
 });
 
 // Rate-limit in-memory tracker for OTP requests
@@ -275,5 +317,5 @@ app.get('/api/listings/:id/distance', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`VaRoom server running at http://localhost:${PORT}`);
+  console.log(`VaRoom server listening on port ${PORT}`);
 });
