@@ -104,6 +104,10 @@ export default function LegacyPage({ title, markup, scripts }) {
       <Head>
         <title>{title}</title>
         <base href="/" />
+        <link rel="icon" href="/favicon/favicon.ico" sizes="any" />
+        <link rel="icon" type="image/png" sizes="32x32" href="/favicon/favicon-32.png" />
+        <link rel="icon" type="image/png" sizes="16x16" href="/favicon/favicon-16.png" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/favicon/favicon-180.png" />
       </Head>
       <Script
         src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"
