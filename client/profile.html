@@ -429,6 +429,167 @@
   @media (max-width:500px){
     .listings-grid{ grid-template-columns:1fr; }
   }
+
+  .profile-desktop-shell{
+    display:grid; grid-template-columns: 260px minmax(0, 1fr) 330px; gap:0;
+    width:100%; max-width:1260px; margin:0 auto; min-height:calc(100vh - 2rem);
+    background:rgba(255,255,255,0.96); border:1px solid rgba(26,18,16,0.08);
+    border-radius:18px; box-shadow:0 18px 60px rgba(12,10,10,0.08);
+    overflow:hidden;
+  }
+  body{
+    background:#0b0a0a; padding:18px 18px 0; min-height:100vh; overflow:hidden;
+  }
+  .profile-sidebar{
+    background:#fff; border-right:1px solid rgba(26,18,16,0.08); padding:18px 12px 14px; display:flex; flex-direction:column; gap:18px;
+  }
+  .brand-logo{ display:flex; align-items:baseline; padding:0 10px; font-family:'Fraunces', serif; font-size:22px; font-weight:900; letter-spacing:-0.04em; }
+  .brand-logo .va{ color:#c41e3a; }
+  .nav-group{ display:flex; flex-direction:column; gap:4px; }
+  .nav-group-compact{ margin-top:4px; }
+  .nav-label{ padding:8px 12px 6px; font-size:11px; color:#7a6b67; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; }
+  .nav-item{
+    width:100%; display:flex; align-items:center; gap:10px; border:none; background:transparent;
+    color:#1a1210; font-size:14px; font-weight:500; text-align:left; padding:10px 10px; border-radius:10px; cursor:pointer;
+  }
+  .nav-item svg{ width:17px; height:17px; flex-shrink:0; }
+  .nav-item.active{ background:#fce9ec; color:#8f1229; font-weight:600; }
+  .nav-item:hover{ background:#f7f3f2; }
+  .sidebar-promo-card{
+    margin-top:auto; border:1px solid rgba(196,30,58,0.12); background:#fff6f7; border-radius:14px; overflow:hidden;
+    box-shadow:0 8px 24px rgba(196, 30, 58, 0.05);
+  }
+  .promo-photo{
+    height:84px; background:linear-gradient(135deg, rgba(196,30,58,0.35), rgba(196,30,58,0.08)), url('https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=900&q=80') center/cover no-repeat;
+  }
+  .promo-copy{ padding:10px 12px 12px; }
+  .promo-small{ font-size:11px; color:#8f1229; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; }
+  .promo-title{ font-size:14px; font-weight:700; color:#1a1210; }
+  .logout-btn{ margin-top:12px; text-align:left; color:#c41e3a; font-weight:600; padding:8px 10px; border-radius:8px; }
+  .logout-btn:hover{ background:#fce9ec; }
+
+  .profile-main{ background:#f7f5f4; border-right:1px solid rgba(26,18,16,0.08); padding:16px 20px 30px; }
+  .profile-topbar{ display:flex; align-items:center; justify-content:space-between; padding:4px 4px 8px; }
+  .topbar-spacer{ flex:1; }
+  .topbar-actions{ display:flex; align-items:center; gap:12px; }
+  .topbar-icon{ width:36px; height:36px; border-radius:50%; background:#fff; border:1px solid rgba(26,18,16,0.08); color:#1a1210; display:flex; align-items:center; justify-content:center; }
+  .topbar-icon svg{ width:16px; height:16px; }
+  .topbar-user{ display:flex; align-items:center; gap:8px; background:#fff; border:1px solid rgba(26,18,16,0.08); border-radius:999px; padding:4px 10px 4px 6px; color:#1a1210; font-weight:600; }
+  .topbar-user-avatar{ width:30px; height:30px; border-radius:50%; background:linear-gradient(135deg, #181412, #3b312e); color:#fff; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; }
+  .topbar-user svg{ width:14px; height:14px; }
+
+  .profile-card{ background:#fff; border:1px solid rgba(26,18,16,0.08); border-radius:18px; padding:0; margin-top:4px; }
+  .profile-card-body{ display:flex; align-items:center; justify-content:space-between; gap:20px; padding:18px 18px 0; }
+  .profile-personal{ display:flex; align-items:center; gap:18px; min-width:0; flex:1; }
+  .profile-avatar-wrap{ position:relative; flex-shrink:0; }
+  .profile-avatar{
+    width:92px; height:92px; border-radius:50%; background:linear-gradient(135deg, #1d1b1a, #5a4e4b); color:#fff;
+    display:flex; align-items:center; justify-content:center; font-size:32px; font-weight:700; overflow:hidden;
+    border:3px solid #fff; box-shadow:0 8px 18px rgba(26,18,16,0.10);
+  }
+  .profile-avatar img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .avatar-upload-btn{
+    position:absolute; right:-2px; bottom:0; width:30px; height:30px; border-radius:50%; background:#1a1210; color:#fff;
+    display:flex; align-items:center; justify-content:center; border:2px solid #fff; cursor:pointer;
+  }
+  .avatar-upload-btn input{ display:none; }
+  .avatar-upload-btn svg{ width:13px; height:13px; }
+  .profile-details{ min-width:0; }
+  .profile-details h1{ margin:0; font-size:22px; font-weight:700; line-height:1.2; }
+  .profile-handle{ color:#7a6b67; font-size:14px; margin-top:4px; }
+  .profile-line{ color:#1a1210; font-size:13px; margin-top:8px; }
+  .profile-meta-row{ display:flex; flex-wrap:wrap; gap:14px; margin-top:12px; }
+  .meta-item{ display:flex; align-items:center; gap:6px; color:#7a6b67; font-size:12px; }
+  .meta-item svg{ width:14px; height:14px; color:#c41e3a; }
+  .profile-hero{
+    width:260px; height:140px; border-radius:16px; background:linear-gradient(135deg, rgba(26,18,16,0.08), rgba(26,18,16,0.18)), url('https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=1200&q=80') center/cover no-repeat; border:1px solid rgba(26,18,16,0.08);
+  }
+  .profile-tabs{ display:flex; align-items:center; gap:12px; padding:10px 18px 14px; border-top:1px solid rgba(26,18,16,0.08); margin-top:8px; }
+  .tab-item{ position:relative; border:none; background:transparent; font-size:13px; font-weight:600; color:#4d4b49; padding:8px 12px; border-radius:10px; display:flex; align-items:center; gap:8px; }
+  .tab-item.active{ color:#c41e3a; background:#fff; box-shadow:inset 0 -2px 0 #c41e3a; }
+  .tab-pill{ min-width:18px; height:18px; border-radius:999px; background:#fce9ec; color:#8f1229; font-size:11px; display:inline-flex; align-items:center; justify-content:center; font-weight:700; }
+
+  .content-section{ padding-top:18px; }
+  .section-header{ display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+  .section-header h2{ font-size:16px; font-weight:700; color:#1a1210; }
+  .section-header a{ color:#c41e3a; font-size:12px; font-weight:600; display:inline-flex; align-items:center; gap:6px; }
+  .booking-list{ display:flex; flex-direction:column; gap:12px; }
+  .booking-item{
+    display:grid; grid-template-columns: 160px 1fr auto; align-items:center; gap:14px; background:#fff; border:1px solid rgba(26,18,16,0.08);
+    border-radius:14px; padding:10px; overflow:hidden;
+  }
+  .booking-thumb{ width:160px; height:104px; border-radius:12px; background-size:cover; background-position:center; }
+  .booking-main{ min-width:0; }
+  .booking-tag{ display:inline-block; margin-bottom:6px; padding:4px 8px; border-radius:999px; background:#fce9ec; color:#8f1229; font-size:10px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; }
+  .booking-title{ font-size:17px; font-weight:700; color:#1a1210; margin-bottom:4px; }
+  .booking-meta{ display:flex; align-items:center; gap:10px; color:#7a6b67; font-size:12px; flex-wrap:wrap; }
+  .booking-details{ display:flex; align-items:center; gap:8px; }
+  .booking-price-box{ min-width:120px; text-align:right; }
+  .booking-price-box .price-total{ font-size:14px; font-weight:700; color:#1a1210; }
+  .booking-price-box .price-nights{ font-size:11px; color:#7a6b67; }
+  .booking-button{ margin-top:8px; border:1px solid rgba(26,18,16,0.2); border-radius:8px; background:#fff; color:#1a1210; font-weight:600; padding:8px 12px; }
+  .trip-grid{ display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:14px; }
+  .trip-card{ background:#fff; border:1px solid rgba(26,18,16,0.08); border-radius:14px; padding:8px 8px 12px; }
+  .trip-image{ height:110px; border-radius:10px; background-size:cover; background-position:center; }
+  .trip-card h3{ margin:10px 4px 4px; font-size:14px; font-weight:700; }
+  .trip-meta{ display:flex; align-items:center; justify-content:space-between; padding:0 4px; font-size:11px; color:#7a6b67; }
+  .trip-status{ display:inline-flex; align-items:center; gap:4px; padding:4px 8px; border-radius:999px; background:#e7f7ed; color:#2d7a4d; font-weight:700; }
+  .trip-status::before{ content:'✓'; font-size:10px; }
+
+  .profile-rail{ background:#fbfaf9; padding:16px 16px 20px; display:flex; flex-direction:column; gap:16px; }
+  .rail-card{ background:#fff; border:1px solid rgba(26,18,16,0.08); border-radius:14px; padding:16px; }
+  .rail-card h3{ font-size:14px; font-weight:700; margin:0; }
+  .stats-row{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:14px; }
+  .stats-box{ background:#fff; border:1px solid rgba(26,18,16,0.08); border-radius:12px; padding:12px 12px 10px; text-align:center; }
+  .stats-icon{ width:38px; height:38px; border-radius:12px; display:flex; align-items:center; justify-content:center; margin:0 auto 10px; }
+  .stats-icon.red{ background:#fce9ec; color:#c41e3a; }
+  .stats-icon.green{ background:#eaf7ee; color:#2d7a4d; }
+  .stats-icon svg{ width:16px; height:16px; }
+  .stats-value{ font-size:16px; font-weight:700; color:#1a1210; }
+  .stats-label{ margin-top:4px; font-size:11px; color:#7a6b67; }
+  .rail-row{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+  #profile-completion-value{ font-weight:700; color:#1a1210; }
+  .completion-bar{ height:8px; border-radius:999px; background:#eef0f0; overflow:hidden; }
+  .completion-bar span{ display:block; height:100%; width:80%; background:linear-gradient(90deg, #25b86b, #58d183); border-radius:inherit; }
+  .dark-note{ color:#5a6960; font-size:12px; margin:10px 0 0; }
+  .check-list{ list-style:none; margin:12px 0 0; padding:0; display:flex; flex-direction:column; gap:8px; }
+  .check-item{ position:relative; list-style:none; padding-left:20px; font-size:12px; color:#1a1210; }
+  .check-item::before{ content:'✓'; position:absolute; left:0; top:0; color:#2d7a4d; font-weight:700; }
+  .check-item.incomplete{ color:#7a6b67; }
+  .check-item.incomplete::before{ content:'•'; color:#d5c8c3; }
+  .action-list{ margin-top:10px; display:flex; flex-direction:column; gap:10px; }
+  .action-item{ width:100%; display:flex; align-items:center; gap:12px; background:transparent; border:none; color:#1a1210; font-weight:600; padding:8px 0; text-align:left; }
+  .action-icon{ width:28px; height:28px; border:1px solid rgba(26,18,16,0.08); border-radius:8px; display:flex; align-items:center; justify-content:center; background:#fff; }
+  .action-icon svg{ width:14px; height:14px; }
+  .chevron{ margin-left:auto; color:#7a6b67; font-size:18px; }
+  .verified-tag{ margin-left:auto; background:#eaf7ee; color:#2d7a4d; font-size:10px; font-weight:700; padding:4px 8px; border-radius:999px; }
+  .help-card{ padding-bottom:18px; }
+  .help-head{ display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+  .help-icon{ width:30px; height:30px; border-radius:50%; background:#fce9ec; color:#c41e3a; display:flex; align-items:center; justify-content:center; }
+  .help-icon svg{ width:16px; height:16px; }
+  .help-card p{ font-size:12px; color:#7a6b67; margin:0 0 12px; }
+  .help-button{ width:100%; background:transparent; border:1px solid rgba(196,30,58,0.5); color:#c41e3a; padding:9px 10px; border-radius:10px; font-weight:700; }
+
+  .hidden-actions{ display:none; }
+  .share-panel{ display:none; }
+  @media (max-width: 1100px){
+    .profile-desktop-shell{ grid-template-columns: 220px minmax(0, 1fr) 290px; }
+    .profile-hero{ width:220px; }
+  }
+  @media (max-width: 930px){
+    body{ padding:0; overflow:auto; }
+    .profile-desktop-shell{ display:block; max-width:none; border-radius:0; border:none; box-shadow:none; }
+    .profile-sidebar{ display:none; }
+    .profile-main{ border-right:none; }
+    .profile-rail{ display:none; }
+    .profile-card-body{ display:block; }
+    .profile-hero{ width:100%; margin-top:18px; }
+    .profile-tabs{ flex-wrap:wrap; }
+    .trip-grid{ grid-template-columns:1fr; }
+    .booking-item{ grid-template-columns:1fr; }
+    .booking-thumb{ width:100%; }
+    .booking-price-box{ text-align:left; }
+  }
 </style>
 </head>
 <body>
@@ -470,148 +631,207 @@
 
 <div class="app-shell">
 
-  <!-- SIDEBAR -->
-  <aside class="sidebar" id="sidebar">
-    <a href="host-home.html" class="logo"><span class="va">Va</span><span class="room">Room</span></a>
+  <div id="profile-content" style="display:none;">
+        <div class="profile-desktop-shell">
+          <aside class="profile-sidebar">
+            <a href="client-home.html" class="brand-logo"><span class="va">Va</span><span class="room">Room</span></a>
 
-    <nav class="nav-group">
-      <a href="elie.html" class="nav-item">
-        <img src="elie-logo.png" alt="Elie" class="elie-logo-nav">
-        Elie
-        <span class="beta-pill">Free preview</span>
-      </a>
-    </nav>
-
-    <nav class="nav-group">
-      <a href="host-home.html" class="nav-item" data-nav="explore">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m15 9-2 6-6 2 2-6 6-2Z"/></svg>
-        Explore
-      </a>
-      <a href="host-home.html" class="nav-item">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1Z"/><path d="M9 21v-6h6v6"/></svg>
-        Home
-      </a>
-      <a href="saved.html" class="nav-item" data-nav="saved">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h12a1 1 0 0 1 1 1V21l-7-4-7 4V4.5a1 1 0 0 1 1-1Z"/></svg>
-        Saved
-      </a>
-    </nav>
-
-    <nav class="nav-group">
-      <p class="nav-label">My activity</p>
-      <a href="bookings.html" class="nav-item">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="2"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>
-        Bookings
-      </a>
-      <a href="chats.html" class="nav-item">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z"/></svg>
-        Chats
-      </a>
-    </nav>
-
-    <nav class="nav-group host-only-nav" id="host-tools-nav">
-      <p class="nav-label">Host</p>
-      <a href="list.html" class="list-space-btn">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        List a space
-      </a>
-      <a href="host-home.html" class="nav-item">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4" width="17" height="16" rx="2"/><path d="M7.5 9h9M7.5 13h9M7.5 17h5"/></svg>
-        My Listings
-      </a>
-      <a href="payments.html" class="nav-item">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><path d="M7 15h4"/></svg>
-        Payments
-      </a>
-    </nav>
-
-    <nav class="nav-group">
-      <p class="nav-label">Account</p>
-      <div class="nav-item active">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.5-7 8-7s8 3 8 7"/></svg>
-        Profile
-      </div>
-      <a href="settings.html" class="nav-item">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>
-        Settings
-      </a>
-    </nav>
-
-    <button type="button" class="logout-btn" id="logout-btn">Log out</button>
-  </aside>
-
-  <!-- MAIN COLUMN -->
-  <div class="main-col">
-
-    <!-- Topbar -->
-    <header class="topbar">
-    </header>
-
-    <!-- Profile content -->
-    <div class="profile-scroll" id="profile-scroll">
-
-      <!-- Loading -->
-      <div id="loading-state" style="text-align:center;padding:2rem;">
-        <div style="display:inline-block;width:80px;height:80px;border-radius:50%;background:rgba(128,110,100,.08);animation:skeleton-shimmer 2s infinite;margin-bottom:1.5rem;"></div>
-        <div style="height:1.8rem;width:40%;background:rgba(128,110,100,.08);border-radius:4px;animation:skeleton-shimmer 2s infinite;margin:0 auto .8rem;"></div>
-        <div style="height:1rem;width:60%;background:rgba(128,110,100,.08);border-radius:4px;animation:skeleton-shimmer 2s infinite;margin:0 auto 2rem;"></div>
-        <div style="height:2.5rem;width:45%;background:rgba(128,110,100,.08);border-radius:100px;animation:skeleton-shimmer 2s infinite;margin:0 auto;"></div>
-      </div>
-
-      <!-- Profile -->
-      <div id="profile-content" style="display:none;">
-
-        <!-- Header -->
-        <div class="profile-header">
-          <div class="profile-avatar-wrap">
-            <div class="profile-avatar" id="profile-avatar">·</div>
-            <!-- Camera button — owner only -->
-            <label class="avatar-upload-btn" id="avatar-upload-label" for="avatar-input" aria-label="Change photo" style="display:none;">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2Z"/><circle cx="12" cy="13" r="4"/></svg>
-              <input type="file" id="avatar-input" accept="image/png,image/jpeg,image/webp">
-            </label>
-          </div>
-
-          <div class="profile-info">
-            <div class="profile-role-badge" id="profile-role">Host</div>
-            <h1 class="profile-name" id="profile-name">—</h1>
-            <p class="profile-username" id="profile-username"></p>
-            <p class="profile-bio" id="profile-bio"></p>
-            <div class="profile-meta">
-              <div class="profile-meta-item" id="meta-location" style="display:none;">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>
-                <span id="meta-location-text"></span>
-              </div>
-              <div class="profile-meta-item" id="meta-since" style="display:none;">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3.5" y="5" width="17" height="16" rx="2"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>
-                <span id="meta-since-text"></span>
-              </div>
-            </div>
-
-            <!-- Owner actions -->
-            <div class="profile-actions" id="owner-actions" style="display:none;">
-              <button type="button" class="btn-outline" id="edit-profile-btn">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>
-                Edit profile
+            <nav class="nav-group">
+              <button class="nav-item" type="button">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m15 9-2 6-6 2 2-6 6-2Z"/></svg>
+                Explore
               </button>
-              <button type="button" class="btn-outline" id="share-profile-btn">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.59 13.51 6.83 3.98"/><path d="m15.41 6.51-6.82 3.98"/></svg>
-                Share profile
+              <button class="nav-item" type="button">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1Z"/><path d="M9 21v-6h6v6"/></svg>
+                Properties
               </button>
-            </div>
+              <button class="nav-item" type="button">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15.5V7.5A2.5 2.5 0 0 1 6.5 5h11A2.5 2.5 0 0 1 20 7.5v8A2.5 2.5 0 0 1 17.5 18H6.5A2.5 2.5 0 0 1 4 15.5Z"/><path d="M8 9h8M8 13h6"/></svg>
+                Experiences
+              </button>
+              <button class="nav-item" type="button">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14M6 12h12M8 16h8"/><rect x="3" y="4" width="18" height="16" rx="2"/></svg>
+                Deals
+              </button>
+              <button class="nav-item active" type="button">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7 13.5 14.5 9.5 10.5 3 17"/><path d="M21 7h-6M21 7v6"/></svg>
+                Become a Host
+              </button>
+            </nav>
 
-            <!-- Visitor actions -->
-            <div class="profile-actions" id="visitor-actions" style="display:none;">
-              <a href="chats.html" class="btn-solid" id="ask-host-btn">
+            <div class="nav-group nav-group-compact">
+              <div class="nav-label">My Activity</div>
+              <button class="nav-item" type="button">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="2"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>
+                Bookings
+              </button>
+              <button class="nav-item" type="button">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z"/></svg>
-                Ask <span id="ask-name">host</span>
-              </a>
-              <button type="button" class="btn-outline" id="share-profile-btn-visitor">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.59 13.51 6.83 3.98"/><path d="m15.41 6.51-6.82 3.98"/></svg>
-                Share profile
+                Chats
+              </button>
+              <button class="nav-item" type="button">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h12a1 1 0 0 1 1 1V21l-7-4-7 4V4.5a1 1 0 0 1 1-1Z"/></svg>
+                Saved
               </button>
             </div>
-          </div>
+
+            <div class="nav-group nav-group-compact">
+              <div class="nav-label">Account</div>
+              <button class="nav-item active" type="button">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.5-7 8-7s8 3 8 7"/></svg>
+                Profile
+              </button>
+              <button class="nav-item" type="button">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>
+                Settings
+              </button>
+            </div>
+
+            <div class="sidebar-promo-card">
+              <div class="promo-photo"></div>
+              <div class="promo-copy">
+                <div class="promo-small">Earn more</div>
+                <div class="promo-title">Become a Host</div>
+              </div>
+            </div>
+
+            <button type="button" class="logout-btn" id="logout-btn">Log out</button>
+          </aside>
+
+          <main class="profile-main">
+            <header class="profile-topbar">
+              <div class="topbar-spacer"></div>
+              <div class="topbar-actions">
+                <button class="topbar-icon" type="button" aria-label="Toggle theme">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
+                </button>
+                <button class="topbar-icon" type="button" aria-label="Notifications">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                </button>
+                <button class="topbar-user" type="button">
+                  <div class="topbar-user-avatar" id="topbar-avatar">•</div>
+                  <span id="topbar-name">User</span>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                </button>
+              </div>
+            </header>
+
+            <div class="profile-card">
+              <div class="profile-card-body">
+                <div class="profile-personal">
+                  <div class="profile-avatar-wrap">
+                    <div class="profile-avatar" id="profile-avatar">•</div>
+                    <label class="avatar-upload-btn" id="avatar-upload-label" for="avatar-input" aria-label="Change photo" style="display:none;">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2Z"/><circle cx="12" cy="13" r="4"/></svg>
+                      <input type="file" id="avatar-input" accept="image/png,image/jpeg,image/webp">
+                    </label>
+                  </div>
+
+                  <div class="profile-details">
+                    <h1 id="profile-header-name">Profile</h1>
+                    <div class="profile-handle" id="profile-username">@username</div>
+                    <div class="profile-line" id="profile-email">email@example.com</div>
+                    <div class="profile-meta-row">
+                      <span class="meta-item" id="profile-location">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>
+                        <span id="profile-location-text">Location</span>
+                      </span>
+                      <span class="meta-item" id="profile-since">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3.5" y="5" width="17" height="16" rx="2"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>
+                        <span id="profile-since-text">Member since</span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="profile-hero" id="profile-hero-photo"></div>
+              </div>
+
+              <div class="profile-tabs" role="tablist" aria-label="Profile sections">
+                <button type="button" class="tab-item active">Bookings</button>
+                <button type="button" class="tab-item">Saved</button>
+                <button type="button" class="tab-item">Chats <span class="tab-pill">2</span></button>
+                <button type="button" class="tab-item">Settings</button>
+              </div>
+            </div>
+
+            <div class="content-section">
+              <div class="section-header">
+                <h2>Upcoming Bookings</h2>
+                <a href="bookings.html">View all bookings <span>→</span></a>
+              </div>
+              <div id="upcoming-bookings" class="booking-list"></div>
+            </div>
+
+            <div class="content-section">
+              <div class="section-header">
+                <h2>Past Trips</h2>
+                <a href="bookings.html">View all trips <span>→</span></a>
+              </div>
+              <div id="past-trips" class="trip-grid"></div>
+            </div>
+
+            <div class="profile-actions hidden-actions" id="owner-actions" style="display:none;">
+              <button type="button" class="btn-outline" id="edit-profile-btn">Edit profile</button>
+              <button type="button" class="btn-outline" id="share-profile-btn">Share profile</button>
+            </div>
+            <div class="profile-actions hidden-actions" id="visitor-actions" style="display:none;">
+              <a href="chats.html" class="btn-solid" id="ask-host-btn">Ask <span id="ask-name">host</span></a>
+              <button type="button" class="btn-outline" id="share-profile-btn-visitor">Share profile</button>
+            </div>
+          </main>
+
+          <aside class="profile-rail">
+            <div class="rail-card">
+              <h3>Your Stats</h3>
+              <div class="stats-row">
+                <div class="stats-box">
+                  <div class="stats-icon red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v4M16 3v4M4 9h16"/><rect x="3" y="5" width="18" height="16" rx="2"/></svg></div>
+                  <div class="stats-value" id="stat-bookings">0</div>
+                  <div class="stats-label">Total stays</div>
+                </div>
+                <div class="stats-box">
+                  <div class="stats-icon green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h12a1 1 0 0 1 1 1V21l-7-4-7 4V4.5a1 1 0 0 1 1-1Z"/></svg></div>
+                  <div class="stats-value" id="stat-saved">0</div>
+                  <div class="stats-label">Saved properties</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="rail-card">
+              <div class="rail-row">
+                <h3>Profile Completion</h3>
+                <span id="profile-completion-value">80%</span>
+              </div>
+              <div class="completion-bar"><span id="completion-bar"></span></div>
+              <p class="dark-note">Complete your profile to unlock exclusive deals!</p>
+              <ul class="check-list">
+                <li class="check-item complete">Verify Email</li>
+                <li class="check-item complete">Add Profile Photo</li>
+                <li class="check-item complete">Add Phone Number</li>
+                <li class="check-item incomplete">Add ID Verification</li>
+              </ul>
+            </div>
+
+            <div class="rail-card">
+              <h3>Quick Actions</h3>
+              <div class="action-list">
+                <button class="action-item" type="button"><span class="action-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg></span> Edit Profile <span class="chevron">›</span></button>
+                <button class="action-item" type="button"><span class="action-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><path d="M7 15h4"/></svg></span> Payment Methods <span class="chevron">›</span></button>
+                <button class="action-item" type="button"><span class="action-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12h6"/><path d="M12 9v6"/><path d="M8 19h8a4 4 0 0 0 4-4V7a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v8a4 4 0 0 0 4 4Z"/></svg></span> ID Verification <span class="verified-tag">Verified</span></button>
+                <button class="action-item" type="button"><span class="action-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14 21 3"/><path d="M21 3h-8"/><path d="M21 3v8"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></svg></span> Refer &amp; Earn <span class="chevron">›</span></button>
+              </div>
+            </div>
+
+            <div class="rail-card help-card">
+              <div class="help-head">
+                <div class="help-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19.5 12a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z"/><path d="M9.5 9.5a2.5 2.5 0 0 1 5 0c0 1.8-2.5 2.2-2.5 5"/><path d="M12 17h.01"/></svg></div>
+                <h3>Need Help?</h3>
+              </div>
+              <p>Our support team is here for you.</p>
+              <button class="help-button" type="button">Contact Support</button>
+            </div>
+          </aside>
         </div>
 
         <!-- Share panel -->
@@ -637,19 +857,15 @@
           </div>
         </div>
 
-        <!-- Listings section -->
-        <div id="listings-section">
+        <div id="listings-section" style="display:none;">
           <div class="listings-section-head">
             <div>
               <h2 id="listings-heading">Places</h2>
               <span class="listings-count" id="listings-count"></span>
             </div>
           </div>
-          <div class="listings-grid" id="listings-grid">
-            <!-- populated by JS -->
-          </div>
+          <div class="listings-grid" id="listings-grid"></div>
         </div>
-
       </div><!-- /#profile-content -->
     </div><!-- /.profile-scroll -->
 
@@ -793,80 +1009,151 @@
 
   /* ── Render profile header ── */
   function renderProfile(){
-    const isClientOwner = isOwner && currentRole !== 'host';
-    document.getElementById('host-tools-nav').style.display = currentRole === 'host' ? 'flex' : 'none';
-    document.getElementById('edit-bio-field').style.display = isClientOwner ? 'none' : 'block';
-
-    // Avatar
     const av = document.getElementById('profile-avatar');
-    if (profileData.avatar_url) {
-      const url = profileData.avatar_url.startsWith('http') ? profileData.avatar_url
-        : supabaseClient.storage.from('avatars').getPublicUrl(profileData.avatar_url).data.publicUrl;
-      av.innerHTML = '<img src="' + url + '" alt="' + (profileData.full_name||'') + '">';
+    const topbarAvatar = document.getElementById('topbar-avatar');
+    const displayName = profileData.full_name || 'VaRoom member';
+    const avatarUrl = profileData.avatar_url
+      ? (profileData.avatar_url.startsWith('http') ? profileData.avatar_url
+        : supabaseClient.storage.from('avatars').getPublicUrl(profileData.avatar_url).data.publicUrl)
+      : null;
+
+    if (avatarUrl) {
+      av.innerHTML = '<img src="' + avatarUrl + '" alt="' + displayName + '">';
+      topbarAvatar.innerHTML = '<img src="' + avatarUrl + '" alt="' + displayName + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%">';
     } else {
-      av.textContent = (profileData.full_name || '?').charAt(0).toUpperCase();
+      const letter = (displayName || '?').charAt(0).toUpperCase();
+      av.textContent = letter;
+      topbarAvatar.textContent = letter;
     }
 
-    // Role
-    document.getElementById('profile-role').textContent =
-      profileData.role === 'host' ? 'HOST' : 'CLIENT';
-
-    // Name
-    document.getElementById('profile-name').textContent = profileData.full_name || 'VaRoom member';
-
-    // Username
-    const usernameEl = document.getElementById('profile-username');
-    usernameEl.textContent = profileData.username ? '@' + profileData.username : '';
-
-    // Bio
-    const bioEl = document.getElementById('profile-bio');
-    if (isClientOwner) {
-      bioEl.style.display = 'none';
-    } else if (profileData.bio) {
-      bioEl.style.display = 'block';
-      bioEl.textContent = profileData.bio;
-      bioEl.classList.remove('empty');
-    } else {
-      bioEl.style.display = 'block';
-      bioEl.textContent = isOwner ? 'Add a bio to tell people about yourself.' : '';
-      bioEl.classList.add('empty');
-    }
-
-    // Location
-    if (profileData.city) {
-      document.getElementById('meta-location').style.display = 'flex';
-      document.getElementById('meta-location-text').textContent = profileData.city;
-    }
-
-    // Hosting since
-    if (profileData.created_at) {
-      const year = new Date(profileData.created_at).getFullYear();
-      document.getElementById('meta-since').style.display = 'flex';
-      document.getElementById('meta-since-text').textContent =
-        (profileData.role === 'host' ? 'Hosting since ' : 'Member since ') + year;
-    }
-
-    // Ask host button name
-    const firstName = (profileData.full_name || 'host').split(' ')[0];
-    document.getElementById('ask-name').textContent = firstName;
-
-    // Actions — owner vs visitor
-    const showingAsVisitor = !isOwner;
-    document.getElementById('owner-actions').style.display = (!showingAsVisitor && !isClientOwner) ? 'flex' : 'none';
-    document.getElementById('visitor-actions').style.display = showingAsVisitor ? 'flex' : 'none';
-
-    // Camera button — owner only
+    document.getElementById('profile-header-name').textContent = displayName;
+    document.getElementById('topbar-name').textContent = displayName;
+    document.getElementById('profile-username').textContent = profileData.username ? '@' + profileData.username : '@user';
+    document.getElementById('profile-email').textContent = currentUser.email || 'No email on file';
+    document.getElementById('profile-location-text').textContent = profileData.city || 'Unknown location';
+    document.getElementById('profile-since-text').textContent = profileData.created_at
+      ? 'Member since ' + new Date(profileData.created_at).getFullYear()
+      : 'Member since 2024';
+    document.getElementById('ask-name').textContent = (displayName || 'host').split(' ')[0];
     document.getElementById('avatar-upload-label').style.display = isOwner ? 'flex' : 'none';
 
-    // Listings heading
-    document.getElementById('listings-section').style.display = isClientOwner ? 'none' : 'block';
-    document.getElementById('listings-heading').textContent =
-      isClientOwner ? '' : 'Places by ' + firstName;
+    const showingAsVisitor = !isOwner;
+    document.getElementById('owner-actions').style.display = showingAsVisitor ? 'none' : 'none';
+    document.getElementById('visitor-actions').style.display = showingAsVisitor ? 'flex' : 'none';
+  }
+
+  function renderStats(totalStays, savedTotal){
+    document.getElementById('stat-bookings').textContent = String(totalStays || 0);
+    document.getElementById('stat-saved').textContent = String(savedTotal || 0);
+  }
+
+  function renderProfileCompletion(completion){
+    const value = Math.max(0, Math.min(100, completion || 80));
+    document.getElementById('profile-completion-value').textContent = value + '%';
+    document.getElementById('completion-bar').style.width = value + '%';
+  }
+
+  function renderBookings(upcoming, past){
+    const upcomingEl = document.getElementById('upcoming-bookings');
+    const pastEl = document.getElementById('past-trips');
+    const makeThumb = (url) => url ? 'url("' + url + '")' : 'linear-gradient(135deg, #f0e4e2, #d7ece5)';
+
+    if (!upcoming.length) {
+      upcomingEl.innerHTML = '<div class="state-msg" style="padding:1rem 0; color:#7a6b67;">No upcoming bookings yet.</div>';
+    } else {
+      upcomingEl.innerHTML = upcoming.slice(0, 2).map(function(booking){
+        const title = booking.listing && booking.listing.title ? booking.listing.title : 'VaRoom stay';
+        const location = booking.listing && booking.listing.location_text ? booking.listing.location_text : 'Location available';
+        const start = booking.start_date ? new Date(booking.start_date).toLocaleDateString(undefined,{ month:'short', day:'numeric', year:'numeric' }) : '';
+        const end = booking.end_date ? new Date(booking.end_date).toLocaleDateString(undefined,{ month:'short', day:'numeric', year:'numeric' }) : '';
+        const date = start && end ? start + ' - ' + end : (start || 'Flexible dates');
+        const guests = booking.guests || booking.max_guests || 2;
+        const total = booking.total_price ? '$' + Number(booking.total_price).toLocaleString() : '$0';
+        const thumb = booking.listing && booking.listing.listing_photos && booking.listing.listing_photos.length
+          ? booking.listing.listing_photos[0].public_url
+          : 'https://images.unsplash.com/photo-1494526585095-c41746248156?auto=format&fit=crop&w=1200&q=80';
+        return '<div class="booking-item">' +
+          '<div class="booking-thumb" style="background-image:' + makeThumb(thumb) + '"></div>' +
+          '<div class="booking-main">' +
+          '<div class="booking-tag">Upcoming</div>' +
+          '<div class="booking-title">' + title + '</div>' +
+          '<div class="booking-meta"><span>' + location + '</span><span>•</span><span>' + date + '</span></div>' +
+          '<div class="booking-meta" style="margin-top:6px;"><span>' + guests + ' Guests</span></div>' +
+          '</div>' +
+          '<div class="booking-price-box"><div class="price-total">' + total + '</div><div class="price-nights">' + (booking.nights || 0) + ' nights</div><button class="booking-button" type="button">View Details</button></div>' +
+          '</div>';
+      }).join('');
+    }
+
+    if (!past.length) {
+      pastEl.innerHTML = '<div class="state-msg" style="padding:1rem 0; color:#7a6b67;">No past trips yet.</div>';
+    } else {
+      pastEl.innerHTML = past.slice(0, 3).map(function(booking){
+        const title = booking.listing && booking.listing.title ? booking.listing.title : 'Recent stay';
+        const location = booking.listing && booking.listing.location_text ? booking.listing.location_text : 'Location available';
+        const start = booking.end_date ? new Date(booking.end_date).toLocaleDateString(undefined,{ month:'short', day:'numeric', year:'numeric' }) : 'Completed';
+        const thumb = booking.listing && booking.listing.listing_photos && booking.listing.listing_photos.length
+          ? booking.listing.listing_photos[0].public_url
+          : 'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=1200&q=80';
+        return '<div class="trip-card">' +
+          '<div class="trip-image" style="background-image:' + makeThumb(thumb) + '"></div>' +
+          '<h3>' + title + '</h3>' +
+          '<div class="trip-meta"><span>' + location + '</span><span class="trip-status">Completed</span></div>' +
+          '<div class="trip-meta" style="margin-top:6px; padding:0 4px;"><span>' + start + '</span></div>' +
+          '</div>';
+      }).join('');
+    }
   }
 
   renderProfile();
   document.getElementById('loading-state').style.display = 'none';
   document.getElementById('profile-content').style.display = 'block';
+
+  async function loadClientBookings(){
+    const { data, error } = await supabaseClient
+      .from('bookings')
+      .select('id, client_id, listing_id, total_price, start_date, end_date, guests, status, listing:listings(id, title, location_text, listing_photos(storage_path))')
+      .eq('client_id', currentUser.id)
+      .order('start_date', { ascending: true });
+
+    if (error || !data) return { upcoming: [], past: [] };
+
+    const upcoming = [];
+    const past = [];
+    for (const booking of data) {
+      const listing = booking.listing || {};
+      const photos = Array.isArray(listing.listing_photos) ? listing.listing_photos : [];
+      const publicPhotos = photos.map(function(photo){
+        if (!photo || !photo.storage_path) return null;
+        return supabaseClient.storage.from('listing-photos').getPublicUrl(photo.storage_path).data.publicUrl;
+      }).filter(Boolean);
+      const enriched = Object.assign({}, booking, { listing: Object.assign({}, listing, { listing_photos: publicPhotos.map(function(url){ return { public_url: url }; }) }) });
+      if (booking.status === 'completed' || booking.status === 'cancelled' || (booking.end_date && new Date(booking.end_date) < new Date())) {
+        past.push(enriched);
+      } else {
+        upcoming.push(enriched);
+      }
+    }
+    return { upcoming, past };
+  }
+
+  async function loadSavedCount(){
+    try {
+      const { count, error } = await supabaseClient
+        .from('saved_properties')
+        .select('id', { count:'exact', head:true })
+        .eq('user_id', currentUser.id);
+      if (error) return 0;
+      return count || 0;
+    } catch (err) {
+      return 0;
+    }
+  }
+
+  const bookingsData = await loadClientBookings();
+  renderBookings(bookingsData.upcoming, bookingsData.past);
+  renderStats(bookingsData.upcoming.length + bookingsData.past.length, await loadSavedCount());
+  renderProfileCompletion(80);
 
   /* ── Profile actions ── */
   document.getElementById('edit-profile-btn').addEventListener('click', function(){
