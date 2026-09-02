@@ -11,9 +11,9 @@
 <script>
   (function(){
     try {
-      document.documentElement.setAttribute('data-theme', 'light');
-      document.documentElement.style.colorScheme = 'light';
-      localStorage.setItem('varoom_theme', 'light');
+      const stored = localStorage.getItem('varoom_theme') || 'light';
+      document.documentElement.setAttribute('data-theme', stored);
+      document.documentElement.style.colorScheme = stored;
     } catch (e) {}
   })();
 </script>
@@ -29,9 +29,11 @@
     --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#1A1210; --paper:#FBF4F1;
     --muted:#7a6b67; --card-border:rgba(26,18,16,.1);
     --font-display:'Fraunces', serif; --font-body:'Inter', sans-serif;
+    --shell-bg:rgba(255,255,255,0.96); --sidebar-bg:#ffffff; --main-bg:#f7f5f4; --rail-bg:#fbfaf9; --card-bg:#ffffff;
   }
   [data-theme="dark"]{
-    --white:#FFFFFF; --paper:#FBF4F1; --ink:#1A1210; --muted:#7a6b67; --card-border:rgba(26,18,16,.1);
+    --white:#FFFFFF; --paper:#15100f; --ink:#f2ece9; --muted:#a89f9b; --card-border:rgba(255,255,255,.1);
+    --shell-bg:#1c1716; --sidebar-bg:#1c1716; --main-bg:#171313; --rail-bg:#171313; --card-bg:#241d1c;
   }
   *{ margin:0; padding:0; box-sizing:border-box; }
   a{ color:inherit; text-decoration:none; }
@@ -41,7 +43,8 @@
 
   body{
     font-family:var(--font-body); color:var(--ink);
-    background:#0b0a0a; padding:18px 18px 0; min-height:100vh; overflow:hidden;
+    background:var(--paper); min-height:100vh; overflow-x:hidden; overflow-y:auto;
+    transition:background .2s ease, color .2s ease;
   }
 
   /* ============================================================
@@ -54,15 +57,15 @@
 
   .profile-desktop-shell{
     display:grid; grid-template-columns: 260px minmax(0, 1fr) 330px; gap:0;
-    width:100%; max-width:1260px; margin:0 auto; min-height:calc(100vh - 18px);
-    background:rgba(255,255,255,0.96); border:1px solid rgba(26,18,16,0.08);
-    border-radius:18px; box-shadow:0 18px 60px rgba(12,10,10,0.08);
+    width:100%; max-width:none; margin:0; min-height:100vh;
+    background:var(--shell-bg); border:none;
+    border-radius:0; box-shadow:none;
     overflow:hidden;
   }
 
   /* ── LEFT SIDEBAR ── */
   .profile-sidebar{
-    background:#fff; border-right:1px solid rgba(26,18,16,0.08); padding:18px 12px 14px;
+    background:var(--sidebar-bg); border-right:1px solid var(--card-border); padding:18px 12px 14px;
     display:flex; flex-direction:column; gap:18px;
   }
   .brand-logo{ display:flex; align-items:baseline; padding:0 10px; font-family:'Fraunces', serif; font-size:22px; font-weight:900; letter-spacing:-0.04em; }
@@ -70,10 +73,10 @@
 
   .nav-group{ display:flex; flex-direction:column; gap:4px; }
   .nav-group-compact{ margin-top:4px; }
-  .nav-label{ padding:8px 12px 6px; font-size:11px; color:#7a6b67; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; }
+  .nav-label{ padding:8px 12px 6px; font-size:11px; color:var(--muted); font-weight:700; letter-spacing:0.12em; text-transform:uppercase; }
   .nav-item{
     width:100%; display:flex; align-items:center; gap:10px; border:none; background:transparent;
-    color:#1a1210; font-size:14px; font-weight:500; text-align:left; padding:10px 10px; border-radius:10px; cursor:pointer;
+    color:var(--ink); font-size:14px; font-weight:500; text-align:left; padding:10px 10px; border-radius:10px; cursor:pointer;
   }
   .nav-item svg{ width:17px; height:17px; flex-shrink:0; }
   .nav-item.active{ background:#fce9ec; color:#8f1229; font-weight:600; }
@@ -88,23 +91,23 @@
   }
   .promo-copy{ padding:10px 12px 12px; }
   .promo-small{ font-size:11px; color:#8f1229; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; }
-  .promo-title{ font-size:14px; font-weight:700; color:#1a1210; }
+  .promo-title{ font-size:14px; font-weight:700; color:var(--ink); }
   .logout-btn{ margin-top:12px; text-align:left; color:#c41e3a; font-weight:600; padding:8px 10px; border-radius:8px; }
   .logout-btn:hover{ background:#fce9ec; }
 
   /* ── CENTER COLUMN ── */
-  .profile-main{ background:#f7f5f4; border-right:1px solid rgba(26,18,16,0.08); padding:16px 20px 30px; }
+  .profile-main{ background:var(--main-bg); border-right:1px solid var(--card-border); padding:16px 20px 30px; }
   .profile-topbar{ display:flex; align-items:center; justify-content:space-between; padding:4px 4px 8px; }
   .topbar-spacer{ flex:1; }
   .topbar-actions{ display:flex; align-items:center; gap:12px; }
-  .topbar-icon{ width:36px; height:36px; border-radius:50%; background:#fff; border:1px solid rgba(26,18,16,0.08); color:#1a1210; display:flex; align-items:center; justify-content:center; }
+  .topbar-icon{ width:36px; height:36px; border-radius:50%; background:var(--card-bg); border:1px solid var(--card-border); color:var(--ink); display:flex; align-items:center; justify-content:center; }
   .topbar-icon svg{ width:16px; height:16px; }
-  .topbar-user{ display:flex; align-items:center; gap:8px; background:#fff; border:1px solid rgba(26,18,16,0.08); border-radius:999px; padding:4px 10px 4px 6px; color:#1a1210; font-weight:600; }
+  .topbar-user{ display:flex; align-items:center; gap:8px; background:var(--card-bg); border:1px solid var(--card-border); border-radius:999px; padding:4px 10px 4px 6px; color:var(--ink); font-weight:600; }
   .topbar-user-avatar{ width:30px; height:30px; border-radius:50%; background:linear-gradient(135deg, #181412, #3b312e); color:#fff; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; overflow:hidden; }
   .topbar-user svg{ width:14px; height:14px; }
 
-  .profile-card{ background:#fff; border:1px solid rgba(26,18,16,0.08); border-radius:18px; padding:0; margin-top:4px; }
-  .profile-card-body{ display:flex; align-items:center; justify-content:space-between; gap:20px; padding:18px 18px 0; }
+  .profile-card{ background:var(--card-bg); border:1px solid var(--card-border); border-radius:18px; padding:0; margin-top:4px; }
+  .profile-card-body{ display:flex; align-items:center; gap:20px; padding:18px 18px 0; }
   .profile-personal{ display:flex; align-items:center; gap:18px; min-width:0; flex:1; }
   .profile-avatar-wrap{ position:relative; flex-shrink:0; }
   .profile-avatar{
@@ -114,50 +117,47 @@
   }
   .profile-avatar img{ width:100%; height:100%; object-fit:cover; display:block; }
   .avatar-upload-btn{
-    position:absolute; right:-2px; bottom:0; width:30px; height:30px; border-radius:50%; background:#1a1210; color:#fff;
+    position:absolute; right:-2px; bottom:0; width:30px; height:30px; border-radius:50%; background:var(--ink); color:#fff;
     display:flex; align-items:center; justify-content:center; border:2px solid #fff; cursor:pointer;
   }
   .avatar-upload-btn input{ display:none; }
   .avatar-upload-btn svg{ width:13px; height:13px; }
   .profile-details{ min-width:0; }
   .profile-details h1{ margin:0; font-size:22px; font-weight:700; line-height:1.2; }
-  .profile-handle{ color:#7a6b67; font-size:14px; margin-top:4px; }
-  .profile-line{ color:#1a1210; font-size:13px; margin-top:8px; }
+  .profile-handle{ color:var(--muted); font-size:14px; margin-top:4px; }
+  .profile-line{ color:var(--ink); font-size:13px; margin-top:8px; }
   .profile-meta-row{ display:flex; flex-wrap:wrap; gap:14px; margin-top:12px; }
-  .meta-item{ display:flex; align-items:center; gap:6px; color:#7a6b67; font-size:12px; }
+  .meta-item{ display:flex; align-items:center; gap:6px; color:var(--muted); font-size:12px; }
   .meta-item svg{ width:14px; height:14px; color:#c41e3a; }
-  .profile-hero{
-    width:260px; height:140px; border-radius:16px; background:linear-gradient(135deg, rgba(26,18,16,0.08), rgba(26,18,16,0.18)), url('https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=1200&q=80') center/cover no-repeat; border:1px solid rgba(26,18,16,0.08);
-  }
-  .profile-tabs{ display:flex; align-items:center; gap:12px; padding:10px 18px 14px; border-top:1px solid rgba(26,18,16,0.08); margin-top:8px; }
+  .profile-tabs{ display:flex; align-items:center; gap:12px; padding:10px 18px 14px; border-top:1px solid var(--card-border); margin-top:8px; }
   .tab-item{ position:relative; border:none; background:transparent; font-size:13px; font-weight:600; color:#4d4b49; padding:8px 12px; border-radius:10px; display:flex; align-items:center; gap:8px; }
-  .tab-item.active{ color:#c41e3a; background:#fff; box-shadow:inset 0 -2px 0 #c41e3a; }
+  .tab-item.active{ color:#c41e3a; background:var(--card-bg); box-shadow:inset 0 -2px 0 #c41e3a; }
   .tab-pill{ min-width:18px; height:18px; border-radius:999px; background:#fce9ec; color:#8f1229; font-size:11px; display:inline-flex; align-items:center; justify-content:center; font-weight:700; }
 
   .content-section{ padding-top:18px; }
   .section-header{ display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
-  .section-header h2{ font-size:16px; font-weight:700; color:#1a1210; }
+  .section-header h2{ font-size:16px; font-weight:700; color:var(--ink); }
   .section-header a{ color:#c41e3a; font-size:12px; font-weight:600; display:inline-flex; align-items:center; gap:6px; }
   .booking-list{ display:flex; flex-direction:column; gap:12px; }
   .booking-item{
-    display:grid; grid-template-columns: 160px 1fr auto; align-items:center; gap:14px; background:#fff; border:1px solid rgba(26,18,16,0.08);
+    display:grid; grid-template-columns: 160px 1fr auto; align-items:center; gap:14px; background:#fff; border:1px solid var(--card-border);
     border-radius:14px; padding:10px; overflow:hidden;
   }
   .booking-thumb{ width:160px; height:104px; border-radius:12px; background-size:cover; background-position:center; }
   .booking-main{ min-width:0; }
   .booking-tag{ display:inline-block; margin-bottom:6px; padding:4px 8px; border-radius:999px; background:#fce9ec; color:#8f1229; font-size:10px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; }
-  .booking-title{ font-size:17px; font-weight:700; color:#1a1210; margin-bottom:4px; }
-  .booking-meta{ display:flex; align-items:center; gap:10px; color:#7a6b67; font-size:12px; flex-wrap:wrap; }
+  .booking-title{ font-size:17px; font-weight:700; color:var(--ink); margin-bottom:4px; }
+  .booking-meta{ display:flex; align-items:center; gap:10px; color:var(--muted); font-size:12px; flex-wrap:wrap; }
   .booking-details{ display:flex; align-items:center; gap:8px; }
   .booking-price-box{ min-width:120px; text-align:right; }
-  .booking-price-box .price-total{ font-size:14px; font-weight:700; color:#1a1210; }
-  .booking-price-box .price-nights{ font-size:11px; color:#7a6b67; }
-  .booking-button{ margin-top:8px; border:1px solid rgba(26,18,16,0.2); border-radius:8px; background:#fff; color:#1a1210; font-weight:600; padding:8px 12px; }
+  .booking-price-box .price-total{ font-size:14px; font-weight:700; color:var(--ink); }
+  .booking-price-box .price-nights{ font-size:11px; color:var(--muted); }
+  .booking-button{ margin-top:8px; border:1px solid rgba(26,18,16,0.2); border-radius:8px; background:#fff; color:var(--ink); font-weight:600; padding:8px 12px; }
   .trip-grid{ display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:14px; }
-  .trip-card{ background:#fff; border:1px solid rgba(26,18,16,0.08); border-radius:14px; padding:8px 8px 12px; }
+  .trip-card{ background:var(--card-bg); border:1px solid var(--card-border); border-radius:14px; padding:8px 8px 12px; }
   .trip-image{ height:110px; border-radius:10px; background-size:cover; background-position:center; }
   .trip-card h3{ margin:10px 4px 4px; font-size:14px; font-weight:700; }
-  .trip-meta{ display:flex; align-items:center; justify-content:space-between; padding:0 4px; font-size:11px; color:#7a6b67; }
+  .trip-meta{ display:flex; align-items:center; justify-content:space-between; padding:0 4px; font-size:11px; color:var(--muted); }
   .trip-status{ display:inline-flex; align-items:center; gap:4px; padding:4px 8px; border-radius:999px; background:#e7f7ed; color:#2d7a4d; font-weight:700; }
   .trip-status::before{ content:'✓'; font-size:10px; }
 
@@ -182,38 +182,38 @@
   .btn-solid svg{ width:14px; height:14px; }
 
   /* ── RIGHT RAIL ── */
-  .profile-rail{ background:#fbfaf9; padding:16px 16px 20px; display:flex; flex-direction:column; gap:16px; }
-  .rail-card{ background:#fff; border:1px solid rgba(26,18,16,0.08); border-radius:14px; padding:16px; }
+  .profile-rail{ background:var(--rail-bg); padding:16px 16px 20px; display:flex; flex-direction:column; gap:16px; }
+  .rail-card{ background:var(--card-bg); border:1px solid var(--card-border); border-radius:14px; padding:16px; }
   .rail-card h3{ font-size:14px; font-weight:700; margin:0; }
   .stats-row{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:14px; }
-  .stats-box{ background:#fff; border:1px solid rgba(26,18,16,0.08); border-radius:12px; padding:12px 12px 10px; text-align:center; }
+  .stats-box{ background:var(--card-bg); border:1px solid var(--card-border); border-radius:12px; padding:12px 12px 10px; text-align:center; }
   .stats-icon{ width:38px; height:38px; border-radius:12px; display:flex; align-items:center; justify-content:center; margin:0 auto 10px; }
   .stats-icon.red{ background:#fce9ec; color:#c41e3a; }
   .stats-icon.green{ background:#eaf7ee; color:#2d7a4d; }
   .stats-icon svg{ width:16px; height:16px; }
-  .stats-value{ font-size:16px; font-weight:700; color:#1a1210; }
-  .stats-label{ margin-top:4px; font-size:11px; color:#7a6b67; }
+  .stats-value{ font-size:16px; font-weight:700; color:var(--ink); }
+  .stats-label{ margin-top:4px; font-size:11px; color:var(--muted); }
   .rail-row{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
-  #profile-completion-value{ font-weight:700; color:#1a1210; }
+  #profile-completion-value{ font-weight:700; color:var(--ink); }
   .completion-bar{ height:8px; border-radius:999px; background:#eef0f0; overflow:hidden; }
   .completion-bar span{ display:block; height:100%; width:80%; background:linear-gradient(90deg, #25b86b, #58d183); border-radius:inherit; }
   .dark-note{ color:#5a6960; font-size:12px; margin:10px 0 0; }
   .check-list{ list-style:none; margin:12px 0 0; padding:0; display:flex; flex-direction:column; gap:8px; }
-  .check-item{ position:relative; list-style:none; padding-left:20px; font-size:12px; color:#1a1210; }
+  .check-item{ position:relative; list-style:none; padding-left:20px; font-size:12px; color:var(--ink); }
   .check-item::before{ content:'✓'; position:absolute; left:0; top:0; color:#2d7a4d; font-weight:700; }
-  .check-item.incomplete{ color:#7a6b67; }
+  .check-item.incomplete{ color:var(--muted); }
   .check-item.incomplete::before{ content:'•'; color:#d5c8c3; }
   .action-list{ margin-top:10px; display:flex; flex-direction:column; gap:10px; }
-  .action-item{ width:100%; display:flex; align-items:center; gap:12px; background:transparent; border:none; color:#1a1210; font-weight:600; padding:8px 0; text-align:left; }
-  .action-icon{ width:28px; height:28px; border:1px solid rgba(26,18,16,0.08); border-radius:8px; display:flex; align-items:center; justify-content:center; background:#fff; }
+  .action-item{ width:100%; display:flex; align-items:center; gap:12px; background:transparent; border:none; color:var(--ink); font-weight:600; padding:8px 0; text-align:left; }
+  .action-icon{ width:28px; height:28px; border:1px solid var(--card-border); border-radius:8px; display:flex; align-items:center; justify-content:center; background:#fff; }
   .action-icon svg{ width:14px; height:14px; }
-  .chevron{ margin-left:auto; color:#7a6b67; font-size:18px; }
+  .chevron{ margin-left:auto; color:var(--muted); font-size:18px; }
   .verified-tag{ margin-left:auto; background:#eaf7ee; color:#2d7a4d; font-size:10px; font-weight:700; padding:4px 8px; border-radius:999px; }
   .help-card{ padding-bottom:18px; }
   .help-head{ display:flex; align-items:center; gap:10px; margin-bottom:8px; }
   .help-icon{ width:30px; height:30px; border-radius:50%; background:#fce9ec; color:#c41e3a; display:flex; align-items:center; justify-content:center; }
   .help-icon svg{ width:16px; height:16px; }
-  .help-card p{ font-size:12px; color:#7a6b67; margin:0 0 12px; }
+  .help-card p{ font-size:12px; color:var(--muted); margin:0 0 12px; }
   .help-button{ width:100%; background:transparent; border:1px solid rgba(196,30,58,0.5); color:#c41e3a; padding:9px 10px; border-radius:10px; font-weight:700; }
 
   /* ============================================================
@@ -245,7 +245,7 @@
   .listing-card-price{ font-size:.88rem; font-weight:700; }
   .listing-card-status{ font-size:.72rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--red-deep); }
   .listing-card-status.available{ color:#1E6B3C; }
-  .listing-card-status.booked{ color:#7a6b67; }
+  .listing-card-status.booked{ color:var(--muted); }
   .listings-empty{ grid-column:1/-1; text-align:center; padding:3rem 1.5rem; color:var(--muted); font-size:.92rem; line-height:1.6; }
   .listings-empty-icon{
     width:48px; height:48px; border-radius:50%;
@@ -358,7 +358,6 @@
   ============================================================ */
   @media (max-width: 1100px){
     .profile-desktop-shell{ grid-template-columns: 220px minmax(0, 1fr) 290px; }
-    .profile-hero{ width:220px; }
   }
   @media (max-width: 930px){
     body{ padding:0; overflow:auto; }
@@ -367,7 +366,6 @@
     .profile-main{ border-right:none; }
     .profile-rail{ display:none; }
     .profile-card-body{ display:block; }
-    .profile-hero{ width:100%; margin-top:18px; }
     .profile-tabs{ flex-wrap:wrap; }
     .trip-grid{ grid-template-columns:1fr; }
     .booking-item{ grid-template-columns:1fr; }
@@ -483,10 +481,10 @@
       <header class="profile-topbar">
         <div class="topbar-spacer"></div>
         <div class="topbar-actions">
-          <button class="topbar-icon" type="button" aria-label="Toggle theme">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
+          <button class="topbar-icon" type="button" id="theme-toggle-btn" aria-label="Toggle theme">
+            <svg id="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
           </button>
-          <button class="topbar-icon" type="button" aria-label="Notifications">
+          <button class="topbar-icon" type="button" id="desktop-notifications-btn" aria-label="Notifications">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
           </button>
           <button class="topbar-user" type="button">
@@ -524,15 +522,13 @@
               </div>
             </div>
           </div>
-
-          <div class="profile-hero" id="profile-hero-photo"></div>
         </div>
 
         <div class="profile-tabs" role="tablist" aria-label="Profile sections">
-          <button type="button" class="tab-item active">Bookings</button>
-          <button type="button" class="tab-item">Saved</button>
-          <button type="button" class="tab-item">Chats <span class="tab-pill">2</span></button>
-          <button type="button" class="tab-item">Settings</button>
+          <button type="button" class="tab-item active" data-tab="bookings">Bookings</button>
+          <button type="button" class="tab-item" data-tab="saved">Saved</button>
+          <button type="button" class="tab-item" data-tab="chats">Chats <span class="tab-pill">2</span></button>
+          <button type="button" class="tab-item" data-tab="settings">Settings</button>
         </div>
       </div>
 
@@ -837,7 +833,7 @@
     const makeThumb = (url) => url ? 'url("' + url + '")' : 'linear-gradient(135deg, #f0e4e2, #d7ece5)';
 
     if (!upcoming.length) {
-      upcomingEl.innerHTML = '<div class="state-msg" style="padding:1rem 0; color:#7a6b67;">No upcoming bookings yet.</div>';
+      upcomingEl.innerHTML = '<div class="state-msg" style="padding:1rem 0; color:var(--muted);">No upcoming bookings yet.</div>';
     } else {
       upcomingEl.innerHTML = upcoming.slice(0, 2).map(function(booking){
         const title = booking.listing && booking.listing.title ? booking.listing.title : 'VaRoom stay';
@@ -864,7 +860,7 @@
     }
 
     if (!past.length) {
-      pastEl.innerHTML = '<div class="state-msg" style="padding:1rem 0; color:#7a6b67;">No past trips yet.</div>';
+      pastEl.innerHTML = '<div class="state-msg" style="padding:1rem 0; color:var(--muted);">No past trips yet.</div>';
     } else {
       pastEl.innerHTML = past.slice(0, 3).map(function(booking){
         const title = booking.listing && booking.listing.title ? booking.listing.title : 'Recent stay';
@@ -933,6 +929,52 @@
   renderBookings(bookingsData.upcoming, bookingsData.past);
   renderStats(bookingsData.upcoming.length + bookingsData.past.length, await loadSavedCount());
   renderProfileCompletion(80);
+
+  /* ── Theme toggle ── */
+  const themeToggleBtn = document.getElementById('theme-toggle-btn');
+  const themeIcon = document.getElementById('theme-icon');
+  const MOON_PATH = '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>';
+  const SUN_PATH = '<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M3 12h2M19 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>';
+
+  function applyTheme(theme){
+    document.documentElement.setAttribute('data-theme', theme);
+    document.documentElement.style.colorScheme = theme;
+    try { localStorage.setItem('varoom_theme', theme); } catch (e) {}
+    if (themeIcon) themeIcon.innerHTML = theme === 'dark' ? SUN_PATH : MOON_PATH;
+  }
+
+  let savedTheme = 'light';
+  try { savedTheme = localStorage.getItem('varoom_theme') || 'light'; } catch (e) {}
+  applyTheme(savedTheme);
+
+  if (themeToggleBtn) {
+    themeToggleBtn.addEventListener('click', function(){
+      const current = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+      applyTheme(current === 'dark' ? 'light' : 'dark');
+    });
+  }
+
+  /* ── Desktop notifications ── */
+  const desktopNotifBtn = document.getElementById('desktop-notifications-btn');
+  if (desktopNotifBtn) {
+    desktopNotifBtn.addEventListener('click', function(){
+      window.location.href = 'notifications.html';
+    });
+  }
+
+  /* ── Profile tabs (Bookings / Saved / Chats / Settings) ── */
+  const tabRoutes = { saved: 'client-home.html#saved', chats: 'chats.html', settings: 'settings.html' };
+  document.querySelectorAll('.tab-item').forEach(function(tab){
+    tab.addEventListener('click', function(){
+      const key = tab.getAttribute('data-tab');
+      if (key === 'bookings') {
+        document.querySelectorAll('.tab-item').forEach(function(t){ t.classList.remove('active'); });
+        tab.classList.add('active');
+        return;
+      }
+      if (tabRoutes[key]) window.location.href = tabRoutes[key];
+    });
+  });
 
   /* ── Profile actions ── */
   function openEditModal(){
