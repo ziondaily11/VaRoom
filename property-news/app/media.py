@@ -46,13 +46,16 @@ def extract_article_image_url(original_content: str | None, article_url: str, so
         parser.feed(original_content)
     except Exception:
         return None
-    for value in parser.meta_images:
+    for value, alt, classes in parser.body_images:
+        marker = f"{value} {alt} {classes}".lower()
+        if not alt.strip() or any(term in marker for term in ("logo", "favicon", "/icons/", "/icon/", "screenshot", "document", "infographic")):
+            continue
         image_url = _usable_image_url(value, article_url, source_base_url)
         if image_url:
             return image_url
-    for value, alt, classes in parser.body_images:
-        marker = f"{value} {alt} {classes}".lower()
-        if any(term in marker for term in ("logo", "favicon", "/icons/", "/icon/")):
+    for value in parser.meta_images:
+        marker = value.lower()
+        if any(term in marker for term in ("screenshot", "document", "infographic", "logo", "favicon", "/icons/", "/icon/")):
             continue
         image_url = _usable_image_url(value, article_url, source_base_url)
         if image_url:
