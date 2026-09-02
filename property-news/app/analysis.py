@@ -114,13 +114,14 @@ class RulesBasedNewsAnalyzer:
                  if re.search(r"\d|proposed|approved|effective|gazette|rate|tax", sentence, flags=re.I)][:6]
         summary_sentences = _sentences(item.clean_text)[:2]
         summary = " ".join(summary_sentences)[:280] if summary_sentences else None
+        body = item.clean_text[:4000].strip() if item.clean_text else None
         risk, reasons = assess_risk(text, status, source.trust_tier)
         confidence = 0.82 if relevant and source.trust_tier <= 2 else (0.62 if relevant else 0.95)
         return NewsAnalysis(
             relevant=relevant, category=category, topics=matches, counties=counties, towns=towns,
             regulatory_status=status, affected_groups=_affected_groups(lowered), key_facts=facts,
             varoom_title=item.source_title if relevant else None, varoom_summary=summary if relevant else None,
-            varoom_body=summary if relevant else None, confidence_score=confidence, source_tier=source.trust_tier,
+            varoom_body=body if relevant else None, confidence_score=confidence, source_tier=source.trust_tier,
             risk_level=risk, risk_reasons=reasons, image_url=item.image_url,
             model_provider="rules", model_version="rules-v1",
         )

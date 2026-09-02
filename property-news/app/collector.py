@@ -349,6 +349,8 @@ class SourceCollector:
     @staticmethod
     def _usable_title(value: str | None) -> str:
         stripped = " ".join((value or "").split())
+        stripped = re.sub(r"\s+\d+\s+(?:hours?|minutes?|days?)\s+ago(?:\s*-\s*[\d.]+\s*min read)?$", "", stripped, flags=re.I)
+        stripped = re.sub(r"\s*-\s*[\d.]+\s*min read$", "", stripped, flags=re.I)
         if not stripped or stripped.lower() in GENERIC_LINK_TEXTS:
             return ""
         return stripped

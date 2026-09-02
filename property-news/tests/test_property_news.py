@@ -48,6 +48,10 @@ class NormalisationTests(unittest.TestCase):
         html = '<meta property="og:image" content="https://cdn.example.test/story.jpeg">'
         self.assertIsNone(extract_article_image_url(html, "https://source1.example.test/story", "https://source1.example.test"))
 
+    def test_article_image_rejects_unqualified_document_images(self):
+        html = '<img src="/uploads/budget-screenshot.png" alt="Budget document screenshot">'
+        self.assertIsNone(extract_article_image_url(html, "https://source1.example.test/story", "https://source1.example.test"))
+
     def test_location_formatting_summarizes_when_over_five_locations(self):
         self.assertEqual(format_location_display(["Nairobi", "Kiambu"], ["Thika"]), "Nairobi · Kiambu · Thika")
         self.assertEqual(format_location_display([], []), "Kenya")
