@@ -228,7 +228,7 @@
     padding:1rem 1.8rem 4rem 1.2rem;
     display:flex;
     flex-direction:column;
-    gap:1.5rem;
+    gap:0;
     height:100%;
     overflow-y:auto;
     scrollbar-width:none;
@@ -236,7 +236,10 @@
   }
   .right-rail::-webkit-scrollbar{ display:none; }
 
-  .rail-card{ background:var(--white); border:1px solid var(--line); border-radius:18px; padding:1.3rem; }
+  /* Rail sections (Popular Destinations, VaRoom Updates) sit on the plain
+     background now — no card chrome, just a bottom divider line between
+     sections, matching the outer three-column line-separator treatment. */
+  .rail-card{ background:transparent; border:none; border-radius:0; padding:0 0 1.3rem; margin-bottom:1.3rem; border-bottom:1px solid var(--line); }
   .rail-card-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem; }
   .rail-card-head h2{ font-family:var(--font-display); font-weight:600; font-size:1.05rem; }
   .rail-view-all{ font-size:.78rem; font-weight:600; color:var(--red); }
@@ -330,18 +333,19 @@
   .update-body{ font-size:.82rem; color:#c9beb9; line-height:1.4; }
 
   .property-news-widget{
-    background:transparent; border-top:1px solid var(--line); border-bottom:1px solid var(--line);
-    border-left:none; border-right:none; border-radius:0; padding:1rem 0; margin:0 0 1rem;
+    background:transparent; border-top:none; border-bottom:none;
+    border-left:none; border-right:none; border-radius:0; padding:0; margin:0;
   }
   .property-news-widget-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:.75rem; }
   .property-news-widget-head h2{ font-family:var(--font-display); font-size:1.05rem; font-weight:600; }
   .property-news-bar-refresh{ font-size:.78rem; color:var(--muted); background:none; border:none; cursor:pointer; padding:.3rem .5rem; border-radius:6px; }
   .property-news-bar-refresh:hover{ background:var(--paper); color:var(--ink); }
-  .client-property-news-list{ display:flex; flex-direction:column; gap:.7rem; }
+  .client-property-news-list{ display:flex; flex-direction:column; gap:0; }
   .client-property-news-item{
-    display:block; background:var(--paper); border:1px solid var(--line);
-    border-radius:12px; padding:.9rem 1rem;
+    display:block; background:transparent; border:none; border-bottom:1px solid var(--line);
+    border-radius:0; padding:.9rem 0;
   }
+  .client-property-news-item:last-child{ border-bottom:none; padding-bottom:0; }
   .client-property-news-main{ display:block; color:inherit; }
   .client-property-news-image-wrap{ height:0; overflow:hidden; margin:0; border-radius:10px; opacity:0; }
   .client-property-news-image-wrap.is-loaded{ height:104px; margin:0 0 .55rem; opacity:1; }
@@ -398,8 +402,8 @@
   .skel-update-line{ height:9px; margin-bottom:.3rem; }
   .skel-update-line.short{ width:60%; margin-bottom:0; }
 
-  .skel-news-item{ background:var(--paper); border:1px solid var(--line); border-radius:12px; padding:.9rem 1rem; margin-bottom:.7rem; }
-  .skel-news-item:last-child{ margin-bottom:0; }
+  .skel-news-item{ background:transparent; border:none; border-bottom:1px solid var(--line); border-radius:0; padding:.9rem 0; margin-bottom:0; }
+  .skel-news-item:last-child{ border-bottom:none; padding-bottom:0; }
   .skel-news-media{ width:100%; height:104px; border-radius:10px; margin-bottom:.55rem; }
   .skel-news-kicker{ width:80px; height:8px; margin-bottom:.3rem; }
   .skel-news-title{ height:11px; margin-bottom:.3rem; }
