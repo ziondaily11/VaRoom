@@ -606,6 +606,7 @@
 </div>
 
 <script src="js/supabase-client.js"></script>
+<script src="js/listing-feed-cache.js"></script>
 <script src="js/varoom-maps.js"></script>
 <script>
   const checkingAuth = document.getElementById('checking-auth');
@@ -1208,6 +1209,11 @@
       submitBtn.disabled = false; submitBtn.textContent = 'Publish listing ✓';
       return;
     }
+
+    // The feed cache is scoped to the signed-in browser session. A newly
+    // published listing belongs at the top of several cached views, so mark
+    // them stale rather than forcing an immediate refetch on this page.
+    if (window.VaRoomListingFeedCache) window.VaRoomListingFeedCache.invalidateAll();
 
     successMsg.classList.remove('error');
     let message = 'Listing published! You can add the exact location later from your listing settings.';

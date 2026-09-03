@@ -897,6 +897,7 @@
 </div>
 
 <script src="js/supabase-client.js"></script>
+<script src="js/listing-feed-cache.js"></script>
 <script src="js/notifications-widget.js"></script>
 <script>
   (async function(){
@@ -1022,6 +1023,7 @@
     // ---------- Render ----------
     const photosByListing = {};
     const videoUrlByListing = {};
+    const videoLookupByListing = {};
 
     const ICON_BOOK = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="2"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>';
     const ICON_CHAT = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z"/></svg>';
@@ -1034,33 +1036,40 @@
     }
 
     async function loadListingVideoUrls(listingIds){
-      if (!listingIds.length) return;
+      if (!listingIds.length) return false;
       const token = await getAuthToken();
-      for (const listingId of listingIds) {
+      const results = await Promise.all(listingIds.map(function(listingId){
+        if (videoLookupByListing[listingId]) return videoLookupByListing[listingId];
+        videoLookupByListing[listingId] = (async function(){
         try {
           const response = await fetch('/api/properties/' + encodeURIComponent(listingId) + '/media', {
             headers: token ? { Authorization: 'Bearer ' + token } : {}
           });
-          if (response.status === 403 || response.status === 404) continue;
-          if (!response.ok) continue;
+          if (response.status === 403 || response.status === 404) return false;
+          if (!response.ok) return false;
           const payload = await response.json();
           const media = Array.isArray(payload.media) ? payload.media : [];
           const videoItems = media.filter(function(item){ return item && item.type === 'video'; });
-          if (!videoItems.length) continue;
+          if (!videoItems.length) return false;
           const mediaId = videoItems[0].id;
           const playbackRes = await fetch('/api/media/' + encodeURIComponent(mediaId) + '/playback', {
             headers: token ? { Authorization: 'Bearer ' + token } : {}
           });
-          if (playbackRes.status === 403 || playbackRes.status === 404) continue;
-          if (!playbackRes.ok) continue;
+          if (playbackRes.status === 403 || playbackRes.status === 404) return false;
+          if (!playbackRes.ok) return false;
           const playback = await playbackRes.json();
           if (playback && playback.url) {
             videoUrlByListing[listingId] = playback.url;
+            return true;
           }
         } catch (error) {
           // Ignore transient media-load failures for unavailable listings.
         }
-      }
+        return false;
+        })();
+        return videoLookupByListing[listingId];
+      }));
+      return results.some(Boolean);
     }
 
     function renderCard(listing){
@@ -1124,9 +1133,10 @@
               '</div>') +
             '</div>' +
             '<p class="card-caption">' + escapeHtml(listing.description || listing.title) + '</p>' +
+            ((listing.availability_status && listing.availability_status !== 'available') ? '<div class="listing-status-banner">Status: ' + escapeHtml(listing.availability_status) + '</div>' : '') +
             photosHtml +
             '<div class="action-row">' +
-              (listing.host_id === currentUser.id
+              (listing.host_id === currentUser.id || (listing.availability_status && listing.availability_status !== 'available')
                 ? '<span class="action-btn disabled" title="This is your listing">' + ICON_BOOK + 'Book</span>'
                 : '<a href="/booking?listing=' + listing.id + '" class="action-btn">' + ICON_BOOK + 'Book</a>') +
               (listing.host_id === currentUser.id
@@ -1450,81 +1460,236 @@
       );
     }
 
-    async function loadFeed(){
-      feedList.innerHTML = skeletonCards(3);
+    // The legacy pages are remounted on every route change. Keep fetched
+    // range pages outside this page in the shared session cache instead of
+    // fetching the entire feed again whenever the dashboard comes back.
+    const FEED_PAGE_SIZE = window.VaRoomListingFeedCache.pageSize;
+    let activeFeedKey = null;
+    let activeFeedFetcher = null;
+    let visibleListingCount = 0;
+    let feedLoadVersion = 0;
+    let loadingMore = false;
+    let feedObserver = null;
+    let lastFeedScrollPosition = -1;
+    let lastLoadScrollPosition = -1;
 
-      const term = searchTerm.trim();
+    function feedKey(term){
+      return [
+        'client', currentUser.id, currentView, currentCategory,
+        interestedCategories.slice().sort().join(','), term.toLowerCase()
+      ].join(':');
+    }
 
-      function withCategory(q){
-        if (currentCategory !== 'all') return q.eq('category', currentCategory);
-        if (currentView === 'home' && interestedCategories.length > 0) return q.in('category', interestedCategories);
-        return q;
+    function feedFetcher(term){
+      const category = currentCategory;
+      const view = currentView;
+      const interests = interestedCategories.slice();
+
+      function withCategory(query){
+        if (category !== 'all') return query.eq('category', category);
+        if (view === 'home' && interests.length > 0) return query.in('category', interests);
+        return query;
       }
 
-      let data, error;
-
-      if (!term) {
-        const res = await withCategory(
-          supabaseClient.from('listings').select(FEED_SELECT).order('created_at', { ascending:false })
-        );
-        data = res.data; error = res.error;
-      } else {
-        const locQuery = withCategory(
-          supabaseClient.from('listings').select(FEED_SELECT).ilike('location_text', '%' + term + '%')
-        );
-
-        const { data: matchingHosts } = await supabaseClient
-          .from('profiles')
-          .select('id')
-          .ilike('username', '%' + term + '%');
-        const hostIds = (matchingHosts || []).map(function(p){ return p.id; });
-
-        const hostQuery = hostIds.length > 0
-          ? withCategory(supabaseClient.from('listings').select(FEED_SELECT).in('host_id', hostIds))
-          : Promise.resolve({ data: [], error: null });
-
-        const [locRes, hostRes] = await Promise.all([locQuery, hostQuery]);
-
-        if (locRes.error) { data = null; error = locRes.error; }
-        else if (hostRes.error) { data = null; error = hostRes.error; }
-        else {
-          const seen = new Set();
-          data = [];
-          (locRes.data || []).concat(hostRes.data || []).forEach(function(listing){
-            if (!seen.has(listing.id)) { seen.add(listing.id); data.push(listing); }
-          });
-          data.sort(function(a, b){ return new Date(b.created_at) - new Date(a.created_at); });
+      return async function(offset, limit){
+        if (!term) {
+          return withCategory(supabaseClient.from('listings').select(FEED_SELECT)
+            .order('created_at', { ascending:false }).order('id', { ascending:false })
+            .range(offset, offset + limit - 1));
         }
-      }
 
-      if (error) {
-        feedList.innerHTML = '<p class="state-msg">Couldn\'t load listings: ' + escapeHtml(error.message) + '</p>';
-        return;
-      }
+        // A text search uses two existing lookup paths (location and host).
+        // Keep it intentionally bounded; browse feeds below use true range
+        // pagination, while a new search starts a distinct cached result.
+        if (offset > 0) return { data: [], hasMore: false };
+        const locQuery = withCategory(supabaseClient.from('listings').select(FEED_SELECT)
+          .ilike('location_text', '%' + term + '%')
+          .order('created_at', { ascending:false }).order('id', { ascending:false }).limit(limit));
+        const hostResult = await supabaseClient.from('profiles').select('id')
+          .ilike('username', '%' + term + '%').limit(100);
+        if (hostResult.error) return { error: hostResult.error };
+        const hostIds = (hostResult.data || []).map(function(profile){ return profile.id; });
+        const hostQuery = hostIds.length > 0
+          ? withCategory(supabaseClient.from('listings').select(FEED_SELECT).in('host_id', hostIds)
+            .order('created_at', { ascending:false }).order('id', { ascending:false }).limit(limit))
+          : Promise.resolve({ data: [], error: null });
+        const results = await Promise.all([locQuery, hostQuery]);
+        if (results[0].error) return { error: results[0].error };
+        if (results[1].error) return { error: results[1].error };
+        const seen = new Set();
+        const matches = results[0].data.concat(results[1].data).filter(function(listing){
+          if (seen.has(listing.id)) return false;
+          seen.add(listing.id);
+          return true;
+        });
+        matches.sort(function(a, b){
+          return new Date(b.created_at) - new Date(a.created_at) || String(b.id).localeCompare(String(a.id));
+        });
+        return { data: matches.slice(0, limit), hasMore: false };
+      };
+    }
 
-      if (!data || data.length === 0) {
-        const isEmptyHome = currentView === 'home' && currentCategory === 'all' && !term && interestedCategories.length > 0;
+    function feedScrollStateKey(key){ return 'varoom:listings:scroll:' + key; }
+
+    function saveFeedScrollPosition(){
+      if (!activeFeedKey) return;
+      const area = document.querySelector('.feed-area');
+      try {
+        sessionStorage.setItem(feedScrollStateKey(activeFeedKey), JSON.stringify({
+          windowY: window.scrollY,
+          areaY: area ? area.scrollTop : 0
+        }));
+      } catch (error) {}
+    }
+
+    function restoreFeedScrollPosition(key){
+      let position;
+      try { position = JSON.parse(sessionStorage.getItem(feedScrollStateKey(key)) || 'null'); } catch (error) {}
+      if (!position) return;
+      window.requestAnimationFrame(function(){
+        const area = document.querySelector('.feed-area');
+        if (area) area.scrollTop = position.areaY || 0;
+        window.scrollTo(0, position.windowY || 0);
+      });
+    }
+
+    function currentScrollPosition(){
+      const area = document.querySelector('.feed-area');
+      return Math.max(window.scrollY || 0, area ? area.scrollTop : 0);
+    }
+
+    function recordFeedScroll(){
+      lastFeedScrollPosition = currentScrollPosition();
+      const sentinel = document.getElementById('listing-feed-sentinel');
+      if (!sentinel || lastFeedScrollPosition <= lastLoadScrollPosition) return;
+      if (sentinel.getBoundingClientRect().top <= window.innerHeight + 700) {
+        lastLoadScrollPosition = lastFeedScrollPosition;
+        loadMoreListings();
+      }
+    }
+
+    function observeFeedEnd(){
+      const sentinel = document.getElementById('listing-feed-sentinel');
+      if (feedObserver) feedObserver.disconnect();
+      if (!sentinel || !('IntersectionObserver' in window)) return;
+      feedObserver = new IntersectionObserver(function(entries){
+        if (!entries[0].isIntersecting || lastFeedScrollPosition < 0 || lastFeedScrollPosition <= lastLoadScrollPosition) return;
+        lastLoadScrollPosition = lastFeedScrollPosition;
+        loadMoreListings();
+      }, { rootMargin: '700px 0px' });
+      feedObserver.observe(sentinel);
+    }
+
+    function renderFeedFromCache(options){
+      options = options || {};
+      const snapshot = window.VaRoomListingFeedCache.snapshot(activeFeedKey);
+      const data = snapshot.items.slice(0, visibleListingCount);
+      if (data.length === 0) {
+        const isEmptyHome = currentView === 'home' && currentCategory === 'all' && !searchTerm.trim() && interestedCategories.length > 0;
         feedList.innerHTML = '<p class="state-msg">' + (isEmptyHome
           ? 'Nothing matching your interests yet — try Explore to see everything.'
           : 'No listings match yet — try a different category, location, or @username.') + '</p>';
         return;
       }
 
-      const listingIds = data.map(function(l){ return l.id; });
-      await loadListingVideoUrls(listingIds);
       const cardsHtml = data.map(renderCard);
-      const showMobileWidgets = currentView === 'home' && currentCategory === 'all' && !term &&
+      const showMobileWidgets = currentView === 'home' && currentCategory === 'all' && !searchTerm.trim() &&
         window.matchMedia('(max-width:1180px)').matches;
-      if (showMobileWidgets) {
-        cardsHtml.splice(1, 0, mobileWidgetsBlock());
-      }
+      if (showMobileWidgets) cardsHtml.splice(1, 0, mobileWidgetsBlock());
+      if (loadingMore) cardsHtml.push('<p class="state-msg" id="listing-feed-sentinel">Loading more listings…</p>');
+      else cardsHtml.push('<div id="listing-feed-sentinel" aria-hidden="true"></div>');
       feedList.innerHTML = cardsHtml.join('');
       attachCardListeners(feedList);
+      observeFeedEnd();
       if (showMobileWidgets) {
         loadRecommended();
         loadVaroomUpdates('varoom-updates-mobile');
       }
+
+      // Listing records appear immediately; optional video metadata can fill
+      // in afterwards without holding the feed behind a second request chain.
+      loadListingVideoUrls(data.map(function(listing){ return listing.id; })).then(function(changed){
+        if (changed && activeFeedKey === options.key && !loadingMore) renderFeedFromCache({ key: activeFeedKey, preserve: true });
+      });
+      if (options.preserve) saveFeedScrollPosition();
     }
+
+    function prefetchOnePage(key, fetcher){
+      window.setTimeout(function(){
+        if (activeFeedKey !== key || document.visibilityState === 'hidden') return;
+        window.VaRoomListingFeedCache.prefetchNext(key, fetcher).catch(function(){});
+      }, 350);
+    }
+
+    async function loadMoreListings(){
+      if (loadingMore || !activeFeedKey) return;
+      let snapshot = window.VaRoomListingFeedCache.snapshot(activeFeedKey);
+      if (visibleListingCount < snapshot.items.length) {
+        visibleListingCount = Math.min(visibleListingCount + FEED_PAGE_SIZE, snapshot.items.length);
+        renderFeedFromCache({ key: activeFeedKey, preserve: true });
+        prefetchOnePage(activeFeedKey, activeFeedFetcher);
+        return;
+      }
+      if (!snapshot.hasMore) return;
+
+      loadingMore = true;
+      renderFeedFromCache({ key: activeFeedKey, preserve: true });
+      try {
+        snapshot = await window.VaRoomListingFeedCache.prefetchNext(activeFeedKey, activeFeedFetcher);
+        visibleListingCount = Math.min(visibleListingCount + FEED_PAGE_SIZE, snapshot.items.length);
+        loadingMore = false;
+        renderFeedFromCache({ key: activeFeedKey, preserve: true });
+        prefetchOnePage(activeFeedKey, activeFeedFetcher);
+      } catch (error) {
+        loadingMore = false;
+        renderFeedFromCache({ key: activeFeedKey, preserve: true });
+      }
+    }
+
+    async function loadFeed(){
+      const term = searchTerm.trim();
+      const key = feedKey(term);
+      const fetcher = feedFetcher(term);
+      const version = ++feedLoadVersion;
+      activeFeedKey = key;
+      activeFeedFetcher = fetcher;
+      loadingMore = false;
+      lastFeedScrollPosition = -1;
+      lastLoadScrollPosition = -1;
+
+      let snapshot = window.VaRoomListingFeedCache.snapshot(key);
+      if (snapshot.hasCachedPage) {
+        visibleListingCount = snapshot.items.length;
+        renderFeedFromCache({ key: key });
+        restoreFeedScrollPosition(key);
+        if (snapshot.isStale) {
+          window.VaRoomListingFeedCache.revalidate(key, fetcher).then(function(){
+            if (activeFeedKey !== key || version !== feedLoadVersion) return;
+            const refreshed = window.VaRoomListingFeedCache.snapshot(key);
+            visibleListingCount = Math.min(Math.max(visibleListingCount, FEED_PAGE_SIZE), refreshed.items.length);
+            renderFeedFromCache({ key: key, preserve: true });
+          }).catch(function(){});
+        }
+        return;
+      }
+
+      feedList.innerHTML = skeletonCards(3);
+      try {
+        snapshot = await window.VaRoomListingFeedCache.fetchPage(key, 0, fetcher);
+        if (activeFeedKey !== key || version !== feedLoadVersion) return;
+        visibleListingCount = Math.min(FEED_PAGE_SIZE, snapshot.items.length);
+        renderFeedFromCache({ key: key });
+        prefetchOnePage(key, fetcher);
+      } catch (error) {
+        if (activeFeedKey === key && version === feedLoadVersion) {
+          feedList.innerHTML = '<p class="state-msg">Couldn\'t load listings: ' + escapeHtml(error.message) + '</p>';
+        }
+      }
+    }
+
+    window.addEventListener('pagehide', saveFeedScrollPosition);
+    window.addEventListener('scroll', recordFeedScroll, { passive:true });
+    document.querySelector('.feed-area').addEventListener('scroll', recordFeedScroll, { passive:true });
 
     // ---------- Toast (honest "coming soon" feedback) ----------
     const toastEl = document.getElementById('toast');

@@ -23,6 +23,15 @@
     el.textContent = message; el.classList.add('show');
     setTimeout(function () { el.classList.remove('show'); }, 2400);
   }
+  function updateCachedListing(id, patch) {
+    if (window.VaRoomListingFeedCache) window.VaRoomListingFeedCache.updateListing(id, patch);
+  }
+  function removeCachedListing(id) {
+    if (window.VaRoomListingFeedCache) window.VaRoomListingFeedCache.removeListing(id);
+  }
+  function invalidateListingCache() {
+    if (window.VaRoomListingFeedCache) window.VaRoomListingFeedCache.invalidateAll();
+  }
   function listingUrl(id) { return window.location.origin + '/booking?listing=' + encodeURIComponent(id); }
   function share(id, title) {
     var url = listingUrl(id);
@@ -59,14 +68,28 @@
     document.getElementById('host-edit-save').onclick = function () {
       var button = this;
       button.disabled = true;
-      request('/listings/' + encodeURIComponent(listing.id), { method: 'PATCH', body: JSON.stringify({
+      var patch = {
         title: document.getElementById('host-edit-title').value.trim(),
         description: document.getElementById('host-edit-description').value.trim(),
         category: document.getElementById('host-edit-category').value,
         location_text: document.getElementById('host-edit-location').value.trim(),
         price_amount: document.getElementById('host-edit-price').value,
         price_unit: document.getElementById('host-edit-price-unit').value
-      }) }).then(function () { toast('Listing updated'); window.location.reload(); }).catch(function (error) {
+      };
+      request('/listings/' + encodeURIComponent(listing.id), { method: 'PATCH', body: JSON.stringify(patch) }).then(function () {
+        var detail = Array.isArray(listing.listing_booking_details) ? listing.listing_booking_details[0] : listing.listing_booking_details;
+        updateCachedListing(listing.id, {
+          title: patch.title,
+          description: patch.description,
+          category: patch.category,
+          location_text: patch.location_text,
+          listing_booking_details: Object.assign({}, detail || {}, {
+            price_amount: Number(patch.price_amount),
+            price_unit: patch.price_unit
+          })
+        });
+        toast('Listing updated'); window.location.reload();
+      }).catch(function (error) {
         document.getElementById('host-edit-msg').textContent = error.message; button.disabled = false;
       });
     };
@@ -101,16 +124,19 @@
         container.querySelectorAll('.card-menu-dropdown.open').forEach(function (menu) { menu.classList.remove('open'); });
         if (action === 'status') {
           request('/listings/' + encodeURIComponent(listing.id) + '/status', { method: 'PATCH', body: JSON.stringify({ status: button.getAttribute('data-status') }) })
-            .then(function () { toast('Listing status updated'); window.location.reload(); }).catch(function (error) { toast(error.message); });
+            .then(function (result) {
+              updateCachedListing(listing.id, (result && result.listing) || { availability_status: button.getAttribute('data-status') });
+              toast('Listing status updated'); window.location.reload();
+            }).catch(function (error) { toast(error.message); });
         } else if (action === 'edit') edit(listing);
         else if (action === 'share') share(listing.id, listing.title);
         else if (action === 'copy') navigator.clipboard.writeText(listingUrl(listing.id)).then(function () { toast('Listing link copied'); });
         else if (action === 'bookings') window.location.href = '/bookings?listing=' + encodeURIComponent(listing.id);
         else if (action === 'analytics') window.location.href = '/analytics?listing=' + encodeURIComponent(listing.id);
-        else if (action === 'duplicate') request('/listings/' + encodeURIComponent(listing.id) + '/duplicate', { method: 'POST' }).then(function () { toast('Listing duplicated'); window.location.reload(); }).catch(function (error) { toast(error.message); });
+        else if (action === 'duplicate') request('/listings/' + encodeURIComponent(listing.id) + '/duplicate', { method: 'POST' }).then(function () { invalidateListingCache(); toast('Listing duplicated'); window.location.reload(); }).catch(function (error) { toast(error.message); });
         else if (action === 'delete') confirmDeletion().then(function (confirmed) {
           if (!confirmed) return;
-          request('/listings/' + encodeURIComponent(listing.id), { method: 'DELETE' }).then(function () { toast('Listing deleted'); window.location.reload(); }).catch(function (error) { toast(error.message); });
+          request('/listings/' + encodeURIComponent(listing.id), { method: 'DELETE' }).then(function () { removeCachedListing(listing.id); toast('Listing deleted'); window.location.reload(); }).catch(function (error) { toast(error.message); });
         });
       });
     });
