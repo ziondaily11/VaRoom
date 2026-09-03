@@ -371,6 +371,7 @@
 </div>
 
 <script src="js/supabase-client.js"></script>
+<script src="js/listing-feed-cache.js"></script>
 <script>
   (async function(){
     const skeleton = document.getElementById('skeleton');
@@ -933,6 +934,11 @@
         confirmBtn.textContent = 'Confirm booking';
         return;
       }
+
+      // Booking availability is reflected by the next feed revalidation.
+      // Retain cards immediately, but ensure a return to Listings does not
+      // keep a booking-related state stale past this user action.
+      if (window.VaRoomListingFeedCache) window.VaRoomListingFeedCache.invalidateAll();
 
       await supabaseClient.from('notifications').insert({
         user_id: listing.host_id,

@@ -1039,7 +1039,10 @@
       if (!listingIds.length) return false;
       const token = await getAuthToken();
       const results = await Promise.all(listingIds.map(function(listingId){
-        if (videoLookupByListing[listingId]) return videoLookupByListing[listingId];
+        // A cached lookup has already updated this render tree. Returning
+        // false prevents a later cache render from recursively re-rendering
+        // the same cards forever just because a video exists.
+        if (videoLookupByListing[listingId]) return Promise.resolve(false);
         videoLookupByListing[listingId] = (async function(){
         try {
           const response = await fetch('/api/properties/' + encodeURIComponent(listingId) + '/media', {

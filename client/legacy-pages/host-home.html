@@ -1938,7 +1938,10 @@
 
     function loadListingVideoUrls(listingIds){
       return Promise.all(listingIds.map(function(listingId){
-        if (listingVideoLookups[listingId]) return listingVideoLookups[listingId];
+        // A cached lookup has already updated this render tree. Returning
+        // false prevents a later cache render from recursively re-rendering
+        // the same cards forever just because a video exists.
+        if (listingVideoLookups[listingId]) return Promise.resolve(false);
         listingVideoLookups[listingId] = getListingVideoUrl(listingId).then(function(url){
           if (!url) return false;
           listingVideoUrls[listingId] = url;
