@@ -49,13 +49,121 @@
   main{ max-width:560px; margin:0 auto; padding:2rem 6vw 6rem; }
   .page-error{ text-align:center; padding:3rem 1rem; color:var(--muted); font-size:.95rem; }
 
-  .booking-grid{ display:block; }
+  @media (min-width:960px){ main{ max-width:1180px; padding:2.5rem 3rem 6rem; } }
 
+  /* ---------- Gallery ---------- */
+  .gallery{ border-radius:20px; overflow:hidden; margin-bottom:1.9rem; }
+  .gallery-hero{ position:relative; width:100%; height:230px; background:linear-gradient(135deg, var(--red) 0%, var(--red-deep) 100%); }
+  .gallery-hero img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .gallery-thumbs{ display:none; }
   @media (min-width:960px){
-    main{ max-width:1120px; padding:2.75rem 3rem 6rem; }
-    .booking-grid{ display:grid; grid-template-columns:minmax(0,1.15fr) minmax(320px,0.85fr); gap:2.5rem; align-items:start; }
+    .gallery{ display:grid; grid-template-columns:1.5fr 1fr; gap:.5rem; }
+    .gallery-hero{ height:380px; border-radius:0; }
+    .gallery-thumbs{ display:grid; grid-template-columns:repeat(2,1fr); grid-auto-rows:1fr; gap:.5rem; }
+    .gallery-thumbs img{ width:100%; height:100%; object-fit:cover; display:block; min-height:185px; }
+    .gallery-thumbs .thumb-empty{ background:var(--white); }
+  }
+
+  /* ---------- Content layout ---------- */
+  .content-grid{ display:block; }
+  @media (min-width:960px){
+    .content-grid{ display:grid; grid-template-columns:minmax(0,1.2fr) minmax(340px,0.8fr); gap:2.75rem; align-items:start; }
     .col-side{ position:sticky; top:2rem; }
   }
+
+  /* ---------- Title block ---------- */
+  .title-row{ display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; margin-bottom:.4rem; }
+  .listing-title{ font-family:var(--font-display); font-weight:700; font-size:1.65rem; line-height:1.2; }
+  .save-btn{ display:flex; align-items:center; gap:.4rem; font-size:.85rem; font-weight:600; color:var(--ink); flex-shrink:0; padding:.4rem; border-radius:8px; }
+  .save-btn:hover{ color:var(--red); }
+  .save-btn.saved svg{ fill:var(--red); stroke:var(--red); }
+  .listing-loc{ font-size:.92rem; color:var(--muted); display:flex; align-items:center; gap:.35rem; margin-bottom:.9rem; }
+
+  .badge-row{ display:flex; gap:.5rem; margin-bottom:1.4rem; flex-wrap:wrap; }
+  .mini-badge{ font-size:.72rem; font-weight:700; padding:.3rem .7rem; border-radius:100px; background:var(--green-tint); color:var(--green-deep); }
+
+  .info-chip-row{ display:flex; gap:.6rem; margin-bottom:1.6rem; flex-wrap:wrap; }
+  .info-chip{ font-size:.82rem; font-weight:600; padding:.45rem .8rem; border-radius:10px; background:var(--white); border:1px solid var(--line); }
+
+  .divider{ border:none; border-top:1px solid var(--line); margin:1.6rem 0; }
+
+  /* ---------- Host card ---------- */
+  .host-card{ display:flex; align-items:center; gap:.9rem; margin-bottom:1.6rem; }
+  .host-avatar{
+    width:52px; height:52px; border-radius:50%; background:var(--red); color:#fff;
+    display:flex; align-items:center; justify-content:center; font-family:var(--font-display); font-weight:700; font-size:1.1rem; flex-shrink:0;
+  }
+  .host-name{ font-weight:700; font-size:.98rem; }
+  .host-tag{ font-size:.8rem; color:var(--green-deep); font-weight:600; }
+
+  /* ---------- About ---------- */
+  .about-title{ font-family:var(--font-display); font-weight:600; font-size:1.15rem; margin-bottom:.6rem; }
+  .about-text{ font-size:.92rem; line-height:1.6; color:var(--ink); }
+  .about-text.clamped{ display:-webkit-box; -webkit-line-clamp:4; -webkit-box-orient:vertical; overflow:hidden; }
+  .show-more-btn{ font-size:.85rem; font-weight:700; color:var(--red); margin-top:.6rem; }
+  .show-more-btn:hover{ color:var(--red-deep); }
+
+  /* ---------- Sidebar booking widget ---------- */
+  .booking-widget{ background:var(--white); border:1px solid var(--line); border-radius:18px; padding:1.5rem 1.6rem; }
+  .widget-price{ font-family:var(--font-display); font-weight:700; font-size:1.4rem; margin-bottom:1.1rem; }
+  .widget-price span{ font-family:var(--font-body); font-weight:500; font-size:.85rem; color:var(--muted); }
+
+  .picker-title{ font-family:var(--font-display); font-weight:600; font-size:1.05rem; margin-bottom:.3rem; }
+  .picker-sub{ font-size:.83rem; color:var(--muted); margin-bottom:1rem; line-height:1.5; }
+
+  .field{ display:flex; flex-direction:column; gap:.4rem; margin-bottom:1rem; }
+  label{ font-size:.86rem; font-weight:600; }
+  input, select{
+    font-family:inherit; font-size:.95rem; padding:.75rem .9rem;
+    border:1px solid var(--line-strong); border-radius:10px;
+    background:var(--paper); color:var(--ink); width:100%;
+  }
+  input:focus, select:focus{ outline:none; border-color:var(--red); }
+
+  .cal-header{ display:flex; align-items:center; justify-content:space-between; margin:.3rem 0 .8rem; }
+  .cal-title{ font-weight:700; font-size:.92rem; }
+  .cal-nav{ display:flex; gap:.4rem; }
+  .cal-nav button{ width:30px; height:30px; border-radius:8px; background:var(--paper); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; }
+  .cal-nav button:hover{ border-color:var(--red); color:var(--red); }
+
+  .cal-grid{ display:grid; grid-template-columns:repeat(7, 1fr); gap:.3rem; margin-bottom:.65rem; }
+  .cal-dow{ font-size:.63rem; font-weight:700; color:var(--muted); text-align:center; padding:.25rem 0; }
+  .cal-day{
+    aspect-ratio:1/1; display:flex; align-items:center; justify-content:center;
+    border-radius:8px; font-size:.76rem; font-weight:500; background:transparent; color:var(--muted);
+    border:1.5px solid transparent;
+  }
+  .cal-day.closed{ opacity:.35; cursor:not-allowed; }
+  .cal-day.open{ cursor:pointer; background:var(--green-tint); color:var(--ink); font-weight:600; }
+  .cal-day.open:hover{ border-color:var(--green); background:var(--green-tint-strong); }
+  .cal-day.in-range{ background:rgba(196,30,58,.14); color:var(--ink); }
+  .cal-day.range-end{ background:var(--red); color:#fff; }
+  .cal-day.empty{ visibility:hidden; }
+
+  .cal-legend{ display:flex; flex-wrap:wrap; gap:1rem; font-size:.72rem; color:var(--muted); margin-bottom:1rem; }
+  .cal-legend .dot{ display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:.35rem; vertical-align:middle; }
+  .cal-legend .dot.dot-open{ background:var(--green); }
+  .cal-legend .dot.dot-selected{ background:var(--red); }
+
+  .range-summary{ font-size:.83rem; font-weight:600; margin-bottom:1rem; }
+
+  .details-box{ border-top:1px solid var(--line); padding-top:1rem; margin-top:.4rem; font-size:.88rem; }
+  .details-row{ display:flex; justify-content:space-between; padding:.4rem 0; }
+  .details-row.total{ border-top:1px solid var(--line); margin-top:.4rem; padding-top:.7rem; font-weight:700; }
+  .details-label{ color:var(--muted); }
+
+  .confirm-btn{
+    background:var(--red); color:#fff; padding:1.05rem 1.6rem; border-radius:100px;
+    font-weight:600; font-size:1rem; width:100%; margin-top:1.2rem; transition:background .2s ease;
+  }
+  .confirm-btn:hover{ background:var(--red-deep); }
+  .confirm-btn:disabled{ background:#c9c0bd; cursor:not-allowed; }
+
+  .form-note{ font-size:.8rem; color:var(--muted); text-align:center; margin-top:.7rem; }
+
+  .success-msg{ display:none; border-radius:14px; padding:1.2rem 1.4rem; margin-top:1.2rem; font-size:.92rem; text-align:center; }
+  .success-msg.show{ display:block; border:1px solid var(--green-tint-strong); background:var(--green-tint); color:var(--green-deep); }
+  .success-msg.error{ background:rgba(196,30,58,.08); border-color:rgba(196,30,58,.3); color:var(--red-deep); }
 
   /* ---------- Skeleton loading ---------- */
   .skel{ position:relative; overflow:hidden; background:var(--skel-base); border-radius:8px; }
@@ -71,112 +179,18 @@
   @keyframes skel-sweep{ 0%{ transform:translateX(-100%); } 100%{ transform:translateX(100%); } }
   @keyframes skel-pulse{ 0%,100%{ opacity:1; } 50%{ opacity:.55; } }
 
+  .skel-gallery{ height:230px; border-radius:20px; margin-bottom:1.9rem; }
+  @media (min-width:960px){ .skel-gallery{ height:380px; } }
   .skel-shell{ display:block; }
-  @media (min-width:960px){ .skel-shell{ display:grid; grid-template-columns:minmax(0,1.15fr) minmax(320px,0.85fr); gap:2.5rem; align-items:start; } }
-  .skel-card{ background:var(--white); border:1px solid var(--line); border-radius:18px; padding:1.5rem 1.6rem; margin-bottom:1.4rem; }
+  @media (min-width:960px){ .skel-shell{ display:grid; grid-template-columns:minmax(0,1.2fr) minmax(340px,0.8fr); gap:2.75rem; align-items:start; } }
   .skel-line{ height:.8rem; border-radius:6px; margin-bottom:.6rem; }
   .skel-line.w-60{ width:60%; } .skel-line.w-40{ width:40%; } .skel-line.w-90{ width:90%; } .skel-line.w-100{ width:100%; }
-  .skel-line.tall{ height:1.3rem; }
-  .skel-cal-grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:.3rem; margin:1rem 0 .6rem; }
+  .skel-line.tall{ height:1.6rem; }
+  .skel-avatar{ width:52px; height:52px; border-radius:50%; }
+  .skel-card{ background:var(--white); border:1px solid var(--line); border-radius:18px; padding:1.5rem 1.6rem; }
+  .skel-cal-grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:.3rem; margin:1rem 0; }
   .skel-cal-cell{ aspect-ratio:1/1; border-radius:8px; }
-  .skel-photo{ width:100%; height:220px; border-radius:18px; margin-bottom:1rem; }
   .skel-button{ height:3.2rem; border-radius:100px; margin-top:1.2rem; }
-
-  /* ---------- Date-selection card ---------- */
-  .picker-card{
-    background:var(--white); border:1px solid var(--line); border-radius:18px;
-    padding:1.5rem 1.6rem; margin-bottom:1.4rem;
-  }
-  .picker-title{ font-family:var(--font-display); font-weight:600; font-size:1.25rem; margin-bottom:.35rem; }
-  .picker-sub{ font-size:.85rem; color:var(--muted); margin-bottom:1.1rem; line-height:1.5; }
-
-  .field{ display:flex; flex-direction:column; gap:.4rem; margin-bottom:1rem; }
-  label{ font-size:.86rem; font-weight:600; }
-  input, select{
-    font-family:inherit; font-size:.95rem; padding:.75rem .9rem;
-    border:1px solid var(--line-strong); border-radius:10px;
-    background:var(--paper); color:var(--ink); width:100%;
-  }
-  input:focus, select:focus{ outline:none; border-color:var(--red); }
-
-  .cal-header{ display:flex; align-items:center; justify-content:space-between; margin:.3rem 0 .8rem; }
-  .cal-title{ font-weight:700; font-size:.95rem; }
-  .cal-nav{ display:flex; gap:.4rem; }
-  .cal-nav button{ width:32px; height:32px; border-radius:8px; background:var(--paper); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; }
-  .cal-nav button:hover{ border-color:var(--red); color:var(--red); }
-
-  .cal-grid{ display:grid; grid-template-columns:repeat(7, 1fr); gap:.35rem; margin-bottom:.7rem; }
-  .cal-dow{ font-size:.68rem; font-weight:700; color:var(--muted); text-align:center; padding:.3rem 0; }
-  .cal-day{
-    aspect-ratio:1/1; display:flex; align-items:center; justify-content:center;
-    border-radius:8px; font-size:.8rem; font-weight:500; background:transparent; color:var(--muted);
-    border:1.5px solid transparent;
-  }
-  .cal-day.closed{ opacity:.35; cursor:not-allowed; }
-  .cal-day.open{ cursor:pointer; background:var(--green-tint); color:var(--ink); font-weight:600; }
-  .cal-day.open:hover{ border-color:var(--green); background:var(--green-tint-strong); }
-  .cal-day.in-range{ background:rgba(196,30,58,.14); color:var(--ink); }
-  .cal-day.range-end{ background:var(--red); color:#fff; }
-  .cal-day.range-end:hover{ border-color:var(--red-deep); }
-  .cal-day.empty{ visibility:hidden; }
-
-  .cal-legend{ display:flex; flex-wrap:wrap; gap:1rem; font-size:.75rem; color:var(--muted); }
-  .cal-legend .dot{ display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:.4rem; vertical-align:middle; }
-  .cal-legend .dot.dot-open{ background:var(--green); }
-  .cal-legend .dot.dot-selected{ background:var(--red); }
-
-  .range-summary{ font-size:.85rem; font-weight:600; margin-top:.9rem; padding-top:.9rem; border-top:1px solid var(--line); }
-
-  /* ---------- Summary card ---------- */
-  .summary-card{
-    position:relative; border-radius:20px; overflow:hidden; color:#fff;
-    min-height:280px; display:flex; flex-direction:column; justify-content:flex-end;
-    background:linear-gradient(135deg, var(--red) 0%, var(--red-deep) 100%);
-  }
-  .summary-card img.bg-photo{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; z-index:0; }
-  .summary-card::after{
-    content:''; position:absolute; inset:0; z-index:1;
-    background:linear-gradient(to top, rgba(0,0,0,.78) 0%, rgba(0,0,0,.18) 55%, rgba(0,0,0,.05) 100%);
-  }
-  .summary-content{ position:relative; z-index:2; padding:1.4rem; }
-
-  .save-icon{
-    position:absolute; top:1rem; right:1rem; z-index:3;
-    width:38px; height:38px; border-radius:50%; background:rgba(0,0,0,.35);
-    display:flex; align-items:center; justify-content:center; color:#fff;
-  }
-  .save-icon:hover{ background:rgba(0,0,0,.5); }
-  .save-icon.saved{ color:var(--red); }
-
-  .badge-row{ display:flex; gap:.4rem; margin-bottom:.6rem; flex-wrap:wrap; }
-  .mini-badge{ font-size:.68rem; font-weight:700; padding:.25rem .6rem; border-radius:100px; background:rgba(255,255,255,.18); backdrop-filter:blur(4px); }
-
-  .summary-title{ font-family:var(--font-display); font-weight:600; font-size:1.3rem; margin-bottom:.3rem; }
-  .summary-loc{ font-size:.85rem; opacity:.9; display:flex; align-items:center; gap:.3rem; margin-bottom:.3rem; }
-  .summary-size{ font-size:.82rem; opacity:.85; margin-bottom:.7rem; }
-  .summary-price{ font-family:var(--font-display); font-weight:700; font-size:1.35rem; }
-  .summary-price span{ font-family:var(--font-body); font-weight:500; font-size:.85rem; opacity:.85; }
-
-  .details-box{
-    background:var(--white); border:1px solid var(--line); border-radius:14px;
-    padding:1.1rem 1.3rem; margin-top:1rem; font-size:.88rem;
-  }
-  .details-row{ display:flex; justify-content:space-between; padding:.4rem 0; }
-  .details-row.total{ border-top:1px solid var(--line); margin-top:.4rem; padding-top:.7rem; font-weight:700; }
-  .details-label{ color:var(--muted); }
-
-  .confirm-btn{
-    background:var(--red); color:#fff; padding:1.05rem 1.6rem; border-radius:100px;
-    font-weight:600; font-size:1rem; width:100%; margin-top:1.2rem; transition:background .2s ease;
-  }
-  .confirm-btn:hover{ background:var(--red-deep); }
-  .confirm-btn:disabled{ background:#c9c0bd; cursor:not-allowed; }
-
-  .form-note{ font-size:.82rem; color:var(--muted); text-align:center; margin-top:.6rem; }
-
-  .success-msg{ display:none; background:var(--white); border:1px solid var(--line); border-radius:14px; padding:1.4rem 1.6rem; margin-top:1.4rem; font-size:.95rem; text-align:center; }
-  .success-msg.show{ display:block; border-color:var(--green-tint-strong); background:var(--green-tint); color:var(--green-deep); }
-  .success-msg.error{ background:rgba(196,30,58,.08); border-color:rgba(196,30,58,.3); color:var(--red-deep); }
 </style>
 </head>
 <body>
@@ -187,40 +201,39 @@
 </header>
 
 <main>
-  <div id="skeleton" class="skel-shell">
-    <div>
+  <div id="skeleton">
+    <div class="skel skel-gallery"></div>
+    <div class="skel-shell">
+      <div>
+        <div class="skel skel-line tall w-60"></div>
+        <div class="skel skel-line w-40" style="margin-bottom:1.4rem;"></div>
+        <div style="display:flex; align-items:center; gap:.9rem; margin-bottom:1.4rem;">
+          <div class="skel skel-avatar"></div>
+          <div style="flex:1;"><div class="skel skel-line w-40"></div></div>
+        </div>
+        <div class="skel skel-line w-100"></div>
+        <div class="skel skel-line w-90"></div>
+        <div class="skel skel-line w-60"></div>
+      </div>
       <div class="skel-card">
         <div class="skel skel-line tall w-60"></div>
-        <div class="skel skel-line w-90"></div>
-        <div class="skel skel-line w-40" style="margin-bottom:0;"></div>
         <div class="skel-cal-grid">
           <div class="skel skel-cal-cell"></div><div class="skel skel-cal-cell"></div><div class="skel skel-cal-cell"></div>
           <div class="skel skel-cal-cell"></div><div class="skel skel-cal-cell"></div><div class="skel skel-cal-cell"></div><div class="skel skel-cal-cell"></div>
           <div class="skel skel-cal-cell"></div><div class="skel skel-cal-cell"></div><div class="skel skel-cal-cell"></div>
           <div class="skel skel-cal-cell"></div><div class="skel skel-cal-cell"></div><div class="skel skel-cal-cell"></div><div class="skel skel-cal-cell"></div>
         </div>
+        <div class="skel skel-button"></div>
       </div>
-    </div>
-    <div>
-      <div class="skel-card" style="padding:0; overflow:hidden;">
-        <div class="skel skel-photo" style="border-radius:0; margin:0;"></div>
-        <div style="padding:1.4rem;">
-          <div class="skel skel-line w-90"></div>
-          <div class="skel skel-line w-60" style="margin-bottom:0;"></div>
-        </div>
-      </div>
-      <div class="skel-card">
-        <div class="skel skel-line w-100"></div>
-        <div class="skel skel-line w-90"></div>
-        <div class="skel skel-line w-60" style="margin-bottom:0;"></div>
-      </div>
-      <div class="skel skel-button"></div>
     </div>
   </div>
 
-  <div id="booking-page" class="booking-grid" style="display:none;">
-    <div class="col-main" id="col-main"></div>
-    <div class="col-side" id="col-side"></div>
+  <div id="booking-page" style="display:none;">
+    <div class="gallery" id="gallery"></div>
+    <div class="content-grid">
+      <div class="col-main" id="col-main"></div>
+      <div class="col-side" id="col-side"></div>
+    </div>
   </div>
 
   <p id="page-error" class="page-error" style="display:none;"></p>
@@ -286,10 +299,9 @@
     const isShortStay = SHORT_STAY.includes(listing.category);
     const isHourly = details.price_unit === 'hour';
 
-    let bgPhotoUrl = null;
-    if (listing.listing_photos && listing.listing_photos.length > 0) {
-      bgPhotoUrl = supabaseClient.storage.from('listing-photos').getPublicUrl(listing.listing_photos[0].storage_path).data.publicUrl;
-    }
+    const photoUrls = (listing.listing_photos || []).map(function(p){
+      return supabaseClient.storage.from('listing-photos').getPublicUrl(p.storage_path).data.publicUrl;
+    });
 
     // ---------- Booked/pending dates to grey out (short-stay only) ----------
     let unavailableDates = new Set();
@@ -311,92 +323,143 @@
       });
     }
 
-    // ---------- Build the two columns ----------
-    let pickerHtml = '';
+    // ---------- Gallery ----------
+    let galleryHtml = '';
+    if (photoUrls.length === 0) {
+      galleryHtml = '<div class="gallery-hero"></div>';
+    } else {
+      galleryHtml = '<div class="gallery-hero"><img src="' + photoUrls[0] + '" alt=""></div>';
+      const thumbs = photoUrls.slice(1, 5);
+      if (thumbs.length > 0) {
+        galleryHtml += '<div class="gallery-thumbs">' +
+          thumbs.map(function(u){ return '<img src="' + u + '" alt="">'; }).join('') +
+          '</div>';
+      }
+    }
+    document.getElementById('gallery').innerHTML = galleryHtml;
+
+    // ---------- Title block / host / about (main column) ----------
+    const badges = [];
+    if (listing.verified) badges.push('📍 GPS verified');
+    if (listing.host.verified) badges.push('✔ Verified host');
+
+    const infoChips = [];
+    if (listing.category) infoChips.push(listing.category.charAt(0).toUpperCase() + listing.category.slice(1));
+    if (details.size_or_type) infoChips.push(escapeHtml(details.size_or_type));
+
+    const hostName = listing.host.full_name || 'Host';
+    const initials = hostName.trim().split(/\s+/).slice(0,2).map(function(w){ return w[0]; }).join('').toUpperCase();
+
+    const description = listing.description || '';
+    const isLong = description.length > 220;
+
+    let colMainHtml =
+      '<div class="title-row">' +
+        '<h1 class="listing-title">' + escapeHtml(listing.title) + '</h1>' +
+        '<button type="button" class="save-btn" id="save-icon" aria-label="Save listing">' +
+          '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z"/></svg>' +
+          '<span>Save</span>' +
+        '</button>' +
+      '</div>' +
+      '<p class="listing-loc">📍 ' + escapeHtml(listing.location_text) + '</p>' +
+      (badges.length ? '<div class="badge-row">' + badges.map(function(b){ return '<span class="mini-badge">' + b + '</span>'; }).join('') + '</div>' : '') +
+      (infoChips.length ? '<div class="info-chip-row">' + infoChips.map(function(c){ return '<span class="info-chip">' + c + '</span>'; }).join('') + '</div>' : '') +
+      '<hr class="divider">' +
+      '<div class="host-card">' +
+        '<div class="host-avatar">' + escapeHtml(initials) + '</div>' +
+        '<div>' +
+          '<div class="host-name">Hosted by ' + escapeHtml(hostName) + '</div>' +
+          (listing.host.verified ? '<div class="host-tag">Verified host</div>' : '') +
+        '</div>' +
+      '</div>';
+
+    if (description) {
+      colMainHtml +=
+        '<hr class="divider">' +
+        '<p class="about-title">About this place</p>' +
+        '<p class="about-text' + (isLong ? ' clamped' : '') + '" id="about-text">' + escapeHtml(description) + '</p>' +
+        (isLong ? '<button type="button" class="show-more-btn" id="show-more-btn">Show more</button>' : '');
+    }
+
+    document.getElementById('col-main').innerHTML = colMainHtml;
+
+    if (isLong) {
+      const aboutText = document.getElementById('about-text');
+      const showMoreBtn = document.getElementById('show-more-btn');
+      showMoreBtn.addEventListener('click', function(){
+        const expanded = aboutText.classList.toggle('clamped') === false;
+        showMoreBtn.textContent = expanded ? 'Show less' : 'Show more';
+      });
+    }
+
+    // ---------- Sidebar booking widget ----------
     const legendHtml = '<div class="cal-legend">' +
         '<span><span class="dot dot-open"></span>Open</span>' +
         '<span><span class="dot dot-selected"></span>Selected</span>' +
       '</div>';
 
+    let pickerHtml = '';
     if (isShortStay && isHourly) {
       pickerHtml =
-        '<div class="picker-card">' +
-          '<p class="picker-title">Pick a date &amp; duration</p>' +
-          '<p class="picker-sub">Choose an open date and how many hours you need.</p>' +
-          '<div id="cal-container"></div>' +
-          legendHtml +
-          '<div class="field" style="margin-top:1.1rem;">' +
-            '<label for="hours-input">Hours</label>' +
-            '<input type="number" id="hours-input" min="1" value="1">' +
-          '</div>' +
+        '<p class="picker-title">Pick a date &amp; duration</p>' +
+        '<p class="picker-sub">Choose an open date and how many hours you need.</p>' +
+        '<div id="cal-container"></div>' +
+        legendHtml +
+        '<div class="field">' +
+          '<label for="hours-input">Hours</label>' +
+          '<input type="number" id="hours-input" min="1" value="1">' +
         '</div>';
     } else if (isShortStay) {
       pickerHtml =
-        '<div class="picker-card">' +
-          '<p class="picker-title">Pick your dates</p>' +
-          '<p class="picker-sub">Tap a check-in date, then a check-out date. Only open dates can be selected.</p>' +
-          '<div id="cal-container"></div>' +
-          legendHtml +
-          '<p class="range-summary" id="range-summary">No dates selected yet.</p>' +
-        '</div>';
+        '<p class="picker-title">Pick your dates</p>' +
+        '<p class="picker-sub">Tap a check-in date, then a check-out date. Only open dates can be selected.</p>' +
+        '<div id="cal-container"></div>' +
+        legendHtml +
+        '<p class="range-summary" id="range-summary">No dates selected yet.</p>';
     } else {
       const minDate = details.available_from || new Date().toISOString().slice(0,10);
       pickerHtml =
-        '<div class="picker-card">' +
-          '<p class="picker-title">Move-in details</p>' +
-          '<p class="picker-sub">' + (details.available_from ? 'Available from ' + escapeHtml(details.available_from) + '.' : 'Choose your desired start date.') + '</p>' +
-          '<div class="field">' +
-            '<label for="lease-start">Desired start date</label>' +
-            '<input type="date" id="lease-start" min="' + minDate + '" value="' + minDate + '">' +
-          '</div>' +
-          '<div class="field">' +
-            '<label for="lease-months">Lease length (months)</label>' +
-            '<input type="number" id="lease-months" min="1" value="' + (details.min_lease_months || 1) + '">' +
-          '</div>' +
+        '<p class="picker-title">Move-in details</p>' +
+        '<p class="picker-sub">' + (details.available_from ? 'Available from ' + escapeHtml(details.available_from) + '.' : 'Choose your desired start date.') + '</p>' +
+        '<div class="field">' +
+          '<label for="lease-start">Desired start date</label>' +
+          '<input type="date" id="lease-start" min="' + minDate + '" value="' + minDate + '">' +
+        '</div>' +
+        '<div class="field">' +
+          '<label for="lease-months">Lease length (months)</label>' +
+          '<input type="number" id="lease-months" min="1" value="' + (details.min_lease_months || 1) + '">' +
         '</div>';
     }
 
-    const badges = [];
-    if (listing.verified) badges.push('📍 GPS verified');
-    if (listing.host.verified) badges.push('✔ Verified host');
+    const colSideHtml =
+      '<div class="booking-widget">' +
+        '<div class="widget-price">KSh ' + Number(details.price_amount).toLocaleString() + ' <span>/ ' + details.price_unit + '</span></div>' +
+        pickerHtml +
+        '<div class="details-box" id="details-box"></div>' +
+        '<button type="button" class="confirm-btn" id="confirm-btn" disabled>Confirm booking</button>' +
+        '<p class="form-note">This creates a request — the host needs to approve it before it\'s confirmed.</p>' +
+        '<div class="success-msg" id="success-msg"></div>' +
+      '</div>';
 
-    const summaryHtml =
-      '<div class="summary-card" id="summary-card">' +
-        (bgPhotoUrl ? '<img class="bg-photo" src="' + bgPhotoUrl + '" alt="">' : '') +
-        '<button type="button" class="save-icon" id="save-icon" aria-label="Save">' +
-          '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z"/></svg>' +
-        '</button>' +
-        '<div class="summary-content">' +
-          (badges.length ? '<div class="badge-row">' + badges.map(function(b){ return '<span class="mini-badge">' + b + '</span>'; }).join('') + '</div>' : '') +
-          '<div class="summary-title">' + escapeHtml(listing.title) + '</div>' +
-          '<div class="summary-loc">📍 ' + escapeHtml(listing.location_text) + '</div>' +
-          (details.size_or_type ? '<div class="summary-size">' + escapeHtml(details.size_or_type) + '</div>' : '') +
-          '<div class="summary-price">KSh ' + Number(details.price_amount).toLocaleString() + ' <span>/ ' + details.price_unit + '</span></div>' +
-        '</div>' +
-      '</div>' +
-      '<div class="details-box" id="details-box"></div>' +
-      '<button type="button" class="confirm-btn" id="confirm-btn" disabled>Confirm booking</button>' +
-      '<p class="form-note">This creates a request — the host needs to approve it before it\'s confirmed.</p>' +
-      '<div class="success-msg" id="success-msg"></div>';
-
-    document.getElementById('col-main').innerHTML = pickerHtml;
-    document.getElementById('col-side').innerHTML = summaryHtml;
+    document.getElementById('col-side').innerHTML = colSideHtml;
 
     skeleton.style.display = 'none';
-    bookingPage.style.display = '';
+    bookingPage.style.display = 'block';
 
     // ---------- Save/bookmark ----------
     const { data: existingBookmark } = await supabaseClient
       .from('bookmarks').select('id').eq('client_id', currentUser.id).eq('listing_id', listingId).maybeSingle();
     const saveIcon = document.getElementById('save-icon');
-    if (existingBookmark) saveIcon.classList.add('saved');
+    if (existingBookmark) { saveIcon.classList.add('saved'); saveIcon.querySelector('span').textContent = 'Saved'; }
     saveIcon.addEventListener('click', async function(){
       if (saveIcon.classList.contains('saved')) {
         await supabaseClient.from('bookmarks').delete().eq('client_id', currentUser.id).eq('listing_id', listingId);
         saveIcon.classList.remove('saved');
+        saveIcon.querySelector('span').textContent = 'Save';
       } else {
         await supabaseClient.from('bookmarks').insert({ client_id: currentUser.id, listing_id: listingId });
         saveIcon.classList.add('saved');
+        saveIcon.querySelector('span').textContent = 'Saved';
       }
     });
 
