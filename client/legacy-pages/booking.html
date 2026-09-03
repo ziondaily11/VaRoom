@@ -34,16 +34,19 @@
     --skel-base:rgba(255,255,255,.06); --skel-shine:rgba(255,255,255,.13);
   }
   *{ margin:0; padding:0; box-sizing:border-box; }
-  body{ font-family:var(--font-body); background:var(--paper); color:var(--ink); min-height:100vh; transition:background .2s ease, color .2s ease; }
+  html{ height:100%; }
+  body{ font-family:var(--font-body); background:var(--paper); color:var(--ink); height:100%; overflow:hidden; transition:background .2s ease, color .2s ease; }
   a{ color:inherit; text-decoration:none; }
   button{ font-family:inherit; cursor:pointer; border:none; background:none; }
   :focus-visible{ outline:3px solid var(--red-deep); outline-offset:3px; }
-  ul{ list-style:none; }
+  svg{ flex-shrink:0; }
+
+  .page-shell{ display:flex; flex-direction:column; height:100vh; overflow:hidden; }
 
   /* ---------- Top nav ---------- */
   header{
-    display:flex; align-items:center; gap:1.5rem; padding:1rem 2rem;
-    border-bottom:1px solid var(--line); flex-wrap:wrap;
+    display:flex; align-items:center; gap:1.5rem; padding:.9rem 2rem;
+    border-bottom:1px solid var(--line); flex-wrap:wrap; flex-shrink:0;
   }
   .logo{ font-family:var(--font-display); font-weight:700; font-size:1.5rem; letter-spacing:-.01em; flex-shrink:0; }
   .logo .va{ color:var(--red); }
@@ -51,7 +54,7 @@
 
   .search-wrap{ position:relative; flex:1; min-width:200px; max-width:420px; }
   .search-input{
-    width:100%; font-family:inherit; font-size:.88rem; padding:.65rem 1rem .65rem 2.3rem;
+    width:100%; font-family:inherit; font-size:.88rem; padding:.6rem 1rem .6rem 2.3rem;
     border:1px solid var(--line-strong); border-radius:100px; background:var(--paper); color:var(--ink);
   }
   .search-input:focus{ outline:none; border-color:var(--red); }
@@ -79,7 +82,8 @@
   .avatar-wrap{ position:relative; }
   .avatar-btn{ display:flex; align-items:center; gap:.5rem; padding:.3rem .6rem .3rem .3rem; border-radius:100px; border:1px solid var(--line); }
   .avatar-btn:hover{ border-color:var(--red); }
-  .avatar-circle{ width:28px; height:28px; border-radius:50%; background:var(--red); color:#fff; display:flex; align-items:center; justify-content:center; font-size:.72rem; font-weight:700; }
+  .avatar-circle{ width:28px; height:28px; border-radius:50%; background:var(--red); color:#fff; display:flex; align-items:center; justify-content:center; font-size:.72rem; font-weight:700; overflow:hidden; }
+  .avatar-circle img{ width:100%; height:100%; object-fit:cover; }
   .avatar-name{ font-size:.83rem; font-weight:600; }
   .avatar-menu{
     display:none; position:absolute; right:0; top:calc(100% + .5rem); min-width:190px; z-index:40;
@@ -87,105 +91,113 @@
     box-shadow:0 12px 30px rgba(0,0,0,.18); padding:.4rem;
   }
   .avatar-menu.show{ display:block; }
-  .avatar-menu a, .avatar-menu button{ display:block; width:100%; text-align:left; padding:.6rem .7rem; border-radius:8px; font-size:.85rem; font-weight:600; }
+  .avatar-menu a, .avatar-menu button{ display:flex; align-items:center; gap:.6rem; width:100%; text-align:left; padding:.6rem .7rem; border-radius:8px; font-size:.85rem; font-weight:600; }
   .avatar-menu a:hover, .avatar-menu button:hover{ background:var(--paper); color:var(--red); }
 
   @media (min-width:960px){ .nav-links{ display:flex; } }
 
   /* ---------- Breadcrumb ---------- */
-  .breadcrumb{ font-size:.8rem; color:var(--muted); padding:1rem 6vw 0; max-width:1180px; margin:0 auto; }
+  .breadcrumb{ font-size:.8rem; color:var(--muted); padding:.7rem 3rem; max-width:1180px; margin:0 auto; width:100%; flex-shrink:0; display:flex; align-items:center; gap:.35rem; flex-wrap:wrap; }
   .breadcrumb a:hover{ color:var(--red); }
-  .breadcrumb .sep{ margin:0 .35rem; }
   .breadcrumb .current{ color:var(--ink); font-weight:600; }
 
-  main{ max-width:560px; margin:0 auto; padding:1.25rem 6vw 6rem; }
+  .main-shell{ flex:1; min-height:0; }
   .page-error{ text-align:center; padding:3rem 1rem; color:var(--muted); font-size:.95rem; }
 
-  @media (min-width:960px){ main{ max-width:1180px; padding:1.5rem 3rem 6rem; } }
+  .content-grid{ height:100%; display:flex; flex-direction:column; overflow-y:auto; max-width:560px; margin:0 auto; padding:0 6vw 3rem; }
 
-  .content-grid{ display:block; }
   @media (min-width:960px){
-    .content-grid{ display:grid; grid-template-columns:minmax(0,1.2fr) minmax(340px,0.8fr); gap:2.75rem; align-items:start; }
-    .col-side{ position:sticky; top:1.5rem; }
+    .content-grid{
+      display:grid; grid-template-columns:minmax(0,1.2fr) minmax(340px,0.8fr); gap:2.25rem;
+      align-items:start; max-width:1180px; padding:0 3rem 2rem; height:100%; overflow:hidden;
+    }
+    .col-main{ height:100%; overflow-y:auto; padding:1.25rem 0 2rem; }
+    .col-side{ height:100%; overflow-y:auto; padding:1.25rem 0 1.5rem; }
   }
 
   /* ---------- Gallery ---------- */
-  .gallery{ position:relative; border-radius:20px; overflow:hidden; margin-bottom:1.9rem; }
-  .gallery-hero{ position:relative; width:100%; height:230px; background:linear-gradient(135deg, var(--red) 0%, var(--red-deep) 100%); }
+  .gallery{ position:relative; border-radius:20px; overflow:hidden; margin-bottom:1.5rem; }
+  .gallery-hero{ position:relative; width:100%; height:210px; background:linear-gradient(135deg, var(--red) 0%, var(--red-deep) 100%); }
   .gallery-hero img{ width:100%; height:100%; object-fit:cover; display:block; }
   .gallery-thumbs{ display:none; }
   .view-all-btn{
     position:absolute; bottom:1rem; left:1rem; z-index:2; background:rgba(0,0,0,.55); color:#fff;
-    font-size:.78rem; font-weight:700; padding:.5rem .9rem; border-radius:10px; display:flex; align-items:center; gap:.4rem;
+    font-size:.78rem; font-weight:700; padding:.5rem .9rem; border-radius:10px; display:flex; align-items:center; gap:.45rem;
   }
   .view-all-btn:hover{ background:rgba(0,0,0,.75); }
   @media (min-width:960px){
     .gallery{ display:grid; grid-template-columns:1.5fr 1fr; gap:.5rem; }
-    .gallery-hero{ height:380px; border-radius:0; }
+    .gallery-hero{ height:320px; border-radius:0; }
     .gallery-thumbs{ display:grid; grid-template-columns:repeat(2,1fr); grid-auto-rows:1fr; gap:.5rem; }
-    .gallery-thumbs img{ width:100%; height:100%; object-fit:cover; display:block; min-height:185px; }
+    .gallery-thumbs img{ width:100%; height:100%; object-fit:cover; display:block; min-height:155px; }
   }
 
   .lightbox{ display:none; position:fixed; inset:0; z-index:100; background:rgba(10,7,6,.92); padding:2.5rem; overflow-y:auto; }
   .lightbox.show{ display:block; }
-  .lightbox-close{ position:fixed; top:1.5rem; right:1.5rem; width:42px; height:42px; border-radius:50%; background:rgba(255,255,255,.12); color:#fff; font-size:1.2rem; }
+  .lightbox-close{ position:fixed; top:1.5rem; right:1.5rem; width:42px; height:42px; border-radius:50%; background:rgba(255,255,255,.12); color:#fff; display:flex; align-items:center; justify-content:center; }
   .lightbox-close:hover{ background:rgba(255,255,255,.24); }
   .lightbox-grid{ max-width:960px; margin:2.5rem auto 0; display:grid; grid-template-columns:repeat(auto-fill, minmax(260px,1fr)); gap:1rem; }
   .lightbox-grid img{ width:100%; border-radius:12px; display:block; }
 
   /* ---------- Title block ---------- */
-  .title-row{ display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; margin-bottom:.4rem; }
-  .listing-title{ font-family:var(--font-display); font-weight:700; font-size:1.65rem; line-height:1.2; }
+  .title-row{ display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; margin-bottom:.5rem; }
+  .listing-title{ font-family:var(--font-display); font-weight:700; font-size:1.55rem; line-height:1.2; }
   .title-actions{ display:flex; gap:.3rem; flex-shrink:0; }
   .action-btn{ display:flex; align-items:center; gap:.4rem; font-size:.85rem; font-weight:600; color:var(--ink); padding:.4rem .5rem; border-radius:8px; }
   .action-btn:hover{ color:var(--red); }
   .action-btn.saved svg{ fill:var(--red); stroke:var(--red); }
 
-  .rating-row{ display:flex; align-items:center; gap:.5rem; font-size:.88rem; font-weight:600; margin-bottom:.5rem; flex-wrap:wrap; }
-  .rating-row .star{ color:var(--red); }
+  .rating-row{ display:flex; align-items:center; gap:.5rem; font-size:.86rem; font-weight:600; margin-bottom:.5rem; flex-wrap:wrap; }
+  .rating-row .icon-star{ color:var(--red); width:15px; height:15px; }
   .rating-row .superhost-tag{ font-size:.7rem; font-weight:700; padding:.2rem .6rem; border-radius:100px; background:var(--red); color:#fff; }
-  .placeholder-tag{ font-size:.65rem; font-weight:700; text-transform:uppercase; letter-spacing:.03em; color:var(--muted); border:1px dashed var(--line-strong); padding:.1rem .4rem; border-radius:6px; }
+  .placeholder-tag{ font-size:.62rem; font-weight:700; text-transform:uppercase; letter-spacing:.03em; color:var(--muted); border:1px dashed var(--line-strong); padding:.1rem .4rem; border-radius:6px; }
 
-  .listing-loc{ font-size:.92rem; color:var(--muted); display:flex; align-items:center; gap:.35rem; margin-bottom:.9rem; }
+  .listing-loc{ font-size:.9rem; color:var(--muted); margin-bottom:.8rem; }
   .listing-loc a{ text-decoration:underline; }
   .listing-loc a:hover{ color:var(--red); }
 
-  .badge-row{ display:flex; gap:.5rem; margin-bottom:1.4rem; flex-wrap:wrap; }
-  .mini-badge{ font-size:.72rem; font-weight:700; padding:.3rem .7rem; border-radius:100px; background:var(--green-tint); color:var(--green-deep); }
+  .badge-row{ display:flex; gap:.5rem; margin-bottom:1.1rem; flex-wrap:wrap; }
+  .mini-badge{ display:inline-flex; align-items:center; gap:.3rem; font-size:.72rem; font-weight:700; padding:.3rem .7rem; border-radius:100px; background:var(--green-tint); color:var(--green-deep); }
+  .mini-badge svg{ width:12px; height:12px; }
 
-  .info-chip-row{ display:flex; gap:.6rem; margin-bottom:1.6rem; flex-wrap:wrap; }
+  .info-chip-row{ display:flex; gap:.6rem; margin-bottom:1.3rem; flex-wrap:wrap; }
   .info-chip{ font-size:.82rem; font-weight:600; padding:.45rem .8rem; border-radius:10px; background:var(--white); border:1px solid var(--line); }
 
-  .divider{ border:none; border-top:1px solid var(--line); margin:1.6rem 0; }
+  .divider{ border:none; border-top:1px solid var(--line); margin:1.3rem 0; }
 
-  /* ---------- Host card ---------- */
-  .host-card{ display:flex; align-items:flex-start; gap:1.1rem; margin-bottom:1.6rem; }
+  /* ---------- Host card + About (side by side) ---------- */
+  .host-about-row{ display:block; }
+  @media (min-width:640px){ .host-about-row{ display:grid; grid-template-columns:230px 1fr; gap:1.6rem; align-items:start; } }
+
+  .host-card{ display:flex; flex-direction:column; gap:.8rem; margin-bottom:1.3rem; }
+  @media (min-width:640px){ .host-card{ margin-bottom:0; } }
   .host-avatar{
-    width:56px; height:56px; border-radius:50%; background:var(--red); color:#fff;
-    display:flex; align-items:center; justify-content:center; font-family:var(--font-display); font-weight:700; font-size:1.15rem; flex-shrink:0;
+    width:52px; height:52px; border-radius:50%; background:var(--red); color:#fff;
+    display:flex; align-items:center; justify-content:center; font-family:var(--font-display); font-weight:700; font-size:1.1rem; flex-shrink:0; overflow:hidden;
   }
-  .host-name{ font-weight:700; font-size:.98rem; display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; }
-  .host-stats{ display:flex; gap:1.4rem; margin:.7rem 0 .9rem; }
-  .host-stat b{ display:block; font-size:.95rem; }
-  .host-stat span{ font-size:.72rem; color:var(--muted); }
-  .contact-host-btn{ font-size:.85rem; font-weight:700; padding:.6rem 1.1rem; border-radius:10px; border:1.5px solid var(--ink); }
+  .host-avatar img{ width:100%; height:100%; object-fit:cover; }
+  .host-name{ font-weight:700; font-size:.96rem; display:flex; align-items:center; gap:.4rem; flex-wrap:wrap; }
+  .host-name .icon-verified{ width:15px; height:15px; color:var(--red); }
+  .host-stats{ display:flex; gap:1.2rem; margin:.5rem 0 .6rem; }
+  .host-stat b{ display:block; font-size:.92rem; }
+  .host-stat span{ font-size:.7rem; color:var(--muted); }
+  .contact-host-btn{ display:inline-flex; align-items:center; gap:.5rem; font-size:.83rem; font-weight:700; padding:.55rem 1rem; border-radius:10px; border:1.5px solid var(--ink); align-self:flex-start; }
   .contact-host-btn:hover{ border-color:var(--red); color:var(--red); }
+  .contact-host-btn svg{ width:15px; height:15px; }
 
-  /* ---------- About ---------- */
-  .about-title, .section-title{ font-family:var(--font-display); font-weight:600; font-size:1.15rem; margin-bottom:.6rem; }
-  .about-text{ font-size:.92rem; line-height:1.6; color:var(--ink); }
-  .about-text.clamped{ display:-webkit-box; -webkit-line-clamp:4; -webkit-box-orient:vertical; overflow:hidden; }
-  .show-more-btn{ font-size:.85rem; font-weight:700; color:var(--red); margin-top:.6rem; }
-  .show-more-btn:hover{ color:var(--red-deep); }
+  .about-block .about-title, .section-title{ font-family:var(--font-display); font-weight:600; font-size:1.1rem; margin-bottom:.5rem; }
+  .about-text{ font-size:.9rem; line-height:1.6; color:var(--ink); }
 
   /* ---------- Amenities (placeholder) ---------- */
-  .amenity-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:.8rem 1.2rem; }
+  .amenity-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:.75rem 1.2rem; }
   @media (min-width:640px){ .amenity-grid{ grid-template-columns:repeat(3,1fr); } }
-  .amenity-item{ display:flex; align-items:center; gap:.6rem; font-size:.88rem; }
-  .amenity-item .a-icon{ font-size:1.05rem; }
+  .amenity-item{ display:flex; align-items:center; gap:.6rem; font-size:.87rem; }
+  .amenity-item svg{ width:17px; height:17px; color:var(--red); }
 
   /* ---------- Reviews (placeholder) ---------- */
-  .reviews-header{ display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem; flex-wrap:wrap; gap:.5rem; }
+  .reviews-header{ display:flex; align-items:center; justify-content:space-between; margin-bottom:.9rem; flex-wrap:wrap; gap:.5rem; }
+  .reviews-header .section-title{ margin-bottom:0; display:flex; align-items:center; gap:.4rem; }
+  .reviews-header .icon-star{ width:15px; height:15px; color:var(--red); }
   .see-all-link{ font-size:.85rem; font-weight:700; color:var(--red); }
   .review-strip{ display:grid; grid-template-columns:repeat(auto-fit, minmax(220px,1fr)); gap:1rem; }
   .review-card{ background:var(--white); border:1px solid var(--line); border-radius:14px; padding:1rem 1.1rem; }
@@ -193,40 +205,42 @@
   .review-avatar{ width:34px; height:34px; border-radius:50%; background:var(--paper); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; font-size:.72rem; font-weight:700; }
   .review-name{ font-size:.85rem; font-weight:700; }
   .review-time{ font-size:.72rem; color:var(--muted); }
-  .review-stars{ color:var(--red); font-size:.8rem; margin-bottom:.4rem; }
+  .review-stars{ display:flex; gap:.15rem; color:var(--red); margin-bottom:.4rem; }
+  .review-stars svg{ width:13px; height:13px; }
   .review-text{ font-size:.84rem; line-height:1.5; color:var(--muted); }
 
   /* ---------- Sidebar booking widget ---------- */
-  .booking-widget{ background:var(--white); border:1px solid var(--line); border-radius:18px; padding:1.5rem 1.6rem; }
-  .widget-price-row{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom:1.1rem; }
-  .widget-price{ font-family:var(--font-display); font-weight:700; font-size:1.4rem; }
-  .widget-price span{ font-family:var(--font-body); font-weight:500; font-size:.85rem; color:var(--muted); }
-  .widget-rating{ font-size:.85rem; font-weight:600; }
-  .widget-rating .star{ color:var(--red); }
+  .booking-widget{ background:var(--white); border:1px solid var(--line); border-radius:18px; padding:1.25rem 1.4rem; }
+  .widget-price-row{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom:.9rem; }
+  .widget-price{ font-family:var(--font-display); font-weight:700; font-size:1.3rem; }
+  .widget-price span{ font-family:var(--font-body); font-weight:500; font-size:.83rem; color:var(--muted); }
+  .widget-rating{ display:flex; align-items:center; gap:.3rem; font-size:.83rem; font-weight:600; }
+  .widget-rating svg{ width:13px; height:13px; color:var(--red); }
 
-  .picker-title{ font-family:var(--font-display); font-weight:600; font-size:1.05rem; margin-bottom:.3rem; }
-  .picker-sub{ font-size:.83rem; color:var(--muted); margin-bottom:1rem; line-height:1.5; }
+  .picker-title{ font-family:var(--font-display); font-weight:600; font-size:1rem; margin-bottom:.25rem; }
+  .picker-sub{ font-size:.79rem; color:var(--muted); margin-bottom:.8rem; line-height:1.45; }
 
-  .field{ display:flex; flex-direction:column; gap:.4rem; margin-bottom:1rem; }
-  label{ font-size:.86rem; font-weight:600; }
+  .field{ display:flex; flex-direction:column; gap:.35rem; margin-bottom:.8rem; }
+  label{ font-size:.83rem; font-weight:600; }
   input, select{
-    font-family:inherit; font-size:.95rem; padding:.75rem .9rem;
+    font-family:inherit; font-size:.9rem; padding:.6rem .8rem;
     border:1px solid var(--line-strong); border-radius:10px;
     background:var(--paper); color:var(--ink); width:100%;
   }
   input:focus, select:focus{ outline:none; border-color:var(--red); }
 
-  .cal-header{ display:flex; align-items:center; justify-content:space-between; margin:.3rem 0 .8rem; }
-  .cal-title{ font-weight:700; font-size:.92rem; }
-  .cal-nav{ display:flex; gap:.4rem; }
-  .cal-nav button{ width:30px; height:30px; border-radius:8px; background:var(--paper); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; }
+  .cal-header{ display:flex; align-items:center; justify-content:space-between; margin:.2rem 0 .6rem; }
+  .cal-title{ font-weight:700; font-size:.88rem; }
+  .cal-nav{ display:flex; gap:.35rem; }
+  .cal-nav button{ width:26px; height:26px; border-radius:8px; background:var(--paper); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; }
   .cal-nav button:hover{ border-color:var(--red); color:var(--red); }
+  .cal-nav svg{ width:13px; height:13px; }
 
-  .cal-grid{ display:grid; grid-template-columns:repeat(7, 1fr); gap:.3rem; margin-bottom:.65rem; }
-  .cal-dow{ font-size:.63rem; font-weight:700; color:var(--muted); text-align:center; padding:.25rem 0; }
+  .cal-grid{ display:grid; grid-template-columns:repeat(7, 1fr); gap:.25rem; margin-bottom:.5rem; }
+  .cal-dow{ font-size:.6rem; font-weight:700; color:var(--muted); text-align:center; padding:.15rem 0; }
   .cal-day{
     aspect-ratio:1/1; display:flex; align-items:center; justify-content:center;
-    border-radius:8px; font-size:.76rem; font-weight:500; background:transparent; color:var(--muted);
+    border-radius:7px; font-size:.72rem; font-weight:500; background:transparent; color:var(--muted);
     border:1.5px solid transparent;
   }
   .cal-day.closed{ opacity:.35; cursor:not-allowed; }
@@ -236,28 +250,28 @@
   .cal-day.range-end{ background:var(--red); color:#fff; }
   .cal-day.empty{ visibility:hidden; }
 
-  .cal-legend{ display:flex; flex-wrap:wrap; gap:1rem; font-size:.72rem; color:var(--muted); margin-bottom:1rem; }
-  .cal-legend .dot{ display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:.35rem; vertical-align:middle; }
+  .cal-legend{ display:flex; flex-wrap:wrap; gap:.9rem; font-size:.7rem; color:var(--muted); margin-bottom:.7rem; }
+  .cal-legend .dot{ display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:.3rem; vertical-align:middle; }
   .cal-legend .dot.dot-open{ background:var(--green); }
   .cal-legend .dot.dot-selected{ background:var(--red); }
 
-  .range-summary{ font-size:.83rem; font-weight:600; margin-bottom:1rem; }
+  .range-summary{ font-size:.8rem; font-weight:600; margin-bottom:.7rem; }
 
-  .details-box{ border-top:1px solid var(--line); padding-top:1rem; margin-top:.4rem; font-size:.88rem; }
-  .details-row{ display:flex; justify-content:space-between; padding:.4rem 0; }
-  .details-row.total{ border-top:1px solid var(--line); margin-top:.4rem; padding-top:.7rem; font-weight:700; }
+  .details-box{ border-top:1px solid var(--line); padding-top:.8rem; margin-top:.2rem; font-size:.85rem; }
+  .details-row{ display:flex; justify-content:space-between; padding:.3rem 0; }
+  .details-row.total{ border-top:1px solid var(--line); margin-top:.3rem; padding-top:.6rem; font-weight:700; }
   .details-label{ color:var(--muted); }
 
   .confirm-btn{
-    background:var(--red); color:#fff; padding:1.05rem 1.6rem; border-radius:100px;
-    font-weight:600; font-size:1rem; width:100%; margin-top:1.2rem; transition:background .2s ease;
+    background:var(--red); color:#fff; padding:.9rem 1.6rem; border-radius:100px;
+    font-weight:600; font-size:.96rem; width:100%; margin-top:1rem; transition:background .2s ease;
   }
   .confirm-btn:hover{ background:var(--red-deep); }
   .confirm-btn:disabled{ background:#c9c0bd; cursor:not-allowed; }
 
-  .form-note{ font-size:.8rem; color:var(--muted); text-align:center; margin-top:.7rem; }
+  .form-note{ font-size:.77rem; color:var(--muted); text-align:center; margin-top:.6rem; }
 
-  .success-msg{ display:none; border-radius:14px; padding:1.2rem 1.4rem; margin-top:1.2rem; font-size:.92rem; text-align:center; }
+  .success-msg{ display:none; border-radius:14px; padding:1.1rem 1.3rem; margin-top:1rem; font-size:.9rem; text-align:center; }
   .success-msg.show{ display:block; border:1px solid var(--green-tint-strong); background:var(--green-tint); color:var(--green-deep); }
   .success-msg.error{ background:rgba(196,30,58,.08); border-color:rgba(196,30,58,.3); color:var(--red-deep); }
 
@@ -275,24 +289,34 @@
   @keyframes skel-sweep{ 0%{ transform:translateX(-100%); } 100%{ transform:translateX(100%); } }
   @keyframes skel-pulse{ 0%,100%{ opacity:1; } 50%{ opacity:.55; } }
 
-  .skel-gallery{ height:230px; border-radius:20px; margin-bottom:1.9rem; }
-  @media (min-width:960px){ .skel-gallery{ height:380px; } }
-  .skel-shell{ display:block; }
-  @media (min-width:960px){ .skel-shell{ display:grid; grid-template-columns:minmax(0,1.2fr) minmax(340px,0.8fr); gap:2.75rem; align-items:start; } }
-  .skel-line{ height:.8rem; border-radius:6px; margin-bottom:.6rem; }
+  .skel-gallery{ height:210px; border-radius:20px; margin-bottom:1.5rem; }
+  @media (min-width:960px){ .skel-gallery{ height:320px; } }
+  .skel-shell{ display:block; padding:1.25rem 6vw; overflow-y:auto; height:100%; }
+  @media (min-width:960px){ .skel-shell{ display:grid; grid-template-columns:minmax(0,1.2fr) minmax(340px,0.8fr); gap:2.25rem; padding:1.25rem 3rem; max-width:1180px; margin:0 auto; } }
+  .skel-line{ height:.75rem; border-radius:6px; margin-bottom:.55rem; }
   .skel-line.w-60{ width:60%; } .skel-line.w-40{ width:40%; } .skel-line.w-90{ width:90%; } .skel-line.w-100{ width:100%; }
-  .skel-line.tall{ height:1.6rem; }
-  .skel-avatar{ width:56px; height:56px; border-radius:50%; }
-  .skel-card{ background:var(--white); border:1px solid var(--line); border-radius:18px; padding:1.5rem 1.6rem; }
-  .skel-cal-grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:.3rem; margin:1rem 0; }
-  .skel-cal-cell{ aspect-ratio:1/1; border-radius:8px; }
-  .skel-button{ height:3.2rem; border-radius:100px; margin-top:1.2rem; }
+  .skel-line.tall{ height:1.5rem; }
+  .skel-avatar{ width:52px; height:52px; border-radius:50%; }
+  .skel-card{ background:var(--white); border:1px solid var(--line); border-radius:18px; padding:1.25rem 1.4rem; }
+  .skel-cal-grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:.25rem; margin:.8rem 0; }
+  .skel-cal-cell{ aspect-ratio:1/1; border-radius:7px; }
+  .skel-button{ height:2.9rem; border-radius:100px; margin-top:1rem; }
+
+  /* ---------- Narrow / mobile fallback: normal document scroll ---------- */
+  @media (max-width:959px){
+    html, body{ height:auto; overflow:visible; }
+    .page-shell{ height:auto; overflow:visible; }
+    .main-shell{ height:auto; }
+    .content-grid{ height:auto; overflow:visible; padding-top:1.25rem; }
+    .skel-shell{ height:auto; overflow:visible; }
+  }
 </style>
 </head>
 <body>
 
+<div class="page-shell">
 <header>
-  <a href="/" class="logo"><span class="va">Va</span><span class="room">Room</span></a>
+  <a href="/" class="logo" id="logo-link"><span class="va">Va</span><span class="room">Room</span></a>
 
   <div class="search-wrap">
     <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -301,15 +325,15 @@
   </div>
 
   <nav class="nav-links">
-    <a href="/explore" id="nav-explore">Explore</a>
-    <a href="/my-bookings">My Bookings</a>
+    <a href="/client-home" id="nav-explore">Explore</a>
+    <a href="/bookings">My Bookings</a>
     <a href="/become-host">Become a Host</a>
-    <a href="/help">Help</a>
+    <a href="/#how">Help</a>
   </nav>
 
   <div class="nav-icons">
-    <a href="/bookmarks" class="icon-btn" aria-label="Saved listings">
-      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z"/></svg>
+    <a href="/client-home?view=saved" class="icon-btn" aria-label="Saved listings">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h12a1 1 0 0 1 1 1V21l-7-4-7 4V4.5a1 1 0 0 1 1-1Z"/></svg>
     </a>
     <div class="avatar-wrap">
       <button type="button" class="avatar-btn" id="avatar-btn">
@@ -317,9 +341,22 @@
         <span class="avatar-name" id="nav-avatar-name">Account</span>
       </button>
       <div class="avatar-menu" id="avatar-menu">
-        <a href="#" id="menu-home-link">My home</a>
-        <a href="/my-bookings">My bookings</a>
-        <button type="button" id="menu-logout">Log out</button>
+        <a href="#" id="menu-home-link">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11.5 9-7.5 9 7.5"/><path d="M5.5 10v9a1 1 0 0 0 1 1H9a1 1 0 0 0 1-1v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4a1 1 0 0 0 1 1h2.5a1 1 0 0 0 1-1v-9"/></svg>
+          <span id="menu-home-text">My home</span>
+        </a>
+        <a href="/bookings">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="2"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>
+          My bookings
+        </a>
+        <a href="/profile">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.5-7 8-7s8 3 8 7"/></svg>
+          Profile
+        </a>
+        <button type="button" id="menu-logout">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          Log out
+        </button>
       </div>
     </div>
   </div>
@@ -327,35 +364,33 @@
 
 <nav class="breadcrumb" id="breadcrumb" aria-label="Breadcrumb" style="display:none;"></nav>
 
-<main>
-  <div id="skeleton">
-    <div class="skel skel-gallery"></div>
-    <div class="skel-shell">
-      <div>
-        <div class="skel skel-line tall w-60"></div>
-        <div class="skel skel-line w-40" style="margin-bottom:1.4rem;"></div>
-        <div style="display:flex; align-items:center; gap:.9rem; margin-bottom:1.4rem;">
-          <div class="skel skel-avatar"></div>
-          <div style="flex:1;"><div class="skel skel-line w-40"></div></div>
-        </div>
-        <div class="skel skel-line w-100"></div>
-        <div class="skel skel-line w-90"></div>
-        <div class="skel skel-line w-60"></div>
+<div class="main-shell">
+  <div id="skeleton" class="skel-shell">
+    <div>
+      <div class="skel skel-gallery"></div>
+      <div class="skel skel-line tall w-60"></div>
+      <div class="skel skel-line w-40" style="margin-bottom:1.2rem;"></div>
+      <div style="display:flex; align-items:center; gap:.9rem; margin-bottom:1.2rem;">
+        <div class="skel skel-avatar"></div>
+        <div style="flex:1;"><div class="skel skel-line w-40"></div></div>
       </div>
-      <div class="skel-card">
-        <div class="skel skel-line tall w-60"></div>
-        <div class="skel-cal-grid">
-          <div class="skel skel-cal-cell"></div><div class="skel skel-cal-cell"></div><div class="skel skel-cal-cell"></div>
-          <div class="skel skel-cal-cell"></div><div class="skel skel-cal-cell"></div><div class="skel skel-cal-cell"></div><div class="skel skel-cal-cell"></div>
-          <div class="skel skel-cal-cell"></div><div class="skel skel-cal-cell"></div><div class="skel skel-cal-cell"></div>
-          <div class="skel skel-cal-cell"></div><div class="skel skel-cal-cell"></div><div class="skel skel-cal-cell"></div><div class="skel skel-cal-cell"></div>
-        </div>
-        <div class="skel skel-button"></div>
+      <div class="skel skel-line w-100"></div>
+      <div class="skel skel-line w-90"></div>
+      <div class="skel skel-line w-60"></div>
+    </div>
+    <div class="skel-card">
+      <div class="skel skel-line tall w-60"></div>
+      <div class="skel-cal-grid">
+        <div class="skel skel-cal-cell"></div><div class="skel skel-cal-cell"></div><div class="skel skel-cal-cell"></div>
+        <div class="skel skel-cal-cell"></div><div class="skel skel-cal-cell"></div><div class="skel skel-cal-cell"></div><div class="skel skel-cal-cell"></div>
+        <div class="skel skel-cal-cell"></div><div class="skel skel-cal-cell"></div><div class="skel skel-cal-cell"></div>
+        <div class="skel skel-cal-cell"></div><div class="skel skel-cal-cell"></div><div class="skel skel-cal-cell"></div><div class="skel skel-cal-cell"></div>
       </div>
+      <div class="skel skel-button"></div>
     </div>
   </div>
 
-  <div id="booking-page" style="display:none;">
+  <div id="booking-page" style="display:none; height:100%;">
     <div class="content-grid">
       <div class="col-main" id="col-main"></div>
       <div class="col-side" id="col-side"></div>
@@ -363,15 +398,17 @@
   </div>
 
   <p id="page-error" class="page-error" style="display:none;"></p>
-</main>
+</div>
+</div>
 
 <div class="lightbox" id="lightbox">
-  <button type="button" class="lightbox-close" id="lightbox-close" aria-label="Close photo viewer">✕</button>
+  <button type="button" class="lightbox-close" id="lightbox-close" aria-label="Close photo viewer">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+  </button>
   <div class="lightbox-grid" id="lightbox-grid"></div>
 </div>
 
 <script src="js/supabase-client.js"></script>
-<script src="js/listing-feed-cache.js"></script>
 <script>
   (async function(){
     const skeleton = document.getElementById('skeleton');
@@ -381,6 +418,26 @@
     const params = new URLSearchParams(window.location.search);
     const listingId = params.get('listing');
 
+    // ---------- Icon library (no emoji — matches app's line-icon style) ----------
+    const ICON_STAR = '<svg class="icon-star" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
+    const ICON_VERIFIED = '<svg class="icon-verified" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><path d="m9 12 2 2 4-4"/></svg>';
+    const ICON_GRID = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>';
+    const ICON_MESSAGE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z"/></svg>';
+    const AMENITY_ICON = {
+      wifi: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>',
+      mountain: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 3 4 8 5-5 5 15H2L8 3z"/></svg>',
+      parking: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 17V7h4a3 3 0 0 1 0 6H9"/></svg>',
+      kitchen: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg>',
+      heating: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5Z"/></svg>',
+      tv: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="15" x="2" y="7" rx="2"/><polyline points="17 2 12 7 7 2"/></svg>',
+      workspace: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 16V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v9m16 0H4m16 0 1.28 2.55a1 1 0 0 1-.9 1.45H3.62a1 1 0 0 1-.9-1.45L4 16"/></svg>',
+      balcony: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V9l8-6 8 6v12"/><path d="M4 21h16"/><path d="M9 21v-6h6v6"/></svg>',
+      breakfast: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 8h1a4 4 0 1 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><line x1="6" y1="2" x2="6" y2="4"/><line x1="10" y1="2" x2="10" y2="4"/><line x1="14" y1="2" x2="14" y2="4"/></svg>',
+      bonfire: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 9 9l-4 2 3 2-2 4 6-2 6 2-2-4 3-2-4-2-3-7Z"/></svg>',
+      pet: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="4" r="2"/><circle cx="18" cy="8" r="2"/><circle cx="20" cy="16" r="2"/><path d="M9 10a5 5 0 0 1 5 5v3.5a3.5 3.5 0 0 1-6.84 1.04Q6.52 17.48 4.46 16.84A3.5 3.5 0 0 1 5.5 10Z"/></svg>',
+      power: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h1a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-1"/><path d="M6 7H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h1"/><polyline points="11 7 7 12 13 12 9 17"/><line x1="22" y1="11" x2="22" y2="13"/></svg>'
+    };
+
     function showError(msg){
       skeleton.style.display = 'none';
       pageError.textContent = msg;
@@ -388,6 +445,12 @@
     }
 
     function escapeHtml(str){ const d = document.createElement('div'); d.textContent = str || ''; return d.innerHTML; }
+
+    function resolveAvatarUrl(avatarValue){
+      if (!avatarValue) return null;
+      if (avatarValue.indexOf('http') === 0) return avatarValue;
+      return supabaseClient.storage.from('avatars').getPublicUrl(avatarValue).data.publicUrl;
+    }
 
     let currentUser = null;
     let currentRole = null;
@@ -401,17 +464,19 @@
     }
     currentUser = session.user;
 
-    const { data: profile } = await supabaseClient.from('profiles').select('role,full_name').eq('id', currentUser.id).maybeSingle();
+    const { data: profile } = await supabaseClient.from('profiles').select('role,full_name,avatar_url').eq('id', currentUser.id).maybeSingle();
     if (!profile) { window.location.href = '/login'; return; }
     currentRole = profile.role;
     homeHref = currentRole === 'host' ? '/host-home' : '/client-home';
-    document.getElementById('nav-explore').setAttribute('href', currentRole === 'host' ? '/host-home' : '/explore');
+    document.getElementById('logo-link').setAttribute('href', homeHref);
+    document.getElementById('nav-explore').setAttribute('href', homeHref);
     document.getElementById('menu-home-link').setAttribute('href', homeHref);
-    document.getElementById('menu-home-link').textContent = currentRole === 'host' ? 'Host dashboard' : 'My home';
+    document.getElementById('menu-home-text').textContent = currentRole === 'host' ? 'Host dashboard' : 'My home';
 
     const myName = profile.full_name || currentUser.email || 'Account';
     const myInitials = myName.trim().split(/\s+/).slice(0,2).map(function(w){ return w[0]; }).join('').toUpperCase();
-    document.getElementById('nav-avatar-circle').textContent = myInitials || '•';
+    const myAvatarUrl = resolveAvatarUrl(profile.avatar_url);
+    document.getElementById('nav-avatar-circle').innerHTML = myAvatarUrl ? '<img src="' + myAvatarUrl + '" alt="">' : (myInitials || '•');
     document.getElementById('nav-avatar-name').textContent = myName.split(' ')[0] || 'Account';
 
     // ---------- Avatar dropdown ----------
@@ -445,7 +510,7 @@
           searchResults.innerHTML = '<div class="search-empty">No listings match "' + escapeHtml(q) + '".</div>';
         } else {
           searchResults.innerHTML = results.map(function(r){
-            return '<a class="search-result-item" href="/book.html?listing=' + r.id + '">' +
+            return '<a class="search-result-item" href="/booking?listing=' + r.id + '">' +
               '<div class="r-title">' + escapeHtml(r.title) + '</div>' +
               '<div class="r-loc">' + escapeHtml(r.location_text || '') + '</div>' +
             '</a>';
@@ -463,7 +528,7 @@
     const { data: listing, error: listingError } = await supabaseClient
       .from('listings')
       .select('id,title,description,location_text,category,verified,host_id,' +
-        'host:profiles(full_name,verified),listing_photos(storage_path),' +
+        'host:profiles(full_name,verified,avatar_url,username),listing_photos(storage_path),' +
         'listing_booking_details(*)')
       .eq('id', listingId)
       .maybeSingle();
@@ -483,13 +548,13 @@
 
     // ---------- Breadcrumb ----------
     const locParts = (listing.location_text || '').split(',').map(function(s){ return s.trim(); }).filter(Boolean);
-    let crumbHtml = '<a href="' + homeHref + '">Home</a>';
+    let crumbHtml = '<a href="' + homeHref + '">Home</a><span>›</span>';
     locParts.forEach(function(part){
-      crumbHtml += '<span class="sep">›</span><span>' + escapeHtml(part) + '</span>';
+      crumbHtml += '<span>' + escapeHtml(part) + '</span><span>›</span>';
     });
-    crumbHtml += '<span class="sep">›</span><span class="current">' + escapeHtml(listing.title) + '</span>';
+    crumbHtml += '<span class="current">' + escapeHtml(listing.title) + '</span>';
     breadcrumb.innerHTML = crumbHtml;
-    breadcrumb.style.display = 'block';
+    breadcrumb.style.display = 'flex';
 
     const SHORT_STAY = ['airbnb', 'hotel', 'venue'];
     const isShortStay = SHORT_STAY.includes(listing.category);
@@ -525,7 +590,7 @@
       galleryHtml = '<div class="gallery-hero"></div>';
     } else {
       galleryHtml = '<div class="gallery-hero"><img src="' + photoUrls[0] + '" alt="">' +
-        (photoUrls.length > 1 ? '<button type="button" class="view-all-btn" id="view-all-btn">▦ View all photos</button>' : '') +
+        (photoUrls.length > 1 ? '<button type="button" class="view-all-btn" id="view-all-btn">' + ICON_GRID + '<span>View all photos</span></button>' : '') +
         '</div>';
       const thumbs = photoUrls.slice(1, 5);
       if (thumbs.length > 0) {
@@ -535,10 +600,10 @@
       }
     }
 
-    // ---------- Title block / rating / host / about / amenities / reviews (main column) ----------
+    // ---------- Title / rating / host / about / amenities / reviews (main column) ----------
     const badges = [];
-    if (listing.verified) badges.push('📍 GPS verified');
-    if (listing.host.verified) badges.push('✔ Verified host');
+    if (listing.verified) badges.push('GPS verified');
+    if (listing.host.verified) badges.push('Verified host');
 
     const infoChips = [];
     if (listing.category) infoChips.push(listing.category.charAt(0).toUpperCase() + listing.category.slice(1));
@@ -546,16 +611,15 @@
 
     const hostName = listing.host.full_name || 'Host';
     const initials = hostName.trim().split(/\s+/).slice(0,2).map(function(w){ return w[0]; }).join('').toUpperCase();
+    const hostAvatarUrl = resolveAvatarUrl(listing.host.avatar_url);
 
     const description = listing.description || '';
-    const isLong = description.length > 220;
-
     const mapUrl = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(listing.location_text || listing.title);
 
     const AMENITY_PLACEHOLDERS = [
-      ['📶','Free Wi-Fi'], ['⛰️','Mountain View'], ['🅿️','Free Parking'], ['🍳','Kitchen'],
-      ['🔥','Heating'], ['📺','TV'], ['💻','Workspace'], ['🌇','Balcony'],
-      ['🥐','Breakfast'], ['🏕️','Bonfire Area'], ['🐾','Pet Friendly'], ['🔋','24/7 Power Backup']
+      ['wifi','Free Wi-Fi'], ['mountain','Mountain View'], ['parking','Free Parking'], ['kitchen','Kitchen'],
+      ['heating','Heating'], ['tv','TV'], ['workspace','Workspace'], ['balcony','Balcony'],
+      ['breakfast','Breakfast'], ['bonfire','Bonfire Area'], ['pet','Pet Friendly'], ['power','24/7 Power Backup']
     ];
 
     const REVIEW_PLACEHOLDERS = [
@@ -579,70 +643,57 @@
         '</div>' +
       '</div>' +
       '<div class="rating-row">' +
-        '<span class="star">★</span><span>4.8</span><span>(126 reviews)</span>' +
+        ICON_STAR + '<span>4.8</span><span>(126 reviews)</span>' +
         '<span class="superhost-tag">Superhost</span>' +
         '<span class="placeholder-tag">sample — wire to host dashboard</span>' +
       '</div>' +
-      '<p class="listing-loc">📍 ' + escapeHtml(listing.location_text) + ' · <a href="' + mapUrl + '" target="_blank" rel="noopener">View on map</a></p>' +
-      (badges.length ? '<div class="badge-row">' + badges.map(function(b){ return '<span class="mini-badge">' + b + '</span>'; }).join('') + '</div>' : '') +
+      '<p class="listing-loc">' + escapeHtml(listing.location_text) + ' · <a href="' + mapUrl + '" target="_blank" rel="noopener">View on map</a></p>' +
+      (badges.length ? '<div class="badge-row">' + badges.map(function(b){ return '<span class="mini-badge">' + ICON_VERIFIED + b + '</span>'; }).join('') + '</div>' : '') +
       (infoChips.length ? '<div class="info-chip-row">' + infoChips.map(function(c){ return '<span class="info-chip">' + c + '</span>'; }).join('') + '</div>' : '') +
       '<hr class="divider">' +
-      '<div class="host-card">' +
-        '<div class="host-avatar">' + escapeHtml(initials) + '</div>' +
-        '<div>' +
-          '<div class="host-name">Hosted by ' + escapeHtml(hostName) + (listing.host.verified ? '<span class="mini-badge">✔ Verified</span>' : '') + '</div>' +
+      '<div class="host-about-row">' +
+        '<div class="host-card">' +
+          '<div style="display:flex; align-items:center; gap:.8rem;">' +
+            '<div class="host-avatar">' + (hostAvatarUrl ? '<img src="' + hostAvatarUrl + '" alt="">' : escapeHtml(initials)) + '</div>' +
+            '<div class="host-name">Hosted by ' + escapeHtml(hostName) + (listing.host.verified ? ICON_VERIFIED : '') + '</div>' +
+          '</div>' +
           '<div class="host-stats">' +
             '<div class="host-stat"><b>5.0</b><span>Host rating</span></div>' +
             '<div class="host-stat"><b>3</b><span>Years hosting</span></div>' +
             '<div class="host-stat"><b>98%</b><span>Response rate</span></div>' +
           '</div>' +
-          '<span class="placeholder-tag" style="display:block; margin-bottom:.7rem;">sample stats — wire once host dashboard is connected</span>' +
-          '<button type="button" class="contact-host-btn" id="contact-host-btn">Contact Host</button>' +
+          '<span class="placeholder-tag">sample stats — wire once host dashboard is connected</span>' +
+          '<button type="button" class="contact-host-btn" id="contact-host-btn">' + ICON_MESSAGE + '<span>Contact Host</span></button>' +
         '</div>' +
-      '</div>';
-
-    if (description) {
-      colMainHtml +=
-        '<hr class="divider">' +
-        '<p class="about-title">About this place</p>' +
-        '<p class="about-text' + (isLong ? ' clamped' : '') + '" id="about-text">' + escapeHtml(description) + '</p>' +
-        (isLong ? '<button type="button" class="show-more-btn" id="show-more-btn">Show more</button>' : '');
-    }
-
-    colMainHtml +=
+        '<div class="about-block">' +
+          '<p class="about-title">About this place</p>' +
+          '<p class="about-text">' + (description ? escapeHtml(description) : '<span style="color:var(--muted);">The host hasn\'t added a caption for this listing yet.</span>') + '</p>' +
+        '</div>' +
+      '</div>' +
       '<hr class="divider">' +
       '<p class="section-title">Top amenities</p>' +
-      '<span class="placeholder-tag" style="display:inline-block; margin-bottom:.9rem;">placeholders — real list comes from listing-creation toggles</span>' +
+      '<span class="placeholder-tag" style="display:inline-block; margin-bottom:.8rem;">placeholders — real list comes from listing-creation toggles</span>' +
       '<div class="amenity-grid">' +
-        AMENITY_PLACEHOLDERS.map(function(a){ return '<div class="amenity-item"><span class="a-icon">' + a[0] + '</span>' + a[1] + '</div>'; }).join('') +
+        AMENITY_PLACEHOLDERS.map(function(a){ return '<div class="amenity-item">' + AMENITY_ICON[a[0]] + '<span>' + a[1] + '</span></div>'; }).join('') +
       '</div>' +
       '<hr class="divider">' +
       '<div class="reviews-header">' +
-        '<p class="section-title" style="margin-bottom:0;">What guests say <span class="star">★</span> 4.8 (126 reviews)</p>' +
+        '<p class="section-title">What guests say ' + ICON_STAR + ' 4.8 (126 reviews)</p>' +
         '<a href="#" class="see-all-link">See all reviews</a>' +
       '</div>' +
-      '<span class="placeholder-tag" style="display:inline-block; margin-bottom:.9rem;">sample reviews — wire once reviews are collected</span>' +
+      '<span class="placeholder-tag" style="display:inline-block; margin-bottom:.8rem;">sample reviews — wire once reviews are collected</span>' +
       '<div class="review-strip">' +
         REVIEW_PLACEHOLDERS.map(function(r){
           return '<div class="review-card">' +
             '<div class="review-top"><span class="review-avatar">' + escapeHtml(r.name.replace(/[^A-Za-z]/g,'').slice(0,2).toUpperCase()) + '</span>' +
               '<div><div class="review-name">' + escapeHtml(r.name) + '</div><div class="review-time">' + r.time + '</div></div></div>' +
-            '<div class="review-stars">★★★★★</div>' +
+            '<div class="review-stars">' + ICON_STAR + ICON_STAR + ICON_STAR + ICON_STAR + ICON_STAR + '</div>' +
             '<div class="review-text">' + escapeHtml(r.text) + '</div>' +
           '</div>';
         }).join('') +
       '</div>';
 
     document.getElementById('col-main').innerHTML = colMainHtml;
-
-    if (isLong) {
-      const aboutText = document.getElementById('about-text');
-      const showMoreBtn = document.getElementById('show-more-btn');
-      showMoreBtn.addEventListener('click', function(){
-        const expanded = aboutText.classList.toggle('clamped') === false;
-        showMoreBtn.textContent = expanded ? 'Show less' : 'Show more';
-      });
-    }
 
     // ---------- Lightbox ----------
     const lightbox = document.getElementById('lightbox');
@@ -655,12 +706,24 @@
     lightbox.addEventListener('click', function(e){ if (e.target === lightbox) lightbox.classList.remove('show'); });
     document.addEventListener('keydown', function(e){ if (e.key === 'Escape') lightbox.classList.remove('show'); });
 
-    // ---------- Contact host (placeholder wiring) ----------
-    document.getElementById('contact-host-btn').addEventListener('click', function(){
-      window.location.href = '/messages?host=' + listing.host_id;
+    // ---------- Contact host: real conversation, same as the feed's chat button ----------
+    document.getElementById('contact-host-btn').addEventListener('click', async function(){
+      const btn = this;
+      btn.disabled = true;
+      const { data, error } = await supabaseClient
+        .from('conversations')
+        .upsert(
+          { listing_id: listingId, host_id: listing.host_id, client_id: currentUser.id },
+          { onConflict: 'listing_id,client_id' }
+        )
+        .select()
+        .single();
+      btn.disabled = false;
+      if (error) { alert("Couldn't start that chat: " + error.message); return; }
+      window.location.href = '/chats?c=' + data.id;
     });
 
-    // ---------- Sidebar booking widget ----------
+    // ---------- Sidebar booking widget (calendar first, guests below it) ----------
     const legendHtml = '<div class="cal-legend">' +
         '<span><span class="dot dot-open"></span>Open</span>' +
         '<span><span class="dot dot-selected"></span>Selected</span>' +
@@ -699,14 +762,18 @@
         '</div>';
     }
 
+    const guestsHtml = isShortStay
+      ? '<div class="field"><label for="guests-input">Guests</label><select id="guests-input"><option>1 Guest</option><option selected>2 Guests</option><option>3 Guests</option><option>4 Guests</option><option>5+ Guests</option></select></div>'
+      : '';
+
     const colSideHtml =
       '<div class="booking-widget">' +
         '<div class="widget-price-row">' +
           '<div class="widget-price">KSh ' + Number(details.price_amount).toLocaleString() + ' <span>/ ' + details.price_unit + '</span></div>' +
-          '<div class="widget-rating"><span class="star">★</span> 4.8 <span style="color:var(--muted); font-weight:400;">(126)</span></div>' +
+          '<div class="widget-rating">' + ICON_STAR + ' 4.8 <span style="color:var(--muted); font-weight:400;">(126)</span></div>' +
         '</div>' +
-        (isShortStay ? '<div class="field"><label for="guests-input">Guests</label><select id="guests-input"><option>1 Guest</option><option selected>2 Guests</option><option>3 Guests</option><option>4 Guests</option><option>5+ Guests</option></select></div>' : '') +
         pickerHtml +
+        guestsHtml +
         '<div class="details-box" id="details-box"></div>' +
         '<button type="button" class="confirm-btn" id="confirm-btn" disabled>Confirm booking</button>' +
         '<p class="form-note">This creates a request — the host needs to approve it before it\'s confirmed.</p>' +
@@ -735,7 +802,7 @@
       }
     });
 
-    // ---------- Share (placeholder: copies link) ----------
+    // ---------- Share (copies link) ----------
     document.getElementById('share-btn').addEventListener('click', async function(){
       try{
         await navigator.clipboard.writeText(window.location.href);
@@ -778,7 +845,7 @@
         const firstDay = new Date(calYear, calMonth, 1).getDay();
         const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
         let html = '<div class="cal-header"><div class="cal-title">' + monthNames[calMonth] + ' ' + calYear + '</div>' +
-          '<div class="cal-nav"><button type="button" id="cal-prev" aria-label="Previous month">‹</button><button type="button" id="cal-next" aria-label="Next month">›</button></div></div>' +
+          '<div class="cal-nav"><button type="button" id="cal-prev" aria-label="Previous month"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button><button type="button" id="cal-next" aria-label="Next month"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button></div></div>' +
           '<div class="cal-grid">' + ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(function(d){ return '<div class="cal-dow">' + d + '</div>'; }).join('');
         for (let i=0;i<firstDay;i++) html += '<div class="cal-day empty"></div>';
         for (let d=1; d<=daysInMonth; d++) {
@@ -833,7 +900,7 @@
         const firstDay = new Date(calYear, calMonth, 1).getDay();
         const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
         let html = '<div class="cal-header"><div class="cal-title">' + monthNames[calMonth] + ' ' + calYear + '</div>' +
-          '<div class="cal-nav"><button type="button" id="cal-prev" aria-label="Previous month">‹</button><button type="button" id="cal-next" aria-label="Next month">›</button></div></div>' +
+          '<div class="cal-nav"><button type="button" id="cal-prev" aria-label="Previous month"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button><button type="button" id="cal-next" aria-label="Next month"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button></div></div>' +
           '<div class="cal-grid">' + ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(function(d){ return '<div class="cal-dow">' + d + '</div>'; }).join('');
         for (let i=0;i<firstDay;i++) html += '<div class="cal-day empty"></div>';
         for (let d=1; d<=daysInMonth; d++) {
@@ -935,11 +1002,6 @@
         return;
       }
 
-      // Booking availability is reflected by the next feed revalidation.
-      // Retain cards immediately, but ensure a return to Listings does not
-      // keep a booking-related state stale past this user action.
-      if (window.VaRoomListingFeedCache) window.VaRoomListingFeedCache.invalidateAll();
-
       await supabaseClient.from('notifications').insert({
         user_id: listing.host_id,
         type: 'booking_request',
@@ -950,7 +1012,6 @@
       successMsg.textContent = 'Request sent! The host has 48 hours to respond — you\'ll be notified either way.';
       successMsg.classList.add('show');
       confirmBtn.style.display = 'none';
-      successMsg.scrollIntoView({ behavior:'smooth', block:'center' });
     });
   })();
 </script>
