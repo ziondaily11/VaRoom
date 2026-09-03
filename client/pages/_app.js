@@ -11,6 +11,7 @@ const fontSizeStyle = `
   }
   html {
     font-size: calc(100% * var(--varoom-font-scale));
+    transition: font-size 120ms ease;
   }
   body {
     font-size: var(--varoom-type-body);

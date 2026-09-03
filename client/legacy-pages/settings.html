@@ -1101,7 +1101,7 @@
     const initialFontSize = fontSizes.findIndex(function(size){ return size.key === savedFontSize; });
     fontSizeSlider.value = String(initialFontSize >= 0 ? initialFontSize : 1);
 
-    function applyFontSize(index){
+    function applyFontSize(index, persist){
       const size = fontSizes[index] || fontSizes[1];
       document.documentElement.style.setProperty('--varoom-font-scale', size.scale);
       document.documentElement.setAttribute('data-font-size', size.key);
@@ -1109,12 +1109,23 @@
       fontSizeSlider.setAttribute('aria-valuenow', String(fontSizes.indexOf(size)));
       fontSizeSlider.setAttribute('aria-valuetext', size.label);
       fontSizeValue.textContent = size.label;
-      localStorage.setItem('varoom_font_size', size.key);
+      if (persist) localStorage.setItem('varoom_font_size', size.key);
     }
 
-    applyFontSize(Number(fontSizeSlider.value));
+    applyFontSize(Number(fontSizeSlider.value), false);
+    let pendingFontSizeIndex = null;
+    let fontSizeFrame = null;
     fontSizeSlider.addEventListener('input', function(event){
-      applyFontSize(Number(event.target.value));
+      pendingFontSizeIndex = Number(event.target.value);
+      if (fontSizeFrame !== null) return;
+      fontSizeFrame = requestAnimationFrame(function(){
+        applyFontSize(pendingFontSizeIndex, false);
+        fontSizeFrame = null;
+      });
+    });
+    fontSizeSlider.addEventListener('change', function(event){
+      const index = Number(event.target.value);
+      applyFontSize(index, true);
     });
 
     // ---------- Privacy ----------
