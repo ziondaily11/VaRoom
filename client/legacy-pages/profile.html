@@ -278,6 +278,7 @@
   .listing-card{
     background:var(--card-bg); border:1px solid var(--card-border);
     border-radius:16px; overflow:hidden;
+    position:relative;
     transition:transform .18s ease, box-shadow .18s ease;
     cursor:pointer;
   }
@@ -298,6 +299,17 @@
   .listing-card-status{ font-size:.72rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--red-deep); }
   .listing-card-status.available{ color:#1E6B3C; }
   .listing-card-status.booked{ color:var(--muted); }
+  .listing-card-status.unavailable, .listing-card-status.paused{ color:#b45309; }
+  .listing-card-menu{ position:absolute; top:.65rem; right:.65rem; z-index:2; }
+  .listing-card-menu .card-menu-btn{ background:rgba(255,255,255,.92); color:var(--ink); }
+  .card-menu-wrap{ position:relative; }
+  .card-menu-btn{ width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:var(--card-bg); color:var(--ink); font-size:1.2rem; }
+  .card-menu-dropdown{ display:none; position:absolute; top:34px; right:0; z-index:20; min-width:180px; padding:.4rem; background:var(--card-bg); border:1px solid var(--card-border); border-radius:12px; box-shadow:0 12px 30px rgba(26,18,16,.2); }
+  .card-menu-dropdown.open{ display:block; }
+  .card-menu-item{ display:block; width:100%; text-align:left; padding:.55rem .7rem; border-radius:8px; color:var(--ink); font-size:.8rem; }
+  .card-menu-item:hover{ background:rgba(196,30,58,.08); }
+  .card-menu-item.destructive{ border-top:1px solid var(--card-border); margin-top:.3rem; color:var(--red); }
+  .card-menu-section{ padding:.45rem .7rem .2rem; color:var(--muted); font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; }
   .listings-empty{ grid-column:1/-1; text-align:center; padding:3rem 1.5rem; color:var(--muted); font-size:.92rem; line-height:1.6; }
   .listings-empty-icon{
     width:48px; height:48px; border-radius:50%;
@@ -783,6 +795,7 @@
 </nav>
 
 <script src="js/supabase-client.js"></script>
+<script src="js/host-listing-controls.js"></script>
 <script>
 (async function(){
   const toast = document.getElementById('toast');
@@ -1202,11 +1215,12 @@
   if (profileData.role !== 'host') {
     listingsSection.style.display = 'none';
   } else {
-  const { data: listings, error: listingsError } = await supabaseClient
+  let listingsQuery = supabaseClient
     .from('listings')
-    .select('id, title, category, location_text, created_at, listing_photos(storage_path), listing_booking_details(price_amount, price_unit)')
-    .eq('host_id', profileData.id)
-    .order('created_at', { ascending: false });
+    .select('id, title, description, category, location_text, created_at, availability_status, listing_photos(storage_path), listing_booking_details(price_amount, price_unit)')
+    .eq('host_id', profileData.id);
+  if (!isOwner) listingsQuery = listingsQuery.neq('availability_status', 'paused');
+  const { data: listings, error: listingsError } = await listingsQuery.order('created_at', { ascending: false });
 
   const grid = document.getElementById('listings-grid');
   if (listingsError) {
@@ -1319,13 +1333,16 @@
   function statusLabel(listing){
     const s = (listing.availability_status || '').toLowerCase();
     if (s === 'booked') return '<span class="listing-card-status booked">Booked</span>';
+    if (s === 'paused') return '<span class="listing-card-status paused">Paused</span>';
+    if (s === 'unavailable') return '<span class="listing-card-status unavailable">Unavailable</span>';
     if (s === 'few_dates') return '<span class="listing-card-status" style="color:#b45309;">Few dates left</span>';
     return '<span class="listing-card-status available">Available</span>';
   }
 
   grid.innerHTML = listings.map(function(l){
-    return '<a class="listing-card" href="listing.html?id=' + l.id + '">' +
+    return '<a class="listing-card" href="/booking?listing=' + l.id + '">' +
       getListingMediaMarkup(l) +
+      (isOwner ? '<div class="listing-card-menu">' + VaRoomHostListings.menu(l) + '</div>' : '') +
       '<div class="listing-card-body">' +
         '<div class="listing-card-title">' + l.title + '</div>' +
         '<div class="listing-card-loc">' + (l.location_text || '') + '</div>' +
@@ -1336,6 +1353,9 @@
       '</div>' +
     '</a>';
   }).join('');
+  if (isOwner) {
+    grid.querySelectorAll('.listing-card-menu').forEach(function(menu){ VaRoomHostListings.bind(menu); });
+  }
   } // end host-only listings block
 
   /* ── Avatar upload ── */

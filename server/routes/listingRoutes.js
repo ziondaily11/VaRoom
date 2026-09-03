@@ -1,0 +1,144 @@
+const express = require('express');
+const supabaseAdmin = require('../lib/supabaseClient');
+
+const router = express.Router();
+const STATUSES = new Set(['available', 'booked', 'unavailable', 'paused']);
+
+async function authenticatedHost(req, res) {
+  const header = req.headers.authorization || '';
+  const token = header.startsWith('Bearer ') ? header.slice(7) : null;
+  if (!token) {
+    res.status(401).json({ error: 'Missing access token' });
+    return null;
+  }
+  const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
+  if (error || !user) {
+    res.status(401).json({ error: 'Invalid or expired session' });
+    return null;
+  }
+  const { data: profile, error: profileError } = await supabaseAdmin
+    .from('profiles').select('role').eq('id', user.id).maybeSingle();
+  if (profileError || !profile || profile.role !== 'host') {
+    res.status(403).json({ error: 'Host access required' });
+    return null;
+  }
+  return user;
+}
+
+async function ownedListing(id, userId, res) {
+  const { data, error } = await supabaseAdmin
+    .from('listings').select('id,host_id,title,description,category,location_text,availability_status')
+    .eq('id', id).maybeSingle();
+  if (error || !data) {
+    res.status(404).json({ error: 'Listing not found' });
+    return null;
+  }
+  if (data.host_id !== userId) {
+    res.status(403).json({ error: 'You can only manage your own listings' });
+    return null;
+  }
+  return data;
+}
+
+router.patch('/listings/:id/status', async (req, res) => {
+  const user = await authenticatedHost(req, res);
+  if (!user) return;
+  if (!STATUSES.has(req.body && req.body.status)) {
+    return res.status(400).json({ error: 'Status must be available, booked, unavailable, or paused' });
+  }
+  if (!(await ownedListing(req.params.id, user.id, res))) return;
+  const { data, error } = await supabaseAdmin.from('listings')
+    .update({ availability_status: req.body.status }).eq('id', req.params.id)
+    .select('id,availability_status').single();
+  if (error) return res.status(500).json({ error: error.message });
+  return res.json({ listing: data });
+});
+
+router.patch('/listings/:id', async (req, res) => {
+  const user = await authenticatedHost(req, res);
+  if (!user) return;
+  if (!(await ownedListing(req.params.id, user.id, res))) return;
+  const allowed = ['title', 'description', 'category', 'location_text'];
+  const update = {};
+  allowed.forEach((key) => {
+    if (Object.prototype.hasOwnProperty.call(req.body || {}, key)) update[key] = req.body[key];
+  });
+  if (!Object.keys(update).length) return res.status(400).json({ error: 'No listing fields supplied' });
+  const { data, error } = await supabaseAdmin.from('listings').update(update)
+    .eq('id', req.params.id).select('id,title,description,category,location_text,availability_status').single();
+  if (error) return res.status(500).json({ error: error.message });
+  if (req.body.price_amount !== undefined || req.body.price_unit !== undefined) {
+    const detailUpdate = {};
+    if (req.body.price_amount !== undefined) detailUpdate.price_amount = Number(req.body.price_amount);
+    if (req.body.price_unit !== undefined) detailUpdate.price_unit = req.body.price_unit;
+    const { error: detailError } = await supabaseAdmin.from('listing_booking_details')
+      .update(detailUpdate).eq('listing_id', req.params.id);
+    if (detailError) return res.status(500).json({ error: detailError.message });
+  }
+  return res.json({ listing: data });
+});
+
+router.get('/listings/:id/bookings', async (req, res) => {
+  const user = await authenticatedHost(req, res);
+  if (!user) return;
+  if (!(await ownedListing(req.params.id, user.id, res))) return;
+  const { data, error } = await supabaseAdmin.from('bookings')
+    .select('id,status,start_date,end_date,total_price,client_id,client:profiles!bookings_client_id_fkey(full_name)')
+    .eq('listing_id', req.params.id).order('start_date', { ascending: false });
+  if (error) return res.status(500).json({ error: error.message });
+  return res.json({ bookings: data || [] });
+});
+
+router.get('/listings/:id/analytics', async (req, res) => {
+  const user = await authenticatedHost(req, res);
+  if (!user) return;
+  if (!(await ownedListing(req.params.id, user.id, res))) return;
+  const { count, error } = await supabaseAdmin.from('bookings')
+    .select('id', { count: 'exact', head: true }).eq('listing_id', req.params.id);
+  if (error) return res.status(500).json({ error: error.message });
+  return res.json({ bookings: count || 0 });
+});
+
+router.post('/listings/:id/duplicate', async (req, res) => {
+  const user = await authenticatedHost(req, res);
+  if (!user) return;
+  const listing = await ownedListing(req.params.id, user.id, res);
+  if (!listing) return;
+  const { data: copy, error } = await supabaseAdmin.from('listings').insert({
+    host_id: user.id,
+    title: `${listing.title} (Copy)`,
+    description: listing.description,
+    category: listing.category,
+    location_text: listing.location_text,
+    availability_status: 'paused'
+  }).select('id').single();
+  if (error) return res.status(500).json({ error: error.message });
+  const { data: details } = await supabaseAdmin.from('listing_booking_details')
+    .select('*').eq('listing_id', listing.id).maybeSingle();
+  if (details) {
+    delete details.id;
+    details.listing_id = copy.id;
+    await supabaseAdmin.from('listing_booking_details').insert(details);
+  }
+  return res.status(201).json({ listing: copy });
+});
+
+router.delete('/listings/:id', async (req, res) => {
+  const user = await authenticatedHost(req, res);
+  if (!user) return;
+  const listing = await ownedListing(req.params.id, user.id, res);
+  if (!listing) return;
+  const { data: photos } = await supabaseAdmin.from('listing_photos')
+    .select('storage_path').eq('listing_id', req.params.id);
+  await supabaseAdmin.from('availability').delete().eq('listing_id', req.params.id);
+  await supabaseAdmin.from('bookmarks').delete().eq('listing_id', req.params.id);
+  await supabaseAdmin.from('listing_photos').delete().eq('listing_id', req.params.id);
+  await supabaseAdmin.from('listing_booking_details').delete().eq('listing_id', req.params.id);
+  const { error } = await supabaseAdmin.from('listings').delete().eq('id', req.params.id);
+  if (error) return res.status(500).json({ error: error.message });
+  const paths = (photos || []).map((photo) => photo.storage_path).filter(Boolean);
+  if (paths.length) await supabaseAdmin.storage.from('listing-photos').remove(paths);
+  return res.json({ success: true });
+});
+
+module.exports = router;

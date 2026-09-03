@@ -503,6 +503,22 @@
     font-size:.85rem; font-weight:500; color:var(--red-deep); background:none; border:none; cursor:pointer;
   }
   .card-menu-item:hover{ background:rgba(196,30,58,.08); }
+  .card-menu-item.destructive{ border-top:1px solid rgba(26,18,16,.12); margin-top:.35rem; padding-top:.8rem; color:var(--red); }
+  .card-menu-section{ padding:.45rem .8rem .2rem; color:var(--muted); font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; }
+  .modal-overlay{ display:none; position:fixed; inset:0; z-index:300; background:rgba(26,18,16,.5); align-items:center; justify-content:center; padding:1rem; }
+  .modal-overlay.open{ display:flex; }
+  .modal-card{ background:var(--white); color:var(--ink); border-radius:18px; padding:1.5rem; max-width:460px; width:100%; }
+  .modal-card h2{ margin-bottom:1rem; }
+  .modal-field{ margin-bottom:.8rem; }
+  .modal-field label{ display:block; font-size:.78rem; font-weight:700; margin-bottom:.3rem; }
+  .modal-field input, .modal-field textarea, .modal-field select{ width:100%; padding:.65rem; border:1px solid rgba(26,18,16,.2); border-radius:8px; background:var(--paper); color:var(--ink); font:inherit; }
+  .modal-field textarea{ min-height:80px; resize:vertical; }
+  .modal-actions{ display:flex; gap:.6rem; margin-top:1rem; }
+  .modal-actions button{ flex:1; padding:.7rem; border-radius:999px; font-weight:600; }
+  .modal-cancel{ border:1px solid rgba(26,18,16,.2); color:var(--ink); }
+  .modal-save{ background:var(--red); color:#fff; }
+  .listing-status-banner{ color:var(--red-deep); font-size:.8rem; font-weight:700; margin:.2rem 0 .6rem; text-transform:capitalize; }
+  .glance-tile > .card-menu-wrap{ position:absolute; top:.4rem; right:.4rem; z-index:3; }
 
   .report-modal-overlay{
     display:none; position:fixed; inset:0; z-index:250;
@@ -978,6 +994,7 @@
 </div>
 
 <script src="js/supabase-client.js"></script>
+<script src="js/host-listing-controls.js"></script>
 <script src="js/property-news-api.js"></script>
 <script>
   (async function(){
@@ -1083,7 +1100,7 @@
     if (listingCount > 0) {
       const { data: hostListingsData } = await supabaseClient
         .from('listings')
-        .select('id,title,category,created_at,listing_photos(storage_path)')
+        .select('id,title,description,category,location_text,created_at,availability_status,listing_photos(storage_path),listing_booking_details(price_amount,price_unit)')
         .eq('host_id', currentUser.id)
         .order('created_at', { ascending:false });
       hostListings = hostListingsData || [];
@@ -1138,7 +1155,8 @@
         }
         const sub = photos.length === 0 ? 'Draft · no photos' : meta.label;
         return (
-          '<div class="glance-tile">' +
+          '<div class="glance-tile" style="position:relative;">' +
+            VaRoomHostListings.menu(l) +
             '<div class="glance-thumb">' + thumbHtml + '</div>' +
             '<div class="glance-body">' +
               '<div class="glance-title">' + escapeHtml(l.title) + '</div>' +
@@ -1156,6 +1174,7 @@
         : '';
 
       document.getElementById('listings-glance-grid').innerHTML = tilesHtml + addTileHtml;
+      VaRoomHostListings.bind(document.getElementById('listings-glance-grid'));
       document.getElementById('listings-glance-card').style.display = 'block';
 
       document.getElementById('glance-view-all').addEventListener('click', function(e){
@@ -1657,7 +1676,7 @@
               '</div>' +
             '</div>' +
             '<div class="card-time">' + timeAgo(listing.created_at) + '</div>' +
-            (listing.host_id === currentUser.id ? '' :
+            (listing.host_id === currentUser.id ? VaRoomHostListings.menu(listing) :
             '<div class="card-menu-wrap">' +
               '<button type="button" class="card-menu-btn" data-menu-toggle="' + listing.id + '" aria-label="More options">' +
                 '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>' +
@@ -1668,9 +1687,10 @@
             '</div>') +
           '</div>' +
           '<p class="card-caption">' + escapeHtml(listing.description || listing.title) + '</p>' +
+          ((listing.availability_status && listing.availability_status !== 'available') ? '<div class="listing-status-banner">Status: ' + escapeHtml(listing.availability_status) + '</div>' : '') +
           photosHtml +
           '<div class="action-row">' +
-            (listing.host_id === currentUser.id
+            (listing.host_id === currentUser.id || (listing.availability_status && listing.availability_status !== 'available')
               ? '<span class="action-btn disabled" title="This is your listing">' + ICON_BOOK + 'Book</span>'
               : '<a href="/booking?listing=' + listing.id + '" class="action-btn">' + ICON_BOOK + 'Book</a>') +
             (listing.host_id === currentUser.id
@@ -1684,7 +1704,7 @@
       );
     }
 
-    const FEED_SELECT = 'id,title,description,location_text,category,verified,created_at,host_id,host:profiles(full_name,verified,avatar_url,username),listing_photos(storage_path)';
+    const FEED_SELECT = 'id,title,description,location_text,category,verified,created_at,host_id,availability_status,host:profiles(full_name,verified,avatar_url,username),listing_photos(storage_path),listing_booking_details(price_amount,price_unit)';
 
     async function startChat(listingId, hostId){
       const { data, error } = await supabaseClient
@@ -1799,15 +1819,6 @@
       container.querySelectorAll('[data-upload-listing-id]').forEach(function(input){
         input.addEventListener('change', handleListingVideoUpload);
       });
-      container.querySelectorAll('[data-menu-toggle]').forEach(function(btn){
-        btn.addEventListener('click', function(e){
-          e.stopPropagation();
-          const dropdown = document.getElementById('menu-' + btn.getAttribute('data-menu-toggle'));
-          const isOpen = dropdown.classList.contains('open');
-          document.querySelectorAll('.card-menu-dropdown.open').forEach(function(d){ d.classList.remove('open'); });
-          if (!isOpen) dropdown.classList.add('open');
-        });
-      });
       container.querySelectorAll('.report-trigger').forEach(function(btn){
         btn.addEventListener('click', function(e){
           e.stopPropagation();
@@ -1815,6 +1826,7 @@
           openReportModal(btn.getAttribute('data-listing-id'), btn.getAttribute('data-host-id'));
         });
       });
+      VaRoomHostListings.bind(container);
     }
 
     document.addEventListener('click', function(){

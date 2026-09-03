@@ -1124,9 +1124,10 @@
               '</div>') +
             '</div>' +
             '<p class="card-caption">' + escapeHtml(listing.description || listing.title) + '</p>' +
+            ((listing.availability_status && listing.availability_status !== 'available') ? '<div class="listing-status-banner">Status: ' + escapeHtml(listing.availability_status) + '</div>' : '') +
             photosHtml +
             '<div class="action-row">' +
-              (listing.host_id === currentUser.id
+              (listing.host_id === currentUser.id || (listing.availability_status && listing.availability_status !== 'available')
                 ? '<span class="action-btn disabled" title="This is your listing">' + ICON_BOOK + 'Book</span>'
                 : '<a href="/booking?listing=' + listing.id + '" class="action-btn">' + ICON_BOOK + 'Book</a>') +
               (listing.host_id === currentUser.id
@@ -1141,7 +1142,7 @@
       );
     }
 
-    const FEED_SELECT = 'id,title,description,location_text,category,verified,created_at,host_id,host:profiles(full_name,verified,avatar_url,username),listing_photos(storage_path)';
+    const FEED_SELECT = 'id,title,description,location_text,category,verified,created_at,host_id,availability_status,host:profiles(full_name,verified,avatar_url,username),listing_photos(storage_path)';
 
     async function startChat(listingId, hostId){
       const { data, error } = await supabaseClient
@@ -1456,6 +1457,7 @@
       const term = searchTerm.trim();
 
       function withCategory(q){
+        q = q.neq('availability_status', 'paused');
         if (currentCategory !== 'all') return q.eq('category', currentCategory);
         if (currentView === 'home' && interestedCategories.length > 0) return q.in('category', interestedCategories);
         return q;
