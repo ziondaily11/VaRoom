@@ -19,6 +19,14 @@
       document.documentElement.setAttribute('data-theme', resolved);
     }catch(e){}
   })();
+  (function(){
+    try{
+      var scales = { small: '0.9', default: '1', large: '1.1', xlarge: '1.2' };
+      var choice = localStorage.getItem('varoom_font_size') || 'default';
+      document.documentElement.style.setProperty('--varoom-font-scale', scales[choice] || scales.default);
+      document.documentElement.setAttribute('data-font-size', scales[choice] ? choice : 'default');
+    }catch(e){}
+  })();
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -266,6 +274,17 @@
     padding:.7rem 1.1rem; font-size:.86rem; font-weight:600; color:var(--ink);
   }
   .appearance-pill.active{ border-color:var(--ink); background:var(--line); }
+
+  .font-size-setting{ margin-top:1.4rem; }
+  .font-size-setting-head{ display:flex; justify-content:space-between; align-items:baseline; gap:1rem; margin-bottom:.7rem; }
+  .font-size-setting-label{ font-size:.92rem; font-weight:600; }
+  .font-size-setting-value{ font-size:.8rem; color:var(--muted); }
+  .font-size-slider-row{ display:flex; align-items:center; gap:.8rem; }
+  .font-size-mark{ font-family:var(--font-display); font-weight:700; line-height:1; color:var(--muted); }
+  .font-size-mark.small{ font-size:1rem; }
+  .font-size-mark.large{ font-size:1.45rem; }
+  #font-size-slider{ flex:1; min-width:0; accent-color:var(--red); cursor:pointer; }
+  .font-size-steps{ display:flex; justify-content:space-between; margin:.45rem 1.65rem 0; color:var(--muted); font-size:.7rem; }
 
   .note-box{
     background:var(--paper); border:1px solid var(--line);
@@ -695,6 +714,19 @@
               <button type="button" class="appearance-pill" data-theme-choice="dark"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8Z"/></svg> Dark</button>
               <button type="button" class="appearance-pill" data-theme-choice="system"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4" width="19" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg> System</button>
             </div>
+            <div class="font-size-setting">
+              <div class="font-size-setting-head">
+                <span class="font-size-setting-label">Font size</span>
+                <span class="font-size-setting-value" id="font-size-value">Default</span>
+              </div>
+              <div class="font-size-slider-row">
+                <span class="font-size-mark small" aria-hidden="true">A</span>
+                <input id="font-size-slider" type="range" min="0" max="3" step="1" value="1"
+                  aria-label="Dashboard font size" aria-valuemin="0" aria-valuemax="3" aria-valuenow="1" aria-valuetext="Default">
+                <span class="font-size-mark large" aria-hidden="true">A</span>
+              </div>
+              <div class="font-size-steps" aria-hidden="true"><span>Small</span><span>Default</span><span>Large</span><span>Extra large</span></div>
+            </div>
           </div>
         </div>
 
@@ -1054,6 +1086,35 @@
         localStorage.setItem('varoom_theme', choice);
         await supabaseClient.from('profiles').update({ theme_preference: choice }).eq('id', currentUser.id);
       });
+    });
+
+    // ---------- Font size (applies globally through the shared typography tokens) ----------
+    const fontSizeSlider = document.getElementById('font-size-slider');
+    const fontSizeValue = document.getElementById('font-size-value');
+    const fontSizes = [
+      { key: 'small', label: 'Small', scale: '0.9' },
+      { key: 'default', label: 'Default', scale: '1' },
+      { key: 'large', label: 'Large', scale: '1.1' },
+      { key: 'xlarge', label: 'Extra large', scale: '1.2' }
+    ];
+    const savedFontSize = localStorage.getItem('varoom_font_size') || 'default';
+    const initialFontSize = fontSizes.findIndex(function(size){ return size.key === savedFontSize; });
+    fontSizeSlider.value = String(initialFontSize >= 0 ? initialFontSize : 1);
+
+    function applyFontSize(index){
+      const size = fontSizes[index] || fontSizes[1];
+      document.documentElement.style.setProperty('--varoom-font-scale', size.scale);
+      document.documentElement.setAttribute('data-font-size', size.key);
+      fontSizeSlider.value = String(fontSizes.indexOf(size));
+      fontSizeSlider.setAttribute('aria-valuenow', String(fontSizes.indexOf(size)));
+      fontSizeSlider.setAttribute('aria-valuetext', size.label);
+      fontSizeValue.textContent = size.label;
+      localStorage.setItem('varoom_font_size', size.key);
+    }
+
+    applyFontSize(Number(fontSizeSlider.value));
+    fontSizeSlider.addEventListener('input', function(event){
+      applyFontSize(Number(event.target.value));
     });
 
     // ---------- Privacy ----------
