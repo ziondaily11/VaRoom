@@ -94,6 +94,7 @@
   .search-shortcut{ font-size:.65rem; color:var(--muted); border:1px solid var(--line); padding:.12rem .3rem; border-radius:4px; white-space:nowrap; }
   .icon-btn{ position:relative; width:38px; height:38px; border-radius:10px; display:grid; place-items:center; color:var(--muted); border:1px solid var(--line); background:var(--white); flex-shrink:0; }
   .icon-btn:hover{ color:var(--accent); border-color:var(--accent); }
+  .mobile-only-icon{ display:none; }
   .icon-badge{ position:absolute; top:-6px; right:-6px; background:var(--red); color:#fff; font-size:.6rem; font-weight:800; min-width:17px; height:17px; border-radius:999px; display:grid; place-items:center; padding:0 .25rem; border:2px solid var(--paper); }
 
   .personalize-wrap{ position:relative; }
@@ -180,7 +181,8 @@
   .conv-name-row{ display:flex; align-items:baseline; gap:.35rem; }
   .conv-name{ font-weight:700; font-size:.84rem; line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .conv-time{ font-size:.66rem; color:var(--muted); margin-left:auto; flex-shrink:0; }
-  .conv-listing{ font-size:.7rem; color:var(--muted); margin-top:.14rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .conv-listing{ flex:1; min-width:0; font-size:.7rem; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .conv-listing-row{ display:flex; align-items:center; gap:.4rem; margin-top:.22rem; }
   .conv-preview-row{ display:flex; align-items:center; gap:.4rem; margin-top:.2rem; }
   .conv-preview{ flex:1; min-width:0; font-size:.73rem; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .tag-pill{ flex-shrink:0; font-size:.62rem; font-weight:700; padding:.15rem .45rem; border-radius:5px; }
@@ -338,7 +340,30 @@
     .mobile-tabbar{ display:flex; align-items:center; justify-content:space-around; flex:0 0 auto; background:var(--chat-surface); border-top:1px solid var(--line); padding:.5rem 0 calc(.5rem + env(safe-area-inset-bottom)); }
     .mobile-tabbar a{ display:flex; flex-direction:column; align-items:center; gap:.2rem; font-size:.62rem; font-weight:650; color:var(--muted); flex:1; }
     .mobile-tabbar a.active{ color:var(--accent); }
-    .thread-panel.show-mobile ~ .mobile-tabbar, .details-panel.show-mobile ~ .mobile-tabbar{ display:none; }
+    .mobile-tabbar.is-hidden{ display:none; }
+
+    /* mobile header: hamburger + title + search icon + filter icon only */
+    #bell-btn, #help-btn, .personalize-wrap{ display:none; }
+    .mobile-only-icon{ display:grid; }
+    .mobile-only-icon:first-of-type{ margin-left:auto; }
+
+    /* mobile inbox: chips only, no tabs/search row (matches design) */
+    .conv-tabs, .conv-search{ display:none; }
+    .chip-row{ padding-top:.85rem; }
+
+    /* mobile conv item: name+time / preview / listing+tag, in that order */
+    .conv-listing-row{ display:flex; align-items:center; gap:.4rem; }
+
+    /* composer tool row: icon-over-label, evenly spaced */
+    .composer-tools{ justify-content:space-between; gap:.3rem; }
+    .composer-tool{ flex-direction:column; align-items:center; gap:.25rem; font-size:.62rem; flex:1; text-align:center; }
+    .composer-tool svg{ margin:0 auto; }
+
+    /* details screen: back-bar IS the title, so hide the desktop title row */
+    .details-title-row{ display:none; }
+    .contact-card{ display:flex; align-items:center; gap:.75rem; text-align:left; padding:0 1.1rem 1rem; }
+    .contact-card .conv-avatar{ margin:0; }
+    .contact-name{ justify-content:flex-start; }
   }
 </style>
 </head>
@@ -374,11 +399,17 @@
         <input id="chat-search" type="search" placeholder="Search messages…" autocomplete="off">
         <span class="search-shortcut">⌘ K</span>
       </label>
+      <button type="button" class="icon-btn mobile-only-icon" id="mobile-search-btn" aria-label="Search conversations">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+      </button>
+      <button type="button" class="icon-btn mobile-only-icon" id="mobile-filter-btn" aria-label="Filter conversations">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
+      </button>
       <button type="button" class="icon-btn" id="bell-btn" aria-label="Notifications">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
         <span class="icon-badge" id="bell-badge" hidden>0</span>
       </button>
-      <a href="#" class="icon-btn" aria-label="Help">
+      <a href="#" class="icon-btn" id="help-btn" aria-label="Help">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 4.4 1.7c-.9.9-2 1.3-2 2.8"/><path d="M12 17h.01"/></svg>
       </a>
       <div class="personalize-wrap">
@@ -722,6 +753,15 @@
       sidebarEl.classList.add('open');
       mobileBackdrop.classList.add('open');
     });
+    const mobileSearchBtn = document.getElementById('mobile-search-btn');
+    const mobileFilterBtn = document.getElementById('mobile-filter-btn');
+    if (mobileSearchBtn) mobileSearchBtn.addEventListener('click', function(){ chatSearch.focus(); });
+    if (mobileFilterBtn) mobileFilterBtn.addEventListener('click', function(){
+      const chips = ['all','unread','bookings','enquiries'];
+      const next = chips[(chips.indexOf(activeChip) + 1) % chips.length];
+      const btn = chipRowEl.querySelector('[data-chip="' + next + '"]');
+      if (btn) btn.click();
+    });
     mobileBackdrop.addEventListener('click', function(){
       sidebarEl.classList.remove('open');
       mobileBackdrop.classList.remove('open');
@@ -891,9 +931,9 @@
             '<div class="conv-avatar">' + avatarHtml + '</div>' +
             '<div class="conv-info">' +
               '<div class="conv-name-row"><div class="conv-name">' + escapeHtml(other.full_name || 'VaRoom user') + '</div><div class="conv-time">' + timeAgo(conv.last_message_at) + '</div></div>' +
-              '<div class="conv-listing">' + escapeHtml(listingTitle) + '</div>' +
-              '<div class="conv-preview-row">' +
-                '<div class="conv-preview">' + escapeHtml(preview) + '</div>' +
+              '<div class="conv-preview-row"><div class="conv-preview">' + escapeHtml(preview) + '</div></div>' +
+              '<div class="conv-listing-row">' +
+                '<div class="conv-listing">' + escapeHtml(listingTitle) + '</div>' +
                 '<span class="tag-pill ' + tag + '">' + (tag === 'booking' ? 'Booking' : 'Enquiry') + '</span>' +
               '</div>' +
             '</div>' +
@@ -937,12 +977,14 @@
         convListPanel.classList.add('hide-mobile');
         threadPanel.classList.add('show-mobile');
         detailsPanel.classList.remove('show-mobile');
+        mobileTabbar.classList.add('is-hidden');
       }
     }
     function backToList(){
       convListPanel.classList.remove('hide-mobile');
       threadPanel.classList.remove('show-mobile');
       detailsPanel.classList.remove('show-mobile');
+      mobileTabbar.classList.remove('is-hidden');
     }
 
     async function openElieConversation(){
@@ -970,7 +1012,7 @@
         '</div>';
 
       detailsPanel.innerHTML =
-        '<button type="button" class="details-back" id="details-back-btn"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>Conversation</button>' +
+        '<button type="button" class="details-back" id="details-back-btn"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>Conversation details</button>' +
         '<div class="details-title-row"><span class="details-title">About Elie</span></div>' +
         '<div class="contact-card"><div class="conv-avatar elie-avatar no-dot" style="margin:0 auto .55rem"><img src="elie-logo.png" alt="Elie"></div><div class="contact-name">Elie</div><div class="contact-role">VaRoom search assistant</div></div>' +
         '<div class="details-section"><div class="details-heading">Search accurately</div><p style="font-size:.78rem;color:var(--muted);line-height:1.55">Elie searches real VaRoom listings and matches your request against location, property type, price, guest capacity and available listing details.</p></div>' +
@@ -1175,7 +1217,7 @@
         '</div>';
 
       detailsPanel.innerHTML =
-        '<button type="button" class="details-back" id="details-back-btn"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>Conversation</button>' +
+        '<button type="button" class="details-back" id="details-back-btn"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>Conversation details</button>' +
         '<div class="details-title-row"><span class="details-title">' + contactTitle + '</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg></div>' +
         '<div class="contact-card">' +
           '<div class="conv-avatar no-dot" style="margin:0 auto .55rem">' + (otherAvatarUrl ? '<img src="' + otherAvatarUrl + '" alt="">' : contactInitial) + '</div>' +
