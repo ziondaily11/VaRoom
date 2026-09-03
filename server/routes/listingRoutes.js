@@ -27,9 +27,14 @@ async function authenticatedHost(req, res) {
 
 async function ownedListing(id, userId, res) {
   const { data, error } = await supabaseAdmin
-    .from('listings').select('id,host_id,title,description,category,location_text,availability_status')
+    .from('listings').select('id,host_id,title,description,category,location_text')
     .eq('id', id).maybeSingle();
-  if (error || !data) {
+  if (error) {
+    console.error('Listing ownership lookup failed:', error.message);
+    res.status(500).json({ error: 'Unable to verify listing ownership' });
+    return null;
+  }
+  if (!data) {
     res.status(404).json({ error: 'Listing not found' });
     return null;
   }
@@ -50,7 +55,12 @@ router.patch('/listings/:id/status', async (req, res) => {
   const { data, error } = await supabaseAdmin.from('listings')
     .update({ availability_status: req.body.status }).eq('id', req.params.id)
     .select('id,availability_status').single();
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    if (error.message && error.message.includes('availability_status')) {
+      return res.status(503).json({ error: 'Listing status controls are not enabled yet. Apply the listing-controls migration.' });
+    }
+    return res.status(500).json({ error: error.message });
+  }
   return res.json({ listing: data });
 });
 
@@ -65,7 +75,7 @@ router.patch('/listings/:id', async (req, res) => {
   });
   if (!Object.keys(update).length) return res.status(400).json({ error: 'No listing fields supplied' });
   const { data, error } = await supabaseAdmin.from('listings').update(update)
-    .eq('id', req.params.id).select('id,title,description,category,location_text,availability_status').single();
+    .eq('id', req.params.id).select('id,title,description,category,location_text').single();
   if (error) return res.status(500).json({ error: error.message });
   if (req.body.price_amount !== undefined || req.body.price_unit !== undefined) {
     const detailUpdate = {};
@@ -110,7 +120,6 @@ router.post('/listings/:id/duplicate', async (req, res) => {
     description: listing.description,
     category: listing.category,
     location_text: listing.location_text,
-    availability_status: 'paused'
   }).select('id').single();
   if (error) return res.status(500).json({ error: error.message });
   const { data: details } = await supabaseAdmin.from('listing_booking_details')
