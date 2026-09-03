@@ -1941,6 +1941,7 @@
         if (listingVideoLookups[listingId]) return listingVideoLookups[listingId];
         listingVideoLookups[listingId] = getListingVideoUrl(listingId).then(function(url){
           if (!url) return false;
+          if (listingVideoUrls[listingId] === url) return false;
           listingVideoUrls[listingId] = url;
           return true;
         });
