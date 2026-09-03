@@ -31,13 +31,9 @@
     --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#1A1210; --paper:#FBF4F1;
     --muted:#7a6b67;
     --font-display:'Fraunces', serif; --font-body:'Inter', sans-serif;
-    /* Glass sidebar tokens — same treatment on every app page (dashboards,
-       settings, profile, etc.), theme-aware rather than a fixed dark theme. */
     --glass-bg:rgba(255,255,255,.55);
     --glass-border:rgba(255,255,255,.6);
     --glass-shadow:0 24px 55px rgba(26,18,16,.10);
-    /* Shared divider color for the three-column line-separator layout —
-       same visual weight in light and dark, just flipped polarity. */
     --line:rgba(26,18,16,.10);
     --line-soft:rgba(26,18,16,.06);
   }
@@ -68,10 +64,6 @@
     overflow:hidden;
   }
 
-  /* ---------- SIDEBAR (line-separated column) ----------
-     No card chrome — just a full-height column divided from the feed by a
-     single border line, matching the feed/right-rail treatment. Scrolls
-     independently of the other two columns via its own overflow-y. */
   .sidebar{
     height:100vh;
     margin:0;
@@ -110,8 +102,6 @@
   .nav-item.soon{ color:var(--muted); cursor:default; }
   .nav-item.soon:hover{ background:none; }
 
-  /* soon-active: same look as .soon, but a real clickable <button> that
-     gives honest "coming soon" feedback instead of being inert */
   button.nav-item.soon-active{
     width:100%; text-align:left; font-family:inherit; color:var(--muted);
   }
@@ -146,19 +136,35 @@
 
   .bottom-bar{ display:none; }
 
-  /* ---------- MAIN COLUMN ---------- */
+  /* ---------- MAIN COLUMN ----------
+     A single grid controls both the topbar row and the content row, using
+     one shared column track set (feed | 1px divider | rail). The divider
+     is its own grid item spanning grid-row:1/-1, so the line runs from the
+     very top of the viewport straight through the topbar and down the
+     full height — not just alongside the feed/rail content below it. */
   .main-col{
-    display:flex;
-    flex-direction:column;
+    display:grid;
+    grid-template-rows: auto 1fr;
+    grid-template-columns: minmax(620px, 760px) 1px minmax(280px, 420px);
     height:100vh;
     overflow:hidden;
     min-width:0;
   }
 
   .topbar{
+    grid-column: 1 / -1;
+    grid-row: 1;
     display:flex; align-items:center; gap:1rem;
     padding:1.2rem 2rem;
     background:transparent;
+  }
+
+  .col-divider{
+    grid-column: 2;
+    grid-row: 1 / -1;
+    background:var(--line);
+    width:1px;
+    height:100%;
   }
 
   .search-wrap{
@@ -189,26 +195,16 @@
     display:flex; align-items:center; justify-content:center; font-weight:700; font-size:.9rem;
   }
 
-  /* ---------- CONTENT ROW (feed + right rail) ----------
-     Fills the remaining height below the topbar. min-height:0 is required
-     so its two children (.feed-area, .right-rail) can each scroll on their
-     own instead of growing the whole row to fit their content. */
-  .content-row{
-    display:grid;
-    grid-template-columns: minmax(620px, 760px) minmax(280px, 420px);
-    align-items:start;
-    min-width:0;
-    flex:1 1 auto;
-    min-height:0;
-    overflow:hidden;
-    gap:0;
-    width:100%;
-    max-width:100%;
-  }
+  /* content-row is a pass-through wrapper only — display:contents lifts
+     feed-area/right-rail up to be direct grid items of .main-col (row 2),
+     sharing the exact same column tracks as the topbar/divider above. */
+  .content-row{ display:contents; }
 
   /* ---------- FEED ----------
      Scrolls independently of the sidebar and right rail. */
   .feed-area{
+    grid-column: 1;
+    grid-row: 2;
     width:100%;
     max-width:760px;
     min-width:620px;
@@ -216,28 +212,26 @@
     height:100%;
     overflow-y:auto;
     scrollbar-width:none;
-    margin:0 auto;
-    border-right:1px solid var(--line);
     box-sizing:border-box;
   }
   .feed-area::-webkit-scrollbar{ display:none; }
 
   /* ---------- RIGHT RAIL ----------
-     Scrolls independently too — no longer position:sticky, since the row
-     itself is now a fixed-height flex row rather than part of a scrolling
-     page, so each column just scrolls its own contents in place. */
+     Scrolls independently too. Top padding trimmed so Popular Destinations
+     sits closer to the topbar instead of floating lower than the feed's
+     first card. */
   .right-rail{
+    grid-column: 3;
+    grid-row: 2;
     width:100%;
     max-width:420px;
-    padding:1.8rem 1.8rem 4rem 1.2rem;
+    padding:1rem 1.8rem 4rem 1.2rem;
     display:flex;
     flex-direction:column;
     gap:1.5rem;
     height:100%;
     overflow-y:auto;
     scrollbar-width:none;
-    justify-self:end;
-    border-left:1px solid var(--line);
     box-sizing:border-box;
   }
   .right-rail::-webkit-scrollbar{ display:none; }
@@ -264,14 +258,15 @@
   .dest-card-count{ font-size:.68rem; opacity:.85; }
 
   @media (max-width:1360px){
-    .content-row{ grid-template-columns: minmax(540px, 680px) minmax(260px, 360px); }
+    .main-col{ grid-template-columns: minmax(540px, 680px) 1px minmax(260px, 360px); }
     .feed-area{ min-width:540px; padding-inline:1.6rem; }
     .right-rail{ padding-right:1.2rem; }
   }
 
   @media (max-width:1180px){
     .right-rail{ display:none; }
-    .content-row{ grid-template-columns: minmax(0, 760px); }
+    .col-divider{ display:none; }
+    .main-col{ grid-template-columns: minmax(0, 760px); }
     .feed-area{ margin:0 auto; min-width:0; }
   }
 
@@ -334,7 +329,6 @@
   .update-title{ font-weight:700; font-size:.88rem; margin-bottom:.2rem; }
   .update-body{ font-size:.82rem; color:#c9beb9; line-height:1.4; }
 
-  /* ---------- PROPERTY NEWS ---------- */
   .property-news-widget{
     background:transparent; border-top:1px solid var(--line); border-bottom:1px solid var(--line);
     border-left:none; border-right:none; border-radius:0; padding:1rem 0; margin:0 0 1rem;
@@ -362,7 +356,6 @@
   .client-property-news-view-all{ display:inline-flex; margin-top:.7rem; color:var(--red); font-size:.78rem; font-weight:600; }
   .client-property-news-view-all:hover{ color:var(--red-deep); }
 
-  /* Mobile: its own section above the feed, not spliced between listing posts */
   .mobile-property-news-section{ display:none; }
 
   h1.feed-title{
@@ -378,10 +371,43 @@
 
   .state-msg{ color:var(--muted); font-size:.95rem; padding:2rem 0; text-align:center; }
 
-  /* Compact, X-style post card: a narrow fixed avatar column on the left,
-     everything else (name, caption, media, actions) in a second column
-     that starts a little right of the avatar and stays aligned under the
-     name — instead of caption/media running flush from the card edge. */
+  /* ---------- SKELETON LOADING ----------
+     Local skeleton system so every loading state (feed, destinations,
+     updates, property news) matches the current compact layout exactly,
+     instead of relying on the separate skeleton-loader.js sizing. */
+  @keyframes skel-pulse{ 0%,100%{ opacity:.55; } 50%{ opacity:1; } }
+  .skel{ background:var(--line-soft); border-radius:6px; animation:skel-pulse 1.3s ease-in-out infinite; }
+
+  .skel-card{ display:flex; align-items:flex-start; gap:.65rem; padding:.7rem 0; border-bottom:1px solid var(--line); }
+  .skel-card:first-child{ padding-top:0; }
+  .skel-avatar{ width:34px; height:34px; border-radius:50%; flex-shrink:0; margin-top:.1rem; }
+  .skel-body{ flex:1; min-width:0; }
+  .skel-name{ width:110px; height:11px; margin-bottom:.35rem; }
+  .skel-loc{ width:170px; height:9px; margin-bottom:.55rem; }
+  .skel-line{ height:9px; margin-bottom:.35rem; }
+  .skel-line.short{ width:55%; margin-bottom:.55rem; }
+  .skel-media{ width:100%; height:clamp(120px, 15vw, 210px); border-radius:12px; margin-bottom:.55rem; }
+  .skel-actions{ display:flex; gap:.4rem; }
+  .skel-pill{ width:52px; height:22px; border-radius:999px; }
+
+  .skel-dest-card{ position:relative; border-radius:12px; overflow:hidden; aspect-ratio:4/3; }
+
+  .skel-update{ padding-bottom:.9rem; border-bottom:1px solid var(--line); margin-bottom:.9rem; }
+  .skel-update:last-child{ border-bottom:none; margin-bottom:0; padding-bottom:0; }
+  .skel-update-media{ width:100%; height:90px; border-radius:8px; margin-bottom:.5rem; }
+  .skel-update-line{ height:9px; margin-bottom:.3rem; }
+  .skel-update-line.short{ width:60%; margin-bottom:0; }
+
+  .skel-news-item{ background:var(--paper); border:1px solid var(--line); border-radius:12px; padding:.9rem 1rem; margin-bottom:.7rem; }
+  .skel-news-item:last-child{ margin-bottom:0; }
+  .skel-news-media{ width:100%; height:104px; border-radius:10px; margin-bottom:.55rem; }
+  .skel-news-kicker{ width:80px; height:8px; margin-bottom:.3rem; }
+  .skel-news-title{ height:11px; margin-bottom:.3rem; }
+  .skel-news-title.short{ width:70%; margin-bottom:.4rem; }
+  .skel-news-meta{ width:120px; height:8px; }
+
+  .skel-reco-card{ position:relative; border-radius:12px; overflow:hidden; aspect-ratio:4/3; }
+
   .card{
     display:flex; align-items:flex-start; gap:.65rem;
     background:transparent; border:none; border-bottom:1px solid var(--line);
@@ -452,16 +478,16 @@
   .report-modal-msg.error{ color:var(--red); }
   .report-modal-msg.success{ color:#2e7d32; }
 
-  .card-caption, .card-desc{ font-size:.87rem; line-height:1.42; margin:0 0 .5rem; color:var(--muted); overflow-wrap:anywhere; }
+  .card-caption, .card-desc{ font-size:.87rem; line-height:1.42; margin:0 0 .5rem; color:var(--muted); overflow-wrap:anywhere; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
   [data-theme="dark"] .card-caption, [data-theme="dark"] .card-desc{ color:rgba(245,239,236,.8); }
 
   .card-photos{
     display:grid; grid-template-columns:1fr 1fr; gap:.35rem;
     border-radius:12px; overflow:hidden; margin-bottom:.55rem;
   }
-  .card-photos img{ width:100%; height:clamp(160px, 22vw, 300px); object-fit:cover; display:block; }
+  .card-photos img{ width:100%; height:clamp(120px, 15vw, 210px); object-fit:cover; display:block; }
   .card-photos.single{ grid-template-columns:1fr; }
-  .card-photos.single img{ height:clamp(190px, 30vw, 380px); }
+  .card-photos.single img{ height:clamp(140px, 20vw, 260px); }
   .media-carousel{
     position:relative; overflow:hidden; border-radius:12px; margin-bottom:.55rem; background:#000;
     touch-action:pan-y; user-select:none; -webkit-user-select:none;
@@ -472,8 +498,8 @@
     will-change:transform;
   }
   .media-slide{ flex:0 0 100%; width:100%; }
-  .media-slide img{ display:block; width:100%; height:clamp(160px, 22vw, 300px); object-fit:cover; }
-  .media-carousel.single-media .media-slide img{ height:clamp(190px, 30vw, 380px); }
+  .media-slide img{ display:block; width:100%; height:clamp(120px, 15vw, 210px); object-fit:cover; }
+  .media-carousel.single-media .media-slide img{ height:clamp(140px, 20vw, 260px); }
   .media-index-pill{
     position:absolute; top:.7rem; right:.7rem; z-index:2;
     border-radius:999px; padding:.28rem .6rem; background:rgba(26,18,16,.52);
@@ -490,15 +516,15 @@
   }
   .media-dot.active{ background:var(--red); transform:scale(1.2); }
   .card-video{ position:relative; border-radius:12px; overflow:hidden; margin-bottom:.55rem; background:#000; }
-  .card-video video{ display:block; width:100%; height:clamp(160px, 22vw, 300px); object-fit:cover; background:#000; }
-  .card-video.single video{ height:clamp(190px, 30vw, 380px); }
+  .card-video video{ display:block; width:100%; height:clamp(120px, 15vw, 210px); object-fit:cover; background:#000; }
+  .card-video.single video{ height:clamp(140px, 20vw, 260px); }
   .host-video-upload{ margin:0 0 .55rem; }
   .host-video-upload-btn{
     display:inline-flex; align-items:center; gap:.5rem; padding:.5rem .8rem; border-radius:999px;
     background:#FBE4E7; color:var(--red-deep); font-size:.76rem; font-weight:700; cursor:pointer;
   }
   .host-video-upload input{ display:none; }
-  .photo-placeholder{ grid-column:1 / -1; height:clamp(160px, 22vw, 300px); border-radius:12px; background:linear-gradient(135deg, var(--red) 0%, var(--red-deep) 100%); display:flex; align-items:center; justify-content:center; color:rgba(255,255,255,.85); font-size:.85rem; font-weight:600; }
+  .photo-placeholder{ grid-column:1 / -1; height:clamp(120px, 15vw, 210px); border-radius:12px; background:linear-gradient(135deg, var(--red) 0%, var(--red-deep) 100%); display:flex; align-items:center; justify-content:center; color:rgba(255,255,255,.85); font-size:.85rem; font-weight:600; }
   .badge-row{ display:flex; flex-wrap:wrap; gap:.5rem; margin-bottom:.7rem; }
 
   .badge{ display:flex; align-items:center; gap:.3rem; font-size:.76rem; font-weight:600; padding:.3rem .65rem; border-radius:100px; }
@@ -520,7 +546,6 @@
 
   .card-photos img{ cursor:pointer; }
 
-  /* ---------- LIGHTBOX ---------- */
   .lightbox-overlay{
     display:none; position:fixed; inset:0; background:rgba(10,7,6,.94); z-index:400;
     align-items:center; justify-content:center;
@@ -554,8 +579,9 @@
   @media (max-width:860px){
     body{ height:auto; overflow:visible; }
     .app-shell{ grid-template-columns:1fr; height:auto; overflow:visible; }
-    .main-col{ height:auto; overflow:visible; }
-    .content-row{ flex:initial; min-height:0; overflow:visible; }
+    .main-col{ height:auto; overflow:visible; grid-template-rows:auto auto; }
+    .content-row{ overflow:visible; }
+    .col-divider{ display:none; }
     .feed-area{ height:auto; overflow-y:visible; }
     .right-rail{ display:none; height:auto; overflow-y:visible; }
     .app-shell{ grid-template-columns:1fr; }
@@ -751,6 +777,8 @@
       </div>
     </header>
 
+    <div class="col-divider" aria-hidden="true"></div>
+
     <div class="content-row">
       <div class="feed-area">
         <h1 class="feed-title" id="feed-title">Find the perfect space</h1>
@@ -780,7 +808,8 @@
               <button class="property-news-bar-refresh" id="property-news-refresh-mobile" title="Refresh news">Refresh</button>
             </div>
             <div class="client-property-news-list" id="client-property-news-mobile" aria-live="polite">
-              <p class="state-msg" style="padding:0;font-size:.85rem;">Loading…</p>
+              <div class="skel-news-item"><div class="skel skel-news-media"></div><div class="skel skel-news-kicker"></div><div class="skel skel-news-title"></div><div class="skel skel-news-title short"></div><div class="skel skel-news-meta"></div></div>
+              <div class="skel-news-item"><div class="skel skel-news-media"></div><div class="skel skel-news-kicker"></div><div class="skel skel-news-title"></div><div class="skel skel-news-title short"></div><div class="skel skel-news-meta"></div></div>
             </div>
             <a class="client-property-news-view-all" href="/property-news">View all news →</a>
           </div>
@@ -796,7 +825,10 @@
             <button type="button" class="rail-view-all" data-soon="Browsing all destinations">View all</button>
           </div>
           <div class="dest-grid" id="dest-grid">
-            <p class="state-msg" style="padding:0;font-size:.85rem;">Loading…</p>
+            <div class="skel-dest-card skel"></div>
+            <div class="skel-dest-card skel"></div>
+            <div class="skel-dest-card skel"></div>
+            <div class="skel-dest-card skel"></div>
           </div>
         </div>
 
@@ -805,7 +837,8 @@
             <h2>VaRoom Updates</h2>
           </div>
           <div id="varoom-updates" style="display:flex;flex-direction:column;gap:.9rem;">
-            <p class="state-msg" style="padding:0;font-size:.85rem;">Loading…</p>
+            <div class="skel-update"><div class="skel skel-update-media"></div><div class="skel skel-update-line"></div><div class="skel skel-update-line short"></div></div>
+            <div class="skel-update"><div class="skel skel-update-media"></div><div class="skel skel-update-line"></div><div class="skel skel-update-line short"></div></div>
           </div>
         </div>
 
@@ -815,7 +848,9 @@
             <button class="property-news-bar-refresh" id="property-news-refresh" title="Refresh news">Refresh</button>
           </div>
           <div class="client-property-news-list" id="client-property-news" aria-live="polite">
-            <p class="state-msg" style="padding:0;font-size:.85rem;">Loading…</p>
+            <div class="skel-news-item"><div class="skel skel-news-media"></div><div class="skel skel-news-kicker"></div><div class="skel skel-news-title"></div><div class="skel skel-news-title short"></div><div class="skel skel-news-meta"></div></div>
+            <div class="skel-news-item"><div class="skel skel-news-media"></div><div class="skel skel-news-kicker"></div><div class="skel skel-news-title"></div><div class="skel skel-news-title short"></div><div class="skel skel-news-meta"></div></div>
+            <div class="skel-news-item"><div class="skel skel-news-media"></div><div class="skel skel-news-kicker"></div><div class="skel skel-news-title"></div><div class="skel skel-news-title short"></div><div class="skel skel-news-meta"></div></div>
           </div>
           <a class="client-property-news-view-all" href="/property-news">View all news →</a>
         </div>
@@ -946,13 +981,28 @@
       return div.innerHTML;
     }
 
-    // Handles avatar_url whether it's a relative storage path (correct,
-    // current format) or a full URL (legacy rows saved by an earlier
-    // version of /onboarding) — so old data still renders correctly.
     function resolveAvatarUrl(avatarValue){
       if (!avatarValue) return null;
       if (avatarValue.indexOf('http') === 0) return avatarValue;
       return supabaseClient.storage.from('avatars').getPublicUrl(avatarValue).data.publicUrl;
+    }
+
+    // Local skeleton for the feed — mirrors the current compact card shape
+    // exactly (avatar column + name/loc/caption/media/actions), so the
+    // loading state never mismatches the real card once data arrives.
+    function skeletonCards(n){
+      var one = '<div class="skel-card">' +
+        '<div class="skel skel-avatar"></div>' +
+        '<div class="skel-body">' +
+          '<div class="skel skel-name"></div>' +
+          '<div class="skel skel-loc"></div>' +
+          '<div class="skel skel-line"></div>' +
+          '<div class="skel skel-line short"></div>' +
+          '<div class="skel skel-media"></div>' +
+          '<div class="skel-actions"><div class="skel skel-pill"></div><div class="skel skel-pill"></div></div>' +
+        '</div>' +
+      '</div>';
+      return one.repeat(n);
     }
 
     // ---------- Render ----------
@@ -1367,31 +1417,27 @@
       }).join('');
     }
 
-    // Builds the "Recommended for you" + "VaRoom Updates" widget block that
-    // gets spliced into the mobile feed after the first post. Property News
-    // is deliberately NOT part of this block — it has its own standalone
-    // section above the feed (#mobile-property-news-section) so it isn't
-    // mixed in between listing posts. Real data is filled in afterward by
-    // loadRecommended() / loadVaroomUpdates().
     function mobileWidgetsBlock(){
       return (
         '<div class="mobile-widget-slot">' +
           '<div class="mobile-widget-card">' +
             '<div class="mobile-widget-head"><h2>Recommended for you</h2></div>' +
-            '<div class="reco-row" id="reco-row"><p class="state-msg" style="padding:0;font-size:.85rem;">Loading…</p></div>' +
+            '<div class="reco-row" id="reco-row"><div class="skel-reco-card skel"></div><div class="skel-reco-card skel"></div></div>' +
           '</div>' +
         '</div>' +
         '<div class="mobile-widget-slot">' +
           '<div class="mobile-widget-card">' +
             '<div class="mobile-widget-head"><h2>VaRoom Updates</h2></div>' +
-            '<div id="varoom-updates-mobile" style="display:flex;flex-direction:column;gap:.9rem;"><p class="state-msg" style="padding:0;font-size:.85rem;">Loading…</p></div>' +
+            '<div id="varoom-updates-mobile" style="display:flex;flex-direction:column;gap:.9rem;">' +
+              '<div class="skel-update"><div class="skel skel-update-media"></div><div class="skel skel-update-line"></div><div class="skel skel-update-line short"></div></div>' +
+            '</div>' +
           '</div>' +
         '</div>'
       );
     }
 
     async function loadFeed(){
-      feedList.innerHTML = window.SkeletonLoader.feedCards(3);
+      feedList.innerHTML = skeletonCards(3);
 
       const term = searchTerm.trim();
 
@@ -1409,11 +1455,6 @@
         );
         data = res.data; error = res.error;
       } else {
-        // Search matches location text OR the host's username (usernames
-        // are unique, so this is a fast way to jump straight to one host's
-        // listings). Run as two queries and merge, rather than a single
-        // raw filter string, to avoid escaping issues with special
-        // characters in what someone types.
         const locQuery = withCategory(
           supabaseClient.from('listings').select(FEED_SELECT).ilike('location_text', '%' + term + '%')
         );
@@ -1551,7 +1592,7 @@
     function showSavedView(){
       setActiveNav('saved');
       document.getElementById('feed-title').textContent = 'Saved';
-      feedList.innerHTML = window.SkeletonLoader.feedCards(3);
+      feedList.innerHTML = skeletonCards(3);
       supabaseClient
         .from('listings')
         .select(FEED_SELECT)
@@ -1672,9 +1713,11 @@
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
+    const PROPERTY_NEWS_DISPLAY_MS = 60 * 60 * 1000; // 1 hour
     const PROPERTY_NEWS_REFRESH_MS = 5 * 60 * 1000; // re-check for new items every 5 minutes
     let propertyNewsItems = [];
     let propertyNewsRefreshTimer = null;
+    let propertyNewsExpiryTimer = null;
 
     function clientPropertyNewsSourceUrl(news){
       const value = news && news.source && news.source.url;
@@ -1708,10 +1751,23 @@
       }).join('');
     }
 
+    function freshPropertyNews(items){
+      const now = Date.now();
+      return (items || []).filter(function(news){
+        const source = news.source || {};
+        const publishedAt = source.published_at || news.published_at;
+        if (!publishedAt) return true;
+        const publishedTime = new Date(publishedAt).getTime();
+        if (isNaN(publishedTime)) return true;
+        return (now - publishedTime) <= PROPERTY_NEWS_DISPLAY_MS;
+      });
+    }
+
     function renderPropertyNewsContainers(){
       const containers = [document.getElementById('client-property-news'), document.getElementById('client-property-news-mobile')].filter(Boolean);
       if (!containers.length) return;
-      const html = propertyNewsItems.length ? clientPropertyNewsHtml(propertyNewsItems) : '<p class="client-property-news-empty">Nothing new right now.</p>';
+      const fresh = freshPropertyNews(propertyNewsItems);
+      const html = fresh.length ? clientPropertyNewsHtml(fresh) : '<p class="client-property-news-empty">Nothing new right now.</p>';
       containers.forEach(function(container){ container.innerHTML = html; wireClientPropertyNewsImages(container); });
     }
 
@@ -1732,7 +1788,9 @@
 
     function startPropertyNewsTimers(){
       clearInterval(propertyNewsRefreshTimer);
+      clearInterval(propertyNewsExpiryTimer);
       propertyNewsRefreshTimer = setInterval(loadClientPropertyNews, PROPERTY_NEWS_REFRESH_MS);
+      propertyNewsExpiryTimer = setInterval(renderPropertyNewsContainers, 60 * 1000);
     }
 
     const propertyNewsRefreshBtn = document.getElementById('property-news-refresh');
