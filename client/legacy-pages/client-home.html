@@ -597,13 +597,23 @@
       max-width:360px;
       height:100vh;
       margin:0;
+      background:var(--white);
       border-radius:0;
       z-index:200;
       transform:translateX(-100%);
       transition:transform .25s ease;
       box-shadow:0 0 40px rgba(26,18,16,.25);
+      padding:1.6rem 1.3rem 1.3rem;
     }
     .sidebar.mobile-open{ transform:translateX(0); }
+
+    .sidebar .logo{ font-size:1.6rem; }
+    .sidebar .nav-label{ font-size:.8rem; }
+    .sidebar .nav-item{ font-size:1.05rem; padding:.85rem .9rem; gap:.9rem; }
+    .sidebar .nav-item svg{ width:21px; height:21px; }
+    .sidebar .beta-pill{ font-size:.74rem; }
+    .sidebar-note{ font-size:.88rem; }
+    .logout-btn{ font-size:.98rem; }
 
     .sidebar-backdrop{
       display:none;
