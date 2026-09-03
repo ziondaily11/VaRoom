@@ -1100,7 +1100,7 @@
     if (listingCount > 0) {
       const { data: hostListingsData } = await supabaseClient
         .from('listings')
-        .select('id,title,description,category,location_text,created_at,availability_status,listing_photos(storage_path),listing_booking_details(price_amount,price_unit)')
+        .select('id,title,description,category,location_text,created_at,listing_photos(storage_path),listing_booking_details(price_amount,price_unit)')
         .eq('host_id', currentUser.id)
         .order('created_at', { ascending:false });
       hostListings = hostListingsData || [];
@@ -1704,7 +1704,7 @@
       );
     }
 
-    const FEED_SELECT = 'id,title,description,location_text,category,verified,created_at,host_id,availability_status,host:profiles(full_name,verified,avatar_url,username),listing_photos(storage_path),listing_booking_details(price_amount,price_unit)';
+    const FEED_SELECT = 'id,title,description,location_text,category,verified,created_at,host_id,host:profiles(full_name,verified,avatar_url,username),listing_photos(storage_path),listing_booking_details(price_amount,price_unit)';
 
     async function startChat(listingId, hostId){
       const { data, error } = await supabaseClient

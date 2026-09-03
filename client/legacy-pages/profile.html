@@ -1217,9 +1217,8 @@
   } else {
   let listingsQuery = supabaseClient
     .from('listings')
-    .select('id, title, description, category, location_text, created_at, availability_status, listing_photos(storage_path), listing_booking_details(price_amount, price_unit)')
+    .select('id, title, description, category, location_text, created_at, listing_photos(storage_path), listing_booking_details(price_amount, price_unit)')
     .eq('host_id', profileData.id);
-  if (!isOwner) listingsQuery = listingsQuery.neq('availability_status', 'paused');
   const { data: listings, error: listingsError } = await listingsQuery.order('created_at', { ascending: false });
 
   const grid = document.getElementById('listings-grid');
