@@ -376,7 +376,6 @@
 </div>
 
 <script src="js/supabase-client.js"></script>
-<script src="js/listing-feed-cache.js"></script>
 <script src="js/notifications-widget.js"></script>
 <script>
   (async function(){
@@ -407,13 +406,12 @@
 
     // ---------- Lazy 48h expiry sweep (same behaviour as before) ----------
     const cutoff = new Date(Date.now() - 48 * 3600 * 1000).toISOString();
-    const { error: expiryError } = await supabaseClient
+    await supabaseClient
       .from('bookings')
       .update({ status: 'expired', responded_at: new Date().toISOString() })
       .eq('status', 'pending')
       .lt('created_at', cutoff)
       .eq('client_id', currentUser.id);
-    if (!expiryError && window.VaRoomListingFeedCache) window.VaRoomListingFeedCache.invalidateAll();
 
     function describeDates(b){
       if (b.hours) return b.start_date + ' · ' + b.hours + ' hour' + (b.hours === 1 ? '' : 's');
@@ -528,8 +526,6 @@
         .eq('id', bookingId);
 
       if (error) { if (note) note.textContent = error.message; return; }
-
-      if (window.VaRoomListingFeedCache) window.VaRoomListingFeedCache.invalidateAll();
 
       await supabaseClient.from('notifications').insert({
         user_id: b.host_id,
