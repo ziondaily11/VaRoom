@@ -500,11 +500,12 @@
   .card-menu-dropdown.open{ display:block; }
   .card-menu-item{
     display:block; width:100%; text-align:left; padding:.6rem .8rem; border-radius:8px;
-    font-size:.85rem; font-weight:500; color:var(--red-deep); background:none; border:none; cursor:pointer;
+    font-size:.85rem; font-weight:500; color:var(--ink); background:none; border:none; cursor:pointer;
   }
   .card-menu-item:hover{ background:rgba(196,30,58,.08); }
-  .card-menu-item.destructive{ border-top:1px solid rgba(26,18,16,.12); margin-top:.35rem; padding-top:.8rem; color:var(--red); }
-  .card-menu-section{ padding:.45rem .8rem .2rem; color:var(--muted); font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; }
+  .card-menu-item.destructive{ border-top:1px solid rgba(26,18,16,.12); margin-top:.35rem; padding-top:.8rem; color:#C41E3A; }
+  [data-theme="dark"] .card-menu-item.destructive{ color:#ff7186; }
+  .card-menu-section{ padding:.45rem .8rem .2rem; color:var(--ink); opacity:.75; font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; }
   .modal-overlay{ display:none; position:fixed; inset:0; z-index:300; background:rgba(26,18,16,.5); align-items:center; justify-content:center; padding:1rem; }
   .modal-overlay.open{ display:flex; }
   .modal-card{ background:var(--white); color:var(--ink); border-radius:18px; padding:1.5rem; max-width:460px; width:100%; }
