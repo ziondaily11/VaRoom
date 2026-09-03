@@ -173,7 +173,7 @@
   .host-about-row{ display:block; }
   @media (min-width:640px){ .host-about-row{ display:grid; grid-template-columns:200px 1fr; gap:1.3rem; align-items:start; } }
 
-  .host-card{ display:flex; flex-direction:column; gap:.5rem; margin-bottom:.7rem; }
+  .host-card{ display:flex; flex-direction:column; gap:.7rem; margin-bottom:.7rem; }
   @media (min-width:640px){ .host-card{ margin-bottom:0; } }
   .host-avatar{
     width:38px; height:38px; border-radius:50%; background:var(--red); color:#fff;
@@ -182,12 +182,13 @@
   .host-avatar img{ width:100%; height:100%; object-fit:cover; }
   .host-name{ font-weight:700; font-size:.85rem; display:flex; align-items:center; gap:.35rem; flex-wrap:wrap; }
   .host-name .icon-verified{ width:13px; height:13px; color:var(--red); }
-  .host-stats{ display:flex; gap:.9rem; margin:.3rem 0 .35rem; }
-  .host-stat b{ display:block; font-size:.82rem; }
-  .host-stat span{ font-size:.62rem; color:var(--muted); }
-  .contact-host-btn{ display:inline-flex; align-items:center; gap:.4rem; font-size:.76rem; font-weight:700; padding:.4rem .75rem; border-radius:9px; border:1.5px solid var(--line-strong); align-self:flex-start; }
-  .contact-host-btn:hover{ border-color:var(--red); color:var(--red); }
-  .contact-host-btn svg{ width:13px; height:13px; }
+  .contact-host-btn{
+    display:flex; align-items:center; justify-content:center; gap:.5rem; width:100%;
+    font-size:.82rem; font-weight:700; padding:.65rem .9rem; border-radius:10px;
+    background:var(--red); color:#fff;
+  }
+  .contact-host-btn:hover{ background:var(--red-deep); }
+  .contact-host-btn svg{ width:15px; height:15px; }
 
   .about-block .about-title, .section-title{ font-family:var(--font-display); font-weight:600; font-size:.92rem; margin-bottom:.3rem; }
   .about-text{ font-size:.8rem; line-height:1.4; color:var(--ink); }
@@ -664,12 +665,6 @@
             '<div class="host-avatar">' + (hostAvatarUrl ? '<img src="' + hostAvatarUrl + '" alt="">' : escapeHtml(initials)) + '</div>' +
             '<div class="host-name">Hosted by ' + escapeHtml(hostName) + (listing.host.verified ? ICON_VERIFIED : '') + '</div>' +
           '</div>' +
-          '<div class="host-stats">' +
-            '<div class="host-stat"><b>5.0</b><span>Host rating</span></div>' +
-            '<div class="host-stat"><b>3</b><span>Years hosting</span></div>' +
-            '<div class="host-stat"><b>98%</b><span>Response rate</span></div>' +
-          '</div>' +
-          '<span class="placeholder-tag">sample stats — wire once host dashboard is connected</span>' +
           '<button type="button" class="contact-host-btn" id="contact-host-btn">' + ICON_MESSAGE + '<span>Contact Host</span></button>' +
         '</div>' +
         '<div class="about-block">' +
