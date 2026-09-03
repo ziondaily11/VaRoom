@@ -1944,6 +1944,7 @@
         if (listingVideoLookups[listingId]) return Promise.resolve(false);
         listingVideoLookups[listingId] = getListingVideoUrl(listingId).then(function(url){
           if (!url) return false;
+          if (listingVideoUrls[listingId] === url) return false;
           listingVideoUrls[listingId] = url;
           return true;
         });

@@ -1062,6 +1062,7 @@
           if (!playbackRes.ok) return false;
           const playback = await playbackRes.json();
           if (playback && playback.url) {
+            if (videoUrlByListing[listingId] === playback.url) return false;
             videoUrlByListing[listingId] = playback.url;
             return true;
           }
