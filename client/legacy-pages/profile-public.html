@@ -187,9 +187,8 @@
 
       const { data: listings, error: listingsError } = await supabaseClient
         .from('listings')
-        .select('id, title, category, location_text, availability_status, listing_photos(storage_path)')
+        .select('id, title, category, location_text, listing_photos(storage_path)')
         .eq('host_id', profile.id)
-        .neq('availability_status', 'paused')
         .order('created_at', { ascending:false })
         .limit(12);
 
@@ -218,7 +217,6 @@
               '<div class="listing-card-cat">' + (l.category || '') + '</div>' +
               '<div class="listing-card-title">' + l.title + '</div>' +
               '<div class="listing-card-loc">' + (l.location_text || '') + '</div>' +
-              (l.availability_status && l.availability_status !== 'available' ? '<div class="listing-card-loc"><strong>' + l.availability_status + '</strong></div>' : '') +
             '</div>' +
           '</a>'
         );
