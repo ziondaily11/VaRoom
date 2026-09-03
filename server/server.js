@@ -5,6 +5,7 @@ const path = require('path');
 const supabaseAdmin = require('./lib/supabaseClient');
 const { getListingLocation, getBookingLocation, getListingDistance } = require('./lib/locationAccess');
 const videoRoutes = require('./routes/videoRoutes');
+const listingRoutes = require('./routes/listingRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -14,6 +15,7 @@ app.use(express.json());
 
 // Mount video upload routes
 app.use('/api', videoRoutes);
+app.use('/api', listingRoutes);
 
 // Serve the Next.js public assets when this service is used as the web host.
 const clientDirectory = path.join(__dirname, '..', 'client');

@@ -461,7 +461,7 @@
 
     const { data: listing, error: listingError } = await supabaseClient
       .from('listings')
-      .select('id,title,description,location_text,category,verified,host_id,' +
+      .select('id,title,description,location_text,category,verified,host_id,availability_status,' +
         'host:profiles(full_name,verified),listing_photos(storage_path),' +
         'listing_booking_details(*)')
       .eq('id', listingId)
@@ -471,6 +471,10 @@
 
     if (listing.host_id === currentUser.id) {
       showError("This is your own listing — you can't book it.");
+      return;
+    }
+    if (listing.availability_status && listing.availability_status !== 'available') {
+      showError('This listing is currently ' + listing.availability_status + ' and cannot accept new bookings.');
       return;
     }
 
