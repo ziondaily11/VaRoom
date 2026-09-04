@@ -118,22 +118,35 @@
     .col-side::-webkit-scrollbar{ display:none; width:0; height:0; }
   }
 
-  /* ---------- Gallery ---------- */
-  .gallery{ position:relative; border-radius:16px; overflow:hidden; margin-bottom:.7rem; }
-  .gallery-hero{ position:relative; width:100%; height:150px; background:linear-gradient(135deg, var(--red) 0%, var(--red-deep) 100%); }
-  .gallery-hero img{ width:100%; height:100%; object-fit:cover; display:block; }
-  .gallery-thumbs{ display:none; }
+  /* ---------- Gallery carousel (Instagram-style: swipe/scroll/arrows) ---------- */
+  .gallery-carousel{
+    position:relative; width:100%; height:150px; border-radius:16px; overflow:hidden; margin-bottom:.7rem;
+    background:linear-gradient(135deg, var(--red) 0%, var(--red-deep) 100%); touch-action:pan-y;
+  }
+  @media (min-width:960px){ .gallery-carousel{ height:190px; } }
+  .gallery-slide-track{ display:flex; width:100%; height:100%; transition:transform .3s ease; will-change:transform; }
+  .gallery-slide{ flex:0 0 100%; width:100%; height:100%; }
+  .gallery-slide img{ width:100%; height:100%; object-fit:cover; display:block; -webkit-user-drag:none; user-select:none; pointer-events:none; }
+  .gallery-index-pill{
+    position:absolute; top:.65rem; right:.65rem; z-index:3; background:rgba(0,0,0,.55); color:#fff;
+    font-size:.68rem; font-weight:700; padding:.25rem .55rem; border-radius:100px;
+  }
+  .gallery-nav{
+    position:absolute; top:50%; transform:translateY(-50%); width:32px; height:32px; border-radius:50%;
+    background:rgba(0,0,0,.45); color:#fff; display:flex; align-items:center; justify-content:center; z-index:3;
+  }
+  .gallery-nav:hover{ background:rgba(0,0,0,.68); }
+  .gallery-nav.prev{ left:.55rem; }
+  .gallery-nav.next{ right:.55rem; }
+  .gallery-nav svg{ width:15px; height:15px; }
+  .gallery-dots{ position:absolute; bottom:.55rem; left:50%; transform:translateX(-50%); display:flex; gap:.32rem; z-index:3; }
+  .gallery-dot{ width:6px; height:6px; border-radius:50%; background:rgba(255,255,255,.5); transition:all .2s ease; cursor:pointer; }
+  .gallery-dot.active{ background:#fff; width:14px; border-radius:4px; }
   .view-all-btn{
-    position:absolute; bottom:.6rem; left:.6rem; z-index:2; background:rgba(0,0,0,.6); color:#fff;
+    position:absolute; bottom:.6rem; left:.6rem; z-index:3; background:rgba(0,0,0,.6); color:#fff;
     font-size:.72rem; font-weight:700; padding:.4rem .7rem; border-radius:9px; display:flex; align-items:center; gap:.4rem;
   }
   .view-all-btn:hover{ background:rgba(0,0,0,.8); }
-  @media (min-width:960px){
-    .gallery{ display:grid; grid-template-columns:1.5fr 1fr; gap:.4rem; }
-    .gallery-hero{ height:190px; border-radius:0; }
-    .gallery-thumbs{ display:grid; grid-template-columns:repeat(2,1fr); grid-auto-rows:1fr; gap:.4rem; }
-    .gallery-thumbs img{ width:100%; height:100%; object-fit:cover; display:block; min-height:90px; }
-  }
 
   .lightbox{ display:none; position:fixed; inset:0; z-index:100; background:rgba(10,7,6,.92); padding:2.5rem; overflow-y:auto; }
   .lightbox.show{ display:block; }
@@ -592,20 +605,23 @@
       });
     }
 
-    // ---------- Gallery ----------
+    // ---------- Gallery (swipeable carousel) ----------
     let galleryHtml = '';
     if (photoUrls.length === 0) {
-      galleryHtml = '<div class="gallery-hero"></div>';
+      galleryHtml = '<div class="gallery-carousel"></div>';
     } else {
-      galleryHtml = '<div class="gallery-hero"><img src="' + photoUrls[0] + '" alt="">' +
-        (photoUrls.length > 1 ? '<button type="button" class="view-all-btn" id="view-all-btn">' + ICON_GRID + '<span>View all photos</span></button>' : '') +
-        '</div>';
-      const thumbs = photoUrls.slice(1, 5);
-      if (thumbs.length > 0) {
-        galleryHtml += '<div class="gallery-thumbs">' +
-          thumbs.map(function(u){ return '<img src="' + u + '" alt="">'; }).join('') +
-          '</div>';
-      }
+      galleryHtml = '<div class="gallery-carousel" id="gallery-carousel">' +
+        (photoUrls.length > 1 ? '<div class="gallery-index-pill" id="gallery-index-pill">1/' + photoUrls.length + '</div>' : '') +
+        '<div class="gallery-slide-track" id="gallery-slide-track">' +
+          photoUrls.map(function(u){ return '<div class="gallery-slide"><img src="' + u + '" alt=""></div>'; }).join('') +
+        '</div>' +
+        (photoUrls.length > 1 ?
+          '<button type="button" class="gallery-nav prev" id="gallery-prev" aria-label="Previous photo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>' +
+          '<button type="button" class="gallery-nav next" id="gallery-next" aria-label="Next photo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>' +
+          '<div class="gallery-dots" id="gallery-dots">' + photoUrls.map(function(_, i){ return '<span class="gallery-dot' + (i===0?' active':'') + '" data-index="' + i + '"></span>'; }).join('') + '</div>'
+          : '') +
+        '<button type="button" class="view-all-btn" id="view-all-btn">' + ICON_GRID + '<span>View all</span></button>' +
+      '</div>';
     }
 
     // ---------- Title / rating / host / about / amenities / reviews (main column) ----------
@@ -695,6 +711,68 @@
       '</div>';
 
     document.getElementById('col-main').innerHTML = colMainHtml;
+
+    // ---------- Gallery carousel: click arrows, click dots, drag/swipe, trackpad horizontal scroll ----------
+    const galleryCarousel = document.getElementById('gallery-carousel');
+    if (galleryCarousel && photoUrls.length > 1) {
+      const track = document.getElementById('gallery-slide-track');
+      const dots = galleryCarousel.querySelectorAll('.gallery-dot');
+      const pill = document.getElementById('gallery-index-pill');
+      let activeIndex = 0;
+
+      function applyGalleryState(){
+        track.style.transform = 'translateX(' + (-(activeIndex * 100)) + '%)';
+        dots.forEach(function(d, i){ d.classList.toggle('active', i === activeIndex); });
+        if (pill) pill.textContent = (activeIndex + 1) + '/' + photoUrls.length;
+      }
+      function goToPhoto(i){
+        activeIndex = Math.max(0, Math.min(photoUrls.length - 1, i));
+        applyGalleryState();
+      }
+
+      document.getElementById('gallery-prev').addEventListener('click', function(){ goToPhoto(activeIndex - 1); });
+      document.getElementById('gallery-next').addEventListener('click', function(){ goToPhoto(activeIndex + 1); });
+      dots.forEach(function(d){
+        d.addEventListener('click', function(){ goToPhoto(parseInt(d.getAttribute('data-index'), 10)); });
+      });
+
+      // Drag / touch swipe
+      let startX = 0, currentX = 0, dragging = false;
+      galleryCarousel.addEventListener('pointerdown', function(e){
+        dragging = true; startX = e.clientX; currentX = e.clientX;
+        track.style.transition = 'none';
+        galleryCarousel.setPointerCapture(e.pointerId);
+      });
+      galleryCarousel.addEventListener('pointermove', function(e){
+        if (!dragging) return;
+        currentX = e.clientX;
+        const delta = currentX - startX;
+        track.style.transform = 'translateX(' + (-(activeIndex * 100) + (delta / galleryCarousel.clientWidth) * 100) + '%)';
+      });
+      function endDrag(e){
+        if (!dragging) return;
+        dragging = false;
+        track.style.transition = '';
+        const delta = currentX - startX;
+        if (Math.abs(delta) > 40) goToPhoto(activeIndex + (delta < 0 ? 1 : -1));
+        else applyGalleryState();
+        try { galleryCarousel.releasePointerCapture(e.pointerId); } catch (err) {}
+      }
+      galleryCarousel.addEventListener('pointerup', endDrag);
+      galleryCarousel.addEventListener('pointerleave', function(){ if (dragging) { dragging = false; track.style.transition = ''; applyGalleryState(); } });
+
+      // Trackpad / shift-wheel horizontal scroll — "scroll right to see the next photo"
+      let wheelLock = false;
+      galleryCarousel.addEventListener('wheel', function(e){
+        if (Math.abs(e.deltaX) > Math.abs(e.deltaY) && Math.abs(e.deltaX) > 10) {
+          e.preventDefault();
+          if (wheelLock) return;
+          wheelLock = true;
+          goToPhoto(activeIndex + (e.deltaX > 0 ? 1 : -1));
+          setTimeout(function(){ wheelLock = false; }, 350);
+        }
+      }, { passive:false });
+    }
 
     // ---------- Lightbox ----------
     const lightbox = document.getElementById('lightbox');
