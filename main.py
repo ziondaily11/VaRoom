@@ -28,10 +28,12 @@ import random
 import httpx
 from datetime import datetime, timezone
 from pathlib import Path
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, Header, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import Optional, List
+from pydantic import BaseModel, ConfigDict, Field
+from typing import Optional, List, Literal
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -117,6 +119,19 @@ app = FastAPI(
     version="0.5.0",
 )
 
+MAX_REQUEST_BYTES = 1024 * 1024
+
+@app.middleware("http")
+async def protect_request_size(request: Request, call_next):
+    content_length = request.headers.get("content-length")
+    if content_length and (not content_length.isdigit() or int(content_length) > MAX_REQUEST_BYTES):
+        return JSONResponse({"error": "Request body too large"}, status_code=413)
+    return await call_next(request)
+
+@app.exception_handler(RequestValidationError)
+async def invalid_request(_request: Request, _error: RequestValidationError):
+    return JSONResponse({"error": "Invalid input"}, status_code=422)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -153,9 +168,10 @@ async def call_gemini(prompt: str) -> Optional[str]:
 # ============================================================
 
 class ReplyRequest(BaseModel):
-    conversation_id: str
-    listing_id: str
-    message: str
+    model_config = ConfigDict(extra="forbid")
+    conversation_id: str = Field(min_length=1, max_length=100, pattern=r"^[0-9a-fA-F-]+$")
+    listing_id: str = Field(min_length=1, max_length=100, pattern=r"^[0-9a-fA-F-]+$")
+    message: str = Field(min_length=1, max_length=10000)
 
 
 class ReplyResponse(BaseModel):
@@ -258,49 +274,55 @@ async def reply(payload: ReplyRequest, authorization: Optional[str] = Header(Non
 # ============================================================
 
 class ElieHistoryTurn(BaseModel):
-    role: str  # "user" or "elie"
-    text: str
+    model_config = ConfigDict(extra="forbid")
+    role: Literal["user", "elie"]
+    text: str = Field(min_length=1, max_length=5000)
 
 
 class ElieSearchRequest(BaseModel):
-    message: str
-    history: Optional[List[ElieHistoryTurn]] = None
+    model_config = ConfigDict(extra="forbid")
+    message: str = Field(min_length=1, max_length=10000)
+    history: Optional[List[ElieHistoryTurn]] = Field(default=None, max_length=50)
 
 
 class ElieHost(BaseModel):
-    id: Optional[str] = None
-    full_name: Optional[str] = None
-    username: Optional[str] = None
+    model_config = ConfigDict(extra="forbid")
+    id: Optional[str] = Field(default=None, max_length=100)
+    full_name: Optional[str] = Field(default=None, max_length=300)
+    username: Optional[str] = Field(default=None, max_length=100)
     verified: Optional[bool] = False
 
 
 class ElieListing(BaseModel):
-    id: str
-    title: str
-    location_text: Optional[str] = None
-    category: Optional[str] = None
+    model_config = ConfigDict(extra="forbid")
+    id: str = Field(max_length=100)
+    title: str = Field(max_length=300)
+    location_text: Optional[str] = Field(default=None, max_length=500)
+    category: Optional[str] = Field(default=None, max_length=50)
     verified: Optional[bool] = False
     host: Optional[ElieHost] = None
     # From listing_booking_details - only fields that actually exist on
     # the table. No bedrooms/bathrooms - that column doesn't exist yet,
     # size_or_type (e.g. "Studio", "2BR") is what hosts actually fill in.
-    price_amount: Optional[float] = None
-    price_unit: Optional[str] = None
-    size_or_type: Optional[str] = None
-    max_guests: Optional[int] = None
+    price_amount: Optional[float] = Field(default=None, ge=0, le=100000000)
+    price_unit: Optional[str] = Field(default=None, max_length=30)
+    size_or_type: Optional[str] = Field(default=None, max_length=100)
+    max_guests: Optional[int] = Field(default=None, ge=1, le=10000)
     # From listing_photos - first photo only, turned into a public URL.
     photo_url: Optional[str] = None
 
 
 class ElieFilters(BaseModel):
-    category: Optional[str] = None
-    location: Optional[str] = None
-    max_price: Optional[float] = None
-    guests: Optional[int] = None
+    model_config = ConfigDict(extra="forbid")
+    category: Optional[str] = Field(default=None, max_length=50)
+    location: Optional[str] = Field(default=None, max_length=300)
+    max_price: Optional[float] = Field(default=None, ge=0, le=100000000)
+    guests: Optional[int] = Field(default=None, ge=1, le=10000)
 
 
 class ElieSearchResponse(BaseModel):
-    reply: str
+    model_config = ConfigDict(extra="forbid")
+    reply: str = Field(max_length=10000)
     listings: Optional[List[ElieListing]] = None
     filters: Optional[ElieFilters] = None
     suggestion: Optional[str] = None

@@ -6,12 +6,36 @@ const supabaseAdmin = require('./lib/supabaseClient');
 const { getListingLocation, getBookingLocation, getListingDistance } = require('./lib/locationAccess');
 const videoRoutes = require('./routes/videoRoutes');
 const listingRoutes = require('./routes/listingRoutes');
+const { MAX_JSON_BYTES, validateJsonPayload, ValidationError, uuid, number } = require('./lib/inputValidation');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const PROPERTY_NEWS_API_URL = (process.env.PROPERTY_NEWS_API_URL || '').replace(/\/$/, '');
 
-app.use(express.json());
+app.disable('x-powered-by');
+app.use((req, res, next) => {
+  res.set('X-Content-Type-Options', 'nosniff');
+  res.set('X-Frame-Options', 'DENY');
+  res.set('Referrer-Policy', 'no-referrer');
+  next();
+});
+app.use(express.json({ limit: MAX_JSON_BYTES, strict: true }));
+app.use((req, res, next) => {
+  if (['POST', 'PUT', 'PATCH'].includes(req.method) && req.body !== undefined) {
+    return validateJsonPayload(req, res, next);
+  }
+  return next();
+});
+const apiRequestTracker = new Map();
+app.use('/api', (req, res, next) => {
+  const key = req.ip || 'unknown';
+  const now = Date.now();
+  const recent = (apiRequestTracker.get(key) || []).filter((timestamp) => now - timestamp < 60000);
+  if (recent.length >= 120) return res.status(429).json({ error: 'Too many requests' });
+  recent.push(now);
+  apiRequestTracker.set(key, recent);
+  return next();
+});
 
 // Mount video upload routes
 app.use('/api', videoRoutes);
@@ -237,7 +261,8 @@ app.post('/api/delete-account', async (req, res) => {
 
   const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(user.id);
   if (deleteError) {
-    return res.status(500).json({ error: deleteError.message });
+    console.error('Account deletion failed:', deleteError.message);
+    return res.status(500).json({ error: 'Unable to delete account' });
   }
 
   // profiles row is deleted automatically via the ON DELETE CASCADE
@@ -262,6 +287,10 @@ async function getRequestingUserId(req) {
 // listings.latitude/longitude or bookings.location_snapshot. See
 // server/lib/locationAccess.js for the access-level rules this enforces.
 app.get('/api/listings/:id/location', async (req, res) => {
+  try { uuid(req.params.id, 'listing id'); } catch (error) {
+    if (error instanceof ValidationError) return res.status(400).json({ error: 'Invalid input' });
+    throw error;
+  }
   const requestingUserId = await getRequestingUserId(req);
   const result = await getListingLocation(supabaseAdmin, {
     listingId: req.params.id,
@@ -274,6 +303,10 @@ app.get('/api/listings/:id/location', async (req, res) => {
 });
 
 app.get('/api/bookings/:id/location', async (req, res) => {
+  try { uuid(req.params.id, 'booking id'); } catch (error) {
+    if (error instanceof ValidationError) return res.status(400).json({ error: 'Invalid input' });
+    throw error;
+  }
   const requestingUserId = await getRequestingUserId(req);
   if (!requestingUserId) {
     return res.status(401).json({ error: 'Login required' });
@@ -302,10 +335,19 @@ app.get('/api/maps-config', (req, res) => {
 // after the browser's own geolocation permission prompt) — the listing's
 // coordinates themselves are never sent back (spec section 11).
 app.get('/api/listings/:id/distance', async (req, res) => {
-  const lat = parseFloat(req.query.lat);
-  const lng = parseFloat(req.query.lng);
-  if (Number.isNaN(lat) || Number.isNaN(lng)) {
-    return res.status(400).json({ error: 'lat and lng query params are required' });
+  try { uuid(req.params.id, 'listing id'); } catch (error) {
+    if (error instanceof ValidationError) return res.status(400).json({ error: 'Invalid input' });
+    throw error;
+  }
+  let lat;
+  let lng;
+  try {
+    if (typeof req.query.lat !== 'string' || typeof req.query.lng !== 'string') throw new ValidationError('coordinates required');
+    lat = number(Number(req.query.lat), 'lat', { min: -90, max: 90 });
+    lng = number(Number(req.query.lng), 'lng', { min: -180, max: 180 });
+  } catch (error) {
+    if (error instanceof ValidationError) return res.status(400).json({ error: 'Invalid input' });
+    throw error;
   }
   const result = await getListingDistance(supabaseAdmin, {
     listingId: req.params.id,
@@ -316,6 +358,15 @@ app.get('/api/listings/:id/distance', async (req, res) => {
     return res.status(404).json({ error: result.error });
   }
   res.json(result);
+});
+
+app.use((error, _req, res, _next) => {
+  if (error instanceof SyntaxError && error.status === 400 && error.body) {
+    return res.status(400).json({ error: 'Invalid input' });
+  }
+  if (error.type === 'entity.too.large') return res.status(413).json({ error: 'Request body too large' });
+  console.error('Unhandled API error:', error);
+  return res.status(500).json({ error: 'Internal server error' });
 });
 
 app.listen(PORT, () => {
