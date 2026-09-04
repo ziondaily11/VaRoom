@@ -6,7 +6,7 @@
     "trust_tier": 1,
     "fetch_method": "html",
     "schedule_minutes": 60,
-    "active": false,
+    "active": true,
     "parser_config": {"discovery_url": "https://lands.go.ke", "url_contains": "/"},
     "activation_note": "Verify robots.txt, current technical access, terms, and a narrow article selector before activating."
   },
@@ -17,7 +17,7 @@
     "trust_tier": 1,
     "fetch_method": "html",
     "schedule_minutes": 60,
-    "active": false,
+    "active": true,
     "parser_config": {"discovery_url": "https://www.parliament.go.ke", "url_contains": "/"},
     "activation_note": "Activate only after confirming a property-relevant feed or page and collection permission."
   },
@@ -28,7 +28,7 @@
     "trust_tier": 1,
     "fetch_method": "html",
     "schedule_minutes": 120,
-    "active": false,
+    "active": true,
     "parser_config": {"discovery_url": "https://nairobi.go.ke", "url_contains": "/"},
     "activation_note": "Confirm the current official notices route and public-participation pages before enabling."
   }
