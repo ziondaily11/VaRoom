@@ -142,12 +142,22 @@ function validateVideoFile(fileName, mimeType, fileSizeBytes, durationSeconds = 
     'video/quicktime',
   ];
 
-  // Validate MIME type
+  if (typeof fileName !== 'string' || fileName.length < 1 || fileName.length > 255 ||
+      fileName.includes('/') || fileName.includes('\\') || fileName.includes('\0') ||
+      fileName === '.' || fileName === '..') {
+    return { valid: false, error: 'Invalid filename.' };
+  }
+
+  // Validate MIME type and size independently of browser metadata.
   if (!ALLOWED_MIME_TYPES.includes(mimeType)) {
     return {
       valid: false,
       error: `Video format not supported. Allowed: ${ALLOWED_MIME_TYPES.join(', ')}`,
     };
+  }
+  if (!Number.isSafeInteger(fileSizeBytes) || fileSizeBytes <= 0 ||
+      fileSizeBytes > VIDEO_MAX_FILE_SIZE_MB * 1024 * 1024) {
+    return { valid: false, error: `Video must be smaller than ${VIDEO_MAX_FILE_SIZE_MB} MB.` };
   }
 
   if (typeof durationSeconds === 'number' && Number.isFinite(durationSeconds)) {
@@ -169,9 +179,10 @@ function validateVideoFile(fileName, mimeType, fileSizeBytes, durationSeconds = 
  * Used for generating R2 object keys
  */
 function getFileExtension(fileName) {
-  if (!fileName) return 'mp4';
+  if (!fileName || typeof fileName !== 'string') return 'mp4';
   const parts = fileName.split('.');
-  return parts.length > 1 ? parts[parts.length - 1].toLowerCase() : 'mp4';
+  const extension = parts.length > 1 ? parts[parts.length - 1].toLowerCase() : 'mp4';
+  return ['mp4', 'mov'].includes(extension) ? extension : 'mp4';
 }
 
 module.exports = {

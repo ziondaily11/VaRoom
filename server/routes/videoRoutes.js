@@ -15,6 +15,7 @@ const { v4: uuidv4 } = require('uuid');
 const supabaseAdmin = require('../lib/supabaseClient');
 const mediaStorageService = require('../lib/mediaStorageService');
 const videoEntitlement = require('../lib/videoEntitlement');
+const { ValidationError, assertAllowedKeys, uuid, text, number } = require('../lib/inputValidation');
 
 const router = express.Router();
 
@@ -97,16 +98,16 @@ router.post('/properties/:propertyId/videos/upload-init', async (req, res) => {
     const { filename, mimeType, fileSize, durationSeconds } = req.body;
 
     // Step 2: Validate input
-    if (!filename || !mimeType || typeof fileSize !== 'number') {
-      return res.status(400).json({
-        error: 'Missing or invalid request parameters (filename, mimeType, fileSize required)',
-      });
-    }
-
-    if (durationSeconds !== undefined && (typeof durationSeconds !== 'number' || !Number.isFinite(durationSeconds))) {
-      return res.status(400).json({
-        error: 'durationSeconds must be a number when provided',
-      });
+    try {
+      assertAllowedKeys(req.body, ['filename', 'mimeType', 'fileSize', 'durationSeconds']);
+      uuid(propertyId, 'property id');
+      text(filename, 'filename', { max: 255 });
+      text(mimeType, 'mimeType', { max: 100 });
+      number(fileSize, 'fileSize', { integer: true, min: 1, max: 500 * 1024 * 1024 });
+      if (durationSeconds !== undefined) number(durationSeconds, 'durationSeconds', { min: 0, max: videoEntitlement.VIDEO_MAX_DURATION_SECONDS });
+    } catch (error) {
+      if (error instanceof ValidationError) return res.status(400).json({ error: 'Invalid input' });
+      throw error;
     }
 
     // Step 3: Verify property exists and user owns it
@@ -244,6 +245,15 @@ router.post('/properties/:propertyId/videos/:mediaId/complete', async (req, res)
     const propertyId = req.params.propertyId;
     const mediaId = req.params.mediaId;
     const { uploadId } = req.body;
+    try {
+      assertAllowedKeys(req.body, ['uploadId']);
+      uuid(propertyId, 'property id');
+      uuid(mediaId, 'media id');
+      uuid(uploadId, 'upload id');
+    } catch (error) {
+      if (error instanceof ValidationError) return res.status(400).json({ error: 'Invalid input' });
+      throw error;
+    }
 
     // Step 2: Verify property ownership
     const { authorized, error: ownershipError } = await verifyPropertyOwnership(
@@ -329,6 +339,10 @@ router.post('/properties/:propertyId/videos/:mediaId/complete', async (req, res)
 router.get('/media/:mediaId/playback', async (req, res) => {
   try {
     const mediaId = req.params.mediaId;
+    try { uuid(mediaId, 'media id'); } catch (error) {
+      if (error instanceof ValidationError) return res.status(400).json({ error: 'Invalid input' });
+      throw error;
+    }
 
     // Optional: Get authenticated user (for access control if needed)
     const authHeader = req.headers.authorization || '';
@@ -404,6 +418,13 @@ router.delete('/properties/:propertyId/videos/:mediaId', async (req, res) => {
 
     const propertyId = req.params.propertyId;
     const mediaId = req.params.mediaId;
+    try {
+      uuid(propertyId, 'property id');
+      uuid(mediaId, 'media id');
+    } catch (error) {
+      if (error instanceof ValidationError) return res.status(400).json({ error: 'Invalid input' });
+      throw error;
+    }
 
     // Step 2: Verify property ownership
     const { authorized, error: ownershipError } = await verifyPropertyOwnership(
@@ -473,6 +494,10 @@ router.delete('/properties/:propertyId/videos/:mediaId', async (req, res) => {
 router.get('/properties/:propertyId/media', async (req, res) => {
   try {
     const propertyId = req.params.propertyId;
+    try { uuid(propertyId, 'property id'); } catch (error) {
+      if (error instanceof ValidationError) return res.status(400).json({ error: 'Invalid input' });
+      throw error;
+    }
 
     // Optionally get authenticated user for private listing access
     const authHeader = req.headers.authorization || '';

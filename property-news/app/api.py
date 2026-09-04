@@ -10,6 +10,7 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 import logging
@@ -96,6 +97,17 @@ def create_app(config: Settings = settings, repository: Repository | None = None
                   description="Isolated Phase 1 property-news service. It is not yet wired into the VaRoom application.")
     app.state.services = services
 
+    @app.exception_handler(RequestValidationError)
+    async def invalid_request(_request: Request, _error: RequestValidationError):
+        return JSONResponse({"error": "Invalid input"}, status_code=422)
+
+    @app.middleware("http")
+    async def enforce_request_size(request: Request, call_next):
+        content_length = request.headers.get("content-length")
+        if content_length and (not content_length.isdigit() or int(content_length) > 1024 * 1024):
+            return JSONResponse({"error": "Request body too large"}, status_code=413)
+        return await call_next(request)
+
     @app.exception_handler(PropertyNewsRepositoryUnavailable)
     async def property_news_repository_unavailable(_request: Request, error: PropertyNewsRepositoryUnavailable):
         return JSONResponse({"detail": str(error)}, status_code=503, headers={"Cache-Control": "no-store"})
@@ -142,8 +154,9 @@ def create_app(config: Settings = settings, repository: Repository | None = None
         return [ _public_item(item, sources_map.get(item.source_id)) for item in items ]
 
     @app.get("/api/news/search")
-    async def search_news(q: str = Query(min_length=2), category: str | None = None, county: str | None = None,
-                          town: str | None = None, regulatory_status: str | None = None, date: int | None = Query(default=None, ge=1, le=3650),
+    async def search_news(q: str = Query(min_length=2, max_length=300), category: str | None = Query(default=None, max_length=50),
+                          county: str | None = Query(default=None, max_length=100),
+                          town: str | None = Query(default=None, max_length=100), regulatory_status: str | None = Query(default=None, max_length=50), date: int | None = Query(default=None, ge=1, le=3650),
                           limit: int = Query(default=20, ge=1, le=50), service: ServiceContainer = Depends(container)):
         return (await service.retrieval.search(q, category=category, county=county, town=town,
                                                regulatory_status=regulatory_status, days=date, limit=limit)).model_dump(mode="json")
@@ -165,8 +178,8 @@ def create_app(config: Settings = settings, repository: Repository | None = None
         return _public_item(item, await service.repository.get_source(item.source_id))
 
     @app.get("/api/news")
-    async def list_news(category: str | None = None, county: str | None = None, town: str | None = None,
-                        regulatory_status: str | None = None, source: UUID | None = None, limit: int = Query(default=20, ge=1, le=50),
+    async def list_news(category: str | None = Query(default=None, max_length=50), county: str | None = Query(default=None, max_length=100), town: str | None = Query(default=None, max_length=100),
+                        regulatory_status: str | None = Query(default=None, max_length=50), source: UUID | None = None, limit: int = Query(default=20, ge=1, le=50),
                         service: ServiceContainer = Depends(container)):
         items = await service.repository.list_items(published_only=True)
         def matches(item) -> bool:
@@ -180,7 +193,7 @@ def create_app(config: Settings = settings, repository: Repository | None = None
         return [_public_item(item, sources_map.get(item.source_id)) for item in filtered]
 
     @app.get("/api/elie/news-search")
-    async def elie_news_search(q: str = Query(min_length=2), county: str | None = None, regulatory_status: str | None = None,
+    async def elie_news_search(q: str = Query(min_length=2, max_length=300), county: str | None = Query(default=None, max_length=100), regulatory_status: str | None = Query(default=None, max_length=50),
                                date: int | None = Query(default=None, ge=1, le=3650), limit: int = Query(default=8, ge=1, le=20),
                                service: ServiceContainer = Depends(container)):
         """Structured source evidence only; a future Elie layer writes the user-facing response."""

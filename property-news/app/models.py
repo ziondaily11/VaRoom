@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field, HttpUrl, field_validator
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator
 
 from .constants import RegulatoryStatus, ReviewStatus, RiskLevel
 
@@ -104,6 +104,7 @@ class NewsEvent(BaseModel):
 
 
 class ReviewAction(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     action: str = ""
     reason: str | None = Field(default=None, max_length=2000)
     edits: dict[str, Any] = Field(default_factory=dict)
