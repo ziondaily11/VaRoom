@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Marketplace — VaRoom</title>
+<link rel="icon" href="favicon/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon/favicon-16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="favicon/favicon-180.png">
+<script>
+  (function(){
+    try{
+      var saved = localStorage.getItem('varoom_theme') || 'system';
+      var resolved = saved === 'system'
+        ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+        : saved;
+      document.documentElement.setAttribute('data-theme', resolved);
+    }catch(e){}
+  })();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;0,9..144,900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="js/skeleton-loader.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/skeleton-loader.js"></script>
+<style>
+  :root{
+    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#1A1210; --paper:#FBF4F1;
+    --muted:#7a6b67;
+    --font-display:'Fraunces', serif; --font-body:'Inter', sans-serif;
+    --line:rgba(26,18,16,.10);
+    --line-soft:rgba(26,18,16,.06);
+  }
+  [data-theme="dark"]{
+    --white:#241C1A; --paper:#15100F; --ink:#F5EFEC; --muted:#B8ACA8;
+    --line:rgba(255,255,255,.12);
+    --line-soft:rgba(255,255,255,.07);
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  html{ overflow-x:hidden; }
+  body{ font-family:var(--font-body); background:var(--paper); color:var(--ink); min-height:100vh; }
+  a{ color:inherit; text-decoration:none; }
+  button, input, select{ font-family:inherit; }
+  :focus-visible{ outline:3px solid var(--red-deep); outline-offset:3px; }
+
+  .mkt-header{
+    display:flex; align-items:center; gap:1rem; padding:1rem 1.4rem;
+    border-bottom:1px solid var(--line); background:var(--white); flex-wrap:wrap;
+  }
+  .logo{ font-family:var(--font-display); font-weight:900; font-size:1.3rem; display:flex; align-items:baseline; white-space:nowrap; }
+  .logo .va{ color:var(--red); }
+  .mode-switch{
+    display:flex; align-items:center; gap:.4rem; font-size:.82rem; color:var(--muted); font-weight:600;
+    padding:.35rem .5rem; border-radius:100px; background:var(--paper);
+  }
+  .mode-switch a{ padding:.3rem .7rem; border-radius:100px; }
+  .mode-switch a.active{ background:var(--red); color:#fff; }
+
+  .search-bar{
+    flex:1; display:flex; align-items:stretch; gap:0; min-width:280px; max-width:760px;
+    border:1px solid var(--line); border-radius:100px; overflow:hidden; background:var(--white);
+  }
+  .search-field{ flex:1; display:flex; flex-direction:column; padding:.5rem 1.1rem; min-width:120px; border-right:1px solid var(--line); }
+  .search-field:last-of-type{ border-right:none; }
+  .search-field label{ font-size:.66rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); }
+  .search-field input, .search-field select{ border:none; background:none; color:var(--ink); font-size:.88rem; padding:.15rem 0; outline:none; width:100%; }
+  .search-submit{ background:var(--red); color:#fff; border:none; padding:0 1.4rem; font-weight:700; font-size:.88rem; cursor:pointer; }
+  .search-submit:hover{ background:var(--red-deep); }
+
+  .topbar-actions{ margin-left:auto; display:flex; align-items:center; gap:.6rem; }
+  .avatar-circle{ width:34px; height:34px; border-radius:50%; background:var(--paper); display:flex; align-items:center; justify-content:center; overflow:hidden; font-weight:700; color:var(--red-deep); }
+  .avatar-circle img{ width:100%; height:100%; object-fit:cover; }
+
+  .mkt-body{ display:flex; align-items:flex-start; }
+
+  .filters{
+    width:260px; flex-shrink:0; padding:1.4rem 1.2rem; border-right:1px solid var(--line);
+    position:sticky; top:0; height:100vh; overflow-y:auto;
+  }
+  .filters-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem; }
+  .filters-head h2{ font-family:var(--font-display); font-size:1.05rem; font-weight:700; }
+  .filters-reset{ font-size:.8rem; color:var(--red); font-weight:600; background:none; border:none; cursor:pointer; }
+  .filter-group{ margin-bottom:1.4rem; }
+  .filter-group h3{ font-size:.82rem; font-weight:700; margin-bottom:.6rem; }
+  .price-inputs{ display:flex; align-items:center; gap:.5rem; }
+  .price-inputs input{ width:100%; padding:.5rem .6rem; border:1px solid var(--line); border-radius:8px; background:var(--paper); color:var(--ink); font-size:.85rem; }
+  .filter-row{ display:flex; align-items:center; justify-content:space-between; gap:.5rem; padding:.35rem 0; font-size:.87rem; cursor:pointer; }
+  .filter-row span.count{ color:var(--muted); font-size:.78rem; }
+  .filter-row input[type="checkbox"]{ accent-color:var(--red); width:16px; height:16px; }
+
+  .results-col{ flex:1; padding:1.4rem 1.6rem 3rem; min-width:0; }
+  .results-head{ display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:.8rem; margin-bottom:1.1rem; }
+  .results-head h1{ font-family:var(--font-display); font-size:1.35rem; font-weight:700; }
+  .results-sub{ font-size:.85rem; color:var(--muted); margin-top:.2rem; }
+  .results-controls{ display:flex; align-items:center; gap:.6rem; }
+  .results-controls select{ padding:.5rem .7rem; border:1px solid var(--line); border-radius:8px; background:var(--white); color:var(--ink); font-size:.83rem; }
+  .view-toggle{ display:flex; border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+  .view-toggle button{ padding:.5rem .8rem; background:var(--white); border:none; font-size:.83rem; font-weight:600; color:var(--muted); cursor:pointer; display:flex; align-items:center; gap:.35rem; }
+  .view-toggle button.active{ background:var(--red); color:#fff; }
+  .view-toggle button[disabled]{ cursor:not-allowed; opacity:.55; }
+
+  .grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); gap:1.4rem; }
+  .card{ background:var(--white); border:1px solid var(--line); border-radius:14px; overflow:hidden; display:flex; flex-direction:column; }
+  .card-media{ position:relative; aspect-ratio:4/3; background:var(--paper); }
+  .card-media img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .card-media .placeholder{ display:flex; align-items:center; justify-content:center; height:100%; color:var(--muted); font-size:.78rem; text-align:center; padding:1rem; }
+  .card-save{
+    position:absolute; top:.6rem; right:.6rem; width:32px; height:32px; border-radius:50%; border:none;
+    background:rgba(255,255,255,.85); display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--ink);
+  }
+  .card-save.saved{ color:var(--red); }
+  .card-verified{
+    position:absolute; top:.6rem; left:.6rem; background:rgba(26,18,16,.75); color:#fff; font-size:.68rem; font-weight:700;
+    padding:.2rem .5rem; border-radius:100px;
+  }
+  .card-body{ padding:.85rem .95rem 1rem; display:flex; flex-direction:column; gap:.25rem; }
+  .card-title{ font-family:var(--font-display); font-weight:700; font-size:.98rem; line-height:1.3; }
+  .card-loc{ font-size:.8rem; color:var(--muted); }
+  .card-loc a{ color:var(--red-deep); font-weight:600; }
+  .card-foot{ display:flex; align-items:center; justify-content:space-between; margin-top:.4rem; }
+  .card-price{ font-weight:700; font-size:.92rem; }
+  .card-price span{ font-weight:500; color:var(--muted); font-size:.78rem; }
+  .card-book{ font-size:.8rem; font-weight:700; color:var(--red-deep); }
+
+  .empty-state{ padding:3rem 1rem; text-align:center; color:var(--muted); }
+  .empty-state h2{ font-family:var(--font-display); color:var(--ink); font-size:1.15rem; margin-bottom:.4rem; }
+
+  .pagination{ display:flex; align-items:center; justify-content:center; gap:.4rem; margin-top:2rem; }
+  .pagination button{
+    min-width:36px; height:36px; border-radius:8px; border:1px solid var(--line); background:var(--white);
+    color:var(--ink); font-size:.85rem; cursor:pointer;
+  }
+  .pagination button.active{ background:var(--red); color:#fff; border-color:var(--red); }
+  .pagination button[disabled]{ opacity:.4; cursor:not-allowed; }
+
+  .map-pending{
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.7rem;
+    padding:3.5rem 1.5rem; text-align:center; color:var(--muted); background:var(--white);
+    border:1px solid var(--line); border-radius:14px;
+  }
+  .map-pending h2{ font-family:var(--font-display); color:var(--ink); font-size:1.1rem; }
+
+  @media (max-width: 860px){
+    .filters{ display:none; }
+    .mkt-body{ flex-direction:column; }
+    .search-bar{ display:none; }
+  }
+</style>
+</head>
+<body>
+
+<header class="mkt-header">
+  <a href="/client-home" class="logo"><span class="va">Va</span><span class="room">Room</span></a>
+  <div class="mode-switch">
+    <a href="/client-home">Discover</a>
+    <a href="/marketplace" class="active">Marketplace</a>
+  </div>
+
+  <div class="search-bar">
+    <div class="search-field">
+      <label for="q-dest">Where</label>
+      <input type="text" id="q-dest" placeholder="Search location, e.g. Westlands">
+    </div>
+    <div class="search-field">
+      <label for="q-category">Type</label>
+      <select id="q-category">
+        <option value="all">All types</option>
+        <option value="airbnb">Airbnbs</option>
+        <option value="hotel">Hotels</option>
+        <option value="venue">Event Venues</option>
+        <option value="office">Offices</option>
+        <option value="shop">Shops</option>
+        <option value="property">Property</option>
+      </select>
+    </div>
+    <div class="search-field">
+      <label for="q-guests">Guests</label>
+      <input type="number" id="q-guests" min="1" placeholder="Any">
+    </div>
+    <button type="button" class="search-submit" id="search-submit">Search</button>
+  </div>
+
+  <div class="topbar-actions">
+    <a href="/profile" class="avatar-circle" id="user-avatar" aria-label="Profile"></a>
+  </div>
+</header>
+
+<div class="mkt-body">
+  <aside class="filters">
+    <div class="filters-head">
+      <h2>Filters</h2>
+      <button type="button" class="filters-reset" id="filters-reset">Reset all</button>
+    </div>
+
+    <div class="filter-group">
+      <h3>Price range (KSh / listed unit)</h3>
+      <div class="price-inputs">
+        <input type="number" id="price-min" placeholder="Min" min="0">
+        <span>–</span>
+        <input type="number" id="price-max" placeholder="Max" min="0">
+      </div>
+    </div>
+
+    <div class="filter-group">
+      <h3>Property type</h3>
+      <div id="type-filters"></div>
+    </div>
+
+    <div class="filter-group">
+      <h3>Trust</h3>
+      <label class="filter-row">
+        <span>Verified hosts only</span>
+        <input type="checkbox" id="verified-only">
+      </label>
+    </div>
+  </aside>
+
+  <main class="results-col">
+    <div class="results-head">
+      <div>
+        <h1 id="results-title">Listings</h1>
+        <p class="results-sub" id="results-sub">Loading…</p>
+      </div>
+      <div class="results-controls">
+        <select id="sort-select">
+          <option value="newest">Newest</option>
+          <option value="price_asc">Price: low to high</option>
+          <option value="price_desc">Price: high to low</option>
+        </select>
+        <div class="view-toggle">
+          <button type="button" class="active" id="view-grid-btn">Grid</button>
+          <button type="button" id="view-map-btn" title="Exact locations stay private until a booking is approved — see note when opened">Map</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="grid-view">
+      <div class="grid" id="results-grid"></div>
+      <div class="pagination" id="pagination"></div>
+    </div>
+
+    <div id="map-view" style="display:none;">
+      <div class="map-pending">
+        <h2>Map view isn't available for search results yet</h2>
+        <p style="max-width:440px;">VaRoom only shows a listing's exact location once a booking is approved, so plotting every result on one map would mean showing precise pins before that's earned. Open a listing to see its own location and get directions.</p>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="js/supabase-client.js"></script>
+<script>
+(async function(){
+  const CATEGORY_LABELS = { airbnb:'Airbnbs', hotel:'Hotels', venue:'Event Venues', office:'Offices', shop:'Shops', property:'Property' };
+  const ICON_BOOKMARK_OUTLINE = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h12a1 1 0 0 1 1 1V21l-7-4-7 4V4.5a1 1 0 0 1 1-1Z"/></svg>';
+  const ICON_BOOKMARK_FILLED = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h12a1 1 0 0 1 1 1V21l-7-4-7 4V4.5a1 1 0 0 1 1-1Z"/></svg>';
+  const PAGE_SIZE = 12;
+
+  const MKT_SELECT = 'id,title,description,location_text,category,verified,created_at,host_id,availability_status,' +
+    'listing_photos(storage_path),listing_booking_details(price_amount,price_unit,max_guests)';
+
+  function escapeHtml(str){
+    const div = document.createElement('div');
+    div.textContent = str || '';
+    return div.innerHTML;
+  }
+
+  // ---------- Auth guard ----------
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  if (!session) { window.location.href = '/login'; return; }
+  const currentUser = session.user;
+
+  const { data: profile } = await supabaseClient
+    .from('profiles')
+    .select('role, full_name, avatar_url')
+    .eq('id', currentUser.id)
+    .maybeSingle();
+  if (!profile) { window.location.href = '/login'; return; }
+  if (profile.role === 'host') { window.location.href = '/host-home'; return; }
+
+  const avatarEl = document.getElementById('user-avatar');
+  if (profile.avatar_url) {
+    avatarEl.innerHTML = '<img src="' + escapeHtml(profile.avatar_url) + '" alt="">';
+  } else {
+    avatarEl.textContent = (profile.full_name || '?').charAt(0).toUpperCase();
+  }
+
+  // ---------- Bookmarks ----------
+  let bookmarkedIds = new Set();
+  const { data: bookmarks } = await supabaseClient
+    .from('bookmarks').select('listing_id').eq('client_id', currentUser.id);
+  if (bookmarks) bookmarkedIds = new Set(bookmarks.map(function(b){ return b.listing_id; }));
+
+  async function toggleBookmark(listingId, btn){
+    if (bookmarkedIds.has(listingId)) {
+      await supabaseClient.from('bookmarks').delete().eq('client_id', currentUser.id).eq('listing_id', listingId);
+      bookmarkedIds.delete(listingId);
+      btn.classList.remove('saved');
+      btn.innerHTML = ICON_BOOKMARK_OUTLINE;
+    } else {
+      await supabaseClient.from('bookmarks').insert({ client_id: currentUser.id, listing_id: listingId });
+      bookmarkedIds.add(listingId);
+      btn.classList.add('saved');
+      btn.innerHTML = ICON_BOOKMARK_FILLED;
+    }
+  }
+
+  // ---------- State (seeded from URL, so Explore/search handoff works) ----------
+  const params = new URLSearchParams(window.location.search);
+  const state = {
+    q: params.get('q') || '',
+    category: params.get('category') || 'all',
+    guests: params.get('guests') || '',
+    priceMin: null,
+    priceMax: null,
+    verifiedOnly: false,
+    sort: 'newest',
+    page: 1
+  };
+  document.getElementById('q-dest').value = state.q;
+  document.getElementById('q-category').value = state.category;
+  document.getElementById('q-guests').value = state.guests;
+
+  let allListings = []; // full result set for the current search text/category, filters applied client-side
+
+  function formatPrice(details){
+    if (!details) return null;
+    const amount = Array.isArray(details) ? (details[0] && details[0].price_amount) : details.price_amount;
+    const unit = Array.isArray(details) ? (details[0] && details[0].price_unit) : details.price_unit;
+    if (amount == null) return null;
+    return { amount: Number(amount), unit: unit || 'night' };
+  }
+
+  function renderCard(listing){
+    const photos = (listing.listing_photos || []).map(function(p){
+      return supabaseClient.storage.from('listing-photos').getPublicUrl(p.storage_path).data.publicUrl;
+    });
+    const isBookmarked = bookmarkedIds.has(listing.id);
+    const price = formatPrice(listing.listing_booking_details);
+
+    const mediaHtml = photos.length
+      ? '<img src="' + photos[0] + '" alt="' + escapeHtml(listing.title) + '" loading="lazy">'
+      : '<div class="placeholder">' + (CATEGORY_LABELS[listing.category] || listing.category) + ' — photos coming soon</div>';
+
+    return (
+      '<div class="card" data-listing-id="' + listing.id + '">' +
+        '<div class="card-media">' +
+          mediaHtml +
+          (listing.verified ? '<span class="card-verified">Verified</span>' : '') +
+          '<button type="button" class="card-save ' + (isBookmarked ? 'saved' : '') + '" data-listing-id="' + listing.id + '" aria-label="Save">' +
+            (isBookmarked ? ICON_BOOKMARK_FILLED : ICON_BOOKMARK_OUTLINE) +
+          '</button>' +
+        '</div>' +
+        '<div class="card-body">' +
+          '<div class="card-title">' + escapeHtml(listing.title) + '</div>' +
+          '<div class="card-loc">' + escapeHtml(listing.location_text || '') + '</div>' +
+          '<div class="card-foot">' +
+            (price
+              ? '<div class="card-price">KSh ' + price.amount.toLocaleString() + ' <span>/ ' + escapeHtml(price.unit) + '</span></div>'
+              : '<div class="card-price"><span>Price on request</span></div>') +
+            '<a href="/booking?listing=' + listing.id + '" class="card-book">View →</a>' +
+          '</div>' +
+        '</div>' +
+      '</div>'
+    );
+  }
+
+  function applyFiltersAndSort(items){
+    let out = items.filter(function(l){
+      const price = formatPrice(l.listing_booking_details);
+      if (state.priceMin != null && (price == null || price.amount < state.priceMin)) return false;
+      if (state.priceMax != null && (price == null || price.amount > state.priceMax)) return false;
+      if (state.verifiedOnly && !l.verified) return false;
+      return true;
+    });
+    out.sort(function(a, b){
+      if (state.sort === 'newest') return new Date(b.created_at) - new Date(a.created_at);
+      const pa = formatPrice(a.listing_booking_details);
+      const pb = formatPrice(b.listing_booking_details);
+      const va = pa ? pa.amount : Infinity;
+      const vb = pb ? pb.amount : Infinity;
+      return state.sort === 'price_asc' ? va - vb : vb - va;
+    });
+    return out;
+  }
+
+  function renderTypeFilters(items){
+    const counts = {};
+    items.forEach(function(l){ counts[l.category] = (counts[l.category] || 0) + 1; });
+    const wrap = document.getElementById('type-filters');
+    wrap.innerHTML = Object.keys(CATEGORY_LABELS).map(function(cat){
+      const n = counts[cat] || 0;
+      return '<label class="filter-row"><span>' + CATEGORY_LABELS[cat] + '</span><span class="count">' + n + '</span></label>';
+    }).join('');
+  }
+
+  function renderPagination(total){
+    const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+    const el = document.getElementById('pagination');
+    if (pages <= 1) { el.innerHTML = ''; return; }
+    let html = '<button type="button" data-page="' + (state.page - 1) + '" ' + (state.page === 1 ? 'disabled' : '') + '>‹</button>';
+    for (let p = 1; p <= pages; p++) {
+      if (p === 1 || p === pages || Math.abs(p - state.page) <= 1) {
+        html += '<button type="button" class="' + (p === state.page ? 'active' : '') + '" data-page="' + p + '">' + p + '</button>';
+      } else if (Math.abs(p - state.page) === 2) {
+        html += '<span style="padding:0 .3rem;color:var(--muted);">…</span>';
+      }
+    }
+    html += '<button type="button" data-page="' + (state.page + 1) + '" ' + (state.page === pages ? 'disabled' : '') + '>›</button>';
+    el.innerHTML = html;
+    el.querySelectorAll('button[data-page]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        state.page = parseInt(btn.getAttribute('data-page'), 10);
+        renderResults();
+      });
+    });
+  }
+
+  function renderResults(){
+    const filtered = applyFiltersAndSort(allListings);
+    renderTypeFilters(allListings.filter(function(l){
+      // type counts reflect the search text + price/verified filters, not the type filter itself
+      return true;
+    }));
+    document.getElementById('results-sub').textContent =
+      filtered.length + ' ' + (filtered.length === 1 ? 'property' : 'properties') + ' found' + (state.q ? ' for "' + state.q + '"' : '');
+
+    const grid = document.getElementById('results-grid');
+    if (filtered.length === 0) {
+      grid.innerHTML = '';
+      grid.parentElement.insertAdjacentHTML('afterbegin', '');
+      grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><h2>No listings match yet</h2><p>Try widening your price range or clearing a filter.</p></div>';
+      renderPagination(0);
+      return;
+    }
+    const start = (state.page - 1) * PAGE_SIZE;
+    const pageItems = filtered.slice(start, start + PAGE_SIZE);
+    grid.innerHTML = pageItems.map(renderCard).join('');
+    grid.querySelectorAll('.card-save').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        toggleBookmark(btn.getAttribute('data-listing-id'), btn);
+      });
+    });
+    renderPagination(filtered.length);
+  }
+
+  async function runSearch(){
+    document.getElementById('results-sub').textContent = 'Loading…';
+    let query = supabaseClient.from('listings').select(MKT_SELECT).limit(200);
+    if (state.category !== 'all') query = query.eq('category', state.category);
+    if (state.q) query = query.ilike('location_text', '%' + state.q + '%');
+    query = query.order('created_at', { ascending: false });
+
+    const { data, error } = await query;
+    const minGuests = state.guests ? parseInt(state.guests, 10) : null;
+    allListings = (data || []).filter(function(l){
+      if (l.availability_status && l.availability_status !== 'available') return false;
+      if (minGuests != null) {
+        const details = Array.isArray(l.listing_booking_details) ? l.listing_booking_details[0] : l.listing_booking_details;
+        const guests = details && details.max_guests;
+        if (guests != null && guests < minGuests) return false;
+      }
+      return true;
+    });
+    document.getElementById('results-title').textContent = state.q ? ('Results for "' + state.q + '"') : 'Listings';
+    state.page = 1;
+    renderResults();
+  }
+
+  document.getElementById('search-submit').addEventListener('click', function(){
+    state.q = document.getElementById('q-dest').value.trim();
+    state.category = document.getElementById('q-category').value;
+    state.guests = document.getElementById('q-guests').value;
+    runSearch();
+  });
+  document.getElementById('q-dest').addEventListener('keydown', function(e){
+    if (e.key === 'Enter') document.getElementById('search-submit').click();
+  });
+  document.getElementById('sort-select').addEventListener('change', function(){
+    state.sort = this.value; state.page = 1; renderResults();
+  });
+  document.getElementById('price-min').addEventListener('change', function(){
+    state.priceMin = this.value ? Number(this.value) : null; state.page = 1; renderResults();
+  });
+  document.getElementById('price-max').addEventListener('change', function(){
+    state.priceMax = this.value ? Number(this.value) : null; state.page = 1; renderResults();
+  });
+  document.getElementById('verified-only').addEventListener('change', function(){
+    state.verifiedOnly = this.checked; state.page = 1; renderResults();
+  });
+  document.getElementById('filters-reset').addEventListener('click', function(){
+    document.getElementById('price-min').value = '';
+    document.getElementById('price-max').value = '';
+    document.getElementById('verified-only').checked = false;
+    state.priceMin = null; state.priceMax = null; state.verifiedOnly = false; state.page = 1;
+    renderResults();
+  });
+  document.getElementById('view-grid-btn').addEventListener('click', function(){
+    document.getElementById('view-grid-btn').classList.add('active');
+    document.getElementById('view-map-btn').classList.remove('active');
+    document.getElementById('grid-view').style.display = '';
+    document.getElementById('map-view').style.display = 'none';
+  });
+  document.getElementById('view-map-btn').addEventListener('click', function(){
+    document.getElementById('view-map-btn').classList.add('active');
+    document.getElementById('view-grid-btn').classList.remove('active');
+    document.getElementById('grid-view').style.display = 'none';
+    document.getElementById('map-view').style.display = '';
+  });
+
+  runSearch();
+})();
+</script>
+</body>
+</html>

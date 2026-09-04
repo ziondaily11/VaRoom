@@ -38,6 +38,10 @@
     --glass-shadow:0 24px 55px rgba(26,18,16,.10);
     --glow-a:rgba(196,30,58,.14);
     --glow-b:rgba(196,30,58,.09);
+    /* Shared divider color for the three-column line-separator layout —
+       same visual weight in light and dark, just flipped polarity. */
+    --line:rgba(26,18,16,.10);
+    --line-soft:rgba(26,18,16,.06);
   }
   [data-theme="dark"]{
     --white:#241C1A; --paper:#15100F; --ink:#F5EFEC; --muted:#B8ACA8;
@@ -46,6 +50,8 @@
     --glass-shadow:0 24px 55px rgba(0,0,0,.5);
     --glow-a:transparent;
     --glow-b:transparent;
+    --line:rgba(255,255,255,.12);
+    --line-soft:rgba(255,255,255,.07);
   }
   *{ margin:0; padding:0; box-sizing:border-box; }
   body{
@@ -67,20 +73,21 @@
     overflow:hidden;
   }
 
-  /* ---------- SIDEBAR (glass) ---------- */
+  /* ---------- SIDEBAR (line-separated column) ----------
+     No card chrome — a full-height column divided from the main content
+     by a single border line, scrolling independently. */
   .sidebar{
-    background:var(--glass-bg);
-    backdrop-filter:blur(22px) saturate(140%);
-    -webkit-backdrop-filter:blur(22px) saturate(140%);
-    border:1px solid var(--glass-border);
-    border-radius:22px;
-    box-shadow:var(--glass-shadow);
-    margin:1rem 0 1rem 1rem;
-    padding:1.6rem 1.2rem;
+    background:transparent;
+    border:none;
+    border-right:1px solid var(--line);
+    border-radius:0;
+    box-shadow:none;
+    margin:0;
+    padding:1.4rem 1.2rem;
     display:flex;
     flex-direction:column;
     gap:1.4rem;
-    height:calc(100vh - 2rem);
+    height:100vh;
     overflow-y:auto;
     scrollbar-width:none;
   }
@@ -143,19 +150,35 @@
   }
   .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
 
-  /* ---------- MAIN COLUMN ---------- */
+  /* ---------- MAIN COLUMN ----------
+     A single grid controls both the topbar row and the dashboard body,
+     using one shared column track set (main | 1px divider | rail). The
+     divider is its own grid item spanning grid-row:1/-1, so the line runs
+     from the very top of the viewport straight through the topbar and
+     down the full height. */
   .main-col{
-    display:flex;
-    flex-direction:column;
+    display:grid;
+    grid-template-rows: auto 1fr;
+    grid-template-columns: minmax(620px, 760px) 1px minmax(280px, 360px);
     height:100vh;
     overflow:hidden;
     min-width:0;
   }
 
   .topbar{
+    grid-column: 1 / -1;
+    grid-row: 1;
     display:flex; align-items:center; gap:1rem;
     padding:1.2rem 2rem;
     background:transparent;
+  }
+
+  .col-divider{
+    grid-column: 2;
+    grid-row: 1 / -1;
+    background:var(--line);
+    width:1px;
+    height:100%;
   }
 
   .search-wrap{
@@ -186,38 +209,32 @@
   /* ---------- DASHBOARD HEADER ---------- */
   .dash-header{ padding:1.8rem 0 0; }
 
+  /* dash-body is a pass-through wrapper only — display:contents lifts
+     dash-main/host-rail up to be direct grid items of .main-col (row 2),
+     sharing the exact same column tracks as the topbar/divider above. */
   .dash-body{
-    display:grid;
-    grid-template-columns: minmax(620px, 760px) minmax(280px, 360px);
-    align-items:start;
-    padding:0 1.4rem;
-    flex:1 1 auto;
-    min-height:0;
-    overflow:hidden;
-    gap:0;
-    width:100%;
+    display:contents;
   }
   .dash-main{
+    grid-column: 1;
+    grid-row: 2;
     min-width:620px;
     overflow-y:auto;
     height:100%;
-    padding-bottom:2rem;
+    padding:0 1.4rem 2rem;
     scrollbar-width:none;
-    border-right:1px solid rgba(26,18,16,.08);
   }
   .dash-main::-webkit-scrollbar{ display:none; }
   .host-rail{
-    /* The information rail must grow with its cards, including Property News. */
-    position:static;
-    padding:1.8rem 1.2rem 2rem 1.2rem;
+    grid-column: 3;
+    grid-row: 2;
+    padding:1.8rem 1.4rem 2rem 1.2rem;
     display:flex;
     flex-direction:column;
     gap:1.1rem;
     overflow-y:auto;
     height:100%;
     scrollbar-width:none;
-    border-left:1px solid rgba(26,18,16,.08);
-    justify-self:end;
   }
   .host-rail::-webkit-scrollbar{ display:none; }
 
@@ -282,8 +299,8 @@
   .stat.stub .stat-num{ color:var(--muted); font-size:1.1rem; font-family:var(--font-body); font-weight:600; }
 
   @media (max-width:1360px){
-    .dash-body{
-      grid-template-columns: minmax(540px, 680px) minmax(260px, 340px);
+    .main-col{
+      grid-template-columns: minmax(540px, 680px) 1px minmax(260px, 340px);
     }
     .dash-header,
     .feed-area {
@@ -295,7 +312,8 @@
 
   @media (max-width:1180px){
     .host-rail{ display:none; }
-    .dash-body{ grid-template-columns: minmax(0, 760px); }
+    .col-divider{ display:none; }
+    .main-col{ grid-template-columns: minmax(0, 760px); }
     .dash-main{ min-width:0; }
     .dash-header,
     .feed-area{ min-width:0; max-width:760px; }
@@ -309,7 +327,7 @@
   .attention-list{ display:flex; flex-direction:column; }
   .attention-row{
     display:flex; align-items:center; gap:.8rem;
-    padding:.7rem 0; border-bottom:1px solid rgba(26,18,16,.06);
+    padding:.7rem 0; border-bottom:1px solid var(--line-soft);
   }
   .attention-row:last-child{ border-bottom:none; }
   .attention-icon{
@@ -330,11 +348,12 @@
   .attention-clear-title{ font-size:.88rem; font-weight:600; }
   .attention-clear-sub{ font-size:.78rem; color:var(--muted); }
 
-  /* ---------- LISTINGS AT A GLANCE ---------- */
+  /* ---------- LISTINGS AT A GLANCE ----------
+     No card chrome — sits on the plain background, closed off by a bottom
+     divider line instead of a boxed panel. */
   .listings-glance-card{
-    background:var(--glass-bg); backdrop-filter:blur(22px) saturate(140%); -webkit-backdrop-filter:blur(22px) saturate(140%);
-    border:1px solid var(--glass-border); border-radius:16px; box-shadow:var(--glass-shadow);
-    padding:1rem 1.1rem;
+    background:transparent; border:none; border-radius:0; box-shadow:none;
+    padding:0 0 1.1rem; border-bottom:1px solid var(--line);
   }
   .listings-glance-grid{ display:grid; grid-template-columns:1fr 1fr; gap:.6rem; }
   .glance-tile{ background:var(--paper); border-radius:12px; overflow:hidden; display:block; }
@@ -353,13 +372,13 @@
   }
   .glance-tile.add-tile:hover{ color:var(--red); border-color:var(--red); }
 
-  /* ---------- VAROOM UPDATES ---------- */
+  /* ---------- VAROOM UPDATES ----------
+     No card chrome — plain background. Last section in the rail, so no
+     trailing divider is needed underneath it. */
   .varoom-updates-card{
-    background:var(--glass-bg); backdrop-filter:blur(22px) saturate(140%); -webkit-backdrop-filter:blur(22px) saturate(140%);
-    border:1px solid var(--glass-border); border-radius:16px; box-shadow:var(--glass-shadow);
-    padding:1rem 1.1rem;
+    background:transparent; border:none; border-radius:0; box-shadow:none; padding:0;
   }
-  .update-card{ padding-bottom:.9rem; border-bottom:1px solid rgba(26,18,16,.08); }
+  .update-card{ padding-bottom:.9rem; border-bottom:1px solid var(--line); }
   .update-card:last-child{ border-bottom:none; padding-bottom:0; }
   .update-photos{ display:grid; grid-template-columns:repeat(auto-fit, minmax(70px, 1fr)); gap:.4rem; margin-bottom:.5rem; }
   .update-photos .update-img{ width:100%; aspect-ratio:1/1; object-fit:cover; margin-bottom:0; border-radius:8px; }
@@ -367,11 +386,12 @@
   .update-title{ font-weight:700; font-size:.88rem; margin-bottom:.2rem; }
   .update-body{ font-size:.82rem; color:var(--muted); line-height:1.4; }
 
-  /* ---------- PROPERTY NEWS ---------- */
+  /* ---------- PROPERTY NEWS ----------
+     No card chrome — plain background, closed off by a bottom divider
+     line. Shared by the desktop rail instance and the mobile inline slot. */
   .property-news-card{
-    background:var(--glass-bg); backdrop-filter:blur(22px) saturate(140%); -webkit-backdrop-filter:blur(22px) saturate(140%);
-    border:1px solid var(--glass-border); border-radius:16px; box-shadow:var(--glass-shadow);
-    padding:1rem 1.1rem;
+    background:transparent; border:none; border-radius:0; box-shadow:none;
+    padding:0 0 1.1rem; border-bottom:1px solid var(--line);
   }
 
   /* ---------- NOTIFICATIONS PANEL (glass) ----------
@@ -381,9 +401,8 @@
      here unchanged; only the card wrapper and header are notif-specific.
      #notif-panel-card is the desktop right-rail notifications surface. */
   .notif-panel-card{
-    background:var(--glass-bg); backdrop-filter:blur(22px) saturate(140%); -webkit-backdrop-filter:blur(22px) saturate(140%);
-    border:1px solid var(--glass-border); border-radius:16px; box-shadow:var(--glass-shadow);
-    padding:1rem 1.1rem;
+    background:transparent; border:none; border-radius:0; box-shadow:none;
+    padding:0 0 1.1rem; border-bottom:1px solid var(--line);
   }
   .notif-panel-head{ display:flex; align-items:center; gap:.6rem; margin-bottom:.7rem; }
   .notif-panel-bell{
@@ -398,7 +417,7 @@
   .notif-panel-badge[hidden]{ display:none; }
   .property-news-list{ display:flex; flex-direction:column; gap:.1rem; }
   .property-news-item{
-    display:block; padding:.8rem 0; border-bottom:1px solid rgba(26,18,16,.08);
+    display:block; padding:.8rem 0; border-bottom:1px solid var(--line);
     border-radius:8px;
   }
   .property-news-item:first-child{ padding-top:.1rem; }
@@ -470,9 +489,35 @@
 
   .state-msg{ color:var(--muted); font-size:.95rem; padding:2rem 0; text-align:center; }
 
+  /* ---------- SKELETON LOADING ----------
+     Local skeleton system so every loading state (feed, VaRoom Updates)
+     matches the current layout exactly. Property News already has its own
+     shimmer skeleton (.property-news-skeleton, above) — left as-is. */
+  @keyframes skel-pulse{ 0%,100%{ opacity:.55; } 50%{ opacity:1; } }
+  .skel{ background:var(--line-soft); border-radius:6px; animation:skel-pulse 1.3s ease-in-out infinite; }
+
+  .skel-card{ padding:1.15rem 0 1rem; border-bottom:1px solid var(--line); }
+  .skel-card:first-child{ padding-top:0; }
+  .skel-card-head{ display:flex; align-items:center; gap:.7rem; margin-bottom:.55rem; }
+  .skel-avatar{ width:38px; height:38px; border-radius:50%; flex-shrink:0; }
+  .skel-card-head-body{ flex:1; min-width:0; }
+  .skel-name{ width:130px; height:12px; margin-bottom:.4rem; }
+  .skel-loc{ width:190px; height:9px; }
+  .skel-line{ height:9px; margin-bottom:.4rem; }
+  .skel-line.short{ width:55%; margin-bottom:.75rem; }
+  .skel-media{ width:100%; height:clamp(200px, 28vw, 380px); border-radius:12px; margin-bottom:.75rem; }
+  .skel-actions{ display:flex; gap:.5rem; }
+  .skel-pill{ width:58px; height:24px; border-radius:999px; }
+
+  .skel-update{ padding-bottom:.9rem; border-bottom:1px solid var(--line); margin-bottom:.9rem; }
+  .skel-update:last-child{ border-bottom:none; margin-bottom:0; padding-bottom:0; }
+  .skel-update-media{ width:100%; height:90px; border-radius:8px; margin-bottom:.5rem; }
+  .skel-update-line{ height:9px; margin-bottom:.3rem; }
+  .skel-update-line.short{ width:60%; margin-bottom:0; }
+
   .card{
     background:transparent; border:none; border-radius:0; padding:1.15rem 0 1rem; margin:0;
-    border-bottom:1px solid rgba(26,18,16,.08); color:var(--ink); display:flex; flex-direction:column;
+    border-bottom:1px solid var(--line); color:var(--ink); display:flex; flex-direction:column;
   }
   .card:first-child{ padding-top:0; }
   [data-theme="dark"] .card{ color:#F5EFEC; }
@@ -601,7 +646,7 @@
   .badge-host{ background:#E9F0FB; color:#1A4E8F; }
   .badge-soon{ background:rgba(26,18,16,.05); color:var(--muted); font-weight:500; }
 
-  .action-row{ display:flex; align-items:center; gap:.6rem; padding-top:.7rem; border-top:1px solid rgba(26,18,16,.06); }
+  .action-row{ display:flex; align-items:center; gap:.6rem; padding-top:.7rem; border-top:1px solid var(--line-soft); }
 
   .action-btn{
     display:flex; align-items:center; gap:.35rem;
@@ -622,16 +667,19 @@
     .app-shell{ grid-template-columns:1fr; }
 
     .sidebar{
-      position:fixed; inset:0 auto 0 0; width:80vw; max-width:360px; height:100vh; margin:0; border-radius:0; z-index:200;
+      position:fixed; inset:0 auto 0 0; width:80vw; max-width:360px; height:100vh; margin:0;
+      background:var(--white); border-radius:0; z-index:200;
       transform:translateX(-100%); transition:transform .25s ease;
       box-shadow:0 0 40px rgba(26,18,16,.25);
     }
     .sidebar.mobile-open{ transform:translateX(0); }
 
     .dash-header{ padding:1.4rem 0 0; }
-    .dash-body{ grid-template-columns:1fr; padding:0 1rem; gap:1.2rem; flex:initial; overflow:visible; }
-    .dash-main{ overflow-y:visible; height:auto; padding-bottom:0; }
-    .host-rail{ position:static; padding-top:0; padding-bottom:6rem; overflow-y:visible; height:auto; }
+    .main-col{ height:auto; overflow-y:visible; overflow-x:hidden; grid-template-rows:auto auto; }
+    .dash-body{ padding:0 1rem; gap:1.2rem; }
+    .col-divider{ display:none; }
+    .dash-main{ overflow-y:visible; height:auto; padding:0; }
+    .host-rail{ padding:0 0 6rem; overflow-y:visible; height:auto; }
     .feed-area{ padding:.75rem .7rem 1.4rem; }
     .card{ padding-top:.8rem; }
     .card-photos{ gap:.3rem; }
@@ -645,7 +693,6 @@
 
     body{ height:auto; overflow-y:visible; overflow-x:hidden; }
     .app-shell{ height:auto; overflow-y:visible; overflow-x:hidden; }
-    .main-col{ height:auto; overflow-y:visible; overflow-x:hidden; }
 
     .dash-top{ flex-wrap:nowrap; align-items:center; }
     .list-btn-top{
@@ -842,6 +889,8 @@
       </div>
     </header>
 
+    <div class="col-divider" aria-hidden="true"></div>
+
     <div class="dash-body">
     <div class="dash-main">
     <div class="dash-header">
@@ -960,7 +1009,8 @@
           <h2>VaRoom Updates</h2>
         </div>
         <div id="varoom-updates" style="display:flex;flex-direction:column;gap:.9rem;">
-          <p class="state-msg" style="padding:0;font-size:.85rem;">Loading…</p>
+          <div class="skel-update"><div class="skel skel-update-media"></div><div class="skel skel-update-line"></div><div class="skel skel-update-line short"></div></div>
+          <div class="skel-update"><div class="skel skel-update-media"></div><div class="skel skel-update-line"></div><div class="skel skel-update-line short"></div></div>
         </div>
       </div>
     </aside>
@@ -1453,14 +1503,48 @@
       containers.forEach(function(container){ if (container) { container.innerHTML = html; wirePropertyNewsImages(container); } });
     }
 
+    // Each news item is shown for a fixed window after it was published,
+    // then disposed of on its own rather than sitting there indefinitely.
+    const PROPERTY_NEWS_DISPLAY_MS = 2 * 60 * 60 * 1000; // 2 hours
+    const PROPERTY_NEWS_REFRESH_MS = 5 * 60 * 1000; // re-check for new items every 5 minutes
+    let propertyNewsExpiryTimer = null;
+    let propertyNewsRefreshTimer = null;
+
+    // Drops items whose published time is older than the display window.
+    // Items with no date at all are kept, since there's no age to judge.
+    function freshPropertyNews(items){
+      const now = Date.now();
+      return (items || []).filter(function(news){
+        const source = news.source || {};
+        const publishedAt = source.published_at || news.published_at;
+        if (!publishedAt) return true;
+        const publishedTime = new Date(publishedAt).getTime();
+        if (isNaN(publishedTime)) return true;
+        return (now - publishedTime) <= PROPERTY_NEWS_DISPLAY_MS;
+      });
+    }
+
+    function renderFreshPropertyNews(){
+      renderPropertyNews('ready', freshPropertyNews(hostPropertyNewsCache));
+    }
+
+    function startPropertyNewsTimers(){
+      clearInterval(propertyNewsExpiryTimer);
+      clearInterval(propertyNewsRefreshTimer);
+      // Checked more often than the refetch so an item disposes close to
+      // on-time once its 2 hours are up, without waiting on the next fetch.
+      propertyNewsExpiryTimer = setInterval(renderFreshPropertyNews, 60 * 1000);
+      propertyNewsRefreshTimer = setInterval(loadPropertyNews, PROPERTY_NEWS_REFRESH_MS);
+    }
+
     async function loadPropertyNews(){
       try {
         const news = await VaRoomPropertyNews.latest(2);
         if (Array.isArray(news) && news.length > 0) {
           hostPropertyNewsCache = news.slice(0, 2);
-          renderPropertyNews('ready', hostPropertyNewsCache);
+          renderFreshPropertyNews();
         } else if (hostPropertyNewsCache.length > 0) {
-          renderPropertyNews('ready', hostPropertyNewsCache);
+          renderFreshPropertyNews();
         } else {
           renderPropertyNews('ready', []);
         }
@@ -1490,6 +1574,26 @@
       if (!avatarValue) return null;
       if (avatarValue.indexOf('http') === 0) return avatarValue;
       return supabaseClient.storage.from('avatars').getPublicUrl(avatarValue).data.publicUrl;
+    }
+
+    // Local skeleton for the feed — mirrors the current .card shape exactly
+    // (avatar + name/loc row, caption, media, actions), so the loading
+    // state never mismatches the real card once data arrives.
+    function skeletonCards(n){
+      var one = '<div class="skel-card">' +
+        '<div class="skel-card-head">' +
+          '<div class="skel skel-avatar"></div>' +
+          '<div class="skel-card-head-body">' +
+            '<div class="skel skel-name"></div>' +
+            '<div class="skel skel-loc"></div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="skel skel-line"></div>' +
+        '<div class="skel skel-line short"></div>' +
+        '<div class="skel skel-media"></div>' +
+        '<div class="skel-actions"><div class="skel skel-pill"></div><div class="skel skel-pill"></div></div>' +
+      '</div>';
+      return one.repeat(n);
     }
 
     function getVideoDuration(file){
@@ -1918,7 +2022,7 @@
         '<div class="mobile-widget-slot">' +
           '<div class="varoom-updates-card">' +
             '<div class="stats-head"><h2>VaRoom Updates</h2></div>' +
-            '<div id="varoom-updates-mobile" style="display:flex;flex-direction:column;gap:.9rem;"><p class="state-msg" style="padding:0;font-size:.85rem;">Loading…</p></div>' +
+            '<div id="varoom-updates-mobile" style="display:flex;flex-direction:column;gap:.9rem;"><div class="skel-update"><div class="skel skel-update-media"></div><div class="skel skel-update-line"></div><div class="skel skel-update-line short"></div></div></div>' +
           '</div>' +
         '</div>'
       );
@@ -2136,7 +2240,7 @@
         return;
       }
 
-      feedList.innerHTML = window.SkeletonLoader.feedCards(3);
+      feedList.innerHTML = skeletonCards(3);
       try {
         snapshot = await window.VaRoomListingFeedCache.fetchPage(key, 0, fetcher);
         if (activeFeedKey !== key || version !== feedLoadVersion) return;
@@ -2249,7 +2353,7 @@
     function showSavedView(){
       setActiveNav('saved');
       showOnlyMine = false;
-      feedList.innerHTML = window.SkeletonLoader.feedCards(3);
+      feedList.innerHTML = skeletonCards(3);
       supabaseClient
         .from('listings')
         .select(FEED_SELECT)
@@ -2295,6 +2399,7 @@
     loadFeed();
     loadVaroomUpdates('varoom-updates');
     loadPropertyNews();
+    startPropertyNewsTimers();
   })();
 </script>
 <script src="js/varoom-video-player.js"></script>

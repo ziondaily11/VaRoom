@@ -795,7 +795,10 @@
 
     <div class="content-row">
       <div class="feed-area">
-        <h1 class="feed-title" id="feed-title">Find the perfect space</h1>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:.8rem;flex-wrap:wrap;">
+          <h1 class="feed-title" id="feed-title">Find the perfect space</h1>
+          <a href="/marketplace" id="marketplace-switch" style="display:none;font-size:.82rem;font-weight:600;color:var(--red-deep);background:#FBE4E7;padding:.4rem .8rem;border-radius:100px;white-space:nowrap;">Browse as Marketplace →</a>
+        </div>
 
         <div class="tabs" id="tabs">
           <button class="tab active" data-category="all">All</button>
@@ -1756,12 +1759,23 @@
       tabsEl.querySelector('[data-category="all"]').classList.add('active');
     }
 
+    function updateMarketplaceSwitch(){
+      const link = document.getElementById('marketplace-switch');
+      const show = currentView === 'explore' || !!searchTerm;
+      link.style.display = show ? 'inline-block' : 'none';
+      const qp = new URLSearchParams();
+      if (searchTerm) qp.set('q', searchTerm);
+      if (currentCategory && currentCategory !== 'all') qp.set('category', currentCategory);
+      link.href = '/marketplace' + (qp.toString() ? '?' + qp.toString() : '');
+    }
+
     function showHomeView(){
       setActiveNav('home');
       currentView = 'home';
       document.getElementById('feed-title').textContent = interestedCategories.length > 0 ? 'For you' : 'Find the perfect space';
       resetFilters();
       loadFeed();
+      updateMarketplaceSwitch();
     }
 
     function showExploreView(){
@@ -1770,10 +1784,12 @@
       document.getElementById('feed-title').textContent = 'Explore everything';
       resetFilters();
       loadFeed();
+      updateMarketplaceSwitch();
     }
 
     function showSavedView(){
       setActiveNav('saved');
+      document.getElementById('marketplace-switch').style.display = 'none';
       document.getElementById('feed-title').textContent = 'Saved';
       feedList.innerHTML = skeletonCards(3);
       supabaseClient
@@ -1811,6 +1827,7 @@
         tab.classList.add('active');
         currentCategory = tab.getAttribute('data-category');
         loadFeed();
+        updateMarketplaceSwitch();
       });
     });
 
@@ -1820,6 +1837,7 @@
       searchDebounce = setTimeout(function(){
         searchTerm = searchInput.value;
         loadFeed();
+        updateMarketplaceSwitch();
       }, 350);
     });
 
