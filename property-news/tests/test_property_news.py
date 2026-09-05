@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import unittest
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
 
@@ -109,6 +109,29 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["new_items"], 1)
         self.assertEqual(result["processed"], 1)
         self.assertEqual(result["published"], 1)
+
+    async def test_safe_items_are_released_one_hour_apart(self):
+        candidates = [
+            CandidateArticle(source_id=self.source.id, source_url=f"https://source1.example.test/safe-{index}",
+                             source_title=("Land registry digitisation update in Nairobi"
+                                           if index == 0 else "County housing construction permits in Mombasa"),
+                             clean_text=(("Land registry digitisation in Nairobi. " * 20)
+                                         if index == 0 else ("County housing construction permits in Mombasa. " * 20)))
+            for index in range(2)
+        ]
+
+        async def discover(_collector, _source):
+            return candidates
+
+        with patch.object(SourceCollector, "_discover", new=discover):
+            result = await run_collection_job(self.repository, Settings())
+
+        items = sorted(await self.repository.list_items(), key=lambda item: item.source_url)
+        self.assertEqual(result["published"], 1)
+        self.assertEqual(items[0].review_status, ReviewStatus.PUBLISHED)
+        self.assertEqual(items[1].review_status, ReviewStatus.APPROVED)
+        self.assertIsNotNone(items[1].scheduled_at)
+        self.assertEqual(items[1].scheduled_at - items[0].published_at, timedelta(hours=1))
 
     async def test_verified_source_seed_is_idempotent(self):
         first = await upsert_official_lands_source(self.repository, activate=True)

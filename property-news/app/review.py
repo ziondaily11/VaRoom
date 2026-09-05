@@ -23,8 +23,7 @@ class ReviewService:
         if action.action == "approve":
             if item.risk_level is RiskLevel.CRITICAL:
                 raise ValueError("Critical-risk items cannot be approved without lowering risk with documented evidence.")
-            item.review_status = ReviewStatus.PUBLISHED
-            item.published_at = datetime.now(timezone.utc)
+            item = await self.repository.schedule_publication(item)
         elif action.action == "reject":
             item.review_status = ReviewStatus.REJECTED
         elif action.action == "request_more_evidence":
