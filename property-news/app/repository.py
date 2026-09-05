@@ -15,7 +15,14 @@ from .models import NewsAnalysis, NewsEvent, NewsItem, Source
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
-
+def _strip_nul_bytes(value: Any) -> Any:
+    if isinstance(value, str):
+        return value.replace("\x00", "")
+    if isinstance(value, list):
+        return [_strip_nul_bytes(v) for v in value]
+    if isinstance(value, dict):
+        return {k: _strip_nul_bytes(v) for k, v in value.items()}
+    return value
 
 class PropertyNewsRepositoryUnavailable(RuntimeError):
     """The additive schema is missing or has not reached PostgREST's cache yet."""
@@ -196,6 +203,8 @@ class SupabaseNewsRepository:
     async def _request(self, method: str, table: str, *, params: dict[str, str] | None = None,
                        payload: Any = None, prefer: str | None = None) -> Any:
         headers = {"Prefer": prefer} if prefer else None
+        if payload is not None:
+            payload = _strip_nul_bytes(payload)
         response = await self.client.request(method, f"{self.url}/rest/v1/{table}", params=params, json=payload, headers=headers)
         if response.status_code == 404:
             try:
