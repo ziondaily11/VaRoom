@@ -25,10 +25,10 @@ The memory repository makes the service demonstrable without a database. When se
 
 ## Status lifecycle
 
-`discovered -> processing -> archived | pending_review | published`
+`discovered -> processing -> archived | pending_review | approved -> published`
 
-The migration also supports `analysed`, `approved`, `rejected`, `failed`, and `archived` for recovery and future UI flows. Critical-risk stories cannot be approved through the Phase 1 review service until their risk is lowered with documented evidence.
+The migration also supports `analysed`, `rejected`, `failed`, and `archived` for recovery and future UI flows. Critical-risk stories cannot be approved through the Phase 1 review service until their risk is lowered with documented evidence. Approved stories are assigned a `scheduled_at` release slot; only the first available story is published immediately, and each additional story is released one hour after the previous queued/live story.
 
 ## Scheduling
 
-Production collection is the GitHub Actions workflow `.github/workflows/property-news-collector.yml` (wake the Render service, then POST `/api/internal/jobs/collect`). Do not also run an in-process hourly collector on the web service; the two jobs share a lock and GitHub `curl --fail` treated 409 as a failed run. Local/ops can still run `python -m app.jobs --collect-due`. Source intervals are database values: use 30-60 minutes for priority official sources and 1-3 hours for county/news sources after verification. After a failed fetch, the collector retries that source after 15 minutes rather than waiting the full interval.
+Production collection is the GitHub Actions workflow `.github/workflows/property-news-collector.yml` (wake the Render service, then POST `/api/internal/jobs/collect`). Each collection run releases due publication slots before processing new items. Do not also run an in-process hourly collector on the web service; the two jobs share a lock and GitHub `curl --fail` treated 409 as a failed run. Local/ops can still run `python -m app.jobs --collect-due`. Source intervals are database values: use 30-60 minutes for priority official sources and 1-3 hours for county/news sources after verification. After a failed fetch, the collector retries that source after 15 minutes rather than waiting the full interval.

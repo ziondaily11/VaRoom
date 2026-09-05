@@ -87,6 +87,7 @@ class NewsItem(BaseModel):
     review_status: ReviewStatus = ReviewStatus.DISCOVERED
     reviewed_by: UUID | None = None
     published_at: datetime | None = None
+    scheduled_at: datetime | None = None
     image_url: str | None = None
     content_hash: str
     timeline_id: UUID | None = None

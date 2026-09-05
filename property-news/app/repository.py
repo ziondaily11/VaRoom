@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import copy
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from difflib import SequenceMatcher
 from typing import Any
 from uuid import UUID, uuid4
@@ -55,6 +55,36 @@ class MemoryNewsRepository:
         item.updated_at = _now()
         self.items[item.id] = copy.deepcopy(item)
         return copy.deepcopy(item)
+
+    async def schedule_publication(self, item: NewsItem, now: datetime | None = None) -> NewsItem:
+        now = now or _now()
+        queued = [
+            value for value in self.items.values()
+            if value.id != item.id and value.review_status in {ReviewStatus.APPROVED, ReviewStatus.PUBLISHED}
+        ]
+        latest = max(
+            (value.scheduled_at or value.published_at for value in queued if value.scheduled_at or value.published_at),
+            default=None,
+        )
+        slot = max(now, latest + timedelta(hours=1)) if latest else now
+        item.review_status = ReviewStatus.PUBLISHED if slot <= now else ReviewStatus.APPROVED
+        item.published_at = now if item.review_status is ReviewStatus.PUBLISHED else None
+        item.scheduled_at = None if item.review_status is ReviewStatus.PUBLISHED else slot
+        return await self.save_item(item)
+
+    async def release_due_publications(self, now: datetime | None = None) -> int:
+        now = now or _now()
+        released = 0
+        for item in list(self.items.values()):
+            if item.review_status is ReviewStatus.APPROVED and item.scheduled_at and item.scheduled_at <= now:
+                item.review_status = ReviewStatus.PUBLISHED
+                item.published_at = now
+                item.scheduled_at = None
+                await self.save_item(item)
+                await self.add_event(NewsEvent(news_id=item.id, source_id=item.source_id,
+                                               event_type="item_published", payload={"published_at": now.isoformat()}))
+                released += 1
+        return released
 
     async def get_item(self, item_id: UUID) -> NewsItem | None:
         item = self.items.get(item_id)
@@ -230,6 +260,39 @@ class SupabaseNewsRepository:
                 raise
         return self._item(rows[0])
 
+    async def schedule_publication(self, item: NewsItem, now: datetime | None = None) -> NewsItem:
+        now = now or _now()
+        items = await self.list_items()
+        queued = [
+            value for value in items
+            if value.id != item.id and value.review_status in {ReviewStatus.APPROVED, ReviewStatus.PUBLISHED}
+        ]
+        latest = max(
+            (value.scheduled_at or value.published_at for value in queued if value.scheduled_at or value.published_at),
+            default=None,
+        )
+        slot = max(now, latest + timedelta(hours=1)) if latest else now
+        item.review_status = ReviewStatus.PUBLISHED if slot <= now else ReviewStatus.APPROVED
+        item.published_at = now if item.review_status is ReviewStatus.PUBLISHED else None
+        item.scheduled_at = None if item.review_status is ReviewStatus.PUBLISHED else slot
+        return await self.save_item(item)
+
+    async def release_due_publications(self, now: datetime | None = None) -> int:
+        now = now or _now()
+        items = await self.list_items()
+        due = [
+            item for item in items
+            if item.review_status is ReviewStatus.APPROVED and item.scheduled_at and item.scheduled_at <= now
+        ]
+        for item in due:
+            item.review_status = ReviewStatus.PUBLISHED
+            item.published_at = now
+            item.scheduled_at = None
+            await self.save_item(item)
+            await self.add_event(NewsEvent(news_id=item.id, source_id=item.source_id,
+                                           event_type="item_published", payload={"published_at": now.isoformat()}))
+        return len(due)
+
     async def get_item(self, item_id: UUID) -> NewsItem | None:
         rows = await self._request("GET", "news_items", params={"select": "*", "id": f"eq.{item_id}", "limit": "1"})
         return self._item(rows[0]) if rows else None
@@ -287,7 +350,7 @@ class SupabaseNewsRepository:
 
     async def list_items(self, *, published_only: bool = False, limit: int | None = None,
                          offset: int = 0, select_fields: str | None = None) -> list[NewsItem]:
-        fields = select_fields or "id,source_id,source_url,canonical_url,source_title,source_published_at,fetched_at,clean_text,varoom_title,varoom_summary,varoom_body,category,topics,counties,towns,regulatory_status,affected_groups,key_facts,risk_level,confidence_score,source_tier,review_status,reviewed_by,published_at,image_url,content_hash,timeline_id,created_at,updated_at"
+        fields = select_fields or "id,source_id,source_url,canonical_url,source_title,source_published_at,fetched_at,clean_text,varoom_title,varoom_summary,varoom_body,category,topics,counties,towns,regulatory_status,affected_groups,key_facts,risk_level,confidence_score,source_tier,review_status,reviewed_by,published_at,scheduled_at,image_url,content_hash,timeline_id,created_at,updated_at"
         params = {"select": fields, "order": "published_at.desc.nullslast,created_at.desc"}
         if published_only:
             params["review_status"] = "eq.published"

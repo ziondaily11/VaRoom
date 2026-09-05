@@ -19,12 +19,13 @@ async def run_collection_job(repository=None, config=settings, analyzer: NewsAna
     collector = SourceCollector(store, config)
     processor = ProcessingService(store, analyzer or build_analyzer(config))
     try:
+        released = await store.release_due_publications()
         collected = await collector.collect_due_sources()
         result = {key: int(collected[key]) for key in ("sources_checked", "candidates", "new_items", "duplicates", "failures")}
         failed_item_ids = [item.id for item in await store.list_failed_items()]
         item_ids = list(dict.fromkeys([*collected["new_item_ids"], *failed_item_ids]))
-        result.update({"processed": 0, "published": 0, "pending_review": 0, "archived": 0,
-                       "processing_failures": 0, "retried": len(failed_item_ids)})
+        result.update({"processed": 0, "published": released, "pending_review": 0, "archived": 0,
+                       "processing_failures": 0, "retried": len(failed_item_ids), "released": released})
         
         # Bounded concurrency for LLM/rule processing (up to 5 items concurrently)
         semaphore = asyncio.Semaphore(5)

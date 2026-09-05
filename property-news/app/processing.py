@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime, timezone
 from uuid import UUID
 
 from .analysis import NewsAnalyzer
@@ -53,9 +52,8 @@ class ProcessingService:
             item.review_status = ReviewStatus.ARCHIVED
             event_type = "item_rejected_irrelevant"
         elif allows_auto_publish(analysis.risk_level, analysis.source_tier, analysis.confidence_score) and self._valid_for_auto_publish(item):
-            item.review_status = ReviewStatus.PUBLISHED
-            item.published_at = datetime.now(timezone.utc)
-            event_type = "item_auto_published"
+            item = await self.repository.schedule_publication(item)
+            event_type = "item_auto_published" if item.review_status is ReviewStatus.PUBLISHED else "item_queued_for_publication"
         else:
             item.review_status = ReviewStatus.PENDING_REVIEW
             event_type = "item_queued_for_review"
