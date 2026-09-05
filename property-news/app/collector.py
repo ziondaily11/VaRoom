@@ -243,7 +243,8 @@ class SourceCollector:
                 last_error = error
                 if attempt + 1 < self.settings.fetch_retry_attempts:
                     await asyncio.sleep(0.5 * (2 ** attempt))
-        raise RuntimeError(f"Fetch failed for {url}: {last_error}")
+
+        raise RuntimeError(f"Fetch failed for {url}: {type(last_error).__name__}: {last_error}") from last_error
 
     async def _fetch_article(self, source: Source, url: str, title: str | None = None, published_at: datetime | None = None) -> CandidateArticle:
         if not self._is_allowed_source_url(source, url):
