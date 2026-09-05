@@ -212,7 +212,14 @@ class SupabaseNewsRepository:
             fallback_params["select"] = "*"
             response = await self.client.request(method, f"{self.url}/rest/v1/{table}", params=fallback_params, json=payload, headers=headers)
 
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except httpx.HTTPStatusError as error:
+            raise httpx.HTTPStatusError(
+                f"{error} | body: {response.text[:500]}",
+                request=error.request,
+                response=error.response,
+            ) from error
         if not response.content:
             return None
         return response.json()
