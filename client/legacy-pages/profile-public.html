@@ -357,21 +357,32 @@
           '</a>'
         );
       }).join('');
-      await Promise.allSettled(listings.map(async function(listing){
+      function fetchWithTimeout(url, timeoutMs){
+        const controller = new AbortController();
+        const timer = window.setTimeout(function(){ controller.abort(); }, timeoutMs);
+        return fetch(url, { signal: controller.signal }).finally(function(){
+          window.clearTimeout(timer);
+        });
+      }
+
+      Promise.allSettled(listings.map(async function(listing){
         const mediaHost = listingGrid.querySelector('[data-listing-media="' + listing.id + '"]');
         if (!mediaHost) return;
         try {
-          const response = await fetch('/api/properties/' + encodeURIComponent(listing.id) + '/media');
+          const response = await fetchWithTimeout('/api/properties/' + encodeURIComponent(listing.id) + '/media', 5000);
           if (!response.ok) return;
           const payload = await response.json();
           const video = (payload.media || []).find(function(media){ return media.type === 'video'; });
           if (!video) return;
-          const playbackResponse = await fetch('/api/media/' + encodeURIComponent(video.id) + '/playback');
+          const playbackResponse = await fetchWithTimeout('/api/media/' + encodeURIComponent(video.id) + '/playback', 5000);
           if (!playbackResponse.ok) return;
           const playback = await playbackResponse.json();
           if (!playback.url) return;
           mediaHost.innerHTML = '<video src="' + playback.url + '" autoplay muted playsinline loop preload="auto" aria-label="' +
             (listing.title || 'Listing video').replace(/"/g, '&quot;') + '"></video>';
+        } catch (error) {
+          // Keep the photo fallback when optional video playback is unavailable.
+        }
       }));
       listingGrid.addEventListener('click', async function(event){
         const reportButton = event.target.closest('[data-report-listing]');
