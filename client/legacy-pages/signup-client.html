@@ -407,6 +407,13 @@
   var urlParams = new URLSearchParams(window.location.search);
   var redirect  = urlParams.get('redirect') || null;
 
+  if (redirect) {
+    var loginLinks = document.querySelectorAll('.form-switch a');
+    loginLinks.forEach(function(link) {
+      link.href = '/login?redirect=' + encodeURIComponent(redirect);
+    });
+  }
+
   function showAlert(msg, type) {
     alertBox.textContent = msg;
     alertBox.className = 'alert ' + type + ' show';
@@ -500,7 +507,7 @@
     } catch(err) {
       var msg = err.message || 'Something went wrong. Please try again.';
       if (msg.includes('already registered')) {
-        alertBox.innerHTML = 'An account with this email already exists. <a href="/login" style="color:var(--deep-red);font-weight:600;">Log in instead</a>';
+        alertBox.innerHTML = 'An account with this email already exists. <a href="/login?redirect=' + encodeURIComponent(redirect || '') + '" style="color:var(--deep-red);font-weight:600;">Log in instead</a>';
         alertBox.className = 'alert error show';
       } else {
         showAlert(msg, 'error');

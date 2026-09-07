@@ -62,7 +62,8 @@
   .aside-oauth-btn{
     display:flex; align-items:center; justify-content:center; gap:.6rem;
     border:1.5px solid var(--card-border); border-radius:100px; padding:.8rem 1rem;
-    font-weight:500; font-size:.88rem; margin-bottom:.7rem;
+    font-weight:500; font-size:.88rem; margin-bottom:.7rem; color:var(--ink);
+    background:transparent;
   }
   .aside-oauth-btn:hover{ border-color:var(--ink); }
   .aside-oauth-btn svg, .aside-oauth-btn .icon{ width:18px; height:18px; flex-shrink:0; }
@@ -88,23 +89,23 @@
   main{ width:100%; margin:0; padding:2rem clamp(1.5rem, 4vw, 4.5rem) 6rem; }
   .state-msg{ text-align:center; padding:4rem 0; color:var(--muted); }
 
-  .profile-head{ display:flex; flex-direction:column; align-items:center; text-align:center; margin-bottom:3.25rem; }
+  .profile-head{ display:flex; flex-direction:column; align-items:center; text-align:center; margin-bottom:2rem; }
   .avatar-circle{
-    width:116px; height:116px; border-radius:50%;
+    width:88px; height:88px; border-radius:50%;
     background:var(--red); color:#fff;
     display:flex; align-items:center; justify-content:center;
-    font-weight:700; font-size:2.2rem; overflow:hidden; margin-bottom:1rem;
+    font-weight:700; font-size:1.8rem; overflow:hidden; margin-bottom:.65rem;
   }
   .avatar-circle img{ width:100%; height:100%; object-fit:cover; }
 
   .role-tag{
     display:inline-block; font-size:.75rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
-    padding:.3rem .8rem; border-radius:100px; border:1.5px solid var(--red); color:var(--red); margin-bottom:.7rem;
+    padding:.2rem .6rem; border-radius:100px; border:1px solid var(--red); color:var(--red); margin-bottom:.4rem;
   }
-  .profile-name{ font-family:var(--font-display); font-weight:600; font-size:clamp(1.8rem, 3vw, 2.35rem); margin-bottom:.2rem; }
-  .profile-username{ color:var(--muted); font-size:.9rem; margin-bottom:.5rem; }
-  .profile-location{ font-size:.82rem; color:var(--muted); margin-bottom:1rem; }
-  .profile-bio{ font-size:.95rem; line-height:1.55; color:var(--ink); max-width:520px; }
+  .profile-name{ font-family:var(--font-display); font-weight:600; font-size:clamp(1.5rem, 2.4vw, 1.9rem); margin-bottom:.15rem; }
+  .profile-username{ color:var(--muted); font-size:.82rem; margin-bottom:.3rem; }
+  .profile-location{ font-size:.76rem; color:var(--muted); margin-bottom:.55rem; }
+  .profile-bio{ font-size:.86rem; line-height:1.45; color:var(--ink); max-width:520px; }
 
   .section-title{ font-family:var(--font-display); font-weight:600; font-size:1.45rem; margin:2.2rem 0 1.15rem; }
   .listing-grid{ display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:1.5rem; }
@@ -150,7 +151,7 @@
     header{ padding:1.15rem 1.25rem; }
     main{ padding-left:1.25rem; padding-right:1.25rem; }
     .listing-grid{ grid-template-columns:1fr; gap:1rem; }
-    .profile-head{ margin-bottom:2.35rem; }
+    .profile-head{ margin-bottom:1.45rem; }
   }
 </style>
 </head>
@@ -247,13 +248,19 @@
     async function startGoogleAuth(){
       await supabaseClient.auth.signInWithOAuth({
         provider: 'google',
-        options: { redirectTo: window.location.href }
+        options: {
+          redirectTo: window.location.origin + '/auth-callback?redirect=' +
+            encodeURIComponent(window.location.href)
+        }
       });
     }
     document.getElementById('google-oauth-btn').addEventListener('click', startGoogleAuth);
     document.getElementById('mobile-google-oauth').addEventListener('click', startGoogleAuth);
     document.querySelectorAll('a[href="/login"]').forEach(function(link){
       link.href = '/login?redirect=' + encodeURIComponent(window.location.href);
+    });
+    document.querySelectorAll('a[href="/register"]').forEach(function(link){
+      link.href = '/register?redirect=' + encodeURIComponent(window.location.href);
     });
 
     const username = getUsernameFromUrl();
@@ -351,7 +358,7 @@
         }
         return (
           '<a class="listing-card" href="//booking?listing=' + l.id + '">' +
-            '<details class="listing-menu" onclick="event.stopPropagation()">' +
+            '<details class="listing-menu">' +
               '<summary aria-label="Listing options">···</summary>' +
               '<ul><li><button type="button" data-report-listing="' + l.id + '">Report listing</button></li></ul>' +
             '</details>' +
@@ -364,12 +371,23 @@
           '</a>'
         );
       }).join('');
-      listingGrid.addEventListener('click', function(event){
+      listingGrid.addEventListener('click', async function(event){
         const reportButton = event.target.closest('[data-report-listing]');
-        if (!reportButton) return;
+        if (event.target.closest('.listing-menu') && !reportButton) return;
         event.preventDefault();
         event.stopPropagation();
-        window.location.href = '/login?redirect=' + encodeURIComponent(window.location.href) + '&report=' + encodeURIComponent(reportButton.getAttribute('data-report-listing'));
+        if (reportButton) {
+          window.location.href = '/login?redirect=' + encodeURIComponent(window.location.href) + '&report=' + encodeURIComponent(reportButton.getAttribute('data-report-listing'));
+          return;
+        }
+
+        const card = event.target.closest('.listing-card');
+        if (!card) return;
+        const bookingUrl = new URL(card.href, window.location.origin).href;
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        window.location.href = session
+          ? bookingUrl
+          : '/login?redirect=' + encodeURIComponent(bookingUrl);
       });
     }
   })();

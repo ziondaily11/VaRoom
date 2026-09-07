@@ -419,7 +419,7 @@
     var forgotLink = document.getElementById('forgot-link');
     if (forgotLink) forgotLink.href = '/forgot-password?redirect=' + encodeURIComponent(redirect);
     var createLink = document.getElementById('create-link');
-    if (createLink) createLink.href = '/?redirect=' + encodeURIComponent(redirect);
+    if (createLink) createLink.href = '/register?redirect=' + encodeURIComponent(redirect);
   }
 
   function showAlert(msg, type) {
@@ -513,7 +513,7 @@
   (async function() {
     try {
       var { data } = await supabaseClient.auth.getSession();
-      if (data && data.session) {
+      if (data && data.session && !redirect) {
         var role = data.session.user.user_metadata && data.session.user.user_metadata.role;
         window.location.href = redirect || (role === 'host' ? '/host-home' : '/client-home');
       }

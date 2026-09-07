@@ -184,6 +184,17 @@
 
   // ---- Auth + profile check ----
   const { data: { session } } = await supabaseClient.auth.getSession();
+  const requestedRedirect = new URLSearchParams(window.location.search).get('redirect') || '';
+  function getSafeRedirect(value){
+    if (!value) return '';
+    try {
+      const url = new URL(value, window.location.origin);
+      return url.origin === window.location.origin ? url.pathname + url.search + url.hash : '';
+    } catch (error) {
+      return '';
+    }
+  }
+  const postOnboardingRedirect = getSafeRedirect(requestedRedirect);
   if (!session) {
     window.location.href = '/login';
     return;
@@ -202,7 +213,7 @@
   }
 
   if (profile.onboarding_completed) {
-    window.location.href = profile.role === 'host' ? '/host-home' : '/client-home';
+    window.location.href = postOnboardingRedirect || (profile.role === 'host' ? '/host-home' : '/client-home');
     return;
   }
 
@@ -568,7 +579,7 @@
 
     await supabaseClient.rpc('complete_onboarding');
 
-    window.location.href = role === 'host' ? '/host-home' : '/client-home';
+    window.location.href = postOnboardingRedirect || (role === 'host' ? '/host-home' : '/client-home');
   }
 
   // ---- Shared UI helpers ----

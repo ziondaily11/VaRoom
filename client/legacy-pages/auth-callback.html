@@ -183,6 +183,20 @@
     const authErrorCode = hashParams.get('error_code') || queryParams.get('error_code') || '';
     const authErrorDescription = hashParams.get('error_description') || queryParams.get('error_description') || '';
     const hasAuthError = !!(hashParams.get('error') || queryParams.get('error'));
+    const requestedRedirect = queryParams.get('redirect') || '';
+
+    function getSafeRedirect(value){
+      if (!value) return '';
+      try {
+        const url = new URL(value, window.location.origin);
+        if (url.origin !== window.location.origin) return '';
+        return url.pathname + url.search + url.hash;
+      } catch (error) {
+        return '';
+      }
+    }
+
+    const postAuthRedirect = getSafeRedirect(requestedRedirect);
 
     function showError(message){
       loading.style.display = 'none';
@@ -366,7 +380,11 @@
 
     function redirectByRole(role, onboardingCompleted){
           if (!onboardingCompleted) {
-            window.location.href = '/onboarding';
+            window.location.href = '/onboarding' + (postAuthRedirect ? '?redirect=' + encodeURIComponent(postAuthRedirect) : '');
+            return;
+          }
+          if (postAuthRedirect) {
+            window.location.href = postAuthRedirect;
             return;
           }
           if (role === 'host') {
