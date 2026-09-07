@@ -13,14 +13,15 @@ from .processing import ProcessingService
 from .repository import build_repository
 
 
-async def run_collection_job(repository=None, config=settings, analyzer: NewsAnalyzer | None = None) -> dict[str, int]:
+async def run_collection_job(repository=None, config=settings, analyzer: NewsAnalyzer | None = None,
+                             source_group: int | None = None) -> dict[str, int]:
     """Collect due sources and process every newly discovered item in one run."""
     store = repository or build_repository(config)
     collector = SourceCollector(store, config)
     processor = ProcessingService(store, analyzer or build_analyzer(config))
     try:
         released = await store.release_due_publications()
-        collected = await collector.collect_due_sources()
+        collected = await collector.collect_due_sources(source_group=source_group)
         result = {key: int(collected[key]) for key in ("sources_checked", "candidates", "new_items", "duplicates", "failures")}
         failed_item_ids = [item.id for item in await store.list_failed_items()]
         item_ids = list(dict.fromkeys([*collected["new_item_ids"], *failed_item_ids]))

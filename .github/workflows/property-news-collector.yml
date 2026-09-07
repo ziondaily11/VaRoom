@@ -10,9 +10,13 @@ permissions:
 
 jobs:
   collect:
+    strategy:
+      max-parallel: 1
+      matrix:
+        source_group: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     runs-on: ubuntu-latest
     steps:
-      - name: Run the protected collection job
+      - name: Run source group ${{ matrix.source_group }}
         env:
           NEWS_SCHEDULER_SECRET: ${{ secrets.NEWS_SCHEDULER_SECRET }}
         run: |
@@ -21,9 +25,9 @@ jobs:
             --connect-timeout 20 --max-time 60 \
             https://varoom-1.onrender.com/health \
             -o /dev/null
-          curl --fail --silent --show-error --retry 2 --retry-all-errors \
+          curl --fail --silent --show-error \
             --request POST \
             --header "Authorization: Bearer $NEWS_SCHEDULER_SECRET" \
             --header "Accept: application/json" \
             --connect-timeout 20 --max-time 840 \
-            "https://varoom-1.onrender.com/api/internal/jobs/collect"
+            "https://varoom-1.onrender.com/api/internal/jobs/collect?source_group=${{ matrix.source_group }}"
