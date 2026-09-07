@@ -428,8 +428,6 @@
   if (mode === 'add') {
     document.querySelector('.form-eyebrow').textContent = 'Add an account';
     document.querySelector('.form-sub').textContent = 'Sign in to link another VaRoom account.';
-    document.getElementById('google-btn').style.display = 'none';
-    document.querySelector('.divider').style.display = 'none';
     document.querySelector('.form-note').textContent = 'This adds a second account — your current one stays signed in.';
     document.querySelector('.form-switch').style.display = 'none';
   }
@@ -451,6 +449,13 @@
   /* ── Google OAuth ── */
   document.getElementById('google-btn').addEventListener('click', async function() {
     try {
+      if (mode === 'add' && window.VaRoomAccountSwitcher) {
+        var existing = await supabaseClient.auth.getSession();
+        var outgoingSession = existing.data && existing.data.session;
+        if (outgoingSession) {
+          await window.VaRoomAccountSwitcher.upsertFromSession(supabaseClient, outgoingSession);
+        }
+      }
       var { error } = await supabaseClient.auth.signInWithOAuth({
         provider: 'google',
         options: {
