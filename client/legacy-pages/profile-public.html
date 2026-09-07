@@ -44,7 +44,7 @@
     border-right:1px solid var(--card-border); background:var(--surface);
     display:flex; flex-direction:column; backdrop-filter:blur(16px);
   }
-  .aside-top{ display:flex; align-items:center; justify-content:space-between; margin-bottom:4.5rem; }
+  .aside-top{ display:flex; align-items:center; justify-content:space-between; margin-bottom:clamp(3rem, 12vh, 7rem); }
   .aside-close{ font-size:1.1rem; color:var(--muted); line-height:1; padding:.2rem; }
   .aside-close:hover{ color:var(--ink); }
   .aside-heading{ font-family:var(--font-display); font-weight:700; font-size:1.55rem; line-height:1.18; margin-bottom:.9rem; }
@@ -56,9 +56,6 @@
   }
   .aside-btn-primary{ background:var(--red); color:#fff; }
   .aside-btn-primary:hover{ background:var(--red-deep); }
-  .aside-btn-secondary{ border:1.5px solid var(--card-border); color:var(--ink); }
-  .aside-btn-secondary:hover{ border-color:var(--ink); }
-
   .aside-divider{ display:flex; align-items:center; gap:.7rem; margin:.9rem 0; color:var(--muted); font-size:.78rem; }
   .aside-divider::before, .aside-divider::after{ content:''; flex:1; height:1px; background:var(--card-border); }
 
@@ -88,7 +85,7 @@
   /* Only shown on mobile — on desktop the sidebar is the single sign-in entry point */
   @media (min-width:881px){ .signin-pill{ display:none; } }
 
-  main{ max-width:1000px; margin:0 auto; padding:2rem clamp(1.25rem, 5vw, 4.5rem) 6rem; }
+  main{ width:100%; margin:0; padding:2rem clamp(1.5rem, 4vw, 4.5rem) 6rem; }
   .state-msg{ text-align:center; padding:4rem 0; color:var(--muted); }
 
   .profile-head{ display:flex; flex-direction:column; align-items:center; text-align:center; margin-bottom:3.25rem; }
@@ -110,14 +107,14 @@
   .profile-bio{ font-size:.95rem; line-height:1.55; color:var(--ink); max-width:520px; }
 
   .section-title{ font-family:var(--font-display); font-weight:600; font-size:1.45rem; margin:2.2rem 0 1.15rem; }
-  .listing-grid{ display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:1.35rem; }
+  .listing-grid{ display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:1.5rem; }
 
   .listing-card{
     border:1px solid var(--card-border); border-radius:18px; overflow:hidden; display:block;
     background:var(--surface); transition:transform .15s ease, box-shadow .15s ease; position:relative;
   }
   .listing-card:hover{ transform:translateY(-3px); box-shadow:0 12px 28px rgba(33,25,23,.12); }
-  .listing-card img{ width:100%; aspect-ratio:4/3; object-fit:cover; display:block; background:var(--card-border); }
+  .listing-card img{ width:100%; aspect-ratio:16/10; object-fit:cover; display:block; background:var(--card-border); }
   .listing-card-body{ padding:1rem 1rem 1.05rem; }
   .listing-card-cat{ font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--red); margin-bottom:.35rem; }
   .listing-card-title{ font-weight:700; font-size:1rem; margin-bottom:.3rem; }
@@ -135,7 +132,10 @@
   .cta-btn{ display:inline-block; background:var(--ink); color:var(--white); padding:.9rem 1.8rem; border-radius:100px; font-weight:600; font-size:.9rem; }
   .cta-btn:hover{ background:var(--red); }
   .mobile-auth{ display:none; }
-  @media (max-width:1100px){ .listing-grid{ grid-template-columns:repeat(2, minmax(0, 1fr)); } }
+  @media (max-width:1100px) and (min-width:881px){
+    .signup-aside{ width:270px; padding-left:1.5rem; padding-right:1.5rem; }
+    .listing-grid{ gap:1.1rem; }
+  }
   @media (max-width:880px){
     .page{ display:block; }
     .signup-aside{ display:none; }
@@ -150,7 +150,6 @@
     header{ padding:1.15rem 1.25rem; }
     main{ padding-left:1.25rem; padding-right:1.25rem; }
     .listing-grid{ grid-template-columns:1fr; gap:1rem; }
-    .listing-card img{ aspect-ratio:16/10; }
     .profile-head{ margin-bottom:2.35rem; }
   }
 </style>
@@ -170,15 +169,13 @@
     <p class="aside-sub">Create an account or sign in to message hosts, book stays, and access VaRoom features.</p>
 
     <a href="/register" class="aside-btn aside-btn-primary">Create account</a>
-    <a href="/login" class="aside-btn aside-btn-secondary">Sign in</a>
-
-    <div class="aside-divider">or</div>
+    <div class="aside-divider">Continue to signing in</div>
 
     <button class="aside-oauth-btn" id="google-oauth-btn">
       <svg viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84c-.21 1.13-.85 2.09-1.8 2.73v2.27h2.92c1.7-1.57 2.68-3.88 2.68-6.64z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.17l-2.92-2.27c-.81.54-1.85.86-3.04.86-2.34 0-4.32-1.58-5.03-3.71H.96v2.33C2.44 15.98 5.48 18 9 18z"/><path fill="#FBBC05" d="M3.97 10.71a5.4 5.4 0 0 1 0-3.42V4.96H.96a9 9 0 0 0 0 8.08l3.01-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0 5.48 0 2.44 2.02.96 4.96l3.01 2.33C4.68 5.16 6.66 3.58 9 3.58z"/></svg>
       Continue with Google
     </button>
-    <a href="/register?method=email" class="aside-oauth-btn">
+    <a href="/login" class="aside-oauth-btn">
       <span aria-hidden="true">✉</span> Continue with Email
     </a>
   </aside>
@@ -186,7 +183,7 @@
   <div class="profile-wrap">
     <header>
       <a href="//" class="logo"><span class="va">Va</span><span class="room">Room</span></a>
-      <!-- Mobile-only sign-in entry point. Desktop hides this (sidebar is the single sign-in CTA). -->
+      <!-- Mobile-only sign-in entry point. -->
       <a href="/login" class="signin-pill">Sign in</a>
     </header>
 
@@ -219,7 +216,7 @@
             <a href="/register">Create account</a>
             <a href="/login">Sign in</a>
                 <button type="button" id="mobile-google-oauth">Continue with Google</button>
-                <a href="/register?method=email">Continue with Email</a>
+                <a href="/login">Continue with Email</a>
               </div>
             </div>
       </div>
@@ -255,6 +252,9 @@
     }
     document.getElementById('google-oauth-btn').addEventListener('click', startGoogleAuth);
     document.getElementById('mobile-google-oauth').addEventListener('click', startGoogleAuth);
+    document.querySelectorAll('a[href="/login"]').forEach(function(link){
+      link.href = '/login?redirect=' + encodeURIComponent(window.location.href);
+    });
 
     const username = getUsernameFromUrl();
     const loadingState = document.getElementById('loading-state');
