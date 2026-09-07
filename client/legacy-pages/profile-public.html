@@ -335,7 +335,7 @@
           img = '<img src="' + url + '" alt="" loading="lazy">';
         }
         return (
-          '<a class="listing-card" href="//booking?listing=' + l.id + '">' +
+          '<a class="listing-card" href="/booking?listing=' + encodeURIComponent(l.id) + '">' +
             '<details class="listing-menu">' +
               '<summary aria-label="Listing options">···</summary>' +
               '<ul><li><button type="button" data-report-listing="' + l.id + '">Report listing</button></li></ul>' +
