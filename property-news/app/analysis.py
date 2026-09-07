@@ -10,6 +10,7 @@ from .config import Settings
 from .constants import PROPERTY_CATEGORIES, RegulatoryStatus
 from .models import NewsAnalysis, NewsItem, Source
 from .risk import assess_risk
+from .quality import EVENT_TERMS
 
 
 KEYWORDS: dict[str, tuple[str, ...]] = {
@@ -112,7 +113,10 @@ class RulesBasedNewsAnalyzer:
         status = _status_from_text(text)
         facts = [{"statement": sentence} for sentence in _sentences(item.clean_text)
                  if re.search(r"\d|proposed|approved|effective|gazette|rate|tax", sentence, flags=re.I)][:6]
-        summary_sentences = _sentences(item.clean_text)[:2]
+        summary_sentences = [
+            sentence for sentence in _sentences(item.clean_text)
+            if any(term in sentence.lower() for term in EVENT_TERMS)
+        ][:2]
         summary = " ".join(summary_sentences)[:280] if summary_sentences else None
         body = item.clean_text[:4000].strip() if item.clean_text else None
         risk, reasons = assess_risk(text, status, source.trust_tier)

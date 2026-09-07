@@ -23,6 +23,7 @@ from .media import extract_article_image_url
 from .models import CandidateArticle, NewsEvent, NewsItem, Source
 from .normalizer import canonicalise_url, clean_html, content_hash
 from .repository import MemoryNewsRepository, SupabaseNewsRepository
+from .quality import classify_quality, parse_source_date
 
 logger = logging.getLogger(__name__)
 Repository = MemoryNewsRepository | SupabaseNewsRepository
@@ -243,6 +244,19 @@ class SourceCollector:
             result["candidates"] = len(candidates)
             result["articles_parsed"] = len(candidates)
             for candidate in candidates:
+                rejection = classify_quality(
+                    candidate.source_title, candidate.clean_text, candidate.source_url,
+                    candidate.source_published_at,
+                    allow_evergreen=bool(source.parser_config.get("allow_evergreen", False)),
+                )
+                if rejection:
+                    reason, details = rejection
+                    result["articles_rejected"] += 1
+                    logger.warning(
+                        "REJECTED NEWS ITEM source=%s url=%s reason=%s details=%s",
+                        source.name, candidate.source_url, reason, details,
+                    )
+                    continue
                 try:
                     stored, duplicate = await self._store_candidate(source, candidate)
                 except Exception as error:
@@ -444,6 +458,8 @@ class SourceCollector:
         extracted_text = await asyncio.to_thread(trafilatura.extract, html, include_comments=False, include_tables=False)
         metadata = await asyncio.to_thread(trafilatura.extract_metadata, html)
         extracted_title = (metadata.title if metadata else None) or None
+        extracted_date = parse_source_date(getattr(metadata, "date", None) if metadata else None)
+        extracted_date = extracted_date or parse_source_date(title)
         image_url = extract_article_image_url(html, url, source.base_url)
 
         usable_title = SourceCollector._usable_title(title)
@@ -456,8 +472,8 @@ class SourceCollector:
             clean_text = " ".join(parser.text)
             resolved_title = extracted_title or usable_title or " ".join(parser.title) or url
 
-        return CandidateArticle(source_id=source.id, source_url=url, source_title=resolved_title,
-                                source_published_at=published_at, original_content=html, clean_text=clean_text,
+        return CandidateArticle(source_id=source.id, source_url=canonicalise_url(url), source_title=resolved_title,
+                                source_published_at=published_at or extracted_date, original_content=html, clean_text=clean_text,
                                 image_url=image_url)
 
     async def _materialise_article(self, source: Source, candidate: CandidateArticle) -> CandidateArticle:

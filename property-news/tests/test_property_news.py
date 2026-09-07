@@ -18,6 +18,7 @@ from app.media import extract_article_image_url
 from app.jobs import run_collection_job
 from app.normalizer import canonicalise_url, content_hash
 from app.processing import ProcessingService
+from app.quality import classify_quality, parse_source_date
 from app.repository import MemoryNewsRepository
 from app.repository import SupabaseNewsRepository
 from app.retrieval import NewsRetrievalService
@@ -31,6 +32,29 @@ def source(*, tier: int = 1, active: bool = True) -> Source:
 
 
 class NormalisationTests(unittest.TestCase):
+    def test_quality_gate_rejects_institutional_and_old_content(self):
+        recent = datetime.now(timezone.utc) - timedelta(days=2)
+        self.assertEqual(
+            classify_quality("Vision, Mission & Values", "Our department describes its mandate and values. " * 20,
+                             "https://source.test/about", recent)[0],
+            "NON_NEWS_INSTITUTIONAL_PAGE",
+        )
+        old_date = parse_source_date("Investing in Kenya 12/07/2019")
+        self.assertEqual(
+            classify_quality("Investing in Kenya 12/07/2019",
+                             "The government announced a property investment framework for developers in Kenya. " * 10,
+                             "https://source.test/investing", old_date)[0],
+            "TOO_OLD",
+        )
+
+    def test_quality_gate_requires_reliable_date(self):
+        self.assertEqual(
+            classify_quality("New housing project announced",
+                             "The ministry announced a new housing project in Nairobi for tenants and developers. " * 8,
+                             "https://source.test/story", None)[0],
+            "MISSING_PUBLICATION_DATE",
+        )
+
     def test_canonical_url_removes_tracking_and_fragment(self):
         value = canonicalise_url("HTTPS://Example.test/notice/?utm_source=email&b=2&a=1#top")
         self.assertEqual(value, "https://example.test/notice?a=1&b=2")
@@ -51,6 +75,10 @@ class NormalisationTests(unittest.TestCase):
 
     def test_article_image_rejects_unqualified_document_images(self):
         html = '<img src="/uploads/budget-screenshot.png" alt="Budget document screenshot">'
+        self.assertIsNone(extract_article_image_url(html, "https://source1.example.test/story", "https://source1.example.test"))
+
+    def test_article_image_rejects_placeholders_and_tracking_pixels(self):
+        html = '<img src="/images/default-image.png" alt="Story"><img src="/pixel.gif" alt="Story">'
         self.assertIsNone(extract_article_image_url(html, "https://source1.example.test/story", "https://source1.example.test"))
 
     def test_location_formatting_summarizes_when_over_five_locations(self):
@@ -172,7 +200,10 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
     async def test_collection_persists_fetch_telemetry_and_returns_new_item_ids(self):
         collector = SourceCollector(self.repository, Settings())
         candidate = CandidateArticle(source_id=self.source.id, source_url="https://source1.example.test/digitisation",
-                                     source_title="Land registry digitisation", clean_text="Land registry digitisation in Nairobi. " * 20)
+                                     source_title="Land registry digitisation announced",
+                                     source_published_at=datetime.now(timezone.utc) - timedelta(days=2),
+                                     clean_text=("The ministry announced a land registry digitisation project in Nairobi, "
+                                                 "with new online services for property owners and developers. " * 8))
 
         async def discover(_source):
             return [candidate]
@@ -208,7 +239,10 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_scheduled_job_processes_and_publishes_a_safe_new_item(self):
         candidate = CandidateArticle(source_id=self.source.id, source_url="https://source1.example.test/safe-update",
-                                     source_title="Land registry digitisation update", clean_text="Land registry digitisation in Nairobi. " * 20)
+                                     source_title="Land registry digitisation update",
+                                     source_published_at=datetime.now(timezone.utc) - timedelta(days=2),
+                                     clean_text=("The ministry announced land registry digitisation in Nairobi, "
+                                                 "adding online services for property owners and developers. " * 8))
 
         async def discover(_collector, _source):
             return [candidate]
@@ -224,8 +258,12 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
             CandidateArticle(source_id=self.source.id, source_url=f"https://source1.example.test/safe-{index}",
                              source_title=("Land registry digitisation update in Nairobi"
                                            if index == 0 else "County housing construction permits in Mombasa"),
-                             clean_text=(("Land registry digitisation in Nairobi. " * 20)
-                                         if index == 0 else ("County housing construction permits in Mombasa. " * 20)))
+                             source_published_at=datetime.now(timezone.utc) - timedelta(days=2),
+                             clean_text=(("The ministry announced land registry digitisation in Nairobi, "
+                                           "adding online services for property owners and developers. " * 8)
+                                         if index == 0 else
+                                         ("The county approved housing construction permits in Mombasa, "
+                                          "enabling developers to begin work on new residential homes. " * 8)))
             for index in range(2)
         ]
 

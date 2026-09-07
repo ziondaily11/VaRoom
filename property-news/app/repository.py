@@ -14,6 +14,7 @@ import httpx
 from .config import Settings
 from .constants import ReviewStatus
 from .models import NewsAnalysis, NewsEvent, NewsItem, PublicNewsItem, Source
+from .normalizer import content_hash
 
 logger = logging.getLogger(__name__)
 MAX_NEWS_LIST_LIMIT = 100
@@ -296,6 +297,12 @@ class SupabaseNewsRepository:
 
     @staticmethod
     def _item(data: dict[str, Any]) -> NewsItem | PublicNewsItem:
+        if "content_hash" not in data and ("clean_text" in data or "original_content" in data):
+            clean_text = str(data.get("clean_text") or "").strip()
+            if not clean_text:
+                raise ValueError("Legacy news item is missing content_hash and has no clean_text to hash")
+            logger.warning("Backfilling missing content_hash from stored clean_text for news_id=%s", data.get("id"))
+            data = {**data, "content_hash": content_hash(clean_text)}
         model = NewsItem if "content_hash" in data else PublicNewsItem
         return model.model_validate(data)
 
