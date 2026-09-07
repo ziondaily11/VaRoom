@@ -401,6 +401,7 @@
 </div>
 
 <script src="js/supabase-client.js" onerror="console.warn('Using inline Supabase client')"></script>
+<script src="js/account-switcher.js" onerror="console.warn('Account switcher unavailable')"></script>
 <script>
   // Use supabase-client.js if available, otherwise init inline
   if (!window.supabaseClient) {
@@ -413,13 +414,24 @@
 
   var alertBox  = document.getElementById('form-alert');
   var submitBtn = document.getElementById('submit-btn');
-  var redirect  = new URLSearchParams(window.location.search).get('redirect');
+  var params    = new URLSearchParams(window.location.search);
+  var redirect  = params.get('redirect');
+  var mode      = params.get('mode'); // 'add' = linking a second account, current session stays signed in
 
   if (redirect) {
     var forgotLink = document.getElementById('forgot-link');
     if (forgotLink) forgotLink.href = '/forgot-password?redirect=' + encodeURIComponent(redirect);
     var createLink = document.getElementById('create-link');
-    if (createLink) createLink.href = '/register?redirect=' + encodeURIComponent(redirect);
+    if (createLink) createLink.href = '/?redirect=' + encodeURIComponent(redirect);
+  }
+
+  if (mode === 'add') {
+    document.querySelector('.form-eyebrow').textContent = 'Add an account';
+    document.querySelector('.form-sub').textContent = 'Sign in to link another VaRoom account.';
+    document.getElementById('google-btn').style.display = 'none';
+    document.querySelector('.divider').style.display = 'none';
+    document.querySelector('.form-note').textContent = 'This adds a second account — your current one stays signed in.';
+    document.querySelector('.form-switch').style.display = 'none';
   }
 
   function showAlert(msg, type) {
@@ -485,8 +497,24 @@
     submitBtn.disabled = true;
 
     try {
+      var outgoingSession = null;
+      if (mode === 'add') {
+        var existing = await supabaseClient.auth.getSession();
+        outgoingSession = existing.data && existing.data.session;
+      }
+
       var { data, error } = await supabaseClient.auth.signInWithPassword({ email, password: pass });
       if (error) throw error;
+
+      if (mode === 'add') {
+        // Save the account we were signed in as before it got overwritten above,
+        // so the switcher on profile.html can offer to switch back to it.
+        if (outgoingSession && window.VaRoomAccountSwitcher) {
+          await window.VaRoomAccountSwitcher.upsertFromSession(supabaseClient, outgoingSession);
+        }
+        window.location.href = redirect || '/profile.html';
+        return;
+      }
 
       var role = data.user.user_metadata && data.user.user_metadata.role;
       window.location.href = redirect || (role === 'host' ? '/host-home' : '/client-home');
@@ -509,16 +537,20 @@
     });
   });
 
-  /* Auto-redirect if already logged in */
-  (async function() {
-    try {
-      var { data } = await supabaseClient.auth.getSession();
-      if (data && data.session && !redirect) {
-        var role = data.session.user.user_metadata && data.session.user.user_metadata.role;
-        window.location.href = redirect || (role === 'host' ? '/host-home' : '/client-home');
-      }
-    } catch(e) {}
-  })();
+  /* Auto-redirect if already logged in — skipped in add-account mode, since
+     the whole point there is to sign in as a *different* account while
+     staying logged into the current one. */
+  if (mode !== 'add') {
+    (async function() {
+      try {
+        var { data } = await supabaseClient.auth.getSession();
+        if (data && data.session) {
+          var role = data.session.user.user_metadata && data.session.user.user_metadata.role;
+          window.location.href = redirect || (role === 'host' ? '/host-home' : '/client-home');
+        }
+      } catch(e) {}
+    })();
+  }
 </script>
 </body>
 </html>
