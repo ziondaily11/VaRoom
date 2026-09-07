@@ -14,4 +14,10 @@ jobs:
     steps:
       - name: Ping health endpoint
         run: |
-          curl -sS -o /dev/null -w "Status: %{http_code}\n" https://varoom.co.ke/api/health
+          curl --fail --silent --show-error --retry 2 --retry-all-errors \
+            --connect-timeout 20 --max-time 60 \
+            https://varoom-1.onrender.com/health
+          curl --fail --silent --show-error --retry 2 --retry-all-errors \
+            --connect-timeout 20 --max-time 60 \
+            "https://varoom-1.onrender.com/api/news/latest?limit=1" \
+            -o /dev/null
