@@ -212,6 +212,41 @@
   .photo-error{ font-size:.8rem; color:#ff9d9d; display:none; margin-top:.4rem; }
   .photo-error.show{ display:block; }
 
+  .photo-thumb.add-tile{
+    cursor:pointer; border:1.5px dashed var(--wz-dark-border); background:transparent;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.15rem;
+    color:#B8ACA8; font-size:.62rem; font-weight:600; transition:border-color .2s ease, color .2s ease;
+  }
+  .photo-thumb.add-tile:hover{ border-color:var(--red); color:var(--red); }
+  .photo-thumb.add-tile svg{ width:20px; height:20px; }
+
+  .photo-lightbox{
+    display:none; position:fixed; inset:0; z-index:400; background:rgba(10,7,6,.92);
+    align-items:center; justify-content:center; padding:2rem;
+  }
+  .photo-lightbox.show{ display:flex; }
+  .photo-lightbox-media{ max-width:92vw; max-height:86vh; }
+  .photo-lightbox-media img, .photo-lightbox-media video{ max-width:92vw; max-height:86vh; display:block; border-radius:10px; }
+  .photo-lightbox-close{
+    position:fixed; top:1.4rem; right:1.4rem; width:40px; height:40px; border-radius:50%;
+    background:rgba(255,255,255,.12); color:#fff; display:flex; align-items:center; justify-content:center;
+  }
+  .photo-lightbox-close:hover{ background:rgba(255,255,255,.24); }
+
+  /* ============ AMENITIES ============ */
+  .amenities-hint{ font-size:.78rem; margin-bottom:.8rem; }
+  .tone-dark .amenities-hint{ color:#B8ACA8; }
+  .amenities-grid{ display:grid; grid-template-columns:repeat(2, 1fr); gap:.6rem .8rem; }
+  @media (min-width:520px){ .amenities-grid{ grid-template-columns:repeat(3, 1fr); } }
+  .amenity-check{
+    display:flex; align-items:center; gap:.5rem; padding:.55rem .6rem; border-radius:10px;
+    border:1px solid var(--wz-dark-border); cursor:pointer; font-size:.82rem; transition:border-color .2s ease, background .2s ease;
+  }
+  .amenity-check:hover{ border-color:var(--red); }
+  .amenity-check input{ width:auto; accent-color:var(--red); flex-shrink:0; }
+  .amenity-check svg{ width:16px; height:16px; color:var(--red); flex-shrink:0; }
+  .amenity-check.checked{ border-color:var(--red); background:rgba(196,30,58,.12); }
+
   /* ============ PRICING STEP ============ */
   .price-preview{ margin-bottom:1.4rem; }
   .price-preview .amount{ font-family:var(--font-display); font-weight:700; font-size:2.3rem; line-height:1; }
@@ -282,8 +317,8 @@
 
 <div class="wizard" id="listing-page" style="display:none;">
   <nav class="wizard-top-nav">
-    <a href="/" class="logo"><span class="va">Va</span><span class="room">Room</span></a>
-    <a href="/" class="back-link">← Back to VaRoom</a>
+    <a href="/host-home" class="logo"><span class="va">Va</span><span class="room">Room</span></a>
+    <a href="/host-home" class="back-link">← Back to VaRoom</a>
   </nav>
 
   <form id="list-form">
@@ -402,6 +437,12 @@
               </label>
               <p class="photo-error" id="photo-error"></p>
               <div class="photo-preview-grid" id="photo-preview"></div>
+            </div>
+
+            <div class="field" style="margin-top:.6rem;">
+              <label>Amenities</label>
+              <p class="amenities-hint">Select everything this space offers. Shown to guests on the booking page.</p>
+              <div class="amenities-grid" id="amenities-grid"></div>
             </div>
           </div>
 
@@ -605,6 +646,13 @@
   <div class="success-msg" id="success-msg"><div class="inner" id="success-msg-inner"></div></div>
 </div>
 
+<div class="photo-lightbox" id="photo-lightbox">
+  <button type="button" class="photo-lightbox-close" id="photo-lightbox-close" aria-label="Close preview">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+  </button>
+  <div class="photo-lightbox-media" id="photo-lightbox-media"></div>
+</div>
+
 <script src="js/supabase-client.js"></script>
 <script src="js/listing-feed-cache.js"></script>
 <script src="js/varoom-maps.js"></script>
@@ -727,6 +775,42 @@
   }
   document.getElementById('price-amount').addEventListener('input', updatePricePreview);
   priceUnitField.addEventListener('change', updatePricePreview);
+
+  // ---------- Amenities (full list for every category, for now) ----------
+  // Same keys/icons as the booking page's amenity grid, so once this data
+  // is wired through, the icons and labels match exactly on both ends.
+  const AMENITY_OPTIONS = [
+    ['wifi', 'Free Wi-Fi', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>'],
+    ['mountain', 'Mountain View', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 3 4 8 5-5 5 15H2L8 3z"/></svg>'],
+    ['parking', 'Free Parking', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 17V7h4a3 3 0 0 1 0 6H9"/></svg>'],
+    ['kitchen', 'Kitchen', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg>'],
+    ['heating', 'Heating', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5Z"/></svg>'],
+    ['tv', 'TV', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="15" x="2" y="7" rx="2"/><polyline points="17 2 12 7 7 2"/></svg>'],
+    ['workspace', 'Workspace', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 16V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v9m16 0H4m16 0 1.28 2.55a1 1 0 0 1-.9 1.45H3.62a1 1 0 0 1-.9-1.45L4 16"/></svg>'],
+    ['balcony', 'Balcony', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V9l8-6 8 6v12"/><path d="M4 21h16"/><path d="M9 21v-6h6v6"/></svg>'],
+    ['breakfast', 'Breakfast', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 8h1a4 4 0 1 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><line x1="6" y1="2" x2="6" y2="4"/><line x1="10" y1="2" x2="10" y2="4"/><line x1="14" y1="2" x2="14" y2="4"/></svg>'],
+    ['bonfire', 'Bonfire Area', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 9 9l-4 2 3 2-2 4 6-2 6 2-2-4 3-2-4-2-3-7Z"/></svg>'],
+    ['pet', 'Pet Friendly', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="4" r="2"/><circle cx="18" cy="8" r="2"/><circle cx="20" cy="16" r="2"/><path d="M9 10a5 5 0 0 1 5 5v3.5a3.5 3.5 0 0 1-6.84 1.04Q6.52 17.48 4.46 16.84A3.5 3.5 0 0 1 5.5 10Z"/></svg>'],
+    ['power', '24/7 Power Backup', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h1a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-1"/><path d="M6 7H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h1"/><polyline points="11 7 7 12 13 12 9 17"/><line x1="22" y1="11" x2="22" y2="13"/></svg>']
+  ];
+
+  const amenitiesGrid = document.getElementById('amenities-grid');
+  amenitiesGrid.innerHTML = AMENITY_OPTIONS.map(function(a){
+    const key = a[0], labelText = a[1], icon = a[2];
+    return '<label class="amenity-check" for="amenity-' + key + '">' +
+      '<input type="checkbox" id="amenity-' + key + '" value="' + key + '">' +
+      icon + '<span>' + labelText + '</span>' +
+    '</label>';
+  }).join('');
+
+  amenitiesGrid.querySelectorAll('.amenity-check').forEach(function(row){
+    const cb = row.querySelector('input');
+    cb.addEventListener('change', function(){ row.classList.toggle('checked', cb.checked); });
+  });
+
+  function getSelectedAmenities(){
+    return Array.from(amenitiesGrid.querySelectorAll('input:checked')).map(function(cb){ return cb.value; });
+  }
 
   // ---------- Step navigation ----------
   const TOTAL_STEPS = 5;
@@ -900,6 +984,22 @@
   });
   renderCalendar();
 
+  // ---------- Photo lightbox (click-to-preview) ----------
+  const photoLightbox = document.getElementById('photo-lightbox');
+  const photoLightboxMedia = document.getElementById('photo-lightbox-media');
+
+  function openPhotoLightbox(file){
+    const url = URL.createObjectURL(file);
+    const isVideo = file.type && file.type.startsWith('video/');
+    photoLightboxMedia.innerHTML = isVideo
+      ? '<video src="' + url + '" controls autoplay playsinline></video>'
+      : '<img src="' + url + '" alt="Preview">';
+    photoLightbox.classList.add('show');
+  }
+  document.getElementById('photo-lightbox-close').addEventListener('click', function(){ photoLightbox.classList.remove('show'); });
+  photoLightbox.addEventListener('click', function(e){ if (e.target === photoLightbox) photoLightbox.classList.remove('show'); });
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape') photoLightbox.classList.remove('show'); });
+
   // ---------- Photo selection, preview, drag-to-reorder, validation ----------
   const MAX_PHOTOS = 6;
   const MAX_SIZE_BYTES = 5 * 1024 * 1024;
@@ -951,15 +1051,37 @@
         '<button type="button" class="remove-photo" data-index="' + index + '" aria-label="Remove photo">&times;</button>';
       photoPreview.appendChild(thumb);
     });
+
+    if (selectedFiles.length < MAX_PHOTOS) {
+      const addTile = document.createElement('button');
+      addTile.type = 'button';
+      addTile.className = 'photo-thumb add-tile';
+      addTile.setAttribute('aria-label', 'Add another photo or video');
+      addTile.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg><span>Add</span>';
+      addTile.addEventListener('click', function(){ photoInput.click(); });
+      photoPreview.appendChild(addTile);
+    }
+
     photoPreview.querySelectorAll('.remove-photo').forEach(function(btn){
-      btn.addEventListener('click', function(){
+      btn.addEventListener('click', function(e){
+        e.stopPropagation();
         selectedFiles.splice(parseInt(btn.getAttribute('data-index'), 10), 1);
         clearPhotoError();
         renderPreviews();
       });
     });
+
+    // Click-to-preview (ignore the remove button and the add tile)
+    photoPreview.querySelectorAll('.photo-thumb:not(.add-tile)').forEach(function(thumb){
+      thumb.addEventListener('click', function(e){
+        if (e.target.closest('.remove-photo')) return;
+        const idx = parseInt(thumb.dataset.index, 10);
+        if (selectedFiles[idx]) openPhotoLightbox(selectedFiles[idx]);
+      });
+    });
+
     // Drag-to-reorder
-    photoPreview.querySelectorAll('.photo-thumb').forEach(function(thumb){
+    photoPreview.querySelectorAll('.photo-thumb:not(.add-tile)').forEach(function(thumb){
       thumb.addEventListener('dragstart', function(){
         dragFromIndex = parseInt(thumb.dataset.index, 10);
       });
@@ -1135,7 +1257,10 @@
       listing_id: listingId,
       price_amount: parseFloat(priceAmount),
       price_unit: document.getElementById('price-unit').value,
-      size_or_type: sizeInput.value || null
+      size_or_type: sizeInput.value || null,
+      // NOTE: assumes `listing_booking_details` has an `amenities` column
+      // (text[] or jsonb). Flagging this in case that column doesn't exist yet.
+      amenities: getSelectedAmenities()
     };
 
     if (SHORT_STAY.includes(category)) {
@@ -1216,7 +1341,7 @@
     if (window.VaRoomListingFeedCache) window.VaRoomListingFeedCache.invalidateAll();
 
     successMsg.classList.remove('error');
-    let message = 'Listing published! You can add the exact location later from your listing settings.';
+    let message = 'Listing published! Taking you back to your home page...';
     if (selectedFiles.length > 0) {
       message += ' All ' + uploadedCount + ' media item' + (uploadedCount === 1 ? '' : 's') + ' uploaded successfully.';
     }
@@ -1224,11 +1349,7 @@
     successMsg.classList.add('show');
     successMsg.scrollIntoView({ behavior:'smooth', block:'center' });
 
-    document.getElementById('list-form').reset();
-    selectedFiles = []; renderPreviews();
-    openDates.clear(); renderCalendar();
-    submitBtn.disabled = false; submitBtn.textContent = 'Publish listing ✓';
-    furthestStep = 1; goToStep(1);
+    setTimeout(function(){ window.location.href = '/host-home'; }, 1400);
   });
 </script>
 
