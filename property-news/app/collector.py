@@ -31,6 +31,19 @@ MAX_SOURCES_PER_RUN = 20
 SOURCE_GROUP_COUNT = 11
 
 GENERIC_LINK_TEXTS = {"read more", "click here", "learn more", "continue", "more", "here", "news"}
+NON_ARTICLE_PATH_PARTS = {
+    "about", "account", "author", "category", "contact", "login", "register",
+    "sponsored", "search", "tag", "tags", "wp-admin", "wp-login",
+}
+DOCUMENT_EXTENSIONS = {
+    ".7z", ".csv", ".doc", ".docx", ".gz", ".jpeg", ".jpg", ".png", ".ppt",
+    ".pptx", ".rar", ".svg", ".tar", ".xls", ".xlsx", ".xml", ".zip", ".pdf",
+}
+ARTICLE_CONTENT_TYPES = {"text/html", "application/xhtml+xml"}
+DISCOVERY_CONTENT_TYPES = ARTICLE_CONTENT_TYPES | {
+    "application/atom+xml", "application/feed+json", "application/json",
+    "application/rss+xml", "application/xml", "text/xml",
+}
 
 
 class _ArticleHTMLParser(HTMLParser):
@@ -119,9 +132,20 @@ class SourceCollector:
         due_sources = [source for source in sources if self._is_due(source)]
         due_sources.sort(key=self._last_attempt_at)
         due_sources = due_sources[:MAX_SOURCES_PER_RUN]
-        totals: dict[str, Any] = {"sources_checked": len(due_sources), "candidates": 0, "new_items": 0, "duplicates": 0,
-                                  "failures": 0, "new_item_ids": []}
+        totals: dict[str, Any] = {
+            "sources_checked": len(due_sources), "sources_attempted": len(due_sources),
+            "sources_successful": 0, "sources_failed": 0, "candidates": 0,
+            "articles_discovered": 0, "articles_rejected": 0, "articles_parsed": 0,
+            "articles_inserted": 0, "new_items": 0, "duplicates": 0,
+            "duplicates_skipped": 0, "failures": 0, "article_failures": 0,
+            "new_item_ids": [],
+        }
         if not due_sources:
+            logger.info(
+                "Collection summary: sources_attempted=0 sources_successful=0 sources_failed=0 "
+                "articles_discovered=0 articles_rejected=0 articles_parsed=0 articles_inserted=0 "
+                "duplicates_skipped=0",
+            )
             return totals
 
         semaphore = asyncio.Semaphore(4)
@@ -132,18 +156,43 @@ class SourceCollector:
 
         results = await asyncio.gather(*[_bounded_collect(source) for source in due_sources], return_exceptions=False)
         for result in results:
-            for key in ("candidates", "new_items", "duplicates", "failures"):
-                totals[key] += result[key]
+            for key in (
+                "sources_successful", "sources_failed", "candidates",
+                "articles_discovered", "articles_rejected", "articles_parsed",
+                "articles_inserted", "new_items", "duplicates", "duplicates_skipped",
+                "failures", "article_failures",
+            ):
+                totals[key] += int(result.get(key, 0))
             totals["new_item_ids"].extend(result["new_item_ids"])
+        logger.info(
+            "Collection summary: sources_attempted=%d sources_successful=%d sources_failed=%d "
+            "articles_discovered=%d articles_rejected=%d articles_parsed=%d articles_inserted=%d "
+            "duplicates_skipped=%d",
+            totals["sources_attempted"], totals["sources_successful"], totals["sources_failed"],
+            totals["articles_discovered"], totals["articles_rejected"], totals["articles_parsed"],
+            totals["articles_inserted"], totals["duplicates_skipped"],
+        )
         return totals
 
     async def collect_source(self, source: Source) -> dict[str, Any]:
         started = datetime.now(timezone.utc)
-        result: dict[str, Any] = {"candidates": 0, "new_items": 0, "duplicates": 0, "failures": 0, "new_item_ids": []}
+        result: dict[str, Any] = {
+            "sources_successful": 0, "sources_failed": 0, "candidates": 0,
+            "articles_discovered": 0, "articles_rejected": 0, "articles_parsed": 0,
+            "articles_inserted": 0, "new_items": 0, "duplicates": 0,
+            "duplicates_skipped": 0, "failures": 0, "article_failures": 0,
+            "new_item_ids": [],
+        }
         run_id: UUID | None = None
         try:
             run_id = await self.repository.start_fetch_run(source.id, started)
-            raw_candidates = await self._discover(source)
+            discovered = await self._discover(source)
+            if isinstance(discovered, tuple):
+                raw_candidates, rejected_count = discovered
+            else:
+                raw_candidates, rejected_count = discovered, 0
+            result["articles_discovered"] = len(raw_candidates) + rejected_count
+            result["articles_rejected"] = rejected_count
 
             # Materialize articles with bounded concurrency (up to 5 concurrently per source)
             semaphore = asyncio.Semaphore(5)
@@ -159,15 +208,26 @@ class SourceCollector:
             candidates: list[CandidateArticle] = []
             for candidate, article in zip(raw_candidates, materialised):
                 if isinstance(article, Exception):
-                    logger.warning("Article fetch failed for %s: %s", candidate.source_url, article)
+                    result["article_failures"] += 1
+                    result["articles_rejected"] += 1
+                    logger.warning("Article failure for source=%s url=%s: %s", source.name, candidate.source_url, article)
                     continue
                 candidates.append(article)
             result["candidates"] = len(candidates)
+            result["articles_parsed"] = len(candidates)
             for candidate in candidates:
-                stored, duplicate = await self._store_candidate(source, candidate)
+                try:
+                    stored, duplicate = await self._store_candidate(source, candidate)
+                except Exception as error:
+                    result["article_failures"] += 1
+                    logger.warning("Article failure: source=%s url=%s: %s", source.name, candidate.source_url, error)
+                    continue
                 result["duplicates" if duplicate else "new_items"] += 1
+                if duplicate:
+                    result["duplicates_skipped"] += 1
                 if stored:
                     result["new_item_ids"].append(stored.id)
+                    result["articles_inserted"] += 1
             source.last_successful_fetch_at = datetime.now(timezone.utc)
             await self.repository.upsert_source(source)
             await self.repository.add_event(NewsEvent(source_id=source.id, event_type="source_fetch_succeeded", payload={
@@ -177,9 +237,16 @@ class SourceCollector:
             await self.repository.finish_fetch_run(run_id, result="succeeded", ended_at=datetime.now(timezone.utc),
                                                    discovered_count=result["candidates"], new_item_count=result["new_items"],
                                                    duplicate_count=result["duplicates"])
+            result["sources_successful"] = 1
+            logger.info(
+                "Source succeeded: source=%s discovered=%d rejected=%d parsed=%d inserted=%d duplicates=%d",
+                source.name, result["articles_discovered"], result["articles_rejected"],
+                result["articles_parsed"], result["articles_inserted"], result["duplicates_skipped"],
+            )
         except Exception as error:  # A source failure must never stop other sources.
-            logger.warning("Source %s failed: %s", source.name, error)
+            logger.warning("Source failure: source=%s error=%s", source.name, error)
             result["failures"] = 1
+            result["sources_failed"] = 1
             source.last_failed_fetch_at = datetime.now(timezone.utc)
             try:
                 await self.repository.upsert_source(source)
@@ -219,7 +286,7 @@ class SourceCollector:
         candidates = [value for value in (last_success, last_fail) if value is not None]
         return max(candidates) if candidates else datetime.min.replace(tzinfo=timezone.utc)
 
-    async def _discover(self, source: Source) -> list[CandidateArticle]:
+    async def _discover(self, source: Source) -> tuple[list[CandidateArticle], int] | list[CandidateArticle]:
         config = source.parser_config
         if source.fetch_method == "manual":
             urls = config.get("urls", [])
@@ -227,7 +294,7 @@ class SourceCollector:
         endpoint = config.get("discovery_url") or source.base_url
         if not self._is_allowed_source_url(source, endpoint):
             raise ValueError("Discovery URL is not an approved source host")
-        body = await self._fetch(endpoint)
+        body = await self._fetch(endpoint, allowed_content_types=DISCOVERY_CONTENT_TYPES)
         if source.fetch_method in {"rss", "atom"}:
             candidates = self._parse_feed(source, body, endpoint)
         elif source.fetch_method == "sitemap":
@@ -235,12 +302,16 @@ class SourceCollector:
         elif source.fetch_method == "api":
             candidates = self._parse_api(source, body, endpoint)
         elif source.fetch_method == "html":
-            candidates = self._parse_html_discovery(source, body, endpoint)
+            candidates, rejected_count = self._parse_html_discovery(source, body, endpoint)
         else:
             raise ValueError(f"Unsupported fetch method: {source.fetch_method}")
-        return [candidate for candidate in candidates if self._is_allowed_source_url(source, candidate.source_url)]
+        if source.fetch_method == "html":
+            return [candidate for candidate in candidates if self._is_allowed_source_url(source, candidate.source_url)], rejected_count
+        allowed = [candidate for candidate in candidates if self._is_allowed_source_url(source, candidate.source_url)
+                   and self._is_likely_article_url(candidate.source_url, candidate.source_title, source.base_url)]
+        return allowed, len(candidates) - len(allowed)
 
-    async def _fetch(self, url: str) -> str:
+    async def _fetch(self, url: str, *, allowed_content_types: set[str] | None = None) -> str:
         origin = re.sub(r"^(https?://[^/]+).*$", r"\1", url)
         delay = self.settings.min_request_interval_seconds - (time.monotonic() - self._last_request_at.get(origin, 0))
         if delay > 0:
@@ -251,6 +322,10 @@ class SourceCollector:
             try:
                 async with client.stream("GET", url) as response:
                     response.raise_for_status()
+                    content_type = response.headers.get("content-type", "").split(";", 1)[0].strip().lower()
+                    accepted_types = allowed_content_types or DISCOVERY_CONTENT_TYPES
+                    if content_type not in accepted_types:
+                        raise ValueError(f"Unsupported Content-Type {content_type or '<missing>'}")
                     chunks: list[bytes] = []
                     total = 0
                     async for chunk in response.aiter_bytes():
@@ -270,7 +345,9 @@ class SourceCollector:
     async def _fetch_article(self, source: Source, url: str, title: str | None = None, published_at: datetime | None = None) -> CandidateArticle:
         if not self._is_allowed_source_url(source, url):
             raise ValueError("Article URL is not an approved source host")
-        html = await self._fetch(url)
+        if not self._is_likely_article_url(url, title, source.base_url):
+            raise ValueError("URL rejected as a non-article")
+        html = await self._fetch(url, allowed_content_types=ARTICLE_CONTENT_TYPES)
 
         # Offload synchronous trafilatura extraction to threadpool to avoid blocking event loop
         extracted_text = await asyncio.to_thread(trafilatura.extract, html, include_comments=False, include_tables=False)
@@ -339,7 +416,7 @@ class SourceCollector:
                                  clean_text=clean_html(str(row.get(text_key) or "")))
                 for row in items if isinstance(row, dict) and row.get(url_key)]
 
-    def _parse_html_discovery(self, source: Source, body: str, base_url: str) -> list[CandidateArticle]:
+    def _parse_html_discovery(self, source: Source, body: str, base_url: str) -> tuple[list[CandidateArticle], int]:
         parser = _ArticleHTMLParser()
         parser.feed(body)
         pattern = source.parser_config.get("url_contains", "")
@@ -349,6 +426,7 @@ class SourceCollector:
         max_articles = min(max(int(source.parser_config.get("max_articles", 100)), 1), 100)
         seen: set[str] = set()
         articles: list[CandidateArticle] = []
+        rejected_count = 0
         for href, title in parser.links:
             if (pattern and pattern not in href) or any(value in href for value in excluded):
                 continue
@@ -356,6 +434,9 @@ class SourceCollector:
             if compiled_regex and not compiled_regex.search(path):
                 continue
             url = urljoin(base_url, href)
+            if not self._is_likely_article_url(url, title, source.base_url):
+                rejected_count += 1
+                continue
             canonical = canonicalise_url(url)
             if canonical in seen:
                 continue
@@ -366,7 +447,7 @@ class SourceCollector:
             ))
             if len(articles) >= max_articles:
                 break
-        return articles
+        return articles, rejected_count
 
     @staticmethod
     def _usable_title(value: str | None) -> str:
@@ -386,6 +467,25 @@ class SourceCollector:
         extra_hosts = source.parser_config.get("allowed_hosts", [])
         allowed_hosts = {host.lower() for host in [source_host, *extra_hosts] if isinstance(host, str) and host}
         return parsed.hostname.lower() in allowed_hosts
+
+    @staticmethod
+    def _is_likely_article_url(url: str, title: str | None, base_url: str) -> bool:
+        parsed = urlparse(url)
+        if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+            return False
+        if parsed.path.rstrip("/") == urlparse(base_url).path.rstrip("/") and not parsed.path.strip("/"):
+            return False
+        path = parsed.path.lower()
+        if "/cdn-cgi/l/email-protection/" in path:
+            return False
+        if any(path.endswith(extension) for extension in DOCUMENT_EXTENSIONS):
+            return False
+        segments = {segment for segment in path.split("/") if segment}
+        if segments & NON_ARTICLE_PATH_PARTS:
+            return False
+        if title is not None and not SourceCollector._usable_title(title):
+            return False
+        return len(path.strip("/")) >= 3
 
     @staticmethod
     def _element_text(entry: ET.Element, name: str) -> str | None:

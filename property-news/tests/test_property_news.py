@@ -82,6 +82,36 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         _, title_duplicate = await collector._store_candidate(self.source, title_changed)
         self.assertTrue(title_duplicate)
 
+    async def test_html_discovery_rejects_documents_and_non_article_paths(self):
+        collector = SourceCollector(self.repository, Settings())
+        body = """
+        <html><body>
+          <a href="/story/real-estate-update">Real estate update</a>
+          <a href="/cdn-cgi/l/email-protection/abc">Contact</a>
+          <a href="/wp-content/uploads/report.pdf">Annual report</a>
+          <a href="/category/real-estate">Real estate</a>
+          <a href="/sponsored">Sponsored</a>
+        </body></html>
+        """
+        candidates, rejected = collector._parse_html_discovery(self.source, body, self.source.base_url)
+        self.assertEqual([candidate.source_url for candidate in candidates],
+                         ["https://source1.example.test/story/real-estate-update"])
+        self.assertEqual(rejected, 4)
+
+    async def test_collection_result_reports_empty_success_and_article_rejections(self):
+        collector = SourceCollector(self.repository, Settings())
+        async def discover(_source):
+            return ([], 3)
+        collector._discover = discover  # type: ignore[method-assign]
+        result = await collector.collect_due_sources()
+        self.assertEqual(result["sources_successful"], 1)
+        self.assertEqual(result["articles_rejected"], 3)
+        self.assertEqual(result["articles_parsed"], 0)
+        from app.jobs import _collection_status
+        self.assertEqual(_collection_status({
+            "sources_attempted": 1, "sources_failed": 0, "articles_parsed": 0,
+        }), "empty")
+
     async def test_collection_persists_fetch_telemetry_and_returns_new_item_ids(self):
         collector = SourceCollector(self.repository, Settings())
         candidate = CandidateArticle(source_id=self.source.id, source_url="https://source1.example.test/digitisation",

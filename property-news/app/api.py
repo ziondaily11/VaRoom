@@ -242,7 +242,11 @@ def create_app(config: Settings = settings, repository: Repository | None = None
         except TimeoutError:
             return {
                 "status": "already_running",
-                "sources_checked": 0, "candidates": 0, "new_items": 0, "duplicates": 0, "failures": 0,
+                "collection_status": "already_running",
+                "sources_checked": 0, "sources_attempted": 0, "sources_successful": 0, "sources_failed": 0,
+                "candidates": 0, "articles_discovered": 0, "articles_rejected": 0,
+                "articles_parsed": 0, "articles_inserted": 0, "new_items": 0,
+                "duplicates": 0, "duplicates_skipped": 0, "failures": 0, "article_failures": 0,
                 "processed": 0, "published": 0, "pending_review": 0, "archived": 0,
                 "processing_failures": 0, "retried": 0,
             }
