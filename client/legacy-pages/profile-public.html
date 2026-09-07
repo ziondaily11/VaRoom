@@ -22,12 +22,13 @@
 <link rel="icon" href="/favicon/favicon.ico" sizes="any">
 <style>
   :root{
-    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#1A1210; --paper:#FBF4F1;
-    --muted:#7a6b67; --card-border:rgba(26,18,16,.12);
+    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#211917; --paper:#FBF7F5;
+    --surface:rgba(255,255,255,.72); --muted:#786b67; --card-border:rgba(33,25,23,.12);
     --font-display:'Fraunces', serif; --font-body:'Inter', sans-serif;
   }
   [data-theme="dark"]{
-    --white:#241C1A; --paper:#15100F; --ink:#F5EFEC; --muted:#B8ACA8; --card-border:rgba(255,255,255,.1);
+    --white:#241C1A; --paper:#120E0D; --ink:#F5EFEC; --surface:rgba(36,28,26,.72);
+    --muted:#B8ACA8; --card-border:rgba(255,255,255,.12);
   }
   *{ margin:0; padding:0; box-sizing:border-box; }
   body{ font-family:var(--font-body); background:var(--paper); color:var(--ink); min-height:100vh; }
@@ -39,21 +40,21 @@
 
   /* ---------- Sign-up side panel (desktop only) ---------- */
   .signup-aside{
-    width:320px; flex-shrink:0; padding:2.2rem 2rem;
-    border-right:1px solid var(--card-border);
-    display:flex; flex-direction:column;
+    width:300px; flex-shrink:0; padding:2.25rem 2rem 2rem;
+    border-right:1px solid var(--card-border); background:var(--surface);
+    display:flex; flex-direction:column; backdrop-filter:blur(16px);
   }
-  .aside-top{ display:flex; align-items:center; justify-content:space-between; margin-bottom:2.5rem; }
+  .aside-top{ display:flex; align-items:center; justify-content:space-between; margin-bottom:4.5rem; }
   .aside-close{ font-size:1.1rem; color:var(--muted); line-height:1; padding:.2rem; }
   .aside-close:hover{ color:var(--ink); }
-  .aside-heading{ font-family:var(--font-display); font-weight:700; font-size:1.6rem; line-height:1.25; margin-bottom:.9rem; }
+  .aside-heading{ font-family:var(--font-display); font-weight:700; font-size:1.55rem; line-height:1.18; margin-bottom:.9rem; }
   .aside-sub{ font-size:.88rem; color:var(--muted); line-height:1.5; margin-bottom:1.6rem; }
 
   .aside-btn{
     display:block; width:100%; text-align:center; padding:.85rem 1rem; border-radius:100px;
     font-weight:600; font-size:.9rem; margin-bottom:.7rem;
   }
-  .aside-btn-primary{ background:var(--red); color:var(--white); }
+  .aside-btn-primary{ background:var(--red); color:#fff; }
   .aside-btn-primary:hover{ background:var(--red-deep); }
   .aside-btn-secondary{ border:1.5px solid var(--card-border); color:var(--ink); }
   .aside-btn-secondary:hover{ border-color:var(--ink); }
@@ -75,7 +76,7 @@
   .profile-wrap{ flex:1; min-width:0; }
 
   /* ---------- Header ---------- */
-  header{ display:flex; align-items:center; justify-content:space-between; padding:1.5rem 2.5rem; }
+  header{ display:flex; align-items:center; justify-content:space-between; padding:1.5rem clamp(1.25rem, 4vw, 3.5rem); }
   .logo{ font-family:var(--font-display); font-weight:900; font-size:1.55rem; display:flex; align-items:baseline; }
   .logo .va{ color:var(--red); }
 
@@ -87,13 +88,13 @@
   /* Only shown on mobile — on desktop the sidebar is the single sign-in entry point */
   @media (min-width:881px){ .signin-pill{ display:none; } }
 
-  main{ max-width:640px; margin:0 auto; padding:1.5rem 6vw 6rem; }
+  main{ max-width:1000px; margin:0 auto; padding:2rem clamp(1.25rem, 5vw, 4.5rem) 6rem; }
   .state-msg{ text-align:center; padding:4rem 0; color:var(--muted); }
 
-  .profile-head{ display:flex; flex-direction:column; align-items:center; text-align:center; margin-bottom:2rem; }
+  .profile-head{ display:flex; flex-direction:column; align-items:center; text-align:center; margin-bottom:3.25rem; }
   .avatar-circle{
-    width:110px; height:110px; border-radius:50%;
-    background:var(--red); color:var(--white);
+    width:116px; height:116px; border-radius:50%;
+    background:var(--red); color:#fff;
     display:flex; align-items:center; justify-content:center;
     font-weight:700; font-size:2.2rem; overflow:hidden; margin-bottom:1rem;
   }
@@ -103,31 +104,55 @@
     display:inline-block; font-size:.75rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
     padding:.3rem .8rem; border-radius:100px; border:1.5px solid var(--red); color:var(--red); margin-bottom:.7rem;
   }
-  .profile-name{ font-family:var(--font-display); font-weight:600; font-size:1.7rem; margin-bottom:.2rem; }
+  .profile-name{ font-family:var(--font-display); font-weight:600; font-size:clamp(1.8rem, 3vw, 2.35rem); margin-bottom:.2rem; }
   .profile-username{ color:var(--muted); font-size:.9rem; margin-bottom:.5rem; }
-  .profile-location{ font-size:.8rem; color:var(--muted); margin-bottom:1rem; }
-  .profile-bio{ font-size:.95rem; line-height:1.55; color:var(--ink); max-width:440px; }
+  .profile-location{ font-size:.82rem; color:var(--muted); margin-bottom:1rem; }
+  .profile-bio{ font-size:.95rem; line-height:1.55; color:var(--ink); max-width:520px; }
 
-  .section-title{ font-family:var(--font-display); font-weight:600; font-size:1.2rem; margin:2.2rem 0 1rem; }
-  .listing-grid{ display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
-  @media (max-width:520px){ .listing-grid{ grid-template-columns:1fr; } }
+  .section-title{ font-family:var(--font-display); font-weight:600; font-size:1.45rem; margin:2.2rem 0 1.15rem; }
+  .listing-grid{ display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:1.35rem; }
 
   .listing-card{
-    border:1px solid var(--card-border); border-radius:16px; overflow:hidden; display:block;
-    transition:transform .15s ease;
+    border:1px solid var(--card-border); border-radius:18px; overflow:hidden; display:block;
+    background:var(--surface); transition:transform .15s ease, box-shadow .15s ease; position:relative;
   }
-  .listing-card:hover{ transform:translateY(-2px); }
+  .listing-card:hover{ transform:translateY(-3px); box-shadow:0 12px 28px rgba(33,25,23,.12); }
   .listing-card img{ width:100%; aspect-ratio:4/3; object-fit:cover; display:block; background:var(--card-border); }
-  .listing-card-body{ padding:.8rem .9rem; }
-  .listing-card-cat{ font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--red-deep); margin-bottom:.25rem; }
-  .listing-card-title{ font-weight:700; font-size:.9rem; margin-bottom:.15rem; }
+  .listing-card-body{ padding:1rem 1rem 1.05rem; }
+  .listing-card-cat{ font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--red); margin-bottom:.35rem; }
+  .listing-card-title{ font-weight:700; font-size:1rem; margin-bottom:.3rem; }
   .listing-card-loc{ font-size:.78rem; color:var(--muted); }
+  .listing-menu{ position:absolute; top:.7rem; right:.7rem; z-index:2; }
+  .listing-menu summary{ list-style:none; width:2rem; height:2rem; border-radius:50%; display:grid; place-items:center; background:rgba(20,15,14,.58); color:#fff; font-size:1.1rem; cursor:pointer; }
+  .listing-menu summary::-webkit-details-marker{ display:none; }
+  .listing-menu ul{ position:absolute; right:0; top:2.4rem; min-width:125px; padding:.35rem; list-style:none; border:1px solid var(--card-border); border-radius:10px; background:var(--white); color:var(--ink); box-shadow:0 8px 24px rgba(0,0,0,.16); }
+  .listing-menu button{ width:100%; padding:.5rem .65rem; text-align:left; font-size:.78rem; color:inherit; }
+  .listing-menu button:hover{ background:var(--paper); }
 
   .no-listings{ color:var(--muted); font-size:.9rem; text-align:center; padding:2rem 0; }
-  .cta-footer{ text-align:center; margin-top:3rem; padding-top:2rem; border-top:1px solid var(--card-border); }
+  .cta-footer{ text-align:center; margin-top:4rem; padding-top:2rem; border-top:1px solid var(--card-border); }
   .cta-footer p{ color:var(--muted); font-size:.9rem; margin-bottom:.9rem; }
   .cta-btn{ display:inline-block; background:var(--ink); color:var(--white); padding:.9rem 1.8rem; border-radius:100px; font-weight:600; font-size:.9rem; }
   .cta-btn:hover{ background:var(--red); }
+  .mobile-auth{ display:none; }
+  @media (max-width:1100px){ .listing-grid{ grid-template-columns:repeat(2, minmax(0, 1fr)); } }
+  @media (max-width:880px){
+    .page{ display:block; }
+    .signup-aside{ display:none; }
+    main{ padding-top:.75rem; }
+    .mobile-auth{ display:block; text-align:center; margin-top:3rem; }
+    .mobile-auth p{ color:var(--muted); font-size:.88rem; margin-bottom:.9rem; }
+    .mobile-auth-actions{ display:flex; justify-content:center; gap:.6rem; flex-wrap:wrap; }
+    .mobile-auth-actions a, .mobile-auth-actions button{ border:1px solid var(--card-border); border-radius:100px; padding:.7rem 1rem; font-size:.82rem; font-weight:600; color:var(--ink); }
+    .mobile-auth-actions a:first-child{ background:var(--red); border-color:var(--red); color:#fff; }
+  }
+  @media (max-width:520px){
+    header{ padding:1.15rem 1.25rem; }
+    main{ padding-left:1.25rem; padding-right:1.25rem; }
+    .listing-grid{ grid-template-columns:1fr; gap:1rem; }
+    .listing-card img{ aspect-ratio:16/10; }
+    .profile-head{ margin-bottom:2.35rem; }
+  }
 </style>
 </head>
 <body>
@@ -138,16 +163,14 @@
   <aside class="signup-aside" id="signup-aside">
     <div class="aside-top">
       <span class="logo"><span class="va">Va</span><span class="room">Room</span></span>
-      <button class="aside-close" id="aside-close" aria-label="Dismiss">✕</button>
+      <button class="aside-close" id="aside-close" aria-label="Dismiss">×</button>
     </div>
 
     <h2 class="aside-heading">Book with confidence on VaRoom</h2>
-    <p class="aside-sub">Create an account or sign in to message hosts, book stays and get the best deals.</p>
+    <p class="aside-sub">Create an account or sign in to message hosts, book stays, and access VaRoom features.</p>
 
-    <!-- TODO: point to the real create-account route -->
-    <a href="/signup" class="aside-btn aside-btn-primary">Get started</a>
-    <!-- TODO: point to the real sign-in route -->
-    <a href="/signin" class="aside-btn aside-btn-secondary">Sign in</a>
+    <a href="/register" class="aside-btn aside-btn-primary">Create account</a>
+    <a href="/login" class="aside-btn aside-btn-secondary">Sign in</a>
 
     <div class="aside-divider">or</div>
 
@@ -155,9 +178,8 @@
       <svg viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84c-.21 1.13-.85 2.09-1.8 2.73v2.27h2.92c1.7-1.57 2.68-3.88 2.68-6.64z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.17l-2.92-2.27c-.81.54-1.85.86-3.04.86-2.34 0-4.32-1.58-5.03-3.71H.96v2.33C2.44 15.98 5.48 18 9 18z"/><path fill="#FBBC05" d="M3.97 10.71a5.4 5.4 0 0 1 0-3.42V4.96H.96a9 9 0 0 0 0 8.08l3.01-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0 5.48 0 2.44 2.02.96 4.96l3.01 2.33C4.68 5.16 6.66 3.58 9 3.58z"/></svg>
       Continue with Google
     </button>
-    <!-- TODO: point to the real email sign-up route -->
-    <a href="/signup?method=email" class="aside-oauth-btn">
-      ✉️ Continue with Email
+    <a href="/register?method=email" class="aside-oauth-btn">
+      <span aria-hidden="true">✉</span> Continue with Email
     </a>
   </aside>
 
@@ -165,8 +187,7 @@
     <header>
       <a href="//" class="logo"><span class="va">Va</span><span class="room">Room</span></a>
       <!-- Mobile-only sign-in entry point. Desktop hides this (sidebar is the single sign-in CTA). -->
-      <!-- TODO: point to the real sign-in route -->
-      <a href="/signin" class="signin-pill">Sign in</a>
+      <a href="/login" class="signin-pill">Sign in</a>
     </header>
 
     <main>
@@ -192,6 +213,15 @@
           <p>Looking for a place to stay or list your own space?</p>
           <a href="//" class="cta-btn">Explore VaRoom</a>
         </div>
+        <div class="mobile-auth">
+          <p>Book with confidence on VaRoom</p>
+          <div class="mobile-auth-actions">
+            <a href="/register">Create account</a>
+            <a href="/login">Sign in</a>
+                <button type="button" id="mobile-google-oauth">Continue with Google</button>
+                <a href="/register?method=email">Continue with Email</a>
+              </div>
+            </div>
       </div>
     </main>
   </div>
@@ -217,12 +247,14 @@
       asideEl.style.display = 'none';
     });
 
-    document.getElementById('google-oauth-btn').addEventListener('click', async function(){
+    async function startGoogleAuth(){
       await supabaseClient.auth.signInWithOAuth({
         provider: 'google',
         options: { redirectTo: window.location.href }
       });
-    });
+    }
+    document.getElementById('google-oauth-btn').addEventListener('click', startGoogleAuth);
+    document.getElementById('mobile-google-oauth').addEventListener('click', startGoogleAuth);
 
     const username = getUsernameFromUrl();
     const loadingState = document.getElementById('loading-state');
@@ -319,6 +351,10 @@
         }
         return (
           '<a class="listing-card" href="//booking?listing=' + l.id + '">' +
+            '<details class="listing-menu" onclick="event.stopPropagation()">' +
+              '<summary aria-label="Listing options">···</summary>' +
+              '<ul><li><button type="button" data-report-listing="' + l.id + '">Report listing</button></li></ul>' +
+            '</details>' +
             img +
             '<div class="listing-card-body">' +
               '<div class="listing-card-cat">' + (l.category || '') + '</div>' +
@@ -328,6 +364,13 @@
           '</a>'
         );
       }).join('');
+      listingGrid.addEventListener('click', function(event){
+        const reportButton = event.target.closest('[data-report-listing]');
+        if (!reportButton) return;
+        event.preventDefault();
+        event.stopPropagation();
+        window.location.href = '/login?redirect=' + encodeURIComponent(window.location.href) + '&report=' + encodeURIComponent(reportButton.getAttribute('data-report-listing'));
+      });
     }
   })();
 </script>
