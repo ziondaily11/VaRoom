@@ -4,6 +4,7 @@ import argparse
 import asyncio
 import json
 import logging
+from typing import Any
 
 from .analysis import NewsAnalyzer, build_analyzer
 from .collector import SourceCollector
@@ -13,15 +14,28 @@ from .processing import ProcessingService
 from .repository import build_repository
 
 
-async def run_collection_job(repository=None, config=settings, analyzer: NewsAnalyzer | None = None) -> dict[str, int]:
+async def run_collection_job(repository=None, config=settings, analyzer: NewsAnalyzer | None = None,
+                             source_group: int | None = None) -> dict[str, Any]:
     """Collect due sources and process every newly discovered item in one run."""
     store = repository or build_repository(config)
     collector = SourceCollector(store, config)
     processor = ProcessingService(store, analyzer or build_analyzer(config))
     try:
-        released = await store.release_due_publications()
-        collected = await collector.collect_due_sources()
-        result = {key: int(collected[key]) for key in ("sources_checked", "candidates", "new_items", "duplicates", "failures")}
+        try:
+            released = await store.release_due_publications()
+        except Exception as error:
+            logging.getLogger(__name__).error("Publication release failed; continuing collection: %s", error)
+            released = 0
+        collected = await collector.collect_due_sources(source_group=source_group)
+        result = {key: int(collected.get(key, 0)) for key in (
+            "sources_checked", "sources_attempted", "sources_successful", "sources_failed",
+            "candidates", "articles_discovered", "articles_rejected", "articles_parsed",
+            "articles_inserted", "new_items", "duplicates", "duplicates_skipped",
+            "failures", "article_failures", "urls_discovered", "urls_rejected",
+            "security_blocked_urls", "articles_fetched",
+            "timeouts", "http_403", "http_404", "oversized_responses",
+        )}
+        result["collection_status"] = _collection_status(result)
         failed_item_ids = [item.id for item in await store.list_failed_items()]
         item_ids = list(dict.fromkeys([*collected["new_item_ids"], *failed_item_ids]))
         result.update({"processed": 0, "published": released, "pending_review": 0, "archived": 0,
@@ -54,6 +68,21 @@ async def run_collection_job(repository=None, config=settings, analyzer: NewsAna
         await collector.close()
 
 
+def _collection_status(result: dict[str, Any]) -> str:
+    attempted = result.get("sources_attempted", result.get("sources_checked", 0))
+    failed = result.get("sources_failed", result.get("failures", 0))
+    parsed = result.get("articles_parsed", result.get("candidates", 0))
+    if not attempted:
+        return "no_sources_due"
+    if failed == attempted:
+        return "failed"
+    if failed:
+        return "partial"
+    if not parsed:
+        return "empty"
+    return "succeeded"
+
+
 async def run_reprocess_job(repository=None, config=settings, analyzer: NewsAnalyzer | None = None,
                              limit: int = 20) -> dict[str, int]:
     """Re-fetch and re-clean existing items using the current extraction logic.
@@ -70,7 +99,7 @@ async def run_reprocess_job(repository=None, config=settings, analyzer: NewsAnal
     collector = SourceCollector(store, config)
     processor = ProcessingService(store, analyzer or build_analyzer(config))
     result = {"checked": 0, "reprocessed": 0, "fetch_failures": 0, "processing_failures": 0}
-    items = await store.list_items(published_only=False)
+    items = await store.list_items(published_only=False, limit=min(limit, 25))
     for item in items[:limit]:
         result["checked"] += 1
         source = await store.get_source(item.source_id)

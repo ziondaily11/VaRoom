@@ -18,7 +18,9 @@ from app.media import extract_article_image_url
 from app.jobs import run_collection_job
 from app.normalizer import canonicalise_url, content_hash
 from app.processing import ProcessingService
+from app.quality import classify_quality, parse_source_date
 from app.repository import MemoryNewsRepository
+from app.repository import SupabaseNewsRepository
 from app.retrieval import NewsRetrievalService
 from app.review import ReviewService
 from app.seed_sources import upsert_official_lands_source
@@ -30,6 +32,29 @@ def source(*, tier: int = 1, active: bool = True) -> Source:
 
 
 class NormalisationTests(unittest.TestCase):
+    def test_quality_gate_rejects_institutional_and_old_content(self):
+        recent = datetime.now(timezone.utc) - timedelta(days=2)
+        self.assertEqual(
+            classify_quality("Vision, Mission & Values", "Our department describes its mandate and values. " * 20,
+                             "https://source.test/about", recent)[0],
+            "NON_NEWS_INSTITUTIONAL_PAGE",
+        )
+        old_date = parse_source_date("Investing in Kenya 12/07/2019")
+        self.assertEqual(
+            classify_quality("Investing in Kenya 12/07/2019",
+                             "The government announced a property investment framework for developers in Kenya. " * 10,
+                             "https://source.test/investing", old_date)[0],
+            "TOO_OLD",
+        )
+
+    def test_quality_gate_requires_reliable_date(self):
+        self.assertEqual(
+            classify_quality("New housing project announced",
+                             "The ministry announced a new housing project in Nairobi for tenants and developers. " * 8,
+                             "https://source.test/story", None)[0],
+            "MISSING_PUBLICATION_DATE",
+        )
+
     def test_canonical_url_removes_tracking_and_fragment(self):
         value = canonicalise_url("HTTPS://Example.test/notice/?utm_source=email&b=2&a=1#top")
         self.assertEqual(value, "https://example.test/notice?a=1&b=2")
@@ -50,6 +75,10 @@ class NormalisationTests(unittest.TestCase):
 
     def test_article_image_rejects_unqualified_document_images(self):
         html = '<img src="/uploads/budget-screenshot.png" alt="Budget document screenshot">'
+        self.assertIsNone(extract_article_image_url(html, "https://source1.example.test/story", "https://source1.example.test"))
+
+    def test_article_image_rejects_placeholders_and_tracking_pixels(self):
+        html = '<img src="/images/default-image.png" alt="Story"><img src="/pixel.gif" alt="Story">'
         self.assertIsNone(extract_article_image_url(html, "https://source1.example.test/story", "https://source1.example.test"))
 
     def test_location_formatting_summarizes_when_over_five_locations(self):
@@ -82,10 +111,99 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         _, title_duplicate = await collector._store_candidate(self.source, title_changed)
         self.assertTrue(title_duplicate)
 
+    async def test_html_discovery_rejects_documents_and_non_article_paths(self):
+        collector = SourceCollector(self.repository, Settings())
+        body = """
+        <html><body>
+          <a href="/story/real-estate-update">Real estate update</a>
+          <a href="/cdn-cgi/l/email-protection/abc">Contact</a>
+          <a href="/wp-content/uploads/report.pdf">Annual report</a>
+          <a href="/category/real-estate">Real estate</a>
+          <a href="/sponsored">Sponsored</a>
+        </body></html>
+        """
+        candidates, rejected = collector._parse_html_discovery(self.source, body, self.source.base_url)
+        self.assertEqual([candidate.source_url for candidate in candidates],
+                         ["https://source1.example.test/story/real-estate-update"])
+        self.assertEqual(rejected, 4)
+
+    async def test_source_hosts_are_normalized_without_allowing_external_hosts(self):
+        configured = Source(
+            name="People Daily", base_url="https://peopledaily.digital.",
+            trust_tier=2, fetch_method="html", schedule_minutes=30, active=True,
+            parser_config={"allowed_hosts": ["www.peopledaily.digital"]},
+        )
+        collector = SourceCollector(self.repository, Settings())
+        self.assertTrue(collector._is_allowed_source_url(configured, "https://WWW.PeopleDaily.Digital./story"))
+        self.assertTrue(collector._is_allowed_source_url(configured, "https://peopledaily.digital/story"))
+        self.assertFalse(collector._is_allowed_source_url(configured, "https://evil.example/story"))
+
+    async def test_article_classifier_rejects_indexes_documents_and_media(self):
+        collector = SourceCollector(self.repository, Settings())
+        rejected = (
+            "/cdn-cgi/l/email-protection/x", "/videos/", "/entertainment/",
+            "/farmkenya/podcasts", "/farmkenya/farmersmarket", "/games",
+            "/sponsored/", "/category/real-estate", "/results/farms-and-small-holdings/",
+            "/report.pdf", "/image.jpg", "/contact/",
+        )
+        for path in rejected:
+            self.assertFalse(collector._is_likely_article_url(
+                f"https://source1.example.test{path}", "A real title", self.source.base_url
+            ), path)
+
+    async def test_collection_result_reports_empty_success_and_article_rejections(self):
+        collector = SourceCollector(self.repository, Settings())
+        async def discover(_source):
+            return ([], 3)
+        collector._discover = discover  # type: ignore[method-assign]
+        result = await collector.collect_due_sources()
+        self.assertEqual(result["sources_successful"], 1)
+        self.assertEqual(result["articles_rejected"], 3)
+        self.assertEqual(result["articles_parsed"], 0)
+        from app.jobs import _collection_status
+        self.assertEqual(_collection_status({
+            "sources_attempted": 1, "sources_failed": 0, "articles_parsed": 0,
+        }), "empty")
+
+    async def test_supabase_get_retries_transient_read_timeouts(self):
+        repository = SupabaseNewsRepository(
+            Settings(supabase_url="https://supabase.example.test", supabase_service_role_key="server-only")
+        )
+
+        class RetryingClient:
+            def __init__(self):
+                self.calls = 0
+
+            async def request(self, method, url, **kwargs):
+                self.calls += 1
+                if self.calls < 3:
+                    raise httpx.ReadTimeout("temporary read timeout")
+                return httpx.Response(
+                    200, json=[{"ok": True}],
+                    request=httpx.Request(method, url),
+                )
+
+            async def aclose(self):
+                return None
+
+        client = RetryingClient()
+        repository.client = client
+        try:
+            self.assertEqual(
+                await repository._request("GET", "news_items", params={"limit": "2"}),
+                [{"ok": True}],
+            )
+            self.assertEqual(client.calls, 3)
+        finally:
+            await repository.close()
+
     async def test_collection_persists_fetch_telemetry_and_returns_new_item_ids(self):
         collector = SourceCollector(self.repository, Settings())
         candidate = CandidateArticle(source_id=self.source.id, source_url="https://source1.example.test/digitisation",
-                                     source_title="Land registry digitisation", clean_text="Land registry digitisation in Nairobi. " * 20)
+                                     source_title="Land registry digitisation announced",
+                                     source_published_at=datetime.now(timezone.utc) - timedelta(days=2),
+                                     clean_text=("The ministry announced a land registry digitisation project in Nairobi, "
+                                                 "with new online services for property owners and developers. " * 8))
 
         async def discover(_source):
             return [candidate]
@@ -97,9 +215,34 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(self.repository.fetch_runs), 1)
         self.assertEqual(next(iter(self.repository.fetch_runs.values()))["result"], "succeeded")
 
+    async def test_source_group_selects_only_its_stable_bucket(self):
+        for index in range(11):
+            grouped_source = Source(
+                name=f"Grouped source {index:02d}",
+                base_url=f"https://grouped{index}.example.test",
+                trust_tier=1, fetch_method="rss", schedule_minutes=30, active=True,
+            )
+            await self.repository.upsert_source(grouped_source)
+
+        collector = SourceCollector(self.repository, Settings())
+        seen: list[str] = []
+
+        async def collect_source(grouped_source):
+            seen.append(grouped_source.name)
+            return {"candidates": 0, "new_items": 0, "duplicates": 0, "failures": 0, "new_item_ids": []}
+
+        collector.collect_source = collect_source  # type: ignore[method-assign]
+        result = await collector.collect_due_sources(source_group=3)
+
+        self.assertEqual(result["sources_checked"], 1)
+        self.assertEqual(seen, ["Grouped source 03"])
+
     async def test_scheduled_job_processes_and_publishes_a_safe_new_item(self):
         candidate = CandidateArticle(source_id=self.source.id, source_url="https://source1.example.test/safe-update",
-                                     source_title="Land registry digitisation update", clean_text="Land registry digitisation in Nairobi. " * 20)
+                                     source_title="Land registry digitisation update",
+                                     source_published_at=datetime.now(timezone.utc) - timedelta(days=2),
+                                     clean_text=("The ministry announced land registry digitisation in Nairobi, "
+                                                 "adding online services for property owners and developers. " * 8))
 
         async def discover(_collector, _source):
             return [candidate]
@@ -115,8 +258,12 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
             CandidateArticle(source_id=self.source.id, source_url=f"https://source1.example.test/safe-{index}",
                              source_title=("Land registry digitisation update in Nairobi"
                                            if index == 0 else "County housing construction permits in Mombasa"),
-                             clean_text=(("Land registry digitisation in Nairobi. " * 20)
-                                         if index == 0 else ("County housing construction permits in Mombasa. " * 20)))
+                             source_published_at=datetime.now(timezone.utc) - timedelta(days=2),
+                             clean_text=(("The ministry announced land registry digitisation in Nairobi, "
+                                           "adding online services for property owners and developers. " * 8)
+                                         if index == 0 else
+                                         ("The county approved housing construction permits in Mombasa, "
+                                          "enabling developers to begin work on new residential homes. " * 8)))
             for index in range(2)
         ]
 
@@ -239,6 +386,7 @@ class ApiSecurityTests(unittest.IsolatedAsyncioTestCase):
                 category="property", source_tier=1, content_hash=digest, review_status=review_status,
                 published_at=datetime.now(timezone.utc) if review_status is ReviewStatus.PUBLISHED else None,
                 original_content='<img src="/story.jpeg" alt="Story">' if review_status is ReviewStatus.PUBLISHED else None,
+                image_url="https://source1.example.test/story.jpeg" if review_status is ReviewStatus.PUBLISHED else None,
             )
             await repository.save_item(item)
         app = create_app(Settings(public_rate_limit_per_minute=100), repository)
@@ -314,6 +462,61 @@ class ApiSecurityTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(accepted.status_code, 200)
         self.assertEqual(accepted.json()["sources_checked"], 0)
 
+    async def test_latest_news_uses_a_small_public_select(self):
+        class CapturingRepository(MemoryNewsRepository):
+            def __init__(self):
+                super().__init__()
+                self.select_fields = None
+
+            async def list_items(self, **kwargs):
+                self.select_fields = kwargs.get("select_fields")
+                return []
+
+        repository = CapturingRepository()
+        app = create_app(Settings(public_rate_limit_per_minute=100), repository)
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.get("/api/news/latest?limit=50")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(repository.select_fields, (
+            "id,source_id,source_url,canonical_url,source_title,source_published_at,varoom_title,"
+            "varoom_summary,category,topics,counties,towns,regulatory_status,affected_groups,"
+            "risk_level,source_tier,published_at,image_url"
+        ))
+
+    async def test_public_projection_does_not_require_internal_content_hash(self):
+        repository = MemoryNewsRepository()
+        source_record = source()
+        await repository.upsert_source(source_record)
+        item = NewsItem(
+            source_id=source_record.id, source_url="https://source1.example.test/story",
+            canonical_url="https://source1.example.test/story", source_title="Property update",
+            clean_text="Property update", varoom_title="Property update", varoom_summary="Summary",
+            category="property", source_tier=1, content_hash="a" * 64,
+            review_status=ReviewStatus.PUBLISHED, published_at=datetime.now(timezone.utc),
+        )
+        await repository.save_item(item)
+        public_items = await repository.list_items(
+            published_only=True, limit=2,
+            select_fields="id,source_id,source_url,canonical_url,source_title,source_published_at,"
+                          "varoom_title,varoom_summary,category,topics,counties,towns,regulatory_status,"
+                          "affected_groups,risk_level,source_tier,published_at,image_url",
+        )
+        self.assertEqual(public_items[0].source_title, "Property update")
+        self.assertFalse(hasattr(public_items[0], "content_hash"))
+
+    async def test_latest_news_surfaces_timeout_as_service_unavailable(self):
+        class TimeoutRepository(MemoryNewsRepository):
+            async def list_items(self, **kwargs):
+                raise httpx.ReadTimeout("Supabase read timed out")
+
+        app = create_app(Settings(public_rate_limit_per_minute=100), TimeoutRepository())
+        transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.get("/api/news/latest?limit=2")
+        self.assertEqual(response.status_code, 503)
+        self.assertIn("temporarily unavailable", response.json()["detail"])
+
 
 class MigrationSafetyTests(unittest.TestCase):
     def test_migration_is_additive_and_contains_required_tables_and_rls(self):
@@ -327,6 +530,8 @@ class MigrationSafetyTests(unittest.TestCase):
     def test_performance_migration_file_exists_and_adds_image_column(self):
         migration = (Path(__file__).parents[1] / "supabase" / "migrations" / "20260828_000002_property_news_performance.sql").read_text(encoding="utf-8").lower()
         self.assertIn("add column if not exists image_url", migration)
+        latest_index = (Path(__file__).parents[1] / "supabase" / "migrations" / "20260907_000003_property_news_latest_index.sql").read_text(encoding="utf-8").lower()
+        self.assertIn("news_items_published_latest_idx", latest_index)
 
 
 if __name__ == "__main__":

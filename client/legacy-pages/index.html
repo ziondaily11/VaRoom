@@ -449,10 +449,10 @@
       width: 100%;
       max-width: 380px;
       margin: 0 auto;
-      padding: 12px 24px 44px;
+      padding: clamp(20px, 5vw, 26px) 24px 44px;
       display: flex;
       flex-direction: column;
-      gap: 14px;
+      gap: clamp(14px, 3.5vw, 18px);
       flex: 1;
     }
 
@@ -466,12 +466,12 @@
     }
     .mob-role-chip {
       flex: 1;
-      height: 38px;
+      height: clamp(40px, 10vw, 44px);
       border-radius: 999px;
       background: transparent;
       border: none;
       color: rgba(255,255,255,0.6);
-      font: 600 13px var(--sans);
+      font: 600 clamp(13px, 3.4vw, 15px) var(--sans);
       cursor: pointer;
       transition: background-color 0.2s, color 0.2s;
     }
@@ -482,9 +482,9 @@
     }
 
     .mob-auth-alert {
-      padding: 10px 14px;
+      padding: 11px 14px;
       border-radius: 10px;
-      font-size: 13px;
+      font-size: clamp(13px, 3.4vw, 15px);
       background: rgba(196,30,58,0.18);
       border: 1px solid rgba(196,30,58,0.4);
       color: var(--crimson);
@@ -507,13 +507,13 @@
     }
     .mob-input-wrap input {
       width: 100%;
-      height: 52px;
+      height: clamp(54px, 13.5vw, 58px);
       background: #181211;
       border: 1px solid rgba(255,255,255,0.12);
       border-radius: 12px;
       padding: 0 16px 0 46px;
       color: white;
-      font: 14px var(--sans);
+      font: clamp(14px, 3.6vw, 16px) var(--sans);
       outline: none;
       transition: border-color 0.2s, background-color 0.2s, box-shadow 0.2s;
     }
@@ -528,11 +528,11 @@
 
     .btn-mob-continue {
       width: 100%;
-      height: 50px;
+      height: clamp(52px, 13vw, 56px);
       border-radius: 999px;
       background: linear-gradient(180deg, #e0314b 0%, #c41e3a 100%);
       color: white;
-      font: 600 14px var(--sans);
+      font: 600 clamp(14px, 3.6vw, 16px) var(--sans);
       border: none;
       cursor: pointer;
       display: flex;
@@ -563,12 +563,12 @@
 
     .btn-mob-google {
       width: 100%;
-      height: 50px;
+      height: clamp(52px, 13vw, 56px);
       border-radius: 999px;
       background: #140f0e;
       border: 1px solid rgba(255,255,255,0.12);
       color: white;
-      font: 600 14px var(--sans);
+      font: 600 clamp(14px, 3.6vw, 16px) var(--sans);
       cursor: pointer;
       display: flex;
       align-items: center;
@@ -584,10 +584,13 @@
 
     .mob-auth-footer {
       text-align: center;
-      font-size: 13px;
+      font-size: clamp(13px, 3.4vw, 15px);
       color: rgba(255,255,255,0.5);
-      margin-top: 22px;
+      margin-top: clamp(20px, 5vw, 26px);
       line-height: 1.5;
+    }
+    .mob-forgot-link {
+      font-size: clamp(12px, 3.1vw, 14px) !important;
     }
     .mob-signup-link {
       color: #e0314b;
@@ -2828,7 +2831,7 @@
       <button type="button" class="mob-signup-link" id="mob-toggle-mode-btn" style="background:none; border:none; cursor:pointer; font-size:inherit; font-family:inherit;">Sign Up</button>
     </p>
     <p id="mob-forgot-wrap" style="text-align:center; margin-top:2px;">
-      <a href="/forgot-password" style="font-size:12px; color:rgba(255,255,255,0.45); text-decoration:none;">Forgot password?</a>
+      <a href="/forgot-password" class="mob-forgot-link" style="color:rgba(255,255,255,0.45); text-decoration:none;">Forgot password?</a>
     </p>
   </form>
 </div>
@@ -3428,7 +3431,7 @@
         <strong>For hosts</strong>
         <a href="/list">List a property</a>
         <a href="/list">Host tools</a>
-        <a href="/list">Host support</a>
+        <a href="/support">Host support</a>
       </div>
       <div class="footer-links-col">
         <strong>Product</strong>
@@ -3440,7 +3443,7 @@
         <strong>Company</strong>
         <a href="#">About VaRoom</a>
         <a href="#">Contact</a>
-        <a href="#">Help</a>
+        <a href="/support">Help</a>
       </div>
     </div>
   </div>

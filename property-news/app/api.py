@@ -9,6 +9,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
+import httpx
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -19,10 +20,18 @@ from .config import Settings, settings
 from .constants import ReviewStatus
 from .models import ReviewAction
 from .processing import ProcessingService
-from .repository import MemoryNewsRepository, PropertyNewsRepositoryUnavailable, SupabaseNewsRepository, build_repository
+from .repository import (
+    MAX_NEWS_LIST_LIMIT,
+    PUBLIC_ITEM_FIELDS,
+    MemoryNewsRepository,
+    PropertyNewsRepositoryUnavailable,
+    SupabaseNewsRepository,
+    build_repository,
+)
 from .retrieval import NewsRetrievalService
 from .review import ReviewService
 from .jobs import run_collection_job, run_reprocess_job
+from .collector import SOURCE_GROUP_COUNT
 from .media import extract_article_image_url
 from .seed_sources import seed_verified_sources, upsert_official_lands_source
 
@@ -54,12 +63,15 @@ def _public_item(item, source) -> dict[str, Any]:
         image_url = extract_article_image_url(item.original_content, item.source_url, source.base_url)
     return {
         "id": str(item.id), "title": item.varoom_title or item.source_title, "summary": item.varoom_summary,
-        "body": item.varoom_body, "category": item.category, "topics": item.topics, "counties": item.counties,
+        "body": getattr(item, "varoom_body", None), "category": item.category, "topics": item.topics, "counties": item.counties,
         "towns": item.towns, "location_summary": format_location_display(item.counties, item.towns),
         "regulatory_status": item.regulatory_status, "affected_groups": item.affected_groups,
         "risk_level": item.risk_level, "source": source_payload, "image_url": image_url,
         "published_at": item.published_at,
     }
+
+
+PUBLIC_NEWS_FIELDS = PUBLIC_ITEM_FIELDS
 
 
 def create_app(config: Settings = settings, repository: Repository | None = None) -> FastAPI:
@@ -149,9 +161,21 @@ def create_app(config: Settings = settings, repository: Repository | None = None
 
     @app.get("/api/news/latest")
     async def latest_news(limit: int = Query(default=2, ge=1, le=50), service: ServiceContainer = Depends(container)):
-        items = await service.repository.list_items(published_only=True, limit=limit)
-        sources_map = await service.repository.get_sources_map([item.source_id for item in items])
-        return [ _public_item(item, sources_map.get(item.source_id)) for item in items ]
+        try:
+            items = await service.repository.list_items(
+                published_only=True, limit=limit, select_fields=PUBLIC_NEWS_FIELDS,
+            )
+            sources_map = await service.repository.get_sources_map([item.source_id for item in items])
+            return [_public_item(item, sources_map.get(item.source_id)) for item in items]
+        except httpx.TimeoutException as error:
+            logger.error("Latest news retrieval unavailable limit=%d reason=%s", limit, error)
+            return JSONResponse(
+                {
+                    "detail": "Published property news is temporarily unavailable. Please retry shortly.",
+                },
+                status_code=503,
+                headers={"Cache-Control": "no-store"},
+            )
 
     @app.get("/api/news/search")
     async def search_news(q: str = Query(min_length=2, max_length=300), category: str | None = Query(default=None, max_length=50),
@@ -181,7 +205,9 @@ def create_app(config: Settings = settings, repository: Repository | None = None
     async def list_news(category: str | None = Query(default=None, max_length=50), county: str | None = Query(default=None, max_length=100), town: str | None = Query(default=None, max_length=100),
                         regulatory_status: str | None = Query(default=None, max_length=50), source: UUID | None = None, limit: int = Query(default=20, ge=1, le=50),
                         service: ServiceContainer = Depends(container)):
-        items = await service.repository.list_items(published_only=True)
+        items = await service.repository.list_items(
+            published_only=True, limit=min(limit, MAX_NEWS_LIST_LIMIT), select_fields=PUBLIC_NEWS_FIELDS,
+        )
         def matches(item) -> bool:
             return ((not category or item.category == category.lower()) and
                     (not county or county.lower() in {value.lower() for value in item.counties}) and
@@ -241,7 +267,14 @@ def create_app(config: Settings = settings, repository: Repository | None = None
         except TimeoutError:
             return {
                 "status": "already_running",
-                "sources_checked": 0, "candidates": 0, "new_items": 0, "duplicates": 0, "failures": 0,
+                "collection_status": "already_running",
+                "sources_checked": 0, "sources_attempted": 0, "sources_successful": 0, "sources_failed": 0,
+                "candidates": 0, "articles_discovered": 0, "articles_rejected": 0,
+                "articles_parsed": 0, "articles_inserted": 0, "new_items": 0,
+                "duplicates": 0, "duplicates_skipped": 0, "failures": 0, "article_failures": 0,
+                "urls_discovered": 0, "urls_rejected": 0, "articles_fetched": 0,
+                "security_blocked_urls": 0, "timeouts": 0, "http_403": 0, "http_404": 0,
+                "oversized_responses": 0,
                 "processed": 0, "published": 0, "pending_review": 0, "archived": 0,
                 "processing_failures": 0, "retried": 0,
             }
@@ -251,10 +284,11 @@ def create_app(config: Settings = settings, repository: Repository | None = None
             collection_lock.release()
 
     @app.post("/api/internal/jobs/collect", dependencies=[Depends(require_scheduler)])
-    async def collect_due_news(service: ServiceContainer = Depends(container)):
+    async def collect_due_news(source_group: int | None = Query(default=None, ge=0, lt=SOURCE_GROUP_COUNT),
+                               service: ServiceContainer = Depends(container)):
         if not config.supabase_configured:
             raise HTTPException(status_code=503, detail="Collection requires the server-side Supabase configuration.")
-        return await _run_locked_job(lambda: run_collection_job(service.repository, config, service.analyzer))
+        return await _run_locked_job(lambda: run_collection_job(service.repository, config, service.analyzer, source_group))
 
     @app.post("/api/admin/jobs/reprocess-existing", dependencies=[Depends(require_admin)])
     async def reprocess_existing_news(limit: int = Query(default=20, ge=1, le=100), service: ServiceContainer = Depends(container)):

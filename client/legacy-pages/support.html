@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Support — VaRoom</title>
+<link rel="icon" href="favicon/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon/favicon-16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="favicon/favicon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#070809; --surface:#0d1012; --surface-soft:#111416; --text:#f0eee9;
+    --muted:#9ca1a8; --subtle:#747b83; --line:rgba(255,255,255,.12);
+    --red:#ed2347; --display:'Fraunces', Georgia, serif; --body:'Inter', sans-serif;
+  }
+  * { box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  body { margin:0; color:var(--text); background:var(--bg); font-family:var(--body); }
+  body:before { content:"V"; position:fixed; z-index:-1; top:4rem; right:5%; color:rgba(237,35,71,.045); font:700 31rem/1 var(--display); pointer-events:none; }
+  a { color:inherit; text-decoration:none; }
+  button, input { font:inherit; }
+  button { cursor:pointer; }
+  :focus-visible { outline:2px solid var(--red); outline-offset:3px; }
+  .page { max-width:1120px; margin:0 auto; padding:0 2rem 2.5rem; }
+  .topbar { height:66px; display:flex; align-items:center; border-bottom:1px solid rgba(255,255,255,.09); }
+  .logo { font:700 1.55rem var(--display); letter-spacing:-.04em; }
+  .logo .va { color:var(--red); }
+  .nav { display:flex; align-items:center; gap:2.25rem; margin-left:auto; color:#bbc0c7; font-size:.78rem; }
+  .nav a { padding:1.4rem 0 1.15rem; }
+  .nav a:hover, .nav a.active { color:var(--text); }
+  .nav a.active { border-bottom:2px solid var(--red); }
+  .account { display:flex; align-items:center; gap:.55rem; margin-left:2rem; color:#d5d7da; font-size:.78rem; }
+  .avatar { display:grid; place-items:center; width:29px; height:29px; border-radius:50%; background:#57453e; font-size:.68rem; }
+  .hero { position:relative; padding:3.4rem 0 1.6rem; max-width:850px; }
+  .eyebrow, .section-label { display:flex; align-items:center; gap:.55rem; color:#c2c4c7; font-size:.62rem; letter-spacing:.24em; text-transform:uppercase; }
+  .eyebrow:before, .section-label:before { content:""; width:22px; height:1px; background:var(--red); }
+  h1, h2, h3, p { margin:0; }
+  h1 { max-width:680px; margin-top:.7rem; font:600 clamp(2.8rem,6vw,4.5rem)/1.04 var(--display); letter-spacing:-.045em; }
+  .hero-copy { margin-top:.85rem; max-width:570px; color:#aab0b7; font-size:.9rem; line-height:1.65; }
+  .search { display:flex; align-items:center; gap:.75rem; max-width:610px; margin-top:1.7rem; padding:.35rem .4rem .35rem 1rem; border:1px solid #34393e; border-radius:999px; background:rgba(20,23,26,.72); }
+  .search svg { flex:none; color:#d2d4d6; }
+  .search input { min-width:0; flex:1; border:0; outline:0; color:var(--text); background:transparent; font-size:.78rem; }
+  .search input::placeholder { color:#8a9098; }
+  .search button { display:grid; place-items:center; width:31px; height:31px; border:0; border-radius:50%; color:#e5e5e5; background:#171a1d; }
+  .search button:hover { background:var(--red); }
+  .support-actions { display:grid; grid-template-columns:repeat(4,1fr); gap:1rem; margin-top:1rem; }
+  .action { min-height:144px; padding:1.1rem; text-align:left; color:var(--text); border:1px solid var(--line); border-radius:8px; background:linear-gradient(135deg,rgba(20,23,25,.9),rgba(10,12,13,.9)); transition:border-color .2s, transform .2s; }
+  .action:hover { border-color:#667079; transform:translateY(-2px); }
+  .action-icon { display:grid; place-items:center; width:36px; height:36px; margin-bottom:1rem; border-radius:50%; color:#e5e5e5; background:#25292d; }
+  .action h2 { font:600 1rem var(--display); }
+  .action p { margin-top:.4rem; color:#a6abb1; font-size:.68rem; line-height:1.55; }
+  .write-card { display:flex; align-items:center; justify-content:space-between; gap:1.5rem; margin-top:1.8rem; padding:1.25rem 1.5rem; border:1px solid var(--line); border-radius:8px; background:rgba(17,20,22,.8); }
+  .write-card h2 { font:600 1.35rem var(--display); }
+  .write-card p { margin-top:.35rem; color:var(--muted); font-size:.75rem; }
+  .write-button { flex:none; padding:.7rem 1rem; border:1px solid #525960; border-radius:999px; color:var(--text); background:transparent; font-size:.75rem; }
+  .write-button:hover { border-color:var(--red); color:#fff; }
+  .articles { margin-top:2.7rem; }
+  .articles h2 { margin-top:.55rem; font:600 2rem var(--display); letter-spacing:-.03em; }
+  .article-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1rem; margin-top:1rem; }
+  .article { min-height:280px; padding:1.25rem 1.35rem 1.3rem; border:1px solid var(--line); border-radius:8px; background:linear-gradient(145deg,rgba(16,19,21,.9),rgba(9,11,12,.95)); transition:border-color .25s, box-shadow .25s; }
+  .article.match { border-color:var(--red); box-shadow:0 0 0 2px rgba(237,35,71,.18); }
+  .article-head { display:flex; align-items:flex-start; gap:.8rem; }
+  .article-icon { display:grid; place-items:center; flex:none; width:38px; height:38px; border-radius:50%; color:#d6d9da; background:#25292c; }
+  .article h3 { padding-top:.15rem; font:600 1.08rem var(--display); }
+  .article-description { margin:.7rem 0 .85rem 2.85rem; color:#aeb3b8; font-size:.72rem; line-height:1.55; }
+  .article ol { margin:0 0 0 2.85rem; padding-left:1rem; color:#c6c9cc; font-size:.7rem; line-height:1.75; }
+  .article li { padding-left:.2rem; }
+  .article strong { color:#e7e7e5; font-size:.62rem; letter-spacing:.08em; }
+  .article-note { margin:.7rem 0 0 2.85rem; padding:.55rem .65rem; border-left:2px solid var(--red); color:#b9bec2; font-size:.68rem; line-height:1.5; }
+  footer { display:flex; align-items:center; justify-content:space-between; gap:1rem; margin-top:2.5rem; padding-top:1.1rem; border-top:1px solid rgba(255,255,255,.08); color:#777d84; font-size:.6rem; }
+  footer strong { color:var(--text); font:600 1.35rem var(--display); }
+  footer nav { display:flex; flex-wrap:wrap; gap:1rem; }
+  footer nav a:hover { color:var(--text); }
+  .empty { margin-top:1rem; color:var(--muted); font-size:.8rem; }
+  @media (max-width:800px) {
+    .page { padding:0 1rem 1.5rem; }
+    .nav { display:none; }
+    .account { margin-left:auto; }
+    .hero { padding-top:2.5rem; }
+    .support-actions { grid-template-columns:repeat(2,1fr); }
+    body:before { right:-7rem; font-size:22rem; }
+  }
+  @media (max-width:560px) {
+    h1 { font-size:2.65rem; }
+    .support-actions, .article-grid { grid-template-columns:1fr; }
+    .action { min-height:125px; }
+    .write-card { align-items:flex-start; flex-direction:column; }
+    footer { align-items:flex-start; flex-direction:column; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="topbar">
+    <a class="logo" href="/"><span class="va">Va</span>Room</a>
+    <nav class="nav" aria-label="Primary navigation">
+      <a href="/">Home</a><a href="/client-home">Explore</a><a href="/chats">Messages</a><a href="/bookings">Bookings</a><a class="active" href="/support">Support</a>
+    </nav>
+    <a class="account" href="/profile"><span class="avatar">A</span><span>Account</span><span aria-hidden="true">⌄</span></a>
+  </header>
+
+  <main>
+    <section class="hero" aria-labelledby="support-heading">
+      <div class="eyebrow">Support</div>
+      <h1 id="support-heading">How can we help you today?</h1>
+      <p class="hero-copy">Find quick answers, learn how to use VaRoom, resolve common problems, or get in touch with our support team.</p>
+      <form class="search" id="help-search" role="search">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+        <input id="search-input" type="search" placeholder="Search for help articles, guides, or topics..." autocomplete="off" aria-label="Search help articles">
+        <button type="submit" aria-label="Search"><span aria-hidden="true">→</span></button>
+      </form>
+      <p class="empty" id="search-empty" hidden>No matching help article yet. More support guidance will be added here soon.</p>
+    </section>
+
+    <section class="support-actions" aria-label="Support actions">
+      <button class="action" type="button" data-support-action="ticket"><span class="action-icon">▤</span><h2>Create a support ticket</h2><p>Need help with a specific issue? Send us a message and we'll get back to you.</p></button>
+      <button class="action" type="button" data-support-action="bug"><span class="action-icon">⚙</span><h2>Report a bug</h2><p>Found something that's not working? Let us know so we can fix it.</p></button>
+      <button class="action" type="button" data-support-action="feature"><span class="action-icon">♧</span><h2>Request a feature</h2><p>Have an idea? Help us build a better VaRoom.</p></button>
+      <button class="action" type="button" data-support-action="account"><span class="action-icon">♙</span><h2>Need help with account</h2><p>Update your details, reset your password, or manage your account.</p></button>
+    </section>
+
+    <section class="write-card" aria-labelledby="write-heading">
+      <div><h2 id="write-heading">Write to VaRoom Support</h2><p>Our team can help when you can't find what you're looking for.</p></div>
+      <button class="write-button" type="button" data-support-action="contact">Contact support</button>
+    </section>
+
+    <section class="articles" aria-labelledby="articles-heading">
+      <div class="section-label">Common help</div>
+      <h2 id="articles-heading">Things people are looking for</h2>
+      <div class="article-grid">
+        <article class="article" data-search="host become host profile sidebar mobile host account setup listing">
+          <div class="article-head"><span class="article-icon">⌂</span><h3>How to become a host</h3></div>
+          <p class="article-description">Start hosting from your Profile, available in the sidebar on both desktop and mobile.</p>
+          <ol><li>Open your Profile from the sidebar.</li><li>Find and select <strong>Become a Host</strong>.</li><li>You will be redirected to create a Host Account.</li><li>Complete the Host Account setup.</li></ol>
+        </article>
+        <article class="article" data-search="dark mode display preferences settings profile theme">
+          <div class="article-head"><span class="article-icon">☾</span><h3>How to turn on dark mode</h3></div>
+          <p class="article-description">Keep VaRoom comfortable on your eyes with dark mode.</p>
+          <ol><li>Open your Profile.</li><li>Go to Settings.</li><li>Open Display Preferences.</li><li>Find Dark Mode and turn it on.</li></ol>
+        </article>
+        <article class="article" data-search="marketplace explore view browse listings">
+          <div class="article-head"><span class="article-icon">◌</span><h3>How to view as marketplace</h3></div>
+          <p class="article-description">Switch to Marketplace view to browse listings in a marketplace format.</p>
+          <ol><li>Open Explore.</li><li>Find the option to view as Marketplace.</li><li>Select <strong>View as Marketplace</strong>.</li><li>Browse listings in Marketplace format.</li></ol>
+        </article>
+        <article class="article" data-search="add listing host desktop mobile plus create property">
+          <div class="article-head"><span class="article-icon">＋</span><h3>How to add a listing</h3></div>
+          <p class="article-description">Host tools become available after you create a Host Account.</p>
+          <ol><li><strong>HOST — DESKTOP:</strong> Find Add Listing in desktop navigation and select it.</li><li><strong>HOST — MOBILE:</strong> Select the + button next to Search at the top.</li><li><strong>NOT A HOST YET:</strong> Create a Host Account first.</li></ol>
+        </article>
+        <article class="article" data-search="report listing three dot menu reason support review">
+          <div class="article-head"><span class="article-icon">⚑</span><h3>How to report a listing</h3></div>
+          <p class="article-description">Report a listing from the listing itself or the host's profile.</p>
+          <ol><li>Open the exact listing you want to report.</li><li>Open the three-dot menu (⋯) at the top-right.</li><li>Select Report and choose a reason.</li><li>Write a custom reason if needed, then submit.</li></ol>
+          <p class="article-note">The report is handed over to the VaRoom Support team for review.</p>
+        </article>
+        <article class="article" data-search="switch add account profile dropdown login account existing">
+          <div class="article-head"><span class="article-icon">⇄</span><h3>How to switch or add an account</h3></div>
+          <p class="article-description">Add an existing account through your profile menu.</p>
+          <ol><li>Open your Profile and select your profile photo.</li><li>Select the dropdown arrow, then Add an existing account.</li><li>Sign in; the account is added to the account switcher.</li><li>Switch accounts from the profile dropdown or Settings → Login &amp; Account.</li></ol>
+          <p class="article-note">This feature is being finalized, so this guidance may be updated.</p>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <strong><span class="logo"><span class="va">Va</span>Room</span></strong>
+    <nav aria-label="Footer navigation"><a href="/terms">Terms &amp; Conditions</a><a href="/privacy">Privacy Policy</a><a href="#">Community Guidelines</a><a href="#">Cookie Preferences</a><a href="/support">Support / Help</a></nav>
+    <span>© 2026 VaRoom. All rights reserved.</span>
+  </footer>
+</div>
+<script>
+  (function () {
+    var form = document.getElementById('help-search');
+    var input = document.getElementById('search-input');
+    var empty = document.getElementById('search-empty');
+    var articles = Array.prototype.slice.call(document.querySelectorAll('.article'));
+    function search() {
+      var query = input.value.trim().toLowerCase();
+      articles.forEach(function (article) { article.classList.remove('match'); });
+      empty.hidden = true;
+      if (!query) return;
+      var words = query.split(/\s+/).filter(Boolean);
+      var found = articles.find(function (article) {
+        var text = (article.textContent + ' ' + article.getAttribute('data-search')).toLowerCase();
+        return words.every(function (word) { return text.indexOf(word) !== -1; });
+      });
+      if (!found) { empty.hidden = false; return; }
+      found.classList.add('match');
+      found.scrollIntoView({ behavior:'smooth', block:'center' });
+      window.setTimeout(function () { found.classList.remove('match'); }, 2400);
+    }
+    form.addEventListener('submit', function (event) { event.preventDefault(); search(); });
+    document.querySelectorAll('[data-support-action]').forEach(function (button) {
+      button.addEventListener('click', function () {
+        // Destinations will be connected when support workflows are implemented.
+      });
+    });
+  }());
+</script>
+</body>
+</html>

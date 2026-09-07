@@ -95,6 +95,29 @@ class NewsItem(BaseModel):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
+class PublicNewsItem(BaseModel):
+    """Lightweight projection used by public feed and search listings."""
+
+    id: UUID
+    source_id: UUID
+    source_url: str
+    canonical_url: str
+    source_title: str
+    source_published_at: datetime | None = None
+    varoom_title: str | None = None
+    varoom_summary: str | None = None
+    category: str | None = None
+    topics: list[str] = Field(default_factory=list)
+    counties: list[str] = Field(default_factory=list)
+    towns: list[str] = Field(default_factory=list)
+    regulatory_status: RegulatoryStatus = RegulatoryStatus.UNKNOWN
+    affected_groups: list[str] = Field(default_factory=list)
+    risk_level: RiskLevel = RiskLevel.MEDIUM
+    source_tier: int = Field(ge=1, le=4)
+    published_at: datetime | None = None
+    image_url: str | None = None
+
+
 class NewsEvent(BaseModel):
     id: UUID = Field(default_factory=uuid4)
     news_id: UUID | None = None

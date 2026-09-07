@@ -305,7 +305,7 @@
           <div class="help-title">Need help?</div>
           <div class="help-sub">If you have any questions, you can reply in this chat or contact our support team.</div>
         </div>
-        <a href="/chats" id="help-chat-link" class="help-btn">Contact Support ›</a>
+        <a href="/support" id="help-chat-link" class="help-btn">Contact Support ›</a>
       </div>
     </div>
   </div>
@@ -587,7 +587,6 @@
       .then(function(result){
         if (result.data) {
           const chatUrl = '/chats?c=' + result.data.id;
-          document.getElementById('help-chat-link').setAttribute('href', chatUrl);
           document.getElementById('pay-note-chat-link').setAttribute('href', chatUrl);
         }
       });

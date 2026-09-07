@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import copy
+import asyncio
+import logging
+import time
 from datetime import datetime, timedelta, timezone
 from difflib import SequenceMatcher
 from typing import Any
@@ -10,7 +13,25 @@ import httpx
 
 from .config import Settings
 from .constants import ReviewStatus
-from .models import NewsAnalysis, NewsEvent, NewsItem, Source
+from .models import NewsAnalysis, NewsEvent, NewsItem, PublicNewsItem, Source
+from .normalizer import content_hash
+
+logger = logging.getLogger(__name__)
+MAX_NEWS_LIST_LIMIT = 100
+DEDUP_SCAN_LIMIT = 100
+PUBLICATION_BATCH_LIMIT = 100
+FULL_ITEM_FIELDS = (
+    "id,source_id,source_url,canonical_url,source_title,source_published_at,fetched_at,"
+    "original_content,clean_text,varoom_title,varoom_summary,varoom_body,category,topics,"
+    "counties,towns,regulatory_status,affected_groups,key_facts,risk_level,confidence_score,"
+    "source_tier,review_status,reviewed_by,published_at,scheduled_at,image_url,content_hash,"
+    "timeline_id,created_at,updated_at"
+)
+PUBLIC_ITEM_FIELDS = (
+    "id,source_id,source_url,canonical_url,source_title,source_published_at,varoom_title,"
+    "varoom_summary,category,topics,counties,towns,regulatory_status,affected_groups,"
+    "risk_level,source_tier,published_at,image_url"
+)
 
 
 def _now() -> datetime:
@@ -82,7 +103,11 @@ class MemoryNewsRepository:
     async def release_due_publications(self, now: datetime | None = None) -> int:
         now = now or _now()
         released = 0
-        for item in list(self.items.values()):
+        due = [
+            item for item in self.items.values()
+            if item.review_status is ReviewStatus.APPROVED and item.scheduled_at and item.scheduled_at <= now
+        ][:PUBLICATION_BATCH_LIMIT]
+        for item in due:
             if item.review_status is ReviewStatus.APPROVED and item.scheduled_at and item.scheduled_at <= now:
                 item.review_status = ReviewStatus.PUBLISHED
                 item.published_at = now
@@ -142,18 +167,21 @@ class MemoryNewsRepository:
 
     async def list_items(self, *, published_only: bool = False, limit: int | None = None,
                          offset: int = 0, select_fields: str | None = None) -> list[NewsItem]:
+        bounded_limit = min(limit if limit is not None else MAX_NEWS_LIST_LIMIT, MAX_NEWS_LIST_LIMIT)
+        if bounded_limit < 1:
+            raise ValueError("limit must be positive")
         values = list(self.items.values())
         if published_only:
             values = [item for item in values if item.review_status is ReviewStatus.PUBLISHED and item.published_at]
         sorted_items = [copy.deepcopy(item) for item in sorted(values, key=lambda item: item.published_at or item.created_at, reverse=True)]
-        if offset:
-            sorted_items = sorted_items[offset:]
-        if limit is not None:
-            sorted_items = sorted_items[:limit]
+        sorted_items = sorted_items[offset:offset + bounded_limit]
+        if select_fields and "content_hash" not in select_fields:
+            return [PublicNewsItem.model_validate(item.model_dump(mode="json")) for item in sorted_items]
         return sorted_items
 
     async def list_pending_review(self) -> list[NewsItem]:
-        return [item for item in await self.list_items() if item.review_status is ReviewStatus.PENDING_REVIEW]
+        return [item for item in await self.list_items(limit=MAX_NEWS_LIST_LIMIT)
+                if item.review_status is ReviewStatus.PENDING_REVIEW]
 
     async def list_failed_items(self, limit: int = 25) -> list[NewsItem]:
         return [item for item in await self.list_items() if item.review_status is ReviewStatus.FAILED][:limit]
@@ -195,7 +223,11 @@ class SupabaseNewsRepository:
             "Authorization": f"Bearer {settings.supabase_service_role_key}",
             "Content-Type": "application/json",
         }
-        self.client = httpx.AsyncClient(timeout=20.0, headers=self.headers)
+        self.client = httpx.AsyncClient(
+            timeout=httpx.Timeout(connect=5.0, read=20.0, write=20.0, pool=5.0),
+            headers=self.headers,
+            limits=httpx.Limits(max_keepalive_connections=10, max_connections=30, keepalive_expiry=30.0),
+        )
 
     async def close(self) -> None:
         await self.client.aclose()
@@ -205,7 +237,39 @@ class SupabaseNewsRepository:
         headers = {"Prefer": prefer} if prefer else None
         if payload is not None:
             payload = _strip_nul_bytes(payload)
-        response = await self.client.request(method, f"{self.url}/rest/v1/{table}", params=params, json=payload, headers=headers)
+        url = f"{self.url}/rest/v1/{table}"
+        retryable = method.upper() == "GET"
+        max_attempts = 3 if retryable else 1
+        last_error: Exception | None = None
+        response: httpx.Response | None = None
+        for attempt in range(1, max_attempts + 1):
+            started = time.monotonic()
+            try:
+                response = await self.client.request(method, url, params=params, json=payload, headers=headers)
+                logger.info(
+                    "Supabase request table=%s query=%s limit=%s elapsed_ms=%d status=%d retry=%d",
+                    table, params or {}, (params or {}).get("limit"),
+                    int((time.monotonic() - started) * 1000), response.status_code, attempt - 1,
+                )
+                break
+            except (httpx.ReadTimeout, httpx.ConnectTimeout, httpx.PoolTimeout) as error:
+                last_error = error
+                elapsed_ms = int((time.monotonic() - started) * 1000)
+                logger.warning(
+                    "Supabase request timeout table=%s query=%s limit=%s elapsed_ms=%d status=%s retry=%d reason=%s",
+                    table, params or {}, (params or {}).get("limit"), elapsed_ms,
+                    None, attempt - 1, type(error).__name__,
+                )
+                if attempt == max_attempts:
+                    logger.error(
+                        "Supabase request failed table=%s query=%s limit=%s elapsed_ms=%d status=%s retry=%d final_reason=%s",
+                        table, params or {}, (params or {}).get("limit"), elapsed_ms,
+                        None, attempt - 1, str(error),
+                    )
+                    raise
+                await asyncio.sleep(0.25 * (2 ** (attempt - 1)))
+        if response is None:
+            raise last_error or RuntimeError("Supabase request did not produce a response")
         if response.status_code == 404:
             try:
                 code = response.json().get("code")
@@ -215,12 +279,6 @@ class SupabaseNewsRepository:
                 raise PropertyNewsRepositoryUnavailable(
                     "Property News tables are unavailable. Apply the additive migration and refresh PostgREST schema visibility."
                 )
-        # If a query fails with 400 on an explicit select (e.g. image_url column not yet applied on Supabase), fallback to select=*
-        if response.status_code == 400 and params and "select" in params and params["select"] != "*":
-            fallback_params = dict(params)
-            fallback_params["select"] = "*"
-            response = await self.client.request(method, f"{self.url}/rest/v1/{table}", params=fallback_params, json=payload, headers=headers)
-
         try:
             response.raise_for_status()
         except httpx.HTTPStatusError as error:
@@ -238,8 +296,15 @@ class SupabaseNewsRepository:
         return Source.model_validate(data)
 
     @staticmethod
-    def _item(data: dict[str, Any]) -> NewsItem:
-        return NewsItem.model_validate(data)
+    def _item(data: dict[str, Any]) -> NewsItem | PublicNewsItem:
+        if "content_hash" not in data and ("clean_text" in data or "original_content" in data):
+            clean_text = str(data.get("clean_text") or "").strip()
+            if not clean_text:
+                raise ValueError("Legacy news item is missing content_hash and has no clean_text to hash")
+            logger.warning("Backfilling missing content_hash from stored clean_text for news_id=%s", data.get("id"))
+            data = {**data, "content_hash": content_hash(clean_text)}
+        model = NewsItem if "content_hash" in data else PublicNewsItem
+        return model.model_validate(data)
 
     async def upsert_source(self, source: Source) -> Source:
         data = source.model_dump(mode="json")
@@ -278,13 +343,18 @@ class SupabaseNewsRepository:
 
     async def schedule_publication(self, item: NewsItem, now: datetime | None = None) -> NewsItem:
         now = now or _now()
-        items = await self.list_items()
+        rows = await self._request("GET", "news_items", params={
+            "select": "id,scheduled_at,published_at,review_status",
+            "review_status": "in.(approved,published)",
+            "limit": str(PUBLICATION_BATCH_LIMIT),
+            "order": "scheduled_at.desc.nullslast,published_at.desc.nullslast",
+        })
         queued = [
-            value for value in items
-            if value.id != item.id and value.review_status in {ReviewStatus.APPROVED, ReviewStatus.PUBLISHED}
+            row for row in rows if UUID(row["id"]) != item.id
         ]
         latest = max(
-            (value.scheduled_at or value.published_at for value in queued if value.scheduled_at or value.published_at),
+            (datetime.fromisoformat(value.replace("Z", "+00:00"))
+             for row in queued for value in (row.get("scheduled_at"), row.get("published_at")) if value),
             default=None,
         )
         slot = max(now, latest + timedelta(hours=1)) if latest else now
@@ -295,38 +365,55 @@ class SupabaseNewsRepository:
 
     async def release_due_publications(self, now: datetime | None = None) -> int:
         now = now or _now()
-        items = await self.list_items()
-        due = [
-            item for item in items
-            if item.review_status is ReviewStatus.APPROVED and item.scheduled_at and item.scheduled_at <= now
-        ]
-        for item in due:
-            item.review_status = ReviewStatus.PUBLISHED
-            item.published_at = now
-            item.scheduled_at = None
-            await self.save_item(item)
-            await self.add_event(NewsEvent(news_id=item.id, source_id=item.source_id,
-                                           event_type="item_published", payload={"published_at": now.isoformat()}))
-        return len(due)
+        started = time.monotonic()
+        rows = await self._request("GET", "news_items", params={
+            "select": "id,source_id,scheduled_at,review_status",
+            "review_status": "eq.approved",
+            "scheduled_at": f"lte.{now.isoformat()}",
+            "limit": str(PUBLICATION_BATCH_LIMIT),
+            "order": "scheduled_at.asc",
+        })
+        logger.info(
+            "Publication release query selected_columns=id,source_id,scheduled_at,review_status "
+            "filters=approved_and_due limit=%d returned_rows=%d elapsed_ms=%d",
+            PUBLICATION_BATCH_LIMIT, len(rows), int((time.monotonic() - started) * 1000),
+        )
+        released = 0
+        for row in rows:
+            item_id = UUID(row["id"])
+            await self._request(
+                "PATCH", "news_items",
+                params={"id": f"eq.{item_id}", "review_status": "eq.approved"},
+                payload={"review_status": "published", "published_at": now.isoformat(), "scheduled_at": None},
+                prefer="return=minimal",
+            )
+            await self.add_event(NewsEvent(
+                news_id=item_id, source_id=UUID(row["source_id"]),
+                event_type="item_published", payload={"published_at": now.isoformat()},
+            ))
+            released += 1
+        return released
 
     async def get_item(self, item_id: UUID) -> NewsItem | None:
         rows = await self._request("GET", "news_items", params={"select": "*", "id": f"eq.{item_id}", "limit": "1"})
         return self._item(rows[0]) if rows else None
 
     async def find_by_canonical_url(self, canonical_url: str) -> NewsItem | None:
-        rows = await self._request("GET", "news_items", params={"select": "*", "canonical_url": f"eq.{canonical_url}", "limit": "1"})
-        return self._item(rows[0]) if rows else None
+        rows = await self._request("GET", "news_items", params={
+            "select": "id", "canonical_url": f"eq.{canonical_url}", "limit": "1",
+        })
+        return await self.get_item(UUID(rows[0]["id"])) if rows else None
 
     async def find_by_content_hash(self, content_hash: str) -> NewsItem | None:
-        rows = await self._request("GET", "news_items", params={"select": "*", "content_hash": f"eq.{content_hash}", "limit": "1"})
-        return self._item(rows[0]) if rows else None
+        rows = await self._request("GET", "news_items", params={
+            "select": "id", "content_hash": f"eq.{content_hash}", "limit": "1",
+        })
+        return await self.get_item(UUID(rows[0]["id"])) if rows else None
 
     async def find_similar_title(self, title: str, threshold: float = 0.92) -> NewsItem | None:
-        # Fetch id and source_title with fallback if needed
-        try:
-            candidates = await self._request("GET", "news_items", params={"select": "id,source_title", "limit": "100", "order": "created_at.desc"})
-        except Exception:
-            candidates = await self._request("GET", "news_items", params={"select": "*", "limit": "100", "order": "created_at.desc"})
+        candidates = await self._request("GET", "news_items", params={
+            "select": "id,source_title", "limit": str(DEDUP_SCAN_LIMIT), "order": "created_at.desc",
+        })
         for row in candidates:
             if SequenceMatcher(None, title.lower(), str(row.get("source_title", "")).lower()).ratio() >= threshold:
                 return await self.get_item(UUID(row["id"]))
@@ -366,20 +453,31 @@ class SupabaseNewsRepository:
 
     async def list_items(self, *, published_only: bool = False, limit: int | None = None,
                          offset: int = 0, select_fields: str | None = None) -> list[NewsItem]:
-        fields = select_fields or "id,source_id,source_url,canonical_url,source_title,source_published_at,fetched_at,clean_text,varoom_title,varoom_summary,varoom_body,category,topics,counties,towns,regulatory_status,affected_groups,key_facts,risk_level,confidence_score,source_tier,review_status,reviewed_by,published_at,scheduled_at,image_url,content_hash,timeline_id,created_at,updated_at"
-        params = {"select": fields, "order": "published_at.desc.nullslast,created_at.desc"}
+        bounded_limit = min(limit if limit is not None else MAX_NEWS_LIST_LIMIT, MAX_NEWS_LIST_LIMIT)
+        if bounded_limit < 1:
+            raise ValueError("limit must be positive")
+        fields = select_fields or FULL_ITEM_FIELDS
+        params = {"select": fields, "order": "published_at.desc.nullslast,created_at.desc",
+                  "limit": str(bounded_limit)}
         if published_only:
             params["review_status"] = "eq.published"
             params["published_at"] = "not.is.null"
-        if limit is not None:
-            params["limit"] = str(limit)
         if offset:
             params["offset"] = str(offset)
-        return [self._item(row) for row in await self._request("GET", "news_items", params=params)]
+        started = time.monotonic()
+        rows = await self._request("GET", "news_items", params=params)
+        logger.info(
+            "News list operation=list_items selected_columns=%s filters=%s limit=%d returned_rows=%d elapsed_ms=%d",
+            fields, {key: value for key, value in params.items() if key not in {"select", "limit", "offset"}},
+            bounded_limit, len(rows), int((time.monotonic() - started) * 1000),
+        )
+        return [self._item(row) for row in rows]
 
     async def list_pending_review(self) -> list[NewsItem]:
-        fields = "id,source_id,source_url,canonical_url,source_title,source_published_at,fetched_at,clean_text,varoom_title,varoom_summary,varoom_body,category,topics,counties,towns,regulatory_status,affected_groups,key_facts,risk_level,confidence_score,source_tier,review_status,reviewed_by,published_at,image_url,content_hash,timeline_id,created_at,updated_at"
-        rows = await self._request("GET", "news_items", params={"select": fields, "review_status": "eq.pending_review", "order": "risk_level.desc,created_at.desc"})
+        rows = await self._request("GET", "news_items", params={
+            "select": FULL_ITEM_FIELDS, "review_status": "eq.pending_review",
+            "order": "risk_level.desc,created_at.desc", "limit": str(MAX_NEWS_LIST_LIMIT),
+        })
         return [self._item(row) for row in rows]
 
     async def list_failed_items(self, limit: int = 25) -> list[NewsItem]:

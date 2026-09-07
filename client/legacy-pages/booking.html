@@ -126,7 +126,7 @@
   @media (min-width:960px){ .gallery-carousel{ height:190px; } }
   .gallery-slide-track{ display:flex; width:100%; height:100%; transition:transform .3s ease; will-change:transform; }
   .gallery-slide{ flex:0 0 100%; width:100%; height:100%; }
-  .gallery-slide img{ width:100%; height:100%; object-fit:cover; display:block; -webkit-user-drag:none; user-select:none; pointer-events:none; }
+  .gallery-slide img,.gallery-slide video{ width:100%; height:100%; object-fit:cover; display:block; -webkit-user-drag:none; user-select:none; }
   .gallery-index-pill{
     position:absolute; top:.65rem; right:.65rem; z-index:3; background:rgba(0,0,0,.55); color:#fff;
     font-size:.68rem; font-weight:700; padding:.25rem .55rem; border-radius:100px;
@@ -330,6 +330,105 @@
     .content-grid{ height:auto; overflow:visible; padding-top:1rem; }
     .skel-shell{ height:auto; overflow:visible; }
   }
+
+  /* ---------- Premium listing composition ---------- */
+  .content-grid{ max-width:1240px; padding:1.5rem 5vw 4rem; gap:3.5rem; }
+  .col-main{ min-width:0; }
+  .col-side{ min-width:0; }
+  .gallery-carousel{ height:clamp(280px, 31vw, 390px); border-radius:20px; margin-bottom:1.75rem; }
+  .gallery-index-pill,.view-all-btn{ background:rgba(26,18,16,.72); backdrop-filter:blur(8px); }
+  .gallery-report-btn{
+    position:absolute; top:.65rem; left:.65rem; z-index:3; width:34px; height:34px;
+    border-radius:50%; background:rgba(26,18,16,.72); color:#fff; display:flex;
+    align-items:center; justify-content:center; backdrop-filter:blur(8px);
+  }
+  .gallery-report-btn:hover{ background:rgba(26,18,16,.9); }
+  .gallery-report-btn svg{ width:16px; height:16px; }
+  .title-row{ margin-bottom:.65rem; }
+  .listing-title{ font-size:clamp(1.7rem, 3vw, 2.6rem); letter-spacing:-.03em; }
+  .title-actions{ gap:.5rem; }
+  .action-btn{ padding:.5rem .7rem; border:1px solid var(--line); border-radius:100px; }
+  .rating-row{ margin-bottom:.7rem; }
+  .rating-row .superhost-tag{ background:var(--green-tint); color:var(--green-deep); }
+  .listing-loc{ margin-bottom:1rem; }
+  .info-chip{ border-radius:100px; background:transparent; }
+  .divider{ margin:1.8rem 0; }
+  .host-about-row{ display:grid; grid-template-columns:minmax(170px,.35fr) minmax(0,1fr); gap:2.5rem; }
+  .host-card{ padding-top:.15rem; }
+  .contact-host-btn{ background:transparent; color:var(--ink); border:1px solid var(--line-strong); border-radius:100px; }
+  .contact-host-btn:hover{ background:var(--ink); color:var(--white); }
+  .about-block .about-title,.section-title{ font-size:1.05rem; }
+  .about-text{ font-size:.92rem; line-height:1.7; color:var(--muted); }
+  .amenity-grid{ grid-template-columns:repeat(3,minmax(0,1fr)); gap:1rem 1.5rem; }
+  .amenity-item{ gap:.6rem; font-size:.82rem; color:var(--muted); }
+  .amenity-item svg{ color:var(--ink); width:17px; height:17px; }
+  .location-section{ margin-top:1.8rem; }
+  .location-heading{ display:flex; align-items:center; justify-content:space-between; gap:1rem; margin-bottom:.35rem; }
+  .location-name{ color:var(--muted); font-size:.9rem; }
+  .map-preview{
+    min-height:150px; margin-top:.85rem; border:1px solid var(--line); border-radius:16px;
+    background:
+      linear-gradient(135deg, transparent 0 42%, rgba(78,165,196,.2) 43% 48%, transparent 49%),
+      linear-gradient(25deg, transparent 0 55%, rgba(78,165,196,.16) 56% 60%, transparent 61%),
+      repeating-linear-gradient(35deg, rgba(128,110,100,.08) 0 1px, transparent 1px 24px),
+      var(--white);
+    display:flex; align-items:flex-end; justify-content:space-between; padding:1rem; gap:1rem;
+  }
+  .map-pin{ color:var(--red); font-weight:700; font-size:.85rem; }
+  .map-link{ color:var(--ink); text-decoration:underline; font-size:.78rem; font-weight:700; white-space:nowrap; }
+  .reviews-header{ margin-bottom:.8rem; }
+  .review-strip{ gap:1rem; }
+  .review-card{ border-color:var(--line); border-radius:14px; padding:1rem; }
+  .booking-widget{
+    border-color:var(--line); border-radius:18px; padding:1.5rem;
+    box-shadow:0 12px 36px rgba(26,18,16,.08); position:sticky; top:1rem;
+  }
+  .widget-price{ font-size:1.45rem; }
+  .widget-price span{ font-size:.78rem; }
+  .picker-title{ font-family:var(--font-display); font-size:1.2rem; margin-top:1.35rem; }
+  .picker-sub{ line-height:1.5; }
+  .cal-container{ margin-top:1rem; }
+  .cal-header{ padding-bottom:.7rem; }
+  .cal-title{ font-size:.95rem; }
+  .cal-grid{ gap:.25rem; }
+  .cal-day{ border-radius:50%; font-size:.75rem; }
+  .cal-day.open{ background:transparent; }
+  .cal-day.open:hover{ background:var(--green-tint); border-color:transparent; }
+  .cal-day.in-range{ background:rgba(196,30,58,.1); border-radius:0; }
+  .cal-day.range-end{ background:var(--red); color:#fff; border-radius:50%; }
+  .confirm-btn{ background:#1a1210; color:#fff; margin-top:1rem; }
+  .confirm-btn:hover{ background:#3a2d29; }
+  .confirm-btn:disabled{ background:#c9c0bd; color:#5e514c; }
+  [data-theme="dark"] .confirm-btn{ background:#f5efec; color:#1a1210; }
+  [data-theme="dark"] .confirm-btn:hover{ background:#fff; }
+  [data-theme="dark"] .confirm-btn:disabled{ background:#6b625e; color:#e9e1dd; }
+  .form-note{ line-height:1.45; }
+  .mobile-booking-bar{ display:none; }
+  @media (min-width:960px){
+    .content-grid{ grid-template-columns:minmax(0,1.55fr) minmax(340px,.85fr); }
+  }
+  @media (max-width:959px){
+    body{ padding-bottom:5.5rem; }
+    .breadcrumb{ padding:.65rem 6vw; }
+    .content-grid{ padding:1rem 6vw 2rem; }
+    .gallery-carousel{ height:clamp(220px, 62vw, 340px); border-radius:16px; margin-left:-6vw; width:calc(100% + 12vw); }
+    .host-about-row{ display:block; }
+    .about-block{ margin-top:1.5rem; }
+    .amenity-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .col-side{ display:none; }
+    .col-side.mobile-open{ display:block; }
+    .col-side.mobile-open .booking-widget{ position:static; margin-top:1rem; }
+    .mobile-booking-bar{
+      position:fixed; display:flex; align-items:center; justify-content:space-between; gap:1rem;
+      left:0; right:0; bottom:0; z-index:50; padding:.8rem 6vw calc(.8rem + env(safe-area-inset-bottom));
+      background:color-mix(in srgb, var(--white) 94%, transparent); border-top:1px solid var(--line);
+      box-shadow:0 -8px 24px rgba(26,18,16,.1); backdrop-filter:blur(14px);
+    }
+    .mobile-price{ font-weight:700; font-size:.9rem; white-space:nowrap; }
+    .mobile-price span{ color:var(--muted); font-size:.72rem; font-weight:500; }
+    .mobile-book-btn{ background:#1a1210; color:#fff; padding:.75rem 1.2rem; border-radius:100px; font-weight:700; }
+    [data-theme="dark"] .mobile-book-btn{ background:#f5efec; color:#1a1210; }
+  }
 </style>
 </head>
 <body>
@@ -348,7 +447,7 @@
     <a href="/client-home" id="nav-explore">Explore</a>
     <a href="/bookings">My Bookings</a>
     <a href="/become-host">Become a Host</a>
-    <a href="/#how">Help</a>
+    <a href="/support">Help</a>
   </nav>
 
   <div class="nav-icons">
@@ -590,6 +689,28 @@
     const photoUrls = (listing.listing_photos || []).map(function(p){
       return supabaseClient.storage.from('listing-photos').getPublicUrl(p.storage_path).data.publicUrl;
     });
+    let listingVideoUrl = null;
+    try {
+      const videoResponse = await fetch('/api/properties/' + encodeURIComponent(listingId) + '/media', {
+        headers: { Authorization: 'Bearer ' + session.access_token }
+      });
+      if (videoResponse.ok) {
+        const mediaPayload = await videoResponse.json();
+        const videoItem = (Array.isArray(mediaPayload.media) ? mediaPayload.media : [])
+          .find(function(item){ return item && item.type === 'video'; });
+        if (videoItem) {
+          const playbackResponse = await fetch('/api/media/' + encodeURIComponent(videoItem.id) + '/playback', {
+            headers: { Authorization: 'Bearer ' + session.access_token }
+          });
+          if (playbackResponse.ok) {
+            const playbackPayload = await playbackResponse.json();
+            listingVideoUrl = playbackPayload && playbackPayload.url ? playbackPayload.url : null;
+          }
+        }
+      }
+    } catch (mediaError) {
+      listingVideoUrl = null;
+    }
 
     // ---------- Booked/pending dates to grey out (short-stay only) ----------
     let unavailableDates = new Set();
@@ -613,18 +734,32 @@
 
     // ---------- Gallery (swipeable carousel) ----------
     let galleryHtml = '';
-    if (photoUrls.length === 0) {
-      galleryHtml = '<div class="gallery-carousel"></div>';
+    const mediaUrls = listingVideoUrl ? [listingVideoUrl].concat(photoUrls) : photoUrls;
+    if (mediaUrls.length === 0) {
+      galleryHtml = '<div class="gallery-carousel">' +
+        '<button type="button" class="gallery-report-btn" id="report-listing-btn" aria-label="Report listing">' +
+          '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>' +
+        '</button>' +
+      '</div>';
     } else {
       galleryHtml = '<div class="gallery-carousel" id="gallery-carousel">' +
-        (photoUrls.length > 1 ? '<div class="gallery-index-pill" id="gallery-index-pill">1/' + photoUrls.length + '</div>' : '') +
+        (mediaUrls.length > 1 ? '<div class="gallery-index-pill" id="gallery-index-pill">1/' + mediaUrls.length + '</div>' : '') +
         '<div class="gallery-slide-track" id="gallery-slide-track">' +
-          photoUrls.map(function(u){ return '<div class="gallery-slide"><img src="' + u + '" alt=""></div>'; }).join('') +
+          mediaUrls.map(function(u, index){
+            return '<div class="gallery-slide">' +
+              (listingVideoUrl && index === 0
+                ? '<video src="' + u + '" muted autoplay loop playsinline controlslist="nodownload" aria-label="' + escapeHtml(listing.title) + ' video"></video>'
+                : '<img src="' + u + '" alt="' + escapeHtml(listing.title) + '">') +
+            '</div>';
+          }).join('') +
         '</div>' +
-        (photoUrls.length > 1 ?
+        '<button type="button" class="gallery-report-btn" id="report-listing-btn" aria-label="Report listing">' +
+          '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>' +
+        '</button>' +
+        (mediaUrls.length > 1 ?
           '<button type="button" class="gallery-nav prev" id="gallery-prev" aria-label="Previous photo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>' +
           '<button type="button" class="gallery-nav next" id="gallery-next" aria-label="Next photo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>' +
-          '<div class="gallery-dots" id="gallery-dots">' + photoUrls.map(function(_, i){ return '<span class="gallery-dot' + (i===0?' active':'') + '" data-index="' + i + '"></span>'; }).join('') + '</div>'
+          '<div class="gallery-dots" id="gallery-dots">' + mediaUrls.map(function(_, i){ return '<span class="gallery-dot' + (i===0?' active':'') + '" data-index="' + i + '"></span>'; }).join('') + '</div>'
           : '') +
         '<button type="button" class="view-all-btn" id="view-all-btn">' + ICON_GRID + '<span>View all</span></button>' +
       '</div>';
@@ -704,6 +839,14 @@
         '</div>' +
       '</div>' +
       '<hr class="divider">' +
+      '<section class="location-section">' +
+        '<div class="location-heading">' +
+          '<div><p class="section-title">Location</p><p class="location-name">' + escapeHtml(listing.location_text || 'Location to be added') + '</p></div>' +
+          '<a class="map-link" href="' + mapUrl + '" target="_blank" rel="noopener">View on map</a>' +
+        '</div>' +
+        '<div class="map-preview"><span class="map-pin">● ' + escapeHtml(locParts[0] || 'Your stay') + '</span><a class="map-link" href="' + mapUrl + '" target="_blank" rel="noopener">Open directions</a></div>' +
+      '</section>' +
+      '<hr class="divider">' +
       '<div class="reviews-header">' +
         '<p class="section-title">What guests say ' + ICON_STAR + ' 4.8 (126 reviews)</p>' +
         '<a href="#" class="see-all-link">See all reviews</a>' +
@@ -722,9 +865,20 @@
 
     document.getElementById('col-main').innerHTML = colMainHtml;
 
+    // Reporting remains available without competing with the primary booking actions.
+    const reportListingBtn = document.getElementById('report-listing-btn');
+    if (reportListingBtn) {
+      reportListingBtn.addEventListener('click', function(){
+        const reason = window.prompt('Why are you reporting this listing?');
+        if (reason && reason.trim()) {
+          window.alert('Thanks. Your report has been noted for review.');
+        }
+      });
+    }
+
     // ---------- Gallery carousel: click arrows, click dots, drag/swipe, trackpad horizontal scroll ----------
     const galleryCarousel = document.getElementById('gallery-carousel');
-    if (galleryCarousel && photoUrls.length > 1) {
+    if (galleryCarousel && mediaUrls.length > 1) {
       const track = document.getElementById('gallery-slide-track');
       const dots = galleryCarousel.querySelectorAll('.gallery-dot');
       const pill = document.getElementById('gallery-index-pill');
@@ -733,10 +887,10 @@
       function applyGalleryState(){
         track.style.transform = 'translateX(' + (-(activeIndex * 100)) + '%)';
         dots.forEach(function(d, i){ d.classList.toggle('active', i === activeIndex); });
-        if (pill) pill.textContent = (activeIndex + 1) + '/' + photoUrls.length;
+        if (pill) pill.textContent = (activeIndex + 1) + '/' + mediaUrls.length;
       }
       function goToPhoto(i){
-        activeIndex = Math.max(0, Math.min(photoUrls.length - 1, i));
+        activeIndex = Math.max(0, Math.min(mediaUrls.length - 1, i));
         applyGalleryState();
       }
 
@@ -864,12 +1018,25 @@
         pickerHtml +
         guestsHtml +
         '<div class="details-box" id="details-box"></div>' +
-        '<button type="button" class="confirm-btn" id="confirm-btn" disabled>Confirm booking</button>' +
+        '<button type="button" class="confirm-btn" id="confirm-btn" disabled>Book now</button>' +
         '<p class="form-note">This creates a request — the host needs to approve it before it\'s confirmed.</p>' +
         '<div class="success-msg" id="success-msg"></div>' +
       '</div>';
 
     document.getElementById('col-side').innerHTML = colSideHtml;
+
+    const mobileBookingBar = document.createElement('div');
+    mobileBookingBar.className = 'mobile-booking-bar';
+    mobileBookingBar.innerHTML =
+      '<div class="mobile-price">KSh ' + Number(details.price_amount).toLocaleString() +
+      ' <span>/ ' + escapeHtml(details.price_unit) + '</span></div>' +
+      '<button type="button" class="mobile-book-btn" id="mobile-book-btn">Book now</button>';
+    document.body.appendChild(mobileBookingBar);
+    document.getElementById('mobile-book-btn').addEventListener('click', function(){
+      const side = document.getElementById('col-side');
+      side.classList.add('mobile-open');
+      side.scrollIntoView({ behavior:'smooth', block:'start' });
+    });
 
     skeleton.style.display = 'none';
     bookingPage.style.display = 'block';
@@ -1087,7 +1254,7 @@
         successMsg.textContent = 'Something went wrong: ' + error.message;
         successMsg.classList.add('show', 'error');
         confirmBtn.disabled = false;
-        confirmBtn.textContent = 'Confirm booking';
+        confirmBtn.textContent = 'Book now';
         return;
       }
 

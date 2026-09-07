@@ -6,7 +6,7 @@ from uuid import UUID
 
 from .constants import RegulatoryStatus
 from .models import NewsItem, RetrievalEvidence, RetrievalResponse
-from .repository import MemoryNewsRepository, SupabaseNewsRepository
+from .repository import MAX_NEWS_LIST_LIMIT, PUBLIC_ITEM_FIELDS, MemoryNewsRepository, SupabaseNewsRepository
 
 Repository = MemoryNewsRepository | SupabaseNewsRepository
 
@@ -25,7 +25,10 @@ class NewsRetrievalService:
         county = county or implicit.get("county")
         regulatory_status = regulatory_status or implicit.get("regulatory_status")
         tokens = {token for token in re.findall(r"[a-z0-9]+", query.lower()) if len(token) > 2}
-        candidates = await self.repository.list_items(published_only=True)
+        scan_limit = min(max(limit * 10, 100), MAX_NEWS_LIST_LIMIT)
+        candidates = await self.repository.list_items(
+            published_only=True, limit=scan_limit, select_fields=PUBLIC_ITEM_FIELDS,
+        )
         scored: list[tuple[float, NewsItem]] = []
         for item in candidates:
             if category and item.category != category.lower():

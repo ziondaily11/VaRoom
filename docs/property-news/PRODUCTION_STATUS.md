@@ -5,7 +5,7 @@
 
 ## Current result
 
-The Property News feature is **not yet production-operational**. Its host-facing interface and database migration exist, but the live public API returns `404`, no verified source is active, and no independent scheduler runs ingestion.
+The public Property News API is live on the Supabase-backed Render service and is proxied through `varoom.co.ke`. Scheduled ingestion still requires the protected GitHub Actions collector to complete successfully.
 
 ## Completed and verified
 
@@ -14,16 +14,12 @@ The Property News feature is **not yet production-operational**. Its host-facing
 - The host dashboard module and `/property-news.html` are deployed at `varoom.co.ke`.
 - The deployed `host-home.html` contains the approved Property News module.
 
-## Incomplete or broken
+## Operational checks
 
-- `https://varoom.co.ke/api/news/latest` returns `404`; the Vercel static deployment does not route the public news API to a backend.
-- `https://varoom.onrender.com/api/news/latest` returns `404`; the deployed Render FastAPI application has not mounted the isolated Property News service.
-- The collector discovers and saves items but does not process newly discovered IDs through analysis, review gating, and publication.
-- The live Supabase REST API returns `PGRST205` for every Property News table/view. The migration has **not** been applied to the verified live VaRoom project (or its schema cache has not been refreshed), so ingestion cannot safely begin.
-- The versioned source registry contains only inactive candidates. No verified production source is eligible for scheduled collection.
-- There is no protected production collection endpoint or independent production scheduler.
-- The deployed settings do not yet document/configure the Property News AI, scheduler secret, or Vercel backend route.
-- No real source-to-public-UI production run has been completed.
+- `https://varoom.co.ke/api/news/latest?limit=1` returns published data.
+- `https://varoom-1.onrender.com/health` reports the isolated service and Supabase as configured.
+- The collector endpoint is protected and targeted directly by GitHub Actions at `https://varoom-1.onrender.com/api/internal/jobs/collect`.
+- The latest collector runs have returned Render `502` responses after the platform request timeout; inspect the Render service logs and the next workflow run after deployment before declaring ingestion recovered.
 
 ## Production-ready code completed locally
 
@@ -33,12 +29,12 @@ The Property News feature is **not yet production-operational**. Its host-facing
 4. Vercel now has public `/api/news` rewrites to the Render origin.
 5. A robots-permitted official Lands source, with narrow article filtering and no untrusted host fetching, is ready for one protected activation.
 
-## Still blocked by privileged production configuration
+## Privileged production configuration
 
-1. Apply the additive migration through the authorised Supabase SQL release path and refresh PostgREST schema visibility.
-2. Set `NEWS_SCHEDULER_SECRET` in Render and matching GitHub Actions secrets.
-3. Allow the linked Render/Vercel deployments to complete, call the protected source-activation endpoint, and run the first scheduled collection.
+1. Confirm the additive migrations are applied through the authorised Supabase SQL release path and visible to PostgREST.
+2. Set `NEWS_SCHEDULER_SECRET` in Render and the matching GitHub Actions secret.
+3. Allow the linked Render/Vercel deployments to complete, call the protected source-activation endpoint, and run the collector manually once.
 
 ## Deployment prerequisites that cannot be inferred from source control
 
-The Supabase migration must be applied through an authorised SQL release connection; a service-role REST key cannot execute arbitrary schema changes. The Render service needs `NEWS_SCHEDULER_SECRET` (a high-entropy server secret). GitHub Actions needs matching repository secrets named `PROPERTY_NEWS_SCHEDULER_URL` and `NEWS_SCHEDULER_SECRET`. Existing Supabase credentials remain server-only; they are not added to version control or frontend code.
+The Supabase migration must be applied through an authorised SQL release connection; a service-role REST key cannot execute arbitrary schema changes. The Render service needs `NEWS_SCHEDULER_SECRET` (a high-entropy server secret), and GitHub Actions needs the matching `NEWS_SCHEDULER_SECRET` repository secret. Existing Supabase credentials remain server-only; they are not added to version control or frontend code.
