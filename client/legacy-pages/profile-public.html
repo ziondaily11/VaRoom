@@ -235,11 +235,13 @@
       return;
     }
 
-    // NOTE: 'location_text' is assumed here — confirm the actual column name
-    // on `profiles` (or remove it) before shipping.
+    // Location intentionally left out of this query for now — the 'profiles'
+    // table doesn't have a confirmed location column yet. Add it back to the
+    // select below (e.g. ", location_text") once that's confirmed, and the
+    // display logic further down will pick it up automatically.
     const { data: profile, error: profileError } = await supabaseClient
       .from('profiles')
-      .select('id, role, full_name, username, bio, avatar_url, location_text')
+      .select('id, role, full_name, username, bio, avatar_url')
       .eq('username', username)
       .maybeSingle();
 
