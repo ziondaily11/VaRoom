@@ -19,6 +19,7 @@ from app.jobs import run_collection_job
 from app.normalizer import canonicalise_url, content_hash
 from app.processing import ProcessingService
 from app.repository import MemoryNewsRepository
+from app.repository import SupabaseNewsRepository
 from app.retrieval import NewsRetrievalService
 from app.review import ReviewService
 from app.seed_sources import upsert_official_lands_source
@@ -111,6 +112,38 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(_collection_status({
             "sources_attempted": 1, "sources_failed": 0, "articles_parsed": 0,
         }), "empty")
+
+    async def test_supabase_get_retries_transient_read_timeouts(self):
+        repository = SupabaseNewsRepository(
+            Settings(supabase_url="https://supabase.example.test", supabase_service_role_key="server-only")
+        )
+
+        class RetryingClient:
+            def __init__(self):
+                self.calls = 0
+
+            async def request(self, method, url, **kwargs):
+                self.calls += 1
+                if self.calls < 3:
+                    raise httpx.ReadTimeout("temporary read timeout")
+                return httpx.Response(
+                    200, json=[{"ok": True}],
+                    request=httpx.Request(method, url),
+                )
+
+            async def aclose(self):
+                return None
+
+        client = RetryingClient()
+        repository.client = client
+        try:
+            self.assertEqual(
+                await repository._request("GET", "news_items", params={"limit": "2"}),
+                [{"ok": True}],
+            )
+            self.assertEqual(client.calls, 3)
+        finally:
+            await repository.close()
 
     async def test_collection_persists_fetch_telemetry_and_returns_new_item_ids(self):
         collector = SourceCollector(self.repository, Settings())
@@ -366,6 +399,40 @@ class ApiSecurityTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(accepted.status_code, 200)
         self.assertEqual(accepted.json()["sources_checked"], 0)
 
+    async def test_latest_news_uses_a_small_public_select(self):
+        class CapturingRepository(MemoryNewsRepository):
+            def __init__(self):
+                super().__init__()
+                self.select_fields = None
+
+            async def list_items(self, **kwargs):
+                self.select_fields = kwargs.get("select_fields")
+                return []
+
+        repository = CapturingRepository()
+        app = create_app(Settings(public_rate_limit_per_minute=100), repository)
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.get("/api/news/latest?limit=50")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(repository.select_fields, (
+            "id,source_id,source_url,canonical_url,source_title,source_published_at,varoom_title,"
+            "varoom_summary,varoom_body,category,topics,counties,towns,regulatory_status,"
+            "affected_groups,risk_level,source_tier,published_at,image_url,content_hash"
+        ))
+
+    async def test_latest_news_surfaces_timeout_as_service_unavailable(self):
+        class TimeoutRepository(MemoryNewsRepository):
+            async def list_items(self, **kwargs):
+                raise httpx.ReadTimeout("Supabase read timed out")
+
+        app = create_app(Settings(public_rate_limit_per_minute=100), TimeoutRepository())
+        transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.get("/api/news/latest?limit=2")
+        self.assertEqual(response.status_code, 503)
+        self.assertIn("temporarily unavailable", response.json()["detail"])
+
 
 class MigrationSafetyTests(unittest.TestCase):
     def test_migration_is_additive_and_contains_required_tables_and_rls(self):
@@ -379,6 +446,8 @@ class MigrationSafetyTests(unittest.TestCase):
     def test_performance_migration_file_exists_and_adds_image_column(self):
         migration = (Path(__file__).parents[1] / "supabase" / "migrations" / "20260828_000002_property_news_performance.sql").read_text(encoding="utf-8").lower()
         self.assertIn("add column if not exists image_url", migration)
+        latest_index = (Path(__file__).parents[1] / "supabase" / "migrations" / "20260907_000003_property_news_latest_index.sql").read_text(encoding="utf-8").lower()
+        self.assertIn("news_items_published_latest_idx", latest_index)
 
 
 if __name__ == "__main__":

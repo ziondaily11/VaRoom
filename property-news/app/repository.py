@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import copy
+import asyncio
+import logging
+import time
 from datetime import datetime, timedelta, timezone
 from difflib import SequenceMatcher
 from typing import Any
@@ -11,6 +14,8 @@ import httpx
 from .config import Settings
 from .constants import ReviewStatus
 from .models import NewsAnalysis, NewsEvent, NewsItem, Source
+
+logger = logging.getLogger(__name__)
 
 
 def _now() -> datetime:
@@ -195,7 +200,11 @@ class SupabaseNewsRepository:
             "Authorization": f"Bearer {settings.supabase_service_role_key}",
             "Content-Type": "application/json",
         }
-        self.client = httpx.AsyncClient(timeout=20.0, headers=self.headers)
+        self.client = httpx.AsyncClient(
+            timeout=httpx.Timeout(connect=5.0, read=20.0, write=20.0, pool=5.0),
+            headers=self.headers,
+            limits=httpx.Limits(max_keepalive_connections=10, max_connections=30, keepalive_expiry=30.0),
+        )
 
     async def close(self) -> None:
         await self.client.aclose()
@@ -205,7 +214,39 @@ class SupabaseNewsRepository:
         headers = {"Prefer": prefer} if prefer else None
         if payload is not None:
             payload = _strip_nul_bytes(payload)
-        response = await self.client.request(method, f"{self.url}/rest/v1/{table}", params=params, json=payload, headers=headers)
+        url = f"{self.url}/rest/v1/{table}"
+        retryable = method.upper() == "GET"
+        max_attempts = 3 if retryable else 1
+        last_error: Exception | None = None
+        response: httpx.Response | None = None
+        for attempt in range(1, max_attempts + 1):
+            started = time.monotonic()
+            try:
+                response = await self.client.request(method, url, params=params, json=payload, headers=headers)
+                logger.info(
+                    "Supabase request table=%s query=%s limit=%s elapsed_ms=%d status=%d retry=%d",
+                    table, params or {}, (params or {}).get("limit"),
+                    int((time.monotonic() - started) * 1000), response.status_code, attempt - 1,
+                )
+                break
+            except (httpx.ReadTimeout, httpx.ConnectTimeout, httpx.PoolTimeout) as error:
+                last_error = error
+                elapsed_ms = int((time.monotonic() - started) * 1000)
+                logger.warning(
+                    "Supabase request timeout table=%s query=%s limit=%s elapsed_ms=%d status=%s retry=%d reason=%s",
+                    table, params or {}, (params or {}).get("limit"), elapsed_ms,
+                    None, attempt - 1, type(error).__name__,
+                )
+                if attempt == max_attempts:
+                    logger.error(
+                        "Supabase request failed table=%s query=%s limit=%s elapsed_ms=%d status=%s retry=%d final_reason=%s",
+                        table, params or {}, (params or {}).get("limit"), elapsed_ms,
+                        None, attempt - 1, str(error),
+                    )
+                    raise
+                await asyncio.sleep(0.25 * (2 ** (attempt - 1)))
+        if response is None:
+            raise last_error or RuntimeError("Supabase request did not produce a response")
         if response.status_code == 404:
             try:
                 code = response.json().get("code")
@@ -219,7 +260,13 @@ class SupabaseNewsRepository:
         if response.status_code == 400 and params and "select" in params and params["select"] != "*":
             fallback_params = dict(params)
             fallback_params["select"] = "*"
-            response = await self.client.request(method, f"{self.url}/rest/v1/{table}", params=fallback_params, json=payload, headers=headers)
+            fallback_started = time.monotonic()
+            response = await self.client.request(method, url, params=fallback_params, json=payload, headers=headers)
+            logger.info(
+                "Supabase request table=%s query=%s limit=%s elapsed_ms=%d status=%d retry=%d",
+                table, fallback_params, fallback_params.get("limit"),
+                int((time.monotonic() - fallback_started) * 1000), response.status_code, 0,
+            )
 
         try:
             response.raise_for_status()

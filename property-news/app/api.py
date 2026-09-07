@@ -9,6 +9,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
+import httpx
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -61,6 +62,13 @@ def _public_item(item, source) -> dict[str, Any]:
         "risk_level": item.risk_level, "source": source_payload, "image_url": image_url,
         "published_at": item.published_at,
     }
+
+
+PUBLIC_NEWS_FIELDS = (
+    "id,source_id,source_url,canonical_url,source_title,source_published_at,varoom_title,"
+    "varoom_summary,varoom_body,category,topics,counties,towns,regulatory_status,"
+    "affected_groups,risk_level,source_tier,published_at,image_url,content_hash"
+)
 
 
 def create_app(config: Settings = settings, repository: Repository | None = None) -> FastAPI:
@@ -150,9 +158,21 @@ def create_app(config: Settings = settings, repository: Repository | None = None
 
     @app.get("/api/news/latest")
     async def latest_news(limit: int = Query(default=2, ge=1, le=50), service: ServiceContainer = Depends(container)):
-        items = await service.repository.list_items(published_only=True, limit=limit)
-        sources_map = await service.repository.get_sources_map([item.source_id for item in items])
-        return [ _public_item(item, sources_map.get(item.source_id)) for item in items ]
+        try:
+            items = await service.repository.list_items(
+                published_only=True, limit=limit, select_fields=PUBLIC_NEWS_FIELDS,
+            )
+            sources_map = await service.repository.get_sources_map([item.source_id for item in items])
+            return [_public_item(item, sources_map.get(item.source_id)) for item in items]
+        except httpx.TimeoutException as error:
+            logger.error("Latest news retrieval unavailable limit=%d reason=%s", limit, error)
+            return JSONResponse(
+                {
+                    "detail": "Published property news is temporarily unavailable. Please retry shortly.",
+                },
+                status_code=503,
+                headers={"Cache-Control": "no-store"},
+            )
 
     @app.get("/api/news/search")
     async def search_news(q: str = Query(min_length=2, max_length=300), category: str | None = Query(default=None, max_length=50),
