@@ -27,6 +27,8 @@ from .repository import MemoryNewsRepository, SupabaseNewsRepository
 logger = logging.getLogger(__name__)
 Repository = MemoryNewsRepository | SupabaseNewsRepository
 FAILURE_RETRY_SECONDS = 15 * 60
+MAX_SOURCES_PER_RUN = 20
+
 GENERIC_LINK_TEXTS = {"read more", "click here", "learn more", "continue", "more", "here", "news"}
 
 
@@ -105,6 +107,8 @@ class SourceCollector:
     async def collect_due_sources(self) -> dict[str, Any]:
         sources = await self.repository.list_sources(active_only=True)
         due_sources = [source for source in sources if self._is_due(source)]
+        due_sources.sort(key=self._last_attempt_at)
+        due_sources = due_sources[:MAX_SOURCES_PER_RUN]
         totals: dict[str, Any] = {"sources_checked": len(due_sources), "candidates": 0, "new_items": 0, "duplicates": 0,
                                   "failures": 0, "new_item_ids": []}
         if not due_sources:
@@ -197,6 +201,13 @@ class SourceCollector:
         if not last_success:
             return True
         return (now - last_success).total_seconds() >= source.schedule_minutes * 60
+
+    @staticmethod
+    def _last_attempt_at(source: Source) -> datetime:
+        last_success = SourceCollector._aware(source.last_successful_fetch_at)
+        last_fail = SourceCollector._aware(source.last_failed_fetch_at)
+        candidates = [value for value in (last_success, last_fail) if value is not None]
+        return max(candidates) if candidates else datetime.min.replace(tzinfo=timezone.utc)
 
     async def _discover(self, source: Source) -> list[CandidateArticle]:
         config = source.parser_config
