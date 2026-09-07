@@ -348,6 +348,7 @@ class ApiSecurityTests(unittest.IsolatedAsyncioTestCase):
                 category="property", source_tier=1, content_hash=digest, review_status=review_status,
                 published_at=datetime.now(timezone.utc) if review_status is ReviewStatus.PUBLISHED else None,
                 original_content='<img src="/story.jpeg" alt="Story">' if review_status is ReviewStatus.PUBLISHED else None,
+                image_url="https://source1.example.test/story.jpeg" if review_status is ReviewStatus.PUBLISHED else None,
             )
             await repository.save_item(item)
         app = create_app(Settings(public_rate_limit_per_minute=100), repository)
@@ -444,6 +445,27 @@ class ApiSecurityTests(unittest.IsolatedAsyncioTestCase):
             "varoom_summary,category,topics,counties,towns,regulatory_status,affected_groups,"
             "risk_level,source_tier,published_at,image_url"
         ))
+
+    async def test_public_projection_does_not_require_internal_content_hash(self):
+        repository = MemoryNewsRepository()
+        source_record = source()
+        await repository.upsert_source(source_record)
+        item = NewsItem(
+            source_id=source_record.id, source_url="https://source1.example.test/story",
+            canonical_url="https://source1.example.test/story", source_title="Property update",
+            clean_text="Property update", varoom_title="Property update", varoom_summary="Summary",
+            category="property", source_tier=1, content_hash="a" * 64,
+            review_status=ReviewStatus.PUBLISHED, published_at=datetime.now(timezone.utc),
+        )
+        await repository.save_item(item)
+        public_items = await repository.list_items(
+            published_only=True, limit=2,
+            select_fields="id,source_id,source_url,canonical_url,source_title,source_published_at,"
+                          "varoom_title,varoom_summary,category,topics,counties,towns,regulatory_status,"
+                          "affected_groups,risk_level,source_tier,published_at,image_url",
+        )
+        self.assertEqual(public_items[0].source_title, "Property update")
+        self.assertFalse(hasattr(public_items[0], "content_hash"))
 
     async def test_latest_news_surfaces_timeout_as_service_unavailable(self):
         class TimeoutRepository(MemoryNewsRepository):

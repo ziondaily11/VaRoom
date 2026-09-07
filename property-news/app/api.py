@@ -63,7 +63,7 @@ def _public_item(item, source) -> dict[str, Any]:
         image_url = extract_article_image_url(item.original_content, item.source_url, source.base_url)
     return {
         "id": str(item.id), "title": item.varoom_title or item.source_title, "summary": item.varoom_summary,
-        "body": item.varoom_body, "category": item.category, "topics": item.topics, "counties": item.counties,
+        "body": getattr(item, "varoom_body", None), "category": item.category, "topics": item.topics, "counties": item.counties,
         "towns": item.towns, "location_summary": format_location_display(item.counties, item.towns),
         "regulatory_status": item.regulatory_status, "affected_groups": item.affected_groups,
         "risk_level": item.risk_level, "source": source_payload, "image_url": image_url,

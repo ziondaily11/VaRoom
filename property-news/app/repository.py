@@ -13,7 +13,7 @@ import httpx
 
 from .config import Settings
 from .constants import ReviewStatus
-from .models import NewsAnalysis, NewsEvent, NewsItem, Source
+from .models import NewsAnalysis, NewsEvent, NewsItem, PublicNewsItem, Source
 
 logger = logging.getLogger(__name__)
 MAX_NEWS_LIST_LIMIT = 100
@@ -169,6 +169,8 @@ class MemoryNewsRepository:
             values = [item for item in values if item.review_status is ReviewStatus.PUBLISHED and item.published_at]
         sorted_items = [copy.deepcopy(item) for item in sorted(values, key=lambda item: item.published_at or item.created_at, reverse=True)]
         sorted_items = sorted_items[offset:offset + bounded_limit]
+        if select_fields and "content_hash" not in select_fields:
+            return [PublicNewsItem.model_validate(item.model_dump(mode="json")) for item in sorted_items]
         return sorted_items
 
     async def list_pending_review(self) -> list[NewsItem]:
@@ -288,8 +290,9 @@ class SupabaseNewsRepository:
         return Source.model_validate(data)
 
     @staticmethod
-    def _item(data: dict[str, Any]) -> NewsItem:
-        return NewsItem.model_validate(data)
+    def _item(data: dict[str, Any]) -> NewsItem | PublicNewsItem:
+        model = NewsItem if "content_hash" in data else PublicNewsItem
+        return model.model_validate(data)
 
     async def upsert_source(self, source: Source) -> Source:
         data = source.model_dump(mode="json")
