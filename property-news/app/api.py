@@ -23,6 +23,7 @@ from .repository import MemoryNewsRepository, PropertyNewsRepositoryUnavailable,
 from .retrieval import NewsRetrievalService
 from .review import ReviewService
 from .jobs import run_collection_job, run_reprocess_job
+from .collector import SOURCE_GROUP_COUNT
 from .media import extract_article_image_url
 from .seed_sources import seed_verified_sources, upsert_official_lands_source
 
@@ -251,10 +252,11 @@ def create_app(config: Settings = settings, repository: Repository | None = None
             collection_lock.release()
 
     @app.post("/api/internal/jobs/collect", dependencies=[Depends(require_scheduler)])
-    async def collect_due_news(service: ServiceContainer = Depends(container)):
+    async def collect_due_news(source_group: int | None = Query(default=None, ge=0, lt=SOURCE_GROUP_COUNT),
+                               service: ServiceContainer = Depends(container)):
         if not config.supabase_configured:
             raise HTTPException(status_code=503, detail="Collection requires the server-side Supabase configuration.")
-        return await _run_locked_job(lambda: run_collection_job(service.repository, config, service.analyzer))
+        return await _run_locked_job(lambda: run_collection_job(service.repository, config, service.analyzer, source_group))
 
     @app.post("/api/admin/jobs/reprocess-existing", dependencies=[Depends(require_admin)])
     async def reprocess_existing_news(limit: int = Query(default=20, ge=1, le=100), service: ServiceContainer = Depends(container)):

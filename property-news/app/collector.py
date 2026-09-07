@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 Repository = MemoryNewsRepository | SupabaseNewsRepository
 FAILURE_RETRY_SECONDS = 15 * 60
 MAX_SOURCES_PER_RUN = 20
+SOURCE_GROUP_COUNT = 11
 
 GENERIC_LINK_TEXTS = {"read more", "click here", "learn more", "continue", "more", "here", "news"}
 
@@ -104,8 +105,17 @@ class SourceCollector:
         if self._client and not self._client.is_closed:
             await self._client.aclose()
 
-    async def collect_due_sources(self) -> dict[str, Any]:
+    async def collect_due_sources(self, source_group: int | None = None,
+                                  source_group_count: int = SOURCE_GROUP_COUNT) -> dict[str, Any]:
+        if source_group_count < 1:
+            raise ValueError("source_group_count must be positive")
+        if source_group is not None and not 0 <= source_group < source_group_count:
+            raise ValueError("source_group must be within source_group_count")
         sources = await self.repository.list_sources(active_only=True)
+        if source_group is not None:
+            # Stable name ordering keeps a source in the same group between runs.
+            sources = [source for index, source in enumerate(sources)
+                       if index % source_group_count == source_group]
         due_sources = [source for source in sources if self._is_due(source)]
         due_sources.sort(key=self._last_attempt_at)
         due_sources = due_sources[:MAX_SOURCES_PER_RUN]

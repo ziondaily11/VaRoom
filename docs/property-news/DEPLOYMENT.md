@@ -21,7 +21,7 @@ Property News is mounted in the established Render FastAPI service (`main.py`) a
      https://varoom-1.onrender.com/api/internal/sources/seed-official-lands
    ```
 
-6. Run the **Property News collector** GitHub Actions workflow once from the Actions tab. That workflow is the cron: it wakes Render, then POSTs collect. GitHub may delay scheduled runs; do not add a second in-process cron on the web service.
+6. Run the **Property News collector** GitHub Actions workflow once from the Actions tab. The workflow processes the active source registry in 11 deterministic groups, one group at a time, so each request handles at most roughly five sources instead of holding one request open for the entire registry. GitHub may delay scheduled runs; do not add a second in-process cron on the web service.
 7. Verify `https://varoom.co.ke/api/news/latest?limit=1` and the host dashboard after a published low-risk item is available. High-risk and ownership-sensitive items must remain in review.
 
 ## Failure handling and rollback

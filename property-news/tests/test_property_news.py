@@ -97,6 +97,28 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(self.repository.fetch_runs), 1)
         self.assertEqual(next(iter(self.repository.fetch_runs.values()))["result"], "succeeded")
 
+    async def test_source_group_selects_only_its_stable_bucket(self):
+        for index in range(11):
+            grouped_source = Source(
+                name=f"Grouped source {index:02d}",
+                base_url=f"https://grouped{index}.example.test",
+                trust_tier=1, fetch_method="rss", schedule_minutes=30, active=True,
+            )
+            await self.repository.upsert_source(grouped_source)
+
+        collector = SourceCollector(self.repository, Settings())
+        seen: list[str] = []
+
+        async def collect_source(grouped_source):
+            seen.append(grouped_source.name)
+            return {"candidates": 0, "new_items": 0, "duplicates": 0, "failures": 0, "new_item_ids": []}
+
+        collector.collect_source = collect_source  # type: ignore[method-assign]
+        result = await collector.collect_due_sources(source_group=3)
+
+        self.assertEqual(result["sources_checked"], 1)
+        self.assertEqual(seen, ["Grouped source 03"])
+
     async def test_scheduled_job_processes_and_publishes_a_safe_new_item(self):
         candidate = CandidateArticle(source_id=self.source.id, source_url="https://source1.example.test/safe-update",
                                      source_title="Land registry digitisation update", clean_text="Land registry digitisation in Nairobi. " * 20)
