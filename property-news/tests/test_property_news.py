@@ -99,6 +99,30 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
                          ["https://source1.example.test/story/real-estate-update"])
         self.assertEqual(rejected, 4)
 
+    async def test_source_hosts_are_normalized_without_allowing_external_hosts(self):
+        configured = Source(
+            name="People Daily", base_url="https://peopledaily.digital.",
+            trust_tier=2, fetch_method="html", schedule_minutes=30, active=True,
+            parser_config={"allowed_hosts": ["www.peopledaily.digital"]},
+        )
+        collector = SourceCollector(self.repository, Settings())
+        self.assertTrue(collector._is_allowed_source_url(configured, "https://WWW.PeopleDaily.Digital./story"))
+        self.assertTrue(collector._is_allowed_source_url(configured, "https://peopledaily.digital/story"))
+        self.assertFalse(collector._is_allowed_source_url(configured, "https://evil.example/story"))
+
+    async def test_article_classifier_rejects_indexes_documents_and_media(self):
+        collector = SourceCollector(self.repository, Settings())
+        rejected = (
+            "/cdn-cgi/l/email-protection/x", "/videos/", "/entertainment/",
+            "/farmkenya/podcasts", "/farmkenya/farmersmarket", "/games",
+            "/sponsored/", "/category/real-estate", "/results/farms-and-small-holdings/",
+            "/report.pdf", "/image.jpg", "/contact/",
+        )
+        for path in rejected:
+            self.assertFalse(collector._is_likely_article_url(
+                f"https://source1.example.test{path}", "A real title", self.source.base_url
+            ), path)
+
     async def test_collection_result_reports_empty_success_and_article_rejections(self):
         collector = SourceCollector(self.repository, Settings())
         async def discover(_source):

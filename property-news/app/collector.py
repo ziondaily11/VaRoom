@@ -35,6 +35,16 @@ NON_ARTICLE_PATH_PARTS = {
     "about", "account", "author", "category", "contact", "login", "register",
     "sponsored", "search", "tag", "tags", "wp-admin", "wp-login",
 }
+NON_ARTICLE_PATH_PREFIXES = (
+    "/cdn-cgi/",
+    "/entertainment/",
+    "/farmkenya/farmersmarket",
+    "/farmkenya/podcasts",
+    "/games/",
+    "/podcasts/",
+    "/results/",
+    "/videos/",
+)
 DOCUMENT_EXTENSIONS = {
     ".7z", ".csv", ".doc", ".docx", ".gz", ".jpeg", ".jpg", ".png", ".ppt",
     ".pptx", ".rar", ".svg", ".tar", ".xls", ".xlsx", ".xml", ".zip", ".pdf",
@@ -107,7 +117,7 @@ class SourceCollector:
             }
             self._client = httpx.AsyncClient(
                 timeout=self.settings.fetch_timeout_seconds,
-                follow_redirects=True,
+                follow_redirects=False,
                 headers=headers,
                 verify=self._ssl_context,
                 limits=httpx.Limits(max_keepalive_connections=20, max_connections=50)
@@ -138,13 +148,14 @@ class SourceCollector:
             "articles_discovered": 0, "articles_rejected": 0, "articles_parsed": 0,
             "articles_inserted": 0, "new_items": 0, "duplicates": 0,
             "duplicates_skipped": 0, "failures": 0, "article_failures": 0,
+            "urls_discovered": 0, "urls_rejected": 0, "security_blocked_urls": 0, "articles_fetched": 0,
             "new_item_ids": [],
         }
         if not due_sources:
             logger.info(
                 "Collection summary: sources_attempted=0 sources_successful=0 sources_failed=0 "
-                "articles_discovered=0 articles_rejected=0 articles_parsed=0 articles_inserted=0 "
-                "duplicates_skipped=0",
+                "urls_discovered=0 urls_rejected=0 articles_fetched=0 articles_parsed=0 "
+                "articles_inserted=0 duplicates_skipped=0 security_blocked_urls=0",
             )
             return totals
 
@@ -161,16 +172,18 @@ class SourceCollector:
                 "articles_discovered", "articles_rejected", "articles_parsed",
                 "articles_inserted", "new_items", "duplicates", "duplicates_skipped",
                 "failures", "article_failures",
+                "urls_discovered", "urls_rejected", "security_blocked_urls", "articles_fetched",
             ):
                 totals[key] += int(result.get(key, 0))
             totals["new_item_ids"].extend(result["new_item_ids"])
         logger.info(
             "Collection summary: sources_attempted=%d sources_successful=%d sources_failed=%d "
-            "articles_discovered=%d articles_rejected=%d articles_parsed=%d articles_inserted=%d "
-            "duplicates_skipped=%d",
+            "urls_discovered=%d urls_rejected=%d articles_fetched=%d articles_parsed=%d "
+            "articles_inserted=%d duplicates_skipped=%d security_blocked_urls=%d",
             totals["sources_attempted"], totals["sources_successful"], totals["sources_failed"],
-            totals["articles_discovered"], totals["articles_rejected"], totals["articles_parsed"],
-            totals["articles_inserted"], totals["duplicates_skipped"],
+            totals["urls_discovered"], totals["urls_rejected"], totals["articles_fetched"],
+            totals["articles_parsed"], totals["articles_inserted"], totals["duplicates_skipped"],
+            totals["security_blocked_urls"],
         )
         return totals
 
@@ -181,6 +194,7 @@ class SourceCollector:
             "articles_discovered": 0, "articles_rejected": 0, "articles_parsed": 0,
             "articles_inserted": 0, "new_items": 0, "duplicates": 0,
             "duplicates_skipped": 0, "failures": 0, "article_failures": 0,
+            "urls_discovered": 0, "urls_rejected": 0, "security_blocked_urls": 0, "articles_fetched": 0,
             "new_item_ids": [],
         }
         run_id: UUID | None = None
@@ -188,11 +202,16 @@ class SourceCollector:
             run_id = await self.repository.start_fetch_run(source.id, started)
             discovered = await self._discover(source)
             if isinstance(discovered, tuple):
-                raw_candidates, rejected_count = discovered
+                raw_candidates = discovered[0]
+                rejected_count = discovered[1]
+                security_blocked_count = discovered[2] if len(discovered) > 2 else 0
             else:
-                raw_candidates, rejected_count = discovered, 0
-            result["articles_discovered"] = len(raw_candidates) + rejected_count
+                raw_candidates, rejected_count, security_blocked_count = discovered, 0, 0
+            result["articles_discovered"] = len(raw_candidates) + rejected_count + security_blocked_count
             result["articles_rejected"] = rejected_count
+            result["urls_rejected"] = rejected_count
+            result["urls_discovered"] = result["articles_discovered"]
+            result["security_blocked_urls"] = security_blocked_count
 
             # Materialize articles with bounded concurrency (up to 5 concurrently per source)
             semaphore = asyncio.Semaphore(5)
@@ -213,6 +232,7 @@ class SourceCollector:
                     logger.warning("Article failure for source=%s url=%s: %s", source.name, candidate.source_url, article)
                     continue
                 candidates.append(article)
+                result["articles_fetched"] += 1
             result["candidates"] = len(candidates)
             result["articles_parsed"] = len(candidates)
             for candidate in candidates:
@@ -239,8 +259,10 @@ class SourceCollector:
                                                    duplicate_count=result["duplicates"])
             result["sources_successful"] = 1
             logger.info(
-                "Source succeeded: source=%s discovered=%d rejected=%d parsed=%d inserted=%d duplicates=%d",
+                "Source succeeded: source=%s urls_discovered=%d rejected=%d security_blocked=%d "
+                "articles_fetched=%d parsed=%d inserted=%d duplicates=%d",
                 source.name, result["articles_discovered"], result["articles_rejected"],
+                result["security_blocked_urls"], result["articles_fetched"],
                 result["articles_parsed"], result["articles_inserted"], result["duplicates_skipped"],
             )
         except Exception as error:  # A source failure must never stop other sources.
@@ -286,15 +308,26 @@ class SourceCollector:
         candidates = [value for value in (last_success, last_fail) if value is not None]
         return max(candidates) if candidates else datetime.min.replace(tzinfo=timezone.utc)
 
-    async def _discover(self, source: Source) -> tuple[list[CandidateArticle], int] | list[CandidateArticle]:
+    async def _discover(self, source: Source) -> tuple[list[CandidateArticle], int, int] | list[CandidateArticle]:
         config = source.parser_config
         if source.fetch_method == "manual":
             urls = config.get("urls", [])
-            return [await self._fetch_article(source, url) for url in urls if self._is_allowed_source_url(source, url)]
+            candidates = []
+            rejected = 0
+            security_blocked = 0
+            for url in urls:
+                if not self._is_allowed_source_url(source, url):
+                    security_blocked += 1
+                    continue
+                try:
+                    candidates.append(await self._fetch_article(source, url))
+                except Exception:
+                    rejected += 1
+            return candidates, rejected, security_blocked
         endpoint = config.get("discovery_url") or source.base_url
         if not self._is_allowed_source_url(source, endpoint):
             raise ValueError("Discovery URL is not an approved source host")
-        body = await self._fetch(endpoint, allowed_content_types=DISCOVERY_CONTENT_TYPES)
+        body = await self._fetch(source, endpoint, allowed_content_types=DISCOVERY_CONTENT_TYPES)
         if source.fetch_method in {"rss", "atom"}:
             candidates = self._parse_feed(source, body, endpoint)
         elif source.fetch_method == "sitemap":
@@ -306,12 +339,27 @@ class SourceCollector:
         else:
             raise ValueError(f"Unsupported fetch method: {source.fetch_method}")
         if source.fetch_method == "html":
-            return [candidate for candidate in candidates if self._is_allowed_source_url(source, candidate.source_url)], rejected_count
-        allowed = [candidate for candidate in candidates if self._is_allowed_source_url(source, candidate.source_url)
-                   and self._is_likely_article_url(candidate.source_url, candidate.source_title, source.base_url)]
-        return allowed, len(candidates) - len(allowed)
+            allowed = []
+            security_blocked = 0
+            for candidate in candidates:
+                if self._is_allowed_source_url(source, candidate.source_url):
+                    allowed.append(candidate)
+                else:
+                    security_blocked += 1
+            return allowed, rejected_count, security_blocked
+        allowed = []
+        security_blocked = 0
+        rejected = 0
+        for candidate in candidates:
+            if not self._is_allowed_source_url(source, candidate.source_url):
+                security_blocked += 1
+            elif self._is_likely_article_url(candidate.source_url, candidate.source_title, source.base_url):
+                allowed.append(candidate)
+            else:
+                rejected += 1
+        return allowed, rejected, security_blocked
 
-    async def _fetch(self, url: str, *, allowed_content_types: set[str] | None = None) -> str:
+    async def _fetch(self, source: Source, url: str, *, allowed_content_types: set[str] | None = None) -> str:
         origin = re.sub(r"^(https?://[^/]+).*$", r"\1", url)
         delay = self.settings.min_request_interval_seconds - (time.monotonic() - self._last_request_at.get(origin, 0))
         if delay > 0:
@@ -320,19 +368,41 @@ class SourceCollector:
         last_error: Exception | None = None
         for attempt in range(self.settings.fetch_retry_attempts):
             try:
-                async with client.stream("GET", url) as response:
-                    response.raise_for_status()
-                    content_type = response.headers.get("content-type", "").split(";", 1)[0].strip().lower()
-                    accepted_types = allowed_content_types or DISCOVERY_CONTENT_TYPES
-                    if content_type not in accepted_types:
-                        raise ValueError(f"Unsupported Content-Type {content_type or '<missing>'}")
-                    chunks: list[bytes] = []
-                    total = 0
-                    async for chunk in response.aiter_bytes():
-                        total += len(chunk)
-                        if total > self.settings.fetch_max_bytes:
-                            raise ValueError("Response exceeded NEWS_FETCH_MAX_BYTES")
-                        chunks.append(chunk)
+                current_url = url
+                for _ in range(5):
+                    async with client.stream("GET", current_url) as response:
+                        if response.is_redirect:
+                            location = response.headers.get("location")
+                            if not location:
+                                raise ValueError("Redirect response missing Location header")
+                            redirect_url = urljoin(current_url, location)
+                            allowed = self._is_allowed_source_url(source, redirect_url)
+                            logger.info(
+                                "Redirect: %s -> %s -> %s -> %s",
+                                source.name,
+                                self._normalise_hostname(urlparse(current_url).hostname),
+                                self._normalise_hostname(urlparse(redirect_url).hostname),
+                                "ALLOWED" if allowed else "BLOCKED",
+                            )
+                            if not allowed:
+                                raise ValueError("Redirect target is not an approved source host")
+                            current_url = redirect_url
+                            continue
+                        response.raise_for_status()
+                        content_type = response.headers.get("content-type", "").split(";", 1)[0].strip().lower()
+                        accepted_types = allowed_content_types or DISCOVERY_CONTENT_TYPES
+                        if content_type not in accepted_types:
+                            raise ValueError(f"Unsupported Content-Type {content_type or '<missing>'}")
+                        chunks: list[bytes] = []
+                        total = 0
+                        async for chunk in response.aiter_bytes():
+                            total += len(chunk)
+                            if total > self.settings.fetch_max_bytes:
+                                raise ValueError("Response exceeded NEWS_FETCH_MAX_BYTES")
+                            chunks.append(chunk)
+                        break
+                else:
+                    raise ValueError("Too many redirects")
                 self._last_request_at[origin] = time.monotonic()
                 return b"".join(chunks).decode("utf-8", errors="replace")
             except (httpx.HTTPError, ValueError) as error:
@@ -347,7 +417,7 @@ class SourceCollector:
             raise ValueError("Article URL is not an approved source host")
         if not self._is_likely_article_url(url, title, source.base_url):
             raise ValueError("URL rejected as a non-article")
-        html = await self._fetch(url, allowed_content_types=ARTICLE_CONTENT_TYPES)
+        html = await self._fetch(source, url, allowed_content_types=ARTICLE_CONTENT_TYPES)
 
         # Offload synchronous trafilatura extraction to threadpool to avoid blocking event loop
         extracted_text = await asyncio.to_thread(trafilatura.extract, html, include_comments=False, include_tables=False)
@@ -463,10 +533,30 @@ class SourceCollector:
         parsed = urlparse(url)
         if parsed.scheme not in {"http", "https"} or not parsed.hostname:
             return False
-        source_host = urlparse(source.base_url).hostname
-        extra_hosts = source.parser_config.get("allowed_hosts", [])
-        allowed_hosts = {host.lower() for host in [source_host, *extra_hosts] if isinstance(host, str) and host}
-        return parsed.hostname.lower() in allowed_hosts
+        hostname = SourceCollector._normalise_hostname(parsed.hostname)
+        allowed_hosts = SourceCollector._allowed_hosts(source)
+        allowed = hostname in allowed_hosts
+        if not allowed:
+            logger.warning(
+                "Blocked source URL: source=%s host=%s allowed_hosts=%s",
+                source.name, hostname, sorted(allowed_hosts),
+            )
+        return allowed
+
+    @staticmethod
+    def _normalise_hostname(hostname: str | None) -> str:
+        return (hostname or "").lower().rstrip(".").removeprefix("www.")
+
+    @staticmethod
+    def _allowed_hosts(source: Source) -> set[str]:
+        hosts = {SourceCollector._normalise_hostname(urlparse(source.base_url).hostname)}
+        for configured in source.parser_config.get("allowed_hosts", []):
+            if not isinstance(configured, str):
+                continue
+            parsed = urlparse(configured if "://" in configured else f"//{configured}")
+            if parsed.hostname:
+                hosts.add(SourceCollector._normalise_hostname(parsed.hostname))
+        return {host for host in hosts if host}
 
     @staticmethod
     def _is_likely_article_url(url: str, title: str | None, base_url: str) -> bool:
@@ -476,7 +566,7 @@ class SourceCollector:
         if parsed.path.rstrip("/") == urlparse(base_url).path.rstrip("/") and not parsed.path.strip("/"):
             return False
         path = parsed.path.lower()
-        if "/cdn-cgi/l/email-protection/" in path:
+        if any(path == prefix.rstrip("/") or path.startswith(prefix) for prefix in NON_ARTICLE_PATH_PREFIXES):
             return False
         if any(path.endswith(extension) for extension in DOCUMENT_EXTENSIONS):
             return False

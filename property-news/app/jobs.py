@@ -27,7 +27,8 @@ async def run_collection_job(repository=None, config=settings, analyzer: NewsAna
             "sources_checked", "sources_attempted", "sources_successful", "sources_failed",
             "candidates", "articles_discovered", "articles_rejected", "articles_parsed",
             "articles_inserted", "new_items", "duplicates", "duplicates_skipped",
-            "failures", "article_failures",
+            "failures", "article_failures", "urls_discovered", "urls_rejected",
+            "security_blocked_urls", "articles_fetched",
         )}
         result["collection_status"] = _collection_status(result)
         failed_item_ids = [item.id for item in await store.list_failed_items()]

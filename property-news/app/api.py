@@ -267,6 +267,8 @@ def create_app(config: Settings = settings, repository: Repository | None = None
                 "candidates": 0, "articles_discovered": 0, "articles_rejected": 0,
                 "articles_parsed": 0, "articles_inserted": 0, "new_items": 0,
                 "duplicates": 0, "duplicates_skipped": 0, "failures": 0, "article_failures": 0,
+                "urls_discovered": 0, "urls_rejected": 0, "articles_fetched": 0,
+                "security_blocked_urls": 0,
                 "processed": 0, "published": 0, "pending_review": 0, "archived": 0,
                 "processing_failures": 0, "retried": 0,
             }
