@@ -34,11 +34,58 @@
   a{ color:inherit; text-decoration:none; }
   button{ font-family:inherit; cursor:pointer; border:none; background:none; }
 
+  /* ---------- Layout ---------- */
+  .page{ display:flex; min-height:100vh; }
+
+  /* ---------- Sign-up side panel (desktop only) ---------- */
+  .signup-aside{
+    width:320px; flex-shrink:0; padding:2.2rem 2rem;
+    border-right:1px solid var(--card-border);
+    display:flex; flex-direction:column;
+  }
+  .aside-top{ display:flex; align-items:center; justify-content:space-between; margin-bottom:2.5rem; }
+  .aside-close{ font-size:1.1rem; color:var(--muted); line-height:1; padding:.2rem; }
+  .aside-close:hover{ color:var(--ink); }
+  .aside-heading{ font-family:var(--font-display); font-weight:700; font-size:1.6rem; line-height:1.25; margin-bottom:.9rem; }
+  .aside-sub{ font-size:.88rem; color:var(--muted); line-height:1.5; margin-bottom:1.6rem; }
+
+  .aside-btn{
+    display:block; width:100%; text-align:center; padding:.85rem 1rem; border-radius:100px;
+    font-weight:600; font-size:.9rem; margin-bottom:.7rem;
+  }
+  .aside-btn-primary{ background:var(--red); color:var(--white); }
+  .aside-btn-primary:hover{ background:var(--red-deep); }
+  .aside-btn-secondary{ border:1.5px solid var(--card-border); color:var(--ink); }
+  .aside-btn-secondary:hover{ border-color:var(--ink); }
+
+  .aside-divider{ display:flex; align-items:center; gap:.7rem; margin:.9rem 0; color:var(--muted); font-size:.78rem; }
+  .aside-divider::before, .aside-divider::after{ content:''; flex:1; height:1px; background:var(--card-border); }
+
+  .aside-oauth-btn{
+    display:flex; align-items:center; justify-content:center; gap:.6rem;
+    border:1.5px solid var(--card-border); border-radius:100px; padding:.8rem 1rem;
+    font-weight:500; font-size:.88rem; margin-bottom:.7rem;
+  }
+  .aside-oauth-btn:hover{ border-color:var(--ink); }
+  .aside-oauth-btn svg, .aside-oauth-btn .icon{ width:18px; height:18px; flex-shrink:0; }
+
+  /* Hide the aside entirely on mobile — mobile uses the header sign-in link instead */
+  @media (max-width:880px){ .signup-aside{ display:none; } }
+
+  .profile-wrap{ flex:1; min-width:0; }
+
+  /* ---------- Header ---------- */
   header{ display:flex; align-items:center; justify-content:space-between; padding:1.5rem 2.5rem; }
   .logo{ font-family:var(--font-display); font-weight:900; font-size:1.55rem; display:flex; align-items:baseline; }
   .logo .va{ color:var(--red); }
-  .home-link{ font-size:.9rem; font-weight:500; }
-  .home-link:hover{ color:var(--red); }
+
+  .signin-pill{
+    border:1.5px solid var(--card-border); border-radius:100px; padding:.5rem 1.2rem;
+    font-weight:600; font-size:.85rem;
+  }
+  .signin-pill:hover{ border-color:var(--ink); }
+  /* Only shown on mobile — on desktop the sidebar is the single sign-in entry point */
+  @media (min-width:881px){ .signin-pill{ display:none; } }
 
   main{ max-width:640px; margin:0 auto; padding:1.5rem 6vw 6rem; }
   .state-msg{ text-align:center; padding:4rem 0; color:var(--muted); }
@@ -57,7 +104,8 @@
     padding:.3rem .8rem; border-radius:100px; border:1.5px solid var(--red); color:var(--red); margin-bottom:.7rem;
   }
   .profile-name{ font-family:var(--font-display); font-weight:600; font-size:1.7rem; margin-bottom:.2rem; }
-  .profile-username{ color:var(--muted); font-size:.9rem; margin-bottom:1rem; }
+  .profile-username{ color:var(--muted); font-size:.9rem; margin-bottom:.5rem; }
+  .profile-location{ font-size:.8rem; color:var(--muted); margin-bottom:1rem; }
   .profile-bio{ font-size:.95rem; line-height:1.55; color:var(--ink); max-width:440px; }
 
   .section-title{ font-family:var(--font-display); font-weight:600; font-size:1.2rem; margin:2.2rem 0 1rem; }
@@ -84,35 +132,70 @@
 </head>
 <body>
 
-<header>
-  <a href="//" class="logo"><span class="va">Va</span><span class="room">Room</span></a>
-  <a href="//" class="home-link">VaRoom home →</a>
-</header>
+<div class="page">
 
-<main>
-  <div id="loading-state" class="state-msg">Loading profile…</div>
-  <div id="not-found-state" class="state-msg" style="display:none;">This profile doesn't exist or isn't available.</div>
-
-  <div id="profile-content" style="display:none;">
-    <div class="profile-head">
-      <div class="avatar-circle" id="avatar-circle">·</div>
-      <span class="role-tag" id="role-tag">Host</span>
-      <div class="profile-name" id="profile-name">—</div>
-      <div class="profile-username" id="profile-username">—</div>
-      <p class="profile-bio" id="profile-bio"></p>
+  <!-- Desktop-only sign-up prompt. Hidden entirely on mobile via CSS (see .signup-aside media query). -->
+  <aside class="signup-aside" id="signup-aside">
+    <div class="aside-top">
+      <span class="logo"><span class="va">Va</span><span class="room">Room</span></span>
+      <button class="aside-close" id="aside-close" aria-label="Dismiss">✕</button>
     </div>
 
-    <div id="listings-section" style="display:none;">
-      <h2 class="section-title" id="listings-title">Listings</h2>
-      <div class="listing-grid" id="listing-grid"></div>
-    </div>
+    <h2 class="aside-heading">Book with confidence on VaRoom</h2>
+    <p class="aside-sub">Create an account or sign in to message hosts, book stays and get the best deals.</p>
 
-    <div class="cta-footer">
-      <p>Looking for a place to stay or list your own space?</p>
-      <a href="//" class="cta-btn">Explore VaRoom</a>
-    </div>
+    <!-- TODO: point to the real create-account route -->
+    <a href="/signup" class="aside-btn aside-btn-primary">Get started</a>
+    <!-- TODO: point to the real sign-in route -->
+    <a href="/signin" class="aside-btn aside-btn-secondary">Sign in</a>
+
+    <div class="aside-divider">or</div>
+
+    <button class="aside-oauth-btn" id="google-oauth-btn">
+      <svg viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84c-.21 1.13-.85 2.09-1.8 2.73v2.27h2.92c1.7-1.57 2.68-3.88 2.68-6.64z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.17l-2.92-2.27c-.81.54-1.85.86-3.04.86-2.34 0-4.32-1.58-5.03-3.71H.96v2.33C2.44 15.98 5.48 18 9 18z"/><path fill="#FBBC05" d="M3.97 10.71a5.4 5.4 0 0 1 0-3.42V4.96H.96a9 9 0 0 0 0 8.08l3.01-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0 5.48 0 2.44 2.02.96 4.96l3.01 2.33C4.68 5.16 6.66 3.58 9 3.58z"/></svg>
+      Continue with Google
+    </button>
+    <!-- TODO: point to the real email sign-up route -->
+    <a href="/signup?method=email" class="aside-oauth-btn">
+      ✉️ Continue with Email
+    </a>
+  </aside>
+
+  <div class="profile-wrap">
+    <header>
+      <a href="//" class="logo"><span class="va">Va</span><span class="room">Room</span></a>
+      <!-- Mobile-only sign-in entry point. Desktop hides this (sidebar is the single sign-in CTA). -->
+      <!-- TODO: point to the real sign-in route -->
+      <a href="/signin" class="signin-pill">Sign in</a>
+    </header>
+
+    <main>
+      <div id="loading-state" class="state-msg">Loading profile…</div>
+      <div id="not-found-state" class="state-msg" style="display:none;">This profile doesn't exist or isn't available.</div>
+
+      <div id="profile-content" style="display:none;">
+        <div class="profile-head">
+          <div class="avatar-circle" id="avatar-circle">·</div>
+          <span class="role-tag" id="role-tag">Host</span>
+          <div class="profile-name" id="profile-name">—</div>
+          <div class="profile-username" id="profile-username">—</div>
+          <div class="profile-location" id="profile-location" style="display:none;"></div>
+          <p class="profile-bio" id="profile-bio"></p>
+        </div>
+
+        <div id="listings-section" style="display:none;">
+          <h2 class="section-title" id="listings-title">Listings</h2>
+          <div class="listing-grid" id="listing-grid"></div>
+        </div>
+
+        <div class="cta-footer">
+          <p>Looking for a place to stay or list your own space?</p>
+          <a href="//" class="cta-btn">Explore VaRoom</a>
+        </div>
+      </div>
+    </main>
   </div>
-</main>
+</div>
 
 <script src="/js/supabase-client.js"></script>
 <script>
@@ -128,6 +211,19 @@
       return null;
     }
 
+    // ---------- Sidebar dismiss + Google OAuth ----------
+    const asideEl = document.getElementById('signup-aside');
+    document.getElementById('aside-close').addEventListener('click', function(){
+      asideEl.style.display = 'none';
+    });
+
+    document.getElementById('google-oauth-btn').addEventListener('click', async function(){
+      await supabaseClient.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: window.location.href }
+      });
+    });
+
     const username = getUsernameFromUrl();
     const loadingState = document.getElementById('loading-state');
     const notFoundState = document.getElementById('not-found-state');
@@ -139,9 +235,11 @@
       return;
     }
 
+    // NOTE: 'location_text' is assumed here — confirm the actual column name
+    // on `profiles` (or remove it) before shipping.
     const { data: profile, error: profileError } = await supabaseClient
       .from('profiles')
-      .select('id, role, full_name, username, bio, avatar_url')
+      .select('id, role, full_name, username, bio, avatar_url, location_text')
       .eq('username', username)
       .maybeSingle();
 
@@ -156,6 +254,13 @@
     document.getElementById('role-tag').textContent = profile.role === 'host' ? 'Host' : 'Client';
     document.getElementById('profile-name').textContent = profile.full_name || 'VaRoom user';
     document.getElementById('profile-username').textContent = '@' + profile.username;
+
+    // Location line — Trusted Host indicator intentionally omitted for now.
+    const locationEl = document.getElementById('profile-location');
+    if (profile.location_text) {
+      locationEl.textContent = '📍 ' + profile.location_text;
+      locationEl.style.display = 'block';
+    }
 
     const bioEl = document.getElementById('profile-bio');
     if (profile.role !== 'host') {
