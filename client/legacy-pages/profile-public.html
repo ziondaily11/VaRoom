@@ -42,11 +42,9 @@
   .signup-aside{
     width:300px; flex-shrink:0; padding:2.25rem 2rem 2rem;
     border-right:1px solid var(--card-border); background:var(--surface);
-    display:flex; flex-direction:column; backdrop-filter:blur(16px);
+    display:flex; flex-direction:column; position:sticky; top:0; height:100vh; overflow-y:auto;
   }
   .aside-top{ display:flex; align-items:center; justify-content:space-between; margin-bottom:clamp(3rem, 12vh, 7rem); }
-  .aside-close{ font-size:1.1rem; color:var(--muted); line-height:1; padding:.2rem; }
-  .aside-close:hover{ color:var(--ink); }
   .aside-heading{ font-family:var(--font-display); font-weight:700; font-size:1.55rem; line-height:1.18; margin-bottom:.9rem; }
   .aside-sub{ font-size:.88rem; color:var(--muted); line-height:1.5; margin-bottom:1.6rem; }
 
@@ -79,8 +77,8 @@
   .logo .va{ color:var(--red); }
 
   .signin-pill{
-    border:1.5px solid var(--card-border); border-radius:100px; padding:.5rem 1.2rem;
-    font-weight:600; font-size:.85rem;
+    border:1.5px solid var(--red); border-radius:100px; padding:.55rem 1.2rem;
+    font-weight:600; font-size:.85rem; background:var(--red); color:#fff;
   }
   .signin-pill:hover{ border-color:var(--ink); }
   /* Only shown on mobile — on desktop the sidebar is the single sign-in entry point */
@@ -141,11 +139,11 @@
   @media (max-width:880px){
     .page{ display:block; }
     .signup-aside{ display:none; }
-    main{ padding-top:.75rem; }
+    main{ padding:0 .75rem 4rem; }
   }
   @media (max-width:520px){
-    header{ padding:1.15rem 1.25rem; }
-    main{ padding-left:1.25rem; padding-right:1.25rem; }
+    header{ padding:1.15rem .9rem; }
+    main{ padding-left:.75rem; padding-right:.75rem; }
     .listing-grid{ grid-template-columns:1fr; gap:1rem; }
     .profile-head{ margin-bottom:1.45rem; }
   }
@@ -159,7 +157,6 @@
   <aside class="signup-aside" id="signup-aside">
     <div class="aside-top">
       <span class="logo"><span class="va">Va</span><span class="room">Room</span></span>
-      <button class="aside-close" id="aside-close" aria-label="Dismiss">×</button>
     </div>
 
     <h2 class="aside-heading">Book with confidence on VaRoom</h2>
@@ -227,11 +224,6 @@
     }
 
     // ---------- Sidebar dismiss + Google OAuth ----------
-    const asideEl = document.getElementById('signup-aside');
-    document.getElementById('aside-close').addEventListener('click', function(){
-      asideEl.style.display = 'none';
-    });
-
     async function startGoogleAuth(){
       await supabaseClient.auth.signInWithOAuth({
         provider: 'google',
