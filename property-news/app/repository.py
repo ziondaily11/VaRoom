@@ -16,6 +16,20 @@ from .constants import ReviewStatus
 from .models import NewsAnalysis, NewsEvent, NewsItem, Source
 
 logger = logging.getLogger(__name__)
+MAX_NEWS_LIST_LIMIT = 100
+DEDUP_SCAN_LIMIT = 100
+FULL_ITEM_FIELDS = (
+    "id,source_id,source_url,canonical_url,source_title,source_published_at,fetched_at,"
+    "original_content,clean_text,varoom_title,varoom_summary,varoom_body,category,topics,"
+    "counties,towns,regulatory_status,affected_groups,key_facts,risk_level,confidence_score,"
+    "source_tier,review_status,reviewed_by,published_at,scheduled_at,image_url,content_hash,"
+    "timeline_id,created_at,updated_at"
+)
+PUBLIC_ITEM_FIELDS = (
+    "id,source_id,source_url,canonical_url,source_title,source_published_at,varoom_title,"
+    "varoom_summary,category,topics,counties,towns,regulatory_status,affected_groups,"
+    "risk_level,source_tier,published_at,image_url"
+)
 
 
 def _now() -> datetime:
@@ -147,18 +161,19 @@ class MemoryNewsRepository:
 
     async def list_items(self, *, published_only: bool = False, limit: int | None = None,
                          offset: int = 0, select_fields: str | None = None) -> list[NewsItem]:
+        bounded_limit = min(limit if limit is not None else MAX_NEWS_LIST_LIMIT, MAX_NEWS_LIST_LIMIT)
+        if bounded_limit < 1:
+            raise ValueError("limit must be positive")
         values = list(self.items.values())
         if published_only:
             values = [item for item in values if item.review_status is ReviewStatus.PUBLISHED and item.published_at]
         sorted_items = [copy.deepcopy(item) for item in sorted(values, key=lambda item: item.published_at or item.created_at, reverse=True)]
-        if offset:
-            sorted_items = sorted_items[offset:]
-        if limit is not None:
-            sorted_items = sorted_items[:limit]
+        sorted_items = sorted_items[offset:offset + bounded_limit]
         return sorted_items
 
     async def list_pending_review(self) -> list[NewsItem]:
-        return [item for item in await self.list_items() if item.review_status is ReviewStatus.PENDING_REVIEW]
+        return [item for item in await self.list_items(limit=MAX_NEWS_LIST_LIMIT)
+                if item.review_status is ReviewStatus.PENDING_REVIEW]
 
     async def list_failed_items(self, limit: int = 25) -> list[NewsItem]:
         return [item for item in await self.list_items() if item.review_status is ReviewStatus.FAILED][:limit]
@@ -256,18 +271,6 @@ class SupabaseNewsRepository:
                 raise PropertyNewsRepositoryUnavailable(
                     "Property News tables are unavailable. Apply the additive migration and refresh PostgREST schema visibility."
                 )
-        # If a query fails with 400 on an explicit select (e.g. image_url column not yet applied on Supabase), fallback to select=*
-        if response.status_code == 400 and params and "select" in params and params["select"] != "*":
-            fallback_params = dict(params)
-            fallback_params["select"] = "*"
-            fallback_started = time.monotonic()
-            response = await self.client.request(method, url, params=fallback_params, json=payload, headers=headers)
-            logger.info(
-                "Supabase request table=%s query=%s limit=%s elapsed_ms=%d status=%d retry=%d",
-                table, fallback_params, fallback_params.get("limit"),
-                int((time.monotonic() - fallback_started) * 1000), response.status_code, 0,
-            )
-
         try:
             response.raise_for_status()
         except httpx.HTTPStatusError as error:
@@ -361,19 +364,21 @@ class SupabaseNewsRepository:
         return self._item(rows[0]) if rows else None
 
     async def find_by_canonical_url(self, canonical_url: str) -> NewsItem | None:
-        rows = await self._request("GET", "news_items", params={"select": "*", "canonical_url": f"eq.{canonical_url}", "limit": "1"})
-        return self._item(rows[0]) if rows else None
+        rows = await self._request("GET", "news_items", params={
+            "select": "id", "canonical_url": f"eq.{canonical_url}", "limit": "1",
+        })
+        return await self.get_item(UUID(rows[0]["id"])) if rows else None
 
     async def find_by_content_hash(self, content_hash: str) -> NewsItem | None:
-        rows = await self._request("GET", "news_items", params={"select": "*", "content_hash": f"eq.{content_hash}", "limit": "1"})
-        return self._item(rows[0]) if rows else None
+        rows = await self._request("GET", "news_items", params={
+            "select": "id", "content_hash": f"eq.{content_hash}", "limit": "1",
+        })
+        return await self.get_item(UUID(rows[0]["id"])) if rows else None
 
     async def find_similar_title(self, title: str, threshold: float = 0.92) -> NewsItem | None:
-        # Fetch id and source_title with fallback if needed
-        try:
-            candidates = await self._request("GET", "news_items", params={"select": "id,source_title", "limit": "100", "order": "created_at.desc"})
-        except Exception:
-            candidates = await self._request("GET", "news_items", params={"select": "*", "limit": "100", "order": "created_at.desc"})
+        candidates = await self._request("GET", "news_items", params={
+            "select": "id,source_title", "limit": str(DEDUP_SCAN_LIMIT), "order": "created_at.desc",
+        })
         for row in candidates:
             if SequenceMatcher(None, title.lower(), str(row.get("source_title", "")).lower()).ratio() >= threshold:
                 return await self.get_item(UUID(row["id"]))
@@ -413,20 +418,31 @@ class SupabaseNewsRepository:
 
     async def list_items(self, *, published_only: bool = False, limit: int | None = None,
                          offset: int = 0, select_fields: str | None = None) -> list[NewsItem]:
-        fields = select_fields or "id,source_id,source_url,canonical_url,source_title,source_published_at,fetched_at,clean_text,varoom_title,varoom_summary,varoom_body,category,topics,counties,towns,regulatory_status,affected_groups,key_facts,risk_level,confidence_score,source_tier,review_status,reviewed_by,published_at,scheduled_at,image_url,content_hash,timeline_id,created_at,updated_at"
-        params = {"select": fields, "order": "published_at.desc.nullslast,created_at.desc"}
+        bounded_limit = min(limit if limit is not None else MAX_NEWS_LIST_LIMIT, MAX_NEWS_LIST_LIMIT)
+        if bounded_limit < 1:
+            raise ValueError("limit must be positive")
+        fields = select_fields or FULL_ITEM_FIELDS
+        params = {"select": fields, "order": "published_at.desc.nullslast,created_at.desc",
+                  "limit": str(bounded_limit)}
         if published_only:
             params["review_status"] = "eq.published"
             params["published_at"] = "not.is.null"
-        if limit is not None:
-            params["limit"] = str(limit)
         if offset:
             params["offset"] = str(offset)
-        return [self._item(row) for row in await self._request("GET", "news_items", params=params)]
+        started = time.monotonic()
+        rows = await self._request("GET", "news_items", params=params)
+        logger.info(
+            "News list operation=list_items selected_columns=%s filters=%s limit=%d returned_rows=%d elapsed_ms=%d",
+            fields, {key: value for key, value in params.items() if key not in {"select", "limit", "offset"}},
+            bounded_limit, len(rows), int((time.monotonic() - started) * 1000),
+        )
+        return [self._item(row) for row in rows]
 
     async def list_pending_review(self) -> list[NewsItem]:
-        fields = "id,source_id,source_url,canonical_url,source_title,source_published_at,fetched_at,clean_text,varoom_title,varoom_summary,varoom_body,category,topics,counties,towns,regulatory_status,affected_groups,key_facts,risk_level,confidence_score,source_tier,review_status,reviewed_by,published_at,image_url,content_hash,timeline_id,created_at,updated_at"
-        rows = await self._request("GET", "news_items", params={"select": fields, "review_status": "eq.pending_review", "order": "risk_level.desc,created_at.desc"})
+        rows = await self._request("GET", "news_items", params={
+            "select": FULL_ITEM_FIELDS, "review_status": "eq.pending_review",
+            "order": "risk_level.desc,created_at.desc", "limit": str(MAX_NEWS_LIST_LIMIT),
+        })
         return [self._item(row) for row in rows]
 
     async def list_failed_items(self, limit: int = 25) -> list[NewsItem]:

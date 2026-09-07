@@ -20,7 +20,14 @@ from .config import Settings, settings
 from .constants import ReviewStatus
 from .models import ReviewAction
 from .processing import ProcessingService
-from .repository import MemoryNewsRepository, PropertyNewsRepositoryUnavailable, SupabaseNewsRepository, build_repository
+from .repository import (
+    MAX_NEWS_LIST_LIMIT,
+    PUBLIC_ITEM_FIELDS,
+    MemoryNewsRepository,
+    PropertyNewsRepositoryUnavailable,
+    SupabaseNewsRepository,
+    build_repository,
+)
 from .retrieval import NewsRetrievalService
 from .review import ReviewService
 from .jobs import run_collection_job, run_reprocess_job
@@ -64,11 +71,7 @@ def _public_item(item, source) -> dict[str, Any]:
     }
 
 
-PUBLIC_NEWS_FIELDS = (
-    "id,source_id,source_url,canonical_url,source_title,source_published_at,varoom_title,"
-    "varoom_summary,varoom_body,category,topics,counties,towns,regulatory_status,"
-    "affected_groups,risk_level,source_tier,published_at,image_url,content_hash"
-)
+PUBLIC_NEWS_FIELDS = PUBLIC_ITEM_FIELDS
 
 
 def create_app(config: Settings = settings, repository: Repository | None = None) -> FastAPI:
@@ -202,7 +205,9 @@ def create_app(config: Settings = settings, repository: Repository | None = None
     async def list_news(category: str | None = Query(default=None, max_length=50), county: str | None = Query(default=None, max_length=100), town: str | None = Query(default=None, max_length=100),
                         regulatory_status: str | None = Query(default=None, max_length=50), source: UUID | None = None, limit: int = Query(default=20, ge=1, le=50),
                         service: ServiceContainer = Depends(container)):
-        items = await service.repository.list_items(published_only=True)
+        items = await service.repository.list_items(
+            published_only=True, limit=min(limit, MAX_NEWS_LIST_LIMIT), select_fields=PUBLIC_NEWS_FIELDS,
+        )
         def matches(item) -> bool:
             return ((not category or item.category == category.lower()) and
                     (not county or county.lower() in {value.lower() for value in item.counties}) and
@@ -268,7 +273,8 @@ def create_app(config: Settings = settings, repository: Repository | None = None
                 "articles_parsed": 0, "articles_inserted": 0, "new_items": 0,
                 "duplicates": 0, "duplicates_skipped": 0, "failures": 0, "article_failures": 0,
                 "urls_discovered": 0, "urls_rejected": 0, "articles_fetched": 0,
-                "security_blocked_urls": 0,
+                "security_blocked_urls": 0, "timeouts": 0, "http_403": 0, "http_404": 0,
+                "oversized_responses": 0,
                 "processed": 0, "published": 0, "pending_review": 0, "archived": 0,
                 "processing_failures": 0, "retried": 0,
             }

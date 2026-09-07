@@ -149,13 +149,15 @@ class SourceCollector:
             "articles_inserted": 0, "new_items": 0, "duplicates": 0,
             "duplicates_skipped": 0, "failures": 0, "article_failures": 0,
             "urls_discovered": 0, "urls_rejected": 0, "security_blocked_urls": 0, "articles_fetched": 0,
+            "timeouts": 0, "http_403": 0, "http_404": 0, "oversized_responses": 0,
             "new_item_ids": [],
         }
         if not due_sources:
             logger.info(
                 "Collection summary: sources_attempted=0 sources_successful=0 sources_failed=0 "
                 "urls_discovered=0 urls_rejected=0 articles_fetched=0 articles_parsed=0 "
-                "articles_inserted=0 duplicates_skipped=0 security_blocked_urls=0",
+                "articles_rejected=0 articles_inserted=0 duplicates_skipped=0 "
+                "security_blocked_urls=0 timeouts=0 http_403=0 http_404=0 oversized_responses=0",
             )
             return totals
 
@@ -173,17 +175,20 @@ class SourceCollector:
                 "articles_inserted", "new_items", "duplicates", "duplicates_skipped",
                 "failures", "article_failures",
                 "urls_discovered", "urls_rejected", "security_blocked_urls", "articles_fetched",
+                "timeouts", "http_403", "http_404", "oversized_responses",
             ):
                 totals[key] += int(result.get(key, 0))
             totals["new_item_ids"].extend(result["new_item_ids"])
         logger.info(
             "Collection summary: sources_attempted=%d sources_successful=%d sources_failed=%d "
             "urls_discovered=%d urls_rejected=%d articles_fetched=%d articles_parsed=%d "
-            "articles_inserted=%d duplicates_skipped=%d security_blocked_urls=%d",
+            "articles_rejected=%d articles_inserted=%d duplicates_skipped=%d "
+            "security_blocked_urls=%d timeouts=%d http_403=%d http_404=%d oversized_responses=%d",
             totals["sources_attempted"], totals["sources_successful"], totals["sources_failed"],
             totals["urls_discovered"], totals["urls_rejected"], totals["articles_fetched"],
-            totals["articles_parsed"], totals["articles_inserted"], totals["duplicates_skipped"],
-            totals["security_blocked_urls"],
+            totals["articles_parsed"], totals["articles_rejected"], totals["articles_inserted"],
+            totals["duplicates_skipped"], totals["security_blocked_urls"], totals["timeouts"],
+            totals["http_403"], totals["http_404"], totals["oversized_responses"],
         )
         return totals
 
@@ -195,6 +200,7 @@ class SourceCollector:
             "articles_inserted": 0, "new_items": 0, "duplicates": 0,
             "duplicates_skipped": 0, "failures": 0, "article_failures": 0,
             "urls_discovered": 0, "urls_rejected": 0, "security_blocked_urls": 0, "articles_fetched": 0,
+            "timeouts": 0, "http_403": 0, "http_404": 0, "oversized_responses": 0,
             "new_item_ids": [],
         }
         run_id: UUID | None = None
@@ -229,6 +235,7 @@ class SourceCollector:
                 if isinstance(article, Exception):
                     result["article_failures"] += 1
                     result["articles_rejected"] += 1
+                    self._record_failure_kind(result, article)
                     logger.warning("Article failure for source=%s url=%s: %s", source.name, candidate.source_url, article)
                     continue
                 candidates.append(article)
@@ -240,6 +247,7 @@ class SourceCollector:
                     stored, duplicate = await self._store_candidate(source, candidate)
                 except Exception as error:
                     result["article_failures"] += 1
+                    self._record_failure_kind(result, error)
                     logger.warning("Article failure: source=%s url=%s: %s", source.name, candidate.source_url, error)
                     continue
                 result["duplicates" if duplicate else "new_items"] += 1
@@ -266,6 +274,7 @@ class SourceCollector:
                 result["articles_parsed"], result["articles_inserted"], result["duplicates_skipped"],
             )
         except Exception as error:  # A source failure must never stop other sources.
+            self._record_failure_kind(result, error)
             logger.warning("Source failure: source=%s error=%s", source.name, error)
             result["failures"] = 1
             result["sources_failed"] = 1
@@ -282,6 +291,18 @@ class SourceCollector:
             except Exception as persistence_error:
                 logger.error("Could not persist failure telemetry for source %s: %s", source.name, persistence_error)
         return result
+
+    @staticmethod
+    def _record_failure_kind(result: dict[str, Any], error: Exception) -> None:
+        detail = f"{type(error).__name__}: {error}".lower()
+        if "timeout" in detail:
+            result["timeouts"] += 1
+        if "403" in detail:
+            result["http_403"] += 1
+        if "404" in detail:
+            result["http_404"] += 1
+        if "news_fetch_max_bytes" in detail or "exceeded" in detail and "response" in detail:
+            result["oversized_responses"] += 1
 
     @staticmethod
     def _aware(value: datetime | None) -> datetime | None:

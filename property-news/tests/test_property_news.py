@@ -441,8 +441,8 @@ class ApiSecurityTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(repository.select_fields, (
             "id,source_id,source_url,canonical_url,source_title,source_published_at,varoom_title,"
-            "varoom_summary,varoom_body,category,topics,counties,towns,regulatory_status,"
-            "affected_groups,risk_level,source_tier,published_at,image_url,content_hash"
+            "varoom_summary,category,topics,counties,towns,regulatory_status,affected_groups,"
+            "risk_level,source_tier,published_at,image_url"
         ))
 
     async def test_latest_news_surfaces_timeout_as_service_unavailable(self):

@@ -29,6 +29,7 @@ async def run_collection_job(repository=None, config=settings, analyzer: NewsAna
             "articles_inserted", "new_items", "duplicates", "duplicates_skipped",
             "failures", "article_failures", "urls_discovered", "urls_rejected",
             "security_blocked_urls", "articles_fetched",
+            "timeouts", "http_403", "http_404", "oversized_responses",
         )}
         result["collection_status"] = _collection_status(result)
         failed_item_ids = [item.id for item in await store.list_failed_items()]
@@ -94,7 +95,7 @@ async def run_reprocess_job(repository=None, config=settings, analyzer: NewsAnal
     collector = SourceCollector(store, config)
     processor = ProcessingService(store, analyzer or build_analyzer(config))
     result = {"checked": 0, "reprocessed": 0, "fetch_failures": 0, "processing_failures": 0}
-    items = await store.list_items(published_only=False)
+    items = await store.list_items(published_only=False, limit=min(limit, 25))
     for item in items[:limit]:
         result["checked"] += 1
         source = await store.get_source(item.source_id)
