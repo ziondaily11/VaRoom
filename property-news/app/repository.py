@@ -18,6 +18,7 @@ from .models import NewsAnalysis, NewsEvent, NewsItem, PublicNewsItem, Source
 logger = logging.getLogger(__name__)
 MAX_NEWS_LIST_LIMIT = 100
 DEDUP_SCAN_LIMIT = 100
+PUBLICATION_BATCH_LIMIT = 100
 FULL_ITEM_FIELDS = (
     "id,source_id,source_url,canonical_url,source_title,source_published_at,fetched_at,"
     "original_content,clean_text,varoom_title,varoom_summary,varoom_body,category,topics,"
@@ -101,7 +102,11 @@ class MemoryNewsRepository:
     async def release_due_publications(self, now: datetime | None = None) -> int:
         now = now or _now()
         released = 0
-        for item in list(self.items.values()):
+        due = [
+            item for item in self.items.values()
+            if item.review_status is ReviewStatus.APPROVED and item.scheduled_at and item.scheduled_at <= now
+        ][:PUBLICATION_BATCH_LIMIT]
+        for item in due:
             if item.review_status is ReviewStatus.APPROVED and item.scheduled_at and item.scheduled_at <= now:
                 item.review_status = ReviewStatus.PUBLISHED
                 item.published_at = now
@@ -331,13 +336,18 @@ class SupabaseNewsRepository:
 
     async def schedule_publication(self, item: NewsItem, now: datetime | None = None) -> NewsItem:
         now = now or _now()
-        items = await self.list_items()
+        rows = await self._request("GET", "news_items", params={
+            "select": "id,scheduled_at,published_at,review_status",
+            "review_status": "in.(approved,published)",
+            "limit": str(PUBLICATION_BATCH_LIMIT),
+            "order": "scheduled_at.desc.nullslast,published_at.desc.nullslast",
+        })
         queued = [
-            value for value in items
-            if value.id != item.id and value.review_status in {ReviewStatus.APPROVED, ReviewStatus.PUBLISHED}
+            row for row in rows if UUID(row["id"]) != item.id
         ]
         latest = max(
-            (value.scheduled_at or value.published_at for value in queued if value.scheduled_at or value.published_at),
+            (datetime.fromisoformat(value.replace("Z", "+00:00"))
+             for row in queued for value in (row.get("scheduled_at"), row.get("published_at")) if value),
             default=None,
         )
         slot = max(now, latest + timedelta(hours=1)) if latest else now
@@ -348,19 +358,34 @@ class SupabaseNewsRepository:
 
     async def release_due_publications(self, now: datetime | None = None) -> int:
         now = now or _now()
-        items = await self.list_items()
-        due = [
-            item for item in items
-            if item.review_status is ReviewStatus.APPROVED and item.scheduled_at and item.scheduled_at <= now
-        ]
-        for item in due:
-            item.review_status = ReviewStatus.PUBLISHED
-            item.published_at = now
-            item.scheduled_at = None
-            await self.save_item(item)
-            await self.add_event(NewsEvent(news_id=item.id, source_id=item.source_id,
-                                           event_type="item_published", payload={"published_at": now.isoformat()}))
-        return len(due)
+        started = time.monotonic()
+        rows = await self._request("GET", "news_items", params={
+            "select": "id,source_id,scheduled_at,review_status",
+            "review_status": "eq.approved",
+            "scheduled_at": f"lte.{now.isoformat()}",
+            "limit": str(PUBLICATION_BATCH_LIMIT),
+            "order": "scheduled_at.asc",
+        })
+        logger.info(
+            "Publication release query selected_columns=id,source_id,scheduled_at,review_status "
+            "filters=approved_and_due limit=%d returned_rows=%d elapsed_ms=%d",
+            PUBLICATION_BATCH_LIMIT, len(rows), int((time.monotonic() - started) * 1000),
+        )
+        released = 0
+        for row in rows:
+            item_id = UUID(row["id"])
+            await self._request(
+                "PATCH", "news_items",
+                params={"id": f"eq.{item_id}", "review_status": "eq.approved"},
+                payload={"review_status": "published", "published_at": now.isoformat(), "scheduled_at": None},
+                prefer="return=minimal",
+            )
+            await self.add_event(NewsEvent(
+                news_id=item_id, source_id=UUID(row["source_id"]),
+                event_type="item_published", payload={"published_at": now.isoformat()},
+            ))
+            released += 1
+        return released
 
     async def get_item(self, item_id: UUID) -> NewsItem | None:
         rows = await self._request("GET", "news_items", params={"select": "*", "id": f"eq.{item_id}", "limit": "1"})

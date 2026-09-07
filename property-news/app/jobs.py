@@ -21,7 +21,11 @@ async def run_collection_job(repository=None, config=settings, analyzer: NewsAna
     collector = SourceCollector(store, config)
     processor = ProcessingService(store, analyzer or build_analyzer(config))
     try:
-        released = await store.release_due_publications()
+        try:
+            released = await store.release_due_publications()
+        except Exception as error:
+            logging.getLogger(__name__).error("Publication release failed; continuing collection: %s", error)
+            released = 0
         collected = await collector.collect_due_sources(source_group=source_group)
         result = {key: int(collected.get(key, 0)) for key in (
             "sources_checked", "sources_attempted", "sources_successful", "sources_failed",
