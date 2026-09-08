@@ -233,6 +233,7 @@ class ReplyResponse(BaseModel):
     reply: str
     skipped: bool = False  # true when the host isn't away — nothing was posted
     message: Optional[dict] = None
+    messages: Optional[List[dict]] = None
 
 
 def format_listing_facts(ctx: Optional[dict]) -> str:
@@ -300,6 +301,16 @@ def canned_reply(ctx: Optional[dict], elie_command: bool = False) -> str:
         f"Thanks for your interest in {title}! The host is away right now but will "
         "get back to you personally as soon as they're able to."
     )
+
+
+def is_listing_alternative_request(message: str) -> bool:
+    text = message.lower()
+    return bool(re.search(
+        r"\b(?:cheaper|affordable|lower[- ]priced|less expensive|"
+        r"alternative|alternatives|other options|more options|another option|"
+        r"different option|similar options)\b",
+        text,
+    ))
 
 
 async def generate_ai_reply(
@@ -446,6 +457,18 @@ async def reply(payload: ReplyRequest, authorization: Optional[str] = Header(Non
 
     ai_result = await generate_ai_reply(message, listing_ctx, history_block, is_elie_command)
     reply_text = ai_result["reply"] if ai_result else canned_reply(listing_ctx, is_elie_command)
+    alternative_listings = []
+    if is_elie_command and is_listing_alternative_request(message):
+        alternative_listings = await get_host_alternative_listings(
+            conversation["host_id"],
+            listing_id,
+            listing_ctx,
+            message,
+        )
+        reply_text = alternative_reply(
+            len(alternative_listings),
+            bool(re.search(r"\b(?:cheaper|affordable|lower[- ]priced|less expensive)\b", message.lower())),
+        )
 
     # Only attempt a real booking when Gemini extracted a firm date + night
     # count, the listing prices per night, and the numbers are sane.
@@ -475,7 +498,25 @@ async def reply(payload: ReplyRequest, authorization: Optional[str] = Header(Non
     if inserted:
         await touch_conversation(payload.conversation_id)
 
-    return ReplyResponse(reply=reply_text, skipped=False, message=inserted)
+    inserted_messages = [inserted] if inserted else []
+    for alternative in alternative_listings:
+        listing_message = await insert_auto_reply(
+            payload.conversation_id,
+            conversation["host_id"],
+            f"Shared listing: {alternative.get('title') or 'VaRoom listing'}",
+            message_type="listing",
+            listing_id=alternative["id"],
+        )
+        if listing_message:
+            listing_message["listing"] = alternative
+            inserted_messages.append(listing_message)
+
+    return ReplyResponse(
+        reply=reply_text,
+        skipped=False,
+        message=inserted,
+        messages=inserted_messages,
+    )
 
 
 # ============================================================
@@ -644,6 +685,50 @@ def format_reply_history(messages: list, host_id: str) -> str:
     return "Full conversation so far:\n" + "\n".join(lines) + "\n\n"
 
 
+def alternative_reply(count: int, wants_cheaper: bool) -> str:
+    if count:
+        if wants_cheaper:
+            return random.choice([
+                f"Sure! I found {count} more affordable option{'s' if count != 1 else ''} from this host's listings.",
+                f"I found {count} cheaper option{'s' if count != 1 else ''} from this host's available listings.",
+            ])
+        return f"Sure! I found {count} similar option{'s' if count != 1 else ''} from this host's available listings."
+    if wants_cheaper:
+        return "I couldn't find a cheaper available option among this host's listings right now."
+    return "I couldn't find another suitable available option among this host's listings right now."
+
+
+def filter_alternative_listings(
+    rows: list,
+    host_id: str,
+    current_price: Optional[float],
+    current_unit: Optional[str],
+    current_listing_id: Optional[str],
+    wants_cheaper: bool,
+) -> list:
+    candidates = []
+    for row in rows:
+        if row.get("host_id") != host_id or row.get("id") == current_listing_id:
+            continue
+        booking = row.get("listing_booking_details") or {}
+        if isinstance(booking, list):
+            booking = booking[0] if booking else {}
+        price = booking.get("price_amount")
+        if price is None:
+            continue
+        if wants_cheaper and (
+            current_price is None
+            or current_unit != booking.get("price_unit")
+            or float(price) >= float(current_price)
+        ):
+            continue
+        row["listing_booking_details"] = [booking]
+        candidates.append(row)
+
+    candidates.sort(key=lambda row: float(row["listing_booking_details"][0]["price_amount"]))
+    return candidates[:3]
+
+
 async def get_listing_context(listing_id: str) -> Optional[dict]:
     """Pulls real, verified facts about a listing (price, size, guest
     capacity, policies) so the host auto-reply can answer accurately
@@ -696,7 +781,13 @@ async def get_listing_context(listing_id: str) -> Optional[dict]:
         return None
 
 
-async def insert_auto_reply(conversation_id: str, host_id: str, body: str) -> Optional[dict]:
+async def insert_auto_reply(
+    conversation_id: str,
+    host_id: str,
+    body: str,
+    message_type: str = "text",
+    listing_id: Optional[str] = None,
+) -> Optional[dict]:
     """Inserts the AI-generated reply directly as a real message row, sent
     via the service role key (bypassing RLS) so it can be attributed to
     the host even though the host isn't the one calling this endpoint.
@@ -713,6 +804,8 @@ async def insert_auto_reply(conversation_id: str, host_id: str, body: str) -> Op
                     "sender_id": host_id,
                     "body": body,
                     "is_auto_reply": True,
+                    "message_type": message_type,
+                    "listing_id": listing_id,
                 },
                 headers={
                     "apikey": SUPABASE_SERVICE_ROLE_KEY,
@@ -726,6 +819,68 @@ async def insert_auto_reply(conversation_id: str, host_id: str, body: str) -> Op
             return rows[0] if rows else None
     except Exception:
         return None
+
+
+async def get_host_alternative_listings(
+    host_id: str,
+    current_listing_id: Optional[str],
+    current_listing_ctx: Optional[dict],
+    enquiry: str,
+) -> list:
+    """Find a small set of public, available alternatives owned by this host."""
+    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+        return []
+
+    params = {
+        "select": (
+            "id,host_id,title,description,category,location_text,availability_status,"
+            "listing_photos(storage_path),"
+            "listing_booking_details!inner(price_amount,price_unit,size_or_type,max_guests)"
+        ),
+        "host_id": f"eq.{host_id}",
+        "availability_status": "eq.available",
+        "order": "created_at.desc",
+        "limit": "20",
+    }
+    if current_listing_id:
+        params["id"] = f"neq.{current_listing_id}"
+    if current_listing_ctx and current_listing_ctx.get("category"):
+        params["category"] = f"eq.{current_listing_ctx['category']}"
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(
+                f"{SUPABASE_URL}/rest/v1/listings",
+                params=params,
+                headers={
+                    "apikey": SUPABASE_SERVICE_ROLE_KEY,
+                    "Authorization": f"******",
+                },
+            )
+            response.raise_for_status()
+            rows = response.json()
+    except Exception:
+        return []
+
+    current_price = (
+        current_listing_ctx.get("price_amount")
+        if current_listing_ctx
+        else None
+    )
+    current_unit = (
+        current_listing_ctx.get("price_unit")
+        if current_listing_ctx
+        else None
+    )
+    wants_cheaper = bool(re.search(r"\b(?:cheaper|affordable|lower[- ]priced|less expensive)\b", enquiry.lower()))
+    return filter_alternative_listings(
+        rows,
+        host_id,
+        current_price,
+        current_unit,
+        current_listing_id,
+        wants_cheaper,
+    )
 
 
 async def touch_conversation(conversation_id: str) -> None:

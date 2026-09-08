@@ -1609,7 +1609,11 @@
         const result = await response.json();
         if (!response.ok) throw new Error(result.detail || result.error || 'Elie could not reply right now.');
         hideTypingIndicator();
-        if (result.message) appendMessage(result.message, true);
+        if (result.messages && result.messages.length) {
+          result.messages.forEach(function(message){ appendMessage(message, true); });
+        } else if (result.message) {
+          appendMessage(result.message, true);
+        }
         else if (result.reply) window.alert(result.reply);
       }
 
