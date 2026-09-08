@@ -71,6 +71,15 @@ function generateR2ObjectKey(hostId, propertyId, mediaId, extension) {
   if (!hostId || !propertyId || !mediaId || !extension) {
     throw new Error('Missing required parameters for R2 key generation');
   }
+
+  function generateChatAttachmentObjectKey(userId, conversationId, attachmentId, extension) {
+    if (!userId || !conversationId || !attachmentId || !extension) {
+      throw new Error('Missing required parameters for chat attachment key generation');
+    }
+    const cleanExt = (extension || '').replace(/[^a-z0-9]/gi, '').toLowerCase();
+    if (!cleanExt) throw new Error('Invalid file extension');
+    return `chat-attachments/${ENVIRONMENT}/${conversationId}/${userId}/${attachmentId}/original.${cleanExt}`;
+  }
   const cleanExt = (extension || '').replace(/[^a-z0-9]/gi, '').toLowerCase();
   if (!cleanExt) {
     throw new Error('Invalid file extension');
@@ -125,6 +134,17 @@ async function generateR2PlaybackUrl(objectKey, expiresInSeconds = 3600) {
     url,
     expiresAt: new Date(Date.now() + expiresInSeconds * 1000),
   };
+}
+
+async function generateR2DownloadAuthorization(objectKey, contentType, expiresInSeconds = 3600) {
+  assertConfigured();
+  const command = new GetObjectCommand({
+    Bucket: R2_BUCKET_NAME,
+    Key: objectKey,
+    ResponseContentType: contentType || undefined,
+  });
+  const url = await getSignedUrl(s3Client, command, { expiresIn: expiresInSeconds });
+  return { url, expiresAt: new Date(Date.now() + expiresInSeconds * 1000) };
 }
 
 /**
@@ -225,8 +245,10 @@ async function deleteSupabaseStorage(bucketName, objectKey) {
 
 module.exports = {
   generateR2ObjectKey,
+  generateChatAttachmentObjectKey,
   generateR2UploadAuthorization,
   generateR2PlaybackUrl,
+  generateR2DownloadAuthorization,
   verifyR2ObjectExists,
   deleteR2Object,
   uploadSupabaseStorage,
