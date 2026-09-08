@@ -1133,7 +1133,6 @@
 
       const input = document.getElementById('message-input');
       const sendBtn = document.getElementById('send-btn');
-      const attachmentComposer = setupAttachmentComposer(convId, conv);
       const attachmentRoot = document.getElementById('composer-attachment');
       const addButton = document.getElementById('composer-add-btn');
       const attachmentMenu = document.getElementById('attachment-menu');
@@ -1500,6 +1499,7 @@
 
       const input = document.getElementById('message-input');
       const sendBtn = document.getElementById('send-btn');
+      const attachmentComposer = setupAttachmentComposer(convId, conv);
 
       async function triggerAutoReplyIfAway(messageBody){
         try {
