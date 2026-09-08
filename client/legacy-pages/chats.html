@@ -530,6 +530,7 @@
   (async function(){
     const checkingAuth = document.getElementById('checking-auth');
     const chatShell = document.getElementById('chat-shell');
+    const chatLayout = chatShell.querySelector('.chat-shell');
     const convListEl = document.getElementById('conv-list-items');
     const convListPanel = document.getElementById('conv-list');
     const threadPanel = document.getElementById('thread-panel');
@@ -550,7 +551,7 @@
     let isRightSidebarOpen = true;
     function setRightSidebarOpen(open){
       isRightSidebarOpen = open;
-      chatShell.classList.toggle('right-collapsed', !open);
+      chatLayout.classList.toggle('right-collapsed', !open);
       const button = document.getElementById('details-collapse-btn');
       if (button) {
         button.setAttribute('aria-expanded', String(open));
