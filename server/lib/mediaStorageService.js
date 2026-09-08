@@ -72,19 +72,20 @@ function generateR2ObjectKey(hostId, propertyId, mediaId, extension) {
     throw new Error('Missing required parameters for R2 key generation');
   }
 
-  function generateChatAttachmentObjectKey(userId, conversationId, attachmentId, extension) {
-    if (!userId || !conversationId || !attachmentId || !extension) {
-      throw new Error('Missing required parameters for chat attachment key generation');
-    }
-    const cleanExt = (extension || '').replace(/[^a-z0-9]/gi, '').toLowerCase();
-    if (!cleanExt) throw new Error('Invalid file extension');
-    return `chat-attachments/${ENVIRONMENT}/${conversationId}/${userId}/${attachmentId}/original.${cleanExt}`;
-  }
   const cleanExt = (extension || '').replace(/[^a-z0-9]/gi, '').toLowerCase();
   if (!cleanExt) {
     throw new Error('Invalid file extension');
   }
   return `videos/${ENVIRONMENT}/${hostId}/${propertyId}/${mediaId}/original.${cleanExt}`;
+}
+
+function generateChatAttachmentObjectKey(userId, conversationId, attachmentId, extension) {
+  if (!userId || !conversationId || !attachmentId || !extension) {
+    throw new Error('Missing required parameters for chat attachment key generation');
+  }
+  const cleanExt = (extension || '').replace(/[^a-z0-9]/gi, '').toLowerCase();
+  if (!cleanExt) throw new Error('Invalid file extension');
+  return `chat-attachments/${ENVIRONMENT}/${conversationId}/${userId}/${attachmentId}/original.${cleanExt}`;
 }
 
 /**
