@@ -101,12 +101,12 @@
   .view-toggle button.active{ background:var(--red); color:#fff; }
   .view-toggle button[disabled]{ cursor:not-allowed; opacity:.55; }
 
-  .grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); gap:1.4rem; align-items:start; }
-  .card{ background:var(--white); border:1px solid var(--line); border-radius:14px; overflow:hidden; display:flex; flex-direction:column; height:max-content; align-self:start; }
-  .card-media{ position:relative; aspect-ratio:4/3; background:var(--paper); }
+  .grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); gap:1.4rem; align-items:stretch; }
+  .card{ background:var(--white); border:1px solid var(--line); border-radius:14px; overflow:hidden; display:grid; grid-template-rows:240px 1fr; height:400px; min-height:400px; color:var(--ink); }
+  .card-media{ position:relative; height:240px; background:var(--paper); overflow:hidden; }
   .card-media img{ width:100%; height:100%; object-fit:cover; display:block; }
   .image-fallback{ display:block; width:100%; height:100%; }
-  .card-media .placeholder{ display:flex; align-items:center; justify-content:center; height:100%; color:var(--muted); background:var(--paper); font-size:.78rem; text-align:center; padding:1rem; }
+  .card-media .placeholder{ display:flex; align-items:center; justify-content:center; height:100%; color:var(--ink); background:var(--paper); font-size:.78rem; text-align:center; padding:1rem; }
   .card-save{
     position:absolute; top:.6rem; right:.6rem; width:32px; height:32px; border-radius:50%; border:none;
     background:rgba(255,255,255,.85); display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--ink);
@@ -116,7 +116,7 @@
     position:absolute; top:.6rem; left:.6rem; background:rgba(26,18,16,.75); color:#fff; font-size:.68rem; font-weight:700;
     padding:.2rem .5rem; border-radius:100px;
   }
-  .card-body{ padding:.85rem .95rem 1rem; display:flex; flex-direction:column; gap:.25rem; }
+  .card-body{ min-height:0; padding:.85rem .95rem 1rem; display:flex; flex-direction:column; gap:.25rem; background:var(--white); color:var(--ink); }
   .card-title{ font-family:var(--font-display); font-weight:700; font-size:.98rem; line-height:1.3; }
   .card-loc{ font-size:.8rem; color:var(--muted); }
   .card-loc a{ color:var(--red-deep); font-weight:600; }
@@ -144,6 +144,8 @@
   .pagination button.active{ background:var(--red); color:#fff; border-color:var(--red); }
   .pagination button[disabled]{ opacity:.4; cursor:not-allowed; }
   .load-more{ min-width:120px; padding:0 1rem; }
+  .card-video{ width:100%; height:100%; object-fit:cover; display:block; }
+  .card-video video{ width:100%; height:100%; object-fit:cover; display:block; background:var(--paper); }
 
   .map-pending{
     display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.7rem;
@@ -284,6 +286,7 @@
   }
 
   function formatHostName(host){
+    if (Array.isArray(host)) host = host[0];
     if (!host) return '';
     return host.full_name || host.username || '';
   }
@@ -345,11 +348,13 @@
   document.getElementById('q-guests').value = state.guests;
 
   let allListings = []; // full result set for the current search text/category, filters applied client-side
+  const videoLookups = new Set();
 
   function formatPrice(details){
+    if (Array.isArray(details)) details = details[0];
     if (!details) return null;
-    const amount = Array.isArray(details) ? (details[0] && details[0].price_amount) : details.price_amount;
-    const unit = Array.isArray(details) ? (details[0] && details[0].price_unit) : details.price_unit;
+    const amount = details.price_amount;
+    const unit = details.price_unit;
     if (amount == null) return null;
     return { amount: Number(amount), unit: unit || 'night' };
   }
@@ -358,21 +363,22 @@
     return '<div class="placeholder">' + escapeHtml((CATEGORY_LABELS[listing.category] || listing.category || 'Property') + ' — photos coming soon') + '</div>';
   }
 
-  function renderCard(listing){
-    const photos = (listing.listing_photos || []).map(function(p){
-      return supabaseClient.storage.from('listing-photos').getPublicUrl(p.storage_path).data.publicUrl;
-    });
-    const isBookmarked = bookmarkedIds.has(listing.id);
-    const price = formatPrice(listing.listing_booking_details);
+  function imageHtml(listing){
+    const photo = (listing.listing_photos || []).find(function(item){ return item && item.storage_path; });
+    if (!photo) return placeholderHtml(listing);
+    const url = supabaseClient.storage.from('listing-photos').getPublicUrl(photo.storage_path).data.publicUrl;
+    return '<img src="' + escapeHtml(url) + '" alt="' + escapeHtml(listing.title) + '" loading="lazy" onerror="this.style.display=\'none\';this.nextElementSibling.hidden=false;">' +
+      '<span class="image-fallback" hidden>' + placeholderHtml(listing) + '</span>';
+  }
 
-    const mediaHtml = photos.length
-      ? '<img src="' + escapeHtml(photos[0]) + '" alt="' + escapeHtml(listing.title) + '" loading="lazy" onerror="this.style.display=\'none\';this.nextElementSibling.hidden=false;">' +
-        '<span class="image-fallback" hidden>' + placeholderHtml(listing) + '</span>'
-      : placeholderHtml(listing);
+  function renderCard(listing){
+    const isBookmarked = bookmarkedIds.has(listing.id);
+    const price = formatPrice(listing.listing_booking_details || listing.booking_details);
+    const mediaHtml = imageHtml(listing);
 
     return (
       '<div class="card" data-listing-id="' + listing.id + '">' +
-        '<div class="card-media">' +
+        '<div class="card-media" data-media-listing-id="' + listing.id + '">' +
           mediaHtml +
           (listing.verified ? '<span class="card-verified">Verified</span>' : '') +
           '<button type="button" class="card-save ' + (isBookmarked ? 'saved' : '') + '" data-listing-id="' + listing.id + '" aria-label="Save">' +
@@ -392,6 +398,49 @@
         '</div>' +
       '</div>'
     );
+  }
+
+  async function loadListingVideo(listingId){
+    if (videoLookups.has(listingId)) return;
+    videoLookups.add(listingId);
+    try {
+      const auth = await supabaseClient.auth.getSession();
+      const token = auth.data.session && auth.data.session.access_token;
+      const headers = token ? { Authorization: 'Bearer ' + token } : {};
+      const mediaResponse = await fetch('/api/properties/' + encodeURIComponent(listingId) + '/media', { headers: headers });
+      if (!mediaResponse.ok) return;
+      const payload = await mediaResponse.json();
+      const media = (payload.media || []).find(function(item){ return item && item.type === 'video'; });
+      if (!media) return;
+      const playbackResponse = await fetch('/api/media/' + encodeURIComponent(media.id) + '/playback', { headers: headers });
+      if (!playbackResponse.ok) return;
+      const playback = await playbackResponse.json();
+      const element = document.querySelector('[data-media-listing-id="' + listingId + '"]');
+      if (!element || !playback.url) return;
+      const fallback = element.innerHTML;
+      element.innerHTML = '<video class="card-video" muted playsinline controls preload="metadata"></video>';
+      const video = element.querySelector('video');
+      video.src = playback.url;
+      video.addEventListener('error', function(){ element.innerHTML = fallback; }, { once: true });
+    } catch (error) {
+      console.warn('Marketplace video preview unavailable:', error.message);
+    }
+  }
+
+  function observeVideoCards(){
+    const cards = document.querySelectorAll('[data-media-listing-id]');
+    if (!('IntersectionObserver' in window)) {
+      cards.forEach(function(card){ loadListingVideo(card.getAttribute('data-media-listing-id')); });
+      return;
+    }
+    const observer = new IntersectionObserver(function(entries, instance){
+      entries.forEach(function(entry){
+        if (!entry.isIntersecting) return;
+        instance.unobserve(entry.target);
+        loadListingVideo(entry.target.getAttribute('data-media-listing-id'));
+      });
+    }, { rootMargin: '240px' });
+    cards.forEach(function(card){ observer.observe(card); });
   }
 
   function renderSkeletons(count){
@@ -469,6 +518,7 @@
         toggleBookmark(btn.getAttribute('data-listing-id'), btn);
       });
     });
+    observeVideoCards();
     renderPagination(filtered.length);
   }
 
