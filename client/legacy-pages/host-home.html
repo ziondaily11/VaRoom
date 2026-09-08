@@ -2372,6 +2372,10 @@
 
     document.querySelectorAll('.nav-item[data-nav]').forEach(function(item){
       item.addEventListener('click', function(){
+        if (item.getAttribute('data-nav') === 'explore' && window.matchMedia('(max-width: 860px)').matches) {
+          window.location.href = '/marketplace';
+          return;
+        }
         viewHandlers[item.getAttribute('data-nav')]();
         const dashMain = document.querySelector('.dash-main');
         if (dashMain) dashMain.scrollTo({ top:0, behavior:'smooth' });
