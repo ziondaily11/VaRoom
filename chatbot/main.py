@@ -271,6 +271,20 @@ def format_listing_facts(ctx: Optional[dict]) -> str:
     return "\n".join(lines) if lines else "No verified listing details are available — do not state any specific price, size, or policy."
 
 
+def normalize_amenities(value) -> list:
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+        except json.JSONDecodeError:
+            parsed = None
+        if isinstance(parsed, list):
+            return [str(item).strip() for item in parsed if str(item).strip()]
+        return [item.strip() for item in value.split(",") if item.strip()]
+    return []
+
+
 def canned_reply(ctx: Optional[dict], elie_command: bool = False) -> str:
     if elie_command:
         return (
@@ -747,12 +761,7 @@ async def get_listing_context(listing_id: str) -> Optional[dict]:
                 f"{SUPABASE_URL}/rest/v1/listings",
                 params={
                     "id": f"eq.{listing_id}",
-                    "select": (
-                        "title,description,location_text,category,"
-                        "booking_details:listing_booking_details(price_amount,price_unit,"
-                        "size_or_type,max_guests,cleaning_fee,min_stay_nights,"
-                        "checkin_time,checkout_time,cancellation_policy,amenities)"
-                    ),
+                    "select": "title,description,location_text,category",
                 },
                 headers={
                     "apikey": SUPABASE_SERVICE_ROLE_KEY,
@@ -764,10 +773,21 @@ async def get_listing_context(listing_id: str) -> Optional[dict]:
             if not rows:
                 return None
             row = rows[0]
-            booking = row.get("booking_details")
-            if isinstance(booking, list):
-                booking = booking[0] if booking else {}
-            booking = booking or {}
+            details_response = await client.get(
+                f"{SUPABASE_URL}/rest/v1/listing_booking_details",
+                params={
+                    "listing_id": f"eq.{listing_id}",
+                    "select": "*",
+                    "limit": "1",
+                },
+                headers={
+                    "apikey": SUPABASE_SERVICE_ROLE_KEY,
+                    "Authorization": f"******",
+                },
+            )
+            details_response.raise_for_status()
+            details_rows = details_response.json()
+            booking = details_rows[0] if details_rows else {}
             return {
                 "title": row.get("title"),
                 "description": row.get("description"),
@@ -782,9 +802,10 @@ async def get_listing_context(listing_id: str) -> Optional[dict]:
                 "checkin_time": booking.get("checkin_time"),
                 "checkout_time": booking.get("checkout_time"),
                 "cancellation_policy": booking.get("cancellation_policy"),
-                "amenities": booking.get("amenities") or [],
+                "amenities": normalize_amenities(booking.get("amenities")),
             }
-    except Exception:
+    except Exception as error:
+        print(f"[Elie] listing context lookup failed: {error}")
         return None
 
 
