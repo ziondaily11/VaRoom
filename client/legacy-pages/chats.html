@@ -315,7 +315,7 @@
   .chat-shell.right-collapsed .details-panel{ overflow:hidden; opacity:0; border-left:0; pointer-events:none; }
   .details-empty{ color:var(--muted); font-size:.8rem; line-height:1.5; padding:2rem 1.2rem; text-align:center; }
   .details-back{ display:none; }
-  .details-title-row{ display:flex; align-items:center; justify-content:space-between; padding:1rem 1.1rem .8rem; }
+  .details-title-row{ display:flex; align-items:center; gap:.55rem; padding:1rem 1.1rem .8rem; }
   .details-collapse-btn{ display:grid; place-items:center; width:30px; height:30px; flex:0 0 30px; border:1px solid var(--chat-border); border-radius:8px; background:var(--chat-surface); color:var(--muted); cursor:pointer; }
   .details-collapse-btn:hover{ color:var(--accent); background:var(--accent-soft); border-color:var(--accent); }
   .details-collapse-btn svg{ transition:transform .2s ease; }
@@ -1186,7 +1186,7 @@
 
       detailsPanel.innerHTML =
         '<button type="button" class="details-back" id="details-back-btn"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>Conversation details</button>' +
-        '<div class="details-title-row"><span class="details-title">About Elie</span><button type="button" class="details-collapse-btn" id="details-collapse-btn" aria-expanded="true" aria-label="Collapse contact details"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg></button></div>' +
+        '<div class="details-title-row"><button type="button" class="details-collapse-btn" id="details-collapse-btn" aria-expanded="true" aria-label="Collapse contact details"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg></button><span class="details-title">About Elie</span></div>' +
         '<div class="contact-card"><div class="conv-avatar elie-avatar no-dot" style="margin:0 auto .55rem"><span data-elie-icon aria-label="Elie"></span></div><div class="contact-name">Elie</div><div class="contact-role">VaRoom search assistant</div></div>' +
         '<div class="details-section"><div class="details-heading">Search accurately</div><p style="font-size:.78rem;color:var(--muted);line-height:1.55">Elie searches real VaRoom listings and matches your request against location, property type, price, guest capacity and available listing details.</p></div>' +
         '<div class="details-section"><div class="details-heading">How to get the best results</div><p style="font-size:.78rem;color:var(--muted);line-height:1.55">Share the area, type of space, dates or budget, and number of guests. Elie can narrow the results or help you compare options.</p></div>';
@@ -1520,7 +1520,7 @@
 
       detailsPanel.innerHTML =
         '<button type="button" class="details-back" id="details-back-btn"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>Conversation details</button>' +
-        '<div class="details-title-row"><span class="details-title">' + contactTitle + '</span><button type="button" class="details-collapse-btn" id="details-collapse-btn" aria-expanded="true" aria-label="Collapse contact details"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg></button></div>' +
+        '<div class="details-title-row"><button type="button" class="details-collapse-btn" id="details-collapse-btn" aria-expanded="true" aria-label="Collapse contact details"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg></button><span class="details-title">' + contactTitle + '</span></div>' +
         '<div class="contact-card">' +
           '<div class="conv-avatar no-dot" style="margin:0 auto .55rem">' + (otherAvatarUrl ? '<img src="' + otherAvatarUrl + '" alt="">' : contactInitial) + '</div>' +
           '<div class="contact-name">' + escapeHtml(contactName) + '</div>' +
