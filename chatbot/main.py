@@ -75,39 +75,12 @@ KNOWN_LOCATIONS = [
     "malindi", "nyeri", "kitengela", "syokimau", "ruiru", "juja",
 ]
 
-GREETING_WORDS = {
-    "hi", "hey", "hello", "hiya", "yo", "sup", "howdy",
-    "hey elie", "hi elie", "hello elie", "morning", "good morning",
-    "good afternoon", "good evening", "thanks", "thank you", "ok", "okay",
-    # Swahili / Sheng — common in Kenya, VaRoom's actual market
-    "niaje", "sasa", "mambo", "vipi", "poa", "sawa", "asante", "karibu",
-    "habari", "salama",
-}
-
 FAREWELL_WORDS = {
     "bye", "goodbye", "good bye", "see you", "see ya", "later",
     "cya", "farewell", "night", "good night",
     # Swahili / Sheng
     "kwaheri", "tutaonana", "baadaye",
 }
-
-# Varied first-contact replies so Elie doesn't sound like a canned bot
-# repeating itself every time. Picked at random on greetings.
-GREETING_REPLIES = [
-    "Hey! I'm Elie — tell me what kind of space you're after and I'll dig through VaRoom for you.",
-    "Hi there! Looking for a place to stay, host an event, or set up shop? Just describe it and I'll get searching.",
-    "Hey, good to see you. Give me a location or vibe you're after — \"Airbnbs in Nairobi\", \"venues in Nakuru\" — and I'll take it from there.",
-    "Hello! I'm Elie, your VaRoom search buddy. What are you hunting for today?",
-    "Hey! No need to scroll and filter — just tell me what you need and where, and I'll bring back real listings.",
-    "Hi! Ready when you are — describe the space you want and I'll go find it.",
-]
-
-GREETING_REPLIES_SW = [
-    "Niaje! Mimi ni Elie — niambie unatafuta nafasi gani na wapi, nikusaidie kutafuta VaRoom.",
-    "Mambo! Unatafuta airbnb, venue, ama ofisi? Niambie tu na nitakutafutia.",
-    "Sasa! Nipo hapa kukusaidia kupata nafasi VaRoom — niambie unahitaji nini na wapi.",
-    "Poa! Elie hapa — niambie unatafuta place gani, nikupatie matokeo halisi.",
-]
 
 FAREWELL_REPLIES = [
     "Bye for now — come find me whenever you're ready to search again.",
@@ -1004,27 +977,8 @@ def extract_first_json_object(text: str) -> Optional[dict]:
         return None
 
 
-def is_probably_greeting(message: str) -> bool:
-    """Cheap, reliable check used as a first pass before ever calling
-    Gemini — catches the most common case (a plain greeting) instantly
-    and for free, and acts as a safety net if the AI classification call
-    below fails entirely."""
-    cleaned = message.strip().lower().strip("!.? ")
-    if cleaned in GREETING_WORDS:
-        return True
-    # Very short messages with no digits and none of the category words
-    # are almost never real search requests.
-    if len(cleaned) <= 20 and not any(k in cleaned for k in CATEGORY_KEYWORDS):
-        words = cleaned.split()
-        if len(words) <= 3:
-            return True
-    return False
-
-
 def is_probably_farewell(message: str) -> bool:
-    """Same idea as is_probably_greeting, but for sign-offs — checked
-    first so 'good bye elie' etc. gets a farewell reply, not a generic
-    greeting reply."""
+    """Cheap fallback check for sign-offs when Gemini is unavailable."""
     cleaned = message.strip().lower().strip("!.? ")
     return any(word in cleaned for word in FAREWELL_WORDS)
 
@@ -1124,10 +1078,6 @@ async def classify_message(message: str, history: Optional[List[dict]] = None) -
         pool = FAREWELL_REPLIES_SW if is_swahili_flavored(message) else FAREWELL_REPLIES
         return {"intent": "chat", "chat_reply": random.choice(pool)}
 
-    if not has_history and is_probably_greeting(message):
-        pool = GREETING_REPLIES_SW if is_swahili_flavored(message) else GREETING_REPLIES
-        return {"intent": "chat", "chat_reply": random.choice(pool)}
-
     history_block = ""
     if has_history:
         lines = []
@@ -1143,6 +1093,10 @@ async def classify_message(message: str, history: Optional[List[dict]] = None) -
         "Sheng into English (\"niaje\", \"poa\", \"nataka nyumba Nairobi\", "
         "\"niko na budget ya 5k\") — treat that as completely normal, not a "
         "language error, and reply in whichever language(s) the guest used.\n\n"
+        "For greetings such as hi, hello, hey, or a Swahili greeting, "
+        "generate a warm, natural, conversational reply in context. Do not "
+        "use a fixed greeting, and do not mention the host being away unless "
+        "the conversation makes that genuinely relevant.\n\n"
         f"{history_block}"
         "Decide whether the guest's LATEST message is (a) general "
         "conversation — a greeting, thanks, goodbye, a short reply/"
@@ -1217,15 +1171,6 @@ async def classify_message(message: str, history: Optional[List[dict]] = None) -
     # back to search when there's an actual signal to search on.
     if has_history and is_probably_farewell(message):
         pool = FAREWELL_REPLIES_SW if is_swahili_flavored(message) else FAREWELL_REPLIES
-        return {"intent": "chat", "chat_reply": random.choice(pool)}
-
-    if has_history and is_probably_greeting(message):
-        # This heuristic can't tell a genuine fresh "hi" apart from a short
-        # acknowledgment like "yeah" or "thanks" — both look the same on
-        # the surface. Rather than hardcode one sentence that's wrong half
-        # the time, use the same varied greeting pool; it reads reasonably
-        # either way and never repeats verbatim.
-        pool = GREETING_REPLIES_SW if is_swahili_flavored(message) else GREETING_REPLIES
         return {"intent": "chat", "chat_reply": random.choice(pool)}
 
     lower = message.lower()
