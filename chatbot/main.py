@@ -24,7 +24,6 @@ import os
 import sys
 import re
 import json
-import random
 import asyncio
 import httpx
 from pathlib import Path
@@ -38,7 +37,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-GEMINI_MODEL = "gemini-3.6-flash"
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 GEMINI_URL = (
     f"https://generativelanguage.googleapis.com/v1beta/models/"
     f"{GEMINI_MODEL}:generateContent"
@@ -54,86 +53,6 @@ LISTING_PHOTOS_BUCKET = "listing-photos"
 
 VALID_CATEGORIES = {"airbnb", "hotel", "venue", "office", "shop", "property"}
 
-CATEGORY_KEYWORDS = {
-    "airbnb": "airbnb", "airbnbs": "airbnb",
-    "hotel": "hotel", "hotels": "hotel",
-    "venue": "venue", "venues": "venue", "event": "venue", "wedding": "venue",
-    "office": "office", "offices": "office",
-    "shop": "shop", "shops": "shop",
-    "property": "property", "land": "property", "house": "property",
-}
-
-# Used only in the no-Gemini fallback path, so location extraction doesn't
-# depend on the guest happening to capitalize a place name (they usually
-# don't when typing on a phone). Not exhaustive — just common Kenyan
-# areas VaRoom listings actually use today; extend as new cities/areas
-# come up in real listings.
-KNOWN_LOCATIONS = [
-    "nairobi", "kilimani", "westlands", "nakuru", "mombasa", "kisumu",
-    "eldoret", "thika", "karen", "lavington", "kileleshwa", "runda",
-    "langata", "ngong", "ruaka", "kiambu", "machakos", "naivasha", "diani",
-    "malindi", "nyeri", "kitengela", "syokimau", "ruiru", "juja",
-]
-
-FAREWELL_WORDS = {
-    "bye", "goodbye", "good bye", "see you", "see ya", "later",
-    "cya", "farewell", "night", "good night",
-    # Swahili / Sheng
-    "kwaheri", "tutaonana", "baadaye",
-}
-
-FAREWELL_REPLIES = [
-    "Bye for now — come find me whenever you're ready to search again.",
-    "Take care! I'll be here when you need to find another space.",
-    "See you around — good luck with the search!",
-    "Later! Ping me anytime you want to look for something new.",
-    "Bye! Hope you find exactly what you're looking for.",
-]
-
-FAREWELL_REPLIES_SW = [
-    "Kwaheri! Nipo hapa ukihitaji kutafuta nafasi tena.",
-    "Sawa, tutaonana! Nakutakia bahati nzuri na search yako.",
-    "Baadaye! Nikupigie tu ukihitaji msaada zaidi.",
-]
-
-# Follow-up nudges shown after a successful search, so results don't just
-# end abruptly — varied on purpose.
-SEARCH_FOLLOWUPS = [
-    "Want me to narrow this down by price or number of guests?",
-    "If none of these quite fit, tell me what to change and I'll try again.",
-    "Say the word if you want me to check a different area too.",
-    "I can filter further — just tell me what's off about these.",
-    "Let me know if you'd like something bigger, cheaper, or closer to town.",
-]
-
-# Used only when Gemini is unreachable AND the message doesn't look like
-# a search — a generic but still varied conversational reply so Elie
-# never resorts to "couldn't find any listings" for plain chit-chat.
-CHAT_FALLBACK_REPLIES = [
-    "I'm here — tell me what kind of space you're looking for and I'll go find it.",
-    "Happy to help! Describe the place you need (like \"Airbnbs in Nairobi\") and I'll search.",
-    "I'm Elie, your VaRoom search assistant — give me a location or type of space and I'll get started.",
-]
-
-CHAT_FALLBACK_REPLIES_SW = [
-    "Nipo hapa — niambie unatafuta nafasi gani nikusaidie.",
-    "Karibu! Niambie unahitaji nini (mfano \"airbnb Nairobi\") nikutafutie.",
-]
-
-# Last-resort only — used when Gemini can't even write the no-results
-# reply itself. Kept varied and language-matched so it's never a robotic
-# repeat, but the real fix is generate_no_results_reply() below.
-NO_RESULTS_FALLBACK = [
-    "I couldn't find anything matching that right now — try a different area or budget, or check back soon as more spaces get listed.",
-    "No luck this time — want to try a nearby area or a different price range?",
-    "Nothing matched that search — more listings get added often, so it's worth trying again soon.",
-]
-
-NO_RESULTS_FALLBACK_SW = [
-    "Sikupata kitu kinachofaa hivi sasa — jaribu eneo au bei tofauti, ama rudi baadaye.",
-    "Hakuna iliyopatikana kwa hiyo search — unaweza jaribu area nyingine?",
-]
-
 app = FastAPI(
     title="VaRoom Chatbot Service",
     description="Standalone microservice for the host reply assistant and Elie, the client search assistant.",
@@ -146,6 +65,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+class ElieGenerationError(RuntimeError):
+    """Raised when Gemini cannot produce the response Elie needs."""
 
 
 async def call_gemini(prompt: str, max_attempts: int = 3) -> Optional[str]:
@@ -185,7 +108,7 @@ async def call_gemini(prompt: str, max_attempts: int = 3) -> Optional[str]:
         if attempt < max_attempts - 1:
             await asyncio.sleep(backoff_seconds[attempt])
 
-    print("[Gemini] all attempts failed — falling back to non-AI logic.")
+    print("[Gemini] all attempts failed.")
     return None
 
 
@@ -256,41 +179,6 @@ def normalize_amenities(value) -> list:
             return [str(item).strip() for item in parsed if str(item).strip()]
         return [item.strip() for item in value.split(",") if item.strip()]
     return []
-
-
-def canned_reply(ctx: Optional[dict], elie_command: bool = False) -> str:
-    if elie_command:
-        return (
-            "I couldn't confidently answer that from the verified conversation and listing "
-            "details. The host will need to confirm this personally."
-        )
-    title = ctx.get("title") if ctx else None
-    if not title:
-        return random.choice([
-            "Thanks for reaching out! The host is away right now but will get back to you personally as soon as they're able to.",
-            "Hey, thanks for the message! The host's away at the moment — they'll reply personally soon.",
-        ])
-
-    facts = []
-    if ctx.get("price_amount") is not None:
-        unit = ctx.get("price_unit") or "night"
-        facts.append(f"KSh {ctx['price_amount']} per {unit}")
-    if ctx.get("size_or_type"):
-        facts.append(ctx["size_or_type"])
-    if ctx.get("max_guests"):
-        facts.append(f"up to {ctx['max_guests']} guests")
-
-    if facts:
-        fact_str = ", ".join(facts)
-        return random.choice([
-            f"Quick facts on {title} while the host's away: {fact_str}. They'll follow up personally soon!",
-            f"Thanks for your interest in {title}! Just so you have it: {fact_str}. Host will confirm anything else personally.",
-            f"While the host's offline — {title} is {fact_str}. They'll be in touch soon!",
-        ])
-    return (
-        f"Thanks for your interest in {title}! The host is away right now but will "
-        "get back to you personally as soon as they're able to."
-    )
 
 
 def is_listing_alternative_request(message: str) -> bool:
@@ -449,7 +337,12 @@ async def reply(payload: ReplyRequest, authorization: Optional[str] = Header(Non
         guest_enquiry_context = "\n".join(guest_messages)
 
     ai_result = await generate_ai_reply(message, listing_ctx, history_block, is_elie_command)
-    reply_text = ai_result["reply"] if ai_result else canned_reply(listing_ctx, is_elie_command)
+    if not ai_result:
+        raise HTTPException(
+            status_code=503,
+            detail="Elie is temporarily unavailable because Gemini did not return a response.",
+        )
+    reply_text = ai_result["reply"]
     alternative_listings = []
     if is_elie_command and is_listing_alternative_request(guest_enquiry_context):
         alternative_listings = await get_host_alternative_listings(
@@ -458,11 +351,6 @@ async def reply(payload: ReplyRequest, authorization: Optional[str] = Header(Non
             listing_ctx,
             guest_enquiry_context,
         )
-        reply_text = alternative_reply(
-            len(alternative_listings),
-            bool(re.search(r"\b(?:cheaper|affordable|lower[- ]priced|less expensive)\b", guest_enquiry_context.lower())),
-        )
-
     # Only attempt a real booking when Gemini extracted a firm date + night
     # count, the listing prices per night, and the numbers are sane.
     if ai_result and listing_ctx and listing_ctx.get("price_unit") == "night" and listing_ctx.get("price_amount") is not None:
@@ -676,19 +564,6 @@ def format_reply_history(messages: list, host_id: str) -> str:
         speaker = "You (the host)" if row.get("sender_id") == host_id else "Guest"
         lines.append(f"{speaker}: {row.get('body', '')}")
     return "Full conversation so far:\n" + "\n".join(lines) + "\n\n"
-
-
-def alternative_reply(count: int, wants_cheaper: bool) -> str:
-    if count:
-        if wants_cheaper:
-            return random.choice([
-                f"Sure! I found {count} more affordable option{'s' if count != 1 else ''} from this host's listings.",
-                f"I found {count} cheaper option{'s' if count != 1 else ''} from this host's available listings.",
-            ])
-        return f"Sure! I found {count} similar option{'s' if count != 1 else ''} from this host's available listings."
-    if wants_cheaper:
-        return "I couldn't find a cheaper available option among this host's listings right now."
-    return "I couldn't find another suitable available option among this host's listings right now."
 
 
 def filter_alternative_listings(
@@ -977,56 +852,6 @@ def extract_first_json_object(text: str) -> Optional[dict]:
         return None
 
 
-def is_probably_farewell(message: str) -> bool:
-    """Cheap fallback check for sign-offs when Gemini is unavailable."""
-    cleaned = message.strip().lower().strip("!.? ")
-    return any(word in cleaned for word in FAREWELL_WORDS)
-
-
-SWAHILI_FLAVOR_WORDS = {
-    "niaje", "sasa", "mambo", "vipi", "poa", "sawa", "asante", "karibu",
-    "habari", "salama", "kwaheri", "tutaonana", "baadaye", "nataka",
-    "nyumba", "chini", "ya", "sio", "si", "tufanye", "niko", "nikupatie",
-}
-
-
-def is_swahili_flavored(message: str) -> bool:
-    """Cheap word-overlap check — good enough to decide which language
-    pool a hardcoded fast-path reply should come from. Not meant to be a
-    real language detector; Gemini itself handles the nuanced cases."""
-    words = set(message.lower().replace(",", " ").replace("!", " ").split())
-    return bool(words & SWAHILI_FLAVOR_WORDS)
-
-
-def extract_price(text: str) -> Optional[float]:
-    """Best-effort price extraction for the non-Gemini fallback path.
-    Handles '2k', 'ksh 6000', 'under 6,000', plain 4-7 digit numbers."""
-    lower = text.lower()
-
-    m = re.search(r'(\d+(?:\.\d+)?)\s*k\b', lower)
-    if m:
-        return float(m.group(1)) * 1000
-
-    m = re.search(r'(?:ksh?\.?|kes)\s?([\d,]{3,7})', lower)
-    if m:
-        return float(m.group(1).replace(',', ''))
-
-    m = re.search(r'\b(\d{1,3}(?:,\d{3})+|\d{4,7})\b', lower)
-    if m:
-        return float(m.group(1).replace(',', ''))
-
-    return None
-
-
-def extract_guests(text: str) -> Optional[int]:
-    """Best-effort guest-count extraction for the non-Gemini fallback path."""
-    lower = text.lower()
-    m = re.search(r'(\d+)\s*(?:guests?|people|pax|persons?)', lower)
-    if m:
-        return int(m.group(1))
-    return None
-
-
 async def generate_no_results_reply(message: str, history: Optional[List[dict]] = None) -> Optional[str]:
     """A search came back empty. Instead of a fixed template, have Elie
     write a short, natural response that matches the guest's actual tone
@@ -1045,14 +870,18 @@ async def generate_no_results_reply(message: str, history: Optional[List[dict]] 
         "searched for the guest's request below and found NO matching "
         "listings. Write a short (1-2 sentence) reply acknowledging that — "
         "match the guest's tone and language exactly (including Swahili or "
-        "Sheng if they used it), vary your phrasing, never sound like a "
-        "canned template. Gently suggest trying a different area, budget, "
-        "or category, or checking back later. Don't over-apologize.\n\n"
+        "Sheng if they used it), vary your phrasing, and never sound canned. "
+        "Follow their lead; only mention another area, budget, category, or "
+        "later check if it naturally fits what they said. Do not boss them "
+        "around or give unsolicited instructions.\n\n"
         f"{history_block}"
         f"Guest's message: {message}\n\n"
         "Respond with ONLY the reply text, nothing else — no quotes, no JSON."
     )
-    return await call_gemini(prompt)
+    reply = await call_gemini(prompt)
+    if not reply:
+        raise ElieGenerationError("Gemini could not generate a no-results response.")
+    return reply
 
 
 async def classify_message(message: str, history: Optional[List[dict]] = None) -> dict:
@@ -1067,19 +896,11 @@ async def classify_message(message: str, history: Optional[List[dict]] = None) -
     `history` is a short list of recent {"role": "user"|"elie", "text": ...}
     turns. It matters a lot: without it, a reply like "yeah" or "am good
     thanks" — which only makes sense as a response to Elie's own last
-    question — gets misread as a fresh, context-free message. The cheap
-    greeting/farewell fast paths below are skipped once there's real
-    history, since "short message" stops being a reliable greeting signal
-    mid-conversation.
+    question — gets misread as a fresh, context-free message.
     """
-    has_history = bool(history)
-
-    if not has_history and is_probably_farewell(message):
-        pool = FAREWELL_REPLIES_SW if is_swahili_flavored(message) else FAREWELL_REPLIES
-        return {"intent": "chat", "chat_reply": random.choice(pool)}
 
     history_block = ""
-    if has_history:
+    if history:
         lines = []
         for turn in history[-6:]:
             speaker = "Elie" if turn.get("role") == "elie" else "Guest"
@@ -1087,16 +908,21 @@ async def classify_message(message: str, history: Optional[List[dict]] = None) -
         history_block = "Recent conversation so far:\n" + "\n".join(lines) + "\n\n"
 
     prompt = (
-        "You are Elie, a friendly search assistant on VaRoom, a hospitality "
+        "You are Elie, a warm, emotionally intelligent conversational partner "
+        "and search assistant on VaRoom, a hospitality "
         "marketplace (Airbnbs, hotels, event venues, offices, shops, and "
         "property listings) based in Kenya. Guests often mix Swahili or "
         "Sheng into English (\"niaje\", \"poa\", \"nataka nyumba Nairobi\", "
         "\"niko na budget ya 5k\") — treat that as completely normal, not a "
         "language error, and reply in whichever language(s) the guest used.\n\n"
-        "For greetings such as hi, hello, hey, or a Swahili greeting, "
-        "generate a warm, natural, conversational reply in context. Do not "
-        "use a fixed greeting, and do not mention the host being away unless "
-        "the conversation makes that genuinely relevant.\n\n"
+        "Read the guest's emotional state, intent, and energy from their latest "
+        "message and the recent conversation. Match their mood naturally: be "
+        "gentle when they are upset, enthusiastic when they are excited, and "
+        "brief when they are brief. Follow the guest's lead. Never lecture, "
+        "pressure, command, or tell them what they should do; offer help only "
+        "when it fits what they asked. Do not force a search into small talk, "
+        "and do not steer the conversation toward VaRoom when the guest is "
+        "simply being human.\n\n"
         f"{history_block}"
         "Decide whether the guest's LATEST message is (a) general "
         "conversation — a greeting, thanks, goodbye, a short reply/"
@@ -1165,47 +991,7 @@ async def classify_message(message: str, history: Optional[List[dict]] = None) -
             "intro": parsed.get("intro"),
         }
 
-    # Gemini failed or returned something unparseable. Don't blindly treat
-    # this as a search — that's exactly what used to turn ordinary
-    # chit-chat into a "couldn't find any listings" response. Only fall
-    # back to search when there's an actual signal to search on.
-    if has_history and is_probably_farewell(message):
-        pool = FAREWELL_REPLIES_SW if is_swahili_flavored(message) else FAREWELL_REPLIES
-        return {"intent": "chat", "chat_reply": random.choice(pool)}
-
-    lower = message.lower()
-    category = next((v for k, v in CATEGORY_KEYWORDS.items() if k in lower), None)
-
-    location = None
-    for known in KNOWN_LOCATIONS:
-        if known in lower:
-            location = known.title()
-            break
-    if not location:
-        # Last resort: a capitalized word not otherwise explained, for
-        # areas not in the known list yet.
-        words = message.split()
-        for i, word in enumerate(words):
-            cleaned_word = word.strip(".,!?")
-            if i > 0 and cleaned_word[:1].isupper() and cleaned_word.lower() not in CATEGORY_KEYWORDS:
-                location = cleaned_word
-                break
-
-    max_price = extract_price(message)
-    guests = extract_guests(message)
-
-    has_search_signal = bool(category or location or max_price or guests)
-    if not has_search_signal:
-        pool = CHAT_FALLBACK_REPLIES_SW if is_swahili_flavored(message) else CHAT_FALLBACK_REPLIES
-        return {"intent": "chat", "chat_reply": random.choice(pool)}
-
-    return {
-        "intent": "search",
-        "category": category,
-        "location": location,
-        "max_price": max_price,
-        "guests": guests,
-    }
+    raise ElieGenerationError("Gemini returned an invalid Elie response.")
 
 
 def build_word_or_filter(text: str, field: str) -> Optional[str]:
@@ -1342,7 +1128,13 @@ async def elie_search(payload: ElieSearchRequest, authorization: Optional[str] =
         )
 
     history_dicts = [{"role": t.role, "text": t.text} for t in payload.history] if payload.history else None
-    classification = await classify_message(payload.message, history_dicts)
+    try:
+        classification = await classify_message(payload.message, history_dicts)
+    except ElieGenerationError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Elie is temporarily unavailable because Gemini did not return a response.",
+        ) from exc
 
     if classification["intent"] == "chat":
         return ElieSearchResponse(reply=classification["chat_reply"], listings=None)
@@ -1357,10 +1149,13 @@ async def elie_search(payload: ElieSearchRequest, authorization: Optional[str] =
     filters = ElieFilters(category=category, location=location, max_price=max_price, guests=guests)
 
     if not raw_listings:
-        no_results_reply = await generate_no_results_reply(payload.message, history_dicts)
-        if not no_results_reply:
-            pool = NO_RESULTS_FALLBACK_SW if is_swahili_flavored(payload.message) else NO_RESULTS_FALLBACK
-            no_results_reply = random.choice(pool)
+        try:
+            no_results_reply = await generate_no_results_reply(payload.message, history_dicts)
+        except ElieGenerationError as exc:
+            raise HTTPException(
+                status_code=503,
+                detail="Elie is temporarily unavailable because Gemini did not return a response.",
+            ) from exc
         return ElieSearchResponse(
             reply=no_results_reply,
             listings=None,
@@ -1369,15 +1164,15 @@ async def elie_search(payload: ElieSearchRequest, authorization: Optional[str] =
 
     intro = classification.get("intro")
     if not intro:
-        intro = f"Here's what I found for \"{payload.message}\":"
-        if not category and not location and not max_price and not guests:
-            intro += " (I couldn't pin down exact filters, so these are broader matches.)"
+        raise HTTPException(
+            status_code=502,
+            detail="Elie received an incomplete response from Gemini. Please try again.",
+        )
 
     return ElieSearchResponse(
         reply=intro,
         listings=raw_listings,
         filters=filters,
-        suggestion=random.choice(SEARCH_FOLLOWUPS),
     )
 
 
