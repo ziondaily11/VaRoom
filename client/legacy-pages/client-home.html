@@ -320,9 +320,10 @@
   }
 
   .bottom-bar-elie .elie-badge{
-    width:30px; height:30px; border-radius:50%; background:var(--red);
+    width:30px; height:30px; border-radius:50%; background:var(--muted); color:var(--white);
     display:flex; align-items:center; justify-content:center; margin-bottom:-2px;
   }
+  .bottom-bar-elie.active .elie-badge{ background:var(--red); }
 
   .update-card{ padding-bottom:.9rem; border-bottom:1px solid var(--line); }
   .update-card:last-child{ border-bottom:none; padding-bottom:0; }
@@ -752,7 +753,7 @@
 
     <nav class="nav-group">
       <a href="/elie" class="nav-item">
-        <img src="elie-logo.png" alt="Elie" class="elie-logo-nav">
+        <span data-elie-icon aria-label="Elie" class="elie-logo-nav"></span>
         Elie
         <span class="beta-pill">Free preview</span>
       </a>
@@ -925,7 +926,7 @@
         Chats
       </a>
       <a href="/elie" class="bottom-bar-item bottom-bar-elie">
-        <span class="elie-badge"><img src="elie-logo.png" alt="" style="width:18px;height:18px;object-fit:contain;"></span>
+        <span class="elie-badge"><span data-elie-icon style="width:18px;height:18px;object-fit:contain;"></span></span>
         Elie
       </a>
       <button type="button" class="bottom-bar-item" id="notif-bell">

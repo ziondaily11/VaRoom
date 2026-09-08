@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Elie — VaRoom</title>
-<link rel="icon" type="image/png" href="elie-logo.png">
+<link rel="icon" href="/favicon/favicon.ico" sizes="any">
 <script>
   (function(){
     try{
@@ -114,7 +114,7 @@
     background:rgba(26,18,16,.08);
   }
   [data-theme="dark"] .msg-avatar{ background:rgba(255,255,255,.10); }
-  .msg-avatar img{ width:100%; height:100%; object-fit:contain; }
+  .msg-avatar img, .msg-avatar .elie-icon{ width:100%; height:100%; object-fit:contain; }
 
   .msg-bubble{
     max-width:78%; padding:.75rem 1rem; border-radius:16px;
@@ -236,7 +236,7 @@
       <a href="#" id="back-link" class="back-btn" aria-label="Back">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
       </a>
-      <img src="elie-logo.png" alt="Elie" class="elie-logo-header">
+      <span data-elie-icon aria-label="Elie" class="elie-logo-header"></span>
       <div class="header-text">
         <h1>Elie</h1>
         <p>Your VaRoom search assistant</p>
@@ -500,7 +500,7 @@
       row.className = 'msg-row elie';
       const bubbleClass = 'msg-bubble' + (opts.loading ? ' loading' : '') + (opts.error ? ' error' : '');
       row.innerHTML =
-        '<div class="msg-avatar"><img src="elie-logo.png" alt="Elie"></div>' +
+        '<div class="msg-avatar"><span data-elie-icon aria-label="Elie"></span></div>' +
         '<div class="' + bubbleClass + '">' + escapeHtml(text) + '</div>';
       chatArea.appendChild(row);
       chatArea.scrollTop = chatArea.scrollHeight;
@@ -512,7 +512,7 @@
       const row = document.createElement('div');
       row.className = 'msg-row elie';
       row.innerHTML =
-        '<div class="msg-avatar"><img src="elie-logo.png" alt="Elie"></div>' +
+        '<div class="msg-avatar"><span data-elie-icon aria-label="Elie"></span></div>' +
         '<div class="msg-bubble" id="typing-bubble"><div class="typing-dots"><span></span><span></span><span></span></div></div>';
       chatArea.appendChild(row);
       chatArea.scrollTop = chatArea.scrollHeight;

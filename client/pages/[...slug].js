@@ -2,7 +2,10 @@ import fs from 'fs';
 import path from 'path';
 import Head from 'next/head';
 import Script from 'next/script';
+import React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { useEffect, useRef } from 'react';
+import ElieIcon from '../components/ElieIcon';
 
 const templateDirectory = path.join(process.cwd(), 'legacy-pages');
 const routeAliases = {
@@ -17,7 +20,57 @@ function templateForSlug(slug) {
   return routeAliases[slug.join('/')] || `${slug.join('/')}.html`;
 }
 
-function parseTemplate(source) {
+function styleStringToObject(style) {
+  return style.split(';').reduce((result, declaration) => {
+    const [property, value] = declaration.split(':');
+    if (!property || !value) return result;
+    const camelProperty = property.trim().replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
+    result[camelProperty] = value.trim();
+    return result;
+  }, {});
+}
+
+function renderLegacyElieIcon(attributes) {
+  const className = (attributes.match(/\bclass=["']([^"']*)["']/i) || [])[1] || '';
+  const style = (attributes.match(/\bstyle=["']([^"']*)["']/i) || [])[1] || '';
+  const alt = (attributes.match(/\b(?:alt|aria-label)=["']([^"']*)["']/i) || [])[1] || '';
+
+  return renderToStaticMarkup(
+    React.createElement(ElieIcon, {
+      className,
+      style: style ? styleStringToObject(style) : undefined,
+      'aria-label': alt || undefined,
+    })
+  );
+}
+
+function replaceLegacyElieIcons(source) {
+  const withIconMarkers = source.replace(
+    /<span\b([^>]*?)\bdata-elie-icon\b([^>]*)><\/span>/gi,
+    (_, beforeMarker, afterMarker) => renderLegacyElieIcon(`${beforeMarker} ${afterMarker}`)
+  );
+
+  return withIconMarkers.replace(
+    /<svg\b([^>]*?)>\s*<circle cx="12" cy="12" r="8"\/>\s*<path d="M8 14c1\.2 1\.1 2\.5 1\.6 4 1\.6s2\.8-.5 4-1\.6M9 9h\.01M15 9h\.01"\/>\s*<\/svg>/g,
+    () => renderLegacyElieIcon('class="elie-icon"')
+  );
+}
+
+function markActiveElieNavigation(source, isEliePage) {
+  if (!isEliePage) return source;
+
+  return source.replace(/<a\b([^>]*\bhref=["']\/elie["'][^>]*)>/gi, (_, attributes) => {
+    if (/\bclass=["'][^"']*\bactive\b[^"']*["']/i.test(attributes)) return `<a${attributes}>`;
+    if (/\bclass=["'][^"']*["']/i.test(attributes)) {
+      return `<a${attributes.replace(/\bclass=["']([^"']*)["']/i, 'class="$1 active"')}>`;
+    }
+    return `<a${attributes} class="active">`;
+  });
+}
+
+function parseTemplate(source, isEliePage) {
+  source = markActiveElieNavigation(source, isEliePage);
+  source = replaceLegacyElieIcons(source);
   const title = (source.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [])[1] || 'VaRoom';
   const head = (source.match(/<head[^>]*>([\s\S]*?)<\/head>/i) || [])[1] || '';
   const body = (source.match(/<body[^>]*>([\s\S]*?)<\/body>/i) || [])[1] || source;
@@ -51,7 +104,7 @@ export async function getStaticPaths() {
 export async function getStaticProps({ params }) {
   const templateName = templateForSlug(params && params.slug);
   const source = fs.readFileSync(path.join(templateDirectory, templateName), 'utf8');
-  return { props: { ...parseTemplate(source) } };
+  return { props: { ...parseTemplate(source, templateName === 'elie.html') } };
 }
 
 async function runLegacyScripts(container, scripts) {
