@@ -316,8 +316,8 @@
   .details-empty{ color:var(--muted); font-size:.8rem; line-height:1.5; padding:2rem 1.2rem; text-align:center; }
   .details-back{ display:none; }
   .details-title-row{ display:flex; align-items:center; justify-content:space-between; padding:1rem 1.1rem .8rem; }
-  .details-collapse-btn{ display:flex; align-items:center; gap:.35rem; color:var(--muted); }
-  .details-collapse-btn:hover{ color:var(--accent); }
+  .details-collapse-btn{ display:grid; place-items:center; width:30px; height:30px; flex:0 0 30px; border:1px solid var(--chat-border); border-radius:8px; background:var(--chat-surface); color:var(--muted); cursor:pointer; }
+  .details-collapse-btn:hover{ color:var(--accent); background:var(--accent-soft); border-color:var(--accent); }
   .details-collapse-btn svg{ transition:transform .2s ease; }
   .chat-shell.right-collapsed .details-collapse-btn svg{ transform:rotate(180deg); }
   .details-title{ font-size:.85rem; font-weight:750; }
