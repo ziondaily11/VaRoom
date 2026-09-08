@@ -794,13 +794,11 @@
 
     let storedChatPreferences = {};
     try { storedChatPreferences = JSON.parse(localStorage.getItem('varoom_chat_preferences') || '{}'); } catch (error) { storedChatPreferences = {}; }
-    const { data: chatProfile } = await supabaseClient
-      .from('profiles').select('chat_theme_preference, chat_background_preference').eq('id', currentUser.id).maybeSingle();
 
-    pendingChatTheme = sanitizeTheme((chatProfile && chatProfile.chat_theme_preference) || storedChatPreferences.chatTheme || 'varoom-red');
+    pendingChatTheme = sanitizeTheme(storedChatPreferences.chatTheme || 'varoom-red');
     chatTheme = pendingChatTheme;
-    chatBackground = ['clean', 'soft', 'dark'].indexOf((chatProfile && chatProfile.chat_background_preference) || storedChatPreferences.chatBackground || 'clean') >= 0
-      ? ((chatProfile && chatProfile.chat_background_preference) || storedChatPreferences.chatBackground || 'clean')
+    chatBackground = ['clean', 'soft', 'dark'].indexOf(storedChatPreferences.chatBackground || 'clean') >= 0
+      ? (storedChatPreferences.chatBackground || 'clean')
       : 'clean';
     applyChatPersonalisation(chatTheme, chatBackground);
     updateThemePreview();
