@@ -308,7 +308,8 @@ def is_listing_alternative_request(message: str) -> bool:
     return bool(re.search(
         r"\b(?:cheaper|affordable|lower[- ]priced|less expensive|"
         r"alternative|alternatives|other options|more options|another option|"
-        r"different option|similar options)\b",
+        r"different option|similar options|other airbnbs?|other listings?)\b|"
+        r"\b(?:share|show|send).{0,40}\b(?:listings?|options?|airbnbs?)\b",
         text,
     ))
 
@@ -442,6 +443,7 @@ async def reply(payload: ReplyRequest, authorization: Optional[str] = Header(Non
     conversation_messages = await get_conversation_messages(payload.conversation_id)
     history_block = format_reply_history(conversation_messages, conversation["host_id"])
     message = payload.message or ""
+    guest_enquiry_context = message
     if is_elie_command:
         guest_messages = [
             (row.get("body") or "").strip()
@@ -454,20 +456,21 @@ async def reply(payload: ReplyRequest, authorization: Optional[str] = Header(Non
                 skipped=True,
             )
         message = guest_messages[-1]
+        guest_enquiry_context = "\n".join(guest_messages)
 
     ai_result = await generate_ai_reply(message, listing_ctx, history_block, is_elie_command)
     reply_text = ai_result["reply"] if ai_result else canned_reply(listing_ctx, is_elie_command)
     alternative_listings = []
-    if is_elie_command and is_listing_alternative_request(message):
+    if is_elie_command and is_listing_alternative_request(guest_enquiry_context):
         alternative_listings = await get_host_alternative_listings(
             conversation["host_id"],
             listing_id,
             listing_ctx,
-            message,
+            guest_enquiry_context,
         )
         reply_text = alternative_reply(
             len(alternative_listings),
-            bool(re.search(r"\b(?:cheaper|affordable|lower[- ]priced|less expensive)\b", message.lower())),
+            bool(re.search(r"\b(?:cheaper|affordable|lower[- ]priced|less expensive)\b", guest_enquiry_context.lower())),
         )
 
     # Only attempt a real booking when Gemini extracted a firm date + night
@@ -844,8 +847,6 @@ async def get_host_alternative_listings(
     }
     if current_listing_id:
         params["id"] = f"neq.{current_listing_id}"
-    if current_listing_ctx and current_listing_ctx.get("category"):
-        params["category"] = f"eq.{current_listing_ctx['category']}"
 
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
@@ -857,9 +858,26 @@ async def get_host_alternative_listings(
                     "Authorization": f"******",
                 },
             )
+            if response.is_error:
+                # Older deployments may not have listing lifecycle controls yet.
+                # Keep the host scope and enforce known availability states below.
+                fallback_params = dict(params)
+                fallback_params["select"] = fallback_params["select"].replace(
+                    "availability_status,", ""
+                )
+                fallback_params.pop("availability_status", None)
+                response = await client.get(
+                    f"{SUPABASE_URL}/rest/v1/listings",
+                    params=fallback_params,
+                    headers={
+                        "apikey": SUPABASE_SERVICE_ROLE_KEY,
+                        "Authorization": f"******",
+                    },
+                )
             response.raise_for_status()
             rows = response.json()
-    except Exception:
+    except Exception as error:
+        print(f"[Elie] host listing lookup failed: {error}")
         return []
 
     current_price = (
@@ -873,6 +891,23 @@ async def get_host_alternative_listings(
         else None
     )
     wants_cheaper = bool(re.search(r"\b(?:cheaper|affordable|lower[- ]priced|less expensive)\b", enquiry.lower()))
+    current_category = (current_listing_ctx or {}).get("category")
+    category_matches = [
+        row for row in rows
+        if not current_category or not row.get("category")
+        or str(row.get("category")).lower() == str(current_category).lower()
+    ]
+    if category_matches:
+        rows = category_matches
+    for row in rows:
+        status = str(row.get("availability_status") or "available").lower()
+        if status != "available":
+            row["_unavailable"] = True
+    rows = [row for row in rows if not row.get("_unavailable")]
+    if not rows:
+        return []
+
+    await attach_video_media(rows)
     return filter_alternative_listings(
         rows,
         host_id,
@@ -881,6 +916,38 @@ async def get_host_alternative_listings(
         current_listing_id,
         wants_cheaper,
     )
+
+
+async def attach_video_media(listings: list) -> None:
+    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY or not listings:
+        return
+    listing_ids = [str(row["id"]) for row in listings if row.get("id")]
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(
+                f"{SUPABASE_URL}/rest/v1/property_media",
+                params={
+                    "select": "id,property_id",
+                    "property_id": "in.(" + ",".join(listing_ids) + ")",
+                    "media_type": "eq.video",
+                    "status": "eq.ready",
+                    "visibility": "eq.public",
+                    "deleted_at": "is.null",
+                    "order": "sort_order.asc",
+                },
+                headers={
+                    "apikey": SUPABASE_SERVICE_ROLE_KEY,
+                    "Authorization": f"******",
+                },
+            )
+            response.raise_for_status()
+            media_by_listing = {}
+            for media in response.json():
+                media_by_listing.setdefault(media["property_id"], media["id"])
+            for listing in listings:
+                listing["video_media_id"] = media_by_listing.get(listing.get("id"))
+    except Exception as error:
+        print(f"[Elie] listing video lookup failed: {error}")
 
 
 async def touch_conversation(conversation_id: str) -> None:
