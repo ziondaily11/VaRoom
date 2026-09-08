@@ -66,6 +66,8 @@
   .search-field:last-of-type{ border-right:none; }
   .search-field label{ font-size:.66rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); }
   .search-field input, .search-field select{ border:none; background:none; color:var(--ink); font-size:.88rem; padding:.15rem 0; outline:none; width:100%; }
+  .search-field input::placeholder{ color:var(--muted); opacity:1; }
+  .search-field select option, .results-controls select option{ background:var(--white); color:var(--ink); }
   .search-submit{ background:var(--red); color:#fff; border:none; padding:0 1.4rem; font-weight:700; font-size:.88rem; cursor:pointer; }
   .search-submit:hover{ background:var(--red-deep); }
 
@@ -87,6 +89,8 @@
   .price-inputs{ display:flex; align-items:center; gap:.5rem; }
   .price-inputs input{ width:100%; padding:.5rem .6rem; border:1px solid var(--line); border-radius:8px; background:var(--paper); color:var(--ink); font-size:.85rem; }
   .filter-row{ display:flex; align-items:center; justify-content:space-between; gap:.5rem; padding:.35rem 0; font-size:.87rem; cursor:pointer; }
+  button.filter-row{ width:100%; border:0; background:transparent; color:var(--ink); text-align:left; }
+  button.filter-row.active{ color:var(--red); font-weight:700; }
   .filter-row span.count{ color:var(--muted); font-size:.78rem; }
   .filter-row input[type="checkbox"]{ accent-color:var(--red); width:16px; height:16px; }
 
@@ -273,10 +277,10 @@
   const PAGE_SIZE = 12;
 
   const MKT_SELECT = 'id,title,description,location_text,category,verified,created_at,host_id,availability_status,' +
-    'host:profiles(full_name,verified,avatar_url,username),' +
+    'host:profiles!inner(full_name,verified,avatar_url,username),' +
     'listing_photos(storage_path),listing_booking_details(price_amount,price_unit,max_guests)';
   const MKT_LEGACY_SELECT = 'id,title,description,location_text,category,verified,created_at,host_id,' +
-    'host:profiles(full_name,verified,avatar_url,username),' +
+    'host:profiles!inner(full_name,verified,avatar_url,username),' +
     'listing_photos(storage_path),listing_booking_details(price_amount,price_unit,max_guests)';
 
   function escapeHtml(str){
@@ -480,10 +484,20 @@
     const counts = {};
     items.forEach(function(l){ counts[l.category] = (counts[l.category] || 0) + 1; });
     const wrap = document.getElementById('type-filters');
-    wrap.innerHTML = Object.keys(CATEGORY_LABELS).map(function(cat){
+    const categories = ['all'].concat(Object.keys(CATEGORY_LABELS));
+    wrap.innerHTML = categories.map(function(cat){
       const n = counts[cat] || 0;
-      return '<label class="filter-row"><span>' + CATEGORY_LABELS[cat] + '</span><span class="count">' + n + '</span></label>';
+      const active = state.category === cat ? ' active' : '';
+      return '<button type="button" class="filter-row' + active + '" data-category="' + cat + '">' +
+        '<span>' + (cat === 'all' ? 'All types' : CATEGORY_LABELS[cat]) + '</span><span class="count">' + (cat === 'all' ? resultCount : n) + '</span></button>';
     }).join('');
+    wrap.querySelectorAll('[data-category]').forEach(function(button){
+      button.addEventListener('click', function(){
+        state.category = button.getAttribute('data-category');
+        document.getElementById('q-category').value = state.category;
+        runSearch();
+      });
+    });
   }
 
   function renderPagination(total){
@@ -501,8 +515,9 @@
       // type counts reflect the search text + price/verified filters, not the type filter itself
       return true;
     }));
+    const displayedCount = resultCount || filtered.length;
     document.getElementById('results-sub').textContent =
-      filtered.length + ' ' + (filtered.length === 1 ? 'property' : 'properties') + ' found' + (state.q ? ' for "' + state.q + '"' : '');
+      displayedCount + ' ' + (displayedCount === 1 ? 'property' : 'properties') + ' found' + (state.q ? ' for "' + state.q + '"' : '');
 
     const grid = document.getElementById('results-grid');
     if (filtered.length === 0) {
@@ -525,9 +540,11 @@
   let loadingMore = false;
   let hasMoreResults = true;
   let listingOffset = 0;
+  let resultCount = 0;
+  let requestVersion = 0;
 
   async function fetchListings(select, filterAvailability, offset){
-      let query = supabaseClient.from('listings').select(select).range(offset, offset + PAGE_SIZE - 1);
+      let query = supabaseClient.from('listings').select(select, { count: 'exact' }).range(offset, offset + PAGE_SIZE - 1);
       if (filterAvailability) query = query.eq('availability_status', 'available');
       if (state.category !== 'all') query = query.eq('category', state.category);
       if (state.q) {
@@ -536,19 +553,32 @@
           query = query.or('title.ilike.%' + term + '%,location_text.ilike.%' + term + '%,category.ilike.%' + term + '%');
         }
       }
-      return query.order('created_at', { ascending: false });
+      if (state.priceMin != null) query = query.gte('listing_booking_details.price_amount', state.priceMin);
+      if (state.priceMax != null) query = query.lte('listing_booking_details.price_amount', state.priceMax);
+      if (state.guests) query = query.gte('listing_booking_details.max_guests', parseInt(state.guests, 10));
+      if (state.verifiedOnly) query = query.eq('host.verified', true);
+      if (state.sort === 'price_asc') query = query.order('price_amount', { foreignTable: 'listing_booking_details', ascending: true, nullsFirst: false });
+      else if (state.sort === 'price_desc') query = query.order('price_amount', { foreignTable: 'listing_booking_details', ascending: false, nullsFirst: false });
+      else query = query.order('created_at', { ascending: false });
+      return query;
   }
 
   async function loadListings(reset){
     if (loadingMore || (!reset && !hasMoreResults)) return;
     loadingMore = true;
+    const currentRequest = ++requestVersion;
     const offset = reset ? 0 : listingOffset;
-    let { data, error } = await fetchListings(MKT_SELECT, true, offset);
+    let { data, error, count } = await fetchListings(MKT_SELECT, true, offset);
     if (error) {
       console.warn('Marketplace availability-aware query failed; retrying shared listing shape:', error.message);
       const fallback = await fetchListings(MKT_LEGACY_SELECT, false, offset);
       data = fallback.data;
       error = fallback.error;
+      count = fallback.count;
+    }
+    if (currentRequest !== requestVersion) {
+      loadingMore = false;
+      return;
     }
     if (error) {
       console.error('Marketplace listings query failed:', error);
@@ -572,6 +602,7 @@
     });
     const knownIds = new Set(allListings.map(function(listing){ return listing.id; }));
     if (reset) allListings = [];
+    if (reset) resultCount = count || 0;
     pageListings.forEach(function(listing){
       if (!knownIds.has(listing.id)) {
         allListings.push(listing);
@@ -586,8 +617,10 @@
   }
 
   async function runSearch(){
+    requestVersion += 1;
     state.page = 1;
     allListings = [];
+    resultCount = 0;
     hasMoreResults = true;
     listingOffset = 0;
     document.getElementById('results-sub').textContent = 'Loading…';
@@ -601,27 +634,35 @@
     state.guests = document.getElementById('q-guests').value;
     runSearch();
   });
+  document.getElementById('q-category').addEventListener('change', function(){
+    state.category = this.value;
+    runSearch();
+  });
   document.getElementById('q-dest').addEventListener('keydown', function(e){
     if (e.key === 'Enter') document.getElementById('search-submit').click();
   });
   document.getElementById('sort-select').addEventListener('change', function(){
-    state.sort = this.value; state.page = 1; renderResults();
+    state.sort = this.value; state.page = 1; runSearch();
   });
   document.getElementById('price-min').addEventListener('change', function(){
-    state.priceMin = this.value ? Number(this.value) : null; state.page = 1; renderResults();
+    state.priceMin = this.value ? Number(this.value) : null; state.page = 1; runSearch();
   });
   document.getElementById('price-max').addEventListener('change', function(){
-    state.priceMax = this.value ? Number(this.value) : null; state.page = 1; renderResults();
+    state.priceMax = this.value ? Number(this.value) : null; state.page = 1; runSearch();
   });
   document.getElementById('verified-only').addEventListener('change', function(){
-    state.verifiedOnly = this.checked; state.page = 1; renderResults();
+    state.verifiedOnly = this.checked; state.page = 1; runSearch();
   });
   document.getElementById('filters-reset').addEventListener('click', function(){
     document.getElementById('price-min').value = '';
     document.getElementById('price-max').value = '';
     document.getElementById('verified-only').checked = false;
     state.priceMin = null; state.priceMax = null; state.verifiedOnly = false; state.page = 1;
-    renderResults();
+    document.getElementById('q-dest').value = '';
+    document.getElementById('q-category').value = 'all';
+    document.getElementById('q-guests').value = '';
+    state.q = ''; state.category = 'all'; state.guests = '';
+    runSearch();
   });
   document.getElementById('view-grid-btn').addEventListener('click', function(){
     document.getElementById('view-grid-btn').classList.add('active');
