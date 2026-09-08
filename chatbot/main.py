@@ -39,7 +39,7 @@ load_dotenv()
 
 logger = logging.getLogger("varoom.elie")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-GEMINI_MODEL = (os.getenv("GEMINI_MODEL") or "gemini-2.5-flash").strip()
+GEMINI_MODEL = (os.getenv("GEMINI_MODEL") or "gemini-3.1-flash-lite").strip()
 GEMINI_URL = (
     f"https://generativelanguage.googleapis.com/v1beta/models/"
     f"{GEMINI_MODEL}:generateContent"
