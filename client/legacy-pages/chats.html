@@ -850,6 +850,71 @@
         escapeHtml(listing.title || 'VaRoom listing') + '</div><div class="message-listing-card-sub">' +
         escapeHtml(listing.location_text || 'Location not specified') + '</div></div>';
     }
+    function setupAttachmentComposer(convId, conv){
+      const root = document.getElementById('composer-attachment');
+      const add = document.getElementById('composer-add-btn');
+      const menu = document.getElementById('attachment-menu');
+      const photo = document.getElementById('photo-input');
+      const file = document.getElementById('file-input');
+      const state = { attachment:null, listing:null };
+      function render(){
+        if (!state.attachment && !state.listing) { root.innerHTML = ''; return; }
+        if (state.listing) root.innerHTML = '<div class="composer-attachment"><div class="message-listing-card">' + listingCardHtml(state.listing) + '</div><button type="button" class="composer-attachment-remove">&times;</button></div>';
+        else root.innerHTML = '<div class="composer-attachment">' + (state.attachment.previewUrl ? '<img src="' + escapeHtml(state.attachment.previewUrl) + '" alt="" style="width:42px;height:42px;object-fit:cover;border-radius:7px;flex-shrink:0">' : '') + '<div class="composer-attachment-info"><div class="composer-attachment-title">' + escapeHtml(state.attachment.file.name) + '</div><div class="composer-attachment-meta">' + (state.attachment.uploading ? 'Uploading…' : (state.attachment.kind === 'photo' ? 'Photo attached' : 'File attached')) + '</div></div><button type="button" class="composer-attachment-remove">&times;</button></div>';
+        root.querySelector('.composer-attachment-remove').addEventListener('click', function(){
+          if (state.attachment && state.attachment.previewUrl) URL.revokeObjectURL(state.attachment.previewUrl);
+          state.attachment = null; state.listing = null; render();
+        });
+      }
+      function close(){ menu.hidden = true; add.setAttribute('aria-expanded', 'false'); }
+      add.addEventListener('click', function(event){ event.stopPropagation(); menu.hidden = !menu.hidden; add.setAttribute('aria-expanded', String(!menu.hidden)); });
+      menu.addEventListener('click', function(event){ event.stopPropagation(); });
+      document.addEventListener('click', function(event){ if (!menu.contains(event.target) && !add.contains(event.target)) close(); });
+      menu.querySelector('[data-attachment-action="photo"]').addEventListener('click', function(){ close(); photo.click(); });
+      menu.querySelector('[data-attachment-action="file"]').addEventListener('click', function(){ close(); file.click(); });
+      function selectFile(selected, kind){
+        if (!selected) return;
+        state.listing = null;
+        state.attachment = { file:selected, kind:kind, previewUrl:kind === 'photo' ? URL.createObjectURL(selected) : null, uploading:false };
+        render();
+      }
+      photo.addEventListener('change', function(){ selectFile(photo.files[0], 'photo'); photo.value = ''; });
+      file.addEventListener('change', function(){ selectFile(file.files[0], 'file'); file.value = ''; });
+      menu.querySelector('[data-attachment-action="listing"]').addEventListener('click', async function(){
+        close();
+        const result = await supabaseClient.from('listings').select('id,title,location_text,host_id,listing_photos(storage_path),listing_booking_details(price_amount,price_unit)').eq('host_id', currentUser.id).order('created_at', { ascending:false });
+        const rows = result.data || [];
+        const picker = document.createElement('div');
+        picker.className = 'listing-picker';
+        picker.innerHTML = '<div class="listing-picker-panel"><div class="listing-picker-header"><h2>Share a listing</h2><button type="button" class="listing-picker-close">&times;</button></div><div class="listing-picker-list">' + (rows.length ? rows.map(function(listing){ return '<button type="button" class="listing-picker-item" data-listing-id="' + escapeHtml(listing.id) + '"><div class="listing-context-thumb">' + listingThumbHtml(listing) + '</div><div><div class="listing-picker-item-title">' + escapeHtml(listing.title || 'VaRoom listing') + '</div><div class="listing-picker-item-sub">' + escapeHtml(listing.location_text || 'Location not specified') + '</div></div></button>'; }).join('') : '<div class="listing-picker-empty">No listings are available to share.</div>') + '</div></div>';
+        document.body.appendChild(picker);
+        const remove = function(){ picker.remove(); };
+        picker.querySelector('.listing-picker-close').addEventListener('click', remove);
+        picker.querySelectorAll('[data-listing-id]').forEach(function(button){ button.addEventListener('click', function(){ state.listing = rows.find(function(listing){ return listing.id === button.getAttribute('data-listing-id'); }); state.attachment = null; render(); remove(); }); });
+      });
+      return {
+        get: function(){ return state; },
+        render: render,
+        clear: function(){ if (state.attachment && state.attachment.previewUrl) URL.revokeObjectURL(state.attachment.previewUrl); state.attachment = null; state.listing = null; render(); },
+        upload: async function(){
+          if (!state.attachment) return null;
+          const sessionResult = await supabaseClient.auth.getSession();
+          const session = sessionResult.data && sessionResult.data.session;
+          if (!session) throw new Error('Your session has expired. Please sign in again.');
+          const attachment = state.attachment;
+          attachment.uploading = true; render();
+          const initResponse = await fetch('/api/chat/conversations/' + encodeURIComponent(convId) + '/attachments/upload-init', { method:'POST', headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer ' + session.access_token }, body:JSON.stringify({ filename:attachment.file.name, mimeType:attachment.file.type || 'application/octet-stream', fileSize:attachment.file.size, kind:attachment.kind }) });
+          const init = await initResponse.json();
+          if (!initResponse.ok) throw new Error(init.error || 'Unable to start upload');
+          const uploadResponse = await fetch(init.uploadUrl, { method:'PUT', headers:{ 'Content-Type':attachment.file.type || 'application/octet-stream' }, body:attachment.file });
+          if (!uploadResponse.ok) throw new Error('The file could not be uploaded');
+          const completeResponse = await fetch('/api/chat/conversations/' + encodeURIComponent(convId) + '/attachments/' + encodeURIComponent(init.attachmentId) + '/complete', { method:'POST', headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer ' + session.access_token }, body:'{}' });
+          const complete = await completeResponse.json();
+          if (!completeResponse.ok) throw new Error(complete.error || 'Unable to finish upload');
+          return complete.attachment;
+        }
+      };
+    }
     function resolveAvatarUrl(avatarValue){
       if (!avatarValue) return null;
       if (avatarValue.indexOf('http') === 0) return avatarValue;
@@ -1068,6 +1133,7 @@
 
       const input = document.getElementById('message-input');
       const sendBtn = document.getElementById('send-btn');
+      const attachmentComposer = setupAttachmentComposer(convId, conv);
       const attachmentRoot = document.getElementById('composer-attachment');
       const addButton = document.getElementById('composer-add-btn');
       const attachmentMenu = document.getElementById('attachment-menu');
@@ -1449,16 +1515,15 @@
 
       async function sendMessage(){
         const body = input.value.trim();
-        if (!body && !pendingAttachment && !pendingListing) return;
+        const attachmentState = attachmentComposer.get();
+        if (!body && !attachmentState.attachment && !attachmentState.listing) return;
         sendBtn.disabled = true;
-        let uploadedAttachment = pendingAttachment;
+        let uploadedAttachment = null;
         try {
-          if (pendingAttachment && pendingAttachment.file) {
-            uploadedAttachment = await uploadPendingAttachment();
-          }
+          if (attachmentState.attachment) uploadedAttachment = await attachmentComposer.upload();
         } catch (error) {
-          if (pendingAttachment) pendingAttachment.uploading = false;
-          renderPendingAttachment();
+          attachmentState.attachment.uploading = false;
+          attachmentComposer.render();
           sendBtn.disabled = false;
           window.alert(error.message || 'Attachment upload failed. Please try again.');
           return;
@@ -1466,10 +1531,10 @@
         const payload = {
           conversation_id: convId,
           sender_id: currentUser.id,
-          body: body || (pendingListing ? 'Shared listing: ' + (pendingListing.title || 'VaRoom listing') : ''),
-          message_type: pendingListing ? 'listing' : (uploadedAttachment ? uploadedAttachment.kind : 'text'),
+          body: body || (attachmentState.listing ? 'Shared listing: ' + (attachmentState.listing.title || 'VaRoom listing') : ''),
+          message_type: attachmentState.listing ? 'listing' : (uploadedAttachment ? uploadedAttachment.kind : 'text'),
           attachment_id: uploadedAttachment ? uploadedAttachment.id : null,
-          listing_id: pendingListing ? pendingListing.id : null
+          listing_id: attachmentState.listing ? attachmentState.listing.id : null
         };
         const { data: inserted, error } = await supabaseClient.from('messages').insert(payload).select().single();
         sendBtn.disabled = false;
@@ -1478,10 +1543,7 @@
           return;
         }
         input.value = '';
-        if (pendingAttachment && pendingAttachment.previewUrl) URL.revokeObjectURL(pendingAttachment.previewUrl);
-        pendingAttachment = null;
-        pendingListing = null;
-        renderPendingAttachment();
+        attachmentComposer.clear();
         appendMessage(inserted, true);
         await supabaseClient.from('conversations').update({ last_message_at: new Date().toISOString() }).eq('id', convId);
         if (!isHost) triggerAutoReplyIfAway(body);
