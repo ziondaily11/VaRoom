@@ -259,12 +259,18 @@
   const PAGE_SIZE = 12;
 
   const MKT_SELECT = 'id,title,description,location_text,category,verified,created_at,host_id,availability_status,' +
+    'host:profiles(full_name,verified,avatar_url,username),' +
     'listing_photos(storage_path),listing_booking_details(price_amount,price_unit,max_guests)';
 
   function escapeHtml(str){
     const div = document.createElement('div');
     div.textContent = str || '';
     return div.innerHTML;
+  }
+
+  function formatHostName(host){
+    if (!host) return '';
+    return host.full_name || host.username || '';
   }
 
   // ---------- Auth guard ----------
@@ -356,6 +362,7 @@
         '<div class="card-body">' +
           '<div class="card-title">' + escapeHtml(listing.title) + '</div>' +
           '<div class="card-loc">' + escapeHtml(listing.location_text || '') + '</div>' +
+          (formatHostName(listing.host) ? '<div class="card-loc">Hosted by ' + escapeHtml(formatHostName(listing.host)) + '</div>' : '') +
           '<div class="card-foot">' +
             (price
               ? '<div class="card-price">KSh ' + price.amount.toLocaleString() + ' <span>/ ' + escapeHtml(price.unit) + '</span></div>'
@@ -448,15 +455,30 @@
 
   async function runSearch(){
     document.getElementById('results-sub').textContent = 'Loading…';
-    let query = supabaseClient.from('listings').select(MKT_SELECT).limit(200);
+    let query = supabaseClient.from('listings').select(MKT_SELECT)
+      .eq('availability_status', 'available')
+      .limit(200);
     if (state.category !== 'all') query = query.eq('category', state.category);
-    if (state.q) query = query.ilike('location_text', '%' + state.q + '%');
+    if (state.q) {
+      const term = state.q.replace(/[%(),]/g, ' ').trim();
+      if (term) {
+        query = query.or('title.ilike.%' + term + '%,location_text.ilike.%' + term + '%,category.ilike.%' + term + '%');
+      }
+    }
     query = query.order('created_at', { ascending: false });
 
     const { data, error } = await query;
+    if (error) {
+      console.error('Marketplace listings query failed:', error);
+      document.getElementById('results-title').textContent = 'Listings';
+      document.getElementById('results-sub').textContent = 'Listings are temporarily unavailable.';
+      document.getElementById('results-grid').innerHTML =
+        '<div class="empty-state" style="grid-column:1/-1;"><h2>Unable to load listings</h2><p>Please try again in a moment.</p></div>';
+      document.getElementById('pagination').innerHTML = '';
+      return;
+    }
     const minGuests = state.guests ? parseInt(state.guests, 10) : null;
     allListings = (data || []).filter(function(l){
-      if (l.availability_status && l.availability_status !== 'available') return false;
       if (minGuests != null) {
         const details = Array.isArray(l.listing_booking_details) ? l.listing_booking_details[0] : l.listing_booking_details;
         const guests = details && details.max_guests;

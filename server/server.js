@@ -66,6 +66,7 @@ const pageTemplates = {
   '/forgot-password': 'forgot-password.html',
   '/elie': 'elie.html',
   '/map': 'map.html',
+  '/marketplace': 'marketplace.html',
   '/notifications': 'notifications.html',
   '/onboarding': 'onboarding.html',
   '/payments': 'payments.html',
