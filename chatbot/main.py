@@ -88,9 +88,11 @@ async def call_gemini(prompt: str, max_attempts: int = 3) -> Optional[str]:
     request_body = {"contents": [{"parts": [{"text": prompt}]}]}
     backoff_seconds = [0.5, 1.5]  # between attempts 1->2 and 2->3
 
+    request_timeout = httpx.Timeout(connect=10.0, read=45.0, write=10.0, pool=10.0)
+
     for attempt in range(max_attempts):
         try:
-            async with httpx.AsyncClient(timeout=20.0) as client:
+            async with httpx.AsyncClient(timeout=request_timeout) as client:
                 response = await client.post(
                     GEMINI_URL,
                     params={"key": GEMINI_API_KEY},
