@@ -242,10 +242,10 @@
   .auto-reply-tag{ display:inline-block; font-size:.62rem; font-weight:700; letter-spacing:.02em; text-transform:uppercase; color:var(--accent); margin-bottom:.2rem; }
 
   .composer-wrap{ flex:0 0 auto; padding:.85rem 1.1rem 1rem; }
-  .composer{ position:relative; display:flex; align-items:center; gap:.6rem; background:var(--chat-surface); border:1px solid var(--chat-border); border-radius:12px; padding:.5rem .6rem; }
+  .composer{ position:relative; z-index:2; display:flex; align-items:center; gap:.6rem; background:var(--chat-surface); border:1px solid var(--chat-border); border-radius:12px; padding:.5rem .6rem; }
   .composer-add{ color:var(--muted); width:30px; height:30px; display:grid; place-items:center; border-radius:8px; flex-shrink:0; }
   .composer-add:hover{ color:var(--accent); background:var(--accent-soft); }
-  .attachment-menu{ position:absolute; left:.55rem; bottom:3.2rem; z-index:5; width:180px; padding:.35rem; background:var(--chat-surface); border:1px solid var(--chat-border); border-radius:10px; box-shadow:0 8px 24px rgba(26,18,16,.14); }
+  .attachment-menu{ position:absolute; left:.55rem; bottom:calc(100% + .45rem); z-index:100; width:180px; padding:.35rem; background:var(--chat-surface); border:1px solid var(--chat-border); border-radius:10px; box-shadow:0 8px 24px rgba(26,18,16,.14); pointer-events:auto; }
   .attachment-menu[hidden]{ display:none; }
   .attachment-option{ display:flex; align-items:center; gap:.55rem; width:100%; padding:.55rem .6rem; border-radius:7px; text-align:left; color:var(--chat-text); font-size:.78rem; font-weight:650; }
   .attachment-option:hover{ background:var(--accent-soft); color:var(--accent); }
@@ -1114,13 +1114,17 @@
         attachmentMenu.hidden = true;
         addButton.setAttribute('aria-expanded', 'false');
       }
-      addButton.addEventListener('click', function(){
+      addButton.addEventListener('click', function(event){
+        event.stopPropagation();
         attachmentMenu.hidden = !attachmentMenu.hidden;
         addButton.setAttribute('aria-expanded', String(!attachmentMenu.hidden));
       });
       document.addEventListener('click', function(event){
-        if (!event.target.closest('.composer')) closeAttachmentMenu();
+        if (!attachmentMenu.contains(event.target) && event.target !== addButton && !addButton.contains(event.target)) {
+          closeAttachmentMenu();
+        }
       });
+      attachmentMenu.addEventListener('click', function(event){ event.stopPropagation(); });
       attachmentMenu.querySelector('[data-attachment-action="photo"]').addEventListener('click', function(){ closeAttachmentMenu(); photoInput.click(); });
       attachmentMenu.querySelector('[data-attachment-action="file"]').addEventListener('click', function(){ closeAttachmentMenu(); fileInput.click(); });
       attachmentMenu.querySelector('[data-attachment-action="listing"]').addEventListener('click', function(){ closeAttachmentMenu(); openListingPicker(); });
