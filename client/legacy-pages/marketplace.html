@@ -39,8 +39,8 @@
     --line-soft:rgba(255,255,255,.07);
   }
   *{ margin:0; padding:0; box-sizing:border-box; }
-  html{ overflow-x:hidden; }
-  body{ font-family:var(--font-body); background:var(--paper); color:var(--ink); min-height:100vh; }
+  html{ overflow-x:hidden; font-size:16px !important; }
+  body{ font-family:var(--font-body); font-size:16px !important; background:var(--paper); color:var(--ink); min-height:100vh; }
   a{ color:inherit; text-decoration:none; }
   button, input, select{ font-family:inherit; }
   :focus-visible{ outline:3px solid var(--red-deep); outline-offset:3px; }
@@ -192,7 +192,7 @@
     .mobile-filter-actions button{ border:0; border-radius:999px; padding:.45rem .75rem; font-size:.68rem; cursor:pointer; }
     .mobile-filter-actions .apply{ background:var(--red); color:#fff; }
     .mobile-filter-actions .reset{ background:var(--paper); color:var(--ink); }
-    .results-col{ padding:.65rem 1rem 1.5rem; }
+    .results-col{ width:100%; padding:.65rem .5rem 1.5rem; }
     .results-head{ align-items:center; margin-bottom:.65rem; gap:.5rem; }
     .results-head h1{ font-size:1.05rem; }
     .results-sub{ font-size:.62rem; margin-top:.1rem; }
@@ -204,8 +204,8 @@
     #view-grid-btn::before{ content:'▦'; }
     #view-map-btn::before{ content:'☷'; }
     #view-map-btn{ display:flex; }
-    .grid{ display:flex; flex-direction:column; gap:.55rem; }
-    .card{ display:grid; grid-template-columns:7.05rem minmax(0,1fr); grid-template-rows:1fr; height:6.3rem; min-height:6.3rem; border-radius:10px; }
+    .grid{ width:100%; display:flex; flex-direction:column; gap:.55rem; }
+    .card{ width:100%; display:grid; grid-template-columns:7.05rem minmax(0,1fr); grid-template-rows:1fr; height:6.3rem; min-height:6.3rem; border-radius:10px; }
     .card-media{ height:6.3rem; min-height:6.3rem; }
     .card-body{ padding:.58rem .62rem .52rem; gap:.12rem; min-width:0; }
     .card-title{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:.76rem; }
@@ -420,8 +420,6 @@
     .eq('id', currentUser.id)
     .maybeSingle();
   if (!profile) { window.location.href = '/login'; return; }
-  if (profile.role === 'host') { window.location.href = '/host-home'; return; }
-
   const avatarEl = document.getElementById('user-avatar');
   if (profile.avatar_url) {
     avatarEl.innerHTML = '<img src="' + escapeHtml(profile.avatar_url) + '" alt="">';
