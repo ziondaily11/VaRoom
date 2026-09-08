@@ -25,6 +25,7 @@ import sys
 import re
 import json
 import asyncio
+import logging
 import httpx
 from pathlib import Path
 from datetime import datetime, timezone, date, timedelta
@@ -36,8 +37,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+logger = logging.getLogger("varoom.elie")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+GEMINI_MODEL = (os.getenv("GEMINI_MODEL") or "gemini-2.5-flash").strip()
 GEMINI_URL = (
     f"https://generativelanguage.googleapis.com/v1beta/models/"
     f"{GEMINI_MODEL}:generateContent"
@@ -73,6 +75,7 @@ class ElieGenerationError(RuntimeError):
 
 async def call_gemini(prompt: str, max_attempts: int = 3) -> Optional[str]:
     if not GEMINI_API_KEY:
+        logger.error("Gemini request skipped: GEMINI_API_KEY is not configured")
         return None
 
     request_body = {"contents": [{"parts": [{"text": prompt}]}]}
@@ -88,27 +91,72 @@ async def call_gemini(prompt: str, max_attempts: int = 3) -> Optional[str]:
                 )
                 response.raise_for_status()
                 data = response.json()
-                return data["candidates"][0]["content"]["parts"][0]["text"].strip()
+                candidates = data.get("candidates") or []
+                if not candidates:
+                    logger.error(
+                        "Gemini returned no candidates (model=%s, prompt_feedback=%s)",
+                        GEMINI_MODEL,
+                        data.get("promptFeedback"),
+                    )
+                    return None
+
+                candidate = candidates[0]
+                parts = (candidate.get("content") or {}).get("parts") or []
+                text = "".join(
+                    part.get("text", "")
+                    for part in parts
+                    if isinstance(part, dict)
+                ).strip()
+                if not text:
+                    logger.error(
+                        "Gemini returned an empty candidate (model=%s, finish_reason=%s, safety_ratings=%s)",
+                        GEMINI_MODEL,
+                        candidate.get("finishReason"),
+                        candidate.get("safetyRatings"),
+                    )
+                    return None
+                return text
 
         except httpx.HTTPStatusError as e:
             status = e.response.status_code
             # 4xx (bad key, bad request, quota exhausted) won't fix itself
             # on retry — fail fast instead of wasting the user's wait time.
             if 400 <= status < 500:
-                print(f"[Gemini] non-retryable {status}: {e.response.text[:300]}")
+                logger.error(
+                    "Gemini request rejected (model=%s, status=%s, body=%s)",
+                    GEMINI_MODEL,
+                    status,
+                    e.response.text[:500],
+                )
                 return None
-            print(f"[Gemini] server error {status} on attempt {attempt + 1}/{max_attempts}")
+            logger.warning(
+                "Gemini server error (model=%s, status=%s, attempt=%s/%s)",
+                GEMINI_MODEL,
+                status,
+                attempt + 1,
+                max_attempts,
+            )
 
         except (httpx.TimeoutException, httpx.TransportError) as e:
-            print(f"[Gemini] network/timeout on attempt {attempt + 1}/{max_attempts}: {e}")
+            logger.warning(
+                "Gemini network/timeout (model=%s, attempt=%s/%s, error=%s)",
+                GEMINI_MODEL,
+                attempt + 1,
+                max_attempts,
+                type(e).__name__,
+            )
 
         except Exception as e:
-            print(f"[Gemini] unexpected error on attempt {attempt + 1}/{max_attempts}: {e}")
+            logger.exception(
+                "Unexpected Gemini response failure (model=%s, error=%s)",
+                GEMINI_MODEL,
+                type(e).__name__,
+            )
 
         if attempt < max_attempts - 1:
             await asyncio.sleep(backoff_seconds[attempt])
 
-    print("[Gemini] all attempts failed.")
+    logger.error("Gemini request failed after %s attempts (model=%s)", max_attempts, GEMINI_MODEL)
     return None
 
 
@@ -1181,6 +1229,7 @@ def health_check():
     return {
         "status": "ok",
         "ai_configured": bool(GEMINI_API_KEY),
+        "ai_model": GEMINI_MODEL,
         "supabase_configured": bool(SUPABASE_URL and SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY),
     }
 
