@@ -376,12 +376,6 @@
     /* mobile conv item: name+time / preview / listing+tag, in that order */
     .conv-listing-row{ display:flex; align-items:center; gap:.4rem; }
 
-    /* composer tool row: icon-over-label, evenly spaced */
-    .composer-tools{ justify-content:space-between; gap:.3rem; }
-    .composer-tools{ display:none; }
-    .composer-tool{ flex-direction:column; align-items:center; gap:.25rem; font-size:.62rem; flex:1; text-align:center; }
-    .composer-tool svg{ margin:0 auto; }
-
     /* details screen: back-bar IS the title, so hide the desktop title row */
     .details-title-row{ display:none; }
     .contact-card{ display:flex; align-items:center; gap:.75rem; text-align:left; padding:0 1.1rem 1rem; }
@@ -1043,7 +1037,7 @@
             '<button type="button" class="composer-add" id="composer-add-btn" aria-label="Add attachment" aria-expanded="false" aria-controls="attachment-menu"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.4 11.6-8.8 8.8a6 6 0 0 1-8.5-8.5l8.1-8.1a4 4 0 1 1 5.7 5.7l-8.1 8.1a2 2 0 0 1-2.8-2.8l7.4-7.4"/></svg></button>' +
             '<div class="attachment-menu" id="attachment-menu" hidden>' +
               '<button type="button" class="attachment-option" data-attachment-action="photo">Photo</button>' +
-              '<button type="button" class="attachment-option" data-attachment-action="file">File</button>' +
+              '<button type="button" class="attachment-option" data-attachment-action="file">Attach file</button>' +
               '<button type="button" class="attachment-option" data-attachment-action="listing">Share listing</button>' +
             '</div>' +
             '<input type="file" id="photo-input" accept="image/*" hidden>' +
@@ -1091,9 +1085,12 @@
           attachmentRoot.innerHTML = '<div class="composer-attachment"><div class="message-listing-card">' +
             listingCardHtml(pendingListing) + '</div><button type="button" class="composer-attachment-remove" aria-label="Remove listing">&times;</button></div>';
         } else {
-          attachmentRoot.innerHTML = '<div class="composer-attachment"><div class="composer-attachment-info"><div class="composer-attachment-title">' +
+          const preview = pendingAttachment.kind === 'photo' && pendingAttachment.previewUrl
+            ? '<img src="' + escapeHtml(pendingAttachment.previewUrl) + '" alt="" style="width:42px;height:42px;object-fit:cover;border-radius:7px;flex-shrink:0">'
+            : '';
+          attachmentRoot.innerHTML = '<div class="composer-attachment">' + preview + '<div class="composer-attachment-info"><div class="composer-attachment-title">' +
             escapeHtml(pendingAttachment.original_filename) + '</div><div class="composer-attachment-meta">' +
-            escapeHtml(pendingAttachment.kind === 'photo' ? 'Photo attached' : 'File attached') +
+            escapeHtml(pendingAttachment.uploading ? 'Preparing attachment…' : (pendingAttachment.kind === 'photo' ? 'Photo attached' : 'File attached')) +
             '</div></div><button type="button" class="composer-attachment-remove" aria-label="Remove attachment">&times;</button></div>';
         }
         attachmentRoot.querySelector('.composer-attachment-remove').addEventListener('click', function(){
@@ -1106,6 +1103,7 @@
               }).catch(function(){});
             });
           }
+          if (pendingAttachment && pendingAttachment.previewUrl) URL.revokeObjectURL(pendingAttachment.previewUrl);
           pendingAttachment = null;
           pendingListing = null;
           renderPendingAttachment();
@@ -1120,6 +1118,9 @@
         attachmentMenu.hidden = !attachmentMenu.hidden;
         addButton.setAttribute('aria-expanded', String(!attachmentMenu.hidden));
       });
+      document.addEventListener('click', function(event){
+        if (!event.target.closest('.composer')) closeAttachmentMenu();
+      });
       attachmentMenu.querySelector('[data-attachment-action="photo"]').addEventListener('click', function(){ closeAttachmentMenu(); photoInput.click(); });
       attachmentMenu.querySelector('[data-attachment-action="file"]').addEventListener('click', function(){ closeAttachmentMenu(); fileInput.click(); });
       attachmentMenu.querySelector('[data-attachment-action="listing"]').addEventListener('click', function(){ closeAttachmentMenu(); openListingPicker(); });
@@ -1127,34 +1128,39 @@
       async function uploadChatAttachment(file, kind){
         if (!file) return;
         pendingListing = null;
-        pendingAttachment = { original_filename: file.name, kind: kind, uploading: true };
+        pendingAttachment = {
+          file: file,
+          original_filename: file.name,
+          kind: kind,
+          previewUrl: kind === 'photo' ? URL.createObjectURL(file) : null,
+          uploading: false
+        };
         renderPendingAttachment();
-        try {
-          const { data: { session: uploadSession } } = await supabaseClient.auth.getSession();
-          if (!uploadSession) throw new Error('Your session has expired. Please sign in again.');
-          const initResponse = await fetch('/api/chat/conversations/' + encodeURIComponent(convId) + '/attachments/upload-init', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + uploadSession.access_token },
-            body: JSON.stringify({ filename: file.name, mimeType: file.type || 'application/octet-stream', fileSize: file.size, kind: kind })
-          });
-          const init = await initResponse.json();
-          if (!initResponse.ok) throw new Error(init.error || 'Unable to start upload');
-          const uploadResponse = await fetch(init.uploadUrl, { method:'PUT', headers:{ 'Content-Type': file.type || 'application/octet-stream' }, body:file });
-          if (!uploadResponse.ok) throw new Error('The file could not be uploaded');
-          const completeResponse = await fetch('/api/chat/conversations/' + encodeURIComponent(convId) + '/attachments/' + encodeURIComponent(init.attachmentId) + '/complete', {
-            method:'POST',
-            headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer ' + uploadSession.access_token },
-            body:'{}'
-          });
-          const complete = await completeResponse.json();
-          if (!completeResponse.ok) throw new Error(complete.error || 'Unable to finish upload');
-          pendingAttachment = complete.attachment;
-          renderPendingAttachment();
-        } catch (error) {
-          pendingAttachment = null;
-          renderPendingAttachment();
-          window.alert(error.message || 'Attachment upload failed. Please try again.');
-        }
+      }
+      async function uploadPendingAttachment(){
+        const file = pendingAttachment && pendingAttachment.file;
+        if (!file) return pendingAttachment;
+        const { data: { session: uploadSession } } = await supabaseClient.auth.getSession();
+        if (!uploadSession) throw new Error('Your session has expired. Please sign in again.');
+        pendingAttachment.uploading = true;
+        renderPendingAttachment();
+        const initResponse = await fetch('/api/chat/conversations/' + encodeURIComponent(convId) + '/attachments/upload-init', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + uploadSession.access_token },
+          body: JSON.stringify({ filename: file.name, mimeType: file.type || 'application/octet-stream', fileSize: file.size, kind: pendingAttachment.kind })
+        });
+        const init = await initResponse.json();
+        if (!initResponse.ok) throw new Error(init.error || 'Unable to start upload');
+        const uploadResponse = await fetch(init.uploadUrl, { method:'PUT', headers:{ 'Content-Type': file.type || 'application/octet-stream' }, body:file });
+        if (!uploadResponse.ok) throw new Error('The file could not be uploaded');
+        const completeResponse = await fetch('/api/chat/conversations/' + encodeURIComponent(convId) + '/attachments/' + encodeURIComponent(init.attachmentId) + '/complete', {
+          method:'POST',
+          headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer ' + uploadSession.access_token },
+          body:'{}'
+        });
+        const complete = await completeResponse.json();
+        if (!completeResponse.ok) throw new Error(complete.error || 'Unable to finish upload');
+        return complete.attachment;
       }
       photoInput.addEventListener('change', function(){ uploadChatAttachment(photoInput.files[0], 'photo'); photoInput.value = ''; });
       fileInput.addEventListener('change', function(){ uploadChatAttachment(fileInput.files[0], 'file'); fileInput.value = ''; });
@@ -1359,20 +1365,13 @@
             '<button type="button" class="composer-add" id="composer-add-btn" aria-label="Add attachment" aria-expanded="false" aria-controls="attachment-menu"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.4 11.6-8.8 8.8a6 6 0 0 1-8.5-8.5l8.1-8.1a4 4 0 1 1 5.7 5.7l-8.1 8.1a2 2 0 0 1-2.8-2.8l7.4-7.4"/></svg></button>' +
             '<div class="attachment-menu" id="attachment-menu" hidden>' +
               '<button type="button" class="attachment-option" data-attachment-action="photo">Photo</button>' +
-              '<button type="button" class="attachment-option" data-attachment-action="file">File</button>' +
+              '<button type="button" class="attachment-option" data-attachment-action="file">Attach file</button>' +
               '<button type="button" class="attachment-option" data-attachment-action="listing">Share listing</button>' +
             '</div>' +
             '<input type="file" id="photo-input" accept="image/*" hidden>' +
             '<input type="file" id="file-input" accept=".pdf,.txt,.zip,.doc,.docx,.xls,.xlsx" hidden>' +
             '<input type="text" id="message-input" placeholder="Write a message…" autocomplete="off">' +
             '<button type="button" id="send-btn" aria-label="Send"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/></svg></button>' +
-          '</div>' +
-          '<div class="composer-tools">' +
-            '<span class="composer-tool"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>Photo</span>' +
-            '<span class="composer-tool"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.4 11.6-8.8 8.8a6 6 0 0 1-8.5-8.5l8.1-8.1a4 4 0 1 1 5.7 5.7l-8.1 8.1a2 2 0 0 1-2.8-2.8l7.4-7.4"/></svg>Attach file</span>' +
-            '<span class="composer-tool" data-quick="listing"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1Z"/></svg>Share listing</span>' +
-            '<span class="composer-tool" data-quick="availability"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Availability</span>' +
-            '<span class="composer-tool" data-quick="booking"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="m8 14 2.5 2.5L16 11"/></svg>Create booking</span>' +
           '</div>' +
         '</div>';
 
@@ -1424,10 +1423,6 @@
         detailsPanel.classList.remove('show-mobile');
         threadPanel.classList.add('show-mobile');
       });
-      threadPanel.querySelectorAll('[data-quick]').forEach(function(el){
-        el.addEventListener('click', function(){ document.getElementById('message-input').focus(); });
-      });
-
       showMobileThread();
 
       await loadMessages(convId);
@@ -1450,18 +1445,26 @@
 
       async function sendMessage(){
         const body = input.value.trim();
-        if (pendingAttachment && pendingAttachment.uploading) {
-          window.alert('Please wait for the attachment upload to finish.');
-          return;
-        }
         if (!body && !pendingAttachment && !pendingListing) return;
         sendBtn.disabled = true;
+        let uploadedAttachment = pendingAttachment;
+        try {
+          if (pendingAttachment && pendingAttachment.file) {
+            uploadedAttachment = await uploadPendingAttachment();
+          }
+        } catch (error) {
+          if (pendingAttachment) pendingAttachment.uploading = false;
+          renderPendingAttachment();
+          sendBtn.disabled = false;
+          window.alert(error.message || 'Attachment upload failed. Please try again.');
+          return;
+        }
         const payload = {
           conversation_id: convId,
           sender_id: currentUser.id,
           body: body || (pendingListing ? 'Shared listing: ' + (pendingListing.title || 'VaRoom listing') : ''),
-          message_type: pendingListing ? 'listing' : (pendingAttachment ? pendingAttachment.kind : 'text'),
-          attachment_id: pendingAttachment ? pendingAttachment.id : null,
+          message_type: pendingListing ? 'listing' : (uploadedAttachment ? uploadedAttachment.kind : 'text'),
+          attachment_id: uploadedAttachment ? uploadedAttachment.id : null,
           listing_id: pendingListing ? pendingListing.id : null
         };
         const { data: inserted, error } = await supabaseClient.from('messages').insert(payload).select().single();
@@ -1471,6 +1474,7 @@
           return;
         }
         input.value = '';
+        if (pendingAttachment && pendingAttachment.previewUrl) URL.revokeObjectURL(pendingAttachment.previewUrl);
         pendingAttachment = null;
         pendingListing = null;
         renderPendingAttachment();
