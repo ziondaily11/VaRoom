@@ -229,6 +229,7 @@
   .msg-bubble{ max-width:100%; padding:.55rem .75rem; border-radius:14px; font-size:.85rem; line-height:1.42; }
   .msg-bubble.mine{ background:var(--chat-message-user); color:var(--chat-user-text); border-bottom-right-radius:4px; }
   .msg-bubble.theirs{ background:var(--chat-message-client); color:var(--chat-text); border:1px solid var(--chat-border); border-bottom-left-radius:4px; }
+  .msg-bubble.attachment-bubble{ padding:0; background:transparent; color:var(--chat-text); border:0; }
   .msg-time{ font-size:.66rem; color:var(--muted); margin-top:.25rem; display:flex; align-items:center; gap:.25rem; }
   .date-sep{ align-self:center; font-size:.68rem; color:var(--muted); background:var(--panel); padding:.2rem .7rem; border-radius:999px; margin:.3rem 0; }
 
@@ -261,8 +262,25 @@
   .message-listing-card-info{ min-width:0; }
   .message-listing-card-title{ font-size:.78rem; font-weight:750; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .message-listing-card-sub{ color:var(--muted); font-size:.68rem; margin-top:.15rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .message-attachment-link{ display:inline-flex; align-items:center; gap:.4rem; color:inherit; font-weight:650; }
-  .message-attachment-link:hover{ text-decoration:underline; }
+  .attachment-message-card{ max-width:min(360px,100%); padding:.55rem; border:1px solid var(--chat-border); border-radius:12px; background:var(--chat-surface); color:var(--chat-text); }
+  .attachment-photo-link{ display:block; overflow:hidden; border-radius:9px; background:var(--accent-soft); }
+  .attachment-photo{ display:block; width:min(320px,100%); max-height:320px; object-fit:contain; }
+  .attachment-photo-fallback{ display:grid; place-items:center; min-height:96px; padding:1rem; color:var(--muted); font-size:.76rem; }
+  .attachment-file-card{ display:flex; align-items:center; gap:.7rem; min-width:240px; padding:.25rem; color:inherit; }
+  .attachment-file-icon{ display:grid; place-items:center; width:38px; height:38px; border-radius:9px; background:var(--accent-soft); color:var(--accent); flex-shrink:0; font-size:1.1rem; }
+  .attachment-file-info{ min-width:0; flex:1; }
+  .attachment-file-name{ font-size:.78rem; font-weight:750; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .attachment-file-meta{ color:var(--muted); font-size:.68rem; margin-top:.16rem; }
+  .attachment-file-open{ color:var(--accent); font-size:.7rem; font-weight:750; }
+  .attachment-listing-card{ display:block; overflow:hidden; max-width:340px; border:1px solid var(--chat-border); border-radius:10px; background:var(--chat-surface); color:var(--chat-text); }
+  .attachment-listing-main{ display:flex; gap:.7rem; padding:.65rem; }
+  .attachment-listing-thumb{ width:92px; height:78px; flex:0 0 92px; overflow:hidden; border-radius:8px; background:var(--accent-soft); }
+  .attachment-listing-thumb img{ width:100%; height:100%; object-fit:cover; }
+  .attachment-listing-details{ min-width:0; }
+  .attachment-listing-title{ font-size:.82rem; font-weight:750; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .attachment-listing-location,.attachment-listing-meta{ color:var(--muted); font-size:.68rem; margin-top:.2rem; }
+  .attachment-listing-price{ font-size:.75rem; font-weight:750; margin-top:.3rem; }
+  .attachment-listing-action{ display:block; border-top:1px solid var(--chat-border); padding:.5rem .65rem; color:var(--accent); font-size:.72rem; font-weight:750; text-align:right; }
   .listing-picker{ position:fixed; inset:0; z-index:30; display:grid; place-items:center; padding:1rem; background:rgba(26,18,16,.35); }
   .listing-picker[hidden]{ display:none; }
   .listing-picker-panel{ width:min(440px,100%); max-height:min(600px,90vh); overflow:auto; background:var(--chat-surface); border:1px solid var(--chat-border); border-radius:14px; box-shadow:0 14px 40px rgba(26,18,16,.2); }
@@ -849,6 +867,31 @@
       return '<div class="listing-context-thumb">' + listingThumbHtml(listing) + '</div><div class="message-listing-card-info"><div class="message-listing-card-title">' +
         escapeHtml(listing.title || 'VaRoom listing') + '</div><div class="message-listing-card-sub">' +
         escapeHtml(listing.location_text || 'Location not specified') + '</div></div>';
+    }
+    function listingMessageCardHtml(listing){
+      const details = listing.listing_booking_details && listing.listing_booking_details[0] || listing.listing_booking_details || {};
+      const price = details.price_amount ? escapeHtml(String(details.price_amount)) : '';
+      const meta = [details.size_or_type, details.max_guests ? details.max_guests + ' guests' : ''].filter(Boolean).join(' · ');
+      return '<a class="attachment-listing-card" href="/booking?listing=' + encodeURIComponent(listing.id) + '">' +
+        '<div class="attachment-listing-main"><div class="attachment-listing-thumb">' + listingThumbHtml(listing) + '</div><div class="attachment-listing-details">' +
+        '<div class="attachment-listing-title">' + escapeHtml(listing.title || 'VaRoom listing') + '</div>' +
+        '<div class="attachment-listing-location">' + escapeHtml(listing.location_text || 'Location not specified') + '</div>' +
+        (meta ? '<div class="attachment-listing-meta">' + escapeHtml(meta) + '</div>' : '') +
+        (price ? '<div class="attachment-listing-price">' + price + (details.price_unit ? ' / ' + escapeHtml(details.price_unit) : '') + '</div>' : '') +
+        '</div></div><div class="attachment-listing-action">View listing</div></a>';
+    }
+    function formatAttachmentSize(bytes){
+      if (!Number.isFinite(Number(bytes)) || Number(bytes) <= 0) return '';
+      const units = ['B', 'KB', 'MB', 'GB'];
+      let value = Number(bytes), index = 0;
+      while (value >= 1024 && index < units.length - 1) { value /= 1024; index += 1; }
+      return (index === 0 ? String(Math.round(value)) : value.toFixed(value >= 10 ? 0 : 1)) + ' ' + units[index];
+    }
+    function attachmentFileMeta(attachment){
+      const extension = (attachment.original_filename || '').split('.').pop();
+      const type = extension && extension !== attachment.original_filename ? extension.toUpperCase() : (attachment.mime_type || 'FILE').split('/').pop().toUpperCase();
+      const size = formatAttachmentSize(attachment.file_size_bytes);
+      return type + (size ? ' · ' + size : '');
     }
     function setupAttachmentComposer(convId, conv){
       const root = document.getElementById('composer-attachment');
@@ -1533,7 +1576,7 @@
           sender_id: currentUser.id,
           body: body || (attachmentState.listing ? 'Shared listing: ' + (attachmentState.listing.title || 'VaRoom listing') : ''),
           message_type: attachmentState.listing ? 'listing' : (uploadedAttachment ? uploadedAttachment.kind : 'text'),
-          attachment_id: uploadedAttachment ? uploadedAttachment.id : null,
+            attachment_id: uploadedAttachment ? uploadedAttachment.id : null,
           listing_id: attachmentState.listing ? attachmentState.listing.id : null
         };
         const { data: inserted, error } = await supabaseClient.from('messages').insert(payload).select().single();
@@ -1543,7 +1586,10 @@
           return;
         }
         input.value = '';
+        const sentListing = attachmentState.listing;
         attachmentComposer.clear();
+        inserted.attachment = uploadedAttachment;
+        inserted.listing = sentListing;
         appendMessage(inserted, true);
         await supabaseClient.from('conversations').update({ last_message_at: new Date().toISOString() }).eq('id', convId);
         if (!isHost) triggerAutoReplyIfAway(body);
@@ -1577,10 +1623,10 @@
       const attachmentIds = messages.map(function(message){ return message.attachment_id; }).filter(Boolean);
       const listingIds = messages.map(function(message){ return message.listing_id; }).filter(Boolean);
       const attachmentResult = attachmentIds.length
-        ? await supabaseClient.from('message_attachments').select('id,original_filename,mime_type,kind,status').in('id', attachmentIds)
+        ? await supabaseClient.from('message_attachments').select('id,original_filename,mime_type,kind,status,file_size_bytes').in('id', attachmentIds)
         : { data: [] };
       const listingResult = listingIds.length
-        ? await supabaseClient.from('listings').select('id,title,location_text,listing_photos(storage_path)').in('id', listingIds)
+        ? await supabaseClient.from('listings').select('id,title,location_text,listing_photos(storage_path),listing_booking_details(price_amount,price_unit,size_or_type,max_guests)').in('id', listingIds)
         : { data: [] };
       const attachmentsById = {};
       (attachmentResult.data || []).forEach(function(attachment){ attachmentsById[attachment.id] = attachment; });
@@ -1613,16 +1659,23 @@
       row.setAttribute('data-message-id', m.id);
       const tagHtml = m.is_auto_reply ? '<span class="auto-reply-tag">Auto-reply from Elie</span><br>' : '';
       const check = isMine ? ' <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4L19 6"/></svg>' : '';
+      const richHostAttachment = currentRole === 'host' && isMine;
+      const attachmentMessage = richHostAttachment && (m.message_type === 'photo' || m.message_type === 'file' || m.message_type === 'listing');
       let contentHtml = escapeHtml(m.body);
-      if (m.message_type === 'listing' && m.listing) {
-        contentHtml = '<a class="message-listing-card" href="/booking?listing=' + encodeURIComponent(m.listing.id) + '">' + listingCardHtml(m.listing) + '</a>';
-      } else if ((m.message_type === 'photo' || m.message_type === 'file') && m.attachment) {
-        const label = m.message_type === 'photo' ? 'Photo' : 'File';
-        contentHtml += '<br><a class="message-attachment-link" href="#" data-attachment-id="' + encodeURIComponent(m.attachment.id) + '">' + escapeHtml(label + ': ' + m.attachment.original_filename) + '</a>';
+      if (richHostAttachment && m.message_type === 'listing') {
+        contentHtml = m.listing ? listingMessageCardHtml(m.listing) : '<div class="attachment-message-card attachment-photo-fallback">Listing unavailable</div>';
+      } else if (richHostAttachment && m.message_type === 'photo') {
+        contentHtml = m.attachment
+          ? '<a class="attachment-message-card attachment-photo-link" href="#" data-attachment-id="' + encodeURIComponent(m.attachment.id) + '"><span class="attachment-photo-fallback">Loading photo…</span></a>'
+          : '<div class="attachment-message-card attachment-photo-fallback">Photo unavailable</div>';
+      } else if (richHostAttachment && m.message_type === 'file') {
+        contentHtml = m.attachment
+          ? '<a class="attachment-message-card attachment-file-card" href="#" data-attachment-id="' + encodeURIComponent(m.attachment.id) + '"><span class="attachment-file-icon">📄</span><span class="attachment-file-info"><span class="attachment-file-name">' + escapeHtml(m.attachment.original_filename || 'Attachment') + '</span><span class="attachment-file-meta">' + escapeHtml(attachmentFileMeta(m.attachment)) + '</span></span><span class="attachment-file-open">Open</span></a>'
+          : '<div class="attachment-message-card attachment-photo-fallback">Attachment unavailable</div>';
       }
       row.innerHTML =
         '<div class="msg-col">' +
-          '<div class="msg-bubble ' + (isMine ? 'mine' : 'theirs') + (m.is_auto_reply ? ' auto-reply' : '') + '">' + tagHtml + contentHtml + '</div>' +
+          '<div class="msg-bubble ' + (isMine ? 'mine' : 'theirs') + (attachmentMessage ? ' attachment-bubble' : '') + (m.is_auto_reply ? ' auto-reply' : '') + '">' + tagHtml + contentHtml + '</div>' +
           '<div class="msg-time">' + timeAgo(m.created_at) + check + '</div>' +
         '</div>';
       area.appendChild(row);
@@ -1638,6 +1691,22 @@
         if (!response.ok) { window.alert(result.error || 'Unable to open attachment.'); return; }
         window.open(result.url, '_blank', 'noopener');
       });
+      if (richHostAttachment && m.message_type === 'photo' && m.attachment) {
+        const photoLink = row.querySelector('.attachment-photo-link');
+        const image = new Image();
+        image.className = 'attachment-photo';
+        image.alt = m.attachment.original_filename || 'Shared photo';
+        image.onload = function(){ photoLink.innerHTML = ''; photoLink.appendChild(image); };
+        image.onerror = function(){ photoLink.innerHTML = '<span class="attachment-photo-fallback">Photo unavailable</span>'; };
+        supabaseClient.auth.getSession().then(async function(result){
+          const downloadSession = result.data && result.data.session;
+          if (!downloadSession) { image.onerror(); return; }
+          const response = await fetch('/api/chat/attachments/' + encodeURIComponent(m.attachment.id) + '/download', { headers:{ 'Authorization':'Bearer ' + downloadSession.access_token } });
+          const download = await response.json();
+          if (!response.ok || !download.url) { image.onerror(); return; }
+          image.src = download.url;
+        }).catch(function(){ image.onerror(); });
+      }
       if (!skipScroll) area.scrollTop = area.scrollHeight;
     }
 
@@ -1672,12 +1741,12 @@
             const message = payload.new;
             if (message.attachment_id) {
               const { data: attachment } = await supabaseClient.from('message_attachments')
-                .select('id,original_filename,mime_type,kind,status').eq('id', message.attachment_id).maybeSingle();
+                .select('id,original_filename,mime_type,kind,status,file_size_bytes').eq('id', message.attachment_id).maybeSingle();
               message.attachment = attachment;
             }
             if (message.listing_id) {
               const { data: listing } = await supabaseClient.from('listings')
-                .select('id,title,location_text,listing_photos(storage_path)').eq('id', message.listing_id).maybeSingle();
+                .select('id,title,location_text,listing_photos(storage_path),listing_booking_details(price_amount,price_unit,size_or_type,max_guests)').eq('id', message.listing_id).maybeSingle();
               message.listing = listing;
             }
             appendMessage(message, false);
