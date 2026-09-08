@@ -1594,10 +1594,46 @@
         } catch (err) { /* silent by design */ }
       }
 
+      async function triggerElieReply(){
+        const { data: { session: freshSession } } = await supabaseClient.auth.getSession();
+        if (!freshSession) throw new Error('Your session has expired. Please sign in again.');
+        showTypingIndicator();
+        const response = await fetch(CHATBOT_REPLY_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + freshSession.access_token
+          },
+          body: JSON.stringify({ conversation_id: convId, listing_id: conv.listing_id, command: '@reply' })
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.detail || result.error || 'Elie could not reply right now.');
+        hideTypingIndicator();
+        if (result.message) appendMessage(result.message, true);
+        else if (result.reply) window.alert(result.reply);
+      }
+
       async function sendMessage(){
         const body = input.value.trim();
         const attachmentState = attachmentComposer.get();
         if (!body && !attachmentState.attachment && !attachmentState.listing) return;
+        if (isHost && body.toLowerCase() === '@reply') {
+          if (attachmentState.attachment || attachmentState.listing) {
+            window.alert('@reply cannot be sent with an attachment.');
+            return;
+          }
+          sendBtn.disabled = true;
+          input.value = '';
+          try {
+            await triggerElieReply();
+          } catch (error) {
+            hideTypingIndicator();
+            window.alert(error.message || 'Elie could not reply right now.');
+          } finally {
+            sendBtn.disabled = false;
+          }
+          return;
+        }
         sendBtn.disabled = true;
         let uploadedAttachment = null;
         try {

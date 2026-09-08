@@ -217,21 +217,22 @@ async def call_gemini(prompt: str, max_attempts: int = 3) -> Optional[str]:
 
 
 # ============================================================
-# /reply -- host-side assistant. Steps in only when the host has
-# switched "Away mode" on, grounded in the listing's real price/size/
-# guest data so it doesn't invent numbers, and posts the reply as a
-# real message (marked is_auto_reply) so it's honest about what it is.
+# /reply -- host-side assistant. It supports both Away mode and the host's
+# explicit @reply command, grounded in verified conversation/listing data.
+# Replies are posted as real messages marked is_auto_reply.
 # ============================================================
 
 class ReplyRequest(BaseModel):
     conversation_id: str
-    listing_id: str
-    message: str
+    listing_id: Optional[str] = None
+    message: Optional[str] = None
+    command: Optional[str] = None
 
 
 class ReplyResponse(BaseModel):
     reply: str
     skipped: bool = False  # true when the host isn't away — nothing was posted
+    message: Optional[dict] = None
 
 
 def format_listing_facts(ctx: Optional[dict]) -> str:
@@ -266,7 +267,12 @@ def format_listing_facts(ctx: Optional[dict]) -> str:
     return "\n".join(lines) if lines else "No verified listing details are available — do not state any specific price, size, or policy."
 
 
-def canned_reply(ctx: Optional[dict]) -> str:
+def canned_reply(ctx: Optional[dict], elie_command: bool = False) -> str:
+    if elie_command:
+        return (
+            "I couldn't confidently answer that from the verified conversation and listing "
+            "details. The host will need to confirm this personally."
+        )
     title = ctx.get("title") if ctx else None
     if not title:
         return random.choice([
@@ -296,7 +302,12 @@ def canned_reply(ctx: Optional[dict]) -> str:
     )
 
 
-async def generate_ai_reply(message: str, listing_ctx: Optional[dict], history_block: str = "") -> Optional[dict]:
+async def generate_ai_reply(
+    message: str,
+    listing_ctx: Optional[dict],
+    history_block: str = "",
+    elie_command: bool = False,
+) -> Optional[dict]:
     """Returns {"reply": str, "booking_start_date": "YYYY-MM-DD" or None,
     "nights": int or None} — or None if Gemini is unreachable. Booking
     fields are only meaningful when the listing prices per night; other
@@ -304,8 +315,14 @@ async def generate_ai_reply(message: str, listing_ctx: Optional[dict], history_b
     facts = format_listing_facts(listing_ctx)
     today = datetime.now(timezone.utc).date().isoformat()
     prompt = (
-        "You are standing in for a VaRoom host who is currently away, replying to a "
-        f"prospective guest's message on their behalf. Today's date is {today}.\n\n"
+        (
+            "You are Elie, VaRoom's AI assistant, replying directly to the guest on "
+            "the host's behalf. "
+            if elie_command
+            else "You are standing in for a VaRoom host who is currently away, replying to a "
+            "prospective guest's message on their behalf. "
+        )
+        + f"Today's date is {today}.\n\n"
         "This is a text conversation, not a listing description — keep it SHORT. "
         "Match the guest's tone: a casual \"hi\" or \"let's book it\" gets a short, "
         "casual reply, not a recap of every fact. Only state the specific facts the "
@@ -398,15 +415,37 @@ async def reply(payload: ReplyRequest, authorization: Optional[str] = Header(Non
     if user["id"] not in (conversation.get("host_id"), conversation.get("client_id")):
         raise HTTPException(status_code=403, detail="You're not a participant in this conversation.")
 
+    is_elie_command = (payload.command or "").strip().lower() == "@reply"
+    if is_elie_command and user["id"] != conversation.get("host_id"):
+        raise HTTPException(status_code=403, detail="Only the host can use the @reply command.")
+    if not is_elie_command and not (payload.message or "").strip():
+        raise HTTPException(status_code=400, detail="A client message is required.")
+
     host_profile = await get_profile(conversation["host_id"])
-    if not host_profile or not host_profile.get("away_mode"):
+    if not is_elie_command and (not host_profile or not host_profile.get("away_mode")):
         # Host isn't away — Elie has no business answering on their behalf.
         return ReplyResponse(reply="", skipped=True)
 
-    listing_ctx = await get_listing_context(payload.listing_id)
-    history_block = await get_recent_reply_history(payload.conversation_id, conversation["host_id"])
-    ai_result = await generate_ai_reply(payload.message, listing_ctx, history_block)
-    reply_text = ai_result["reply"] if ai_result else canned_reply(listing_ctx)
+    listing_id = conversation.get("listing_id") or payload.listing_id
+    listing_ctx = await get_listing_context(listing_id) if listing_id else None
+    conversation_messages = await get_conversation_messages(payload.conversation_id)
+    history_block = format_reply_history(conversation_messages, conversation["host_id"])
+    message = payload.message or ""
+    if is_elie_command:
+        guest_messages = [
+            (row.get("body") or "").strip()
+            for row in conversation_messages
+            if row.get("sender_id") != conversation["host_id"] and (row.get("body") or "").strip()
+        ]
+        if not guest_messages:
+            return ReplyResponse(
+                reply="There is no guest enquiry to reply to yet.",
+                skipped=True,
+            )
+        message = guest_messages[-1]
+
+    ai_result = await generate_ai_reply(message, listing_ctx, history_block, is_elie_command)
+    reply_text = ai_result["reply"] if ai_result else canned_reply(listing_ctx, is_elie_command)
 
     # Only attempt a real booking when Gemini extracted a firm date + night
     # count, the listing prices per night, and the numbers are sane.
@@ -419,7 +458,7 @@ async def reply(payload: ReplyRequest, authorization: Optional[str] = Header(Non
                 end_date = start_date + timedelta(days=nights)
                 total_price = float(listing_ctx["price_amount"]) * nights
                 await insert_booking_request(
-                    listing_id=payload.listing_id,
+                    listing_id=listing_id,
                     host_id=conversation["host_id"],
                     client_id=conversation["client_id"],
                     start_date=start_date.isoformat(),
@@ -431,10 +470,12 @@ async def reply(payload: ReplyRequest, authorization: Optional[str] = Header(Non
                 pass  # unparseable date from Gemini — skip booking, keep the text reply
 
     inserted = await insert_auto_reply(payload.conversation_id, conversation["host_id"], reply_text)
+    if not inserted and is_elie_command:
+        raise HTTPException(status_code=503, detail="Elie generated a reply but it could not be added to the conversation.")
     if inserted:
         await touch_conversation(payload.conversation_id)
 
-    return ReplyResponse(reply=reply_text, skipped=False)
+    return ReplyResponse(reply=reply_text, skipped=False, message=inserted)
 
 
 # ============================================================
@@ -569,13 +610,9 @@ async def get_conversation(conversation_id: str) -> Optional[dict]:
         return None
 
 
-async def get_recent_reply_history(conversation_id: str, host_id: str, limit: int = 8) -> str:
-    """Fetches the last few messages in this conversation and formats them
-    as a chat transcript, so the auto-reply stops re-explaining the whole
-    listing from scratch every single turn. Returns an empty string on
-    any failure — the reply still works, just without memory that time."""
+async def get_conversation_messages(conversation_id: str, limit: int = 100) -> list:
     if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
-        return ""
+        return []
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.get(
@@ -592,16 +629,19 @@ async def get_recent_reply_history(conversation_id: str, host_id: str, limit: in
                 },
             )
             response.raise_for_status()
-            rows = list(reversed(response.json()))
-            if not rows:
-                return ""
-            lines = []
-            for row in rows:
-                speaker = "You (the host)" if row.get("sender_id") == host_id else "Guest"
-                lines.append(f"{speaker}: {row.get('body', '')}")
-            return "Recent conversation so far:\n" + "\n".join(lines) + "\n\n"
+            return list(reversed(response.json()))
     except Exception:
+        return []
+
+
+def format_reply_history(messages: list, host_id: str) -> str:
+    if not messages:
         return ""
+    lines = []
+    for row in messages:
+        speaker = "You (the host)" if row.get("sender_id") == host_id else "Guest"
+        lines.append(f"{speaker}: {row.get('body', '')}")
+    return "Full conversation so far:\n" + "\n".join(lines) + "\n\n"
 
 
 async def get_listing_context(listing_id: str) -> Optional[dict]:
@@ -667,7 +707,7 @@ async def insert_auto_reply(conversation_id: str, host_id: str, body: str) -> Op
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.post(
                 f"{SUPABASE_URL}/rest/v1/messages",
-                params={"select": "id,conversation_id,sender_id,body,created_at"},
+                params={"select": "id,conversation_id,sender_id,body,created_at,is_auto_reply,message_type,attachment_id,listing_id"},
                 json={
                     "conversation_id": conversation_id,
                     "sender_id": host_id,
