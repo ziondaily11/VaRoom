@@ -80,7 +80,7 @@ class ElieGenerationError(RuntimeError):
     """Raised when Gemini cannot produce the response Elie needs."""
 
 
-async def call_gemini(prompt: str, max_attempts: int = 3) -> Optional[str]:
+async def call_gemini(prompt: str, max_attempts: int = 2) -> Optional[str]:
     if not GEMINI_API_KEY:
         logger.error("Gemini request skipped: GEMINI_API_KEY is not configured")
         return None
