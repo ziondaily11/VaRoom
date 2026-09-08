@@ -907,7 +907,8 @@
     function listingMessageCardHtml(listing){
       const details = listing.listing_booking_details && listing.listing_booking_details[0] || listing.listing_booking_details || {};
       const price = details.price_amount ? escapeHtml(String(details.price_amount)) : '';
-      const meta = [details.size_or_type, details.max_guests ? details.max_guests + ' guests' : ''].filter(Boolean).join(' · ');
+      const amenities = Array.isArray(details.amenities) ? details.amenities.slice(0, 3).join(', ') : '';
+      const meta = [details.size_or_type, details.max_guests ? details.max_guests + ' guests' : '', amenities].filter(Boolean).join(' · ');
       return '<a class="attachment-listing-card" href="/booking?listing=' + encodeURIComponent(listing.id) + '">' +
         '<div class="attachment-listing-main"><div class="attachment-listing-thumb">' + listingThumbHtml(listing) + '</div><div class="attachment-listing-details">' +
         '<div class="attachment-listing-title">' + escapeHtml(listing.title || 'VaRoom listing') + '</div>' +
@@ -1706,7 +1707,7 @@
         ? await supabaseClient.from('message_attachments').select('id,original_filename,mime_type,kind,status,file_size_bytes').in('id', attachmentIds)
         : { data: [] };
       const listingResult = listingIds.length
-        ? await supabaseClient.from('listings').select('id,title,location_text,listing_photos(storage_path),listing_booking_details(price_amount,price_unit,size_or_type,max_guests)').in('id', listingIds)
+        ? await supabaseClient.from('listings').select('id,title,location_text,listing_photos(storage_path),listing_booking_details(price_amount,price_unit,size_or_type,max_guests,amenities)').in('id', listingIds)
         : { data: [] };
       const attachmentsById = {};
       (attachmentResult.data || []).forEach(function(attachment){ attachmentsById[attachment.id] = attachment; });
@@ -1854,7 +1855,7 @@
             }
             if (message.listing_id) {
               const { data: listing } = await supabaseClient.from('listings')
-                .select('id,title,location_text,listing_photos(storage_path),listing_booking_details(price_amount,price_unit,size_or_type,max_guests)').eq('id', message.listing_id).maybeSingle();
+                .select('id,title,location_text,listing_photos(storage_path),listing_booking_details(price_amount,price_unit,size_or_type,max_guests,amenities)').eq('id', message.listing_id).maybeSingle();
               message.listing = listing;
             }
             appendMessage(message, false);

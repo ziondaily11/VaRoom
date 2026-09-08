@@ -264,6 +264,9 @@ def format_listing_facts(ctx: Optional[dict]) -> str:
         lines.append(f"Cancellation policy: {ctx['cancellation_policy']}")
     if ctx.get("description"):
         lines.append(f"Description: {ctx['description']}")
+    amenities = ctx.get("amenities") or []
+    if amenities:
+        lines.append(f"Amenities: {', '.join(str(item) for item in amenities)}")
 
     return "\n".join(lines) if lines else "No verified listing details are available — do not state any specific price, size, or policy."
 
@@ -748,7 +751,7 @@ async def get_listing_context(listing_id: str) -> Optional[dict]:
                         "title,description,location_text,category,"
                         "booking_details:listing_booking_details(price_amount,price_unit,"
                         "size_or_type,max_guests,cleaning_fee,min_stay_nights,"
-                        "checkin_time,checkout_time,cancellation_policy)"
+                        "checkin_time,checkout_time,cancellation_policy,amenities)"
                     ),
                 },
                 headers={
@@ -779,6 +782,7 @@ async def get_listing_context(listing_id: str) -> Optional[dict]:
                 "checkin_time": booking.get("checkin_time"),
                 "checkout_time": booking.get("checkout_time"),
                 "cancellation_policy": booking.get("cancellation_policy"),
+                "amenities": booking.get("amenities") or [],
             }
     except Exception:
         return None
@@ -838,7 +842,7 @@ async def get_host_alternative_listings(
         "select": (
             "id,host_id,title,description,category,location_text,availability_status,"
             "listing_photos(storage_path),"
-            "listing_booking_details!inner(price_amount,price_unit,size_or_type,max_guests)"
+            "listing_booking_details!inner(price_amount,price_unit,size_or_type,max_guests,amenities)"
         ),
         "host_id": f"eq.{host_id}",
         "availability_status": "eq.available",
@@ -864,7 +868,7 @@ async def get_host_alternative_listings(
                 fallback_params = dict(params)
                 fallback_params["select"] = fallback_params["select"].replace(
                     "availability_status,", ""
-                )
+                ).replace(",amenities", "")
                 fallback_params.pop("availability_status", None)
                 response = await client.get(
                     f"{SUPABASE_URL}/rest/v1/listings",
