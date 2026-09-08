@@ -150,6 +150,7 @@
   .load-more{ min-width:120px; padding:0 1rem; }
   .card-video{ width:100%; height:100%; object-fit:cover; display:block; }
   .card-video video{ width:100%; height:100%; object-fit:cover; display:block; background:var(--paper); }
+  .mobile-marketplace-tools, .mobile-filter-panel, .mobile-bottom-nav, .mobile-floating-filter{ display:none; }
 
   .map-pending{
     display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.7rem;
@@ -159,11 +160,70 @@
   .map-pending h2{ font-family:var(--font-display); color:var(--ink); font-size:1.1rem; }
 
   @media (max-width: 860px){
+    body{ padding-bottom:4.4rem; }
+    .mkt-header{ display:block; padding:.8rem 1rem .65rem; border-bottom:1px solid var(--line-soft); }
+    .mkt-header .logo{ display:flex; margin-bottom:.65rem; font-size:1rem; }
+    .mode-switch{ width:100%; display:grid; grid-template-columns:1fr 1fr; gap:.45rem; padding:.25rem; margin-bottom:.65rem; text-align:center; font-size:.68rem; }
+    .mode-switch a{ padding:.35rem .5rem; }
+    .topbar-actions{ position:absolute; top:.75rem; right:1rem; }
+    .avatar-circle{ width:26px; height:26px; font-size:.7rem; }
     .filters{ display:none; }
     .mkt-body{ flex-direction:column; }
     .search-bar{ display:none; }
-    .results-col{ padding:1.1rem 1rem 2rem; }
-    .grid{ grid-template-columns:repeat(auto-fill, minmax(190px, 1fr)); gap:1rem; }
+    .mobile-marketplace-tools{ display:block; }
+    .mobile-search{ display:flex; align-items:center; gap:.45rem; height:2.1rem; padding:0 .65rem; border:1px solid var(--line); border-radius:999px; background:var(--white); }
+    .mobile-search svg{ flex:0 0 auto; color:var(--muted); }
+    .mobile-search input{ min-width:0; flex:1; border:0; outline:0; background:transparent; color:var(--ink); font-size:.67rem; }
+    .mobile-search input::placeholder{ color:var(--muted); opacity:1; }
+    .mobile-search button{ display:flex; align-items:center; justify-content:center; width:1.6rem; height:1.6rem; border:0; border-left:1px solid var(--line-soft); background:none; color:var(--ink); cursor:pointer; }
+    .mobile-filter-row{ display:grid; grid-template-columns:1.15fr 1fr 1fr; gap:.45rem; margin-top:.55rem; }
+    .mobile-filter-row select, .mobile-filter-button{ min-width:0; height:2.05rem; padding:0 .55rem; border:1px solid var(--line); border-radius:999px; background:var(--white); color:var(--ink); font-size:.62rem; }
+    .mobile-filter-row select{ appearance:auto; }
+    .mobile-filter-button{ display:flex; align-items:center; justify-content:center; gap:.25rem; cursor:pointer; }
+    .mobile-filter-button svg{ display:none; }
+    .mobile-filter-panel{ margin-top:.55rem; padding:.7rem; border:1px solid var(--line); border-radius:12px; background:var(--white); box-shadow:0 8px 24px rgba(26,18,16,.12); }
+    .mobile-filter-panel.open{ display:block; }
+    .mobile-filter-panel-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:.55rem; font-size:.75rem; font-weight:700; }
+    .mobile-filter-panel-head button{ border:0; background:none; color:var(--muted); font-size:1rem; cursor:pointer; }
+    .mobile-filter-panel .price-inputs{ margin-bottom:.55rem; }
+    .mobile-filter-panel .price-inputs input{ padding:.45rem .5rem; font-size:.72rem; }
+    .mobile-filter-panel .filter-row{ font-size:.72rem; }
+    .mobile-filter-actions{ display:flex; justify-content:flex-end; gap:.45rem; margin-top:.55rem; }
+    .mobile-filter-actions button{ border:0; border-radius:999px; padding:.45rem .75rem; font-size:.68rem; cursor:pointer; }
+    .mobile-filter-actions .apply{ background:var(--red); color:#fff; }
+    .mobile-filter-actions .reset{ background:var(--paper); color:var(--ink); }
+    .results-col{ padding:.65rem 1rem 1.5rem; }
+    .results-head{ align-items:center; margin-bottom:.65rem; gap:.5rem; }
+    .results-head h1{ font-size:1.05rem; }
+    .results-sub{ font-size:.62rem; margin-top:.1rem; }
+    .results-controls{ gap:.35rem; }
+    .results-controls select{ padding:.4rem .45rem; border-radius:6px; font-size:.62rem; }
+    .view-toggle{ border-radius:6px; }
+    .view-toggle button{ width:1.9rem; height:1.9rem; padding:0; justify-content:center; font-size:0; }
+    .view-toggle button::before{ font-size:1rem; line-height:1; }
+    #view-grid-btn::before{ content:'▦'; }
+    #view-map-btn::before{ content:'☷'; }
+    #view-map-btn{ display:flex; }
+    .grid{ display:flex; flex-direction:column; gap:.55rem; }
+    .card{ display:grid; grid-template-columns:7.05rem minmax(0,1fr); grid-template-rows:1fr; height:6.3rem; min-height:6.3rem; border-radius:10px; }
+    .card-media{ height:6.3rem; min-height:6.3rem; }
+    .card-body{ padding:.58rem .62rem .52rem; gap:.12rem; min-width:0; }
+    .card-title{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:.76rem; }
+    .card-loc{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:.59rem; }
+    .card-foot{ margin-top:auto; gap:.25rem; }
+    .card-price{ font-size:.65rem; white-space:nowrap; }
+    .card-price span{ font-size:.57rem; }
+    .card-book{ font-size:.62rem; white-space:nowrap; }
+    .card-save{ top:.35rem; right:.35rem; width:1.4rem; height:1.4rem; background:rgba(255,255,255,.88); }
+    .card-save svg{ width:12px; height:12px; }
+    .card-verified{ top:.35rem; left:.35rem; padding:.12rem .3rem; font-size:.5rem; }
+    .card-video{ min-height:6.3rem; }
+    .pagination{ margin-top:1rem; }
+    .mobile-bottom-nav{ position:fixed; z-index:20; right:0; bottom:0; left:0; display:grid; grid-template-columns:repeat(5,1fr); height:3.7rem; padding:.35rem .4rem .25rem; border-top:1px solid var(--line); background:var(--white); }
+    .mobile-bottom-nav a{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.18rem; color:var(--muted); font-size:.52rem; }
+    .mobile-bottom-nav a.active{ color:var(--red); font-weight:700; }
+    .mobile-bottom-nav svg{ width:1rem; height:1rem; }
+    .mobile-floating-filter{ position:fixed; z-index:21; right:50%; bottom:4.25rem; display:flex; align-items:center; gap:.3rem; transform:translateX(50%); padding:.55rem .9rem; border:0; border-radius:999px; background:var(--red); color:#fff; box-shadow:0 5px 16px rgba(143,18,41,.28); font-size:.68rem; font-weight:700; cursor:pointer; }
   }
 </style>
 </head>
@@ -202,6 +262,48 @@
 
   <div class="topbar-actions">
     <a href="/profile" class="avatar-circle" id="user-avatar" aria-label="Profile"></a>
+  </div>
+  <div class="mobile-marketplace-tools">
+    <div class="mobile-search">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><line x1="16.5" y1="16.5" x2="21" y2="21"></line></svg>
+      <input type="text" id="mobile-q-dest" placeholder="Search location, e.g. Westlands, Nairobi" aria-label="Search location">
+      <button type="button" id="mobile-search-submit" aria-label="Search and filter">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h16M7 12h10M10 18h4"></path></svg>
+      </button>
+    </div>
+    <div class="mobile-filter-row">
+      <select id="mobile-q-category" aria-label="Property type">
+        <option value="all">Type · All types</option>
+        <option value="airbnb">Type · Airbnbs</option>
+        <option value="hotel">Type · Hotels</option>
+        <option value="venue">Type · Venues</option>
+        <option value="office">Type · Offices</option>
+        <option value="shop">Type · Shops</option>
+        <option value="property">Type · Property</option>
+      </select>
+      <select id="mobile-q-guests" aria-label="Guests">
+        <option value="">Guests · Any</option>
+        <option value="1">Guests · 1+</option>
+        <option value="2">Guests · 2+</option>
+        <option value="4">Guests · 4+</option>
+        <option value="6">Guests · 6+</option>
+        <option value="10">Guests · 10+</option>
+      </select>
+      <button type="button" class="mobile-filter-button" id="mobile-filter-toggle">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.1 2.1-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56v.1h-3v-.1a1.7 1.7 0 0 0-1.03-1.56 1.7 1.7 0 0 0-1.88.34l-.06.06-2.1-2.1.06-.06A1.7 1.7 0 0 0 7.06 15a1.7 1.7 0 0 0-1.56-1.03h-.1v-3h.1A1.7 1.7 0 0 0 7.06 9.94a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.1-2.1.06.06A1.7 1.7 0 0 0 9.94 7.06a1.7 1.7 0 0 0 1.03-1.56v-.1h3v.1A1.7 1.7 0 0 0 15 7.06a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.1 2.1-.06.06a1.7 1.7 0 0 0 .34 1.88 1.7 1.7 0 0 0 1.56 1.03h.1v3h-.1A1.7 1.7 0 0 0 19.4 15Z"></path></svg>
+        Price · Min - Max
+      </button>
+    </div>
+    <div class="mobile-filter-panel" id="mobile-filter-panel">
+      <div class="mobile-filter-panel-head"><span>Filters</span><button type="button" id="mobile-filter-close" aria-label="Close filters">×</button></div>
+      <div class="price-inputs">
+        <input type="number" id="mobile-price-min" placeholder="Min price" min="0">
+        <span>–</span>
+        <input type="number" id="mobile-price-max" placeholder="Max price" min="0">
+      </div>
+      <label class="filter-row"><span>Verified hosts only</span><input type="checkbox" id="mobile-verified-only"></label>
+      <div class="mobile-filter-actions"><button type="button" class="reset" id="mobile-filter-reset">Reset</button><button type="button" class="apply" id="mobile-filter-apply">Apply filters</button></div>
+    </div>
   </div>
 </header>
 
@@ -267,6 +369,18 @@
     </div>
   </main>
 </div>
+
+<nav class="mobile-bottom-nav" aria-label="Mobile navigation">
+  <a href="/client-home" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9a1 1 0 0 0 1 1H9v-4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4h2.5a1 1 0 0 0 1-1v-9"/></svg><span>Home</span></a>
+  <a href="/chats"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7A8.4 8.4 0 0 1 4 11.5a8.5 8.5 0 0 1 4.7-7.6A8.4 8.4 0 0 1 12.5 3h.5a8.48 8.48 0 0 1 8 8v.5Z"/></svg><span>Chat</span></a>
+  <a href="/elie"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><path d="M8 14c1.2 1.1 2.5 1.6 4 1.6s2.8-.5 4-1.6M9 9h.01M15 9h.01"/></svg><span>Elie</span></a>
+  <a href="/bookings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3.5" y="5" width="17" height="16" rx="2"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg><span>Bookings</span></a>
+  <a href="/notifications"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg><span>Notifications</span></a>
+</nav>
+<button type="button" class="mobile-floating-filter" id="mobile-floating-filter">
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h16M7 12h10M10 18h4"></path></svg>
+  Filters
+</button>
 
 <script src="js/supabase-client.js"></script>
 <script>
@@ -350,6 +464,9 @@
   document.getElementById('q-dest').value = state.q;
   document.getElementById('q-category').value = state.category;
   document.getElementById('q-guests').value = state.guests;
+  document.getElementById('mobile-q-dest').value = state.q;
+  document.getElementById('mobile-q-category').value = state.category;
+  document.getElementById('mobile-q-guests').value = state.guests;
 
   let allListings = []; // full result set for the current search text/category, filters applied client-side
   const videoLookups = new Map();
@@ -636,6 +753,28 @@
     state.guests = document.getElementById('q-guests').value;
     runSearch();
   });
+  document.getElementById('mobile-search-submit').addEventListener('click', function(){
+    state.q = document.getElementById('mobile-q-dest').value.trim();
+    state.category = document.getElementById('mobile-q-category').value;
+    state.guests = document.getElementById('mobile-q-guests').value;
+    document.getElementById('q-dest').value = state.q;
+    document.getElementById('q-category').value = state.category;
+    document.getElementById('q-guests').value = state.guests;
+    runSearch();
+  });
+  document.getElementById('mobile-q-dest').addEventListener('keydown', function(e){
+    if (e.key === 'Enter') document.getElementById('mobile-search-submit').click();
+  });
+  document.getElementById('mobile-q-category').addEventListener('change', function(){
+    state.category = this.value;
+    document.getElementById('q-category').value = state.category;
+    runSearch();
+  });
+  document.getElementById('mobile-q-guests').addEventListener('change', function(){
+    state.guests = this.value;
+    document.getElementById('q-guests').value = state.guests;
+    runSearch();
+  });
   document.getElementById('q-category').addEventListener('change', function(){
     state.category = this.value;
     runSearch();
@@ -664,6 +803,38 @@
     document.getElementById('q-category').value = 'all';
     document.getElementById('q-guests').value = '';
     state.q = ''; state.category = 'all'; state.guests = '';
+    runSearch();
+  });
+  document.getElementById('mobile-filter-toggle').addEventListener('click', function(){
+    document.getElementById('mobile-filter-panel').classList.toggle('open');
+  });
+  document.getElementById('mobile-floating-filter').addEventListener('click', function(){
+    document.getElementById('mobile-filter-panel').classList.toggle('open');
+  });
+  document.getElementById('mobile-filter-close').addEventListener('click', function(){
+    document.getElementById('mobile-filter-panel').classList.remove('open');
+  });
+  document.getElementById('mobile-filter-apply').addEventListener('click', function(){
+    state.priceMin = document.getElementById('mobile-price-min').value ? Number(document.getElementById('mobile-price-min').value) : null;
+    state.priceMax = document.getElementById('mobile-price-max').value ? Number(document.getElementById('mobile-price-max').value) : null;
+    state.verifiedOnly = document.getElementById('mobile-verified-only').checked;
+    document.getElementById('price-min').value = state.priceMin == null ? '' : state.priceMin;
+    document.getElementById('price-max').value = state.priceMax == null ? '' : state.priceMax;
+    document.getElementById('verified-only').checked = state.verifiedOnly;
+    document.getElementById('mobile-filter-panel').classList.remove('open');
+    runSearch();
+  });
+  document.getElementById('mobile-filter-reset').addEventListener('click', function(){
+    state.priceMin = null;
+    state.priceMax = null;
+    state.verifiedOnly = false;
+    document.getElementById('mobile-price-min').value = '';
+    document.getElementById('mobile-price-max').value = '';
+    document.getElementById('mobile-verified-only').checked = false;
+    document.getElementById('price-min').value = '';
+    document.getElementById('price-max').value = '';
+    document.getElementById('verified-only').checked = false;
+    document.getElementById('mobile-filter-panel').classList.remove('open');
     runSearch();
   });
   document.getElementById('view-grid-btn').addEventListener('click', function(){
