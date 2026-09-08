@@ -79,7 +79,7 @@
      Listings, the notif bell) are wired via JS to navigate back to the
      right dashboard instead of doing nothing.
      ===================================================================== */
-  .app-shell{ display:grid; grid-template-columns:240px minmax(300px, 370px) minmax(0, 1fr); min-height:100vh; background:var(--paper); }
+  .app-shell{ display:grid; grid-template-columns:minmax(280px, 292px) minmax(400px, 420px) minmax(0, 1fr); min-height:100vh; background:var(--paper); }
 
   /* Positions the floating glass sidebar and keeps it pinned as the
      (possibly long) settings content scrolls past beside it. Two sidebar
@@ -175,6 +175,34 @@
   #view-list{ grid-column:1; min-width:0; padding:1.6rem 1rem 4rem; border-right:1px solid var(--line); }
   #settings-page > [id^="view-"]:not(#view-list){ grid-column:2; min-width:0; padding:1.6rem clamp(1.5rem, 4vw, 4rem) 5rem; }
   #settings-page:not(.has-selection) > [id^="view-"]:not(#view-list){ display:none !important; }
+  .settings-skeleton{
+    grid-column:2; min-width:0; padding:1.6rem clamp(1.5rem, 4vw, 4rem) 5rem;
+  }
+  .settings-skeleton[hidden]{ display:none; }
+  .skeleton-title,
+  .skeleton-description,
+  .skeleton-icon,
+  .skeleton-copy,
+  .skeleton-action{
+    position:relative; overflow:hidden; background:#080808; border:1px solid rgba(255,255,255,.08);
+  }
+  .skeleton-title::after,
+  .skeleton-description::after,
+  .skeleton-icon::after,
+  .skeleton-copy::after,
+  .skeleton-action::after{
+    content:''; position:absolute; inset:0; transform:translateX(-100%);
+    background:linear-gradient(100deg, transparent, rgba(255,255,255,.045), transparent);
+    animation:skeleton-shimmer 2.8s ease-in-out infinite;
+  }
+  .skeleton-title{ width:220px; height:28px; border-radius:5px; margin:0 0 1rem 2.8rem; }
+  .skeleton-description{ width:min(440px, 75%); height:14px; border:none; border-radius:4px; margin:0 0 2rem; }
+  .skeleton-row{ display:flex; align-items:center; gap:.9rem; min-height:72px; border-top:1px solid rgba(255,255,255,.08); }
+  .skeleton-icon{ width:40px; height:40px; border-radius:10px; flex-shrink:0; }
+  .skeleton-copy{ width:45%; height:15px; border:none; border-radius:4px; }
+  .skeleton-copy.short{ width:28%; height:11px; margin-top:.35rem; }
+  .skeleton-action{ width:10px; height:18px; border:none; border-radius:3px; margin-left:auto; }
+  @keyframes skeleton-shimmer{ 0%, 55%{ transform:translateX(-100%); } 100%{ transform:translateX(100%); } }
 
   .detail-head{ display:flex; align-items:center; gap:.9rem; margin-bottom:.3rem; border-bottom:1px solid var(--line); padding-bottom:1.1rem; }
   .detail-back{ width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; color:var(--ink); }
@@ -323,7 +351,7 @@
      (mobile-open class + backdrop) /client-home//host-home use.
      ===================================================================== */
   @media (max-width:1100px) and (min-width:861px){
-    .app-shell{ grid-template-columns:210px minmax(280px, 330px) minmax(0, 1fr); }
+    .app-shell{ grid-template-columns:240px minmax(360px, 390px) minmax(0, 1fr); }
   }
 
   @media (max-width:860px){
@@ -352,6 +380,7 @@
     #settings-page{ display:block !important; }
     #view-list{ border-right:none; padding:0 5vw 4rem; }
     #settings-page > [id^="view-"]:not(#view-list){ padding:0 5vw 5rem; }
+    .settings-skeleton{ padding:0 5vw 5rem; }
     #settings-page.has-selection #view-list{ display:none !important; }
   }
 
@@ -532,7 +561,31 @@
 
       <div id="checking-auth" class="checking-msg">Loading your settings...</div>
 
-      <div id="settings-page" style="display:none;">
+      <div id="settings-page" style="display:grid;">
+        <div class="settings-skeleton" id="settings-skeleton" aria-label="Loading settings" role="status">
+          <div class="skeleton-title"></div>
+          <div class="skeleton-description"></div>
+          <div class="skeleton-row">
+            <div class="skeleton-icon"></div>
+            <div><div class="skeleton-copy"></div><div class="skeleton-copy short"></div></div>
+            <div class="skeleton-action"></div>
+          </div>
+          <div class="skeleton-row">
+            <div class="skeleton-icon"></div>
+            <div><div class="skeleton-copy"></div><div class="skeleton-copy short"></div></div>
+            <div class="skeleton-action"></div>
+          </div>
+          <div class="skeleton-row">
+            <div class="skeleton-icon"></div>
+            <div><div class="skeleton-copy"></div><div class="skeleton-copy short"></div></div>
+            <div class="skeleton-action"></div>
+          </div>
+          <div class="skeleton-row">
+            <div class="skeleton-icon"></div>
+            <div><div class="skeleton-copy"></div><div class="skeleton-copy short"></div></div>
+            <div class="skeleton-action"></div>
+          </div>
+        </div>
 
         <!-- ============ MAIN CATEGORY LIST ============ -->
         <div id="view-list">
@@ -903,6 +956,7 @@
   (async function(){
     const checkingAuth = document.getElementById('checking-auth');
     const settingsPage = document.getElementById('settings-page');
+    const settingsSkeleton = document.getElementById('settings-skeleton');
     let currentUser = null;
     let currentRole = null;
 
@@ -969,6 +1023,8 @@
     document.getElementById('about-year').textContent = new Date().getFullYear();
 
     checkingAuth.style.display = 'none';
+    settingsSkeleton.hidden = true;
+    settingsPage.classList.add('has-selection');
     settingsPage.style.display = 'grid';
 
     // ---------- Mobile sidebar drawer (same mechanism as the dashboards) ----------
