@@ -352,7 +352,7 @@
   document.getElementById('q-guests').value = state.guests;
 
   let allListings = []; // full result set for the current search text/category, filters applied client-side
-  const videoLookups = new Set();
+  const videoLookups = new Map();
 
   function formatPrice(details){
     if (Array.isArray(details)) details = details[0];
@@ -405,8 +405,9 @@
   }
 
   async function loadListingVideo(listingId){
-    if (videoLookups.has(listingId)) return;
-    videoLookups.add(listingId);
+    const element = document.querySelector('[data-media-listing-id="' + listingId + '"]');
+    if (!element || (videoLookups.get(listingId) === element && element.querySelector('video'))) return;
+    videoLookups.set(listingId, element);
     try {
       const auth = await supabaseClient.auth.getSession();
       const token = auth.data.session && auth.data.session.access_token;
@@ -419,10 +420,11 @@
       const playbackResponse = await fetch('/api/media/' + encodeURIComponent(media.id) + '/playback', { headers: headers });
       if (!playbackResponse.ok) return;
       const playback = await playbackResponse.json();
-      const element = document.querySelector('[data-media-listing-id="' + listingId + '"]');
-      if (!element || !playback.url) return;
+      const currentElement = document.querySelector('[data-media-listing-id="' + listingId + '"]');
+      if (!currentElement || currentElement !== element || !playback.url) return;
       const fallback = element.innerHTML;
       element.innerHTML = '<video class="card-video" muted playsinline controls preload="metadata"></video>';
+      element.dataset.videoId = media.id;
       const video = element.querySelector('video');
       video.src = playback.url;
       video.addEventListener('error', function(){ element.innerHTML = fallback; }, { once: true });
