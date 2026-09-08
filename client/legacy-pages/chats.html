@@ -561,9 +561,17 @@
     }
     function bindRightSidebarControls(){
       const collapseButton = document.getElementById('details-collapse-btn');
-      if (collapseButton) collapseButton.addEventListener('click', function(){ setRightSidebarOpen(!isRightSidebarOpen); });
+      if (collapseButton) collapseButton.addEventListener('click', function(event){
+        event.preventDefault();
+        event.stopPropagation();
+        setRightSidebarOpen(!isRightSidebarOpen);
+      });
       const expandButton = document.getElementById('thread-expand-details');
-      if (expandButton) expandButton.addEventListener('click', function(){ setRightSidebarOpen(true); });
+      if (expandButton) expandButton.addEventListener('click', function(event){
+        event.preventDefault();
+        event.stopPropagation();
+        setRightSidebarOpen(true);
+      });
       setRightSidebarOpen(isRightSidebarOpen);
     }
     const chipRowEl = document.getElementById('chip-row');
