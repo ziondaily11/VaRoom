@@ -44,10 +44,15 @@
     --glass-shadow:0 24px 55px rgba(26,18,16,.10);
   }
   [data-theme="dark"]{
-    --white:#241C1A; --paper:#15100F; --ink:#F5EFEC; --muted:#B8ACA8; --line:rgba(255,255,255,.12);
-    --glass-bg:rgba(28,20,18,.55);
-    --glass-border:rgba(255,255,255,.09);
-    --glass-shadow:0 24px 55px rgba(0,0,0,.5);
+    --white:#000000; --paper:#000000; --ink:#F5F5F5; --muted:#8A8A8A; --line:rgba(255,255,255,.14);
+    --glass-bg:#000000;
+    --glass-border:rgba(255,255,255,.14);
+    --glass-shadow:none;
+  }
+  [data-theme="dark"] .sidebar-note,
+  [data-theme="dark"] .verify-box.is-verified,
+  [data-theme="dark"] .verify-box.not-verified{
+    background:#000; border:1px solid var(--line); color:var(--ink);
   }
   *{ margin:0; padding:0; box-sizing:border-box; }
   html{ overflow-x:hidden; }
@@ -74,24 +79,22 @@
      Listings, the notif bell) are wired via JS to navigate back to the
      right dashboard instead of doing nothing.
      ===================================================================== */
-  .app-shell{ display:grid; grid-template-columns:272px 1fr; min-height:100vh; }
+  .app-shell{ display:grid; grid-template-columns:240px minmax(300px, 370px) minmax(0, 1fr); min-height:100vh; background:var(--paper); }
 
   /* Positions the floating glass sidebar and keeps it pinned as the
      (possibly long) settings content scrolls past beside it. Two sidebar
      variants (client/host) live inside; only one is ever shown. */
   .sidebar-shell{
-    position:sticky; top:1rem; align-self:start;
-    height:calc(100vh - 2rem); padding:0 0 0 1rem;
+    position:sticky; top:0; align-self:start; grid-column:1;
+    height:100vh; padding:0; border-right:1px solid var(--line);
   }
   .sidebar{
     height:100%;
     background:var(--glass-bg);
-    backdrop-filter:blur(22px) saturate(140%);
-    -webkit-backdrop-filter:blur(22px) saturate(140%);
-    border:1px solid var(--glass-border);
-    border-radius:22px;
-    box-shadow:var(--glass-shadow);
-    padding:1.6rem 1.2rem;
+    border:none;
+    border-radius:0;
+    box-shadow:none;
+    padding:1.6rem 1rem 1.2rem;
     display:flex;
     flex-direction:column;
     gap:1.4rem;
@@ -112,12 +115,12 @@
 
   .nav-item{
     display:flex; align-items:center; gap:.7rem;
-    padding:.6rem .7rem; border-radius:10px;
+    padding:.7rem .75rem; border-radius:8px;
     font-size:.92rem; font-weight:500; color:var(--ink);
     cursor:pointer; width:100%; text-align:left; font-family:inherit;
   }
-  .nav-item:hover{ background:var(--paper); }
-  .nav-item.active{ background:#FBE4E7; color:var(--red-deep); font-weight:600; }
+  .nav-item:hover{ background:rgba(255,255,255,.06); }
+  .nav-item.active{ background:rgba(255,255,255,.1); color:var(--ink); font-weight:600; }
   .nav-item svg{ flex-shrink:0; }
 
   .list-space-btn{
@@ -148,63 +151,76 @@
   /* =====================================================================
      MAIN COLUMN — original settings content, unchanged below this point
      ===================================================================== */
-  .main-col{ min-width:0; }
+  .main-col{ min-width:0; display:contents; }
 
   .mobile-topbar{ display:none; }
 
-  .settings-main{ max-width:640px; margin:0 auto; padding:2.4rem 6vw 6rem; }
+  .settings-main{
+    grid-column:2 / 4; min-width:0; min-height:100vh; display:grid;
+    grid-template-columns:minmax(300px, 370px) minmax(0, 1fr);
+    padding:0; margin:0;
+  }
   .back-link{ font-size:.85rem; font-weight:500; display:inline-flex; align-items:center; gap:.4rem; color:var(--muted); margin-bottom:1.6rem; }
   .back-link:hover{ color:var(--ink); }
 
-  .checking-msg{ text-align:center; padding:3rem 0; color:var(--muted); }
+  .checking-msg{ grid-column:1 / -1; text-align:center; padding:3rem 0; color:var(--muted); }
 
-  .page-title{ font-family:var(--font-display); font-weight:600; font-size:clamp(1.9rem, 4vw, 2.5rem); margin-bottom:.3rem; }
-  .page-sub{ color:var(--muted); font-size:.9rem; margin-bottom:1.8rem; }
+  .page-title{ font-family:var(--font-display); font-weight:700; font-size:1.45rem; margin-bottom:1.2rem; }
+  .page-sub{ color:var(--muted); font-size:.82rem; margin-bottom:1.1rem; }
+  .settings-search{ position:relative; margin-bottom:1rem; }
+  .settings-search svg{ position:absolute; left:.8rem; top:50%; transform:translateY(-50%); color:var(--muted); pointer-events:none; }
+  .settings-search input{ height:38px; border-radius:999px; padding:.55rem .85rem .55rem 2.3rem; background:transparent; }
 
-  .detail-head{ display:flex; align-items:center; gap:.9rem; margin-bottom:.3rem; }
-  .detail-back{ width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; color:var(--ink); }
-  .detail-back:hover{ background:var(--line); }
-  .detail-title{ font-family:var(--font-display); font-weight:600; font-size:1.5rem; }
-  .detail-sub{ color:var(--muted); font-size:.88rem; margin:.3rem 0 1.8rem 3.15rem; }
+  #settings-page{ display:grid; grid-template-columns:subgrid; grid-column:1 / -1; min-width:0; }
+  #view-list{ grid-column:1; min-width:0; padding:1.6rem 1rem 4rem; border-right:1px solid var(--line); }
+  #settings-page > [id^="view-"]:not(#view-list){ grid-column:2; min-width:0; padding:1.6rem clamp(1.5rem, 4vw, 4rem) 5rem; }
+  #settings-page:not(.has-selection) > [id^="view-"]:not(#view-list){ display:none !important; }
+
+  .detail-head{ display:flex; align-items:center; gap:.9rem; margin-bottom:.3rem; border-bottom:1px solid var(--line); padding-bottom:1.1rem; }
+  .detail-back{ width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; color:var(--ink); }
+  .detail-back:hover{ background:rgba(255,255,255,.08); }
+  .detail-title{ font-family:var(--font-display); font-weight:700; font-size:1.45rem; }
+  .detail-sub{ color:var(--muted); font-size:.88rem; margin:.8rem 0 2rem; }
 
   /* ---------- Category list (main screen) ---------- */
   .cat-list{ display:flex; flex-direction:column; }
   .cat-row{
     display:flex; align-items:center; gap:1rem; background:transparent;
-    border:none; border-bottom:1px solid var(--line); border-radius:0; padding:1.1rem .2rem; text-align:left; width:100%;
+    border:none; border-bottom:1px solid var(--line); border-radius:0; padding:1rem .75rem; text-align:left; width:100%;
   }
   .cat-row:last-child{ border-bottom:none; }
-  .cat-row:hover{ background:var(--paper); }
+  .cat-row:hover{ background:rgba(255,255,255,.05); }
+  .cat-row.active{ background:rgba(255,255,255,.1); }
   .cat-row.disabled{ opacity:.55; cursor:default; }
   .cat-row.disabled:hover{ background:transparent; }
   .cat-icon{
-    width:44px; height:44px; border-radius:12px; background:var(--paper); border:1px solid var(--line);
+    width:30px; height:30px; border-radius:0; background:transparent; border:none;
     display:flex; align-items:center; justify-content:center; flex-shrink:0; color:var(--ink);
   }
   .cat-main{ flex:1; min-width:0; display:flex; flex-direction:column; }
   .cat-title-row{ display:flex; align-items:center; gap:.5rem; }
-  .cat-title{ font-weight:700; font-size:.98rem; color:var(--ink); }
-  .cat-desc{ font-size:.8rem; color:var(--muted); margin-top:.15rem; line-height:1.4; }
+  .cat-title{ font-weight:600; font-size:.9rem; color:var(--ink); }
+  .cat-desc{ display:none; font-size:.8rem; color:var(--muted); margin-top:.15rem; line-height:1.4; }
   .cat-chevron{ color:var(--muted); flex-shrink:0; }
   .soon-badge{
     font-size:.66rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em;
     background:var(--line); color:var(--muted); padding:.15rem .5rem; border-radius:100px;
   }
-  .soon-divider{ display:flex; align-items:center; gap:.7rem; margin:.6rem 0 -.1rem; color:var(--muted); font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; }
+  .soon-divider{ display:flex; align-items:center; gap:.7rem; margin:.8rem 0 -.1rem; color:var(--muted); font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; }
   .soon-divider::before, .soon-divider::after{ content:''; flex:1; height:1px; background:var(--line); }
 
   /* ---------- Shared detail-view building blocks ---------- */
   .settings-section{ margin-bottom:2.2rem; }
   .section-title{ font-size:.78rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin-bottom:.7rem; }
-  .card{ background:var(--white); border:1px solid var(--line); border-radius:16px; overflow:hidden; }
+  .card{ background:transparent; border:1px solid var(--line); border-radius:10px; overflow:hidden; }
 
   .info-row{
     display:flex; align-items:center; gap:.9rem; padding:1rem 1.2rem; border-bottom:1px solid var(--line); cursor:default;
   }
   .info-row:last-child{ border-bottom:none; }
   .info-row.clickable{ cursor:pointer; }
-  .info-row.clickable:hover{ background:var(--paper); }
-  .info-icon{ width:34px; height:34px; border-radius:9px; background:var(--paper); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; flex-shrink:0; color:var(--ink); }
+  .info-row.clickable:hover{ background:rgba(255,255,255,.05); }
+  .info-icon{ width:34px; height:34px; border-radius:9px; background:transparent; border:1px solid var(--line); display:flex; align-items:center; justify-content:center; flex-shrink:0; color:var(--ink); }
   .info-main{ flex:1; min-width:0; display:flex; flex-direction:column; }
   .info-label{ font-size:.82rem; color:var(--muted); }
   .info-value{ font-size:.92rem; font-weight:600; margin-top:.1rem; word-break:break-word; }
@@ -306,8 +322,12 @@
      RESPONSIVE — sidebar becomes an off-canvas drawer, same mechanism
      (mobile-open class + backdrop) /client-home//host-home use.
      ===================================================================== */
+  @media (max-width:1100px) and (min-width:861px){
+    .app-shell{ grid-template-columns:210px minmax(280px, 330px) minmax(0, 1fr); }
+  }
+
   @media (max-width:860px){
-    .app-shell{ grid-template-columns:1fr; }
+    .app-shell{ display:block; }
 
     .sidebar-shell{
       position:fixed; inset:0 auto 0 0; width:260px; height:100vh;
@@ -316,7 +336,7 @@
     }
     .sidebar-shell .sidebar{ border-radius:0; height:100vh; }
     .sidebar-shell.mobile-open{ transform:translateX(0); }
-    .sidebar{ box-shadow:0 0 40px rgba(26,18,16,.25); }
+    .sidebar{ box-shadow:0 0 40px rgba(0,0,0,.5); }
 
     .sidebar-backdrop{
       display:none; position:fixed; inset:0; background:rgba(26,18,16,.45); z-index:190;
@@ -328,11 +348,15 @@
       padding:1.2rem 5vw 0;
     }
     .mobile-menu-btn{ color:var(--ink); display:flex; }
-    .settings-main{ padding-top:1rem; }
+    .settings-main{ display:block; min-height:0; padding-top:1rem; }
+    #settings-page{ display:block !important; }
+    #view-list{ border-right:none; padding:0 5vw 4rem; }
+    #settings-page > [id^="view-"]:not(#view-list){ padding:0 5vw 5rem; }
+    #settings-page.has-selection #view-list{ display:none !important; }
   }
 
   @media (max-width:520px){
-    .settings-main{ padding:0 5vw 6rem; padding-top:1rem; }
+    .settings-main{ padding-top:1rem; }
     .cat-row{ padding:.95rem 1rem; }
     .cat-icon{ width:38px; height:38px; }
   }
@@ -513,7 +537,10 @@
         <!-- ============ MAIN CATEGORY LIST ============ -->
         <div id="view-list">
           <h1 class="page-title">Settings</h1>
-          <p class="page-sub">Manage your account, preferences and app experience.</p>
+          <div class="settings-search">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+            <input type="search" id="settings-search-input" placeholder="Search Settings" aria-label="Search settings">
+          </div>
 
           <div class="cat-list">
             <button type="button" class="cat-row" data-open="account">
@@ -582,7 +609,7 @@
         </div>
 
         <!-- ============ YOUR ACCOUNT ============ -->
-        <div id="view-account" style="display:none;">
+        <div id="view-account" style="display:block;">
           <div class="detail-head">
             <button type="button" class="detail-back" data-back><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
             <span class="detail-title">Your Account</span>
@@ -942,7 +969,7 @@
     document.getElementById('about-year').textContent = new Date().getFullYear();
 
     checkingAuth.style.display = 'none';
-    settingsPage.style.display = 'block';
+    settingsPage.style.display = 'grid';
 
     // ---------- Mobile sidebar drawer (same mechanism as the dashboards) ----------
     const sidebarShell = document.getElementById('sidebar-shell');
@@ -963,17 +990,31 @@
     // ---------- List <-> Detail navigation ----------
     const views = ['list', 'account', 'notifications', 'display', 'privacy', 'support', 'login-accounts'];
     function showView(name){
-      views.forEach(function(v){
+      views.slice(1).forEach(function(v){
         document.getElementById('view-' + v).style.display = (v === name) ? 'block' : 'none';
+      });
+      document.getElementById('view-list').style.display = 'block';
+      settingsPage.classList.toggle('has-selection', name !== 'list');
+      document.querySelectorAll('[data-open]').forEach(function(row){
+        row.classList.toggle('active', row.getAttribute('data-open') === name);
       });
       window.scrollTo({ top: 0, behavior: 'instant' in window ? 'instant' : 'auto' });
     }
+    document.querySelector('[data-open="account"]').classList.add('active');
 
     document.querySelectorAll('[data-open]').forEach(function(row){
       row.addEventListener('click', function(){ showView(row.getAttribute('data-open')); });
     });
     document.querySelectorAll('[data-back]').forEach(function(btn){
       btn.addEventListener('click', function(){ showView('list'); });
+    });
+    const settingsSearch = document.getElementById('settings-search-input');
+    settingsSearch.addEventListener('input', function(){
+      const query = settingsSearch.value.trim().toLowerCase();
+      document.querySelectorAll('#view-list .cat-row').forEach(function(row){
+        const title = row.querySelector('.cat-title');
+        row.hidden = Boolean(query && title && !title.textContent.toLowerCase().includes(query));
+      });
     });
     document.getElementById('go-to-password').addEventListener('click', function(e){
       e.preventDefault();
