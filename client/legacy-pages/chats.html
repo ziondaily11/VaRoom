@@ -1017,7 +1017,7 @@
       const { data, error } = await supabaseClient
         .from('conversations')
         .select('id,listing_id,host_id,client_id,last_message_at,' +
-          'host:profiles!conversations_host_id_fkey(full_name,username,phone,avatar_url,away_mode),' +
+          'host:profiles!conversations_host_id_fkey(full_name,username,phone,avatar_url),' +
           'client:profiles!conversations_client_id_fkey(full_name,username,phone,avatar_url),' +
           'listing:listings(title,location_text,listing_photos(storage_path),' +
           'booking_details:listing_booking_details(price_amount,price_unit,size_or_type,max_guests))')
