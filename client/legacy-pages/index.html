@@ -754,31 +754,8 @@
       position: absolute;
       inset: 0;
       z-index: 1;
-      display: grid;
-      place-items: center;
-      color: rgba(255, 255, 255, 0.72);
-      background: #0b0706;
-      transition: opacity 0.35s ease;
-    }
-
-    .property-video-loading::after {
-      content: '';
-      width: 34px;
-      height: 34px;
-      border: 2px solid rgba(255, 255, 255, 0.22);
-      border-top-color: var(--crimson);
-      border-radius: 50%;
-      animation: propertyVideoSpin 0.9s linear infinite;
-    }
-
-    .property-video-experience.is-ready .property-video-loading,
-    .property-video-experience.is-error .property-video-loading {
-      opacity: 0;
-      pointer-events: none;
-    }
-
-    @keyframes propertyVideoSpin {
-      to { transform: rotate(360deg); }
+      background: url("assets/landing101.jpg") center / cover no-repeat;
+      transition: opacity 0.6s ease;
     }
 
     .property-video {
@@ -789,6 +766,17 @@
       display: block;
       object-fit: cover;
       background: #0b0706;
+      opacity: 0;
+      transition: opacity 0.6s ease;
+    }
+
+    .property-video-experience.is-ready .property-video-loading {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .property-video-experience.is-ready .property-video {
+      opacity: 1;
     }
 
     .property-video-scrim {
@@ -881,8 +869,113 @@
       display: block;
     }
 
+    .hero-signin-card {
+      position: absolute;
+      right: 6vw;
+      bottom: 12%;
+      z-index: 5;
+      width: min(360px, calc(100% - 48px));
+      padding: 24px;
+      color: white;
+      background: rgba(8, 5, 4, 0.78);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      backdrop-filter: blur(18px);
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(18px);
+      transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .hero-signin-card.is-visible {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+
+    .hero-signin-logo {
+      display: inline-block;
+      margin-bottom: 22px;
+      font: 700 30px/1 var(--serif);
+      letter-spacing: -1px;
+    }
+
+    .hero-signin-logo .hero-logo-va {
+      color: var(--crimson);
+      text-shadow: 0 0 0 rgba(196, 30, 58, 0);
+    }
+
+    .hero-signin-logo .hero-logo-room {
+      color: white;
+      text-shadow: 0 0 0 rgba(255, 255, 255, 0);
+    }
+
+    .hero-signin-card.is-visible .hero-logo-va {
+      animation: heroLogoVaGlow 3.6s ease-in-out infinite;
+    }
+
+    .hero-signin-card.is-visible .hero-logo-room {
+      animation: heroLogoRoomGlow 3.6s ease-in-out 0.8s infinite;
+    }
+
+    @keyframes heroLogoVaGlow {
+      0%, 100% { text-shadow: 0 0 0 rgba(196, 30, 58, 0); }
+      22%, 42% { text-shadow: 0 0 14px rgba(196, 30, 58, 0.6); }
+      62% { text-shadow: 0 0 0 rgba(196, 30, 58, 0); }
+    }
+
+    @keyframes heroLogoRoomGlow {
+      0%, 100% { text-shadow: 0 0 0 rgba(255, 255, 255, 0); }
+      22%, 42% { text-shadow: 0 0 12px rgba(255, 255, 255, 0.38); }
+      62% { text-shadow: 0 0 0 rgba(255, 255, 255, 0); }
+    }
+
+    .hero-signin-card h2 {
+      margin: 0 0 8px;
+      font: 400 24px/1.15 var(--serif);
+    }
+
+    .hero-signin-card p {
+      margin: 0 0 18px;
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .hero-signin-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .hero-signin-actions a,
+    .hero-signin-actions button {
+      flex: 1;
+      min-height: 40px;
+      padding: 10px 12px;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 999px;
+      color: white;
+      background: transparent;
+      font: 600 10px var(--mono);
+      letter-spacing: 0.7px;
+      text-align: center;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+
+    .hero-signin-actions .hero-signin-primary {
+      border-color: var(--crimson);
+      background: var(--crimson);
+    }
+
     @media (prefers-reduced-motion: reduce) {
-      .property-video-loading::after { animation: none; }
+      .hero-signin-card {
+        transition: none;
+      }
+
+      .hero-signin-card.is-visible .hero-logo-va,
+      .hero-signin-card.is-visible .hero-logo-room {
+        animation: none;
+      }
     }
 
     @keyframes deckFloat {
@@ -2908,6 +3001,13 @@
       .property-video-progress {
         width: 48px;
       }
+
+      .hero-signin-card {
+        right: 24px;
+        bottom: 10%;
+        left: 24px;
+        width: auto;
+      }
     }
   </style>
 </head>
@@ -3028,11 +3128,11 @@
       class="property-video"
       id="property-video"
       src="/assets/vid102.mp4"
+      poster="assets/landing101.jpg"
       preload="metadata"
       autoplay
       muted
       playsinline
-      loop
       aria-label="Cinematic walkthrough of a VaRoom property"
     ></video>
     <div class="property-video-scrim" aria-hidden="true"></div>
@@ -3046,6 +3146,18 @@
     </div>
     <button type="button" class="property-video-play-fallback" id="property-video-play">Play walkthrough</button>
   </div>
+
+  <aside class="hero-signin-card" id="hero-signin-card" aria-hidden="true">
+    <div class="hero-signin-logo" aria-label="VaRoom">
+      <span class="hero-logo-va">Va</span><span class="hero-logo-room">Room</span>
+    </div>
+    <h2>Find the place that feels like yours.</h2>
+    <p>Real spaces, thoughtfully brought closer. Begin exploring VaRoom.</p>
+    <div class="hero-signin-actions">
+      <button type="button" class="hero-signin-primary open-account-trigger">Get started</button>
+      <a href="/login">Sign in</a>
+    </div>
+  </aside>
 
   <div class="hero-main-row">
     <!-- Headline & Search Column (Left) -->
@@ -4275,12 +4387,15 @@
   var mute = document.getElementById('property-video-mute');
   var playFallback = document.getElementById('property-video-play');
   var progress = document.getElementById('property-video-progress-value');
+  var signInCard = document.getElementById('hero-signin-card');
 
   if (!video || !experience) return;
 
   // Keep the cinematic pacing adjustable from one clear configuration point.
   var PROPERTY_VIDEO_PLAYBACK_RATE = 0.65;
+  var PROPERTY_VIDEO_SIGNIN_LEAD_SECONDS = 5;
   var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var signInShown = false;
 
   video.playbackRate = PROPERTY_VIDEO_PLAYBACK_RATE;
 
@@ -4289,6 +4404,13 @@
     experience.classList.toggle('is-paused', paused);
     toggle.textContent = paused ? 'Play' : 'Pause';
     toggle.setAttribute('aria-label', paused ? 'Play walkthrough' : 'Pause walkthrough');
+  }
+
+  function revealSignInCard() {
+    if (!signInCard || signInShown) return;
+    signInShown = true;
+    signInCard.classList.add('is-visible');
+    signInCard.setAttribute('aria-hidden', 'false');
   }
 
   function updateMuteState() {
@@ -4326,11 +4448,21 @@
   video.addEventListener('timeupdate', function() {
     if (!Number.isFinite(video.duration) || video.duration <= 0) return;
     progress.style.width = ((video.currentTime / video.duration) * 100) + '%';
+    if (video.currentTime >= video.duration - PROPERTY_VIDEO_SIGNIN_LEAD_SECONDS) {
+      revealSignInCard();
+    }
   });
 
   video.addEventListener('error', function() {
     experience.classList.add('is-error');
     experience.classList.add('is-paused');
+    revealSignInCard();
+    updatePlayState();
+  });
+
+  video.addEventListener('ended', function() {
+    experience.classList.add('is-paused');
+    revealSignInCard();
     updatePlayState();
   });
 
@@ -4354,6 +4486,7 @@
   updatePlayState();
   if (reduceMotion) {
     video.pause();
+    revealSignInCard();
   } else {
     attemptPlay();
   }
