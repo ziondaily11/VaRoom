@@ -738,6 +738,7 @@
       inset: 0;
       z-index: 0;
       overflow: hidden;
+      border-radius: 0;
       background: #0b0706;
       isolation: isolate;
       pointer-events: none;
@@ -1664,34 +1665,11 @@
     ============================================================ */
     .intro {
       display: grid;
-      grid-template-columns: 80px minmax(0, 580px) auto;
+      grid-template-columns: minmax(0, 580px) auto;
       gap: 6vw;
       align-items: center;
       padding: 90px 10vw;
       border-bottom: 1px solid var(--line);
-    }
-
-    .mark {
-      position: relative;
-      display: grid;
-      place-items: center;
-      width: 60px;
-      height: 60px;
-      border: 1px solid var(--crimson);
-      color: var(--crimson);
-      font: 26px var(--serif);
-    }
-
-    /* The little pin on the V mark */
-    .mark::after {
-      content: '';
-      position: absolute;
-      top: -10px;
-      right: -10px;
-      width: 14px;
-      height: 18px;
-      background: var(--crimson);
-      clip-path: polygon(50% 100%, 0 40%, 0 15%, 50% 0, 100% 15%, 100% 40%);
     }
 
     .intro p {
@@ -3274,8 +3252,6 @@
      INTRO / BRAND STATEMENT
 ============================================================ -->
 <section class="intro">
-  <div class="mark">V</div>
-
   <p>
     VaRoom is a living map of the spaces that make Kenya feel like home—
     whether you're staying for a night, opening a new chapter, or making
