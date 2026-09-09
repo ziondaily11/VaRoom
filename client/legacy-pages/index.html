@@ -798,6 +798,7 @@
       font: 600 10px/1.4 var(--mono);
       letter-spacing: 1.4px;
       text-transform: uppercase;
+      display: none;
     }
 
     .property-video-controls {
@@ -825,6 +826,7 @@
       backdrop-filter: blur(8px);
       cursor: pointer;
       transition: background 0.2s ease, border-color 0.2s ease;
+      display: none;
     }
 
     .property-video-control:hover,
@@ -862,6 +864,7 @@
       background: rgba(8, 5, 4, 0.7);
       backdrop-filter: blur(10px);
       cursor: pointer;
+      display: none !important;
     }
 
     .property-video-experience.is-paused .property-video-play-fallback,
@@ -869,112 +872,160 @@
       display: block;
     }
 
-    .hero-signin-card {
+    .hero-auth-takeover {
       position: absolute;
-      right: 6vw;
-      bottom: 12%;
-      z-index: 5;
-      width: min(360px, calc(100% - 48px));
-      padding: 24px;
+      inset: 0;
+      z-index: 8;
+      display: flex;
+      align-items: center;
+      padding: clamp(32px, 7vw, 88px);
       color: white;
-      background: rgba(8, 5, 4, 0.78);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      backdrop-filter: blur(18px);
+      background: rgba(5, 5, 5, 0.96);
       opacity: 0;
       pointer-events: none;
-      transform: translateY(18px);
+      visibility: hidden;
       transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
-    .hero-signin-card.is-visible {
+    .hero-auth-takeover.is-visible {
       opacity: 1;
       pointer-events: auto;
-      transform: translateY(0);
+      visibility: visible;
     }
 
-    .hero-signin-logo {
-      display: inline-block;
-      margin-bottom: 22px;
-      font: 700 30px/1 var(--serif);
-      letter-spacing: -1px;
+    .hero.is-auth-takeover .hero-main-row,
+    .hero.is-auth-takeover .hero-giant-wordmark,
+    .hero.is-auth-takeover .scroll-cue,
+    .hero.is-auth-takeover .property-video-controls,
+    .hero.is-auth-takeover .property-video-play-fallback {
+      opacity: 0;
+      pointer-events: none;
     }
 
-    .hero-signin-logo .hero-logo-va {
-      color: var(--crimson);
-      text-shadow: 0 0 0 rgba(196, 30, 58, 0);
+    body.is-auth-takeover #site-nav-wrapper {
+      opacity: 0;
+      pointer-events: none;
     }
 
-    .hero-signin-logo .hero-logo-room {
+    .hero-auth-shell {
+      display: grid;
+      grid-template-columns: minmax(300px, 460px) minmax(360px, 1fr);
+      align-items: center;
+      gap: clamp(48px, 12vw, 180px);
+      width: 100%;
+      max-width: 1380px;
+      margin: 0 auto;
+    }
+
+    .hero-auth-content {
+      max-width: 460px;
+    }
+
+    .hero-auth-logo {
+      display: block;
+      margin-bottom: 18px;
       color: white;
-      text-shadow: 0 0 0 rgba(255, 255, 255, 0);
+      font: 700 clamp(38px, 4vw, 64px)/1 var(--sans);
+      letter-spacing: -2px;
     }
 
-    .hero-signin-card.is-visible .hero-logo-va {
-      animation: heroLogoVaGlow 3.6s ease-in-out infinite;
+    .hero-auth-logo .hero-logo-va {
+      color: white;
     }
 
-    .hero-signin-card.is-visible .hero-logo-room {
-      animation: heroLogoRoomGlow 3.6s ease-in-out 0.8s infinite;
+    .hero-auth-content h2 {
+      margin: 0 0 28px;
+      color: rgba(255, 255, 255, 0.86);
+      font: 400 clamp(22px, 2vw, 30px)/1.2 var(--sans);
     }
 
-    @keyframes heroLogoVaGlow {
-      0%, 100% { text-shadow: 0 0 0 rgba(196, 30, 58, 0); }
-      22%, 42% { text-shadow: 0 0 14px rgba(196, 30, 58, 0.6); }
-      62% { text-shadow: 0 0 0 rgba(196, 30, 58, 0); }
-    }
-
-    @keyframes heroLogoRoomGlow {
-      0%, 100% { text-shadow: 0 0 0 rgba(255, 255, 255, 0); }
-      22%, 42% { text-shadow: 0 0 12px rgba(255, 255, 255, 0.38); }
-      62% { text-shadow: 0 0 0 rgba(255, 255, 255, 0); }
-    }
-
-    .hero-signin-card h2 {
-      margin: 0 0 8px;
-      font: 400 24px/1.15 var(--serif);
-    }
-
-    .hero-signin-card p {
-      margin: 0 0 18px;
-      color: rgba(255, 255, 255, 0.7);
-      font-size: 13px;
-      line-height: 1.5;
-    }
-
-    .hero-signin-actions {
+    .hero-auth-form {
       display: flex;
-      gap: 8px;
+      flex-direction: column;
+      gap: 12px;
     }
 
-    .hero-signin-actions a,
-    .hero-signin-actions button {
-      flex: 1;
-      min-height: 40px;
-      padding: 10px 12px;
+    .hero-auth-button {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 52px;
+      padding: 14px 18px;
       border: 1px solid rgba(255, 255, 255, 0.3);
       border-radius: 999px;
       color: white;
       background: transparent;
-      font: 600 10px var(--mono);
-      letter-spacing: 0.7px;
-      text-align: center;
-      text-transform: uppercase;
+      font: 600 13px var(--sans);
       cursor: pointer;
+      transition: background 0.2s ease, border-color 0.2s ease;
     }
 
-    .hero-signin-actions .hero-signin-primary {
-      border-color: var(--crimson);
-      background: var(--crimson);
+    .hero-auth-button:hover,
+    .hero-auth-button:focus-visible {
+      border-color: rgba(255, 255, 255, 0.72);
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .hero-auth-button-light {
+      color: #111;
+      background: white;
+      border-color: white;
+    }
+
+    .hero-auth-button-light:hover,
+    .hero-auth-button-light:focus-visible {
+      background: rgba(255, 255, 255, 0.86);
+    }
+
+    .hero-auth-divider {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin: 8px 0 2px;
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 12px;
+    }
+
+    .hero-auth-divider::before,
+    .hero-auth-divider::after {
+      content: '';
+      height: 1px;
+      flex: 1;
+      background: rgba(255, 255, 255, 0.24);
+    }
+
+    .hero-auth-email {
+      min-height: 52px;
+      padding: 0 16px;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 14px;
+      outline: none;
+      color: white;
+      background: transparent;
+      font: 14px var(--sans);
+    }
+
+    .hero-auth-email::placeholder {
+      color: rgba(255, 255, 255, 0.5);
+    }
+
+    .hero-auth-brand-mark {
+      justify-self: end;
+      max-width: 620px;
+      color: transparent;
+      font: 800 clamp(170px, 25vw, 420px)/0.7 var(--sans);
+      letter-spacing: -0.1em;
+      -webkit-text-stroke: 2px rgba(255, 255, 255, 0.76);
+      user-select: none;
     }
 
     @media (prefers-reduced-motion: reduce) {
-      .hero-signin-card {
+      .hero-auth-takeover {
         transition: none;
       }
 
-      .hero-signin-card.is-visible .hero-logo-va,
-      .hero-signin-card.is-visible .hero-logo-room {
-        animation: none;
+      .hero-auth-takeover * {
+        transition: none;
       }
     }
 
@@ -3002,11 +3053,13 @@
         width: 48px;
       }
 
-      .hero-signin-card {
-        right: 24px;
-        bottom: 10%;
-        left: 24px;
-        width: auto;
+      .hero-auth-shell {
+        grid-template-columns: 1fr;
+        gap: 32px;
+      }
+
+      .hero-auth-brand-mark {
+        display: none;
       }
     }
   </style>
@@ -3147,17 +3200,29 @@
     <button type="button" class="property-video-play-fallback" id="property-video-play">Play walkthrough</button>
   </div>
 
-  <aside class="hero-signin-card" id="hero-signin-card" aria-hidden="true">
-    <div class="hero-signin-logo" aria-label="VaRoom">
-      <span class="hero-logo-va">Va</span><span class="hero-logo-room">Room</span>
+  <section class="hero-auth-takeover" id="hero-auth-takeover" aria-hidden="true">
+    <div class="hero-auth-shell">
+      <div class="hero-auth-content">
+        <div class="hero-auth-logo" aria-label="VaRoom">
+          <span class="hero-logo-va">Va</span><span>Room</span>
+        </div>
+        <h2>Find the place that feels like yours.</h2>
+        <div class="hero-auth-form">
+          <a class="hero-auth-button" href="/login">Continue with phone</a>
+          <button type="button" class="hero-auth-button hero-auth-button-light" id="hero-google-signin">Continue with Google</button>
+          <a class="hero-auth-button hero-auth-button-light" href="/login">Continue with Apple</a>
+          <div class="hero-auth-divider">or</div>
+          <a class="hero-auth-button" href="/login">Email or username</a>
+          <a class="hero-auth-button hero-auth-button-light" href="/login">Continue</a>
+        </div>
+        <p style="margin:16px 0 0; color:rgba(255,255,255,.56); font-size:11px; line-height:1.5;">
+          By continuing, you agree to our <a href="/terms" style="text-decoration:underline;">Terms of Service</a>,
+          <a href="/privacy" style="text-decoration:underline;">Privacy Policy</a> and <a href="/privacy" style="text-decoration:underline;">Cookie Use</a>.
+        </p>
+      </div>
+      <div class="hero-auth-brand-mark" aria-hidden="true">VR</div>
     </div>
-    <h2>Find the place that feels like yours.</h2>
-    <p>Real spaces, thoughtfully brought closer. Begin exploring VaRoom.</p>
-    <div class="hero-signin-actions">
-      <button type="button" class="hero-signin-primary open-account-trigger">Get started</button>
-      <a href="/login">Sign in</a>
-    </div>
-  </aside>
+  </section>
 
   <div class="hero-main-row">
     <!-- Headline & Search Column (Left) -->
@@ -4387,13 +4452,14 @@
   var mute = document.getElementById('property-video-mute');
   var playFallback = document.getElementById('property-video-play');
   var progress = document.getElementById('property-video-progress-value');
-  var signInCard = document.getElementById('hero-signin-card');
+  var signInTakeover = document.getElementById('hero-auth-takeover');
+  var hero = document.querySelector('.hero');
+  var googleSignIn = document.getElementById('hero-google-signin');
 
   if (!video || !experience) return;
 
   // Keep the cinematic pacing adjustable from one clear configuration point.
   var PROPERTY_VIDEO_PLAYBACK_RATE = 0.65;
-  var PROPERTY_VIDEO_SIGNIN_LEAD_SECONDS = 5;
   var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   var signInShown = false;
 
@@ -4407,10 +4473,12 @@
   }
 
   function revealSignInCard() {
-    if (!signInCard || signInShown) return;
+    if (!signInTakeover || signInShown) return;
     signInShown = true;
-    signInCard.classList.add('is-visible');
-    signInCard.setAttribute('aria-hidden', 'false');
+    if (hero) hero.classList.add('is-auth-takeover');
+    document.body.classList.add('is-auth-takeover');
+    signInTakeover.classList.add('is-visible');
+    signInTakeover.setAttribute('aria-hidden', 'false');
   }
 
   function updateMuteState() {
@@ -4448,9 +4516,6 @@
   video.addEventListener('timeupdate', function() {
     if (!Number.isFinite(video.duration) || video.duration <= 0) return;
     progress.style.width = ((video.currentTime / video.duration) * 100) + '%';
-    if (video.currentTime >= video.duration - PROPERTY_VIDEO_SIGNIN_LEAD_SECONDS) {
-      revealSignInCard();
-    }
   });
 
   video.addEventListener('error', function() {
@@ -4481,6 +4546,19 @@
     updateMuteState();
     if (!video.paused) attemptPlay();
   });
+
+  if (googleSignIn) {
+    googleSignIn.addEventListener('click', async function() {
+      try {
+        await supabaseClient.auth.signInWithOAuth({
+          provider: 'google',
+          options: { redirectTo: window.location.origin + '/auth-callback' }
+        });
+      } catch (error) {
+        console.error('Google sign-in failed:', error);
+      }
+    });
+  }
 
   updateMuteState();
   updatePlayState();
