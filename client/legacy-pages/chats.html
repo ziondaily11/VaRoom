@@ -11,14 +11,14 @@
 <script src="js/skeleton-loader.js"></script>
 <style>
   :root{
-    --red:#C41E3A; --red-deep:#8F1229; --accent:#C41E3A; --accent-deep:#8F1229;
+    --red:#D32F2F; --red-deep:#A92323; --accent:#D32F2F; --accent-deep:#A92323;
     --accent-soft:#FBE4E7; --white:#FFFFFF; --on-accent:#FFFFFF;
     --ink:#1A1210; --paper:#FBF4F1; --panel:#FCFBFA; --surface-muted:#F5EFEC;
     --line:rgba(26,18,16,.15); --line-soft:rgba(26,18,16,.08);
     --muted:#7a6b67; --soft:#F4F1F0; --success:#1FAE6A; --warn:#D98A2E;
     --font-display:'Fraunces', serif; --font-body:'Inter', sans-serif;
-    --chat-primary:#C41E3A; --chat-primary-hover:#8F1229; --chat-background:#FCFBFA;
-    --chat-surface:#FFFFFF; --chat-message-user:#C41E3A; --chat-message-client:#FFFFFF;
+    --chat-primary:#D32F2F; --chat-primary-hover:#A92323; --chat-background:#F7F7F5;
+    --chat-surface:#FFFFFF; --chat-message-user:#D32F2F; --chat-message-client:#F1F2F3;
     --chat-text:#1A1210; --chat-text-muted:#7a6b67; --chat-border:rgba(26,18,16,.15);
     --chat-icon:#7a6b67; --chat-header:#FFFFFF; --chat-user-text:#FFFFFF;
     --sidebar-bg:#17120F; --sidebar-text:#BDB6B2; --sidebar-w:236px;
@@ -30,7 +30,7 @@
     --accent-deep:#F0A5B2; --accent-soft:rgba(240,165,178,.18);
     --panel:#1B1412; --soft:#241C1A; --success:#5FD996;
   }
-  .chat-stage[data-chat-theme="varoom-red"]{ --chat-primary:#C41E3A; --chat-primary-hover:#8F1229; --chat-message-user:#C41E3A; --chat-message-client:#FFFFFF; --chat-surface:#FFFFFF; --chat-header:#FFFFFF; --chat-background:#FCFBFA; --chat-user-text:#FFFFFF; --chat-text:#111827; --chat-text-muted:#64748B; --chat-border:rgba(26,18,16,.15); --chat-icon:#475569; }
+  .chat-stage[data-chat-theme="varoom-red"]{ --chat-primary:#D32F2F; --chat-primary-hover:#A92323; --chat-message-user:#D32F2F; --chat-message-client:#F1F2F3; --chat-surface:#FFFFFF; --chat-header:#FFFFFF; --chat-background:#F7F7F5; --chat-user-text:#FFFFFF; --chat-text:#111827; --chat-text-muted:#64748B; --chat-border:rgba(26,18,16,.1); --chat-icon:#475569; }
   .chat-stage[data-chat-theme="ocean"]{ --chat-primary:#2563EB; --chat-primary-hover:#1D4ED8; --chat-message-user:#2563EB; --chat-message-client:#EFF6FF; --chat-surface:#FFFFFF; --chat-header:#FFFFFF; --chat-background:#F8FAFC; --chat-user-text:#FFFFFF; --chat-text:#111827; --chat-text-muted:#64748B; --chat-border:rgba(30,64,175,.18); --chat-icon:#475569; }
   .chat-stage[data-chat-theme="emerald"]{ --chat-primary:#16A34A; --chat-primary-hover:#15803D; --chat-message-user:#16A34A; --chat-message-client:#F0FDF4; --chat-surface:#FFFFFF; --chat-header:#FFFFFF; --chat-background:#F8FAFC; --chat-user-text:#FFFFFF; --chat-text:#111827; --chat-text-muted:#64748B; --chat-border:rgba(22,101,52,.18); --chat-icon:#475569; }
   .chat-stage[data-chat-theme="violet"]{ --chat-primary:#7C3AED; --chat-primary-hover:#6D28D9; --chat-message-user:#7C3AED; --chat-message-client:#F5F3FF; --chat-surface:#FFFFFF; --chat-header:#FFFFFF; --chat-background:#FAF9FF; --chat-user-text:#FFFFFF; --chat-text:#111827; --chat-text-muted:#6B7280; --chat-border:rgba(109,40,217,.18); --chat-icon:#4B5563; }
@@ -205,6 +205,7 @@
   .thread-header-name{ font-weight:750; font-size:.92rem; letter-spacing:-.01em; display:flex; align-items:center; gap:.35rem; }
   .thread-header-tag{ font-size:.63rem; font-weight:700; color:var(--muted); background:var(--panel); padding:.1rem .4rem; border-radius:5px; }
   .thread-header-meta{ color:var(--muted); font-size:.7rem; margin-top:.1rem; }
+  .presence-dot{ display:inline-block; width:6px; height:6px; margin-right:.25rem; border-radius:50%; background:var(--success); vertical-align:middle; }
   .thread-header-actions{ margin-left:auto; display:flex; align-items:center; gap:.35rem; }
   .thread-header-actions button{ width:32px; height:32px; border-radius:8px; color:var(--muted); display:grid; place-items:center; }
   .thread-header-actions button:hover{ color:var(--accent); background:var(--accent-soft); }
@@ -358,6 +359,7 @@
 
   /* ---------- MOBILE BOTTOM TABBAR ---------- */
   .mobile-tabbar{ display:none; }
+  .quick-actions, .action-toolbar{ display:none; }
 
   @media (max-width:1100px){ .chat-shell{ grid-template-columns:280px minmax(0,1fr); } .details-panel{ display:none; } .details-panel.show-mobile{ display:block; } }
 
@@ -408,6 +410,65 @@
     .contact-card{ display:flex; align-items:center; gap:.75rem; text-align:left; padding:0 1.1rem 1rem; }
     .contact-card .conv-avatar{ margin:0; }
     .contact-name{ justify-content:flex-start; }
+  }
+
+  /* Mobile chat UI */
+  @media (max-width:760px){
+    .topbar{ background:#fff; border-bottom-color:#ECECEC; min-height:58px; }
+    .topbar-title h1{ font-size:1rem; letter-spacing:-.02em; }
+    .icon-btn{ width:32px; height:32px; border:0; background:transparent; }
+    .chat-stage{ background:#F7F7F5; }
+    .conv-list{ background:#fff; }
+    .chip-row{ gap:.5rem; padding:.8rem 1rem .7rem; border-bottom:1px solid #F0F0F0; }
+    .chip{ min-height:30px; padding:.38rem .8rem; font-size:.68rem; border-color:#E8E8E8; }
+    .chip.active{ background:var(--accent); color:#fff; }
+    .conv-item{ gap:.7rem; padding:.78rem 1rem; border-left-width:2px; border-bottom-color:#F0F0F0; }
+    .conv-avatar{ width:40px; height:40px; }
+    .conv-name{ font-size:.78rem; }
+    .conv-preview{ font-size:.7rem; color:#59636F; }
+    .conv-listing{ font-size:.66rem; }
+    .conv-time{ font-size:.62rem; }
+    .tag-pill{ font-size:.58rem; padding:.16rem .45rem; }
+    .thread-panel{ background:#F7F7F5; }
+    .thread-header{ min-height:58px; padding:.55rem .85rem; background:#fff; border-bottom-color:#ECECEC; }
+    .thread-header .conv-avatar{ width:34px; height:34px; }
+    .thread-header-name{ font-size:.78rem; }
+    .thread-header-meta{ color:var(--success); font-size:.62rem; }
+    .thread-header-tag{ display:none; }
+    .thread-header-actions button{ width:29px; height:29px; }
+    .listing-context{ margin:.65rem .8rem 0; padding:.55rem; border:0; box-shadow:0 1px 5px rgba(26,18,16,.06); }
+    .listing-context-thumb{ width:52px; height:52px; }
+    .listing-context-title{ font-size:.72rem; }
+    .listing-context-loc,.listing-context-meta{ font-size:.62rem; }
+    .listing-context-price{ font-size:.68rem; }
+    .listing-context-book{ font-size:.62rem; padding:.38rem .55rem; }
+    .messages-area{ padding:.85rem .8rem; gap:.65rem; }
+    .msg-row{ max-width:86%; }
+    .msg-bubble{ padding:.5rem .65rem; font-size:.75rem; border-radius:12px; }
+    .msg-time{ font-size:.58rem; }
+    .composer-wrap{ padding:.35rem .8rem .45rem; background:#fff; border-top:1px solid #ECECEC; }
+    .quick-actions{ display:flex; gap:.4rem; overflow-x:auto; padding:.05rem 0 .5rem; }
+    .quick-action{ white-space:nowrap; border:1px solid #E5E5E5; border-radius:999px; padding:.35rem .55rem; color:#4B5563; background:#fff; font-size:.6rem; font-weight:700; }
+    .quick-action:hover{ color:var(--accent); border-color:var(--accent); }
+    .composer{ border-color:#E5E5E5; border-radius:999px; padding:.35rem .45rem; box-shadow:0 1px 4px rgba(26,18,16,.04); }
+    .composer-add{ width:28px; height:28px; }
+    .composer input{ font-size:.72rem; padding-left:.1rem; }
+    .composer button#send-btn{ width:31px; height:31px; border-radius:50%; }
+    .action-toolbar{ display:flex; justify-content:space-between; gap:.2rem; padding:.5rem 0 .05rem; }
+    .action-toolbar button{ display:flex; flex-direction:column; align-items:center; gap:.2rem; color:#6B7280; font-size:.55rem; min-width:0; flex:1; }
+    .action-toolbar button svg{ color:#374151; }
+    .mobile-tabbar{ min-height:58px; box-shadow:0 -2px 8px rgba(26,18,16,.04); }
+    .mobile-tabbar a{ font-size:.58rem; gap:.15rem; }
+    .mobile-tabbar a.active{ font-weight:800; }
+    .details-panel{ background:#fff; }
+    .details-back{ min-height:56px; padding:.8rem 1rem; font-size:.78rem; }
+    .contact-card{ padding:1rem 1.1rem; justify-content:center; text-align:center; flex-direction:column; }
+    .contact-name{ justify-content:center; font-size:.86rem; }
+    .contact-role{ font-size:.66rem; }
+    .profile-btn{ margin:.1rem 1.1rem .2rem; font-size:.7rem; padding:.5rem; }
+    .details-section{ padding:.8rem 1.1rem; }
+    .details-heading{ font-size:.64rem; margin-bottom:.5rem; }
+    .detail-value,.detail-kv,.action-row{ font-size:.7rem; }
   }
 </style>
 </head>
@@ -1490,7 +1551,7 @@
         '<div class="thread-header">' +
           '<button type="button" class="thread-back" id="thread-back-btn" aria-label="Back"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></button>' +
           '<div class="conv-avatar">' + (otherAvatarUrl ? '<img src="' + otherAvatarUrl + '" alt="">' : contactInitial) + '</div>' +
-          '<div><div class="thread-header-name">' + escapeHtml(contactName) + '<span class="thread-header-tag">' + contactRoleLabel + '</span></div><div class="thread-header-meta">' + escapeHtml(listingTitle) + '</div></div>' +
+          '<div><div class="thread-header-name">' + escapeHtml(contactName) + '<span class="thread-header-tag">' + contactRoleLabel + '</span></div><div class="thread-header-meta"><span class="presence-dot"></span>' + (other.away_mode ? 'Away' : 'Online') + '</div></div>' +
           '<div class="thread-header-actions">' +
             '<button type="button" aria-label="Call"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.3 1.8.6 2.6a2 2 0 0 1-.5 2.1L8 9.6a16 16 0 0 0 6 6l1.2-1.2a2 2 0 0 1 2.1-.5c.8.3 1.7.5 2.6.6a2 2 0 0 1 1.7 2Z"/></svg></button>' +
             '<button type="button" aria-label="Video call"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m23 7-7 5 7 5V7Z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg></button>' +
@@ -1508,11 +1569,16 @@
           '<a href="/booking?listing=' + encodeURIComponent(conv.listing_id) + '" class="listing-context-book">View listing</a>' +
         '</div>' +
         (!isHost && other.away_mode
-          ? '<div class="away-banner">🌙 This host is away right now — Elie may help answer using real listing details while they\'re offline.</div>'
+        ? '<div class="away-banner">🌙 This host is away right now — Elie may help answer using real listing details while they\'re offline.</div>'
           : '') +
         '<div class="messages-area" id="messages-area"></div>' +
         '<div class="composer-wrap">' +
           '<div id="composer-attachment"></div>' +
+          '<div class="quick-actions" aria-label="Conversation quick actions">' +
+            '<button type="button" class="quick-action">Share availability</button>' +
+            '<button type="button" class="quick-action">Share listing</button>' +
+            '<button type="button" class="quick-action">Create booking</button>' +
+          '</div>' +
           '<div class="composer">' +
             '<button type="button" class="composer-add" id="composer-add-btn" aria-label="Add attachment" aria-expanded="false" aria-controls="attachment-menu"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.4 11.6-8.8 8.8a6 6 0 0 1-8.5-8.5l8.1-8.1a4 4 0 1 1 5.7 5.7l-8.1 8.1a2 2 0 0 1-2.8-2.8l7.4-7.4"/></svg></button>' +
             '<div class="attachment-menu" id="attachment-menu" hidden>' +
@@ -1522,8 +1588,15 @@
             '</div>' +
             '<input type="file" id="photo-input" accept="image/*" hidden>' +
             '<input type="file" id="file-input" accept=".pdf,.txt,.zip,.doc,.docx,.xls,.xlsx" hidden>' +
-            '<input type="text" id="message-input" placeholder="Write a message…" autocomplete="off">' +
+            '<input type="text" id="message-input" placeholder="Type a message..." autocomplete="off">' +
             '<button type="button" id="send-btn" aria-label="Send"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/></svg></button>' +
+          '</div>' +
+          '<div class="action-toolbar" aria-label="Message actions">' +
+            '<button type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9" r="1.5"/><path d="m21 15-4-4L7 20"/></svg><span>Photo</span></button>' +
+            '<button type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m21.4 11.6-8.8 8.8a6 6 0 0 1-8.5-8.5l8.1-8.1a4 4 0 1 1 5.7 5.7l-8.1 8.1a2 2 0 0 1-2.8-2.8l7.4-7.4"/></svg><span>Attach file</span></button>' +
+            '<button type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18M5 4h14v16H5z"/><path d="M8 11h8M8 15h5"/></svg><span>Share listing</span></button>' +
+            '<button type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg><span>Availability</span></button>' +
+            '<button type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg><span>Create booking</span></button>' +
           '</div>' +
         '</div>';
 
@@ -1552,7 +1625,7 @@
           '<div class="related-listing">' +
             '<div class="listing-context-thumb">' + thumbHtml + '</div>' +
             '<div style="min-width:0"><div class="related-listing-title">' + escapeHtml(listingTitle) + '</div><div class="related-listing-sub">' + (priceHtml || escapeHtml(locationText)) + '</div></div>' +
-            '<a class="related-listing-book" href="/booking?listing=' + encodeURIComponent(conv.listing_id) + '">View</a>' +
+            '<a class="related-listing-book" href="/booking?listing=' + encodeURIComponent(conv.listing_id) + '">View listing</a>' +
           '</div>' +
         '</div>' +
         '<div class="details-section">' +
@@ -1562,8 +1635,8 @@
             ? '<button type="button" class="action-row"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m22 4-10 10-3-3"/></svg>Mark as booked</button>' +
               '<button type="button" class="action-row"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8v13H3V8M1 3h22v5H1zM10 12h4"/></svg>Archive conversation</button>' +
               '<button type="button" class="action-row danger"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/></svg>Report / Block user</button>'
-            : '<button type="button" class="action-row"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1Z"/></svg>Save host</button>' +
-              '<button type="button" class="action-row danger"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/></svg>Report host</button>') +
+            :             '<button type="button" class="action-row"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1Z"/></svg>Save conversation</button>' +
+            '<button type="button" class="action-row danger"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/></svg>Report / Block user</button>') +
         '</div>';
 
       document.getElementById('thread-back-btn').addEventListener('click', backToList);
