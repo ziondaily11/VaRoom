@@ -736,6 +736,155 @@
       display: none !important;
     }
 
+    /* Property walkthrough foundation */
+    .property-video-experience {
+      position: relative;
+      min-width: 0;
+      overflow: hidden;
+      border-radius: 18px;
+      background: #0b0706;
+      isolation: isolate;
+    }
+
+    .property-video-experience::before {
+      content: '';
+      display: block;
+      aspect-ratio: 16 / 9;
+    }
+
+    .property-video-loading {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      display: grid;
+      place-items: center;
+      color: rgba(255, 255, 255, 0.72);
+      background: #0b0706;
+      transition: opacity 0.35s ease;
+    }
+
+    .property-video-loading::after {
+      content: '';
+      width: 34px;
+      height: 34px;
+      border: 2px solid rgba(255, 255, 255, 0.22);
+      border-top-color: var(--crimson);
+      border-radius: 50%;
+      animation: propertyVideoSpin 0.9s linear infinite;
+    }
+
+    .property-video-experience.is-ready .property-video-loading,
+    .property-video-experience.is-error .property-video-loading {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    @keyframes propertyVideoSpin {
+      to { transform: rotate(360deg); }
+    }
+
+    .property-video {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: contain;
+      background: #0b0706;
+    }
+
+    .property-video-scrim {
+      position: absolute;
+      inset: auto 0 0;
+      z-index: 2;
+      height: 32%;
+      pointer-events: none;
+      background: linear-gradient(transparent, rgba(8, 5, 4, 0.72));
+    }
+
+    .property-video-caption {
+      position: absolute;
+      left: 18px;
+      bottom: 16px;
+      z-index: 3;
+      max-width: 68%;
+      color: rgba(255, 255, 255, 0.9);
+      font: 600 10px/1.4 var(--mono);
+      letter-spacing: 1.4px;
+      text-transform: uppercase;
+    }
+
+    .property-video-controls {
+      position: absolute;
+      right: 14px;
+      bottom: 12px;
+      z-index: 4;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .property-video-control {
+      display: grid;
+      place-items: center;
+      min-width: 34px;
+      height: 34px;
+      padding: 0 8px;
+      border: 1px solid rgba(255, 255, 255, 0.24);
+      border-radius: 50%;
+      color: white;
+      background: rgba(8, 5, 4, 0.52);
+      font: 600 9px var(--mono);
+      backdrop-filter: blur(8px);
+      cursor: pointer;
+      transition: background 0.2s ease, border-color 0.2s ease;
+    }
+
+    .property-video-control:hover,
+    .property-video-control:focus-visible {
+      border-color: rgba(255, 255, 255, 0.58);
+      background: rgba(196, 30, 58, 0.76);
+    }
+
+    .property-video-progress {
+      width: 72px;
+      height: 3px;
+      overflow: hidden;
+      border-radius: 99px;
+      background: rgba(255, 255, 255, 0.28);
+    }
+
+    .property-video-progress-value {
+      width: 0;
+      height: 100%;
+      background: var(--crimson);
+      transition: width 0.15s linear;
+    }
+
+    .property-video-play-fallback {
+      position: absolute;
+      inset: 50% auto auto 50%;
+      z-index: 4;
+      display: none;
+      transform: translate(-50%, -50%);
+      padding: 12px 18px;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 999px;
+      color: white;
+      background: rgba(8, 5, 4, 0.7);
+      backdrop-filter: blur(10px);
+      cursor: pointer;
+    }
+
+    .property-video-experience.is-paused .property-video-play-fallback,
+    .property-video-experience.is-error .property-video-play-fallback {
+      display: block;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .property-video-loading::after { animation: none; }
+    }
+
     @keyframes deckFloat {
       0%, 100% { transform: translateY(0); }
       50% { transform: translateY(-5px); }
@@ -2730,6 +2879,38 @@
       .final-cta h2 { font-size: 52px; letter-spacing: -4px; }
       .footer-links { grid-template-columns: 1fr 1fr; }
     }
+
+    @media (max-width: 900px) {
+      .property-video-experience {
+        border-radius: 14px;
+      }
+
+      .property-video-caption {
+        left: 12px;
+        bottom: 12px;
+        max-width: 58%;
+        font-size: 9px;
+      }
+
+      .property-video-controls {
+        right: 10px;
+        bottom: 8px;
+      }
+    }
+
+    @media (max-width: 600px) {
+      .property-video-experience::before {
+        aspect-ratio: 4 / 3;
+      }
+
+      .property-video {
+        object-fit: contain;
+      }
+
+      .property-video-progress {
+        width: 48px;
+      }
+    }
   </style>
 </head>
 <body>
@@ -2855,6 +3036,31 @@
         Real spaces. Real people. A better way to find where you're going next.
       </p>
 
+    </div>
+
+    <div class="property-video-experience" id="property-video-experience">
+      <div class="property-video-loading" aria-label="Loading property walkthrough"></div>
+      <video
+        class="property-video"
+        id="property-video"
+        src="/assets/vid102.mp4"
+        preload="metadata"
+        autoplay
+        muted
+        playsinline
+        loop
+        aria-label="Cinematic walkthrough of a VaRoom property"
+      ></video>
+      <div class="property-video-scrim" aria-hidden="true"></div>
+      <span class="property-video-caption">Walk through the property</span>
+      <div class="property-video-controls" aria-label="Property walkthrough controls">
+        <button type="button" class="property-video-control" id="property-video-toggle" aria-label="Pause walkthrough">Pause</button>
+        <div class="property-video-progress" aria-hidden="true">
+          <div class="property-video-progress-value" id="property-video-progress-value"></div>
+        </div>
+        <button type="button" class="property-video-control" id="property-video-mute" aria-label="Unmute walkthrough">Sound</button>
+      </div>
+      <button type="button" class="property-video-play-fallback" id="property-video-play">Play walkthrough</button>
     </div>
 
     <!-- Living Motion Deck Column (Right - Active Above The Fold) -->
@@ -4070,6 +4276,100 @@
       console.error('Google sign-in failed:', e.message);
     }
   });
+})();
+</script>
+
+<script>
+/* ── Property walkthrough playback ── */
+(function() {
+  var video = document.getElementById('property-video');
+  var experience = document.getElementById('property-video-experience');
+  var toggle = document.getElementById('property-video-toggle');
+  var mute = document.getElementById('property-video-mute');
+  var playFallback = document.getElementById('property-video-play');
+  var progress = document.getElementById('property-video-progress-value');
+
+  if (!video || !experience) return;
+
+  // Keep the cinematic pacing adjustable from one clear configuration point.
+  var PROPERTY_VIDEO_PLAYBACK_RATE = 0.65;
+  var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  video.playbackRate = PROPERTY_VIDEO_PLAYBACK_RATE;
+
+  function updatePlayState() {
+    var paused = video.paused || video.ended;
+    experience.classList.toggle('is-paused', paused);
+    toggle.textContent = paused ? 'Play' : 'Pause';
+    toggle.setAttribute('aria-label', paused ? 'Play walkthrough' : 'Pause walkthrough');
+  }
+
+  function updateMuteState() {
+    mute.textContent = video.muted ? 'Sound' : 'Mute';
+    mute.setAttribute('aria-label', video.muted ? 'Unmute walkthrough' : 'Mute walkthrough');
+  }
+
+  function attemptPlay() {
+    video.playbackRate = PROPERTY_VIDEO_PLAYBACK_RATE;
+    var result = video.play();
+    if (result && result.catch) {
+      result.catch(function() {
+        experience.classList.add('is-paused');
+        updatePlayState();
+      });
+    }
+  }
+
+  video.addEventListener('loadeddata', function() {
+    experience.classList.add('is-ready');
+  });
+
+  video.addEventListener('canplay', function() {
+    experience.classList.add('is-ready');
+  });
+
+  video.addEventListener('playing', function() {
+    experience.classList.remove('is-error');
+    updatePlayState();
+  });
+
+  video.addEventListener('pause', updatePlayState);
+  video.addEventListener('ended', updatePlayState);
+
+  video.addEventListener('timeupdate', function() {
+    if (!Number.isFinite(video.duration) || video.duration <= 0) return;
+    progress.style.width = ((video.currentTime / video.duration) * 100) + '%';
+  });
+
+  video.addEventListener('error', function() {
+    experience.classList.add('is-error');
+    experience.classList.add('is-paused');
+    updatePlayState();
+  });
+
+  toggle.addEventListener('click', function() {
+    if (video.paused || video.ended) {
+      attemptPlay();
+    } else {
+      video.pause();
+    }
+  });
+
+  playFallback.addEventListener('click', attemptPlay);
+
+  mute.addEventListener('click', function() {
+    video.muted = !video.muted;
+    updateMuteState();
+    if (!video.paused) attemptPlay();
+  });
+
+  updateMuteState();
+  updatePlayState();
+  if (reduceMotion) {
+    video.pause();
+  } else {
+    attemptPlay();
+  }
 })();
 </script>
 
