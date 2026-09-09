@@ -470,6 +470,189 @@
     .details-heading{ font-size:.64rem; margin-bottom:.5rem; }
     .detail-value,.detail-kv,.action-row{ font-size:.7rem; }
   }
+
+  /* Mobile alignment corrections */
+  @media (max-width:760px){
+    .topbar{
+      background:#FFFFFF;
+      color:#1E1E1E;
+      border-bottom:1px solid #E5E7EB;
+      box-shadow:0 1px 5px rgba(15,23,42,.06);
+      position:relative;
+      z-index:10;
+    }
+    .topbar-title h1,
+    .mobile-menu-btn,
+    .topbar .icon-btn{ color:#1E1E1E; }
+    .chip-row{
+      background:#FFFFFF;
+      padding:12px 16px;
+      gap:8px;
+    }
+    .chip{
+      flex:0 0 auto;
+      min-height:32px;
+      padding:6px 16px;
+      border:0;
+      border-radius:999px;
+      background:#F3F4F6;
+      color:#374151;
+      line-height:20px;
+    }
+    .chip.active{
+      background:#D32F2F;
+      color:#FFFFFF;
+    }
+    .conv-item{
+      position:relative;
+      display:grid;
+      grid-template-columns:48px minmax(0,1fr);
+      align-items:start;
+      gap:12px;
+      min-height:78px;
+      padding:12px 16px;
+      border-left:0;
+      border-bottom:1px solid #E5E7EB;
+    }
+    .conv-avatar,
+    .conv-item .conv-avatar{
+      width:48px;
+      height:48px;
+      border-radius:50%;
+    }
+    .conv-info{
+      display:block;
+      min-width:0;
+      padding-right:68px;
+    }
+    .conv-name-row{
+      display:block;
+      min-height:18px;
+    }
+    .conv-name{
+      font-size:.8rem;
+      font-weight:600;
+      color:#1E1E1E;
+    }
+    .conv-time{
+      position:absolute;
+      top:13px;
+      right:16px;
+      margin:0;
+      color:#6B7280;
+      font-size:.62rem;
+    }
+    .conv-preview-row{
+      display:block;
+      margin-top:3px;
+    }
+    .conv-preview{
+      display:block;
+      max-width:100%;
+      color:#6B7280;
+      font-size:.72rem;
+      line-height:18px;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .conv-listing-row{
+      display:block;
+      margin-top:2px;
+      min-height:17px;
+    }
+    .conv-listing{
+      display:block;
+      max-width:100%;
+      color:#9CA3AF;
+      font-size:.64rem;
+      line-height:16px;
+    }
+    .conv-listing-row .tag-pill{
+      position:absolute;
+      right:16px;
+      bottom:12px;
+      padding:3px 7px;
+      border-radius:999px;
+      font-size:.58rem;
+    }
+    .thread-header{
+      position:sticky;
+      top:0;
+      z-index:8;
+      background:#FFFFFF;
+      color:#1E1E1E;
+      border-bottom:1px solid #E5E7EB;
+      box-shadow:0 1px 5px rgba(15,23,42,.06);
+      padding:10px 12px;
+    }
+    .thread-header .thread-back,
+    .thread-header-actions button{ color:#1E1E1E; }
+    .listing-context{
+      width:calc(100% - 32px);
+      margin:12px 16px 0;
+      padding:12px;
+      background:#FFFFFF;
+      border:1px solid #E5E7EB;
+      border-radius:12px;
+      box-shadow:none;
+    }
+    .listing-context-info{ min-width:0; }
+    .listing-context-book{ margin-left:auto; }
+    .messages-area{ padding:12px 16px; gap:10px; }
+    .msg-row{ max-width:75%; }
+    .msg-bubble{
+      max-width:100%;
+      padding:12px;
+      border-radius:16px;
+      line-height:1.4;
+    }
+    .msg-row.mine .msg-bubble{ border-bottom-right-radius:5px; }
+    .msg-row:not(.mine) .msg-bubble{ border-bottom-left-radius:5px; }
+    .msg-time{
+      justify-content:flex-end;
+      margin-top:3px;
+      font-size:.58rem;
+    }
+    .composer-wrap{
+      padding:0 16px 8px;
+      background:#FFFFFF;
+      border-top:1px solid #E5E7EB;
+    }
+    .quick-actions{
+      display:flex;
+      overflow-x:auto;
+      gap:8px;
+      padding:8px 0;
+      scrollbar-width:none;
+    }
+    .quick-actions::-webkit-scrollbar{ display:none; }
+    .quick-action{
+      flex:0 0 auto;
+      padding:6px 12px;
+      border:1px solid #D1D5DB;
+      border-radius:999px;
+      background:#FFFFFF;
+      color:#374151;
+      font-size:.62rem;
+    }
+    .composer{
+      position:relative;
+      z-index:1;
+      border:1px solid #D1D5DB;
+      border-radius:999px;
+      background:#FFFFFF;
+    }
+    .action-toolbar{
+      display:flex;
+      position:static;
+      gap:4px;
+      padding:8px 0 0;
+      border-top:0;
+      background:#FFFFFF;
+    }
+    .action-toolbar button{ color:#6B7280; }
+  }
 </style>
 </head>
 <body>
