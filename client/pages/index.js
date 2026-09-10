@@ -1,5 +1,7 @@
 import Head from 'next/head';
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/router';
 import styles from '../styles/landing.module.css';
 
 function PinIcon() {
@@ -26,7 +28,48 @@ const trustItems = [
   { label: <>Secure<br />bookings</>, icon: <ShieldIcon lock /> },
 ];
 
+const roleOptions = [
+  {
+    title: 'Register as Host',
+    description: 'List and showcase your spaces — Airbnbs, hotels, venues, offices, shops, or property.',
+    href: '/signup-host',
+  },
+  {
+    title: 'Register as Client',
+    description: 'Find suitable places for events, stays, workspaces and more.',
+    href: '/signup-client',
+  },
+];
+
 export default function LandingPage() {
+  const router = useRouter();
+  const [isRoleModalOpen, setRoleModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (router.isReady && router.query.signup === '1') {
+      setRoleModalOpen(true);
+    }
+  }, [router.isReady, router.query.signup]);
+
+  useEffect(() => {
+    if (!isRoleModalOpen) return undefined;
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') setRoleModalOpen(false);
+    };
+    document.addEventListener('keydown', closeOnEscape);
+    return () => document.removeEventListener('keydown', closeOnEscape);
+  }, [isRoleModalOpen]);
+
+  function openRoleModal(event) {
+    event.preventDefault();
+    setRoleModalOpen(true);
+  }
+
+  function signupHref(href) {
+    const redirect = typeof router.query.redirect === 'string' ? router.query.redirect : '';
+    return redirect ? `${href}?redirect=${encodeURIComponent(redirect)}` : href;
+  }
+
   return (
     <>
       <Head>
@@ -51,7 +94,7 @@ export default function LandingPage() {
           </nav>
           <div className={styles.headerActions}>
             <Link className={styles.signIn} href="/login">Sign in</Link>
-            <Link className={styles.startButton} href="/register">Get started</Link>
+            <a className={styles.startButton} href="/?signup=1" onClick={openRoleModal}>Get started</a>
           </div>
         </header>
 
@@ -74,6 +117,25 @@ export default function LandingPage() {
             ))}
           </div>
         </section>
+        {isRoleModalOpen && (
+          <div className={styles.modalOverlay} role="presentation" onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setRoleModalOpen(false);
+          }}>
+            <section className={styles.roleModal} role="dialog" aria-modal="true" aria-labelledby="join-title">
+              <button className={styles.modalClose} type="button" onClick={() => setRoleModalOpen(false)} aria-label="Close account type selection">×</button>
+              <h2 id="join-title">Join VaRoom</h2>
+              <p className={styles.modalSubtitle}>How are you using VaRoom?</p>
+              <div className={styles.roleOptions}>
+                {roleOptions.map((option) => (
+                  <Link className={styles.roleOption} href={signupHref(option.href)} key={option.href}>
+                    <span className={styles.roleTitle}>{option.title}</span>
+                    <span className={styles.roleDescription}>{option.description}</span>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          </div>
+        )}
       </main>
     </>
   );

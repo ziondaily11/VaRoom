@@ -238,7 +238,7 @@
       link.href = '/login?redirect=' + encodeURIComponent(window.location.href);
     });
     document.querySelectorAll('a[href="/register"]').forEach(function(link){
-      link.href = '/register?redirect=' + encodeURIComponent(window.location.href);
+      link.href = '/?signup=1&redirect=' + encodeURIComponent(window.location.href);
     });
 
     const username = getUsernameFromUrl();
