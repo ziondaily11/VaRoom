@@ -101,10 +101,13 @@
     identity.className = 'varoom-video-viewer-identity';
     var avatar = source && source.querySelector('.card-avatar, .listing-host-avatar, .host-avatar');
     if (video.dataset.videoAvatar) {
+      var avatarContainer = document.createElement('div');
+      avatarContainer.className = 'card-avatar';
       var avatarImage = document.createElement('img');
       avatarImage.src = video.dataset.videoAvatar;
       avatarImage.alt = '';
-      identity.appendChild(avatarImage);
+      avatarContainer.appendChild(avatarImage);
+      identity.appendChild(avatarContainer);
     } else if (avatar) identity.appendChild(avatar.cloneNode(true));
     var identityText = document.createElement('div');
     identityText.className = 'varoom-video-viewer-identity-text';
