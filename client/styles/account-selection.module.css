@@ -1,0 +1,82 @@
+.page {
+  align-items: center;
+  background: rgba(26, 18, 16, .92);
+  display: flex;
+  justify-content: center;
+  min-height: 100svh;
+  padding: 1.5rem;
+}
+
+.card {
+  background: #f8f5ef;
+  border-radius: 4px;
+  box-shadow: 0 40px 80px -30px rgba(26, 18, 16, .5);
+  color: #261b18;
+  max-width: 440px;
+  padding: 2rem 1.8rem;
+  width: 100%;
+}
+
+.backLink {
+  color: #776a64;
+  display: inline-block;
+  font-size: .85rem;
+  font-weight: 600;
+  margin-bottom: 1.8rem;
+  text-decoration: none;
+}
+
+.backLink:hover {
+  color: #261b18;
+}
+
+.card h1 {
+  font-family: Georgia, serif;
+  font-size: 1.75rem;
+  font-weight: 400;
+  margin: 0 0 .3rem;
+}
+
+.subtitle {
+  color: #776a64;
+  font-size: .95rem;
+  margin: 0 0 1.4rem;
+}
+
+.options {
+  display: flex;
+  flex-direction: column;
+  gap: .85rem;
+}
+
+.roleCard {
+  background: #fff;
+  border: 1.5px solid #ded6cf;
+  border-radius: 3px;
+  color: inherit;
+  display: flex;
+  flex-direction: column;
+  gap: .3rem;
+  padding: 1rem 1.1rem;
+  text-align: left;
+  text-decoration: none;
+  transition: border-color .2s ease, transform .2s ease;
+}
+
+.roleCard:hover,
+.roleCard:focus-visible {
+  border-color: #bd2337;
+  outline: none;
+  transform: translateY(-1px);
+}
+
+.roleTitle {
+  font-size: .98rem;
+  font-weight: 700;
+}
+
+.roleDescription {
+  color: #776a64;
+  font-size: .84rem;
+  line-height: 1.45;
+}
