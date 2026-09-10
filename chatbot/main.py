@@ -60,6 +60,16 @@ SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 # straight into public URLs, no signed URLs needed.
 LISTING_PHOTOS_BUCKET = "listing-photos"
 
+# ── Startup diagnostics ─────────────────────────────────────────────
+# Logged once at boot so misconfiguration shows up in deploy logs
+# immediately, not silently on the first user message.
+_key_preview = f"{GEMINI_API_KEY[:6]}...{GEMINI_API_KEY[-4:]}" if GEMINI_API_KEY and len(GEMINI_API_KEY) > 10 else "(not set)"
+print(f"[Elie] Gemini config: model={GEMINI_MODEL}, key={_key_preview}")
+print(f"[Elie] Gemini URL: {GEMINI_URL}")
+print(f"[Elie] Supabase configured: {bool(SUPABASE_URL and SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY)}")
+if not GEMINI_API_KEY:
+    print("[Elie] ⚠ WARNING: GEMINI_API_KEY is not set — all AI calls will use fallback logic only.")
+
 VALID_CATEGORIES = {"airbnb", "hotel", "venue", "office", "shop", "property"}
 
 app = FastAPI(
@@ -128,14 +138,15 @@ async def call_gemini(prompt: str, max_attempts: int = 2) -> Optional[str]:
 
         except httpx.HTTPStatusError as e:
             status = e.response.status_code
-            # 4xx (bad key, bad request, quota exhausted) won't fix itself
+            body_preview = e.response.text[:500]
+            # 4xx (bad key, bad model, quota exhausted) won't fix itself
             # on retry — fail fast instead of wasting the user's wait time.
             if 400 <= status < 500:
                 logger.error(
                     "Gemini request rejected (model=%s, status=%s, body=%s)",
                     GEMINI_MODEL,
                     status,
-                    e.response.text[:500],
+                    body_preview,
                 )
                 return None
             logger.warning(
