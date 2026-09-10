@@ -60,14 +60,25 @@
 
 .desktopNav a,
 .signIn {
-  color: rgba(250, 249, 244, .84);
+  align-items: center;
+  border: 1px solid rgba(255, 255, 255, .48);
+  border-radius: 999px;
+  color: #fff;
+  display: inline-flex;
   font-size: .85rem;
+  min-height: 40px;
+  padding: 0 1.05rem;
   text-decoration: none;
 }
 
 .desktopNav a:hover,
 .signIn:hover {
   color: #fff;
+}
+
+.signIn:hover {
+  background: rgba(255, 255, 255, .12);
+  border-color: rgba(255, 255, 255, .75);
 }
 
 .chevron {
@@ -82,12 +93,6 @@
   gap: clamp(1rem, 2vw, 2rem);
 }
 
-.search {
-  display: inline-flex;
-  width: 24px;
-}
-
-.search svg,
 .eyebrow svg,
 .trustItem svg {
   fill: none;

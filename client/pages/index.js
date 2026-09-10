@@ -2,15 +2,6 @@ import Head from 'next/head';
 import Link from 'next/link';
 import styles from '../styles/landing.module.css';
 
-function SearchIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <circle cx="10.8" cy="10.8" r="6.8" />
-      <path d="m16 16 5 5" />
-    </svg>
-  );
-}
-
 function PinIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -59,7 +50,6 @@ export default function LandingPage() {
             <a href="#contact">Contact</a>
           </nav>
           <div className={styles.headerActions}>
-            <Link className={styles.search} href="/marketplace" aria-label="Search listings"><SearchIcon /></Link>
             <Link className={styles.signIn} href="/login">Sign in</Link>
             <Link className={styles.startButton} href="/register">Get started</Link>
           </div>
