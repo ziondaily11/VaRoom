@@ -444,7 +444,7 @@
   </div>
 
   <nav class="nav-links">
-    <a href="/client-home" id="nav-explore">Explore</a>
+    <a href="/marketplace" id="nav-explore">Marketplace</a>
     <a href="/bookings">My Bookings</a>
     <a href="/become-host">Become a Host</a>
     <a href="/support">Help</a>
@@ -595,7 +595,7 @@
     currentRole = profile.role;
     homeHref = currentRole === 'host' ? '/host-home' : '/client-home';
     document.getElementById('logo-link').setAttribute('href', homeHref);
-    document.getElementById('nav-explore').setAttribute('href', homeHref);
+    document.getElementById('nav-explore').setAttribute('href', '/marketplace');
     document.getElementById('menu-home-link').setAttribute('href', homeHref);
     document.getElementById('menu-home-text').textContent = currentRole === 'host' ? 'Host dashboard' : 'My home';
 

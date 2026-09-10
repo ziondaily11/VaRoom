@@ -88,7 +88,7 @@ export default function LandingPage() {
           </Link>
           <nav className={styles.desktopNav} aria-label="Main navigation">
             <Link href="/properties">Properties <span className={styles.chevron}>⌄</span></Link>
-            <Link href="/marketplace">Explore <span className={styles.chevron}>⌄</span></Link>
+            <Link href="/marketplace">Marketplace <span className={styles.chevron}>⌄</span></Link>
             <a href="#about">About</a>
             <a href="#contact">Contact</a>
           </nav>
@@ -106,7 +106,7 @@ export default function LandingPage() {
             {' '}and prime properties — VaRoom connects you with<br className={styles.desktopBreak} />
             {' '}real, verified spaces, right where you are.
           </p>
-          <Link className={styles.primaryButton} href="/marketplace">Explore listings <span aria-hidden="true">→</span></Link>
+          <Link className={styles.primaryButton} href="/marketplace">Marketplace <span aria-hidden="true">→</span></Link>
 
           <div className={styles.trustRow} aria-label="VaRoom trust indicators">
             {trustItems.map((item, index) => (

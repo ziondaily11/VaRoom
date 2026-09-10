@@ -760,10 +760,10 @@
     </nav>
 
     <nav class="nav-group">
-      <div class="nav-item" data-nav="explore">
+      <a href="/marketplace" class="nav-item" data-nav="explore">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m15 9-2 6-6 2 2-6 6-2Z"/></svg>
-        Explore
-      </div>
+        Marketplace
+      </a>
       <div class="nav-item" data-nav="saved" data-mobile-hide>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h12a1 1 0 0 1 1 1V21l-7-4-7 4V4.5a1 1 0 0 1 1-1Z"/></svg>
         Saved
@@ -1632,7 +1632,7 @@
       if (data.length === 0) {
         const isEmptyHome = currentView === 'home' && currentCategory === 'all' && !searchTerm.trim() && interestedCategories.length > 0;
         feedList.innerHTML = '<p class="state-msg">' + (isEmptyHome
-          ? 'Nothing matching your interests yet — try Explore to see everything.'
+          ? 'Nothing matching your interests yet — try Marketplace to see everything.'
           : 'No listings match yet — try a different category, location, or @username.') + '</p>';
         return;
       }
@@ -1819,7 +1819,7 @@
     function showExploreView(){
       setActiveNav('explore');
       currentView = 'explore';
-      document.getElementById('feed-title').textContent = 'Explore everything';
+      document.getElementById('feed-title').textContent = 'Marketplace';
       resetFilters();
       loadFeed();
       updateMarketplaceSwitch();
@@ -1848,7 +1848,7 @@
 
     document.querySelectorAll('.nav-item[data-nav]').forEach(function(item){
       item.addEventListener('click', function(){
-        if (item.getAttribute('data-nav') === 'explore' && window.matchMedia('(max-width: 860px)').matches) {
+        if (item.getAttribute('data-nav') === 'explore') {
           window.location.href = '/marketplace';
           return;
         }
