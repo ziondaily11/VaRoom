@@ -50,15 +50,15 @@
 .varoom-video-viewer-details {
   position: absolute;
   right: 0;
-  bottom: 4.25rem;
+  bottom: 3.1rem;
   left: 0;
   z-index: 2;
   display: flex;
   flex-direction: column;
-  gap: .55rem;
-  padding: 5rem 1rem max(1.25rem, env(safe-area-inset-bottom));
+  gap: .45rem;
+  padding: 1.6rem 1rem .5rem;
   color: #fff;
-  background: linear-gradient(transparent, rgba(0, 0, 0, .82) 35%);
+  background: linear-gradient(transparent, rgba(0, 0, 0, .34) 92%);
   pointer-events: none;
 }
 
@@ -223,6 +223,22 @@
 .varoom-video-player.controls-visible .varoom-video-controls {
   opacity: 1;
   pointer-events: auto;
+}
+
+.varoom-video-viewer .varoom-video-controls {
+  padding: .25rem .65rem .35rem;
+  background: linear-gradient(transparent, rgba(0, 0, 0, .24));
+  transform: translateY(.2rem);
+  transition: opacity .2s ease, transform .2s ease;
+}
+
+.varoom-video-viewer .varoom-video-player:hover .varoom-video-controls,
+.varoom-video-viewer .varoom-video-player:focus-within .varoom-video-controls,
+.varoom-video-viewer .varoom-video-player.is-ended .varoom-video-controls,
+.varoom-video-viewer .varoom-video-player.is-error .varoom-video-controls,
+.varoom-video-viewer .varoom-video-player:fullscreen .varoom-video-controls,
+.varoom-video-viewer .varoom-video-player.controls-visible .varoom-video-controls {
+  transform: translateY(-.25rem);
 }
 
 .varoom-video-viewer .varoom-video-player:not(.is-fullscreen) .varoom-video-controls {
