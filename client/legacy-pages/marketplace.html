@@ -113,7 +113,7 @@
   .card-media .placeholder{ display:flex; align-items:center; justify-content:center; height:100%; color:var(--ink); background:var(--paper); font-size:.78rem; text-align:center; padding:1rem; }
   .card-save{
     position:absolute; top:.6rem; right:.6rem; width:32px; height:32px; border-radius:50%; border:none;
-    background:rgba(255,255,255,.85); display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--ink);
+    z-index:2; background:rgba(255,255,255,.9); display:flex; align-items:center; justify-content:center; cursor:pointer; color:#1A1210;
   }
   .card-save.saved{ color:var(--red); }
   .card-verified{
@@ -537,12 +537,25 @@
       const playback = await playbackResponse.json();
       const currentElement = document.querySelector('[data-media-listing-id="' + listingId + '"]');
       if (!currentElement || currentElement !== element || !playback.url) return;
-      const fallback = element.innerHTML;
-      element.innerHTML = '<video class="card-video" muted playsinline controls preload="metadata"></video>';
+      const mediaNodes = Array.from(element.children).filter(function(child){
+        return !child.classList.contains('card-verified') && !child.classList.contains('card-save');
+      });
+      mediaNodes.forEach(function(node){ node.remove(); });
+      const video = document.createElement('video');
+      video.className = 'card-video';
+      video.muted = true;
+      video.playsInline = true;
+      video.controls = true;
+      video.preload = 'metadata';
+      element.insertBefore(video, element.firstChild);
       element.dataset.videoId = media.id;
-      const video = element.querySelector('video');
       video.src = playback.url;
-      video.addEventListener('error', function(){ element.innerHTML = fallback; }, { once: true });
+      video.addEventListener('error', function(){
+        video.remove();
+        const mediaFragment = document.createDocumentFragment();
+        mediaNodes.forEach(function(node){ mediaFragment.appendChild(node); });
+        element.insertBefore(mediaFragment, element.firstChild);
+      }, { once: true });
     } catch (error) {
       console.warn('Marketplace video preview unavailable:', error.message);
     }
