@@ -168,6 +168,18 @@
     return details;
   }
 
+  function listingVideoUrl(wrapper) {
+    return wrapper._varoomVideoUrl || wrapper.querySelector('video').dataset.videoUrl || wrapper.querySelector('video').getAttribute('src') || '';
+  }
+
+  function setListingVideoSource(wrapper) {
+    var video = wrapper.querySelector('video');
+    var source = listingVideoUrl(wrapper);
+    if (!source || video.getAttribute('src') === source) return;
+    video.setAttribute('src', source);
+    video.load();
+  }
+
   function updateViewerDetails(slide, wrapper) {
     var existing = slide.querySelector('.varoom-video-viewer-details');
     if (existing) existing.remove();
@@ -187,6 +199,7 @@
     wrappers.forEach(function (wrapper) {
       var placeholder = document.createComment('varoom-video-placeholder');
       wrapper._varoomSource = wrapper.closest('.card, .listing-card');
+      wrapper._varoomVideoUrl = listingVideoUrl(wrapper);
       wrapper.parentNode.insertBefore(placeholder, wrapper);
       viewerState.placeholders.push({ wrapper: wrapper, placeholder: placeholder });
       var slide = document.createElement('section');
@@ -207,6 +220,7 @@
     var selectedIndex = wrappers.indexOf(selectedWrapper);
     viewerTrack.scrollTop = Math.max(0, selectedIndex) * window.innerHeight;
     activeWrapper = selectedWrapper;
+    setListingVideoSource(selectedWrapper);
     selectedWrapper.classList.add('is-fullscreen');
     selectedWrapper.querySelector('video').preload = 'metadata';
     updateFullscreenButton(selectedWrapper);
@@ -280,6 +294,7 @@
       var video = wrapper.querySelector('video');
       video.preload = Math.abs(wrapperIndex - index) <= 1 ? 'metadata' : 'none';
     });
+    setListingVideoSource(activeWrapper);
     activeWrapper.classList.add('is-fullscreen');
     updateViewerDetails(slide, activeWrapper);
     updateFullscreenButton(activeWrapper);
@@ -318,6 +333,7 @@
     wrapper.className = 'varoom-video-player';
     video.parentNode.insertBefore(wrapper, video);
     wrapper.appendChild(video);
+    wrapper._varoomVideoUrl = video.dataset.videoUrl || video.getAttribute('src') || '';
     wrapper.insertAdjacentHTML('beforeend',
       '<div class="varoom-video-status" role="status"><span class="varoom-video-status-text"></span><br><button type="button" class="varoom-video-error-retry">Retry</button></div>' +
       '<button type="button" class="varoom-video-control varoom-video-mobile-mute" data-video-action="mobile-mute" aria-label="Unmute video"></button>' +

@@ -1378,7 +1378,7 @@
       const avatarUrl = profileData.avatar_url
         ? (profileData.avatar_url.startsWith('http') ? profileData.avatar_url : supabaseClient.storage.from('avatars').getPublicUrl(profileData.avatar_url).data.publicUrl)
         : '';
-      return '<div class="listing-thumb"><video muted playsinline preload="none" src="' + videoUrl + '" data-video-host-name="' + escapeAttr(profileData.full_name || 'Host') + '" data-video-username="' + escapeAttr(profileData.username ? '@' + profileData.username : '') + '" data-video-avatar="' + escapeAttr(avatarUrl) + '" data-video-caption="' + escapeAttr(listing.title) + '" style="width:100%;height:100%;object-fit:cover;display:block;background:#000;"></video><span class="listing-cat-pill">' + (CAT_LABELS[listing.category] || listing.category) + '</span></div>';
+      return '<div class="listing-thumb"><video muted playsinline preload="none" src="' + videoUrl + '" data-video-url="' + videoUrl + '" data-video-host-name="' + escapeAttr(profileData.full_name || 'Host') + '" data-video-username="' + escapeAttr(profileData.username ? '@' + profileData.username : '') + '" data-video-avatar="' + escapeAttr(avatarUrl) + '" data-video-caption="' + escapeAttr(listing.title) + '" style="width:100%;height:100%;object-fit:cover;display:block;background:#000;"></video><span class="listing-cat-pill">' + (CAT_LABELS[listing.category] || listing.category) + '</span></div>';
     }
     const photoUrl = getPhotoUrl(listing);
     const thumb = photoUrl ? '<img src="' + photoUrl + '" alt="' + listing.title + '" loading="lazy">' : '';
