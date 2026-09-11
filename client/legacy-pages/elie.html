@@ -336,9 +336,13 @@
     if (introCardEl) introHtml = introCardEl.outerHTML;
 
     function escapeHtml(str){
-      const div = document.createElement('div');
-      div.textContent = str || '';
-      return div.innerHTML;
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
     }
 
     // ---------- Session persistence (Recent chats) ----------
@@ -565,12 +569,16 @@
         filterRow.style.marginBottom = '-.4rem';
         filterRow.innerHTML = filterBarHtml;
         chatArea.appendChild(filterRow);
-        filterRow.querySelector('.edit-search-chip').addEventListener('click', function(){
-          chatInput.value = this.getAttribute('data-edit-query');
-          chatInput.focus();
-          chatInput.style.height = 'auto';
-          chatInput.style.height = Math.min(chatInput.scrollHeight, 120) + 'px';
-        });
+        const editBtn = filterRow.querySelector('.edit-search-chip');
+        if (editBtn) {
+          editBtn.dataset.editQuery = originalQuery;
+          editBtn.addEventListener('click', function(){
+            chatInput.value = this.dataset.editQuery || this.getAttribute('data-edit-query') || '';
+            chatInput.focus();
+            chatInput.style.height = 'auto';
+            chatInput.style.height = Math.min(chatInput.scrollHeight, 120) + 'px';
+          });
+        }
       }
 
       const groups = {};

@@ -32,5 +32,19 @@ create policy "Users manage their own elie sessions"
 
 create policy "Users manage their own elie messages"
   on elie_messages for all
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+  using (
+    auth.uid() = user_id
+    and exists (
+      select 1 from elie_sessions
+      where elie_sessions.id = elie_messages.session_id
+        and elie_sessions.user_id = auth.uid()
+    )
+  )
+  with check (
+    auth.uid() = user_id
+    and exists (
+      select 1 from elie_sessions
+      where elie_sessions.id = elie_messages.session_id
+        and elie_sessions.user_id = auth.uid()
+    )
+  );
