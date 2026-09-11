@@ -1,0 +1,163 @@
+/*
+ * Shared dark-mode surface system for the legacy dashboard templates.
+ * This file is loaded after each page's inline theme so the shared tokens
+ * remain the single source of truth for the dark visual system.
+ */
+[data-theme="dark"] {
+  --white: #ffffff;
+  --paper: #000000;
+  --surface: #000000;
+  --input-bg: #000000;
+  --ink: #ffffff;
+  --muted: rgba(255, 255, 255, .68);
+  --glass-bg: #000000;
+  --glass-border: rgba(255, 255, 255, .85);
+  --line: rgba(255, 255, 255, .85);
+  --line-soft: rgba(255, 255, 255, .55);
+  --glass-shadow: none;
+  --glow-a: transparent;
+  --glow-b: transparent;
+}
+
+[data-theme="dark"] body {
+  background: #000000 !important;
+  color: var(--ink);
+}
+
+[data-theme="dark"] .app-shell,
+[data-theme="dark"] .main-col,
+[data-theme="dark"] .sidebar,
+[data-theme="dark"] .topbar,
+[data-theme="dark"] .feed-area,
+[data-theme="dark"] .dash-main,
+[data-theme="dark"] .right-rail,
+[data-theme="dark"] .host-rail,
+[data-theme="dark"] .content-row {
+  background: #000000 !important;
+}
+
+[data-theme="dark"] .sidebar,
+[data-theme="dark"] .col-divider {
+  border-color: var(--line) !important;
+  background-color: #000000 !important;
+}
+
+[data-theme="dark"] .card,
+[data-theme="dark"] .stats-card,
+[data-theme="dark"] .listings-glance-card,
+[data-theme="dark"] .rail-card,
+[data-theme="dark"] .notif-panel-card,
+[data-theme="dark"] .property-news-card,
+[data-theme="dark"] .varoom-updates-card,
+[data-theme="dark"] .mobile-widget-card,
+[data-theme="dark"] .glance-tile,
+[data-theme="dark"] .search-wrap {
+  background: #000000 !important;
+  border-color: var(--glass-border) !important;
+  box-shadow: none !important;
+}
+
+[data-theme="dark"] .card,
+[data-theme="dark"] .stats-card,
+[data-theme="dark"] .listings-glance-card,
+[data-theme="dark"] .mobile-widget-card {
+  border: 1px solid var(--glass-border);
+}
+
+[data-theme="dark"] .rail-card,
+[data-theme="dark"] .notif-panel-card,
+[data-theme="dark"] .property-news-card,
+[data-theme="dark"] .varoom-updates-card {
+  border-bottom-color: var(--line) !important;
+}
+
+[data-theme="dark"] .search-wrap {
+  outline: 1px solid var(--glass-border) !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+[data-theme="dark"] .search-wrap input,
+[data-theme="dark"] input,
+[data-theme="dark"] textarea,
+[data-theme="dark"] select {
+  background-color: var(--input-bg);
+  color: var(--ink);
+  border-color: var(--glass-border);
+}
+
+[data-theme="dark"] .search-btn,
+[data-theme="dark"] .icon-btn,
+[data-theme="dark"] .nav-label,
+[data-theme="dark"] .greeting-sub,
+[data-theme="dark"] .stat-label,
+[data-theme="dark"] .glance-sub,
+[data-theme="dark"] .update-body {
+  color: var(--muted);
+}
+
+[data-theme="dark"] .nav-item:hover,
+[data-theme="dark"] button.nav-item.soon-active:hover,
+[data-theme="dark"] .property-news-bar-refresh:hover {
+  background: #000000 !important;
+  color: var(--ink);
+}
+
+[data-theme="dark"] .nav-item.active,
+[data-theme="dark"] .tab.active,
+[data-theme="dark"] .tab[aria-selected="true"] {
+  background: var(--red) !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .tab,
+[data-theme="dark"] .secondary-btn,
+[data-theme="dark"] .action-btn,
+[data-theme="dark"] .report-cancel-btn {
+  background: #000000 !important;
+  border: 1px solid var(--glass-border) !important;
+  color: var(--ink) !important;
+}
+
+[data-theme="dark"] .list-space-btn,
+[data-theme="dark"] .list-btn-top,
+[data-theme="dark"] .list-btn-primary,
+[data-theme="dark"] .report-submit-btn {
+  background: var(--red);
+  color: #ffffff;
+}
+
+[data-theme="dark"] .beta-pill,
+[data-theme="dark"] .soon-pill,
+[data-theme="dark"] .badge-soon {
+  background: #000000 !important;
+  border: 1px solid var(--glass-border);
+  color: var(--muted);
+}
+
+[data-theme="dark"] .listings-glance-card .glance-tile.add-tile {
+  border-color: var(--glass-border) !important;
+  background: #000000 !important;
+}
+
+[data-theme="dark"] .sidebar-note,
+[data-theme="dark"] .verify-box.not-verified {
+  background: #000000 !important;
+  border: 1px solid var(--glass-border);
+  color: var(--ink);
+}
+
+[data-theme="dark"] .bottom-bar {
+  background: #000000 !important;
+  border-color: var(--glass-border) !important;
+  box-shadow: none !important;
+}
+
+[data-theme="dark"] .bottom-bar-item {
+  color: var(--ink);
+}
+
+[data-theme="dark"] .bottom-bar-item.active {
+  background: var(--red) !important;
+  color: #ffffff;
+}
