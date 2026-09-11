@@ -11,9 +11,9 @@
   --ink: #ffffff;
   --muted: rgba(255, 255, 255, .68);
   --glass-bg: #000000;
-  --glass-border: rgba(255, 255, 255, .85);
-  --line: rgba(255, 255, 255, .85);
-  --line-soft: rgba(255, 255, 255, .55);
+  --glass-border: rgba(255, 255, 255, .16);
+  --line: rgba(255, 255, 255, .16);
+  --line-soft: rgba(255, 255, 255, .12);
   --glass-shadow: none;
   --glow-a: transparent;
   --glow-b: transparent;
@@ -72,7 +72,7 @@
 }
 
 [data-theme="dark"] .search-wrap {
-  outline: 1px solid var(--glass-border) !important;
+  outline: 1px solid rgba(255, 255, 255, .20) !important;
   border: 0 !important;
   box-shadow: none !important;
 }
@@ -115,8 +115,13 @@
 [data-theme="dark"] .action-btn,
 [data-theme="dark"] .report-cancel-btn {
   background: #000000 !important;
-  border: 1px solid var(--glass-border) !important;
+  border: 1px solid rgba(255, 255, 255, .20) !important;
   color: var(--ink) !important;
+}
+
+[data-theme="dark"] .tab.active,
+[data-theme="dark"] .tab[aria-selected="true"] {
+  border-color: transparent !important;
 }
 
 [data-theme="dark"] .list-space-btn,
@@ -131,7 +136,7 @@
 [data-theme="dark"] .soon-pill,
 [data-theme="dark"] .badge-soon {
   background: #000000 !important;
-  border: 1px solid var(--glass-border);
+  border: 1px solid rgba(255, 255, 255, .20);
   color: var(--muted);
 }
 
