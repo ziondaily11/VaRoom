@@ -67,7 +67,15 @@
 [data-theme="dark"] .stats-card,
 [data-theme="dark"] .listings-glance-card,
 [data-theme="dark"] .mobile-widget-card {
-  border: 1px solid var(--glass-border);
+  border: 0 !important;
+  border-bottom: 1px solid var(--line-soft) !important;
+  border-radius: 0 !important;
+}
+
+[data-theme="dark"] .card,
+[data-theme="dark"] .stats-card {
+  border-left: 0 !important;
+  border-right: 0 !important;
 }
 
 [data-theme="dark"] .rail-card,
@@ -163,6 +171,11 @@
   border: 0 !important;
 }
 
+[data-theme="dark"] .glance-tile {
+  border-left: 0 !important;
+  border-right: 0 !important;
+}
+
 [data-theme="dark"] .sidebar-note,
 [data-theme="dark"] .verify-box.not-verified {
   background: #000000 !important;
@@ -230,4 +243,14 @@
 [data-theme="dark"] .cta-footer {
   border-color: var(--line-soft) !important;
   background-color: transparent;
+}
+
+@media (max-width: 1180px) {
+  [data-theme="dark"] .sidebar {
+    border-right: 0 !important;
+  }
+
+  [data-theme="dark"] .col-divider {
+    display: none !important;
+  }
 }
