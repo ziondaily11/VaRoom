@@ -337,7 +337,10 @@
   }
 
   .signIn {
-    display: none;
+    display: inline-flex;
+    font-size: .72rem;
+    min-height: 36px;
+    padding: 0 .75rem;
   }
 
   .startButton {
