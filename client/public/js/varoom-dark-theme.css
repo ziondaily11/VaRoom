@@ -8,6 +8,12 @@
   --paper: #000000;
   --surface: #000000;
   --input-bg: #000000;
+  --card-border: rgba(255, 255, 255, .16);
+  --shell-bg: #000000;
+  --sidebar-bg: #000000;
+  --main-bg: #000000;
+  --rail-bg: #000000;
+  --card-bg: #000000;
   --ink: #ffffff;
   --muted: rgba(255, 255, 255, .68);
   --glass-bg: #000000;
@@ -145,6 +151,18 @@
   background: #000000 !important;
 }
 
+[data-theme="dark"] .host-rail .listings-glance-card,
+[data-theme="dark"] .host-rail .notif-panel-card,
+[data-theme="dark"] .host-rail .property-news-card,
+[data-theme="dark"] .host-rail .varoom-updates-card {
+  border: 0 !important;
+}
+
+[data-theme="dark"] .host-rail .glance-tile,
+[data-theme="dark"] .host-rail .glance-tile.add-tile {
+  border: 0 !important;
+}
+
 [data-theme="dark"] .sidebar-note,
 [data-theme="dark"] .verify-box.not-verified {
   background: #000000 !important;
@@ -165,4 +183,51 @@
 [data-theme="dark"] .bottom-bar-item.active {
   background: var(--red) !important;
   color: #ffffff;
+}
+
+[data-theme="dark"] .profile-desktop-shell,
+[data-theme="dark"] .skeleton-shell,
+[data-theme="dark"] .profile-sidebar,
+[data-theme="dark"] .profile-main,
+[data-theme="dark"] .profile-rail,
+[data-theme="dark"] .skeleton-sidebar,
+[data-theme="dark"] .skeleton-main,
+[data-theme="dark"] .skeleton-rail {
+  background: #000000 !important;
+  border-color: var(--line) !important;
+}
+
+[data-theme="dark"] .profile-card,
+[data-theme="dark"] .profile-section,
+[data-theme="dark"] .profile-panel,
+[data-theme="dark"] .skeleton-card,
+[data-theme="dark"] .skel-rail-card {
+  background: #000000 !important;
+  border-color: var(--glass-border) !important;
+  box-shadow: none !important;
+}
+
+[data-theme="dark"] .page,
+[data-theme="dark"] .profile-wrap,
+[data-theme="dark"] .signup-aside,
+[data-theme="dark"] main {
+  background: #000000 !important;
+}
+
+[data-theme="dark"] .signup-aside {
+  border-color: var(--line) !important;
+}
+
+[data-theme="dark"] .listing-card,
+[data-theme="dark"] .listing-menu ul {
+  background: #000000 !important;
+  border-color: var(--glass-border) !important;
+  box-shadow: none !important;
+}
+
+[data-theme="dark"] .aside-divider::before,
+[data-theme="dark"] .aside-divider::after,
+[data-theme="dark"] .cta-footer {
+  border-color: var(--line-soft) !important;
+  background-color: transparent;
 }
