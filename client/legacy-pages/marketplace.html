@@ -27,16 +27,16 @@
 <script src="js/skeleton-loader.js"></script>
 <style>
   :root{
-    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#1A1210; --paper:#FBF4F1;
-    --muted:#7a6b67;
+    --red:#C41E3A; --red-deep:#8F1229; --white:#101418; --ink:#F5F5F4; --paper:#090B0E;
+    --muted:#A9B0BA;
     --font-display:'Fraunces', serif; --font-body:'Inter', sans-serif;
+    --line:rgba(255,255,255,.10);
+    --line-soft:rgba(255,255,255,.06);
+  }
+  [data-theme="light"]{
+    --white:#FFFFFF; --paper:#FBF4F1; --ink:#1A1210; --muted:#7a6b67;
     --line:rgba(26,18,16,.10);
     --line-soft:rgba(26,18,16,.06);
-  }
-  [data-theme="dark"]{
-    --white:#241C1A; --paper:#15100F; --ink:#F5EFEC; --muted:#B8ACA8;
-    --line:rgba(255,255,255,.12);
-    --line-soft:rgba(255,255,255,.07);
   }
   *{ margin:0; padding:0; box-sizing:border-box; }
   html{ overflow-x:hidden; font-size:16px !important; }
@@ -105,29 +105,46 @@
   .view-toggle button.active{ background:var(--red); color:#fff; }
   .view-toggle button[disabled]{ cursor:not-allowed; opacity:.55; }
 
-  .grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); gap:1.4rem; align-items:stretch; }
-  .card{ background:var(--white); border:1px solid var(--line); border-radius:14px; overflow:hidden; display:grid; grid-template-rows:240px 1fr; height:400px; min-height:400px; color:var(--ink); }
-  .card-media{ position:relative; height:240px; background:var(--paper); overflow:hidden; }
+  .grid{
+    display:flex; gap:1.15rem; align-items:stretch; overflow-x:auto; padding:0 0 .35rem; scroll-snap-type:x proximity;
+    scrollbar-width:none; -ms-overflow-style:none;
+  }
+  .grid::-webkit-scrollbar{ display:none; }
+  .card{
+    position:relative; flex:0 0 clamp(300px, 32vw, 470px); height:320px; min-height:320px; border-radius:18px; overflow:hidden;
+    background:var(--paper); border:1px solid var(--line); box-shadow:0 12px 24px rgba(4,6,8,.22); scroll-snap-align:start; cursor:pointer;
+  }
+  .card-media{ position:absolute; inset:0; background:var(--paper); overflow:hidden; }
   .card-media img{ width:100%; height:100%; object-fit:cover; display:block; }
   .image-fallback{ display:block; width:100%; height:100%; }
   .card-media .placeholder{ display:flex; align-items:center; justify-content:center; height:100%; color:var(--ink); background:var(--paper); font-size:.78rem; text-align:center; padding:1rem; }
+  .card::after{
+    content:""; position:absolute; inset:0; background:linear-gradient(180deg, rgba(8,11,14,0.08) 0%, rgba(8,11,14,0.18) 28%, rgba(8,11,14,0.78) 100%);
+    pointer-events:none; z-index:1;
+  }
   .card-save{
-    position:absolute; top:.6rem; right:.6rem; width:32px; height:32px; border-radius:50%; border:none;
-    z-index:2; background:rgba(255,255,255,.9); display:flex; align-items:center; justify-content:center; cursor:pointer; color:#1A1210;
+    position:absolute; top:.75rem; right:.75rem; width:32px; height:32px; border-radius:50%; border:none; z-index:3;
+    background:rgba(15,19,24,.42); backdrop-filter: blur(8px); display:flex; align-items:center; justify-content:center; cursor:pointer; color:#fff;
+    box-shadow:0 8px 18px rgba(0,0,0,.18);
   }
-  .card-save.saved{ color:var(--red); }
+  .card-save.saved{ color:#fff; background:rgba(196,30,58,.7); }
   .card-verified{
-    position:absolute; top:.6rem; left:.6rem; background:rgba(26,18,16,.75); color:#fff; font-size:.68rem; font-weight:700;
-    padding:.2rem .5rem; border-radius:100px;
+    position:absolute; top:.75rem; left:.75rem; z-index:3; background:rgba(196,30,58,.85); color:#fff; font-size:.68rem; font-weight:700;
+    padding:.25rem .55rem; border-radius:100px; letter-spacing:.04em; text-transform:uppercase;
   }
-  .card-body{ min-height:0; padding:.85rem .95rem 1rem; display:flex; flex-direction:column; gap:.25rem; background:var(--white); color:var(--ink); }
-  .card-title{ font-family:var(--font-display); font-weight:700; font-size:.98rem; line-height:1.3; }
-  .card-loc{ font-size:.8rem; color:var(--muted); }
+  .card-body{
+    position:absolute; inset:auto 0 0 0; z-index:2; padding:1rem 1rem .9rem; display:flex; flex-direction:column; gap:.28rem; color:#fff;
+  }
+  .card-title{ font-family:var(--font-display); font-weight:700; font-size:1.02rem; line-height:1.28; white-space:normal; }
+  .card-loc{ font-size:.8rem; color:rgba(255,255,255,.8); }
   .card-loc a{ color:var(--red-deep); font-weight:600; }
-  .card-foot{ display:flex; align-items:center; justify-content:space-between; margin-top:.4rem; }
-  .card-price{ font-weight:700; font-size:.92rem; }
-  .card-price span{ font-weight:500; color:var(--muted); font-size:.78rem; }
-  .card-book{ font-size:.8rem; font-weight:700; color:var(--red-deep); }
+  .card-foot{ display:flex; align-items:flex-end; justify-content:space-between; gap:.75rem; margin-top:.28rem; }
+  .card-price{ font-weight:700; font-size:.94rem; color:#fff; }
+  .card-price span{ font-weight:500; color:rgba(255,255,255,.8); font-size:.76rem; }
+  .card-meta{ display:flex; align-items:center; gap:.7rem; margin-top:.15rem; color:rgba(255,255,255,.85); font-size:.72rem; }
+  .card-meta-item{ display:inline-flex; align-items:center; gap:.3rem; }
+  .card-meta-item svg{ width:12px; height:12px; }
+  .card-book{ font-size:.8rem; font-weight:700; color:#fff; }
   .skeleton{ background:linear-gradient(90deg,var(--paper) 25%,var(--line-soft) 50%,var(--paper) 75%); background-size:200% 100%; animation:skeleton-shimmer 1.4s infinite; }
   .skeleton-card{ pointer-events:none; }
   .skeleton-media{ aspect-ratio:4/3; }
@@ -204,20 +221,21 @@
     #view-grid-btn::before{ content:'▦'; }
     #view-map-btn::before{ content:'☷'; }
     #view-map-btn{ display:flex; }
-    .grid{ width:100%; display:flex; flex-direction:column; gap:.55rem; }
-    .card{ width:100%; display:grid; grid-template-columns:7.05rem minmax(0,1fr); grid-template-rows:1fr; height:6.3rem; min-height:6.3rem; border-radius:10px; }
-    .card-media{ height:6.3rem; min-height:6.3rem; }
-    .card-body{ padding:.58rem .62rem .52rem; gap:.12rem; min-width:0; }
-    .card-title{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:.76rem; }
-    .card-loc{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:.59rem; }
-    .card-foot{ margin-top:auto; gap:.25rem; }
-    .card-price{ font-size:.65rem; white-space:nowrap; }
-    .card-price span{ font-size:.57rem; }
-    .card-book{ font-size:.62rem; white-space:nowrap; }
-    .card-save{ top:.35rem; right:.35rem; width:1.4rem; height:1.4rem; background:rgba(255,255,255,.88); }
+    .grid{ width:100%; display:flex; flex-direction:row; gap:.8rem; overflow-x:auto; padding-bottom:.35rem; }
+    .card{ flex:0 0 calc(100vw - 4.5rem); max-width:23rem; height:16.5rem; min-height:16.5rem; border-radius:16px; }
+    .card-media{ height:100%; }
+    .card-body{ padding:.8rem .8rem .9rem; }
+    .card-title{ font-size:1rem; }
+    .card-loc{ font-size:.72rem; }
+    .card-foot{ margin-top:.15rem; }
+    .card-price{ font-size:.8rem; }
+    .card-price span{ font-size:.65rem; }
+    .card-book{ font-size:.7rem; }
+    .card-meta{ gap:.5rem; font-size:.64rem; }
+    .card-save{ top:.5rem; right:.5rem; width:1.8rem; height:1.8rem; background:rgba(15,19,24,.45); }
     .card-save svg{ width:12px; height:12px; }
-    .card-verified{ top:.35rem; left:.35rem; padding:.12rem .3rem; font-size:.5rem; }
-    .card-video{ min-height:6.3rem; }
+    .card-verified{ top:.5rem; left:.5rem; padding:.18rem .45rem; font-size:.54rem; }
+    .card-video{ min-height:16.5rem; }
     .pagination{ margin-top:1rem; }
     .mobile-bottom-nav{ position:fixed; z-index:20; bottom:0; left:50%; display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); width:min(100% - 1rem,32rem); min-height:3.7rem; transform:translateX(-50%); padding:.3rem .35rem calc(.3rem + env(safe-area-inset-bottom)); margin-bottom:max(.45rem,env(safe-area-inset-bottom)); border:1px solid var(--line-soft); border-radius:999px; background:var(--white); box-shadow:0 10px 28px rgba(26,18,16,.14); }
     .mobile-bottom-nav a{ display:flex; flex-direction:column; align-items:center; justify-content:center; min-width:0; min-height:2.85rem; gap:.18rem; padding:.35rem .2rem; border-radius:999px; color:var(--ink); font-size:.62rem; font-weight:600; white-space:nowrap; }
@@ -388,6 +406,9 @@
   const CATEGORY_LABELS = { airbnb:'Airbnbs', hotel:'Hotels', venue:'Event Venues', office:'Offices', shop:'Shops', property:'Property' };
   const ICON_BOOKMARK_OUTLINE = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h12a1 1 0 0 1 1 1V21l-7-4-7 4V4.5a1 1 0 0 1 1-1Z"/></svg>';
   const ICON_BOOKMARK_FILLED = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h12a1 1 0 0 1 1 1V21l-7-4-7 4V4.5a1 1 0 0 1 1-1Z"/></svg>';
+  const ICON_BED = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 12.5V7.8A1.8 1.8 0 0 1 5.3 6h2.4a2.1 2.1 0 0 1 2.1 2.1v2.4h9.7v3.5h-2.2v1.9H3.5v-1.9H3.5Zm1.8-1.8h9.7v-2.5H5.3a1.1 1.1 0 0 0-1.1 1.1v1.4Z"/><path d="M3.5 17v2M20.5 17v2"/></svg>';
+  const ICON_BATH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 12h10a2.5 2.5 0 0 1 2.5 2.5V15a2.5 2.5 0 0 1-2.5 2.5H8A2.5 2.5 0 0 1 5.5 15v-.5A2.5 2.5 0 0 1 8 12h-.5"/><path d="M8 12V8.5A2.5 2.5 0 0 1 10.5 6H11a2.5 2.5 0 0 1 2.5 2.5V12"/><path d="M5.5 18.5h13"/></svg>';
+  const ICON_GUEST = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 18a4.5 4.5 0 0 0-9 0"/><circle cx="12" cy="9" r="3.5"/><path d="M18.5 18a4.5 4.5 0 0 0-2.8-4.2"/><path d="M5.5 18a4.5 4.5 0 0 1 2.8-4.2"/></svg>';
   const PAGE_SIZE = 12;
 
   const MKT_SELECT = 'id,title,description,location_text,category,verified,created_at,host_id,availability_status,' +
@@ -494,12 +515,31 @@
     const isBookmarked = bookmarkedIds.has(listing.id);
     const price = formatPrice(listing.listing_booking_details || listing.booking_details);
     const mediaHtml = imageHtml(listing);
+    const detail = Array.isArray(listing.listing_booking_details)
+      ? (listing.listing_booking_details[0] || {})
+      : (listing.listing_booking_details || {});
+    const sizeText = detail.size_or_type ? String(detail.size_or_type).trim() : '';
+    const guestValue = detail.max_guests || detail.guest_count || null;
+    const metaParts = [];
+
+    if (sizeText) {
+      const sizeMatch = sizeText.match(/(\d+)/);
+      if (sizeMatch) {
+        metaParts.push('<span class="card-meta-item">' + ICON_BED + '<span>' + sizeMatch[1] + '</span></span>');
+      }
+    }
+    if (detail.bathrooms || detail.bathrooms === 0) {
+      metaParts.push('<span class="card-meta-item">' + ICON_BATH + '<span>' + Number(detail.bathrooms) + '</span></span>');
+    }
+    if (guestValue) {
+      metaParts.push('<span class="card-meta-item">' + ICON_GUEST + '<span>' + guestValue + '</span></span>');
+    }
 
     return (
-      '<div class="card" data-listing-id="' + listing.id + '">' +
+      '<div class="card" data-listing-id="' + listing.id + '" data-href="/booking?listing=' + listing.id + '">' +
         '<div class="card-media" data-media-listing-id="' + listing.id + '">' +
           mediaHtml +
-          (listing.verified ? '<span class="card-verified">Verified</span>' : '') +
+          (listing.verified ? '<span class="card-verified">Featured</span>' : '') +
           '<button type="button" class="card-save ' + (isBookmarked ? 'saved' : '') + '" data-listing-id="' + listing.id + '" aria-label="Save">' +
             (isBookmarked ? ICON_BOOKMARK_FILLED : ICON_BOOKMARK_OUTLINE) +
           '</button>' +
@@ -507,12 +547,12 @@
         '<div class="card-body">' +
           '<div class="card-title">' + escapeHtml(listing.title) + '</div>' +
           '<div class="card-loc">' + escapeHtml(listing.location_text || '') + '</div>' +
-          (formatHostName(listing.host) ? '<div class="card-loc">Hosted by ' + escapeHtml(formatHostName(listing.host)) + '</div>' : '') +
+          (metaParts.length ? '<div class="card-meta">' + metaParts.join('') + '</div>' : '') +
           '<div class="card-foot">' +
             (price
               ? '<div class="card-price">KSh ' + price.amount.toLocaleString() + ' <span>/ ' + escapeHtml(price.unit) + '</span></div>'
               : '<div class="card-price"><span>Price on request</span></div>') +
-            '<a href="/booking?listing=' + listing.id + '" class="card-book">View →</a>' +
+            '<a href="/booking?listing=' + listing.id + '" class="card-book" aria-label="View listing">View</a>' +
           '</div>' +
         '</div>' +
       '</div>'
@@ -560,6 +600,14 @@
       console.warn('Marketplace video preview unavailable:', error.message);
     }
   }
+
+  document.addEventListener('click', function(event){
+    const card = event.target.closest('.card');
+    if (!card) return;
+    if (event.target.closest('.card-save')) return;
+    const href = card.getAttribute('data-href');
+    if (href) window.location.href = href;
+  });
 
   function observeVideoCards(){
     const cards = document.querySelectorAll('[data-media-listing-id]');
