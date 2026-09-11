@@ -280,7 +280,7 @@
   .attachment-listing-card{ display:block; overflow:hidden; max-width:340px; border:1px solid var(--chat-border); border-radius:10px; background:var(--chat-surface); color:var(--chat-text); }
   .attachment-listing-main{ display:flex; gap:.7rem; padding:.65rem; }
   .attachment-listing-thumb{ width:92px; height:78px; flex:0 0 92px; overflow:hidden; border-radius:8px; background:var(--accent-soft); }
-  .attachment-listing-thumb img{ width:100%; height:100%; object-fit:cover; }
+  .attachment-listing-thumb img,.attachment-listing-thumb video{ width:100%; height:100%; object-fit:cover; }
   .attachment-listing-details{ min-width:0; }
   .attachment-listing-title{ font-size:.82rem; font-weight:750; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .attachment-listing-location,.attachment-listing-meta{ color:var(--muted); font-size:.68rem; margin-top:.2rem; }
@@ -2045,7 +2045,14 @@
         inserted.listing = sentListing;
         appendMessage(inserted, true);
         await supabaseClient.from('conversations').update({ last_message_at: new Date().toISOString() }).eq('id', convId);
-        if (!isHost) triggerAutoReplyIfAway(body);
+        if (!isHost) {
+          const autoReplyMessage = body || (
+            uploadedAttachment
+              ? 'The guest shared a ' + (uploadedAttachment.kind === 'photo' ? 'photo' : 'file') + '.'
+              : 'The guest shared a listing.'
+          );
+          triggerAutoReplyIfAway(autoReplyMessage);
+        }
       }
 
       sendBtn.addEventListener('click', sendMessage);
@@ -2178,8 +2185,18 @@
           const playbackResponse = await fetch('/api/media/' + encodeURIComponent(mediaId) + '/playback');
           if (!playbackResponse.ok) return;
           const playback = await playbackResponse.json();
-          const videoElement = row.querySelector('[data-video-media-id="' + CSS.escape(encodeURIComponent(mediaId)) + '"]');
-          if (!videoElement || !playback.url) return;
+          if (!playback.url) return;
+          let videoElement = row.querySelector('[data-video-media-id="' + CSS.escape(encodeURIComponent(mediaId)) + '"]');
+          if (!videoElement) {
+            const thumb = row.querySelector('.listing-context-thumb, .attachment-listing-thumb');
+            if (!thumb) return;
+            videoElement = document.createElement('video');
+            videoElement.muted = true;
+            videoElement.playsInline = true;
+            videoElement.preload = 'metadata';
+            videoElement.dataset.videoMediaId = encodeURIComponent(mediaId);
+            thumb.appendChild(videoElement);
+          }
           videoElement.src = playback.url;
           videoElement.style.display = 'block';
           const image = videoElement.previousElementSibling;

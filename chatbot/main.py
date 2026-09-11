@@ -412,7 +412,10 @@ async def reply(payload: ReplyRequest, authorization: Optional[str] = Header(Non
         )
     reply_text = ai_result["reply"]
     alternative_listings = []
-    if is_elie_command and is_listing_alternative_request(guest_enquiry_context):
+    # Both away-mode replies and an explicit @reply should be able to share
+    # the host's matching listings. The response includes photo metadata and
+    # a ready video media id when available so the client can render the card.
+    if is_listing_alternative_request(guest_enquiry_context):
         alternative_listings = await get_host_alternative_listings(
             conversation["host_id"],
             listing_id,
