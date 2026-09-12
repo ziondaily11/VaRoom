@@ -18,14 +18,14 @@
 
 .heroImage {
   z-index: -3;
-  background: url('/assets/ui.jpg') center center / cover no-repeat;
-  left: 33%;
+  background: url('/assets/landingpageimage.png') left center / cover no-repeat;
+  left: 0;
 }
 
 .heroShade {
   z-index: -2;
   background:
-    linear-gradient(90deg, #080909 0%, rgba(8, 9, 9, .96) 21%, rgba(8, 9, 9, .68) 39%, rgba(8, 9, 9, .08) 67%, rgba(8, 9, 9, .08) 100%),
+    linear-gradient(90deg, rgba(8, 9, 9, .96) 0%, rgba(8, 9, 9, .78) 28%, rgba(8, 9, 9, .28) 56%, rgba(8, 9, 9, .04) 82%, rgba(8, 9, 9, .04) 100%),
     linear-gradient(0deg, rgba(5, 6, 6, .18), transparent 30%);
 }
 
@@ -313,6 +313,27 @@
   margin: 0;
 }
 
+.hostCta {
+  align-items: center;
+  background: #f8f6f1;
+  border-radius: 999px;
+  color: #171817;
+  display: inline-flex;
+  font-size: .82rem;
+  font-weight: 600;
+  gap: 1rem;
+  margin-top: 2rem;
+  min-height: 49px;
+  padding: 0 1.4rem 0 1.55rem;
+  text-decoration: none;
+}
+
+.hostCta span {
+  font-size: 1.35rem;
+  font-weight: 400;
+  line-height: 0;
+}
+
 .page [data-reveal] {
   opacity: 0;
   transform: translateY(22px);
@@ -429,15 +450,15 @@
   }
 
   .heroImage {
-    background-position: 62% center;
-    inset: 0 0 42% 0;
+    background-position: 28% center;
+    inset: 0;
     left: 0;
   }
 
   .heroShade {
     background:
-      linear-gradient(180deg, rgba(8, 9, 9, .08) 0%, rgba(8, 9, 9, .12) 27%, #090a0a 51%, #090a0a 100%),
-      linear-gradient(90deg, rgba(8, 9, 9, .18), transparent);
+      linear-gradient(180deg, rgba(8, 9, 9, .24) 0%, rgba(8, 9, 9, .58) 48%, #090a0a 82%, #090a0a 100%),
+      linear-gradient(90deg, rgba(8, 9, 9, .38), transparent);
   }
 
   .header {
@@ -507,6 +528,10 @@
   .hostIntroduction {
     font-size: .88rem;
     margin: 1.5rem 0 2rem;
+  }
+
+  .hostCta {
+    margin-top: 1.7rem;
   }
 
   .hostBenefit {

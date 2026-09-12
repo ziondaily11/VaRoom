@@ -138,40 +138,43 @@ export default function LandingPage() {
           <div className={styles.hostShade} aria-hidden="true" />
           <div className={styles.hostContent}>
             <span className={styles.hostEyebrow} data-reveal>FOR HOSTS</span>
-            <h2 id="host-title" data-reveal>List Your Space.<br />Reach More Guests.<br /><em>Host Smarter.</em></h2>
+            <h2 id="host-title" data-reveal>List Your Space.<br />Grow Your Business.<br /><em>Host Smarter.</em></h2>
             <p className={styles.hostIntroduction} data-reveal>
-              Put your property in front of guests looking for their next stay while VaRoom gives you the tools to manage conversations, bookings, pricing, and your hosting business — all from one place.
+              Put your property in front of guests looking for their next stay while VaRoom gives you the tools to manage conversations, bookings, pricing, and your hosting business—all from one place.
             </p>
             <div className={styles.hostBenefits}>
               <article className={styles.hostBenefit} data-reveal>
-                <span className={styles.hostBenefitIcon}>✦</span>
+                <span className={styles.hostBenefitIcon}>🤖</span>
                 <div>
                   <h3>YOUR 24/7 AI CO-HOST</h3>
                   <p>Let Elie handle the conversations that keep you busy. From guest questions and property details to listing recommendations and booking assistance, Elie keeps guests engaged around the clock.</p>
                 </div>
               </article>
               <article className={styles.hostBenefit} data-reveal>
-                <span className={styles.hostBenefitIcon}>▥</span>
+                <span className={styles.hostBenefitIcon}>📊</span>
                 <div>
                   <h3>ONE SMART HOST DASHBOARD</h3>
                   <p>Manage your properties, pricing, availability, bookings, analytics, payouts, and guest communications without jumping between multiple platforms.</p>
                 </div>
               </article>
               <article className={styles.hostBenefit} data-reveal>
-                <span className={styles.hostBenefitIcon}>◈</span>
+                <span className={styles.hostBenefitIcon}>🛡️</span>
                 <div>
                   <h3>A MORE TRUSTED GUEST COMMUNITY</h3>
                   <p>Make informed hosting decisions with access to guest profiles, ratings, and booking information before accepting inquiries or reservations.</p>
                 </div>
               </article>
               <article className={styles.hostBenefit} data-reveal>
-                <span className={styles.hostBenefitIcon}>↗</span>
+                <span className={styles.hostBenefitIcon}>💰</span>
                 <div>
                   <h3>GROW WITHOUT BEING GLUED TO YOUR PHONE</h3>
                   <p>Automate repetitive communication, respond faster to potential guests, and keep your attention on the parts of hosting that actually need you.</p>
                 </div>
               </article>
             </div>
+            <Link className={styles.hostCta} href="/signup-host">
+              List Your Space <span aria-hidden="true">→</span>
+            </Link>
           </div>
         </section>
 
