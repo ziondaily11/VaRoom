@@ -245,6 +245,40 @@
   background-color: transparent;
 }
 
+[data-theme="dark"] .support-page,
+[data-theme="dark"] .support-page main,
+[data-theme="dark"] .support-page .topbar {
+  background: #000000 !important;
+}
+
+[data-theme="dark"] .support-page .topbar {
+  border-bottom-color: var(--line-soft) !important;
+}
+
+[data-theme="dark"] .support-page .search {
+  background: #000000 !important;
+  border-color: rgba(255, 255, 255, .20) !important;
+}
+
+[data-theme="dark"] .support-page .action,
+[data-theme="dark"] .support-page .write-card,
+[data-theme="dark"] .support-page .article {
+  background: #000000 !important;
+  border-color: var(--glass-border) !important;
+  box-shadow: none !important;
+}
+
+[data-theme="dark"] .support-page .action-icon,
+[data-theme="dark"] .support-page .article-icon,
+[data-theme="dark"] .support-page .search button {
+  background: #000000 !important;
+  border: 1px solid var(--line-soft);
+}
+
+[data-theme="dark"] .support-page footer {
+  border-top-color: var(--line-soft) !important;
+}
+
 @media (max-width: 1180px) {
   [data-theme="dark"] .sidebar {
     border-right: 0 !important;
