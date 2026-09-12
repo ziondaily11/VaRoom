@@ -87,10 +87,10 @@ export default function LandingPage() {
             <span>Va</span>Room
           </Link>
           <nav className={styles.desktopNav} aria-label="Main navigation">
-            <Link href="/properties">Properties <span className={styles.chevron}>⌄</span></Link>
-            <Link href="/marketplace">Marketplace <span className={styles.chevron}>⌄</span></Link>
-            <a href="#about">About</a>
-            <a href="#contact">Contact</a>
+            <Link href="/signup-host">For hosts</Link>
+            <Link href="/marketplace">For clients</Link>
+            <Link href="/elie">Elie</Link>
+            <a href="#why-us">Why us</a>
           </nav>
           <div className={styles.headerActions}>
             <Link className={styles.signIn} href="/login">Sign in</Link>
