@@ -18,15 +18,13 @@
 
 .heroImage {
   z-index: -3;
-  background: url('/assets/landingpageimage.png') left center / cover no-repeat;
-  left: 0;
+  object-fit: cover;
+  object-position: center;
 }
 
 .heroShade {
   z-index: -2;
-  background:
-    linear-gradient(90deg, rgba(8, 9, 9, .96) 0%, rgba(8, 9, 9, .78) 28%, rgba(8, 9, 9, .28) 56%, rgba(8, 9, 9, .04) 82%, rgba(8, 9, 9, .04) 100%),
-    linear-gradient(0deg, rgba(5, 6, 6, .18), transparent 30%);
+  background: linear-gradient(90deg, rgba(8, 9, 9, .58) 0%, rgba(8, 9, 9, .3) 30%, rgba(8, 9, 9, .08) 54%, transparent 73%);
 }
 
 .header {
@@ -450,15 +448,11 @@
   }
 
   .heroImage {
-    background-position: 28% center;
-    inset: 0;
-    left: 0;
+    object-position: center;
   }
 
   .heroShade {
-    background:
-      linear-gradient(180deg, rgba(8, 9, 9, .24) 0%, rgba(8, 9, 9, .58) 48%, #090a0a 82%, #090a0a 100%),
-      linear-gradient(90deg, rgba(8, 9, 9, .38), transparent);
+    background: linear-gradient(90deg, rgba(8, 9, 9, .58) 0%, rgba(8, 9, 9, .3) 34%, rgba(8, 9, 9, .08) 62%, transparent 84%);
   }
 
   .header {

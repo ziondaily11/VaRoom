@@ -94,7 +94,7 @@ export default function LandingPage() {
         <style>{'html, body { margin: 0; min-height: 100%; } * { box-sizing: border-box; }'}</style>
       </Head>
       <main className={styles.page}>
-        <div className={styles.heroImage} aria-hidden="true" />
+        <img className={styles.heroImage} src="/assets/landingpageimage.png" alt="" aria-hidden="true" />
         <div className={styles.heroShade} aria-hidden="true" />
 
         <header className={styles.header}>
