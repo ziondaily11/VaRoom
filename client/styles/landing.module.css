@@ -403,7 +403,7 @@
   position: absolute;
   right: 0;
   width: 128px;
-  z-index: 0;
+  z-index: 1;
 }
 
 .clientVideo,
@@ -429,7 +429,7 @@
   padding: clamp(5rem, 11vh, 8rem) 7vw clamp(4rem, 9vh, 7rem) 3rem;
   position: relative;
   width: 47%;
-  z-index: 1;
+  z-index: 2;
 }
 
 .clientEyebrow {
@@ -757,7 +757,7 @@
   }
 
   .heroImage {
-    height: 100svh;
+    height: 56svh;
     object-position: 70% center;
     width: 100%;
   }
@@ -857,13 +857,16 @@
   }
 
   .clientSection::after {
+    bottom: auto;
     height: 38px;
+    top: calc(56svh - 38px);
     width: 108px;
   }
 
   .clientVideo {
-    height: 100%;
-    object-position: 62% center;
+    height: 56svh;
+    object-fit: contain;
+    object-position: center top;
   }
 
   .clientShade {
