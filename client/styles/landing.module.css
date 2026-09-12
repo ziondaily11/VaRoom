@@ -360,6 +360,145 @@
 .hostBenefit:nth-child(3) { transition-delay: .16s; }
 .hostBenefit:nth-child(4) { transition-delay: .24s; }
 
+.clientSection {
+  background: #090a0a;
+  color: #f7f4ed;
+  min-height: 100svh;
+  overflow: hidden;
+  position: relative;
+}
+
+.clientVideo,
+.clientShade {
+  inset: 0;
+  position: absolute;
+}
+
+.clientVideo {
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  width: 100%;
+}
+
+.clientShade {
+  background: linear-gradient(90deg, rgba(7, 8, 8, .04) 20%, rgba(7, 8, 8, .16) 42%, rgba(7, 8, 8, .78) 65%, rgba(7, 8, 8, .94) 100%);
+}
+
+.clientContent {
+  margin-left: auto;
+  max-width: 720px;
+  padding: clamp(5rem, 11vh, 8rem) 7vw clamp(4rem, 9vh, 7rem) 3rem;
+  position: relative;
+  width: 47%;
+  z-index: 1;
+}
+
+.clientEyebrow {
+  color: rgba(255, 255, 255, .6);
+  display: block;
+  font-size: .68rem;
+  font-weight: 600;
+  letter-spacing: .18em;
+  margin-bottom: 1.5rem;
+}
+
+.clientContent h2 {
+  font-family: 'Plus Jakarta Sans', Arial, sans-serif;
+  font-size: clamp(2.65rem, 4.1vw, 4.4rem);
+  font-weight: 600;
+  letter-spacing: -.04em;
+  line-height: 1.04;
+  margin: 0;
+}
+
+.clientContent h2 em {
+  color: #fff;
+  font-style: normal;
+}
+
+.clientIntroduction {
+  color: rgba(255, 255, 255, .76);
+  font-size: 1rem;
+  line-height: 1.65;
+  margin: 2rem 0 2.8rem;
+  max-width: 560px;
+}
+
+.clientBenefits {
+  border-top: 1px solid rgba(255, 255, 255, .22);
+}
+
+.clientBenefit {
+  align-items: flex-start;
+  border-bottom: 1px solid rgba(255, 255, 255, .18);
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 24px 1fr;
+  padding: 1rem 0;
+}
+
+.clientBenefitIcon {
+  align-items: center;
+  color: #bd2337;
+  display: flex;
+  height: 24px;
+  justify-content: center;
+  width: 24px;
+}
+
+.clientBenefitIcon svg {
+  fill: none;
+  height: 21px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.55;
+  width: 21px;
+}
+
+.clientBenefit h3 {
+  font-family: 'Plus Jakarta Sans', Arial, sans-serif;
+  font-size: .72rem;
+  font-weight: 600;
+  letter-spacing: .1em;
+  line-height: 1.3;
+  margin: 0 0 .45rem;
+}
+
+.clientBenefit p {
+  color: rgba(255, 255, 255, .64);
+  font-family: 'Plus Jakarta Sans', Arial, sans-serif;
+  font-size: .78rem;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.clientCta {
+  align-items: center;
+  background: #f8f6f1;
+  border-radius: 999px;
+  color: #171817;
+  display: inline-flex;
+  font-size: .82rem;
+  font-weight: 600;
+  gap: 1rem;
+  margin-top: 2rem;
+  min-height: 49px;
+  padding: 0 1.4rem 0 1.55rem;
+  text-decoration: none;
+}
+
+.clientCta span {
+  font-size: 1.35rem;
+  font-weight: 400;
+  line-height: 0;
+}
+
+.clientBenefit:nth-child(2) { transition-delay: .08s; }
+.clientBenefit:nth-child(3) { transition-delay: .16s; }
+.clientBenefit:nth-child(4) { transition-delay: .24s; }
+
 .modalOverlay {
   align-items: center;
   background: rgba(3, 4, 4, .58);
@@ -554,6 +693,51 @@
 
   .hostBenefit p {
     font-size: .72rem;
+  }
+
+  .clientSection {
+    min-height: 100svh;
+  }
+
+  .clientVideo {
+    height: 100%;
+    object-position: 62% center;
+  }
+
+  .clientShade {
+    background: linear-gradient(180deg, rgba(7, 8, 8, .06) 0%, rgba(7, 8, 8, .12) 34%, #090a0a 59%, #090a0a 100%);
+  }
+
+  .clientContent {
+    padding: min(57vh, 30rem) 1.25rem 3rem;
+    width: 100%;
+  }
+
+  .clientContent h2 {
+    font-size: 2.25rem;
+    line-height: 1.2;
+  }
+
+  .clientIntroduction {
+    font-size: .88rem;
+    margin: 1.5rem 0 2rem;
+  }
+
+  .clientBenefit {
+    gap: .75rem;
+    padding: .9rem 0;
+  }
+
+  .clientBenefit h3 {
+    font-size: .65rem;
+  }
+
+  .clientBenefit p {
+    font-size: .72rem;
+  }
+
+  .clientCta {
+    margin-top: 1.7rem;
   }
 
   .desktopBreak {

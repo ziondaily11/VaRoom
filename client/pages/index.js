@@ -60,6 +60,27 @@ function HostFeatureIcon({ type }) {
   );
 }
 
+function ClientFeatureIcon({ type }) {
+  if (type === 'search') {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="10.5" cy="10.5" r="5.5" />
+        <path d="m15 15 4.5 4.5M18.5 3.5l.4 1.1 1.1.4-1.1.4-.4 1.1-.4-1.1-1.1-.4 1.1-.4.4-1.1Z" />
+      </svg>
+    );
+  }
+
+  if (type === 'location') return <PinIcon />;
+  if (type === 'trust') return <ShieldIcon />;
+
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 10.5 12 4l8 6.5V20H4v-9.5Z" />
+      <path d="M8 20v-5h8v5M8 10h.01M12 10h.01M16 10h.01" />
+    </svg>
+  );
+}
+
 const trustItems = [
   { label: <>GPS verified<br />locations</>, icon: <PinIcon /> },
   { label: <>Trusted<br />hosts</>, icon: <ShieldIcon /> },
@@ -212,6 +233,59 @@ export default function LandingPage() {
             </div>
             <Link className={styles.hostCta} href="/signup-host">
               List Your Space <span aria-hidden="true">→</span>
+            </Link>
+          </div>
+        </section>
+
+        <section className={styles.clientSection} aria-labelledby="client-title">
+          <video
+            className={styles.clientVideo}
+            src="/assets/forclientsplayer.mp4"
+            autoPlay
+            muted
+            loop
+            playsInline
+            aria-hidden="true"
+          />
+          <div className={styles.clientShade} aria-hidden="true" />
+          <div className={styles.clientContent}>
+            <span className={styles.clientEyebrow} data-reveal>FOR CLIENTS</span>
+            <h2 id="client-title" data-reveal>Find Your Space.<br /><em>Choose With Confidence.</em></h2>
+            <p className={styles.clientIntroduction} data-reveal>
+              VaRoom makes it easier to discover, compare, and book real spaces. Search naturally with Elie, explore verified properties, and learn more about the hosts behind the listings before you decide.
+            </p>
+            <div className={styles.clientBenefits}>
+              <article className={styles.clientBenefit} data-reveal>
+                <span className={styles.clientBenefitIcon}><ClientFeatureIcon type="search" /></span>
+                <div>
+                  <h3>AI-POWERED PROPERTY SEARCH — ELIE</h3>
+                  <p>Tell Elie what you're looking for and let AI help you find it. Describe your location, property type, budget, stay duration, or preferences naturally, and Elie can surface relevant listings and guide you through your options.</p>
+                </div>
+              </article>
+              <article className={styles.clientBenefit} data-reveal>
+                <span className={styles.clientBenefitIcon}><ClientFeatureIcon type="location" /></span>
+                <div>
+                  <h3>GPS-VERIFIED AUTHENTICITY</h3>
+                  <p>Know that the space you're viewing is where it says it is. Every listing is tied to its exact GPS location, helping you discover real, accurately located homes, offices, shops, and other spaces.</p>
+                </div>
+              </article>
+              <article className={styles.clientBenefit} data-reveal>
+                <span className={styles.clientBenefitIcon}><ClientFeatureIcon type="trust" /></span>
+                <div>
+                  <h3>TRANSPARENT HOSTS &amp; REVIEWS</h3>
+                  <p>Know who you're dealing with before you book. Explore host profiles, view reviews and ratings, and learn more about the person behind the property before making a decision.</p>
+                </div>
+              </article>
+              <article className={styles.clientBenefit} data-reveal>
+                <span className={styles.clientBenefitIcon}><ClientFeatureIcon type="marketplace" /></span>
+                <div>
+                  <h3>ONE MARKETPLACE FOR EVERY NEED</h3>
+                  <p>Whether you're booking a short stay, renting long-term, finding a workspace, or looking to buy—find it on VaRoom.</p>
+                </div>
+              </article>
+            </div>
+            <Link className={styles.clientCta} href="/marketplace">
+              Explore the Marketplace <span aria-hidden="true">→</span>
             </Link>
           </div>
         </section>
