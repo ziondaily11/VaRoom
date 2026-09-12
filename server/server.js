@@ -8,6 +8,7 @@ const videoRoutes = require('./routes/videoRoutes');
 const listingRoutes = require('./routes/listingRoutes');
 const chatAttachmentRoutes = require('./routes/chatAttachmentRoutes');
 const { MAX_JSON_BYTES, validateJsonPayload, ValidationError, uuid, number } = require('./lib/inputValidation');
+const { ERROR_CODES, sendError } = require('./lib/apiResponse');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -32,7 +33,7 @@ app.use('/api', (req, res, next) => {
   const key = req.ip || 'unknown';
   const now = Date.now();
   const recent = (apiRequestTracker.get(key) || []).filter((timestamp) => now - timestamp < 60000);
-  if (recent.length >= 120) return res.status(429).json({ error: 'Too many requests' });
+  if (recent.length >= 120) return sendError(res, 429, 'Too many requests', ERROR_CODES.RATE_LIMITED);
   recent.push(now);
   apiRequestTracker.set(key, recent);
   return next();
@@ -100,7 +101,7 @@ const otpRequestTracker = new Map();
 app.post('/api/auth/forgot-password', async (req, res) => {
   const { email } = req.body || {};
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return res.status(400).json({ error: 'Please enter a valid email address' });
+    return sendError(res, 400, 'Please enter a valid email address');
   }
 
   const normalizedEmail = email.trim().toLowerCase();
@@ -110,9 +111,12 @@ app.post('/api/auth/forgot-password', async (req, res) => {
   const now = Date.now();
   if (lastSent && (now - lastSent) < 60000) {
     const waitSeconds = Math.ceil((60000 - (now - lastSent)) / 1000);
-    return res.status(429).json({
-      error: `Please wait ${waitSeconds}s before requesting another code.`
-    });
+    return sendError(
+      res,
+      429,
+      `Please wait ${waitSeconds}s before requesting another code.`,
+      ERROR_CODES.RATE_LIMITED
+    );
   }
 
   try {
@@ -191,7 +195,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
 
   } catch (err) {
     console.error('Forgot password error:', err);
-    return res.status(500).json({ error: 'Could not process password reset request.' });
+    return sendError(res, 500, 'Could not process password reset request.');
   }
 });
 
@@ -206,7 +210,7 @@ app.get('/api/health', (req, res) => {
 // review and pipeline routes remain private to the property-news service.
 async function proxyPropertyNews(req, res) {
   if (!PROPERTY_NEWS_API_URL) {
-    return res.status(503).json({ error: 'Property news is not configured yet.' });
+    return sendError(res, 503, 'Property news is not configured yet.');
   }
 
   const controller = new AbortController();
@@ -225,7 +229,7 @@ async function proxyPropertyNews(req, res) {
   } catch (error) {
     console.error('Property news proxy failed:', error.message);
     res.set('Cache-Control', 'no-store');
-    return res.status(502).json({ error: 'Property news is temporarily unavailable.' });
+    return sendError(res, 502, 'Property news is temporarily unavailable.');
   } finally {
     clearTimeout(timeout);
   }
@@ -254,18 +258,18 @@ app.post('/api/delete-account', async (req, res) => {
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
 
   if (!token) {
-    return res.status(401).json({ error: 'Missing access token' });
+    return sendError(res, 401, 'Missing access token');
   }
 
   const { data: { user }, error: verifyError } = await supabaseAdmin.auth.getUser(token);
   if (verifyError || !user) {
-    return res.status(401).json({ error: 'Invalid or expired session' });
+    return sendError(res, 401, 'Invalid or expired session');
   }
 
   const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(user.id);
   if (deleteError) {
     console.error('Account deletion failed:', deleteError.message);
-    return res.status(500).json({ error: 'Unable to delete account' });
+    return sendError(res, 500, 'Unable to delete account');
   }
 
   // profiles row is deleted automatically via the ON DELETE CASCADE
@@ -291,7 +295,7 @@ async function getRequestingUserId(req) {
 // server/lib/locationAccess.js for the access-level rules this enforces.
 app.get('/api/listings/:id/location', async (req, res) => {
   try { uuid(req.params.id, 'listing id'); } catch (error) {
-    if (error instanceof ValidationError) return res.status(400).json({ error: 'Invalid input' });
+    if (error instanceof ValidationError) return sendError(res, 400, 'Invalid input');
     throw error;
   }
   const requestingUserId = await getRequestingUserId(req);
@@ -300,19 +304,19 @@ app.get('/api/listings/:id/location', async (req, res) => {
     requestingUserId,
   });
   if (result.error) {
-    return res.status(404).json({ error: result.error });
+    return sendError(res, 404, result.error);
   }
   res.json(result);
 });
 
 app.get('/api/bookings/:id/location', async (req, res) => {
   try { uuid(req.params.id, 'booking id'); } catch (error) {
-    if (error instanceof ValidationError) return res.status(400).json({ error: 'Invalid input' });
+    if (error instanceof ValidationError) return sendError(res, 400, 'Invalid input');
     throw error;
   }
   const requestingUserId = await getRequestingUserId(req);
   if (!requestingUserId) {
-    return res.status(401).json({ error: 'Login required' });
+    return sendError(res, 401, 'Login required');
   }
   const result = await getBookingLocation(supabaseAdmin, {
     bookingId: req.params.id,
@@ -339,7 +343,7 @@ app.get('/api/maps-config', (req, res) => {
 // coordinates themselves are never sent back (spec section 11).
 app.get('/api/listings/:id/distance', async (req, res) => {
   try { uuid(req.params.id, 'listing id'); } catch (error) {
-    if (error instanceof ValidationError) return res.status(400).json({ error: 'Invalid input' });
+    if (error instanceof ValidationError) return sendError(res, 400, 'Invalid input');
     throw error;
   }
   let lat;
@@ -349,7 +353,7 @@ app.get('/api/listings/:id/distance', async (req, res) => {
     lat = number(Number(req.query.lat), 'lat', { min: -90, max: 90 });
     lng = number(Number(req.query.lng), 'lng', { min: -180, max: 180 });
   } catch (error) {
-    if (error instanceof ValidationError) return res.status(400).json({ error: 'Invalid input' });
+    if (error instanceof ValidationError) return sendError(res, 400, 'Invalid input');
     throw error;
   }
   const result = await getListingDistance(supabaseAdmin, {
@@ -358,18 +362,18 @@ app.get('/api/listings/:id/distance', async (req, res) => {
     userLng: lng,
   });
   if (result.error) {
-    return res.status(404).json({ error: result.error });
+    return sendError(res, 404, result.error);
   }
   res.json(result);
 });
 
 app.use((error, _req, res, _next) => {
   if (error instanceof SyntaxError && error.status === 400 && error.body) {
-    return res.status(400).json({ error: 'Invalid input' });
+    return sendError(res, 400, 'Invalid input');
   }
-  if (error.type === 'entity.too.large') return res.status(413).json({ error: 'Request body too large' });
+  if (error.type === 'entity.too.large') return sendError(res, 413, 'Request body too large');
   console.error('Unhandled API error:', error);
-  return res.status(500).json({ error: 'Internal server error' });
+  return sendError(res, 500, 'Internal server error', ERROR_CODES.INTERNAL_ERROR);
 });
 
 app.listen(PORT, () => {
