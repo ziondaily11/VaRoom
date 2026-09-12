@@ -1,6 +1,7 @@
 'use strict';
 
 const { URL } = require('url');
+const { sendError } = require('./apiResponse');
 
 const MAX_JSON_BYTES = 1024 * 1024;
 const MAX_TEXT_LENGTH = 10_000;
@@ -77,7 +78,7 @@ function safeUrl(value, field, { required = false } = {}) {
 }
 
 function validateJsonPayload(req, res, next) {
-  if (!isPlainObject(req.body)) return res.status(400).json({ error: 'Invalid input' });
+  if (!isPlainObject(req.body)) return sendError(res, 400, 'Invalid input');
   return next();
 }
 

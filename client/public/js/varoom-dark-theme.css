@@ -1,0 +1,306 @@
+/*
+ * Shared dark-mode surface system for the legacy dashboard templates.
+ * This file is loaded after each page's inline theme so the shared tokens
+ * remain the single source of truth for the dark visual system.
+ */
+[data-theme="dark"] {
+  --white: #ffffff;
+  --paper: #000000;
+  --surface: #000000;
+  --input-bg: #000000;
+  --card-border: rgba(255, 255, 255, .16);
+  --shell-bg: #000000;
+  --sidebar-bg: #000000;
+  --main-bg: #000000;
+  --rail-bg: #000000;
+  --card-bg: #000000;
+  --ink: #ffffff;
+  --muted: rgba(255, 255, 255, .68);
+  --glass-bg: #000000;
+  --glass-border: rgba(255, 255, 255, .16);
+  --line: rgba(255, 255, 255, .16);
+  --line-soft: rgba(255, 255, 255, .12);
+  --glass-shadow: none;
+  --glow-a: transparent;
+  --glow-b: transparent;
+}
+
+[data-theme="dark"] body {
+  background: #000000 !important;
+  color: var(--ink);
+}
+
+[data-theme="dark"] .app-shell,
+[data-theme="dark"] .main-col,
+[data-theme="dark"] .sidebar,
+[data-theme="dark"] .topbar,
+[data-theme="dark"] .feed-area,
+[data-theme="dark"] .dash-main,
+[data-theme="dark"] .right-rail,
+[data-theme="dark"] .host-rail,
+[data-theme="dark"] .content-row {
+  background: #000000 !important;
+}
+
+[data-theme="dark"] .sidebar,
+[data-theme="dark"] .col-divider {
+  border-color: var(--line) !important;
+  background-color: #000000 !important;
+}
+
+[data-theme="dark"] .card,
+[data-theme="dark"] .stats-card,
+[data-theme="dark"] .listings-glance-card,
+[data-theme="dark"] .rail-card,
+[data-theme="dark"] .notif-panel-card,
+[data-theme="dark"] .property-news-card,
+[data-theme="dark"] .varoom-updates-card,
+[data-theme="dark"] .mobile-widget-card,
+[data-theme="dark"] .glance-tile,
+[data-theme="dark"] .search-wrap {
+  background: #000000 !important;
+  border-color: var(--glass-border) !important;
+  box-shadow: none !important;
+}
+
+[data-theme="dark"] .card,
+[data-theme="dark"] .stats-card,
+[data-theme="dark"] .listings-glance-card,
+[data-theme="dark"] .mobile-widget-card {
+  border: 0 !important;
+  border-bottom: 1px solid var(--line-soft) !important;
+  border-radius: 0 !important;
+}
+
+[data-theme="dark"] .card,
+[data-theme="dark"] .stats-card {
+  border-left: 0 !important;
+  border-right: 0 !important;
+}
+
+[data-theme="dark"] .rail-card,
+[data-theme="dark"] .notif-panel-card,
+[data-theme="dark"] .property-news-card,
+[data-theme="dark"] .varoom-updates-card {
+  border-bottom-color: var(--line) !important;
+}
+
+[data-theme="dark"] .search-wrap {
+  outline: 1px solid rgba(255, 255, 255, .20) !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+[data-theme="dark"] .search-wrap input,
+[data-theme="dark"] input,
+[data-theme="dark"] textarea,
+[data-theme="dark"] select {
+  background-color: var(--input-bg);
+  color: var(--ink);
+  border-color: var(--glass-border);
+}
+
+[data-theme="dark"] .search-btn,
+[data-theme="dark"] .icon-btn,
+[data-theme="dark"] .nav-label,
+[data-theme="dark"] .greeting-sub,
+[data-theme="dark"] .stat-label,
+[data-theme="dark"] .glance-sub,
+[data-theme="dark"] .update-body {
+  color: var(--muted);
+}
+
+[data-theme="dark"] .nav-item:hover,
+[data-theme="dark"] button.nav-item.soon-active:hover,
+[data-theme="dark"] .property-news-bar-refresh:hover {
+  background: #000000 !important;
+  color: var(--ink);
+}
+
+[data-theme="dark"] .nav-item.active,
+[data-theme="dark"] .tab.active,
+[data-theme="dark"] .tab[aria-selected="true"] {
+  background: var(--red) !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .tab,
+[data-theme="dark"] .secondary-btn,
+[data-theme="dark"] .action-btn,
+[data-theme="dark"] .report-cancel-btn {
+  background: #000000 !important;
+  border: 1px solid rgba(255, 255, 255, .20) !important;
+  color: var(--ink) !important;
+}
+
+[data-theme="dark"] .tab.active,
+[data-theme="dark"] .tab[aria-selected="true"] {
+  border-color: transparent !important;
+}
+
+[data-theme="dark"] .list-space-btn,
+[data-theme="dark"] .list-btn-top,
+[data-theme="dark"] .list-btn-primary,
+[data-theme="dark"] .report-submit-btn {
+  background: var(--red);
+  color: #ffffff;
+}
+
+[data-theme="dark"] .beta-pill,
+[data-theme="dark"] .soon-pill,
+[data-theme="dark"] .badge-soon {
+  background: #000000 !important;
+  border: 1px solid rgba(255, 255, 255, .20);
+  color: var(--muted);
+}
+
+[data-theme="dark"] .listings-glance-card .glance-tile.add-tile {
+  border-color: var(--glass-border) !important;
+  background: #000000 !important;
+}
+
+[data-theme="dark"] .host-rail .listings-glance-card,
+[data-theme="dark"] .host-rail .notif-panel-card,
+[data-theme="dark"] .host-rail .property-news-card,
+[data-theme="dark"] .host-rail .varoom-updates-card {
+  border: 0 !important;
+}
+
+[data-theme="dark"] .host-rail .glance-tile,
+[data-theme="dark"] .host-rail .glance-tile.add-tile {
+  border: 0 !important;
+}
+
+[data-theme="dark"] .glance-tile {
+  border-left: 0 !important;
+  border-right: 0 !important;
+}
+
+[data-theme="dark"] .sidebar-note,
+[data-theme="dark"] .verify-box.not-verified {
+  background: #000000 !important;
+  border: 1px solid var(--glass-border);
+  color: var(--ink);
+}
+
+[data-theme="dark"] .bottom-bar {
+  background: #000000 !important;
+  border-color: var(--glass-border) !important;
+  box-shadow: none !important;
+}
+
+[data-theme="dark"] .bottom-bar-item {
+  color: var(--ink);
+}
+
+[data-theme="dark"] .bottom-bar-item.active {
+  background: var(--red) !important;
+  color: #ffffff;
+}
+
+[data-theme="dark"] .profile-desktop-shell,
+[data-theme="dark"] .skeleton-shell,
+[data-theme="dark"] .profile-sidebar,
+[data-theme="dark"] .profile-main,
+[data-theme="dark"] .profile-rail,
+[data-theme="dark"] .skeleton-sidebar,
+[data-theme="dark"] .skeleton-main,
+[data-theme="dark"] .skeleton-rail {
+  background: #000000 !important;
+  border-color: var(--line) !important;
+}
+
+[data-theme="dark"] .profile-card,
+[data-theme="dark"] .profile-section,
+[data-theme="dark"] .profile-panel,
+[data-theme="dark"] .skeleton-card,
+[data-theme="dark"] .skel-rail-card {
+  background: #000000 !important;
+  border-color: var(--glass-border) !important;
+  box-shadow: none !important;
+}
+
+[data-theme="dark"] .page,
+[data-theme="dark"] .profile-wrap,
+[data-theme="dark"] .signup-aside,
+[data-theme="dark"] main {
+  background: #000000 !important;
+}
+
+[data-theme="dark"] .signup-aside {
+  border-color: var(--line) !important;
+}
+
+[data-theme="dark"] .listing-card,
+[data-theme="dark"] .listing-menu ul {
+  background: #000000 !important;
+  border-color: var(--glass-border) !important;
+  box-shadow: none !important;
+}
+
+[data-theme="dark"] .aside-divider::before,
+[data-theme="dark"] .aside-divider::after,
+[data-theme="dark"] .cta-footer {
+  border-color: var(--line-soft) !important;
+  background-color: transparent;
+}
+
+[data-theme="dark"] .support-page,
+[data-theme="dark"] .support-page main,
+[data-theme="dark"] .support-page .topbar {
+  background: #000000 !important;
+}
+
+[data-theme="dark"] .support-page .topbar {
+  border-bottom-color: var(--line-soft) !important;
+}
+
+[data-theme="dark"] .support-page .search {
+  background: #000000 !important;
+  border-color: rgba(255, 255, 255, .20) !important;
+}
+
+[data-theme="dark"] .support-page .action,
+[data-theme="dark"] .support-page .write-card,
+[data-theme="dark"] .support-page .article {
+  background: #000000 !important;
+  border-color: var(--glass-border) !important;
+  box-shadow: none !important;
+}
+
+[data-theme="dark"] .support-page .action-icon,
+[data-theme="dark"] .support-page .article-icon,
+[data-theme="dark"] .support-page .search button {
+  background: #000000 !important;
+  border: 1px solid var(--line-soft);
+}
+
+[data-theme="dark"] .support-page footer {
+  border-top-color: var(--line-soft) !important;
+}
+
+@media (max-width: 800px) {
+  [data-theme="dark"] .support-page .topbar,
+  [data-theme="dark"] .support-page main,
+  [data-theme="dark"] .support-page footer {
+    background: #000000 !important;
+  }
+
+  [data-theme="dark"] .support-page .search,
+  [data-theme="dark"] .support-page .action,
+  [data-theme="dark"] .support-page .write-card,
+  [data-theme="dark"] .support-page .article {
+    background: #000000 !important;
+    border-color: var(--glass-border) !important;
+  }
+}
+
+@media (max-width: 1180px) {
+  [data-theme="dark"] .sidebar {
+    border-right: 0 !important;
+  }
+
+  [data-theme="dark"] .col-divider {
+    display: none !important;
+  }
+}
