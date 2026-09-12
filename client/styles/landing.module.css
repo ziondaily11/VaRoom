@@ -5,8 +5,8 @@
   min-height: 100svh;
   overflow: hidden;
   position: relative;
-  background: #090a0a;
-  color: #f7f4ed;
+  background: #000;
+  color: #fff;
   font-family: 'Plus Jakarta Sans', Arial, sans-serif;
 }
 
@@ -39,7 +39,7 @@
 }
 
 .logo {
-  color: #f7f4ed;
+  color: #fff;
   font-family: Georgia, serif;
   font-size: clamp(1.5rem, 2.1vw, 2rem);
   letter-spacing: -.08em;
@@ -58,7 +58,15 @@
   gap: clamp(1.5rem, 3vw, 3.2rem);
 }
 
-.desktopNav a,
+.desktopNav a {
+  color: rgba(255, 255, 255, .78);
+  display: inline-flex;
+  font-size: .85rem;
+  padding: .45rem 0;
+  position: relative;
+  text-decoration: none;
+}
+
 .signIn {
   align-items: center;
   border: 1px solid rgba(255, 255, 255, .48);
@@ -74,6 +82,24 @@
 .desktopNav a:hover,
 .signIn:hover {
   color: #fff;
+}
+
+.desktopNav a::after {
+  background: #bd2337;
+  bottom: 0;
+  content: '';
+  height: 1px;
+  left: 0;
+  position: absolute;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform .2s ease;
+  width: 100%;
+}
+
+.desktopNav a:hover::after,
+.desktopNav a:focus-visible::after {
+  transform: scaleX(1);
 }
 
 .signIn:hover {
@@ -214,8 +240,8 @@
 }
 
 .hostSection {
-  background: #090a0a;
-  color: #f7f4ed;
+  background: #000;
+  color: #fff;
   min-height: 100svh;
   overflow: hidden;
   position: relative;
@@ -361,8 +387,8 @@
 .hostBenefit:nth-child(4) { transition-delay: .24s; }
 
 .clientSection {
-  background: #090a0a;
-  color: #f7f4ed;
+  background: #000;
+  color: #fff;
   min-height: 100svh;
   overflow: hidden;
   position: relative;
@@ -507,9 +533,126 @@
   line-height: 0;
 }
 
+.clientCta + .clientCta {
+  margin-left: .7rem;
+}
+
 .clientBenefit:nth-child(2) { transition-delay: .08s; }
 .clientBenefit:nth-child(3) { transition-delay: .16s; }
 .clientBenefit:nth-child(4) { transition-delay: .24s; }
+
+.whySection {
+  background: #000;
+  color: #fff;
+  min-height: 100svh;
+  padding: clamp(5rem, 12vh, 9rem) 7vw clamp(4rem, 9vh, 7rem);
+}
+
+.whyContent {
+  margin: 0 auto;
+  max-width: 1040px;
+}
+
+.whyEyebrow {
+  color: rgba(255, 255, 255, .6);
+  display: block;
+  font-size: .68rem;
+  font-weight: 600;
+  letter-spacing: .18em;
+  margin-bottom: 1.5rem;
+}
+
+.whyContent h2 {
+  font-family: 'Plus Jakarta Sans', Arial, sans-serif;
+  font-size: clamp(2.65rem, 4.1vw, 4.4rem);
+  font-weight: 600;
+  letter-spacing: -.04em;
+  line-height: 1.04;
+  margin: 0;
+}
+
+.whyIntroduction {
+  color: rgba(255, 255, 255, .76);
+  font-size: 1rem;
+  line-height: 1.65;
+  margin: 2rem 0 2.8rem;
+  max-width: 680px;
+}
+
+.whyBenefits {
+  border-top: 1px solid rgba(255, 255, 255, .12);
+}
+
+.whyBenefit,
+.marketplaceBreadth {
+  align-items: flex-start;
+  border-bottom: 1px solid rgba(255, 255, 255, .12);
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 24px 1fr;
+  padding: 1.25rem 0;
+}
+
+.whyBenefitIcon {
+  align-items: center;
+  color: #bd2337;
+  display: flex;
+  height: 24px;
+  justify-content: center;
+  width: 24px;
+}
+
+.whyBenefitIcon svg {
+  fill: none;
+  height: 21px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.55;
+  width: 21px;
+}
+
+.whyBenefit h3,
+.marketplaceBreadth h3 {
+  font-size: .72rem;
+  font-weight: 600;
+  letter-spacing: .1em;
+  line-height: 1.3;
+  margin: 0 0 .45rem;
+}
+
+.whyBenefit p,
+.marketplaceBreadth p {
+  color: rgba(255, 255, 255, .64);
+  font-size: .82rem;
+  line-height: 1.55;
+  margin: 0;
+  max-width: 780px;
+}
+
+.categoryList {
+  color: rgba(255, 255, 255, .7);
+  font-size: .82rem;
+  line-height: 1.8;
+  margin-top: .65rem;
+}
+
+.utilityNav {
+  display: flex;
+  gap: 1.5rem;
+  margin-top: 2.5rem;
+}
+
+.utilityNav a {
+  color: rgba(255, 255, 255, .56);
+  font-size: .75rem;
+  text-decoration: none;
+}
+
+.utilityNav a:hover,
+.utilityNav a:focus-visible {
+  color: #fff;
+}
 
 .modalOverlay {
   align-items: center;
@@ -528,7 +671,7 @@
   border: 1px solid rgba(255, 255, 255, .22);
   border-radius: 18px;
   box-shadow: 0 24px 80px rgba(0, 0, 0, .42);
-  color: #f7f4ed;
+  color: #fff;
   max-width: 440px;
   padding: 2.4rem 2rem 2rem;
   position: relative;
@@ -672,7 +815,7 @@
   }
 
   .hostShade {
-    background: linear-gradient(180deg, rgba(7, 8, 8, .04) 0%, rgba(7, 8, 8, .16) 38%, #090a0a 59%, #090a0a 100%);
+    background: linear-gradient(180deg, rgba(7, 8, 8, .04) 0%, rgba(7, 8, 8, .16) 38%, #000 59%, #000 100%);
   }
 
   .hostContent {
@@ -722,7 +865,7 @@
   }
 
   .clientShade {
-    background: linear-gradient(180deg, rgba(7, 8, 8, .06) 0%, rgba(7, 8, 8, .12) 34%, #090a0a 59%, #090a0a 100%);
+    background: linear-gradient(180deg, rgba(7, 8, 8, .06) 0%, rgba(7, 8, 8, .12) 34%, #000 59%, #000 100%);
   }
 
   .clientContent {
@@ -755,6 +898,48 @@
 
   .clientCta {
     margin-top: 1.7rem;
+  }
+
+  .clientCta + .clientCta {
+    margin-left: .45rem;
+  }
+
+  .whySection {
+    min-height: 100svh;
+    padding: 5rem 1.25rem 3.5rem;
+  }
+
+  .whyContent h2 {
+    font-size: 2.25rem;
+    line-height: 1.2;
+  }
+
+  .whyIntroduction {
+    font-size: .88rem;
+    margin: 1.5rem 0 2rem;
+  }
+
+  .whyBenefit,
+  .marketplaceBreadth {
+    gap: .75rem;
+    padding: .9rem 0;
+  }
+
+  .whyBenefit h3,
+  .marketplaceBreadth h3 {
+    font-size: .65rem;
+  }
+
+  .whyBenefit p,
+  .marketplaceBreadth p,
+  .categoryList {
+    font-size: .72rem;
+  }
+
+  .utilityNav {
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-top: 2rem;
   }
 
   .desktopBreak {

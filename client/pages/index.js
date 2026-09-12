@@ -81,6 +81,26 @@ function ClientFeatureIcon({ type }) {
   );
 }
 
+function WhyFeatureIcon({ type }) {
+  if (type === 'location') return <PinIcon />;
+  if (type === 'trust') return <ShieldIcon />;
+
+  if (type === 'reviews') {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-2.9-5.6 2.9 1.1-6.2L3 9.6l6.2-.9L12 3Z" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="4" y="4" width="16" height="16" rx="2" />
+      <path d="M8 8h.01M12 8h.01M16 8h.01M8 12h.01M12 12h.01M16 12h.01M8 16h.01M12 16h.01M16 16h.01" />
+    </svg>
+  );
+}
+
 const trustItems = [
   { label: <>GPS verified<br />locations</>, icon: <PinIcon /> },
   { label: <>Trusted<br />hosts</>, icon: <ShieldIcon /> },
@@ -150,7 +170,7 @@ export default function LandingPage() {
         <title>VaRoom | Real spaces, right where you are</title>
         <meta name="description" content="Discover real, verified spaces with VaRoom." />
         <link rel="icon" href="/favicon/favicon.ico" sizes="any" />
-        <style>{'html, body { margin: 0; min-height: 100%; } * { box-sizing: border-box; }'}</style>
+        <style>{'html, body { margin: 0; min-height: 100%; scroll-behavior: smooth; } * { box-sizing: border-box; }'}</style>
       </Head>
       <main className={styles.page}>
         <img className={styles.heroImage} src="/assets/landingpageimage.png" alt="" aria-hidden="true" />
@@ -161,8 +181,8 @@ export default function LandingPage() {
             <span>Va</span>Room
           </Link>
           <nav className={styles.desktopNav} aria-label="Main navigation">
-            <Link href="/signup-host">For hosts</Link>
-            <Link href="/marketplace">For clients</Link>
+            <a href="#host-section">For hosts</a>
+            <a href="#client-section">For clients</a>
             <Link href="/elie">Elie</Link>
             <a href="#why-us">Why us</a>
           </nav>
@@ -192,7 +212,7 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section className={styles.hostSection} aria-labelledby="host-title">
+        <section id="host-section" className={styles.hostSection} aria-labelledby="host-title">
           <div className={styles.hostImage} aria-hidden="true" />
           <div className={styles.hostShade} aria-hidden="true" />
           <div className={styles.hostContent}>
@@ -237,7 +257,7 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section className={styles.clientSection} aria-labelledby="client-title">
+        <section id="client-section" className={styles.clientSection} aria-labelledby="client-title">
           <video
             className={styles.clientVideo}
             src="/assets/forclientsplayer.mp4"
@@ -287,6 +307,57 @@ export default function LandingPage() {
             <Link className={styles.clientCta} href="/marketplace">
               Explore the Marketplace <span aria-hidden="true">→</span>
             </Link>
+            <Link className={styles.clientCta} href="/signup-client">
+              Try Elie <span aria-hidden="true">→</span>
+            </Link>
+          </div>
+        </section>
+
+        <section id="why-us" className={styles.whySection} aria-labelledby="why-title">
+          <div className={styles.whyContent}>
+            <span className={styles.whyEyebrow} data-reveal>WHY VAROOM</span>
+            <h2 id="why-title" data-reveal>Why Trust VaRoom?</h2>
+            <p className={styles.whyIntroduction} data-reveal>
+              A marketplace built around real spaces, greater transparency, and confidence on both sides of every property interaction.
+            </p>
+            <div className={styles.whyBenefits}>
+              <article className={styles.whyBenefit} data-reveal>
+                <span className={styles.whyBenefitIcon}><WhyFeatureIcon type="location" /></span>
+                <div>
+                  <h3>GPS-VERIFIED PROPERTIES</h3>
+                  <p>Properties are tied to their actual GPS location, helping users know that the space they are viewing corresponds to a real, accurately located property.</p>
+                </div>
+              </article>
+              <article className={styles.whyBenefit} data-reveal>
+                <span className={styles.whyBenefitIcon}><WhyFeatureIcon type="trust" /></span>
+                <div>
+                  <h3>TWO-WAY TRUST &amp; ACCOUNTABILITY</h3>
+                  <p>Trust works both ways. Hosts can understand who they are dealing with, while clients can review host profiles, ratings, and property information before making decisions.</p>
+                </div>
+              </article>
+              <article className={styles.whyBenefit} data-reveal>
+                <span className={styles.whyBenefitIcon}><WhyFeatureIcon type="reviews" /></span>
+                <div>
+                  <h3>REVIEWS &amp; REPUTATION</h3>
+                  <p>Build confidence through transparent profiles, ratings, reviews, and reputation. Clients can learn more about hosts and properties before making decisions, while hosts can build credibility through their marketplace activity.</p>
+                </div>
+              </article>
+            </div>
+            <div className={styles.marketplaceBreadth} data-reveal>
+              <span className={styles.whyBenefitIcon}><WhyFeatureIcon type="marketplace" /></span>
+              <div>
+                <h3>MORE THAN JUST A PLACE TO STAY</h3>
+                <p>VaRoom is designed to bring different types of spaces, properties and experiences together in one marketplace.</p>
+                <div className={styles.categoryList}>
+                  Airbnbs / Short Stays · Hotels · Rentals · Homes · Apartments · Shops · Offices · Workspaces · Venues · Safaris · Experiences · And more
+                </div>
+              </div>
+            </div>
+            <nav className={styles.utilityNav} aria-label="Footer links">
+              <a href="#privacy-policy">Privacy Policy</a>
+              <a href="#terms-conditions">Terms &amp; Conditions</a>
+              <a href="#contact-us">Contact Us</a>
+            </nav>
           </div>
         </section>
 
