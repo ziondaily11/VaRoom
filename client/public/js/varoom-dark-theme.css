@@ -279,6 +279,22 @@
   border-top-color: var(--line-soft) !important;
 }
 
+@media (max-width: 800px) {
+  [data-theme="dark"] .support-page .topbar,
+  [data-theme="dark"] .support-page main,
+  [data-theme="dark"] .support-page footer {
+    background: #000000 !important;
+  }
+
+  [data-theme="dark"] .support-page .search,
+  [data-theme="dark"] .support-page .action,
+  [data-theme="dark"] .support-page .write-card,
+  [data-theme="dark"] .support-page .article {
+    background: #000000 !important;
+    border-color: var(--glass-border) !important;
+  }
+}
+
 @media (max-width: 1180px) {
   [data-theme="dark"] .sidebar {
     border-right: 0 !important;
