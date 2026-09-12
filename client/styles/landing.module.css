@@ -853,28 +853,24 @@
   }
 
   .clientSection {
-    min-height: 100svh;
+    min-height: auto;
   }
 
   .clientSection::after {
-    bottom: auto;
-    height: 38px;
-    top: calc(56svh - 38px);
-    width: 108px;
+    display: none;
   }
 
   .clientVideo {
-    height: 56svh;
-    object-fit: contain;
-    object-position: center top;
+    display: none;
   }
 
   .clientShade {
-    background: linear-gradient(180deg, rgba(7, 8, 8, .06) 0%, rgba(7, 8, 8, .12) 34%, #000 59%, #000 100%);
+    display: none;
   }
 
   .clientContent {
-    padding: min(57vh, 30rem) 1.25rem 3rem;
+    max-width: none;
+    padding: 5rem 1.25rem 3rem;
     width: 100%;
   }
 
