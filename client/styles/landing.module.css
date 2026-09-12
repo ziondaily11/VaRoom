@@ -127,6 +127,7 @@
 .heroContent {
   margin: 0;
   max-width: none;
+  min-height: calc(100svh - 88px);
   padding: clamp(4rem, 8vh, 5.5rem) 3.2vw 3rem;
   position: relative;
 }
@@ -466,6 +467,7 @@
   }
 
   .heroContent {
+    min-height: calc(100svh - 68px);
     padding: min(46vh, 25rem) 1.25rem 2.5rem;
   }
 
