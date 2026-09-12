@@ -461,7 +461,9 @@
   }
 
   .heroImage {
-    object-position: 68% center;
+    height: 100svh;
+    object-position: 70% center;
+    width: 100%;
   }
 
   .heroShade {
