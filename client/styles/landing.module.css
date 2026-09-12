@@ -284,14 +284,27 @@
   border-bottom: 1px solid rgba(255, 255, 255, .18);
   display: grid;
   gap: 1rem;
-  grid-template-columns: 1.1rem 1fr;
+  grid-template-columns: 24px 1fr;
   padding: 1rem 0;
 }
 
 .hostBenefitIcon {
+  align-items: center;
   color: #bd2337;
-  font-size: .95rem;
-  line-height: 1.2;
+  display: flex;
+  height: 24px;
+  justify-content: center;
+  width: 24px;
+}
+
+.hostBenefitIcon svg {
+  fill: none;
+  height: 21px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.55;
+  width: 21px;
 }
 
 .hostBenefit h3 {

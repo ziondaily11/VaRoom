@@ -22,6 +22,44 @@ function ShieldIcon({ lock = false }) {
   );
 }
 
+function HostFeatureIcon({ type }) {
+  if (type === 'assistant') {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M9.5 4.5h5a3 3 0 0 1 3 3v4a3 3 0 0 1-3 3h-5a3 3 0 0 1-3-3v-4a3 3 0 0 1 3-3Z" />
+        <path d="M9 14.5v2.2a1.8 1.8 0 0 0 1.8 1.8h2.4a1.8 1.8 0 0 0 1.8-1.8v-2.2M12 4.5V2.8M9.5 9.5h.01M14.5 9.5h.01M10 12h4" />
+        <path d="m19.2 3.2.4 1.1 1.1.4-1.1.4-.4 1.1-.4-1.1-1.1-.4 1.1-.4.4-1.1Z" />
+      </svg>
+    );
+  }
+
+  if (type === 'dashboard') {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="4" y="4" width="16" height="16" rx="2" />
+        <path d="M8 16v-3M12 16V9M16 16v-5" />
+      </svg>
+    );
+  }
+
+  if (type === 'trust') {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="m12 3 7 2.7v5.1c0 4.1-2.8 7-7 9.2-4.2-2.2-7-5.1-7-9.2V5.7L12 3Z" />
+        <path d="m8.5 11.5 2.2 2.2 4.8-4.8" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 17 9 12l3.5 3.5L20 8" />
+      <path d="M15.5 8H20v4.5" />
+      <path d="M4 20h16" />
+    </svg>
+  );
+}
+
 const trustItems = [
   { label: <>GPS verified<br />locations</>, icon: <PinIcon /> },
   { label: <>Trusted<br />hosts</>, icon: <ShieldIcon /> },
@@ -144,28 +182,28 @@ export default function LandingPage() {
             </p>
             <div className={styles.hostBenefits}>
               <article className={styles.hostBenefit} data-reveal>
-                <span className={styles.hostBenefitIcon}>🤖</span>
+                <span className={styles.hostBenefitIcon}><HostFeatureIcon type="assistant" /></span>
                 <div>
                   <h3>YOUR 24/7 AI CO-HOST</h3>
                   <p>Let Elie handle the conversations that keep you busy. From guest questions and property details to listing recommendations and booking assistance, Elie keeps guests engaged around the clock.</p>
                 </div>
               </article>
               <article className={styles.hostBenefit} data-reveal>
-                <span className={styles.hostBenefitIcon}>📊</span>
+                <span className={styles.hostBenefitIcon}><HostFeatureIcon type="dashboard" /></span>
                 <div>
                   <h3>ONE SMART HOST DASHBOARD</h3>
                   <p>Manage your properties, pricing, availability, bookings, analytics, payouts, and guest communications without jumping between multiple platforms.</p>
                 </div>
               </article>
               <article className={styles.hostBenefit} data-reveal>
-                <span className={styles.hostBenefitIcon}>🛡️</span>
+                <span className={styles.hostBenefitIcon}><HostFeatureIcon type="trust" /></span>
                 <div>
                   <h3>A MORE TRUSTED GUEST COMMUNITY</h3>
                   <p>Make informed hosting decisions with access to guest profiles, ratings, and booking information before accepting inquiries or reservations.</p>
                 </div>
               </article>
               <article className={styles.hostBenefit} data-reveal>
-                <span className={styles.hostBenefitIcon}>💰</span>
+                <span className={styles.hostBenefitIcon}><HostFeatureIcon type="growth" /></span>
                 <div>
                   <h3>GROW WITHOUT BEING GLUED TO YOUR PHONE</h3>
                   <p>Automate repetitive communication, respond faster to potential guests, and keep your attention on the parts of hosting that actually need you.</p>
