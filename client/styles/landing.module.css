@@ -368,6 +368,18 @@
   position: relative;
 }
 
+.clientSection::after {
+  background: linear-gradient(135deg, transparent 0%, rgba(7, 8, 8, .16) 42%, rgba(7, 8, 8, .72) 100%);
+  bottom: 0;
+  content: '';
+  height: 44px;
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+  width: 128px;
+  z-index: 0;
+}
+
 .clientVideo,
 .clientShade {
   inset: 0;
@@ -697,6 +709,11 @@
 
   .clientSection {
     min-height: 100svh;
+  }
+
+  .clientSection::after {
+    height: 38px;
+    width: 108px;
   }
 
   .clientVideo {
