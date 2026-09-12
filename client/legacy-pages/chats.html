@@ -395,7 +395,7 @@
     /* mobile header: hamburger + title + search icon + filter icon only */
     #bell-btn, #help-btn, .personalize-wrap{ display:none; }
     .mobile-only-icon{ display:grid; }
-    .mobile-only-icon:first-of-type{ margin-left:auto; }
+    #mobile-search-btn{ margin-left:auto; }
 
     /* mobile inbox: chips only, no tabs/search row (matches design) */
     .conv-tabs, .conv-search{ display:none; }
@@ -479,17 +479,18 @@
     .topbar .icon-btn{ color:#1E1E1E; }
     .chip-row{
       background:#FFFFFF;
-      padding:12px 16px;
-      gap:8px;
+      padding:14px 16px;
+      gap:12px;
     }
     .chip{
       flex:0 0 auto;
-      min-height:32px;
-      padding:6px 16px;
+      min-height:34px;
+      padding:7px 18px;
       border:0;
       border-radius:999px;
       background:#F3F4F6;
       color:#374151;
+      font-size:13px;
       line-height:20px;
     }
     .chip.active{
@@ -644,23 +645,23 @@
       height:28px;
       color:#1E1E1E;
     }
-    .main-col > .topbar .mobile-only-icon:first-of-type{
+    .main-col > .topbar #mobile-search-btn{
       margin-left:auto;
     }
     .chat-stage:has(.conv-list:not(.hide-mobile)) .conv-list{
       background:#FFFFFF;
     }
     .chat-stage:has(.conv-list:not(.hide-mobile)) .chip-row{
-      padding:4px 16px 10px;
-      gap:8px;
+      padding:10px 16px 14px;
+      gap:12px;
       border-bottom:0;
       background:#FFFFFF;
-      min-height:46px;
+      min-height:52px;
     }
     .chat-stage:has(.conv-list:not(.hide-mobile)) .chip{
-      min-height:30px;
-      padding:5px 13px;
-      font-size:11px;
+      min-height:34px;
+      padding:7px 18px;
+      font-size:13px;
       line-height:20px;
       border-radius:999px;
       background:#F3F4F6;
