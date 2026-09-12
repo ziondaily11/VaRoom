@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+
 .page {
   isolation: isolate;
   min-height: 100svh;
@@ -5,7 +7,7 @@
   position: relative;
   background: #090a0a;
   color: #f7f4ed;
-  font-family: Inter, Arial, sans-serif;
+  font-family: 'Plus Jakarta Sans', Arial, sans-serif;
 }
 
 .heroImage,
@@ -148,13 +150,13 @@
 }
 
 .heroContent h1 {
-  font-family: Fraunces, Georgia, serif;
-  font-size: clamp(3.5rem, 5.2vw, 5.4rem);
-  font-weight: 400;
-  letter-spacing: -.065em;
-  line-height: .92;
+  font-family: 'Plus Jakarta Sans', Arial, sans-serif;
+  font-size: 3.5rem;
+  font-weight: 600;
+  letter-spacing: -.025em;
+  line-height: 1.1;
   margin: 1.2rem 0 1.2rem;
-  max-width: 700px;
+  max-width: 760px;
 }
 
 .heroContent h1 em {
@@ -163,9 +165,11 @@
 
 .description {
   color: rgba(255, 255, 255, .82);
-  font-size: clamp(.9rem, 1.15vw, 1.1rem);
+  font-size: 1.125rem;
+  font-weight: 400;
   line-height: 1.5;
   margin: 0 0 1.7rem;
+  max-width: 680px;
 }
 
 .primaryButton {
@@ -353,7 +357,8 @@
   }
 
   .heroContent h1 {
-    font-size: clamp(3.1rem, 14vw, 5.4rem);
+    font-size: 2.25rem;
+    line-height: 1.2;
     margin-top: 1rem;
   }
 

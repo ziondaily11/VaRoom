@@ -100,7 +100,7 @@ export default function LandingPage() {
 
         <section className={styles.heroContent} aria-labelledby="hero-title">
           <div className={styles.eyebrow}><PinIcon /> Real locations. Real people. Real spaces.</div>
-          <h1 id="hero-title">Find the perfect<br />place for what<br /><em>matters to you.</em></h1>
+          <h1 id="hero-title">The Smarter, Safer Way to Find, Book, Rent, Buy, and Host Properties in Kenya</h1>
           <p className={styles.description}>
             From cozy stays to inspiring workspaces, vibrant venues<br className={styles.desktopBreak} />
             {' '}and prime properties — VaRoom connects you with<br className={styles.desktopBreak} />
