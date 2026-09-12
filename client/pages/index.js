@@ -1,5 +1,6 @@
 import Head from 'next/head';
 import Link from 'next/link';
+import Script from 'next/script';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import styles from '../styles/landing.module.css';
@@ -164,6 +165,24 @@ export default function LandingPage() {
     return redirect ? `${href}?redirect=${encodeURIComponent(redirect)}` : href;
   }
 
+  async function handleTryElie(event) {
+    event.preventDefault();
+    const destination = '/signup-client';
+
+    if (!window.supabaseClient) {
+      window.location.assign(destination);
+      return;
+    }
+
+    const { data, error } = await window.supabaseClient.auth.getSession();
+    if (error || !data.session) {
+      window.location.assign(destination);
+      return;
+    }
+
+    window.location.assign('/elie');
+  }
+
   return (
     <>
       <Head>
@@ -172,6 +191,8 @@ export default function LandingPage() {
         <link rel="icon" href="/favicon/favicon.ico" sizes="any" />
         <style>{'html, body { margin: 0; min-height: 100%; scroll-behavior: smooth; } * { box-sizing: border-box; }'}</style>
       </Head>
+      <Script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" strategy="beforeInteractive" />
+      <Script src="/js/supabase-client.js" strategy="beforeInteractive" />
       <main className={styles.page}>
         <img className={styles.heroImage} src="/assets/landingpageimage.png" alt="" aria-hidden="true" />
         <div className={styles.heroShade} aria-hidden="true" />
@@ -307,7 +328,7 @@ export default function LandingPage() {
             <Link className={styles.clientCta} href="/marketplace">
               Explore the Marketplace <span aria-hidden="true">→</span>
             </Link>
-            <Link className={styles.clientCta} href="/signup-client">
+            <Link className={styles.clientCta} href="/signup-client" onClick={handleTryElie}>
               Try Elie <span aria-hidden="true">→</span>
             </Link>
           </div>
@@ -354,9 +375,9 @@ export default function LandingPage() {
               </div>
             </div>
             <nav className={styles.utilityNav} aria-label="Footer links">
-              <a href="#privacy-policy">Privacy Policy</a>
-              <a href="#terms-conditions">Terms &amp; Conditions</a>
-              <a href="#contact-us">Contact Us</a>
+              <a href="/privacy">Privacy Policy</a>
+              <a href="/terms">Terms &amp; Conditions</a>
+              <span>Contact Us</span>
             </nav>
           </div>
         </section>

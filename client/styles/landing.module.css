@@ -643,14 +643,16 @@
   margin-top: 2.5rem;
 }
 
-.utilityNav a {
+.utilityNav a,
+.utilityNav span {
   color: rgba(255, 255, 255, .56);
   font-size: .75rem;
   text-decoration: none;
 }
 
 .utilityNav a:hover,
-.utilityNav a:focus-visible {
+.utilityNav a:focus-visible,
+.utilityNav span:hover {
   color: #fff;
 }
 
