@@ -359,7 +359,6 @@
 
   /* ---------- MOBILE BOTTOM TABBAR ---------- */
   .mobile-tabbar{ display:none; }
-  .quick-actions, .action-toolbar{ display:none; }
 
   @media (max-width:1100px){ .chat-shell{ grid-template-columns:280px minmax(0,1fr); } .details-panel{ display:none; } .details-panel.show-mobile{ display:block; } }
 
@@ -447,17 +446,11 @@
     .msg-bubble{ padding:.5rem .65rem; font-size:.75rem; border-radius:12px; }
     .msg-time{ font-size:.58rem; }
     .composer-wrap{ padding:.35rem .8rem .45rem; background:#fff; border-top:1px solid #ECECEC; }
-    .quick-actions{ display:flex; gap:.4rem; overflow-x:auto; padding:.05rem 0 .5rem; }
-    .quick-action{ white-space:nowrap; border:1px solid #E5E5E5; border-radius:999px; padding:.35rem .55rem; color:#4B5563; background:#fff; font-size:.6rem; font-weight:700; }
-    .quick-action:hover{ color:var(--accent); border-color:var(--accent); }
-    .composer{ border-color:#E5E5E5; border-radius:999px; padding:.35rem .45rem; box-shadow:0 1px 4px rgba(26,18,16,.04); }
+.composer{ border-color:#E5E5E5; border-radius:999px; padding:.35rem .45rem; box-shadow:0 1px 4px rgba(26,18,16,.04); }
     .composer-add{ width:28px; height:28px; }
     .composer input{ font-size:.72rem; padding-left:.1rem; }
     .composer button#send-btn{ width:31px; height:31px; border-radius:50%; }
-    .action-toolbar{ display:flex; justify-content:space-between; gap:.2rem; padding:.5rem 0 .05rem; }
-    .action-toolbar button{ display:flex; flex-direction:column; align-items:center; gap:.2rem; color:#6B7280; font-size:.55rem; min-width:0; flex:1; }
-    .action-toolbar button svg{ color:#374151; }
-    .mobile-tabbar{ min-height:58px; box-shadow:0 -2px 8px rgba(26,18,16,.04); }
+.mobile-tabbar{ min-height:58px; box-shadow:0 -2px 8px rgba(26,18,16,.04); }
     .mobile-tabbar a{ font-size:.58rem; gap:.15rem; }
     .mobile-tabbar a.active{ font-weight:800; }
     .details-panel{ background:#fff; }
@@ -619,40 +612,14 @@
       background:#FFFFFF;
       border-top:1px solid #E5E7EB;
     }
-    .quick-actions{
-      display:flex;
-      overflow-x:auto;
-      gap:8px;
-      padding:8px 0;
-      scrollbar-width:none;
-    }
-    .quick-actions::-webkit-scrollbar{ display:none; }
-    .quick-action{
-      flex:0 0 auto;
-      padding:6px 12px;
-      border:1px solid #D1D5DB;
-      border-radius:999px;
-      background:#FFFFFF;
-      color:#374151;
-      font-size:.62rem;
-    }
-    .composer{
+.composer{
       position:relative;
       z-index:1;
       border:1px solid #D1D5DB;
       border-radius:999px;
       background:#FFFFFF;
     }
-    .action-toolbar{
-      display:flex;
-      position:static;
-      gap:4px;
-      padding:8px 0 0;
-      border-top:0;
-      background:#FFFFFF;
-    }
-    .action-toolbar button{ color:#6B7280; }
-  }
+}
 
   /* Inbox-only mobile proportions */
   @media (max-width:760px){
@@ -1877,11 +1844,6 @@
         '<div class="messages-area" id="messages-area"></div>' +
         '<div class="composer-wrap">' +
           '<div id="composer-attachment"></div>' +
-          '<div class="quick-actions" aria-label="Conversation quick actions">' +
-            '<button type="button" class="quick-action">Share availability</button>' +
-            '<button type="button" class="quick-action">Share listing</button>' +
-            '<button type="button" class="quick-action">Create booking</button>' +
-          '</div>' +
           '<div class="composer">' +
             '<button type="button" class="composer-add" id="composer-add-btn" aria-label="Add attachment" aria-expanded="false" aria-controls="attachment-menu"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.4 11.6-8.8 8.8a6 6 0 0 1-8.5-8.5l8.1-8.1a4 4 0 1 1 5.7 5.7l-8.1 8.1a2 2 0 0 1-2.8-2.8l7.4-7.4"/></svg></button>' +
             '<div class="attachment-menu" id="attachment-menu" hidden>' +
@@ -1893,13 +1855,6 @@
             '<input type="file" id="file-input" accept=".pdf,.txt,.zip,.doc,.docx,.xls,.xlsx" hidden>' +
             '<input type="text" id="message-input" placeholder="Type a message..." autocomplete="off">' +
             '<button type="button" id="send-btn" aria-label="Send"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/></svg></button>' +
-          '</div>' +
-          '<div class="action-toolbar" aria-label="Message actions">' +
-            '<button type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9" r="1.5"/><path d="m21 15-4-4L7 20"/></svg><span>Photo</span></button>' +
-            '<button type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m21.4 11.6-8.8 8.8a6 6 0 0 1-8.5-8.5l8.1-8.1a4 4 0 1 1 5.7 5.7l-8.1 8.1a2 2 0 0 1-2.8-2.8l7.4-7.4"/></svg><span>Attach file</span></button>' +
-            '<button type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18M5 4h14v16H5z"/><path d="M8 11h8M8 15h5"/></svg><span>Share listing</span></button>' +
-            '<button type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg><span>Availability</span></button>' +
-            '<button type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg><span>Create booking</span></button>' +
           '</div>' +
         '</div>';
 
