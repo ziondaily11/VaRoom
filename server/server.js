@@ -7,6 +7,7 @@ const { getListingLocation, getBookingLocation, getListingDistance } = require('
 const videoRoutes = require('./routes/videoRoutes');
 const listingRoutes = require('./routes/listingRoutes');
 const chatAttachmentRoutes = require('./routes/chatAttachmentRoutes');
+const { createAdminRoutes } = require('./routes/adminRoutes');
 const { MAX_JSON_BYTES, validateJsonPayload, ValidationError, uuid, number } = require('./lib/inputValidation');
 const { ERROR_CODES, sendError } = require('./lib/apiResponse');
 
@@ -22,6 +23,7 @@ app.use((req, res, next) => {
   next();
 });
 app.use(express.json({ limit: MAX_JSON_BYTES, strict: true }));
+app.use(express.urlencoded({ extended: false }));
 app.use((req, res, next) => {
   if (['POST', 'PUT', 'PATCH'].includes(req.method) && req.body !== undefined) {
     return validateJsonPayload(req, res, next);
@@ -48,6 +50,32 @@ app.use('/api', chatAttachmentRoutes);
 const clientDirectory = path.join(__dirname, '..', 'client');
 const legacyPagesDirectory = path.join(clientDirectory, 'legacy-pages');
 app.use(express.static(path.join(clientDirectory, 'public')));
+
+app.use('/admin', createAdminRoutes(supabaseAdmin));
+
+app.post('/support/tickets', async (req, res) => {
+  const { name, email, subject, message, priority = 'normal' } = req.body || {};
+  if (!name || !email || !subject || !message || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return sendError(res, 400, 'Name, valid email, subject and message are required');
+  }
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  let userId = null;
+  if (token) {
+    const { data: { user } } = await supabaseAdmin.auth.getUser(token);
+    userId = user && user.id;
+  }
+  const { data, error } = await supabaseAdmin.from('support_tickets').insert({
+    user_id: userId,
+    name: String(name).trim(),
+    email: String(email).trim().toLowerCase(),
+    subject: String(subject).trim(),
+    message: String(message).trim(),
+    priority: ['low', 'normal', 'high'].includes(priority) ? priority : 'normal'
+  }).select('id,status,created_at').single();
+  if (error) return sendError(res, 502, 'Unable to create support ticket');
+  return res.status(201).json({ ticket: data });
+});
 
 const pageTemplates = {
   '/': 'index.html',
@@ -78,6 +106,7 @@ const pageTemplates = {
   '/profile': 'profile.html',
   '/property-news': 'property-news.html',
   '/settings': 'settings.html',
+  '/support': 'support.html',
   '/terms': 'terms.html',
   '/transactions': 'transactions.html',
   '/varoom-post': 'varoom-post.html',

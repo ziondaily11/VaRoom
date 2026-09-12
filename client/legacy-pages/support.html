@@ -118,6 +118,8 @@
   }
 </style>
 <link rel="stylesheet" href="js/varoom-dark-theme.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/supabase-client.js"></script>
 </head>
 <body>
 <div class="page support-page">
@@ -152,6 +154,17 @@
     <section class="write-card" aria-labelledby="write-heading">
       <div><h2 id="write-heading">Write to VaRoom Support</h2><p>Our team can help when you can't find what you're looking for.</p></div>
       <button class="write-button" type="button" data-support-action="contact">Contact support</button>
+    </section>
+    <section id="support-form-card" class="write-card" hidden aria-labelledby="support-form-heading">
+      <form id="support-ticket-form" style="width:100%">
+        <h2 id="support-form-heading">Contact support</h2>
+        <p id="support-form-message" class="empty"></p>
+        <input name="name" required placeholder="Your name" style="display:block;width:100%;margin-top:1rem;padding:.7rem;border:1px solid #34393e;border-radius:6px;color:var(--text);background:var(--surface)">
+        <input name="email" type="email" required placeholder="Reply-to email" style="display:block;width:100%;margin-top:.6rem;padding:.7rem;border:1px solid #34393e;border-radius:6px;color:var(--text);background:var(--surface)">
+        <input name="subject" required placeholder="Subject" style="display:block;width:100%;margin-top:.6rem;padding:.7rem;border:1px solid #34393e;border-radius:6px;color:var(--text);background:var(--surface)">
+        <textarea name="message" required rows="5" placeholder="How can we help?" style="display:block;width:100%;margin-top:.6rem;padding:.7rem;border:1px solid #34393e;border-radius:6px;color:var(--text);background:var(--surface)"></textarea>
+        <button class="write-button" type="submit" style="margin-top:.8rem">Send ticket</button>
+      </form>
     </section>
 
     <section class="articles" aria-labelledby="articles-heading">
@@ -224,8 +237,33 @@
     form.addEventListener('submit', function (event) { event.preventDefault(); search(); });
     document.querySelectorAll('[data-support-action]').forEach(function (button) {
       button.addEventListener('click', function () {
-        // Destinations will be connected when support workflows are implemented.
+        var card = document.getElementById('support-form-card');
+        card.hidden = false;
+        card.scrollIntoView({ behavior:'smooth', block:'center' });
       });
+    });
+    document.getElementById('support-ticket-form').addEventListener('submit', async function (event) {
+      event.preventDefault();
+      var form = event.currentTarget;
+      var message = document.getElementById('support-form-message');
+      var values = Object.fromEntries(new FormData(form).entries());
+      try {
+        var sessionResult = window.supabaseClient ? await window.supabaseClient.auth.getSession() : { data: { session: null } };
+        var headers = { 'Content-Type': 'application/json' };
+        if (sessionResult.data.session) headers.Authorization = 'Bearer ' + sessionResult.data.session.access_token;
+        var response = await fetch('/support/tickets', {
+          method: 'POST',
+          headers: headers,
+          credentials: 'same-origin',
+          body: JSON.stringify(values)
+        });
+        var body = await response.json();
+        if (!response.ok) throw new Error(body.error || 'Unable to send ticket');
+        message.textContent = 'Thanks — your ticket has been sent. We will reply by email.';
+        form.reset();
+      } catch (error) {
+        message.textContent = error.message;
+      }
     });
   }());
 </script>

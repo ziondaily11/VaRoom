@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useEffect, useState } from "react";
 import {
   LayoutDashboard,
   LogIn,
@@ -29,158 +29,6 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
-
-// ---------------------------------------------------------------------------
-// Mock data — replace each of these with real API calls when wiring up.
-// ---------------------------------------------------------------------------
-
-const DAYS = Array.from({ length: 14 }, (_, i) => {
-  const d = new Date();
-  d.setDate(d.getDate() - (13 - i));
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-});
-
-const signinsSeries = DAYS.map((day, i) => ({
-  day,
-  signins: Math.round(40 + Math.sin(i / 2) * 15 + i * 2 + Math.random() * 10),
-}));
-
-const revenueSeries = DAYS.map((day, i) => ({
-  day,
-  revenue: Math.round(900 + Math.cos(i / 3) * 200 + i * 40 + Math.random() * 150),
-}));
-
-const growthSeries = DAYS.map((day, i) => ({
-  day,
-  signups: Math.round(8 + i * 0.8 + Math.random() * 4),
-  listings: Math.round(3 + i * 0.5 + Math.random() * 3),
-}));
-
-const mockTickets = [
-  {
-    id: "T-1044",
-    name: "Peter Ndungu",
-    email: "peter.ndungu@example.com",
-    subject: "Why was my account suspended?",
-    message:
-      "I logged in this morning and got a message that my account is suspended. I don't understand why — I haven't had any complaints. Please explain and help me get this resolved.",
-    status: "open",
-    priority: "high",
-    createdAt: "35m ago",
-    accountStatus: "suspended",
-  },
-  {
-    id: "T-1042",
-    name: "Amara Otieno",
-    email: "amara.o@example.com",
-    subject: "Payout never arrived after checkout",
-    message:
-      "My guest checked out three days ago and the payout still shows as pending. Can someone look into this? I need the funds to cover next month's costs.",
-    status: "open",
-    priority: "high",
-    createdAt: "2h ago",
-    accountStatus: "active",
-  },
-  {
-    id: "T-1041",
-    name: "Brian Mwangi",
-    email: "b.mwangi@example.com",
-    subject: "Can't upload listing photos",
-    message:
-      "Every time I try to upload photos for my new listing the page just spins and nothing happens. Tried on two different phones.",
-    status: "open",
-    priority: "normal",
-    createdAt: "5h ago",
-    accountStatus: "active",
-  },
-  {
-    id: "T-1039",
-    name: "Grace Wanjiru",
-    email: "grace.w@example.com",
-    subject: "Refund question",
-    message:
-      "A guest cancelled within the free window but I was still charged a service fee. Is that expected?",
-    status: "in_progress",
-    priority: "normal",
-    createdAt: "1d ago",
-    accountStatus: "active",
-  },
-  {
-    id: "T-1035",
-    name: "Dennis Kiptoo",
-    email: "dennis.k@example.com",
-    subject: "Account verification stuck",
-    message:
-      "Submitted my ID four days ago and my account still says 'pending verification'. Please advise.",
-    status: "open",
-    priority: "high",
-    createdAt: "1d ago",
-    accountStatus: "active",
-  },
-  {
-    id: "T-1028",
-    name: "Faith Chebet",
-    email: "faith.c@example.com",
-    subject: "Thank you",
-    message: "Just wanted to say the new booking flow is much smoother, nice work!",
-    status: "resolved",
-    priority: "low",
-    createdAt: "3d ago",
-    accountStatus: "active",
-  },
-];
-
-const mockReports = [
-  {
-    id: "R-221",
-    listing: "Lakeview Cottage, Naivasha",
-    reporter: "guest_4471",
-    reason: "Listing photos don't match property",
-    status: "pending",
-    createdAt: "3h ago",
-  },
-  {
-    id: "R-219",
-    listing: "Downtown Loft, Nairobi",
-    reporter: "guest_2290",
-    reason: "Host unresponsive after booking",
-    status: "pending",
-    createdAt: "1d ago",
-  },
-  {
-    id: "R-214",
-    listing: "Garden Studio, Karen",
-    reporter: "guest_1188",
-    reason: "Suspected duplicate listing",
-    status: "reviewed",
-    createdAt: "4d ago",
-  },
-];
-
-const mockSignins = [
-  { user: "amara.o@example.com", method: "Email", time: "10:42 AM", device: "iOS" },
-  { user: "b.mwangi@example.com", method: "Google", time: "10:31 AM", device: "Web" },
-  { user: "grace.w@example.com", method: "Email", time: "9:58 AM", device: "Android" },
-  { user: "dennis.k@example.com", method: "Google", time: "9:20 AM", device: "Web" },
-  { user: "faith.c@example.com", method: "Email", time: "8:47 AM", device: "iOS" },
-];
-
-const mockTransactions = [
-  { id: "TX-8834", payer: "guest_4471", listing: "Lakeview Cottage", amount: 142.0, date: "Sep 12" },
-  { id: "TX-8829", payer: "guest_2290", listing: "Downtown Loft", amount: 89.5, date: "Sep 12" },
-  { id: "TX-8811", payer: "guest_1188", listing: "Garden Studio", amount: 210.0, date: "Sep 11" },
-  { id: "TX-8790", payer: "guest_9012", listing: "Riverside Suite", amount: 65.0, date: "Sep 11" },
-];
-
-const initialAdmins = [
-  {
-    id: "A-001",
-    name: "You",
-    email: "founder@varoom.app",
-    role: "super_admin",
-    lastLogin: "Just now",
-  },
-];
 
 // ---------------------------------------------------------------------------
 // Shared UI atoms
@@ -264,8 +112,8 @@ function Table({ columns, rows, renderRow }) {
 // Sections
 // ---------------------------------------------------------------------------
 
-function Overview({ openTickets, goTo }) {
-  const totalRevenue = mockTransactions.reduce((s, t) => s + t.amount, 0);
+function Overview({ overview, signinsSeries, revenueSeries, goTo }) {
+  const totalRevenue = Number(overview.revenue || 0);
   return (
     <div>
       <SectionHeader
@@ -273,15 +121,15 @@ function Overview({ openTickets, goTo }) {
         description="A snapshot of sign-ins, revenue, support, and growth across the platform."
       />
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-        <StatCard label="Sign-ins (7d)" value="342" sub="+12% vs prior week" />
-        <StatCard label="Revenue (7d)" value={`$${totalRevenue.toFixed(0)}`} sub="4 transactions today" />
+        <StatCard label="Sign-ins (7d)" value={overview.signins} />
+        <StatCard label="Revenue (7d)" value={`$${totalRevenue.toFixed(0)}`} />
         <StatCard
           label="Open support tickets"
-          value={openTickets}
+          value={overview.openTickets}
           sub="Needs attention"
-          alert={openTickets > 0}
+          alert={overview.openTickets > 0}
         />
-        <StatCard label="New listings (7d)" value="9" sub="+3 vs prior week" />
+        <StatCard label="New listings (7d)" value={overview.newListings} />
       </div>
 
       <div className="grid md:grid-cols-2 gap-4">
@@ -322,7 +170,7 @@ function Overview({ openTickets, goTo }) {
         <div>
           <div className="text-sm text-[#24211E]">Support needs a look</div>
           <div className="text-xs text-[#8a857c] mt-1">
-            {openTickets} open ticket{openTickets === 1 ? "" : "s"}, oldest opened 1 day ago.
+            {overview.openTickets} open ticket{overview.openTickets === 1 ? "" : "s"}.
           </div>
         </div>
         <button
@@ -336,13 +184,13 @@ function Overview({ openTickets, goTo }) {
   );
 }
 
-function Signins() {
+function Signins({ signins, series }) {
   return (
     <div>
       <SectionHeader title="Sign-ins" description="Recent authentication activity across the platform." />
       <div className="border border-[#E4E1DA] rounded-sm bg-white p-4 mb-4">
         <ResponsiveContainer width="100%" height={220}>
-          <AreaChart data={signinsSeries}>
+          <AreaChart data={series}>
             <defs>
               <linearGradient id="signinsFill2" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#1F6F5C" stopOpacity={0.25} />
@@ -359,7 +207,7 @@ function Signins() {
       </div>
       <Table
         columns={["User", "Method", "Time", "Device"]}
-        rows={mockSignins}
+        rows={signins}
         renderRow={(r, i) => (
           <tr key={i} className="border-b border-[#E4E1DA] last:border-0">
             <td className="px-4 py-2">{r.user}</td>
@@ -373,19 +221,18 @@ function Signins() {
   );
 }
 
-function Revenue() {
-  const total = mockTransactions.reduce((s, t) => s + t.amount, 0);
+function Revenue({ transactions, total, series }) {
   return (
     <div>
       <SectionHeader title="Revenue" description="Paid amounts across bookings." />
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
         <StatCard label="Total (7d)" value={`$${total.toFixed(0)}`} />
-        <StatCard label="Transactions (7d)" value={mockTransactions.length} />
-        <StatCard label="Avg. transaction" value={`$${(total / mockTransactions.length).toFixed(0)}`} />
+        <StatCard label="Transactions (7d)" value={transactions.length} />
+        <StatCard label="Avg. transaction" value={`$${(total / (transactions.length || 1)).toFixed(0)}`} />
       </div>
       <div className="border border-[#E4E1DA] rounded-sm bg-white p-4 mb-4">
         <ResponsiveContainer width="100%" height={200}>
-          <LineChart data={revenueSeries}>
+          <LineChart data={series}>
             <CartesianGrid stroke="#E4E1DA" vertical={false} />
             <XAxis dataKey="day" tick={{ fontSize: 11, fill: "#8a857c" }} axisLine={false} tickLine={false} />
             <YAxis tick={{ fontSize: 11, fill: "#8a857c" }} axisLine={false} tickLine={false} width={36} />
@@ -396,7 +243,7 @@ function Revenue() {
       </div>
       <Table
         columns={["Transaction", "Payer", "Listing", "Amount", "Date"]}
-        rows={mockTransactions}
+        rows={transactions}
         renderRow={(r) => (
           <tr key={r.id} className="border-b border-[#E4E1DA] last:border-0">
             <td className="px-4 py-2 font-mono text-xs">{r.id}</td>
@@ -411,7 +258,8 @@ function Revenue() {
   );
 }
 
-function Support({ tickets, selected, setSelected }) {
+function Support({ tickets, selected, setSelected, onReply }) {
+  const [reply, setReply] = useState("");
   const openCount = tickets.filter((t) => t.status === "open").length;
   return (
     <div>
@@ -497,10 +345,12 @@ function Support({ tickets, selected, setSelected }) {
                 <textarea
                   className="w-full border border-[#E4E1DA] rounded-sm p-2 text-sm resize-none focus:outline-none focus:border-[#1F6F5C]"
                   rows={4}
-                  placeholder="Type a reply — this sends an email to the address above once wired up"
+                  value={reply}
+                  onChange={(event) => setReply(event.target.value)}
+                  placeholder="Type a reply — this sends an email to the address above"
                 />
                 <div className="flex items-center gap-2 mt-2">
-                  <button className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-[#1F6F5C] text-white rounded-sm hover:bg-[#195a4b]">
+                  <button onClick={async () => { await onReply(selected.id, reply); setReply(""); }} disabled={!reply.trim()} className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-[#1F6F5C] text-white rounded-sm hover:bg-[#195a4b] disabled:opacity-50">
                     <Mail size={13} /> Send email reply
                   </button>
                   <select className="text-sm border border-[#E4E1DA] rounded-sm px-2 py-1.5 focus:outline-none" defaultValue={selected.status}>
@@ -544,7 +394,7 @@ function ListingReports({ reports }) {
   );
 }
 
-function Growth() {
+function Growth({ series }) {
   return (
     <div>
       <SectionHeader title="Growth" description="Signups and new listings over time." />
@@ -558,7 +408,7 @@ function Growth() {
           </span>
         </div>
         <ResponsiveContainer width="100%" height={220}>
-          <LineChart data={growthSeries}>
+          <LineChart data={series}>
             <CartesianGrid stroke="#E4E1DA" vertical={false} />
             <XAxis dataKey="day" tick={{ fontSize: 11, fill: "#8a857c" }} axisLine={false} tickLine={false} />
             <YAxis tick={{ fontSize: 11, fill: "#8a857c" }} axisLine={false} tickLine={false} width={28} />
@@ -569,8 +419,8 @@ function Growth() {
         </ResponsiveContainer>
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <StatCard label="New signups (14d)" value={growthSeries.reduce((s, d) => s + d.signups, 0)} />
-        <StatCard label="New listings (14d)" value={growthSeries.reduce((s, d) => s + d.listings, 0)} />
+        <StatCard label="New signups (14d)" value={series.reduce((s, d) => s + d.signups, 0)} />
+        <StatCard label="New listings (14d)" value={series.reduce((s, d) => s + d.listings, 0)} />
       </div>
     </div>
   );
@@ -582,14 +432,12 @@ function Admins({ admins, addAdmin }) {
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("support");
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!name || !email) return;
-    addAdmin({
-      id: `A-${String(admins.length + 1).padStart(3, "0")}`,
+    await addAdmin({
       name,
       email,
       role,
-      lastLogin: "Never",
     });
     setName("");
     setEmail("");
@@ -686,7 +534,7 @@ function Admins({ admins, addAdmin }) {
   );
 }
 
-function LoginScreen({ onLogin }) {
+function LoginScreen({ onLogin, error }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
@@ -716,11 +564,12 @@ function LoginScreen({ onLogin }) {
           placeholder="••••••••"
         />
         <button
-          onClick={onLogin}
+          onClick={() => onLogin(email, password)}
           className="w-full py-2 text-sm bg-[#1F6F5C] text-white rounded-sm hover:bg-[#195a4b]"
         >
           Log in
         </button>
+        {error && <div className="mt-3 text-xs text-[#B5482E]">{error}</div>}
       </div>
     </div>
   );
@@ -732,34 +581,90 @@ function LoginScreen({ onLogin }) {
 
 export default function VaroomAdminDashboard() {
   const [loggedIn, setLoggedIn] = useState(false);
+  const [loginError, setLoginError] = useState("");
   const [active, setActive] = useState("overview");
-  const [selectedTicket, setSelectedTicket] = useState(mockTickets[0]);
-  const [admins, setAdmins] = useState(initialAdmins);
-  const openTickets = useMemo(
-    () => mockTickets.filter((t) => t.status === "open").length,
-    []
-  );
+  const [overview, setOverview] = useState({ signins: 0, revenue: 0, openTickets: 0, newListings: 0 });
+  const [signins, setSignins] = useState([]);
+  const [signinsSeries, setSigninsSeries] = useState([]);
+  const [transactions, setTransactions] = useState([]);
+  const [revenueTotal, setRevenueTotal] = useState(0);
+  const [revenueSeries, setRevenueSeries] = useState([]);
+  const [tickets, setTickets] = useState([]);
+  const [reports, setReports] = useState([]);
+  const [growthSeries, setGrowthSeries] = useState([]);
+  const [admins, setAdmins] = useState([]);
+  const [selectedTicket, setSelectedTicket] = useState(null);
+
+  async function api(path, options) {
+    const response = await fetch(path, { credentials: "same-origin", ...options });
+    if (!response.ok) throw new Error((await response.json()).error || "Request failed");
+    return response.status === 204 ? null : response.json();
+  }
+
+  useEffect(() => {
+    api("/admin/session").then(() => setLoggedIn(true)).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!loggedIn) return;
+    Promise.all([
+      api("/admin/overview"),
+      api("/admin/signins?range=14"),
+      api("/admin/revenue?range=7"),
+      api("/admin/support/tickets"),
+      api("/admin/reports"),
+      api("/admin/growth?range=14"),
+      api("/admin/admins")
+    ]).then(([nextOverview, nextSignins, nextRevenue, nextTickets, nextReports, nextGrowth, nextAdmins]) => {
+      setOverview(nextOverview);
+      setSignins(nextSignins.data || []);
+      setSigninsSeries(nextSignins.series || []);
+      setTransactions(nextRevenue.transactions || []);
+      setRevenueTotal(nextRevenue.total || 0);
+      setRevenueSeries(nextRevenue.series || []);
+      setTickets(nextTickets.data || []);
+      setSelectedTicket((nextTickets.data || [])[0] || null);
+      setReports(nextReports.data || []);
+      setGrowthSeries(nextGrowth.series || []);
+      setAdmins(nextAdmins.data || []);
+    }).catch((error) => setLoginError(error.message));
+  }, [loggedIn]);
+
+  async function login(email, password) {
+    try {
+      await api("/admin/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password }) });
+      setLoginError("");
+      setLoggedIn(true);
+    } catch (error) {
+      setLoginError(error.message);
+    }
+  }
 
   if (!loggedIn) {
-    return <LoginScreen onLogin={() => setLoggedIn(true)} />;
+    return <LoginScreen onLogin={login} error={loginError} />;
   }
 
   const renderSection = () => {
     switch (active) {
       case "overview":
-        return <Overview openTickets={openTickets} goTo={setActive} />;
+        return <Overview overview={overview} signinsSeries={signinsSeries} revenueSeries={revenueSeries} goTo={setActive} />;
       case "signins":
-        return <Signins />;
+        return <Signins signins={signins} series={signinsSeries} />;
       case "revenue":
-        return <Revenue />;
+        return <Revenue transactions={transactions} total={revenueTotal} series={revenueSeries} />;
       case "support":
-        return <Support tickets={mockTickets} selected={selectedTicket} setSelected={setSelectedTicket} />;
+        return <Support tickets={tickets} selected={selectedTicket} setSelected={setSelectedTicket} onReply={async (id, message) => {
+          await api(`/admin/support/tickets/${id}/replies`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message }) });
+        }} />;
       case "reports":
-        return <ListingReports reports={mockReports} />;
+        return <ListingReports reports={reports} />;
       case "growth":
-        return <Growth />;
+        return <Growth series={growthSeries} />;
       case "admins":
-        return <Admins admins={admins} addAdmin={(a) => setAdmins([...admins, a])} />;
+        return <Admins admins={admins} addAdmin={async (a) => {
+          const result = await api("/admin/admins", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(a) });
+          setAdmins([...admins, result.admin]);
+        }} />;
       default:
         return null;
     }
@@ -786,16 +691,16 @@ export default function VaroomAdminDashboard() {
             >
               <Icon size={16} />
               {label}
-              {key === "support" && openTickets > 0 && (
+              {key === "support" && overview.openTickets > 0 && (
                 <span className="ml-auto text-xs font-mono bg-[#B5482E] text-white rounded-full w-4 h-4 flex items-center justify-center">
-                  {openTickets}
+                  {overview.openTickets}
                 </span>
               )}
             </button>
           ))}
         </nav>
         <button
-          onClick={() => setLoggedIn(false)}
+          onClick={async () => { await api("/admin/logout", { method: "POST" }); setLoggedIn(false); }}
           className="flex items-center gap-2.5 px-5 py-3 text-sm text-[#8a857c] border-t border-[#E4E1DA] hover:text-[#24211E]"
         >
           <LogOut size={15} /> Log out
