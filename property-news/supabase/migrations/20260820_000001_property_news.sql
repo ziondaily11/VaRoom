@@ -197,8 +197,11 @@ create index if not exists news_events_source_idx on public.news_events(source_i
 create index if not exists source_fetch_runs_source_idx on public.source_fetch_runs(source_id, started_at desc);
 create index if not exists news_timeline_entries_timeline_idx on public.news_timeline_entries(timeline_id, occurred_at);
 
+drop trigger if exists property_news_sources_updated_at on public.news_sources;
 create trigger property_news_sources_updated_at before update on public.news_sources for each row execute procedure public.property_news_set_updated_at();
+drop trigger if exists property_news_items_updated_at on public.news_items;
 create trigger property_news_items_updated_at before update on public.news_items for each row execute procedure public.property_news_set_updated_at();
+drop trigger if exists property_news_timelines_updated_at on public.news_story_timelines;
 create trigger property_news_timelines_updated_at before update on public.news_story_timelines for each row execute procedure public.property_news_set_updated_at();
 
 alter table public.news_sources enable row level security;
@@ -212,15 +215,25 @@ alter table public.news_events enable row level security;
 alter table public.source_fetch_runs enable row level security;
 alter table public.news_timeline_entries enable row level security;
 
+drop policy if exists property_news_sources_admin on public.news_sources;
 create policy property_news_sources_admin on public.news_sources for all to authenticated using (public.property_news_is_admin()) with check (public.property_news_is_admin());
+drop policy if exists property_news_timelines_admin on public.news_story_timelines;
 create policy property_news_timelines_admin on public.news_story_timelines for all to authenticated using (public.property_news_is_admin()) with check (public.property_news_is_admin());
+drop policy if exists property_news_items_admin on public.news_items;
 create policy property_news_items_admin on public.news_items for all to authenticated using (public.property_news_is_admin()) with check (public.property_news_is_admin());
+drop policy if exists property_news_analysis_admin on public.news_analysis;
 create policy property_news_analysis_admin on public.news_analysis for all to authenticated using (public.property_news_is_admin()) with check (public.property_news_is_admin());
+drop policy if exists property_news_locations_admin on public.news_locations;
 create policy property_news_locations_admin on public.news_locations for all to authenticated using (public.property_news_is_admin()) with check (public.property_news_is_admin());
+drop policy if exists property_news_tags_admin on public.news_tags;
 create policy property_news_tags_admin on public.news_tags for all to authenticated using (public.property_news_is_admin()) with check (public.property_news_is_admin());
+drop policy if exists property_news_reviews_admin on public.news_reviews;
 create policy property_news_reviews_admin on public.news_reviews for all to authenticated using (public.property_news_is_admin()) with check (public.property_news_is_admin());
+drop policy if exists property_news_events_admin on public.news_events;
 create policy property_news_events_admin on public.news_events for all to authenticated using (public.property_news_is_admin()) with check (public.property_news_is_admin());
+drop policy if exists property_news_fetch_runs_admin on public.source_fetch_runs;
 create policy property_news_fetch_runs_admin on public.source_fetch_runs for all to authenticated using (public.property_news_is_admin()) with check (public.property_news_is_admin());
+drop policy if exists property_news_timeline_entries_admin on public.news_timeline_entries;
 create policy property_news_timeline_entries_admin on public.news_timeline_entries for all to authenticated using (public.property_news_is_admin()) with check (public.property_news_is_admin());
 
 -- The public projection intentionally omits original_content, clean_text,

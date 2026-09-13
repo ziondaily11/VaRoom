@@ -15,6 +15,7 @@ import {
   LogOut,
   Plus,
   Shield,
+  Newspaper,
 } from "lucide-react";
 import {
   LineChart,
@@ -40,6 +41,7 @@ const NAV_ITEMS = [
   { key: "reports", label: "Listing reports", icon: Flag },
   { key: "growth", label: "Growth", icon: TrendingUp },
   { key: "admins", label: "Admins", icon: Shield },
+  { key: "property-news", label: "Property News", icon: Newspaper },
 ];
 
 function StatCard({ label, value, sub, alert }) {
@@ -549,6 +551,31 @@ function Admins({ admins, addAdmin }) {
   );
 }
 
+function PropertyNews({ items, onAction }) {
+  return (
+    <div>
+      <SectionHeader title="Property News" description="Review source-backed reports before they appear publicly or in Elie." />
+      {items.length === 0 ? (
+        <div className="text-sm text-[#8a857c]">No reports are waiting for review.</div>
+      ) : items.map(({ item, source }) => (
+        <div key={item.id} className="border border-[#E4E1DA] rounded-sm bg-white p-4 mb-3">
+          <div className="flex justify-between gap-4">
+            <div>
+              <div className="text-sm font-medium">{item.varoom_title || item.source_title}</div>
+              <div className="text-xs text-[#8a857c] mt-1">{source && source.name} · {item.regulatory_status}</div>
+              <p className="text-sm mt-2">{item.varoom_summary || "No summary available."}</p>
+            </div>
+            <div className="flex gap-2 shrink-0">
+              <button onClick={() => onAction(item.id, "approve")} className="px-2 py-1 text-xs bg-[#1F6F5C] text-white rounded-sm">Approve</button>
+              <button onClick={() => onAction(item.id, "reject")} className="px-2 py-1 text-xs border border-[#B5482E] text-[#B5482E] rounded-sm">Reject</button>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function LoginScreen({ onLogin, error }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -609,6 +636,7 @@ export default function VaroomAdminDashboard() {
   const [growthSeries, setGrowthSeries] = useState([]);
   const [admins, setAdmins] = useState([]);
   const [selectedTicket, setSelectedTicket] = useState(null);
+  const [propertyNews, setPropertyNews] = useState([]);
 
   async function api(path, options) {
     const response = await fetch(path, { credentials: "same-origin", ...options });
@@ -630,8 +658,9 @@ export default function VaroomAdminDashboard() {
       api("/admin/reports"),
       api("/admin/growth?range=14"),
       api("/admin/admins"),
+      api("/admin/news/pending"),
     ])
-      .then(([nextOverview, nextSignins, nextRevenue, nextTickets, nextReports, nextGrowth, nextAdmins]) => {
+      .then(([nextOverview, nextSignins, nextRevenue, nextTickets, nextReports, nextGrowth, nextAdmins, nextNews]) => {
         setOverview(nextOverview);
         setSignins(nextSignins.data || []);
         setSigninsSeries(nextSignins.series || []);
@@ -643,6 +672,7 @@ export default function VaroomAdminDashboard() {
         setReports(nextReports.data || []);
         setGrowthSeries(nextGrowth.series || []);
         setAdmins(nextAdmins.data || []);
+        setPropertyNews(nextNews || []);
       })
       .catch((error) => setLoginError(error.message));
   }, [loggedIn]);
@@ -689,6 +719,15 @@ export default function VaroomAdminDashboard() {
     setAdmins((prev) => [...prev, result.admin]);
   }
 
+  async function actionPropertyNews(id, action) {
+    await api(`/admin/news/${id}/${action}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    setPropertyNews((prev) => prev.filter(({ item }) => item.id !== id));
+  }
+
   async function logout() {
     await api("/admin/logout", { method: "POST" });
     setLoggedIn(false);
@@ -729,6 +768,8 @@ export default function VaroomAdminDashboard() {
         return <Growth series={growthSeries} />;
       case "admins":
         return <Admins admins={admins} addAdmin={addAdmin} />;
+      case "property-news":
+        return <PropertyNews items={propertyNews} onAction={actionPropertyNews} />;
       default:
         return null;
     }

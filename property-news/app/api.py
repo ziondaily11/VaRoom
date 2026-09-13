@@ -105,8 +105,8 @@ def create_app(config: Settings = settings, repository: Repository | None = None
         if isinstance(store, SupabaseNewsRepository):
             await store.close()
 
-    app = FastAPI(title="VaRoom Property News Service", version="0.1.0", lifespan=lifespan,
-                  description="Isolated Phase 1 property-news service. It is not yet wired into the VaRoom application.")
+    app = FastAPI(title="VaRoom Property News Service", version="0.2.0", lifespan=lifespan,
+                  description="Published Property News API and source-backed evidence service used by VaRoom and Elie.")
     app.state.services = services
 
     @app.exception_handler(RequestValidationError)
@@ -222,7 +222,7 @@ def create_app(config: Settings = settings, repository: Repository | None = None
     async def elie_news_search(q: str = Query(min_length=2, max_length=300), county: str | None = Query(default=None, max_length=100), regulatory_status: str | None = Query(default=None, max_length=50),
                                date: int | None = Query(default=None, ge=1, le=3650), limit: int = Query(default=8, ge=1, le=20),
                                service: ServiceContainer = Depends(container)):
-        """Structured source evidence only; a future Elie layer writes the user-facing response."""
+        """Structured published evidence for Elie's grounded answer layer."""
         return (await service.retrieval.search(q, county=county, regulatory_status=regulatory_status, days=date, limit=limit)).model_dump(mode="json")
 
     @app.get("/api/admin/news/pending", dependencies=[Depends(require_admin)])

@@ -27,6 +27,7 @@ import json
 import asyncio
 import logging
 import time
+from urllib.parse import urlencode
 from collections import defaultdict, deque
 import httpx
 from pathlib import Path
@@ -57,6 +58,11 @@ GEMINI_URL = (
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+PROPERTY_NEWS_API_URL = (
+    os.getenv("PROPERTY_NEWS_API_URL")
+    or os.getenv("NEWS_API_URL")
+    or ""
+).rstrip("/")
 
 # Public bucket - storage_path values from listing_photos can be turned
 # straight into public URLs, no signed URLs needed.
@@ -502,11 +508,20 @@ class ElieFilters(BaseModel):
     guests: Optional[int] = None
 
 
+class ElieNewsFilters(BaseModel):
+    county: Optional[str] = None
+    regulatory_status: Optional[str] = None
+    days: Optional[int] = None
+
+
 class ElieSearchResponse(BaseModel):
     reply: str
     listings: Optional[List[ElieListing]] = None
     filters: Optional[ElieFilters] = None
     suggestion: Optional[str] = None
+    news: Optional[List[dict]] = None
+    citations: Optional[List[dict]] = None
+    regulatory_status_note: Optional[str] = None
 
 
 async def verify_supabase_user(access_token: str) -> Optional[dict]:
@@ -1008,11 +1023,17 @@ async def classify_message(message: str, history: Optional[List[dict]] = None) -
         "it as general conversation and respond naturally in context — "
         "don't force it into a search.\n\n"
         "Respond with ONLY a JSON object, nothing else, in exactly one of "
-        "these two shapes:\n"
+        "these three shapes:\n"
         'If general conversation: {"intent": "chat", "chat_reply": a short, '
         'warm reply (1-3 sentences), as Elie — write like a real person '
         'texting, casual and varied, never stiff or repetitive, no corporate '
         'phrasing, and stay coherent with what was just said}\n'
+        'If a property-news request about laws, regulations, land policy, '
+        'housing rules, county notices, title/land rates, or asking what '
+        'changed: {"intent": "news", "county": a county name or null, '
+        '"regulatory_status": one of ["proposed","approved","effective","rejected","amended"] or null, '
+        '"days": a positive recency window or null, "query": a concise '
+        'subject search query, "intro": a short warm sentence under 15 words}\n'
         'If a search request: {"intent": "search", "category": one of '
         '["airbnb","hotel","venue","office","shop","property"] or null, '
         '"location": the single city or area name only, or null, '
@@ -1058,6 +1079,23 @@ async def classify_message(message: str, history: Optional[List[dict]] = None) -
             "max_price": parsed.get("max_price"),
             "guests": parsed.get("guests"),
             "intro": parsed.get("intro"),
+        }
+
+    if parsed and parsed.get("intent") == "news":
+        days = parsed.get("days")
+        if not isinstance(days, int) or days < 1 or days > 3650:
+            days = None
+        status = parsed.get("regulatory_status")
+        if status not in {"proposed", "approved", "effective", "rejected", "amended"}:
+            status = None
+        query = str(parsed.get("query") or clean_message).strip()[:300]
+        return {
+            "intent": "news",
+            "query": query,
+            "county": str(parsed.get("county")).strip() if parsed.get("county") else None,
+            "regulatory_status": status,
+            "days": days,
+            "intro": parsed.get("intro") or "I’ll check the latest property news for you.",
         }
 
     raise ElieGenerationError("Gemini returned an invalid Elie response.")
@@ -1195,6 +1233,46 @@ async def search_listings(
         return []
 
 
+async def search_property_news(query: str, county: Optional[str], regulatory_status: Optional[str],
+                               days: Optional[int], limit: int = 8) -> list:
+    """Fetch only published, source-backed evidence from the news service."""
+    if not PROPERTY_NEWS_API_URL:
+        raise RuntimeError("PROPERTY_NEWS_API_URL is not configured")
+    params = {"q": query, "limit": str(limit)}
+    if county:
+        params["county"] = county
+    if regulatory_status:
+        params["regulatory_status"] = regulatory_status
+    if days:
+        params["date"] = str(days)
+    url = f"{PROPERTY_NEWS_API_URL}/api/elie/news-search?{urlencode(params)}"
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        response = await client.get(url, headers={"Accept": "application/json"})
+        response.raise_for_status()
+        payload = response.json()
+    return payload.get("evidence", []) if isinstance(payload, dict) else []
+
+
+async def generate_news_reply(query: str, evidence: list, history: Optional[List[dict]] = None) -> str:
+    if not evidence:
+        return "I couldn't find a published, source-backed property-news report matching that yet."
+    evidence_block = "\n".join(
+        f"- {item.get('title')}: {item.get('summary') or ''} "
+        f"(status={item.get('regulatory_status')}, source={item.get('source_name')}, url={item.get('source_url')})"
+        for item in evidence[:8]
+    )
+    prompt = (
+        "You are Elie answering a property-news question using ONLY the evidence below. "
+        "Never invent facts, dates, or legal conclusions. Say clearly when an item is a "
+        "proposal, approved, effective, rejected, or amended, preserving the exact "
+        "regulatory status. Give a concise answer and mention the source names. "
+        "Do not include raw URLs in the prose; the UI will show citations.\n\n"
+        f"Question: {query}\nEvidence:\n{evidence_block}\n"
+    )
+    reply = await call_gemini(prompt)
+    return reply or "I found published reports, but I couldn't safely summarize them right now."
+
+
 @app.post("/elie/search", response_model=ElieSearchResponse)
 async def elie_search(payload: ElieSearchRequest, request: Request, authorization: Optional[str] = Header(None)):
     client_ip = get_client_ip(request)
@@ -1233,6 +1311,41 @@ async def elie_search(payload: ElieSearchRequest, request: Request, authorizatio
 
     if classification["intent"] == "chat":
         return ElieSearchResponse(reply=classification["chat_reply"], listings=None)
+
+    if classification["intent"] == "news":
+        try:
+            evidence = await search_property_news(
+                classification["query"],
+                classification.get("county"),
+                classification.get("regulatory_status"),
+                classification.get("days"),
+            )
+        except (httpx.HTTPError, RuntimeError) as exc:
+            logger.exception("Property news lookup failed")
+            raise HTTPException(
+                status_code=503,
+                detail="Property news is temporarily unavailable. Please try again shortly.",
+            ) from exc
+        reply = await generate_news_reply(payload.message, evidence, history_dicts)
+        citations = [
+            {
+                "title": item.get("title"),
+                "source_name": item.get("source_name"),
+                "source_url": item.get("source_url"),
+                "published_at": item.get("source_published_at"),
+                "regulatory_status": item.get("regulatory_status"),
+            }
+            for item in evidence
+        ]
+        return ElieSearchResponse(
+            reply=reply,
+            news=evidence,
+            citations=citations,
+            regulatory_status_note=(
+                "Regulatory status is reported verbatim from the published source analysis; "
+                "a proposal is not an effective rule."
+            ),
+        )
 
     category = classification.get("category")
     location = classification.get("location")
