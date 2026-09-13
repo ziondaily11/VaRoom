@@ -63,6 +63,7 @@
   }
   .search-field{ display:flex; align-items:center; min-height:46px; padding:.55rem .95rem; min-width:150px; border:1px solid var(--line); border-radius:12px; background:var(--white); transition:border-color .2s, box-shadow .2s; }
   .search-field:first-child{ flex:1; min-width:260px; }
+  .search-field.category-field{ flex:0 0 190px; }
   .search-field:focus-within{ border-color:var(--red); box-shadow:0 0 0 3px rgba(196,30,58,.12); }
   .search-field label{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); }
   .search-field input, .search-field select{ border:none; background:none; color:var(--ink); font-size:.86rem; outline:none; width:100%; }
@@ -70,6 +71,14 @@
   .search-field select option, .results-controls select option{ background:var(--white); color:var(--ink); }
   .search-submit{ min-height:46px; background:var(--red); color:#fff; border:1px solid var(--red); border-radius:12px; padding:0 1.25rem; font-weight:700; font-size:.86rem; cursor:pointer; }
   .search-submit:hover{ background:var(--red-deep); }
+  .price-control{ position:relative; flex:0 0 190px; }
+  .price-trigger{ width:100%; min-height:46px; display:flex; align-items:center; justify-content:space-between; padding:0 .95rem; border:1px solid var(--line); border-radius:12px; background:var(--white); color:var(--ink); font-size:.86rem; cursor:pointer; }
+  .price-trigger:hover{ border-color:var(--muted); }
+  .price-popover{ display:none; position:absolute; z-index:10; top:calc(100% + .55rem); right:0; width:250px; padding:.8rem; border:1px solid var(--line); border-radius:12px; background:var(--white); box-shadow:0 16px 36px rgba(0,0,0,.3); }
+  .price-popover.open{ display:block; }
+  .price-popover .price-inputs input{ min-width:0; }
+  .price-popover .filter-row{ margin-top:.55rem; }
+  .toolbar-compatible-filters{ display:none; }
 
   .topbar-actions{ margin-left:auto; display:flex; align-items:center; gap:.6rem; }
   .avatar-circle{ width:34px; height:34px; border-radius:50%; background:var(--paper); display:flex; align-items:center; justify-content:center; overflow:hidden; font-weight:700; color:var(--red-deep); }
@@ -165,6 +174,14 @@
   .card-video video{ width:100%; height:100%; object-fit:cover; display:block; background:var(--paper); }
   .mobile-marketplace-tools, .mobile-filter-panel, .mobile-bottom-nav, .mobile-floating-filter{ display:none; }
 
+  @media (max-width: 1200px) and (min-width: 861px){
+    .grid{ grid-template-columns:repeat(3, minmax(0, 1fr)); }
+  }
+  @media (max-width: 980px) and (min-width: 861px){
+    .grid{ grid-template-columns:repeat(2, minmax(0, 1fr)); }
+    .search-field.category-field, .price-control{ flex-basis:155px; }
+  }
+
   .map-pending{
     display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.7rem;
     padding:3.5rem 1.5rem; text-align:center; color:var(--muted); background:var(--white);
@@ -255,7 +272,7 @@
       <label for="q-dest">Where</label>
       <input type="text" id="q-dest" placeholder="Search by location, property name, or keyword...">
     </div>
-    <div class="search-field">
+    <div class="search-field category-field">
       <label for="q-category">Type</label>
       <select id="q-category">
         <option value="all">All types</option>
@@ -267,10 +284,21 @@
         <option value="property">Property</option>
       </select>
     </div>
-    <div class="search-field">
-      <label for="q-guests">Guests</label>
-      <input type="number" id="q-guests" min="1" placeholder="Any">
+    <div class="price-control">
+      <button type="button" class="price-trigger" id="price-trigger" aria-expanded="false">
+        <span id="price-label">Any price</span><span aria-hidden="true">⌄</span>
+      </button>
+      <div class="price-popover" id="price-popover">
+        <div class="price-inputs">
+          <input type="number" id="price-min" placeholder="Min price" min="0">
+          <span>–</span>
+          <input type="number" id="price-max" placeholder="Max price" min="0">
+        </div>
+        <label class="filter-row"><span>Verified hosts only</span><input type="checkbox" id="verified-only"></label>
+        <button type="button" class="filters-reset" id="filters-reset">Reset filters</button>
+      </div>
     </div>
+    <input type="hidden" id="q-guests" value="">
     <button type="button" class="search-submit" id="search-submit">Search</button>
   </div>
 
@@ -322,34 +350,9 @@
 </header>
 
 <div class="mkt-body">
-  <aside class="filters">
-    <div class="filters-head">
-      <h2>Filters</h2>
-      <button type="button" class="filters-reset" id="filters-reset">Reset all</button>
-    </div>
-
-    <div class="filter-group">
-      <h3>Price range (KSh / listed unit)</h3>
-      <div class="price-inputs">
-        <input type="number" id="price-min" placeholder="Min" min="0">
-        <span>–</span>
-        <input type="number" id="price-max" placeholder="Max" min="0">
-      </div>
-    </div>
-
-    <div class="filter-group">
-      <h3>Property type</h3>
-      <div id="type-filters"></div>
-    </div>
-
-    <div class="filter-group">
-      <h3>Trust</h3>
-      <label class="filter-row">
-        <span>Verified hosts only</span>
-        <input type="checkbox" id="verified-only">
-      </label>
-    </div>
-  </aside>
+  <div class="toolbar-compatible-filters" aria-hidden="true">
+    <div id="type-filters"></div>
+  </div>
 
   <main class="results-col">
     <div class="results-head">
@@ -846,6 +849,19 @@
   document.getElementById('price-max').addEventListener('change', function(){
     state.priceMax = this.value ? Number(this.value) : null; state.page = 1; runSearch();
   });
+  function updatePriceLabel(){
+    const min = document.getElementById('price-min').value;
+    const max = document.getElementById('price-max').value;
+    document.getElementById('price-label').textContent =
+      min || max ? ('KSh ' + (min || '0') + ' – ' + (max || 'Any')) : 'Any price';
+  }
+  document.getElementById('price-min').addEventListener('input', updatePriceLabel);
+  document.getElementById('price-max').addEventListener('input', updatePriceLabel);
+  document.getElementById('price-trigger').addEventListener('click', function(){
+    const popover = document.getElementById('price-popover');
+    const open = popover.classList.toggle('open');
+    this.setAttribute('aria-expanded', String(open));
+  });
   document.getElementById('verified-only').addEventListener('change', function(){
     state.verifiedOnly = this.checked; state.page = 1; runSearch();
   });
@@ -858,6 +874,9 @@
     document.getElementById('q-category').value = 'all';
     document.getElementById('q-guests').value = '';
     state.q = ''; state.category = 'all'; state.guests = '';
+    updatePriceLabel();
+    document.getElementById('price-popover').classList.remove('open');
+    document.getElementById('price-trigger').setAttribute('aria-expanded', 'false');
     runSearch();
   });
   document.getElementById('mobile-filter-toggle').addEventListener('click', function(){
