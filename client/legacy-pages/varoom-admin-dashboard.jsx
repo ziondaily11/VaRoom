@@ -747,7 +747,7 @@ export default function VaroomAdminDashboard() {
             <button
               key={key}
               onClick={() => setActive(key)}
-              className={`w-full flex items-center gap-2.5 px-5 py-2.5 text-sm text-left transition-colors ${
+              className={`w-full border-0 flex items-center gap-2.5 px-5 py-2.5 text-sm text-left transition-colors ${
                 active === key
                   ? "text-[#1F6F5C] bg-[#1F6F5C]/5 border-r-2 border-[#1F6F5C]"
                   : "text-[#5c584f] hover:bg-[#F7F6F3]"
