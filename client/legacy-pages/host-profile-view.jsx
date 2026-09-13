@@ -51,10 +51,9 @@ export default function HostProfileView() {
       }
 
       const hostId = String(router.query.hostId);
-      const [profileResult, listingsResult, reviewsResult] = await Promise.all([
-        client.from("profiles").select("id,full_name,username,avatar_url,verified,role,location_text,bio,created_at").eq("id", hostId).eq("role", "host").maybeSingle(),
-        client.from("listings").select("id,title,category,location_text,listing_photos(storage_path),listing_booking_details(price_amount,price_unit)").eq("host_id", hostId).order("created_at", { ascending: false }),
-        client.from("reviews").select("id,rating,body,created_at,reviewer:profiles!reviews_reviewer_id_fkey(full_name)").eq("host_id", hostId).order("created_at", { ascending: false }),
+      const [profileResult, listingsResult] = await Promise.all([
+        client.from("profiles").select("id,role,full_name,username,bio,avatar_url,verified").eq("id", hostId).eq("role", "host").maybeSingle(),
+        client.from("listings").select("id,title,category,location_text,created_at,listing_photos(storage_path),listing_booking_details(price_amount,price_unit)").eq("host_id", hostId).order("created_at", { ascending: false }),
       ]);
 
       if (cancelled) return;
@@ -85,16 +84,6 @@ export default function HostProfileView() {
               : null,
           };
         }));
-      }
-      if (!reviewsResult.error && reviewsResult.data) {
-        setReviews(reviewsResult.data.map((review) => ({
-          name: review.reviewer?.full_name || "VaRoom guest",
-          initials: (review.reviewer?.full_name || "V").split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase(),
-          rating: Number(review.rating) || 0,
-          date: review.created_at ? new Date(review.created_at).toLocaleDateString() : "",
-          stay: "Verified stay",
-          text: review.body || "",
-        })));
       }
       setIsLoading(false);
     }
@@ -300,10 +289,10 @@ export default function HostProfileView() {
                 }}
               >
                 <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <MapPin size={14} /> {host.location_text || "Location not available"}
+                  <MapPin size={14} /> Location not available
                 </span>
                 <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <CalendarDays size={14} /> {host.created_at ? `Member since ${new Date(host.created_at).getFullYear()}` : "Member date not available"}
+                  <CalendarDays size={14} /> Member date not available
                 </span>
               </div>
             </div>
