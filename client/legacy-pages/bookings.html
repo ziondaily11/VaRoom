@@ -166,6 +166,7 @@
     border-bottom:2px solid transparent; margin-bottom:-1px;
   }
   .tab.active{ color:var(--red); border-bottom-color:var(--red); }
+  .tab-count{ margin-left:.4rem; font-size:.75rem; padding:.2rem .4rem; background:#FBE4E7; color:var(--red-deep); border-radius:3px; font-weight:700; }
 
   .state-msg{ color:var(--muted); font-size:.92rem; padding:2.2rem 0; text-align:center; }
 
@@ -367,18 +368,39 @@
         <div id="checking-auth" class="state-msg">Loading your bookings...</div>
 
         <div id="bookings-page" style="display:none;">
-          <h1 class="page-title">My Bookings</h1>
-          <p class="page-subtitle">Manage your verified stays, event venues, and workstations in Kenya.</p>
+          <!-- CLIENT VIEW -->
+          <div id="client-bookings-view">
+            <h1 class="page-title">My Bookings</h1>
+            <p class="page-subtitle">Manage your verified stays, event venues, and workstations in Kenya.</p>
 
-          <div class="tabs">
-            <button class="tab active" data-tab="upcoming">Upcoming Bookings</button>
-            <button class="tab" data-tab="past">Past Stays</button>
-            <button class="tab" data-tab="cancelled">Cancelled</button>
+            <div class="tabs">
+              <button class="tab active" data-tab="upcoming">Upcoming Bookings</button>
+              <button class="tab" data-tab="past">Past Stays</button>
+              <button class="tab" data-tab="cancelled">Cancelled</button>
+            </div>
+
+            <div id="upcoming-panel"></div>
+            <div id="past-panel" style="display:none;"></div>
+            <div id="cancelled-panel" style="display:none;"></div>
           </div>
 
-          <div id="upcoming-panel"></div>
-          <div id="past-panel" style="display:none;"></div>
-          <div id="cancelled-panel" style="display:none;"></div>
+          <!-- HOST VIEW -->
+          <div id="host-bookings-view" style="display:none;">
+            <h1 class="page-title">Bookings</h1>
+            <p class="page-subtitle">Review and manage booking requests from your guests.</p>
+
+            <div class="tabs">
+              <button class="tab active" data-tab="pending">Pending<span class="tab-count" id="pending-count"></span></button>
+              <button class="tab" data-tab="confirmed">Confirmed<span class="tab-count" id="confirmed-count"></span></button>
+              <button class="tab" data-tab="declined">Declined<span class="tab-count" id="declined-count"></span></button>
+              <button class="tab" data-tab="completed">Completed<span class="tab-count" id="completed-count"></span></button>
+            </div>
+
+            <div id="pending-panel"></div>
+            <div id="confirmed-panel" style="display:none;"></div>
+            <div id="declined-panel" style="display:none;"></div>
+            <div id="completed-panel" style="display:none;"></div>
+          </div>
         </div>
       </div>
 
@@ -441,9 +463,11 @@
     if (!session) { window.location.href = '/login'; return; }
     currentUser = session.user;
 
-    const { data: profile } = await supabaseClient.from('profiles').select('role').eq('id', currentUser.id).maybeSingle();
+    const { data: profile } = await supabaseClient.from('profiles').select('role,full_name').eq('id', currentUser.id).maybeSingle();
     if (!profile) { window.location.href = '/login'; return; }
-    if (profile.role === 'host') { window.location.href = '/host-home'; return; }
+    
+    const isHost = profile.role === 'host';
+    const isClient = profile.role === 'client';
 
     function escapeHtml(str){ const d = document.createElement('div'); d.textContent = str || ''; return d.innerHTML; }
 
@@ -456,14 +480,233 @@
       return supabaseClient.storage.from('listing-photos').getPublicUrl(path).data.publicUrl;
     }
 
+    // ---------- Show/hide client or host view ----------
+    const clientView = document.getElementById('client-bookings-view');
+    const hostView = document.getElementById('host-bookings-view');
+    if (isHost) {
+      clientView.style.display = 'none';
+      hostView.style.display = 'block';
+    } else {
+      clientView.style.display = 'block';
+      hostView.style.display = 'none';
+    }
+
+    // ---------- HOST BOOKING MANAGEMENT ----------
+    if (isHost) {
+      let hostBookings = {};
+      let selectedHostBookingId = null;
+      let isProcessing = false;
+
+      async function loadHostBookings(){
+        try {
+          const { data, error } = await supabaseClient
+            .from('bookings')
+            .select('id,status,start_date,end_date,hours,lease_start_date,lease_months,total_price,price_unit,created_at,client_id,' +
+              'listing:listings(id,title,location_text,listing_photos(storage_path)),' +
+              'client:profiles!bookings_client_id_fkey(id,full_name,avatar_url,username)')
+            .eq('host_id', currentUser.id)
+            .order('created_at', { ascending:false });
+
+          if (error) throw error;
+
+          hostBookings = {};
+          (data || []).forEach(function(b){
+            if (!hostBookings[b.status]) hostBookings[b.status] = [];
+            hostBookings[b.status].push(b);
+          });
+
+          updateHostBookingCounts();
+          renderHostBookingPanel('pending');
+        } catch (err) {
+          console.error('Failed to load host bookings:', err);
+          document.getElementById('pending-panel').innerHTML = '<p class="state-msg">Couldn\'t load bookings. Please try again.</p>';
+        }
+      }
+
+      function updateHostBookingCounts(){
+        document.getElementById('pending-count').textContent = hostBookings.pending ? ' ' + hostBookings.pending.length : '';
+        document.getElementById('confirmed-count').textContent = hostBookings.approved ? ' ' + hostBookings.approved.length : '';
+        document.getElementById('declined-count').textContent = hostBookings.declined ? ' ' + hostBookings.declined.length : '';
+        document.getElementById('completed-count').textContent = hostBookings.completed ? ' ' + hostBookings.completed.length : '';
+      }
+
+      function renderHostBookingPanel(status){
+        const bookings = hostBookings[status === 'confirmed' ? 'approved' : status] || [];
+        const panelId = status + '-panel';
+        const panel = document.getElementById(panelId);
+
+        if (!bookings || bookings.length === 0) {
+          const messages = {
+            pending: 'No pending requests',
+            confirmed: 'No confirmed bookings',
+            declined: 'No declined bookings',
+            completed: 'No completed bookings'
+          };
+          panel.innerHTML = '<p class="state-msg">' + escapeHtml(messages[status]) + '</p>';
+          return;
+        }
+
+        panel.innerHTML = bookings.map(function(b){
+          const listing = b.listing || {};
+          const client = b.client || {};
+          const photos = listing.listing_photos || [];
+          const thumbHtml = photos.length > 0
+            ? '<img src="' + resolvePhotoUrl(photos[0].storage_path) + '" alt="">'
+            : '<span>—</span>';
+
+          const durationText = b.hours 
+            ? b.hours + ' hour' + (b.hours === 1 ? '' : 's')
+            : (b.start_date && b.end_date 
+              ? Math.ceil((new Date(b.end_date) - new Date(b.start_date)) / (1000 * 60 * 60 * 24)) + ' nights'
+              : '');
+
+          return (
+            '<div class="booking-card" data-booking-id="' + b.id + '" style="cursor:pointer;">' +
+              '<div class="bk-thumb">' + thumbHtml + '</div>' +
+              '<div class="bk-main">' +
+                '<div class="bk-top-row">' +
+                  '<div>' +
+                    '<div class="bk-title">' + escapeHtml(client.full_name || 'Guest') + '</div>' +
+                    '<div class="bk-loc">' + escapeHtml(listing.title || 'Listing') + '</div>' +
+                  '</div>' +
+                '</div>' +
+                '<div class="bk-meta">' +
+                  '<span><b>Dates</b> ' + escapeHtml(b.start_date || '') + (b.end_date ? ' → ' + b.end_date : '') + '</span>' +
+                  (durationText ? ' <span><b>Duration</b> ' + escapeHtml(durationText) + '</span>' : '') +
+                '</div>' +
+                '<div class="bk-price">KES ' + Number(b.total_price).toLocaleString() + '</div>' +
+                (status === 'pending' ? 
+                  '<div class="bk-actions">' +
+                    '<button class="bk-btn bk-btn-outline approve-btn" data-booking-id="' + b.id + '">Approve</button>' +
+                    '<button class="bk-btn bk-btn-outline decline-btn" data-booking-id="' + b.id + '">Decline</button>' +
+                  '</div>'
+                : '') +
+              '</div>' +
+            '</div>'
+          );
+        }).join('');
+
+        if (status === 'pending') {
+          panel.querySelectorAll('.approve-btn').forEach(function(btn){
+            btn.addEventListener('click', function(e){
+              e.stopPropagation();
+              approveBooking(btn.getAttribute('data-booking-id'));
+            });
+          });
+          panel.querySelectorAll('.decline-btn').forEach(function(btn){
+            btn.addEventListener('click', function(e){
+              e.stopPropagation();
+              declineBooking(btn.getAttribute('data-booking-id'));
+            });
+          });
+        }
+      }
+
+      async function approveBooking(bookingId){
+        if (isProcessing) return;
+        isProcessing = true;
+
+        try {
+          const { error } = await supabaseClient
+            .from('bookings')
+            .update({ status: 'approved', responded_at: new Date().toISOString() })
+            .eq('id', bookingId)
+            .eq('host_id', currentUser.id);
+
+          if (error) throw error;
+
+          hostBookings.pending = (hostBookings.pending || []).filter(function(b){ return b.id !== bookingId; });
+          if (!hostBookings.approved) hostBookings.approved = [];
+          const booking = hostBookings.approved.find(function(b){ return b.id === bookingId; });
+          if (!booking) {
+            const approved = await supabaseClient
+              .from('bookings')
+              .select('id,status,start_date,end_date,hours,lease_start_date,lease_months,total_price,price_unit,created_at,client_id,' +
+                'listing:listings(id,title,location_text,listing_photos(storage_path)),' +
+                'client:profiles!bookings_client_id_fkey(id,full_name,avatar_url,username)')
+              .eq('id', bookingId)
+              .single();
+            if (approved.data) hostBookings.approved.push(approved.data);
+          }
+
+          updateHostBookingCounts();
+          renderHostBookingPanel('pending');
+          showToast('Booking approved!');
+        } catch (err) {
+          console.error('Failed to approve booking:', err);
+          showToast('Failed to approve booking. Please try again.');
+        } finally {
+          isProcessing = false;
+        }
+      }
+
+      async function declineBooking(bookingId){
+        if (isProcessing) return;
+        isProcessing = true;
+
+        try {
+          const { error } = await supabaseClient
+            .from('bookings')
+            .update({ status: 'declined', responded_at: new Date().toISOString() })
+            .eq('id', bookingId)
+            .eq('host_id', currentUser.id);
+
+          if (error) throw error;
+
+          hostBookings.pending = (hostBookings.pending || []).filter(function(b){ return b.id !== bookingId; });
+          if (!hostBookings.declined) hostBookings.declined = [];
+          const booking = hostBookings.declined.find(function(b){ return b.id === bookingId; });
+          if (!booking) {
+            const declined = await supabaseClient
+              .from('bookings')
+              .select('id,status,start_date,end_date,hours,lease_start_date,lease_months,total_price,price_unit,created_at,client_id,' +
+                'listing:listings(id,title,location_text,listing_photos(storage_path)),' +
+                'client:profiles!bookings_client_id_fkey(id,full_name,avatar_url,username)')
+              .eq('id', bookingId)
+              .single();
+            if (declined.data) hostBookings.declined.push(declined.data);
+          }
+
+          updateHostBookingCounts();
+          renderHostBookingPanel('pending');
+          showToast('Booking declined.');
+        } catch (err) {
+          console.error('Failed to decline booking:', err);
+          showToast('Failed to decline booking. Please try again.');
+        } finally {
+          isProcessing = false;
+        }
+      }
+
+      // Host tab switching
+      document.querySelectorAll('#host-bookings-view .tab').forEach(function(tab){
+        tab.addEventListener('click', function(){
+          document.querySelectorAll('#host-bookings-view .tab').forEach(function(t){ t.classList.remove('active'); });
+          this.classList.add('active');
+          const status = this.getAttribute('data-tab');
+          document.getElementById('pending-panel').style.display = status === 'pending' ? '' : 'none';
+          document.getElementById('confirmed-panel').style.display = status === 'confirmed' ? '' : 'none';
+          document.getElementById('declined-panel').style.display = status === 'declined' ? '' : 'none';
+          document.getElementById('completed-panel').style.display = status === 'completed' ? '' : 'none';
+          renderHostBookingPanel(status);
+        });
+      });
+
+      // Load and display host bookings
+      await loadHostBookings();
+    }
+
     // ---------- Lazy 48h expiry sweep (same behaviour as before) ----------
-    const cutoff = new Date(Date.now() - 48 * 3600 * 1000).toISOString();
-    await supabaseClient
-      .from('bookings')
-      .update({ status: 'expired', responded_at: new Date().toISOString() })
-      .eq('status', 'pending')
-      .lt('created_at', cutoff)
-      .eq('client_id', currentUser.id);
+    if (isClient) {
+      const cutoff = new Date(Date.now() - 48 * 3600 * 1000).toISOString();
+      await supabaseClient
+        .from('bookings')
+        .update({ status: 'expired', responded_at: new Date().toISOString() })
+        .eq('status', 'pending')
+        .lt('created_at', cutoff)
+        .eq('client_id', currentUser.id);
+    }
+
 
     function describeDates(b){
       if (b.hours) return b.start_date + ' · ' + b.hours + ' hour' + (b.hours === 1 ? '' : 's');
@@ -798,14 +1041,16 @@
     });
 
     // ---------- Boot ----------
-    const result = await loadAllBookings();
-    if (result.error) {
-      document.getElementById('upcoming-panel').innerHTML = '<p class="state-msg">Couldn\'t load bookings: ' + escapeHtml(result.error.message) + '</p>';
-    } else {
-      allBookings = result.data;
-      renderAllPanels();
+    if (isClient) {
+      const result = await loadAllBookings();
+      if (result.error) {
+        document.getElementById('upcoming-panel').innerHTML = '<p class="state-msg">Couldn\'t load bookings: ' + escapeHtml(result.error.message) + '</p>';
+      } else {
+        allBookings = result.data;
+        renderAllPanels();
+      }
+      renderCalendarPlaceholder();
     }
-    renderCalendarPlaceholder();
 
     checkingAuth.style.display = 'none';
     bookingsPage.style.display = 'block';
