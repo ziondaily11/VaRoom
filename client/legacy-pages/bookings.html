@@ -215,6 +215,29 @@
   .bk-btn-solid{ background:var(--red); color:#fff; }
   .bk-btn-solid:hover{ background:var(--red-deep); }
   .bk-btn:disabled{ opacity:.5; cursor:not-allowed; }
+  .host-booking-card{ min-height:148px; transition:border-color .18s ease, box-shadow .18s ease, transform .18s ease; }
+  .host-booking-card:hover,.host-booking-card.selected{ border-color:var(--red); box-shadow:0 8px 22px rgba(36,33,30,.08); transform:translateY(-1px); }
+  .host-booking-card .bk-title{ font-size:1.05rem; }
+  .host-booking-card .bk-loc{ color:var(--ink); font-weight:600; }
+  .host-booking-card .bk-meta{ line-height:1.5; }
+  .host-booking-card .bk-price{ font-size:1rem; margin-top:auto; }
+  .host-booking-card .bk-actions{ padding-top:.85rem; }
+  .host-booking-card .bk-btn-solid{ border:1.5px solid var(--red); }
+  .host-booking-card .bk-btn-outline{ background:transparent; }
+  .host-detail{ display:none; }
+  .host-detail.show{ display:block; }
+  .host-detail-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; margin-bottom:1rem; }
+  .host-detail-close{ color:var(--muted); font-size:1.4rem; line-height:1; padding:.15rem .3rem; }
+  .host-detail-image{ width:100%; height:170px; object-fit:cover; border-radius:12px; background:var(--paper); margin-bottom:1rem; }
+  .host-detail h2{ font-size:1.15rem; line-height:1.3; }
+  .host-detail p{ color:var(--muted); font-size:.82rem; line-height:1.5; margin-top:.2rem; }
+  .host-detail-grid{ display:grid; grid-template-columns:1fr 1fr; gap:.8rem; margin:1.1rem 0; }
+  .host-detail-item{ border-top:1px solid var(--line); padding-top:.65rem; }
+  .host-detail-label{ color:var(--muted); font-size:.68rem; text-transform:uppercase; letter-spacing:.05em; font-weight:700; }
+  .host-detail-value{ font-size:.86rem; font-weight:600; margin-top:.2rem; }
+  .host-detail-actions{ display:flex; gap:.6rem; margin-top:1.2rem; }
+  .host-detail-actions .bk-btn{ flex:1; }
+  .right-rail.host-empty{ display:block; }
   .bk-note{ font-size:.76rem; color:var(--red); margin-top:.4rem; }
   .reviewed-badge{ color:var(--green-deep, #1E6B3C); font-size:.78rem; font-weight:700; }
   .review-modal-backdrop{
@@ -404,7 +427,8 @@
         </div>
       </div>
 
-      <aside class="right-rail">
+      <aside class="right-rail" id="right-rail">
+        <div id="client-right-rail">
         <div class="rail-card">
           <h2>Stats Summary</h2>
           <div class="stat-row" id="stats-summary">
@@ -422,6 +446,8 @@
           </div>
           <div class="cal-grid" id="cal-grid"></div>
         </div>
+        </div>
+        <div class="rail-card host-detail" id="host-booking-detail" aria-live="polite"></div>
       </aside>
     </div>
   </div>
@@ -483,12 +509,18 @@
     // ---------- Show/hide client or host view ----------
     const clientView = document.getElementById('client-bookings-view');
     const hostView = document.getElementById('host-bookings-view');
+    const rightRail = document.getElementById('right-rail');
+    const clientRightRail = document.getElementById('client-right-rail');
+    const hostBookingDetail = document.getElementById('host-booking-detail');
     if (isHost) {
       clientView.style.display = 'none';
       hostView.style.display = 'block';
+      clientRightRail.style.display = 'none';
+      rightRail.classList.add('host-empty');
     } else {
       clientView.style.display = 'block';
       hostView.style.display = 'none';
+      hostBookingDetail.style.display = 'none';
     }
 
     // ---------- HOST BOOKING MANAGEMENT ----------
@@ -496,6 +528,58 @@
       let hostBookings = {};
       let selectedHostBookingId = null;
       let isProcessing = false;
+
+      function renderHostBookingDetail(booking){
+        if (!booking) {
+          selectedHostBookingId = null;
+          hostBookingDetail.classList.remove('show');
+          hostBookingDetail.innerHTML = '';
+          return;
+        }
+
+        const listing = booking.listing || {};
+        const client = booking.client || {};
+        const photos = listing.listing_photos || [];
+        const photo = photos.length && photos[0].storage_path
+          ? '<img class="host-detail-image" src="' + resolvePhotoUrl(photos[0].storage_path) + '" alt="">'
+          : '<div class="host-detail-image" aria-hidden="true"></div>';
+        const dates = (booking.start_date || 'Date unavailable') +
+          (booking.end_date ? ' → ' + booking.end_date : '');
+        const actions = booking.status === 'pending'
+          ? '<div class="host-detail-actions">' +
+              '<button class="bk-btn bk-btn-solid detail-approve" type="button">Approve booking</button>' +
+              '<button class="bk-btn bk-btn-outline detail-decline" type="button">Decline</button>' +
+            '</div>'
+          : '';
+
+        selectedHostBookingId = booking.id;
+        hostBookingDetail.innerHTML =
+          '<div class="host-detail-head">' +
+            '<div><h2>Booking request</h2><p>Review this guest request before taking action.</p></div>' +
+            '<button class="host-detail-close" type="button" aria-label="Close booking details">&times;</button>' +
+          '</div>' +
+          photo +
+          '<h2>' + escapeHtml(listing.title || 'Listing') + '</h2>' +
+          '<p>' + escapeHtml(listing.location_text || 'Location unavailable') + '</p>' +
+          '<div class="host-detail-grid">' +
+            '<div class="host-detail-item"><div class="host-detail-label">Guest</div><div class="host-detail-value">' + escapeHtml(client.full_name || 'Guest') + '</div></div>' +
+            '<div class="host-detail-item"><div class="host-detail-label">Guests</div><div class="host-detail-value">' + escapeHtml(String(booking.guests || 'Not provided')) + '</div></div>' +
+            '<div class="host-detail-item"><div class="host-detail-label">Dates</div><div class="host-detail-value">' + escapeHtml(dates) + '</div></div>' +
+            '<div class="host-detail-item"><div class="host-detail-label">Amount</div><div class="host-detail-value">KES ' + Number(booking.total_price || 0).toLocaleString() + '</div></div>' +
+          '</div>' +
+          actions;
+        hostBookingDetail.classList.add('show');
+
+        hostBookingDetail.querySelector('.host-detail-close').addEventListener('click', function(){
+          renderHostBookingDetail(null);
+          const selected = document.querySelector('.host-booking-card.selected');
+          if (selected) selected.classList.remove('selected');
+        });
+        const approve = hostBookingDetail.querySelector('.detail-approve');
+        const decline = hostBookingDetail.querySelector('.detail-decline');
+        if (approve) approve.addEventListener('click', function(){ approveBooking(booking.id, approve, decline); });
+        if (decline) decline.addEventListener('click', function(){ declineBooking(booking.id, approve, decline); });
+      }
 
       async function loadHostBookings(){
         try {
@@ -561,7 +645,7 @@
               : '');
 
           return (
-            '<div class="booking-card" data-booking-id="' + b.id + '" style="cursor:pointer;">' +
+            '<div class="booking-card host-booking-card" data-booking-id="' + b.id + '" tabindex="0" role="button" aria-label="Open booking request from ' + escapeHtml(client.full_name || 'Guest') + '">' +
               '<div class="bk-thumb">' + thumbHtml + '</div>' +
               '<div class="bk-main">' +
                 '<div class="bk-top-row">' +
@@ -577,7 +661,7 @@
                 '<div class="bk-price">KES ' + Number(b.total_price).toLocaleString() + '</div>' +
                 (status === 'pending' ? 
                   '<div class="bk-actions">' +
-                    '<button class="bk-btn bk-btn-outline approve-btn" data-booking-id="' + b.id + '">Approve</button>' +
+                    '<button class="bk-btn bk-btn-solid approve-btn" data-booking-id="' + b.id + '">Approve</button>' +
                     '<button class="bk-btn bk-btn-outline decline-btn" data-booking-id="' + b.id + '">Decline</button>' +
                   '</div>'
                 : '') +
@@ -600,11 +684,27 @@
             });
           });
         }
+        panel.querySelectorAll('.host-booking-card').forEach(function(card){
+          card.addEventListener('click', function(){
+            panel.querySelectorAll('.host-booking-card').forEach(function(item){ item.classList.remove('selected'); });
+            card.classList.add('selected');
+            const booking = bookings.find(function(item){ return item.id === card.getAttribute('data-booking-id'); });
+            renderHostBookingDetail(booking);
+          });
+          card.addEventListener('keydown', function(event){
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              card.click();
+            }
+          });
+        });
       }
 
-      async function approveBooking(bookingId){
+      async function approveBooking(bookingId, approveButton, declineButton){
         if (isProcessing) return;
         isProcessing = true;
+        if (approveButton) approveButton.disabled = true;
+        if (declineButton) declineButton.disabled = true;
 
         try {
           const { error } = await supabaseClient
@@ -631,18 +731,23 @@
 
           updateHostBookingCounts();
           renderHostBookingPanel('pending');
+          renderHostBookingDetail(null);
           showToast('Booking approved!');
         } catch (err) {
           console.error('Failed to approve booking:', err);
           showToast('Failed to approve booking. Please try again.');
         } finally {
           isProcessing = false;
+          if (approveButton) approveButton.disabled = false;
+          if (declineButton) declineButton.disabled = false;
         }
       }
 
-      async function declineBooking(bookingId){
+      async function declineBooking(bookingId, approveButton, declineButton){
         if (isProcessing) return;
         isProcessing = true;
+        if (approveButton) approveButton.disabled = true;
+        if (declineButton) declineButton.disabled = true;
 
         try {
           const { error } = await supabaseClient
@@ -669,12 +774,15 @@
 
           updateHostBookingCounts();
           renderHostBookingPanel('pending');
+          renderHostBookingDetail(null);
           showToast('Booking declined.');
         } catch (err) {
           console.error('Failed to decline booking:', err);
           showToast('Failed to decline booking. Please try again.');
         } finally {
           isProcessing = false;
+          if (approveButton) approveButton.disabled = false;
+          if (declineButton) declineButton.disabled = false;
         }
       }
 
@@ -688,6 +796,7 @@
           document.getElementById('confirmed-panel').style.display = status === 'confirmed' ? '' : 'none';
           document.getElementById('declined-panel').style.display = status === 'declined' ? '' : 'none';
           document.getElementById('completed-panel').style.display = status === 'completed' ? '' : 'none';
+          renderHostBookingDetail(null);
           renderHostBookingPanel(status);
         });
       });
