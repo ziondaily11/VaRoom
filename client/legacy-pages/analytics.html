@@ -23,9 +23,9 @@
 <script src="js/skeleton-loader.js"></script>
 <style>
   :root{
-    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#1A1210; --paper:#FBF4F1;
-    --muted:#7a6b67;
-    --font-display:'Fraunces', serif; --font-body:'Inter', sans-serif;
+    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#24211E; --paper:#F7F6F3;
+    --muted:#5c584f;
+    --font-display:'Helvetica Neue', Arial, sans-serif; --font-body:'Helvetica Neue', Arial, sans-serif; --font-brand:'Fraunces', serif;
   }
   [data-theme="dark"]{
     --white:#241C1A; --paper:#15100F; --ink:#F5EFEC; --muted:#B8ACA8;
@@ -37,7 +37,7 @@
   :focus-visible{ outline:3px solid var(--red-deep); outline-offset:3px; }
 
   header{ display:flex; align-items:center; justify-content:space-between; padding:1.5rem 2.5rem; }
-  .logo{ font-family:var(--font-display); font-weight:900; font-size:1.55rem; display:flex; align-items:baseline; }
+  .logo{ font-family:var(--font-brand); font-weight:900; font-size:1.55rem; display:flex; align-items:baseline; }
   .logo .va{ color:var(--red); }
   .back-link{ font-size:.9rem; font-weight:500; color:var(--muted); }
   .back-link:hover{ color:var(--red); }
@@ -54,7 +54,7 @@
   .badge-soon{ background:rgba(26,18,16,.05); color:var(--muted); font-weight:500; }
   [data-theme="dark"] .badge-soon{ background:rgba(255,255,255,.08); }
 
-  .range-select{ display:flex; gap:.4rem; background:var(--white); border:1px solid rgba(128,110,100,.15); border-radius:100px; padding:.25rem; }
+  .range-select{ display:flex; gap:.4rem; background:var(--white); border:1px solid #E4E1DA; border-radius:100px; padding:.25rem; }
   .range-btn{ padding:.4rem .85rem; border-radius:100px; font-size:.8rem; font-weight:600; color:var(--muted); }
   .range-btn.active{ background:var(--red); color:#fff; }
 
@@ -62,11 +62,11 @@
   .section-label:first-of-type{ margin-top:0; }
   .state-msg{ color:var(--muted); font-size:.92rem; padding:2rem 0; text-align:center; }
   .state-msg.error{ color:var(--red-deep); }
-  .skeleton{ background:linear-gradient(90deg, rgba(128,110,100,.08) 25%, rgba(128,110,100,.15) 37%, rgba(128,110,100,.08) 63%); background-size:400% 100%; animation:shimmer 1.4s ease infinite; border-radius:14px; }
+  .skeleton{ background:linear-gradient(90deg, rgba(128,110,100,.08) 25%, #E4E1DA 37%, rgba(128,110,100,.08) 63%); background-size:400% 100%; animation:shimmer 1.4s ease infinite; border-radius:14px; }
   @keyframes shimmer{ 0%{background-position:100% 0;} 100%{background-position:-100% 0;} }
 
   .stat-grid{ display:grid; grid-template-columns:repeat(4, 1fr); gap:.9rem; }
-  .stat-card{ background:var(--white); border:1px solid rgba(128,110,100,.15); border-radius:16px; padding:1.1rem 1.2rem; }
+  .stat-card{ background:var(--white); border:1px solid #E4E1DA; border-radius:16px; padding:1.1rem 1.2rem; }
   .stat-card.skeleton{ height:88px; border:none; }
   .stat-label{ font-size:.78rem; color:var(--muted); font-weight:600; margin-bottom:.4rem; }
   .stat-value{ font-family:var(--font-display); font-weight:700; font-size:1.4rem; }
@@ -74,7 +74,7 @@
   .stat-delta.up{ color:#1E6B3C; }
   .stat-delta.down{ color:var(--red-deep); }
 
-  .chart-panel{ background:var(--white); border:1px solid rgba(128,110,100,.15); border-radius:16px; padding:1.3rem 1.4rem 1rem; }
+  .chart-panel{ background:var(--white); border:1px solid #E4E1DA; border-radius:16px; padding:1.3rem 1.4rem 1rem; }
   .chart-title{ font-size:.82rem; font-weight:700; margin-bottom:1rem; }
   .bar-chart{ display:flex; align-items:flex-end; gap:.6rem; height:150px; }
   .bar-col{ flex:1; display:flex; flex-direction:column; align-items:center; gap:.4rem; height:100%; justify-content:flex-end; }
@@ -82,7 +82,7 @@
   .bar:hover{ background:var(--red-deep); }
   .bar-label{ font-size:.68rem; color:var(--muted); font-weight:600; }
 
-  .listing-row{ display:flex; align-items:center; gap:.9rem; background:var(--white); border:1px solid rgba(128,110,100,.15); border-radius:14px; padding:.9rem 1.1rem; margin-bottom:.6rem; }
+  .listing-row{ display:flex; align-items:center; gap:.9rem; background:var(--white); border:1px solid #E4E1DA; border-radius:14px; padding:.9rem 1.1rem; margin-bottom:.6rem; }
   .listing-rank{ font-family:var(--font-display); font-weight:700; font-size:1.1rem; color:var(--muted); width:1.6rem; flex-shrink:0; }
   .listing-main{ flex:1; min-width:0; }
   .listing-name{ font-weight:700; font-size:.9rem; }

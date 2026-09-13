@@ -34,14 +34,14 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
-    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#1A1210; --paper:#FBF4F1;
-    --muted:#7a6b67; --line:rgba(26,18,16,.12);
-    --font-display:'Fraunces', serif; --font-body:'Inter', sans-serif;
+    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#24211E; --paper:#F7F6F3;
+    --muted:#5c584f; --line:rgba(26,18,16,.12);
+    --font-display:'Helvetica Neue', Arial, sans-serif; --font-body:'Helvetica Neue', Arial, sans-serif; --font-brand:'Fraunces', serif;
     /* Glass sidebar tokens — identical to /client-home / /host-home,
        so the sidebar looks and behaves the same on every app page. */
     --glass-bg:rgba(255,255,255,.55);
     --glass-border:rgba(255,255,255,.6);
-    --glass-shadow:0 24px 55px rgba(26,18,16,.10);
+    --glass-shadow:0 24px 55px #E4E1DA;
   }
   [data-theme="dark"]{
     --white:#000000; --paper:#000000; --ink:#F5F5F5; --muted:#8A8A8A; --line:rgba(255,255,255,.14);
@@ -66,7 +66,7 @@
   :focus-visible{ outline:3px solid var(--ink); outline-offset:3px; }
   ul{ list-style:none; }
 
-  .logo{ font-family:var(--font-display); font-weight:900; font-size:1.4rem; display:flex; align-items:baseline; padding:0 .4rem; }
+  .logo{ font-family:var(--font-brand); font-weight:900; font-size:1.4rem; display:flex; align-items:baseline; padding:0 .4rem; }
   .logo .va{ color:var(--red); }
 
   /* =====================================================================

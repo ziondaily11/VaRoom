@@ -21,9 +21,9 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
-    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#1A1210; --paper:#FBF4F1;
-    --muted:#7a6b67;
-    --font-display:'Fraunces', serif; --font-body:'Inter', sans-serif;
+    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#24211E; --paper:#F7F6F3;
+    --muted:#5c584f;
+    --font-display:'Helvetica Neue', Arial, sans-serif; --font-body:'Helvetica Neue', Arial, sans-serif; --font-brand:'Fraunces', serif;
 
     /* Wizard-specific tokens. Fixed editorial palette — intentionally not
        swapped by the light/dark theme toggle, which only affects the
@@ -47,7 +47,7 @@
   :focus-visible{ outline:3px solid var(--red-deep); outline-offset:3px; }
 
   header{ display:flex; align-items:center; justify-content:space-between; padding:1.5rem 2.5rem; }
-  .logo{ font-family:var(--font-display); font-weight:900; font-size:1.55rem; display:flex; align-items:baseline; }
+  .logo{ font-family:var(--font-brand); font-weight:900; font-size:1.55rem; display:flex; align-items:baseline; }
   .logo .va{ color:var(--red); }
   .back-link{ font-size:.9rem; font-weight:500; }
   .back-link:hover{ color:var(--red); }
@@ -73,7 +73,7 @@
   .tone-cream .step-panel{ background:var(--wz-cream); color:var(--wz-ink-onlight); }
   .tone-red .step-panel{ background:var(--red); color:#fff; }
 
-  .panel-brand{ display:flex; align-items:center; gap:.5rem; font-family:var(--font-display); font-weight:800; font-size:1.05rem; margin-bottom:1.9rem; }
+  .panel-brand{ display:flex; align-items:center; gap:.5rem; font-family:var(--font-brand); font-weight:800; font-size:1.05rem; margin-bottom:1.9rem; }
   .panel-brand .roof{ width:0; height:0; border-left:7px solid transparent; border-right:7px solid transparent; border-bottom:10px solid var(--red); }
   .tone-red .panel-brand .roof{ border-bottom-color:#fff; }
   .tone-dark .panel-brand{ color:#F5EFEC; }
@@ -157,7 +157,7 @@
   .step-tracker{ max-width:1240px; margin:2.2rem auto 0; padding:0 2.2vw; display:grid; grid-template-columns:repeat(5,1fr); gap:.8rem; }
   .tracker-item{ background:#17110F; border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:.85rem 1rem; cursor:default; }
   .tracker-item.completed{ cursor:pointer; }
-  .tracker-item .t-num{ font-size:.72rem; font-weight:700; letter-spacing:.08em; color:#7a6b67; display:block; margin-bottom:.15rem; }
+  .tracker-item .t-num{ font-size:.72rem; font-weight:700; letter-spacing:.08em; color:#5c584f; display:block; margin-bottom:.15rem; }
   .tracker-item .t-label{ font-size:.83rem; font-weight:600; color:#8d7d78; }
   .tracker-item.active{ background:#241B18; border-color:rgba(196,30,58,.4); }
   .tracker-item.active .t-num{ color:var(--red); }
@@ -175,7 +175,7 @@
   .vrm-picker-confirm{ background:var(--red); color:#fff; border-color:var(--red); }
   .vrm-picker-confirm:disabled{ background:#ddd; border-color:#ddd; color:#888; cursor:not-allowed; }
   .vrm-picker-address{ margin-top:8px; font-size:.85rem; color:#555; }
-  .location-hint-pill{ display:inline-flex; align-items:center; gap:.4rem; font-size:.78rem; font-weight:600; background:rgba(26,18,16,.08); color:var(--wz-ink-onlight); padding:.5rem .8rem; border-radius:100px; margin-top:1rem; }
+  .location-hint-pill{ display:inline-flex; align-items:center; gap:.4rem; font-size:.78rem; font-weight:600; background:#E4E1DA; color:var(--wz-ink-onlight); padding:.5rem .8rem; border-radius:100px; margin-top:1rem; }
   .location-hint-pill .check{ color:#2E7D32; font-weight:800; }
   .location-hint-pill.not-ready{ background:rgba(196,30,58,.1); color:var(--red-deep); }
   .location-hint-pill.not-ready .check{ color:var(--red-deep); }
@@ -294,7 +294,7 @@
   .form-note{ font-size:.8rem; text-align:center; margin-top:.7rem; color:var(--wz-cream-text-muted); }
 
   .success-msg{ display:none; max-width:1240px; margin:2rem auto 0; padding:0 2.2vw; }
-  .success-msg .inner{ background:var(--white); border:1px solid rgba(128,110,100,.15); border-radius:14px; padding:1.4rem 1.6rem; font-size:.95rem; color:var(--ink); }
+  .success-msg .inner{ background:var(--white); border:1px solid #E4E1DA; border-radius:14px; padding:1.4rem 1.6rem; font-size:.95rem; color:var(--ink); }
   .success-msg.show{ display:block; }
   .success-msg.error .inner{ background:#FBE9E9; border-color:rgba(196,30,58,.3); color:var(--red-deep); }
   .success-msg a{ color:var(--red); font-weight:600; border-bottom:1.5px solid var(--red); }

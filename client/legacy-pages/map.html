@@ -21,9 +21,9 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
-    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#1A1210; --paper:#FBF4F1;
-    --muted:#7a6b67;
-    --font-display:'Fraunces', serif; --font-body:'Inter', sans-serif;
+    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#24211E; --paper:#F7F6F3;
+    --muted:#5c584f;
+    --font-display:'Helvetica Neue', Arial, sans-serif; --font-body:'Helvetica Neue', Arial, sans-serif; --font-brand:'Fraunces', serif;
   }
   [data-theme="dark"]{ --white:#241C1A; --paper:#15100F; --ink:#F5EFEC; --muted:#B8ACA8; }
   *{ margin:0; padding:0; box-sizing:border-box; }
@@ -32,7 +32,7 @@
   button{ font-family:inherit; cursor:pointer; border:none; background:none; }
 
   header{ display:flex; align-items:center; justify-content:space-between; padding:1.2rem 1.5rem; }
-  .logo{ font-family:var(--font-display); font-weight:900; font-size:1.4rem; }
+  .logo{ font-family:var(--font-brand); font-weight:900; font-size:1.4rem; }
   .logo .va{ color:var(--red); }
   .back-link{ font-size:.9rem; font-weight:500; }
   .back-link:hover{ color:var(--red); }
@@ -52,7 +52,7 @@
   .sheet-actions{ display:flex; gap:.7rem; flex-wrap:wrap; }
   .btn{
     padding:.75rem 1.1rem; border-radius:10px; font-size:.9rem; font-weight:600; text-align:center;
-    border:1px solid rgba(128,110,100,.25); background:var(--paper); color:var(--ink); flex:1; min-width:140px;
+    border:1px solid #E4E1DA; background:var(--paper); color:var(--ink); flex:1; min-width:140px;
   }
   .btn-primary{ background:var(--red); border-color:var(--red); color:#fff; }
   .btn[disabled]{ opacity:.5; pointer-events:none; }
@@ -94,7 +94,7 @@
   }
   @media (min-width: 860px){
     .map-layout{ flex-direction:row; }
-    .sheet{ width:380px; border-radius:0; box-shadow:none; border-left:1px solid rgba(128,110,100,.15); overflow-y:auto; }
+    .sheet{ width:380px; border-radius:0; box-shadow:none; border-left:1px solid #E4E1DA; overflow-y:auto; }
   }
 </style>
 <link rel="stylesheet" href="js/varoom-dark-theme.css">

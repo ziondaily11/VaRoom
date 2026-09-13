@@ -27,14 +27,14 @@
 <script src="js/skeleton-loader.js"></script>
 <style>
   :root{
-    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#1A1210; --paper:#FBF4F1;
-    --muted:#7a6b67;
-    --font-display:'Fraunces', serif; --font-body:'Inter', sans-serif;
+    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#24211E; --paper:#F7F6F3;
+    --muted:#5c584f;
+    --font-display:'Helvetica Neue', Arial, sans-serif; --font-body:'Helvetica Neue', Arial, sans-serif; --font-brand:'Fraunces', serif;
     --glass-bg:rgba(255,255,255,.55);
     --glass-border:rgba(255,255,255,.6);
-    --glass-shadow:0 24px 55px rgba(26,18,16,.10);
-    --line:rgba(26,18,16,.10);
-    --line-soft:rgba(26,18,16,.06);
+    --glass-shadow:0 24px 55px #E4E1DA;
+    --line:#E4E1DA;
+    --line-soft:#E4E1DA;
   }
   [data-theme="dark"]{
     --white:#241C1A; --paper:#15100F; --ink:#F5EFEC; --muted:#B8ACA8;
@@ -65,14 +65,13 @@
 
   /* ---------- SIDEBAR (shared across app pages) ---------- */
   .sidebar{
-    height:100vh; margin:0; background:transparent; border:none;
-    border-right:1px solid var(--line); border-radius:0; box-shadow:none;
+    height:100vh; margin:0; background:var(--white); border:none; border-right:1px solid var(--line); border-radius:0; box-shadow:none;
     padding:1.4rem 1.2rem 1.2rem; display:flex; flex-direction:column; gap:1.4rem;
     overflow-y:auto; scrollbar-width:none;
   }
   .sidebar::-webkit-scrollbar{ display:none; }
 
-  .logo{ font-family:var(--font-display); font-weight:900; font-size:1.4rem; display:flex; align-items:baseline; padding:0 .4rem; }
+  .logo{ font-family:var(--font-brand); font-weight:900; font-size:1.4rem; display:flex; align-items:baseline; padding:0 .4rem; }
   .logo .va{ color:var(--red); }
   .elie-logo-nav{ width:22px; height:22px; object-fit:contain; flex-shrink:0; }
   .beta-pill{ margin-left:auto; font-size:.68rem; font-weight:600; background:#FBE4E7; color:var(--red-deep); padding:.15rem .5rem; border-radius:100px; }
@@ -210,7 +209,7 @@
 
   .bk-actions{ margin-left:auto; display:flex; gap:.5rem; }
   .bk-btn{ padding:.5rem .9rem; border-radius:100px; font-weight:600; font-size:.78rem; white-space:nowrap; }
-  .bk-btn-outline{ border:1.5px solid rgba(128,110,100,.3); color:var(--ink); }
+  .bk-btn-outline{ border:1.5px solid #E4E1DA; color:var(--ink); }
   .bk-btn-outline:hover{ border-color:var(--red); color:var(--red); }
   .bk-btn-solid{ background:var(--red); color:#fff; }
   .bk-btn-solid:hover{ background:var(--red-deep); }

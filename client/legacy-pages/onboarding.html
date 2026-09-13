@@ -10,8 +10,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
-    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#1A1210; --paper:#FBF4F1;
-    --font-display:'Fraunces', serif; --font-body:'Inter', sans-serif;
+    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#24211E; --paper:#F7F6F3;
+    --font-display:'Helvetica Neue', Arial, sans-serif; --font-body:'Helvetica Neue', Arial, sans-serif; --font-brand:'Fraunces', serif;
   }
   *{ margin:0; padding:0; box-sizing:border-box; }
   body{
@@ -38,7 +38,7 @@
     margin-bottom:1.6rem;
   }
 
-  .logo{ font-family:var(--font-display); font-weight:900; font-size:1.3rem; display:flex; align-items:baseline; }
+  .logo{ font-family:var(--font-brand); font-weight:900; font-size:1.3rem; display:flex; align-items:baseline; }
   .logo .va{ color:var(--red); }
 
   .step-badge{
@@ -101,7 +101,7 @@
   .checkbox-grid{ display:flex; flex-direction:column; gap:.6rem; margin-bottom:.6rem; }
   .checkbox-card{
     display:flex; align-items:center; gap:.7rem;
-    border:1.5px solid rgba(26,18,16,.1); border-radius:14px; padding:.85rem 1rem;
+    border:1.5px solid #E4E1DA; border-radius:14px; padding:.85rem 1rem;
     cursor:pointer; transition:border-color .15s ease, background .15s ease;
   }
   .checkbox-card:hover{ border-color:var(--red); }
@@ -111,7 +111,7 @@
 
   .choice-cards{ display:flex; flex-direction:column; gap:.8rem; margin-bottom:.6rem; }
   .choice-card{
-    text-align:left; border:1.5px solid rgba(26,18,16,.1); border-radius:14px;
+    text-align:left; border:1.5px solid #E4E1DA; border-radius:14px;
     padding:1rem 1.1rem; cursor:pointer; transition:border-color .15s ease, transform .15s ease;
     width:100%; background:var(--white);
   }
@@ -145,7 +145,7 @@
   .progress-dots .dot{ width:7px; height:7px; border-radius:50%; background:rgba(26,18,16,.15); }
   .progress-dots .dot.active{ background:var(--red); width:20px; border-radius:100px; transition:width .2s ease; }
 
-  .checking-msg{ text-align:center; color:#7a6b67; padding:3rem 0; }
+  .checking-msg{ text-align:center; color:#5c584f; padding:3rem 0; }
   input[type="file"]{ display:none; }
 </style>
 </head>

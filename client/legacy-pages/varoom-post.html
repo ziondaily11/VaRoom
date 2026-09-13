@@ -12,9 +12,9 @@
 <link rel="icon" href="/favicon/favicon.ico" sizes="any">
 <style>
   :root{
-    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#1A1210; --paper:#FBF4F1;
+    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#24211E; --paper:#F7F6F3;
     --studio-bg:#120C0B; --studio-panel:#1E1512; --studio-border:rgba(255,255,255,.08);
-    --font-display:'Fraunces', serif; --font-body:'Inter', sans-serif;
+    --font-display:'Helvetica Neue', Arial, sans-serif; --font-body:'Helvetica Neue', Arial, sans-serif; --font-brand:'Fraunces', serif;
   }
   *{ margin:0; padding:0; box-sizing:border-box; }
   body{ font-family:var(--font-body); background:var(--studio-bg); color:#F2E9E5; min-height:100vh; }
@@ -25,7 +25,7 @@
   header{ display:flex; align-items:center; justify-content:space-between; padding:1.4rem 2.2rem; border-bottom:1px solid var(--studio-border); }
   .studio-mark{ display:flex; align-items:center; gap:.6rem; }
   .studio-mark-dot{ width:.5rem; height:.5rem; border-radius:50%; background:var(--red); }
-  .studio-mark-text{ font-family:var(--font-display); font-weight:700; font-size:1.1rem; letter-spacing:.01em; }
+  .studio-mark-text{ font-family:var(--font-brand); font-weight:700; font-size:1.1rem; letter-spacing:.01em; }
   .studio-mark-sub{ font-size:.72rem; letter-spacing:.12em; text-transform:uppercase; color:#8f817c; margin-top:.1rem; }
   .studio-tag{ font-size:.72rem; padding:.35rem .7rem; border:1px solid var(--studio-border); border-radius:100px; color:#c9beb9; }
 
@@ -85,8 +85,8 @@
   .preview-wrap{ position:sticky; top:2rem; align-self:start; }
   .preview-label{ font-size:.72rem; letter-spacing:.12em; text-transform:uppercase; color:#8f817c; margin-bottom:.8rem; }
   .preview-card{
-    background:#FBF4F1; color:var(--ink); border-radius:18px; padding:1.3rem;
-    border:1px solid rgba(26,18,16,.08);
+    background:#F7F6F3; color:var(--ink); border-radius:18px; padding:1.3rem;
+    border:1px solid #E4E1DA;
   }
   .preview-card-head{ font-family:var(--font-display); font-weight:600; font-size:1rem; margin-bottom:1rem; }
   .preview-caption{ font-size:.85rem; line-height:1.5; white-space:pre-wrap; margin-bottom:.6rem; }

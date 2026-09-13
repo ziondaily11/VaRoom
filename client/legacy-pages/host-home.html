@@ -28,20 +28,20 @@
 <script src="js/skeleton-loader.js"></script>
 <style>
   :root{
-    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#1A1210; --paper:#FBF4F1;
-    --muted:#7a6b67;
-    --font-display:'Fraunces', serif; --font-body:'Inter', sans-serif;
+    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#24211E; --paper:#F7F6F3;
+    --muted:#5c584f;
+    --font-display:'Helvetica Neue', Arial, sans-serif; --font-body:'Helvetica Neue', Arial, sans-serif; --font-brand:'Fraunces', serif;
     /* Glass sidebar tokens — same treatment on every app page (dashboards,
        settings, profile, etc.), theme-aware rather than a fixed dark theme. */
     --glass-bg:rgba(255,255,255,.55);
     --glass-border:rgba(255,255,255,.6);
-    --glass-shadow:0 24px 55px rgba(26,18,16,.10);
-    --glow-a:rgba(196,30,58,.14);
-    --glow-b:rgba(196,30,58,.09);
+    --glass-shadow:0 24px 55px #E4E1DA;
+    --glow-a:transparent;
+    --glow-b:transparent;
     /* Shared divider color for the three-column line-separator layout —
        same visual weight in light and dark, just flipped polarity. */
-    --line:rgba(26,18,16,.10);
-    --line-soft:rgba(26,18,16,.06);
+    --line:#E4E1DA;
+    --line-soft:#E4E1DA;
   }
   [data-theme="dark"]{
     --white:#241C1A; --paper:#15100F; --ink:#F5EFEC; --muted:#B8ACA8;
@@ -77,9 +77,7 @@
      No card chrome — a full-height column divided from the main content
      by a single border line, scrolling independently. */
   .sidebar{
-    background:transparent;
-    border:none;
-    border-right:1px solid var(--line);
+    background:var(--white); border:none; border-right:1px solid var(--line);
     border-radius:0;
     box-shadow:none;
     margin:0;
@@ -93,11 +91,12 @@
   }
   .sidebar::-webkit-scrollbar{ display:none; }
 
-  .logo{ font-family:var(--font-display); font-weight:900; font-size:1.4rem; display:flex; align-items:baseline; padding:0 .4rem; }
+  .logo{ font-family:var(--font-brand); font-weight:900; font-size:1.4rem; display:flex; align-items:baseline; padding:0 .4rem; }
   .logo .va{ color:var(--red); }
   .elie-logo-nav{ width:22px; height:22px; object-fit:contain; flex-shrink:0; }
   .beta-pill{ margin-left:auto; font-size:.68rem; font-weight:600; background:#FBE4E7; color:var(--red-deep); padding:.15rem .5rem; border-radius:100px; }
   .nav-group{ display:flex; flex-direction:column; gap:.2rem; }
+  .nav-group + .nav-group{ border-top:1px solid var(--line); padding-top:1.2rem; }
   .nav-label{ font-size:.72rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); padding:.6rem .6rem .3rem; }
 
   .nav-item{
@@ -120,7 +119,7 @@
 
   .soon-pill{
     margin-left:auto; font-size:.68rem; font-weight:600;
-    background:rgba(26,18,16,.06); color:var(--muted);
+    background:#E4E1DA; color:var(--muted);
     padding:.15rem .5rem; border-radius:100px;
   }
 
@@ -285,7 +284,7 @@
   .away-switch.on .knob{ transform:translateX(18px); }
 
   .stats-card{
-    background:var(--white); border:1px solid rgba(26,18,16,.08); border-radius:16px;
+    background:var(--white); border:1px solid #E4E1DA; border-radius:16px;
     padding:1.2rem 1.4rem; margin-bottom:1.6rem;
   }
   .stats-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem; }
@@ -358,7 +357,7 @@
   .listings-glance-grid{ display:grid; grid-template-columns:1fr 1fr; gap:.6rem; }
   .glance-tile{ background:var(--paper); border-radius:12px; overflow:hidden; display:block; }
   .glance-thumb{
-    height:64px; background:rgba(26,18,16,.06); color:var(--muted);
+    height:64px; background:#E4E1DA; color:var(--muted);
     display:flex; align-items:center; justify-content:center;
   }
   .glance-thumb img{ width:100%; height:100%; object-fit:cover; display:block; }
@@ -390,8 +389,8 @@
      No card chrome — plain background, closed off by a bottom divider
      line. Shared by the desktop rail instance and the mobile inline slot. */
   .property-news-card{
-    background:transparent; border:none; border-radius:0; box-shadow:none;
-    padding:0 0 1.1rem; border-bottom:1px solid var(--line);
+    background:var(--white); border:1px solid var(--line); border-radius:0; box-shadow:none;
+    padding:1.2rem 1.2rem 1.1rem; border-bottom:1px solid var(--line);
   }
 
   /* ---------- NOTIFICATIONS PANEL (glass) ----------
@@ -401,8 +400,8 @@
      here unchanged; only the card wrapper and header are notif-specific.
      #notif-panel-card is the desktop right-rail notifications surface. */
   .notif-panel-card{
-    background:transparent; border:none; border-radius:0; box-shadow:none;
-    padding:0 0 1.1rem; border-bottom:1px solid var(--line);
+    background:var(--white); border:1px solid var(--line); border-radius:0; box-shadow:none;
+    padding:1.2rem 1.2rem 1.1rem; border-bottom:1px solid var(--line);
   }
   .notif-panel-head{ display:flex; align-items:center; gap:.6rem; margin-bottom:.7rem; }
   .notif-panel-bell{
@@ -441,7 +440,7 @@
   .property-news-status.status-effective, .property-news-status.status-approved{ background:#EAF4EE; color:#1E6B3C; }
   .property-news-empty, .property-news-error{ color:var(--muted); font-size:.82rem; line-height:1.5; padding:.2rem 0; }
   .property-news-empty-card{
-    background:var(--paper); border:1px solid rgba(26,18,16,.08); border-radius:14px;
+    background:var(--paper); border:1px solid #E4E1DA; border-radius:14px;
     padding:1.2rem 1rem; text-align:center; display:flex; flex-direction:column; align-items:center; gap:.35rem;
   }
   .property-news-empty-icon-wrap{
@@ -458,7 +457,7 @@
     width:6px; height:6px; border-radius:50%; background:#28a745; box-shadow:0 0 0 2px rgba(40,167,69,.2);
   }
   .property-news-error{ color:var(--red-deep); }
-  .property-news-skeleton{ height:58px; border-radius:10px; margin:.25rem 0; background:linear-gradient(90deg, rgba(26,18,16,.05), rgba(26,18,16,.1), rgba(26,18,16,.05)); background-size:200% 100%; animation:news-shimmer 1.35s ease-in-out infinite; }
+  .property-news-skeleton{ height:58px; border-radius:10px; margin:.25rem 0; background:linear-gradient(90deg, rgba(26,18,16,.05), #E4E1DA, rgba(26,18,16,.05)); background-size:200% 100%; animation:news-shimmer 1.35s ease-in-out infinite; }
   .property-news-view-all{ display:inline-flex; margin-top:.85rem; font-size:.82rem; font-weight:600; color:var(--red); }
   .property-news-view-all:hover{ color:var(--red-deep); }
   .property-news-mobile-slot{ display:none; }
@@ -484,7 +483,7 @@
   .feed-area{ padding:1.2rem 1.25rem 5rem; max-width:760px; }
 
   .tabs{ display:flex; flex-wrap:wrap; gap:.6rem; margin-bottom:1.2rem; }
-  .tab{ padding:.5rem 1.1rem; border-radius:100px; font-size:.88rem; font-weight:600; background:var(--white); border:1px solid rgba(26,18,16,.1); color:var(--ink); }
+  .tab{ padding:.5rem 1.1rem; border-radius:100px; font-size:.88rem; font-weight:600; background:var(--white); border:1px solid #E4E1DA; color:var(--ink); }
   .tab.active{ background:var(--red); color:var(--white); border-color:var(--red); }
 
   .state-msg{ color:var(--muted); font-size:.95rem; padding:2rem 0; text-align:center; }
@@ -516,7 +515,7 @@
   .skel-update-line.short{ width:60%; margin-bottom:0; }
 
   .card{
-    background:transparent; border:none; border-radius:0; padding:1.15rem 0 1rem; margin:0;
+    background:var(--white); border:none; border-radius:0; padding:1.15rem 0 1rem; margin:0;
     border-bottom:1px solid var(--line); color:var(--ink); display:flex; flex-direction:column;
   }
   .card:first-child{ padding-top:0; }
@@ -539,7 +538,7 @@
 
   .card-menu-dropdown{
     display:none; position:absolute; top:32px; right:0; z-index:20;
-    background:var(--white); border:1px solid rgba(128,110,100,.15); border-radius:12px;
+    background:var(--white); border:1px solid #E4E1DA; border-radius:12px;
     box-shadow:0 12px 30px -10px rgba(26,18,16,.3); min-width:170px; padding:.4rem;
   }
   .card-menu-dropdown.open{ display:block; }
@@ -579,13 +578,13 @@
   .report-modal .field{ display:flex; flex-direction:column; gap:.4rem; margin-bottom:1rem; }
   .report-modal label{ font-size:.86rem; font-weight:600; }
   .report-modal select, .report-modal textarea{
-    font-family:inherit; font-size:.92rem; padding:.7rem .85rem; border:1px solid rgba(128,110,100,.25);
+    font-family:inherit; font-size:.92rem; padding:.7rem .85rem; border:1px solid #E4E1DA;
     border-radius:10px; background:var(--paper); color:var(--ink); width:100%;
   }
   .report-modal textarea{ min-height:80px; resize:vertical; }
   .report-modal-actions{ display:flex; gap:.7rem; margin-top:1.2rem; }
   .report-modal-actions button{ flex:1; padding:.8rem 1rem; border-radius:100px; font-weight:600; font-size:.9rem; }
-  .report-cancel-btn{ background:transparent; border:1.5px solid rgba(128,110,100,.3); color:var(--ink); }
+  .report-cancel-btn{ background:transparent; border:1.5px solid #E4E1DA; color:var(--ink); }
   .report-submit-btn{ background:var(--red); color:#fff; }
   .report-submit-btn:hover{ background:var(--red-deep); }
   .report-modal-msg{ font-size:.83rem; margin-top:.7rem; text-align:center; }

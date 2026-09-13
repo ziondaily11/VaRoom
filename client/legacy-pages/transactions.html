@@ -21,9 +21,9 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
-    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#1A1210; --paper:#FBF4F1;
-    --muted:#7a6b67;
-    --font-display:'Fraunces', serif; --font-body:'Inter', sans-serif;
+    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#24211E; --paper:#F7F6F3;
+    --muted:#5c584f;
+    --font-display:'Helvetica Neue', Arial, sans-serif; --font-body:'Helvetica Neue', Arial, sans-serif; --font-brand:'Fraunces', serif;
   }
   [data-theme="dark"]{
     --white:#241C1A; --paper:#15100F; --ink:#F5EFEC; --muted:#B8ACA8;
@@ -35,7 +35,7 @@
   :focus-visible{ outline:3px solid var(--red-deep); outline-offset:3px; }
 
   header{ display:flex; align-items:center; justify-content:space-between; padding:1.5rem 2.5rem; }
-  .logo{ font-family:var(--font-display); font-weight:900; font-size:1.55rem; display:flex; align-items:baseline; }
+  .logo{ font-family:var(--font-brand); font-weight:900; font-size:1.55rem; display:flex; align-items:baseline; }
   .logo .va{ color:var(--red); }
   .back-link{ font-size:.9rem; font-weight:500; color:var(--muted); }
   .back-link:hover{ color:var(--red); }
@@ -52,15 +52,15 @@
   [data-theme="dark"] .badge-soon{ background:rgba(255,255,255,.08); }
 
   .tabs{ display:flex; gap:.6rem; margin-bottom:1.4rem; }
-  .tab{ padding:.55rem 1.1rem; border-radius:100px; font-size:.86rem; font-weight:600; background:var(--white); border:1px solid rgba(128,110,100,.15); color:var(--ink); }
+  .tab{ padding:.55rem 1.1rem; border-radius:100px; font-size:.86rem; font-weight:600; background:var(--white); border:1px solid #E4E1DA; color:var(--ink); }
   .tab.active{ background:var(--red); color:#fff; border-color:var(--red); }
 
   .state-msg{ color:var(--muted); font-size:.92rem; padding:2rem 0; text-align:center; }
   .state-msg.error{ color:var(--red-deep); }
-  .skeleton{ background:linear-gradient(90deg, rgba(128,110,100,.08) 25%, rgba(128,110,100,.15) 37%, rgba(128,110,100,.08) 63%); background-size:400% 100%; animation:shimmer 1.4s ease infinite; border-radius:14px; height:76px; margin-bottom:.7rem; }
+  .skeleton{ background:linear-gradient(90deg, rgba(128,110,100,.08) 25%, #E4E1DA 37%, rgba(128,110,100,.08) 63%); background-size:400% 100%; animation:shimmer 1.4s ease infinite; border-radius:14px; height:76px; margin-bottom:.7rem; }
   @keyframes shimmer{ 0%{background-position:100% 0;} 100%{background-position:-100% 0;} }
 
-  .tx-card{ background:var(--white); border:1px solid rgba(128,110,100,.15); border-radius:14px; padding:1rem 1.2rem; margin-bottom:.7rem; }
+  .tx-card{ background:var(--white); border:1px solid #E4E1DA; border-radius:14px; padding:1rem 1.2rem; margin-bottom:.7rem; }
   .tx-top{ display:flex; align-items:center; gap:.8rem; }
   .tx-icon{ width:36px; height:36px; border-radius:10px; background:var(--paper); display:flex; align-items:center; justify-content:center; flex-shrink:0; color:var(--red-deep); }
   .tx-main{ flex:1; min-width:0; }

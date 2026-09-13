@@ -29,14 +29,14 @@
   :root{
     --red:#C41E3A; --red-deep:#8F1229; --white:#101418; --ink:#F5F5F4; --paper:#090B0E;
     --muted:#A9B0BA;
-    --font-display:'Fraunces', serif; --font-body:'Inter', sans-serif;
+    --font-display:'Helvetica Neue', Arial, sans-serif; --font-body:'Helvetica Neue', Arial, sans-serif; --font-brand:'Fraunces', serif;
     --line:rgba(255,255,255,.10);
     --line-soft:rgba(255,255,255,.06);
   }
   [data-theme="light"]{
-    --white:#FFFFFF; --paper:#FBF4F1; --ink:#1A1210; --muted:#7a6b67;
-    --line:rgba(26,18,16,.10);
-    --line-soft:rgba(26,18,16,.06);
+    --white:#FFFFFF; --paper:#F7F6F3; --ink:#24211E; --muted:#5c584f;
+    --line:#E4E1DA;
+    --line-soft:#E4E1DA;
   }
   *{ margin:0; padding:0; box-sizing:border-box; }
   html{ overflow-x:hidden; font-size:16px !important; }
@@ -49,7 +49,7 @@
     display:flex; align-items:center; gap:1rem; padding:1rem 1.4rem;
     border-bottom:1px solid var(--line); background:var(--white); flex-wrap:wrap;
   }
-  .logo{ font-family:var(--font-display); font-weight:900; font-size:1.3rem; display:flex; align-items:baseline; white-space:nowrap; }
+  .logo{ font-family:var(--font-brand); font-weight:900; font-size:1.3rem; display:flex; align-items:baseline; white-space:nowrap; }
   .logo .va{ color:var(--red); }
   .mode-switch{
     display:flex; align-items:center; gap:.4rem; font-size:.82rem; color:var(--muted); font-weight:600;

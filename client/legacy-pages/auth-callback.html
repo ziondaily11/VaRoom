@@ -14,8 +14,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
-    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#1A1210; --paper:#FBF4F1;
-    --font-display:'Fraunces', serif; --font-body:'Inter', sans-serif;
+    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#24211E; --paper:#F7F6F3;
+    --font-display:'Helvetica Neue', Arial, sans-serif; --font-body:'Helvetica Neue', Arial, sans-serif; --font-brand:'Fraunces', serif;
   }
   *{ margin:0; padding:0; box-sizing:border-box; }
   body{ font-family:var(--font-body); background:var(--paper); color:var(--ink); min-height:100vh; }
@@ -44,7 +44,7 @@
 
   .brand-tagline{
     font-size:.78rem; font-weight:600; letter-spacing:.08em; text-transform:uppercase;
-    color:#7a6b67; margin-top:-.2rem;
+    color:#5c584f; margin-top:-.2rem;
   }
 
   .loading-spinner{
@@ -58,7 +58,7 @@
     .loading-spinner{ animation:none; }
   }
 
-  .loading-text{ font-size:.9rem; color:#7a6b67; }
+  .loading-text{ font-size:.9rem; color:#5c584f; }
 
   h1{
     font-family:var(--font-display); font-weight:600;
@@ -69,7 +69,7 @@
   .role-options{ display:flex; flex-direction:column; gap:.9rem; width:100%; }
 
   .role-card{
-    text-align:left; background:var(--white); border:1.5px solid rgba(26,18,16,.1);
+    text-align:left; background:var(--white); border:1.5px solid #E4E1DA;
     border-radius:16px; padding:1.1rem 1.2rem; display:flex; flex-direction:column; gap:.3rem;
     transition:border-color .2s ease, transform .2s ease; width:100%;
   }
@@ -84,7 +84,7 @@
   }
 
   .link-issue-panel{
-    background:var(--white); border:1px solid rgba(26,18,16,.1); border-radius:16px;
+    background:var(--white); border:1px solid #E4E1DA; border-radius:16px;
     padding:1.8rem 1.6rem; text-align:center; width:100%;
   }
   .link-issue-icon{
@@ -103,11 +103,11 @@
     padding:.65rem 1.3rem; border-radius:100px; font-weight:600; font-size:.85rem; width:100%;
   }
   .resend-btn:hover{ background:rgba(196,30,58,.06); }
-  .resend-btn:disabled{ opacity:.5; cursor:not-allowed; border-color:rgba(26,18,16,.15); color:#7a6b67; }
-  .resend-cooldown{ font-size:.78rem; color:#7a6b67; display:block; margin-top:.5rem; }
+  .resend-btn:disabled{ opacity:.5; cursor:not-allowed; border-color:rgba(26,18,16,.15); color:#5c584f; }
+  .resend-cooldown{ font-size:.78rem; color:#5c584f; display:block; margin-top:.5rem; }
   .resend-feedback{ font-size:.82rem; color:#2e7d32; margin-top:.7rem; min-height:1.2em; }
   .resend-feedback.error{ color:var(--red); }
-  .link-issue-footer{ font-size:.85rem; color:#7a6b67; margin-top:1.2rem; }
+  .link-issue-footer{ font-size:.85rem; color:#5c584f; margin-top:1.2rem; }
   .link-issue-footer a{ color:var(--red); font-weight:600; }
 </style>
 </head>

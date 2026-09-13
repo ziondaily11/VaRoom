@@ -16,11 +16,10 @@
     --red:#C41E3A;
     --red-deep:#8F1229;
     --white:#FFFFFF;
-    --ink:#1A1210;
-    --paper:#FBF4F1;
+    --ink:#24211E;
+    --paper:#F7F6F3;
     --blush:#EFC9C9;
-    --font-display:'Fraunces', serif;
-    --font-body:'Inter', sans-serif;
+    --font-display:'Helvetica Neue', Arial, sans-serif; --font-body:'Helvetica Neue', Arial, sans-serif; --font-brand:'Fraunces', serif;
   }
 
   *{ margin:0; padding:0; box-sizing:border-box; }
@@ -182,7 +181,7 @@
   .logo-wordmark{
     position:relative;
     z-index:1;
-    font-family:var(--font-display);
+    font-family:var(--font-brand);
     font-weight:900;
     font-size:clamp(2.4rem, 7vw, 5rem);
     line-height:1;
@@ -346,7 +345,7 @@
     gap:2.6rem;
     margin-top:3.6rem;
     padding-top:1.8rem;
-    border-top:1px solid rgba(26,18,16,.1);
+    border-top:1px solid #E4E1DA;
     opacity:0;
     transform:translateY(18px);
     transition:opacity .8s ease, transform .8s ease;
@@ -388,7 +387,7 @@
     align-items:center;
     gap:.85rem;
     background:var(--white);
-    border:1px solid rgba(26,18,16,.08);
+    border:1px solid #E4E1DA;
     border-radius:14px;
     padding:.9rem 1.1rem;
     box-shadow:0 14px 34px -22px rgba(26,18,16,.4);
@@ -425,7 +424,7 @@
 
   .cat-sub{
     font-size:.8rem;
-    color:#7a6b67;
+    color:#5c584f;
     margin-top:.15rem;
     line-height:1.3;
   }
