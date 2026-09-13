@@ -12,6 +12,7 @@
     { "source": "/api/listings/:path*", "destination": "https://server-4jlx.onrender.com/api/listings/:path*" },
     { "source": "/api/bookings/:path*", "destination": "https://server-4jlx.onrender.com/api/bookings/:path*" },
     { "source": "/api/:path*", "destination": "https://server-4jlx.onrender.com/api/:path*" },
+    { "source": "/admin/:path*", "destination": "https://server-4jlx.onrender.com/admin/:path*" },
     { "source": "/u/:username", "destination": "/profile-public" }
   ]
 }
