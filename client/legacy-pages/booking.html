@@ -194,6 +194,7 @@
   }
   .host-avatar img{ width:100%; height:100%; object-fit:cover; }
   .host-name{ font-weight:700; font-size:.85rem; display:flex; align-items:center; gap:.35rem; flex-wrap:wrap; }
+  .host-name{ color:inherit; text-decoration:none; }
   .host-name .icon-verified{ width:13px; height:13px; color:var(--red); }
   .contact-host-btn{
     display:flex; align-items:center; justify-content:center; gap:.5rem; width:100%;
@@ -827,7 +828,7 @@
         '<div class="host-card">' +
           '<div style="display:flex; align-items:center; gap:.8rem;">' +
             '<div class="host-avatar">' + (hostAvatarUrl ? '<img src="' + hostAvatarUrl + '" alt="">' : escapeHtml(initials)) + '</div>' +
-            '<div class="host-name">Hosted by ' + escapeHtml(hostName) + (listing.host.verified ? ICON_VERIFIED : '') + '</div>' +
+            '<a class="host-name" href="/host/' + encodeURIComponent(listing.host_id) + '">Hosted by ' + escapeHtml(hostName) + (listing.host.verified ? ICON_VERIFIED : '') + '</a>' +
           '</div>' +
           '<button type="button" class="contact-host-btn" id="contact-host-btn">' + ICON_MESSAGE + '<span>Contact Host</span></button>' +
         '</div>' +

@@ -1821,8 +1821,8 @@
         '<button type="button" class="thread-expand-details" id="thread-expand-details" aria-label="Open contact details"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>' +
         '<div class="thread-header">' +
           '<button type="button" class="thread-back" id="thread-back-btn" aria-label="Back"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></button>' +
-          '<div class="conv-avatar">' + (otherAvatarUrl ? '<img src="' + otherAvatarUrl + '" alt="">' : contactInitial) + '</div>' +
-          '<div><div class="thread-header-name">' + escapeHtml(contactName) + '<span class="thread-header-tag">' + contactRoleLabel + '</span></div><div class="thread-header-meta"><span class="presence-dot"></span>' + (other.away_mode ? 'Away' : 'Online') + '</div></div>' +
+          '<a class="conv-avatar" href="' + (!isHost ? '/host/' + encodeURIComponent(conv.host_id) : '#') + '" aria-label="View ' + escapeHtml(contactName) + ' profile">' + (otherAvatarUrl ? '<img src="' + otherAvatarUrl + '" alt="">' : contactInitial) + '</a>' +
+          '<div><a class="thread-header-name" href="' + (!isHost ? '/host/' + encodeURIComponent(conv.host_id) : '#') + '">' + escapeHtml(contactName) + '<span class="thread-header-tag">' + contactRoleLabel + '</span></a><div class="thread-header-meta"><span class="presence-dot"></span>' + (other.away_mode ? 'Away' : 'Online') + '</div></div>' +
           '<div class="thread-header-actions">' +
             '<button type="button" aria-label="Call"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.3 1.8.6 2.6a2 2 0 0 1-.5 2.1L8 9.6a16 16 0 0 0 6 6l1.2-1.2a2 2 0 0 1 2.1-.5c.8.3 1.7.5 2.6.6a2 2 0 0 1 1.7 2Z"/></svg></button>' +
             '<button type="button" aria-label="Video call"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m23 7-7 5 7 5V7Z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg></button>' +
@@ -1867,7 +1867,7 @@
           '<div class="contact-name">' + escapeHtml(contactName) + '</div>' +
           '<div class="contact-role">' + contactRoleLabel + ' on VaRoom</div>' +
         '</div>' +
-        (!isHost ? '<a href="/host-profile?id=' + encodeURIComponent(conv.host_id) + '" class="profile-btn">View host profile</a>' : '') +
+        (!isHost ? '<a href="/host/' + encodeURIComponent(conv.host_id) + '" class="profile-btn">View host profile</a>' : '') +
         '<div class="details-section">' +
           '<div class="details-heading">Contact</div>' +
           '<div class="detail-row"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg><span><span class="detail-label">Email</span><span class="detail-value">' + contactEmailText + '</span></span></div>' +
