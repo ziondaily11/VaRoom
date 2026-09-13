@@ -166,7 +166,16 @@
     border-bottom:2px solid transparent; margin-bottom:-1px;
   }
   .tab.active{ color:var(--red); border-bottom-color:var(--red); }
-  .tab-count{ margin-left:.4rem; font-size:.75rem; padding:.2rem .4rem; background:#FBE4E7; color:var(--red-deep); border-radius:3px; font-weight:700; }
+  .host-bookings-tabs{ display:flex; align-items:center; gap:2.8rem; }
+  .host-bookings-tabs .tab{ display:inline-flex; align-items:center; gap:.38rem; }
+  .tab-count{
+    display:none; min-width:1.15rem; height:1.15rem; padding:0 .34rem;
+    align-items:center; justify-content:center; border-radius:999px;
+    background:#E8E8E8; color:#656565; font-size:.68rem; line-height:1;
+    font-weight:700;
+  }
+  .tab-count.has-count{ display:inline-flex; }
+  .host-bookings-tabs .tab.active .tab-count{ background:var(--red); color:#fff; }
 
   .state-msg{ color:var(--muted); font-size:.92rem; padding:2.2rem 0; text-align:center; }
 
@@ -238,7 +247,7 @@
   #host-bookings-view{ padding-top:1.15rem; }
   #host-bookings-view .page-title{ font-size:clamp(2rem, 3.4vw, 2.65rem); letter-spacing:-.035em; }
   #host-bookings-view .page-subtitle{ margin-top:.45rem; }
-  #host-bookings-view .tabs{ margin-top:2rem; gap:2.8rem; }
+  #host-bookings-view .tabs{ margin-top:2rem; }
   .host-header-row{ display:flex; align-items:flex-start; justify-content:space-between; gap:2rem; }
   .host-header-row .page-subtitle{ margin-bottom:0; }
   .host-detail .host-detail-image{ display:block; }
@@ -297,7 +306,8 @@
     .host-booking-card .bk-thumb{ width:100%; height:150px; }
     .host-booking-card .bk-actions{ align-self:stretch; }
     #host-bookings-view{ padding-top:.4rem; }
-    #host-bookings-view .tabs{ margin-top:1.35rem; gap:1.35rem; overflow-x:auto; }
+    #host-bookings-view .tabs{ margin-top:1.35rem; }
+    .host-bookings-tabs{ gap:1.35rem; overflow-x:auto; }
     .host-header-row{ display:block; }
     .host-month-nav{ margin:1rem 0 1.2rem; width:100%; justify-content:flex-start; }
   }
@@ -477,7 +487,7 @@
               </div>
             </div>
 
-            <div class="tabs">
+            <div class="tabs host-bookings-tabs">
               <button class="tab active" data-tab="pending">Pending<span class="tab-count" id="pending-count"></span></button>
               <button class="tab" data-tab="confirmed">Confirmed<span class="tab-count" id="confirmed-count"></span></button>
               <button class="tab" data-tab="declined">Declined<span class="tab-count" id="declined-count"></span></button>
@@ -719,10 +729,16 @@
       }
 
       function updateHostBookingCounts(){
-        document.getElementById('pending-count').textContent = hostBookings.pending ? ' ' + hostBookings.pending.length : '';
-        document.getElementById('confirmed-count').textContent = hostBookings.approved ? ' ' + hostBookings.approved.length : '';
-        document.getElementById('declined-count').textContent = hostBookings.declined ? ' ' + hostBookings.declined.length : '';
-        document.getElementById('completed-count').textContent = hostBookings.completed ? ' ' + hostBookings.completed.length : '';
+        function setCount(id, count){
+          const badge = document.getElementById(id);
+          const value = Number(count || 0);
+          badge.textContent = value > 0 ? String(value) : '';
+          badge.classList.toggle('has-count', value > 0);
+        }
+        setCount('pending-count', hostBookings.pending && hostBookings.pending.length);
+        setCount('confirmed-count', hostBookings.approved && hostBookings.approved.length);
+        setCount('declined-count', hostBookings.declined && hostBookings.declined.length);
+        setCount('completed-count', hostBookings.completed && hostBookings.completed.length);
       }
 
       function renderHostBookingPanel(status){
