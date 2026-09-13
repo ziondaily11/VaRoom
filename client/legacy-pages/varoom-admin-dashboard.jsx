@@ -9,10 +9,8 @@ import {
   Search,
   ChevronRight,
   Clock,
-  X,
   Ban,
   Mail,
-  Users,
   Lock,
   LogOut,
   Plus,
@@ -258,9 +256,16 @@ function Revenue({ transactions, total, series }) {
   );
 }
 
-function Support({ tickets, selected, setSelected, onReply }) {
+function Support({ tickets, selected, setSelected, onReply, onStatusChange }) {
   const [reply, setReply] = useState("");
   const openCount = tickets.filter((t) => t.status === "open").length;
+
+  // Reset the draft reply whenever the selected ticket changes, so switching
+  // tickets doesn't leave a half-typed reply attached to the wrong one.
+  useEffect(() => {
+    setReply("");
+  }, [selected?.id]);
+
   return (
     <div>
       <SectionHeader
@@ -306,7 +311,10 @@ function Support({ tickets, selected, setSelected, onReply }) {
 
         <div className="md:col-span-3 border border-[#E4E1DA] rounded-sm bg-white p-5">
           {selected ? (
-            <div>
+            // key forces a clean remount of the fields below whenever the
+            // selected ticket changes, so the subject/status inputs never
+            // keep showing a previous ticket's values.
+            <div key={selected.id}>
               <div className="flex items-start justify-between">
                 <div>
                   <div className="text-xs font-mono text-[#8a857c]">{selected.id}</div>
@@ -350,10 +358,21 @@ function Support({ tickets, selected, setSelected, onReply }) {
                   placeholder="Type a reply — this sends an email to the address above"
                 />
                 <div className="flex items-center gap-2 mt-2">
-                  <button onClick={async () => { await onReply(selected.id, reply); setReply(""); }} disabled={!reply.trim()} className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-[#1F6F5C] text-white rounded-sm hover:bg-[#195a4b] disabled:opacity-50">
+                  <button
+                    onClick={async () => {
+                      await onReply(selected.id, reply);
+                      setReply("");
+                    }}
+                    disabled={!reply.trim()}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-[#1F6F5C] text-white rounded-sm hover:bg-[#195a4b] disabled:opacity-50"
+                  >
                     <Mail size={13} /> Send email reply
                   </button>
-                  <select className="text-sm border border-[#E4E1DA] rounded-sm px-2 py-1.5 focus:outline-none" defaultValue={selected.status}>
+                  <select
+                    className="text-sm border border-[#E4E1DA] rounded-sm px-2 py-1.5 focus:outline-none"
+                    defaultValue={selected.status}
+                    onChange={(event) => onStatusChange(selected.id, event.target.value)}
+                  >
                     <option value="open">Mark open</option>
                     <option value="in_progress">Mark in progress</option>
                     <option value="resolved">Mark resolved</option>
@@ -434,11 +453,7 @@ function Admins({ admins, addAdmin }) {
 
   const handleAdd = async () => {
     if (!name || !email) return;
-    await addAdmin({
-      name,
-      email,
-      role,
-    });
+    await addAdmin({ name, email, role });
     setName("");
     setEmail("");
     setRole("support");
@@ -614,30 +629,69 @@ export default function VaroomAdminDashboard() {
       api("/admin/support/tickets"),
       api("/admin/reports"),
       api("/admin/growth?range=14"),
-      api("/admin/admins")
-    ]).then(([nextOverview, nextSignins, nextRevenue, nextTickets, nextReports, nextGrowth, nextAdmins]) => {
-      setOverview(nextOverview);
-      setSignins(nextSignins.data || []);
-      setSigninsSeries(nextSignins.series || []);
-      setTransactions(nextRevenue.transactions || []);
-      setRevenueTotal(nextRevenue.total || 0);
-      setRevenueSeries(nextRevenue.series || []);
-      setTickets(nextTickets.data || []);
-      setSelectedTicket((nextTickets.data || [])[0] || null);
-      setReports(nextReports.data || []);
-      setGrowthSeries(nextGrowth.series || []);
-      setAdmins(nextAdmins.data || []);
-    }).catch((error) => setLoginError(error.message));
+      api("/admin/admins"),
+    ])
+      .then(([nextOverview, nextSignins, nextRevenue, nextTickets, nextReports, nextGrowth, nextAdmins]) => {
+        setOverview(nextOverview);
+        setSignins(nextSignins.data || []);
+        setSigninsSeries(nextSignins.series || []);
+        setTransactions(nextRevenue.transactions || []);
+        setRevenueTotal(nextRevenue.total || 0);
+        setRevenueSeries(nextRevenue.series || []);
+        setTickets(nextTickets.data || []);
+        setSelectedTicket((nextTickets.data || [])[0] || null);
+        setReports(nextReports.data || []);
+        setGrowthSeries(nextGrowth.series || []);
+        setAdmins(nextAdmins.data || []);
+      })
+      .catch((error) => setLoginError(error.message));
   }, [loggedIn]);
 
   async function login(email, password) {
     try {
-      await api("/admin/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password }) });
+      await api("/admin/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
       setLoginError("");
       setLoggedIn(true);
     } catch (error) {
       setLoginError(error.message);
     }
+  }
+
+  async function replyToTicket(id, message) {
+    await api(`/admin/support/tickets/${id}/replies`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message }),
+    });
+  }
+
+  async function updateTicketStatus(id, status) {
+    const updated = await api(`/admin/support/tickets/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+    setTickets((prev) => prev.map((t) => (t.id === id ? { ...t, status } : t)));
+    setSelectedTicket((prev) => (prev && prev.id === id ? { ...prev, status } : prev));
+    return updated;
+  }
+
+  async function addAdmin(admin) {
+    const result = await api("/admin/admins", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(admin),
+    });
+    setAdmins((prev) => [...prev, result.admin]);
+  }
+
+  async function logout() {
+    await api("/admin/logout", { method: "POST" });
+    setLoggedIn(false);
   }
 
   if (!loggedIn) {
@@ -647,24 +701,34 @@ export default function VaroomAdminDashboard() {
   const renderSection = () => {
     switch (active) {
       case "overview":
-        return <Overview overview={overview} signinsSeries={signinsSeries} revenueSeries={revenueSeries} goTo={setActive} />;
+        return (
+          <Overview
+            overview={overview}
+            signinsSeries={signinsSeries}
+            revenueSeries={revenueSeries}
+            goTo={setActive}
+          />
+        );
       case "signins":
         return <Signins signins={signins} series={signinsSeries} />;
       case "revenue":
         return <Revenue transactions={transactions} total={revenueTotal} series={revenueSeries} />;
       case "support":
-        return <Support tickets={tickets} selected={selectedTicket} setSelected={setSelectedTicket} onReply={async (id, message) => {
-          await api(`/admin/support/tickets/${id}/replies`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message }) });
-        }} />;
+        return (
+          <Support
+            tickets={tickets}
+            selected={selectedTicket}
+            setSelected={setSelectedTicket}
+            onReply={replyToTicket}
+            onStatusChange={updateTicketStatus}
+          />
+        );
       case "reports":
         return <ListingReports reports={reports} />;
       case "growth":
         return <Growth series={growthSeries} />;
       case "admins":
-        return <Admins admins={admins} addAdmin={async (a) => {
-          const result = await api("/admin/admins", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(a) });
-          setAdmins([...admins, result.admin]);
-        }} />;
+        return <Admins admins={admins} addAdmin={addAdmin} />;
       default:
         return null;
     }
@@ -700,7 +764,7 @@ export default function VaroomAdminDashboard() {
           ))}
         </nav>
         <button
-          onClick={async () => { await api("/admin/logout", { method: "POST" }); setLoggedIn(false); }}
+          onClick={logout}
           className="flex items-center gap-2.5 px-5 py-3 text-sm text-[#8a857c] border-t border-[#E4E1DA] hover:text-[#24211E]"
         >
           <LogOut size={15} /> Log out
