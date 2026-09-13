@@ -117,12 +117,12 @@
   .back-link:hover{ color:var(--red); }
 
   .content-row{
-    display:grid; grid-template-columns: minmax(560px, 760px) minmax(280px, 380px);
+    display:grid; grid-template-columns: minmax(560px, 1fr) minmax(280px, 380px);
     align-items:start; min-width:0; flex:1 1 auto; min-height:0; overflow:hidden; gap:0; width:100%; max-width:100%;
   }
 
   .feed-area{
-    width:100%; max-width:760px; min-width:560px; padding:.6rem 2rem 4rem;
+    width:100%; max-width:900px; min-width:560px; padding:.6rem 2rem 4rem;
     height:100%; overflow-y:auto; scrollbar-width:none; margin:0 auto;
     border-right:1px solid var(--line); box-sizing:border-box;
   }
@@ -215,8 +215,9 @@
   .bk-btn-solid{ background:var(--red); color:#fff; }
   .bk-btn-solid:hover{ background:var(--red-deep); }
   .bk-btn:disabled{ opacity:.5; cursor:not-allowed; }
-  .host-booking-card{ min-height:148px; transition:border-color .18s ease, box-shadow .18s ease, transform .18s ease; }
-  .host-booking-card:hover,.host-booking-card.selected{ border-color:var(--red); box-shadow:0 8px 22px rgba(36,33,30,.08); transform:translateY(-1px); }
+  .host-booking-card{ min-height:168px; transition:border-color .18s ease, box-shadow .18s ease, transform .18s ease; }
+  .host-booking-card:hover,.host-booking-card.selected{ border-color:var(--line); box-shadow:0 8px 22px rgba(36,33,30,.10); transform:translateY(-1px); }
+  .host-booking-card .bk-thumb{ width:190px; height:148px; background:var(--paper); color:var(--muted); }
   .host-booking-card .bk-title{ font-size:1.05rem; }
   .host-booking-card .bk-loc{ color:var(--ink); font-weight:600; }
   .host-booking-card .bk-meta{ line-height:1.5; }
@@ -224,6 +225,19 @@
   .host-booking-card .bk-actions{ padding-top:.85rem; }
   .host-booking-card .bk-btn-solid{ border:1.5px solid var(--red); }
   .host-booking-card .bk-btn-outline{ background:transparent; }
+  .host-booking-card .bk-actions{ align-self:flex-end; }
+  .host-booking-card .bk-requested{ color:var(--muted); font-size:.75rem; margin-top:.35rem; }
+  .host-booking-card .bk-guest{ display:flex; align-items:center; gap:.5rem; margin-top:.45rem; }
+  .host-booking-card .bk-guest-avatar{ width:28px; height:28px; border-radius:50%; overflow:hidden; background:var(--paper); color:var(--muted); display:flex; align-items:center; justify-content:center; font-size:.7rem; font-weight:700; flex-shrink:0; }
+  .host-booking-card .bk-guest-avatar img{ width:100%; height:100%; object-fit:cover; }
+  .host-month-nav{ display:flex; align-items:center; gap:.35rem; margin:0 0 1.2rem auto; width:max-content; }
+  .host-month-label{ min-width:145px; text-align:center; font-weight:700; font-size:.86rem; }
+  .host-month-btn{ width:30px; height:30px; border:1px solid var(--line); border-radius:50%; color:var(--ink); font-size:1.1rem; }
+  .host-month-btn:hover{ border-color:var(--red); color:var(--red); }
+  .host-month-current{ color:var(--muted); font-size:.74rem; margin-left:.35rem; }
+  .host-header-row{ display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; }
+  .host-header-row .page-subtitle{ margin-bottom:0; }
+  .host-detail .host-detail-image{ display:block; }
   .host-detail{ display:none; }
   .host-detail.show{ display:block; }
   .host-detail-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; margin-bottom:1rem; }
@@ -276,6 +290,15 @@
     .bk-bottom-row{ flex-wrap:wrap; }
     .bk-actions{ margin-left:0; width:100%; }
     .bk-btn{ flex:1; text-align:center; }
+    .host-booking-card .bk-thumb{ width:100%; height:150px; }
+    .host-booking-card .bk-actions{ align-self:stretch; }
+    .host-header-row{ display:block; }
+    .host-month-nav{ margin:1rem 0 1.2rem; width:100%; justify-content:flex-start; }
+  }
+  @media (max-width:860px){
+    .right-rail.host-empty{ display:none; }
+    .right-rail.host-empty:has(.host-detail.show){ display:block; position:fixed; inset:0; z-index:180; max-width:none; padding:1rem; background:var(--paper); border:0; }
+    .right-rail.host-empty:has(.host-detail.show) .host-detail{ max-height:100%; overflow:auto; }
   }
 
   /* ---------- RIGHT RAIL: stats + calendar ---------- */
@@ -298,6 +321,32 @@
   .cal-day.booked{ background:var(--red); color:#fff; font-weight:700; }
 </style>
 <link rel="stylesheet" href="js/varoom-dark-theme.css">
+<style>
+  [data-theme="dark"] #host-bookings-view .tab,
+  [data-theme="dark"] #host-bookings-view .tab.active {
+    background: transparent !important;
+    border: 0 !important;
+    border-bottom: 2px solid transparent !important;
+    color: var(--muted) !important;
+  }
+  [data-theme="dark"] #host-bookings-view .tab.active {
+    border-bottom-color: var(--red) !important;
+    color: #fff !important;
+  }
+  [data-theme="dark"] #host-bookings-view .host-booking-card {
+    background: #0d0d0d !important;
+    border: 1px solid var(--line) !important;
+    border-radius: 16px !important;
+  }
+  [data-theme="dark"] #host-bookings-view .host-booking-card:hover,
+  [data-theme="dark"] #host-bookings-view .host-booking-card.selected {
+    border-color: rgba(255, 255, 255, .28) !important;
+  }
+  [data-theme="dark"] #host-bookings-view .host-booking-card .bk-thumb,
+  [data-theme="dark"] #host-bookings-view .host-booking-card .bk-guest-avatar {
+    background: #1a1a1a;
+  }
+</style>
 </head>
 <body>
 
@@ -409,8 +458,18 @@
 
           <!-- HOST VIEW -->
           <div id="host-bookings-view" style="display:none;">
-            <h1 class="page-title">Bookings</h1>
-            <p class="page-subtitle">Review and manage booking requests from your guests.</p>
+            <div class="host-header-row">
+              <div>
+                <h1 class="page-title">Bookings</h1>
+                <p class="page-subtitle">Review and manage booking requests from your guests.</p>
+              </div>
+              <div class="host-month-nav" aria-label="Booking period">
+                <button type="button" class="host-month-btn" id="host-month-prev" aria-label="Previous month">‹</button>
+                <span class="host-month-label" id="host-month-label"></span>
+                <button type="button" class="host-month-btn" id="host-month-next" aria-label="Next month">›</button>
+                <button type="button" class="host-month-current" id="host-month-current">This month</button>
+              </div>
+            </div>
 
             <div class="tabs">
               <button class="tab active" data-tab="pending">Pending<span class="tab-count" id="pending-count"></span></button>
@@ -528,6 +587,49 @@
       let hostBookings = {};
       let selectedHostBookingId = null;
       let isProcessing = false;
+      let hostMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+
+      function validDate(value){
+        return value && !Number.isNaN(new Date(value).getTime());
+      }
+
+      function formatBookingDate(value){
+        if (!validDate(value)) return '';
+        return new Date(value).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
+      }
+
+      function requestedTime(value){
+        if (!validDate(value)) return 'Request received recently';
+        const elapsed = Math.max(0, Date.now() - new Date(value).getTime());
+        const minutes = Math.floor(elapsed / 60000);
+        if (minutes < 60) return 'Requested ' + Math.max(1, minutes) + ' min ago';
+        const hours = Math.floor(minutes / 60);
+        if (hours < 24) return 'Requested ' + hours + ' hour' + (hours === 1 ? '' : 's') + ' ago';
+        const days = Math.floor(hours / 24);
+        return 'Requested ' + days + ' day' + (days === 1 ? '' : 's') + ' ago';
+      }
+
+      function bookingMonthDate(booking){
+        return booking.start_date || booking.lease_start_date || booking.end_date || booking.created_at;
+      }
+
+      function isBookingInMonth(booking){
+        if (!validDate(bookingMonthDate(booking))) return true;
+        const date = new Date(bookingMonthDate(booking));
+        return date.getFullYear() === hostMonth.getFullYear() && date.getMonth() === hostMonth.getMonth();
+      }
+
+      function renderHostMonth(){
+        document.getElementById('host-month-label').textContent =
+          hostMonth.toLocaleDateString('en-US', { month:'long', year:'numeric' });
+        const now = new Date();
+        const isCurrent = hostMonth.getFullYear() === now.getFullYear() && hostMonth.getMonth() === now.getMonth();
+        document.getElementById('host-month-current').style.visibility = isCurrent ? 'hidden' : 'visible';
+      }
+
+      function renderHostStatus(status){
+        renderHostBookingPanel(status);
+      }
 
       function renderHostBookingDetail(booking){
         if (!booking) {
@@ -545,6 +647,9 @@
           : '<div class="host-detail-image" aria-hidden="true"></div>';
         const dates = (booking.start_date || 'Date unavailable') +
           (booking.end_date ? ' → ' + booking.end_date : '');
+        const guestDetail = booking.guests
+          ? '<div class="host-detail-item"><div class="host-detail-label">Guests</div><div class="host-detail-value">' + escapeHtml(String(booking.guests)) + '</div></div>'
+          : '';
         const actions = booking.status === 'pending'
           ? '<div class="host-detail-actions">' +
               '<button class="bk-btn bk-btn-solid detail-approve" type="button">Approve booking</button>' +
@@ -563,7 +668,7 @@
           '<p>' + escapeHtml(listing.location_text || 'Location unavailable') + '</p>' +
           '<div class="host-detail-grid">' +
             '<div class="host-detail-item"><div class="host-detail-label">Guest</div><div class="host-detail-value">' + escapeHtml(client.full_name || 'Guest') + '</div></div>' +
-            '<div class="host-detail-item"><div class="host-detail-label">Guests</div><div class="host-detail-value">' + escapeHtml(String(booking.guests || 'Not provided')) + '</div></div>' +
+            guestDetail +
             '<div class="host-detail-item"><div class="host-detail-label">Dates</div><div class="host-detail-value">' + escapeHtml(dates) + '</div></div>' +
             '<div class="host-detail-item"><div class="host-detail-label">Amount</div><div class="host-detail-value">KES ' + Number(booking.total_price || 0).toLocaleString() + '</div></div>' +
           '</div>' +
@@ -615,7 +720,7 @@
       }
 
       function renderHostBookingPanel(status){
-        const bookings = hostBookings[status === 'confirmed' ? 'approved' : status] || [];
+        const bookings = (hostBookings[status === 'confirmed' ? 'approved' : status] || []).filter(isBookingInMonth);
         const panelId = status + '-panel';
         const panel = document.getElementById(panelId);
 
@@ -636,13 +741,21 @@
           const photos = listing.listing_photos || [];
           const thumbHtml = photos.length > 0
             ? '<img src="' + resolvePhotoUrl(photos[0].storage_path) + '" alt="">'
-            : '<span>—</span>';
+            : '<span>VaRoom</span>';
 
           const durationText = b.hours 
             ? b.hours + ' hour' + (b.hours === 1 ? '' : 's')
             : (b.start_date && b.end_date 
               ? Math.ceil((new Date(b.end_date) - new Date(b.start_date)) / (1000 * 60 * 60 * 24)) + ' nights'
               : '');
+          const dateText = b.start_date
+            ? formatBookingDate(b.start_date) + (b.end_date ? ' → ' + formatBookingDate(b.end_date) : '')
+            : (b.lease_start_date ? 'From ' + formatBookingDate(b.lease_start_date) : 'Dates to be confirmed');
+          const avatarUrl = resolveAvatarUrl(client.avatar_url);
+          const guestInitial = escapeHtml((client.full_name || 'G').charAt(0).toUpperCase());
+          const guestAvatar = avatarUrl
+            ? '<img src="' + avatarUrl + '" alt="">'
+            : guestInitial;
 
           return (
             '<div class="booking-card host-booking-card" data-booking-id="' + b.id + '" tabindex="0" role="button" aria-label="Open booking request from ' + escapeHtml(client.full_name || 'Guest') + '">' +
@@ -650,15 +763,17 @@
               '<div class="bk-main">' +
                 '<div class="bk-top-row">' +
                   '<div>' +
-                    '<div class="bk-title">' + escapeHtml(client.full_name || 'Guest') + '</div>' +
-                    '<div class="bk-loc">' + escapeHtml(listing.title || 'Listing') + '</div>' +
+                    '<div class="bk-title">' + escapeHtml(listing.title || 'Listing') + '</div>' +
+                    '<div class="bk-guest"><span class="bk-guest-avatar">' + guestAvatar + '</span><span>' + escapeHtml(client.full_name || 'Guest') + '</span></div>' +
                   '</div>' +
                 '</div>' +
                 '<div class="bk-meta">' +
-                  '<span><b>Dates</b> ' + escapeHtml(b.start_date || '') + (b.end_date ? ' → ' + b.end_date : '') + '</span>' +
+                  '<span><b>Stay</b> ' + escapeHtml(dateText) + '</span>' +
                   (durationText ? ' <span><b>Duration</b> ' + escapeHtml(durationText) + '</span>' : '') +
+                  (listing.location_text ? ' <span>' + escapeHtml(listing.location_text) + '</span>' : '') +
                 '</div>' +
-                '<div class="bk-price">KES ' + Number(b.total_price).toLocaleString() + '</div>' +
+                '<div class="bk-price">KES ' + Number(b.total_price || 0).toLocaleString() + '<span> · Total booking amount</span></div>' +
+                '<div class="bk-requested">' + escapeHtml(requestedTime(b.created_at)) + '</div>' +
                 (status === 'pending' ? 
                   '<div class="bk-actions">' +
                     '<button class="bk-btn bk-btn-solid approve-btn" data-booking-id="' + b.id + '">Approve</button>' +
@@ -707,13 +822,24 @@
         if (declineButton) declineButton.disabled = true;
 
         try {
-          const { error } = await supabaseClient
+          const { data: updatedBooking, error } = await supabaseClient
             .from('bookings')
             .update({ status: 'approved', responded_at: new Date().toISOString() })
             .eq('id', bookingId)
-            .eq('host_id', currentUser.id);
+            .eq('host_id', currentUser.id)
+            .eq('status', 'pending')
+            .select('id,client_id')
+            .maybeSingle();
 
           if (error) throw error;
+          if (!updatedBooking) throw new Error('This booking request has already been processed.');
+          const notificationResult = await supabaseClient.from('notifications').insert({
+            user_id: updatedBooking.client_id,
+            type: 'booking_approved',
+            message: 'Your booking request has been approved.',
+            booking_id: bookingId
+          });
+          if (notificationResult.error) console.error('Booking approval notification failed:', notificationResult.error);
 
           hostBookings.pending = (hostBookings.pending || []).filter(function(b){ return b.id !== bookingId; });
           if (!hostBookings.approved) hostBookings.approved = [];
@@ -750,13 +876,24 @@
         if (declineButton) declineButton.disabled = true;
 
         try {
-          const { error } = await supabaseClient
+          const { data: updatedBooking, error } = await supabaseClient
             .from('bookings')
             .update({ status: 'declined', responded_at: new Date().toISOString() })
             .eq('id', bookingId)
-            .eq('host_id', currentUser.id);
+            .eq('host_id', currentUser.id)
+            .eq('status', 'pending')
+            .select('id,client_id')
+            .maybeSingle();
 
           if (error) throw error;
+          if (!updatedBooking) throw new Error('This booking request has already been processed.');
+          const notificationResult = await supabaseClient.from('notifications').insert({
+            user_id: updatedBooking.client_id,
+            type: 'booking_declined',
+            message: 'Your booking request was declined by the host.',
+            booking_id: bookingId
+          });
+          if (notificationResult.error) console.error('Booking decline notification failed:', notificationResult.error);
 
           hostBookings.pending = (hostBookings.pending || []).filter(function(b){ return b.id !== bookingId; });
           if (!hostBookings.declined) hostBookings.declined = [];
@@ -797,11 +934,32 @@
           document.getElementById('declined-panel').style.display = status === 'declined' ? '' : 'none';
           document.getElementById('completed-panel').style.display = status === 'completed' ? '' : 'none';
           renderHostBookingDetail(null);
-          renderHostBookingPanel(status);
+          renderHostStatus(status);
         });
       });
 
+      document.getElementById('host-month-prev').addEventListener('click', function(){
+        hostMonth = new Date(hostMonth.getFullYear(), hostMonth.getMonth() - 1, 1);
+        renderHostMonth();
+        const activeTab = document.querySelector('#host-bookings-view .tab.active');
+        renderHostStatus(activeTab ? activeTab.getAttribute('data-tab') : 'pending');
+      });
+      document.getElementById('host-month-next').addEventListener('click', function(){
+        hostMonth = new Date(hostMonth.getFullYear(), hostMonth.getMonth() + 1, 1);
+        renderHostMonth();
+        const activeTab = document.querySelector('#host-bookings-view .tab.active');
+        renderHostStatus(activeTab ? activeTab.getAttribute('data-tab') : 'pending');
+      });
+      document.getElementById('host-month-current').addEventListener('click', function(){
+        const now = new Date();
+        hostMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        renderHostMonth();
+        const activeTab = document.querySelector('#host-bookings-view .tab.active');
+        renderHostStatus(activeTab ? activeTab.getAttribute('data-tab') : 'pending');
+      });
+
       // Load and display host bookings
+      renderHostMonth();
       await loadHostBookings();
     }
 
