@@ -158,12 +158,10 @@ function createAdminRoutes(supabaseAdmin) {
     router.post(`/news/:id/${action}`, adminAuth, async (req, res) => {
       try {
         const payload = { ...(req.body || {}), action };
-        const reviewer = req.admin && req.admin.id;
         return res.json(await propertyNewsRequest(`/api/admin/news/${encodeURIComponent(req.params.id)}/${action}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'X-News-Reviewer-Id': reviewer || '',
           },
           body: JSON.stringify(payload),
         }));
