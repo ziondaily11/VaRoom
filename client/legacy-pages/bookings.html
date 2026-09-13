@@ -227,6 +227,10 @@
   .host-booking-card{ min-height:128px; padding:.4rem; gap:.8rem; transition:border-color .18s ease, box-shadow .18s ease, transform .18s ease; }
   .host-booking-card:hover,.host-booking-card.selected{ border-color:var(--line); box-shadow:0 8px 22px rgba(36,33,30,.10); transform:translateY(-1px); }
   .host-booking-card .bk-thumb{ width:136px; height:118px; background:var(--paper); color:var(--muted); }
+  .host-booking-card .bk-thumb-wrap{ position:relative; flex:0 0 136px; }
+  .host-booking-card .bk-thumb-wrap .bk-thumb{ width:136px; }
+  .booking-video-badge{ position:absolute; left:.45rem; bottom:.45rem; display:inline-flex; align-items:center; gap:.25rem; padding:.2rem .38rem; border-radius:999px; background:rgba(0,0,0,.72); color:#fff; font-size:.62rem; font-weight:700; }
+  .booking-video-badge svg{ width:11px; height:11px; }
   .host-booking-card .bk-title{ font-size:.9rem; }
   .host-booking-card .bk-meta{ flex-direction:column; align-items:flex-start; gap:.3rem; line-height:1.35; margin-top:.5rem; font-size:.72rem; }
   .host-booking-card .bk-meta span{ display:flex; align-items:center; gap:.38rem; }
@@ -307,6 +311,8 @@
     .bk-actions{ margin-left:0; width:100%; }
     .bk-btn{ flex:1; text-align:center; }
     .host-booking-card .bk-thumb{ width:100%; height:150px; }
+    .host-booking-card .bk-thumb-wrap{ flex-basis:auto; width:100%; }
+    .host-booking-card .bk-thumb-wrap .bk-thumb{ width:100%; height:150px; }
     .host-booking-card .bk-actions{ align-self:stretch; }
     .host-booking-card .bk-card-side{ border-left:0; border-top:1px solid var(--line); padding:.7rem 0 0; }
     #host-bookings-view{ padding-top:.4rem; }
@@ -718,6 +724,33 @@
 
           if (error) throw error;
 
+          const accessToken = session && session.access_token;
+          await Promise.all((data || []).map(async function(booking){
+            const listing = booking.listing;
+            if (!listing || !listing.id || !accessToken) return;
+            try {
+              const mediaResponse = await fetch('/api/properties/' + encodeURIComponent(listing.id) + '/media', {
+                headers: { Authorization: 'Bearer ' + accessToken }
+              });
+              if (!mediaResponse.ok) return;
+              const mediaPayload = await mediaResponse.json();
+              const video = (Array.isArray(mediaPayload.media) ? mediaPayload.media : [])
+                .find(function(item){ return item && item.type === 'video'; });
+              if (!video) return;
+              const playbackResponse = await fetch('/api/media/' + encodeURIComponent(video.id) + '/playback', {
+                headers: { Authorization: 'Bearer ' + accessToken }
+              });
+              if (!playbackResponse.ok) return;
+              const playbackPayload = await playbackResponse.json();
+              listing.video_thumbnail_url = playbackPayload && playbackPayload.thumbnailUrl
+                ? playbackPayload.thumbnailUrl
+                : null;
+              listing.has_video = true;
+            } catch (mediaError) {
+              console.error('Failed to load listing video media:', mediaError);
+            }
+          }));
+
           hostBookings = {};
           (data || []).forEach(function(b){
             if (!hostBookings[b.status]) hostBookings[b.status] = [];
@@ -765,9 +798,15 @@
           const listing = b.listing || {};
           const client = b.client || {};
           const photos = listing.listing_photos || [];
-          const thumbHtml = photos.length > 0
+          const imageHtml = photos.length > 0
             ? '<img src="' + resolvePhotoUrl(photos[0].storage_path) + '" alt="">'
             : '<span>VaRoom</span>';
+          const thumbHtml = listing.video_thumbnail_url
+            ? '<img src="' + escapeHtml(listing.video_thumbnail_url) + '" alt="">'
+            : imageHtml;
+          const videoBadge = listing.has_video
+            ? '<span class="booking-video-badge"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="m8 5 11 7-11 7V5Z"/></svg> Video</span>'
+            : '';
 
           const durationText = b.hours 
             ? b.hours + ' hour' + (b.hours === 1 ? '' : 's')
@@ -785,7 +824,7 @@
 
           return (
             '<div class="booking-card host-booking-card" data-booking-id="' + b.id + '" tabindex="0" role="button" aria-label="Open booking request from ' + escapeHtml(client.full_name || 'Guest') + '">' +
-              '<div class="bk-thumb">' + thumbHtml + '</div>' +
+              '<div class="bk-thumb-wrap"><div class="bk-thumb">' + thumbHtml + '</div>' + videoBadge + '</div>' +
               '<div class="bk-main">' +
                 '<div class="bk-top-row">' +
                   '<div>' +
