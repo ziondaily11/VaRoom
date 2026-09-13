@@ -28,14 +28,15 @@
 <script src="js/skeleton-loader.js"></script>
 <style>
   :root{
-    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#1A1210; --paper:#FBF4F1;
-    --muted:#7a6b67;
-    --font-display:'Fraunces', serif; --font-body:'Inter', sans-serif;
+    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#24211E; --paper:#F7F6F3;
+    --muted:#5c584f;
+    --font-display:'Helvetica Neue', Arial, sans-serif; --font-body:'Helvetica Neue', Arial, sans-serif;
+    --font-brand:'Fraunces', serif;
     --glass-bg:rgba(255,255,255,.55);
     --glass-border:rgba(255,255,255,.6);
     --glass-shadow:0 24px 55px rgba(26,18,16,.10);
-    --line:rgba(26,18,16,.10);
-    --line-soft:rgba(26,18,16,.06);
+    --line:#E4E1DA;
+    --line-soft:#E4E1DA;
   }
   [data-theme="dark"]{
     --white:#241C1A; --paper:#15100F; --ink:#F5EFEC; --muted:#B8ACA8;
@@ -67,7 +68,7 @@
   .sidebar{
     height:100vh;
     margin:0;
-    background:transparent;
+    background:var(--white);
     border:none;
     border-right:1px solid var(--line);
     border-radius:0;
@@ -81,11 +82,12 @@
   }
   .sidebar::-webkit-scrollbar{ display:none; }
 
-  .logo{ font-family:var(--font-display); font-weight:900; font-size:1.4rem; display:flex; align-items:baseline; padding:0 .4rem; }
+  .logo{ font-family:var(--font-brand); font-weight:900; font-size:1.4rem; display:flex; align-items:baseline; padding:0 .4rem; }
   .logo .va{ color:var(--red); }
   .elie-logo-nav{ width:22px; height:22px; object-fit:contain; flex-shrink:0; }
   .beta-pill{ margin-left:auto; font-size:.68rem; font-weight:600; background:#FBE4E7; color:var(--red-deep); padding:.15rem .5rem; border-radius:100px; }
   .nav-group{ display:flex; flex-direction:column; gap:.2rem; }
+  .nav-group + .nav-group{ border-top:1px solid var(--line); padding-top:1.2rem; }
   .nav-label{ font-size:.72rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); padding:.6rem .6rem .3rem; }
 
   .nav-item{
@@ -236,10 +238,8 @@
   }
   .right-rail::-webkit-scrollbar{ display:none; }
 
-  /* Rail sections (Popular Destinations, VaRoom Updates) sit on the plain
-     background now — no card chrome, just a bottom divider line between
-     sections, matching the outer three-column line-separator treatment. */
-  .rail-card{ background:transparent; border:none; border-radius:0; padding:0 0 1.3rem; margin-bottom:1.3rem; border-bottom:1px solid var(--line); }
+  /* Rail sections use the same white surface and hairline border as the feed. */
+  .rail-card{ background:var(--white); border:1px solid var(--line); border-radius:0; padding:1.2rem 1.2rem 1.3rem; margin-bottom:1.3rem; }
   .rail-card-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem; }
   .rail-card-head h2{ font-family:var(--font-display); font-weight:600; font-size:1.05rem; }
   .rail-view-all{ font-size:.78rem; font-weight:600; color:var(--red); }
@@ -331,7 +331,7 @@
   .update-photos .update-img{ width:100%; aspect-ratio:1/1; object-fit:cover; margin-bottom:0; border-radius:8px; }
   .update-img{ width:100%; border-radius:10px; margin-bottom:.5rem; display:block; }
   .update-title{ font-weight:700; font-size:.88rem; margin-bottom:.2rem; }
-  .update-body{ font-size:.82rem; color:#c9beb9; line-height:1.4; }
+  .update-body{ font-size:.82rem; color:var(--muted); line-height:1.4; }
 
   .property-news-widget{
     background:transparent; border-top:none; border-bottom:none;
@@ -407,7 +407,7 @@
   .tabs{ display:flex; flex-wrap:wrap; gap:.6rem; margin-bottom:1.6rem; }
   .tab{
     padding:.5rem 1.1rem; border-radius:100px; font-size:.88rem; font-weight:600;
-    background:var(--white); border:1px solid rgba(26,18,16,.1); color:var(--ink);
+    background:var(--white); border:1px solid var(--line); color:var(--ink);
   }
   .tab.active{ background:var(--red); color:var(--white); border-color:var(--red); }
 
@@ -452,7 +452,7 @@
 
   .card{
     display:flex; align-items:flex-start; gap:.65rem;
-    background:transparent; border:none; border-bottom:1px solid var(--line);
+    background:var(--white); border:none; border-bottom:1px solid var(--line);
     border-radius:0; padding:.7rem 0; margin:0;
     color:var(--ink);
   }
@@ -484,7 +484,7 @@
 
   .card-menu-dropdown{
     display:none; position:absolute; top:32px; right:0; z-index:20;
-    background:var(--white); border:1px solid rgba(128,110,100,.15); border-radius:12px;
+    background:var(--white); border:1px solid var(--line); border-radius:12px;
     box-shadow:0 12px 30px -10px rgba(26,18,16,.3); min-width:170px; padding:.4rem;
   }
   .card-menu-dropdown.open{ display:block; }
@@ -507,13 +507,13 @@
   .report-modal .field{ display:flex; flex-direction:column; gap:.4rem; margin-bottom:1rem; }
   .report-modal label{ font-size:.86rem; font-weight:600; }
   .report-modal select, .report-modal textarea{
-    font-family:inherit; font-size:.92rem; padding:.7rem .85rem; border:1px solid rgba(128,110,100,.25);
+    font-family:inherit; font-size:.92rem; padding:.7rem .85rem; border:1px solid var(--line);
     border-radius:10px; background:var(--paper); color:var(--ink); width:100%;
   }
   .report-modal textarea{ min-height:80px; resize:vertical; }
   .report-modal-actions{ display:flex; gap:.7rem; margin-top:1.2rem; }
   .report-modal-actions button{ flex:1; padding:.8rem 1rem; border-radius:100px; font-weight:600; font-size:.9rem; }
-  .report-cancel-btn{ background:transparent; border:1.5px solid rgba(128,110,100,.3); color:var(--ink); }
+  .report-cancel-btn{ background:transparent; border:1px solid var(--line); color:var(--ink); }
   .report-submit-btn{ background:var(--red); color:#fff; }
   .report-submit-btn:hover{ background:var(--red-deep); }
   .report-modal-msg{ font-size:.83rem; margin-top:.7rem; text-align:center; }
