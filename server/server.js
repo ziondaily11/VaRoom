@@ -53,7 +53,7 @@ app.use(express.static(path.join(clientDirectory, 'public')));
 
 app.use('/admin', createAdminRoutes(supabaseAdmin));
 
-app.post('/support/tickets', async (req, res) => {
+app.post(['/support/tickets', '/api/support/tickets'], async (req, res) => {
   const { name, email, subject, message, priority = 'normal' } = req.body || {};
   if (!name || !email || !subject || !message || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return sendError(res, 400, 'Name, valid email, subject and message are required');

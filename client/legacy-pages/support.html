@@ -251,14 +251,18 @@
         var sessionResult = window.supabaseClient ? await window.supabaseClient.auth.getSession() : { data: { session: null } };
         var headers = { 'Content-Type': 'application/json' };
         if (sessionResult.data.session) headers.Authorization = 'Bearer ' + sessionResult.data.session.access_token;
-        var response = await fetch('/support/tickets', {
+        var response = await fetch('/api/support/tickets', {
           method: 'POST',
           headers: headers,
           credentials: 'same-origin',
           body: JSON.stringify(values)
         });
-        var body = await response.json();
-        if (!response.ok) throw new Error(body.error || 'Unable to send ticket');
+        var contentType = response.headers.get('content-type') || '';
+        var isJson = contentType.indexOf('application/json') !== -1;
+        var body = isJson
+          ? await response.json()
+          : { error: 'The support service returned an unexpected response. Please try again.' };
+        if (!response.ok || !isJson) throw new Error(body.error || 'Unable to send ticket');
         message.textContent = 'Thanks — your ticket has been sent. We will reply by email.';
         form.reset();
       } catch (error) {
