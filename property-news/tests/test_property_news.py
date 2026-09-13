@@ -369,6 +369,37 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
 
 
 class ApiSecurityTests(unittest.IsolatedAsyncioTestCase):
+    async def test_manual_approval_publishes_immediately_and_retains_item(self):
+        repository = MemoryNewsRepository()
+        news_source = source()
+        await repository.upsert_source(news_source)
+        item = NewsItem(
+            source_id=news_source.id, source_url="https://source1.example.test/pending",
+            canonical_url="https://source1.example.test/pending", source_title="Pending property update",
+            clean_text="Property update", varoom_title="Pending property update",
+            varoom_summary="Summary", category="property", source_tier=1,
+            content_hash="a" * 64, review_status=ReviewStatus.PENDING_REVIEW,
+        )
+        await repository.save_item(item)
+        app = create_app(Settings(admin_api_key="admin-key", public_rate_limit_per_minute=100), repository)
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.post(
+                f"/api/admin/news/{item.id}/approve",
+                headers={"Authorization": "Bearer admin-key"},
+                json={},
+            )
+            public = await client.get("/api/news/latest?limit=5")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["success"], True)
+        self.assertEqual(response.json()["status"], ReviewStatus.PUBLISHED.value)
+        saved = await repository.get_item(item.id)
+        self.assertIsNotNone(saved)
+        self.assertEqual(saved.review_status, ReviewStatus.PUBLISHED)
+        self.assertIsNotNone(saved.published_at)
+        self.assertEqual([entry["title"] for entry in public.json()], ["Pending property update"])
+
     async def test_public_news_excludes_pending_and_rejected_items(self):
         repository = MemoryNewsRepository()
         news_source = source()

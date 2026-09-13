@@ -235,7 +235,12 @@ def create_app(config: Settings = settings, repository: Repository | None = None
     async def review_action(news_id: UUID, action: ReviewAction, reviewer: str | None, service: ServiceContainer):
         try:
             reviewer_id = UUID(reviewer) if reviewer else None
-            return (await service.review.act(news_id, reviewer_id, action)).model_dump(mode="json")
+            saved = await service.review.act(news_id, reviewer_id, action)
+            return {
+                "success": True,
+                "status": saved.review_status.value,
+                "item": saved.model_dump(mode="json"),
+            }
         except LookupError as error:
             raise HTTPException(status_code=404, detail=str(error)) from error
         except (ValueError, TypeError) as error:

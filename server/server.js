@@ -253,7 +253,9 @@ async function proxyPropertyNews(req, res) {
     const body = await response.text();
     res.status(response.status);
     res.set('Content-Type', response.headers.get('content-type') || 'application/json; charset=utf-8');
-    res.set('Cache-Control', response.ok ? 'public, max-age=60' : 'no-store');
+    // Moderation can publish a story immediately; require clients to
+    // revalidate so an older feed is not shown after approval.
+    res.set('Cache-Control', response.ok ? 'public, max-age=0, must-revalidate' : 'no-store');
     return res.send(body);
   } catch (error) {
     console.error('Property news proxy failed:', error.message);

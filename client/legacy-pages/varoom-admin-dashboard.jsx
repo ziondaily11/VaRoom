@@ -551,10 +551,11 @@ function Admins({ admins, addAdmin }) {
   );
 }
 
-function PropertyNews({ items, onAction }) {
+function PropertyNews({ items, onAction, error }) {
   return (
     <div>
       <SectionHeader title="Property News" description="Review source-backed reports before they appear publicly or in Elie." />
+      {error ? <div className="text-sm text-[#B5482E] mb-3">{error}</div> : null}
       {items.length === 0 ? (
         <div className="text-sm text-[#8a857c]">No reports are waiting for review.</div>
       ) : items.map(({ item, source }) => (
@@ -637,6 +638,7 @@ export default function VaroomAdminDashboard() {
   const [admins, setAdmins] = useState([]);
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [propertyNews, setPropertyNews] = useState([]);
+  const [propertyNewsError, setPropertyNewsError] = useState("");
 
   async function api(path, options) {
     const response = await fetch(path, { credentials: "same-origin", ...options });
@@ -720,12 +722,17 @@ export default function VaroomAdminDashboard() {
   }
 
   async function actionPropertyNews(id, action) {
-    await api(`/admin/news/${id}/${action}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({}),
-    });
-    setPropertyNews((prev) => prev.filter(({ item }) => item.id !== id));
+    try {
+      setPropertyNewsError("");
+      await api(`/admin/news/${id}/${action}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      setPropertyNews((prev) => prev.filter(({ item }) => item.id !== id));
+    } catch (error) {
+      setPropertyNewsError(error.message || `Unable to ${action} this report.`);
+    }
   }
 
   async function logout() {
@@ -769,7 +776,7 @@ export default function VaroomAdminDashboard() {
       case "admins":
         return <Admins admins={admins} addAdmin={addAdmin} />;
       case "property-news":
-        return <PropertyNews items={propertyNews} onAction={actionPropertyNews} />;
+        return <PropertyNews items={propertyNews} onAction={actionPropertyNews} error={propertyNewsError} />;
       default:
         return null;
     }

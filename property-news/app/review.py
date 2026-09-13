@@ -23,7 +23,12 @@ class ReviewService:
         if action.action == "approve":
             if item.risk_level is RiskLevel.CRITICAL:
                 raise ValueError("Critical-risk items cannot be approved without lowering risk with documented evidence.")
-            item = await self.repository.schedule_publication(item)
+            # Manual approval is an explicit moderation decision and must be
+            # visible immediately. Automatic collection may still use the
+            # publication queue for rate-limited releases.
+            item.review_status = ReviewStatus.PUBLISHED
+            item.published_at = datetime.now(timezone.utc)
+            item.scheduled_at = None
         elif action.action == "reject":
             item.review_status = ReviewStatus.REJECTED
         elif action.action == "request_more_evidence":
