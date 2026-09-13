@@ -1439,18 +1439,32 @@
       const msg = document.getElementById('report-modal-msg');
       btn.disabled = true; btn.textContent = 'Submitting...';
 
-      const { error } = await supabaseClient.from('reports').insert({
-        reporter_id: currentUser.id,
-        host_id: reportTargetHostId,
-        listing_id: reportTargetListingId,
-        reason: document.getElementById('report-reason').value,
-        details: document.getElementById('report-details').value || null
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (!session) {
+        btn.disabled = false; btn.textContent = 'Submit report';
+        msg.textContent = 'Please sign in again before submitting a report.';
+        msg.className = 'report-modal-msg error';
+        return;
+      }
+      const response = await fetch('/api/listing-reports', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + session.access_token
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          listing_id: reportTargetListingId,
+          reason: document.getElementById('report-reason').value,
+          details: document.getElementById('report-details').value || null
+        })
       });
+      const body = await response.json();
 
       btn.disabled = false; btn.textContent = 'Submit report';
 
-      if (error) {
-        msg.textContent = error.message;
+      if (!response.ok) {
+        msg.textContent = body.error || 'Unable to submit report';
         msg.className = 'report-modal-msg error';
         return;
       }
