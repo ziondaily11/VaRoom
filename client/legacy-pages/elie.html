@@ -582,6 +582,29 @@
         }
       }
 
+      function addElieNewsResults(replyText, news, citations, statusNote){
+        addElieTextMessage(replyText);
+        const wrap = document.createElement('div');
+        wrap.className = 'results-wrap';
+        const rows = (news || []).map(function(item){
+          const source = item.source_name || (item.source && item.source.name) || 'Source';
+          const url = item.source_url || (item.source && item.source.url) || '#';
+          const status = item.regulatory_status ? '<span class="filter-chip">' + escapeHtml(item.regulatory_status) + '</span>' : '';
+          return '<article class="host-group" style="padding:1rem;">' +
+            '<div class="listing-title">' + escapeHtml(item.title || 'Property news') + '</div>' +
+            '<p class="listing-meta">' + escapeHtml(item.summary || '') + '</p>' +
+            '<div class="filter-bar">' + status + '<span class="filter-chip">' + escapeHtml(source) + '</span>' +
+            '<a class="book-link" href="' + escapeHtml(url) + '" target="_blank" rel="noopener noreferrer">Read source</a></div>' +
+            '</article>';
+        }).join('');
+        wrap.innerHTML = rows || '<div class="host-group" style="padding:1rem;">No published source-backed reports matched that question.</div>';
+        if (statusNote) {
+          wrap.innerHTML += '<p class="listing-meta" style="padding:.6rem 0;">' + escapeHtml(statusNote) + '</p>';
+        }
+        chatArea.appendChild(wrap);
+        chatArea.scrollTop = chatArea.scrollHeight;
+      }
+
       const groups = {};
       const groupOrder = [];
       listings.forEach(function(listing){
@@ -683,7 +706,10 @@
           return;
         }
 
-        if (data.listings && data.listings.length > 0) {
+        if (data.news) {
+          addElieNewsResults(data.reply, data.news, data.citations, data.regulatory_status_note);
+          persistMessage('elie', data.reply);
+        } else if (data.listings && data.listings.length > 0) {
           addElieResults(data.reply, data.listings, data.filters, message, data.suggestion);
           persistMessage('elie', data.reply);
           if (data.suggestion) persistMessage('elie', data.suggestion);

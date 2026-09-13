@@ -1,8 +1,8 @@
 # VaRoom Property News
 
-This is VaRoom's isolated Phase 1 property-news and intelligence subsystem. It is deliberately not mounted by the existing Express server and no existing VaRoom client, server, chatbot, database, or environment file is modified.
+This is VaRoom's isolated Property News and intelligence subsystem. The public API is proxied by the Express server, the host dashboard consumes published stories, and Elie consumes the source-backed evidence endpoint. The service remains isolated so its service-role credentials never reach a browser.
 
-The service provides the complete back-office flow: source registry, collection, URL/content duplicate detection, structured analysis, deterministic risk controls, human review, controlled publishing, a public read API, and structured evidence retrieval for a future Elie integration.
+The service provides the complete back-office flow: source registry, collection, URL/content duplicate detection, structured analysis, deterministic risk controls, human review, controlled publishing, a public read API, and structured evidence retrieval used by Elie. Apply every migration in `supabase/migrations/` before enabling production collection.
 
 ## Run locally
 

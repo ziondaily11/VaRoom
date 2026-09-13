@@ -74,6 +74,30 @@ function normalizeTicket(ticket) {
 function createAdminRoutes(supabaseAdmin) {
   const router = express.Router();
   const adminAuth = requireAdmin(supabaseAdmin);
+  const propertyNewsUrl = (process.env.PROPERTY_NEWS_API_URL || '').replace(/\/$/, '');
+
+  async function propertyNewsRequest(path, options = {}) {
+    if (!propertyNewsUrl || !process.env.PROPERTY_NEWS_ADMIN_API_KEY) {
+      const error = new Error('Property News administration is not configured');
+      error.statusCode = 503;
+      throw error;
+    }
+    const response = await fetch(`${propertyNewsUrl}${path}`, {
+      ...options,
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${process.env.PROPERTY_NEWS_ADMIN_API_KEY}`,
+        ...(options.headers || {}),
+      },
+    });
+    const body = await response.text();
+    if (!response.ok) {
+      const error = new Error(body || 'Property News request failed');
+      error.statusCode = response.status;
+      throw error;
+    }
+    return body ? JSON.parse(body) : null;
+  }
 
   router.get('/login', (_req, res) => res.type('html').send('<!doctype html><title>VaRoom Admin login</title><form method="post" action="/admin/login"><input name="email" type="email" required placeholder="Email"><input name="password" type="password" required placeholder="Password"><button>Log in</button></form>'));
 
@@ -120,6 +144,33 @@ function createAdminRoutes(supabaseAdmin) {
   });
 
   router.get('/session', adminAuth, (req, res) => res.json({ admin: req.admin }));
+
+  router.get('/news/pending', adminAuth, async (_req, res) => {
+    try {
+      return res.json(await propertyNewsRequest('/api/admin/news/pending'));
+    } catch (error) {
+      return res.status(error.statusCode || 502).json({ error: error.message });
+    }
+  });
+
+  for (const action of ['approve', 'reject', 'edit', 'request-more-evidence']) {
+    router.post(`/news/:id/${action}`, adminAuth, async (req, res) => {
+      try {
+        const payload = { ...(req.body || {}), action };
+        const reviewer = req.admin && req.admin.id;
+        return res.json(await propertyNewsRequest(`/api/admin/news/${encodeURIComponent(req.params.id)}/${action}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-News-Reviewer-Id': reviewer || '',
+          },
+          body: JSON.stringify(payload),
+        }));
+      } catch (error) {
+        return res.status(error.statusCode || 502).json({ error: error.message });
+      }
+    });
+  }
 
   router.get('/overview', adminAuth, async (_req, res) => {
     const since = daysAgo(7);
