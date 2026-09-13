@@ -8,12 +8,17 @@ const videoRoutes = require('./routes/videoRoutes');
 const listingRoutes = require('./routes/listingRoutes');
 const chatAttachmentRoutes = require('./routes/chatAttachmentRoutes');
 const { createAdminRoutes } = require('./routes/adminRoutes');
+const { runFullCleanup } = require('./lib/videoCleanup');
 const { MAX_JSON_BYTES, validateJsonPayload, ValidationError, uuid, text, number } = require('./lib/inputValidation');
 const { ERROR_CODES, sendError } = require('./lib/apiResponse');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const PROPERTY_NEWS_API_URL = (process.env.PROPERTY_NEWS_API_URL || '').replace(/\/$/, '');
+const VIDEO_CLEANUP_INTERVAL_MS = Math.max(
+  1,
+  Number.parseInt(process.env.VIDEO_CLEANUP_INTERVAL_HOURS || '6', 10)
+) * 60 * 60 * 1000;
 
 app.disable('x-powered-by');
 app.use((req, res, next) => {
@@ -433,6 +438,13 @@ app.use((error, _req, res, _next) => {
   console.error('Unhandled API error:', error);
   return sendError(res, 500, 'Internal server error', ERROR_CODES.INTERNAL_ERROR);
 });
+
+const videoCleanupTimer = setInterval(() => {
+  runFullCleanup().catch((error) => {
+    console.error('Scheduled video cleanup failed:', error);
+  });
+}, VIDEO_CLEANUP_INTERVAL_MS);
+videoCleanupTimer.unref();
 
 app.listen(PORT, () => {
   console.log(`VaRoom server listening on port ${PORT}`);

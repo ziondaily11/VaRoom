@@ -589,6 +589,7 @@
       video.preload = 'metadata';
       element.insertBefore(video, element.firstChild);
       element.dataset.videoId = media.id;
+      if (playback.thumbnailUrl) video.poster = playback.thumbnailUrl;
       video.src = playback.url;
       video.addEventListener('error', function(){
         video.remove();

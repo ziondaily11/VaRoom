@@ -2157,6 +2157,7 @@
             videoElement.dataset.videoMediaId = encodeURIComponent(mediaId);
             thumb.appendChild(videoElement);
           }
+          if (playback.thumbnailUrl) videoElement.poster = playback.thumbnailUrl;
           videoElement.src = playback.url;
           videoElement.style.display = 'block';
           const image = videoElement.previousElementSibling;

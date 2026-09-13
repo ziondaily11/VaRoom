@@ -39,7 +39,7 @@ async function cleanupOrphanedR2Objects() {
     // Step 1: Fetch all media records from database
     const { data: mediaRecords, error } = await supabaseAdmin
       .from('property_media')
-      .select('storage_key, storage_provider, created_at, status, deleted_at')
+      .select('storage_key, thumbnail_key, storage_provider, created_at, status, deleted_at')
       .eq('storage_provider', 'r2');
 
     if (error) {
@@ -83,6 +83,10 @@ async function cleanupOrphanedR2Objects() {
           deletedCount.dryRun++;
         } else {
           await mediaStorageService.deleteR2Object(key);
+          const record = (mediaRecords || []).find((item) => item.storage_key === key);
+          if (record && record.thumbnail_key) {
+            await mediaStorageService.deleteR2Object(record.thumbnail_key);
+          }
           console.log(`Deleted R2 object: ${key}`);
           deletedCount.actual++;
         }

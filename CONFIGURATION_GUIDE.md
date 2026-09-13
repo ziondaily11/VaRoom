@@ -30,7 +30,7 @@
 3. Save it (you'll need it for R2_ACCOUNT_ID)
 
 ### Step 1.4: Configure CORS (Optional but Recommended)
-If you want direct browser uploads (future feature):
+Direct browser uploads use the signed PUT URL returned by VaRoom:
 1. Go to R2 bucket settings
 2. Find **CORS Rules**
 3. Add rule with:
@@ -100,13 +100,13 @@ VIDEO_UPLOADS_ENABLED=true
 VIDEO_PREMIUM_REQUIRED=false
 
 # File size limit (in MB)
-VIDEO_MAX_FILE_SIZE_MB=500
+VIDEO_MAX_FILE_SIZE_MB=100
 
 # Maximum videos per property
 VIDEO_MAX_COUNT_PER_PROPERTY=10
 
 # Maximum video duration (in seconds)
-VIDEO_MAX_DURATION_SECONDS=90
+VIDEO_MAX_DURATION_SECONDS=60
 
 # Supported formats (comma-separated MIME types)
 VIDEO_ALLOWED_FORMATS=video/mp4,video/quicktime,video/webm

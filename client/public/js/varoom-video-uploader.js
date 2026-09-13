@@ -9,7 +9,8 @@ class VaRoomVideoUploader {
   constructor(containerId, options = {}) {
     this.container = document.getElementById(containerId);
     this.options = {
-      maxDurationSeconds: 90,
+      maxDurationSeconds: 60,
+      maxFileSizeBytes: 100 * 1024 * 1024,
       allowedMimeTypes: ['video/mp4', 'video/quicktime'],
       onProgress: options.onProgress || (() => {}),
       onSuccess: options.onSuccess || (() => {}),
@@ -40,7 +41,7 @@ class VaRoomVideoUploader {
           >
             + Add Video
           </button>
-          <p class="video-hint">MP4 or MOV, up to ${this.options.maxDurationSeconds}s</p>
+          <p class="video-hint">MP4 or MOV, up to ${this.options.maxDurationSeconds}s and ${this.options.maxFileSizeBytes / (1024 * 1024)} MB</p>
         </div>
         <div id="video-uploads-list" class="video-uploads-list"></div>
       </div>
@@ -68,6 +69,13 @@ class VaRoomVideoUploader {
   }
 
   async startUpload(file) {
+    if (file.size > this.options.maxFileSizeBytes) {
+      this.options.onError({
+        fileName: file.name,
+        error: `Video must be ${this.options.maxFileSizeBytes / (1024 * 1024)} MB or smaller.`,
+      });
+      return;
+    }
     if (!this.options.allowedMimeTypes.includes(file.type)) {
       this.options.onError({
         fileName: file.name,
@@ -100,6 +108,7 @@ class VaRoomVideoUploader {
       id: uploadId,
       fileName: file.name,
       file: file,
+      durationSeconds,
       status: 'initializing', // initializing -> uploading -> verifying -> complete/failed
       progress: 0,
       error: null,
@@ -269,6 +278,7 @@ class VaRoomVideoUploader {
         },
         body: JSON.stringify({
           uploadId: uploadState.uploadId,
+          durationSeconds: uploadState.durationSeconds,
         }),
       }
     );

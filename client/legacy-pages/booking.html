@@ -690,6 +690,7 @@
       return supabaseClient.storage.from('listing-photos').getPublicUrl(p.storage_path).data.publicUrl;
     });
     let listingVideoUrl = null;
+    let listingVideoThumbnailUrl = null;
     try {
       const videoResponse = await fetch('/api/properties/' + encodeURIComponent(listingId) + '/media', {
         headers: { Authorization: 'Bearer ' + session.access_token }
@@ -705,6 +706,7 @@
           if (playbackResponse.ok) {
             const playbackPayload = await playbackResponse.json();
             listingVideoUrl = playbackPayload && playbackPayload.url ? playbackPayload.url : null;
+            listingVideoThumbnailUrl = playbackPayload && playbackPayload.thumbnailUrl ? playbackPayload.thumbnailUrl : null;
           }
         }
       }
@@ -748,7 +750,7 @@
           mediaUrls.map(function(u, index){
             return '<div class="gallery-slide">' +
               (listingVideoUrl && index === 0
-                ? '<video src="' + u + '" muted autoplay loop playsinline controlslist="nodownload" aria-label="' + escapeHtml(listing.title) + ' video"></video>'
+                ? '<video src="' + u + '" poster="' + escapeHtml(listingVideoThumbnailUrl || '') + '" muted autoplay loop playsinline controlslist="nodownload" aria-label="' + escapeHtml(listing.title) + ' video"></video>'
                 : '<img src="' + u + '" alt="' + escapeHtml(listing.title) + '">') +
             '</div>';
           }).join('') +

@@ -14,6 +14,7 @@ const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const supabaseAdmin = require('../lib/supabaseClient');
 const mediaStorageService = require('../lib/mediaStorageService');
+const { generateVideoThumbnail } = require('../lib/videoThumbnailService');
 const videoEntitlement = require('../lib/videoEntitlement');
 const { ValidationError, assertAllowedKeys, uuid, text, number } = require('../lib/inputValidation');
 
@@ -103,11 +104,21 @@ router.post('/properties/:propertyId/videos/upload-init', async (req, res) => {
       uuid(propertyId, 'property id');
       text(filename, 'filename', { max: 255 });
       text(mimeType, 'mimeType', { max: 100 });
-      number(fileSize, 'fileSize', { integer: true, min: 1, max: 500 * 1024 * 1024 });
+      number(fileSize, 'fileSize', { integer: true, min: 1 });
       if (durationSeconds !== undefined) number(durationSeconds, 'durationSeconds', { min: 0, max: videoEntitlement.VIDEO_MAX_DURATION_SECONDS });
     } catch (error) {
       if (error instanceof ValidationError) return res.status(400).json({ error: 'Invalid input' });
       throw error;
+    }
+    if (fileSize > videoEntitlement.VIDEO_MAX_FILE_SIZE_MB * 1024 * 1024) {
+      return res.status(400).json({
+        error: `Video must be ${videoEntitlement.VIDEO_MAX_FILE_SIZE_MB} MB or smaller.`,
+      });
+    }
+    if (durationSeconds !== undefined && durationSeconds > videoEntitlement.VIDEO_MAX_DURATION_SECONDS) {
+      return res.status(400).json({
+        error: `Video must be ${videoEntitlement.VIDEO_MAX_DURATION_SECONDS} seconds or shorter.`,
+      });
     }
 
     // Step 3: Verify property exists and user owns it
@@ -244,12 +255,18 @@ router.post('/properties/:propertyId/videos/:mediaId/complete', async (req, res)
 
     const propertyId = req.params.propertyId;
     const mediaId = req.params.mediaId;
-    const { uploadId } = req.body;
+    const { uploadId, durationSeconds } = req.body;
     try {
-      assertAllowedKeys(req.body, ['uploadId']);
+      assertAllowedKeys(req.body, ['uploadId', 'durationSeconds']);
       uuid(propertyId, 'property id');
       uuid(mediaId, 'media id');
       uuid(uploadId, 'upload id');
+      if (durationSeconds !== undefined) {
+        number(durationSeconds, 'durationSeconds', {
+          min: 0,
+          max: videoEntitlement.VIDEO_MAX_DURATION_SECONDS,
+        });
+      }
     } catch (error) {
       if (error instanceof ValidationError) return res.status(400).json({ error: 'Invalid input' });
       throw error;
@@ -283,8 +300,8 @@ router.post('/properties/:propertyId/videos/:mediaId/complete', async (req, res)
     }
 
     // Step 5: Verify the R2 object exists
-    const objectExists = await mediaStorageService.verifyR2ObjectExists(mediaRecord.storage_key);
-    if (!objectExists) {
+    const objectMetadata = await mediaStorageService.getR2ObjectMetadata(mediaRecord.storage_key);
+    if (!objectMetadata.exists) {
       // Object doesn't exist in R2 — this is an orphaned/failed upload
       // Mark as failed so cleanup can handle it
       await supabaseAdmin
@@ -296,12 +313,29 @@ router.post('/properties/:propertyId/videos/:mediaId/complete', async (req, res)
         error: 'Video file not found in storage. Please try uploading again.',
       });
     }
+    if (objectMetadata.contentLength > videoEntitlement.VIDEO_MAX_FILE_SIZE_MB * 1024 * 1024) {
+      await supabaseAdmin.from('property_media').update({ status: 'failed' }).eq('id', mediaId);
+      return res.status(400).json({
+        error: `Video must be ${videoEntitlement.VIDEO_MAX_FILE_SIZE_MB} MB or smaller.`,
+      });
+    }
+
+    let thumbnailKey = null;
+    try {
+      thumbnailKey = await generateVideoThumbnail(mediaRecord.storage_key);
+    } catch (thumbnailError) {
+      // A thumbnail failure must not make a valid uploaded video unavailable.
+      console.error('Video thumbnail generation failed:', thumbnailError);
+    }
 
     // Step 6: Mark media as ready
     const { data: updatedRecord, error: updateError } = await supabaseAdmin
       .from('property_media')
       .update({
         status: 'ready',
+        duration_seconds: durationSeconds ?? null,
+        file_size_bytes: objectMetadata.contentLength,
+        thumbnail_key: thumbnailKey,
         updated_at: new Date().toISOString(),
       })
       .eq('id', mediaId)
@@ -387,10 +421,38 @@ router.get('/media/:mediaId/playback', async (req, res) => {
       mediaRecord.storage_key,
       3600 // 1 hour expiration
     );
+    const thumbnailUrl = mediaRecord.thumbnail_key
+      ? await mediaStorageService.generateR2DownloadAuthorization(mediaRecord.thumbnail_key, 'image/jpeg', 3600)
+      : null;
 
     res.status(200).json({
       url: playbackUrl.url,
       expiresAt: playbackUrl.expiresAt,
+      thumbnailUrl: thumbnailUrl ? thumbnailUrl.url : null,
+    });
+
+    router.get('/media/:mediaId/thumbnail', async (req, res) => {
+      try {
+        uuid(req.params.mediaId, 'media id');
+        const { data: mediaRecord, error } = await supabaseAdmin
+          .from('property_media')
+          .select('storage_key,thumbnail_key')
+          .eq('id', req.params.mediaId)
+          .eq('media_type', 'video')
+          .eq('status', 'ready')
+          .is('deleted_at', null)
+          .single();
+        if (error || !mediaRecord || !mediaRecord.thumbnail_key) {
+          return res.status(404).json({ error: 'Video thumbnail not found' });
+        }
+        const thumbnail = await mediaStorageService.generateR2DownloadAuthorization(
+          mediaRecord.thumbnail_key, 'image/jpeg', 3600
+        );
+        return res.json({ url: thumbnail.url, expiresAt: thumbnail.expiresAt });
+      } catch (error) {
+        console.error('Error generating video thumbnail URL:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+      }
     });
   } catch (error) {
     console.error('Error in playback endpoint:', error);
@@ -466,6 +528,9 @@ router.delete('/properties/:propertyId/videos/:mediaId', async (req, res) => {
     setImmediate(async () => {
       try {
         await mediaStorageService.deleteR2Object(mediaRecord.storage_key);
+        if (mediaRecord.thumbnail_key) {
+          await mediaStorageService.deleteR2Object(mediaRecord.thumbnail_key);
+        }
         console.log(`Deleted R2 object: ${mediaRecord.storage_key}`);
       } catch (error) {
         console.error(`Failed to delete R2 object ${mediaRecord.storage_key}:`, error);
@@ -540,7 +605,7 @@ router.get('/properties/:propertyId/media', async (req, res) => {
     }
 
     // Step 4: Transform media for response (don't expose internal fields)
-    const transformedMedia = media.map((m) => ({
+    const transformedMedia = await Promise.all(media.map(async (m) => ({
       id: m.id,
       type: m.media_type,
       mimeType: m.mime_type,
@@ -549,7 +614,10 @@ router.get('/properties/:propertyId/media', async (req, res) => {
       width: m.width,
       height: m.height,
       createdAt: m.created_at,
-    }));
+      thumbnailUrl: m.thumbnail_key
+        ? (await mediaStorageService.generateR2DownloadAuthorization(m.thumbnail_key, 'image/jpeg', 3600)).url
+        : null,
+    })));
 
     res.status(200).json({
       media: transformedMedia,

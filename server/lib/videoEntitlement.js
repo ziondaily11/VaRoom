@@ -11,9 +11,9 @@ require('dotenv').config();
 
 const VIDEO_UPLOADS_ENABLED = process.env.VIDEO_UPLOADS_ENABLED === 'true';
 const VIDEO_PREMIUM_REQUIRED = process.env.VIDEO_PREMIUM_REQUIRED === 'true';
-const VIDEO_MAX_FILE_SIZE_MB = parseInt(process.env.VIDEO_MAX_FILE_SIZE_MB || '500', 10);
+const VIDEO_MAX_FILE_SIZE_MB = parseInt(process.env.VIDEO_MAX_FILE_SIZE_MB || '100', 10);
 const VIDEO_MAX_COUNT_PER_PROPERTY = parseInt(process.env.VIDEO_MAX_COUNT_PER_PROPERTY || '10', 10);
-const VIDEO_MAX_DURATION_SECONDS = parseInt(process.env.VIDEO_MAX_DURATION_SECONDS || '90', 10);
+const VIDEO_MAX_DURATION_SECONDS = parseInt(process.env.VIDEO_MAX_DURATION_SECONDS || '60', 10);
 
 /**
  * Check if a user can upload a video for a property

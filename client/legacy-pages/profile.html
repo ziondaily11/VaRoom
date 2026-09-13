@@ -1306,6 +1306,7 @@
 
   const CAT_LABELS = { airbnb:'Airbnb', hotel:'Hotel', venue:'Event Venue', office:'Office', shop:'Shop', property:'Property' };
   const listingVideoUrls = {};
+  const listingVideoThumbnails = {};
   async function getAuthToken(){
     const { data: { session } } = await supabaseClient.auth.getSession();
     return session && session.access_token ? session.access_token : null;
@@ -1344,6 +1345,7 @@
       }
       const playbackPayload = playbackResponse.ok ? await playbackResponse.json() : null;
       listingVideoUrls[listing.id] = playbackPayload && playbackPayload.url ? playbackPayload.url : null;
+      listingVideoThumbnails[listing.id] = playbackPayload && playbackPayload.thumbnailUrl ? playbackPayload.thumbnailUrl : null;
     } catch (error) {
       listingVideoUrls[listing.id] = null;
     }
@@ -1375,11 +1377,12 @@
 
   function getListingMediaMarkup(listing){
     const videoUrl = listingVideoUrls[listing.id];
+    const videoThumbnail = listingVideoThumbnails[listing.id] || '';
     if (videoUrl) {
       const avatarUrl = profileData.avatar_url
         ? (profileData.avatar_url.startsWith('http') ? profileData.avatar_url : supabaseClient.storage.from('avatars').getPublicUrl(profileData.avatar_url).data.publicUrl)
         : '';
-      return '<div class="listing-thumb"><video muted playsinline preload="none" src="' + videoUrl + '" data-video-url="' + videoUrl + '" data-video-host-name="' + escapeAttr(profileData.full_name || 'Host') + '" data-video-username="' + escapeAttr(profileData.username ? '@' + profileData.username : '') + '" data-video-avatar="' + escapeAttr(avatarUrl) + '" data-video-caption="' + escapeAttr(listing.title) + '" style="width:100%;height:100%;object-fit:cover;display:block;background:#000;"></video><span class="listing-cat-pill">' + (CAT_LABELS[listing.category] || listing.category) + '</span></div>';
+      return '<div class="listing-thumb"><video muted playsinline preload="none" poster="' + escapeAttr(videoThumbnail) + '" src="' + videoUrl + '" data-video-url="' + videoUrl + '" data-video-host-name="' + escapeAttr(profileData.full_name || 'Host') + '" data-video-username="' + escapeAttr(profileData.username ? '@' + profileData.username : '') + '" data-video-avatar="' + escapeAttr(avatarUrl) + '" data-video-caption="' + escapeAttr(listing.title) + '" style="width:100%;height:100%;object-fit:cover;display:block;background:#000;"></video><span class="listing-cat-pill">' + (CAT_LABELS[listing.category] || listing.category) + '</span></div>';
     }
     const photoUrl = getPhotoUrl(listing);
     const thumb = photoUrl ? '<img src="' + photoUrl + '" alt="' + listing.title + '" loading="lazy">' : '';

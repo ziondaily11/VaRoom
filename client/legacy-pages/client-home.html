@@ -1072,6 +1072,7 @@
     // ---------- Render ----------
     const photosByListing = {};
     const videoUrlByListing = {};
+    const videoThumbnailByListing = {};
     const videoLookupByListing = {};
 
     const ICON_BOOK = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="2"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>';
@@ -1113,6 +1114,7 @@
           if (playback && playback.url) {
             if (videoUrlByListing[listingId] === playback.url) return false;
             videoUrlByListing[listingId] = playback.url;
+            videoThumbnailByListing[listingId] = playback.thumbnailUrl || null;
             return true;
           }
         } catch (error) {
@@ -1131,6 +1133,7 @@
         return supabaseClient.storage.from('listing-photos').getPublicUrl(p.storage_path).data.publicUrl;
       });
       const videoUrl = videoUrlByListing[listing.id] || null;
+      const videoThumbnail = videoThumbnailByListing[listing.id] || '';
 
       const initial = (host.full_name || '?').charAt(0).toUpperCase();
       const hostAvatarUrl = resolveAvatarUrl(host.avatar_url);
@@ -1142,7 +1145,7 @@
 
       let photosHtml = '';
       if (videoUrl) {
-        photosHtml = '<div class="card-video single"><video muted playsinline preload="none" src="' + videoUrl + '" data-video-url="' + videoUrl + '" data-listing-id="' + listing.id + '" data-video-host-name="' + escapeHtml(host.full_name || 'Host') + '" data-video-username="' + escapeHtml(host.username ? '@' + host.username : '') + '" data-video-avatar="' + escapeHtml(hostAvatarUrl || '') + '" data-video-caption="' + escapeHtml(listing.description || listing.title) + '"></video></div>';
+        photosHtml = '<div class="card-video single"><video muted playsinline preload="none" poster="' + escapeHtml(videoThumbnail) + '" src="' + videoUrl + '" data-video-url="' + videoUrl + '" data-listing-id="' + listing.id + '" data-video-host-name="' + escapeHtml(host.full_name || 'Host') + '" data-video-username="' + escapeHtml(host.username ? '@' + host.username : '') + '" data-video-avatar="' + escapeHtml(hostAvatarUrl || '') + '" data-video-caption="' + escapeHtml(listing.description || listing.title) + '"></video></div>';
       } else if (photos.length === 0) {
         photosHtml = '<div class="card-photos"><div class="photo-placeholder">' + categoryLabel(listing.category) + ' — photos coming soon</div></div>';
       } else if (photos.length === 1) {

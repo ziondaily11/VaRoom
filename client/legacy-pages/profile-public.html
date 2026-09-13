@@ -371,7 +371,7 @@
           if (!playbackResponse.ok) return;
           const playback = await playbackResponse.json();
           if (!playback.url) return;
-          mediaHost.innerHTML = '<video src="' + playback.url + '" autoplay muted playsinline loop preload="auto" aria-label="' +
+          mediaHost.innerHTML = '<video src="' + playback.url + '" poster="' + (playback.thumbnailUrl || '') + '" autoplay muted playsinline loop preload="auto" aria-label="' +
             (listing.title || 'Listing video').replace(/"/g, '&quot;') + '"></video>';
         } catch (error) {
           // Keep the photo fallback when optional video playback is unavailable.

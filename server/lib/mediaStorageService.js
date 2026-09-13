@@ -164,6 +164,46 @@ async function verifyR2ObjectExists(objectKey) {
     if (error.$metadata && error.$metadata.httpStatusCode === 404) {
       return false;
     }
+
+    async function getR2ObjectMetadata(objectKey) {
+      assertConfigured();
+      try {
+        const response = await s3Client.send(new HeadObjectCommand({
+          Bucket: R2_BUCKET_NAME,
+          Key: objectKey,
+        }));
+        return {
+          exists: true,
+          contentLength: response.ContentLength || 0,
+          contentType: response.ContentType || null,
+        };
+      } catch (error) {
+        if (error.$metadata && error.$metadata.httpStatusCode === 404) {
+          return { exists: false, contentLength: 0, contentType: null };
+        }
+
+        async function downloadR2Object(objectKey) {
+          assertConfigured();
+          const response = await s3Client.send(new GetObjectCommand({
+            Bucket: R2_BUCKET_NAME,
+            Key: objectKey,
+          }));
+          return Buffer.from(await response.Body.transformToByteArray());
+        }
+
+        async function uploadR2Object(objectKey, body, contentType) {
+          assertConfigured();
+          await s3Client.send(new PutObjectCommand({
+            Bucket: R2_BUCKET_NAME,
+            Key: objectKey,
+            Body: body,
+            ContentType: contentType,
+          }));
+          return { objectKey };
+        }
+        throw error;
+      }
+    }
     console.error('Error verifying R2 object:', error);
     return false;
   }
@@ -251,6 +291,9 @@ module.exports = {
   generateR2PlaybackUrl,
   generateR2DownloadAuthorization,
   verifyR2ObjectExists,
+  getR2ObjectMetadata,
+  downloadR2Object,
+  uploadR2Object,
   deleteR2Object,
   uploadSupabaseStorage,
   getSupabasePublicUrl,
