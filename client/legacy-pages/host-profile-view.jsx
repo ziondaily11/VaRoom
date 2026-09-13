@@ -12,73 +12,6 @@ import {
   ChevronDown,
 } from "lucide-react";
 
-const placeholderListings = [
-  {
-    tag: "AIRBNB",
-    title: "Deluxe AirBnB",
-    location: "Kilimani, Nairobi",
-    price: "KSh 3,799 / night",
-    img: "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?q=80&w=600&auto=format&fit=crop",
-  },
-  {
-    tag: "PROPERTY",
-    title: "A rental near you",
-    location: "Karen, Nairobi",
-    price: "KSh 70,000 / month",
-    img: "https://images.unsplash.com/photo-1568605114967-8130f3a36994?q=80&w=600&auto=format&fit=crop",
-  },
-  {
-    tag: "AIRBNB",
-    title: "airbvb",
-    location: "Westlands, Nairobi",
-    price: "KSh 2,000 / night",
-    img: "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?q=80&w=600&auto=format&fit=crop",
-  },
-];
-
-const placeholderReviews = [
-  {
-    name: "Wanjiru K.",
-    initials: "WK",
-    rating: 5,
-    date: "3 weeks ago",
-    stay: "Stayed at Deluxe AirBnB",
-    text: "Zion responded within minutes and the place matched the photos exactly. Would book again without a second thought.",
-  },
-  {
-    name: "Brian O.",
-    initials: "BO",
-    rating: 4,
-    date: "1 month ago",
-    stay: "Stayed at A rental near you",
-    text: "Great location and very clean. Check-in took a little longer than expected but the host sorted it out quickly.",
-  },
-  {
-    name: "Amina S.",
-    initials: "AS",
-    rating: 5,
-    date: "2 months ago",
-    stay: "Stayed at airbvb",
-    text: "One of the best hosts I've dealt with on VaRoom. Clear instructions, fast replies, spotless space.",
-  },
-  {
-    name: "Peter M.",
-    initials: "PM",
-    rating: 5,
-    date: "2 months ago",
-    stay: "Stayed at Deluxe AirBnB",
-    text: "Everything as described. Zion even helped arrange airport pickup for us.",
-  },
-];
-
-const ratingBreakdown = [
-  { star: 5, pct: 82 },
-  { star: 4, pct: 13 },
-  { star: 3, pct: 3 },
-  { star: 2, pct: 1 },
-  { star: 1, pct: 1 },
-];
-
 function Stars({ count, size = 14 }) {
   return (
     <div style={{ display: "flex", gap: 2 }}>
@@ -100,9 +33,10 @@ export default function HostProfileView() {
   const [tab, setTab] = useState("listings");
   const [visibleReviews, setVisibleReviews] = useState(3);
   const [profile, setProfile] = useState(null);
-  const [listings, setListings] = useState(placeholderListings);
-  const [reviews, setReviews] = useState(placeholderReviews);
+  const [listings, setListings] = useState([]);
+  const [reviews, setReviews] = useState([]);
   const [loadError, setLoadError] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     if (!router.isReady || !router.query.hostId) return undefined;
@@ -112,12 +46,13 @@ export default function HostProfileView() {
       const client = typeof window !== "undefined" ? window.supabaseClient : null;
       if (!client) {
         setLoadError("Host profiles are unavailable right now.");
+        setIsLoading(false);
         return;
       }
 
       const hostId = String(router.query.hostId);
       const [profileResult, listingsResult, reviewsResult] = await Promise.all([
-        client.from("profiles").select("id,full_name,username,avatar_url,verified,location_text,bio,created_at").eq("id", hostId).maybeSingle(),
+        client.from("profiles").select("id,full_name,username,avatar_url,verified,role,location_text,bio,created_at").eq("id", hostId).eq("role", "host").maybeSingle(),
         client.from("listings").select("id,title,category,location_text,listing_photos(storage_path),listing_booking_details(price_amount,price_unit)").eq("host_id", hostId).order("created_at", { ascending: false }),
         client.from("reviews").select("id,rating,body,created_at,reviewer:profiles!reviews_reviewer_id_fkey(full_name)").eq("host_id", hostId).order("created_at", { ascending: false }),
       ]);
@@ -125,6 +60,7 @@ export default function HostProfileView() {
       if (cancelled) return;
       if (profileResult.error || !profileResult.data) {
         setLoadError("Could not load this host profile.");
+        setIsLoading(false);
         return;
       }
       setProfile(profileResult.data);
@@ -160,20 +96,28 @@ export default function HostProfileView() {
           text: review.body || "",
         })));
       }
+      setIsLoading(false);
     }
     loadHost().catch(() => {
-      if (!cancelled) setLoadError("Could not load this host profile.");
+      if (!cancelled) {
+        setLoadError("Could not load this host profile.");
+        setIsLoading(false);
+      }
     });
     return () => { cancelled = true; };
   }, [router.isReady, router.query.hostId]);
 
-  const host = profile || {
-    full_name: "Host",
-    username: "host",
-    location_text: "Location not provided",
-    created_at: "2026-01-01",
-    bio: "This host has not added a bio yet.",
-  };
+  const host = profile || {};
+  const reviewCount = reviews.length;
+  const averageRating = reviewCount
+    ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviewCount
+    : null;
+  const ratingBreakdown = [5, 4, 3, 2, 1].map((star) => ({
+    star,
+    pct: reviewCount
+      ? Math.round((reviews.filter((review) => review.rating === star).length / reviewCount) * 100)
+      : 0,
+  }));
   const avatarUrl = host.avatar_url
     ? (host.avatar_url.startsWith("http")
       ? host.avatar_url
@@ -209,8 +153,6 @@ export default function HostProfileView() {
 
   return (
     <div
-      role="tablist"
-      aria-label="Host profile content"
       style={{
         minHeight: "100vh",
         background: "#0A0A0A",
@@ -268,9 +210,10 @@ export default function HostProfileView() {
           )}
           <div style={{ display: "flex", gap: 20, alignItems: "flex-start" }}>
             <div style={{ position: "relative", flexShrink: 0 }}>
+              {avatarUrl ? (
               <img
-              src={avatarUrl || "https://images.unsplash.com/photo-1633332755192-727a05c4013d?q=80&w=300&auto=format&fit=crop"}
-              alt={host.full_name}
+                src={avatarUrl}
+                alt={host.full_name || "Host"}
                 style={{
                   width: 88,
                   height: 88,
@@ -279,6 +222,26 @@ export default function HostProfileView() {
                   border: "3px solid #1C1C1C",
                 }}
               />
+              ) : (
+              <div
+                aria-label={`${host.full_name || "Host"} profile photo unavailable`}
+                style={{
+                  width: 88,
+                  height: 88,
+                  borderRadius: "50%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: "#232323",
+                  color: "#F5F5F5",
+                  fontSize: 30,
+                  fontWeight: 700,
+                  border: "3px solid #1C1C1C",
+                }}
+              >
+                {(host.full_name || "H").charAt(0).toUpperCase()}
+              </div>
+              )}
               <div
                 style={{
                   position: "absolute",
@@ -303,9 +266,9 @@ export default function HostProfileView() {
                 }}
               >
                 <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>
-                  {host.full_name}
+                  {host.full_name || "Host name not available"}
                 </h1>
-                <span
+                {host.verified && <span
                   style={{
                     display: "flex",
                     alignItems: "center",
@@ -320,10 +283,10 @@ export default function HostProfileView() {
                 >
                   <ShieldCheck size={12} />
                   HOST
-                </span>
+                </span>}
               </div>
               <p style={{ margin: "4px 0 0", color: "#9A9A9A", fontSize: 14 }}>
-                @{host.username}
+                {host.username ? `@${host.username}` : "Username not available"}
               </p>
 
               <div
@@ -337,10 +300,10 @@ export default function HostProfileView() {
                 }}
               >
                 <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <MapPin size={14} />                   {host.location_text || "Location not provided"}
+                  <MapPin size={14} /> {host.location_text || "Location not available"}
                 </span>
                 <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <CalendarDays size={14} />                   Member since {host.created_at ? new Date(host.created_at).getFullYear() : "—"}
+                  <CalendarDays size={14} /> {host.created_at ? `Member since ${new Date(host.created_at).getFullYear()}` : "Member date not available"}
                 </span>
               </div>
             </div>
@@ -348,7 +311,7 @@ export default function HostProfileView() {
             <button
               type="button"
               onClick={startChat}
-              aria-label={`Message ${host.full_name}`}
+              aria-label={`Message ${host.full_name || "host"}`}
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -383,29 +346,31 @@ export default function HostProfileView() {
             }}
           >
             <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <Stars count={5} size={13} />
-              <span style={{ fontWeight: 600 }}>4.8</span>
-              <span style={{ color: "#8A8A8A" }}>(128 reviews)</span>
+            <Stars count={averageRating ? Math.round(averageRating) : 0} size={13} />
+            <span style={{ fontWeight: 600 }}>{averageRating ? averageRating.toFixed(1) : "No ratings yet"}</span>
+            <span style={{ color: "#8A8A8A" }}>({reviewCount} reviews)</span>
             </span>
             <span style={{ color: "#3A3A3A" }}>·</span>
             <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <ShieldCheck size={14} color="#8A8A8A" />
-              98% response rate
+              Response rate not available
             </span>
             <span style={{ color: "#3A3A3A" }}>·</span>
             <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <Clock size={14} color="#8A8A8A" />
-              Usually responds in an hour
+              Response time not available
             </span>
           </div>
 
           <div style={{ marginTop: 20 }}>
             <p style={{ fontSize: 14, color: "#B5B5B5", lineHeight: 1.6, margin: 0 }}>
-              {host.bio || "This host has not added a bio yet."}
+              {host.bio || "Bio not available"}
             </p>
           </div>
 
           <div
+            role="tablist"
+            aria-label="Host profile content"
             style={{
               display: "flex",
               gap: 24,
@@ -444,6 +409,12 @@ export default function HostProfileView() {
           </div>
         </div>
 
+        {isLoading && (
+          <p role="status" style={{ padding: "24px", color: "#8A8A8A" }}>
+            Loading host profile…
+          </p>
+        )}
+
         {tab === "listings" && (
           <div id="host-profile-listings" role="tabpanel" aria-label="Listings" style={{ padding: "24px 24px 0" }}>
             <div
@@ -453,9 +424,13 @@ export default function HostProfileView() {
                 gap: 16,
               }}
             >
-              {listings.map((l, i) => (
-                <div
-                  key={i}
+              {!isLoading && listings.length === 0 && (
+                <p style={{ color: "#8A8A8A" }}>No listings available.</p>
+              )}
+              {listings.map((l) => (
+                <a
+                  key={l.id}
+                  href={`/booking?listing=${encodeURIComponent(l.id)}`}
                   style={{
                     background: "#141414",
                     border: "1px solid #1E1E1E",
@@ -464,12 +439,14 @@ export default function HostProfileView() {
                     cursor: "pointer",
                   }}
                 >
-                  <div style={{ position: "relative" }}>
-                    <img
-                      src={l.img}
-                      alt={l.title}
-                      style={{ width: "100%", height: 140, objectFit: "cover" }}
-                    />
+                  <div style={{ position: "relative", height: 140, background: "#232323" }}>
+                    {l.img ? (
+                      <img src={l.img} alt={l.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    ) : (
+                      <div style={{ height: "100%", display: "grid", placeItems: "center", color: "#8A8A8A", fontSize: 12 }}>
+                        Listing photo not available
+                      </div>
+                    )}
                     <span
                       style={{
                         position: "absolute",
@@ -505,7 +482,7 @@ export default function HostProfileView() {
                       {l.price}
                     </div>
                   </div>
-                </div>
+                  </a>
               ))}
             </div>
           </div>
@@ -536,10 +513,10 @@ export default function HostProfileView() {
                   paddingRight: 24,
                 }}
               >
-                <div style={{ fontSize: 34, fontWeight: 700 }}>4.8</div>
-                <Stars count={5} size={13} />
+                <div style={{ fontSize: 34, fontWeight: 700 }}>{averageRating ? averageRating.toFixed(1) : "—"}</div>
+                <Stars count={averageRating ? Math.round(averageRating) : 0} size={13} />
                 <div style={{ fontSize: 12, color: "#8A8A8A", marginTop: 6 }}>
-                  128 reviews
+                  {reviewCount ? `${reviewCount} reviews` : "Reviews not available"}
                 </div>
               </div>
 
@@ -587,6 +564,9 @@ export default function HostProfileView() {
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              {!isLoading && reviews.length === 0 && (
+                <p style={{ color: "#8A8A8A" }}>Reviews not available yet.</p>
+              )}
               {reviews.slice(0, visibleReviews).map((r, i) => (
                 <div
                   key={i}
