@@ -39,11 +39,15 @@ create table if not exists public.listing_reports (
   listing_id uuid not null references public.listings(id) on delete cascade,
   reporter_user_id uuid references auth.users(id) on delete set null,
   reason text not null,
+  details text,
   status text not null default 'pending' check (status in ('pending', 'reviewed', 'actioned')),
   created_at timestamptz not null default now(),
   reviewed_by uuid references public.admins(id) on delete set null,
   reviewed_at timestamptz
 );
+
+alter table public.listing_reports
+  add column if not exists details text;
 
 create index if not exists support_tickets_status_priority_idx
   on public.support_tickets(status, priority, updated_at desc);

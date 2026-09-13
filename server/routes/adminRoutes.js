@@ -4,6 +4,7 @@ const { sendEmail } = require('../lib/email');
 
 const SESSION_COOKIE = 'varoom_admin_session';
 const SESSION_TTL_SECONDS = 60 * 60 * 8;
+const SUPPORT_FROM = 'VaRoom Support <support@varoom.co.ke>';
 
 function hashPassword(password, salt = crypto.randomBytes(16).toString('hex')) {
   return new Promise((resolve, reject) => {
@@ -228,17 +229,56 @@ function createAdminRoutes(supabaseAdmin) {
     if (!message) return res.status(400).json({ error: 'Reply message is required' });
     const { data: ticket, error: ticketError } = await supabaseAdmin.from('support_tickets').select('*').eq('id', req.params.id).single();
     if (ticketError || !ticket) return res.status(404).json({ error: 'Ticket not found' });
+    const idempotencyKey = String(req.headers['idempotency-key'] || '').trim() || crypto.randomUUID();
+    const { data: existingReply } = await supabaseAdmin.from('support_ticket_replies')
+      .select('*').eq('idempotency_key', idempotencyKey).maybeSingle();
+    if (existingReply) return res.status(200).json({ reply: existingReply });
+
+    const subject = `Re: ${ticket.subject}`;
+    const inReplyTo = ticket.message_id || null;
+    const references = [ticket.message_id].filter(Boolean).join(' ') || null;
+    const messageId = `<support-reply-${crypto.randomUUID()}@varoom.co.ke>`;
     const { data: reply, error } = await supabaseAdmin.from('support_ticket_replies')
-      .insert({ ticket_id: ticket.id, admin_id: req.admin.id, message }).select().single();
+      .insert({
+        ticket_id: ticket.id,
+        admin_id: req.admin.id,
+        message,
+        delivery_status: 'pending',
+        sender: SUPPORT_FROM,
+        recipient: ticket.email,
+        subject,
+        message_id: messageId,
+        in_reply_to: inReplyTo,
+        references_header: references,
+        idempotency_key: idempotencyKey
+      }).select().single();
     if (error) return res.status(502).json({ error: error.message });
+
     try {
-      await sendEmail({ to: ticket.email, subject: `Re: ${ticket.subject}`, html: `<p>${message.replace(/</g, '&lt;')}</p>` });
+      const email = await sendEmail({
+        from: SUPPORT_FROM,
+        to: ticket.email,
+        subject,
+        html: `<p>${message.replace(/</g, '&lt;')}</p>`,
+        headers: {
+          'Message-ID': messageId,
+          ...(inReplyTo ? { 'In-Reply-To': inReplyTo } : {}),
+          ...(references ? { References: references } : {})
+        },
+        idempotencyKey
+      });
+      const { data: sentReply, error: updateError } = await supabaseAdmin.from('support_ticket_replies')
+        .update({ resend_email_id: email.id, delivery_status: 'sent', sent_at: new Date().toISOString(), provider_error: null })
+        .eq('id', reply.id).select().single();
+      if (updateError) return res.status(502).json({ error: updateError.message });
+      await supabaseAdmin.from('support_tickets').update({ updated_at: new Date().toISOString() }).eq('id', ticket.id);
+      return res.status(201).json({ reply: sentReply });
     } catch (emailError) {
-      await supabaseAdmin.from('support_ticket_replies').delete().eq('id', reply.id);
+      await supabaseAdmin.from('support_ticket_replies')
+        .update({ delivery_status: 'failed', provider_error: emailError.message, sent_at: new Date().toISOString() })
+        .eq('id', reply.id);
       return res.status(502).json({ error: emailError.message });
     }
-    await supabaseAdmin.from('support_tickets').update({ updated_at: new Date().toISOString() }).eq('id', ticket.id);
-    return res.status(201).json({ reply });
   });
 
   router.patch('/support/tickets/:id', adminAuth, async (req, res) => {

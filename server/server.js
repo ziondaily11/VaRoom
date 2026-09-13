@@ -8,7 +8,7 @@ const videoRoutes = require('./routes/videoRoutes');
 const listingRoutes = require('./routes/listingRoutes');
 const chatAttachmentRoutes = require('./routes/chatAttachmentRoutes');
 const { createAdminRoutes } = require('./routes/adminRoutes');
-const { MAX_JSON_BYTES, validateJsonPayload, ValidationError, uuid, number } = require('./lib/inputValidation');
+const { MAX_JSON_BYTES, validateJsonPayload, ValidationError, uuid, text, number } = require('./lib/inputValidation');
 const { ERROR_CODES, sendError } = require('./lib/apiResponse');
 
 const app = express();
@@ -52,6 +52,33 @@ const legacyPagesDirectory = path.join(clientDirectory, 'legacy-pages');
 app.use(express.static(path.join(clientDirectory, 'public')));
 
 app.use('/admin', createAdminRoutes(supabaseAdmin));
+
+app.post('/api/listing-reports', async (req, res) => {
+  const { listing_id: listingId, reason, details } = req.body || {};
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  if (!token) return sendError(res, 401, 'Missing access token', ERROR_CODES.UNAUTHORIZED);
+
+  const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+  if (authError || !user) return sendError(res, 401, 'Invalid or expired session', ERROR_CODES.UNAUTHORIZED);
+
+  try {
+    const normalizedListingId = uuid(listingId, 'listing_id');
+    const normalizedReason = text(reason, 'reason', { max: 100 });
+    const normalizedDetails = text(details, 'details', { required: false, max: 2000 });
+    const { data, error } = await supabaseAdmin.from('listing_reports').insert({
+      listing_id: normalizedListingId,
+      reporter_user_id: user.id,
+      reason: normalizedReason,
+      details: normalizedDetails || null
+    }).select('id,listing_id,reason,status,created_at').single();
+    if (error) return sendError(res, 502, 'Unable to submit listing report');
+    return res.status(201).json({ report: data });
+  } catch (error) {
+    if (error instanceof ValidationError) return sendError(res, 400, error.message, ERROR_CODES.BAD_REQUEST);
+    throw error;
+  }
+});
 
 app.post(['/support/tickets', '/api/support/tickets'], async (req, res) => {
   const { name, email, subject, message, priority = 'normal' } = req.body || {};
