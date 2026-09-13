@@ -1439,39 +1439,53 @@
       const msg = document.getElementById('report-modal-msg');
       btn.disabled = true; btn.textContent = 'Submitting...';
 
-      const { data: { session } } = await supabaseClient.auth.getSession();
-      if (!session) {
-        btn.disabled = false; btn.textContent = 'Submit report';
-        msg.textContent = 'Please sign in again before submitting a report.';
-        msg.className = 'report-modal-msg error';
-        return;
-      }
-      const response = await fetch('/api/listing-reports', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: 'Bearer ' + session.access_token
-        },
-        credentials: 'same-origin',
-        body: JSON.stringify({
-          listing_id: reportTargetListingId,
-          reason: document.getElementById('report-reason').value,
-          details: document.getElementById('report-details').value || null
-        })
-      });
-      const body = await response.json();
+      try {
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        if (!session) {
+          msg.textContent = 'Please sign in again before submitting a report.';
+          msg.className = 'report-modal-msg error';
+          return;
+        }
+        const controller = new AbortController();
+        const timeout = window.setTimeout(function(){ controller.abort(); }, 20000);
+        let response;
+        try {
+          response = await fetch('/api/listing-reports', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: 'Bearer ' + session.access_token
+            },
+            credentials: 'same-origin',
+            signal: controller.signal,
+            body: JSON.stringify({
+              listing_id: reportTargetListingId,
+              reason: document.getElementById('report-reason').value,
+              details: document.getElementById('report-details').value || null
+            })
+          });
+        } finally {
+          window.clearTimeout(timeout);
+        }
+        const contentType = response.headers.get('content-type') || '';
+        const body = contentType.indexOf('application/json') !== -1
+          ? await response.json()
+          : { error: 'The report service returned an unexpected response. Please try again.' };
+        if (!response.ok) throw new Error(body.error || 'Unable to submit report');
 
-      btn.disabled = false; btn.textContent = 'Submit report';
-
-      if (!response.ok) {
-        msg.textContent = body.error || 'Unable to submit report';
+        msg.textContent = 'Report submitted. Thank you for helping keep VaRoom trustworthy.';
+        msg.className = 'report-modal-msg success';
+        btn.style.display = 'none';
+        setTimeout(closeReportModal, 1800);
+      } catch (error) {
+        msg.textContent = error.name === 'AbortError'
+          ? 'The report service took too long to respond. Please try again.'
+          : (error.message || 'Unable to submit report');
         msg.className = 'report-modal-msg error';
-        return;
+      } finally {
+        btn.disabled = false;
+        if (btn.style.display !== 'none') btn.textContent = 'Submit report';
       }
-      msg.textContent = 'Report submitted. Thank you for helping keep VaRoom trustworthy.';
-      msg.className = 'report-modal-msg success';
-      btn.style.display = 'none';
-      setTimeout(closeReportModal, 1800);
     });
 
     async function loadRecommended(){
