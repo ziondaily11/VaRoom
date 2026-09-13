@@ -260,12 +260,17 @@ function Revenue({ transactions, total, series }) {
 
 function Support({ tickets, selected, setSelected, onReply, onStatusChange }) {
   const [reply, setReply] = useState("");
+  const [sending, setSending] = useState(false);
+  const [feedback, setFeedback] = useState("");
+  const [feedbackError, setFeedbackError] = useState(false);
   const openCount = tickets.filter((t) => t.status === "open").length;
 
   // Reset the draft reply whenever the selected ticket changes, so switching
   // tickets doesn't leave a half-typed reply attached to the wrong one.
   useEffect(() => {
     setReply("");
+    setFeedback("");
+    setFeedbackError(false);
   }, [selected?.id]);
 
   return (
@@ -362,13 +367,25 @@ function Support({ tickets, selected, setSelected, onReply, onStatusChange }) {
                 <div className="flex items-center gap-2 mt-2">
                   <button
                     onClick={async () => {
-                      await onReply(selected.id, reply);
-                      setReply("");
+                      if (sending || !reply.trim()) return;
+                      setSending(true);
+                      setFeedback("");
+                      setFeedbackError(false);
+                      try {
+                        await onReply(selected.id, reply, crypto.randomUUID());
+                        setReply("");
+                        setFeedback("Reply sent successfully.");
+                      } catch (error) {
+                        setFeedback(error.message || "Unable to send reply.");
+                        setFeedbackError(true);
+                      } finally {
+                        setSending(false);
+                      }
                     }}
-                    disabled={!reply.trim()}
+                    disabled={sending || !reply.trim()}
                     className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-[#1F6F5C] text-white rounded-sm hover:bg-[#195a4b] disabled:opacity-50"
                   >
-                    <Mail size={13} /> Send email reply
+                    <Mail size={13} /> {sending ? "Sending..." : "Send email reply"}
                   </button>
                   <select
                     className="text-sm border border-[#E4E1DA] rounded-sm px-2 py-1.5 focus:outline-none"
@@ -380,6 +397,11 @@ function Support({ tickets, selected, setSelected, onReply, onStatusChange }) {
                     <option value="resolved">Mark resolved</option>
                   </select>
                 </div>
+                {feedback && (
+                  <div className={`text-xs mt-2 ${feedbackError ? "text-[#B5482E]" : "text-[#1F6F5C]"}`} role="status">
+                  {feedback}
+                  </div>
+                )}
               </div>
             </div>
           ) : (
@@ -691,10 +713,13 @@ export default function VaroomAdminDashboard() {
     }
   }
 
-  async function replyToTicket(id, message) {
+  async function replyToTicket(id, message, idempotencyKey) {
     await api(`/admin/support/tickets/${id}/replies`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Idempotency-Key": idempotencyKey,
+      },
       body: JSON.stringify({ message }),
     });
   }
