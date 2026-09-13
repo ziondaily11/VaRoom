@@ -37,6 +37,7 @@ export default function HostProfileView() {
   const [reviews, setReviews] = useState([]);
   const [loadError, setLoadError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [viewerRole, setViewerRole] = useState("client");
 
   useEffect(() => {
     if (!router.isReady || !router.query.hostId) return undefined;
@@ -51,8 +52,17 @@ export default function HostProfileView() {
       }
 
       const hostId = String(router.query.hostId);
+      const sessionResult = await client.auth.getSession();
+      if (sessionResult.data.session?.user?.id) {
+        const viewerResult = await client
+          .from("profiles")
+          .select("role")
+          .eq("id", sessionResult.data.session.user.id)
+          .maybeSingle();
+        if (viewerResult.data?.role === "host") setViewerRole("host");
+      }
       const [profileResult, listingsResult] = await Promise.all([
-        client.from("profiles").select("id,role,full_name,username,bio,avatar_url,verified").eq("id", hostId).eq("role", "host").maybeSingle(),
+        client.from("profiles").select("id,role,full_name,username,bio,avatar_url,verified,city,created_at").eq("id", hostId).eq("role", "host").maybeSingle(),
         client.from("listings").select("id,title,category,location_text,created_at,listing_photos(storage_path),listing_booking_details(price_amount,price_unit)").eq("host_id", hostId).order("created_at", { ascending: false }),
       ]);
 
@@ -114,6 +124,35 @@ export default function HostProfileView() {
         ? window.supabaseClient.storage.from("avatars").getPublicUrl(host.avatar_url).data.publicUrl
         : host.avatar_url))
     : null;
+  const memberSince = host.created_at
+    ? `Member since ${new Date(host.created_at).getFullYear()}`
+    : "Member date not available";
+
+  function Sidebar() {
+    const isHost = viewerRole === "host";
+    return (
+      <aside className="host-profile-sidebar" aria-label="VaRoom navigation">
+        <a href={isHost ? "/host-home" : "/client-home"} className="sidebar-logo">
+          <span>Va</span>Room
+        </a>
+        <nav className="sidebar-nav">
+          <a href="/elie">Elie <span className="sidebar-pill">Free preview</span></a>
+          <a href="/marketplace">Marketplace</a>
+          <a href="/bookings">Bookings</a>
+          <a href="/chats">Chats</a>
+          {isHost && <><a href="/list">List a space</a><a href="/analytics">Analytics</a></>}
+          {!isHost && <a href="/profile">Profile</a>}
+          <a href="/transactions">Transactions</a>
+          <a href="/settings">Settings</a>
+          <a href="/support">Help &amp; Support</a>
+        </nav>
+        <button type="button" className="sidebar-logout" onClick={async () => {
+          await window.supabaseClient?.auth.signOut();
+          router.push("/login");
+        }}>Log out</button>
+      </aside>
+    );
+  }
 
   function startChat() {
     if (!router.query.hostId) return;
@@ -141,19 +180,30 @@ export default function HostProfileView() {
   }
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "#0A0A0A",
-        color: "#F5F5F5",
-        fontFamily:
-          "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-        display: "flex",
-        justifyContent: "center",
-        padding: "0 0 64px",
-      }}
-    >
-      <div style={{ width: "100%", maxWidth: 760 }}>
+    <>
+      <style jsx global>{`
+        html, body, #__next { margin: 0; min-height: 100%; background: #0a0a0a; }
+        body { overflow-x: hidden; }
+        .host-profile-shell { min-height: 100vh; display: grid; grid-template-columns: minmax(0, 1fr) 240px; background: #0a0a0a; color: #f5f5f5; font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+        .host-profile-sidebar { display: flex; flex-direction: column; gap: 18px; min-height: 100vh; padding: 24px 18px; border-left: 1px solid #242424; background: #111; }
+        .sidebar-logo { padding: 0 10px 18px; font-size: 22px; font-weight: 800; color: #f5f5f5; }
+        .sidebar-logo span { color: #e5384f; }
+        .sidebar-nav { display: flex; flex-direction: column; gap: 4px; }
+        .sidebar-nav a { display: flex; align-items: center; justify-content: space-between; padding: 11px 12px; border-radius: 9px; color: #d5d5d5; text-decoration: none; font-size: 14px; }
+        .sidebar-nav a:hover, .sidebar-nav a:focus-visible { background: #242424; color: #fff; }
+        .sidebar-pill { color: #e5384f; font-size: 10px; }
+        .sidebar-logout { margin-top: auto; padding: 10px 12px; color: #e5384f; text-align: left; font-weight: 600; }
+        .host-profile-main { min-width: 0; }
+        .host-profile-content { width: min(100%, 1320px); margin: 0 auto; padding-bottom: 64px; }
+        .host-profile-listing-grid { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+        .host-profile-listing-card { color: #f5f5f5; text-decoration: none; }
+        @media (max-width: 1100px) { .host-profile-shell { grid-template-columns: minmax(0, 1fr) 210px; } .host-profile-listing-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; } }
+        @media (max-width: 760px) { .host-profile-shell { display: block; } .host-profile-sidebar { display: none; } .host-profile-content { padding-bottom: 24px; } .host-profile-listing-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } }
+        @media (max-width: 480px) { .host-profile-listing-grid { grid-template-columns: 1fr !important; } }
+      `}</style>
+      <div className="host-profile-shell">
+        <main className="host-profile-main">
+          <div className="host-profile-content">
         <div
           style={{
             display: "flex",
@@ -241,7 +291,7 @@ export default function HostProfileView() {
                   padding: 3,
                 }}
               >
-                <BadgeCheck size={20} color="#2FBF71" fill="#0A0A0A" />
+                {host.verified && <BadgeCheck size={20} color="#E5384F" fill="#0A0A0A" />}
               </div>
             </div>
 
@@ -257,7 +307,7 @@ export default function HostProfileView() {
                 <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>
                   {host.full_name || "Host name not available"}
                 </h1>
-                {host.verified && <span
+                <span
                   style={{
                     display: "flex",
                     alignItems: "center",
@@ -272,7 +322,7 @@ export default function HostProfileView() {
                 >
                   <ShieldCheck size={12} />
                   HOST
-                </span>}
+                </span>
               </div>
               <p style={{ margin: "4px 0 0", color: "#9A9A9A", fontSize: 14 }}>
                 {host.username ? `@${host.username}` : "Username not available"}
@@ -289,10 +339,10 @@ export default function HostProfileView() {
                 }}
               >
                 <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <MapPin size={14} /> Location not available
+                  <MapPin size={14} /> {host.city || "Location not available"}
                 </span>
                 <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <CalendarDays size={14} /> Member date not available
+                  <CalendarDays size={14} /> {memberSince}
                 </span>
               </div>
             </div>
@@ -407,6 +457,7 @@ export default function HostProfileView() {
         {tab === "listings" && (
           <div id="host-profile-listings" role="tabpanel" aria-label="Listings" style={{ padding: "24px 24px 0" }}>
             <div
+              className="host-profile-listing-grid"
               style={{
                 display: "grid",
                 gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
@@ -420,6 +471,7 @@ export default function HostProfileView() {
                 <a
                   key={l.id}
                   href={`/booking?listing=${encodeURIComponent(l.id)}`}
+                  className="host-profile-listing-card"
                   style={{
                     background: "#141414",
                     border: "1px solid #1E1E1E",
@@ -632,7 +684,10 @@ export default function HostProfileView() {
             )}
           </div>
         )}
+          </div>
+        </main>
+        <Sidebar />
       </div>
-    </div>
+    </>
   );
 }
