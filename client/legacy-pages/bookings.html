@@ -235,7 +235,11 @@
   .host-month-btn{ width:30px; height:30px; border:1px solid var(--line); border-radius:50%; color:var(--ink); font-size:1.1rem; }
   .host-month-btn:hover{ border-color:var(--red); color:var(--red); }
   .host-month-current{ color:var(--muted); font-size:.74rem; margin-left:.35rem; }
-  .host-header-row{ display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; }
+  #host-bookings-view{ padding-top:1.15rem; }
+  #host-bookings-view .page-title{ font-size:clamp(2rem, 3.4vw, 2.65rem); letter-spacing:-.035em; }
+  #host-bookings-view .page-subtitle{ margin-top:.45rem; }
+  #host-bookings-view .tabs{ margin-top:2rem; gap:2.8rem; }
+  .host-header-row{ display:flex; align-items:flex-start; justify-content:space-between; gap:2rem; }
   .host-header-row .page-subtitle{ margin-bottom:0; }
   .host-detail .host-detail-image{ display:block; }
   .host-detail{ display:none; }
@@ -292,6 +296,8 @@
     .bk-btn{ flex:1; text-align:center; }
     .host-booking-card .bk-thumb{ width:100%; height:150px; }
     .host-booking-card .bk-actions{ align-self:stretch; }
+    #host-bookings-view{ padding-top:.4rem; }
+    #host-bookings-view .tabs{ margin-top:1.35rem; gap:1.35rem; overflow-x:auto; }
     .host-header-row{ display:block; }
     .host-month-nav{ margin:1rem 0 1.2rem; width:100%; justify-content:flex-start; }
   }
