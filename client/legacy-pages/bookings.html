@@ -215,6 +215,36 @@
   .bk-btn-solid:hover{ background:var(--red-deep); }
   .bk-btn:disabled{ opacity:.5; cursor:not-allowed; }
   .bk-note{ font-size:.76rem; color:var(--red); margin-top:.4rem; }
+  .reviewed-badge{ color:var(--green-deep, #1E6B3C); font-size:.78rem; font-weight:700; }
+  .review-modal-backdrop{
+    display:none; position:fixed; inset:0; z-index:400; align-items:center; justify-content:center;
+    padding:1rem; background:rgba(26,18,16,.55);
+  }
+  .review-modal-backdrop.show{ display:flex; }
+  .review-modal{
+    width:min(100%, 480px); max-height:calc(100vh - 2rem); overflow:auto;
+    background:var(--white); border:1px solid var(--line); border-radius:18px; padding:1.4rem;
+    box-shadow:0 24px 60px rgba(26,18,16,.28);
+  }
+  .review-modal-head{ display:flex; align-items:center; justify-content:space-between; gap:1rem; }
+  .review-modal-title{ font-size:1.1rem; font-weight:700; }
+  .review-modal-close{ color:var(--muted); font-size:1.4rem; line-height:1; padding:.25rem; }
+  .review-modal-subtitle{ color:var(--muted); font-size:.84rem; line-height:1.5; margin:.35rem 0 1.1rem; }
+  .review-stars{ display:flex; gap:.35rem; margin-bottom:1rem; }
+  .review-star{
+    min-width:2.6rem; min-height:2.6rem; padding:.35rem; border-radius:10px;
+    color:var(--muted); font-size:1.7rem; line-height:1;
+  }
+  .review-star.selected,.review-star:hover{ color:var(--red); }
+  .review-label{ display:block; font-size:.78rem; font-weight:700; margin-bottom:.4rem; }
+  .review-textarea{
+    width:100%; min-height:130px; resize:vertical; padding:.8rem; border:1px solid var(--line);
+    border-radius:10px; background:var(--paper); color:var(--ink); font:inherit; line-height:1.5;
+  }
+  .review-textarea:focus{ outline:2px solid var(--red); outline-offset:1px; }
+  .review-error{ min-height:1.2rem; color:var(--red); font-size:.78rem; margin-top:.55rem; }
+  .review-success{ color:var(--green-deep, #1E6B3C); font-size:.88rem; font-weight:600; margin-top:.7rem; }
+  .review-submit{ width:100%; margin-top:.7rem; }
 
   @media (max-width:520px){
     .booking-card{ flex-direction:column; }
@@ -375,6 +405,28 @@
   </div>
 </div>
 
+<div class="review-modal-backdrop" id="review-modal-backdrop">
+  <div class="review-modal" role="dialog" aria-modal="true" aria-labelledby="review-modal-title">
+    <div class="review-modal-head">
+      <h2 class="review-modal-title" id="review-modal-title">How was your experience?</h2>
+      <button type="button" class="review-modal-close" id="review-modal-close" aria-label="Close">&times;</button>
+    </div>
+    <p class="review-modal-subtitle" id="review-modal-listing"></p>
+    <div class="review-stars" id="review-stars" role="radiogroup" aria-label="Rating from 1 to 5 stars">
+      <button type="button" class="review-star" data-rating="1" role="radio" aria-label="1 star">&#9733;</button>
+      <button type="button" class="review-star" data-rating="2" role="radio" aria-label="2 stars">&#9733;</button>
+      <button type="button" class="review-star" data-rating="3" role="radio" aria-label="3 stars">&#9733;</button>
+      <button type="button" class="review-star" data-rating="4" role="radio" aria-label="4 stars">&#9733;</button>
+      <button type="button" class="review-star" data-rating="5" role="radio" aria-label="5 stars">&#9733;</button>
+    </div>
+    <label class="review-label" for="review-comment">Tell us about your experience</label>
+    <textarea class="review-textarea" id="review-comment" maxlength="10000" placeholder="Write your review..." required></textarea>
+    <p class="review-error" id="review-error" role="alert"></p>
+    <p class="review-success" id="review-success" role="status"></p>
+    <button type="button" class="bk-btn bk-btn-solid review-submit" id="review-submit">Submit review</button>
+  </div>
+</div>
+
 <script src="js/supabase-client.js"></script>
 <script src="js/notifications-widget.js"></script>
 <script>
@@ -436,6 +488,9 @@
       'host:profiles!bookings_host_id_fkey(id,full_name,avatar_url,username)';
 
     let allBookings = [];
+    const reviewedBookingIds = new Set();
+    let activeReviewBooking = null;
+    let selectedReviewRating = 0;
 
     async function loadAllBookings(){
       const { data, error } = await supabaseClient
@@ -445,7 +500,17 @@
         .order('created_at', { ascending:false });
 
       if (error) { return { error: error }; }
-      return { data: data || [] };
+      const bookings = data || [];
+      if (bookings.length) {
+        const { data: reviews, error: reviewError } = await supabaseClient
+          .from('reviews')
+          .select('booking_id')
+          .in('booking_id', bookings.map(function(b){ return b.id; }));
+        if (!reviewError && reviews) {
+          reviews.forEach(function(review){ reviewedBookingIds.add(review.booking_id); });
+        }
+      }
+      return { data: bookings };
     }
 
     function renderCard(b, opts){
@@ -486,6 +551,11 @@
               '<button type="button" class="bk-msg-link" data-msg-host="' + (host.id || '') + '" data-msg-listing="' + (listing.id || '') + '">Message Host</button>' +
               '<div class="bk-actions">' +
                 (opts.showCancel ? '<button type="button" class="bk-btn bk-btn-outline" data-cancel="' + b.id + '">Cancel Booking</button>' : '') +
+                (!opts.showCancel && endMoment(b) < new Date()
+                  ? (reviewedBookingIds.has(b.id)
+                    ? '<span class="reviewed-badge" aria-label="Reviewed">★ Reviewed</span>'
+                    : '<button type="button" class="bk-btn bk-btn-outline" data-review="' + b.id + '">Leave a review</button>')
+                  : '') +
                 '<a href="/booking-approved?id=' + b.id + '" class="bk-btn bk-btn-solid">View Details</a>' +
               '</div>' +
             '</div>' +
@@ -512,7 +582,86 @@
       panel.querySelectorAll('[data-cancel]').forEach(function(btn){
         btn.addEventListener('click', function(){ cancelBooking(btn.getAttribute('data-cancel')); });
       });
+      panel.querySelectorAll('[data-review]').forEach(function(btn){
+        btn.addEventListener('click', function(){ openReviewModal(btn.getAttribute('data-review')); });
+      });
     }
+
+    function setReviewStars(rating){
+      selectedReviewRating = rating;
+      document.querySelectorAll('.review-star').forEach(function(star){
+        const active = Number(star.getAttribute('data-rating')) <= rating;
+        star.classList.toggle('selected', active);
+        star.setAttribute('aria-checked', active && Number(star.getAttribute('data-rating')) === rating ? 'true' : 'false');
+      });
+    }
+
+    function openReviewModal(bookingId){
+      const booking = allBookings.find(function(item){ return item.id === bookingId; });
+      if (!booking || reviewedBookingIds.has(bookingId)) return;
+      activeReviewBooking = booking;
+      selectedReviewRating = 0;
+      setReviewStars(0);
+      document.getElementById('review-modal-listing').textContent =
+        'Your verified stay at "' + ((booking.listing || {}).title || 'this listing') + '"';
+      document.getElementById('review-comment').value = '';
+      document.getElementById('review-error').textContent = '';
+      document.getElementById('review-success').textContent = '';
+      document.getElementById('review-submit').disabled = false;
+      document.getElementById('review-modal-backdrop').classList.add('show');
+      document.getElementById('review-comment').focus();
+    }
+
+    function closeReviewModal(){
+      document.getElementById('review-modal-backdrop').classList.remove('show');
+      activeReviewBooking = null;
+    }
+
+    async function submitReview(){
+      const errorEl = document.getElementById('review-error');
+      const successEl = document.getElementById('review-success');
+      const submitButton = document.getElementById('review-submit');
+      const comment = document.getElementById('review-comment').value.trim();
+      errorEl.textContent = '';
+      successEl.textContent = '';
+      if (!activeReviewBooking) return;
+      if (!selectedReviewRating) { errorEl.textContent = 'Please select a rating.'; return; }
+      if (!comment) { errorEl.textContent = 'Please write a review before submitting.'; return; }
+
+      submitButton.disabled = true;
+      submitButton.textContent = 'Submitting…';
+      const { data: sessionData } = await supabaseClient.auth.getSession();
+      const token = sessionData.session && sessionData.session.access_token;
+      try {
+        const response = await fetch('/api/bookings/' + encodeURIComponent(activeReviewBooking.id) + '/review', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+          body: JSON.stringify({ rating: selectedReviewRating, comment: comment })
+        });
+        const payload = await response.json().catch(function(){ return {}; });
+        if (!response.ok) throw new Error(payload.error || 'We couldn’t submit your review. Please try again.');
+        reviewedBookingIds.add(activeReviewBooking.id);
+        successEl.textContent = 'Thank you for sharing your experience.';
+        submitButton.textContent = 'Reviewed';
+        setTimeout(function(){
+          closeReviewModal();
+          renderAllPanels();
+        }, 900);
+      } catch (error) {
+        errorEl.textContent = error.message || 'We couldn’t submit your review. Please try again.';
+        submitButton.disabled = false;
+        submitButton.textContent = 'Submit review';
+      }
+    }
+
+    document.querySelectorAll('.review-star').forEach(function(star){
+      star.addEventListener('click', function(){ setReviewStars(Number(star.getAttribute('data-rating'))); });
+    });
+    document.getElementById('review-submit').addEventListener('click', submitReview);
+    document.getElementById('review-modal-close').addEventListener('click', closeReviewModal);
+    document.getElementById('review-modal-backdrop').addEventListener('click', function(event){
+      if (event.target.id === 'review-modal-backdrop') closeReviewModal();
+    });
 
     async function cancelBooking(bookingId){
       const note = document.getElementById('cancel-note-' + bookingId);

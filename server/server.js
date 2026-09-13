@@ -7,6 +7,7 @@ const { getListingLocation, getBookingLocation, getListingDistance } = require('
 const videoRoutes = require('./routes/videoRoutes');
 const listingRoutes = require('./routes/listingRoutes');
 const chatAttachmentRoutes = require('./routes/chatAttachmentRoutes');
+const reviewRoutes = require('./routes/reviewRoutes');
 const { createAdminRoutes } = require('./routes/adminRoutes');
 const { runFullCleanup } = require('./lib/videoCleanup');
 const { MAX_JSON_BYTES, validateJsonPayload, ValidationError, uuid, text, number } = require('./lib/inputValidation');
@@ -50,6 +51,7 @@ app.use('/api', (req, res, next) => {
 app.use('/api', videoRoutes);
 app.use('/api', listingRoutes);
 app.use('/api', chatAttachmentRoutes);
+app.use('/api', reviewRoutes);
 
 // Serve the Next.js public assets when this service is used as the web host.
 const clientDirectory = path.join(__dirname, '..', 'client');

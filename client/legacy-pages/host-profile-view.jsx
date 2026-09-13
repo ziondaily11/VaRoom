@@ -127,6 +127,32 @@ export default function HostProfileView() {
           };
         }));
         setListings(listingsWithMedia);
+
+        // Fetch reviews for host
+        try {
+          const { data: reviewsResult, error: reviewsError } = await client
+            .from('reviews')
+            .select('id,rating,comment,created_at, client:profiles(id,full_name,avatar_url)')
+            .eq('host_id', hostId)
+            .order('created_at', { ascending: false });
+          if (!reviewsError && Array.isArray(reviewsResult)) {
+            const mapped = reviewsResult.map((r) => {
+              const name = r.client?.full_name || 'Guest';
+              const initials = (name.split(' ').map(s => s.charAt(0)).join('').slice(0,2) || 'G').toUpperCase();
+              return {
+                initials,
+                name,
+                stay: 'Verified stay',
+                date: r.created_at ? new Date(r.created_at).toLocaleDateString() : '',
+                rating: Number(r.rating) || 0,
+                text: r.comment || ''
+              };
+            });
+            setReviews(mapped);
+          }
+        } catch (e) {
+          // non-fatal
+        }
       }
       setIsLoading(false);
     }

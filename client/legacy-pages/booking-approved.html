@@ -141,6 +141,15 @@
     background:var(--white); border:1px solid rgba(26,18,16,.15); white-space:nowrap;
   }
   .help-btn:hover{ border-color:var(--red); color:var(--red); }
+  .review-section{ margin:1.4rem 0; padding:1rem; border:1px solid rgba(196,30,58,.2); border-radius:14px; background:rgba(196,30,58,.04); }
+  .review-section h3{ font-size:.98rem; margin-bottom:.35rem; }
+  .review-section p{ color:var(--muted); font-size:.8rem; line-height:1.45; }
+  .detail-review-stars{ display:flex; gap:.25rem; margin:.8rem 0; }
+  .detail-review-star{ min-width:2.2rem; min-height:2.2rem; color:var(--muted); font-size:1.5rem; padding:.25rem; }
+  .detail-review-star.selected{ color:var(--red); }
+  .detail-review-text{ width:100%; min-height:100px; resize:vertical; margin:.2rem 0 .5rem; padding:.7rem; border:1px solid rgba(26,18,16,.15); border-radius:9px; background:var(--white); color:var(--ink); font:inherit; }
+  .detail-review-error{ min-height:1.1rem; color:var(--red); font-size:.76rem; }
+  .detail-reviewed{ color:var(--green); font-size:.86rem; font-weight:700; margin-top:.8rem; }
 
   /* ---------- Payment sheet (method -> processing -> result) ---------- */
   .pay-sheet-backdrop{
@@ -283,6 +292,21 @@
         </div>
       </div>
 
+      <div class="review-section" id="booking-review-section" style="display:none;">
+        <h3 id="booking-review-title">How was your experience?</h3>
+        <p id="booking-review-subtitle">Your stay is complete. Share your verified experience with future guests.</p>
+        <div class="detail-review-stars" id="detail-review-stars" role="radiogroup" aria-label="Rating from 1 to 5 stars">
+          <button type="button" class="detail-review-star" data-rating="1" aria-label="1 star">&#9733;</button>
+          <button type="button" class="detail-review-star" data-rating="2" aria-label="2 stars">&#9733;</button>
+          <button type="button" class="detail-review-star" data-rating="3" aria-label="3 stars">&#9733;</button>
+          <button type="button" class="detail-review-star" data-rating="4" aria-label="4 stars">&#9733;</button>
+          <button type="button" class="detail-review-star" data-rating="5" aria-label="5 stars">&#9733;</button>
+        </div>
+        <textarea class="detail-review-text" id="detail-review-comment" maxlength="10000" placeholder="Tell us about your experience..." required></textarea>
+        <p class="detail-review-error" id="detail-review-error" role="alert"></p>
+        <button type="button" class="btn-primary" id="detail-review-submit">Submit review</button>
+      </div>
+
       <div class="action-row">
         <button type="button" class="btn-outline" id="cancel-btn">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -420,6 +444,79 @@
     if (booking.status === 'cancelled') { showStatus("Booking cancelled", "You cancelled this booking request."); return; }
     if (booking.status === 'expired') { showStatus("This request expired", "The booking window for this request has passed."); return; }
     if (booking.status !== 'approved') { showStatus("Booking status: " + booking.status, ""); return; }
+
+    const stayEnd = booking.end_date
+      ? new Date(booking.end_date + 'T23:59:59')
+      : booking.start_date
+        ? new Date(booking.start_date + 'T23:59:59')
+        : null;
+    const reviewSection = document.getElementById('booking-review-section');
+    let selectedReviewRating = 0;
+    let existingReview = null;
+    const { data: review } = await supabaseClient
+      .from('reviews')
+      .select('id,rating,comment,created_at')
+      .eq('booking_id', booking.id)
+      .maybeSingle();
+    existingReview = review;
+    if (existingReview || (stayEnd && stayEnd < new Date())) {
+      reviewSection.style.display = 'block';
+      if (existingReview) {
+        document.getElementById('booking-review-title').textContent = 'Your review';
+        document.getElementById('booking-review-subtitle').textContent = 'Thank you for sharing your verified experience.';
+        document.getElementById('detail-review-comment').value = existingReview.comment || '';
+        document.getElementById('detail-review-comment').disabled = true;
+        document.getElementById('detail-review-submit').style.display = 'none';
+        document.getElementById('detail-review-error').className = 'detail-reviewed';
+        document.getElementById('detail-review-error').textContent = 'Reviewed';
+        selectedReviewRating = Number(existingReview.rating);
+      }
+    }
+    function updateDetailStars(){
+      document.querySelectorAll('.detail-review-star').forEach(function(star){
+        const active = Number(star.getAttribute('data-rating')) <= selectedReviewRating;
+        star.classList.toggle('selected', active);
+        star.setAttribute('aria-checked', active && Number(star.getAttribute('data-rating')) === selectedReviewRating ? 'true' : 'false');
+      });
+    }
+    document.querySelectorAll('.detail-review-star').forEach(function(star){
+      star.addEventListener('click', function(){
+        if (!existingReview) {
+          selectedReviewRating = Number(star.getAttribute('data-rating'));
+          updateDetailStars();
+        }
+      });
+    });
+    document.getElementById('detail-review-submit').addEventListener('click', async function(){
+      const errorEl = document.getElementById('detail-review-error');
+      const button = document.getElementById('detail-review-submit');
+      const comment = document.getElementById('detail-review-comment').value.trim();
+      errorEl.className = 'detail-review-error';
+      errorEl.textContent = '';
+      if (!selectedReviewRating) { errorEl.textContent = 'Please select a rating.'; return; }
+      if (!comment) { errorEl.textContent = 'Please write a review before submitting.'; return; }
+      button.disabled = true;
+      button.textContent = 'Submitting…';
+      try {
+        const response = await fetch('/api/bookings/' + encodeURIComponent(booking.id) + '/review', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
+          body: JSON.stringify({ rating: selectedReviewRating, comment: comment })
+        });
+        const payload = await response.json().catch(function(){ return {}; });
+        if (!response.ok) throw new Error(payload.error || 'We couldn’t submit your review. Please try again.');
+        existingReview = payload.review;
+        document.getElementById('detail-review-comment').disabled = true;
+        button.style.display = 'none';
+        errorEl.className = 'detail-reviewed';
+        errorEl.textContent = 'Thank you for sharing your experience. Reviewed';
+      } catch (submitError) {
+        errorEl.textContent = submitError.message || 'We couldn’t submit your review. Please try again.';
+        button.disabled = false;
+        button.textContent = 'Submit review';
+      }
+    });
+    updateDetailStars();
 
     // ---------- Approved: render the payment review page ----------
     document.getElementById('client-name').textContent = (profile.full_name || 'there').split(' ')[0];
