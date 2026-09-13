@@ -259,20 +259,27 @@
   .host-header-row{ display:flex; align-items:flex-start; justify-content:space-between; gap:2rem; }
   .host-header-row .page-subtitle{ margin-bottom:0; }
   .host-detail .host-detail-image{ display:block; }
-  .host-detail{ display:none; }
+  .host-detail{ display:none; border:0; border-radius:0; background:transparent; box-shadow:none; padding:0; }
   .host-detail.show{ display:block; }
   .host-detail-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; margin-bottom:1rem; }
   .host-detail-close{ color:var(--muted); font-size:1.4rem; line-height:1; padding:.15rem .3rem; }
-  .host-detail-image{ width:100%; height:170px; object-fit:cover; border-radius:12px; background:var(--paper); margin-bottom:1rem; }
+  .host-detail-image{ width:100%; height:190px; object-fit:cover; border-radius:12px; background:var(--paper); margin-bottom:1rem; }
+  .host-detail-video{ width:100%; height:190px; object-fit:cover; border-radius:12px; background:var(--paper); margin-bottom:1rem; }
   .host-detail h2{ font-size:1.15rem; line-height:1.3; }
   .host-detail p{ color:var(--muted); font-size:.82rem; line-height:1.5; margin-top:.2rem; }
   .host-detail-grid{ display:grid; grid-template-columns:1fr 1fr; gap:.8rem; margin:1.1rem 0; }
+  .host-detail-stay{ display:grid; grid-template-columns:1fr 1fr; gap:1rem; border-top:1px solid var(--line); border-bottom:1px solid var(--line); padding:1rem 0; margin:1.1rem 0; }
   .host-detail-item{ border-top:1px solid var(--line); padding-top:.65rem; }
+  .host-detail-stay .host-detail-item{ border-top:0; padding-top:0; }
+  .host-detail-label-row{ display:flex; align-items:center; gap:.35rem; color:var(--muted); font-size:.68rem; }
+  .host-detail-label-row .booking-icon{ width:14px; height:14px; }
   .host-detail-label{ color:var(--muted); font-size:.68rem; text-transform:uppercase; letter-spacing:.05em; font-weight:700; }
   .host-detail-value{ font-size:.86rem; font-weight:600; margin-top:.2rem; }
   .host-detail-actions{ display:flex; gap:.6rem; margin-top:1.2rem; }
   .host-detail-actions .bk-btn{ flex:1; }
   .right-rail.host-empty{ display:block; }
+  .right-rail.host-empty{ border-left:0; padding-left:2rem; }
+  .content-row.host-layout .feed-area{ border-right:0; }
   .bk-note{ font-size:.76rem; color:var(--red); margin-top:.4rem; }
   .reviewed-badge{ color:var(--green-deep, #1E6B3C); font-size:.78rem; font-weight:700; }
   .review-modal-backdrop{
@@ -373,6 +380,7 @@
   [data-theme="dark"] #host-bookings-view .host-booking-card .bk-guest-avatar {
     background: #1a1a1a;
   }
+  [data-theme="dark"] #host-booking-detail{ background:transparent !important; border:0 !important; }
 </style>
 </head>
 <body>
@@ -462,7 +470,7 @@
       <a href="/client-home" class="back-link">← Back to dashboard</a>
     </header>
 
-    <div class="content-row">
+    <div class="content-row" id="content-row">
       <div class="feed-area">
         <div id="checking-auth" class="state-msg">Loading your bookings...</div>
 
@@ -598,11 +606,13 @@
     const rightRail = document.getElementById('right-rail');
     const clientRightRail = document.getElementById('client-right-rail');
     const hostBookingDetail = document.getElementById('host-booking-detail');
+    const contentRow = document.getElementById('content-row');
     if (isHost) {
       clientView.style.display = 'none';
       hostView.style.display = 'block';
       clientRightRail.style.display = 'none';
       rightRail.classList.add('host-empty');
+      contentRow.classList.add('host-layout');
     } else {
       clientView.style.display = 'block';
       hostView.style.display = 'none';
@@ -669,11 +679,16 @@
         const listing = booking.listing || {};
         const client = booking.client || {};
         const photos = listing.listing_photos || [];
-        const photo = photos.length && photos[0].storage_path
+        const media = listing.video_url
+          ? '<video class="host-detail-video" controls playsinline preload="metadata"' +
+              (listing.video_thumbnail_url ? ' poster="' + escapeHtml(listing.video_thumbnail_url) + '"' : '') +
+              ' aria-label="Play listing video"><source src="' + escapeHtml(listing.video_url) + '">Your browser cannot play this video.</video>'
+          : photos.length && photos[0].storage_path
           ? '<img class="host-detail-image" src="' + resolvePhotoUrl(photos[0].storage_path) + '" alt="">'
           : '<div class="host-detail-image" aria-hidden="true"></div>';
-        const dates = (booking.start_date || 'Date unavailable') +
-          (booking.end_date ? ' → ' + booking.end_date : '');
+        const checkIn = formatBookingDate(booking.start_date || booking.lease_start_date);
+        const checkOut = formatBookingDate(booking.end_date);
+        const calendarIcon = '<i class="booking-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3.5" y="5" width="17" height="16" rx="2"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg></i>';
         const guestDetail = booking.guests
           ? '<div class="host-detail-item"><div class="host-detail-label">Guests</div><div class="host-detail-value">' + escapeHtml(String(booking.guests)) + '</div></div>'
           : '';
@@ -690,17 +705,26 @@
             '<div><h2>Booking request</h2><p>Review this guest request before taking action.</p></div>' +
             '<button class="host-detail-close" type="button" aria-label="Close booking details">&times;</button>' +
           '</div>' +
-          photo +
+          media +
           '<h2>' + escapeHtml(listing.title || 'Listing') + '</h2>' +
           '<p>' + escapeHtml(listing.location_text || 'Location unavailable') + '</p>' +
           '<div class="host-detail-grid">' +
             '<div class="host-detail-item"><div class="host-detail-label">Guest</div><div class="host-detail-value">' + escapeHtml(client.full_name || 'Guest') + '</div></div>' +
             guestDetail +
-            '<div class="host-detail-item"><div class="host-detail-label">Dates</div><div class="host-detail-value">' + escapeHtml(dates) + '</div></div>' +
             '<div class="host-detail-item"><div class="host-detail-label">Amount</div><div class="host-detail-value">KES ' + Number(booking.total_price || 0).toLocaleString() + '</div></div>' +
+          '</div>' +
+          '<div class="host-detail-stay">' +
+            '<div class="host-detail-item"><div class="host-detail-label-row">' + calendarIcon + 'Check-in</div><div class="host-detail-value">' + escapeHtml(checkIn || 'Date to be confirmed') + '</div></div>' +
+            '<div class="host-detail-item"><div class="host-detail-label-row">' + calendarIcon + 'Check-out</div><div class="host-detail-value">' + escapeHtml(checkOut || 'Date to be confirmed') + '</div></div>' +
           '</div>' +
           actions;
         hostBookingDetail.classList.add('show');
+        const detailVideo = hostBookingDetail.querySelector('video');
+        if (detailVideo) {
+          ['click', 'pointerdown', 'keydown'].forEach(function(eventName){
+            detailVideo.addEventListener(eventName, function(event){ event.stopPropagation(); });
+          });
+        }
 
         hostBookingDetail.querySelector('.host-detail-close').addEventListener('click', function(){
           renderHostBookingDetail(null);
