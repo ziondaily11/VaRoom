@@ -1,11 +1,18 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import {
-  ArrowLeft,
+  Home,
+  Compass,
+  CalendarDays,
+  MessageSquare,
+  UserRound,
+  WalletCards,
+  Settings,
+  LifeBuoy,
+  Plus,
   ShieldCheck,
   Star,
   MapPin,
-  CalendarDays,
   MessageCircle,
   BadgeCheck,
   Clock,
@@ -74,11 +81,35 @@ export default function HostProfileView() {
       }
       setProfile(profileResult.data);
       if (!listingsResult.error && listingsResult.data) {
-        setListings(listingsResult.data.map((listing) => {
+        const authToken = sessionResult.data.session?.access_token;
+        const listingsWithMedia = await Promise.all(listingsResult.data.map(async (listing) => {
           const photo = listing.listing_photos?.[0];
           const details = Array.isArray(listing.listing_booking_details)
             ? listing.listing_booking_details[0]
             : listing.listing_booking_details;
+          let videoUrl = null;
+          if (authToken) {
+            try {
+              const mediaResponse = await fetch(`/api/properties/${encodeURIComponent(listing.id)}/media`, {
+                headers: { Authorization: `Bearer ${authToken}` },
+              });
+              if (mediaResponse.ok) {
+                const mediaPayload = await mediaResponse.json();
+                const video = (mediaPayload.media || []).find((item) => item?.type === "video");
+                if (video?.id) {
+                  const playbackResponse = await fetch(`/api/media/${encodeURIComponent(video.id)}/playback`, {
+                    headers: { Authorization: `Bearer ${authToken}` },
+                  });
+                  if (playbackResponse.ok) {
+                    const playback = await playbackResponse.json();
+                    videoUrl = playback.url || null;
+                  }
+                }
+              }
+            } catch {
+              videoUrl = null;
+            }
+          }
           return {
             ...listing,
             tag: (listing.category || "PROPERTY").toUpperCase(),
@@ -92,8 +123,10 @@ export default function HostProfileView() {
                 ? photo.storage_path
                 : client.storage.from("listing-photos").getPublicUrl(photo.storage_path).data.publicUrl)
               : null,
+            videoUrl,
           };
         }));
+        setListings(listingsWithMedia);
       }
       setIsLoading(false);
     }
@@ -133,18 +166,19 @@ export default function HostProfileView() {
     return (
       <aside className="host-profile-sidebar" aria-label="VaRoom navigation">
         <a href={isHost ? "/host-home" : "/client-home"} className="sidebar-logo">
-          <span>Va</span>Room
+          <Home size={18} aria-hidden="true" /><span><b>Va</b>Room</span>
         </a>
         <nav className="sidebar-nav">
-          <a href="/elie">Elie <span className="sidebar-pill">Free preview</span></a>
-          <a href="/marketplace">Marketplace</a>
-          <a href="/bookings">Bookings</a>
-          <a href="/chats">Chats</a>
-          {isHost && <><a href="/list">List a space</a><a href="/analytics">Analytics</a></>}
-          {!isHost && <a href="/profile">Profile</a>}
-          <a href="/transactions">Transactions</a>
-          <a href="/settings">Settings</a>
-          <a href="/support">Help &amp; Support</a>
+          <a href={isHost ? "/host-home" : "/client-home"}><Home size={17} aria-hidden="true" /> Home</a>
+          <a href="/elie"><Compass size={17} aria-hidden="true" /> Elie <span className="sidebar-pill">Free preview</span></a>
+          <a href="/marketplace"><Compass size={17} aria-hidden="true" /> Marketplace</a>
+          <a href="/bookings"><CalendarDays size={17} aria-hidden="true" /> Bookings</a>
+          <a href="/chats"><MessageSquare size={17} aria-hidden="true" /> Chats</a>
+          {isHost && <><a href="/list"><Plus size={17} aria-hidden="true" /> List a space</a><a href="/analytics"><Compass size={17} aria-hidden="true" /> Analytics</a></>}
+          {!isHost && <a href="/profile"><UserRound size={17} aria-hidden="true" /> Profile</a>}
+          <a href="/transactions"><WalletCards size={17} aria-hidden="true" /> Transactions</a>
+          <a href="/settings"><Settings size={17} aria-hidden="true" /> Settings</a>
+          <a href="/support"><LifeBuoy size={17} aria-hidden="true" /> Help &amp; Support</a>
         </nav>
         <button type="button" className="sidebar-logout" onClick={async () => {
           await window.supabaseClient?.auth.signOut();
@@ -184,12 +218,12 @@ export default function HostProfileView() {
       <style jsx global>{`
         html, body, #__next { margin: 0; min-height: 100%; background: #0a0a0a; }
         body { overflow-x: hidden; }
-        .host-profile-shell { min-height: 100vh; display: grid; grid-template-columns: minmax(0, 1fr) 240px; background: #0a0a0a; color: #f5f5f5; font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-        .host-profile-sidebar { display: flex; flex-direction: column; gap: 18px; min-height: 100vh; padding: 24px 18px; border-left: 1px solid #242424; background: #111; }
-        .sidebar-logo { padding: 0 10px 18px; font-size: 22px; font-weight: 800; color: #f5f5f5; }
-        .sidebar-logo span { color: #e5384f; }
+        .host-profile-shell { min-height: 100vh; display: grid; grid-template-columns: 240px minmax(0, 1fr); background: #0a0a0a; color: #f5f5f5; font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+        .host-profile-sidebar { order: -1; display: flex; flex-direction: column; gap: 18px; min-height: 100vh; padding: 24px 18px; border-right: 1px solid #242424; background: #0a0a0a; }
+        .sidebar-logo { display: flex; align-items: center; gap: 9px; padding: 0 10px 18px; font-size: 22px; font-weight: 800; color: #f5f5f5; }
+        .sidebar-logo b { color: #e5384f; }
         .sidebar-nav { display: flex; flex-direction: column; gap: 4px; }
-        .sidebar-nav a { display: flex; align-items: center; justify-content: space-between; padding: 11px 12px; border-radius: 9px; color: #d5d5d5; text-decoration: none; font-size: 14px; }
+        .sidebar-nav a { display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 9px; color: #d5d5d5; text-decoration: none; font-size: 14px; }
         .sidebar-nav a:hover, .sidebar-nav a:focus-visible { background: #242424; color: #fff; }
         .sidebar-pill { color: #e5384f; font-size: 10px; }
         .sidebar-logout { margin-top: auto; padding: 10px 12px; color: #e5384f; text-align: left; font-weight: 600; }
@@ -197,50 +231,13 @@ export default function HostProfileView() {
         .host-profile-content { width: min(100%, 1320px); margin: 0 auto; padding-bottom: 64px; }
         .host-profile-listing-grid { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
         .host-profile-listing-card { color: #f5f5f5; text-decoration: none; }
-        @media (max-width: 1100px) { .host-profile-shell { grid-template-columns: minmax(0, 1fr) 210px; } .host-profile-listing-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; } }
+        @media (max-width: 1100px) { .host-profile-shell { grid-template-columns: 210px minmax(0, 1fr); } .host-profile-listing-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; } }
         @media (max-width: 760px) { .host-profile-shell { display: block; } .host-profile-sidebar { display: none; } .host-profile-content { padding-bottom: 24px; } .host-profile-listing-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } }
         @media (max-width: 480px) { .host-profile-listing-grid { grid-template-columns: 1fr !important; } }
       `}</style>
       <div className="host-profile-shell">
         <main className="host-profile-main">
           <div className="host-profile-content">
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "20px 24px",
-            borderBottom: "1px solid #1C1C1C",
-            position: "sticky",
-            top: 0,
-            background: "#0A0A0A",
-            zIndex: 10,
-          }}
-        >
-          <button
-            type="button"
-            onClick={() => router.back()}
-            aria-label="Back to previous page"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              background: "none",
-              border: "none",
-              color: "#F5F5F5",
-              fontSize: 14,
-              cursor: "pointer",
-            }}
-          >
-            <ArrowLeft size={18} />
-            Back
-          </button>
-          <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: -0.5 }}>
-            <span style={{ color: "#E5384F" }}>Va</span>Room
-          </div>
-          <div style={{ width: 52 }} />
-        </div>
-
         <div style={{ padding: "32px 24px 0" }}>
           {loadError && (
             <p role="alert" style={{ color: "#F2A3AE", fontSize: 14, margin: "0 0 20px" }}>
@@ -481,7 +478,17 @@ export default function HostProfileView() {
                   }}
                 >
                   <div style={{ position: "relative", height: 140, background: "#232323" }}>
-                    {l.img ? (
+                    {l.videoUrl ? (
+                      <video
+                        src={l.videoUrl}
+                        muted
+                        playsInline
+                        preload="metadata"
+                        controls
+                        aria-label={`${l.title} video`}
+                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                      />
+                    ) : l.img ? (
                       <img src={l.img} alt={l.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                     ) : (
                       <div style={{ height: "100%", display: "grid", placeItems: "center", color: "#8A8A8A", fontSize: 12 }}>
