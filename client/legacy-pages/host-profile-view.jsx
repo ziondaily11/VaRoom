@@ -191,9 +191,6 @@ export default function HostProfileView() {
     const isHost = viewerRole === "host";
     return (
       <aside className="host-profile-sidebar" aria-label="VaRoom navigation">
-        <a href={isHost ? "/host-home" : "/client-home"} className="sidebar-logo">
-          <Home size={18} aria-hidden="true" /><span><b>Va</b>Room</span>
-        </a>
         <nav className="sidebar-nav">
           <a href={isHost ? "/host-home" : "/client-home"}><Home size={17} aria-hidden="true" /> Home</a>
           <a href="/elie"><Compass size={17} aria-hidden="true" /> Elie <span className="sidebar-pill">Free preview</span></a>
