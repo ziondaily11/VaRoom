@@ -34,6 +34,123 @@
     }
   };
 
+  function ensureChatPanels() {
+    if (document.getElementById('chatShareSheet')) return;
+    const style = document.createElement('style');
+    style.textContent = `
+      .chat-sheet{position:absolute;left:0;right:0;bottom:0;z-index:5;background:#fff;border-top:1px solid #e2e5ea;box-shadow:0 -8px 24px rgba(20,22,28,.12);padding:18px 28px;transform:translateY(110%);transition:transform .2s ease;max-height:70%;overflow:auto}
+      .chat-sheet.open{transform:translateY(0)}
+      .chat-sheet-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;font-size:14px;font-weight:700;color:#1f2937}
+      .chat-sheet-close{border:0;background:transparent;color:#71798a;font-size:18px;cursor:pointer}
+      .chat-sheet-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
+      .chat-listing-option{border:1px solid #e2e5ea;border-radius:12px;background:#fff;text-align:left;overflow:hidden;cursor:pointer;color:#1f2937}
+      .chat-listing-option.selected{border-color:#25876e;box-shadow:0 0 0 2px #dbf4ea}
+      .chat-listing-option img{width:100%;height:82px;object-fit:cover;display:block;background:#f6f7f9}
+      .chat-listing-option div{padding:8px;font-size:12px}.chat-listing-option small{display:block;color:#71798a;margin-top:3px}
+      .chat-sheet-action{margin-top:12px;border:0;border-radius:9px;background:#4ec1a0;color:#fff;padding:9px 14px;font-weight:700;cursor:pointer}.chat-sheet-action:disabled{opacity:.5;cursor:default}
+      .chat-report-details{width:100%;min-height:70px;border:1px solid #e2e5ea;border-radius:8px;padding:8px;font:inherit;resize:vertical}
+      @media(max-width:760px){.chat-sheet{padding:14px 16px}.chat-sheet-list{grid-template-columns:1fr 1fr}}
+    `;
+    document.head.appendChild(style);
+    const chatCol = $('.chat-col');
+    chatCol.style.position = 'relative';
+    ['chatShareSheet', 'chatReportSheet'].forEach((id) => {
+      const sheet = document.createElement('section');
+      sheet.id = id;
+      sheet.className = 'chat-sheet';
+      sheet.setAttribute('aria-hidden', 'true');
+      chatCol.appendChild(sheet);
+    });
+  }
+
+  function closeSheet(id) {
+    const sheet = document.getElementById(id);
+    if (!sheet) return;
+    sheet.classList.remove('open');
+    sheet.setAttribute('aria-hidden', 'true');
+  }
+
+  function openReportSheet() {
+    const sheet = document.getElementById('chatReportSheet');
+    const person = state.conversations.find((item) => item.id === state.activeId)?.participant || {};
+    sheet.innerHTML = '';
+    const head = document.createElement('div');
+    head.className = 'chat-sheet-head';
+    head.innerHTML = '<span>Report User</span><button class="chat-sheet-close" type="button" aria-label="Close">×</button>';
+    head.querySelector('button').addEventListener('click', () => closeSheet('chatReportSheet'));
+    const select = document.createElement('select');
+    select.className = 'chat-report-details';
+    select.innerHTML = '<option value="">Select a reason</option><option>Spam or scam</option><option>Harassment</option><option>Inappropriate content</option><option>Other</option>';
+    const details = document.createElement('textarea');
+    details.className = 'chat-report-details';
+    details.placeholder = `Additional details about ${person.full_name || person.username || 'this user'}`;
+    const submit = document.createElement('button');
+    submit.className = 'chat-sheet-action';
+    submit.type = 'button';
+    submit.textContent = 'Submit report';
+    submit.disabled = true;
+    select.addEventListener('change', () => { submit.disabled = !select.value; });
+    submit.addEventListener('click', async () => {
+      submit.disabled = true;
+      await api('/api/chat/reports', { method: 'POST', body: JSON.stringify({
+        conversationId: state.activeId, reason: select.value, details: details.value,
+      }) });
+      closeSheet('chatReportSheet');
+    });
+    sheet.append(head, select, details, submit);
+    sheet.classList.add('open');
+    sheet.setAttribute('aria-hidden', 'false');
+  }
+
+  async function openShareSheet() {
+    const sheet = document.getElementById('chatShareSheet');
+    sheet.innerHTML = '<div class="chat-sheet-head"><span>Share listing</span><button class="chat-sheet-close" type="button" aria-label="Close">×</button></div><div class="chat-sheet-list"></div><button class="chat-sheet-action" type="button" disabled>Share selected listing</button>';
+    sheet.querySelector('.chat-sheet-close').addEventListener('click', () => closeSheet('chatShareSheet'));
+    const list = sheet.querySelector('.chat-sheet-list');
+    const share = sheet.querySelector('.chat-sheet-action');
+    if (!state.listings.length) {
+      const result = await api('/api/chat/listings');
+      state.listings = result.listings || [];
+    }
+    let selected = null;
+    state.listings.forEach((listing) => {
+      const option = document.createElement('button');
+      option.type = 'button';
+      option.className = 'chat-listing-option';
+      const photo = listing.listing_photos && listing.listing_photos[0];
+      const image = document.createElement('img');
+      image.alt = listing.title || '';
+      image.src = photo ? window.supabaseClient.storage.from('listing-photos').getPublicUrl(photo.storage_path).data.publicUrl : '';
+      const textBlock = document.createElement('div');
+      textBlock.innerHTML = `<strong></strong><small></small>`;
+      textBlock.querySelector('strong').textContent = listing.title || '';
+      textBlock.querySelector('small').textContent = listing.location_text || '';
+      option.append(image, textBlock);
+      option.addEventListener('click', () => {
+        document.querySelectorAll('.chat-listing-option').forEach((item) => item.classList.remove('selected'));
+        option.classList.add('selected');
+        selected = listing;
+        share.disabled = false;
+      });
+      list.appendChild(option);
+    });
+    if (!state.listings.length) {
+      const empty = document.createElement('div');
+      empty.textContent = 'No listings available';
+      list.appendChild(empty);
+    }
+    share.addEventListener('click', async () => {
+      if (!selected) return;
+      await api(`/api/chat/conversations/${encodeURIComponent(state.activeId)}/messages`, {
+        method: 'POST',
+        body: JSON.stringify({ content: selected.title, listingId: selected.id, messageType: 'listing' }),
+      });
+      closeSheet('chatShareSheet');
+    });
+    sheet.classList.add('open');
+    sheet.setAttribute('aria-hidden', 'false');
+  }
+
   function clearInitialPlaceholders() {
     clear($('#contactList'));
     clear($('.messages'));
@@ -109,9 +226,17 @@
     } else if (message.message_type === 'listing' && message.listing) {
       const card = document.createElement('div');
       card.className = 'file-card';
-      card.innerHTML = '<div class="file-icon"><svg class="icon"><use href="#i-home"/></svg></div><div><div class="file-name"></div><div class="file-sub"></div></div>';
+      const photo = message.listing.listing_photos && message.listing.listing_photos[0];
+      card.innerHTML = '<div class="file-icon"></div><div><div class="file-name"></div><div class="file-sub"></div></div>';
+      if (photo) {
+        const image = document.createElement('img');
+        image.src = window.supabaseClient.storage.from('listing-photos').getPublicUrl(photo.storage_path).data.publicUrl;
+        image.style.cssText = 'width:52px;height:42px;object-fit:cover;border-radius:8px';
+        card.querySelector('.file-icon').replaceWith(image);
+      }
       card.querySelector('.file-name').textContent = message.listing.title || '';
       card.querySelector('.file-sub').textContent = message.listing.location_text || '';
+      card.addEventListener('click', () => { window.location.assign(`/booking?id=${encodeURIComponent(message.listing.id)}`); });
       row.appendChild(card);
     } else if (message.message_type === 'voice' && message.attachment_id) {
       const card = document.createElement('div');
@@ -310,26 +435,15 @@
       fileInput.value = '';
     });
     $('.chat-header-actions button[title="Search"]').addEventListener('click', () => $('.search-box input').focus());
+    ensureChatPanels();
     const shareButton = $('.attach-icons button[title="Share listing"]');
     shareButton.disabled = false;
-    shareButton.addEventListener('click', async () => {
-      if (!state.activeId) return;
-      if (!state.listings.length) {
-        const result = await api('/api/chat/listings');
-        state.listings = result.listings || [];
-      }
-      if (!state.listings.length) return;
-      const options = state.listings.map((listing, index) =>
-        `${index + 1}. ${listing.title}${listing.location_text ? ` — ${listing.location_text}` : ''}`).join('\n');
-      const choice = window.prompt(`Select a listing to share:\n${options}`);
-      const index = Number.parseInt(choice, 10) - 1;
-      const listing = Number.isInteger(index) ? state.listings[index] : null;
-      if (!listing) return;
-      await api(`/api/chat/conversations/${encodeURIComponent(state.activeId)}/messages`, {
-        method: 'POST',
-        body: JSON.stringify({ content: listing.title, listingId: listing.id, messageType: 'listing' }),
-      });
-    });
+    shareButton.addEventListener('click', openShareSheet);
+    const actions = document.createElement('div');
+    actions.className = 'info-section chat-actions';
+    actions.innerHTML = '<div class="info-section-head"><span class="label">Actions</span></div><button type="button" class="info-action-report">Report User</button>';
+    $('.info-col').appendChild(actions);
+    actions.querySelector('.info-action-report').addEventListener('click', openReportSheet);
     document.querySelectorAll('[data-chat-nav]').forEach((button) => {
       button.addEventListener('click', async () => {
         const sessionResult = await window.supabaseClient.auth.getSession();

@@ -58,6 +58,33 @@ router.get('/chat/listings', async (req, res) => {
   }
 });
 
+router.post('/chat/reports', async (req, res) => {
+  try {
+    const user = await authenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Invalid or expired session' });
+    assertAllowedKeys(req.body, ['conversationId', 'reason', 'details']);
+    const conversationId = uuid(req.body.conversationId, 'conversationId');
+    const reason = text(req.body.reason, 'reason', { max: 200 });
+    const details = text(req.body.details, 'details', { required: false, max: 2000 }) || null;
+    const conversation = await memberConversation(conversationId, user.id);
+    if (!conversation) return res.status(403).json({ error: 'Conversation access denied' });
+    const reportedUserId = conversation.host_id === user.id ? conversation.client_id : conversation.host_id;
+    const { data, error } = await supabaseAdmin.from('chat_user_reports').insert({
+      reporter_user_id: user.id,
+      reported_user_id: reportedUserId,
+      conversation_id: conversationId,
+      reason,
+      details,
+    }).select('id,reason,details,status,created_at').single();
+    if (error) throw error;
+    return res.status(201).json({ report: data });
+  } catch (error) {
+    if (error instanceof ValidationError) return res.status(400).json({ error: error.message });
+    console.error('Chat user report failed:', error);
+    return res.status(502).json({ error: 'Unable to submit report' });
+  }
+});
+
 router.get('/chat/conversations', async (req, res) => {
   try {
     const user = await authenticatedUser(req);
@@ -144,7 +171,7 @@ router.get('/chat/conversations/:conversationId/messages', async (req, res) => {
     if (listingIds.length) {
       const listingResult = await supabaseAdmin
         .from('listings')
-        .select('id,title,location_text')
+        .select('id,title,location_text,category,listing_photos(storage_path)')
         .in('id', listingIds);
       if (listingResult.error) throw listingResult.error;
       listingsById = Object.fromEntries((listingResult.data || []).map((listing) => [listing.id, listing]));

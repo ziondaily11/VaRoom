@@ -302,6 +302,29 @@ function createAdminRoutes(supabaseAdmin) {
     return res.json({ report: data });
   });
 
+  router.get('/user-reports', adminAuth, async (req, res) => {
+    let query = supabaseAdmin.from('chat_user_reports')
+      .select('id,reporter_user_id,reported_user_id,conversation_id,reason,details,status,created_at')
+      .order('created_at', { ascending: false });
+    if (req.query.status) query = query.eq('status', req.query.status);
+    const { data, error } = await query;
+    if (error) return res.status(502).json({ error: error.message });
+    const ids = [...new Set((data || []).flatMap((report) => [report.reporter_user_id, report.reported_user_id]))];
+    const { data: profiles, error: profileError } = ids.length
+      ? await supabaseAdmin.from('profiles').select('id,full_name,username').in('id', ids)
+      : { data: [], error: null };
+    if (profileError) return res.status(502).json({ error: profileError.message });
+    const profileById = Object.fromEntries((profiles || []).map((profile) => [profile.id, profile]));
+    return res.json({
+      data: (data || []).map((report) => ({
+        ...report,
+        reporter: profileById[report.reporter_user_id] || null,
+        reportedUser: profileById[report.reported_user_id] || null,
+        createdAt: report.created_at,
+      })),
+    });
+  });
+
   router.get('/growth', adminAuth, async (req, res) => {
     const range = Number(req.query.range) || 14;
     const since = daysAgo(range);

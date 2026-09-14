@@ -413,7 +413,7 @@ function Support({ tickets, selected, setSelected, onReply, onStatusChange }) {
   );
 }
 
-function ListingReports({ reports }) {
+function ListingReports({ reports, userReports }) {
   return (
     <div>
       <SectionHeader title="Listing reports" description="Issues flagged by guests or hosts about a listing." />
@@ -429,6 +429,21 @@ function ListingReports({ reports }) {
             <td className="px-4 py-2">
               <StatusPill status={r.status} />
             </td>
+            <td className="px-4 py-2 text-[#8a857c]">{r.createdAt}</td>
+          </tr>
+        )}
+      />
+      <SectionHeader title="Chat user reports" description="Reports submitted about conversation participants." />
+      <Table
+        columns={["Report", "Reported user", "Reporter", "Reason", "Status", "Filed"]}
+        rows={userReports}
+        renderRow={(r) => (
+          <tr key={r.id} className="border-b border-[#E4E1DA] last:border-0">
+            <td className="px-4 py-2 font-mono text-xs">{r.id}</td>
+            <td className="px-4 py-2">{r.reportedUser && (r.reportedUser.full_name || r.reportedUser.username) || r.reported_user_id}</td>
+            <td className="px-4 py-2 text-[#8a857c]">{r.reporter && (r.reporter.full_name || r.reporter.username) || r.reporter_user_id}</td>
+            <td className="px-4 py-2 text-[#8a857c]">{r.reason}</td>
+            <td className="px-4 py-2"><StatusPill status={r.status} /></td>
             <td className="px-4 py-2 text-[#8a857c]">{r.createdAt}</td>
           </tr>
         )}
@@ -656,6 +671,7 @@ export default function VaroomAdminDashboard() {
   const [revenueSeries, setRevenueSeries] = useState([]);
   const [tickets, setTickets] = useState([]);
   const [reports, setReports] = useState([]);
+  const [userReports, setUserReports] = useState([]);
   const [growthSeries, setGrowthSeries] = useState([]);
   const [admins, setAdmins] = useState([]);
   const [selectedTicket, setSelectedTicket] = useState(null);
@@ -680,11 +696,12 @@ export default function VaroomAdminDashboard() {
       api("/admin/revenue?range=7"),
       api("/admin/support/tickets"),
       api("/admin/reports"),
+      api("/admin/user-reports"),
       api("/admin/growth?range=14"),
       api("/admin/admins"),
       api("/admin/news/pending"),
     ])
-      .then(([nextOverview, nextSignins, nextRevenue, nextTickets, nextReports, nextGrowth, nextAdmins, nextNews]) => {
+      .then(([nextOverview, nextSignins, nextRevenue, nextTickets, nextReports, nextUserReports, nextGrowth, nextAdmins, nextNews]) => {
         setOverview(nextOverview);
         setSignins(nextSignins.data || []);
         setSigninsSeries(nextSignins.series || []);
@@ -694,6 +711,7 @@ export default function VaroomAdminDashboard() {
         setTickets(nextTickets.data || []);
         setSelectedTicket((nextTickets.data || [])[0] || null);
         setReports(nextReports.data || []);
+        setUserReports(nextUserReports.data || []);
         setGrowthSeries(nextGrowth.series || []);
         setAdmins(nextAdmins.data || []);
         setPropertyNews(nextNews || []);
@@ -795,7 +813,7 @@ export default function VaroomAdminDashboard() {
           />
         );
       case "reports":
-        return <ListingReports reports={reports} />;
+        return <ListingReports reports={reports} userReports={userReports} />;
       case "growth":
         return <Growth series={growthSeries} />;
       case "admins":
