@@ -1,6 +1,6 @@
 import Head from 'next/head';
 import Script from 'next/script';
-import PublicHostProfile from '../../legacy-pages/public-profile';
+import HostProfileView from '../../legacy-pages/host-profile-view';
 
 export default function HostProfilePage() {
   return (
@@ -12,7 +12,7 @@ export default function HostProfilePage() {
       </Head>
       <Script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" strategy="beforeInteractive" />
       <Script src="/js/supabase-client.js" strategy="beforeInteractive" />
-      <PublicHostProfile />
+      <HostProfileView />
     </>
   );
 }
