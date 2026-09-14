@@ -326,11 +326,9 @@ app.get('/api/db-check', async (req, res) => {
   res.json({ connected: true });
 });
 
-// Delete the calling user's own account. Requires the service-role key
-// (only available server-side) since a regular client can't delete its
-// own auth.users row. The caller must send their Supabase access token
-// in the Authorization header — we verify it belongs to a real session
-// before deleting, so nobody can delete an account that isn't theirs.
+// Delete an authenticated account. The selected account's access token must
+// be provided, so a dashboard can delete a stored non-active account without
+// granting the browser any service-role privileges.
 app.post('/api/delete-account', async (req, res) => {
   const authHeader = req.headers.authorization || '';
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
@@ -344,15 +342,43 @@ app.post('/api/delete-account', async (req, res) => {
     return sendError(res, 401, 'Invalid or expired session');
   }
 
+  const reasons = [
+    'I no longer use VaRoom',
+    'I created another account',
+    'Privacy concerns',
+    "I'm unhappy with the service",
+    'Technical issues',
+    'Other'
+  ];
+  const accountId = String(req.body && req.body.account_id || '').trim();
+  const reason = String(req.body && req.body.reason || '').trim();
+  const reasonDetails = String(req.body && req.body.reason_details || '').trim();
+  if (!accountId || accountId !== user.id || !reasons.includes(reason)) {
+    return sendError(res, 400, 'A valid account and deletion reason are required');
+  }
+  if (reason === 'Other' && !reasonDetails) {
+    return sendError(res, 400, 'Please explain your reason for deleting the account');
+  }
+
+  const { data: deletion, error: auditError } = await supabaseAdmin.from('account_deletions').insert({
+    account_id: user.id,
+    account_email: user.email || null,
+    reason,
+    reason_details: reason === 'Other' ? reasonDetails : null
+  }).select('id').single();
+  if (auditError) {
+    console.error('Account deletion audit failed:', auditError.message);
+    return sendError(res, 502, 'Unable to record account deletion');
+  }
+
   const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(user.id);
   if (deleteError) {
+    await supabaseAdmin.from('account_deletions').delete().eq('id', deletion.id);
     console.error('Account deletion failed:', deleteError.message);
     return sendError(res, 500, 'Unable to delete account');
   }
 
-  // profiles row is deleted automatically via the ON DELETE CASCADE
-  // foreign key back to auth.users, set up in the original schema.
-  res.json({ success: true });
+  return res.json({ success: true, account_id: user.id });
 });
 
 // Resolves the calling user from an optional Bearer token. Returns null

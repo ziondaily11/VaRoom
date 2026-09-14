@@ -325,6 +325,14 @@ function createAdminRoutes(supabaseAdmin) {
     });
   });
 
+  router.get('/account-deletions', adminAuth, async (_req, res) => {
+    const { data, error } = await supabaseAdmin.from('account_deletions')
+      .select('id,account_id,account_email,reason,reason_details,deleted_at')
+      .order('deleted_at', { ascending: false });
+    if (error) return res.status(502).json({ error: error.message });
+    return res.json({ data: data || [] });
+  });
+
   router.get('/growth', adminAuth, async (req, res) => {
     const range = Number(req.query.range) || 14;
     const since = daysAgo(range);

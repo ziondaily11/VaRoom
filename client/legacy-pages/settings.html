@@ -338,16 +338,27 @@
   .dashboard-account-info{ min-width:0; flex:1; }
   .dashboard-account-name{ display:block; font-weight:700; font-size:.9rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .dashboard-account-email{ display:block; margin-top:.2rem; color:var(--muted); font-size:.78rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .dashboard-account-current{ color:var(--muted); font-size:.68rem; margin-top:.25rem; }
   .dashboard-account-actions{ display:flex; align-items:center; gap:.7rem; flex-shrink:0; }
-  .dashboard-account-actions button{ font-size:.78rem; font-weight:700; }
-  .dashboard-account-actions .remove-account-btn{ color:var(--red); }
+  .dashboard-account-actions button{ font-size:.78rem; font-weight:700; padding:.42rem .65rem; border:1px solid var(--line); border-radius:7px; transition:background .2s ease, border-color .2s ease, color .2s ease; }
+  .dashboard-account-actions .login-account-btn{ color:var(--ink); background:transparent; }
+  .dashboard-account-actions .login-account-btn:hover{ background:rgba(255,255,255,.08); border-color:rgba(255,255,255,.28); }
+  .dashboard-account-actions .delete-account-btn{ color:var(--red); background:transparent; border-color:rgba(196,30,58,.45); }
+  .dashboard-account-actions .delete-account-btn:hover{ background:rgba(196,30,58,.1); border-color:var(--red); }
   .dashboard-account-actions button:disabled{ opacity:.5; cursor:wait; }
   .accounts-empty{ padding:1.1rem; color:var(--muted); font-size:.85rem; }
   .account-limit-note{ margin-top:.65rem; color:var(--muted); font-size:.78rem; }
-  .account-remove-confirm{ display:none; margin-top:.9rem; padding:1rem; border:1px solid var(--line); border-radius:12px; background:var(--paper); }
-  .account-remove-confirm.show{ display:block; }
-  .account-remove-confirm strong{ display:block; color:var(--ink); margin-bottom:.35rem; }
-  .account-action-row{ display:flex; gap:.7rem; margin-top:.9rem; }
+  .accounts-divider{ height:1px; background:var(--line); margin:2rem 0 1.1rem; }
+  .logout-section{ padding:0; }
+  .delete-account-dialog{ width:min(460px, calc(100vw - 2rem)); border:1px solid var(--line); border-radius:14px; padding:1.35rem; background:var(--paper); color:var(--ink); box-shadow:0 20px 70px rgba(0,0,0,.6); }
+  .delete-account-dialog::backdrop{ background:rgba(0,0,0,.72); }
+  .delete-account-dialog h2{ font-size:1.1rem; margin:0 0 .55rem; }
+  .delete-account-dialog p{ color:var(--muted); font-size:.84rem; line-height:1.5; margin:0 0 1.1rem; }
+  .delete-account-dialog label{ display:block; margin-bottom:.45rem; }
+  .delete-account-dialog select, .delete-account-dialog textarea{ margin-bottom:.75rem; }
+  .delete-account-dialog textarea{ min-height:80px; resize:vertical; }
+  .delete-account-actions{ display:flex; justify-content:flex-end; gap:.7rem; margin-top:.3rem; }
+  .delete-account-actions .btn-danger:disabled{ opacity:.45; cursor:not-allowed; }
   @media (max-width:600px){
     .dashboard-account{ align-items:flex-start; flex-wrap:wrap; }
     .dashboard-account-info{ max-width:calc(100% - 58px); }
@@ -959,26 +970,16 @@
             <div class="card dashboard-accounts" id="dashboard-accounts-list"></div>
             <button type="button" class="btn btn-ghost" id="add-account-btn" style="margin-top:.9rem;">+ Add account</button>
             <p class="account-limit-note" id="account-limit-note"></p>
-            <div class="account-remove-confirm" id="account-remove-confirm">
-              <strong>Remove account from dashboard?</strong>
-              <span class="inline-msg neutral">This will remove this account from the accounts available on this dashboard. Your VaRoom account and its data will not be deleted.</span>
-              <div class="account-action-row">
-                <button type="button" class="btn btn-ghost" id="account-remove-cancel-btn">Cancel</button>
-                <button type="button" class="btn btn-danger" id="account-remove-confirm-btn">Remove</button>
-              </div>
-            </div>
           </div>
 
-          <div class="settings-section">
-            <p class="section-title">Session</p>
-            <div class="logout-section">
-              <button type="button" class="btn btn-ghost" id="logout-btn">Log out</button>
-              <div class="logout-confirm-panel" id="logout-confirm-panel">
-                <p class="inline-msg neutral">Are you sure you want to log out?</p>
-                <div class="logout-confirm-actions">
-                  <button type="button" class="btn btn-ghost" id="logout-cancel-btn">Cancel</button>
-                  <button type="button" class="btn" id="logout-confirm-btn">Log out</button>
-                </div>
+          <div class="accounts-divider" aria-hidden="true"></div>
+          <div class="logout-section">
+            <button type="button" class="btn btn-ghost" id="logout-btn">Log out</button>
+            <div class="logout-confirm-panel" id="logout-confirm-panel">
+              <p class="inline-msg neutral">Are you sure you want to log out?</p>
+              <div class="logout-confirm-actions">
+                <button type="button" class="btn btn-ghost" id="logout-cancel-btn">Cancel</button>
+                <button type="button" class="btn" id="logout-confirm-btn">Log out</button>
               </div>
             </div>
           </div>
@@ -988,6 +989,28 @@
     </main>
   </div>
 </div>
+
+<dialog class="delete-account-dialog" id="delete-account-dialog" aria-labelledby="delete-account-title">
+  <h2 id="delete-account-title">Delete account?</h2>
+  <p>This will permanently delete this VaRoom account and its associated account data. This action cannot be undone.</p>
+  <form id="delete-account-form">
+    <label for="delete-account-reason">Why are you deleting your account?</label>
+    <select id="delete-account-reason" required>
+      <option value="">Select a reason</option>
+      <option>I no longer use VaRoom</option>
+      <option>I created another account</option>
+      <option>Privacy concerns</option>
+      <option>I'm unhappy with the service</option>
+      <option>Technical issues</option>
+      <option>Other</option>
+    </select>
+    <textarea id="delete-account-details" placeholder="Tell us more" hidden></textarea>
+    <div class="delete-account-actions">
+      <button type="button" class="btn btn-ghost" id="delete-account-cancel-btn">Cancel</button>
+      <button type="submit" class="btn btn-danger" id="delete-account-confirm-btn" disabled>Delete account permanently</button>
+    </div>
+  </form>
+</dialog>
 
 <script src="js/supabase-client.js"></script>
 <script src="js/account-switcher.js"></script>
@@ -1065,56 +1088,63 @@
     const accountList = document.getElementById('dashboard-accounts-list');
     const addAccountButton = document.getElementById('add-account-btn');
     const accountLimitNote = document.getElementById('account-limit-note');
-    const removeConfirm = document.getElementById('account-remove-confirm');
-    let accountPendingRemoval = null;
+    const deleteDialog = document.getElementById('delete-account-dialog');
+    const deleteForm = document.getElementById('delete-account-form');
+    const deleteReason = document.getElementById('delete-account-reason');
+    const deleteDetails = document.getElementById('delete-account-details');
+    const deleteConfirmButton = document.getElementById('delete-account-confirm-btn');
+    let accountPendingDeletion = null;
 
     function accountInitial(account){
       const name = (account.full_name || account.email || 'VaRoom member').trim();
       return name ? name.charAt(0).toUpperCase() : '?';
     }
 
-    function renderDashboardAccounts(){
-      const accounts = window.VaRoomAccountSwitcher.getLinkedAccounts()
-        .filter(function(account){ return account.id !== currentUser.id; });
-      accountList.innerHTML = '';
+    function openDeleteDialog(account){
+      accountPendingDeletion = account;
+      deleteForm.reset();
+      deleteDetails.hidden = true;
+      deleteConfirmButton.disabled = true;
+      deleteDialog.showModal();
+    }
 
-      if (!accounts.length) {
-        const empty = document.createElement('p');
-        empty.className = 'accounts-empty';
-        empty.textContent = 'No other accounts are stored on this dashboard.';
-        accountList.appendChild(empty);
+    function createAccountRow(account, isActive){
+      const row = document.createElement('div');
+      row.className = 'dashboard-account';
+      const avatar = document.createElement('span');
+      avatar.className = 'dashboard-account-avatar';
+      if (account.avatar_url && account.avatar_url.indexOf('http') === 0) {
+        const image = document.createElement('img');
+        image.src = account.avatar_url;
+        image.alt = '';
+        avatar.appendChild(image);
+      } else {
+        avatar.textContent = accountInitial(account);
       }
 
-      accounts.forEach(function(account){
-        const row = document.createElement('div');
-        row.className = 'dashboard-account';
-        const avatar = document.createElement('span');
-        avatar.className = 'dashboard-account-avatar';
-        if (account.avatar_url && account.avatar_url.indexOf('http') === 0) {
-          const image = document.createElement('img');
-          image.src = account.avatar_url;
-          image.alt = '';
-          avatar.appendChild(image);
-        } else {
-          avatar.textContent = accountInitial(account);
-        }
+      const info = document.createElement('span');
+      info.className = 'dashboard-account-info';
+      const name = document.createElement('span');
+      name.className = 'dashboard-account-name';
+      name.textContent = account.full_name || 'VaRoom member';
+      const email = document.createElement('span');
+      email.className = 'dashboard-account-email';
+      email.textContent = account.email || 'Email unavailable';
+      info.appendChild(name);
+      info.appendChild(email);
+      if (isActive) {
+        const activeLabel = document.createElement('span');
+        activeLabel.className = 'dashboard-account-current';
+        activeLabel.textContent = 'Current account';
+        info.appendChild(activeLabel);
+      }
 
-        const info = document.createElement('span');
-        info.className = 'dashboard-account-info';
-        const name = document.createElement('span');
-        name.className = 'dashboard-account-name';
-        name.textContent = account.full_name || 'VaRoom member';
-        const email = document.createElement('span');
-        email.className = 'dashboard-account-email';
-        email.textContent = account.email || 'Email unavailable';
-        info.appendChild(name);
-        info.appendChild(email);
-
-        const actions = document.createElement('span');
-        actions.className = 'dashboard-account-actions';
+      const actions = document.createElement('span');
+      actions.className = 'dashboard-account-actions';
+      if (!isActive) {
         const loginButton = document.createElement('button');
         loginButton.type = 'button';
-        loginButton.className = 'btn-red-link login-account-btn';
+        loginButton.className = 'login-account-btn';
         loginButton.textContent = 'Log in';
         loginButton.addEventListener('click', async function(){
           loginButton.disabled = true;
@@ -1127,20 +1157,37 @@
             else alert('That account needs you to sign in again.');
           }
         });
-        const removeButton = document.createElement('button');
-        removeButton.type = 'button';
-        removeButton.className = 'remove-account-btn';
-        removeButton.textContent = 'Remove from dashboard';
-        removeButton.addEventListener('click', function(){
-          accountPendingRemoval = account;
-          removeConfirm.classList.add('show');
-        });
         actions.appendChild(loginButton);
-        actions.appendChild(removeButton);
-        row.appendChild(avatar);
-        row.appendChild(info);
-        row.appendChild(actions);
-        accountList.appendChild(row);
+      }
+      const deleteButton = document.createElement('button');
+      deleteButton.type = 'button';
+      deleteButton.className = 'delete-account-btn';
+      deleteButton.textContent = 'Delete account';
+      deleteButton.addEventListener('click', function(){ openDeleteDialog(account); });
+      actions.appendChild(deleteButton);
+      row.appendChild(avatar);
+      row.appendChild(info);
+      row.appendChild(actions);
+      return row;
+    }
+
+    function renderDashboardAccounts(){
+      const accounts = window.VaRoomAccountSwitcher.getLinkedAccounts()
+        .filter(function(account){ return account.id !== currentUser.id; });
+      accountList.innerHTML = '';
+      const currentAccount = window.VaRoomAccountSwitcher.getLinkedAccounts()
+        .find(function(account){ return account.id === currentUser.id; });
+      if (currentAccount) accountList.appendChild(createAccountRow(currentAccount, true));
+
+      if (!accounts.length) {
+        const empty = document.createElement('p');
+        empty.className = 'accounts-empty';
+        empty.textContent = 'No other accounts are stored on this dashboard.';
+        accountList.appendChild(empty);
+      }
+
+      accounts.forEach(function(account){
+        accountList.appendChild(createAccountRow(account, false));
       });
 
       const storedCount = window.VaRoomAccountSwitcher.getLinkedAccounts().length;
@@ -1157,16 +1204,64 @@
         window.location.href = 'login.html?mode=add&redirect=' + encodeURIComponent('/settings');
       }
     });
-    document.getElementById('account-remove-cancel-btn').addEventListener('click', function(){
-      accountPendingRemoval = null;
-      removeConfirm.classList.remove('show');
+    deleteReason.addEventListener('change', function(){
+      deleteDetails.hidden = deleteReason.value !== 'Other';
+      deleteDetails.required = deleteReason.value === 'Other';
+      deleteConfirmButton.disabled = !deleteReason.value || (deleteReason.value === 'Other' && !deleteDetails.value.trim());
     });
-    document.getElementById('account-remove-confirm-btn').addEventListener('click', function(){
-      if (!accountPendingRemoval) return;
-      window.VaRoomAccountSwitcher.removeAccount(accountPendingRemoval.id);
-      accountPendingRemoval = null;
-      removeConfirm.classList.remove('show');
-      renderDashboardAccounts();
+    deleteDetails.addEventListener('input', function(){
+      deleteConfirmButton.disabled = deleteReason.value === 'Other' && !deleteDetails.value.trim();
+    });
+    document.getElementById('delete-account-cancel-btn').addEventListener('click', function(){
+      accountPendingDeletion = null;
+      deleteDialog.close();
+    });
+    deleteForm.addEventListener('submit', async function(event){
+      event.preventDefault();
+      if (!accountPendingDeletion || !deleteReason.value || (deleteReason.value === 'Other' && !deleteDetails.value.trim())) return;
+      deleteConfirmButton.disabled = true;
+      deleteConfirmButton.textContent = 'Deleting...';
+      try {
+        const response = await fetch('/api/delete-account', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer ' + accountPendingDeletion.access_token
+          },
+          body: JSON.stringify({
+            account_id: accountPendingDeletion.id,
+            reason: deleteReason.value,
+            reason_details: deleteDetails.value.trim()
+          })
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'Unable to delete account');
+
+        const deletedId = accountPendingDeletion.id;
+        const wasActive = deletedId === currentUser.id;
+        window.VaRoomAccountSwitcher.removeAccount(deletedId);
+        const remainingAccounts = window.VaRoomAccountSwitcher.getLinkedAccounts();
+        accountPendingDeletion = null;
+        deleteDialog.close();
+        if (wasActive) {
+          const nextAccount = remainingAccounts.find(function(account){ return account.id !== deletedId; });
+          if (!nextAccount) {
+            await supabaseClient.auth.signOut();
+            window.location.href = '/login';
+            return;
+          }
+          await window.VaRoomAccountSwitcher.switchAccount(supabaseClient, nextAccount);
+          window.location.href = nextAccount.role === 'host' ? '/host-home' : '/client-home';
+          return;
+        }
+        deleteConfirmButton.textContent = 'Delete account permanently';
+        renderDashboardAccounts();
+      } catch (error) {
+        deleteConfirmButton.disabled = false;
+        deleteConfirmButton.textContent = 'Delete account permanently';
+        if (window.varoomShowToast) window.varoomShowToast(error.message);
+        else alert(error.message);
+      }
     });
 
     checkingAuth.style.display = 'none';
