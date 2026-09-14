@@ -456,6 +456,47 @@
   .cal-day{ font-size:.74rem; padding:.4rem 0; border-radius:8px; color:var(--ink); }
   .cal-day.muted{ color:var(--muted); opacity:.4; }
   .cal-day.booked{ background:var(--red); color:#fff; font-weight:700; }
+
+  .booking-skeleton{
+    pointer-events:none;
+    background:var(--white);
+  }
+  .booking-skeleton .skeleton-block{
+    position:relative; overflow:hidden; background:rgba(128,110,100,.12);
+    border-radius:6px;
+  }
+  .booking-skeleton .skeleton-block::after{
+    content:''; position:absolute; inset:0;
+    background:linear-gradient(90deg, transparent, rgba(255,255,255,.16), transparent);
+    animation:skeleton-booking-shimmer 1.8s infinite;
+  }
+  .booking-skeleton .bk-thumb.skeleton-block{ border-radius:12px; }
+  .booking-skeleton .bk-title.skeleton-block{ width:62%; height:1.05rem; }
+  .booking-skeleton .bk-loc.skeleton-block{ width:48%; height:.85rem; margin-top:.35rem; }
+  .booking-skeleton .bk-status.skeleton-block{ width:4.7rem; height:1.35rem; }
+  .booking-skeleton .bk-meta .skeleton-block{ width:58%; height:.85rem; }
+  .booking-skeleton .bk-price .skeleton-block{ width:6.5rem; height:1rem; }
+  .booking-skeleton .bk-host-avatar.skeleton-block{ width:32px; height:32px; border-radius:50%; }
+  .booking-skeleton .bk-host-name.skeleton-block{ width:5.5rem; height:.85rem; }
+  .booking-skeleton .bk-msg-link.skeleton-block{ width:34px; height:34px; border-radius:50%; }
+  .booking-skeleton .bk-actions .skeleton-block{ width:7rem; height:2.5rem; border-radius:100px; }
+  @keyframes skeleton-booking-shimmer{
+    from{ transform:translateX(-100%); }
+    to{ transform:translateX(100%); }
+  }
+  .booking-load-status{ min-height:1.5rem; color:var(--muted); font-size:.8rem; text-align:center; padding:.25rem 0 1rem; }
+  @media (prefers-reduced-motion:reduce){
+    .booking-skeleton .skeleton-block::after{ animation:none; }
+  }
+  @media (max-width:520px){
+    .booking-skeleton .bk-thumb.skeleton-block{ width:100%; height:auto; aspect-ratio:16 / 9; }
+    .booking-skeleton .bk-main{ padding-top:.9rem; }
+    .booking-skeleton .bk-top-row > div{ width:100%; }
+    .booking-skeleton .bk-title.skeleton-block{ width:62%; }
+    .booking-skeleton .bk-loc.skeleton-block{ width:48%; }
+    .booking-skeleton .bk-meta .skeleton-block{ width:64%; }
+    .booking-skeleton .bk-bottom-row{ min-height:74px; }
+  }
 </style>
 <link rel="stylesheet" href="js/varoom-dark-theme.css">
 <style>
@@ -605,6 +646,7 @@
             <div id="upcoming-panel"></div>
             <div id="past-panel" style="display:none;"></div>
             <div id="cancelled-panel" style="display:none;"></div>
+            <div class="booking-load-status" id="booking-load-status" aria-live="polite"></div>
           </div>
 
           <!-- HOST VIEW -->
@@ -1223,16 +1265,57 @@
     const reviewedBookingIds = new Set();
     let activeReviewBooking = null;
     let selectedReviewRating = 0;
+    const bookingPageSize = 8;
+    let bookingOffset = 0;
+    let hasMoreBookings = true;
+    let bookingsLoading = false;
 
-    async function loadAllBookings(){
+    function bookingSkeleton(){
+      return '<div class="booking-card booking-skeleton" aria-hidden="true">' +
+        '<div class="bk-thumb skeleton-block"></div>' +
+        '<div class="bk-main">' +
+          '<div class="bk-top-row"><div><div class="bk-title skeleton-block"></div><div class="bk-loc skeleton-block"></div></div><span class="bk-status skeleton-block"></span></div>' +
+          '<div class="bk-meta"><span class="skeleton-block"></span></div>' +
+          '<div class="bk-price"><span class="skeleton-block"></span></div>' +
+          '<div class="bk-bottom-row">' +
+            '<div class="bk-host"><div class="bk-host-avatar skeleton-block"></div><div class="bk-host-name skeleton-block"></div></div>' +
+            '<div class="bk-msg-link skeleton-block"></div>' +
+            '<div class="bk-actions"><span class="skeleton-block"></span><span class="skeleton-block"></span></div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    }
+
+    function renderBookingSkeletons(){
+      document.getElementById('upcoming-panel').innerHTML =
+        bookingSkeleton() + bookingSkeleton() + bookingSkeleton();
+      document.getElementById('past-panel').innerHTML = '';
+      document.getElementById('cancelled-panel').innerHTML = '';
+      document.getElementById('booking-load-status').textContent = '';
+    }
+
+    async function loadBookingBatch(){
+      if (bookingsLoading || !hasMoreBookings) return { data: [] };
+      bookingsLoading = true;
       const { data, error } = await supabaseClient
         .from('bookings')
         .select(BOOKINGS_SELECT)
         .eq('client_id', currentUser.id)
-        .order('created_at', { ascending:false });
+        .order('created_at', { ascending:false })
+        .range(bookingOffset, bookingOffset + bookingPageSize);
 
-      if (error) { return { error: error }; }
-      const bookings = data || [];
+      if (error) {
+        bookingsLoading = false;
+        return { error: error };
+      }
+      const fetchedBookings = data || [];
+      const bookings = fetchedBookings.slice(0, bookingPageSize);
+      const existingIds = new Set(allBookings.map(function(booking){ return booking.id; }));
+      bookings.forEach(function(booking){
+        if (!existingIds.has(booking.id)) allBookings.push(booking);
+      });
+      bookingOffset += bookings.length;
+      hasMoreBookings = fetchedBookings.length > bookingPageSize;
       if (bookings.length) {
         const { data: reviews, error: reviewError } = await supabaseClient
           .from('reviews')
@@ -1242,6 +1325,7 @@
           reviews.forEach(function(review){ reviewedBookingIds.add(review.booking_id); });
         }
       }
+      bookingsLoading = false;
       return { data: bookings };
     }
 
@@ -1489,6 +1573,7 @@
       attachCardActions(cancelledPanel);
 
       renderStats(allBookings);
+      document.getElementById('booking-load-status').textContent = hasMoreBookings ? '' : '';
     }
 
     document.querySelectorAll('.tab').forEach(function(tab){
@@ -1499,6 +1584,7 @@
         document.getElementById('upcoming-panel').style.display = which === 'upcoming' ? 'block' : 'none';
         document.getElementById('past-panel').style.display = which === 'past' ? 'block' : 'none';
         document.getElementById('cancelled-panel').style.display = which === 'cancelled' ? 'block' : 'none';
+        if (isClient) loadMoreBookings();
       });
     });
 
@@ -1520,6 +1606,27 @@
     backdrop.addEventListener('click', closeSidebar);
     sidebar.querySelectorAll('.nav-item, .logout-btn').forEach(function(el){ el.addEventListener('click', closeSidebar); });
     document.getElementById('topbar-avatar-btn').addEventListener('click', openSidebar);
+    const feedArea = document.querySelector('.feed-area');
+    async function loadMoreBookings(){
+      if (!isClient || bookingsLoading || !hasMoreBookings) return;
+      document.getElementById('booking-load-status').textContent = allBookings.length ? 'Loading more bookings...' : '';
+      const result = await loadBookingBatch();
+      if (result.error) {
+        document.getElementById('booking-load-status').textContent = 'Couldn\'t load more bookings.';
+        return;
+      }
+      renderAllPanels();
+    }
+    feedArea.addEventListener('scroll', function(){
+      if (feedArea.scrollTop + feedArea.clientHeight >= feedArea.scrollHeight - 500) {
+        loadMoreBookings();
+      }
+    });
+    window.addEventListener('scroll', function(){
+      if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 500) {
+        loadMoreBookings();
+      }
+    });
 
     if (typeof initNotifications === 'function') {
       initNotifications(supabaseClient, currentUser);
@@ -1537,11 +1644,12 @@
 
     // ---------- Boot ----------
     if (isClient) {
-      const result = await loadAllBookings();
+      bookingsPage.style.display = 'block';
+      renderBookingSkeletons();
+      const result = await loadBookingBatch();
       if (result.error) {
         document.getElementById('upcoming-panel').innerHTML = '<p class="state-msg">Couldn\'t load bookings: ' + escapeHtml(result.error.message) + '</p>';
       } else {
-        allBookings = result.data;
         renderAllPanels();
       }
       renderCalendarPlaceholder();
