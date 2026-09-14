@@ -333,18 +333,23 @@
   @media (max-width:520px){
     body.review-modal-open{ overflow:hidden; }
     .topbar{
-      min-height:56px; padding:.65rem 1rem; gap:.7rem;
+      min-height:56px; padding:.65rem 1rem; gap:.7rem; flex-wrap:nowrap;
       background:#111; color:#fff;
     }
     .topbar-avatar-btn{ width:30px; height:30px; padding:0; }
     .topbar-avatar-btn .avatar-circle{
       width:30px; height:30px; background:transparent; color:#fff;
     }
-    .mobile-page-title{ display:block; font-size:1.05rem; font-weight:700; letter-spacing:-.01em; }
+    .mobile-page-title{
+      display:block; min-width:0; font-size:1.05rem; font-weight:700;
+      letter-spacing:-.01em; white-space:nowrap;
+    }
     .back-link{ display:none; }
-    #client-bookings-view{ padding-top:.9rem; }
-    #client-bookings-view > .page-title,
-    #client-bookings-view > .page-subtitle{ display:none; }
+    #client-bookings-view{ padding-top:.25rem; }
+    #client-bookings-view > .page-title{ display:none; }
+    #client-bookings-view > .page-subtitle{
+      display:block; margin:.1rem 0 .8rem; font-size:.72rem; line-height:1.4;
+    }
     #client-bookings-view .tabs{
       width:100%; gap:0; justify-content:space-between; margin:0 0 1rem;
     }
@@ -392,7 +397,11 @@
     }
     #client-bookings-view .bk-host-avatar{ width:32px; height:32px; font-size:.76rem; }
     #client-bookings-view .bk-msg-link{
-      min-height:32px; font-size:.82rem; white-space:nowrap;
+      width:34px; height:34px; min-height:34px; padding:0; display:inline-flex;
+      align-items:center; justify-content:center; color:var(--red); flex-shrink:0;
+    }
+    #client-bookings-view .bk-msg-link svg{
+      width:18px; height:18px; display:block;
     }
     #client-bookings-view .bk-actions{
       grid-column:1 / -1; width:100%; min-width:0; margin:0;
@@ -475,6 +484,22 @@
     background: #1a1a1a;
   }
   [data-theme="dark"] #host-booking-detail{ background:transparent !important; border:0 !important; }
+  [data-theme="dark"] #client-bookings-view .tab,
+  [data-theme="dark"] #client-bookings-view .tab.active {
+    background:transparent !important;
+    border:0 !important;
+    border-bottom:2px solid transparent !important;
+    color:var(--muted) !important;
+  }
+  [data-theme="dark"] #client-bookings-view .tab.active {
+    border-bottom-color:var(--red) !important;
+    color:#fff !important;
+  }
+  [data-theme="dark"] #client-bookings-view .booking-card {
+    background:#000 !important;
+    border-color:var(--line) !important;
+    color:var(--ink) !important;
+  }
 </style>
 </head>
 <body>
@@ -1255,7 +1280,9 @@
                 '<div class="bk-host-avatar">' + hostAvatarHtml + '</div>' +
                 '<div class="bk-host-name">' + escapeHtml(host.full_name || 'Host') + '</div>' +
               '</div>' +
-              '<button type="button" class="bk-msg-link" data-msg-host="' + (host.id || '') + '" data-msg-listing="' + (listing.id || '') + '">Message Host</button>' +
+              '<button type="button" class="bk-msg-link" data-msg-host="' + (host.id || '') + '" data-msg-listing="' + (listing.id || '') + '" aria-label="Message host" title="Message host">' +
+                '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11.5a7.5 7.5 0 0 1-8 7.5 8.5 8.5 0 0 1-3.7-.8L4 20l1.5-4.1A7.4 7.4 0 0 1 4.5 12 7.5 7.5 0 0 1 12 4.5h.5A7.5 7.5 0 0 1 20 11.5Z"/><path d="M8 12h.01M12 12h.01M16 12h.01"/></svg>' +
+              '</button>' +
               '<div class="bk-actions">' +
                 (opts.showCancel ? '<button type="button" class="bk-btn bk-btn-outline" data-cancel="' + b.id + '">Cancel Booking</button>' : '') +
                 (!opts.showCancel && endMoment(b) < new Date()
