@@ -1,12 +1,14 @@
 require('dotenv').config();
 
 const express = require('express');
+const fs = require('fs');
 const path = require('path');
 const supabaseAdmin = require('./lib/supabaseClient');
 const { getListingLocation, getBookingLocation, getListingDistance } = require('./lib/locationAccess');
 const videoRoutes = require('./routes/videoRoutes');
 const listingRoutes = require('./routes/listingRoutes');
 const chatAttachmentRoutes = require('./routes/chatAttachmentRoutes');
+const chatRoutes = require('./routes/chatRoutes');
 const reviewRoutes = require('./routes/reviewRoutes');
 const { createAdminRoutes } = require('./routes/adminRoutes');
 const { runFullCleanup } = require('./lib/videoCleanup');
@@ -51,6 +53,7 @@ app.use('/api', (req, res, next) => {
 app.use('/api', videoRoutes);
 app.use('/api', listingRoutes);
 app.use('/api', chatAttachmentRoutes);
+app.use('/api', chatRoutes);
 app.use('/api', reviewRoutes);
 
 // Serve the Next.js public assets when this service is used as the web host.
@@ -149,7 +152,14 @@ const pageTemplates = {
 
 Object.entries(pageTemplates).forEach(([route, template]) => {
   app.get(route, (_req, res) => {
-    res.sendFile(path.join(legacyPagesDirectory, template));
+    if (template !== 'chats.html') return res.sendFile(path.join(legacyPagesDirectory, template));
+    fs.readFile(path.join(legacyPagesDirectory, template), 'utf8', (error, html) => {
+      if (error) {
+        console.error('Chat page delivery failed:', error);
+        return res.sendStatus(500);
+      }
+      res.type('html').send(html.replace('</body>', '<script src="/js/chat-data.js"></script></body>'));
+    });
   });
 });
 

@@ -148,6 +148,13 @@ export default function LegacyPage({ title, markup, scripts }) {
 
   useEffect(() => {
     runLegacyScripts(containerRef.current, scripts);
+    if (title === 'Messenger Dashboard' && !document.querySelector('script[data-chat-data]')) {
+      const script = document.createElement('script');
+      script.src = '/js/chat-data.js';
+      script.dataset.chatData = 'true';
+      script.async = false;
+      document.body.appendChild(script);
+    }
   }, [scripts]);
 
   return (
