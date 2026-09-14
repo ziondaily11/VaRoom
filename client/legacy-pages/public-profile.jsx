@@ -182,12 +182,12 @@ export default function PublicHostProfile() {
       const [listingsResult, reviewsResult] = await Promise.all([
         client
           .from("listings")
-          .select("id,title,category,availability_status,listing_photos(storage_path),listing_booking_details(price_amount,price_unit)")
+          .select("id,title,category,host_id,created_at")
           .eq("host_id", hostId)
           .order("created_at", { ascending: false }),
         client
           .from("reviews")
-          .select("id,rating,comment,created_at,client:profiles(full_name)")
+          .select("id,rating,comment,created_at,client_id")
           .eq("host_id", hostId)
           .eq("status", "published")
           .order("created_at", { ascending: false }),
@@ -197,19 +197,45 @@ export default function PublicHostProfile() {
       if (listingsResult.error) {
         console.error("Unable to load public host listings", {
           hostId,
-          error: listingsResult.error,
+          error: {
+            code: listingsResult.error.code,
+            message: listingsResult.error.message,
+            details: listingsResult.error.details,
+            hint: listingsResult.error.hint,
+          },
         });
       }
       if (reviewsResult.error) {
         console.error("Unable to load public host reviews", {
           hostId,
-          error: reviewsResult.error,
+          error: {
+            code: reviewsResult.error.code,
+            message: reviewsResult.error.message,
+            details: reviewsResult.error.details,
+            hint: reviewsResult.error.hint,
+          },
         });
       }
+      const reviewClientIds = !reviewsResult.error
+        ? [...new Set((reviewsResult.data || []).map((review) => review.client_id).filter(Boolean))]
+        : [];
+      const clientsResult = reviewClientIds.length
+        ? await client.from("profiles").select("id,full_name").in("id", reviewClientIds)
+        : { data: [], error: null };
+      if (clientsResult.error) {
+        console.error("Unable to load public review authors", {
+          hostId,
+          error: clientsResult.error,
+        });
+      }
+      const clientsById = Object.fromEntries((clientsResult.data || []).map((clientProfile) => [
+        clientProfile.id,
+        clientProfile.full_name,
+      ]));
       const mappedReviews = !reviewsResult.error && Array.isArray(reviewsResult.data)
         ? reviewsResult.data.map((review) => ({
           id: review.id,
-          name: review.client?.full_name || "Guest",
+          name: clientsById[review.client_id] || "Guest",
           rating: Number(review.rating) || 0,
           date: review.created_at ? new Date(review.created_at).toLocaleDateString() : "",
           text: review.comment || "",
@@ -224,12 +250,23 @@ export default function PublicHostProfile() {
           ? profile.avatar_url
           : client.storage.from("avatars").getPublicUrl(profile.avatar_url).data.publicUrl)
         : "";
+      const listingIds = !listingsResult.error
+        ? (listingsResult.data || []).map((listing) => listing.id)
+        : [];
+      const [photosResult, detailsResult] = listingIds.length
+        ? await Promise.all([
+          client.from("listing_photos").select("listing_id,storage_path").in("listing_id", listingIds),
+          client.from("listing_booking_details").select("listing_id,price_amount,price_unit").in("listing_id", listingIds),
+        ])
+        : [{ data: [], error: null }, { data: [], error: null }];
+      if (photosResult.error) console.error("Unable to load public listing photos", photosResult.error);
+      if (detailsResult.error) console.error("Unable to load public listing prices", detailsResult.error);
+      const photosByListingId = Object.fromEntries((photosResult.data || []).map((photo) => [photo.listing_id, photo]));
+      const detailsByListingId = Object.fromEntries((detailsResult.data || []).map((details) => [details.listing_id, details]));
       const mappedListings = !listingsResult.error && Array.isArray(listingsResult.data)
         ? await Promise.all(listingsResult.data.map(async (listing) => {
-          const photo = listing.listing_photos?.[0];
-          const details = Array.isArray(listing.listing_booking_details)
-            ? listing.listing_booking_details[0]
-            : listing.listing_booking_details;
+          const photo = photosByListingId[listing.id];
+          const details = detailsByListingId[listing.id];
           let media = [];
           try {
             const mediaResponse = await fetch(`/api/properties/${encodeURIComponent(listing.id)}/media`);
