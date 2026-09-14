@@ -12,10 +12,20 @@
     if (!response.ok) throw new Error(body.error || 'Chat request failed');
     return body;
   };
-  const initials = (profile) => (profile && (profile.full_name || profile.username) || '?')
+  const initials = (profile) => (profile && (profile.full_name || profile.username) || '')
     .split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
   const formatTime = (value) => value ? new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
   const clear = (element) => { while (element && element.firstChild) element.removeChild(element.firstChild); };
+
+  function clearInitialPlaceholders() {
+    clear($('#contactList'));
+    clear($('.messages'));
+    clear($('.profile-block'));
+    $('#chatName').textContent = '';
+    $('#statusText').textContent = '';
+    $('#statusDot').style.background = '#c7cbd1';
+    document.querySelectorAll('.info-section').forEach((section) => { section.hidden = true; });
+  }
 
   function renderConversationList() {
     const list = $('#contactList');
@@ -30,7 +40,7 @@
         <div class="contact-body"><div class="contact-top"><span class="contact-name"></span><span class="contact-time"></span></div>
         <div class="contact-bottom"><span class="contact-preview"></span></div></div>`;
       item.querySelector('.avatar-fallback').textContent = initials(person);
-      item.querySelector('.contact-name').textContent = person.full_name || person.username || 'VaRoom user';
+      item.querySelector('.contact-name').textContent = person.full_name || person.username || '';
       item.querySelector('.contact-time').textContent = formatTime(conversation.lastMessage && conversation.lastMessage.created_at);
       item.querySelector('.contact-preview').textContent = preview;
       item.addEventListener('click', () => selectConversation(conversation.id));
@@ -39,17 +49,18 @@
   }
 
   function renderProfile(conversation) {
-    const person = conversation && conversation.participant || {};
     const block = $('.profile-block');
     if (!block) return;
     clear(block);
+    if (!conversation) return;
+    const person = conversation.participant || {};
     const avatar = document.createElement('div');
     avatar.className = 'avatar-fallback';
     avatar.style.background = '#6C63FF';
     avatar.textContent = initials(person);
     const name = document.createElement('div');
     name.className = 'p-name';
-    name.textContent = person.full_name || person.username || 'VaRoom user';
+    name.textContent = person.full_name || person.username || '';
     block.append(avatar, name);
     if (person.username) { const line = document.createElement('div'); line.className = 'p-line'; line.textContent = `@${person.username}`; block.appendChild(line); }
     if (person.email) { const line = document.createElement('div'); line.className = 'p-line'; line.textContent = person.email; block.appendChild(line); }
@@ -144,8 +155,9 @@
     const conversation = state.conversations.find((item) => item.id === id);
     if (!conversation) return;
     const person = conversation.participant || {};
-    $('#chatName').textContent = person.full_name || person.username || 'VaRoom user';
-    $('#statusText').textContent = 'Conversation';
+    $('#chatName').textContent = person.full_name || person.username || '';
+    $('#statusText').textContent = '';
+    $('#statusDot').style.background = '#c7cbd1';
     renderProfile(conversation);
     if (state.channel) await state.channel.unsubscribe();
     const result = await api(`/api/chat/conversations/${encodeURIComponent(id)}/messages`);
@@ -168,6 +180,7 @@
   }
 
   async function start() {
+    clearInitialPlaceholders();
     if (!window.supabaseClient) throw new Error('Supabase client is unavailable');
     const result = await window.supabaseClient.auth.getSession();
     state.session = result.data.session;
@@ -181,6 +194,7 @@
     else {
       $('#chatName').textContent = '';
       $('#statusText').textContent = '';
+      $('#statusDot').style.background = '#c7cbd1';
       clear($('.messages'));
       renderProfile(null);
       renderInfoAttachments([]);
