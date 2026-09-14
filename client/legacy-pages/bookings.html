@@ -397,7 +397,11 @@
     }
     #client-bookings-view .bk-host-avatar{ width:32px; height:32px; font-size:.76rem; }
     #client-bookings-view     .bk-msg-link{
-      min-height:32px; font-size:.82rem; white-space:nowrap;
+      width:34px; height:34px; min-height:34px; padding:0; display:inline-flex;
+      align-items:center; justify-content:center; color:var(--red); flex-shrink:0;
+    }
+    #client-bookings-view .bk-msg-link svg{
+      width:18px; height:18px; display:block;
     }
     #client-bookings-view .bk-actions{
       grid-column:1 / -1; width:100%; min-width:0; margin:0;
@@ -1270,7 +1274,7 @@
               '<span class="bk-status ' + b.status + '">' + (b.status === 'declined' ? 'cancelled' : b.status) + '</span>' +
             '</div>' +
             '<div class="bk-meta">' +
-              '<span>' + calendarIcon + '<b>Dates</b> ' + escapeHtml(describeDates(b)) + '</span>' +
+              '<span>' + calendarIcon + escapeHtml(describeDates(b)) + '</span>' +
             '</div>' +
             '<div class="bk-price">KES ' + Number(b.total_price).toLocaleString() + '<span>' + perUnit + '</span></div>' +
             '<div class="bk-bottom-row">' +
@@ -1278,7 +1282,9 @@
                 '<div class="bk-host-avatar">' + hostAvatarHtml + '</div>' +
                 '<div class="bk-host-name">' + escapeHtml(host.full_name || 'Host') + '</div>' +
               '</div>' +
-              '<button type="button" class="bk-msg-link" data-msg-host="' + (host.id || '') + '" data-msg-listing="' + (listing.id || '') + '">Message Host</button>' +
+              '<button type="button" class="bk-msg-link" data-msg-host="' + (host.id || '') + '" data-msg-listing="' + (listing.id || '') + '" aria-label="Message host" title="Message host">' +
+                '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11.5a7.5 7.5 0 0 1-8 7.5 8.5 8.5 0 0 1-3.7-.8L4 20l1.5-4.1A7.4 7.4 0 0 1 4.5 12 7.5 7.5 0 0 1 12 4.5h.5A7.5 7.5 0 0 1 20 11.5Z"/><path d="M8 12h.01M12 12h.01M16 12h.01"/></svg>' +
+              '</button>' +
               '<div class="bk-actions">' +
                 (opts.showCancel ? '<button type="button" class="bk-btn bk-btn-outline" data-cancel="' + b.id + '">Cancel Booking</button>' : '') +
                 (!opts.showCancel && endMoment(b) < new Date()
