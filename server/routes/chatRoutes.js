@@ -17,7 +17,7 @@ async function authenticatedUser(req) {
 async function memberConversation(conversationId, userId) {
   const { data, error } = await supabaseAdmin
     .from('conversations')
-    .select('id,listing_id,host_id,client_id,created_at,updated_at')
+    .select('id,listing_id,host_id,client_id,created_at')
     .eq('id', conversationId)
     .maybeSingle();
   if (error || !data || (data.host_id !== userId && data.client_id !== userId)) return null;

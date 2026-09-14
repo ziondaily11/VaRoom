@@ -16,6 +16,22 @@
     .split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
   const formatTime = (value) => value ? new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
   const clear = (element) => { while (element && element.firstChild) element.removeChild(element.firstChild); };
+  const avatarUrl = (profile) => {
+    if (!profile || !profile.avatar_url) return '';
+    if (/^(https?:|data:|blob:)/i.test(profile.avatar_url)) return profile.avatar_url;
+    return window.supabaseClient.storage.from('avatars').getPublicUrl(profile.avatar_url).data.publicUrl;
+  };
+  const setAvatar = (element, profile) => {
+    const url = avatarUrl(profile);
+    if (url) {
+      element.style.backgroundImage = `url("${url.replace(/"/g, '%22')}")`;
+      element.style.backgroundSize = 'cover';
+      element.style.backgroundPosition = 'center';
+      element.textContent = '';
+    } else {
+      element.textContent = initials(profile);
+    }
+  };
 
   function clearInitialPlaceholders() {
     clear($('#contactList'));
@@ -39,7 +55,7 @@
       item.innerHTML = `<div class="avatar-wrap"><div class="avatar-fallback" style="background:#6C63FF;"></div></div>
         <div class="contact-body"><div class="contact-top"><span class="contact-name"></span><span class="contact-time"></span></div>
         <div class="contact-bottom"><span class="contact-preview"></span></div></div>`;
-      item.querySelector('.avatar-fallback').textContent = initials(person);
+      setAvatar(item.querySelector('.avatar-fallback'), person);
       item.querySelector('.contact-name').textContent = person.full_name || person.username || '';
       item.querySelector('.contact-time').textContent = formatTime(conversation.lastMessage && conversation.lastMessage.created_at);
       item.querySelector('.contact-preview').textContent = preview;
@@ -57,7 +73,7 @@
     const avatar = document.createElement('div');
     avatar.className = 'avatar-fallback';
     avatar.style.background = '#6C63FF';
-    avatar.textContent = initials(person);
+    setAvatar(avatar, person);
     const name = document.createElement('div');
     name.className = 'p-name';
     name.textContent = person.full_name || person.username || '';
@@ -168,15 +184,28 @@
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${id}` }, (payload) => {
         const current = $('.messages');
         const message = payload.new;
-        if (message.message_type !== 'text' || current.querySelector(`[data-message-id="${message.id}"]`)) return;
+        if (current.querySelector(`[data-message-id="${message.id}"]`)) return;
         current.appendChild(messageRow(message)); current.scrollTop = current.scrollHeight;
-      }).subscribe();
-    state.channel.on('presence', { event: 'sync' }, () => {
-      const online = Object.keys(state.channel.presenceState()).length > 1;
-      $('#statusText').textContent = online ? 'Online' : 'Offline';
-      $('#statusDot').style.background = online ? 'var(--mint)' : '#c7cbd1';
+      })
+      .on('presence', { event: 'sync' }, () => {
+        const online = Object.keys(state.channel.presenceState()).length > 1;
+        $('#statusText').textContent = online ? 'Online' : 'Offline';
+        $('#statusDot').style.background = online ? 'var(--mint)' : '#c7cbd1';
+      });
+    await new Promise((resolve, reject) => {
+      state.channel.subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          try {
+            await state.channel.track({ user_id: state.session.user.id });
+            resolve();
+          } catch (error) {
+            reject(error);
+          }
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          reject(new Error(`Chat realtime subscription failed: ${status}`));
+        }
+      });
     });
-    await state.channel.track({ user_id: state.session.user.id });
   }
 
   async function start() {
