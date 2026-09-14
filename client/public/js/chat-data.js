@@ -46,7 +46,7 @@
       .chat-listing-option{border:1px solid #e2e5ea;border-radius:12px;background:#fff;text-align:left;overflow:hidden;cursor:pointer;color:#1f2937}
       .chat-listing-option.selected{border-color:#25876e;box-shadow:0 0 0 2px #dbf4ea}
       .chat-listing-option img{width:100%;height:82px;object-fit:cover;display:block;background:#f6f7f9}
-      .chat-listing-option div{padding:8px;font-size:12px}.chat-listing-option small{display:block;color:#71798a;margin-top:3px}
+      .chat-listing-option div{padding:8px;font-size:13px;color:#1f2937}.chat-listing-option strong{color:#111827;font-weight:700}.chat-listing-option small{display:block;color:#4b5563;margin-top:4px;font-size:11.5px}
       .chat-sheet-action{margin-top:12px;border:0;border-radius:9px;background:#4ec1a0;color:#fff;padding:9px 14px;font-weight:700;cursor:pointer}.chat-sheet-action:disabled{opacity:.5;cursor:default}
       .chat-report-details{width:100%;min-height:70px;border:1px solid #e2e5ea;border-radius:8px;padding:8px;font:inherit;resize:vertical}
       @media(max-width:760px){.chat-sheet{padding:14px 16px}.chat-sheet-list{grid-template-columns:1fr 1fr}}
@@ -112,7 +112,7 @@
       const result = await api('/api/chat/listings');
       state.listings = result.listings || [];
     }
-    let selected = null;
+    const selected = new Set();
     state.listings.forEach((listing) => {
       const option = document.createElement('button');
       option.type = 'button';
@@ -126,11 +126,26 @@
       textBlock.querySelector('strong').textContent = listing.title || '';
       textBlock.querySelector('small').textContent = listing.location_text || '';
       option.append(image, textBlock);
+      loadListingVideo(listing.id).then((video) => {
+        if (!video) return;
+        const player = document.createElement('video');
+        player.src = video.url;
+        player.poster = video.thumbnailUrl;
+        player.muted = true;
+        player.playsInline = true;
+        player.controls = true;
+        player.style.cssText = 'width:100%;height:82px;object-fit:cover;display:block;background:#f6f7f9';
+        image.replaceWith(player);
+      }).catch((error) => console.error('Listing video unavailable:', error));
       option.addEventListener('click', () => {
-        document.querySelectorAll('.chat-listing-option').forEach((item) => item.classList.remove('selected'));
-        option.classList.add('selected');
-        selected = listing;
-        share.disabled = false;
+        if (selected.has(listing.id)) {
+          selected.delete(listing.id);
+          option.classList.remove('selected');
+        } else {
+          selected.add(listing.id);
+          option.classList.add('selected');
+        }
+        share.disabled = selected.size === 0;
       });
       list.appendChild(option);
     });
@@ -140,11 +155,16 @@
       list.appendChild(empty);
     }
     share.addEventListener('click', async () => {
-      if (!selected) return;
-      await api(`/api/chat/conversations/${encodeURIComponent(state.activeId)}/messages`, {
-        method: 'POST',
-        body: JSON.stringify({ content: selected.title, listingId: selected.id, messageType: 'listing' }),
-      });
+      if (!selected.size) return;
+      share.disabled = true;
+      for (const listingId of selected) {
+        const listing = state.listings.find((item) => item.id === listingId);
+        if (!listing) continue;
+        await api(`/api/chat/conversations/${encodeURIComponent(state.activeId)}/messages`, {
+          method: 'POST',
+          body: JSON.stringify({ content: listing.title, listingId: listing.id, messageType: 'listing' }),
+        });
+      }
       closeSheet('chatShareSheet');
     });
     sheet.classList.add('open');
@@ -237,6 +257,19 @@
       card.querySelector('.file-name').textContent = message.listing.title || '';
       card.querySelector('.file-sub').textContent = message.listing.location_text || '';
       card.addEventListener('click', () => { window.location.assign(`/booking?id=${encodeURIComponent(message.listing.id)}`); });
+      loadListingVideo(message.listing.id).then((video) => {
+        if (!video) return;
+        const player = document.createElement('video');
+        player.src = video.url;
+        player.poster = video.thumbnailUrl;
+        player.muted = true;
+        player.playsInline = true;
+        player.controls = true;
+        player.style.cssText = 'width:180px;height:90px;object-fit:cover;border-radius:8px';
+        const existingImage = card.querySelector('img');
+        if (existingImage) existingImage.replaceWith(player);
+        else card.querySelector('.file-icon').replaceWith(player);
+      }).catch((error) => console.error('Shared listing video unavailable:', error));
       row.appendChild(card);
     } else if (message.message_type === 'voice' && message.attachment_id) {
       const card = document.createElement('div');
@@ -272,6 +305,14 @@
   async function downloadAttachment(attachmentId) {
     const result = await api(`/api/chat/attachments/${encodeURIComponent(attachmentId)}/download`);
     return result.url;
+  }
+
+  async function loadListingVideo(listingId) {
+    const mediaResult = await api(`/api/properties/${encodeURIComponent(listingId)}/media`);
+    const video = (mediaResult.media || []).find((item) => item.type === 'video');
+    if (!video) return null;
+    const playback = await api(`/api/media/${encodeURIComponent(video.id)}/playback`);
+    return { ...video, url: playback.url, thumbnailUrl: playback.thumbnailUrl || video.thumbnailUrl || '' };
   }
 
   function renderMessages(messages) {
