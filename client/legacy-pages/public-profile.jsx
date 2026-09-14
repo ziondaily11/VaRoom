@@ -170,14 +170,20 @@ export default function PublicHostProfile() {
         ? await profileQuery.eq("id", hostIdentifier).maybeSingle()
         : await profileQuery.eq("username", hostIdentifier).maybeSingle();
       const hostId = profileResult.data?.id;
-      if (cancelled || profileResult.error || !hostId) return;
+      if (profileResult.error) {
+        console.error("Unable to load public host profile", profileResult.error);
+        return;
+      }
+      if (cancelled || !hostId) {
+        console.error("Public host profile was not found", hostIdentifier);
+        return;
+      }
 
       const [listingsResult, reviewsResult] = await Promise.all([
         client
           .from("listings")
           .select("id,title,category,availability_status,listing_photos(storage_path),listing_booking_details(price_amount,price_unit)")
           .eq("host_id", hostId)
-          .eq("availability_status", "available")
           .order("created_at", { ascending: false }),
         client
           .from("reviews")
@@ -188,6 +194,18 @@ export default function PublicHostProfile() {
       ]);
 
       const profile = profileResult.data;
+      if (listingsResult.error) {
+        console.error("Unable to load public host listings", {
+          hostId,
+          error: listingsResult.error,
+        });
+      }
+      if (reviewsResult.error) {
+        console.error("Unable to load public host reviews", {
+          hostId,
+          error: reviewsResult.error,
+        });
+      }
       const mappedReviews = !reviewsResult.error && Array.isArray(reviewsResult.data)
         ? reviewsResult.data.map((review) => ({
           id: review.id,
@@ -207,11 +225,30 @@ export default function PublicHostProfile() {
           : client.storage.from("avatars").getPublicUrl(profile.avatar_url).data.publicUrl)
         : "";
       const mappedListings = !listingsResult.error && Array.isArray(listingsResult.data)
-        ? listingsResult.data.map((listing) => {
+        ? await Promise.all(listingsResult.data.map(async (listing) => {
           const photo = listing.listing_photos?.[0];
           const details = Array.isArray(listing.listing_booking_details)
             ? listing.listing_booking_details[0]
             : listing.listing_booking_details;
+          let media = [];
+          try {
+            const mediaResponse = await fetch(`/api/properties/${encodeURIComponent(listing.id)}/media`);
+            if (!mediaResponse.ok) {
+              console.error("Unable to load public listing media", {
+                listingId: listing.id,
+                status: mediaResponse.status,
+              });
+            } else {
+              const mediaPayload = await mediaResponse.json();
+              media = Array.isArray(mediaPayload.media) ? mediaPayload.media : [];
+            }
+          } catch (error) {
+            console.error("Unable to load public listing media", {
+              listingId: listing.id,
+              error,
+            });
+          }
+          const mediaImage = media.find((item) => item.thumbnailUrl);
           return {
             id: listing.id,
             title: listing.title,
@@ -221,9 +258,10 @@ export default function PublicHostProfile() {
               ? (photo.storage_path.startsWith("http")
                 ? photo.storage_path
                 : client.storage.from("listing-photos").getPublicUrl(photo.storage_path).data.publicUrl)
-              : "",
+              : mediaImage?.thumbnailUrl || "",
+            videoUrl: media.find((item) => item.type === "video")?.thumbnailUrl || null,
           };
-        })
+        }))
         : [];
 
       setHost({
@@ -239,7 +277,8 @@ export default function PublicHostProfile() {
       setReviews(mappedReviews);
     };
 
-    loadProfile().catch(() => {
+    loadProfile().catch((error) => {
+      console.error("Unable to load public host profile", error);
       if (!cancelled) {
         setHost((current) => ({ ...current, name: "Host" }));
       }
