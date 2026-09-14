@@ -154,21 +154,25 @@ export default function PublicHostProfile() {
   const [reviews, setReviews] = useState([]);
 
   useEffect(() => {
-    if (!router.isReady || !router.query.hostId) return undefined;
+    if (!router.isReady || (!router.query.hostId && !router.query.username)) return undefined;
 
     let cancelled = false;
     const loadProfile = async () => {
       const client = typeof window !== "undefined" ? window.supabaseClient : null;
       if (!client) return;
 
-      const hostId = String(router.query.hostId);
-      const [profileResult, listingsResult, reviewsResult] = await Promise.all([
-        client
-          .from("profiles")
-          .select("full_name,username,bio,avatar_url,verified,city")
-          .eq("id", hostId)
-          .eq("role", "host")
-          .maybeSingle(),
+      const hostIdentifier = String(router.query.hostId || router.query.username).replace(/^@/, "");
+      const profileQuery = client
+        .from("profiles")
+        .select("id,full_name,username,bio,avatar_url,verified,city")
+        .eq("role", "host");
+      const profileResult = router.query.hostId
+        ? await profileQuery.eq("id", hostIdentifier).maybeSingle()
+        : await profileQuery.eq("username", hostIdentifier).maybeSingle();
+      const hostId = profileResult.data?.id;
+      if (cancelled || profileResult.error || !hostId) return;
+
+      const [listingsResult, reviewsResult] = await Promise.all([
         client
           .from("listings")
           .select("id,title,category,availability_status,listing_photos(storage_path),listing_booking_details(price_amount,price_unit)")
@@ -182,8 +186,6 @@ export default function PublicHostProfile() {
           .eq("status", "published")
           .order("created_at", { ascending: false }),
       ]);
-
-      if (cancelled || profileResult.error || !profileResult.data) return;
 
       const profile = profileResult.data;
       const mappedReviews = !reviewsResult.error && Array.isArray(reviewsResult.data)
@@ -245,7 +247,7 @@ export default function PublicHostProfile() {
     return () => {
       cancelled = true;
     };
-  }, [router.isReady, router.query.hostId]);
+  }, [router.isReady, router.query.hostId, router.query.username]);
 
   const signIn = () => {
     router.push(`/login?redirect=${encodeURIComponent(router.asPath)}`);
