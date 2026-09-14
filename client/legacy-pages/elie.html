@@ -284,7 +284,7 @@
 <script src="js/supabase-client.js"></script>
 <script>
   (async function(){
-    const ELIE_API_URL = 'https://varoom.onrender.com/elie/search';
+    const ELIE_API_URL = 'https://elie1-0.onrender.com/elie/search';
     const conversationHistory = []; // [{role:'user'|'elie', text:'...'}], last-6 sent with each request
     let activeSessionId = null; // null until the first message of a chat is sent (lazy-created)
     let currentUserId = null;
@@ -308,7 +308,7 @@
     // opens, so a cold start happens while the person is reading/typing
     // instead of after they hit send. Ignored if it fails — the real
     // request will just take the full cold-start hit as before.
-    fetch('https://varoom.onrender.com/health').catch(function(){});
+    fetch('https://elie1-0.onrender.com/health').catch(function(){});
 
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (!session) {

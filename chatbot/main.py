@@ -111,7 +111,7 @@ raw_cors = (os.getenv("CORS_ORIGINS") or "").strip()
 allowed_origins = [o.strip() for o in raw_cors.split(",") if o.strip()] if raw_cors else [
     "https://varoom.co.ke",
     "https://www.varoom.co.ke",
-    "https://varoom.onrender.com",
+    "https://elie1-0.onrender.com",
     "https://varoom-1.onrender.com",
     "http://localhost:3000",
     "http://localhost:8000",
