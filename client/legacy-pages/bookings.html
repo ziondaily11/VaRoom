@@ -1644,6 +1644,7 @@
 
     // ---------- Boot ----------
     if (isClient) {
+      checkingAuth.style.display = 'none';
       bookingsPage.style.display = 'block';
       renderBookingSkeletons();
       const result = await loadBookingBatch();
