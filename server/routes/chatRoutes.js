@@ -47,9 +47,9 @@ router.get('/chat/conversations', async (req, res) => {
     if (!user) return res.status(401).json({ error: 'Invalid or expired session' });
     const { data, error } = await supabaseAdmin
       .from('conversations')
-      .select('id,listing_id,host_id,client_id,created_at,updated_at')
+      .select('id,listing_id,host_id,client_id,created_at')
       .or(`host_id.eq.${user.id},client_id.eq.${user.id}`)
-      .order('updated_at', { ascending: false });
+      .order('created_at', { ascending: false });
     if (error) throw error;
     const conversations = data || [];
     const participantIds = [...new Set(conversations.flatMap((conversation) => [
@@ -73,6 +73,11 @@ router.get('/chat/conversations', async (req, res) => {
       });
     }
     const previewByConversation = Object.fromEntries(previews.map((message) => [message.conversation_id, message]));
+    conversations.sort((left, right) => {
+      const leftTime = previewByConversation[left.id] && previewByConversation[left.id].created_at || left.created_at;
+      const rightTime = previewByConversation[right.id] && previewByConversation[right.id].created_at || right.created_at;
+      return new Date(rightTime).getTime() - new Date(leftTime).getTime();
+    });
     return res.json({
       conversations: conversations.map((conversation) => ({
         ...conversation,
