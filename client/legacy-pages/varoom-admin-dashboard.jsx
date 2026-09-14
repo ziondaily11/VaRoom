@@ -677,10 +677,14 @@ export default function VaroomAdminDashboard() {
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [propertyNews, setPropertyNews] = useState([]);
   const [propertyNewsError, setPropertyNewsError] = useState("");
+  const [dashboardError, setDashboardError] = useState("");
 
   async function api(path, options) {
     const response = await fetch(path, { credentials: "same-origin", ...options });
-    if (!response.ok) throw new Error((await response.json()).error || "Request failed");
+    if (!response.ok) {
+      const body = await response.json().catch(() => null);
+      throw new Error(body?.error || "Request failed");
+    }
     return response.status === 204 ? null : response.json();
   }
 
@@ -690,7 +694,7 @@ export default function VaroomAdminDashboard() {
 
   useEffect(() => {
     if (!loggedIn) return;
-    Promise.all([
+    Promise.allSettled([
       api("/admin/overview"),
       api("/admin/signins?range=14"),
       api("/admin/revenue?range=7"),
@@ -699,25 +703,51 @@ export default function VaroomAdminDashboard() {
       api("/admin/user-reports"),
       api("/admin/growth?range=14"),
       api("/admin/admins"),
-      api("/admin/news/pending"),
     ])
-      .then(([nextOverview, nextSignins, nextRevenue, nextTickets, nextReports, nextUserReports, nextGrowth, nextAdmins, nextNews]) => {
-        setOverview(nextOverview);
-        setSignins(nextSignins.data || []);
-        setSigninsSeries(nextSignins.series || []);
-        setTransactions(nextRevenue.transactions || []);
-        setRevenueTotal(nextRevenue.total || 0);
-        setRevenueSeries(nextRevenue.series || []);
-        setTickets(nextTickets.data || []);
-        setSelectedTicket((nextTickets.data || [])[0] || null);
-        setReports(nextReports.data || []);
-        setUserReports(nextUserReports.data || []);
-        setGrowthSeries(nextGrowth.series || []);
-        setAdmins(nextAdmins.data || []);
-        setPropertyNews(nextNews || []);
-      })
-      .catch((error) => setLoginError(error.message));
+      .then((results) => {
+        const value = (index) => results[index].status === "fulfilled" ? results[index].value : null;
+        const errors = results
+          .filter((result) => result.status === "rejected")
+          .map((result) => result.reason?.message || "A dashboard section failed to load.");
+
+        const nextOverview = value(0);
+        const nextSignins = value(1);
+        const nextRevenue = value(2);
+        const nextTickets = value(3);
+        const nextReports = value(4);
+        const nextUserReports = value(5);
+        const nextGrowth = value(6);
+        const nextAdmins = value(7);
+
+        if (nextOverview) setOverview(nextOverview);
+        if (nextSignins) {
+          setSignins(nextSignins.data || []);
+          setSigninsSeries(nextSignins.series || []);
+        }
+        if (nextRevenue) {
+          setTransactions(nextRevenue.transactions || []);
+          setRevenueTotal(nextRevenue.total || 0);
+          setRevenueSeries(nextRevenue.series || []);
+        }
+        if (nextTickets) {
+          setTickets(nextTickets.data || []);
+          setSelectedTicket((nextTickets.data || [])[0] || null);
+        }
+        if (nextReports) setReports(nextReports.data || []);
+        if (nextUserReports) setUserReports(nextUserReports.data || []);
+        if (nextGrowth) setGrowthSeries(nextGrowth.series || []);
+        if (nextAdmins) setAdmins(nextAdmins.data || []);
+        setDashboardError(errors.length ? errors.join(" ") : "");
+      });
   }, [loggedIn]);
+
+  useEffect(() => {
+    if (!loggedIn || active !== "property-news") return;
+    setPropertyNewsError("");
+    api("/admin/news/pending")
+      .then((nextNews) => setPropertyNews(nextNews || []))
+      .catch((error) => setPropertyNewsError(error.message || "Unable to load property news."));
+  }, [active, loggedIn]);
 
   async function login(email, password) {
     try {
@@ -871,7 +901,14 @@ export default function VaroomAdminDashboard() {
           </div>
           <div className="text-sm text-[#5c584f]">Admin</div>
         </header>
-        <main className="flex-1 overflow-auto p-6">{renderSection()}</main>
+        <main className="flex-1 overflow-auto p-6">
+          {dashboardError ? (
+            <div className="mb-4 border border-[#B5482E]/30 bg-[#B5482E]/5 px-4 py-3 text-sm text-[#B5482E]">
+              Some dashboard data could not be loaded. Available sections are still shown below.
+            </div>
+          ) : null}
+          {renderSection()}
+        </main>
       </div>
     </div>
   );
