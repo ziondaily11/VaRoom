@@ -1,7 +1,8 @@
 (function () {
   'use strict';
 
-  const state = { session: null, conversations: [], activeId: null, channel: null, listings: [] };
+  const state = { session: null, conversations: [], activeId: null, channel: null, listings: [], pendingAttachment: null, mobileView: 'inbox', mobileInfoReturn: 'conversation' };
+  const isMobile = () => window.matchMedia('(max-width: 760px)').matches;
   const $ = (selector) => document.querySelector(selector);
   const api = async (url, options) => {
     const response = await fetch(url, {
@@ -48,7 +49,7 @@
       .chat-listing-option img{width:100%;height:82px;object-fit:cover;display:block;background:#f6f7f9}
       .chat-listing-option div{padding:8px;font-size:13px;color:#1f2937}.chat-listing-option strong{color:#111827;font-weight:700}.chat-listing-option small{display:block;color:#4b5563;margin-top:4px;font-size:11.5px}
       .chat-listing-card{max-width:320px;overflow:hidden;border-radius:10px;background:#f7f8f9;cursor:pointer}.chat-listing-card img{display:block;width:100%;height:150px;object-fit:cover;background:#eceff1}.chat-listing-card-body{padding:10px 12px}.chat-listing-card-title{font-weight:700;color:#14161c}.chat-listing-card-sub{margin-top:4px;color:#626b78;font-size:12px}
-      .chat-sheet-action{margin-top:12px;border:0;border-radius:9px;background:#4ec1a0;color:#fff;padding:9px 14px;font-weight:700;cursor:pointer}.chat-sheet-action:disabled{opacity:.5;cursor:default}
+      .chat-sheet-action{margin-top:12px;border:0;border-radius:9px;background:#4ec1a0;color:#fff;padding:9px 14px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px}.chat-sheet-action .icon{width:16px;height:16px}.chat-sheet-action:disabled{opacity:.5;cursor:default}
       .chat-report-details{width:100%;min-height:70px;border:1px solid #e2e5ea;border-radius:8px;padding:8px;font:inherit;resize:vertical}
       .chat-actions .info-action-report{display:block;width:100%;padding:9px 0;border:0;background:transparent;color:#4b5563;text-align:left;font:inherit;cursor:pointer}
       .chat-actions .info-action-report:hover,.chat-actions .info-action-report:focus-visible{color:#14161c}
@@ -66,6 +67,120 @@
       sheet.setAttribute('aria-hidden', 'true');
       chatCol.appendChild(sheet);
     });
+    if (isMobile()) {
+      $('.search-box input').placeholder = 'Search conversations...';
+      const title = document.createElement('div');
+      title.className = 'mobile-inbox-title';
+      title.innerHTML = '<button class="mobile-menu" type="button" aria-label="Open navigation"><svg class="icon"><use href="#i-menu"/></svg></button><span>Chat</span>';
+      $('.contacts-col').prepend(title);
+      const preview = document.createElement('div');
+      preview.className = 'mobile-preview';
+      preview.id = 'mobileComposerPreview';
+      $('.chat-input-area').prepend(preview);
+      const plus = document.createElement('button');
+      plus.type = 'button'; plus.className = 'mobile-plus'; plus.title = 'Add attachment';
+      plus.setAttribute('aria-label', 'Add attachment');
+      plus.textContent = '+';
+      $('.attach-icons').prepend(plus);
+      plus.addEventListener('click', openMobileTray);
+      $('.chat-header').insertAdjacentHTML('afterbegin', '<button class="mobile-back" type="button" aria-label="Back to inbox">‹</button>');
+      $('.chat-header .mobile-back').addEventListener('click', showMobileInbox);
+      $('.chat-header > div:first-of-type').addEventListener('click', () => {
+        if (state.activeId) showMobileInfo('conversation');
+      });
+      $('.info-close-btn').addEventListener('click', () => {
+        if (state.mobileInfoReturn === 'inbox') showMobileInbox();
+        else showMobileConversation();
+      });
+      $('.mobile-menu').addEventListener('click', () => {
+        const homeButton = document.querySelector('[data-chat-nav="home"]');
+        if (homeButton) homeButton.click();
+      });
+    }
+  }
+
+  function showMobileInbox() {
+    if (!isMobile()) return;
+    state.mobileView = 'inbox';
+    $('.contacts-col').classList.remove('mobile-hidden');
+    $('.chat-col').classList.remove('mobile-visible');
+    $('.info-col').classList.remove('mobile-visible');
+  }
+  function showMobileConversation() {
+    if (!isMobile() || !state.activeId) return;
+    state.mobileView = 'conversation';
+    $('.contacts-col').classList.add('mobile-hidden');
+    $('.info-col').classList.remove('mobile-visible');
+    $('.chat-col').classList.add('mobile-visible');
+  }
+  function showMobileInfo(returnTo) {
+    if (!isMobile() || !state.activeId) return;
+    state.mobileInfoReturn = returnTo || 'conversation';
+    state.mobileView = 'info';
+    $('.contacts-col').classList.add('mobile-hidden');
+    $('.chat-col').classList.remove('mobile-visible');
+    $('.info-col').classList.add('mobile-visible');
+  }
+
+  async function openMobileTray() {
+    const sheet = document.getElementById('chatShareSheet');
+    sheet.innerHTML = '<div class="chat-sheet-head"><span>Add to message</span><button class="chat-sheet-close" type="button" aria-label="Close">×</button></div><div class="chat-sheet-list"></div>';
+    sheet.querySelector('.chat-sheet-close').addEventListener('click', () => closeSheet('chatShareSheet'));
+    const list = sheet.querySelector('.chat-sheet-list');
+    [
+      ['Share Listing', 'listing', 'i-share'],
+      ['Share Photo', 'photo', 'i-image'],
+      ['Share File', 'file', 'i-paperclip'],
+    ].forEach(([label, kind, icon]) => {
+      const button = document.createElement('button');
+      button.type = 'button'; button.className = 'chat-sheet-action';
+      button.innerHTML = `<svg class="icon"><use href="#${icon}"/></svg><span></span>`;
+      button.querySelector('span').textContent = label;
+      button.addEventListener('click', () => {
+        closeSheet('chatShareSheet');
+        if (kind === 'listing') openMobileListingPicker();
+        else {
+          fileInputForMobile(kind);
+        }
+      });
+      list.appendChild(button);
+    });
+    sheet.classList.add('open'); sheet.setAttribute('aria-hidden', 'false');
+  }
+
+  async function openMobileListingPicker() {
+    const sheet = document.getElementById('chatShareSheet');
+    sheet.innerHTML = '<div class="chat-sheet-head"><span>Share Listing</span><button class="chat-sheet-close" type="button" aria-label="Close">×</button></div><div class="chat-sheet-list"></div>';
+    sheet.querySelector('.chat-sheet-close').addEventListener('click', () => closeSheet('chatShareSheet'));
+    if (!state.listings.length) state.listings = (await api('/api/chat/listings')).listings || [];
+    const list = sheet.querySelector('.chat-sheet-list');
+    state.listings.forEach((listing) => {
+      const option = document.createElement('button');
+      option.type = 'button'; option.className = 'chat-listing-option';
+      option.textContent = listing.title || 'Listing';
+      option.addEventListener('click', () => {
+        state.pendingAttachment = { kind: 'listing', listing };
+        updateMobilePreview();
+        closeSheet('chatShareSheet');
+      });
+      list.appendChild(option);
+    });
+    sheet.classList.add('open'); sheet.setAttribute('aria-hidden', 'false');
+  }
+
+  function updateMobilePreview() {
+    const preview = $('#mobileComposerPreview');
+    if (!preview) return;
+    const pending = state.pendingAttachment;
+    preview.textContent = pending ? `${pending.kind === 'listing' ? 'Listing' : pending.kind === 'photo' ? 'Photo' : 'File'}: ${pending.name || pending.listing?.title || ''}` : '';
+    preview.classList.toggle('has-content', !!pending);
+  }
+
+  function fileInputForMobile(kind) {
+    const input = document.querySelector('input[data-mobile-file-input]');
+    input.accept = kind === 'photo' ? 'image/*' : '';
+    input.dataset.kind = kind;
+    input.click();
   }
 
   function closeSheet(id) {
@@ -224,7 +339,32 @@
       item.querySelector('.contact-name').textContent = person.full_name || person.username || '';
       item.querySelector('.contact-time').textContent = formatTime(conversation.lastMessage && conversation.lastMessage.created_at);
       item.querySelector('.contact-preview').textContent = preview;
-      item.addEventListener('click', () => selectConversation(conversation.id));
+      item.addEventListener('click', (event) => {
+        if (event.target.closest('.contact-avatar-link')) {
+          event.stopPropagation();
+          state.activeId = conversation.id;
+          renderProfile(conversation);
+          renderInfoAttachments([]);
+          showMobileInfo('inbox');
+          return;
+        }
+        selectConversation(conversation.id);
+      });
+      const avatarLink = item.querySelector('.avatar-wrap');
+      avatarLink.classList.add('contact-avatar-link');
+      avatarLink.setAttribute('role', 'button');
+      avatarLink.setAttribute('tabindex', '0');
+      avatarLink.setAttribute('aria-label', `Open information for ${person.full_name || person.username || 'contact'}`);
+      avatarLink.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          avatarLink.click();
+        }
+      });
+      item.querySelector('.avatar-fallback').addEventListener('click', (event) => {
+        event.stopPropagation();
+        selectConversation(conversation.id).then(() => showMobileInfo());
+      });
       list.appendChild(item);
     });
   }
@@ -414,6 +554,7 @@
     const result = await api(`/api/chat/conversations/${encodeURIComponent(id)}/messages`);
     renderMessages(result.messages);
     renderInfoAttachments(result.messages);
+    if (isMobile()) showMobileConversation();
     await api(`/api/chat/conversations/${encodeURIComponent(id)}/read`, { method: 'POST', body: '{}' });
     state.channel = window.supabaseClient.channel(`chat:${id}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${id}` }, (payload) => {
@@ -453,7 +594,7 @@
     const data = await api('/api/chat/conversations');
     state.conversations = data.conversations;
     const requested = new URLSearchParams(window.location.search).get('c') || new URLSearchParams(window.location.search).get('conversation');
-    state.activeId = requested && state.conversations.some((item) => item.id === requested) ? requested : state.conversations[0] && state.conversations[0].id;
+    state.activeId = !isMobile() && requested && state.conversations.some((item) => item.id === requested) ? requested : null;
     renderConversationList();
     if (state.activeId) await selectConversation(state.activeId);
     else {
@@ -474,13 +615,33 @@
     const input = $('.chat-input-area textarea');
     async function sendText() {
       const content = input.value.trim();
-      if (!content || !state.activeId || input.disabled) return;
+      const pending = state.pendingAttachment;
+      if ((!content && !pending) || !state.activeId || input.disabled) return;
       input.disabled = true;
       try {
-        const result = await api(`/api/chat/conversations/${encodeURIComponent(state.activeId)}/messages`, {
-          method: 'POST', body: JSON.stringify({ content }),
-        });
+        let result;
+        if (pending && pending.kind === 'listing') {
+          result = await api(`/api/chat/conversations/${encodeURIComponent(state.activeId)}/messages`, {
+            method: 'POST', body: JSON.stringify({ content: content || pending.listing.title, listingId: pending.listing.id, messageType: 'listing' }),
+          });
+        } else if (pending && pending.file) {
+          const init = await api(`/api/chat/conversations/${encodeURIComponent(state.activeId)}/attachments/upload-init`, {
+            method: 'POST', body: JSON.stringify({ filename: pending.file.name, mimeType: pending.file.type, fileSize: pending.file.size, kind: pending.kind }),
+          });
+          const uploadResponse = await fetch(init.uploadUrl, { method: 'PUT', headers: { 'Content-Type': pending.file.type }, body: pending.file });
+          if (!uploadResponse.ok) throw new Error('Attachment upload failed');
+          await api(`/api/chat/conversations/${encodeURIComponent(state.activeId)}/attachments/${encodeURIComponent(init.attachmentId)}/complete`, { method: 'POST', body: '{}' });
+          result = await api(`/api/chat/conversations/${encodeURIComponent(state.activeId)}/messages`, {
+            method: 'POST', body: JSON.stringify({ content: content || pending.file.name, attachmentId: init.attachmentId, messageType: pending.kind }),
+          });
+        } else {
+          result = await api(`/api/chat/conversations/${encodeURIComponent(state.activeId)}/messages`, {
+            method: 'POST', body: JSON.stringify({ content }),
+          });
+        }
         input.value = '';
+        state.pendingAttachment = null;
+        updateMobilePreview();
         const current = $('.messages');
         if (result.message && !current.querySelector(`[data-message-id="${result.message.id}"]`)) {
           current.appendChild(messageRow(result.message));
@@ -495,7 +656,7 @@
       await sendText();
     });
     const fileInput = document.createElement('input');
-    fileInput.type = 'file'; fileInput.hidden = true;
+    fileInput.type = 'file'; fileInput.hidden = true; fileInput.dataset.mobileFileInput = 'true';
     document.body.appendChild(fileInput);
     const upload = async (file, kind) => {
       if (!state.activeId) return;
@@ -510,23 +671,28 @@
         body: JSON.stringify({ content: file.name, attachmentId: init.attachmentId, messageType: kind }),
       });
     };
-    const imageButton = $('.attach-icons button:nth-child(1)');
-    const fileButton = $('.attach-icons button:nth-child(2)');
+    const imageButton = $('.attach-icons button.share-photo');
+    const fileButton = $('.attach-icons button.share-file');
     imageButton.disabled = false; fileButton.disabled = false;
     imageButton.addEventListener('click', () => { fileInput.accept = 'image/*'; fileInput.dataset.kind = 'photo'; fileInput.click(); });
     fileButton.addEventListener('click', () => { fileInput.accept = ''; fileInput.dataset.kind = 'file'; fileInput.click(); });
     fileInput.addEventListener('change', async () => {
-      if (fileInput.files[0]) await upload(fileInput.files[0], fileInput.dataset.kind);
+      if (fileInput.files[0] && isMobile()) {
+        state.pendingAttachment = { kind: fileInput.dataset.kind, file: fileInput.files[0], name: fileInput.files[0].name };
+        updateMobilePreview();
+      } else if (fileInput.files[0]) await upload(fileInput.files[0], fileInput.dataset.kind);
       fileInput.value = '';
     });
     $('.chat-header-actions button[title="Search"]').addEventListener('click', () => $('.search-box input').focus());
     ensureChatPanels();
+    if (isMobile()) showMobileInbox();
     const shareButton = $('.attach-icons button[title="Share listing"]');
     shareButton.disabled = false;
     shareButton.addEventListener('click', openShareSheet);
     const sendButton = $('.attach-icons button.send-message');
     sendButton.disabled = false;
     sendButton.addEventListener('click', sendText);
+    if (isMobile()) $('#infoToggleBtn').addEventListener('click', showMobileInfo);
     const actions = document.createElement('div');
     actions.className = 'info-section chat-actions';
     actions.innerHTML = '<div class="info-section-head"><span class="label">Actions</span></div><button type="button" class="info-action-report">Report User</button>';
