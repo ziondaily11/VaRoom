@@ -28,7 +28,7 @@ async function profilesById(ids) {
   if (!ids.length) return {};
   const { data, error } = await supabaseAdmin
     .from('profiles')
-    .select('id,full_name,username,avatar_url,phone')
+    .select('id,full_name,username,avatar_url')
     .in('id', ids);
   if (error) throw error;
   const profiles = Object.fromEntries((data || []).map((profile) => [profile.id, profile]));
@@ -117,7 +117,7 @@ router.get('/chat/conversations', async (req, res) => {
     if (conversationIds.length) {
       const result = await supabaseAdmin
         .from('messages')
-        .select('id,conversation_id,sender_id,body,created_at,message_type')
+        .select('id,conversation_id,sender_id,body,created_at')
         .in('conversation_id', conversationIds)
         .order('created_at', { ascending: false });
       if (result.error) throw result.error;
