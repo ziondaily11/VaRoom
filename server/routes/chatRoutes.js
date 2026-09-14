@@ -245,7 +245,7 @@ router.post('/chat/conversations/:conversationId/messages', async (req, res) => 
       if (listingError) throw listingError;
       if (!listing) return res.status(403).json({ error: 'Listing sharing is limited to your listings' });
     }
-    if (messageType !== 'text' && !attachmentId) {
+    if (messageType !== 'text' && messageType !== 'listing' && !attachmentId) {
       throw new ValidationError('attachmentId is required for attachment messages');
     }
     if (messageType === 'text' && attachmentId) {
