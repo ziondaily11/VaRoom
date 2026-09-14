@@ -65,11 +65,24 @@ function ListingCard({ listing }) {
       }}
     >
       <div style={{ position: "relative", aspectRatio: "4 / 3" }}>
-        <img
-          src={listing.image}
-          alt={listing.title}
-          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-        />
+        {listing.videoUrl ? (
+          <video
+            src={listing.videoUrl}
+            poster={listing.image || undefined}
+            muted
+            playsInline
+            preload="metadata"
+            controls
+            aria-label={`${listing.title} video`}
+            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+          />
+        ) : (
+          <img
+            src={listing.image}
+            alt={listing.title}
+            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+          />
+        )}
         <button
           aria-label="More options"
           style={{
@@ -286,6 +299,31 @@ export default function PublicHostProfile() {
             });
           }
           const mediaImage = media.find((item) => item.thumbnailUrl);
+          const videoMedia = media.find((item) => item.type === "video");
+          let videoUrl = null;
+          if (videoMedia?.id) {
+            try {
+              const playbackResponse = await fetch(
+                `/api/media/${encodeURIComponent(videoMedia.id)}/playback`
+              );
+              if (!playbackResponse.ok) {
+                console.error("Unable to load public listing video playback", {
+                  listingId: listing.id,
+                  mediaId: videoMedia.id,
+                  status: playbackResponse.status,
+                });
+              } else {
+                const playbackPayload = await playbackResponse.json();
+                videoUrl = playbackPayload.url || null;
+              }
+            } catch (error) {
+              console.error("Unable to load public listing video playback", {
+                listingId: listing.id,
+                mediaId: videoMedia.id,
+                error,
+              });
+            }
+          }
           return {
             id: listing.id,
             title: listing.title,
@@ -296,7 +334,7 @@ export default function PublicHostProfile() {
                 ? photo.storage_path
                 : client.storage.from("listing-photos").getPublicUrl(photo.storage_path).data.publicUrl)
               : mediaImage?.thumbnailUrl || "",
-            videoUrl: media.find((item) => item.type === "video")?.thumbnailUrl || null,
+            videoUrl,
           };
         }))
         : [];
