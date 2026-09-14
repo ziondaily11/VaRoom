@@ -11,6 +11,7 @@ const ALLOWED_TYPES = new Set([
   'application/pdf', 'text/plain', 'application/zip',
   'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'audio/webm', 'audio/ogg', 'audio/mpeg', 'audio/mp4',
 ]);
 
 async function authenticatedUser(req) {
@@ -51,12 +52,14 @@ router.post('/chat/conversations/:conversationId/attachments/upload-init', async
       text(filename, 'filename', { max: 255 });
       text(mimeType, 'mimeType', { max: 150 });
       number(fileSize, 'fileSize', { integer: true, min: 1, max: MAX_FILE_SIZE });
-      enumValue(kind, 'kind', ['photo', 'file']);
+      enumValue(kind, 'kind', ['photo', 'file', 'voice']);
     } catch (error) {
       if (error instanceof ValidationError) return res.status(400).json({ error: 'Invalid attachment metadata' });
       throw error;
     }
-    if (!ALLOWED_TYPES.has(mimeType) || (kind === 'photo' && !mimeType.startsWith('image/'))) {
+    if (!ALLOWED_TYPES.has(mimeType)
+      || (kind === 'photo' && !mimeType.startsWith('image/'))
+      || (kind === 'voice' && !mimeType.startsWith('audio/'))) {
       return res.status(400).json({ error: 'This file type is not supported' });
     }
 

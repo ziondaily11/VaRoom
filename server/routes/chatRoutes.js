@@ -2,7 +2,7 @@
 
 const express = require('express');
 const supabaseAdmin = require('../lib/supabaseClient');
-const { ValidationError, assertAllowedKeys, text, uuid } = require('../lib/inputValidation');
+const { ValidationError, assertAllowedKeys, text, uuid, enumValue } = require('../lib/inputValidation');
 
 const router = express.Router();
 
@@ -31,7 +31,14 @@ async function profilesById(ids) {
     .select('id,full_name,username,avatar_url,phone')
     .in('id', ids);
   if (error) throw error;
-  return Object.fromEntries((data || []).map((profile) => [profile.id, profile]));
+  const profiles = Object.fromEntries((data || []).map((profile) => [profile.id, profile]));
+  await Promise.all(ids.map(async (id) => {
+    const { data: result } = await supabaseAdmin.auth.admin.getUserById(id);
+    if (result && result.user && result.user.email) {
+      profiles[id] = { ...(profiles[id] || { id }), email: result.user.email };
+    }
+  }));
+  return profiles;
 }
 
 router.get('/chat/conversations', async (req, res) => {
@@ -88,7 +95,7 @@ router.get('/chat/conversations/:conversationId/messages', async (req, res) => {
     if (!conversation) return res.status(403).json({ error: 'Conversation access denied' });
     const { data, error } = await supabaseAdmin
       .from('messages')
-      .select('id,conversation_id,sender_id,body,created_at,message_type,attachment_id,listing_id')
+      .select('id,conversation_id,sender_id,body,created_at,read_at,message_type,attachment_id,listing_id')
       .eq('conversation_id', conversationId)
       .order('created_at', { ascending: true });
     if (error) throw error;
@@ -100,6 +107,28 @@ router.get('/chat/conversations/:conversationId/messages', async (req, res) => {
   }
 });
 
+router.post('/chat/conversations/:conversationId/read', async (req, res) => {
+  try {
+    const user = await authenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Invalid or expired session' });
+    const conversationId = uuid(req.params.conversationId, 'conversation id');
+    const conversation = await memberConversation(conversationId, user.id);
+    if (!conversation) return res.status(403).json({ error: 'Conversation access denied' });
+    const { error } = await supabaseAdmin
+      .from('messages')
+      .update({ read_at: new Date().toISOString() })
+      .eq('conversation_id', conversationId)
+      .neq('sender_id', user.id)
+      .is('read_at', null);
+    if (error) throw error;
+    return res.status(204).send();
+  } catch (error) {
+    if (error instanceof ValidationError) return res.status(400).json({ error: error.message });
+    console.error('Chat read receipt update failed:', error);
+    return res.status(502).json({ error: 'Unable to update read receipts' });
+  }
+});
+
 router.post('/chat/conversations/:conversationId/messages', async (req, res) => {
   try {
     const user = await authenticatedUser(req);
@@ -107,11 +136,45 @@ router.post('/chat/conversations/:conversationId/messages', async (req, res) => 
     const conversationId = uuid(req.params.conversationId, 'conversation id');
     const conversation = await memberConversation(conversationId, user.id);
     if (!conversation) return res.status(403).json({ error: 'Conversation access denied' });
-    assertAllowedKeys(req.body, ['content']);
-    const content = text(req.body.content, 'content', { max: 10_000 });
+    assertAllowedKeys(req.body, ['content', 'attachmentId', 'messageType']);
+    const content = text(req.body.content, 'content', { required: false, max: 10_000 }) || '';
+    const messageType = req.body.messageType === undefined
+      ? 'text'
+      : enumValue(req.body.messageType, 'messageType', ['text', 'photo', 'file', 'voice']);
+    const attachmentId = req.body.attachmentId === undefined
+      ? undefined
+      : uuid(req.body.attachmentId, 'attachmentId');
+    if (messageType !== 'text' && !attachmentId) {
+      throw new ValidationError('attachmentId is required for attachment messages');
+    }
+    if (messageType === 'text' && attachmentId) {
+      throw new ValidationError('attachmentId is not valid for text messages');
+    }
+    if (attachmentId) {
+      const { data: attachment, error: attachmentError } = await supabaseAdmin
+        .from('message_attachments')
+        .select('id,status,kind')
+        .eq('id', attachmentId)
+        .eq('conversation_id', conversationId)
+        .maybeSingle();
+      if (attachmentError || !attachment || attachment.status !== 'ready') {
+        return res.status(400).json({ error: 'Attachment is not ready' });
+      }
+      if ((messageType === 'photo' && attachment.kind !== 'photo')
+        || (messageType === 'file' && attachment.kind !== 'file')
+        || (messageType === 'voice' && attachment.kind !== 'voice')) {
+        return res.status(400).json({ error: 'Attachment type does not match message type' });
+      }
+    }
     const { data, error } = await supabaseAdmin
       .from('messages')
-      .insert({ conversation_id: conversationId, sender_id: user.id, body: content, message_type: 'text' })
+      .insert({
+        conversation_id: conversationId,
+        sender_id: user.id,
+        body: content,
+        message_type: messageType,
+        attachment_id: attachmentId || null,
+      })
       .select('id,conversation_id,sender_id,body,created_at,message_type,attachment_id,listing_id')
       .single();
     if (error) throw error;

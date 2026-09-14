@@ -26,9 +26,10 @@
       const item = document.createElement('li');
       item.className = `contact-item${conversation.id === state.activeId ? ' active' : ''}`;
       item.dataset.conversationId = conversation.id;
-      item.innerHTML = `<div class="avatar-wrap"><div class="avatar-fallback" style="background:#6C63FF;">${initials(person)}</div></div>
+      item.innerHTML = `<div class="avatar-wrap"><div class="avatar-fallback" style="background:#6C63FF;"></div></div>
         <div class="contact-body"><div class="contact-top"><span class="contact-name"></span><span class="contact-time"></span></div>
         <div class="contact-bottom"><span class="contact-preview"></span></div></div>`;
+      item.querySelector('.avatar-fallback').textContent = initials(person);
       item.querySelector('.contact-name').textContent = person.full_name || person.username || 'VaRoom user';
       item.querySelector('.contact-time').textContent = formatTime(conversation.lastMessage && conversation.lastMessage.created_at);
       item.querySelector('.contact-preview').textContent = preview;
@@ -51,26 +52,57 @@
     name.textContent = person.full_name || person.username || 'VaRoom user';
     block.append(avatar, name);
     if (person.username) { const line = document.createElement('div'); line.className = 'p-line'; line.textContent = `@${person.username}`; block.appendChild(line); }
+    if (person.email) { const line = document.createElement('div'); line.className = 'p-line'; line.textContent = person.email; block.appendChild(line); }
     if (person.phone) { const line = document.createElement('div'); line.className = 'p-line'; line.textContent = person.phone; block.appendChild(line); }
+  }
+
+  function messageRow(message) {
+    const row = document.createElement('div');
+    const outgoing = message.sender_id === state.session.user.id;
+    row.className = `msg-row ${outgoing ? 'out' : 'in'}`;
+    row.dataset.messageId = message.id;
+    if (message.message_type === 'text') {
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble';
+      bubble.textContent = message.body || '';
+      row.appendChild(bubble);
+    } else if (message.message_type === 'voice' && message.attachment_id) {
+      const card = document.createElement('div');
+      card.className = 'voice-card';
+      card.innerHTML = '<button class="play" type="button"><svg class="icon-fill"><use href="#i-play"/></svg></button><div class="voice-wave"></div><div class="voice-dur">Voice</div>';
+      const audio = document.createElement('audio');
+      audio.preload = 'metadata';
+      downloadAttachment(message.attachment_id).then((url) => { audio.src = url; }).catch((error) => console.error('Voice message unavailable:', error));
+      card.querySelector('.play').addEventListener('click', () => { if (audio.paused) audio.play(); else audio.pause(); });
+      card.appendChild(audio);
+      row.appendChild(card);
+    } else if (message.attachment_id) {
+      const card = document.createElement('div');
+      card.className = 'file-card';
+      card.dataset.attachmentId = message.attachment_id;
+      card.innerHTML = '<div class="file-icon"><svg class="icon"><use href="#i-file-text"/></svg></div><div><div class="file-name"></div><div class="file-sub">Attachment</div></div><svg class="icon dl"><use href="#i-download"/></svg>';
+      card.querySelector('.file-name').textContent = message.body || (message.message_type === 'photo' ? 'Photo' : 'File');
+      card.addEventListener('click', () => downloadAttachment(message.attachment_id));
+      row.appendChild(card);
+    }
+    const meta = document.createElement('div');
+    meta.className = 'msg-meta';
+    meta.textContent = message.read_at && message.sender_id === state.session.user.id
+      ? `Read ${formatTime(message.read_at)}` : formatTime(message.created_at);
+    row.appendChild(meta);
+    return row;
+  }
+
+  async function downloadAttachment(attachmentId) {
+    const result = await api(`/api/chat/attachments/${encodeURIComponent(attachmentId)}/download`);
+    return result.url;
   }
 
   function renderMessages(messages) {
     const container = $('.messages');
     clear(container);
     messages.forEach((message) => {
-      const row = document.createElement('div');
-      const outgoing = message.sender_id === state.session.user.id;
-      row.className = `msg-row ${outgoing ? 'out' : 'in'}`;
-      row.dataset.messageId = message.id;
-      if (message.message_type !== 'text') return;
-      const bubble = document.createElement('div');
-      bubble.className = 'bubble';
-      bubble.textContent = message.body || '';
-      const meta = document.createElement('div');
-      meta.className = 'msg-meta';
-      meta.textContent = formatTime(message.created_at);
-      row.append(bubble, meta);
-      container.appendChild(row);
+      container.appendChild(messageRow(message));
     });
     container.scrollTop = container.scrollHeight;
   }
@@ -87,20 +119,20 @@
     if (state.channel) await state.channel.unsubscribe();
     const result = await api(`/api/chat/conversations/${encodeURIComponent(id)}/messages`);
     renderMessages(result.messages);
+    await api(`/api/chat/conversations/${encodeURIComponent(id)}/read`, { method: 'POST', body: '{}' });
     state.channel = window.supabaseClient.channel(`chat:${id}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${id}` }, (payload) => {
         const current = $('.messages');
         const message = payload.new;
         if (message.message_type !== 'text' || current.querySelector(`[data-message-id="${message.id}"]`)) return;
-        const row = document.createElement('div');
-        row.className = `msg-row ${message.sender_id === state.session.user.id ? 'out' : 'in'}`;
-        row.dataset.messageId = message.id;
-        const bubble = document.createElement('div');
-        bubble.className = 'bubble'; bubble.textContent = message.body || '';
-        const meta = document.createElement('div');
-        meta.className = 'msg-meta'; meta.textContent = formatTime(message.created_at);
-        row.append(bubble, meta); current.appendChild(row); current.scrollTop = current.scrollHeight;
+        current.appendChild(messageRow(message)); current.scrollTop = current.scrollHeight;
       }).subscribe();
+    state.channel.on('presence', { event: 'sync' }, () => {
+      const online = Object.keys(state.channel.presenceState()).length > 1;
+      $('#statusText').textContent = online ? 'Online' : 'Offline';
+      $('#statusDot').style.background = online ? 'var(--mint)' : '#c7cbd1';
+    });
+    await state.channel.track({ user_id: state.session.user.id });
   }
 
   async function start() {
@@ -137,8 +169,61 @@
       try { await api(`/api/chat/conversations/${encodeURIComponent(state.activeId)}/messages`, { method: 'POST', body: JSON.stringify({ content }) }); input.value = ''; }
       finally { input.disabled = false; }
     });
-    document.querySelectorAll('.attach-icons button, .format-icons button, .chat-header-actions button:not(#infoToggleBtn), .compose-btn, .icon-rail button, .info-section-head .more').forEach((button) => {
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file'; fileInput.hidden = true;
+    document.body.appendChild(fileInput);
+    const upload = async (file, kind) => {
+      if (!state.activeId) return;
+      const init = await api(`/api/chat/conversations/${encodeURIComponent(state.activeId)}/attachments/upload-init`, {
+        method: 'POST', body: JSON.stringify({ filename: file.name, mimeType: file.type, fileSize: file.size, kind }),
+      });
+      const uploadResponse = await fetch(init.uploadUrl, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file });
+      if (!uploadResponse.ok) throw new Error('Attachment upload failed');
+      await api(`/api/chat/conversations/${encodeURIComponent(state.activeId)}/attachments/${encodeURIComponent(init.attachmentId)}/complete`, { method: 'POST', body: '{}' });
+      await api(`/api/chat/conversations/${encodeURIComponent(state.activeId)}/messages`, {
+        method: 'POST',
+        body: JSON.stringify({ content: file.name, attachmentId: init.attachmentId, messageType: kind }),
+      });
+    };
+    const imageButton = $('.attach-icons button:nth-child(1)');
+    const fileButton = $('.attach-icons button:nth-child(2)');
+    imageButton.disabled = false; fileButton.disabled = false;
+    imageButton.addEventListener('click', () => { fileInput.accept = 'image/*'; fileInput.dataset.kind = 'photo'; fileInput.click(); });
+    fileButton.addEventListener('click', () => { fileInput.accept = ''; fileInput.dataset.kind = 'file'; fileInput.click(); });
+    fileInput.addEventListener('change', async () => {
+      if (fileInput.files[0]) await upload(fileInput.files[0], fileInput.dataset.kind);
+      fileInput.value = '';
+    });
+    $('.chat-header-actions button[title="Search"]').addEventListener('click', () => $('.search-box input').focus());
+    const micButton = $('.attach-icons button:nth-child(3)');
+    let recorder;
+    let chunks = [];
+    micButton.disabled = false;
+    micButton.addEventListener('click', async () => {
+      if (recorder && recorder.state === 'recording') { recorder.stop(); return; }
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      recorder = new MediaRecorder(stream);
+      chunks = [];
+      recorder.ondataavailable = (event) => { if (event.data.size) chunks.push(event.data); };
+      recorder.onstop = async () => {
+        stream.getTracks().forEach((track) => track.stop());
+        const blob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' });
+        await upload(new File([blob], `voice-${Date.now()}.webm`, { type: blob.type }), 'voice');
+      };
+      recorder.start();
+    });
+    document.querySelectorAll('.chat-header-actions button:not(#infoToggleBtn):not([title="Search"]), .compose-btn, .icon-rail button, .info-section-head .more').forEach((button) => {
       button.disabled = true; button.setAttribute('aria-disabled', 'true');
+    });
+    document.querySelectorAll('.format-icons button').forEach((button) => {
+      button.addEventListener('click', () => {
+        const marker = button.classList.contains('fmt-b') ? '**' : button.classList.contains('fmt-i') ? '_' : button.classList.contains('fmt-u') ? '__' : '- ';
+        const input = $('.chat-input-area textarea');
+        const start = input.selectionStart; const end = input.selectionEnd;
+        if (start === end) return;
+        input.setRangeText(`${marker}${input.value.slice(start, end)}${marker}`, start, end, 'select');
+        input.focus();
+      });
     });
     document.querySelectorAll('.info-section').forEach((section) => { section.hidden = true; });
   }
