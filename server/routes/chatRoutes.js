@@ -41,6 +41,23 @@ async function profilesById(ids) {
   return profiles;
 }
 
+router.get('/chat/listings', async (req, res) => {
+  try {
+    const user = await authenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Invalid or expired session' });
+    const { data, error } = await supabaseAdmin
+      .from('listings')
+      .select('id,title,location_text,listing_photos(storage_path)')
+      .eq('host_id', user.id)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return res.json({ listings: data || [] });
+  } catch (error) {
+    console.error('Chat listing selection failed:', error);
+    return res.status(502).json({ error: 'Unable to load listings' });
+  }
+});
+
 router.get('/chat/conversations', async (req, res) => {
   try {
     const user = await authenticatedUser(req);
@@ -73,13 +90,20 @@ router.get('/chat/conversations', async (req, res) => {
       });
     }
     const previewByConversation = Object.fromEntries(previews.map((message) => [message.conversation_id, message]));
+    const latestByParticipant = new Map();
     conversations.sort((left, right) => {
       const leftTime = previewByConversation[left.id] && previewByConversation[left.id].created_at || left.created_at;
       const rightTime = previewByConversation[right.id] && previewByConversation[right.id].created_at || right.created_at;
       return new Date(rightTime).getTime() - new Date(leftTime).getTime();
     });
+    const uniqueConversations = conversations.filter((conversation) => {
+      const participantId = conversation.host_id === user.id ? conversation.client_id : conversation.host_id;
+      if (latestByParticipant.has(participantId)) return false;
+      latestByParticipant.set(participantId, conversation.id);
+      return true;
+    });
     return res.json({
-      conversations: conversations.map((conversation) => ({
+      conversations: uniqueConversations.map((conversation) => ({
         ...conversation,
         participant: profiles[conversation.host_id === user.id ? conversation.client_id : conversation.host_id] || null,
         lastMessage: previewByConversation[conversation.id] || null,
@@ -104,7 +128,35 @@ router.get('/chat/conversations/:conversationId/messages', async (req, res) => {
       .eq('conversation_id', conversationId)
       .order('created_at', { ascending: true });
     if (error) throw error;
-    return res.json({ conversation, messages: data || [] });
+    const attachmentIds = (data || []).map((message) => message.attachment_id).filter(Boolean);
+    let attachments = [];
+    if (attachmentIds.length) {
+      const attachmentResult = await supabaseAdmin
+        .from('message_attachments')
+        .select('id,original_filename,mime_type,file_size_bytes,kind,status')
+        .in('id', attachmentIds);
+      if (attachmentResult.error) throw attachmentResult.error;
+      attachments = attachmentResult.data || [];
+    }
+    const attachmentsById = Object.fromEntries(attachments.map((attachment) => [attachment.id, attachment]));
+    const listingIds = (data || []).map((message) => message.listing_id).filter(Boolean);
+    let listingsById = {};
+    if (listingIds.length) {
+      const listingResult = await supabaseAdmin
+        .from('listings')
+        .select('id,title,location_text')
+        .in('id', listingIds);
+      if (listingResult.error) throw listingResult.error;
+      listingsById = Object.fromEntries((listingResult.data || []).map((listing) => [listing.id, listing]));
+    }
+    return res.json({
+      conversation,
+      messages: (data || []).map((message) => ({
+        ...message,
+        attachment: attachmentsById[message.attachment_id] || null,
+        listing: listingsById[message.listing_id] || null,
+      })),
+    });
   } catch (error) {
     if (error instanceof ValidationError) return res.status(400).json({ error: error.message });
     console.error('Chat message list failed:', error);
@@ -141,14 +193,31 @@ router.post('/chat/conversations/:conversationId/messages', async (req, res) => 
     const conversationId = uuid(req.params.conversationId, 'conversation id');
     const conversation = await memberConversation(conversationId, user.id);
     if (!conversation) return res.status(403).json({ error: 'Conversation access denied' });
-    assertAllowedKeys(req.body, ['content', 'attachmentId', 'messageType']);
+    assertAllowedKeys(req.body, ['content', 'attachmentId', 'messageType', 'listingId']);
     const content = text(req.body.content, 'content', { required: false, max: 10_000 }) || '';
     const messageType = req.body.messageType === undefined
       ? 'text'
-      : enumValue(req.body.messageType, 'messageType', ['text', 'photo', 'file', 'voice']);
+      : enumValue(req.body.messageType, 'messageType', ['text', 'photo', 'file', 'voice', 'listing']);
     const attachmentId = req.body.attachmentId === undefined
       ? undefined
       : uuid(req.body.attachmentId, 'attachmentId');
+    const listingId = req.body.listingId === undefined ? undefined : uuid(req.body.listingId, 'listingId');
+    if (messageType === 'listing' && !listingId) {
+      throw new ValidationError('listingId is required for listing messages');
+    }
+    if (messageType !== 'listing' && listingId) {
+      throw new ValidationError('listingId is only valid for listing messages');
+    }
+    if (listingId) {
+      const { data: listing, error: listingError } = await supabaseAdmin
+        .from('listings')
+        .select('id')
+        .eq('id', listingId)
+        .eq('host_id', user.id)
+        .maybeSingle();
+      if (listingError) throw listingError;
+      if (!listing) return res.status(403).json({ error: 'Listing sharing is limited to your listings' });
+    }
     if (messageType !== 'text' && !attachmentId) {
       throw new ValidationError('attachmentId is required for attachment messages');
     }
@@ -179,6 +248,7 @@ router.post('/chat/conversations/:conversationId/messages', async (req, res) => 
         body: content,
         message_type: messageType,
         attachment_id: attachmentId || null,
+        listing_id: listingId || null,
       })
       .select('id,conversation_id,sender_id,body,created_at,message_type,attachment_id,listing_id')
       .single();

@@ -1,7 +1,7 @@
 (function () {
   'use strict';
 
-  const state = { session: null, conversations: [], activeId: null, channel: null };
+  const state = { session: null, conversations: [], activeId: null, channel: null, listings: [] };
   const $ = (selector) => document.querySelector(selector);
   const api = async (url, options) => {
     const response = await fetch(url, {
@@ -22,6 +22,7 @@
     return window.supabaseClient.storage.from('avatars').getPublicUrl(profile.avatar_url).data.publicUrl;
   };
   const setAvatar = (element, profile) => {
+    element.style.background = '#14161c';
     const url = avatarUrl(profile);
     if (url) {
       element.style.backgroundImage = `url("${url.replace(/"/g, '%22')}")`;
@@ -52,7 +53,7 @@
       const item = document.createElement('li');
       item.className = `contact-item${conversation.id === state.activeId ? ' active' : ''}`;
       item.dataset.conversationId = conversation.id;
-      item.innerHTML = `<div class="avatar-wrap"><div class="avatar-fallback" style="background:#6C63FF;"></div></div>
+      item.innerHTML = `<div class="avatar-wrap"><div class="avatar-fallback" style="background:#14161c;"></div></div>
         <div class="contact-body"><div class="contact-top"><span class="contact-name"></span><span class="contact-time"></span></div>
         <div class="contact-bottom"><span class="contact-preview"></span></div></div>`;
       setAvatar(item.querySelector('.avatar-fallback'), person);
@@ -64,6 +65,18 @@
     });
   }
 
+  function updateConversationPreview(message) {
+    const conversation = state.conversations.find((item) => item.id === message.conversation_id);
+    if (!conversation) return;
+    conversation.lastMessage = message;
+    state.conversations.sort((left, right) => {
+      const leftTime = left.lastMessage && left.lastMessage.created_at || left.created_at;
+      const rightTime = right.lastMessage && right.lastMessage.created_at || right.created_at;
+      return new Date(rightTime).getTime() - new Date(leftTime).getTime();
+    });
+    renderConversationList();
+  }
+
   function renderProfile(conversation) {
     const block = $('.profile-block');
     if (!block) return;
@@ -72,7 +85,7 @@
     const person = conversation.participant || {};
     const avatar = document.createElement('div');
     avatar.className = 'avatar-fallback';
-    avatar.style.background = '#6C63FF';
+    avatar.style.background = '#14161c';
     setAvatar(avatar, person);
     const name = document.createElement('div');
     name.className = 'p-name';
@@ -93,6 +106,13 @@
       bubble.className = 'bubble';
       bubble.textContent = message.body || '';
       row.appendChild(bubble);
+    } else if (message.message_type === 'listing' && message.listing) {
+      const card = document.createElement('div');
+      card.className = 'file-card';
+      card.innerHTML = '<div class="file-icon"><svg class="icon"><use href="#i-home"/></svg></div><div><div class="file-name"></div><div class="file-sub"></div></div>';
+      card.querySelector('.file-name').textContent = message.listing.title || '';
+      card.querySelector('.file-sub').textContent = message.listing.location_text || '';
+      row.appendChild(card);
     } else if (message.message_type === 'voice' && message.attachment_id) {
       const card = document.createElement('div');
       card.className = 'voice-card';
@@ -107,9 +127,13 @@
       const card = document.createElement('div');
       card.className = 'file-card';
       card.dataset.attachmentId = message.attachment_id;
-      card.innerHTML = '<div class="file-icon"><svg class="icon"><use href="#i-file-text"/></svg></div><div><div class="file-name"></div><div class="file-sub">Attachment</div></div><svg class="icon dl"><use href="#i-download"/></svg>';
-      card.querySelector('.file-name').textContent = message.body || (message.message_type === 'photo' ? 'Photo' : 'File');
-      card.addEventListener('click', () => downloadAttachment(message.attachment_id));
+      card.innerHTML = '<div class="file-icon"><svg class="icon"><use href="#i-file-text"/></svg></div><div><div class="file-name"></div><div class="file-sub"></div></div><svg class="icon dl"><use href="#i-download"/></svg>';
+      card.querySelector('.file-name').textContent = message.attachment && message.attachment.original_filename
+        || message.body || '';
+      card.querySelector('.file-sub').textContent = message.attachment
+        ? `${Math.ceil(message.attachment.file_size_bytes / 1024)} Kb`
+        : '';
+      card.addEventListener('click', async () => { window.open(await downloadAttachment(message.attachment_id), '_blank', 'noopener'); });
       row.appendChild(card);
     }
     const meta = document.createElement('div');
@@ -147,17 +171,25 @@
     attachments.filter((message) => message.message_type === 'photo').slice(0, 6).forEach((message) => {
       const thumb = document.createElement('div');
       thumb.className = 'thumb';
-      thumb.style.background = '#eaf1ff';
-      thumb.innerHTML = '<svg class="icon"><use href="#i-image"/></svg>';
-      thumb.addEventListener('click', () => downloadAttachment(message.attachment_id));
+      const image = document.createElement('img');
+      image.alt = message.attachment && message.attachment.original_filename || '';
+      image.style.width = '100%';
+      image.style.height = '100%';
+      image.style.objectFit = 'cover';
+      downloadAttachment(message.attachment_id).then((url) => { image.src = url; }).catch((error) => console.error('Image unavailable:', error));
+      thumb.appendChild(image);
+      thumb.addEventListener('click', () => downloadAttachment(message.attachment_id).then((url) => window.open(url, '_blank', 'noopener')));
       mediaGrid.appendChild(thumb);
     });
     attachments.filter((message) => message.message_type === 'file').forEach((message) => {
       const row = document.createElement('div');
       row.className = 'file-row';
-      row.innerHTML = '<div class="f-icon" style="background:#e5f0ff;color:#3b7ce0;"><svg class="icon"><use href="#i-file-text"/></svg></div><div><div class="f-name"></div><div class="f-sub">Attachment</div></div><svg class="icon f-dl"><use href="#i-download"/></svg>';
-      row.querySelector('.f-name').textContent = message.body || 'File';
-      row.addEventListener('click', () => downloadAttachment(message.attachment_id));
+      row.innerHTML = '<div class="f-icon" style="background:#e5f0ff;color:#3b7ce0;"><svg class="icon"><use href="#i-file-text"/></svg></div><div><div class="f-name"></div><div class="f-sub"></div></div><svg class="icon f-dl"><use href="#i-download"/></svg>';
+      row.querySelector('.f-name').textContent = message.attachment && message.attachment.original_filename || message.body || '';
+      row.querySelector('.f-sub').textContent = message.attachment
+        ? `${Math.ceil(message.attachment.file_size_bytes / 1024)} Kb`
+        : '';
+      row.addEventListener('click', async () => { window.open(await downloadAttachment(message.attachment_id), '_blank', 'noopener'); });
       filesSection.appendChild(row);
     });
     mediaSection.hidden = !mediaGrid.children.length;
@@ -186,6 +218,7 @@
         const message = payload.new;
         if (current.querySelector(`[data-message-id="${message.id}"]`)) return;
         current.appendChild(messageRow(message)); current.scrollTop = current.scrollHeight;
+        updateConversationPreview(message);
       })
       .on('presence', { event: 'sync' }, () => {
         const online = Object.keys(state.channel.presenceState()).length > 1;
@@ -242,7 +275,13 @@
       const content = input.value.trim();
       if (!content || !state.activeId) return;
       input.disabled = true;
-      try { await api(`/api/chat/conversations/${encodeURIComponent(state.activeId)}/messages`, { method: 'POST', body: JSON.stringify({ content }) }); input.value = ''; }
+      try {
+        const result = await api(`/api/chat/conversations/${encodeURIComponent(state.activeId)}/messages`, {
+          method: 'POST', body: JSON.stringify({ content }),
+        });
+        input.value = '';
+        updateConversationPreview(result.message);
+      }
       finally { input.disabled = false; }
     });
     const fileInput = document.createElement('input');
@@ -271,24 +310,44 @@
       fileInput.value = '';
     });
     $('.chat-header-actions button[title="Search"]').addEventListener('click', () => $('.search-box input').focus());
-    const micButton = $('.attach-icons button:nth-child(3)');
-    let recorder;
-    let chunks = [];
-    micButton.disabled = false;
-    micButton.addEventListener('click', async () => {
-      if (recorder && recorder.state === 'recording') { recorder.stop(); return; }
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      recorder = new MediaRecorder(stream);
-      chunks = [];
-      recorder.ondataavailable = (event) => { if (event.data.size) chunks.push(event.data); };
-      recorder.onstop = async () => {
-        stream.getTracks().forEach((track) => track.stop());
-        const blob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' });
-        await upload(new File([blob], `voice-${Date.now()}.webm`, { type: blob.type }), 'voice');
-      };
-      recorder.start();
+    const shareButton = $('.attach-icons button[title="Share listing"]');
+    shareButton.disabled = false;
+    shareButton.addEventListener('click', async () => {
+      if (!state.activeId) return;
+      if (!state.listings.length) {
+        const result = await api('/api/chat/listings');
+        state.listings = result.listings || [];
+      }
+      if (!state.listings.length) return;
+      const options = state.listings.map((listing, index) =>
+        `${index + 1}. ${listing.title}${listing.location_text ? ` — ${listing.location_text}` : ''}`).join('\n');
+      const choice = window.prompt(`Select a listing to share:\n${options}`);
+      const index = Number.parseInt(choice, 10) - 1;
+      const listing = Number.isInteger(index) ? state.listings[index] : null;
+      if (!listing) return;
+      await api(`/api/chat/conversations/${encodeURIComponent(state.activeId)}/messages`, {
+        method: 'POST',
+        body: JSON.stringify({ content: listing.title, listingId: listing.id, messageType: 'listing' }),
+      });
     });
-    document.querySelectorAll('.chat-header-actions button:not(#infoToggleBtn):not([title="Search"]), .compose-btn, .icon-rail button, .info-section-head .more').forEach((button) => {
+    document.querySelectorAll('[data-chat-nav]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        const sessionResult = await window.supabaseClient.auth.getSession();
+        const userId = sessionResult.data.session && sessionResult.data.session.user.id;
+        const profileResult = userId
+          ? await window.supabaseClient.from('profiles').select('role').eq('id', userId).maybeSingle()
+          : { data: null };
+        const routes = {
+          home: profileResult.data && profileResult.data.role === 'host' ? '/host-home' : '/client-home',
+          marketplace: '/marketplace',
+          notifications: '/notifications',
+          bookings: '/bookings',
+          profile: '/profile',
+        };
+        if (routes[button.dataset.chatNav]) window.location.assign(routes[button.dataset.chatNav]);
+      });
+    });
+    document.querySelectorAll('.chat-header-actions button:not(#infoToggleBtn):not([title="Search"]), .compose-btn, .icon-rail button:not([data-chat-nav]), .info-section-head .more').forEach((button) => {
       button.disabled = true; button.setAttribute('aria-disabled', 'true');
     });
     document.querySelectorAll('.format-icons button').forEach((button) => {

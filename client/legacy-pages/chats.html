@@ -291,10 +291,11 @@
 <!-- Reusable inline icon defs, referenced via <use> to keep markup light -->
 <svg width="0" height="0" style="position:absolute">
 <defs>
-  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+  <symbol id="i-share" viewBox="0 0 24 24"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.5-4.2M8.2 13.2l7.5 4.2"/></symbol>
   <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"/></symbol>
   <symbol id="i-store" viewBox="0 0 24 24"><path d="M4 9V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v4"/><path d="M3 9h18l-1.2 3.2a2 2 0 0 1-1.9 1.3H6.1a2 2 0 0 1-1.9-1.3L3 9Z"/><path d="M5 13.5V19a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5.5"/><path d="M9 20v-4h6v4"/></symbol>
   <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="16" rx="2"/><path d="M8 3v4M16 3v4M3.5 10h17"/><path d="M8.5 14.5l2 2 4-4"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></symbol>
   <symbol id="i-user-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="10" r="3"/><path d="M6.2 18.2a6 6 0 0 1 11.6 0"/></symbol>
   <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 13a7.8 7.8 0 0 0 0-2l2-1.5-2-3.4-2.4 1a7.9 7.9 0 0 0-1.7-1l-.4-2.6h-4l-.4 2.6a7.9 7.9 0 0 0-1.7 1l-2.4-1-2 3.4L6.6 11a7.8 7.8 0 0 0 0 2l-2 1.5 2 3.4 2.4-1a7.9 7.9 0 0 0 1.7 1l.4 2.6h4l.4-2.6a7.9 7.9 0 0 0 1.7-1l2.4 1 2-3.4-2-1.5Z"/></symbol>
   <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol>
@@ -322,12 +323,12 @@
 
   <!-- ICON RAIL -->
   <nav class="icon-rail">
-    <button class="rail-btn menu-btn"><svg class="icon"><use href="#i-menu"/></svg></button>
     <div class="rail-icons">
-      <button class="rail-btn active" title="Home"><svg class="icon"><use href="#i-home"/></svg></button>
-      <button class="rail-btn" title="Marketplace"><svg class="icon"><use href="#i-store"/></svg></button>
-      <button class="rail-btn" title="Bookings"><svg class="icon"><use href="#i-calendar"/></svg></button>
-      <button class="rail-btn" title="Profile"><svg class="icon"><use href="#i-user-circle"/></svg></button>
+      <button class="rail-btn active" title="Home" data-chat-nav="home"><svg class="icon"><use href="#i-home"/></svg></button>
+      <button class="rail-btn" title="Marketplace" data-chat-nav="marketplace"><svg class="icon"><use href="#i-store"/></svg></button>
+      <button class="rail-btn" title="Notifications" data-chat-nav="notifications"><svg class="icon"><use href="#i-bell"/></svg></button>
+      <button class="rail-btn" title="Bookings" data-chat-nav="bookings"><svg class="icon"><use href="#i-calendar"/></svg></button>
+      <button class="rail-btn" title="Profile" data-chat-nav="profile"><svg class="icon"><use href="#i-user-circle"/></svg></button>
     </div>
     <button class="rail-btn settings-btn" title="Settings"><svg class="icon"><use href="#i-gear"/></svg></button>
   </nav>
@@ -503,7 +504,7 @@
         <div class="attach-icons">
           <button><svg class="icon"><use href="#i-image"/></svg></button>
           <button><svg class="icon"><use href="#i-paperclip"/></svg></button>
-          <button><svg class="icon"><use href="#i-mic"/></svg></button>
+          <button title="Share listing" aria-label="Share listing"><svg class="icon"><use href="#i-share"/></svg></button>
         </div>
       </div>
     </div>
