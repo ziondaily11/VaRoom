@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { useRouter } from "next/router";
 import {
   MapPin,
   Star,
@@ -38,68 +39,6 @@ function GoogleIcon({ size = 16 }) {
 // this same host profile.
 // ---------------------------------------------------------------------------
 
-const HOST = {
-  name: "Zion Daily",
-  handle: "@ziondaily11",
-  tagline: "Find your best stays in Nairobi",
-  photo:
-    "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop&crop=faces",
-  verified: true,
-  rating: 4.9,
-  reviewCount: 132,
-};
-
-const LISTINGS = [
-  {
-    id: "l1",
-    title: "Cozy Airbnb near CBD",
-    type: "AIRBNB",
-    price: 4500,
-    image:
-      "https://images.unsplash.com/photo-1554995207-c18c203602cb?w=500&h=350&fit=crop",
-  },
-  {
-    id: "l2",
-    title: "Hillside family property",
-    type: "PROPERTY",
-    price: 12000,
-    image:
-      "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=500&h=350&fit=crop",
-  },
-  {
-    id: "l3",
-    title: "Modern studio, Kilimani",
-    type: "AIRBNB",
-    price: 3800,
-    image:
-      "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=500&h=350&fit=crop",
-  },
-];
-
-const REVIEWS = [
-  {
-    id: "r1",
-    name: "Amina W.",
-    rating: 5,
-    date: "August 2026",
-    text: "Zion was responsive and the place matched the photos exactly. Would book again.",
-  },
-  {
-    id: "r2",
-    name: "Brian K.",
-    rating: 5,
-    date: "July 2026",
-    text: "Great location, clean space, smooth check-in. Highly recommend.",
-  },
-  {
-    id: "r3",
-    name: "Faith N.",
-    rating: 4,
-    date: "June 2026",
-    text: "Comfortable stay, minor delay on check-in but host sorted it quickly.",
-  },
-];
-
 function Stars({ value, size = 13 }) {
   return (
     <span style={{ display: "inline-flex", gap: 1, alignItems: "center" }}>
@@ -126,11 +65,24 @@ function ListingCard({ listing }) {
       }}
     >
       <div style={{ position: "relative", aspectRatio: "4 / 3" }}>
-        <img
-          src={listing.image}
-          alt={listing.title}
-          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-        />
+        {listing.videoUrl ? (
+          <video
+            src={listing.videoUrl}
+            poster={listing.image || undefined}
+            muted
+            playsInline
+            preload="metadata"
+            controls
+            aria-label={`${listing.title} video`}
+            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+          />
+        ) : (
+          <img
+            src={listing.image}
+            alt={listing.title}
+            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+          />
+        )}
         <button
           aria-label="More options"
           style={{
@@ -200,7 +152,220 @@ function ReviewCard({ review }) {
 }
 
 export default function PublicHostProfile() {
+  const router = useRouter();
   const [tab, setTab] = useState("listings");
+  const [host, setHost] = useState({
+    name: "",
+    handle: "",
+    tagline: "",
+    photo: "",
+    verified: false,
+    rating: 0,
+    reviewCount: 0,
+  });
+  const [listings, setListings] = useState([]);
+  const [reviews, setReviews] = useState([]);
+
+  useEffect(() => {
+    if (!router.isReady || (!router.query.hostId && !router.query.username)) return undefined;
+
+    let cancelled = false;
+    const loadProfile = async () => {
+      const client = typeof window !== "undefined" ? window.supabaseClient : null;
+      if (!client) return;
+
+      const hostIdentifier = String(router.query.hostId || router.query.username).replace(/^@/, "");
+      const profileQuery = client
+        .from("profiles")
+        .select("id,full_name,username,bio,avatar_url,verified,city")
+        .eq("role", "host");
+      const profileResult = router.query.hostId
+        ? await profileQuery.eq("id", hostIdentifier).maybeSingle()
+        : await profileQuery.eq("username", hostIdentifier).maybeSingle();
+      const hostId = profileResult.data?.id;
+      if (profileResult.error) {
+        console.error("Unable to load public host profile", profileResult.error);
+        return;
+      }
+      if (cancelled || !hostId) {
+        console.error("Public host profile was not found", hostIdentifier);
+        return;
+      }
+
+      const [listingsResult, reviewsResult] = await Promise.all([
+        client
+          .from("listings")
+          .select("id,title,category,host_id,created_at")
+          .eq("host_id", hostId)
+          .order("created_at", { ascending: false }),
+        client
+          .from("reviews")
+          .select("id,rating,comment,created_at,client_id")
+          .eq("host_id", hostId)
+          .eq("status", "published")
+          .order("created_at", { ascending: false }),
+      ]);
+
+      const profile = profileResult.data;
+      if (listingsResult.error) {
+        console.error("Unable to load public host listings", {
+          hostId,
+          error: {
+            code: listingsResult.error.code,
+            message: listingsResult.error.message,
+            details: listingsResult.error.details,
+            hint: listingsResult.error.hint,
+          },
+        });
+      }
+      if (reviewsResult.error) {
+        console.error("Unable to load public host reviews", {
+          hostId,
+          error: {
+            code: reviewsResult.error.code,
+            message: reviewsResult.error.message,
+            details: reviewsResult.error.details,
+            hint: reviewsResult.error.hint,
+          },
+        });
+      }
+      const reviewClientIds = !reviewsResult.error
+        ? [...new Set((reviewsResult.data || []).map((review) => review.client_id).filter(Boolean))]
+        : [];
+      const clientsResult = reviewClientIds.length
+        ? await client.from("profiles").select("id,full_name").in("id", reviewClientIds)
+        : { data: [], error: null };
+      if (clientsResult.error) {
+        console.error("Unable to load public review authors", {
+          hostId,
+          error: clientsResult.error,
+        });
+      }
+      const clientsById = Object.fromEntries((clientsResult.data || []).map((clientProfile) => [
+        clientProfile.id,
+        clientProfile.full_name,
+      ]));
+      const mappedReviews = !reviewsResult.error && Array.isArray(reviewsResult.data)
+        ? reviewsResult.data.map((review) => ({
+          id: review.id,
+          name: clientsById[review.client_id] || "Guest",
+          rating: Number(review.rating) || 0,
+          date: review.created_at ? new Date(review.created_at).toLocaleDateString() : "",
+          text: review.comment || "",
+        }))
+        : [];
+      const reviewCount = mappedReviews.length;
+      const rating = reviewCount
+        ? mappedReviews.reduce((total, review) => total + review.rating, 0) / reviewCount
+        : 0;
+      const avatarUrl = profile.avatar_url
+        ? (profile.avatar_url.startsWith("http")
+          ? profile.avatar_url
+          : client.storage.from("avatars").getPublicUrl(profile.avatar_url).data.publicUrl)
+        : "";
+      const listingIds = !listingsResult.error
+        ? (listingsResult.data || []).map((listing) => listing.id)
+        : [];
+      const [photosResult, detailsResult] = listingIds.length
+        ? await Promise.all([
+          client.from("listing_photos").select("listing_id,storage_path").in("listing_id", listingIds),
+          client.from("listing_booking_details").select("listing_id,price_amount,price_unit").in("listing_id", listingIds),
+        ])
+        : [{ data: [], error: null }, { data: [], error: null }];
+      if (photosResult.error) console.error("Unable to load public listing photos", photosResult.error);
+      if (detailsResult.error) console.error("Unable to load public listing prices", detailsResult.error);
+      const photosByListingId = Object.fromEntries((photosResult.data || []).map((photo) => [photo.listing_id, photo]));
+      const detailsByListingId = Object.fromEntries((detailsResult.data || []).map((details) => [details.listing_id, details]));
+      const mappedListings = !listingsResult.error && Array.isArray(listingsResult.data)
+        ? await Promise.all(listingsResult.data.map(async (listing) => {
+          const photo = photosByListingId[listing.id];
+          const details = detailsByListingId[listing.id];
+          let media = [];
+          try {
+            const mediaResponse = await fetch(`/api/properties/${encodeURIComponent(listing.id)}/media`);
+            if (!mediaResponse.ok) {
+              console.error("Unable to load public listing media", {
+                listingId: listing.id,
+                status: mediaResponse.status,
+              });
+            } else {
+              const mediaPayload = await mediaResponse.json();
+              media = Array.isArray(mediaPayload.media) ? mediaPayload.media : [];
+            }
+          } catch (error) {
+            console.error("Unable to load public listing media", {
+              listingId: listing.id,
+              error,
+            });
+          }
+          const mediaImage = media.find((item) => item.thumbnailUrl);
+          const videoMedia = media.find((item) => item.type === "video");
+          let videoUrl = null;
+          if (videoMedia?.id) {
+            try {
+              const playbackResponse = await fetch(
+                `/api/media/${encodeURIComponent(videoMedia.id)}/playback`
+              );
+              if (!playbackResponse.ok) {
+                console.error("Unable to load public listing video playback", {
+                  listingId: listing.id,
+                  mediaId: videoMedia.id,
+                  status: playbackResponse.status,
+                });
+              } else {
+                const playbackPayload = await playbackResponse.json();
+                videoUrl = playbackPayload.url || null;
+              }
+            } catch (error) {
+              console.error("Unable to load public listing video playback", {
+                listingId: listing.id,
+                mediaId: videoMedia.id,
+                error,
+              });
+            }
+          }
+          return {
+            id: listing.id,
+            title: listing.title,
+            type: (listing.category || "PROPERTY").toUpperCase(),
+            price: Number(details?.price_amount) || 0,
+            image: photo?.storage_path
+              ? (photo.storage_path.startsWith("http")
+                ? photo.storage_path
+                : client.storage.from("listing-photos").getPublicUrl(photo.storage_path).data.publicUrl)
+              : mediaImage?.thumbnailUrl || "",
+            videoUrl,
+          };
+        }))
+        : [];
+
+      setHost({
+        name: profile.full_name || "Host",
+        handle: profile.username ? `@${profile.username.replace(/^@/, "")}` : "",
+        tagline: profile.bio || profile.city || "",
+        photo: avatarUrl,
+        verified: Boolean(profile.verified),
+        rating,
+        reviewCount,
+      });
+      setListings(mappedListings);
+      setReviews(mappedReviews);
+    };
+
+    loadProfile().catch((error) => {
+      console.error("Unable to load public host profile", error);
+      if (!cancelled) {
+        setHost((current) => ({ ...current, name: "Host" }));
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [router.isReady, router.query.hostId, router.query.username]);
+
+  const signIn = () => {
+    router.push(`/login?redirect=${encodeURIComponent(router.asPath)}`);
+  };
 
   return (
     <div
@@ -233,12 +398,13 @@ export default function PublicHostProfile() {
 
         <div>
           <h2 style={{ fontSize: 19, lineHeight: 1.3, margin: "0 0 8px 0" }}>
-            Sign in to message {HOST.name.split(" ")[0]}
+            Sign in to message {host.name.split(" ")[0]}
           </h2>
           <p style={{ fontSize: 13.5, color: "#8A8A8A", lineHeight: 1.5, margin: "0 0 20px 0" }}>
             You'll come right back to this profile once you're signed in.
           </p>
           <button
+            onClick={signIn}
             style={{
               width: "100%",
               display: "flex",
@@ -260,6 +426,7 @@ export default function PublicHostProfile() {
             Continue with Google
           </button>
           <button
+            onClick={signIn}
             style={{
               width: "100%",
               display: "flex",
@@ -297,8 +464,8 @@ export default function PublicHostProfile() {
           }}
         >
           <img
-            src={HOST.photo}
-            alt={HOST.name}
+            src={host.photo}
+            alt={host.name}
             style={{
               width: 56,
               height: 56,
@@ -311,8 +478,8 @@ export default function PublicHostProfile() {
 
           <div style={{ minWidth: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-              <h1 style={{ fontSize: 17, fontWeight: 700, margin: 0 }}>{HOST.name}</h1>
-              {HOST.verified && (
+              <h1 style={{ fontSize: 17, fontWeight: 700, margin: 0 }}>{host.name}</h1>
+              {host.verified && (
                 <span
                   style={{
                     display: "inline-flex",
@@ -331,7 +498,7 @@ export default function PublicHostProfile() {
               )}
             </div>
 
-            <div style={{ fontSize: 12.5, color: "#8A8A8A", marginTop: 2 }}>{HOST.handle}</div>
+            <div style={{ fontSize: 12.5, color: "#8A8A8A", marginTop: 2 }}>{host.handle}</div>
 
             <div
               style={{
@@ -345,11 +512,11 @@ export default function PublicHostProfile() {
               }}
             >
               <MapPin size={12} />
-              {HOST.tagline}
+              {host.tagline}
               <span style={{ color: "#4A4A4A" }}>·</span>
-              <Stars value={HOST.rating} size={11} />
+              <Stars value={host.rating} size={11} />
               <span>
-                {HOST.rating} ({HOST.reviewCount} reviews)
+                {host.rating ? host.rating.toFixed(1) : "No ratings"} ({host.reviewCount} reviews)
               </span>
             </div>
           </div>
@@ -365,8 +532,8 @@ export default function PublicHostProfile() {
           }}
         >
           {[
-            { key: "listings", label: `Listings · ${LISTINGS.length}` },
-            { key: "reviews", label: `Reviews · ${REVIEWS.length}` },
+            { key: "listings", label: `Listings · ${listings.length}` },
+            { key: "reviews", label: `Reviews · ${reviews.length}` },
           ].map((t) => (
             <button
               key={t.key}
@@ -392,18 +559,18 @@ export default function PublicHostProfile() {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(4, 1fr)",
+              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
               gap: 14,
               marginTop: 24,
             }}
           >
-            {LISTINGS.map((l) => (
+            {listings.map((l) => (
               <ListingCard key={l.id} listing={l} />
             ))}
           </div>
         ) : (
           <div style={{ marginTop: 8, maxWidth: 560, marginLeft: "auto", marginRight: "auto" }}>
-            {REVIEWS.map((r) => (
+            {reviews.map((r) => (
               <ReviewCard key={r.id} review={r} />
             ))}
           </div>

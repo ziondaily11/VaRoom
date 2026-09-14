@@ -2,7 +2,7 @@ import Head from 'next/head';
 import Script from 'next/script';
 import PublicHostProfile from '../../legacy-pages/public-profile';
 
-export default function HostProfilePage() {
+export default function PublicHostProfilePage() {
   return (
     <>
       <Head>
