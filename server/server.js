@@ -158,7 +158,10 @@ Object.entries(pageTemplates).forEach(([route, template]) => {
         console.error('Chat page delivery failed:', error);
         return res.sendStatus(500);
       }
-      res.type('html').send(html.replace('</body>', '<script src="/js/chat-data.js"></script></body>'));
+      res.type('html').send(html.replace(
+        '</body>',
+        '<script src="/js/supabase-client.js"></script><script src="/js/chat-data.js"></script></body>'
+      ));
     });
   });
 });

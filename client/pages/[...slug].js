@@ -149,11 +149,18 @@ export default function LegacyPage({ title, markup, scripts }) {
   useEffect(() => {
     runLegacyScripts(containerRef.current, scripts);
     if (title === 'Messenger Dashboard' && !document.querySelector('script[data-chat-data]')) {
+      const supabaseScript = document.createElement('script');
+      supabaseScript.src = '/js/supabase-client.js';
+      supabaseScript.dataset.chatSupabase = 'true';
+      supabaseScript.async = false;
+      document.body.appendChild(supabaseScript);
       const script = document.createElement('script');
       script.src = '/js/chat-data.js';
       script.dataset.chatData = 'true';
       script.async = false;
-      document.body.appendChild(script);
+      const loadChatData = () => document.body.appendChild(script);
+      supabaseScript.addEventListener('load', loadChatData, { once: true });
+      supabaseScript.addEventListener('error', loadChatData, { once: true });
     }
   }, [scripts]);
 
