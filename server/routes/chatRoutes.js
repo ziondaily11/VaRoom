@@ -280,7 +280,27 @@ router.post('/chat/conversations/:conversationId/messages', async (req, res) => 
       .select('id,conversation_id,sender_id,body,created_at,message_type,attachment_id,listing_id')
       .single();
     if (error) throw error;
-    return res.status(201).json({ message: data });
+    let attachment = null;
+    if (attachmentId) {
+      const attachmentResult = await supabaseAdmin
+        .from('message_attachments')
+        .select('id,original_filename,mime_type,file_size_bytes,kind,status')
+        .eq('id', attachmentId)
+        .single();
+      if (attachmentResult.error) throw attachmentResult.error;
+      attachment = attachmentResult.data;
+    }
+    let listing = null;
+    if (listingId) {
+      const listingResult = await supabaseAdmin
+        .from('listings')
+        .select('id,title,location_text,category,listing_photos(storage_path)')
+        .eq('id', listingId)
+        .single();
+      if (listingResult.error) throw listingResult.error;
+      listing = listingResult.data;
+    }
+    return res.status(201).json({ message: { ...data, attachment, listing } });
   } catch (error) {
     if (error instanceof ValidationError) return res.status(400).json({ error: error.message });
     console.error('Chat message send failed:', error);

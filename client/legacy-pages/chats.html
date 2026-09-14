@@ -223,8 +223,8 @@
     display:flex; align-items:center; justify-content:center;
   }
   .format-icons button:hover, .attach-icons button:hover{ background:#eaecef; }
-  .attach-icons button:last-child{ background:var(--mint); color:var(--white); }
-  .attach-icons button:last-child:hover{ background:var(--mint-dark); }
+  .attach-icons button[title="Share listing"]{ background:var(--mint); color:var(--white); }
+  .attach-icons button[title="Share listing"]:hover{ background:var(--mint-dark); }
   .format-icons .divider{ width:1px; height:18px; background:var(--border); margin:0 4px; }
   .fmt-b{ font-weight:800; font-size:13px; }
   .fmt-i{ font-style:italic; font-weight:700; font-size:13px; }
@@ -292,6 +292,7 @@
 <svg width="0" height="0" style="position:absolute">
 <defs>
   <symbol id="i-share" viewBox="0 0 24 24"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.5-4.2M8.2 13.2l7.5 4.2"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="m3 3 18 9-18 9 3.5-9L3 3Z"/><path d="M6.5 12H21"/></symbol>
   <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"/></symbol>
   <symbol id="i-store" viewBox="0 0 24 24"><path d="M4 9V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v4"/><path d="M3 9h18l-1.2 3.2a2 2 0 0 1-1.9 1.3H6.1a2 2 0 0 1-1.9-1.3L3 9Z"/><path d="M5 13.5V19a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5.5"/><path d="M9 20v-4h6v4"/></symbol>
   <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="16" rx="2"/><path d="M8 3v4M16 3v4M3.5 10h17"/><path d="M8.5 14.5l2 2 4-4"/></symbol>
@@ -505,6 +506,7 @@
           <button><svg class="icon"><use href="#i-image"/></svg></button>
           <button><svg class="icon"><use href="#i-paperclip"/></svg></button>
           <button title="Share listing" aria-label="Share listing"><svg class="icon"><use href="#i-share"/></svg></button>
+          <button class="send-message" title="Send message" aria-label="Send message"><svg class="icon"><use href="#i-send"/></svg></button>
         </div>
       </div>
     </div>

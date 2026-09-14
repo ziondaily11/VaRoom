@@ -47,8 +47,13 @@
       .chat-listing-option.selected{border-color:#25876e;box-shadow:0 0 0 2px #dbf4ea}
       .chat-listing-option img{width:100%;height:82px;object-fit:cover;display:block;background:#f6f7f9}
       .chat-listing-option div{padding:8px;font-size:13px;color:#1f2937}.chat-listing-option strong{color:#111827;font-weight:700}.chat-listing-option small{display:block;color:#4b5563;margin-top:4px;font-size:11.5px}
+      .chat-listing-card{max-width:320px;overflow:hidden;border-radius:10px;background:#f7f8f9;cursor:pointer}.chat-listing-card img{display:block;width:100%;height:150px;object-fit:cover;background:#eceff1}.chat-listing-card-body{padding:10px 12px}.chat-listing-card-title{font-weight:700;color:#14161c}.chat-listing-card-sub{margin-top:4px;color:#626b78;font-size:12px}
       .chat-sheet-action{margin-top:12px;border:0;border-radius:9px;background:#4ec1a0;color:#fff;padding:9px 14px;font-weight:700;cursor:pointer}.chat-sheet-action:disabled{opacity:.5;cursor:default}
       .chat-report-details{width:100%;min-height:70px;border:1px solid #e2e5ea;border-radius:8px;padding:8px;font:inherit;resize:vertical}
+      .chat-actions .info-action-report{display:block;width:100%;padding:9px 0;border:0;background:transparent;color:#4b5563;text-align:left;font:inherit;cursor:pointer}
+      .chat-actions .info-action-report:hover,.chat-actions .info-action-report:focus-visible{color:#14161c}
+      .chat-image-preview{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;padding:32px;background:rgba(20,22,28,.86);cursor:zoom-out}
+      .chat-image-preview img{max-width:90vw;max-height:90vh;width:auto;height:auto;object-fit:contain;border-radius:8px;cursor:default}
       @media(max-width:760px){.chat-sheet{padding:14px 16px}.chat-sheet-list{grid-template-columns:1fr 1fr}}
     `;
     document.head.appendChild(style);
@@ -68,6 +73,23 @@
     if (!sheet) return;
     sheet.classList.remove('open');
     sheet.setAttribute('aria-hidden', 'true');
+  }
+
+  function openImagePreview(url, alt) {
+    const existing = document.querySelector('.chat-image-preview');
+    if (existing) existing.remove();
+    const overlay = document.createElement('div');
+    overlay.className = 'chat-image-preview';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-label', 'Image preview');
+    const image = document.createElement('img');
+    image.src = url;
+    image.alt = alt || '';
+    overlay.appendChild(image);
+    overlay.addEventListener('click', (event) => {
+      if (event.target === overlay) overlay.remove();
+    });
+    document.body.appendChild(overlay);
   }
 
   function openReportSheet() {
@@ -160,11 +182,16 @@
       for (const listingId of selected) {
         const listing = state.listings.find((item) => item.id === listingId);
         if (!listing) continue;
-        await api(`/api/chat/conversations/${encodeURIComponent(state.activeId)}/messages`, {
+        const result = await api(`/api/chat/conversations/${encodeURIComponent(state.activeId)}/messages`, {
           method: 'POST',
           body: JSON.stringify({ content: listing.title, listingId: listing.id, messageType: 'listing' }),
         });
+        const current = $('.messages');
+        if (result.message && !current.querySelector(`[data-message-id="${result.message.id}"]`)) {
+          current.appendChild(messageRow(result.message));
+        }
       }
+      $('.messages').scrollTop = $('.messages').scrollHeight;
       closeSheet('chatShareSheet');
     });
     sheet.classList.add('open');
@@ -245,17 +272,17 @@
       row.appendChild(bubble);
     } else if (message.message_type === 'listing' && message.listing) {
       const card = document.createElement('div');
-      card.className = 'file-card';
+      card.className = 'chat-listing-card';
       const photo = message.listing.listing_photos && message.listing.listing_photos[0];
-      card.innerHTML = '<div class="file-icon"></div><div><div class="file-name"></div><div class="file-sub"></div></div>';
+      card.innerHTML = '<div class="chat-listing-card-body"><div class="chat-listing-card-title"></div><div class="chat-listing-card-sub"></div></div>';
       if (photo) {
         const image = document.createElement('img');
         image.src = window.supabaseClient.storage.from('listing-photos').getPublicUrl(photo.storage_path).data.publicUrl;
-        image.style.cssText = 'width:52px;height:42px;object-fit:cover;border-radius:8px';
-        card.querySelector('.file-icon').replaceWith(image);
+        image.alt = message.listing.title || 'Listing image';
+        card.insertBefore(image, card.firstChild);
       }
-      card.querySelector('.file-name').textContent = message.listing.title || '';
-      card.querySelector('.file-sub').textContent = message.listing.location_text || '';
+      card.querySelector('.chat-listing-card-title').textContent = message.listing.title || '';
+      card.querySelector('.chat-listing-card-sub').textContent = [message.listing.location_text, message.listing.category].filter(Boolean).join(' · ');
       card.addEventListener('click', () => { window.location.assign(`/booking?id=${encodeURIComponent(message.listing.id)}`); });
       loadListingVideo(message.listing.id).then((video) => {
         if (!video) return;
@@ -268,7 +295,7 @@
         player.style.cssText = 'width:180px;height:90px;object-fit:cover;border-radius:8px';
         const existingImage = card.querySelector('img');
         if (existingImage) existingImage.replaceWith(player);
-        else card.querySelector('.file-icon').replaceWith(player);
+        else card.insertBefore(player, card.firstChild);
       }).catch((error) => console.error('Shared listing video unavailable:', error));
       row.appendChild(card);
     } else if (message.message_type === 'voice' && message.attachment_id) {
@@ -281,6 +308,16 @@
       card.querySelector('.play').addEventListener('click', () => { if (audio.paused) audio.play(); else audio.pause(); });
       card.appendChild(audio);
       row.appendChild(card);
+    } else if (message.message_type === 'photo' && message.attachment_id) {
+      const image = document.createElement('img');
+      image.className = 'chat-message-image';
+      image.alt = message.attachment && message.attachment.original_filename || 'Shared image';
+      image.style.cssText = 'display:block;max-width:320px;max-height:260px;width:auto;height:auto;object-fit:contain;border-radius:8px;cursor:zoom-in';
+      downloadAttachment(message.attachment_id).then((url) => {
+        image.src = url;
+        image.addEventListener('click', () => openImagePreview(url, image.alt));
+      }).catch((error) => console.error('Image message unavailable:', error));
+      row.appendChild(image);
     } else if (message.attachment_id) {
       const card = document.createElement('div');
       card.className = 'file-card';
@@ -344,7 +381,7 @@
       image.style.objectFit = 'cover';
       downloadAttachment(message.attachment_id).then((url) => { image.src = url; }).catch((error) => console.error('Image unavailable:', error));
       thumb.appendChild(image);
-      thumb.addEventListener('click', () => downloadAttachment(message.attachment_id).then((url) => window.open(url, '_blank', 'noopener')));
+      thumb.addEventListener('click', () => downloadAttachment(message.attachment_id).then((url) => openImagePreview(url, image.alt)));
       mediaGrid.appendChild(thumb);
     });
     attachments.filter((message) => message.message_type === 'file').forEach((message) => {
@@ -435,20 +472,27 @@
       });
     });
     const input = $('.chat-input-area textarea');
-    input.addEventListener('keydown', async (event) => {
-      if (event.key !== 'Enter' || event.shiftKey) return;
-      event.preventDefault();
+    async function sendText() {
       const content = input.value.trim();
-      if (!content || !state.activeId) return;
+      if (!content || !state.activeId || input.disabled) return;
       input.disabled = true;
       try {
         const result = await api(`/api/chat/conversations/${encodeURIComponent(state.activeId)}/messages`, {
           method: 'POST', body: JSON.stringify({ content }),
         });
         input.value = '';
+        const current = $('.messages');
+        if (result.message && !current.querySelector(`[data-message-id="${result.message.id}"]`)) {
+          current.appendChild(messageRow(result.message));
+          current.scrollTop = current.scrollHeight;
+        }
         updateConversationPreview(result.message);
-      }
-      finally { input.disabled = false; }
+      } finally { input.disabled = false; }
+    }
+    input.addEventListener('keydown', async (event) => {
+      if (event.key !== 'Enter' || event.shiftKey) return;
+      event.preventDefault();
+      await sendText();
     });
     const fileInput = document.createElement('input');
     fileInput.type = 'file'; fileInput.hidden = true;
@@ -480,6 +524,9 @@
     const shareButton = $('.attach-icons button[title="Share listing"]');
     shareButton.disabled = false;
     shareButton.addEventListener('click', openShareSheet);
+    const sendButton = $('.attach-icons button.send-message');
+    sendButton.disabled = false;
+    sendButton.addEventListener('click', sendText);
     const actions = document.createElement('div');
     actions.className = 'info-section chat-actions';
     actions.innerHTML = '<div class="info-section-head"><span class="label">Actions</span></div><button type="button" class="info-action-report">Report User</button>';
