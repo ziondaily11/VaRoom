@@ -15,6 +15,7 @@
  */
 (function () {
   var STORAGE_KEY = 'varoom_linked_accounts';
+  var MAX_LINKED_ACCOUNTS = 3;
 
   function getLinkedAccounts() {
     try {
@@ -28,13 +29,15 @@
   }
 
   function upsertAccount(account) {
-    if (!account || !account.id) return;
+    if (!account || !account.id) return false;
     var list = getLinkedAccounts();
     var idx = -1;
     for (var i = 0; i < list.length; i++) { if (list[i].id === account.id) { idx = i; break; } }
     if (idx >= 0) list[idx] = Object.assign({}, list[idx], account);
-    else list.push(account);
+    else if (list.length < MAX_LINKED_ACCOUNTS) list.push(account);
+    else return false;
     saveLinkedAccounts(list);
+    return true;
   }
 
   function removeAccount(userId) {
@@ -45,6 +48,12 @@
   function initial(name) {
     var trimmed = (name || '').trim();
     return trimmed ? trimmed.charAt(0).toUpperCase() : '?';
+  }
+
+  function escapeHtml(value) {
+    return String(value || '').replace(/[&<>"']/g, function (character) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character];
+    });
   }
 
   function avatarPublicUrl(client, avatarPath) {
@@ -89,18 +98,20 @@
       return '<button type="button" class="account-row' + (isActive ? ' active' : '') + '" data-account-id="' + account.id + '">' +
         '<span class="account-row-avatar">' + avatarInner + '</span>' +
         '<span class="account-row-info">' +
-          '<span class="account-row-name">' + (account.full_name || 'VaRoom member') + '</span>' +
-          '<span class="account-row-meta">' + (account.email || '') + '</span>' +
+          '<span class="account-row-name">' + escapeHtml(account.full_name || 'VaRoom member') + '</span>' +
+          '<span class="account-row-meta">' + escapeHtml(account.email || '') + '</span>' +
         '</span>' +
         (isActive ? '<span class="account-row-check">✓</span>' : '') +
         '</button>';
     }).join('');
 
+    var atLimit = accounts.length >= MAX_LINKED_ACCOUNTS;
     dropdownEl.innerHTML = rowsHtml +
       '<div class="account-dropdown-divider"></div>' +
-      '<button type="button" class="account-add-btn" id="account-add-btn">' +
+      '<button type="button" class="account-add-btn' + (atLimit ? ' disabled' : '') + '" id="account-add-btn"' +
+      (atLimit ? ' disabled aria-disabled="true"' : '') + '>' +
       '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg>' +
-      'Add existing account</button>';
+      (atLimit ? 'Account limit reached (3/3)' : 'Add existing account') + '</button>';
   }
 
   /**
@@ -152,7 +163,7 @@
 
     dropdownEl.addEventListener('click', async function (event) {
       var addBtn = event.target.closest('#account-add-btn');
-      if (addBtn) {
+      if (addBtn && !addBtn.disabled) {
         window.location.href = 'login.html?mode=add&redirect=' + encodeURIComponent(redirectPath);
         return;
       }
@@ -164,12 +175,13 @@
       for (var i = 0; i < accounts.length; i++) { if (accounts[i].id === accountId) { account = accounts[i]; break; } }
       if (!account) return;
 
-      row.style.opacity = '0.6';
+      row.classList.add('switching');
       try {
         var switchResult = await client.auth.setSession({ access_token: account.access_token, refresh_token: account.refresh_token });
         if (switchResult.error) throw switchResult.error;
         window.location.reload();
       } catch (err) {
+        row.classList.remove('switching');
         removeAccount(accountId);
         refresh(currentUser.id);
         var message = 'That account needs you to sign in again.';
@@ -184,6 +196,7 @@
     upsertAccount: upsertAccount,
     upsertFromSession: upsertFromSession,
     removeAccount: removeAccount,
+    canAddAccount: function () { return getLinkedAccounts().length < MAX_LINKED_ACCOUNTS; },
     init: init
   };
 })();

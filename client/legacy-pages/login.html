@@ -450,6 +450,10 @@
   /* ── Google OAuth ── */
   document.getElementById('google-btn').addEventListener('click', async function() {
     try {
+      if (mode === 'add' && window.VaRoomAccountSwitcher && !window.VaRoomAccountSwitcher.canAddAccount()) {
+        showAlert('You can link up to 3 accounts. Remove an account before adding another.', 'error');
+        return;
+      }
       if (mode === 'add' && window.VaRoomAccountSwitcher) {
         var existing = await supabaseClient.auth.getSession();
         var outgoingSession = existing.data && existing.data.session;
@@ -498,6 +502,11 @@
     }
 
     if (!valid) return;
+
+    if (mode === 'add' && window.VaRoomAccountSwitcher && !window.VaRoomAccountSwitcher.canAddAccount()) {
+      showAlert('You can link up to 3 accounts. Remove an account before adding another.', 'error');
+      return;
+    }
 
     submitBtn.classList.add('loading');
     submitBtn.disabled = true;
