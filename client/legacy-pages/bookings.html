@@ -109,6 +109,7 @@
 
   .topbar{ display:flex; align-items:center; gap:1rem; padding:0 2rem; min-height:0; background:transparent; }
   .topbar-avatar-btn{ display:none; }
+  .mobile-page-title{ display:none; }
   .avatar-circle{
     width:38px; height:38px; border-radius:50%; background:var(--red); color:var(--white);
     display:flex; align-items:center; justify-content:center; font-weight:700; font-size:.9rem;
@@ -329,6 +330,99 @@
     .host-header-row{ display:block; }
     .host-month-nav{ margin:1rem 0 1.2rem; width:100%; justify-content:flex-start; }
   }
+  @media (max-width:520px){
+    body.review-modal-open{ overflow:hidden; }
+    .topbar{
+      min-height:56px; padding:.65rem 1rem; gap:.7rem;
+      background:#111; color:#fff;
+    }
+    .topbar-avatar-btn{ width:30px; height:30px; padding:0; }
+    .topbar-avatar-btn .avatar-circle{
+      width:30px; height:30px; background:transparent; color:#fff;
+    }
+    .mobile-page-title{ display:block; font-size:1.05rem; font-weight:700; letter-spacing:-.01em; }
+    .back-link{ display:none; }
+    #client-bookings-view{ padding-top:.9rem; }
+    #client-bookings-view > .page-title,
+    #client-bookings-view > .page-subtitle{ display:none; }
+    #client-bookings-view .tabs{
+      width:100%; gap:0; justify-content:space-between; margin:0 0 1rem;
+    }
+    #client-bookings-view .tab{
+      flex:1 1 0; min-width:0; padding:.25rem .15rem .7rem;
+      font-size:.78rem; text-align:center; white-space:nowrap;
+      color:var(--muted);
+    }
+    #client-bookings-view .tab.active{ color:var(--ink); font-weight:700; }
+    #client-bookings-view .booking-card{
+      display:block; width:100%; padding:.75rem; margin-bottom:.85rem;
+      border-radius:14px; overflow:visible;
+    }
+    #client-bookings-view .bk-thumb{
+      width:100%; height:auto; aspect-ratio:16 / 9; border-radius:10px;
+      font-size:.82rem;
+    }
+    #client-bookings-view .bk-main{ width:100%; padding-top:.9rem; }
+    #client-bookings-view .bk-top-row{ gap:.5rem; }
+    #client-bookings-view .bk-top-row > div{ min-width:0; flex:1; }
+    #client-bookings-view .bk-title{
+      font-size:1.02rem; line-height:1.3; overflow-wrap:anywhere;
+    }
+    #client-bookings-view .bk-loc{
+      font-size:.84rem; line-height:1.35; overflow-wrap:anywhere;
+    }
+    #client-bookings-view .bk-status{
+      flex:0 0 auto; max-width:42%; padding:.3rem .55rem; font-size:.64rem;
+      white-space:normal; text-align:center;
+    }
+    #client-bookings-view .bk-meta{
+      display:block; margin-top:.8rem; font-size:.86rem; line-height:1.45;
+    }
+    #client-bookings-view .bk-meta span{ display:block; overflow-wrap:anywhere; }
+    #client-bookings-view .bk-price{ margin-top:.45rem; font-size:1rem; }
+    #client-bookings-view .bk-price span{ font-size:.8rem; }
+    #client-bookings-view .bk-bottom-row{
+      display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center;
+      gap:.7rem .8rem; margin-top:.95rem; padding-top:.85rem;
+      border-top:1px solid var(--line-soft);
+    }
+    #client-bookings-view .bk-host{ min-width:0; }
+    #client-bookings-view .bk-host-name{
+      min-width:0; font-size:.86rem; overflow-wrap:anywhere;
+    }
+    #client-bookings-view .bk-host-avatar{ width:32px; height:32px; font-size:.76rem; }
+    #client-bookings-view .bk-msg-link{
+      min-height:32px; font-size:.82rem; white-space:nowrap;
+    }
+    #client-bookings-view .bk-actions{
+      grid-column:1 / -1; width:100%; min-width:0; margin:0;
+      display:flex; justify-content:flex-end; align-items:center;
+      flex-wrap:wrap; gap:.55rem;
+    }
+    #client-bookings-view .bk-actions .bk-btn{
+      flex:1 1 130px; min-width:0; min-height:40px; padding:.58rem .7rem;
+      font-size:.8rem; text-align:center; white-space:normal;
+    }
+    #client-bookings-view .reviewed-badge{
+      flex:1 1 130px; min-height:40px; display:flex; align-items:center;
+      justify-content:center; font-size:.82rem;
+    }
+    #client-bookings-view .bk-note{ font-size:.8rem; line-height:1.4; }
+    .review-modal-backdrop{
+      align-items:flex-end; padding:.75rem; padding-bottom:max(.75rem, env(safe-area-inset-bottom));
+    }
+    .review-modal{
+      width:100%; max-height:calc(100dvh - 1.5rem); border-radius:18px;
+      padding:1.25rem 1rem 1rem;
+    }
+    .review-modal-title{ font-size:1.2rem; }
+    .review-modal-subtitle{ font-size:.88rem; margin:.45rem 0 1rem; }
+    .review-stars{ justify-content:center; gap:.45rem; margin:.1rem 0 1rem; }
+    .review-star{ min-width:2.8rem; min-height:2.8rem; font-size:1.8rem; }
+    .review-label{ font-size:.84rem; margin-bottom:.45rem; }
+    .review-textarea{ min-height:150px; padding:.85rem; font-size:.95rem; }
+    .review-submit{ min-height:44px; margin-top:.45rem; font-size:.86rem; }
+  }
   @media (max-width:860px){
     .right-rail.host-empty{ display:none; }
     .right-rail.host-empty:has(.host-detail.show){ display:block; position:fixed; inset:0; z-index:180; max-width:none; padding:1rem; background:var(--paper); border:0; }
@@ -463,6 +557,7 @@
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
         </div>
       </button>
+      <span class="mobile-page-title" id="mobile-page-title">My Bookings</span>
       <a href="/client-home" class="back-link">← Back to dashboard</a>
     </header>
 
@@ -606,6 +701,7 @@
     if (isHost) {
       clientView.style.display = 'none';
       hostView.style.display = 'block';
+      document.getElementById('mobile-page-title').textContent = 'Bookings';
       clientRightRail.style.display = 'none';
       rightRail.classList.add('host-empty');
       contentRow.classList.add('host-layout');
@@ -1220,11 +1316,13 @@
       document.getElementById('review-success').textContent = '';
       document.getElementById('review-submit').disabled = false;
       document.getElementById('review-modal-backdrop').classList.add('show');
+      document.body.classList.add('review-modal-open');
       document.getElementById('review-comment').focus();
     }
 
     function closeReviewModal(){
       document.getElementById('review-modal-backdrop').classList.remove('show');
+      document.body.classList.remove('review-modal-open');
       activeReviewBooking = null;
     }
 
