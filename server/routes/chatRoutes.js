@@ -32,12 +32,24 @@ async function profilesById(ids) {
     .in('id', ids);
   if (error) throw error;
   const profiles = Object.fromEntries((data || []).map((profile) => [profile.id, profile]));
-  await Promise.all(ids.map(async (id) => {
-    const { data: result } = await supabaseAdmin.auth.admin.getUserById(id);
-    if (result && result.user && result.user.email) {
-      profiles[id] = { ...(profiles[id] || { id }), email: result.user.email };
+  const emailResults = await Promise.all(ids.map(async (id) => {
+    try {
+      const { data: result, error: authError } = await supabaseAdmin.auth.admin.getUserById(id);
+      if (authError) {
+        console.warn('Chat profile email lookup failed:', id, authError.message);
+        return null;
+      }
+      return result && result.user && result.user.email
+        ? { id, email: result.user.email }
+        : null;
+    } catch (error) {
+      console.warn('Chat profile email lookup failed:', id, error.message);
+      return null;
     }
   }));
+  emailResults.filter(Boolean).forEach(({ id, email }) => {
+    profiles[id] = { ...(profiles[id] || { id }), email };
+  });
   return profiles;
 }
 

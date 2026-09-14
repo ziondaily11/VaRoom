@@ -344,7 +344,9 @@
           event.stopPropagation();
           state.activeId = conversation.id;
           renderProfile(conversation);
-          renderInfoAttachments([]);
+          api(`/api/chat/conversations/${encodeURIComponent(conversation.id)}/messages`)
+            .then((result) => renderInfoAttachments(result.messages || []))
+            .catch((error) => console.error('Unable to load contact information:', error));
           showMobileInfo('inbox');
           return;
         }
