@@ -107,6 +107,37 @@
     container.scrollTop = container.scrollHeight;
   }
 
+  function renderInfoAttachments(messages) {
+    const attachments = messages.filter((message) => message.attachment_id && message.message_type !== 'voice');
+    const sections = document.querySelectorAll('.info-section');
+    const mediaSection = sections[0];
+    const filesSection = sections[1];
+    if (!mediaSection || !filesSection) return;
+    const mediaGrid = mediaSection.querySelector('.media-grid');
+    const fileRows = filesSection.querySelectorAll('.file-row');
+    clear(mediaGrid);
+    fileRows.forEach((row) => row.remove());
+    attachments.filter((message) => message.message_type === 'photo').slice(0, 6).forEach((message) => {
+      const thumb = document.createElement('div');
+      thumb.className = 'thumb';
+      thumb.style.background = '#eaf1ff';
+      thumb.innerHTML = '<svg class="icon"><use href="#i-image"/></svg>';
+      thumb.addEventListener('click', () => downloadAttachment(message.attachment_id));
+      mediaGrid.appendChild(thumb);
+    });
+    attachments.filter((message) => message.message_type === 'file').forEach((message) => {
+      const row = document.createElement('div');
+      row.className = 'file-row';
+      row.innerHTML = '<div class="f-icon" style="background:#e5f0ff;color:#3b7ce0;"><svg class="icon"><use href="#i-file-text"/></svg></div><div><div class="f-name"></div><div class="f-sub">Attachment</div></div><svg class="icon f-dl"><use href="#i-download"/></svg>';
+      row.querySelector('.f-name').textContent = message.body || 'File';
+      row.addEventListener('click', () => downloadAttachment(message.attachment_id));
+      filesSection.appendChild(row);
+    });
+    mediaSection.hidden = !mediaGrid.children.length;
+    filesSection.hidden = !filesSection.querySelector('.file-row');
+    sections[2].hidden = true;
+  }
+
   async function selectConversation(id) {
     state.activeId = id;
     renderConversationList();
@@ -119,6 +150,7 @@
     if (state.channel) await state.channel.unsubscribe();
     const result = await api(`/api/chat/conversations/${encodeURIComponent(id)}/messages`);
     renderMessages(result.messages);
+    renderInfoAttachments(result.messages);
     await api(`/api/chat/conversations/${encodeURIComponent(id)}/read`, { method: 'POST', body: '{}' });
     state.channel = window.supabaseClient.channel(`chat:${id}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${id}` }, (payload) => {
@@ -151,6 +183,7 @@
       $('#statusText').textContent = '';
       clear($('.messages'));
       renderProfile(null);
+      renderInfoAttachments([]);
     }
     const search = $('.search-box input');
     search.addEventListener('input', () => {
@@ -225,7 +258,9 @@
         input.focus();
       });
     });
-    document.querySelectorAll('.info-section').forEach((section) => { section.hidden = true; });
+    document.querySelectorAll('.info-section').forEach((section, index) => {
+      if (index === 2) section.hidden = true;
+    });
   }
 
   start().catch((error) => { console.error('Chat initialization failed:', error); });
