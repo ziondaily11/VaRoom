@@ -45,6 +45,17 @@
     saveLinkedAccounts(list);
   }
 
+  async function switchAccount(client, account) {
+    if (!client || !account || !account.access_token || !account.refresh_token) {
+      throw new Error('This account needs you to sign in again.');
+    }
+    var switchResult = await client.auth.setSession({
+      access_token: account.access_token,
+      refresh_token: account.refresh_token
+    });
+    if (switchResult.error) throw switchResult.error;
+  }
+
   function initial(name) {
     var trimmed = (name || '').trim();
     return trimmed ? trimmed.charAt(0).toUpperCase() : '?';
@@ -177,8 +188,7 @@
 
       row.classList.add('switching');
       try {
-        var switchResult = await client.auth.setSession({ access_token: account.access_token, refresh_token: account.refresh_token });
-        if (switchResult.error) throw switchResult.error;
+        await switchAccount(client, account);
         window.location.reload();
       } catch (err) {
         row.classList.remove('switching');
@@ -195,6 +205,7 @@
     getLinkedAccounts: getLinkedAccounts,
     upsertAccount: upsertAccount,
     upsertFromSession: upsertFromSession,
+    switchAccount: switchAccount,
     removeAccount: removeAccount,
     canAddAccount: function () { return getLinkedAccounts().length < MAX_LINKED_ACCOUNTS; },
     init: init
