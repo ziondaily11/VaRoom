@@ -69,7 +69,7 @@ function initNotifications(supabaseClient, currentUser) {
     const { count } = await supabaseClient
       .from('notifications')
       .select('id', { count: 'exact', head: true })
-      .eq('user_id', currentUser.id)
+      .eq('recipient_user_id', currentUser.id)
       .eq('read', false);
     badge.style.display = count > 0 ? 'block' : 'none';
   }
@@ -80,8 +80,8 @@ function initNotifications(supabaseClient, currentUser) {
 
     const { data } = await supabaseClient
       .from('notifications')
-      .select('id,message,type,read,created_at,booking_id')
-      .eq('user_id', currentUser.id)
+      .select('id,title,message,type,read,created_at,booking_id,related_entity_type,related_entity_id,metadata')
+      .eq('recipient_user_id', currentUser.id)
       .order('created_at', { ascending: false })
       .limit(20);
 
@@ -97,29 +97,32 @@ function initNotifications(supabaseClient, currentUser) {
 
     list.innerHTML = data.map(function (n) {
       const icon = notifIconFor(n.type);
-      const clickable = n.booking_id ? ' data-booking-id="' + n.booking_id + '" style="cursor:pointer;"' : '';
+      const primaryText = n.title || n.message || 'Notification';
+      const target = (n.metadata && n.metadata.target) || (n.related_entity_type === 'conversation' && n.related_entity_id ? '/chats?c=' + encodeURIComponent(n.related_entity_id) : null) || (n.booking_id ? '/booking-approved?id=' + encodeURIComponent(n.booking_id) : null);
+      const clickable = target ? ' data-target="' + notifEscapeHtml(target) + '" style="cursor:pointer;"' : '';
       return (
         '<div class="notif-row"' + clickable + ' style="display:flex;gap:.7rem;padding:.8rem 1rem;border-bottom:1px solid rgba(128,110,100,.08);' +
           (n.read ? '' : 'background:rgba(196,30,58,.05);') + '">' +
           '<div style="width:32px;height:32px;border-radius:50%;flex-shrink:0;background:' + icon.bg + ';color:' + icon.fg + ';display:flex;align-items:center;justify-content:center;">' + icon.svg + '</div>' +
           '<div style="flex:1;min-width:0;font-size:.85rem;line-height:1.4;">' +
-            '<div>' + notifEscapeHtml(n.message) + '</div>' +
+            '<div>' + notifEscapeHtml(primaryText) + '</div>' +
             '<div style="font-size:.74rem;color:var(--muted);margin-top:.25rem;">' + notifTimeAgo(n.created_at) + '</div>' +
           '</div>' +
         '</div>'
       );
     }).join('');
 
-    list.querySelectorAll('.notif-row[data-booking-id]').forEach(function (row) {
+    list.querySelectorAll('.notif-row[data-target]').forEach(function (row) {
       row.addEventListener('click', function () {
-        window.location.href = '/booking-approved?id=' + row.getAttribute('data-booking-id');
+        const target = row.getAttribute('data-target');
+        if (target) window.location.href = target;
       });
     });
 
     // Mark visible unread ones as read
     const unreadIds = data.filter(function (n) { return !n.read; }).map(function (n) { return n.id; });
     if (unreadIds.length > 0) {
-      await supabaseClient.from('notifications').update({ read: true }).in('id', unreadIds);
+      await supabaseClient.from('notifications').update({ read: true }).in('id', unreadIds).eq('recipient_user_id', currentUser.id);
       refreshUnreadCount();
     }
   }
@@ -137,7 +140,7 @@ function initNotifications(supabaseClient, currentUser) {
 
   panel.querySelector('#notif-mark-all').addEventListener('click', async function (e) {
     e.stopPropagation();
-    await supabaseClient.from('notifications').update({ read: true }).eq('user_id', currentUser.id).eq('read', false);
+    await supabaseClient.from('notifications').update({ read: true }).eq('recipient_user_id', currentUser.id).eq('read', false);
     loadNotifications();
     refreshUnreadCount();
   });
@@ -151,7 +154,7 @@ function initNotifications(supabaseClient, currentUser) {
     .channel('notif-' + currentUser.id)
     .on('postgres_changes', {
       event: 'INSERT', schema: 'public', table: 'notifications',
-      filter: 'user_id=eq.' + currentUser.id
+      filter: 'recipient_user_id=eq.' + currentUser.id
     }, function () { refreshUnreadCount(); })
     .subscribe();
 
