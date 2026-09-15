@@ -2,6 +2,7 @@
 
 const express = require('express');
 const supabaseAdmin = require('../lib/supabaseClient');
+const { createNotification } = require('../lib/notifications');
 const { ValidationError, assertAllowedKeys, text, uuid, enumValue } = require('../lib/inputValidation');
 
 const router = express.Router();
@@ -292,6 +293,29 @@ router.post('/chat/conversations/:conversationId/messages', async (req, res) => 
       .select('id,conversation_id,sender_id,body,created_at,message_type,attachment_id,listing_id')
       .single();
     if (error) throw error;
+
+    const recipientUserId = conversation.host_id === user.id ? conversation.client_id : conversation.host_id;
+    const { data: senderProfile } = await supabaseAdmin.from('profiles').select('full_name').eq('id', user.id).maybeSingle();
+    const listingTitle = listingId ? (await supabaseAdmin.from('listings').select('title').eq('id', listingId).maybeSingle()).data?.title : null;
+    const notificationMessage = listingTitle ? `${senderProfile?.full_name || 'Someone'} sent you a message about ${listingTitle}.` : `${senderProfile?.full_name || 'Someone'} sent you a message.`;
+    await createNotification({
+      recipientUserId,
+      actorUserId: user.id,
+      type: 'new_message',
+      title: 'New message',
+      message: notificationMessage,
+      relatedEntityType: 'conversation',
+      relatedEntityId: conversationId,
+      metadata: {
+        conversation_id: conversationId,
+        sender_id: user.id,
+        message_id: data.id,
+        listing_id: listingId || conversation.listing_id || null,
+        listing_title: listingTitle,
+      },
+      eventKey: `message:${conversationId}:${data.id}`,
+    });
+
     let attachment = null;
     if (attachmentId) {
       const attachmentResult = await supabaseAdmin
