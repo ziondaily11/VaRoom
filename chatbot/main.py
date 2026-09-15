@@ -112,7 +112,7 @@ allowed_origins = [o.strip() for o in raw_cors.split(",") if o.strip()] if raw_c
     "https://varoom.co.ke",
     "https://www.varoom.co.ke",
     "https://elie1-0.onrender.com",
-    "https://varoom-1.onrender.com",
+    "https://property-news-pnsj.onrender.com",
     "http://localhost:3000",
     "http://localhost:8000",
     "http://127.0.0.1:3000",

@@ -17,8 +17,8 @@ The public Property News API is live on the Supabase-backed Render service and i
 ## Operational checks
 
 - `https://varoom.co.ke/api/news/latest?limit=1` returns published data.
-- `https://varoom-1.onrender.com/health` reports the isolated service and Supabase as configured.
-- The collector endpoint is protected and targeted directly by GitHub Actions at `https://varoom-1.onrender.com/api/internal/jobs/collect`.
+- `https://property-news-pnsj.onrender.com/health` reports the isolated service and Supabase as configured.
+- The collector endpoint is protected and targeted directly by GitHub Actions at `https://property-news-pnsj.onrender.com/api/internal/jobs/collect`.
 - The latest collector runs have returned Render `502` responses after the platform request timeout; inspect the Render service logs and the next workflow run after deployment before declaring ingestion recovered.
 
 ## Production-ready code completed locally
