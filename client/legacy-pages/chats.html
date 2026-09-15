@@ -157,6 +157,9 @@
   .chat-header-name{ font-size:15.5px; font-weight:700; color:var(--text-dark); }
   .chat-header-status{ display:flex; align-items:center; gap:6px; margin-top:4px; font-size:11.5px; color:var(--text-gray); }
   .chat-header-status .dot{ width:7px; height:7px; border-radius:50%; background:var(--mint); }
+  .mobile-back{ display:none; }
+  .chat-header-avatar-wrap{ display:none; }
+  .chat-header-identity{ display:flex; align-items:center; gap:10px; }
   .chat-header-actions{ display:flex; gap:10px; }
   .chat-header-actions button{
     width:38px; height:38px; border-radius:12px; border:1px solid var(--border);
@@ -174,9 +177,12 @@
   .msg-row{ display:flex; flex-direction:column; max-width:58%; }
   .msg-row.in{ align-self:flex-start; align-items:flex-start; }
   .msg-row.out{ align-self:flex-end; align-items:flex-end; }
+  .msg-row.system{ align-self:flex-start; max-width:80%; }
   .bubble{ padding:12px 16px; font-size:14px; line-height:1.5; color:var(--text-dark); font-weight:500; }
   .msg-row.in .bubble{ background:#eef0f3; border-radius:4px 16px 16px 16px; }
   .msg-row.out .bubble{ background:#c9f0dd; border-radius:16px 4px 16px 16px; }
+  .msg-row.system .bubble{ background:var(--bg-soft); color:var(--text-gray-2); font-style:italic; font-weight:400; border-radius:12px; }
+  .msg-sender{ font-size:11.5px; font-weight:700; color:var(--text-gray-2); margin:0 4px 5px; }
   .msg-meta{ font-size:11px; color:var(--text-gray-2); margin-top:5px; padding:0 4px; font-weight:500; }
 
   .file-card{
@@ -295,33 +301,64 @@
     .search-box svg{ color:#c5d0da; font-size:16px; }
     .search-box input,.search-box input::placeholder{ color:#dce4eb; }
     .search-box input::placeholder{ color:#8996a3; }
-    .compose-btn{ width:40px; height:40px; border-radius:50%; background:transparent; border-color:#46515d; color:#dce4eb; }
+    .compose-btn{ width:40px; height:40px; border-radius:50%; background:var(--mint); border-color:var(--mint); color:var(--rail-bg); }
+    .search-box{ transition:border-color .15s; }
+    .search-box:focus-within{ border-color:var(--mint); }
     .contact-list{ padding:6px 10px 16px; background:#050708; }
     .contact-item{ min-height:68px; padding:10px 8px; border-bottom:1px solid #18212a; border-radius:0; }
     .contact-item:hover,.contact-item.active{ background:transparent; }
     .contact-item:active{ background:#111820; }
+    .contact-item .status-dot{ border-color:#050708; }
+    .contact-item .badge{ background:var(--mint); color:var(--rail-bg); font-weight:800; }
     .contact-name,.mobile-inbox-title{ color:#f5f7fa; }
     .contact-name{ max-width:calc(100vw - 150px); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .contact-preview,.contact-time{ color:#8e9aa7; }
     .contact-preview{ display:block; max-width:calc(100vw - 150px); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .contact-time{ flex-shrink:0; white-space:nowrap; }
-    .chat-col{ display:none; width:100%; background:#050708; }
+    .chat-col{ display:none; width:100%; background:#ffffff; }
     .chat-col.mobile-visible{ display:flex; }
-    .chat-header{ padding:12px 16px; background:#050708; border-bottom-color:#18212a; }
+    .chat-header{ padding:10px 12px; background:#ffffff; border-bottom-color:var(--border); }
+    .mobile-back{ display:flex; color:#0b0b0c; }
+    .chat-header-avatar-wrap{ display:block; position:relative; }
+    .chat-header-avatar-wrap .avatar-fallback{ width:38px; height:38px; font-size:13px; }
+    .chat-header-avatar-wrap .status-dot{ width:9px; height:9px; border:2px solid #fff; }
+    .chat-header-identity{ flex:1; flex-direction:column; align-items:center; gap:2px; }
+    .chat-header-identity .chat-header-name{ color:#0b0b0c; font-size:13px; }
+    .chat-header-identity .chat-header-status{ display:none; }
     .chat-header-actions button[title="Search"],
-    .chat-header-actions button[title="More"]{ display:none; }
+    .chat-header-actions #infoToggleBtn{ display:none; }
+    .chat-header-actions button[title="More"]{
+      display:flex; background:transparent; border:none; color:#0b0b0c;
+    }
     .chat-header-actions{ gap:6px; }
     .chat-header::before{ content:none; }
-    .chat-header > div:first-child{ flex:1; }
-    .messages{ padding:16px; background:#050708; }
-    .chat-input-area{ padding:10px 12px 14px; background:#050708; border-top-color:#18212a; }
-    .chat-input-area textarea{ background:#111820; color:#f5f7fa; border-color:#1d2832; }
-    .chat-input-area textarea::placeholder{ color:#8e9aa7; }
+    .messages{ padding:16px 14px; background:#fbfbfc; gap:14px; }
+    .msg-row{ max-width:80%; }
+    .msg-row.out .bubble{ background:var(--rail-bg); color:#ffffff; }
+    .msg-row.in .bubble{ background:#edeef0; color:#1c1c1e; }
+    .msg-row.system .bubble{ background:#f1f1f3; }
+    .msg-sender{ color:#8e8e93; }
+    .msg-meta{ color:#8e8e93; }
+    .voice-card{ background:#edeef0; }
+    .voice-card .play{ background:var(--rail-bg); }
+    .voice-wave span{ background:#1c1c1e; }
+    .chat-input-area{ padding:8px 10px 12px; background:#ffffff; border-top-color:var(--border); }
+    .chat-input-area textarea{ background:transparent; color:#1c1c1e; border:none; height:18px; }
+    .chat-input-area textarea::placeholder{ color:#9a9aa0; }
+    .input-toolbar{ margin-top:6px; }
     .format-icons{ display:none; }
+    .attach-icons{ width:100%; justify-content:space-between; }
     .attach-icons button.share-photo,
     .attach-icons button.share-file,
     .attach-icons button[title="Share listing"]{ display:none; }
-    .attach-icons .mobile-plus{ display:flex; background:var(--bg-soft); }
+    .attach-icons .mobile-plus{
+      display:flex; width:34px; height:34px; border-radius:50%;
+      background:transparent; border:1.5px solid #d5d5da; color:#6b6b70;
+    }
+    .attach-icons .send-message{
+      width:34px; height:34px; border-radius:50%;
+      background:var(--rail-bg); color:#ffffff; border:none;
+    }
     .info-col.mobile-visible{
       display:block; width:100%; border-left:0; padding:16px; background:#050708; color:#f5f7fa;
     }
@@ -330,9 +367,9 @@
     .info-col.mobile-visible .info-close-btn{ display:flex; }
     .mobile-inbox-title{ display:block; padding:10px 16px 8px; font-size:18px; line-height:24px; font-weight:600; color:#f5f7fa; }
     .mobile-inbox-title{ display:flex; align-items:center; gap:12px; }
-    .mobile-menu,.mobile-back{ display:flex; align-items:center; justify-content:center; border:0; background:transparent; color:#f5f7fa; cursor:pointer; }
-    .mobile-menu{ width:40px; height:40px; padding:0; margin-left:-6px; }
-    .mobile-back{ width:40px; height:40px; padding:0; }
+    .mobile-menu,.mobile-back{ display:flex; align-items:center; justify-content:center; border:0; background:transparent; cursor:pointer; }
+    .mobile-menu{ width:40px; height:40px; padding:0; margin-left:-6px; color:#f5f7fa; }
+    .mobile-back{ width:40px; height:40px; padding:0; color:#0b0b0c; }
     .mobile-back .icon{ width:18px; height:18px; }
     .mobile-preview{ display:none; border:1px solid var(--border); border-radius:10px; margin:8px 0; padding:8px; color:var(--text-dark); font-size:12px; }
     .mobile-preview.has-content{ display:block; }
@@ -372,6 +409,8 @@
   <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a5 5 0 0 0 7.5.4l2-2a5 5 0 0 0-7-7l-1.5 1.5"/><path d="M14 10a5 5 0 0 0-7.5-.4l-2 2a5 5 0 0 0 7 7l1.5-1.5"/></symbol>
   <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
   <symbol id="i-panel" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M14.5 4.5v15"/></symbol>
+  <symbol id="i-chevron-left" viewBox="0 0 24 24"><path d="M15 5 8 12l7 7"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
 </defs>
 </svg>
 
@@ -390,7 +429,11 @@
   </nav>
 
   <!-- CONTACTS -->
-  <aside class="contacts-col">
+  <aside class="contacts-col mobile-hidden">
+    <div class="mobile-inbox-title">
+      <button class="mobile-menu" aria-label="Menu" title="Menu"><svg class="icon"><use href="#i-menu"/></svg></button>
+      Messages
+    </div>
     <div class="search-bar">
       <div class="search-box">
         <svg class="icon"><use href="#i-search"/></svg>
@@ -399,17 +442,75 @@
       <button class="compose-btn"><svg class="icon"><use href="#i-compose"/></svg></button>
     </div>
 
+    <!-- Placeholder contact threads -->
     <ul class="contact-list" id="contactList">
+      <li class="contact-item active">
+        <div class="avatar-wrap">
+          <div class="avatar-fallback" style="background:linear-gradient(135deg,#6d7ef0,#9a6df0)">LS</div>
+          <span class="status-dot online"></span>
+        </div>
+        <div class="contact-body">
+          <div class="contact-top">
+            <span class="contact-name">Linda Sarah</span>
+            <span class="contact-time">11:40 AM</span>
+          </div>
+          <div class="contact-bottom">
+            <span class="contact-preview">4-voice message</span>
+          </div>
+        </div>
+      </li>
+      <li class="contact-item">
+        <div class="avatar-wrap">
+          <div class="avatar-fallback" style="background:linear-gradient(135deg,#f0a26d,#e0776f)">JM</div>
+          <span class="status-dot"></span>
+        </div>
+        <div class="contact-body">
+          <div class="contact-top">
+            <span class="contact-name">James Mwangi</span>
+            <span class="contact-time">Yesterday</span>
+          </div>
+          <div class="contact-bottom">
+            <span class="contact-preview">Sounds good, I'll review it tomorrow.</span>
+          </div>
+        </div>
+      </li>
+      <li class="contact-item">
+        <div class="avatar-wrap">
+          <div class="avatar-fallback" style="background:linear-gradient(135deg,#6dd0f0,#6d9af0)">AK</div>
+          <span class="status-dot online"></span>
+        </div>
+        <div class="contact-body">
+          <div class="contact-top">
+            <span class="contact-name">Amara Kones</span>
+            <span class="contact-time">Mon</span>
+          </div>
+          <div class="contact-bottom">
+            <span class="contact-preview">Thanks for the update!</span>
+            <span class="badge">2</span>
+          </div>
+        </div>
+      </li>
     </ul>
   </aside>
 
   <!-- CHAT -->
-  <main class="chat-col">
+  <main class="chat-col mobile-visible">
     <header class="chat-header">
-      <div>
-        <div class="chat-header-name" id="chatName"></div>
-        <div class="chat-header-status"><span class="dot" id="statusDot"></span><span id="statusText"></span></div>
+      <button class="mobile-back" aria-label="Back" title="Back"><svg class="icon"><use href="#i-chevron-left"/></svg></button>
+
+      <div class="chat-header-identity">
+        <div class="chat-header-avatar-wrap">
+          <!-- Placeholder avatar -->
+          <div class="avatar-fallback" style="background:linear-gradient(135deg,#6d7ef0,#9a6df0)">LS</div>
+          <span class="status-dot online"></span>
+        </div>
+        <div>
+          <!-- Placeholder contact name -->
+          <div class="chat-header-name" id="chatName">Linda Sarah</div>
+          <div class="chat-header-status"><span class="dot" id="statusDot"></span><span id="statusText">Active now</span></div>
+        </div>
       </div>
+
       <div class="chat-header-actions">
         <button title="Search"><svg class="icon"><use href="#i-search"/></svg></button>
         <button title="Toggle info panel" id="infoToggleBtn" class="active"><svg class="icon"><use href="#i-panel"/></svg></button>
@@ -417,7 +518,61 @@
       </div>
     </header>
 
-    <div class="messages"></div>
+    <div class="messages">
+
+      <!-- Placeholder system note -->
+      <div class="msg-row system">
+        <div class="bubble">System: Please check if the spacing + states align with the dev guideline.</div>
+        <div class="msg-meta">9:01 AM</div>
+      </div>
+
+      <div class="msg-row out">
+        <div class="bubble">Thanks, Linda. Quick question — the padding on the secondary button looks tighter than the primary one. Is that intentional?</div>
+        <div class="msg-meta">9:04 AM</div>
+      </div>
+
+      <div class="msg-row in">
+        <div class="msg-sender">Linda</div>
+        <div class="bubble">Not really, I probably missed that. I'll fix the spacing and re-upload.</div>
+        <div class="msg-meta">10:02 AM</div>
+      </div>
+
+      <div class="msg-row out">
+        <div class="bubble">Once updated, can you also include disabled + loading states? We'll need them for the next sprint.</div>
+      </div>
+      <div class="msg-row out">
+        <!-- Placeholder attachment -->
+        <div class="file-card">
+          <div class="file-icon"><svg class="icon"><use href="#i-file-text"/></svg></div>
+          <div>
+            <div class="file-name">component-spec.pdf</div>
+            <div class="file-sub">1.2 MB</div>
+          </div>
+          <span class="dl"><svg class="icon"><use href="#i-download"/></svg></span>
+        </div>
+        <div class="msg-meta">11:11 AM</div>
+      </div>
+
+      <div class="msg-row in">
+        <div class="msg-sender">Linda</div>
+        <div class="voice-card">
+          <div class="play"><svg class="icon"><use href="#i-play"/></svg></div>
+          <div class="voice-wave">
+            <span style="height:6px"></span><span style="height:14px"></span><span style="height:9px"></span>
+            <span style="height:18px"></span><span style="height:11px"></span><span style="height:16px"></span>
+            <span style="height:7px"></span><span style="height:13px"></span><span style="height:9px"></span><span style="height:6px"></span>
+          </div>
+          <!-- Placeholder duration -->
+          <div class="voice-dur">0:32</div>
+        </div>
+        <div class="msg-meta">11:40 AM</div>
+      </div>
+
+      <div class="msg-row out">
+        <div class="bubble">FYI, if we reduce the sidebar width, some of the current components will break. Just keep the minimum 240px width so we don't need to refactor heavily.</div>
+      </div>
+
+    </div>
 
     <div class="chat-input-area">
       <textarea placeholder="Enter to send, Shift + Enter to add new line"></textarea>
@@ -431,6 +586,7 @@
           <button><svg class="icon"><use href="#i-list-sq"/></svg></button>
         </div>
         <div class="attach-icons">
+          <button class="mobile-plus" title="Add attachment" aria-label="Add attachment"><svg class="icon"><use href="#i-plus"/></svg></button>
           <button class="share-photo"><svg class="icon"><use href="#i-image"/></svg></button>
           <button class="share-file"><svg class="icon"><use href="#i-paperclip"/></svg></button>
           <button title="Share listing" aria-label="Share listing"><svg class="icon"><use href="#i-share"/></svg></button>
