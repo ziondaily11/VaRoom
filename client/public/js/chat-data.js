@@ -381,6 +381,7 @@
   }
 
   function updateConversationPreview(message) {
+    if (!message) return;
     const conversation = state.conversations.find((item) => item.id === message.conversation_id);
     if (!conversation) return;
     conversation.lastMessage = message;
@@ -656,7 +657,11 @@
       input.disabled = true;
       try {
         let result;
-        if (pending && pending.kind === 'listing') {
+        if (!pending && content.toLowerCase() === '@reply') {
+          result = await api(`/api/chat/conversations/${encodeURIComponent(conversationId)}/reply`, {
+            method: 'POST', body: JSON.stringify({ command: '@reply' }),
+          });
+        } else if (pending && pending.kind === 'listing') {
           result = await api(`/api/chat/conversations/${encodeURIComponent(conversationId)}/messages`, {
             method: 'POST', body: JSON.stringify({ content: content || pending.listing.title, listingId: pending.listing.id, messageType: 'listing' }),
           });
@@ -687,11 +692,14 @@
         state.pendingAttachment = null;
         updateMobilePreview();
         const current = $('.messages');
-        if (result.message && !current.querySelector(`[data-message-id="${result.message.id}"]`)) {
-          current.appendChild(messageRow(result.message));
-          current.scrollTop = current.scrollHeight;
-        }
-        updateConversationPreview(result.message);
+        const replyMessages = result.messages || (result.message ? [result.message] : []);
+        replyMessages.forEach((message) => {
+          if (message && !current.querySelector(`[data-message-id="${message.id}"]`)) {
+            current.appendChild(messageRow(message));
+          }
+        });
+        if (replyMessages.length) current.scrollTop = current.scrollHeight;
+        updateConversationPreview(replyMessages[replyMessages.length - 1] || result.message);
       } finally { input.disabled = false; }
     }
     input.addEventListener('keydown', async (event) => {
