@@ -62,7 +62,10 @@ const s3Client = R2_CONFIGURED
   ? new S3Client({
       region: 'auto',
       endpoint: R2_ENDPOINT,
-      credentials: {
+    // Keep the bucket in the URL path. Virtual-hosted URLs can produce
+    // bucket-prefixed R2 hostnames that fail DNS resolution in browsers.
+    forcePathStyle: true,
+    credentials: {
         accessKeyId: R2_ACCESS_KEY_ID,
         secretAccessKey: R2_SECRET_ACCESS_KEY,
       },
