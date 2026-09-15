@@ -3,290 +3,635 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Notifications — VaRoom</title>
-<script>
-  (function(){
-    try{
-      var saved = localStorage.getItem('varoom_theme') || 'system';
-      var resolved = saved === 'system'
-        ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-        : saved;
-      document.documentElement.setAttribute('data-theme', resolved);
-    }catch(e){}
-  })();
-</script>
+<title>Notifications · VaRoom</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;0,9..144,900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<link rel="icon" href="favicon/favicon.ico" sizes="any">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root{
-    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#24211E; --paper:#F7F6F3;
-    --muted:#5c584f; --card-border:#E4E1DA;
-    --font-display:'Helvetica Neue', Arial, sans-serif; --font-body:'Helvetica Neue', Arial, sans-serif; --font-brand:'Fraunces', serif;
+    --black:#14141a;
+    --white:#ffffff;
+    --red:#C41E3A;
+    --red-soft:#FBE9EC;
+    --red-soft-2:#F6D3D8;
+    --grey-bg:#F6F6F7;
+    --border:#EAEAEC;
+    --text:#17171C;
+    --text-muted:#6E6E76;
+    --green:#1B8A5A;
+    --green-soft:#E7F7EE;
+    --amber:#B45309;
+    --amber-soft:#FFF4E1;
+    --radius-lg:16px;
+    --radius-md:12px;
+    --radius-sm:8px;
+    --shadow-card:0 1px 2px rgba(20,20,26,0.04);
   }
-  [data-theme="dark"]{
-    --white:#241C1A; --paper:#15100F; --ink:#F5EFEC; --muted:#B8ACA8; --card-border:rgba(255,255,255,.1);
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    color:var(--text);
+    background:var(--grey-bg);
+    -webkit-font-smoothing:antialiased;
   }
-  *{ margin:0; padding:0; box-sizing:border-box; }
-  body{ font-family:var(--font-body); background:var(--paper); color:var(--ink); min-height:100vh; padding-bottom:5.5rem; }
-  a{ color:inherit; text-decoration:none; }
-  button{ font-family:inherit; cursor:pointer; border:none; background:none; color:inherit; }
+  button{font-family:inherit;}
+  a{color:inherit;text-decoration:none;}
+  .icon{width:18px;height:18px;flex-shrink:0;}
+  .icon-sm{width:15px;height:15px;flex-shrink:0;}
 
-  header{
-    display:flex; align-items:center; gap:.9rem; padding:1.1rem 1.2rem;
-    border-bottom:1px solid var(--card-border); background:var(--white);
-    position:sticky; top:0; z-index:50;
-  }
-  .back-btn{ display:flex; align-items:center; justify-content:center; width:34px; height:34px; border-radius:50%; color:var(--ink); flex-shrink:0; }
-  .back-btn:hover{ background:var(--paper); }
-  header h1{ font-family:var(--font-display); font-weight:600; font-size:1.25rem; flex:1; }
-  .mark-all-btn{ font-size:.78rem; font-weight:600; color:var(--red); white-space:nowrap; }
-  .mark-all-btn:hover{ text-decoration:underline; }
+  /* ---------- Layout ---------- */
+  .app{display:flex;height:100vh;overflow:hidden;}
 
-  .tabs{ display:flex; gap:.5rem; padding:1rem 1.2rem .2rem; overflow-x:auto; scrollbar-width:none; }
-  .tabs::-webkit-scrollbar{ display:none; }
+  /* ---------- Sidebar ---------- */
+  .sidebar{
+    width:266px;
+    min-width:266px;
+    background:var(--white);
+    border-right:1px solid var(--border);
+    display:flex;
+    flex-direction:column;
+    padding:22px 16px 16px;
+    overflow-y:auto;
+  }
+  .brand{
+    display:flex;
+    align-items:center;
+    gap:9px;
+    padding:0 6px;
+    margin-bottom:20px;
+  }
+  .brand-mark{
+    width:28px;height:28px;border-radius:8px;
+    background:var(--black);
+    display:flex;align-items:center;justify-content:center;
+    color:var(--red);
+    flex-shrink:0;
+  }
+  .brand-name{font-size:19px;font-weight:800;letter-spacing:-0.02em;}
+  .brand-name .va{color:var(--red);}
+  .brand-name .room{color:var(--black);}
+
+  .search-box{
+    display:flex;align-items:center;gap:8px;
+    background:var(--grey-bg);
+    border:1px solid var(--border);
+    border-radius:var(--radius-sm);
+    padding:9px 10px;
+    margin-bottom:14px;
+  }
+  .search-box input{
+    border:none;background:transparent;outline:none;
+    font-size:13.5px;width:100%;color:var(--text);
+  }
+  .search-box input::placeholder{color:var(--text-muted);}
+  .search-box svg{color:var(--text-muted);}
+
+  .btn-cta{
+    display:flex;align-items:center;justify-content:center;gap:7px;
+    background:var(--black);color:var(--white);
+    border:none;border-radius:var(--radius-sm);
+    padding:10px 12px;
+    font-size:13.5px;font-weight:600;
+    cursor:pointer;
+    margin-bottom:18px;
+    transition:background .15s ease;
+  }
+  .btn-cta:hover{background:#000;}
+  .btn-cta svg{color:var(--red);}
+
+  .nav-group{margin-bottom:16px;}
+  .nav-label{
+    font-size:11px;font-weight:600;color:var(--text-muted);
+    letter-spacing:.05em;text-transform:uppercase;
+    padding:0 10px;margin-bottom:6px;
+  }
+  .nav-item{
+    display:flex;align-items:center;gap:11px;
+    padding:9px 10px;
+    border-radius:var(--radius-sm);
+    color:var(--text);
+    font-size:13.8px;font-weight:500;
+    cursor:pointer;
+    margin-bottom:2px;
+    border-left:3px solid transparent;
+    transition:background .12s ease;
+  }
+  .nav-item svg{color:var(--text-muted);}
+  .nav-item:hover{background:var(--grey-bg);}
+  .nav-item.active{
+    background:var(--red-soft);
+    color:var(--black);
+    font-weight:600;
+    border-left:3px solid var(--red);
+  }
+  .nav-item.active svg{color:var(--red);}
+  .nav-item.danger:hover{background:var(--red-soft);}
+  .nav-item.danger:hover svg,.nav-item.danger:hover{color:var(--red);}
+
+  .sidebar-footer{
+    margin-top:auto;
+    padding-top:14px;
+    border-top:1px solid var(--border);
+  }
+  .user-card{
+    display:flex;align-items:center;gap:10px;
+    padding:8px 10px;
+  }
+  .avatar{
+    width:34px;height:34px;border-radius:50%;
+    background:var(--black);color:var(--white);
+    display:flex;align-items:center;justify-content:center;
+    font-size:13px;font-weight:700;flex-shrink:0;
+  }
+  .user-meta{line-height:1.25;}
+  .user-name{font-size:13.5px;font-weight:600;}
+  .user-role{font-size:11.5px;color:var(--text-muted);}
+
+  /* ---------- Main ---------- */
+  .main{flex:1;overflow-y:auto;}
+  .main-inner{max-width:980px;margin:0 auto;padding:28px 32px 60px;}
+
+  .page-header{
+    display:flex;align-items:flex-start;justify-content:space-between;
+    margin-bottom:20px;
+  }
+  .page-header h1{font-size:26px;font-weight:800;margin:0 0 4px;letter-spacing:-0.02em;}
+  .page-header p{margin:0;color:var(--text-muted);font-size:14px;}
+  .header-actions{display:flex;gap:8px;}
+  .icon-btn{
+    width:38px;height:38px;border-radius:10px;
+    border:1px solid var(--border);background:var(--white);
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;color:var(--text);
+    transition:background .12s ease;
+  }
+  .icon-btn:hover{background:var(--grey-bg);}
+  .icon-btn.confirm svg{color:var(--red);}
+
+  .toolbar{
+    display:flex;align-items:center;justify-content:space-between;
+    margin-bottom:22px;flex-wrap:wrap;gap:10px;
+  }
+  .tabs{
+    display:flex;gap:6px;background:var(--white);
+    padding:4px;border-radius:11px;border:1px solid var(--border);
+  }
   .tab{
-    flex-shrink:0; font-size:.82rem; font-weight:600; padding:.5rem 1rem; border-radius:100px;
-    background:var(--white); border:1px solid var(--card-border); color:var(--ink);
+    padding:7px 14px;border-radius:8px;border:none;background:transparent;
+    font-size:13.5px;font-weight:600;color:var(--text-muted);cursor:pointer;
   }
-  .tab.active{ background:var(--red); border-color:var(--red); color:#fff; }
-
-  main{ max-width:640px; margin:0 auto; padding:.5rem 0 2rem; }
-  .state-msg{ text-align:center; padding:3.5rem 1.5rem; color:var(--muted); font-size:.9rem; }
-
-  .group-label{
-    font-size:.75rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em;
-    color:var(--muted); padding:1.1rem 1.2rem .5rem;
+  .tab.active{background:var(--black);color:var(--white);}
+  .toolbar-search{
+    display:flex;align-items:center;gap:8px;
+    background:var(--white);border:1px solid var(--border);
+    border-radius:10px;padding:8px 12px;min-width:220px;
   }
+  .toolbar-search input{border:none;outline:none;background:transparent;font-size:13.5px;width:100%;}
+  .toolbar-search svg{color:var(--text-muted);}
 
-  .notif-row{
-    display:flex; gap:.8rem; align-items:flex-start; padding:.9rem 1.2rem;
-    border-bottom:1px solid var(--card-border); position:relative;
+  .section{margin-bottom:26px;}
+  .section-title{font-size:13px;font-weight:700;color:var(--text-muted);margin:0 0 10px;padding-left:2px;}
+
+  .card-list{
+    background:var(--white);
+    border:1px solid var(--border);
+    border-radius:var(--radius-lg);
+    overflow:hidden;
   }
-  .notif-row.unread{ background:rgba(196,30,58,.05); }
-  .notif-row.clickable{ cursor:pointer; }
-  .notif-row.clickable:hover{ background:rgba(196,30,58,.08); }
+  .notif-card{
+    display:flex;gap:14px;
+    padding:16px 18px;
+    border-bottom:1px solid var(--border);
+    transition:background .12s ease;
+  }
+  .notif-card:last-child{border-bottom:none;}
+  .notif-card:hover{background:#FCFCFD;}
+  .notif-card[hidden]{display:none;}
 
   .notif-icon{
-    width:38px; height:38px; border-radius:50%; flex-shrink:0;
-    display:flex; align-items:center; justify-content:center;
+    width:42px;height:42px;border-radius:11px;
+    display:flex;align-items:center;justify-content:center;
+    flex-shrink:0;
   }
-  .notif-body{ flex:1; min-width:0; }
-  .notif-title{ font-weight:700; font-size:.9rem; margin-bottom:.15rem; }
-  .notif-message{ font-size:.85rem; color:var(--muted); line-height:1.4; }
-  .notif-time{ font-size:.76rem; color:var(--muted); margin-top:.3rem; }
-  .notif-unread-dot{ width:8px; height:8px; border-radius:50%; background:var(--red); flex-shrink:0; margin-top:.4rem; }
+  .notif-icon.tint-red{background:var(--red-soft);color:var(--red);}
+  .notif-icon.tint-green{background:var(--green-soft);color:var(--green);}
+  .notif-icon.tint-amber{background:var(--amber-soft);color:var(--amber);}
+  .notif-icon.tint-black{background:#F0F0F1;color:var(--black);}
 
-  .notif-chevron{ color:var(--muted); flex-shrink:0; align-self:center; }
+  .notif-body{flex:1;min-width:0;}
+  .notif-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .notif-title{font-size:14.5px;font-weight:700;}
+  .tag{
+    font-size:11px;font-weight:700;padding:2px 8px;border-radius:100px;
+    letter-spacing:.01em;
+  }
+  .tag.booking{background:var(--red-soft);color:var(--red);}
+  .tag.payment{background:var(--green-soft);color:var(--green);}
+  .tag.alert{background:var(--red-soft-2);color:var(--red);}
+  .tag.reminder{background:var(--amber-soft);color:var(--amber);}
+  .tag.review{background:#F0F0F1;color:var(--black);}
+  .notif-desc{font-size:13.5px;color:var(--text-muted);margin:4px 0 0;line-height:1.5;}
+  .notif-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
+  .action-btn{
+    font-size:12.5px;font-weight:600;
+    padding:6px 12px;border-radius:8px;
+    border:1px solid var(--border);background:var(--white);
+    cursor:pointer;color:var(--text);
+  }
+  .action-btn:hover{background:var(--grey-bg);}
+  .action-btn.primary{background:var(--black);color:var(--white);border-color:var(--black);}
+  .action-btn.primary:hover{background:#000;}
+  .action-btn.ghost-red{color:var(--red);border-color:var(--red-soft-2);}
+  .action-btn.ghost-red:hover{background:var(--red-soft);}
+  .done-chip{
+    display:inline-flex;align-items:center;gap:6px;
+    font-size:12.5px;font-weight:600;color:var(--green);
+    background:var(--green-soft);padding:6px 12px;border-radius:8px;margin-top:10px;
+  }
 
-  /* ---------- BOTTOM BAR (matches client-home / host-home) ---------- */
-  .bottom-bar{
-    display:none; position:fixed; bottom:0; left:0; right:0; z-index:150;
-    background:var(--white); border-top:1px solid var(--card-border);
-    padding:.6rem .5rem calc(.6rem + env(safe-area-inset-bottom));
+  .notif-meta{
+    display:flex;flex-direction:column;align-items:flex-end;gap:8px;
+    flex-shrink:0;padding-top:2px;
   }
-  @media (max-width:860px){ .bottom-bar{ display:flex; } }
-  .bottom-bar-item{
-    flex:1; display:flex; flex-direction:column; align-items:center; gap:.25rem;
-    font-size:.68rem; font-weight:600; color:var(--muted); padding:.3rem 0;
+  .notif-time{font-size:12px;color:var(--text-muted);white-space:nowrap;}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--red);}
+
+  /* ---------- Mobile ---------- */
+  /* No bottom tab bar by design — this is a website, not a native app;
+     navigation on small screens lives entirely in the hamburger drawer. */
+  .menu-toggle{display:none;}
+  .drawer-close{display:none;}
+  .overlay{display:none;}
+
+  @media (max-width:900px){
+    .sidebar{
+      position:fixed;top:0;left:0;bottom:0;z-index:40;
+      width:82vw;max-width:300px;
+      transform:translateX(-100%);
+      transition:transform .22s ease;
+      box-shadow:16px 0 32px rgba(20,20,26,.14);
+    }
+    body.sidebar-open{overflow:hidden;}
+    body.sidebar-open .sidebar{transform:translateX(0);}
+    body.sidebar-open .overlay{
+      display:block;position:fixed;inset:0;background:rgba(20,20,26,.4);z-index:30;
+    }
+    .drawer-close{
+      display:flex;align-items:center;justify-content:center;
+      position:absolute;top:18px;right:14px;
+      width:32px;height:32px;border-radius:9px;border:1px solid var(--border);
+      background:var(--white);cursor:pointer;color:var(--text-muted);
+    }
+    .menu-toggle{
+      display:flex;align-items:center;justify-content:center;
+      width:38px;height:38px;border-radius:10px;border:1px solid var(--border);
+      background:var(--white);margin-right:10px;cursor:pointer;flex-shrink:0;
+    }
+    .page-header{align-items:center;}
+    .page-header-left{display:flex;align-items:center;}
+    .main-inner{padding:18px 16px 40px;}
+    .toolbar-search{display:none;}
   }
-  .bottom-bar-item.active{ color:var(--red-deep); }
-  .bottom-bar-elie .elie-badge{
-    width:30px; height:30px; border-radius:50%; background:var(--muted); color:var(--white);
-    display:flex; align-items:center; justify-content:center; margin-bottom:-2px;
+
+  /* Phone-width refinements: stack card meta, full-width tabs and actions
+     so nothing gets cramped or hard to tap. */
+  @media (max-width:640px){
+    .page-header h1{font-size:21px;}
+    .page-header p{font-size:12.5px;}
+    .header-actions{gap:6px;}
+    .icon-btn{width:36px;height:36px;}
+    .tabs{width:100%;}
+    .tab{flex:1;text-align:center;}
+    .notif-card{flex-wrap:wrap;padding:14px;}
+    .notif-icon{width:38px;height:38px;}
+    .notif-meta{
+      order:5;width:100%;flex-direction:row;
+      align-items:center;justify-content:flex-end;gap:6px;
+      margin-top:8px;padding-top:0;
+    }
+    .notif-meta .dot{order:-1;}
+    .notif-actions{flex-direction:column;}
+    .action-btn{width:100%;text-align:center;padding:9px 12px;}
   }
-  .bottom-bar-elie.active .elie-badge{ background:var(--red); }
 </style>
-<link rel="stylesheet" href="js/varoom-dark-theme.css">
 </head>
 <body>
 
-<header>
-  <a href="#" class="back-btn" id="back-link" aria-label="Back">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-  </a>
-  <h1>Notifications</h1>
-  <button type="button" class="mark-all-btn" id="mark-all-btn">Mark all read</button>
-</header>
+<div class="overlay" onclick="document.body.classList.remove('sidebar-open')"></div>
 
-<div class="tabs">
-  <button type="button" class="tab active" data-filter="all">All</button>
-  <button type="button" class="tab" data-filter="unread">Unread</button>
-  <button type="button" class="tab" data-filter="bookings">Bookings</button>
+<div class="app">
+
+  <!-- ============ SIDEBAR ============ -->
+  <aside class="sidebar">
+    <button class="drawer-close" onclick="document.body.classList.remove('sidebar-open')" aria-label="Close menu">
+      <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+    <div class="brand">
+      <span class="brand-mark">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      </span>
+      <span class="brand-name"><span class="va">Va</span><span class="room">Room</span></span>
+    </div>
+
+    <div class="search-box">
+      <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      <input type="text" placeholder="Search...">
+    </div>
+
+    <button class="btn-cta">
+      <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+      List a space
+    </button>
+
+    <div class="nav-group">
+      <div class="nav-label">Marketplace</div>
+      <div class="nav-item">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21 12 17 5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2Z"/></svg>
+        <span>Saved</span>
+      </div>
+      <div class="nav-item">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="m9 16 2 2 4-4"/></svg>
+        <span>Bookings</span>
+      </div>
+      <div class="nav-item">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-9 8.4 8.5 8.5 0 0 1-4-1L3 20l1.3-3.9a8.5 8.5 0 1 1 16.7-4.6Z"/></svg>
+        <span>Chats</span>
+      </div>
+      <div class="nav-item active">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a1.99 1.99 0 0 1-3.4 0"/></svg>
+        <span>Notifications</span>
+      </div>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-label">Hosting</div>
+      <div class="nav-item">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+        <span>My Listings</span>
+      </div>
+      <div class="nav-item">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
+        <span>Payments</span>
+      </div>
+      <div class="nav-item">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg>
+        <span>Analytics</span>
+      </div>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-label">Account</div>
+      <div class="nav-item">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.5-7 8-7s8 3 8 7"/></svg>
+        <span>Profile</span>
+      </div>
+      <div class="nav-item">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.6V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.6 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.6 1Z"/></svg>
+        <span>Settings</span>
+      </div>
+      <div class="nav-item">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2-3 4"/><path d="M12 17h.01"/></svg>
+        <span>Help &amp; Support</span>
+      </div>
+      <div class="nav-item danger">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+        <span>Log out</span>
+      </div>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="user-card">
+        <div class="avatar">OC</div>
+        <div class="user-meta">
+          <div class="user-name">Olivia C.</div>
+          <div class="user-role">Host · Nairobi</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ============ MAIN ============ -->
+  <main class="main">
+    <div class="main-inner">
+
+      <div class="page-header">
+        <div class="page-header-left">
+          <button class="menu-toggle" onclick="document.body.classList.add('sidebar-open')" aria-label="Open menu">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+          </button>
+          <div>
+            <h1>Notifications</h1>
+            <p id="notif-subtitle">You have 6 new notifications</p>
+          </div>
+        </div>
+        <div class="header-actions">
+          <button class="icon-btn confirm" aria-label="Mark all as read" onclick="markAllRead()">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          </button>
+          <button class="icon-btn" aria-label="Notification settings">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.6V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.6 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.6 1Z"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <div class="tabs">
+          <button class="tab active" data-filter="all" onclick="setFilter('all', this)">All (6)</button>
+          <button class="tab" data-filter="booking" onclick="setFilter('booking', this)">Bookings (2)</button>
+        </div>
+        <div class="toolbar-search">
+          <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <input type="text" placeholder="Search notifications...">
+        </div>
+      </div>
+
+      <!-- TODAY -->
+      <div class="section">
+        <p class="section-title">Today</p>
+        <div class="card-list">
+
+          <div class="notif-card" data-category="booking">
+            <div class="notif-icon tint-red">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="m9 16 2 2 4-4"/></svg>
+            </div>
+            <div class="notif-body">
+              <div class="notif-top">
+                <span class="notif-title">New booking request</span>
+                <span class="tag booking">Booking</span>
+              </div>
+              <p class="notif-desc">Wanjiku K. wants to book Riverside Loft for 3 nights, Sep 18–21.</p>
+              <div class="notif-actions" data-actions>
+                <button class="action-btn primary" onclick="resolveCard(this,'Accepted')">Accept</button>
+                <button class="action-btn ghost-red" onclick="resolveCard(this,'Declined')">Decline</button>
+              </div>
+            </div>
+            <div class="notif-meta">
+              <span class="notif-time">15 min ago</span>
+              <span class="dot"></span>
+            </div>
+          </div>
+
+          <div class="notif-card" data-category="payment">
+            <div class="notif-icon tint-green">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
+            </div>
+            <div class="notif-body">
+              <div class="notif-top">
+                <span class="notif-title">Payment received</span>
+                <span class="tag payment">Payment</span>
+              </div>
+              <p class="notif-desc">You received KES 12,500 for booking #VR-2291.</p>
+              <div class="notif-actions" data-actions>
+                <button class="action-btn" onclick="resolveCard(this,'Viewed')">View details</button>
+              </div>
+            </div>
+            <div class="notif-meta">
+              <span class="notif-time">8:30 AM</span>
+              <span class="dot"></span>
+            </div>
+          </div>
+
+          <div class="notif-card" data-category="alert">
+            <div class="notif-icon tint-red">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m10.3 3.9-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3.1l-8-14a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg>
+            </div>
+            <div class="notif-body">
+              <div class="notif-top">
+                <span class="notif-title">Listing photo flagged</span>
+                <span class="tag alert">Alert</span>
+              </div>
+              <p class="notif-desc">Karura Garden Studio has 1 photo pending review before it can go live.</p>
+              <div class="notif-actions" data-actions>
+                <button class="action-btn primary" onclick="resolveCard(this,'Fixed')">Fix now</button>
+              </div>
+            </div>
+            <div class="notif-meta">
+              <span class="notif-time">1:30 AM</span>
+              <span class="dot"></span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- YESTERDAY -->
+      <div class="section">
+        <p class="section-title">Yesterday</p>
+        <div class="card-list">
+
+          <div class="notif-card" data-category="booking">
+            <div class="notif-icon tint-black">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            </div>
+            <div class="notif-body">
+              <div class="notif-top">
+                <span class="notif-title">Guest checked out</span>
+                <span class="tag booking">Booking</span>
+              </div>
+              <p class="notif-desc">Checkout is complete for Kilimani Studio. Leave a review to boost your ranking.</p>
+              <div class="notif-actions" data-actions>
+                <button class="action-btn primary" onclick="resolveCard(this,'Reviewed')">Leave review</button>
+              </div>
+            </div>
+            <div class="notif-meta">
+              <span class="notif-time">Yesterday</span>
+            </div>
+          </div>
+
+          <div class="notif-card" data-category="reminder">
+            <div class="notif-icon tint-amber">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-9 8.4 8.5 8.5 0 0 1-4-1L3 20l1.3-3.9a8.5 8.5 0 1 1 16.7-4.6Z"/></svg>
+            </div>
+            <div class="notif-body">
+              <div class="notif-top">
+                <span class="notif-title">You haven't replied</span>
+                <span class="tag reminder">Reminder</span>
+              </div>
+              <p class="notif-desc">David M. is waiting on your reply about Lavington Apartment before the offer expires.</p>
+              <div class="notif-actions" data-actions>
+                <button class="action-btn primary" onclick="resolveCard(this,'Replied')">Reply now</button>
+              </div>
+            </div>
+            <div class="notif-meta">
+              <span class="notif-time">Yesterday</span>
+            </div>
+          </div>
+
+          <div class="notif-card" data-category="review">
+            <div class="notif-icon tint-black">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1Z"/></svg>
+            </div>
+            <div class="notif-body">
+              <div class="notif-top">
+                <span class="notif-title">New 5-star review</span>
+                <span class="tag review">Review</span>
+              </div>
+              <p class="notif-desc">Amara left a 5-star review for Two Bedroom Villa – Karen.</p>
+              <div class="notif-actions" data-actions>
+                <button class="action-btn" onclick="resolveCard(this,'Viewed')">View details</button>
+              </div>
+            </div>
+            <div class="notif-meta">
+              <span class="notif-time">Yesterday</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </main>
 </div>
 
-<main id="main-content">
-  <div class="state-msg" id="loading-state">Loading…</div>
-</main>
-
-<nav class="bottom-bar" id="bottom-bar">
-  <a href="#" class="bottom-bar-item" id="bb-home">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9a1 1 0 0 0 1 1H9a1 1 0 0 0 1-1v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4a1 1 0 0 0 1 1h2.5a1 1 0 0 0 1-1v-9"/></svg>
-    Home
-  </a>
-  <a href="/bookings" class="bottom-bar-item">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="2"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>
-    Bookings
-  </a>
-  <a href="/chats" class="bottom-bar-item">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z"/></svg>
-    Chats
-  </a>
-  <a href="/elie" class="bottom-bar-item bottom-bar-elie">
-    <span class="elie-badge"><span data-elie-icon style="width:18px;height:18px;object-fit:contain;"></span></span>
-    Elie
-  </a>
-  <button type="button" class="bottom-bar-item active">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-    Notifications
-  </button>
-</nav>
-
-<script src="js/supabase-client.js"></script>
 <script>
-(function(){
-  function iconFor(type){
-    const CHECK = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
-    const XICON = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
-    const CALENDAR = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="2"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>';
-
-    if (type === 'booking_approved') return { bg:'#DCF5E3', fg:'#1E7D3A', svg:CHECK, label:'Booking Confirmed' };
-    if (type === 'booking_declined') return { bg:'#FBE4E7', fg:'#C41E3A', svg:XICON, label:'Booking Declined' };
-    if (type === 'booking_cancelled') return { bg:'#FBE4E7', fg:'#C41E3A', svg:XICON, label:'Booking Cancelled' };
-    if (type === 'booking_request') return { bg:'#E8EEFB', fg:'#2255C4', svg:CALENDAR, label:'New Booking Request' };
-    return { bg:'#E8EEFB', fg:'#2255C4', svg:CALENDAR, label:'Notification' };
-  }
-
-  function timeAgo(dateStr){
-    const diffMs = Date.now() - new Date(dateStr).getTime();
-    const mins = Math.floor(diffMs / 60000);
-    if (mins < 1) return 'just now';
-    if (mins < 60) return mins + 'm ago';
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return hrs + 'h ago';
-    return Math.floor(hrs / 24) + 'd ago';
-  }
-
-  function escapeHtml(str){
-    const d = document.createElement('div');
-    d.textContent = str || '';
-    return d.innerHTML;
-  }
-
-  function groupLabel(dateStr){
-    const d = new Date(dateStr);
-    const now = new Date();
-    const startOfDay = function(dt){ return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate()); };
-    const diffDays = Math.round((startOfDay(now) - startOfDay(d)) / 86400000);
-    if (diffDays === 0) return 'Today';
-    if (diffDays === 1) return 'Yesterday';
-    return 'Older';
-  }
-
-  (async function(){
-    const { data: { session } } = await supabaseClient.auth.getSession();
-    if (!session) { window.location.href = '/login'; return; }
-    const currentUser = session.user;
-
-    const { data: profile } = await supabaseClient.from('profiles').select('role').eq('id', currentUser.id).maybeSingle();
-    const homeUrl = (profile && profile.role === 'host') ? '/host-home' : '/client-home';
-    document.getElementById('back-link').setAttribute('href', homeUrl);
-    document.getElementById('bb-home').setAttribute('href', homeUrl);
-
-    let allNotifications = [];
-    let currentFilter = 'all';
-
-    async function loadAll(){
-      const { data } = await supabaseClient
-        .from('notifications')
-        .select('id,message,type,read,created_at,booking_id')
-        .eq('user_id', currentUser.id)
-        .order('created_at', { ascending:false })
-        .limit(100);
-      allNotifications = data || [];
-      render();
-    }
-
-    function render(){
-      const main = document.getElementById('main-content');
-
-      let filtered = allNotifications;
-      if (currentFilter === 'unread') filtered = allNotifications.filter(function(n){ return !n.read; });
-      if (currentFilter === 'bookings') filtered = allNotifications.filter(function(n){ return (n.type || '').indexOf('booking_') === 0; });
-
-      if (filtered.length === 0) {
-        main.innerHTML = '<div class="state-msg">Nothing here yet.</div>';
-        return;
-      }
-
-      const groups = {};
-      const order = [];
-      filtered.forEach(function(n){
-        const g = groupLabel(n.created_at);
-        if (!groups[g]) { groups[g] = []; order.push(g); }
-        groups[g].push(n);
-      });
-
-      main.innerHTML = order.map(function(g){
-        return (
-          '<div class="group-label">' + g + '</div>' +
-          groups[g].map(function(n){
-            const icon = iconFor(n.type);
-            const clickable = n.booking_id ? ' clickable" data-booking-id="' + n.booking_id + '"' : '"';
-            const chevron = n.booking_id
-              ? '<svg class="notif-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>'
-              : '';
-            return (
-              '<div class="notif-row' + (n.read ? '' : ' unread') + clickable + '>' +
-                '<div class="notif-icon" style="background:' + icon.bg + ';color:' + icon.fg + ';">' + icon.svg + '</div>' +
-                '<div class="notif-body">' +
-                  '<div class="notif-title">' + icon.label + '</div>' +
-                  '<div class="notif-message">' + escapeHtml(n.message) + '</div>' +
-                  '<div class="notif-time">' + timeAgo(n.created_at) + '</div>' +
-                '</div>' +
-                (n.read ? '' : '<div class="notif-unread-dot"></div>') +
-                chevron +
-              '</div>'
-            );
-          }).join('')
-        );
-      }).join('');
-
-      main.querySelectorAll('.notif-row[data-booking-id]').forEach(function(row){
-        row.addEventListener('click', function(){
-          window.location.href = '/booking-approved?id=' + row.getAttribute('data-booking-id');
-        });
-      });
-
-      // Mark visible unread ones as read
-      const unreadIds = filtered.filter(function(n){ return !n.read; }).map(function(n){ return n.id; });
-      if (unreadIds.length > 0) {
-        supabaseClient.from('notifications').update({ read:true }).in('id', unreadIds).then(function(){
-          allNotifications.forEach(function(n){ if (unreadIds.indexOf(n.id) !== -1) n.read = true; });
-        });
-      }
-    }
-
-    document.querySelectorAll('.tab').forEach(function(tab){
-      tab.addEventListener('click', function(){
-        document.querySelectorAll('.tab').forEach(function(t){ t.classList.remove('active'); });
-        tab.classList.add('active');
-        currentFilter = tab.getAttribute('data-filter');
-        render();
-      });
+  function setFilter(category, btn){
+    document.querySelectorAll('.tab').forEach(function(t){ t.classList.remove('active'); });
+    btn.classList.add('active');
+    document.querySelectorAll('.notif-card').forEach(function(card){
+      var show = category === 'all' || card.getAttribute('data-category') === category;
+      card.hidden = !show;
     });
-
-    document.getElementById('mark-all-btn').addEventListener('click', async function(){
-      await supabaseClient.from('notifications').update({ read:true }).eq('user_id', currentUser.id).eq('read', false);
-      allNotifications.forEach(function(n){ n.read = true; });
-      render();
+    document.querySelectorAll('.section').forEach(function(section){
+      var visible = section.querySelectorAll('.notif-card:not([hidden])').length;
+      section.style.display = visible ? '' : 'none';
     });
+  }
 
-    loadAll();
-  })();
-})();
+  function resolveCard(button, label){
+    var actions = button.closest('[data-actions]');
+    var chip = document.createElement('span');
+    chip.className = 'done-chip';
+    chip.innerHTML = '<svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>' + label;
+    actions.replaceWith(chip);
+    var dot = button.closest('.notif-card').querySelector('.dot');
+    if(dot){ dot.remove(); }
+    updateSubtitle();
+  }
+
+  function markAllRead(){
+    document.querySelectorAll('.dot').forEach(function(d){ d.remove(); });
+    updateSubtitle();
+  }
+
+  function updateSubtitle(){
+    var remaining = document.querySelectorAll('.dot').length;
+    var subtitle = document.getElementById('notif-subtitle');
+    subtitle.textContent = remaining > 0
+      ? 'You have ' + remaining + ' new notification' + (remaining === 1 ? '' : 's')
+      : "You're all caught up";
+  }
+
+  // On phone-width screens, tapping a nav item should close the drawer
+  // behind it rather than leaving it open over the new "page".
+  document.querySelectorAll('.nav-item').forEach(function(item){
+    item.addEventListener('click', function(){
+      if (window.matchMedia('(max-width: 900px)').matches) {
+        document.body.classList.remove('sidebar-open');
+      }
+    });
+  });
 </script>
 
 </body>
