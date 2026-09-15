@@ -69,21 +69,12 @@
     });
     if (isMobile()) {
       $('.search-box input').placeholder = 'Search conversations...';
-      const title = document.createElement('div');
-      title.className = 'mobile-inbox-title';
-      title.innerHTML = '<button class="mobile-menu" type="button" aria-label="Open navigation"><svg class="icon"><use href="#i-menu"/></svg></button><span>Chat</span>';
-      $('.contacts-col').prepend(title);
       const preview = document.createElement('div');
       preview.className = 'mobile-preview';
       preview.id = 'mobileComposerPreview';
       $('.chat-input-area').prepend(preview);
-      const plus = document.createElement('button');
-      plus.type = 'button'; plus.className = 'mobile-plus'; plus.title = 'Add attachment';
-      plus.setAttribute('aria-label', 'Add attachment');
-      plus.textContent = '+';
-      $('.attach-icons').prepend(plus);
+      const plus = $('.attach-icons .mobile-plus');
       plus.addEventListener('click', openMobileTray);
-      $('.chat-header').insertAdjacentHTML('afterbegin', '<button class="mobile-back" type="button" aria-label="Back to inbox"><svg class="icon"><path d="m15 5-7 7 7 7"/></svg></button>');
       $('.chat-header .mobile-back').addEventListener('click', showMobileInbox);
       $('.chat-header > div:first-of-type').addEventListener('click', () => {
         if (state.activeId) showMobileInfo('conversation');
@@ -320,6 +311,11 @@
     $('#chatName').textContent = '';
     $('#statusText').textContent = '';
     $('#statusDot').style.background = '#c7cbd1';
+    const headerAvatar = $('.chat-header-avatar-wrap .avatar-fallback');
+    if (headerAvatar) {
+      headerAvatar.style.backgroundImage = '';
+      headerAvatar.textContent = '';
+    }
     document.querySelectorAll('.info-section').forEach((section) => { section.hidden = true; });
   }
 
@@ -400,6 +396,16 @@
     if (person.username) { const line = document.createElement('div'); line.className = 'p-line'; line.textContent = `@${person.username}`; block.appendChild(line); }
     if (person.email) { const line = document.createElement('div'); line.className = 'p-line'; line.textContent = person.email; block.appendChild(line); }
     if (person.phone) { const line = document.createElement('div'); line.className = 'p-line'; line.textContent = person.phone; block.appendChild(line); }
+  }
+
+  function renderHeaderProfile(conversation) {
+    const avatar = $('.chat-header-avatar-wrap .avatar-fallback');
+    if (!avatar) return;
+    clear(avatar);
+    avatar.style.background = '#14161c';
+    avatar.style.backgroundImage = '';
+    if (!conversation) return;
+    setAvatar(avatar, conversation.participant || {});
   }
 
   function messageRow(message) {
@@ -552,6 +558,7 @@
     $('#chatName').textContent = person.full_name || person.username || '';
     $('#statusText').textContent = '';
     $('#statusDot').style.background = '#c7cbd1';
+    renderHeaderProfile(conversation);
     renderProfile(conversation);
     const previousChannel = state.channel;
     state.channel = null;
