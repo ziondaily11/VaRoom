@@ -83,7 +83,7 @@
       plus.textContent = '+';
       $('.attach-icons').prepend(plus);
       plus.addEventListener('click', openMobileTray);
-      $('.chat-header').insertAdjacentHTML('afterbegin', '<button class="mobile-back" type="button" aria-label="Back to inbox">‹</button>');
+      $('.chat-header').insertAdjacentHTML('afterbegin', '<button class="mobile-back" type="button" aria-label="Back to inbox"><svg class="icon"><path d="m15 5-7 7 7 7"/></svg></button>');
       $('.chat-header .mobile-back').addEventListener('click', showMobileInbox);
       $('.chat-header > div:first-of-type').addEventListener('click', () => {
         if (state.activeId) showMobileInfo('conversation');
