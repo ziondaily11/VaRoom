@@ -68,6 +68,46 @@
   .write-card p { margin-top:.35rem; color:var(--muted); font-size:.75rem; }
   .write-button { flex:none; padding:.7rem 1rem; border:1px solid #525960; border-radius:999px; color:var(--text); background:transparent; font-size:.75rem; }
   .write-button:hover { border-color:var(--red); color:#fff; }
+  .action.is-active { border-color:rgba(237,35,71,.65); box-shadow:0 0 0 1px rgba(237,35,71,.2); }
+  .support-modal-backdrop {
+    position:fixed; inset:0; display:grid; place-items:center; padding:1rem; background:rgba(4,6,8,.75); backdrop-filter:blur(2px); z-index:20;
+  }
+  .support-modal-backdrop[hidden] { display:none; }
+  .support-modal {
+    position:relative; width:min(100%, 540px); max-height:90vh; overflow:auto; padding:1.2rem 1.2rem 1.1rem; border:1px solid rgba(255,255,255,.12); border-radius:12px; background:linear-gradient(180deg, rgba(13,16,18,.97), rgba(10,12,13,.98)); box-shadow:0 24px 80px rgba(0,0,0,.45);
+  }
+  .support-modal-close {
+    position:absolute; top:.85rem; right:.85rem; display:grid; place-items:center; width:32px; height:32px; border:1px solid rgba(255,255,255,.08); border-radius:50%; color:#d9dce0; background:rgba(255,255,255,.02);
+  }
+  .support-panel, .support-form {
+    display:flex; flex-direction:column; gap:.8rem; width:100%;
+  }
+  .support-panel h2, .support-form h2 { font:600 1.8rem/1.1 var(--display); letter-spacing:-.04em; }
+  .support-panel p, .support-form p { color:#b3b9bf; font-size:.78rem; line-height:1.6; }
+  .field-label { margin-top:.15rem; color:#dfe2e5; font-size:.68rem; letter-spacing:.08em; text-transform:uppercase; }
+  .support-form input, .support-form textarea {
+    width:100%; min-height:44px; padding:.8rem .9rem; border:1px solid #2f353b; border-radius:8px; color:var(--text); background:rgba(10,12,14,.9); font:inherit;
+  }
+  .support-form textarea { min-height:140px; resize:vertical; }
+  .support-form input:focus, .support-form textarea:focus { border-color:var(--red); outline:none; }
+  .support-form-actions, .support-panel-actions { display:flex; justify-content:flex-end; gap:.8rem; margin-top:.25rem; }
+  .support-form-secondary {
+    padding:.7rem 1rem; border:1px solid rgba(255,255,255,.14); border-radius:999px; background:transparent; color:var(--text); font-size:.75rem;
+  }
+  .support-form-message { min-height:1.2rem; margin-top:.2rem; color:#f0c2c5; font-size:.72rem; }
+  .success-icon {
+    display:grid; place-items:center; width:56px; height:56px; margin-bottom:.2rem; border-radius:50%; background:rgba(237,35,71,.12); color:var(--red); font-size:1.7rem; font-weight:700;
+  }
+  .support-success { align-items:flex-start; }
+  .support-success p { color:#dfe3e6; font-size:.85rem; }
+  .support-success .write-button { margin-top:.15rem; }
+  .is-submitting { opacity:.7; pointer-events:none; }
+  @media (max-width:560px) {
+    .support-modal { padding:1rem .9rem 1rem; }
+    .support-panel h2, .support-form h2 { font-size:1.5rem; }
+    .support-form-actions, .support-panel-actions { flex-direction:column-reverse; }
+    .support-form-secondary, .write-button.submit-button { width:100%; }
+  }
   .articles { margin-top:2.7rem; }
   .articles h2 { margin-top:.55rem; font:600 2rem var(--display); letter-spacing:-.03em; }
   .article-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1rem; margin-top:1rem; }
@@ -155,17 +195,78 @@
       <div><h2 id="write-heading">Write to VaRoom Support</h2><p>Our team can help when you can't find what you're looking for.</p></div>
       <button class="write-button" type="button" data-support-action="contact">Contact support</button>
     </section>
-    <section id="support-form-card" class="write-card" hidden aria-labelledby="support-form-heading">
-      <form id="support-ticket-form" style="width:100%">
-        <h2 id="support-form-heading">Contact support</h2>
-        <p id="support-form-message" class="empty"></p>
-        <input name="name" required placeholder="Your name" style="display:block;width:100%;margin-top:1rem;padding:.7rem;border:1px solid #34393e;border-radius:6px;color:var(--text);background:var(--surface)">
-        <input name="email" type="email" required placeholder="Reply-to email" style="display:block;width:100%;margin-top:.6rem;padding:.7rem;border:1px solid #34393e;border-radius:6px;color:var(--text);background:var(--surface)">
-        <input name="subject" required placeholder="Subject" style="display:block;width:100%;margin-top:.6rem;padding:.7rem;border:1px solid #34393e;border-radius:6px;color:var(--text);background:var(--surface)">
-        <textarea name="message" required rows="5" placeholder="How can we help?" style="display:block;width:100%;margin-top:.6rem;padding:.7rem;border:1px solid #34393e;border-radius:6px;color:var(--text);background:var(--surface)"></textarea>
-        <button class="write-button" type="submit" style="margin-top:.8rem">Send ticket</button>
-      </form>
-    </section>
+
+    <div id="support-modal-backdrop" class="support-modal-backdrop" hidden>
+      <div class="support-modal" role="dialog" aria-modal="true" aria-labelledby="support-modal-title">
+        <button class="support-modal-close" type="button" data-close-modal aria-label="Close support dialog">✕</button>
+
+        <div id="support-ticket-panel" class="support-panel" hidden>
+          <div class="section-label">Support</div>
+          <h2 id="support-modal-title">Contact support</h2>
+          <form id="support-ticket-form" class="support-form" novalidate>
+            <input type="hidden" name="name" value="">
+            <input type="hidden" name="email" value="">
+            <label class="field-label" for="ticket-email">Reply-to email</label>
+            <input id="ticket-email" name="reply_email" type="email" required placeholder="name@example.com">
+            <label class="field-label" for="ticket-subject">Subject</label>
+            <input id="ticket-subject" name="subject" type="text" required placeholder="How can we help?">
+            <label class="field-label" for="ticket-message">How can we help?</label>
+            <textarea id="ticket-message" name="message" required rows="5" placeholder="Tell us what you need help with..."></textarea>
+            <div class="support-form-actions">
+              <button class="support-form-secondary" type="button" data-close-modal>Cancel</button>
+              <button class="write-button submit-button" type="submit">Send ticket</button>
+            </div>
+            <p class="support-form-message" id="support-form-message" aria-live="polite"></p>
+          </form>
+        </div>
+
+        <form id="bug-report-form" class="support-form" hidden novalidate>
+          <input type="hidden" name="name" value="">
+          <input type="hidden" name="email" value="">
+          <input type="hidden" name="subject" value="Bug report">
+          <div class="section-label">Bug report</div>
+          <h2>Tell us what went wrong</h2>
+          <label class="field-label" for="bug-message">What happened?</label>
+          <textarea id="bug-message" name="message" required rows="5" placeholder="Describe the bug, what you expected, and when it happened..."></textarea>
+          <div class="support-form-actions">
+            <button class="support-form-secondary" type="button" data-close-modal>Cancel</button>
+            <button class="write-button submit-button" type="submit">Submit bug report</button>
+          </div>
+          <p class="support-form-message" id="bug-form-message" aria-live="polite"></p>
+        </form>
+
+        <form id="feature-request-form" class="support-form" hidden novalidate>
+          <input type="hidden" name="name" value="">
+          <input type="hidden" name="email" value="">
+          <input type="hidden" name="subject" value="Feature request">
+          <div class="section-label">Feature request</div>
+          <h2>Share your idea</h2>
+          <label class="field-label" for="feature-message">What would you like to see?</label>
+          <textarea id="feature-message" name="message" required rows="5" placeholder="Tell us about the feature you would like to see and how it would help..."></textarea>
+          <div class="support-form-actions">
+            <button class="support-form-secondary" type="button" data-close-modal>Cancel</button>
+            <button class="write-button submit-button" type="submit">Submit idea</button>
+          </div>
+          <p class="support-form-message" id="feature-form-message" aria-live="polite"></p>
+        </form>
+
+        <div id="account-help-panel" class="support-panel" hidden>
+          <div class="section-label">Account help</div>
+          <h2>Need help with your account?</h2>
+          <p>We can help with sign-in issues, profile updates, account access, and other account-related questions.</p>
+          <div class="support-panel-actions">
+            <button class="write-button" type="button" data-support-action="contact">Contact support</button>
+          </div>
+        </div>
+
+        <div id="support-success-panel" class="support-panel support-success" hidden>
+          <div class="success-icon" aria-hidden="true">✓</div>
+          <h2 id="success-panel-title">Thanks for reaching out</h2>
+          <p id="success-panel-message">Thank you. We appreciate you taking the time to report this. Our team will look into it.</p>
+          <button class="write-button" type="button" data-close-modal>Close</button>
+        </div>
+      </div>
+    </div>
 
     <section class="articles" aria-labelledby="articles-heading">
       <div class="section-label">Common help</div>
@@ -219,6 +320,185 @@
     var input = document.getElementById('search-input');
     var empty = document.getElementById('search-empty');
     var articles = Array.prototype.slice.call(document.querySelectorAll('.article'));
+    var modal = document.getElementById('support-modal-backdrop');
+    var ticketPanel = document.getElementById('support-ticket-panel');
+    var bugForm = document.getElementById('bug-report-form');
+    var featureForm = document.getElementById('feature-request-form');
+    var accountPanel = document.getElementById('account-help-panel');
+    var successPanel = document.getElementById('support-success-panel');
+    var ticketForm = document.getElementById('support-ticket-form');
+    var successTitle = document.getElementById('success-panel-title');
+    var successMessage = document.getElementById('success-panel-message');
+    var supportTitle = document.getElementById('support-modal-title');
+    var userProfile = { name: 'VaRoom member', email: '' };
+
+    function resetAllMessages() {
+      [ticketForm, bugForm, featureForm].forEach(function (currentForm) {
+        if (!currentForm) return;
+        var message = currentForm.querySelector('.support-form-message');
+        if (message) message.textContent = '';
+      });
+    }
+
+    function syncIdentityValues() {
+      Array.prototype.forEach.call(document.querySelectorAll('.support-form input[name="name"]'), function (input) {
+        input.value = userProfile.name || 'VaRoom member';
+      });
+      Array.prototype.forEach.call(document.querySelectorAll('.support-form input[name="email"]'), function (input) {
+        input.value = userProfile.email || '';
+      });
+      var ticketEmail = document.getElementById('ticket-email');
+      if (ticketEmail) ticketEmail.value = userProfile.email || '';
+    }
+
+    function setSubmittingState(form, isSubmitting) {
+      var button = form.querySelector('.submit-button');
+      if (!button) return;
+      button.disabled = isSubmitting;
+      form.classList.toggle('is-submitting', isSubmitting);
+      if (isSubmitting) {
+        button.textContent = 'Sending...';
+      } else {
+        if (form.id === 'support-ticket-form') button.textContent = 'Send ticket';
+        if (form.id === 'bug-report-form') button.textContent = 'Submit bug report';
+        if (form.id === 'feature-request-form') button.textContent = 'Submit idea';
+      }
+    }
+
+    function hideForms() {
+      ticketPanel.hidden = true;
+      bugForm.hidden = true;
+      featureForm.hidden = true;
+      accountPanel.hidden = true;
+      successPanel.hidden = true;
+      resetAllMessages();
+    }
+
+    function openSupportFlow(flow) {
+      hideForms();
+      var target = flow === 'ticket' || flow === 'contact' ? ticketPanel : flow === 'bug' ? bugForm : flow === 'feature' ? featureForm : flow === 'account' ? accountPanel : successPanel;
+      if (flow === 'ticket' || flow === 'contact') {
+        supportTitle.textContent = 'Contact support';
+      }
+      if (flow === 'bug') {
+        supportTitle.textContent = 'Report a bug';
+      }
+      if (flow === 'feature') {
+        supportTitle.textContent = 'Request a feature';
+      }
+      if (flow === 'account') {
+        supportTitle.textContent = 'Account help';
+      }
+      if (target) target.hidden = false;
+      modal.hidden = false;
+      document.querySelectorAll('.action').forEach(function (button) {
+        button.classList.toggle('is-active', button.getAttribute('data-support-action') === flow || (flow === 'ticket' && button.getAttribute('data-support-action') === 'contact'));
+      });
+    }
+
+    function closeSupportModal() {
+      modal.hidden = true;
+      hideForms();
+      document.querySelectorAll('.action').forEach(function (button) {
+        button.classList.remove('is-active');
+      });
+      ticketForm.reset();
+      bugForm.reset();
+      featureForm.reset();
+      syncIdentityValues();
+    }
+
+    function showSuccessState(title, message) {
+      hideForms();
+      successTitle.textContent = title;
+      successMessage.textContent = message;
+      successPanel.hidden = false;
+      modal.hidden = false;
+      document.querySelectorAll('.action').forEach(function (button) {
+        button.classList.remove('is-active');
+      });
+    }
+
+    async function loadCurrentUser() {
+      try {
+        if (!window.supabaseClient) return;
+        var sessionResult = await window.supabaseClient.auth.getSession();
+        var session = sessionResult && sessionResult.data ? sessionResult.data.session : null;
+        if (!session || !session.user) return;
+        var profileResult = await window.supabaseClient.from('profiles').select('full_name').eq('id', session.user.id).maybeSingle();
+        var profile = profileResult && profileResult.data ? profileResult.data : null;
+        var metadata = session.user.user_metadata || {};
+        userProfile.name = profile && profile.full_name ? profile.full_name : (metadata.full_name || metadata.name || (session.user.email ? session.user.email.split('@')[0] : 'VaRoom member'));
+        userProfile.email = session.user.email || '';
+      } catch (error) {
+        userProfile.name = 'VaRoom member';
+        userProfile.email = '';
+      }
+      syncIdentityValues();
+    }
+
+    async function submitSupportForm(event) {
+      event.preventDefault();
+      var form = event.currentTarget;
+      var message = form.querySelector('.support-form-message');
+      var formData = new FormData(form);
+      var values = Object.fromEntries(formData.entries());
+      var requestBody = {
+        name: String(values.name || userProfile.name || 'VaRoom member').trim(),
+        email: String(values.email || values.reply_email || userProfile.email || '').trim(),
+        subject: String(values.subject || '').trim(),
+        message: String(values.message || '').trim()
+      };
+
+      if (!requestBody.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(requestBody.email)) {
+        message.textContent = 'Please enter a valid reply-to email.';
+        return;
+      }
+      if (!requestBody.subject) {
+        message.textContent = 'Please add a subject.';
+        return;
+      }
+      if (!requestBody.message) {
+        message.textContent = 'Please tell us how we can help.';
+        return;
+      }
+
+      try {
+        setSubmittingState(form, true);
+        var sessionResult = window.supabaseClient ? await window.supabaseClient.auth.getSession() : { data: { session: null } };
+        var headers = { 'Content-Type': 'application/json' };
+        if (sessionResult.data && sessionResult.data.session) {
+          headers.Authorization = 'Bearer ' + sessionResult.data.session.access_token;
+        }
+        var response = await fetch('/api/support/tickets', {
+          method: 'POST',
+          headers: headers,
+          credentials: 'same-origin',
+          body: JSON.stringify(requestBody)
+        });
+        var contentType = response.headers.get('content-type') || '';
+        var isJson = contentType.indexOf('application/json') !== -1;
+        var body = isJson ? await response.json() : { error: 'The support service returned an unexpected response. Please try again.' };
+        if (!response.ok || !isJson) {
+          throw new Error(body.error || 'Unable to send support request');
+        }
+
+        if (form.id === 'bug-report-form') {
+          showSuccessState('Thanks for reporting', 'Thank you. We appreciate you taking the time to report this. Our team will look into it.');
+          return;
+        }
+        if (form.id === 'feature-request-form') {
+          showSuccessState('Thanks for the idea', 'Thank you. We appreciate the idea. Our team will look into it.');
+          return;
+        }
+        showSuccessState('Ticket sent', 'Thanks — your ticket has been sent. We will reply by email.');
+      } catch (error) {
+        message.textContent = error.message || 'Unable to send support request.';
+      } finally {
+        setSubmittingState(form, false);
+      }
+    }
+
     function search() {
       var query = input.value.trim().toLowerCase();
       articles.forEach(function (article) { article.classList.remove('match'); });
@@ -234,41 +514,29 @@
       found.scrollIntoView({ behavior:'smooth', block:'center' });
       window.setTimeout(function () { found.classList.remove('match'); }, 2400);
     }
+
     form.addEventListener('submit', function (event) { event.preventDefault(); search(); });
     document.querySelectorAll('[data-support-action]').forEach(function (button) {
       button.addEventListener('click', function () {
-        var card = document.getElementById('support-form-card');
-        card.hidden = false;
-        card.scrollIntoView({ behavior:'smooth', block:'center' });
+        var action = button.getAttribute('data-support-action');
+        var resolvedFlow = action === 'contact' ? 'ticket' : action;
+        openSupportFlow(resolvedFlow);
       });
     });
-    document.getElementById('support-ticket-form').addEventListener('submit', async function (event) {
-      event.preventDefault();
-      var form = event.currentTarget;
-      var message = document.getElementById('support-form-message');
-      var values = Object.fromEntries(new FormData(form).entries());
-      try {
-        var sessionResult = window.supabaseClient ? await window.supabaseClient.auth.getSession() : { data: { session: null } };
-        var headers = { 'Content-Type': 'application/json' };
-        if (sessionResult.data.session) headers.Authorization = 'Bearer ' + sessionResult.data.session.access_token;
-        var response = await fetch('/api/support/tickets', {
-          method: 'POST',
-          headers: headers,
-          credentials: 'same-origin',
-          body: JSON.stringify(values)
-        });
-        var contentType = response.headers.get('content-type') || '';
-        var isJson = contentType.indexOf('application/json') !== -1;
-        var body = isJson
-          ? await response.json()
-          : { error: 'The support service returned an unexpected response. Please try again.' };
-        if (!response.ok || !isJson) throw new Error(body.error || 'Unable to send ticket');
-        message.textContent = 'Thanks — your ticket has been sent. We will reply by email.';
-        form.reset();
-      } catch (error) {
-        message.textContent = error.message;
-      }
+    window.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape' && modal && !modal.hidden) closeSupportModal();
     });
+    modal.addEventListener('click', function (event) {
+      if (event.target === modal) closeSupportModal();
+    });
+    document.querySelectorAll('[data-close-modal]').forEach(function (button) {
+      button.addEventListener('click', closeSupportModal);
+    });
+    ticketForm.addEventListener('submit', submitSupportForm);
+    bugForm.addEventListener('submit', submitSupportForm);
+    featureForm.addEventListener('submit', submitSupportForm);
+    syncIdentityValues();
+    loadCurrentUser();
   }());
 </script>
 </body>

@@ -92,22 +92,39 @@ app.post('/api/listing-reports', async (req, res) => {
 
 app.post(['/support/tickets', '/api/support/tickets'], async (req, res) => {
   const { name, email, subject, message, priority = 'normal' } = req.body || {};
-  if (!name || !email || !subject || !message || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return sendError(res, 400, 'Name, valid email, subject and message are required');
-  }
   const authHeader = req.headers.authorization || '';
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
-  let userId = null;
+
+  let authUser = null;
   if (token) {
-    const { data: { user } } = await supabaseAdmin.auth.getUser(token);
-    userId = user && user.id;
+    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+    if (!authError) authUser = user;
   }
+
+  let profileName = null;
+  if (authUser && authUser.id) {
+    const { data: profileData } = await supabaseAdmin.from('profiles').select('full_name').eq('id', authUser.id).maybeSingle();
+    profileName = profileData && profileData.full_name ? String(profileData.full_name).trim() : null;
+  }
+
+  const resolvedName = String(name || profileName || (authUser && (authUser.user_metadata && (authUser.user_metadata.full_name || authUser.user_metadata.name))) || (authUser && authUser.email ? authUser.email.split('@')[0] : '') || '').trim();
+  const resolvedEmail = String(email || (authUser && authUser.email) || '').trim().toLowerCase();
+  const safeSubject = String(subject || '').trim();
+  const safeMessage = String(message || '').trim();
+
+  if (!resolvedName || !resolvedEmail || !safeSubject || !safeMessage || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(resolvedEmail)) {
+    return sendError(res, 400, 'Name, valid email, subject and message are required');
+  }
+
+  let userId = null;
+  if (authUser) userId = authUser.id;
+
   const { data, error } = await supabaseAdmin.from('support_tickets').insert({
     user_id: userId,
-    name: String(name).trim(),
-    email: String(email).trim().toLowerCase(),
-    subject: String(subject).trim(),
-    message: String(message).trim(),
+    name: resolvedName,
+    email: resolvedEmail,
+    subject: safeSubject,
+    message: safeMessage,
     priority: ['low', 'normal', 'high'].includes(priority) ? priority : 'normal'
   }).select('id,status,created_at').single();
   if (error) return sendError(res, 502, 'Unable to create support ticket');
