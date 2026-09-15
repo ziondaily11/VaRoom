@@ -28,7 +28,10 @@ const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID;
 const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME;
 const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID;
 const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY;
-const R2_ENDPOINT = process.env.R2_ENDPOINT; // e.g. https://<account_id>.r2.cloudflarestorage.com
+const configuredR2Endpoint = process.env.R2_ENDPOINT;
+const R2_ENDPOINT = R2_ACCOUNT_ID
+  ? `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
+  : configuredR2Endpoint;
 const ENVIRONMENT = process.env.NODE_ENV || 'development';
 
 const R2_CONFIGURED = Boolean(
@@ -39,6 +42,16 @@ if (!R2_CONFIGURED) {
   console.warn(
     'WARNING: R2 credentials incomplete. Video upload will not work. ' +
     'Ensure R2_ACCOUNT_ID, R2_BUCKET_NAME, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, and R2_ENDPOINT are set.'
+  );
+}
+
+if (
+  configuredR2Endpoint &&
+  R2_ACCOUNT_ID &&
+  configuredR2Endpoint.replace(/\/+$/, '') !== R2_ENDPOINT
+) {
+  console.warn(
+    `R2_ENDPOINT is not the canonical account endpoint; using ${R2_ENDPOINT} for signed URLs.`
   );
 }
 
