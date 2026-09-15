@@ -438,8 +438,8 @@
 
       <div class="toolbar">
         <div class="tabs">
-          <button class="tab active" data-filter="all" onclick="setFilter('all', this)">All (6)</button>
-          <button class="tab" data-filter="booking" onclick="setFilter('booking', this)">Bookings (2)</button>
+          <button class="tab active" data-filter="all">All (6)</button>
+          <button class="tab" data-filter="booking">Bookings (2)</button>
         </div>
         <div class="toolbar-search">
           <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
@@ -585,54 +585,8 @@
   </main>
 </div>
 
-<script>
-  function setFilter(category, btn){
-    document.querySelectorAll('.tab').forEach(function(t){ t.classList.remove('active'); });
-    btn.classList.add('active');
-    document.querySelectorAll('.notif-card').forEach(function(card){
-      var show = category === 'all' || card.getAttribute('data-category') === category;
-      card.hidden = !show;
-    });
-    document.querySelectorAll('.section').forEach(function(section){
-      var visible = section.querySelectorAll('.notif-card:not([hidden])').length;
-      section.style.display = visible ? '' : 'none';
-    });
-  }
-
-  function resolveCard(button, label){
-    var actions = button.closest('[data-actions]');
-    var chip = document.createElement('span');
-    chip.className = 'done-chip';
-    chip.innerHTML = '<svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>' + label;
-    actions.replaceWith(chip);
-    var dot = button.closest('.notif-card').querySelector('.dot');
-    if(dot){ dot.remove(); }
-    updateSubtitle();
-  }
-
-  function markAllRead(){
-    document.querySelectorAll('.dot').forEach(function(d){ d.remove(); });
-    updateSubtitle();
-  }
-
-  function updateSubtitle(){
-    var remaining = document.querySelectorAll('.dot').length;
-    var subtitle = document.getElementById('notif-subtitle');
-    subtitle.textContent = remaining > 0
-      ? 'You have ' + remaining + ' new notification' + (remaining === 1 ? '' : 's')
-      : "You're all caught up";
-  }
-
-  // On phone-width screens, tapping a nav item should close the drawer
-  // behind it rather than leaving it open over the new "page".
-  document.querySelectorAll('.nav-item').forEach(function(item){
-    item.addEventListener('click', function(){
-      if (window.matchMedia('(max-width: 900px)').matches) {
-        document.body.classList.remove('sidebar-open');
-      }
-    });
-  });
-</script>
+<script src="js/supabase-client.js"></script>
+<script src="js/notifications-page.js"></script>
 
 </body>
 </html>
