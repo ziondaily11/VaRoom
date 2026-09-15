@@ -1,7 +1,7 @@
 (function () {
   'use strict';
 
-  const state = { session: null, conversations: [], activeId: null, channel: null, listings: [], pendingAttachment: null, mobileView: 'inbox', mobileInfoReturn: 'conversation' };
+  const state = { session: null, conversations: [], activeId: null, channel: null, channelGeneration: 0, selectionGeneration: 0, listings: [], pendingAttachment: null, mobileView: 'inbox', mobileInfoReturn: 'conversation' };
   const isMobile = () => window.matchMedia('(max-width: 760px)').matches;
   const $ = (selector) => document.querySelector(selector);
   const api = async (url, options) => {
@@ -69,21 +69,12 @@
     });
     if (isMobile()) {
       $('.search-box input').placeholder = 'Search conversations...';
-      const title = document.createElement('div');
-      title.className = 'mobile-inbox-title';
-      title.innerHTML = '<button class="mobile-menu" type="button" aria-label="Open navigation"><svg class="icon"><use href="#i-menu"/></svg></button><span>Chat</span>';
-      $('.contacts-col').prepend(title);
       const preview = document.createElement('div');
       preview.className = 'mobile-preview';
       preview.id = 'mobileComposerPreview';
       $('.chat-input-area').prepend(preview);
-      const plus = document.createElement('button');
-      plus.type = 'button'; plus.className = 'mobile-plus'; plus.title = 'Add attachment';
-      plus.setAttribute('aria-label', 'Add attachment');
-      plus.textContent = '+';
-      $('.attach-icons').prepend(plus);
+      const plus = $('.attach-icons .mobile-plus');
       plus.addEventListener('click', openMobileTray);
-      $('.chat-header').insertAdjacentHTML('afterbegin', '<button class="mobile-back" type="button" aria-label="Back to inbox"><svg class="icon"><path d="m15 5-7 7 7 7"/></svg></button>');
       $('.chat-header .mobile-back').addEventListener('click', showMobileInbox);
       $('.chat-header > div:first-of-type').addEventListener('click', () => {
         if (state.activeId) showMobileInfo('conversation');
@@ -93,8 +84,21 @@
         else showMobileConversation();
       });
       $('.mobile-menu').addEventListener('click', () => {
-        const homeButton = document.querySelector('[data-chat-nav="home"]');
-        if (homeButton) homeButton.click();
+        if (typeof window.openSidebar === 'function') {
+          window.openSidebar();
+          return;
+        }
+        const sidebarToggle = document.querySelector('.menu-btn, [data-sidebar-toggle], [aria-controls="sidebar"]');
+        if (sidebarToggle) {
+          sidebarToggle.click();
+          return;
+        }
+        const sidebar = document.getElementById('sidebar') || document.querySelector('.sidebar, .sidebar-shell');
+        const backdrop = document.getElementById('sidebar-backdrop');
+        if (sidebar && backdrop) {
+          sidebar.classList.add('mobile-open');
+          backdrop.classList.add('show');
+        }
       });
     }
   }
@@ -320,6 +324,11 @@
     $('#chatName').textContent = '';
     $('#statusText').textContent = '';
     $('#statusDot').style.background = '#c7cbd1';
+    const headerAvatar = $('.chat-header-avatar-wrap .avatar-fallback');
+    if (headerAvatar) {
+      headerAvatar.style.backgroundImage = '';
+      headerAvatar.textContent = '';
+    }
     document.querySelectorAll('.info-section').forEach((section) => { section.hidden = true; });
   }
 
@@ -400,6 +409,16 @@
     if (person.username) { const line = document.createElement('div'); line.className = 'p-line'; line.textContent = `@${person.username}`; block.appendChild(line); }
     if (person.email) { const line = document.createElement('div'); line.className = 'p-line'; line.textContent = person.email; block.appendChild(line); }
     if (person.phone) { const line = document.createElement('div'); line.className = 'p-line'; line.textContent = person.phone; block.appendChild(line); }
+  }
+
+  function renderHeaderProfile(conversation) {
+    const avatar = $('.chat-header-avatar-wrap .avatar-fallback');
+    if (!avatar) return;
+    clear(avatar);
+    avatar.style.background = '#14161c';
+    avatar.style.backgroundImage = '';
+    if (!conversation) return;
+    setAvatar(avatar, conversation.participant || {});
   }
 
   function messageRow(message) {
@@ -543,6 +562,7 @@
   }
 
   async function selectConversation(id) {
+    const selectionGeneration = ++state.selectionGeneration;
     state.activeId = id;
     renderConversationList();
     const conversation = state.conversations.find((item) => item.id === id);
@@ -551,15 +571,24 @@
     $('#chatName').textContent = person.full_name || person.username || '';
     $('#statusText').textContent = '';
     $('#statusDot').style.background = '#c7cbd1';
+    renderHeaderProfile(conversation);
     renderProfile(conversation);
-    if (state.channel) await state.channel.unsubscribe();
+    const previousChannel = state.channel;
+    state.channel = null;
+    if (previousChannel) await previousChannel.unsubscribe();
     const result = await api(`/api/chat/conversations/${encodeURIComponent(id)}/messages`);
+    if (selectionGeneration !== state.selectionGeneration || state.activeId !== id) return;
     renderMessages(result.messages);
     renderInfoAttachments(result.messages);
     if (isMobile()) showMobileConversation();
     await api(`/api/chat/conversations/${encodeURIComponent(id)}/read`, { method: 'POST', body: '{}' });
-    state.channel = window.supabaseClient.channel(`chat:${id}`)
+    if (selectionGeneration !== state.selectionGeneration || state.activeId !== id) return;
+    const channelGeneration = ++state.channelGeneration;
+    const channel = window.supabaseClient.channel(`chat:${id}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${id}` }, (payload) => {
+        if (selectionGeneration !== state.selectionGeneration
+          || channelGeneration !== state.channelGeneration
+          || state.activeId !== id) return;
         const current = $('.messages');
         const message = payload.new;
         if (current.querySelector(`[data-message-id="${message.id}"]`)) return;
@@ -567,15 +596,19 @@
         updateConversationPreview(message);
       })
       .on('presence', { event: 'sync' }, () => {
-        const online = Object.keys(state.channel.presenceState()).length > 1;
+        if (selectionGeneration !== state.selectionGeneration
+          || channelGeneration !== state.channelGeneration
+          || state.activeId !== id) return;
+        const online = Object.keys(channel.presenceState()).length > 1;
         $('#statusText').textContent = online ? 'Online' : 'Offline';
         $('#statusDot').style.background = online ? 'var(--mint)' : '#c7cbd1';
       });
+    state.channel = channel;
     await new Promise((resolve, reject) => {
-      state.channel.subscribe(async (status) => {
+      channel.subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
           try {
-            await state.channel.track({ user_id: state.session.user.id });
+            await channel.track({ user_id: state.session.user.id });
             resolve();
           } catch (error) {
             reject(error);
@@ -618,28 +651,37 @@
     async function sendText() {
       const content = input.value.trim();
       const pending = state.pendingAttachment;
-      if ((!content && !pending) || !state.activeId || input.disabled) return;
+      const conversationId = state.activeId;
+      if ((!content && !pending) || !conversationId || input.disabled) return;
       input.disabled = true;
       try {
         let result;
         if (pending && pending.kind === 'listing') {
-          result = await api(`/api/chat/conversations/${encodeURIComponent(state.activeId)}/messages`, {
+          result = await api(`/api/chat/conversations/${encodeURIComponent(conversationId)}/messages`, {
             method: 'POST', body: JSON.stringify({ content: content || pending.listing.title, listingId: pending.listing.id, messageType: 'listing' }),
           });
         } else if (pending && pending.file) {
-          const init = await api(`/api/chat/conversations/${encodeURIComponent(state.activeId)}/attachments/upload-init`, {
+          const init = await api(`/api/chat/conversations/${encodeURIComponent(conversationId)}/attachments/upload-init`, {
             method: 'POST', body: JSON.stringify({ filename: pending.file.name, mimeType: pending.file.type, fileSize: pending.file.size, kind: pending.kind }),
           });
           const uploadResponse = await fetch(init.uploadUrl, { method: 'PUT', headers: { 'Content-Type': pending.file.type }, body: pending.file });
           if (!uploadResponse.ok) throw new Error('Attachment upload failed');
-          await api(`/api/chat/conversations/${encodeURIComponent(state.activeId)}/attachments/${encodeURIComponent(init.attachmentId)}/complete`, { method: 'POST', body: '{}' });
-          result = await api(`/api/chat/conversations/${encodeURIComponent(state.activeId)}/messages`, {
+          await api(`/api/chat/conversations/${encodeURIComponent(conversationId)}/attachments/${encodeURIComponent(init.attachmentId)}/complete`, { method: 'POST', body: '{}' });
+          result = await api(`/api/chat/conversations/${encodeURIComponent(conversationId)}/messages`, {
             method: 'POST', body: JSON.stringify({ content: content || pending.file.name, attachmentId: init.attachmentId, messageType: pending.kind }),
           });
         } else {
-          result = await api(`/api/chat/conversations/${encodeURIComponent(state.activeId)}/messages`, {
+          result = await api(`/api/chat/conversations/${encodeURIComponent(conversationId)}/messages`, {
             method: 'POST', body: JSON.stringify({ content }),
           });
+        }
+        if (state.activeId !== conversationId) {
+          if (state.pendingAttachment === pending) {
+            input.value = '';
+            state.pendingAttachment = null;
+            updateMobilePreview();
+          }
+          return;
         }
         input.value = '';
         state.pendingAttachment = null;
