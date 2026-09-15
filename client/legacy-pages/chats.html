@@ -291,12 +291,12 @@
   @media (max-width:1080px){ .info-col{ display:none; } }
   @media (max-width:760px){
     body{ overflow:hidden; }
-    body,.app-shell{ background:#050708; color:#f5f7fa; }
+    body,.app-shell{ background:#ffffff; color:#111827; }
     .icon-rail{ display:none; }
     .app-shell{ width:100vw; height:100dvh; }
-    .contacts-col{ display:flex; width:100%; border-right:0; }
+    .contacts-col{ display:flex; width:100%; border-right:0; background:#ffffff; color:var(--text-dark); }
     .contacts-col.mobile-hidden{ display:none; }
-    .search-bar{ padding:16px; background:#050708; }
+    .search-bar{ padding:16px; background:#ffffff; }
     .search-box{ height:40px; background:#111820; border:1px solid #46515d; border-radius:20px; padding:8px 14px; }
     .search-box svg{ color:#c5d0da; font-size:16px; }
     .search-box input,.search-box input::placeholder{ color:#dce4eb; }
@@ -304,7 +304,7 @@
     .compose-btn{ width:40px; height:40px; border-radius:50%; background:var(--mint); border-color:var(--mint); color:var(--rail-bg); }
     .search-box{ transition:border-color .15s; }
     .search-box:focus-within{ border-color:var(--mint); }
-    .contact-list{ padding:6px 10px 16px; background:#050708; }
+    .contact-list{ padding:6px 10px 16px; background:#ffffff; }
     .contact-item{ min-height:68px; padding:10px 8px; border-bottom:1px solid #18212a; border-radius:0; }
     .contact-item:hover,.contact-item.active{ background:transparent; }
     .contact-item:active{ background:#111820; }
@@ -316,8 +316,8 @@
     .contact-preview{ display:block; max-width:calc(100vw - 150px); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .contact-time{ flex-shrink:0; white-space:nowrap; }
     .chat-col{ display:none; width:100%; background:#ffffff; }
-    .chat-col.mobile-visible{ display:flex; }
-    .chat-header{ padding:10px 12px; background:#ffffff; border-bottom-color:var(--border); }
+    .chat-col.mobile-visible{ display:flex; min-height:100%; }
+    .chat-header{ padding:14px 12px; background:#ffffff; border-bottom-color:var(--border); }
     .mobile-back{ display:flex; color:#0b0b0c; }
     .chat-header-avatar-wrap{ display:block; position:relative; }
     .chat-header-avatar-wrap .avatar-fallback{ width:38px; height:38px; font-size:13px; }
@@ -342,8 +342,8 @@
     .voice-card{ background:#edeef0; }
     .voice-card .play{ background:var(--rail-bg); }
     .voice-wave span{ background:#1c1c1e; }
-    .chat-input-area{ padding:8px 10px 12px; background:#ffffff; border-top-color:var(--border); }
-    .chat-input-area textarea{ background:transparent; color:#1c1c1e; border:none; height:18px; }
+    .chat-input-area{ padding:8px 10px 0; background:#ffffff; border-top-color:var(--border); margin-bottom:0; }
+    .chat-input-area textarea{ background:transparent; color:#1c1c1e; border:none; height:18px; padding:0; margin:0; }
     .chat-input-area textarea::placeholder{ color:#9a9aa0; }
     .input-toolbar{ margin-top:6px; }
     .format-icons{ display:none; }
@@ -353,7 +353,7 @@
     .attach-icons button[title="Share listing"]{ display:none; }
     .attach-icons .mobile-plus{
       display:flex; width:34px; height:34px; border-radius:50%;
-      background:transparent; border:1.5px solid #d5d5da; color:#6b6b70;
+      background:#eef8f4; border:1.5px solid var(--mint); color:var(--mint-dark);
     }
     .attach-icons .send-message{
       width:34px; height:34px; border-radius:50%;
@@ -365,10 +365,10 @@
     .info-title-row{ border-bottom-color:#18212a; }
     .info-title,.p-name,.p-line,.info-section .label{ color:#f5f7fa; }
     .info-col.mobile-visible .info-close-btn{ display:flex; }
-    .mobile-inbox-title{ display:block; padding:10px 16px 8px; font-size:18px; line-height:24px; font-weight:600; color:#f5f7fa; }
+    .mobile-inbox-title{ display:block; padding:10px 16px 8px; font-size:19px; line-height:24px; font-weight:600; color:var(--text-dark); }
     .mobile-inbox-title{ display:flex; align-items:center; gap:12px; }
     .mobile-menu,.mobile-back{ display:flex; align-items:center; justify-content:center; border:0; background:transparent; cursor:pointer; }
-    .mobile-menu{ width:40px; height:40px; padding:0; margin-left:-6px; color:#f5f7fa; }
+    .mobile-menu{ width:40px; height:40px; padding:0; margin-left:-6px; color:var(--text-dark); }
     .mobile-back{ width:40px; height:40px; padding:0; color:#0b0b0c; }
     .mobile-back .icon{ width:18px; height:18px; }
     .mobile-preview{ display:none; border:1px solid var(--border); border-radius:10px; margin:8px 0; padding:8px; color:var(--text-dark); font-size:12px; }
@@ -573,7 +573,7 @@
     </div>
 
     <div class="chat-input-area">
-      <textarea placeholder="Enter to send, Shift + Enter to add new line"></textarea>
+      <textarea></textarea>
       <div class="input-toolbar">
         <div class="format-icons">
           <button class="fmt-b">B</button>

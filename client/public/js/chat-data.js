@@ -84,8 +84,16 @@
         else showMobileConversation();
       });
       $('.mobile-menu').addEventListener('click', () => {
-        const homeButton = document.querySelector('[data-chat-nav="home"]');
-        if (homeButton) homeButton.click();
+        if (typeof window.openSidebar === 'function') {
+          window.openSidebar();
+          return;
+        }
+        const sidebar = document.getElementById('sidebar') || document.querySelector('.sidebar, .sidebar-shell');
+        const backdrop = document.getElementById('sidebar-backdrop');
+        if (sidebar && backdrop) {
+          sidebar.classList.add('mobile-open');
+          backdrop.classList.add('show');
+        }
       });
     }
   }
