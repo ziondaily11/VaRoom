@@ -38,6 +38,10 @@ export default function App({ Component, pageProps }) {
     <>
       <Head>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link rel="icon" href="/favicon/favicon.ico" sizes="any" />
+        <link rel="icon" type="image/png" sizes="32x32" href="/favicon/favicon-32.png" />
+        <link rel="icon" type="image/png" sizes="16x16" href="/favicon/favicon-16.png" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/favicon/favicon-180.png" />
         <style dangerouslySetInnerHTML={{ __html: fontSizeStyle }} />
         <script dangerouslySetInnerHTML={{ __html: fontSizeScript }} />
       </Head>
