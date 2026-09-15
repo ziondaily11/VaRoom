@@ -1621,6 +1621,8 @@
     }
 
     async function getListingVideoUrl(listingId){
+      const cacheKey = 'account:' + currentUser.id + ':role:host:listing-video:' + listingId;
+      return window.VaRoomDataCache.get(cacheKey, async function(){
       const { data: { session } } = await supabaseClient.auth.getSession();
       const token = session && session.access_token ? session.access_token : null;
       if (!token) return null;
@@ -1644,6 +1646,7 @@
       } catch (error) {
         return null;
       }
+      }, { ttl: 5 * 60 * 1000 });
     }
 
     async function handleListingVideoUpload(event){

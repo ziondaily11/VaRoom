@@ -434,11 +434,15 @@
   if (!session) { window.location.href = '/login'; return; }
   const currentUser = session.user;
 
-  const { data: profile } = await supabaseClient
-    .from('profiles')
-    .select('role, full_name, avatar_url')
-    .eq('id', currentUser.id)
-    .maybeSingle();
+  const dataCache = window.VaRoomDataCache;
+  const profileResult = await dataCache.get('account:' + currentUser.id + ':profile:marketplace', function(){
+    return supabaseClient
+      .from('profiles')
+      .select('role, full_name, avatar_url')
+      .eq('id', currentUser.id)
+      .maybeSingle();
+  });
+  const profile = profileResult && profileResult.data;
   if (!profile) { window.location.href = '/login'; return; }
   const avatarEl = document.getElementById('user-avatar');
   if (profile.avatar_url) {
@@ -449,8 +453,10 @@
 
   // ---------- Bookmarks ----------
   let bookmarkedIds = new Set();
-  const { data: bookmarks } = await supabaseClient
-    .from('bookmarks').select('listing_id').eq('client_id', currentUser.id);
+  const bookmarkResult = await dataCache.get('account:' + currentUser.id + ':bookmarks', function(){
+    return supabaseClient.from('bookmarks').select('listing_id').eq('client_id', currentUser.id);
+  });
+  const bookmarks = bookmarkResult && bookmarkResult.data;
   if (bookmarks) bookmarkedIds = new Set(bookmarks.map(function(b){ return b.listing_id; }));
 
   async function toggleBookmark(listingId, btn){
@@ -563,19 +569,24 @@
     if (!element || (videoLookups.get(listingId) === element && element.querySelector('video'))) return;
     videoLookups.set(listingId, element);
     try {
-      const auth = await supabaseClient.auth.getSession();
-      const token = auth.data.session && auth.data.session.access_token;
-      const headers = token ? { Authorization: 'Bearer ' + token } : {};
-      const mediaResponse = await fetch('/api/properties/' + encodeURIComponent(listingId) + '/media', { headers: headers });
-      if (!mediaResponse.ok) return;
-      const payload = await mediaResponse.json();
-      const media = (payload.media || []).find(function(item){ return item && item.type === 'video'; });
-      if (!media) return;
-      const playbackResponse = await fetch('/api/media/' + encodeURIComponent(media.id) + '/playback', { headers: headers });
-      if (!playbackResponse.ok) return;
-      const playback = await playbackResponse.json();
+      const playback = await dataCache.get('public:listing-video:' + listingId, async function(){
+        const auth = await supabaseClient.auth.getSession();
+        const token = auth.data.session && auth.data.session.access_token;
+        const headers = token ? { Authorization: 'Bearer ' + token } : {};
+        const mediaResponse = await fetch('/api/properties/' + encodeURIComponent(listingId) + '/media', { headers: headers });
+        if (!mediaResponse.ok) return null;
+        const payload = await mediaResponse.json();
+        const media = (payload.media || []).find(function(item){ return item && item.type === 'video'; });
+        if (!media) return null;
+        const playbackResponse = await fetch('/api/media/' + encodeURIComponent(media.id) + '/playback', { headers: headers });
+        if (!playbackResponse.ok) return null;
+        const playback = await playbackResponse.json();
+        return playback && playback.url
+          ? { id: media.id, url: playback.url, thumbnailUrl: playback.thumbnailUrl || null }
+          : null;
+      }, { ttl: 5 * 60 * 1000 });
       const currentElement = document.querySelector('[data-media-listing-id="' + listingId + '"]');
-      if (!currentElement || currentElement !== element || !playback.url) return;
+      if (!currentElement || currentElement !== element || !playback || !playback.url) return;
       const mediaNodes = Array.from(element.children).filter(function(child){
         return !child.classList.contains('card-verified') && !child.classList.contains('card-save');
       });
@@ -587,7 +598,7 @@
       video.controls = true;
       video.preload = 'metadata';
       element.insertBefore(video, element.firstChild);
-      element.dataset.videoId = media.id;
+      element.dataset.videoId = playback.id;
       if (playback.thumbnailUrl) video.poster = playback.thumbnailUrl;
       video.src = playback.url;
       video.addEventListener('error', function(){
@@ -738,7 +749,12 @@
       if (state.sort === 'price_asc') query = query.order('price_amount', { foreignTable: 'listing_booking_details', ascending: true, nullsFirst: false });
       else if (state.sort === 'price_desc') query = query.order('price_amount', { foreignTable: 'listing_booking_details', ascending: false, nullsFirst: false });
       else query = query.order('created_at', { ascending: false });
-      return query;
+      const cacheKey = [
+        'public:listings:marketplace', select, filterAvailability, offset,
+        state.category, state.q, state.guests, state.priceMin, state.priceMax,
+        state.verifiedOnly, state.sort
+      ].join(':');
+      return dataCache.get(cacheKey, function(){ return query; });
   }
 
   async function loadListings(reset){

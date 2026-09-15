@@ -1094,35 +1094,40 @@
         // false prevents a later cache render from recursively re-rendering
         // the same cards forever just because a video exists.
         if (videoLookupByListing[listingId]) return Promise.resolve(false);
-        videoLookupByListing[listingId] = (async function(){
+        videoLookupByListing[listingId] = window.VaRoomDataCache.get(
+          'account:' + currentUser.id + ':role:client:listing-video:' + listingId,
+          async function(){
         try {
           const response = await fetch('/api/properties/' + encodeURIComponent(listingId) + '/media', {
             headers: token ? { Authorization: 'Bearer ' + token } : {}
           });
-          if (response.status === 403 || response.status === 404) return false;
-          if (!response.ok) return false;
+          if (response.status === 403 || response.status === 404) return null;
+          if (!response.ok) return null;
           const payload = await response.json();
           const media = Array.isArray(payload.media) ? payload.media : [];
           const videoItems = media.filter(function(item){ return item && item.type === 'video'; });
-          if (!videoItems.length) return false;
+          if (!videoItems.length) return null;
           const mediaId = videoItems[0].id;
           const playbackRes = await fetch('/api/media/' + encodeURIComponent(mediaId) + '/playback', {
             headers: token ? { Authorization: 'Bearer ' + token } : {}
           });
-          if (playbackRes.status === 403 || playbackRes.status === 404) return false;
-          if (!playbackRes.ok) return false;
+          if (playbackRes.status === 403 || playbackRes.status === 404) return null;
           const playback = await playbackRes.json();
           if (playback && playback.url) {
-            if (videoUrlByListing[listingId] === playback.url) return false;
-            videoUrlByListing[listingId] = playback.url;
-            videoThumbnailByListing[listingId] = playback.thumbnailUrl || null;
-            return true;
+            return { url: playback.url, thumbnailUrl: playback.thumbnailUrl || null };
           }
         } catch (error) {
           // Ignore transient media-load failures for unavailable listings.
         }
-        return false;
-        })();
+        return null;
+          },
+          { ttl: 5 * 60 * 1000 }
+        ).then(function(video){
+          if (!video || !video.url || videoUrlByListing[listingId] === video.url) return false;
+          videoUrlByListing[listingId] = video.url;
+          videoThumbnailByListing[listingId] = video.thumbnailUrl || null;
+          return true;
+        });
         return videoLookupByListing[listingId];
       }));
       return results.some(Boolean);

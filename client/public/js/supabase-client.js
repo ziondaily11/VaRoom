@@ -7,5 +7,15 @@
 
   if (!window.supabaseClient) {
     window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    if (window.VaRoomDataCache) {
+      window.supabaseClient.auth.onAuthStateChange(function (event, session) {
+        var nextUserId = session && session.user ? session.user.id : null;
+        if (window.__varoomCacheUserId && window.__varoomCacheUserId !== nextUserId) {
+          window.VaRoomDataCache.invalidate('account:' + window.__varoomCacheUserId + ':');
+        }
+        window.__varoomCacheUserId = nextUserId;
+        if (event === 'SIGNED_OUT') window.VaRoomDataCache.invalidate('account:');
+      });
+    }
   }
 })();

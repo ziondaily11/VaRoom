@@ -106,6 +106,17 @@ export async function getStaticProps({ params }) {
 }
 
 async function runLegacyScripts(container, scripts) {
+  if (!document.querySelector('script[data-varoom-data-cache]')) {
+    await new Promise((resolve, reject) => {
+      const cacheScript = document.createElement('script');
+      cacheScript.src = '/js/varoom-data-cache.js';
+      cacheScript.dataset.varoomDataCache = 'true';
+      cacheScript.onload = resolve;
+      cacheScript.onerror = reject;
+      document.head.appendChild(cacheScript);
+    });
+  }
+
   if (scripts.some(({ attributes }) => attributes.includes('@supabase/supabase-js'))) {
     await new Promise((resolve) => {
       const startedAt = Date.now();
