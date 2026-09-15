@@ -26,7 +26,7 @@ The connected live Supabase project and public Property News API are now live. T
 - `python -m compileall -q app`: passed.
 - `client/vercel.json`: valid JSON.
 - In-process request through the existing root application: `GET /api/news/latest?limit=1` returned **200** with the mounted service.
-- Current production checks: `https://varoom.co.ke/api/news/latest?limit=1` and `https://varoom-1.onrender.com/api/news/latest?limit=1` return published data; scheduled collection remains the outstanding verification.
+- Current production checks: `https://varoom.co.ke/api/news/latest?limit=1` and `https://property-news-pnsj.onrender.com/api/news/latest?limit=1` return published data; scheduled collection remains the outstanding verification.
 - Local live-source rehearsal was intentionally not allowed to disable certificate validation: this Windows network presents an injected TLS certificate that Python does not trust, while OS-level HTTPS checks to the official site succeeded. The collector’s secure verification remains enabled.
 
 ## Required final release actions

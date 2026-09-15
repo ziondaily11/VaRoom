@@ -18,7 +18,7 @@ Property News is mounted in the established Render FastAPI service (`main.py`) a
    ```sh
    curl --fail --request POST \
      --header "Authorization: Bearer $NEWS_SCHEDULER_SECRET" \
-     https://varoom-1.onrender.com/api/internal/sources/seed-official-lands
+     https://property-news-pnsj.onrender.com/api/internal/sources/seed-official-lands
    ```
 
 6. Run the **Property News collector** GitHub Actions workflow once from the Actions tab. The workflow processes the active source registry in 11 deterministic groups, one group at a time, so each request handles at most roughly five sources instead of holding one request open for the entire registry. GitHub may delay scheduled runs; do not add a second in-process cron on the web service.
