@@ -119,7 +119,26 @@
     if (type === 'booking_request') {
       return { category: 'booking', title: 'New Booking Request', tint: 'tint-red', icon: icons.request, tag: 'Booking' };
     }
+    if (type === 'new_message') {
+      return { category: 'other', title: 'New message', tint: 'tint-amber', icon: icons.request, tag: 'Message' };
+    }
+    if (type === 'new_review' || type === 'review_published') {
+      return { category: 'other', title: type === 'new_review' ? 'New review' : 'Review published', tint: 'tint-green', icon: icons.approved, tag: 'Review' };
+    }
     return { category: 'other', title: 'Notification', tint: 'tint-black', icon: icons.request, tag: 'Update' };
+  }
+
+  function notificationTarget(notification) {
+    if (notification.related_entity_type === 'conversation' && notification.related_entity_id) {
+      return '/chats?c=' + encodeURIComponent(notification.related_entity_id);
+    }
+    if (notification.related_entity_type === 'review' && notification.related_entity_id) {
+      return '/profile';
+    }
+    if ((notification.related_entity_type === 'booking' || notification.booking_id) && (notification.related_entity_id || notification.booking_id)) {
+      return '/booking-approved?id=' + encodeURIComponent(notification.related_entity_id || notification.booking_id);
+    }
+    return null;
   }
 
   function filteredNotifications() {
@@ -129,7 +148,7 @@
       var matchesFilter = currentFilter === 'all' ||
         (currentFilter === 'booking' && details.category === 'booking');
       var matchesSearch = !search ||
-        (notification.message || '').toLowerCase().indexOf(search) !== -1 ||
+        ((notification.message || notification.title || '').toLowerCase().indexOf(search) !== -1) ||
         details.title.toLowerCase().indexOf(search) !== -1;
       return matchesFilter && matchesSearch;
     });
@@ -137,14 +156,16 @@
 
   function cardHtml(notification) {
     var details = detailsFor(notification.type);
-    var clickable = notification.booking_id ? ' data-booking-id="' + escapeHtml(notification.booking_id) + '"' : '';
+    var title = notification.title || details.title;
+    var target = notificationTarget(notification);
+    var clickable = target ? ' data-target="' + escapeHtml(target) + '"' : '';
     return '<div class="notif-card' + (notification.read ? '' : ' unread') + '" data-notification-id="' + escapeHtml(notification.id) + '"' + clickable + '>' +
       '<div class="notif-icon ' + details.tint + '">' + details.icon + '</div>' +
       '<div class="notif-body">' +
-        '<div class="notif-top"><span class="notif-title">' + details.title + '</span><span class="tag booking">' + details.tag + '</span></div>' +
-        '<p class="notif-desc">' + escapeHtml(notification.message) + '</p>' +
+        '<div class="notif-top"><span class="notif-title">' + escapeHtml(title) + '</span><span class="tag booking">' + details.tag + '</span></div>' +
+        '<p class="notif-desc">' + escapeHtml(notification.message || title) + '</p>' +
         '<div class="notif-actions" data-actions>' +
-          (notification.booking_id ? '<button class="action-btn primary" type="button">View booking</button>' : '') +
+          (target ? '<button class="action-btn primary" type="button">Open</button>' : '') +
         '</div>' +
       '</div>' +
       '<div class="notif-meta"><span class="notif-time">' + timeAgo(notification.created_at) + '</span>' +
@@ -209,9 +230,9 @@
         var notification = notifications.find(function (item) {
           return item.id === card.getAttribute('data-notification-id');
         });
-        var bookingId = card.getAttribute('data-booking-id');
+        var target = card.getAttribute('data-target');
         if (notification && !notification.read) markRead(notification);
-        if (bookingId) window.location.href = '/booking-approved?id=' + encodeURIComponent(bookingId);
+        if (target) window.location.href = target;
       });
     });
     updateCounts();
@@ -220,7 +241,7 @@
   async function markRead(notification) {
     if (notification.read) return;
     var result = await supabaseClient.from('notifications').update({ read: true })
-      .eq('id', notification.id).eq('user_id', currentUser.id);
+      .eq('id', notification.id).eq('recipient_user_id', currentUser.id);
     if (result.error) {
       console.error('Unable to mark notification as read:', result.error);
       return;
@@ -231,7 +252,7 @@
 
   window.markAllRead = async function () {
     var result = await supabaseClient.from('notifications').update({ read: true })
-      .eq('user_id', currentUser.id).eq('read', false);
+      .eq('recipient_user_id', currentUser.id).eq('read', false);
     if (result.error) {
       showState('Unable to update notifications. Please try again.');
       return;
@@ -242,8 +263,8 @@
 
   async function loadNotifications() {
     var result = await supabaseClient.from('notifications')
-      .select('id,message,type,read,created_at,booking_id')
-      .eq('user_id', currentUser.id)
+      .select('id,title,message,type,read,created_at,booking_id,related_entity_type,related_entity_id,metadata')
+      .eq('recipient_user_id', currentUser.id)
       .order('created_at', { ascending: false }).limit(100);
     if (result.error) {
       showState('Unable to load notifications. Please refresh and try again.');
@@ -284,7 +305,7 @@
     supabaseClient.channel('notifications-page-' + currentUser.id)
       .on('postgres_changes', {
         event: '*', schema: 'public', table: 'notifications',
-        filter: 'user_id=eq.' + currentUser.id
+        filter: 'recipient_user_id=eq.' + currentUser.id
       }, loadNotifications)
       .subscribe();
   }());
