@@ -294,7 +294,7 @@
     body,.app-shell{ background:#ffffff; color:#111827; }
     .icon-rail{ display:none; }
     .app-shell{ width:100vw; height:100dvh; }
-    .contacts-col{ display:flex; width:100%; border-right:0; background:#ffffff; color:var(--text-dark); }
+    .contacts-col{ display:flex; width:100%; border-right:0; background:#ffffff; color:var(--text-dark); box-shadow:inset 0 0 0 1px var(--border); }
     .contacts-col.mobile-hidden{ display:none; }
     .search-bar{ padding:16px; background:#ffffff; }
     .search-box{ height:40px; background:#111820; border:1px solid #46515d; border-radius:20px; padding:8px 14px; }
@@ -305,14 +305,15 @@
     .search-box{ transition:border-color .15s; }
     .search-box:focus-within{ border-color:var(--mint); }
     .contact-list{ padding:6px 10px 16px; background:#ffffff; }
-    .contact-item{ min-height:68px; padding:10px 8px; border-bottom:1px solid #18212a; border-radius:0; }
+    .contact-item{ min-height:68px; padding:10px 8px; border-bottom:0; border-radius:0; }
     .contact-item:hover,.contact-item.active{ background:transparent; }
     .contact-item:active{ background:#111820; }
     .contact-item .status-dot{ border-color:#050708; }
     .contact-item .badge{ background:var(--mint); color:var(--rail-bg); font-weight:800; }
-    .contact-name,.mobile-inbox-title{ color:#f5f7fa; }
+    .contact-name,.mobile-inbox-title{ color:var(--text-dark); }
     .contact-name{ max-width:calc(100vw - 150px); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .contact-preview,.contact-time{ color:#8e9aa7; }
+    .contact-preview{ color:var(--text-gray-2); }
+    .contact-time{ color:var(--text-gray); }
     .contact-preview{ display:block; max-width:calc(100vw - 150px); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .contact-time{ flex-shrink:0; white-space:nowrap; }
     .chat-col{ display:none; width:100%; background:#ffffff; }
@@ -366,9 +367,9 @@
     .info-title,.p-name,.p-line,.info-section .label{ color:#f5f7fa; }
     .info-col.mobile-visible .info-close-btn{ display:flex; }
     .mobile-inbox-title{ display:block; padding:10px 16px 8px; font-size:19px; line-height:24px; font-weight:600; color:var(--text-dark); }
-    .mobile-inbox-title{ display:flex; align-items:center; gap:12px; }
+    .mobile-inbox-title{ display:flex; align-items:center; gap:14px; }
     .mobile-menu,.mobile-back{ display:flex; align-items:center; justify-content:center; border:0; background:transparent; cursor:pointer; }
-    .mobile-menu{ width:40px; height:40px; padding:0; margin-left:-6px; color:var(--text-dark); }
+    .mobile-menu{ width:44px; height:44px; padding:0; margin-left:-8px; color:var(--text-dark); font-size:18px; }
     .mobile-back{ width:40px; height:40px; padding:0; color:#0b0b0c; }
     .mobile-back .icon{ width:18px; height:18px; }
     .mobile-preview{ display:none; border:1px solid var(--border); border-radius:10px; margin:8px 0; padding:8px; color:var(--text-dark); font-size:12px; }

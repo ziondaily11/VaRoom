@@ -88,6 +88,11 @@
           window.openSidebar();
           return;
         }
+        const sidebarToggle = document.querySelector('.menu-btn, [data-sidebar-toggle], [aria-controls="sidebar"]');
+        if (sidebarToggle) {
+          sidebarToggle.click();
+          return;
+        }
         const sidebar = document.getElementById('sidebar') || document.querySelector('.sidebar, .sidebar-shell');
         const backdrop = document.getElementById('sidebar-backdrop');
         if (sidebar && backdrop) {
