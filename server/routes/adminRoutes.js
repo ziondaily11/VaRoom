@@ -272,17 +272,21 @@ function createAdminRoutes(supabaseAdmin) {
       if (updateError) return res.status(502).json({ error: updateError.message });
       await supabaseAdmin.from('support_tickets').update({ updated_at: new Date().toISOString() }).eq('id', ticket.id);
       if (ticket.user_id) {
-        await createNotification({
-          recipientUserId: ticket.user_id,
-          actorUserId: req.admin.id,
-          type: 'support_replied',
-          title: 'Support replied',
-          message: 'VaRoom Support has responded to your support request.',
-          relatedEntityType: 'support_ticket',
-          relatedEntityId: ticket.id,
-          metadata: { ticket_id: ticket.id, subject: ticket.subject },
-          eventKey: `support:${ticket.id}:${reply.id}`,
-        });
+        try {
+          await createNotification({
+            recipientUserId: ticket.user_id,
+            actorUserId: req.admin.id,
+            type: 'support_replied',
+            title: 'Support replied',
+            message: 'VaRoom Support has responded to your support request.',
+            relatedEntityType: 'support_ticket',
+            relatedEntityId: ticket.id,
+            metadata: { ticket_id: ticket.id, subject: ticket.subject },
+            eventKey: `support:${ticket.id}:${reply.id}`,
+          });
+        } catch (notificationError) {
+          console.error('Support reply notification failed:', notificationError);
+        }
       }
       return res.status(201).json({ reply: sentReply });
     } catch (emailError) {
