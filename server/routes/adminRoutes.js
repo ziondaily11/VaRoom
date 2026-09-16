@@ -84,20 +84,29 @@ function createAdminRoutes(supabaseAdmin) {
       error.statusCode = 503;
       throw error;
     }
-    const response = await fetch(`${propertyNewsUrl}${path}`, {
+
+    const response = await fetch(propertyNewsUrl + path, {
       ...options,
       headers: {
         Accept: 'application/json',
-        Authorization: `Bearer ${process.env.PROPERTY_NEWS_ADMIN_API_KEY}`,
+        Authorization: 'Bearer ' + process.env.PROPERTY_NEWS_ADMIN_API_KEY,
         ...(options.headers || {}),
       },
     });
+
     const body = await response.text();
     if (!response.ok) {
-      const error = new Error(body || 'Property News request failed');
+      const parsed = body ? (() => { try { return JSON.parse(body); } catch { return null; } })() : null;
+      const reason = parsed && parsed.detail ? parsed.detail : body || 'Property News request failed';
+      const error = new Error(
+        response.status === 401
+          ? 'Property News admin auth failed. Check PROPERTY_NEWS_ADMIN_API_KEY matches NEWS_ADMIN_API_KEY on the Property News service.'
+          : reason
+      );
       error.statusCode = response.status;
       throw error;
     }
+
     return body ? JSON.parse(body) : null;
   }
 

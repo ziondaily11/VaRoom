@@ -480,6 +480,7 @@ class ApiSecurityTests(unittest.IsolatedAsyncioTestCase):
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
             response = await client.get("/api/admin/news/pending")
         self.assertEqual(response.status_code, 401)
+        self.assertIn("NEWS_ADMIN_API_KEY", response.json()["detail"])
 
     async def test_collection_endpoint_requires_its_own_secret(self):
         repository = MemoryNewsRepository()
