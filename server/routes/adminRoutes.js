@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const express = require('express');
 const { sendEmail } = require('../lib/email');
+const { createNotification } = require('../lib/notifications');
 
 const SESSION_COOKIE = 'varoom_admin_session';
 const SESSION_TTL_SECONDS = 60 * 60 * 8;
@@ -270,6 +271,19 @@ function createAdminRoutes(supabaseAdmin) {
         .eq('id', reply.id).select().single();
       if (updateError) return res.status(502).json({ error: updateError.message });
       await supabaseAdmin.from('support_tickets').update({ updated_at: new Date().toISOString() }).eq('id', ticket.id);
+      if (ticket.user_id) {
+        await createNotification({
+          recipientUserId: ticket.user_id,
+          actorUserId: req.admin.id,
+          type: 'support_replied',
+          title: 'Support replied',
+          message: 'VaRoom Support has responded to your support request.',
+          relatedEntityType: 'support_ticket',
+          relatedEntityId: ticket.id,
+          metadata: { ticket_id: ticket.id, subject: ticket.subject },
+          eventKey: `support:${ticket.id}:${reply.id}`,
+        });
+      }
       return res.status(201).json({ reply: sentReply });
     } catch (emailError) {
       await supabaseAdmin.from('support_ticket_replies')

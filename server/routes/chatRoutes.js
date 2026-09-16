@@ -2,9 +2,11 @@
 
 const express = require('express');
 const supabaseAdmin = require('../lib/supabaseClient');
+const { createNotification } = require('../lib/notifications');
 const { ValidationError, assertAllowedKeys, text, uuid, enumValue } = require('../lib/inputValidation');
 
 const router = express.Router();
+const chatbotApiUrl = (process.env.CHATBOT_API_URL || 'https://elie1-0.onrender.com').replace(/\/$/, '');
 
 async function authenticatedUser(req) {
   const header = req.headers.authorization || '';
@@ -22,6 +24,24 @@ async function memberConversation(conversationId, userId) {
     .maybeSingle();
   if (error || !data || (data.host_id !== userId && data.client_id !== userId)) return null;
   return data;
+}
+
+async function requestChatbotReply(conversationId, token, payload) {
+  const response = await fetch(`${chatbotApiUrl}/reply`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ conversation_id: conversationId, ...payload }),
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const error = new Error(body.detail || 'Chatbot reply failed');
+    error.status = response.status;
+    throw error;
+  }
+  return body;
 }
 
 async function profilesById(ids) {
@@ -225,6 +245,29 @@ router.post('/chat/conversations/:conversationId/read', async (req, res) => {
   }
 });
 
+router.post('/chat/conversations/:conversationId/reply', async (req, res) => {
+  try {
+    const user = await authenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Invalid or expired session' });
+    const conversationId = uuid(req.params.conversationId, 'conversation id');
+    const conversation = await memberConversation(conversationId, user.id);
+    if (!conversation) return res.status(403).json({ error: 'Conversation access denied' });
+    assertAllowedKeys(req.body, ['command']);
+    const command = text(req.body.command, 'command', { max: 20 });
+    if (command.toLowerCase() !== '@reply') {
+      throw new ValidationError('Only the @reply command is supported');
+    }
+    const token = (req.headers.authorization || '').slice(7);
+    const result = await requestChatbotReply(conversationId, token, { command });
+    return res.json(result);
+  } catch (error) {
+    if (error instanceof ValidationError) return res.status(400).json({ error: error.message });
+    console.error('Chatbot @reply request failed:', error);
+    return res.status(error.status && error.status >= 400 && error.status < 500 ? error.status : 502)
+      .json({ error: error.message || 'Unable to generate a reply' });
+  }
+});
+
 router.post('/chat/conversations/:conversationId/messages', async (req, res) => {
   try {
     const user = await authenticatedUser(req);
@@ -289,9 +332,41 @@ router.post('/chat/conversations/:conversationId/messages', async (req, res) => 
         attachment_id: attachmentId || null,
         listing_id: listingId || null,
       })
-      .select('id,conversation_id,sender_id,body,created_at,message_type,attachment_id,listing_id')
-      .single();
-    if (error) throw error;
+        .select('id,conversation_id,sender_id,body,created_at,message_type,attachment_id,listing_id')
+        .single();
+      if (error) throw error;
+
+      const recipientUserId = conversation.host_id === user.id ? conversation.client_id : conversation.host_id;
+    const { data: senderProfile } = await supabaseAdmin.from('profiles').select('full_name').eq('id', user.id).maybeSingle();
+    const listingTitle = listingId ? (await supabaseAdmin.from('listings').select('title').eq('id', listingId).maybeSingle()).data?.title : null;
+    const notificationMessage = listingTitle ? `${senderProfile?.full_name || 'Someone'} sent you a message about ${listingTitle}.` : `${senderProfile?.full_name || 'Someone'} sent you a message.`;
+    await createNotification({
+      recipientUserId,
+      actorUserId: user.id,
+      type: 'new_message',
+      title: 'New message',
+      message: notificationMessage,
+      relatedEntityType: 'conversation',
+      relatedEntityId: conversationId,
+      metadata: {
+        conversation_id: conversationId,
+        sender_id: user.id,
+        message_id: data.id,
+        listing_id: listingId || conversation.listing_id || null,
+        listing_title: listingTitle,
+      },
+      eventKey: `message:${conversationId}:${data.id}`,
+    });
+
+    if (conversation.client_id === user.id && messageType === 'text' && content) {
+      const token = (req.headers.authorization || '').slice(7);
+      requestChatbotReply(conversationId, token, {
+        message: content,
+        listing_id: conversation.listing_id || listingId || null,
+      }).catch((replyError) => {
+        console.error('Away-mode chatbot reply failed:', replyError);
+      });
+    }
     let attachment = null;
     if (attachmentId) {
       const attachmentResult = await supabaseAdmin

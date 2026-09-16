@@ -1097,13 +1097,22 @@
 
           if (error) throw error;
           if (!updatedBooking) throw new Error('This booking request has already been processed.');
-          const notificationResult = await supabaseClient.from('notifications').insert({
-            user_id: updatedBooking.client_id,
-            type: 'booking_approved',
-            message: 'Your booking request has been approved.',
-            booking_id: bookingId
-          });
-          if (notificationResult.error) console.error('Booking approval notification failed:', notificationResult.error);
+          try {
+            await window.VaRoomNotificationAPI.create({
+              recipient_user_id: updatedBooking.client_id,
+              actor_user_id: currentUser.id,
+              type: 'booking_approved',
+              title: 'Booking confirmed',
+              message: 'Your booking for "' + (hostBookings.approved && hostBookings.approved.find(function (b) { return b.id === bookingId; }) && hostBookings.approved.find(function (b) { return b.id === bookingId; }).listing ? hostBookings.approved.find(function (b) { return b.id === bookingId; }).listing.title : 'this listing') + '" has been confirmed.',
+              related_entity_type: 'booking',
+              related_entity_id: bookingId,
+              booking_id: bookingId,
+              event_key: 'booking-approved:' + bookingId,
+              metadata: { booking_id: bookingId, listing_id: hostBookings.approved && hostBookings.approved.find(function (b) { return b.id === bookingId; }) ? hostBookings.approved.find(function (b) { return b.id === bookingId; }).listing_id : null }
+            });
+          } catch (notificationError) {
+            console.error('Booking approval notification failed:', notificationError);
+          }
 
           hostBookings.pending = (hostBookings.pending || []).filter(function(b){ return b.id !== bookingId; });
           if (!hostBookings.approved) hostBookings.approved = [];
@@ -1151,13 +1160,22 @@
 
           if (error) throw error;
           if (!updatedBooking) throw new Error('This booking request has already been processed.');
-          const notificationResult = await supabaseClient.from('notifications').insert({
-            user_id: updatedBooking.client_id,
-            type: 'booking_declined',
-            message: 'Your booking request was declined by the host.',
-            booking_id: bookingId
-          });
-          if (notificationResult.error) console.error('Booking decline notification failed:', notificationResult.error);
+          try {
+            await window.VaRoomNotificationAPI.create({
+              recipient_user_id: updatedBooking.client_id,
+              actor_user_id: currentUser.id,
+              type: 'booking_declined',
+              title: 'Booking declined',
+              message: 'Your booking request for "' + (hostBookings.pending && hostBookings.pending.find(function (b) { return b.id === bookingId; }) && hostBookings.pending.find(function (b) { return b.id === bookingId; }).listing ? hostBookings.pending.find(function (b) { return b.id === bookingId; }).listing.title : 'this listing') + '" was declined.',
+              related_entity_type: 'booking',
+              related_entity_id: bookingId,
+              booking_id: bookingId,
+              event_key: 'booking-declined:' + bookingId,
+              metadata: { booking_id: bookingId, listing_id: hostBookings.pending && hostBookings.pending.find(function (b) { return b.id === bookingId; }) ? hostBookings.pending.find(function (b) { return b.id === bookingId; }).listing_id : null }
+            });
+          } catch (notificationError) {
+            console.error('Booking decline notification failed:', notificationError);
+          }
 
           hostBookings.pending = (hostBookings.pending || []).filter(function(b){ return b.id !== bookingId; });
           if (!hostBookings.declined) hostBookings.declined = [];
@@ -1498,11 +1516,21 @@
 
       if (error) { if (note) note.textContent = error.message; return; }
 
-      await supabaseClient.from('notifications').insert({
-        user_id: b.host_id,
-        type: 'booking_declined',
+      await window.VaRoomNotificationAPI.create({
+        recipient_user_id: b.host_id,
+        actor_user_id: currentUser.id,
+        type: 'booking_cancelled',
+        title: 'Booking cancelled',
         message: 'A guest cancelled their booking for "' + (b.listing ? b.listing.title : 'your listing') + '".',
-        booking_id: bookingId
+        related_entity_type: 'booking',
+        related_entity_id: bookingId,
+        booking_id: bookingId,
+        event_key: 'booking-cancelled:' + bookingId,
+        metadata: {
+          booking_id: bookingId,
+          listing_id: b.listing_id || null,
+          cancelled_by: 'client'
+        }
       });
 
       showToast('Booking cancelled.');

@@ -9,6 +9,7 @@ Property News is mounted in the established Render FastAPI service (`main.py`) a
 3. Set these server-side Render environment values (never in client files):
    - existing `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`
    - existing `GEMINI_API_KEY` (Property News uses it automatically), or `NEWS_AI_PROVIDER`, `NEWS_AI_API_KEY`, and `NEWS_AI_MODEL`
+   - `PROPERTY_NEWS_API_URL=https://property-news-pnsj.onrender.com` and `PROPERTY_NEWS_ADMIN_API_KEY`, where the latter exactly matches the Property News service's `NEWS_ADMIN_API_KEY`
    - a new high-entropy `NEWS_SCHEDULER_SECRET`
    - optional `NEWS_ENVIRONMENT=production`, `NEWS_LOG_LEVEL=INFO`, and fetch limits from `.env.example`
 4. Set the GitHub repository secret `NEWS_SCHEDULER_SECRET` to match the Render secret exactly. The collector workflow targets the canonical Render service URL directly, so a stale scheduler URL secret cannot send collection to an old deployment.
@@ -18,7 +19,7 @@ Property News is mounted in the established Render FastAPI service (`main.py`) a
    ```sh
    curl --fail --request POST \
      --header "Authorization: Bearer $NEWS_SCHEDULER_SECRET" \
-     https://varoom-1.onrender.com/api/internal/sources/seed-official-lands
+     https://property-news-pnsj.onrender.com/api/internal/sources/seed-official-lands
    ```
 
 6. Run the **Property News collector** GitHub Actions workflow once from the Actions tab. The workflow processes the active source registry in 11 deterministic groups, one group at a time, so each request handles at most roughly five sources instead of holding one request open for the entire registry. GitHub may delay scheduled runs; do not add a second in-process cron on the web service.

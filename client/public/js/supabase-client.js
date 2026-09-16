@@ -18,4 +18,26 @@
       });
     }
   }
+
+  window.VaRoomNotificationAPI = {
+    async create(payload) {
+      const { data: { session } } = await window.supabaseClient.auth.getSession();
+      if (!session || !session.access_token) {
+        throw new Error('Authentication is required to create notifications.');
+      }
+      const response = await fetch('/api/notifications', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + session.access_token,
+        },
+        body: JSON.stringify(payload || {}),
+      });
+      const result = await response.json().catch(function () { return {}; });
+      if (!response.ok) {
+        throw new Error(result.error || 'Unable to create notification.');
+      }
+      return result.notification || null;
+    },
+  };
 })();

@@ -1,5 +1,6 @@
 const express = require('express');
 const supabaseAdmin = require('../lib/supabaseClient');
+const { createNotification } = require('../lib/notifications');
 const { ValidationError, uuid, text, number } = require('../lib/inputValidation');
 const router = express.Router();
 
@@ -47,6 +48,35 @@ router.post('/bookings/:bookingId/review', async (req, res) => {
     }).select('id,booking_id,listing_id,host_id,client_id,rating,comment,created_at').single();
 
     if (insertError) return res.status(502).json({ error: 'Unable to create review' });
+
+    const { data: profile } = await supabaseAdmin.from('profiles').select('full_name').eq('id', user.id).maybeSingle();
+    const listingName = (await supabaseAdmin.from('listings').select('title').eq('id', booking.listing_id).maybeSingle()).data?.title || 'your listing';
+
+    await createNotification({
+      recipientUserId: listing.host_id,
+      actorUserId: user.id,
+      type: 'new_review',
+      title: 'New review',
+      message: `${profile?.full_name || 'A guest'} left a ${rating}-star review for ${listingName}.`,
+      relatedEntityType: 'review',
+      relatedEntityId: created.id,
+      metadata: { rating, booking_id: bookingId, listing_id: booking.listing_id, listing_name: listingName },
+      bookingId,
+      eventKey: `review:${created.id}:host`,
+    });
+
+    await createNotification({
+      recipientUserId: user.id,
+      actorUserId: user.id,
+      type: 'review_published',
+      title: 'Review published',
+      message: `Your review for ${listingName} is now published.`,
+      relatedEntityType: 'review',
+      relatedEntityId: created.id,
+      metadata: { rating, booking_id: bookingId, listing_id: booking.listing_id, listing_name: listingName },
+      bookingId,
+      eventKey: `review:${created.id}:client`,
+    });
 
     // 5) Return created review. Frontend can refresh aggregates via separate endpoints.
     return res.status(201).json({ review: created });

@@ -614,7 +614,7 @@ function PropertyNews({ items, onAction, error }) {
     <div>
       <SectionHeader title="Property News" description="Review source-backed reports before they appear publicly or in Elie." />
       {error ? <div className="text-sm text-[#B5482E] mb-3">{error}</div> : null}
-      {items.length === 0 ? (
+      {!error && items.length === 0 ? (
         <div className="text-sm text-[#8a857c]">No reports are waiting for review.</div>
       ) : items.map(({ item, source }) => (
         <div key={item.id} className="border border-[#E4E1DA] rounded-sm bg-white p-4 mb-3">

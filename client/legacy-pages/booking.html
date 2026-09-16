@@ -1266,11 +1266,23 @@
       // keep a booking-related state stale past this user action.
       if (window.VaRoomListingFeedCache) window.VaRoomListingFeedCache.invalidateAll();
 
-      await supabaseClient.from('notifications').insert({
-        user_id: listing.host_id,
+      await window.VaRoomNotificationAPI.create({
+        recipient_user_id: listing.host_id,
+        actor_user_id: currentUser.id,
         type: 'booking_request',
-        message: 'New booking request for "' + listing.title + '".',
-        booking_id: newBooking ? newBooking.id : null
+        title: 'New booking request',
+        message: '"' + (currentUser.full_name || 'A guest') + '" requested to book "' + (listing.title || 'this listing') + '".',
+        related_entity_type: 'booking',
+        related_entity_id: newBooking ? newBooking.id : null,
+        booking_id: newBooking ? newBooking.id : null,
+        event_key: 'booking-request:' + (newBooking ? newBooking.id : listingId),
+        metadata: {
+          listing_id: listingId,
+          listing_name: listing.title,
+          booking_id: newBooking ? newBooking.id : null,
+          client_id: currentUser.id,
+          client_name: currentUser.full_name || currentUser.email || 'Guest'
+        }
       });
 
       successMsg.textContent = 'Request sent! The host has 48 hours to respond — you\'ll be notified either way.';

@@ -707,11 +707,17 @@
 
       if (window.VaRoomListingFeedCache) window.VaRoomListingFeedCache.invalidateAll();
 
-      await supabaseClient.from('notifications').insert({
-        user_id: booking.host_id,
+      await window.VaRoomNotificationAPI.create({
+        recipient_user_id: booking.host_id,
+        actor_user_id: currentUser.id,
         type: 'booking_cancelled',
-        message: 'A client cancelled their approved booking for "' + (listing.title || 'your listing') + '".',
-        booking_id: bookingId
+        title: 'Booking cancelled',
+        message: '"' + (currentUser.full_name || currentUser.email || 'A guest') + '" cancelled their booking for "' + (listing.title || 'your listing') + '".',
+        related_entity_type: 'booking',
+        related_entity_id: bookingId,
+        booking_id: bookingId,
+        event_key: 'booking-cancelled:' + bookingId,
+        metadata: { booking_id: bookingId, listing_id: booking.listing_id, listing_name: listing.title }
       });
 
       showStatus('Booking cancelled', "You've cancelled this booking. Your host has been notified.");
