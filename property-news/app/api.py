@@ -142,10 +142,21 @@ def create_app(config: Settings = settings, repository: Repository | None = None
 
     async def require_admin(authorization: str | None = Header(default=None)) -> None:
         if not config.admin_api_key:
-            raise HTTPException(status_code=503, detail="Admin endpoints are disabled until NEWS_ADMIN_API_KEY is configured.")
-        token = authorization.removeprefix("Bearer ") if authorization else ""
+            raise HTTPException(
+                status_code=503,
+                detail="Admin endpoints are disabled until NEWS_ADMIN_API_KEY is configured.",
+            )
+
+        submitted = (authorization or "").strip()
+        token = submitted.removeprefix("Bearer ").strip() if submitted else ""
+        if not token and submitted:
+            token = submitted
+
         if not hmac.compare_digest(token, config.admin_api_key):
-            raise HTTPException(status_code=401, detail="Admin authentication failed.")
+            raise HTTPException(
+                status_code=401,
+                detail="Admin authentication failed. Ensure NEWS_ADMIN_API_KEY is set and matches the caller's bearer token.",
+            )
 
     async def require_scheduler(authorization: str | None = Header(default=None)) -> None:
         if not config.scheduler_secret:
