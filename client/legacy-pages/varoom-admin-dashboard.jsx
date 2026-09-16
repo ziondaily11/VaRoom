@@ -64,6 +64,13 @@ function StatCard({ label, value, sub, alert }) {
   );
 }
 
+function createIdempotencyKey() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `support-reply-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
 function SectionHeader({ title, description }) {
   return (
     <div className="mb-5">
@@ -372,7 +379,7 @@ function Support({ tickets, selected, setSelected, onReply, onStatusChange }) {
                       setFeedback("");
                       setFeedbackError(false);
                       try {
-                        await onReply(selected.id, reply, crypto.randomUUID());
+                        await onReply(selected.id, reply, createIdempotencyKey());
                         setReply("");
                         setFeedback("Reply sent successfully.");
                       } catch (error) {
