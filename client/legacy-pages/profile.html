@@ -940,7 +940,7 @@
     const { count, error } = await supabaseClient
       .from('notifications')
       .select('id', { count:'exact', head:true })
-      .eq('user_id', currentUser.id)
+      .eq('recipient_user_id', currentUser.id)
       .eq('read', false);
     if (error) return;
     notificationCount.textContent = count > 99 ? '99+' : String(count || '');
@@ -950,7 +950,7 @@
   supabaseClient.channel('profile-notifications-' + currentUser.id)
     .on('postgres_changes', {
       event:'*', schema:'public', table:'notifications',
-      filter:'user_id=eq.' + currentUser.id
+      filter:'recipient_user_id=eq.' + currentUser.id
     }, refreshNotificationCount)
     .subscribe();
 
