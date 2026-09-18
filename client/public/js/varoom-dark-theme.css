@@ -2,52 +2,79 @@
  * Shared dark-mode surface system for the legacy dashboard templates.
  * This file is loaded after each page's inline theme so the shared tokens
  * remain the single source of truth for the dark visual system.
+ *
+ * DESIGN INTENT
+ * Dark mode uses a warm, near-black palette drawn from VaRoom's brand
+ * rather than pure #000000.  The page background is the darkest tone;
+ * cards/sidebar sit one step lighter so they visually separate from
+ * the canvas.  Text uses a soft off-white to reduce glare.
  */
 [data-theme="dark"] {
-  --white: #ffffff;
-  --paper: #000000;
-  --surface: #000000;
-  --input-bg: #000000;
-  --card-border: rgba(255, 255, 255, .16);
-  --shell-bg: #000000;
-  --sidebar-bg: #000000;
-  --main-bg: #000000;
-  --rail-bg: #000000;
-  --card-bg: #000000;
-  --ink: #ffffff;
-  --muted: rgba(255, 255, 255, .68);
-  --glass-bg: #000000;
-  --glass-border: rgba(255, 255, 255, .16);
-  --line: rgba(255, 255, 255, .16);
-  --line-soft: rgba(255, 255, 255, .12);
+  /* ── Surfaces ─────────────────────────────────────────────────── */
+  --paper:       #110D0C;          /* page / body background         */
+  --white:       #1A1514;          /* card / sidebar / raised surface */
+  --surface:     #1A1514;
+  --input-bg:    #1A1514;
+  --card-border: rgba(255,255,255,.12);
+  --shell-bg:    #110D0C;
+  --sidebar-bg:  #1A1514;
+  --main-bg:     #110D0C;
+  --rail-bg:     #110D0C;
+  --card-bg:     #1A1514;
+
+  /* ── Text ─────────────────────────────────────────────────────── */
+  --ink:   #F5EFEC;                /* primary text                   */
+  --muted: rgba(245,239,236,.58);  /* secondary / supporting text    */
+
+  /* ── Structural ───────────────────────────────────────────────── */
+  --glass-bg:     #1A1514;
+  --glass-border: rgba(255,255,255,.12);
+  --line:         rgba(255,255,255,.14);
+  --line-soft:    rgba(255,255,255,.09);
   --glass-shadow: none;
-  --glow-a: transparent;
-  --glow-b: transparent;
+  --glow-a:       transparent;
+  --glow-b:       transparent;
 }
 
+/* ================================================================
+   BODY / APP SHELL
+   ================================================================ */
 [data-theme="dark"] body {
-  background: #000000 !important;
+  background: var(--paper) !important;
   color: var(--ink);
 }
 
 [data-theme="dark"] .app-shell,
 [data-theme="dark"] .main-col,
-[data-theme="dark"] .sidebar,
 [data-theme="dark"] .topbar,
 [data-theme="dark"] .feed-area,
 [data-theme="dark"] .dash-main,
-[data-theme="dark"] .right-rail,
-[data-theme="dark"] .host-rail,
 [data-theme="dark"] .content-row {
-  background: #000000 !important;
+  background: var(--paper) !important;
 }
 
-[data-theme="dark"] .sidebar,
-[data-theme="dark"] .col-divider {
+/* Right rail & host rail sit on page background */
+[data-theme="dark"] .right-rail,
+[data-theme="dark"] .host-rail {
+  background: var(--paper) !important;
+}
+
+/* ================================================================
+   SIDEBAR
+   ================================================================ */
+[data-theme="dark"] .sidebar {
+  background: var(--white) !important;
   border-color: var(--line) !important;
-  background-color: #000000 !important;
 }
 
+[data-theme="dark"] .col-divider {
+  background-color: var(--line) !important;
+}
+
+/* ================================================================
+   CARDS & PANELS
+   Cards use --white (raised surface) so they lift off --paper.
+   ================================================================ */
 [data-theme="dark"] .card,
 [data-theme="dark"] .stats-card,
 [data-theme="dark"] .listings-glance-card,
@@ -56,13 +83,13 @@
 [data-theme="dark"] .property-news-card,
 [data-theme="dark"] .varoom-updates-card,
 [data-theme="dark"] .mobile-widget-card,
-[data-theme="dark"] .glance-tile,
-[data-theme="dark"] .search-wrap {
-  background: #000000 !important;
-  border-color: var(--glass-border) !important;
+[data-theme="dark"] .glance-tile {
+  background: var(--white) !important;
+  border-color: var(--card-border) !important;
   box-shadow: none !important;
 }
 
+/* Feed cards: borderless with a subtle bottom separator */
 [data-theme="dark"] .card,
 [data-theme="dark"] .stats-card,
 [data-theme="dark"] .listings-glance-card,
@@ -78,6 +105,7 @@
   border-right: 0 !important;
 }
 
+/* Rail panels */
 [data-theme="dark"] .rail-card,
 [data-theme="dark"] .notif-panel-card,
 [data-theme="dark"] .property-news-card,
@@ -85,21 +113,42 @@
   border-bottom-color: var(--line) !important;
 }
 
+/* ================================================================
+   SEARCH
+   ================================================================ */
 [data-theme="dark"] .search-wrap {
-  outline: 1px solid rgba(255, 255, 255, .20) !important;
+  background: var(--white) !important;
+  outline: 1px solid rgba(196,30,58,.30) !important;
   border: 0 !important;
-  box-shadow: none !important;
+  box-shadow: 0 0 10px rgba(196,30,58,.12) !important;
 }
 
+[data-theme="dark"] .search-wrap:focus-within {
+  outline-color: var(--red) !important;
+  box-shadow: 0 0 0 2px rgba(196,30,58,.18), 0 0 14px rgba(196,30,58,.25) !important;
+}
+
+/* ================================================================
+   INPUTS
+   ================================================================ */
 [data-theme="dark"] .search-wrap input,
 [data-theme="dark"] input,
 [data-theme="dark"] textarea,
 [data-theme="dark"] select {
   background-color: var(--input-bg);
   color: var(--ink);
-  border-color: var(--glass-border);
+  border-color: var(--line);
 }
 
+[data-theme="dark"] input::placeholder,
+[data-theme="dark"] textarea::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+
+/* ================================================================
+   SECONDARY TEXT
+   ================================================================ */
 [data-theme="dark"] .search-btn,
 [data-theme="dark"] .icon-btn,
 [data-theme="dark"] .nav-label,
@@ -110,35 +159,55 @@
   color: var(--muted);
 }
 
+/* ================================================================
+   NAVIGATION — HOVER / ACTIVE
+   ================================================================ */
 [data-theme="dark"] .nav-item:hover,
 [data-theme="dark"] button.nav-item.soon-active:hover,
 [data-theme="dark"] .property-news-bar-refresh:hover {
-  background: #000000 !important;
+  background: rgba(255,255,255,.06) !important;
   color: var(--ink);
 }
 
-[data-theme="dark"] .nav-item.active,
+[data-theme="dark"] .nav-item.active {
+  background: rgba(196,30,58,.18) !important;
+  color: #F5EFEC !important;
+}
+
+/* Active tabs keep the red fill */
 [data-theme="dark"] .tab.active,
 [data-theme="dark"] .tab[aria-selected="true"] {
   background: var(--red) !important;
   color: #ffffff !important;
+  border-color: transparent !important;
 }
 
+/* ================================================================
+   TABS, BUTTONS, ACTION ROW
+   ================================================================ */
 [data-theme="dark"] .tab,
 [data-theme="dark"] .secondary-btn,
 [data-theme="dark"] .action-btn,
 [data-theme="dark"] .report-cancel-btn {
-  background: #000000 !important;
-  border: 1px solid rgba(255, 255, 255, .20) !important;
+  background: var(--white) !important;
+  border: 1px solid var(--line) !important;
   color: var(--ink) !important;
 }
 
-[data-theme="dark"] .tab.active,
-[data-theme="dark"] .tab[aria-selected="true"] {
-  border-color: transparent !important;
+[data-theme="dark"] .tab:hover,
+[data-theme="dark"] .action-btn:hover {
+  background: rgba(255,255,255,.08) !important;
 }
 
-[data-theme="dark"] .list-space-btn,
+/* Primary buttons — red fill */
+[data-theme="dark"] .list-space-btn {
+  border-color: rgba(196,30,58,.55);
+  color: var(--red);
+}
+[data-theme="dark"] .list-space-btn:hover {
+  background: rgba(196,30,58,.12);
+}
+
 [data-theme="dark"] .list-btn-top,
 [data-theme="dark"] .list-btn-primary,
 [data-theme="dark"] .report-submit-btn {
@@ -146,17 +215,43 @@
   color: #ffffff;
 }
 
-[data-theme="dark"] .beta-pill,
-[data-theme="dark"] .soon-pill,
-[data-theme="dark"] .badge-soon {
-  background: #000000 !important;
-  border: 1px solid rgba(255, 255, 255, .20);
+/* ================================================================
+   PILLS & BADGES
+   ================================================================ */
+[data-theme="dark"] .beta-pill {
+  background: rgba(196,30,58,.15) !important;
+  border: 1px solid rgba(196,30,58,.25);
+  color: #e8919e;
+}
+
+[data-theme="dark"] .soon-pill {
+  background: rgba(255,255,255,.08) !important;
+  border: 1px solid var(--line);
   color: var(--muted);
 }
 
+[data-theme="dark"] .badge-soon {
+  background: rgba(255,255,255,.08) !important;
+  border: 1px solid var(--line);
+  color: var(--muted);
+}
+
+[data-theme="dark"] .badge-verified {
+  background: rgba(30,107,60,.18) !important;
+  color: #7cc99a;
+}
+
+[data-theme="dark"] .badge-host {
+  background: rgba(26,78,143,.18) !important;
+  color: #7eaee0;
+}
+
+/* ================================================================
+   GLANCE TILES
+   ================================================================ */
 [data-theme="dark"] .listings-glance-card .glance-tile.add-tile {
-  border-color: var(--glass-border) !important;
-  background: #000000 !important;
+  border-color: var(--line) !important;
+  background: var(--paper) !important;
 }
 
 [data-theme="dark"] .host-rail .listings-glance-card,
@@ -176,21 +271,142 @@
   border-right: 0 !important;
 }
 
+/* ================================================================
+   VERIFY BOX / SIDEBAR NOTE
+   ================================================================ */
 [data-theme="dark"] .sidebar-note,
 [data-theme="dark"] .verify-box.not-verified {
-  background: #000000 !important;
-  border: 1px solid var(--glass-border);
+  background: rgba(196,30,58,.12) !important;
+  border: 1px solid rgba(196,30,58,.22);
+  color: #e8919e;
+}
+
+[data-theme="dark"] .verify-box.is-verified {
+  background: rgba(30,107,60,.14) !important;
+  border: 1px solid rgba(30,107,60,.22);
+  color: #7cc99a;
+}
+
+/* ================================================================
+   MODALS & DROPDOWNS
+   (Previously missing — caused invisible white-on-white text)
+   ================================================================ */
+[data-theme="dark"] .modal-overlay {
+  background: rgba(0,0,0,.65);
+}
+
+[data-theme="dark"] .modal-card,
+[data-theme="dark"] .report-modal {
+  background: var(--white) !important;
+  border: 1px solid var(--line);
   color: var(--ink);
 }
 
+[data-theme="dark"] .card-menu-dropdown {
+  background: var(--white) !important;
+  border-color: var(--line) !important;
+  box-shadow: 0 12px 30px -10px rgba(0,0,0,.6) !important;
+}
+
+[data-theme="dark"] .card-menu-item {
+  color: var(--ink);
+}
+
+[data-theme="dark"] .card-menu-item:hover {
+  background: rgba(255,255,255,.08);
+}
+
+[data-theme="dark"] .card-menu-item.destructive {
+  color: #ff7186;
+  border-top-color: var(--line-soft);
+}
+
+[data-theme="dark"] .card-menu-section {
+  color: var(--muted);
+}
+
+/* ================================================================
+   TOAST
+   (Previously invisible — white text on white background)
+   ================================================================ */
+[data-theme="dark"] .toast {
+  background: var(--white) !important;
+  color: var(--ink) !important;
+  border: 1px solid var(--line);
+}
+
+/* ================================================================
+   EMPTY STATES
+   ================================================================ */
+[data-theme="dark"] .empty-state-card {
+  border-color: var(--line) !important;
+  background: var(--white) !important;
+}
+
+[data-theme="dark"] .property-news-empty-card,
+[data-theme="dark"] .client-property-news-empty-card {
+  background: var(--white) !important;
+}
+
+[data-theme="dark"] .attention-icon {
+  background: rgba(196,30,58,.12);
+}
+
+[data-theme="dark"] .attention-clear .attention-icon {
+  background: rgba(30,107,60,.16);
+  color: #7cc99a;
+}
+
+/* ================================================================
+   UPLOAD BUTTON
+   ================================================================ */
+[data-theme="dark"] .host-video-upload-btn {
+  background: rgba(196,30,58,.15) !important;
+  color: #e8919e;
+}
+
+/* ================================================================
+   AWAY MODE TOGGLE
+   ================================================================ */
+[data-theme="dark"] .away-toggle-wrap {
+  background: rgba(196,30,58,.10);
+  border-color: rgba(196,30,58,.20);
+}
+
+/* ================================================================
+   MEDIA DOTS (carousel indicators)
+   ================================================================ */
+[data-theme="dark"] .media-dot {
+  background: rgba(255,255,255,.25);
+}
+
+[data-theme="dark"] .media-dot.active {
+  background: var(--red);
+}
+
+/* ================================================================
+   SKELETON LOADING
+   ================================================================ */
+[data-theme="dark"] .skel {
+  background: rgba(255,255,255,.07) !important;
+}
+
+[data-theme="dark"] .property-news-skeleton {
+  background: linear-gradient(90deg, rgba(255,255,255,.04), rgba(255,255,255,.09), rgba(255,255,255,.04)) !important;
+  background-size: 200% 100%;
+}
+
+/* ================================================================
+   BOTTOM BAR (mobile)
+   ================================================================ */
 [data-theme="dark"] .bottom-bar {
-  background: #000000 !important;
-  border-color: var(--glass-border) !important;
-  box-shadow: none !important;
+  background: var(--white) !important;
+  border-color: var(--line) !important;
+  box-shadow: 0 -4px 20px rgba(0,0,0,.4) !important;
 }
 
 [data-theme="dark"] .bottom-bar-item {
-  color: var(--ink);
+  color: var(--muted);
 }
 
 [data-theme="dark"] .bottom-bar-item.active {
@@ -198,6 +414,16 @@
   color: #ffffff;
 }
 
+/* ================================================================
+   LIGHTBOX
+   ================================================================ */
+[data-theme="dark"] .lightbox-overlay {
+  background: rgba(0,0,0,.96);
+}
+
+/* ================================================================
+   PROFILE PAGES (shared layouts)
+   ================================================================ */
 [data-theme="dark"] .profile-desktop-shell,
 [data-theme="dark"] .skeleton-shell,
 [data-theme="dark"] .profile-sidebar,
@@ -206,7 +432,7 @@
 [data-theme="dark"] .skeleton-sidebar,
 [data-theme="dark"] .skeleton-main,
 [data-theme="dark"] .skeleton-rail {
-  background: #000000 !important;
+  background: var(--paper) !important;
   border-color: var(--line) !important;
 }
 
@@ -215,8 +441,8 @@
 [data-theme="dark"] .profile-panel,
 [data-theme="dark"] .skeleton-card,
 [data-theme="dark"] .skel-rail-card {
-  background: #000000 !important;
-  border-color: var(--glass-border) !important;
+  background: var(--white) !important;
+  border-color: var(--card-border) !important;
   box-shadow: none !important;
 }
 
@@ -224,17 +450,20 @@
 [data-theme="dark"] .profile-wrap,
 [data-theme="dark"] .signup-aside,
 [data-theme="dark"] main {
-  background: #000000 !important;
+  background: var(--paper) !important;
 }
 
 [data-theme="dark"] .signup-aside {
   border-color: var(--line) !important;
 }
 
+/* ================================================================
+   LISTING PAGES
+   ================================================================ */
 [data-theme="dark"] .listing-card,
 [data-theme="dark"] .listing-menu ul {
-  background: #000000 !important;
-  border-color: var(--glass-border) !important;
+  background: var(--white) !important;
+  border-color: var(--card-border) !important;
   box-shadow: none !important;
 }
 
@@ -245,10 +474,13 @@
   background-color: transparent;
 }
 
+/* ================================================================
+   SUPPORT PAGES
+   ================================================================ */
 [data-theme="dark"] .support-page,
 [data-theme="dark"] .support-page main,
 [data-theme="dark"] .support-page .topbar {
-  background: #000000 !important;
+  background: var(--paper) !important;
 }
 
 [data-theme="dark"] .support-page .topbar {
@@ -256,22 +488,22 @@
 }
 
 [data-theme="dark"] .support-page .search {
-  background: #000000 !important;
-  border-color: rgba(255, 255, 255, .20) !important;
+  background: var(--white) !important;
+  border-color: var(--line) !important;
 }
 
 [data-theme="dark"] .support-page .action,
 [data-theme="dark"] .support-page .write-card,
 [data-theme="dark"] .support-page .article {
-  background: #000000 !important;
-  border-color: var(--glass-border) !important;
+  background: var(--white) !important;
+  border-color: var(--card-border) !important;
   box-shadow: none !important;
 }
 
 [data-theme="dark"] .support-page .action-icon,
 [data-theme="dark"] .support-page .article-icon,
 [data-theme="dark"] .support-page .search button {
-  background: #000000 !important;
+  background: var(--white) !important;
   border: 1px solid var(--line-soft);
 }
 
@@ -279,19 +511,34 @@
   border-top-color: var(--line-soft) !important;
 }
 
+/* ================================================================
+   MOBILE RESPONSIVE
+   ================================================================ */
+@media (max-width: 860px) {
+  [data-theme="dark"] .topbar {
+    background: var(--white) !important;
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+  }
+
+  [data-theme="dark"] .sidebar {
+    box-shadow: 0 0 40px rgba(0,0,0,.5) !important;
+  }
+}
+
 @media (max-width: 800px) {
   [data-theme="dark"] .support-page .topbar,
   [data-theme="dark"] .support-page main,
   [data-theme="dark"] .support-page footer {
-    background: #000000 !important;
+    background: var(--paper) !important;
   }
 
   [data-theme="dark"] .support-page .search,
   [data-theme="dark"] .support-page .action,
   [data-theme="dark"] .support-page .write-card,
   [data-theme="dark"] .support-page .article {
-    background: #000000 !important;
-    border-color: var(--glass-border) !important;
+    background: var(--white) !important;
+    border-color: var(--card-border) !important;
   }
 }
 
