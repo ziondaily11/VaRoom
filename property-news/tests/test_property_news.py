@@ -567,5 +567,186 @@ class MigrationSafetyTests(unittest.TestCase):
         self.assertIn("news_items_published_latest_idx", latest_index)
 
 
+class StrictPropertyRelevanceTests(unittest.TestCase):
+    def test_qualifying_property_news_is_included(self):
+        qualifying = [
+            ("Nairobi County rolls out new land rates system", "https://news.test/nairobi-land-rates"),
+            ("Ministry of Lands digitises title deed records on Ardhisasa", "https://news.test/ardhisasa-title-deeds"),
+            ("National Land Commission issues advisory on communal land demarcation", "https://news.test/nlc-communal-land"),
+            ("Stamp duty exemption for first-time home buyers passed by Parliament", "https://news.test/stamp-duty-exemption"),
+            ("Government gazettes new regulations for affordable housing levy", "https://news.test/affordable-housing-levy"),
+            ("Developers launch 500-unit residential gated community in Kiambu", "https://news.test/kiambu-residential-development"),
+            ("Knight Frank index shows surge in prime office rental yields", "https://news.test/prime-office-rental-yields"),
+            ("BuyRentKenya report reveals rising apartment prices in Kilimani", "https://news.test/apartment-prices-kilimani"),
+            ("KMRC injects KSh 7 billion to boost low-cost mortgages", "https://news.test/kmrc-mortgages"),
+            ("Banks tighten mortgage lending rules following interest rate hike", "https://news.test/mortgage-lending-rules"),
+            ("Rent Restriction Tribunal bars landlord from illegal tenant eviction", "https://news.test/rent-tribunal-eviction"),
+            ("Commercial tenants negotiate rent discounts in Nairobi CBD", "https://news.test/commercial-tenants-rent"),
+            ("NCA orders immediate demolition of unsafe five-storey building in Ruiru", "https://news.test/nca-building-collapse-safety"),
+            ("Architectural Association of Kenya updates national building code standards", "https://news.test/building-code-standards"),
+            ("High Court cancels fraudulent title deed for 50-acre parcel in Mavoko", "https://news.test/title-deed-cancellation-mavoko"),
+        ]
+        for title, url in qualifying:
+            is_rel, reason = classify_property_relevance(title, url, is_pre_fetch=True)
+            self.assertTrue(is_rel, f"Expected {title!r} to be relevant, got {reason}")
+            is_rel_post, post_reason = classify_property_relevance(
+                title, url, f"{title}. The Ministry and property developers released market details today.", is_pre_fetch=False
+            )
+            self.assertTrue(is_rel_post, f"Expected post-fetch {title!r} to be relevant, got {post_reason}")
+
+    def test_excluded_general_news_is_rejected(self):
+        excluded = [
+            ("Immigration department clears passport backlog for Kenyan citizens", "https://news.test/passport-backlog"),
+            ("Two foreign nationals arrested for lacking valid work permits", "https://news.test/foreigners-work-permits"),
+            ("Ruto and Raila hold closed-door political talks on bipartisan committee", "https://news.test/ruto-raila-political-talks"),
+            ("MPs engage in heated debate over political coalition funding", "https://news.test/mps-debate-coalition"),
+            ("UDA and ODM prepare candidates for upcoming by-elections", "https://news.test/by-elections-prep"),
+            ("Police shoot dead three armed robbers in highway ambush", "https://news.test/police-shoot-robbers"),
+            ("Detectives probe murder of businessman in Karen home", "https://news.test/murder-probe-karen"),
+            ("Bandits attack village in Baringo, two dead", "https://news.test/banditry-baringo"),
+            ("Kenya and Tanzania resolve bilateral aviation dispute after summit", "https://news.test/diplomatic-dispute-aviation"),
+            ("US Ambassador hosts reception for civil society leaders", "https://news.test/ambassador-reception"),
+            ("Gor Mahia edges AFC Leopards 1-0 in Mashemeji Derby thriller", "https://news.test/gor-mahia-afc-leopards"),
+            ("Kenyan athlete breaks world marathon record in Berlin", "https://news.test/marathon-record"),
+            ("Celebrity musician releases new album ahead of Nairobi concert", "https://news.test/musician-album-concert"),
+            ("EPRA raises fuel prices for petrol and diesel by five shillings", "https://news.test/epra-fuel-prices"),
+            ("Doctors threaten nationwide strike over collective bargaining agreement", "https://news.test/doctors-strike"),
+            ("Kenya Shilling strengthens against US Dollar following eurobond payout", "https://news.test/shilling-strengthens"),
+            ("Kenya Airways plane lands safely after technical failure", "https://news.test/plane-lands-safely"),
+            ("Politician lands lucrative government appointment", "https://news.test/lands-appointment"),
+            ("Opposition building consensus ahead of national convention", "https://news.test/building-consensus"),
+            ("Developing story: traffic accident on Thika Superhighway", "https://news.test/developing-story-accident"),
+            ("State House announces cabinet reshuffle", "https://news.test/state-house-reshuffle"),
+        ]
+        for title, url in excluded:
+            is_rel, reason = classify_property_relevance(title, url, is_pre_fetch=True)
+            self.assertFalse(is_rel, f"Expected {title!r} to be EXCLUDED, got {reason}")
+
+    def test_category_metadata_rejection(self):
+        self.assertFalse(classify_property_relevance("Major national update", "https://news.test/story", category="politics", is_pre_fetch=True)[0])
+        self.assertFalse(classify_property_relevance("Weekend match overview", "https://news.test/story", category="sports", is_pre_fetch=True)[0])
+
+    def test_incidental_mentions_in_body_are_rejected_post_fetch(self):
+        title = "Governor addresses health workers"
+        url = "https://news.test/governor-health"
+        body = "The governor addressed health workers regarding clinic renovations. He mentioned that the clinic stands on public land. The rest of the speech was about nursing staff, doctors, and medical equipment."
+        is_rel, reason = classify_property_relevance(title, url, body, is_pre_fetch=False)
+        self.assertFalse(is_rel)
+
+
+class PreFetchPipelineStrictFilterTests(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self):
+        self.repository = MemoryNewsRepository()
+        self.source = source()
+        await self.repository.upsert_source(self.source)
+
+    async def test_irrelevant_candidates_are_discarded_before_materialisation(self):
+        collector = SourceCollector(self.repository, Settings())
+        politics = CandidateArticle(
+            source_id=self.source.id, source_url="https://source1.example.test/politics",
+            source_title="MPs clash over election campaign funding", clean_text="",
+        )
+        property_art = CandidateArticle(
+            source_id=self.source.id, source_url="https://source1.example.test/land-rates",
+            source_title="Nairobi County announces new land rates roll", clean_text="",
+        )
+
+        materialise_calls: list[str] = []
+
+        async def spy_materialise(src, cand):
+            materialise_calls.append(cand.source_url)
+            return cand.model_copy(update={
+                "clean_text": "The county government announced a new land rates valuation roll for all property owners in Nairobi. " * 8,
+                "source_published_at": datetime.now(timezone.utc) - timedelta(days=1),
+            })
+
+        collector._materialise_article = spy_materialise  # type: ignore[method-assign]
+
+        async def mock_discover(_source):
+            return [politics, property_art]
+
+        collector._discover = mock_discover  # type: ignore[method-assign]
+
+        result = await collector.collect_due_sources()
+
+        # COST CONTROL: politics must NEVER be fetched or materialized
+        self.assertNotIn("https://source1.example.test/politics", materialise_calls)
+        self.assertIn("https://source1.example.test/land-rates", materialise_calls)
+        self.assertEqual(result["articles_rejected"], 1)
+        self.assertEqual(result["new_items"], 1)
+
+        # STORAGE RULE: politics must NOT exist in the database
+        items = await self.repository.list_items()
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0].source_url, "https://source1.example.test/land-rates")
+
+    async def test_rejected_urls_cache_prevents_repeated_reprocessing(self):
+        collector = SourceCollector(self.repository, Settings())
+        non_property = CandidateArticle(
+            source_id=self.source.id, source_url="https://source1.example.test/sports",
+            source_title="Gor Mahia wins football championship", clean_text="",
+        )
+
+        async def mock_discover(_source):
+            return [non_property]
+
+        collector._discover = mock_discover  # type: ignore[method-assign]
+
+        # First run
+        result1 = await collector.collect_source(self.source)
+        self.assertEqual(result1["articles_rejected"], 1)
+
+        # Second run should skip immediately via _rejected_urls cache
+        result2 = await collector.collect_source(self.source)
+        self.assertEqual(result2["articles_rejected"], 1)
+        self.assertEqual(result2["articles_fetched"], 0)
+
+    async def test_processing_purges_item_if_analyser_determines_irrelevant(self):
+        processor = ProcessingService(self.repository, RulesBasedNewsAnalyzer())
+        item = NewsItem(
+            source_id=self.source.id, source_url="https://source1.example.test/borderline",
+            canonical_url="https://source1.example.test/borderline",
+            source_title="General sports award ceremony",
+            clean_text="The athletic awards honoured runners in Nairobi.",
+            source_tier=1, content_hash="f" * 64,
+        )
+        await self.repository.save_item(item)
+        self.assertIsNotNone(await self.repository.get_item(item.id))
+
+        processed = await processor.process(item.id)
+        self.assertEqual(processed.review_status, ReviewStatus.ARCHIVED)
+
+        # STRICT STORAGE RULE: Item MUST be purged from repository
+        self.assertIsNone(await self.repository.get_item(item.id))
+
+    async def test_store_candidate_rejects_non_property_news(self):
+        collector = SourceCollector(self.repository, Settings())
+        non_property = CandidateArticle(
+            source_id=self.source.id, source_url="https://source1.example.test/immigration",
+            source_title="Immigration department clears passport backlog",
+            clean_text="Passports are being processed for citizens.",
+        )
+        saved, duplicate = await collector._store_candidate(self.source, non_property)
+        self.assertIsNone(saved)
+        self.assertFalse(duplicate)
+        self.assertEqual(len(await self.repository.list_items()), 0)
+
+    async def test_reprocess_job_purges_existing_non_property_items(self):
+        from app.jobs import run_reprocess_job
+        item = NewsItem(
+            source_id=self.source.id, source_url="https://source1.example.test/old-politics",
+            canonical_url="https://source1.example.test/old-politics",
+            source_title="Presidential political rally in Nakuru",
+            clean_text="Political rally speech about upcoming elections.",
+            source_tier=1, content_hash="e" * 64,
+        )
+        await self.repository.save_item(item)
+        self.assertEqual(len(await self.repository.list_items()), 1)
+
+        result = await run_reprocess_job(self.repository, Settings(), limit=5)
+        self.assertEqual(result.get("purged_irrelevant"), 1)
+        self.assertEqual(len(await self.repository.list_items()), 0)
+
+
 if __name__ == "__main__":
     unittest.main()

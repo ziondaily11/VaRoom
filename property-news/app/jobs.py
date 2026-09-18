@@ -11,6 +11,7 @@ from .collector import SourceCollector
 from .config import settings
 from .constants import ReviewStatus
 from .processing import ProcessingService
+from .relevance import classify_property_relevance
 from .repository import build_repository
 
 
@@ -106,6 +107,21 @@ async def run_reprocess_job(repository=None, config=settings, analyzer: NewsAnal
         if not source:
             result["fetch_failures"] += 1
             continue
+
+        # COST CONTROL: Check relevance on existing metadata before fetching/reprocessing
+        is_relevant, reason = classify_property_relevance(
+            item.varoom_title or item.source_title,
+            item.source_url,
+            item.clean_text,
+            source_name=source.name,
+            is_pre_fetch=True,
+        )
+        if not is_relevant:
+            await store.delete_item(item.id)
+            result["purged_irrelevant"] = result.get("purged_irrelevant", 0) + 1
+            logging.getLogger(__name__).info("Reprocess job purged non-property item: id=%s url=%s reason=%s", item.id, item.source_url, reason)
+            continue
+
         try:
             candidate = await collector._fetch_article(source, item.source_url,
                                                         published_at=item.source_published_at)

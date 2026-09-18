@@ -60,10 +60,11 @@ STRONG_PROPERTY_PATTERNS = re.compile(
     r"real\s+estate\s+investment\s+trusts?|\breits?\b|"
     # Construction & Built Environment
     r"construction\s+sectors?|construction\s+industr(?:y|ies)|building\s+codes?|"
-    r"building\s+collapse|demolition\s+of\s+(?:houses|buildings|structures|homes)|"
-    r"national\s+construction\s+authority|\bnca\s+registration\b|"
+    r"building\s+collapse|demolition\s+of\s+(?:[\w-]+\s+){0,3}(?:houses|buildings|structures|homes)|"
+    r"national\s+construction\s+authority|\bnca\b|"
     r"building\s+permits?|construction\s+permits?|architectural\s+association\s+of\s+kenya|\bboraqs\b|"
-    r"structural\s+safety\s+of\s+buildings?"
+    r"structural\s+safety\s+of\s+buildings?|unsafe\s+(?:[\w-]+\s+){0,3}buildings?|"
+    r"(?:residential|commercial|five-storey|multi-storey|high-rise)\s+buildings?"
     r")\b",
     re.IGNORECASE,
 )
@@ -86,6 +87,8 @@ def classify_property_relevance(
     url: str = "",
     text: str = "",
     *,
+    source_name: str = "",
+    category: str = "",
     is_pre_fetch: bool = False,
 ) -> tuple[bool, str]:
     """Classify whether an article is directly and materially related to property/real estate.
@@ -98,36 +101,44 @@ def classify_property_relevance(
     clean_title = " ".join((title or "").split()).strip()
     clean_url = (url or "").strip()
     clean_text = (text or "").strip()
+    clean_source = (source_name or "").strip().lower()
+    clean_cat = (category or "").strip().lower()
+
+    # If category metadata explicitly indicates non-property domain
+    if clean_cat:
+        for cat_name, pattern in EXCLUSION_PATTERNS:
+            if re.search(pattern, clean_cat, re.IGNORECASE):
+                return False, f"EXCLUDED_CATEGORY_METADATA_{cat_name}"
 
     # Pre-fetch candidate inspection targets title and URL path
     parsed_path = urlparse(clean_url).path if clean_url else ""
     url_slug = re.sub(r"[-_/]+", " ", parsed_path)
-    header_content = f"{clean_title} {url_slug}".lower()
+    header_content = f"{clean_title} {url_slug} {clean_cat}".lower()
 
     # 1. Check for immediate explicit exclusions on header
-    for category, pattern in EXCLUSION_PATTERNS:
+    for cat_name, pattern in EXCLUSION_PATTERNS:
         if re.search(pattern, header_content, re.IGNORECASE):
             # Check for property exemptions (e.g. land fraud crime, housing levy politics)
-            if category == "GENERAL_CRIME" and CRIME_PROPERTY_EXEMPTIONS.search(header_content):
+            if cat_name == "GENERAL_CRIME" and CRIME_PROPERTY_EXEMPTIONS.search(header_content):
                 continue
-            if category == "GENERAL_POLITICS" and POLITICS_PROPERTY_EXEMPTIONS.search(header_content):
+            if cat_name == "GENERAL_POLITICS" and POLITICS_PROPERTY_EXEMPTIONS.search(header_content):
                 continue
-            return False, f"EXCLUDED_{category}"
+            return False, f"EXCLUDED_{cat_name}"
 
-    # 2. Check for strong property match in title or URL
+    # 2. Check for strong property match in title, URL, or category
     has_strong_header_match = bool(STRONG_PROPERTY_PATTERNS.search(header_content))
 
     if is_pre_fetch:
         # If pre-fetch and snippet available (e.g. from RSS/Atom summary), check snippet too
         if clean_text:
             snippet_lower = clean_text[:1200].lower()
-            for category, pattern in EXCLUSION_PATTERNS:
+            for cat_name, pattern in EXCLUSION_PATTERNS:
                 if re.search(pattern, snippet_lower, re.IGNORECASE):
-                    if category == "GENERAL_CRIME" and CRIME_PROPERTY_EXEMPTIONS.search(snippet_lower):
+                    if cat_name == "GENERAL_CRIME" and CRIME_PROPERTY_EXEMPTIONS.search(snippet_lower):
                         continue
-                    if category == "GENERAL_POLITICS" and POLITICS_PROPERTY_EXEMPTIONS.search(snippet_lower):
+                    if cat_name == "GENERAL_POLITICS" and POLITICS_PROPERTY_EXEMPTIONS.search(snippet_lower):
                         continue
-                    return False, f"EXCLUDED_{category}_IN_SNIPPET"
+                    return False, f"EXCLUDED_{cat_name}_IN_SNIPPET"
             if not has_strong_header_match:
                 has_strong_header_match = bool(STRONG_PROPERTY_PATTERNS.search(snippet_lower))
 
@@ -160,7 +171,11 @@ def classify_property_relevance(
         return False, "NO_PROPERTY_SUBJECT_IN_BODY"
 
     # Check property centrality:
-    # Must appear in the first 400 words or have multiple occurrences indicating central topic
+    # A story qualifies ONLY if property/real estate is a central subject of the story, not a secondary or incidental detail.
+    has_strong_title_match = bool(STRONG_PROPERTY_PATTERNS.search(clean_title))
+    if not has_strong_title_match and len(property_matches) < 3:
+        return False, "INCIDENTAL_PROPERTY_MENTION_WITHOUT_PROPERTY_TITLE"
+
     first_400_words = " ".join(full_content.split()[:400])
     has_early_property_presence = bool(STRONG_PROPERTY_PATTERNS.search(first_400_words))
 

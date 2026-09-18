@@ -106,6 +106,7 @@ class SourceCollector:
     def __init__(self, repository: Repository, settings: Settings) -> None:
         self.repository, self.settings = repository, settings
         self._last_request_at: dict[str, float] = {}
+        self._rejected_urls: set[str] = set()
         # Keep certificate verification enabled while using the deployment
         # host's maintained CA store for official government sources.
         self._ssl_context = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
@@ -221,13 +222,27 @@ class SourceCollector:
             result["urls_discovered"] = result["articles_discovered"]
             result["security_blocked_urls"] = security_blocked_count
 
-            # STAGE 2: Pre-fetch strict property relevance filter (discard before fetching)
+            # STAGE 2: Pre-fetch strict property relevance filter (cheapest & earliest stage)
+            # Evaluates headline + source + short description/snippet + available category metadata
+            # Discards non-property articles BEFORE downloading full article, images, or generating summaries
             passing_candidates: list[CandidateArticle] = []
+            category_hint = str(source.parser_config.get("category", "") or "")
             for candidate in raw_candidates:
+                canonical = canonicalise_url(candidate.source_url)
+                if canonical in self._rejected_urls:
+                    result["articles_rejected"] += 1
+                    continue
+
                 is_relevant, reason = classify_property_relevance(
-                    candidate.source_title, candidate.source_url, candidate.clean_text, is_pre_fetch=True,
+                    title=candidate.source_title,
+                    url=candidate.source_url,
+                    text=candidate.clean_text,
+                    source_name=source.name,
+                    category=category_hint,
+                    is_pre_fetch=True,
                 )
                 if not is_relevant:
+                    self._rejected_urls.add(canonical)
                     result["articles_rejected"] += 1
                     logger.info(
                         "PRE-FETCH DISCARD (strict property filter): source=%s url=%s reason=%s title=%s",
