@@ -171,9 +171,9 @@
 <body>
 <div class="page support-page">
   <header class="topbar">
-    <a class="logo" href="/client-home"><span class="va">Va</span>Room</a>
+    <a class="logo" href="/client-home" id="support-home-logo"><span class="va">Va</span>Room</a>
     <nav class="nav" aria-label="Primary navigation">
-      <a href="/client-home">Home</a><a href="/marketplace">Marketplace</a><a href="/chats">Messages</a><a href="/bookings">Bookings</a><a class="active" href="/support">Support</a>
+      <a href="/client-home" id="support-home-link">Home</a><a href="/marketplace">Marketplace</a><a href="/chats">Messages</a><a href="/bookings">Bookings</a><a class="active" href="/support">Support</a>
     </nav>
     <a class="account" href="/profile"><span class="avatar">A</span><span>Account</span><span aria-hidden="true">⌄</span></a>
   </header>
@@ -327,8 +327,11 @@
         var sessionResult = await window.supabaseClient.auth.getSession();
         var session = sessionResult && sessionResult.data ? sessionResult.data.session : null;
         if (!session || !session.user) return;
-        var profileResult = await window.supabaseClient.from('profiles').select('full_name').eq('id', session.user.id).maybeSingle();
+        var profileResult = await window.supabaseClient.from('profiles').select('full_name, role').eq('id', session.user.id).maybeSingle();
         var profile = profileResult && profileResult.data ? profileResult.data : null;
+        var homeHref = profile && profile.role === 'host' ? '/host-home' : '/client-home';
+        document.getElementById('support-home-logo').setAttribute('href', homeHref);
+        document.getElementById('support-home-link').setAttribute('href', homeHref);
         var metadata = session.user.user_metadata || {};
         userProfile.name = profile && profile.full_name ? profile.full_name : (metadata.full_name || metadata.name || (session.user.email ? session.user.email.split('@')[0] : 'VaRoom member'));
         userProfile.email = session.user.email || '';

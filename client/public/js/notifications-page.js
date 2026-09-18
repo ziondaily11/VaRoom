@@ -80,6 +80,7 @@
           '<span class="brand-mark">' + navIcon('<path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>') + '</span>' +
           '<span class="brand-name"><span class="va">Va</span><span class="room">Room</span></span>' +
         '</a>' +
+        '<a href="' + (isHost ? '/host-home' : '/client-home') + '" class="nav-item">' + navIcon('<path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9a1 1 0 0 1 1 1H9v-4a1 1 0 0 1 1 1v4h2.5a1 1 0 0 0 1-1v-9"/>') + 'Home</a>' +
         '<a href="/marketplace" class="nav-item">' + navIcon('<circle cx="12" cy="12" r="9"/><path d="m15 9-2 6-6 2 2-6 6-2Z"/>') + 'Marketplace</a>' +
         '<a href="/marketplace" class="nav-item">' + navIcon('<path d="M6 3.5h12a1 1 0 0 1 1 1V21l-7-4-7 4V4.5a1 1 0 0 1 1-1Z"/>') + 'Saved</a>' +
         '<div class="nav-group"><div class="nav-label">My activity</div>' + activity.join('') + '</div>' +
