@@ -24,6 +24,7 @@ from .models import CandidateArticle, NewsEvent, NewsItem, Source
 from .normalizer import canonicalise_url, clean_html, content_hash
 from .repository import MemoryNewsRepository, SupabaseNewsRepository
 from .quality import classify_quality, parse_source_date
+from .relevance import classify_property_relevance
 
 logger = logging.getLogger(__name__)
 Repository = MemoryNewsRepository | SupabaseNewsRepository
@@ -220,7 +221,22 @@ class SourceCollector:
             result["urls_discovered"] = result["articles_discovered"]
             result["security_blocked_urls"] = security_blocked_count
 
-            # Materialize articles with bounded concurrency (up to 5 concurrently per source)
+            # STAGE 2: Pre-fetch strict property relevance filter (discard before fetching)
+            passing_candidates: list[CandidateArticle] = []
+            for candidate in raw_candidates:
+                is_relevant, reason = classify_property_relevance(
+                    candidate.source_title, candidate.source_url, candidate.clean_text, is_pre_fetch=True,
+                )
+                if not is_relevant:
+                    result["articles_rejected"] += 1
+                    logger.info(
+                        "PRE-FETCH DISCARD (strict property filter): source=%s url=%s reason=%s title=%s",
+                        source.name, candidate.source_url, reason, candidate.source_title,
+                    )
+                    continue
+                passing_candidates.append(candidate)
+
+            # STAGE 4: Fetch full articles ONLY for candidates that passed pre-fetch filter
             semaphore = asyncio.Semaphore(5)
 
             async def _bounded_materialise(candidate: CandidateArticle) -> CandidateArticle:
@@ -228,17 +244,29 @@ class SourceCollector:
                     return await self._materialise_article(source, candidate)
 
             materialised = await asyncio.gather(
-                *[_bounded_materialise(c) for c in raw_candidates],
+                *[_bounded_materialise(c) for c in passing_candidates],
                 return_exceptions=True,
             )
             candidates: list[CandidateArticle] = []
-            for candidate, article in zip(raw_candidates, materialised):
+            for candidate, article in zip(passing_candidates, materialised):
                 if isinstance(article, Exception):
                     result["article_failures"] += 1
                     result["articles_rejected"] += 1
                     self._record_failure_kind(result, article)
                     logger.warning("Article failure for source=%s url=%s: %s", source.name, candidate.source_url, article)
                     continue
+                # STAGE 4b: Post-fetch full-text verification: ensure property is the central subject, not incidental
+                is_relevant, reason = classify_property_relevance(
+                    article.source_title, article.source_url, article.clean_text, is_pre_fetch=False,
+                )
+                if not is_relevant:
+                    result["articles_rejected"] += 1
+                    logger.info(
+                        "POST-FETCH DISCARD (not central property subject): source=%s url=%s reason=%s",
+                        source.name, article.source_url, reason,
+                    )
+                    continue
+
                 candidates.append(article)
                 result["articles_fetched"] += 1
             result["candidates"] = len(candidates)
@@ -634,6 +662,14 @@ class SourceCollector:
                 return None
 
     async def _store_candidate(self, source: Source, candidate: CandidateArticle) -> tuple[NewsItem | None, bool]:
+        # Guard against storing any item that fails the strict property scope
+        is_relevant, reason = classify_property_relevance(
+            candidate.source_title, candidate.source_url, candidate.clean_text
+        )
+        if not is_relevant:
+            logger.info("STORAGE_REJECTED non-property article: %s %s reason=%s", candidate.source_url, candidate.source_title, reason)
+            return None, False
+
         canonical_url = canonicalise_url(candidate.source_url)
         text = candidate.clean_text or candidate.source_title
         digest = content_hash(text)

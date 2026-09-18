@@ -19,6 +19,7 @@ from app.jobs import run_collection_job
 from app.normalizer import canonicalise_url, content_hash
 from app.processing import ProcessingService
 from app.quality import classify_quality, parse_source_date
+from app.relevance import classify_property_relevance
 from app.repository import MemoryNewsRepository
 from app.repository import SupabaseNewsRepository
 from app.retrieval import NewsRetrievalService

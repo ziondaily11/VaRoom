@@ -49,8 +49,15 @@ class ProcessingService:
             "source_tier": analysis.source_tier, "image_url": image_url,
         })
         if not analysis.relevant:
-            item.review_status = ReviewStatus.ARCHIVED
-            event_type = "item_rejected_irrelevant"
+            # STRICT PROPERTY SCOPE & STORAGE RULE:
+            # Never retain non-property content in database. Purge immediately.
+            await self.repository.delete_item(item.id)
+            item = item.model_copy(update={"review_status": ReviewStatus.ARCHIVED})
+            await self.repository.add_event(NewsEvent(
+                news_id=item.id, source_id=item.source_id, event_type="item_purged_irrelevant",
+                payload={"reasons": analysis.risk_reasons, "source_title": item.source_title},
+            ))
+            return item
         elif allows_auto_publish(analysis.risk_level, analysis.source_tier, analysis.confidence_score) and self._valid_for_auto_publish(item):
             item = await self.repository.schedule_publication(item)
             event_type = "item_auto_published" if item.review_status is ReviewStatus.PUBLISHED else "item_queued_for_publication"
