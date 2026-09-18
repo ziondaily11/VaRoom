@@ -84,6 +84,13 @@ class MemoryNewsRepository:
         self.items[item.id] = copy.deepcopy(item)
         return copy.deepcopy(item)
 
+    async def delete_item(self, item_id: UUID) -> bool:
+        if item_id in self.items:
+            del self.items[item_id]
+            self.analyses.pop(item_id, None)
+            return True
+        return False
+
     async def schedule_publication(self, item: NewsItem, now: datetime | None = None) -> NewsItem:
         now = now or _now()
         queued = [
@@ -490,6 +497,14 @@ class SupabaseNewsRepository:
     async def source_health(self) -> list[dict[str, Any]]:
         rows = await self._request("GET", "news_sources", params={"select": "id,name,active,last_successful_fetch_at,last_failed_fetch_at", "order": "name.asc"})
         return rows
+
+    async def delete_item(self, item_id: UUID) -> bool:
+        try:
+            rows = await self._request("DELETE", "news_items", params={"id": f"eq.{item_id}"}, prefer="return=representation")
+            return bool(rows)
+        except Exception as error:
+            logger.warning("Could not delete item news_id=%s: %s", item_id, error)
+            return False
 
     async def archive_all_published(self) -> int:
         try:
