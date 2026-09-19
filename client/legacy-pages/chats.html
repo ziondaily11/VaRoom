@@ -628,6 +628,63 @@
     [data-theme="dark"] .mobile-attach-item,
     [data-theme="dark"] .composer-file-name{ color:var(--ink,#1f2937); }
 
+    [data-theme="dark"] .contacts-col:not(.mobile-hidden){
+      background:var(--paper) !important;
+      color:var(--ink);
+      box-shadow:inset 0 0 0 1px var(--line);
+    }
+    [data-theme="dark"] .contacts-col:not(.mobile-hidden) .mobile-inbox-title{
+      color:var(--ink);
+    }
+    [data-theme="dark"] .contacts-col:not(.mobile-hidden) .mobile-chat-settings{
+      color:var(--ink);
+    }
+    [data-theme="dark"] .contacts-col:not(.mobile-hidden) .mobile-chat-settings:active,
+    [data-theme="dark"] .contacts-col:not(.mobile-hidden) .mobile-chat-settings:focus-visible{
+      background:rgba(255,255,255,.08);
+    }
+    [data-theme="dark"] .contacts-col:not(.mobile-hidden) .search-box{
+      background:var(--white);
+      border-color:var(--line);
+    }
+    [data-theme="dark"] .contacts-col:not(.mobile-hidden) .search-box svg,
+    [data-theme="dark"] .contacts-col:not(.mobile-hidden) .search-box input{
+      color:var(--ink);
+    }
+    [data-theme="dark"] .contacts-col:not(.mobile-hidden) .search-box input::placeholder{
+      color:var(--muted);
+      opacity:1;
+    }
+    [data-theme="dark"] .contacts-col:not(.mobile-hidden) .compose-btn{
+      color:var(--paper);
+    }
+    [data-theme="dark"] .contacts-col:not(.mobile-hidden) .contact-list{
+      background:var(--paper);
+    }
+    [data-theme="dark"] .contacts-col:not(.mobile-hidden) .contact-item{
+      border-bottom:1px solid var(--line-soft);
+    }
+    [data-theme="dark"] .contacts-col:not(.mobile-hidden) .contact-name{
+      color:var(--ink);
+    }
+    [data-theme="dark"] .contacts-col:not(.mobile-hidden) .contact-preview,
+    [data-theme="dark"] .contacts-col:not(.mobile-hidden) .contact-time{
+      color:var(--muted);
+    }
+    [data-theme="dark"] .contacts-col:not(.mobile-hidden) .conversation-menu{
+      color:var(--muted);
+    }
+    [data-theme="dark"] .contacts-col:not(.mobile-hidden) .conversation-menu:active,
+    [data-theme="dark"] .contacts-col:not(.mobile-hidden) .conversation-menu:focus-visible{
+      background:rgba(255,255,255,.08);
+    }
+    [data-theme="dark"] .contacts-col:not(.mobile-hidden) .inbox-empty-state strong{
+      color:var(--ink);
+    }
+    [data-theme="dark"] .contacts-col:not(.mobile-hidden) .inbox-empty-state span{
+      color:var(--muted);
+    }
+
     .mobile-back .icon{ width:18px; height:18px; }
     .mobile-preview{ display:none; border:1px solid var(--border); border-radius:10px; padding:8px; color:var(--text-dark); font-size:12px; }
     .mobile-preview.has-content{ display:block; }
