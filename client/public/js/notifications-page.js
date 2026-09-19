@@ -5,6 +5,8 @@
   var currentFilter = 'all';
   var currentUser = null;
   var currentRole = 'client';
+  var markAllReadIcon = '<svg class="icon" viewBox="0 0 28 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 12 4 4 8-9"/></svg>';
+  var allReadIcon = '<svg class="icon mark-all-read-complete-icon" viewBox="0 0 32 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 12 4 4 8-9"/><path d="m14 12 4 4 8-9"/></svg>';
   document.querySelectorAll('.card-list').forEach(function (list) {
     list.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--text-muted);">Loading notifications...</div>';
   });
@@ -133,6 +135,7 @@
 
   function updateCounts() {
     var unread = notifications.filter(function (notification) { return !notification.read; }).length;
+    var markAllButton = document.querySelector('.icon-btn.confirm');
     var subtitle = document.getElementById('notif-subtitle');
     subtitle.textContent = unread ? 'You have ' + unread + ' new notification' + (unread === 1 ? '' : 's') : "You're all caught up";
     var allTab = document.querySelector('[data-filter="all"]');
@@ -143,6 +146,13 @@
     }).length + ')';
     if (window.VaroomSidebar) {
       window.VaroomSidebar.setUnreadCount(unread);
+    }
+    if (markAllButton) {
+      var complete = unread === 0;
+      markAllButton.classList.toggle('is-complete', complete);
+      markAllButton.setAttribute('aria-label', complete ? 'All notifications are read' : 'Mark all as read');
+      markAllButton.title = complete ? 'All notifications are read' : 'Mark all as read';
+      markAllButton.innerHTML = complete ? allReadIcon : markAllReadIcon;
     }
   }
 

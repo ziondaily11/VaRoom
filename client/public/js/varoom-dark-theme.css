@@ -265,6 +265,16 @@
   color: var(--ink) !important;
 }
 
+[data-theme="dark"] .icon-btn.confirm.is-complete,
+[data-theme="dark"] .icon-btn.confirm.is-complete svg {
+  color: #5cd68a !important;
+}
+
+[data-theme="dark"] .icon-btn.confirm.is-complete:hover,
+[data-theme="dark"] .icon-btn.confirm.is-complete:hover svg {
+  color: #7ce7a3 !important;
+}
+
 [data-theme="dark"] .notif-card {
   border-bottom-color: var(--line-soft) !important;
 }
