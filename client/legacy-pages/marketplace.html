@@ -27,16 +27,16 @@
 <script src="js/skeleton-loader.js"></script>
 <style>
   :root{
-    --red:#C41E3A; --red-deep:#8F1229; --white:#101418; --ink:#F5F5F4; --paper:#090B0E;
-    --muted:#A9B0BA;
+    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#24211E; --paper:#F7F6F3;
+    --muted:#5c584f;
     --font-display:'Helvetica Neue', Arial, sans-serif; --font-body:'Helvetica Neue', Arial, sans-serif; --font-brand:'Fraunces', serif;
-    --line:rgba(255,255,255,.10);
-    --line-soft:rgba(255,255,255,.06);
-  }
-  [data-theme="light"]{
-    --white:#FFFFFF; --paper:#F7F6F3; --ink:#24211E; --muted:#5c584f;
     --line:#E4E1DA;
     --line-soft:#E4E1DA;
+  }
+  [data-theme="dark"]{
+    --white:#241C1A; --paper:#15100F; --ink:#F5EFEC; --muted:#B8ACA8;
+    --line:rgba(255,255,255,.12);
+    --line-soft:rgba(255,255,255,.07);
   }
   *{ margin:0; padding:0; box-sizing:border-box; }
   html{ overflow-x:hidden; font-size:16px !important; }
@@ -109,10 +109,6 @@
   .results-sub{ font-size:.85rem; color:var(--muted); margin-top:.2rem; }
   .results-controls{ display:flex; align-items:center; gap:.6rem; }
   .results-controls select{ padding:.5rem .7rem; border:1px solid var(--line); border-radius:8px; background:var(--white); color:var(--ink); font-size:.83rem; }
-  .view-toggle{ display:flex; border:1px solid var(--line); border-radius:8px; overflow:hidden; }
-  .view-toggle button{ padding:.5rem .8rem; background:var(--white); border:none; font-size:.83rem; font-weight:600; color:var(--muted); cursor:pointer; display:flex; align-items:center; gap:.35rem; }
-  .view-toggle button.active{ background:var(--red); color:#fff; }
-  .view-toggle button[disabled]{ cursor:not-allowed; opacity:.55; }
 
   .grid{
     display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:1.15rem; align-items:stretch;
@@ -182,13 +178,6 @@
     .search-field.category-field, .price-control{ flex-basis:155px; }
   }
 
-  .map-pending{
-    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.7rem;
-    padding:3.5rem 1.5rem; text-align:center; color:var(--muted); background:var(--white);
-    border:1px solid var(--line); border-radius:14px;
-  }
-  .map-pending h2{ font-family:var(--font-display); color:var(--ink); font-size:1.1rem; }
-
   @media (max-width: 860px){
     body{ padding-bottom:4.4rem; }
     .mkt-header{ display:block; padding:.8rem 1rem .65rem; border-bottom:1px solid var(--line-soft); }
@@ -228,12 +217,6 @@
     .results-sub{ font-size:.62rem; margin-top:.1rem; }
     .results-controls{ gap:.35rem; }
     .results-controls select{ padding:.4rem .45rem; border-radius:6px; font-size:.62rem; }
-    .view-toggle{ border-radius:6px; }
-    .view-toggle button{ width:1.9rem; height:1.9rem; padding:0; justify-content:center; font-size:0; }
-    .view-toggle button::before{ font-size:1rem; line-height:1; }
-    #view-grid-btn::before{ content:'▦'; }
-    #view-map-btn::before{ content:'☷'; }
-    #view-map-btn{ display:flex; }
     .grid{ width:100%; display:grid; grid-template-columns:1fr; gap:.8rem; }
     .card{ width:100%; max-width:none; border-radius:14px; }
     .card-media{ aspect-ratio:4 / 3; }
@@ -355,34 +338,9 @@
   </div>
 
   <main class="results-col">
-    <div class="results-head">
-      <div>
-        <h1 id="results-title">Marketplace</h1>
-        <p class="results-sub" id="results-sub">Discover amazing places, spaces and properties</p>
-      </div>
-      <div class="results-controls">
-        <select id="sort-select">
-          <option value="newest">Newest</option>
-          <option value="price_asc">Price: low to high</option>
-          <option value="price_desc">Price: high to low</option>
-        </select>
-        <div class="view-toggle">
-          <button type="button" class="active" id="view-grid-btn">Grid</button>
-          <button type="button" id="view-map-btn" title="Exact locations stay private until a booking is approved — see note when opened">Map</button>
-        </div>
-      </div>
-    </div>
-
     <div id="grid-view">
       <div class="grid" id="results-grid"></div>
       <div class="pagination" id="pagination"></div>
-    </div>
-
-    <div id="map-view" style="display:none;">
-      <div class="map-pending">
-        <h2>Map view isn't available for search results yet</h2>
-        <p style="max-width:440px;">VaRoom only shows a listing's exact location once a booking is approved, so plotting every result on one map would mean showing precise pins before that's earned. Open a listing to see its own location and get directions.</p>
-      </div>
     </div>
   </main>
 </div>
@@ -709,8 +667,11 @@
       return true;
     }));
     const displayedCount = resultCount || filtered.length;
-    document.getElementById('results-sub').textContent =
-      displayedCount + ' ' + (displayedCount === 1 ? 'property' : 'properties') + ' found' + (state.q ? ' for "' + state.q + '"' : '');
+    const resultsSub = document.getElementById('results-sub');
+    if (resultsSub) {
+      resultsSub.textContent =
+        displayedCount + ' ' + (displayedCount === 1 ? 'property' : 'properties') + ' found' + (state.q ? ' for "' + state.q + '"' : '');
+    }
 
     const grid = document.getElementById('results-grid');
     if (filtered.length === 0) {
@@ -780,8 +741,10 @@
     }
     if (error) {
       console.error('Marketplace listings query failed:', error);
-      document.getElementById('results-title').textContent = 'Listings';
-      document.getElementById('results-sub').textContent = 'Listings are temporarily unavailable.';
+      const resultsTitle = document.getElementById('results-title');
+      const resultsSub = document.getElementById('results-sub');
+      if (resultsTitle) resultsTitle.textContent = 'Listings';
+      if (resultsSub) resultsSub.textContent = 'Listings are temporarily unavailable.';
       document.getElementById('results-grid').innerHTML =
         '<div class="empty-state" style="grid-column:1/-1;"><h2>Unable to load listings</h2><p>Please try again in a moment.</p><button type="button" class="load-more" id="retry-listings">Retry</button></div>';
       document.getElementById('pagination').innerHTML = '';
@@ -810,7 +773,10 @@
     hasMoreResults = (data || []).length === PAGE_SIZE;
     listingOffset = offset + (data || []).length;
     loadingMore = false;
-    document.getElementById('results-title').textContent = state.q ? ('Results for "' + state.q + '"' ) : 'Listings';
+    const resultsTitle = document.getElementById('results-title');
+    if (resultsTitle) {
+      resultsTitle.textContent = state.q ? ('Results for "' + state.q + '"' ) : 'Listings';
+    }
     renderResults();
   }
 
@@ -821,7 +787,8 @@
     resultCount = 0;
     hasMoreResults = true;
     listingOffset = 0;
-    document.getElementById('results-sub').textContent = 'Loading…';
+    const resultsSub = document.getElementById('results-sub');
+    if (resultsSub) resultsSub.textContent = 'Loading…';
     document.getElementById('results-grid').innerHTML = renderSkeletons(6);
     await loadListings(true);
   }
@@ -861,9 +828,12 @@
   document.getElementById('q-dest').addEventListener('keydown', function(e){
     if (e.key === 'Enter') document.getElementById('search-submit').click();
   });
-  document.getElementById('sort-select').addEventListener('change', function(){
-    state.sort = this.value; state.page = 1; runSearch();
-  });
+  const sortSelect = document.getElementById('sort-select');
+  if (sortSelect) {
+    sortSelect.addEventListener('change', function(){
+      state.sort = this.value; state.page = 1; runSearch();
+    });
+  }
   document.getElementById('price-min').addEventListener('change', function(){
     state.priceMin = this.value ? Number(this.value) : null; state.page = 1; runSearch();
   });
@@ -932,19 +902,6 @@
     document.getElementById('mobile-filter-panel').classList.remove('open');
     runSearch();
   });
-  document.getElementById('view-grid-btn').addEventListener('click', function(){
-    document.getElementById('view-grid-btn').classList.add('active');
-    document.getElementById('view-map-btn').classList.remove('active');
-    document.getElementById('grid-view').style.display = '';
-    document.getElementById('map-view').style.display = 'none';
-  });
-  document.getElementById('view-map-btn').addEventListener('click', function(){
-    document.getElementById('view-map-btn').classList.add('active');
-    document.getElementById('view-grid-btn').classList.remove('active');
-    document.getElementById('grid-view').style.display = 'none';
-    document.getElementById('map-view').style.display = '';
-  });
-
   runSearch();
 })();
 </script>
