@@ -83,8 +83,11 @@
         ICONS[item.key] + '<span>' + item.label + '</span></a>';
     }).join('');
     document.body.appendChild(nav);
-    if ((role === 'client' && window.location.pathname === '/client-home') ||
-        (role === 'host' && window.location.pathname === '/host-home')) {
+    var pathname = window.location.pathname;
+    if ((role === 'client' && (pathname === '/client-home' || pathname === '/bookings' ||
+        pathname === '/booking' || pathname === '/booking-approved')) ||
+        (role === 'host' && (pathname === '/host-home' || pathname === '/bookings' ||
+        pathname === '/booking' || pathname === '/booking-approved'))) {
       setupDiscoverScrollBehavior(nav);
     }
   }
