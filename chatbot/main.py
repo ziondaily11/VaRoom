@@ -403,6 +403,7 @@ async def reply(payload: ReplyRequest, request: Request, authorization: Optional
     message = payload.message or ""
     guest_enquiry_context = message
     if is_elie_command:
+        logger.info("Elie @reply invoked (conversation_id=%s)", payload.conversation_id)
         guest_messages = [
             (row.get("body") or "").strip()
             for row in conversation_messages
@@ -418,11 +419,21 @@ async def reply(payload: ReplyRequest, request: Request, authorization: Optional
 
     ai_result = await generate_ai_reply(message, listing_ctx, history_block, is_elie_command)
     if not ai_result:
+        logger.error(
+            "Elie response generation failed (conversation_id=%s, command=%s)",
+            payload.conversation_id,
+            is_elie_command,
+        )
         raise HTTPException(
             status_code=503,
             detail="Elie is temporarily unavailable because Gemini did not return a response.",
         )
     reply_text = ai_result["reply"]
+    logger.info(
+        "Elie response generated (conversation_id=%s, command=%s)",
+        payload.conversation_id,
+        is_elie_command,
+    )
     alternative_listings = []
     # Both away-mode replies and an explicit @reply should be able to share
     # the host's matching listings. The response includes photo metadata and
@@ -579,7 +590,8 @@ async def get_profile(user_id: str) -> Optional[dict]:
             row = rows[0]
             row["away_mode"] = False
             return row
-    except Exception:
+    except Exception as error:
+        logger.warning("Elie profile lookup failed (user_id=%s, error=%s)", user_id, type(error).__name__)
         return None
 
 
@@ -766,7 +778,13 @@ async def insert_auto_reply(
             response.raise_for_status()
             rows = response.json()
             return rows[0] if rows else None
-    except Exception:
+    except Exception as error:
+        logger.exception(
+            "Elie response persistence failed (conversation_id=%s, message_type=%s, error=%s)",
+            conversation_id,
+            message_type,
+            type(error).__name__,
+        )
         return None
 
 

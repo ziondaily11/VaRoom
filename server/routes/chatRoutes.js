@@ -45,9 +45,10 @@ async function requestChatbotReply(conversationId, token, payload) {
       conversationId,
       trigger: payload.command || 'away_mode',
       status: response.status,
+      detail: body.detail || body.error || null,
       responseKeys: Object.keys(body),
     });
-    const error = new Error(body.detail || 'Chatbot reply failed');
+    const error = new Error(body.detail || body.error || `Chatbot reply failed (${response.status})`);
     error.status = response.status;
     throw error;
   }
