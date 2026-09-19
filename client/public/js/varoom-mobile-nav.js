@@ -82,7 +82,8 @@
         ICONS[item.key] + '<span>' + item.label + '</span></a>';
     }).join('');
     document.body.appendChild(nav);
-    if (role === 'client' && window.location.pathname === '/client-home') {
+    if ((role === 'client' && window.location.pathname === '/client-home') ||
+        (role === 'host' && window.location.pathname === '/host-home')) {
       setupDiscoverScrollBehavior(nav);
     }
   }
