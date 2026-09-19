@@ -120,11 +120,14 @@
     sheet.innerHTML = '<div class="chat-sheet-head"><span>Add to message</span><button class="chat-sheet-close" type="button" aria-label="Close">×</button></div><div class="chat-sheet-list"></div>';
     sheet.querySelector('.chat-sheet-close').addEventListener('click', () => closeSheet('chatShareSheet'));
     const list = sheet.querySelector('.chat-sheet-list');
-    [
-      ['Share Listing', 'listing', 'i-share'],
+    const options = [
       ['Share Photo', 'photo', 'i-image'],
-      ['Share File', 'file', 'i-paperclip'],
-    ].forEach(([label, kind, icon]) => {
+      ...(state.role === 'host' ? [
+        ['Share File', 'file', 'i-paperclip'],
+        ['Share Listing', 'listing', 'i-share'],
+      ] : []),
+    ];
+    options.forEach(([label, kind, icon]) => {
       const button = document.createElement('button');
       button.type = 'button'; button.className = 'chat-sheet-action';
       button.innerHTML = `<svg class="icon"><use href="#${icon}"/></svg><span></span>`;
@@ -174,6 +177,14 @@
     input.accept = kind === 'photo' ? 'image/*' : '';
     input.dataset.kind = kind;
     input.click();
+  }
+
+  function configureAttachmentControls() {
+    const isHost = state.role === 'host';
+    const fileButton = $('.attach-icons button.share-file');
+    const listingButton = $('.attach-icons button[title="Share listing"]');
+    if (fileButton) fileButton.hidden = !isHost;
+    if (listingButton) listingButton.hidden = !isHost;
   }
 
   function closeSheet(id) {
@@ -665,6 +676,7 @@
       .from('profiles').select('role').eq('id', state.session.user.id).maybeSingle();
     if (profileResult.error) throw profileResult.error;
     state.role = profileResult.data && profileResult.data.role === 'host' ? 'host' : 'client';
+    configureAttachmentControls();
     const requested = new URLSearchParams(window.location.search).get('c') || new URLSearchParams(window.location.search).get('conversation');
     state.activeId = !isMobile() && requested && state.conversations.some((item) => item.id === requested) ? requested : null;
     renderConversationList();
@@ -692,6 +704,8 @@
     const input = $('.chat-input-area textarea');
     const updateComposerState = () => {
       $('.chat-input-area').classList.toggle('has-text', !!input.value.trim());
+      input.style.height = 'auto';
+      input.style.height = `${Math.min(input.scrollHeight, 112)}px`;
     };
     input.addEventListener('input', updateComposerState);
     updateComposerState();

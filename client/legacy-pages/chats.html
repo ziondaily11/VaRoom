@@ -295,7 +295,7 @@
   }
   .inbox-empty-state strong{
     display:block; color:var(--text-dark); font-size:13px; font-weight:700;
-    margin-bottom:6px;
+    margin-bottom:calc(6px + env(safe-area-inset-bottom));
   }
   .inbox-empty-state span{ display:block; font-size:12px; line-height:1.5; }
   .messages.empty-state{
@@ -403,13 +403,14 @@
       display:grid; grid-template-columns:36px minmax(0,1fr) 36px;
       grid-template-rows:auto auto; align-items:center; column-gap:8px;
       flex:0 0 auto; min-height:54px;
-      padding:8px 10px calc(8px + env(safe-area-inset-bottom));
+      padding:8px 10px;
       background:#ffffff; border-top-color:var(--border);
-      margin-bottom:env(safe-area-inset-bottom);
+      margin-bottom:6px;
     }
     .chat-input-area textarea{
       grid-column:2; grid-row:1; width:100%; min-width:0;
-      background:transparent; color:#1c1c1e; border:none; height:20px; padding:0; margin:0;
+      background:transparent; color:#1c1c1e; border:none; height:20px; max-height:112px;
+      padding:0; margin:0; overflow-y:auto; line-height:20px;
     }
     .chat-input-area textarea::placeholder{ color:#9a9aa0; }
     .input-toolbar{ display:contents; }
@@ -438,6 +439,7 @@
       padding-left:10px; padding-right:10px;
       box-shadow:0 1px 2px rgba(20,22,28,.04);
     }
+    .chat-input-area:focus-within{ border-color:var(--mint); }
     .info-col.mobile-visible{
       display:block; width:100%; border-left:0; padding:16px; background:#ffffff; color:var(--text-dark);
     }
@@ -507,6 +509,7 @@
   <symbol id="i-list-dot" viewBox="0 0 24 24"><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/><path d="M9 6h11M9 12h11M9 18h11"/></symbol>
   <symbol id="i-list-sq" viewBox="0 0 24 24"><rect x="3.7" y="5.2" width="1.6" height="1.6"/><rect x="3.7" y="11.2" width="1.6" height="1.6"/><rect x="3.7" y="17.2" width="1.6" height="1.6"/><path d="M9 6h11M9 12h11M9 18h11"/></symbol>
   <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a5 5 0 0 0 7.5.4l2-2a5 5 0 0 0-7-7l-1.5 1.5"/><path d="M14 10a5 5 0 0 0-7.5-.4l-2 2a5 5 0 0 0 7 7l1.5-1.5"/></symbol>
+  <symbol id="i-sticker" viewBox="0 0 24 24"><circle cx="7" cy="7" r="2"/><circle cx="17" cy="7" r="2"/><circle cx="7" cy="17" r="2"/><path d="M17 15a2 2 0 0 1-2 2"/></symbol>
   <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
   <symbol id="i-panel" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M14.5 4.5v15"/></symbol>
   <symbol id="i-chevron-left" viewBox="0 0 24 24"><path d="M15 5 8 12l7 7"/></symbol>
@@ -583,7 +586,7 @@
           <button><svg class="icon"><use href="#i-list-sq"/></svg></button>
         </div>
         <div class="attach-icons">
-          <button class="mobile-plus" title="Add attachment" aria-label="Add attachment"><svg class="icon"><use href="#i-link"/></svg></button>
+          <button class="mobile-plus" title="Add attachment" aria-label="Add attachment"><svg class="icon"><use href="#i-sticker"/></svg></button>
           <button class="share-photo"><svg class="icon"><use href="#i-image"/></svg></button>
           <button class="share-file"><svg class="icon"><use href="#i-paperclip"/></svg></button>
           <button title="Share listing" aria-label="Share listing"><svg class="icon"><use href="#i-share"/></svg></button>
