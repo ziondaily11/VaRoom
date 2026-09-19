@@ -306,21 +306,6 @@
     sheet.setAttribute('aria-hidden', 'false');
   }
 
-  function clearInitialPlaceholders() {
-    clear($('#contactList'));
-    clear($('.messages'));
-    clear($('.profile-block'));
-    $('#chatName').textContent = '';
-    $('#statusText').textContent = '';
-    $('#statusDot').style.background = '#c7cbd1';
-    const headerAvatar = $('.chat-header-avatar-wrap .avatar-fallback');
-    if (headerAvatar) {
-      headerAvatar.style.backgroundImage = '';
-      headerAvatar.textContent = '';
-    }
-    document.querySelectorAll('.info-section').forEach((section) => { section.hidden = true; });
-  }
-
   function emptyStateCopy() {
     return state.role === 'host'
       ? { heading: 'No conversations yet', detail: 'When clients reach out, your conversations will appear here.' }
@@ -670,7 +655,6 @@
   }
 
   async function start() {
-    clearInitialPlaceholders();
     if (!window.supabaseClient) throw new Error('Supabase client is unavailable');
     const result = await window.supabaseClient.auth.getSession();
     state.session = result.data.session;
