@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Chat Settings · VaRoom</title>
+
+<!--
+  VaRoom — Chat Settings (single file, frontend only)
+  Opened from the gear icon on BOTH mobile and desktop.
+
+  WIRING CHECKLIST (search for "WIRE:" below)
+   1. Load your global theme stylesheet BEFORE the <style> block so the
+      token aliases at the top of the CSS pick up VaRoom's real variables.
+   2. Role       -> replace the ?role= placeholder with the signed-in user's role.
+   3. Initial    -> pass real values via `initial`.
+   4. Save       -> persist inside `onChange(key, value)`.
+   5. Navigation -> onBack / onEditAwayMessage / onOpenArchived.
+   6. Gear icon  -> link to this file (e.g. href="chat-settings.html").
+-->
+
+<!-- WIRE: <link rel="stylesheet" href="css/theme.css"> -->
+
+<style>
+html, body { margin: 0; background: var(--bg, #fff); }
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]):not(.light),
+  html:not([data-theme="light"]):not(.light) body { background: #0f1114; }
+}
+
+/* ==========================================================================
+   VaRoom — Chat Settings (frontend only)
+   --------------------------------------------------------------------------
+   Everything is scoped under .cs / .cs-page so nothing global is touched.
+
+   THEME: this file does NOT define a theme. It reads your existing tokens.
+   The alias block below is the ONLY place to change if your token names
+   differ. Each alias is  var(--your-token, fallback)  — the fallback only
+   applies when your token doesn't exist (e.g. previewing this file alone).
+   ========================================================================== */
+
+.cs,
+.cs-page {
+  /* ── Token aliases → point these at VaRoom's real variables ───────────── */
+  --cs-bg:        var(--bg,           var(--cs-fb-bg));
+  --cs-text:      var(--text,         var(--cs-fb-text));
+  --cs-muted:     var(--text-muted,   var(--muted, var(--cs-fb-muted)));
+  --cs-divider:   var(--border,       var(--cs-fb-divider));
+  --cs-hover:     var(--surface-hover, var(--cs-fb-hover));
+  --cs-accent:    var(--accent,       var(--primary, var(--brand, var(--cs-fb-accent))));
+  --cs-switch-off: var(--switch-off,  var(--cs-fb-switch-off));
+  --cs-thumb:     #ffffff;
+
+  /* ── Standalone fallbacks (light) ─────────────────────────────────────── */
+  --cs-fb-bg:         #ffffff;
+  --cs-fb-text:       #14161a;
+  --cs-fb-muted:      #6b7280;
+  --cs-fb-divider:    rgba(20, 22, 26, 0.09);
+  --cs-fb-hover:      rgba(20, 22, 26, 0.04);
+  --cs-fb-accent:     #e11d48;
+  --cs-fb-switch-off: #c9ccd3;
+}
+
+/* Standalone fallbacks (dark) — follow the app's theme attribute if present,
+   otherwise the OS setting. Ignored whenever your real tokens exist. */
+:root[data-theme="dark"] .cs,
+:root[data-theme="dark"] .cs-page,
+:root.dark .cs,
+:root.dark .cs-page {
+  --cs-fb-bg:         #0f1114;
+  --cs-fb-text:       #f2f3f5;
+  --cs-fb-muted:      #9aa0aa;
+  --cs-fb-divider:    rgba(255, 255, 255, 0.09);
+  --cs-fb-hover:      rgba(255, 255, 255, 0.05);
+  --cs-fb-switch-off: #3a3e46;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not(.light) .cs,
+  :root:not([data-theme="light"]):not(.light) .cs-page {
+    --cs-fb-bg:         #0f1114;
+    --cs-fb-text:       #f2f3f5;
+    --cs-fb-muted:      #9aa0aa;
+    --cs-fb-divider:    rgba(255, 255, 255, 0.09);
+    --cs-fb-hover:      rgba(255, 255, 255, 0.05);
+    --cs-fb-switch-off: #3a3e46;
+  }
+}
+
+/* ── Page shell (mobile: dedicated full-screen page) ─────────────────────── */
+.cs-page {
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--cs-bg);
+  color: var(--cs-text);
+  font-family: inherit;
+  -webkit-text-size-adjust: 100%;
+}
+
+.cs-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 56px;
+  padding: env(safe-area-inset-top, 0px) 8px 0 8px;
+  background: var(--cs-bg);
+  border-bottom: 1px solid var(--cs-divider);
+}
+.cs-header__back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cs-text);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.cs-header__back:hover { background: var(--cs-hover); }
+.cs-header__title {
+  margin: 0;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--cs-text);
+}
+
+.cs-page__body {
+  width: 100%;
+  max-width: 640px;          /* comfortable measure on tablet / desktop */
+  margin: 0 auto;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* ── ChatSettings (the reusable content) ─────────────────────────────────── */
+.cs {
+  color: var(--cs-text);
+  font-family: inherit;
+  padding: 8px 20px 40px;
+}
+
+.cs-section { padding-top: 24px; }
+.cs-section:first-child { padding-top: 16px; }
+
+.cs-section__title {
+  margin: 0 0 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  line-height: 1.3;
+  color: var(--cs-muted);
+}
+
+.cs-section__list {
+  border-top: 1px solid var(--cs-divider);
+}
+
+/* ── Rows ────────────────────────────────────────────────────────────────── */
+.cs-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  min-height: 56px;
+  padding: 14px 0;
+  box-sizing: border-box;
+  background: none;
+  border: 0;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+}
+.cs-row + .cs-row { border-top: 1px solid var(--cs-divider); }
+
+.cs-row__text { min-width: 0; flex: 1; }
+
+.cs-row__label {
+  display: block;
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--cs-text);
+}
+.cs-row__desc {
+  margin: 3px 0 0;
+  font-size: 0.875rem;
+  font-weight: 400;
+  line-height: 1.45;
+  color: var(--cs-muted);
+}
+
+/* Toggle rows: whole row is tappable (mouse/touch); the switch stays the
+   single keyboard stop. */
+.cs-row--toggle { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+
+/* Navigation rows */
+.cs-row--nav {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  border-radius: 8px;
+}
+.cs-row--nav:hover { background: var(--cs-hover); }
+.cs-row__chevron {
+  flex: none;
+  display: inline-flex;
+  color: var(--cs-muted);
+}
+
+/* ── Switch ──────────────────────────────────────────────────────────────── */
+.cs-switch {
+  position: relative;
+  flex: none;
+  width: 48px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--cs-switch-off);
+  cursor: pointer;
+  transition: background-color 0.18s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.cs-switch::before {                      /* thumb */
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--cs-thumb);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  transition: transform 0.18s ease;
+}
+.cs-switch::after {                       /* enlarged touch target (≥ 44px) */
+  content: "";
+  position: absolute;
+  inset: -8px -4px;
+}
+.cs-switch[aria-checked="true"] { background: var(--cs-accent); }
+.cs-switch[aria-checked="true"]::before { transform: translateX(20px); }
+
+/* ── Focus + motion ──────────────────────────────────────────────────────── */
+.cs-switch:focus-visible,
+.cs-row--nav:focus-visible,
+.cs-header__back:focus-visible {
+  outline: 2px solid var(--cs-accent);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cs-switch,
+  .cs-switch::before { transition: none; }
+}
+
+/* ── Larger screens: give the content a little more air ──────────────────── */
+@media (min-width: 768px) {
+  .cs { padding: 12px 24px 48px; }
+}
+
+</style>
+</head>
+<body>
+<div id="chat-settings-root"></div>
+
+<script>
+/* ==========================================================================
+   VaRoom — Chat Settings (frontend only)
+   --------------------------------------------------------------------------
+   NO backend, NO Supabase, NO API calls, NO persistence.
+   State lives in a plain object inside each mounted instance.
+
+   Architecture
+     Mobile :  ChatSettingsPage.mount(el, opts)  →  ChatSettings.mount(el, opts)
+     Desktop:  Information panel                 →  ChatSettings.mount(panelEl, opts)
+
+   The settings markup exists ONCE (ChatSettings). The page adds only a header.
+
+   Building blocks (all internal to this file):
+     ChatSettingsSection · ChatSettingsRow · ChatSettingsToggle ·
+     ChatSettingsNavigationRow
+
+   ---- Future wiring ------------------------------------------------------
+   Every user interaction already reports through callbacks, so nothing here
+   has to change when the backend arrives:
+
+     ChatSettings.mount(el, {
+       role: 'host' | 'client',
+       initial: { awayMode: false, ... },     // ← seed from real settings
+       onChange(key, value) { ... },          // ← save a toggle
+       onEditAwayMessage()   { ... },         // ← open the editor
+       onOpenArchived()      { ... }          // ← navigate to archive
+     });
+
+   Later, replace `initial` + `onChange` with your real settings store
+   (the equivalent of `const { awayMode, setAwayMode } = useChatSettings()`).
+   ========================================================================== */
+(function (global) {
+  'use strict';
+
+  /* ── Icons (inline SVG, inherit currentColor) ──────────────────────────── */
+  var ICON_BACK =
+    '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+    'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>';
+
+  var ICON_CHEVRON =
+    '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+    'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<path d="m9 18 6-6-6-6"/></svg>';
+
+  /* ── Copy ──────────────────────────────────────────────────────────────── */
+  var COPY = {
+    awayOn:  'When enabled, Varoom will automatically respond to new incoming messages while you\u2019re away.',
+    awayOff: 'Turn this on when you don\u2019t want to manually respond to every incoming message.',
+    awayMessage: '\u201cI\u2019m currently away and will respond as soon as I can.\u201d'
+  };
+
+  var DEFAULTS = {
+    awayMode: false,
+    messageNotifications: true,
+    messagePreviews: true,
+    readReceipts: true,
+    typingIndicators: true
+  };
+
+  var uid = 0;
+  function nextId(prefix) { uid += 1; return 'cs-' + prefix + '-' + uid; }
+
+  /* ── Tiny DOM helper ───────────────────────────────────────────────────── */
+  function h(tag, props, children) {
+    var node = document.createElement(tag);
+    props = props || {};
+    Object.keys(props).forEach(function (k) {
+      if (k === 'class') node.className = props[k];
+      else if (k === 'text') node.textContent = props[k];
+      else if (k === 'html') node.innerHTML = props[k];
+      else if (props[k] !== null && props[k] !== undefined) node.setAttribute(k, props[k]);
+    });
+    (children || []).forEach(function (c) { if (c) node.appendChild(c); });
+    return node;
+  }
+
+  /* ── ChatSettingsSection ───────────────────────────────────────────────── */
+  function ChatSettingsSection(title, rows) {
+    var headingId = nextId('section');
+    var list = h('div', { class: 'cs-section__list' }, rows);
+    return h('section', { class: 'cs-section', 'aria-labelledby': headingId }, [
+      h('h2', { class: 'cs-section__title', id: headingId, text: title }),
+      list
+    ]);
+  }
+
+  /* ── ChatSettingsRow (label + description text block) ──────────────────── */
+  function ChatSettingsRowText(label, description) {
+    var labelId = nextId('label');
+    var descId = description ? nextId('desc') : null;
+    var textEl = h('div', { class: 'cs-row__text' }, [
+      h('span', { class: 'cs-row__label', id: labelId, text: label }),
+      description ? h('p', { class: 'cs-row__desc', id: descId, text: description }) : null
+    ]);
+    return { el: textEl, labelId: labelId, descId: descId };
+  }
+
+  /* ── ChatSettingsToggle ────────────────────────────────────────────────── */
+  function ChatSettingsToggle(opts) {
+    var t = ChatSettingsRowText(opts.label, opts.description);
+    var sw = h('button', {
+      type: 'button',
+      class: 'cs-switch',
+      role: 'switch',
+      'aria-checked': String(!!opts.checked),
+      'aria-labelledby': t.labelId,
+      'aria-describedby': t.descId
+    });
+    var row = h('div', { class: 'cs-row cs-row--toggle' }, [t.el, sw]);
+
+    function set(value, silent) {
+      sw.setAttribute('aria-checked', String(!!value));
+      if (!silent && opts.onChange) opts.onChange(!!value);
+    }
+    sw.addEventListener('click', function () {
+      set(sw.getAttribute('aria-checked') !== 'true');
+    });
+    // Whole row is tappable for mouse/touch; the switch remains the one keyboard stop.
+    row.addEventListener('click', function (e) {
+      if (e.target !== sw) sw.click();
+    });
+
+    return {
+      el: row,
+      setDescription: function (text) {
+        var d = row.querySelector('.cs-row__desc');
+        if (d) d.textContent = text;
+      }
+    };
+  }
+
+  /* ── ChatSettingsNavigationRow ─────────────────────────────────────────── */
+  function ChatSettingsNavigationRow(opts) {
+    var t = ChatSettingsRowText(opts.label, opts.description);
+    var btn = h('button', {
+      type: 'button',
+      class: 'cs-row cs-row--nav',
+      'aria-labelledby': t.labelId,
+      'aria-describedby': t.descId
+    }, [
+      t.el,
+      h('span', { class: 'cs-row__chevron', html: ICON_CHEVRON })
+    ]);
+    btn.addEventListener('click', function () {
+      if (opts.onClick) opts.onClick();
+    });
+    return btn;
+  }
+
+  /* ── ChatSettings ──────────────────────────────────────────────────────── */
+  function mountChatSettings(container, options) {
+    options = options || {};
+    var role = options.role === 'client' ? 'client' : 'host';
+    var state = Object.assign({}, DEFAULTS, options.initial || {});
+
+    var root = h('div', { class: 'cs' });
+    container.appendChild(root);
+
+    function change(key, value) {
+      state[key] = value;
+      if (options.onChange) options.onChange(key, value);
+    }
+
+    function toggle(key, label, description, extra) {
+      return ChatSettingsToggle({
+        label: label,
+        description: description,
+        checked: state[key],
+        onChange: function (v) { change(key, v); if (extra) extra(v); }
+      });
+    }
+
+    function awayModeSection() {
+      var away = toggle('awayMode', 'Away Mode',
+        state.awayMode ? COPY.awayOn : COPY.awayOff,
+        function (v) { away.setDescription(v ? COPY.awayOn : COPY.awayOff); });
+
+      var awayMessage = ChatSettingsNavigationRow({
+        label: 'Away message',
+        description: COPY.awayMessage,
+        onClick: function () { if (options.onEditAwayMessage) options.onEditAwayMessage(); }
+      });
+
+      return ChatSettingsSection('AWAY MODE', [away.el, awayMessage]);
+    }
+
+    function notificationsSection() {
+      return ChatSettingsSection('NOTIFICATIONS', [
+        toggle('messageNotifications', 'Message notifications', 'Receive notifications for new messages.').el,
+        toggle('messagePreviews', 'Message previews', 'Show message content in notifications.').el
+      ]);
+    }
+
+    function privacySection() {
+      return ChatSettingsSection('PRIVACY & MESSAGING', [
+        toggle('readReceipts', 'Read receipts', 'Let others know when you\u2019ve read their messages.').el,
+        toggle('typingIndicators', 'Typing indicators', 'Show others when you\u2019re typing.').el
+      ]);
+    }
+
+    function conversationsSection() {
+      return ChatSettingsSection('CONVERSATIONS', [
+        ChatSettingsNavigationRow({
+          label: 'Archived conversations',
+          onClick: function () { if (options.onOpenArchived) options.onOpenArchived(); }
+        })
+      ]);
+    }
+
+    function render() {
+      root.textContent = '';
+      // Away Mode is HOST ONLY — clients never get the section in the DOM.
+      if (role === 'host') root.appendChild(awayModeSection());
+      root.appendChild(notificationsSection());
+      root.appendChild(privacySection());
+      root.appendChild(conversationsSection());
+    }
+
+    render();
+
+    return {
+      el: root,
+      getState: function () { return Object.assign({}, state); },
+      setRole: function (next) {
+        role = next === 'client' ? 'client' : 'host';
+        render();
+      },
+      destroy: function () { root.remove(); }
+    };
+  }
+
+  /* ── ChatSettingsPage (mobile wrapper: header + ChatSettings) ──────────── */
+  function mountChatSettingsPage(container, options) {
+    options = options || {};
+
+    var back = h('button', {
+      type: 'button',
+      class: 'cs-header__back',
+      'aria-label': 'Back',
+      html: ICON_BACK
+    });
+    back.addEventListener('click', function () {
+      if (options.onBack) return options.onBack();
+      // Fallback: previous screen. Swap for VaRoom's existing back handler.
+      if (global.history.length > 1) global.history.back();
+    });
+
+    var header = h('header', { class: 'cs-header' }, [
+      back,
+      h('h1', { class: 'cs-header__title', text: 'Chat Settings' })
+    ]);
+
+    var body = h('main', { class: 'cs-page__body' });
+    var page = h('div', { class: 'cs-page' }, [header, body]);
+    container.appendChild(page);
+
+    var settings = mountChatSettings(body, options);
+    return { el: page, settings: settings };
+  }
+
+  global.VaroomChatSettings = {
+    mount: mountChatSettings,          // use this inside the desktop Information panel
+    mountPage: mountChatSettingsPage   // use this for the mobile full-screen page
+  };
+})(window);
+
+</script>
+
+<script>
+  // WIRE: role. Placeholder reads ?role=client for previewing; default is host.
+  var role = new URLSearchParams(location.search).get('role') === 'client' ? 'client' : 'host';
+
+  VaroomChatSettings.mountPage(document.getElementById('chat-settings-root'), {
+    role: role,
+
+    // WIRE: seed with the user's saved settings. Keys:
+    // awayMode, messageNotifications, messagePreviews, readReceipts, typingIndicators
+    initial: {},
+
+    // WIRE: persist a changed toggle here.
+    onChange: function (key, value) {
+      // console.log('setting changed', key, value);
+    },
+
+    // WIRE: use VaRoom's existing back navigation (default is history.back()).
+    // onBack: function () { location.href = 'chats.html'; },
+
+    // WIRE: open the away-message editor.
+    onEditAwayMessage: function () {
+      // placeholder
+    },
+
+    // WIRE: navigate to the archived conversations page.
+    onOpenArchived: function () {
+      // placeholder
+    }
+  });
+</script>
+</body>
+</html>
