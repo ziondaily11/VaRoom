@@ -4,6 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Messenger Dashboard</title>
+<link rel="stylesheet" href="js/varoom-dark-theme.css">
 <style>
   :root{
     --rail-bg:#14161c;
@@ -287,6 +288,45 @@
 
   .contact-list::-webkit-scrollbar, .messages::-webkit-scrollbar, .info-col::-webkit-scrollbar{ width:5px; }
   .contact-list::-webkit-scrollbar-thumb, .messages::-webkit-scrollbar-thumb, .info-col::-webkit-scrollbar-thumb{ background:#e3e5e9; border-radius:10px; }
+  .inbox-empty-state{
+    list-style:none; padding:28px 16px; color:var(--text-gray);
+    text-align:center;
+  }
+  .inbox-empty-state strong{
+    display:block; color:var(--text-dark); font-size:13px; font-weight:700;
+    margin-bottom:6px;
+  }
+  .inbox-empty-state span{ display:block; font-size:12px; line-height:1.5; }
+  .messages.empty-state{
+    align-items:center; justify-content:center; text-align:center;
+    padding:32px;
+  }
+  .chat-empty-state{ max-width:360px; }
+  .chat-empty-state h2{
+    color:var(--text-dark); font-size:18px; line-height:1.35; font-weight:700;
+  }
+  .chat-empty-state p{
+    color:var(--text-gray); font-size:13.5px; line-height:1.55; margin-top:8px;
+  }
+  .chat-col.empty-conversation .chat-input-area{ display:none; }
+  .chat-col.empty-conversation .chat-header-actions #infoToggleBtn{ display:none; }
+  [data-theme="dark"] .contacts-col,
+  [data-theme="dark"] .chat-col,
+  [data-theme="dark"] .info-col,
+  [data-theme="dark"] .chat-header,
+  [data-theme="dark"] .chat-input-area,
+  [data-theme="dark"] .search-box,
+  [data-theme="dark"] .compose-btn{
+    background:var(--white); border-color:var(--line);
+  }
+  [data-theme="dark"] .inbox-empty-state strong,
+  [data-theme="dark"] .chat-empty-state h2,
+  [data-theme="dark"] .contact-name,
+  [data-theme="dark"] .chat-header-name,
+  [data-theme="dark"] .info-title,
+  [data-theme="dark"] .info-section-head span.label{ color:var(--ink); }
+  [data-theme="dark"] .inbox-empty-state span,
+  [data-theme="dark"] .chat-empty-state p{ color:var(--muted); }
 
   @media (max-width:1080px){ .info-col{ display:none; } }
   @media (max-width:760px){
@@ -305,6 +345,8 @@
     .search-box{ transition:border-color .15s; }
     .search-box:focus-within{ border-color:var(--mint); }
     .contact-list{ padding:0 10px 16px; background:#ffffff; }
+    .inbox-empty-state{ padding:44px 22px; }
+    .messages.empty-state{ padding:28px 20px; }
     .contact-item{ min-height:68px; padding:10px 8px; border-bottom:0; border-radius:0; }
     .contact-item:hover,.contact-item.active{ background:transparent; }
     .contact-item:active{ background:#111820; }
@@ -378,6 +420,11 @@
     .mobile-menu,.mobile-back{ display:flex; align-items:center; justify-content:center; border:0; background:transparent; cursor:pointer; }
     .mobile-menu{ width:44px; height:44px; padding:0; margin-left:-8px; color:var(--text-dark); font-size:18px; }
     .mobile-back{ width:40px; height:40px; padding:0; color:#0b0b0c; }
+    [data-theme="dark"] .search-box,
+    [data-theme="dark"] .chat-col.mobile-visible,
+    [data-theme="dark"] .info-col.mobile-visible,
+    [data-theme="dark"] .chat-input-area{ background:var(--white); }
+    [data-theme="dark"] .messages{ background:var(--paper); }
     .mobile-back .icon{ width:18px; height:18px; }
     .mobile-preview{ display:none; border:1px solid var(--border); border-radius:10px; margin:8px 0; padding:8px; color:var(--text-dark); font-size:12px; }
     .mobile-preview.has-content{ display:block; }

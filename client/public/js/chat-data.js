@@ -1,7 +1,7 @@
 (function () {
   'use strict';
 
-  const state = { session: null, conversations: [], activeId: null, channel: null, channelGeneration: 0, selectionGeneration: 0, listings: [], pendingAttachment: null, mobileView: 'inbox', mobileInfoReturn: 'conversation' };
+  const state = { session: null, role: 'client', conversations: [], activeId: null, channel: null, channelGeneration: 0, selectionGeneration: 0, listings: [], pendingAttachment: null, mobileView: 'inbox', mobileInfoReturn: 'conversation' };
   const isMobile = () => window.matchMedia('(max-width: 760px)').matches;
   const $ = (selector) => document.querySelector(selector);
   const api = async (url, options) => {
@@ -332,6 +332,57 @@
     document.querySelectorAll('.info-section').forEach((section) => { section.hidden = true; });
   }
 
+  function emptyStateCopy() {
+    return state.role === 'host'
+      ? { heading: 'No conversations yet', detail: 'When clients reach out, your conversations will appear here.' }
+      : { heading: 'Start a conversation', detail: 'Chat with a host and your conversations will appear here.' };
+  }
+
+  function renderEmptyState() {
+    const copy = emptyStateCopy();
+    const list = $('#contactList');
+    clear(list);
+    const inboxState = document.createElement('li');
+    inboxState.className = 'inbox-empty-state';
+    inboxState.setAttribute('aria-label', `${copy.heading}. ${copy.detail}`);
+    inboxState.innerHTML = '<strong></strong><span></span>';
+    inboxState.querySelector('strong').textContent = copy.heading;
+    inboxState.querySelector('span').textContent = copy.detail;
+    list.appendChild(inboxState);
+
+    const messages = $('.messages');
+    clear(messages);
+    messages.classList.add('empty-state');
+    const conversationState = document.createElement('div');
+    conversationState.className = 'chat-empty-state';
+    conversationState.setAttribute('role', 'status');
+    conversationState.innerHTML = '<h2></h2><p></p>';
+    conversationState.querySelector('h2').textContent = copy.heading;
+    conversationState.querySelector('p').textContent = copy.detail;
+    messages.appendChild(conversationState);
+    $('.chat-col').classList.add('empty-conversation');
+    $('.info-col').classList.add('collapsed');
+  }
+
+  function showConversationInterface() {
+    $('.messages').classList.remove('empty-state');
+    $('.chat-col').classList.remove('empty-conversation');
+    $('.info-col').classList.remove('collapsed');
+  }
+
+  function renderNoSelectionState() {
+    const messages = $('.messages');
+    clear(messages);
+    messages.classList.add('empty-state');
+    const stateMessage = document.createElement('div');
+    stateMessage.className = 'chat-empty-state';
+    stateMessage.setAttribute('role', 'status');
+    stateMessage.innerHTML = '<h2>Select a conversation</h2><p>Choose a conversation from your inbox to view messages.</p>';
+    messages.appendChild(stateMessage);
+    $('.chat-col').classList.add('empty-conversation');
+    $('.info-col').classList.add('collapsed');
+  }
+
   function renderConversationList() {
     const list = $('#contactList');
     clear(list);
@@ -568,6 +619,7 @@
     renderConversationList();
     const conversation = state.conversations.find((item) => item.id === id);
     if (!conversation) return;
+    showConversationInterface();
     const person = conversation.participant || {};
     $('#chatName').textContent = person.full_name || person.username || '';
     $('#statusText').textContent = '';
@@ -629,6 +681,10 @@
     if (!state.session) { window.location.assign('/login?next=/chats'); return; }
     const data = await api('/api/chat/conversations');
     state.conversations = data.conversations;
+    const profileResult = await window.supabaseClient
+      .from('profiles').select('role').eq('id', state.session.user.id).maybeSingle();
+    if (profileResult.error) throw profileResult.error;
+    state.role = profileResult.data && profileResult.data.role === 'host' ? 'host' : 'client';
     const requested = new URLSearchParams(window.location.search).get('c') || new URLSearchParams(window.location.search).get('conversation');
     state.activeId = !isMobile() && requested && state.conversations.some((item) => item.id === requested) ? requested : null;
     renderConversationList();
@@ -640,6 +696,11 @@
       clear($('.messages'));
       renderProfile(null);
       renderInfoAttachments([]);
+      if (state.conversations.length) {
+        renderNoSelectionState();
+      } else {
+        renderEmptyState();
+      }
     }
     const search = $('.search-box input');
     search.addEventListener('input', () => {
