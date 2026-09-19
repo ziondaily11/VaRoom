@@ -52,13 +52,33 @@ async function createNotification({
     }),
   };
 
+  console.info('Notification persistence attempted:', {
+    table: 'notifications',
+    conflictTarget: 'event_key',
+    eventKey: payload.event_key,
+    type: payload.type,
+  });
   const { data, error } = await supabaseAdmin
     .from('notifications')
     .upsert(payload, { onConflict: 'event_key' })
     .select('id,recipient_user_id,actor_user_id,type,title,message,related_entity_type,related_entity_id,booking_id,metadata,read,created_at,event_key')
     .single();
 
-  if (error) throw error;
+  if (error) {
+    console.error('Notification persistence failed:', {
+      table: 'notifications',
+      conflictTarget: 'event_key',
+      code: error.code,
+      message: error.message,
+    });
+    throw error;
+  }
+  console.info('Notification persisted:', {
+    table: 'notifications',
+    id: data.id,
+    eventKey: data.event_key,
+    type: data.type,
+  });
   return data;
 }
 

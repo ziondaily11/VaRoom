@@ -27,6 +27,14 @@ async function memberConversation(conversationId, userId) {
 }
 
 async function requestChatbotReply(conversationId, token, payload) {
+  console.info('Elie response generation requested:', {
+    conversationId,
+    trigger: payload.command || 'away_mode',
+  });
+  console.info('Elie response persistence/send attempted:', {
+    conversationId,
+    trigger: payload.command || 'away_mode',
+  });
   const response = await fetch(`${chatbotApiUrl}/reply`, {
     method: 'POST',
     headers: {
@@ -37,10 +45,27 @@ async function requestChatbotReply(conversationId, token, payload) {
   });
   const body = await response.json().catch(() => ({}));
   if (!response.ok) {
+    console.error('Elie response generation failed:', {
+      conversationId,
+      trigger: payload.command || 'away_mode',
+      status: response.status,
+      responseKeys: Object.keys(body),
+    });
     const error = new Error(body.detail || 'Chatbot reply failed');
     error.status = response.status;
     throw error;
   }
+  console.info('Elie response generated:', {
+    conversationId,
+    trigger: payload.command || 'away_mode',
+    responseKeys: Object.keys(body),
+    hasResponse: Boolean(body.reply || body.response || body.message || body.content),
+  });
+  console.info('Elie response persistence/send acknowledged:', {
+    conversationId,
+    trigger: payload.command || 'away_mode',
+    responseKeys: Object.keys(body),
+  });
   return body;
 }
 
@@ -335,6 +360,11 @@ router.post('/chat/conversations/:conversationId/messages', async (req, res) => 
         .select('id,conversation_id,sender_id,body,created_at,message_type,attachment_id,listing_id')
         .single();
       if (error) throw error;
+      console.info('Chat message persisted:', {
+        conversationId,
+        messageId: data.id,
+        senderId: user.id,
+      });
 
       const recipientUserId = conversation.host_id === user.id ? conversation.client_id : conversation.host_id;
     const { data: senderProfile } = await supabaseAdmin.from('profiles').select('full_name').eq('id', user.id).maybeSingle();
@@ -359,13 +389,33 @@ router.post('/chat/conversations/:conversationId/messages', async (req, res) => 
     });
 
     if (conversation.client_id === user.id && messageType === 'text' && content) {
+      const { data: recipientProfile, error: recipientProfileError } = await supabaseAdmin
+        .from('profiles')
+        .select('away_mode')
+        .eq('id', recipientUserId)
+        .maybeSingle();
+      if (recipientProfileError) throw recipientProfileError;
+      const awayModeDetected = Boolean(recipientProfile && recipientProfile.away_mode);
       const token = (req.headers.authorization || '').slice(7);
-      requestChatbotReply(conversationId, token, {
-        message: content,
-        listing_id: conversation.listing_id || listingId || null,
-      }).catch((replyError) => {
-        console.error('Away-mode chatbot reply failed:', replyError);
+      console.info('Away Mode evaluated:', {
+        conversationId,
+        recipientUserId,
+        messageId: data.id,
+        detected: awayModeDetected,
       });
+      if (awayModeDetected) {
+        requestChatbotReply(conversationId, token, {
+          message: content,
+          listing_id: conversation.listing_id || listingId || null,
+        }).catch((replyError) => {
+          console.error('Away-mode chatbot response/send failed:', {
+            conversationId,
+            error: replyError.message,
+            code: replyError.code,
+            status: replyError.status,
+          });
+        });
+      }
     }
     let attachment = null;
     if (attachmentId) {

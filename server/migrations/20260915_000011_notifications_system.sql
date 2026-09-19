@@ -54,8 +54,7 @@ alter table public.notifications
   alter column title set not null;
 
 create unique index if not exists notifications_event_key_idx
-  on public.notifications(event_key)
-  where event_key is not null;
+  on public.notifications(event_key);
 
 create index if not exists notifications_recipient_created_idx
   on public.notifications(recipient_user_id, created_at desc);
