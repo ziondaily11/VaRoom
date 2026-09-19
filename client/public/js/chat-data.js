@@ -16,6 +16,17 @@
   const initials = (profile) => (profile && (profile.full_name || profile.username) || '')
     .split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
   const formatTime = (value) => value ? new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+  const previewText = (value) => {
+    const source = new DOMParser().parseFromString(String(value || ''), 'text/html').body;
+    source.querySelectorAll('script, style, template').forEach((element) => element.remove());
+    source.querySelectorAll('br').forEach((element) => element.replaceWith('\n'));
+    source.querySelectorAll('p, div, li').forEach((element) => element.appendChild(document.createTextNode('\n')));
+    return source.textContent
+      .replace(/\u00a0/g, ' ')
+      .replace(/[ \t]+\n/g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+  };
   const clear = (element) => { while (element && element.firstChild) element.removeChild(element.firstChild); };
   const avatarUrl = (profile) => {
     if (!profile || !profile.avatar_url) return '';
@@ -373,7 +384,7 @@
     clear(list);
     state.conversations.forEach((conversation) => {
       const person = conversation.participant || {};
-      const preview = conversation.lastMessage && conversation.lastMessage.body || '';
+      const preview = previewText(conversation.lastMessage && conversation.lastMessage.body);
       const item = document.createElement('li');
       item.className = `contact-item${conversation.id === state.activeId ? ' active' : ''}`;
       item.dataset.conversationId = conversation.id;
@@ -734,6 +745,21 @@
       input.style.height = 'auto';
       input.style.height = `${Math.min(input.scrollHeight, 112)}px`;
     };
+    const resetDesktopComposer = () => {
+      if (!desktop) return;
+      desktopEditor.innerHTML = '';
+      desktopEditor.removeAttribute('style');
+      desktopEditor.focus();
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      const range = document.createRange();
+      range.selectNodeContents(desktopEditor);
+      range.collapse(true);
+      selection.addRange(range);
+      ['bold', 'italic', 'underline', 'insertUnorderedList', 'insertOrderedList'].forEach((command) => {
+        if (document.queryCommandState(command)) document.execCommand(command, false, false);
+      });
+    };
     input.addEventListener('input', updateComposerState);
     if (desktopEditor) desktopEditor.addEventListener('input', updateComposerState);
     updateComposerState();
@@ -773,7 +799,7 @@
         }
         if (state.activeId !== conversationId) {
           if (state.pendingAttachment === pending) {
-            if (desktop) desktopEditor.innerHTML = '';
+            if (desktop) resetDesktopComposer();
             else input.value = '';
             updateComposerState();
             state.pendingAttachment = null;
@@ -781,7 +807,7 @@
           }
           return;
         }
-        if (desktop) desktopEditor.innerHTML = '';
+        if (desktop) resetDesktopComposer();
         else input.value = '';
         updateComposerState();
         state.pendingAttachment = null;
