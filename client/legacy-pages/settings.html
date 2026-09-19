@@ -1316,6 +1316,8 @@
     document.querySelectorAll('[data-back]').forEach(function(btn){
       btn.addEventListener('click', function(){ showView('list'); });
     });
+    const requestedSection = new URLSearchParams(window.location.search).get('section');
+    if (requestedSection === 'notifications') showView('notifications');
     const settingsSearch = document.getElementById('settings-search-input');
     settingsSearch.addEventListener('input', function(){
       const query = settingsSearch.value.trim().toLowerCase();

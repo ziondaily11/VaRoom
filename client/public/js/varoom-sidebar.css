@@ -289,6 +289,19 @@
   opacity: .85;
 }
 
+/* Host Home uses the same sidebar structure with its role-specific compact
+   item spacing. Keep these rules here so Notifications cannot drift from it. */
+.sidebar.sidebar-host .nav-item {
+  gap: .7rem;
+  padding: .6rem .7rem;
+  font-size: .92rem;
+}
+
+.sidebar.sidebar-host .nav-item svg {
+  width: 18px;
+  height: 18px;
+}
+
 /* --------------------------------------------------------------------------
    Mobile Drawer & Backdrop
    -------------------------------------------------------------------------- */
@@ -334,6 +347,12 @@
   }
 
   .sidebar .nav-item {
+    font-size: 1.05rem;
+    padding: .85rem .9rem;
+    gap: .9rem;
+  }
+
+  .sidebar.sidebar-host .nav-item {
     font-size: 1.05rem;
     padding: .85rem .9rem;
     gap: .9rem;

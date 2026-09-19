@@ -219,6 +219,8 @@
     var container = options.container || document.getElementById('sidebar');
     if (!container) return;
 
+    container.classList.toggle('sidebar-host', role === 'host');
+    container.classList.toggle('sidebar-client', role !== 'host');
     var html = role === 'host' ? getHostSidebarHtml(options) : getClientSidebarHtml(options);
     container.innerHTML = html;
 

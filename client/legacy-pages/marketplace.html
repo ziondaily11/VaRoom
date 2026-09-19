@@ -27,16 +27,28 @@
 <script src="js/skeleton-loader.js"></script>
 <style>
   :root{
-    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#24211E; --paper:#F7F6F3;
+    --bg-surface: #121212;
+    --card-bg: #1E1E1E;
+    --card-bg-hover: #2A2A2A;
+    --text-primary: #FFFFFF;
+    --text-secondary: #A1A1AA;
+    --accent-cta: #FF385C;
+    --accent-link: #FF6B81;
+    --border-subtle: #3F3F46;
+    --radius-lg: 12px;
+    --radius-sm: 6px;
+    --red: var(--accent-cta); --red-deep:#8F1229; --white:#FFFFFF; --ink:#24211E; --paper:#F7F6F3;
     --muted:#5c584f;
     --font-display:'Helvetica Neue', Arial, sans-serif; --font-body:'Helvetica Neue', Arial, sans-serif; --font-brand:'Fraunces', serif;
     --line:#E4E1DA;
     --line-soft:#E4E1DA;
   }
   [data-theme="dark"]{
-    --white:#241C1A; --paper:#15100F; --ink:#F5EFEC; --muted:#B8ACA8;
-    --line:rgba(255,255,255,.12);
-    --line-soft:rgba(255,255,255,.07);
+    --white: var(--card-bg); --paper: var(--bg-surface); --ink: var(--text-primary); --muted: var(--text-secondary);
+    --line: var(--border-subtle);
+    --line-soft: rgba(255,255,255,.07);
+    --card-bg: #1E1E1E;
+    --card-bg-hover: #2A2A2A;
   }
   *{ margin:0; padding:0; box-sizing:border-box; }
   html{ overflow-x:hidden; font-size:16px !important; }
@@ -117,11 +129,12 @@
     .grid{ grid-template-columns:repeat(5, minmax(0, 1fr)); gap:1rem; }
   }
   .card{
-    position:relative; min-width:0; border-radius:14px; overflow:hidden;
-    background:var(--white); border:1px solid var(--line); box-shadow:0 10px 22px rgba(4,6,8,.14); cursor:pointer;
-    transition:transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+    position:relative; min-width:0; border-radius:var(--radius-lg); overflow:hidden;
+    background:var(--card-bg); border:1px solid var(--border-subtle); box-shadow:0 10px 22px rgba(0,0,0,.16); cursor:pointer;
+    transition:transform .2s ease, box-shadow .2s ease, border-color .2s ease, background-color .2s ease;
   }
-  .card:hover{ transform:translateY(-1px); box-shadow:0 14px 24px rgba(4,6,8,.18); border-color:rgba(196,30,58,.24); }
+  .card:hover{ transform:translateY(-1px); box-shadow:0 14px 24px rgba(0,0,0,.2); border-color:rgba(255,56,92,.32); background:var(--card-bg-hover); }
+  .card:focus-visible{ outline:2px solid var(--accent-cta); outline-offset:2px; }
   .card-media{ position:relative; aspect-ratio:4 / 3; background:var(--paper); overflow:hidden; }
   .card-media img{ width:100%; height:100%; object-fit:cover; display:block; transition:transform .25s ease; }
   .card:hover .card-media img{ transform:scale(1.03); }
@@ -129,13 +142,14 @@
   .card-media .placeholder,
   .card-media-empty,
   .media-loading,
-  .card-media.is-loading{
+  .card-media.is-loading,
+  .card-media-loading{
     display:flex; align-items:center; justify-content:center; height:100%; color:var(--ink); background:linear-gradient(180deg, rgba(15,19,24,.08), rgba(15,19,24,.02));
     font-size:.78rem; text-align:center; padding:1rem;
   }
   .card-media-empty{ background:linear-gradient(180deg, rgba(10,12,15,.92), rgba(10,12,15,.84)); }
-  .media-loading, .card-media.is-loading{ position:relative; background:rgba(10,12,15,.9); }
-  .media-loading::before, .card-media.is-loading::before{
+  .media-loading, .card-media.is-loading, .card-media-loading{ position:relative; background:rgba(10,12,15,.9); }
+  .media-loading::before, .card-media.is-loading::before, .card-media-loading::before{
     content:""; width:18px; height:18px; border:2px solid rgba(255,255,255,.2); border-top-color:rgba(255,255,255,.8); border-radius:50%;
     animation:spin .8s linear infinite; display:block; position:relative;
   }
@@ -154,19 +168,19 @@
   .card-body{
     position:relative; padding:.72rem .78rem .7rem; display:flex; flex-direction:column; gap:.22rem; color:var(--ink);
   }
-  .card-title{ font-family:var(--font-display); font-weight:700; font-size:.9rem; line-height:1.25; white-space:normal; }
-  .card-loc{ font-size:.72rem; line-height:1.35; color:var(--muted); min-height:1.8em; }
-  .card-loc a{ color:var(--red-deep); font-weight:600; }
+  .card-title{ font-family:var(--font-display); font-weight:600; font-size:1rem; line-height:1.25; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--text-primary); }
+  .card-loc{ font-size:.875rem; line-height:1.35; color:var(--text-secondary); min-height:1.8em; }
+  .card-loc a{ color:var(--accent-link); font-weight:600; }
   .card-foot{ display:flex; align-items:flex-end; justify-content:space-between; gap:.65rem; margin-top:.12rem; }
-  .card-price{ font-weight:700; font-size:.9rem; color:var(--ink); }
-  .card-price span{ font-weight:500; color:var(--muted); font-size:.7rem; }
+  .card-price{ font-weight:700; font-size:.95rem; color:var(--text-primary); }
+  .card-price span{ font-weight:500; color:var(--text-secondary); font-size:.72rem; }
   .card-amenities{
-    display:flex; align-items:center; flex-wrap:wrap; gap:.38rem; min-height:1.5rem; padding:.06rem 0 .12rem; color:var(--muted);
+    display:flex; align-items:center; flex-wrap:nowrap; gap:.5rem; min-height:1.5rem; padding:.06rem 0 .12rem; color:var(--text-secondary); overflow:hidden;
   }
-  .card-amenity{ display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; color:var(--muted); }
-  .card-amenity svg{ width:14px; height:14px; }
-  .card-amenity-more{ display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:18px; padding:0 .25rem; border-radius:999px; background:var(--paper); color:var(--muted); font-size:.58rem; font-weight:700; }
-  .card-book{ font-size:.72rem; font-weight:700; color:var(--red); letter-spacing:-.01em; }
+  .card-amenity{ display:inline-flex; align-items:center; gap:.2rem; flex:0 0 auto; color:var(--text-secondary); font-size:.72rem; line-height:1; white-space:nowrap; }
+  .card-amenity svg{ width:14px; height:14px; flex:0 0 auto; }
+  .card-amenity-more{ display:none; }
+  .card-book{ font-size:.72rem; font-weight:700; color:var(--accent-link); letter-spacing:-.01em; }
   .skeleton{ background:linear-gradient(90deg,var(--paper) 25%,var(--line-soft) 50%,var(--paper) 75%); background-size:200% 100%; animation:skeleton-shimmer 1.4s infinite; }
   .skeleton-card{ pointer-events:none; }
   .skeleton-media{ aspect-ratio:4/3; }
@@ -189,10 +203,10 @@
   .load-more{ min-width:120px; padding:0 1rem; }
   .card-video{ width:100%; height:100%; object-fit:cover; display:block; }
   .card-video video{ width:100%; height:100%; object-fit:cover; display:block; background:var(--paper); }
-  .media-loading-state{
+  .card-media-loading{
     display:grid; place-items:center; aspect-ratio:4/3; background:#050505;
   }
-  .media-loading-state::before{
+  .card-media-loading::before{
     content:''; width:1.5rem; height:1.5rem; border:2px solid rgba(255,255,255,.2);
     border-top-color:rgba(255,255,255,.85); border-radius:50%;
     animation:varoom-video-spin .8s linear infinite;
@@ -210,9 +224,9 @@
 
   @media (max-width: 860px){
     body{ padding-bottom:4.4rem; }
-    .mkt-header{ display:block; padding:.8rem 1rem .65rem; border-bottom:1px solid var(--line-soft); }
-    .mkt-header .logo{ display:flex; margin-bottom:.65rem; font-size:1rem; }
-    .mode-switch{ width:100%; display:grid; grid-template-columns:1fr 1fr; gap:.45rem; padding:.25rem; margin-bottom:.65rem; text-align:center; font-size:.68rem; }
+    .mkt-header{ display:block; padding:.7rem .8rem .5rem; border-bottom:1px solid var(--line-soft); }
+    .mkt-header .logo{ display:flex; margin-bottom:.6rem; font-size:1rem; }
+    .mode-switch{ width:100%; display:grid; grid-template-columns:1fr 1fr; gap:.45rem; padding:.25rem; margin-bottom:.6rem; text-align:center; font-size:.68rem; }
     .mode-switch a{ padding:.35rem .5rem; }
     .topbar-actions{ position:absolute; top:.75rem; right:1rem; }
     .avatar-circle{ width:26px; height:26px; font-size:.7rem; }
@@ -220,13 +234,14 @@
     .mkt-body{ flex-direction:column; }
     .search-bar{ display:none; }
     .mobile-marketplace-tools{ display:block; }
-    .mobile-search{ display:flex; align-items:center; gap:.45rem; height:2.1rem; padding:0 .65rem; border:1px solid var(--line); border-radius:999px; background:var(--white); }
+    .mobile-search{ display:flex; align-items:center; gap:.4rem; height:2.1rem; padding:0 .6rem; border:1px solid var(--line); border-radius:999px; background:var(--white); }
     .mobile-search svg{ flex:0 0 auto; color:var(--muted); }
     .mobile-search input{ min-width:0; flex:1; border:0; outline:0; background:transparent; color:var(--ink); font-size:.67rem; }
     .mobile-search input::placeholder{ color:var(--muted); opacity:1; }
     .mobile-search button{ display:flex; align-items:center; justify-content:center; width:1.6rem; height:1.6rem; border:0; border-left:1px solid var(--line-soft); background:none; color:var(--ink); cursor:pointer; }
-    .mobile-filter-row{ display:grid; grid-template-columns:1.15fr 1fr 1fr; gap:.45rem; margin-top:.55rem; }
-    .mobile-filter-row select, .mobile-filter-button{ min-width:0; height:2.05rem; padding:0 .55rem; border:1px solid var(--line); border-radius:999px; background:var(--white); color:var(--ink); font-size:.62rem; }
+    .mobile-filter-row{ display:flex; align-items:center; gap:.45rem; margin-top:.55rem; overflow-x:auto; padding-bottom:.15rem; -ms-overflow-style:none; scrollbar-width:none; }
+    .mobile-filter-row::-webkit-scrollbar{ display:none; }
+    .mobile-filter-row select, .mobile-filter-button{ flex:0 0 auto; min-width:0; height:2.05rem; padding:0 .6rem; border:1px solid var(--line); border-radius:999px; background:var(--white); color:var(--ink); font-size:.62rem; }
     .mobile-filter-row select{ appearance:auto; }
     .mobile-filter-button{ display:flex; align-items:center; justify-content:center; gap:.25rem; cursor:pointer; }
     .mobile-filter-button svg{ display:none; }
@@ -241,26 +256,28 @@
     .mobile-filter-actions button{ border:0; border-radius:999px; padding:.45rem .75rem; font-size:.68rem; cursor:pointer; }
     .mobile-filter-actions .apply{ background:var(--red); color:#fff; }
     .mobile-filter-actions .reset{ background:var(--paper); color:var(--ink); }
-    .results-col{ width:100%; padding:.65rem .5rem 1.5rem; }
+    .results-col{ width:100%; padding:.55rem .5rem 1.5rem; }
     .results-head{ align-items:center; margin-bottom:.65rem; gap:.5rem; }
     .results-head h1{ font-size:1.05rem; }
     .results-sub{ font-size:.62rem; margin-top:.1rem; }
     .results-controls{ gap:.35rem; }
     .results-controls select{ padding:.4rem .45rem; border-radius:6px; font-size:.62rem; }
-    .grid{ width:100%; display:grid; grid-template-columns:1fr; gap:.8rem; }
-    .card{ width:100%; max-width:none; border-radius:14px; }
+    .grid{ width:100%; display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:.7rem; }
+    .card{ width:100%; max-width:none; border-radius:12px; }
     .card-media{ aspect-ratio:4 / 3; }
-    .card-body{ padding:.8rem .8rem .9rem; }
-    .card-title{ font-size:1rem; }
-    .card-loc{ font-size:.72rem; }
-    .card-foot{ margin-top:.15rem; }
-    .card-price{ font-size:.8rem; }
-    .card-price span{ font-size:.65rem; }
-    .card-book{ font-size:.7rem; }
-    .card-meta{ gap:.5rem; font-size:.64rem; }
-    .card-save{ top:.5rem; right:.5rem; width:1.8rem; height:1.8rem; background:rgba(15,19,24,.45); }
-    .card-save svg{ width:12px; height:12px; }
-    .card-verified{ top:.5rem; left:.5rem; padding:.18rem .45rem; font-size:.54rem; }
+    .card-body{ padding:.5rem .55rem .6rem; gap:.18rem; }
+    .card-title{ font-size:.72rem; line-height:1.25; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+    .card-loc{ font-size:.6rem; min-height:1.35em; line-height:1.25; }
+    .card-foot{ align-items:center; justify-content:space-between; gap:.4rem; margin-top:0; }
+    .card-price{ font-size:.7rem; }
+    .card-price span{ font-size:.56rem; }
+    .card-book{ font-size:.58rem; }
+    .card-amenities{ gap:.35rem; min-height:1.05rem; padding-top:0; }
+    .card-amenity{ gap:.14rem; font-size:.56rem; }
+    .card-amenity svg{ width:11px; height:11px; }
+    .card-save{ top:.48rem; right:.48rem; width:1.7rem; height:1.7rem; background:rgba(15,19,24,.45); }
+    .card-save svg{ width:11px; height:11px; }
+    .card-verified{ top:.48rem; left:.48rem; padding:.18rem .36rem; font-size:.5rem; }
     .card-video{ min-height:0; }
     .pagination{ margin-top:1rem; }
     .mobile-bottom-nav{ position:fixed; z-index:20; bottom:0; left:50%; display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); width:min(100% - 1rem,32rem); min-height:3.7rem; transform:translateX(-50%); padding:.3rem .35rem calc(.3rem + env(safe-area-inset-bottom)); margin-bottom:max(.45rem,env(safe-area-inset-bottom)); border:1px solid var(--line-soft); border-radius:999px; background:var(--white); box-shadow:0 10px 28px rgba(26,18,16,.14); }
@@ -396,14 +413,15 @@
   const ICON_BED = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 12.5V7.8A1.8 1.8 0 0 1 5.3 6h2.4a2.1 2.1 0 0 1 2.1 2.1v2.4h9.7v3.5h-2.2v1.9H3.5v-1.9H3.5Zm1.8-1.8h9.7v-2.5H5.3a1.1 1.1 0 0 0-1.1 1.1v1.4Z"/><path d="M3.5 17v2M20.5 17v2"/></svg>';
   const ICON_BATH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 12h10a2.5 2.5 0 0 1 2.5 2.5V15a2.5 2.5 0 0 1-2.5 2.5H8A2.5 2.5 0 0 1 5.5 15v-.5A2.5 2.5 0 0 1 8 12h-.5"/><path d="M8 12V8.5A2.5 2.5 0 0 1 10.5 6H11a2.5 2.5 0 0 1 2.5 2.5V12"/><path d="M5.5 18.5h13"/></svg>';
   const ICON_GUEST = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 18a4.5 4.5 0 0 0-9 0"/><circle cx="12" cy="9" r="3.5"/><path d="M18.5 18a4.5 4.5 0 0 0-2.8-4.2"/><path d="M5.5 18a4.5 4.5 0 0 1 2.8-4.2"/></svg>';
+  const ICON_SIZE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V4h4M20 8V4h-4M4 16v4h4M20 16v4h-4"/><path d="M8 4 4 8M16 4l4 4M4 16l4 4M20 16l-4 4"/></svg>';
   const PAGE_SIZE = 12;
 
   const MKT_SELECT = 'id,title,description,location_text,category,verified,created_at,host_id,availability_status,' +
     'host:profiles!inner(full_name,verified,avatar_url,username),' +
-    'listing_photos(storage_path),listing_booking_details(price_amount,price_unit,max_guests)';
+    'listing_photos(storage_path),listing_booking_details(*)';
   const MKT_LEGACY_SELECT = 'id,title,description,location_text,category,verified,created_at,host_id,' +
     'host:profiles!inner(full_name,verified,avatar_url,username),' +
-    'listing_photos(storage_path),listing_booking_details(price_amount,price_unit,max_guests)';
+    'listing_photos(storage_path),listing_booking_details(*)';
 
   function escapeHtml(str){
     const div = document.createElement('div');
@@ -502,9 +520,29 @@
 
   function sanitizeLocationText(value){
     if (!value) return '';
-    const cleaned = String(value).trim();
+    const cleaned = String(value).trim().replace(/\s+/g, ' ');
     if (!cleaned || /location to be added|not available|coming soon/i.test(cleaned)) return '';
     return cleaned;
+  }
+
+  function normalizeListingTitle(value){
+    const fallback = 'Property';
+    if (!value || typeof value !== 'string') return fallback;
+    const cleaned = value.replace(/\s+/g, ' ').trim();
+    if (!cleaned) return fallback;
+    const normalized = cleaned.replace(/^\.+\s*$/, '').trim();
+    if (!normalized || normalized.length <= 2 || /^(a|test|new|listing)$/i.test(normalized)) return fallback;
+    return normalized;
+  }
+
+  function dedupeListings(listings){
+    const seen = new Set();
+    return (listings || []).filter(function(listing){
+      if (!listing || !listing.id) return false;
+      if (seen.has(listing.id)) return false;
+      seen.add(listing.id);
+      return true;
+    });
   }
 
   const AMENITY_ICONS = {
@@ -529,7 +567,9 @@
     const photo = (listing.listing_photos || []).find(function(item){ return item && item.storage_path; });
     if (!photo) return '<div class="card-media-empty" aria-hidden="true"></div>';
     const url = supabaseClient.storage.from('listing-photos').getPublicUrl(photo.storage_path).data.publicUrl;
-    return '<img src="' + escapeHtml(url) + '" alt="' + escapeHtml(listing.title) + '" loading="lazy" onerror="this.style.display=\'none\';this.nextElementSibling.hidden=false;">' +
+    const title = normalizeListingTitle(listing.title || listing.name || '');
+    return '<div class="card-media-loading" aria-hidden="true"></div>' +
+      '<img src="' + escapeHtml(url) + '" alt="' + escapeHtml(title) + '" loading="lazy" style="opacity:0; transition:opacity .2s ease;" onload="this.style.opacity=1; this.previousElementSibling.remove();" onerror="this.style.display=\'none\'; this.previousElementSibling.remove(); this.nextElementSibling.hidden=false;">' +
       '<span class="image-fallback" hidden><div class="placeholder">' + escapeHtml((CATEGORY_LABELS[listing.category] || listing.category || 'Property')) + '</div></span>';
   }
 
@@ -546,22 +586,32 @@
     return icons.slice(0, 4);
   }
 
-  function renderCard(listing){
+  function getListingCardAmenities(listing){
+    return getListingAmenities(listing).map(function(item){
+      return {
+        key: item.key,
+        html: item.html,
+        label: item.key.replace(/_/g, ' ')
+      };
+    });
+  }
+
+  function createListingCard(listing){
     const isBookmarked = bookmarkedIds.has(listing.id);
     const price = formatPrice(listing.listing_booking_details || listing.booking_details);
-    const mediaHtml = '<div class="media-loading-state" role="status" aria-label="Loading media"></div>';
+    const mediaHtml = imageHtml(listing);
     const detail = Array.isArray(listing.listing_booking_details)
       ? (listing.listing_booking_details[0] || {})
       : (listing.listing_booking_details || {});
     const locationText = sanitizeLocationText(listing.location_text || detail.location_text || '');
-    const amenities = getListingAmenities(listing);
+    const amenities = getListingCardAmenities(listing);
     const visibleAmenities = amenities.map(function(item){
-      return '<span class="card-amenity" title="' + escapeHtml(item.key) + '" aria-label="' + escapeHtml(item.key) + '">' + item.html + '</span>';
+      return '<span class="card-amenity" title="' + escapeHtml(item.label) + '" aria-label="' + escapeHtml(item.label) + '">' + item.html + '</span>';
     }).join('');
-    const hiddenCount = Math.max((Array.isArray(detail.amenities) ? detail.amenities.length : 0) - amenities.length, 0);
+    const title = normalizeListingTitle(listing.title || listing.name || '');
 
     return (
-      '<div class="card" data-listing-id="' + listing.id + '" data-href="/booking?listing=' + listing.id + '">' +
+      '<div class="card" data-listing-id="' + listing.id + '" data-href="/booking?listing=' + listing.id + '" tabindex="0" role="link" aria-label="Open listing: ' + escapeHtml(title) + '">' +
         '<div class="card-media" data-media-listing-id="' + listing.id + '">' +
           mediaHtml +
           '<span class="card-verified">' + escapeHtml(CATEGORY_LABELS[listing.category] || listing.category || 'Property') + '</span>' +
@@ -570,9 +620,9 @@
           '</button>' +
         '</div>' +
         '<div class="card-body">' +
-          '<div class="card-title">' + escapeHtml(listing.title) + '</div>' +
+          '<div class="card-title">' + escapeHtml(title) + '</div>' +
           (locationText ? '<div class="card-loc">' + escapeHtml(locationText) + '</div>' : '') +
-          (visibleAmenities || hiddenCount ? '<div class="card-amenities">' + visibleAmenities + (hiddenCount ? '<span class="card-amenity-more">+' + hiddenCount + '</span>' : '') + '</div>' : '') +
+          '<div class="card-amenities" aria-label="Property amenities">' + visibleAmenities + '</div>' +
           '<div class="card-foot">' +
             (price
               ? '<div class="card-price">KSh ' + price.amount.toLocaleString() + ' <span>/ ' + escapeHtml(price.unit) + '</span></div>'
@@ -582,6 +632,10 @@
         '</div>' +
       '</div>'
     );
+  }
+
+  function renderCard(listing){
+    return createListingCard(listing);
   }
 
   async function loadListingVideo(listingId){
@@ -612,7 +666,7 @@
       }
       if (!playback || !playback.url) {
         element.classList.remove('is-loading');
-        const pending = element.querySelector('.media-loading-state');
+        const pending = element.querySelector('.card-media-loading');
         if (pending) pending.outerHTML = imageHtml(allListings.find(function(listing){ return listing.id === listingId; }) || {});
         return;
       }
@@ -643,7 +697,7 @@
     } catch (error) {
       element.classList.remove('is-loading');
       console.warn('Marketplace video preview unavailable:', error.message);
-      const pending = element.querySelector('.media-loading-state');
+      const pending = element.querySelector('.card-media-loading');
       if (pending) pending.outerHTML = imageHtml(allListings.find(function(listing){ return listing.id === listingId; }) || {});
     }
   }
@@ -652,6 +706,16 @@
     const card = event.target.closest('.card');
     if (!card) return;
     if (event.target.closest('.card-save')) return;
+    const href = card.getAttribute('data-href');
+    if (href) window.location.href = href;
+  });
+
+  document.addEventListener('keydown', function(event){
+    const card = event.target.closest('.card');
+    if (!card) return;
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    if (event.target.closest('.card-save')) return;
+    event.preventDefault();
     const href = card.getAttribute('data-href');
     if (href) window.location.href = href;
   });
@@ -735,8 +799,9 @@
   }
 
   function renderResults(){
-    const filtered = applyFiltersAndSort(allListings);
-    renderTypeFilters(allListings.filter(function(l){
+    const uniqueListings = dedupeListings(allListings);
+    const filtered = applyFiltersAndSort(uniqueListings);
+    renderTypeFilters(uniqueListings.filter(function(l){
       // type counts reflect the search text + price/verified filters, not the type filter itself
       return true;
     }));
@@ -827,14 +892,14 @@
       return;
     }
     const minGuests = state.guests ? parseInt(state.guests, 10) : null;
-    const pageListings = (data || []).filter(function(l){
+    const pageListings = dedupeListings((data || []).filter(function(l){
       if (minGuests != null) {
         const details = Array.isArray(l.listing_booking_details) ? l.listing_booking_details[0] : l.listing_booking_details;
         const guests = details && details.max_guests;
         if (guests != null && guests < minGuests) return false;
       }
       return true;
-    });
+    }));
     const knownIds = new Set(allListings.map(function(listing){ return listing.id; }));
     if (reset) allListings = [];
     if (reset) resultCount = count || 0;

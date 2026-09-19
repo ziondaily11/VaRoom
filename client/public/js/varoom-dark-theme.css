@@ -182,6 +182,117 @@
   border-color: transparent !important;
 }
 
+/* Notifications page surfaces use page-local aliases; map them to the same
+   warm contrast as Home instead of leaving light-mode values in dark mode. */
+[data-theme="dark"] .main,
+[data-theme="dark"] .main-inner {
+  color: var(--ink);
+}
+
+[data-theme="dark"] .page-header p,
+[data-theme="dark"] .section-title,
+[data-theme="dark"] .notif-desc,
+[data-theme="dark"] .notif-time,
+[data-theme="dark"] .toolbar-search svg {
+  color: var(--muted);
+}
+
+[data-theme="dark"] .icon-btn,
+[data-theme="dark"] .tabs,
+[data-theme="dark"] .toolbar-search,
+[data-theme="dark"] .card-list,
+[data-theme="dark"] .notif-card,
+[data-theme="dark"] .menu-toggle {
+  background: var(--white);
+  border-color: var(--line);
+}
+
+[data-theme="dark"] .notif-card {
+  border-bottom-color: var(--line-soft);
+}
+
+[data-theme="dark"] .notif-card:hover,
+[data-theme="dark"] .icon-btn:hover {
+  background: rgba(255,255,255,.06);
+}
+
+[data-theme="dark"] .toolbar-search input {
+  color: var(--ink);
+}
+
+[data-theme="dark"] .notif-icon.tint-red,
+[data-theme="dark"] .tag.booking,
+[data-theme="dark"] .tag.alert {
+  background: rgba(196,30,58,.18);
+  color: #f08b9a;
+}
+
+[data-theme="dark"] .notif-icon.tint-green,
+[data-theme="dark"] .tag.payment {
+  background: rgba(30,107,60,.18);
+  color: #7cc99a;
+}
+
+[data-theme="dark"] .notif-icon.tint-amber,
+[data-theme="dark"] .tag.reminder {
+  background: rgba(180,83,9,.18);
+  color: #f2bd76;
+}
+
+[data-theme="dark"] .notif-icon.tint-black,
+[data-theme="dark"] .tag.review {
+  background: rgba(255,255,255,.08);
+  color: var(--ink);
+}
+
+[data-theme="dark"] .action-btn.primary {
+  background: var(--red);
+  border-color: var(--red);
+  color: #ffffff;
+}
+
+[data-theme="dark"] .icon-btn,
+[data-theme="dark"] .toolbar-search,
+[data-theme="dark"] .card-list,
+[data-theme="dark"] .notif-card,
+[data-theme="dark"] .menu-toggle {
+  background: #151211 !important;
+  border-color: var(--line) !important;
+}
+
+[data-theme="dark"] .icon-btn,
+[data-theme="dark"] .icon-btn.confirm svg {
+  color: var(--ink) !important;
+}
+
+[data-theme="dark"] .icon-btn.confirm.is-complete,
+[data-theme="dark"] .icon-btn.confirm.is-complete svg {
+  color: #5cd68a !important;
+}
+
+[data-theme="dark"] .icon-btn.confirm.is-complete:hover,
+[data-theme="dark"] .icon-btn.confirm.is-complete:hover svg {
+  color: #7ce7a3 !important;
+}
+
+[data-theme="dark"] .notif-card {
+  border-bottom-color: var(--line-soft) !important;
+}
+
+[data-theme="dark"] .notif-icon.tint-red,
+[data-theme="dark"] .notif-icon.tint-green,
+[data-theme="dark"] .notif-icon.tint-amber,
+[data-theme="dark"] .notif-icon.tint-black {
+  background: #0d0b0a !important;
+  color: var(--ink) !important;
+}
+
+[data-theme="dark"] .tag.booking {
+  background: rgba(255,255,255,.08) !important;
+  border: 1px solid var(--line-soft);
+  color: var(--ink) !important;
+}
+
 /* ================================================================
    TABS, BUTTONS, ACTION ROW
    ================================================================ */

@@ -83,22 +83,8 @@
         if (state.mobileInfoReturn === 'inbox') showMobileInbox();
         else showMobileConversation();
       });
-      $('.mobile-menu').addEventListener('click', () => {
-        if (typeof window.openSidebar === 'function') {
-          window.openSidebar();
-          return;
-        }
-        const sidebarToggle = document.querySelector('.menu-btn, [data-sidebar-toggle], [aria-controls="sidebar"]');
-        if (sidebarToggle) {
-          sidebarToggle.click();
-          return;
-        }
-        const sidebar = document.getElementById('sidebar') || document.querySelector('.sidebar, .sidebar-shell');
-        const backdrop = document.getElementById('sidebar-backdrop');
-        if (sidebar && backdrop) {
-          sidebar.classList.add('mobile-open');
-          backdrop.classList.add('show');
-        }
+      $('.mobile-chat-settings').addEventListener('click', () => {
+        window.dispatchEvent(new CustomEvent('varoom:chat-settings-requested'));
       });
     }
   }
@@ -106,6 +92,7 @@
   function showMobileInbox() {
     if (!isMobile()) return;
     state.mobileView = 'inbox';
+    document.body.classList.remove('chat-page-context');
     $('.contacts-col').classList.remove('mobile-hidden');
     $('.chat-col').classList.remove('mobile-visible');
     $('.info-col').classList.remove('mobile-visible');
@@ -113,6 +100,7 @@
   function showMobileConversation() {
     if (!isMobile() || !state.activeId) return;
     state.mobileView = 'conversation';
+    document.body.classList.add('chat-page-context');
     $('.contacts-col').classList.add('mobile-hidden');
     $('.info-col').classList.remove('mobile-visible');
     $('.chat-col').classList.add('mobile-visible');
@@ -121,6 +109,7 @@
     if (!isMobile() || !state.activeId) return;
     state.mobileInfoReturn = returnTo || 'conversation';
     state.mobileView = 'info';
+    document.body.classList.add('chat-page-context');
     $('.contacts-col').classList.add('mobile-hidden');
     $('.chat-col').classList.remove('mobile-visible');
     $('.info-col').classList.add('mobile-visible');
@@ -131,11 +120,14 @@
     sheet.innerHTML = '<div class="chat-sheet-head"><span>Add to message</span><button class="chat-sheet-close" type="button" aria-label="Close">×</button></div><div class="chat-sheet-list"></div>';
     sheet.querySelector('.chat-sheet-close').addEventListener('click', () => closeSheet('chatShareSheet'));
     const list = sheet.querySelector('.chat-sheet-list');
-    [
-      ['Share Listing', 'listing', 'i-share'],
+    const options = [
       ['Share Photo', 'photo', 'i-image'],
-      ['Share File', 'file', 'i-paperclip'],
-    ].forEach(([label, kind, icon]) => {
+      ...(state.role === 'host' ? [
+        ['Share File', 'file', 'i-paperclip'],
+        ['Share Listing', 'listing', 'i-share'],
+      ] : []),
+    ];
+    options.forEach(([label, kind, icon]) => {
       const button = document.createElement('button');
       button.type = 'button'; button.className = 'chat-sheet-action';
       button.innerHTML = `<svg class="icon"><use href="#${icon}"/></svg><span></span>`;
@@ -185,6 +177,14 @@
     input.accept = kind === 'photo' ? 'image/*' : '';
     input.dataset.kind = kind;
     input.click();
+  }
+
+  function configureAttachmentControls() {
+    const isHost = state.role === 'host';
+    const fileButton = $('.attach-icons button.share-file');
+    const listingButton = $('.attach-icons button[title="Share listing"]');
+    if (fileButton) fileButton.hidden = !isHost;
+    if (listingButton) listingButton.hidden = !isHost;
   }
 
   function closeSheet(id) {
@@ -317,21 +317,6 @@
     sheet.setAttribute('aria-hidden', 'false');
   }
 
-  function clearInitialPlaceholders() {
-    clear($('#contactList'));
-    clear($('.messages'));
-    clear($('.profile-block'));
-    $('#chatName').textContent = '';
-    $('#statusText').textContent = '';
-    $('#statusDot').style.background = '#c7cbd1';
-    const headerAvatar = $('.chat-header-avatar-wrap .avatar-fallback');
-    if (headerAvatar) {
-      headerAvatar.style.backgroundImage = '';
-      headerAvatar.textContent = '';
-    }
-    document.querySelectorAll('.info-section').forEach((section) => { section.hidden = true; });
-  }
-
   function emptyStateCopy() {
     return state.role === 'host'
       ? { heading: 'No conversations yet', detail: 'When clients reach out, your conversations will appear here.' }
@@ -392,13 +377,20 @@
       const item = document.createElement('li');
       item.className = `contact-item${conversation.id === state.activeId ? ' active' : ''}`;
       item.dataset.conversationId = conversation.id;
-      item.innerHTML = `<div class="avatar-wrap"><div class="avatar-fallback" style="background:#14161c;"></div></div>
+      item.innerHTML = `<div class="avatar-wrap"><div class="avatar-fallback" style="background:#14161c;"></div><span class="status-dot"></span></div>
         <div class="contact-body"><div class="contact-top"><span class="contact-name"></span><span class="contact-time"></span></div>
-        <div class="contact-bottom"><span class="contact-preview"></span></div></div>`;
+        <div class="contact-bottom"><span class="contact-preview"></span></div></div>
+        <button class="conversation-menu" type="button" aria-label="Conversation actions" title="Conversation actions"><svg class="icon"><use href="#i-more"/></svg></button>`;
       setAvatar(item.querySelector('.avatar-fallback'), person);
       item.querySelector('.contact-name').textContent = person.full_name || person.username || '';
       item.querySelector('.contact-time').textContent = formatTime(conversation.lastMessage && conversation.lastMessage.created_at);
       item.querySelector('.contact-preview').textContent = preview;
+      item.querySelector('.conversation-menu').addEventListener('click', (event) => {
+        event.stopPropagation();
+        window.dispatchEvent(new CustomEvent('varoom:conversation-actions-requested', {
+          detail: { conversationId: conversation.id },
+        }));
+      });
       item.addEventListener('click', (event) => {
         if (event.target.closest('.contact-avatar-link')) {
           event.stopPropagation();
@@ -674,7 +666,6 @@
   }
 
   async function start() {
-    clearInitialPlaceholders();
     if (!window.supabaseClient) throw new Error('Supabase client is unavailable');
     const result = await window.supabaseClient.auth.getSession();
     state.session = result.data.session;
@@ -685,6 +676,7 @@
       .from('profiles').select('role').eq('id', state.session.user.id).maybeSingle();
     if (profileResult.error) throw profileResult.error;
     state.role = profileResult.data && profileResult.data.role === 'host' ? 'host' : 'client';
+    configureAttachmentControls();
     const requested = new URLSearchParams(window.location.search).get('c') || new URLSearchParams(window.location.search).get('conversation');
     state.activeId = !isMobile() && requested && state.conversations.some((item) => item.id === requested) ? requested : null;
     renderConversationList();
@@ -710,6 +702,13 @@
       });
     });
     const input = $('.chat-input-area textarea');
+    const updateComposerState = () => {
+      $('.chat-input-area').classList.toggle('has-text', !!input.value.trim());
+      input.style.height = 'auto';
+      input.style.height = `${Math.min(input.scrollHeight, 112)}px`;
+    };
+    input.addEventListener('input', updateComposerState);
+    updateComposerState();
     async function sendText() {
       const content = input.value.trim();
       const pending = state.pendingAttachment;
@@ -744,12 +743,14 @@
         if (state.activeId !== conversationId) {
           if (state.pendingAttachment === pending) {
             input.value = '';
+            updateComposerState();
             state.pendingAttachment = null;
             updateMobilePreview();
           }
           return;
         }
         input.value = '';
+        updateComposerState();
         state.pendingAttachment = null;
         updateMobilePreview();
         const current = $('.messages');
