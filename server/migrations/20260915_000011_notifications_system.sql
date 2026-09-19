@@ -64,16 +64,22 @@ create index if not exists notifications_recipient_unread_idx
 
 alter table public.notifications enable row level security;
 
-create policy if not exists notifications_select_own
+drop policy if exists notifications_select_own on public.notifications;
+
+create policy notifications_select_own
   on public.notifications for select
   using (recipient_user_id = auth.uid());
 
-create policy if not exists notifications_update_own
+drop policy if exists notifications_update_own on public.notifications;
+
+create policy notifications_update_own
   on public.notifications for update
   using (recipient_user_id = auth.uid())
   with check (recipient_user_id = auth.uid());
 
-create policy if not exists notifications_insert_own_or_actor
+drop policy if exists notifications_insert_own_or_actor on public.notifications;
+
+create policy notifications_insert_own_or_actor
   on public.notifications for insert
   with check (
     recipient_user_id = auth.uid()
