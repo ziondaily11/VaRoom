@@ -83,22 +83,8 @@
         if (state.mobileInfoReturn === 'inbox') showMobileInbox();
         else showMobileConversation();
       });
-      $('.mobile-menu').addEventListener('click', () => {
-        if (typeof window.openSidebar === 'function') {
-          window.openSidebar();
-          return;
-        }
-        const sidebarToggle = document.querySelector('.menu-btn, [data-sidebar-toggle], [aria-controls="sidebar"]');
-        if (sidebarToggle) {
-          sidebarToggle.click();
-          return;
-        }
-        const sidebar = document.getElementById('sidebar') || document.querySelector('.sidebar, .sidebar-shell');
-        const backdrop = document.getElementById('sidebar-backdrop');
-        if (sidebar && backdrop) {
-          sidebar.classList.add('mobile-open');
-          backdrop.classList.add('show');
-        }
+      $('.mobile-chat-settings').addEventListener('click', () => {
+        window.dispatchEvent(new CustomEvent('varoom:chat-settings-requested'));
       });
     }
   }
@@ -397,11 +383,18 @@
       item.dataset.conversationId = conversation.id;
       item.innerHTML = `<div class="avatar-wrap"><div class="avatar-fallback" style="background:#14161c;"></div></div>
         <div class="contact-body"><div class="contact-top"><span class="contact-name"></span><span class="contact-time"></span></div>
-        <div class="contact-bottom"><span class="contact-preview"></span></div></div>`;
+        <div class="contact-bottom"><span class="contact-preview"></span></div></div>
+        <button class="conversation-menu" type="button" aria-label="Conversation actions" title="Conversation actions"><svg class="icon"><use href="#i-more"/></svg></button>`;
       setAvatar(item.querySelector('.avatar-fallback'), person);
       item.querySelector('.contact-name').textContent = person.full_name || person.username || '';
       item.querySelector('.contact-time').textContent = formatTime(conversation.lastMessage && conversation.lastMessage.created_at);
       item.querySelector('.contact-preview').textContent = preview;
+      item.querySelector('.conversation-menu').addEventListener('click', (event) => {
+        event.stopPropagation();
+        window.dispatchEvent(new CustomEvent('varoom:conversation-actions-requested', {
+          detail: { conversationId: conversation.id },
+        }));
+      });
       item.addEventListener('click', (event) => {
         if (event.target.closest('.contact-avatar-link')) {
           event.stopPropagation();

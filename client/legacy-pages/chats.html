@@ -135,6 +135,7 @@
   .contact-time{ font-size:10.5px; color:var(--text-gray); white-space:nowrap; flex-shrink:0; }
   .contact-bottom{ display:flex; justify-content:space-between; align-items:center; gap:6px; margin-top:3px; }
   .contact-preview{ font-size:12px; color:var(--text-gray-2); overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:1; -webkit-box-orient:vertical; line-height:1.35; }
+  .conversation-menu{ display:none; }
   .contact-item.active .contact-preview{ color:var(--mint-dark); font-weight:600; }
   .badge{
     flex-shrink:0; min-width:18px; height:18px; border-radius:50%;
@@ -344,20 +345,29 @@
     .compose-btn{ width:40px; height:40px; border-radius:50%; background:var(--mint); border-color:var(--mint); color:var(--rail-bg); }
     .search-box{ transition:border-color .15s; }
     .search-box:focus-within{ border-color:var(--mint); }
-    .contact-list{ padding:0 10px 16px; background:#ffffff; }
+    .contact-list{ padding:0 10px calc(16px + 5.1rem); background:#ffffff; }
     .inbox-empty-state{ padding:44px 22px; }
     .messages.empty-state{ padding:28px 20px; }
-    .contact-item{ min-height:68px; padding:10px 8px; border-bottom:0; border-radius:0; }
+    .contact-item{ min-height:74px; padding:12px 10px; border-bottom:0; border-radius:0; }
     .contact-item:hover,.contact-item.active{ background:transparent; }
     .contact-item:active{ background:#111820; }
     .contact-item .status-dot{ border-color:#050708; }
     .contact-item .badge{ background:var(--mint); color:var(--rail-bg); font-weight:800; }
     .contact-name,.mobile-inbox-title{ color:var(--text-dark); }
-    .contact-name{ max-width:calc(100vw - 150px); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .contact-name{ max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:14px; }
     .contact-preview{ color:var(--text-gray-2); }
-    .contact-time{ color:var(--text-gray); }
-    .contact-preview{ display:block; max-width:calc(100vw - 150px); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .contact-time{ color:var(--text-gray); font-size:11px; }
+    .contact-preview{ display:block; max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:12.5px; }
     .contact-time{ flex-shrink:0; white-space:nowrap; }
+    .conversation-menu{
+      display:flex; flex:0 0 32px; width:32px; height:32px; margin-left:2px;
+      align-items:center; justify-content:center; border:0; border-radius:50%;
+      background:transparent; color:var(--text-gray-2); cursor:pointer;
+    }
+    .conversation-menu:active,.conversation-menu:focus-visible{ background:#eef0f3; outline:none; }
+    .contact-item .avatar-wrap{ margin-right:2px; }
+    .contact-body{ min-width:0; }
+    .contact-top,.contact-bottom{ min-width:0; }
     .chat-col{ display:none; width:100%; background:#ffffff; }
     .chat-col.mobile-visible{ display:flex; min-height:100%; }
     .chat-header{ padding:14px 12px; background:#ffffff; border-bottom-color:var(--border); }
@@ -385,8 +395,14 @@
     .voice-card{ background:#edeef0; }
     .voice-card .play{ background:var(--rail-bg); }
     .voice-wave span{ background:#1c1c1e; }
-    .chat-input-area{ padding:8px 10px 0; background:#ffffff; border-top-color:var(--border); margin-bottom:0; }
-    .chat-input-area textarea{ background:transparent; color:#1c1c1e; border:none; height:18px; padding:0; margin:0; }
+    .chat-input-area{
+      padding:8px 10px calc(8px + env(safe-area-inset-bottom));
+      background:#ffffff; border-top-color:var(--border);
+      margin-bottom:calc(4.5rem + env(safe-area-inset-bottom));
+    }
+    .chat-input-area textarea{
+      background:transparent; color:#1c1c1e; border:none; height:20px; padding:0; margin:0;
+    }
     .chat-input-area textarea::placeholder{ color:#9a9aa0; }
     .input-toolbar{ margin-top:6px; }
     .format-icons{ display:none; }
@@ -402,6 +418,12 @@
       width:34px; height:34px; border-radius:50%;
       background:var(--rail-bg); color:#ffffff; border:none;
     }
+    .chat-input-area{
+      border:1px solid var(--border); border-radius:14px;
+      margin-left:10px; margin-right:10px;
+      padding-left:10px; padding-right:10px;
+      box-shadow:0 1px 2px rgba(20,22,28,.04);
+    }
     .info-col.mobile-visible{
       display:block; width:100%; border-left:0; padding:16px; background:#ffffff; color:var(--text-dark);
     }
@@ -415,10 +437,18 @@
     .info-col.mobile-visible .link-row .l-sub{ color:var(--text-gray); }
     .info-col.mobile-visible .file-row .f-dl{ color:var(--text-gray-2); }
     .info-col.mobile-visible .info-close-btn{ display:flex; }
-    .mobile-inbox-title{ display:block; padding:10px 16px 8px; font-size:19px; line-height:24px; font-weight:600; color:var(--text-dark); }
-    .mobile-inbox-title{ display:flex; align-items:center; gap:14px; }
-    .mobile-menu,.mobile-back{ display:flex; align-items:center; justify-content:center; border:0; background:transparent; cursor:pointer; }
-    .mobile-menu{ width:44px; height:44px; padding:0; margin-left:-8px; color:var(--text-dark); font-size:18px; }
+    .mobile-inbox-title{
+      display:flex; align-items:center; justify-content:space-between;
+      padding:14px 16px 10px; font-size:20px; line-height:24px;
+      font-weight:600; color:var(--text-dark);
+    }
+    .mobile-chat-settings{
+      width:40px; height:40px; display:flex; align-items:center; justify-content:center;
+      border:0; border-radius:50%; background:transparent; color:var(--text-dark);
+      cursor:pointer;
+    }
+    .mobile-chat-settings:active,.mobile-chat-settings:focus-visible{ background:#eef0f3; outline:none; }
+    .mobile-back{ display:flex; align-items:center; justify-content:center; border:0; background:transparent; cursor:pointer; }
     .mobile-back{ width:40px; height:40px; padding:0; color:#0b0b0c; }
     [data-theme="dark"] .search-box,
     [data-theme="dark"] .chat-col.mobile-visible,
@@ -486,8 +516,8 @@
   <!-- CONTACTS -->
   <aside class="contacts-col">
     <div class="mobile-inbox-title">
-      <button class="mobile-menu" aria-label="Menu" title="Menu"><svg class="icon"><use href="#i-menu"/></svg></button>
       Messages
+      <button class="mobile-chat-settings" type="button" aria-label="Chat settings" title="Chat settings"><svg class="icon"><use href="#i-gear"/></svg></button>
     </div>
     <div class="search-bar">
       <div class="search-box">
@@ -628,7 +658,7 @@
     </div>
 
     <div class="chat-input-area">
-      <textarea></textarea>
+      <textarea placeholder="Write a message..." aria-label="Write a message"></textarea>
       <div class="input-toolbar">
         <div class="format-icons">
           <button class="fmt-b">B</button>
