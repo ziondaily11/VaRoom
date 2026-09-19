@@ -1419,13 +1419,11 @@
       });
     }
 
-    // Falls back to 'system' if the profile row has no theme_preference set
-    // yet (e.g. an older account row, or the column not yet backfilled) —
-    // otherwise this silently sets data-theme="undefined" and the page
-    // gets stuck on the light-mode default regardless of the real setting.
-    const savedTheme = profile.theme_preference || 'system';
+    // The head bootstrap has already applied the app-wide persisted theme.
+    // Settings only reflects that choice here; it must not reapply a
+    // potentially stale profile value while the page is mounting.
+    const savedTheme = localStorage.getItem('varoom_theme') || 'system';
     setActiveAppearancePill(savedTheme);
-    applyTheme(savedTheme);
 
     appearanceOptions.forEach(function(pill){
       pill.addEventListener('click', async function(){
