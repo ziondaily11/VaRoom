@@ -189,6 +189,7 @@ export default function LegacyPage({ title, markup, scripts }) {
         src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"
         strategy="beforeInteractive"
       />
+      <Script src="/js/varoom-mobile-nav.js" strategy="afterInteractive" />
       <main ref={containerRef} dangerouslySetInnerHTML={{ __html: markup }} />
     </>
   );
