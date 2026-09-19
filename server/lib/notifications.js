@@ -33,6 +33,10 @@ async function createNotification({
   if (!type || !title || !message) throw new Error('Notification type, title and message are required');
 
   const payload = {
+    // user_id remains populated for production databases created from the
+    // legacy notification schema. It is the same recipient as the canonical
+    // recipient_user_id field.
+    user_id: recipientUserId,
     recipient_user_id: recipientUserId,
     actor_user_id: actorUserId,
     type,
@@ -57,6 +61,7 @@ async function createNotification({
     conflictTarget: 'event_key',
     eventKey: payload.event_key,
     type: payload.type,
+    recipientResolved: Boolean(payload.user_id),
   });
   const { data, error } = await supabaseAdmin
     .from('notifications')
