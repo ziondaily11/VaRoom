@@ -189,6 +189,15 @@
   .load-more{ min-width:120px; padding:0 1rem; }
   .card-video{ width:100%; height:100%; object-fit:cover; display:block; }
   .card-video video{ width:100%; height:100%; object-fit:cover; display:block; background:var(--paper); }
+  .media-loading-state{
+    display:grid; place-items:center; aspect-ratio:4/3; background:#050505;
+  }
+  .media-loading-state::before{
+    content:''; width:1.5rem; height:1.5rem; border:2px solid rgba(255,255,255,.2);
+    border-top-color:rgba(255,255,255,.85); border-radius:50%;
+    animation:varoom-video-spin .8s linear infinite;
+  }
+  @keyframes varoom-video-spin{ to{ transform:rotate(360deg); } }
   .mobile-marketplace-tools, .mobile-filter-panel, .mobile-bottom-nav, .mobile-floating-filter{ display:none; }
 
   @media (max-width: 1200px) and (min-width: 861px){
@@ -540,7 +549,7 @@
   function renderCard(listing){
     const isBookmarked = bookmarkedIds.has(listing.id);
     const price = formatPrice(listing.listing_booking_details || listing.booking_details);
-    const mediaHtml = imageHtml(listing);
+    const mediaHtml = '<div class="media-loading-state" role="status" aria-label="Loading media"></div>';
     const detail = Array.isArray(listing.listing_booking_details)
       ? (listing.listing_booking_details[0] || {})
       : (listing.listing_booking_details || {});
@@ -603,6 +612,8 @@
       }
       if (!playback || !playback.url) {
         element.classList.remove('is-loading');
+        const pending = element.querySelector('.media-loading-state');
+        if (pending) pending.outerHTML = imageHtml(allListings.find(function(listing){ return listing.id === listingId; }) || {});
         return;
       }
       const mediaNodes = Array.from(element.children).filter(function(child){
@@ -632,6 +643,8 @@
     } catch (error) {
       element.classList.remove('is-loading');
       console.warn('Marketplace video preview unavailable:', error.message);
+      const pending = element.querySelector('.media-loading-state');
+      if (pending) pending.outerHTML = imageHtml(allListings.find(function(listing){ return listing.id === listingId; }) || {});
     }
   }
 

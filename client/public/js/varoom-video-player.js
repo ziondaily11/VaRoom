@@ -42,6 +42,10 @@
     wrapper.classList.toggle('is-error', Boolean(error));
     wrapper.classList.toggle('is-buffering', !error && Boolean(message));
     wrapper.querySelector('.varoom-video-status-text').textContent = message || '';
+    wrapper.querySelector('.varoom-video-status').setAttribute(
+      'aria-label',
+      error ? (message || 'Video unavailable') : 'Loading video'
+    );
   }
 
   function updatePlayButton(wrapper, video) {
@@ -338,7 +342,7 @@
     wrapper.appendChild(video);
     wrapper._varoomVideoUrl = video.dataset.videoUrl || video.getAttribute('src') || '';
     wrapper.insertAdjacentHTML('beforeend',
-      '<div class="varoom-video-status" role="status"><span class="varoom-video-status-text"></span><br><button type="button" class="varoom-video-error-retry">Retry</button></div>' +
+      '<div class="varoom-video-status" role="status"><span class="varoom-video-status-text"></span><button type="button" class="varoom-video-error-retry">Retry</button></div>' +
       '<button type="button" class="varoom-video-control varoom-video-mobile-mute" data-video-action="mobile-mute" aria-label="Unmute video"></button>' +
       '<div class="varoom-video-controls" aria-label="Video controls">' +
         '<button type="button" class="varoom-video-control" data-video-action="play" aria-label="Play video"></button>' +
@@ -439,7 +443,6 @@
       stopOtherVideos(video);
       wrapper.classList.add('is-playing');
       wrapper.classList.remove('is-ended');
-      setStatus(wrapper, '', false);
       updatePlayButton(wrapper, video);
     });
     video.addEventListener('pause', function () {
@@ -455,11 +458,18 @@
     video.addEventListener('loadedmetadata', function () {
       updateProgress(0);
       timeLabel.textContent = '0:00 / ' + formatTime(video.duration);
+    });
+    video.addEventListener('waiting', function () {
+      wrapper.classList.add('is-buffering');
+    });
+    video.addEventListener('stalled', function () {
+      wrapper.classList.add('is-buffering');
+    });
+    video.addEventListener('canplay', function () {
+      wrapper.classList.add('is-ready');
+      wrapper.classList.remove('is-buffering');
       setStatus(wrapper, '', false);
     });
-    video.addEventListener('waiting', function () { setStatus(wrapper, 'Loading…', false); });
-    video.addEventListener('stalled', function () { setStatus(wrapper, 'Loading…', false); });
-    video.addEventListener('canplay', function () { setStatus(wrapper, '', false); });
     video.addEventListener('ended', function () {
       wrapper.classList.remove('is-playing');
       wrapper.classList.add('is-ended');
@@ -475,6 +485,8 @@
     updatePlayButton(wrapper, video);
     updateMuteButton();
     updateFullscreenButton(wrapper);
+    wrapper.classList.add('is-buffering');
+    wrapper.querySelector('.varoom-video-status').setAttribute('aria-label', 'Loading video');
     observe(video, wrapper);
   }
 

@@ -178,6 +178,11 @@
   height: 100%;
   object-fit: cover;
   background: #000;
+  transition: opacity .16s ease;
+}
+
+.varoom-video-player.is-buffering:not(.is-ready) > video {
+  opacity: 0;
 }
 
 .card-video .varoom-video-player {
@@ -334,11 +339,12 @@
   inset: 50% auto auto 50%;
   transform: translate(-50%, -50%);
   display: none;
-  padding: .45rem .7rem;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
   border-radius: 999px;
-  color: #fff;
-  background: rgba(0, 0, 0, .68);
-  font-size: .8rem;
+  color: transparent;
+  background: transparent;
   text-align: center;
   pointer-events: none;
 }
@@ -351,14 +357,18 @@
 .varoom-video-player.is-buffering .varoom-video-status::before {
   content: '';
   display: inline-block;
-  width: .8rem;
-  height: .8rem;
-  margin-right: .4rem;
+  width: 1.5rem;
+  height: 1.5rem;
+  margin: .25rem;
   border: 2px solid rgba(255, 255, 255, .45);
   border-top-color: #fff;
   border-radius: 50%;
   vertical-align: -.15rem;
   animation: varoom-video-spin .8s linear infinite;
+}
+
+.varoom-video-player.is-buffering .varoom-video-status-text {
+  display: none;
 }
 
 .varoom-video-error-retry {

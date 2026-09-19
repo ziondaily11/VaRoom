@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/router";
+import VideoMedia from "../components/VideoMedia";
 import {
   MapPin,
   Star,
@@ -66,14 +67,13 @@ function ListingCard({ listing }) {
     >
       <div style={{ position: "relative", aspectRatio: "4 / 3" }}>
         {listing.videoUrl ? (
-          <video
+          <VideoMedia
             src={listing.videoUrl}
-            poster={listing.image || undefined}
             muted
             playsInline
             preload="metadata"
             controls
-            aria-label={`${listing.title} video`}
+            title={`${listing.title} video`}
             style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
           />
         ) : (

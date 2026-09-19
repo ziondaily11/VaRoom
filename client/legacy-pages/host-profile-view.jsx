@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/router";
+import VideoMedia from "../components/VideoMedia";
 import {
   Home,
   Compass,
@@ -502,13 +503,13 @@ export default function HostProfileView() {
                 >
                   <div style={{ position: "relative", height: 140, background: "#232323" }}>
                     {l.videoUrl ? (
-                      <video
+                      <VideoMedia
                         src={l.videoUrl}
                         muted
                         playsInline
                         preload="metadata"
                         controls
-                        aria-label={`${l.title} video`}
+                        title={`${l.title} video`}
                         style={{ width: "100%", height: "100%", objectFit: "cover" }}
                       />
                     ) : l.img ? (
