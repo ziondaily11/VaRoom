@@ -155,6 +155,7 @@ const pageTemplates = {
   '/map': 'map.html',
   '/marketplace': 'marketplace.html',
   '/notifications': 'notifications.html',
+  '/chat-settings': 'chat-settings.html',
   '/onboarding': 'onboarding.html',
   '/payments': 'payments.html',
   '/privacy': 'privacy.html',

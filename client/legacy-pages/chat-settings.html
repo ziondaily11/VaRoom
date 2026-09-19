@@ -267,7 +267,7 @@ html, body { margin: 0; background: var(--bg, #fff); }
 </head>
 <body>
 <div id="chat-settings-root"></div>
-
+<script src="/js/supabase-client.js"></script>
 <script>
 /* ==========================================================================
    VaRoom — Chat Settings (frontend only)
@@ -387,7 +387,6 @@ html, body { margin: 0; background: var(--bg, #fff); }
     sw.addEventListener('click', function () {
       set(sw.getAttribute('aria-checked') !== 'true');
     });
-    // Whole row is tappable for mouse/touch; the switch remains the one keyboard stop.
     row.addEventListener('click', function (e) {
       if (e.target !== sw) sw.click();
     });
@@ -401,7 +400,6 @@ html, body { margin: 0; background: var(--bg, #fff); }
     };
   }
 
-  /* ── ChatSettingsNavigationRow ─────────────────────────────────────────── */
   function ChatSettingsNavigationRow(opts) {
     var t = ChatSettingsRowText(opts.label, opts.description);
     var btn = h('button', {
@@ -419,7 +417,6 @@ html, body { margin: 0; background: var(--bg, #fff); }
     return btn;
   }
 
-  /* ── ChatSettings ──────────────────────────────────────────────────────── */
   function mountChatSettings(container, options) {
     options = options || {};
     var role = options.role === 'client' ? 'client' : 'host';
@@ -449,7 +446,7 @@ html, body { margin: 0; background: var(--bg, #fff); }
 
       var awayMessage = ChatSettingsNavigationRow({
         label: 'Away message',
-        description: COPY.awayMessage,
+        description: state.awayMessage || COPY.awayMessage,
         onClick: function () { if (options.onEditAwayMessage) options.onEditAwayMessage(); }
       });
 
@@ -481,7 +478,6 @@ html, body { margin: 0; background: var(--bg, #fff); }
 
     function render() {
       root.textContent = '';
-      // Away Mode is HOST ONLY — clients never get the section in the DOM.
       if (role === 'host') root.appendChild(awayModeSection());
       root.appendChild(notificationsSection());
       root.appendChild(privacySection());
@@ -501,7 +497,6 @@ html, body { margin: 0; background: var(--bg, #fff); }
     };
   }
 
-  /* ── ChatSettingsPage (mobile wrapper: header + ChatSettings) ──────────── */
   function mountChatSettingsPage(container, options) {
     options = options || {};
 
@@ -513,7 +508,6 @@ html, body { margin: 0; background: var(--bg, #fff); }
     });
     back.addEventListener('click', function () {
       if (options.onBack) return options.onBack();
-      // Fallback: previous screen. Swap for VaRoom's existing back handler.
       if (global.history.length > 1) global.history.back();
     });
 
@@ -531,42 +525,174 @@ html, body { margin: 0; background: var(--bg, #fff); }
   }
 
   global.VaroomChatSettings = {
-    mount: mountChatSettings,          // use this inside the desktop Information panel
-    mountPage: mountChatSettingsPage   // use this for the mobile full-screen page
+    mount: mountChatSettings,
+    mountPage: mountChatSettingsPage
   };
 })(window);
-
 </script>
-
 <script>
-  // WIRE: role. Placeholder reads ?role=client for previewing; default is host.
-  var role = new URLSearchParams(location.search).get('role') === 'client' ? 'client' : 'host';
+  (function () {
+    var query = new URLSearchParams(location.search || '');
+    var returnTo = query.get('returnTo') || '/chat';
+    var storageKey = 'varoom:chat-settings';
+    var defaults = {
+      awayMode: false,
+      messageNotifications: true,
+      messagePreviews: true,
+      readReceipts: true,
+      typingIndicators: true,
+      awayMessage: '\u201cI\u2019m currently away and will respond as soon as I can.\u201d'
+    };
 
-  VaroomChatSettings.mountPage(document.getElementById('chat-settings-root'), {
-    role: role,
-
-    // WIRE: seed with the user's saved settings. Keys:
-    // awayMode, messageNotifications, messagePreviews, readReceipts, typingIndicators
-    initial: {},
-
-    // WIRE: persist a changed toggle here.
-    onChange: function (key, value) {
-      // console.log('setting changed', key, value);
-    },
-
-    // WIRE: use VaRoom's existing back navigation (default is history.back()).
-    // onBack: function () { location.href = 'chats.html'; },
-
-    // WIRE: open the away-message editor.
-    onEditAwayMessage: function () {
-      // placeholder
-    },
-
-    // WIRE: navigate to the archived conversations page.
-    onOpenArchived: function () {
-      // placeholder
+    function readStored() {
+      try {
+        var raw = localStorage.getItem(storageKey);
+        if (!raw) return {};
+        return JSON.parse(raw) || {};
+      } catch (error) {
+        return {};
+      }
     }
-  });
+
+    function writeStored(next) {
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(next));
+      } catch (error) {}
+    }
+
+    function boolOr(defaultValue, value) {
+      if (typeof value === 'boolean') return value;
+      return defaultValue;
+    }
+
+    function resolveRole(profileRole) {
+      if (profileRole === 'client' || profileRole === 'host') return profileRole;
+      return query.get('role') === 'client' ? 'client' : 'host';
+    }
+
+    function ensureDescription(next) {
+      var message = next && typeof next.awayMessage === 'string' ? next.awayMessage.trim() : '';
+      if (!message) return defaults.awayMessage;
+      return message;
+    }
+
+    async function loadProfile() {
+      if (!window.supabaseClient || !window.supabaseClient.auth) return { role: resolveRole(), settings: readStored() };
+      try {
+        var sessionResult = await window.supabaseClient.auth.getSession();
+        var session = sessionResult && sessionResult.data ? sessionResult.data.session : null;
+        if (!session || !session.user) return { role: resolveRole(), settings: readStored() };
+        var result = await window.supabaseClient.from('profiles').select('role, away_mode').eq('id', session.user.id).maybeSingle();
+        var profile = result && result.data ? result.data : {};
+        var stored = readStored();
+        var savedAwayMessage = defaults.awayMessage;
+        try {
+          var awayMessageResult = await window.supabaseClient.from('profiles').select('away_message').eq('id', session.user.id).maybeSingle();
+          if (awayMessageResult && awayMessageResult.data && typeof awayMessageResult.data.away_message === 'string' && awayMessageResult.data.away_message.trim()) {
+            savedAwayMessage = awayMessageResult.data.away_message.trim();
+          }
+        } catch (error) {}
+        var merged = Object.assign({}, defaults, stored, {
+          awayMode: typeof profile.away_mode === 'boolean' ? profile.away_mode : (typeof stored.awayMode === 'boolean' ? stored.awayMode : false),
+          messageNotifications: typeof stored.messageNotifications === 'boolean' ? stored.messageNotifications : true,
+          messagePreviews: typeof stored.messagePreviews === 'boolean' ? stored.messagePreviews : true,
+          readReceipts: typeof stored.readReceipts === 'boolean' ? stored.readReceipts : true,
+          typingIndicators: typeof stored.typingIndicators === 'boolean' ? stored.typingIndicators : true,
+          awayMessage: ensureDescription({ awayMessage: savedAwayMessage })
+        });
+        var profileRole = resolveRole(profile.role);
+        return { role: profileRole, settings: merged };
+      } catch (error) {
+        return { role: resolveRole(), settings: readStored() };
+      }
+    }
+
+    function persistSetting(key, value) {
+      var stored = readStored();
+      stored[key] = value;
+      writeStored(stored);
+    }
+
+    async function persistAwayMode(value) {
+      var sessionResult = window.supabaseClient && window.supabaseClient.auth ? await window.supabaseClient.auth.getSession() : { data: { session: null } };
+      var session = sessionResult && sessionResult.data ? sessionResult.data.session : null;
+      if (session && session.user && window.supabaseClient) {
+        try {
+          await window.supabaseClient.from('profiles').update({ away_mode: value }).eq('id', session.user.id);
+        } catch (error) {
+          // Ignore unsupported legacy schema and keep the value in local storage.
+        }
+      }
+      persistSetting('awayMode', value);
+    }
+
+    async function persistAwayMessage(value) {
+      var clean = String(value || '').trim();
+      var sessionResult = window.supabaseClient && window.supabaseClient.auth ? await window.supabaseClient.auth.getSession() : { data: { session: null } };
+      var session = sessionResult && sessionResult.data ? sessionResult.data.session : null;
+      if (session && session.user && window.supabaseClient) {
+        try {
+          await window.supabaseClient.from('profiles').update({ away_message: clean || null }).eq('id', session.user.id);
+        } catch (error) {
+          // Ignore unsupported legacy schema and keep the value in local storage.
+        }
+      }
+      persistSetting('awayMessage', clean || defaults.awayMessage);
+    }
+
+    async function initialize() {
+      var loaded = await loadProfile();
+      var mounted = VaroomChatSettings.mountPage(document.getElementById('chat-settings-root'), {
+        role: loaded.role,
+        initial: loaded.settings,
+        onChange: function (key, value) {
+          if (key === 'awayMode') {
+            persistAwayMode(value);
+            return;
+          }
+          if (key === 'awayMessage') {
+            persistAwayMessage(value);
+            return;
+          }
+          persistSetting(key, value);
+        },
+        onBack: function () {
+          if (returnTo && returnTo !== '/chat-settings') {
+            window.location.assign(returnTo);
+            return;
+          }
+          if (document.referrer && document.referrer.indexOf('/chat') !== -1) {
+            window.location.assign('/chat');
+            return;
+          }
+          window.history.back();
+        },
+        onEditAwayMessage: function () {
+          var nextValue = window.prompt('Edit away message', loaded.settings.awayMessage || defaults.awayMessage);
+          if (nextValue === null) return;
+          var cleanValue = String(nextValue || '').trim();
+          if (!cleanValue) {
+            cleanValue = defaults.awayMessage;
+          }
+          loaded.settings.awayMessage = cleanValue;
+          persistAwayMessage(cleanValue);
+          var awayRow = document.querySelector('.cs-row--nav');
+          if (awayRow) {
+            var description = awayRow.querySelector('.cs-row__desc');
+            if (description) description.textContent = cleanValue;
+          }
+        },
+        onOpenArchived: function () {
+          window.location.assign('/chat');
+        }
+      });
+      if (mounted && mounted.settings) {
+        mounted.settings.setRole(loaded.role);
+      }
+    }
+
+    initialize();
+  })();
 </script>
 </body>
 </html>

@@ -94,6 +94,12 @@
         if (state.mobileInfoReturn === 'inbox') showMobileInbox();
         else showMobileConversation();
       });
+      const openChatSettings = () => {
+        const currentPath = `${window.location.pathname}${window.location.search || ''}`;
+        const target = `/chat-settings?returnTo=${encodeURIComponent(currentPath)}`;
+        window.location.assign(target);
+      };
+      window.addEventListener('varoom:chat-settings-requested', openChatSettings);
       $('.mobile-chat-settings').addEventListener('click', () => {
         window.dispatchEvent(new CustomEvent('varoom:chat-settings-requested'));
       });
