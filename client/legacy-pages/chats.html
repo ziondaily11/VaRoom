@@ -396,30 +396,37 @@
     .voice-card .play{ background:var(--rail-bg); }
     .voice-wave span{ background:#1c1c1e; }
     .chat-input-area{
+      display:grid; grid-template-columns:36px minmax(0,1fr) 36px;
+      grid-template-rows:auto auto; align-items:center; column-gap:8px;
       padding:8px 10px calc(8px + env(safe-area-inset-bottom));
       background:#ffffff; border-top-color:var(--border);
       margin-bottom:env(safe-area-inset-bottom);
     }
     .chat-input-area textarea{
+      grid-column:2; grid-row:1; width:100%; min-width:0;
       background:transparent; color:#1c1c1e; border:none; height:20px; padding:0; margin:0;
     }
     .chat-input-area textarea::placeholder{ color:#9a9aa0; }
-    .input-toolbar{ margin-top:6px; }
+    .input-toolbar{ display:contents; }
     .format-icons{ display:none; }
-    .attach-icons{ width:100%; justify-content:space-between; }
+    .attach-icons{ display:contents; }
     .attach-icons button.share-photo,
     .attach-icons button.share-file,
     .attach-icons button[title="Share listing"]{ display:none; }
     .attach-icons .mobile-plus{
-      display:flex; width:34px; height:34px; border-radius:50%;
+      display:flex; grid-column:1; grid-row:1; width:36px; height:36px; border-radius:50%;
       background:#eef8f4; border:1.5px solid var(--mint); color:var(--mint-dark);
     }
     .attach-icons .send-message{
       display:none;
-      width:34px; height:34px; border-radius:50%;
+      grid-column:3; grid-row:1; width:36px; height:36px; border-radius:50%;
       background:var(--rail-bg); color:#ffffff; border:none;
     }
     .chat-input-area.has-text .attach-icons .send-message{ display:flex; }
+    .mobile-preview{
+      grid-column:1 / -1; grid-row:2; width:100%; min-width:0;
+      margin:8px 0 0;
+    }
     .chat-input-area{
       border:1px solid var(--border); border-radius:14px;
       margin-left:10px; margin-right:10px;
