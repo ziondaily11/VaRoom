@@ -4,6 +4,7 @@
   var notifications = [];
   var currentFilter = 'all';
   var currentUser = null;
+  var currentRole = 'client';
   document.querySelectorAll('.card-list').forEach(function (list) {
     list.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--text-muted);">Loading notifications...</div>';
   });
@@ -65,16 +66,39 @@
   }
 
   function notificationTarget(notification) {
+    if (currentRole === 'host' &&
+        (notification.related_entity_type === 'booking' || notification.booking_id) &&
+        (notification.related_entity_id || notification.booking_id)) {
+      return '/bookings?booking=' + encodeURIComponent(notification.related_entity_id || notification.booking_id);
+    }
     if (notification.related_entity_type === 'conversation' && notification.related_entity_id) {
       return '/chats?c=' + encodeURIComponent(notification.related_entity_id);
     }
     if (notification.related_entity_type === 'review' && notification.related_entity_id) {
       return '/profile';
     }
-    if ((notification.related_entity_type === 'booking' || notification.booking_id) && (notification.related_entity_id || notification.booking_id)) {
+    if ((notification.related_entity_type === 'booking' || notification.booking_id) &&
+        (notification.related_entity_id || notification.booking_id)) {
       return '/booking-approved?id=' + encodeURIComponent(notification.related_entity_id || notification.booking_id);
     }
     return null;
+  }
+
+  function searchableText(notification, details) {
+    var metadata = notification.metadata && typeof notification.metadata === 'object' ? notification.metadata : {};
+    return [
+      notification.title,
+      notification.message,
+      notification.type,
+      details.title,
+      details.tag,
+      metadata.booking_name,
+      metadata.booking_reference,
+      metadata.listing_name,
+      metadata.property_name,
+      metadata.guest_name,
+      Object.keys(metadata).map(function (key) { return metadata[key]; }).join(' ')
+    ].filter(Boolean).join(' ').toLowerCase();
   }
 
   function filteredNotifications() {
@@ -83,9 +107,7 @@
       var details = detailsFor(notification.type);
       var matchesFilter = currentFilter === 'all' ||
         (currentFilter === 'booking' && details.category === 'booking');
-      var matchesSearch = !search ||
-        ((notification.message || notification.title || '').toLowerCase().indexOf(search) !== -1) ||
-        details.title.toLowerCase().indexOf(search) !== -1;
+      var matchesSearch = !search || searchableText(notification, details).indexOf(search) !== -1;
       return matchesFilter && matchesSearch;
     });
   }
@@ -98,7 +120,7 @@
     return '<div class="notif-card' + (notification.read ? '' : ' unread') + '" data-notification-id="' + escapeHtml(notification.id) + '"' + clickable + '>' +
       '<div class="notif-icon ' + details.tint + '">' + details.icon + '</div>' +
       '<div class="notif-body">' +
-        '<div class="notif-top"><span class="notif-title">' + escapeHtml(title) + '</span><span class="tag booking">' + details.tag + '</span></div>' +
+        '<div class="notif-top"><span class="notif-title">' + escapeHtml(title) + '</span><span class="tag ' + details.category + '">' + escapeHtml(details.tag) + '</span></div>' +
         '<p class="notif-desc">' + escapeHtml(notification.message || title) + '</p>' +
         '<div class="notif-actions" data-actions>' +
           (target ? '<button class="action-btn primary" type="button">Open</button>' : '') +
@@ -137,6 +159,7 @@
   function render() {
     var grouped = { Today: [], Yesterday: [], Older: [] };
     var visibleNotifications = filteredNotifications();
+    var hasSearch = document.querySelector('.toolbar-search input').value.trim().length > 0;
     visibleNotifications.forEach(function (notification) {
       grouped[groupFor(notification.created_at)].push(notification);
     });
@@ -150,7 +173,7 @@
       sections = document.querySelectorAll('.section');
     }
     if (!visibleNotifications.length) {
-      showState('Nothing here yet.');
+      showState(hasSearch ? 'No notifications found' : 'Nothing here yet.');
       updateCounts();
       return;
     }
@@ -165,12 +188,12 @@
     });
 
     document.querySelectorAll('.notif-card[data-notification-id]').forEach(function (card) {
-      card.addEventListener('click', function () {
+      card.addEventListener('click', async function () {
         var notification = notifications.find(function (item) {
           return item.id === card.getAttribute('data-notification-id');
         });
         var target = card.getAttribute('data-target');
-        if (notification && !notification.read) markRead(notification);
+        if (notification && !notification.read) await markRead(notification);
         if (target) window.location.href = target;
       });
     });
@@ -229,6 +252,7 @@
     }
     var profile = profileResult.data || { role: 'client' };
     var role = profile.role === 'host' ? 'host' : 'client';
+    currentRole = role;
     if (window.VaroomSidebar) {
       window.VaroomSidebar.mount({
         container: document.getElementById('sidebar'),

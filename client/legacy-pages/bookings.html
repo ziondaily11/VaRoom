@@ -953,6 +953,22 @@
 
           updateHostBookingCounts();
           renderHostBookingPanel('pending');
+          const requestedBookingId = new URLSearchParams(window.location.search).get('booking');
+          if (isHost && requestedBookingId) {
+            const requestedBooking = (data || []).find(function(booking){ return booking.id === requestedBookingId; });
+            if (requestedBooking) {
+              const requestedStatus = requestedBooking.status === 'approved' ? 'confirmed' : requestedBooking.status;
+              const requestedTab = document.querySelector('#host-bookings-view .tab[data-tab="' + requestedStatus + '"]');
+              if (requestedTab) requestedTab.click();
+              renderHostBookingDetail(requestedBooking);
+              const requestedCard = document.querySelector('.host-booking-card[data-booking-id="' + requestedBookingId + '"]');
+              if (requestedCard) {
+                requestedCard.classList.add('selected');
+                requestedCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }
+              hostBookingDetail.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+          }
         } catch (err) {
           console.error('Failed to load host bookings:', err);
           document.getElementById('pending-panel').innerHTML = '<p class="state-msg">Couldn\'t load bookings. Please try again.</p>';

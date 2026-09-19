@@ -251,6 +251,38 @@
   color: #ffffff;
 }
 
+[data-theme="dark"] .icon-btn,
+[data-theme="dark"] .toolbar-search,
+[data-theme="dark"] .card-list,
+[data-theme="dark"] .notif-card,
+[data-theme="dark"] .menu-toggle {
+  background: #151211 !important;
+  border-color: var(--line) !important;
+}
+
+[data-theme="dark"] .icon-btn,
+[data-theme="dark"] .icon-btn.confirm svg {
+  color: var(--ink) !important;
+}
+
+[data-theme="dark"] .notif-card {
+  border-bottom-color: var(--line-soft) !important;
+}
+
+[data-theme="dark"] .notif-icon.tint-red,
+[data-theme="dark"] .notif-icon.tint-green,
+[data-theme="dark"] .notif-icon.tint-amber,
+[data-theme="dark"] .notif-icon.tint-black {
+  background: #0d0b0a !important;
+  color: var(--ink) !important;
+}
+
+[data-theme="dark"] .tag.booking {
+  background: rgba(255,255,255,.08) !important;
+  border: 1px solid var(--line-soft);
+  color: var(--ink) !important;
+}
+
 /* ================================================================
    TABS, BUTTONS, ACTION ROW
    ================================================================ */
