@@ -4,9 +4,21 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Notifications · VaRoom</title>
+<script>
+  (function(){
+    try{
+      var saved = localStorage.getItem('varoom_theme') || 'system';
+      var resolved = saved === 'system'
+        ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+        : saved;
+      document.documentElement.setAttribute('data-theme', resolved);
+    }catch(e){}
+  })();
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;0,9..144,900&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="js/varoom-sidebar.css">
 <style>
   :root{
     --black:#14141a;
@@ -42,115 +54,18 @@
   .icon-sm{width:15px;height:15px;flex-shrink:0;}
 
   /* ---------- Layout ---------- */
-  .app{display:flex;height:100vh;overflow:hidden;}
-
-  /* ---------- Sidebar ---------- */
-  .sidebar{
-    width:266px;
-    min-width:266px;
-    background:var(--white);
-    border-right:1px solid var(--border);
-    display:flex;
-    flex-direction:column;
-    padding:22px 16px 16px;
-    overflow-y:auto;
+  .app-shell{
+    display:grid;
+    grid-template-columns: 280px minmax(0, 1fr);
+    height:100vh;
+    overflow:hidden;
   }
-  .brand{
-    display:flex;
-    align-items:center;
-    gap:9px;
-    padding:0 6px;
-    margin-bottom:20px;
+  @media (max-width:860px){
+    .app-shell{ grid-template-columns:1fr; }
   }
-  .brand-mark{
-    width:28px;height:28px;border-radius:8px;
-    background:var(--black);
-    display:flex;align-items:center;justify-content:center;
-    color:var(--red);
-    flex-shrink:0;
-  }
-  .brand-name{font-size:19px;font-weight:800;letter-spacing:-0.02em;}
-  .brand-name .va{color:var(--red);}
-  .brand-name .room{color:var(--black);}
-
-  .search-box{
-    display:flex;align-items:center;gap:8px;
-    background:var(--grey-bg);
-    border:1px solid var(--border);
-    border-radius:var(--radius-sm);
-    padding:9px 10px;
-    margin-bottom:14px;
-  }
-  .search-box input{
-    border:none;background:transparent;outline:none;
-    font-size:13.5px;width:100%;color:var(--text);
-  }
-  .search-box input::placeholder{color:var(--text-muted);}
-  .search-box svg{color:var(--text-muted);}
-
-  .btn-cta{
-    display:flex;align-items:center;justify-content:center;gap:7px;
-    background:var(--black);color:var(--white);
-    border:none;border-radius:var(--radius-sm);
-    padding:10px 12px;
-    font-size:13.5px;font-weight:600;
-    cursor:pointer;
-    margin-bottom:18px;
-    transition:background .15s ease;
-  }
-  .btn-cta:hover{background:#000;}
-  .btn-cta svg{color:var(--red);}
-
-  .nav-group{margin-bottom:16px;}
-  .nav-label{
-    font-size:11px;font-weight:600;color:var(--text-muted);
-    letter-spacing:.05em;text-transform:uppercase;
-    padding:0 10px;margin-bottom:6px;
-  }
-  .nav-item{
-    display:flex;align-items:center;gap:11px;
-    padding:9px 10px;
-    border-radius:var(--radius-sm);
-    color:var(--text);
-    font-size:13.8px;font-weight:500;
-    cursor:pointer;
-    margin-bottom:2px;
-    border-left:3px solid transparent;
-    transition:background .12s ease;
-  }
-  .nav-item svg{color:var(--text-muted);}
-  .nav-item:hover{background:var(--grey-bg);}
-  .nav-item.active{
-    background:var(--red-soft);
-    color:var(--black);
-    font-weight:600;
-    border-left:3px solid var(--red);
-  }
-  .nav-item.active svg{color:var(--red);}
-  .nav-item.danger:hover{background:var(--red-soft);}
-  .nav-item.danger:hover svg,.nav-item.danger:hover{color:var(--red);}
-
-  .sidebar-footer{
-    margin-top:auto;
-    padding-top:14px;
-    border-top:1px solid var(--border);
-  }
-  .user-card{
-    display:flex;align-items:center;gap:10px;
-    padding:8px 10px;
-  }
-  .avatar{
-    width:34px;height:34px;border-radius:50%;
-    background:var(--black);color:var(--white);
-    display:flex;align-items:center;justify-content:center;
-    font-size:13px;font-weight:700;flex-shrink:0;
-  }
-  .user-meta{line-height:1.25;}
-  .user-name{font-size:13.5px;font-weight:600;}
-  .user-role{font-size:11.5px;color:var(--text-muted);}
 
   /* ---------- Main ---------- */
-  .main{flex:1;overflow-y:auto;}
+  .main{flex:1;overflow-y:auto;height:100vh;min-width:0;}
   .main-inner{max-width:980px;margin:0 auto;padding:28px 32px 60px;}
 
   .page-header{
@@ -259,31 +174,9 @@
   .dot{width:8px;height:8px;border-radius:50%;background:var(--red);}
 
   /* ---------- Mobile ---------- */
-  /* No bottom tab bar by design — this is a website, not a native app;
-     navigation on small screens lives entirely in the hamburger drawer. */
   .menu-toggle{display:none;}
-  .drawer-close{display:none;}
-  .overlay{display:none;}
 
-  @media (max-width:900px){
-    .sidebar{
-      position:fixed;top:0;left:0;bottom:0;z-index:40;
-      width:82vw;max-width:300px;
-      transform:translateX(-100%);
-      transition:transform .22s ease;
-      box-shadow:16px 0 32px rgba(20,20,26,.14);
-    }
-    body.sidebar-open{overflow:hidden;}
-    body.sidebar-open .sidebar{transform:translateX(0);}
-    body.sidebar-open .overlay{
-      display:block;position:fixed;inset:0;background:rgba(20,20,26,.4);z-index:30;
-    }
-    .drawer-close{
-      display:flex;align-items:center;justify-content:center;
-      position:absolute;top:18px;right:14px;
-      width:32px;height:32px;border-radius:9px;border:1px solid var(--border);
-      background:var(--white);cursor:pointer;color:var(--text-muted);
-    }
+  @media (max-width:860px){
     .menu-toggle{
       display:flex;align-items:center;justify-content:center;
       width:38px;height:38px;border-radius:10px;border:1px solid var(--border);
@@ -319,101 +212,81 @@
 </head>
 <body>
 
-<div class="overlay" onclick="document.body.classList.remove('sidebar-open')"></div>
+<div class="sidebar-backdrop" id="sidebar-backdrop"></div>
 
-<div class="app">
+<div class="app-shell">
 
   <!-- ============ SIDEBAR ============ -->
-  <aside class="sidebar">
-    <button class="drawer-close" onclick="document.body.classList.remove('sidebar-open')" aria-label="Close menu">
-      <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
-    </button>
-    <div class="brand">
-      <span class="brand-mark">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
-      </span>
-      <span class="brand-name"><span class="va">Va</span><span class="room">Room</span></span>
-    </div>
-    <a class="nav-item" id="notifications-home-link" href="/client-home">
-      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9a1 1 0 0 1 1 1H9v-4a1 1 0 0 1 1 1v4h2.5a1 1 0 0 1 1-1v-9"/></svg>
-      <span>Home</span>
-    </a>
+  <aside class="sidebar" id="sidebar">
+    <a href="/client-home" class="logo"><span class="va">Va</span><span class="room">Room</span></a>
 
-    <div class="search-box">
-      <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-      <input type="text" placeholder="Search...">
-    </div>
+    <nav class="nav-group">
+      <a href="/elie" class="nav-item">
+        <span data-elie-icon aria-label="Elie" class="elie-logo-nav">
+          <svg width="22" height="22" viewBox="0 0 32 32" fill="none" class="elie-icon" color="currentColor" role="img" aria-label="Elie"><path d="M16 4.5V2.75" stroke="#D92D3F" stroke-width="1.8" stroke-linecap="round"/><circle cx="16" cy="2.25" r="1.25" fill="#D92D3F"/><rect x="4.25" y="6.25" width="23.5" height="20" rx="7" fill="#FFFFFF" stroke="currentColor" stroke-width="1.8"/><path d="M4.75 13.25h22.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="11" cy="17.25" r="1.6" fill="currentColor"/><circle cx="21" cy="17.25" r="1.6" fill="currentColor"/><path d="M11.5 21c1.25 1 2.55 1.5 4.5 1.5s3.25-.5 4.5-1.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="6.5" cy="17.5" r="1" fill="#D92D3F"/><circle cx="25.5" cy="17.5" r="1" fill="#D92D3F"/></svg>
+        </span>
+        Elie
+        <span class="beta-pill">Free preview</span>
+      </a>
+    </nav>
 
-    <button class="btn-cta">
-      <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
-      List a space
-    </button>
+    <nav class="nav-group">
+      <a href="/client-home" class="nav-item" data-nav="home">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9a1 1 0 0 1 1 1H9v-4a1 1 0 0 1 1-1h2a1 0 0 0 1 1v4h2.5a1 1 0 0 0 1-1v-9"/></svg>
+        Home
+      </a>
+      <a href="/marketplace" class="nav-item" data-nav="marketplace">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m15 9-2 6-6 2 2-6 6-2Z"/></svg>
+        Marketplace
+      </a>
+      <a href="/client-home?view=saved" class="nav-item" data-nav="saved" data-mobile-hide>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h12a1 1 0 0 1 1 1V21l-7-4-7 4V4.5a1 1 0 0 1 1-1Z"/></svg>
+        Saved
+      </a>
+    </nav>
 
-    <div class="nav-group">
-      <div class="nav-label">Marketplace</div>
-      <div class="nav-item">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21 12 17 5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2Z"/></svg>
-        <span>Saved</span>
-      </div>
-      <div class="nav-item">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="m9 16 2 2 4-4"/></svg>
-        <span>Bookings</span>
-      </div>
-      <div class="nav-item">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-9 8.4 8.5 8.5 0 0 1-4-1L3 20l1.3-3.9a8.5 8.5 0 1 1 16.7-4.6Z"/></svg>
-        <span>Chats</span>
-      </div>
-      <div class="nav-item active">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a1.99 1.99 0 0 1-3.4 0"/></svg>
-        <span>Notifications</span>
-      </div>
-    </div>
+    <nav class="nav-group">
+      <p class="nav-label">My activity</p>
+      <a href="/bookings" class="nav-item">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="2"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>
+        Bookings
+      </a>
+      <a href="/chats" class="nav-item" data-mobile-hide>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z"/></svg>
+        Chats
+      </a>
+      <a href="/transactions" class="nav-item">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><path d="M7 15h4"/></svg>
+        Transactions
+      </a>
+      <a href="/notifications" class="nav-item active" id="notif-nav-item">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        Notifications
+      </a>
+    </nav>
 
-    <div class="nav-group">
-      <div class="nav-label">Hosting</div>
-      <div class="nav-item">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
-        <span>My Listings</span>
-      </div>
-      <div class="nav-item">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
-        <span>Payments</span>
-      </div>
-      <div class="nav-item">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg>
-        <span>Analytics</span>
-      </div>
-    </div>
+    <nav class="nav-group">
+      <p class="nav-label">Account</p>
+      <a href="/profile" class="nav-item">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.5-7 8-7s8 3 8 7"/></svg>
+        Profile
+      </a>
+      <a href="/settings" class="nav-item">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1.5 1V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l-.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l-.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>
+        Settings
+      </a>
+      <a href="/support" class="nav-item">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 4.9.8c0 1.6-2.4 1.9-2.4 3.5"/><path d="M12 17.2v.1"/></svg>
+        Help &amp; Support
+      </a>
+    </nav>
 
-    <div class="nav-group">
-      <div class="nav-label">Account</div>
-      <div class="nav-item">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.5-7 8-7s8 3 8 7"/></svg>
-        <span>Profile</span>
-      </div>
-      <div class="nav-item">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.6V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.6 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.6 1Z"/></svg>
-        <span>Settings</span>
-      </div>
-      <div class="nav-item">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2-3 4"/><path d="M12 17h.01"/></svg>
-        <span>Help &amp; Support</span>
-      </div>
-      <div class="nav-item danger">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
-        <span>Log out</span>
-      </div>
+    <div class="sidebar-note">
+      <strong>Book with confidence</strong>
+      GPS-verified listings and verified hosts help you know what's real before you reach out.
     </div>
 
-    <div class="sidebar-footer">
-      <div class="user-card">
-        <div class="avatar">OC</div>
-        <div class="user-meta">
-          <div class="user-name">Olivia C.</div>
-          <div class="user-role">Host · Nairobi</div>
-        </div>
-      </div>
-    </div>
+    <button type="button" class="logout-btn" id="logout-btn">Log out</button>
   </aside>
 
   <!-- ============ MAIN ============ -->
@@ -422,7 +295,7 @@
 
       <div class="page-header">
         <div class="page-header-left">
-          <button class="menu-toggle" onclick="document.body.classList.add('sidebar-open')" aria-label="Open menu">
+          <button class="menu-toggle" id="menu-toggle" type="button" onclick="window.VaroomSidebar &amp;&amp; window.VaroomSidebar.open()" aria-label="Open menu">
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
           </button>
           <div>
@@ -589,6 +462,7 @@
   </main>
 </div>
 
+<script src="js/varoom-sidebar.js"></script>
 <script src="js/supabase-client.js"></script>
 <script src="js/notifications-page.js"></script>
 
