@@ -527,7 +527,7 @@
   }
   .card:first-child{ padding-top:0; }
   [data-theme="dark"] .card{ color:#F5EFEC; }
-  .card-head{ display:flex; align-items:center; gap:.7rem; margin-bottom:.55rem; }
+  .card-head{ position:relative; z-index:10; display:flex; align-items:center; gap:.7rem; margin-bottom:.55rem; }
   .card-avatar{ width:38px; height:38px; border-radius:50%; background:var(--red-deep); color:var(--white); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:.92rem; flex-shrink:0; overflow:hidden; }
   .card-avatar img{ width:100%; height:100%; object-fit:cover; }
   .card-host-name{ font-weight:700; font-size:.95rem; display:flex; align-items:center; gap:.35rem; }
@@ -536,7 +536,7 @@
   .card-map-link{ color:var(--red); font-weight:600; }
   .card-map-link:hover{ text-decoration:underline; }
   .card-time{ margin-left:auto; font-size:.72rem; color:var(--muted); }
-  .card-menu-wrap{ position:relative; margin-left:.4rem; }
+  .card-menu-wrap{ position:relative; z-index:11; margin-left:.4rem; }
   .card-menu-btn{
     width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center;
     color:var(--muted); background:none; border:none; cursor:pointer; flex-shrink:0;
@@ -544,11 +544,12 @@
   .card-menu-btn:hover{ background:var(--line-soft); color:var(--ink); }
 
   .card-menu-dropdown{
-    display:none; position:absolute; top:32px; right:0; z-index:20;
+    display:none; position:absolute; top:32px; right:0; z-index:100;
     background:var(--white); border:1px solid var(--line); border-radius:12px;
     box-shadow:0 12px 30px -10px rgba(26,18,16,.3); min-width:170px; padding:.4rem;
   }
   .card-menu-dropdown.open{ display:block; }
+  .card-video .varoom-video-player{ z-index:1; }
   .card-menu-item{
     display:block; width:100%; text-align:left; padding:.6rem .8rem; border-radius:8px;
     font-size:.85rem; font-weight:500; color:var(--ink); background:none; border:none; cursor:pointer;
@@ -1160,7 +1161,7 @@
     if (listingCount > 0) {
       const { data: hostListingsData } = await supabaseClient
         .from('listings')
-        .select('id,title,description,category,location_text,created_at,listing_photos(storage_path),listing_booking_details(price_amount,price_unit)')
+        .select('id,title,description,category,location_text,availability_status,created_at,listing_photos(storage_path),listing_booking_details(price_amount,price_unit)')
         .eq('host_id', currentUser.id)
         .order('created_at', { ascending:false });
       hostListings = hostListingsData || [];
@@ -1215,7 +1216,7 @@
         }
         const sub = photos.length === 0 ? 'Draft · no photos' : meta.label;
         return (
-          '<div class="glance-tile" style="position:relative;">' +
+          '<div class="glance-tile" data-listing-card="' + l.id + '" style="position:relative;">' +
             VaRoomHostListings.menu(l) +
             '<div class="glance-thumb">' + thumbHtml + '</div>' +
             '<div class="glance-body">' +
@@ -1778,7 +1779,7 @@
       }
 
       return (
-        '<div class="card">' +
+        '<div class="card" data-listing-card="' + listing.id + '">' +
           '<div class="card-head">' +
             '<div class="card-avatar">' + avatarHtml + '</div>' +
             '<div>' +
@@ -1798,8 +1799,8 @@
               '</div>' +
             '</div>') +
           '</div>' +
-          '<p class="card-caption">' + escapeHtml(listing.description || listing.title) + '</p>' +
-          ((listing.availability_status && listing.availability_status !== 'available') ? '<div class="listing-status-banner">Status: ' + escapeHtml(listing.availability_status) + '</div>' : '') +
+          '<p class="card-caption" data-listing-caption>' + escapeHtml(listing.description || listing.title) + '</p>' +
+          ((listing.availability_status && listing.availability_status !== 'available') ? '<div class="listing-status-banner" data-listing-status> Status: ' + escapeHtml(listing.availability_status) + '</div>' : '') +
           photosHtml +
           '<div class="action-row">' +
             (listing.host_id === currentUser.id || (listing.availability_status && listing.availability_status !== 'available')
@@ -1816,7 +1817,7 @@
       );
     }
 
-    const FEED_SELECT = 'id,title,description,location_text,category,verified,created_at,host_id,host:profiles(full_name,verified,avatar_url,username),listing_photos(storage_path),listing_booking_details(price_amount,price_unit)';
+    const FEED_SELECT = 'id,title,description,location_text,category,verified,availability_status,created_at,host_id,host:profiles(full_name,verified,avatar_url,username),listing_photos(storage_path),listing_booking_details(price_amount,price_unit)';
 
     async function startChat(listingId, hostId){
       const { data, error } = await supabaseClient
