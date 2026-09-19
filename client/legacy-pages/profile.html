@@ -1407,19 +1407,19 @@
 
   function statusLabel(listing){
     const s = (listing.availability_status || '').toLowerCase();
-    if (s === 'booked') return '<span class="listing-card-status booked">Booked</span>';
-    if (s === 'paused') return '<span class="listing-card-status paused">Paused</span>';
-    if (s === 'unavailable') return '<span class="listing-card-status unavailable">Unavailable</span>';
-    if (s === 'few_dates') return '<span class="listing-card-status" style="color:#b45309;">Few dates left</span>';
-    return '<span class="listing-card-status available">Available</span>';
+    if (s === 'booked') return '<span class="listing-card-status booked" data-listing-status>Booked</span>';
+    if (s === 'paused') return '<span class="listing-card-status paused" data-listing-status>Paused</span>';
+    if (s === 'unavailable') return '<span class="listing-card-status unavailable" data-listing-status>Unavailable</span>';
+    if (s === 'few_dates') return '<span class="listing-card-status" data-listing-status style="color:#b45309;">Few dates left</span>';
+    return '<span class="listing-card-status available" data-listing-status>Available</span>';
   }
 
   grid.innerHTML = listings.map(function(l){
-    return '<a class="listing-card" href="/booking?listing=' + l.id + '">' +
+    return '<a class="listing-card" data-listing-card="' + l.id + '" href="/booking?listing=' + l.id + '">' +
       getListingMediaMarkup(l) +
       (isOwner ? '<div class="listing-card-menu">' + VaRoomHostListings.menu(l) + '</div>' : '') +
       '<div class="listing-card-body">' +
-        '<div class="listing-card-title">' + l.title + '</div>' +
+        '<div class="listing-card-title" data-listing-title>' + l.title + '</div>' +
         '<div class="listing-card-loc">' + (l.location_text || '') + '</div>' +
         '<div class="listing-card-footer">' +
           '<span class="listing-card-price">' + priceLabel(l) + '</span>' +

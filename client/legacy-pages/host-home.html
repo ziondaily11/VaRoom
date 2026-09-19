@@ -1215,7 +1215,7 @@
         }
         const sub = photos.length === 0 ? 'Draft · no photos' : meta.label;
         return (
-          '<div class="glance-tile" style="position:relative;">' +
+          '<div class="glance-tile" data-listing-card="' + l.id + '" style="position:relative;">' +
             VaRoomHostListings.menu(l) +
             '<div class="glance-thumb">' + thumbHtml + '</div>' +
             '<div class="glance-body">' +
@@ -1778,7 +1778,7 @@
       }
 
       return (
-        '<div class="card">' +
+        '<div class="card" data-listing-card="' + listing.id + '">' +
           '<div class="card-head">' +
             '<div class="card-avatar">' + avatarHtml + '</div>' +
             '<div>' +
@@ -1798,8 +1798,8 @@
               '</div>' +
             '</div>') +
           '</div>' +
-          '<p class="card-caption">' + escapeHtml(listing.description || listing.title) + '</p>' +
-          ((listing.availability_status && listing.availability_status !== 'available') ? '<div class="listing-status-banner">Status: ' + escapeHtml(listing.availability_status) + '</div>' : '') +
+          '<p class="card-caption" data-listing-caption>' + escapeHtml(listing.description || listing.title) + '</p>' +
+          ((listing.availability_status && listing.availability_status !== 'available') ? '<div class="listing-status-banner" data-listing-status> Status: ' + escapeHtml(listing.availability_status) + '</div>' : '') +
           photosHtml +
           '<div class="action-row">' +
             (listing.host_id === currentUser.id || (listing.availability_status && listing.availability_status !== 'available')

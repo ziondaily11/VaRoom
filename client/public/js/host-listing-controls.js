@@ -1,4 +1,7 @@
 (function () {
+  var pendingMutations = Object.create(null);
+  var listingStates = Object.create(null);
+
   function token() {
     return window.supabaseClient.auth.getSession().then(function (result) {
       return result.data.session && result.data.session.access_token;
@@ -25,6 +28,59 @@
   }
   function updateCachedListing(id, patch) {
     if (window.VaRoomListingFeedCache) window.VaRoomListingFeedCache.updateListing(id, patch);
+  }
+  function publishListingUpdate(id, patch) {
+    listingStates[id] = Object.assign({}, listingStates[id] || {}, patch);
+    updateCachedListing(id, patch);
+    document.dispatchEvent(new CustomEvent('varoom:listing-updated', {
+      detail: { id: id, patch: patch }
+    }));
+  }
+  function setPending(button, pending) {
+    button.disabled = pending;
+    button.setAttribute('aria-busy', pending ? 'true' : 'false');
+    button.style.opacity = pending ? '0.6' : '';
+    button.style.pointerEvents = pending ? 'none' : '';
+    if (pending) {
+      button.setAttribute('data-original-label', button.textContent);
+      button.textContent = 'Saving...';
+    } else {
+      var original = button.getAttribute('data-original-label');
+      if (original !== null) {
+        button.textContent = original;
+        button.removeAttribute('data-original-label');
+      }
+    }
+  }
+  function persistStatus(button, listing) {
+    var status = button.getAttribute('data-status');
+    var id = listing.id;
+    if (pendingMutations[id]) return;
+    var previousStatus = (listingStates[id] && listingStates[id].availability_status)
+      || listing.availability_status || 'available';
+    pendingMutations[id] = true;
+    setPending(button, true);
+    publishListingUpdate(id, { availability_status: status });
+    request('/listings/' + encodeURIComponent(id) + '/status', {
+      method: 'PATCH',
+      body: JSON.stringify({ status: status })
+    }).then(function (result) {
+      var serverListing = result && result.listing;
+      publishListingUpdate(id, {
+        availability_status: serverListing && serverListing.availability_status
+          ? serverListing.availability_status
+          : status
+      });
+    }).catch(function (error) {
+      publishListingUpdate(id, { availability_status: previousStatus });
+      toast('Could not save listing status: ' + error.message);
+    }).finally(function () {
+      delete pendingMutations[id];
+      setPending(button, false);
+      document.dispatchEvent(new CustomEvent('varoom:listing-updated', {
+        detail: { id: id, patch: { availability_status: listingStates[id].availability_status } }
+      }));
+    });
   }
   function removeCachedListing(id) {
     if (window.VaRoomListingFeedCache) window.VaRoomListingFeedCache.removeListing(id);
@@ -82,9 +138,16 @@
         price_amount: document.getElementById('host-edit-price').value,
         price_unit: document.getElementById('host-edit-price-unit').value
       };
+      var previous = {
+        title: listing.title || '',
+        description: listing.description || '',
+        category: listing.category || 'property',
+        location_text: listing.location_text || ''
+      };
+      publishListingUpdate(listing.id, patch);
       request('/listings/' + encodeURIComponent(listing.id), { method: 'PATCH', body: JSON.stringify(patch) }).then(function () {
         var detail = Array.isArray(listing.listing_booking_details) ? listing.listing_booking_details[0] : listing.listing_booking_details;
-        updateCachedListing(listing.id, {
+        publishListingUpdate(listing.id, {
           title: patch.title,
           description: patch.description,
           category: patch.category,
@@ -94,8 +157,11 @@
             price_unit: patch.price_unit
           })
         });
-        toast('Listing updated'); window.location.reload();
+        var modal = document.getElementById('host-listing-edit-modal');
+        if (modal) modal.remove();
+        toast('Listing updated');
       }).catch(function (error) {
+        publishListingUpdate(listing.id, previous);
         document.getElementById('host-edit-msg').textContent = error.message; button.disabled = false;
       });
     };
@@ -129,11 +195,7 @@
         var action = button.getAttribute('data-host-action');
         container.querySelectorAll('.card-menu-dropdown.open').forEach(function (menu) { menu.classList.remove('open'); });
         if (action === 'status') {
-          request('/listings/' + encodeURIComponent(listing.id) + '/status', { method: 'PATCH', body: JSON.stringify({ status: button.getAttribute('data-status') }) })
-            .then(function (result) {
-              updateCachedListing(listing.id, (result && result.listing) || { availability_status: button.getAttribute('data-status') });
-              toast('Listing status updated'); window.location.reload();
-            }).catch(function (error) { toast(error.message); });
+          persistStatus(button, listing);
         } else if (action === 'edit') edit(listing);
         else if (action === 'share') share(listing.id, listing.title);
         else if (action === 'copy') {
@@ -147,23 +209,68 @@
         }
         else if (action === 'bookings') window.location.href = '/bookings?listing=' + encodeURIComponent(listing.id);
         else if (action === 'analytics') window.location.href = '/analytics?listing=' + encodeURIComponent(listing.id);
-        else if (action === 'duplicate') request('/listings/' + encodeURIComponent(listing.id) + '/duplicate', { method: 'POST' }).then(function () { invalidateListingCache(); toast('Listing duplicated'); window.location.reload(); }).catch(function (error) { toast(error.message); });
+        else if (action === 'duplicate') request('/listings/' + encodeURIComponent(listing.id) + '/duplicate', { method: 'POST' }).then(function () { invalidateListingCache(); toast('Listing duplicated'); }).catch(function (error) { toast(error.message); });
         else if (action === 'delete') confirmDeletion().then(function (confirmed) {
           if (!confirmed) return;
-          request('/listings/' + encodeURIComponent(listing.id), { method: 'DELETE' }).then(function () { removeCachedListing(listing.id); toast('Listing deleted'); window.location.reload(); }).catch(function (error) { toast(error.message); });
+          request('/listings/' + encodeURIComponent(listing.id), { method: 'DELETE' }).then(function () { removeCachedListing(listing.id); document.dispatchEvent(new CustomEvent('varoom:listing-deleted', { detail: { id: listing.id } })); toast('Listing deleted'); }).catch(function (error) { toast(error.message); });
         });
       });
     });
   }
+  document.addEventListener('varoom:listing-updated', function (event) {
+    var detail = event.detail || {};
+    var id = detail.id;
+    var status = detail.patch && detail.patch.availability_status;
+    if (!id || !status) return;
+    document.querySelectorAll('[data-listing-card]').forEach(function (card) {
+      if (card.getAttribute('data-listing-card') !== id) return;
+      var statusNode = card.querySelector('[data-listing-status]');
+      if (!statusNode && status !== 'available') {
+        statusNode = document.createElement('div');
+        statusNode.setAttribute('data-listing-status', '');
+        statusNode.className = 'listing-status-banner';
+        var media = card.querySelector('.card-photos, .card-video, .listing-thumb, .listing-card-body');
+        if (media && media.parentNode === card) card.insertBefore(statusNode, media);
+        else card.appendChild(statusNode);
+      }
+      if (statusNode) {
+        var label = status === 'available' ? 'Available'
+          : status.charAt(0).toUpperCase() + status.slice(1);
+        statusNode.textContent = card.classList.contains('listing-card') ? label : 'Status: ' + status;
+        statusNode.style.display = '';
+        if (card.classList.contains('listing-card')) {
+          statusNode.classList.remove('available', 'booked', 'paused', 'unavailable');
+          statusNode.classList.add(status);
+        }
+      }
+      card.querySelectorAll('[data-listing-title]').forEach(function (node) {
+        if (Object.prototype.hasOwnProperty.call(detail.patch, 'title')) node.textContent = detail.patch.title;
+      });
+      card.querySelectorAll('[data-listing-caption]').forEach(function (node) {
+        if (Object.prototype.hasOwnProperty.call(detail.patch, 'description')) node.textContent = detail.patch.description;
+      });
+      card.querySelectorAll('[data-status-action]').forEach(function (action) {
+        action.disabled = action.getAttribute('data-status-action') === status;
+      });
+    });
+  });
+  document.addEventListener('varoom:listing-deleted', function (event) {
+    var id = event.detail && event.detail.id;
+    if (!id) return;
+    document.querySelectorAll('[data-listing-card]').forEach(function (card) {
+      if (card.getAttribute('data-listing-card') === id) card.remove();
+    });
+  });
   window.VaRoomHostListings = { bind: bind, menu: function (listing) {
+    listingStates[listing.id] = Object.assign({}, listingStates[listing.id] || {}, listing);
     var json = JSON.stringify(listing).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
     return '<div class="card-menu-wrap"><button type="button" class="card-menu-btn" data-menu-toggle="' + listing.id + '" aria-label="Manage listing">⋮</button><div class="card-menu-dropdown" id="menu-' + listing.id + '">' +
       '<button class="card-menu-item" data-host-action="edit" data-listing="' + json + '">Edit listing</button>' +
       '<div class="card-menu-section">Change availability</div>' +
-      '<button class="card-menu-item" data-host-action="status" data-status="available" data-listing="' + json + '">Make available</button>' +
-      '<button class="card-menu-item" data-host-action="status" data-status="booked" data-listing="' + json + '">Mark booked</button>' +
-      '<button class="card-menu-item" data-host-action="status" data-status="unavailable" data-listing="' + json + '">Mark unavailable</button>' +
-      '<button class="card-menu-item" data-host-action="status" data-status="paused" data-listing="' + json + '">Pause listing</button>' +
+      '<button class="card-menu-item" data-host-action="status" data-status="available" data-status-action="available" data-listing="' + json + '">Make available</button>' +
+      '<button class="card-menu-item" data-host-action="status" data-status="booked" data-status-action="booked" data-listing="' + json + '">Mark booked</button>' +
+      '<button class="card-menu-item" data-host-action="status" data-status="unavailable" data-status-action="unavailable" data-listing="' + json + '">Mark unavailable</button>' +
+      '<button class="card-menu-item" data-host-action="status" data-status="paused" data-status-action="paused" data-listing="' + json + '">Pause listing</button>' +
       '<button class="card-menu-item" data-host-action="share" data-listing="' + json + '">Share listing</button><button class="card-menu-item" data-host-action="copy" data-listing="' + json + '">Copy listing link</button>' +
       '<button class="card-menu-item" data-host-action="bookings" data-listing="' + json + '">View bookings</button><button class="card-menu-item" data-host-action="analytics" data-listing="' + json + '">View analytics</button><button class="card-menu-item" data-host-action="duplicate" data-listing="' + json + '">Duplicate listing</button><button class="card-menu-item destructive" data-host-action="delete" data-listing="' + json + '">Delete listing</button></div></div>';
   }};
