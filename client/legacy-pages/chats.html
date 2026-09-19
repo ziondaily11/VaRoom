@@ -330,11 +330,23 @@
   [data-theme="dark"] .chat-empty-state p{ color:var(--muted); }
 
   @media (max-width:1080px){ .info-col{ display:none; } }
+
+  /* =====================================================================
+     MOBILE ONLY  (max-width:760px)
+     Everything below is scoped to this query. Desktop is not affected.
+     ===================================================================== */
   @media (max-width:760px){
     body{ overflow:hidden; }
     body,.app-shell{ background:#ffffff; color:#111827; }
     .icon-rail{ display:none; }
-    .app-shell{ width:100vw; height:100dvh; }
+
+    /* App shell tracks the VISUAL viewport (set by JS) so the composer sits
+       right above the on-screen keyboard. Falls back to 100dvh without JS. */
+    .app-shell{
+      position:fixed; top:var(--vv-top,0px); left:0;
+      width:100%; height:var(--vvh,100dvh);
+    }
+
     .contacts-col{ display:flex; width:100%; border-right:0; background:#ffffff; color:var(--text-dark); box-shadow:inset 0 0 0 1px var(--border); }
     .contacts-col.mobile-hidden{ display:none; }
     .search-bar{ padding:16px; background:#ffffff; }
@@ -388,7 +400,7 @@
     .chat-header-actions{ gap:6px; }
     .chat-header::before{ content:none; }
     .messages{ padding:16px 14px; background:#fbfbfc; gap:14px; }
-    .messages{ min-height:0; }
+    .messages{ min-height:0; overscroll-behavior:contain; }
     .msg-row{ max-width:80%; }
     .chat-message-image,.chat-listing-card{ max-width:100%; }
     .msg-row.out .bubble{ background:var(--rail-bg); color:#ffffff; }
@@ -399,47 +411,164 @@
     .voice-card{ background:#edeef0; }
     .voice-card .play{ background:var(--rail-bg); }
     .voice-wave span{ background:#1c1c1e; }
+
+    /* ---------- MOBILE COMPOSER (WhatsApp-style interaction) ----------
+       Row 1: notice   Row 2: attachment tray   Row 3: [ sticker | text | clip ]  (send)
+       The rounded "pill" is drawn by ::before behind columns 1-3, so the
+       existing desktop markup order is untouched.                              */
     .chat-input-area{
-      display:grid; grid-template-columns:36px minmax(0,1fr) 36px;
-      grid-template-rows:auto auto; align-items:center; column-gap:8px;
-      flex:0 0 auto; min-height:54px;
-      padding:8px 10px;
-      background:#ffffff; border-top-color:var(--border);
-      margin-bottom:6px;
+      position:relative;
+      display:grid;
+      grid-template-columns:40px minmax(0,1fr) 40px 52px;
+      grid-template-rows:auto auto auto;
+      align-items:end;
+      column-gap:0;
+      flex:0 0 auto;
+      margin:0;
+      border:0;
+      background:#fbfbfc;
+      padding:8px 10px calc(8px + env(safe-area-inset-bottom,0px));
     }
+    /* keyboard is open: small visible gap between composer and keyboard */
+    .app-shell.kb-open .chat-input-area{ padding-bottom:8px; }
+
+    .chat-input-area::before{
+      content:""; grid-column:1 / 4; grid-row:3; align-self:stretch; z-index:0;
+      background:#ffffff; border:1px solid var(--border); border-radius:24px;
+      box-shadow:0 1px 2px rgba(20,22,28,.05);
+      pointer-events:none; transition:border-color .15s;
+    }
+    .chat-input-area:focus-within::before{ border-color:var(--mint); }
+
     .chat-input-area textarea{
-      grid-column:2; grid-row:1; width:100%; min-width:0;
-      background:transparent; color:#1c1c1e; border:none; height:20px; max-height:112px;
-      padding:0; margin:0; overflow-y:auto; line-height:20px;
+      grid-column:2; grid-row:3; align-self:end; z-index:1;
+      width:100%; min-width:0; min-height:44px; height:44px; max-height:min(132px,30dvh);
+      padding:11px 0; margin:0; border:0; outline:none; resize:none;
+      background:transparent; color:#1c1c1e;
+      font-size:16px;              /* 16px stops iOS Safari zooming the page on focus */
+      line-height:22px;
+      overflow-y:hidden;
+      -webkit-appearance:none; appearance:none;
     }
     .chat-input-area textarea::placeholder{ color:#9a9aa0; }
+
     .input-toolbar{ display:contents; }
     .format-icons{ display:none; }
     .attach-icons{ display:contents; }
     .attach-icons button.share-photo,
     .attach-icons button.share-file,
     .attach-icons button[title="Share listing"]{ display:none; }
-    .attach-icons .mobile-plus{
-      display:flex; grid-column:1; grid-row:1; width:36px; height:36px; border-radius:50%;
-      background:#eef8f4; border:1.5px solid var(--mint); color:var(--mint-dark);
+
+    .attach-icons .mobile-plus,
+    .attach-icons .mobile-attach{
+      display:flex; align-items:center; justify-content:center; z-index:1;
+      width:40px; height:44px; padding:0; border:0; border-radius:50%;
+      background:transparent; color:var(--text-gray-2); font-size:21px; cursor:pointer;
+      -webkit-tap-highlight-color:transparent; touch-action:manipulation;
     }
+    .attach-icons .mobile-plus{ grid-column:1; grid-row:3; align-self:end; }
+    .attach-icons .mobile-attach{ grid-column:3; grid-row:3; align-self:end; }
+    .attach-icons .mobile-plus:active,
+    .attach-icons .mobile-attach:active,
+    .attach-icons .mobile-attach[aria-expanded="true"]{ color:var(--mint-dark); }
+
     .attach-icons .send-message{
-      display:none;
-      grid-column:3; grid-row:1; width:36px; height:36px; border-radius:50%;
-      background:var(--rail-bg); color:#ffffff; border:none;
+      display:flex; align-items:center; justify-content:center;
+      grid-column:4; grid-row:3; justify-self:end; align-self:end;
+      width:44px; height:44px; padding:0; border:0; border-radius:50%;
+      background:#e6e8eb; color:#9aa0ab; font-size:19px; cursor:default;
+      transition:background .15s,color .15s,transform .1s;
+      -webkit-tap-highlight-color:transparent; touch-action:manipulation;
     }
-    .chat-input-area.has-text .attach-icons .send-message{ display:flex; }
+    .chat-input-area.can-send .attach-icons .send-message{ background:var(--mint); color:var(--rail-bg); cursor:pointer; }
+    .chat-input-area.can-send .attach-icons .send-message:active{ transform:scale(.93); }
+    .attach-icons .mobile-plus:focus-visible,
+    .attach-icons .mobile-attach:focus-visible,
+    .attach-icons .send-message:focus-visible{ outline:2px solid var(--mint-dark); outline-offset:2px; }
+
+    /* notice (e.g. "Only photos can be attached") */
+    .composer-note{
+      grid-column:1 / -1; grid-row:1; justify-self:start; max-width:100%;
+      margin:0 0 8px; padding:7px 12px; border-radius:12px;
+      background:#fff4e0; color:#8a5a00; font-size:12.5px; font-weight:600; line-height:1.35;
+    }
+    .composer-note[hidden]{ display:none; }
+
+    /* pending attachments */
+    .composer-tray{
+      grid-column:1 / -1; grid-row:2; min-width:0;
+      display:flex; gap:8px; overflow-x:auto; overflow-y:hidden;
+      padding:2px 2px 10px; margin:0;
+      -webkit-overflow-scrolling:touch; scrollbar-width:none;
+    }
+    .composer-tray::-webkit-scrollbar{ display:none; }
+    .composer-tray[hidden]{ display:none; }
+    .composer-thumb,.composer-file{ position:relative; flex:0 0 auto; height:60px; border-radius:12px; }
+    .composer-thumb{ width:60px; overflow:hidden; background:#eef0f3; }
+    .composer-thumb img{ width:100%; height:100%; object-fit:cover; display:block; }
+    .composer-file{
+      display:flex; align-items:center; gap:8px; max-width:210px; padding:0 30px 0 10px;
+      background:#ffffff; border:1px solid var(--border);
+    }
+    .composer-file-ico{
+      width:32px; height:32px; border-radius:9px; flex-shrink:0;
+      background:#eaf1ff; color:#3b6fe0; font-size:16px;
+      display:flex; align-items:center; justify-content:center;
+    }
+    .composer-file-meta{ min-width:0; display:flex; flex-direction:column; gap:2px; }
+    .composer-file-name{ font-size:12.5px; font-weight:700; color:var(--text-dark); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .composer-file-size{ font-size:10.5px; color:var(--text-gray); }
+    .composer-rm{
+      position:absolute; top:4px; right:4px; width:22px; height:22px; padding:0;
+      display:flex; align-items:center; justify-content:center;
+      border:0; border-radius:50%; background:rgba(20,22,28,.72); color:#ffffff; font-size:12px; cursor:pointer;
+      -webkit-tap-highlight-color:transparent;
+    }
+    .composer-rm::after{ content:""; position:absolute; inset:-9px; }   /* larger tap area */
+
+    /* host attachment menu (photos / files / listing) */
+    .mobile-attach-menu{
+      position:absolute; right:10px; bottom:calc(100% + 6px); z-index:30;
+      display:flex; flex-direction:column; gap:2px;
+      min-width:200px; max-width:calc(100vw - 20px); padding:6px;
+      background:#ffffff; border:1px solid var(--border); border-radius:18px;
+      box-shadow:0 10px 30px rgba(20,22,28,.16);
+    }
+    .mobile-attach-menu[hidden]{ display:none; }
+    .mobile-attach-item{
+      display:flex; align-items:center; gap:12px; width:100%; min-height:48px; padding:0 12px 0 8px;
+      border:0; border-radius:12px; background:transparent; color:var(--text-dark);
+      font:inherit; font-size:14px; font-weight:600; text-align:left; cursor:pointer;
+      -webkit-tap-highlight-color:transparent; touch-action:manipulation;
+    }
+    .mobile-attach-item:active{ background:var(--bg-soft); }
+    .mobile-attach-item .ico{
+      width:34px; height:34px; border-radius:50%; flex-shrink:0; font-size:17px;
+      display:flex; align-items:center; justify-content:center;
+    }
+    .mobile-attach-item .ico-photos{ background:var(--mint-pale-2); color:var(--mint-dark); }
+    .mobile-attach-item .ico-files{ background:#eaf1ff; color:#3b6fe0; }
+    .mobile-attach-item .ico-listing{ background:#fff4e0; color:#b7791f; }
+
     .mobile-preview{
       grid-column:1 / -1; grid-row:2; width:100%; min-width:0;
-      margin:8px 0 0;
+      margin:0 0 8px;
     }
-    .chat-input-area{
-      border:1px solid var(--border); border-radius:14px;
-      margin-left:10px; margin-right:10px;
-      padding-left:10px; padding-right:10px;
-      box-shadow:0 1px 2px rgba(20,22,28,.04);
+
+    /* very small phones */
+    @media (max-width:360px){
+      .messages{ padding:14px 10px; }
+      .chat-input-area{
+        grid-template-columns:36px minmax(0,1fr) 36px 48px;
+        padding-left:8px; padding-right:8px;
+      }
+      .attach-icons .mobile-plus,
+      .attach-icons .mobile-attach{ width:36px; font-size:20px; }
+      .attach-icons .send-message{ width:40px; height:40px; }
+      .composer-file{ max-width:170px; }
+      .mobile-attach-menu{ right:8px; }
     }
-    .chat-input-area:focus-within{ border-color:var(--mint); }
+
     .info-col.mobile-visible{
       display:block; width:100%; border-left:0; padding:16px; background:#ffffff; color:var(--text-dark);
     }
@@ -467,16 +596,31 @@
     .mobile-back{ display:flex; align-items:center; justify-content:center; border:0; background:transparent; cursor:pointer; }
     .mobile-back{ width:40px; height:40px; padding:0; color:#0b0b0c; }
     .chat-header-actions button[title="More"]{ width:40px; height:40px; }
+
     [data-theme="dark"] .search-box,
     [data-theme="dark"] .chat-col.mobile-visible,
-    [data-theme="dark"] .info-col.mobile-visible,
-    [data-theme="dark"] .chat-input-area{ background:var(--white); }
+    [data-theme="dark"] .info-col.mobile-visible{ background:var(--white); }
     [data-theme="dark"] .messages{ background:var(--paper); }
+    [data-theme="dark"] .chat-input-area{ background:var(--paper,#fbfbfc); border-color:transparent; }
+    [data-theme="dark"] .chat-input-area::before{ background:var(--white,#ffffff); border-color:var(--line,#e2e5ea); }
+    [data-theme="dark"] .chat-input-area textarea{ color:var(--ink,#1c1c1e); }
+    [data-theme="dark"] .attach-icons .mobile-plus,
+    [data-theme="dark"] .attach-icons .mobile-attach{ color:var(--muted,#4b5563); }
+    [data-theme="dark"] .mobile-attach-menu,
+    [data-theme="dark"] .composer-file{ background:var(--white,#ffffff); border-color:var(--line,#e2e5ea); }
+    [data-theme="dark"] .mobile-attach-item,
+    [data-theme="dark"] .composer-file-name{ color:var(--ink,#1f2937); }
+
     .mobile-back .icon{ width:18px; height:18px; }
-    .mobile-preview{ display:none; border:1px solid var(--border); border-radius:10px; margin:8px 0; padding:8px; color:var(--text-dark); font-size:12px; }
+    .mobile-preview{ display:none; border:1px solid var(--border); border-radius:10px; padding:8px; color:var(--text-dark); font-size:12px; }
     .mobile-preview.has-content{ display:block; }
   }
-  @media (min-width:761px){ .mobile-inbox-title{ display:none; } .mobile-plus{ display:none !important; } .mobile-preview{ display:none !important; } }
+  @media (min-width:761px){
+    .mobile-inbox-title{ display:none; }
+    .mobile-plus{ display:none !important; }
+    .mobile-preview{ display:none !important; }
+    .mobile-attach,.mobile-attach-menu,.composer-tray,.composer-note{ display:none !important; }
+  }
 </style>
 </head>
 <body>
@@ -586,13 +730,27 @@
           <button><svg class="icon"><use href="#i-list-sq"/></svg></button>
         </div>
         <div class="attach-icons">
-          <button class="mobile-plus" title="Add attachment" aria-label="Add attachment"><svg class="icon"><use href="#i-sticker"/></svg></button>
+          <!-- mobile: sticker / emoji icon, left side of the composer -->
+          <button class="mobile-plus" type="button" title="Emoji and stickers" aria-label="Emoji and stickers"><svg class="icon"><use href="#i-sticker"/></svg></button>
+          <!-- mobile: attachment button, right side inside the composer -->
+          <button class="mobile-attach" type="button" title="Attach" aria-label="Add photos" aria-haspopup="menu" aria-expanded="false"><svg class="icon"><use href="#i-paperclip"/></svg></button>
           <button class="share-photo"><svg class="icon"><use href="#i-image"/></svg></button>
           <button class="share-file"><svg class="icon"><use href="#i-paperclip"/></svg></button>
           <button title="Share listing" aria-label="Share listing"><svg class="icon"><use href="#i-share"/></svg></button>
-          <button class="send-message" title="Send message" aria-label="Send message"><svg class="icon"><use href="#i-send"/></svg></button>
+          <button class="send-message" type="button" title="Send message" aria-label="Send message" aria-disabled="true"><svg class="icon"><use href="#i-send"/></svg></button>
         </div>
       </div>
+
+      <!-- mobile-only composer parts (hidden on desktop) -->
+      <div class="composer-note" id="composerNote" role="status" aria-live="polite" hidden></div>
+      <div class="composer-tray" id="composerTray" aria-label="Attachments to send" hidden></div>
+      <div class="mobile-attach-menu" id="mobileAttachMenu" role="menu" aria-label="Attach" hidden>
+        <button type="button" class="mobile-attach-item" role="menuitem" data-attach="photos"><span class="ico ico-photos"><svg class="icon"><use href="#i-image"/></svg></span>Photos</button>
+        <button type="button" class="mobile-attach-item" role="menuitem" data-attach="files"><span class="ico ico-files"><svg class="icon"><use href="#i-file-text"/></svg></span>Files</button>
+        <button type="button" class="mobile-attach-item" role="menuitem" data-attach="listing"><span class="ico ico-listing"><svg class="icon"><use href="#i-store"/></svg></span>Listing</button>
+      </div>
+      <input type="file" id="composerPhotoInput" accept="image/*" multiple hidden>
+      <input type="file" id="composerFileInput" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,application/pdf" multiple hidden>
     </div>
   </main>
 
@@ -635,6 +793,374 @@
   }
   infoToggleBtn.addEventListener('click', toggleInfoPanel);
   infoCloseBtn.addEventListener('click', toggleInfoPanel);
+</script>
+
+<!-- =====================================================================
+     MOBILE COMPOSER  (every handler is a no-op above 760px)
+     ===================================================================== -->
+<script>
+(function () {
+  'use strict';
+
+  var MOBILE_QUERY = '(max-width:760px)';
+  var MAX_ATTACHMENTS = 10;
+  var IMAGE_EXT = /\.(jpe?g|png|gif|webp|heic|heif|avif|bmp)$/i;
+  var SVG_NS = 'http://www.w3.org/2000/svg';
+
+  var root      = document.documentElement;
+  var shell     = document.querySelector('.app-shell');
+  var chatCol   = document.querySelector('.chat-col');
+  var messages  = document.querySelector('.messages');
+  var composer  = document.querySelector('.chat-input-area');
+  if (!shell || !chatCol || !messages || !composer) return;
+
+  var ta         = composer.querySelector('textarea');
+  var sendBtn    = composer.querySelector('.send-message');
+  var attachBtn  = composer.querySelector('.mobile-attach');
+  var stickerBtn = composer.querySelector('.mobile-plus');
+  var menu       = document.getElementById('mobileAttachMenu');
+  var tray       = document.getElementById('composerTray');
+  var note       = document.getElementById('composerNote');
+  var photoInput = document.getElementById('composerPhotoInput');
+  var fileInput  = document.getElementById('composerFileInput');
+  if (!ta || !sendBtn || !attachBtn || !stickerBtn || !menu || !tray || !note || !photoInput || !fileInput) return;
+
+  var mq = window.matchMedia(MOBILE_QUERY);
+  function isMobile() { return mq.matches; }
+
+  var vv = window.visualViewport || null;
+  var pending = [];      // { id, kind:'image'|'file', file, url }
+  var uid = 0;
+  var forcedRole = null;
+  var sending = false;
+  var stick = true;      // is the message list scrolled to (near) the bottom?
+  var noteTimer = 0;
+
+  /* ---------------- role: clients = photos only, hosts = photos + files + listings ---------------- */
+  // Fails closed: anything that is not exactly "host" is treated as a client.
+  // Set it with  window.VaroomComposer.setRole('host')  or  data-role="host"  on <body>, <html> or .chat-col.
+  function getRole() {
+    var raw = forcedRole ||
+      chatCol.getAttribute('data-role') ||
+      (document.body && document.body.getAttribute('data-role')) ||
+      root.getAttribute('data-role') ||
+      window.VAROOM_ROLE || '';
+    return String(raw).toLowerCase() === 'host' ? 'host' : 'client';
+  }
+
+  /* ---------------- small helpers ---------------- */
+  function makeIcon(id) {
+    var svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('class', 'icon');
+    var use = document.createElementNS(SVG_NS, 'use');
+    use.setAttribute('href', '#' + id);
+    svg.appendChild(use);
+    return svg;
+  }
+  function formatSize(bytes) {
+    if (!bytes && bytes !== 0) return '';
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return Math.round(bytes / 1024) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+  function isImageFile(f) {
+    return /^image\//i.test(f.type || '') || IMAGE_EXT.test(f.name || '');
+  }
+  // keep the keyboard open when tapping composer buttons (mouse events are synthesized after touchend)
+  function keepFocus(el) {
+    el.addEventListener('mousedown', function (e) { if (isMobile()) e.preventDefault(); });
+  }
+
+  /* ---------------- message list stays pinned to the bottom ---------------- */
+  messages.addEventListener('scroll', function () {
+    stick = (messages.scrollHeight - messages.scrollTop - messages.clientHeight) < 80;
+  }, { passive: true });
+  function keepBottom() {
+    if (!stick || !isMobile()) return;
+    requestAnimationFrame(function () { messages.scrollTop = messages.scrollHeight; });
+  }
+  if (window.ResizeObserver) {
+    var ro = new ResizeObserver(keepBottom);
+    ro.observe(composer);
+    ro.observe(messages);
+  }
+
+  /* ---------------- textarea auto-grow ---------------- */
+  function autoGrow() {
+    if (!isMobile()) { ta.style.height = ''; ta.style.overflowY = ''; return; }
+    ta.style.height = '0px';
+    var max = parseFloat(window.getComputedStyle(ta).maxHeight);
+    if (!max || isNaN(max)) max = 132;
+    var full = ta.scrollHeight;
+    ta.style.height = Math.min(full, max) + 'px';
+    ta.style.overflowY = full > max ? 'auto' : 'hidden';
+  }
+
+  /* ---------------- send-button state ---------------- */
+  function updateState() {
+    var ready = ta.value.trim().length > 0 || pending.length > 0;
+    composer.classList.toggle('can-send', ready);
+    composer.classList.toggle('has-text', ready);   // kept for existing code that reads this class
+    sendBtn.setAttribute('aria-disabled', ready ? 'false' : 'true');
+    attachBtn.setAttribute('aria-label', getRole() === 'host' ? 'Attach photos, files or a listing' : 'Add photos');
+  }
+
+  /* ---------------- notice ---------------- */
+  function showNote(text) {
+    note.textContent = text;
+    note.hidden = false;
+    clearTimeout(noteTimer);
+    noteTimer = setTimeout(function () { note.hidden = true; }, 3500);
+  }
+
+  /* ---------------- attachment tray ---------------- */
+  function renderTray() {
+    while (tray.firstChild) tray.removeChild(tray.firstChild);
+    pending.forEach(function (item) {
+      var el = document.createElement('div');
+      if (item.kind === 'image') {
+        el.className = 'composer-thumb';
+        var img = document.createElement('img');
+        img.src = item.url;
+        img.alt = item.file.name || 'Photo';
+        el.appendChild(img);
+      } else {
+        el.className = 'composer-file';
+        var ico = document.createElement('span');
+        ico.className = 'composer-file-ico';
+        ico.appendChild(makeIcon('i-file-text'));
+        var meta = document.createElement('span');
+        meta.className = 'composer-file-meta';
+        var nm = document.createElement('span');
+        nm.className = 'composer-file-name';
+        nm.textContent = item.file.name || 'File';
+        var sz = document.createElement('span');
+        sz.className = 'composer-file-size';
+        sz.textContent = formatSize(item.file.size);
+        meta.appendChild(nm);
+        meta.appendChild(sz);
+        el.appendChild(ico);
+        el.appendChild(meta);
+      }
+      var rm = document.createElement('button');
+      rm.type = 'button';
+      rm.className = 'composer-rm';
+      rm.setAttribute('aria-label', 'Remove ' + (item.file.name || 'attachment'));
+      rm.appendChild(makeIcon('i-close'));
+      keepFocus(rm);
+      rm.addEventListener('click', function () { removeItem(item.id); });
+      el.appendChild(rm);
+      tray.appendChild(el);
+    });
+    tray.hidden = pending.length === 0;
+  }
+  function removeItem(id) {
+    pending = pending.filter(function (p) {
+      if (p.id === id && p.url) URL.revokeObjectURL(p.url);
+      return p.id !== id;
+    });
+    renderTray();
+    updateState();
+  }
+  function clearPending() {
+    pending.forEach(function (p) { if (p.url) URL.revokeObjectURL(p.url); });
+    pending = [];
+    renderTray();
+  }
+
+  function addFiles(list, kind) {
+    if (!isMobile()) return;
+    var role = getRole();
+    var incoming = Array.prototype.slice.call(list || []);
+    var rejected = 0, overflow = 0;
+
+    incoming.forEach(function (f) {
+      var image = isImageFile(f);
+      var okForRole = role === 'host' || image;          // clients: photos only
+      var okForKind = kind === 'photos' ? image : true;   // the photo picker only takes images
+      if (!okForRole || !okForKind) { rejected++; return; }
+      if (pending.length >= MAX_ATTACHMENTS) { overflow++; return; }
+      uid += 1;
+      pending.push({
+        id: uid,
+        kind: image ? 'image' : 'file',
+        file: f,
+        url: image ? URL.createObjectURL(f) : null
+      });
+    });
+
+    renderTray();
+    updateState();
+    if (overflow) showNote('You can attach up to ' + MAX_ATTACHMENTS + ' items at a time.');
+    else if (rejected) showNote(role === 'host' ? 'Some items were skipped.' : 'Only photos can be attached.');
+  }
+
+  photoInput.addEventListener('change', function () {
+    var files = Array.prototype.slice.call(photoInput.files || []);
+    photoInput.value = '';            // lets the same photo be picked again
+    addFiles(files, 'photos');
+  });
+  fileInput.addEventListener('change', function () {
+    var files = Array.prototype.slice.call(fileInput.files || []);
+    fileInput.value = '';
+    if (getRole() !== 'host') { showNote('Only photos can be attached.'); return; }
+    addFiles(files, 'files');
+  });
+
+  /* ---------------- attachment menu ---------------- */
+  function openMenu()  { menu.hidden = false; attachBtn.setAttribute('aria-expanded', 'true'); }
+  function closeMenu() { menu.hidden = true;  attachBtn.setAttribute('aria-expanded', 'false'); }
+
+  attachBtn.addEventListener('click', function () {
+    if (!isMobile()) return;
+    if (getRole() === 'host') {
+      if (menu.hidden) openMenu(); else closeMenu();
+    } else {
+      closeMenu();
+      photoInput.click();             // clients go straight to the photo picker
+    }
+  });
+
+  menu.addEventListener('click', function (e) {
+    if (!isMobile()) return;
+    var btn = e.target.closest ? e.target.closest('[data-attach]') : null;
+    if (!btn) return;
+    var action = btn.getAttribute('data-attach');
+    closeMenu();
+    if (getRole() !== 'host' && action !== 'photos') return;   // hard guard
+    if (action === 'photos') {
+      photoInput.click();
+    } else if (action === 'files') {
+      fileInput.click();
+    } else if (action === 'listing') {
+      // reuse the existing "Share listing" flow (hidden on mobile, still clickable), and announce it
+      var listingBtn = composer.querySelector('.attach-icons button[title="Share listing"]');
+      if (listingBtn) listingBtn.click();
+      composer.dispatchEvent(new CustomEvent('varoom:composer-share-listing', { bubbles: true }));
+    }
+  });
+
+  document.addEventListener('pointerdown', function (e) {
+    if (menu.hidden) return;
+    if (menu.contains(e.target) || attachBtn.contains(e.target)) return;
+    closeMenu();
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !menu.hidden) closeMenu();
+  });
+
+  /* ---------------- sticker / emoji button (hook only) ---------------- */
+  stickerBtn.addEventListener('click', function () {
+    if (!isMobile()) return;
+    composer.dispatchEvent(new CustomEvent('varoom:composer-sticker', { bubbles: true }));
+  });
+
+  /* ---------------- sending ---------------- */
+  function send() {
+    if (!isMobile() || sending) return;
+    var role = getRole();
+    var text = ta.value.trim();
+    var attachments = pending
+      .filter(function (p) { return role === 'host' || p.kind === 'image'; })
+      .map(function (p) { return { kind: p.kind, file: p.file }; });
+    if (!text && !attachments.length) return;
+
+    sending = true;
+    var hadFocus = document.activeElement === ta;
+    closeMenu();
+
+    // Listen for this to do the real send (Supabase insert / upload):
+    //   document.addEventListener('varoom:composer-send', e => { e.detail.text; e.detail.attachments; e.detail.role })
+    composer.dispatchEvent(new CustomEvent('varoom:composer-send', {
+      bubbles: true, cancelable: true,
+      detail: { text: text, attachments: attachments, role: role }
+    }));
+
+    // clear right away; the 0ms delay only lets other click handlers on this button read the text first
+    setTimeout(function () {
+      ta.value = '';
+      clearPending();
+      autoGrow();
+      updateState();
+      stick = true;
+      keepBottom();
+      if (hadFocus) ta.focus();
+      sending = false;
+    }, 0);
+  }
+  sendBtn.addEventListener('click', send);
+
+  keepFocus(sendBtn);
+  keepFocus(attachBtn);
+  keepFocus(stickerBtn);
+  keepFocus(menu);
+
+  ta.addEventListener('input', function () {
+    if (!isMobile()) return;
+    autoGrow();
+    updateState();
+  });
+
+  /* ---------------- keyboard / visual viewport ---------------- */
+  function resetViewport() {
+    root.style.removeProperty('--vvh');
+    root.style.removeProperty('--vv-top');
+    shell.classList.remove('kb-open');
+    ta.style.height = '';
+    ta.style.overflowY = '';
+    closeMenu();
+  }
+  function syncViewport() {
+    if (!isMobile()) { resetViewport(); return; }
+    var h = vv ? vv.height : window.innerHeight;
+    var top = vv ? Math.max(0, vv.offsetTop) : 0;
+    if (vv && vv.scale > 1.05) {       // user pinch-zoomed: don't fight it
+      root.style.removeProperty('--vvh');
+      root.style.removeProperty('--vv-top');
+      shell.classList.remove('kb-open');
+      return;
+    }
+    root.style.setProperty('--vvh', Math.round(h) + 'px');
+    root.style.setProperty('--vv-top', Math.round(top) + 'px');
+    var kbOpen = document.activeElement === ta && (window.innerHeight - h) > 100;
+    shell.classList.toggle('kb-open', kbOpen);
+    keepBottom();
+  }
+  if (vv) {
+    vv.addEventListener('resize', syncViewport);
+    vv.addEventListener('scroll', syncViewport);
+  }
+  window.addEventListener('resize', syncViewport);
+  window.addEventListener('orientationchange', function () { setTimeout(syncViewport, 250); });
+  ta.addEventListener('focus', function () {
+    syncViewport();
+    setTimeout(syncViewport, 150);     // iOS animates the keyboard in
+    setTimeout(syncViewport, 400);
+  });
+  ta.addEventListener('blur', function () {
+    syncViewport();
+    setTimeout(syncViewport, 150);
+  });
+
+  function onBreakpointChange() {
+    if (!isMobile()) resetViewport();
+    else { syncViewport(); autoGrow(); }
+    updateState();
+  }
+  if (mq.addEventListener) mq.addEventListener('change', onBreakpointChange);
+  else if (mq.addListener) mq.addListener(onBreakpointChange);
+
+  /* ---------------- tiny public API ---------------- */
+  window.VaroomComposer = {
+    setRole: function (r) { forcedRole = r || null; updateState(); },
+    getRole: getRole,
+    clear: function () { ta.value = ''; clearPending(); autoGrow(); updateState(); },
+    focus: function () { ta.focus(); }
+  };
+
+  syncViewport();
+  updateState();
+})();
 </script>
 
 </body>
