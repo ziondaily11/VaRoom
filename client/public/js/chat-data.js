@@ -366,7 +366,7 @@
       const item = document.createElement('li');
       item.className = `contact-item${conversation.id === state.activeId ? ' active' : ''}`;
       item.dataset.conversationId = conversation.id;
-      item.innerHTML = `<div class="avatar-wrap"><div class="avatar-fallback" style="background:#14161c;"></div></div>
+      item.innerHTML = `<div class="avatar-wrap"><div class="avatar-fallback" style="background:#14161c;"></div><span class="status-dot"></span></div>
         <div class="contact-body"><div class="contact-top"><span class="contact-name"></span><span class="contact-time"></span></div>
         <div class="contact-bottom"><span class="contact-preview"></span></div></div>
         <button class="conversation-menu" type="button" aria-label="Conversation actions" title="Conversation actions"><svg class="icon"><use href="#i-more"/></svg></button>`;
