@@ -222,6 +222,22 @@
     height:22px; line-height:22px;
   }
   .chat-input-area textarea::placeholder{ color:var(--text-gray); }
+  .desktop-composer-editor{ display:none; }
+  @media (min-width:761px){
+    .chat-input-area textarea{ display:none; }
+    .desktop-composer-editor{
+      display:block; width:100%; min-height:22px; max-height:112px;
+      overflow-y:auto; outline:none; border:0;
+      font-family:inherit; font-size:13.5px; line-height:22px;
+      color:var(--text-dark); white-space:pre-wrap; overflow-wrap:anywhere;
+    }
+    .desktop-composer-editor:empty::before{
+      content:attr(data-placeholder); color:var(--text-gray); pointer-events:none;
+    }
+    .desktop-composer-editor ul,.desktop-composer-editor ol{
+      margin:0 0 0 20px; padding:0;
+    }
+  }
   .input-toolbar{ display:flex; justify-content:space-between; align-items:center; margin-top:12px; }
   .format-icons, .attach-icons{ display:flex; align-items:center; gap:8px; }
   .format-icons button, .attach-icons button{
@@ -720,14 +736,16 @@
 
     <div class="chat-input-area">
       <textarea placeholder="Write a message..." aria-label="Write a message"></textarea>
+      <div class="desktop-composer-editor" contenteditable="true" role="textbox" aria-multiline="true"
+        aria-label="Write a message" data-placeholder="Write a message..."></div>
       <div class="input-toolbar">
         <div class="format-icons">
-          <button class="fmt-b">B</button>
-          <button class="fmt-i">I</button>
-          <button class="fmt-u">U</button>
+          <button type="button" class="fmt-b" aria-label="Bold">B</button>
+          <button type="button" class="fmt-i" aria-label="Italic">I</button>
+          <button type="button" class="fmt-u" aria-label="Underline">U</button>
           <span class="divider"></span>
-          <button><svg class="icon"><use href="#i-list-dot"/></svg></button>
-          <button><svg class="icon"><use href="#i-list-sq"/></svg></button>
+          <button type="button" class="fmt-ul" aria-label="Bulleted list"><svg class="icon"><use href="#i-list-dot"/></svg></button>
+          <button type="button" class="fmt-ol" aria-label="Numbered list"><svg class="icon"><use href="#i-list-sq"/></svg></button>
         </div>
         <div class="attach-icons">
           <!-- mobile: sticker / emoji icon, left side of the composer -->

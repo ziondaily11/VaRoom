@@ -473,7 +473,28 @@
     if (message.message_type === 'text') {
       const bubble = document.createElement('div');
       bubble.className = 'bubble';
-      bubble.textContent = message.body || '';
+      const body = message.body || '';
+      if (/<(?:strong|b|em|i|u|ul|ol|li|p|div|br)\b/i.test(body)) {
+        const source = new DOMParser().parseFromString(body, 'text/html').body;
+        const allowed = new Set(['STRONG', 'B', 'EM', 'I', 'U', 'UL', 'OL', 'LI', 'P', 'DIV', 'BR']);
+        const appendSafe = (parent, node) => {
+          if (node.nodeType === Node.TEXT_NODE) {
+            parent.appendChild(document.createTextNode(node.nodeValue));
+            return;
+          }
+          if (node.nodeType !== Node.ELEMENT_NODE) return;
+          if (!allowed.has(node.tagName)) {
+            node.childNodes.forEach((child) => appendSafe(parent, child));
+            return;
+          }
+          const copy = document.createElement(node.tagName.toLowerCase());
+          node.childNodes.forEach((child) => appendSafe(copy, child));
+          parent.appendChild(copy);
+        };
+        source.childNodes.forEach((child) => appendSafe(bubble, child));
+      } else {
+        bubble.textContent = body;
+      }
       row.appendChild(bubble);
     } else if (message.message_type === 'listing' && message.listing) {
       const card = document.createElement('div');
@@ -702,22 +723,32 @@
       });
     });
     const input = $('.chat-input-area textarea');
+    const desktopEditor = $('.desktop-composer-editor');
+    const desktop = !isMobile() && !!desktopEditor;
     const updateComposerState = () => {
+      if (desktop) {
+        $('.chat-input-area').classList.toggle('has-text', !!desktopEditor.textContent.trim());
+        return;
+      }
       $('.chat-input-area').classList.toggle('has-text', !!input.value.trim());
       input.style.height = 'auto';
       input.style.height = `${Math.min(input.scrollHeight, 112)}px`;
     };
     input.addEventListener('input', updateComposerState);
+    if (desktopEditor) desktopEditor.addEventListener('input', updateComposerState);
     updateComposerState();
     async function sendText() {
-      const content = input.value.trim();
+      const content = desktop
+        ? desktopEditor.innerHTML.trim()
+        : input.value.trim();
+      const plainContent = desktop ? desktopEditor.textContent.trim() : content;
       const pending = state.pendingAttachment;
       const conversationId = state.activeId;
-      if ((!content && !pending) || !conversationId || input.disabled) return;
-      input.disabled = true;
+      if ((!plainContent && !pending) || !conversationId || (desktop ? desktopEditor.getAttribute('aria-disabled') === 'true' : input.disabled)) return;
+      if (!desktop) input.disabled = true;
       try {
         let result;
-        if (!pending && content.toLowerCase() === '@reply') {
+        if (!pending && plainContent.toLowerCase() === '@reply') {
           result = await api(`/api/chat/conversations/${encodeURIComponent(conversationId)}/reply`, {
             method: 'POST', body: JSON.stringify({ command: '@reply' }),
           });
@@ -742,14 +773,16 @@
         }
         if (state.activeId !== conversationId) {
           if (state.pendingAttachment === pending) {
-            input.value = '';
+            if (desktop) desktopEditor.innerHTML = '';
+            else input.value = '';
             updateComposerState();
             state.pendingAttachment = null;
             updateMobilePreview();
           }
           return;
         }
-        input.value = '';
+        if (desktop) desktopEditor.innerHTML = '';
+        else input.value = '';
         updateComposerState();
         state.pendingAttachment = null;
         updateMobilePreview();
@@ -762,9 +795,10 @@
         });
         if (replyMessages.length) current.scrollTop = current.scrollHeight;
         updateConversationPreview(replyMessages[replyMessages.length - 1] || result.message);
-      } finally { input.disabled = false; }
+      } finally { if (!desktop) input.disabled = false; }
     }
     input.addEventListener('keydown', async (event) => {
+      if (!isMobile()) return;
       if (event.key !== 'Enter' || event.shiftKey) return;
       event.preventDefault();
       await sendText();
@@ -833,13 +867,25 @@
       button.disabled = true; button.setAttribute('aria-disabled', 'true');
     });
     document.querySelectorAll('.format-icons button').forEach((button) => {
+      if (!desktop) {
+        button.addEventListener('click', () => {
+          const marker = button.classList.contains('fmt-b') ? '**' : button.classList.contains('fmt-i') ? '_' : button.classList.contains('fmt-u') ? '__' : '- ';
+          const start = input.selectionStart; const end = input.selectionEnd;
+          if (start === end) return;
+          input.setRangeText(`${marker}${input.value.slice(start, end)}${marker}`, start, end, 'select');
+          input.focus();
+        });
+        return;
+      }
+      const command = button.classList.contains('fmt-b') ? 'bold'
+        : button.classList.contains('fmt-i') ? 'italic'
+          : button.classList.contains('fmt-u') ? 'underline'
+            : button.classList.contains('fmt-ol') ? 'insertOrderedList' : 'insertUnorderedList';
+      button.addEventListener('mousedown', (event) => event.preventDefault());
       button.addEventListener('click', () => {
-        const marker = button.classList.contains('fmt-b') ? '**' : button.classList.contains('fmt-i') ? '_' : button.classList.contains('fmt-u') ? '__' : '- ';
-        const input = $('.chat-input-area textarea');
-        const start = input.selectionStart; const end = input.selectionEnd;
-        if (start === end) return;
-        input.setRangeText(`${marker}${input.value.slice(start, end)}${marker}`, start, end, 'select');
-        input.focus();
+        desktopEditor.focus();
+        document.execCommand(command, false);
+        updateComposerState();
       });
     });
     document.querySelectorAll('.info-section').forEach((section, index) => {
