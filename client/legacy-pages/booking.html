@@ -654,7 +654,7 @@
 
     const { data: listing, error: listingError } = await supabaseClient
       .from('listings')
-      .select('id,title,description,location_text,category,verified,host_id,' +
+      .select('id,title,description,location_text,category,verified,availability_status,host_id,' +
         'host:profiles(full_name,verified,avatar_url,username),listing_photos(storage_path),' +
         'listing_booking_details(*)')
       .eq('id', listingId)
@@ -672,6 +672,10 @@
       showError('This listing has no booking details set up yet.');
       return;
     }
+    const listingUnavailable = listing.availability_status && listing.availability_status !== 'available';
+    const availabilityMessage = listingUnavailable
+      ? 'This listing is currently ' + String(listing.availability_status).replace('_', ' ') + ' and cannot accept new bookings.'
+      : '';
 
     // ---------- Breadcrumb ----------
     const locParts = (listing.location_text || '').split(',').map(function(s){ return s.trim(); }).filter(Boolean);
@@ -1021,8 +1025,8 @@
         pickerHtml +
         guestsHtml +
         '<div class="details-box" id="details-box"></div>' +
-        '<button type="button" class="confirm-btn" id="confirm-btn" disabled>Book now</button>' +
-        '<p class="form-note">This creates a request — the host needs to approve it before it\'s confirmed.</p>' +
+        '<button type="button" class="confirm-btn" id="confirm-btn" disabled' + (listingUnavailable ? ' aria-disabled="true"' : '') + '>Book now</button>' +
+        '<p class="form-note">' + (availabilityMessage || 'This creates a request — the host needs to approve it before it\'s confirmed.') + '</p>' +
         '<div class="success-msg" id="success-msg"></div>' +
       '</div>';
 
@@ -1033,7 +1037,7 @@
     mobileBookingBar.innerHTML =
       '<div class="mobile-price">KSh ' + Number(details.price_amount).toLocaleString() +
       ' <span>/ ' + escapeHtml(details.price_unit) + '</span></div>' +
-      '<button type="button" class="mobile-book-btn" id="mobile-book-btn">Book now</button>';
+      '<button type="button" class="mobile-book-btn" id="mobile-book-btn"' + (listingUnavailable ? ' disabled' : '') + '>Book now</button>';
     document.body.appendChild(mobileBookingBar);
     document.getElementById('mobile-book-btn').addEventListener('click', function(){
       const side = document.getElementById('col-side');

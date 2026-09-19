@@ -1290,7 +1290,7 @@
 
   let listingsQuery = supabaseClient
     .from('listings')
-    .select('id, title, description, category, location_text, created_at, listing_photos(storage_path), listing_booking_details(price_amount, price_unit)')
+    .select('id, title, description, category, location_text, availability_status, created_at, listing_photos(storage_path), listing_booking_details(price_amount, price_unit)')
     .eq('host_id', profileData.id);
   const { data: listings, error: listingsError } = await listingsQuery.order('created_at', { ascending: false });
 

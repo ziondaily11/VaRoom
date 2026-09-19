@@ -36,9 +36,15 @@
   function share(id, title) {
     var url = listingUrl(id);
     if (navigator.share) return navigator.share({ title: title + ' — VaRoom', url: url }).catch(function (error) {
-      if (error.name !== 'AbortError') throw error;
+      if (error.name !== 'AbortError') toast('Unable to share listing');
     });
-    return navigator.clipboard.writeText(url).then(function () { toast('Listing link copied'); });
+    if (!navigator.clipboard || !navigator.clipboard.writeText) {
+      toast('Sharing is not supported in this browser');
+      return Promise.resolve();
+    }
+    return navigator.clipboard.writeText(url)
+      .then(function () { toast('Listing link copied'); })
+      .catch(function () { toast('Unable to copy listing link'); });
   }
   function ensureModal() {
     if (document.getElementById('host-listing-edit-modal')) return;
@@ -130,7 +136,15 @@
             }).catch(function (error) { toast(error.message); });
         } else if (action === 'edit') edit(listing);
         else if (action === 'share') share(listing.id, listing.title);
-        else if (action === 'copy') navigator.clipboard.writeText(listingUrl(listing.id)).then(function () { toast('Listing link copied'); });
+        else if (action === 'copy') {
+          if (!navigator.clipboard || !navigator.clipboard.writeText) {
+            toast('Copying is not supported in this browser');
+            return;
+          }
+          navigator.clipboard.writeText(listingUrl(listing.id))
+            .then(function () { toast('Listing link copied'); })
+            .catch(function () { toast('Unable to copy listing link'); });
+        }
         else if (action === 'bookings') window.location.href = '/bookings?listing=' + encodeURIComponent(listing.id);
         else if (action === 'analytics') window.location.href = '/analytics?listing=' + encodeURIComponent(listing.id);
         else if (action === 'duplicate') request('/listings/' + encodeURIComponent(listing.id) + '/duplicate', { method: 'POST' }).then(function () { invalidateListingCache(); toast('Listing duplicated'); window.location.reload(); }).catch(function (error) { toast(error.message); });
