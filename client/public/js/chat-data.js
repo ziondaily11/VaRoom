@@ -106,6 +106,7 @@
   function showMobileInbox() {
     if (!isMobile()) return;
     state.mobileView = 'inbox';
+    document.body.classList.remove('chat-page-context');
     $('.contacts-col').classList.remove('mobile-hidden');
     $('.chat-col').classList.remove('mobile-visible');
     $('.info-col').classList.remove('mobile-visible');
@@ -113,6 +114,7 @@
   function showMobileConversation() {
     if (!isMobile() || !state.activeId) return;
     state.mobileView = 'conversation';
+    document.body.classList.add('chat-page-context');
     $('.contacts-col').classList.add('mobile-hidden');
     $('.info-col').classList.remove('mobile-visible');
     $('.chat-col').classList.add('mobile-visible');
@@ -121,6 +123,7 @@
     if (!isMobile() || !state.activeId) return;
     state.mobileInfoReturn = returnTo || 'conversation';
     state.mobileView = 'info';
+    document.body.classList.add('chat-page-context');
     $('.contacts-col').classList.add('mobile-hidden');
     $('.chat-col').classList.remove('mobile-visible');
     $('.info-col').classList.add('mobile-visible');
