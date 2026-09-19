@@ -706,6 +706,11 @@
       });
     });
     const input = $('.chat-input-area textarea');
+    const updateComposerState = () => {
+      $('.chat-input-area').classList.toggle('has-text', !!input.value.trim());
+    };
+    input.addEventListener('input', updateComposerState);
+    updateComposerState();
     async function sendText() {
       const content = input.value.trim();
       const pending = state.pendingAttachment;
@@ -740,12 +745,14 @@
         if (state.activeId !== conversationId) {
           if (state.pendingAttachment === pending) {
             input.value = '';
+            updateComposerState();
             state.pendingAttachment = null;
             updateMobilePreview();
           }
           return;
         }
         input.value = '';
+        updateComposerState();
         state.pendingAttachment = null;
         updateMobilePreview();
         const current = $('.messages');

@@ -415,9 +415,11 @@
       background:#eef8f4; border:1.5px solid var(--mint); color:var(--mint-dark);
     }
     .attach-icons .send-message{
+      display:none;
       width:34px; height:34px; border-radius:50%;
       background:var(--rail-bg); color:#ffffff; border:none;
     }
+    .chat-input-area.has-text .attach-icons .send-message{ display:flex; }
     .chat-input-area{
       border:1px solid var(--border); border-radius:14px;
       margin-left:10px; margin-right:10px;
@@ -669,7 +671,7 @@
           <button><svg class="icon"><use href="#i-list-sq"/></svg></button>
         </div>
         <div class="attach-icons">
-          <button class="mobile-plus" title="Add attachment" aria-label="Add attachment"><svg class="icon"><use href="#i-plus"/></svg></button>
+          <button class="mobile-plus" title="Add attachment" aria-label="Add attachment"><svg class="icon"><use href="#i-link"/></svg></button>
           <button class="share-photo"><svg class="icon"><use href="#i-image"/></svg></button>
           <button class="share-file"><svg class="icon"><use href="#i-paperclip"/></svg></button>
           <button title="Share listing" aria-label="Share listing"><svg class="icon"><use href="#i-share"/></svg></button>
