@@ -175,11 +175,11 @@
   .card-price{ font-weight:700; font-size:.95rem; color:var(--text-primary); }
   .card-price span{ font-weight:500; color:var(--text-secondary); font-size:.72rem; }
   .card-amenities{
-    display:flex; align-items:center; flex-wrap:wrap; gap:.38rem; min-height:1.5rem; padding:.06rem 0 .12rem; color:var(--text-secondary);
+    display:flex; align-items:center; flex-wrap:nowrap; gap:.5rem; min-height:1.5rem; padding:.06rem 0 .12rem; color:var(--text-secondary); overflow:hidden;
   }
-  .card-amenity{ display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; color:var(--text-secondary); }
-  .card-amenity svg{ width:14px; height:14px; }
-  .card-amenity-more{ display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:18px; padding:0 .25rem; border-radius:999px; background:var(--paper); color:var(--text-secondary); font-size:.58rem; font-weight:700; }
+  .card-amenity{ display:inline-flex; align-items:center; gap:.2rem; flex:0 0 auto; color:var(--text-secondary); font-size:.72rem; line-height:1; white-space:nowrap; }
+  .card-amenity svg{ width:14px; height:14px; flex:0 0 auto; }
+  .card-amenity-more{ display:none; }
   .card-book{ font-size:.72rem; font-weight:700; color:var(--accent-link); letter-spacing:-.01em; }
   .skeleton{ background:linear-gradient(90deg,var(--paper) 25%,var(--line-soft) 50%,var(--paper) 75%); background-size:200% 100%; animation:skeleton-shimmer 1.4s infinite; }
   .skeleton-card{ pointer-events:none; }
@@ -272,10 +272,9 @@
     .card-price{ font-size:.7rem; }
     .card-price span{ font-size:.56rem; }
     .card-book{ font-size:.58rem; }
-    .card-amenities{ gap:.22rem; min-height:1rem; padding-top:0; }
-    .card-amenity{ width:14px; height:14px; }
+    .card-amenities{ gap:.35rem; min-height:1.05rem; padding-top:0; }
+    .card-amenity{ gap:.14rem; font-size:.56rem; }
     .card-amenity svg{ width:11px; height:11px; }
-    .card-amenity-more{ min-width:18px; height:14px; font-size:.48rem; }
     .card-save{ top:.48rem; right:.48rem; width:1.7rem; height:1.7rem; background:rgba(15,19,24,.45); }
     .card-save svg{ width:11px; height:11px; }
     .card-verified{ top:.48rem; left:.48rem; padding:.18rem .36rem; font-size:.5rem; }
@@ -414,14 +413,15 @@
   const ICON_BED = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 12.5V7.8A1.8 1.8 0 0 1 5.3 6h2.4a2.1 2.1 0 0 1 2.1 2.1v2.4h9.7v3.5h-2.2v1.9H3.5v-1.9H3.5Zm1.8-1.8h9.7v-2.5H5.3a1.1 1.1 0 0 0-1.1 1.1v1.4Z"/><path d="M3.5 17v2M20.5 17v2"/></svg>';
   const ICON_BATH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 12h10a2.5 2.5 0 0 1 2.5 2.5V15a2.5 2.5 0 0 1-2.5 2.5H8A2.5 2.5 0 0 1 5.5 15v-.5A2.5 2.5 0 0 1 8 12h-.5"/><path d="M8 12V8.5A2.5 2.5 0 0 1 10.5 6H11a2.5 2.5 0 0 1 2.5 2.5V12"/><path d="M5.5 18.5h13"/></svg>';
   const ICON_GUEST = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 18a4.5 4.5 0 0 0-9 0"/><circle cx="12" cy="9" r="3.5"/><path d="M18.5 18a4.5 4.5 0 0 0-2.8-4.2"/><path d="M5.5 18a4.5 4.5 0 0 1 2.8-4.2"/></svg>';
+  const ICON_SIZE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V4h4M20 8V4h-4M4 16v4h4M20 16v4h-4"/><path d="M8 4 4 8M16 4l4 4M4 16l4 4M20 16l-4 4"/></svg>';
   const PAGE_SIZE = 12;
 
   const MKT_SELECT = 'id,title,description,location_text,category,verified,created_at,host_id,availability_status,' +
     'host:profiles!inner(full_name,verified,avatar_url,username),' +
-    'listing_photos(storage_path),listing_booking_details(price_amount,price_unit,max_guests)';
+    'listing_photos(storage_path),listing_booking_details(*)';
   const MKT_LEGACY_SELECT = 'id,title,description,location_text,category,verified,created_at,host_id,' +
     'host:profiles!inner(full_name,verified,avatar_url,username),' +
-    'listing_photos(storage_path),listing_booking_details(price_amount,price_unit,max_guests)';
+    'listing_photos(storage_path),listing_booking_details(*)';
 
   function escapeHtml(str){
     const div = document.createElement('div');
@@ -586,6 +586,16 @@
     return icons.slice(0, 4);
   }
 
+  function getListingCardAmenities(listing){
+    return getListingAmenities(listing).map(function(item){
+      return {
+        key: item.key,
+        html: item.html,
+        label: item.key.replace(/_/g, ' ')
+      };
+    });
+  }
+
   function createListingCard(listing){
     const isBookmarked = bookmarkedIds.has(listing.id);
     const price = formatPrice(listing.listing_booking_details || listing.booking_details);
@@ -594,11 +604,10 @@
       ? (listing.listing_booking_details[0] || {})
       : (listing.listing_booking_details || {});
     const locationText = sanitizeLocationText(listing.location_text || detail.location_text || '');
-    const amenities = getListingAmenities(listing);
+    const amenities = getListingCardAmenities(listing);
     const visibleAmenities = amenities.map(function(item){
-      return '<span class="card-amenity" title="' + escapeHtml(item.key) + '" aria-label="' + escapeHtml(item.key) + '">' + item.html + '</span>';
+      return '<span class="card-amenity" title="' + escapeHtml(item.label) + '" aria-label="' + escapeHtml(item.label) + '">' + item.html + '</span>';
     }).join('');
-    const hiddenCount = Math.max((Array.isArray(detail.amenities) ? detail.amenities.length : 0) - amenities.length, 0);
     const title = normalizeListingTitle(listing.title || listing.name || '');
 
     return (
@@ -613,7 +622,7 @@
         '<div class="card-body">' +
           '<div class="card-title">' + escapeHtml(title) + '</div>' +
           (locationText ? '<div class="card-loc">' + escapeHtml(locationText) + '</div>' : '') +
-          (visibleAmenities || hiddenCount ? '<div class="card-amenities">' + visibleAmenities + (hiddenCount ? '<span class="card-amenity-more">+' + hiddenCount + '</span>' : '') + '</div>' : '') +
+          '<div class="card-amenities" aria-label="Property amenities">' + visibleAmenities + '</div>' +
           '<div class="card-foot">' +
             (price
               ? '<div class="card-price">KSh ' + price.amount.toLocaleString() + ' <span>/ ' + escapeHtml(price.unit) + '</span></div>'
