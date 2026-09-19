@@ -369,7 +369,9 @@
     .contact-body{ min-width:0; }
     .contact-top,.contact-bottom{ min-width:0; }
     .chat-col{ display:none; width:100%; background:#ffffff; }
-    .chat-col.mobile-visible{ display:flex; min-height:100%; }
+    .chat-col.mobile-visible{
+      display:flex; width:100%; height:100%; min-height:0; overflow:hidden;
+    }
     .chat-header{ padding:14px 12px; background:#ffffff; border-bottom-color:var(--border); }
     .mobile-back{ display:flex; color:#0b0b0c; }
     .chat-header-avatar-wrap{ display:block; position:relative; }
@@ -386,18 +388,20 @@
     .chat-header-actions{ gap:6px; }
     .chat-header::before{ content:none; }
     .messages{ padding:16px 14px; background:#fbfbfc; gap:14px; }
+    .messages{ min-height:0; }
     .msg-row{ max-width:80%; }
     .msg-row.out .bubble{ background:var(--rail-bg); color:#ffffff; }
     .msg-row.in .bubble{ background:#edeef0; color:#1c1c1e; }
     .msg-row.system .bubble{ background:#f1f1f3; }
     .msg-sender{ color:#8e8e93; }
-    .msg-meta{ color:#8e8e93; }
+    .msg-meta{ color:#6f737a; font-size:11.5px; }
     .voice-card{ background:#edeef0; }
     .voice-card .play{ background:var(--rail-bg); }
     .voice-wave span{ background:#1c1c1e; }
     .chat-input-area{
       display:grid; grid-template-columns:36px minmax(0,1fr) 36px;
       grid-template-rows:auto auto; align-items:center; column-gap:8px;
+      flex:0 0 auto; min-height:54px;
       padding:8px 10px calc(8px + env(safe-area-inset-bottom));
       background:#ffffff; border-top-color:var(--border);
       margin-bottom:env(safe-area-inset-bottom);
@@ -459,6 +463,7 @@
     .mobile-chat-settings:active,.mobile-chat-settings:focus-visible{ background:#eef0f3; outline:none; }
     .mobile-back{ display:flex; align-items:center; justify-content:center; border:0; background:transparent; cursor:pointer; }
     .mobile-back{ width:40px; height:40px; padding:0; color:#0b0b0c; }
+    .chat-header-actions button[title="More"]{ width:40px; height:40px; }
     [data-theme="dark"] .search-box,
     [data-theme="dark"] .chat-col.mobile-visible,
     [data-theme="dark"] .info-col.mobile-visible,
