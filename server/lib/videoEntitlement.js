@@ -159,7 +159,6 @@ function getFileExtension(fileName) {
 
 module.exports = {
   canUploadPropertyVideo,
-  getUserProfile,
   getPropertyVideoCount,
   validateVideoFile,
   getFileExtension,
