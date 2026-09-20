@@ -132,6 +132,7 @@
 
   async function mount() {
     removePageSpecificBars();
+    if (window.location.pathname === '/pricing' || window.location.pathname === '/pricing.html') return;
     if (!window.supabaseClient || !window.supabaseClient.auth) return;
 
     try {
