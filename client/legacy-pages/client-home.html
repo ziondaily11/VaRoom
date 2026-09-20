@@ -871,7 +871,7 @@
           <div class="mobile-dest-row" id="mobile-dest-row"></div>
         </div>
 
-        <div class="mobile-property-news-section" id="mobile-property-news-section">
+        <div class="mobile-property-news-section" id="mobile-property-news-section" style="display:none">
           <div class="mobile-widget-card property-news-widget">
             <div class="property-news-widget-head">
               <h2>Property News</h2>
@@ -912,7 +912,7 @@
           </div>
         </div>
 
-        <div class="property-news-widget">
+        <div class="property-news-widget" id="client-property-news-widget" style="display:none">
           <div class="property-news-widget-head">
             <h2>Property News</h2>
             <button class="property-news-bar-refresh" id="property-news-refresh" title="Refresh news">Refresh</button>
@@ -2003,15 +2003,18 @@
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    const PROPERTY_NEWS_DISPLAY_MS = 60 * 60 * 1000; // 1 hour
     const PROPERTY_NEWS_REFRESH_MS = 5 * 60 * 1000; // re-check for new items every 5 minutes
     let propertyNewsItems = [];
     let propertyNewsRefreshTimer = null;
-    let propertyNewsExpiryTimer = null;
 
     function clientPropertyNewsSourceUrl(news){
       const value = news && news.source && news.source.url;
       return /^https?:\/\//i.test(String(value || '')) ? String(value) : '';
+    }
+
+    function clientPropertyNewsDate(dateValue){
+      const date = new Date(dateValue);
+      return isNaN(date.getTime()) ? 'Recently' : date.toLocaleDateString('en-KE', { day:'numeric', month:'short', year:'numeric' });
     }
 
     function wireClientPropertyNewsImages(container){
@@ -2024,62 +2027,31 @@
     }
 
     function clientPropertyNewsHtml(items){
-      return items.slice(0, 3).map(function(news){
+      return items.slice(0, 5).map(function(news){
         const source = news.source || {};
-        const sourceUrl = clientPropertyNewsSourceUrl(news);
         const sourceName = typeof source.name === 'string' && source.name.trim() ? source.name.trim() : '';
-        const image = typeof news.image_url === 'string' && news.image_url.trim()
-          ? '<div class="client-property-news-image-wrap"><img class="client-property-news-image" src="' + escapeHtml(news.image_url) + '" alt="" decoding="async"></div>'
-          : '';
-        const sourceHtml = sourceName
-          ? '<div class="client-property-news-source">' + (sourceUrl
-            ? '<a class="client-property-news-source-link" href="' + escapeHtml(sourceUrl) + '" target="_blank" rel="noopener noreferrer">Source · ' + escapeHtml(sourceName) + '</a>'
-            : 'Source · ' + escapeHtml(sourceName)) + '</div>'
-          : '';
-        const dateValue = source.published_at || news.published_at;
-        return '<article class="client-property-news-item"><a class="client-property-news-main" href="/property-news?id=' + encodeURIComponent(news.id) + '">' + image + '<div class="client-property-news-kicker">Property News</div><div class="client-property-news-title">' + escapeHtml(news.title || 'Property update') + '</div><div class="client-property-news-meta"><span>' + escapeHtml([].concat(news.counties || [], news.towns || []).filter(Boolean).slice(0, 3).join(' · ') || 'Kenya') + '</span><span>•</span><span>' + escapeHtml(dateValue ? timeAgo(dateValue) : 'Recently') + '</span></div></a>' + sourceHtml + '</article>';
+        const dateValue = news.published_at || source.published_at;
+        return '<article class="client-property-news-item"><a class="client-property-news-main" href="/property-news?id=' + encodeURIComponent(news.id) + '"><div class="client-property-news-title">' + escapeHtml(news.title || 'Property update') + '</div><div class="client-property-news-meta"><span>' + escapeHtml(sourceName || 'VaRoom') + '</span><span>•</span><span>' + escapeHtml(clientPropertyNewsDate(dateValue)) + '</span></div></a></article>';
       }).join('');
-    }
-
-    function freshPropertyNews(items){
-      const now = Date.now();
-      return (items || []).filter(function(news){
-        const source = news.source || {};
-        const publishedAt = source.published_at || news.published_at;
-        if (!publishedAt) return true;
-        const publishedTime = new Date(publishedAt).getTime();
-        if (isNaN(publishedTime)) return true;
-        return (now - publishedTime) <= PROPERTY_NEWS_DISPLAY_MS;
-      });
-    }
-
-    function clientPropertyNewsEmptyHtml(){
-      return '<div class="client-property-news-empty-card">' +
-        '<div class="client-property-news-empty-icon-wrap">' +
-          '<div class="client-property-news-empty-icon">' +
-            '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8V6Z"/></svg>' +
-          '</div>' +
-        '</div>' +
-        '<div class="client-property-news-empty-title">All caught up</div>' +
-        '<p class="client-property-news-empty-desc">No new property news right now — we\'re quietly watching for updates.</p>' +
-      '</div>';
     }
 
     function renderPropertyNewsContainers(){
       const desktopContainer = document.getElementById('client-property-news');
       const mobileContainer = document.getElementById('client-property-news-mobile');
       const mobileSection = document.getElementById('mobile-property-news-section');
-      const fresh = freshPropertyNews(propertyNewsItems);
+      const desktopSection = document.getElementById('client-property-news-widget');
+      const fresh = propertyNewsItems;
 
       if (fresh.length > 0) {
         const html = clientPropertyNewsHtml(fresh);
-        if (desktopContainer) { desktopContainer.innerHTML = html; wireClientPropertyNewsImages(desktopContainer); }
-        if (mobileContainer) { mobileContainer.innerHTML = html; wireClientPropertyNewsImages(mobileContainer); }
+        if (desktopContainer) desktopContainer.innerHTML = html;
+        if (mobileContainer) mobileContainer.innerHTML = html;
+        if (desktopSection) desktopSection.style.display = '';
         if (mobileSection) mobileSection.style.display = '';
       } else {
-        // Desktop rail: a quiet animated empty state instead of flat text.
-        // Mobile: no news means no card at all — hide the whole section.
-        if (desktopContainer) desktopContainer.innerHTML = clientPropertyNewsEmptyHtml();
+        if (desktopContainer) desktopContainer.innerHTML = '';
+        if (mobileContainer) mobileContainer.innerHTML = '';
+        if (desktopSection) desktopSection.style.display = 'none';
         if (mobileSection) mobileSection.style.display = 'none';
       }
     }
@@ -2088,22 +2060,21 @@
       const containers = [document.getElementById('client-property-news'), document.getElementById('client-property-news-mobile')].filter(Boolean);
       if (!containers.length) return;
       try {
-        const response = await fetch('/api/news/latest?limit=3', { headers:{ Accept:'application/json' } });
+        const response = await fetch('/api/news/latest?limit=5', { headers:{ Accept:'application/json' } });
         if (!response.ok) throw new Error('Property News request failed');
         const items = await response.json();
         propertyNewsItems = Array.isArray(items) ? items : [];
         renderPropertyNewsContainers();
       } catch (error) {
         console.warn('Property News could not be loaded:', error);
-        containers.forEach(function(container){ container.innerHTML = '<p class="client-property-news-error">Property News is temporarily unavailable.</p>'; });
+        propertyNewsItems = [];
+        renderPropertyNewsContainers();
       }
     }
 
     function startPropertyNewsTimers(){
       clearInterval(propertyNewsRefreshTimer);
-      clearInterval(propertyNewsExpiryTimer);
       propertyNewsRefreshTimer = setInterval(loadClientPropertyNews, PROPERTY_NEWS_REFRESH_MS);
-      propertyNewsExpiryTimer = setInterval(renderPropertyNewsContainers, 60 * 1000);
     }
 
     const propertyNewsRefreshBtn = document.getElementById('property-news-refresh');

@@ -1553,6 +1553,11 @@
       return /^https?:\/\//i.test(String(value || '')) ? String(value) : '';
     }
 
+    function propertyNewsDate(dateValue){
+      const date = new Date(dateValue);
+      return isNaN(date.getTime()) ? 'Recently' : date.toLocaleDateString('en-KE', { day:'numeric', month:'short', year:'numeric' });
+    }
+
     function wirePropertyNewsImages(container){
       container.querySelectorAll('.property-news-image').forEach(function(image){
         const wrapper = image.closest('.property-news-image-wrap');
@@ -1563,30 +1568,16 @@
     }
 
     function propertyNewsItemsHtml(items){
-      return items.slice(0, 2).map(function(news){
+      return items.slice(0, 5).map(function(news){
         const source = news.source || {};
-        const publicationTime = source.published_at || news.published_at;
-        const status = propertyNewsStatus(news);
+        const publicationTime = news.published_at || source.published_at;
         const sourceName = propertyNewsSource(news);
-        const sourceUrl = propertyNewsSourceUrl(news);
-        const image = typeof news.image_url === 'string' && news.image_url.trim()
-          ? '<div class="property-news-image-wrap"><img class="property-news-image" src="' + escapeHtml(news.image_url) + '" alt="" decoding="async" loading="lazy"></div>'
-          : '';
-        const sourceAttribution = sourceName
-          ? '<div class="property-news-source">' + (sourceUrl
-            ? '<a class="property-news-source-link" href="' + escapeHtml(sourceUrl) + '" target="_blank" rel="noopener noreferrer">Source · ' + escapeHtml(sourceName) + '</a>'
-            : 'Source · ' + escapeHtml(sourceName)) + '</div>'
-          : '';
         return (
           '<article class="property-news-item">' +
             '<a class="property-news-detail-link" href="/property-news?id=' + encodeURIComponent(news.id) + '">' +
-              image +
-              '<div class="property-news-kicker">Property News</div>' +
               '<div class="property-news-title">' + escapeHtml(news.title || 'Property update') + '</div>' +
-              '<div class="property-news-meta"><span>' + escapeHtml(propertyNewsLocation(news)) + '</span><span>•</span><span>' + escapeHtml(publicationTime ? timeAgo(publicationTime) : 'Recently') + '</span></div>' +
+              '<div class="property-news-meta"><span>' + escapeHtml(sourceName || 'VaRoom') + '</span><span>•</span><span>' + escapeHtml(propertyNewsDate(publicationTime)) + '</span></div>' +
             '</a>' +
-            sourceAttribution +
-            (status ? '<span class="property-news-status status-' + status.className + '">' + status.label + '</span>' : '') +
           '</article>'
         );
       }).join('');
@@ -1604,45 +1595,23 @@
       });
     }
 
-    // Each news item is shown for a fixed window after it was published,
-    // then disposed of on its own rather than sitting there indefinitely.
-    const PROPERTY_NEWS_DISPLAY_MS = 2 * 60 * 60 * 1000; // 2 hours
     const PROPERTY_NEWS_REFRESH_MS = 5 * 60 * 1000; // re-check for new items every 5 minutes
-    let propertyNewsExpiryTimer = null;
     let propertyNewsRefreshTimer = null;
 
-    // Drops items whose published time is older than the display window.
-    // Items with no date at all are kept, since there's no age to judge.
-    function freshPropertyNews(items){
-      const now = Date.now();
-      return (items || []).filter(function(news){
-        const source = news.source || {};
-        const publishedAt = source.published_at || news.published_at;
-        if (!publishedAt) return true;
-        const publishedTime = new Date(publishedAt).getTime();
-        if (isNaN(publishedTime)) return true;
-        return (now - publishedTime) <= PROPERTY_NEWS_DISPLAY_MS;
-      });
-    }
-
     function renderFreshPropertyNews(){
-      renderPropertyNews('ready', freshPropertyNews(hostPropertyNewsCache));
+      renderPropertyNews('ready', hostPropertyNewsCache);
     }
 
     function startPropertyNewsTimers(){
-      clearInterval(propertyNewsExpiryTimer);
       clearInterval(propertyNewsRefreshTimer);
-      // Checked more often than the refetch so an item disposes close to
-      // on-time once its 2 hours are up, without waiting on the next fetch.
-      propertyNewsExpiryTimer = setInterval(renderFreshPropertyNews, 60 * 1000);
       propertyNewsRefreshTimer = setInterval(loadPropertyNews, PROPERTY_NEWS_REFRESH_MS);
     }
 
     async function loadPropertyNews(){
       try {
-        const news = await VaRoomPropertyNews.latest(2);
+        const news = await VaRoomPropertyNews.latest(5);
         if (Array.isArray(news) && news.length > 0) {
-          hostPropertyNewsCache = news.slice(0, 2);
+          hostPropertyNewsCache = news.slice(0, 5);
           renderFreshPropertyNews();
         } else if (hostPropertyNewsCache.length > 0) {
           renderFreshPropertyNews();

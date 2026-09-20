@@ -498,7 +498,10 @@ class SupabaseNewsRepository:
         if bounded_limit < 1:
             raise ValueError("limit must be positive")
         fields = select_fields or FULL_ITEM_FIELDS
-        params = {"select": fields, "order": "source_published_at.desc.nullslast,published_at.desc",
+        # The public dashboard is a VaRoom publication feed.  Sort by the
+        # moment an item was published by VaRoom, not by the often much older
+        # source article timestamp.
+        params = {"select": fields, "order": "published_at.desc.nullslast,source_published_at.desc.nullslast",
                   "limit": str(bounded_limit)}
         if published_only:
             params["review_status"] = "eq.published"
