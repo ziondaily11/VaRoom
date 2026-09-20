@@ -24,6 +24,11 @@ const fontSizeStyle = `
 const fontSizeScript = `
   (function () {
     try {
+      var savedTheme = localStorage.getItem('varoom_theme') || 'system';
+      var resolvedTheme = savedTheme === 'system'
+        ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+        : savedTheme;
+      document.documentElement.setAttribute('data-theme', resolvedTheme);
       var scales = { small: '0.9', default: '1', large: '1.1', xlarge: '1.2' };
       var choice = localStorage.getItem('varoom_font_size') || 'default';
       document.documentElement.style.setProperty('--varoom-font-scale', scales[choice] || scales.default);
@@ -44,6 +49,7 @@ export default function App({ Component, pageProps }) {
         <link rel="icon" type="image/png" sizes="32x32" href="/favicon/favicon-32.png" />
         <link rel="icon" type="image/png" sizes="16x16" href="/favicon/favicon-16.png" />
         <link rel="apple-touch-icon" sizes="180x180" href="/favicon/favicon-180.png" />
+        <link rel="stylesheet" href="/js/varoom-dark-theme.css" />
         <style dangerouslySetInnerHTML={{ __html: fontSizeStyle }} />
         <script dangerouslySetInnerHTML={{ __html: fontSizeScript }} />
       </Head>

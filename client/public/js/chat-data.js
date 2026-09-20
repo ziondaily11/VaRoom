@@ -714,6 +714,13 @@
       .from('profiles').select('role').eq('id', state.session.user.id).maybeSingle();
     if (profileResult.error) throw profileResult.error;
     state.role = profileResult.data && profileResult.data.role === 'host' ? 'host' : 'client';
+    // The chat shell renders role-specific navigation separately from its
+    // data flow. Keep that UI in sync with the authenticated profile.
+    document.documentElement.setAttribute('data-role', state.role);
+    document.body.setAttribute('data-role', state.role);
+    if (window.VaroomChatNavigation && window.VaroomChatNavigation.setRole) {
+      window.VaroomChatNavigation.setRole(state.role);
+    }
     configureAttachmentControls();
     const requested = new URLSearchParams(window.location.search).get('c') || new URLSearchParams(window.location.search).get('conversation');
     state.activeId = !isMobile() && requested && state.conversations.some((item) => item.id === requested) ? requested : null;
