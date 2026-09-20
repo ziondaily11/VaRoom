@@ -75,6 +75,7 @@
     --pc-glow-top: radial-gradient(55% 42% at 50% 24%, rgba(255,255,255,.075), rgba(255,255,255,0) 70%);
     --pc-glow-bottom: radial-gradient(45% 30% at 50% 100%, rgba(196,30,58,.11), rgba(196,30,58,0) 70%);
   }
+  body.auth-pending{ visibility:hidden; }
 
   /* Deep, non-flat background: two soft glows, no bright colour */
   .pricing-bg{ position:absolute; inset:0; background:var(--pc-glow-top), var(--pc-glow-bottom); pointer-events:none; }
@@ -206,7 +207,7 @@
 </style>
 <link rel="stylesheet" href="js/varoom-dark-theme.css">
 </head>
-<body>
+<body class="auth-pending">
 
 <!-- Icon sprite (kept in-page so the feature rows stay light) -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
@@ -291,6 +292,40 @@
     </div>
   </div>
 </div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase-client.js"></script>
+<script>
+  (async function(){
+    try{
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (!session) {
+        window.location.replace('/login?redirect=' + encodeURIComponent('/pricing'));
+        return;
+      }
+
+      const { data: profile, error } = await supabaseClient
+        .from('profiles')
+        .select('role')
+        .eq('id', session.user.id)
+        .maybeSingle();
+
+      if (error || !profile) {
+        window.location.replace('/login');
+        return;
+      }
+      if (profile.role !== 'host') {
+        window.location.replace('/client-home');
+        return;
+      }
+
+      document.body.classList.remove('auth-pending');
+    } catch (error) {
+      console.error('Pricing access check failed:', error);
+      window.location.replace('/login');
+    }
+  })();
+</script>
 
 <script>
   (function(){
