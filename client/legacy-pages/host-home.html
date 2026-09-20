@@ -272,24 +272,6 @@
   }
   .list-btn-primary:hover{ background:var(--red-deep); }
 
-  .away-toggle-wrap{
-    display:flex; align-items:center; gap:.6rem;
-    background:rgba(196,30,58,.07); border:1px solid rgba(196,30,58,.22); border-radius:100px;
-    padding:.5rem .9rem .5rem .6rem; color:var(--ink); cursor:pointer;
-  }
-  .away-toggle-label{ font-size:.85rem; font-weight:600; }
-  .away-toggle-sub{ font-size:.72rem; color:var(--muted); }
-  .away-switch{
-    position:relative; width:40px; height:22px; border-radius:100px;
-    background:rgba(196,30,58,.25); flex-shrink:0; transition:background .2s ease;
-  }
-  .away-switch.on{ background:var(--red); }
-  .away-switch .knob{
-    position:absolute; top:2px; left:2px; width:18px; height:18px; border-radius:50%;
-    background:#FFFFFF; box-shadow:0 1px 3px rgba(0,0,0,.3); transition:transform .2s ease;
-  }
-  .away-switch.on .knob{ transform:translateX(18px); }
-
   .stats-card{
     background:var(--white); border:1px solid var(--line); border-radius:16px;
     padding:1.2rem 1.4rem; margin-bottom:1.6rem;
@@ -739,9 +721,6 @@
     .host-rail .property-news-card{ display:none; }
     .property-news-mobile-slot{ display:block; margin:0 0 1.4rem; }
 
-    /* Away mode is managed from mobile Chat Settings. */
-    .away-toggle-wrap{ display:none; }
-
     /* Category filters: one scrollable row, never wrap */
     .tabs{
       flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch;
@@ -949,14 +928,6 @@
         </a>
       </div>
 
-      <button type="button" class="away-toggle-wrap" id="away-toggle-wrap" style="margin-bottom:1.4rem;">
-        <div class="away-switch" id="away-switch"><div class="knob"></div></div>
-        <div style="text-align:left;">
-          <div class="away-toggle-label" id="away-toggle-label">Away mode</div>
-          <div class="away-toggle-sub">When on, Elie can answer client questions using your real listing details while you're offline.</div>
-        </div>
-      </button>
-
       <div class="stats-card">
         <div class="stats-head">
           <h2>Your spaces at a glance</h2>
@@ -1106,22 +1077,6 @@
     if (!profile) { window.location.href = '/login'; return; }
     if (profile.role === 'client') { window.location.href = '/client-home'; return; }
 
-    // Fetched separately and tolerantly — if away_mode doesn't exist yet
-    // (e.g. the Supabase column hasn't been added), login must still work.
-    let awayModeColumnAvailable = true;
-    try {
-      const { data: awayRow, error: awayErr } = await supabaseClient
-        .from('profiles')
-        .select('away_mode')
-        .eq('id', currentUser.id)
-        .maybeSingle();
-      if (awayErr) throw awayErr;
-      profile.away_mode = awayRow ? awayRow.away_mode : false;
-    } catch (e) {
-      awayModeColumnAvailable = false;
-      profile.away_mode = false;
-    }
-
     const firstName = (profile.full_name || 'there').split(' ')[0];
 
     const hour = new Date().getHours();
@@ -1134,38 +1089,6 @@
     } else {
       verifyBox.className = 'verify-box not-verified';
       verifyBox.innerHTML = '<strong>Get verified</strong>Verification isn\'t self-serve yet — reach out via Help &amp; Support to get your blue tick.';
-    }
-
-    // ---------- Away mode ----------
-    let awayMode = !!profile.away_mode;
-    const awaySwitch = document.getElementById('away-switch');
-    const awayLabel = document.getElementById('away-toggle-label');
-
-    function renderAwayState(){
-      awaySwitch.classList.toggle('on', awayMode);
-      awayLabel.textContent = awayMode ? 'Away mode — on' : 'Away mode';
-    }
-    renderAwayState();
-
-    if (!awayModeColumnAvailable) {
-      document.getElementById('away-toggle-wrap').addEventListener('click', function(){
-        showToast("Away mode isn't set up in the database yet — add the away_mode column to profiles first.");
-      });
-    } else {
-      document.getElementById('away-toggle-wrap').addEventListener('click', async function(){
-        const next = !awayMode;
-        const { error } = await supabaseClient
-          .from('profiles')
-          .update({ away_mode: next })
-          .eq('id', currentUser.id);
-        if (error) {
-          showToast("Couldn't update away mode: " + error.message);
-          return;
-        }
-        awayMode = next;
-        renderAwayState();
-        showToast(awayMode ? "Away mode on — Elie can now answer for you." : 'Away mode off.');
-      });
     }
 
     // ---------- Your listings count (real) ----------

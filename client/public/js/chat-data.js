@@ -78,6 +78,17 @@
       sheet.setAttribute('aria-hidden', 'true');
       chatCol.appendChild(sheet);
     });
+    const openChatSettings = () => {
+      const currentPath = `${window.location.pathname}${window.location.search || ''}`;
+      const target = `/chat-settings?returnTo=${encodeURIComponent(currentPath)}`;
+      window.location.assign(target);
+    };
+    window.addEventListener('varoom:chat-settings-requested', openChatSettings);
+    document.querySelectorAll('.chat-settings-trigger, .mobile-chat-settings').forEach((button) => {
+      button.addEventListener('click', () => {
+        window.dispatchEvent(new CustomEvent('varoom:chat-settings-requested'));
+      });
+    });
     if (isMobile()) {
       $('.search-box input').placeholder = 'Search conversations...';
       const preview = document.createElement('div');
@@ -93,15 +104,6 @@
       $('.info-close-btn').addEventListener('click', () => {
         if (state.mobileInfoReturn === 'inbox') showMobileInbox();
         else showMobileConversation();
-      });
-      const openChatSettings = () => {
-        const currentPath = `${window.location.pathname}${window.location.search || ''}`;
-        const target = `/chat-settings?returnTo=${encodeURIComponent(currentPath)}`;
-        window.location.assign(target);
-      };
-      window.addEventListener('varoom:chat-settings-requested', openChatSettings);
-      $('.mobile-chat-settings').addEventListener('click', () => {
-        window.dispatchEvent(new CustomEvent('varoom:chat-settings-requested'));
       });
     }
   }
@@ -902,7 +904,7 @@
         if (routes[button.dataset.chatNav]) window.location.assign(routes[button.dataset.chatNav]);
       });
     });
-    document.querySelectorAll('.chat-header-actions button:not(#infoToggleBtn):not([title="Search"]), .compose-btn, .icon-rail button:not([data-chat-nav]), .info-section-head .more').forEach((button) => {
+    document.querySelectorAll('.chat-header-actions button:not(#infoToggleBtn):not([title="Search"]), .icon-rail button:not([data-chat-nav]), .info-section-head .more').forEach((button) => {
       button.disabled = true; button.setAttribute('aria-disabled', 'true');
     });
     document.querySelectorAll('.format-icons button').forEach((button) => {
