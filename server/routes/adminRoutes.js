@@ -77,9 +77,10 @@ function createAdminRoutes(supabaseAdmin) {
   const router = express.Router();
   const adminAuth = requireAdmin(supabaseAdmin);
   const propertyNewsUrl = (process.env.PROPERTY_NEWS_API_URL || '').replace(/\/$/, '');
+  const propertyNewsAdminApiKey = (process.env.PROPERTY_NEWS_ADMIN_API_KEY || '').trim();
 
   async function propertyNewsRequest(path, options = {}) {
-    if (!propertyNewsUrl || !process.env.PROPERTY_NEWS_ADMIN_API_KEY) {
+    if (!propertyNewsUrl || !propertyNewsAdminApiKey) {
       const error = new Error('Property News administration is not configured');
       error.statusCode = 503;
       throw error;
@@ -89,8 +90,8 @@ function createAdminRoutes(supabaseAdmin) {
       ...options,
       headers: {
         Accept: 'application/json',
-        Authorization: 'Bearer ' + process.env.PROPERTY_NEWS_ADMIN_API_KEY,
         ...(options.headers || {}),
+        Authorization: 'Bearer ' + propertyNewsAdminApiKey,
       },
     });
 

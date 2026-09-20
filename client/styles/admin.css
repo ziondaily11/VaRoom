@@ -1,1 +1,56 @@
 @tailwind utilities;
+
+[data-theme="dark"] .admin-dashboard {
+  --admin-surface: #171313;
+  --admin-canvas: #0F0D0D;
+  --admin-ink: #F5EFEC;
+  --admin-muted: #C9BFBA;
+  --admin-line: rgba(245, 239, 236, 0.2);
+  background: var(--admin-canvas) !important;
+  color: var(--admin-ink) !important;
+}
+
+[data-theme="dark"] .admin-dashboard [class*="bg-white"] {
+  background: var(--admin-surface) !important;
+}
+
+[data-theme="dark"] .admin-dashboard [class*="bg-[#F7F6F3]"],
+[data-theme="dark"] .admin-dashboard [class*="hover:bg-[#F7F6F3]"]:hover {
+  background: var(--admin-canvas) !important;
+}
+
+[data-theme="dark"] .admin-dashboard [class*="border-[#E4E1DA]"] {
+  border-color: var(--admin-line) !important;
+}
+
+[data-theme="dark"] .admin-dashboard [class*="text-[#24211E]"],
+[data-theme="dark"] .admin-dashboard [class*="text-[#5c584f]"],
+[data-theme="dark"] .admin-dashboard [class*="text-[#8a857c]"] {
+  color: var(--admin-muted) !important;
+}
+
+[data-theme="dark"] .admin-dashboard [class*="text-[#24211E]"] {
+  color: var(--admin-ink) !important;
+}
+
+[data-theme="dark"] .admin-dashboard [class*="text-[#1F6F5C]"] {
+  color: #72C7B0 !important;
+}
+
+[data-theme="dark"] .admin-dashboard [class*="text-[#B5482E]"] {
+  color: #F08B78 !important;
+}
+
+[data-theme="dark"] .admin-dashboard input,
+[data-theme="dark"] .admin-dashboard textarea,
+[data-theme="dark"] .admin-dashboard select {
+  background: var(--admin-surface) !important;
+  color: var(--admin-ink) !important;
+  border-color: var(--admin-line) !important;
+}
+
+[data-theme="dark"] .admin-dashboard input::placeholder,
+[data-theme="dark"] .admin-dashboard textarea::placeholder {
+  color: var(--admin-muted) !important;
+  opacity: 1;
+}
