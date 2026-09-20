@@ -98,10 +98,6 @@
       '    ' + ICONS.support,
       '    Help &amp; Support',
       '  </a>',
-      '  <a href="pricing.html" class="' + itemClass(activeNav === 'upgrade') + '">',
-      '    ' + ICONS.upgrade,
-      '    Upgrade',
-      '  </a>',
       '</nav>',
 
       '<div class="sidebar-note">',
