@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pricing — VaRoom</title>
+<script>
+  (function(){
+    try{
+      // This page is designed dark-first: dark unless the user explicitly chose Light in Settings.
+      var saved = localStorage.getItem('varoom_theme');
+      document.documentElement.setAttribute('data-theme', saved === 'light' ? 'light' : 'dark');
+    }catch(e){}
+  })();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;0,9..144,900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* ---------- Shared Varoom tokens (same set the other legacy pages use) ---------- */
+  :root{
+    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#24211E; --paper:#F7F6F3;
+    --muted:#5c584f;
+    --font-display:'Helvetica Neue', Arial, sans-serif; --font-body:'Helvetica Neue', Arial, sans-serif; --font-brand:'Fraunces', serif;
+  }
+  [data-theme="dark"]{
+    --white:#241C1A; --paper:#15100F; --ink:#F5EFEC; --muted:#B8ACA8;
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  body{ font-family:var(--font-body); background:var(--paper); color:var(--ink); min-height:100vh; transition:background .2s ease, color .2s ease; }
+  a{ color:inherit; text-decoration:none; }
+  button{ font-family:inherit; cursor:pointer; border:none; background:none; color:inherit; }
+  :focus-visible{ outline:2px solid var(--ink); outline-offset:3px; }
+
+  /* ---------- Page-only tokens, derived from the shared ones ---------- */
+  .pricing-page{
+    --pc-glass: color-mix(in srgb, var(--white) 80%, transparent);
+    --pc-glass-featured: color-mix(in srgb, var(--white) 88%, transparent);
+    --pc-sheen: linear-gradient(180deg, rgba(255,255,255,.7), rgba(255,255,255,0) 45%);
+    --pc-sheen-featured: linear-gradient(180deg, rgba(255,255,255,.9), rgba(255,255,255,0) 50%);
+    --pc-line: rgba(36,33,30,.13);
+    --pc-line-hover: rgba(36,33,30,.28);
+    --pc-line-featured: rgba(36,33,30,.30);
+    --pc-edge-a: rgba(255,255,255,.95);
+    --pc-edge-b: rgba(36,33,30,.04);
+    --pc-chip: rgba(36,33,30,.05);
+    --pc-shadow: 0 22px 50px -28px rgba(36,33,30,.35), 0 2px 6px rgba(36,33,30,.05);
+    --pc-shadow-hover: 0 30px 60px -28px rgba(36,33,30,.42), 0 2px 8px rgba(36,33,30,.07);
+    --pc-shadow-featured: 0 34px 70px -30px rgba(36,33,30,.45), 0 2px 8px rgba(36,33,30,.07);
+    --pc-glow-top: radial-gradient(55% 42% at 50% 22%, rgba(255,255,255,.95), rgba(255,255,255,0) 70%);
+    --pc-glow-bottom: radial-gradient(45% 30% at 50% 100%, rgba(196,30,58,.07), rgba(196,30,58,0) 70%);
+    --pc-title: clamp(4.5rem, min(15vw, 19vh), 15rem);
+
+    /* Everything on the page is sized in em from this one value, so the whole layout
+       (heading, cards, toggle) scales with the window height and fits one screen. */
+    font-size:clamp(11px, 1.62vh, 17px);
+    position:relative; overflow:hidden;
+    min-height:100vh; min-height:100dvh;
+    display:flex; flex-direction:column;
+  }
+  [data-theme="dark"] .pricing-page{
+    --pc-glass: color-mix(in srgb, var(--white) 72%, transparent);
+    --pc-glass-featured: color-mix(in srgb, var(--white) 80%, transparent);
+    --pc-sheen: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,0) 40%);
+    --pc-sheen-featured: linear-gradient(180deg, rgba(255,255,255,.09), rgba(255,255,255,0) 45%);
+    --pc-line: rgba(255,255,255,.12);
+    --pc-line-hover: rgba(255,255,255,.26);
+    --pc-line-featured: rgba(255,255,255,.28);
+    --pc-edge-a: rgba(255,255,255,.34);
+    --pc-edge-b: rgba(255,255,255,.05);
+    --pc-chip: rgba(255,255,255,.07);
+    --pc-shadow: 0 24px 60px -30px rgba(0,0,0,.9), 0 0 0 1px rgba(0,0,0,.25);
+    --pc-shadow-hover: 0 32px 70px -30px rgba(0,0,0,.95), 0 0 40px -18px rgba(255,255,255,.18);
+    --pc-shadow-featured: 0 36px 80px -32px rgba(0,0,0,.95), 0 0 60px -24px rgba(255,255,255,.22);
+    --pc-glow-top: radial-gradient(55% 42% at 50% 24%, rgba(255,255,255,.075), rgba(255,255,255,0) 70%);
+    --pc-glow-bottom: radial-gradient(45% 30% at 50% 100%, rgba(196,30,58,.11), rgba(196,30,58,0) 70%);
+  }
+
+  /* Deep, non-flat background: two soft glows, no bright colour */
+  .pricing-bg{ position:absolute; inset:0; background:var(--pc-glow-top), var(--pc-glow-bottom); pointer-events:none; }
+
+  /* ---------- Top bar (matches payments.html) ---------- */
+  .pricing-top{ position:relative; z-index:2; display:flex; align-items:center; justify-content:space-between; padding:1.2em 2.5em; }
+  .logo{ font-family:var(--font-brand); font-weight:900; font-size:1.7em; display:flex; align-items:baseline; }
+  .logo .va{ color:var(--red); }
+  .back-link{ font-size:1em; font-weight:500; color:var(--muted); }
+  .back-link:hover{ color:var(--ink); }
+
+  .pricing-wrap{ position:relative; z-index:1; flex:1; width:100%; max-width:1200px; margin:0 auto; padding:0 2.5em 2.2em; display:flex; flex-direction:column; justify-content:center; }
+
+  .eyebrow{ text-align:center; font-size:.85em; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); }
+
+  /* ---------- Oversized heading: sits behind the cards, fades out ---------- */
+  .pricing-title{
+    position:relative; z-index:0; text-align:center; user-select:none;
+    font-family:var(--font-display); font-weight:700; letter-spacing:-.045em;
+    font-size:var(--pc-title); line-height:.9; padding-bottom:.14em;
+    margin-bottom:calc(var(--pc-title) * -.36);
+    color:var(--ink); opacity:.16;
+  }
+  @supports ((-webkit-background-clip:text) or (background-clip:text)){
+    .pricing-title{
+      opacity:1; color:transparent;
+      background:linear-gradient(180deg, color-mix(in srgb, var(--ink) 72%, transparent) 15%, transparent 88%);
+      -webkit-background-clip:text; background-clip:text;
+    }
+  }
+
+  /* ---------- Cards ---------- */
+  .plans{ position:relative; z-index:1; display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:1.6em; align-items:stretch; padding-top:1em; }
+
+  .plan{
+    position:relative; display:flex; flex-direction:column; isolation:isolate;
+    padding:1.9em 1.7em 1.6em; border-radius:20px;
+    background:var(--pc-sheen), var(--pc-glass);
+    border:1px solid var(--pc-line);
+    -webkit-backdrop-filter:blur(18px) saturate(140%); backdrop-filter:blur(18px) saturate(140%);
+    box-shadow:var(--pc-shadow);
+    transition:transform .25s ease, box-shadow .25s ease, border-color .25s ease;
+  }
+  /* soft edge reflection, drawn as a 1px gradient ring over the border */
+  .plan::before{
+    content:""; position:absolute; inset:-1px; border-radius:inherit; padding:1px; pointer-events:none;
+    background:linear-gradient(160deg, var(--pc-edge-a), var(--pc-edge-b) 38%, var(--pc-edge-b) 62%, var(--pc-edge-a));
+    -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor; mask-composite:exclude;
+    opacity:.75; transition:opacity .25s ease;
+  }
+  .plan:hover{ transform:translateY(-4px); border-color:var(--pc-line-hover); box-shadow:var(--pc-shadow-hover); }
+  .plan:hover::before{ opacity:1; }
+
+  /* Growth: the emphasised centre card */
+  .plan--featured{
+    background:var(--pc-sheen-featured), var(--pc-glass-featured);
+    border-color:var(--pc-line-featured);
+    box-shadow:var(--pc-shadow-featured);
+    transform:translateY(-.9em);
+  }
+  .plan--featured::before{ opacity:1; }
+  .plan--featured:hover{ transform:translateY(calc(-.9em - 4px)); border-color:var(--pc-line-hover); }
+
+  .plan-price{ display:block; font-family:var(--font-display); line-height:1.05; }
+  .plan-price .cur{ font-size:1.15em; font-weight:600; letter-spacing:.01em; margin-right:.15rem; }
+  .plan-price .amt{ font-size:3.1em; font-weight:700; letter-spacing:-.035em; font-variant-numeric:tabular-nums; }
+  .plan-price .per{ font-size:1.05em; font-weight:500; color:var(--muted); margin-left:.2rem; }
+
+  .plan-name{ margin-top:.8em; font-size:1.1em; font-weight:700; }
+  .plan-desc{ margin-top:.2em; font-size:1em; line-height:1.5; color:var(--muted); min-height:3.05em; }
+
+  .plan-divider{ border:none; height:1px; background:var(--pc-line); margin:1.3em 0; }
+
+  .plan-features{ list-style:none; display:flex; flex-direction:column; gap:.85em; flex:1; }
+  .plan-features li{ display:flex; align-items:flex-start; gap:.75em; font-size:1em; line-height:1.4; }
+  .plan-features .check{ flex:0 0 auto; width:1.5em; height:1.5em; margin-top:-.1em; }
+  /* Styled directly (not via .check ancestors): <use> shadow content can't see the wrapping svg's selectors */
+  .pc-ring{ fill:var(--pc-chip); stroke:var(--pc-line-hover); stroke-width:1; }
+  .pc-tick{ fill:none; stroke:var(--ink); stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
+
+  /* CTA stays pinned to the bottom of every card */
+  .plan-cta{
+    margin-top:1.6em; width:100%; padding:.95em 1em; border-radius:14px;
+    font-size:1.05em; font-weight:600; text-align:center;
+    border:1px solid var(--pc-line-hover); color:var(--ink);
+    transition:background .2s ease, border-color .2s ease, transform .2s ease;
+  }
+  .plan-cta:hover{ background:var(--pc-chip); border-color:var(--ink); }
+  .plan-cta:active{ transform:scale(.99); }
+  .plan-cta--primary{ background:var(--ink); color:var(--paper); border-color:var(--ink); }
+  .plan-cta--primary:hover{ background:var(--ink); opacity:.9; }
+
+  /* ---------- Billing toggle ---------- */
+  .billing{ display:flex; align-items:center; justify-content:center; gap:.9em; margin-top:2em; font-size:1.1em; font-weight:500; }
+  .billing-label{ color:var(--muted); display:inline-flex; align-items:center; gap:.45rem; transition:color .2s ease; }
+  .billing-label.is-active{ color:var(--ink); }
+  .badge-soon{ font-size:.7em; font-weight:600; padding:.15rem .5rem; border-radius:100px; background:var(--pc-chip); color:var(--muted); }
+
+  .switch{ position:relative; width:3.4em; height:1.9em; border-radius:100px; background:var(--pc-chip); border:1px solid var(--pc-line-hover); flex:0 0 auto; transition:background .2s ease, border-color .2s ease; }
+  .switch .knob{ position:absolute; top:.2em; left:.2em; width:1.4em; height:1.4em; border-radius:50%; background:var(--ink); display:flex; align-items:center; justify-content:center; transition:transform .2s ease; }
+  .switch .knob::after{ content:""; width:5px; height:5px; border-radius:50%; background:var(--paper); }
+  .switch[aria-checked="true"] .knob{ transform:translateX(1.5em); }
+  .switch[aria-disabled="true"]{ cursor:not-allowed; opacity:.65; }
+
+  .pricing-msgs{ position:relative; text-align:center; margin-top:.7em; }
+  .pricing-note{ min-height:1.3em; font-size:.95em; color:var(--muted); }
+  /* the click message floats under the note so it never pushes the layout */
+  .pricing-status{ position:absolute; left:0; right:0; top:100%; margin-top:.5em; font-size:1em; font-weight:500; color:var(--ink); }
+
+  .sr-only{ position:absolute; width:1px; height:1px; margin:-1px; padding:0; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+
+  /* ---------- Responsive: desktop is the target; below this the cards simply stack ---------- */
+  @media (max-width:980px){
+    .pricing-page{ font-size:15px; }
+    .pricing-top{ padding:1.1rem 1.3rem; }
+    .pricing-wrap{ padding:.5rem 1.3rem 4rem; justify-content:flex-start; }
+    .plan{ padding:1.9rem 1.7rem 1.6rem; }
+    .plans{ grid-template-columns:1fr; max-width:440px; margin:0 auto; }
+    .plan--featured{ transform:none; }
+    .plan--featured:hover{ transform:translateY(-4px); }
+    .plan-desc{ min-height:0; }
+  }
+  @media (prefers-reduced-motion:reduce){
+    .plan, .plan::before, .plan-cta, .switch, .switch .knob{ transition:none; }
+    .plan:hover, .plan--featured:hover{ transform:none; }
+    .plan--featured{ transform:none; }
+  }
+</style>
+<link rel="stylesheet" href="js/varoom-dark-theme.css">
+</head>
+<body>
+
+<!-- Icon sprite (kept in-page so the feature rows stay light) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <symbol id="pc-check" viewBox="0 0 20 20">
+    <circle class="pc-ring" cx="10" cy="10" r="9.25"/>
+    <path class="pc-tick" d="m6.2 10.3 2.5 2.5 5-5.4"/>
+  </symbol>
+</svg>
+
+<div class="pricing-page" id="pricing-page">
+  <div class="pricing-bg" aria-hidden="true"></div>
+
+  <div class="pricing-top">
+    <a href="/host-home" class="logo"><span class="va">Va</span><span class="room">Room</span></a>
+    <a href="/host-home" class="back-link">← Back to dashboard</a>
+  </div>
+
+  <div class="pricing-wrap">
+    <p class="eyebrow">Host plans</p>
+    <h1 class="pricing-title">Pricing</h1>
+
+    <!--
+      Pricing config lives here, on the cards. No pricing/billing config exists elsewhere in the
+      app yet. When annual prices are decided, fill in each data-price-yearly value and the
+      Yearly toggle switches on by itself (it stays disabled until all three are filled in).
+    -->
+    <div class="plans">
+
+      <article class="plan" data-plan="basic" data-price-monthly="800" data-price-yearly="" aria-labelledby="plan-basic-name">
+        <p class="plan-price"><span class="cur">KSh</span> <span class="amt" data-amount>800</span> <span class="per" data-period>/month</span></p>
+        <h2 class="plan-name" id="plan-basic-name">Basic</h2>
+        <p class="plan-desc">Essential tools for getting started on Varoom</p>
+        <hr class="plan-divider">
+        <ul class="plan-features">
+          <li><svg class="check" aria-hidden="true"><use href="#pc-check"/></svg><span>All core host tools</span></li>
+          <li><svg class="check" aria-hidden="true"><use href="#pc-check"/></svg><span>Limited storage</span></li>
+          <li><svg class="check" aria-hidden="true"><use href="#pc-check"/></svg><span>Standard listing access</span></li>
+        </ul>
+        <button type="button" class="plan-cta" data-plan-cta="basic" aria-describedby="plan-basic-name">Get Started</button>
+      </article>
+
+      <article class="plan plan--featured" data-plan="growth" data-price-monthly="1300" data-price-yearly="" aria-labelledby="plan-growth-name">
+        <p class="plan-price"><span class="cur">KSh</span> <span class="amt" data-amount>1,300</span> <span class="per" data-period>/month</span></p>
+        <h2 class="plan-name" id="plan-growth-name">Growth</h2>
+        <p class="plan-desc">More visibility and better listing capabilities</p>
+        <hr class="plan-divider">
+        <ul class="plan-features">
+          <li><svg class="check" aria-hidden="true"><use href="#pc-check"/></svg><span>Everything in Basic</span></li>
+          <li><svg class="check" aria-hidden="true"><use href="#pc-check"/></svg><span>Video listings</span></li>
+          <li><svg class="check" aria-hidden="true"><use href="#pc-check"/></svg><span>Increased storage</span></li>
+          <li><svg class="check" aria-hidden="true"><use href="#pc-check"/></svg><span>Get showcased to new clients searching within your niche</span></li>
+        </ul>
+        <button type="button" class="plan-cta plan-cta--primary" data-plan-cta="growth" aria-describedby="plan-growth-name">Upgrade to Growth</button>
+      </article>
+
+      <article class="plan" data-plan="pro" data-price-monthly="1800" data-price-yearly="" aria-labelledby="plan-pro-name">
+        <p class="plan-price"><span class="cur">KSh</span> <span class="amt" data-amount>1,800</span> <span class="per" data-period>/month</span></p>
+        <h2 class="plan-name" id="plan-pro-name">Pro</h2>
+        <p class="plan-desc">Maximum visibility and intelligent client engagement</p>
+        <hr class="plan-divider">
+        <ul class="plan-features">
+          <li><svg class="check" aria-hidden="true"><use href="#pc-check"/></svg><span>Everything in Growth</span></li>
+          <li><svg class="check" aria-hidden="true"><use href="#pc-check"/></svg><span>Elie</span></li>
+          <li><svg class="check" aria-hidden="true"><use href="#pc-check"/></svg><span>Advanced video listing capabilities</span></li>
+          <li><svg class="check" aria-hidden="true"><use href="#pc-check"/></svg><span>Maximum storage</span></li>
+          <li><svg class="check" aria-hidden="true"><use href="#pc-check"/></svg><span>Get showcased to new clients in Marketplace and Discover</span></li>
+          <li><svg class="check" aria-hidden="true"><use href="#pc-check"/></svg><span>Elie can encourage clients in empty conversations to start conversations with hosts in their niche</span></li>
+        </ul>
+        <button type="button" class="plan-cta" data-plan-cta="pro" aria-describedby="plan-pro-name">Upgrade to Pro</button>
+      </article>
+
+    </div>
+
+    <div class="billing" role="group" aria-label="Billing period">
+      <span class="billing-label is-active" id="billing-monthly-label">Monthly</span>
+      <button type="button" class="switch" id="billing-switch" role="switch" aria-checked="false" aria-label="Bill yearly" aria-describedby="billing-note"><span class="knob"></span></button>
+      <span class="billing-label" id="billing-yearly-label">Yearly <span class="badge-soon" id="billing-soon">Soon</span></span>
+    </div>
+    <div class="pricing-msgs">
+      <p class="pricing-note" id="billing-note">Yearly billing is coming soon. Prices shown are per month.</p>
+      <p class="pricing-status" id="pricing-status" role="status" aria-live="polite"></p>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function(){
+    const page = document.getElementById('pricing-page');
+
+    /* ---------- Billing period + prices ---------- */
+    const plans = Array.prototype.slice.call(page.querySelectorAll('[data-plan]'));
+    const sw = document.getElementById('billing-switch');
+    const monthlyLabel = document.getElementById('billing-monthly-label');
+    const yearlyLabel = document.getElementById('billing-yearly-label');
+    const soonBadge = document.getElementById('billing-soon');
+    const note = document.getElementById('billing-note');
+    const status = document.getElementById('pricing-status');
+    const state = { billing: 'monthly' };
+
+    function fmt(n){ return Number(n).toLocaleString('en-KE'); }
+    function yearlyReady(){
+      return plans.every(function(p){ return Number(p.getAttribute('data-price-yearly')) > 0; });
+    }
+
+    function render(){
+      const yearly = state.billing === 'yearly';
+      plans.forEach(function(p){
+        const value = p.getAttribute(yearly ? 'data-price-yearly' : 'data-price-monthly');
+        p.querySelector('[data-amount]').textContent = fmt(value);
+        p.querySelector('[data-period]').textContent = yearly ? '/year' : '/month';
+      });
+      sw.setAttribute('aria-checked', yearly ? 'true' : 'false');
+      monthlyLabel.classList.toggle('is-active', !yearly);
+      yearlyLabel.classList.toggle('is-active', yearly);
+    }
+
+    if (yearlyReady()) {
+      sw.removeAttribute('aria-disabled');
+      soonBadge.style.display = 'none';
+      note.textContent = '';
+    } else {
+      sw.setAttribute('aria-disabled', 'true'); // annual prices not defined yet: toggle is visible but inert
+    }
+
+    function toggle(next){
+      if (sw.getAttribute('aria-disabled') === 'true') return;
+      state.billing = next || (state.billing === 'monthly' ? 'yearly' : 'monthly');
+      render();
+    }
+    sw.addEventListener('click', function(){ toggle(); });
+    monthlyLabel.addEventListener('click', function(){ toggle('monthly'); });
+    yearlyLabel.addEventListener('click', function(){ toggle('yearly'); });
+
+    /* ---------- CTAs ----------
+       TODO(backend): checkout is not wired yet. Payments/Paystack is a separate workstream and
+       plan state (e.g. profiles.subscription_tier) is backend-owned, so this page never marks a
+       plan as purchased. It emits 'varoom:plan-select' so the real checkout flow can hook in
+       later; until then it tells the host honestly that checkout isn't live. */
+    page.querySelectorAll('[data-plan-cta]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        const id = btn.getAttribute('data-plan-cta');
+        const card = page.querySelector('[data-plan="' + id + '"]');
+        const name = card.querySelector('.plan-name').textContent;
+        document.dispatchEvent(new CustomEvent('varoom:plan-select', { detail: { plan: id, billing: state.billing } }));
+        status.textContent = 'Checkout for the ' + name + ' plan isn\u2019t available yet \u2014 payments are still being connected.';
+      });
+    });
+
+    render();
+  })();
+</script>
+
+</body>
+</html>

@@ -18,6 +18,8 @@ The additive migration is [20260820_000001_property_news.sql](../../property-new
 
 `news_items` uses native PostgreSQL arrays, JSONB arrays/objects, numeric confidence, timestamp with time zone, UUID foreign keys, check constraints, unique canonical URLs, and unique content hashes. GIN and B-tree indexes cover public filtering, full-text search, arrays, status, review queue, and operational lookups.
 
+When a reset is needed, keep the source registry as the only durable configuration and clear the rest of the generated content tables. The file `property-news/supabase/migrations/20260919_000003_property_news_reset_generated_data.sql` is the reset pattern: it truncates the evidence, review, timeline, and telemetry tables while leaving `news_sources` intact.
+
 ## Security
 
 All underlying tables have RLS enabled. Authenticated administrators require `app_metadata.news_admin=true`; the migration does not modify VaRoom profiles or `auth.users`. Service-role workers bypass RLS only from server-side environment configuration. A restricted `property_news_public_items` view exposes only published editorial fields and source attribution, omitting fetched content, clean text, analysis, review, and event data.
