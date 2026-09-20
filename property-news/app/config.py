@@ -48,7 +48,7 @@ class Settings:
     fetch_user_agent: str = os.getenv("NEWS_FETCH_USER_AGENT", "VaRoomPropertyNews/0.1")
     min_request_interval_seconds: float = _float("NEWS_MIN_REQUEST_INTERVAL_SECONDS", 1.0)
     public_rate_limit_per_minute: int = _int("NEWS_PUBLIC_RATE_LIMIT_PER_MINUTE", 60)
-    admin_api_key: str | None = os.getenv("NEWS_ADMIN_API_KEY") or None
+    admin_api_key: str | None = (os.getenv("NEWS_ADMIN_API_KEY") or "").strip() or None
     scheduler_secret: str | None = os.getenv("NEWS_SCHEDULER_SECRET") or None
     # X is deliberately optional.  This credential is read only by the service
     # process; neither the public API nor the browser receives it.

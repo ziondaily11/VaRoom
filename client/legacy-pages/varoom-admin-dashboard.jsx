@@ -881,7 +881,7 @@ export default function VaroomAdminDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F7F6F3] text-[#24211E] flex" style={{ fontFamily: "'Helvetica Neue', Arial, sans-serif" }}>
+    <div className="admin-dashboard min-h-screen bg-[#F7F6F3] text-[#24211E] flex" style={{ fontFamily: "'Helvetica Neue', Arial, sans-serif" }}>
       {/* Sidebar */}
       <aside className="w-56 shrink-0 bg-white border-r border-[#E4E1DA] flex flex-col">
         <div className="px-5 py-5 border-b border-[#E4E1DA]">

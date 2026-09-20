@@ -156,7 +156,8 @@ def create_app(config: Settings = settings, repository: Repository | None = None
             )
 
         submitted = (authorization or "").strip()
-        token = submitted.removeprefix("Bearer ").strip() if submitted else ""
+        scheme, separator, credentials = submitted.partition(" ")
+        token = credentials.strip() if separator and scheme.lower() == "bearer" else submitted
         if not token and submitted:
             token = submitted
 
