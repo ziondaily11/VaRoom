@@ -774,6 +774,133 @@
   }
 </style>
 <link rel="stylesheet" href="js/varoom-dark-theme.css">
+<style>
+  /*
+   * Host Home's interface is deliberately neutral at every viewport. Red is
+   * reserved for inline navigation/actions (for example, "View on Map" and
+   * "View all") rather than being used as control chrome or decoration.
+   * These overrides follow the shared dark-mode sheet so they apply equally
+   * to the desktop layout, tablet layout, sidebar drawer, and mobile bar.
+   */
+  :root{
+    --control-bg:#F7F6F3;
+    --control-active:#E9E7E2;
+    --control-hover:#EFEDE8;
+    --control-strong:#24211E;
+    --control-strong-text:#FFFFFF;
+    --neutral-icon:#5C584F;
+  }
+  [data-theme="dark"]{
+    --control-bg:#1A1716;
+    --control-active:#302C2A;
+    --control-hover:#25211F;
+    --control-strong:#F5EFEC;
+    --control-strong-text:#15100F;
+    --neutral-icon:#B8ACA8;
+  }
+
+  :focus-visible,
+  .bottom-bar-item:focus-visible{ outline-color:var(--neutral-icon); }
+
+  .logo .va,
+  .beta-pill,
+  .property-news-kicker,
+  .listing-status-banner,
+  .property-news-error,
+  .verified-tick{ color:var(--ink); }
+  .beta-pill,
+  .property-news-status,
+  .host-video-upload-btn,
+  .verify-box.not-verified{
+    background:var(--control-active);
+    color:var(--ink);
+    border-color:var(--line);
+  }
+
+  .nav-item.active,
+  [data-theme="dark"] .nav-item.active,
+  .sidebar .nav-item.active,
+  [data-theme="dark"] .sidebar .nav-item.active,
+  .bottom-bar-item.active,
+  [data-theme="dark"] .bottom-bar-item.active,
+  .tab.active,
+  [data-theme="dark"] .tab.active,
+  [data-theme="dark"] .tab[aria-selected="true"]{
+    background:var(--control-active) !important;
+    color:var(--ink) !important;
+    border-color:var(--line) !important;
+  }
+
+  .search-wrap,
+  [data-theme="dark"] .search-wrap{
+    background:var(--control-bg) !important;
+    outline:1px solid var(--line) !important;
+    border:0 !important;
+    box-shadow:none !important;
+  }
+  .search-wrap:focus-within,
+  [data-theme="dark"] .search-wrap:focus-within{
+    outline-color:var(--neutral-icon) !important;
+    box-shadow:0 0 0 2px color-mix(in srgb, var(--neutral-icon) 20%, transparent) !important;
+  }
+
+  .list-space-btn,
+  [data-theme="dark"] .list-space-btn,
+  .list-btn-primary,
+  [data-theme="dark"] .list-btn-primary,
+  [data-theme="dark"] .list-btn-top,
+  .modal-save,
+  .report-submit-btn,
+  [data-theme="dark"] .report-submit-btn{
+    background:var(--control-strong) !important;
+    border-color:var(--control-strong) !important;
+    color:var(--control-strong-text) !important;
+  }
+  .list-space-btn:hover,
+  [data-theme="dark"] .list-space-btn:hover,
+  .list-btn-primary:hover,
+  .report-submit-btn:hover{ background:var(--control-hover) !important; color:var(--ink) !important; border-color:var(--line) !important; }
+
+  .notif-nav-badge,
+  .bottom-notification-count,
+  .notif-panel-badge,
+  .avatar-circle,
+  .bottom-bar-item .avatar-mini,
+  .card-avatar{
+    background:var(--control-active) !important;
+    color:var(--ink) !important;
+  }
+  .attention-icon,
+  .notif-panel-bell,
+  .property-news-empty-icon-wrap,
+  .empty-state-card .empty-icon{
+    background:var(--control-active) !important;
+    color:var(--neutral-icon) !important;
+  }
+  .photo-placeholder{ background:linear-gradient(135deg, var(--control-active), var(--control-bg)) !important; color:var(--ink) !important; }
+  .property-news-source-link{ text-decoration-color:var(--line); }
+  .property-news-source-link:hover{ color:var(--ink); text-decoration-color:currentColor; }
+  .media-dot.active,
+  [data-theme="dark"] .media-dot.active{ background:var(--neutral-icon) !important; }
+  .glance-tile.add-tile:hover{ color:var(--ink); border-color:var(--line); background:var(--control-hover); }
+  .card-menu-item:hover{ background:var(--control-hover); }
+  .card-menu-item.destructive,
+  [data-theme="dark"] .card-menu-item.destructive,
+  .report-modal-msg.error{ color:var(--ink); }
+  .bookmark-btn:hover,
+  .bookmark-btn.saved{ color:var(--ink); }
+  .topbar-avatar-btn:hover .avatar-circle{ outline-color:var(--neutral-icon); }
+
+  /* Textual, inline actions retain the product accent. */
+  .stats-head a,
+  .attention-row a.attention-link,
+  .card-map-link,
+  .property-news-view-all{ color:var(--red); }
+  .stats-head a:hover,
+  .attention-row a.attention-link:hover,
+  .card-map-link:hover,
+  .property-news-view-all:hover{ color:var(--red-deep); }
+</style>
 </head>
 <body>
 
