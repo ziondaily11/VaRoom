@@ -150,7 +150,9 @@
   .back-link{ font-size:.85rem; font-weight:500; display:inline-flex; align-items:center; gap:.4rem; color:var(--muted); margin-bottom:1.6rem; }
   .back-link:hover{ color:var(--ink); }
 
-  .checking-msg{ grid-column:1 / -1; text-align:center; padding:3rem 0; color:var(--muted); }
+  /* The contextual skeleton below is the loading UI; avoid a competing
+     generic message and keep the final two-column footprint reserved. */
+  .checking-msg{ display:none; }
 
   .page-title{ font-family:var(--font-display); font-weight:700; font-size:1.45rem; margin-bottom:1.2rem; }
   .page-sub{ color:var(--muted); font-size:.82rem; margin-bottom:1.1rem; }
@@ -171,7 +173,7 @@
   .skeleton-icon,
   .skeleton-copy,
   .skeleton-action{
-    position:relative; overflow:hidden; background:#080808; border:1px solid rgba(255,255,255,.08);
+    position:relative; overflow:hidden; background:var(--line); border:1px solid transparent;
   }
   .skeleton-title::after,
   .skeleton-description::after,
@@ -179,12 +181,12 @@
   .skeleton-copy::after,
   .skeleton-action::after{
     content:''; position:absolute; inset:0; transform:translateX(-100%);
-    background:linear-gradient(100deg, transparent, rgba(255,255,255,.045), transparent);
+    background:linear-gradient(100deg, transparent, rgba(255,255,255,.35), transparent);
     animation:skeleton-shimmer 2.8s ease-in-out infinite;
   }
   .skeleton-title{ width:220px; height:28px; border-radius:5px; margin:0 0 1rem 2.8rem; }
   .skeleton-description{ width:min(440px, 75%); height:14px; border:none; border-radius:4px; margin:0 0 2rem; }
-  .skeleton-row{ display:flex; align-items:center; gap:.9rem; min-height:72px; border-top:1px solid rgba(255,255,255,.08); }
+  .skeleton-row{ display:flex; align-items:center; gap:.9rem; min-height:72px; border-top:1px solid var(--line); }
   .skeleton-icon{ width:40px; height:40px; border-radius:10px; flex-shrink:0; }
   .skeleton-copy{ width:45%; height:15px; border:none; border-radius:4px; }
   .skeleton-copy.short{ width:28%; height:11px; margin-top:.35rem; }

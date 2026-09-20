@@ -17,6 +17,8 @@ const fontSizeStyle = `
   body {
     font-size: var(--varoom-type-body);
   }
+  html, body, #__next { min-height: 100%; background: #F7F6F3; }
+  html[data-theme="dark"], html[data-theme="dark"] body, html[data-theme="dark"] #__next { background: #15100F; }
 `;
 
 const fontSizeScript = `

@@ -646,6 +646,19 @@
   }
   .host-video-upload input{ display:none; }
   .photo-placeholder{ grid-column:1 / -1; height:clamp(220px, 30vw, 420px); border-radius:12px; background:linear-gradient(135deg, var(--red) 0%, var(--red-deep) 100%); display:flex; align-items:center; justify-content:center; color:rgba(255,255,255,.85); font-size:.85rem; font-weight:600; }
+  .card-media-empty{ grid-column:1 / -1; height:clamp(220px, 30vw, 420px); border-radius:12px; background:var(--line-soft); border:1px solid var(--line); }
+
+  /* Reserve the dashboard's final footprint while account data is loading. */
+  .dash-main.is-loading > :not(.host-home-skeleton){ display:none; }
+  .host-home-skeleton{ padding:1.8rem 2rem 4rem; }
+  .host-skel-title{ width:250px; height:30px; margin-bottom:.55rem; }
+  .host-skel-subtitle{ width:190px; height:13px; margin-bottom:1.8rem; }
+  .host-skel-stats{ display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--line); margin-bottom:1.4rem; }
+  .host-skel-stats .skel{ height:92px; border-radius:0; background:var(--white); }
+  .host-skel-tabs{ display:flex; gap:.6rem; margin-bottom:1.5rem; }
+  .host-skel-tabs .skel{ width:78px; height:34px; border-radius:999px; }
+  .host-skel-card{ height:250px; margin-bottom:1.2rem; }
+  @media (max-width:700px){ .host-home-skeleton{ padding:1.2rem 1rem 6rem; }.host-skel-stats .skel{ height:72px; }.host-skel-card{ height:190px; } }
   .badge-row{ display:flex; flex-wrap:wrap; gap:.5rem; margin-bottom:.9rem; }
 
   .badge{ display:flex; align-items:center; gap:.3rem; font-size:.76rem; font-weight:600; padding:.3rem .65rem; border-radius:100px; }
@@ -915,7 +928,14 @@
     <div class="col-divider" aria-hidden="true"></div>
 
     <div class="dash-body">
-    <div class="dash-main">
+    <div class="dash-main is-loading">
+    <div class="host-home-skeleton" id="host-home-skeleton" aria-label="Loading host dashboard" role="status">
+      <div class="skel host-skel-title"></div>
+      <div class="skel host-skel-subtitle"></div>
+      <div class="host-skel-stats"><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>
+      <div class="host-skel-tabs"><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>
+      <div class="skel host-skel-card"></div><div class="skel host-skel-card"></div>
+    </div>
     <div class="dash-header">
       <div class="dash-top">
         <div>
@@ -1764,7 +1784,7 @@
       if (videoUrl) {
         photosHtml = '<div class="card-video single"><video muted playsinline preload="none" poster="' + escapeHtml(videoThumbnail) + '" src="' + videoUrl + '" data-video-url="' + videoUrl + '" data-listing-id="' + listing.id + '" data-video-host-name="' + escapeHtml(host.full_name || 'Host') + '" data-video-username="' + escapeHtml(host.username ? '@' + host.username : '') + '" data-video-avatar="' + escapeHtml(hostAvatarUrl || '') + '" data-video-caption="' + escapeHtml(listing.description || listing.title) + '"></video></div>';
       } else if (photos.length === 0) {
-        photosHtml = '<div class="card-photos"><div class="photo-placeholder">' + categoryLabel(listing.category) + ' — photos coming soon</div></div>';
+        photosHtml = '<div class="card-photos card-media-empty" role="img" aria-label="No media available for this listing"></div>';
       } else if (photos.length === 1) {
         photosHtml = '<div class="media-carousel single-media" data-listing-id="' + listing.id + '" data-photo-count="1">'
           + '<div class="media-slide-track">'
@@ -2404,6 +2424,8 @@
       document.querySelector('.feed-area').scrollIntoView({ behavior:'smooth' });
     });
 
+    document.querySelector('.dash-main').classList.remove('is-loading');
+    document.getElementById('host-home-skeleton').hidden = true;
     loadFeed();
     loadVaroomUpdates('varoom-updates');
     loadPropertyNews();
