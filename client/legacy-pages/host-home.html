@@ -920,6 +920,27 @@
     pointer-events:none;
   }
 
+  /* Mobile news and update modules keep the same one-per-section transparent
+     perimeter. Feed listing cards are deliberately outside these selectors. */
+  #property-news-mobile-card,
+  .mobile-widget-slot > .mobile-varoom-updates-card{
+    position:relative;
+    background:transparent !important;
+    border:0 !important;
+    border-radius:16px !important;
+    box-shadow:none !important;
+    padding:1.15rem 1.2rem !important;
+  }
+  #property-news-mobile-card::after,
+  .mobile-widget-slot > .mobile-varoom-updates-card::after{
+    content:"";
+    position:absolute;
+    inset:0;
+    border:1px solid var(--host-rail-outline);
+    border-radius:16px;
+    pointer-events:none;
+  }
+
   /* Textual, inline actions retain the product accent. */
   .stats-head a,
   .attention-row a.attention-link,
@@ -1228,6 +1249,11 @@
     const feedList = document.getElementById('feed-list');
     const tabsEl = document.getElementById('tabs');
     const searchInput = document.getElementById('search-input');
+    // Published news remains part of the mobile Home feed, after listings so
+    // it does not replace the primary discovery content at the top.
+    const mobilePropertyNewsSlot = document.querySelector('.property-news-mobile-slot');
+    const hostFeedList = document.getElementById('feed-list');
+    if (hostFeedList && mobilePropertyNewsSlot) hostFeedList.insertAdjacentElement('afterend', mobilePropertyNewsSlot);
 
     // ---------- Auth guard ----------
     const { data: { session } } = await supabaseClient.auth.getSession();
@@ -2100,7 +2126,7 @@
     function mobileVaroomUpdatesBlock(){
       return (
         '<div class="mobile-widget-slot">' +
-          '<div class="varoom-updates-card">' +
+          '<div class="varoom-updates-card mobile-varoom-updates-card">' +
             '<div class="stats-head"><h2>VaRoom Updates</h2></div>' +
             '<div id="varoom-updates-mobile" style="display:flex;flex-direction:column;gap:.9rem;"><div class="skel-update"><div class="skel skel-update-media"></div><div class="skel skel-update-line"></div><div class="skel skel-update-line short"></div></div></div>' +
           '</div>' +

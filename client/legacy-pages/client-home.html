@@ -818,6 +818,27 @@
     pointer-events:none;
   }
 
+  /* Mobile instances use the same single transparent perimeter as the rail.
+     Listing posts retain their existing separators and are not targeted. */
+  .mobile-property-news-section > .property-news-widget,
+  .mobile-widget-slot > .varoom-updates-widget{
+    position:relative;
+    background:transparent !important;
+    border:0 !important;
+    border-radius:16px !important;
+    box-shadow:none !important;
+    padding:1.2rem !important;
+  }
+  .mobile-property-news-section > .property-news-widget::after,
+  .mobile-widget-slot > .varoom-updates-widget::after{
+    content:"";
+    position:absolute;
+    inset:0;
+    border:1px solid var(--client-rail-outline);
+    border-radius:16px;
+    pointer-events:none;
+  }
+
   /* The rail owns the separation between its outlined sections. Removing its
      top inset lets Popular destinations begin at the top of the available
      right-column area without changing either column's width. */
@@ -1092,6 +1113,10 @@
     const feedList = document.getElementById('feed-list');
     const tabsEl = document.getElementById('tabs');
     const searchInput = document.getElementById('search-input');
+    // Keep published news discoverable on mobile without placing it ahead of
+    // the listing feed. Reparenting preserves the existing renderer and IDs.
+    const mobilePropertyNewsSection = document.getElementById('mobile-property-news-section');
+    if (feedList && mobilePropertyNewsSection) feedList.insertAdjacentElement('afterend', mobilePropertyNewsSection);
     const DESTINATIONS = [
       { city: 'Nairobi', file: 'assets/destinations/nairobi.jpg' },
       { city: 'Mombasa', file: 'assets/destinations/mombasa.jpg' },
@@ -1671,7 +1696,7 @@
           '</div>' +
         '</div>' +
         '<div class="mobile-widget-slot">' +
-          '<div class="mobile-widget-card">' +
+          '<div class="mobile-widget-card varoom-updates-widget">' +
             '<div class="mobile-widget-head"><h2>VaRoom Updates</h2></div>' +
             '<div id="varoom-updates-mobile" style="display:flex;flex-direction:column;gap:.9rem;">' +
               '<div class="skel-update"><div class="skel skel-update-media"></div><div class="skel skel-update-line"></div><div class="skel skel-update-line short"></div></div>' +
