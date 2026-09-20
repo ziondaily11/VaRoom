@@ -756,8 +756,30 @@
     const historyButton = document.querySelector('.chat-header-actions button:last-child');
     if (historyButton) { historyButton.title = 'Recent Elie chats'; historyButton.setAttribute('aria-label', 'Recent Elie chats'); historyButton.innerHTML = '<svg class="icon"><circle cx="12" cy="12" r="8"></circle><path d="M12 7v5l3 2"></path></svg>'; }
     const avatar = $('.chat-header-avatar-wrap .avatar-fallback'); if (avatar) { avatar.style.background = '#f6f7f9'; avatar.innerHTML = '<img src="/elie-logo.png" alt="" style="width:100%;height:100%;object-fit:contain">'; }
-    renderProfile(null); renderInfoAttachments([]); $('.info-col').classList.add('collapsed'); renderElieIntro();
+    renderElieInformation(); $('.info-col').classList.add('collapsed'); renderElieIntro();
     if (isMobile()) showMobileConversation();
+  }
+
+  function renderElieInformation() {
+    const block = $('.profile-block');
+    if (block) {
+      clear(block);
+      const avatar = document.createElement('div'); avatar.className = 'avatar-fallback'; avatar.style.background = '#f6f7f9';
+      avatar.innerHTML = '<img src="/elie-logo.png" alt="Elie" style="width:100%;height:100%;object-fit:contain">';
+      const name = document.createElement('div'); name.className = 'p-name'; name.textContent = 'Elie';
+      const label = document.createElement('div'); label.className = 'p-line'; label.textContent = 'Your VaRoom search assistant';
+      block.append(avatar, name, label);
+    }
+    const sections = document.querySelectorAll('.info-section');
+    sections.forEach((section, index) => { section.hidden = index < 3; });
+    const actions = $('.chat-actions'); if (actions) actions.hidden = true;
+    const info = $('.info-col');
+    if (info && !info.querySelector('.elie-about')) {
+      const about = document.createElement('section'); about.className = 'info-section elie-about';
+      about.innerHTML = '<div class="info-section-head"><span class="label">About Elie</span></div><p></p>';
+      about.querySelector('p').textContent = 'Elie helps you find real VaRoom spaces using natural language. Ask about stays, event venues, offices, locations, budgets, or guest capacity.';
+      info.appendChild(about);
+    }
   }
 
   function renderInfoAttachments(messages) {
@@ -815,6 +837,8 @@
     $('#statusDot').style.background = '#c7cbd1';
     renderHeaderProfile(conversation);
     renderProfile(conversation);
+    const about = $('.elie-about'); if (about) about.remove();
+    const actions = $('.chat-actions'); if (actions) actions.hidden = false;
     const previousChannel = state.channel;
     state.channel = null;
     if (previousChannel) await previousChannel.unsubscribe();
@@ -1070,6 +1094,7 @@
     actions.innerHTML = '<div class="info-section-head"><span class="label">Actions</span></div><button type="button" class="info-action-report">Report User</button>';
     $('.info-col').appendChild(actions);
     actions.querySelector('.info-action-report').addEventListener('click', openReportSheet);
+    if (isElie()) renderElieInformation();
     document.querySelectorAll('[data-chat-nav]').forEach((button) => {
       button.addEventListener('click', async () => {
         const sessionResult = await window.supabaseClient.auth.getSession();
