@@ -78,7 +78,16 @@
       sheet.setAttribute('aria-hidden', 'true');
       chatCol.appendChild(sheet);
     });
+    let savedInformationContent = null;
     const restoreInformationPanel = async () => {
+      const info = $('.info-col');
+      if (info) info.classList.remove('chat-settings-open');
+      if (info && savedInformationContent) {
+        clear(info);
+        info.appendChild(savedInformationContent);
+        savedInformationContent = null;
+        return;
+      }
       if (state.activeId) {
         await selectConversation(state.activeId);
       } else {
@@ -91,10 +100,13 @@
       if (!isMobile()) {
         const info = $('.info-col');
         if (!info) return;
+        if (info.classList.contains('chat-settings-open')) return;
         info.classList.remove('collapsed');
+        info.classList.add('chat-settings-open');
         const toggle = $('#infoToggleBtn');
         if (toggle) toggle.classList.add('active');
-        clear(info);
+        savedInformationContent = document.createDocumentFragment();
+        while (info.firstChild) savedInformationContent.appendChild(info.firstChild);
         const heading = document.createElement('div');
         heading.className = 'chat-settings-panel-head';
         const title = document.createElement('span');
@@ -102,8 +114,9 @@
         const close = document.createElement('button');
         close.type = 'button';
         close.className = 'info-close-btn';
-        close.setAttribute('aria-label', 'Back to conversation information');
-        close.innerHTML = '<svg class="icon"><use href="#i-chevron-left"/></svg>';
+        close.setAttribute('aria-label', 'Close Chat Settings');
+        close.title = 'Close Chat Settings';
+        close.innerHTML = '<svg class="icon"><use href="#i-close"/></svg>';
         close.addEventListener('click', restoreInformationPanel);
         heading.append(title, close);
         const frame = document.createElement('iframe');

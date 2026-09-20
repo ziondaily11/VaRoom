@@ -132,6 +132,9 @@
 
   async function mount() {
     removePageSpecificBars();
+    // Chat Settings is a focused screen; it intentionally has no app-wide
+    // mobile navigation, whether opened directly or from the Chats gear.
+    if (window.location.pathname === '/chat-settings' || window.location.pathname === '/chat-settings.html') return;
     if (window.location.pathname === '/pricing' || window.location.pathname === '/pricing.html') return;
     if (!window.supabaseClient || !window.supabaseClient.auth) return;
 

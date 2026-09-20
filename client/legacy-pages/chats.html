@@ -266,13 +266,18 @@
     width:0; padding-left:0; padding-right:0; opacity:0;
     border-left:none; overflow:hidden;
   }
+  /* Settings is a desktop workspace state, not a narrow information card. */
+  .info-col.chat-settings-open{
+    width:min(440px, 36vw); padding:0; overflow:hidden;
+    display:flex; flex-direction:column;
+  }
   .info-title-row{ display:flex; align-items:center; justify-content:space-between; margin-bottom:22px; }
   .chat-settings-panel-head{
     display:flex; align-items:center; justify-content:space-between; gap:10px;
     min-height:54px; padding:0 12px 0 18px; border-bottom:1px solid var(--border);
     color:var(--text-dark); font-size:14.5px; font-weight:700;
   }
-  .chat-settings-frame{ display:block; width:100%; height:calc(100% - 54px); border:0; background:transparent; }
+  .chat-settings-frame{ display:block; flex:1; min-height:0; width:100%; border:0; background:transparent; }
   .info-close-btn{
     width:28px; height:28px; border-radius:9px; border:none;
     background:var(--bg-soft); color:var(--text-gray-2); font-size:13px;
@@ -351,7 +356,10 @@
   [data-theme="dark"] .inbox-empty-state span,
   [data-theme="dark"] .chat-empty-state p{ color:var(--muted); }
 
-  @media (max-width:1080px){ .info-col{ display:none; } }
+  @media (max-width:1080px) and (min-width:761px){
+    .info-col{ display:none; }
+    .info-col.chat-settings-open{ display:flex; width:min(400px, 38vw); }
+  }
 
   /* =====================================================================
      MOBILE ONLY  (max-width:760px)
