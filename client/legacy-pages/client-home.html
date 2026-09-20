@@ -806,7 +806,7 @@
     border-radius:16px !important;
     box-shadow:none !important;
     padding:1.2rem 1.2rem 1.3rem !important;
-    margin-bottom:1.3rem;
+    margin-bottom:0 !important;
   }
   .right-rail > .rail-card::after,
   .right-rail > #client-property-news-widget::after{
@@ -816,6 +816,15 @@
     border:1px solid var(--client-rail-outline);
     border-radius:16px;
     pointer-events:none;
+  }
+
+  /* The rail owns the separation between its outlined sections. Removing its
+     top inset lets Popular destinations begin at the top of the available
+     right-column area without changing either column's width. */
+  .right-rail{
+    padding-top:0;
+    gap:1rem !important;
+    align-content:start;
   }
 
   /* Inline textual actions retain the VaRoom accent. */
