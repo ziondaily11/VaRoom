@@ -78,12 +78,49 @@
       sheet.setAttribute('aria-hidden', 'true');
       chatCol.appendChild(sheet);
     });
+    const restoreInformationPanel = async () => {
+      if (state.activeId) {
+        await selectConversation(state.activeId);
+      } else {
+        renderProfile(null);
+        renderInfoAttachments([]);
+      }
+    };
     const openChatSettings = () => {
       const currentPath = `${window.location.pathname}${window.location.search || ''}`;
+      if (!isMobile()) {
+        const info = $('.info-col');
+        if (!info) return;
+        info.classList.remove('collapsed');
+        const toggle = $('#infoToggleBtn');
+        if (toggle) toggle.classList.add('active');
+        clear(info);
+        const heading = document.createElement('div');
+        heading.className = 'chat-settings-panel-head';
+        const title = document.createElement('span');
+        title.textContent = 'Chat Settings';
+        const close = document.createElement('button');
+        close.type = 'button';
+        close.className = 'info-close-btn';
+        close.setAttribute('aria-label', 'Back to conversation information');
+        close.innerHTML = '<svg class="icon"><use href="#i-chevron-left"/></svg>';
+        close.addEventListener('click', restoreInformationPanel);
+        heading.append(title, close);
+        const frame = document.createElement('iframe');
+        frame.className = 'chat-settings-frame';
+        frame.title = 'Chat Settings';
+        frame.src = `/chat-settings?embedded=1&role=${encodeURIComponent(state.role)}`;
+        info.append(heading, frame);
+        return;
+      }
       const target = `/chat-settings?returnTo=${encodeURIComponent(currentPath)}`;
       window.location.assign(target);
     };
     window.addEventListener('varoom:chat-settings-requested', openChatSettings);
+    window.addEventListener('message', (event) => {
+      if (event.origin !== window.location.origin || !event.data || event.data.type !== 'varoom:chat-settings-close') return;
+      restoreInformationPanel();
+    });
     document.querySelectorAll('.chat-settings-trigger, .mobile-chat-settings').forEach((button) => {
       button.addEventListener('click', () => {
         window.dispatchEvent(new CustomEvent('varoom:chat-settings-requested'));

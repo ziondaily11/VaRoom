@@ -267,6 +267,12 @@
     border-left:none; overflow:hidden;
   }
   .info-title-row{ display:flex; align-items:center; justify-content:space-between; margin-bottom:22px; }
+  .chat-settings-panel-head{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    min-height:54px; padding:0 12px 0 18px; border-bottom:1px solid var(--border);
+    color:var(--text-dark); font-size:14.5px; font-weight:700;
+  }
+  .chat-settings-frame{ display:block; width:100%; height:calc(100% - 54px); border:0; background:transparent; }
   .info-close-btn{
     width:28px; height:28px; border-radius:9px; border:none;
     background:var(--bg-soft); color:var(--text-gray-2); font-size:13px;
@@ -767,6 +773,7 @@
   [data-theme="dark"] .chat-listing-card { background:#171313; }
   [data-theme="dark"] .chat-listing-card-title { color:var(--text-dark); }
   [data-theme="dark"] .chat-report-details { background:#0F0D0D; border-color:var(--border); color:var(--text-dark); }
+  [data-theme="dark"] .chat-settings-panel-head { background:#0F0D0D; border-color:var(--border); }
   [data-theme="dark"] .contact-list::-webkit-scrollbar-thumb,
   [data-theme="dark"] .messages::-webkit-scrollbar-thumb,
   [data-theme="dark"] .info-col::-webkit-scrollbar-thumb { background:rgba(255,255,255,.18); }

@@ -4,6 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Chat Settings · VaRoom</title>
+<script>
+  (function () {
+    try {
+      var saved = localStorage.getItem('varoom_theme') || 'system';
+      var theme = saved === 'system' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : saved;
+      document.documentElement.setAttribute('data-theme', theme);
+    } catch (error) {}
+  })();
+</script>
 
 <!--
   VaRoom — Chat Settings (single file, frontend only)
@@ -22,7 +31,7 @@
 <!-- WIRE: <link rel="stylesheet" href="css/theme.css"> -->
 
 <style>
-html, body { margin: 0; background: var(--bg, #fff); }
+html, body { margin: 0; background: var(--bg, #fff); font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; }
 @media (prefers-color-scheme: dark) {
   html:not([data-theme="light"]):not(.light),
   html:not([data-theme="light"]):not(.light) body { background: #0f1114; }
@@ -57,7 +66,7 @@ html, body { margin: 0; background: var(--bg, #fff); }
   --cs-fb-muted:      #6b7280;
   --cs-fb-divider:    rgba(20, 22, 26, 0.09);
   --cs-fb-hover:      rgba(20, 22, 26, 0.04);
-  --cs-fb-accent:     #e11d48;
+  --cs-fb-accent:     #C41E3A;
   --cs-fb-switch-off: #c9ccd3;
 }
 
@@ -67,19 +76,40 @@ html, body { margin: 0; background: var(--bg, #fff); }
 :root[data-theme="dark"] .cs-page,
 :root.dark .cs,
 :root.dark .cs-page {
-  --cs-fb-bg:         #0f1114;
-  --cs-fb-text:       #f2f3f5;
-  --cs-fb-muted:      #9aa0aa;
+  --cs-fb-bg:         #0F0D0D;
+  --cs-fb-text:       #F5EFEC;
+  --cs-fb-muted:      rgba(245,239,236,.58);
   --cs-fb-divider:    rgba(255, 255, 255, 0.09);
   --cs-fb-hover:      rgba(255, 255, 255, 0.05);
   --cs-fb-switch-off: #3a3e46;
 }
+
+/* Embedded by desktop Chats: the information column supplies the shell.
+   This deliberately remains flat and divider-led, like the chat itself. */
+html.cs-embedded, html.cs-embedded body { min-height:100%; height:100%; background:transparent; }
+.cs-embedded .cs-page { min-height:100%; background:transparent; }
+.cs-embedded .cs-page__body { max-width:none; }
+.cs-embedded .cs { padding:0 18px 22px; }
+.cs-embedded .cs-section { padding-top:18px; }
+.cs-embedded .cs-section:first-child { padding-top:10px; }
+.cs-embedded .cs-row { min-height:52px; padding:11px 0; gap:12px; }
+.cs-embedded .cs-row__label { font-size:.875rem; font-weight:600; }
+.cs-embedded .cs-row__desc { font-size:.75rem; line-height:1.42; }
+.cs-embedded .cs-section__title { font-size:.68rem; }
+.cs-embedded .cs-switch { width:42px; height:25px; }
+.cs-embedded .cs-switch::before { width:19px; height:19px; }
+.cs-embedded .cs-switch[aria-checked="true"]::before { transform:translateX(17px); }
+.cs-embedded .cs-header { position:static; min-height:54px; padding:0 12px; }
+.cs-embedded .cs-header__title { font-size:.95rem; }
+
+:root[data-theme="dark"] .cs-embedded .cs-page,
+:root[data-theme="dark"] .cs-embedded .cs-header { background:#0F0D0D; }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]):not(.light) .cs,
   :root:not([data-theme="light"]):not(.light) .cs-page {
-    --cs-fb-bg:         #0f1114;
-    --cs-fb-text:       #f2f3f5;
-    --cs-fb-muted:      #9aa0aa;
+    --cs-fb-bg:         #0F0D0D;
+    --cs-fb-text:       #F5EFEC;
+    --cs-fb-muted:      rgba(245,239,236,.58);
     --cs-fb-divider:    rgba(255, 255, 255, 0.09);
     --cs-fb-hover:      rgba(255, 255, 255, 0.05);
     --cs-fb-switch-off: #3a3e46;
@@ -533,6 +563,8 @@ html, body { margin: 0; background: var(--bg, #fff); }
 <script>
   (function () {
     var query = new URLSearchParams(location.search || '');
+    var embedded = query.get('embedded') === '1';
+    if (embedded) document.documentElement.classList.add('cs-embedded');
     var returnTo = query.get('returnTo') || '/chat';
     var storageKey = 'varoom:chat-settings';
     var defaults = {
@@ -642,7 +674,7 @@ html, body { margin: 0; background: var(--bg, #fff); }
 
     async function initialize() {
       var loaded = await loadProfile();
-      var mounted = VaroomChatSettings.mountPage(document.getElementById('chat-settings-root'), {
+      var mountOptions = {
         role: loaded.role,
         initial: loaded.settings,
         onChange: function (key, value) {
@@ -657,6 +689,10 @@ html, body { margin: 0; background: var(--bg, #fff); }
           persistSetting(key, value);
         },
         onBack: function () {
+          if (embedded && window.parent !== window) {
+            window.parent.postMessage({ type: 'varoom:chat-settings-close' }, window.location.origin);
+            return;
+          }
           if (returnTo && returnTo !== '/chat-settings') {
             window.location.assign(returnTo);
             return;
@@ -685,7 +721,10 @@ html, body { margin: 0; background: var(--bg, #fff); }
         onOpenArchived: function () {
           window.location.assign('/chat');
         }
-      });
+      };
+      var mounted = embedded
+        ? { settings: VaroomChatSettings.mount(document.getElementById('chat-settings-root'), mountOptions) }
+        : VaroomChatSettings.mountPage(document.getElementById('chat-settings-root'), mountOptions);
       if (mounted && mounted.settings) {
         mounted.settings.setRole(loaded.role);
       }
