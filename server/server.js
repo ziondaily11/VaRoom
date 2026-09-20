@@ -162,6 +162,8 @@ const pageTemplates = {
   '/profile-public': 'profile-public.html',
   '/profile': 'profile.html',
   '/property-news': 'property-news.html',
+  '/pricing': 'pricing.html',
+  '/pricing.html': 'pricing.html',
   '/settings': 'settings.html',
   '/support': 'support.html',
   '/terms': 'terms.html',

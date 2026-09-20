@@ -22,15 +22,21 @@
     analytics: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V10M11 19V5M18 19v-7"/><path d="M3 19h18"/></svg>',
     profile: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.5-7 8-7s8 3 8 7"/></svg>',
     settings: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>',
-    support: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 4.9.8c0 1.6-2.4 1.9-2.4 3.5"/><path d="M12 17.2v.1"/></svg>'
+    support: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 4.9.8c0 1.6-2.4 1.9-2.4 3.5"/><path d="M12 17.2v.1"/></svg>',
+    upgrade: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3Z"/><path d="m19 16 .7 1.8L21.5 18l-1.8.7 1.8.7L19 20.5l-.7-1.8-1.8-.7 1.8-.7L19 16Z"/></svg>'
   };
 
   function itemClass(active) {
     return active ? 'nav-item active' : 'nav-item';
   }
 
+  function activeNavFromLocation() {
+    var pathname = window.location.pathname;
+    return pathname === '/pricing' || pathname === '/pricing.html' ? 'upgrade' : null;
+  }
+
   function getClientSidebarHtml(options) {
-    var activeNav = (options && options.activeNav) || 'notifications';
+    var activeNav = (options && options.activeNav) || activeNavFromLocation() || 'notifications';
 
     return [
       '<a href="/client-home" class="logo"><span class="va">Va</span><span class="room">Room</span></a>',
@@ -92,6 +98,10 @@
       '    ' + ICONS.support,
       '    Help &amp; Support',
       '  </a>',
+      '  <a href="pricing.html" class="' + itemClass(activeNav === 'upgrade') + '">',
+      '    ' + ICONS.upgrade,
+      '    Upgrade',
+      '  </a>',
       '</nav>',
 
       '<div class="sidebar-note">',
@@ -104,7 +114,7 @@
   }
 
   function getHostSidebarHtml(options) {
-    var activeNav = (options && options.activeNav) || 'notifications';
+    var activeNav = (options && options.activeNav) || activeNavFromLocation() || 'notifications';
     var profile = (options && options.profile) || {};
     var isVerified = Boolean(profile.verified);
 
@@ -190,6 +200,10 @@
       '  <a href="/support" class="' + itemClass(activeNav === 'support') + '">',
       '    ' + ICONS.support,
       '    Help &amp; Support',
+      '  </a>',
+      '  <a href="pricing.html" class="' + itemClass(activeNav === 'upgrade') + '">',
+      '    ' + ICONS.upgrade,
+      '    Upgrade',
       '  </a>',
       '</nav>',
 
