@@ -793,6 +793,7 @@
     --control-strong:#24211E;
     --control-strong-text:#FFFFFF;
     --neutral-icon:#5C584F;
+    --host-rail-outline:#C9C5BD;
   }
   [data-theme="dark"]{
     --control-bg:#1A1716;
@@ -801,6 +802,7 @@
     --control-strong:#F5EFEC;
     --control-strong-text:#15100F;
     --neutral-icon:#B8ACA8;
+    --host-rail-outline:rgba(255,255,255,.28);
   }
 
   :focus-visible,
@@ -895,12 +897,14 @@
   .bookmark-btn.saved{ color:var(--ink); }
   .topbar-avatar-btn:hover .avatar-circle{ outline-color:var(--neutral-icon); }
 
-  /* Keep every desktop rail section as one independent, content-sized outline
-     in both themes. The shared dark stylesheet intentionally flattens cards,
-     so this late rule restores the Host Home rail's required structure. */
-  .host-rail > .sidebar-module{
+  /* The three Host rail modules each get one clearly visible, independent
+     perimeter. Their interiors stay transparent and their height stays
+     content-driven; individual listing tiles receive no added outline. */
+  .host-rail > .listings-glance-card,
+  .host-rail > .property-news-card,
+  .host-rail > .varoom-updates-card{
     background:transparent !important;
-    border:1px solid var(--line) !important;
+    border:1px solid var(--host-rail-outline) !important;
     border-radius:16px !important;
     box-shadow:none !important;
     padding:1.15rem 1.2rem !important;
