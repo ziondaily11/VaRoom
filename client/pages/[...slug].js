@@ -16,6 +16,9 @@ const routeAliases = {
 
 function templateForSlug(slug) {
   if (!slug || slug.length === 0) return 'index.html';
+  // Elie is a conversation type, not a separate application shell.  Keep the
+  // old URL working for saved links, but render it through Chats.
+  if (slug.join('/') === 'elie') return 'chats.html';
   return routeAliases[slug.join('/')] || `${slug.join('/')}.html`;
 }
 

@@ -42,7 +42,7 @@
       '<a href="/client-home" class="logo"><span class="va">Va</span><span class="room">Room</span></a>',
 
       '<nav class="nav-group">',
-      '  <a href="/elie" class="' + itemClass(activeNav === 'elie') + '">',
+      '  <a href="/chats?conversation=elie" class="' + itemClass(activeNav === 'elie') + '">',
       '    <span data-elie-icon aria-label="Elie" class="elie-logo-nav">' + ICONS.elie + '</span>',
       '    Elie',
       '    <span class="beta-pill">Free preview</span>',
@@ -124,7 +124,7 @@
       '</a>',
 
       '<nav class="nav-group">',
-      '  <a href="/elie" class="' + itemClass(activeNav === 'elie') + '">',
+      '  <a href="/chats?conversation=elie" class="' + itemClass(activeNav === 'elie') + '">',
       '    <span data-elie-icon aria-label="Elie" class="elie-logo-nav">' + ICONS.elie + '</span>',
       '    Elie',
       '    <span class="beta-pill">Free preview</span>',

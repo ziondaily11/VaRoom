@@ -1,7 +1,9 @@
 (function () {
   'use strict';
 
-  const state = { session: null, role: 'client', conversations: [], activeId: null, channel: null, channelGeneration: 0, selectionGeneration: 0, listings: [], pendingAttachment: null, mobileView: 'inbox', mobileInfoReturn: 'conversation' };
+  const ELIE_ID = 'elie';
+  const ELIE_API_URL = 'https://elie1-0.onrender.com/elie/search';
+  const state = { session: null, role: 'client', conversations: [], activeId: null, channel: null, channelGeneration: 0, selectionGeneration: 0, listings: [], pendingAttachment: null, mobileView: 'inbox', mobileInfoReturn: 'conversation', elie: { sessionId: null, history: [] } };
   const isMobile = () => window.matchMedia('(max-width: 760px)').matches;
   const $ = (selector) => document.querySelector(selector);
   const api = async (url, options) => {
@@ -28,6 +30,8 @@
       .trim();
   };
   const clear = (element) => { while (element && element.firstChild) element.removeChild(element.firstChild); };
+  const isElie = () => state.activeId === ELIE_ID;
+  const elieConversation = () => ({ id: ELIE_ID, isElie: true, participant: { full_name: 'Elie', username: 'Your VaRoom search assistant' }, lastMessage: null });
   const avatarUrl = (profile) => {
     if (!profile || !profile.avatar_url) return '';
     if (/^(https?:|data:|blob:)/i.test(profile.avatar_url)) return profile.avatar_url;
@@ -440,7 +444,8 @@
   function renderConversationList() {
     const list = $('#contactList');
     clear(list);
-    state.conversations.forEach((conversation) => {
+    const conversations = state.role === 'client' ? [elieConversation(), ...state.conversations] : state.conversations;
+    conversations.forEach((conversation) => {
       const person = conversation.participant || {};
       const preview = previewText(conversation.lastMessage && conversation.lastMessage.body);
       const item = document.createElement('li');
@@ -450,10 +455,13 @@
         <div class="contact-body"><div class="contact-top"><span class="contact-name"></span><span class="contact-time"></span></div>
         <div class="contact-bottom"><span class="contact-preview"></span></div></div>
         <button class="conversation-menu" type="button" aria-label="Conversation actions" title="Conversation actions"><svg class="icon"><use href="#i-more"/></svg></button>`;
-      setAvatar(item.querySelector('.avatar-fallback'), person);
+      if (conversation.isElie) {
+        item.querySelector('.avatar-fallback').innerHTML = '<img src="/elie-logo.png" alt="" style="width:100%;height:100%;object-fit:contain">';
+        item.querySelector('.avatar-fallback').style.background = '#f6f7f9';
+      } else setAvatar(item.querySelector('.avatar-fallback'), person);
       item.querySelector('.contact-name').textContent = person.full_name || person.username || '';
       item.querySelector('.contact-time').textContent = formatTime(conversation.lastMessage && conversation.lastMessage.created_at);
-      item.querySelector('.contact-preview').textContent = preview;
+      item.querySelector('.contact-preview').textContent = conversation.isElie ? 'Your VaRoom search assistant' : preview;
       item.querySelector('.conversation-menu').addEventListener('click', (event) => {
         event.stopPropagation();
         window.dispatchEvent(new CustomEvent('varoom:conversation-actions-requested', {
@@ -474,6 +482,10 @@
         selectConversation(conversation.id);
       });
       const avatarLink = item.querySelector('.avatar-wrap');
+      if (conversation.isElie) {
+        avatarLink.removeAttribute('role'); avatarLink.removeAttribute('tabindex');
+        avatarLink.removeAttribute('aria-label');
+      }
       avatarLink.classList.add('contact-avatar-link');
       avatarLink.setAttribute('role', 'button');
       avatarLink.setAttribute('tabindex', '0');
@@ -486,7 +498,7 @@
       });
       item.querySelector('.avatar-fallback').addEventListener('click', (event) => {
         event.stopPropagation();
-        selectConversation(conversation.id).then(() => showMobileInfo());
+        if (!conversation.isElie) selectConversation(conversation.id).then(() => showMobileInfo());
       });
       list.appendChild(item);
     });
@@ -656,6 +668,98 @@
     container.scrollTop = container.scrollHeight;
   }
 
+  function elieRow(text, outgoing, options) {
+    const row = document.createElement('div');
+    row.className = `msg-row ${outgoing ? 'out' : 'in'} elie-message`;
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    if (options && options.typing) bubble.innerHTML = '<span class="elie-typing"><i></i><i></i><i></i></span>';
+    else bubble.textContent = text;
+    row.appendChild(bubble);
+    return row;
+  }
+
+  function scrollElieToBottom() { const messages = $('.messages'); messages.scrollTop = messages.scrollHeight; }
+
+  function renderElieIntro() {
+    const messages = $('.messages'); clear(messages);
+    const intro = document.createElement('section');
+    intro.className = 'elie-intro';
+    intro.innerHTML = '<h2>Ask Elie to find you a space.</h2><p>Describe what you\'re looking for and Elie will search real VaRoom listings, with GPS-verified matches first.</p><div class="elie-suggestions"></div>';
+    ['Airbnbs in Nairobi', 'Event venues in Nakuru', 'Offices in Westlands'].forEach((prompt) => {
+      const button = document.createElement('button'); button.type = 'button'; button.textContent = prompt;
+      button.addEventListener('click', () => window.dispatchEvent(new CustomEvent('varoom:elie-prompt', { detail: prompt })));
+      intro.querySelector('.elie-suggestions').appendChild(button);
+    });
+    messages.appendChild(intro);
+  }
+
+  function appendElieResults(data, query) {
+    const messages = $('.messages');
+    if (data.reply) messages.appendChild(elieRow(data.reply, false));
+    if (data.news && data.news.length) {
+      const wrap = document.createElement('div'); wrap.className = 'elie-results';
+      data.news.forEach((item) => {
+        const card = document.createElement('a'); card.className = 'elie-result-card'; card.href = item.source_url || '#'; card.target = '_blank'; card.rel = 'noopener noreferrer';
+        card.innerHTML = '<strong></strong><span></span>'; card.querySelector('strong').textContent = item.title || 'Property news'; card.querySelector('span').textContent = item.summary || item.source_name || 'Read source'; wrap.appendChild(card);
+      }); messages.appendChild(wrap);
+    }
+    if (data.listings && data.listings.length) {
+      const wrap = document.createElement('div'); wrap.className = 'elie-results';
+      data.listings.forEach((listing) => {
+        const card = document.createElement('a'); card.className = 'elie-result-card elie-listing-card'; card.href = `/booking?listing=${encodeURIComponent(listing.id)}`;
+        const title = document.createElement('strong'); title.textContent = listing.title || 'Listing';
+        const meta = document.createElement('span'); meta.textContent = [listing.location_text, listing.size_or_type, listing.price_amount ? `KSh ${Number(listing.price_amount).toLocaleString()}` : ''].filter(Boolean).join(' · ');
+        card.append(title, meta); if (listing.verified) { const verified = document.createElement('em'); verified.textContent = 'GPS verified'; card.appendChild(verified); } wrap.appendChild(card);
+      }); messages.appendChild(wrap);
+    }
+    if (data.suggestion) messages.appendChild(elieRow(data.suggestion, false));
+    scrollElieToBottom();
+  }
+
+  async function loadElieSession(sessionId) {
+    state.elie.sessionId = sessionId; state.elie.history = [];
+    const messages = $('.messages'); clear(messages);
+    const result = await window.supabaseClient.from('elie_messages').select('role,body').eq('session_id', sessionId).order('created_at', { ascending: true });
+    if (result.error) throw result.error;
+    if (!result.data || !result.data.length) return renderElieIntro();
+    result.data.forEach((message) => { messages.appendChild(elieRow(message.body, message.role === 'user')); state.elie.history.push({ role: message.role, text: message.body }); });
+    scrollElieToBottom();
+  }
+
+  async function persistElieMessage(role, text) {
+    if (!state.elie.sessionId) {
+      const created = await window.supabaseClient.from('elie_sessions').insert({ user_id: state.session.user.id, title: text.slice(0, 60) }).select().single();
+      if (created.error) throw created.error; state.elie.sessionId = created.data.id;
+    }
+    await window.supabaseClient.from('elie_messages').insert({ session_id: state.elie.sessionId, user_id: state.session.user.id, role, body: text });
+    await window.supabaseClient.from('elie_sessions').update({ updated_at: new Date().toISOString() }).eq('id', state.elie.sessionId);
+  }
+
+  async function openElieHistory() {
+    const sheet = document.getElementById('chatShareSheet');
+    sheet.innerHTML = '<div class="chat-sheet-head"><span>Recent Elie chats</span><button class="chat-sheet-close" type="button" aria-label="Close">×</button></div><button class="chat-sheet-action" type="button">New chat</button><div class="elie-history-list"></div>';
+    sheet.querySelector('.chat-sheet-close').addEventListener('click', () => closeSheet('chatShareSheet'));
+    sheet.querySelector('.chat-sheet-action').addEventListener('click', () => { state.elie.sessionId = null; state.elie.history = []; renderElieIntro(); closeSheet('chatShareSheet'); });
+    const list = sheet.querySelector('.elie-history-list'); list.textContent = 'Loading…';
+    const result = await window.supabaseClient.from('elie_sessions').select('id,title,updated_at').eq('user_id', state.session.user.id).order('updated_at', { ascending: false }).limit(20);
+    clear(list);
+    if (result.error || !result.data || !result.data.length) { list.textContent = 'No past chats yet.'; }
+    else result.data.forEach((session) => { const button = document.createElement('button'); button.type = 'button'; button.className = 'elie-history-item'; button.textContent = session.title || 'New conversation'; button.addEventListener('click', async () => { await loadElieSession(session.id); closeSheet('chatShareSheet'); }); list.appendChild(button); });
+    sheet.classList.add('open'); sheet.setAttribute('aria-hidden', 'false');
+  }
+
+  async function selectElieConversation() {
+    state.activeId = ELIE_ID; state.elie.sessionId = null; state.elie.history = [];
+    showConversationInterface(); renderConversationList();
+    $('#chatName').textContent = 'Elie'; $('#statusText').textContent = 'Your VaRoom search assistant'; $('#statusDot').style.background = 'var(--mint)';
+    const historyButton = document.querySelector('.chat-header-actions button:last-child');
+    if (historyButton) { historyButton.title = 'Recent Elie chats'; historyButton.setAttribute('aria-label', 'Recent Elie chats'); historyButton.innerHTML = '<svg class="icon"><circle cx="12" cy="12" r="8"></circle><path d="M12 7v5l3 2"></path></svg>'; }
+    const avatar = $('.chat-header-avatar-wrap .avatar-fallback'); if (avatar) { avatar.style.background = '#f6f7f9'; avatar.innerHTML = '<img src="/elie-logo.png" alt="" style="width:100%;height:100%;object-fit:contain">'; }
+    renderProfile(null); renderInfoAttachments([]); $('.info-col').classList.add('collapsed'); renderElieIntro();
+    if (isMobile()) showMobileConversation();
+  }
+
   function renderInfoAttachments(messages) {
     const attachments = messages.filter((message) => message.attachment_id && message.message_type !== 'voice');
     const sections = document.querySelectorAll('.info-section');
@@ -696,12 +800,15 @@
   }
 
   async function selectConversation(id) {
+    if (id === ELIE_ID) return selectElieConversation();
     const selectionGeneration = ++state.selectionGeneration;
     state.activeId = id;
     renderConversationList();
     const conversation = state.conversations.find((item) => item.id === id);
     if (!conversation) return;
     showConversationInterface();
+    const historyButton = document.querySelector('.chat-header-actions button:last-child');
+    if (historyButton) { historyButton.title = 'More'; historyButton.setAttribute('aria-label', 'More'); historyButton.innerHTML = '<svg class="icon"><use href="#i-more"></use></svg>'; }
     const person = conversation.participant || {};
     $('#chatName').textContent = person.full_name || person.username || '';
     $('#statusText').textContent = '';
@@ -774,8 +881,8 @@
       window.VaroomChatNavigation.setRole(state.role);
     }
     configureAttachmentControls();
-    const requested = new URLSearchParams(window.location.search).get('c') || new URLSearchParams(window.location.search).get('conversation');
-    state.activeId = !isMobile() && requested && state.conversations.some((item) => item.id === requested) ? requested : null;
+    const requested = new URLSearchParams(window.location.search).get('c') || new URLSearchParams(window.location.search).get('conversation') || (window.location.pathname === '/elie' ? ELIE_ID : null);
+    state.activeId = !isMobile() && requested && (requested === ELIE_ID || state.conversations.some((item) => item.id === requested)) ? requested : null;
     renderConversationList();
     if (state.activeId) await selectConversation(state.activeId);
     else {
@@ -838,6 +945,24 @@
       if ((!plainContent && !pending) || !conversationId || (desktop ? desktopEditor.getAttribute('aria-disabled') === 'true' : input.disabled)) return;
       if (!desktop) input.disabled = true;
       try {
+        if (conversationId === ELIE_ID) {
+          if (!plainContent) return;
+          const userText = plainContent;
+          $('.messages').appendChild(elieRow(userText, true)); scrollElieToBottom();
+          state.elie.history.push({ role: 'user', text: userText });
+          persistElieMessage('user', userText).catch((error) => console.warn('Elie message persistence failed:', error));
+          if (desktop) resetDesktopComposer(); else input.value = '';
+          updateComposerState();
+          const typing = elieRow('', false, { typing: true }); $('.messages').appendChild(typing); scrollElieToBottom();
+          const fresh = await window.supabaseClient.auth.getSession();
+          const response = await fetch(ELIE_API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${fresh.data.session.access_token}` }, body: JSON.stringify({ message: userText, history: state.elie.history.slice(-6) }) });
+          const data = await response.json().catch(() => ({})); typing.remove();
+          if (!response.ok) { $('.messages').appendChild(elieRow(data.detail || 'Something went wrong reaching Elie. Please try again.', false)); return; }
+          if (data.reply) { state.elie.history.push({ role: 'elie', text: data.reply }); persistElieMessage('elie', data.reply).catch((error) => console.warn('Elie response persistence failed:', error)); }
+          if (data.suggestion) persistElieMessage('elie', data.suggestion).catch((error) => console.warn('Elie suggestion persistence failed:', error));
+          appendElieResults(data, userText);
+          return;
+        }
         let result;
         if (!pending && plainContent.toLowerCase() === '@reply') {
           result = await api(`/api/chat/conversations/${encodeURIComponent(conversationId)}/reply`, {
@@ -931,6 +1056,14 @@
     const sendButton = $('.attach-icons button.send-message');
     sendButton.disabled = false;
     sendButton.addEventListener('click', sendText);
+    window.addEventListener('varoom:elie-prompt', async (event) => {
+      if (!isElie()) return;
+      if (desktop) desktopEditor.textContent = event.detail; else input.value = event.detail;
+      updateComposerState(); await sendText();
+    });
+    const elieHistoryButton = document.querySelector('.chat-header-actions button:last-child');
+    elieHistoryButton.disabled = false;
+    elieHistoryButton.addEventListener('click', () => { if (isElie()) openElieHistory(); });
     if (isMobile()) $('#infoToggleBtn').addEventListener('click', showMobileInfo);
     const actions = document.createElement('div');
     actions.className = 'info-section chat-actions';
@@ -954,7 +1087,7 @@
         if (routes[button.dataset.chatNav]) window.location.assign(routes[button.dataset.chatNav]);
       });
     });
-    document.querySelectorAll('.chat-header-actions button:not(#infoToggleBtn):not([title="Search"]), .icon-rail button:not([data-chat-nav]), .info-section-head .more').forEach((button) => {
+    document.querySelectorAll('.chat-header-actions button:not(#infoToggleBtn):not([title="Search"]):not([title="More"]), .icon-rail button:not([data-chat-nav]), .info-section-head .more').forEach((button) => {
       button.disabled = true; button.setAttribute('aria-disabled', 'true');
     });
     document.querySelectorAll('.format-icons button').forEach((button) => {

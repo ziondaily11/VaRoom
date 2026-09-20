@@ -194,7 +194,7 @@ export default function HostProfileView() {
       <aside className="host-profile-sidebar" aria-label="VaRoom navigation">
         <nav className="sidebar-nav">
           <a href={isHost ? "/host-home" : "/client-home"}><Home size={17} aria-hidden="true" /> Home</a>
-          <a href="/elie"><Compass size={17} aria-hidden="true" /> Elie <span className="sidebar-pill">Free preview</span></a>
+          <a href="/chats?conversation=elie"><Compass size={17} aria-hidden="true" /> Elie <span className="sidebar-pill">Free preview</span></a>
           <a href="/marketplace"><Compass size={17} aria-hidden="true" /> Marketplace</a>
           <a href="/bookings"><CalendarDays size={17} aria-hidden="true" /> Bookings</a>
           <a href="/chats"><MessageSquare size={17} aria-hidden="true" /> Chats</a>
