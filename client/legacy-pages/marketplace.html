@@ -44,11 +44,16 @@
     --line-soft:#E4E1DA;
   }
   [data-theme="dark"]{
-    --white: var(--card-bg); --paper: var(--bg-surface); --ink: var(--text-primary); --muted: var(--text-secondary);
-    --line: var(--border-subtle);
+    /* Keep the marketplace on the same continuous VaRoom dark canvas as
+       the dashboards. Listing cards are delineated by their outline and
+       imagery, rather than a second dark slab behind every property. */
+    --bg-surface: #0F0D0D;
+    --card-bg: #0F0D0D;
+    --card-bg-hover: #151211;
+    --border-subtle: rgba(255,255,255,.10);
+    --white: var(--bg-surface); --paper: var(--bg-surface); --ink: var(--text-primary); --muted: var(--text-secondary);
+    --line: rgba(255,255,255,.12);
     --line-soft: rgba(255,255,255,.07);
-    --card-bg: #1E1E1E;
-    --card-bg-hover: #2A2A2A;
   }
   *{ margin:0; padding:0; box-sizing:border-box; }
   html{ overflow-x:hidden; font-size:16px !important; }
@@ -130,10 +135,10 @@
   }
   .card{
     position:relative; min-width:0; border-radius:var(--radius-lg); overflow:hidden;
-    background:var(--card-bg); border:1px solid var(--border-subtle); box-shadow:0 10px 22px rgba(0,0,0,.16); cursor:pointer;
+    background:var(--card-bg); border:1px solid var(--border-subtle); box-shadow:none; cursor:pointer;
     transition:transform .2s ease, box-shadow .2s ease, border-color .2s ease, background-color .2s ease;
   }
-  .card:hover{ transform:translateY(-1px); box-shadow:0 14px 24px rgba(0,0,0,.2); border-color:rgba(255,56,92,.32); background:var(--card-bg-hover); }
+  .card:hover{ transform:translateY(-1px); box-shadow:none; border-color:rgba(255,56,92,.32); background:var(--card-bg-hover); }
   .card:focus-visible{ outline:2px solid var(--accent-cta); outline-offset:2px; }
   .card-media{ position:relative; aspect-ratio:4 / 3; background:var(--paper); overflow:hidden; }
   .card-media img{ width:100%; height:100%; object-fit:cover; display:block; transition:transform .25s ease; }

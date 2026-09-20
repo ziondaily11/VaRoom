@@ -4,33 +4,33 @@
  * remain the single source of truth for the dark visual system.
  *
  * DESIGN INTENT
- * Dark mode uses a warm, near-black palette drawn from VaRoom's brand
- * rather than pure #000000.  The page background is the darkest tone;
- * cards/sidebar sit one step lighter so they visually separate from
- * the canvas.  Text uses a soft off-white to reduce glare.
+ * Dark mode uses a warm, near-black VaRoom canvas. Structure comes from
+ * quiet dividers, spacing, and type—not a stack of darker rectangles.
+ * Elevated surfaces are reserved for menus, dialogs, and message bubbles.
  */
 [data-theme="dark"] {
   /* ── Surfaces ─────────────────────────────────────────────────── */
-  --paper:       #110D0C;          /* page / body background         */
-  --white:       #1A1514;          /* card / sidebar / raised surface */
-  --surface:     #1A1514;
-  --input-bg:    #1A1514;
-  --card-border: rgba(255,255,255,.12);
-  --shell-bg:    #110D0C;
-  --sidebar-bg:  #1A1514;
-  --main-bg:     #110D0C;
-  --rail-bg:     #110D0C;
-  --card-bg:     #1A1514;
+  --paper:       #0F0D0D;          /* continuous application canvas  */
+  --white:       #0F0D0D;          /* primary surface: same canvas   */
+  --surface:     #0F0D0D;
+  --surface-elevated: #171313;     /* only floating / focused UI     */
+  --input-bg:    #0F0D0D;
+  --card-border: rgba(255,255,255,.10);
+  --shell-bg:    #0F0D0D;
+  --sidebar-bg:  #0F0D0D;
+  --main-bg:     #0F0D0D;
+  --rail-bg:     #0F0D0D;
+  --card-bg:     #0F0D0D;
 
   /* ── Text ─────────────────────────────────────────────────────── */
   --ink:   #F5EFEC;                /* primary text                   */
   --muted: rgba(245,239,236,.58);  /* secondary / supporting text    */
 
   /* ── Structural ───────────────────────────────────────────────── */
-  --glass-bg:     #1A1514;
-  --glass-border: rgba(255,255,255,.12);
-  --line:         rgba(255,255,255,.14);
-  --line-soft:    rgba(255,255,255,.09);
+  --glass-bg:     #0F0D0D;
+  --glass-border: rgba(255,255,255,.10);
+  --line:         rgba(255,255,255,.12);
+  --line-soft:    rgba(255,255,255,.08);
   --glass-shadow: none;
   --glow-a:       transparent;
   --glow-b:       transparent;
@@ -661,4 +661,120 @@
   [data-theme="dark"] .col-divider {
     display: none !important;
   }
+}
+
+/* ================================================================
+   CONTINUOUS-CANVAS REFINEMENT
+   Keep the product's warm VaRoom palette and red accent, while making
+   the information architecture read through lines and rhythm.
+   ================================================================ */
+[data-theme="dark"] .sidebar,
+[data-theme="dark"] .topbar,
+[data-theme="dark"] .host-rail,
+[data-theme="dark"] .right-rail,
+[data-theme="dark"] .dash-main,
+[data-theme="dark"] .feed-area,
+[data-theme="dark"] .main,
+[data-theme="dark"] .main-inner,
+[data-theme="dark"] .content,
+[data-theme="dark"] .content-area,
+[data-theme="dark"] .page-content {
+  background: var(--paper) !important;
+  box-shadow: none !important;
+}
+
+/* Section wrappers stay flat; their bottom border carries the grouping. */
+[data-theme="dark"] .stats-card,
+[data-theme="dark"] .listings-glance-card,
+[data-theme="dark"] .rail-card,
+[data-theme="dark"] .notif-panel-card,
+[data-theme="dark"] .property-news-card,
+[data-theme="dark"] .varoom-updates-card,
+[data-theme="dark"] .mobile-widget-card,
+[data-theme="dark"] .profile-section,
+[data-theme="dark"] .profile-panel,
+[data-theme="dark"] .settings-section,
+[data-theme="dark"] .settings-group,
+[data-theme="dark"] .booking-section,
+[data-theme="dark"] .analytics-section {
+  background: transparent !important;
+  border-width: 0 0 1px !important;
+  border-color: var(--line-soft) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+[data-theme="dark"] .stats-card { padding-left: 0 !important; padding-right: 0 !important; }
+[data-theme="dark"] .stats-row > .stat + .stat { border-left: 1px solid var(--line-soft); padding-left: 1rem; }
+[data-theme="dark"] .host-rail > *,
+[data-theme="dark"] .right-rail > * { margin-bottom: 0 !important; }
+
+/* Filters are controls, not a separate band of surface color. */
+[data-theme="dark"] .tabs,
+[data-theme="dark"] .filter-bar,
+[data-theme="dark"] .category-bar,
+[data-theme="dark"] .toolbar,
+[data-theme="dark"] .card-list {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+[data-theme="dark"] .tab,
+[data-theme="dark"] .secondary-btn,
+[data-theme="dark"] .action-btn,
+[data-theme="dark"] .report-cancel-btn,
+[data-theme="dark"] .search-wrap,
+[data-theme="dark"] .toolbar-search {
+  background: transparent !important;
+  border-color: var(--line) !important;
+  box-shadow: none !important;
+}
+
+[data-theme="dark"] .tab:hover,
+[data-theme="dark"] .secondary-btn:hover,
+[data-theme="dark"] .action-btn:hover,
+[data-theme="dark"] .nav-item:hover {
+  background: rgba(255,255,255,.055) !important;
+}
+
+/* Actual objects retain a quiet outline without becoming nested slabs. */
+[data-theme="dark"] .listing-card,
+[data-theme="dark"] .notif-card,
+[data-theme="dark"] .profile-card,
+[data-theme="dark"] .empty-state-card,
+[data-theme="dark"] .glance-tile {
+  background: transparent !important;
+  border-color: var(--line-soft) !important;
+  box-shadow: none !important;
+}
+
+/* Floating UI is the only place that receives a raised surface. */
+[data-theme="dark"] .modal-card,
+[data-theme="dark"] .report-modal,
+[data-theme="dark"] .card-menu-dropdown,
+[data-theme="dark"] .listing-menu ul,
+[data-theme="dark"] .toast {
+  background: var(--surface-elevated) !important;
+  border-color: var(--line) !important;
+}
+
+/* Chat stays one continuous workspace; message bubbles remain semantic. */
+[data-theme="dark"] .chat-shell,
+[data-theme="dark"] .chat-main,
+[data-theme="dark"] .contacts-panel,
+[data-theme="dark"] .conversation-panel,
+[data-theme="dark"] .chat-list,
+[data-theme="dark"] .chat-header,
+[data-theme="dark"] .chat-input-area {
+  background: var(--paper) !important;
+  border-color: var(--line-soft) !important;
+  box-shadow: none !important;
+}
+[data-theme="dark"] .contact-item { background: transparent !important; border-bottom-color: var(--line-soft) !important; }
+[data-theme="dark"] .msg-row.in .bubble { background: var(--surface-elevated) !important; }
+
+@media (max-width: 860px) {
+  [data-theme="dark"] .topbar { backdrop-filter: none; -webkit-backdrop-filter: none; }
+  [data-theme="dark"] .sidebar { box-shadow: none !important; }
+  [data-theme="dark"] .stats-row > .stat + .stat { padding-left: .75rem; }
 }
