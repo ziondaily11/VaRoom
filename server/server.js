@@ -15,6 +15,8 @@ const { createAdminRoutes } = require('./routes/adminRoutes');
 const { runFullCleanup } = require('./lib/videoCleanup');
 const { MAX_JSON_BYTES, validateJsonPayload, ValidationError, uuid, text, number } = require('./lib/inputValidation');
 const { ERROR_CODES, sendError } = require('./lib/apiResponse');
+const { createBillingRoutes } = require('./routes/billingRoutes');
+const { createPaystackWebhookRoutes } = require('./routes/paystackWebhookRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -31,6 +33,10 @@ app.use((req, res, next) => {
   res.set('Referrer-Policy', 'no-referrer');
   next();
 });
+// Paystack signs the exact request bytes. This must remain before JSON parsing
+// and before the generic /api rate limiter so provider retries are not blocked.
+app.use('/api/billing/paystack/webhook', express.raw({ type: 'application/json', limit: '1mb' }), createPaystackWebhookRoutes());
+
 app.use(express.json({ limit: MAX_JSON_BYTES, strict: true }));
 app.use(express.urlencoded({ extended: false }));
 app.use((req, res, next) => {
@@ -57,6 +63,7 @@ app.use('/api', chatAttachmentRoutes);
 app.use('/api', chatRoutes);
 app.use('/api', reviewRoutes);
 app.use('/api', notificationRoutes);
+app.use('/api', createBillingRoutes());
 
 // Serve the Next.js public assets when this service is used as the web host.
 const clientDirectory = path.join(__dirname, '..', 'client');

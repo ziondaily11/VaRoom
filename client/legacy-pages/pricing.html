@@ -389,21 +389,53 @@
     yearlyLabel.addEventListener('click', function(){ toggle('yearly'); });
 
     /* ---------- CTAs ----------
-       TODO(backend): checkout is not wired yet. Payments/Paystack is a separate workstream and
-       plan state (e.g. profiles.subscription_tier) is backend-owned, so this page never marks a
-       plan as purchased. It emits 'varoom:plan-select' so the real checkout flow can hook in
-       later; until then it tells the host honestly that checkout isn't live. */
+       The browser supplies only a VaRoom plan ID. The server owns prices,
+       Paystack plan codes and activation; return/callback pages never grant access. */
     page.querySelectorAll('[data-plan-cta]').forEach(function(btn){
-      btn.addEventListener('click', function(){
+      btn.addEventListener('click', async function(){
         const id = btn.getAttribute('data-plan-cta');
         const card = page.querySelector('[data-plan="' + id + '"]');
         const name = card.querySelector('.plan-name').textContent;
         document.dispatchEvent(new CustomEvent('varoom:plan-select', { detail: { plan: id, billing: state.billing } }));
-        status.textContent = 'Checkout for the ' + name + ' plan isn\u2019t available yet \u2014 payments are still being connected.';
+        btn.disabled = true;
+        status.textContent = 'Opening secure checkout for ' + name + '…';
+        try {
+          const sessionResult = await supabaseClient.auth.getSession();
+          const session = sessionResult && sessionResult.data && sessionResult.data.session;
+          if (!session || !session.access_token) throw new Error('Please log in again to continue.');
+          const response = await fetch('/api/billing/checkout', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
+            body: JSON.stringify({ plan: id })
+          });
+          const result = await response.json().catch(function(){ return {}; });
+          if (!response.ok || !result.authorization_url) throw new Error(result.error || 'Unable to start checkout.');
+          window.location.assign(result.authorization_url);
+        } catch (error) {
+          status.textContent = error.message || 'Unable to start checkout. Please try again.';
+          btn.disabled = false;
+        }
       });
     });
 
+    async function refreshReturnedBillingStatus(){
+      if (new URLSearchParams(window.location.search).get('billing') !== 'return') return;
+      try {
+        const sessionResult = await supabaseClient.auth.getSession();
+        const session = sessionResult && sessionResult.data && sessionResult.data.session;
+        if (!session || !session.access_token) return;
+        const response = await fetch('/api/billing/subscription', { headers: { Authorization: 'Bearer ' + session.access_token } });
+        const result = await response.json().catch(function(){ return {}; });
+        const subscription = result.subscription;
+        if (response.ok && subscription && subscription.status === 'active') status.textContent = 'Your ' + subscription.plan_id + ' plan is active.';
+        else status.textContent = 'Your payment is being verified. Your plan will activate only after VaRoom confirms it.';
+      } catch (error) {
+        status.textContent = 'Your payment is being verified. Refresh this page shortly for the latest status.';
+      }
+    }
+
     render();
+    refreshReturnedBillingStatus();
   })();
 </script>
 

@@ -14,6 +14,7 @@ const VIDEO_PREMIUM_REQUIRED = process.env.VIDEO_PREMIUM_REQUIRED === 'true';
 const VIDEO_MAX_FILE_SIZE_MB = parseInt(process.env.VIDEO_MAX_FILE_SIZE_MB || '100', 10);
 const VIDEO_MAX_COUNT_PER_PROPERTY = parseInt(process.env.VIDEO_MAX_COUNT_PER_PROPERTY || '10', 10);
 const VIDEO_MAX_DURATION_SECONDS = parseInt(process.env.VIDEO_MAX_DURATION_SECONDS || '60', 10);
+const { getHostEntitlements } = require('./billingEntitlement');
 
 /**
  * Check if a user can upload a video for a property
@@ -44,24 +45,20 @@ async function canUploadPropertyVideo(supabaseAdmin, user, property, currentVide
 
   // Step 2: Check premium requirement
   if (VIDEO_PREMIUM_REQUIRED) {
-    // In production, fetch user's subscription status
-    // For now, this is a placeholder showing the intended pattern
-    const userProfile = await getUserProfile(supabaseAdmin, user.id);
-
-    if (!userProfile) {
+    let entitlements;
+    try {
+      entitlements = await getHostEntitlements(supabaseAdmin, user.id);
+    } catch (error) {
+      console.error('Error fetching billing entitlements:', error);
       return {
         allowed: false,
         reason: 'Could not verify subscription status.',
       };
     }
-
-    // Check subscription/plan field (exact name depends on Supabase schema)
-    const isPremium = userProfile.subscription_tier === 'premium' || userProfile.is_premium === true;
-
-    if (!isPremium) {
+    if (!entitlements.canUploadPremiumVideo) {
       return {
         allowed: false,
-        reason: 'Video uploads require a premium subscription.',
+        reason: 'Video uploads require an active Growth or Pro subscription.',
       };
     }
   }
@@ -78,31 +75,6 @@ async function canUploadPropertyVideo(supabaseAdmin, user, property, currentVide
   return {
     allowed: true,
   };
-}
-
-/**
- * Fetch user profile for subscription/premium check
- * Currently fetches from profiles table
- * Can be extended to check actual subscription records
- */
-async function getUserProfile(supabaseAdmin, userId) {
-  try {
-    const { data, error } = await supabaseAdmin
-      .from('profiles')
-      .select('id, subscription_tier, is_premium')
-      .eq('id', userId)
-      .single();
-
-    if (error) {
-      console.error('Error fetching user profile:', error);
-      return null;
-    }
-
-    return data;
-  } catch (error) {
-    console.error('Error in getUserProfile:', error);
-    return null;
-  }
 }
 
 /**
