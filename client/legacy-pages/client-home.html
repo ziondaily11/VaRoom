@@ -710,6 +710,122 @@
   }
 </style>
 <link rel="stylesheet" href="js/varoom-dark-theme.css">
+<style>
+  /* Client Home uses the same neutral control system as Host Home. Red stays
+     reserved for textual actions such as View all and View Map. */
+  :root{
+    --client-control-bg:#F7F6F3;
+    --client-control-active:#E9E7E2;
+    --client-control-hover:#EFEDE8;
+    --client-control-strong:#24211E;
+    --client-control-strong-text:#FFFFFF;
+    --client-neutral-icon:#5C584F;
+    --client-rail-outline:#C9C5BD;
+  }
+  [data-theme="dark"]{
+    --client-control-bg:#1A1716;
+    --client-control-active:#302C2A;
+    --client-control-hover:#25211F;
+    --client-control-strong:#F5EFEC;
+    --client-control-strong-text:#15100F;
+    --client-neutral-icon:#B8ACA8;
+    --client-rail-outline:rgba(255,255,255,.28);
+  }
+
+  :focus-visible,
+  .bottom-bar-item:focus-visible{ outline-color:var(--client-neutral-icon); }
+  .logo .va,
+  .beta-pill,
+  .sidebar-note,
+  .verified-tick,
+  .report-modal-msg.error{ color:var(--ink); }
+  .beta-pill,
+  .sidebar-note,
+  .host-video-upload-btn{
+    background:var(--client-control-active) !important;
+    color:var(--ink) !important;
+    border-color:var(--line);
+  }
+
+  .nav-item.active,
+  [data-theme="dark"] .nav-item.active,
+  .tab.active,
+  [data-theme="dark"] .tab.active,
+  [data-theme="dark"] .tab[aria-selected="true"],
+  .bottom-bar-item.active,
+  [data-theme="dark"] .bottom-bar-item.active,
+  .bottom-bar-elie.active .elie-badge{
+    background:var(--client-control-active) !important;
+    color:var(--ink) !important;
+    border-color:var(--line) !important;
+  }
+
+  .search-wrap,
+  [data-theme="dark"] .search-wrap{
+    background:var(--client-control-bg) !important;
+    outline:1px solid var(--line) !important;
+    border:0 !important;
+    box-shadow:none !important;
+  }
+  .search-wrap:focus-within,
+  [data-theme="dark"] .search-wrap:focus-within{
+    outline-color:var(--client-neutral-icon) !important;
+    box-shadow:0 0 0 2px color-mix(in srgb, var(--client-neutral-icon) 20%, transparent) !important;
+  }
+  .search-btn:hover{ color:var(--ink); }
+
+  .avatar-circle,
+  .card-avatar,
+  .bottom-bar-item .avatar-mini{
+    background:var(--client-control-active) !important;
+    color:var(--ink) !important;
+  }
+  .report-submit-btn{
+    background:var(--client-control-strong) !important;
+    border-color:var(--client-control-strong) !important;
+    color:var(--client-control-strong-text) !important;
+  }
+  .report-submit-btn:hover{ background:var(--client-control-hover) !important; color:var(--ink) !important; border-color:var(--line) !important; }
+  .card-menu-item{ color:var(--ink); }
+  .card-menu-item:hover{ background:var(--client-control-hover); }
+  .media-dot.active{ background:var(--client-neutral-icon) !important; }
+  .photo-placeholder{ background:linear-gradient(135deg, var(--client-control-active), var(--client-control-bg)) !important; color:var(--ink) !important; }
+  .action-btn:hover,
+  .bookmark-btn:hover,
+  .bookmark-btn.saved{ color:var(--ink); }
+  .topbar-avatar-btn:hover .avatar-circle{ outline-color:var(--client-neutral-icon); }
+
+  /* Desktop rail dimensions are intentionally untouched. These perimeter
+     layers only define each existing section without adding a filled surface
+     or outlines to individual destination/news items. */
+  .right-rail > .rail-card,
+  .right-rail > #client-property-news-widget{
+    position:relative;
+    background:transparent !important;
+    border:0 !important;
+    border-radius:16px !important;
+    box-shadow:none !important;
+    padding:1.2rem 1.2rem 1.3rem !important;
+    margin-bottom:1.3rem;
+  }
+  .right-rail > .rail-card::after,
+  .right-rail > #client-property-news-widget::after{
+    content:"";
+    position:absolute;
+    inset:0;
+    border:1px solid var(--client-rail-outline);
+    border-radius:16px;
+    pointer-events:none;
+  }
+
+  /* Inline textual actions retain the VaRoom accent. */
+  .rail-view-all,
+  .card-map-link,
+  .client-property-news-view-all{ color:var(--red); }
+  .rail-view-all:hover,
+  .card-map-link:hover,
+  .client-property-news-view-all:hover{ color:var(--red-deep); }
+</style>
 </head>
 <body>
 
