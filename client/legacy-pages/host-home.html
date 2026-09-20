@@ -352,7 +352,8 @@
   .host-rail > .sidebar-module{
     width:100%;
     flex:0 0 auto;
-    background:var(--white);
+    /* A rail section is defined by one quiet perimeter, not a filled card. */
+    background:transparent;
     border:1px solid var(--line);
     border-radius:16px;
     box-shadow:none;
@@ -894,6 +895,17 @@
   .bookmark-btn.saved{ color:var(--ink); }
   .topbar-avatar-btn:hover .avatar-circle{ outline-color:var(--neutral-icon); }
 
+  /* Keep every desktop rail section as one independent, content-sized outline
+     in both themes. The shared dark stylesheet intentionally flattens cards,
+     so this late rule restores the Host Home rail's required structure. */
+  .host-rail > .sidebar-module{
+    background:transparent !important;
+    border:1px solid var(--line) !important;
+    border-radius:16px !important;
+    box-shadow:none !important;
+    padding:1.15rem 1.2rem !important;
+  }
+
   /* Textual, inline actions retain the product accent. */
   .stats-head a,
   .attention-row a.attention-link,
@@ -1106,7 +1118,7 @@
 
     <div class="feed-area">
       <div class="property-news-mobile-slot">
-        <section class="property-news-card" aria-labelledby="property-news-mobile-title">
+        <section class="property-news-card" id="property-news-mobile-card" aria-labelledby="property-news-mobile-title" style="display:none">
           <div class="stats-head"><h2 id="property-news-mobile-title">Your Property News on VaRoom</h2></div>
           <div class="property-news-list" id="property-news-mobile-list" aria-live="polite">
             <div class="property-news-skeleton"></div><div class="property-news-skeleton"></div><div class="property-news-skeleton"></div>
@@ -1139,7 +1151,7 @@
         <div class="listings-glance-grid" id="listings-glance-grid"></div>
       </div>
 
-      <section class="sidebar-module property-news-card" aria-labelledby="property-news-title">
+      <section class="sidebar-module property-news-card" id="property-news-card" aria-labelledby="property-news-title" style="display:none">
         <div class="stats-head"><h2 id="property-news-title">Your Property News on VaRoom</h2></div>
         <div class="property-news-list" id="property-news-list" aria-live="polite">
           <div class="property-news-skeleton"></div><div class="property-news-skeleton"></div><div class="property-news-skeleton"></div>
@@ -1566,21 +1578,16 @@
       }).join('');
     }
 
-    function propertyNewsEmptyHtml(){
-      return '<div class="property-news-empty-card">' +
-        '<div class="property-news-empty-icon-wrap">' +
-          '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8V6Z"/></svg>' +
-        '</div>' +
-        '<div class="property-news-empty-title">All Caught Up</div>' +
-        '<p class="property-news-empty-desc">No new property updates right now. We monitor verified Kenyan land and real estate notices 24/7.</p>' +
-        '<div class="property-news-empty-badge"><span class="property-news-empty-dot"></span> Live Monitoring Active</div>' +
-      '</div>';
-    }
-
     function renderPropertyNews(state, items){
       const containers = [document.getElementById('property-news-list'), document.getElementById('property-news-mobile-list')];
-      const html = (items && items.length) ? propertyNewsItemsHtml(items) : propertyNewsEmptyHtml();
-      containers.forEach(function(container){ if (container) { container.innerHTML = html; wirePropertyNewsImages(container); } });
+      const sections = [document.getElementById('property-news-card'), document.getElementById('property-news-mobile-card')];
+      const hasNews = Array.isArray(items) && items.length > 0;
+      sections.forEach(function(section){ if (section) section.style.display = hasNews ? '' : 'none'; });
+      containers.forEach(function(container){
+        if (!container) return;
+        container.innerHTML = hasNews ? propertyNewsItemsHtml(items) : '';
+        if (hasNews) wirePropertyNewsImages(container);
+      });
     }
 
     // Each news item is shown for a fixed window after it was published,
