@@ -897,17 +897,27 @@
   .bookmark-btn.saved{ color:var(--ink); }
   .topbar-avatar-btn:hover .avatar-circle{ outline-color:var(--neutral-icon); }
 
-  /* The three Host rail modules each get one clearly visible, independent
-     perimeter. Their interiors stay transparent and their height stays
-     content-driven; individual listing tiles receive no added outline. */
+  /* The exact three Host rail sections get a dedicated perimeter layer. This
+     is intentionally separate from the shared card border system, whose
+     dark-mode rules flatten generic cards. */
   .host-rail > .listings-glance-card,
   .host-rail > .property-news-card,
   .host-rail > .varoom-updates-card{
+    position:relative;
     background:transparent !important;
-    border:1px solid var(--host-rail-outline) !important;
-    border-radius:16px !important;
+    border:0 !important;
     box-shadow:none !important;
     padding:1.15rem 1.2rem !important;
+  }
+  .host-rail > .listings-glance-card::after,
+  .host-rail > .property-news-card::after,
+  .host-rail > .varoom-updates-card::after{
+    content:"";
+    position:absolute;
+    inset:0;
+    border:1px solid var(--host-rail-outline);
+    border-radius:16px;
+    pointer-events:none;
   }
 
   /* Textual, inline actions retain the product accent. */
