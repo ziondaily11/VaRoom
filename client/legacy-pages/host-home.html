@@ -2099,6 +2099,7 @@
       const { data, error } = await supabaseClient
         .from('varoom_updates')
         .select('id,body,image_url,image_urls,created_at')
+        .eq('status', 'published')
         .order('created_at', { ascending:false })
         .limit(3);
 
@@ -2172,6 +2173,7 @@
 
       function withFilters(query){
         if (onlyMine) query = query.eq('host_id', currentUser.id);
+        else query = query.eq('moderation_status', 'active');
         if (category !== 'all') query = query.eq('category', category);
         return query;
       }

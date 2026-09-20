@@ -1732,6 +1732,7 @@
       const interests = interestedCategories.slice();
 
       function withCategory(query){
+        query = query.eq('moderation_status', 'active');
         if (category !== 'all') return query.eq('category', category);
         if (view === 'home' && interests.length > 0) return query.in('category', interests);
         return query;
@@ -2239,6 +2240,7 @@
       const { data, error } = await supabaseClient
         .from('varoom_updates')
         .select('id,body,image_url,image_urls,created_at')
+        .eq('status', 'published')
         .order('created_at', { ascending:false })
         .limit(3);
 

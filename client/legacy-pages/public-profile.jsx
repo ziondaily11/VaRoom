@@ -197,6 +197,7 @@ export default function PublicHostProfile() {
           .from("listings")
           .select("id,title,category,host_id,created_at")
           .eq("host_id", hostId)
+          .eq("moderation_status", "active")
           .order("created_at", { ascending: false }),
         client
           .from("reviews")

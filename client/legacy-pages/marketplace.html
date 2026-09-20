@@ -843,6 +843,7 @@
 
   async function fetchListings(select, filterAvailability, offset){
       let query = supabaseClient.from('listings').select(select, { count: 'exact' }).range(offset, offset + PAGE_SIZE - 1);
+      query = query.eq('moderation_status', 'active');
       if (filterAvailability) query = query.eq('availability_status', 'available');
       if (state.category !== 'all') query = query.eq('category', state.category);
       if (state.q) {

@@ -61,6 +61,13 @@ function requireAdmin(supabaseAdmin) {
   };
 }
 
+function requireAdminRole(...roles) {
+  return (req, res, next) => {
+    if (roles.includes(req.admin.role)) return next();
+    return res.status(403).json({ error: 'Your admin role is not allowed to perform this action' });
+  };
+}
+
 function daysAgo(days) {
   return new Date(Date.now() - days * 86400000).toISOString();
 }
@@ -76,6 +83,8 @@ function normalizeTicket(ticket) {
 function createAdminRoutes(supabaseAdmin) {
   const router = express.Router();
   const adminAuth = requireAdmin(supabaseAdmin);
+  const adminWrite = [adminAuth, requireAdminRole('super_admin', 'support')];
+  const superAdmin = [adminAuth, requireAdminRole('super_admin')];
   const propertyNewsUrl = (process.env.PROPERTY_NEWS_API_URL || '').replace(/\/$/, '');
   const propertyNewsAdminApiKey = (process.env.PROPERTY_NEWS_ADMIN_API_KEY || '').trim();
 
@@ -109,6 +118,23 @@ function createAdminRoutes(supabaseAdmin) {
     }
 
     return body ? JSON.parse(body) : null;
+  }
+
+  async function logActivity(admin, action, targetType, targetId, reason, metadata = {}) {
+    const { error } = await supabaseAdmin.from('admin_activity').insert({
+      admin_id: admin.id, action, target_type: targetType, target_id: String(targetId),
+      reason: reason || null, metadata,
+    });
+    if (error) console.error('Admin activity log failed:', error.message);
+  }
+
+  function requiredReason(req, res) {
+    const reason = String(req.body && req.body.reason || '').trim();
+    if (!reason) {
+      res.status(400).json({ error: 'A reason is required for this action' });
+      return null;
+    }
+    return reason.slice(0, 2000);
   }
 
   router.get('/login', (_req, res) => res.type('html').send('<!doctype html><title>VaRoom Admin login</title><form method="post" action="/admin/login"><input name="email" type="email" required placeholder="Email"><input name="password" type="password" required placeholder="Password"><button>Log in</button></form>'));
@@ -166,16 +192,18 @@ function createAdminRoutes(supabaseAdmin) {
   });
 
   for (const action of ['approve', 'reject', 'edit', 'request-more-evidence']) {
-    router.post(`/news/:id/${action}`, adminAuth, async (req, res) => {
+    router.post(`/news/:id/${action}`, ...adminWrite, async (req, res) => {
       try {
         const payload = { ...(req.body || {}), action };
-        return res.json(await propertyNewsRequest(`/api/admin/news/${encodeURIComponent(req.params.id)}/${action}`, {
+        const result = await propertyNewsRequest(`/api/admin/news/${encodeURIComponent(req.params.id)}/${action}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify(payload),
-        }));
+        });
+        await logActivity(req.admin, action === 'approve' ? 'property_news_published' : `property_news_${action}`, 'property_news', req.params.id, String(req.body && req.body.reason || '').trim());
+        return res.json(result);
       } catch (error) {
         return res.status(error.statusCode || 502).json({ error: error.message });
       }
@@ -233,7 +261,7 @@ function createAdminRoutes(supabaseAdmin) {
     return res.json({ ticket: normalizeTicket(ticketResult.data), replies: repliesResult.data || [] });
   });
 
-  router.post('/support/tickets/:id/replies', adminAuth, async (req, res) => {
+  router.post('/support/tickets/:id/replies', ...adminWrite, async (req, res) => {
     const message = String(req.body && req.body.message || '').trim();
     if (!message) return res.status(400).json({ error: 'Reply message is required' });
     const { data: ticket, error: ticketError } = await supabaseAdmin.from('support_tickets').select('*').eq('id', req.params.id).single();
@@ -307,12 +335,140 @@ function createAdminRoutes(supabaseAdmin) {
     }
   });
 
-  router.patch('/support/tickets/:id', adminAuth, async (req, res) => {
+  router.patch('/support/tickets/:id', ...adminWrite, async (req, res) => {
     const allowed = ['status', 'priority', 'assigned_admin_id'];
     const update = Object.fromEntries(allowed.filter((key) => req.body && req.body[key] !== undefined).map((key) => [key, req.body[key]]));
     const { data, error } = await supabaseAdmin.from('support_tickets').update(update).eq('id', req.params.id).select().single();
     if (error) return res.status(400).json({ error: error.message });
     return res.json({ ticket: normalizeTicket(data) });
+  });
+
+  // User control is intentionally server-only: auth ban metadata invalidates
+  // active Supabase sessions and account_controls is checked by critical DB
+  // workflows. The browser never receives a service-role credential.
+  router.get('/users', adminAuth, async (req, res) => {
+    const query = String(req.query.q || '').trim().toLowerCase();
+    const { data, error } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
+    if (error) return res.status(502).json({ error: error.message });
+    const ids = (data.users || []).map((user) => user.id);
+    const [profilesResult, controlsResult] = await Promise.all([
+      ids.length ? supabaseAdmin.from('profiles').select('id,full_name,username').in('id', ids) : { data: [] },
+      ids.length ? supabaseAdmin.from('account_controls').select('user_id,status,reason,changed_at,changed_by').in('user_id', ids) : { data: [] },
+    ]);
+    if (profilesResult.error || controlsResult.error) return res.status(502).json({ error: (profilesResult.error || controlsResult.error).message });
+    const profileById = Object.fromEntries((profilesResult.data || []).map((p) => [p.id, p]));
+    const controlById = Object.fromEntries((controlsResult.data || []).map((c) => [c.user_id, c]));
+    const users = (data.users || []).map((user) => ({
+      id: user.id, email: user.email, created_at: user.created_at, last_sign_in_at: user.last_sign_in_at,
+      profile: profileById[user.id] || null, account: controlById[user.id] || { status: user.banned_until ? 'suspended' : 'active' },
+    })).filter((user) => !query || [user.email, user.profile?.full_name, user.profile?.username].filter(Boolean).join(' ').toLowerCase().includes(query));
+    return res.json({ data: users });
+  });
+
+  router.get('/users/:id', adminAuth, async (req, res) => {
+    const [{ data: userData, error: userError }, profileResult, listingsResult, activityResult] = await Promise.all([
+      supabaseAdmin.auth.admin.getUserById(req.params.id),
+      supabaseAdmin.from('profiles').select('id,full_name,username').eq('id', req.params.id).maybeSingle(),
+      supabaseAdmin.from('listings').select('id,title,created_at,availability_status,moderation_status,moderation_reason').eq('host_id', req.params.id).order('created_at', { ascending: false }),
+      supabaseAdmin.from('admin_activity').select('*').eq('target_id', req.params.id).order('created_at', { ascending: false }),
+    ]);
+    if (userError || !userData.user) return res.status(404).json({ error: 'User not found' });
+    const { data: control } = await supabaseAdmin.from('account_controls').select('*').eq('user_id', req.params.id).maybeSingle();
+    return res.json({ user: { id: userData.user.id, email: userData.user.email, created_at: userData.user.created_at, last_sign_in_at: userData.user.last_sign_in_at, profile: profileResult.data || null, account: control || { status: userData.user.banned_until ? 'suspended' : 'active' } }, listings: listingsResult.data || [], activity: activityResult.data || [] });
+  });
+
+  router.post('/users/:id/status', ...superAdmin, async (req, res) => {
+    const status = String(req.body && req.body.status || '');
+    if (!['active', 'suspended', 'disabled'].includes(status)) return res.status(400).json({ error: 'Invalid account status' });
+    const reason = status === 'active' ? String(req.body && req.body.reason || '').trim() : requiredReason(req, res);
+    if (reason === null) return;
+    const { data: existing, error: userError } = await supabaseAdmin.auth.admin.getUserById(req.params.id);
+    if (userError || !existing.user) return res.status(404).json({ error: 'User not found' });
+    const { error } = await supabaseAdmin.from('account_controls').upsert({ user_id: req.params.id, status, reason: reason || null, changed_at: new Date().toISOString(), changed_by: req.admin.id });
+    if (error) return res.status(502).json({ error: error.message });
+    // `banDuration: none` removes a previous ban; an effectively permanent ban
+    // blocks new authenticated sessions for suspended/disabled accounts.
+    const authUpdate = await supabaseAdmin.auth.admin.updateUserById(req.params.id, status === 'active' ? { ban_duration: 'none' } : { ban_duration: '876000h' });
+    if (authUpdate.error) return res.status(502).json({ error: authUpdate.error.message });
+    await logActivity(req.admin, status === 'active' ? 'account_restored' : `account_${status}`, 'user', req.params.id, reason);
+    return res.json({ status, reason: reason || null });
+  });
+
+  router.get('/listings', adminAuth, async (req, res) => {
+    let query = supabaseAdmin.from('listings').select('id,title,host_id,created_at,availability_status,moderation_status,moderation_reason,moderated_at').order('created_at', { ascending: false });
+    if (req.query.status) query = query.eq('moderation_status', req.query.status);
+    const { data, error } = await query;
+    if (error) return res.status(502).json({ error: error.message });
+    const hostIds = [...new Set((data || []).map((l) => l.host_id).filter(Boolean))];
+    const { data: profiles } = hostIds.length ? await supabaseAdmin.from('profiles').select('id,full_name,username').in('id', hostIds) : { data: [] };
+    const ownerById = Object.fromEntries((profiles || []).map((p) => [p.id, p]));
+    return res.json({ data: (data || []).map((listing) => ({ ...listing, owner: ownerById[listing.host_id] || null })) });
+  });
+
+  router.post('/listings/:id/moderation', ...adminWrite, async (req, res) => {
+    const status = String(req.body && req.body.status || '');
+    if (!['active', 'hidden', 'removed'].includes(status)) return res.status(400).json({ error: 'Invalid moderation status' });
+    const reason = status === 'active' ? String(req.body && req.body.reason || '').trim() : requiredReason(req, res);
+    if (reason === null) return;
+    const changes = { moderation_status: status, moderation_reason: reason || null, moderated_at: new Date().toISOString(), moderated_by: req.admin.id };
+    if (status === 'removed') changes.availability_status = 'unavailable';
+    const { data, error } = await supabaseAdmin.from('listings').update(changes).eq('id', req.params.id).select().maybeSingle();
+    if (error) return res.status(400).json({ error: error.message });
+    if (!data) return res.status(404).json({ error: 'Listing not found' });
+    await logActivity(req.admin, status === 'active' ? 'listing_restored' : `listing_${status}`, 'listing', data.id, reason);
+    return res.json({ listing: data });
+  });
+
+  router.get('/updates', adminAuth, async (_req, res) => {
+    const { data, error } = await supabaseAdmin.from('varoom_updates').select('*').order('created_at', { ascending: false });
+    if (error) return res.status(502).json({ error: error.message });
+    return res.json({ data: data || [] });
+  });
+
+  router.post('/updates', ...adminWrite, async (req, res) => {
+    const title = String(req.body && req.body.title || '').trim().slice(0, 160);
+    const body = String(req.body && req.body.body || '').trim();
+    const status = String(req.body && req.body.status || 'draft');
+    const imageUrls = Array.isArray(req.body && req.body.image_urls) ? req.body.image_urls.slice(0, 8) : null;
+    if (!body || body.length > 5000 || !['draft', 'published'].includes(status)) return res.status(400).json({ error: 'A valid body and status are required' });
+    const now = new Date().toISOString();
+    const { data, error } = await supabaseAdmin.from('varoom_updates').insert({ title: title || null, body, image_urls: imageUrls, status, published_at: status === 'published' ? now : null, created_by_admin_id: req.admin.id }).select().single();
+    if (error) return res.status(400).json({ error: error.message });
+    await logActivity(req.admin, status === 'published' ? 'varoom_update_published' : 'varoom_update_saved_draft', 'varoom_update', data.id, null);
+    return res.status(201).json({ update: data });
+  });
+
+  router.patch('/updates/:id', ...adminWrite, async (req, res) => {
+    const changes = {};
+    if (req.body?.title !== undefined) changes.title = String(req.body.title || '').trim().slice(0, 160) || null;
+    if (req.body?.body !== undefined) changes.body = String(req.body.body || '').trim().slice(0, 5000);
+    if (req.body?.image_urls !== undefined) changes.image_urls = Array.isArray(req.body.image_urls) ? req.body.image_urls.slice(0, 8) : null;
+    changes.updated_at = new Date().toISOString();
+    const { data, error } = await supabaseAdmin.from('varoom_updates').update(changes).eq('id', req.params.id).select().maybeSingle();
+    if (error) return res.status(400).json({ error: error.message });
+    if (!data) return res.status(404).json({ error: 'Update not found' });
+    await logActivity(req.admin, 'varoom_update_edited', 'varoom_update', data.id, null);
+    return res.json({ update: data });
+  });
+
+  router.post('/updates/:id/status', ...adminWrite, async (req, res) => {
+    const status = String(req.body && req.body.status || '');
+    if (!['draft', 'published', 'unpublished', 'removed'].includes(status)) return res.status(400).json({ error: 'Invalid update status' });
+    const reason = status === 'removed' ? requiredReason(req, res) : String(req.body && req.body.reason || '').trim();
+    if (reason === null) return;
+    const now = new Date().toISOString();
+    const { data, error } = await supabaseAdmin.from('varoom_updates').update({ status, published_at: status === 'published' ? now : null, removed_at: status === 'removed' ? now : null, moderated_by: req.admin.id, moderation_reason: reason || null, updated_at: now }).eq('id', req.params.id).select().maybeSingle();
+    if (error) return res.status(400).json({ error: error.message });
+    if (!data) return res.status(404).json({ error: 'Update not found' });
+    await logActivity(req.admin, `varoom_update_${status}`, 'varoom_update', data.id, reason);
+    return res.json({ update: data });
+  });
+
+  router.get('/activity', adminAuth, async (req, res) => {
+    const limit = Math.min(Math.max(Number(req.query.limit) || 100, 1), 250);
+    const { data, error } = await supabaseAdmin.from('admin_activity').select('*, admin:admins(name,email)').order('created_at', { ascending: false }).limit(limit);
+    if (error) return res.status(502).json({ error: error.message });
+    return res.json({ data: data || [] });
   });
 
   router.get('/reports', adminAuth, async (req, res) => {
@@ -323,10 +479,12 @@ function createAdminRoutes(supabaseAdmin) {
     return res.json({ data: (data || []).map((report) => ({ ...report, listing: report.listing && report.listing.title, reporter: report.reporter_user_id, createdAt: report.created_at })) });
   });
 
-  router.patch('/reports/:id', adminAuth, async (req, res) => {
+  router.patch('/reports/:id', ...adminWrite, async (req, res) => {
+    if (!['pending', 'reviewed', 'actioned', 'dismissed', 'resolved'].includes(req.body && req.body.status)) return res.status(400).json({ error: 'Invalid report status' });
     const update = { status: req.body.status, reviewed_by: req.admin.id, reviewed_at: new Date().toISOString() };
     const { data, error } = await supabaseAdmin.from('listing_reports').update(update).eq('id', req.params.id).select().single();
     if (error) return res.status(400).json({ error: error.message });
+    await logActivity(req.admin, `listing_report_${req.body.status}`, 'listing_report', data.id, String(req.body.reason || '').trim());
     return res.json({ report: data });
   });
 
@@ -351,6 +509,16 @@ function createAdminRoutes(supabaseAdmin) {
         createdAt: report.created_at,
       })),
     });
+  });
+
+  router.patch('/user-reports/:id', ...adminWrite, async (req, res) => {
+    const status = String(req.body && req.body.status || '');
+    if (!['pending', 'reviewed', 'actioned', 'dismissed', 'resolved'].includes(status)) return res.status(400).json({ error: 'Invalid report status' });
+    const { data, error } = await supabaseAdmin.from('chat_user_reports').update({ status, reviewed_by: req.admin.id, reviewed_at: new Date().toISOString() }).eq('id', req.params.id).select().maybeSingle();
+    if (error) return res.status(400).json({ error: error.message });
+    if (!data) return res.status(404).json({ error: 'User report not found' });
+    await logActivity(req.admin, `user_report_${status}`, 'user_report', data.id, String(req.body && req.body.reason || '').trim());
+    return res.json({ report: data });
   });
 
   router.get('/account-deletions', adminAuth, async (_req, res) => {
@@ -378,7 +546,7 @@ function createAdminRoutes(supabaseAdmin) {
     return res.json({ data: (data || []).map((admin) => ({ ...admin, lastLogin: admin.last_login_at || 'Never' })) });
   });
 
-  router.post('/admins', adminAuth, async (req, res) => {
+  router.post('/admins', ...superAdmin, async (req, res) => {
     const { name, email, role } = req.body || {};
     if (!name || !email || !['super_admin', 'support', 'read_only'].includes(role)) return res.status(400).json({ error: 'Name, email and valid role are required' });
     const inviteToken = crypto.randomBytes(32).toString('hex');

@@ -16,6 +16,10 @@ import {
   Plus,
   Shield,
   Newspaper,
+  Users,
+  Building2,
+  Megaphone,
+  History,
 } from "lucide-react";
 import {
   LineChart,
@@ -39,7 +43,11 @@ const NAV_ITEMS = [
   { key: "revenue", label: "Revenue", icon: DollarSign },
   { key: "support", label: "Support", icon: LifeBuoy },
   { key: "reports", label: "Listing reports", icon: Flag },
+  { key: "users", label: "Users", icon: Users },
+  { key: "listings", label: "Listings", icon: Building2 },
+  { key: "updates", label: "Varoom Updates", icon: Megaphone },
   { key: "growth", label: "Growth", icon: TrendingUp },
+  { key: "activity", label: "Admin activity", icon: History },
   { key: "admins", label: "Admins", icon: Shield },
   { key: "property-news", label: "Property News", icon: Newspaper },
 ];
@@ -420,12 +428,12 @@ function Support({ tickets, selected, setSelected, onReply, onStatusChange }) {
   );
 }
 
-function ListingReports({ reports, userReports, accountDeletions }) {
+function ListingReports({ reports, userReports, accountDeletions, resolveReport, resolveUserReport }) {
   return (
     <div>
       <SectionHeader title="Listing reports" description="Issues flagged by guests or hosts about a listing." />
       <Table
-        columns={["Report", "Listing", "Reporter", "Reason", "Status", "Filed"]}
+        columns={["Report", "Listing", "Reporter", "Reason", "Status", "Filed", "Action"]}
         rows={reports}
         renderRow={(r) => (
           <tr key={r.id} className="border-b border-[#E4E1DA] last:border-0">
@@ -437,12 +445,13 @@ function ListingReports({ reports, userReports, accountDeletions }) {
               <StatusPill status={r.status} />
             </td>
             <td className="px-4 py-2 text-[#8a857c]">{r.createdAt}</td>
+            <td className="px-4 py-2 flex gap-2"><button onClick={() => resolveReport(r.id, "resolved")} className="text-xs text-[#1F6F5C]">Resolve</button><button onClick={() => resolveReport(r.id, "dismissed")} className="text-xs text-[#8a857c]">Dismiss</button></td>
           </tr>
         )}
       />
       <SectionHeader title="Chat user reports" description="Reports submitted about conversation participants." />
       <Table
-        columns={["Report", "Reported user", "Reporter", "Reason", "Status", "Filed"]}
+        columns={["Report", "Reported user", "Reporter", "Reason", "Status", "Filed", "Action"]}
         rows={userReports}
         renderRow={(r) => (
           <tr key={r.id} className="border-b border-[#E4E1DA] last:border-0">
@@ -452,6 +461,7 @@ function ListingReports({ reports, userReports, accountDeletions }) {
             <td className="px-4 py-2 text-[#8a857c]">{r.reason}</td>
             <td className="px-4 py-2"><StatusPill status={r.status} /></td>
             <td className="px-4 py-2 text-[#8a857c]">{r.createdAt}</td>
+            <td className="px-4 py-2 flex gap-2"><button onClick={() => resolveUserReport(r.id, "resolved")} className="text-xs text-[#1F6F5C]">Resolve</button><button onClick={() => resolveUserReport(r.id, "dismissed")} className="text-xs text-[#8a857c]">Dismiss</button></td>
           </tr>
         )}
       />
@@ -472,6 +482,53 @@ function ListingReports({ reports, userReports, accountDeletions }) {
     </div>
   );
 }
+
+function ConsequentialButton({ label, tone = "normal", onConfirm }) {
+  const handleClick = async () => {
+    const reason = window.prompt(`${label}: enter the reason for the audit record.`);
+    if (reason === null) return;
+    if (!reason.trim() && tone === "danger") {
+      window.alert("A reason is required for this action.");
+      return;
+    }
+    if (tone === "danger" && !window.confirm(`${label} will take effect across VaRoom. Continue?`)) return;
+    await onConfirm(reason.trim());
+  };
+  return <button onClick={handleClick} className={`text-xs px-2 py-1 rounded-sm border ${tone === "danger" ? "border-[#B5482E]/40 text-[#B5482E]" : "border-[#E4E1DA] text-[#5c584f]"}`}>{label}</button>;
+}
+
+function UsersControl({ users, loadUser, updateStatus }) {
+  const [search, setSearch] = useState("");
+  const [selected, setSelected] = useState(null);
+  const visible = users.filter((u) => [u.email, u.profile?.full_name, u.profile?.username].filter(Boolean).join(" ").toLowerCase().includes(search.toLowerCase()));
+  async function inspect(id) { setSelected(await loadUser(id)); }
+  return <div>
+    <SectionHeader title="Users" description="Search accounts, inspect their profile and listings, and apply server-enforced account controls." />
+    <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name, username or email" className="w-full max-w-md mb-4 border border-[#E4E1DA] rounded-sm p-2 text-sm" />
+    <Table columns={["User", "Email", "Status", "Last sign-in", "Actions"]} rows={visible} renderRow={(u) => <tr key={u.id} className="border-b border-[#E4E1DA] last:border-0">
+      <td className="px-4 py-2">{u.profile?.full_name || u.profile?.username || "Unnamed user"}</td><td className="px-4 py-2 text-[#8a857c]">{u.email}</td><td className="px-4 py-2"><StatusPill status={u.account?.status} /></td><td className="px-4 py-2 text-xs text-[#8a857c]">{u.last_sign_in_at || "Never"}</td>
+      <td className="px-4 py-2 flex gap-2"><button onClick={() => inspect(u.id)} className="text-xs text-[#1F6F5C]">View</button>{u.account?.status === "active" ? <ConsequentialButton label="Suspend" tone="danger" onConfirm={(reason) => updateStatus(u.id, "suspended", reason)} /> : <ConsequentialButton label="Restore" onConfirm={(reason) => updateStatus(u.id, "active", reason)} />}</td>
+    </tr>} />
+    {selected && <div className="mt-4 border border-[#E4E1DA] bg-white p-4 rounded-sm"><div className="flex justify-between"><div><div className="font-medium">{selected.user.profile?.full_name || selected.user.email}</div><div className="text-xs text-[#8a857c]">{selected.user.email} · {selected.user.account?.status}</div></div><button onClick={() => setSelected(null)} className="text-xs">Close</button></div><div className="mt-3 text-sm">Listings: {selected.listings.length} · Admin history: {selected.activity.length}</div>{selected.user.account?.reason && <div className="mt-1 text-xs text-[#8a857c]">Current restriction reason: {selected.user.account.reason}</div>}</div>}
+  </div>;
+}
+
+function ListingsControl({ listings, moderate }) {
+  return <div><SectionHeader title="Listings" description="Moderation is reversible. Hidden and removed listings are taken out of the client/host-facing feed by their lifecycle status." />
+    <Table columns={["Listing", "Owner", "Availability", "Moderation", "Reason", "Actions"]} rows={listings} renderRow={(l) => <tr key={l.id} className="border-b border-[#E4E1DA] last:border-0"><td className="px-4 py-2">{l.title}</td><td className="px-4 py-2 text-[#8a857c]">{l.owner?.full_name || l.owner?.username || l.host_id}</td><td className="px-4 py-2"><StatusPill status={l.availability_status} /></td><td className="px-4 py-2"><StatusPill status={l.moderation_status} /></td><td className="px-4 py-2 text-xs text-[#8a857c]">{l.moderation_reason || "—"}</td><td className="px-4 py-2 flex gap-2">{l.moderation_status === "active" && <ConsequentialButton label="Hide" tone="danger" onConfirm={(reason) => moderate(l.id, "hidden", reason)} />}{l.moderation_status !== "removed" && <ConsequentialButton label="Take down" tone="danger" onConfirm={(reason) => moderate(l.id, "removed", reason)} />}{l.moderation_status !== "active" && <ConsequentialButton label="Restore" onConfirm={(reason) => moderate(l.id, "active", reason)} />}</td></tr>} />
+  </div>;
+}
+
+function UpdatesControl({ updates, createUpdate, setUpdateStatus }) {
+  const [title, setTitle] = useState(""); const [body, setBody] = useState(""); const [saving, setSaving] = useState(false);
+  async function submit(status) { setSaving(true); try { await createUpdate({ title, body, status }); setTitle(""); setBody(""); } finally { setSaving(false); } }
+  return <div><SectionHeader title="Varoom Updates" description="Create drafts or publish directly to the existing VaRoom Updates home feeds." />
+    <div className="border border-[#E4E1DA] rounded-sm bg-white p-4 mb-5 max-w-2xl"><input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title (optional)" className="w-full border border-[#E4E1DA] rounded-sm p-2 text-sm mb-2" /><textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder="Update content" maxLength={5000} className="w-full h-28 border border-[#E4E1DA] rounded-sm p-2 text-sm" /><div className="mt-2 flex gap-2"><button disabled={!body.trim() || saving} onClick={() => submit("draft")} className="px-3 py-1.5 text-sm border border-[#E4E1DA] rounded-sm">Save draft</button><button disabled={!body.trim() || saving} onClick={() => submit("published")} className="px-3 py-1.5 text-sm bg-[#1F6F5C] text-white rounded-sm">Publish</button></div></div>
+    <Table columns={["Update", "Status", "Published", "Actions"]} rows={updates} renderRow={(u) => <tr key={u.id} className="border-b border-[#E4E1DA] last:border-0"><td className="px-4 py-2"><div>{u.title || u.body?.slice(0, 90)}</div><div className="text-xs text-[#8a857c]">{u.body?.slice(0, 150)}</div></td><td className="px-4 py-2"><StatusPill status={u.status} /></td><td className="px-4 py-2 text-xs text-[#8a857c]">{u.published_at || "—"}</td><td className="px-4 py-2 flex gap-2">{u.status !== "published" && <ConsequentialButton label="Publish" onConfirm={(reason) => setUpdateStatus(u.id, "published", reason)} />}{u.status === "published" && <ConsequentialButton label="Unpublish" onConfirm={(reason) => setUpdateStatus(u.id, "unpublished", reason)} />}{u.status !== "removed" && <ConsequentialButton label="Remove" tone="danger" onConfirm={(reason) => setUpdateStatus(u.id, "removed", reason)} />}{u.status === "removed" && <ConsequentialButton label="Restore" onConfirm={(reason) => setUpdateStatus(u.id, "draft", reason)} />}</td></tr>} />
+  </div>;
+}
+
+function Activity({ activity }) { return <div><SectionHeader title="Admin activity" description="An append-only audit trail for account, content and report actions." /><Table columns={["Admin", "Action", "Target", "Reason", "Date"]} rows={activity} renderRow={(a) => <tr key={a.id} className="border-b border-[#E4E1DA] last:border-0"><td className="px-4 py-2">{a.admin?.name || "System"}</td><td className="px-4 py-2">{a.action.replaceAll("_", " ")}</td><td className="px-4 py-2 text-xs">{a.target_type}: {a.target_id}</td><td className="px-4 py-2 text-[#8a857c]">{a.reason || "—"}</td><td className="px-4 py-2 text-xs text-[#8a857c]">{a.created_at}</td></tr>} /></div>; }
 
 function Growth({ series }) {
   return (
@@ -700,6 +757,10 @@ export default function VaroomAdminDashboard() {
   const [propertyNews, setPropertyNews] = useState([]);
   const [propertyNewsError, setPropertyNewsError] = useState("");
   const [dashboardError, setDashboardError] = useState("");
+  const [users, setUsers] = useState([]);
+  const [listings, setListings] = useState([]);
+  const [updates, setUpdates] = useState([]);
+  const [activity, setActivity] = useState([]);
 
   async function api(path, options) {
     const response = await fetch(path, { credentials: "same-origin", ...options });
@@ -726,6 +787,10 @@ export default function VaroomAdminDashboard() {
       api("/admin/account-deletions"),
       api("/admin/growth?range=14"),
       api("/admin/admins"),
+      api("/admin/users"),
+      api("/admin/listings"),
+      api("/admin/updates"),
+      api("/admin/activity"),
     ])
       .then((results) => {
         const value = (index) => results[index].status === "fulfilled" ? results[index].value : null;
@@ -742,6 +807,10 @@ export default function VaroomAdminDashboard() {
         const nextAccountDeletions = value(6);
         const nextGrowth = value(7);
         const nextAdmins = value(8);
+        const nextUsers = value(9);
+        const nextListings = value(10);
+        const nextUpdates = value(11);
+        const nextActivity = value(12);
 
         if (nextOverview) setOverview(nextOverview);
         if (nextSignins) {
@@ -762,6 +831,10 @@ export default function VaroomAdminDashboard() {
         if (nextAccountDeletions) setAccountDeletions(nextAccountDeletions.data || []);
         if (nextGrowth) setGrowthSeries(nextGrowth.series || []);
         if (nextAdmins) setAdmins(nextAdmins.data || []);
+        if (nextUsers) setUsers(nextUsers.data || []);
+        if (nextListings) setListings(nextListings.data || []);
+        if (nextUpdates) setUpdates(nextUpdates.data || []);
+        if (nextActivity) setActivity(nextActivity.data || []);
         setDashboardError(errors.length ? errors.join(" ") : "");
       });
   }, [loggedIn]);
@@ -833,6 +906,36 @@ export default function VaroomAdminDashboard() {
     }
   }
 
+  async function loadUser(id) { return api(`/admin/users/${id}`); }
+  async function updateUserStatus(id, status, reason) {
+    await api(`/admin/users/${id}/status`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status, reason }) });
+    setUsers((prev) => prev.map((u) => u.id === id ? { ...u, account: { ...u.account, status, reason } } : u));
+    setActivity(await api("/admin/activity").then((r) => r.data || []));
+  }
+  async function moderateListing(id, status, reason) {
+    const result = await api(`/admin/listings/${id}/moderation`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status, reason }) });
+    setListings((prev) => prev.map((l) => l.id === id ? { ...l, ...result.listing } : l));
+    setActivity(await api("/admin/activity").then((r) => r.data || []));
+  }
+  async function createUpdate(payload) {
+    const result = await api("/admin/updates", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    setUpdates((prev) => [result.update, ...prev]);
+    setActivity(await api("/admin/activity").then((r) => r.data || []));
+  }
+  async function setUpdateStatus(id, status, reason) {
+    const result = await api(`/admin/updates/${id}/status`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status, reason }) });
+    setUpdates((prev) => prev.map((u) => u.id === id ? result.update : u));
+    setActivity(await api("/admin/activity").then((r) => r.data || []));
+  }
+  async function resolveReport(id, status) {
+    const result = await api(`/admin/reports/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
+    setReports((prev) => prev.map((r) => r.id === id ? { ...r, ...result.report } : r));
+  }
+  async function resolveUserReport(id, status) {
+    const result = await api(`/admin/user-reports/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
+    setUserReports((prev) => prev.map((r) => r.id === id ? { ...r, ...result.report } : r));
+  }
+
   async function logout() {
     await api("/admin/logout", { method: "POST" });
     setLoggedIn(false);
@@ -868,9 +971,17 @@ export default function VaroomAdminDashboard() {
           />
         );
       case "reports":
-        return <ListingReports reports={reports} userReports={userReports} accountDeletions={accountDeletions} />;
+        return <ListingReports reports={reports} userReports={userReports} accountDeletions={accountDeletions} resolveReport={resolveReport} resolveUserReport={resolveUserReport} />;
+      case "users":
+        return <UsersControl users={users} loadUser={loadUser} updateStatus={updateUserStatus} />;
+      case "listings":
+        return <ListingsControl listings={listings} moderate={moderateListing} />;
+      case "updates":
+        return <UpdatesControl updates={updates} createUpdate={createUpdate} setUpdateStatus={setUpdateStatus} />;
       case "growth":
         return <Growth series={growthSeries} />;
+      case "activity":
+        return <Activity activity={activity} />;
       case "admins":
         return <Admins admins={admins} addAdmin={addAdmin} />;
       case "property-news":
