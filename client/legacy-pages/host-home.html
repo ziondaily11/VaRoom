@@ -164,7 +164,10 @@
   .main-col{
     display:grid;
     grid-template-rows: auto 1fr;
-    grid-template-columns: minmax(620px, 760px) 1px minmax(280px, 360px);
+    /* Let the feed take the available desktop space and keep the rail pinned
+       to the right edge. The previous capped tracks left an unused area at
+       wider viewport widths. */
+    grid-template-columns: minmax(620px, 1fr) 1px minmax(300px, 360px);
     height:100vh;
     overflow:hidden;
     min-width:0;
@@ -234,10 +237,13 @@
   .host-rail{
     grid-column: 3;
     grid-row: 2;
-    padding:1.8rem 1.4rem 2rem 1.2rem;
+    /* Match the dashboard's first content offset without reserving a blank
+       vertical region above the first rail module. */
+    padding:1.2rem 1.2rem 2rem;
     display:flex;
     flex-direction:column;
-    gap:1.1rem;
+    align-items:stretch;
+    gap:1rem;
     overflow-y:auto;
     height:100%;
     scrollbar-width:none;
@@ -288,7 +294,7 @@
 
   @media (max-width:1360px){
     .main-col{
-      grid-template-columns: minmax(540px, 680px) 1px minmax(260px, 340px);
+      grid-template-columns: minmax(540px, 1fr) 1px minmax(280px, 340px);
     }
     .dash-header,
     .feed-area {
@@ -336,13 +342,24 @@
   .attention-clear-title{ font-size:.88rem; font-weight:600; }
   .attention-clear-sub{ font-size:.78rem; color:var(--muted); }
 
-  /* ---------- LISTINGS AT A GLANCE ----------
-     No card chrome — sits on the plain background, closed off by a bottom
-     divider line instead of a boxed panel. */
-  .listings-glance-card{
-    background:transparent; border:none; border-radius:0; box-shadow:none;
-    padding:0 0 1.1rem; border-bottom:1px solid var(--line);
+  /* ---------- DESKTOP RIGHT-RAIL MODULES ----------
+     Every major desktop rail section shares one content-hugging surface.
+     Individual modules only style their internal content; the rail owns the
+     spacing so there are no competing margins or uneven card widths. */
+  .host-rail > .sidebar-module{
+    width:100%;
+    flex:0 0 auto;
+    background:var(--white);
+    border:1px solid var(--line);
+    border-radius:16px;
+    box-shadow:none;
+    padding:1.15rem 1.2rem;
   }
+  .host-rail > .sidebar-module .stats-head{ margin-bottom:.9rem; }
+  .host-rail > .sidebar-module .stats-head h2{ font-size:.92rem; }
+
+  /* ---------- LISTINGS AT A GLANCE ---------- */
+  .listings-glance-card{ }
   .listings-glance-grid{ display:grid; grid-template-columns:1fr 1fr; gap:.6rem; }
   .glance-tile{ background:var(--paper); border-radius:12px; overflow:hidden; display:block; }
   .glance-thumb{
@@ -360,12 +377,8 @@
   }
   .glance-tile.add-tile:hover{ color:var(--red); border-color:var(--red); }
 
-  /* ---------- VAROOM UPDATES ----------
-     No card chrome — plain background. Last section in the rail, so no
-     trailing divider is needed underneath it. */
-  .varoom-updates-card{
-    background:transparent; border:none; border-radius:0; box-shadow:none; padding:0;
-  }
+  /* ---------- VAROOM UPDATES ---------- */
+  .varoom-updates-card{ }
   .update-card{ padding-bottom:.9rem; border-bottom:1px solid var(--line); }
   .update-card:last-child{ border-bottom:none; padding-bottom:0; }
   .update-photos{ display:grid; grid-template-columns:repeat(auto-fit, minmax(70px, 1fr)); gap:.4rem; margin-bottom:.5rem; }
@@ -375,11 +388,12 @@
   .update-body{ font-size:.82rem; color:var(--muted); line-height:1.4; }
 
   /* ---------- PROPERTY NEWS ----------
-     No card chrome — plain background, closed off by a bottom divider
-     line. Shared by the desktop rail instance and the mobile inline slot. */
-  .property-news-card{
-    background:var(--white); border:1px solid var(--line); border-radius:0; box-shadow:none;
-    padding:1.2rem 1.2rem 1.1rem; border-bottom:1px solid var(--line);
+     The desktop instance participates in the rail module system. The mobile
+     instance retains its existing responsive treatment below. */
+  .property-news-card:not(.sidebar-module){
+    background:var(--white); border:1px solid var(--line); border-radius:0;
+    box-shadow:none; padding:1.2rem 1.2rem 1.1rem;
+    border-bottom:1px solid var(--line);
   }
 
   /* ---------- NOTIFICATIONS PANEL (glass) ----------
@@ -388,10 +402,7 @@
      missing photos. Row markup/styles (.attention-row etc.) are reused
      here unchanged; only the card wrapper and header are notif-specific.
      #notif-panel-card is the desktop right-rail notifications surface. */
-  .notif-panel-card{
-    background:var(--white); border:1px solid var(--line); border-radius:0; box-shadow:none;
-    padding:1.2rem 1.2rem 1.1rem; border-bottom:1px solid var(--line);
-  }
+  .notif-panel-card{ }
   .notif-panel-head{ display:flex; align-items:center; gap:.6rem; margin-bottom:.7rem; }
   .notif-panel-bell{
     width:28px; height:28px; border-radius:50%; background:rgba(196,30,58,.14); color:var(--red);
@@ -456,8 +467,7 @@
 
   /* ---------- NO LISTINGS EMPTY STATE ---------- */
   .empty-state-card{
-    background:var(--white); border:1px dashed var(--line); border-radius:16px;
-    padding:1.6rem 1.4rem; text-align:center;
+    text-align:center;
   }
   .empty-state-card .empty-icon{
     width:44px; height:44px; border-radius:50%; margin:0 auto .8rem;
@@ -979,7 +989,7 @@
     </div>
 
     <aside class="host-rail">
-      <div class="empty-state-card" id="no-listings-card" style="display:none;">
+      <div class="sidebar-module empty-state-card" id="no-listings-card" style="display:none;">
         <div class="empty-icon">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9a1 1 0 0 0 1 1H9a1 1 0 0 0 1-1v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4a1 1 0 0 0 1 1h2.5a1 1 0 0 0 1-1v-9"/></svg>
         </div>
@@ -991,7 +1001,7 @@
         </a>
       </div>
 
-      <div class="listings-glance-card" id="listings-glance-card" style="display:none;">
+      <div class="sidebar-module listings-glance-card" id="listings-glance-card" style="display:none;">
         <div class="stats-head">
           <h2>Your listings at a glance</h2>
           <a href="#" id="glance-view-all">View all</a>
@@ -999,7 +1009,7 @@
         <div class="listings-glance-grid" id="listings-glance-grid"></div>
       </div>
 
-      <section class="property-news-card" aria-labelledby="property-news-title">
+      <section class="sidebar-module property-news-card" aria-labelledby="property-news-title">
         <div class="stats-head"><h2 id="property-news-title">Your Property News on VaRoom</h2></div>
         <div class="property-news-list" id="property-news-list" aria-live="polite">
           <div class="property-news-skeleton"></div><div class="property-news-skeleton"></div><div class="property-news-skeleton"></div>
@@ -1007,7 +1017,7 @@
         <a class="property-news-view-all" href="/property-news">View all news →</a>
       </section>
 
-      <div class="varoom-updates-card">
+      <div class="sidebar-module varoom-updates-card">
         <div class="stats-head">
           <h2>VaRoom Updates</h2>
         </div>

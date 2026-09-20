@@ -77,36 +77,6 @@
       return element.innerHTML;
     },
     
-    location: function(news) {
-      if (news.location_summary) return news.location_summary;
-      const values = [].concat(news.counties || [], news.towns || []).filter(Boolean);
-      const unique = values.filter(function(value, index) {
-        return values.findIndex(function(other) {
-          return String(other).toLowerCase() === String(value).toLowerCase();
-        }) === index;
-      });
-      if (unique.length > 5) return 'National · Kenya';
-      return unique.join(' · ') || 'Kenya';
-    },
-    
-    status: function(news) {
-      const value = String(news.regulatory_status || '').toLowerCase();
-      const labels = {
-        proposed: 'PROPOSED',
-        under_consideration: 'UNDER REVIEW',
-        public_participation: 'PUBLIC INPUT',
-        approved: 'APPROVED',
-        enacted: 'ENACTED',
-        effective: 'EFFECTIVE',
-        suspended: 'SUSPENDED',
-        rejected: 'REJECTED',
-        amended: 'AMENDED',
-        reported: 'UPDATE'
-      };
-      if (labels[value]) return { label: labels[value], className: value };
-      return news.category === 'market' ? { label: 'MARKET UPDATE', className: 'market' } : null;
-    },
-    
     sourceUrl: function(value) {
       return /^https?:\/\//i.test(String(value || '')) ? String(value) : '';
     }
@@ -243,41 +213,19 @@
       const source = item.source || {};
       const sourceUrl = htmlUtils.sourceUrl(source.url);
       const sourceName = source.name || 'Unknown Source';
-      const location = htmlUtils.location(item);
-      const status = htmlUtils.status(item);
-      const publishedAt = source.published_at || item.published_at;
-      const timeAgo = timeUtils.timeAgo(publishedAt);
-      const imageUrl = item.image_url;
-      
-      let imageHtml = '';
-      if (imageUrl) {
-        imageHtml = '<div class="property-news-bar-image-wrap"><img class="property-news-bar-image" src="' + htmlUtils.escape(imageUrl) + '" alt="" decoding="async" loading="lazy"></div>';
-      }
-      
-      let statusHtml = '';
-      if (status) {
-        statusHtml = '<span class="property-news-bar-status status-' + status.className + '">' + status.label + '</span>';
-      }
-      
+      const platform = String(source.platform || '').toLowerCase();
+      const attribution = sourceName + (platform === 'x' ? ' · X' : '');
       let sourceHtml = '<div class="property-news-bar-source">';
       if (sourceUrl) {
-        sourceHtml += '<a class="property-news-bar-source-link" href="' + htmlUtils.escape(sourceUrl) + '" target="_blank" rel="noopener noreferrer">Source · ' + htmlUtils.escape(sourceName) + '</a>';
+        sourceHtml += '<a class="property-news-bar-source-link" href="' + htmlUtils.escape(sourceUrl) + '" target="_blank" rel="noopener noreferrer">' + htmlUtils.escape(attribution) + '</a>';
       } else {
-        sourceHtml += 'Source · ' + htmlUtils.escape(sourceName);
+        sourceHtml += htmlUtils.escape(attribution);
       }
       sourceHtml += '</div>';
       
       return '<article class="property-news-bar-item">' +
         '<a class="property-news-bar-link" href="/property-news?id=' + htmlUtils.escape(item.id) + '">' +
-          imageHtml +
-          '<div class="property-news-bar-kicker">Property News</div>' +
           '<div class="property-news-bar-title">' + htmlUtils.escape(item.title || 'Property update') + '</div>' +
-          '<div class="property-news-bar-meta">' +
-            '<span>' + htmlUtils.escape(location) + '</span>' +
-            '<span>•</span>' +
-            '<span>' + htmlUtils.escape(timeAgo) + '</span>' +
-          '</div>' +
-          statusHtml +
         '</a>' +
         sourceHtml +
       '</article>';

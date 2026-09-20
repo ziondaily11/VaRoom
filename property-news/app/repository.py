@@ -25,7 +25,7 @@ FULL_ITEM_FIELDS = (
     "original_content,clean_text,varoom_title,varoom_summary,varoom_body,category,topics,"
     "counties,towns,regulatory_status,affected_groups,key_facts,risk_level,confidence_score,"
     "source_tier,review_status,reviewed_by,published_at,scheduled_at,image_url,content_hash,"
-    "timeline_id,created_at,updated_at"
+    "timeline_id,external_post_id,platform,created_at,updated_at"
 )
 PUBLIC_ITEM_FIELDS = (
     "id,source_id,source_url,canonical_url,source_title,source_published_at,varoom_title,"
@@ -74,6 +74,14 @@ class MemoryNewsRepository:
     async def get_source(self, source_id: UUID) -> Source | None:
         source = self.sources.get(source_id)
         return copy.deepcopy(source) if source else None
+
+    async def delete_source(self, source_id: UUID) -> bool:
+        if source_id not in self.sources:
+            return False
+        if any(item.source_id == source_id for item in self.items.values()):
+            raise ValueError("A source with collected news cannot be removed; deactivate it instead.")
+        del self.sources[source_id]
+        return True
 
     async def get_sources_map(self, source_ids: Iterable[UUID]) -> dict[UUID, Source]:
         unique_ids = set(source_ids)
@@ -141,6 +149,13 @@ class MemoryNewsRepository:
                 return copy.deepcopy(item)
         return None
 
+    async def find_by_external_post_id(self, platform: str, external_post_id: str) -> NewsItem | None:
+        for item in self.items.values():
+            source = self.sources.get(item.source_id)
+            if source and source.platform == platform and item.external_post_id == external_post_id:
+                return copy.deepcopy(item)
+        return None
+
     async def find_similar_title(self, title: str, threshold: float = 0.92) -> NewsItem | None:
         candidate = title.lower().strip()
         for item in self.items.values():
@@ -180,7 +195,7 @@ class MemoryNewsRepository:
         values = list(self.items.values())
         if published_only:
             values = [item for item in values if item.review_status is ReviewStatus.PUBLISHED and item.published_at]
-        sorted_items = [copy.deepcopy(item) for item in sorted(values, key=lambda item: item.published_at or item.created_at, reverse=True)]
+        sorted_items = [copy.deepcopy(item) for item in sorted(values, key=lambda item: item.source_published_at or item.published_at or item.created_at, reverse=True)]
         sorted_items = sorted_items[offset:offset + bounded_limit]
         if select_fields and "content_hash" not in select_fields:
             return [PublicNewsItem.model_validate(item.model_dump(mode="json")) for item in sorted_items]
@@ -205,10 +220,19 @@ class MemoryNewsRepository:
         result: list[dict[str, Any]] = []
         for source in await self.list_sources():
             source_events = [event for event in self.events if event.source_id == source.id]
+            runs = [run for run in self.fetch_runs.values() if run["source_id"] == source.id]
             result.append({
                 "source_id": str(source.id), "name": source.name, "active": source.active,
+                "verified": source.verified, "platform": source.platform, "source_account": source.source_account,
+                "category": source.category,
                 "last_successful_fetch_at": source.last_successful_fetch_at,
                 "last_failed_fetch_at": source.last_failed_fetch_at,
+                "last_sync_at": max((run.get("ended_at") for run in runs if run.get("ended_at")), default=None),
+                "last_error": next((run.get("error_message") for run in reversed(runs) if run.get("error_message")), None),
+                "items_found": sum(int(run.get("discovered_count", 0)) for run in runs),
+                "relevant_items": sum(int(run.get("new_item_count", 0)) for run in runs),
+                "duplicates": sum(int(run.get("duplicate_count", 0)) for run in runs),
+                "rejected_items": sum(1 for event in source_events if event.event_type == "item_purged_irrelevant"),
                 "events": len(source_events),
             })
         return result
@@ -328,6 +352,10 @@ class SupabaseNewsRepository:
         rows = await self._request("GET", "news_sources", params={"select": "*", "id": f"eq.{source_id}", "limit": "1"})
         return self._source(rows[0]) if rows else None
 
+    async def delete_source(self, source_id: UUID) -> bool:
+        rows = await self._request("DELETE", "news_sources", params={"id": f"eq.{source_id}"}, prefer="return=representation")
+        return bool(rows)
+
     async def get_sources_map(self, source_ids: Iterable[UUID]) -> dict[UUID, Source]:
         unique_ids = [str(sid) for sid in set(source_ids) if sid]
         if not unique_ids:
@@ -417,6 +445,12 @@ class SupabaseNewsRepository:
         })
         return await self.get_item(UUID(rows[0]["id"])) if rows else None
 
+    async def find_by_external_post_id(self, platform: str, external_post_id: str) -> NewsItem | None:
+        rows = await self._request("GET", "news_items", params={
+            "select": "id", "external_post_id": f"eq.{external_post_id}", "platform": f"eq.{platform}", "limit": "1",
+        })
+        return await self.get_item(UUID(rows[0]["id"])) if rows else None
+
     async def find_similar_title(self, title: str, threshold: float = 0.92) -> NewsItem | None:
         candidates = await self._request("GET", "news_items", params={
             "select": "id,source_title", "limit": str(DEDUP_SCAN_LIMIT), "order": "created_at.desc",
@@ -464,7 +498,7 @@ class SupabaseNewsRepository:
         if bounded_limit < 1:
             raise ValueError("limit must be positive")
         fields = select_fields or FULL_ITEM_FIELDS
-        params = {"select": fields, "order": "published_at.desc.nullslast,created_at.desc",
+        params = {"select": fields, "order": "source_published_at.desc.nullslast,published_at.desc",
                   "limit": str(bounded_limit)}
         if published_only:
             params["review_status"] = "eq.published"
@@ -495,7 +529,7 @@ class SupabaseNewsRepository:
         return [self._item(row) for row in rows]
 
     async def source_health(self) -> list[dict[str, Any]]:
-        rows = await self._request("GET", "news_sources", params={"select": "id,name,active,last_successful_fetch_at,last_failed_fetch_at", "order": "name.asc"})
+        rows = await self._request("GET", "property_news_source_health", params={"select": "*", "order": "name.asc"})
         return rows
 
     async def delete_item(self, item_id: UUID) -> bool:

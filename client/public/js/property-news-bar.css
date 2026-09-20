@@ -1,8 +1,8 @@
 /* Property News Bar Component Styles */
 
 .property-news-bar {
-  background: var(--white);
-  border: 1px solid rgba(26, 18, 16, 0.08);
+  background: var(--white, #171717);
+  border: 1px solid rgba(245, 239, 236, 0.18);
   border-radius: 16px;
   padding: 1.2rem 1.4rem;
   max-height: 400px;
@@ -57,9 +57,7 @@
   padding-bottom: 0.1rem;
 }
 
-.property-news-bar-item:hover {
-  background: var(--paper, #FBF4F1);
-}
+.property-news-bar-item:hover { background: rgba(255, 255, 255, 0.035); }
 
 .property-news-bar-link {
   display: block;
@@ -91,58 +89,16 @@
   object-fit: cover;
 }
 
-.property-news-bar-kicker {
-  color: var(--red, #C41E3A);
-  font-size: 0.62rem;
-  font-weight: 800;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  margin-bottom: 0.22rem;
-}
-
 .property-news-bar-title {
   font-size: 0.88rem;
   font-weight: 700;
   line-height: 1.35;
   transition: color 0.2s ease;
-  margin: 0 0 0.3rem;
+  margin: 0;
 }
 
 .property-news-bar-item:hover .property-news-bar-title {
   color: var(--red-deep, #8F1229);
-}
-
-.property-news-bar-meta {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  margin-top: 0.35rem;
-  color: var(--muted, #7a6b67);
-  font-size: 0.74rem;
-}
-
-.property-news-bar-status {
-  display: inline-flex;
-  margin-top: 0.4rem;
-  padding: 0.2rem 0.5rem;
-  border-radius: 100px;
-  background: #FBE4E7;
-  color: var(--red-deep, #8F1229);
-  font-size: 0.67rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-}
-
-.property-news-bar-status.status-effective,
-.property-news-bar-status.status-approved {
-  background: #EAF4EE;
-  color: #1E6B3C;
-}
-
-.property-news-bar-status.status-market {
-  background: #E9F0FB;
-  color: #1A4E8F;
 }
 
 .property-news-bar-source {

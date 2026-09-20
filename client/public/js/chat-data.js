@@ -107,7 +107,7 @@
         if (info.classList.contains('chat-settings-open')) return;
         info.classList.remove('collapsed');
         info.classList.add('chat-settings-open');
-        const toggle = $('#infoToggleBtn');
+        const toggle = $('#toggle-info-panel');
         if (toggle) toggle.classList.add('active');
         savedInformationContent = document.createDocumentFragment();
         while (info.firstChild) savedInformationContent.appendChild(info.firstChild);
@@ -662,8 +662,12 @@
   function renderMessages(messages) {
     const container = $('.messages');
     clear(container);
+    let previousMessage = null;
     messages.forEach((message) => {
-      container.appendChild(messageRow(message));
+      const row = messageRow(message);
+      if (previousMessage && previousMessage.sender_id === message.sender_id) row.classList.add('same-sender');
+      container.appendChild(row);
+      previousMessage = message;
     });
     container.scrollTop = container.scrollHeight;
   }
@@ -858,7 +862,10 @@
         const current = $('.messages');
         const message = payload.new;
         if (current.querySelector(`[data-message-id="${message.id}"]`)) return;
-        current.appendChild(messageRow(message)); current.scrollTop = current.scrollHeight;
+        const previousRow = current.lastElementChild;
+        const row = messageRow(message);
+        if (previousRow && previousRow.classList.contains(message.sender_id === state.session.user.id ? 'out' : 'in')) row.classList.add('same-sender');
+        current.appendChild(row); current.scrollTop = current.scrollHeight;
         updateConversationPreview(message);
       })
       .on('presence', { event: 'sync' }, () => {
@@ -1072,6 +1079,15 @@
       fileInput.value = '';
     });
     $('.chat-header-actions button[title="Search"]').addEventListener('click', () => $('.search-box input').focus());
+    document.querySelector('.chat-header-actions button[title="Start call"]').addEventListener('click', () => {
+      window.dispatchEvent(new CustomEvent('varoom:call-requested', { detail: { conversationId: state.activeId, video: false } }));
+    });
+    document.querySelector('.chat-header-actions button[title="Start video call"]').addEventListener('click', () => {
+      window.dispatchEvent(new CustomEvent('varoom:call-requested', { detail: { conversationId: state.activeId, video: true } }));
+    });
+    document.querySelector('.chat-header-actions button[title="More"]').addEventListener('click', () => {
+      if (!isElie()) window.dispatchEvent(new CustomEvent('varoom:conversation-menu-requested', { detail: { conversationId: state.activeId } }));
+    });
     ensureChatPanels();
     if (isMobile()) showMobileInbox();
     const shareButton = $('.attach-icons button[title="Share listing"]');
@@ -1088,7 +1104,7 @@
     const elieHistoryButton = document.querySelector('.chat-header-actions button:last-child');
     elieHistoryButton.disabled = false;
     elieHistoryButton.addEventListener('click', () => { if (isElie()) openElieHistory(); });
-    if (isMobile()) $('#infoToggleBtn').addEventListener('click', showMobileInfo);
+    if (isMobile()) $('#toggle-info-panel').addEventListener('click', showMobileInfo);
     const actions = document.createElement('div');
     actions.className = 'info-section chat-actions';
     actions.innerHTML = '<div class="info-section-head"><span class="label">Actions</span></div><button type="button" class="info-action-report">Report User</button>';
@@ -1112,7 +1128,7 @@
         if (routes[button.dataset.chatNav]) window.location.assign(routes[button.dataset.chatNav]);
       });
     });
-    document.querySelectorAll('.chat-header-actions button:not(#infoToggleBtn):not([title="Search"]):not([title="More"]), .icon-rail button:not([data-chat-nav]), .info-section-head .more').forEach((button) => {
+    document.querySelectorAll('.icon-rail button:not([data-chat-nav]), .info-section-head .more').forEach((button) => {
       button.disabled = true; button.setAttribute('aria-disabled', 'true');
     });
     document.querySelectorAll('.format-icons button').forEach((button) => {

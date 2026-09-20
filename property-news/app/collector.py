@@ -137,7 +137,9 @@ class SourceCollector:
             raise ValueError("source_group_count must be positive")
         if source_group is not None and not 0 <= source_group < source_group_count:
             raise ValueError("source_group must be within source_group_count")
-        sources = await self.repository.list_sources(active_only=True)
+        # Social sources are handled independently by XCollector, never by the
+        # website HTML/RSS discovery adapter.
+        sources = [source for source in await self.repository.list_sources(active_only=True) if source.platform == "web"]
         if source_group is not None:
             # Stable name ordering keeps a source in the same group between runs.
             sources = [source for index, source in enumerate(sources)
@@ -686,6 +688,8 @@ class SourceCollector:
             return None, False
 
         canonical_url = canonicalise_url(candidate.source_url)
+        if candidate.external_post_id and await self.repository.find_by_external_post_id(source.platform, candidate.external_post_id):
+            return None, True
         text = candidate.clean_text or candidate.source_title
         digest = content_hash(text)
         duplicate = await self.repository.find_by_canonical_url(canonical_url)
@@ -701,6 +705,8 @@ class SourceCollector:
             return None, False
         item = NewsItem(source_id=source.id, source_url=candidate.source_url, canonical_url=canonical_url,
                         source_title=candidate.source_title[:1000], source_published_at=candidate.source_published_at,
+                        external_post_id=candidate.external_post_id,
+                        platform=source.platform,
                         original_content=candidate.original_content, clean_text=candidate.clean_text,
                         image_url=candidate.image_url,
                         source_tier=source.trust_tier, content_hash=digest)

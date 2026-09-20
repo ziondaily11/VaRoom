@@ -18,6 +18,10 @@ class Source(BaseModel):
     fetch_method: str
     schedule_minutes: int = Field(ge=5, le=10080)
     active: bool = False
+    platform: str = Field(default="web", max_length=32)
+    source_account: str | None = Field(default=None, max_length=128)
+    verified: bool = True
+    category: str | None = Field(default=None, max_length=64)
     parser_config: dict[str, Any] = Field(default_factory=dict)
     last_successful_fetch_at: datetime | None = None
     last_failed_fetch_at: datetime | None = None
@@ -33,6 +37,7 @@ class CandidateArticle(BaseModel):
     original_content: str | None = None
     clean_text: str = ""
     image_url: str | None = None
+    external_post_id: str | None = Field(default=None, max_length=128)
 
 
 class NewsAnalysis(BaseModel):
@@ -68,6 +73,8 @@ class NewsItem(BaseModel):
     canonical_url: str
     source_title: str
     source_published_at: datetime | None = None
+    external_post_id: str | None = Field(default=None, max_length=128)
+    platform: str = Field(default="web", max_length=32)
     fetched_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     original_content: str | None = None
     clean_text: str = ""

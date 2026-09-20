@@ -34,6 +34,8 @@ from .jobs import run_collection_job, run_reprocess_job
 from .collector import SOURCE_GROUP_COUNT
 from .media import extract_article_image_url
 from .seed_sources import seed_verified_sources, upsert_official_lands_source
+from .x_sources import seed_x_sources
+from .x_collector import XCollector
 
 Repository = MemoryNewsRepository | SupabaseNewsRepository
 logger = logging.getLogger("property_news.api")
@@ -57,6 +59,9 @@ def _public_item(item, source) -> dict[str, Any]:
             "url": item.source_url,
             "tier": item.source_tier,
             "published_at": item.source_published_at,
+            "type": source.source_type,
+            "platform": source.platform,
+            "account": source.source_account,
         }
     image_url = item.image_url
     if not image_url and source and getattr(item, "original_content", None):
@@ -89,6 +94,9 @@ def create_app(config: Settings = settings, repository: Repository | None = None
             await asyncio.sleep(4)
             try:
                 await seed_verified_sources(store, activate=True)
+                # The social registry is useful even before credentials exist,
+                # but every account begins inactive/unverified.
+                await seed_x_sources(store)
             except Exception as err:
                 logger.warning("Automated source seed notice: %s", err)
 
@@ -277,6 +285,55 @@ def create_app(config: Settings = settings, repository: Repository | None = None
     async def sources_health(service: ServiceContainer = Depends(container)):
         return await service.repository.source_health()
 
+    @app.get("/api/admin/sources", dependencies=[Depends(require_admin)])
+    async def list_sources(service: ServiceContainer = Depends(container)):
+        return [source.model_dump(mode="json") for source in await service.repository.list_sources()]
+
+    @app.patch("/api/admin/sources/{source_id}", dependencies=[Depends(require_admin)])
+    async def update_source(source_id: UUID, payload: dict[str, Any], service: ServiceContainer = Depends(container)):
+        source = await service.repository.get_source(source_id)
+        if not source:
+            raise HTTPException(status_code=404, detail="News source not found.")
+        permitted = {"active", "verified", "category", "schedule_minutes"}
+        changes = {key: value for key, value in payload.items() if key in permitted}
+        if not changes:
+            raise HTTPException(status_code=422, detail="No supported source fields supplied.")
+        # An X account cannot be activated until verification has completed.
+        if changes.get("active") and source.platform == "x" and not (changes.get("verified") or source.verified):
+            raise HTTPException(status_code=422, detail="Verify the X account with the official API before activation.")
+        return (await service.repository.upsert_source(source.model_copy(update=changes))).model_dump(mode="json")
+
+    @app.post("/api/admin/sources/{source_id}/verify", dependencies=[Depends(require_admin)])
+    async def verify_source(source_id: UUID, service: ServiceContainer = Depends(container)):
+        source = await service.repository.get_source(source_id)
+        if not source:
+            raise HTTPException(status_code=404, detail="News source not found.")
+        if source.platform != "x":
+            raise HTTPException(status_code=422, detail="Only X sources require API verification.")
+        if not config.x_configured:
+            raise HTTPException(status_code=503, detail="X News not configured. Set X_BEARER_TOKEN server-side.")
+        return (await XCollector(service.repository, config).verify_source(source)).model_dump(mode="json")
+
+    @app.post("/api/admin/sources/{source_id}/sync", dependencies=[Depends(require_admin)])
+    async def sync_source(source_id: UUID, service: ServiceContainer = Depends(container)):
+        source = await service.repository.get_source(source_id)
+        if not source:
+            raise HTTPException(status_code=404, detail="News source not found.")
+        if source.platform != "x":
+            raise HTTPException(status_code=422, detail="Manual sync is currently available for X sources.")
+        if not config.x_configured:
+            raise HTTPException(status_code=503, detail="X News not configured. Set X_BEARER_TOKEN server-side.")
+        return await _run_locked_job(lambda: XCollector(service.repository, config).collect_source(source))
+
+    @app.delete("/api/admin/sources/{source_id}", dependencies=[Depends(require_admin)])
+    async def remove_source(source_id: UUID, service: ServiceContainer = Depends(container)):
+        try:
+            if not await service.repository.delete_source(source_id):
+                raise HTTPException(status_code=404, detail="News source not found.")
+        except ValueError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+        return {"removed": True}
+
     async def _run_locked_job(job):
         try:
             await asyncio.wait_for(collection_lock.acquire(), timeout=120)
@@ -326,6 +383,13 @@ def create_app(config: Settings = settings, repository: Repository | None = None
             raise HTTPException(status_code=503, detail="Source registration requires the server-side Supabase configuration.")
         sources = await seed_verified_sources(service.repository, activate=True)
         return [{"id": str(s.id), "name": s.name, "active": s.active} for s in sources]
+
+    @app.post("/api/internal/sources/seed-x", dependencies=[Depends(require_scheduler)])
+    async def seed_x_source_registry(service: ServiceContainer = Depends(container)):
+        if not config.supabase_configured:
+            raise HTTPException(status_code=503, detail="Source registration requires the server-side Supabase configuration.")
+        sources = await seed_x_sources(service.repository)
+        return [{"id": str(s.id), "account": s.source_account, "verified": s.verified, "active": s.active} for s in sources]
 
     @app.post("/api/internal/sources/seed-official-lands", dependencies=[Depends(require_scheduler)])
     async def seed_official_lands(service: ServiceContainer = Depends(container)):
