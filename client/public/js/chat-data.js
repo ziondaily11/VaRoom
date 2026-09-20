@@ -16,6 +16,17 @@
   const initials = (profile) => (profile && (profile.full_name || profile.username) || '')
     .split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
   const formatTime = (value) => value ? new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+  const previewText = (value) => {
+    const source = new DOMParser().parseFromString(String(value || ''), 'text/html').body;
+    source.querySelectorAll('script, style, template').forEach((element) => element.remove());
+    source.querySelectorAll('br').forEach((element) => element.replaceWith('\n'));
+    source.querySelectorAll('p, div, li').forEach((element) => element.appendChild(document.createTextNode('\n')));
+    return source.textContent
+      .replace(/\u00a0/g, ' ')
+      .replace(/[ \t]+\n/g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+  };
   const clear = (element) => { while (element && element.firstChild) element.removeChild(element.firstChild); };
   const avatarUrl = (profile) => {
     if (!profile || !profile.avatar_url) return '';
@@ -83,6 +94,12 @@
         if (state.mobileInfoReturn === 'inbox') showMobileInbox();
         else showMobileConversation();
       });
+      const openChatSettings = () => {
+        const currentPath = `${window.location.pathname}${window.location.search || ''}`;
+        const target = `/chat-settings?returnTo=${encodeURIComponent(currentPath)}`;
+        window.location.assign(target);
+      };
+      window.addEventListener('varoom:chat-settings-requested', openChatSettings);
       $('.mobile-chat-settings').addEventListener('click', () => {
         window.dispatchEvent(new CustomEvent('varoom:chat-settings-requested'));
       });
@@ -373,7 +390,7 @@
     clear(list);
     state.conversations.forEach((conversation) => {
       const person = conversation.participant || {};
-      const preview = conversation.lastMessage && conversation.lastMessage.body || '';
+      const preview = previewText(conversation.lastMessage && conversation.lastMessage.body);
       const item = document.createElement('li');
       item.className = `contact-item${conversation.id === state.activeId ? ' active' : ''}`;
       item.dataset.conversationId = conversation.id;
@@ -473,7 +490,28 @@
     if (message.message_type === 'text') {
       const bubble = document.createElement('div');
       bubble.className = 'bubble';
-      bubble.textContent = message.body || '';
+      const body = message.body || '';
+      if (/<(?:strong|b|em|i|u|ul|ol|li|p|div|br)\b/i.test(body)) {
+        const source = new DOMParser().parseFromString(body, 'text/html').body;
+        const allowed = new Set(['STRONG', 'B', 'EM', 'I', 'U', 'UL', 'OL', 'LI', 'P', 'DIV', 'BR']);
+        const appendSafe = (parent, node) => {
+          if (node.nodeType === Node.TEXT_NODE) {
+            parent.appendChild(document.createTextNode(node.nodeValue));
+            return;
+          }
+          if (node.nodeType !== Node.ELEMENT_NODE) return;
+          if (!allowed.has(node.tagName)) {
+            node.childNodes.forEach((child) => appendSafe(parent, child));
+            return;
+          }
+          const copy = document.createElement(node.tagName.toLowerCase());
+          node.childNodes.forEach((child) => appendSafe(copy, child));
+          parent.appendChild(copy);
+        };
+        source.childNodes.forEach((child) => appendSafe(bubble, child));
+      } else {
+        bubble.textContent = body;
+      }
       row.appendChild(bubble);
     } else if (message.message_type === 'listing' && message.listing) {
       const card = document.createElement('div');
@@ -702,22 +740,47 @@
       });
     });
     const input = $('.chat-input-area textarea');
+    const desktopEditor = $('.desktop-composer-editor');
+    const desktop = !isMobile() && !!desktopEditor;
     const updateComposerState = () => {
+      if (desktop) {
+        $('.chat-input-area').classList.toggle('has-text', !!desktopEditor.textContent.trim());
+        return;
+      }
       $('.chat-input-area').classList.toggle('has-text', !!input.value.trim());
       input.style.height = 'auto';
       input.style.height = `${Math.min(input.scrollHeight, 112)}px`;
     };
+    const resetDesktopComposer = () => {
+      if (!desktop) return;
+      desktopEditor.innerHTML = '';
+      desktopEditor.removeAttribute('style');
+      desktopEditor.focus();
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      const range = document.createRange();
+      range.selectNodeContents(desktopEditor);
+      range.collapse(true);
+      selection.addRange(range);
+      ['bold', 'italic', 'underline', 'insertUnorderedList', 'insertOrderedList'].forEach((command) => {
+        if (document.queryCommandState(command)) document.execCommand(command, false, false);
+      });
+    };
     input.addEventListener('input', updateComposerState);
+    if (desktopEditor) desktopEditor.addEventListener('input', updateComposerState);
     updateComposerState();
     async function sendText() {
-      const content = input.value.trim();
+      const content = desktop
+        ? desktopEditor.innerHTML.trim()
+        : input.value.trim();
+      const plainContent = desktop ? desktopEditor.textContent.trim() : content;
       const pending = state.pendingAttachment;
       const conversationId = state.activeId;
-      if ((!content && !pending) || !conversationId || input.disabled) return;
-      input.disabled = true;
+      if ((!plainContent && !pending) || !conversationId || (desktop ? desktopEditor.getAttribute('aria-disabled') === 'true' : input.disabled)) return;
+      if (!desktop) input.disabled = true;
       try {
         let result;
-        if (!pending && content.toLowerCase() === '@reply') {
+        if (!pending && plainContent.toLowerCase() === '@reply') {
           result = await api(`/api/chat/conversations/${encodeURIComponent(conversationId)}/reply`, {
             method: 'POST', body: JSON.stringify({ command: '@reply' }),
           });
@@ -742,14 +805,16 @@
         }
         if (state.activeId !== conversationId) {
           if (state.pendingAttachment === pending) {
-            input.value = '';
+            if (desktop) resetDesktopComposer();
+            else input.value = '';
             updateComposerState();
             state.pendingAttachment = null;
             updateMobilePreview();
           }
           return;
         }
-        input.value = '';
+        if (desktop) resetDesktopComposer();
+        else input.value = '';
         updateComposerState();
         state.pendingAttachment = null;
         updateMobilePreview();
@@ -762,9 +827,10 @@
         });
         if (replyMessages.length) current.scrollTop = current.scrollHeight;
         updateConversationPreview(replyMessages[replyMessages.length - 1] || result.message);
-      } finally { input.disabled = false; }
+      } finally { if (!desktop) input.disabled = false; }
     }
     input.addEventListener('keydown', async (event) => {
+      if (!isMobile()) return;
       if (event.key !== 'Enter' || event.shiftKey) return;
       event.preventDefault();
       await sendText();
@@ -833,13 +899,25 @@
       button.disabled = true; button.setAttribute('aria-disabled', 'true');
     });
     document.querySelectorAll('.format-icons button').forEach((button) => {
+      if (!desktop) {
+        button.addEventListener('click', () => {
+          const marker = button.classList.contains('fmt-b') ? '**' : button.classList.contains('fmt-i') ? '_' : button.classList.contains('fmt-u') ? '__' : '- ';
+          const start = input.selectionStart; const end = input.selectionEnd;
+          if (start === end) return;
+          input.setRangeText(`${marker}${input.value.slice(start, end)}${marker}`, start, end, 'select');
+          input.focus();
+        });
+        return;
+      }
+      const command = button.classList.contains('fmt-b') ? 'bold'
+        : button.classList.contains('fmt-i') ? 'italic'
+          : button.classList.contains('fmt-u') ? 'underline'
+            : button.classList.contains('fmt-ol') ? 'insertOrderedList' : 'insertUnorderedList';
+      button.addEventListener('mousedown', (event) => event.preventDefault());
       button.addEventListener('click', () => {
-        const marker = button.classList.contains('fmt-b') ? '**' : button.classList.contains('fmt-i') ? '_' : button.classList.contains('fmt-u') ? '__' : '- ';
-        const input = $('.chat-input-area textarea');
-        const start = input.selectionStart; const end = input.selectionEnd;
-        if (start === end) return;
-        input.setRangeText(`${marker}${input.value.slice(start, end)}${marker}`, start, end, 'select');
-        input.focus();
+        desktopEditor.focus();
+        document.execCommand(command, false);
+        updateComposerState();
       });
     });
     document.querySelectorAll('.info-section').forEach((section, index) => {

@@ -214,7 +214,7 @@
   .amenity-item{ display:flex; align-items:center; gap:.45rem; font-size:.76rem; }
   .amenity-item svg{ width:14px; height:14px; color:var(--red); }
 
-  /* ---------- Reviews (placeholder) ---------- */
+  /* ---------- Reviews ---------- */
   .reviews-header{ display:flex; align-items:center; justify-content:space-between; margin-bottom:.4rem; flex-wrap:wrap; gap:.5rem; }
   .reviews-header .section-title{ margin-bottom:0; display:flex; align-items:center; gap:.35rem; }
   .reviews-header .icon-star{ width:13px; height:13px; color:var(--red); }
@@ -228,6 +228,8 @@
   .review-stars{ display:flex; gap:.12rem; color:var(--red); margin-bottom:.25rem; }
   .review-stars svg{ width:11px; height:11px; }
   .review-text{ font-size:.74rem; line-height:1.3; color:var(--muted); display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .reviews-state{ grid-column:1 / -1; color:var(--muted); font-size:.8rem; padding:.8rem 0; }
+  .review-avatar img{ width:100%; height:100%; object-fit:cover; border-radius:50%; }
 
   /* ---------- Sidebar booking widget ---------- */
   .booking-widget{ background:var(--white); border:1px solid var(--line-strong); border-radius:16px; padding:1rem 1.2rem; }
@@ -677,6 +679,19 @@
       ? 'This listing is currently ' + String(listing.availability_status).replace('_', ' ') + ' and cannot accept new bookings.'
       : '';
 
+    let reviews = [];
+    let reviewSummary = { average_rating: null, review_count: 0 };
+    let reviewsError = null;
+    try {
+      const reviewsResponse = await fetch('/api/listings/' + encodeURIComponent(listingId) + '/reviews');
+      if (!reviewsResponse.ok) throw new Error('Unable to load reviews');
+      const reviewsPayload = await reviewsResponse.json();
+      reviews = Array.isArray(reviewsPayload.reviews) ? reviewsPayload.reviews : [];
+      reviewSummary = reviewsPayload.summary || reviewSummary;
+    } catch (error) {
+      reviewsError = 'Reviews are temporarily unavailable.';
+    }
+
     // ---------- Breadcrumb ----------
     const locParts = (listing.location_text || '').split(',').map(function(s){ return s.trim(); }).filter(Boolean);
     let crumbHtml = '<a href="' + homeHref + '">Home</a><span>›</span>';
@@ -801,11 +816,43 @@
         '</div>'
       : '<p style="font-size:.8rem; color:var(--muted);">No amenities listed for this space yet.</p>';
 
-    const REVIEW_PLACEHOLDERS = [
-      { name:'N. P.', time:'2 weeks ago', text:'Absolutely loved the stay! The view was breathtaking and the place was super cozy.' },
-      { name:'R. M.', time:'1 month ago', text:'Perfect getaway from the city. Clean, peaceful, and the host was very responsive.' },
-      { name:'S. K.', time:'1 month ago', text:'Great location and amenities. Had a wonderful time with family, highly recommended.' }
-    ];
+    const reviewCount = Number(reviewSummary.review_count || reviews.length);
+    const averageRating = Number(reviewSummary.average_rating);
+    const ratingText = reviewsError
+      ? 'Reviews unavailable'
+      : reviewCount && Number.isFinite(averageRating)
+      ? averageRating.toFixed(1)
+      : 'No reviews yet';
+    const ratingCountText = reviewCount ? '(' + reviewCount + ' ' + (reviewCount === 1 ? 'review' : 'reviews') + ')' : '';
+    const reviewStars = function(rating){
+      const roundedRating = Math.max(0, Math.min(5, Math.round(Number(rating) || 0)));
+      return Array.from({ length: 5 }, function(_, index){
+        return index < roundedRating ? ICON_STAR : '';
+      }).join('');
+    };
+    const reviewTime = function(createdAt){
+      const date = new Date(createdAt);
+      return Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString();
+    };
+    const reviewCardsHtml = reviewsError
+      ? '<p class="reviews-state" role="alert">' + escapeHtml(reviewsError) + '</p>'
+      : reviews.length
+      ? reviews.map(function(review){
+          const client = review.client || {};
+          const reviewerName = client.full_name || 'Anonymous guest';
+          const reviewerInitials = reviewerName.replace(/[^A-Za-z]/g, '').slice(0, 2).toUpperCase();
+          const reviewerAvatarUrl = resolveAvatarUrl(client.avatar_url);
+          const reviewerAvatar = reviewerAvatarUrl
+            ? '<img src="' + escapeHtml(reviewerAvatarUrl) + '" alt="">'
+            : escapeHtml(reviewerInitials || '?');
+          return '<div class="review-card">' +
+            '<div class="review-top"><span class="review-avatar">' + reviewerAvatar + '</span>' +
+              '<div><div class="review-name">' + escapeHtml(reviewerName) + '</div><div class="review-time">' + escapeHtml(reviewTime(review.created_at)) + '</div></div></div>' +
+            '<div class="review-stars">' + reviewStars(review.rating) + '</div>' +
+            '<div class="review-text">' + escapeHtml(review.comment) + '</div>' +
+          '</div>';
+        }).join('')
+      : '<p class="reviews-state">No reviews yet for this listing.</p>';
 
     let colMainHtml = galleryHtml +
       '<div class="title-row">' +
@@ -822,9 +869,7 @@
         '</div>' +
       '</div>' +
       '<div class="rating-row">' +
-        ICON_STAR + '<span>4.8</span><span>(126 reviews)</span>' +
-        '<span class="superhost-tag">Superhost</span>' +
-        '<span class="placeholder-tag">sample — wire to host dashboard</span>' +
+        (reviewCount ? ICON_STAR + '<span>' + escapeHtml(ratingText) + '</span><span>' + escapeHtml(ratingCountText) + '</span>' : '<span>' + escapeHtml(ratingText) + '</span>') +
       '</div>' +
       '<p class="listing-loc">' + escapeHtml(listing.location_text) + ' · <a href="' + mapUrl + '" target="_blank" rel="noopener">View on map</a></p>' +
       (badges.length ? '<div class="badge-row">' + badges.map(function(b){ return '<span class="mini-badge">' + ICON_VERIFIED + b + '</span>'; }).join('') + '</div>' : '') +
@@ -855,20 +900,10 @@
       '</section>' +
       '<hr class="divider">' +
       '<div class="reviews-header">' +
-        '<p class="section-title">What guests say ' + ICON_STAR + ' 4.8 (126 reviews)</p>' +
+        '<p class="section-title">What guests say ' + (reviewsError ? escapeHtml(ratingText) : reviewCount ? ICON_STAR + ' ' + escapeHtml(ratingText) + ' ' + escapeHtml(ratingCountText) : escapeHtml(ratingText)) + '</p>' +
         '<a href="#" class="see-all-link">See all reviews</a>' +
       '</div>' +
-      '<span class="placeholder-tag" style="display:inline-block; margin-bottom:.4rem;">sample reviews — wire once reviews are collected</span>' +
-      '<div class="review-strip">' +
-        REVIEW_PLACEHOLDERS.map(function(r){
-          return '<div class="review-card">' +
-            '<div class="review-top"><span class="review-avatar">' + escapeHtml(r.name.replace(/[^A-Za-z]/g,'').slice(0,2).toUpperCase()) + '</span>' +
-              '<div><div class="review-name">' + escapeHtml(r.name) + '</div><div class="review-time">' + r.time + '</div></div></div>' +
-            '<div class="review-stars">' + ICON_STAR + ICON_STAR + ICON_STAR + ICON_STAR + ICON_STAR + '</div>' +
-            '<div class="review-text">' + escapeHtml(r.text) + '</div>' +
-          '</div>';
-        }).join('') +
-      '</div>';
+      '<div class="review-strip">' + reviewCardsHtml + '</div>';
 
     document.getElementById('col-main').innerHTML = colMainHtml;
 
@@ -1020,7 +1055,7 @@
       '<div class="booking-widget">' +
         '<div class="widget-price-row">' +
           '<div class="widget-price">KSh ' + Number(details.price_amount).toLocaleString() + ' <span>/ ' + details.price_unit + '</span></div>' +
-          '<div class="widget-rating">' + ICON_STAR + ' 4.8 <span style="color:var(--muted); font-weight:400;">(126)</span></div>' +
+          '<div class="widget-rating">' + (reviewCount ? ICON_STAR + ' ' + escapeHtml(ratingText) + ' <span style="color:var(--muted); font-weight:400;">(' + reviewCount + ')</span>' : '<span style="color:var(--muted); font-weight:400;">No reviews yet</span>') + '</div>' +
         '</div>' +
         pickerHtml +
         guestsHtml +

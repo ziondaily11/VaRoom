@@ -54,8 +54,7 @@ alter table public.notifications
   alter column title set not null;
 
 create unique index if not exists notifications_event_key_idx
-  on public.notifications(event_key)
-  where event_key is not null;
+  on public.notifications(event_key);
 
 create index if not exists notifications_recipient_created_idx
   on public.notifications(recipient_user_id, created_at desc);
@@ -65,16 +64,22 @@ create index if not exists notifications_recipient_unread_idx
 
 alter table public.notifications enable row level security;
 
-create policy if not exists notifications_select_own
+drop policy if exists notifications_select_own on public.notifications;
+
+create policy notifications_select_own
   on public.notifications for select
   using (recipient_user_id = auth.uid());
 
-create policy if not exists notifications_update_own
+drop policy if exists notifications_update_own on public.notifications;
+
+create policy notifications_update_own
   on public.notifications for update
   using (recipient_user_id = auth.uid())
   with check (recipient_user_id = auth.uid());
 
-create policy if not exists notifications_insert_own_or_actor
+drop policy if exists notifications_insert_own_or_actor on public.notifications;
+
+create policy notifications_insert_own_or_actor
   on public.notifications for insert
   with check (
     recipient_user_id = auth.uid()

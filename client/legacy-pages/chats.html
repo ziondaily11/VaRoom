@@ -222,6 +222,22 @@
     height:22px; line-height:22px;
   }
   .chat-input-area textarea::placeholder{ color:var(--text-gray); }
+  .desktop-composer-editor{ display:none; }
+  @media (min-width:761px){
+    .chat-input-area textarea{ display:none; }
+    .desktop-composer-editor{
+      display:block; width:100%; min-height:22px; max-height:112px;
+      overflow-y:auto; outline:none; border:0;
+      font-family:inherit; font-size:13.5px; line-height:22px;
+      color:var(--text-dark); white-space:pre-wrap; overflow-wrap:anywhere;
+    }
+    .desktop-composer-editor:empty::before{
+      content:attr(data-placeholder); color:var(--text-gray); pointer-events:none;
+    }
+    .desktop-composer-editor ul,.desktop-composer-editor ol{
+      margin:0 0 0 20px; padding:0;
+    }
+  }
   .input-toolbar{ display:flex; justify-content:space-between; align-items:center; margin-top:12px; }
   .format-icons, .attach-icons{ display:flex; align-items:center; gap:8px; }
   .format-icons button, .attach-icons button{
@@ -592,6 +608,7 @@
       border:0; border-radius:50%; background:transparent; color:var(--text-dark);
       cursor:pointer;
     }
+    .mobile-chat-settings .icon{ width:3em; height:3em; }
     .mobile-chat-settings:active,.mobile-chat-settings:focus-visible{ background:#eef0f3; outline:none; }
     .mobile-back{ display:flex; align-items:center; justify-content:center; border:0; background:transparent; cursor:pointer; }
     .mobile-back{ width:40px; height:40px; padding:0; color:#0b0b0c; }
@@ -610,6 +627,63 @@
     [data-theme="dark"] .composer-file{ background:var(--white,#ffffff); border-color:var(--line,#e2e5ea); }
     [data-theme="dark"] .mobile-attach-item,
     [data-theme="dark"] .composer-file-name{ color:var(--ink,#1f2937); }
+
+    [data-theme="dark"] .contacts-col:not(.mobile-hidden){
+      background:var(--paper) !important;
+      color:var(--ink);
+      box-shadow:inset 0 0 0 1px var(--line);
+    }
+    [data-theme="dark"] .contacts-col:not(.mobile-hidden) .mobile-inbox-title{
+      color:var(--ink);
+    }
+    [data-theme="dark"] .contacts-col:not(.mobile-hidden) .mobile-chat-settings{
+      color:var(--ink);
+    }
+    [data-theme="dark"] .contacts-col:not(.mobile-hidden) .mobile-chat-settings:active,
+    [data-theme="dark"] .contacts-col:not(.mobile-hidden) .mobile-chat-settings:focus-visible{
+      background:rgba(255,255,255,.08);
+    }
+    [data-theme="dark"] .contacts-col:not(.mobile-hidden) .search-box{
+      background:var(--white);
+      border-color:var(--line);
+    }
+    [data-theme="dark"] .contacts-col:not(.mobile-hidden) .search-box svg,
+    [data-theme="dark"] .contacts-col:not(.mobile-hidden) .search-box input{
+      color:var(--ink);
+    }
+    [data-theme="dark"] .contacts-col:not(.mobile-hidden) .search-box input::placeholder{
+      color:var(--muted);
+      opacity:1;
+    }
+    [data-theme="dark"] .contacts-col:not(.mobile-hidden) .compose-btn{
+      color:var(--paper);
+    }
+    [data-theme="dark"] .contacts-col:not(.mobile-hidden) .contact-list{
+      background:var(--paper);
+    }
+    [data-theme="dark"] .contacts-col:not(.mobile-hidden) .contact-item{
+      border-bottom:1px solid var(--line-soft);
+    }
+    [data-theme="dark"] .contacts-col:not(.mobile-hidden) .contact-name{
+      color:var(--ink);
+    }
+    [data-theme="dark"] .contacts-col:not(.mobile-hidden) .contact-preview,
+    [data-theme="dark"] .contacts-col:not(.mobile-hidden) .contact-time{
+      color:var(--muted);
+    }
+    [data-theme="dark"] .contacts-col:not(.mobile-hidden) .conversation-menu{
+      color:var(--muted);
+    }
+    [data-theme="dark"] .contacts-col:not(.mobile-hidden) .conversation-menu:active,
+    [data-theme="dark"] .contacts-col:not(.mobile-hidden) .conversation-menu:focus-visible{
+      background:rgba(255,255,255,.08);
+    }
+    [data-theme="dark"] .contacts-col:not(.mobile-hidden) .inbox-empty-state strong{
+      color:var(--ink);
+    }
+    [data-theme="dark"] .contacts-col:not(.mobile-hidden) .inbox-empty-state span{
+      color:var(--muted);
+    }
 
     .mobile-back .icon{ width:18px; height:18px; }
     .mobile-preview{ display:none; border:1px solid var(--border); border-radius:10px; padding:8px; color:var(--text-dark); font-size:12px; }
@@ -720,14 +794,16 @@
 
     <div class="chat-input-area">
       <textarea placeholder="Write a message..." aria-label="Write a message"></textarea>
+      <div class="desktop-composer-editor" contenteditable="true" role="textbox" aria-multiline="true"
+        aria-label="Write a message" data-placeholder="Write a message..."></div>
       <div class="input-toolbar">
         <div class="format-icons">
-          <button class="fmt-b">B</button>
-          <button class="fmt-i">I</button>
-          <button class="fmt-u">U</button>
+          <button type="button" class="fmt-b" aria-label="Bold">B</button>
+          <button type="button" class="fmt-i" aria-label="Italic">I</button>
+          <button type="button" class="fmt-u" aria-label="Underline">U</button>
           <span class="divider"></span>
-          <button><svg class="icon"><use href="#i-list-dot"/></svg></button>
-          <button><svg class="icon"><use href="#i-list-sq"/></svg></button>
+          <button type="button" class="fmt-ul" aria-label="Bulleted list"><svg class="icon"><use href="#i-list-dot"/></svg></button>
+          <button type="button" class="fmt-ol" aria-label="Numbered list"><svg class="icon"><use href="#i-list-sq"/></svg></button>
         </div>
         <div class="attach-icons">
           <!-- mobile: sticker / emoji icon, left side of the composer -->

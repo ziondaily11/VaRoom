@@ -27,6 +27,10 @@ async function memberConversation(conversationId, userId) {
 }
 
 async function requestChatbotReply(conversationId, token, payload) {
+  console.info('Elie invoked:', {
+    conversationId,
+    trigger: payload.command || 'away_mode',
+  });
   const response = await fetch(`${chatbotApiUrl}/reply`, {
     method: 'POST',
     headers: {
@@ -37,10 +41,33 @@ async function requestChatbotReply(conversationId, token, payload) {
   });
   const body = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const error = new Error(body.detail || 'Chatbot reply failed');
+    console.error('Elie response generation failed:', {
+      conversationId,
+      trigger: payload.command || 'away_mode',
+      status: response.status,
+      detail: body.detail || body.error || null,
+      responseKeys: Object.keys(body),
+    });
+    const error = new Error(body.detail || body.error || `Chatbot reply failed (${response.status})`);
     error.status = response.status;
     throw error;
   }
+  console.info('Elie response generated:', {
+    conversationId,
+    trigger: payload.command || 'away_mode',
+    responseKeys: Object.keys(body),
+    hasResponse: Boolean(body.reply || body.response || body.message || body.content),
+  });
+  console.info('Elie response persistence attempted:', {
+    conversationId,
+    trigger: payload.command || 'away_mode',
+    hasPersistedMessage: Boolean(body.message || (Array.isArray(body.messages) && body.messages.length)),
+  });
+  console.info('Elie response persisted:', {
+    conversationId,
+    trigger: payload.command || 'away_mode',
+    persistedMessage: Boolean(body.message || (Array.isArray(body.messages) && body.messages.length)),
+  });
   return body;
 }
 
@@ -335,37 +362,78 @@ router.post('/chat/conversations/:conversationId/messages', async (req, res) => 
         .select('id,conversation_id,sender_id,body,created_at,message_type,attachment_id,listing_id')
         .single();
       if (error) throw error;
+      console.info('Chat message persisted:', {
+        conversationId,
+        messageId: data.id,
+        senderId: user.id,
+      });
 
-      const recipientUserId = conversation.host_id === user.id ? conversation.client_id : conversation.host_id;
+    const recipientUserId = conversation.host_id === user.id ? conversation.client_id : conversation.host_id;
+    console.info('Notification recipient resolved:', {
+      conversationId,
+      recipientResolved: Boolean(recipientUserId),
+      recipientIsSender: recipientUserId === user.id,
+    });
     const { data: senderProfile } = await supabaseAdmin.from('profiles').select('full_name').eq('id', user.id).maybeSingle();
     const listingTitle = listingId ? (await supabaseAdmin.from('listings').select('title').eq('id', listingId).maybeSingle()).data?.title : null;
     const notificationMessage = listingTitle ? `${senderProfile?.full_name || 'Someone'} sent you a message about ${listingTitle}.` : `${senderProfile?.full_name || 'Someone'} sent you a message.`;
-    await createNotification({
-      recipientUserId,
-      actorUserId: user.id,
-      type: 'new_message',
-      title: 'New message',
-      message: notificationMessage,
-      relatedEntityType: 'conversation',
-      relatedEntityId: conversationId,
-      metadata: {
-        conversation_id: conversationId,
-        sender_id: user.id,
-        message_id: data.id,
-        listing_id: listingId || conversation.listing_id || null,
-        listing_title: listingTitle,
-      },
-      eventKey: `message:${conversationId}:${data.id}`,
-    });
+    let notificationPersisted = true;
+    try {
+      await createNotification({
+        recipientUserId,
+        actorUserId: user.id,
+        type: 'new_message',
+        title: 'New message',
+        message: notificationMessage,
+        relatedEntityType: 'conversation',
+        relatedEntityId: conversationId,
+        metadata: {
+          conversation_id: conversationId,
+          sender_id: user.id,
+          message_id: data.id,
+          listing_id: listingId || conversation.listing_id || null,
+          listing_title: listingTitle,
+        },
+        eventKey: `message:${conversationId}:${data.id}`,
+      });
+    } catch (notificationError) {
+      notificationPersisted = false;
+      console.error('Notification persistence failed after chat message persisted:', {
+        conversationId,
+        messageId: data.id,
+        code: notificationError.code,
+        message: notificationError.message,
+      });
+    }
 
     if (conversation.client_id === user.id && messageType === 'text' && content) {
+      const { data: recipientProfile, error: recipientProfileError } = await supabaseAdmin
+        .from('profiles')
+        .select('away_mode')
+        .eq('id', recipientUserId)
+        .maybeSingle();
+      if (recipientProfileError) throw recipientProfileError;
+      const awayModeDetected = Boolean(recipientProfile && recipientProfile.away_mode);
       const token = (req.headers.authorization || '').slice(7);
-      requestChatbotReply(conversationId, token, {
-        message: content,
-        listing_id: conversation.listing_id || listingId || null,
-      }).catch((replyError) => {
-        console.error('Away-mode chatbot reply failed:', replyError);
+      console.info('Away mode detected:', {
+        conversationId,
+        recipientUserId,
+        messageId: data.id,
+        detected: awayModeDetected,
       });
+      if (awayModeDetected) {
+        requestChatbotReply(conversationId, token, {
+          message: content,
+          listing_id: conversation.listing_id || listingId || null,
+        }).catch((replyError) => {
+          console.error('Away-mode chatbot response/send failed:', {
+            conversationId,
+            error: replyError.message,
+            code: replyError.code,
+            status: replyError.status,
+          });
+        });
+      }
     }
     let attachment = null;
     if (attachmentId) {
@@ -387,7 +455,10 @@ router.post('/chat/conversations/:conversationId/messages', async (req, res) => 
       if (listingResult.error) throw listingResult.error;
       listing = listingResult.data;
     }
-    return res.status(201).json({ message: { ...data, attachment, listing } });
+    return res.status(201).json({
+      message: { ...data, attachment, listing },
+      notification: { persisted: notificationPersisted },
+    });
   } catch (error) {
     if (error instanceof ValidationError) return res.status(400).json({ error: error.message });
     console.error('Chat message send failed:', error);
