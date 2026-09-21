@@ -675,8 +675,8 @@
 
     const labels = { airbnb: 'Airbnb', hotel: 'Hotel', venue: 'Event ground / venue', office: 'Office', shop: 'Shop', property: 'Property to let or buy' };
     const hostNiches = Array.isArray(profile.listing_categories) ? profile.listing_categories : [];
-    if (hostNiches.length < 1 || hostNiches.length > 2 || new Set(hostNiches).size !== hostNiches.length || !hostNiches.every(function(niche){ return Object.prototype.hasOwnProperty.call(labels, niche); })) {
-      checkingAuth.textContent = 'Choose one or two posting niches before creating a listing. Redirecting...';
+    if (hostNiches.length !== 2 || new Set(hostNiches).size !== 2 || !hostNiches.every(function(niche){ return Object.prototype.hasOwnProperty.call(labels, niche); })) {
+      checkingAuth.textContent = 'Choose your two posting niches before creating a listing. Redirecting...';
       setTimeout(function(){ window.location.href = '/profile?select-niches=1'; }, 1200);
       return;
     }
