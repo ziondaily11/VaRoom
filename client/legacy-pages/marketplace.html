@@ -449,12 +449,15 @@
   const profileResult = await dataCache.get('account:' + currentUser.id + ':profile:marketplace', function(){
     return supabaseClient
       .from('profiles')
-      .select('role, full_name, avatar_url')
+      .select('role, full_name, avatar_url, looking_timeline, interested_categories')
       .eq('id', currentUser.id)
       .maybeSingle();
   });
   const profile = profileResult && profileResult.data;
   if (!profile) { window.location.href = '/login'; return; }
+  const preferredCategories = profile.role === 'client' && profile.looking_timeline === 'soon'
+    ? (profile.interested_categories || []).map(function(category){ return String(category || '').trim().toLowerCase(); }).filter(function(category){ return Object.prototype.hasOwnProperty.call(CATEGORY_LABELS, category); })
+    : [];
   const homeHref = profile.role === 'host' ? '/host-home' : '/client-home';
   ['marketplace-home-link', 'marketplace-discover-link', 'marketplace-mobile-home-link'].forEach(function(id){
     document.getElementById(id).setAttribute('href', homeHref);
@@ -764,6 +767,14 @@
       return true;
     });
     out.sort(function(a, b){
+      // The default Marketplace view is still complete and filterable. This
+      // only ranks a looking-soon client's saved niches ahead of other
+      // listings until they choose a specific category or search.
+      if (state.category === 'all' && !state.q && preferredCategories.length > 0) {
+        const aPreferred = preferredCategories.includes(a.category);
+        const bPreferred = preferredCategories.includes(b.category);
+        if (aPreferred !== bPreferred) return aPreferred ? -1 : 1;
+      }
       if (state.sort === 'newest') return new Date(b.created_at) - new Date(a.created_at);
       const pa = formatPrice(a.listing_booking_details);
       const pb = formatPrice(b.listing_booking_details);
@@ -814,7 +825,8 @@
     const resultsSub = document.getElementById('results-sub');
     if (resultsSub) {
       resultsSub.textContent =
-        displayedCount + ' ' + (displayedCount === 1 ? 'property' : 'properties') + ' found' + (state.q ? ' for "' + state.q + '"' : '');
+        displayedCount + ' ' + (displayedCount === 1 ? 'property' : 'properties') + ' found' + (state.q ? ' for "' + state.q + '"' : '') +
+        (state.category === 'all' && !state.q && preferredCategories.length > 0 ? ' · showing your niches first' : '');
     }
 
     const grid = document.getElementById('results-grid');

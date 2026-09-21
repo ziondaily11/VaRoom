@@ -1138,7 +1138,7 @@
 
     const { data: profile } = await supabaseClient
       .from('profiles')
-      .select('role, full_name, avatar_url, interested_categories')
+      .select('role, full_name, avatar_url, interested_categories, looking_timeline')
       .eq('id', currentUser.id)
       .maybeSingle();
 
@@ -1156,12 +1156,11 @@
       return;
     }
 
-    interestedCategories = (profile.interested_categories || [])
-      .map(function(c){ return (c || '').toString().trim().toLowerCase(); })
-      .filter(Boolean);
-    if (interestedCategories.length > 0) {
-      document.getElementById('feed-title').textContent = 'For you';
-    }
+    // Discover remains deliberately broad. Marketplace alone uses a
+    // looking-soon client's saved interests to prioritize listings.
+    interestedCategories = profile.looking_timeline === 'soon'
+      ? (profile.interested_categories || []).map(function(c){ return (c || '').toString().trim().toLowerCase(); }).filter(Boolean)
+      : [];
 
     // ---------- Bookmarks ----------
     const { data: bookmarks } = await supabaseClient

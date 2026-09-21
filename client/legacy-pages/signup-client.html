@@ -502,7 +502,7 @@
         showAlert('Account created! Check your email to confirm and start exploring.', 'success');
         form.reset();
       } else if (data.session) {
-        window.location.href = redirect || '/client-home';
+        window.location.href = '/onboarding' + (redirect ? '?redirect=' + encodeURIComponent(redirect) : '');
       }
 
     } catch(err) {

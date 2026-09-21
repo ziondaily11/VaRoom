@@ -531,8 +531,14 @@
         return;
       }
 
-      var role = data.user.user_metadata && data.user.user_metadata.role;
-      window.location.href = redirect || (role === 'host' ? '/host-home' : '/client-home');
+      var profileResult = await supabaseClient.from('profiles').select('role,onboarding_completed').eq('id', data.user.id).maybeSingle();
+      var profile = profileResult.data;
+      var role = (profile && profile.role) || (data.user.user_metadata && data.user.user_metadata.role);
+      if (!profile || !profile.onboarding_completed) {
+        window.location.href = '/onboarding' + (redirect ? '?redirect=' + encodeURIComponent(redirect) : '');
+      } else {
+        window.location.href = redirect || (role === 'host' ? '/host-home' : '/client-home');
+      }
 
     } catch(err) {
       var msg = err.message || 'Login failed. Please try again.';
@@ -560,8 +566,14 @@
       try {
         var { data } = await supabaseClient.auth.getSession();
         if (data && data.session) {
-          var role = data.session.user.user_metadata && data.session.user.user_metadata.role;
-          window.location.href = redirect || (role === 'host' ? '/host-home' : '/client-home');
+          var profileResult = await supabaseClient.from('profiles').select('role,onboarding_completed').eq('id', data.session.user.id).maybeSingle();
+          var profile = profileResult.data;
+          var role = (profile && profile.role) || (data.session.user.user_metadata && data.session.user.user_metadata.role);
+          if (!profile || !profile.onboarding_completed) {
+            window.location.href = '/onboarding' + (redirect ? '?redirect=' + encodeURIComponent(redirect) : '');
+          } else {
+            window.location.href = redirect || (role === 'host' ? '/host-home' : '/client-home');
+          }
         }
       } catch(e) {}
     })();

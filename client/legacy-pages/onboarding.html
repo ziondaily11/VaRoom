@@ -223,7 +223,7 @@
   // Steps: 4 shared, then 2 role-specific
   const steps = role === 'host'
     ? ['photo', 'username', 'city', 'phone', 'host_categories', 'host_type']
-    : ['photo', 'username', 'city', 'phone', 'client_categories', 'client_timeline'];
+    : ['photo', 'username', 'city', 'phone', 'client_timeline'];
 
   let currentStep = 0;
   const answers = {}; // collected as user goes, applied on finish
@@ -565,7 +565,6 @@
         '</button>' +
       '</div>' +
       '<button class="primary-btn" id="timeline-next" disabled>Continue</button>' +
-      '<button class="skip-btn" id="timeline-skip">Skip for now</button>' +
       reassureHtml();
 
     let chosen = null;
@@ -582,9 +581,9 @@
 
     nextBtn.addEventListener('click', function(){
       if (chosen) answers.looking_timeline = chosen;
+      if (chosen === 'soon' && steps.indexOf('client_categories') === -1) steps.push('client_categories');
       goNext();
     });
-    document.getElementById('timeline-skip').addEventListener('click', goNext);
   }
 
   // ---- Finish ----
@@ -621,7 +620,10 @@
 
     await supabaseClient.rpc('complete_onboarding');
 
-    window.location.href = postOnboardingRedirect || (role === 'host' ? '/host-home' : '/client-home');
+    const initialDestination = role === 'host'
+      ? '/host-home'
+      : (answers.looking_timeline === 'soon' ? '/marketplace' : '/client-home');
+    window.location.href = postOnboardingRedirect || initialDestination;
   }
 
   // ---- Shared UI helpers ----
