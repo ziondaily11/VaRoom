@@ -346,13 +346,7 @@
             <div class="field">
               <label for="category">Category</label>
               <select id="category" name="category" required>
-                <option value="" disabled selected>Choose a category</option>
-                <option value="airbnb">Airbnb</option>
-                <option value="hotel">Hotel</option>
-                <option value="venue">Event ground / venue</option>
-                <option value="office">Office</option>
-                <option value="shop">Shop</option>
-                <option value="property">Property to let or buy</option>
+                <option value="" disabled selected>Loading your niches…</option>
               </select>
             </div>
             <div class="field">
@@ -668,13 +662,25 @@
     currentUser = session.user;
 
     const { data: profile, error: profileError } = await supabaseClient
-      .from('profiles').select('role').eq('id', currentUser.id).single();
+      .from('profiles').select('role, listing_categories').eq('id', currentUser.id).single();
 
     if (profileError || !profile || profile.role !== 'host') {
       checkingAuth.textContent = 'Only host accounts can list a space. Redirecting...';
       setTimeout(function(){ window.location.href = '/'; }, 1500);
       return;
     }
+
+    const labels = { airbnb: 'Airbnb', hotel: 'Hotel', venue: 'Event ground / venue', office: 'Office', shop: 'Shop', property: 'Property to let or buy' };
+    const hostNiches = Array.isArray(profile.listing_categories) ? profile.listing_categories : [];
+    if (hostNiches.length !== 2 || new Set(hostNiches).size !== 2 || !hostNiches.every(function(niche){ return Object.prototype.hasOwnProperty.call(labels, niche); })) {
+      checkingAuth.textContent = 'Choose your two posting niches before creating a listing. Redirecting...';
+      setTimeout(function(){ window.location.href = '/profile?select-niches=1'; }, 1200);
+      return;
+    }
+    const categorySelect = document.getElementById('category');
+    categorySelect.innerHTML = '<option value="" disabled selected>Choose a category</option>' + hostNiches.map(function(niche){
+      return '<option value="' + niche + '">' + (labels[niche] || niche) + '</option>';
+    }).join('');
 
     checkingAuth.style.display = 'none';
     listingPage.style.display = 'block';
@@ -1225,7 +1231,7 @@
     submitBtn.textContent = 'Publishing...';
 
     const listingPayload = {
-      host_id: currentUser.id, title, category, description, verified: false,
+      title, category, description,
       // Maps are still being integrated, so location is intentionally optional for now.
       // Keep the listing publish flow working without any location fields until the
       // mapping experience is live again.
@@ -1238,10 +1244,15 @@
       ...(locationCountry ? { country: locationCountry } : {}),
     };
 
-    const { data, error } = await supabaseClient
-      .from('listings')
-      .insert(listingPayload)
-      .select().single();
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    const listingResponse = await fetch('/api/listings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
+      body: JSON.stringify(listingPayload)
+    });
+    const listingResult = await listingResponse.json().catch(function(){ return {}; });
+    const data = listingResult.listing;
+    const error = listingResponse.ok ? null : new Error(listingResult.error || 'Unable to publish listing');
 
     if (error) {
       successMsgInner.textContent = 'Something went wrong: ' + error.message;

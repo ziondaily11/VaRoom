@@ -521,6 +521,10 @@
       <label>City</label>
       <input type="text" id="edit-location" placeholder="e.g. Nairobi, Kenya" />
     </div>
+    <div class="modal-field" id="edit-niches-field" style="display:none;">
+      <label>Posting niches <span style="font-weight:400;color:var(--muted);">(choose exactly 2)</span></label>
+      <div id="edit-niches-options" style="display:grid;gap:.45rem;margin-top:.35rem;"></div>
+    </div>
     <div class="modal-actions">
       <button type="button" class="modal-cancel" id="edit-cancel">Cancel</button>
       <button type="button" class="modal-save" id="edit-save">Save changes</button>
@@ -674,6 +678,7 @@
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3.5" y="5" width="17" height="16" rx="2"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>
                   <span id="profile-since-text">Member since</span>
                 </span>
+                <span class="meta-item" id="profile-niches" style="display:none;"></span>
               </div>
             </div>
           </div>
@@ -879,7 +884,7 @@
   let profileData = null;
   let isOwner = false;
 
-  const SELECT = 'id, role, full_name, username, phone, bio, avatar_url, city, created_at';
+  const SELECT = 'id, role, full_name, username, phone, bio, avatar_url, city, listing_categories, created_at';
   // UUID pattern — ?u= can be a username OR a UUID (fallback when no username set)
   const isUUID = viewUsername && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(viewUsername);
   async function loadProfile(column, value){
@@ -983,6 +988,13 @@
     document.getElementById('profile-since-text').textContent = profileData.created_at
       ? 'Member since ' + new Date(profileData.created_at).getFullYear()
       : 'Member since 2024';
+    const nichesEl = document.getElementById('profile-niches');
+    const nicheLabels = { airbnb:'Airbnb', hotel:'Hotel', venue:'Event ground / venue', office:'Office', shop:'Shop', property:'Property' };
+    const niches = Array.isArray(profileData.listing_categories) ? profileData.listing_categories : [];
+    if (profileData.role === 'host' && niches.length === 2) {
+      nichesEl.textContent = 'Specializes in ' + niches.map(function(niche){ return nicheLabels[niche] || niche; }).join(' + ');
+      nichesEl.style.display = '';
+    }
     document.getElementById('ask-name').textContent = (displayName || 'host').split(' ')[0];
     document.getElementById('avatar-upload-label').style.display = isOwner ? 'flex' : 'none';
 
@@ -1182,11 +1194,26 @@
     document.getElementById('edit-phone').value = profileData.phone || '';
     document.getElementById('edit-bio').value = currentRole === 'host' ? (profileData.bio || '') : '';
     document.getElementById('edit-location').value = profileData.city || '';
+    const nicheField = document.getElementById('edit-niches-field');
+    const nicheOptions = document.getElementById('edit-niches-options');
+    nicheField.style.display = currentRole === 'host' ? 'block' : 'none';
+    if (currentRole === 'host') {
+      const labels = { airbnb:'Airbnb', hotel:'Hotel', venue:'Event ground / venue', office:'Office', shop:'Shop', property:'Property to let or buy' };
+      const selected = Array.isArray(profileData.listing_categories) ? profileData.listing_categories : [];
+      nicheOptions.innerHTML = Object.keys(labels).map(function(value){ return '<label><input type="checkbox" value="' + value + '"' + (selected.includes(value) ? ' checked' : '') + '> ' + labels[value] + '</label>'; }).join('');
+      nicheOptions.querySelectorAll('input').forEach(function(input){ input.addEventListener('change', function(){
+        const checked = nicheOptions.querySelectorAll('input:checked');
+        if (checked.length > 2) { input.checked = false; showToast('Hosts can select exactly two niches.'); }
+      }); });
+    }
     document.getElementById('edit-msg').textContent = '';
     document.getElementById('edit-modal').classList.add('open');
   }
   document.getElementById('edit-profile-btn').addEventListener('click', openEditModal);
   document.getElementById('quick-edit-profile').addEventListener('click', openEditModal);
+  if (isOwner && currentRole === 'host' && new URLSearchParams(window.location.search).get('select-niches') === '1') {
+    openEditModal();
+  }
 
   document.getElementById('edit-cancel').addEventListener('click', function(){
     document.getElementById('edit-modal').classList.remove('open');
@@ -1253,6 +1280,14 @@
       city: location || null
     };
     if (currentRole === 'host') update.bio = bio || null;
+    if (currentRole === 'host') {
+      const niches = Array.from(document.querySelectorAll('#edit-niches-options input:checked')).map(function(input){ return input.value; });
+      if (niches.length !== 2) { showToast('Choose exactly two posting niches.'); btn.disabled = false; btn.textContent = 'Save changes'; return; }
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      const response = await fetch('/api/host/niches', { method:'PUT', headers:{ 'Content-Type':'application/json', Authorization:'Bearer ' + session.access_token }, body:JSON.stringify({ niches:niches }) });
+      if (!response.ok) { const payload = await response.json().catch(function(){ return {}; }); showToast(payload.error || 'Unable to save niches.'); btn.disabled = false; btn.textContent = 'Save changes'; return; }
+      profileData.listing_categories = niches;
+    }
     const { error } = await supabaseClient.from('profiles').update(update).eq('id', currentUser.id);
 
     btn.disabled = false; btn.textContent = 'Save changes';

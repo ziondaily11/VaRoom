@@ -106,6 +106,7 @@
   }
   .checkbox-card:hover{ border-color:var(--red); }
   .checkbox-card.checked{ border-color:var(--red); background:rgba(196,30,58,.06); }
+  .checkbox-card.locked{ opacity:.5; cursor:not-allowed; }
   .checkbox-card input{ width:18px; height:18px; accent-color:var(--red); }
   .checkbox-card span{ font-weight:600; font-size:.95rem; }
 
@@ -443,14 +444,31 @@
     stepContent.innerHTML =
       iconCircle('<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>') +
       '<h1>' + (isHost ? 'What will you be listing?' : 'What are you interested in?') + '</h1>' +
-      '<p class="step-sub">' + (isHost ? 'Pick as many as apply — you can list more than one type of space.' : 'Pick as many as you like. We\'ll use this to show you relevant listings first.') + '</p>' +
+      '<p class="step-sub">' + (isHost ? 'Choose exactly two niches. These are the only types of space you can post.' : 'Pick as many as you like. We\'ll use this to show you relevant listings first.') + '</p>' +
       '<div class="checkbox-grid" id="category-grid"></div>' +
+      (isHost ? '<p class="field-msg" id="category-msg" style="text-align:center;">Choose 2 niches (0 selected).</p>' : '') +
       '<button class="primary-btn" id="categories-next">Continue</button>' +
-      '<button class="skip-btn" id="categories-skip">Skip for now</button>' +
+      (isHost ? '' : '<button class="skip-btn" id="categories-skip">Skip for now</button>') +
       reassureHtml();
 
     const grid = document.getElementById('category-grid');
     const selected = new Set();
+    const nextBtn = document.getElementById('categories-next');
+    const categoryMsg = document.getElementById('category-msg');
+
+    function updateHostSelectionState(){
+      if (!isHost) return;
+      const count = selected.size;
+      nextBtn.disabled = count !== 2;
+      categoryMsg.textContent = count === 2
+        ? 'Your chosen niches: ' + Array.from(selected).map(function(value){ return CATEGORIES.find(function(cat){ return cat.value === value; }).label; }).join(' + ')
+        : 'Choose exactly 2 niches (' + count + ' selected).';
+      grid.querySelectorAll('input').forEach(function(input){
+        const lock = count >= 2 && !input.checked;
+        input.disabled = lock;
+        input.closest('.checkbox-card').classList.toggle('locked', lock);
+      });
+    }
 
     CATEGORIES.forEach(function(cat){
       const row = document.createElement('label');
@@ -458,19 +476,25 @@
       row.innerHTML = '<input type="checkbox" value="' + cat.value + '"><span>' + cat.label + '</span>';
       const checkbox = row.querySelector('input');
       checkbox.addEventListener('change', function(){
-        if (checkbox.checked) { selected.add(cat.value); row.classList.add('checked'); }
+        if (checkbox.checked) {
+          if (isHost && selected.size >= 2) { checkbox.checked = false; return; }
+          selected.add(cat.value); row.classList.add('checked');
+        }
         else { selected.delete(cat.value); row.classList.remove('checked'); }
+        updateHostSelectionState();
       });
       grid.appendChild(row);
     });
+    updateHostSelectionState();
 
-    document.getElementById('categories-next').addEventListener('click', function(){
-      if (selected.size > 0) {
+    nextBtn.addEventListener('click', function(){
+      if ((!isHost && selected.size > 0) || (isHost && selected.size === 2)) {
         answers[isHost ? 'listing_categories' : 'interested_categories'] = Array.from(selected);
       }
       goNext();
     });
-    document.getElementById('categories-skip').addEventListener('click', goNext);
+    const skipBtn = document.getElementById('categories-skip');
+    if (skipBtn) skipBtn.addEventListener('click', goNext);
   }
 
   // ---- Step: Host type (individual / business) ----
@@ -573,8 +597,26 @@
         if (answers[key] !== undefined) fieldsToSave[key] = answers[key];
       });
 
+    if (role === 'host') {
+      const nicheResponse = await fetch('/api/host/niches', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
+        body: JSON.stringify({ niches: answers.listing_categories })
+      });
+      if (!nicheResponse.ok) {
+        const payload = await nicheResponse.json().catch(function(){ return {}; });
+        stepContent.innerHTML = '<p class="field-msg error" style="padding:2rem 0;text-align:center;">' + (payload.error || 'Please choose exactly two niches before continuing.') + '</p>';
+        return;
+      }
+      delete fieldsToSave.listing_categories;
+    }
+
     if (Object.keys(fieldsToSave).length > 0) {
-      await supabaseClient.from('profiles').update(fieldsToSave).eq('id', user.id);
+      const { error } = await supabaseClient.from('profiles').update(fieldsToSave).eq('id', user.id);
+      if (error) {
+        stepContent.innerHTML = '<p class="field-msg error" style="padding:2rem 0;text-align:center;">' + error.message + '</p>';
+        return;
+      }
     }
 
     await supabaseClient.rpc('complete_onboarding');
