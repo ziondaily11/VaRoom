@@ -1211,6 +1211,32 @@
   }
   document.getElementById('edit-profile-btn').addEventListener('click', openEditModal);
   document.getElementById('quick-edit-profile').addEventListener('click', openEditModal);
+  // Hotel locations are managed here, after onboarding. The first location is
+  // created during hotel setup; every later physical location is an explicit
+  // branch and never replaces another branch in the same city.
+  if (isOwner && currentRole === 'host' && Array.isArray(profileData.listing_categories) && profileData.listing_categories.includes('hotel')) {
+    const branchButton = document.createElement('button');
+    branchButton.type = 'button'; branchButton.className = 'btn-outline'; branchButton.textContent = '+ Add branch';
+    document.getElementById('owner-actions').appendChild(branchButton);
+    branchButton.addEventListener('click', async function(){
+      const name = window.prompt('Branch name (for example, Westlands or CBD)');
+      if (!name) return;
+      const address = window.prompt('Branch location / address');
+      if (!address) return;
+      const countyCity = window.prompt('County or city (optional)');
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      const businessesResponse = await fetch('/api/businesses/mine', { headers: { Authorization: 'Bearer ' + session.access_token } });
+      const businessesPayload = await businessesResponse.json().catch(function(){ return {}; });
+      const business = (businessesPayload.businesses || []).find(function(item){ return (item.niches || []).includes('hotel'); });
+      if (!business) { showToast('Your hotel business has not been set up yet.'); return; }
+      const response = await fetch('/api/businesses/' + encodeURIComponent(business.id) + '/branches', {
+        method: 'POST', headers: { 'Content-Type':'application/json', Authorization: 'Bearer ' + session.access_token },
+        body: JSON.stringify({ name:name, address_text:address, county_city:countyCity || undefined })
+      });
+      const payload = await response.json().catch(function(){ return {}; });
+      showToast(response.ok ? 'Branch added ✓' : (payload.error || 'Unable to add branch.'));
+    });
+  }
   if (isOwner && currentRole === 'host' && new URLSearchParams(window.location.search).get('select-niches') === '1') {
     openEditModal();
   }

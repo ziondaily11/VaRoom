@@ -449,7 +449,7 @@
   const profileResult = await dataCache.get('account:' + currentUser.id + ':profile:marketplace', function(){
     return supabaseClient
       .from('profiles')
-      .select('role, full_name, avatar_url, looking_timeline, interested_categories')
+      .select('role, full_name, avatar_url, looking_timeline, interested_categories, listing_categories')
       .eq('id', currentUser.id)
       .maybeSingle();
   });
@@ -467,6 +467,29 @@
     avatarEl.innerHTML = '<img src="' + escapeHtml(profile.avatar_url) + '" alt="">';
   } else {
     avatarEl.textContent = (profile.full_name || '?').charAt(0).toUpperCase();
+  }
+
+  if (profile.role === 'host' && Array.isArray(profile.listing_categories) && profile.listing_categories.includes('hotel')) {
+    document.body.insertAdjacentHTML('beforeend', '<button id="hotel-plus" aria-label="Add to your hotel" style="position:fixed;right:24px;bottom:24px;z-index:50;width:52px;height:52px;border:0;border-radius:50%;background:#1f513d;color:#fff;font-size:31px">+</button><div id="hotel-plus-menu" style="display:none;position:fixed;inset:0;z-index:51;background:rgba(0,0,0,.38);align-items:center;justify-content:center"><div style="background:#fff;border-radius:16px;padding:24px;width:min(390px,calc(100% - 40px))"><button id="hotel-plus-close" style="float:right;border:0;background:transparent;font-size:22px">×</button><h2>Add to your hotel</h2><p>Choose what to add.</p><div style="display:grid;gap:10px"><button class="hotel-plus-action" data-action="room">+ Room or Suite</button><button class="hotel-plus-action" data-action="menu">+ Add Menu</button><button class="hotel-plus-action" data-action="table">+ Add Table</button></div><p id="hotel-plus-error" style="color:#a33"></p></div></div>');
+    const plusMenu = document.getElementById('hotel-plus-menu');
+    document.getElementById('hotel-plus').onclick = function(){ plusMenu.style.display = 'flex'; };
+    document.getElementById('hotel-plus-close').onclick = function(){ plusMenu.style.display = 'none'; };
+    async function hotelContext(){
+      const headers = { Authorization: 'Bearer ' + session.access_token };
+      const businesses = await fetch('/api/businesses/mine', { headers:headers }).then(function(r){ return r.json(); });
+      const business = (businesses.businesses || []).find(function(item){ return (item.niches || []).includes('hotel'); });
+      if (!business) throw new Error('Your hotel business is still being set up.');
+      const branchPayload = await fetch('/api/businesses/' + encodeURIComponent(business.id) + '/branches', { headers:headers }).then(function(r){ return r.json(); });
+      const branch = (branchPayload.branches || []).find(function(item){ return item.status === 'active'; });
+      if (!branch) throw new Error('Add your hotel location in profile settings first.');
+      return { business:business, branch:branch, headers:{ 'Content-Type':'application/json', Authorization:'Bearer ' + session.access_token } };
+    }
+    document.querySelectorAll('.hotel-plus-action').forEach(function(button){ button.onclick = async function(){ try {
+      document.getElementById('hotel-plus-error').textContent = ''; const context = await hotelContext();
+      if (button.dataset.action === 'room') { location.href = '/list?business_id=' + encodeURIComponent(context.business.id) + '&branch_id=' + encodeURIComponent(context.branch.id); return; }
+      if (button.dataset.action === 'menu') { const title = prompt('Menu name'); if (!title) return; const r = await fetch('/api/businesses/' + context.business.id + '/menus', { method:'POST', headers:context.headers, body:JSON.stringify({branch_id:context.branch.id,title:title,categories:[]}) }); if (!r.ok) throw new Error((await r.json()).error || 'Unable to add menu'); plusMenu.style.display='none'; return; }
+      const identifier = prompt('Table identifier'); const seatingCapacity = Number(prompt('Seating capacity')); if (!identifier || !seatingCapacity) return; const r = await fetch('/api/businesses/' + context.business.id + '/tables', { method:'POST', headers:context.headers, body:JSON.stringify({branch_id:context.branch.id,identifier:identifier,seating_capacity:seatingCapacity}) }); if (!r.ok) throw new Error((await r.json()).error || 'Unable to add table'); plusMenu.style.display='none';
+    } catch (error) { document.getElementById('hotel-plus-error').textContent = error.message; } }; });
   }
 
   // ---------- Bookmarks ----------
