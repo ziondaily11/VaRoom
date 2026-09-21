@@ -327,9 +327,7 @@
   <div class="form-panel">
     <div class="signup-hero" data-signup-type="client"></div>
     <div class="signup-content">
-    <p class="form-eyebrow">Register as client</p>
-    <h1 class="form-title">Create your client account.</h1>
-    <p class="form-sub">Find and book spaces — Airbnbs, hotels, venues, offices, shops, or property to let or buy.</p>
+    <p class="form-sub">Find and book spaces — Airbnbs, hotels, apartments, venues, and more, all in one place.</p>
 
     <div class="alert" id="form-alert"></div>
 
@@ -348,21 +346,25 @@
 
     <form id="signup-form" novalidate>
       <div class="field">
+        <label for="fullname">Full name</label>
         <input type="text" id="fullname" placeholder="Full name" autocomplete="name" required />
         <div class="field-error" id="err-fullname">Please enter your full name</div>
       </div>
 
       <div class="field">
+        <label for="email">Email address</label>
         <input type="email" id="email" placeholder="Email address" autocomplete="email" required />
         <div class="field-error" id="err-email">Please enter a valid email address</div>
       </div>
 
       <div class="field">
+        <label for="password">Password</label>
         <input type="password" id="password" placeholder="Password" autocomplete="new-password" required />
         <div class="field-error" id="err-password">Password must be at least 8 characters</div>
       </div>
 
       <div class="field">
+        <label for="confirm-password">Confirm password</label>
         <input type="password" id="confirm-password" placeholder="Confirm password" autocomplete="new-password" required />
         <div class="field-error" id="err-confirm">Passwords do not match</div>
       </div>
