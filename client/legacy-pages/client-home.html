@@ -1336,7 +1336,7 @@
 
       return (
         '<div class="card">' +
-          '<div class="card-avatar">' + avatarHtml + '</div>' +
+          '<a class="card-avatar card-avatar-link" href="/host/' + encodeURIComponent(listing.host_id) + '" aria-label="View ' + escapeHtml(host.full_name || 'Host') + '\'s profile">' + avatarHtml + '</a>' +
           '<div class="card-body">' +
             '<div class="card-head">' +
               '<div>' +

@@ -11,6 +11,9 @@ import {
   Settings,
   LifeBuoy,
   Plus,
+  Bookmark,
+  BarChart3,
+  CreditCard,
   ShieldCheck,
   Star,
   MapPin,
@@ -36,6 +39,13 @@ function Stars({ count, size = 14 }) {
   );
 }
 
+function resolveAvatarUrl(avatarUrl) {
+  if (!avatarUrl) return null;
+  if (avatarUrl.startsWith("http")) return avatarUrl;
+  const client = typeof window !== "undefined" ? window.supabaseClient : null;
+  return client ? client.storage.from("avatars").getPublicUrl(avatarUrl).data.publicUrl : avatarUrl;
+}
+
 export default function HostProfileView() {
   const router = useRouter();
   const [tab, setTab] = useState("listings");
@@ -43,14 +53,23 @@ export default function HostProfileView() {
   const [profile, setProfile] = useState(null);
   const [listings, setListings] = useState([]);
   const [reviews, setReviews] = useState([]);
+  const [reviewSummary, setReviewSummary] = useState({ average_rating: null, review_count: 0, distribution: [] });
+  const [reviewsError, setReviewsError] = useState("");
   const [loadError, setLoadError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [viewerRole, setViewerRole] = useState("client");
+  const [viewerId, setViewerId] = useState(null);
 
   useEffect(() => {
     if (!router.isReady || !router.query.hostId) return undefined;
 
     let cancelled = false;
+    let reviewClient = null;
+    setIsLoading(true);
+    setLoadError("");
+    setReviews([]);
+    setReviewSummary({ average_rating: null, review_count: 0, distribution: [] });
+    setReviewsError("");
     async function loadHost() {
       const client = typeof window !== "undefined" ? window.supabaseClient : null;
       if (!client) {
@@ -58,10 +77,12 @@ export default function HostProfileView() {
         setIsLoading(false);
         return;
       }
+      reviewClient = client;
 
       const hostId = String(router.query.hostId);
       const sessionResult = await client.auth.getSession();
       if (sessionResult.data.session?.user?.id) {
+        setViewerId(sessionResult.data.session.user.id);
         const viewerResult = await client
           .from("profiles")
           .select("role")
@@ -69,6 +90,32 @@ export default function HostProfileView() {
           .maybeSingle();
         if (viewerResult.data?.role === "host") setViewerRole("host");
       }
+      async function loadReviews() {
+        try {
+          const response = await fetch(`/api/hosts/${encodeURIComponent(hostId)}/reviews`);
+          if (!response.ok) throw new Error("Unable to load host reviews");
+          const payload = await response.json();
+          if (cancelled) return;
+          const rows = Array.isArray(payload.reviews) ? payload.reviews : [];
+          setReviews(rows.map((review) => {
+            const name = review.client?.full_name || "Guest";
+            return {
+              id: review.id,
+              avatarUrl: resolveAvatarUrl(review.client?.avatar_url),
+              initials: (name.split(" ").map((part) => part.charAt(0)).join("").slice(0, 2) || "G").toUpperCase(),
+              name,
+              date: review.created_at ? new Date(review.created_at).toLocaleDateString() : "",
+              rating: Number(review.rating) || 0,
+              text: review.comment || "",
+            };
+          }));
+          setReviewSummary(payload.summary || { average_rating: null, review_count: rows.length, distribution: [] });
+          setReviewsError("");
+        } catch {
+          if (!cancelled) setReviewsError("Reviews could not be loaded right now.");
+        }
+      }
+
       const [profileResult, listingsResult] = await Promise.all([
         client.from("profiles").select("id,role,full_name,username,bio,avatar_url,verified,city,created_at").eq("id", hostId).eq("role", "host").maybeSingle(),
         client.from("listings").select("id,title,category,location_text,created_at,listing_photos(storage_path),listing_booking_details(price_amount,price_unit)").eq("host_id", hostId).order("created_at", { ascending: false }),
@@ -81,6 +128,7 @@ export default function HostProfileView() {
         return;
       }
       setProfile(profileResult.data);
+      const reviewsPromise = loadReviews();
       if (!listingsResult.error && listingsResult.data) {
         const authToken = sessionResult.data.session?.access_token;
         const listingsWithMedia = await Promise.all(listingsResult.data.map(async (listing) => {
@@ -129,78 +177,68 @@ export default function HostProfileView() {
         }));
         setListings(listingsWithMedia);
 
-        // Fetch reviews for host
-        try {
-          const { data: reviewsResult, error: reviewsError } = await client
-            .from('reviews')
-            .select('id,rating,comment,created_at, client:profiles(id,full_name,avatar_url)')
-            .eq('host_id', hostId)
-            .order('created_at', { ascending: false });
-          if (!reviewsError && Array.isArray(reviewsResult)) {
-            const mapped = reviewsResult.map((r) => {
-              const name = r.client?.full_name || 'Guest';
-              const initials = (name.split(' ').map(s => s.charAt(0)).join('').slice(0,2) || 'G').toUpperCase();
-              return {
-                initials,
-                name,
-                stay: 'Verified stay',
-                date: r.created_at ? new Date(r.created_at).toLocaleDateString() : '',
-                rating: Number(r.rating) || 0,
-                text: r.comment || ''
-              };
-            });
-            setReviews(mapped);
-          }
-        } catch (e) {
-          // non-fatal
-        }
       }
+      await reviewsPromise;
+      const reviewChannel = client
+        .channel(`host-profile-reviews-${hostId}`)
+        .on("postgres_changes", { event: "*", schema: "public", table: "reviews", filter: `host_id=eq.${hostId}` }, loadReviews)
+        .subscribe();
       setIsLoading(false);
+      return reviewChannel;
     }
-    loadHost().catch(() => {
+    let reviewChannel = null;
+    loadHost().then((channel) => { reviewChannel = channel || null; }).catch(() => {
       if (!cancelled) {
         setLoadError("Could not load this host profile.");
         setIsLoading(false);
       }
     });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      if (reviewChannel) reviewClient?.removeChannel(reviewChannel);
+    };
   }, [router.isReady, router.query.hostId]);
 
   const host = profile || {};
-  const reviewCount = reviews.length;
-  const averageRating = reviewCount
-    ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviewCount
-    : null;
+  const reviewCount = Number(reviewSummary.review_count || reviews.length);
+  const averageRating = reviewSummary.average_rating == null ? null : Number(reviewSummary.average_rating);
   const ratingBreakdown = [5, 4, 3, 2, 1].map((star) => ({
     star,
-    pct: reviewCount
-      ? Math.round((reviews.filter((review) => review.rating === star).length / reviewCount) * 100)
-      : 0,
+    pct: reviewCount ? Math.round((((reviewSummary.distribution || []).find((item) => Number(item.star) === star)?.count || 0) / reviewCount) * 100) : 0,
   }));
-  const avatarUrl = host.avatar_url
-    ? (host.avatar_url.startsWith("http")
-      ? host.avatar_url
-      : (typeof window !== "undefined" && window.supabaseClient
-        ? window.supabaseClient.storage.from("avatars").getPublicUrl(host.avatar_url).data.publicUrl
-        : host.avatar_url))
-    : null;
+  const avatarUrl = resolveAvatarUrl(host.avatar_url);
   const memberSince = host.created_at
     ? `Member since ${new Date(host.created_at).getFullYear()}`
     : "Member date not available";
+  const canMessageHost = viewerRole !== "host" && viewerId !== host.id;
 
   function Sidebar() {
     const isHost = viewerRole === "host";
+    const homeHref = isHost ? "/host-home" : "/client-home";
     return (
       <aside className="host-profile-sidebar" aria-label="VaRoom navigation">
+        <a className="profile-sidebar-logo" href={homeHref}><span>Va</span>Room</a>
         <nav className="sidebar-nav">
-          <a href={isHost ? "/host-home" : "/client-home"}><Home size={17} aria-hidden="true" /> Home</a>
-          <a href="/chats?conversation=elie"><Compass size={17} aria-hidden="true" /> Elie <span className="sidebar-pill">Free preview</span></a>
+          <a href={homeHref}><Home size={17} aria-hidden="true" /> Home</a>
           <a href="/marketplace"><Compass size={17} aria-hidden="true" /> Marketplace</a>
+          <a href={`${homeHref}#saved`}><Bookmark size={17} aria-hidden="true" /> Saved</a>
+          {!isHost && <a href="/signup-host"><Plus size={17} aria-hidden="true" /> Become a Host</a>}
+        </nav>
+        <nav className="sidebar-nav">
+          <p className="profile-nav-label">My activity</p>
           <a href="/bookings"><CalendarDays size={17} aria-hidden="true" /> Bookings</a>
           <a href="/chats"><MessageSquare size={17} aria-hidden="true" /> Chats</a>
-          {isHost && <><a href="/list"><Plus size={17} aria-hidden="true" /> List a space</a><a href="/analytics"><Compass size={17} aria-hidden="true" /> Analytics</a></>}
-          {!isHost && <a href="/profile"><UserRound size={17} aria-hidden="true" /> Profile</a>}
-          <a href="/transactions"><WalletCards size={17} aria-hidden="true" /> Transactions</a>
+        </nav>
+        {isHost && <nav className="sidebar-nav">
+          <p className="profile-nav-label">Host</p>
+          <a href="/list"><Plus size={17} aria-hidden="true" /> List a space</a>
+          <a href="/host-home?view=my-listings"><WalletCards size={17} aria-hidden="true" /> My listings</a>
+          <a href="/payments"><CreditCard size={17} aria-hidden="true" /> Payments</a>
+          <a href="/analytics"><BarChart3 size={17} aria-hidden="true" /> Analytics</a>
+        </nav>}
+        <nav className="sidebar-nav">
+          <p className="profile-nav-label">Account</p>
+          <a href="/profile"><UserRound size={17} aria-hidden="true" /> Profile</a>
           <a href="/settings"><Settings size={17} aria-hidden="true" /> Settings</a>
           <a href="/support"><LifeBuoy size={17} aria-hidden="true" /> Help &amp; Support</a>
         </nav>
@@ -242,24 +280,25 @@ export default function HostProfileView() {
       <style jsx global>{`
         html, body, #__next { margin: 0; min-height: 100%; background: #0a0a0a; }
         body { overflow-x: hidden; }
-        .host-profile-shell { min-height: 100vh; display: grid; grid-template-columns: 240px minmax(0, 1fr); background: #0a0a0a; color: #f5f5f5; font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-        .host-profile-sidebar { order: -1; display: flex; flex-direction: column; gap: 18px; min-height: 100vh; padding: 24px 18px; border-right: 1px solid #242424; background: #0a0a0a; }
-        .sidebar-logo { display: flex; align-items: center; gap: 9px; padding: 0 10px 18px; font-size: 22px; font-weight: 800; color: #f5f5f5; }
-        .sidebar-logo b { color: #e5384f; }
+        .host-profile-shell { min-height: 100vh; display: grid; grid-template-columns: 260px minmax(0, 1fr); background: #171313; color: #f2ece9; font-family: "Helvetica Neue", Arial, sans-serif; }
+        .host-profile-sidebar { display: flex; flex-direction: column; gap: 18px; min-height: 100vh; padding: 18px 12px 14px; border-right: 1px solid rgba(255,255,255,.1); background: #1c1716; }
+        .profile-sidebar-logo { padding: 0 10px; color: #f2ece9; font-family: Fraunces, serif; font-size: 22px; font-weight: 900; letter-spacing: -.04em; text-decoration: none; }
+        .profile-sidebar-logo span { color: #c41e3a; }
         .sidebar-nav { display: flex; flex-direction: column; gap: 4px; }
-        .sidebar-nav a { display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 9px; color: #d5d5d5; text-decoration: none; font-size: 14px; }
-        .sidebar-nav a:hover, .sidebar-nav a:focus-visible { background: #242424; color: #fff; }
-        .sidebar-pill { color: #e5384f; font-size: 10px; }
-        .sidebar-logout { margin-top: auto; padding: 10px 12px; color: #e5384f; text-align: left; font-weight: 600; }
+        .profile-nav-label { margin: 4px 0 0; padding: 8px 12px 6px; color: #a89f9b; font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+        .sidebar-nav a { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 10px; color: #f2ece9; text-decoration: none; font-size: 14px; font-weight: 500; }
+        .sidebar-nav a:hover, .sidebar-nav a:focus-visible { background: rgba(255,255,255,.1); color: #fff; }
+        .sidebar-logout { margin-top: auto; padding: 8px 10px; color: #c41e3a; text-align: left; font-weight: 600; }
         .host-profile-main { min-width: 0; }
         .host-profile-content { width: min(100%, 1320px); margin: 0 auto; padding-bottom: 64px; }
         .host-profile-listing-grid { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
         .host-profile-listing-card { color: #f5f5f5; text-decoration: none; }
-        @media (max-width: 1100px) { .host-profile-shell { grid-template-columns: 210px minmax(0, 1fr); } .host-profile-listing-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; } }
+        @media (max-width: 1100px) { .host-profile-shell { grid-template-columns: 220px minmax(0, 1fr); } .host-profile-listing-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; } }
         @media (max-width: 760px) { .host-profile-shell { display: block; } .host-profile-sidebar { display: none; } .host-profile-content { padding-bottom: 24px; } .host-profile-listing-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } }
         @media (max-width: 480px) { .host-profile-listing-grid { grid-template-columns: 1fr !important; } }
       `}</style>
       <div className="host-profile-shell">
+        <Sidebar />
         <main className="host-profile-main">
           <div className="host-profile-content">
         <div style={{ padding: "32px 24px 0" }}>
@@ -368,7 +407,7 @@ export default function HostProfileView() {
               </div>
             </div>
 
-            <button
+            {canMessageHost && <button
               type="button"
               onClick={startChat}
               aria-label={`Message ${host.full_name || "host"}`}
@@ -389,7 +428,7 @@ export default function HostProfileView() {
             >
               <MessageCircle size={16} />
               Message
-            </button>
+            </button>}
           </div>
 
           <div
@@ -588,7 +627,7 @@ export default function HostProfileView() {
                 <div style={{ fontSize: 34, fontWeight: 700 }}>{averageRating ? averageRating.toFixed(1) : "—"}</div>
                 <Stars count={averageRating ? Math.round(averageRating) : 0} size={13} />
                 <div style={{ fontSize: 12, color: "#8A8A8A", marginTop: 6 }}>
-                  {reviewCount ? `${reviewCount} reviews` : "Reviews not available"}
+                  {reviewCount ? `${reviewCount} reviews` : "No reviews yet"}
                 </div>
               </div>
 
@@ -636,12 +675,15 @@ export default function HostProfileView() {
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              {!isLoading && reviews.length === 0 && (
-                <p style={{ color: "#8A8A8A" }}>Reviews not available yet.</p>
+              {reviewsError && (
+                <p role="alert" style={{ color: "#F2A3AE" }}>{reviewsError}</p>
+              )}
+              {!isLoading && !reviewsError && reviews.length === 0 && (
+                <p style={{ color: "#8A8A8A" }}>No reviews yet.</p>
               )}
               {reviews.slice(0, visibleReviews).map((r, i) => (
                 <div
-                  key={i}
+                  key={r.id}
                   style={{
                     background: "#141414",
                     border: "1px solid #1E1E1E",
@@ -665,14 +707,14 @@ export default function HostProfileView() {
                         flexShrink: 0,
                       }}
                     >
-                      {r.initials}
+                      {r.avatarUrl ? <img src={r.avatarUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : r.initials}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontWeight: 600, fontSize: 14 }}>
                         {r.name}
                       </div>
                       <div style={{ fontSize: 12, color: "#8A8A8A" }}>
-                        {r.stay} · {r.date}
+                        {r.date}
                       </div>
                     </div>
                     <Stars count={r.rating} size={13} />
@@ -717,7 +759,6 @@ export default function HostProfileView() {
         )}
           </div>
         </main>
-        <Sidebar />
       </div>
     </>
   );

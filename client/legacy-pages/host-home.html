@@ -531,7 +531,7 @@
   .card-head{ position:relative; z-index:10; display:flex; align-items:center; gap:.7rem; margin-bottom:.55rem; }
   .card-avatar{ width:38px; height:38px; border-radius:50%; background:var(--red-deep); color:var(--white); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:.92rem; flex-shrink:0; overflow:hidden; }
   .card-avatar img{ width:100%; height:100%; object-fit:cover; }
-  .card-host-name{ font-weight:700; font-size:.95rem; display:flex; align-items:center; gap:.35rem; }
+  .card-host-name{ font-weight:700; font-size:.95rem; display:flex; align-items:center; gap:.35rem; color:inherit; text-decoration:none; }
   .verified-tick{ color:var(--red); font-size:.85rem; }
   .card-location{ font-size:.8rem; color:var(--muted); }
   .card-map-link{ color:var(--red); font-weight:600; }
@@ -1892,9 +1892,9 @@
       return (
         '<div class="card" data-listing-card="' + listing.id + '">' +
           '<div class="card-head">' +
-            '<div class="card-avatar">' + avatarHtml + '</div>' +
+            '<a class="card-avatar" href="/host/' + encodeURIComponent(listing.host_id) + '" aria-label="View ' + escapeHtml(host.full_name || 'Host') + '\'s profile">' + avatarHtml + '</a>' +
             '<div>' +
-              '<div class="card-host-name">' + escapeHtml(host.full_name || 'Host') + (host.verified ? '<span class="verified-tick">✔</span>' : '') + '</div>' +
+              '<a class="card-host-name" href="/host/' + encodeURIComponent(listing.host_id) + '">' + escapeHtml(host.full_name || 'Host') + (host.verified ? '<span class="verified-tick">✔</span>' : '') + '</a>' +
               '<div class="card-location">' + (host.username ? '@' + escapeHtml(host.username) + ' · ' : '') + escapeHtml(listing.location_text) +
                 ' · <a href="/map?listing=' + listing.id + '" class="card-map-link">View on Map</a>' +
               '</div>' +
