@@ -218,6 +218,9 @@
     box-sizing:border-box;
   }
   .feed-area::-webkit-scrollbar{ display:none; }
+  .suspension-notice{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin:0 0 1rem;padding:1rem 1.05rem;border:1px solid #C95D48;border-radius:12px;background:transparent;color:var(--ink)}
+  .suspension-notice-title{font-weight:700;margin:0 0 .3rem}.suspension-notice-copy{margin:0;font-size:.88rem;line-height:1.45;color:var(--muted)}.suspension-notice-action{flex:0 0 auto;color:var(--red-deep);font-size:.84rem;font-weight:700;white-space:nowrap}
+  @media(max-width:680px){.suspension-notice{padding:.85rem;gap:.7rem}.suspension-notice-action{font-size:.78rem}}
 
   /* ---------- RIGHT RAIL ----------
      Scrolls independently too. Top padding trimmed so Popular Destinations
@@ -1143,6 +1146,9 @@
       window.location.href = '/login';
       return;
     }
+    const { data: accountControl } = await supabaseClient.from('account_controls').select('status').eq('user_id', currentUser.id).maybeSingle();
+    const isSuspended = accountControl && accountControl.status !== 'active';
+    function suspensionNotice(){ return '<section class="suspension-notice" role="status"><div><p class="suspension-notice-title">Your account has been suspended.</p><p class="suspension-notice-copy">You can keep browsing Varoom, but you cannot interact, transact, post, or communicate until it is resolved. Contact Support to submit an appeal.</p></div><a class="suspension-notice-action" href="/support">Go to Support →</a></section>'; }
 
     if (profile.role === 'host') {
       window.location.href = '/host-home';
@@ -1840,6 +1846,7 @@
       }
 
       const cardsHtml = data.map(renderCard);
+      if (isSuspended) cardsHtml.unshift(suspensionNotice());
       const showMobileWidgets = currentView === 'home' && currentCategory === 'all' && !searchTerm.trim() &&
         window.matchMedia('(max-width:1180px)').matches;
       if (showMobileWidgets) cardsHtml.splice(1, 0, mobileWidgetsBlock());

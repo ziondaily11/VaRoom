@@ -3,6 +3,7 @@ const { v4: uuidv4 } = require('uuid');
 const supabaseAdmin = require('../lib/supabaseClient');
 const mediaStorageService = require('../lib/mediaStorageService');
 const { ValidationError, assertAllowedKeys, text, uuid, number, enumValue } = require('../lib/inputValidation');
+const { rejectSuspendedActivity } = require('../lib/accountAccess');
 
 const router = express.Router();
 const MAX_FILE_SIZE = 25 * 1024 * 1024;
@@ -41,6 +42,7 @@ router.post('/chat/conversations/:conversationId/attachments/upload-init', async
   try {
     const user = await authenticatedUser(req);
     if (!user) return res.status(401).json({ error: 'Invalid or expired session' });
+    if (await rejectSuspendedActivity(res, user.id)) return;
     const conversationId = req.params.conversationId;
     const conversation = await conversationMember(conversationId, user.id);
     if (!conversation) return res.status(403).json({ error: 'Conversation access denied' });
@@ -103,6 +105,7 @@ router.post('/chat/conversations/:conversationId/attachments/:attachmentId/compl
   try {
     const user = await authenticatedUser(req);
     if (!user) return res.status(401).json({ error: 'Invalid or expired session' });
+    if (await rejectSuspendedActivity(res, user.id)) return;
     uuid(req.params.conversationId, 'conversation id');
     uuid(req.params.attachmentId, 'attachment id');
     const conversation = await conversationMember(req.params.conversationId, user.id);

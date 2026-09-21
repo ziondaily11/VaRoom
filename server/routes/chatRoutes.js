@@ -4,6 +4,7 @@ const express = require('express');
 const supabaseAdmin = require('../lib/supabaseClient');
 const { createNotification } = require('../lib/notifications');
 const { ValidationError, assertAllowedKeys, text, uuid, enumValue } = require('../lib/inputValidation');
+const { rejectSuspendedActivity } = require('../lib/accountAccess');
 
 const router = express.Router();
 const chatbotApiUrl = (process.env.CHATBOT_API_URL || 'https://elie1-0.onrender.com').replace(/\/$/, '');
@@ -121,6 +122,7 @@ router.post('/chat/reports', async (req, res) => {
   try {
     const user = await authenticatedUser(req);
     if (!user) return res.status(401).json({ error: 'Invalid or expired session' });
+    if (await rejectSuspendedActivity(res, user.id)) return;
     assertAllowedKeys(req.body, ['conversationId', 'reason', 'details']);
     const conversationId = uuid(req.body.conversationId, 'conversationId');
     const reason = text(req.body.reason, 'reason', { max: 200 });
@@ -205,6 +207,7 @@ router.get('/chat/conversations/:conversationId/messages', async (req, res) => {
   try {
     const user = await authenticatedUser(req);
     if (!user) return res.status(401).json({ error: 'Invalid or expired session' });
+    if (await rejectSuspendedActivity(res, user.id)) return;
     const conversationId = uuid(req.params.conversationId, 'conversation id');
     const conversation = await memberConversation(conversationId, user.id);
     if (!conversation) return res.status(403).json({ error: 'Conversation access denied' });
@@ -254,6 +257,7 @@ router.post('/chat/conversations/:conversationId/read', async (req, res) => {
   try {
     const user = await authenticatedUser(req);
     if (!user) return res.status(401).json({ error: 'Invalid or expired session' });
+    if (await rejectSuspendedActivity(res, user.id)) return;
     const conversationId = uuid(req.params.conversationId, 'conversation id');
     const conversation = await memberConversation(conversationId, user.id);
     if (!conversation) return res.status(403).json({ error: 'Conversation access denied' });

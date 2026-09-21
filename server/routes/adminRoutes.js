@@ -386,9 +386,10 @@ function createAdminRoutes(supabaseAdmin) {
     if (userError || !existing.user) return res.status(404).json({ error: 'User not found' });
     const { error } = await supabaseAdmin.from('account_controls').upsert({ user_id: req.params.id, status, reason: reason || null, changed_at: new Date().toISOString(), changed_by: req.admin.id });
     if (error) return res.status(502).json({ error: error.message });
-    // `banDuration: none` removes a previous ban; an effectively permanent ban
-    // blocks new authenticated sessions for suspended/disabled accounts.
-    const authUpdate = await supabaseAdmin.auth.admin.updateUserById(req.params.id, status === 'active' ? { ban_duration: 'none' } : { ban_duration: '876000h' });
+    // Suspension is intentionally not an auth ban: people retain their normal
+    // session and browse-only access. Clear legacy auth bans when moderation
+    // changes so this lifecycle is enforced by account_controls instead.
+    const authUpdate = await supabaseAdmin.auth.admin.updateUserById(req.params.id, { ban_duration: 'none' });
     if (authUpdate.error) return res.status(502).json({ error: authUpdate.error.message });
     await logActivity(req.admin, status === 'active' ? 'account_restored' : `account_${status}`, 'user', req.params.id, reason);
     return res.json({ status, reason: reason || null });

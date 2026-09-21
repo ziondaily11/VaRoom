@@ -12,6 +12,7 @@ const chatRoutes = require('./routes/chatRoutes');
 const reviewRoutes = require('./routes/reviewRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const { createAdminRoutes } = require('./routes/adminRoutes');
+const { rejectSuspendedActivity } = require('./lib/accountAccess');
 const { runFullCleanup } = require('./lib/videoCleanup');
 const { MAX_JSON_BYTES, validateJsonPayload, ValidationError, uuid, text, number } = require('./lib/inputValidation');
 const { ERROR_CODES, sendError } = require('./lib/apiResponse');
@@ -80,6 +81,7 @@ app.post('/api/listing-reports', async (req, res) => {
 
   const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
   if (authError || !user) return sendError(res, 401, 'Invalid or expired session', ERROR_CODES.UNAUTHORIZED);
+  if (await rejectSuspendedActivity(res, user.id)) return;
 
   try {
     const normalizedListingId = uuid(listingId, 'listing_id');
@@ -370,6 +372,7 @@ app.post('/api/delete-account', async (req, res) => {
   if (verifyError || !user) {
     return sendError(res, 401, 'Invalid or expired session');
   }
+  if (await rejectSuspendedActivity(res, user.id)) return;
 
   const reasons = [
     'I no longer use VaRoom',

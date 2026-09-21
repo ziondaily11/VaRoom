@@ -3,6 +3,7 @@ const supabaseAdmin = require('../lib/supabaseClient');
 const {
   ValidationError, assertAllowedKeys, text, uuid, number, enumValue,
 } = require('../lib/inputValidation');
+const { rejectSuspendedActivity } = require('../lib/accountAccess');
 
 const router = express.Router();
 const STATUSES = new Set(['available', 'booked', 'unavailable', 'paused']);
@@ -25,6 +26,7 @@ async function authenticatedHost(req, res) {
     res.status(403).json({ error: 'Host access required' });
     return null;
   }
+  if (await rejectSuspendedActivity(res, user.id)) return null;
   return user;
 }
 
