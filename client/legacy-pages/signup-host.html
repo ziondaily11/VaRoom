@@ -349,6 +349,13 @@
     .form-note, .form-switch { color: #707070; }
     @media (max-width: 760px) { .signup-content { padding: 22px 22px 0; } .signup-hero { min-height: 40vh; min-height: 40svh; border-radius: 0 0 30px 30px; } }
     @media (prefers-reduced-motion: reduce) { .signup-hero__message { animation: none; } .signup-hero__message:first-child { opacity: 1; transform: none; } }
+    @media (min-width: 761px) {
+      html, body { overflow: hidden; }
+      .page, .form-panel { min-height: 100vh; height: 100vh; }
+      .form-panel { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); padding: 0; }
+      .signup-hero { grid-column: 1; grid-row: 1; min-height: 100vh; height: 100vh; border-radius: 0; }
+      .signup-content { grid-column: 2; grid-row: 1; align-self: stretch; display: flex; flex-direction: column; justify-content: center; width: min(100%, 460px); min-height: 0; margin: 0 auto; padding: 48px 7vw; overflow-y: auto; }
+    }
   </style>
 </head>
 <body>

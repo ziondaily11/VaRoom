@@ -304,6 +304,16 @@
       }
       .form-eyebrow { margin: 0 -22px 22px; min-height: 40vh; min-height: 40svh; padding: 22px; border-radius: 0 0 30px 30px; }
     }
+
+    /* Desktop: hero and form become equal split-screen columns. */
+    @media (min-width: 761px) {
+      html, body { overflow: hidden; }
+      .page { min-height: 100vh; height: 100vh; }
+      .form-panel { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); min-height: 100vh; height: 100vh; padding: 0; }
+      .form-eyebrow { grid-column: 1; grid-row: 1; min-height: 100vh; height: 100vh; margin: 0; padding: 28px; border-radius: 0; }
+      .login-content { grid-column: 2; grid-row: 1; align-self: stretch; display: flex; flex-direction: column; justify-content: center; width: min(100%, 460px); min-height: 0; margin: 0 auto; padding: 48px 7vw; overflow-y: auto; }
+      .login-content .form-title, .login-content .form-sub, .login-content .btn-google, .login-content .divider, .login-content #login-form, .login-content .form-note, .login-content .form-switch { width: 100%; }
+    }
   </style>
 </head>
 <body>
@@ -320,6 +330,7 @@
         <span class="hero-brand hero-book">Book.</span>
       </div>
     </div>
+    <div class="login-content">
     <h1 class="form-title">Log in to VaRoom.</h1>
     <p class="form-sub">Access your host or client account.</p>
 
@@ -368,6 +379,7 @@
     </button>
 
     <p class="form-switch">New to VaRoom? <a href="/?signup=1" id="create-link">Create an account</a></p>
+    </div>
   </div>
 
 </div>
