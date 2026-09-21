@@ -237,8 +237,8 @@
     scrollbar-width:none;
   }
   .dash-main::-webkit-scrollbar{ display:none; }
-  .suspension-notice{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin:0 0 1rem;padding:1rem 1.05rem;border:1px solid #C95D48;border-radius:12px;background:transparent;color:var(--ink)}
-  .suspension-notice-title{font-weight:700;margin:0 0 .3rem}.suspension-notice-copy{margin:0;font-size:.88rem;line-height:1.45;color:var(--muted)}.suspension-notice-action{flex:0 0 auto;color:var(--red-deep);font-size:.84rem;font-weight:700;white-space:nowrap}
+  .suspension-notice{display:block;margin:0 0 1rem;padding:1.15rem 1.05rem;border:1px solid #C95D48;border-radius:12px;background:transparent;color:var(--ink)}
+  .suspension-notice-title{font-size:1.25rem;font-weight:750;letter-spacing:-.02em;margin:0 0 .35rem}.suspension-notice-copy{max-width:48rem;margin:0;font-size:.92rem;line-height:1.5;color:var(--muted)}.suspension-notice-action{display:inline-block;margin-top:.65rem;color:var(--red-deep);font-size:.88rem;font-weight:700}
   @media(max-width:680px){.suspension-notice{padding:.85rem;gap:.7rem}.suspension-notice-action{font-size:.78rem}}
   .host-rail{
     grid-column: 3;
@@ -1271,9 +1271,10 @@
 
     if (!profile) { window.location.href = '/login'; return; }
     if (profile.role === 'client') { window.location.href = '/client-home'; return; }
-    const { data: accountControl } = await supabaseClient.from('account_controls').select('status').eq('user_id', currentUser.id).maybeSingle();
-    const isSuspended = accountControl && accountControl.status !== 'active';
-    function suspensionNotice(){ return '<section class="suspension-notice" role="status"><div><p class="suspension-notice-title">Your account has been suspended.</p><p class="suspension-notice-copy">You can keep browsing Varoom, but you cannot interact, transact, post, or communicate until it is resolved. Contact Support to submit an appeal.</p></div><a class="suspension-notice-action" href="/support">Go to Support →</a></section>'; }
+    const accountStatusResponse = await fetch('/api/account-status', { headers: { Authorization: 'Bearer ' + session.access_token } }).catch(function(){ return null; });
+    const accountStatus = accountStatusResponse && accountStatusResponse.ok ? await accountStatusResponse.json() : { suspended: false };
+    const isSuspended = accountStatus.suspended === true;
+    function suspensionNotice(){ return '<section class="suspension-notice" role="status"><p class="suspension-notice-title">Your account has been suspended</p><p class="suspension-notice-copy">You can still browse Varoom and view listings. Posting, booking, messaging, and other account activity are unavailable while your account is suspended. If you think this is a mistake, you can submit an appeal.</p><a class="suspension-notice-action" href="/support">Go to Support / Submit Appeal →</a></section>'; }
 
     const firstName = (profile.full_name || 'there').split(' ')[0];
 
@@ -2275,7 +2276,7 @@
       const snapshot = window.VaRoomListingFeedCache.snapshot(activeFeedKey);
       const data = snapshot.items.slice(0, visibleListingCount);
       if (data.length === 0) {
-        feedList.innerHTML = '<p class="state-msg">' + (showOnlyMine ? 'You haven\'t listed a space yet.' : 'No listings match yet — try a different category, location, or @username.') + '</p>';
+        feedList.innerHTML = (isSuspended ? suspensionNotice() : '') + '<p class="state-msg">' + (showOnlyMine ? 'You haven\'t listed a space yet.' : 'No listings match yet — try a different category, location, or @username.') + '</p>';
         return;
       }
 

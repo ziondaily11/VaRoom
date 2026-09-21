@@ -73,6 +73,20 @@ app.use(express.static(path.join(clientDirectory, 'public')));
 
 app.use('/admin', createAdminRoutes(supabaseAdmin));
 
+// A narrow authenticated read endpoint keeps account_controls private while
+// allowing the normal home experience to explain browse-only suspension.
+app.get('/api/account-status', async (req, res) => {
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  if (!token) return sendError(res, 401, 'Missing access token', ERROR_CODES.UNAUTHORIZED);
+  const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+  if (authError || !user) return sendError(res, 401, 'Invalid or expired session', ERROR_CODES.UNAUTHORIZED);
+  const { data, error } = await supabaseAdmin.from('account_controls')
+    .select('status,changed_at').eq('user_id', user.id).maybeSingle();
+  if (error) return sendError(res, 502, 'Unable to load account status');
+  return res.json({ status: data?.status || 'active', suspended: Boolean(data && data.status !== 'active') });
+});
+
 app.post('/api/listing-reports', async (req, res) => {
   const { listing_id: listingId, reason, details } = req.body || {};
   const authHeader = req.headers.authorization || '';
