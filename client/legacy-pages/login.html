@@ -58,8 +58,8 @@
 
     .form-eyebrow {
       margin: 0 calc(-1 * max(7vw, 28px)) 30px;
-      min-height: 30vh;
-      min-height: 30svh;
+      min-height: 40vh;
+      min-height: 40svh;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -70,6 +70,42 @@
       font: 700 clamp(25px, 5vw, 32px) var(--sans);
       letter-spacing: -0.7px;
       text-transform: none;
+    }
+
+    .hero-message { position: relative; width: 100%; height: 1.3em; }
+    .hero-message span {
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      opacity: 0; transform: translateY(10px); will-change: transform, opacity;
+    }
+    .hero-welcome { animation: hero-welcome 5.6s cubic-bezier(0.22, 1, 0.36, 1) infinite; }
+    .hero-list { animation: hero-list 5.6s cubic-bezier(0.22, 1, 0.36, 1) infinite; }
+    .hero-find { animation: hero-find 5.6s cubic-bezier(0.22, 1, 0.36, 1) infinite; }
+    .hero-book { animation: hero-book 5.6s cubic-bezier(0.22, 1, 0.36, 1) infinite; }
+
+    @keyframes hero-welcome {
+      0%, 100% { opacity: 0; transform: translateY(10px); }
+      7%, 28% { opacity: 1; transform: translateY(0); }
+      36% { opacity: 0; transform: translateY(-12px); }
+    }
+    @keyframes hero-list {
+      0%, 36%, 100% { opacity: 0; transform: translateY(10px); }
+      43%, 52% { opacity: 1; transform: translateY(0); }
+      58% { opacity: 0; transform: translateY(-10px); }
+    }
+    @keyframes hero-find {
+      0%, 58%, 100% { opacity: 0; transform: translateY(10px); }
+      65%, 70% { opacity: 1; transform: translateY(0); }
+      76% { opacity: 0; transform: translateY(-10px); }
+    }
+    @keyframes hero-book {
+      0%, 76%, 100% { opacity: 0; transform: translateY(10px); }
+      83%, 91% { opacity: 1; transform: translateY(0); }
+      97% { opacity: 0; transform: translateY(-10px); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .hero-message span { animation: none; }
+      .hero-message .hero-welcome { opacity: 1; transform: none; }
+      .hero-message .hero-brand { display: none; }
     }
 
     .form-title {
@@ -266,7 +302,7 @@
         padding: 0 22px 24px;
         min-height: 100vh;
       }
-      .form-eyebrow { margin: 0 -22px 22px; min-height: 30vh; min-height: 30svh; padding: 22px; border-radius: 0 0 30px 30px; }
+      .form-eyebrow { margin: 0 -22px 22px; min-height: 40vh; min-height: 40svh; padding: 22px; border-radius: 0 0 30px 30px; }
     }
   </style>
 </head>
@@ -276,7 +312,14 @@
 
   <!-- Authentication form -->
   <div class="form-panel">
-    <p class="form-eyebrow">Welcome back</p>
+    <div class="form-eyebrow" aria-label="Welcome back. List. Find. Book.">
+      <div class="hero-message" aria-hidden="true">
+        <span class="hero-welcome">Welcome back</span>
+        <span class="hero-brand hero-list">List.</span>
+        <span class="hero-brand hero-find">Find.</span>
+        <span class="hero-brand hero-book">Book.</span>
+      </div>
+    </div>
     <h1 class="form-title">Log in to VaRoom.</h1>
     <p class="form-sub">Access your host or client account.</p>
 
