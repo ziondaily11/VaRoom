@@ -4,6 +4,29 @@ const { createNotification } = require('../lib/notifications');
 const { ValidationError, uuid, text, number } = require('../lib/inputValidation');
 const router = express.Router();
 
+async function loadReviewsWithClients(column, value) {
+  const { data: rows, error } = await supabaseAdmin.from('reviews')
+    .select('id,rating,comment,created_at,client_id')
+    .eq(column, value)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+
+  const clientIds = [...new Set((rows || []).map((review) => review.client_id).filter(Boolean))];
+  let clientsById = {};
+  if (clientIds.length) {
+    const { data: clients, error: clientsError } = await supabaseAdmin.from('profiles')
+      .select('id,full_name,avatar_url')
+      .in('id', clientIds);
+    if (clientsError) console.warn('Review author profiles could not be loaded:', clientsError.message);
+    clientsById = Object.fromEntries((clients || []).map((client) => [client.id, client]));
+  }
+
+  return (rows || []).map((review) => ({
+    ...review,
+    client: clientsById[review.client_id] || null,
+  }));
+}
+
 // Submit a review for a booking (server-side validated)
 router.post('/bookings/:bookingId/review', async (req, res) => {
   const authHeader = req.headers.authorization || '';
@@ -91,10 +114,7 @@ router.post('/bookings/:bookingId/review', async (req, res) => {
 router.get('/listings/:id/reviews', async (req, res) => {
   try {
     const listingId = uuid(req.params.id, 'listing id');
-    const { data: rows, error } = await supabaseAdmin.from('reviews')
-      .select('id,rating,comment,created_at, client:profiles(id,full_name,avatar_url)')
-      .eq('listing_id', listingId).order('created_at', { ascending: false });
-    if (error) return res.status(500).json({ error: 'Unable to load reviews' });
+    const rows = await loadReviewsWithClients('listing_id', listingId);
 
     const reviewCount = (rows || []).length;
     const avg = reviewCount ? (rows.reduce((s, r) => s + Number(r.rating || 0), 0) / reviewCount) : null;
@@ -111,10 +131,7 @@ router.get('/listings/:id/reviews', async (req, res) => {
 router.get('/hosts/:id/reviews', async (req, res) => {
   try {
     const hostId = uuid(req.params.id, 'host id');
-    const { data: rows, error } = await supabaseAdmin.from('reviews')
-      .select('id,rating,comment,created_at, client:profiles(id,full_name,avatar_url)')
-      .eq('host_id', hostId).order('created_at', { ascending: false });
-    if (error) return res.status(500).json({ error: 'Unable to load host reviews' });
+    const rows = await loadReviewsWithClients('host_id', hostId);
 
     const reviewCount = (rows || []).length;
     const avg = reviewCount ? (rows.reduce((s, r) => s + Number(r.rating || 0), 0) / reviewCount) : null;
