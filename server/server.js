@@ -18,6 +18,7 @@ const { MAX_JSON_BYTES, validateJsonPayload, ValidationError, uuid, text, number
 const { ERROR_CODES, sendError } = require('./lib/apiResponse');
 const { createBillingRoutes } = require('./routes/billingRoutes');
 const { createPaystackWebhookRoutes } = require('./routes/paystackWebhookRoutes');
+const { sendRecoveryOtp, sendConfirmationEmail } = require('./lib/authEmail');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -215,109 +216,107 @@ app.get('/u/:username', (_req, res) => {
   res.sendFile(path.join(legacyPagesDirectory, 'profile-public.html'));
 });
 
-// Rate-limit in-memory tracker for OTP requests
 const otpRequestTracker = new Map();
+const confirmationRequestTracker = new Map();
+const AUTH_EMAIL_COOLDOWN_MS = 60000;
+const hasEmailProvider = () => Boolean(process.env.RESEND_API_KEY && process.env.RESEND_FROM_EMAIL);
+function authRedirectUrl(redirect) {
+  const baseUrl = `${(process.env.PUBLIC_BASE_URL || `http://localhost:${PORT}`).replace(/\/$/, '')}/auth-callback`;
+  // Preserve only a local post-auth destination; never reflect an external URL
+  // into an authentication email.
+  return typeof redirect === 'string' && /^\/(?!\/)/.test(redirect)
+    ? `${baseUrl}?redirect=${encodeURIComponent(redirect)}`
+    : baseUrl;
+}
 
-// Dedicated Password Reset OTP request endpoint
+function isThrottled(tracker, key) {
+  const elapsed = Date.now() - (tracker.get(key) || 0);
+  return elapsed < AUTH_EMAIL_COOLDOWN_MS ? Math.ceil((AUTH_EMAIL_COOLDOWN_MS - elapsed) / 1000) : 0;
+}
+
 app.post('/api/auth/forgot-password', async (req, res) => {
-  const { email } = req.body || {};
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return sendError(res, 400, 'Please enter a valid email address');
+  const normalizedEmail = String((req.body || {}).email || '').trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) return sendError(res, 400, 'Please enter a valid email address');
+  const waitSeconds = isThrottled(otpRequestTracker, normalizedEmail);
+  if (waitSeconds) return sendError(res, 429, `Please wait ${waitSeconds}s before requesting another code.`, ERROR_CODES.RATE_LIMITED);
+  if (!hasEmailProvider()) {
+    console.error('Password-reset delivery is not configured: RESEND_API_KEY and RESEND_FROM_EMAIL are required.');
+    return sendError(res, 503, 'Email delivery is temporarily unavailable. Please try again later.');
   }
-
-  const normalizedEmail = email.trim().toLowerCase();
-
-  // Rate limiting: 60s cooldown per email
-  const lastSent = otpRequestTracker.get(normalizedEmail);
-  const now = Date.now();
-  if (lastSent && (now - lastSent) < 60000) {
-    const waitSeconds = Math.ceil((60000 - (now - lastSent)) / 1000);
-    return sendError(
-      res,
-      429,
-      `Please wait ${waitSeconds}s before requesting another code.`,
-      ERROR_CODES.RATE_LIMITED
-    );
-  }
-
   try {
-    // 1. Generate real recovery OTP via Supabase admin
-    const { data, error } = await supabaseAdmin.auth.admin.generateLink({
-      type: 'recovery',
-      email: normalizedEmail
-    });
-
-    if (error) {
-      console.log(`Password reset requested for non-existent user: ${normalizedEmail}`);
-      return res.json({
-        success: true,
-        message: "If an account exists for this email, we've sent you a verification code."
-      });
-    }
-
-    const otpCode = data.properties && data.properties.email_otp;
-    otpRequestTracker.set(normalizedEmail, now);
-
-    // 2. If RESEND_API_KEY is configured on the server, dispatch the OTP-only email via Resend
-    const resendApiKey = process.env.RESEND_API_KEY;
-    if (resendApiKey && otpCode) {
-      const fromEmail = process.env.RESEND_FROM_EMAIL || 'VaRoom <onboarding@resend.dev>';
-      const emailHtml = `
-        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 28px 24px; color: #1a1210; background: #ffffff; border: 1px solid #d9c9c2; border-radius: 8px;">
-          <h2 style="font-size: 20px; font-weight: 700; color: #1a1210; margin: 0 0 12px;">Reset your VaRoom password</h2>
-          <p style="font-size: 14px; color: #756661; line-height: 1.5; margin: 0 0 20px;">
-            We received a request to reset your VaRoom password.
-          </p>
-          <p style="font-size: 13px; font-weight: 600; color: #1a1210; margin: 0 0 8px;">
-            Your verification code is:
-          </p>
-          <div style="background: #fbf4f1; border: 1.5px solid #d9c9c2; border-radius: 6px; padding: 14px; text-align: center; margin: 0 0 20px;">
-            <span style="font-family: 'SFMono-Regular', Consolas, Menlo, monospace; font-size: 32px; font-weight: 700; letter-spacing: 6px; color: #c41e3a;">${otpCode}</span>
-          </div>
-          <p style="font-size: 13px; color: #756661; line-height: 1.5; margin: 0 0 16px;">
-            This code expires in 10 minutes.
-          </p>
-          <p style="font-size: 12px; color: #9e8e89; line-height: 1.5; margin: 0; border-top: 1px solid #eae1dc; padding-top: 14px;">
-            If you did not request a password reset, you can safely ignore this email.
-          </p>
-        </div>
-      `;
-
-      try {
-        const emailRes = await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${resendApiKey}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            from: fromEmail,
-            to: normalizedEmail,
-            subject: 'Reset your VaRoom password',
-            html: emailHtml
-          })
-        });
-
-        if (!emailRes.ok) {
-          const errBody = await emailRes.text();
-          console.error('Resend API error:', errBody);
-        } else {
-          console.log(`Dispatched 6-digit OTP email to ${normalizedEmail} via Resend`);
-        }
-      } catch (sendErr) {
-        console.error('Failed to send email via Resend:', sendErr.message);
-      }
-    }
-
-    return res.json({
-      success: true,
-      message: "If an account exists for this email, we've sent you a verification code."
-    });
-
-  } catch (err) {
-    console.error('Forgot password error:', err);
-    return sendError(res, 500, 'Could not process password reset request.');
+    const { data, error } = await supabaseAdmin.auth.admin.generateLink({ type: 'recovery', email: normalizedEmail });
+    if (error) return res.json({ success: true, message: "If an account exists for this email, we've sent you a verification code." });
+    await sendRecoveryOtp(normalizedEmail, data.properties && data.properties.email_otp);
+    otpRequestTracker.set(normalizedEmail, Date.now());
+    return res.json({ success: true, message: "If an account exists for this email, we've sent you a verification code." });
+  } catch (error) {
+    console.error('Forgot-password email failed:', error.message);
+    return sendError(res, 502, 'Could not send the verification code. Please try again.');
   }
+});
+
+async function createSignupConfirmation({ email, password, fullName, role, redirect }) {
+  const { data, error } = await supabaseAdmin.auth.admin.generateLink({
+    type: 'signup',
+    email,
+    password,
+    data: { full_name: fullName, role },
+    options: { redirectTo: authRedirectUrl(redirect) }
+  });
+  if (error) throw error;
+  try {
+    await sendConfirmationEmail(email, data.properties && data.properties.action_link);
+  } catch (error) {
+    // generateLink creates the user. Roll it back when delivery fails so the
+    // address is not stranded in an account it cannot confirm.
+    if (data.user && data.user.id) await supabaseAdmin.auth.admin.deleteUser(data.user.id).catch(() => {});
+    throw error;
+  }
+  return data.user;
+}
+
+app.post('/api/auth/sign-up', async (req, res) => {
+  const { email, password, fullName, role, redirect } = req.body || {};
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail) || String(password || '').length < 8 || String(fullName || '').trim().length < 2 || !['client', 'host'].includes(role)) return sendError(res, 400, 'Please provide a name, valid email address, and password of at least 8 characters.');
+  if (!hasEmailProvider()) return sendError(res, 503, 'Email delivery is temporarily unavailable. Please try again later.');
+  if (isThrottled(confirmationRequestTracker, normalizedEmail)) return sendError(res, 429, 'Please wait before requesting another confirmation email.', ERROR_CODES.RATE_LIMITED);
+  try {
+    await createSignupConfirmation({ email: normalizedEmail, password, fullName: String(fullName).trim(), role, redirect });
+    confirmationRequestTracker.set(normalizedEmail, Date.now());
+    return res.status(201).json({ success: true });
+  } catch (error) {
+    console.error('Account signup or confirmation email failed:', error.message);
+    const status = /already registered|already exists/i.test(error.message || '') ? 409 : 502;
+    return sendError(res, status, status === 409 ? 'An account with this email already exists.' : 'We could not send the confirmation email. Please try again.');
+  }
+});
+
+app.post('/api/auth/resend-confirmation', async (req, res) => {
+  const normalizedEmail = String((req.body || {}).email || '').trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) return sendError(res, 400, 'Please enter a valid email address.');
+  if (!hasEmailProvider()) return sendError(res, 503, 'Email delivery is temporarily unavailable. Please try again later.');
+  if (isThrottled(confirmationRequestTracker, normalizedEmail)) return sendError(res, 429, 'Please wait before requesting another confirmation email.', ERROR_CODES.RATE_LIMITED);
+  try {
+    // Supabase refreshes the confirmation token for an existing unconfirmed
+    // account without requiring its password. This gives expired links a
+    // secure resend path while preserving the original account.
+    const { data, error } = await supabaseAdmin.auth.admin.generateLink({
+      type: 'signup', email: normalizedEmail, options: { redirectTo: authRedirectUrl() }
+    });
+    if (error) throw error;
+    await sendConfirmationEmail(normalizedEmail, data.properties && data.properties.action_link);
+    confirmationRequestTracker.set(normalizedEmail, Date.now());
+  } catch (error) {
+    // Keep account existence private, but do not claim delivery succeeded when
+    // the configured mail provider itself rejected the message.
+    if (/already registered|already exists/i.test(error.message || '')) {
+      return res.json({ success: true, message: "If that email has a pending verification, we've sent a new link." });
+    }
+    console.error('Confirmation resend failed:', error.message);
+    return sendError(res, 502, 'Could not send the confirmation email. Please try again.');
+  }
+  return res.json({ success: true, message: "If that email has a pending verification, we've sent a new link." });
 });
 
 // Placeholder API route — real listing/provider/client routes will live in ./routes

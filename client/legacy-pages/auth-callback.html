@@ -244,11 +244,13 @@
         feedback.classList.remove('error');
         feedback.textContent = 'Sending…';
 
-        const { error: resendError } = await supabaseClient.auth.resend({
-          type: 'signup',
-          email: email,
-          options: { emailRedirectTo: window.location.origin + '/auth-callback' }
+        const resendResponse = await fetch('/api/auth/resend-confirmation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: email })
         });
+        const resendResult = await resendResponse.json().catch(function(){ return {}; });
+        const resendError = resendResponse.ok ? null : new Error(resendResult.error || 'Could not resend the confirmation email.');
 
         // Keep this generic either way — don't confirm/deny whether the
         // email is registered, and don't surface raw provider error text.
@@ -256,6 +258,12 @@
           feedback.classList.add('error');
           feedback.textContent = "You've requested a few of these already — please wait a bit before trying again.";
           startCooldown(60);
+          return;
+        }
+
+        if (resendError) {
+          feedback.classList.add('error');
+          feedback.textContent = resendError.message;
           return;
         }
 

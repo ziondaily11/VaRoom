@@ -485,32 +485,18 @@
     submitBtn.disabled = true;
 
     try {
-      var { data, error } = await supabaseClient.auth.signUp({
-        email: email,
-        password: pass,
-        options: {
-          data: {
-            full_name: name,
-            role: 'host'
-          },
-          emailRedirectTo: window.location.origin + '/auth-callback' +
-            (redirect ? '?redirect=' + encodeURIComponent(redirect) : '')
-        }
+      var response = await fetch('/api/auth/sign-up', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email, password: pass, fullName: name, role: 'host', redirect: redirect })
       });
-
-      if (error) throw error;
+      var result = await response.json().catch(function() { return {}; });
+      if (!response.ok) throw new Error(result.error || 'Could not create your account.');
 
       // Store intended role
       sessionStorage.setItem('varoom_intended_role', 'host');
 
-      // If email confirmation required
-      if (data.user && !data.session) {
-        showAlert('Account created! Check your email to confirm and finish setting up.', 'success');
-        form.reset();
-      } else if (data.session) {
-        // Auto-confirmed — go to host onboarding
-        window.location.href = redirect || '/onboarding';
-      }
+      showAlert('Account created! Check your email to confirm and finish setting up.', 'success');
+      form.reset();
 
     } catch(err) {
       var msg = err.message || 'Something went wrong. Please try again.';

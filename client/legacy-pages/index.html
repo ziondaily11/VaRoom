@@ -3942,8 +3942,8 @@
         return;
       }
 
-      if (!pass || pass.length < 6) {
-        showAlert('Password must be at least 6 characters.');
+      if (!pass || pass.length < 8) {
+        showAlert('Password must be at least 8 characters.');
         if (passInput) passInput.focus();
         return;
       }
@@ -3955,32 +3955,15 @@
         var redirect = new URLSearchParams(window.location.search).get('redirect');
 
         if (currentMode === 'signup') {
-          // Sign Up
-          var { data: signUpData, error: signUpError } = await supabaseClient.auth.signUp({
-            email: email,
-            password: pass,
-            options: {
-              data: {
-                full_name: name,
-                role: selectedRole
-              }
-            }
+          var signUpResponse = await fetch('/api/auth/sign-up', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: email, password: pass, fullName: name, role: selectedRole, redirect: redirect })
           });
-
-          if (signUpError) throw signUpError;
-
-          if (signUpData && signUpData.user && signUpData.user.identities && signUpData.user.identities.length === 0) {
-            showAlert('An account with this email already exists. Please log in.');
-            setMode('login');
-            return;
-          }
-
-          if (signUpData && signUpData.session) {
-            // Auto signed in
-            window.location.href = redirect || (selectedRole === 'host' ? '/host-home' : '/client-home');
-          } else {
-            showAlert('Account created! Please check your email to verify your account.', true);
-          }
+          var signUpResult = await signUpResponse.json().catch(function() { return {}; });
+          if (!signUpResponse.ok) throw new Error(signUpResult.error || 'Could not create your account.');
+          sessionStorage.setItem('varoom_intended_role', selectedRole);
+          showAlert('Account created! Please check your email to verify your account.', true);
 
         } else {
           // Sign In
