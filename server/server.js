@@ -7,6 +7,7 @@ const supabaseAdmin = require('./lib/supabaseClient');
 const { getListingLocation, getBookingLocation, getListingDistance } = require('./lib/locationAccess');
 const videoRoutes = require('./routes/videoRoutes');
 const listingRoutes = require('./routes/listingRoutes');
+const businessRoutes = require('./routes/businessRoutes');
 const chatAttachmentRoutes = require('./routes/chatAttachmentRoutes');
 const chatRoutes = require('./routes/chatRoutes');
 const reviewRoutes = require('./routes/reviewRoutes');
@@ -61,6 +62,7 @@ app.use('/api', (req, res, next) => {
 // Mount video upload routes
 app.use('/api', videoRoutes);
 app.use('/api', listingRoutes);
+app.use('/api', businessRoutes);
 app.use('/api', chatAttachmentRoutes);
 app.use('/api', chatRoutes);
 app.use('/api', reviewRoutes);
@@ -167,7 +169,9 @@ const pageTemplates = {
   '/properties': 'list.html',
   '/list': 'list.html',
   '/client-home': 'client-home.html',
+  '/create': 'create.html',
   '/host-home': 'host-home.html',
+  '/hotel': 'hotel-profile.html',
   '/booking': 'booking.html',
   '/booking-approved': 'booking-approved.html',
   '/chats': 'chats.html',

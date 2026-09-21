@@ -36,16 +36,19 @@ router.post('/bookings/:bookingId/review', async (req, res) => {
     const { data: listing, error: listingError } = await supabaseAdmin.from('listings')
       .select('id, host_id').eq('id', booking.listing_id).maybeSingle();
     if (listingError || !listing) return res.status(500).json({ error: 'Unable to verify listing/host' });
+    const { data: hotelRoom } = await supabaseAdmin.from('hotel_room_offerings')
+      .select('business_id').eq('listing_id', booking.listing_id).maybeSingle();
 
     // 4) Insert review using service role (server-side)
     const { data: created, error: insertError } = await supabaseAdmin.from('reviews').insert({
       booking_id: bookingId,
       listing_id: booking.listing_id,
       host_id: listing.host_id,
+      business_id: hotelRoom?.business_id || null,
       client_id: user.id,
       rating,
       comment
-    }).select('id,booking_id,listing_id,host_id,client_id,rating,comment,created_at').single();
+    }).select('id,booking_id,listing_id,host_id,business_id,client_id,rating,comment,created_at').single();
 
     if (insertError) return res.status(502).json({ error: 'Unable to create review' });
 
@@ -124,6 +127,22 @@ router.get('/hosts/:id/reviews', async (req, res) => {
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.get('/businesses/:id/reviews', async (req, res) => {
+  try {
+    const businessId = uuid(req.params.id, 'business id');
+    const { data: rows, error } = await supabaseAdmin.from('reviews')
+      .select('id,rating,comment,created_at, client:profiles(id,full_name,avatar_url)')
+      .eq('business_id', businessId).order('created_at', { ascending: false });
+    if (error) return res.status(500).json({ error: 'Unable to load business reviews' });
+    const reviewCount = (rows || []).length;
+    const averageRating = reviewCount ? (rows.reduce((sum, review) => sum + Number(review.rating || 0), 0) / reviewCount) : null;
+    return res.json({ reviews: rows || [], summary: { average_rating: averageRating, review_count: reviewCount } });
+  } catch (error) {
+    if (error instanceof ValidationError) return res.status(400).json({ error: error.message });
+    return res.status(500).json({ error: 'Unable to load business reviews' });
   }
 });
 
