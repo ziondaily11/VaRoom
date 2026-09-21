@@ -991,7 +991,7 @@
     const nichesEl = document.getElementById('profile-niches');
     const nicheLabels = { airbnb:'Airbnb', hotel:'Hotel', venue:'Event ground / venue', office:'Office', shop:'Shop', property:'Property' };
     const niches = Array.isArray(profileData.listing_categories) ? profileData.listing_categories : [];
-    if (profileData.role === 'host' && niches.length === 2) {
+    if (profileData.role === 'host' && niches.length >= 1 && niches.length <= 2) {
       nichesEl.textContent = 'Specializes in ' + niches.map(function(niche){ return nicheLabels[niche] || niche; }).join(' + ');
       nichesEl.style.display = '';
     }
@@ -1203,7 +1203,7 @@
       nicheOptions.innerHTML = Object.keys(labels).map(function(value){ return '<label><input type="checkbox" value="' + value + '"' + (selected.includes(value) ? ' checked' : '') + '> ' + labels[value] + '</label>'; }).join('');
       nicheOptions.querySelectorAll('input').forEach(function(input){ input.addEventListener('change', function(){
         const checked = nicheOptions.querySelectorAll('input:checked');
-        if (checked.length > 2) { input.checked = false; showToast('Hosts can select exactly two niches.'); }
+        if (checked.length > 2) { input.checked = false; showToast('Hosts can select up to two niches.'); }
       }); });
     }
     document.getElementById('edit-msg').textContent = '';
@@ -1282,7 +1282,7 @@
     if (currentRole === 'host') update.bio = bio || null;
     if (currentRole === 'host') {
       const niches = Array.from(document.querySelectorAll('#edit-niches-options input:checked')).map(function(input){ return input.value; });
-      if (niches.length !== 2) { showToast('Choose exactly two posting niches.'); btn.disabled = false; btn.textContent = 'Save changes'; return; }
+      if (niches.length < 1 || niches.length > 2) { showToast('Choose one or two posting niches.'); btn.disabled = false; btn.textContent = 'Save changes'; return; }
       const { data: { session } } = await supabaseClient.auth.getSession();
       const response = await fetch('/api/host/niches', { method:'PUT', headers:{ 'Content-Type':'application/json', Authorization:'Bearer ' + session.access_token }, body:JSON.stringify({ niches:niches }) });
       if (!response.ok) { const payload = await response.json().catch(function(){ return {}; }); showToast(payload.error || 'Unable to save niches.'); btn.disabled = false; btn.textContent = 'Save changes'; return; }

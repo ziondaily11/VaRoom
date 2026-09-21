@@ -61,18 +61,28 @@ function locationFields(body, { required = true } = {}) {
 router.post('/businesses', async (req, res) => {
   const user = await authenticatedUser(req, res, { host: true }); if (!user) return;
   try {
-    assertAllowedKeys(req.body, ['name', 'description', 'niches']);
+    assertAllowedKeys(req.body, ['name', 'description', 'niches', 'address_text', 'county_city', 'latitude', 'longitude', 'place_id', 'formatted_address']);
     if (!Array.isArray(req.body.niches) || !req.body.niches.length || req.body.niches.length > 2) throw new ValidationError('Provide one or two business niches');
     const niches = [...new Set(req.body.niches.map((n) => enumValue(n, 'niche', BUSINESS_NICHES)))];
     if (niches.length !== req.body.niches.length) throw new ValidationError('Business niches must be different');
     const hostNiches = user.profile.listing_categories;
-    if (!Array.isArray(hostNiches) || hostNiches.length !== 2 || niches.some((n) => !hostNiches.includes(n))) return res.status(422).json({ error: 'A business niche must be one of your two permitted niches', code: 'HOST_NICHE_NOT_ALLOWED' });
+    if (!Array.isArray(hostNiches) || hostNiches.length < 1 || hostNiches.length > 2 || niches.some((n) => !hostNiches.includes(n))) return res.status(422).json({ error: 'A business niche must be one of your permitted niches', code: 'HOST_NICHE_NOT_ALLOWED' });
+    const hotelLocation = niches.includes('hotel') ? locationFields(req.body) : null;
     const payload = { owner_id: user.id, name: text(req.body.name, 'name', { max: 300 }), description: text(req.body.description, 'description', { required: false, max: 10000 }) || null };
     const { data: business, error } = await supabaseAdmin.from('businesses').insert(payload).select().single();
     if (error) throw error;
     const { error: nicheError } = await supabaseAdmin.from('business_niches').insert(niches.map((niche) => ({ business_id: business.id, niche })));
     const { error: memberError } = await supabaseAdmin.from('business_members').insert({ business_id: business.id, user_id: user.id, role: 'owner' });
     if (nicheError || memberError) return res.status(502).json({ error: 'Business was created but could not be configured. Contact support with the business ID.', business });
+    // A hotel starts with its hotel location, not a branch-selection task.
+    // Internally this is the real primary location so every first offering can
+    // still inherit one source of truth; later locations are added as branches.
+    if (niches.includes('hotel')) {
+      const { error: locationError } = await supabaseAdmin.from('business_branches').insert({
+        business_id: business.id, name: 'Main hotel location', ...hotelLocation,
+      });
+      if (locationError) return res.status(502).json({ error: 'Business was created but its hotel location could not be saved. Contact support with the business ID.', business });
+    }
     return res.status(201).json({ business: { ...business, niches } });
   } catch (error) {
     if (error instanceof ValidationError) return res.status(400).json({ error: error.message });

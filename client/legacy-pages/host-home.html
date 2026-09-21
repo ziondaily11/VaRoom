@@ -1038,7 +1038,7 @@
 
     <nav class="nav-group">
       <p class="nav-label">Host</p>
-      <a href="/create" class="list-space-btn" aria-label="Add to your Varoom profile">
+      <a href="#" class="list-space-btn" data-open-create aria-label="Add to your Varoom profile">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         +
       </a>
@@ -1114,7 +1114,7 @@
           <p class="greeting-sub">Ready to list your next space?</p>
           <p class="mobile-mini-stats" id="mobile-mini-stats"></p>
         </div>
-        <a href="/create" class="list-btn-primary list-btn-top">
+        <a href="#" class="list-btn-primary list-btn-top" data-open-create>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           <span class="btn-label">+</span>
         </a>
@@ -1177,7 +1177,7 @@
         </div>
         <h3>You haven't listed a space yet</h3>
         <p>List your first Airbnb, hotel, venue, office, shop, or property to start getting inquiries.</p>
-        <a href="/create" class="list-btn-primary">
+        <a href="#" class="list-btn-primary" data-open-create>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           +
         </a>
@@ -1267,7 +1267,7 @@
 
     const { data: profile } = await supabaseClient
       .from('profiles')
-      .select('role, full_name, verified, avatar_url, username')
+      .select('role, full_name, verified, avatar_url, username, listing_categories')
       .eq('id', currentUser.id)
       .maybeSingle();
 
@@ -1279,6 +1279,34 @@
     function suspensionNotice(){ return '<section class="suspension-notice" role="status"><p class="suspension-notice-title">Your account has been suspended</p><p class="suspension-notice-copy">You can still browse Varoom and view listings. Posting, booking, messaging, and other account activity are unavailable while your account is suspended. If you think this is a mistake, you can submit an appeal.</p><a class="suspension-notice-action" href="/support">Go to Support / Submit Appeal →</a></section>'; }
 
     const firstName = (profile.full_name || 'there').split(' ')[0];
+
+    // The plus action stays on this page. Hotel-specific actions are only
+    // rendered after the host's saved niche permission is verified.
+    if (Array.isArray(profile.listing_categories) && profile.listing_categories.includes('hotel')) {
+      document.body.insertAdjacentHTML('beforeend', '<div id="hotel-create-popover" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.38);z-index:1000;align-items:center;justify-content:center;padding:20px"><div style="background:#fff;border-radius:16px;padding:24px;max-width:390px;width:100%"><button id="hotel-create-close" style="float:right;border:0;background:transparent;font-size:22px">×</button><h2 style="margin-top:0">Add to your hotel</h2><p style="color:#667">Choose what to add.</p><div style="display:grid;gap:10px"><button data-hotel-action="room" class="list-btn-primary">+ Room or Suite</button><button data-hotel-action="menu" class="list-btn-primary">+ Add Menu</button><button data-hotel-action="table" class="list-btn-primary">+ Add Table</button></div><p id="hotel-create-message" style="margin:14px 0 0;color:#a33"></p></div></div>');
+      const popover = document.getElementById('hotel-create-popover');
+      const popoverMessage = document.getElementById('hotel-create-message');
+      document.querySelectorAll('[data-open-create]').forEach(function(button){ button.addEventListener('click', function(event){ event.preventDefault(); popover.style.display = 'flex'; }); });
+      document.getElementById('hotel-create-close').onclick = function(){ popover.style.display = 'none'; };
+      async function hotelContext(){
+        const response = await fetch('/api/businesses/mine', { headers: { Authorization: 'Bearer ' + session.access_token } });
+        const payload = await response.json(); const business = (payload.businesses || []).find(function(item){ return (item.niches || []).includes('hotel'); });
+        if (!business) throw new Error('Your hotel business is still being set up.');
+        const branchResponse = await fetch('/api/businesses/' + business.id + '/branches', { headers: { Authorization: 'Bearer ' + session.access_token } });
+        const branchPayload = await branchResponse.json(); const branch = (branchPayload.branches || []).find(function(item){ return item.status === 'active'; });
+        if (!branch) throw new Error('Add your hotel location in profile settings first.');
+        return { business: business, branch: branch };
+      }
+      document.querySelectorAll('[data-hotel-action]').forEach(function(button){ button.onclick = async function(){
+        try { popoverMessage.textContent = ''; const context = await hotelContext();
+          if (button.dataset.hotelAction === 'room') { window.location.href = '/list?business_id=' + encodeURIComponent(context.business.id) + '&branch_id=' + encodeURIComponent(context.branch.id); return; }
+          if (button.dataset.hotelAction === 'menu') { const title = window.prompt('Menu name'); if (!title) return; const result = await fetch('/api/businesses/' + context.business.id + '/menus', { method:'POST', headers:{'Content-Type':'application/json', Authorization:'Bearer ' + session.access_token}, body:JSON.stringify({branch_id:context.branch.id,title:title,categories:[]}) }); if (!result.ok) throw new Error((await result.json()).error || 'Unable to add menu'); popover.style.display='none'; return; }
+          const identifier = window.prompt('Table identifier'); const capacity = Number(window.prompt('Seating capacity')); if (!identifier || !capacity) return; const result = await fetch('/api/businesses/' + context.business.id + '/tables', { method:'POST', headers:{'Content-Type':'application/json', Authorization:'Bearer ' + session.access_token}, body:JSON.stringify({branch_id:context.branch.id,identifier:identifier,seating_capacity:capacity}) }); if (!result.ok) throw new Error((await result.json()).error || 'Unable to add table'); popover.style.display='none';
+        } catch (error) { popoverMessage.textContent = error.message; }
+      }; });
+    } else {
+      document.querySelectorAll('[data-open-create]').forEach(function(button){ button.setAttribute('href', '/list'); });
+    }
 
     const hour = new Date().getHours();
     const timeGreeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
@@ -1862,7 +1890,8 @@
       const videoState = listingVideoUrls[listing.id] || null;
       const videoUrl = videoState && videoState.url ? videoState.url : videoState;
       const videoThumbnail = videoState && videoState.thumbnailUrl ? videoState.thumbnailUrl : '';
-      const initial = (host.full_name || '?').charAt(0).toUpperCase();
+      const publicBusinessName = listing.business_display_name || host.full_name || 'Host';
+      const initial = (publicBusinessName || '?').charAt(0).toUpperCase();
       const hostAvatarUrl = resolveAvatarUrl(host.avatar_url);
       const avatarHtml = hostAvatarUrl
         ? '<img src="' + hostAvatarUrl + '" alt="">'
@@ -1870,7 +1899,7 @@
       const isBookmarked = bookmarkedIds.has(listing.id);
       let photosHtml = '';
       if (videoUrl) {
-        photosHtml = '<div class="card-video single"><video muted playsinline preload="none" poster="' + escapeHtml(videoThumbnail) + '" src="' + videoUrl + '" data-video-url="' + videoUrl + '" data-listing-id="' + listing.id + '" data-video-host-name="' + escapeHtml(host.full_name || 'Host') + '" data-video-username="' + escapeHtml(host.username ? '@' + host.username : '') + '" data-video-avatar="' + escapeHtml(hostAvatarUrl || '') + '" data-video-caption="' + escapeHtml(listing.description || listing.title) + '"></video></div>';
+        photosHtml = '<div class="card-video single"><video muted playsinline preload="none" poster="' + escapeHtml(videoThumbnail) + '" src="' + videoUrl + '" data-video-url="' + videoUrl + '" data-listing-id="' + listing.id + '" data-video-host-name="' + escapeHtml(publicBusinessName) + '" data-video-username="' + escapeHtml(host.username ? '@' + host.username : '') + '" data-video-avatar="' + escapeHtml(hostAvatarUrl || '') + '" data-video-caption="' + escapeHtml(listing.description || listing.title) + '"></video></div>';
       } else if (photos.length === 0) {
         photosHtml = '<div class="card-photos card-media-empty" role="img" aria-label="No media available for this listing"></div>';
       } else if (photos.length === 1) {
@@ -1894,7 +1923,7 @@
           '<div class="card-head">' +
             '<div class="card-avatar">' + avatarHtml + '</div>' +
             '<div>' +
-              '<div class="card-host-name">' + escapeHtml(host.full_name || 'Host') + (host.verified ? '<span class="verified-tick">✔</span>' : '') + '</div>' +
+              '<div class="card-host-name">' + escapeHtml(publicBusinessName) + (host.verified ? '<span class="verified-tick">✔</span>' : '') + '</div>' +
               '<div class="card-location">' + (host.username ? '@' + escapeHtml(host.username) + ' · ' : '') + escapeHtml(listing.location_text) +
                 ' · <a href="/map?listing=' + listing.id + '" class="card-map-link">View on Map</a>' +
               '</div>' +
@@ -1928,7 +1957,7 @@
       );
     }
 
-    const FEED_SELECT = 'id,title,description,location_text,category,verified,availability_status,created_at,host_id,host:profiles(full_name,verified,avatar_url,username),listing_photos(storage_path),listing_booking_details(price_amount,price_unit)';
+    const FEED_SELECT = 'id,title,description,location_text,category,verified,availability_status,created_at,host_id,business_id,business_display_name,host:profiles(full_name,verified,avatar_url,username),listing_photos(storage_path),listing_booking_details(price_amount,price_unit)';
 
     async function startChat(listingId, hostId){
       const { data, error } = await supabaseClient

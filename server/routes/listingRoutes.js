@@ -10,8 +10,8 @@ const STATUSES = new Set(['available', 'booked', 'unavailable', 'paused']);
 const CATEGORIES = ['airbnb', 'hotel', 'venue', 'office', 'shop', 'property'];
 
 function normalizeNiches(niches) {
-  if (!Array.isArray(niches) || niches.length !== 2) {
-    throw new ValidationError('Hosts must choose exactly two posting niches');
+  if (!Array.isArray(niches) || niches.length < 1 || niches.length > 2) {
+    throw new ValidationError('Hosts must choose one or two posting niches');
   }
   const normalized = niches.map((niche) => enumValue(niche, 'niche', CATEGORIES));
   if (new Set(normalized).size !== 2) {

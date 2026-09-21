@@ -444,9 +444,9 @@
     stepContent.innerHTML =
       iconCircle('<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>') +
       '<h1>' + (isHost ? 'What will you be listing?' : 'What are you interested in?') + '</h1>' +
-      '<p class="step-sub">' + (isHost ? 'Choose exactly two niches. These are the only types of space you can post.' : 'Pick as many as you like. We\'ll use this to show you relevant listings first.') + '</p>' +
+      '<p class="step-sub">' + (isHost ? 'Choose up to two niches. These are the only types of space you can post.' : 'Pick as many as you like. We\'ll use this to show you relevant listings first.') + '</p>' +
       '<div class="checkbox-grid" id="category-grid"></div>' +
-      (isHost ? '<p class="field-msg" id="category-msg" style="text-align:center;">Choose 2 niches (0 selected).</p>' : '') +
+      (isHost ? '<p class="field-msg" id="category-msg" style="text-align:center;">Choose up to 2 niches (0 selected).</p>' : '') +
       '<button class="primary-btn" id="categories-next">Continue</button>' +
       (isHost ? '' : '<button class="skip-btn" id="categories-skip">Skip for now</button>') +
       reassureHtml();
@@ -459,10 +459,10 @@
     function updateHostSelectionState(){
       if (!isHost) return;
       const count = selected.size;
-      nextBtn.disabled = count !== 2;
-      categoryMsg.textContent = count === 2
+      nextBtn.disabled = count < 1;
+      categoryMsg.textContent = count >= 1
         ? 'Your chosen niches: ' + Array.from(selected).map(function(value){ return CATEGORIES.find(function(cat){ return cat.value === value; }).label; }).join(' + ')
-        : 'Choose exactly 2 niches (' + count + ' selected).';
+        : 'Choose at least 1 niche (up to 2).';
       grid.querySelectorAll('input').forEach(function(input){
         const lock = count >= 2 && !input.checked;
         input.disabled = lock;
@@ -488,7 +488,7 @@
     updateHostSelectionState();
 
     nextBtn.addEventListener('click', function(){
-      if ((!isHost && selected.size > 0) || (isHost && selected.size === 2)) {
+      if ((!isHost && selected.size > 0) || (isHost && selected.size >= 1 && selected.size <= 2)) {
         answers[isHost ? 'listing_categories' : 'interested_categories'] = Array.from(selected);
       }
       goNext();
@@ -518,6 +518,7 @@
         '<label for="business-name-input">Business name</label>' +
         '<input type="text" id="business-name-input" placeholder="e.g. Kuvule Suites">' +
       '</div>' +
+      (hotelSelected ? '<div class="field"><label for="hotel-location-input">Hotel location</label><input type="text" id="hotel-location-input" required placeholder="Address, neighbourhood or landmark"><label for="hotel-city-input">County or city</label><input type="text" id="hotel-city-input" placeholder="e.g. Nairobi"></div>' : '') +
       '<button class="primary-btn" id="hosttype-next" disabled>Continue</button>' +
       (hotelSelected ? '' : '<button class="skip-btn" id="hosttype-skip">Skip for now</button>') +
       reassureHtml();
@@ -551,6 +552,12 @@
             return;
           }
           if (name) answers.business_name = name;
+          if (hotelSelected) {
+            const location = document.getElementById('hotel-location-input').value.trim();
+            if (!location) { document.getElementById('hotel-location-input').reportValidity(); return; }
+            answers.hotel_location = location;
+            answers.hotel_city = document.getElementById('hotel-city-input').value.trim();
+          }
         }
       }
       goNext();
@@ -615,7 +622,7 @@
       });
       if (!nicheResponse.ok) {
         const payload = await nicheResponse.json().catch(function(){ return {}; });
-        stepContent.innerHTML = '<p class="field-msg error" style="padding:2rem 0;text-align:center;">' + (payload.error || 'Please choose exactly two niches before continuing.') + '</p>';
+        stepContent.innerHTML = '<p class="field-msg error" style="padding:2rem 0;text-align:center;">' + (payload.error || 'Choose one or two niches before continuing.') + '</p>';
         return;
       }
       delete fieldsToSave.listing_categories;
@@ -635,7 +642,7 @@
       const businessResponse = await fetch('/api/businesses', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
-        body: JSON.stringify({ name: answers.business_name, niches: ['hotel'] })
+        body: JSON.stringify({ name: answers.business_name, niches: ['hotel'], address_text: answers.hotel_location, county_city: answers.hotel_city || undefined })
       });
       if (!businessResponse.ok) {
         const payload = await businessResponse.json().catch(function(){ return {}; });
@@ -647,7 +654,7 @@
     await supabaseClient.rpc('complete_onboarding');
 
     const initialDestination = role === 'host'
-      ? (Array.isArray(answers.listing_categories) && answers.listing_categories.indexOf('hotel') !== -1 ? '/create' : '/host-home')
+      ? '/marketplace'
       : (answers.looking_timeline === 'soon' ? '/marketplace' : '/client-home');
     window.location.href = postOnboardingRedirect || initialDestination;
   }

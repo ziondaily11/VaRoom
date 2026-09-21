@@ -1305,7 +1305,8 @@
       const videoUrl = videoUrlByListing[listing.id] || null;
       const videoThumbnail = videoThumbnailByListing[listing.id] || '';
 
-      const initial = (host.full_name || '?').charAt(0).toUpperCase();
+      const publicBusinessName = listing.business_display_name || host.full_name || 'Host';
+      const initial = (publicBusinessName || '?').charAt(0).toUpperCase();
       const hostAvatarUrl = resolveAvatarUrl(host.avatar_url);
       const avatarHtml = hostAvatarUrl
         ? '<img src="' + hostAvatarUrl + '" alt="">'
@@ -1315,7 +1316,7 @@
 
       let photosHtml = '';
       if (videoUrl) {
-        photosHtml = '<div class="card-video single"><video muted playsinline preload="none" poster="' + escapeHtml(videoThumbnail) + '" src="' + videoUrl + '" data-video-url="' + videoUrl + '" data-listing-id="' + listing.id + '" data-video-host-name="' + escapeHtml(host.full_name || 'Host') + '" data-video-username="' + escapeHtml(host.username ? '@' + host.username : '') + '" data-video-avatar="' + escapeHtml(hostAvatarUrl || '') + '" data-video-caption="' + escapeHtml(listing.description || listing.title) + '"></video></div>';
+        photosHtml = '<div class="card-video single"><video muted playsinline preload="none" poster="' + escapeHtml(videoThumbnail) + '" src="' + videoUrl + '" data-video-url="' + videoUrl + '" data-listing-id="' + listing.id + '" data-video-host-name="' + escapeHtml(publicBusinessName) + '" data-video-username="' + escapeHtml(host.username ? '@' + host.username : '') + '" data-video-avatar="' + escapeHtml(hostAvatarUrl || '') + '" data-video-caption="' + escapeHtml(listing.description || listing.title) + '"></video></div>';
       } else if (photos.length === 0) {
         photosHtml = '<div class="card-photos card-media-empty" role="img" aria-label="No media available for this listing"></div>';
       } else if (photos.length === 1) {
@@ -1340,7 +1341,7 @@
           '<div class="card-body">' +
             '<div class="card-head">' +
               '<div>' +
-                '<a class="card-host-name" href="/host/' + encodeURIComponent(listing.host_id) + '">' + escapeHtml(host.full_name || 'Host') +
+                '<a class="card-host-name" href="' + (listing.business_id ? '/hotel?id=' + encodeURIComponent(listing.business_id) : '/host/' + encodeURIComponent(listing.host_id)) + '">' + escapeHtml(publicBusinessName) +
                   (host.verified ? '<span class="verified-tick">✔</span>' : '') +
                 '</a>' +
                 '<div class="card-location">' + (host.username ? '@' + escapeHtml(host.username) + ' · ' : '') + escapeHtml(listing.location_text) +
@@ -1377,7 +1378,7 @@
       );
     }
 
-    const FEED_SELECT = 'id,title,description,location_text,category,verified,created_at,host_id,host:profiles(full_name,verified,avatar_url,username),listing_photos(storage_path)';
+    const FEED_SELECT = 'id,title,description,location_text,category,verified,created_at,host_id,business_id,business_display_name,host:profiles(full_name,verified,avatar_url,username),listing_photos(storage_path)';
 
     async function startChat(listingId, hostId){
       const { data, error } = await supabaseClient
