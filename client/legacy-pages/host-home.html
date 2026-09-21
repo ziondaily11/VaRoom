@@ -237,9 +237,11 @@
     scrollbar-width:none;
   }
   .dash-main::-webkit-scrollbar{ display:none; }
-  .suspension-notice{display:block;margin:0 0 1rem;padding:1.15rem 1.05rem;border:1px solid #C95D48;border-radius:12px;background:transparent;color:var(--ink)}
+  /* A system feed notice: the listing-style separators keep it visible
+     without introducing a coloured card or changing feed proportions. */
+  .suspension-notice{display:block;margin:0 0 1rem;padding:1.15rem 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:transparent;color:var(--ink)}
   .suspension-notice-title{font-size:1.25rem;font-weight:750;letter-spacing:-.02em;margin:0 0 .35rem}.suspension-notice-copy{max-width:48rem;margin:0;font-size:.92rem;line-height:1.5;color:var(--muted)}.suspension-notice-action{display:inline-block;margin-top:.65rem;color:var(--red-deep);font-size:.88rem;font-weight:700}
-  @media(max-width:680px){.suspension-notice{padding:.85rem;gap:.7rem}.suspension-notice-action{font-size:.78rem}}
+  @media(max-width:680px){.suspension-notice{padding:.9rem 0}.suspension-notice-title{font-size:1.08rem}.suspension-notice-action{font-size:.82rem}}
   .host-rail{
     grid-column: 3;
     grid-row: 2;
