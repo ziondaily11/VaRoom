@@ -58,8 +58,8 @@
 
     .form-eyebrow {
       margin: 0 calc(-1 * max(7vw, 28px)) 30px;
-      min-height: 48vh;
-      min-height: 48svh;
+      min-height: 30vh;
+      min-height: 30svh;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -97,12 +97,12 @@
       width: min(100%, 460px);
       align-self: center;
       width: 100%;
-      padding: 12px;
+      padding: 14px;
       background: #fff;
-      border: 1px solid var(--line);
+      border: 1px solid #b8b8b8;
       border-radius: 9px;
-      font: 600 13px var(--sans);
-      color: #333;
+      font: 700 14px var(--sans);
+      color: #1d1d1d;
       cursor: pointer;
       display: flex;
       align-items: center;
@@ -113,8 +113,8 @@
     }
     .btn-google:hover {
       background: #f7f7f7;
-      border-color: #bdbdbd;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      border-color: #777;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.12);
     }
 
     /* Divider */
@@ -266,7 +266,7 @@
         padding: 0 22px 24px;
         min-height: 100vh;
       }
-      .form-eyebrow { margin: 0 -22px 22px; min-height: 48vh; min-height: 48svh; padding: 22px; border-radius: 0 0 30px 30px; }
+      .form-eyebrow { margin: 0 -22px 22px; min-height: 30vh; min-height: 30svh; padding: 22px; border-radius: 0 0 30px 30px; }
     }
   </style>
 </head>
@@ -324,7 +324,6 @@
       Continue with Google
     </button>
 
-    <p class="form-note">Logging in checks your email and password against your real VaRoom account.</p>
     <p class="form-switch">New to VaRoom? <a href="/?signup=1" id="create-link">Create an account</a></p>
   </div>
 
@@ -358,7 +357,8 @@
   if (mode === 'add') {
     document.querySelector('.form-eyebrow').textContent = 'Add an account';
     document.querySelector('.form-sub').textContent = 'Sign in to link another VaRoom account.';
-    document.querySelector('.form-note').textContent = 'This adds a second account — your current one stays signed in.';
+    var formNote = document.querySelector('.form-note');
+    if (formNote) formNote.textContent = 'This adds a second account — your current one stays signed in.';
     document.querySelector('.form-switch').style.display = 'none';
   }
 
