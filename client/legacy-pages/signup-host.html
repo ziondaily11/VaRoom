@@ -323,22 +323,10 @@
 </head>
 <body>
 
-<div class="topbar">
-  <a href="/" class="logo">VaRoom<span>.</span></a>
-  <a href="/" class="back-link">← Back to VaRoom</a>
-</div>
-
 <div class="page">
-
-  <!-- Left: photo -->
-  <div class="photo-panel">
-    <video src="assets/loginvid.mp4" autoplay muted loop playsinline preload="auto" aria-label="A home for every kind of place"></video>
-    <div class="photo-wordmark">VaRoom<span class="dot">.</span></div>
-    <div class="photo-caption">A home for every kind of place.</div>
-  </div>
-
-  <!-- Right: form -->
   <div class="form-panel">
+    <div class="signup-hero" data-signup-type="host"></div>
+    <div class="signup-content">
     <p class="form-eyebrow">Register as host</p>
     <h1 class="form-title">Create your host account.</h1>
     <p class="form-sub">List and showcase your spaces — Airbnbs, hotels, venues, offices, shops, or property to let or sell.</p>
@@ -392,11 +380,13 @@
       <p class="form-note">We'll send a confirmation email to help you finish setting up.</p>
       <p class="form-switch">Already have an account? <a href="/login">Log in</a></p>
     </form>
+    </div>
   </div>
 
 </div>
 
 <script src="js/supabase-client.js" onerror="console.warn('supabase-client.js not found')"></script>
+<script src="js/animated-signup-hero.js"></script>
 <script>
   const SUPABASE_URL  = 'https://deaphymimdaygeavhyek.supabase.co';
   const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRlYXBoeW1pbWRheWdlYXZoeWVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY1MjAwNDQsImV4cCI6MjEwMjA5NjA0NH0.placeholder';
