@@ -655,9 +655,6 @@
   const checkingAuth = document.getElementById('checking-auth');
   const listingPage = document.getElementById('listing-page');
   let currentUser = null;
-  const creationParams = new URLSearchParams(window.location.search);
-  const hotelBusinessId = creationParams.get('business_id');
-  const hotelBranchId = creationParams.get('branch_id');
 
   (async function checkAuth(){
     const { data: { session } } = await supabaseClient.auth.getSession();
@@ -684,24 +681,6 @@
     categorySelect.innerHTML = '<option value="" disabled selected>Choose a category</option>' + hostNiches.map(function(niche){
       return '<option value="' + niche + '">' + (labels[niche] || niche) + '</option>';
     }).join('');
-
-    // A suite launched from the business creation hub is a hotel room under a
-    // saved branch. The server is still authoritative, but preselecting here
-    // avoids asking the host to choose a generic category or re-pin the branch.
-    if (hotelBusinessId && hotelBranchId) {
-      if (!hostNiches.includes('hotel')) { window.location.href = '/create'; return; }
-      categorySelect.value = 'hotel';
-      categorySelect.dispatchEvent(new Event('change'));
-      const locationStep = document.querySelector('.step-frame[data-step="2"]');
-      if (locationStep) {
-        const heading = locationStep.querySelector('h1');
-        const sub = locationStep.querySelector('.step-sub');
-        if (heading) heading.textContent = 'Location comes from your branch.';
-        if (sub) sub.textContent = 'This suite will inherit the location you saved for its hotel branch.';
-        const picker = document.getElementById('location-picker');
-        if (picker) picker.style.display = 'none';
-      }
-    }
 
     checkingAuth.style.display = 'none';
     listingPage.style.display = 'block';
@@ -1263,7 +1242,6 @@
       ...(locationNeighborhood ? { neighborhood: locationNeighborhood } : {}),
       ...(locationCity ? { city: locationCity } : {}),
       ...(locationCountry ? { country: locationCountry } : {}),
-      ...(hotelBusinessId && hotelBranchId ? { business_id: hotelBusinessId, branch_id: hotelBranchId } : {}),
     };
 
     const { data: { session } } = await supabaseClient.auth.getSession();

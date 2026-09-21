@@ -69,20 +69,6 @@ async function ownedListing(id, userId, res) {
   return data;
 }
 
-// Hotel rooms retain the existing listing and booking behaviour, but their
-// location is sourced from a branch. This lookup is server-side so a crafted
-// request cannot attach a room to another business or override its map pin.
-async function ownedActiveHotelBranch(businessId, branchId, userId) {
-  const { data: membership, error: membershipError } = await supabaseAdmin
-    .from('business_members').select('business_id').eq('business_id', businessId).eq('user_id', userId).maybeSingle();
-  if (membershipError || !membership) return null;
-  const { data: branch, error: branchError } = await supabaseAdmin.from('business_branches')
-    .select('id,business_id,status,address_text,latitude,longitude,place_id,formatted_address,county_city')
-    .eq('id', branchId).eq('business_id', businessId).maybeSingle();
-  if (branchError || !branch || branch.status !== 'active') return null;
-  return branch;
-}
-
 router.patch('/listings/:id/status', async (req, res) => {
   const user = await authenticatedHost(req, res);
   if (!user) return;
@@ -133,7 +119,7 @@ router.post('/listings', async (req, res) => {
   let category;
   let payload;
   try {
-    assertAllowedKeys(req.body, ['title', 'description', 'category', 'location_text', 'latitude', 'longitude', 'place_id', 'formatted_address', 'neighborhood', 'city', 'country', 'business_id', 'branch_id']);
+    assertAllowedKeys(req.body, ['title', 'description', 'category', 'location_text', 'latitude', 'longitude', 'place_id', 'formatted_address', 'neighborhood', 'city', 'country']);
     category = enumValue(req.body.category, 'category', CATEGORIES);
     const niches = normalizeNiches(await hostNiches(user.id));
     if (!niches.includes(category)) {
@@ -152,35 +138,11 @@ router.post('/listings', async (req, res) => {
     });
     if (req.body.latitude !== undefined) payload.latitude = number(req.body.latitude, 'latitude', { min: -90, max: 90 });
     if (req.body.longitude !== undefined) payload.longitude = number(req.body.longitude, 'longitude', { min: -180, max: 180 });
-    if ((req.body.business_id !== undefined) !== (req.body.branch_id !== undefined)) {
-      throw new ValidationError('business_id and branch_id must be supplied together');
-    }
-    if (req.body.business_id !== undefined) {
-      if (category !== 'hotel') throw new ValidationError('Only hotel rooms can be assigned to a hotel branch');
-      uuid(req.body.business_id, 'business_id');
-      uuid(req.body.branch_id, 'branch_id');
-      const branch = await ownedActiveHotelBranch(req.body.business_id, req.body.branch_id, user.id);
-      if (!branch) return res.status(403).json({ error: 'Choose an active branch in a business you manage' });
-      payload.location_text = branch.address_text;
-      payload.latitude = branch.latitude;
-      payload.longitude = branch.longitude;
-      payload.place_id = branch.place_id;
-      payload.formatted_address = branch.formatted_address;
-      payload.neighborhood = null;
-      payload.city = branch.county_city;
-      payload.country = null;
-      payload.__businessId = req.body.business_id;
-      payload.__branchId = req.body.branch_id;
-    }
   } catch (error) {
     if (error instanceof ValidationError) return res.status(400).json({ error: error.message, code: 'INVALID_LISTING' });
     console.error('Host niche lookup failed:', error.message);
     return res.status(500).json({ error: 'Unable to verify posting niches' });
   }
-  const businessId = payload.__businessId;
-  const branchId = payload.__branchId;
-  delete payload.__businessId;
-  delete payload.__branchId;
   const { data, error } = await supabaseAdmin.from('listings').insert(payload).select().single();
   if (error) {
     if (error.code === 'P0001' || /niche/i.test(error.message || '')) {
@@ -188,18 +150,7 @@ router.post('/listings', async (req, res) => {
     }
     return res.status(500).json({ error: 'Unable to create listing' });
   }
-  if (businessId) {
-    const { error: roomError } = await supabaseAdmin.from('hotel_room_offerings').insert({
-      listing_id: data.id, business_id: businessId, branch_id: branchId,
-    });
-    if (roomError) {
-      // Listing deletion is safe here because this is a brand-new record with
-      // no booking or media references yet; it avoids an orphan hotel room.
-      await supabaseAdmin.from('listings').delete().eq('id', data.id);
-      return res.status(500).json({ error: 'Unable to attach room to the selected branch' });
-    }
-  }
-  return res.status(201).json({ listing: data, ...(businessId ? { business_id: businessId, branch_id: branchId } : {}) });
+  return res.status(201).json({ listing: data });
 });
 
 router.patch('/listings/:id', async (req, res) => {

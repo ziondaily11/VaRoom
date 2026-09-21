@@ -499,30 +499,29 @@
 
   // ---- Step: Host type (individual / business) ----
   function renderHostTypeStep(){
-    const hotelSelected = Array.isArray(answers.listing_categories) && answers.listing_categories.indexOf('hotel') !== -1;
     stepContent.innerHTML =
       iconCircle('<path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1M9 13h1M14 9h1M14 13h1"/>') +
-      '<h1>' + (hotelSelected ? 'Set up your hotel business' : 'How are you listing?') + '</h1>' +
-      '<p class="step-sub">' + (hotelSelected ? 'Hotels are businesses. You can add branches now or later from your business hub.' : 'Lets us show your spaces the right way to guests.') + '</p>' +
+      '<h1>How are you listing?</h1>' +
+      '<p class="step-sub">Lets us show your spaces the right way to guests.</p>' +
       '<div class="choice-cards">' +
-        (hotelSelected ? '' : '<button type="button" class="choice-card" data-type="individual">' +
+        '<button type="button" class="choice-card" data-type="individual">' +
           '<div class="choice-title">As an individual</div>' +
           '<div class="choice-desc">Listing your own space(s), not on behalf of a company.</div>' +
-        '</button>') +
+        '</button>' +
         '<button type="button" class="choice-card" data-type="business">' +
           '<div class="choice-title">As a business</div>' +
           '<div class="choice-desc">Hotel, agency, or company listing multiple spaces.</div>' +
         '</button>' +
       '</div>' +
-      '<div class="field" id="business-name-field" style="display:' + (hotelSelected ? 'flex' : 'none') + ';">' +
+      '<div class="field" id="business-name-field" style="display:none;">' +
         '<label for="business-name-input">Business name</label>' +
         '<input type="text" id="business-name-input" placeholder="e.g. Kuvule Suites">' +
       '</div>' +
       '<button class="primary-btn" id="hosttype-next" disabled>Continue</button>' +
-      (hotelSelected ? '' : '<button class="skip-btn" id="hosttype-skip">Skip for now</button>') +
+      '<button class="skip-btn" id="hosttype-skip">Skip for now</button>' +
       reassureHtml();
 
-    let chosenType = hotelSelected ? 'business' : null;
+    let chosenType = null;
     const nextBtn = document.getElementById('hosttype-next');
     const businessField = document.getElementById('business-name-field');
 
@@ -535,28 +534,18 @@
         nextBtn.disabled = false;
       });
     });
-    if (hotelSelected) {
-      document.querySelector('.choice-card[data-type="business"]').classList.add('selected');
-      nextBtn.disabled = false;
-    }
 
     nextBtn.addEventListener('click', function(){
       if (chosenType) {
         answers.host_type = chosenType;
         if (chosenType === 'business') {
           const name = document.getElementById('business-name-input').value.trim();
-          if (hotelSelected && !name) {
-            document.getElementById('business-name-input').setAttribute('required', 'required');
-            document.getElementById('business-name-input').reportValidity();
-            return;
-          }
           if (name) answers.business_name = name;
         }
       }
       goNext();
     });
-    const hostTypeSkip = document.getElementById('hosttype-skip');
-    if (hostTypeSkip) hostTypeSkip.addEventListener('click', goNext);
+    document.getElementById('hosttype-skip').addEventListener('click', goNext);
   }
 
   // ---- Step: Client timeline ----
@@ -629,25 +618,10 @@
       }
     }
 
-    // Hotel is a business identity, not a generic listing category. Branches
-    // remain optional and can be added after onboarding in the business hub.
-    if (role === 'host' && Array.isArray(answers.listing_categories) && answers.listing_categories.indexOf('hotel') !== -1) {
-      const businessResponse = await fetch('/api/businesses', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
-        body: JSON.stringify({ name: answers.business_name, niches: ['hotel'] })
-      });
-      if (!businessResponse.ok) {
-        const payload = await businessResponse.json().catch(function(){ return {}; });
-        stepContent.innerHTML = '<p class="field-msg error" style="padding:2rem 0;text-align:center;">' + (payload.error || 'Unable to create your hotel business.') + '</p>';
-        return;
-      }
-    }
-
     await supabaseClient.rpc('complete_onboarding');
 
     const initialDestination = role === 'host'
-      ? (Array.isArray(answers.listing_categories) && answers.listing_categories.indexOf('hotel') !== -1 ? '/create' : '/host-home')
+      ? '/host-home'
       : (answers.looking_timeline === 'soon' ? '/marketplace' : '/client-home');
     window.location.href = postOnboardingRedirect || initialDestination;
   }
