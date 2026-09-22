@@ -340,12 +340,25 @@
     .field input { padding: 12px 14px; border: 1px solid #a8a8a8; border-radius: 8px; background: #fff; color: #111; font: 13px var(--sans); }
     .field input::placeholder { color: #999; }
     .field input:focus { border-color: #000; background: #fff; box-shadow: 0 0 0 3px rgba(0,0,0,.08); }
+    .password-input { position: relative; }
+    .password-input input { padding-right: 48px; }
+    .password-toggle { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border: 0; border-radius: 6px; background: transparent; color: #444; cursor: pointer; }
+    .password-toggle:hover, .password-toggle:focus-visible { background: #f1f1f1; color: #000; outline: none; }
+    .password-toggle svg { width: 19px; height: 19px; }
+    .password-requirements { margin: -3px 0 14px; padding: 10px 12px; border: 1px solid #dedede; border-radius: 8px; background: #fafafa; }
+    .password-requirements__title { margin-bottom: 7px; color: #333; font-size: 12px; font-weight: 700; }
+    .password-requirement { display: flex; align-items: center; gap: 7px; color: #737373; font-size: 12px; line-height: 1.55; }
+    .password-requirement__status { width: 15px; font-size: 14px; font-weight: 700; text-align: center; color: #a11b1b; }
+    .password-requirement.is-met { color: #236b32; }
+    .password-requirement.is-met .password-requirement__status { color: #16803c; }
     .checkbox-row { color: #4d4d4d; font-size: 13px; }
     .checkbox-row input[type="checkbox"] { appearance: none; width: 17px; height: 17px; margin-top: 1px; border: 1px solid #9a9a9a; border-radius: 4px; background: #fff; }
-    .checkbox-row input[type="checkbox"]:checked { border-color: #000; background: #000; box-shadow: inset 0 0 0 3px #fff; }
+    .checkbox-row input[type="checkbox"]:checked { border-color: #000; background: #000; }
+    .checkbox-row input[type="checkbox"]:checked::after { content: '✓'; display: block; color: #fff; font-size: 14px; font-weight: 800; line-height: 15px; text-align: center; }
     .checkbox-row a, .form-switch a { color: #000 !important; font-weight: 700; }
     .btn-submit { padding: 13px; border-radius: 8px; background: #000; box-shadow: 0 4px 14px rgba(0,0,0,.18); font: 700 13px var(--sans); }
-    .btn-submit:hover { background: #242424; box-shadow: 0 6px 18px rgba(0,0,0,.24); }
+    .btn-submit:hover:not(:disabled) { background: #242424; box-shadow: 0 6px 18px rgba(0,0,0,.24); }
+    .btn-submit:disabled { background: #b8b8b8; box-shadow: none; opacity: 1; }
     .form-note, .form-switch { color: #707070; }
     @media (max-width: 760px) { .signup-content { padding: 22px 22px 0; } .signup-hero { min-height: 40vh; min-height: 40svh; border-radius: 0 0 30px 30px; } }
     @media (prefers-reduced-motion: reduce) { .signup-hero__message { animation: none; } .signup-hero__message:first-child { opacity: 1; transform: none; } }
@@ -394,13 +407,25 @@
 
       <div class="field">
         <label for="password">Password</label>
-        <input type="password" id="password" placeholder="Password" autocomplete="new-password" required />
+        <div class="password-input">
+          <input type="password" id="password" placeholder="Password" autocomplete="new-password" required aria-describedby="password-requirements" />
+          <button class="password-toggle" type="button" data-password-toggle="password" aria-label="Show password" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+        </div>
         <div class="field-error" id="err-password">Password must be at least 8 characters</div>
+      </div>
+      <div class="password-requirements" id="password-requirements" aria-live="polite">
+        <p class="password-requirements__title">Your password needs:</p>
+        <p class="password-requirement" data-requirement="length"><span class="password-requirement__status" aria-hidden="true">×</span>At least 8 characters</p>
+        <p class="password-requirement" data-requirement="uppercase"><span class="password-requirement__status" aria-hidden="true">×</span>An uppercase letter</p>
+        <p class="password-requirement" data-requirement="numberOrSpecial"><span class="password-requirement__status" aria-hidden="true">×</span>A number or special character</p>
       </div>
 
       <div class="field">
         <label for="confirm-password">Confirm password</label>
-        <input type="password" id="confirm-password" placeholder="Confirm password" autocomplete="new-password" required />
+        <div class="password-input">
+          <input type="password" id="confirm-password" placeholder="Confirm password" autocomplete="new-password" required />
+          <button class="password-toggle" type="button" data-password-toggle="confirm-password" aria-label="Show confirm password" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+        </div>
         <div class="field-error" id="err-confirm">Passwords do not match</div>
       </div>
 
@@ -409,7 +434,7 @@
         <label for="agree">I agree to the <a href="/privacy">Privacy Policy</a> and <a href="/terms">Terms of Service</a>.</label>
       </div>
 
-      <button type="submit" class="btn-submit" id="submit-btn">
+      <button type="submit" class="btn-submit" id="submit-btn" disabled>
         <span class="btn-text">Create host account</span>
         <div class="spinner"></div>
       </button>
@@ -474,7 +499,7 @@
 
     if (setError('fullname', 'err-fullname', name.length < 2)) valid = false;
     if (setError('email', 'err-email', !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) valid = false;
-    if (setError('password', 'err-password', pass.length < 8)) valid = false;
+    if (setError('password', 'err-password', !isStrongPassword(pass))) valid = false;
     if (setError('confirm-password', 'err-confirm', pass !== confirm)) valid = false;
 
     if (!agreed) {
@@ -482,6 +507,33 @@
       valid = false;
     }
     return valid;
+  }
+
+  function passwordCriteria(password) {
+    return {
+      length: password.length >= 8,
+      uppercase: /[A-Z]/.test(password),
+      numberOrSpecial: /[0-9]|[^A-Za-z0-9]/.test(password)
+    };
+  }
+
+  function isStrongPassword(password) {
+    var criteria = passwordCriteria(password);
+    return criteria.length && criteria.uppercase && criteria.numberOrSpecial;
+  }
+
+  function updatePasswordState() {
+    var pass = document.getElementById('password').value;
+    var confirm = document.getElementById('confirm-password').value;
+    var criteria = passwordCriteria(pass);
+    Object.keys(criteria).forEach(function(key) {
+      var item = document.querySelector('[data-requirement="' + key + '"]');
+      item.classList.toggle('is-met', criteria[key]);
+      item.querySelector('.password-requirement__status').textContent = criteria[key] ? '✓' : '×';
+    });
+    document.getElementById('confirm-password').disabled = !isStrongPassword(pass);
+    if (!isStrongPassword(pass)) document.getElementById('confirm-password').value = '';
+    submitBtn.disabled = !isStrongPassword(pass) || pass !== confirm || !document.getElementById('agree').checked;
   }
 
   /* ── Google OAuth ── */
@@ -524,6 +576,7 @@
 
       showAlert('Account created! Check your email to confirm and finish setting up.', 'success');
       form.reset();
+      updatePasswordState();
 
     } catch(err) {
       var msg = err.message || 'Something went wrong. Please try again.';
@@ -536,9 +589,24 @@
       }
     } finally {
       submitBtn.classList.remove('loading');
-      submitBtn.disabled = false;
+      updatePasswordState();
     }
   });
+
+  document.querySelectorAll('[data-password-toggle]').forEach(function(toggle) {
+    toggle.addEventListener('click', function() {
+      var input = document.getElementById(this.dataset.passwordToggle);
+      var showing = input.type === 'text';
+      input.type = showing ? 'password' : 'text';
+      this.setAttribute('aria-pressed', String(!showing));
+      this.setAttribute('aria-label', (showing ? 'Show ' : 'Hide ') + (input.id === 'password' ? 'password' : 'confirm password'));
+    });
+  });
+
+  document.getElementById('password').addEventListener('input', updatePasswordState);
+  document.getElementById('confirm-password').addEventListener('input', updatePasswordState);
+  document.getElementById('agree').addEventListener('change', updatePasswordState);
+  updatePasswordState();
 
   // Clear errors on input
   ['fullname','email','password','confirm-password'].forEach(function(id) {

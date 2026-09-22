@@ -278,7 +278,9 @@ async function createSignupConfirmation({ email, password, fullName, role, redir
 app.post('/api/auth/sign-up', async (req, res) => {
   const { email, password, fullName, role, redirect } = req.body || {};
   const normalizedEmail = String(email || '').trim().toLowerCase();
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail) || String(password || '').length < 8 || String(fullName || '').trim().length < 2 || !['client', 'host'].includes(role)) return sendError(res, 400, 'Please provide a name, valid email address, and password of at least 8 characters.');
+  const passwordValue = String(password || '');
+  const strongPassword = passwordValue.length >= 8 && /[A-Z]/.test(passwordValue) && (/[0-9]/.test(passwordValue) || /[^A-Za-z0-9]/.test(passwordValue));
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail) || !strongPassword || String(fullName || '').trim().length < 2 || !['client', 'host'].includes(role)) return sendError(res, 400, 'Please provide a name, valid email address, and a password with at least 8 characters, an uppercase letter, and a number or special character.');
   if (!hasEmailProvider()) return sendError(res, 503, 'Email delivery is temporarily unavailable. Please try again later.');
   if (isThrottled(confirmationRequestTracker, normalizedEmail)) return sendError(res, 429, 'Please wait before requesting another confirmation email.', ERROR_CODES.RATE_LIMITED);
   try {
