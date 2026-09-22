@@ -414,7 +414,6 @@
   [data-theme="dark"] .confirm-btn:hover{ background:#fff; }
   [data-theme="dark"] .confirm-btn:disabled{ background:#6b625e; color:#e9e1dd; }
   .form-note{ line-height:1.45; }
-  .mobile-booking-bar{ display:none; }
   @media (min-width:960px){
     .content-grid{ grid-template-columns:minmax(0,1.55fr) minmax(340px,.85fr); }
   }
@@ -423,9 +422,9 @@
     header, .breadcrumb{ display:none !important; }
     .content-grid{ padding:0 0 2rem; max-width:none; gap:0; }
     .skel-shell{ padding:0; }
-    .skel-gallery{ height:clamp(300px, 56svh, 430px); border-radius:0; }
+    .skel-gallery{ height:clamp(300px, 56svh, 430px); border-radius:0 0 28px 28px; }
     .gallery-carousel{
-      height:clamp(300px, 56svh, 430px); border-radius:0; margin:0; width:100%;
+      height:clamp(300px, 56svh, 430px); border-radius:0 0 28px 28px; margin:0; width:100%;
     }
     #col-main > :not(.gallery-carousel){ margin-left:5vw; margin-right:5vw; }
     #col-main > .divider{ margin:1.25rem 5vw; }
@@ -449,7 +448,6 @@
     .amenity-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
     .col-side{ display:block; margin:0 5vw; }
     .col-side .booking-widget{ position:static; margin-top:1.25rem; padding:1rem; box-shadow:none; }
-    .mobile-booking-bar{ display:none; }
   }
 </style>
 </head>
@@ -1110,19 +1108,6 @@
       '</div>';
 
     document.getElementById('col-side').innerHTML = colSideHtml;
-
-    const mobileBookingBar = document.createElement('div');
-    mobileBookingBar.className = 'mobile-booking-bar';
-    mobileBookingBar.innerHTML =
-      '<div class="mobile-price">KSh ' + Number(details.price_amount).toLocaleString() +
-      ' <span>/ ' + escapeHtml(details.price_unit) + '</span></div>' +
-      '<button type="button" class="mobile-book-btn" id="mobile-book-btn"' + (listingUnavailable ? ' disabled' : '') + '>Book now</button>';
-    document.body.appendChild(mobileBookingBar);
-    document.getElementById('mobile-book-btn').addEventListener('click', function(){
-      const side = document.getElementById('col-side');
-      side.classList.add('mobile-open');
-      side.scrollIntoView({ behavior:'smooth', block:'start' });
-    });
 
     skeleton.style.display = 'none';
     bookingPage.style.display = 'block';
