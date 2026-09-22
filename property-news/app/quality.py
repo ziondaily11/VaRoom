@@ -10,9 +10,11 @@ INSTITUTIONAL_TERMS = (
 )
 INSTITUTIONAL_PATHS = ("/about", "/contact", "/leadership", "/departments", "/services", "/history")
 EVENT_TERMS = (
-    "announced", "approved", "launched", "opened", "signed", "awarded", "plans to",
-    "will build", "construction", "acquired", "appointed", "increased", "reduced",
-    "reported", "proposed", "gazetted", "deadline", "application",
+    "announce", "announced", "approve", "approved", "launch", "launched", "open", "opened",
+    "sign", "signed", "award", "awarded", "issue", "issued", "plans to", "will build",
+    "construction", "acquire", "acquired", "appoint", "appointed", "increase", "increased",
+    "reduce", "reduced", "report", "reported", "propose", "proposed", "gazetted", "deadline",
+    "application",
 )
 
 

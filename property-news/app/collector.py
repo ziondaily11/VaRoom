@@ -16,7 +16,7 @@ from uuid import UUID
 
 import httpx
 import trafilatura
-import truststore
+import certifi
 
 from .config import Settings
 from .media import extract_article_image_url
@@ -107,9 +107,10 @@ class SourceCollector:
         self.repository, self.settings = repository, settings
         self._last_request_at: dict[str, float] = {}
         self._rejected_urls: set[str] = set()
-        # Keep certificate verification enabled while using the deployment
-        # host's maintained CA store for official government sources.
-        self._ssl_context = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        # Use certifi's maintained CA bundle rather than the host OS store.
+        # This avoids relying on an incomplete deployment CA store for official
+        # government sites (including NCA). Verification remains mandatory.
+        self._ssl_context = ssl.create_default_context(cafile=certifi.where())
         self._client: httpx.AsyncClient | None = None
 
     async def _get_client(self) -> httpx.AsyncClient:
@@ -619,7 +620,9 @@ class SourceCollector:
         allowed_hosts = SourceCollector._allowed_hosts(source)
         allowed = hostname in allowed_hosts
         if not allowed:
-            logger.warning(
+            # Homepages commonly include social/media links. These are expected
+            # to be blocked and should not obscure actionable collection failures.
+            logger.debug(
                 "Blocked source URL: source=%s host=%s allowed_hosts=%s",
                 source.name, hostname, sorted(allowed_hosts),
             )

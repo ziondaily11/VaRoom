@@ -12,6 +12,14 @@ python -m app.register_additional_sources --json-path sources/kenya-property-sou
 
 Do not use `--activate` until each source has a verified narrow feed or article selector. The intake entries intentionally point at site roots as discovery placeholders; activating them as-is would collect unrelated pages.
 
+To apply a configuration correction to already registered sources without changing the rest of the registry, target them explicitly and sync only their configured activation state. For the current NCA/Cytonn remediation:
+
+```powershell
+python -m app.register_additional_sources --json-path sources/kenya-property-sources.json --sync-active --name "National Construction Authority" --name "Cytonn Investments"
+```
+
+This updates NCA to its press-release route and disables Cytonn until a dated news or research feed has been verified.
+
 Trust tiers:
 
 1. Government ministries/departments, Parliament, Gazette/official notices, county governments: primary evidence.

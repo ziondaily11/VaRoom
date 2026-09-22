@@ -56,6 +56,21 @@ class NormalisationTests(unittest.TestCase):
             "MISSING_PUBLICATION_DATE",
         )
 
+    def test_quality_gate_accepts_present_tense_official_land_events(self):
+        recent = datetime.now(timezone.utc) - timedelta(days=2)
+        text = (
+            "The State Department opens the Kithimani land registry and issues title deeds "
+            "to 750 families, improving land ownership services in the county. "
+        ) * 8
+        self.assertIsNone(
+            classify_quality(
+                "Deputy President opens Kithimani land registry and issues title deeds",
+                text,
+                "https://lands.example.test/kithimani-land-registry",
+                recent,
+            )
+        )
+
     def test_canonical_url_removes_tracking_and_fragment(self):
         value = canonicalise_url("HTTPS://Example.test/notice/?utm_source=email&b=2&a=1#top")
         self.assertEqual(value, "https://example.test/notice?a=1&b=2")
