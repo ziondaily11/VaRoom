@@ -345,8 +345,8 @@
     .password-toggle { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border: 0; border-radius: 6px; background: transparent; color: #444; cursor: pointer; }
     .password-toggle:hover, .password-toggle:focus-visible { background: #f1f1f1; color: #000; outline: none; }
     .password-toggle svg { width: 19px; height: 19px; }
-    .password-requirements { margin: -3px 0 14px; padding: 10px 12px; border: 1px solid #dedede; border-radius: 8px; background: #fafafa; }
-    .password-requirements__title { margin-bottom: 7px; color: #333; font-size: 12px; font-weight: 700; }
+    .password-requirements { margin: -3px 0 14px; padding: 0 2px; }
+    .password-requirements.is-complete { display: none; }
     .password-requirement { display: flex; align-items: center; gap: 7px; color: #737373; font-size: 12px; line-height: 1.55; }
     .password-requirement__status { width: 15px; font-size: 14px; font-weight: 700; text-align: center; color: #a11b1b; }
     .password-requirement.is-met { color: #236b32; }
@@ -414,7 +414,6 @@
         <div class="field-error" id="err-password">Password must be at least 8 characters</div>
       </div>
       <div class="password-requirements" id="password-requirements" aria-live="polite">
-        <p class="password-requirements__title">Your password needs:</p>
         <p class="password-requirement" data-requirement="length"><span class="password-requirement__status" aria-hidden="true">×</span>At least 8 characters</p>
         <p class="password-requirement" data-requirement="uppercase"><span class="password-requirement__status" aria-hidden="true">×</span>An uppercase letter</p>
         <p class="password-requirement" data-requirement="numberOrSpecial"><span class="password-requirement__status" aria-hidden="true">×</span>A number or special character</p>
@@ -525,9 +524,11 @@
       item.classList.toggle('is-met', criteria[key]);
       item.querySelector('.password-requirement__status').textContent = criteria[key] ? '✓' : '×';
     });
-    document.getElementById('confirm-password').disabled = !isStrongPassword(pass);
-    if (!isStrongPassword(pass)) document.getElementById('confirm-password').value = '';
-    submitBtn.disabled = !isStrongPassword(pass) || pass !== confirm || !document.getElementById('agree').checked;
+    var passwordIsStrong = isStrongPassword(pass);
+    document.getElementById('password-requirements').classList.toggle('is-complete', passwordIsStrong);
+    document.getElementById('confirm-password').disabled = !passwordIsStrong;
+    if (!passwordIsStrong) document.getElementById('confirm-password').value = '';
+    submitBtn.disabled = !passwordIsStrong || pass !== confirm || !document.getElementById('agree').checked;
   }
 
   /* ── Google OAuth ── */
