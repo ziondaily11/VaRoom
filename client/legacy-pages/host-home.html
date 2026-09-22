@@ -183,6 +183,7 @@
     padding:1.2rem 2rem;
     background:transparent;
   }
+  .topbar-list-btn{ flex-shrink:0; white-space:nowrap; }
 
   .col-divider{
     grid-column: 2;
@@ -258,8 +259,6 @@
   }
   .host-rail::-webkit-scrollbar{ display:none; }
 
-  .dash-top{ display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; flex-wrap:wrap; margin-bottom:1.6rem; }
-
   .dash-header,
   .feed-area {
     max-width:760px;
@@ -274,10 +273,6 @@
     box-sizing:border-box;
   }
 
-  h1.greeting{ font-family:var(--font-display); font-weight:600; font-size:1.7rem; margin-bottom:.3rem; }
-  .greeting-sub{ font-size:.95rem; color:var(--muted); }
-  .mobile-mini-stats{ display:none; font-size:.82rem; color:var(--muted); margin-top:.3rem; }
-
   .list-btn-primary{
     display:flex; align-items:center; gap:.5rem;
     background:var(--red); color:var(--white);
@@ -286,19 +281,9 @@
   }
   .list-btn-primary:hover{ background:var(--red-deep); }
 
-  .stats-card{
-    background:var(--white); border:1px solid var(--line); border-radius:16px;
-    padding:1.2rem 1.4rem; margin-bottom:1.6rem;
-  }
   .stats-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem; }
   .stats-head h2{ font-size:.9rem; font-weight:700; }
   .stats-head a{ font-size:.82rem; font-weight:600; color:var(--red); }
-
-  .stats-row{ display:grid; grid-template-columns:repeat(4, 1fr); gap:1rem; }
-  .stat{ display:flex; flex-direction:column; gap:.2rem; }
-  .stat-num{ font-family:var(--font-display); font-size:1.6rem; font-weight:700; }
-  .stat-label{ font-size:.78rem; color:var(--muted); }
-  .stat.stub .stat-num{ color:var(--muted); font-size:1.1rem; font-family:var(--font-body); font-weight:600; }
 
   @media (max-width:1360px){
     .main-col{
@@ -321,8 +306,9 @@
     .feed-area{ min-width:0; max-width:760px; }
   }
 
-  @media (max-width:700px){
-    .stats-row{ grid-template-columns:1fr 1fr; row-gap:1.2rem; }
+  @media (max-width:520px){
+    .topbar-list-btn{ width:42px; height:42px; padding:0; justify-content:center; }
+    .topbar-list-btn .btn-label{ display:none; }
   }
 
   /* ---------- ATTENTION ROW STYLES (reused inside .notif-panel-card) ---------- */
@@ -652,14 +638,10 @@
   /* Reserve the dashboard's final footprint while account data is loading. */
   .dash-main.is-loading > :not(.host-home-skeleton){ display:none; }
   .host-home-skeleton{ padding:1.8rem 2rem 4rem; }
-  .host-skel-title{ width:250px; height:30px; margin-bottom:.55rem; }
-  .host-skel-subtitle{ width:190px; height:13px; margin-bottom:1.8rem; }
-  .host-skel-stats{ display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--line); margin-bottom:1.4rem; }
-  .host-skel-stats .skel{ height:92px; border-radius:0; background:var(--white); }
   .host-skel-tabs{ display:flex; gap:.6rem; margin-bottom:1.5rem; }
   .host-skel-tabs .skel{ width:78px; height:34px; border-radius:999px; }
   .host-skel-card{ height:250px; margin-bottom:1.2rem; }
-  @media (max-width:700px){ .host-home-skeleton{ padding:1.2rem 1rem 6rem; }.host-skel-stats .skel{ height:72px; }.host-skel-card{ height:190px; } }
+  @media (max-width:700px){ .host-home-skeleton{ padding:1.2rem 1rem 6rem; }.host-skel-card{ height:190px; } }
   .badge-row{ display:flex; flex-wrap:wrap; gap:.5rem; margin-bottom:.9rem; }
 
   .badge{ display:flex; align-items:center; gap:.3rem; font-size:.76rem; font-weight:600; padding:.3rem .65rem; border-radius:100px; }
@@ -714,13 +696,6 @@
 
     body{ height:auto; overflow-y:visible; overflow-x:hidden; }
     .app-shell{ height:auto; overflow-y:visible; overflow-x:hidden; }
-
-    .dash-top{ flex-wrap:nowrap; align-items:center; }
-    .list-btn-top{
-      padding:0; width:42px; height:42px; border-radius:50%;
-      justify-content:center; flex-shrink:0;
-    }
-    .list-btn-top .btn-label{ display:none; }
 
     .sidebar .nav-item[data-mobile-hide]{ display:none; }
     .topbar-avatar-btn{ flex-shrink:0; display:flex; }
@@ -859,7 +834,7 @@
   [data-theme="dark"] .list-space-btn,
   .list-btn-primary,
   [data-theme="dark"] .list-btn-primary,
-  [data-theme="dark"] .list-btn-top,
+  [data-theme="dark"] .topbar-list-btn,
   .modal-save,
   .report-submit-btn,
   [data-theme="dark"] .report-submit-btn{
@@ -1094,6 +1069,10 @@
         </button>
         <input type="text" id="search-input" placeholder="Search by location or @username">
       </div>
+      <a href="/list" class="list-btn-primary topbar-list-btn" aria-label="List a new space">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        <span class="btn-label">List a new space</span>
+      </a>
     </header>
 
     <div class="col-divider" aria-hidden="true"></div>
@@ -1101,50 +1080,10 @@
     <div class="dash-body">
     <div class="dash-main is-loading">
     <div class="host-home-skeleton" id="host-home-skeleton" aria-label="Loading host dashboard" role="status">
-      <div class="skel host-skel-title"></div>
-      <div class="skel host-skel-subtitle"></div>
-      <div class="host-skel-stats"><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>
       <div class="host-skel-tabs"><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>
       <div class="skel host-skel-card"></div><div class="skel host-skel-card"></div>
     </div>
     <div class="dash-header">
-      <div class="dash-top">
-        <div>
-          <h1 class="greeting" id="greeting">Good day 👋</h1>
-          <p class="greeting-sub">Ready to list your next space?</p>
-          <p class="mobile-mini-stats" id="mobile-mini-stats"></p>
-        </div>
-        <a href="/list" class="list-btn-primary list-btn-top">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          <span class="btn-label">List a new space</span>
-        </a>
-      </div>
-
-      <div class="stats-card">
-        <div class="stats-head">
-          <h2>Your spaces at a glance</h2>
-          <a href="#" id="view-all-listings">View all listings →</a>
-        </div>
-        <div class="stats-row">
-          <div class="stat">
-            <span class="stat-num" id="stat-listings">–</span>
-            <span class="stat-label">Your listings</span>
-          </div>
-          <div class="stat">
-            <span class="stat-num" id="stat-pending">–</span>
-            <span class="stat-label">Pending approval</span>
-          </div>
-          <div class="stat">
-            <span class="stat-num" id="stat-inquiries">–</span>
-            <span class="stat-label">Inquiries</span>
-          </div>
-          <div class="stat">
-            <span class="stat-num" id="stat-bookings">–</span>
-            <span class="stat-label">Bookings</span>
-          </div>
-        </div>
-      </div>
-
       <div class="tabs" id="tabs">
         <button class="tab active" data-category="all">All</button>
         <button class="tab" data-category="airbnb">Airbnbs</button>
@@ -1278,11 +1217,6 @@
     const isSuspended = accountStatus.suspended === true;
     function suspensionNotice(){ return '<section class="suspension-notice" role="status"><p class="suspension-notice-title">Your account has been suspended</p><p class="suspension-notice-copy">You can still browse Varoom and view listings. Posting, booking, messaging, and other account activity are unavailable while your account is suspended. If you think this is a mistake, you can submit an appeal.</p><a class="suspension-notice-action" href="/support">Go to Support / Submit Appeal →</a></section>'; }
 
-    const firstName = (profile.full_name || 'there').split(' ')[0];
-
-    const hour = new Date().getHours();
-    const timeGreeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
-    document.getElementById('greeting').textContent = timeGreeting + ', ' + firstName + ' 👋';
     const verifyBox = document.getElementById('verify-box');
     if (profile.verified) {
       verifyBox.className = 'verify-box is-verified';
@@ -1297,7 +1231,6 @@
       .from('listings')
       .select('id', { count: 'exact', head: true })
       .eq('host_id', currentUser.id);
-    document.getElementById('stat-listings').textContent = listingCount ?? 0;
     if (!listingCount) {
       document.getElementById('no-listings-card').style.display = 'block';
     }
@@ -1313,26 +1246,6 @@
         .order('created_at', { ascending:false });
       hostListings = hostListingsData || [];
     }
-
-    // ---------- Pending approval, approved bookings, inquiries (real) ----------
-    const { count: pendingCount } = await supabaseClient
-      .from('bookings').select('id', { count: 'exact', head: true })
-      .eq('host_id', currentUser.id).eq('status', 'pending');
-    document.getElementById('stat-pending').textContent = pendingCount ?? 0;
-
-    const { count: approvedCount } = await supabaseClient
-      .from('bookings').select('id', { count: 'exact', head: true })
-      .eq('host_id', currentUser.id).eq('status', 'approved');
-    document.getElementById('stat-bookings').textContent = approvedCount ?? 0;
-
-    document.getElementById('mobile-mini-stats').textContent =
-      (listingCount ?? 0) + ' listing' + ((listingCount === 1) ? '' : 's') +
-      ' · ' + (approvedCount ?? 0) + ' booking' + ((approvedCount === 1) ? '' : 's');
-
-    const { count: inquiriesCount } = await supabaseClient
-      .from('conversations').select('id', { count: 'exact', head: true })
-      .eq('host_id', currentUser.id);
-    document.getElementById('stat-inquiries').textContent = inquiriesCount ?? 0;
 
     // ---------- Listings at a glance (real thumbnails + category, no invented stats) ----------
     if (hostListings.length > 0) {
@@ -2509,12 +2422,6 @@
         if (dashMain) dashMain.scrollTo({ top:0, behavior:'smooth' });
       });
     });
-    document.getElementById('view-all-listings').addEventListener('click', function(e){
-      e.preventDefault();
-      showMyListingsView();
-      document.querySelector('.feed-area').scrollIntoView({ behavior:'smooth' });
-    });
-
     document.querySelector('.dash-main').classList.remove('is-loading');
     document.getElementById('host-home-skeleton').hidden = true;
     loadFeed();

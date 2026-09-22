@@ -99,7 +99,7 @@ print(f"[Elie] Supabase configured: {bool(SUPABASE_URL and SUPABASE_ANON_KEY and
 if not GEMINI_API_KEY:
     print("[Elie] ⚠ WARNING: GEMINI_API_KEY is not set — all AI calls will use fallback logic only.")
 
-VALID_CATEGORIES = {"airbnb", "hotel", "venue", "office", "shop", "property"}
+VALID_CATEGORIES = {"airbnb", "hotel", "event venues", "office", "shop", "property"}
 
 app = FastAPI(
     title="VaRoom Chatbot Service",
@@ -318,7 +318,8 @@ async def generate_ai_reply(
     prompt = (
         (
             "You are Elie, VaRoom's AI assistant, replying directly to the guest on "
-            "the host's behalf. "
+            "the host's behalf, you are asked to handle all conversations normally "
+             "as a host would to a client ."
             if elie_command
             else "You are standing in for a VaRoom host who is currently away, replying to a "
             "prospective guest's message on their behalf. "
@@ -371,7 +372,7 @@ async def reply(payload: ReplyRequest, request: Request, authorization: Optional
     if not user:
         raise HTTPException(status_code=401, detail="Invalid or expired session — please log in again.")
 
-    check_rate_limit(f"reply:user:{user['id']}", max_requests=20, window_seconds=60)
+    check_rate_limit(f"reply:user:{user['id']}", max_requests=10, window_seconds=60)
 
     conversation = await get_conversation(payload.conversation_id)
     if not conversation:
