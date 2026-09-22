@@ -1212,11 +1212,24 @@
 
     if (!profile) { window.location.href = '/login'; return; }
     if (profile.role === 'client') { window.location.href = '/client-home'; return; }
-    const accountStatusResponse = await fetch('/api/account-status', { headers: { Authorization: 'Bearer ' + session.access_token } }).catch(function(){ return null; });
-    const accountStatus = accountStatusResponse && accountStatusResponse.ok ? await accountStatusResponse.json() : { suspended: false };
-    const isSuspended = accountStatus.suspended === true;
+    // Account status is not part of the listing-cache key. Keep it in the
+    // background so a return to Home is not delayed by this API request.
+    let isSuspended = false;
+    const accountStatusPromise = fetch('/api/account-status', { headers: { Authorization: 'Bearer ' + session.access_token } })
+      .then(function(response){ return response && response.ok ? response.json() : { suspended: false }; })
+      .catch(function(){ return { suspended: false }; })
+      .then(function(accountStatus){
+        isSuspended = accountStatus.suspended === true;
+        if (activeFeedKey && document.getElementById('listing-feed-sentinel')) {
+          renderFeedFromCache({ key: activeFeedKey, preserve: true });
+        }
+      });
     function suspensionNotice(){ return '<section class="suspension-notice" role="status"><p class="suspension-notice-title">Your account has been suspended</p><p class="suspension-notice-copy">You can still browse Varoom and view listings. Posting, booking, messaging, and other account activity are unavailable while your account is suspended. If you think this is a mistake, you can submit an appeal.</p><a class="suspension-notice-action" href="/support">Go to Support / Submit Appeal →</a></section>'; }
 
+    // Dashboard-side details are independent of the Discover cache. Start
+    // them in parallel so their count, glance, notification, and bookmark
+    // queries never delay restoring cached listing cards.
+    (async function initialiseHostDashboard(){
     const verifyBox = document.getElementById('verify-box');
     if (profile.verified) {
       verifyBox.className = 'verify-box is-verified';
@@ -1440,9 +1453,12 @@
     });
 
     // ---------- Bookmarks ----------
-    const { data: bookmarks } = await supabaseClient
-      .from('bookmarks').select('listing_id').eq('client_id', currentUser.id);
-    if (bookmarks) bookmarkedIds = new Set(bookmarks.map(function(b){ return b.listing_id; }));
+    supabaseClient
+      .from('bookmarks').select('listing_id').eq('client_id', currentUser.id)
+      .then(function(result){
+        if (result.data) bookmarkedIds = new Set(result.data.map(function(b){ return b.listing_id; }));
+      });
+    })();
 
     async function toggleBookmark(listingId, btn){
       if (bookmarkedIds.has(listingId)) {
