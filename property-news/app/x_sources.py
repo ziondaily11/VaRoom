@@ -25,12 +25,15 @@ async def seed_x_sources(repository) -> list[Source]:
     seeded: list[Source] = []
     for handle, category in X_SOURCE_REGISTRY.items():
         prior = existing.get(handle.lower())
+        # Startup re-seeding must not discard the canonical X ID returned by
+        # the official API during an earlier verification.
+        parser_config = {**(prior.parser_config if prior else {}), "registry": "curated_x_v1"}
         values = {
             "name": prior.name if prior else f"X @{handle} (unverified)",
             "base_url": f"https://x.com/{handle}", "source_type": "social", "trust_tier": 2,
             "fetch_method": "api", "schedule_minutes": 30, "active": prior.active if prior else False,
             "platform": "x", "source_account": handle, "verified": prior.verified if prior else False,
-            "category": category, "parser_config": {"registry": "curated_x_v1"},
+            "category": category, "parser_config": parser_config,
         }
         if prior:
             values.update({"id": prior.id, "created_at": prior.created_at})
