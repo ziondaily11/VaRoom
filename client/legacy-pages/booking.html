@@ -347,6 +347,13 @@
   }
   .gallery-report-btn:hover{ background:rgba(26,18,16,.9); }
   .gallery-report-btn svg{ width:16px; height:16px; }
+  .gallery-like-btn{
+    position:absolute; top:.65rem; right:.65rem; z-index:4; width:38px; height:38px;
+    border-radius:50%; background:rgba(26,18,16,.72); color:#fff; display:flex;
+    align-items:center; justify-content:center; backdrop-filter:blur(8px); cursor:default;
+  }
+  .gallery-like-btn svg{ width:18px; height:18px; }
+  .gallery-index-pill{ right:3.35rem; }
   .title-row{ margin-bottom:.65rem; }
   .listing-title{ font-size:clamp(1.7rem, 3vw, 2.6rem); letter-spacing:-.03em; }
   .title-actions{ gap:.5rem; }
@@ -415,6 +422,9 @@
     .breadcrumb{ padding:.65rem 6vw; }
     .content-grid{ padding:1rem 6vw 2rem; }
     .gallery-carousel{ height:clamp(220px, 62vw, 340px); border-radius:16px; margin-left:-6vw; width:calc(100% + 12vw); }
+    .gallery-report-btn{ display:none; }
+    .gallery-like-btn{ top:.75rem; right:.75rem; width:40px; height:40px; }
+    .gallery-index-pill{ top:.85rem; right:3.85rem; }
     .host-about-row{ display:block; }
     .about-block{ margin-top:1.5rem; }
     .amenity-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
@@ -657,7 +667,7 @@
     const { data: listing, error: listingError } = await supabaseClient
       .from('listings')
       .select('id,title,description,location_text,category,verified,availability_status,host_id,' +
-        'host:profiles(full_name,verified,avatar_url,username),listing_photos(storage_path),' +
+        'host:profiles(full_name,verified,avatar_url,username,phone),listing_photos(storage_path),' +
         'listing_booking_details(*)')
       .eq('id', listingId)
       .maybeSingle();
@@ -762,6 +772,9 @@
         '<button type="button" class="gallery-report-btn" id="report-listing-btn" aria-label="Report listing">' +
           '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>' +
         '</button>' +
+        '<button type="button" class="gallery-like-btn" id="like-placeholder" aria-label="Likes coming soon" title="Likes coming soon">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z"/></svg>' +
+        '</button>' +
       '</div>';
     } else {
       galleryHtml = '<div class="gallery-carousel" id="gallery-carousel">' +
@@ -777,6 +790,9 @@
         '</div>' +
         '<button type="button" class="gallery-report-btn" id="report-listing-btn" aria-label="Report listing">' +
           '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>' +
+        '</button>' +
+        '<button type="button" class="gallery-like-btn" id="like-placeholder" aria-label="Likes coming soon" title="Likes coming soon">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z"/></svg>' +
         '</button>' +
         (mediaUrls.length > 1 ?
           '<button type="button" class="gallery-nav prev" id="gallery-prev" aria-label="Previous photo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>' +
@@ -799,6 +815,10 @@
     const hostName = listing.host.full_name || 'Host';
     const initials = hostName.trim().split(/\s+/).slice(0,2).map(function(w){ return w[0]; }).join('').toUpperCase();
     const hostAvatarUrl = resolveAvatarUrl(listing.host.avatar_url);
+    const hostPhone = String(listing.host.phone || '').trim();
+    const hostPhoneHtml = hostPhone
+      ? '<p class="listing-loc">☎ <a href="tel:' + escapeHtml(hostPhone.replace(/[^+\d]/g, '')) + '">' + escapeHtml(hostPhone) + '</a></p>'
+      : '';
 
     const description = listing.description || '';
     const mapUrl = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(listing.location_text || listing.title);
@@ -858,10 +878,6 @@
       '<div class="title-row">' +
         '<h1 class="listing-title">' + escapeHtml(listing.title) + '</h1>' +
         '<div class="title-actions">' +
-          '<button type="button" class="action-btn" id="save-icon" aria-label="Save listing">' +
-            '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z"/></svg>' +
-            '<span>Save</span>' +
-          '</button>' +
           '<button type="button" class="action-btn" id="share-btn" aria-label="Share listing">' +
             '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"/></svg>' +
             '<span>Share</span>' +
@@ -872,6 +888,7 @@
         (reviewCount ? ICON_STAR + '<span>' + escapeHtml(ratingText) + '</span><span>' + escapeHtml(ratingCountText) + '</span>' : '<span>' + escapeHtml(ratingText) + '</span>') +
       '</div>' +
       '<p class="listing-loc">' + escapeHtml(listing.location_text) + ' · <a href="' + mapUrl + '" target="_blank" rel="noopener">View on map</a></p>' +
+      hostPhoneHtml +
       (badges.length ? '<div class="badge-row">' + badges.map(function(b){ return '<span class="mini-badge">' + ICON_VERIFIED + b + '</span>'; }).join('') + '</div>' : '') +
       (infoChips.length ? '<div class="info-chip-row">' + infoChips.map(function(c){ return '<span class="info-chip">' + c + '</span>'; }).join('') + '</div>' : '') +
       '<hr class="divider">' +
@@ -1083,23 +1100,6 @@
     skeleton.style.display = 'none';
     bookingPage.style.display = 'block';
 
-    // ---------- Save/bookmark ----------
-    const { data: existingBookmark } = await supabaseClient
-      .from('bookmarks').select('id').eq('client_id', currentUser.id).eq('listing_id', listingId).maybeSingle();
-    const saveIcon = document.getElementById('save-icon');
-    if (existingBookmark) { saveIcon.classList.add('saved'); saveIcon.querySelector('span').textContent = 'Saved'; }
-    saveIcon.addEventListener('click', async function(){
-      if (saveIcon.classList.contains('saved')) {
-        await supabaseClient.from('bookmarks').delete().eq('client_id', currentUser.id).eq('listing_id', listingId);
-        saveIcon.classList.remove('saved');
-        saveIcon.querySelector('span').textContent = 'Save';
-      } else {
-        await supabaseClient.from('bookmarks').insert({ client_id: currentUser.id, listing_id: listingId });
-        saveIcon.classList.add('saved');
-        saveIcon.querySelector('span').textContent = 'Saved';
-      }
-    });
-
     // ---------- Share (copies link) ----------
     document.getElementById('share-btn').addEventListener('click', async function(){
       try{
@@ -1114,6 +1114,12 @@
     // ---------- Price / details calculation ----------
     const detailsBox = document.getElementById('details-box');
     const confirmBtn = document.getElementById('confirm-btn');
+    detailsBox.hidden = true;
+
+    function clearDetailsBox(){
+      detailsBox.innerHTML = '';
+      detailsBox.hidden = true;
+    }
 
     function updateDetailsBox(nightsOrHours, label, extraFee){
       const rate = Number(details.price_amount);
@@ -1126,6 +1132,7 @@
       }
       html += '<div class="details-row total"><span>Total</span><span>KSh ' + total.toLocaleString() + '</span></div>';
       detailsBox.innerHTML = html;
+      detailsBox.hidden = false;
       return total;
     }
 
@@ -1171,8 +1178,14 @@
       const hoursInput = document.getElementById('hours-input');
       function recalc(){
         const hours = parseInt(hoursInput.value, 10) || 0;
+        if (!(selectedStart && hours > 0)) {
+          computedTotal = 0;
+          clearDetailsBox();
+          confirmBtn.disabled = true;
+          return;
+        }
         computedTotal = updateDetailsBox(hours, hours + ' hour' + (hours===1?'':'s'), null);
-        confirmBtn.disabled = !(selectedStart && hours > 0);
+        confirmBtn.disabled = false;
       }
       hoursInput.addEventListener('input', recalc);
       recalc();
@@ -1246,9 +1259,13 @@
           confirmBtn.disabled = false;
         } else if (selectedStart) {
           summary.textContent = 'Check-in: ' + selectedStart + ' — now pick a check-out date.';
+          computedTotal = 0;
+          clearDetailsBox();
           confirmBtn.disabled = true;
         } else {
           summary.textContent = 'No dates selected yet.';
+          computedTotal = 0;
+          clearDetailsBox();
           confirmBtn.disabled = true;
         }
       }
@@ -1256,12 +1273,21 @@
     } else {
       // ---------- Long-term ----------
       const leaseMonthsInput = document.getElementById('lease-months');
+      const leaseStartInput = document.getElementById('lease-start');
+      let leaseDatePicked = false;
       function recalc(){
         const months = parseInt(leaseMonthsInput.value, 10) || 0;
+        if (!leaseDatePicked || months < 1) {
+          computedTotal = 0;
+          clearDetailsBox();
+          confirmBtn.disabled = true;
+          return;
+        }
         computedTotal = updateDetailsBox(months, months + ' month' + (months===1?'':'s'), null);
-        confirmBtn.disabled = months < 1;
+        confirmBtn.disabled = false;
       }
       leaseMonthsInput.addEventListener('input', recalc);
+      leaseStartInput.addEventListener('change', function(){ leaseDatePicked = true; recalc(); });
       recalc();
     }
 
