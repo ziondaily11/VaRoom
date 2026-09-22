@@ -18,7 +18,7 @@ const { MAX_JSON_BYTES, validateJsonPayload, ValidationError, uuid, text, number
 const { ERROR_CODES, sendError } = require('./lib/apiResponse');
 const { createBillingRoutes } = require('./routes/billingRoutes');
 const { createPaystackWebhookRoutes } = require('./routes/paystackWebhookRoutes');
-const { sendRecoveryOtp, sendConfirmationEmail } = require('./lib/authEmail');
+const { sendRecoveryOtp, sendConfirmationOtp } = require('./lib/authEmail');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -265,7 +265,7 @@ async function createSignupConfirmation({ email, password, fullName, role, redir
   });
   if (error) throw error;
   try {
-    await sendConfirmationEmail(email, data.properties && data.properties.action_link);
+    await sendConfirmationOtp(email, data.properties && data.properties.email_otp);
   } catch (error) {
     // generateLink creates the user. Roll it back when delivery fails so the
     // address is not stranded in an account it cannot confirm.
@@ -282,15 +282,15 @@ app.post('/api/auth/sign-up', async (req, res) => {
   const strongPassword = passwordValue.length >= 8 && /[A-Z]/.test(passwordValue) && (/[0-9]/.test(passwordValue) || /[^A-Za-z0-9]/.test(passwordValue));
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail) || !strongPassword || String(fullName || '').trim().length < 2 || !['client', 'host'].includes(role)) return sendError(res, 400, 'Please provide a name, valid email address, and a password with at least 8 characters, an uppercase letter, and a number or special character.');
   if (!hasEmailProvider()) return sendError(res, 503, 'Email delivery is temporarily unavailable. Please try again later.');
-  if (isThrottled(confirmationRequestTracker, normalizedEmail)) return sendError(res, 429, 'Please wait before requesting another confirmation email.', ERROR_CODES.RATE_LIMITED);
+  if (isThrottled(confirmationRequestTracker, normalizedEmail)) return sendError(res, 429, 'Please wait before requesting another verification code.', ERROR_CODES.RATE_LIMITED);
   try {
     await createSignupConfirmation({ email: normalizedEmail, password, fullName: String(fullName).trim(), role, redirect });
     confirmationRequestTracker.set(normalizedEmail, Date.now());
     return res.status(201).json({ success: true });
   } catch (error) {
-    console.error('Account signup or confirmation email failed:', error.message);
+    console.error('Account signup or verification-code email failed:', error.message);
     const status = /already registered|already exists/i.test(error.message || '') ? 409 : 502;
-    return sendError(res, status, status === 409 ? 'An account with this email already exists.' : 'We could not send the confirmation email. Please try again.');
+    return sendError(res, status, status === 409 ? 'An account with this email already exists.' : 'We could not send the verification code. Please try again.');
   }
 });
 
@@ -298,27 +298,26 @@ app.post('/api/auth/resend-confirmation', async (req, res) => {
   const normalizedEmail = String((req.body || {}).email || '').trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) return sendError(res, 400, 'Please enter a valid email address.');
   if (!hasEmailProvider()) return sendError(res, 503, 'Email delivery is temporarily unavailable. Please try again later.');
-  if (isThrottled(confirmationRequestTracker, normalizedEmail)) return sendError(res, 429, 'Please wait before requesting another confirmation email.', ERROR_CODES.RATE_LIMITED);
+  if (isThrottled(confirmationRequestTracker, normalizedEmail)) return sendError(res, 429, 'Please wait before requesting another verification code.', ERROR_CODES.RATE_LIMITED);
   try {
-    // Supabase refreshes the confirmation token for an existing unconfirmed
-    // account without requiring its password. This gives expired links a
-    // secure resend path while preserving the original account.
+    // Supabase refreshes the confirmation code for an existing unconfirmed
+    // account without requiring its password, preserving the original account.
     const { data, error } = await supabaseAdmin.auth.admin.generateLink({
       type: 'signup', email: normalizedEmail, options: { redirectTo: authRedirectUrl() }
     });
     if (error) throw error;
-    await sendConfirmationEmail(normalizedEmail, data.properties && data.properties.action_link);
+    await sendConfirmationOtp(normalizedEmail, data.properties && data.properties.email_otp);
     confirmationRequestTracker.set(normalizedEmail, Date.now());
   } catch (error) {
     // Keep account existence private, but do not claim delivery succeeded when
     // the configured mail provider itself rejected the message.
     if (/already registered|already exists/i.test(error.message || '')) {
-      return res.json({ success: true, message: "If that email has a pending verification, we've sent a new link." });
+      return res.json({ success: true, message: "If that email has a pending verification, we've sent a new code." });
     }
     console.error('Confirmation resend failed:', error.message);
-    return sendError(res, 502, 'Could not send the confirmation email. Please try again.');
+    return sendError(res, 502, 'Could not send the verification code. Please try again.');
   }
-  return res.json({ success: true, message: "If that email has a pending verification, we've sent a new link." });
+  return res.json({ success: true, message: "If that email has a pending verification, we've sent a new code." });
 });
 
 // Placeholder API route — real listing/provider/client routes will live in ./routes

@@ -360,6 +360,14 @@
     .btn-submit:hover:not(:disabled) { background: #242424; box-shadow: 0 6px 18px rgba(0,0,0,.24); }
     .btn-submit:disabled { background: #b8b8b8; box-shadow: none; opacity: 1; }
     .form-note, .form-switch { color: #707070; }
+    .verification-step { display: none; text-align: center; }
+    .verification-step h2 { margin: 0 0 8px; color: #171717; font-size: 21px; }
+    .verification-step p { margin: 0 0 18px; color: #666; font-size: 13px; line-height: 1.5; }
+    .otp-inputs { display: flex; justify-content: center; gap: 8px; margin: 0 0 18px; }
+    .otp-inputs input { width: 39px; height: 48px; padding: 0; border: 1px solid #a8a8a8; border-radius: 8px; color: #111; font-size: 21px; font-weight: 700; text-align: center; }
+    .otp-inputs input:focus { border-color: #000; outline: none; box-shadow: 0 0 0 3px rgba(0,0,0,.08); }
+    .resend-code { margin-top: 16px; border: 0; background: transparent; color: #111; font-size: 13px; font-weight: 700; text-decoration: underline; cursor: pointer; }
+    .resend-code:disabled { color: #888; cursor: not-allowed; text-decoration: none; }
     @media (max-width: 760px) { .signup-content { padding: 22px 22px 0; } .signup-hero { min-height: 40vh; min-height: 40svh; border-radius: 0 0 30px 30px; } }
     @media (prefers-reduced-motion: reduce) { .signup-hero__message { animation: none; } .signup-hero__message:first-child { opacity: 1; transform: none; } }
     @media (min-width: 761px) {
@@ -441,6 +449,22 @@
       <p class="form-note">We'll send a confirmation email to help you finish setting up.</p>
       <p class="form-switch">Already have an account? <a href="/login">Log in</a></p>
     </form>
+    <section class="verification-step" id="verification-step" aria-live="polite">
+      <h2>Verify your email</h2>
+      <p>Enter the 6-digit code we sent to <strong id="verification-email"></strong>.</p>
+      <form id="verification-form" novalidate>
+        <div class="otp-inputs" aria-label="Six-digit verification code">
+          <input inputmode="numeric" autocomplete="one-time-code" maxlength="1" aria-label="Digit 1" />
+          <input inputmode="numeric" maxlength="1" aria-label="Digit 2" />
+          <input inputmode="numeric" maxlength="1" aria-label="Digit 3" />
+          <input inputmode="numeric" maxlength="1" aria-label="Digit 4" />
+          <input inputmode="numeric" maxlength="1" aria-label="Digit 5" />
+          <input inputmode="numeric" maxlength="1" aria-label="Digit 6" />
+        </div>
+        <button type="submit" class="btn-submit" id="verify-btn">Verify email</button>
+      </form>
+      <button type="button" class="resend-code" id="resend-code">Resend code</button>
+    </section>
     </div>
   </div>
 
@@ -575,9 +599,7 @@
       // Store intended role
       sessionStorage.setItem('varoom_intended_role', 'host');
 
-      showAlert('Account created! Check your email to confirm and finish setting up.', 'success');
-      form.reset();
-      updatePasswordState();
+      showVerificationStep(email);
 
     } catch(err) {
       var msg = err.message || 'Something went wrong. Please try again.';
@@ -608,6 +630,40 @@
   document.getElementById('confirm-password').addEventListener('input', updatePasswordState);
   document.getElementById('agree').addEventListener('change', updatePasswordState);
   updatePasswordState();
+
+  var verificationEmail = '';
+  var otpInputs = Array.prototype.slice.call(document.querySelectorAll('.otp-inputs input'));
+  function showVerificationStep(email) {
+    verificationEmail = email;
+    document.getElementById('google-btn').style.display = 'none';
+    document.querySelector('.divider').style.display = 'none';
+    form.style.display = 'none';
+    document.getElementById('verification-email').textContent = email;
+    document.getElementById('verification-step').style.display = 'block';
+    otpInputs[0].focus();
+  }
+  function verificationCode() { return otpInputs.map(function(input) { return input.value; }).join(''); }
+  otpInputs.forEach(function(input, index) {
+    input.addEventListener('input', function() { input.value = input.value.replace(/\D/g, '').slice(-1); if (input.value && index < otpInputs.length - 1) otpInputs[index + 1].focus(); });
+    input.addEventListener('keydown', function(event) { if (event.key === 'Backspace' && !input.value && index > 0) otpInputs[index - 1].focus(); });
+    input.addEventListener('paste', function(event) { event.preventDefault(); var digits = (event.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '').slice(0, 6); digits.split('').forEach(function(digit, digitIndex) { otpInputs[digitIndex].value = digit; }); otpInputs[Math.min(digits.length, 5)].focus(); });
+  });
+  document.getElementById('verification-form').addEventListener('submit', async function(event) {
+    event.preventDefault();
+    var code = verificationCode();
+    if (code.length !== 6) return showAlert('Enter the complete 6-digit verification code.', 'error');
+    var verifyBtn = document.getElementById('verify-btn'); verifyBtn.disabled = true;
+    var result = await supabaseClient.auth.verifyOtp({ email: verificationEmail, token: code, type: 'signup' });
+    if (result.error) { verifyBtn.disabled = false; return showAlert(result.error.message || 'That code is invalid or expired. Please try again.', 'error'); }
+    window.location.assign('/auth-callback' + (redirect ? '?redirect=' + encodeURIComponent(redirect) : ''));
+  });
+  document.getElementById('resend-code').addEventListener('click', async function() {
+    var resendBtn = this; resendBtn.disabled = true; resendBtn.textContent = 'Code sent — try again in 60s';
+    var response = await fetch('/api/auth/resend-confirmation', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: verificationEmail }) });
+    var result = await response.json().catch(function() { return {}; });
+    if (!response.ok) showAlert(result.error || 'Could not resend the verification code.', 'error');
+    window.setTimeout(function() { resendBtn.disabled = false; resendBtn.textContent = 'Resend code'; }, 60000);
+  });
 
   // Clear errors on input
   ['fullname','email','password','confirm-password'].forEach(function(id) {

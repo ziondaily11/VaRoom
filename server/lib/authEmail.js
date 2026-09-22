@@ -15,9 +15,9 @@ async function sendRecoveryOtp(email, otp) {
   return sendEmail({ to: email, subject: 'Reset your VaRoom password', html: emailShell('Reset your VaRoom password', `<p style="font-size:14px;color:#756661;line-height:1.5">We received a request to reset your VaRoom password. Your verification code is:</p><p style="font-family:Consolas,monospace;font-size:32px;font-weight:700;letter-spacing:6px;text-align:center;color:#c41e3a">${escapeHtml(otp)}</p><p style="font-size:13px;color:#756661">This code expires in one hour.</p>`) });
 }
 
-async function sendConfirmationEmail(email, actionLink) {
-  if (!actionLink) throw new Error('Supabase did not generate a confirmation link');
-  return sendEmail({ to: email, subject: 'Confirm your VaRoom account', html: emailShell('Confirm your VaRoom account', `<p style="font-size:14px;color:#756661;line-height:1.5">Thanks for joining VaRoom. Confirm your email address to finish setting up your account.</p><p style="margin:24px 0"><a href="${escapeHtml(actionLink)}" style="display:inline-block;background:#c41e3a;color:#fff;padding:12px 18px;border-radius:6px;text-decoration:none;font-weight:600">Confirm email address</a></p><p style="font-size:12px;color:#756661;word-break:break-all">If the button does not work, copy this link into your browser:<br>${escapeHtml(actionLink)}</p>`) });
+async function sendConfirmationOtp(email, otp) {
+  if (!otp) throw new Error('Supabase did not generate a confirmation code');
+  return sendEmail({ to: email, subject: 'Verify your VaRoom email', html: emailShell('Verify your VaRoom email', `<p style="font-size:14px;color:#756661;line-height:1.5">Thanks for joining VaRoom. Enter this verification code to finish setting up your account:</p><p style="font-family:Consolas,monospace;font-size:32px;font-weight:700;letter-spacing:6px;text-align:center;color:#c41e3a">${escapeHtml(otp)}</p><p style="font-size:13px;color:#756661">This code expires in one hour.</p>`) });
 }
 
-module.exports = { sendRecoveryOtp, sendConfirmationEmail };
+module.exports = { sendRecoveryOtp, sendConfirmationOtp };
