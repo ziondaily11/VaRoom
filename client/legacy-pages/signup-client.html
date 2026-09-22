@@ -360,13 +360,14 @@
     .btn-submit:hover:not(:disabled) { background: #242424; box-shadow: 0 6px 18px rgba(0,0,0,.24); }
     .btn-submit:disabled { background: #b8b8b8; box-shadow: none; opacity: 1; }
     .form-note, .form-switch { color: #707070; }
-    .verification-step { display: none; text-align: center; }
-    .verification-step h2 { margin: 0 0 8px; color: #171717; font-size: 21px; }
-    .verification-step p { margin: 0 0 18px; color: #666; font-size: 13px; line-height: 1.5; }
-    .otp-inputs { display: flex; justify-content: center; gap: 8px; margin: 0 0 18px; }
-    .otp-inputs input { width: 39px; height: 48px; padding: 0; border: 1px solid #a8a8a8; border-radius: 8px; color: #111; font-size: 21px; font-weight: 700; text-align: center; }
+    .verification-step { display: none; width: 100%; text-align: left; }
+    .verification-step h2 { margin: 0 0 48px; color: #173f3d; font-size: 25px; font-weight: 700; }
+    .verification-step p { margin: 0 0 20px; color: #454545; font-size: 15px; line-height: 1.45; }
+    .verification-step p strong { color: #171717; font-weight: 600; overflow-wrap: anywhere; }
+    .otp-inputs { display: flex; justify-content: space-between; gap: 7px; margin: 0 0 30px; }
+    .otp-inputs input { width: min(14vw, 48px); height: 54px; padding: 0; border: 2px solid #c5c5c5; border-radius: 6px; color: #111; font-size: 22px; font-weight: 700; text-align: center; }
     .otp-inputs input:focus { border-color: #000; outline: none; box-shadow: 0 0 0 3px rgba(0,0,0,.08); }
-    .resend-code { margin-top: 16px; border: 0; background: transparent; color: #111; font-size: 13px; font-weight: 700; text-decoration: underline; cursor: pointer; }
+    .resend-code { margin: 0 0 38px; border: 0; background: transparent; color: #1478c8; font-size: 15px; font-weight: 700; cursor: pointer; }
     .resend-code:disabled { color: #888; cursor: not-allowed; text-decoration: none; }
     @media (max-width: 760px) { .signup-content { padding: 22px 22px 0; } .signup-hero { min-height: 40vh; min-height: 40svh; border-radius: 0 0 30px 30px; } }
     @media (prefers-reduced-motion: reduce) { .signup-hero__message { animation: none; } .signup-hero__message:first-child { opacity: 1; transform: none; } }
@@ -450,8 +451,8 @@
       <p class="form-switch">Already have an account? <a href="/login">Log in</a></p>
     </form>
     <section class="verification-step" id="verification-step" aria-live="polite">
-      <h2>Verify your email</h2>
-      <p>Enter the 6-digit code we sent to <strong id="verification-email"></strong>.</p>
+      <h2>Enter OTP</h2>
+      <p>A 6-digit PIN has been sent to<br><strong id="verification-email"></strong></p>
       <form id="verification-form" novalidate>
         <div class="otp-inputs" aria-label="Six-digit verification code">
           <input inputmode="numeric" autocomplete="one-time-code" maxlength="1" aria-label="Digit 1" />
@@ -461,7 +462,7 @@
           <input inputmode="numeric" maxlength="1" aria-label="Digit 5" />
           <input inputmode="numeric" maxlength="1" aria-label="Digit 6" />
         </div>
-        <button type="submit" class="btn-submit" id="verify-btn">Verify email</button>
+        <button type="submit" class="btn-submit" id="verify-btn">Continue</button>
       </form>
       <button type="button" class="resend-code" id="resend-code">Resend code</button>
     </section>
@@ -625,6 +626,8 @@
   var otpInputs = Array.prototype.slice.call(document.querySelectorAll('.otp-inputs input'));
   function showVerificationStep(email) {
     verificationEmail = email;
+    document.querySelector('.signup-hero').style.display = 'none';
+    document.querySelector('.signup-content').style.cssText = 'display:flex; flex-direction:column; justify-content:center; min-height:100vh; padding-top:48px; padding-bottom:48px;';
     document.getElementById('google-btn').style.display = 'none';
     document.querySelector('.divider').style.display = 'none';
     form.style.display = 'none';
