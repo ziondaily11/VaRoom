@@ -138,8 +138,8 @@ class SourceCollector:
             raise ValueError("source_group_count must be positive")
         if source_group is not None and not 0 <= source_group < source_group_count:
             raise ValueError("source_group must be within source_group_count")
-        # Social sources are handled independently by XCollector, never by the
-        # website HTML/RSS discovery adapter.
+        # Only website sources are collected; paid social-platform feeds are
+        # intentionally outside the Property News ingestion scope.
         sources = [source for source in await self.repository.list_sources(active_only=True) if source.platform == "web"]
         if source_group is not None:
             # Stable name ordering keeps a source in the same group between runs.

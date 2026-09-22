@@ -50,11 +50,6 @@ class Settings:
     public_rate_limit_per_minute: int = _int("NEWS_PUBLIC_RATE_LIMIT_PER_MINUTE", 60)
     admin_api_key: str | None = (os.getenv("NEWS_ADMIN_API_KEY") or "").strip() or None
     scheduler_secret: str | None = os.getenv("NEWS_SCHEDULER_SECRET") or None
-    # X is deliberately optional.  This credential is read only by the service
-    # process; neither the public API nor the browser receives it.
-    x_bearer_token: str | None = os.getenv("X_BEARER_TOKEN") or None
-    x_api_base_url: str = os.getenv("X_API_BASE_URL", "https://api.x.com/2").rstrip("/")
-    x_fetch_max_results: int = _int("X_FETCH_MAX_RESULTS", 20)
     # GitHub Actions is the production collector. In-process collection is off
     # so a Render boot cannot collide with the scheduled workflow.
     enable_background_scheduler: bool = os.getenv("NEWS_ENABLE_BACKGROUND_SCHEDULER", "false").lower() in {"1", "true", "yes"}
@@ -66,10 +61,5 @@ class Settings:
     @property
     def scheduler_configured(self) -> bool:
         return bool(self.scheduler_secret)
-
-    @property
-    def x_configured(self) -> bool:
-        return bool(self.x_bearer_token)
-
 
 settings = Settings()

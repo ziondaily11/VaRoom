@@ -25,8 +25,6 @@ from app.repository import SupabaseNewsRepository
 from app.retrieval import NewsRetrievalService
 from app.review import ReviewService
 from app.seed_sources import upsert_official_lands_source
-from app.x_collector import XCollector
-from app.x_sources import seed_x_sources
 
 
 def source(*, tier: int = 1, active: bool = True) -> Source:
@@ -304,26 +302,6 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(first.active)
         self.assertEqual(first.id, second.id)
         self.assertEqual(len(await self.repository.list_sources()), 2)
-
-    async def test_x_reseed_preserves_verified_api_identity_and_has_one_stable_shard(self):
-        seeded = await seed_x_sources(self.repository)
-        lands = next(source for source in seeded if source.source_account == "Lands_Kenya")
-        verified = lands.model_copy(update={
-            "verified": True,
-            "active": True,
-            "parser_config": {**lands.parser_config, "x_user_id": "12345"},
-        })
-        await self.repository.upsert_source(verified)
-
-        reseeded = await seed_x_sources(self.repository)
-        refreshed = next(source for source in reseeded if source.source_account == "Lands_Kenya")
-        self.assertTrue(refreshed.verified)
-        self.assertTrue(refreshed.active)
-        self.assertEqual(refreshed.parser_config["x_user_id"], "12345")
-        self.assertEqual(
-            sum(XCollector._in_group(refreshed, group, 11) for group in range(11)),
-            1,
-        )
 
     async def test_regulatory_statuses_preserve_source_meaning(self):
         analyzer = RulesBasedNewsAnalyzer()

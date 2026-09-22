@@ -8,7 +8,6 @@ from typing import Any
 
 from .analysis import NewsAnalyzer, build_analyzer
 from .collector import SourceCollector
-from .x_collector import XCollector
 from .config import settings
 from .constants import ReviewStatus
 from .processing import ProcessingService
@@ -21,7 +20,6 @@ async def run_collection_job(repository=None, config=settings, analyzer: NewsAna
     """Collect due sources and process every newly discovered item in one run."""
     store = repository or build_repository(config)
     collector = SourceCollector(store, config)
-    x_collector = XCollector(store, config)
     processor = ProcessingService(store, analyzer or build_analyzer(config))
     try:
         try:
@@ -30,11 +28,6 @@ async def run_collection_job(repository=None, config=settings, analyzer: NewsAna
             logging.getLogger(__name__).error("Publication release failed; continuing collection: %s", error)
             released = 0
         collected = await collector.collect_due_sources(source_group=source_group)
-        # Spread the curated X registry over the same eleven scheduler shards.
-        # A source activates only after the official API confirms its exact
-        # username; X failures do not interrupt website collection.
-        x_sync = await x_collector.sync_registry(source_group=source_group)
-        x_collected = await x_collector.collect_due_sources(source_group=source_group)
         result = {key: int(collected.get(key, 0)) for key in (
             "sources_checked", "sources_attempted", "sources_successful", "sources_failed",
             "candidates", "articles_discovered", "articles_rejected", "articles_parsed",
@@ -44,12 +37,8 @@ async def run_collection_job(repository=None, config=settings, analyzer: NewsAna
             "timeouts", "http_403", "http_404", "oversized_responses",
         )}
         result["collection_status"] = _collection_status(result)
-        result["x_collection"] = {
-            **x_sync,
-            **{key: value for key, value in x_collected.items() if key != "new_item_ids"},
-        }
         failed_item_ids = [item.id for item in await store.list_failed_items()]
-        item_ids = list(dict.fromkeys([*collected["new_item_ids"], *x_collected["new_item_ids"], *failed_item_ids]))
+        item_ids = list(dict.fromkeys([*collected["new_item_ids"], *failed_item_ids]))
         result.update({"processed": 0, "published": released, "pending_review": 0, "archived": 0,
                        "processing_failures": 0, "retried": len(failed_item_ids), "released": released})
         
@@ -78,7 +67,6 @@ async def run_collection_job(repository=None, config=settings, analyzer: NewsAna
         return result
     finally:
         await collector.close()
-        await x_collector.close()
 
 
 def _collection_status(result: dict[str, Any]) -> str:
