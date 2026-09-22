@@ -132,6 +132,14 @@
 
   async function mount() {
     removePageSpecificBars();
+    // The booking detail is an immersive, focused view. It owns its close
+    // control and deliberately has no persistent app navigation.
+    if (window.location.pathname === '/booking' || window.location.pathname === '/booking.html') {
+      document.querySelectorAll('.varoom-mobile-nav').forEach(function (bar) {
+        bar.remove();
+      });
+      return;
+    }
     // Chat Settings is a focused screen; it intentionally has no app-wide
     // mobile navigation, whether opened directly or from the Chats gear.
     if (window.location.pathname === '/chat-settings' || window.location.pathname === '/chat-settings.html') return;
