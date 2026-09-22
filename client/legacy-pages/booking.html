@@ -353,6 +353,7 @@
     align-items:center; justify-content:center; backdrop-filter:blur(8px); cursor:default;
   }
   .gallery-like-btn svg{ width:18px; height:18px; }
+  .gallery-close-btn{ display:none; }
   .gallery-index-pill{ right:3.35rem; }
   .title-row{ margin-bottom:.65rem; }
   .listing-title{ font-size:clamp(1.7rem, 3vw, 2.6rem); letter-spacing:-.03em; }
@@ -418,29 +419,37 @@
     .content-grid{ grid-template-columns:minmax(0,1.55fr) minmax(340px,.85fr); }
   }
   @media (max-width:959px){
-    body{ padding-bottom:5.5rem; }
-    .breadcrumb{ padding:.65rem 6vw; }
-    .content-grid{ padding:1rem 6vw 2rem; }
-    .gallery-carousel{ height:clamp(220px, 62vw, 340px); border-radius:16px; margin-left:-6vw; width:calc(100% + 12vw); }
-    .gallery-report-btn{ display:none; }
+    body{ padding-bottom:0; }
+    header, .breadcrumb{ display:none !important; }
+    .content-grid{ padding:0 0 2rem; max-width:none; gap:0; }
+    .skel-shell{ padding:0; }
+    .skel-gallery{ height:clamp(300px, 56svh, 430px); border-radius:0; }
+    .gallery-carousel{
+      height:clamp(300px, 56svh, 430px); border-radius:0; margin:0; width:100%;
+    }
+    #col-main > :not(.gallery-carousel){ margin-left:5vw; margin-right:5vw; }
+    #col-main > .divider{ margin:1.25rem 5vw; }
+    .listing-title{ font-size:1.35rem; letter-spacing:-.02em; }
+    .title-row{ margin-top:1rem; margin-bottom:.35rem; }
+    .title-actions{ display:none; }
+    .rating-row{ margin-bottom:.35rem; }
+    .listing-loc{ display:flex; align-items:center; gap:.35rem; margin-bottom:.45rem; }
+    .listing-loc .map-link-inline{ display:none; }
+    .location-section{ display:none; }
+    .gallery-report-btn, .gallery-index-pill, .gallery-nav, .view-all-btn{ display:none; }
+    .gallery-close-btn{
+      position:absolute; top:.75rem; left:.75rem; z-index:4; width:40px; height:40px;
+      border-radius:50%; background:rgba(26,18,16,.62); color:#fff; display:flex;
+      align-items:center; justify-content:center; backdrop-filter:blur(8px);
+    }
+    .gallery-close-btn svg{ width:20px; height:20px; }
     .gallery-like-btn{ top:.75rem; right:.75rem; width:40px; height:40px; }
-    .gallery-index-pill{ top:.85rem; right:3.85rem; }
     .host-about-row{ display:block; }
     .about-block{ margin-top:1.5rem; }
     .amenity-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
-    .col-side{ display:none; }
-    .col-side.mobile-open{ display:block; }
-    .col-side.mobile-open .booking-widget{ position:static; margin-top:1rem; }
-    .mobile-booking-bar{
-      position:fixed; display:flex; align-items:center; justify-content:space-between; gap:1rem;
-      left:0; right:0; bottom:0; z-index:50; padding:.8rem 6vw calc(.8rem + env(safe-area-inset-bottom));
-      background:color-mix(in srgb, var(--white) 94%, transparent); border-top:1px solid var(--line);
-      box-shadow:0 -8px 24px #E4E1DA; backdrop-filter:blur(14px);
-    }
-    .mobile-price{ font-weight:700; font-size:.9rem; white-space:nowrap; }
-    .mobile-price span{ color:var(--muted); font-size:.72rem; font-weight:500; }
-    .mobile-book-btn{ background:#24211E; color:#fff; padding:.75rem 1.2rem; border-radius:100px; font-weight:700; }
-    [data-theme="dark"] .mobile-book-btn{ background:#f5efec; color:#24211E; }
+    .col-side{ display:block; margin:0 5vw; }
+    .col-side .booking-widget{ position:static; margin-top:1.25rem; padding:1rem; box-shadow:none; }
+    .mobile-booking-bar{ display:none; }
   }
 </style>
 </head>
@@ -556,6 +565,7 @@
     const ICON_VERIFIED = '<svg class="icon-verified" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><path d="m9 12 2 2 4-4"/></svg>';
     const ICON_GRID = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>';
     const ICON_MESSAGE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z"/></svg>';
+    const ICON_LOCATION = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 5-8 11-8 11s-8-6-8-11a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg>';
     const AMENITY_ICON = {
       wifi: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>',
       mountain: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 3 4 8 5-5 5 15H2L8 3z"/></svg>',
@@ -772,6 +782,9 @@
         '<button type="button" class="gallery-report-btn" id="report-listing-btn" aria-label="Report listing">' +
           '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>' +
         '</button>' +
+        '<button type="button" class="gallery-close-btn" id="gallery-close-btn" aria-label="Close property details">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
+        '</button>' +
         '<button type="button" class="gallery-like-btn" id="like-placeholder" aria-label="Likes coming soon" title="Likes coming soon">' +
           '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z"/></svg>' +
         '</button>' +
@@ -790,6 +803,9 @@
         '</div>' +
         '<button type="button" class="gallery-report-btn" id="report-listing-btn" aria-label="Report listing">' +
           '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>' +
+        '</button>' +
+        '<button type="button" class="gallery-close-btn" id="gallery-close-btn" aria-label="Close property details">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
         '</button>' +
         '<button type="button" class="gallery-like-btn" id="like-placeholder" aria-label="Likes coming soon" title="Likes coming soon">' +
           '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z"/></svg>' +
@@ -817,7 +833,7 @@
     const hostAvatarUrl = resolveAvatarUrl(listing.host.avatar_url);
     const hostPhone = String(listing.host.phone || '').trim();
     const hostPhoneHtml = hostPhone
-      ? '<p class="listing-loc">☎ <a href="tel:' + escapeHtml(hostPhone.replace(/[^+\d]/g, '')) + '">' + escapeHtml(hostPhone) + '</a></p>'
+      ? '<p class="listing-loc host-phone">☎ <a href="tel:' + escapeHtml(hostPhone.replace(/[^+\d]/g, '')) + '">' + escapeHtml(hostPhone) + '</a></p>'
       : '';
 
     const description = listing.description || '';
@@ -887,7 +903,7 @@
       '<div class="rating-row">' +
         (reviewCount ? ICON_STAR + '<span>' + escapeHtml(ratingText) + '</span><span>' + escapeHtml(ratingCountText) + '</span>' : '<span>' + escapeHtml(ratingText) + '</span>') +
       '</div>' +
-      '<p class="listing-loc">' + escapeHtml(listing.location_text) + ' · <a href="' + mapUrl + '" target="_blank" rel="noopener">View on map</a></p>' +
+      '<p class="listing-loc">' + ICON_LOCATION + '<span>' + escapeHtml(listing.location_text) + '</span><a class="map-link-inline" href="' + mapUrl + '" target="_blank" rel="noopener">View on map</a></p>' +
       hostPhoneHtml +
       (badges.length ? '<div class="badge-row">' + badges.map(function(b){ return '<span class="mini-badge">' + ICON_VERIFIED + b + '</span>'; }).join('') + '</div>' : '') +
       (infoChips.length ? '<div class="info-chip-row">' + infoChips.map(function(c){ return '<span class="info-chip">' + c + '</span>'; }).join('') + '</div>' : '') +
@@ -931,6 +947,17 @@
         const reason = window.prompt('Why are you reporting this listing?');
         if (reason && reason.trim()) {
           window.alert('Thanks. Your report has been noted for review.');
+        }
+      });
+    }
+
+    const galleryCloseBtn = document.getElementById('gallery-close-btn');
+    if (galleryCloseBtn) {
+      galleryCloseBtn.addEventListener('click', function(){
+        if (window.history.length > 1 && document.referrer) {
+          window.history.back();
+        } else {
+          window.location.href = '/marketplace';
         }
       });
     }
