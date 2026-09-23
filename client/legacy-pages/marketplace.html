@@ -1003,14 +1003,22 @@
       video.className = 'card-video';
       video.muted = true;
       video.playsInline = true;
+      video.autoplay = true;
+      video.loop = true;
       video.controls = false;
-      video.preload = 'metadata';
+      video.preload = 'auto';
+      video.setAttribute('autoplay', '');
+      video.setAttribute('muted', '');
+      video.setAttribute('playsinline', '');
       element.insertBefore(video, element.firstChild);
       element.dataset.videoId = playback.id;
       if (playback.thumbnailUrl) video.poster = playback.thumbnailUrl;
       video.src = playback.url;
       video.addEventListener('loadeddata', function(){
         element.classList.remove('is-loading');
+        video.play().catch(function(error){
+          console.warn('Marketplace video autoplay unavailable:', error.message);
+        });
       }, { once: true });
       video.addEventListener('error', function(){
         element.classList.remove('is-loading');
