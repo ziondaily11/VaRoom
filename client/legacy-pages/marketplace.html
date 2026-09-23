@@ -11,7 +11,8 @@
 <script>
   (function(){
     try{
-      var saved = localStorage.getItem('varoom_theme') || 'system';
+      var saved = localStorage.getItem('varoom_theme');
+      if (saved !== 'light' && saved !== 'dark' && saved !== 'system') saved = 'system';
       var resolved = saved === 'system'
         ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
         : saved;
@@ -96,10 +97,6 @@
   .price-popover .price-inputs input{ min-width:0; }
   .price-popover .filter-row{ margin-top:.55rem; }
   .toolbar-compatible-filters{ display:none; }
-
-  .topbar-actions{ margin-left:auto; display:flex; align-items:center; gap:.6rem; }
-  .avatar-circle{ width:34px; height:34px; border-radius:50%; background:var(--paper); display:flex; align-items:center; justify-content:center; overflow:hidden; font-weight:700; color:var(--red-deep); }
-  .avatar-circle img{ width:100%; height:100%; object-fit:cover; }
 
   .mkt-body{ display:flex; align-items:flex-start; min-width:0; }
   .desktop-sidebar, .desktop-category-row{ display:none; }
@@ -230,6 +227,7 @@
   }
   @keyframes varoom-video-spin{ to{ transform:rotate(360deg); } }
   .mobile-marketplace-tools, .mobile-bottom-nav{ display:none; }
+  .public-marketplace .desktop-sidebar, .public-marketplace .mobile-bottom-nav{ display:none !important; }
 
   @media (max-width: 1200px) and (min-width: 861px){
     .grid{ grid-template-columns:repeat(3, minmax(0, 1fr)); }
@@ -243,7 +241,6 @@
     .mkt-header{ display:grid; grid-template-columns:1fr auto; gap:.8rem; padding:.8rem 1.4rem; border-bottom:1px solid var(--line); }
     .mkt-header .logo, .mkt-header .mode-switch{ display:none; }
     .search-bar{ grid-column:1; grid-row:1; max-width:660px; width:100%; }
-    .topbar-actions{ grid-column:2; grid-row:1; }
     .desktop-category-row{ grid-column:1 / -1; display:flex; gap:.55rem; overflow-x:auto; padding:.1rem 0 .05rem; scrollbar-width:none; }
     .desktop-category-row::-webkit-scrollbar{ display:none; }
     .desktop-category-chip{ flex:0 0 auto; min-height:2rem; padding:0 .82rem; border:0; border-radius:999px; background:var(--paper); color:var(--ink); font-size:.72rem; font-weight:600; cursor:pointer; white-space:nowrap; }
@@ -262,7 +259,7 @@
   @media (max-width: 860px){
     body{ padding-bottom:4.4rem; }
     .mkt-header{ display:block; padding:.8rem .8rem .3rem; border:0; background:var(--paper); }
-    .mkt-header .logo, .mode-switch, .topbar-actions{ display:none; }
+    .mkt-header .logo, .mode-switch{ display:none; }
     .filters{ display:none; }
     .mkt-body{ flex-direction:column; }
     .search-bar{ display:none; }
@@ -300,6 +297,194 @@
     .mobile-bottom-nav a.active{ color:#fff; background:var(--red); font-weight:700; }
     .mobile-bottom-nav svg{ width:1.05rem; height:1.05rem; flex-shrink:0; }
   }
+
+  /* Desktop marketplace surface */
+  @media (min-width: 861px){
+    body{ background:#fbfbfa; color:#202124; }
+    .mkt-header{
+      position:relative; z-index:4; display:grid; grid-template-columns:minmax(300px, 586px) auto;
+      gap:1rem; height:110px; margin-left:170px; padding:24px 24px 12px 22px;
+      border:0; background:#fbfbfa;
+    }
+    .mkt-header .logo, .mkt-header .mode-switch{ display:none; }
+    .search-bar{ grid-column:1; grid-row:1; width:100%; max-width:none; position:relative; }
+    .search-bar::after{
+      content:"☷"; position:absolute; right:16px; top:7px; color:#374151; font-size:14px;
+      transform:rotate(90deg);
+    }
+    .search-field{
+      width:100%; min-height:32px; height:32px; min-width:0; padding:0 14px 0 34px;
+      border:0; border-radius:999px; background:#f1f1f1;
+      position:relative;
+    }
+    .search-field::before{
+      content:""; position:absolute; left:13px; width:11px; height:11px;
+      border:1.5px solid #4b5563; border-radius:50%;
+    }
+    .search-field::after{
+      content:""; position:absolute; left:23px; top:17px; width:5px; height:1.5px;
+      background:#4b5563; transform:rotate(45deg); transform-origin:left center;
+    }
+    .search-field input{ font-size:10px; color:#374151; }
+    .search-submit{ display:none; }
+    .search-field{ border:1px solid rgba(0,0,0,.14); }
+    [data-theme="dark"] .search-field{ border-color:rgba(255,255,255,.18); }
+    .desktop-category-row{
+      grid-column:1 / -1; grid-row:2; display:flex; gap:10px; overflow:visible;
+      padding:0; align-items:center;
+    }
+    .desktop-category-chip{
+      min-height:27px; padding:0 15px; border-radius:999px; background:#f2f2f2;
+      color:#252a30; font-size:10px; font-weight:600;
+    }
+    .desktop-category-chip.active{ background:#20262d; color:#fff; }
+    .mkt-body{ display:block; margin-left:170px; min-height:calc(100vh - 110px); }
+    .desktop-sidebar{
+      position:fixed; z-index:5; inset:0 auto 0 0; display:flex; width:170px; height:100vh;
+      min-height:0; flex-direction:column; padding:20px 10px 18px; border-right:1px solid #e5e7eb;
+      background:#fff;
+    }
+    .desktop-sidebar-brand{ margin:0 0 20px 8px; font-size:19px; letter-spacing:-.6px; }
+    .desktop-sidebar nav{ display:grid; gap:3px; }
+    .desktop-sidebar a{
+      display:flex; align-items:center; gap:12px; height:30px; padding:0 10px;
+      border-radius:7px; color:#262b31; font-size:10px; font-weight:500;
+    }
+    .desktop-sidebar a::before{
+      display:grid; place-items:center; width:14px; color:#1f2933; font-size:14px; line-height:1;
+    }
+    .desktop-sidebar nav:first-of-type a:nth-child(1)::before,
+    .desktop-sidebar nav:nth-of-type(2) a:nth-child(1)::before{ content:"⌂"; }
+    .desktop-sidebar nav:first-of-type a:nth-child(2)::before{ content:"▦"; }
+    .desktop-sidebar nav:first-of-type a:nth-child(3)::before,
+    .desktop-sidebar nav:nth-of-type(2) a:nth-child(2)::before{ content:"♧"; }
+    .desktop-sidebar nav:first-of-type a:nth-child(4)::before,
+    .desktop-sidebar nav:nth-of-type(2) a:nth-child(3)::before{ content:"□"; }
+    .desktop-sidebar nav:first-of-type a:nth-child(5)::before,
+    .desktop-sidebar nav:nth-of-type(2) a:nth-child(4)::before{ content:"♙"; }
+    .desktop-sidebar nav:first-of-type a:nth-child(6)::before,
+    .desktop-sidebar nav:nth-of-type(2) a:nth-child(5)::before{ content:"⚙"; font-size:12px; }
+    .desktop-sidebar nav:nth-of-type(2) a:nth-child(6)::before{ content:"◆"; font-size:9px; }
+    .desktop-sidebar a.active{ background:#f5f5f5; color:#202124; font-weight:700; }
+    .desktop-sidebar .sidebar-divider{ height:1px; margin:18px 8px 14px; background:#ececec; }
+    .desktop-sidebar .sidebar-label{ margin:0 8px 7px; color:#8a9199; font-size:9px; font-weight:500; text-transform:none; letter-spacing:0; }
+    .role-sidebar[hidden]{ display:none; }
+    .role-sidebar{ display:flex; flex-direction:column; gap:14px; height:100%; }
+    .role-sidebar nav{ gap:3px; }
+    .role-sidebar a{ gap:8px; }
+    .role-sidebar a::before{ display:none; }
+    .role-sidebar a > span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .sidebar-note{
+      margin-top:auto; padding:12px 10px; border-radius:7px; background:#f3f3f3;
+      color:#30343a; font-size:9px; line-height:1.35;
+    }
+    .sidebar-note strong{ display:block; margin-bottom:4px; }
+    .results-col{ width:auto; padding:8px 20px 28px; }
+    .grid{ grid-template-columns:repeat(4, minmax(0, 1fr)); gap:10px 11px; }
+    .card{
+      aspect-ratio:1.12 / 1; min-height:0; border:0; border-radius:9px; background:#202124;
+      box-shadow:none;
+    }
+    .card:hover{ transform:translateY(-1px); box-shadow:0 5px 14px rgba(20,24,28,.14); border:0; }
+    .card-media{ position:absolute; inset:0; height:100%; aspect-ratio:auto; border-radius:inherit; }
+    .card-media::after{
+      height:58%; background:linear-gradient(to bottom, transparent 0%, rgba(8,11,14,.05) 22%, rgba(8,11,14,.72) 100%);
+    }
+    .card-verified{
+      top:8px; left:9px; padding:4px 9px; border-radius:999px; font-size:9px;
+      background:rgba(28,28,27,.78);
+    }
+    .card-save{ top:7px; right:7px; width:19px; height:19px; background:rgba(36,36,34,.72); }
+    .card-save svg{ width:12px; height:12px; }
+    .card-body{
+      position:absolute; z-index:2; right:0; bottom:0; left:0; padding:0 10px 9px;
+      gap:2px; color:#fff; pointer-events:none;
+    }
+    .card-title{ color:#fff; font-size:10px; line-height:1.25; }
+    .card-loc{ min-height:0; color:#fff; font-size:9px; line-height:1.25; }
+    .card-amenities{ min-height:0; height:13px; gap:7px; padding:0; color:#fff; }
+    .card-amenity{ color:#fff; font-size:8px; }
+    .card-amenity svg{ width:10px; height:10px; }
+    .card-foot{ margin-top:1px; align-items:center; }
+    .card-price{ color:#fff; font-size:9px; }
+    .card-price span{ color:#fff; font-size:8px; }
+    .card-book{ color:#fff; font-size:8px; font-weight:500; }
+    .pagination{ margin-top:18px; }
+    .filters, .toolbar-compatible-filters{ display:none; }
+  }
+
+  @media (min-width: 861px){
+    body, .mkt-header, .results-col{ background:var(--paper); color:var(--ink); }
+    .desktop-sidebar{ background:var(--paper); border-color:var(--line); }
+    .desktop-sidebar a{ color:var(--ink); }
+    .desktop-sidebar a.active{ background:var(--line-soft); color:var(--ink); }
+    .desktop-sidebar .sidebar-label{ color:var(--muted); }
+    .sidebar-note{ background:var(--line-soft); color:var(--ink); }
+    .search-field, .desktop-category-chip{ background:var(--paper); color:var(--ink); }
+    .desktop-category-chip.active{ background:var(--ink); color:var(--white); }
+    .card{ background:var(--paper); }
+  }
+
+  @media (min-width: 861px){
+    .mkt-header{ margin-left:72px; padding-left:22px; }
+    .mkt-body{ margin-left:72px; }
+    .desktop-sidebar{
+      width:72px; padding:18px 10px; align-items:center; overflow:visible;
+      border-right:1px solid color-mix(in srgb, var(--ink) 12%, transparent);
+      box-shadow:1px 0 0 color-mix(in srgb, var(--white) 55%, transparent);
+    }
+    .desktop-sidebar-brand{
+      display:flex; align-items:baseline; justify-content:center; width:100%; margin:0 0 22px;
+      font-size:16px; letter-spacing:-.7px;
+    }
+    .desktop-sidebar-brand .room{ display:none; }
+    .role-sidebar{ width:100%; gap:12px; }
+    .role-sidebar nav{ width:100%; gap:5px; }
+    .role-sidebar a.sidebar-icon-link{
+      position:relative; display:grid; place-items:center; width:42px; height:42px; padding:0;
+      border-radius:10px; color:var(--ink); font-size:0;
+    }
+    .role-sidebar a.sidebar-icon-link svg{ width:19px; height:19px; flex:none; }
+    .role-sidebar a.sidebar-icon-link:hover{ background:var(--line-soft); }
+    .role-sidebar a.sidebar-icon-link.active{
+      background:var(--line-soft); color:var(--red-deep); font-weight:600;
+    }
+    .role-sidebar a.sidebar-icon-link::after{
+      content:attr(data-tooltip); position:absolute; z-index:20; top:50%; left:calc(100% + 10px);
+      transform:translateY(-50%) translateX(-3px); opacity:0; pointer-events:none; white-space:nowrap;
+      padding:6px 8px; border-radius:5px; background:var(--ink); color:var(--paper);
+      font-size:11px; font-weight:500; transition:opacity .15s ease, transform .15s ease;
+    }
+    .role-sidebar a.sidebar-icon-link:hover::after,
+    .role-sidebar a.sidebar-icon-link:focus-visible::after{
+      opacity:1; transform:translateY(-50%) translateX(0);
+    }
+    .sidebar-icon-divider{ width:34px; height:1px; margin:1px auto; background:var(--line); }
+    .sidebar-note, .sidebar-label{ display:none; }
+    .results-col{ padding:8px 20px 28px; }
+    .grid{ grid-template-columns:repeat(2, minmax(0, 1fr)); gap:12px; }
+    .card{ aspect-ratio:1.3 / 1; }
+    .card-media::after{
+      height:64%;
+      background:linear-gradient(to bottom, rgba(8,11,14,0) 0%, rgba(8,11,14,.04) 30%, rgba(8,11,14,.32) 67%, rgba(8,11,14,.82) 100%);
+    }
+  }
+
+  @media (min-width: 920px) and (max-width: 999px){
+    .grid{ grid-template-columns:repeat(3, minmax(0, 1fr)); }
+  }
+
+  @media (min-width: 1000px) and (max-width: 1199px){
+    .grid{ grid-template-columns:repeat(4, minmax(0, 1fr)); }
+  }
+
+  @media (min-width: 1200px) and (max-width: 1439px){
+    .grid{ grid-template-columns:repeat(5, minmax(0, 1fr)); }
+  }
+
+  @media (min-width: 1440px){
+    .grid{ grid-template-columns:repeat(6, minmax(0, 1fr)); }
+  }
 </style>
 </head>
 <body>
@@ -328,9 +513,6 @@
     <button type="button" class="desktop-category-chip" data-desktop-category="property">Property</button>
   </div>
 
-  <div class="topbar-actions">
-    <a href="/profile" class="avatar-circle" id="user-avatar" aria-label="Profile"></a>
-  </div>
   <div class="mobile-marketplace-tools">
     <div class="mobile-search">
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><line x1="16.5" y1="16.5" x2="21" y2="21"></line></svg>
@@ -355,25 +537,102 @@
 
 <div class="mkt-body">
   <aside class="desktop-sidebar" aria-label="Marketplace navigation">
-    <div class="desktop-sidebar-brand"><span class="va">Va</span>Room</div>
-    <nav>
-      <a href="/client-home" id="marketplace-sidebar-home">Home</a>
-      <a href="/marketplace" class="active">Marketplace</a>
-      <a href="/notifications">Notifications</a>
-      <a href="/bookings">Bookings</a>
-      <a href="/profile">Profile</a>
-      <a href="/settings">Settings</a>
-    </nav>
-    <div class="sidebar-divider"></div>
-    <div class="sidebar-label">Explore</div>
-    <nav>
-      <a href="/marketplace?category=airbnb">Airbnbs</a>
-      <a href="/marketplace?category=hotel">Hotels</a>
-      <a href="/marketplace?category=venue">Event Venues</a>
-      <a href="/marketplace?category=office">Offices</a>
-      <a href="/marketplace?category=shop">Shops</a>
-      <a href="/marketplace?category=property">Property</a>
-    </nav>
+    <a class="desktop-sidebar-brand" id="marketplace-sidebar-brand" href="/client-home" aria-label="VaRoom home"><span class="va">Va</span><span class="room">Room</span></a>
+    <div class="role-sidebar" data-role-sidebar="client" hidden>
+      <nav>
+        <a href="/client-home" class="sidebar-icon-link" data-tooltip="Home" aria-label="Home">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9a1 1 0 0 1 1 1H9v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4h2.5a1 1 0 0 1 1-1v-9"/></svg>
+        </a>
+        <a href="/marketplace" class="sidebar-icon-link active" data-tooltip="Marketplace" aria-label="Marketplace">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m15 9-2 6-6 2 2-6 6-2Z"/></svg>
+        </a>
+        <a href="/client-home?view=saved" class="sidebar-icon-link" data-tooltip="Saved" aria-label="Saved">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h12a1 1 0 0 1 1 1V21l-7-4-7 4V4.5a1 1 0 0 1 1-1Z"/></svg>
+        </a>
+      </nav>
+      <div class="sidebar-icon-divider"></div>
+      <nav>
+        <a href="/bookings" class="sidebar-icon-link" data-tooltip="Bookings" aria-label="Bookings">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="2"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>
+        </a>
+        <a href="/chats" class="sidebar-icon-link" data-tooltip="Chats" aria-label="Chats">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7A8.4 8.4 0 0 1 4 11.5a8.5 8.5 0 0 1 4.7-7.6A8.4 8.4 0 0 1 12.5 3h.5a8.48 8.48 0 0 1 8 8v.5Z"/></svg>
+        </a>
+        <a href="/transactions" class="sidebar-icon-link" data-tooltip="Transactions" aria-label="Transactions">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><path d="M7 15h4"/></svg>
+        </a>
+        <a href="/notifications" class="sidebar-icon-link" data-tooltip="Notifications" aria-label="Notifications">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        </a>
+      </nav>
+      <div class="sidebar-icon-divider"></div>
+      <nav>
+        <a href="/profile" class="sidebar-icon-link" data-tooltip="Profile" aria-label="Profile">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.5-7 8-7s8 3 8 7"/></svg>
+        </a>
+        <a href="/settings" class="sidebar-icon-link" data-tooltip="Settings" aria-label="Settings">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>
+        </a>
+        <a href="/support" class="sidebar-icon-link" data-tooltip="Help & Support" aria-label="Help & Support">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 4.9.8c0 1.6-2.4 1.9-2.4 3.5"/><path d="M12 17.2v.1"/></svg>
+        </a>
+      </nav>
+    </div>
+    <div class="role-sidebar" data-role-sidebar="host" hidden>
+      <nav>
+        <a href="/host-home" class="sidebar-icon-link" data-tooltip="Home" aria-label="Home">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9a1 1 0 0 1 1 1H9v-4a1 1 0 0 1 1-1h2a2 2 0 0 1 1 1v4h2.5a1 1 0 0 1 1-1v-9"/></svg>
+        </a>
+        <a href="/marketplace" class="sidebar-icon-link active" data-tooltip="Marketplace" aria-label="Marketplace">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m15 9-2 6-6 2 2-6 6-2Z"/></svg>
+        </a>
+        <a href="/host-home?view=saved" class="sidebar-icon-link" data-tooltip="Saved" aria-label="Saved">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h12a1 1 0 0 1 1 1V21l-7-4-7 4V4.5a1 1 0 0 1 1-1Z"/></svg>
+        </a>
+      </nav>
+      <div class="sidebar-icon-divider"></div>
+      <nav>
+        <a href="/bookings" class="sidebar-icon-link" data-tooltip="Bookings" aria-label="Bookings">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="2"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>
+        </a>
+        <a href="/chats" class="sidebar-icon-link" data-tooltip="Chats" aria-label="Chats">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7A8.4 8.4 0 0 1 4 11.5a8.5 8.5 0 0 1 4.7-7.6A8.4 8.4 0 0 1 12.5 3h.5a8.48 8.48 0 0 1 8 8v.5Z"/></svg>
+        </a>
+        <a href="/notifications" class="sidebar-icon-link" data-tooltip="Notifications" aria-label="Notifications">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        </a>
+      </nav>
+      <div class="sidebar-icon-divider"></div>
+      <nav>
+        <a href="/list" class="sidebar-icon-link" data-tooltip="List a Space" aria-label="List a Space">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </a>
+        <a href="/host-home?view=my-listings" class="sidebar-icon-link" data-tooltip="My Listings" aria-label="My Listings">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4" width="17" height="16" rx="2"/><path d="M7.5 9h9M7.5 13h9M7.5 17h5"/></svg>
+        </a>
+        <a href="/payments" class="sidebar-icon-link" data-tooltip="Payments" aria-label="Payments">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><path d="M7 15h4"/></svg>
+        </a>
+        <a href="/analytics" class="sidebar-icon-link" data-tooltip="Analytics" aria-label="Analytics">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V10M11 19V5M18 19v-7"/><path d="M3 19h18"/></svg>
+        </a>
+      </nav>
+      <div class="sidebar-icon-divider"></div>
+      <nav>
+        <a href="/profile" class="sidebar-icon-link" data-tooltip="Profile" aria-label="Profile">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.5-7 8-7s8 3 8 7"/></svg>
+        </a>
+        <a href="/settings" class="sidebar-icon-link" data-tooltip="Settings" aria-label="Settings">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 1 .9-.3H9a1.7 1.7 0 0 1 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 1 1 1.5 1.7 1.7 0 0 1 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 1-.3 1.9V9a1.7 1.7 0 0 1 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 1-1.5 1Z"/></svg>
+        </a>
+        <a href="/support" class="sidebar-icon-link" data-tooltip="Help & Support" aria-label="Help & Support">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 4.9.8c0 1.6-2.4 1.9-2.4 3.5"/><path d="M12 17.2v.1"/></svg>
+        </a>
+        <a href="pricing.html" class="sidebar-icon-link" data-tooltip="Upgrade" aria-label="Upgrade">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3Z"/><path d="m19 16 .7 1.8L21.5 18l-1.8.7L19 20.5l-.7-1.8-1.8-.7L19 16Z"/></svg>
+        </a>
+      </nav>
+    </div>
   </aside>
   <div class="toolbar-compatible-filters" aria-hidden="true">
     <div id="type-filters"></div>
@@ -475,43 +734,56 @@
 
   // ---------- Auth guard ----------
   const { data: { session } } = await supabaseClient.auth.getSession();
-  if (!session) { window.location.href = '/login'; return; }
-  const currentUser = session.user;
-
+  const currentUser = session && session.user ? session.user : null;
+  document.body.classList.toggle('public-marketplace', !currentUser);
   const dataCache = window.VaRoomDataCache;
-  const profileResult = await dataCache.get('account:' + currentUser.id + ':profile:marketplace', function(){
-    return supabaseClient
-      .from('profiles')
-      .select('role, full_name, avatar_url, looking_timeline, interested_categories')
-      .eq('id', currentUser.id)
-      .maybeSingle();
-  });
+  const profileResult = currentUser
+    ? await dataCache.get('account:' + currentUser.id + ':profile:marketplace', function(){
+        return supabaseClient
+          .from('profiles')
+          .select('role, full_name, avatar_url, looking_timeline, interested_categories')
+          .eq('id', currentUser.id)
+          .maybeSingle();
+      })
+    : null;
   const profile = profileResult && profileResult.data;
-  if (!profile) { window.location.href = '/login'; return; }
-  const preferredCategories = profile.role === 'client' && profile.looking_timeline === 'soon'
+  const preferredCategories = profile && profile.role === 'client' && profile.looking_timeline === 'soon'
     ? (profile.interested_categories || []).map(function(category){ return String(category || '').trim().toLowerCase(); }).filter(function(category){ return Object.prototype.hasOwnProperty.call(CATEGORY_LABELS, category); })
     : [];
-  const homeHref = profile.role === 'host' ? '/host-home' : '/client-home';
+  const homeHref = profile && profile.role === 'host' ? '/host-home' : '/client-home';
   ['marketplace-home-link', 'marketplace-discover-link', 'marketplace-mobile-home-link'].forEach(function(id){
-    document.getElementById(id).setAttribute('href', homeHref);
+    const link = document.getElementById(id);
+    if (link) link.setAttribute('href', homeHref);
   });
-  document.getElementById('marketplace-sidebar-home').setAttribute('href', homeHref);
+  const sidebarBrand = document.getElementById('marketplace-sidebar-brand');
+  if (sidebarBrand) sidebarBrand.setAttribute('href', homeHref);
+  document.querySelectorAll('[data-role-sidebar]').forEach(function(sidebar){
+    sidebar.hidden = !profile || sidebar.getAttribute('data-role-sidebar') !== profile.role;
+  });
   const avatarEl = document.getElementById('user-avatar');
-  if (profile.avatar_url) {
-    avatarEl.innerHTML = '<img src="' + escapeHtml(profile.avatar_url) + '" alt="">';
-  } else {
-    avatarEl.textContent = (profile.full_name || '?').charAt(0).toUpperCase();
+  if (avatarEl) {
+    if (profile.avatar_url) {
+      avatarEl.innerHTML = '<img src="' + escapeHtml(profile.avatar_url) + '" alt="">';
+    } else {
+      avatarEl.textContent = (profile.full_name || '?').charAt(0).toUpperCase();
+    }
   }
 
   // ---------- Bookmarks ----------
   let bookmarkedIds = new Set();
-  const bookmarkResult = await dataCache.get('account:' + currentUser.id + ':bookmarks', function(){
-    return supabaseClient.from('bookmarks').select('listing_id').eq('client_id', currentUser.id);
-  });
-  const bookmarks = bookmarkResult && bookmarkResult.data;
-  if (bookmarks) bookmarkedIds = new Set(bookmarks.map(function(b){ return b.listing_id; }));
+  if (currentUser) {
+    const bookmarkResult = await dataCache.get('account:' + currentUser.id + ':bookmarks', function(){
+      return supabaseClient.from('bookmarks').select('listing_id').eq('client_id', currentUser.id);
+    });
+    const bookmarks = bookmarkResult && bookmarkResult.data;
+    if (bookmarks) bookmarkedIds = new Set(bookmarks.map(function(b){ return b.listing_id; }));
+  }
 
   async function toggleBookmark(listingId, btn){
+    if (!currentUser) {
+      window.location.href = '/login';
+      return;
+    }
     if (bookmarkedIds.has(listingId)) {
       await supabaseClient.from('bookmarks').delete().eq('client_id', currentUser.id).eq('listing_id', listingId);
       bookmarkedIds.delete(listingId);
@@ -527,9 +799,12 @@
 
   // ---------- State (seeded from URL, so Explore/search handoff works) ----------
   const params = new URLSearchParams(window.location.search);
+  const requestedCategory = (params.get('category') || 'all').trim().toLowerCase();
   const state = {
     q: params.get('q') || '',
-    category: params.get('category') || 'all',
+    category: requestedCategory === 'all' || Object.prototype.hasOwnProperty.call(CATEGORY_LABELS, requestedCategory)
+      ? requestedCategory
+      : 'all',
     guests: params.get('guests') || '',
     priceMin: null,
     priceMax: null,
@@ -736,14 +1011,22 @@
       video.className = 'card-video';
       video.muted = true;
       video.playsInline = true;
+      video.autoplay = true;
+      video.loop = true;
       video.controls = false;
-      video.preload = 'metadata';
+      video.preload = 'auto';
+      video.setAttribute('autoplay', '');
+      video.setAttribute('muted', '');
+      video.setAttribute('playsinline', '');
       element.insertBefore(video, element.firstChild);
       element.dataset.videoId = playback.id;
       if (playback.thumbnailUrl) video.poster = playback.thumbnailUrl;
       video.src = playback.url;
       video.addEventListener('loadeddata', function(){
         element.classList.remove('is-loading');
+        video.play().catch(function(error){
+          console.warn('Marketplace video autoplay unavailable:', error.message);
+        });
       }, { once: true });
       video.addEventListener('error', function(){
         element.classList.remove('is-loading');
@@ -763,9 +1046,18 @@
   document.addEventListener('click', function(event){
     const card = event.target.closest('.card');
     if (!card) return;
-    if (event.target.closest('.card-save')) return;
+    if (event.target.closest('.card-save')) {
+      if (!currentUser) {
+        event.preventDefault();
+        window.location.href = '/login';
+      }
+      return;
+    }
     const href = card.getAttribute('data-href');
-    if (href) window.location.href = href;
+    if (href) {
+      event.preventDefault();
+      window.location.href = currentUser ? href : '/login';
+    }
   });
 
   document.addEventListener('keydown', function(event){
@@ -775,7 +1067,7 @@
     if (event.target.closest('.card-save')) return;
     event.preventDefault();
     const href = card.getAttribute('data-href');
-    if (href) window.location.href = href;
+    if (href) window.location.href = currentUser ? href : '/login';
   });
 
   function observeVideoCards(){
@@ -907,7 +1199,7 @@
       let query = supabaseClient.from('listings').select(select, { count: 'exact' }).range(offset, offset + PAGE_SIZE - 1);
       query = query.eq('moderation_status', 'active');
       if (filterAvailability) query = query.eq('availability_status', 'available');
-      if (state.category !== 'all') query = query.eq('category', state.category);
+      if (state.category && state.category !== 'all') query = query.eq('category', state.category);
       if (state.q) {
         const term = state.q.replace(/[%(),]/g, ' ').trim();
         if (term) {
@@ -1072,16 +1364,23 @@
   function updatePriceLabel(){
     const min = document.getElementById('price-min').value;
     const max = document.getElementById('price-max').value;
-    document.getElementById('price-label').textContent =
-      min || max ? ('KSh ' + (min || '0') + ' – ' + (max || 'Any')) : 'Any price';
+    const priceLabel = document.getElementById('price-label');
+    if (priceLabel) {
+      priceLabel.textContent =
+        min || max ? ('KSh ' + (min || '0') + ' – ' + (max || 'Any')) : 'Any price';
+    }
   }
   document.getElementById('price-min').addEventListener('input', updatePriceLabel);
   document.getElementById('price-max').addEventListener('input', updatePriceLabel);
-  document.getElementById('price-trigger').addEventListener('click', function(){
-    const popover = document.getElementById('price-popover');
-    const open = popover.classList.toggle('open');
-    this.setAttribute('aria-expanded', String(open));
-  });
+  const priceTrigger = document.getElementById('price-trigger');
+  if (priceTrigger) {
+    priceTrigger.addEventListener('click', function(){
+      const popover = document.getElementById('price-popover');
+      if (!popover) return;
+      const open = popover.classList.toggle('open');
+      this.setAttribute('aria-expanded', String(open));
+    });
+  }
   document.getElementById('verified-only').addEventListener('change', function(){
     state.verifiedOnly = this.checked; state.page = 1; runSearch();
   });
@@ -1099,8 +1398,10 @@
     syncMobileCategoryChips();
     syncDesktopCategoryChips();
     updatePriceLabel();
-    document.getElementById('price-popover').classList.remove('open');
-    document.getElementById('price-trigger').setAttribute('aria-expanded', 'false');
+    const pricePopover = document.getElementById('price-popover');
+    if (pricePopover) pricePopover.classList.remove('open');
+    const resetPriceTrigger = document.getElementById('price-trigger');
+    if (resetPriceTrigger) resetPriceTrigger.setAttribute('aria-expanded', 'false');
     runSearch();
   });
   function setFiltersCollapsed(collapsed, focusId){
