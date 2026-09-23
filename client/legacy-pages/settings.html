@@ -820,12 +820,11 @@
                 <span class="info-main"><span class="info-label">Delete account</span><span class="info-value" style="font-weight:500;">Permanently delete your account</span></span>
                 <span class="info-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></span>
               </div>
-              <div class="expand-panel" id="delete-confirm">
-                <p class="inline-msg neutral">This is permanent and can't be undone. Type <strong>DELETE</strong> below to confirm.</p>
-                <input type="text" id="delete-confirm-input" class="delete-confirm-input" placeholder="Type DELETE">
-                <button type="button" class="btn btn-danger btn-block" id="confirm-delete-btn" disabled>Permanently delete my account</button>
-                <p class="inline-msg" id="delete-msg"></p>
-              </div>
+                      <div class="expand-panel" id="delete-confirm">
+                        <p class="inline-msg neutral">This is permanent and can't be undone. Continue to the confirmation dialog to permanently remove your account and all VaRoom data.</p>
+                        <button type="button" class="btn btn-danger btn-block" id="confirm-delete-btn">Permanently delete my account</button>
+                        <p class="inline-msg" id="delete-msg"></p>
+                      </div>
             </div>
           </div>
         </template>
@@ -1203,12 +1202,14 @@
         });
         actions.appendChild(loginButton);
       }
-      const deleteButton = document.createElement('button');
-      deleteButton.type = 'button';
-      deleteButton.className = 'delete-account-btn';
-      deleteButton.textContent = 'Delete account';
-      deleteButton.addEventListener('click', function(){ openDeleteDialog(account); });
-      actions.appendChild(deleteButton);
+      if (isActive) {
+        const deleteButton = document.createElement('button');
+        deleteButton.type = 'button';
+        deleteButton.className = 'delete-account-btn';
+        deleteButton.textContent = 'Delete account';
+        deleteButton.addEventListener('click', function(){ openDeleteDialog(account); });
+        actions.appendChild(deleteButton);
+      }
       row.appendChild(avatar);
       row.appendChild(info);
       row.appendChild(actions);
@@ -1270,10 +1271,9 @@
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: 'Bearer ' + accountPendingDeletion.access_token
+            Authorization: 'Bearer ' + session.access_token
           },
           body: JSON.stringify({
-            account_id: accountPendingDeletion.id,
             reason: deleteReason.value,
             reason_details: deleteDetails.value.trim()
           })
@@ -1281,25 +1281,18 @@
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || 'Unable to delete account');
 
-        const deletedId = accountPendingDeletion.id;
-        const wasActive = deletedId === currentUser.id;
+        const deletedId = currentUser.id;
         window.VaRoomAccountSwitcher.removeAccount(deletedId);
-        const remainingAccounts = window.VaRoomAccountSwitcher.getLinkedAccounts();
+        if (window.VaRoomDataCache) window.VaRoomDataCache.invalidate('account:' + deletedId + ':');
+        try {
+          window.sessionStorage.clear();
+          window.localStorage.removeItem('varoom_linked_accounts');
+          window.localStorage.removeItem('varoom_theme');
+        } catch (storageError) {}
         accountPendingDeletion = null;
         deleteDialog.close();
-        if (wasActive) {
-          const nextAccount = remainingAccounts.find(function(account){ return account.id !== deletedId; });
-          if (!nextAccount) {
-            await supabaseClient.auth.signOut();
-            window.location.href = '/login';
-            return;
-          }
-          await window.VaRoomAccountSwitcher.switchAccount(supabaseClient, nextAccount);
-          window.location.href = nextAccount.role === 'host' ? '/host-home' : '/client-home';
-          return;
-        }
-        deleteConfirmButton.textContent = 'Delete account permanently';
-        renderDashboardAccounts();
+        await supabaseClient.auth.signOut({ scope: 'local' });
+        window.location.href = '/login?deleted=1';
       } catch (error) {
         deleteConfirmButton.disabled = false;
         deleteConfirmButton.textContent = 'Delete account permanently';
@@ -1455,16 +1448,10 @@
         });
 
         // Delete account confirm input
-        const deleteInput = document.getElementById('delete-confirm-input');
         const deleteBtn = document.getElementById('confirm-delete-btn');
-        if (deleteInput && deleteBtn) {
-          deleteInput.addEventListener('input', function(e){
-            deleteBtn.disabled = e.target.value !== 'DELETE';
-          });
+        if (deleteBtn) {
           deleteBtn.addEventListener('click', function(){
-            const msg = document.getElementById('delete-msg');
-            msg.textContent = "Account deletion needs a small backend step that isn't deployed yet. Reach out via Support & About and we'll remove your account manually in the meantime.";
-            msg.className = 'inline-msg error';
+            openDeleteDialog({ id: currentUser.id, email: currentUser.email, full_name: profile.full_name });
           });
         }
 
