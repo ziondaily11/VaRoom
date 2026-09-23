@@ -376,12 +376,17 @@
     .desktop-sidebar a.active{ background:#f5f5f5; color:#202124; font-weight:700; }
     .desktop-sidebar .sidebar-divider{ height:1px; margin:18px 8px 14px; background:#ececec; }
     .desktop-sidebar .sidebar-label{ margin:0 8px 7px; color:#8a9199; font-size:9px; font-weight:500; text-transform:none; letter-spacing:0; }
-    .desktop-sidebar::after{
-      content:"Find the perfect place\\A for your next stay,\\A event or business.\\A\\A  ➜";
-      white-space:pre; position:absolute; right:14px; bottom:42px; left:16px; min-height:92px;
-      padding:13px 10px; border-radius:6px; background:linear-gradient(135deg,#252525,#171717);
-      color:#fff; font-size:9px; line-height:1.35; box-shadow:0 5px 12px rgba(0,0,0,.16);
+    .role-sidebar[hidden]{ display:none; }
+    .role-sidebar{ display:flex; flex-direction:column; gap:14px; height:100%; }
+    .role-sidebar nav{ gap:3px; }
+    .role-sidebar a{ gap:8px; }
+    .role-sidebar a::before{ display:none; }
+    .role-sidebar a > span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .sidebar-note{
+      margin-top:auto; padding:12px 10px; border-radius:7px; background:#f3f3f3;
+      color:#30343a; font-size:9px; line-height:1.35;
     }
+    .sidebar-note strong{ display:block; margin-bottom:4px; }
     .results-col{ width:auto; padding:8px 20px 28px; }
     .grid{ grid-template-columns:repeat(4, minmax(0, 1fr)); gap:10px 11px; }
     .card{
@@ -414,6 +419,18 @@
     .card-book{ color:#fff; font-size:8px; font-weight:500; }
     .pagination{ margin-top:18px; }
     .filters, .toolbar-compatible-filters{ display:none; }
+  }
+
+  @media (min-width: 861px){
+    body, .mkt-header, .results-col{ background:var(--paper); color:var(--ink); }
+    .desktop-sidebar{ background:var(--paper); border-color:var(--line); }
+    .desktop-sidebar a{ color:var(--ink); }
+    .desktop-sidebar a.active{ background:var(--line-soft); color:var(--ink); }
+    .desktop-sidebar .sidebar-label{ color:var(--muted); }
+    .sidebar-note{ background:var(--line-soft); color:var(--ink); }
+    .search-field, .desktop-category-chip{ background:var(--paper); color:var(--ink); }
+    .desktop-category-chip.active{ background:var(--ink); color:var(--white); }
+    .card{ background:var(--paper); }
   }
 </style>
 </head>
@@ -471,24 +488,59 @@
 <div class="mkt-body">
   <aside class="desktop-sidebar" aria-label="Marketplace navigation">
     <div class="desktop-sidebar-brand"><span class="va">Va</span>Room</div>
-    <nav>
-      <a href="/client-home" id="marketplace-sidebar-home">Home</a>
-      <a href="/marketplace" class="active">Marketplace</a>
-      <a href="/notifications">Notifications</a>
-      <a href="/bookings">Bookings</a>
-      <a href="/profile">Profile</a>
-      <a href="/settings">Settings</a>
-    </nav>
-    <div class="sidebar-divider"></div>
-    <div class="sidebar-label">Explore</div>
-    <nav>
-      <a href="/marketplace?category=airbnb">Airbnbs</a>
-      <a href="/marketplace?category=hotel">Hotels</a>
-      <a href="/marketplace?category=venue">Event Venues</a>
-      <a href="/marketplace?category=office">Offices</a>
-      <a href="/marketplace?category=shop">Shops</a>
-      <a href="/marketplace?category=property">Property</a>
-    </nav>
+    <div class="role-sidebar" data-role-sidebar="client" hidden>
+      <nav>
+        <a href="/chats?conversation=elie">✦ <span>Elie</span></a>
+      </nav>
+      <nav>
+        <a href="/client-home">⌂ <span>Home</span></a>
+        <a href="/marketplace" class="active">◉ <span>Marketplace</span></a>
+        <a href="/client-home?view=saved">▱ <span>Saved</span></a>
+      </nav>
+      <div class="sidebar-label">My activity</div>
+      <nav>
+        <a href="/bookings">□ <span>Bookings</span></a>
+        <a href="/chats">▢ <span>Chats</span></a>
+        <a href="/transactions">▤ <span>Transactions</span></a>
+        <a href="/notifications">♧ <span>Notifications</span></a>
+      </nav>
+      <div class="sidebar-label">Account</div>
+      <nav>
+        <a href="/profile">♙ <span>Profile</span></a>
+        <a href="/settings">⚙ <span>Settings</span></a>
+        <a href="/support">? <span>Help &amp; Support</span></a>
+      </nav>
+      <div class="sidebar-note"><strong>Book with confidence</strong>GPS-verified listings and verified hosts help you know what's real before you reach out.</div>
+    </div>
+    <div class="role-sidebar" data-role-sidebar="host" hidden>
+      <nav>
+        <a href="/chats?conversation=elie">✦ <span>Elie</span></a>
+      </nav>
+      <nav>
+        <a href="/host-home">⌂ <span>Home</span></a>
+        <a href="/marketplace" class="active">◉ <span>Marketplace</span></a>
+        <a href="/host-home?view=saved">▱ <span>Saved</span></a>
+      </nav>
+      <div class="sidebar-label">My activity</div>
+      <nav>
+        <a href="/bookings">□ <span>Bookings</span></a>
+        <a href="/chats">▢ <span>Chats</span></a>
+        <a href="/notifications">♧ <span>Notifications</span></a>
+      </nav>
+      <div class="sidebar-label">Host</div>
+      <nav>
+        <a href="/list">＋ <span>List a space</span></a>
+        <a href="/host-home?view=my-listings">▤ <span>My Listings</span></a>
+        <a href="/payments">▣ <span>Payments</span></a>
+        <a href="/analytics">▥ <span>Analytics</span></a>
+      </nav>
+      <div class="sidebar-label">Account</div>
+      <nav>
+        <a href="/profile">♙ <span>Profile</span></a>
+        <a href="/settings">⚙ <span>Settings</span></a>
+        <a href="/support">? <span>Help &amp; Support</span></a>
+      </nav>
+    </div>
   </aside>
   <div class="toolbar-compatible-filters" aria-hidden="true">
     <div id="type-filters"></div>
@@ -608,9 +660,12 @@
     : [];
   const homeHref = profile.role === 'host' ? '/host-home' : '/client-home';
   ['marketplace-home-link', 'marketplace-discover-link', 'marketplace-mobile-home-link'].forEach(function(id){
-    document.getElementById(id).setAttribute('href', homeHref);
+    const link = document.getElementById(id);
+    if (link) link.setAttribute('href', homeHref);
   });
-  document.getElementById('marketplace-sidebar-home').setAttribute('href', homeHref);
+  document.querySelectorAll('[data-role-sidebar]').forEach(function(sidebar){
+    sidebar.hidden = sidebar.getAttribute('data-role-sidebar') !== profile.role;
+  });
   const avatarEl = document.getElementById('user-avatar');
   if (profile.avatar_url) {
     avatarEl.innerHTML = '<img src="' + escapeHtml(profile.avatar_url) + '" alt="">';
@@ -642,9 +697,12 @@
 
   // ---------- State (seeded from URL, so Explore/search handoff works) ----------
   const params = new URLSearchParams(window.location.search);
+  const requestedCategory = (params.get('category') || 'all').trim().toLowerCase();
   const state = {
     q: params.get('q') || '',
-    category: params.get('category') || 'all',
+    category: requestedCategory === 'all' || Object.prototype.hasOwnProperty.call(CATEGORY_LABELS, requestedCategory)
+      ? requestedCategory
+      : 'all',
     guests: params.get('guests') || '',
     priceMin: null,
     priceMax: null,
@@ -1022,7 +1080,7 @@
       let query = supabaseClient.from('listings').select(select, { count: 'exact' }).range(offset, offset + PAGE_SIZE - 1);
       query = query.eq('moderation_status', 'active');
       if (filterAvailability) query = query.eq('availability_status', 'available');
-      if (state.category !== 'all') query = query.eq('category', state.category);
+      if (state.category && state.category !== 'all') query = query.eq('category', state.category);
       if (state.q) {
         const term = state.q.replace(/[%(),]/g, ' ').trim();
         if (term) {
