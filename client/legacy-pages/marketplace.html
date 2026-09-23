@@ -226,6 +226,7 @@
   }
   @keyframes varoom-video-spin{ to{ transform:rotate(360deg); } }
   .mobile-marketplace-tools, .mobile-bottom-nav{ display:none; }
+  .public-marketplace .desktop-sidebar, .public-marketplace .mobile-bottom-nav{ display:none !important; }
 
   @media (max-width: 1200px) and (min-width: 861px){
     .grid{ grid-template-columns:repeat(3, minmax(0, 1fr)); }
@@ -732,23 +733,23 @@
 
   // ---------- Auth guard ----------
   const { data: { session } } = await supabaseClient.auth.getSession();
-  if (!session) { window.location.href = '/login'; return; }
-  const currentUser = session.user;
-
+  const currentUser = session && session.user ? session.user : null;
+  document.body.classList.toggle('public-marketplace', !currentUser);
   const dataCache = window.VaRoomDataCache;
-  const profileResult = await dataCache.get('account:' + currentUser.id + ':profile:marketplace', function(){
-    return supabaseClient
-      .from('profiles')
-      .select('role, full_name, avatar_url, looking_timeline, interested_categories')
-      .eq('id', currentUser.id)
-      .maybeSingle();
-  });
+  const profileResult = currentUser
+    ? await dataCache.get('account:' + currentUser.id + ':profile:marketplace', function(){
+        return supabaseClient
+          .from('profiles')
+          .select('role, full_name, avatar_url, looking_timeline, interested_categories')
+          .eq('id', currentUser.id)
+          .maybeSingle();
+      })
+    : null;
   const profile = profileResult && profileResult.data;
-  if (!profile) { window.location.href = '/login'; return; }
-  const preferredCategories = profile.role === 'client' && profile.looking_timeline === 'soon'
+  const preferredCategories = profile && profile.role === 'client' && profile.looking_timeline === 'soon'
     ? (profile.interested_categories || []).map(function(category){ return String(category || '').trim().toLowerCase(); }).filter(function(category){ return Object.prototype.hasOwnProperty.call(CATEGORY_LABELS, category); })
     : [];
-  const homeHref = profile.role === 'host' ? '/host-home' : '/client-home';
+  const homeHref = profile && profile.role === 'host' ? '/host-home' : '/client-home';
   ['marketplace-home-link', 'marketplace-discover-link', 'marketplace-mobile-home-link'].forEach(function(id){
     const link = document.getElementById(id);
     if (link) link.setAttribute('href', homeHref);
@@ -756,7 +757,7 @@
   const sidebarBrand = document.getElementById('marketplace-sidebar-brand');
   if (sidebarBrand) sidebarBrand.setAttribute('href', homeHref);
   document.querySelectorAll('[data-role-sidebar]').forEach(function(sidebar){
-    sidebar.hidden = sidebar.getAttribute('data-role-sidebar') !== profile.role;
+    sidebar.hidden = !profile || sidebar.getAttribute('data-role-sidebar') !== profile.role;
   });
   const avatarEl = document.getElementById('user-avatar');
   if (avatarEl) {
@@ -769,13 +770,19 @@
 
   // ---------- Bookmarks ----------
   let bookmarkedIds = new Set();
-  const bookmarkResult = await dataCache.get('account:' + currentUser.id + ':bookmarks', function(){
-    return supabaseClient.from('bookmarks').select('listing_id').eq('client_id', currentUser.id);
-  });
-  const bookmarks = bookmarkResult && bookmarkResult.data;
-  if (bookmarks) bookmarkedIds = new Set(bookmarks.map(function(b){ return b.listing_id; }));
+  if (currentUser) {
+    const bookmarkResult = await dataCache.get('account:' + currentUser.id + ':bookmarks', function(){
+      return supabaseClient.from('bookmarks').select('listing_id').eq('client_id', currentUser.id);
+    });
+    const bookmarks = bookmarkResult && bookmarkResult.data;
+    if (bookmarks) bookmarkedIds = new Set(bookmarks.map(function(b){ return b.listing_id; }));
+  }
 
   async function toggleBookmark(listingId, btn){
+    if (!currentUser) {
+      window.location.href = '/login';
+      return;
+    }
     if (bookmarkedIds.has(listingId)) {
       await supabaseClient.from('bookmarks').delete().eq('client_id', currentUser.id).eq('listing_id', listingId);
       bookmarkedIds.delete(listingId);
@@ -1038,9 +1045,18 @@
   document.addEventListener('click', function(event){
     const card = event.target.closest('.card');
     if (!card) return;
-    if (event.target.closest('.card-save')) return;
+    if (event.target.closest('.card-save')) {
+      if (!currentUser) {
+        event.preventDefault();
+        window.location.href = '/login';
+      }
+      return;
+    }
     const href = card.getAttribute('data-href');
-    if (href) window.location.href = href;
+    if (href) {
+      event.preventDefault();
+      window.location.href = currentUser ? href : '/login';
+    }
   });
 
   document.addEventListener('keydown', function(event){
@@ -1050,7 +1066,7 @@
     if (event.target.closest('.card-save')) return;
     event.preventDefault();
     const href = card.getAttribute('data-href');
-    if (href) window.location.href = href;
+    if (href) window.location.href = currentUser ? href : '/login';
   });
 
   function observeVideoCards(){
