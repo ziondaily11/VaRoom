@@ -11,19 +11,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script>
-  (function () {
-    try {
-      var saved = localStorage.getItem('varoom_theme') || 'dark';
-      document.documentElement.setAttribute('data-theme', saved);
-    } catch (error) {
-      document.documentElement.setAttribute('data-theme', 'dark');
-    }
-  })();
-</script>
 <style>
   :root {
-    --bg:#070809; --surface:#0d1012; --surface-soft:#111416; --text:#f0eee9;
+    --bg:#000; --surface:#0d1012; --surface-soft:#111416; --text:#f0eee9;
     --muted:#5c584f; --subtle:#5c584f; --line:rgba(255,255,255,.12);
     --red:#ed2347; --display:'Fraunces', Georgia, serif; --body:'Inter', sans-serif;
   }
@@ -165,6 +155,27 @@
   }
 </style>
 <link rel="stylesheet" href="js/varoom-dark-theme.css">
+<style>
+  /* Support owns a fixed black canvas; global VaRoom theme selectors must not alter it. */
+  html:has(.support-page),
+  body:has(.support-page),
+  #__next:has(.support-page),
+  #__next > main:has(.support-page) { background:#000 !important; }
+  .support-page,
+  .support-page .topbar,
+  .support-page main,
+  .support-page footer { background:#000 !important; }
+  .support-page .search { background:rgba(20,23,26,.72) !important; border-color:#34393e !important; }
+  .support-page .action { background:linear-gradient(135deg,rgba(20,23,25,.9),rgba(10,12,13,.9)) !important; border-color:var(--line) !important; }
+  .support-page .write-card { background:rgba(17,20,22,.8) !important; border-color:var(--line) !important; }
+  .support-page .article { background:linear-gradient(145deg,rgba(16,19,21,.9),rgba(9,11,12,.95)) !important; border-color:var(--line) !important; }
+  .support-page .action-icon,
+  .support-page .article-icon { background:#25292d !important; border:0 !important; }
+  .support-page .search button { background:#171a1d !important; border:0 !important; }
+  .support-page .search button:hover { background:var(--red) !important; }
+  .support-page .support-form input,
+  .support-page .support-form textarea { background:rgba(10,12,14,.9) !important; border-color:#2f353b !important; }
+</style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="/js/supabase-client.js"></script>
 </head>
