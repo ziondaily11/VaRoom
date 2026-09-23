@@ -147,8 +147,6 @@
     grid-template-columns:minmax(300px, 370px) minmax(0, 1fr);
     padding:0; margin:0;
   }
-  .back-link{ font-size:.85rem; font-weight:500; display:inline-flex; align-items:center; gap:.4rem; color:var(--muted); margin-bottom:1.6rem; }
-  .back-link:hover{ color:var(--ink); }
 
   /* The contextual skeleton below is the loading UI; avoid a competing
      generic message and keep the final two-column footprint reserved. */
@@ -401,7 +399,6 @@
     .mobile-menu-btn{ color:var(--ink); display:flex; }
     .mobile-topbar .logo{ position:absolute; left:50%; transform:translateX(-50%); white-space:nowrap; }
     .beta-pill{ display:none; }
-    .back-link{ display:none; }
     .settings-main{ display:block; min-height:0; padding-top:1.4rem; }
     #settings-page{ display:block !important; }
     #view-list{ border-right:none; padding:0 5vw 4rem; }
@@ -601,8 +598,6 @@
     </div>
 
     <main class="settings-main">
-      <a href="#" class="back-link" id="back-link">← Back to dashboard</a>
-
       <div id="checking-auth" class="checking-msg">Loading your settings...</div>
 
       <div id="settings-page" style="display:grid;">
@@ -708,6 +703,46 @@
 
         <!-- ============ YOUR ACCOUNT ============ -->
         <div id="view-account" style="display:block;">
+          <div id="account-verify-view">
+            <div class="detail-head">
+              <button type="button" class="detail-back" data-back><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+              <span class="detail-title">Your Account</span>
+            </div>
+            <p class="detail-sub">Enter your current account password to view your account details.</p>
+
+            <div class="settings-section">
+              <div class="card" style="padding:1.8rem; max-width:440px;">
+                <div style="display:flex; align-items:center; gap:.85rem; margin-bottom:1.4rem;">
+                  <div style="width:40px; height:40px; border-radius:10px; background:var(--line); display:flex; align-items:center; justify-content:center; color:var(--ink); flex-shrink:0;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                  </div>
+                  <div>
+                    <div style="font-weight:600; font-size:.95rem; color:var(--ink);">Security Verification</div>
+                    <div style="font-size:.82rem; color:var(--muted); margin-top:.15rem;">Confirm your password to continue</div>
+                  </div>
+                </div>
+
+                <form id="verify-account-form" autocomplete="on">
+                  <div class="field" style="margin-bottom:1.1rem;">
+                    <label for="verify-account-password">Current password</label>
+                    <div style="position:relative;">
+                      <input type="password" id="verify-account-password" placeholder="Enter your password" required autocomplete="current-password" style="padding-right:2.6rem;">
+                      <button type="button" id="toggle-verify-pwd-btn" aria-label="Toggle password visibility" style="position:absolute; right:.7rem; top:50%; transform:translateY(-50%); color:var(--muted); display:flex; align-items:center; justify-content:center;">
+                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                      </button>
+                    </div>
+                    <p class="inline-msg error" id="verify-account-error" style="display:none; margin-top:.5rem;"></p>
+                  </div>
+                  <button type="submit" class="btn btn-danger btn-block" id="verify-account-submit-btn">Continue</button>
+                </form>
+              </div>
+            </div>
+          </div>
+
+          <div id="account-verified-view" style="display:none;"></div>
+        </div>
+
+        <template id="account-contents-template">
           <div class="detail-head">
             <button type="button" class="detail-back" data-back><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
             <span class="detail-title">Your Account</span>
@@ -793,7 +828,7 @@
               </div>
             </div>
           </div>
-        </div>
+        </template>
 
         <!-- ============ NOTIFICATIONS ============ -->
         <div id="view-notifications" style="display:none;">
@@ -1050,7 +1085,6 @@
 
     currentRole = profile.role;
     const dashboardHref = currentRole === 'host' ? '/host-home' : '/client-home';
-    document.getElementById('back-link').setAttribute('href', dashboardHref);
     document.querySelector('.mobile-topbar .logo').setAttribute('href', dashboardHref);
 
     // ---------- Show the matching sidebar for this user's role ----------
@@ -1085,11 +1119,6 @@
     });
 
     // ---------- Populate current values ----------
-    document.getElementById('acc-username').textContent = profile.username ? '@' + profile.username : 'Not set';
-    document.getElementById('acc-fullname').textContent = profile.full_name || 'Not set';
-    document.getElementById('acc-email').textContent = currentUser.email || '—';
-    document.getElementById('acc-phone').textContent = profile.phone || 'Not set';
-    document.getElementById('email-input').value = currentUser.email || '';
     document.getElementById('notify-messages').checked = profile.notify_messages;
     document.getElementById('notify-bookings').checked = profile.notify_bookings;
     document.getElementById('notify-account-updates').checked = profile.notify_account_updates;
@@ -1312,6 +1341,10 @@
       document.querySelectorAll('[data-open]').forEach(function(row){
         row.classList.toggle('active', row.getAttribute('data-open') === name);
       });
+      if (name === 'account' && !isAccountVerified) {
+        const pwdInput = document.getElementById('verify-account-password');
+        if (pwdInput) setTimeout(function(){ pwdInput.focus(); }, 50);
+      }
       window.scrollTo({ top: 0, behavior: 'instant' in window ? 'instant' : 'auto' });
     }
     document.querySelector('[data-open="account"]').classList.add('active');
@@ -1332,68 +1365,203 @@
         row.hidden = Boolean(query && title && !title.textContent.toLowerCase().includes(query));
       });
     });
+    // ---------- Expand/collapse rows helper ----------
+    function toggleExpand(rowId, panelId){
+      const row = document.getElementById(rowId);
+      if (row) {
+        row.addEventListener('click', function(){
+          const panel = document.getElementById(panelId);
+          if (panel) panel.classList.toggle('show');
+        });
+      }
+    }
+    toggleExpand('help-row', 'help-panel');
+
+    // ---------- Your Account: Password verification & protected mount ----------
+    let isAccountVerified = false;
+    let pendingOpenPasswordPanel = false;
+
+    function revealAccountContent(){
+      const verifyView = document.getElementById('account-verify-view');
+      const verifiedView = document.getElementById('account-verified-view');
+      const template = document.getElementById('account-contents-template');
+
+      if (verifyView) verifyView.style.display = 'none';
+      if (verifiedView && template) {
+        verifiedView.innerHTML = '';
+        verifiedView.appendChild(template.content.cloneNode(true));
+        verifiedView.style.display = 'block';
+
+        // Populate sensitive account information into DOM only after verification
+        document.getElementById('acc-username').textContent = profile.username ? '@' + profile.username : 'Not set';
+        document.getElementById('acc-fullname').textContent = profile.full_name || 'Not set';
+        document.getElementById('acc-email').textContent = currentUser.email || '—';
+        document.getElementById('acc-phone').textContent = profile.phone || 'Not set';
+        document.getElementById('email-input').value = currentUser.email || '';
+
+        // Wire up interactive controls on verified content
+        toggleExpand('email-row', 'email-panel');
+        toggleExpand('password-row', 'password-panel');
+        toggleExpand('deactivate-row', 'deactivate-panel');
+        toggleExpand('show-delete-confirm', 'delete-confirm');
+
+        verifiedView.querySelectorAll('[data-back]').forEach(function(btn){
+          btn.addEventListener('click', function(){ showView('list'); });
+        });
+
+        // Account: email update
+        document.getElementById('save-email-btn').addEventListener('click', async function(){
+          const msg = document.getElementById('email-msg');
+          const newEmail = document.getElementById('email-input').value.trim();
+          if (!newEmail || newEmail === currentUser.email) return;
+
+          const { error } = await supabaseClient.auth.updateUser({ email: newEmail });
+          if (error) {
+            msg.textContent = error.message;
+            msg.className = 'inline-msg error';
+            return;
+          }
+          msg.textContent = 'Check both your old and new email for confirmation links — the change applies once confirmed.';
+          msg.className = 'inline-msg success';
+        });
+
+        // Account: password update
+        document.getElementById('save-password-btn').addEventListener('click', async function(){
+          const msg = document.getElementById('password-msg');
+          const newPassword = document.getElementById('new-password-input').value;
+          const confirmPassword = document.getElementById('confirm-password-input').value;
+
+          if (newPassword.length < 8) {
+            msg.textContent = 'Password must be at least 8 characters.';
+            msg.className = 'inline-msg error';
+            return;
+          }
+          if (newPassword !== confirmPassword) {
+            msg.textContent = "Passwords don't match.";
+            msg.className = 'inline-msg error';
+            return;
+          }
+
+          const { error } = await supabaseClient.auth.updateUser({ password: newPassword });
+          if (error) {
+            msg.textContent = error.message;
+            msg.className = 'inline-msg error';
+            return;
+          }
+          msg.textContent = 'Password updated.';
+          msg.className = 'inline-msg success';
+          document.getElementById('new-password-input').value = '';
+          document.getElementById('confirm-password-input').value = '';
+        });
+
+        // Delete account confirm input
+        const deleteInput = document.getElementById('delete-confirm-input');
+        const deleteBtn = document.getElementById('confirm-delete-btn');
+        if (deleteInput && deleteBtn) {
+          deleteInput.addEventListener('input', function(e){
+            deleteBtn.disabled = e.target.value !== 'DELETE';
+          });
+          deleteBtn.addEventListener('click', function(){
+            const msg = document.getElementById('delete-msg');
+            msg.textContent = "Account deletion needs a small backend step that isn't deployed yet. Reach out via Support & About and we'll remove your account manually in the meantime.";
+            msg.className = 'inline-msg error';
+          });
+        }
+
+        if (pendingOpenPasswordPanel) {
+          const passPanel = document.getElementById('password-panel');
+          const passRow = document.getElementById('password-row');
+          if (passPanel) passPanel.classList.add('show');
+          if (passRow) passRow.scrollIntoView({ behavior:'smooth', block:'center' });
+          pendingOpenPasswordPanel = false;
+        }
+      }
+    }
+
+    function setupAccountVerification(){
+      const verifyForm = document.getElementById('verify-account-form');
+      const pwdInput = document.getElementById('verify-account-password');
+      const submitBtn = document.getElementById('verify-account-submit-btn');
+      const errorMsg = document.getElementById('verify-account-error');
+      const toggleBtn = document.getElementById('toggle-verify-pwd-btn');
+
+      if (toggleBtn && pwdInput) {
+        toggleBtn.addEventListener('click', function(){
+          const isPassword = pwdInput.type === 'password';
+          pwdInput.type = isPassword ? 'text' : 'password';
+          toggleBtn.setAttribute('aria-label', isPassword ? 'Hide password' : 'Show password');
+          toggleBtn.innerHTML = isPassword
+            ? '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>'
+            : '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>';
+        });
+      }
+
+      if (pwdInput) {
+        pwdInput.addEventListener('input', function(){
+          errorMsg.style.display = 'none';
+          pwdInput.classList.remove('error');
+        });
+      }
+
+      if (verifyForm) {
+        verifyForm.addEventListener('submit', async function(e){
+          e.preventDefault();
+          const enteredPassword = pwdInput.value;
+          if (!enteredPassword) return;
+
+          submitBtn.disabled = true;
+          submitBtn.textContent = 'Verifying...';
+          errorMsg.style.display = 'none';
+
+          try {
+            const verifier = window.supabase.createClient(
+              window.VAROOM_SUPABASE_URL,
+              window.VAROOM_SUPABASE_ANON_KEY,
+              { auth: { persistSession: false, autoRefreshToken: false } }
+            );
+            const { data, error } = await verifier.auth.signInWithPassword({
+              email: currentUser.email,
+              password: enteredPassword
+            });
+
+            if (error || !data || !data.user || data.user.id !== currentUser.id) {
+              errorMsg.textContent = 'Incorrect password. Please try again.';
+              errorMsg.style.display = 'block';
+              pwdInput.classList.add('error');
+              pwdInput.select();
+              submitBtn.disabled = false;
+              submitBtn.textContent = 'Continue';
+              return;
+            }
+
+            // Real password verification succeeded with backend!
+            isAccountVerified = true;
+            revealAccountContent();
+          } catch (err) {
+            errorMsg.textContent = 'Incorrect password. Please try again.';
+            errorMsg.style.display = 'block';
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Continue';
+          }
+        });
+      }
+    }
+
+    setupAccountVerification();
+
     document.getElementById('go-to-password').addEventListener('click', function(e){
       e.preventDefault();
       showView('account');
-      document.getElementById('password-panel').classList.add('show');
-      document.getElementById('password-row').scrollIntoView({ behavior:'smooth', block:'center' });
-    });
-
-    // ---------- Expand/collapse rows ----------
-    function toggleExpand(rowId, panelId){
-      document.getElementById(rowId).addEventListener('click', function(){
-        document.getElementById(panelId).classList.toggle('show');
-      });
-    }
-    toggleExpand('email-row', 'email-panel');
-    toggleExpand('password-row', 'password-panel');
-    toggleExpand('deactivate-row', 'deactivate-panel');
-    toggleExpand('help-row', 'help-panel');
-    toggleExpand('show-delete-confirm', 'delete-confirm');
-
-    // ---------- Account: email ----------
-    document.getElementById('save-email-btn').addEventListener('click', async function(){
-      const msg = document.getElementById('email-msg');
-      const newEmail = document.getElementById('email-input').value.trim();
-      if (!newEmail || newEmail === currentUser.email) return;
-
-      const { error } = await supabaseClient.auth.updateUser({ email: newEmail });
-      if (error) {
-        msg.textContent = error.message;
-        msg.className = 'inline-msg error';
-        return;
+      if (isAccountVerified) {
+        const passPanel = document.getElementById('password-panel');
+        const passRow = document.getElementById('password-row');
+        if (passPanel) passPanel.classList.add('show');
+        if (passRow) passRow.scrollIntoView({ behavior:'smooth', block:'center' });
+      } else {
+        pendingOpenPasswordPanel = true;
+        const pwdInput = document.getElementById('verify-account-password');
+        if (pwdInput) setTimeout(function(){ pwdInput.focus(); }, 50);
       }
-      msg.textContent = 'Check both your old and new email for confirmation links — the change applies once confirmed.';
-      msg.className = 'inline-msg success';
-    });
-
-    // ---------- Account: password ----------
-    document.getElementById('save-password-btn').addEventListener('click', async function(){
-      const msg = document.getElementById('password-msg');
-      const newPassword = document.getElementById('new-password-input').value;
-      const confirmPassword = document.getElementById('confirm-password-input').value;
-
-      if (newPassword.length < 8) {
-        msg.textContent = 'Password must be at least 8 characters.';
-        msg.className = 'inline-msg error';
-        return;
-      }
-      if (newPassword !== confirmPassword) {
-        msg.textContent = "Passwords don't match.";
-        msg.className = 'inline-msg error';
-        return;
-      }
-
-      const { error } = await supabaseClient.auth.updateUser({ password: newPassword });
-      if (error) {
-        msg.textContent = error.message;
-        msg.className = 'inline-msg error';
-        return;
-      }
-      msg.textContent = 'Password updated.';
-      msg.className = 'inline-msg success';
-      document.getElementById('new-password-input').value = '';
-      document.getElementById('confirm-password-input').value = '';
     });
 
     // ---------- Notifications (save immediately on toggle) ----------
@@ -1499,23 +1667,6 @@
       }
       msg.textContent = 'Saved.';
       msg.className = 'inline-msg success';
-    });
-
-    // ---------- Delete account ----------
-    document.getElementById('delete-confirm-input').addEventListener('input', function(e){
-      document.getElementById('confirm-delete-btn').disabled = e.target.value !== 'DELETE';
-    });
-
-    document.getElementById('confirm-delete-btn').addEventListener('click', function(){
-      const msg = document.getElementById('delete-msg');
-      // Account deletion needs a backend endpoint using the Supabase
-      // service-role key (a regular client can't delete its own auth.users
-      // row). That endpoint exists in server/server.js, but the Express
-      // server isn't deployed anywhere live yet — only the static client/
-      // folder is, via Vercel. Being upfront about that here rather than
-      // silently failing a network call to a URL that doesn't exist.
-      msg.textContent = "Account deletion needs a small backend step that isn't deployed yet. Reach out via Support & About and we'll remove your account manually in the meantime.";
-      msg.className = 'inline-msg error';
     });
 
     // ---------- Log out (with confirmation) ----------
