@@ -148,6 +148,413 @@
 
   .checking-msg{ text-align:center; color:#5c584f; padding:3rem 0; }
   input[type="file"]{ display:none; }
+
+  /* ═══════════════════════════════════════════════════════════
+     PHOTO STEP — full-viewport metallic overlay
+  ═══════════════════════════════════════════════════════════ */
+
+  .photo-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: #060606;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Layered background atmosphere */
+  .photo-bg {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+  .photo-bg::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 90% 70% at 68% 50%, rgba(55,55,55,0.48) 0%, transparent 62%),
+      radial-gradient(ellipse 55% 80% at 18% 82%, rgba(28,28,28,0.65) 0%, transparent 58%),
+      radial-gradient(ellipse 42% 44% at 82% 10%, rgba(85,85,85,0.2) 0%, transparent 52%),
+      radial-gradient(ellipse 30% 50% at 50% 100%, rgba(40,40,40,0.5) 0%, transparent 60%);
+  }
+  /* Brushed-metal grain texture */
+  .photo-bg::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: 0.03;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='400' height='400' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+    background-size: 180px 180px;
+  }
+
+  /* Light streaks */
+  .photo-streak {
+    position: absolute;
+    pointer-events: none;
+  }
+  .photo-streak--1 {
+    width: 58vw;
+    height: 1px;
+    background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.09) 35%, rgba(255,255,255,0.28) 58%, transparent 100%);
+    top: 27%;
+    right: -6%;
+    transform: rotate(-21deg);
+    transform-origin: right center;
+    filter: blur(0.6px);
+  }
+  .photo-streak--2 {
+    width: 42vw;
+    height: 1px;
+    background: linear-gradient(90deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.07) 62%, transparent 100%);
+    bottom: 24%;
+    left: -3%;
+    transform: rotate(-17deg);
+    transform-origin: left center;
+    filter: blur(0.6px);
+  }
+  .photo-streak--3 {
+    width: 30vw;
+    height: 1px;
+    background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.06) 50%, transparent 100%);
+    top: 62%;
+    right: 4%;
+    transform: rotate(9deg);
+    filter: blur(1px);
+  }
+
+  /* ── Step indicator (desktop only) ── */
+  .photo-step-indicator {
+    display: none;
+    position: absolute;
+    top: 28px;
+    right: 36px;
+    align-items: center;
+    gap: 14px;
+    z-index: 2;
+  }
+  .photo-step-indicator-label {
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.42);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .photo-step-dashes {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+  }
+  .photo-step-dash {
+    height: 1.5px;
+    width: 22px;
+    border-radius: 2px;
+    background: rgba(255,255,255,0.18);
+  }
+  .photo-step-dash.current {
+    background: rgba(255,255,255,0.82);
+  }
+
+  /* ── Main layout shell ── */
+  .photo-inner {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 28px 52px;
+  }
+
+  /* ── Text column (mobile = centered, desktop = left) ── */
+  .photo-text-col {
+    text-align: center;
+    margin-bottom: 40px;
+  }
+
+  .photo-eyebrow {
+    display: none;
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.38);
+    font-weight: 500;
+    margin-bottom: 20px;
+  }
+
+  .photo-heading {
+    color: #ffffff;
+    line-height: 1.12;
+    letter-spacing: -0.5px;
+    margin-bottom: 16px;
+    font-size: clamp(30px, 8vw, 40px);
+  }
+  .photo-heading .ph-light { font-weight: 300; display: block; }
+  .photo-heading .ph-bold  { font-weight: 700; display: block; }
+
+  .photo-sub {
+    color: rgba(255,255,255,0.5);
+    font-size: 14px;
+    line-height: 1.65;
+    max-width: 290px;
+    margin: 0 auto;
+  }
+
+  /* ── Action cluster ── */
+  .photo-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 22px;
+    margin-top: 34px;
+  }
+
+  /* "Add profile photo" outlined pill */
+  .photo-cta-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    border: 1.5px solid rgba(255,255,255,0.72);
+    background: rgba(255,255,255,0.04);
+    color: #ffffff;
+    font-size: 15px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    padding: 15px 30px;
+    border-radius: 100px;
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease;
+    font-family: inherit;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+  .photo-cta-btn:hover {
+    background: rgba(255,255,255,0.10);
+    border-color: #ffffff;
+  }
+  .photo-cta-btn svg {
+    width: 17px;
+    height: 17px;
+    flex-shrink: 0;
+    stroke: currentColor;
+  }
+
+  /* "Continue →" */
+  .photo-continue-btn {
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.55);
+    font-size: 15px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    letter-spacing: 0.01em;
+    padding: 4px 0;
+    transition: color 0.2s ease;
+    font-family: inherit;
+  }
+  .photo-continue-btn:hover { color: rgba(255,255,255,0.85); }
+  .photo-continue-btn.photo-ready { color: rgba(255,255,255,0.88); }
+
+  /* "Skip for now" */
+  .photo-skip-btn {
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.28);
+    font-size: 13px;
+    cursor: pointer;
+    padding: 2px 0;
+    transition: color 0.2s ease;
+    font-family: inherit;
+    letter-spacing: 0.01em;
+  }
+  .photo-skip-btn:hover { color: rgba(255,255,255,0.55); }
+
+  /* Status message (uploading / ready / error) */
+  .photo-status-msg {
+    font-size: 12px;
+    min-height: 16px;
+    text-align: center;
+    color: rgba(255,255,255,0.4);
+    letter-spacing: 0.03em;
+    transition: color 0.2s ease;
+  }
+  .photo-status-msg.ps-uploading { color: rgba(255,255,255,0.45); }
+  .photo-status-msg.ps-ready     { color: rgba(160,230,160,0.8); }
+  .photo-status-msg.ps-error     { color: rgba(255,110,110,0.85); }
+
+  /* ── Chrome avatar ring ── */
+  .photo-avatar-col {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .photo-avatar-wrap {
+    position: relative;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* The shiny chrome outer ring */
+  .avatar-chrome-ring {
+    --ring-size: 224px;
+    --ring-thickness: 13px;
+    width: var(--ring-size);
+    height: var(--ring-size);
+    border-radius: 50%;
+    /* Multi-stop conic gradient simulating chrome reflections */
+    background: conic-gradient(
+      from 115deg,
+      #3c3c3c  0deg,
+      #b8b8b8 38deg,
+      #ececec 68deg,
+      #f8f8f8 80deg,
+      #8a8a8a 112deg,
+      #2c2c2c 148deg,
+      #888888 184deg,
+      #dedede 218deg,
+      #f4f4f4 240deg,
+      #f0f0f0 254deg,
+      #707070 282deg,
+      #c4c4c4 310deg,
+      #f0f0f0 324deg,
+      #6e6e6e 344deg,
+      #3c3c3c 360deg
+    );
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    /* Diffuse glow underneath */
+    box-shadow:
+      0 28px 90px -18px rgba(0,0,0,0.92),
+      0 10px 36px -8px rgba(0,0,0,0.65),
+      inset 0 1.5px 0 rgba(255,255,255,0.28),
+      inset 0 -1.5px 0 rgba(0,0,0,0.55),
+      0 0 0 1px rgba(255,255,255,0.06);
+  }
+
+  /* Inner specular highlight rim */
+  .avatar-chrome-ring::before {
+    content: '';
+    position: absolute;
+    inset: calc(var(--ring-thickness) - 4px);
+    border-radius: 50%;
+    background: transparent;
+    box-shadow:
+      0 0 0 1px rgba(255,255,255,0.14),
+      inset 0 2px 5px rgba(255,255,255,0.2),
+      inset 0 -2px 5px rgba(0,0,0,0.45);
+    z-index: 2;
+    pointer-events: none;
+  }
+
+  /* Ground shadow / reflection pool */
+  .avatar-chrome-ring::after {
+    content: '';
+    position: absolute;
+    bottom: -30px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 70%;
+    height: 22px;
+    background: radial-gradient(ellipse, rgba(150,150,150,0.16) 0%, transparent 72%);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* The dark inner circle */
+  .avatar-chrome-inner {
+    width: calc(var(--ring-size) - var(--ring-thickness) * 2);
+    height: calc(var(--ring-size) - var(--ring-thickness) * 2);
+    border-radius: 50%;
+    background: radial-gradient(circle at 38% 32%, #1e1e1e 0%, #0c0c0c 50%, #050505 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+    z-index: 1;
+    box-shadow:
+      inset 0 4px 14px rgba(0,0,0,0.75),
+      inset 0 0 0 1px rgba(0,0,0,0.6);
+  }
+
+  .avatar-chrome-inner img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+  }
+
+  /* Default person silhouette */
+  .avatar-person-icon {
+    width: 44%;
+    height: 44%;
+    fill: none;
+    stroke: rgba(255,255,255,0.32);
+    stroke-width: 1.4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  /* ── Desktop layout overrides (≥ 700 px) ── */
+  @media (min-width: 700px) {
+    .photo-step-indicator { display: flex; }
+
+    .photo-inner {
+      flex-direction: row;
+      align-items: center;
+      justify-content: center;
+      padding: 80px 8vw 80px 9vw;
+      gap: 6vw;
+    }
+
+    .photo-text-col {
+      text-align: left;
+      flex: 0 0 auto;
+      max-width: 370px;
+      margin-bottom: 0;
+    }
+
+    .photo-eyebrow { display: block; }
+
+    .photo-heading { font-size: clamp(38px, 3.8vw, 54px); margin-bottom: 20px; }
+
+    .photo-sub { font-size: 15px; max-width: 310px; margin: 0; }
+
+    .photo-actions { align-items: flex-start; margin-top: 38px; gap: 20px; }
+
+    .photo-avatar-col { flex: 0 0 auto; }
+
+    .avatar-chrome-ring { --ring-size: 310px; --ring-thickness: 18px; }
+  }
+
+  @media (min-width: 1100px) {
+    .avatar-chrome-ring { --ring-size: 368px; --ring-thickness: 20px; }
+    .photo-text-col { max-width: 430px; }
+    .photo-inner { gap: 8vw; }
+  }
+
+  /* Small phones */
+  @media (max-width: 390px) {
+    .avatar-chrome-ring { --ring-size: 196px; --ring-thickness: 11px; }
+    .photo-heading { font-size: 27px; }
+    .photo-inner { padding: 36px 22px 42px; }
+  }
 </style>
 </head>
 <body>
@@ -264,68 +671,158 @@
     else if (step === 'client_timeline') renderTimelineStep();
   }
 
-  // ---- Step: Profile photo ----
+  // ═══════════════════════════════════════════════════════════
+  // Step: Profile photo — full-viewport metallic overlay
+  // ═══════════════════════════════════════════════════════════
   function renderPhotoStep(){
-    stepContent.innerHTML =
-      '<label for="avatar-input" class="avatar-upload" id="avatar-upload">' +
-        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>' +
-        '<div class="plus-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>' +
-      '</label>' +
-      '<input type="file" id="avatar-input" accept="image/*">' +
-      '<h1>Let\'s put a face to your VaRoom profile.</h1>' +
-      '<p class="step-sub">Add a photo so people know who they\'re interacting with.</p>' +
-      '<p class="field-msg" id="photo-msg" style="text-align:center;"></p>' +
-      '<button class="primary-btn" id="photo-next" disabled>Continue</button>' +
-      '<button class="skip-btn" id="photo-skip">Skip for now</button>' +
-      reassureHtml();
+    // Hide the normal card while this step is active
+    card.style.visibility = 'hidden';
+    card.style.pointerEvents = 'none';
 
-    const input = document.getElementById('avatar-input');
-    const uploadLabel = document.getElementById('avatar-upload');
-    const nextBtn = document.getElementById('photo-next');
-    const msg = document.getElementById('photo-msg');
-    let uploadedPath = null;
+    const totalSteps = steps.length;
 
-    input.addEventListener('change', async function(){
-      const file = input.files[0];
+    // Build dash indicators
+    function buildDashes(){
+      var dashes = '';
+      for (var i = 0; i < totalSteps; i++){
+        dashes += '<span class="photo-step-dash' + (i === 0 ? ' current' : '') + '"></span>';
+      }
+      return dashes;
+    }
+
+    // Camera icon SVG (inline, no external deps)
+    var cameraIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>';
+
+    // Person silhouette SVG (default avatar placeholder)
+    var personIcon = '<svg class="avatar-person-icon" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
+
+    var overlay = document.createElement('div');
+    overlay.className = 'photo-overlay';
+    overlay.id = 'photo-overlay';
+
+    overlay.innerHTML =
+      // Background layers
+      '<div class="photo-bg"></div>' +
+      '<span class="photo-streak photo-streak--1"></span>' +
+      '<span class="photo-streak photo-streak--2"></span>' +
+      '<span class="photo-streak photo-streak--3"></span>' +
+
+      // Step indicator (desktop top-right)
+      '<div class="photo-step-indicator">' +
+        '<span class="photo-step-indicator-label">Step 1 of ' + totalSteps + '</span>' +
+        '<div class="photo-step-dashes">' + buildDashes() + '</div>' +
+      '</div>' +
+
+      // Inner layout
+      '<div class="photo-inner">' +
+
+        // Left / top text column
+        '<div class="photo-text-col">' +
+          '<p class="photo-eyebrow">Your Profile</p>' +
+          '<h2 class="photo-heading">' +
+            '<span class="ph-light">Add your</span>' +
+            '<span class="ph-bold">profile photo</span>' +
+          '</h2>' +
+          '<p class="photo-sub">Let people know who you\'re connecting with.</p>' +
+
+          // Actions
+          '<div class="photo-actions">' +
+            '<button class="photo-cta-btn" id="po-add-btn" type="button">' +
+              cameraIcon +
+              'Add profile photo' +
+            '</button>' +
+            '<p class="photo-status-msg" id="po-status"></p>' +
+            '<button class="photo-continue-btn" id="po-continue" type="button">Continue <span aria-hidden="true">→</span></button>' +
+            '<button class="photo-skip-btn" id="po-skip" type="button">Skip for now</button>' +
+          '</div>' +
+        '</div>' +
+
+        // Right / bottom avatar column
+        '<div class="photo-avatar-col">' +
+          '<div class="photo-avatar-wrap" id="po-avatar-wrap">' +
+            '<div class="avatar-chrome-ring" id="po-chrome-ring">' +
+              '<div class="avatar-chrome-inner" id="po-inner">' +
+                personIcon +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+
+      '</div>' + // .photo-inner
+
+      // Hidden file input
+      '<input type="file" id="po-file-input" accept="image/*">';
+
+    document.body.appendChild(overlay);
+
+    // Wire up interaction
+    var fileInput = document.getElementById('po-file-input');
+    var addBtn    = document.getElementById('po-add-btn');
+    var avatarWrap = document.getElementById('po-avatar-wrap');
+    var innerEl   = document.getElementById('po-inner');
+    var statusEl  = document.getElementById('po-status');
+    var continueBtn = document.getElementById('po-continue');
+    var skipBtn   = document.getElementById('po-skip');
+    var uploadedPath = null;
+
+    function openPicker(){ fileInput.click(); }
+    addBtn.addEventListener('click', openPicker);
+    avatarWrap.addEventListener('click', openPicker);
+
+    fileInput.addEventListener('change', async function(){
+      var file = fileInput.files[0];
       if (!file) return;
 
-      msg.textContent = 'Uploading...';
-      msg.className = 'field-msg';
-      const filePath = user.id + '/' + Date.now() + '-' + file.name;
+      statusEl.textContent = 'Uploading...';
+      statusEl.className = 'photo-status-msg ps-uploading';
+      addBtn.disabled = true;
 
-      const { error: uploadError } = await supabaseClient.storage
+      var filePath = user.id + '/' + Date.now() + '-' + file.name;
+
+      var uploadResult = await supabaseClient.storage
         .from('avatars')
         .upload(filePath, file, { upsert: true });
 
-      if (uploadError) {
-        msg.textContent = 'Upload failed: ' + uploadError.message;
-        msg.className = 'field-msg error';
+      addBtn.disabled = false;
+
+      if (uploadResult.error) {
+        statusEl.textContent = 'Upload failed: ' + uploadResult.error.message;
+        statusEl.className = 'photo-status-msg ps-error';
         return;
       }
 
-      const reader = new FileReader();
+      // Show preview in the chrome ring
+      var reader = new FileReader();
       reader.onload = function(e){
-        uploadLabel.innerHTML = '<img src="' + e.target.result + '" alt="Your profile photo">' +
-          '<div class="plus-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>';
+        innerEl.innerHTML = '<img src="' + e.target.result + '" alt="Your profile photo">';
       };
       reader.readAsDataURL(file);
 
-      // Store the relative storage path, not the full public URL — every
-      // other place that reads avatar_url (/profile, /client-home,
-      // /host-home) converts path -> public URL at render time via
-      // getPublicUrl(). Saving a full URL here would break those.
+      // Store path exactly as other steps expect it (not full URL)
       uploadedPath = filePath;
 
-      msg.textContent = 'Photo ready.';
-      msg.className = 'field-msg success';
-      nextBtn.disabled = false;
+      statusEl.textContent = 'Photo ready.';
+      statusEl.className = 'photo-status-msg ps-ready';
+      continueBtn.classList.add('photo-ready');
     });
 
-    nextBtn.addEventListener('click', function(){
+    function teardown(){
+      var el = document.getElementById('photo-overlay');
+      if (el) el.remove();
+      card.style.visibility = '';
+      card.style.pointerEvents = '';
+    }
+
+    continueBtn.addEventListener('click', function(){
       if (uploadedPath) answers.avatar_url = uploadedPath;
+      teardown();
       goNext();
     });
-    document.getElementById('photo-skip').addEventListener('click', goNext);
+
+    skipBtn.addEventListener('click', function(){
+      teardown();
+      goNext();
+    });
   }
 
   // ---- Step: Username ----
