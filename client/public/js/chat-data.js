@@ -1078,33 +1078,46 @@
       } else if (fileInput.files[0]) await upload(fileInput.files[0], fileInput.dataset.kind);
       fileInput.value = '';
     });
-    $('.chat-header-actions button[title="Search"]').addEventListener('click', () => $('.search-box input').focus());
-    document.querySelector('.chat-header-actions button[title="Start call"]').addEventListener('click', () => {
+    const bind = (element, event, handler, description) => {
+      if (!element) {
+        console.error(`Chat initialization: missing ${description}`);
+        return;
+      }
+      element.addEventListener(event, handler);
+    };
+    bind($('.chat-header-actions button[title="Search"]'), 'click', () => $('.search-box input').focus(), 'search action');
+    bind(document.querySelector('.chat-header-actions button[title="Start call"]'), 'click', () => {
       window.dispatchEvent(new CustomEvent('varoom:call-requested', { detail: { conversationId: state.activeId, video: false } }));
-    });
-    document.querySelector('.chat-header-actions button[title="Start video call"]').addEventListener('click', () => {
+    }, 'voice call action');
+    bind(document.querySelector('.chat-header-actions button[title="Start video call"]'), 'click', () => {
       window.dispatchEvent(new CustomEvent('varoom:call-requested', { detail: { conversationId: state.activeId, video: true } }));
-    });
-    document.querySelector('.chat-header-actions button[title="More"]').addEventListener('click', () => {
+    }, 'video call action');
+    bind(document.querySelector('.chat-header-actions button[title="More"]'), 'click', () => {
       if (!isElie()) window.dispatchEvent(new CustomEvent('varoom:conversation-menu-requested', { detail: { conversationId: state.activeId } }));
-    });
+    }, 'conversation actions');
     ensureChatPanels();
     if (isMobile()) showMobileInbox();
     const shareButton = $('.attach-icons button[title="Share listing"]');
-    shareButton.disabled = false;
-    shareButton.addEventListener('click', openShareSheet);
+    if (shareButton) {
+      shareButton.disabled = false;
+      shareButton.addEventListener('click', openShareSheet);
+    }
     const sendButton = $('.attach-icons button.send-message');
-    sendButton.disabled = false;
-    sendButton.addEventListener('click', sendText);
+    if (sendButton) {
+      sendButton.disabled = false;
+      sendButton.addEventListener('click', sendText);
+    }
     window.addEventListener('varoom:elie-prompt', async (event) => {
       if (!isElie()) return;
       if (desktop) desktopEditor.textContent = event.detail; else input.value = event.detail;
       updateComposerState(); await sendText();
     });
     const elieHistoryButton = document.querySelector('.chat-header-actions button:last-child');
-    elieHistoryButton.disabled = false;
-    elieHistoryButton.addEventListener('click', () => { if (isElie()) openElieHistory(); });
-    if (isMobile()) $('#toggle-info-panel').addEventListener('click', showMobileInfo);
+    if (elieHistoryButton) {
+      elieHistoryButton.disabled = false;
+      elieHistoryButton.addEventListener('click', () => { if (isElie()) openElieHistory(); });
+    }
+    if (isMobile()) bind($('#toggle-info-panel'), 'click', showMobileInfo, 'information panel toggle');
     const actions = document.createElement('div');
     actions.className = 'info-section chat-actions';
     actions.innerHTML = '<div class="info-section-head"><span class="label">Actions</span></div><button type="button" class="info-action-report">Report User</button>';

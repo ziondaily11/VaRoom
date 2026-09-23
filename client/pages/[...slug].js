@@ -161,21 +161,29 @@ export default function LegacyPage({ title, markup, scripts }) {
   const containerRef = useRef(null);
 
   useEffect(() => {
-    runLegacyScripts(containerRef.current, scripts);
-    if (title === 'Messenger Dashboard' && !document.querySelector('script[data-chat-data]')) {
+    let cancelled = false;
+    const loadPageScripts = async () => {
+      await runLegacyScripts(containerRef.current, scripts);
+      if (cancelled || title !== 'Messenger Dashboard' || document.querySelector('script[data-chat-data]')) return;
+
       const supabaseScript = document.createElement('script');
       supabaseScript.src = '/js/supabase-client.js';
       supabaseScript.dataset.chatSupabase = 'true';
       supabaseScript.async = false;
       document.body.appendChild(supabaseScript);
+
       const script = document.createElement('script');
       script.src = '/js/chat-data.js';
       script.dataset.chatData = 'true';
       script.async = false;
-      const loadChatData = () => document.body.appendChild(script);
+      const loadChatData = () => {
+        if (!cancelled) document.body.appendChild(script);
+      };
       supabaseScript.addEventListener('load', loadChatData, { once: true });
       supabaseScript.addEventListener('error', loadChatData, { once: true });
-    }
+    };
+    loadPageScripts().catch((error) => console.error('Legacy page initialization failed:', error));
+    return () => { cancelled = true; };
   }, [scripts]);
 
   return (
