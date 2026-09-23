@@ -365,8 +365,8 @@
     .verification-step p { margin: 0 0 20px; color: #454545; font-size: 15px; line-height: 1.45; }
     .verification-step p strong { color: #171717; font-weight: 600; overflow-wrap: anywhere; }
     .otp-inputs { display: flex; justify-content: space-between; gap: 7px; margin: 0 0 30px; }
-    .otp-inputs input { width: min(14vw, 48px); height: 54px; padding: 0; border: 2px solid #c5c5c5; border-radius: 6px; color: #111; font-size: 22px; font-weight: 700; text-align: center; }
-    .otp-inputs input:focus { border-color: #000; outline: none; box-shadow: 0 0 0 3px rgba(0,0,0,.08); }
+    .otp-inputs input { width: min(14vw, 48px); height: 54px; padding: 0; border: 2px solid #4a4a4a; border-radius: 6px; background: #fff; color: #111; font-size: 22px; font-weight: 700; text-align: center; }
+    .otp-inputs input:focus { border-color: #173f3d; outline: none; box-shadow: 0 0 0 3px rgba(23,63,61,.14); }
     .resend-code { margin: 0 0 38px; border: 0; background: transparent; color: #1478c8; font-size: 15px; font-weight: 700; cursor: pointer; }
     .resend-code:disabled { color: #888; cursor: not-allowed; text-decoration: none; }
     @media (max-width: 760px) { .signup-content { padding: 22px 22px 0; } .signup-hero { min-height: 40vh; min-height: 40svh; border-radius: 0 0 30px 30px; } }
@@ -377,6 +377,8 @@
       .form-panel { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); padding: 0; }
       .signup-hero { grid-column: 1; grid-row: 1; min-height: 100vh; height: 100vh; border-radius: 0 56px 56px 0 !important; }
       .signup-content { grid-column: 2; grid-row: 1; align-self: stretch; display: flex; flex-direction: column; justify-content: center; width: min(100%, 460px); min-height: 0; margin: 0 auto; padding: 48px 7vw; overflow-y: auto; }
+      .form-panel.verification-active { grid-template-columns: 1fr; }
+      .form-panel.verification-active .signup-content { grid-column: 1; }
     }
   </style>
 </head>
@@ -626,6 +628,7 @@
   var otpInputs = Array.prototype.slice.call(document.querySelectorAll('.otp-inputs input'));
   function showVerificationStep(email) {
     verificationEmail = email;
+    document.querySelector('.form-panel').classList.add('verification-active');
     document.querySelector('.signup-hero').style.display = 'none';
     document.querySelector('.signup-content').style.cssText = 'display:flex; flex-direction:column; justify-content:center; min-height:100vh; padding-top:48px; padding-bottom:48px;';
     document.getElementById('google-btn').style.display = 'none';
