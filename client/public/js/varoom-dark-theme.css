@@ -589,9 +589,10 @@
    SUPPORT PAGES
    ================================================================ */
 [data-theme="dark"] .support-page,
+[data-theme="dark"] body.support-page-body,
 [data-theme="dark"] .support-page main,
 [data-theme="dark"] .support-page .topbar {
-  background: var(--paper) !important;
+  background: var(--bg) !important;
 }
 
 [data-theme="dark"] .support-page .topbar {
@@ -639,9 +640,10 @@
 
 @media (max-width: 800px) {
   [data-theme="dark"] .support-page .topbar,
+  [data-theme="dark"] body.support-page-body,
   [data-theme="dark"] .support-page main,
   [data-theme="dark"] .support-page footer {
-    background: var(--paper) !important;
+    background: var(--bg) !important;
   }
 
   [data-theme="dark"] .support-page .search,
