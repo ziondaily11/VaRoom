@@ -11,7 +11,8 @@
 <script>
   (function(){
     try{
-      var saved = localStorage.getItem('varoom_theme') || 'system';
+      var saved = localStorage.getItem('varoom_theme');
+      if (saved !== 'light' && saved !== 'dark' && saved !== 'system') saved = 'system';
       var resolved = saved === 'system'
         ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
         : saved;
