@@ -19,7 +19,7 @@ from app.jobs import run_collection_job
 from app.normalizer import canonicalise_url, content_hash
 from app.processing import ProcessingService
 from app.quality import classify_quality, parse_source_date
-from app.relevance import classify_property_relevance
+from app.relevance import classify_property_relevance, classify_property_sales_content
 from app.repository import MemoryNewsRepository
 from app.repository import SupabaseNewsRepository
 from app.retrieval import NewsRetrievalService
@@ -33,6 +33,37 @@ def source(*, tier: int = 1, active: bool = True) -> Source:
 
 
 class NormalisationTests(unittest.TestCase):
+    def test_sales_content_filter_rejects_inventory_but_keeps_news_and_rentals(self):
+        rejected = (
+            "Apartments for Sale in Nairobi, Thika & Kitengela | Pam Golding Properties Kenya",
+            "Stylish 3 bedroom apartment with Dsq in Kileleshwa - Villa Care Kenya",
+        )
+        for title in rejected:
+            with self.subTest(title=title):
+                self.assertTrue(classify_property_sales_content(title)[0])
+
+        self.assertFalse(classify_property_sales_content(
+            "Office Space to let along Lusaka Road",
+        )[0])
+        self.assertFalse(classify_property_sales_content(
+            "Kenya Property Market Report — Q3 2026 (Asking Prices)",
+            text="Market analysis of construction costs, rents, supply and demand across Kenya.",
+        )[0])
+        self.assertFalse(classify_property_sales_content(
+            "Kenya property prices rise as construction costs increase",
+            text="Construction costs increased while housing supply remained constrained.",
+        )[0])
+
+    def test_sales_filter_rejects_listing_price_and_purchase_language(self):
+        cases = (
+            ("Three homes available for purchase in Nairobi", ""),
+            ("Property listings", "3 bedroom apartment. Asking price: KSh 12 million. Contact agent."),
+            ("Buy this property today", "Modern apartment with parking."),
+        )
+        for title, text in cases:
+            with self.subTest(title=title):
+                self.assertTrue(classify_property_sales_content(title, text=text)[0])
+
     def test_quality_gate_rejects_institutional_and_old_content(self):
         recent = datetime.now(timezone.utc) - timedelta(days=2)
         self.assertEqual(
@@ -742,6 +773,19 @@ class PreFetchPipelineStrictFilterTests(unittest.IsolatedAsyncioTestCase):
             clean_text="Passports are being processed for citizens.",
         )
         saved, duplicate = await collector._store_candidate(self.source, non_property)
+        self.assertIsNone(saved)
+        self.assertFalse(duplicate)
+        self.assertEqual(len(await self.repository.list_items()), 0)
+
+    async def test_store_candidate_rejects_sales_before_database_insertion(self):
+        collector = SourceCollector(self.repository, Settings())
+        sales_listing = CandidateArticle(
+            source_id=self.source.id,
+            source_url="https://source1.example.test/apartments-for-sale",
+            source_title="Apartments for Sale in Nairobi",
+            clean_text="Apartments for sale in Nairobi. Contact agent for viewing. KSh 12 million.",
+        )
+        saved, duplicate = await collector._store_candidate(self.source, sales_listing)
         self.assertIsNone(saved)
         self.assertFalse(duplicate)
         self.assertEqual(len(await self.repository.list_items()), 0)

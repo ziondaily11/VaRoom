@@ -81,6 +81,95 @@ INCIDENTAL_PATTERNS = re.compile(
     re.IGNORECASE,
 )
 
+# Sales/listing content is a separate editorial exclusion from general property
+# relevance. Keep market, development, rental, and housing-policy reporting
+# eligible unless the surrounding language makes it an inventory advertisement.
+SALES_LISTING_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
+    ("sales_phrase", re.compile(
+        r"\b(?:properties?|apartments?|flats?|houses?|homes?|land|plots?|"
+        r"commercial\s+propert(?:y|ies)|offices?|shops?|villas?|townhouses?|"
+        r"penthouses?)\s+(?:for\s+sale|on\s+sale)\b", re.IGNORECASE)),
+    ("purchase_phrase", re.compile(
+        r"\b(?:buy\s+(?:this\s+)?(?:property|properties|home|house|apartment|land)|"
+        r"(?:property|properties|home|house|apartment|land)\s+to\s+buy|"
+        r"available\s+for\s+purchase|for\s+purchase)\b", re.IGNORECASE)),
+    ("listing_phrase", re.compile(
+        r"\b(?:new\s+listings?\s+for\s+sale|sales?\s+listings?|"
+        r"property\s+listings?|homes?\s+on\s+sale)\b", re.IGNORECASE)),
+)
+PROPERTY_TYPE_PATTERN = re.compile(
+    r"\b(?:property|properties|apartment|apartments|flat|flats|house|houses|"
+    r"home|homes|land|plot|plots|office|offices|shop|shops|villa|villas|"
+    r"townhouse|townhouses|penthouse|penthouses|commercial)\b",
+    re.IGNORECASE,
+)
+AD_SIGNALS_PATTERN = re.compile(
+    r"\b(?:contact|call)\s+(?:the\s+)?(?:agent|broker|seller)|"
+    r"\b(?:bedroom|beds?)\b|\b(?:sqm|sq\s*ft|square\s+(?:met(?:re|er)s?|feet))\b|"
+    r"\b(?:KES|KSh|Ksh|Kenya\s+shillings?)\s*[\d,.]+(?:\s*(?:million|m))?\b|"
+    r"\b(?:price|priced)\s*:\s*(?:KES|KSh|Ksh)\b",
+    re.IGNORECASE,
+)
+ASKING_PRICE_PATTERN = re.compile(r"\basking\s+prices?\b", re.IGNORECASE)
+INVENTORY_URL_PATTERN = re.compile(
+    r"(?:/|[-_])(?:for[-_]?sale|forsale|buy|property[-_]?listing|listings?)(?:/|[-_]|$)",
+    re.IGNORECASE,
+)
+
+
+def classify_property_sales_content(
+    title: str,
+    url: str = "",
+    description: str = "",
+    text: str = "",
+    *,
+    source_name: str = "",
+    category: str = "",
+) -> tuple[bool, str]:
+    """Return whether content is clearly sales inventory or a sales advert.
+
+    This deliberately requires property context for generic words such as
+    ``price`` and ``agent`` so legitimate market analysis and rental reporting
+    are not discarded.
+    """
+    title_text = " ".join((title or "").split())
+    combined = " ".join(
+        value for value in (title_text, description, text, url, source_name, category) if value
+    )
+    lower = combined.lower()
+    title_lower = title_text.lower()
+    property_context = bool(PROPERTY_TYPE_PATTERN.search(lower))
+    if not property_context:
+        return False, ""
+
+    for reason, pattern in SALES_LISTING_PATTERNS:
+        if pattern.search(combined):
+            return True, reason
+
+    ad_signals = len(AD_SIGNALS_PATTERN.findall(combined))
+    agency_context = bool(re.search(
+        r"\b(?:properties?|realty|realtors?|estate\s+agents?|property\s+agency|"
+        r"pam\s+golding|buyrentkenya)\b",
+        combined,
+        re.IGNORECASE,
+    ))
+    has_inventory_url = bool(INVENTORY_URL_PATTERN.search(url or ""))
+    # A bedroom/specification or price advert is a listing when paired with an
+    # agency/listing source or an inventory-shaped URL, but not when it says
+    # "to let"/"for rent".
+    rental_context = bool(re.search(r"\b(?:to\s+let|for\s+rent|rent(?:al|ing)?)\b", lower))
+    if not rental_context and (
+        (ad_signals >= 2 and (agency_context or has_inventory_url))
+        or (ASKING_PRICE_PATTERN.search(lower) and (ad_signals >= 2 or has_inventory_url))
+        or (agency_context and ad_signals >= 2 and PROPERTY_TYPE_PATTERN.search(title_lower))
+        or (re.search(r"\b(?:bedroom|beds?)\b", title_lower)
+            and re.search(r"\b(?:apartment|house|home|villa|townhouse|penthouse)\b", title_lower)
+            and re.search(r"\s[-|]\s", title_text))
+    ):
+        return True, "sales_listing"
+
+    return False, ""
+
 
 def classify_property_relevance(
     title: str,

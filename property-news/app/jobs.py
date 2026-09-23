@@ -11,7 +11,7 @@ from .collector import SourceCollector
 from .config import settings
 from .constants import ReviewStatus
 from .processing import ProcessingService
-from .relevance import classify_property_relevance
+from .relevance import classify_property_relevance, classify_property_sales_content
 from .repository import build_repository
 
 
@@ -108,6 +108,23 @@ async def run_reprocess_job(repository=None, config=settings, analyzer: NewsAnal
             result["fetch_failures"] += 1
             continue
 
+        is_sales, sales_reason = classify_property_sales_content(
+            item.varoom_title or item.source_title,
+            item.source_url,
+            item.original_content or "",
+            item.clean_text,
+            source_name=source.name,
+            category=source.category or "",
+        )
+        if is_sales:
+            await store.delete_item(item.id)
+            result["purged_sales"] = result.get("purged_sales", 0) + 1
+            logging.getLogger(__name__).info(
+                "[Property News] Rejected sales content: %s reason=%s",
+                item.source_title, sales_reason,
+            )
+            continue
+
         # COST CONTROL: Check relevance on existing metadata before fetching/reprocessing
         is_relevant, reason = classify_property_relevance(
             item.varoom_title or item.source_title,
@@ -131,6 +148,22 @@ async def run_reprocess_job(repository=None, config=settings, analyzer: NewsAnal
         item.clean_text = candidate.clean_text
         item.original_content = candidate.original_content
         item.source_title = candidate.source_title
+        is_sales, sales_reason = classify_property_sales_content(
+            candidate.source_title,
+            candidate.source_url,
+            candidate.original_content or "",
+            candidate.clean_text,
+            source_name=source.name,
+            category=source.category or "",
+        )
+        if is_sales:
+            await store.delete_item(item.id)
+            result["purged_sales"] = result.get("purged_sales", 0) + 1
+            logging.getLogger(__name__).info(
+                "[Property News] Rejected sales content: %s reason=%s",
+                candidate.source_title, sales_reason,
+            )
+            continue
         await store.save_item(item)
         try:
             await processor.process(item.id)

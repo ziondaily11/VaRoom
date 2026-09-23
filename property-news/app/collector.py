@@ -24,7 +24,7 @@ from .models import CandidateArticle, NewsEvent, NewsItem, Source
 from .normalizer import canonicalise_url, clean_html, content_hash
 from .repository import MemoryNewsRepository, SupabaseNewsRepository
 from .quality import classify_quality, parse_source_date
-from .relevance import classify_property_relevance
+from .relevance import classify_property_relevance, classify_property_sales_content
 
 logger = logging.getLogger(__name__)
 Repository = MemoryNewsRepository | SupabaseNewsRepository
@@ -252,6 +252,20 @@ class SourceCollector:
                         source.name, candidate.source_url, reason, candidate.source_title,
                     )
                     continue
+                is_sales, sales_reason = classify_property_sales_content(
+                    candidate.source_title,
+                    candidate.source_url,
+                    candidate.original_content or "",
+                    candidate.clean_text,
+                    source_name=source.name,
+                    category=f"{source.category or ''} {category_hint}",
+                )
+                if is_sales:
+                    self._rejected_urls.add(canonical)
+                    result["articles_rejected"] += 1
+                    logger.info("[Property News] Rejected sales content: %s reason=%s",
+                                candidate.source_title, sales_reason)
+                    continue
                 passing_candidates.append(candidate)
 
             # STAGE 4: Fetch full articles ONLY for candidates that passed pre-fetch filter
@@ -275,7 +289,8 @@ class SourceCollector:
                     continue
                 # STAGE 4b: Post-fetch full-text verification: ensure property is the central subject, not incidental
                 is_relevant, reason = classify_property_relevance(
-                    article.source_title, article.source_url, article.clean_text, is_pre_fetch=False,
+                    article.source_title, article.source_url, article.clean_text,
+                    source_name=source.name, category=source.category or "", is_pre_fetch=False,
                 )
                 if not is_relevant:
                     result["articles_rejected"] += 1
@@ -283,6 +298,19 @@ class SourceCollector:
                         "POST-FETCH DISCARD (not central property subject): source=%s url=%s reason=%s",
                         source.name, article.source_url, reason,
                     )
+                    continue
+                is_sales, sales_reason = classify_property_sales_content(
+                    article.source_title,
+                    article.source_url,
+                    article.original_content or "",
+                    article.clean_text,
+                    source_name=source.name,
+                    category=source.category or "",
+                )
+                if is_sales:
+                    result["articles_rejected"] += 1
+                    logger.info("[Property News] Rejected sales content: %s reason=%s",
+                                article.source_title, sales_reason)
                     continue
 
                 candidates.append(article)
@@ -682,6 +710,18 @@ class SourceCollector:
                 return None
 
     async def _store_candidate(self, source: Source, candidate: CandidateArticle) -> tuple[NewsItem | None, bool]:
+        is_sales, sales_reason = classify_property_sales_content(
+            candidate.source_title,
+            candidate.source_url,
+            candidate.original_content or "",
+            candidate.clean_text,
+            source_name=source.name,
+            category=source.category or "",
+        )
+        if is_sales:
+            logger.info("[Property News] Rejected sales content: %s reason=%s",
+                        candidate.source_title, sales_reason)
+            return None, False
         # Guard against storing any item that fails the strict property scope
         is_relevant, reason = classify_property_relevance(
             candidate.source_title, candidate.source_url, candidate.clean_text
