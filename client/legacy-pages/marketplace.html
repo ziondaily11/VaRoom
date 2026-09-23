@@ -101,14 +101,17 @@
   .avatar-circle{ width:34px; height:34px; border-radius:50%; background:var(--paper); display:flex; align-items:center; justify-content:center; overflow:hidden; font-weight:700; color:var(--red-deep); }
   .avatar-circle img{ width:100%; height:100%; object-fit:cover; }
 
-  .mkt-body{ display:flex; align-items:flex-start; }
+  .mkt-body{ display:flex; align-items:flex-start; min-width:0; }
 
   .filters{
-    width:260px; flex-shrink:0; padding:1.4rem 1.2rem; border-right:1px solid var(--line);
+    order:2; width:250px; flex-shrink:0; padding:1.4rem 1.1rem; border-left:1px solid var(--line);
     position:sticky; top:0; height:100vh; overflow-y:auto;
+    background:var(--white); transition:width .24s ease, padding .24s ease;
   }
   .filters-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem; }
   .filters-head h2{ font-family:var(--font-display); font-size:1.05rem; font-weight:700; }
+  .filter-collapse{ width:30px; height:30px; display:grid; place-items:center; border:1px solid var(--line); border-radius:8px; color:var(--ink); background:var(--white); cursor:pointer; }
+  .filter-collapse svg, .filter-rail button svg{ width:16px; height:16px; }
   .filters-reset{ font-size:.8rem; color:var(--red); font-weight:600; background:none; border:none; cursor:pointer; }
   .filter-group{ margin-bottom:1.4rem; }
   .filter-group h3{ font-size:.82rem; font-weight:700; margin-bottom:.6rem; }
@@ -119,8 +122,9 @@
   button.filter-row.active{ color:var(--red); font-weight:700; }
   .filter-row span.count{ color:var(--muted); font-size:.78rem; }
   .filter-row input[type="checkbox"]{ accent-color:var(--red); width:16px; height:16px; }
+  .filter-select{ width:100%; padding:.55rem .6rem; border:1px solid var(--line); border-radius:8px; background:var(--white); color:var(--ink); font-size:.84rem; }
 
-  .results-col{ flex:1; padding:1.8rem clamp(1rem, 2.5vw, 2.5rem) 3rem; min-width:0; }
+  .results-col{ order:1; flex:1 1 auto; padding:1.8rem clamp(1rem, 2.5vw, 2.5rem) 3rem; min-width:0; }
   .results-head{ display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:.8rem; margin-bottom:1.1rem; }
   .results-head h1{ font-family:var(--font-brand); font-size:2rem; font-weight:700; letter-spacing:-.02em; }
   .results-sub{ font-size:.85rem; color:var(--muted); margin-top:.2rem; }
@@ -130,6 +134,13 @@
   .grid{
     display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:1rem; align-items:stretch;
   }
+  .filter-rail{ display:none; }
+  .filters.is-collapsed{ width:54px; padding:.8rem .55rem; overflow:visible; }
+  .filters.is-collapsed .filters-panel{ display:none; }
+  .filters.is-collapsed .filter-rail{ display:flex; flex-direction:column; align-items:center; gap:.6rem; }
+  .mkt-body.filters-collapsed .grid{ grid-template-columns:repeat(auto-fill, minmax(190px, 1fr)); }
+  .filter-rail button{ width:34px; height:34px; display:grid; place-items:center; border:1px solid var(--line); border-radius:9px; background:var(--white); color:var(--ink); cursor:pointer; transition:background .18s ease, color .18s ease; }
+  .filter-rail button:hover, .filter-rail button:focus-visible{ background:var(--ink); color:var(--white); }
   @media (min-width: 1440px){
     .grid{ grid-template-columns:repeat(5, minmax(0, 1fr)); gap:1rem; }
   }
@@ -284,33 +295,6 @@
       <label for="q-dest">Where</label>
       <input type="text" id="q-dest" placeholder="Search by location, property name, or keyword...">
     </div>
-    <div class="search-field category-field">
-      <label for="q-category">Type</label>
-      <select id="q-category">
-        <option value="all">All types</option>
-        <option value="airbnb">Airbnbs</option>
-        <option value="hotel">Hotels</option>
-        <option value="venue">Event Venues</option>
-        <option value="office">Offices</option>
-        <option value="shop">Shops</option>
-        <option value="property">Property</option>
-      </select>
-    </div>
-    <div class="price-control">
-      <button type="button" class="price-trigger" id="price-trigger" aria-expanded="false">
-        <span id="price-label">Any price</span><span aria-hidden="true">⌄</span>
-      </button>
-      <div class="price-popover" id="price-popover">
-        <div class="price-inputs">
-          <input type="number" id="price-min" placeholder="Min price" min="0">
-          <span>–</span>
-          <input type="number" id="price-max" placeholder="Max price" min="0">
-        </div>
-        <label class="filter-row"><span>Verified hosts only</span><input type="checkbox" id="verified-only"></label>
-        <button type="button" class="filters-reset" id="filters-reset">Reset filters</button>
-      </div>
-    </div>
-    <input type="hidden" id="q-guests" value="">
     <button type="button" class="search-submit" id="search-submit">Search</button>
   </div>
 
@@ -350,6 +334,54 @@
       <div class="pagination" id="pagination"></div>
     </div>
   </main>
+  <aside class="filters" id="marketplace-filters" aria-label="Marketplace filters" data-role-scope="discovery">
+    <div class="filters-panel">
+      <div class="filters-head">
+        <h2>Filters</h2>
+        <button type="button" class="filter-collapse" id="filter-collapse" aria-label="Collapse filters" aria-controls="marketplace-filters" aria-expanded="true" title="Collapse filters">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+        </button>
+      </div>
+      <section class="filter-group">
+        <h3>Price range (KSh)</h3>
+        <div class="price-inputs">
+          <input type="number" id="price-min" placeholder="Min" min="0" aria-label="Minimum price">
+          <span aria-hidden="true">–</span>
+          <input type="number" id="price-max" placeholder="Max" min="0" aria-label="Maximum price">
+        </div>
+      </section>
+      <section class="filter-group">
+        <h3>Property type</h3>
+        <select id="q-category" class="filter-select" aria-label="Property type">
+          <option value="all">All types</option>
+          <option value="airbnb">Airbnbs</option>
+          <option value="hotel">Hotels</option>
+          <option value="venue">Event Venues</option>
+          <option value="office">Offices</option>
+          <option value="shop">Shops</option>
+          <option value="property">Property</option>
+        </select>
+      </section>
+      <section class="filter-group">
+        <h3>Guests</h3>
+        <select id="q-guests" class="filter-select" aria-label="Guests">
+          <option value="">Any</option><option value="1">1+</option><option value="2">2+</option><option value="4">4+</option><option value="6">6+</option><option value="10">10+</option>
+        </select>
+      </section>
+      <section class="filter-group">
+        <h3>Host</h3>
+        <label class="filter-row"><span>Verified hosts only</span><input type="checkbox" id="verified-only"></label>
+      </section>
+      <button type="button" class="filters-reset" id="filters-reset">Reset filters</button>
+    </div>
+    <div class="filter-rail" aria-label="Collapsed filter controls">
+      <button type="button" id="filter-expand" aria-label="Expand filters" title="Filters"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M7 12h10M10 18h4"/></svg></button>
+      <button type="button" data-filter-focus="price-min" aria-label="Filter by price" title="Price"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v18M16 7.5c0-1.4-1.8-2.5-4-2.5s-4 1.1-4 2.5S9.8 10 12 10s4 1.1 4 2.5-1.8 2.5-4 2.5-4 1.1-4 2.5S9.8 20 12 20"/></svg></button>
+      <button type="button" data-filter-focus="q-category" aria-label="Filter by property type" title="Property type"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-9"/></svg></button>
+      <button type="button" data-filter-focus="q-guests" aria-label="Filter by guests" title="Guests"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="3"/><path d="M6 20a6 6 0 0 1 12 0"/></svg></button>
+      <button type="button" data-filter-focus="verified-only" aria-label="Verified hosts only" title="Verified hosts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4L19 6"/></svg></button>
+    </div>
+  </aside>
 </div>
 
 <nav class="mobile-bottom-nav" aria-label="Mobile navigation">
@@ -945,6 +977,11 @@
     syncMobileCategoryChips();
     runSearch();
   });
+  document.getElementById('q-guests').addEventListener('change', function(){
+    state.guests = this.value;
+    document.getElementById('mobile-q-guests').value = state.guests;
+    runSearch();
+  });
   document.getElementById('q-dest').addEventListener('keydown', function(e){
     if (e.key === 'Enter') document.getElementById('search-submit').click();
   });
@@ -985,10 +1022,29 @@
     document.getElementById('q-category').value = 'all';
     document.getElementById('q-guests').value = '';
     state.q = ''; state.category = 'all'; state.guests = '';
+    document.getElementById('mobile-q-category').value = state.category;
+    document.getElementById('mobile-q-guests').value = state.guests;
+    syncMobileCategoryChips();
     updatePriceLabel();
     document.getElementById('price-popover').classList.remove('open');
     document.getElementById('price-trigger').setAttribute('aria-expanded', 'false');
     runSearch();
+  });
+  function setFiltersCollapsed(collapsed, focusId){
+    const filters = document.getElementById('marketplace-filters');
+    const body = document.querySelector('.mkt-body');
+    filters.classList.toggle('is-collapsed', collapsed);
+    body.classList.toggle('filters-collapsed', collapsed);
+    document.getElementById('filter-collapse').setAttribute('aria-expanded', String(!collapsed));
+    if (!collapsed && focusId) {
+      const target = document.getElementById(focusId);
+      if (target) target.focus();
+    }
+  }
+  document.getElementById('filter-collapse').addEventListener('click', function(){ setFiltersCollapsed(true); });
+  document.getElementById('filter-expand').addEventListener('click', function(){ setFiltersCollapsed(false); });
+  document.querySelectorAll('[data-filter-focus]').forEach(function(button){
+    button.addEventListener('click', function(){ setFiltersCollapsed(false, this.getAttribute('data-filter-focus')); });
   });
   runSearch();
 })();

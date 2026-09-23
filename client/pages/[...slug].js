@@ -121,16 +121,39 @@ async function runLegacyScripts(container, scripts) {
   }
 
   if (scripts.some(({ attributes }) => attributes.includes('@supabase/supabase-js'))) {
-    await new Promise((resolve) => {
-      const startedAt = Date.now();
-      const waitForSupabase = () => {
-        if (window.supabase || Date.now() - startedAt >= 10000) {
-          resolve();
-          return;
-        }
-        window.setTimeout(waitForSupabase, 50);
+    await new Promise((resolve, reject) => {
+      if (window.supabase) {
+        resolve();
+        return;
+      }
+
+      const timeout = window.setTimeout(() => {
+        reject(new Error('Supabase did not finish loading before the legacy page initialized.'));
+      }, 10000);
+      const finish = () => {
+        window.clearTimeout(timeout);
+        if (window.supabase) resolve();
+        else reject(new Error('Supabase loaded without its browser global.'));
       };
-      waitForSupabase();
+      const fail = () => {
+        window.clearTimeout(timeout);
+        reject(new Error('Unable to load Supabase for the legacy page.'));
+      };
+      const existing = Array.from(document.scripts).find((script) =>
+        script.src.includes('@supabase/supabase-js')
+      );
+
+      if (existing) {
+        existing.addEventListener('load', finish, { once: true });
+        existing.addEventListener('error', fail, { once: true });
+      } else {
+        const supabaseScript = document.createElement('script');
+        supabaseScript.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+        supabaseScript.async = false;
+        supabaseScript.addEventListener('load', finish, { once: true });
+        supabaseScript.addEventListener('error', fail, { once: true });
+        document.head.appendChild(supabaseScript);
+      }
     });
   }
 
