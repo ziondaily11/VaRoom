@@ -1187,16 +1187,23 @@
   function updatePriceLabel(){
     const min = document.getElementById('price-min').value;
     const max = document.getElementById('price-max').value;
-    document.getElementById('price-label').textContent =
-      min || max ? ('KSh ' + (min || '0') + ' – ' + (max || 'Any')) : 'Any price';
+    const priceLabel = document.getElementById('price-label');
+    if (priceLabel) {
+      priceLabel.textContent =
+        min || max ? ('KSh ' + (min || '0') + ' – ' + (max || 'Any')) : 'Any price';
+    }
   }
   document.getElementById('price-min').addEventListener('input', updatePriceLabel);
   document.getElementById('price-max').addEventListener('input', updatePriceLabel);
-  document.getElementById('price-trigger').addEventListener('click', function(){
-    const popover = document.getElementById('price-popover');
-    const open = popover.classList.toggle('open');
-    this.setAttribute('aria-expanded', String(open));
-  });
+  const priceTrigger = document.getElementById('price-trigger');
+  if (priceTrigger) {
+    priceTrigger.addEventListener('click', function(){
+      const popover = document.getElementById('price-popover');
+      if (!popover) return;
+      const open = popover.classList.toggle('open');
+      this.setAttribute('aria-expanded', String(open));
+    });
+  }
   document.getElementById('verified-only').addEventListener('change', function(){
     state.verifiedOnly = this.checked; state.page = 1; runSearch();
   });
@@ -1214,8 +1221,10 @@
     syncMobileCategoryChips();
     syncDesktopCategoryChips();
     updatePriceLabel();
-    document.getElementById('price-popover').classList.remove('open');
-    document.getElementById('price-trigger').setAttribute('aria-expanded', 'false');
+    const pricePopover = document.getElementById('price-popover');
+    if (pricePopover) pricePopover.classList.remove('open');
+    const resetPriceTrigger = document.getElementById('price-trigger');
+    if (resetPriceTrigger) resetPriceTrigger.setAttribute('aria-expanded', 'false');
     runSearch();
   });
   function setFiltersCollapsed(collapsed, focusId){
