@@ -97,10 +97,6 @@
   .price-popover .filter-row{ margin-top:.55rem; }
   .toolbar-compatible-filters{ display:none; }
 
-  .topbar-actions{ margin-left:auto; display:flex; align-items:center; gap:.6rem; }
-  .avatar-circle{ width:34px; height:34px; border-radius:50%; background:var(--paper); display:flex; align-items:center; justify-content:center; overflow:hidden; font-weight:700; color:var(--red-deep); }
-  .avatar-circle img{ width:100%; height:100%; object-fit:cover; }
-
   .mkt-body{ display:flex; align-items:flex-start; min-width:0; }
   .desktop-sidebar, .desktop-category-row{ display:none; }
 
@@ -243,7 +239,6 @@
     .mkt-header{ display:grid; grid-template-columns:1fr auto; gap:.8rem; padding:.8rem 1.4rem; border-bottom:1px solid var(--line); }
     .mkt-header .logo, .mkt-header .mode-switch{ display:none; }
     .search-bar{ grid-column:1; grid-row:1; max-width:660px; width:100%; }
-    .topbar-actions{ grid-column:2; grid-row:1; }
     .desktop-category-row{ grid-column:1 / -1; display:flex; gap:.55rem; overflow-x:auto; padding:.1rem 0 .05rem; scrollbar-width:none; }
     .desktop-category-row::-webkit-scrollbar{ display:none; }
     .desktop-category-chip{ flex:0 0 auto; min-height:2rem; padding:0 .82rem; border:0; border-radius:999px; background:var(--paper); color:var(--ink); font-size:.72rem; font-weight:600; cursor:pointer; white-space:nowrap; }
@@ -262,7 +257,7 @@
   @media (max-width: 860px){
     body{ padding-bottom:4.4rem; }
     .mkt-header{ display:block; padding:.8rem .8rem .3rem; border:0; background:var(--paper); }
-    .mkt-header .logo, .mode-switch, .topbar-actions{ display:none; }
+    .mkt-header .logo, .mode-switch{ display:none; }
     .filters{ display:none; }
     .mkt-body{ flex-direction:column; }
     .search-bar{ display:none; }
@@ -330,13 +325,8 @@
     }
     .search-field input{ font-size:10px; color:#374151; }
     .search-submit{ display:none; }
-    .topbar-actions{ grid-column:2; grid-row:1; gap:14px; align-self:center; }
-    .topbar-actions::before{
-      content:"☼"; display:grid; place-items:center; width:24px; height:24px;
-      border-radius:50%; background:#f3f3f3; color:#202124; font-size:17px; line-height:1;
-    }
-    .topbar-actions::after{ content:"⌄"; color:#202124; font-size:15px; margin-left:-8px; }
-    .avatar-circle{ width:22px; height:22px; background:#20262d; color:#fff; font-size:10px; }
+    .search-field{ border:1px solid rgba(0,0,0,.14); }
+    [data-theme="dark"] .search-field{ border-color:rgba(255,255,255,.18); }
     .desktop-category-row{
       grid-column:1 / -1; grid-row:2; display:flex; gap:10px; overflow:visible;
       padding:0; align-items:center;
@@ -521,9 +511,6 @@
     <button type="button" class="desktop-category-chip" data-desktop-category="property">Property</button>
   </div>
 
-  <div class="topbar-actions">
-    <a href="/profile" class="avatar-circle" id="user-avatar" aria-label="Profile"></a>
-  </div>
   <div class="mobile-marketplace-tools">
     <div class="mobile-search">
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><line x1="16.5" y1="16.5" x2="21" y2="21"></line></svg>
@@ -772,10 +759,12 @@
     sidebar.hidden = sidebar.getAttribute('data-role-sidebar') !== profile.role;
   });
   const avatarEl = document.getElementById('user-avatar');
-  if (profile.avatar_url) {
-    avatarEl.innerHTML = '<img src="' + escapeHtml(profile.avatar_url) + '" alt="">';
-  } else {
-    avatarEl.textContent = (profile.full_name || '?').charAt(0).toUpperCase();
+  if (avatarEl) {
+    if (profile.avatar_url) {
+      avatarEl.innerHTML = '<img src="' + escapeHtml(profile.avatar_url) + '" alt="">';
+    } else {
+      avatarEl.textContent = (profile.full_name || '?').charAt(0).toUpperCase();
+    }
   }
 
   // ---------- Bookmarks ----------
