@@ -468,7 +468,24 @@
     .sidebar-icon-divider{ width:34px; height:1px; margin:1px auto; background:var(--line); }
     .sidebar-note, .sidebar-label{ display:none; }
     .results-col{ padding:8px 20px 28px; }
-    .grid{ grid-template-columns:repeat(4, minmax(0, 1fr)); gap:10px 11px; }
+    .grid{ grid-template-columns:repeat(2, minmax(0, 1fr)); gap:12px; }
+    .card{ aspect-ratio:1.3 / 1; }
+  }
+
+  @media (min-width: 920px) and (max-width: 999px){
+    .grid{ grid-template-columns:repeat(3, minmax(0, 1fr)); }
+  }
+
+  @media (min-width: 1000px) and (max-width: 1199px){
+    .grid{ grid-template-columns:repeat(4, minmax(0, 1fr)); }
+  }
+
+  @media (min-width: 1200px) and (max-width: 1439px){
+    .grid{ grid-template-columns:repeat(5, minmax(0, 1fr)); }
+  }
+
+  @media (min-width: 1440px){
+    .grid{ grid-template-columns:repeat(6, minmax(0, 1fr)); }
   }
 </style>
 </head>
