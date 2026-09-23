@@ -102,6 +102,7 @@
   .avatar-circle img{ width:100%; height:100%; object-fit:cover; }
 
   .mkt-body{ display:flex; align-items:flex-start; min-width:0; }
+  .desktop-sidebar, .desktop-category-row{ display:none; }
 
   .filters{
     order:2; width:250px; flex-shrink:0; padding:1.4rem 1.1rem; border-left:1px solid var(--line);
@@ -238,6 +239,26 @@
     .search-field.category-field, .price-control{ flex-basis:155px; }
   }
 
+  @media (min-width: 861px){
+    .mkt-header{ display:grid; grid-template-columns:1fr auto; gap:.8rem; padding:.8rem 1.4rem; border-bottom:1px solid var(--line); }
+    .mkt-header .logo, .mkt-header .mode-switch{ display:none; }
+    .search-bar{ grid-column:1; grid-row:1; max-width:660px; width:100%; }
+    .topbar-actions{ grid-column:2; grid-row:1; }
+    .desktop-category-row{ grid-column:1 / -1; display:flex; gap:.55rem; overflow-x:auto; padding:.1rem 0 .05rem; scrollbar-width:none; }
+    .desktop-category-row::-webkit-scrollbar{ display:none; }
+    .desktop-category-chip{ flex:0 0 auto; min-height:2rem; padding:0 .82rem; border:0; border-radius:999px; background:var(--paper); color:var(--ink); font-size:.72rem; font-weight:600; cursor:pointer; white-space:nowrap; }
+    .desktop-category-chip.active{ background:var(--ink); color:var(--white); }
+    .desktop-sidebar{ order:0; display:flex; flex:0 0 176px; min-height:calc(100vh - 7rem); flex-direction:column; padding:1.25rem .85rem; border-right:1px solid var(--line); background:var(--white); }
+    .desktop-sidebar-brand{ margin:0 0 1.5rem .25rem; font-family:var(--font-brand); font-size:1.25rem; font-weight:900; }
+    .desktop-sidebar-brand .va{ color:var(--red); }
+    .desktop-sidebar nav{ display:grid; gap:.2rem; }
+    .desktop-sidebar a{ padding:.62rem .72rem; border-radius:8px; color:var(--ink); font-size:.78rem; font-weight:600; }
+    .desktop-sidebar a.active{ background:var(--paper); color:var(--red-deep); }
+    .desktop-sidebar .sidebar-divider{ height:1px; margin:1.15rem .25rem; background:var(--line); }
+    .desktop-sidebar .sidebar-label{ margin:0 .25rem .45rem; color:var(--muted); font-size:.64rem; font-weight:700; text-transform:uppercase; letter-spacing:.07em; }
+    .results-col{ padding:1.25rem clamp(1rem, 2vw, 2rem) 3rem; }
+  }
+
   @media (max-width: 860px){
     body{ padding-bottom:4.4rem; }
     .mkt-header{ display:block; padding:.8rem .8rem .3rem; border:0; background:var(--paper); }
@@ -297,6 +318,15 @@
     </div>
     <button type="button" class="search-submit" id="search-submit">Search</button>
   </div>
+  <div class="desktop-category-row" role="tablist" aria-label="Property categories">
+    <button type="button" class="desktop-category-chip active" data-desktop-category="all">All</button>
+    <button type="button" class="desktop-category-chip" data-desktop-category="airbnb">Airbnbs</button>
+    <button type="button" class="desktop-category-chip" data-desktop-category="hotel">Hotels</button>
+    <button type="button" class="desktop-category-chip" data-desktop-category="venue">Event Venues</button>
+    <button type="button" class="desktop-category-chip" data-desktop-category="office">Offices</button>
+    <button type="button" class="desktop-category-chip" data-desktop-category="shop">Shops</button>
+    <button type="button" class="desktop-category-chip" data-desktop-category="property">Property</button>
+  </div>
 
   <div class="topbar-actions">
     <a href="/profile" class="avatar-circle" id="user-avatar" aria-label="Profile"></a>
@@ -324,6 +354,27 @@
 </header>
 
 <div class="mkt-body">
+  <aside class="desktop-sidebar" aria-label="Marketplace navigation">
+    <div class="desktop-sidebar-brand"><span class="va">Va</span>Room</div>
+    <nav>
+      <a href="/client-home" id="marketplace-sidebar-home">Home</a>
+      <a href="/marketplace" class="active">Marketplace</a>
+      <a href="/notifications">Notifications</a>
+      <a href="/bookings">Bookings</a>
+      <a href="/profile">Profile</a>
+      <a href="/settings">Settings</a>
+    </nav>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-label">Explore</div>
+    <nav>
+      <a href="/marketplace?category=airbnb">Airbnbs</a>
+      <a href="/marketplace?category=hotel">Hotels</a>
+      <a href="/marketplace?category=venue">Event Venues</a>
+      <a href="/marketplace?category=office">Offices</a>
+      <a href="/marketplace?category=shop">Shops</a>
+      <a href="/marketplace?category=property">Property</a>
+    </nav>
+  </aside>
   <div class="toolbar-compatible-filters" aria-hidden="true">
     <div id="type-filters"></div>
   </div>
@@ -444,6 +495,7 @@
   ['marketplace-home-link', 'marketplace-discover-link', 'marketplace-mobile-home-link'].forEach(function(id){
     document.getElementById(id).setAttribute('href', homeHref);
   });
+  document.getElementById('marketplace-sidebar-home').setAttribute('href', homeHref);
   const avatarEl = document.getElementById('user-avatar');
   if (profile.avatar_url) {
     avatarEl.innerHTML = '<img src="' + escapeHtml(profile.avatar_url) + '" alt="">';
@@ -498,7 +550,15 @@
       chip.setAttribute('aria-selected', String(active));
     });
   }
+  function syncDesktopCategoryChips(){
+    document.querySelectorAll('[data-desktop-category]').forEach(function(chip){
+      const active = chip.getAttribute('data-desktop-category') === state.category;
+      chip.classList.toggle('active', active);
+      chip.setAttribute('aria-selected', String(active));
+    });
+  }
   syncMobileCategoryChips();
+  syncDesktopCategoryChips();
 
   let allListings = []; // full result set for the current search text/category, filters applied client-side
   const videoLookups = new Map();
@@ -875,8 +935,8 @@
     const currentRequest = ++requestVersion;
     const offset = reset ? 0 : listingOffset;
     let { data, error, count } = await fetchListings(MKT_SELECT, true, offset);
-    if (error) {
-      console.warn('Marketplace availability-aware query failed; retrying shared listing shape:', error.message);
+    if (error || !(data || []).length) {
+      console.warn('Marketplace availability-aware query returned no usable listings; retrying shared listing shape:', error ? error.message : 'no rows returned');
       const fallback = await fetchListings(MKT_LEGACY_SELECT, false, offset);
       data = fallback.data;
       error = fallback.error;
@@ -968,6 +1028,7 @@
       document.getElementById('mobile-q-category').value = state.category;
       document.getElementById('q-category').value = state.category;
       syncMobileCategoryChips();
+      syncDesktopCategoryChips();
       runSearch();
     });
   });
@@ -975,7 +1036,18 @@
     state.category = this.value;
     document.getElementById('mobile-q-category').value = state.category;
     syncMobileCategoryChips();
+    syncDesktopCategoryChips();
     runSearch();
+  });
+  document.querySelectorAll('[data-desktop-category]').forEach(function(chip){
+    chip.addEventListener('click', function(){
+      state.category = this.getAttribute('data-desktop-category');
+      document.getElementById('q-category').value = state.category;
+      document.getElementById('mobile-q-category').value = state.category;
+      syncMobileCategoryChips();
+      syncDesktopCategoryChips();
+      runSearch();
+    });
   });
   document.getElementById('q-guests').addEventListener('change', function(){
     state.guests = this.value;
@@ -1025,6 +1097,7 @@
     document.getElementById('mobile-q-category').value = state.category;
     document.getElementById('mobile-q-guests').value = state.guests;
     syncMobileCategoryChips();
+    syncDesktopCategoryChips();
     updatePriceLabel();
     document.getElementById('price-popover').classList.remove('open');
     document.getElementById('price-trigger').setAttribute('aria-expanded', 'false');
