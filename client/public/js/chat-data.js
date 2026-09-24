@@ -552,6 +552,10 @@
     const outgoing = message.sender_id === state.session.user.id;
     row.className = `msg-row ${outgoing ? 'out' : 'in'}`;
     row.dataset.messageId = message.id;
+    const meta = document.createElement('div');
+    meta.className = 'msg-meta';
+    meta.textContent = message.read_at && outgoing
+      ? `Read ${formatTime(message.read_at)}` : formatTime(message.created_at);
     if (message.message_type === 'text') {
       const bubble = document.createElement('div');
       bubble.className = 'bubble';
@@ -577,6 +581,7 @@
       } else {
         bubble.textContent = body;
       }
+      bubble.appendChild(meta);
       row.appendChild(bubble);
     } else if (message.message_type === 'listing' && message.listing) {
       const card = document.createElement('div');
@@ -605,6 +610,7 @@
         if (existingImage) existingImage.replaceWith(player);
         else card.insertBefore(player, card.firstChild);
       }).catch((error) => console.error('Shared listing video unavailable:', error));
+      card.appendChild(meta);
       row.appendChild(card);
     } else if (message.message_type === 'voice' && message.attachment_id) {
       const card = document.createElement('div');
@@ -615,8 +621,11 @@
       downloadAttachment(message.attachment_id).then((url) => { audio.src = url; }).catch((error) => console.error('Voice message unavailable:', error));
       card.querySelector('.play').addEventListener('click', () => { if (audio.paused) audio.play(); else audio.pause(); });
       card.appendChild(audio);
+      card.appendChild(meta);
       row.appendChild(card);
     } else if (message.message_type === 'photo' && message.attachment_id) {
+      const block = document.createElement('div');
+      block.className = 'message-block';
       const image = document.createElement('img');
       image.className = 'chat-message-image';
       image.alt = message.attachment && message.attachment.original_filename || 'Shared image';
@@ -625,7 +634,8 @@
         image.src = url;
         image.addEventListener('click', () => openImagePreview(url, image.alt));
       }).catch((error) => console.error('Image message unavailable:', error));
-      row.appendChild(image);
+      block.append(image, meta);
+      row.appendChild(block);
     } else if (message.attachment_id) {
       const card = document.createElement('div');
       card.className = 'file-card';
@@ -637,13 +647,10 @@
         ? `${Math.ceil(message.attachment.file_size_bytes / 1024)} Kb`
         : '';
       card.addEventListener('click', async () => { window.open(await downloadAttachment(message.attachment_id), '_blank', 'noopener'); });
+      card.appendChild(meta);
       row.appendChild(card);
     }
-    const meta = document.createElement('div');
-    meta.className = 'msg-meta';
-    meta.textContent = message.read_at && message.sender_id === state.session.user.id
-      ? `Read ${formatTime(message.read_at)}` : formatTime(message.created_at);
-    row.appendChild(meta);
+    if (!row.contains(meta)) row.appendChild(meta);
     return row;
   }
 
