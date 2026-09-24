@@ -191,16 +191,24 @@
 
   .avatar-preview {
     position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
+    inset: auto;
+    left: 50%;
+    top: 50%;
+    max-width: none;
+    max-height: none;
+    object-fit: fill;
+    transform: translate(-50%, -50%);
     display: none;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-drag: none;
   }
 
   .has-photo .avatar-preview { display: block; }
   .has-photo .avatar-placeholder { display: none; }
   .has-photo .avatar { border-color: rgba(255, 255, 255, 0.22); }
+  .avatar.is-adjusting .avatar-preview { cursor: grabbing; }
 
   /* ---------- Actions (shared) ---------- */
   .actions {
@@ -1042,11 +1050,15 @@
     var btnAddLabel = document.getElementById('btnAddLabel');
     var btnContinue = document.getElementById('btnContinue');
     var btnSkip     = document.getElementById('btnSkip');
+    var avatar      = document.getElementById('avatar');
     var preview     = document.getElementById('preview');
     var hint        = document.getElementById('hint');
 
     var selectedFile = null;
     var previewUrl = null;
+    var crop = null;
+    var activePointers = {};
+    var dragPointerId = null;
     var photoDecisionKey = 'varoom_onboarding_photo_decision_' + user.id;
 
     function savePhotoDecision(decision) {
@@ -1056,6 +1068,130 @@
     function hasPhotoDecision() {
       if (profile.avatar_url) return true;
       try { return localStorage.getItem(photoDecisionKey) === 'skipped'; } catch (error) { return false; }
+    }
+
+    function constrainCrop() {
+      if (!crop) return;
+      var width = crop.baseWidth * crop.zoom;
+      var height = crop.baseHeight * crop.zoom;
+      var maxX = Math.max(0, (width - crop.frameSize) / 2);
+      var maxY = Math.max(0, (height - crop.frameSize) / 2);
+      crop.offsetX = Math.max(-maxX, Math.min(maxX, crop.offsetX));
+      crop.offsetY = Math.max(-maxY, Math.min(maxY, crop.offsetY));
+    }
+
+    function renderCrop() {
+      if (!crop) return;
+      constrainCrop();
+      preview.style.width = (crop.baseWidth * crop.zoom) + 'px';
+      preview.style.height = (crop.baseHeight * crop.zoom) + 'px';
+      preview.style.left = (crop.frameSize / 2 + crop.offsetX) + 'px';
+      preview.style.top = (crop.frameSize / 2 + crop.offsetY) + 'px';
+    }
+
+    function setCropZoom(zoom) {
+      if (!crop) return;
+      crop.zoom = Math.max(1, Math.min(4, zoom));
+      renderCrop();
+    }
+
+    function initialiseCrop() {
+      var frameSize = avatar.getBoundingClientRect().width;
+      if (!frameSize || !preview.naturalWidth || !preview.naturalHeight) return;
+      var fit = Math.max(frameSize / preview.naturalWidth, frameSize / preview.naturalHeight);
+      crop = {
+        frameSize: frameSize,
+        baseWidth: preview.naturalWidth * fit,
+        baseHeight: preview.naturalHeight * fit,
+        zoom: 1,
+        offsetX: 0,
+        offsetY: 0
+      };
+      renderCrop();
+    }
+
+    function pointerCount() { return Object.keys(activePointers).length; }
+
+    function distanceBetweenPointers() {
+      var ids = Object.keys(activePointers);
+      if (ids.length < 2) return 0;
+      var a = activePointers[ids[0]];
+      var b = activePointers[ids[1]];
+      return Math.hypot(a.x - b.x, a.y - b.y);
+    }
+
+    avatar.addEventListener('pointerdown', function (event) {
+      if (!crop) return;
+      activePointers[event.pointerId] = { x: event.clientX, y: event.clientY };
+      avatar.setPointerCapture(event.pointerId);
+      if (pointerCount() === 1) {
+        dragPointerId = event.pointerId;
+      } else if (pointerCount() === 2) {
+        dragPointerId = null;
+        crop.pinchDistance = distanceBetweenPointers();
+        crop.pinchZoom = crop.zoom;
+      }
+      avatar.classList.add('is-adjusting');
+      event.preventDefault();
+    });
+
+    avatar.addEventListener('pointermove', function (event) {
+      if (!crop || !activePointers[event.pointerId]) return;
+      var previous = activePointers[event.pointerId];
+      activePointers[event.pointerId] = { x: event.clientX, y: event.clientY };
+      if (pointerCount() >= 2 && crop.pinchDistance) {
+        setCropZoom(crop.pinchZoom * (distanceBetweenPointers() / crop.pinchDistance));
+      } else if (dragPointerId === event.pointerId) {
+        crop.offsetX += event.clientX - previous.x;
+        crop.offsetY += event.clientY - previous.y;
+        renderCrop();
+      }
+      event.preventDefault();
+    });
+
+    function finishPointer(event) {
+      if (!activePointers[event.pointerId]) return;
+      delete activePointers[event.pointerId];
+      crop.pinchDistance = null;
+      if (pointerCount() === 1) {
+        var remainingId = Object.keys(activePointers)[0];
+        dragPointerId = Number(remainingId);
+      } else {
+        dragPointerId = null;
+      }
+      if (!pointerCount()) avatar.classList.remove('is-adjusting');
+    }
+
+    avatar.addEventListener('pointerup', finishPointer);
+    avatar.addEventListener('pointercancel', finishPointer);
+    avatar.addEventListener('wheel', function (event) {
+      if (!crop) return;
+      event.preventDefault();
+      setCropZoom(crop.zoom * (event.deltaY < 0 ? 1.1 : 0.9));
+    }, { passive: false });
+
+    function createCroppedPhoto() {
+      return new Promise(function (resolve, reject) {
+        if (!crop || !preview.naturalWidth || !preview.naturalHeight) {
+          reject(new Error('Could not prepare your photo. Please choose it again.'));
+          return;
+        }
+        var outputSize = 1024;
+        var scale = outputSize / crop.frameSize;
+        var width = crop.baseWidth * crop.zoom;
+        var height = crop.baseHeight * crop.zoom;
+        var left = crop.frameSize / 2 + crop.offsetX - width / 2;
+        var top = crop.frameSize / 2 + crop.offsetY - height / 2;
+        var canvas = document.createElement('canvas');
+        canvas.width = outputSize;
+        canvas.height = outputSize;
+        var context = canvas.getContext('2d');
+        context.drawImage(preview, left * scale, top * scale, width * scale, height * scale);
+        canvas.toBlob(function (blob) {
+          if (blob) resolve(blob);
+          else reject(new Error('Could not prepare your photo. Please try again.'));
+        }, 'image/jpeg', 0.92);
+      });
     }
 
     btnAdd.addEventListener('click', function () { input.click(); });
@@ -1076,8 +1212,9 @@
       hint.textContent = '';
       if (previewUrl) URL.revokeObjectURL(previewUrl);
       previewUrl = URL.createObjectURL(file);
-      preview.src = previewUrl;
       selectedFile = file;
+      preview.onload = initialiseCrop;
+      preview.src = previewUrl;
 
       document.body.classList.add('has-photo');
       btnAddLabel.textContent = 'Change photo';
@@ -1092,9 +1229,9 @@
       }
       btnContinue.disabled = true;
       try {
-        var ext = (selectedFile.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '');
-        var path = user.id + '/avatar_' + Date.now() + '.' + (ext || 'jpg');
-        var uploadResult = await supabaseClient.storage.from('avatars').upload(path, selectedFile, { upsert: false });
+        var croppedPhoto = await createCroppedPhoto();
+        var path = user.id + '/avatar_' + Date.now() + '.jpg';
+        var uploadResult = await supabaseClient.storage.from('avatars').upload(path, croppedPhoto, { contentType: 'image/jpeg', upsert: false });
         if (uploadResult.error) throw uploadResult.error;
         var avatarResult = await supabaseClient.from('profiles').update({ avatar_url: path }).eq('id', user.id);
         if (avatarResult.error) throw avatarResult.error;
