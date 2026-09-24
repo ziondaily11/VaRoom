@@ -98,6 +98,13 @@
   }
   .content[hidden] { display: none; }
 
+  /* Keep every onboarding step on one solid surface. This selector is scoped
+     tightly enough to win over the shared dark-theme `.content` override. */
+  html[data-theme] .screen,
+  html[data-theme] .screen .content {
+    background: #000 !important;
+  }
+
   .content--photo {
     grid-template-rows: auto 1fr auto;
     grid-template-areas: "copy" "avatar" "actions";
@@ -350,6 +357,16 @@
     text-overflow: ellipsis;
   }
   .field.is-invalid .field-label { color: var(--error); }
+
+  .username-hint {
+    display: none;
+    margin: -4px 0 0;
+    padding-inline: 18px;
+    color: var(--error);
+    font-size: 12px;
+    line-height: 1.45;
+    text-align: left;
+  }
 
   .field input {
     width: 100%;
@@ -702,6 +719,7 @@
                    autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="21">
           </span>
         </label>
+        <p class="username-hint" id="usernameHint" role="alert"></p>
 
         <label class="field" id="fieldPhone">
           <svg class="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -970,6 +988,16 @@
 
     var selectedFile = null;
     var previewUrl = null;
+    var photoDecisionKey = 'varoom_onboarding_photo_decision_' + user.id;
+
+    function savePhotoDecision(decision) {
+      try { localStorage.setItem(photoDecisionKey, decision); } catch (error) {}
+    }
+
+    function hasPhotoDecision() {
+      if (profile.avatar_url) return true;
+      try { return localStorage.getItem(photoDecisionKey) === 'skipped'; } catch (error) { return false; }
+    }
 
     btnAdd.addEventListener('click', function () { input.click(); });
 
@@ -1012,6 +1040,7 @@
         var avatarResult = await supabaseClient.from('profiles').update({ avatar_url: path }).eq('id', user.id);
         if (avatarResult.error) throw avatarResult.error;
         profile.avatar_url = path;
+        savePhotoDecision('added');
         goTo(2, true);
       } catch (error) {
         hint.textContent = error.message || 'Could not save your photo. Please try again.';
@@ -1020,16 +1049,14 @@
     });
 
     btnSkip.addEventListener('click', function () {
+      savePhotoDecision('skipped');
       goTo(2, true);
     });
 
     /* ---------- Step 2 · Your details ---------- */
     var form    = document.getElementById('detailsForm');
     var btnBack = document.getElementById('btnBack');
-    var usernameHint = document.createElement('p');
-    usernameHint.setAttribute('role', 'alert');
-    usernameHint.style.cssText = 'display:none;margin:8px 0 0;color:var(--error);font-size:12px;line-height:1.45;text-align:left;';
-    document.getElementById('fieldUsername').insertAdjacentElement('afterend', usernameHint);
+    var usernameHint = document.getElementById('usernameHint');
 
     var fields = [
       {
@@ -1065,7 +1092,10 @@
       var label = f.wrap.querySelector('.field-label');
       f.wrap.classList.toggle('is-invalid', isInvalid);
       f.input.setAttribute('aria-invalid', isInvalid ? 'true' : 'false');
-      label.textContent = isInvalid ? f.error : label.getAttribute('data-label');
+      // Username messages are kept below the input, not in its label.
+      if (f.key !== 'username') {
+        label.textContent = isInvalid ? f.error : label.getAttribute('data-label');
+      }
     }
 
     fields.forEach(function (f) {
@@ -1310,15 +1340,12 @@
 
     renderPicks();
 
-    // Preview helper (remove when wiring): ?step=2 or ?step=3 opens that card directly.
-    // Combine with the role, e.g. onboarding.html?step=3&role=client
-    var startStep = parseInt(new URLSearchParams(location.search).get('step'), 10);
     var detailsComplete = !!(profile.username && profile.phone && profile.city);
     var interestsComplete = ROLE === 'host'
       ? Array.isArray(profile.listing_categories) && profile.listing_categories.length === 2
       : Array.isArray(profile.interested_categories) && profile.interested_categories.length > 0 && !!profile.looking_timeline;
-    var resumeStep = interestsComplete ? 3 : (detailsComplete ? 3 : 2);
-    goTo(startStep >= 1 && startStep <= TOTAL_STEPS ? startStep : resumeStep, false);
+    var resumeStep = !hasPhotoDecision() ? 1 : (interestsComplete ? 3 : (detailsComplete ? 3 : 2));
+    goTo(resumeStep, false);
   })();
 </script>
 </body>
