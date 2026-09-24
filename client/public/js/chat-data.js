@@ -3,7 +3,7 @@
 
   const ELIE_ID = 'elie';
   const ELIE_API_URL = 'https://elie1-0.onrender.com/elie/search';
-  const state = { session: null, role: 'client', conversations: [], activeId: null, channel: null, channelGeneration: 0, selectionGeneration: 0, listings: [], pendingAttachment: null, mobileView: 'inbox', mobileInfoReturn: 'conversation', elie: { sessionId: null, history: [] } };
+  const state = { session: null, role: 'client', conversations: [], activeId: null, channel: null, channelGeneration: 0, selectionGeneration: 0, onlineConversationIds: new Set(), listings: [], pendingAttachment: null, mobileView: 'inbox', mobileInfoReturn: 'conversation', elie: { sessionId: null, history: [] } };
   const isMobile = () => window.matchMedia('(max-width: 760px)').matches;
   const $ = (selector) => document.querySelector(selector);
   const api = async (url, options) => {
@@ -451,7 +451,8 @@
       const item = document.createElement('li');
       item.className = `contact-item${conversation.id === state.activeId ? ' active' : ''}`;
       item.dataset.conversationId = conversation.id;
-      item.innerHTML = `<div class="avatar-wrap"><div class="avatar-fallback" style="background:#14161c;"></div><span class="status-dot"></span></div>
+      const online = state.onlineConversationIds.has(conversation.id);
+      item.innerHTML = `<div class="avatar-wrap"><div class="avatar-fallback" style="background:#14161c;"></div>${online ? '<span class="status-dot online"></span>' : ''}</div>
         <div class="contact-body"><div class="contact-top"><span class="contact-name"></span><span class="contact-time"></span></div>
         <div class="contact-bottom"><span class="contact-preview"></span></div></div>
         <button class="conversation-menu" type="button" aria-label="Conversation actions" title="Conversation actions"><svg class="icon"><use href="#i-more"/></svg></button>`;
@@ -662,6 +663,10 @@
   function renderMessages(messages) {
     const container = $('.messages');
     clear(container);
+    const notice = document.createElement('div');
+    notice.className = 'system-notice';
+    notice.textContent = 'Your messages are encrypted and private.';
+    container.appendChild(notice);
     let previousMessage = null;
     messages.forEach((message) => {
       const row = messageRow(message);
@@ -756,7 +761,7 @@
   async function selectElieConversation() {
     state.activeId = ELIE_ID; state.elie.sessionId = null; state.elie.history = [];
     showConversationInterface(); renderConversationList();
-    $('#chatName').textContent = 'Elie'; $('#statusText').textContent = 'Your VaRoom search assistant'; $('#statusDot').style.background = 'var(--mint)';
+    $('#chatName').textContent = 'Elie'; $('#statusText').textContent = 'Your VaRoom search assistant'; $('#statusDot').classList.remove('online');
     const historyButton = document.querySelector('.chat-header-actions button:last-child');
     if (historyButton) { historyButton.title = 'Recent Elie chats'; historyButton.setAttribute('aria-label', 'Recent Elie chats'); historyButton.innerHTML = '<svg class="icon"><circle cx="12" cy="12" r="8"></circle><path d="M12 7v5l3 2"></path></svg>'; }
     const avatar = $('.chat-header-avatar-wrap .avatar-fallback'); if (avatar) { avatar.style.background = '#f6f7f9'; avatar.innerHTML = '<img src="/elie-logo.png" alt="" style="width:100%;height:100%;object-fit:contain">'; }
@@ -828,6 +833,7 @@
   async function selectConversation(id) {
     if (id === ELIE_ID) return selectElieConversation();
     const selectionGeneration = ++state.selectionGeneration;
+    const previousConversationId = state.activeId;
     state.activeId = id;
     renderConversationList();
     const conversation = state.conversations.find((item) => item.id === id);
@@ -838,14 +844,18 @@
     const person = conversation.participant || {};
     $('#chatName').textContent = person.full_name || person.username || '';
     $('#statusText').textContent = '';
-    $('#statusDot').style.background = '#c7cbd1';
+    $('#statusDot').classList.remove('online');
     renderHeaderProfile(conversation);
     renderProfile(conversation);
     const about = $('.elie-about'); if (about) about.remove();
     const actions = $('.chat-actions'); if (actions) actions.hidden = false;
     const previousChannel = state.channel;
     state.channel = null;
-    if (previousChannel) await previousChannel.unsubscribe();
+    if (previousChannel) {
+      state.onlineConversationIds.delete(previousConversationId);
+      await previousChannel.unsubscribe();
+      renderConversationList();
+    }
     const result = await api(`/api/chat/conversations/${encodeURIComponent(id)}/messages`);
     if (selectionGeneration !== state.selectionGeneration || state.activeId !== id) return;
     renderMessages(result.messages);
@@ -883,8 +893,11 @@
           || channelGeneration !== state.channelGeneration
           || state.activeId !== id) return;
         const online = Object.keys(channel.presenceState()).length > 1;
+        if (online) state.onlineConversationIds.add(id);
+        else state.onlineConversationIds.delete(id);
+        renderConversationList();
         $('#statusText').textContent = online ? 'Online' : 'Offline';
-        $('#statusDot').style.background = online ? 'var(--mint)' : '#c7cbd1';
+        $('#statusDot').classList.toggle('online', online);
       });
     state.channel = channel;
     await new Promise((resolve, reject) => {
@@ -1095,13 +1108,6 @@
       }
       element.addEventListener(event, handler);
     };
-    bind($('.chat-header-actions button[title="Search"]'), 'click', () => $('.search-box input').focus(), 'search action');
-    bind(document.querySelector('.chat-header-actions button[title="Start call"]'), 'click', () => {
-      window.dispatchEvent(new CustomEvent('varoom:call-requested', { detail: { conversationId: state.activeId, video: false } }));
-    }, 'voice call action');
-    bind(document.querySelector('.chat-header-actions button[title="Start video call"]'), 'click', () => {
-      window.dispatchEvent(new CustomEvent('varoom:call-requested', { detail: { conversationId: state.activeId, video: true } }));
-    }, 'video call action');
     bind(document.querySelector('.chat-header-actions button[title="More"]'), 'click', () => {
       if (!isElie()) window.dispatchEvent(new CustomEvent('varoom:conversation-menu-requested', { detail: { conversationId: state.activeId } }));
     }, 'conversation actions');
