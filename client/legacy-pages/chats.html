@@ -290,7 +290,38 @@ push    min-height:0;
   .fmt-i{ font-style:italic; font-weight:700; font-size:13px; }
   .fmt-u{ text-decoration:underline; font-weight:700; font-size:13px; }
   @media (min-width:761px){
-    .chat-input-area{ background:var(--white); border-color:var(--border); }
+    html:not([data-theme="dark"]) .chat-input-area{
+      background:var(--white);
+      border-color:#cbd2db;
+      transition:border-color .15s ease, box-shadow .15s ease;
+    }
+    html:not([data-theme="dark"]) .chat-input-area:focus-within{
+      border-color:#9aa6b5;
+      box-shadow:0 0 0 3px rgba(78,193,160,.12);
+    }
+    html:not([data-theme="dark"]) .desktop-composer-editor{
+      color:#1f2937;
+      caret-color:#1f2937;
+    }
+    html:not([data-theme="dark"]) .desktop-composer-editor:empty::before{
+      color:#64748b;
+    }
+    html:not([data-theme="dark"]) .format-icons button,
+    html:not([data-theme="dark"]) .attach-icons button{
+      color:#536071;
+    }
+    html:not([data-theme="dark"]) .format-icons button:hover,
+    html:not([data-theme="dark"]) .attach-icons button:hover{
+      background:#eef2f5;
+      color:#1f2937;
+    }
+    html:not([data-theme="dark"]) .attach-icons button.send-message{
+      color:#536071;
+    }
+    html:not([data-theme="dark"]) .attach-icons button.send-message:hover{
+      background:#eef2f5;
+      color:#1f2937;
+    }
   }
 
   /* ---------- INFO COLUMN ---------- */
