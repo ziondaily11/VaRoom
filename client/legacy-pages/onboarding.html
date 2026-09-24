@@ -967,6 +967,7 @@
 
     var TOTAL_STEPS = 3;
     var current = 1;
+    var stepStorageKey = 'varoom_onboarding_step_' + user.id;
 
     var sections   = { 1: document.getElementById('step1'), 2: document.getElementById('step2'), 3: document.getElementById('step3') };
     var stepsEl    = document.getElementById('steps');
@@ -974,8 +975,45 @@
     var bars       = document.querySelectorAll('#stepsBars span');
 
     /* ---------- Step navigation ---------- */
-    function goTo(n, moveFocus) {
+    function isStep(n) {
+      return Number.isInteger(n) && n >= 1 && n <= TOTAL_STEPS;
+    }
+
+    function saveStep(n) {
+      try { localStorage.setItem(stepStorageKey, String(n)); } catch (error) {}
+    }
+
+    function savedStep() {
+      try {
+        var n = parseInt(localStorage.getItem(stepStorageKey), 10);
+        return isStep(n) ? n : null;
+      } catch (error) {
+        return null;
+      }
+    }
+
+    function historyStep() {
+      var state = window.history.state;
+      return state && state.onboardingUserId === user.id && isStep(state.onboardingStep)
+        ? state.onboardingStep
+        : null;
+    }
+
+    function updateHistory(n, mode) {
+      if (!mode || !window.history || !window.history.replaceState) return;
+      var state = Object.assign({}, window.history.state || {}, {
+        onboardingUserId: user.id,
+        onboardingStep: n
+      });
+      if (mode === 'push') window.history.pushState(state, '', window.location.href);
+      else window.history.replaceState(state, '', window.location.href);
+    }
+
+    function goTo(n, moveFocus, historyMode) {
+      if (!isStep(n)) return;
       current = n;
+      saveStep(n);
+      updateHistory(n, historyMode);
       Object.keys(sections).forEach(function (k) {
         sections[k].hidden = (Number(k) !== n);
       });
@@ -989,6 +1027,12 @@
         if (h1) h1.focus({ preventScroll: true });
       }
     }
+
+    window.addEventListener('popstate', function () {
+      // Browser navigation is explicit navigation too: restore its recorded
+      // card rather than re-running completion-based resume logic.
+      goTo(historyStep() || savedStep() || 1, false, null);
+    });
 
     /* ---------- Step 1 · Profile photo ---------- */
     var MAX_BYTES = 5 * 1024 * 1024; // 5 MB
@@ -1056,7 +1100,7 @@
         if (avatarResult.error) throw avatarResult.error;
         profile.avatar_url = path;
         savePhotoDecision('added');
-        goTo(2, true);
+        goTo(2, true, 'push');
       } catch (error) {
         hint.textContent = error.message || 'Could not save your photo. Please try again.';
         btnContinue.disabled = false;
@@ -1065,7 +1109,7 @@
 
     btnSkip.addEventListener('click', function () {
       savePhotoDecision('skipped');
-      goTo(2, true);
+      goTo(2, true, 'push');
     });
 
     /* ---------- Step 2 · Your details ---------- */
@@ -1197,7 +1241,7 @@
         profile.username = normalizedUsername;
         profile.phone = normalisePhone(details.phone);
         profile.city = details.city;
-        goTo(3, true);
+        goTo(3, true, 'push');
       } catch (error) {
         if (error.code === '23514' || /username_format/i.test(error.message || '')) {
           usernameField.error = 'Use a valid username';
@@ -1216,10 +1260,10 @@
       }
     });
 
-    btnBack.addEventListener('click', function () { goTo(1, true); });
+    btnBack.addEventListener('click', function () { goTo(1, true, 'push'); });
 
     // TEMP: preview-only skip, remove with the btnSkip2 button when wiring.
-    document.getElementById('btnSkip2').addEventListener('click', function () { goTo(3, true); });
+    document.getElementById('btnSkip2').addEventListener('click', function () { goTo(3, true, 'push'); });
 
     /* ---------- Step 3 · Interests ---------- */
     var HOST_PICKS = 2;
@@ -1343,6 +1387,7 @@
       try {
         var interestsResult = await supabaseClient.from('profiles').update(update).eq('id', user.id);
         if (interestsResult.error) throw interestsResult.error;
+        try { localStorage.removeItem(stepStorageKey); } catch (storageError) {}
         window.location.href = ROLE === 'host' ? '/host-home' : '/client-home';
       } catch (error) {
         pickHint.textContent = error.message || 'Could not finish onboarding. Please try again.';
@@ -1351,16 +1396,13 @@
       }
     });
 
-    btnBack3.addEventListener('click', function () { goTo(2, true); });
+    btnBack3.addEventListener('click', function () { goTo(2, true, 'push'); });
 
     renderPicks();
 
-    var detailsComplete = !!(profile.username && profile.phone && profile.city);
-    var interestsComplete = ROLE === 'host'
-      ? Array.isArray(profile.listing_categories) && profile.listing_categories.length === 2
-      : Array.isArray(profile.interested_categories) && profile.interested_categories.length > 0 && !!profile.looking_timeline;
-    var resumeStep = !hasPhotoDecision() ? 1 : (interestsComplete ? 3 : (detailsComplete ? 3 : 2));
-    goTo(resumeStep, false);
+    // First-time onboarding always starts at Profile Photo. Afterwards the
+    // exact card is restored from browser history or local storage on refresh.
+    goTo(historyStep() || savedStep() || 1, false, 'replace');
   })();
 </script>
 </body>
