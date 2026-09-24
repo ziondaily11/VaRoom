@@ -4,6 +4,12 @@ alter table public.messages
   add column if not exists iv text,
   add column if not exists key_version integer;
 
+-- This installation contains test-only chat data. Remove message rows and
+-- their database attachment metadata before removing the legacy body column.
+-- R2 objects are external to PostgreSQL and must be removed separately.
+delete from public.messages;
+delete from public.message_attachments;
+
 alter table public.messages drop constraint if exists messages_key_version_check;
 alter table public.messages
   add constraint messages_key_version_check
