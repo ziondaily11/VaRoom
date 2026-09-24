@@ -884,11 +884,54 @@
 </main>
 
 <script>
-  /* ============================================================
-     VaRoom onboarding · Steps 1–2  (UI only)
-     Wiring hooks are marked TODO. Nothing here talks to Supabase.
-     ============================================================ */
-  (function () {
+  (async function () {
+    function loadScript(src) {
+      return new Promise(function (resolve, reject) {
+        var script = document.createElement('script');
+        script.src = src;
+        script.onload = resolve;
+        script.onerror = function () { reject(new Error('Could not load ' + src)); };
+        document.head.appendChild(script);
+      });
+    }
+
+    try {
+      if (!window.supabase) await loadScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2');
+      if (!window.supabaseClient) await loadScript('/js/supabase-client.js');
+    } catch (error) {
+      window.location.href = '/login.html';
+      return;
+    }
+
+    var supabaseClient = window.supabaseClient;
+    var sessionResult = await supabaseClient.auth.getSession();
+    var session = sessionResult.data && sessionResult.data.session;
+    if (!session || !session.user) {
+      window.location.href = '/login.html';
+      return;
+    }
+
+    var user = session.user;
+    var profileResult = await supabaseClient.from('profiles')
+      .select('id, role, username, phone, city, avatar_url, listing_categories, interested_categories, looking_timeline, onboarding_completed, full_name')
+      .eq('id', user.id)
+      .maybeSingle();
+    if (profileResult.error || !profileResult.data) {
+      window.location.href = '/login.html';
+      return;
+    }
+
+    var profile = profileResult.data;
+    var ROLE = profile.role || (user.user_metadata && user.user_metadata.role);
+    if (ROLE !== 'host' && ROLE !== 'client') {
+      window.location.href = '/login.html';
+      return;
+    }
+    if (profile.onboarding_completed) {
+      window.location.href = ROLE === 'host' ? '/host-home' : '/client-home';
+      return;
+    }
+
     var TOTAL_STEPS = 3;
     var current = 1;
 
@@ -954,14 +997,29 @@
       btnContinue.disabled = false;
     });
 
-    btnContinue.addEventListener('click', function () {
+    btnContinue.addEventListener('click', async function () {
       if (!selectedFile) return;
-      // TODO (wiring): upload `selectedFile` to Supabase storage and save the avatar URL on the profile.
-      goTo(2, true);
+      if (!selectedFile.type || selectedFile.type.indexOf('image/') !== 0 || selectedFile.size > MAX_BYTES) {
+        hint.textContent = 'Please choose an image file under 5 MB.';
+        return;
+      }
+      btnContinue.disabled = true;
+      try {
+        var ext = (selectedFile.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '');
+        var path = user.id + '/avatar_' + Date.now() + '.' + (ext || 'jpg');
+        var uploadResult = await supabaseClient.storage.from('avatars').upload(path, selectedFile, { upsert: false });
+        if (uploadResult.error) throw uploadResult.error;
+        var avatarResult = await supabaseClient.from('profiles').update({ avatar_url: path }).eq('id', user.id);
+        if (avatarResult.error) throw avatarResult.error;
+        profile.avatar_url = path;
+        goTo(2, true);
+      } catch (error) {
+        hint.textContent = error.message || 'Could not save your photo. Please try again.';
+        btnContinue.disabled = false;
+      }
     });
 
     btnSkip.addEventListener('click', function () {
-      // TODO (wiring): nothing to save, just move on.
       goTo(2, true);
     });
 
@@ -1018,7 +1076,15 @@
       return out;
     }
 
-    form.addEventListener('submit', function (e) {
+    function normalisePhone(value) {
+      var digits = value.replace(/\D/g, '');
+      if (digits.indexOf('254') === 0) return '+' + digits;
+      if (digits.charAt(0) === '0') return '+254' + digits.slice(1);
+      if (digits.length === 9) return '+254' + digits;
+      return '+' + digits;
+    }
+
+    form.addEventListener('submit', async function (e) {
       e.preventDefault();
 
       var firstBad = null;
@@ -1030,9 +1096,37 @@
 
       if (firstBad) { firstBad.input.focus(); return; }
 
-      var details = getDetails(); // { username, phone, city }
-      // TODO (wiring): save `details` (check username is unique).
-      goTo(3, true);
+      var details = getDetails();
+      var usernameField = fields[0];
+      try {
+        var usernameCheck = await supabaseClient.from('profiles')
+          .select('id')
+          .ilike('username', details.username)
+          .neq('id', user.id)
+          .limit(1);
+        if (usernameCheck.error) throw usernameCheck.error;
+        if (usernameCheck.data && usernameCheck.data.length) {
+          usernameField.error = 'Username already taken';
+          setInvalid(usernameField, true);
+          usernameField.input.focus();
+          return;
+        }
+
+        var detailsResult = await supabaseClient.from('profiles').update({
+          username: details.username,
+          phone: normalisePhone(details.phone),
+          city: details.city
+        }).eq('id', user.id);
+        if (detailsResult.error) throw detailsResult.error;
+        profile.username = details.username;
+        profile.phone = normalisePhone(details.phone);
+        profile.city = details.city;
+        goTo(3, true);
+      } catch (error) {
+        usernameField.error = error.message || 'Could not save your details';
+        setInvalid(usernameField, true);
+        usernameField.input.focus();
+      }
     });
 
     btnBack.addEventListener('click', function () { goTo(1, true); });
@@ -1041,9 +1135,6 @@
     document.getElementById('btnSkip2').addEventListener('click', function () { goTo(3, true); });
 
     /* ---------- Step 3 · Interests ---------- */
-    // TODO (wiring): set ROLE from the signup flow ('host' or 'client').
-    // For previewing, open the page with ?role=client to see the client version.
-    var ROLE = (new URLSearchParams(location.search).get('role') === 'client') ? 'client' : 'host';
     var HOST_PICKS = 2;
 
     document.body.setAttribute('data-role', ROLE);
@@ -1056,6 +1147,7 @@
     var timelineBtns  = Array.prototype.slice.call(document.querySelectorAll('#timelineOptions .chip'));
     var timelineLabel = document.getElementById('timelineLabel');
     var interestsForm = document.getElementById('interestsForm');
+    var btnInterestsContinue = document.getElementById('btnInterestsContinue');
     var btnBack3      = document.getElementById('btnBack3');
 
     var discover = {
@@ -1121,7 +1213,7 @@
       return out;
     }
 
-    interestsForm.addEventListener('submit', function (e) {
+    interestsForm.addEventListener('submit', async function (e) {
       e.preventDefault();
       var firstBad = null;
 
@@ -1151,9 +1243,25 @@
       if (firstBad) { firstBad.focus(); return; }
 
       var interests = getInterests();
-      // TODO (wiring): save `interests`. Hosts: { role, niches: [2 values], discoverName }.
-      // Clients: { role, niches: [1+ values], timeline }. Niche values: airbnb, hotel, venue, office, shop, property.
-      // This is the last card: finish onboarding and send them to their home.
+      var update = { onboarding_completed: true };
+      if (ROLE === 'host') {
+        update.listing_categories = interests.niches;
+        update.full_name = interests.discoverName;
+      } else {
+        update.interested_categories = interests.niches;
+        update.looking_timeline = interests.timeline;
+      }
+
+      btnInterestsContinue.disabled = true;
+      try {
+        var interestsResult = await supabaseClient.from('profiles').update(update).eq('id', user.id);
+        if (interestsResult.error) throw interestsResult.error;
+        window.location.href = ROLE === 'host' ? '/host-home' : '/client-home';
+      } catch (error) {
+        pickHint.textContent = error.message || 'Could not finish onboarding. Please try again.';
+        pickHint.classList.add('is-error');
+        btnInterestsContinue.disabled = false;
+      }
     });
 
     btnBack3.addEventListener('click', function () { goTo(2, true); });
@@ -1163,7 +1271,12 @@
     // Preview helper (remove when wiring): ?step=2 or ?step=3 opens that card directly.
     // Combine with the role, e.g. onboarding.html?step=3&role=client
     var startStep = parseInt(new URLSearchParams(location.search).get('step'), 10);
-    goTo(startStep >= 1 && startStep <= TOTAL_STEPS ? startStep : 1, false);
+    var detailsComplete = !!(profile.username && profile.phone && profile.city);
+    var interestsComplete = ROLE === 'host'
+      ? Array.isArray(profile.listing_categories) && profile.listing_categories.length === 2
+      : Array.isArray(profile.interested_categories) && profile.interested_categories.length > 0 && !!profile.looking_timeline;
+    var resumeStep = interestsComplete ? 3 : (detailsComplete ? 3 : 2);
+    goTo(startStep >= 1 && startStep <= TOTAL_STEPS ? startStep : resumeStep, false);
   })();
 </script>
 </body>
