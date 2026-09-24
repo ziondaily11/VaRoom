@@ -193,8 +193,7 @@
     .pricing-page{ font-size:15px; overflow-x:hidden; overflow-y:auto; }
     .pricing-top{ padding:1.1rem 1.3rem; }
     .pricing-wrap{ padding:.5rem 1.3rem 4rem; justify-content:flex-start; }
-    /* Add generous mobile breathing room without using a fixed card height. */
-    .plan{ padding:2.4rem 1.7rem 2.1rem; }
+    .plan{ padding:1.9rem 1.7rem 1.6rem; }
     .plans{
       display:flex; max-width:none; margin:0; gap:1.6em;
       /* Let each mobile card end with its own content instead of stretching to
@@ -210,9 +209,11 @@
     .plans::-webkit-scrollbar{ display:none; }
     .plan{
       flex:0 0 86vw; min-width:0;
+      /* Keep the card visually substantial on mobile while letting future
+         feature additions increase its height naturally. */
+      min-height:70dvh;
       scroll-snap-align:start;
     }
-    .plan-features{ flex:0 0 auto; }
     .plan--featured{ transform:none; }
     .plan--featured:hover{ transform:translateY(-4px); }
     .plan-desc{ min-height:0; }
