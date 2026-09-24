@@ -1907,6 +1907,10 @@
       if (!track) return;
       const count = carousel.getAttribute('data-photo-count') ? parseInt(carousel.getAttribute('data-photo-count'), 10) : 0;
       if (!count) return;
+      carousel.setAttribute('data-discover-active-index', activeIndex);
+      if (carousel._discoverMediaHeights) {
+        carousel.style.setProperty('--discover-media-height', Math.round(carousel._discoverMediaHeights[activeIndex] || carousel._discoverMediaHeights[0]) + 'px');
+      }
       track.style.transform = 'translateX(' + (-(activeIndex * 100)) + '%)';
       const dots = carousel.querySelectorAll('.media-dot');
       dots.forEach(function(dot, idx){
@@ -1921,19 +1925,20 @@
     function sizeDiscoverMediaStages(container){
       if (!container || !container.classList.contains('discover-media-feed')) return;
       const isMobile = window.matchMedia('(max-width:860px)').matches;
-      const minHeight = isMobile ? 220 : 260;
       const maxHeight = isMobile ? 420 : 460;
       container.querySelectorAll('.media-carousel, .card-video').forEach(function(stage){
         const media = stage.matches('.card-video') ? [stage.querySelector('video')] : Array.from(stage.querySelectorAll('img'));
         function updateHeight(){
-          const ratios = media.filter(Boolean).map(function(item){
+          const fallbackHeight = Math.min(maxHeight, stage.clientWidth / (4 / 3));
+          const heights = media.filter(Boolean).map(function(item){
             const width = item.videoWidth || item.naturalWidth;
             const height = item.videoHeight || item.naturalHeight;
-            return width && height ? width / height : 0;
-          }).filter(Boolean).sort(function(a, b){ return a - b; });
-          const ratio = ratios.length ? ratios[Math.floor(ratios.length / 2)] : 4 / 3;
-          const projectedHeight = stage.clientWidth / ratio;
-          stage.style.setProperty('--discover-media-height', Math.round(Math.max(minHeight, Math.min(maxHeight, projectedHeight))) + 'px');
+            return width && height ? Math.min(maxHeight, stage.clientWidth / (width / height)) : fallbackHeight;
+          });
+          if (!heights.length) heights.push(fallbackHeight);
+          stage._discoverMediaHeights = heights;
+          const activeIndex = parseInt(stage.getAttribute('data-discover-active-index') || '0', 10);
+          stage.style.setProperty('--discover-media-height', Math.round(heights[activeIndex] || heights[0]) + 'px');
         }
         media.filter(Boolean).forEach(function(item){
           item.addEventListener(item.tagName === 'VIDEO' ? 'loadedmetadata' : 'load', updateHeight);
