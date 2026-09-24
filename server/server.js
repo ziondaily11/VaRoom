@@ -19,6 +19,7 @@ const { ERROR_CODES, sendError } = require('./lib/apiResponse');
 const { createBillingRoutes } = require('./routes/billingRoutes');
 const { createPaystackWebhookRoutes } = require('./routes/paystackWebhookRoutes');
 const { sendRecoveryOtp, sendConfirmationOtp } = require('./lib/authEmail');
+const { permanentlyDeleteAccount } = require('./lib/accountDeletionService');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -371,9 +372,7 @@ app.get('/api/db-check', async (req, res) => {
   res.json({ connected: true });
 });
 
-// Delete an authenticated account. The selected account's access token must
-// be provided, so a dashboard can delete a stored non-active account without
-// granting the browser any service-role privileges.
+// Permanently delete the account represented by the authenticated session.
 app.post('/api/delete-account', async (req, res) => {
   const authHeader = req.headers.authorization || '';
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
@@ -386,8 +385,6 @@ app.post('/api/delete-account', async (req, res) => {
   if (verifyError || !user) {
     return sendError(res, 401, 'Invalid or expired session');
   }
-  if (await rejectSuspendedActivity(res, user.id)) return;
-
   const reasons = [
     'I no longer use VaRoom',
     'I created another account',
@@ -396,35 +393,22 @@ app.post('/api/delete-account', async (req, res) => {
     'Technical issues',
     'Other'
   ];
-  const accountId = String(req.body && req.body.account_id || '').trim();
   const reason = String(req.body && req.body.reason || '').trim();
   const reasonDetails = String(req.body && req.body.reason_details || '').trim();
-  if (!accountId || accountId !== user.id || !reasons.includes(reason)) {
-    return sendError(res, 400, 'A valid account and deletion reason are required');
+  if (!reasons.includes(reason)) {
+    return sendError(res, 400, 'A valid deletion reason is required');
   }
   if (reason === 'Other' && !reasonDetails) {
     return sendError(res, 400, 'Please explain your reason for deleting the account');
   }
 
-  const { data: deletion, error: auditError } = await supabaseAdmin.from('account_deletions').insert({
-    account_id: user.id,
-    account_email: user.email || null,
-    reason,
-    reason_details: reason === 'Other' ? reasonDetails : null
-  }).select('id').single();
-  if (auditError) {
-    console.error('Account deletion audit failed:', auditError.message);
-    return sendError(res, 502, 'Unable to record account deletion');
+  try {
+    await permanentlyDeleteAccount(user.id);
+    return res.json({ success: true });
+  } catch (error) {
+    console.error('Permanent account deletion failed:', error);
+    return sendError(res, 500, 'Unable to permanently delete the account');
   }
-
-  const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(user.id);
-  if (deleteError) {
-    await supabaseAdmin.from('account_deletions').delete().eq('id', deletion.id);
-    console.error('Account deletion failed:', deleteError.message);
-    return sendError(res, 500, 'Unable to delete account');
-  }
-
-  return res.json({ success: true, account_id: user.id });
 });
 
 // Resolves the calling user from an optional Bearer token. Returns null

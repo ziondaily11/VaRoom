@@ -204,7 +204,7 @@ export default function LandingPage() {
           <nav className={styles.desktopNav} aria-label="Main navigation">
             <a href="#host-section">For hosts</a>
             <a href="#client-section">For clients</a>
-            <Link href="/chats?conversation=elie">Elie</Link>
+            <Link href="/login">Elie</Link>
             <a href="#why-us">Why us</a>
           </nav>
           <div className={styles.headerActions}>

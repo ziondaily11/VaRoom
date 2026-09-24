@@ -422,6 +422,9 @@
     alertBox.className = 'alert ' + type + ' show';
   }
   function clearAlert() { alertBox.className = 'alert'; }
+  if (params.get('deleted') === '1') {
+    showAlert('Your VaRoom account and associated data were permanently deleted.', 'success');
+  }
 
   /* ── Password toggle ── */
   var pwInput = document.getElementById('password');

@@ -5,6 +5,7 @@ const supabaseAdmin = require('../lib/supabaseClient');
 const { createNotification } = require('../lib/notifications');
 const { ValidationError, assertAllowedKeys, text, uuid, enumValue } = require('../lib/inputValidation');
 const { rejectSuspendedActivity } = require('../lib/accountAccess');
+const { encryptMessage, decryptMessage } = require('../lib/messageEncryptionService');
 
 const router = express.Router();
 const chatbotApiUrl = (process.env.CHATBOT_API_URL || 'https://elie1-0.onrender.com').replace(/\/$/, '');
@@ -87,6 +88,7 @@ async function profilesById(ids) {
         console.warn('Chat profile email lookup failed:', id, authError.message);
         return null;
       }
+
       return result && result.user && result.user.email
         ? { id, email: result.user.email }
         : null;
@@ -99,6 +101,14 @@ async function profilesById(ids) {
     profiles[id] = { ...(profiles[id] || { id }), email };
   });
   return profiles;
+}
+
+function withDecryptedBody(message) {
+  const { ciphertext, iv, key_version: keyVersion, ...publicMessage } = message;
+  return {
+    ...publicMessage,
+    body: decryptMessage(ciphertext, iv, keyVersion),
+  };
 }
 
 router.get('/chat/listings', async (req, res) => {
@@ -166,12 +176,12 @@ router.get('/chat/conversations', async (req, res) => {
     if (conversationIds.length) {
       const result = await supabaseAdmin
         .from('messages')
-        .select('id,conversation_id,sender_id,body,created_at')
+        .select('id,conversation_id,sender_id,ciphertext,iv,key_version,created_at')
         .in('conversation_id', conversationIds)
         .order('created_at', { ascending: false });
       if (result.error) throw result.error;
       const seen = new Set();
-      previews = (result.data || []).filter((message) => {
+      previews = (result.data || []).map(withDecryptedBody).filter((message) => {
         if (seen.has(message.conversation_id)) return false;
         seen.add(message.conversation_id);
         return true;
@@ -213,7 +223,7 @@ router.get('/chat/conversations/:conversationId/messages', async (req, res) => {
     if (!conversation) return res.status(403).json({ error: 'Conversation access denied' });
     const { data, error } = await supabaseAdmin
       .from('messages')
-      .select('id,conversation_id,sender_id,body,created_at,read_at,message_type,attachment_id,listing_id')
+      .select('id,conversation_id,sender_id,ciphertext,iv,key_version,created_at,read_at,message_type,attachment_id,listing_id')
       .eq('conversation_id', conversationId)
       .order('created_at', { ascending: true });
     if (error) throw error;
@@ -240,10 +250,10 @@ router.get('/chat/conversations/:conversationId/messages', async (req, res) => {
     }
     return res.json({
       conversation,
-      messages: (data || []).map((message) => ({
-        ...message,
+      messages: (data || []).map(withDecryptedBody).map((message) => ({
         attachment: attachmentsById[message.attachment_id] || null,
         listing: listingsById[message.listing_id] || null,
+        ...message,
       })),
     });
   } catch (error) {
@@ -353,17 +363,18 @@ router.post('/chat/conversations/:conversationId/messages', async (req, res) => 
         return res.status(400).json({ error: 'Attachment type does not match message type' });
       }
     }
+    const encryptedMessage = encryptMessage(content);
     const { data, error } = await supabaseAdmin
       .from('messages')
       .insert({
         conversation_id: conversationId,
         sender_id: user.id,
-        body: content,
+        ...encryptedMessage,
         message_type: messageType,
         attachment_id: attachmentId || null,
         listing_id: listingId || null,
       })
-        .select('id,conversation_id,sender_id,body,created_at,message_type,attachment_id,listing_id')
+        .select('id,conversation_id,sender_id,ciphertext,iv,key_version,created_at,message_type,attachment_id,listing_id')
         .single();
       if (error) throw error;
       console.info('Chat message persisted:', {
@@ -460,7 +471,7 @@ router.post('/chat/conversations/:conversationId/messages', async (req, res) => 
       listing = listingResult.data;
     }
     return res.status(201).json({
-      message: { ...data, attachment, listing },
+      message: { ...withDecryptedBody(data), attachment, listing },
       notification: { persisted: notificationPersisted },
     });
   } catch (error) {

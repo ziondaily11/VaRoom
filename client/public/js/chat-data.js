@@ -3,7 +3,7 @@
 
   const ELIE_ID = 'elie';
   const ELIE_API_URL = 'https://elie1-0.onrender.com/elie/search';
-  const state = { session: null, role: 'client', conversations: [], activeId: null, channel: null, channelGeneration: 0, selectionGeneration: 0, listings: [], pendingAttachment: null, mobileView: 'inbox', mobileInfoReturn: 'conversation', elie: { sessionId: null, history: [] } };
+  const state = { session: null, role: 'client', conversations: [], activeId: null, channel: null, channelGeneration: 0, selectionGeneration: 0, onlineConversationIds: new Set(), listings: [], pendingAttachment: null, mobileView: 'inbox', mobileInfoReturn: 'conversation', elie: { sessionId: null, history: [] } };
   const isMobile = () => window.matchMedia('(max-width: 760px)').matches;
   const $ = (selector) => document.querySelector(selector);
   const api = async (url, options) => {
@@ -451,7 +451,8 @@
       const item = document.createElement('li');
       item.className = `contact-item${conversation.id === state.activeId ? ' active' : ''}`;
       item.dataset.conversationId = conversation.id;
-      item.innerHTML = `<div class="avatar-wrap"><div class="avatar-fallback" style="background:#14161c;"></div><span class="status-dot"></span></div>
+      const online = state.onlineConversationIds.has(conversation.id);
+      item.innerHTML = `<div class="avatar-wrap"><div class="avatar-fallback" style="background:#14161c;"></div>${online ? '<span class="status-dot online"></span>' : ''}</div>
         <div class="contact-body"><div class="contact-top"><span class="contact-name"></span><span class="contact-time"></span></div>
         <div class="contact-bottom"><span class="contact-preview"></span></div></div>
         <button class="conversation-menu" type="button" aria-label="Conversation actions" title="Conversation actions"><svg class="icon"><use href="#i-more"/></svg></button>`;
@@ -551,6 +552,10 @@
     const outgoing = message.sender_id === state.session.user.id;
     row.className = `msg-row ${outgoing ? 'out' : 'in'}`;
     row.dataset.messageId = message.id;
+    const meta = document.createElement('div');
+    meta.className = 'msg-meta';
+    meta.textContent = message.read_at && outgoing
+      ? `Read ${formatTime(message.read_at)}` : formatTime(message.created_at);
     if (message.message_type === 'text') {
       const bubble = document.createElement('div');
       bubble.className = 'bubble';
@@ -576,6 +581,7 @@
       } else {
         bubble.textContent = body;
       }
+      bubble.appendChild(meta);
       row.appendChild(bubble);
     } else if (message.message_type === 'listing' && message.listing) {
       const card = document.createElement('div');
@@ -604,6 +610,7 @@
         if (existingImage) existingImage.replaceWith(player);
         else card.insertBefore(player, card.firstChild);
       }).catch((error) => console.error('Shared listing video unavailable:', error));
+      card.appendChild(meta);
       row.appendChild(card);
     } else if (message.message_type === 'voice' && message.attachment_id) {
       const card = document.createElement('div');
@@ -614,8 +621,11 @@
       downloadAttachment(message.attachment_id).then((url) => { audio.src = url; }).catch((error) => console.error('Voice message unavailable:', error));
       card.querySelector('.play').addEventListener('click', () => { if (audio.paused) audio.play(); else audio.pause(); });
       card.appendChild(audio);
+      card.appendChild(meta);
       row.appendChild(card);
     } else if (message.message_type === 'photo' && message.attachment_id) {
+      const block = document.createElement('div');
+      block.className = 'message-block';
       const image = document.createElement('img');
       image.className = 'chat-message-image';
       image.alt = message.attachment && message.attachment.original_filename || 'Shared image';
@@ -624,7 +634,8 @@
         image.src = url;
         image.addEventListener('click', () => openImagePreview(url, image.alt));
       }).catch((error) => console.error('Image message unavailable:', error));
-      row.appendChild(image);
+      block.append(image, meta);
+      row.appendChild(block);
     } else if (message.attachment_id) {
       const card = document.createElement('div');
       card.className = 'file-card';
@@ -636,13 +647,10 @@
         ? `${Math.ceil(message.attachment.file_size_bytes / 1024)} Kb`
         : '';
       card.addEventListener('click', async () => { window.open(await downloadAttachment(message.attachment_id), '_blank', 'noopener'); });
+      card.appendChild(meta);
       row.appendChild(card);
     }
-    const meta = document.createElement('div');
-    meta.className = 'msg-meta';
-    meta.textContent = message.read_at && message.sender_id === state.session.user.id
-      ? `Read ${formatTime(message.read_at)}` : formatTime(message.created_at);
-    row.appendChild(meta);
+    if (!row.contains(meta)) row.appendChild(meta);
     return row;
   }
 
@@ -662,6 +670,10 @@
   function renderMessages(messages) {
     const container = $('.messages');
     clear(container);
+    const notice = document.createElement('div');
+    notice.className = 'system-notice';
+    notice.textContent = 'Your messages are encrypted and private.';
+    container.appendChild(notice);
     let previousMessage = null;
     messages.forEach((message) => {
       const row = messageRow(message);
@@ -756,7 +768,7 @@
   async function selectElieConversation() {
     state.activeId = ELIE_ID; state.elie.sessionId = null; state.elie.history = [];
     showConversationInterface(); renderConversationList();
-    $('#chatName').textContent = 'Elie'; $('#statusText').textContent = 'Your VaRoom search assistant'; $('#statusDot').style.background = 'var(--mint)';
+    $('#chatName').textContent = 'Elie'; $('#statusText').textContent = 'Your VaRoom search assistant'; $('#statusDot').classList.remove('online');
     const historyButton = document.querySelector('.chat-header-actions button:last-child');
     if (historyButton) { historyButton.title = 'Recent Elie chats'; historyButton.setAttribute('aria-label', 'Recent Elie chats'); historyButton.innerHTML = '<svg class="icon"><circle cx="12" cy="12" r="8"></circle><path d="M12 7v5l3 2"></path></svg>'; }
     const avatar = $('.chat-header-avatar-wrap .avatar-fallback'); if (avatar) { avatar.style.background = '#f6f7f9'; avatar.innerHTML = '<img src="/elie-logo.png" alt="" style="width:100%;height:100%;object-fit:contain">'; }
@@ -828,6 +840,7 @@
   async function selectConversation(id) {
     if (id === ELIE_ID) return selectElieConversation();
     const selectionGeneration = ++state.selectionGeneration;
+    const previousConversationId = state.activeId;
     state.activeId = id;
     renderConversationList();
     const conversation = state.conversations.find((item) => item.id === id);
@@ -838,14 +851,18 @@
     const person = conversation.participant || {};
     $('#chatName').textContent = person.full_name || person.username || '';
     $('#statusText').textContent = '';
-    $('#statusDot').style.background = '#c7cbd1';
+    $('#statusDot').classList.remove('online');
     renderHeaderProfile(conversation);
     renderProfile(conversation);
     const about = $('.elie-about'); if (about) about.remove();
     const actions = $('.chat-actions'); if (actions) actions.hidden = false;
     const previousChannel = state.channel;
     state.channel = null;
-    if (previousChannel) await previousChannel.unsubscribe();
+    if (previousChannel) {
+      state.onlineConversationIds.delete(previousConversationId);
+      await previousChannel.unsubscribe();
+      renderConversationList();
+    }
     const result = await api(`/api/chat/conversations/${encodeURIComponent(id)}/messages`);
     if (selectionGeneration !== state.selectionGeneration || state.activeId !== id) return;
     renderMessages(result.messages);
@@ -855,26 +872,39 @@
     if (selectionGeneration !== state.selectionGeneration || state.activeId !== id) return;
     const channelGeneration = ++state.channelGeneration;
     const channel = window.supabaseClient.channel(`chat:${id}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${id}` }, (payload) => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${id}` }, async (payload) => {
         if (selectionGeneration !== state.selectionGeneration
           || channelGeneration !== state.channelGeneration
           || state.activeId !== id) return;
         const current = $('.messages');
-        const message = payload.new;
-        if (current.querySelector(`[data-message-id="${message.id}"]`)) return;
-        const previousRow = current.lastElementChild;
-        const row = messageRow(message);
-        if (previousRow && previousRow.classList.contains(message.sender_id === state.session.user.id ? 'out' : 'in')) row.classList.add('same-sender');
-        current.appendChild(row); current.scrollTop = current.scrollHeight;
-        updateConversationPreview(message);
+        const messageId = payload.new && payload.new.id;
+        if (!messageId || current.querySelector(`[data-message-id="${messageId}"]`)) return;
+        try {
+          const result = await api(`/api/chat/conversations/${encodeURIComponent(id)}/messages`);
+          if (selectionGeneration !== state.selectionGeneration
+            || channelGeneration !== state.channelGeneration
+            || state.activeId !== id) return;
+          const message = (result.messages || []).find((item) => item.id === messageId);
+          if (!message || current.querySelector(`[data-message-id="${message.id}"]`)) return;
+          const previousRow = current.lastElementChild;
+          const row = messageRow(message);
+          if (previousRow && previousRow.classList.contains(message.sender_id === state.session.user.id ? 'out' : 'in')) row.classList.add('same-sender');
+          current.appendChild(row); current.scrollTop = current.scrollHeight;
+          updateConversationPreview(message);
+        } catch (error) {
+          console.error('Unable to load new chat message:', error);
+        }
       })
       .on('presence', { event: 'sync' }, () => {
         if (selectionGeneration !== state.selectionGeneration
           || channelGeneration !== state.channelGeneration
           || state.activeId !== id) return;
         const online = Object.keys(channel.presenceState()).length > 1;
+        if (online) state.onlineConversationIds.add(id);
+        else state.onlineConversationIds.delete(id);
+        renderConversationList();
         $('#statusText').textContent = online ? 'Online' : 'Offline';
-        $('#statusDot').style.background = online ? 'var(--mint)' : '#c7cbd1';
+        $('#statusDot').classList.toggle('online', online);
       });
     state.channel = channel;
     await new Promise((resolve, reject) => {
@@ -1085,13 +1115,6 @@
       }
       element.addEventListener(event, handler);
     };
-    bind($('.chat-header-actions button[title="Search"]'), 'click', () => $('.search-box input').focus(), 'search action');
-    bind(document.querySelector('.chat-header-actions button[title="Start call"]'), 'click', () => {
-      window.dispatchEvent(new CustomEvent('varoom:call-requested', { detail: { conversationId: state.activeId, video: false } }));
-    }, 'voice call action');
-    bind(document.querySelector('.chat-header-actions button[title="Start video call"]'), 'click', () => {
-      window.dispatchEvent(new CustomEvent('varoom:call-requested', { detail: { conversationId: state.activeId, video: true } }));
-    }, 'video call action');
     bind(document.querySelector('.chat-header-actions button[title="More"]'), 'click', () => {
       if (!isElie()) window.dispatchEvent(new CustomEvent('varoom:conversation-menu-requested', { detail: { conversationId: state.activeId } }));
     }, 'conversation actions');
