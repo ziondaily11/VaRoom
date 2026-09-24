@@ -64,6 +64,13 @@
       radial-gradient(560px circle at 92% 85%, var(--glow-b), transparent 60%),
       var(--paper);
   }
+  /* One continuous light canvas; hierarchy comes from hairline dividers. */
+  html[data-theme="light"] body,
+  html[data-theme="light"] .app-shell,
+  html[data-theme="light"] .main-col,
+  html[data-theme="light"] .topbar,
+  html[data-theme="light"] .dash-main,
+  html[data-theme="light"] .host-rail{ background:#fff; }
   a{ color:inherit; text-decoration:none; }
   button{ font-family:inherit; cursor:pointer; border:none; background:none; }
   :focus-visible{ outline:3px solid var(--red-deep); outline-offset:3px; }
