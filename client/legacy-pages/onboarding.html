@@ -2,1137 +2,1169 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#09090a">
 <title>Welcome to VaRoom</title>
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;0,9..144,900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600&display=swap" rel="stylesheet">
+
 <style>
-  :root{
-    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#24211E; --paper:#F7F6F3;
-    --font-display:'Helvetica Neue', Arial, sans-serif; --font-body:'Helvetica Neue', Arial, sans-serif; --font-brand:'Fraunces', serif;
-  }
-  *{ margin:0; padding:0; box-sizing:border-box; }
-  body{
-    font-family:var(--font-body); background:var(--paper); color:var(--ink);
-    min-height:100vh; display:flex; align-items:center; justify-content:center;
-    padding:2rem 1.2rem;
-  }
-  a{ color:inherit; text-decoration:none; }
-  button{ font-family:inherit; cursor:pointer; border:none; }
-  input, select{ font-family:inherit; }
-
-  .card{
-    position:relative;
-    background:var(--white);
-    border-radius:24px;
-    max-width:460px;
-    width:100%;
-    padding:2rem 2rem 2.2rem;
-    box-shadow:0 30px 70px -30px rgba(26,18,16,.35);
+  /* ---------- Tokens ---------- */
+  :root {
+    --bg: #09090a;
+    --line: rgba(255, 255, 255, 0.12);
+    --line-strong: rgba(255, 255, 255, 0.28);
+    --line-soft: rgba(255, 255, 255, 0.06);
+    --text: #f4f4f5;
+    --text-muted: rgba(244, 244, 245, 0.62);
+    --text-faint: rgba(244, 244, 245, 0.4);
+    --error: #ff9b9b;
+    --font: "Montserrat", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
   }
 
-  .card-top{
-    display:flex; align-items:center; justify-content:space-between;
-    margin-bottom:1.6rem;
-  }
+  *, *::before, *::after { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { height: 100%; }
 
-  .logo{ font-family:var(--font-brand); font-weight:900; font-size:1.3rem; display:flex; align-items:baseline; }
-  .logo .va{ color:var(--red); }
-
-  .step-badge{
-    font-size:.78rem; font-weight:600; color:var(--red-deep);
-    background:rgba(196,30,58,.09); padding:.3rem .7rem; border-radius:100px;
-  }
-
-  .icon-circle{
-    width:110px; height:110px; border-radius:50%;
-    background:rgba(196,30,58,.09);
-    display:flex; align-items:center; justify-content:center;
-    margin:.4rem auto 1.6rem;
-  }
-  .icon-circle svg{ width:44px; height:44px; color:var(--red); }
-
-  h1{
-    font-family:var(--font-display); font-weight:600;
-    font-size:1.6rem; line-height:1.2; text-align:center;
-    margin-bottom:.6rem;
-  }
-
-  .step-sub{
-    font-size:.95rem; color:#6a5b57; text-align:center; line-height:1.5;
-    margin-bottom:1.6rem;
-  }
-
-  .field{ display:flex; flex-direction:column; gap:.4rem; margin-bottom:1rem; }
-  label{ font-size:.85rem; font-weight:600; }
-  input[type="text"], input[type="tel"]{
-    font-size:1rem; padding:.85rem 1rem; border:1px solid rgba(26,18,16,.15);
-    border-radius:12px; background:var(--white); color:var(--ink); width:100%;
-  }
-  input:focus{ outline:none; border-color:var(--red); }
-
-  .field-msg{ font-size:.82rem; min-height:1.2em; }
-  .field-msg.error{ color:var(--red-deep); }
-  .field-msg.success{ color:#2e7d32; }
-
-  .suggestion-chips{ display:flex; flex-wrap:wrap; gap:.5rem; margin-top:.3rem; }
-  .chip{
-    background:var(--paper); border:1px solid rgba(26,18,16,.12);
-    padding:.4rem .8rem; border-radius:100px; font-size:.85rem; font-weight:600;
-  }
-  .chip:hover{ border-color:var(--red); color:var(--red); }
-
-  .avatar-upload{
-    width:130px; height:130px; border-radius:50%; margin:.4rem auto 1.6rem;
-    background:rgba(196,30,58,.09); display:flex; align-items:center; justify-content:center;
-    position:relative; overflow:hidden; cursor:pointer;
-  }
-  .avatar-upload img{ width:100%; height:100%; object-fit:cover; }
-  .avatar-upload svg{ width:44px; height:44px; color:var(--red); }
-  .avatar-upload .plus-badge{
-    position:absolute; bottom:4px; right:4px; width:32px; height:32px; border-radius:50%;
-    background:var(--red); color:var(--white); display:flex; align-items:center; justify-content:center;
-    border:3px solid var(--white);
-  }
-  .avatar-upload .plus-badge svg{ width:16px; height:16px; color:var(--white); }
-
-  .checkbox-grid{ display:flex; flex-direction:column; gap:.6rem; margin-bottom:.6rem; }
-  .checkbox-card{
-    display:flex; align-items:center; gap:.7rem;
-    border:1.5px solid #E4E1DA; border-radius:14px; padding:.85rem 1rem;
-    cursor:pointer; transition:border-color .15s ease, background .15s ease;
-  }
-  .checkbox-card:hover{ border-color:var(--red); }
-  .checkbox-card.checked{ border-color:var(--red); background:rgba(196,30,58,.06); }
-  .checkbox-card.locked{ opacity:.5; cursor:not-allowed; }
-  .checkbox-card input{ width:18px; height:18px; accent-color:var(--red); }
-  .checkbox-card span{ font-weight:600; font-size:.95rem; }
-
-  .choice-cards{ display:flex; flex-direction:column; gap:.8rem; margin-bottom:.6rem; }
-  .choice-card{
-    text-align:left; border:1.5px solid #E4E1DA; border-radius:14px;
-    padding:1rem 1.1rem; cursor:pointer; transition:border-color .15s ease, transform .15s ease;
-    width:100%; background:var(--white);
-  }
-  .choice-card:hover{ border-color:var(--red); transform:translateY(-1px); }
-  .choice-card.selected{ border-color:var(--red); background:rgba(196,30,58,.06); }
-  .choice-title{ font-weight:700; font-size:.98rem; }
-  .choice-desc{ font-size:.83rem; color:#6a5b57; margin-top:.15rem; }
-
-  .primary-btn{
-    display:flex; align-items:center; justify-content:center; gap:.5rem;
-    background:var(--red); color:var(--white); width:100%;
-    padding:.95rem 1.2rem; border-radius:100px; font-weight:600; font-size:.98rem;
-    transition:background .2s ease; margin-top:.4rem;
-  }
-  .primary-btn:hover{ background:var(--red-deep); }
-  .primary-btn:disabled{ background:#d9b8bd; cursor:not-allowed; }
-
-  .skip-btn{
-    display:block; width:100%; text-align:center; background:transparent;
-    color:var(--red); font-weight:600; font-size:.92rem; padding:.9rem; margin-top:.5rem;
-  }
-  .skip-btn:hover{ text-decoration:underline; }
-
-  .reassure{
-    display:flex; align-items:center; justify-content:center; gap:.4rem;
-    font-size:.78rem; color:#8a7d79; text-align:center; margin-top:1.2rem;
-  }
-  .reassure svg{ width:13px; height:13px; flex-shrink:0; }
-
-  .progress-dots{ display:flex; justify-content:center; gap:.4rem; margin-top:1.6rem; }
-  .progress-dots .dot{ width:7px; height:7px; border-radius:50%; background:rgba(26,18,16,.15); }
-  .progress-dots .dot.active{ background:var(--red); width:20px; border-radius:100px; transition:width .2s ease; }
-
-  .checking-msg{ text-align:center; color:#5c584f; padding:3rem 0; }
-  input[type="file"]{ display:none; }
-
-  /* ═══════════════════════════════════════════════════════════
-     PHOTO STEP — full-viewport metallic overlay
-  ═══════════════════════════════════════════════════════════ */
-
-  .photo-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: 9999;
-    background: #060606;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
     -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
 
-  /* Layered background atmosphere */
-  .photo-bg {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-  }
-  .photo-bg::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background:
-      radial-gradient(ellipse 90% 70% at 68% 50%, rgba(55,55,55,0.48) 0%, transparent 62%),
-      radial-gradient(ellipse 55% 80% at 18% 82%, rgba(28,28,28,0.65) 0%, transparent 58%),
-      radial-gradient(ellipse 42% 44% at 82% 10%, rgba(85,85,85,0.2) 0%, transparent 52%),
-      radial-gradient(ellipse 30% 50% at 50% 100%, rgba(40,40,40,0.5) 0%, transparent 60%);
-  }
-  /* Brushed-metal grain texture */
-  .photo-bg::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    opacity: 0.03;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='400' height='400' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
-    background-size: 180px 180px;
-  }
+  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+  input  { font: inherit; color: inherit; }
+  svg { display: block; }
 
-  /* Light streaks */
-  .photo-streak {
-    position: absolute;
-    pointer-events: none;
-  }
-  .photo-streak--1 {
-    width: 58vw;
-    height: 1px;
-    background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.09) 35%, rgba(255,255,255,0.28) 58%, transparent 100%);
-    top: 27%;
-    right: -6%;
-    transform: rotate(-21deg);
-    transform-origin: right center;
-    filter: blur(0.6px);
-  }
-  .photo-streak--2 {
-    width: 42vw;
-    height: 1px;
-    background: linear-gradient(90deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.07) 62%, transparent 100%);
-    bottom: 24%;
-    left: -3%;
-    transform: rotate(-17deg);
-    transform-origin: left center;
-    filter: blur(0.6px);
-  }
-  .photo-streak--3 {
-    width: 30vw;
-    height: 1px;
-    background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.06) 50%, transparent 100%);
-    top: 62%;
-    right: 4%;
-    transform: rotate(9deg);
-    filter: blur(1px);
-  }
-
-  /* ── Step indicator (desktop only) ── */
-  .photo-step-indicator {
-    display: none;
-    position: absolute;
-    top: 28px;
-    right: 36px;
-    align-items: center;
-    gap: 14px;
-    z-index: 2;
-  }
-  .photo-step-indicator-label {
-    font-size: 10px;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: rgba(255,255,255,0.42);
-    font-weight: 500;
-    white-space: nowrap;
-  }
-  .photo-step-dashes {
-    display: flex;
-    gap: 5px;
-    align-items: center;
-  }
-  .photo-step-dash {
-    height: 1.5px;
-    width: 22px;
-    border-radius: 2px;
-    background: rgba(255,255,255,0.18);
-  }
-  .photo-step-dash.current {
-    background: rgba(255,255,255,0.82);
-  }
-
-  /* ── Main layout shell ── */
-  .photo-inner {
+  /* ---------- Background: soft vignette + fine grain (no metallic sweeps) ---------- */
+  .screen {
     position: relative;
-    z-index: 1;
-    width: 100%;
-    height: 100%;
+    min-height: 100dvh;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
+    padding:
+      calc(env(safe-area-inset-top, 0px) + 28px)
+      24px
+      calc(env(safe-area-inset-bottom, 0px) + 28px);
+    background:
+      radial-gradient(90% 60% at 50% 42%, rgba(255, 255, 255, 0.045), transparent 70%),
+      radial-gradient(120% 90% at 50% 120%, rgba(255, 255, 255, 0.02), transparent 60%),
+      var(--bg);
+  }
+
+  .screen::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.06;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .9 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  }
+
+  .screen > * { position: relative; z-index: 1; }
+
+  /* ---------- Top bar (shared) ---------- */
+  .top {
+    display: flex;
     align-items: center;
     justify-content: center;
-    padding: 48px 28px 52px;
+    min-height: 32px;
   }
 
-  /* ── Text column (mobile = centered, desktop = left) ── */
-  .photo-text-col {
+  .wordmark {
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .steps { display: none; }
+
+  /* ---------- Content shell (shared) ---------- */
+  .content {
+    flex: 1;
+    display: grid;
+    width: 100%;
+    max-width: 440px;
+    margin-inline: auto;
+    justify-items: center;
     text-align: center;
-    margin-bottom: 40px;
+  }
+  .content[hidden] { display: none; }
+
+  .content--photo {
+    grid-template-rows: auto 1fr auto;
+    grid-template-areas: "copy" "avatar" "actions";
+    padding-top: clamp(24px, 6vh, 56px);
   }
 
-  .photo-eyebrow {
-    display: none;
-    font-size: 10px;
+  .content--details {
+    grid-template-rows: auto 1fr auto;
+    grid-template-areas: "copy" "form" "actions";
+    padding-top: clamp(20px, 4.5vh, 44px);
+  }
+
+  .content--interests {
+    grid-template-rows: auto 1fr auto;
+    grid-template-areas: "copy" "picks" "actions";
+    padding-top: clamp(20px, 4.5vh, 44px);
+  }
+
+  .copy { grid-area: copy; }
+
+  .eyebrow {
+    margin: 0 0 clamp(12px, 2.2vh, 18px);
+    font-size: 10.5px;
+    font-weight: 500;
     letter-spacing: 0.22em;
     text-transform: uppercase;
-    color: rgba(255,255,255,0.38);
-    font-weight: 500;
-    margin-bottom: 20px;
+    color: var(--text-muted);
   }
+  .content--photo .eyebrow { display: none; }
 
-  .photo-heading {
-    color: #ffffff;
+  h1 {
+    margin: 0;
+    font-size: clamp(26px, min(8.2vw, 4.8vh), 38px);
     line-height: 1.12;
-    letter-spacing: -0.5px;
-    margin-bottom: 16px;
-    font-size: clamp(30px, 8vw, 40px);
+    letter-spacing: -0.02em;
+    font-weight: 300;
   }
-  .photo-heading .ph-light { font-weight: 300; display: block; }
-  .photo-heading .ph-bold  { font-weight: 700; display: block; }
+  h1 strong { display: block; font-weight: 600; }
+  h1:focus { outline: none; }
 
-  .photo-sub {
-    color: rgba(255,255,255,0.5);
+  .sub {
+    margin: clamp(10px, 1.8vh, 14px) auto 0;
+    max-width: 26ch;
     font-size: 14px;
-    line-height: 1.65;
-    max-width: 290px;
-    margin: 0 auto;
+    line-height: 1.55;
+    color: var(--text-muted);
+  }
+  .content--photo .sub { max-width: 22ch; }
+  .content--details .sub { max-width: 30ch; }
+  .content--interests .sub { max-width: 30ch; }
+
+  /* ---------- Step 1 · Avatar ---------- */
+  .avatar-wrap {
+    grid-area: avatar;
+    display: grid;
+    place-items: center;
+    width: 100%;
+    padding-block: clamp(12px, 2.6vh, 24px);
   }
 
-  /* ── Action cluster ── */
-  .photo-actions {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 22px;
-    margin-top: 34px;
-  }
-
-  /* "Add profile photo" outlined pill */
-  .photo-cta-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    border: 1.5px solid rgba(255,255,255,0.72);
-    background: rgba(255,255,255,0.04);
-    color: #ffffff;
-    font-size: 15px;
-    font-weight: 500;
-    letter-spacing: 0.01em;
-    padding: 15px 30px;
-    border-radius: 100px;
-    cursor: pointer;
-    transition: background 0.2s ease, border-color 0.2s ease;
-    font-family: inherit;
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
-  }
-  .photo-cta-btn:hover {
-    background: rgba(255,255,255,0.10);
-    border-color: #ffffff;
-  }
-  .photo-cta-btn svg {
-    width: 17px;
-    height: 17px;
-    flex-shrink: 0;
-    stroke: currentColor;
-  }
-
-  /* "Continue →" */
-  .photo-continue-btn {
-    background: none;
-    border: none;
-    color: rgba(255,255,255,0.55);
-    font-size: 15px;
-    font-weight: 500;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    letter-spacing: 0.01em;
-    padding: 4px 0;
-    transition: color 0.2s ease;
-    font-family: inherit;
-  }
-  .photo-continue-btn:hover { color: rgba(255,255,255,0.85); }
-  .photo-continue-btn.photo-ready { color: rgba(255,255,255,0.88); }
-
-  /* "Skip for now" */
-  .photo-skip-btn {
-    background: none;
-    border: none;
-    color: rgba(255,255,255,0.28);
-    font-size: 13px;
-    cursor: pointer;
-    padding: 2px 0;
-    transition: color 0.2s ease;
-    font-family: inherit;
-    letter-spacing: 0.01em;
-  }
-  .photo-skip-btn:hover { color: rgba(255,255,255,0.55); }
-
-  /* Status message (uploading / ready / error) */
-  .photo-status-msg {
-    font-size: 12px;
-    min-height: 16px;
-    text-align: center;
-    color: rgba(255,255,255,0.4);
-    letter-spacing: 0.03em;
-    transition: color 0.2s ease;
-  }
-  .photo-status-msg.ps-uploading { color: rgba(255,255,255,0.45); }
-  .photo-status-msg.ps-ready     { color: rgba(160,230,160,0.8); }
-  .photo-status-msg.ps-error     { color: rgba(255,110,110,0.85); }
-
-  /* ── Chrome avatar ring ── */
-  .photo-avatar-col {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-  }
-
-  .photo-avatar-wrap {
+  .avatar {
+    --size: clamp(180px, min(58vw, 30vh), 232px);
     position: relative;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  /* The shiny chrome outer ring */
-  .avatar-chrome-ring {
-    --ring-size: 224px;
-    --ring-thickness: 13px;
-    width: var(--ring-size);
-    height: var(--ring-size);
+    width: var(--size);
+    height: var(--size);
     border-radius: 50%;
-    /* Multi-stop conic gradient simulating chrome reflections */
-    background: conic-gradient(
-      from 115deg,
-      #3c3c3c  0deg,
-      #b8b8b8 38deg,
-      #ececec 68deg,
-      #f8f8f8 80deg,
-      #8a8a8a 112deg,
-      #2c2c2c 148deg,
-      #888888 184deg,
-      #dedede 218deg,
-      #f4f4f4 240deg,
-      #f0f0f0 254deg,
-      #707070 282deg,
-      #c4c4c4 310deg,
-      #f0f0f0 324deg,
-      #6e6e6e 344deg,
-      #3c3c3c 360deg
-    );
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-    /* Diffuse glow underneath */
-    box-shadow:
-      0 28px 90px -18px rgba(0,0,0,0.92),
-      0 10px 36px -8px rgba(0,0,0,0.65),
-      inset 0 1.5px 0 rgba(255,255,255,0.28),
-      inset 0 -1.5px 0 rgba(0,0,0,0.55),
-      0 0 0 1px rgba(255,255,255,0.06);
-  }
-
-  /* Inner specular highlight rim */
-  .avatar-chrome-ring::before {
-    content: '';
-    position: absolute;
-    inset: calc(var(--ring-thickness) - 4px);
-    border-radius: 50%;
-    background: transparent;
-    box-shadow:
-      0 0 0 1px rgba(255,255,255,0.14),
-      inset 0 2px 5px rgba(255,255,255,0.2),
-      inset 0 -2px 5px rgba(0,0,0,0.45);
-    z-index: 2;
-    pointer-events: none;
-  }
-
-  /* Ground shadow / reflection pool */
-  .avatar-chrome-ring::after {
-    content: '';
-    position: absolute;
-    bottom: -30px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 70%;
-    height: 22px;
-    background: radial-gradient(ellipse, rgba(150,150,150,0.16) 0%, transparent 72%);
-    border-radius: 50%;
-    pointer-events: none;
-    z-index: 0;
-  }
-
-  /* The dark inner circle */
-  .avatar-chrome-inner {
-    width: calc(var(--ring-size) - var(--ring-thickness) * 2);
-    height: calc(var(--ring-size) - var(--ring-thickness) * 2);
-    border-radius: 50%;
-    background: radial-gradient(circle at 38% 32%, #1e1e1e 0%, #0c0c0c 50%, #050505 100%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
     overflow: hidden;
-    position: relative;
-    z-index: 1;
+    background: radial-gradient(circle at 50% 30%, #161618 0%, #0c0c0d 70%);
+    border: 1px solid var(--line);
     box-shadow:
-      inset 0 4px 14px rgba(0,0,0,0.75),
-      inset 0 0 0 1px rgba(0,0,0,0.6);
+      0 0 0 10px rgba(255, 255, 255, 0.025),
+      0 0 0 11px var(--line-soft),
+      0 30px 70px rgba(0, 0, 0, 0.55),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    transition: border-color 0.4s var(--ease);
   }
 
-  .avatar-chrome-inner img {
+  .avatar::after {
+    content: "";
+    position: absolute;
+    inset: 12px;
+    border-radius: 50%;
+    border: 1px solid var(--line-soft);
+    pointer-events: none;
+  }
+
+  .avatar-placeholder { position: absolute; inset: 0; display: grid; place-items: center; }
+  .avatar-placeholder svg { width: 46%; height: auto; transform: translateY(6%); }
+
+  .avatar-preview {
+    position: absolute;
+    inset: 0;
     width: 100%;
     height: 100%;
     object-fit: cover;
-    border-radius: 50%;
+    display: none;
   }
 
-  /* Default person silhouette */
-  .avatar-person-icon {
-    width: 44%;
-    height: 44%;
-    fill: none;
-    stroke: rgba(255,255,255,0.32);
-    stroke-width: 1.4;
-    stroke-linecap: round;
-    stroke-linejoin: round;
+  .has-photo .avatar-preview { display: block; }
+  .has-photo .avatar-placeholder { display: none; }
+  .has-photo .avatar { border-color: rgba(255, 255, 255, 0.22); }
+
+  /* ---------- Actions (shared) ---------- */
+  .actions {
+    grid-area: actions;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: clamp(12px, 2.6vh, 22px);
+    width: 100%;
   }
 
-  /* ── Desktop layout overrides (≥ 700 px) ── */
-  @media (min-width: 700px) {
-    .photo-step-indicator { display: flex; }
+  .btn-add {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    max-width: 360px;
+    height: 52px;
+    padding: 0 28px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.03);
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    transition: background 0.25s var(--ease), border-color 0.25s var(--ease), transform 0.25s var(--ease);
+  }
+  .btn-add:hover { background: rgba(255, 255, 255, 0.06); border-color: var(--line-strong); }
+  .btn-add:active { transform: scale(0.985); }
 
-    .photo-inner {
-      flex-direction: row;
+  /* Step 1: text-style continue */
+  .btn-continue {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 15px;
+    font-weight: 500;
+    padding: 6px 10px;
+    transition: opacity 0.3s var(--ease);
+  }
+  .btn-continue:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  /* Step 2: pill continue */
+  .btn-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    height: 54px;
+    border-radius: 999px;
+    border: 1px solid var(--line-strong);
+    background: rgba(255, 255, 255, 0.05);
+    font-size: 15px;
+    font-weight: 500;
+    transition: background 0.25s var(--ease), border-color 0.25s var(--ease), transform 0.25s var(--ease);
+  }
+  .btn-pill:hover { background: rgba(255, 255, 255, 0.09); border-color: rgba(255, 255, 255, 0.4); }
+  .btn-pill:active { transform: scale(0.985); }
+
+  .btn-skip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--text-faint);
+    padding: 6px 10px;
+    transition: color 0.2s var(--ease);
+  }
+  .btn-skip:hover { color: var(--text-muted); }
+  .btn-skip svg { display: none; }
+
+  .btn-back {
+    font-size: 14px;
+    font-weight: 400;
+    padding: 6px 12px;
+    color: var(--text);
+    opacity: 0.85;
+    transition: opacity 0.2s var(--ease);
+  }
+  .btn-back:hover { opacity: 1; }
+
+  .actions-row { display: flex; align-items: center; justify-content: center; gap: 14px; }
+
+  .hint {
+    min-height: 18px;
+    margin: -8px 0 0;
+    font-size: 12px;
+    color: var(--text-muted);
+    text-align: center;
+  }
+
+  .icon    { width: 18px; height: 18px; flex: none; }
+  .icon-sm { width: 15px; height: 15px; flex: none; }
+
+  :focus-visible {
+    outline: 2px solid rgba(255, 255, 255, 0.7);
+    outline-offset: 3px;
+    border-radius: 999px;
+  }
+
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+
+  /* ---------- Step 2 · Form ---------- */
+  .details-form { display: contents; }
+
+  .fields {
+    grid-area: form;
+    align-self: center;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(10px, 1.8vh, 14px);
+    width: 100%;
+    padding-block: 20px;
+  }
+
+  .field {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    height: clamp(54px, 8.4vh, 64px);
+    padding: 0 18px;
+    border-radius: 14px;
+    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.02);
+    text-align: left;
+    cursor: text;
+    transition: border-color 0.2s var(--ease), background 0.2s var(--ease);
+  }
+  .field:hover { border-color: rgba(255, 255, 255, 0.18); }
+  .field:focus-within { border-color: var(--line-strong); background: rgba(255, 255, 255, 0.04); }
+  .field.is-invalid { border-color: rgba(255, 155, 155, 0.45); }
+
+  .field-icon { width: 20px; height: 20px; flex: none; color: var(--text-muted); }
+
+  .field-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+
+  .field-label {
+    font-size: 11.5px;
+    font-weight: 500;
+    line-height: 1.2;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .field.is-invalid .field-label { color: var(--error); }
+
+  .field input {
+    width: 100%;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    font-size: 14px;
+    line-height: 1.3;
+    color: var(--text);
+  }
+  .field input::placeholder { color: var(--text-faint); }
+  .field input:focus,
+  .field input:focus-visible { outline: none; }
+  .field input:-webkit-autofill {
+    -webkit-text-fill-color: var(--text);
+    transition: background-color 99999s ease-out;
+  }
+
+  .content--details .actions,
+  .content--interests .actions { gap: 14px; }
+
+  .aside { display: none; }
+
+  /* ---------- Step 3 · Interests ---------- */
+  .interests-form { display: contents; }
+
+  .picks {
+    grid-area: picks;
+    align-self: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: clamp(10px, 2.2vh, 18px);
+    width: 100%;
+    padding-block: 12px;
+  }
+
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 44px;
+    padding: 0 16px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.02);
+    font-size: 13.5px;
+    font-weight: 400;
+    color: var(--text-muted);
+    white-space: nowrap;
+    transition: background 0.2s var(--ease), border-color 0.2s var(--ease), color 0.2s var(--ease), opacity 0.2s var(--ease);
+  }
+  .chip:hover { border-color: rgba(255, 255, 255, 0.24); color: var(--text); }
+
+  .chip-icon { position: relative; width: 18px; height: 18px; flex: none; }
+  .chip-icon svg { width: 18px; height: 18px; }
+  .chip-icon .ic-check { display: none; }
+
+  .chip[aria-pressed="true"] {
+    border-color: rgba(255, 255, 255, 0.5);
+    background: rgba(255, 255, 255, 0.11);
+    color: var(--text);
+    font-weight: 500;
+  }
+  .chip[aria-pressed="true"] .ic-cat   { display: none; }
+  .chip[aria-pressed="true"] .ic-check { display: block; }
+
+  .chip.is-locked { opacity: 0.4; }
+  .chip.is-locked:hover { border-color: var(--line); color: var(--text-muted); }
+
+  .picks .field { width: 100%; }
+
+  .pick-hint {
+    margin: 0;
+    min-height: 18px;
+    font-size: 12px;
+    color: var(--text-muted);
+    text-align: center;
+  }
+  .pick-hint.is-error { color: var(--error); }
+
+  .timeline {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+  }
+  .group-label { font-size: 12px; font-weight: 500; color: var(--text-muted); }
+  .group-label.is-error { color: var(--error); }
+  .timeline-options { display: flex; gap: 8px; width: 100%; }
+  .timeline-options .chip { flex: 1; padding: 0 12px; }
+
+  /* ---------- Desktop ---------- */
+  @media (min-width: 900px) {
+    .screen { padding: 40px clamp(32px, 4.5vw, 64px); }
+
+    .top { justify-content: space-between; width: 100%; max-width: 1240px; margin-inline: auto; }
+    .wordmark { font-size: 19px; }
+
+    .steps {
+      display: flex;
       align-items: center;
-      justify-content: center;
-      padding: 80px 8vw 80px 9vw;
-      gap: 6vw;
+      gap: 14px;
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--text-muted);
     }
+    .steps-bars { display: flex; gap: 6px; }
+    .steps-bars span { width: 20px; height: 2px; border-radius: 2px; background: rgba(255, 255, 255, 0.16); transition: background 0.3s var(--ease); }
+    .steps-bars span.is-active { background: var(--text); }
 
-    .photo-text-col {
+    .content {
+      max-width: 1240px;
+      grid-template-columns: 1fr 1fr;
+      column-gap: clamp(32px, 6vw, 96px);
+      justify-items: start;
+      align-items: start;
       text-align: left;
-      flex: 0 0 auto;
-      max-width: 370px;
-      margin-bottom: 0;
+      padding-top: 0;
     }
 
-    .photo-eyebrow { display: block; }
+    .content--photo {
+      grid-template-rows: 1fr auto auto 1fr;
+      grid-template-areas:
+        ". avatar"
+        "copy avatar"
+        "actions avatar"
+        ". avatar";
+    }
 
-    .photo-heading { font-size: clamp(38px, 3.8vw, 54px); margin-bottom: 20px; }
+    .content--interests {
+      grid-template-rows: 1fr auto auto auto 1fr;
+      grid-template-areas:
+        ". aside"
+        "copy aside"
+        "picks aside"
+        "actions aside"
+        ". aside";
+    }
 
-    .photo-sub { font-size: 15px; max-width: 310px; margin: 0; }
+    .content--details {
+      grid-template-rows: 1fr auto auto auto 1fr;
+      grid-template-areas:
+        ". aside"
+        "copy aside"
+        "form aside"
+        "actions aside"
+        ". aside";
+    }
 
-    .photo-actions { align-items: flex-start; margin-top: 38px; gap: 20px; }
+    .eyebrow,
+    .content--photo .eyebrow {
+      display: block;
+      margin: 0 0 clamp(14px, 3vh, 22px);
+      font-size: 11px;
+    }
 
-    .photo-avatar-col { flex: 0 0 auto; }
+    h1 { font-size: clamp(38px, min(4.6vw, 7.4vh), 64px); line-height: 1.08; }
 
-    .avatar-chrome-ring { --ring-size: 310px; --ring-thickness: 18px; }
+    .sub { margin: clamp(14px, 2.6vh, 22px) 0 0; font-size: 16px; }
+    .content--photo .sub { max-width: 26ch; }
+    .content--details .sub { max-width: 28ch; font-size: 15px; }
+    .content--interests .sub { max-width: 36ch; font-size: 15px; }
+
+    /* Step 1 */
+    .avatar-wrap { justify-self: center; align-self: center; padding: 0; }
+    .avatar { --size: clamp(240px, min(30vw, 58vh), 400px); }
+    .avatar::after { inset: 18px; }
+
+    .content--photo .actions { align-items: flex-start; gap: 22px; margin-top: clamp(24px, 4.5vh, 36px); }
+    .btn-add { width: auto; max-width: none; min-width: 210px; height: 48px; }
+    .btn-skip { padding: 6px 0; font-size: 13px; color: var(--text-muted); }
+    .btn-skip svg { display: block; }
+    .btn-skip:hover { color: var(--text); }
+    .btn-continue { padding: 6px 0; }
+    body:not(.has-photo) .btn-continue { display: none; }   /* desktop: Continue appears once a photo is chosen */
+    .hint { text-align: left; margin: -8px 0 0; }
+
+    /* Step 2 */
+    .fields { max-width: 400px; align-self: start; padding-block: 0; margin-top: clamp(20px, 3.8vh, 32px); }
+    .content--details .actions { max-width: 400px; margin-top: clamp(18px, 3.4vh, 28px); }
+    .btn-pill { height: 50px; }
+
+    /* Step 3 */
+    .picks { align-self: start; align-items: flex-start; max-width: 520px; padding-block: 0; margin-top: clamp(18px, 3.4vh, 28px); }
+    .chips { justify-content: flex-start; }
+    .pick-hint { text-align: left; }
+    .timeline { align-items: flex-start; }
+    .content--interests .actions { max-width: 520px; margin-top: clamp(18px, 3.4vh, 28px); }
+    .chip { height: 46px; font-size: 14px; padding: 0 18px; }
+    .content--interests h1 { font-size: clamp(34px, min(4.2vw, 6.4vh), 60px); }
+    .timeline-options { width: auto; }
+    .timeline-options .chip { flex: none; padding: 0 24px; }
+
+    .content--details .aside,
+    .content--interests .aside {
+      grid-area: aside;
+      align-self: stretch;
+      justify-self: end;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding-block: clamp(8px, 5vh, 56px);
+    }
+    .aside-block {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.2em;
+      line-height: 2;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+    .aside-block::after { content: ""; width: 24px; height: 1px; background: var(--text-faint); }
   }
 
-  @media (min-width: 1100px) {
-    .avatar-chrome-ring { --ring-size: 368px; --ring-thickness: 20px; }
-    .photo-text-col { max-width: 430px; }
-    .photo-inner { gap: 8vw; }
+  /* ---------- Short screens: keep everything in view ---------- */
+  @media (max-height: 700px) {
+    .content--interests .sub { display: none; }
+  }
+  @media (max-height: 620px) {
+    .content--interests .eyebrow { display: none; }
   }
 
-  /* Small phones */
-  @media (max-width: 390px) {
-    .avatar-chrome-ring { --ring-size: 196px; --ring-thickness: 11px; }
-    .photo-heading { font-size: 27px; }
-    .photo-inner { padding: 36px 22px 42px; }
+  /* ---------- Short phones ---------- */
+  @media (max-width: 899px) and (max-height: 660px) {
+    .avatar { --size: clamp(136px, 26vh, 190px); }
+    .btn-add { height: 48px; }
+    .btn-pill { height: 50px; }
+    .chip { height: 44px; }
+    .screen { padding-top: calc(env(safe-area-inset-top, 0px) + 18px); padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 18px); }
+  }
+
+  /* ---------- Motion: one quiet load-in, nothing else ---------- */
+  @media (prefers-reduced-motion: no-preference) {
+    .avatar { animation: settle 0.9s var(--ease) both; }
+    @keyframes settle {
+      from { opacity: 0; transform: scale(0.965); }
+      to   { opacity: 1; transform: none; }
+    }
   }
 </style>
 </head>
+
 <body>
+<main class="screen" id="screen">
 
-<div id="checking" class="checking-msg">Loading...</div>
+  <!-- Shared header -->
+  <header class="top">
+    <span class="wordmark">VaRoom.</span>
 
-<div class="card" id="onboarding-card" style="display:none;">
-  <div class="card-top">
-    <span class="logo"><span class="va">Va</span><span class="room">Room</span></span>
-    <span class="step-badge" id="step-badge">1 of 6</span>
-  </div>
+    <div class="steps" id="steps" aria-label="Step 1 of 3">
+      <span id="stepsLabel">Step 1 of 3</span>
+      <div class="steps-bars" id="stepsBars" aria-hidden="true">
+        <span></span><span></span><span></span>
+      </div>
+    </div>
+  </header>
 
-  <div id="step-content"></div>
+  <!-- ============ STEP 1 · Profile photo ============ -->
+  <section class="content content--photo" id="step1" data-step="1">
 
-  <div class="progress-dots" id="progress-dots"></div>
-</div>
+    <div class="copy">
+      <p class="eyebrow">Your profile</p>
+      <h1 tabindex="-1">Add your <strong>profile photo</strong></h1>
+      <p class="sub">Let people know who you're connecting with.</p>
+    </div>
 
-<script src="js/supabase-client.js"></script>
+    <div class="avatar-wrap">
+      <div class="avatar" id="avatar">
+        <div class="avatar-placeholder" aria-hidden="true">
+          <svg viewBox="0 0 120 120" fill="none">
+            <defs>
+              <linearGradient id="sil" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#8b8b90"/>
+                <stop offset="1" stop-color="#4c4c51"/>
+              </linearGradient>
+            </defs>
+            <circle cx="60" cy="38" r="21" fill="url(#sil)"/>
+            <path d="M14 112c0-24 20-38 46-38s46 14 46 38v8H14z" fill="url(#sil)"/>
+          </svg>
+        </div>
+        <img class="avatar-preview" id="preview" alt="Preview of your profile photo">
+      </div>
+    </div>
+
+    <div class="actions">
+      <input class="sr-only" type="file" id="photoInput" accept="image/*" tabindex="-1">
+
+      <button class="btn-add" type="button" id="btnAdd">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2.2a1.5 1.5 0 0 0 1.2-.6l.7-1A1.5 1.5 0 0 1 10.8 5h2.4a1.5 1.5 0 0 1 1.2.6l.7 1a1.5 1.5 0 0 0 1.2.6h2.2A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5z"/>
+          <circle cx="12" cy="12.5" r="3.4"/>
+        </svg>
+        <span id="btnAddLabel">Add profile photo</span>
+      </button>
+
+      <p class="hint" id="hint" role="status" aria-live="polite"></p>
+
+      <button class="btn-continue" type="button" id="btnContinue" disabled>
+        <span>Continue</span>
+        <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M5 12h14M13 6l6 6-6 6"/>
+        </svg>
+      </button>
+
+      <button class="btn-skip" type="button" id="btnSkip">
+        <span>Skip for now</span>
+        <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M5 12h14M13 6l6 6-6 6"/>
+        </svg>
+      </button>
+    </div>
+  </section>
+
+  <!-- ============ STEP 2 · Your details ============ -->
+  <section class="content content--details" id="step2" data-step="2" hidden>
+
+    <div class="copy">
+      <p class="eyebrow">Your details</p>
+      <h1 tabindex="-1">Tell us a little <strong>about you</strong></h1>
+      <p class="sub">This helps people connect with you and find you easily.</p>
+    </div>
+
+    <form class="details-form" id="detailsForm" novalidate>
+
+      <div class="fields">
+        <label class="field" id="fieldUsername">
+          <svg class="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="8" r="3.6"/>
+            <path d="M4.8 20c.6-3.6 3.6-5.6 7.2-5.6s6.6 2 7.2 5.6"/>
+          </svg>
+          <span class="field-body">
+            <span class="field-label" data-label="Username">Username</span>
+            <input type="text" id="inpUsername" name="username" placeholder="@yourusername"
+                   autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="21">
+          </span>
+        </label>
+
+        <label class="field" id="fieldPhone">
+          <svg class="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+          </svg>
+          <span class="field-body">
+            <span class="field-label" data-label="Phone number">Phone number</span>
+            <input type="tel" id="inpPhone" name="phone" placeholder="+254 712 345 678"
+                   autocomplete="tel" inputmode="tel" maxlength="20">
+          </span>
+        </label>
+
+        <label class="field" id="fieldCity">
+          <svg class="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/>
+            <circle cx="12" cy="10" r="2.4"/>
+          </svg>
+          <span class="field-body">
+            <span class="field-label" data-label="City / Area">City / Area</span>
+            <input type="text" id="inpCity" name="city" placeholder="e.g. Nairobi, Westlands"
+                   autocomplete="address-level2" maxlength="60">
+          </span>
+        </label>
+      </div>
+
+      <div class="actions">
+        <button class="btn-pill" type="submit" id="btnDetailsContinue">
+          <span>Continue</span>
+          <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M5 12h14M13 6l6 6-6 6"/>
+          </svg>
+        </button>
+
+        <div class="actions-row">
+          <button class="btn-back" type="button" id="btnBack">Back</button>
+          <!-- TEMP: preview-only skip, delete this button and its handler (btnSkip2) when wiring -->
+          <button class="btn-skip" type="button" id="btnSkip2">
+            <span>Skip for now</span>
+            <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M5 12h14M13 6l6 6-6 6"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+    </form>
+
+    <!-- desktop only, quiet right-hand side -->
+    <aside class="aside" aria-hidden="true">
+      <div class="aside-block">
+        <span>People</span><span>Places</span><span>Possibilities</span>
+      </div>
+      <div class="aside-block">
+        <span>A more connected you</span>
+      </div>
+    </aside>
+  </section>
+
+  <!-- ============ STEP 3 · Interests (hosts: what they list · clients: what they want) ============ -->
+  <section class="content content--interests" id="step3" data-step="3" hidden>
+
+    <div class="copy">
+      <p class="eyebrow" data-for="host">Your listings</p>
+      <p class="eyebrow" data-for="client">Your interests</p>
+      <h1 tabindex="-1">
+        <span data-for="host">What will you <strong>be listing?</strong></span>
+        <span data-for="client">What are you <strong>looking for?</strong></span>
+      </h1>
+      <p class="sub" data-for="host">Pick the 2 that fit you best.</p>
+      <p class="sub" data-for="client">Pick what interests you and we'll fill your marketplace with it.</p>
+    </div>
+
+    <form class="interests-form" id="interestsForm" novalidate>
+
+      <div class="picks">
+        <div class="chips" id="chips" role="group" aria-label="Categories">
+          <button class="chip" type="button" data-value="airbnb" aria-pressed="false">
+            <span class="chip-icon" aria-hidden="true">
+              <svg class="ic-cat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.5 12 5l8 6.5V19a1 1 0 0 1-1 1h-4.5v-5.5h-5V20H5a1 1 0 0 1-1-1z"/></svg>
+              <svg class="ic-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>
+            </span>
+            <span>Airbnbs</span>
+          </button>
+          <button class="chip" type="button" data-value="hotel" aria-pressed="false">
+            <span class="chip-icon" aria-hidden="true">
+              <svg class="ic-cat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V6a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v14M15 10h3a1 1 0 0 1 1 1v9M3 20h18M8.5 9h3M8.5 12.5h3M8.5 16h3"/></svg>
+              <svg class="ic-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>
+            </span>
+            <span>Hotels</span>
+          </button>
+          <button class="chip" type="button" data-value="venue" aria-pressed="false">
+            <span class="chip-icon" aria-hidden="true">
+              <svg class="ic-cat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5.5" width="16" height="14.5" rx="2"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/></svg>
+              <svg class="ic-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>
+            </span>
+            <span>Event grounds &amp; venues</span>
+          </button>
+          <button class="chip" type="button" data-value="office" aria-pressed="false">
+            <span class="chip-icon" aria-hidden="true">
+              <svg class="ic-cat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="7.5" width="17" height="12" rx="2"/><path d="M9 7.5V6a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 15 6v1.5M3.5 13h17"/></svg>
+              <svg class="ic-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>
+            </span>
+            <span>Offices</span>
+          </button>
+          <button class="chip" type="button" data-value="shop" aria-pressed="false">
+            <span class="chip-icon" aria-hidden="true">
+              <svg class="ic-cat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9.5 6.3 4.5h11.4L19 9.5M5 9.5a2.5 2.5 0 0 0 4.7 1.2 2.5 2.5 0 0 0 4.6 0 2.5 2.5 0 0 0 4.7-1.2M5.5 12v8h13v-8M10 20v-4.5h4V20"/></svg>
+              <svg class="ic-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>
+            </span>
+            <span>Shops</span>
+          </button>
+          <button class="chip" type="button" data-value="property" aria-pressed="false">
+            <span class="chip-icon" aria-hidden="true">
+              <svg class="ic-cat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="3.5"/><path d="m10.5 12.5 8-8M15.5 7.5l2.5 2.5M13.5 9.5l2 2"/></svg>
+              <svg class="ic-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>
+            </span>
+            <span>Property to let or buy</span>
+          </button>
+        </div>
+
+        <p class="pick-hint" id="pickHint" role="status" aria-live="polite"></p>
+
+        <!-- Hosts: the name they appear with in discover -->
+        <label class="field" id="fieldDiscover" data-for="host">
+          <svg class="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="8.5"/>
+            <path d="m15.5 8.5-2 5-5 2 2-5z"/>
+          </svg>
+          <span class="field-body">
+            <span class="field-label" data-label="Name in discover">Name in discover</span>
+            <input type="text" id="inpDiscover" name="discover_name" placeholder="How you'll appear to others"
+                   autocomplete="off" maxlength="40">
+          </span>
+        </label>
+
+        <!-- Clients: how soon they're looking -->
+        <div class="timeline" data-for="client" role="group" aria-labelledby="timelineLabel">
+          <span class="group-label" id="timelineLabel" data-label="When are you looking?">When are you looking?</span>
+          <div class="timeline-options" id="timelineOptions">
+            <button class="chip" type="button" data-value="soon" aria-pressed="false">
+              <span class="chip-icon" aria-hidden="true">
+                <svg class="ic-cat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>
+                <svg class="ic-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>
+              </span>
+              <span>Looking soon</span>
+            </button>
+            <button class="chip" type="button" data-value="browsing" aria-pressed="false">
+              <span class="chip-icon" aria-hidden="true">
+                <svg class="ic-cat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></svg>
+                <svg class="ic-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>
+              </span>
+              <span>Just browsing</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn-pill" type="submit" id="btnInterestsContinue">
+          <span>Continue</span>
+          <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M5 12h14M13 6l6 6-6 6"/>
+          </svg>
+        </button>
+        <button class="btn-back" type="button" id="btnBack3">Back</button>
+      </div>
+
+    </form>
+
+    <aside class="aside" aria-hidden="true">
+      <div class="aside-block">
+        <span>People</span><span>Places</span><span>Possibilities</span>
+      </div>
+      <div class="aside-block">
+        <span>A more connected you</span>
+      </div>
+    </aside>
+  </section>
+
+</main>
+
 <script>
-(async function(){
-  const checking = document.getElementById('checking');
-  const card = document.getElementById('onboarding-card');
-  const stepBadge = document.getElementById('step-badge');
-  const stepContent = document.getElementById('step-content');
-  const progressDots = document.getElementById('progress-dots');
+  /* ============================================================
+     VaRoom onboarding · Steps 1–2  (UI only)
+     Wiring hooks are marked TODO. Nothing here talks to Supabase.
+     ============================================================ */
+  (function () {
+    var TOTAL_STEPS = 3;
+    var current = 1;
 
-  const CATEGORIES = [
-    { value: 'airbnb', label: 'Airbnbs' },
-    { value: 'hotel', label: 'Hotels' },
-    { value: 'venue', label: 'Event grounds & venues' },
-    { value: 'office', label: 'Offices' },
-    { value: 'shop', label: 'Shops' },
-    { value: 'property', label: 'Property to let or buy' }
-  ];
+    var sections   = { 1: document.getElementById('step1'), 2: document.getElementById('step2'), 3: document.getElementById('step3') };
+    var stepsEl    = document.getElementById('steps');
+    var stepsLabel = document.getElementById('stepsLabel');
+    var bars       = document.querySelectorAll('#stepsBars span');
 
-  // ---- Auth + profile check ----
-  const { data: { session } } = await supabaseClient.auth.getSession();
-  const requestedRedirect = new URLSearchParams(window.location.search).get('redirect') || '';
-  function getSafeRedirect(value){
-    if (!value) return '';
-    try {
-      const url = new URL(value, window.location.origin);
-      return url.origin === window.location.origin ? url.pathname + url.search + url.hash : '';
-    } catch (error) {
-      return '';
-    }
-  }
-  const postOnboardingRedirect = getSafeRedirect(requestedRedirect);
-  if (!session) {
-    window.location.href = '/login';
-    return;
-  }
-  const user = session.user;
+    /* ---------- Step navigation ---------- */
+    function goTo(n, moveFocus) {
+      current = n;
+      Object.keys(sections).forEach(function (k) {
+        sections[k].hidden = (Number(k) !== n);
+      });
 
-  const { data: profile, error: profileError } = await supabaseClient
-    .from('profiles')
-    .select('role, username, onboarding_completed')
-    .eq('id', user.id)
-    .maybeSingle();
+      stepsEl.setAttribute('aria-label', 'Step ' + n + ' of ' + TOTAL_STEPS);
+      stepsLabel.textContent = 'Step ' + n + ' of ' + TOTAL_STEPS;
+      bars.forEach(function (bar, i) { bar.classList.toggle('is-active', i < n); });
 
-  if (profileError || !profile) {
-    window.location.href = '/login';
-    return;
-  }
-
-  if (profile.onboarding_completed) {
-    window.location.href = postOnboardingRedirect || (profile.role === 'host' ? '/host-home' : '/client-home');
-    return;
-  }
-
-  const role = profile.role;
-
-  // Steps: 4 shared, then 2 role-specific
-  const steps = role === 'host'
-    ? ['photo', 'username', 'city', 'phone', 'host_categories', 'host_type']
-    : ['photo', 'username', 'city', 'phone', 'client_timeline'];
-
-  let currentStep = 0;
-  const answers = {}; // collected as user goes, applied on finish
-
-  checking.style.display = 'none';
-  card.style.display = 'block';
-  renderStep();
-
-  function renderDots(){
-    progressDots.innerHTML = '';
-    steps.forEach(function(_, i){
-      const dot = document.createElement('span');
-      dot.className = 'dot' + (i === currentStep ? ' active' : '');
-      progressDots.appendChild(dot);
-    });
-  }
-
-  function goNext(){
-    if (currentStep < steps.length - 1) {
-      currentStep++;
-      renderStep();
-    } else {
-      finishOnboarding();
-    }
-  }
-
-  function renderStep(){
-    stepBadge.textContent = (currentStep + 1) + ' of ' + steps.length;
-    renderDots();
-    const step = steps[currentStep];
-    if (step === 'photo') renderPhotoStep();
-    else if (step === 'username') renderUsernameStep();
-    else if (step === 'city') renderCityStep();
-    else if (step === 'phone') renderPhoneStep();
-    else if (step === 'host_categories') renderCategoriesStep('host');
-    else if (step === 'client_categories') renderCategoriesStep('client');
-    else if (step === 'host_type') renderHostTypeStep();
-    else if (step === 'client_timeline') renderTimelineStep();
-  }
-
-  // ═══════════════════════════════════════════════════════════
-  // Step: Profile photo — full-viewport metallic overlay
-  // ═══════════════════════════════════════════════════════════
-  function renderPhotoStep(){
-    // Hide the normal card while this step is active
-    card.style.visibility = 'hidden';
-    card.style.pointerEvents = 'none';
-
-    const totalSteps = steps.length;
-
-    // Build dash indicators
-    function buildDashes(){
-      var dashes = '';
-      for (var i = 0; i < totalSteps; i++){
-        dashes += '<span class="photo-step-dash' + (i === 0 ? ' current' : '') + '"></span>';
+      if (moveFocus) {
+        var h1 = sections[n].querySelector('h1');
+        if (h1) h1.focus({ preventScroll: true });
       }
-      return dashes;
     }
 
-    // Camera icon SVG (inline, no external deps)
-    var cameraIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>';
+    /* ---------- Step 1 · Profile photo ---------- */
+    var MAX_BYTES = 5 * 1024 * 1024; // 5 MB
 
-    // Person silhouette SVG (default avatar placeholder)
-    var personIcon = '<svg class="avatar-person-icon" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
+    var input       = document.getElementById('photoInput');
+    var btnAdd      = document.getElementById('btnAdd');
+    var btnAddLabel = document.getElementById('btnAddLabel');
+    var btnContinue = document.getElementById('btnContinue');
+    var btnSkip     = document.getElementById('btnSkip');
+    var preview     = document.getElementById('preview');
+    var hint        = document.getElementById('hint');
 
-    var overlay = document.createElement('div');
-    overlay.className = 'photo-overlay';
-    overlay.id = 'photo-overlay';
+    var selectedFile = null;
+    var previewUrl = null;
 
-    overlay.innerHTML =
-      // Background layers
-      '<div class="photo-bg"></div>' +
-      '<span class="photo-streak photo-streak--1"></span>' +
-      '<span class="photo-streak photo-streak--2"></span>' +
-      '<span class="photo-streak photo-streak--3"></span>' +
+    btnAdd.addEventListener('click', function () { input.click(); });
 
-      // Step indicator (desktop top-right)
-      '<div class="photo-step-indicator">' +
-        '<span class="photo-step-indicator-label">Step 1 of ' + totalSteps + '</span>' +
-        '<div class="photo-step-dashes">' + buildDashes() + '</div>' +
-      '</div>' +
-
-      // Inner layout
-      '<div class="photo-inner">' +
-
-        // Left / top text column
-        '<div class="photo-text-col">' +
-          '<p class="photo-eyebrow">Your Profile</p>' +
-          '<h2 class="photo-heading">' +
-            '<span class="ph-light">Add your</span>' +
-            '<span class="ph-bold">profile photo</span>' +
-          '</h2>' +
-          '<p class="photo-sub">Let people know who you\'re connecting with.</p>' +
-
-          // Actions
-          '<div class="photo-actions">' +
-            '<button class="photo-cta-btn" id="po-add-btn" type="button">' +
-              cameraIcon +
-              'Add profile photo' +
-            '</button>' +
-            '<p class="photo-status-msg" id="po-status"></p>' +
-            '<button class="photo-continue-btn" id="po-continue" type="button">Continue <span aria-hidden="true">→</span></button>' +
-            '<button class="photo-skip-btn" id="po-skip" type="button">Skip for now</button>' +
-          '</div>' +
-        '</div>' +
-
-        // Right / bottom avatar column
-        '<div class="photo-avatar-col">' +
-          '<div class="photo-avatar-wrap" id="po-avatar-wrap">' +
-            '<div class="avatar-chrome-ring" id="po-chrome-ring">' +
-              '<div class="avatar-chrome-inner" id="po-inner">' +
-                personIcon +
-              '</div>' +
-            '</div>' +
-          '</div>' +
-        '</div>' +
-
-      '</div>' + // .photo-inner
-
-      // Hidden file input
-      '<input type="file" id="po-file-input" accept="image/*">';
-
-    document.body.appendChild(overlay);
-
-    // Wire up interaction
-    var fileInput = document.getElementById('po-file-input');
-    var addBtn    = document.getElementById('po-add-btn');
-    var avatarWrap = document.getElementById('po-avatar-wrap');
-    var innerEl   = document.getElementById('po-inner');
-    var statusEl  = document.getElementById('po-status');
-    var continueBtn = document.getElementById('po-continue');
-    var skipBtn   = document.getElementById('po-skip');
-    var uploadedPath = null;
-
-    function openPicker(){ fileInput.click(); }
-    addBtn.addEventListener('click', openPicker);
-    avatarWrap.addEventListener('click', openPicker);
-
-    fileInput.addEventListener('change', async function(){
-      var file = fileInput.files[0];
+    input.addEventListener('change', function () {
+      var file = input.files && input.files[0];
       if (!file) return;
 
-      statusEl.textContent = 'Uploading...';
-      statusEl.className = 'photo-status-msg ps-uploading';
-      addBtn.disabled = true;
-
-      var filePath = user.id + '/' + Date.now() + '-' + file.name;
-
-      var uploadResult = await supabaseClient.storage
-        .from('avatars')
-        .upload(filePath, file, { upsert: true });
-
-      addBtn.disabled = false;
-
-      if (uploadResult.error) {
-        statusEl.textContent = 'Upload failed: ' + uploadResult.error.message;
-        statusEl.className = 'photo-status-msg ps-error';
+      if (!file.type || file.type.indexOf('image/') !== 0) {
+        hint.textContent = 'Please choose an image file.';
+        return;
+      }
+      if (file.size > MAX_BYTES) {
+        hint.textContent = 'That photo is over 5 MB. Try a smaller one.';
         return;
       }
 
-      // Show preview in the chrome ring
-      var reader = new FileReader();
-      reader.onload = function(e){
-        innerEl.innerHTML = '<img src="' + e.target.result + '" alt="Your profile photo">';
-      };
-      reader.readAsDataURL(file);
+      hint.textContent = '';
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      previewUrl = URL.createObjectURL(file);
+      preview.src = previewUrl;
+      selectedFile = file;
 
-      // Store path exactly as other steps expect it (not full URL)
-      uploadedPath = filePath;
-
-      statusEl.textContent = 'Photo ready.';
-      statusEl.className = 'photo-status-msg ps-ready';
-      continueBtn.classList.add('photo-ready');
+      document.body.classList.add('has-photo');
+      btnAddLabel.textContent = 'Change photo';
+      btnContinue.disabled = false;
     });
 
-    function teardown(){
-      var el = document.getElementById('photo-overlay');
-      if (el) el.remove();
-      card.style.visibility = '';
-      card.style.pointerEvents = '';
+    btnContinue.addEventListener('click', function () {
+      if (!selectedFile) return;
+      // TODO (wiring): upload `selectedFile` to Supabase storage and save the avatar URL on the profile.
+      goTo(2, true);
+    });
+
+    btnSkip.addEventListener('click', function () {
+      // TODO (wiring): nothing to save, just move on.
+      goTo(2, true);
+    });
+
+    /* ---------- Step 2 · Your details ---------- */
+    var form    = document.getElementById('detailsForm');
+    var btnBack = document.getElementById('btnBack');
+
+    var fields = [
+      {
+        key: 'username',
+        wrap: document.getElementById('fieldUsername'),
+        input: document.getElementById('inpUsername'),
+        clean: function (v) { return v.trim().replace(/^@+/, ''); },
+        valid: function (v) { return /^[a-z0-9._]{3,20}$/i.test(v); },
+        error: '3–20 letters, numbers, . or _'
+      },
+      {
+        key: 'phone',
+        wrap: document.getElementById('fieldPhone'),
+        input: document.getElementById('inpPhone'),
+        clean: function (v) { return v.trim(); },
+        valid: function (v) {
+          var digits = v.replace(/\D/g, '');
+          return /^[+\d\s\-()]+$/.test(v) && digits.length >= 9 && digits.length <= 15;
+        },
+        error: 'Enter a valid phone number'
+      },
+      {
+        key: 'city',
+        wrap: document.getElementById('fieldCity'),
+        input: document.getElementById('inpCity'),
+        clean: function (v) { return v.trim(); },
+        valid: function (v) { return v.length >= 2; },
+        error: 'Enter your city or area'
+      }
+    ];
+
+    function setInvalid(f, isInvalid) {
+      var label = f.wrap.querySelector('.field-label');
+      f.wrap.classList.toggle('is-invalid', isInvalid);
+      f.input.setAttribute('aria-invalid', isInvalid ? 'true' : 'false');
+      label.textContent = isInvalid ? f.error : label.getAttribute('data-label');
     }
 
-    continueBtn.addEventListener('click', function(){
-      if (uploadedPath) answers.avatar_url = uploadedPath;
-      teardown();
-      goNext();
-    });
-
-    skipBtn.addEventListener('click', function(){
-      teardown();
-      goNext();
-    });
-  }
-
-  // ---- Step: Username ----
-  function renderUsernameStep(){
-    stepContent.innerHTML =
-      iconCircle('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/>') +
-      '<h1>Pick your VaRoom username.</h1>' +
-      '<p class="step-sub">This is how people will find and mention you. You already have one — feel free to keep it or change it.</p>' +
-      '<div class="field">' +
-        '<label for="username-input">Username</label>' +
-        '<input type="text" id="username-input" value="' + (profile.username || '') + '" maxlength="20">' +
-        '<p class="field-msg" id="username-msg"></p>' +
-        '<div class="suggestion-chips" id="username-suggestions"></div>' +
-      '</div>' +
-      '<button class="primary-btn" id="username-next">Continue</button>' +
-      '<button class="skip-btn" id="username-skip">Skip for now</button>' +
-      reassureHtml();
-
-    const input = document.getElementById('username-input');
-    const msg = document.getElementById('username-msg');
-    const suggestions = document.getElementById('username-suggestions');
-    const nextBtn = document.getElementById('username-next');
-
-    nextBtn.addEventListener('click', async function(){
-      const desired = input.value.trim().toLowerCase();
-
-      if (desired === profile.username) {
-        goNext();
-        return;
-      }
-
-      nextBtn.disabled = true;
-      nextBtn.textContent = 'Checking...';
-      suggestions.innerHTML = '';
-
-      const { error } = await supabaseClient.rpc('set_username', { new_username: desired });
-
-      nextBtn.disabled = false;
-      nextBtn.textContent = 'Continue';
-
-      if (error) {
-        msg.textContent = error.message;
-        msg.className = 'field-msg error';
-
-        const { data: alts } = await supabaseClient.rpc('suggest_username_alternatives', { desired: desired, limit_count: 3 });
-        if (alts && alts.length) {
-          suggestions.innerHTML = alts.map(function(name){
-            return '<button type="button" class="chip" data-name="' + name + '">' + name + '</button>';
-          }).join('');
-          suggestions.querySelectorAll('.chip').forEach(function(chip){
-            chip.addEventListener('click', function(){
-              input.value = chip.getAttribute('data-name');
-              msg.textContent = '';
-              suggestions.innerHTML = '';
-            });
-          });
-        }
-        return;
-      }
-
-      msg.textContent = 'Username saved!';
-      msg.className = 'field-msg success';
-      goNext();
-    });
-
-    document.getElementById('username-skip').addEventListener('click', goNext);
-  }
-
-  // ---- Step: City ----
-  function renderCityStep(){
-    stepContent.innerHTML =
-      iconCircle('<path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/>') +
-      '<h1>Where are you based?</h1>' +
-      '<p class="step-sub">Helps us show you relevant listings and let others know your general area.</p>' +
-      '<div class="field">' +
-        '<label for="city-input">City / Area</label>' +
-        '<input type="text" id="city-input" placeholder="e.g. Nairobi">' +
-      '</div>' +
-      '<button class="primary-btn" id="city-next">Continue</button>' +
-      '<button class="skip-btn" id="city-skip">Skip for now</button>' +
-      reassureHtml();
-
-    document.getElementById('city-next').addEventListener('click', function(){
-      const value = document.getElementById('city-input').value.trim();
-      if (value) answers.city = value;
-      goNext();
-    });
-    document.getElementById('city-skip').addEventListener('click', goNext);
-  }
-
-  // ---- Step: Phone ----
-  function renderPhoneStep(){
-    stepContent.innerHTML =
-      iconCircle('<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92Z"/>') +
-      '<h1>Add a way to reach you.</h1>' +
-      '<p class="step-sub">Hosts and clients can use this to follow up when needed.</p>' +
-      '<div class="field">' +
-        '<label for="phone-input">Phone number</label>' +
-        '<input type="tel" id="phone-input" placeholder="e.g. 0712 345 678">' +
-      '</div>' +
-      '<button class="primary-btn" id="phone-next">Continue</button>' +
-      '<button class="skip-btn" id="phone-skip">Skip for now</button>' +
-      reassureHtml();
-
-    document.getElementById('phone-next').addEventListener('click', function(){
-      const value = document.getElementById('phone-input').value.trim();
-      if (value) answers.phone = value;
-      goNext();
-    });
-    document.getElementById('phone-skip').addEventListener('click', goNext);
-  }
-
-  // ---- Step: Categories (host lists / client interested) ----
-  function renderCategoriesStep(mode){
-    const isHost = mode === 'host';
-    stepContent.innerHTML =
-      iconCircle('<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>') +
-      '<h1>' + (isHost ? 'What will you be listing?' : 'What are you interested in?') + '</h1>' +
-      '<p class="step-sub">' + (isHost ? 'Choose exactly two niches. These are the only types of space you can post.' : 'Pick as many as you like. We\'ll use this to show you relevant listings first.') + '</p>' +
-      '<div class="checkbox-grid" id="category-grid"></div>' +
-      (isHost ? '<p class="field-msg" id="category-msg" style="text-align:center;">Choose 2 niches (0 selected).</p>' : '') +
-      '<button class="primary-btn" id="categories-next">Continue</button>' +
-      (isHost ? '' : '<button class="skip-btn" id="categories-skip">Skip for now</button>') +
-      reassureHtml();
-
-    const grid = document.getElementById('category-grid');
-    const selected = new Set();
-    const nextBtn = document.getElementById('categories-next');
-    const categoryMsg = document.getElementById('category-msg');
-
-    function updateHostSelectionState(){
-      if (!isHost) return;
-      const count = selected.size;
-      nextBtn.disabled = count !== 2;
-      categoryMsg.textContent = count === 2
-        ? 'Your chosen niches: ' + Array.from(selected).map(function(value){ return CATEGORIES.find(function(cat){ return cat.value === value; }).label; }).join(' + ')
-        : 'Choose exactly 2 niches (' + count + ' selected).';
-      grid.querySelectorAll('input').forEach(function(input){
-        const lock = count >= 2 && !input.checked;
-        input.disabled = lock;
-        input.closest('.checkbox-card').classList.toggle('locked', lock);
+    fields.forEach(function (f) {
+      f.input.addEventListener('input', function () {
+        if (f.wrap.classList.contains('is-invalid')) setInvalid(f, false);
       });
+    });
+
+    function getDetails() {
+      var out = {};
+      fields.forEach(function (f) { out[f.key] = f.clean(f.input.value); });
+      return out;
     }
 
-    CATEGORIES.forEach(function(cat){
-      const row = document.createElement('label');
-      row.className = 'checkbox-card';
-      row.innerHTML = '<input type="checkbox" value="' + cat.value + '"><span>' + cat.label + '</span>';
-      const checkbox = row.querySelector('input');
-      checkbox.addEventListener('change', function(){
-        if (checkbox.checked) {
-          if (isHost && selected.size >= 2) { checkbox.checked = false; return; }
-          selected.add(cat.value); row.classList.add('checked');
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+
+      var firstBad = null;
+      fields.forEach(function (f) {
+        var ok = f.valid(f.clean(f.input.value));
+        setInvalid(f, !ok);
+        if (!ok && !firstBad) firstBad = f;
+      });
+
+      if (firstBad) { firstBad.input.focus(); return; }
+
+      var details = getDetails(); // { username, phone, city }
+      // TODO (wiring): save `details` (check username is unique).
+      goTo(3, true);
+    });
+
+    btnBack.addEventListener('click', function () { goTo(1, true); });
+
+    // TEMP: preview-only skip, remove with the btnSkip2 button when wiring.
+    document.getElementById('btnSkip2').addEventListener('click', function () { goTo(3, true); });
+
+    /* ---------- Step 3 · Interests ---------- */
+    // TODO (wiring): set ROLE from the signup flow ('host' or 'client').
+    // For previewing, open the page with ?role=client to see the client version.
+    var ROLE = (new URLSearchParams(location.search).get('role') === 'client') ? 'client' : 'host';
+    var HOST_PICKS = 2;
+
+    document.body.setAttribute('data-role', ROLE);
+    Array.prototype.forEach.call(document.querySelectorAll('[data-for]'), function (el) {
+      el.hidden = (el.getAttribute('data-for') !== ROLE);
+    });
+
+    var chips         = Array.prototype.slice.call(document.querySelectorAll('#chips .chip'));
+    var pickHint      = document.getElementById('pickHint');
+    var timelineBtns  = Array.prototype.slice.call(document.querySelectorAll('#timelineOptions .chip'));
+    var timelineLabel = document.getElementById('timelineLabel');
+    var interestsForm = document.getElementById('interestsForm');
+    var btnBack3      = document.getElementById('btnBack3');
+
+    var discover = {
+      wrap: document.getElementById('fieldDiscover'),
+      input: document.getElementById('inpDiscover'),
+      error: 'Enter a name (2–40 characters)'
+    };
+
+    var picks = [];
+    var timeline = null;
+
+    function pickMessage() {
+      if (ROLE === 'host') return picks.length + ' of ' + HOST_PICKS + ' selected';
+      return picks.length ? picks.length + ' selected' : 'Choose one or more';
+    }
+
+    function renderPicks() {
+      chips.forEach(function (chip) {
+        var on = picks.indexOf(chip.getAttribute('data-value')) > -1;
+        chip.setAttribute('aria-pressed', on ? 'true' : 'false');
+        chip.classList.toggle('is-locked', ROLE === 'host' && !on && picks.length >= HOST_PICKS);
+      });
+      pickHint.textContent = pickMessage();
+      pickHint.classList.remove('is-error');
+    }
+
+    chips.forEach(function (chip) {
+      chip.addEventListener('click', function () {
+        var v = chip.getAttribute('data-value');
+        var i = picks.indexOf(v);
+        if (i > -1) {
+          picks.splice(i, 1);
+        } else if (ROLE === 'host' && picks.length >= HOST_PICKS) {
+          pickHint.textContent = 'You can choose 2. Deselect one to swap.';
+          pickHint.classList.remove('is-error');
+          return;
+        } else {
+          picks.push(v);
         }
-        else { selected.delete(cat.value); row.classList.remove('checked'); }
-        updateHostSelectionState();
-      });
-      grid.appendChild(row);
-    });
-    updateHostSelectionState();
-
-    nextBtn.addEventListener('click', function(){
-      if ((!isHost && selected.size > 0) || (isHost && selected.size === 2)) {
-        answers[isHost ? 'listing_categories' : 'interested_categories'] = Array.from(selected);
-      }
-      goNext();
-    });
-    const skipBtn = document.getElementById('categories-skip');
-    if (skipBtn) skipBtn.addEventListener('click', goNext);
-  }
-
-  // ---- Step: Host type (individual / business) ----
-  function renderHostTypeStep(){
-    stepContent.innerHTML =
-      iconCircle('<path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1M9 13h1M14 9h1M14 13h1"/>') +
-      '<h1>How are you listing?</h1>' +
-      '<p class="step-sub">Lets us show your spaces the right way to guests.</p>' +
-      '<div class="choice-cards">' +
-        '<button type="button" class="choice-card" data-type="individual">' +
-          '<div class="choice-title">As an individual</div>' +
-          '<div class="choice-desc">Listing your own space(s), not on behalf of a company.</div>' +
-        '</button>' +
-        '<button type="button" class="choice-card" data-type="business">' +
-          '<div class="choice-title">As a business</div>' +
-          '<div class="choice-desc">Hotel, agency, or company listing multiple spaces.</div>' +
-        '</button>' +
-      '</div>' +
-      '<div class="field" id="business-name-field" style="display:none;">' +
-        '<label for="business-name-input">Business name</label>' +
-        '<input type="text" id="business-name-input" placeholder="e.g. Kuvule Suites">' +
-      '</div>' +
-      '<button class="primary-btn" id="hosttype-next" disabled>Continue</button>' +
-      '<button class="skip-btn" id="hosttype-skip">Skip for now</button>' +
-      reassureHtml();
-
-    let chosenType = null;
-    const nextBtn = document.getElementById('hosttype-next');
-    const businessField = document.getElementById('business-name-field');
-
-    document.querySelectorAll('.choice-card').forEach(function(cardEl){
-      cardEl.addEventListener('click', function(){
-        document.querySelectorAll('.choice-card').forEach(function(c){ c.classList.remove('selected'); });
-        cardEl.classList.add('selected');
-        chosenType = cardEl.getAttribute('data-type');
-        businessField.style.display = chosenType === 'business' ? 'flex' : 'none';
-        nextBtn.disabled = false;
+        renderPicks();
       });
     });
 
-    nextBtn.addEventListener('click', function(){
-      if (chosenType) {
-        answers.host_type = chosenType;
-        if (chosenType === 'business') {
-          const name = document.getElementById('business-name-input').value.trim();
-          if (name) answers.business_name = name;
+    timelineBtns.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        timeline = btn.getAttribute('data-value');
+        timelineBtns.forEach(function (b) {
+          b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
+        });
+        timelineLabel.textContent = timelineLabel.getAttribute('data-label');
+        timelineLabel.classList.remove('is-error');
+      });
+    });
+
+    discover.input.addEventListener('input', function () {
+      if (discover.wrap.classList.contains('is-invalid')) setInvalid(discover, false);
+    });
+
+    function getInterests() {
+      var out = { role: ROLE, niches: picks.slice() };
+      if (ROLE === 'host') out.discoverName = discover.input.value.trim();
+      else out.timeline = timeline;   // 'soon' or 'browsing'
+      return out;
+    }
+
+    interestsForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var firstBad = null;
+
+      if (ROLE === 'host') {
+        if (picks.length !== HOST_PICKS) {
+          pickHint.textContent = 'Choose exactly 2 to continue';
+          pickHint.classList.add('is-error');
+          firstBad = chips[0];
+        }
+        var name = discover.input.value.trim();
+        var nameOk = name.length >= 2 && name.length <= 40;
+        setInvalid(discover, !nameOk);
+        if (!nameOk && !firstBad) firstBad = discover.input;
+      } else {
+        if (!picks.length) {
+          pickHint.textContent = 'Choose at least one';
+          pickHint.classList.add('is-error');
+          firstBad = chips[0];
+        }
+        if (!timeline) {
+          timelineLabel.textContent = 'Choose one';
+          timelineLabel.classList.add('is-error');
+          if (!firstBad) firstBad = timelineBtns[0];
         }
       }
-      goNext();
-    });
-    document.getElementById('hosttype-skip').addEventListener('click', goNext);
-  }
 
-  // ---- Step: Client timeline ----
-  function renderTimelineStep(){
-    stepContent.innerHTML =
-      iconCircle('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/>') +
-      '<h1>How soon are you looking?</h1>' +
-      '<p class="step-sub">Just helps us understand where you\'re at — no pressure either way.</p>' +
-      '<div class="choice-cards">' +
-        '<button type="button" class="choice-card" data-timeline="soon">' +
-          '<div class="choice-title">Looking soon</div>' +
-          '<div class="choice-desc">I need something in the near future.</div>' +
-        '</button>' +
-        '<button type="button" class="choice-card" data-timeline="browsing">' +
-          '<div class="choice-title">Just browsing</div>' +
-          '<div class="choice-desc">Exploring what\'s out there for now.</div>' +
-        '</button>' +
-      '</div>' +
-      '<button class="primary-btn" id="timeline-next" disabled>Continue</button>' +
-      reassureHtml();
+      if (firstBad) { firstBad.focus(); return; }
 
-    let chosen = null;
-    const nextBtn = document.getElementById('timeline-next');
-
-    document.querySelectorAll('.choice-card').forEach(function(cardEl){
-      cardEl.addEventListener('click', function(){
-        document.querySelectorAll('.choice-card').forEach(function(c){ c.classList.remove('selected'); });
-        cardEl.classList.add('selected');
-        chosen = cardEl.getAttribute('data-timeline');
-        nextBtn.disabled = false;
-      });
+      var interests = getInterests();
+      // TODO (wiring): save `interests`. Hosts: { role, niches: [2 values], discoverName }.
+      // Clients: { role, niches: [1+ values], timeline }. Niche values: airbnb, hotel, venue, office, shop, property.
+      // This is the last card: finish onboarding and send them to their home.
     });
 
-    nextBtn.addEventListener('click', function(){
-      if (chosen) answers.looking_timeline = chosen;
-      if (chosen === 'soon' && steps.indexOf('client_categories') === -1) steps.push('client_categories');
-      goNext();
-    });
-  }
+    btnBack3.addEventListener('click', function () { goTo(2, true); });
 
-  // ---- Finish ----
-  async function finishOnboarding(){
-    stepContent.innerHTML = '<p class="step-sub" style="padding:2rem 0;">Saving your profile...</p>';
+    renderPicks();
 
-    const fieldsToSave = {};
-    ['avatar_url', 'city', 'phone', 'listing_categories', 'interested_categories', 'host_type', 'business_name', 'looking_timeline']
-      .forEach(function(key){
-        if (answers[key] !== undefined) fieldsToSave[key] = answers[key];
-      });
-
-    if (role === 'host') {
-      const nicheResponse = await fetch('/api/host/niches', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
-        body: JSON.stringify({ niches: answers.listing_categories })
-      });
-      if (!nicheResponse.ok) {
-        const payload = await nicheResponse.json().catch(function(){ return {}; });
-        stepContent.innerHTML = '<p class="field-msg error" style="padding:2rem 0;text-align:center;">' + (payload.error || 'Please choose exactly two niches before continuing.') + '</p>';
-        return;
-      }
-      delete fieldsToSave.listing_categories;
-    }
-
-    if (Object.keys(fieldsToSave).length > 0) {
-      const { error } = await supabaseClient.from('profiles').update(fieldsToSave).eq('id', user.id);
-      if (error) {
-        stepContent.innerHTML = '<p class="field-msg error" style="padding:2rem 0;text-align:center;">' + error.message + '</p>';
-        return;
-      }
-    }
-
-    await supabaseClient.rpc('complete_onboarding');
-
-    const initialDestination = role === 'host'
-      ? '/host-home'
-      : (answers.looking_timeline === 'soon' ? '/marketplace' : '/client-home');
-    window.location.href = postOnboardingRedirect || initialDestination;
-  }
-
-  // ---- Shared UI helpers ----
-  function iconCircle(pathContent){
-    return '<div class="icon-circle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + pathContent + '</svg></div>';
-  }
-
-  function reassureHtml(){
-    return '<p class="reassure"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>You can change this anytime in your profile.</p>';
-  }
-})();
+    // Preview helper (remove when wiring): ?step=2 or ?step=3 opens that card directly.
+    // Combine with the role, e.g. onboarding.html?step=3&role=client
+    var startStep = parseInt(new URLSearchParams(location.search).get('step'), 10);
+    goTo(startStep >= 1 && startStep <= TOTAL_STEPS ? startStep : 1, false);
+  })();
 </script>
-
 </body>
 </html>
