@@ -1026,6 +1026,10 @@
     /* ---------- Step 2 · Your details ---------- */
     var form    = document.getElementById('detailsForm');
     var btnBack = document.getElementById('btnBack');
+    var usernameHint = document.createElement('p');
+    usernameHint.setAttribute('role', 'alert');
+    usernameHint.style.cssText = 'display:none;margin:8px 0 0;color:var(--error);font-size:12px;line-height:1.45;text-align:left;';
+    document.getElementById('fieldUsername').insertAdjacentElement('afterend', usernameHint);
 
     var fields = [
       {
@@ -1033,7 +1037,7 @@
         wrap: document.getElementById('fieldUsername'),
         input: document.getElementById('inpUsername'),
         clean: function (v) { return v.trim().replace(/^@+/, ''); },
-        valid: function (v) { return /^[a-z0-9._]{3,20}$/i.test(v); },
+        valid: function (v) { return /^[a-z0-9._]{3,20}$/.test(v); },
         error: '3–20 letters, numbers, . or _'
       },
       {
@@ -1067,6 +1071,10 @@
     fields.forEach(function (f) {
       f.input.addEventListener('input', function () {
         if (f.wrap.classList.contains('is-invalid')) setInvalid(f, false);
+        if (f === fields[0]) {
+          usernameHint.textContent = '';
+          usernameHint.style.display = 'none';
+        }
       });
     });
 
@@ -1084,6 +1092,16 @@
       return '+' + digits;
     }
 
+    function showUsernameHint(message) {
+      usernameHint.textContent = message;
+      usernameHint.style.display = 'block';
+    }
+
+    function usernameSuggestion(value) {
+      var base = value.toLowerCase().replace(/[^a-z0-9._]/g, '').slice(0, 17) || 'user';
+      return base + '_01';
+    }
+
     form.addEventListener('submit', async function (e) {
       e.preventDefault();
 
@@ -1094,10 +1112,22 @@
         if (!ok && !firstBad) firstBad = f;
       });
 
-      if (firstBad) { firstBad.input.focus(); return; }
+      if (firstBad) {
+        if (firstBad === fields[0]) {
+          var enteredUsername = fields[0].clean(fields[0].input.value);
+          showUsernameHint('Username only allows lowercase letters, numbers, dots, and underscores (3–20 characters). Try "' + usernameSuggestion(enteredUsername) + '".');
+        }
+        firstBad.input.focus();
+        return;
+      }
 
       var details = getDetails();
       var usernameField = fields[0];
+      var normalizedUsername = details.username.toLowerCase();
+      details.username = normalizedUsername;
+      usernameField.input.value = normalizedUsername;
+      usernameHint.textContent = '';
+      usernameHint.style.display = 'none';
       try {
         var usernameCheck = await supabaseClient.from('profiles')
           .select('id')
@@ -1108,23 +1138,35 @@
         if (usernameCheck.data && usernameCheck.data.length) {
           usernameField.error = 'Username already taken';
           setInvalid(usernameField, true);
+          showUsernameHint('Username "' + normalizedUsername + '" already exists. Try "' + usernameSuggestion(normalizedUsername) + '" instead.');
           usernameField.input.focus();
           return;
         }
 
         var detailsResult = await supabaseClient.from('profiles').update({
-          username: details.username,
+          username: normalizedUsername,
           phone: normalisePhone(details.phone),
           city: details.city
         }).eq('id', user.id);
         if (detailsResult.error) throw detailsResult.error;
-        profile.username = details.username;
+        profile.username = normalizedUsername;
         profile.phone = normalisePhone(details.phone);
         profile.city = details.city;
         goTo(3, true);
       } catch (error) {
-        usernameField.error = error.message || 'Could not save your details';
-        setInvalid(usernameField, true);
+        if (error.code === '23514' || /username_format/i.test(error.message || '')) {
+          usernameField.error = 'Use a valid username';
+          setInvalid(usernameField, true);
+          showUsernameHint('Username only allows lowercase letters, numbers, dots, and underscores (3–20 characters). Try "' + usernameSuggestion(normalizedUsername) + '".');
+        } else if (error.code === '23505' || /unique/i.test(error.message || '')) {
+          usernameField.error = 'Username already taken';
+          setInvalid(usernameField, true);
+          showUsernameHint('Username "' + normalizedUsername + '" already exists. Try "' + usernameSuggestion(normalizedUsername) + '" instead.');
+        } else {
+          usernameField.error = 'Could not save your details';
+          setInvalid(usernameField, true);
+          showUsernameHint('We could not save your details. Please check them and try again.');
+        }
         usernameField.input.focus();
       }
     });
