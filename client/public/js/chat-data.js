@@ -470,36 +470,7 @@
         }));
       });
       item.addEventListener('click', (event) => {
-        if (event.target.closest('.contact-avatar-link')) {
-          event.stopPropagation();
-          state.activeId = conversation.id;
-          renderProfile(conversation);
-          api(`/api/chat/conversations/${encodeURIComponent(conversation.id)}/messages`)
-            .then((result) => renderInfoAttachments(result.messages || []))
-            .catch((error) => console.error('Unable to load contact information:', error));
-          showMobileInfo('inbox');
-          return;
-        }
         selectConversation(conversation.id);
-      });
-      const avatarLink = item.querySelector('.avatar-wrap');
-      if (conversation.isElie) {
-        avatarLink.removeAttribute('role'); avatarLink.removeAttribute('tabindex');
-        avatarLink.removeAttribute('aria-label');
-      }
-      avatarLink.classList.add('contact-avatar-link');
-      avatarLink.setAttribute('role', 'button');
-      avatarLink.setAttribute('tabindex', '0');
-      avatarLink.setAttribute('aria-label', `Open information for ${person.full_name || person.username || 'contact'}`);
-      avatarLink.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault();
-          avatarLink.click();
-        }
-      });
-      item.querySelector('.avatar-fallback').addEventListener('click', (event) => {
-        event.stopPropagation();
-        if (!conversation.isElie) selectConversation(conversation.id).then(() => showMobileInfo());
       });
       list.appendChild(item);
     });
