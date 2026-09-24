@@ -154,6 +154,7 @@ function ReviewCard({ review }) {
 export default function PublicHostProfile() {
   const router = useRouter();
   const [tab, setTab] = useState("listings");
+  const [isSignInPromptOpen, setIsSignInPromptOpen] = useState(false);
   const [host, setHost] = useState({
     name: "",
     handle: "",
@@ -370,6 +371,7 @@ export default function PublicHostProfile() {
 
   return (
     <div
+      className="public-profile-shell"
       style={{
         minHeight: "100vh",
         background: "#000000",
@@ -383,6 +385,7 @@ export default function PublicHostProfile() {
       {/* Sidebar — sign-in only. No account creation, no app tools.    */}
       {/* ------------------------------------------------------------- */}
       <aside
+        className="desktop-sign-in-rail"
         style={{
           width: 240,
           flexShrink: 0,
@@ -453,9 +456,10 @@ export default function PublicHostProfile() {
       {/* ------------------------------------------------------------- */}
       {/* Main profile                                                   */}
       {/* ------------------------------------------------------------- */}
-      <main style={{ flex: 1, padding: "24px 32px 64px" }}>
+      <main className="public-profile-main" style={{ flex: 1, padding: "24px 32px 64px" }}>
         {/* Header — compact, single row, no dashboard-style padding */}
         <div
+          className="public-profile-header"
           style={{
             display: "flex",
             alignItems: "center",
@@ -521,10 +525,18 @@ export default function PublicHostProfile() {
               </span>
             </div>
           </div>
+          <button
+            type="button"
+            className="mobile-message-button"
+            onClick={() => setIsSignInPromptOpen(true)}
+          >
+            Message
+          </button>
         </div>
 
         {/* Tabs */}
         <div
+          className="public-profile-tabs"
           style={{
             display: "flex",
             gap: 28,
@@ -558,6 +570,7 @@ export default function PublicHostProfile() {
         {/* Tab content */}
         {tab === "listings" ? (
           <div
+            className="public-profile-listings"
             style={{
               display: "grid",
               gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
@@ -570,13 +583,147 @@ export default function PublicHostProfile() {
             ))}
           </div>
         ) : (
-          <div style={{ marginTop: 8, maxWidth: 560, marginLeft: "auto", marginRight: "auto" }}>
+          <div className="public-profile-reviews" style={{ marginTop: 8, maxWidth: 560, marginLeft: "auto", marginRight: "auto" }}>
             {reviews.map((r) => (
               <ReviewCard key={r.id} review={r} />
             ))}
           </div>
         )}
       </main>
+
+      {isSignInPromptOpen && (
+        <div
+          className="mobile-sign-in-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="mobile-sign-in-title"
+          onClick={() => setIsSignInPromptOpen(false)}
+        >
+          <div className="mobile-sign-in-modal" onClick={(event) => event.stopPropagation()}>
+            <button
+              type="button"
+              className="mobile-sign-in-close"
+              aria-label="Close sign-in prompt"
+              onClick={() => setIsSignInPromptOpen(false)}
+            >
+              ×
+            </button>
+            <h2 id="mobile-sign-in-title">Sign in to message {host.name.split(" ")[0]}</h2>
+            <p>You'll come right back to this profile once you're signed in.</p>
+            <button type="button" className="mobile-sign-in-option" onClick={signIn}>
+              <GoogleIcon /> Continue with Google
+            </button>
+            <button type="button" className="mobile-sign-in-option" onClick={signIn}>
+              <Mail size={16} /> Continue with Email
+            </button>
+          </div>
+        </div>
+      )}
+
+      <style jsx global>{`
+        .public-profile-shell { overflow-x: hidden; }
+        .mobile-message-button, .mobile-sign-in-overlay { display: none; }
+
+        @media (max-width: 700px) {
+          html, body { max-width: 100%; overflow-x: hidden; }
+          .public-profile-shell, .public-profile-shell * { box-sizing: border-box; }
+          .public-profile-shell {
+            display: block !important;
+            width: 100%;
+            min-width: 0;
+            min-height: 100dvh !important;
+          }
+          .desktop-sign-in-rail { display: none !important; }
+          .public-profile-main {
+            width: 100%;
+            min-width: 0;
+            padding: 20px 16px 40px !important;
+          }
+          .public-profile-header { gap: 12px !important; padding-bottom: 14px !important; }
+          .public-profile-header img { width: 52px !important; height: 52px !important; }
+          .public-profile-header h1 { font-size: 16px !important; }
+          .mobile-message-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-left: auto;
+            flex-shrink: 0;
+            padding: 8px 12px;
+            border: 1px solid #3A3A3A;
+            border-radius: 999px;
+            background: #111;
+            color: #F2F2F2;
+            font: inherit;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+          }
+          .public-profile-tabs { gap: 0 !important; justify-content: space-between; margin-top: 16px !important; }
+          .public-profile-tabs button { font-size: 12.5px !important; white-space: nowrap; }
+          .public-profile-listings {
+            grid-template-columns: minmax(0, 1fr) !important;
+            gap: 14px !important;
+            margin-top: 18px !important;
+          }
+          .public-profile-listings > * { min-width: 0; width: 100%; }
+          .public-profile-listings video, .public-profile-listings img { max-width: 100%; }
+          .public-profile-reviews { width: 100%; max-width: none !important; margin-top: 6px !important; }
+          .mobile-sign-in-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 1000;
+            display: flex;
+            align-items: flex-end;
+            padding: 16px;
+            background: rgba(0, 0, 0, .68);
+          }
+          .mobile-sign-in-modal {
+            position: relative;
+            width: 100%;
+            max-width: 480px;
+            margin: 0 auto;
+            padding: 24px 20px 20px;
+            border: 1px solid #2A2A2A;
+            border-radius: 18px;
+            background: #111;
+            color: #F2F2F2;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, .45);
+          }
+          .mobile-sign-in-modal h2 { margin: 0 28px 8px 0; font-size: 18px; line-height: 1.3; }
+          .mobile-sign-in-modal p { margin: 0 0 18px; color: #A8A8A8; font-size: 13px; line-height: 1.5; }
+          .mobile-sign-in-close {
+            position: absolute;
+            top: 10px;
+            right: 12px;
+            width: 32px;
+            height: 32px;
+            border: 0;
+            border-radius: 50%;
+            background: transparent;
+            color: #F2F2F2;
+            font-size: 26px;
+            line-height: 1;
+            cursor: pointer;
+          }
+          .mobile-sign-in-option {
+            display: flex;
+            width: 100%;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 10px;
+            padding: 12px;
+            border: 1px solid #3A3A3A;
+            border-radius: 999px;
+            background: #0A0A0A;
+            color: #F2F2F2;
+            font: inherit;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+          }
+        }
+      `}</style>
     </div>
   );
 }
