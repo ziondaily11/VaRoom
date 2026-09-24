@@ -855,18 +855,28 @@
     if (selectionGeneration !== state.selectionGeneration || state.activeId !== id) return;
     const channelGeneration = ++state.channelGeneration;
     const channel = window.supabaseClient.channel(`chat:${id}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${id}` }, (payload) => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${id}` }, async (payload) => {
         if (selectionGeneration !== state.selectionGeneration
           || channelGeneration !== state.channelGeneration
           || state.activeId !== id) return;
         const current = $('.messages');
-        const message = payload.new;
-        if (current.querySelector(`[data-message-id="${message.id}"]`)) return;
-        const previousRow = current.lastElementChild;
-        const row = messageRow(message);
-        if (previousRow && previousRow.classList.contains(message.sender_id === state.session.user.id ? 'out' : 'in')) row.classList.add('same-sender');
-        current.appendChild(row); current.scrollTop = current.scrollHeight;
-        updateConversationPreview(message);
+        const messageId = payload.new && payload.new.id;
+        if (!messageId || current.querySelector(`[data-message-id="${messageId}"]`)) return;
+        try {
+          const result = await api(`/api/chat/conversations/${encodeURIComponent(id)}/messages`);
+          if (selectionGeneration !== state.selectionGeneration
+            || channelGeneration !== state.channelGeneration
+            || state.activeId !== id) return;
+          const message = (result.messages || []).find((item) => item.id === messageId);
+          if (!message || current.querySelector(`[data-message-id="${message.id}"]`)) return;
+          const previousRow = current.lastElementChild;
+          const row = messageRow(message);
+          if (previousRow && previousRow.classList.contains(message.sender_id === state.session.user.id ? 'out' : 'in')) row.classList.add('same-sender');
+          current.appendChild(row); current.scrollTop = current.scrollHeight;
+          updateConversationPreview(message);
+        } catch (error) {
+          console.error('Unable to load new chat message:', error);
+        }
       })
       .on('presence', { event: 'sync' }, () => {
         if (selectionGeneration !== state.selectionGeneration
