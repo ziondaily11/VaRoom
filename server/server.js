@@ -1,6 +1,7 @@
 require('dotenv').config();
 
 const express = require('express');
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const supabaseAdmin = require('./lib/supabaseClient');
@@ -23,6 +24,11 @@ const { permanentlyDeleteAccount } = require('./lib/accountDeletionService');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const ACCOUNT_VERIFICATION_COOKIE = 'varoom_account_verification';
+const ACCOUNT_VERIFICATION_TTL_MS = 10 * 60 * 1000;
+// This is deliberately server-only. It binds an OAuth return to the VaRoom
+// user who started the sensitive-account-information verification.
+const ACCOUNT_VERIFICATION_STATE_SECRET = process.env.ACCOUNT_VERIFICATION_STATE_SECRET;
 const PROPERTY_NEWS_API_URL = (process.env.PROPERTY_NEWS_API_URL || '').replace(/\/$/, '');
 const VIDEO_CLEANUP_INTERVAL_MS = Math.max(
   1,
@@ -74,6 +80,114 @@ const legacyPagesDirectory = path.join(clientDirectory, 'legacy-pages');
 app.use(express.static(path.join(clientDirectory, 'public')));
 
 app.use('/admin', createAdminRoutes(supabaseAdmin));
+
+function bearerToken(req) {
+  const authHeader = req.headers.authorization || '';
+  return authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+}
+
+function readCookie(req, name) {
+  const prefix = `${name}=`;
+  const cookie = String(req.headers.cookie || '').split(';').map((value) => value.trim()).find((value) => value.startsWith(prefix));
+  return cookie ? decodeURIComponent(cookie.slice(prefix.length)) : null;
+}
+
+function signAccountVerificationState(payload) {
+  const encoded = Buffer.from(JSON.stringify(payload)).toString('base64url');
+  const signature = crypto.createHmac('sha256', ACCOUNT_VERIFICATION_STATE_SECRET).update(encoded).digest('base64url');
+  return `${encoded}.${signature}`;
+}
+
+function verifyAccountVerificationState(value) {
+  if (!value || !ACCOUNT_VERIFICATION_STATE_SECRET) return null;
+  const [encoded, signature] = value.split('.');
+  if (!encoded || !signature) return null;
+  const expected = crypto.createHmac('sha256', ACCOUNT_VERIFICATION_STATE_SECRET).update(encoded).digest('base64url');
+  const valid = signature.length === expected.length && crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
+  if (!valid) return null;
+  try {
+    const payload = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8'));
+    return payload && payload.userId && payload.expiresAt > Date.now() ? payload : null;
+  } catch (_error) {
+    return null;
+  }
+}
+
+function issuedAt(token) {
+  try {
+    const parts = String(token || '').split('.');
+    const claims = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+    return Number.isInteger(claims.iat) ? claims.iat : null;
+  } catch (_error) {
+    return null;
+  }
+}
+
+function hasPasswordProvider(user) {
+  const providers = user && user.app_metadata && Array.isArray(user.app_metadata.providers)
+    ? user.app_metadata.providers
+    : [];
+  return providers.includes('email');
+}
+
+function hasGoogleProvider(user) {
+  const providers = user && user.app_metadata && Array.isArray(user.app_metadata.providers)
+    ? user.app_metadata.providers
+    : [];
+  return providers.includes('google');
+}
+
+async function getAuthenticatedUser(req) {
+  const token = bearerToken(req);
+  if (!token) return null;
+  const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
+  return error ? null : user;
+}
+
+// These endpoints only issue and consume a short-lived signed server state.
+// A successful browser OAuth callback alone is never enough to unlock data:
+// the returned Google-authenticated Supabase user must be the same user that
+// initiated verification, and that user must be Google-only.
+app.get('/api/account-information/google-verification/eligibility', async (req, res) => {
+  const user = await getAuthenticatedUser(req);
+  if (!user) return sendError(res, 401, 'Invalid or expired session', ERROR_CODES.UNAUTHORIZED);
+  return res.json({ eligible: hasGoogleProvider(user) && !hasPasswordProvider(user) });
+});
+
+app.post('/api/account-information/google-verification/start', async (req, res) => {
+  const user = await getAuthenticatedUser(req);
+  if (!user) return sendError(res, 401, 'Invalid or expired session', ERROR_CODES.UNAUTHORIZED);
+  if (!hasGoogleProvider(user) || hasPasswordProvider(user)) return sendError(res, 403, 'Google verification is not available for this account', ERROR_CODES.UNAUTHORIZED);
+  if (!ACCOUNT_VERIFICATION_STATE_SECRET) return sendError(res, 503, 'Account verification is temporarily unavailable');
+
+  const state = signAccountVerificationState({
+    userId: user.id,
+    // A session created before the OAuth prompt cannot consume this state.
+    // OAuth must issue a fresh authenticated session before the account opens.
+    notBefore: Math.floor(Date.now() / 1000) + 1,
+    expiresAt: Date.now() + ACCOUNT_VERIFICATION_TTL_MS,
+    nonce: crypto.randomBytes(16).toString('hex')
+  });
+  res.cookie(ACCOUNT_VERIFICATION_COOKIE, state, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: ACCOUNT_VERIFICATION_TTL_MS,
+    path: '/api/account-information/google-verification'
+  });
+  return res.json({ success: true });
+});
+
+app.post('/api/account-information/google-verification/complete', async (req, res) => {
+  const state = verifyAccountVerificationState(readCookie(req, ACCOUNT_VERIFICATION_COOKIE));
+  res.clearCookie(ACCOUNT_VERIFICATION_COOKIE, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/api/account-information/google-verification' });
+  const token = bearerToken(req);
+  const user = await getAuthenticatedUser(req);
+  if (!state || !user || !token || issuedAt(token) === null || issuedAt(token) < state.notBefore || state.userId !== user.id || !hasGoogleProvider(user) || hasPasswordProvider(user)) {
+    return sendError(res, 403, 'The Google account does not match this VaRoom account', ERROR_CODES.UNAUTHORIZED);
+  }
+  return res.json({ verified: true });
+});
 
 // A narrow authenticated read endpoint keeps account_controls private while
 // allowing the normal home experience to explain browse-only suspension.

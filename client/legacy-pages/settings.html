@@ -735,6 +735,11 @@
                   </div>
                   <button type="submit" class="btn btn-danger btn-block" id="verify-account-submit-btn">Continue</button>
                 </form>
+                <div id="verify-account-google-option" style="display:none; margin-top:1rem;">
+                  <p style="font-size:.82rem; color:var(--muted); text-align:center; margin-bottom:.75rem;">or verify with the Google account linked to VaRoom</p>
+                  <button type="button" class="btn btn-block" id="verify-account-google-btn">Verify with Google</button>
+                  <p class="inline-msg error" id="verify-account-google-error" style="display:none; margin-top:.5rem;"></p>
+                </div>
               </div>
             </div>
           </div>
@@ -1069,10 +1074,53 @@
     const settingsSkeleton = document.getElementById('settings-skeleton');
     let currentUser = null;
     let currentRole = null;
+    let accountGoogleVerificationSucceeded = false;
 
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (!session) { window.location.href = '/login'; return; }
     currentUser = session.user;
+
+    // Google returns to this same settings screen. The server consumes a
+    // short-lived, HttpOnly state cookie and confirms that the Google user is
+    // the same VaRoom user who started this sensitive-data verification.
+    const accountVerificationParams = new URLSearchParams(window.location.search);
+    if (accountVerificationParams.get('account_verification') === 'google') {
+      const savedSessionJson = sessionStorage.getItem('varoom_account_verification_session');
+      try {
+        const verificationResponse = await fetch('/api/account-information/google-verification/complete', {
+          method: 'POST',
+          headers: { Authorization: 'Bearer ' + session.access_token }
+        });
+        const verificationResult = await verificationResponse.json().catch(function(){ return {}; });
+        if (!verificationResponse.ok || !verificationResult.verified) {
+          // Choosing another Google identity can replace the browser session.
+          // Restore the account that started the flow before keeping it locked.
+          const savedSession = savedSessionJson ? JSON.parse(savedSessionJson) : null;
+          if (savedSession && savedSession.access_token && savedSession.refresh_token) {
+            await supabaseClient.auth.setSession(savedSession);
+            const restored = await supabaseClient.auth.getSession();
+            currentUser = restored.data.session ? restored.data.session.user : currentUser;
+            if (!restored.data.session) {
+              await supabaseClient.auth.signOut({ scope: 'local' });
+              window.location.href = '/login?account_verification=failed';
+              return;
+            }
+          } else {
+            await supabaseClient.auth.signOut({ scope: 'local' });
+            window.location.href = '/login?account_verification=failed';
+            return;
+          }
+          sessionStorage.setItem('varoom_account_verification_error', verificationResult.error || 'The Google account does not match this VaRoom account.');
+        } else {
+          accountGoogleVerificationSucceeded = true;
+        }
+      } catch (_error) {
+        sessionStorage.setItem('varoom_account_verification_error', 'Google verification could not be completed. Please try again.');
+      } finally {
+        sessionStorage.removeItem('varoom_account_verification_session');
+        window.history.replaceState({}, document.title, '/settings');
+      }
+    }
 
     const { data: profile, error: profileError } = await supabaseClient
       .from('profiles')
@@ -1371,7 +1419,7 @@
     toggleExpand('help-row', 'help-panel');
 
     // ---------- Your Account: Password verification & protected mount ----------
-    let isAccountVerified = false;
+    let isAccountVerified = accountGoogleVerificationSucceeded;
     let pendingOpenPasswordPanel = false;
 
     function revealAccountContent(){
@@ -1471,6 +1519,32 @@
       const submitBtn = document.getElementById('verify-account-submit-btn');
       const errorMsg = document.getElementById('verify-account-error');
       const toggleBtn = document.getElementById('toggle-verify-pwd-btn');
+      const googleOption = document.getElementById('verify-account-google-option');
+      const googleBtn = document.getElementById('verify-account-google-btn');
+      const googleError = document.getElementById('verify-account-google-error');
+
+      // Eligibility is decided by the server from the authenticated user's
+      // Supabase providers. The button is only an affordance; the server
+      // independently enforces this again when the flow starts and completes.
+      (async function(){
+        try {
+          const { data: { session } } = await supabaseClient.auth.getSession();
+          if (!session) return;
+          const response = await fetch('/api/account-information/google-verification/eligibility', {
+            headers: { Authorization: 'Bearer ' + session.access_token }
+          });
+          const result = await response.json().catch(function(){ return {}; });
+          if (response.ok && result.eligible && googleOption) googleOption.style.display = 'block';
+        } catch (_error) {}
+      })();
+
+      const pendingGoogleError = sessionStorage.getItem('varoom_account_verification_error');
+      if (pendingGoogleError && googleError) {
+        sessionStorage.removeItem('varoom_account_verification_error');
+        googleError.textContent = pendingGoogleError;
+        googleError.style.display = 'block';
+        if (googleOption) googleOption.style.display = 'block';
+      }
 
       if (toggleBtn && pwdInput) {
         toggleBtn.addEventListener('click', function(){
@@ -1532,9 +1606,48 @@
           }
         });
       }
+
+      if (googleBtn) {
+        googleBtn.addEventListener('click', async function(){
+          googleBtn.disabled = true;
+          googleBtn.textContent = 'Starting Google verification...';
+          if (googleError) googleError.style.display = 'none';
+          try {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (!session) throw new Error('Your session has expired. Please sign in again.');
+            const startResponse = await fetch('/api/account-information/google-verification/start', {
+              method: 'POST',
+              headers: { Authorization: 'Bearer ' + session.access_token }
+            });
+            const startResult = await startResponse.json().catch(function(){ return {}; });
+            if (!startResponse.ok) throw new Error(startResult.error || 'Could not start Google verification.');
+
+            // Retained only to put the original account back if Google returns
+            // a different identity. It never authorizes the unlock.
+            sessionStorage.setItem('varoom_account_verification_session', JSON.stringify({
+              access_token: session.access_token,
+              refresh_token: session.refresh_token
+            }));
+            const { error } = await supabaseClient.auth.signInWithOAuth({
+              provider: 'google',
+              options: { redirectTo: window.location.origin + '/settings?account_verification=google' }
+            });
+            if (error) throw error;
+          } catch (error) {
+            if (googleError) {
+              googleError.textContent = error.message || 'Google verification could not be started. Please try again.';
+              googleError.style.display = 'block';
+            }
+            googleBtn.disabled = false;
+            googleBtn.textContent = 'Verify with Google';
+          }
+        });
+      }
     }
 
     setupAccountVerification();
+
+    if (isAccountVerified) revealAccountContent();
 
     document.getElementById('go-to-password').addEventListener('click', function(e){
       e.preventDefault();
