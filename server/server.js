@@ -28,7 +28,10 @@ const ACCOUNT_VERIFICATION_COOKIE = 'varoom_account_verification';
 const ACCOUNT_VERIFICATION_TTL_MS = 10 * 60 * 1000;
 // This is deliberately server-only. It binds an OAuth return to the VaRoom
 // user who started the sensitive-account-information verification.
-const ACCOUNT_VERIFICATION_STATE_SECRET = process.env.ACCOUNT_VERIFICATION_STATE_SECRET;
+// Prefer a dedicated secret. Existing deployments already require the admin
+// session secret, which is also server-only and suitable as a safe fallback
+// until the dedicated setting is added.
+const ACCOUNT_VERIFICATION_STATE_SECRET = process.env.ACCOUNT_VERIFICATION_STATE_SECRET || process.env.ADMIN_SESSION_SECRET;
 const PROPERTY_NEWS_API_URL = (process.env.PROPERTY_NEWS_API_URL || '').replace(/\/$/, '');
 const VIDEO_CLEANUP_INTERVAL_MS = Math.max(
   1,
