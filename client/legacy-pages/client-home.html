@@ -1140,12 +1140,16 @@
 
     const { data: profile } = await supabaseClient
       .from('profiles')
-      .select('role, full_name, avatar_url, interested_categories, looking_timeline')
+      .select('role, full_name, avatar_url, interested_categories, looking_timeline, onboarding_completed')
       .eq('id', currentUser.id)
       .maybeSingle();
 
     if (!profile) {
       window.location.href = '/login';
+      return;
+    }
+    if (!profile.onboarding_completed) {
+      window.location.href = '/onboarding';
       return;
     }
     // Do not hold cached Discover cards behind this secondary account check.

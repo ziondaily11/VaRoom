@@ -1206,11 +1206,12 @@
 
     const { data: profile } = await supabaseClient
       .from('profiles')
-      .select('role, full_name, verified, avatar_url, username')
+      .select('role, full_name, verified, avatar_url, username, onboarding_completed')
       .eq('id', currentUser.id)
       .maybeSingle();
 
     if (!profile) { window.location.href = '/login'; return; }
+    if (!profile.onboarding_completed) { window.location.href = '/onboarding'; return; }
     if (profile.role === 'client') { window.location.href = '/client-home'; return; }
     // Account status is not part of the listing-cache key. Keep it in the
     // background so a return to Home is not delayed by this API request.

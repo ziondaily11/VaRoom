@@ -122,6 +122,7 @@
   var supabaseWaitAttempts = 0;
   function waitForSupabase() {
     if (window.supabaseClient && window.supabaseClient.auth) {
+      watchAuthentication();
       mount();
       return;
     }
@@ -152,18 +153,37 @@
       if (!session) return;
       var profileResult = await window.supabaseClient
         .from('profiles')
-        .select('role')
+        .select('role, onboarding_completed')
         .eq('id', session.user.id)
         .maybeSingle();
       if (profileResult.error) throw profileResult.error;
       var role = profileResult.data && profileResult.data.role;
-      if (role !== 'host' && role !== 'client') {
-        throw new Error('Unable to determine authenticated VaRoom role');
+      if ((role !== 'host' && role !== 'client') ||
+          !profileResult.data.onboarding_completed) {
+        document.querySelectorAll('.varoom-mobile-nav').forEach(function (bar) {
+          bar.remove();
+        });
+        return;
       }
       render(role);
     } catch (error) {
       console.error('Mobile navigation role resolution failed:', error);
     }
+  }
+
+  function watchAuthentication() {
+    if (!window.supabaseClient || !window.supabaseClient.auth ||
+        window.VaroomMobileNavAuthSubscription) return;
+    var subscriptionResult = window.supabaseClient.auth.onAuthStateChange(function (event) {
+      if (event === 'SIGNED_OUT' || event === 'SIGNED_IN') {
+        document.querySelectorAll('.varoom-mobile-nav').forEach(function (bar) {
+          bar.remove();
+        });
+      }
+    });
+    window.VaroomMobileNavAuthSubscription = subscriptionResult && subscriptionResult.data
+      ? subscriptionResult.data.subscription
+      : null;
   }
 
   window.VaroomMobileNav = { mount: mount };
