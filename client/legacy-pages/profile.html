@@ -439,10 +439,6 @@
       <label>Username</label>
       <input type="text" id="edit-username" placeholder="e.g. ziondaily" />
     </div>
-    <div class="modal-field">
-      <label>Phone</label>
-      <input type="tel" id="edit-phone" placeholder="07XX XXX XXX" />
-    </div>
     <div class="modal-field" id="edit-bio-field">
       <label>Bio</label>
       <textarea id="edit-bio" placeholder="Tell people a bit about yourself…" maxlength="200"></textarea>
@@ -450,10 +446,6 @@
     <div class="modal-field">
       <label>City</label>
       <input type="text" id="edit-location" placeholder="e.g. Nairobi, Kenya" />
-    </div>
-    <div class="modal-field" id="edit-niches-field" style="display:none;">
-      <label>Posting niches <span style="font-weight:400;color:var(--muted);">(choose exactly 2)</span></label>
-      <div id="edit-niches-options" style="display:grid;gap:.45rem;margin-top:.35rem;"></div>
     </div>
     <div class="modal-actions">
       <button type="button" class="modal-cancel" id="edit-cancel">Cancel</button>
@@ -986,28 +978,13 @@
   function openEditModal(){
     document.getElementById('edit-fullname').value = profileData.full_name || '';
     document.getElementById('edit-username').value = profileData.username || '';
-    document.getElementById('edit-phone').value = profileData.phone || '';
     document.getElementById('edit-bio').value = currentRole === 'host' ? (profileData.bio || '') : '';
+    document.getElementById('edit-bio-field').style.display = currentRole === 'host' ? 'block' : 'none';
     document.getElementById('edit-location').value = profileData.city || '';
-    const nicheField = document.getElementById('edit-niches-field');
-    const nicheOptions = document.getElementById('edit-niches-options');
-    nicheField.style.display = currentRole === 'host' ? 'block' : 'none';
-    if (currentRole === 'host') {
-      const labels = { airbnb:'Airbnb', hotel:'Hotel', venue:'Event ground / venue', office:'Office', shop:'Shop', property:'Property to let or buy' };
-      const selected = Array.isArray(profileData.listing_categories) ? profileData.listing_categories : [];
-      nicheOptions.innerHTML = Object.keys(labels).map(function(value){ return '<label><input type="checkbox" value="' + value + '"' + (selected.includes(value) ? ' checked' : '') + '> ' + labels[value] + '</label>'; }).join('');
-      nicheOptions.querySelectorAll('input').forEach(function(input){ input.addEventListener('change', function(){
-        const checked = nicheOptions.querySelectorAll('input:checked');
-        if (checked.length > 2) { input.checked = false; showToast('Hosts can select exactly two niches.'); }
-      }); });
-    }
     document.getElementById('edit-msg').textContent = '';
     document.getElementById('edit-modal').classList.add('open');
   }
   document.getElementById('edit-profile-btn').addEventListener('click', openEditModal);
-  if (isOwner && currentRole === 'host' && new URLSearchParams(window.location.search).get('select-niches') === '1') {
-    openEditModal();
-  }
 
   document.getElementById('edit-cancel').addEventListener('click', function(){
     document.getElementById('edit-modal').classList.remove('open');
@@ -1059,7 +1036,6 @@
     const btn = this;
     const fullName = document.getElementById('edit-fullname').value.trim();
     const username = document.getElementById('edit-username').value.trim();
-    const phone    = document.getElementById('edit-phone').value.trim();
     const bio      = document.getElementById('edit-bio').value.trim();
     const location = document.getElementById('edit-location').value.trim();
 
@@ -1070,18 +1046,9 @@
     const update = {
       full_name: fullName,
       username: username || null,
-      phone: phone || null,
       city: location || null
     };
     if (currentRole === 'host') update.bio = bio || null;
-    if (currentRole === 'host') {
-      const niches = Array.from(document.querySelectorAll('#edit-niches-options input:checked')).map(function(input){ return input.value; });
-      if (niches.length !== 2) { showToast('Choose exactly two posting niches.'); btn.disabled = false; btn.textContent = 'Save changes'; return; }
-      const { data: { session } } = await supabaseClient.auth.getSession();
-      const response = await fetch('/api/host/niches', { method:'PUT', headers:{ 'Content-Type':'application/json', Authorization:'Bearer ' + session.access_token }, body:JSON.stringify({ niches:niches }) });
-      if (!response.ok) { const payload = await response.json().catch(function(){ return {}; }); showToast(payload.error || 'Unable to save niches.'); btn.disabled = false; btn.textContent = 'Save changes'; return; }
-      profileData.listing_categories = niches;
-    }
     const { error } = await supabaseClient.from('profiles').update(update).eq('id', currentUser.id);
 
     btn.disabled = false; btn.textContent = 'Save changes';
@@ -1090,7 +1057,6 @@
 
     profileData.full_name = fullName;
     profileData.username  = username || null;
-    profileData.phone     = phone || null;
     if (currentRole === 'host') profileData.bio = bio || null;
     profileData.city      = location || null;
 
