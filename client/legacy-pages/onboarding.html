@@ -100,13 +100,6 @@
   .content[hidden] { display: none; }
   .content--details #btnSkip2 { display: none; }
 
-  /* Keep every onboarding step on one solid surface. This selector is scoped
-     tightly enough to win over the shared dark-theme `.content` override. */
-  html[data-theme] .screen,
-  html[data-theme] .screen .content {
-    background: #000 !important;
-  }
-
   .content--photo {
     grid-template-rows: auto 1fr auto;
     grid-template-areas: "copy" "avatar" "actions";
@@ -614,6 +607,26 @@
     .btn-pill { height: 50px; }
     .chip { height: 44px; }
     .screen { padding-top: calc(env(safe-area-inset-top, 0px) + 18px); padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 18px); }
+  }
+
+  /* Mobile onboarding is one continuous canvas. The app shell's shared dark
+     surface must not show around, or behind, an individual onboarding step. */
+  @media (max-width: 899px) {
+    html,
+    body,
+    #__next,
+    html[data-theme] body,
+    html[data-theme] body > #__next,
+    html[data-theme] body > #__next > main,
+    html[data-theme] .screen {
+      background: #000 !important;
+    }
+
+    html[data-theme] .screen .content {
+      background: transparent !important;
+    }
+
+    .screen::before { display: none; }
   }
 
   /* ---------- Motion: one quiet load-in, nothing else ---------- */
