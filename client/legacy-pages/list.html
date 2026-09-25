@@ -873,18 +873,27 @@
     const neighborhood = document.getElementById('location_neighborhood').value;
     const amount = document.getElementById('price-amount').value;
 
-    document.getElementById('review-title').textContent = title;
-    document.getElementById('review-meta').textContent =
-      [CATEGORY_LABELS[category] || 'Listing', [neighborhood, city].filter(Boolean).join(', ') || city].filter(Boolean).join(' · ');
-    document.getElementById('review-price').textContent = amount
-      ? 'KES ' + Number(amount).toLocaleString() + unitLabel()
-      : 'Price not set';
+    const reviewTitle = document.getElementById('review-title');
+    const reviewMeta = document.getElementById('review-meta');
+    const reviewPrice = document.getElementById('review-price');
+    if (reviewTitle) reviewTitle.textContent = title;
+    if (reviewMeta) {
+      reviewMeta.textContent =
+        [CATEGORY_LABELS[category] || 'Listing', [neighborhood, city].filter(Boolean).join(', ') || city].filter(Boolean).join(' · ');
+    }
+    if (reviewPrice) {
+      reviewPrice.textContent = amount
+        ? 'KES ' + Number(amount).toLocaleString() + unitLabel()
+        : 'Price not set';
+    }
 
     const locationLine = document.getElementById('review-location-line');
     const hasLocation = document.getElementById('location_lat').value && document.getElementById('location_lng').value;
-    locationLine.innerHTML = hasLocation
-      ? '<span class="check">✓</span> Location pinned and ready for GPS verification'
-      : '<span class="check" style="color:var(--red)">!</span> Location skipped — add it later from your listing settings';
+    if (locationLine) {
+      locationLine.innerHTML = hasLocation
+        ? '<span class="check">✓</span> Location pinned and ready for GPS verification'
+        : '<span class="check" style="color:var(--red)">!</span> Location skipped — add it later from your listing settings';
+    }
 
     const thumbSlot = document.getElementById('review-thumb');
     const heroPhoto = document.getElementById('review-hero-photo');
@@ -894,32 +903,40 @@
     const priceLine = amount ? ('KES ' + Number(amount).toLocaleString() + unitLabel()) : 'Price not set';
 
     if (selectedFiles.length > 0) {
-      thumbSlot.classList.remove('placeholder');
+      if (thumbSlot) thumbSlot.classList.remove('placeholder');
       const coverFile = selectedFiles[0];
       const coverUrl = URL.createObjectURL(coverFile);
       const isVideo = coverFile.type && coverFile.type.startsWith('video/');
 
       if (isVideo) {
-        thumbSlot.innerHTML = '<video src="' + coverUrl + '" autoplay muted loop playsinline style="width:100%;height:100%;object-fit:cover;border-radius:10px;display:block;"></video>';
-        heroPhoto.innerHTML = '<video src="' + coverUrl + '" autoplay muted loop playsinline style="width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block;"></video>';
-        heroPhoto.style.backgroundImage = 'none';
+        if (thumbSlot) thumbSlot.innerHTML = '<video src="' + coverUrl + '" autoplay muted loop playsinline style="width:100%;height:100%;object-fit:cover;border-radius:10px;display:block;"></video>';
+        if (heroPhoto) {
+          heroPhoto.innerHTML = '<video src="' + coverUrl + '" autoplay muted loop playsinline style="width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block;"></video>';
+          heroPhoto.style.backgroundImage = 'none';
+        }
       } else {
-        thumbSlot.innerHTML = '<img src="' + coverUrl + '" alt="Cover photo" style="width:100%;height:100%;object-fit:cover;border-radius:10px;">';
-        heroPhoto.innerHTML = '';
-        heroPhoto.style.backgroundImage = "url('" + coverUrl + "')";
+        if (thumbSlot) thumbSlot.innerHTML = '<img src="' + coverUrl + '" alt="Cover photo" style="width:100%;height:100%;object-fit:cover;border-radius:10px;">';
+        if (heroPhoto) {
+          heroPhoto.innerHTML = '';
+          heroPhoto.style.backgroundImage = "url('" + coverUrl + "')";
+        }
       }
 
-      heroBadge.innerHTML = '<span class="check">✓</span> Your cover ' + (isVideo ? 'video' : 'photo');
-      heroTitle.textContent = title;
-      heroSub.textContent = [CATEGORY_LABELS[category] || 'Listing', priceLine].filter(Boolean).join(' · ');
+      if (heroBadge) heroBadge.innerHTML = '<span class="check">✓</span> Your cover ' + (isVideo ? 'video' : 'photo');
+      if (heroTitle) heroTitle.textContent = title;
+      if (heroSub) heroSub.textContent = [CATEGORY_LABELS[category] || 'Listing', priceLine].filter(Boolean).join(' · ');
     } else {
-      thumbSlot.classList.add('placeholder');
-      thumbSlot.textContent = 'No media';
-      heroPhoto.innerHTML = '';
-      heroPhoto.style.backgroundImage = "url('assets/listing-wizard/step-5.jpg')";
-      heroBadge.innerHTML = '<span class="check">✓</span> Ready to publish';
-      heroTitle.textContent = 'A place worth remembering.';
-      heroSub.textContent = 'No photos or videos added — you can still publish and add them later.';
+      if (thumbSlot) {
+        thumbSlot.classList.add('placeholder');
+        thumbSlot.textContent = 'No media';
+      }
+      if (heroPhoto) {
+        heroPhoto.innerHTML = '';
+        heroPhoto.style.backgroundImage = "url('assets/listing-wizard/step-5.jpg')";
+      }
+      if (heroBadge) heroBadge.innerHTML = '<span class="check">✓</span> Ready to publish';
+      if (heroTitle) heroTitle.textContent = 'A place worth remembering.';
+      if (heroSub) heroSub.textContent = 'No photos or videos added — you can still publish and add them later.';
     }
   }
 
@@ -1204,7 +1221,7 @@
     }
 
     const title = document.getElementById('title').value;
-    const category = document.getElementById('category').value;
+    const category = hostNiche;
     const description = document.getElementById('description').value;
     const priceAmount = document.getElementById('price-amount').value;
     const successMsg = document.getElementById('success-msg');
