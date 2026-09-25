@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const express = require('express');
+const path = require('path');
 const { sendEmail } = require('../lib/email');
 const { createNotification } = require('../lib/notifications');
 
@@ -157,11 +158,8 @@ function createAdminRoutes(supabaseAdmin) {
     return res.json({ success: true });
   });
 
-  router.get('/', adminAuth, (_req, res) => {
-    const clientBaseUrl = process.env.CLIENT_BASE_URL;
-    if (clientBaseUrl) return res.redirect(`${clientBaseUrl.replace(/\/$/, '')}/admin`);
-    return res.status(404).json({ error: 'Admin dashboard client is not configured' });
-  });
+  router.get('/', (_req, res) => res.sendFile(path.join(__dirname, '../../client/legacy-pages/varoomadmin.html')));
+  router.get('/varoomadmin.js', (_req, res) => res.sendFile(path.join(__dirname, '../../client/legacy-pages/varoomadmin.js')));
 
   router.post('/login', async (req, res) => {
     const email = String(req.body && req.body.email || '').trim().toLowerCase();
