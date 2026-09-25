@@ -651,6 +651,29 @@
   let currentUser = null;
   let hostNiche = null;
 
+  // The page is rendered through both the legacy Express host and the Next.js
+  // compatibility page. Keep optional wizard fields genuinely optional when a
+  // host navigates while React is replacing the legacy markup.
+  function fieldValue(id){
+    const field = document.getElementById(id);
+    return field ? field.value : '';
+  }
+
+  function showPublishError(error){
+    const message = document.getElementById('success-msg');
+    const messageInner = document.getElementById('success-msg-inner');
+    const button = document.getElementById('submit-btn');
+    if (messageInner) messageInner.textContent = 'Something went wrong: ' + (error.message || 'Unable to publish listing. Please try again.');
+    if (message) {
+      message.classList.add('show', 'error');
+      message.scrollIntoView({ behavior:'smooth', block:'center' });
+    }
+    if (button) {
+      button.disabled = false;
+      button.textContent = 'Publish listing ✓';
+    }
+  }
+
   (async function checkAuth(){
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (!session) { window.location.href = '/login'; return; }
@@ -867,11 +890,11 @@
 
   // ---------- Review summary ----------
   function renderReviewSummary(){
-    const title = document.getElementById('title').value || 'Untitled listing';
+    const title = fieldValue('title') || 'Untitled listing';
     const category = hostNiche;
-    const city = document.getElementById('location_city').value;
-    const neighborhood = document.getElementById('location_neighborhood').value;
-    const amount = document.getElementById('price-amount').value;
+    const city = fieldValue('location_city');
+    const neighborhood = fieldValue('location_neighborhood');
+    const amount = fieldValue('price-amount');
 
     const reviewTitle = document.getElementById('review-title');
     const reviewMeta = document.getElementById('review-meta');
@@ -888,7 +911,7 @@
     }
 
     const locationLine = document.getElementById('review-location-line');
-    const hasLocation = document.getElementById('location_lat').value && document.getElementById('location_lng').value;
+    const hasLocation = fieldValue('location_lat') && fieldValue('location_lng');
     if (locationLine) {
       locationLine.innerHTML = hasLocation
         ? '<span class="check">✓</span> Location pinned and ready for GPS verification'
@@ -1214,27 +1237,29 @@
   document.getElementById('list-form').addEventListener('submit', async function(e){
     e.preventDefault();
 
+    try {
+
     // Final guard: revalidate every step, in case someone reached step 5
     // via the tracker without the normal Next-button checks.
     for (let s = 1; s <= 4; s++) {
       if (!validateStep(s)) { goToStep(s); return; }
     }
 
-    const title = document.getElementById('title').value;
+    const title = fieldValue('title');
     const category = hostNiche;
-    const description = document.getElementById('description').value;
-    const priceAmount = document.getElementById('price-amount').value;
+    const description = fieldValue('description');
+    const priceAmount = fieldValue('price-amount');
     const successMsg = document.getElementById('success-msg');
     const successMsgInner = document.getElementById('success-msg-inner');
     const submitBtn = document.getElementById('submit-btn');
 
-    const locationLat = document.getElementById('location_lat').value;
-    const locationLng = document.getElementById('location_lng').value;
-    const locationPlaceId = document.getElementById('location_place_id').value;
-    const locationFormattedAddress = document.getElementById('location_formatted_address').value;
-    const locationNeighborhood = document.getElementById('location_neighborhood').value;
-    const locationCity = document.getElementById('location_city').value;
-    const locationCountry = document.getElementById('location_country').value;
+    const locationLat = fieldValue('location_lat');
+    const locationLng = fieldValue('location_lng');
+    const locationPlaceId = fieldValue('location_place_id');
+    const locationFormattedAddress = fieldValue('location_formatted_address');
+    const locationNeighborhood = fieldValue('location_neighborhood');
+    const locationCity = fieldValue('location_city');
+    const locationCountry = fieldValue('location_country');
 
     submitBtn.disabled = true;
     submitBtn.textContent = 'Publishing...';
@@ -1371,6 +1396,11 @@
     successMsg.scrollIntoView({ behavior:'smooth', block:'center' });
 
     setTimeout(function(){ window.location.href = '/host-home'; }, 1400);
+    } catch (error) {
+      // A failed request or a temporarily absent optional field must not leave
+      // the wizard stuck on "Publishing…" or produce an unhandled promise.
+      showPublishError(error);
+    }
   });
 </script>
 

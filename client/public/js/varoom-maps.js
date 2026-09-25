@@ -17,9 +17,14 @@ var VaroomMaps = (function () {
     if (mapsLoadPromise) return mapsLoadPromise;
 
     mapsLoadPromise = fetch('/api/maps-config')
-      .then(function (r) { return r.json(); })
+      .then(function (r) {
+        // Vercel's rewrite may be unavailable during a deployment preview.
+        // Treat that as a disabled map instead of trying to parse an HTML 404.
+        if (!r.ok) return null;
+        return r.json();
+      })
       .then(function (config) {
-        if (!config.apiKey) return false;
+        if (!config || !config.apiKey) return false;
         if (window.google && window.google.maps) return true;
 
         return new Promise(function (resolve) {
