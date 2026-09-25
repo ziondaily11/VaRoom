@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en" data-t="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Varoom Admin</title>
+<style>
+:root{--bg:#0f0d0e;--pn:#1c1819;--p2:#262122;--ln:#332c2d;--tx:#f4f1f1;--mu:#a1979a;--ac:#34d1a4;--rd:#ef6b5b;--am:#f5b942;--bl:#5aa9ff;--sh:none}
+[data-t=light]{--bg:#f1f3f8;--pn:#fff;--p2:#f5f6fa;--ln:#e4e7ee;--tx:#1d2433;--mu:#6b7385;--ac:#0f9f7a;--sh:0 1px 4px #1d243318}
+*{box-sizing:border-box;margin:0}[hidden]{display:none!important}
+body{background:var(--bg);color:var(--tx);font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+button,input,select,textarea{font:inherit;color:inherit}a{color:var(--ac)}
+.ic{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.app{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
+aside{background:var(--pn);border-right:1px solid var(--ln);position:sticky;top:0;height:100vh;display:flex;flex-direction:column;padding:16px 12px;z-index:30}
+.br{padding:4px 10px 18px;font-weight:700;font-size:18px}.br small{display:block;font-weight:400;font-size:12px;color:var(--mu)}
+nav{flex:1;overflow:auto}
+nav button,.lo{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:0;padding:9px 12px;border-radius:8px;color:var(--mu);text-decoration:none;margin-bottom:2px;cursor:pointer;font:inherit}
+nav button:hover,.lo:hover{background:var(--p2);color:var(--tx)}
+nav button.on{background:var(--ac);color:#06241c;font-weight:600}
+nav .n,.ib .n{margin-left:auto;background:var(--rd);color:#fff;border-radius:99px;font-size:11px;padding:0 7px}
+main{min-width:0}
+.top{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:12px;padding:12px 28px;background:var(--pn);border-bottom:1px solid var(--ln)}
+.sr{flex:1;max-width:520px;display:flex;align-items:center;gap:8px;background:var(--p2);border:1px solid var(--ln);border-radius:8px;padding:0 12px;color:var(--mu)}
+.sr input{flex:1;min-width:0;background:none;border:0;outline:0;padding:8px 0}
+.ib{background:none;border:1px solid var(--ln);border-radius:8px;width:36px;height:36px;display:grid;place-items:center;cursor:pointer;position:relative}
+.ib .n{position:absolute;top:-6px;right:-6px;font-size:10px;padding:0 5px}#mb{display:none}
+.av{width:34px;height:34px;border-radius:50%;background:var(--ac);color:#06241c;display:grid;place-items:center;font-weight:700}
+.wrap{padding:28px;max-width:1400px}
+.ph{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;margin-bottom:22px;flex-wrap:wrap}.ph h1{font-size:26px}.ph p,.sb{color:var(--mu)}.sb{margin-bottom:12px}
+.g4{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:16px;margin-bottom:16px}
+.g2{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px;margin-bottom:16px}
+.cd{background:var(--pn);border:1px solid var(--ln);border-radius:12px;padding:18px;box-shadow:var(--sh);min-width:0;margin-bottom:16px}.g2 .cd{margin:0}
+.ct{display:flex;justify-content:space-between;margin-bottom:12px}.ct h3{font-size:15px}
+.kp{border-radius:12px;padding:18px;color:#fff;display:flex;flex-direction:column;gap:2px;box-shadow:var(--sh)}.kp b{font-size:30px;line-height:1.15}.kp span,.kp small{opacity:.92}
+.k1{background:linear-gradient(135deg,#12b886,#0e8a68)}.k2{background:linear-gradient(135deg,#4c9bff,#2f6fe0)}.k3{background:linear-gradient(135deg,#f0657a,#d64562)}.k4{background:linear-gradient(135deg,#f8b64c,#e8862a)}
+.ch{width:100%;height:auto}.gl{stroke:var(--ln)}.tk{fill:var(--mu);font-size:11px}.bar,.dot{fill:var(--c)}.ln{fill:none;stroke:var(--c);stroke-width:2.5;stroke-linejoin:round}.ar{fill:var(--c);opacity:.14}
+.tb{display:flex;justify-content:space-between;gap:10px;margin-bottom:12px;flex-wrap:wrap}.tb .sr{max-width:300px}
+.tw{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;color:var(--mu);font-weight:500;padding:10px 12px;background:var(--p2);cursor:pointer;white-space:nowrap;user-select:none}
+th:first-child{border-radius:8px 0 0 8px}th:last-child{border-radius:0 8px 8px 0}
+td{padding:11px 12px;border-bottom:1px solid var(--ln);vertical-align:middle}tbody tr[data-i]{cursor:pointer}tbody tr[data-i]:hover{background:var(--p2)}
+.em{text-align:center;color:var(--mu);padding:28px}code{font-size:12px;color:var(--mu);word-break:break-all}
+.pg{display:flex;justify-content:space-between;align-items:center;margin-top:12px;color:var(--mu);font-size:13px}
+.btn{background:var(--p2);border:1px solid var(--ln);border-radius:8px;padding:6px 12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.btn:hover:not(:disabled){border-color:var(--ac)}.btn:disabled{opacity:.45;cursor:default}
+.btn.pr,.btn.on{background:var(--ac);color:#06241c;border-color:var(--ac);font-weight:600}.btn.dn{background:#ef6b5b26;color:var(--rd);border-color:#ef6b5b55}.btn.sm{padding:3px 9px;font-size:12px}
+.pl{display:inline-block;padding:1px 9px;border-radius:99px;font-size:12px;background:var(--p2);color:var(--mu);border:1px solid var(--ln)}
+.pl.active,.pl.available,.pl.resolved,.pl.published,.pl.paid,.pl.low{background:#34d1a422;color:var(--ac);border-color:#34d1a44d}
+.pl.pending,.pl.proposed,.pl.hidden,.pl.open,.pl.medium,.pl.invited,.pl.in-progress{background:#f5b94222;color:var(--am);border-color:#f5b9424d}
+.pl.removed,.pl.rejected,.pl.suspended,.pl.high,.pl.unavailable{background:#ef6b5b22;color:var(--rd);border-color:#ef6b5b4d}
+.q,.fd{list-style:none;padding:0}.q button{width:100%;text-align:left;background:none;border:0;font:inherit;display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--ln);color:var(--tx);cursor:pointer}
+.q b{background:var(--p2);border-radius:99px;padding:0 10px}.q b.hot{background:var(--rd);color:#fff}
+.fd li{display:flex;gap:12px;padding:8px 0}.fd i{width:9px;height:9px;border-radius:50%;background:var(--ac);margin-top:6px;flex:none}.fd span,.fd small{display:block;color:var(--mu);font-size:12px;word-break:break-all}
+.fn{display:grid;grid-template-columns:130px 1fr 50px;gap:10px;align-items:center;margin:10px 0}.fn i{display:block;height:14px;border-radius:7px;background:var(--ac)}
+.nc{background:var(--p2);border:1px solid var(--ln);border-radius:12px;padding:16px;margin-bottom:12px;display:flex;gap:16px;justify-content:space-between;align-items:flex-start}.nc h3{font-size:15px;margin-bottom:4px}.nc small{color:var(--mu)}.nc p{margin-top:6px}
+.spl{display:grid;grid-template-columns:340px 1fr;gap:16px;align-items:start}
+.spl-list{max-height:74vh;overflow:auto;padding-right:4px}
+.tkc{background:var(--pn);border:1px solid var(--ln);border-radius:10px;padding:12px 14px;margin-bottom:10px;cursor:pointer}
+.tkc:hover{border-color:var(--ac)}.tkc.sel{border-color:var(--ac);background:var(--p2)}
+.tkc h4{font-size:14px;margin-bottom:8px}
+.tkc-meta{display:flex;justify-content:space-between;align-items:center;color:var(--mu);font-size:12px;gap:8px}
+.spl-detail{background:var(--pn);border:1px solid var(--ln);border-radius:12px;padding:22px;box-shadow:var(--sh)}
+.dtop{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}.dtop code{font-size:12px;color:var(--mu)}
+.spl-detail h3{font-size:20px;margin-bottom:6px}
+.cmp{margin-top:20px;border-top:1px solid var(--ln);padding-top:18px}
+.cmp>label{display:flex;align-items:center;gap:6px;font-weight:600;color:var(--tx);margin-bottom:6px}
+.cmp input,.cmp textarea{display:block;width:100%;background:var(--p2);border:1px solid var(--ln);border-radius:8px;padding:9px;margin:6px 0;font-family:inherit}
+.cmp textarea{font-family:ui-monospace,monospace;font-size:12.5px}
+.thread{margin:16px 0;display:flex;flex-direction:column;gap:10px}
+.rmsg{background:var(--p2);border:1px solid var(--ln);border-radius:8px;padding:10px 12px}
+.rmsg b{display:flex;align-items:center;gap:6px;font-size:13px}.rmsg small{color:var(--mu);font-size:11px}
+.tabs{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}.ra{display:flex;gap:8px;justify-content:flex-end}
+.fm label,.md label{font-size:12px;color:var(--mu)}
+.fm input,.fm textarea,.fm select,.md textarea{display:block;width:100%;background:var(--p2);border:1px solid var(--ln);border-radius:8px;padding:9px;margin:4px 0 12px}
+.mo{position:fixed;inset:0;background:#0009;display:grid;place-items:center;z-index:50}.md{background:var(--pn);border:1px solid var(--ln);border-radius:12px;padding:22px;width:min(440px,92vw)}.md h3{margin-bottom:6px}.md p{color:var(--mu);margin-bottom:12px}
+#dr{position:fixed;top:0;right:0;height:100%;width:min(420px,100vw);background:var(--pn);border-left:1px solid var(--ln);transform:translateX(100%);transition:transform .2s;z-index:40;display:flex;flex-direction:column}#dr.open{transform:none}
+.dh{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid var(--ln)}.db{padding:20px;overflow:auto}
+dl{display:grid;grid-template-columns:110px 1fr;gap:10px 12px;margin-bottom:16px}dt{color:var(--mu)}dd{margin:0;word-break:break-word}
+.ts{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--tx);color:var(--bg);padding:10px 16px;border-radius:8px;z-index:60}
+#lg{min-height:100vh;display:grid;place-items:center;padding:20px}
+.lgc{width:100%;max-width:360px;background:var(--pn);border:1px solid var(--ln);border-radius:14px;padding:34px 30px;box-shadow:var(--sh)}
+.lgc h1{font-size:20px}.lgc h1 b{color:var(--ac)}.lgc p.sub{color:var(--mu);margin:2px 0 22px}
+.lgc label{display:block;font-size:12px;color:var(--mu);margin:14px 0 4px}
+.lgc input{width:100%;background:var(--p2);border:1px solid var(--ln);border-radius:8px;padding:10px 12px}
+.lgc input:focus{outline:2px solid var(--ac);outline-offset:1px}
+.lgc button{width:100%;margin-top:20px;background:var(--ac);color:#06241c;border:0;border-radius:8px;padding:11px;font-weight:600;cursor:pointer}
+.lgerr{color:var(--rd);font-size:13px;margin-top:12px}
+.lghint{color:var(--mu);font-size:12px;margin-top:18px;text-align:center;line-height:1.5}
+@media(max-width:900px){.app{grid-template-columns:1fr}aside{position:fixed;left:0;top:0;transform:translateX(-100%);transition:transform .2s;width:250px}body.nv aside{transform:none}#mb{display:grid}.top{padding:12px 16px}.wrap{padding:16px}.g2{grid-template-columns:1fr}.spl{grid-template-columns:1fr}.spl-list{max-height:none}}
+</style>
+</head>
+<body>
+<div id="lg">
+<form class="lgc" id="lf">
+<h1>Va<b>room</b> Admin</h1>
+<p class="sub">Sign in to manage the platform.</p>
+<label for="le">Email</label><input id="le" type="email" autocomplete="username" required>
+<label for="lp">Password</label><input id="lp" type="password" autocomplete="current-password" required>
+<p class="lgerr" id="lerr" hidden></p>
+<button type="submit">Sign in</button>
+<p class="lghint">Placeholder gate — demo password is <b>varoom2026</b>. Swap the check in <code>wireLogin()</code> for <code>supabase.auth.signInWithPassword()</code>.</p>
+</form>
+</div>
+<div id="appRoot" hidden>
+<div class="app">
+<aside><div class="br">Varoom<small>Admin</small></div><nav></nav><button class="lo" id="lo"></button></aside>
+<main>
+<header class="top"><button class="ib" id="mb" aria-label="Menu"></button><label class="sr" id="sq"><input id="q" placeholder="Search users, listings, tickets…  ( / )"></label><span style="flex:1"></span><button class="ib" id="th" aria-label="Toggle theme"></button><button class="ib" id="bell" aria-label="Needs attention"><span class="n" id="bn"></span></button><div class="av">A</div></header>
+<div class="wrap" id="view"></div>
+</main>
+</div>
+<div id="dr"></div>
+</div>
+<script>
+/* DATA LAYER: D holds mock data. Swap each D.x for a Supabase query; every mutation below is one small handler you can point at an update call. */
+const $=(s,e=document)=>e.querySelector(s),$$=(s,e=document)=>[...e.querySelectorAll(s)];
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const CUR='$',money=n=>CUR+Math.round(n).toLocaleString('en-US'),sum=a=>a.reduce((x,y)=>x+y,0),
+dt=s=>new Date(s).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}),
+dd=s=>new Date(s).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+const IC={
+mail:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>',
+ov:'<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>',
+si:'<path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M15 12H3"/>',
+rv:'<path d="M12 2v20M17 6H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>',
+sp:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/>',
+rp:'<path d="M4 22V4M4 4h13l-2 4 2 4H4"/>',
+us:'<circle cx="9" cy="8" r="4"/><path d="M2 21a7 7 0 0114 0M17 4a4 4 0 010 8M22 21a7 7 0 00-4-6"/>',
+ls:'<path d="M4 21V5l8-3 8 3v16M9 21v-5h6v5M9 9h.01M15 9h.01M9 13h.01M15 13h.01"/>',
+up:'<path d="M3 11v3a1 1 0 001 1h3l8 5V5L7 10H4a1 1 0 00-1 1zM19 8a5 5 0 010 8"/>',
+gr:'<path d="M3 17l6-6 4 4 8-8M15 7h6v6"/>',
+ac:'<path d="M3 12a9 9 0 109-9 9 9 0 00-6.7 3M3 4v4h4M12 7v5l3 2"/>',
+ad:'<path d="M12 2l8 3v6c0 5-3.5 9-8 11-4.5-2-8-6-8-11V5z"/>',
+nw:'<path d="M4 4h13a2 2 0 012 2v14H6a2 2 0 01-2-2zM19 8h2v10a2 2 0 01-2 2M8 8h7M8 12h7M8 16h4"/>',
+se:'<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',
+bell:'<path d="M6 8a6 6 0 0112 0c0 7 3 9 3 9H3s3-2 3-9M10 21a2 2 0 004 0"/>',
+sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+menu:'<path d="M3 6h18M3 12h18M3 18h18"/>',
+dl:'<path d="M12 3v12M7 10l5 5 5-5M4 21h16"/>',
+out:'<path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/>'};
+const ic=n=>`<svg class="ic" viewBox="0 0 24 24">${IC[n]}</svg>`;
+const NAV=[['ov','Overview'],['si','Sign-ins'],['rv','Revenue'],['sp','Support'],['rp','Listing reports'],['us','Users'],['ls','Listings'],['up','Varoom Updates'],['gr','Growth'],['ac','Admin activity'],['ad','Admins'],['nw','Property News']];
+const DAYS=[...Array(14)].map((_,i)=>new Date(Date.UTC(2026,8,11+i)).toISOString().slice(5,10));
+const D={
+signins:[0,1,0,0,0,1,0,0,1,0,0,0,4,7],
+revenue:[0,900,0,0,3100,0,0,1200,11800,11700,2400,1895,0,0],
+tot:[1,1,2,2,2,2,3,3,3,3,4,4,5,6],
+si:[['Zion Daily','Google','Chrome · Windows','2026-09-24T07:40'],['Elvis Lwangu','Google','Safari · iPhone','2026-09-23T18:12'],['Wanjiru K.','Email','Chrome · Android','2026-09-23T09:05'],['Otieno M.','Google','Chrome · Android','2026-09-22T16:30'],['Billionaire ZION','Google','Firefox · Linux','2026-09-22T11:02'],['Amina S.','Email','Chrome · Android','2026-09-21T20:44']].map(([u,m,d,at])=>({u,m,d,at:at+'Z'})),
+us:[['c177581f','Elvis Lwangu','e***u@gmail.com','guest','2026-08-30'],['a41f09d2','Zion Daily','z***n@gmail.com','host','2026-07-02'],['b93e77c1','Billionaire ZION','b***@gmail.com','host','2026-07-09'],['ec7aec68','Wanjiru K.','w***@gmail.com','host','2026-08-21'],['920f73fb','Otieno M.','o***@gmail.com','host','2026-09-01'],['d55a12ee','Amina S.','a***@gmail.com','guest','2026-09-10']].map(([id,name,email,role,joined])=>({id,name,email,role,joined,status:'active'})),
+ls:[['Deluxe AirBnB','Zion Daily','Nairobi',65,'2026-08-12'],['Beach hotel in Bamburi','Billionaire ZION','Mombasa',120,'2026-08-15'],['A rental near you','Zion Daily','Nairobi',40,'2026-08-18'],['airbvb','Zion Daily','Nairobi',10,'2026-08-20'],['a','Billionaire ZION','—',5,'2026-08-21'],['Airbnbs','Zion Daily','Nairobi',55,'2026-08-25'],['Cozy AirBnb','Billionaire ZION','Mombasa',70,'2026-08-28'],['AirBnBs near you','Billionaire ZION','Mombasa',60,'2026-09-02'],['wedding events in nakuru','Wanjiru K.','Nakuru',300,'2026-09-05'],['Cozy studio appartments','Otieno M.','Kisumu',35,'2026-09-08']].map(([name,owner,city,price,created],i)=>({id:'l'+i,name,owner,city,price,created,avail:'available',mod:'active',reason:''})),
+lr:[],
+cr:[{id:'c177581f-9c86-450d',reported:'Elvis Lwangu',reporter:'Zion Daily',reason:'Spam or scam',status:'pending',filed:'2026-09-14T11:50:22Z'}],
+de:[{id:'c3d02582-7bcc-4625',email:'t***t@gmail.com',reason:'I created another account',detail:'',at:'2026-09-14T15:10:35Z'}],
+tk:[
+{id:'T-1042',user:'Wanjiru K.',email:'wanjiru.k@example.com',subject:'Payout not received',pri:'high',status:'open',at:'2026-09-23T09:12:00Z',msg:'My guest checked out on Sunday but the payout has not reached my M-Pesa yet.',replies:[]},
+{id:'T-1041',user:'Otieno M.',email:'otieno.m@example.com',subject:'A bug issue',pri:'medium',status:'resolved',at:'2026-09-16T09:11:00Z',msg:"I can't open notifications — they load for a second and then disappear.",replies:[{body:'Hi, this should be fixed now — refresh the app and let us know if it happens again.',at:'2026-09-16T09:40:00Z'}]},
+{id:'T-1040',user:'Amina S.',email:'amina.s@example.com',subject:'Feature request',pri:'low',status:'progress',at:'2026-09-15T13:19:00Z',msg:'Could you add a way to filter listings by number of bedrooms?',replies:[]},
+{id:'T-1039',user:'Otieno M.',email:'otieno.m@example.com',subject:'Feature request',pri:'low',status:'resolved',at:'2026-09-15T13:19:00Z',msg:'Please add a dark mode to the mobile app.',replies:[]},
+{id:'T-1038',user:'Amina S.',email:'amina.s@example.com',subject:'check up',pri:'low',status:'resolved',at:'2026-09-15T14:46:00Z',msg:'Just checking that my listing photos uploaded correctly.',replies:[]},
+{id:'T-1037',user:'Wanjiru K.',email:'wanjiru.k@example.com',subject:'greetings',pri:'low',status:'resolved',at:'2026-09-15T13:49:00Z',msg:'Hi team, just wanted to say the new update looks great!',replies:[]},
+{id:'T-1036',user:'Otieno M.',email:'otieno.m@example.com',subject:'Bug report',pri:'medium',status:'resolved',at:'2026-09-15T14:46:00Z',msg:'The calendar shows the wrong month when I open it on Fridays.',replies:[]},
+{id:'T-1035',user:'Amina S.',email:'amina.s@example.com',subject:'Bug report',pri:'medium',status:'resolved',at:'2026-09-15T15:12:00Z',msg:'The payout history table is cut off on smaller screens.',replies:[]}],
+nw:[{id:'n1',title:'My husband left me with 3 kids and huge debt — Then my landlord gave me 5 days',src:'Tuko News',url:'#',at:'2026-09-23',status:'proposed',body:'I opened the app anyway, because apparently torturing myself had become routine. Sign the new lease by Friday or vacate.'},{id:'n2',title:'Nairobi rental demand rises in Q3',src:'Example source',url:'#',at:'2026-09-22',status:'published',body:'Short-stay demand grew across Nairobi and Mombasa over the quarter.'},{id:'n3',title:'Tenant rights explained',src:'Example source',url:'#',at:'2026-09-21',status:'rejected',body:'Explainer with no verifiable source.',reason:'No verifiable source'}],
+up:[{title:'Chat now supports photo attachments',body:'Clients can attach photos in chat. Hosts can also attach files and listings.',aud:'All users',at:'2026-09-19T09:00Z'}],
+ad:[{name:'Zion Daily',email:'z***n@gmail.com',role:'super admin',last:'2026-09-24T07:40Z',status:'active'}],
+ac:[['property news reject','property_news: 11c282e9…','2026-09-23T13:49:15Z'],['property news reject','property_news: 647d1711…','2026-09-23T13:49:08Z'],['property news reject','property_news: 2ad43af8…','2026-09-23T13:49:05Z'],['property news published','property_news: 999ea7fe…','2026-09-23T13:48:52Z'],['property news published','property_news: f7696646…','2026-09-23T06:55:40Z'],['property news reject','property_news: 5721c706…','2026-09-22T14:16:19Z']].map(([action,target,at])=>({admin:'zion daily',action,target,reason:'',at})),
+tx:[['TX-8845','Beach hotel in Bamburi','Elvis Lwangu',11800,'2026-09-21'],['TX-8841','Deluxe AirBnB','Amina S.',11700,'2026-09-20'],['TX-8837','wedding events in nakuru','Elvis Lwangu',2400,'2026-09-19'],['TX-8832','Cozy studio appartments','Amina S.',1895,'2026-09-18'],['TX-8829','A rental near you','Elvis Lwangu',1200,'2026-09-17']].map(([id,listing,guest,amt,at])=>({id,listing,guest,amt,at,status:'paid'}))};
+Object.assign(D.ls[4],{avail:'unavailable',mod:'removed',reason:'n'});D.us[5].status='suspended';
+const log=(action,target,reason='')=>D.ac.unshift({admin:'zion daily',action,target,reason,at:new Date().toISOString()});
+const cnt=()=>({sp:D.tk.filter(t=>t.status=='open').length,rp:D.cr.filter(r=>r.status=='pending').length+D.lr.filter(r=>r.status=='pending').length,nw:D.nw.filter(n=>n.status=='proposed').length});
+const pill=(t,k)=>`<span class="pl ${k||t}">${esc(t)}</span>`;
+const ph=(t,s,r='')=>`<div class="ph"><div><h1>${t}</h1><p>${s}</p></div><div>${r}</div></div>`;
+const card=(t,b)=>`<section class="cd"><div class="ct"><h3>${t}</h3></div>${b}</section>`;
+const kpi=(l,v,s,c)=>`<div class="kp ${c}"><span>${l}</span><b>${v}</b><small>${s}</small></div>`;
+const dlt=a=>{const p=sum(a.slice(0,7)),c=sum(a.slice(7));return c>=p?`▲ ${p?Math.round((c-p)/p*100)+'%':'new'} vs previous 7d`:`▼ ${Math.round((p-c)/p*100)}% vs previous 7d`};
+const kv=o=>'<dl>'+Object.entries(o).map(([k,v])=>`<dt>${k}</dt><dd>${v&&v.h!=null?v.h:esc(v)}</dd>`).join('')+'</dl>';
+const V=$('#view');
+function toast(m){const t=document.createElement('div');t.className='ts';t.textContent=m;document.body.append(t);setTimeout(()=>t.remove(),2400)}
+function drawer(title,html){const d=$('#dr');d.innerHTML=`<div class="dh"><h3>${esc(title)}</h3><button class="btn" data-x>✕</button></div><div class="db">${html}</div>`;d.classList.add('open');$('[data-x]',d).onclick=()=>d.classList.remove('open');return $('.db',d)}
+function ask({title,text='',field,hint='',ok='Confirm',danger,min=0}){return new Promise(res=>{
+const m=document.createElement('div');m.className='mo';
+m.innerHTML=`<div class="md"><h3>${esc(title)}</h3><p>${esc(text)}</p>${field?`<label>${esc(field)}</label><textarea rows="3" placeholder="${esc(hint)}"></textarea>`:''}<div class="ra"><button class="btn" data-c>Cancel</button><button class="btn ${danger?'dn':'pr'}" data-o>${esc(ok)}</button></div></div>`;
+document.body.append(m);const t=$('textarea',m),o=$('[data-o]',m),chk=()=>{o.disabled=!!t&&t.value.trim().length<min};
+if(t){t.oninput=chk;t.focus()}chk();
+const done=v=>{m.remove();res(v)};
+o.onclick=()=>{o.disabled=true;done(t?t.value.trim():true)};
+m.onclick=e=>{if(e.target===m||e.target.hasAttribute('data-c'))done(null)}})}
+function chart(t,v,lb,f=String,c='var(--ac)'){
+const W=640,H=230,L=52,T=10,B=26,w=W-L-10,h=H-T-B,mx=Math.max(...v,1),st=w/v.length,y=x=>T+h-x/mx*h;
+let s=`<svg class="ch" viewBox="0 0 ${W} ${H}" style="--c:${c}">`;
+for(let k=0;k<5;k++){const q=mx*k/4;s+=`<line class="gl" x1="${L}" x2="${W-10}" y1="${y(q)}" y2="${y(q)}"/><text class="tk" x="${L-6}" y="${y(q)+4}" text-anchor="end">${f(Math.round(q))}</text>`}
+v.forEach((x,i)=>{const cx=L+st*(i+.5);if(i%3==0)s+=`<text class="tk" x="${cx}" y="${H-8}" text-anchor="middle">${lb[i]}</text>`;if(t=='bar')s+=`<rect class="bar" x="${cx-st*.32}" y="${y(x)}" width="${st*.64}" height="${T+h-y(x)}" rx="3"><title>${lb[i]}: ${f(x)}</title></rect>`});
+if(t=='line'){const p=v.map((x,i)=>`${L+st*(i+.5)},${y(x)}`);s+=`<polygon class="ar" points="${L+st*.5},${T+h} ${p.join(' ')} ${L+st*(v.length-.5)},${T+h}"/><polyline class="ln" points="${p.join(' ')}"/>`+v.map((x,i)=>`<circle class="dot" cx="${L+st*(i+.5)}" cy="${y(x)}" r="3"><title>${lb[i]}: ${f(x)}</title></circle>`).join('')}
+return s+'</svg>'}
+function tbl(el,{cols,rows,size=8,open,on,empty='Nothing here yet.'}){
+let q='',sk=-1,sd=1,pg=0;
+el.innerHTML=`<div class="tb"><label class="sr">${ic('se')}<input placeholder="Filter this table…"></label><button class="btn" data-csv>${ic('dl')} CSV</button></div><div class="tw"><table><thead><tr>${cols.map((c,i)=>`<th data-i="${i}">${c.h}</th>`).join('')}</tr></thead><tbody></tbody></table></div><div class="pg"></div>`;
+const tb=$('tbody',el),pe=$('.pg',el);
+const view=()=>{let r=rows.filter(x=>!q||cols.some(c=>String(c.v(x)).toLowerCase().includes(q)));if(sk>=0)r=[...r].sort((a,b)=>(cols[sk].v(a)>cols[sk].v(b)?1:-1)*sd);return r};
+const draw=()=>{const r=view(),pgs=Math.max(1,Math.ceil(r.length/size));pg=Math.min(pg,pgs-1);
+tb.innerHTML=r.length?r.slice(pg*size,pg*size+size).map(x=>`<tr data-i="${rows.indexOf(x)}">${cols.map(c=>`<td>${c.r?c.r(x):esc(c.v(x))}</td>`).join('')}</tr>`).join(''):`<tr><td class="em" colspan="${cols.length}">${empty}</td></tr>`;
+pe.innerHTML=`<span>${r.length} row${r.length==1?'':'s'}</span><span><button class="btn sm" data-p="-1" ${pg?'':'disabled'}>‹</button> ${pg+1} / ${pgs} <button class="btn sm" data-p="1" ${pg<pgs-1?'':'disabled'}>›</button></span>`};
+$('input',el).oninput=e=>{q=e.target.value.toLowerCase();pg=0;draw()};
+$('thead',el).onclick=e=>{const t=e.target.closest('th');if(!t)return;const i=+t.dataset.i;sd=sk==i?-sd:1;sk=i;draw()};
+pe.onclick=e=>{const b=e.target.closest('[data-p]');if(b){pg+=+b.dataset.p;draw()}};
+$('[data-csv]',el).onclick=()=>{const c=v=>'"'+String(v).replace(/"/g,'""')+'"',t=[cols.map(x=>c(x.h)),...view().map(r=>cols.map(x=>c(x.v(r))))].map(r=>r.join(',')).join('\n'),a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type:'text/csv'}));a.download='export.csv';a.click()};
+tb.onclick=e=>{const b=e.target.closest('[data-a]'),tr=e.target.closest('tr');if(!tr||tr.dataset.i==null)return;const row=rows[+tr.dataset.i];
+if(b){b.disabled=true;Promise.resolve(on&&on(b.dataset.a,row)).then(()=>{draw();badges()})}else if(open)open(row)};
+draw()}
+const queue=()=>{const c=cnt();return '<ul class="q">'+[['rp','Pending user reports',c.rp],['nw','Property news awaiting review',c.nw],['sp','Open support tickets',c.sp]].map(([k,l,n])=>`<li><button data-go="${k}">${l}<b class="${n?'hot':''}">${n}</b></button></li>`).join('')+'</ul>'};
+const feed=a=>'<ul class="fd">'+a.map(x=>`<li><i></i><div><b>${esc(x.action)}</b><span>${esc(x.target)}</span><small>${esc(x.admin)} · ${dt(x.at)}${x.reason?' · '+esc(x.reason):''}</small></div></li>`).join('')+'</ul>';
+const P={};
+P.ov=()=>{const c=cnt(),h=new Date().getHours(),g=h<12?'Good morning':h<18?'Good afternoon':'Good evening',nl=D.ls.filter(l=>l.created>='2026-09-17').length;
+V.innerHTML=ph(`${g}, Admin`,'A snapshot of sign-ins, revenue, support, and growth across the platform.')+
+`<div class="g4">${kpi('Sign-ins (7d)',sum(D.signins.slice(7)),dlt(D.signins),'k1')}${kpi('Revenue (7d)',money(sum(D.revenue.slice(7))),dlt(D.revenue),'k2')}${kpi('Open support tickets',c.sp,c.sp?'Needs attention':'All clear','k3')}${kpi('New listings (7d)',nl,'Last 7 days','k4')}</div>
+<div class="g2">${card('Sign-ins, last 14 days',chart('bar',D.signins,DAYS))}${card('Revenue, last 14 days',chart('line',D.revenue,DAYS,money,'var(--bl)'))}</div>
+<div class="g2">${card('Needs attention',queue())}${card('Recent admin activity',feed(D.ac.slice(0,5)))}</div>`};
+P.si=()=>{V.innerHTML=ph('Sign-ins','Who is signing in, and how.')+`<div class="g4">${kpi('Sign-ins (7d)',sum(D.signins.slice(7)),dlt(D.signins),'k1')}${kpi('Sign-ins (14d)',sum(D.signins),'Last 14 days','k2')}${kpi('Accounts',D.us.length,'Total users','k4')}</div>`+card('Daily sign-ins',chart('bar',D.signins,DAYS))+card('Recent sign-ins','<div id="t1"></div>');
+tbl($('#t1'),{rows:D.si,cols:[{h:'User',v:x=>x.u},{h:'Method',v:x=>x.m},{h:'Device',v:x=>x.d},{h:'When',v:x=>x.at,r:x=>dt(x.at)}]})};
+P.rv=()=>{const g=sum(D.tx.map(t=>t.amt));V.innerHTML=ph('Revenue','Bookings and payments.')+`<div class="g4">${kpi('Revenue (7d)',money(sum(D.revenue.slice(7))),dlt(D.revenue),'k2')}${kpi('Bookings',D.tx.length,'Recent transactions','k1')}${kpi('Average booking',money(g/D.tx.length),'Recent transactions','k4')}${kpi('Largest booking',money(Math.max(...D.tx.map(t=>t.amt))),'Recent transactions','k3')}</div>`+card('Revenue, last 14 days',chart('line',D.revenue,DAYS,money,'var(--bl)'))+card('Transactions','<div id="t1"></div>');
+tbl($('#t1'),{rows:D.tx,cols:[{h:'Booking',v:x=>x.id},{h:'Listing',v:x=>x.listing},{h:'Guest',v:x=>x.guest},{h:'Amount',v:x=>x.amt,r:x=>money(x.amt)},{h:'Date',v:x=>x.at,r:x=>dd(x.at)},{h:'Status',v:x=>x.status,r:x=>pill(x.status)}]})};
+const stLabel=s=>s=='progress'?'In progress':s[0].toUpperCase()+s.slice(1);
+const stCls=s=>s=='progress'?'in-progress':s;
+let selTk=null;
+function tkDetail(t){
+return `<div class="dtop"><code>${esc(t.id)}</code>${pill(stLabel(t.status),stCls(t.status))}</div>
+<h3>${esc(t.subject)}</h3><p class="sb">${esc(t.user)} · ${esc(t.email)}</p><p>${esc(t.msg)}</p>
+${t.replies.length?'<div class="thread">'+t.replies.map(r=>`<div class="rmsg"><b>${ic('mail')} Sent to ${esc(t.email)}</b><small>${dt(r.at)}</small><p>${esc(r.body)}</p></div>`).join('')+'</div>':''}
+<div class="cmp"><label>${ic('mail')} Email reply</label><p class="sb">To ${esc(t.email)}</p>
+<input id="rsub" value="Re: ${esc(t.subject)}">
+<textarea id="rbody" rows="5" placeholder="Type a reply — this sends an email to the address above"></textarea>
+<div class="ra" style="justify-content:flex-start"><button class="btn pr" id="sendr">${ic('mail')} Send email reply</button>
+<select id="stsel"><option value="open" ${t.status=='open'?'selected':''}>Mark open</option><option value="progress" ${t.status=='progress'?'selected':''}>Mark in progress</option><option value="resolved" ${t.status=='resolved'?'selected':''}>Mark resolved</option></select></div></div>`}
+function wireTkDetail(){const t=D.tk.find(x=>x.id==selTk);if(!t)return;
+$('#sendr').onclick=()=>{const body=$('#rbody').value.trim(),subj=$('#rsub').value.trim();if(!body)return toast('Write a reply before sending');
+t.replies.push({body,subj,at:new Date().toISOString()});log('support email reply','ticket: '+t.id);toast('Reply sent to '+t.email);P.sp()};
+$('#stsel').onchange=e=>{if(e.target.value==t.status)return;t.status=e.target.value;log('ticket status: '+stLabel(t.status),'ticket: '+t.id);toast('Status updated');P.sp()}}
+P.sp=()=>{if(!selTk&&D.tk.length)selTk=D.tk[0].id;
+const c={open:D.tk.filter(t=>t.status=='open').length,progress:D.tk.filter(t=>t.status=='progress').length,resolved:D.tk.filter(t=>t.status=='resolved').length};
+const list=D.tk.map(t=>`<div class="tkc ${t.id==selTk?'sel':''}" data-id="${t.id}"><h4>${esc(t.subject)}</h4><div class="tkc-meta">${pill(stLabel(t.status),stCls(t.status))}<span>${dt(t.at)}</span></div></div>`).join('')||'<p class="em">No tickets. Nothing needs attention.</p>';
+const sel=D.tk.find(t=>t.id==selTk);
+V.innerHTML=ph('Support','Messages submitted through the support page. This is the pipeline that previously went nowhere.')+
+`<div class="g4">${kpi('Open',c.open,c.open?'Needs attention':'All clear','k3')}${kpi('In progress',c.progress,'Being worked on','k4')}${kpi('Resolved',c.resolved,'All time','k1')}</div>`+
+`<div class="spl"><div class="spl-list">${list}</div><div class="spl-detail">${sel?tkDetail(sel):'<p class="em">Select a ticket to view it.</p>'}</div></div>`;
+$$('.tkc',V).forEach(c=>c.onclick=()=>{selTk=c.dataset.id;P.sp()});
+if(sel)wireTkDetail()};
+P.rp=()=>{V.innerHTML=ph('Listing reports','Issues flagged by guests or hosts about a listing.')+card('Listing reports','<div id="t1"></div>')+card('Chat user reports','<p class="sb">Reports submitted about conversation participants.</p><div id="t2"></div>')+card('Deleted accounts','<p class="sb">Permanent account deletions and the reasons users provided.</p><div id="t3"></div>');
+tbl($('#t1'),{rows:D.lr,empty:'No listing reports. Nothing to review.',cols:['Report','Listing','Reporter','Reason','Status','Filed'].map((h,i)=>({h,v:x=>Object.values(x)[i]||''}))});
+tbl($('#t2'),{rows:D.cr,empty:'No chat reports.',cols:[{h:'Report',v:x=>x.id,r:x=>`<code>${esc(x.id)}</code>`},{h:'Reported user',v:x=>x.reported},{h:'Reporter',v:x=>x.reporter},{h:'Reason',v:x=>x.reason},{h:'Status',v:x=>x.status,r:x=>pill(x.status)},{h:'Filed',v:x=>x.filed,r:x=>dt(x.filed)},{h:'Action',v:x=>x.status,r:x=>x.status=='pending'?'<button class="btn sm pr" data-a="rs">Resolve</button> <button class="btn sm" data-a="ds">Dismiss</button>':'—'}],
+on:(a,x)=>{if(x.status!='pending')return;x.status=a=='rs'?'resolved':'dismissed';log('chat report '+x.status,'chat_report: '+x.id);toast('Report '+x.status)}});
+tbl($('#t3'),{rows:D.de,empty:'No deleted accounts.',cols:[{h:'Account',v:x=>x.id,r:x=>`<code>${esc(x.id)}</code>`},{h:'Email',v:x=>x.email},{h:'Reason',v:x=>x.reason},{h:'Detail',v:x=>x.detail||'—'},{h:'Deleted',v:x=>x.at,r:x=>dt(x.at)}]})};
+P.us=()=>{V.innerHTML=ph('Users','Guests and hosts on the platform.')+card('All users','<div id="t1"></div>');
+tbl($('#t1'),{rows:D.us,cols:[{h:'Name',v:x=>x.name,r:x=>`<b>${esc(x.name)}</b>`},{h:'Email',v:x=>x.email},{h:'Role',v:x=>x.role,r:x=>pill(x.role)},{h:'Listings',v:x=>D.ls.filter(l=>l.owner==x.name).length},{h:'Joined',v:x=>x.joined,r:x=>dd(x.joined)},{h:'Status',v:x=>x.status,r:x=>pill(x.status)},{h:'Action',v:x=>x.status,r:x=>x.status=='active'?'<button class="btn sm dn" data-a="su">Suspend</button>':'<button class="btn sm" data-a="re">Restore</button>'}],
+open:u=>drawer(u.name,kv({ID:u.id,Email:u.email,Role:{h:pill(u.role)},Status:{h:pill(u.status)},Joined:dd(u.joined),Listings:D.ls.filter(l=>l.owner==u.name).map(l=>l.name).join(', ')||'None'})),
+on:async(a,u)=>{if(a=='su'){if(u.status=='suspended')return;const r=await ask({title:'Suspend '+u.name,text:'They will be unable to book or host until restored.',field:'Reason',hint:'Why is this account being suspended?',min:5,ok:'Suspend',danger:1});if(!r)return;u.status='suspended';log('user suspend','user: '+u.id,r)}else{if(u.status=='active')return;u.status='active';log('user restore','user: '+u.id)}toast('Updated '+u.name)}})};
+P.ls=()=>{V.innerHTML=ph('Listings','Moderation is reversible. Hidden and removed listings are taken out of the client and host feed by their status.')+card('All listings','<div id="t1"></div>');
+tbl($('#t1'),{rows:D.ls,size:10,cols:[{h:'Listing',v:x=>x.name,r:x=>`<b>${esc(x.name)}</b>`},{h:'Owner',v:x=>x.owner},{h:'City',v:x=>x.city},{h:'Price / night',v:x=>x.price,r:x=>money(x.price)},{h:'Availability',v:x=>x.avail,r:x=>pill(x.avail)},{h:'Moderation',v:x=>x.mod,r:x=>pill(x.mod)},{h:'Reason',v:x=>x.reason||'—'},
+{h:'Actions',v:x=>x.mod,r:l=>l.mod=='active'?'<button class="btn sm dn" data-a="hd">Hide</button> <button class="btn sm dn" data-a="td">Take down</button>':l.mod=='hidden'?'<button class="btn sm" data-a="re">Restore</button> <button class="btn sm dn" data-a="td">Take down</button>':'<button class="btn sm" data-a="re">Restore</button>'}],
+open:l=>drawer(l.name,kv({ID:l.id,Owner:l.owner,City:l.city,Price:money(l.price)+' / night',Created:dd(l.created),Availability:{h:pill(l.avail)},Moderation:{h:pill(l.mod)},Reason:l.reason||'—'})),
+on:async(a,l)=>{if(a=='re'){if(l.mod=='active')return;l.mod='active';l.reason='';log('listing restore','listing: '+l.id)}else{if(l.mod=='removed'||(a=='hd'&&l.mod=='hidden'))return;const hd=a=='hd',r=await ask({title:(hd?'Hide ':'Take down ')+l.name,text:hd?'It will be hidden from the feed until restored.':'It will be removed from the feed. You can restore it later.',field:'Reason',hint:'Add a reason for the audit trail',min:5,ok:hd?'Hide listing':'Take down',danger:1});if(!r)return;l.mod=hd?'hidden':'removed';l.reason=r;log('listing '+(hd?'hide':'take down'),'listing: '+l.id,r)}toast('Listing updated')}})};
+P.up=()=>{V.innerHTML=ph('Varoom Updates','Announcements shown to users and hosts.')+`<div class="g2"><section class="cd fm"><div class="ct"><h3>New update</h3></div><label>Title</label><input id="ut"><label>Message</label><textarea id="um" rows="4"></textarea><label>Audience</label><select id="ua"><option>All users</option><option>Hosts</option><option>Guests</option></select><button class="btn pr" id="pb">Publish update</button></section>${card('Published',D.up.map(u=>`<div class="nc"><div><h3>${esc(u.title)}</h3><small>${esc(u.aud)} · ${dt(u.at)}</small><p>${esc(u.body)}</p></div></div>`).join('')||'<p class="em">No updates yet. Publish your first one.</p>')}</div>`;
+$('#pb').onclick=()=>{const t=$('#ut').value.trim(),m=$('#um').value.trim();if(!t||!m)return toast('Add a title and a message');D.up.unshift({title:t,body:m,aud:$('#ua').value,at:new Date().toISOString()});log('update published','update: '+t);toast('Update published');go()}};
+P.gr=()=>{const F=[['Visitors',1840],['Sign-ups',96],['Viewed a listing',64],['Sent an inquiry',21],['Booked',7]];
+V.innerHTML=ph('Growth','Accounts, hosts and conversion.')+`<div class="g4">${kpi('Total users',D.us.length,dlt(D.signins),'k1')}${kpi('Hosts',D.us.filter(u=>u.role=='host').length,'Verified and unverified','k2')}${kpi('Guests',D.us.filter(u=>u.role=='guest').length,'Booking accounts','k4')}${kpi('Live listings',D.ls.filter(l=>l.mod=='active').length,'Visible in the feed','k3')}</div><div class="g2">${card('Total users, last 14 days',chart('line',D.tot,DAYS))}${card('Conversion funnel',F.map(([l,n])=>`<div class="fn"><span>${l}</span><i style="width:${n/F[0][1]*100}%"></i><b>${n}</b></div>`).join(''))}</div>`};
+P.ac=()=>{V.innerHTML=ph('Admin activity','An append-only audit trail for account, content and report actions.')+card('Audit log','<div id="t1"></div>');
+tbl($('#t1'),{rows:D.ac,size:12,cols:[{h:'Admin',v:x=>x.admin},{h:'Action',v:x=>x.action,r:x=>`<b>${esc(x.action)}</b>`},{h:'Target',v:x=>x.target,r:x=>`<code>${esc(x.target)}</code>`},{h:'Reason',v:x=>x.reason||'—'},{h:'Date',v:x=>x.at,r:x=>dt(x.at)}]})};
+P.ad=()=>{V.innerHTML=ph('Admins','People with access to this console.','<button class="btn pr" id="iv">Invite admin</button>')+card('Admins','<div id="t1"></div>');
+tbl($('#t1'),{rows:D.ad,cols:[{h:'Name',v:x=>x.name,r:x=>`<b>${esc(x.name)}</b>`},{h:'Email',v:x=>x.email},{h:'Role',v:x=>x.role},{h:'Last active',v:x=>x.last,r:x=>x.last?dt(x.last):'—'},{h:'Status',v:x=>x.status,r:x=>pill(x.status)}]});
+$('#iv').onclick=async()=>{const e=await ask({title:'Invite admin',text:'They will join as a moderator.',field:'Email address',hint:'name@example.com',min:5,ok:'Send invite'});if(!e)return;D.ad.push({name:e,email:e,role:'moderator',last:'',status:'invited'});log('admin invite','admin: '+e);toast('Invite added');go()}};
+let nt='proposed';
+P.nw=()=>{const L=D.nw.filter(n=>nt=='all'||n.status==nt);
+V.innerHTML=ph('Property News','Review source-backed reports before they appear publicly or in Elie.')+`<div class="tabs">${['proposed','published','rejected','all'].map(t=>`<button class="btn ${t==nt?'on':''}" data-t="${t}">${t[0].toUpperCase()+t.slice(1)}</button>`).join('')}</div>`+(L.map(n=>`<div class="nc"><div><h3>${esc(n.title)}</h3><small>${esc(n.src)} · ${dd(n.at)} · ${pill(n.status)}${n.url?` · <a href="${esc(n.url)}" target="_blank" rel="noopener">View source</a>`:''}</small><p>${esc(n.body)}</p>${n.reason?`<small>Rejected: ${esc(n.reason)}</small>`:''}</div>${n.status=='proposed'?`<div class="ra" data-id="${n.id}"><button class="btn pr" data-a="ok">Approve</button><button class="btn dn" data-a="no">Reject</button></div>`:''}</div>`).join('')||'<p class="em">Nothing in this tab.</p>');
+$$('[data-t]',V).forEach(b=>b.onclick=()=>{nt=b.dataset.t;P.nw()});
+$$('[data-a]',V).forEach(b=>b.onclick=async()=>{const n=D.nw.find(x=>x.id==b.parentNode.dataset.id),bs=$$('button',b.parentNode);if(!n||n.status!='proposed')return;bs.forEach(x=>x.disabled=true);
+if(b.dataset.a=='ok'){n.status='published';log('property news published','property_news: '+n.id)}else{const r=await ask({title:'Reject this article?',text:n.title,field:'Reason',hint:'Why is it being rejected?',min:5,ok:'Reject',danger:1});if(!r){bs.forEach(x=>x.disabled=false);return}n.status='rejected';n.reason=r;log('property news reject','property_news: '+n.id,r)}
+toast(b.dataset.a=='ok'?'Article published':'Article rejected');go()})};
+let cur='ov';
+function badges(){const c=cnt();$('nav').innerHTML=NAV.map(([k,l])=>`<button data-go="${k}" class="${k==cur?'on':''}">${ic(k)}<span>${l}</span>${c[k]?`<span class="n">${c[k]}</span>`:''}</button>`).join('');const t=c.sp+c.rp+c.nw;$('#bn').textContent=t;$('#bn').hidden=!t}
+function go(){const k=location.hash.slice(1);cur=P[k]?k:'ov';badges();$('#dr').classList.remove('open');document.body.classList.remove('nv');P[cur]()}
+addEventListener('hashchange',()=>{if(isAuthed()){go();scrollTo(0,0)}});
+[['mb','menu'],['th','sun'],['bell','bell']].forEach(([i,n])=>$('#'+i).insertAdjacentHTML('afterbegin',ic(n)));
+$('#sq').insertAdjacentHTML('afterbegin',ic('se'));$('#lo').innerHTML=ic('out')+'<span>Log out</span>';
+$('#lo').onclick=()=>{try{sessionStorage.removeItem(SESSION_KEY)}catch(e){}showLogin()};
+$('#mb').onclick=()=>document.body.classList.toggle('nv');
+$('#bell').onclick=()=>drawer('Needs attention',queue());
+const setT=t=>{document.documentElement.dataset.t=t;try{localStorage.setItem('vt',t)}catch(e){}};
+try{const t=localStorage.getItem('vt');if(t)document.documentElement.dataset.t=t}catch(e){}
+$('#th').onclick=()=>setT(document.documentElement.dataset.t=='dark'?'light':'dark');
+$('#q').onkeydown=e=>{if(e.key!='Enter')return;const q=e.target.value.trim().toLowerCase();if(!q)return;
+const hit=(a,f,k,l)=>a.filter(x=>f(x).toLowerCase().includes(q)).map(x=>`<li><button data-go="${k}">${l}: ${esc(f(x))}</button></li>`),r=[...hit(D.us,x=>x.name,'us','User'),...hit(D.ls,x=>x.name,'ls','Listing'),...hit(D.tk,x=>x.subject,'sp','Ticket')];
+drawer('Results for "'+e.target.value+'"',r.length?'<ul class="q">'+r.join('')+'</ul>':'<p class="em">No matches. Try a name, listing or ticket subject.</p>')};
+addEventListener('keydown',e=>{if(e.key=='Escape')$('#dr').classList.remove('open');if(e.key=='/'&&!/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)){e.preventDefault();$('#q').focus()}});
+document.addEventListener('click',e=>{const b=e.target.closest('[data-go]');if(b)location.hash=b.dataset.go});
+/* AUTH GATE — placeholder only. isAuthed()/wireLogin() are the two spots to replace with real Supabase auth (supabase.auth.getSession() and supabase.auth.signInWithPassword()). */
+const SESSION_KEY='vadmin_session',DEMO_PASSWORD='varoom2026';
+function isAuthed(){try{return sessionStorage.getItem(SESSION_KEY)==='1'}catch(e){return false}}
+function showApp(){$('#lg').hidden=true;$('#appRoot').hidden=false;go()}
+function showLogin(){$('#appRoot').hidden=true;$('#lg').hidden=false;$('#lerr').hidden=true;$('#lf').reset();$('#le').focus()}
+function wireLogin(){$('#lf').onsubmit=e=>{e.preventDefault();
+const email=$('#le').value.trim(),pass=$('#lp').value;
+if(pass!==DEMO_PASSWORD){$('#lerr').textContent='Incorrect email or password.';$('#lerr').hidden=false;return}
+try{sessionStorage.setItem(SESSION_KEY,'1')}catch(err){}
+showApp()}}
+wireLogin();
+if(isAuthed())showApp();else showLogin();
+
+</script>
+</body>
+</html>
