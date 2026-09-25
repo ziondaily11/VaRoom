@@ -326,10 +326,10 @@ push    min-height:0;
 
   /* ---------- INFO COLUMN ---------- */
   .info-col{
-    width:296px; flex-shrink:0;
+    width:310px; flex-shrink:0;
     border-left:1px solid var(--border);
     overflow-y:auto;
-    padding:22px 22px 28px 22px;
+    padding:18px 22px 28px;
     transition:width .2s ease, padding .2s ease, opacity .15s ease;
   }
   .info-col.collapsed{
@@ -341,7 +341,7 @@ push    min-height:0;
     width:min(440px, 36vw); padding:0; overflow:hidden;
     display:flex; flex-direction:column;
   }
-  .info-title-row{ display:flex; align-items:center; justify-content:space-between; margin-bottom:22px; }
+  .info-title-row{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
   .chat-settings-panel-head{
     display:flex; align-items:center; justify-content:space-between; gap:10px;
     min-height:54px; padding:0 12px 0 18px; border-bottom:1px solid var(--border);
@@ -349,25 +349,34 @@ push    min-height:0;
   }
   .chat-settings-frame{ display:block; flex:1; min-height:0; width:100%; border:0; background:transparent; }
   .info-close-btn{
-    width:28px; height:28px; border-radius:9px; border:none;
-    background:var(--bg-soft); color:var(--text-gray-2); font-size:13px;
+    width:24px; height:24px; border-radius:7px; border:1px solid var(--border);
+    background:transparent; color:var(--text-gray-2); font-size:13px;
     display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;
   }
   .info-close-btn:hover{ background:#eaecef; }
   .info-title{ font-size:14.5px; font-weight:700; color:var(--text-dark); }
-  .profile-block{ text-align:center; margin-bottom:8px; }
-  .profile-block .avatar-fallback{ width:92px; height:92px; font-size:26px; margin:0 auto; }
-  .profile-block .p-name{ font-size:15px; font-weight:700; color:var(--text-dark); margin-top:14px; }
-  .profile-block .p-line{ font-size:11.5px; color:var(--text-gray-2); margin-top:5px; }
+  .profile-block{ text-align:center; padding:2px 0 16px; border-bottom:1px solid var(--border); }
+  .profile-block .avatar-fallback{ width:76px; height:76px; font-size:23px; margin:0 auto; border:2px solid var(--white); box-shadow:0 0 0 1px var(--border); }
+  .profile-block .p-name{ font-size:15px; font-weight:700; color:var(--text-dark); margin-top:10px; }
+  .profile-block .p-line{ font-size:11.5px; color:var(--text-gray-2); margin-top:4px; }
+  .profile-status{ display:inline-flex; align-items:center; gap:5px; margin-top:9px; padding:4px 9px; border-radius:999px; background:var(--bg-soft); color:var(--text-gray-2); font-size:10px; line-height:1; }
+  .profile-status .dot{ width:6px; height:6px; margin:0; background:#8b919a; }
+  .profile-status.online .dot{ background:var(--mint); }
 
-  .info-section{ margin-top:26px; }
-  .info-section-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
+  .info-section{ margin-top:20px; }
+  .info-section-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
   .info-section-head span.label{ font-size:13px; font-weight:700; color:var(--text-dark); }
-  .info-section-head span.more{ font-size:11px; color:var(--mint-dark); font-weight:600; cursor:pointer; }
+  .info-section-head span.more{ display:inline-flex; align-items:center; gap:2px; font-size:11px; color:var(--mint-dark); font-weight:600; cursor:pointer; }
+  .info-section-head span.more .icon{ width:13px; height:13px; }
   .elie-about p{ color:var(--text-gray-2); font-size:12.5px; line-height:1.55; }
 
-  .media-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:7px; }
-  .media-grid .thumb{ position:relative; aspect-ratio:1/1; border-radius:10px; overflow:hidden; display:flex; align-items:center; justify-content:center; color:#fff; font-size:18px; }
+  .profile-details{ padding-bottom:2px; border-bottom:1px solid var(--border); }
+  .profile-details .info-section-head{ margin-bottom:10px; }
+  .detail-row{ display:grid; grid-template-columns:18px minmax(0,1fr) auto; gap:8px; align-items:center; min-height:25px; color:var(--text-gray-2); font-size:10.5px; }
+  .detail-row .icon{ width:14px; height:14px; color:var(--text-gray-2); }
+  .detail-row .detail-value{ color:var(--text-dark); text-align:right; font-variant-numeric:tabular-nums; }
+  .media-grid{ display:grid; grid-auto-flow:column; grid-auto-columns:minmax(0,1fr); grid-template-columns:repeat(3,1fr); gap:7px; overflow:hidden; }
+  .media-grid .thumb{ position:relative; aspect-ratio:1/1; border-radius:6px; overflow:hidden; display:flex; align-items:center; justify-content:center; color:#fff; font-size:18px; background:var(--bg-soft); }
   .media-grid .thumb .more-overlay{
     position:absolute; inset:0; background:rgba(20,22,27,0.55);
     color:var(--white); font-size:13px; font-weight:700;
@@ -384,6 +393,12 @@ push    min-height:0;
   .link-row .link-thumb{ width:40px; height:40px; border-radius:9px; flex-shrink:0; display:flex; align-items:center; justify-content:center; color:#fff; font-size:15px; }
   .link-row .l-title{ font-size:12.5px; font-weight:700; color:var(--text-dark); }
   .link-row .l-sub{ font-size:10.5px; color:var(--text-gray); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:170px; }
+  .chat-actions{ padding-top:2px; border-top:1px solid var(--border); }
+  .chat-actions .info-section-head{ margin-top:0; }
+  .info-action{ display:flex; align-items:center; gap:9px; width:100%; min-height:28px; padding:4px 0; border:0; background:transparent; color:var(--text-dark); text-align:left; font:inherit; font-size:11.5px; cursor:pointer; }
+  .info-action .icon{ width:15px; height:15px; color:var(--text-gray-2); }
+  .info-action:hover,.info-action:focus-visible{ color:var(--mint-dark); outline:none; }
+  .info-action:hover .icon,.info-action:focus-visible .icon{ color:inherit; }
 
   .contact-list::-webkit-scrollbar, .messages::-webkit-scrollbar, .info-col::-webkit-scrollbar{ width:5px; }
   .contact-list::-webkit-scrollbar-thumb, .messages::-webkit-scrollbar-thumb, .info-col::-webkit-scrollbar-thumb{ background:#e3e5e9; border-radius:10px; }
@@ -897,6 +912,10 @@ push    min-height:0;
   <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"/></symbol>
   <symbol id="i-store" viewBox="0 0 24 24"><path d="M4 9V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v4"/><path d="M3 9h18l-1.2 3.2a2 2 0 0 1-1.9 1.3H6.1a2 2 0 0 1-1.9-1.3L3 9Z"/><path d="M5 13.5V19a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5.5"/><path d="M9 20v-4h6v4"/></symbol>
   <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="16" rx="2"/><path d="M8 3v4M16 3v4M3.5 10h17"/><path d="M8.5 14.5l2 2 4-4"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3.5 2"/></symbol>
+  <symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4.5"/><path d="M5 5c3-2 5 2 8 0s5 2 6 0v9c-1 2-3-2-6 0s-5-2-8 0"/></symbol>
+  <symbol id="i-ban" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="m6 6 12 12"/></symbol>
+  <symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
   <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></symbol>
   <symbol id="i-user-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="10" r="3"/><path d="M6.2 18.2a6 6 0 0 1 11.6 0"/></symbol>
   <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M6 4.5A1.5 1.5 0 0 1 7.5 3h9A1.5 1.5 0 0 1 18 4.5V21l-6-3.8L6 21V4.5Z"/></symbol>
@@ -1059,18 +1078,23 @@ push    min-height:0;
     <div class="profile-block">
     </div>
 
-    <div class="info-section">
-      <div class="info-section-head"><span class="label">Media</span><span class="more">Show More</span></div>
+    <section class="info-section profile-details" hidden>
+      <div class="info-section-head"><span class="label">Details</span></div>
+      <div class="detail-list"></div>
+    </section>
+
+    <div class="info-section info-media-section">
+      <div class="info-section-head"><span class="label">Media</span><span class="more">View all <svg class="icon"><use href="#i-chevron-right"/></svg></span></div>
       <div class="media-grid">
       </div>
     </div>
 
-    <div class="info-section">
+    <div class="info-section info-files-section">
       <div class="info-section-head"><span class="label">Files</span><span class="more">Show More</span></div>
 
     </div>
 
-    <div class="info-section">
+    <div class="info-section info-links-section">
       <div class="info-section-head"><span class="label">Links</span><span class="more">Show More</span></div>
 
     </div>

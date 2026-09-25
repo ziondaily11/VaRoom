@@ -66,8 +66,7 @@
       .chat-listing-card{max-width:320px;overflow:hidden;border-radius:10px;background:#f7f8f9;cursor:pointer}.chat-listing-card img{display:block;width:100%;height:150px;object-fit:cover;background:#eceff1}.chat-listing-card-body{padding:10px 12px}.chat-listing-card-title{font-weight:700;color:#14161c}.chat-listing-card-sub{margin-top:4px;color:#626b78;font-size:12px}
       .chat-sheet-action{margin-top:12px;border:0;border-radius:9px;background:#4ec1a0;color:#fff;padding:9px 14px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px}.chat-sheet-action .icon{width:16px;height:16px}.chat-sheet-action:disabled{opacity:.5;cursor:default}
       .chat-report-details{width:100%;min-height:70px;border:1px solid #e2e5ea;border-radius:8px;padding:8px;font:inherit;resize:vertical}
-      .chat-actions .info-action-report{display:block;width:100%;padding:9px 0;border:0;background:transparent;color:#4b5563;text-align:left;font:inherit;cursor:pointer}
-      .chat-actions .info-action-report:hover,.chat-actions .info-action-report:focus-visible{color:#14161c}
+      .chat-actions .info-action-report{color:inherit}
       .chat-image-preview{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;padding:32px;background:rgba(20,22,28,.86);cursor:zoom-out}
       .chat-image-preview img{max-width:90vw;max-height:90vh;width:auto;height:auto;object-fit:contain;border-radius:8px;cursor:default}
       @media(max-width:760px){.chat-sheet{padding:14px 16px}.chat-sheet-list{grid-template-columns:1fr 1fr}}
@@ -493,6 +492,10 @@
     const block = $('.profile-block');
     if (!block) return;
     clear(block);
+    const details = $('.profile-details');
+    const detailList = details && details.querySelector('.detail-list');
+    if (detailList) clear(detailList);
+    if (details) details.hidden = !conversation;
     if (!conversation) return;
     const person = conversation.participant || {};
     const avatar = document.createElement('div');
@@ -504,8 +507,25 @@
     name.textContent = person.full_name || person.username || '';
     block.append(avatar, name);
     if (person.username) { const line = document.createElement('div'); line.className = 'p-line'; line.textContent = `@${person.username}`; block.appendChild(line); }
-    if (person.email) { const line = document.createElement('div'); line.className = 'p-line'; line.textContent = person.email; block.appendChild(line); }
-    if (person.phone) { const line = document.createElement('div'); line.className = 'p-line'; line.textContent = person.phone; block.appendChild(line); }
+    const online = state.onlineConversationIds.has(conversation.id);
+    const status = document.createElement('div');
+    status.className = `profile-status${online ? ' online' : ''}`;
+    status.innerHTML = '<span class="dot"></span><span></span>';
+    status.querySelector('span:last-child').textContent = online ? 'Online' : 'Offline';
+    block.appendChild(status);
+
+    if (!detailList) return;
+    const detailRow = (icon, label, value) => {
+      const row = document.createElement('div');
+      row.className = 'detail-row';
+      row.innerHTML = `<svg class="icon"><use href="#${icon}"/></svg><span></span><span class="detail-value"></span>`;
+      row.children[1].textContent = label;
+      row.querySelector('.detail-value').textContent = value;
+      detailList.appendChild(row);
+    };
+    if (person.phone) detailRow('i-phone', 'Phone', person.phone);
+    if (conversation.created_at) detailRow('i-calendar', 'Member since', new Date(conversation.created_at).toLocaleDateString([], { month: 'short', year: 'numeric' }));
+    detailRow('i-clock', 'Local time', new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
   }
 
   function renderHeaderProfile(conversation) {
@@ -757,8 +777,9 @@
       const label = document.createElement('div'); label.className = 'p-line'; label.textContent = 'Your VaRoom search assistant';
       block.append(avatar, name, label);
     }
-    const sections = document.querySelectorAll('.info-section');
-    sections.forEach((section, index) => { section.hidden = index < 3; });
+    ['.profile-details', '.info-media-section', '.info-files-section', '.info-links-section'].forEach((selector) => {
+      const section = $(selector); if (section) section.hidden = true;
+    });
     const actions = $('.chat-actions'); if (actions) actions.hidden = true;
     const info = $('.info-col');
     if (info && !info.querySelector('.elie-about')) {
@@ -771,9 +792,8 @@
 
   function renderInfoAttachments(messages) {
     const attachments = messages.filter((message) => message.attachment_id && message.message_type !== 'voice');
-    const sections = document.querySelectorAll('.info-section');
-    const mediaSection = sections[0];
-    const filesSection = sections[1];
+    const mediaSection = $('.info-media-section');
+    const filesSection = $('.info-files-section');
     if (!mediaSection || !filesSection) return;
     const mediaGrid = mediaSection.querySelector('.media-grid');
     const fileRows = filesSection.querySelectorAll('.file-row');
@@ -805,7 +825,8 @@
     });
     mediaSection.hidden = !mediaGrid.children.length;
     filesSection.hidden = !filesSection.querySelector('.file-row');
-    sections[2].hidden = true;
+    const linksSection = $('.info-links-section');
+    if (linksSection) linksSection.hidden = true;
   }
 
   async function selectConversation(id) {
@@ -876,6 +897,8 @@
         renderConversationList();
         $('#statusText').textContent = online ? 'Online' : 'Offline';
         $('#statusDot').classList.toggle('online', online);
+        const activeConversation = state.conversations.find((item) => item.id === id);
+        if (activeConversation) renderProfile(activeConversation);
       });
     state.channel = channel;
     await new Promise((resolve, reject) => {
@@ -1114,9 +1137,14 @@
     if (isMobile()) bind($('#toggle-info-panel'), 'click', showMobileInfo, 'information panel toggle');
     const actions = document.createElement('div');
     actions.className = 'info-section chat-actions';
-    actions.innerHTML = '<div class="info-section-head"><span class="label">Actions</span></div><button type="button" class="info-action-report">Report User</button>';
+    actions.innerHTML = '<div class="info-section-head"><span class="label">Actions</span></div><button type="button" class="info-action info-action-report"><svg class="icon"><use href="#i-flag"/></svg>Report User</button><button type="button" class="info-action info-action-block"><svg class="icon"><use href="#i-ban"/></svg>Block User</button>';
     $('.info-col').appendChild(actions);
     actions.querySelector('.info-action-report').addEventListener('click', openReportSheet);
+    actions.querySelector('.info-action-block').addEventListener('click', () => {
+      const person = state.conversations.find((item) => item.id === state.activeId)?.participant || {};
+      const name = person.full_name || person.username || 'this user';
+      window.alert(`Blocking ${name} is not available yet.`);
+    });
     if (isElie()) renderElieInformation();
     document.querySelectorAll('[data-chat-nav]').forEach((button) => {
       button.addEventListener('click', async () => {
