@@ -427,11 +427,12 @@
     .gallery-carousel{ height:clamp(185px,29vh,240px); margin-bottom:.6rem; border-radius:10px; }
     .gallery-index-pill,.view-all-btn,.gallery-report-btn,.gallery-like-btn{ box-shadow:0 2px 10px rgba(0,0,0,.18); }
     .view-all-btn{ min-height:30px; padding:.35rem .6rem; border-radius:8px; white-space:nowrap; }
+    .view-all-btn svg{ width:16px; height:16px; }
     .view-all-btn span{ white-space:nowrap; }
     .gallery-report-btn,.gallery-like-btn{ width:32px; height:32px; }
     .gallery-nav{ width:28px; height:28px; }
     .title-row{ margin-bottom:.2rem; }
-    .listing-title{ font-size:1.3rem; line-height:1.15; }
+    .listing-title{ font-size:1.15rem; line-height:1.18; }
     .title-actions .action-btn{ width:32px; height:32px; padding:0; justify-content:center; border-radius:50%; }
     .title-actions .action-btn span{ display:none; }
     /* Metadata forms one dense desktop line beneath the title instead of a mobile-like stack. */
@@ -843,9 +844,6 @@
     const mediaUrls = listingVideoUrl ? [listingVideoUrl].concat(photoUrls) : photoUrls;
     if (mediaUrls.length === 0) {
       galleryHtml = '<div class="gallery-carousel">' +
-        '<button type="button" class="gallery-report-btn" id="report-listing-btn" aria-label="Report listing">' +
-          '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>' +
-        '</button>' +
         '<button type="button" class="gallery-close-btn" id="gallery-close-btn" aria-label="Close property details">' +
           '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
         '</button>' +
@@ -865,9 +863,6 @@
             '</div>';
           }).join('') +
         '</div>' +
-        '<button type="button" class="gallery-report-btn" id="report-listing-btn" aria-label="Report listing">' +
-          '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>' +
-        '</button>' +
         '<button type="button" class="gallery-close-btn" id="gallery-close-btn" aria-label="Close property details">' +
           '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
         '</button>' +
@@ -879,7 +874,7 @@
           '<button type="button" class="gallery-nav next" id="gallery-next" aria-label="Next photo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>' +
           '<div class="gallery-dots" id="gallery-dots">' + mediaUrls.map(function(_, i){ return '<span class="gallery-dot' + (i===0?' active':'') + '" data-index="' + i + '"></span>'; }).join('') + '</div>'
           : '') +
-        '<button type="button" class="view-all-btn" id="view-all-btn">' + ICON_GRID + '<span>View all</span></button>' +
+        '<button type="button" class="view-all-btn" id="view-all-btn">' + ICON_GRID + '<span>View all photos</span></button>' +
       '</div>';
     }
 
