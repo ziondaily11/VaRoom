@@ -344,12 +344,6 @@
               <input type="text" id="title" name="title" required placeholder="e.g. Cozy 2-bedroom Airbnb near campus">
             </div>
             <div class="field">
-              <label for="category">Category</label>
-              <select id="category" name="category" required>
-                <option value="" disabled selected>Loading your niches…</option>
-              </select>
-            </div>
-            <div class="field">
               <label for="description">Description</label>
               <textarea id="description" name="description" required placeholder="Describe the space — amenities, what makes it a good fit"></textarea>
             </div>
@@ -655,6 +649,7 @@
   const checkingAuth = document.getElementById('checking-auth');
   const listingPage = document.getElementById('listing-page');
   let currentUser = null;
+  let hostNiche = null;
 
   (async function checkAuth(){
     const { data: { session } } = await supabaseClient.auth.getSession();
@@ -670,21 +665,19 @@
       return;
     }
 
-    const labels = { airbnb: 'Airbnb', hotel: 'Hotel', venue: 'Event ground / venue', office: 'Office', shop: 'Shop', property: 'Property to let or buy' };
     const hostNiches = Array.isArray(profile.listing_categories) ? profile.listing_categories : [];
-    if (hostNiches.length !== 2 || new Set(hostNiches).size !== 2 || !hostNiches.every(function(niche){ return Object.prototype.hasOwnProperty.call(labels, niche); })) {
-      checkingAuth.textContent = 'Choose your two posting niches before creating a listing. Redirecting...';
+    const labels = { airbnb: 'Airbnb', hotel: 'Hotel', venue: 'Event ground / venue', office: 'Office', shop: 'Shop', property: 'Property to let or buy' };
+    if (hostNiches.length !== 1 || !Object.prototype.hasOwnProperty.call(labels, hostNiches[0])) {
+      checkingAuth.textContent = 'Choose your posting niche before creating a listing. Redirecting...';
       setTimeout(function(){ window.location.href = '/profile?select-niches=1'; }, 1200);
       return;
     }
-    const categorySelect = document.getElementById('category');
-    categorySelect.innerHTML = '<option value="" disabled selected>Choose a category</option>' + hostNiches.map(function(niche){
-      return '<option value="' + niche + '">' + (labels[niche] || niche) + '</option>';
-    }).join('');
+    hostNiche = hostNiches[0];
 
     checkingAuth.style.display = 'none';
     listingPage.style.display = 'block';
     initLocationPicker();
+    configureCategory(hostNiche);
   })();
 
   // ---------- Location picker ----------
@@ -749,8 +742,7 @@
   const sizeInput = document.getElementById('size-or-type');
   const pricingHeading = document.getElementById('pricing-heading');
 
-  document.getElementById('category').addEventListener('change', function(e){
-    const cat = e.target.value;
+  function configureCategory(cat){
     sizeLabel.textContent = sizeLabels[cat] || 'Size / Type';
     sizeInput.placeholder = sizePlaceholders[cat] || '';
     pricingHeading.textContent = pricingHeadings[cat] || 'Make every booking clear.';
@@ -767,7 +759,7 @@
       bookingSub.textContent = 'Priced per month, for longer-term arrangements.';
     }
     updatePricePreview();
-  });
+  }
 
   function unitLabel(){
     const val = priceUnitField.value;
@@ -876,7 +868,7 @@
   // ---------- Review summary ----------
   function renderReviewSummary(){
     const title = document.getElementById('title').value || 'Untitled listing';
-    const category = document.getElementById('category').value;
+    const category = hostNiche;
     const city = document.getElementById('location_city').value;
     const neighborhood = document.getElementById('location_neighborhood').value;
     const amount = document.getElementById('price-amount').value;

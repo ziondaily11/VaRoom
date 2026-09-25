@@ -835,8 +835,8 @@
     const nichesEl = document.getElementById('profile-niches');
     const nicheLabels = { airbnb:'Airbnb', hotel:'Hotel', venue:'Event ground / venue', office:'Office', shop:'Shop', property:'Property' };
     const niches = Array.isArray(profileData.listing_categories) ? profileData.listing_categories : [];
-    if (profileData.role === 'host' && niches.length === 2) {
-      nichesEl.textContent = 'Specializes in ' + niches.map(function(niche){ return nicheLabels[niche] || niche; }).join(' + ');
+    if (profileData.role === 'host' && niches.length === 1) {
+      nichesEl.textContent = 'Specializes in ' + (nicheLabels[niches[0]] || niches[0]);
       nichesEl.style.display = '';
     }
     document.getElementById('ask-name').textContent = (displayName || 'host').split(' ')[0];

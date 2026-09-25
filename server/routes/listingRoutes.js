@@ -10,13 +10,10 @@ const STATUSES = new Set(['available', 'booked', 'unavailable', 'paused']);
 const CATEGORIES = ['airbnb', 'hotel', 'venue', 'office', 'shop', 'property'];
 
 function normalizeNiches(niches) {
-  if (!Array.isArray(niches) || niches.length !== 2) {
-    throw new ValidationError('Hosts must choose exactly two posting niches');
+  if (!Array.isArray(niches) || niches.length !== 1) {
+    throw new ValidationError('Hosts must choose exactly one posting niche');
   }
   const normalized = niches.map((niche) => enumValue(niche, 'niche', CATEGORIES));
-  if (new Set(normalized).size !== 2) {
-    throw new ValidationError('Choose two different posting niches');
-  }
   return normalized;
 }
 
@@ -93,9 +90,8 @@ router.patch('/listings/:id/status', async (req, res) => {
   return res.json({ listing: data });
 });
 
-// This is intentionally separate from profile edits: it gives existing hosts
-// with legacy multi-category profiles a deliberate, reversible choice before
-// the new posting scope becomes active.
+// This is intentionally separate from profile edits so the posting scope can
+// be updated without changing unrelated profile fields.
 router.put('/host/niches', async (req, res) => {
   const user = await authenticatedHost(req, res);
   if (!user) return;
@@ -120,11 +116,8 @@ router.post('/listings', async (req, res) => {
   let payload;
   try {
     assertAllowedKeys(req.body, ['title', 'description', 'category', 'location_text', 'latitude', 'longitude', 'place_id', 'formatted_address', 'neighborhood', 'city', 'country']);
-    category = enumValue(req.body.category, 'category', CATEGORIES);
     const niches = normalizeNiches(await hostNiches(user.id));
-    if (!niches.includes(category)) {
-      return res.status(422).json({ error: 'This category is outside your two approved posting niches', code: 'HOST_NICHE_NOT_ALLOWED' });
-    }
+    category = niches[0];
     payload = {
       host_id: user.id,
       title: text(req.body.title, 'title', { max: 300 }),
@@ -146,7 +139,7 @@ router.post('/listings', async (req, res) => {
   const { data, error } = await supabaseAdmin.from('listings').insert(payload).select().single();
   if (error) {
     if (error.code === 'P0001' || /niche/i.test(error.message || '')) {
-      return res.status(422).json({ error: 'This category is outside your two approved posting niches', code: 'HOST_NICHE_NOT_ALLOWED' });
+      return res.status(422).json({ error: 'Listing category must match the host niche', code: 'HOST_NICHE_NOT_ALLOWED' });
     }
     return res.status(500).json({ error: 'Unable to create listing' });
   }
@@ -174,7 +167,7 @@ router.patch('/listings/:id', async (req, res) => {
           update[key] = enumValue(update[key], key, CATEGORIES);
           const niches = normalizeNiches(await hostNiches(user.id));
           if (!niches.includes(update[key])) {
-            return res.status(422).json({ error: 'This category is outside your two approved posting niches', code: 'HOST_NICHE_NOT_ALLOWED' });
+            return res.status(422).json({ error: 'Listing category must match the host niche', code: 'HOST_NICHE_NOT_ALLOWED' });
           }
         }
       } catch (error) {
@@ -231,10 +224,10 @@ router.post('/listings/:id/duplicate', async (req, res) => {
   if (!listing) return;
   try {
     if (!normalizeNiches(await hostNiches(user.id)).includes(listing.category)) {
-      return res.status(422).json({ error: 'This category is outside your two approved posting niches', code: 'HOST_NICHE_NOT_ALLOWED' });
+      return res.status(422).json({ error: 'Listing category must match the host niche', code: 'HOST_NICHE_NOT_ALLOWED' });
     }
   } catch (error) {
-    return res.status(422).json({ error: error.message || 'Choose your two posting niches first', code: 'HOST_NICHES_INVALID' });
+    return res.status(422).json({ error: error.message || 'Choose your posting niche first', code: 'HOST_NICHES_INVALID' });
   }
   const { data: copy, error } = await supabaseAdmin.from('listings').insert({
     host_id: user.id,

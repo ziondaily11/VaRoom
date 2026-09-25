@@ -1403,7 +1403,7 @@
     document.getElementById('btnSkip2').addEventListener('click', function () { goTo(3, true, 'push'); });
 
     /* ---------- Step 3 · Interests ---------- */
-    var HOST_PICKS = 2;
+    var HOST_PICKS = 1;
 
     document.body.setAttribute('data-role', ROLE);
     Array.prototype.forEach.call(document.querySelectorAll('[data-for]'), function (el) {
@@ -1449,7 +1449,7 @@
         if (i > -1) {
           picks.splice(i, 1);
         } else if (ROLE === 'host' && picks.length >= HOST_PICKS) {
-          pickHint.textContent = 'You can choose 2. Deselect one to swap.';
+          pickHint.textContent = 'You can choose 1.';
           pickHint.classList.remove('is-error');
           return;
         } else {
@@ -1487,7 +1487,7 @@
 
       if (ROLE === 'host') {
         if (picks.length !== HOST_PICKS) {
-          pickHint.textContent = 'Choose exactly 2 to continue';
+          pickHint.textContent = 'Choose exactly 1 to continue';
           pickHint.classList.add('is-error');
           firstBad = chips[0];
         }
