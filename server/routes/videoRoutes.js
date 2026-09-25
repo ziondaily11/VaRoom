@@ -378,7 +378,7 @@ router.get('/media/:mediaId/playback', async (req, res) => {
       throw error;
     }
 
-    // Optional: Get authenticated user (for access control if needed)
+    // Require authentication — video playback URLs must not be handed to anonymous callers.
     const authHeader = req.headers.authorization || '';
     const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
     let userId = null;
@@ -386,6 +386,10 @@ router.get('/media/:mediaId/playback', async (req, res) => {
     if (token) {
       const { data: { user } } = await supabaseAdmin.auth.getUser(token);
       if (user) userId = user.id;
+    }
+
+    if (!userId) {
+      return res.status(401).json({ error: 'Login required to view videos' });
     }
 
     // Step 1: Fetch media record
@@ -430,33 +434,39 @@ router.get('/media/:mediaId/playback', async (req, res) => {
       expiresAt: playbackUrl.expiresAt,
       thumbnailUrl: thumbnailUrl ? thumbnailUrl.url : null,
     });
-
-    router.get('/media/:mediaId/thumbnail', async (req, res) => {
-      try {
-        uuid(req.params.mediaId, 'media id');
-        const { data: mediaRecord, error } = await supabaseAdmin
-          .from('property_media')
-          .select('storage_key,thumbnail_key')
-          .eq('id', req.params.mediaId)
-          .eq('media_type', 'video')
-          .eq('status', 'ready')
-          .is('deleted_at', null)
-          .single();
-        if (error || !mediaRecord || !mediaRecord.thumbnail_key) {
-          return res.status(404).json({ error: 'Video thumbnail not found' });
-        }
-        const thumbnail = await mediaStorageService.generateR2DownloadAuthorization(
-          mediaRecord.thumbnail_key, 'image/jpeg', 3600
-        );
-        return res.json({ url: thumbnail.url, expiresAt: thumbnail.expiresAt });
-      } catch (error) {
-        console.error('Error generating video thumbnail URL:', error);
-        return res.status(500).json({ error: 'Internal server error' });
-      }
-    });
   } catch (error) {
     console.error('Error in playback endpoint:', error);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * GET /api/media/:mediaId/thumbnail
+ *
+ * Returns a short-lived signed URL for a video thumbnail.
+ * Previously mis-registered inside the playback handler — now a proper top-level route.
+ */
+router.get('/media/:mediaId/thumbnail', async (req, res) => {
+  try {
+    uuid(req.params.mediaId, 'media id');
+    const { data: mediaRecord, error } = await supabaseAdmin
+      .from('property_media')
+      .select('storage_key,thumbnail_key')
+      .eq('id', req.params.mediaId)
+      .eq('media_type', 'video')
+      .eq('status', 'ready')
+      .is('deleted_at', null)
+      .single();
+    if (error || !mediaRecord || !mediaRecord.thumbnail_key) {
+      return res.status(404).json({ error: 'Video thumbnail not found' });
+    }
+    const thumbnail = await mediaStorageService.generateR2DownloadAuthorization(
+      mediaRecord.thumbnail_key, 'image/jpeg', 3600
+    );
+    return res.json({ url: thumbnail.url, expiresAt: thumbnail.expiresAt });
+  } catch (error) {
+    console.error('Error generating video thumbnail URL:', error);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -647,6 +657,20 @@ router.patch('/properties/:propertyId/media/order', async (req, res) => {
 
     if (!Array.isArray(order) || order.length === 0) {
       return res.status(400).json({ error: 'Invalid order array' });
+    }
+    if (order.length > 50) {
+      return res.status(400).json({ error: 'Order array is too large' });
+    }
+
+    // Validate each item before touching the database.
+    try {
+      for (const item of order) {
+        uuid(item.mediaId, 'mediaId');
+        number(item.sortOrder, 'sortOrder', { integer: true, min: 0 });
+      }
+    } catch (validationError) {
+      if (validationError instanceof ValidationError) return res.status(400).json({ error: validationError.message });
+      throw validationError;
     }
 
     // Step 2: Verify property ownership

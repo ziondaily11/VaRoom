@@ -43,6 +43,9 @@ app.use((req, res, next) => {
   res.set('X-Content-Type-Options', 'nosniff');
   res.set('X-Frame-Options', 'DENY');
   res.set('Referrer-Policy', 'no-referrer');
+  // Block framing from any origin and disallow plugin/object content.
+  // `frame-ancestors 'none'` supersedes X-Frame-Options in modern browsers.
+  res.set('Content-Security-Policy', "frame-ancestors 'none'; object-src 'none'");
   next();
 });
 // Paystack signs the exact request bytes. This must remain before JSON parsing
@@ -116,15 +119,6 @@ function verifyAccountVerificationState(value) {
   }
 }
 
-function issuedAt(token) {
-  try {
-    const parts = String(token || '').split('.');
-    const claims = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
-    return Number.isInteger(claims.iat) ? claims.iat : null;
-  } catch (_error) {
-    return null;
-  }
-}
 
 function hasPasswordProvider(user) {
   const providers = user && user.app_metadata && Array.isArray(user.app_metadata.providers)
@@ -184,9 +178,13 @@ app.post('/api/account-information/google-verification/start', async (req, res) 
 app.post('/api/account-information/google-verification/complete', async (req, res) => {
   const state = verifyAccountVerificationState(readCookie(req, ACCOUNT_VERIFICATION_COOKIE));
   res.clearCookie(ACCOUNT_VERIFICATION_COOKIE, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/api/account-information/google-verification' });
-  const token = bearerToken(req);
   const user = await getAuthenticatedUser(req);
-  if (!state || !user || !token || issuedAt(token) === null || issuedAt(token) < state.notBefore || state.userId !== user.id || !hasGoogleProvider(user) || hasPasswordProvider(user)) {
+  // Derive the session issuance time from the verified user's last_sign_in_at field
+  // rather than decoding the raw JWT — the token is already validated by getAuthenticatedUser.
+  const tokenIat = user && user.last_sign_in_at
+    ? Math.floor(new Date(user.last_sign_in_at).getTime() / 1000)
+    : null;
+  if (!state || !user || tokenIat === null || tokenIat < state.notBefore || state.userId !== user.id || !hasGoogleProvider(user) || hasPasswordProvider(user)) {
     return sendError(res, 403, 'The Google account does not match this VaRoom account', ERROR_CODES.UNAUTHORIZED);
   }
   return res.json({ verified: true });
@@ -269,7 +267,7 @@ app.post(['/support/tickets', '/api/support/tickets'], async (req, res) => {
     email: resolvedEmail,
     subject: safeSubject,
     message: safeMessage,
-    priority: ['low', 'normal', 'high'].includes(priority) ? priority : 'normal'
+    priority: ['low', 'normal', 'high'].includes(priority) && authUser ? priority : 'normal'
   }).select('id,status,created_at').single();
   if (error) return sendError(res, 502, 'Unable to create support ticket');
   return res.status(201).json({ ticket: data });
@@ -452,6 +450,12 @@ async function proxyPropertyNews(req, res) {
     return sendError(res, 503, 'Property news is not configured yet.');
   }
 
+  // Whitelist: only forward paths that genuinely start with /api/news.
+  // Reject path traversal attempts unconditionally.
+  if (!req.path.startsWith('/api/news') || req.path.includes('..')) {
+    return sendError(res, 400, 'Invalid request path');
+  }
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
   try {
@@ -479,15 +483,6 @@ async function proxyPropertyNews(req, res) {
 app.get('/api/news', proxyPropertyNews);
 app.get('/api/news/*', proxyPropertyNews);
 
-// Quick way to confirm the Supabase connection actually works once you've
-// filled in server/.env and run the schema SQL.
-app.get('/api/db-check', async (req, res) => {
-  const { error } = await supabaseAdmin.from('listings').select('id').limit(1);
-  if (error) {
-    return res.status(500).json({ connected: false, error: error.message });
-  }
-  res.json({ connected: true });
-});
 
 // Permanently delete the account represented by the authenticated session.
 app.post('/api/delete-account', async (req, res) => {
@@ -633,6 +628,21 @@ const videoCleanupTimer = setInterval(() => {
   });
 }, VIDEO_CLEANUP_INTERVAL_MS);
 videoCleanupTimer.unref();
+
+// Prune stale entries from in-memory rate-limiter Maps every 5 minutes so they
+// cannot grow unboundedly when the server receives traffic from many distinct IPs.
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, timestamps] of apiRequestTracker) {
+    if (timestamps.every((ts) => now - ts >= 60000)) apiRequestTracker.delete(key);
+  }
+  for (const [key, ts] of otpRequestTracker) {
+    if (now - ts >= AUTH_EMAIL_COOLDOWN_MS) otpRequestTracker.delete(key);
+  }
+  for (const [key, ts] of confirmationRequestTracker) {
+    if (now - ts >= AUTH_EMAIL_COOLDOWN_MS) confirmationRequestTracker.delete(key);
+  }
+}, 5 * 60 * 1000).unref();
 
 app.listen(PORT, () => {
   console.log(`VaRoom server listening on port ${PORT}`);

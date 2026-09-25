@@ -80,27 +80,8 @@ async function profilesById(ids) {
     .select('id,full_name,username,avatar_url')
     .in('id', ids);
   if (error) throw error;
-  const profiles = Object.fromEntries((data || []).map((profile) => [profile.id, profile]));
-  const emailResults = await Promise.all(ids.map(async (id) => {
-    try {
-      const { data: result, error: authError } = await supabaseAdmin.auth.admin.getUserById(id);
-      if (authError) {
-        console.warn('Chat profile email lookup failed:', id, authError.message);
-        return null;
-      }
-
-      return result && result.user && result.user.email
-        ? { id, email: result.user.email }
-        : null;
-    } catch (error) {
-      console.warn('Chat profile email lookup failed:', id, error.message);
-      return null;
-    }
-  }));
-  emailResults.filter(Boolean).forEach(({ id, email }) => {
-    profiles[id] = { ...(profiles[id] || { id }), email };
-  });
-  return profiles;
+  // Return only public profile fields — never expose auth emails to other conversation participants.
+  return Object.fromEntries((data || []).map((profile) => [profile.id, profile]));
 }
 
 function withDecryptedBody(message) {

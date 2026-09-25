@@ -8,6 +8,16 @@ const SESSION_COOKIE = 'varoom_admin_session';
 const SESSION_TTL_SECONDS = 60 * 60 * 8;
 const SUPPORT_FROM = process.env.RESEND_FROM_EMAIL || 'VaRoom Support <support@varoom.co.ke>';
 
+// Escapes all five HTML-special characters to prevent XSS in generated email HTML.
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function hashPassword(password, salt = crypto.randomBytes(16).toString('hex')) {
   return new Promise((resolve, reject) => {
     crypto.scrypt(password, salt, 64, (error, derivedKey) => {
@@ -29,19 +39,23 @@ function verifyPassword(password, stored) {
   });
 }
 
+// ADMIN_SESSION_SECRET is required. Falling back to the service-role key would
+// couple two independent security boundaries to a single secret.
 function encodeSession(adminId) {
+  const secret = process.env.ADMIN_SESSION_SECRET;
+  if (!secret) throw new Error('ADMIN_SESSION_SECRET is not configured');
   const payload = `${adminId}.${Math.floor(Date.now() / 1000) + SESSION_TTL_SECONDS}`;
-  const signature = crypto.createHmac('sha256', process.env.ADMIN_SESSION_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY)
-    .update(payload).digest('hex');
+  const signature = crypto.createHmac('sha256', secret).update(payload).digest('hex');
   return `${payload}.${signature}`;
 }
 
 function decodeSession(value) {
+  const secret = process.env.ADMIN_SESSION_SECRET;
+  if (!secret) return null; // Admin panel is not configured — reject all sessions.
   const [adminId, expires, signature] = String(value || '').split('.');
   if (!adminId || !expires || !signature || Number(expires) < Math.floor(Date.now() / 1000)) return null;
   const payload = `${adminId}.${expires}`;
-  const expected = crypto.createHmac('sha256', process.env.ADMIN_SESSION_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY)
-    .update(payload).digest('hex');
+  const expected = crypto.createHmac('sha256', secret).update(payload).digest('hex');
   if (signature.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) return null;
   return adminId;
 }
@@ -82,12 +96,26 @@ function normalizeTicket(ticket) {
 }
 
 function createAdminRoutes(supabaseAdmin) {
+  // Fail fast if the session signing secret is missing so misconfigurations
+  // are caught at startup rather than silently falling back to another key.
+  if (!process.env.ADMIN_SESSION_SECRET) {
+    console.error('FATAL: ADMIN_SESSION_SECRET is not set. Admin panel routes are disabled.');
+    const disabledRouter = express.Router();
+    disabledRouter.use((_req, res) => res.status(503).json({ error: 'Admin panel is not configured' }));
+    return disabledRouter;
+  }
+
   const router = express.Router();
   const adminAuth = requireAdmin(supabaseAdmin);
   const adminWrite = [adminAuth, requireAdminRole('super_admin', 'support')];
   const superAdmin = [adminAuth, requireAdminRole('super_admin')];
   const propertyNewsUrl = (process.env.PROPERTY_NEWS_API_URL || '').replace(/\/$/, '');
   const propertyNewsAdminApiKey = (process.env.PROPERTY_NEWS_ADMIN_API_KEY || '').trim();
+
+  // Per-email brute-force protection for the admin login endpoint.
+  const loginFailTracker = new Map(); // email -> { count, lockedUntil }
+  const LOGIN_MAX_ATTEMPTS = 5;
+  const LOGIN_LOCKOUT_MS = 15 * 60 * 1000; // 15 minutes
 
   async function propertyNewsRequest(path, options = {}) {
     if (!propertyNewsUrl || !propertyNewsAdminApiKey) {
@@ -165,10 +193,28 @@ function createAdminRoutes(supabaseAdmin) {
     const email = String(req.body && req.body.email || '').trim().toLowerCase();
     const password = String(req.body && req.body.password || '');
     if (!email || !password) return res.status(400).json({ error: 'Email and password are required' });
+
+    // Brute-force protection: check lockout before touching the database.
+    const now = Date.now();
+    const attempt = loginFailTracker.get(email) || { count: 0, lockedUntil: 0 };
+    if (attempt.lockedUntil > now) {
+      const waitSeconds = Math.ceil((attempt.lockedUntil - now) / 1000);
+      res.set('Retry-After', String(waitSeconds));
+      return res.status(429).json({ error: `Too many failed attempts. Try again in ${waitSeconds}s.` });
+    }
+
     const { data: admin, error } = await supabaseAdmin.from('admins').select('*').eq('email', email).maybeSingle();
     if (error || !admin || !(await verifyPassword(password, admin.password_hash))) {
+      const newCount = attempt.count + 1;
+      loginFailTracker.set(email, {
+        count: newCount,
+        lockedUntil: newCount >= LOGIN_MAX_ATTEMPTS ? now + LOGIN_LOCKOUT_MS : attempt.lockedUntil,
+      });
       return res.status(401).json({ error: 'Invalid email or password' });
     }
+
+    // Success — clear the failure record and issue a session.
+    loginFailTracker.delete(email);
     await supabaseAdmin.from('admins').update({ last_login_at: new Date().toISOString() }).eq('id', admin.id);
     res.set('Set-Cookie', `${SESSION_COOKIE}=${encodeURIComponent(encodeSession(admin.id))}; HttpOnly; SameSite=Lax;${process.env.NODE_ENV === 'production' ? ' Secure;' : ''} Max-Age=${SESSION_TTL_SECONDS}; Path=/`);
     return res.json({ admin: { id: admin.id, name: admin.name, email: admin.email, role: admin.role } });
@@ -222,7 +268,8 @@ function createAdminRoutes(supabaseAdmin) {
   });
 
   router.get('/signins', adminAuth, async (req, res) => {
-    const since = daysAgo(Number(req.query.range) || 14);
+    const range = Math.min(Math.max(Number(req.query.range) || 14, 1), 365);
+    const since = daysAgo(range);
     const { data, error } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
     if (error) return res.status(502).json({ error: error.message });
     const rows = (data.users || []).filter((user) => user.last_sign_in_at && user.last_sign_in_at >= since)
@@ -232,7 +279,8 @@ function createAdminRoutes(supabaseAdmin) {
   });
 
   router.get('/revenue', adminAuth, async (req, res) => {
-    const since = daysAgo(Number(req.query.range) || 7);
+    const range = Math.min(Math.max(Number(req.query.range) || 7, 1), 365);
+    const since = daysAgo(range);
     const { data, error } = await supabaseAdmin.from('bookings')
       .select('id,total_price,created_at,client_id,listing_id,listing:listings(title)').gte('created_at', since)
       .in('status', ['approved', 'completed']).order('created_at', { ascending: false });
@@ -294,7 +342,7 @@ function createAdminRoutes(supabaseAdmin) {
         from: SUPPORT_FROM,
         to: ticket.email,
         subject,
-        html: `<p>${message.replace(/</g, '&lt;')}</p>`,
+        html: `<p>${escapeHtml(message)}</p>`,
         headers: {
           'Message-ID': messageId,
           ...(inReplyTo ? { 'In-Reply-To': inReplyTo } : {}),
@@ -529,7 +577,7 @@ function createAdminRoutes(supabaseAdmin) {
   });
 
   router.get('/growth', adminAuth, async (req, res) => {
-    const range = Number(req.query.range) || 14;
+    const range = Math.min(Math.max(Number(req.query.range) || 14, 1), 365);
     const since = daysAgo(range);
     const [users, listings] = await Promise.all([
       supabaseAdmin.auth.admin.listUsers({ perPage: 1000 }),
@@ -558,7 +606,7 @@ function createAdminRoutes(supabaseAdmin) {
     if (error) return res.status(400).json({ error: error.message });
     const link = `${process.env.PUBLIC_BASE_URL || ''}/admin/set-password?token=${inviteToken}`;
     try {
-      await sendEmail({ to: admin.email, subject: 'Your VaRoom admin invite', html: `<p>You have been invited to VaRoom Admin.</p><p><a href="${link}">Set your password</a> (expires in 24 hours).</p>` });
+      await sendEmail({ to: admin.email, subject: 'Your VaRoom admin invite', html: `<p>You have been invited to VaRoom Admin.</p><p><a href="${escapeHtml(link)}">Set your password</a> (expires in 24 hours).</p>` });
     } catch (emailError) {
       await supabaseAdmin.from('admins').delete().eq('id', admin.id);
       return res.status(502).json({ error: emailError.message });
