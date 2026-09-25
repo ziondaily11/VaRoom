@@ -192,6 +192,13 @@ push    min-height:0;
     padding:24px 28px;
     display:flex; flex-direction:column; gap:20px;
   }
+  .inbox-skeleton{ display:flex; align-items:center; gap:12px; min-height:68px; padding:10px 8px; }
+  .inbox-skeleton-avatar,.inbox-skeleton-line{ background:var(--bg-soft); animation:chat-skeleton-pulse 1.25s ease-in-out infinite; }
+  .inbox-skeleton-avatar{ width:44px; height:44px; flex-shrink:0; border-radius:50%; }
+  .inbox-skeleton-copy{ display:flex; flex:1; flex-direction:column; gap:8px; }
+  .inbox-skeleton-line{ display:block; height:10px; border-radius:999px; }
+  .inbox-skeleton-line.name{ width:46%; }
+  .inbox-skeleton-line.preview{ width:75%; height:8px; }
   .messages.chat-loading{ gap:14px; pointer-events:none; }
   .chat-skeleton-row{ display:flex; flex-direction:column; gap:6px; width:min(58%, 330px); }
   .chat-skeleton-row.out{ align-self:flex-end; align-items:flex-end; }
@@ -387,6 +394,12 @@ push    min-height:0;
   .detail-row .detail-value{ color:var(--text-dark); text-align:right; font-variant-numeric:tabular-nums; }
   .media-grid{ display:grid; grid-auto-flow:column; grid-auto-columns:minmax(0,1fr); grid-template-columns:repeat(3,1fr); gap:7px; overflow:hidden; }
   .media-grid .thumb{ position:relative; aspect-ratio:1/1; border-radius:6px; overflow:hidden; display:flex; align-items:center; justify-content:center; color:#fff; font-size:18px; background:var(--bg-soft); }
+  .chat-media-loader{ position:absolute; z-index:1; width:34px; height:34px; border-radius:50%; background:repeating-conic-gradient(from 0deg, currentColor 0 4deg, transparent 4deg 18deg); -webkit-mask:radial-gradient(transparent 0 43%, #000 47%); mask:radial-gradient(transparent 0 43%, #000 47%); color:var(--text-gray-2); animation:chat-media-spin .8s linear infinite; }
+  .message-block{ position:relative; min-width:88px; min-height:68px; }
+  .message-block .chat-media-loader{ top:50%; left:50%; margin:-17px 0 0 -17px; }
+  .media-grid .chat-media-loader{ top:50%; left:50%; width:28px; height:28px; margin:-14px 0 0 -14px; }
+  @keyframes chat-media-spin{ to{ transform:rotate(360deg); } }
+  @media (prefers-reduced-motion:reduce){ .chat-media-loader{ animation:none; } }
   .media-grid .thumb .more-overlay{
     position:absolute; inset:0; background:rgba(20,22,27,0.55);
     color:var(--white); font-size:13px; font-weight:700;

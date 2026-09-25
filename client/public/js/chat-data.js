@@ -409,6 +409,7 @@
     const copy = emptyStateCopy();
     const list = $('#contactList');
     clear(list);
+    list.removeAttribute('aria-busy');
     const inboxState = document.createElement('li');
     inboxState.className = 'inbox-empty-state';
     inboxState.setAttribute('aria-label', `${copy.heading}. ${copy.detail}`);
@@ -465,6 +466,19 @@
     });
   }
 
+  function renderInboxSkeleton() {
+    const list = $('#contactList');
+    clear(list);
+    list.setAttribute('aria-busy', 'true');
+    for (let index = 0; index < 6; index += 1) {
+      const row = document.createElement('li');
+      row.className = 'inbox-skeleton';
+      row.setAttribute('aria-hidden', 'true');
+      row.innerHTML = '<span class="inbox-skeleton-avatar"></span><span class="inbox-skeleton-copy"><span class="inbox-skeleton-line name"></span><span class="inbox-skeleton-line preview"></span></span>';
+      list.appendChild(row);
+    }
+  }
+
   function renderNoSelectionState() {
     const messages = $('.messages');
     clear(messages);
@@ -482,6 +496,7 @@
   function renderConversationList() {
     const list = $('#contactList');
     clear(list);
+    list.removeAttribute('aria-busy');
     const conversations = state.role === 'client' ? [elieConversation(), ...state.conversations] : state.conversations;
     conversations.forEach((conversation) => {
       const person = conversation.participant || {};
@@ -660,10 +675,13 @@
       image.className = 'chat-message-image';
       image.alt = message.attachment && message.attachment.original_filename || 'Shared image';
       image.style.cssText = 'display:block;max-width:320px;max-height:260px;width:auto;height:auto;object-fit:contain;border-radius:8px;cursor:zoom-in';
+      const removeLoader = addMediaLoader(block);
+      image.addEventListener('load', removeLoader, { once: true });
+      image.addEventListener('error', removeLoader, { once: true });
       downloadAttachment(message.attachment_id).then((url) => {
         image.src = url;
         image.addEventListener('click', () => openImagePreview(url, image.alt));
-      }).catch((error) => console.error('Image message unavailable:', error));
+      }).catch((error) => { removeLoader(); console.error('Image message unavailable:', error); });
       block.append(image, meta);
       row.appendChild(block);
     } else if (message.attachment_id) {
@@ -687,6 +705,14 @@
   async function downloadAttachment(attachmentId) {
     const result = await api(`/api/chat/attachments/${encodeURIComponent(attachmentId)}/download`);
     return result.url;
+  }
+
+  function addMediaLoader(container) {
+    const loader = document.createElement('span');
+    loader.className = 'chat-media-loader';
+    loader.setAttribute('aria-label', 'Loading media');
+    container.appendChild(loader);
+    return () => loader.remove();
   }
 
   async function loadListingVideo(listingId) {
@@ -850,7 +876,10 @@
       image.style.width = '100%';
       image.style.height = '100%';
       image.style.objectFit = 'cover';
-      downloadAttachment(message.attachment_id).then((url) => { image.src = url; }).catch((error) => console.error('Image unavailable:', error));
+      const removeLoader = addMediaLoader(thumb);
+      image.addEventListener('load', removeLoader, { once: true });
+      image.addEventListener('error', removeLoader, { once: true });
+      downloadAttachment(message.attachment_id).then((url) => { image.src = url; }).catch((error) => { removeLoader(); console.error('Image unavailable:', error); });
       thumb.appendChild(image);
       thumb.addEventListener('click', () => downloadAttachment(message.attachment_id).then((url) => openImagePreview(url, image.alt)));
       mediaGrid.appendChild(thumb);
@@ -963,7 +992,7 @@
 
   async function start() {
     if (!window.supabaseClient) throw new Error('Supabase client is unavailable');
-    renderChatSkeleton();
+    renderInboxSkeleton();
     const result = await window.supabaseClient.auth.getSession();
     state.session = result.data.session;
     if (!state.session) { window.location.assign('/login?next=/chats'); return; }
