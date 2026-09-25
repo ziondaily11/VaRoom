@@ -77,10 +77,10 @@ async function profilesById(ids) {
   if (!ids.length) return {};
   const { data, error } = await supabaseAdmin
     .from('profiles')
-    .select('id,full_name,username,avatar_url')
+    .select('id,full_name,username,avatar_url,phone')
     .in('id', ids);
   if (error) throw error;
-  // Return only public profile fields — never expose auth emails to other conversation participants.
+  // Return contact fields used elsewhere in the product — never expose auth emails to other conversation participants.
   return Object.fromEntries((data || []).map((profile) => [profile.id, profile]));
 }
 

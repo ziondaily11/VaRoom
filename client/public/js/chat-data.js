@@ -151,8 +151,17 @@
       const plus = $('.attach-icons .mobile-plus');
       plus.addEventListener('click', openMobileTray);
       $('.chat-header .mobile-back').addEventListener('click', showMobileInbox);
-      $('.chat-header > div:first-of-type').addEventListener('click', () => {
-        if (state.activeId) showMobileInfo('conversation');
+      const identity = $('.chat-header-identity');
+      identity.setAttribute('role', 'button');
+      identity.setAttribute('tabindex', '0');
+      identity.setAttribute('aria-label', 'Open conversation information');
+      const openConversationInfo = () => showMobileInfo('conversation');
+      identity.addEventListener('click', openConversationInfo);
+      identity.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          openConversationInfo();
+        }
       });
       $('.info-close-btn').addEventListener('click', () => {
         if (state.mobileInfoReturn === 'inbox') showMobileInbox();
@@ -178,12 +187,13 @@
     $('.chat-col').classList.add('mobile-visible');
   }
   function showMobileInfo(returnTo) {
-    if (!isMobile() || !state.activeId) return;
+    if (!isMobile() || !state.activeId || state.mobileView !== 'conversation') return;
     state.mobileInfoReturn = returnTo || 'conversation';
     state.mobileView = 'info';
     document.body.classList.add('chat-page-context');
     $('.contacts-col').classList.add('mobile-hidden');
     $('.chat-col').classList.remove('mobile-visible');
+    $('.info-col').classList.remove('collapsed');
     $('.info-col').classList.add('mobile-visible');
   }
 
