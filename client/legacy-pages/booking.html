@@ -334,7 +334,8 @@
     .skel-shell{ height:auto; overflow:visible; }
   }
 
-  /* ---------- Premium listing composition ---------- */
+  /* ---------- Dedicated desktop booking workspace ---------- */
+  .client-sidebar{ display:none; }
   .content-grid{ max-width:1240px; padding:1.5rem 5vw 4rem; gap:3.5rem; }
   .col-main{ min-width:0; }
   .col-side{ min-width:0; }
@@ -373,20 +374,6 @@
   .amenity-grid{ grid-template-columns:repeat(3,minmax(0,1fr)); gap:1rem 1.5rem; }
   .amenity-item{ gap:.6rem; font-size:.82rem; color:var(--muted); }
   .amenity-item svg{ color:var(--ink); width:17px; height:17px; }
-  .location-section{ margin-top:1.8rem; }
-  .location-heading{ display:flex; align-items:center; justify-content:space-between; gap:1rem; margin-bottom:.35rem; }
-  .location-name{ color:var(--muted); font-size:.9rem; }
-  .map-preview{
-    min-height:150px; margin-top:.85rem; border:1px solid var(--line); border-radius:16px;
-    background:
-      linear-gradient(135deg, transparent 0 42%, rgba(78,165,196,.2) 43% 48%, transparent 49%),
-      linear-gradient(25deg, transparent 0 55%, rgba(78,165,196,.16) 56% 60%, transparent 61%),
-      repeating-linear-gradient(35deg, rgba(128,110,100,.08) 0 1px, transparent 1px 24px),
-      var(--white);
-    display:flex; align-items:flex-end; justify-content:space-between; padding:1rem; gap:1rem;
-  }
-  .map-pin{ color:var(--red); font-weight:700; font-size:.85rem; }
-  .map-link{ color:var(--ink); text-decoration:underline; font-size:.78rem; font-weight:700; white-space:nowrap; }
   .reviews-header{ margin-bottom:.8rem; }
   .review-strip{ gap:1rem; }
   .review-card{ border-color:var(--line); border-radius:14px; padding:1rem; }
@@ -407,15 +394,51 @@
   .cal-day.open:hover{ background:var(--green-tint); border-color:transparent; }
   .cal-day.in-range{ background:rgba(196,30,58,.1); border-radius:0; }
   .cal-day.range-end{ background:var(--red); color:#fff; border-radius:50%; }
-  .confirm-btn{ background:#24211E; color:#fff; margin-top:1rem; }
-  .confirm-btn:hover{ background:#3a2d29; }
+  .confirm-btn{ background:var(--red); color:#fff; margin-top:1rem; }
+  .confirm-btn:hover{ background:var(--red-deep); }
   .confirm-btn:disabled{ background:#c9c0bd; color:#5e514c; }
   [data-theme="dark"] .confirm-btn{ background:#f5efec; color:#24211E; }
   [data-theme="dark"] .confirm-btn:hover{ background:#fff; }
   [data-theme="dark"] .confirm-btn:disabled{ background:#6b625e; color:#e9e1dd; }
   .form-note{ line-height:1.45; }
   @media (min-width:960px){
-    .content-grid{ grid-template-columns:minmax(0,1.55fr) minmax(340px,.85fr); }
+    .page-shell{ display:block; height:100vh; }
+    .legacy-header,.breadcrumb{ display:none !important; }
+    .client-sidebar{
+      position:fixed; inset:0 auto 0 0; z-index:20; display:flex; width:54px;
+      flex-direction:column; align-items:center; gap:1rem; overflow-y:auto;
+      padding:.9rem 0; border-right:1px solid var(--line); background:var(--white);
+      scrollbar-width:thin;
+    }
+    .client-sidebar::before{ content:''; width:3px; height:20px; border-radius:99px; background:var(--red); }
+    .client-nav-link{
+      width:34px; height:34px; display:flex; align-items:center; justify-content:center;
+      border-radius:10px; color:var(--muted); transition:background .15s ease,color .15s ease;
+    }
+    .client-nav-link:hover,.client-nav-link:focus-visible{ color:var(--red); background:rgba(196,30,58,.08); }
+    .client-nav-link.active{ color:var(--red); background:rgba(196,30,58,.08); }
+    .client-nav-link svg{ width:18px; height:18px; }
+    .main-shell{ height:100vh; min-height:100vh; margin-left:54px; overflow-y:auto; }
+    .content-grid{
+      display:grid; grid-template-columns:minmax(0,1fr) minmax(320px,360px); align-items:start;
+      max-width:1280px; height:auto; min-height:100%; margin:0 auto; padding:16px 24px 42px; gap:16px; overflow:visible;
+    }
+    .col-main,.col-side{ height:auto; overflow:visible; padding:0; }
+    .gallery-carousel{ height:clamp(260px,31vw,390px); margin-bottom:1rem; border-radius:10px; }
+    .listing-title{ font-size:1.35rem; }
+    .divider{ margin:1.1rem 0; }
+    .host-about-row{ grid-template-columns:1fr; gap:1rem; }
+    .host-card{ flex-direction:row; align-items:center; justify-content:space-between; }
+    .contact-host-btn{ width:auto; min-width:178px; padding:.55rem .9rem; }
+    .about-text{ font-size:.8rem; line-height:1.5; }
+    .amenity-grid{ grid-template-columns:repeat(3,minmax(0,1fr)); gap:.75rem 1rem; }
+    .amenity-item{ font-size:.76rem; }
+    .booking-widget{ position:sticky; top:16px; padding:1.1rem; border-radius:12px; box-shadow:0 8px 26px rgba(36,33,30,.08); }
+    .widget-price{ font-size:1.15rem; }
+    .picker-title{ font-size:.95rem; margin-top:1rem; }
+    .cal-header{ padding-bottom:.35rem; }
+    .cal-title{ font-size:.82rem; }
+    .cal-day{ font-size:.68rem; }
   }
   @media (max-width:959px){
     body{ padding-bottom:0; }
@@ -454,7 +477,12 @@
 <body>
 
 <div class="page-shell">
-<header>
+<aside class="client-sidebar" aria-label="Client navigation">
+  <a href="/client-home" class="client-nav-link" aria-label="Home" title="Home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11.5 9-7.5 9 7.5"/><path d="M5.5 10v9a1 1 0 0 0 1 1H9a1 1 0 0 1 1-1v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4a1 1 0 0 0 1 1h2.5a1 1 0 0 0 1-1v-9"/></svg></a>
+  <a href="/marketplace" class="client-nav-link active" aria-label="Discover marketplace" title="Discover marketplace"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2.25 4.75-4.75 2.25 2.25-4.75 4.75-2.25Z"/></svg></a>
+  <a href="/chats" class="client-nav-link" aria-label="Chat" title="Chat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z"/></svg></a>
+</aside>
+<header class="legacy-header" aria-hidden="true">
   <a href="/" class="logo" id="logo-link"><span class="va">Va</span><span class="room">Room</span></a>
 
   <div class="search-wrap">
@@ -921,14 +949,6 @@
           amenitiesHtml +
         '</div>' +
       '</div>' +
-      '<hr class="divider">' +
-      '<section class="location-section">' +
-        '<div class="location-heading">' +
-          '<div><p class="section-title">Location</p><p class="location-name">' + escapeHtml(listing.location_text || 'Location to be added') + '</p></div>' +
-          '<a class="map-link" href="' + mapUrl + '" target="_blank" rel="noopener">View on map</a>' +
-        '</div>' +
-        '<div class="map-preview"><span class="map-pin">● ' + escapeHtml(locParts[0] || 'Your stay') + '</span><a class="map-link" href="' + mapUrl + '" target="_blank" rel="noopener">Open directions</a></div>' +
-      '</section>' +
       '<hr class="divider">' +
       '<div class="reviews-header">' +
         '<p class="section-title">What guests say ' + (reviewsError ? escapeHtml(ratingText) : reviewCount ? ICON_STAR + ' ' + escapeHtml(ratingText) + ' ' + escapeHtml(ratingCountText) : escapeHtml(ratingText)) + '</p>' +
