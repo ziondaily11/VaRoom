@@ -419,6 +419,7 @@
 
     const messages = $('.messages');
     clear(messages);
+    messages.classList.remove('chat-loading');
     messages.classList.add('empty-state');
     const conversationState = document.createElement('div');
     conversationState.className = 'chat-empty-state';
@@ -435,11 +436,39 @@
     $('.messages').classList.remove('empty-state');
     $('.chat-col').classList.remove('empty-conversation');
     $('.info-col').classList.remove('collapsed');
+    if (!isMobile()) {
+      const toggle = $('#toggle-info-panel');
+      if (toggle) { toggle.classList.add('active'); toggle.setAttribute('aria-expanded', 'true'); }
+    }
+  }
+
+  function renderChatSkeleton() {
+    const messages = $('.messages');
+    clear(messages);
+    messages.classList.remove('empty-state');
+    messages.classList.add('chat-loading');
+    messages.setAttribute('aria-busy', 'true');
+    [
+      ['in', ['medium', 'short']],
+      ['out', ['long', 'short']],
+      ['in', ['long', 'medium', 'short']],
+      ['out', ['medium', 'short']],
+    ].forEach(([side, widths]) => {
+      const row = document.createElement('div');
+      row.className = `chat-skeleton-row ${side}`;
+      widths.forEach((width) => {
+        const line = document.createElement('span');
+        line.className = `chat-skeleton-line ${width}`;
+        row.appendChild(line);
+      });
+      messages.appendChild(row);
+    });
   }
 
   function renderNoSelectionState() {
     const messages = $('.messages');
     clear(messages);
+    messages.classList.remove('chat-loading');
     messages.classList.add('empty-state');
     const stateMessage = document.createElement('div');
     stateMessage.className = 'chat-empty-state';
@@ -671,6 +700,8 @@
   function renderMessages(messages) {
     const container = $('.messages');
     clear(container);
+    container.classList.remove('chat-loading');
+    container.removeAttribute('aria-busy');
     const notice = document.createElement('div');
     notice.className = 'system-notice';
     notice.textContent = 'Your messages are encrypted and private.';
@@ -700,6 +731,8 @@
 
   function renderElieIntro() {
     const messages = $('.messages'); clear(messages);
+    messages.classList.remove('chat-loading');
+    messages.removeAttribute('aria-busy');
     const intro = document.createElement('section');
     intro.className = 'elie-intro';
     intro.innerHTML = '<h2>Ask Elie to find you a space.</h2><p>Describe what you\'re looking for and Elie will search real VaRoom listings, with GPS-verified matches first.</p><div class="elie-suggestions"></div>';
@@ -856,6 +889,7 @@
     $('#statusDot').classList.remove('online');
     renderHeaderProfile(conversation);
     renderProfile(conversation);
+    renderChatSkeleton();
     const about = $('.elie-about'); if (about) about.remove();
     const actions = $('.chat-actions'); if (actions) actions.hidden = false;
     const previousChannel = state.channel;
@@ -929,6 +963,7 @@
 
   async function start() {
     if (!window.supabaseClient) throw new Error('Supabase client is unavailable');
+    renderChatSkeleton();
     const result = await window.supabaseClient.auth.getSession();
     state.session = result.data.session;
     if (!state.session) { window.location.assign('/login?next=/chats'); return; }

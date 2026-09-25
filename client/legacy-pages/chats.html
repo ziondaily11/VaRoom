@@ -192,6 +192,16 @@ push    min-height:0;
     padding:24px 28px;
     display:flex; flex-direction:column; gap:20px;
   }
+  .messages.chat-loading{ gap:14px; pointer-events:none; }
+  .chat-skeleton-row{ display:flex; flex-direction:column; gap:6px; width:min(58%, 330px); }
+  .chat-skeleton-row.out{ align-self:flex-end; align-items:flex-end; }
+  .chat-skeleton-row.in{ align-self:flex-start; }
+  .chat-skeleton-line{ display:block; height:12px; border-radius:999px; background:var(--bg-soft); animation:chat-skeleton-pulse 1.25s ease-in-out infinite; }
+  .chat-skeleton-line.short{ width:42%; height:8px; }
+  .chat-skeleton-line.medium{ width:64%; }
+  .chat-skeleton-line.long{ width:100%; }
+  .chat-skeleton-row.out .chat-skeleton-line{ background:#dce9f7; }
+  @keyframes chat-skeleton-pulse{ 50%{ opacity:.48; } }
   .msg-row{ display:flex; flex-direction:column; max-width:58%; }
   .msg-row.in{ align-self:flex-start; align-items:flex-start; }
   .msg-row.out{ align-self:flex-end; align-items:flex-end; }
@@ -1030,7 +1040,7 @@ push    min-height:0;
       </div>
 
       <div class="chat-header-actions">
-        <button type="button" title="Toggle information panel" id="toggle-info-panel" class="active" aria-label="Toggle information panel" aria-controls="infoCol" aria-expanded="true"><svg class="icon"><use href="#i-panel"/></svg></button>
+        <button type="button" title="Toggle information panel" id="toggle-info-panel" aria-label="Toggle information panel" aria-controls="infoCol" aria-expanded="false"><svg class="icon"><use href="#i-panel"/></svg></button>
         <button title="More"><svg class="icon"><use href="#i-more"/></svg></button>
       </div>
     </header>
@@ -1076,7 +1086,7 @@ push    min-height:0;
   </main>
 
   <!-- INFO -->
-  <aside class="info-col" id="infoCol">
+  <aside class="info-col collapsed" id="infoCol">
     <div class="info-title-row">
       <div class="info-title">Information</div>
       <button class="info-close-btn" id="infoCloseBtn" title="Close"><svg class="icon"><use href="#i-close"/></svg></button>
