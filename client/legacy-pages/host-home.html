@@ -624,14 +624,26 @@
     backdrop-filter:blur(6px);
   }
   .media-dots{
+    position:absolute; z-index:3; left:50%; bottom:.65rem; transform:translateX(-50%);
     display:flex; justify-content:center; align-items:center; gap:.38rem;
-    padding:.45rem 0 0; min-height:16px;
+    padding:.3rem .5rem; min-height:16px; border-radius:999px;
+    background:rgba(26,18,16,.42); backdrop-filter:blur(5px);
   }
   .media-dot{
     width:6px; height:6px; border-radius:50%; background:var(--line);
     transition:all .2s ease; display:inline-block;
   }
   .media-dot.active{ background:var(--red); transform:scale(1.2); }
+  .media-carousel-arrow{
+    position:absolute; z-index:3; top:50%; transform:translateY(-50%);
+    width:34px; height:34px; display:none; place-items:center; border-radius:50%;
+    background:rgba(26,18,16,.58); color:#fff; font-size:1.7rem; line-height:1;
+    transition:background .18s ease, transform .18s ease;
+  }
+  .media-carousel-arrow:hover{ background:rgba(26,18,16,.78); transform:translateY(-50%) scale(1.06); }
+  .media-carousel-arrow.prev{ left:.65rem; }
+  .media-carousel-arrow.next{ right:.65rem; }
+  @media (hover:hover) and (pointer:fine){ .media-carousel:not(.single-media) .media-carousel-arrow{ display:grid; } }
   .card-video{ position:relative; border-radius:12px; overflow:hidden; margin-bottom:.75rem; background:#000; }
   .card-video video{ display:block; width:100%; height:clamp(220px, 30vw, 420px); object-fit:cover; background:#000; }
   .card-video.single video{ height:clamp(260px, 42vw, 540px); }
@@ -727,7 +739,7 @@
     #feed-list.discover-media-feed .media-carousel,
     #feed-list.discover-media-feed .card-video{ --discover-media-height:clamp(220px, 75vw, 420px); }
     .media-index-pill{ top:.55rem; right:.55rem; font-size:.66rem; }
-    .media-dots{ padding-top:.4rem; }
+    .media-dots{ bottom:.5rem; }
 
     body{ height:auto; overflow-y:visible; overflow-x:hidden; }
     .app-shell{ height:auto; overflow-y:visible; overflow-x:hidden; }
@@ -1847,6 +1859,8 @@
       } else {
         photosHtml = '<div class="media-carousel" data-listing-id="' + listing.id + '" data-photo-count="' + photos.length + '">'
           + '<div class="media-index-pill">1/' + photos.length + '</div>'
+          + '<button type="button" class="media-carousel-arrow prev" data-carousel-prev aria-label="Previous photo">‹</button>'
+          + '<button type="button" class="media-carousel-arrow next" data-carousel-next aria-label="Next photo">›</button>'
           + '<div class="media-slide-track">' + photos.map(function(url, i){
               return '<div class="media-slide"><img src="' + url + '" alt="' + escapeHtml(listing.title) + '" loading="lazy" data-listing-id="' + listing.id + '" data-photo-index="' + i + '"></div>';
             }).join('') + '</div>'
@@ -1995,6 +2009,7 @@
         }
 
         carousel.addEventListener('pointerdown', function(e){
+          if (e.target.closest('[data-carousel-prev], [data-carousel-next], .media-dot')) return;
           dragging = true;
           startX = e.clientX;
           currentX = e.clientX;
@@ -2040,6 +2055,8 @@
         });
 
         carousel.addEventListener('click', function(e){
+          if (e.target.closest('[data-carousel-prev]')) { updateIndex(activeIndex - 1); return; }
+          if (e.target.closest('[data-carousel-next]')) { updateIndex(activeIndex + 1); return; }
           if (e.target && e.target.classList && e.target.classList.contains('media-dot')) {
             updateIndex(parseInt(e.target.getAttribute('data-index'), 10));
           }
