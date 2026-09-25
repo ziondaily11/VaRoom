@@ -432,7 +432,11 @@
       display:inline-flex; align-items:center; vertical-align:middle; margin:0 .55rem .35rem 0;
     }
     .listing-loc{ gap:.28rem; font-size:.76rem; }
-    .listing-loc .map-link-inline{ display:inline; margin-left:.2rem; color:var(--red); font-weight:700; }
+    .listing-loc .map-link-inline{
+      display:inline; margin-left:.15rem; padding-left:.5rem; border-left:1px solid var(--line-strong);
+      color:var(--red); font-weight:700; line-height:1;
+    }
+    .host-phone{ padding-left:.55rem; border-left:1px solid var(--line-strong); }
     .rating-row{ font-size:.74rem; gap:.3rem; }
     .badge-row,.info-chip-row{ gap:.3rem; }
     .mini-badge,.info-chip{ padding:.2rem .46rem; font-size:.67rem; }
@@ -440,7 +444,7 @@
     .host-about-row{ grid-template-columns:1fr; gap:.5rem; }
     .host-card{ flex-direction:row; align-items:center; justify-content:space-between; }
     .host-card{ gap:.75rem; }
-    .contact-host-btn{ width:auto; min-width:152px; padding:.45rem .8rem; }
+    .contact-host-btn{ width:auto; min-width:152px; min-height:32px; padding:.45rem .8rem; }
     .about-block .about-title,.section-title{ font-size:.88rem; margin-bottom:.2rem; }
     .about-text{ font-size:.76rem; line-height:1.4; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
     .amenity-grid{ grid-template-columns:repeat(4,minmax(0,1fr)); gap:.45rem .75rem; }
@@ -457,14 +461,14 @@
     .cal-title{ font-size:.82rem; }
     .cal-grid{ gap:.1rem; margin-bottom:.2rem; }
     .cal-dow{ font-size:.52rem; padding:0; }
-    .cal-day{ height:clamp(26px,3.6vh,32px); aspect-ratio:auto; font-size:.65rem; }
+    .cal-day{ height:clamp(26px,3.6vh,32px); aspect-ratio:auto; font-size:.65rem; line-height:1; }
     .cal-legend{ margin-bottom:.25rem; font-size:.62rem; gap:.5rem; }
     .range-summary{ margin-bottom:.25rem; font-size:.7rem; }
     .field{ gap:.2rem; margin-bottom:.35rem; }
     label{ font-size:.7rem; }
     input,select{ padding:.4rem .6rem; font-size:.76rem; }
     .details-box{ padding-top:.4rem; font-size:.72rem; }
-    .confirm-btn{ margin-top:.55rem; padding:.6rem 1rem; font-size:.8rem; }
+    .confirm-btn{ min-height:36px; margin-top:.55rem; padding:.6rem 1rem; font-size:.8rem; }
     .form-note{ margin-top:.3rem; font-size:.65rem; line-height:1.3; }
   }
   @media (max-width:959px){
