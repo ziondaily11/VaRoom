@@ -566,6 +566,13 @@
   .modal-actions button{ flex:1; padding:.7rem; border-radius:999px; font-weight:600; }
   .modal-cancel{ border:1px solid var(--line); color:var(--ink); }
   .modal-save{ background:var(--red); color:#fff; }
+  .niche-prompt-card{ max-width:430px; }
+  .niche-prompt-card p{ color:var(--muted); font-size:.9rem; line-height:1.5; margin:-.4rem 0 1.1rem; }
+  .niche-prompt-options{ display:grid; grid-template-columns:1fr 1fr; gap:.6rem; }
+  .niche-prompt-option{ padding:.75rem .8rem; border:1px solid var(--line); border-radius:10px; color:var(--ink); background:var(--paper); font:inherit; font-weight:600; text-align:left; cursor:pointer; }
+  .niche-prompt-option:hover, .niche-prompt-option:focus-visible{ border-color:var(--red); color:var(--red-deep); }
+  .niche-prompt-option:disabled{ opacity:.6; cursor:wait; }
+  .niche-prompt-msg{ min-height:1.2em; color:var(--red); font-size:.82rem; margin:.8rem 0 0; }
   .listing-status-banner{ color:var(--red-deep); font-size:.8rem; font-weight:700; margin:.2rem 0 .6rem; text-transform:capitalize; }
   .glance-tile > .card-menu-wrap{ position:absolute; top:.4rem; right:.4rem; z-index:3; }
 
@@ -1009,6 +1016,22 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="host-niche-prompt" role="dialog" aria-modal="true" aria-labelledby="host-niche-prompt-title">
+  <div class="modal-card niche-prompt-card">
+    <h2 id="host-niche-prompt-title">Choose your hosting niche</h2>
+    <p>VaRoom is preparing niche-specific listing tools. Choose one niche for your host account; all listings you create will use it automatically.</p>
+    <div class="niche-prompt-options" id="host-niche-options">
+      <button type="button" class="niche-prompt-option" data-niche="airbnb">Airbnb</button>
+      <button type="button" class="niche-prompt-option" data-niche="hotel">Hotel</button>
+      <button type="button" class="niche-prompt-option" data-niche="venue">Event venue</button>
+      <button type="button" class="niche-prompt-option" data-niche="office">Office</button>
+      <button type="button" class="niche-prompt-option" data-niche="shop">Shop</button>
+      <button type="button" class="niche-prompt-option" data-niche="property">Property</button>
+    </div>
+    <p class="niche-prompt-msg" id="host-niche-prompt-msg" role="status"></p>
+  </div>
+</div>
+
 <div class="app-shell">
 
   <aside class="sidebar" id="sidebar">
@@ -1253,13 +1276,42 @@
 
     const { data: profile } = await supabaseClient
       .from('profiles')
-      .select('role, full_name, verified, avatar_url, username, onboarding_completed')
+      .select('role, full_name, verified, avatar_url, username, listing_categories, onboarding_completed')
       .eq('id', currentUser.id)
       .maybeSingle();
 
     if (!profile) { window.location.href = '/login'; return; }
     if (!profile.onboarding_completed) { window.location.href = '/onboarding'; return; }
     if (profile.role === 'client') { window.location.href = '/client-home'; return; }
+    const hostNiches = Array.isArray(profile.listing_categories) ? profile.listing_categories : [];
+    if (hostNiches.length !== 1) {
+      const nichePrompt = document.getElementById('host-niche-prompt');
+      const nichePromptMsg = document.getElementById('host-niche-prompt-msg');
+      nichePrompt.classList.add('open');
+      document.getElementById('host-niche-options').querySelectorAll('[data-niche]').forEach(function (button) {
+        button.addEventListener('click', async function () {
+          const selectedNiche = button.getAttribute('data-niche');
+          const options = document.querySelectorAll('#host-niche-options [data-niche]');
+          options.forEach(function (option) { option.disabled = true; });
+          nichePromptMsg.textContent = 'Saving your niche...';
+          let error = null;
+          try {
+            const result = await supabaseClient.from('profiles')
+              .update({ listing_categories: [selectedNiche] })
+              .eq('id', currentUser.id);
+            error = result.error;
+          } catch (saveError) {
+            error = saveError;
+          }
+          if (error) {
+            options.forEach(function (option) { option.disabled = false; });
+            nichePromptMsg.textContent = 'Could not save your niche. Please try again.';
+            return;
+          }
+          nichePrompt.classList.remove('open');
+        });
+      });
+    }
     // Account status is not part of the listing-cache key. Keep it in the
     // background so a return to Home is not delayed by this API request.
     let isSuspended = false;
