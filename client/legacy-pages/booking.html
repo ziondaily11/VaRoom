@@ -420,64 +420,108 @@
     .client-nav-link svg{ width:18px; height:18px; }
     .main-shell{ height:100vh; min-height:100vh; margin-left:54px; overflow-y:auto; }
     .content-grid{
-      display:grid; grid-template-columns:minmax(0,1fr) minmax(320px,360px); align-items:start;
-      max-width:1280px; height:auto; min-height:100%; margin:0 auto; padding:12px 24px 32px; gap:16px; overflow:visible;
+      display:grid; grid-template-columns:minmax(0,1fr) minmax(330px,380px); align-items:start;
+      max-width:1280px; height:auto; min-height:100%; margin:0 auto; padding:16px 28px 40px; gap:24px; overflow:visible;
     }
     .col-main,.col-side{ height:auto; overflow:visible; padding:0; }
-    .gallery-carousel{ height:clamp(185px,29vh,240px); margin-bottom:.6rem; border-radius:10px; }
+
+    /* --- Gallery: taller so the hero image is prominent like Design 2 --- */
+    .gallery-carousel{ height:clamp(220px,32vh,300px); margin-bottom:1rem; border-radius:14px; }
     .gallery-index-pill,.view-all-btn,.gallery-report-btn,.gallery-like-btn{ box-shadow:0 2px 10px rgba(0,0,0,.18); }
     .view-all-btn{ min-height:30px; padding:.35rem .6rem; border-radius:8px; white-space:nowrap; }
     .view-all-btn svg{ width:16px; height:16px; }
     .view-all-btn span{ white-space:nowrap; }
     .gallery-report-btn,.gallery-like-btn{ width:32px; height:32px; }
-    .gallery-nav{ width:28px; height:28px; }
-    .title-row{ margin-bottom:.2rem; }
-    .listing-title{ font-size:1.15rem; line-height:1.18; }
-    .title-actions .action-btn{ width:32px; height:32px; padding:0; justify-content:center; border-radius:50%; }
+
+    /* --- Gallery nav arrows: visible, properly sized --- */
+    .gallery-nav{ width:32px; height:32px; background:rgba(255,255,255,.92); color:var(--ink); border:1px solid var(--line); }
+    .gallery-nav:hover{ background:#fff; color:var(--red); }
+    .gallery-nav svg{ width:14px; height:14px; }
+
+    /* --- Title: larger, bolder — matches Design 2 --- */
+    .title-row{ margin-bottom:.5rem; }
+    .listing-title{ font-size:clamp(1.35rem,2.2vw,1.75rem); line-height:1.2; font-weight:700; letter-spacing:-.02em; }
+    .title-actions .action-btn{ width:32px; height:32px; padding:0; justify-content:center; border-radius:50%; border:1px solid var(--line); }
     .title-actions .action-btn span{ display:none; }
-    /* Metadata forms one dense desktop line beneath the title instead of a mobile-like stack. */
-    .rating-row,.listing-loc,.host-phone,.badge-row,.info-chip-row{
+
+    /* --- Metadata row: rating, location inline; phone on its own separate row --- */
+    .rating-row,.listing-loc,.badge-row,.info-chip-row{
       display:inline-flex; align-items:center; vertical-align:middle; margin:0 .55rem .35rem 0;
     }
-    .listing-loc{ gap:.28rem; font-size:.76rem; }
+    /* Phone gets its own block row so it appears beneath the inline metadata */
+    .host-phone{
+      display:flex; align-items:center; gap:.35rem;
+      font-size:.8rem; color:var(--muted); margin-bottom:.5rem; margin-right:0;
+    }
+    .host-phone a{ color:var(--ink); font-weight:600; }
+    .host-phone a:hover{ color:var(--red); }
+
+    .listing-loc{ gap:.28rem; font-size:.78rem; }
     .listing-loc .map-link-inline{
-      display:inline; margin-left:.15rem; padding-left:.5rem; border-left:1px solid var(--line-strong);
+      display:inline; margin-left:.2rem; padding-left:.5rem; border-left:1px solid var(--line-strong);
       color:var(--red); font-weight:700; line-height:1;
     }
-    .host-phone{ padding-left:.55rem; border-left:1px solid var(--line-strong); }
-    .rating-row{ font-size:.74rem; gap:.3rem; }
-    .badge-row,.info-chip-row{ gap:.3rem; }
-    .mini-badge,.info-chip{ padding:.2rem .46rem; font-size:.67rem; background:var(--white); }
-    .divider{ margin:.55rem 0; }
-    .host-about-row{ grid-template-columns:1fr; gap:.5rem; }
-    .host-card{ flex-direction:row; align-items:center; justify-content:space-between; }
-    .host-card{ gap:.75rem; }
-    .contact-host-btn{ width:auto; min-width:152px; min-height:32px; padding:.45rem .8rem; }
-    .about-block .about-title,.section-title{ font-size:.88rem; margin-bottom:.2rem; }
-    .about-text{ font-size:.76rem; line-height:1.4; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-    .amenity-grid{ grid-template-columns:repeat(4,minmax(0,1fr)); gap:.45rem .75rem; }
-    .amenity-item{ font-size:.7rem; gap:.35rem; }
-    .amenity-item svg{ width:14px; height:14px; }
-    .reviews-header{ margin-bottom:.2rem; }
-    .reviews-state{ padding:.2rem 0; font-size:.72rem; }
-    .booking-widget{ position:sticky; top:12px; padding:1rem; border-radius:12px; box-shadow:0 10px 28px rgba(36,33,30,.07); }
-    .widget-price{ font-size:1.15rem; }
-    .widget-price-row{ margin-bottom:.35rem; }
-    .picker-title{ font-size:.9rem; margin-top:.65rem; margin-bottom:.1rem; }
-    .picker-sub{ margin-bottom:.35rem; font-size:.68rem; line-height:1.3; }
-    .cal-header{ padding-bottom:.2rem; margin:.1rem 0 .2rem; }
-    .cal-title{ font-size:.82rem; }
-    .cal-grid{ gap:.1rem; margin-bottom:.2rem; }
-    .cal-dow{ font-size:.52rem; padding:0; }
-    .cal-day{ height:clamp(26px,3.6vh,32px); aspect-ratio:auto; font-size:.65rem; line-height:1; }
-    .cal-legend{ margin-bottom:.25rem; font-size:.62rem; gap:.5rem; }
-    .range-summary{ margin-bottom:.25rem; font-size:.7rem; }
-    .field{ gap:.2rem; margin-bottom:.35rem; }
-    label{ font-size:.7rem; }
-    input,select{ min-height:34px; padding:.4rem .6rem; font-size:.76rem; border-radius:8px; }
-    .details-box{ padding-top:.4rem; font-size:.72rem; }
-    .confirm-btn{ min-height:36px; margin-top:.55rem; padding:.6rem 1rem; font-size:.8rem; }
-    .form-note{ margin-top:.3rem; font-size:.65rem; line-height:1.3; }
+    .rating-row{ font-size:.78rem; gap:.35rem; }
+
+    /* --- Info chips: proper pill border (Design 2 shows bordered badges) --- */
+    .badge-row,.info-chip-row{ gap:.4rem; margin-bottom:.55rem; }
+    .info-chip{
+      font-size:.74rem; font-weight:600; padding:.28rem .7rem; border-radius:100px;
+      background:var(--white); border:1.5px solid var(--line-strong); color:var(--ink);
+    }
+    .mini-badge{ padding:.22rem .55rem; font-size:.68rem; }
+
+    /* --- Dividers & section spacing --- */
+    .divider{ margin:.8rem 0; }
+    .host-about-row{ grid-template-columns:1fr; gap:.6rem; }
+    .host-card{ flex-direction:row; align-items:center; justify-content:space-between; gap:.75rem; }
+    .contact-host-btn{ width:auto; min-width:152px; min-height:34px; padding:.5rem 1rem; border-radius:100px; }
+    .about-block .about-title,.section-title{ font-size:.92rem; margin-bottom:.25rem; font-weight:700; }
+    .about-text{ font-size:.8rem; line-height:1.5; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+    .amenity-grid{ grid-template-columns:repeat(4,minmax(0,1fr)); gap:.5rem .8rem; }
+    .amenity-item{ font-size:.74rem; gap:.4rem; color:var(--muted); }
+    .amenity-item svg{ width:15px; height:15px; color:var(--ink); }
+    .reviews-header{ margin-bottom:.35rem; }
+    .reviews-state{ padding:.3rem 0; font-size:.75rem; }
+
+    /* --- Booking widget --- */
+    .booking-widget{ position:sticky; top:16px; padding:1.2rem; border-radius:14px; box-shadow:0 8px 32px rgba(36,33,30,.09); }
+
+    /* Price row */
+    .widget-price{ font-size:1.25rem; font-weight:700; }
+    .widget-price-row{ margin-bottom:.45rem; }
+
+    /* "Pick your dates" heading — bold, Design 2 style */
+    .picker-title{ font-size:1rem; font-weight:700; margin-top:.75rem; margin-bottom:.15rem; font-family:var(--font-display); }
+    .picker-sub{ margin-bottom:.4rem; font-size:.72rem; line-height:1.35; }
+
+    /* Calendar */
+    .cal-header{ padding-bottom:.25rem; margin:.15rem 0 .25rem; }
+    .cal-title{ font-size:.85rem; font-weight:700; }
+    .cal-grid{ gap:.12rem; margin-bottom:.25rem; }
+    .cal-dow{ font-size:.54rem; padding:0; }
+    .cal-day{ height:clamp(28px,3.8vh,34px); aspect-ratio:auto; font-size:.68rem; line-height:1; }
+    .cal-legend{ margin-bottom:.3rem; font-size:.64rem; gap:.55rem; }
+    .range-summary{ margin-bottom:.3rem; font-size:.72rem; }
+
+    /* Guests field — bold label, Design 2 style */
+    .field{ gap:.25rem; margin-bottom:.4rem; }
+    label{ font-size:.78rem; font-weight:700; color:var(--ink); }
+    input,select{ min-height:36px; padding:.45rem .65rem; font-size:.78rem; border-radius:9px; }
+    .details-box{ padding-top:.45rem; font-size:.74rem; }
+
+    /* Book Now — always red, prominent, full-width pill — Design 2 signature element */
+    .confirm-btn{
+      min-height:42px; margin-top:.65rem; padding:.7rem 1.2rem; font-size:.88rem; font-weight:700;
+      background:var(--red); color:#fff; border-radius:100px; width:100%; letter-spacing:.01em;
+    }
+    .confirm-btn:hover{ background:var(--red-deep); }
+    .confirm-btn:disabled{ background:#c9c0bd; color:#5e514c; cursor:not-allowed; }
+    [data-theme="dark"] .confirm-btn{ background:var(--red); color:#fff; }
+    [data-theme="dark"] .confirm-btn:hover{ background:var(--red-deep); }
+    [data-theme="dark"] .confirm-btn:disabled{ background:#6b625e; color:#e9e1dd; }
+
+    .form-note{ margin-top:.35rem; font-size:.67rem; line-height:1.35; }
   }
   @media (max-width:959px){
     body{ padding-bottom:0; }
@@ -891,8 +935,9 @@
     const initials = hostName.trim().split(/\s+/).slice(0,2).map(function(w){ return w[0]; }).join('').toUpperCase();
     const hostAvatarUrl = resolveAvatarUrl(listing.host.avatar_url);
     const hostPhone = String(listing.host.phone || '').trim();
+    const ICON_PHONE = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3.1-8.7A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 2 .7 2.9a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.9.6 2.9.7A2 2 0 0 1 22 17Z"/></svg>';
     const hostPhoneHtml = hostPhone
-      ? '<p class="listing-loc host-phone">☎ <a href="tel:' + escapeHtml(hostPhone.replace(/[^+\d]/g, '')) + '">' + escapeHtml(hostPhone) + '</a></p>'
+      ? '<p class="host-phone">' + ICON_PHONE + '<a href="tel:' + escapeHtml(hostPhone.replace(/[^+\d]/g, '')) + '">' + escapeHtml(hostPhone) + '</a></p>'
       : '';
 
     const description = listing.description || '';
@@ -976,15 +1021,15 @@
           '<button type="button" class="contact-host-btn" id="contact-host-btn">' + ICON_MESSAGE + '<span>Contact Host</span></button>' +
         '</div>' +
         '<div class="about-block">' +
-          '<p class="about-title">About this place</p>' +
+          '<h2 class="about-title">About this place</h2>' +
           '<p class="about-text">' + (description ? escapeHtml(description) : '<span style="color:var(--muted);">The host hasn\'t added a caption for this listing yet.</span>') + '</p>' +
-          '<p class="section-title" style="margin-top:.6rem;">Top amenities</p>' +
+          '<h2 class="section-title" style="margin-top:.8rem;">Top amenities</h2>' +
           amenitiesHtml +
         '</div>' +
       '</div>' +
       '<hr class="divider">' +
       '<div class="reviews-header">' +
-        '<p class="section-title">What guests say ' + (reviewsError ? escapeHtml(ratingText) : reviewCount ? ICON_STAR + ' ' + escapeHtml(ratingText) + ' ' + escapeHtml(ratingCountText) : escapeHtml(ratingText)) + '</p>' +
+        '<h2 class="section-title">What guests say' + (reviewsError ? '' : reviewCount ? ' \u00b7 ' + ICON_STAR + ' ' + escapeHtml(ratingText) + ' ' + escapeHtml(ratingCountText) : ' \u00b7 No reviews yet') + '</h2>' +
         '<a href="#" class="see-all-link">See all reviews</a>' +
       '</div>' +
       '<div class="review-strip">' + reviewCardsHtml + '</div>';
