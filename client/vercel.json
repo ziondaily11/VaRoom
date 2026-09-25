@@ -8,7 +8,7 @@
   "rewrites": [
     { "source": "/api/news", "destination": "https://property-news-pnsj.onrender.com/api/news" },
     { "source": "/api/news/:path*", "destination": "https://property-news-pnsj.onrender.com/api/news/:path*" },
-    { "source": "/api/maps-config", "destination": "https://property-news-pnsj.onrender.com/api/maps-config" },
+    { "source": "/api/maps-config", "destination": "https://server101-godv.onrender.com/api/maps-config" },
     { "source": "/api/listing-reports", "destination": "https://server101-godv.onrender.com/api/listing-reports" },
     { "source": "/api/listings/:path*", "destination": "https://server101-godv.onrender.com/api/listings/:path*" },
     { "source": "/api/bookings/:path*", "destination": "https://server101-godv.onrender.com/api/bookings/:path*" },
