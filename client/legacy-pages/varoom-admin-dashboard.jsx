@@ -900,7 +900,7 @@ export default function VaroomAdminDashboard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({}),
       });
-      setPropertyNews((prev) => prev.filter(({ item }) => item.id !== id));
+      setPropertyNews((prev) => prev.filter((entry) => (entry.item || entry).id !== id));
     } catch (error) {
       setPropertyNewsError(error.message || `Unable to ${action} this report.`);
     }
