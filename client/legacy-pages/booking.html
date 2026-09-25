@@ -421,24 +421,51 @@
     .main-shell{ height:100vh; min-height:100vh; margin-left:54px; overflow-y:auto; }
     .content-grid{
       display:grid; grid-template-columns:minmax(0,1fr) minmax(320px,360px); align-items:start;
-      max-width:1280px; height:auto; min-height:100%; margin:0 auto; padding:16px 24px 42px; gap:16px; overflow:visible;
+      max-width:1280px; height:auto; min-height:100%; margin:0 auto; padding:12px 24px 32px; gap:16px; overflow:visible;
     }
     .col-main,.col-side{ height:auto; overflow:visible; padding:0; }
-    .gallery-carousel{ height:clamp(260px,31vw,390px); margin-bottom:1rem; border-radius:10px; }
-    .listing-title{ font-size:1.35rem; }
-    .divider{ margin:1.1rem 0; }
-    .host-about-row{ grid-template-columns:1fr; gap:1rem; }
+    .gallery-carousel{ height:clamp(185px,29vh,240px); margin-bottom:.6rem; border-radius:10px; }
+    .title-row{ margin-bottom:.2rem; }
+    .listing-title{ font-size:1.3rem; line-height:1.15; }
+    /* Metadata forms one dense desktop line beneath the title instead of a mobile-like stack. */
+    .rating-row,.listing-loc,.host-phone,.badge-row,.info-chip-row{
+      display:inline-flex; align-items:center; vertical-align:middle; margin:0 .55rem .35rem 0;
+    }
+    .listing-loc{ gap:.28rem; font-size:.76rem; }
+    .listing-loc .map-link-inline{ display:inline; margin-left:.2rem; color:var(--red); font-weight:700; }
+    .rating-row{ font-size:.74rem; gap:.3rem; }
+    .badge-row,.info-chip-row{ gap:.3rem; }
+    .mini-badge,.info-chip{ padding:.2rem .46rem; font-size:.67rem; }
+    .divider{ margin:.55rem 0; }
+    .host-about-row{ grid-template-columns:1fr; gap:.5rem; }
     .host-card{ flex-direction:row; align-items:center; justify-content:space-between; }
-    .contact-host-btn{ width:auto; min-width:178px; padding:.55rem .9rem; }
-    .about-text{ font-size:.8rem; line-height:1.5; }
-    .amenity-grid{ grid-template-columns:repeat(3,minmax(0,1fr)); gap:.75rem 1rem; }
-    .amenity-item{ font-size:.76rem; }
-    .booking-widget{ position:sticky; top:16px; padding:1.1rem; border-radius:12px; box-shadow:0 8px 26px rgba(36,33,30,.08); }
+    .host-card{ gap:.75rem; }
+    .contact-host-btn{ width:auto; min-width:152px; padding:.45rem .8rem; }
+    .about-block .about-title,.section-title{ font-size:.88rem; margin-bottom:.2rem; }
+    .about-text{ font-size:.76rem; line-height:1.4; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+    .amenity-grid{ grid-template-columns:repeat(4,minmax(0,1fr)); gap:.45rem .75rem; }
+    .amenity-item{ font-size:.7rem; gap:.35rem; }
+    .amenity-item svg{ width:14px; height:14px; }
+    .reviews-header{ margin-bottom:.2rem; }
+    .reviews-state{ padding:.2rem 0; font-size:.72rem; }
+    .booking-widget{ position:sticky; top:12px; padding:1rem; border-radius:12px; box-shadow:0 8px 26px rgba(36,33,30,.08); }
     .widget-price{ font-size:1.15rem; }
-    .picker-title{ font-size:.95rem; margin-top:1rem; }
-    .cal-header{ padding-bottom:.35rem; }
+    .widget-price-row{ margin-bottom:.35rem; }
+    .picker-title{ font-size:.9rem; margin-top:.65rem; margin-bottom:.1rem; }
+    .picker-sub{ margin-bottom:.35rem; font-size:.68rem; line-height:1.3; }
+    .cal-header{ padding-bottom:.2rem; margin:.1rem 0 .2rem; }
     .cal-title{ font-size:.82rem; }
-    .cal-day{ font-size:.68rem; }
+    .cal-grid{ gap:.1rem; margin-bottom:.2rem; }
+    .cal-dow{ font-size:.52rem; padding:0; }
+    .cal-day{ height:clamp(26px,3.6vh,32px); aspect-ratio:auto; font-size:.65rem; }
+    .cal-legend{ margin-bottom:.25rem; font-size:.62rem; gap:.5rem; }
+    .range-summary{ margin-bottom:.25rem; font-size:.7rem; }
+    .field{ gap:.2rem; margin-bottom:.35rem; }
+    label{ font-size:.7rem; }
+    input,select{ padding:.4rem .6rem; font-size:.76rem; }
+    .details-box{ padding-top:.4rem; font-size:.72rem; }
+    .confirm-btn{ margin-top:.55rem; padding:.6rem 1rem; font-size:.8rem; }
+    .form-note{ margin-top:.3rem; font-size:.65rem; line-height:1.3; }
   }
   @media (max-width:959px){
     body{ padding-bottom:0; }
