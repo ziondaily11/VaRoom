@@ -425,8 +425,15 @@
     }
     .col-main,.col-side{ height:auto; overflow:visible; padding:0; }
     .gallery-carousel{ height:clamp(185px,29vh,240px); margin-bottom:.6rem; border-radius:10px; }
+    .gallery-index-pill,.view-all-btn,.gallery-report-btn,.gallery-like-btn{ box-shadow:0 2px 10px rgba(0,0,0,.18); }
+    .view-all-btn{ min-height:30px; padding:.35rem .6rem; border-radius:8px; white-space:nowrap; }
+    .view-all-btn span{ white-space:nowrap; }
+    .gallery-report-btn,.gallery-like-btn{ width:32px; height:32px; }
+    .gallery-nav{ width:28px; height:28px; }
     .title-row{ margin-bottom:.2rem; }
     .listing-title{ font-size:1.3rem; line-height:1.15; }
+    .title-actions .action-btn{ width:32px; height:32px; padding:0; justify-content:center; border-radius:50%; }
+    .title-actions .action-btn span{ display:none; }
     /* Metadata forms one dense desktop line beneath the title instead of a mobile-like stack. */
     .rating-row,.listing-loc,.host-phone,.badge-row,.info-chip-row{
       display:inline-flex; align-items:center; vertical-align:middle; margin:0 .55rem .35rem 0;
@@ -439,7 +446,7 @@
     .host-phone{ padding-left:.55rem; border-left:1px solid var(--line-strong); }
     .rating-row{ font-size:.74rem; gap:.3rem; }
     .badge-row,.info-chip-row{ gap:.3rem; }
-    .mini-badge,.info-chip{ padding:.2rem .46rem; font-size:.67rem; }
+    .mini-badge,.info-chip{ padding:.2rem .46rem; font-size:.67rem; background:var(--white); }
     .divider{ margin:.55rem 0; }
     .host-about-row{ grid-template-columns:1fr; gap:.5rem; }
     .host-card{ flex-direction:row; align-items:center; justify-content:space-between; }
@@ -452,7 +459,7 @@
     .amenity-item svg{ width:14px; height:14px; }
     .reviews-header{ margin-bottom:.2rem; }
     .reviews-state{ padding:.2rem 0; font-size:.72rem; }
-    .booking-widget{ position:sticky; top:12px; padding:1rem; border-radius:12px; box-shadow:0 8px 26px rgba(36,33,30,.08); }
+    .booking-widget{ position:sticky; top:12px; padding:1rem; border-radius:12px; box-shadow:0 10px 28px rgba(36,33,30,.07); }
     .widget-price{ font-size:1.15rem; }
     .widget-price-row{ margin-bottom:.35rem; }
     .picker-title{ font-size:.9rem; margin-top:.65rem; margin-bottom:.1rem; }
@@ -466,7 +473,7 @@
     .range-summary{ margin-bottom:.25rem; font-size:.7rem; }
     .field{ gap:.2rem; margin-bottom:.35rem; }
     label{ font-size:.7rem; }
-    input,select{ padding:.4rem .6rem; font-size:.76rem; }
+    input,select{ min-height:34px; padding:.4rem .6rem; font-size:.76rem; border-radius:8px; }
     .details-box{ padding-top:.4rem; font-size:.72rem; }
     .confirm-btn{ min-height:36px; margin-top:.55rem; padding:.6rem 1rem; font-size:.8rem; }
     .form-note{ margin-top:.3rem; font-size:.65rem; line-height:1.3; }
