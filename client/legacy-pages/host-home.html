@@ -1962,20 +1962,35 @@
     const FEED_SELECT = 'id,title,description,location_text,category,verified,availability_status,created_at,host_id,host:profiles(full_name,verified,avatar_url,username),listing_photos(storage_path,sort_order),listing_booking_details(price_amount,price_unit)';
 
     async function startChat(listingId, hostId){
-      const { data, error } = await supabaseClient
-        .from('conversations')
-        .upsert(
-          { listing_id: listingId, host_id: hostId, client_id: currentUser.id },
-          { onConflict: 'listing_id,client_id' }
-        )
-        .select()
-        .single();
+      let conversation = null;
+      try {
+        const { data, error } = await supabaseClient
+          .from('conversations')
+          .select('id')
+          .eq('host_id', hostId)
+          .eq('client_id', currentUser.id)
+          .order('created_at', { ascending: true })
+          .limit(1)
+          .maybeSingle();
 
-      if (error) {
+        if (error) throw error;
+        conversation = data;
+
+        if (!conversation) {
+          const { data: created, error: createError } = await supabaseClient
+            .from('conversations')
+            .insert({ listing_id: listingId, host_id: hostId, client_id: currentUser.id })
+            .select('id')
+            .single();
+
+          if (createError) throw createError;
+          conversation = created;
+        }
+      } catch (error) {
         showToast("Couldn't start that chat: " + error.message);
         return;
       }
-      window.location.href = '/chats?c=' + data.id;
+      window.location.href = '/chats?c=' + conversation.id;
     }
 
     function applyCarouselState(carousel, activeIndex){

@@ -676,17 +676,31 @@
     // conversation with this host, instead of a generic chats list.
     supabaseClient
       .from('conversations')
-      .upsert(
-        { listing_id: booking.listing_id, host_id: booking.host_id, client_id: currentUser.id },
-        { onConflict: 'listing_id,client_id' }
-      )
-      .select()
-      .single()
+      .select('id')
+      .eq('host_id', booking.host_id)
+      .eq('client_id', currentUser.id)
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle()
       .then(function(result){
+        if (result.error) throw result.error;
         if (result.data) {
-          const chatUrl = '/chats?c=' + result.data.id;
-          document.getElementById('pay-note-chat-link').setAttribute('href', chatUrl);
+          document.getElementById('pay-note-chat-link').setAttribute('href', '/chats?c=' + result.data.id);
+          return;
         }
+        return supabaseClient
+          .from('conversations')
+          .insert({ listing_id: booking.listing_id, host_id: booking.host_id, client_id: currentUser.id })
+          .select('id')
+          .single();
+      })
+      .then(function(created){
+        if (created && created.data) {
+          document.getElementById('pay-note-chat-link').setAttribute('href', '/chats?c=' + created.data.id);
+        }
+      })
+      .catch(function(){
+        document.getElementById('pay-note-chat-link').setAttribute('href', '/chats');
       });
 
     document.getElementById('cancel-btn').addEventListener('click', async function(){

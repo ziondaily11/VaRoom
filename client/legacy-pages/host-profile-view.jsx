@@ -265,13 +265,30 @@ export default function HostProfileView() {
         router.push(`/login?redirect=${encodeURIComponent(router.asPath)}`);
         return;
       }
-      window.supabaseClient.from("conversations")
-        .upsert({ listing_id: listing.id, host_id: router.query.hostId, client_id: currentUserId }, { onConflict: "listing_id,client_id" })
+      window.supabaseClient
+        .from("conversations")
         .select("id")
-        .single()
-        .then(({ data: conversation, error }) => {
+        .eq("host_id", router.query.hostId)
+        .eq("client_id", currentUserId)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle()
+        .then(({ data: existingConversation, error }) => {
           if (error) throw error;
-          router.push(`/chats?c=${encodeURIComponent(conversation.id)}`);
+          if (existingConversation) {
+            router.push(`/chats?c=${encodeURIComponent(existingConversation.id)}`);
+            return;
+          }
+          return window.supabaseClient
+            .from("conversations")
+            .insert({ listing_id: listing.id, host_id: router.query.hostId, client_id: currentUserId })
+            .select("id")
+            .single();
+        })
+        .then((result) => {
+          if (!result) return;
+          if (result.error) throw result.error;
+          router.push(`/chats?c=${encodeURIComponent(result.data.id)}`);
         })
         .catch(() => router.push(`/chats?host=${encodeURIComponent(router.query.hostId)}`));
     });

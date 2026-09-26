@@ -1135,17 +1135,35 @@
     document.getElementById('contact-host-btn').addEventListener('click', async function(){
       const btn = this;
       btn.disabled = true;
-      const { data, error } = await supabaseClient
-        .from('conversations')
-        .upsert(
-          { listing_id: listingId, host_id: listing.host_id, client_id: currentUser.id },
-          { onConflict: 'listing_id,client_id' }
-        )
-        .select()
-        .single();
-      btn.disabled = false;
-      if (error) { alert("Couldn't start that chat: " + error.message); return; }
-      window.location.href = '/chats?c=' + data.id;
+      try {
+        const { data, error } = await supabaseClient
+          .from('conversations')
+          .select('id')
+          .eq('host_id', listing.host_id)
+          .eq('client_id', currentUser.id)
+          .order('created_at', { ascending: true })
+          .limit(1)
+          .maybeSingle();
+
+        if (error) throw error;
+        if (data) {
+          window.location.href = '/chats?c=' + data.id;
+          return;
+        }
+
+        const created = await supabaseClient
+          .from('conversations')
+          .insert({ listing_id: listingId, host_id: listing.host_id, client_id: currentUser.id })
+          .select('id')
+          .single();
+
+        if (created.error) throw created.error;
+        window.location.href = '/chats?c=' + created.data.id;
+      } catch (error) {
+        alert("Couldn't start that chat: " + error.message);
+      } finally {
+        btn.disabled = false;
+      }
     });
 
     // ---------- Sidebar booking widget (calendar first, guests below it) ----------

@@ -1432,12 +1432,33 @@
           const hostId = btn.getAttribute('data-msg-host');
           const listingId = btn.getAttribute('data-msg-listing');
           if (!hostId || !listingId) return;
-          const { data, error } = await supabaseClient
-            .from('conversations')
-            .upsert({ listing_id: listingId, host_id: hostId, client_id: currentUser.id }, { onConflict: 'listing_id,client_id' })
-            .select().single();
-          if (error) { showToast("Couldn't open that chat: " + error.message); return; }
-          window.location.href = '/chats?c=' + data.id;
+          try {
+            const { data, error } = await supabaseClient
+              .from('conversations')
+              .select('id')
+              .eq('host_id', hostId)
+              .eq('client_id', currentUser.id)
+              .order('created_at', { ascending: true })
+              .limit(1)
+              .maybeSingle();
+
+            if (error) throw error;
+            if (data) {
+              window.location.href = '/chats?c=' + data.id;
+              return;
+            }
+
+            const created = await supabaseClient
+              .from('conversations')
+              .insert({ listing_id: listingId, host_id: hostId, client_id: currentUser.id })
+              .select('id')
+              .single();
+
+            if (created.error) throw created.error;
+            window.location.href = '/chats?c=' + created.data.id;
+          } catch (error) {
+            showToast("Couldn't open that chat: " + error.message);
+          }
         });
       });
       panel.querySelectorAll('[data-cancel]').forEach(function(btn){
