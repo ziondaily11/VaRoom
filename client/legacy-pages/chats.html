@@ -1303,7 +1303,7 @@ push    min-height:0;
         el.className = 'composer-thumb';
         var img = document.createElement('img');
         img.src = item.url;
-        img.alt = item.file.name || 'Photo';
+        img.alt = 'Image';
         el.appendChild(img);
       } else {
         el.className = 'composer-file';
@@ -1314,7 +1314,10 @@ push    min-height:0;
         meta.className = 'composer-file-meta';
         var nm = document.createElement('span');
         nm.className = 'composer-file-name';
-        nm.textContent = item.file.name || 'File';
+        var mimeType = String(item.file.type || '').toLowerCase();
+        nm.textContent = mimeType.indexOf('video/') === 0 ? 'Video'
+          : mimeType.indexOf('audio/') === 0 ? 'Audio'
+            : mimeType === 'application/pdf' ? 'PDF' : 'File';
         var sz = document.createElement('span');
         sz.className = 'composer-file-size';
         sz.textContent = formatSize(item.file.size);
@@ -1326,7 +1329,7 @@ push    min-height:0;
       var rm = document.createElement('button');
       rm.type = 'button';
       rm.className = 'composer-rm';
-      rm.setAttribute('aria-label', 'Remove ' + (item.file.name || 'attachment'));
+      rm.setAttribute('aria-label', 'Remove attachment');
       rm.appendChild(makeIcon('i-close'));
       keepFocus(rm);
       rm.addEventListener('click', function () { removeItem(item.id); });

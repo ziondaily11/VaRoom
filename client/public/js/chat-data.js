@@ -323,7 +323,9 @@
     const preview = $('#mobileComposerPreview');
     if (!preview) return;
     const pending = state.pendingAttachment;
-    preview.textContent = pending ? `${pending.kind === 'listing' ? 'Listing' : pending.kind === 'photo' ? 'Photo' : 'File'}: ${pending.name || pending.listing?.title || ''}` : '';
+    preview.textContent = pending
+      ? pending.kind === 'listing' ? `Listing: ${pending.listing?.title || ''}` : `${pending.kind === 'photo' ? 'Image' : 'File'} attached`
+      : '';
     preview.classList.toggle('has-content', !!pending);
   }
 
@@ -746,7 +748,7 @@
       block.className = 'message-block';
       const image = document.createElement('img');
       image.className = 'chat-message-image';
-      image.alt = message.attachment && message.attachment.original_filename || 'Shared image';
+      image.alt = 'Image';
       image.style.cssText = 'display:block;max-width:320px;max-height:260px;width:auto;height:auto;object-fit:contain;border-radius:8px;cursor:zoom-in';
       const removeLoader = addMediaLoader(block);
       image.addEventListener('load', removeLoader, { once: true });
@@ -762,8 +764,7 @@
       card.className = 'file-card';
       card.dataset.attachmentId = message.attachment_id;
       card.innerHTML = '<div class="file-icon"><svg class="icon"><use href="#i-file-text"/></svg></div><div><div class="file-name"></div><div class="file-sub"></div></div><svg class="icon dl"><use href="#i-download"/></svg>';
-      card.querySelector('.file-name').textContent = message.attachment && message.attachment.original_filename
-        || message.body || '';
+      card.querySelector('.file-name').textContent = attachmentLabel(message.attachment, message.message_type);
       card.querySelector('.file-sub').textContent = message.attachment
         ? `${Math.ceil(message.attachment.file_size_bytes / 1024)} Kb`
         : '';
@@ -773,6 +774,16 @@
     }
     if (!row.contains(meta)) row.appendChild(meta);
     return row;
+  }
+
+  function attachmentLabel(attachment, messageType) {
+    const mimeType = String(attachment && attachment.mime_type || '').toLowerCase();
+    if (mimeType.startsWith('image/') || messageType === 'photo') return 'Image';
+    if (mimeType.startsWith('video/')) return 'Video';
+    if (mimeType.startsWith('audio/') || messageType === 'voice') return 'Audio';
+    if (mimeType === 'application/pdf') return 'PDF';
+    if (mimeType === 'application/msword' || mimeType.includes('officedocument')) return 'Document';
+    return 'File';
   }
 
   async function downloadAttachment(attachmentId) {
@@ -960,8 +971,8 @@
     }).slice(0, 6);
     mediaAttachments.forEach((message) => {
       const attachment = message.attachment || {};
-      const title = attachment.original_filename || message.body || 'Shared media';
       const isVideo = String(attachment.mime_type || '').startsWith('video/');
+      const title = isVideo ? 'Video' : 'Image';
       const thumb = document.createElement('div');
       thumb.className = 'thumb';
       const titleElement = document.createElement('div');
@@ -983,10 +994,6 @@
       const card = document.createElement('div');
       card.className = 'media-card';
       card.append(thumb, titleElement);
-      const imageType = document.createElement('div');
-      imageType.className = 'media-type';
-      imageType.textContent = isVideo ? 'Video' : 'Image';
-      card.appendChild(imageType);
       const showFallback = (error) => {
         if (!fallback.hidden) return;
         removeLoader();
@@ -1053,11 +1060,10 @@
       const row = document.createElement('div');
       row.className = 'file-row';
       row.innerHTML = '<div class="f-icon" style="background:#e5f0ff;color:#3b7ce0;"><svg class="icon"><use href="#i-file-text"/></svg></div><div><div class="f-name"></div><div class="f-sub"></div></div><svg class="icon f-dl"><use href="#i-download"/></svg>';
-      row.querySelector('.f-name').textContent = message.attachment && message.attachment.original_filename || message.body || '';
+      row.querySelector('.f-name').textContent = attachmentLabel(message.attachment, message.message_type);
       row.querySelector('.f-name').title = row.querySelector('.f-name').textContent;
       row.querySelector('.f-sub').textContent = message.attachment
         ? [message.attachment.status !== 'ready' && 'Unavailable',
-          message.attachment.mime_type && message.attachment.mime_type.split('/').pop().toUpperCase(),
         (message.attachment.optimized_file_size_bytes || message.attachment.file_size_bytes)
           && `${Math.ceil((message.attachment.optimized_file_size_bytes || message.attachment.file_size_bytes) / 1024)} Kb`]
           .filter(Boolean).join(' · ')
@@ -1374,7 +1380,7 @@
           });
         } else if (pending && pending.file) {
           setAttachmentBusy(true);
-          result = await uploadAndSendAttachment(pending.file, pending.kind, conversationId, content || pending.file.name);
+          result = await uploadAndSendAttachment(pending.file, pending.kind, conversationId, content);
           setAttachmentStatus('');
         } else {
           result = await api(`/api/chat/conversations/${encodeURIComponent(conversationId)}/messages`, {
@@ -1434,7 +1440,7 @@
       const conversationId = state.activeId;
       setAttachmentBusy(true);
       try {
-        const result = await uploadAndSendAttachment(file, kind, conversationId, file.name);
+        const result = await uploadAndSendAttachment(file, kind, conversationId, '');
         setAttachmentStatus('');
         if (state.activeId !== conversationId) return;
         const current = $('.messages');
@@ -1460,7 +1466,7 @@
     fileButton.addEventListener('click', () => { fileInput.accept = ''; fileInput.dataset.kind = 'file'; fileInput.click(); });
     fileInput.addEventListener('change', async () => {
       if (fileInput.files[0] && isMobile()) {
-        state.pendingAttachment = { kind: fileInput.dataset.kind, file: fileInput.files[0], name: fileInput.files[0].name };
+        state.pendingAttachment = { kind: fileInput.dataset.kind, file: fileInput.files[0] };
         updateMobilePreview();
       } else if (fileInput.files[0]) await upload(fileInput.files[0], fileInput.dataset.kind);
       fileInput.value = '';
