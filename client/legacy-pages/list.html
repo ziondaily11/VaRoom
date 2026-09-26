@@ -1354,10 +1354,10 @@
         }
 
         const path = currentUser.id + '/' + listingId + '/' + Date.now() + '_' + i + '_' + sanitizeFilename(file.name);
-        const { error: uploadError } = await supabaseClient.storage.from('listing-photos').upload(path, file, { upsert: false });
+        const { data: uploadedPhoto, error: uploadError } = await supabaseClient.storage.from('listing-photos').upload(path, file, { upsert: false });
         if (uploadError) { failedCount++; continue; }
         const { error: photoRowError } = await supabaseClient.from('listing_photos').insert({
-          listing_id: listingId, storage_path: path
+          listing_id: listingId, storage_path: uploadedPhoto.path
         });
         if (photoRowError) failedCount++; else uploadedCount++;
       }

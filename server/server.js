@@ -9,6 +9,7 @@ const { getListingLocation, getBookingLocation, getListingDistance } = require('
 const videoRoutes = require('./routes/videoRoutes');
 const listingRoutes = require('./routes/listingRoutes');
 const chatAttachmentRoutes = require('./routes/chatAttachmentRoutes');
+const photoRoutes = require('./routes/photoRoutes');
 const chatRoutes = require('./routes/chatRoutes');
 const reviewRoutes = require('./routes/reviewRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
@@ -75,6 +76,7 @@ app.use('/api', (req, res, next) => {
 app.use('/api', videoRoutes);
 app.use('/api', listingRoutes);
 app.use('/api', chatAttachmentRoutes);
+app.use('/api', photoRoutes);
 app.use('/api', chatRoutes);
 app.use('/api', reviewRoutes);
 app.use('/api', notificationRoutes);

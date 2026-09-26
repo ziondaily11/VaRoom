@@ -1229,11 +1229,11 @@
     const av = document.getElementById('profile-avatar');
     av.innerHTML = '<img src="' + URL.createObjectURL(file) + '" alt="">';
 
-    const { error: upErr } = await supabaseClient.storage.from('avatars').upload(path, file, { upsert:false });
+    const { data: uploadedAvatar, error: upErr } = await supabaseClient.storage.from('avatars').upload(path, file, { upsert:false });
     if (upErr) { showToast('Upload failed: ' + upErr.message); return; }
 
-    await supabaseClient.from('profiles').update({ avatar_url: path }).eq('id', currentUser.id);
-    profileData.avatar_url = path;
+    await supabaseClient.from('profiles').update({ avatar_url: uploadedAvatar.path }).eq('id', currentUser.id);
+    profileData.avatar_url = uploadedAvatar.path;
     showToast('Photo updated ✓');
   });
 

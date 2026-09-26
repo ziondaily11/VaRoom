@@ -1233,9 +1233,10 @@
         var path = user.id + '/avatar_' + Date.now() + '.jpg';
         var uploadResult = await supabaseClient.storage.from('avatars').upload(path, croppedPhoto, { contentType: 'image/jpeg', upsert: false });
         if (uploadResult.error) throw uploadResult.error;
-        var avatarResult = await supabaseClient.from('profiles').update({ avatar_url: path }).eq('id', user.id);
+        var avatarPath = uploadResult.data.path;
+        var avatarResult = await supabaseClient.from('profiles').update({ avatar_url: avatarPath }).eq('id', user.id);
         if (avatarResult.error) throw avatarResult.error;
-        profile.avatar_url = path;
+        profile.avatar_url = avatarPath;
         savePhotoDecision('added');
         goTo(2, true, 'push');
       } catch (error) {

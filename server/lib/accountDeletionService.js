@@ -64,11 +64,20 @@ async function collectOwnedStorage(userId) {
   const supabaseObjects = [];
   const r2Keys = [];
   if (profile && profile.avatar_url) {
-    const avatarPath = storagePath(profile.avatar_url, 'avatars');
-    if (avatarPath) supabaseObjects.push({ bucket: 'avatars', key: avatarPath });
+    if (String(profile.avatar_url).startsWith(`photos/${mediaStorageService.ENVIRONMENT}/avatars/`)) {
+      r2Keys.push(profile.avatar_url);
+    } else {
+      const avatarPath = storagePath(profile.avatar_url, 'avatars');
+      if (avatarPath) supabaseObjects.push({ bucket: 'avatars', key: avatarPath });
+    }
   }
   for (const photo of photos || []) {
-    if (photo.storage_path) supabaseObjects.push({ bucket: 'listing-photos', key: photo.storage_path });
+    if (!photo.storage_path) continue;
+    if (String(photo.storage_path).startsWith(`photos/${mediaStorageService.ENVIRONMENT}/listing-photos/`)) {
+      r2Keys.push(photo.storage_path);
+    } else {
+      supabaseObjects.push({ bucket: 'listing-photos', key: photo.storage_path });
+    }
   }
   for (const media of propertyMedia || []) {
     if (media.storage_provider === 'r2') {

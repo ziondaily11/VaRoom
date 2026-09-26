@@ -278,13 +278,13 @@
         const ext = item.file.name.split('.').pop();
         const path = 'updates/' + Date.now() + '-' + Math.random().toString(36).slice(2) + '.' + ext;
 
-        const { error: uploadError } = await supabaseClient.storage
+        const { data: uploadedImage, error: uploadError } = await supabaseClient.storage
           .from('update-images')
           .upload(path, item.file);
 
         if (uploadError) throw uploadError;
 
-        imageUrls.push(supabaseClient.storage.from('update-images').getPublicUrl(path).data.publicUrl);
+        imageUrls.push(supabaseClient.storage.from('update-images').getPublicUrl(uploadedImage.path).data.publicUrl);
       }
 
       const { error: insertError } = await supabaseClient

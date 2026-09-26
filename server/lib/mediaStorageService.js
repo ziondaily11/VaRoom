@@ -1,7 +1,7 @@
 /**
  * MediaStorageService
  *
- * Abstracts media storage operations (R2 for videos, Supabase Storage for photos).
+ * Abstracts media storage operations for Cloudflare R2.
  * Centralizes credentials, URL generation, and provider-specific logic.
  *
  * R2 is S3-compatible, so we use the AWS SDK v3 to properly sign every
@@ -102,6 +102,20 @@ function generateChatAttachmentObjectKey(userId, conversationId, attachmentId, e
   const cleanExt = (extension || '').replace(/[^a-z0-9]/gi, '').toLowerCase();
   if (!cleanExt) throw new Error('Invalid file extension');
   return `chat-attachments/${ENVIRONMENT}/${conversationId}/${userId}/${attachmentId}/original.${cleanExt}`;
+}
+
+/**
+ * Generate a server-owned key for a user-facing image.  The bucket name here
+ * is a logical category only; all objects live in the configured R2 bucket.
+ */
+function generatePhotoObjectKey(userId, category, photoId, extension) {
+  if (!userId || !category || !photoId || !extension) {
+    throw new Error('Missing required parameters for photo key generation');
+  }
+  const cleanCategory = String(category).replace(/[^a-z0-9-]/gi, '').toLowerCase();
+  const cleanExt = String(extension).replace(/[^a-z0-9]/gi, '').toLowerCase();
+  if (!cleanCategory || !cleanExt) throw new Error('Invalid photo key parameters');
+  return `photos/${ENVIRONMENT}/${cleanCategory}/${userId}/${photoId}/original.${cleanExt}`;
 }
 
 /**
@@ -303,6 +317,7 @@ async function deleteSupabaseStorage(bucketName, objectKey) {
 module.exports = {
   generateR2ObjectKey,
   generateChatAttachmentObjectKey,
+  generatePhotoObjectKey,
   generateR2UploadAuthorization,
   generateR2PlaybackUrl,
   generateR2DownloadAuthorization,

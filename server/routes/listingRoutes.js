@@ -1,5 +1,6 @@
 const express = require('express');
 const supabaseAdmin = require('../lib/supabaseClient');
+const mediaStorageService = require('../lib/mediaStorageService');
 const {
   ValidationError, assertAllowedKeys, text, uuid, number, enumValue,
 } = require('../lib/inputValidation');
@@ -261,7 +262,10 @@ router.delete('/listings/:id', async (req, res) => {
   const { error } = await supabaseAdmin.from('listings').delete().eq('id', req.params.id);
   if (error) return res.status(500).json({ error: 'Unable to delete listing' });
   const paths = (photos || []).map((photo) => photo.storage_path).filter(Boolean);
-  if (paths.length) await supabaseAdmin.storage.from('listing-photos').remove(paths);
+  const r2Keys = paths.filter((path) => path.startsWith(`photos/${mediaStorageService.ENVIRONMENT}/listing-photos/`));
+  const legacyPaths = paths.filter((path) => !r2Keys.includes(path));
+  await Promise.all(r2Keys.map((key) => mediaStorageService.deleteR2Object(key)));
+  if (legacyPaths.length) await supabaseAdmin.storage.from('listing-photos').remove(legacyPaths);
   return res.json({ success: true });
 });
 
