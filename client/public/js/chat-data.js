@@ -746,18 +746,53 @@
     } else if (message.message_type === 'photo' && message.attachment_id) {
       const block = document.createElement('div');
       block.className = 'message-block';
+      const attachment = message.attachment || {};
+      const width = Number(attachment.width) || 0;
+      const height = Number(attachment.height) || 0;
+      const shell = document.createElement('div');
+      shell.className = 'chat-image-shell';
+      shell.style.width = 'min(320px, 100%)';
+      if (width > 0 && height > 0) {
+        shell.style.aspectRatio = `${width} / ${height}`;
+      } else {
+        shell.style.aspectRatio = '4 / 3';
+      }
+      const skeleton = document.createElement('div');
+      skeleton.className = 'chat-image-skeleton';
+      shell.appendChild(skeleton);
       const image = document.createElement('img');
       image.className = 'chat-message-image';
       image.alt = 'Image';
-      image.style.cssText = 'display:block;max-width:320px;max-height:260px;width:auto;height:auto;object-fit:contain;border-radius:8px;cursor:zoom-in';
-      const removeLoader = addMediaLoader(block);
-      image.addEventListener('load', removeLoader, { once: true });
-      image.addEventListener('error', removeLoader, { once: true });
-      downloadAttachment(message.attachment_id).then((url) => {
-        image.src = url;
-        image.addEventListener('click', () => openImagePreview(url, image.alt));
-      }).catch((error) => { removeLoader(); console.error('Image message unavailable:', error); });
-      block.append(image, meta);
+      image.loading = 'eager';
+      image.decoding = 'async';
+      image.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:8px;cursor:zoom-in;opacity:0;transition:opacity .18s ease';
+      shell.appendChild(image);
+      const revealImage = () => {
+        shell.classList.add('is-loaded');
+        image.classList.add('is-visible');
+        image.style.opacity = '1';
+      };
+      image.addEventListener('load', () => {
+        revealImage();
+      }, { once: true });
+      image.addEventListener('error', () => {
+        shell.classList.remove('is-loading');
+        skeleton.remove();
+      }, { once: true });
+      shell.classList.add('is-loading');
+      const attachUrl = async () => {
+        try {
+          const url = await downloadAttachment(message.attachment_id);
+          image.src = url;
+          image.addEventListener('click', () => openImagePreview(url, image.alt));
+        } catch (error) {
+          shell.classList.remove('is-loading');
+          skeleton.remove();
+          console.error('Image message unavailable:', error);
+        }
+      };
+      attachUrl();
+      block.append(shell, meta);
       row.appendChild(block);
     } else if (message.attachment_id) {
       const card = document.createElement('div');
