@@ -13,7 +13,8 @@
 <style>
   /* ---------- Tokens ---------- */
   :root {
-    --bg: #09090a;
+    /* Onboarding uses one black surface at every breakpoint. */
+    --bg: #000;
     --line: rgba(255, 255, 255, 0.12);
     --line-strong: rgba(255, 255, 255, 0.28);
     --line-soft: rgba(255, 255, 255, 0.06);
@@ -23,10 +24,7 @@
     --error: #ff9b9b;
     --font: "Montserrat", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
-    --onboarding-gradient:
-      radial-gradient(90% 60% at 50% 42%, rgba(255, 255, 255, 0.045), transparent 70%),
-      radial-gradient(120% 90% at 50% 120%, rgba(255, 255, 255, 0.02), transparent 60%),
-      var(--bg);
+    --onboarding-gradient: var(--bg);
   }
 
   *, *::before, *::after { box-sizing: border-box; }
@@ -46,7 +44,7 @@
   input  { font: inherit; color: inherit; }
   svg { display: block; }
 
-  /* ---------- Background: soft vignette + fine grain (no metallic sweeps) ---------- */
+  /* ---------- Background: one consistent black canvas ---------- */
   .screen {
     position: relative;
     min-height: 100dvh;
@@ -58,15 +56,6 @@
       24px
       calc(env(safe-area-inset-bottom, 0px) + 28px);
     background: var(--onboarding-gradient);
-  }
-
-  .screen::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    opacity: 0.06;
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .9 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
   }
 
   .screen > * { position: relative; z-index: 1; }
@@ -231,13 +220,13 @@
     padding: 0 28px;
     border-radius: 999px;
     border: 1px solid var(--line);
-    background: rgba(255, 255, 255, 0.03);
+    background: #000;
     font-size: 14px;
     font-weight: 500;
     letter-spacing: 0.01em;
     transition: background 0.25s var(--ease), border-color 0.25s var(--ease), transform 0.25s var(--ease);
   }
-  .btn-add:hover { background: rgba(255, 255, 255, 0.06); border-color: var(--line-strong); }
+  .btn-add:hover { background: #000; border-color: var(--line-strong); }
   .btn-add:active { transform: scale(0.985); }
 
   /* Step 1: text-style continue */
@@ -262,12 +251,12 @@
     height: 54px;
     border-radius: 999px;
     border: 1px solid var(--line-strong);
-    background: rgba(255, 255, 255, 0.05);
+    background: #000;
     font-size: 15px;
     font-weight: 500;
     transition: background 0.25s var(--ease), border-color 0.25s var(--ease), transform 0.25s var(--ease);
   }
-  .btn-pill:hover { background: rgba(255, 255, 255, 0.09); border-color: rgba(255, 255, 255, 0.4); }
+  .btn-pill:hover { background: #000; border-color: rgba(255, 255, 255, 0.4); }
   .btn-pill:active { transform: scale(0.985); }
 
   .btn-skip {
@@ -337,13 +326,13 @@
     padding: 0 18px;
     border-radius: 14px;
     border: 1px solid var(--line);
-    background: rgba(255, 255, 255, 0.02);
+    background: #000;
     text-align: left;
     cursor: text;
     transition: border-color 0.2s var(--ease), background 0.2s var(--ease);
   }
   .field:hover { border-color: rgba(255, 255, 255, 0.18); }
-  .field:focus-within { border-color: var(--line-strong); background: rgba(255, 255, 255, 0.04); }
+  .field:focus-within { border-color: var(--line-strong); background: #000; }
   .field.is-invalid { border-color: rgba(255, 155, 155, 0.45); }
 
   .field-icon { width: 20px; height: 20px; flex: none; color: var(--text-muted); }
@@ -423,7 +412,7 @@
     padding: 0 16px;
     border-radius: 999px;
     border: 1px solid var(--line);
-    background: rgba(255, 255, 255, 0.02);
+    background: #000;
     font-size: 13.5px;
     font-weight: 400;
     color: var(--text-muted);
@@ -634,7 +623,6 @@
       background: transparent !important;
     }
 
-    .screen::before { display: none; }
   }
 
   /* ---------- Motion: one quiet load-in, nothing else ---------- */
