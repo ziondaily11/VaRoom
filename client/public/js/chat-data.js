@@ -704,6 +704,9 @@
 
   async function downloadAttachment(attachmentId) {
     const result = await api(`/api/chat/attachments/${encodeURIComponent(attachmentId)}/download`);
+    if (typeof result.url !== 'string' || !/^https?:\/\//i.test(result.url)) {
+      throw new Error('Attachment download URL is unavailable');
+    }
     return result.url;
   }
 
@@ -868,31 +871,158 @@
     const fileRows = filesSection.querySelectorAll('.file-row');
     clear(mediaGrid);
     fileRows.forEach((row) => row.remove());
-    attachments.filter((message) => message.message_type === 'photo').slice(0, 6).forEach((message) => {
+    const mediaAttachments = attachments.filter((message) => {
+      const attachment = message.attachment || {};
+      return (attachment.kind === 'photo' && String(attachment.mime_type || '').startsWith('image/'))
+        || String(attachment.mime_type || '').startsWith('video/');
+    }).slice(0, 6);
+    mediaAttachments.forEach((message) => {
+      const attachment = message.attachment || {};
+      const title = attachment.original_filename || message.body || 'Shared media';
       const thumb = document.createElement('div');
       thumb.className = 'thumb';
+      const titleElement = document.createElement('div');
+      titleElement.className = 'media-title';
+      titleElement.textContent = title;
+      titleElement.title = title;
+      if (String(attachment.mime_type || '').startsWith('video/')) {
+        thumb.classList.add('media-kind-thumb');
+        thumb.innerHTML = `<svg class="icon"><use href="#i-video"/></svg><span>${attachment.status === 'ready' ? 'Video' : 'Video unavailable'}</span>`;
+        thumb.setAttribute('role', attachment.status === 'ready' ? 'button' : 'img');
+        if (attachment.status === 'ready') thumb.tabIndex = 0;
+        thumb.setAttribute('aria-label', `${attachment.status === 'ready' ? 'Open video' : 'Video unavailable'}: ${title}`);
+        const openVideo = async () => {
+          if (attachment.status !== 'ready') return;
+          try {
+            window.open(await downloadAttachment(message.attachment_id), '_blank', 'noopener');
+          } catch (error) {
+            console.error('Video attachment unavailable:', error);
+          }
+        };
+        thumb.addEventListener('click', openVideo);
+        thumb.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            openVideo();
+          }
+        });
+        const videoType = document.createElement('div');
+        videoType.className = 'media-type';
+        videoType.textContent = 'Video';
+        const card = document.createElement('div');
+        card.className = 'media-card';
+        card.append(thumb, titleElement, videoType);
+        mediaGrid.appendChild(card);
+        return;
+      }
       const image = document.createElement('img');
-      image.alt = message.attachment && message.attachment.original_filename || '';
-      image.style.width = '100%';
-      image.style.height = '100%';
-      image.style.objectFit = 'cover';
+      image.alt = '';
+      image.decoding = 'async';
+      image.hidden = true;
+      const fallback = document.createElement('span');
+      fallback.className = 'media-fallback';
+      fallback.setAttribute('aria-hidden', 'true');
+      fallback.innerHTML = '<svg class="icon"><use href="#i-image"/></svg><span>Image unavailable</span>';
+      fallback.hidden = true;
+      thumb.append(image, fallback);
       const removeLoader = addMediaLoader(thumb);
-      image.addEventListener('load', removeLoader, { once: true });
-      image.addEventListener('error', removeLoader, { once: true });
-      downloadAttachment(message.attachment_id).then((url) => { image.src = url; }).catch((error) => { removeLoader(); console.error('Image unavailable:', error); });
-      thumb.appendChild(image);
-      thumb.addEventListener('click', () => downloadAttachment(message.attachment_id).then((url) => openImagePreview(url, image.alt)));
-      mediaGrid.appendChild(thumb);
+      thumb.classList.add('is-loading');
+      const card = document.createElement('div');
+      card.className = 'media-card';
+      card.append(thumb, titleElement);
+      const imageType = document.createElement('div');
+      imageType.className = 'media-type';
+      imageType.textContent = 'Image';
+      card.appendChild(imageType);
+      const showFallback = (error) => {
+        if (!fallback.hidden) return;
+        removeLoader();
+        thumb.classList.remove('is-loading');
+        image.hidden = true;
+        fallback.hidden = false;
+        thumb.setAttribute('role', 'img');
+        thumb.setAttribute('aria-label', `Image unavailable: ${title}`);
+        console.error('Chat media image unavailable:', error);
+      };
+      let retryCount = 0;
+      const loadImage = async () => {
+        try {
+          const url = await downloadAttachment(message.attachment_id);
+          image.src = url;
+          image.hidden = false;
+        } catch (error) {
+          showFallback(error);
+        }
+      };
+      image.addEventListener('load', () => {
+        removeLoader();
+        thumb.classList.remove('is-loading');
+        thumb.setAttribute('role', 'button');
+        thumb.tabIndex = 0;
+        thumb.setAttribute('aria-label', `View image: ${title}`);
+        const openPreview = () => downloadAttachment(message.attachment_id)
+          .then((url) => openImagePreview(url, title))
+          .catch((error) => console.error('Chat media preview unavailable:', error));
+        thumb.addEventListener('click', openPreview);
+        thumb.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            openPreview();
+          }
+        });
+      }, { once: true });
+      image.addEventListener('error', () => {
+        if (retryCount === 0 && attachment.status === 'ready') {
+          retryCount += 1;
+          loadImage();
+          return;
+        }
+        showFallback(new Error('Image could not be loaded'));
+      });
+      if (attachment.status === 'ready') {
+        loadImage();
+      } else {
+        showFallback(new Error(`Attachment status is ${attachment.status || 'unknown'}`));
+      }
+      mediaGrid.appendChild(card);
     });
-    attachments.filter((message) => message.message_type === 'file').forEach((message) => {
+    attachments.filter((message) => {
+      const attachment = message.attachment || {};
+      const isImage = attachment.kind === 'photo' && String(attachment.mime_type || '').startsWith('image/');
+      return !isImage && !String(attachment.mime_type || '').startsWith('video/');
+    }).forEach((message) => {
       const row = document.createElement('div');
       row.className = 'file-row';
       row.innerHTML = '<div class="f-icon" style="background:#e5f0ff;color:#3b7ce0;"><svg class="icon"><use href="#i-file-text"/></svg></div><div><div class="f-name"></div><div class="f-sub"></div></div><svg class="icon f-dl"><use href="#i-download"/></svg>';
       row.querySelector('.f-name').textContent = message.attachment && message.attachment.original_filename || message.body || '';
+      row.querySelector('.f-name').title = row.querySelector('.f-name').textContent;
       row.querySelector('.f-sub').textContent = message.attachment
-        ? `${Math.ceil(message.attachment.file_size_bytes / 1024)} Kb`
+        ? [message.attachment.status !== 'ready' && 'Unavailable',
+          message.attachment.mime_type && message.attachment.mime_type.split('/').pop().toUpperCase(),
+          message.attachment.file_size_bytes && `${Math.ceil(message.attachment.file_size_bytes / 1024)} Kb`]
+          .filter(Boolean).join(' · ')
         : '';
-      row.addEventListener('click', async () => { window.open(await downloadAttachment(message.attachment_id), '_blank', 'noopener'); });
+      if (message.attachment && message.attachment.status === 'ready') {
+        row.setAttribute('role', 'button');
+        row.tabIndex = 0;
+      } else {
+        row.setAttribute('aria-disabled', 'true');
+      }
+      const openFile = async () => {
+        if (!message.attachment || message.attachment.status !== 'ready') return;
+        try {
+          window.open(await downloadAttachment(message.attachment_id), '_blank', 'noopener');
+        } catch (error) {
+          console.error('Chat file unavailable:', error);
+        }
+      };
+      row.addEventListener('click', openFile);
+      row.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          openFile();
+        }
+      });
       filesSection.appendChild(row);
     });
     mediaSection.hidden = !mediaGrid.children.length;
