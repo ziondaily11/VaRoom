@@ -413,10 +413,17 @@
 
     /* Desktop verification overlay: retain the signup page beneath a glass OTP card. */
     @media (min-width: 761px) {
-      .form-panel.verification-active { display: block !important; position: relative; min-height: 100vh; height: 100vh; padding: 0 !important; background: #fff !important; overflow: hidden; }
-      .form-panel.verification-active::before { position: absolute; z-index: 1; inset: 0; content: ''; background: rgba(0,0,0,.16); }
-      .form-panel.verification-active .signup-hero { display: flex; position: absolute; inset: 0 auto 0 0; width: 50%; height: 100%; filter: blur(3px) brightness(.9); transform: scale(1.012); pointer-events: none; }
-      .form-panel.verification-active .signup-content { position: absolute; inset: 0 0 0 auto; display: flex; width: 50%; height: 100%; margin: 0; padding: 48px 7vw; overflow: hidden; background: #fff; backdrop-filter: none; -webkit-backdrop-filter: none; }
+      .form-panel.verification-active { background: #000 !important; }
+      .form-panel.verification-active::before { background: #000; }
+      .form-panel.verification-active .signup-hero { display: none; }
+      .form-panel.verification-active .signup-content { background: transparent; }
+      .form-panel.verification-active #signup-form,
+      .form-panel.verification-active .btn-google,
+      .form-panel.verification-active .divider { display: none !important; }
+      .form-panel.verification-active { display: block !important; position: relative; min-height: 100vh; height: 100vh; padding: 0 !important; background: #000 !important; overflow: hidden; }
+      .form-panel.verification-active::before { position: absolute; z-index: 1; inset: 0; content: ''; background: #000; }
+      .form-panel.verification-active .signup-hero { display: none; }
+      .form-panel.verification-active .signup-content { position: absolute; inset: 0; display: block; width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden; background: transparent; backdrop-filter: none; -webkit-backdrop-filter: none; }
       .form-panel.verification-active #signup-form { display: block !important; width: min(100%, 460px); margin: auto; filter: blur(3px); opacity: .72; pointer-events: none; user-select: none; }
       .form-panel.verification-active .btn-google,
       .form-panel.verification-active .divider { filter: blur(3px); opacity: .72; pointer-events: none; }
