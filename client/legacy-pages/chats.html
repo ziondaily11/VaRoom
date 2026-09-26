@@ -268,7 +268,12 @@ push    min-height:0;
   .voice-dur{ font-size:11.5px; color:var(--text-gray-2); font-weight:600; flex-shrink:0; }
   .voice-card > .msg-meta,.file-card > .msg-meta{ width:100%; text-align:right; }
 
-  .chat-input-area{ margin:16px 28px 20px; padding:14px 14px 10px; border:1px solid #27272A; border-radius:16px; background:#18181B; flex-shrink:0; }
+  .chat-input-area{ position:relative; margin:16px 28px 20px; padding:14px 14px 10px; border:1px solid #27272A; border-radius:16px; background:#18181B; flex-shrink:0; }
+  .composer-note[hidden]{ display:none !important; }
+  .composer-note.upload-progress-state{ display:block !important; max-width:100%; padding:7px 12px; border-radius:9px; background:var(--surface-elevated,#f6f7f9); color:var(--text-dark); border:1px solid var(--border); font-size:12px; font-weight:600; line-height:1.35; overflow-wrap:anywhere; }
+  .composer-note.upload-error-state{ background:#fff4e0; color:#8a5a00; }
+  [data-theme="dark"] .composer-note.upload-progress-state{ background:var(--surface-elevated); color:var(--ink); border-color:var(--line); }
+  [data-theme="dark"] .composer-note.upload-error-state{ background:#332613; color:#f4d08b; }
   .chat-input-area textarea{
     width:100%; border:none; outline:none; resize:none;
     font-family:inherit; font-size:13.5px; color:var(--text-dark);
@@ -289,6 +294,10 @@ push    min-height:0;
     }
     .desktop-composer-editor ul,.desktop-composer-editor ol{
       margin:0 0 0 20px; padding:0;
+    }
+    .chat-input-area .composer-note.upload-progress-state{
+      position:absolute; bottom:calc(100% + 6px); left:0; max-width:100%;
+      border-radius:9px; margin:0; z-index:5;
     }
   }
   .input-toolbar{ display:flex; justify-content:space-between; align-items:center; margin-top:12px; }
@@ -430,7 +439,7 @@ push    min-height:0;
   .file-row > div:nth-child(2){ min-width:0; flex:1; }
   .file-row .f-icon{ width:34px; height:34px; border-radius:9px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:15px; }
   .file-row .f-name{ font-size:12.5px; font-weight:700; color:var(--text-dark); overflow:hidden; overflow-wrap:anywhere; text-overflow:ellipsis; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; line-height:1.3; max-height:2.6em; }
-  .file-row .f-sub{ font-size:10.5px; color:var(--text-gray); margin-top:2px; }
+  .file-row .f-sub{ font-size:10.5px; color:var(--text-gray); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .file-row .f-dl{ margin-left:auto; color:var(--text-gray-2); font-size:15px; cursor:pointer; }
 
   .link-row{ display:flex; align-items:center; gap:11px; padding:7px 0; }
@@ -844,7 +853,7 @@ push    min-height:0;
     .mobile-inbox-title{ display:none; }
     .mobile-plus{ display:none !important; }
     .mobile-preview{ display:none !important; }
-    .mobile-attach,.mobile-attach-menu,.composer-tray,.composer-note{ display:none !important; }
+    .mobile-attach,.mobile-attach-menu,.composer-tray{ display:none !important; }
   }
 
   /* Dark chat uses the app canvas, but retains enough contrast for the

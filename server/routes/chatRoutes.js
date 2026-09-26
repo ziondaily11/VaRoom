@@ -213,12 +213,19 @@ router.get('/chat/conversations/:conversationId/messages', async (req, res) => {
     if (attachmentIds.length) {
       const attachmentResult = await supabaseAdmin
         .from('message_attachments')
-        .select('id,original_filename,mime_type,file_size_bytes,kind,status')
+        .select('id,original_filename,mime_type,original_mime_type,file_size_bytes,original_file_size_bytes,optimized_file_size_bytes,kind,status,processing_status,optimization_status,thumbnail_status,thumbnail_key,width,height')
         .in('id', attachmentIds);
       if (attachmentResult.error) throw attachmentResult.error;
       attachments = attachmentResult.data || [];
     }
-    const attachmentsById = Object.fromEntries(attachments.map((attachment) => [attachment.id, attachment]));
+    const attachmentsById = Object.fromEntries(attachments.map((attachment) => {
+      const { thumbnail_key: thumbnailKey, ...metadata } = attachment;
+      return [attachment.id, {
+        ...metadata,
+        thumbnail_available: Boolean(thumbnailKey),
+        thumbnail_pending: attachment.thumbnail_status === 'pending',
+      }];
+    }));
     const listingIds = (data || []).map((message) => message.listing_id).filter(Boolean);
     let listingsById = {};
     if (listingIds.length) {
@@ -435,11 +442,16 @@ router.post('/chat/conversations/:conversationId/messages', async (req, res) => 
     if (attachmentId) {
       const attachmentResult = await supabaseAdmin
         .from('message_attachments')
-        .select('id,original_filename,mime_type,file_size_bytes,kind,status')
+        .select('id,original_filename,mime_type,original_mime_type,file_size_bytes,original_file_size_bytes,optimized_file_size_bytes,kind,status,processing_status,optimization_status,thumbnail_status,thumbnail_key,width,height')
         .eq('id', attachmentId)
         .single();
       if (attachmentResult.error) throw attachmentResult.error;
-      attachment = attachmentResult.data;
+      const { thumbnail_key: thumbnailKey, ...metadata } = attachmentResult.data;
+      attachment = {
+        ...metadata,
+        thumbnail_available: Boolean(thumbnailKey),
+        thumbnail_pending: attachmentResult.data.thumbnail_status === 'pending',
+      };
     }
     let listing = null;
     if (listingId) {

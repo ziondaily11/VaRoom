@@ -12,7 +12,7 @@ function thumbnailKeyFor(videoKey) {
   return videoKey.replace(/\/original\.[^/.]+$/i, '/thumbnail.jpg');
 }
 
-async function generateVideoThumbnail(videoKey) {
+async function generateVideoThumbnail(videoKey, options = {}) {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'varoom-video-'));
   const inputPath = path.join(tempDir, 'input');
   const outputPath = path.join(tempDir, 'thumbnail.jpg');
@@ -21,14 +21,21 @@ async function generateVideoThumbnail(videoKey) {
   try {
     const video = await mediaStorageService.downloadR2Object(videoKey);
     await fs.writeFile(inputPath, video);
+    const filter = Number.isInteger(options.width) && Number.isInteger(options.height)
+      ? `scale=${options.width}:${options.height}:force_original_aspect_ratio=increase,crop=${options.width}:${options.height}`
+      : 'scale=min(1280\\,iw):-2';
     await execFileAsync(ffmpegPath, [
       '-hide_banner', '-loglevel', 'error', '-y',
       '-i', inputPath,
-      '-vf', 'scale=min(1280\\,iw):-2',
+      '-vf', filter,
       '-frames:v', '1',
       '-q:v', '3',
       outputPath,
-    ], { windowsHide: true, maxBuffer: 1024 * 1024 });
+    ], {
+      windowsHide: true,
+      maxBuffer: 1024 * 1024,
+      timeout: Number.isInteger(options.timeoutMs) ? options.timeoutMs : 0,
+    });
     const thumbnail = await fs.readFile(outputPath);
     await mediaStorageService.uploadR2Object(thumbnailKey, thumbnail, 'image/jpeg');
     return thumbnailKey;
