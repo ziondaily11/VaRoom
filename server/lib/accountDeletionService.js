@@ -54,8 +54,8 @@ async function collectOwnedStorage(userId) {
       ? supabaseAdmin.from('listing_photos').select('storage_path').in('listing_id', listingIds)
       : Promise.resolve({ data: [], error: null }),
     conversationIds.length
-      ? supabaseAdmin.from('message_attachments').select('storage_provider,storage_bucket,storage_key').or(`uploader_id.eq.${userId},conversation_id.in.(${conversationIds.join(',')})`)
-      : supabaseAdmin.from('message_attachments').select('storage_provider,storage_bucket,storage_key').eq('uploader_id', userId),
+      ? supabaseAdmin.from('message_attachments').select('storage_provider,storage_bucket,storage_key,source_storage_key,thumbnail_key').or(`uploader_id.eq.${userId},conversation_id.in.(${conversationIds.join(',')})`)
+      : supabaseAdmin.from('message_attachments').select('storage_provider,storage_bucket,storage_key,source_storage_key,thumbnail_key').eq('uploader_id', userId),
   ]);
   if (mediaError) throw new Error(`Unable to load property media: ${mediaError.message}`);
   if (photosError) throw new Error(`Unable to load listing photos: ${photosError.message}`);
@@ -79,8 +79,12 @@ async function collectOwnedStorage(userId) {
     }
   }
   for (const attachment of attachments || []) {
-    if (attachment.storage_provider === 'r2') r2Keys.push(attachment.storage_key);
-    else supabaseObjects.push({ bucket: attachment.storage_bucket, key: attachment.storage_key });
+    if (attachment.storage_provider === 'r2') r2Keys.push(attachment.storage_key, attachment.source_storage_key, attachment.thumbnail_key);
+    else {
+      supabaseObjects.push({ bucket: attachment.storage_bucket, key: attachment.storage_key });
+      if (attachment.source_storage_key) supabaseObjects.push({ bucket: attachment.storage_bucket, key: attachment.source_storage_key });
+      if (attachment.thumbnail_key) supabaseObjects.push({ bucket: attachment.storage_bucket, key: attachment.thumbnail_key });
+    }
   }
   return { supabaseObjects, r2Keys };
 }

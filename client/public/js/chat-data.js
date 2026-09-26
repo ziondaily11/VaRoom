@@ -3,9 +3,82 @@
 
   const ELIE_ID = 'elie';
   const ELIE_API_URL = 'https://elie1-0.onrender.com/elie/search';
-  const state = { session: null, role: 'client', conversations: [], activeId: null, channel: null, channelGeneration: 0, selectionGeneration: 0, onlineConversationIds: new Set(), listings: [], pendingAttachment: null, mobileView: 'inbox', mobileInfoReturn: 'conversation', elie: { sessionId: null, history: [] } };
+  const MAX_CHAT_ATTACHMENT_BYTES = 25 * 1024 * 1024;
+  const CHAT_ATTACHMENT_TYPES = {
+    jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', gif: 'image/gif',
+    pdf: 'application/pdf', txt: 'text/plain', csv: 'text/csv', zip: 'application/zip',
+    doc: 'application/msword', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    xls: 'application/vnd.ms-excel', xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    ppt: 'application/vnd.ms-powerpoint',
+    pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    mp3: ['audio/mpeg'], ogg: ['audio/ogg'], m4a: ['audio/mp4'],
+    mp4: ['video/mp4', 'audio/mp4'], webm: ['video/webm', 'audio/webm'],
+  };
+  const state = { session: null, role: 'client', conversations: [], activeId: null, messages: [], channel: null, channelGeneration: 0, selectionGeneration: 0, onlineConversationIds: new Set(), listings: [], pendingAttachment: null, mobileView: 'inbox', mobileInfoReturn: 'conversation', elie: { sessionId: null, history: [] } };
   const isMobile = () => window.matchMedia('(max-width: 760px)').matches;
   const $ = (selector) => document.querySelector(selector);
+  function attachmentTypeFor(file, kind) {
+    const extension = String(file.name).toLowerCase().match(/\.([a-z0-9]{1,12})$/);
+    const typeOptions = extension && CHAT_ATTACHMENT_TYPES[extension[1]];
+    const allowedTypes = Array.isArray(typeOptions) ? typeOptions : typeOptions ? [typeOptions] : [];
+    const mimeType = file.type && allowedTypes.includes(file.type)
+      ? file.type
+      : kind === 'voice' && extension && extension[1] === 'webm' ? 'audio/webm'
+        : kind === 'voice' && extension && extension[1] === 'mp4' ? 'audio/mp4' : allowedTypes[0];
+    if (!mimeType) {
+      throw new Error('This attachment type is not supported.');
+    }
+    if ((kind === 'photo' && !mimeType.startsWith('image/'))
+      || (kind === 'voice' && !mimeType.startsWith('audio/'))) {
+      throw new Error('This attachment type does not match the selected attachment category.');
+    }
+    if (file.size < 1 || file.size > MAX_CHAT_ATTACHMENT_BYTES) {
+      throw new Error('Attachments can be up to 25 MB.');
+    }
+    return mimeType;
+  }
+
+  async function optimizeImageForChat(file, mimeType) {
+    const extension = String(file.name).toLowerCase().split('.').pop();
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(mimeType)
+      || extension === 'gif' || typeof window.createImageBitmap !== 'function') {
+      return { blob: file, mimeType, optimized: false, optimizationFailed: false };
+    }
+    let bitmap;
+    try {
+      bitmap = await window.createImageBitmap(file, { imageOrientation: 'from-image' });
+      const scale = Math.min(1, 2560 / bitmap.width, 2560 / bitmap.height);
+      const needsResize = scale < 1;
+      const needsCompression = mimeType === 'image/jpeg' && file.size > 1_500_000;
+      if (!needsResize && !needsCompression) {
+        bitmap.close();
+        return { blob: file, mimeType, optimized: false, optimizationFailed: false };
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+      canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+      const context = canvas.getContext('2d');
+      if (!context) throw new Error('Image canvas is unavailable');
+      context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      bitmap.close();
+      const targetMimeType = mimeType === 'image/jpeg' ? 'image/webp' : mimeType;
+      const quality = targetMimeType === 'image/webp' ? 0.9 : undefined;
+      const blob = await new Promise((resolve, reject) => {
+        canvas.toBlob((result) => result ? resolve(result) : reject(new Error('Image encoding failed')), targetMimeType, quality);
+      });
+      canvas.width = 0;
+      canvas.height = 0;
+      if (blob.type !== targetMimeType || (!needsResize && blob.size >= file.size)) {
+        return { blob: file, mimeType, optimized: false, optimizationFailed: false };
+      }
+      return { blob, mimeType: blob.type, optimized: true, optimizationFailed: false };
+    } catch (error) {
+      if (bitmap) bitmap.close();
+      console.warn('Client-side image optimization failed; uploading original:', error);
+      return { blob: file, mimeType, optimized: false, optimizationFailed: true };
+    }
+  }
+
   const api = async (url, options) => {
     const response = await fetch(url, {
       ...options,
@@ -710,6 +783,14 @@
     return result.url;
   }
 
+  async function downloadAttachmentThumbnail(attachmentId) {
+    const result = await api(`/api/chat/attachments/${encodeURIComponent(attachmentId)}/thumbnail`);
+    if (typeof result.url !== 'string' || !/^https?:\/\//i.test(result.url)) {
+      throw new Error('Attachment thumbnail URL is unavailable');
+    }
+    return result.url;
+  }
+
   function addMediaLoader(container) {
     const loader = document.createElement('span');
     loader.className = 'chat-media-loader';
@@ -830,6 +911,7 @@
 
   async function selectElieConversation() {
     state.activeId = ELIE_ID; state.elie.sessionId = null; state.elie.history = [];
+    state.messages = [];
     showConversationInterface(); renderConversationList();
     $('#chatName').textContent = 'Elie'; $('#statusText').textContent = 'Your VaRoom search assistant'; $('#statusDot').classList.remove('online');
     const historyButton = document.querySelector('.chat-header-actions button:last-child');
@@ -873,48 +955,19 @@
     fileRows.forEach((row) => row.remove());
     const mediaAttachments = attachments.filter((message) => {
       const attachment = message.attachment || {};
-      return (attachment.kind === 'photo' && String(attachment.mime_type || '').startsWith('image/'))
+      return String(attachment.mime_type || '').startsWith('image/')
         || String(attachment.mime_type || '').startsWith('video/');
     }).slice(0, 6);
     mediaAttachments.forEach((message) => {
       const attachment = message.attachment || {};
       const title = attachment.original_filename || message.body || 'Shared media';
+      const isVideo = String(attachment.mime_type || '').startsWith('video/');
       const thumb = document.createElement('div');
       thumb.className = 'thumb';
       const titleElement = document.createElement('div');
       titleElement.className = 'media-title';
       titleElement.textContent = title;
       titleElement.title = title;
-      if (String(attachment.mime_type || '').startsWith('video/')) {
-        thumb.classList.add('media-kind-thumb');
-        thumb.innerHTML = `<svg class="icon"><use href="#i-video"/></svg><span>${attachment.status === 'ready' ? 'Video' : 'Video unavailable'}</span>`;
-        thumb.setAttribute('role', attachment.status === 'ready' ? 'button' : 'img');
-        if (attachment.status === 'ready') thumb.tabIndex = 0;
-        thumb.setAttribute('aria-label', `${attachment.status === 'ready' ? 'Open video' : 'Video unavailable'}: ${title}`);
-        const openVideo = async () => {
-          if (attachment.status !== 'ready') return;
-          try {
-            window.open(await downloadAttachment(message.attachment_id), '_blank', 'noopener');
-          } catch (error) {
-            console.error('Video attachment unavailable:', error);
-          }
-        };
-        thumb.addEventListener('click', openVideo);
-        thumb.addEventListener('keydown', (event) => {
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            openVideo();
-          }
-        });
-        const videoType = document.createElement('div');
-        videoType.className = 'media-type';
-        videoType.textContent = 'Video';
-        const card = document.createElement('div');
-        card.className = 'media-card';
-        card.append(thumb, titleElement, videoType);
-        mediaGrid.appendChild(card);
-        return;
-      }
       const image = document.createElement('img');
       image.alt = '';
       image.decoding = 'async';
@@ -922,7 +975,7 @@
       const fallback = document.createElement('span');
       fallback.className = 'media-fallback';
       fallback.setAttribute('aria-hidden', 'true');
-      fallback.innerHTML = '<svg class="icon"><use href="#i-image"/></svg><span>Image unavailable</span>';
+      fallback.innerHTML = `<svg class="icon"><use href="${isVideo ? '#i-video' : '#i-image'}"/></svg><span>${isVideo ? 'Video preview unavailable' : 'Image unavailable'}</span>`;
       fallback.hidden = true;
       thumb.append(image, fallback);
       const removeLoader = addMediaLoader(thumb);
@@ -932,7 +985,7 @@
       card.append(thumb, titleElement);
       const imageType = document.createElement('div');
       imageType.className = 'media-type';
-      imageType.textContent = 'Image';
+      imageType.textContent = isVideo ? 'Video' : 'Image';
       card.appendChild(imageType);
       const showFallback = (error) => {
         if (!fallback.hidden) return;
@@ -940,14 +993,15 @@
         thumb.classList.remove('is-loading');
         image.hidden = true;
         fallback.hidden = false;
+        thumb.classList.toggle('media-kind-thumb', isVideo);
         thumb.setAttribute('role', 'img');
-        thumb.setAttribute('aria-label', `Image unavailable: ${title}`);
+        thumb.setAttribute('aria-label', `${isVideo ? 'Video preview unavailable' : 'Image unavailable'}: ${title}`);
         console.error('Chat media image unavailable:', error);
       };
       let retryCount = 0;
       const loadImage = async () => {
         try {
-          const url = await downloadAttachment(message.attachment_id);
+          const url = await downloadAttachmentThumbnail(message.attachment_id);
           image.src = url;
           image.hidden = false;
         } catch (error) {
@@ -959,9 +1013,10 @@
         thumb.classList.remove('is-loading');
         thumb.setAttribute('role', 'button');
         thumb.tabIndex = 0;
-        thumb.setAttribute('aria-label', `View image: ${title}`);
-        const openPreview = () => downloadAttachment(message.attachment_id)
-          .then((url) => openImagePreview(url, title))
+        thumb.setAttribute('aria-label', `${isVideo ? 'Open video' : 'View image'}: ${title}`);
+        const openPreview = () => (isVideo
+          ? downloadAttachment(message.attachment_id).then((url) => window.open(url, '_blank', 'noopener'))
+          : downloadAttachment(message.attachment_id).then((url) => openImagePreview(url, title)))
           .catch((error) => console.error('Chat media preview unavailable:', error));
         thumb.addEventListener('click', openPreview);
         thumb.addEventListener('keydown', (event) => {
@@ -972,23 +1027,27 @@
         });
       }, { once: true });
       image.addEventListener('error', () => {
-        if (retryCount === 0 && attachment.status === 'ready') {
+        if (retryCount === 0 && attachment.status === 'ready'
+          && (attachment.thumbnail_available || attachment.thumbnail_pending)) {
           retryCount += 1;
           loadImage();
           return;
         }
         showFallback(new Error('Image could not be loaded'));
       });
-      if (attachment.status === 'ready') {
+      if (attachment.status === 'ready' && (attachment.thumbnail_available || attachment.thumbnail_pending)) {
+        thumb.classList.add('is-loading');
         loadImage();
       } else {
-        showFallback(new Error(`Attachment status is ${attachment.status || 'unknown'}`));
+        showFallback(new Error(attachment.status !== 'ready'
+          ? `Attachment status is ${attachment.status || 'unknown'}`
+          : 'Attachment preview is unavailable'));
       }
       mediaGrid.appendChild(card);
     });
     attachments.filter((message) => {
       const attachment = message.attachment || {};
-      const isImage = attachment.kind === 'photo' && String(attachment.mime_type || '').startsWith('image/');
+      const isImage = String(attachment.mime_type || '').startsWith('image/');
       return !isImage && !String(attachment.mime_type || '').startsWith('video/');
     }).forEach((message) => {
       const row = document.createElement('div');
@@ -999,7 +1058,8 @@
       row.querySelector('.f-sub').textContent = message.attachment
         ? [message.attachment.status !== 'ready' && 'Unavailable',
           message.attachment.mime_type && message.attachment.mime_type.split('/').pop().toUpperCase(),
-          message.attachment.file_size_bytes && `${Math.ceil(message.attachment.file_size_bytes / 1024)} Kb`]
+        (message.attachment.optimized_file_size_bytes || message.attachment.file_size_bytes)
+          && `${Math.ceil((message.attachment.optimized_file_size_bytes || message.attachment.file_size_bytes) / 1024)} Kb`]
           .filter(Boolean).join(' · ')
         : '';
       if (message.attachment && message.attachment.status === 'ready') {
@@ -1036,6 +1096,7 @@
     const selectionGeneration = ++state.selectionGeneration;
     const previousConversationId = state.activeId;
     state.activeId = id;
+    state.messages = [];
     renderConversationList();
     const conversation = state.conversations.find((item) => item.id === id);
     if (!conversation) return;
@@ -1060,8 +1121,9 @@
     }
     const result = await api(`/api/chat/conversations/${encodeURIComponent(id)}/messages`);
     if (selectionGeneration !== state.selectionGeneration || state.activeId !== id) return;
+    state.messages = result.messages || [];
     renderMessages(result.messages);
-    renderInfoAttachments(result.messages);
+    renderInfoAttachments(state.messages);
     if (isMobile()) showMobileConversation();
     await api(`/api/chat/conversations/${encodeURIComponent(id)}/read`, { method: 'POST', body: '{}' });
     if (selectionGeneration !== state.selectionGeneration || state.activeId !== id) return;
@@ -1085,6 +1147,8 @@
           const row = messageRow(message);
           if (previousRow && previousRow.classList.contains(message.sender_id === state.session.user.id ? 'out' : 'in')) row.classList.add('same-sender');
           current.appendChild(row); current.scrollTop = current.scrollHeight;
+          state.messages.push(message);
+          renderInfoAttachments(state.messages);
           updateConversationPreview(message);
         } catch (error) {
           console.error('Unable to load new chat message:', error);
@@ -1150,6 +1214,7 @@
       $('#statusDot').style.background = '#c7cbd1';
       clear($('.messages'));
       renderProfile(null);
+      state.messages = [];
       renderInfoAttachments([]);
       if (state.conversations.length) {
         renderNoSelectionState();
@@ -1194,6 +1259,82 @@
     input.addEventListener('input', updateComposerState);
     if (desktopEditor) desktopEditor.addEventListener('input', updateComposerState);
     updateComposerState();
+    const setAttachmentStatus = (message, isError) => {
+      const note = $('#composerNote');
+      if (!note) return;
+      note.textContent = message || '';
+      note.hidden = !message;
+      note.classList.toggle('upload-progress-state', Boolean(message));
+      note.classList.toggle('upload-error-state', Boolean(isError));
+    };
+    const setAttachmentBusy = (busy) => {
+      document.querySelectorAll('.attach-icons button.share-photo, .attach-icons button.share-file, .attach-icons button.send-message')
+        .forEach((button) => { button.disabled = busy; });
+    };
+    const putAttachment = (url, blob, mimeType) => new Promise((resolve, reject) => {
+      const request = new XMLHttpRequest();
+      request.open('PUT', url);
+      request.setRequestHeader('Content-Type', mimeType);
+      request.upload.addEventListener('progress', (event) => {
+        if (event.lengthComputable) {
+          setAttachmentStatus(`Uploading attachment (${Math.round(event.loaded / event.total * 100)}%)`);
+        }
+      });
+      request.addEventListener('load', () => {
+        if (request.status >= 200 && request.status < 300) resolve();
+        else reject(new Error('Attachment upload failed'));
+      }, { once: true });
+      request.addEventListener('error', () => reject(new Error('Attachment upload failed')), { once: true });
+      request.addEventListener('abort', () => reject(new Error('Attachment upload was cancelled')), { once: true });
+      request.send(blob);
+    });
+    async function uploadAndSendAttachment(file, kind, conversationId, content) {
+      let attachmentId = null;
+      let mayCleanUp = true;
+      try {
+        const originalMimeType = attachmentTypeFor(file, kind);
+        setAttachmentStatus('Preparing attachment…');
+        const optimized = originalMimeType.startsWith('image/')
+          ? await optimizeImageForChat(file, originalMimeType)
+          : { blob: file, mimeType: originalMimeType, optimized: false, optimizationFailed: false };
+        if (optimized.blob.size > MAX_CHAT_ATTACHMENT_BYTES) {
+          throw new Error('Attachments can be up to 25 MB.');
+        }
+        setAttachmentStatus('Preparing secure upload…');
+        const init = await api(`/api/chat/conversations/${encodeURIComponent(conversationId)}/attachments/upload-init`, {
+          method: 'POST',
+          body: JSON.stringify({
+            filename: file.name,
+            mimeType: optimized.mimeType,
+            originalMimeType,
+            fileSize: optimized.blob.size,
+            originalFileSize: file.size,
+            optimizationFailed: optimized.optimizationFailed,
+            kind,
+          }),
+        });
+        attachmentId = init.attachmentId;
+        await putAttachment(init.uploadUrl, optimized.blob, optimized.mimeType);
+        setAttachmentStatus('Verifying attachment and creating preview…');
+        await api(`/api/chat/conversations/${encodeURIComponent(conversationId)}/attachments/${encodeURIComponent(attachmentId)}/complete`, {
+          method: 'POST',
+          body: '{}',
+        });
+        setAttachmentStatus('Sending attachment…');
+        mayCleanUp = false;
+        return await api(`/api/chat/conversations/${encodeURIComponent(conversationId)}/messages`, {
+          method: 'POST',
+          body: JSON.stringify({ content, attachmentId, messageType: kind }),
+        });
+      } catch (error) {
+        if (attachmentId && mayCleanUp) {
+          await api(`/api/chat/conversations/${encodeURIComponent(conversationId)}/attachments/${encodeURIComponent(attachmentId)}`, {
+            method: 'DELETE',
+          }).catch((cleanupError) => console.error('Unable to clean up failed chat upload:', cleanupError));
+        }
+        throw error;
+      }
+    }
     async function sendText() {
       const content = desktop
         ? desktopEditor.innerHTML.trim()
@@ -1232,15 +1373,9 @@
             method: 'POST', body: JSON.stringify({ content: content || pending.listing.title, listingId: pending.listing.id, messageType: 'listing' }),
           });
         } else if (pending && pending.file) {
-          const init = await api(`/api/chat/conversations/${encodeURIComponent(conversationId)}/attachments/upload-init`, {
-            method: 'POST', body: JSON.stringify({ filename: pending.file.name, mimeType: pending.file.type, fileSize: pending.file.size, kind: pending.kind }),
-          });
-          const uploadResponse = await fetch(init.uploadUrl, { method: 'PUT', headers: { 'Content-Type': pending.file.type }, body: pending.file });
-          if (!uploadResponse.ok) throw new Error('Attachment upload failed');
-          await api(`/api/chat/conversations/${encodeURIComponent(conversationId)}/attachments/${encodeURIComponent(init.attachmentId)}/complete`, { method: 'POST', body: '{}' });
-          result = await api(`/api/chat/conversations/${encodeURIComponent(conversationId)}/messages`, {
-            method: 'POST', body: JSON.stringify({ content: content || pending.file.name, attachmentId: init.attachmentId, messageType: pending.kind }),
-          });
+          setAttachmentBusy(true);
+          result = await uploadAndSendAttachment(pending.file, pending.kind, conversationId, content || pending.file.name);
+          setAttachmentStatus('');
         } else {
           result = await api(`/api/chat/conversations/${encodeURIComponent(conversationId)}/messages`, {
             method: 'POST', body: JSON.stringify({ content }),
@@ -1266,11 +1401,24 @@
         replyMessages.forEach((message) => {
           if (message && !current.querySelector(`[data-message-id="${message.id}"]`)) {
             current.appendChild(messageRow(message));
+            state.messages.push(message);
           }
         });
+        if (replyMessages.length) renderInfoAttachments(state.messages);
         if (replyMessages.length) current.scrollTop = current.scrollHeight;
         updateConversationPreview(replyMessages[replyMessages.length - 1] || result.message);
-      } finally { if (!desktop) input.disabled = false; }
+      } catch (error) {
+        if (pending && pending.file) {
+          console.error('Chat attachment upload failed:', error);
+          setAttachmentStatus('Attachment could not be sent. Check the file and try again.', true);
+          setAttachmentBusy(false);
+          return;
+        }
+        throw error;
+      } finally {
+        if (!desktop) input.disabled = false;
+        setAttachmentBusy(false);
+      }
     }
     input.addEventListener('keydown', async (event) => {
       if (!isMobile()) return;
@@ -1283,16 +1431,27 @@
     document.body.appendChild(fileInput);
     const upload = async (file, kind) => {
       if (!state.activeId) return;
-      const init = await api(`/api/chat/conversations/${encodeURIComponent(state.activeId)}/attachments/upload-init`, {
-        method: 'POST', body: JSON.stringify({ filename: file.name, mimeType: file.type, fileSize: file.size, kind }),
-      });
-      const uploadResponse = await fetch(init.uploadUrl, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file });
-      if (!uploadResponse.ok) throw new Error('Attachment upload failed');
-      await api(`/api/chat/conversations/${encodeURIComponent(state.activeId)}/attachments/${encodeURIComponent(init.attachmentId)}/complete`, { method: 'POST', body: '{}' });
-      await api(`/api/chat/conversations/${encodeURIComponent(state.activeId)}/messages`, {
-        method: 'POST',
-        body: JSON.stringify({ content: file.name, attachmentId: init.attachmentId, messageType: kind }),
-      });
+      const conversationId = state.activeId;
+      setAttachmentBusy(true);
+      try {
+        const result = await uploadAndSendAttachment(file, kind, conversationId, file.name);
+        setAttachmentStatus('');
+        if (state.activeId !== conversationId) return;
+        const current = $('.messages');
+        const message = result.message;
+        if (message && !current.querySelector(`[data-message-id="${message.id}"]`)) {
+          current.appendChild(messageRow(message));
+          current.scrollTop = current.scrollHeight;
+          state.messages.push(message);
+          renderInfoAttachments(state.messages);
+        }
+        updateConversationPreview(message);
+      } catch (error) {
+        console.error('Chat attachment upload failed:', error);
+        setAttachmentStatus('Attachment could not be sent. Check the file and try again.', true);
+      } finally {
+        setAttachmentBusy(false);
+      }
     };
     const imageButton = $('.attach-icons button.share-photo');
     const fileButton = $('.attach-icons button.share-file');
