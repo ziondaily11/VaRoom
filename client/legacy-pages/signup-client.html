@@ -414,12 +414,12 @@
     /* Desktop verification overlay: retain the signup page beneath a glass OTP card. */
     @media (min-width: 761px) {
       .form-panel.verification-active { display: block !important; position: relative; min-height: 100vh; height: 100vh; padding: 0 !important; background: #fff !important; overflow: hidden; }
-      .form-panel.verification-active::before { position: absolute; z-index: 1; inset: 0; content: ''; background: rgba(0,0,0,.34); }
-      .form-panel.verification-active .signup-hero { display: flex; position: absolute; inset: 0 auto 0 0; width: 50%; height: 100%; filter: blur(8px) brightness(.7); transform: scale(1.025); pointer-events: none; }
-      .form-panel.verification-active .signup-content { position: absolute; inset: 0 0 0 auto; display: flex; width: 50%; height: 100%; margin: 0; padding: 48px 7vw; overflow: hidden; background: #fff; }
-      .form-panel.verification-active #signup-form { display: block !important; width: min(100%, 460px); margin: auto; filter: blur(7px); opacity: .58; pointer-events: none; user-select: none; }
+      .form-panel.verification-active::before { position: absolute; z-index: 1; inset: 0; content: ''; background: rgba(0,0,0,.16); }
+      .form-panel.verification-active .signup-hero { display: flex; position: absolute; inset: 0 auto 0 0; width: 50%; height: 100%; filter: blur(3px) brightness(.9); transform: scale(1.012); pointer-events: none; }
+      .form-panel.verification-active .signup-content { position: absolute; inset: 0 0 0 auto; display: flex; width: 50%; height: 100%; margin: 0; padding: 48px 7vw; overflow: hidden; background: #fff; backdrop-filter: none; -webkit-backdrop-filter: none; }
+      .form-panel.verification-active #signup-form { display: block !important; width: min(100%, 460px); margin: auto; filter: blur(3px); opacity: .72; pointer-events: none; user-select: none; }
       .form-panel.verification-active .btn-google,
-      .form-panel.verification-active .divider { filter: blur(7px); opacity: .58; pointer-events: none; }
+      .form-panel.verification-active .divider { filter: blur(3px); opacity: .72; pointer-events: none; }
       .form-panel.verification-active .verification-step { position: fixed; z-index: 3; isolation: isolate; top: 50%; left: 50%; display: block; width: min(calc(100vw - 48px), 448px); padding: 36px; color: #f7f7f7; border: 1px solid rgba(255,255,255,.2); border-radius: 24px; background: linear-gradient(145deg, rgba(42,42,42,.82), rgba(16,16,16,.76)); box-shadow: 0 28px 72px rgba(0,0,0,.48), inset 0 1px rgba(255,255,255,.13); transform: translate(-50%, -50%); backdrop-filter: blur(22px); -webkit-backdrop-filter: blur(22px); animation: otp-overlay-in .28s ease-out both; }
       .form-panel.verification-active .verification-step h2 { margin: 0 0 10px; color: #fff; font: 400 clamp(30px, 3vw, 38px)/1.15 var(--serif); letter-spacing: -1px; }
       .form-panel.verification-active .verification-step p { margin: 0 0 26px; color: rgba(255,255,255,.68); }
