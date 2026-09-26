@@ -1230,12 +1230,8 @@
       btnContinue.disabled = true;
       try {
         var croppedPhoto = await createCroppedPhoto();
-        var path = user.id + '/avatar_' + Date.now() + '.jpg';
-        var uploadResult = await supabaseClient.storage.from('avatars').upload(path, croppedPhoto, { contentType: 'image/jpeg', upsert: false });
-        if (uploadResult.error) throw uploadResult.error;
-        var avatarResult = await supabaseClient.from('profiles').update({ avatar_url: path }).eq('id', user.id);
-        if (avatarResult.error) throw avatarResult.error;
-        profile.avatar_url = path;
+        var uploadResult = await window.VaRoomMedia.upload('profile-photo', croppedPhoto, { filename: 'profile.jpg' });
+        profile.avatar_url = uploadResult.objectKey;
         savePhotoDecision('added');
         goTo(2, true, 'push');
       } catch (error) {

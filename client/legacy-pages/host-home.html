@@ -1354,7 +1354,7 @@
     if (listingCount > 0) {
       const { data: hostListingsData } = await supabaseClient
         .from('listings')
-        .select('id,title,description,category,location_text,availability_status,created_at,listing_photos(storage_path),listing_booking_details(price_amount,price_unit)')
+        .select('id,title,description,category,location_text,availability_status,created_at,listing_photos(storage_path,sort_order),listing_booking_details(price_amount,price_unit)')
         .eq('host_id', currentUser.id)
         .order('created_at', { ascending:false });
       hostListings = hostListingsData || [];
@@ -1381,10 +1381,10 @@
 
       const tilesHtml = shown.map(function(l){
         const meta = categoryMeta[l.category] || { label: l.category || 'Listing', icon:'home' };
-        const photos = l.listing_photos || [];
+        const photos = window.VaRoomMedia.sortPhotos(l.listing_photos);
         let thumbHtml = glanceIcons[meta.icon];
         if (photos.length > 0 && photos[0].storage_path) {
-          const url = supabaseClient.storage.from('listing-photos').getPublicUrl(photos[0].storage_path).data.publicUrl;
+          const url = window.VaRoomMedia.publicUrl('listing-photos', photos[0].storage_path);
           thumbHtml = '<img src="' + url + '" alt="">';
         }
         const sub = photos.length === 0 ? 'Draft · no photos' : meta.label;
@@ -1707,7 +1707,7 @@
     function resolveAvatarUrl(avatarValue){
       if (!avatarValue) return null;
       if (avatarValue.indexOf('http') === 0) return avatarValue;
-      return supabaseClient.storage.from('avatars').getPublicUrl(avatarValue).data.publicUrl;
+      return window.VaRoomMedia.publicUrl('avatars', avatarValue);
     }
 
     // Local skeleton for the feed — mirrors the current .card shape exactly
@@ -1885,8 +1885,8 @@
 
     function renderCard(listing){
       const host = listing.host || {};
-      const photos = (listing.listing_photos || []).map(function(p){
-        return supabaseClient.storage.from('listing-photos').getPublicUrl(p.storage_path).data.publicUrl;
+      const photos = window.VaRoomMedia.sortPhotos(listing.listing_photos).map(function(p){
+        return window.VaRoomMedia.publicUrl('listing-photos', p.storage_path);
       });
       const videoState = listingVideoUrls[listing.id] || null;
       const videoUrl = videoState && videoState.url ? videoState.url : videoState;
@@ -1959,7 +1959,7 @@
       );
     }
 
-    const FEED_SELECT = 'id,title,description,location_text,category,verified,availability_status,created_at,host_id,host:profiles(full_name,verified,avatar_url,username),listing_photos(storage_path),listing_booking_details(price_amount,price_unit)';
+    const FEED_SELECT = 'id,title,description,location_text,category,verified,availability_status,created_at,host_id,host:profiles(full_name,verified,avatar_url,username),listing_photos(storage_path,sort_order),listing_booking_details(price_amount,price_unit)';
 
     async function startChat(listingId, hostId){
       const { data, error } = await supabaseClient
@@ -2195,7 +2195,7 @@
         const photos = (u.image_urls && u.image_urls.length > 0) ? u.image_urls : (u.image_url ? [u.image_url] : []);
         const photosHtml = photos.length > 0
           ? '<div class="update-photos">' + photos.map(function(url){
-              return '<img src="' + url + '" alt="" class="update-img">';
+              return '<img src="' + window.VaRoomMedia.publicUrl('update-images', url) + '" alt="" class="update-img">';
             }).join('') + '</div>'
           : '';
         return (

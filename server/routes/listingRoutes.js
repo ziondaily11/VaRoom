@@ -1,5 +1,6 @@
 const express = require('express');
 const supabaseAdmin = require('../lib/supabaseClient');
+const mediaCleanupService = require('../lib/mediaCleanupService');
 const {
   ValidationError, assertAllowedKeys, text, uuid, number, enumValue,
 } = require('../lib/inputValidation');
@@ -252,17 +253,105 @@ router.delete('/listings/:id', async (req, res) => {
   if (!user) return;
   const listing = await ownedListing(req.params.id, user.id, res);
   if (!listing) return;
-  const { data: photos } = await supabaseAdmin.from('listing_photos')
-    .select('storage_path').eq('listing_id', req.params.id);
-  await supabaseAdmin.from('availability').delete().eq('listing_id', req.params.id);
-  await supabaseAdmin.from('bookmarks').delete().eq('listing_id', req.params.id);
-  await supabaseAdmin.from('listing_photos').delete().eq('listing_id', req.params.id);
-  await supabaseAdmin.from('listing_booking_details').delete().eq('listing_id', req.params.id);
+  const [
+    { data: photos, error: photosError },
+    { data: media, error: mediaError },
+  ] = await Promise.all([
+    supabaseAdmin.from('listing_photos')
+      .select('storage_path,storage_provider,storage_bucket').eq('listing_id', req.params.id),
+    supabaseAdmin.from('property_media')
+      .select('storage_provider,storage_bucket,storage_key,thumbnail_key')
+      .eq('property_id', req.params.id).is('deleted_at', null),
+  ]);
+  if (photosError || mediaError) {
+    console.error('Unable to inspect listing media before deletion:', photosError || mediaError);
+    return res.status(500).json({ error: 'Unable to prepare listing deletion' });
+  }
+
+  const cleanupItems = new Map();
+  for (const photo of photos || []) {
+    if (!photo.storage_path) continue;
+    const provider = photo.storage_provider === 'r2' ? 'r2' : 'supabase';
+    const bucket = photo.storage_bucket || 'listing-photos';
+    cleanupItems.set(`${provider}:${bucket}:${photo.storage_path}`, { provider, bucket, key: photo.storage_path });
+  }
+  for (const item of media || []) {
+    const provider = item.storage_provider === 'r2' ? 'r2' : 'supabase';
+    for (const key of [item.storage_key, item.thumbnail_key].filter(Boolean)) {
+      cleanupItems.set(`${provider}:${item.storage_bucket}:${key}`, {
+        provider, bucket: item.storage_bucket, key,
+      });
+    }
+  }
+  const cleanupTaskIds = [];
+  try {
+    for (const item of cleanupItems.values()) {
+      cleanupTaskIds.push(await mediaCleanupService.enqueueMediaCleanup(
+        item.provider, item.bucket, item.key
+      ));
+    }
+  } catch (error) {
+    console.error('Unable to schedule listing media cleanup:', error);
+    return res.status(500).json({ error: 'Unable to safely prepare listing media cleanup' });
+  }
+
+  for (const [table, field] of [
+    ['availability', 'listing_id'],
+    ['bookmarks', 'listing_id'],
+    ['listing_photos', 'listing_id'],
+    ['property_media', 'property_id'],
+    ['listing_booking_details', 'listing_id'],
+  ]) {
+    const { error } = await supabaseAdmin.from(table).delete().eq(field, req.params.id);
+    if (error) {
+      console.error(`Unable to remove ${table} for listing:`, error);
+      return res.status(500).json({ error: 'Unable to delete listing data' });
+    }
+  }
   const { error } = await supabaseAdmin.from('listings').delete().eq('id', req.params.id);
   if (error) return res.status(500).json({ error: 'Unable to delete listing' });
-  const paths = (photos || []).map((photo) => photo.storage_path).filter(Boolean);
-  if (paths.length) await supabaseAdmin.storage.from('listing-photos').remove(paths);
-  return res.json({ success: true });
+  let cleanupPending = false;
+  for (const taskId of cleanupTaskIds) {
+    const result = await mediaCleanupService.processMediaCleanup(taskId);
+    if (!result.deleted) cleanupPending = true;
+  }
+  return res.status(cleanupPending ? 202 : 200).json({ success: true, cleanupPending });
+});
+
+router.delete('/listings/:id/photos/:photoId', async (req, res) => {
+  const user = await authenticatedHost(req, res);
+  if (!user) return;
+  try {
+    uuid(req.params.id, 'listing id');
+    uuid(req.params.photoId, 'photo id');
+  } catch (error) {
+    if (error instanceof ValidationError) return res.status(400).json({ error: 'Invalid photo reference' });
+    throw error;
+  }
+  if (!(await ownedListing(req.params.id, user.id, res))) return;
+  const { data: photo, error: lookupError } = await supabaseAdmin.from('listing_photos')
+    .select('media_id,storage_path,storage_provider,storage_bucket')
+    .eq('media_id', req.params.photoId).eq('listing_id', req.params.id).maybeSingle();
+  if (lookupError) return res.status(500).json({ error: 'Unable to locate listing photo' });
+  if (!photo) return res.status(404).json({ error: 'Listing photo not found' });
+  try {
+    const provider = photo.storage_provider === 'r2' ? 'r2' : 'supabase';
+    const bucket = photo.storage_bucket || 'listing-photos';
+    const cleanupTaskId = photo.storage_path
+      ? await mediaCleanupService.enqueueMediaCleanup(provider, bucket, photo.storage_path)
+      : null;
+    const { error: deleteError } = await supabaseAdmin.from('listing_photos')
+      .delete().eq('media_id', photo.media_id).eq('listing_id', req.params.id);
+    if (deleteError) throw deleteError;
+    if (cleanupTaskId) {
+      const result = await mediaCleanupService.processMediaCleanup(cleanupTaskId);
+      if (!result.deleted) return res.status(202).json({ success: true, cleanupPending: true });
+    }
+    return res.json({ success: true });
+  } catch (error) {
+    console.error('Listing photo deletion failed:', error);
+    return res.status(500).json({ error: 'Unable to delete listing photo' });
+  }
 });
 
 module.exports = router;

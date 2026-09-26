@@ -115,7 +115,7 @@ router.get('/chat/listings', async (req, res) => {
     if (!user) return res.status(401).json({ error: 'Invalid or expired session' });
     const { data, error } = await supabaseAdmin
       .from('listings')
-      .select('id,title,location_text,listing_photos(storage_path)')
+      .select('id,title,location_text,listing_photos(storage_path,sort_order)')
       .eq('host_id', user.id)
       .order('created_at', { ascending: false });
     if (error) throw error;
@@ -253,7 +253,7 @@ router.get('/chat/conversations/:conversationId/messages', async (req, res) => {
     if (listingIds.length) {
       const listingResult = await supabaseAdmin
         .from('listings')
-        .select('id,title,location_text,category,listing_photos(storage_path)')
+        .select('id,title,location_text,category,listing_photos(storage_path,sort_order)')
         .in('id', listingIds);
       if (listingResult.error) throw listingResult.error;
       listingsById = Object.fromEntries((listingResult.data || []).map((listing) => [listing.id, listing]));
@@ -482,7 +482,7 @@ router.post('/chat/conversations/:conversationId/messages', async (req, res) => 
     if (listingId) {
       const listingResult = await supabaseAdmin
         .from('listings')
-        .select('id,title,location_text,category,listing_photos(storage_path)')
+        .select('id,title,location_text,category,listing_photos(storage_path,sort_order)')
         .eq('id', listingId)
         .single();
       if (listingResult.error) throw listingResult.error;

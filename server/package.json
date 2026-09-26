@@ -6,6 +6,9 @@
   "scripts": {
     "start": "node server.js",
     "test": "node --test",
+    "migrate:media": "node scripts/migrate-media-to-r2.js",
+    "verify:media": "node scripts/verify-media-r2.js",
+    "cleanup:media": "node scripts/cleanup-media.js",
     "seed-admin": "node scripts/seed-admin.js"
   },
   "dependencies": {

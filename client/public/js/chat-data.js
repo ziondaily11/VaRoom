@@ -108,7 +108,7 @@
   const avatarUrl = (profile) => {
     if (!profile || !profile.avatar_url) return '';
     if (/^(https?:|data:|blob:)/i.test(profile.avatar_url)) return profile.avatar_url;
-    return window.supabaseClient.storage.from('avatars').getPublicUrl(profile.avatar_url).data.publicUrl;
+    return window.VaRoomMedia.publicUrl('avatars', profile.avatar_url);
   };
   const setAvatar = (element, profile) => {
     element.style.background = '#14161c';
@@ -415,10 +415,10 @@
       const option = document.createElement('button');
       option.type = 'button';
       option.className = 'chat-listing-option';
-      const photo = listing.listing_photos && listing.listing_photos[0];
+      const photo = window.VaRoomMedia.sortPhotos(listing.listing_photos)[0];
       const image = document.createElement('img');
       image.alt = listing.title || '';
-      image.src = photo ? window.supabaseClient.storage.from('listing-photos').getPublicUrl(photo.storage_path).data.publicUrl : '';
+      image.src = photo ? window.VaRoomMedia.publicUrl('listing-photos', photo.storage_path) : '';
       const textBlock = document.createElement('div');
       textBlock.innerHTML = `<strong></strong><small></small>`;
       textBlock.querySelector('strong').textContent = listing.title || '';
@@ -706,11 +706,11 @@
     } else if (message.message_type === 'listing' && message.listing) {
       const card = document.createElement('div');
       card.className = 'chat-listing-card';
-      const photo = message.listing.listing_photos && message.listing.listing_photos[0];
+      const photo = window.VaRoomMedia.sortPhotos(message.listing.listing_photos)[0];
       card.innerHTML = '<div class="chat-listing-card-body"><div class="chat-listing-card-title"></div><div class="chat-listing-card-sub"></div></div>';
       if (photo) {
         const image = document.createElement('img');
-        image.src = window.supabaseClient.storage.from('listing-photos').getPublicUrl(photo.storage_path).data.publicUrl;
+        image.src = window.VaRoomMedia.publicUrl('listing-photos', photo.storage_path);
         image.alt = message.listing.title || 'Listing image';
         card.insertBefore(image, card.firstChild);
       }

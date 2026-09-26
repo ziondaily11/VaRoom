@@ -406,7 +406,7 @@
     function resolveAvatarUrl(v){
       if (!v) return null;
       if (v.startsWith('http')) return v;
-      return supabaseClient.storage.from('avatars').getPublicUrl(v).data.publicUrl;
+      return window.VaRoomMedia.publicUrl('avatars', v);
     }
     function showStatus(title, sub){
       checkingAuth.style.display = 'none';
@@ -431,7 +431,7 @@
     const { data: booking, error } = await supabaseClient
       .from('bookings')
       .select('id,status,client_id,host_id,listing_id,price_unit,total_price,start_date,end_date,hours,lease_start_date,lease_months,' +
-        'listing:listings(title,location_text,listing_photos(storage_path)),' +
+        'listing:listings(title,location_text,listing_photos(storage_path,sort_order)),' +
         'host:profiles!bookings_host_id_fkey(full_name,avatar_url)')
       .eq('id', bookingId)
       .maybeSingle();
@@ -527,10 +527,10 @@
       escapeHtml(listing.location_text || '') +
       ' · <a href="/map?booking=' + booking.id + '" style="color:var(--red);font-weight:600;">View map &amp; directions</a>';
 
-    const photos = listing.listing_photos || [];
+    const photos = window.VaRoomMedia.sortPhotos(listing.listing_photos);
     const photoEl = document.getElementById('listing-photo');
     if (photos.length > 0 && photos[0].storage_path) {
-      const url = supabaseClient.storage.from('listing-photos').getPublicUrl(photos[0].storage_path).data.publicUrl;
+      const url = window.VaRoomMedia.publicUrl('listing-photos', photos[0].storage_path);
       photoEl.innerHTML = '<img src="' + url + '" alt="">';
     } else {
       photoEl.innerHTML = '';

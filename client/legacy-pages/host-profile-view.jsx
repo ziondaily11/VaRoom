@@ -43,7 +43,9 @@ function resolveAvatarUrl(avatarUrl) {
   if (!avatarUrl) return null;
   if (avatarUrl.startsWith("http")) return avatarUrl;
   const client = typeof window !== "undefined" ? window.supabaseClient : null;
-  return client ? client.storage.from("avatars").getPublicUrl(avatarUrl).data.publicUrl : avatarUrl;
+  return client && window.VaRoomMedia
+    ? window.VaRoomMedia.publicUrl("avatars", avatarUrl)
+    : avatarUrl;
 }
 
 export default function HostProfileView() {
@@ -118,7 +120,7 @@ export default function HostProfileView() {
 
       const [profileResult, listingsResult] = await Promise.all([
         client.from("profiles").select("id,role,full_name,username,bio,avatar_url,verified,city,created_at").eq("id", hostId).eq("role", "host").maybeSingle(),
-        client.from("listings").select("id,title,category,location_text,created_at,listing_photos(storage_path),listing_booking_details(price_amount,price_unit)").eq("host_id", hostId).order("created_at", { ascending: false }),
+        client.from("listings").select("id,title,category,location_text,created_at,listing_photos(storage_path,sort_order),listing_booking_details(price_amount,price_unit)").eq("host_id", hostId).order("created_at", { ascending: false }),
       ]);
 
       if (cancelled) return;
@@ -132,7 +134,7 @@ export default function HostProfileView() {
       if (!listingsResult.error && listingsResult.data) {
         const authToken = sessionResult.data.session?.access_token;
         const listingsWithMedia = await Promise.all(listingsResult.data.map(async (listing) => {
-          const photo = listing.listing_photos?.[0];
+          const photo = window.VaRoomMedia.sortPhotos(listing.listing_photos)[0];
           const details = Array.isArray(listing.listing_booking_details)
             ? listing.listing_booking_details[0]
             : listing.listing_booking_details;
@@ -170,7 +172,7 @@ export default function HostProfileView() {
             img: photo?.storage_path
               ? (photo.storage_path.startsWith("http")
                 ? photo.storage_path
-                : client.storage.from("listing-photos").getPublicUrl(photo.storage_path).data.publicUrl)
+                : window.VaRoomMedia.publicUrl("listing-photos", photo.storage_path))
               : null,
             videoUrl,
           };

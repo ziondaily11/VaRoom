@@ -1,7 +1,7 @@
 /**
  * MediaStorageService
  *
- * Abstracts media storage operations (R2 for videos, Supabase Storage for photos).
+ * Centralizes media storage operations in Cloudflare R2.
  * Centralizes credentials, URL generation, and provider-specific logic.
  *
  * R2 is S3-compatible, so we use the AWS SDK v3 to properly sign every
@@ -14,13 +14,13 @@
  */
 
 require('dotenv').config();
-const supabase = require('./supabaseClient');
 const {
   S3Client,
   PutObjectCommand,
   HeadObjectCommand,
   GetObjectCommand,
   DeleteObjectCommand,
+  ListObjectsV2Command,
 } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
@@ -32,7 +32,7 @@ const configuredR2Endpoint = process.env.R2_ENDPOINT;
 const R2_ENDPOINT = R2_ACCOUNT_ID
   ? `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
   : configuredR2Endpoint;
-const ENVIRONMENT = process.env.NODE_ENV || 'development';
+const ENVIRONMENT = (process.env.NODE_ENV || 'development').replace(/[^a-z0-9_-]/gi, '-');
 
 const R2_CONFIGURED = Boolean(
   R2_ACCOUNT_ID && R2_BUCKET_NAME && R2_ACCESS_KEY_ID && R2_SECRET_ACCESS_KEY && R2_ENDPOINT
@@ -78,6 +78,22 @@ function assertConfigured() {
   }
 }
 
+function keySegment(value, label) {
+  const segment = String(value || '');
+  if (!/^[a-z0-9_-]{1,128}$/i.test(segment)) {
+    throw new Error(`Invalid ${label} for R2 object key`);
+  }
+  return segment;
+}
+
+function keyExtension(extension) {
+  const normalized = String(extension || '').toLowerCase();
+  if (!/^[a-z0-9]{1,10}$/.test(normalized)) {
+    throw new Error('Invalid file extension');
+  }
+  return normalized;
+}
+
 /**
  * Generate server-side R2 object key
  * Structure: videos/{environment}/{host_id}/{property_id}/{media_id}/original.{extension}
@@ -88,20 +104,64 @@ function generateR2ObjectKey(hostId, propertyId, mediaId, extension) {
     throw new Error('Missing required parameters for R2 key generation');
   }
 
-  const cleanExt = (extension || '').replace(/[^a-z0-9]/gi, '').toLowerCase();
-  if (!cleanExt) {
-    throw new Error('Invalid file extension');
-  }
-  return `videos/${ENVIRONMENT}/${hostId}/${propertyId}/${mediaId}/original.${cleanExt}`;
+  const cleanExt = keyExtension(extension);
+  return `videos/${ENVIRONMENT}/${keySegment(hostId, 'host id')}/${keySegment(propertyId, 'property id')}/${keySegment(mediaId, 'media id')}/original.${cleanExt}`;
 }
 
 function generateChatAttachmentObjectKey(userId, conversationId, attachmentId, extension) {
   if (!userId || !conversationId || !attachmentId || !extension) {
     throw new Error('Missing required parameters for chat attachment key generation');
   }
-  const cleanExt = (extension || '').replace(/[^a-z0-9]/gi, '').toLowerCase();
-  if (!cleanExt) throw new Error('Invalid file extension');
-  return `chat-attachments/${ENVIRONMENT}/${conversationId}/${userId}/${attachmentId}/original.${cleanExt}`;
+  const cleanExt = keyExtension(extension);
+  return `chat-attachments/${ENVIRONMENT}/${keySegment(conversationId, 'conversation id')}/${keySegment(userId, 'user id')}/${keySegment(attachmentId, 'attachment id')}/original.${cleanExt}`;
+}
+
+function generateListingPhotoObjectKey(listingId, mediaId, extension) {
+  if (!listingId || !mediaId || !extension) {
+    throw new Error('Missing required parameters for listing photo key generation');
+  }
+  const cleanExt = keyExtension(extension);
+  return `listing-photos/${ENVIRONMENT}/${keySegment(listingId, 'listing id')}/${keySegment(mediaId, 'media id')}.${cleanExt}`;
+}
+
+function generatePropertyImageObjectKey(listingId, mediaId, extension) {
+  if (!listingId || !mediaId || !extension) {
+    throw new Error('Missing required parameters for property image key generation');
+  }
+  const cleanExt = keyExtension(extension);
+  return `listing-photos/${ENVIRONMENT}/${keySegment(listingId, 'listing id')}/${keySegment(mediaId, 'media id')}.${cleanExt}`;
+}
+
+function generatePropertyImageThumbnailObjectKey(listingId, mediaId, extension) {
+  if (!listingId || !mediaId || !extension) {
+    throw new Error('Missing required parameters for property image thumbnail key generation');
+  }
+  const cleanExt = keyExtension(extension);
+  return `listing-photos/${ENVIRONMENT}/${keySegment(listingId, 'listing id')}/${keySegment(mediaId, 'media id')}/thumbnail.${cleanExt}`;
+}
+
+function generateProfilePhotoObjectKey(userId, mediaId, extension) {
+  if (!userId || !mediaId || !extension) {
+    throw new Error('Missing required parameters for profile photo key generation');
+  }
+  const cleanExt = keyExtension(extension);
+  return `avatars/${ENVIRONMENT}/${keySegment(userId, 'user id')}/${keySegment(mediaId, 'media id')}.${cleanExt}`;
+}
+
+function generateUpdateImageObjectKey(userId, mediaId, extension) {
+  if (!userId || !mediaId || !extension) {
+    throw new Error('Missing required parameters for update image key generation');
+  }
+  const cleanExt = keyExtension(extension);
+  return `updates/${ENVIRONMENT}/${keySegment(userId, 'user id')}/${keySegment(mediaId, 'media id')}.${cleanExt}`;
+}
+
+function generateMigratedUpdateImageObjectKey(updateId, index, extension) {
+  if (!updateId || !Number.isInteger(index) || index < 0 || !extension) {
+    throw new Error('Missing required parameters for migrated update image key generation');
+  }
+  const cleanExt = keyExtension(extension);
+  return `updates/${ENVIRONMENT}/migrated/${keySegment(updateId, 'update id')}/${index}.${cleanExt}`;
 }
 
 /**
@@ -214,6 +274,40 @@ async function downloadR2Object(objectKey) {
   return Buffer.from(await response.Body.transformToByteArray());
 }
 
+async function getR2ObjectStream(objectKey) {
+  assertConfigured();
+  const response = await s3Client.send(new GetObjectCommand({
+    Bucket: R2_BUCKET_NAME,
+    Key: objectKey,
+  }));
+  return {
+    body: response.Body,
+    contentType: response.ContentType || 'application/octet-stream',
+    contentLength: response.ContentLength,
+    cacheControl: response.CacheControl,
+  };
+}
+
+async function listR2Objects(prefix) {
+  assertConfigured();
+  const objects = [];
+  let continuationToken;
+  do {
+    const response = await s3Client.send(new ListObjectsV2Command({
+      Bucket: R2_BUCKET_NAME,
+      Prefix: prefix,
+      ContinuationToken: continuationToken,
+    }));
+    objects.push(...(response.Contents || []).map((object) => ({
+      key: object.Key,
+      size: object.Size,
+      lastModified: object.LastModified,
+    })));
+    continuationToken = response.IsTruncated ? response.NextContinuationToken : undefined;
+  } while (continuationToken);
+  return objects;
+}
+
 async function uploadR2Object(objectKey, body, contentType) {
   assertConfigured();
   await s3Client.send(new PutObjectCommand({
@@ -241,79 +335,25 @@ async function deleteR2Object(objectKey) {
   }
 }
 
-/**
- * Store a small image as a Supabase Storage object (for thumbnails, future use)
- */
-async function uploadSupabaseStorage(bucketName, objectKey, buffer, contentType) {
-  try {
-    const { data, error } = await supabase.storage
-      .from(bucketName)
-      .upload(objectKey, buffer, {
-        contentType: contentType || 'application/octet-stream',
-        upsert: false,
-      });
-
-    if (error) {
-      throw new Error(`Supabase upload failed: ${error.message}`);
-    }
-
-    return data;
-  } catch (error) {
-    console.error('Error uploading to Supabase Storage:', error);
-    throw error;
-  }
-}
-
-/**
- * Get a public URL for Supabase Storage object
- */
-function getSupabasePublicUrl(bucketName, objectKey) {
-  try {
-    const { data } = supabase.storage
-      .from(bucketName)
-      .getPublicUrl(objectKey);
-
-    return data?.publicUrl || null;
-  } catch (error) {
-    console.error('Error getting Supabase public URL:', error);
-    return null;
-  }
-}
-
-/**
- * Delete a Supabase Storage object
- */
-async function deleteSupabaseStorage(bucketName, objectKey) {
-  try {
-    const { error } = await supabase.storage
-      .from(bucketName)
-      .remove([objectKey]);
-
-    if (error) {
-      throw new Error(`Supabase deletion failed: ${error.message}`);
-    }
-
-    return { success: true };
-  } catch (error) {
-    console.error('Error deleting Supabase Storage object:', error);
-    throw error;
-  }
-}
-
 module.exports = {
   generateR2ObjectKey,
   generateChatAttachmentObjectKey,
+  generateListingPhotoObjectKey,
+  generatePropertyImageObjectKey,
+  generatePropertyImageThumbnailObjectKey,
+  generateProfilePhotoObjectKey,
+  generateUpdateImageObjectKey,
+  generateMigratedUpdateImageObjectKey,
   generateR2UploadAuthorization,
   generateR2PlaybackUrl,
   generateR2DownloadAuthorization,
   verifyR2ObjectExists,
   getR2ObjectMetadata,
   downloadR2Object,
+  getR2ObjectStream,
+  listR2Objects,
   uploadR2Object,
   deleteR2Object,
-  uploadSupabaseStorage,
-  getSupabasePublicUrl,
-  deleteSupabaseStorage,
   // Constants for configuration
   R2_ENDPOINT,
   R2_BUCKET_NAME,

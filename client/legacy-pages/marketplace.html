@@ -719,10 +719,10 @@
 
   const MKT_SELECT = 'id,title,description,location_text,category,verified,created_at,host_id,availability_status,' +
     'host:profiles!inner(full_name,verified,avatar_url,username),' +
-    'listing_photos(storage_path),listing_booking_details(*)';
+    'listing_photos(storage_path,sort_order),listing_booking_details(*)';
   const MKT_LEGACY_SELECT = 'id,title,description,location_text,category,verified,created_at,host_id,' +
     'host:profiles!inner(full_name,verified,avatar_url,username),' +
-    'listing_photos(storage_path),listing_booking_details(*)';
+    'listing_photos(storage_path,sort_order),listing_booking_details(*)';
 
   function escapeHtml(str){
     const div = document.createElement('div');
@@ -901,9 +901,9 @@
   };
 
   function imageHtml(listing){
-    const photo = (listing.listing_photos || []).find(function(item){ return item && item.storage_path; });
+    const photo = window.VaRoomMedia.sortPhotos(listing.listing_photos).find(function(item){ return item && item.storage_path; });
     if (!photo) return '<div class="card-media-empty" aria-hidden="true"></div>';
-    const url = supabaseClient.storage.from('listing-photos').getPublicUrl(photo.storage_path).data.publicUrl;
+    const url = window.VaRoomMedia.publicUrl('listing-photos', photo.storage_path);
     const title = normalizeListingTitle(listing.title || listing.name || '');
     return '<div class="card-media-loading" aria-hidden="true"></div>' +
       '<img src="' + escapeHtml(url) + '" alt="' + escapeHtml(title) + '" loading="lazy" style="opacity:0; transition:opacity .2s ease;" onload="this.style.opacity=1; this.previousElementSibling.remove();" onerror="this.style.display=\'none\'; this.previousElementSibling.remove(); this.nextElementSibling.hidden=false;">' +

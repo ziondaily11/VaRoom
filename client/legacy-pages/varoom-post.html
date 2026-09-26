@@ -271,20 +271,14 @@
     submitBtn.disabled = true;
     submitBtn.textContent = 'Publishing…';
 
+    const uploadedImages = [];
     try {
       let imageUrls = [];
 
       for (const item of selectedFiles) {
-        const ext = item.file.name.split('.').pop();
-        const path = 'updates/' + Date.now() + '-' + Math.random().toString(36).slice(2) + '.' + ext;
-
-        const { error: uploadError } = await supabaseClient.storage
-          .from('update-images')
-          .upload(path, item.file);
-
-        if (uploadError) throw uploadError;
-
-        imageUrls.push(supabaseClient.storage.from('update-images').getPublicUrl(path).data.publicUrl);
+        const upload = await window.VaRoomMedia.upload('update-image', item.file);
+        imageUrls.push(upload.objectKey);
+        uploadedImages.push(upload);
       }
 
       const { error: insertError } = await supabaseClient
@@ -306,6 +300,13 @@
       loadRecent();
 
     } catch (err){
+      for (const uploadedImage of uploadedImages) {
+        try {
+          await window.VaRoomMedia.removeUnattached('update-image', uploadedImage);
+        } catch (cleanupError) {
+          console.error('Unable to remove unreferenced update image:', cleanupError);
+        }
+      }
       statusMsg.textContent = 'Something went wrong: ' + (err.message || err);
       statusMsg.classList.add('show', 'err');
     } finally {

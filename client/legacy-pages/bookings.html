@@ -759,10 +759,10 @@
     function resolveAvatarUrl(v){
       if (!v) return null;
       if (v.indexOf('http') === 0) return v;
-      return supabaseClient.storage.from('avatars').getPublicUrl(v).data.publicUrl;
+      return window.VaRoomMedia.publicUrl('avatars', v);
     }
     function resolvePhotoUrl(path){
-      return supabaseClient.storage.from('listing-photos').getPublicUrl(path).data.publicUrl;
+      return window.VaRoomMedia.publicUrl('listing-photos', path);
     }
 
     // ---------- Show/hide client or host view ----------
@@ -844,7 +844,7 @@
 
         const listing = booking.listing || {};
         const client = booking.client || {};
-        const photos = listing.listing_photos || [];
+        const photos = window.VaRoomMedia.sortPhotos(listing.listing_photos);
         const media = listing.video_url
           ? '<video class="host-detail-video" controls playsinline preload="metadata"' +
               (listing.video_thumbnail_url ? ' poster="' + escapeHtml(listing.video_thumbnail_url) + '"' : '') +
@@ -908,7 +908,7 @@
           const { data, error } = await supabaseClient
             .from('bookings')
             .select('id,status,start_date,end_date,hours,lease_start_date,lease_months,total_price,price_unit,created_at,client_id,' +
-              'listing:listings(id,title,location_text,listing_photos(storage_path)),' +
+              'listing:listings(id,title,location_text,listing_photos(storage_path,sort_order)),' +
               'client:profiles!bookings_client_id_fkey(id,full_name,avatar_url,username)')
             .eq('host_id', currentUser.id)
             .order('created_at', { ascending:false });
@@ -1007,7 +1007,7 @@
         panel.innerHTML = bookings.map(function(b){
           const listing = b.listing || {};
           const client = b.client || {};
-          const photos = listing.listing_photos || [];
+          const photos = window.VaRoomMedia.sortPhotos(listing.listing_photos);
           const imageHtml = photos.length > 0
             ? '<img src="' + resolvePhotoUrl(photos[0].storage_path) + '" alt="">'
             : '<span>VaRoom</span>';
@@ -1144,7 +1144,7 @@
             const approved = await supabaseClient
               .from('bookings')
               .select('id,status,start_date,end_date,hours,lease_start_date,lease_months,total_price,price_unit,created_at,client_id,' +
-                'listing:listings(id,title,location_text,listing_photos(storage_path)),' +
+                'listing:listings(id,title,location_text,listing_photos(storage_path,sort_order)),' +
                 'client:profiles!bookings_client_id_fkey(id,full_name,avatar_url,username)')
               .eq('id', bookingId)
               .single();
@@ -1207,7 +1207,7 @@
             const declined = await supabaseClient
               .from('bookings')
               .select('id,status,start_date,end_date,hours,lease_start_date,lease_months,total_price,price_unit,created_at,client_id,' +
-                'listing:listings(id,title,location_text,listing_photos(storage_path)),' +
+                'listing:listings(id,title,location_text,listing_photos(storage_path,sort_order)),' +
                 'client:profiles!bookings_client_id_fkey(id,full_name,avatar_url,username)')
               .eq('id', bookingId)
               .single();
@@ -1299,7 +1299,7 @@
     }
 
     const BOOKINGS_SELECT = 'id,status,start_date,end_date,hours,lease_start_date,lease_months,total_price,price_unit,created_at,' +
-      'listing:listings(id,title,location_text,listing_photos(storage_path)),' +
+      'listing:listings(id,title,location_text,listing_photos(storage_path,sort_order)),' +
       'host:profiles!bookings_host_id_fkey(id,full_name,avatar_url,username)';
 
     let allBookings = [];
@@ -1378,7 +1378,7 @@
       const hostAvatarUrl = resolveAvatarUrl(host.avatar_url);
       const hostAvatarHtml = hostAvatarUrl ? '<img src="' + hostAvatarUrl + '" alt="">' : initial;
 
-      const photos = listing.listing_photos || [];
+      const photos = window.VaRoomMedia.sortPhotos(listing.listing_photos);
       const thumbHtml = photos.length > 0
         ? '<img src="' + resolvePhotoUrl(photos[0].storage_path) + '" alt="">'
         : escapeHtml(listing.title || 'VaRoom');

@@ -139,7 +139,7 @@ Indexes (5):
 Features:
   ✓ Soft deletes with audit trail
   ✓ Auto-updating timestamps
-  ✓ Supports both photos (Supabase) and videos (R2)
+  ✓ Supports listing photos and videos through Cloudflare R2
   ✓ Future-proof design for advanced features
 
 ================================================================================

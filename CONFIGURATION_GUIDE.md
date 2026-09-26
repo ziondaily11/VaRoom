@@ -1,4 +1,4 @@
-# VaRoom Video Upload System - Configuration Guide
+# VaRoom Media Upload System - Configuration Guide
 
 ## 1. CLOUDFLARE R2 SETUP (Required)
 
@@ -6,7 +6,7 @@
 1. Log into **Cloudflare Dashboard**
 2. Navigate to **R2** in the left sidebar
 3. Click **Create Bucket**
-4. Enter bucket name (e.g., `varoom-videos-prod` or `varoom-videos-dev`)
+4. Enter the shared media bucket name (e.g., `varoom-media-prod` or `varoom-media-dev`)
 5. Select region (e.g., WEUR for Europe)
 6. Click **Create Bucket**
 
@@ -14,7 +14,7 @@
 1. Go to **Account Settings** → **API Tokens**
 2. Click **Create Token**
 3. Select **Custom Token**
-4. Name it: `VaRoom Video Upload`
+4. Name it: `VaRoom Media Upload`
 5. Set permissions:
    - Account → R2 → Read & Write
 6. Set TTL: No expiration (or as needed)
@@ -37,7 +37,7 @@ Direct browser uploads use the signed PUT URL returned by VaRoom:
    ```json
    {
      "allowedOrigins": ["https://yourdomain.com"],
-     "allowedMethods": ["GET", "PUT", "POST", "DELETE"],
+     "allowedMethods": ["PUT"],
      "allowedHeaders": ["*"]
    }
    ```
@@ -65,26 +65,23 @@ Then edit `server/.env` with your actual values.
 
 ```env
 # ============================================================
-# Cloudflare R2 Configuration (Required)
+# Cloudflare R2 Configuration (Required for all user-uploaded media)
 # ============================================================
 R2_ACCOUNT_ID=your_account_id_here
-R2_BUCKET_NAME=varoom-videos-prod
+R2_BUCKET_NAME=varoom-media-prod
 R2_ACCESS_KEY_ID=your_access_key_here
 R2_SECRET_ACCESS_KEY=your_secret_key_here
-R2_ENDPOINT=https://r2.cloudflarestorage.com
-
-# For custom domain (optional):
-# R2_CUSTOM_DOMAIN=https://cdn.yourdomain.com
+R2_ENDPOINT=https://your_account_id.r2.cloudflarestorage.com
 ```
 
 **Getting these values:**
 - `R2_ACCOUNT_ID`: From Cloudflare R2 dashboard → Click bucket → Account ID
-- `R2_BUCKET_NAME`: Name you created (e.g., `varoom-videos-prod`)
+- `R2_BUCKET_NAME`: Name you created (e.g., `varoom-media-prod`)
 - `R2_ACCESS_KEY_ID`: From API token creation step
 - `R2_SECRET_ACCESS_KEY`: From API token creation step
-- `R2_ENDPOINT`: Use `https://r2.cloudflarestorage.com` (or your custom domain)
+- `R2_ENDPOINT`: The S3-compatible account endpoint. Do not use a public custom domain for signed operations.
 
-### Step 2.3: Add Video Feature Flags
+### Step 2.3: Add Video Feature Flags (video-only controls)
 
 ```env
 # ============================================================
@@ -118,6 +115,12 @@ VIDEO_CLEANUP_DRY_RUN=false
 # Development mode logging
 VIDEO_DEBUG_LOGGING=false
 ```
+
+Listing photos, avatars, update images, listing videos, and chat attachments
+share this R2 bucket. Listing/profile/update images are delivered by the VaRoom
+API media proxy; do not enable public bucket access. See
+[`docs/MEDIA_STORAGE.md`](docs/MEDIA_STORAGE.md) for the safe migration and
+verification commands.
 
 ### Step 2.4: Verify Existing Env Vars
 
@@ -342,17 +345,11 @@ VIDEO_MAX_FILE_SIZE_MB=250
 
 ## 7. OPTIONAL CONFIGURATIONS
 
-### 7.1: Custom R2 Domain
+### 7.1: Media delivery
 
-For better performance, configure a custom domain:
-
-```env
-R2_CUSTOM_DOMAIN=https://videos.yourdomain.com
-```
-
-Then in Cloudflare:
-1. Create CNAME record: `videos.yourdomain.com` → `bucket.ACCOUNT_ID.r2.cloudflarestorage.com`
-2. In R2 bucket settings, add custom domain binding
+Keep the R2 bucket private. VaRoom serves public listing/profile/update images
+through the API media proxy and keeps private chat/video access on the existing
+signed-URL endpoints. No `R2_CUSTOM_DOMAIN` setting is required.
 
 ### 7.2: Storage Quotas
 
@@ -561,7 +558,7 @@ cat server/.gitignore | grep ".env"
 | Variable | Required | Default | Example | Purpose |
 |----------|----------|---------|---------|---------|
 | `R2_ACCOUNT_ID` | ✅ Yes | - | `abc123` | Cloudflare account ID |
-| `R2_BUCKET_NAME` | ✅ Yes | - | `varoom-videos-prod` | R2 bucket name |
+| `R2_BUCKET_NAME` | ✅ Yes | - | `varoom-media-prod` | R2 bucket name |
 | `R2_ACCESS_KEY_ID` | ✅ Yes | - | `abc123xyz` | R2 API access key |
 | `R2_SECRET_ACCESS_KEY` | ✅ Yes | - | `secret123` | R2 API secret key |
 | `R2_ENDPOINT` | ✅ Yes | - | `https://r2.cloudflarestorage.com` | R2 endpoint |

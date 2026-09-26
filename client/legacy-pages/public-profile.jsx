@@ -263,24 +263,30 @@ export default function PublicHostProfile() {
       const avatarUrl = profile.avatar_url
         ? (profile.avatar_url.startsWith("http")
           ? profile.avatar_url
-          : client.storage.from("avatars").getPublicUrl(profile.avatar_url).data.publicUrl)
+          : window.VaRoomMedia.publicUrl("avatars", profile.avatar_url))
         : "";
       const listingIds = !listingsResult.error
         ? (listingsResult.data || []).map((listing) => listing.id)
         : [];
       const [photosResult, detailsResult] = listingIds.length
         ? await Promise.all([
-          client.from("listing_photos").select("listing_id,storage_path").in("listing_id", listingIds),
+          client.from("listing_photos").select("listing_id,storage_path,sort_order").in("listing_id", listingIds),
           client.from("listing_booking_details").select("listing_id,price_amount,price_unit").in("listing_id", listingIds),
         ])
         : [{ data: [], error: null }, { data: [], error: null }];
       if (photosResult.error) console.error("Unable to load public listing photos", photosResult.error);
       if (detailsResult.error) console.error("Unable to load public listing prices", detailsResult.error);
-      const photosByListingId = Object.fromEntries((photosResult.data || []).map((photo) => [photo.listing_id, photo]));
+      const photosByListingId = {};
+      for (const photo of photosResult.data || []) {
+        photosByListingId[photo.listing_id] = window.VaRoomMedia.sortPhotos([
+          ...(photosByListingId[photo.listing_id] || []),
+          photo,
+        ]);
+      }
       const detailsByListingId = Object.fromEntries((detailsResult.data || []).map((details) => [details.listing_id, details]));
       const mappedListings = !listingsResult.error && Array.isArray(listingsResult.data)
         ? await Promise.all(listingsResult.data.map(async (listing) => {
-          const photo = photosByListingId[listing.id];
+          const photo = photosByListingId[listing.id]?.[0];
           const details = detailsByListingId[listing.id];
           let media = [];
           try {
@@ -334,7 +340,7 @@ export default function PublicHostProfile() {
             image: photo?.storage_path
               ? (photo.storage_path.startsWith("http")
                 ? photo.storage_path
-                : client.storage.from("listing-photos").getPublicUrl(photo.storage_path).data.publicUrl)
+                : window.VaRoomMedia.publicUrl("listing-photos", photo.storage_path))
               : mediaImage?.thumbnailUrl || "",
             videoUrl,
           };

@@ -27,7 +27,7 @@ import json
 import asyncio
 import logging
 import time
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 from collections import defaultdict, deque
 import httpx
 from pathlib import Path
@@ -58,14 +58,14 @@ GEMINI_URL = (
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+VAROOM_MEDIA_BASE_URL = os.getenv("VAROOM_MEDIA_BASE_URL", "").rstrip("/")
 PROPERTY_NEWS_API_URL = (
     os.getenv("PROPERTY_NEWS_API_URL")
     or os.getenv("NEWS_API_URL")
     or ""
 ).rstrip("/")
 
-# Public bucket - storage_path values from listing_photos can be turned
-# straight into public URLs, no signed URLs needed.
+# Retained only for listing photos that have not yet been migrated.
 LISTING_PHOTOS_BUCKET = "listing-photos"
 
 # Sliding-window in-memory rate limiter
@@ -802,7 +802,7 @@ async def get_host_alternative_listings(
     params = {
         "select": (
             "id,host_id,title,description,category,location_text,availability_status,"
-            "listing_photos(storage_path),"
+            "listing_photos(storage_path,storage_provider,sort_order),"
             "listing_booking_details!inner(price_amount,price_unit,size_or_type,max_guests,amenities)"
         ),
         "host_id": f"eq.{host_id}",
@@ -1137,8 +1137,20 @@ def build_word_or_filter(text: str, field: str) -> Optional[str]:
     return f"({conditions})"
 
 
-def photo_url_from_path(storage_path: Optional[str]) -> Optional[str]:
-    if not storage_path or not SUPABASE_URL:
+def photo_url_from_path(
+    storage_path: Optional[str],
+    storage_provider: Optional[str] = None,
+) -> Optional[str]:
+    if not storage_path:
+        return None
+    if storage_path.startswith(("http://", "https://")):
+        return storage_path
+    if storage_provider == "r2" or storage_path.startswith("listing-photos/"):
+        if not VAROOM_MEDIA_BASE_URL:
+            logger.warning("R2 listing image cannot be resolved without VAROOM_MEDIA_BASE_URL")
+            return None
+        return f"{VAROOM_MEDIA_BASE_URL}/api/media/public?key={quote(storage_path, safe='')}"
+    if not SUPABASE_URL:
         return None
     return f"{SUPABASE_URL}/storage/v1/object/public/{LISTING_PHOTOS_BUCKET}/{storage_path}"
 
@@ -1153,7 +1165,7 @@ def reshape_listing(raw: dict) -> dict:
         booking = booking[0] if booking else {}
     booking = booking or {}
 
-    photos = raw.get("photos") or []
+    photos = sorted(raw.get("photos") or [], key=lambda photo: photo.get("sort_order", 0))
     first_photo = photos[0] if photos else {}
 
     return {
@@ -1167,7 +1179,10 @@ def reshape_listing(raw: dict) -> dict:
         "price_unit": booking.get("price_unit"),
         "size_or_type": booking.get("size_or_type"),
         "max_guests": booking.get("max_guests"),
-        "photo_url": photo_url_from_path(first_photo.get("storage_path")),
+        "photo_url": photo_url_from_path(
+            first_photo.get("storage_path"),
+            first_photo.get("storage_provider"),
+        ),
     }
 
 
@@ -1192,7 +1207,7 @@ async def search_listings(
             "id,title,description,category,location_text,verified,host_id,"
             "host:profiles(full_name,username,verified),"
             "booking_details:listing_booking_details!inner(price_amount,price_unit,size_or_type,max_guests),"
-            "photos:listing_photos(storage_path)"
+            "photos:listing_photos(storage_path,storage_provider,sort_order)"
         ),
         "availability_status": "eq.available",
         "order": "verified.desc",

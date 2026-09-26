@@ -812,7 +812,7 @@
     const displayName = profileData.full_name || 'VaRoom member';
     const avatarUrl = profileData.avatar_url
       ? (profileData.avatar_url.startsWith('http') ? profileData.avatar_url
-        : supabaseClient.storage.from('avatars').getPublicUrl(profileData.avatar_url).data.publicUrl)
+        : window.VaRoomMedia.publicUrl('avatars', profileData.avatar_url))
       : null;
 
     if (avatarUrl) {
@@ -907,7 +907,7 @@
   async function loadClientBookings(){
     const { data, error } = await supabaseClient
       .from('bookings')
-      .select('id, client_id, listing_id, total_price, start_date, end_date, guests, status, listing:listings(id, title, location_text, listing_photos(storage_path))')
+      .select('id, client_id, listing_id, total_price, start_date, end_date, guests, status, listing:listings(id, title, location_text, listing_photos(storage_path,sort_order))')
       .eq('client_id', currentUser.id)
       .order('start_date', { ascending: true });
 
@@ -917,10 +917,10 @@
     const past = [];
     for (const booking of data) {
       const listing = booking.listing || {};
-      const photos = Array.isArray(listing.listing_photos) ? listing.listing_photos : [];
+      const photos = window.VaRoomMedia.sortPhotos(listing.listing_photos);
       const publicPhotos = photos.map(function(photo){
         if (!photo || !photo.storage_path) return null;
-        return supabaseClient.storage.from('listing-photos').getPublicUrl(photo.storage_path).data.publicUrl;
+        return window.VaRoomMedia.publicUrl('listing-photos', photo.storage_path);
       }).filter(Boolean);
       const enriched = Object.assign({}, booking, { listing: Object.assign({}, listing, { listing_photos: publicPhotos.map(function(url){ return { public_url: url }; }) }) });
       if (booking.status === 'completed' || booking.status === 'cancelled' || (booking.end_date && new Date(booking.end_date) < new Date())) {
@@ -1072,7 +1072,7 @@
   } else {
   let listingsQuery = supabaseClient
     .from('listings')
-    .select('id, title, description, category, location_text, availability_status, created_at, listing_photos(storage_path), listing_booking_details(price_amount, price_unit)')
+    .select('id, title, description, category, location_text, availability_status, created_at, listing_photos(storage_path,sort_order), listing_booking_details(price_amount, price_unit)')
     .eq('host_id', profileData.id);
   const { data: listings, error: listingsError } = await listingsQuery.order('created_at', { ascending: false });
 
@@ -1147,13 +1147,13 @@
   }
 
   function getPhotoUrl(listing){
-    const photos = listing.listing_photos;
+    const photos = window.VaRoomMedia.sortPhotos(listing.listing_photos);
     if (!photos || photos.length === 0) return null;
     const p = photos[0];
     const path = p.storage_path || p.photo_path;
     if (!path) return null;
     if (path.startsWith('http')) return path;
-    return supabaseClient.storage.from('listing-photos').getPublicUrl(path).data.publicUrl;
+    return window.VaRoomMedia.publicUrl('listing-photos', path);
   }
 
   function escapeAttr(value){
@@ -1167,7 +1167,7 @@
     const videoThumbnail = listingVideoThumbnails[listing.id] || '';
     if (videoUrl) {
       const avatarUrl = profileData.avatar_url
-        ? (profileData.avatar_url.startsWith('http') ? profileData.avatar_url : supabaseClient.storage.from('avatars').getPublicUrl(profileData.avatar_url).data.publicUrl)
+        ? (profileData.avatar_url.startsWith('http') ? profileData.avatar_url : window.VaRoomMedia.publicUrl('avatars', profileData.avatar_url))
         : '';
       return '<div class="listing-thumb"><video muted playsinline preload="none" poster="' + escapeAttr(videoThumbnail) + '" src="' + videoUrl + '" data-video-url="' + videoUrl + '" data-video-host-name="' + escapeAttr(profileData.full_name || 'Host') + '" data-video-username="' + escapeAttr(profileData.username ? '@' + profileData.username : '') + '" data-video-avatar="' + escapeAttr(avatarUrl) + '" data-video-caption="' + escapeAttr(listing.title) + '" style="width:100%;height:100%;object-fit:cover;display:block;background:#000;"></video><span class="listing-cat-pill">' + (CAT_LABELS[listing.category] || listing.category) + '</span></div>';
     }
@@ -1221,20 +1221,20 @@
     if (!file) return;
     if (file.size > 3 * 1024 * 1024) { showToast('Image over 3MB — pick a smaller file.'); return; }
 
-    const ext = file.name.split('.').pop().toLowerCase();
-    const path = currentUser.id + '/avatar_' + Date.now() + '.' + ext;
-
     showToast('Uploading…');
 
     const av = document.getElementById('profile-avatar');
     av.innerHTML = '<img src="' + URL.createObjectURL(file) + '" alt="">';
 
-    const { error: upErr } = await supabaseClient.storage.from('avatars').upload(path, file, { upsert:false });
-    if (upErr) { showToast('Upload failed: ' + upErr.message); return; }
-
-    await supabaseClient.from('profiles').update({ avatar_url: path }).eq('id', currentUser.id);
-    profileData.avatar_url = path;
-    showToast('Photo updated ✓');
+    try {
+      const result = await window.VaRoomMedia.upload('profile-photo', file);
+      profileData.avatar_url = result.objectKey;
+      renderProfile();
+      showToast('Photo updated ✓');
+    } catch (error) {
+      showToast('Upload failed: ' + error.message);
+      renderProfile();
+    }
   });
 
   /* ── Mobile bottom bar nav ── */

@@ -18,7 +18,7 @@
 
 ### Backend Library Files
 - **`server/lib/mediaStorageService.js`**
-  - Abstracts media storage operations (R2 for videos, Supabase Storage for photos)
+  - Centralizes Cloudflare R2 media operations for listing photos and videos
   - Functions: generateR2ObjectKey, generateR2UploadAuthorization, verifyR2ObjectExists, deleteR2Object, etc.
   - Centralizes R2 credentials and provider-specific logic
   - Never exposes secret keys to frontend

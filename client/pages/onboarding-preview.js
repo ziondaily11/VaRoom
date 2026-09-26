@@ -98,6 +98,11 @@ const MOCK_SCRIPT_CONTENT = /* js */ `
     }
   };
 
+  window.VaRoomMedia = window.VaRoomMedia || {};
+  window.VaRoomMedia.upload = function () {
+    return Promise.resolve({ objectKey: 'avatars/preview/preview-avatar.jpg' });
+  };
+
   console.log('[onboarding-preview] Mock supabaseClient active.');
 })();
 `;

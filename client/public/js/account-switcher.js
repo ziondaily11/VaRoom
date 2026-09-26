@@ -70,7 +70,7 @@
   function avatarPublicUrl(client, avatarPath) {
     if (!avatarPath) return null;
     if (avatarPath.indexOf('http') === 0) return avatarPath;
-    try { return client.storage.from('avatars').getPublicUrl(avatarPath).data.publicUrl; }
+    try { return window.VaRoomMedia.publicUrl('avatars', avatarPath); }
     catch (e) { return null; }
   }
 

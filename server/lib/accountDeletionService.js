@@ -35,7 +35,7 @@ async function deleteR2Objects(keys) {
 
 async function collectOwnedStorage(userId) {
   const [{ data: profile, error: profileError }, { data: listings, error: listingsError }] = await Promise.all([
-    supabaseAdmin.from('profiles').select('avatar_url').eq('id', userId).maybeSingle(),
+    supabaseAdmin.from('profiles').select('avatar_url,avatar_storage_provider').eq('id', userId).maybeSingle(),
     supabaseAdmin.from('listings').select('id').eq('host_id', userId),
   ]);
   if (profileError) throw new Error(`Unable to load profile media: ${profileError.message}`);
@@ -48,27 +48,40 @@ async function collectOwnedStorage(userId) {
     .or(`host_id.eq.${userId},client_id.eq.${userId}`);
   if (conversationsError) throw new Error(`Unable to load conversations: ${conversationsError.message}`);
   const conversationIds = (conversations || []).map((conversation) => conversation.id);
-  const [{ data: propertyMedia, error: mediaError }, { data: photos, error: photosError }, { data: attachments, error: attachmentsError }] = await Promise.all([
+  const [
+    { data: propertyMedia, error: mediaError },
+    { data: photos, error: photosError },
+    { data: attachments, error: attachmentsError },
+    { data: updates, error: updatesError },
+  ] = await Promise.all([
     supabaseAdmin.from('property_media').select('storage_provider,storage_bucket,storage_key,thumbnail_key').or(`host_id.eq.${userId},property_id.in.(${listingIds.join(',') || '00000000-0000-0000-0000-000000000000'})`),
     listingIds.length
-      ? supabaseAdmin.from('listing_photos').select('storage_path').in('listing_id', listingIds)
+      ? supabaseAdmin.from('listing_photos').select('storage_path,storage_provider,storage_bucket').in('listing_id', listingIds)
       : Promise.resolve({ data: [], error: null }),
     conversationIds.length
       ? supabaseAdmin.from('message_attachments').select('storage_provider,storage_bucket,storage_key,source_storage_key,thumbnail_key').or(`uploader_id.eq.${userId},conversation_id.in.(${conversationIds.join(',')})`)
       : supabaseAdmin.from('message_attachments').select('storage_provider,storage_bucket,storage_key,source_storage_key,thumbnail_key').eq('uploader_id', userId),
+    supabaseAdmin.from('varoom_updates').select('image_url,image_urls')
+      .eq('created_by_admin_id', userId),
   ]);
   if (mediaError) throw new Error(`Unable to load property media: ${mediaError.message}`);
   if (photosError) throw new Error(`Unable to load listing photos: ${photosError.message}`);
   if (attachmentsError) throw new Error(`Unable to load chat attachments: ${attachmentsError.message}`);
+  if (updatesError) throw new Error(`Unable to load account update media: ${updatesError.message}`);
 
   const supabaseObjects = [];
   const r2Keys = [];
   if (profile && profile.avatar_url) {
-    const avatarPath = storagePath(profile.avatar_url, 'avatars');
-    if (avatarPath) supabaseObjects.push({ bucket: 'avatars', key: avatarPath });
+    if (profile.avatar_storage_provider === 'r2') r2Keys.push(profile.avatar_url);
+    else {
+      const avatarPath = storagePath(profile.avatar_url, 'avatars');
+      if (avatarPath) supabaseObjects.push({ bucket: 'avatars', key: avatarPath });
+    }
   }
   for (const photo of photos || []) {
-    if (photo.storage_path) supabaseObjects.push({ bucket: 'listing-photos', key: photo.storage_path });
+    if (!photo.storage_path) continue;
+    if (photo.storage_provider === 'r2') r2Keys.push(photo.storage_path);
+    else supabaseObjects.push({ bucket: photo.storage_bucket || 'listing-photos', key: photo.storage_path });
   }
   for (const media of propertyMedia || []) {
     if (media.storage_provider === 'r2') {
@@ -84,6 +97,20 @@ async function collectOwnedStorage(userId) {
       supabaseObjects.push({ bucket: attachment.storage_bucket, key: attachment.storage_key });
       if (attachment.source_storage_key) supabaseObjects.push({ bucket: attachment.storage_bucket, key: attachment.source_storage_key });
       if (attachment.thumbnail_key) supabaseObjects.push({ bucket: attachment.storage_bucket, key: attachment.thumbnail_key });
+    }
+  }
+  const updatePrefix = `updates/${mediaStorageService.ENVIRONMENT}/${userId}/`;
+  const migratedUpdatePrefix = `updates/${mediaStorageService.ENVIRONMENT}/migrated/`;
+  for (const update of updates || []) {
+    const imageRefs = [
+      ...(Array.isArray(update.image_urls) ? update.image_urls : []),
+      update.image_url,
+    ];
+    for (const imageRef of imageRefs) {
+      if (typeof imageRef === 'string'
+        && (imageRef.startsWith(updatePrefix) || imageRef.startsWith(migratedUpdatePrefix))) {
+        r2Keys.push(imageRef);
+      }
     }
   }
   return { supabaseObjects, r2Keys };

@@ -707,7 +707,7 @@
     function resolveAvatarUrl(avatarValue){
       if (!avatarValue) return null;
       if (avatarValue.indexOf('http') === 0) return avatarValue;
-      return supabaseClient.storage.from('avatars').getPublicUrl(avatarValue).data.publicUrl;
+      return window.VaRoomMedia.publicUrl('avatars', avatarValue);
     }
 
     let currentUser = null;
@@ -786,7 +786,7 @@
     const { data: listing, error: listingError } = await supabaseClient
       .from('listings')
       .select('id,title,description,location_text,category,verified,availability_status,host_id,' +
-        'host:profiles(full_name,verified,avatar_url,username,phone),listing_photos(storage_path),' +
+        'host:profiles(full_name,verified,avatar_url,username,phone),listing_photos(storage_path,sort_order),' +
         'listing_booking_details(*)')
       .eq('id', listingId)
       .maybeSingle();
@@ -835,8 +835,8 @@
     const isShortStay = SHORT_STAY.includes(listing.category);
     const isHourly = details.price_unit === 'hour';
 
-    const photoUrls = (listing.listing_photos || []).map(function(p){
-      return supabaseClient.storage.from('listing-photos').getPublicUrl(p.storage_path).data.publicUrl;
+    const photoUrls = window.VaRoomMedia.sortPhotos(listing.listing_photos).map(function(p){
+      return window.VaRoomMedia.publicUrl('listing-photos', p.storage_path);
     });
     let listingVideoUrl = null;
     let listingVideoThumbnailUrl = null;

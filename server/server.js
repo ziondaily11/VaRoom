@@ -8,6 +8,7 @@ const supabaseAdmin = require('./lib/supabaseClient');
 const { getListingLocation, getBookingLocation, getListingDistance } = require('./lib/locationAccess');
 const videoRoutes = require('./routes/videoRoutes');
 const listingRoutes = require('./routes/listingRoutes');
+const mediaRoutes = require('./routes/mediaRoutes');
 const chatAttachmentRoutes = require('./routes/chatAttachmentRoutes');
 const chatRoutes = require('./routes/chatRoutes');
 const reviewRoutes = require('./routes/reviewRoutes');
@@ -15,6 +16,7 @@ const notificationRoutes = require('./routes/notificationRoutes');
 const { createAdminRoutes } = require('./routes/adminRoutes');
 const { rejectSuspendedActivity } = require('./lib/accountAccess');
 const { runFullCleanup } = require('./lib/videoCleanup');
+const { processPendingMediaCleanup } = require('./lib/mediaCleanupService');
 const { MAX_JSON_BYTES, validateJsonPayload, ValidationError, uuid, text, number } = require('./lib/inputValidation');
 const { ERROR_CODES, sendError } = require('./lib/apiResponse');
 const { createBillingRoutes } = require('./routes/billingRoutes');
@@ -74,6 +76,7 @@ app.use('/api', (req, res, next) => {
 // Mount video upload routes
 app.use('/api', videoRoutes);
 app.use('/api', listingRoutes);
+app.use('/api', mediaRoutes);
 app.use('/api', chatAttachmentRoutes);
 app.use('/api', chatRoutes);
 app.use('/api', reviewRoutes);
@@ -628,6 +631,19 @@ const videoCleanupTimer = setInterval(() => {
   });
 }, VIDEO_CLEANUP_INTERVAL_MS);
 videoCleanupTimer.unref();
+
+const configuredMediaCleanupHours = Number(process.env.MEDIA_CLEANUP_INTERVAL_HOURS);
+const mediaCleanupIntervalHours = Number.isFinite(configuredMediaCleanupHours)
+  && configuredMediaCleanupHours > 0
+  ? configuredMediaCleanupHours
+  : 6;
+const MEDIA_CLEANUP_INTERVAL_MS = mediaCleanupIntervalHours * 60 * 60 * 1000;
+const mediaCleanupTimer = setInterval(() => {
+  processPendingMediaCleanup().catch((error) => {
+    console.error('Scheduled media cleanup failed:', error);
+  });
+}, MEDIA_CLEANUP_INTERVAL_MS);
+mediaCleanupTimer.unref();
 
 // Prune stale entries from in-memory rate-limiter Maps every 5 minutes so they
 // cannot grow unboundedly when the server receives traffic from many distinct IPs.

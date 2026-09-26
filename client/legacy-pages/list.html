@@ -1149,7 +1149,6 @@
   photoDropzone.addEventListener('dragleave', function(){ photoDropzone.classList.remove('dragover'); });
   photoDropzone.addEventListener('drop', function(e){ e.preventDefault(); photoDropzone.classList.remove('dragover'); addFiles(e.dataTransfer.files); });
 
-  function sanitizeFilename(name){ return name.replace(/[^a-zA-Z0-9.\-_]/g, '_'); }
 
   function getVideoDuration(file){
     return new Promise(function(resolve, reject){
@@ -1337,6 +1336,7 @@
     // until those optional columns are present in the live schema.
     let uploadedCount = 0, failedCount = 0;
     const videoMediaIds = [];
+    let photoSortOrder = 0;
     if (selectedFiles.length > 0) {
       for (let i = 0; i < selectedFiles.length; i++) {
         const file = selectedFiles[i];
@@ -1353,13 +1353,17 @@
           continue;
         }
 
-        const path = currentUser.id + '/' + listingId + '/' + Date.now() + '_' + i + '_' + sanitizeFilename(file.name);
-        const { error: uploadError } = await supabaseClient.storage.from('listing-photos').upload(path, file, { upsert: false });
-        if (uploadError) { failedCount++; continue; }
-        const { error: photoRowError } = await supabaseClient.from('listing_photos').insert({
-          listing_id: listingId, storage_path: path
-        });
-        if (photoRowError) failedCount++; else uploadedCount++;
+        try {
+          await window.VaRoomMedia.upload('listing-photo', file, {
+            listingId: listingId,
+            sortOrder: photoSortOrder,
+          });
+          photoSortOrder++;
+          uploadedCount++;
+        } catch (uploadError) {
+          console.error('Listing photo upload failed:', uploadError);
+          failedCount++;
+        }
       }
     }
 
@@ -1367,12 +1371,16 @@
       for (const mediaId of videoMediaIds) {
         await deleteVideoFromR2(listingId, mediaId);
       }
-      await supabaseClient.from('listing_photos').delete().eq('listing_id', listingId);
-      await supabaseClient.from('listing_booking_details').delete().eq('listing_id', listingId);
-      if (SHORT_STAY.includes(category) && openDates.size > 0) {
-        await supabaseClient.from('availability').delete().eq('listing_id', listingId);
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (session && session.access_token) {
+        const cleanupResponse = await fetch('/api/listings/' + encodeURIComponent(listingId), {
+          method: 'DELETE',
+          headers: { Authorization: 'Bearer ' + session.access_token }
+        });
+        if (!cleanupResponse.ok) {
+          console.error('Unable to clean up unpublished listing:', await cleanupResponse.text());
+        }
       }
-      await supabaseClient.from('listings').delete().eq('id', listingId);
 
       successMsgInner.textContent = 'Media upload failed, so the listing was not published. Please try again with the selected files.';
       successMsg.classList.add('show', 'error');

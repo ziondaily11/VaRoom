@@ -1277,7 +1277,7 @@
     function resolveAvatarUrl(avatarValue){
       if (!avatarValue) return null;
       if (avatarValue.indexOf('http') === 0) return avatarValue;
-      return supabaseClient.storage.from('avatars').getPublicUrl(avatarValue).data.publicUrl;
+      return window.VaRoomMedia.publicUrl('avatars', avatarValue);
     }
 
     // Local skeleton for the feed — mirrors the current compact card shape
@@ -1363,8 +1363,8 @@
 
     function renderCard(listing){
       const host = listing.host || {};
-      const photos = (listing.listing_photos || []).map(function(p){
-        return supabaseClient.storage.from('listing-photos').getPublicUrl(p.storage_path).data.publicUrl;
+      const photos = window.VaRoomMedia.sortPhotos(listing.listing_photos).map(function(p){
+        return window.VaRoomMedia.publicUrl('listing-photos', p.storage_path);
       });
       const videoUrl = videoUrlByListing[listing.id] || null;
       const videoThumbnail = videoThumbnailByListing[listing.id] || '';
@@ -1443,7 +1443,7 @@
       );
     }
 
-    const FEED_SELECT = 'id,title,description,location_text,category,verified,created_at,host_id,host:profiles(full_name,verified,avatar_url,username),listing_photos(storage_path)';
+    const FEED_SELECT = 'id,title,description,location_text,category,verified,created_at,host_id,host:profiles(full_name,verified,avatar_url,username),listing_photos(storage_path,sort_order)';
 
     async function startChat(listingId, hostId){
       const { data, error } = await supabaseClient
@@ -1776,7 +1776,7 @@
 
       const { data } = await supabaseClient
         .from('listings')
-        .select('id,title,location_text,category,listing_photos(storage_path)')
+        .select('id,title,location_text,category,listing_photos(storage_path,sort_order)')
         .eq('is_promoted', true)
         .order('created_at', { ascending:false })
         .limit(6);
@@ -1790,7 +1790,8 @@
       row.innerHTML = data.map(function(l){
         let img = '';
         if (l.listing_photos && l.listing_photos.length > 0){
-          img = '<img src="' + supabaseClient.storage.from('listing-photos').getPublicUrl(l.listing_photos[0].storage_path).data.publicUrl + '" alt="">';
+          const coverPhoto = window.VaRoomMedia.sortPhotos(l.listing_photos)[0];
+          img = '<img src="' + window.VaRoomMedia.publicUrl('listing-photos', coverPhoto.storage_path) + '" alt="">';
         }
         return (
           '<a class="reco-card" href="/booking?listing=' + l.id + '">' +
@@ -2373,7 +2374,7 @@
         const photos = (u.image_urls && u.image_urls.length > 0) ? u.image_urls : (u.image_url ? [u.image_url] : []);
         const photosHtml = photos.length > 0
           ? '<div class="update-photos">' + photos.map(function(url){
-              return '<img src="' + url + '" alt="" class="update-img">';
+              return '<img src="' + window.VaRoomMedia.publicUrl('update-images', url) + '" alt="" class="update-img">';
             }).join('') + '</div>'
           : '';
         return (
