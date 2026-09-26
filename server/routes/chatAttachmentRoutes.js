@@ -33,6 +33,7 @@ function attachmentPayload(attachment) {
   delete metadata.thumbnail_key;
   delete metadata.thumbnail_mime_type;
   delete metadata.source_storage_key;
+  delete metadata.original_filename;
   return {
     ...metadata,
     thumbnail_available: Boolean(thumbnailKey),

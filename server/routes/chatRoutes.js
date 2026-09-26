@@ -92,6 +92,23 @@ function withDecryptedBody(message) {
   };
 }
 
+function attachmentLabel(attachment, messageType) {
+  const mimeType = String(attachment && attachment.mime_type || '').toLowerCase();
+  if (mimeType.startsWith('image/') || messageType === 'photo') return 'Image';
+  if (mimeType.startsWith('video/')) return 'Video';
+  if (mimeType.startsWith('audio/') || messageType === 'voice') return 'Audio';
+  if (mimeType === 'application/pdf') return 'PDF';
+  if (mimeType === 'application/msword' || mimeType.includes('officedocument')) return 'Document';
+  return 'File';
+}
+
+function withAttachmentPresentation(message, attachment) {
+  const decrypted = withDecryptedBody(message);
+  return message.attachment_id
+    ? { ...decrypted, body: attachmentLabel(attachment, message.message_type) }
+    : decrypted;
+}
+
 router.get('/chat/listings', async (req, res) => {
   try {
     const user = await authenticatedUser(req);
@@ -157,12 +174,17 @@ router.get('/chat/conversations', async (req, res) => {
     if (conversationIds.length) {
       const result = await supabaseAdmin
         .from('messages')
-        .select('id,conversation_id,sender_id,ciphertext,iv,key_version,created_at')
+        .select('id,conversation_id,sender_id,ciphertext,iv,key_version,created_at,message_type,attachment_id')
         .in('conversation_id', conversationIds)
         .order('created_at', { ascending: false });
       if (result.error) throw result.error;
       const seen = new Set();
-      previews = (result.data || []).map(withDecryptedBody).filter((message) => {
+      previews = (result.data || []).map((message) => {
+        const decrypted = withDecryptedBody(message);
+        return message.attachment_id
+          ? { ...decrypted, body: attachmentLabel(null, message.message_type) }
+          : decrypted;
+      }).filter((message) => {
         if (seen.has(message.conversation_id)) return false;
         seen.add(message.conversation_id);
         return true;
@@ -213,7 +235,7 @@ router.get('/chat/conversations/:conversationId/messages', async (req, res) => {
     if (attachmentIds.length) {
       const attachmentResult = await supabaseAdmin
         .from('message_attachments')
-        .select('id,original_filename,mime_type,original_mime_type,file_size_bytes,original_file_size_bytes,optimized_file_size_bytes,kind,status,processing_status,optimization_status,thumbnail_status,thumbnail_key,width,height')
+        .select('id,mime_type,original_mime_type,file_size_bytes,original_file_size_bytes,optimized_file_size_bytes,kind,status,processing_status,optimization_status,thumbnail_status,thumbnail_key,width,height')
         .in('id', attachmentIds);
       if (attachmentResult.error) throw attachmentResult.error;
       attachments = attachmentResult.data || [];
@@ -238,11 +260,14 @@ router.get('/chat/conversations/:conversationId/messages', async (req, res) => {
     }
     return res.json({
       conversation,
-      messages: (data || []).map(withDecryptedBody).map((message) => ({
-        attachment: attachmentsById[message.attachment_id] || null,
-        listing: listingsById[message.listing_id] || null,
-        ...message,
-      })),
+      messages: (data || []).map((message) => {
+        const attachment = attachmentsById[message.attachment_id] || null;
+        return {
+          ...withAttachmentPresentation(message, attachment),
+          attachment,
+          listing: listingsById[message.listing_id] || null,
+        };
+      }),
     });
   } catch (error) {
     if (error instanceof ValidationError) return res.status(400).json({ error: error.message });
@@ -442,7 +467,7 @@ router.post('/chat/conversations/:conversationId/messages', async (req, res) => 
     if (attachmentId) {
       const attachmentResult = await supabaseAdmin
         .from('message_attachments')
-        .select('id,original_filename,mime_type,original_mime_type,file_size_bytes,original_file_size_bytes,optimized_file_size_bytes,kind,status,processing_status,optimization_status,thumbnail_status,thumbnail_key,width,height')
+        .select('id,mime_type,original_mime_type,file_size_bytes,original_file_size_bytes,optimized_file_size_bytes,kind,status,processing_status,optimization_status,thumbnail_status,thumbnail_key,width,height')
         .eq('id', attachmentId)
         .single();
       if (attachmentResult.error) throw attachmentResult.error;
@@ -464,7 +489,7 @@ router.post('/chat/conversations/:conversationId/messages', async (req, res) => 
       listing = listingResult.data;
     }
     return res.status(201).json({
-      message: { ...withDecryptedBody(data), attachment, listing },
+      message: { ...withAttachmentPresentation(data, attachment), attachment, listing },
       notification: { persisted: notificationPersisted },
     });
   } catch (error) {
