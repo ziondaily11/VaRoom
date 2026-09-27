@@ -26,25 +26,36 @@
   (function routePhotoStorageToR2(client) {
     if (client.__varoomR2PhotoStoragePatched) return;
     var photoCategories = { 'listing-photos': true, avatars: true, 'update-images': true };
+    var supportedPhotoTypes = { 'image/jpeg': true, 'image/png': true, 'image/webp': true, 'image/gif': true };
+    var migratedKeyPrefixes = {
+      'listing-photos': 'listing-photos/',
+      avatars: 'avatars/',
+      'update-images': 'updates/'
+    };
     var originalFrom = client.storage.from.bind(client.storage);
     client.storage.from = function (bucket) {
       var storage = originalFrom(bucket);
       if (!photoCategories[bucket]) return storage;
       var originalGetPublicUrl = storage.getPublicUrl.bind(storage);
-      var originalUpload = storage.upload.bind(storage);
 
       storage.getPublicUrl = function (path) {
-        // R2 keys are deliberately distinguishable from pre-existing
-        // Supabase paths. The API redirects to a short-lived private R2 URL.
-        if (typeof path === 'string' && path.indexOf('photos/') === 0) {
+        var isNewR2Key = typeof path === 'string' && path.indexOf('photos/') === 0;
+        var migratedPrefix = migratedKeyPrefixes[bucket];
+        var isMigratedR2Key = typeof path === 'string'
+          && migratedPrefix
+          && path.indexOf(migratedPrefix) === 0;
+        if (isNewR2Key || isMigratedR2Key) {
           return { data: { publicUrl: '/api/photos/' + encodeURIComponent(bucket) + '/' + path.split('/').map(encodeURIComponent).join('/') } };
         }
         return originalGetPublicUrl(path);
       };
 
-      storage.upload = async function (_path, file, options) {
-        if (!file || !file.type || !/^image\/(jpeg|png|webp|gif)$/.test(file.type)) {
-          return originalUpload(_path, file, options);
+      storage.upload = async function (_path, file) {
+        if (!file || !supportedPhotoTypes[file.type]) {
+          return {
+            data: null,
+            error: new Error('Only JPEG, PNG, WebP, and GIF photos are supported.')
+          };
         }
         try {
           var sessionResult = await client.auth.getSession();

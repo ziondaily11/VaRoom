@@ -2,6 +2,7 @@ const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const supabaseAdmin = require('../lib/supabaseClient');
 const mediaStorageService = require('../lib/mediaStorageService');
+const { isNewR2PhotoObjectKey, isR2PhotoObjectKey } = require('../lib/photoStorageKeys');
 const { ValidationError, assertAllowedKeys, text, number, enumValue } = require('../lib/inputValidation');
 const { rejectSuspendedActivity } = require('../lib/accountAccess');
 
@@ -22,12 +23,6 @@ function extensionOf(filename, mimeType) {
   const extension = String(filename || '').toLowerCase().match(/\.([a-z0-9]{1,12})$/)?.[1];
   if (extension) return extension;
   return { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif' }[mimeType];
-}
-
-function isPhotoKey(category, key) {
-  return typeof key === 'string'
-    && key.startsWith(`photos/${mediaStorageService.ENVIRONMENT}/${category}/`)
-    && !key.includes('..');
 }
 
 // The browser uploads directly to R2 using a short-lived signed URL.  It
@@ -67,7 +62,9 @@ router.post('/photos/upload-complete', async (req, res) => {
     const user = await authenticatedUser(req);
     if (!user) return res.status(401).json({ error: 'Invalid or expired session' });
     const { category, key } = req.body || {};
-    if (!PHOTO_CATEGORIES.has(category) || !isPhotoKey(category, key) || !key.includes(`/${user.id}/`)) {
+    if (!PHOTO_CATEGORIES.has(category)
+      || !isNewR2PhotoObjectKey(category, key, mediaStorageService.ENVIRONMENT)
+      || !key.includes(`/${user.id}/`)) {
       return res.status(400).json({ error: 'Invalid photo key' });
     }
     if (!(await mediaStorageService.verifyR2ObjectExists(key))) {
@@ -87,7 +84,8 @@ router.get('/photos/:category/*', async (req, res) => {
   try {
     const category = req.params.category;
     const key = req.params[0] ? decodeURIComponent(req.params[0]) : '';
-    if (!PHOTO_CATEGORIES.has(category) || !isPhotoKey(category, key)) return res.sendStatus(404);
+    if (!PHOTO_CATEGORIES.has(category)
+      || !isR2PhotoObjectKey(category, key, mediaStorageService.ENVIRONMENT)) return res.sendStatus(404);
     const download = await mediaStorageService.generateR2DownloadAuthorization(key, undefined, 60 * 60);
     res.set('Cache-Control', 'public, max-age=300');
     return res.redirect(302, download.url);

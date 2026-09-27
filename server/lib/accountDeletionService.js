@@ -64,7 +64,7 @@ async function collectOwnedStorage(userId) {
   const supabaseObjects = [];
   const r2Keys = [];
   if (profile && profile.avatar_url) {
-    if (String(profile.avatar_url).startsWith(`photos/${mediaStorageService.ENVIRONMENT}/avatars/`)) {
+    if (mediaStorageService.isR2PhotoObjectKey('avatars', profile.avatar_url)) {
       r2Keys.push(profile.avatar_url);
     } else {
       const avatarPath = storagePath(profile.avatar_url, 'avatars');
@@ -73,7 +73,7 @@ async function collectOwnedStorage(userId) {
   }
   for (const photo of photos || []) {
     if (!photo.storage_path) continue;
-    if (String(photo.storage_path).startsWith(`photos/${mediaStorageService.ENVIRONMENT}/listing-photos/`)) {
+    if (mediaStorageService.isR2PhotoObjectKey('listing-photos', photo.storage_path)) {
       r2Keys.push(photo.storage_path);
     } else {
       supabaseObjects.push({ bucket: 'listing-photos', key: photo.storage_path });
