@@ -785,7 +785,7 @@
 
     const { data: listing, error: listingError } = await supabaseClient
       .from('listings')
-      .select('id,title,description,location_text,category,verified,availability_status,host_id,' +
+      .select('id,title,description,property_description,location_text,category,verified,availability_status,host_id,' +
         'host:profiles(full_name,verified,avatar_url,username,phone),listing_photos(storage_path),' +
         'listing_booking_details(*)')
       .eq('id', listingId)
@@ -940,7 +940,10 @@
       ? '<p class="host-phone">' + ICON_PHONE + '<a href="tel:' + escapeHtml(hostPhone.replace(/[^+\d]/g, '')) + '">' + escapeHtml(hostPhone) + '</a></p>'
       : '';
 
-    const description = listing.description || '';
+    // Listings created before property_description was introduced only have
+    // the legacy description/caption. Keep them readable while new listings
+    // show their dedicated detailed description here.
+    const description = listing.property_description || listing.description || '';
     const mapUrl = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(listing.location_text || listing.title);
 
     // Real amenities selected by the host during listing creation.
@@ -1022,7 +1025,7 @@
         '</div>' +
         '<div class="about-block">' +
           '<h2 class="about-title">About this place</h2>' +
-          '<p class="about-text">' + (description ? escapeHtml(description) : '<span style="color:var(--muted);">The host hasn\'t added a caption for this listing yet.</span>') + '</p>' +
+          '<p class="about-text">' + (description ? escapeHtml(description) : '<span style="color:var(--muted);">The host hasn\'t added details about this place yet.</span>') + '</p>' +
           '<h2 class="section-title" style="margin-top:.8rem;">Top amenities</h2>' +
           amenitiesHtml +
         '</div>' +

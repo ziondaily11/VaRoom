@@ -361,7 +361,7 @@
   @media (max-width:900px){
     .step-frame.active{ grid-template-columns:1fr; }
     .step-photo{ min-height:200px; order:-1; }
-    .step-tracker{ grid-template-columns:repeat(2,1fr); }
+    .step-tracker{ display:none; }
   }
   @media (max-width:520px){
     .wizard-top-nav{ padding:1.1rem 1.3rem; }
@@ -416,8 +416,12 @@
               <input type="text" id="title" name="title" required placeholder="e.g. Cozy 2-bedroom Airbnb near campus">
             </div>
             <div class="field">
-              <label for="description">Description</label>
-              <textarea id="description" name="description" required placeholder="Describe the space — amenities, what makes it a good fit"></textarea>
+              <label for="caption">Caption</label>
+              <textarea id="caption" name="caption" required maxlength="500" placeholder="A quiet escape above the city."></textarea>
+            </div>
+            <div class="field">
+              <label for="property-description">Description</label>
+              <textarea id="property-description" name="property_description" required placeholder="Tell guests what they should know about the space — rooms, layout, notable features, atmosphere, and anything important before booking."></textarea>
             </div>
           </div>
 
@@ -1293,7 +1297,8 @@
 
     const title = fieldValue('title');
     const category = hostNiche;
-    const description = fieldValue('description');
+    const caption = fieldValue('caption');
+    const propertyDescription = fieldValue('property-description');
     const priceAmount = fieldValue('price-amount');
     const successMsg = document.getElementById('success-msg');
     const successMsgInner = document.getElementById('success-msg-inner');
@@ -1305,7 +1310,7 @@
     submitBtn.textContent = 'Publishing...';
 
     const listingPayload = {
-      title, category, description,
+      title, category, description: caption, property_description: propertyDescription,
       location_text: generalLocation,
     };
 

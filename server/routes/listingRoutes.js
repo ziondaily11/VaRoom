@@ -49,7 +49,7 @@ async function authenticatedHost(req, res) {
 
 async function ownedListing(id, userId, res) {
   const { data, error } = await supabaseAdmin
-    .from('listings').select('id,host_id,title,description,category,location_text')
+    .from('listings').select('id,host_id,title,description,property_description,category,location_text')
     .eq('id', id).maybeSingle();
   if (error) {
     console.error('Listing ownership lookup failed:', error.message);
@@ -116,13 +116,16 @@ router.post('/listings', async (req, res) => {
   let category;
   let payload;
   try {
-    assertAllowedKeys(req.body, ['title', 'description', 'category', 'location_text', 'latitude', 'longitude', 'place_id', 'formatted_address', 'neighborhood', 'city', 'country']);
+    assertAllowedKeys(req.body, ['title', 'description', 'property_description', 'category', 'location_text', 'latitude', 'longitude', 'place_id', 'formatted_address', 'neighborhood', 'city', 'country']);
     const niches = normalizeNiches(await hostNiches(user.id));
     category = niches[0];
     payload = {
       host_id: user.id,
       title: text(req.body.title, 'title', { max: 300 }),
+      // `description` remains the short Discover caption for compatibility
+      // with existing listings and card queries.
       description: text(req.body.description, 'description', { max: 10000 }),
+      property_description: text(req.body.property_description, 'property_description', { max: 10000 }),
       category,
       location_text: text(req.body.location_text, 'location_text', { max: 300 }),
       verified: false,
@@ -152,18 +155,18 @@ router.patch('/listings/:id', async (req, res) => {
   if (!user) return;
   try {
     uuid(req.params.id, 'listing id');
-    assertAllowedKeys(req.body, ['title', 'description', 'category', 'location_text', 'price_amount', 'price_unit']);
+    assertAllowedKeys(req.body, ['title', 'description', 'property_description', 'category', 'location_text', 'price_amount', 'price_unit']);
   } catch (error) {
     if (error instanceof ValidationError) return res.status(400).json({ error: 'Invalid input' });
     throw error;
   }
   if (!(await ownedListing(req.params.id, user.id, res))) return;
-  const allowed = ['title', 'description', 'category', 'location_text'];
+  const allowed = ['title', 'description', 'property_description', 'category', 'location_text'];
   const update = {};
   for (const key of allowed) {
     if (Object.prototype.hasOwnProperty.call(req.body || {}, key)) {
       try {
-        update[key] = text(req.body[key], key, { max: key === 'description' ? 10000 : 300 });
+        update[key] = text(req.body[key], key, { max: ['description', 'property_description'].includes(key) ? 10000 : 300 });
         if (key === 'category') {
           update[key] = enumValue(update[key], key, CATEGORIES);
           const niches = normalizeNiches(await hostNiches(user.id));
@@ -179,7 +182,7 @@ router.patch('/listings/:id', async (req, res) => {
   }
   if (!Object.keys(update).length) return res.status(400).json({ error: 'No listing fields supplied' });
   const { data, error } = await supabaseAdmin.from('listings').update(update)
-    .eq('id', req.params.id).select('id,title,description,category,location_text').single();
+    .eq('id', req.params.id).select('id,title,description,property_description,category,location_text').single();
   if (error) return res.status(500).json({ error: 'Unable to update listing' });
   if (req.body.price_amount !== undefined || req.body.price_unit !== undefined) {
     const detailUpdate = {};
@@ -234,6 +237,7 @@ router.post('/listings/:id/duplicate', async (req, res) => {
     host_id: user.id,
     title: `${listing.title} (Copy)`,
     description: listing.description,
+    property_description: listing.property_description,
     category: listing.category,
     location_text: listing.location_text,
   }).select('id').single();
