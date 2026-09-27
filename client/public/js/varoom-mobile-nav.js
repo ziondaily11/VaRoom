@@ -133,6 +133,9 @@
 
   async function mount() {
     removePageSpecificBars();
+    // Listing creation is a focused, multi-step workspace. Its own controls
+    // handle progression, so it intentionally has no persistent mobile bar.
+    if (document.getElementById('listing-page')) return;
     // The booking detail is an immersive, focused view. It owns its close
     // control and deliberately has no persistent app navigation.
     if (window.location.pathname === '/booking' || window.location.pathname === '/booking.html') {

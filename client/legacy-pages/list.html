@@ -359,6 +359,10 @@
   }
 
   @media (max-width:900px){
+    /* The listing wizard is intentionally focused: it has its own step
+       controls and no persistent app-level mobile bar. */
+    body{ padding-bottom:0 !important; }
+    .varoom-mobile-nav{ display:none !important; }
     .step-frame.active{ grid-template-columns:1fr; }
     .step-photo{ min-height:200px; order:-1; }
     .step-tracker{ display:none; }
