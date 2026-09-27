@@ -399,16 +399,16 @@
       .form-panel.verification-active .signup-content { grid-column: 1; grid-row: 1; align-self: center; overflow: visible; }
     }
     @media (max-width: 760px) {
-      .form-panel.verification-active { min-height: 100svh; padding: 108px 24px 36px; background: #fff !important; }
+      .form-panel.verification-active { display: grid; place-items: center; min-height: 100svh; padding: 24px; background: #fff !important; }
       .form-panel.verification-active .signup-content { width: 100%; margin: 0; padding: 0; color: #171717; border: 0; border-radius: 0; background: transparent; box-shadow: none; backdrop-filter: none; }
       .form-panel.verification-active .verification-step h2 { color: #171717; font: 700 25px/1.2 var(--sans); letter-spacing: -.5px; }
       .form-panel.verification-active .verification-step p { color: #777; }
-      .form-panel.verification-active .verification-step p strong { color: #3398e7; }
+      .form-panel.verification-active .verification-step p strong { color: #171717; }
       .form-panel.verification-active .otp-inputs { gap: 8px; margin-top: 32px; }
       .form-panel.verification-active .otp-inputs input { height: 50px; color: #222; border-color: #ececec; border-radius: 8px; background: #fafafa; }
-      .form-panel.verification-active .otp-inputs input:focus { border-color: #a7d4f7; box-shadow: 0 0 0 3px rgba(49,153,233,.12); background: #fff; }
-      .form-panel.verification-active .btn-submit { margin-top: 138px; border: 0; background: #3199e9; box-shadow: none; }
-      .form-panel.verification-active .resend-code { color: #3398e7; }
+      .form-panel.verification-active .otp-inputs input:focus { border-color: #171717; box-shadow: 0 0 0 3px rgba(0,0,0,.08); background: #fff; }
+      .form-panel.verification-active .btn-submit { margin-top: 138px; border: 0; background: #000; box-shadow: none; }
+      .form-panel.verification-active .resend-code { color: #171717; }
     }
 
     /* Desktop verification overlay: retain the signup page beneath a glass OTP card. */
