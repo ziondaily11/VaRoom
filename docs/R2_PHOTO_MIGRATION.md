@@ -21,9 +21,15 @@ The bucket can remain private. The app generates short-lived signed URLs from
 short-lived signed PUT URLs. Configure the bucket CORS policy to allow `PUT`
 from the VaRoom web origin and allow the `Content-Type` request header.
 
-Existing Supabase Storage paths still render and are deleted from Supabase.
-Only new uploads are written to R2. Migrate old objects separately after
-verifying the new flow; do not delete the Supabase buckets first.
+Existing Supabase Storage paths continue to render and be deleted from
+Supabase. New uploads use the `photos/{environment}/{category}/...` key
+layout. Objects migrated by the earlier migration tooling retain their
+category-specific layout (`listing-photos/{environment}/...`,
+`avatars/{environment}/...`, or `updates/{environment}/...`); all of these
+R2 keys are resolved through `/api/photos/...`. Listing-photo and avatar
+cleanup routes classify these keys as R2 objects. Keep those prefixes distinct
+from ordinary Supabase object paths and do not delete the Supabase buckets
+until the migrated objects and references have been verified.
 
 ## Object layout
 

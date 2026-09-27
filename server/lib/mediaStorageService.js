@@ -23,6 +23,7 @@ const {
   DeleteObjectCommand,
 } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
+const { isR2PhotoObjectKey } = require('./photoStorageKeys');
 
 const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID;
 const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME;
@@ -318,6 +319,7 @@ module.exports = {
   generateR2ObjectKey,
   generateChatAttachmentObjectKey,
   generatePhotoObjectKey,
+  isR2PhotoObjectKey,
   generateR2UploadAuthorization,
   generateR2PlaybackUrl,
   generateR2DownloadAuthorization,
