@@ -268,8 +268,13 @@ router.delete('/listings/:id', async (req, res) => {
   await supabaseAdmin.from('property_media').delete().eq('property_id', req.params.id);
   await supabaseAdmin.from('listing_booking_details').delete().eq('listing_id', req.params.id);
 
-  const { error } = await supabaseAdmin.from('listings').delete().eq('id', req.params.id);
+  const { data: deletedListing, error } = await supabaseAdmin.from('listings')
+    .delete().eq('id', req.params.id).eq('host_id', user.id).select('id').maybeSingle();
   if (error) return res.status(500).json({ error: 'Unable to delete listing' });
+  if (!deletedListing) {
+    console.error(`Listing delete did not remove listing ${req.params.id}`);
+    return res.status(500).json({ error: 'Listing was not deleted' });
+  }
 
   const r2Keys = [];
   const legacyPaths = [];
