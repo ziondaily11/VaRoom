@@ -165,23 +165,8 @@
   .tracker-item.completed .t-label{ color:#C9BDB8; }
   .tracker-item.completed .t-num:before{ content:'✓ '; color:#7ED6A5; }
 
-  /* ============ LOCATION PICKER (unstyled base kept from original widget) ============ */
-  .vrm-picker-search{ width:100%; box-sizing:border-box; margin-bottom:10px; }
-  .vrm-picker-map-wrap{ position:relative; width:100%; height:220px; border-radius:12px; overflow:hidden; background:#eee; }
-  .vrm-picker-map{ width:100%; height:100%; }
-  .vrm-picker-pin{ position:absolute; top:50%; left:50%; transform:translate(-50%,-100%); font-size:32px; pointer-events:none; filter:drop-shadow(0 2px 3px rgba(0,0,0,.3)); }
-  .vrm-picker-actions{ display:flex; gap:10px; margin-top:10px; flex-wrap:wrap; }
-  .vrm-picker-current, .vrm-picker-confirm{ padding:9px 14px; border-radius:8px; border:1px solid #ddd; background:#fff; cursor:pointer; font-size:.9rem; }
-  .vrm-picker-confirm{ background:var(--red); color:#fff; border-color:var(--red); }
-  .vrm-picker-confirm:disabled{ background:#ddd; border-color:#ddd; color:#888; cursor:not-allowed; }
-  .vrm-picker-address{ margin-top:8px; font-size:.85rem; color:#555; }
-  .location-hint-pill{ display:inline-flex; align-items:center; gap:.4rem; font-size:.78rem; font-weight:600; background:#E4E1DA; color:var(--wz-ink-onlight); padding:.5rem .8rem; border-radius:100px; margin-top:1rem; }
-  .location-hint-pill .check{ color:#2E7D32; font-weight:800; }
-  .location-hint-pill.not-ready{ background:rgba(196,30,58,.1); color:var(--red-deep); }
-  .location-hint-pill.not-ready .check{ color:var(--red-deep); }
-  .location-picker-fallback{ border:1.5px dashed var(--wz-cream-border); border-radius:12px; padding:1.4rem 1.1rem; font-size:.85rem; color:var(--wz-cream-text-muted); text-align:center; }
-  .skip-link{ display:block; text-align:center; font-size:.8rem; font-weight:600; color:var(--wz-cream-text-muted); margin-top:.9rem; text-decoration:underline; }
-  .skip-link:hover{ color:var(--red-deep); }
+  /* ============ GENERAL LOCATION (temporary map replacement) ============ */
+  .location-help{ font-size:.82rem; line-height:1.45; color:var(--wz-cream-text-muted); margin-top:.05rem; }
 
   /* ============ PHOTOS STEP ============ */
   .photo-hint{ font-size:.78rem; margin-bottom:.9rem; }
@@ -348,12 +333,7 @@
     .step-tracker{ display:none; }
 
     /* Compact the denser steps without changing their fields or controls. */
-    .vrm-picker-map-wrap{ height:150px; }
-    .vrm-picker-search{ margin-bottom:6px; }
-    .vrm-picker-actions{ gap:6px; margin-top:6px; }
-    .vrm-picker-current, .vrm-picker-confirm{ padding:6px 9px; font-size:.78rem; }
-    .location-hint-pill{ font-size:.68rem; padding:.38rem .62rem; margin-top:.55rem; }
-    .skip-link{ font-size:.72rem; margin-top:.5rem; }
+    .location-help{ font-size:.74rem; }
     .photo-hint, .amenities-hint{ font-size:.7rem; margin-bottom:.5rem; }
     .photo-dropzone{ padding:.75rem; font-size:.76rem; }
     .photo-preview-grid{ grid-template-columns:repeat(6,1fr); gap:.35rem; margin-top:.5rem; }
@@ -460,38 +440,31 @@
           <div class="panel-brand"><span class="roof"></span> VaRoom</div>
           <div class="progress-row">
             <div class="progress-ring" style="--pct:40"><span>40%</span></div>
-            <div class="progress-text"><span class="step-count">02 / 05</span><br>Pin the exact spot</div>
+            <div class="progress-text"><span class="step-count">02 / 05</span><br>Add the general area</div>
           </div>
 
           <p class="step-eyebrow">02 — Location</p>
-          <h1 class="step-title">Place it on the map.</h1>
-          <p class="step-sub">Search an area, building, or street, then move the pin to the exact property.</p>
+          <h1 class="step-title">Add your property’s area.</h1>
+          <p class="step-sub">A general location helps guests understand where your property is. Exact location details can be added later.</p>
 
           <div class="step-fields">
             <div class="field">
-              <div id="location-picker"></div>
-              <input type="hidden" id="location_lat" name="location_lat">
-              <input type="hidden" id="location_lng" name="location_lng">
-              <input type="hidden" id="location_place_id" name="location_place_id">
-              <input type="hidden" id="location_formatted_address" name="location_formatted_address">
-              <input type="hidden" id="location_neighborhood" name="location_neighborhood">
-              <input type="hidden" id="location_city" name="location_city">
-              <input type="hidden" id="location_country" name="location_country">
+              <label for="location-text">Where is your property located?</label>
+              <p class="location-help">Enter the area, neighbourhood, or town where your property is located. You’ll be able to add the exact location later.</p>
+              <input type="text" id="location-text" name="location_text" required minlength="3" autocomplete="address-level2" placeholder="e.g. Nairobi, Westlands">
             </div>
-            <span class="location-hint-pill" id="location-hint-pill"><span class="check">✓</span> Use current GPS location · confirm before publishing</span>
           </div>
 
           <div class="panel-actions">
             <button type="button" class="step-btn back" data-back>← Back</button>
             <button type="button" class="step-btn next" data-next>Continue to photos →</button>
           </div>
-          <button type="button" class="skip-link" id="skip-location">Skip for now — add the exact location later →</button>
         </div>
         <div class="step-photo" style="background-image:url('assets/listing-wizard/step-2.jpg');">
-          <div class="step-photo-badge"><span class="check">✓</span> Location confirmed</div>
+          <div class="step-photo-badge"><span class="check">✓</span> Location details added</div>
           <div class="step-photo-caption">
-            <h3>Every street has a story.</h3>
-            <p>An accurate pin means guests find you on the first try, every time.</p>
+            <h3>Every neighbourhood has a story.</h3>
+            <p>Let guests know the area your property calls home.</p>
           </div>
         </div>
       </section>
@@ -736,7 +709,6 @@
 
 <script src="js/supabase-client.js"></script>
 <script src="js/listing-feed-cache.js"></script>
-<script src="js/varoom-maps.js"></script>
 <script>
   const checkingAuth = document.getElementById('checking-auth');
   const listingPage = document.getElementById('listing-page');
@@ -791,42 +763,8 @@
 
     checkingAuth.style.display = 'none';
     listingPage.style.display = 'block';
-    initLocationPicker();
     configureCategory(hostNiche);
   })();
-
-  // ---------- Location picker ----------
-  // The map picker isn't wired up yet (expected end of this week), so this
-  // guards against a missing/broken VaroomMaps global instead of throwing
-  // and taking down the rest of the wizard. Location becomes a skippable
-  // step until the widget is ready — see #skip-location below.
-  function initLocationPicker(){
-    const container = document.getElementById('location-picker');
-    const hintPill = document.getElementById('location-hint-pill');
-    try {
-      if (typeof VaroomMaps === 'undefined' || !VaroomMaps.createLocationPicker) {
-        throw new Error('VaroomMaps not available');
-      }
-      VaroomMaps.createLocationPicker({
-        container: container,
-        onConfirm: function(loc){
-          document.getElementById('location_lat').value = loc.lat;
-          document.getElementById('location_lng').value = loc.lng;
-          document.getElementById('location_place_id').value = loc.place_id || '';
-          document.getElementById('location_formatted_address').value = loc.formatted_address || '';
-          document.getElementById('location_neighborhood').value = loc.neighborhood || '';
-          document.getElementById('location_city').value = loc.city || '';
-          document.getElementById('location_country').value = loc.country || '';
-          hintPill.classList.remove('not-ready');
-          hintPill.innerHTML = '<span class="check">✓</span> Location confirmed';
-        }
-      });
-    } catch (err) {
-      container.innerHTML = '<div class="location-picker-fallback">Map picker isn\'t connected yet. You can skip this step for now and add the exact location once it\'s ready.</div>';
-      hintPill.classList.add('not-ready');
-      hintPill.innerHTML = '<span class="check">!</span> Location not set — you can skip this step for now';
-    }
-  }
 
   // ---------- Category-driven booking fields ----------
   const SHORT_STAY = ['airbnb', 'hotel', 'venue'];
@@ -953,14 +891,8 @@
     for (const field of required) {
       if (!field.checkValidity()) { field.reportValidity(); return false; }
     }
-    // Location (step 2) is intentionally not required here — the map picker
-    // isn't wired up yet. See #skip-location and initLocationPicker().
     return true;
   }
-
-  document.getElementById('skip-location').addEventListener('click', function(){
-    goToStep(currentStep + 1);
-  });
 
   function goToStep(n){
     if (n < 1) n = 1;
@@ -1007,8 +939,7 @@
   function renderReviewSummary(){
     const title = fieldValue('title') || 'Untitled listing';
     const category = hostNiche;
-    const city = fieldValue('location_city');
-    const neighborhood = fieldValue('location_neighborhood');
+    const generalLocation = fieldValue('location-text');
     const amount = fieldValue('price-amount');
 
     const reviewTitle = document.getElementById('review-title');
@@ -1017,7 +948,7 @@
     if (reviewTitle) reviewTitle.textContent = title;
     if (reviewMeta) {
       reviewMeta.textContent =
-        [CATEGORY_LABELS[category] || 'Listing', [neighborhood, city].filter(Boolean).join(', ') || city].filter(Boolean).join(' · ');
+        [CATEGORY_LABELS[category] || 'Listing', generalLocation].filter(Boolean).join(' · ');
     }
     if (reviewPrice) {
       reviewPrice.textContent = amount
@@ -1026,11 +957,11 @@
     }
 
     const locationLine = document.getElementById('review-location-line');
-    const hasLocation = fieldValue('location_lat') && fieldValue('location_lng');
+    const hasLocation = Boolean(generalLocation);
     if (locationLine) {
       locationLine.innerHTML = hasLocation
-        ? '<span class="check">✓</span> Location pinned and ready for GPS verification'
-        : '<span class="check" style="color:var(--red)">!</span> Location skipped — add it later from your listing settings';
+        ? '<span class="check">✓</span> General location added — exact location can be set later'
+        : '<span class="check" style="color:var(--red)">!</span> General location still needed';
     }
 
     const thumbSlot = document.getElementById('review-thumb');
@@ -1368,29 +1299,14 @@
     const successMsgInner = document.getElementById('success-msg-inner');
     const submitBtn = document.getElementById('submit-btn');
 
-    const locationLat = fieldValue('location_lat');
-    const locationLng = fieldValue('location_lng');
-    const locationPlaceId = fieldValue('location_place_id');
-    const locationFormattedAddress = fieldValue('location_formatted_address');
-    const locationNeighborhood = fieldValue('location_neighborhood');
-    const locationCity = fieldValue('location_city');
-    const locationCountry = fieldValue('location_country');
+    const generalLocation = fieldValue('location-text');
 
     submitBtn.disabled = true;
     submitBtn.textContent = 'Publishing...';
 
     const listingPayload = {
       title, category, description,
-      // Maps are still being integrated, so location is intentionally optional for now.
-      // Keep the listing publish flow working without any location fields until the
-      // mapping experience is live again.
-      location_text: [locationNeighborhood, locationCity].filter(Boolean).join(', ') || locationCity || locationCountry || 'Location to be added',
-      ...(locationLat && locationLng ? { latitude: parseFloat(locationLat), longitude: parseFloat(locationLng) } : {}),
-      ...(locationPlaceId ? { place_id: locationPlaceId } : {}),
-      ...(locationFormattedAddress ? { formatted_address: locationFormattedAddress } : {}),
-      ...(locationNeighborhood ? { neighborhood: locationNeighborhood } : {}),
-      ...(locationCity ? { city: locationCity } : {}),
-      ...(locationCountry ? { country: locationCountry } : {}),
+      location_text: generalLocation,
     };
 
     const { data: { session } } = await supabaseClient.auth.getSession();
