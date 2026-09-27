@@ -253,19 +253,59 @@ router.delete('/listings/:id', async (req, res) => {
   if (!user) return;
   const listing = await ownedListing(req.params.id, user.id, res);
   if (!listing) return;
-  const { data: photos } = await supabaseAdmin.from('listing_photos')
-    .select('storage_path').eq('listing_id', req.params.id);
+
+  const [{ data: photos }, { data: propertyMedia }] = await Promise.all([
+    supabaseAdmin.from('listing_photos').select('storage_path').eq('listing_id', req.params.id),
+    supabaseAdmin.from('property_media')
+      .select('storage_provider,storage_bucket,storage_key,thumbnail_key')
+      .eq('property_id', req.params.id),
+  ]);
+
   await supabaseAdmin.from('availability').delete().eq('listing_id', req.params.id);
   await supabaseAdmin.from('bookmarks').delete().eq('listing_id', req.params.id);
+  await supabaseAdmin.from('reviews').delete().eq('listing_id', req.params.id);
   await supabaseAdmin.from('listing_photos').delete().eq('listing_id', req.params.id);
+  await supabaseAdmin.from('property_media').delete().eq('property_id', req.params.id);
   await supabaseAdmin.from('listing_booking_details').delete().eq('listing_id', req.params.id);
+
   const { error } = await supabaseAdmin.from('listings').delete().eq('id', req.params.id);
   if (error) return res.status(500).json({ error: 'Unable to delete listing' });
-  const paths = (photos || []).map((photo) => photo.storage_path).filter(Boolean);
-  const r2Keys = paths.filter((path) => mediaStorageService.isR2PhotoObjectKey('listing-photos', path));
-  const legacyPaths = paths.filter((path) => !mediaStorageService.isR2PhotoObjectKey('listing-photos', path));
+
+  const r2Keys = [];
+  const legacyPaths = [];
+  const mediaBuckets = new Map();
+
+  for (const photo of photos || []) {
+    if (!photo.storage_path) continue;
+    if (mediaStorageService.isR2PhotoObjectKey('listing-photos', photo.storage_path)) {
+      r2Keys.push(photo.storage_path);
+    } else {
+      legacyPaths.push(photo.storage_path);
+    }
+  }
+
+  for (const media of propertyMedia || []) {
+    if (!media.storage_key) continue;
+    if (media.storage_provider === 'r2') {
+      r2Keys.push(media.storage_key);
+      if (media.thumbnail_key) r2Keys.push(media.thumbnail_key);
+      continue;
+    }
+
+    const bucket = media.storage_bucket || 'property-media';
+    const keyList = mediaBuckets.get(bucket) || [];
+    keyList.push(media.storage_key);
+    if (media.thumbnail_key) keyList.push(media.thumbnail_key);
+    mediaBuckets.set(bucket, keyList);
+  }
+
   await Promise.all(r2Keys.map((key) => mediaStorageService.deleteR2Object(key)));
   if (legacyPaths.length) await supabaseAdmin.storage.from('listing-photos').remove(legacyPaths);
+  for (const [bucket, keys] of mediaBuckets.entries()) {
+    if (!keys.length) continue;
+    await supabaseAdmin.storage.from(bucket).remove([...new Set(keys)]);
+  }
+
   return res.json({ success: true });
 });
 
