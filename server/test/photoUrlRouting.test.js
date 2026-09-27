@@ -59,16 +59,12 @@ test('keeps legacy Supabase listing paths on Supabase public URLs', () => {
   assert.deepEqual(legacyCalls, [{ bucket: 'listing-photos', key: 'user-id/listing-id/photo.jpg' }]);
 });
 
-test('uploads supported listing photos through the signed R2 flow', async () => {
+test('leaves photo uploads on the legacy Supabase flow until a hardened R2 upload path is verified', async () => {
   const calls = [];
   const fetch = async (url, options) => {
     calls.push({ url, options });
     if (url === '/api/photos/upload-init') {
-      return { ok: true, json: async () => ({ key: 'photos/production/listing-photos/user-id/photo-id/original.jpg', uploadUrl: 'https://r2.example/upload' }) };
-    }
-    if (url === 'https://r2.example/upload') return { ok: true };
-    if (url === '/api/photos/upload-complete') {
-      return { ok: true, json: async () => ({ key: 'photos/production/listing-photos/user-id/photo-id/original.jpg' }) };
+      throw new Error('Unexpected R2 upload init call');
     }
     throw new Error(`Unexpected URL: ${url}`);
   };
@@ -78,26 +74,20 @@ test('uploads supported listing photos through the signed R2 flow', async () => 
     { name: 'photo.jpg', type: 'image/jpeg', size: 100 },
   );
 
-  assert.equal(result.error, null);
-  assert.equal(result.data.path, 'photos/production/listing-photos/user-id/photo-id/original.jpg');
-  assert.deepEqual(calls.map((call) => call.url), [
-    '/api/photos/upload-init',
-    'https://r2.example/upload',
-    '/api/photos/upload-complete',
-  ]);
-  assert.deepEqual(legacyUploadCalls, []);
+  assert.deepEqual(result, { data: { path: 'user-id/listing-id/photo.jpg' }, error: null });
+  assert.deepEqual(calls, []);
+  assert.deepEqual(legacyUploadCalls, [{ bucket: 'listing-photos', key: 'user-id/listing-id/photo.jpg' }]);
 });
 
-test('rejects unsupported photos instead of silently falling back to Supabase', async () => {
+test('leaves unsupported photo uploads on the legacy path for now', async () => {
   const { client, legacyUploadCalls } = patchedStorage();
   const result = await client.storage.from('listing-photos').upload(
     'user-id/listing-id/photo.heic',
     { name: 'photo.heic', type: 'image/heic', size: 100 },
   );
 
-  assert.equal(result.data, null);
-  assert.match(result.error.message, /Only JPEG, PNG, WebP, and GIF/);
-  assert.deepEqual(legacyUploadCalls, []);
+  assert.deepEqual(result, { data: { path: 'user-id/listing-id/photo.heic' }, error: null });
+  assert.deepEqual(legacyUploadCalls, [{ bucket: 'listing-photos', key: 'user-id/listing-id/photo.heic' }]);
 });
 
 test('leaves storage uploads outside photo categories unchanged', async () => {

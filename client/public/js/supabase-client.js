@@ -19,14 +19,14 @@
     }
   }
 
-  // Keep the existing legacy pages' Storage API usage working while routing
-  // new public-image uploads through the server's signed R2 upload flow.
-  // Older paths continue to resolve from Supabase, so no data migration is
-  // required before deploying this change.
+  // Keep the R2 migration compatibility in place for already-migrated keys, but
+  // do not hijack the browser's legacy photo upload calls. The direct signed PUT
+  // flow here was incomplete and caused real upload failures in production.
+  // Legacy pages still use the normal Supabase Storage API for uploads; migrated
+  // R2 object keys are resolved through the server-side /api/photos route.
   (function routePhotoStorageToR2(client) {
     if (client.__varoomR2PhotoStoragePatched) return;
     var photoCategories = { 'listing-photos': true, avatars: true, 'update-images': true };
-    var supportedPhotoTypes = { 'image/jpeg': true, 'image/png': true, 'image/webp': true, 'image/gif': true };
     var migratedKeyPrefixes = {
       'listing-photos': 'listing-photos/',
       avatars: 'avatars/',
@@ -48,40 +48,6 @@
           return { data: { publicUrl: '/api/photos/' + encodeURIComponent(bucket) + '/' + path.split('/').map(encodeURIComponent).join('/') } };
         }
         return originalGetPublicUrl(path);
-      };
-
-      storage.upload = async function (_path, file) {
-        if (!file || !supportedPhotoTypes[file.type]) {
-          return {
-            data: null,
-            error: new Error('Only JPEG, PNG, WebP, and GIF photos are supported.')
-          };
-        }
-        try {
-          var sessionResult = await client.auth.getSession();
-          var token = sessionResult.data && sessionResult.data.session && sessionResult.data.session.access_token;
-          if (!token) throw new Error('Authentication is required to upload photos.');
-          var filename = file.name || (_path && String(_path).split('/').pop()) || 'photo.jpg';
-          var initResponse = await fetch('/api/photos/upload-init', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-            body: JSON.stringify({ category: bucket, filename: filename, mimeType: file.type, fileSize: file.size })
-          });
-          var init = await initResponse.json().catch(function () { return {}; });
-          if (!initResponse.ok) throw new Error(init.error || 'Unable to prepare photo upload.');
-          var uploadResponse = await fetch(init.uploadUrl, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file });
-          if (!uploadResponse.ok) throw new Error('Photo upload to storage failed.');
-          var completeResponse = await fetch('/api/photos/upload-complete', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-            body: JSON.stringify({ category: bucket, key: init.key })
-          });
-          var complete = await completeResponse.json().catch(function () { return {}; });
-          if (!completeResponse.ok) throw new Error(complete.error || 'Unable to finalize photo upload.');
-          return { data: { path: complete.key, fullPath: complete.key }, error: null };
-        } catch (error) {
-          return { data: null, error: error };
-        }
       };
       return storage;
     };
