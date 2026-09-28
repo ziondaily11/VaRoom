@@ -29,6 +29,35 @@
       .replace(/\n{3,}/g, '\n\n')
       .trim();
   };
+  const scrollToRepliedMessage = (messageId) => {
+    const target = Array.from(document.querySelectorAll('.messages [data-message-id]'))
+      .find((row) => row.dataset.messageId === String(messageId));
+    if (!target) return;
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    target.classList.remove('reply-target-highlight');
+    void target.offsetWidth;
+    target.classList.add('reply-target-highlight');
+    window.setTimeout(() => target.classList.remove('reply-target-highlight'), 1600);
+  };
+  const makeReplyReference = (messageId, label, body) => {
+    const reference = document.createElement('div');
+    reference.className = 'message-reply-reference';
+    reference.setAttribute('role', 'button');
+    reference.tabIndex = 0;
+    reference.setAttribute('aria-label', `${label}: ${body}`);
+    const referenceLabel = document.createElement('strong');
+    referenceLabel.textContent = label;
+    const referenceBody = document.createElement('span');
+    referenceBody.textContent = body;
+    reference.append(referenceLabel, referenceBody);
+    reference.addEventListener('click', () => scrollToRepliedMessage(messageId));
+    reference.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      scrollToRepliedMessage(messageId);
+    });
+    return reference;
+  };
   const clear = (element) => { while (element && element.firstChild) element.removeChild(element.firstChild); };
   const isElie = () => state.activeId === ELIE_ID;
   const elieConversation = () => ({ id: ELIE_ID, isElie: true, participant: { full_name: 'Elie', username: 'Your VaRoom search assistant' }, lastMessage: null });
@@ -617,18 +646,13 @@
       const bubble = document.createElement('div');
       bubble.className = 'bubble';
       if (message.reply_to_message_id) {
-        const reference = document.createElement('div');
-        reference.className = 'message-reply-reference';
-        const referenceLabel = document.createElement('strong');
-        referenceLabel.textContent = message.reply_to_message
+        const referenceLabel = message.reply_to_message
           ? message.reply_to_message.sender_id === state.session.user.id ? 'You' : 'Reply'
           : 'Reply';
-        const referenceBody = document.createElement('span');
-        referenceBody.textContent = message.reply_to_message && !message.reply_to_message.deleted_at
+        const referenceBody = message.reply_to_message && !message.reply_to_message.deleted_at
           ? previewText(message.reply_to_message.body)
           : 'This message is unavailable';
-        reference.append(referenceLabel, referenceBody);
-        bubble.appendChild(reference);
+        bubble.appendChild(makeReplyReference(message.reply_to_message_id, referenceLabel, referenceBody));
       }
       const body = message.body || '';
       if (/<(?:strong|b|em|i|u|ul|ol|li|p|div|br)\b/i.test(body)) {
@@ -752,12 +776,21 @@
     closeMessageMenu();
     if (action === 'reply') {
       state.replyToMessage = message;
-      const label = previewText(message.body).slice(0, 48) || 'message';
-      const placeholder = `Replying to: ${label}`;
+      const label = previewText(message.body) || 'This message is unavailable';
       const input = $('.chat-input-area textarea');
       const editor = $('.desktop-composer-editor');
-      input.placeholder = placeholder;
-      editor.dataset.placeholder = placeholder;
+      const composerPreview = $('.composer-reply-preview');
+      const previewLabel = composerPreview.querySelector('strong');
+      const previewBody = composerPreview.querySelector('span');
+      previewLabel.textContent = message.sender_id === state.session.user.id ? 'Replying to you' : 'Replying to message';
+      previewBody.textContent = label;
+      composerPreview.hidden = false;
+      composerPreview.onclick = () => scrollToRepliedMessage(message.id);
+      composerPreview.onkeydown = (event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
+        scrollToRepliedMessage(message.id);
+      };
       if (window.matchMedia('(min-width: 761px)').matches) editor.focus();
       else input.focus();
       return;
@@ -919,6 +952,12 @@
 
   function clearReplyState() {
     state.replyToMessage = null;
+    const composerPreview = $('.composer-reply-preview');
+    composerPreview.hidden = true;
+    composerPreview.querySelector('strong').textContent = '';
+    composerPreview.querySelector('span').textContent = '';
+    composerPreview.onclick = null;
+    composerPreview.onkeydown = null;
     $('.chat-input-area textarea').placeholder = 'Write a message...';
     $('.desktop-composer-editor').dataset.placeholder = 'Write a message...';
   }
