@@ -88,7 +88,7 @@ function withDecryptedBody(message) {
   const { ciphertext, iv, key_version: keyVersion, ...publicMessage } = message;
   return {
     ...publicMessage,
-    body: decryptMessage(ciphertext, iv, keyVersion),
+    body: message.deleted_at ? 'This message was deleted' : decryptMessage(ciphertext, iv, keyVersion),
   };
 }
 
@@ -157,16 +157,24 @@ router.get('/chat/conversations', async (req, res) => {
     if (conversationIds.length) {
       const result = await supabaseAdmin
         .from('messages')
-        .select('id,conversation_id,sender_id,ciphertext,iv,key_version,created_at')
+        .select('id,conversation_id,sender_id,ciphertext,iv,key_version,created_at,deleted_at')
         .in('conversation_id', conversationIds)
         .order('created_at', { ascending: false });
       if (result.error) throw result.error;
+      const deletionResult = await supabaseAdmin
+        .from('message_user_deletions')
+        .select('message_id')
+        .eq('user_id', user.id)
+        .in('conversation_id', conversationIds);
+      if (deletionResult.error) throw deletionResult.error;
+      const hiddenMessageIds = new Set((deletionResult.data || []).map((deletion) => deletion.message_id));
       const seen = new Set();
-      previews = (result.data || []).map(withDecryptedBody).filter((message) => {
-        if (seen.has(message.conversation_id)) return false;
-        seen.add(message.conversation_id);
-        return true;
-      });
+      previews = (result.data || []).filter((message) => !hiddenMessageIds.has(message.id))
+        .map(withDecryptedBody).filter((message) => {
+          if (seen.has(message.conversation_id)) return false;
+          seen.add(message.conversation_id);
+          return true;
+        });
     }
     const previewByConversation = Object.fromEntries(previews.map((message) => [message.conversation_id, message]));
     const latestByParticipant = new Map();
@@ -204,11 +212,23 @@ router.get('/chat/conversations/:conversationId/messages', async (req, res) => {
     if (!conversation) return res.status(403).json({ error: 'Conversation access denied' });
     const { data, error } = await supabaseAdmin
       .from('messages')
-      .select('id,conversation_id,sender_id,ciphertext,iv,key_version,created_at,read_at,message_type,attachment_id,listing_id')
+      .select('id,conversation_id,sender_id,ciphertext,iv,key_version,created_at,read_at,message_type,attachment_id,listing_id,reply_to_message_id,deleted_at,pinned_at')
       .eq('conversation_id', conversationId)
       .order('created_at', { ascending: true });
     if (error) throw error;
-    const attachmentIds = (data || []).map((message) => message.attachment_id).filter(Boolean);
+    const deletionResult = await supabaseAdmin
+      .from('message_user_deletions')
+      .select('message_id')
+      .eq('conversation_id', conversationId)
+      .eq('user_id', user.id);
+    if (deletionResult.error) throw deletionResult.error;
+    const hiddenMessageIds = new Set((deletionResult.data || []).map((deletion) => deletion.message_id));
+    const visibleRows = (data || []).filter((message) => !hiddenMessageIds.has(message.id));
+    const visibleById = new Map(visibleRows.map((message) => [message.id, message]));
+    const attachmentIds = visibleRows
+      .filter((message) => !message.deleted_at)
+      .map((message) => message.attachment_id)
+      .filter(Boolean);
     let attachments = [];
     if (attachmentIds.length) {
       const attachmentResult = await supabaseAdmin
@@ -219,7 +239,10 @@ router.get('/chat/conversations/:conversationId/messages', async (req, res) => {
       attachments = attachmentResult.data || [];
     }
     const attachmentsById = Object.fromEntries(attachments.map((attachment) => [attachment.id, attachment]));
-    const listingIds = (data || []).map((message) => message.listing_id).filter(Boolean);
+    const listingIds = visibleRows
+      .filter((message) => !message.deleted_at)
+      .map((message) => message.listing_id)
+      .filter(Boolean);
     let listingsById = {};
     if (listingIds.length) {
       const listingResult = await supabaseAdmin
@@ -231,16 +254,96 @@ router.get('/chat/conversations/:conversationId/messages', async (req, res) => {
     }
     return res.json({
       conversation,
-      messages: (data || []).map(withDecryptedBody).map((message) => ({
-        attachment: attachmentsById[message.attachment_id] || null,
-        listing: listingsById[message.listing_id] || null,
-        ...message,
-      })),
+      messages: visibleRows.map((row) => {
+        const message = withDecryptedBody(row);
+        const reply = message.reply_to_message_id && visibleById.get(message.reply_to_message_id);
+        return {
+          attachment: message.deleted_at ? null : attachmentsById[message.attachment_id] || null,
+          listing: message.deleted_at ? null : listingsById[message.listing_id] || null,
+          reply_to_message: reply ? {
+            id: reply.id,
+            sender_id: reply.sender_id,
+            body: reply.deleted_at ? null : withDecryptedBody(reply).body,
+            deleted_at: reply.deleted_at,
+          } : null,
+          ...message,
+        };
+      }),
     });
   } catch (error) {
     if (error instanceof ValidationError) return res.status(400).json({ error: error.message });
     console.error('Chat message list failed:', error);
     return res.status(502).json({ error: 'Unable to load messages' });
+  }
+});
+
+router.post('/chat/conversations/:conversationId/messages/:messageId/actions', async (req, res) => {
+  try {
+    const user = await authenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Invalid or expired session' });
+    if (await rejectSuspendedActivity(res, user.id)) return;
+    const conversationId = uuid(req.params.conversationId, 'conversation id');
+    const messageId = uuid(req.params.messageId, 'message id');
+    const conversation = await memberConversation(conversationId, user.id);
+    if (!conversation) return res.status(403).json({ error: 'Conversation access denied' });
+    assertAllowedKeys(req.body, ['action']);
+    const action = enumValue(req.body.action, 'action', ['pin', 'delete_for_me', 'delete_for_everyone']);
+    const { data: message, error: messageError } = await supabaseAdmin
+      .from('messages')
+      .select('id,conversation_id,sender_id,message_type,deleted_at')
+      .eq('id', messageId)
+      .eq('conversation_id', conversationId)
+      .maybeSingle();
+    if (messageError) throw messageError;
+    if (!message || message.message_type !== 'text' || message.deleted_at) {
+      return res.status(404).json({ error: 'Message not found' });
+    }
+
+    if (action === 'delete_for_me') {
+      const { error } = await supabaseAdmin.from('message_user_deletions').upsert({
+        conversation_id: conversationId,
+        message_id: messageId,
+        user_id: user.id,
+      }, { onConflict: 'message_id,user_id' });
+      if (error) throw error;
+    } else if (action === 'delete_for_everyone') {
+      if (message.sender_id !== user.id) {
+        return res.status(403).json({ error: 'Only the sender can delete this message for everyone' });
+      }
+      const { data: deletedMessage, error } = await supabaseAdmin
+        .from('messages')
+        .update({
+          ciphertext: null,
+          iv: null,
+          key_version: null,
+          attachment_id: null,
+          listing_id: null,
+          deleted_at: new Date().toISOString(),
+          deleted_by: user.id,
+          pinned_at: null,
+          pinned_by: null,
+        })
+        .eq('id', messageId)
+        .eq('conversation_id', conversationId)
+        .eq('sender_id', user.id)
+        .is('deleted_at', null)
+        .select('id')
+        .maybeSingle();
+      if (error) throw error;
+      if (!deletedMessage) return res.status(403).json({ error: 'Only the sender can delete this message for everyone' });
+    } else {
+      const { error } = await supabaseAdmin.rpc('toggle_chat_message_pin', {
+        p_conversation_id: conversationId,
+        p_message_id: messageId,
+        p_user_id: user.id,
+      });
+      if (error) throw error;
+    }
+    return res.json({ success: true });
+  } catch (error) {
+    if (error instanceof ValidationError) return res.status(400).json({ error: error.message });
+    console.error('Chat message action failed:', error);
+    return res.status(502).json({ error: 'Unable to update message' });
   }
 });
 
@@ -297,7 +400,7 @@ router.post('/chat/conversations/:conversationId/messages', async (req, res) => 
     const conversationId = uuid(req.params.conversationId, 'conversation id');
     const conversation = await memberConversation(conversationId, user.id);
     if (!conversation) return res.status(403).json({ error: 'Conversation access denied' });
-    assertAllowedKeys(req.body, ['content', 'attachmentId', 'messageType', 'listingId']);
+    assertAllowedKeys(req.body, ['content', 'attachmentId', 'messageType', 'listingId', 'replyToMessageId']);
     const content = text(req.body.content, 'content', { required: false, max: 10_000 }) || '';
     const messageType = req.body.messageType === undefined
       ? 'text'
@@ -306,6 +409,32 @@ router.post('/chat/conversations/:conversationId/messages', async (req, res) => 
       ? undefined
       : uuid(req.body.attachmentId, 'attachmentId');
     const listingId = req.body.listingId === undefined ? undefined : uuid(req.body.listingId, 'listingId');
+    const replyToMessageId = req.body.replyToMessageId === undefined
+      ? undefined
+      : uuid(req.body.replyToMessageId, 'replyToMessageId');
+    if (replyToMessageId && messageType !== 'text') {
+      throw new ValidationError('Replies must be text messages');
+    }
+    if (replyToMessageId) {
+      const { data: repliedMessage, error: repliedMessageError } = await supabaseAdmin
+        .from('messages')
+        .select('id,message_type,deleted_at')
+        .eq('id', replyToMessageId)
+        .eq('conversation_id', conversationId)
+        .maybeSingle();
+      if (repliedMessageError) throw repliedMessageError;
+      if (!repliedMessage || repliedMessage.message_type !== 'text' || repliedMessage.deleted_at) {
+        return res.status(400).json({ error: 'The message being replied to is unavailable' });
+      }
+      const { data: hiddenMessage, error: hiddenMessageError } = await supabaseAdmin
+        .from('message_user_deletions')
+        .select('message_id')
+        .eq('message_id', replyToMessageId)
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (hiddenMessageError) throw hiddenMessageError;
+      if (hiddenMessage) return res.status(400).json({ error: 'The message being replied to is unavailable' });
+    }
     if (messageType === 'listing' && !listingId) {
       throw new ValidationError('listingId is required for listing messages');
     }
@@ -354,8 +483,9 @@ router.post('/chat/conversations/:conversationId/messages', async (req, res) => 
         message_type: messageType,
         attachment_id: attachmentId || null,
         listing_id: listingId || null,
+        reply_to_message_id: replyToMessageId || null,
       })
-        .select('id,conversation_id,sender_id,ciphertext,iv,key_version,created_at,message_type,attachment_id,listing_id')
+        .select('id,conversation_id,sender_id,ciphertext,iv,key_version,created_at,message_type,attachment_id,listing_id,reply_to_message_id')
         .single();
       if (error) throw error;
       console.info('Chat message persisted:', {

@@ -3,7 +3,7 @@
 
   const ELIE_ID = 'elie';
   const ELIE_API_URL = 'https://elie1-0.onrender.com/elie/search';
-  const state = { session: null, role: 'client', conversations: [], activeId: null, channel: null, channelGeneration: 0, selectionGeneration: 0, onlineConversationIds: new Set(), listings: [], pendingAttachment: null, mobileView: 'inbox', mobileInfoReturn: 'conversation', elie: { sessionId: null, history: [] } };
+  const state = { session: null, role: 'client', conversations: [], activeId: null, channel: null, channelGeneration: 0, selectionGeneration: 0, onlineConversationIds: new Set(), listings: [], pendingAttachment: null, replyToMessage: null, messageMenu: null, messageMenuCleanup: null, mobileView: 'inbox', mobileInfoReturn: 'conversation', elie: { sessionId: null, history: [] } };
   const isMobile = () => window.matchMedia('(max-width: 760px)').matches;
   const $ = (selector) => document.querySelector(selector);
   const api = async (url, options) => {
@@ -406,6 +406,7 @@
   }
 
   function renderEmptyState() {
+    renderPinnedMessage([]);
     const copy = emptyStateCopy();
     const list = $('#contactList');
     clear(list);
@@ -444,6 +445,7 @@
   }
 
   function renderChatSkeleton() {
+    renderPinnedMessage([]);
     const messages = $('.messages');
     clear(messages);
     messages.classList.remove('empty-state');
@@ -480,6 +482,7 @@
   }
 
   function renderNoSelectionState() {
+    renderPinnedMessage([]);
     const messages = $('.messages');
     clear(messages);
     messages.classList.remove('chat-loading');
@@ -601,9 +604,32 @@
     meta.className = 'msg-meta';
     meta.textContent = message.read_at && outgoing
       ? `Read ${formatTime(message.read_at)}` : formatTime(message.created_at);
+    if (message.deleted_at) {
+      row.classList.add('msg-deleted');
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble';
+      bubble.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#i-trash"/></svg><span>This message was deleted</span>';
+      bubble.appendChild(meta);
+      row.appendChild(bubble);
+      return row;
+    }
     if (message.message_type === 'text') {
       const bubble = document.createElement('div');
       bubble.className = 'bubble';
+      if (message.reply_to_message_id) {
+        const reference = document.createElement('div');
+        reference.className = 'message-reply-reference';
+        const referenceLabel = document.createElement('strong');
+        referenceLabel.textContent = message.reply_to_message
+          ? message.reply_to_message.sender_id === state.session.user.id ? 'You' : 'Reply'
+          : 'Reply';
+        const referenceBody = document.createElement('span');
+        referenceBody.textContent = message.reply_to_message && !message.reply_to_message.deleted_at
+          ? previewText(message.reply_to_message.body)
+          : 'This message is unavailable';
+        reference.append(referenceLabel, referenceBody);
+        bubble.appendChild(reference);
+      }
       const body = message.body || '';
       if (/<(?:strong|b|em|i|u|ul|ol|li|p|div|br)\b/i.test(body)) {
         const source = new DOMParser().parseFromString(body, 'text/html').body;
@@ -624,7 +650,7 @@
         };
         source.childNodes.forEach((child) => appendSafe(bubble, child));
       } else {
-        bubble.textContent = body;
+        bubble.appendChild(document.createTextNode(body));
       }
       bubble.appendChild(meta);
       row.appendChild(bubble);
@@ -699,7 +725,133 @@
       row.appendChild(card);
     }
     if (!row.contains(meta)) row.appendChild(meta);
+    attachMessageActions(row, message);
     return row;
+  }
+
+  function renderPinnedMessage(messages) {
+    const pinned = $('#pinnedMessage');
+    const message = messages.find((item) => item.pinned_at && !item.deleted_at);
+    if (!message) {
+      pinned.hidden = true;
+      pinned.querySelector('span').textContent = '';
+      return;
+    }
+    pinned.querySelector('span').textContent = previewText(message.body) || 'Message';
+    pinned.hidden = false;
+  }
+
+  function closeMessageMenu() {
+    if (state.messageMenuCleanup) state.messageMenuCleanup();
+    if (state.messageMenu) state.messageMenu.remove();
+    state.messageMenu = null;
+    state.messageMenuCleanup = null;
+  }
+
+  async function performMessageAction(message, action) {
+    closeMessageMenu();
+    if (action === 'reply') {
+      state.replyToMessage = message;
+      const label = previewText(message.body).slice(0, 48) || 'message';
+      const placeholder = `Replying to: ${label}`;
+      const input = $('.chat-input-area textarea');
+      const editor = $('.desktop-composer-editor');
+      input.placeholder = placeholder;
+      editor.dataset.placeholder = placeholder;
+      if (window.matchMedia('(min-width: 761px)').matches) editor.focus();
+      else input.focus();
+      return;
+    }
+    if (action === 'delete_for_everyone'
+      && !window.confirm('Delete this message for everyone? This cannot be undone.')) return;
+    try {
+      await api(`/api/chat/conversations/${encodeURIComponent(state.activeId)}/messages/${encodeURIComponent(message.id)}/actions`, {
+        method: 'POST',
+        body: JSON.stringify({ action }),
+      });
+      await refreshConversationMessages(state.activeId, { preserveScroll: true });
+    } catch (error) {
+      console.error('Unable to perform message action:', error);
+      window.alert(error.message || 'Unable to update message');
+    }
+  }
+
+  function attachMessageActions(row, message) {
+    if (message.message_type !== 'text' || message.deleted_at) return;
+    let pressTimer = null;
+    let touchStart = null;
+    const openAt = (x, y) => openMessageMenu(message, x, y);
+    row.addEventListener('contextmenu', (event) => {
+      if (isMobile()) {
+        event.preventDefault();
+        return;
+      }
+      if (event.target.closest('a,button,input,textarea,video,audio')) return;
+      event.preventDefault();
+      openAt(event.clientX, event.clientY);
+    });
+    row.addEventListener('touchstart', (event) => {
+      if (event.touches.length !== 1) return;
+      const touch = event.touches[0];
+      touchStart = { x: touch.clientX, y: touch.clientY };
+      pressTimer = window.setTimeout(() => openAt(touchStart.x, touchStart.y), 500);
+    }, { passive: true });
+    row.addEventListener('touchmove', (event) => {
+      if (!pressTimer || !touchStart || !event.touches.length) return;
+      const touch = event.touches[0];
+      if (Math.hypot(touch.clientX - touchStart.x, touch.clientY - touchStart.y) > 12) {
+        window.clearTimeout(pressTimer);
+        pressTimer = null;
+      }
+    }, { passive: true });
+    ['touchend', 'touchcancel'].forEach((eventName) => row.addEventListener(eventName, () => {
+      window.clearTimeout(pressTimer);
+      pressTimer = null;
+      touchStart = null;
+    }, { passive: true }));
+  }
+
+  function openMessageMenu(message, x, y) {
+    closeMessageMenu();
+    const menu = document.createElement('div');
+    menu.className = 'chat-message-menu';
+    menu.setAttribute('role', 'menu');
+    menu.setAttribute('aria-label', 'Message actions');
+    const options = [
+      ['reply', 'i-reply', 'Reply'],
+      ['pin', 'i-pin', message.pinned_at ? 'Unpin message' : 'Pin message'],
+      ['delete_for_me', 'i-trash', 'Delete for me'],
+    ];
+    if (message.sender_id === state.session.user.id) {
+      options.push(['delete_for_everyone', 'i-trash', 'Delete for everyone']);
+    }
+    options.forEach(([action, icon, label]) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.setAttribute('role', 'menuitem');
+      button.innerHTML = `<svg class="icon" aria-hidden="true"><use href="#${icon}"/></svg><span></span>`;
+      button.querySelector('span').textContent = label;
+      button.addEventListener('click', () => performMessageAction(message, action));
+      menu.appendChild(button);
+    });
+    document.body.appendChild(menu);
+    const bounds = menu.getBoundingClientRect();
+    menu.style.left = `${Math.max(8, Math.min(x, window.innerWidth - bounds.width - 8))}px`;
+    menu.style.top = `${Math.max(8, Math.min(y, window.innerHeight - bounds.height - 8))}px`;
+    state.messageMenu = menu;
+    document.addEventListener('pointerdown', onMessageMenuOutside);
+    document.addEventListener('keydown', onMessageMenuKeydown);
+    state.messageMenuCleanup = () => {
+      document.removeEventListener('pointerdown', onMessageMenuOutside);
+      document.removeEventListener('keydown', onMessageMenuKeydown);
+    };
+    function onMessageMenuOutside(event) {
+      if (state.messageMenu && !state.messageMenu.contains(event.target)) closeMessageMenu();
+    }
+    function onMessageMenuKeydown(event) {
+      if (event.key === 'Escape') closeMessageMenu();
+    }
+    menu.querySelector('button').focus();
   }
 
   async function downloadAttachment(attachmentId) {
@@ -723,7 +875,7 @@
     return { ...video, url: playback.url, thumbnailUrl: playback.thumbnailUrl || video.thumbnailUrl || '' };
   }
 
-  function renderMessages(messages) {
+  function renderMessages(messages, { scrollToBottom = true } = {}) {
     const container = $('.messages');
     clear(container);
     container.classList.remove('chat-loading');
@@ -739,7 +891,36 @@
       container.appendChild(row);
       previousMessage = message;
     });
-    container.scrollTop = container.scrollHeight;
+    renderPinnedMessage(messages);
+    if (scrollToBottom) container.scrollTop = container.scrollHeight;
+  }
+
+  async function refreshConversationMessages(conversationId, { preserveScroll = false } = {}) {
+    const container = $('.messages');
+    const previousTop = container.scrollTop;
+    const wasAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 40;
+    const result = await api(`/api/chat/conversations/${encodeURIComponent(conversationId)}/messages`);
+    if (state.activeId !== conversationId) return;
+    renderMessages(result.messages, { scrollToBottom: !preserveScroll });
+    renderInfoAttachments(result.messages);
+    const lastMessage = result.messages[result.messages.length - 1];
+    if (lastMessage) updateConversationPreview(lastMessage);
+    else {
+      const conversation = state.conversations.find((item) => item.id === conversationId);
+      if (conversation) {
+        conversation.lastMessage = null;
+        renderConversationList();
+      }
+    }
+    if (preserveScroll) {
+      container.scrollTop = wasAtBottom ? container.scrollHeight : previousTop;
+    }
+  }
+
+  function clearReplyState() {
+    state.replyToMessage = null;
+    $('.chat-input-area textarea').placeholder = 'Write a message...';
+    $('.desktop-composer-editor').dataset.placeholder = 'Write a message...';
   }
 
   function elieRow(text, outgoing, options) {
@@ -826,6 +1007,9 @@
   }
 
   async function selectElieConversation() {
+    closeMessageMenu();
+    clearReplyState();
+    renderPinnedMessage([]);
     state.activeId = ELIE_ID; state.elie.sessionId = null; state.elie.history = [];
     showConversationInterface(); renderConversationList();
     $('#chatName').textContent = 'Elie'; $('#statusText').textContent = 'Your VaRoom search assistant'; $('#statusDot').classList.remove('online');
@@ -903,6 +1087,8 @@
 
   async function selectConversation(id) {
     if (id === ELIE_ID) return selectElieConversation();
+    closeMessageMenu();
+    clearReplyState();
     const selectionGeneration = ++state.selectionGeneration;
     const previousConversationId = state.activeId;
     state.activeId = id;
@@ -958,6 +1144,26 @@
           updateConversationPreview(message);
         } catch (error) {
           console.error('Unable to load new chat message:', error);
+        }
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages', filter: `conversation_id=eq.${id}` }, async () => {
+        if (selectionGeneration !== state.selectionGeneration
+          || channelGeneration !== state.channelGeneration
+          || state.activeId !== id) return;
+        try {
+          await refreshConversationMessages(id, { preserveScroll: true });
+        } catch (error) {
+          console.error('Unable to refresh changed chat message:', error);
+        }
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'message_user_deletions', filter: `conversation_id=eq.${id}` }, async () => {
+        if (selectionGeneration !== state.selectionGeneration
+          || channelGeneration !== state.channelGeneration
+          || state.activeId !== id) return;
+        try {
+          await refreshConversationMessages(id, { preserveScroll: true });
+        } catch (error) {
+          console.error('Unable to refresh deleted chat message:', error);
         }
       })
       .on('presence', { event: 'sync' }, () => {
@@ -1071,6 +1277,7 @@
       const plainContent = desktop ? desktopEditor.textContent.trim() : content;
       const pending = state.pendingAttachment;
       const conversationId = state.activeId;
+      const replyToMessage = state.replyToMessage;
       if ((!plainContent && !pending) || !conversationId || (desktop ? desktopEditor.getAttribute('aria-disabled') === 'true' : input.disabled)) return;
       if (!desktop) input.disabled = true;
       try {
@@ -1093,7 +1300,7 @@
           return;
         }
         let result;
-        if (!pending && plainContent.toLowerCase() === '@reply') {
+        if (!replyToMessage && !pending && plainContent.toLowerCase() === '@reply') {
           result = await api(`/api/chat/conversations/${encodeURIComponent(conversationId)}/reply`, {
             method: 'POST', body: JSON.stringify({ command: '@reply' }),
           });
@@ -1113,7 +1320,10 @@
           });
         } else {
           result = await api(`/api/chat/conversations/${encodeURIComponent(conversationId)}/messages`, {
-            method: 'POST', body: JSON.stringify({ content }),
+            method: 'POST', body: JSON.stringify({
+              content,
+              ...(replyToMessage ? { replyToMessageId: replyToMessage.id } : {}),
+            }),
           });
         }
         if (state.activeId !== conversationId) {
@@ -1133,20 +1343,36 @@
         updateMobilePreview();
         const current = $('.messages');
         const replyMessages = result.messages || (result.message ? [result.message] : []);
+        if (result.message && replyToMessage && !pending) {
+          result.message.reply_to_message = {
+            id: replyToMessage.id,
+            sender_id: replyToMessage.sender_id,
+            body: replyToMessage.body,
+            deleted_at: replyToMessage.deleted_at,
+          };
+        }
         replyMessages.forEach((message) => {
           if (message && !current.querySelector(`[data-message-id="${message.id}"]`)) {
             current.appendChild(messageRow(message));
           }
         });
         if (replyMessages.length) current.scrollTop = current.scrollHeight;
+        if (replyToMessage && !pending) clearReplyState();
         updateConversationPreview(replyMessages[replyMessages.length - 1] || result.message);
       } finally { if (!desktop) input.disabled = false; }
     }
     input.addEventListener('keydown', async (event) => {
+      if (event.key === 'Escape' && state.replyToMessage) {
+        clearReplyState();
+        return;
+      }
       if (!isMobile()) return;
       if (event.key !== 'Enter' || event.shiftKey) return;
       event.preventDefault();
       await sendText();
+    });
+    if (desktopEditor) desktopEditor.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && state.replyToMessage) clearReplyState();
     });
     const fileInput = document.createElement('input');
     fileInput.type = 'file'; fileInput.hidden = true; fileInput.dataset.mobileFileInput = 'true';
