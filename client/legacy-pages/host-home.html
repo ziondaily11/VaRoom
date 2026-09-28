@@ -679,7 +679,7 @@
   #feed-list.discover-media-feed .card-video{
     --discover-media-height:clamp(260px, 45vw, 460px);
     --discover-media-width:100%;
-    width:var(--discover-media-width); margin-left:var(--discover-content-inset); margin-right:auto;
+    width:calc(100% - var(--discover-content-inset)); max-width:calc(100% - var(--discover-content-inset)); margin-left:var(--discover-content-inset); margin-right:auto;
     position:relative; overflow:hidden; border:0; border-radius:12px; background:transparent;
   }
   #feed-list.discover-media-feed .media-slide{ height:var(--discover-media-height); display:grid; place-items:center; }
@@ -2225,6 +2225,20 @@
     let lastFeedScrollPosition = -1;
     let lastLoadScrollPosition = -1;
 
+    async function findListingVideoMediaId(listingId){
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      const token = session && session.access_token ? session.access_token : null;
+      try {
+        const response = await fetch('/api/properties/' + encodeURIComponent(listingId) + '/media', {
+          headers: token ? { Authorization: 'Bearer ' + token } : {}
+        });
+        if (!response.ok) return null;
+        const media = (await response.json()).media || [];
+        const video = media.find(function(item){ return item && item.type === 'video' && item.id; });
+        return video ? video.id : null;
+      } catch (error) { return null; }
+    }
+
     async function loadListingVideoPlayback(listingId){
       if (listingVideoLookups[listingId]) return listingVideoLookups[listingId];
       const { data: { session } } = await supabaseClient.auth.getSession();
@@ -2267,7 +2281,12 @@
             return loadListingVideoPlayback(id);
           }));
         } catch (error) {
-          ids.forEach(function(id){ listingVideoStates[id] = 'unavailable'; });
+          await Promise.all(ids.map(async function(id){
+            const mediaId = await findListingVideoMediaId(id);
+            if (!mediaId) { listingVideoStates[id] = 'no-media'; return; }
+            listingVideoMediaIds[id] = mediaId;
+            await loadListingVideoPlayback(id);
+          }));
         }
         if (activeFeedKey) renderFeedFromCache({ key: activeFeedKey, preserve: true });
       }, 60);
