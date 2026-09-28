@@ -1373,6 +1373,10 @@
     });
     if (desktopEditor) desktopEditor.addEventListener('keydown', (event) => {
       if (event.key === 'Escape' && state.replyToMessage) clearReplyState();
+      if (desktop && event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        sendText();
+      }
     });
     const fileInput = document.createElement('input');
     fileInput.type = 'file'; fileInput.hidden = true; fileInput.dataset.mobileFileInput = 'true';
