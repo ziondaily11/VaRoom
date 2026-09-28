@@ -671,32 +671,31 @@
   .card-media-loading::before{ content:''; width:20px; height:20px; border:2px solid var(--line); border-top-color:var(--red); border-radius:50%; animation:discover-media-spin .8s linear infinite; }
   @keyframes discover-media-spin{ to{ transform:rotate(360deg); } }
 
-  /* Discover keeps the entire original photo/video frame within this bounded,
-     warm paper stage. --discover-media-height is refined from source metadata. */
+  /* Discover preserves each media item's native proportions. */
   #feed-list.discover-media-feed .card{ --discover-content-inset:56px; }
   #feed-list.discover-media-feed .card-caption{ margin-left:var(--discover-content-inset); }
   #feed-list.discover-media-feed .media-carousel,
   #feed-list.discover-media-feed .card-video{
-    --discover-media-height:clamp(260px, 45vw, 460px);
-    --discover-media-width:100%;
-    width:var(--discover-media-width); margin-left:var(--discover-content-inset); margin-right:auto;
+    width:100%; margin-left:var(--discover-content-inset); margin-right:auto;
     position:relative; overflow:hidden; border:0; border-radius:12px; background:transparent;
   }
-  #feed-list.discover-media-feed .media-slide{ height:var(--discover-media-height); display:grid; place-items:center; }
-  #feed-list.discover-media-feed .media-slide img{ width:100%; height:100%; object-fit:contain; }
-  #feed-list.discover-media-feed .card-video{ height:var(--discover-media-height); }
+  #feed-list.discover-media-feed .media-slide{ height:auto; display:block; }
+  #feed-list.discover-media-feed .media-slide img,
+  #feed-list.discover-media-feed .card-video-poster{ width:100%; height:auto; object-fit:contain; display:block; }
+  #feed-list.discover-media-feed .card-video{ height:auto; }
   #feed-list.discover-media-feed .card-video video,
   #feed-list.discover-media-feed .card-video .varoom-video-player,
   #feed-list.discover-media-feed .card-video .varoom-video-player > video{
-    width:100%; height:100%; object-fit:contain; background:var(--media-stage-fill);
+    width:100%; height:auto; object-fit:contain; background:var(--media-stage-fill);
   }
+  #feed-list.discover-media-feed .varoom-video-player.is-buffering:not(.is-ready) > video{ opacity:1; }
   #feed-list.discover-media-feed .card-media-empty{
-    height:var(--discover-media-height, clamp(260px, 45vw, 460px));
+    height:auto; min-height:0; padding:2rem 1rem;
     border-radius:12px; background:var(--media-stage-fill); border:1px solid var(--line);
   }
   #feed-list.discover-media-feed .card-media-loading,
   #feed-list.discover-media-feed .card-media-unavailable{
-    height:var(--discover-media-height, clamp(260px, 45vw, 460px)); margin-left:var(--discover-content-inset); width:var(--discover-media-width, 100%);
+    height:auto; min-height:0; padding:2rem 1rem; margin-left:var(--discover-content-inset); width:100%;
   }
 
   /* Reserve the dashboard's final footprint while account data is loading. */
@@ -756,7 +755,6 @@
     .media-slide img{ height:clamp(220px, 52vw, 460px); }
     .media-carousel.single-media .media-slide img{ height:clamp(250px, 60vw, 520px); }
     #feed-list.discover-media-feed .media-carousel,
-    #feed-list.discover-media-feed .card-video{ --discover-media-height:clamp(220px, 75vw, 420px); }
     .media-index-pill{ top:.55rem; right:.55rem; font-size:.66rem; }
     .media-dots{ bottom:.5rem; }
 
@@ -1874,7 +1872,7 @@
         return supabaseClient.storage.from('listing-photos').getPublicUrl(p.storage_path).data.publicUrl;
       });
       const videoState = listingVideoUrls[listing.id] || null;
-      const videoUrl = videoState && videoState.url ? videoState.url : videoState;
+      const videoUrl = videoState && videoState.url ? videoState.url : null;
       const videoThumbnail = videoState && videoState.thumbnailUrl ? videoState.thumbnailUrl : '';
       const mediaState = listingVideoStates[listing.id] || 'unknown';
       const initial = (host.full_name || '?').charAt(0).toUpperCase();
@@ -1885,7 +1883,9 @@
       const isBookmarked = bookmarkedIds.has(listing.id);
       let photosHtml = '';
       if (videoUrl) {
-        photosHtml = '<div class="card-video single"><video muted playsinline preload="none" poster="' + escapeHtml(videoThumbnail) + '" src="' + videoUrl + '" data-video-url="' + videoUrl + '" data-listing-id="' + listing.id + '" data-video-host-name="' + escapeHtml(host.full_name || 'Host') + '" data-video-username="' + escapeHtml(host.username ? '@' + host.username : '') + '" data-video-avatar="' + escapeHtml(hostAvatarUrl || '') + '" data-video-caption="' + escapeHtml(listing.description || listing.title) + '"></video></div>';
+        photosHtml = '<div class="card-video single"><video muted playsinline preload="none" poster="' + escapeHtml(videoThumbnail) + '" src="' + videoUrl + '" data-discover-video="true" data-video-url="' + videoUrl + '" data-listing-id="' + listing.id + '" data-video-host-name="' + escapeHtml(host.full_name || 'Host') + '" data-video-username="' + escapeHtml(host.username ? '@' + host.username : '') + '" data-video-avatar="' + escapeHtml(hostAvatarUrl || '') + '" data-video-caption="' + escapeHtml(listing.description || listing.title) + '"></video></div>';
+      } else if (mediaState === 'thumbnail' && videoThumbnail) {
+        photosHtml = '<div class="card-video single"><img class="card-video-poster" src="' + escapeHtml(videoThumbnail) + '" alt="' + escapeHtml(listing.title) + ' video preview" loading="lazy"></div>';
       } else if (photos.length === 0 && (mediaState === 'unknown' || mediaState === 'loading')) {
         photosHtml = '<div class="card-media-loading" role="status" aria-label="Preparing listing media">Preparing media preview…</div>';
       } else if (photos.length === 0 && mediaState === 'unavailable') {
@@ -2021,10 +2021,8 @@
         updateHeight();
       });
     }
-    window.addEventListener('resize', function(){ sizeDiscoverMediaStages(feedList); });
 
     function attachCardListeners(container){
-      sizeDiscoverMediaStages(container);
       container.querySelectorAll('.bookmark-btn').forEach(function(btn){
         btn.addEventListener('click', async function(){
           const id = btn.getAttribute('data-listing-id');
@@ -2250,10 +2248,13 @@
       return listingVideoLookups[listingId];
     }
 
-    function queueVisibleVideoMetadata(listingId){
-      if (listingVideoStates[listingId] && listingVideoStates[listingId] !== 'unknown') return;
-      listingVideoStates[listingId] = 'loading';
-      pendingVideoMetadata.add(listingId);
+    function queueVisibleVideoMetadata(listingIds){
+      (Array.isArray(listingIds) ? listingIds : [listingIds]).forEach(function(listingId){
+        if (listingVideoStates[listingId] && listingVideoStates[listingId] !== 'unknown') return;
+        listingVideoStates[listingId] = 'loading';
+        pendingVideoMetadata.add(listingId);
+      });
+      if (!pendingVideoMetadata.size) return;
       if (videoMetadataTimer) return;
       videoMetadataTimer = window.setTimeout(async function(){
         const ids = Array.from(pendingVideoMetadata); pendingVideoMetadata.clear(); videoMetadataTimer = null;
@@ -2263,8 +2264,10 @@
           const found = (await response.json()).videoMedia || {};
           await Promise.all(ids.map(function(id){
             if (!found[id]) { listingVideoStates[id] = 'no-media'; return null; }
-            listingVideoMediaIds[id] = found[id];
-            return loadListingVideoPlayback(id);
+            listingVideoMediaIds[id] = found[id].id;
+            listingVideoUrls[id] = found[id].thumbnailUrl ? { thumbnailUrl: found[id].thumbnailUrl } : null;
+            listingVideoStates[id] = 'thumbnail';
+            return null;
           }));
         } catch (error) {
           ids.forEach(function(id){ listingVideoStates[id] = 'unavailable'; });
@@ -2286,12 +2289,16 @@
         entries.forEach(function(entry){
           if (!entry.isIntersecting) return;
           discoverMediaObserver.unobserve(entry.target);
-          queueVisibleVideoMetadata(entry.target.getAttribute('data-listing-id'));
+          const id = entry.target.getAttribute('data-listing-id');
+          if (listingVideoStates[id] === 'thumbnail') loadListingVideoPlayback(id).then(function(){
+            if (activeFeedKey) renderFeedFromCache({ key: activeFeedKey, preserve: true });
+          });
+          else queueVisibleVideoMetadata(id);
         });
       }, { root: root, rootMargin: '350px 0px', threshold: .01 });
       cards.forEach(function(card){
         const id = card.getAttribute('data-listing-id');
-        if (!listingVideoStates[id] || listingVideoStates[id] === 'unknown') discoverMediaObserver.observe(card);
+        if (listingVideoStates[id] !== 'ready' && listingVideoStates[id] !== 'unavailable' && listingVideoStates[id] !== 'no-media') discoverMediaObserver.observe(card);
       });
     }
 
@@ -2414,6 +2421,7 @@
       else cardsHtml.push('<div id="listing-feed-sentinel" aria-hidden="true"></div>');
       feedList.innerHTML = cardsHtml.join('');
       attachCardListeners(feedList);
+      queueVisibleVideoMetadata(data.map(function(listing){ return listing.id; }));
       observeDiscoverMedia(feedList);
       observeFeedEnd();
       if (showMobileWidget) loadVaroomUpdates('varoom-updates-mobile');

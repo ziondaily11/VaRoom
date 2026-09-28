@@ -25,7 +25,7 @@ router.get('/discover/video-media', async (req, res) => {
   try {
     const { data, error } = await supabaseAdmin
       .from('property_media')
-      .select('id,property_id,sort_order')
+      .select('id,property_id,sort_order,thumbnail_key,width,height')
       .in('property_id', rawIds)
       .eq('media_type', 'video')
       .eq('visibility', 'public')
@@ -35,9 +35,18 @@ router.get('/discover/video-media', async (req, res) => {
     if (error) throw error;
 
     const videoMedia = {};
-    (data || []).forEach((media) => {
-      if (!videoMedia[media.property_id]) videoMedia[media.property_id] = media.id;
-    });
+    for (const media of data || []) {
+      if (videoMedia[media.property_id]) continue;
+      const thumbnail = media.thumbnail_key
+        ? await mediaStorageService.generateR2DownloadAuthorization(media.thumbnail_key, 'image/jpeg', 3600)
+        : null;
+      videoMedia[media.property_id] = {
+        id: media.id,
+        thumbnailUrl: thumbnail ? thumbnail.url : null,
+        width: media.width || null,
+        height: media.height || null,
+      };
+    }
     return res.json({ videoMedia });
   } catch (error) {
     console.error('Discover video media lookup failed:', error);

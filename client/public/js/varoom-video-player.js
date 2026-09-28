@@ -11,6 +11,26 @@
   var viewerState = null;
   var activeWrapper = null;
 
+  function playbackKey(video) {
+    return video.dataset.discoverVideo === 'true' && video.dataset.listingId
+      ? 'varoom:discover:playback:' + video.dataset.listingId : null;
+  }
+
+  function savePlaybackPosition(video) {
+    var key = playbackKey(video);
+    if (!key || !Number.isFinite(video.currentTime) || video.currentTime <= 0) return;
+    try { sessionStorage.setItem(key, String(video.currentTime)); } catch (error) {}
+  }
+
+  function restorePlaybackPosition(video) {
+    var key = playbackKey(video);
+    if (!key) return;
+    try {
+      var position = Number(sessionStorage.getItem(key));
+      if (Number.isFinite(position) && position > 0 && position < video.duration) video.currentTime = position;
+    } catch (error) {}
+  }
+
   function isMobile() {
     return window.matchMedia('(hover: none) and (pointer: coarse)').matches;
   }
@@ -446,6 +466,7 @@
       updatePlayButton(wrapper, video);
     });
     video.addEventListener('pause', function () {
+      savePlaybackPosition(video);
       wrapper.classList.remove('is-playing');
       updatePlayButton(wrapper, video);
     });
@@ -456,7 +477,8 @@
       }
     });
     video.addEventListener('loadedmetadata', function () {
-      updateProgress(0);
+      restorePlaybackPosition(video);
+      updateProgress((video.currentTime / video.duration) * 100);
       timeLabel.textContent = '0:00 / ' + formatTime(video.duration);
     });
     video.addEventListener('waiting', function () {
@@ -498,11 +520,11 @@
         if (viewerState) return;
         if (entry.isIntersecting) {
           video.preload = 'metadata';
-          if (!viewerState) playWrapper(wrapper);
+          if (entry.intersectionRatio >= .6 && !viewerState) playWrapper(wrapper);
         }
-        else if (!video.paused) video.pause();
+        else if (!video.paused) { savePlaybackPosition(video); video.pause(); }
       });
-    }, { rootMargin: '160px 0px', threshold: 0.1 });
+    }, { rootMargin: '220px 0px', threshold: [.1, .6] });
     observer.observe(video);
   }
 
