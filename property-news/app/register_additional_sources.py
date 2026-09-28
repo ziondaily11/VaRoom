@@ -58,14 +58,6 @@ async def register_sources_from_json(repository: Repository, json_path: str, act
                     values["parser_config"] = existing.parser_config | {"registry_metadata": registry_metadata}
             values |= {"id": existing.id, "created_at": existing.created_at}
 
-        # A manual candidate without configured article URLs is registry-only;
-        # enabling it would create a scheduled source that cannot collect stories.
-        registry_metadata = values.get("parser_config", {}).get("registry_metadata", {})
-        if (registry_metadata.get("ingestion_status") == "awaiting_verified_feed_or_article_selector"
-                and values["fetch_method"] == "manual"
-                and not values.get("parser_config", {}).get("urls")):
-            values["active"] = False
-        
         source = Source(**values)
         registered = await repository.upsert_source(source)
         registered_sources.append(registered)
@@ -89,7 +81,7 @@ async def _run(json_path: str, activate: bool, sync_active: bool, names: set[str
             registry_metadata = source.parser_config.get("registry_metadata", {})
             if (registry_metadata.get("ingestion_status") == "awaiting_verified_feed_or_article_selector"
                     and source.fetch_method == "manual" and not source.parser_config.get("urls")):
-                print(f"    Registry only: {registry_metadata.get('ingestion_status', 'manual article URLs required')}")
+                print(f"    Active but awaiting ingestion configuration: {registry_metadata.get('ingestion_status', 'manual article URLs required')}")
     finally:
         if isinstance(repository, SupabaseNewsRepository):
             await repository.close()

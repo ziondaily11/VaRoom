@@ -31,4 +31,4 @@ jobs:
             --header "Authorization: Bearer $NEWS_SCHEDULER_SECRET" \
             --header "Accept: application/json" \
             --connect-timeout 20 --max-time 840 \
-            "https://property-news-pnsj.onrender.com/api/internal/jobs/collect?source_group=${{ matrix.source_group }}"
+            "https://property-news-pnsj.onrender.com/api/internal/jobs/collect?source_group=${{ matrix.source_group }}&source_group_count=11"

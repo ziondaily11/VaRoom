@@ -192,7 +192,7 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(len(await self.repository.list_sources()), 2)
 
-    async def test_unverified_manual_pool_records_stay_inactive_even_when_activation_requested(self):
+    async def test_expanded_pool_records_activate_even_without_ingestion_configuration(self):
         pool_path = Path(__file__).resolve().parents[1] / "sources" / "real-estate-source-pool.json"
         entries = json.loads(pool_path.read_text(encoding="utf-8"))
         self.assertEqual(len(entries), 100)
@@ -202,7 +202,7 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(len(registered), 100)
         self.assertEqual(len({canonicalise_source_url(source.base_url) for source in registered}), 100)
-        self.assertTrue(all(not source.active for source in registered))
+        self.assertTrue(all(source.active for source in registered))
         self.assertTrue(all(source.fetch_method == "manual" for source in registered))
         self.assertTrue(all(
             source.parser_config["registry_metadata"]["source_url"] == source.base_url
