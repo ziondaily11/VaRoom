@@ -928,13 +928,37 @@ push    min-height:0;
     [data-theme="dark"] .messages .msg-row.in .bubble { background:#171313 !important; color:var(--text-dark) !important; }
     [data-theme="dark"] .messages .msg-row.out .bubble { background:#2563EB !important; color:#fff !important; }
   }
-  .messages,
-  [data-theme="dark"] .messages{
-    background-image:url("/assets/chatbackground.png") !important;
+  [data-theme="dark"] .chat-col,
+  [data-theme="dark"] .chat-col.mobile-visible,
+  html:not([data-theme="dark"]) .chat-col{
     background-repeat:repeat !important;
     background-position:left top !important;
     background-size:min(100%, 414px) auto !important;
     background-attachment:scroll !important;
+  }
+  [data-theme="dark"] .chat-col,
+  [data-theme="dark"] .chat-col.mobile-visible{
+    background-color:#0F0D0D !important;
+    background-image:url("/assets/chatbackground.png") !important;
+  }
+  html:not([data-theme="dark"]) .chat-col{
+    background-color:var(--white) !important;
+    background-image:url("/assets/chatbackground-light.png") !important;
+  }
+  html:not([data-theme="dark"]) .chat-header{
+    background-color:var(--white) !important;
+  }
+  [data-theme="dark"] .messages,
+  html:not([data-theme="dark"]) .messages,
+  [data-theme="dark"] .chat-input-area,
+  html:not([data-theme="dark"]) .chat-input-area{
+    background-color:transparent !important;
+    background-image:none !important;
+  }
+  [data-theme="dark"] .chat-input-area::before,
+  html:not([data-theme="dark"]) .chat-input-area::before{
+    background-color:transparent !important;
+    background-image:none !important;
   }
 </style>
 </head>
