@@ -1,6 +1,6 @@
 # Source Registry
 
-Sources live in `news_sources`; application code does not hard-code active feeds. The example registry at `property-news/sources/initial-sources.example.json` deliberately marks every candidate inactive. `property-news/sources/production-sources.json` contains the first technically verified official source, still inactive until the production migration and scheduler secret are live. The broader Kenyan source intake is recorded in `property-news/sources/kenya-property-sources.json`; it contains 44 additional candidates from government, media, research, property, and professional sources.
+Sources live in `news_sources`; application code does not hard-code active feeds. The example registry at `property-news/sources/initial-sources.example.json` deliberately marks every candidate inactive. `property-news/sources/production-sources.json` contains the first technically verified official source, still inactive until the production migration and scheduler secret are live. The broader Kenyan source intake is recorded in `property-news/sources/kenya-property-sources.json`; it contains 44 additional candidates from government, media, research, property, and professional sources. The exact 100-source expansion is in `property-news/sources/real-estate-source-pool.json`, using the same registry format and importer.
 
 Before activation, verify the exact page/feed/API, robots policy, rate limit, terms, copyright constraints, allowed user agent, article URL selector, and the source's authority. Record the verification in the source `parser_config` or operational log.
 
@@ -11,6 +11,14 @@ python -m app.register_additional_sources --json-path sources/kenya-property-sou
 ```
 
 Do not use `--activate` until each source has a verified narrow feed or article selector. The intake entries intentionally point at site roots as discovery placeholders; activating them as-is would collect unrelated pages.
+
+Register the expanded source pool with:
+
+```powershell
+python -m app.register_additional_sources --json-path sources/real-estate-source-pool.json
+```
+
+The expanded pool records each requested canonical domain, source URL, region, content categories, and ingestion status. The pool can be registered with all 100 sources active, but entries marked `awaiting_verified_feed_or_article_selector` are active registry records that will collect no stories until their feed, narrow article selector, or explicit manual URLs are configured. No feed or article endpoint is inferred. Canonical URL matching treats protocol, `www`, and trailing-slash variants as the same source; an existing source keeps its activation, method, schedule, and parser configuration when matched. Apply the new migration before registration: distinct domains can legitimately use the same display name, so source identity is the canonical URL rather than the name.
 
 To apply a configuration correction to already registered sources without changing the rest of the registry, target them explicitly and sync only their configured activation state. For the current NCA/Cytonn remediation:
 

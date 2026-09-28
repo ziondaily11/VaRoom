@@ -21,9 +21,10 @@
 
   function blankEntry() {
     return {
-      version: 1,
+      version: 2,
       updatedAt: 0,
       pages: {},
+      itemOrder: [],
       endOffset: null
     };
   }
@@ -35,12 +36,28 @@
   }
 
   function normalise(entry) {
-    if (!entry || entry.version !== 1 || !entry.pages || typeof entry.pages !== 'object') {
+    if (!entry || (entry.version !== 1 && entry.version !== 2) || !entry.pages || typeof entry.pages !== 'object') {
       return blankEntry();
     }
     Object.keys(entry.pages).forEach(function (offset) {
       if (!validPage(entry.pages[offset])) delete entry.pages[offset];
     });
+    if (entry.version === 1 || !Array.isArray(entry.itemOrder)) {
+      entry.itemOrder = [];
+      var seen = Object.create(null);
+      Object.keys(entry.pages)
+        .map(function (offset) { return Number(offset); })
+        .sort(function (a, b) { return a - b; })
+        .forEach(function (offset) {
+          entry.pages[offset].forEach(function (listing) {
+            if (seen[listing.id]) return;
+            seen[listing.id] = true;
+            entry.itemOrder.push(listing.id);
+          });
+        });
+      if (entry.version === 1) shuffle(entry.itemOrder);
+    }
+    entry.version = 2;
     if (typeof entry.updatedAt !== 'number') entry.updatedAt = 0;
     if (typeof entry.endOffset !== 'number') entry.endOffset = null;
     return entry;
@@ -51,7 +68,17 @@
     var entry = blankEntry();
     try {
       var raw = window.sessionStorage.getItem(storageKey(key));
-      if (raw) entry = normalise(JSON.parse(raw));
+      if (raw) {
+        var parsed = JSON.parse(raw);
+        entry = normalise(parsed);
+        if (parsed.version !== entry.version) {
+          try {
+            window.sessionStorage.setItem(storageKey(key), JSON.stringify(entry));
+          } catch (error) {
+            // The migrated in-memory ordering remains stable for this page.
+          }
+        }
+      }
     } catch (error) {
       // A disabled or full storage area should not prevent the feed loading.
       entry = blankEntry();
@@ -69,21 +96,27 @@
     }
   }
 
+  function shuffle(items) {
+    for (var index = items.length - 1; index > 0; index -= 1) {
+      var swapIndex = Math.floor(Math.random() * (index + 1));
+      var item = items[index];
+      items[index] = items[swapIndex];
+      items[swapIndex] = item;
+    }
+    return items;
+  }
+
   function orderedItems(entry) {
-    var seen = Object.create(null);
-    var items = [];
+    var listingsById = Object.create(null);
     Object.keys(entry.pages)
-      .map(function (offset) { return Number(offset); })
-      .sort(function (a, b) { return a - b; })
       .forEach(function (offset) {
         entry.pages[offset].forEach(function (listing) {
-          if (!seen[listing.id]) {
-            seen[listing.id] = true;
-            items.push(listing);
-          }
+          if (!listingsById[listing.id]) listingsById[listing.id] = listing;
         });
       });
-    return items;
+    return entry.itemOrder
+      .map(function (id) { return listingsById[id]; })
+      .filter(Boolean);
   }
 
   function nextOffset(entry) {
@@ -128,10 +161,25 @@
       .then(function (result) {
         var parts = resultParts(result);
         var seen = Object.create(null);
-        entry.pages[offset] = parts.data.filter(function (listing) {
+        var received = parts.data.filter(function (listing) {
           if (!listing || !listing.id || seen[listing.id]) return false;
           seen[listing.id] = true;
           return true;
+        });
+        var previousPage = entry.pages[offset] || [];
+        var receivedById = Object.create(null);
+        received.forEach(function (listing) { receivedById[listing.id] = listing; });
+        var knownIds = Object.create(null);
+        entry.itemOrder.forEach(function (id) { knownIds[id] = true; });
+        var newListings = shuffle(received.filter(function (listing) {
+          return !knownIds[listing.id];
+        }));
+        entry.pages[offset] = previousPage.map(function (listing) {
+          return receivedById[listing.id] || listing;
+        }).concat(newListings);
+        newListings.forEach(function (listing) {
+          entry.itemOrder.push(listing.id);
+          knownIds[listing.id] = true;
         });
         if (parts.hasMore === false || entry.pages[offset].length < PAGE_SIZE) {
           entry.endOffset = offset;
@@ -203,6 +251,11 @@
           changed = true;
         }
       });
+      var nextOrder = entry.itemOrder.filter(function (listingId) { return listingId !== id; });
+      if (nextOrder.length !== entry.itemOrder.length) {
+        entry.itemOrder = nextOrder;
+        changed = true;
+      }
       if (changed) {
         // Ranges may shift after a deletion, so revalidate the first page on
         // the next visit while still rendering the corrected cache now.
