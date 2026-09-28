@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -16,7 +17,7 @@ from app.constants import RegulatoryStatus, ReviewStatus, RiskLevel
 from app.models import CandidateArticle, NewsItem, ReviewAction, Source
 from app.media import extract_article_image_url
 from app.jobs import run_collection_job
-from app.normalizer import canonicalise_url, content_hash
+from app.normalizer import canonicalise_source_url, canonicalise_url, content_hash
 from app.processing import ProcessingService
 from app.quality import classify_quality, parse_source_date
 from app.relevance import classify_property_relevance, classify_property_sales_content
@@ -25,6 +26,7 @@ from app.repository import SupabaseNewsRepository
 from app.retrieval import NewsRetrievalService
 from app.review import ReviewService
 from app.seed_sources import upsert_official_lands_source
+from app.register_additional_sources import register_sources_from_json
 
 
 def source(*, tier: int = 1, active: bool = True) -> Source:
@@ -157,6 +159,75 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         title_changed = first.model_copy(update={"source_url": "https://source1.example.test/c", "clean_text": "different evidence", "source_title": "Nairobi property update!"})
         _, title_duplicate = await collector._store_candidate(self.source, title_changed)
         self.assertTrue(title_duplicate)
+
+    async def test_expanded_source_pool_registration_preserves_canonical_existing_sources(self):
+        pool_path = Path(__file__).resolve().parents[1] / "sources" / "real-estate-source-pool.json"
+        legacy = Source(
+            name="HassConsult Research", base_url="http://www.hassconsult.com/",
+            source_type="research", trust_tier=2, fetch_method="html",
+            schedule_minutes=90, active=True,
+            parser_config={"discovery_url": "https://www.hassconsult.com/hassindex"},
+        )
+        await self.repository.upsert_source(legacy)
+
+        registered = await register_sources_from_json(
+            self.repository, str(pool_path), activate=True,
+            names={"The Hass Property Index"},
+        )
+
+        self.assertEqual(len(registered), 1)
+        self.assertEqual(registered[0].id, legacy.id)
+        self.assertEqual(registered[0].name, "The Hass Property Index")
+        self.assertEqual(registered[0].base_url, "https://hassconsult.com")
+        self.assertTrue(registered[0].active)
+        self.assertEqual(registered[0].fetch_method, "html")
+        self.assertEqual(registered[0].schedule_minutes, 90)
+        self.assertEqual(
+            registered[0].parser_config["discovery_url"],
+            "https://www.hassconsult.com/hassindex",
+        )
+        self.assertEqual(
+            registered[0].parser_config["registry_metadata"]["canonical_domain"],
+            "hassconsult.com",
+        )
+        self.assertEqual(len(await self.repository.list_sources()), 2)
+
+    async def test_unverified_manual_pool_records_stay_inactive_even_when_activation_requested(self):
+        pool_path = Path(__file__).resolve().parents[1] / "sources" / "real-estate-source-pool.json"
+        entries = json.loads(pool_path.read_text(encoding="utf-8"))
+        self.assertEqual(len(entries), 100)
+        registered = await register_sources_from_json(
+            self.repository, str(pool_path), activate=True,
+        )
+
+        self.assertEqual(len(registered), 100)
+        self.assertEqual(len({canonicalise_source_url(source.base_url) for source in registered}), 100)
+        self.assertTrue(all(not source.active for source in registered))
+        self.assertTrue(all(source.fetch_method == "manual" for source in registered))
+        self.assertTrue(all(
+            source.parser_config["registry_metadata"]["source_url"] == source.base_url
+            for source in registered
+        ))
+
+    async def test_same_source_name_on_another_domain_is_not_overwritten(self):
+        pool_path = Path(__file__).resolve().parents[1] / "sources" / "real-estate-source-pool.json"
+        existing = Source(
+            name="People Daily", base_url="https://peopledaily.digital",
+            source_type="news", trust_tier=2, fetch_method="html",
+            schedule_minutes=60, active=True,
+        )
+        await self.repository.upsert_source(existing)
+
+        registered = await register_sources_from_json(
+            self.repository, str(pool_path), names={"People Daily"},
+        )
+
+        self.assertEqual(registered[0].base_url, "https://pd.co.ke")
+        self.assertEqual((await self.repository.get_source(existing.id)).base_url, "https://peopledaily.digital")
+        self.assertEqual(
+            [source.name for source in await self.repository.list_sources()].count("People Daily"),
+            2,
+        )
 
     async def test_html_discovery_rejects_documents_and_non_article_paths(self):
         collector = SourceCollector(self.repository, Settings())
@@ -611,6 +682,10 @@ class MigrationSafetyTests(unittest.TestCase):
         self.assertIn("add column if not exists image_url", migration)
         latest_index = (Path(__file__).parents[1] / "supabase" / "migrations" / "20260907_000003_property_news_latest_index.sql").read_text(encoding="utf-8").lower()
         self.assertIn("news_items_published_latest_idx", latest_index)
+
+    def test_source_identity_migration_allows_duplicate_display_names(self):
+        migration = (Path(__file__).parents[1] / "supabase" / "migrations" / "20260928_000001_allow_duplicate_source_names.sql").read_text(encoding="utf-8").lower()
+        self.assertIn("drop constraint if exists news_sources_name_key", migration)
 
 
 class StrictPropertyRelevanceTests(unittest.TestCase):
