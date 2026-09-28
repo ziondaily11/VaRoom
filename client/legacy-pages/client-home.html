@@ -555,7 +555,7 @@
     display:flex; width:100%; transition:transform .28s ease;
     will-change:transform;
   }
-  .media-slide{ flex:0 0 100%; width:100%; }
+  .media-slide{ flex:0 0 100%; width:100%; position:relative; }
   .media-slide img{ display:block; width:100%; height:clamp(120px, 15vw, 210px); object-fit:cover; }
   .media-carousel.single-media .media-slide img{ height:clamp(140px, 20vw, 260px); }
   .media-index-pill{
@@ -614,8 +614,11 @@
     width:var(--discover-media-width, calc(100% - var(--discover-content-inset))); max-width:calc(100% - var(--discover-content-inset)); height:var(--discover-media-height, auto); margin-left:var(--discover-content-inset); margin-right:auto;
     position:relative; overflow:hidden; border:0; border-radius:12px; background:transparent;
   }
-  #feed-list.discover-media-feed .media-slide{ height:auto; display:block; }
-  #feed-list.discover-media-feed .media-slide img{ width:100%; height:auto; object-fit:initial; }
+  #feed-list.discover-media-feed .media-slide-track{ height:100%; }
+  #feed-list.discover-media-feed .media-slide{ height:100%; display:block; background:var(--media-stage-fill); }
+  #feed-list.discover-media-feed .media-slide img{ display:block; width:100%; height:100%; object-fit:initial; opacity:0; transition:opacity .2s ease; }
+  #feed-list.discover-media-feed .media-slide img.is-loaded{ opacity:1; }
+  .media-image-skeleton{ position:absolute; inset:0; z-index:1; background:var(--media-stage-fill); }
   #feed-list.discover-media-feed .card-video{ height:auto; background:transparent; }
   #feed-list.discover-media-feed .card-video video,
   #feed-list.discover-media-feed .card-video .varoom-video-player,
@@ -1428,6 +1431,9 @@
       const videoUrl = videoUrlByListing[listing.id] || null;
       const videoThumbnail = videoThumbnailByListing[listing.id] || '';
       const videoState = videoStateByListing[listing.id] || 'unknown';
+      const mediaRenderState = photos.length > 0
+        ? 'photos'
+        : JSON.stringify([videoState, videoUrl, videoThumbnail]);
 
       const initial = (host.full_name || '?').charAt(0).toUpperCase();
       const hostAvatarUrl = resolveAvatarUrl(host.avatar_url);
@@ -1441,7 +1447,7 @@
       if (videoUrl) {
         photosHtml = '<div class="card-video single"><video muted playsinline preload="none" poster="' + escapeHtml(videoThumbnail) + '" src="' + videoUrl + '" data-video-url="' + videoUrl + '" data-listing-id="' + listing.id + '" data-video-host-name="' + escapeHtml(host.full_name || 'Host') + '" data-video-username="' + escapeHtml(host.username ? '@' + host.username : '') + '" data-video-avatar="' + escapeHtml(hostAvatarUrl || '') + '" data-video-caption="' + escapeHtml(listing.description || listing.title) + '"></video></div>';
       } else if (photos.length === 0 && (videoState === 'unknown' || videoState === 'loading')) {
-        photosHtml = '<div class="card-media-loading" role="status" aria-label="Preparing listing media">Preparing media preview…</div>';
+        photosHtml = '<div class="card-media-loading" aria-hidden="true"></div>';
       } else if (photos.length === 0 && videoState === 'unavailable') {
         photosHtml = '<div class="card-media-unavailable" role="status">Video unavailable</div>';
       } else if (photos.length === 0) {
@@ -1449,7 +1455,7 @@
       } else if (photos.length === 1) {
         photosHtml = '<div class="media-carousel single-media" data-listing-id="' + listing.id + '" data-photo-count="1">'
           + '<div class="media-slide-track">'
-          + '<div class="media-slide"><img src="' + photos[0] + '" alt="' + escapeHtml(listing.title) + '" loading="lazy" data-listing-id="' + listing.id + '" data-photo-index="0"></div>'
+          + '<div class="media-slide"><div class="media-image-skeleton skeleton" aria-hidden="true"></div><img src="' + escapeHtml(photos[0]) + '" alt="' + escapeHtml(listing.title) + '" loading="lazy" data-listing-id="' + listing.id + '" data-photo-index="0"></div>'
           + '</div>'
           + '</div>';
       } else {
@@ -1458,14 +1464,14 @@
           + '<button type="button" class="media-carousel-arrow prev" data-carousel-prev aria-label="Previous photo">‹</button>'
           + '<button type="button" class="media-carousel-arrow next" data-carousel-next aria-label="Next photo">›</button>'
           + '<div class="media-slide-track">' + photos.map(function(url, i){
-              return '<div class="media-slide"><img src="' + url + '" alt="' + escapeHtml(listing.title) + '" loading="lazy" data-listing-id="' + listing.id + '" data-photo-index="' + i + '"></div>';
+              return '<div class="media-slide"><div class="media-image-skeleton skeleton" aria-hidden="true"></div><img src="' + escapeHtml(url) + '" alt="' + escapeHtml(listing.title) + '" loading="lazy" data-listing-id="' + listing.id + '" data-photo-index="' + i + '"></div>';
             }).join('') + '</div>'
           + '<div class="media-dots">' + photos.map(function(_, i){ return '<span class="media-dot ' + (i === 0 ? 'active' : '') + '" data-index="' + i + '"></span>'; }).join('') + '</div>'
           + '</div>';
       }
 
       return (
-        '<div class="card" data-listing-id="' + listing.id + '">' +
+        '<div class="card" data-listing-id="' + listing.id + '" data-media-state="' + escapeHtml(mediaRenderState) + '">' +
           '<a class="card-avatar card-avatar-link" href="/host/' + encodeURIComponent(listing.host_id) + '" aria-label="View ' + escapeHtml(host.full_name || 'Host') + '\'s profile">' + avatarHtml + '</a>' +
           '<div class="card-body">' +
             '<div class="card-head">' +
@@ -1576,7 +1582,9 @@
           stage.style.setProperty('--discover-media-width', Math.round(frame.width) + 'px');
         }
         media.filter(Boolean).forEach(function(item){
-          item.addEventListener(item.tagName === 'VIDEO' ? 'loadedmetadata' : 'load', updateHeight);
+          if (item.getAttribute('data-discover-size-listener') === 'true') return;
+          item.setAttribute('data-discover-size-listener', 'true');
+          item.addEventListener(item.tagName === 'VIDEO' ? 'loadedmetadata' : 'load', updateHeight, { once:true });
         });
         updateHeight();
       });
@@ -1591,6 +1599,16 @@
           btn.classList.toggle('saved', saved);
           btn.innerHTML = saved ? (ICON_BOOKMARK_FILLED + 'Saved') : (ICON_BOOKMARK_OUTLINE + 'Save');
         });
+      });
+      container.querySelectorAll('.media-slide img').forEach(function(img){
+        function showLoadedImage(){
+          if (!img.complete || img.naturalWidth <= 0) return;
+          img.classList.add('is-loaded');
+          const skeleton = img.parentElement.querySelector('.media-image-skeleton');
+          if (skeleton) skeleton.remove();
+        }
+        img.addEventListener('load', showLoadedImage, { once:true });
+        if (img.complete && img.naturalWidth > 0) showLoadedImage();
       });
       container.querySelectorAll('.media-slide img[data-listing-id], .card-photos img[data-listing-id]').forEach(function(img){
         img.addEventListener('click', function(){
@@ -1685,7 +1703,6 @@
           openReportModal(btn.getAttribute('data-listing-id'), btn.getAttribute('data-host-id'));
         });
       });
-      sizeDiscoverMediaStages(container);
     }
 
     document.addEventListener('click', function(){
@@ -1950,9 +1967,6 @@
           seen.add(listing.id);
           return true;
         });
-        matches.sort(function(a, b){
-          return new Date(b.created_at) - new Date(a.created_at) || String(b.id).localeCompare(String(a.id));
-        });
         return { data: matches.slice(0, limit), hasMore: false };
       };
     }
@@ -2021,15 +2035,55 @@
         return;
       }
 
-      const cardsHtml = data.map(renderCard);
-      if (isSuspended) cardsHtml.unshift(suspensionNotice());
+      const existingCards = new Map();
+      feedList.querySelectorAll('.card[data-listing-id]').forEach(function(card){
+        existingCards.set(card.getAttribute('data-listing-id'), card);
+      });
+      const fragment = document.createDocumentFragment();
+      function appendMarkup(markup){
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = markup;
+        while (wrapper.firstChild) fragment.appendChild(wrapper.firstChild);
+      }
+      if (isSuspended) appendMarkup(suspensionNotice());
+      data.forEach(function(listing){
+        const id = String(listing.id);
+        let card = existingCards.get(id);
+        const hasPhotos = listing.listing_photos && listing.listing_photos.length > 0;
+        const mediaState = hasPhotos
+          ? 'photos'
+          : JSON.stringify([
+              videoStateByListing[id] || 'unknown',
+              videoUrlByListing[id] || null,
+              videoThumbnailByListing[id] || ''
+            ]);
+        if (card && card.getAttribute('data-media-state') !== mediaState) {
+          existingCards.delete(id);
+          card = null;
+        }
+        if (card) {
+          existingCards.delete(id);
+        } else {
+          const wrapper = document.createElement('div');
+          wrapper.innerHTML = renderCard(listing);
+          card = wrapper.firstElementChild;
+          attachCardListeners(card);
+        }
+        fragment.appendChild(card);
+      });
       const showMobileWidgets = currentView === 'home' && currentCategory === 'all' && !searchTerm.trim() &&
         window.matchMedia('(max-width:1180px)').matches;
-      if (showMobileWidgets) cardsHtml.splice(1, 0, mobileWidgetsBlock());
-      if (loadingMore) cardsHtml.push('<p class="state-msg" id="listing-feed-sentinel">Loading more listings…</p>');
-      else cardsHtml.push('<div id="listing-feed-sentinel" aria-hidden="true"></div>');
-      feedList.innerHTML = cardsHtml.join('');
-      attachCardListeners(feedList);
+      if (showMobileWidgets && fragment.childNodes.length > 0) {
+        const widgetWrapper = document.createElement('div');
+        widgetWrapper.innerHTML = mobileWidgetsBlock();
+        fragment.insertBefore(widgetWrapper.firstElementChild, fragment.childNodes[1]);
+      }
+      appendMarkup(loadingMore
+        ? '<p class="state-msg" id="listing-feed-sentinel">Loading more listings…</p>'
+        : '<div id="listing-feed-sentinel" aria-hidden="true"></div>');
+      feedList.innerHTML = '';
+      feedList.appendChild(fragment);
+      sizeDiscoverMediaStages(feedList);
       // Metadata/playback is requested only for cards near this scrollable feed,
       // never for every rendered listing at once.
       observeDiscoverMedia(feedList);
