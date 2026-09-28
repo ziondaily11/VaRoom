@@ -20,6 +20,20 @@ def canonicalise_url(url: str) -> str:
     return urlunsplit((parts.scheme.lower(), parts.netloc.lower(), path, urlencode(sorted(query)), ""))
 
 
+def canonicalise_source_url(url: str) -> str:
+    """Normalise a source URL for registry matching, independent of scheme and www."""
+    parts = urlsplit(url.strip())
+    hostname = (parts.hostname or "").lower().rstrip(".")
+    if hostname.startswith("www."):
+        hostname = hostname[4:]
+    port = parts.port
+    if port and not ((parts.scheme.lower() == "http" and port == 80)
+                     or (parts.scheme.lower() == "https" and port == 443)):
+        hostname = f"{hostname}:{port}"
+    path = re.sub(r"/{2,}", "/", parts.path or "/").rstrip("/")
+    return f"{hostname}{path}"
+
+
 def clean_html(value: str) -> str:
     without_scripts = re.sub(r"<(script|style|noscript)[^>]*>.*?</\1>", " ", value, flags=re.I | re.S)
     text = re.sub(r"<[^>]+>", " ", without_scripts)
