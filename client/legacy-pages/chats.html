@@ -192,6 +192,38 @@ push    min-height:0;
     padding:24px 28px;
     display:flex; flex-direction:column; gap:20px;
   }
+  .pinned-message{
+    display:flex; align-items:center; gap:9px; flex-shrink:0;
+    min-height:38px; padding:8px 28px; border-bottom:1px solid var(--border);
+    color:var(--text-gray-2); font-size:12px; line-height:1.35;
+  }
+  .pinned-message[hidden]{ display:none; }
+  .pinned-message .icon{ flex-shrink:0; color:var(--mint-dark); }
+  .pinned-message span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .chat-message-menu{
+    position:fixed; z-index:30; min-width:190px; padding:5px;
+    border:1px solid var(--border); border-radius:10px; background:var(--white);
+    box-shadow:0 8px 24px rgba(20,22,28,.18); color:var(--text-dark);
+  }
+  .chat-message-menu button{
+    display:flex; align-items:center; gap:9px; width:100%; padding:9px 10px;
+    border:0; border-radius:7px; background:transparent; color:inherit;
+    font:inherit; font-size:12.5px; text-align:left; cursor:pointer;
+  }
+  .chat-message-menu button:hover{ background:var(--bg-soft); }
+  .chat-message-menu .icon{ width:15px; height:15px; flex-shrink:0; }
+  .message-reply-reference{
+    margin-bottom:6px; padding-left:8px; border-left:2px solid currentColor;
+    opacity:.76; font-size:11px; line-height:1.35;
+  }
+  .message-reply-reference strong{ display:block; font-size:10px; }
+  .message-reply-reference span{ display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .msg-deleted{ color:var(--text-gray-2); }
+  .msg-deleted .bubble{ display:flex; align-items:center; gap:7px; font-style:italic; }
+  .msg-deleted .icon{ width:14px; height:14px; flex-shrink:0; }
+  [data-theme="dark"] .pinned-message{ border-color:var(--border); color:var(--text-gray); }
+  [data-theme="dark"] .chat-message-menu{ background:#171313; border-color:var(--border); color:var(--text-dark); }
+  [data-theme="dark"] .chat-message-menu button:hover{ background:#242020; }
   .inbox-skeleton{ display:flex; align-items:center; gap:12px; min-height:68px; padding:10px 8px; }
   .inbox-skeleton-avatar,.inbox-skeleton-line{ background:var(--bg-soft); animation:chat-skeleton-pulse 1.25s ease-in-out infinite; }
   .inbox-skeleton-avatar{ width:44px; height:44px; flex-shrink:0; border-radius:50%; }
@@ -1005,6 +1037,9 @@ push    min-height:0;
   <symbol id="i-panel" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M14.5 4.5v15"/></symbol>
   <symbol id="i-chevron-left" viewBox="0 0 24 24"><path d="M15 5 8 12l7 7"/></symbol>
   <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="m16 3 5 5-4 1-4 4v5l-2 2-2-6-6-2 2-2h5l4-4z"/><path d="m9 15-5 5"/></symbol>
+  <symbol id="i-reply" viewBox="0 0 24 24"><path d="M9 10 4 14l5 4v-3c6 0 8 2 10 5-1-6-4-10-10-10z"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 14h12l1-14M9 7V4h6v3"/></symbol>
 </defs>
 </svg>
 
@@ -1090,6 +1125,9 @@ push    min-height:0;
       </div>
     </header>
 
+    <div class="pinned-message" id="pinnedMessage" aria-live="polite" hidden>
+      <svg class="icon" aria-hidden="true"><use href="#i-pin"/></svg><span></span>
+    </div>
     <div class="messages"></div>
 
     <div class="chat-input-area">
