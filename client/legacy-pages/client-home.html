@@ -596,6 +596,15 @@
   .host-video-upload input{ display:none; }
   .photo-placeholder{ grid-column:1 / -1; height:clamp(120px, 15vw, 210px); border-radius:12px; background:linear-gradient(135deg, var(--red) 0%, var(--red-deep) 100%); display:flex; align-items:center; justify-content:center; color:rgba(255,255,255,.85); font-size:.85rem; font-weight:600; }
   .card-media-empty{ grid-column:1 / -1; height:clamp(120px, 15vw, 210px); border-radius:12px; background:var(--line-soft); border:1px solid var(--line); }
+  .card-media-loading,.card-media-unavailable{
+    grid-column:1 / -1; height:clamp(120px, 15vw, 210px); border-radius:12px;
+    background:var(--media-stage-fill); border:1px solid var(--line); color:var(--muted);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.5rem;
+    font-size:.82rem; font-weight:600;
+  }
+  .card-media-loading::before{ content:''; width:20px; height:20px; border:2px solid var(--line); border-top-color:var(--red); border-radius:50%; animation:discover-media-spin .8s linear infinite; }
+  .card-media-unavailable{ color:var(--muted); }
+  @keyframes discover-media-spin{ to{ transform:rotate(360deg); } }
 
   /* Discover keeps the entire original photo/video frame within this bounded,
      warm paper stage. --discover-media-height is refined from source metadata. */
@@ -619,6 +628,10 @@
   #feed-list.discover-media-feed .card-media-empty{
     height:var(--discover-media-height, clamp(260px, 45vw, 460px));
     border-radius:12px; background:var(--media-stage-fill); border:1px solid var(--line);
+  }
+  #feed-list.discover-media-feed .card-media-loading,
+  #feed-list.discover-media-feed .card-media-unavailable{
+    height:var(--discover-media-height, clamp(260px, 45vw, 460px)); margin-left:var(--discover-content-inset); width:var(--discover-media-width, 100%);
   }
   .badge-row{ display:flex; flex-wrap:wrap; gap:.5rem; margin-bottom:.7rem; }
 
@@ -1303,6 +1316,11 @@
     const videoUrlByListing = {};
     const videoThumbnailByListing = {};
     const videoLookupByListing = {};
+    const videoStateByListing = {};
+    const videoMediaIdByListing = {};
+    let discoverMediaObserver = null;
+    let pendingVideoMetadata = new Set();
+    let videoMetadataTimer = null;
 
     const ICON_BOOK = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="2"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>';
     const ICON_CHAT = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z"/></svg>';
@@ -1314,51 +1332,77 @@
       return session && session.access_token ? session.access_token : null;
     }
 
-    async function loadListingVideoUrls(listingIds){
-      if (!listingIds.length) return false;
+    async function loadListingVideoPlayback(listingId){
+      if (videoLookupByListing[listingId]) return videoLookupByListing[listingId];
       const token = await getAuthToken();
-      const results = await Promise.all(listingIds.map(function(listingId){
-        // A cached lookup has already updated this render tree. Returning
-        // false prevents a later cache render from recursively re-rendering
-        // the same cards forever just because a video exists.
-        if (videoLookupByListing[listingId]) return Promise.resolve(false);
-        videoLookupByListing[listingId] = window.VaRoomDataCache.get(
-          'account:' + currentUser.id + ':role:client:listing-video:' + listingId,
-          async function(){
+      videoLookupByListing[listingId] = window.VaRoomDataCache.get(
+        'account:' + currentUser.id + ':role:client:listing-video:' + listingId,
+        async function(){
         try {
-          const response = await fetch('/api/properties/' + encodeURIComponent(listingId) + '/media', {
+          const playbackRes = await fetch('/api/media/' + encodeURIComponent(videoMediaIdByListing[listingId]) + '/playback', {
             headers: token ? { Authorization: 'Bearer ' + token } : {}
           });
-          if (response.status === 403 || response.status === 404) return null;
-          if (!response.ok) return null;
-          const payload = await response.json();
-          const media = Array.isArray(payload.media) ? payload.media : [];
-          const videoItems = media.filter(function(item){ return item && item.type === 'video'; });
-          if (!videoItems.length) return null;
-          const mediaId = videoItems[0].id;
-          const playbackRes = await fetch('/api/media/' + encodeURIComponent(mediaId) + '/playback', {
-            headers: token ? { Authorization: 'Bearer ' + token } : {}
-          });
-          if (playbackRes.status === 403 || playbackRes.status === 404) return null;
+          if (!playbackRes.ok) return null;
           const playback = await playbackRes.json();
-          if (playback && playback.url) {
-            return { url: playback.url, thumbnailUrl: playback.thumbnailUrl || null };
-          }
+          return playback && playback.url ? { url: playback.url, thumbnailUrl: playback.thumbnailUrl || null } : null;
         } catch (error) {
-          // Ignore transient media-load failures for unavailable listings.
+          return null;
         }
-        return null;
-          },
-          { ttl: 5 * 60 * 1000 }
-        ).then(function(video){
-          if (!video || !video.url || videoUrlByListing[listingId] === video.url) return false;
+        }, { ttl: 5 * 60 * 1000 }
+      ).then(function(video){
+        if (video && video.url) {
           videoUrlByListing[listingId] = video.url;
           videoThumbnailByListing[listingId] = video.thumbnailUrl || null;
-          return true;
+          videoStateByListing[listingId] = 'ready';
+        } else videoStateByListing[listingId] = 'unavailable';
+      });
+      return videoLookupByListing[listingId];
+    }
+
+    function queueVisibleVideoMetadata(listingId){
+      if (videoStateByListing[listingId] && videoStateByListing[listingId] !== 'unknown') return;
+      videoStateByListing[listingId] = 'loading';
+      pendingVideoMetadata.add(listingId);
+      if (videoMetadataTimer) return;
+      videoMetadataTimer = window.setTimeout(async function(){
+        const ids = Array.from(pendingVideoMetadata); pendingVideoMetadata.clear(); videoMetadataTimer = null;
+        try {
+          const response = await fetch('/api/discover/video-media?listingIds=' + encodeURIComponent(ids.join(',')));
+          if (!response.ok) throw new Error('media lookup failed');
+          const payload = await response.json();
+          const found = payload.videoMedia || {};
+          await Promise.all(ids.map(function(id){
+            if (!found[id]) { videoStateByListing[id] = 'no-media'; return null; }
+            videoMediaIdByListing[id] = found[id];
+            return loadListingVideoPlayback(id);
+          }));
+        } catch (error) {
+          ids.forEach(function(id){ videoStateByListing[id] = 'unavailable'; });
+        }
+        if (activeFeedKey) renderFeedFromCache({ key: activeFeedKey, preserve: true });
+      }, 60);
+    }
+
+    function observeDiscoverMedia(container){
+      if (discoverMediaObserver) discoverMediaObserver.disconnect();
+      const cards = container.querySelectorAll('.card[data-listing-id]');
+      if (!cards.length) return;
+      const root = document.querySelector('.feed-area');
+      if (!('IntersectionObserver' in window)) {
+        cards.forEach(function(card){ queueVisibleVideoMetadata(card.getAttribute('data-listing-id')); });
+        return;
+      }
+      discoverMediaObserver = new IntersectionObserver(function(entries){
+        entries.forEach(function(entry){
+          if (!entry.isIntersecting) return;
+          discoverMediaObserver.unobserve(entry.target);
+          queueVisibleVideoMetadata(entry.target.getAttribute('data-listing-id'));
         });
-        return videoLookupByListing[listingId];
-      }));
-      return results.some(Boolean);
+      }, { root: root, rootMargin: '350px 0px', threshold: .01 });
+      cards.forEach(function(card){
+        const id = card.getAttribute('data-listing-id');
+        if (!videoStateByListing[id] || videoStateByListing[id] === 'unknown') discoverMediaObserver.observe(card);
+      });
     }
 
     function renderCard(listing){
@@ -1368,6 +1412,7 @@
       });
       const videoUrl = videoUrlByListing[listing.id] || null;
       const videoThumbnail = videoThumbnailByListing[listing.id] || '';
+      const videoState = videoStateByListing[listing.id] || 'unknown';
 
       const initial = (host.full_name || '?').charAt(0).toUpperCase();
       const hostAvatarUrl = resolveAvatarUrl(host.avatar_url);
@@ -1380,6 +1425,10 @@
       let photosHtml = '';
       if (videoUrl) {
         photosHtml = '<div class="card-video single"><video muted playsinline preload="none" poster="' + escapeHtml(videoThumbnail) + '" src="' + videoUrl + '" data-video-url="' + videoUrl + '" data-listing-id="' + listing.id + '" data-video-host-name="' + escapeHtml(host.full_name || 'Host') + '" data-video-username="' + escapeHtml(host.username ? '@' + host.username : '') + '" data-video-avatar="' + escapeHtml(hostAvatarUrl || '') + '" data-video-caption="' + escapeHtml(listing.description || listing.title) + '"></video></div>';
+      } else if (photos.length === 0 && (videoState === 'unknown' || videoState === 'loading')) {
+        photosHtml = '<div class="card-media-loading" role="status" aria-label="Preparing listing media">Preparing media preview…</div>';
+      } else if (photos.length === 0 && videoState === 'unavailable') {
+        photosHtml = '<div class="card-media-unavailable" role="status">Video unavailable</div>';
       } else if (photos.length === 0) {
         photosHtml = '<div class="card-photos card-media-empty" role="img" aria-label="No media available for this listing"></div>';
       } else if (photos.length === 1) {
@@ -1401,7 +1450,7 @@
       }
 
       return (
-        '<div class="card">' +
+        '<div class="card" data-listing-id="' + listing.id + '">' +
           '<a class="card-avatar card-avatar-link" href="/host/' + encodeURIComponent(listing.host_id) + '" aria-label="View ' + escapeHtml(host.full_name || 'Host') + '\'s profile">' + avatarHtml + '</a>' +
           '<div class="card-body">' +
             '<div class="card-head">' +
@@ -1966,25 +2015,16 @@
       else cardsHtml.push('<div id="listing-feed-sentinel" aria-hidden="true"></div>');
       feedList.innerHTML = cardsHtml.join('');
       attachCardListeners(feedList);
+      // Metadata/playback is requested only for cards near this scrollable feed,
+      // never for every rendered listing at once.
+      observeDiscoverMedia(feedList);
       observeFeedEnd();
       if (showMobileWidgets) {
         loadRecommended();
         loadVaroomUpdates('varoom-updates-mobile');
       }
 
-      // Listing records appear immediately; optional video metadata can fill
-      // in afterwards without holding the feed behind a second request chain.
-      loadListingVideoUrls(data.map(function(listing){ return listing.id; })).then(function(changed){
-        if (changed && activeFeedKey === options.key && !loadingMore) renderFeedFromCache({ key: activeFeedKey, preserve: true });
-      });
       if (options.preserve) saveFeedScrollPosition();
-    }
-
-    function prefetchOnePage(key, fetcher){
-      window.setTimeout(function(){
-        if (activeFeedKey !== key || document.visibilityState === 'hidden') return;
-        window.VaRoomListingFeedCache.prefetchNext(key, fetcher).catch(function(){});
-      }, 350);
     }
 
     async function loadMoreListings(){
@@ -1993,7 +2033,6 @@
       if (visibleListingCount < snapshot.items.length) {
         visibleListingCount = Math.min(visibleListingCount + FEED_PAGE_SIZE, snapshot.items.length);
         renderFeedFromCache({ key: activeFeedKey, preserve: true });
-        prefetchOnePage(activeFeedKey, activeFeedFetcher);
         return;
       }
       if (!snapshot.hasMore) return;
@@ -2005,7 +2044,6 @@
         visibleListingCount = Math.min(visibleListingCount + FEED_PAGE_SIZE, snapshot.items.length);
         loadingMore = false;
         renderFeedFromCache({ key: activeFeedKey, preserve: true });
-        prefetchOnePage(activeFeedKey, activeFeedFetcher);
       } catch (error) {
         loadingMore = false;
         renderFeedFromCache({ key: activeFeedKey, preserve: true });
@@ -2046,7 +2084,6 @@
         if (activeFeedKey !== key || version !== feedLoadVersion) return;
         visibleListingCount = Math.min(FEED_PAGE_SIZE, snapshot.items.length);
         renderFeedFromCache({ key: key });
-        prefetchOnePage(key, fetcher);
       } catch (error) {
         if (activeFeedKey === key && version === feedLoadVersion) {
           feedList.innerHTML = '<p class="state-msg">Couldn\'t load listings: ' + escapeHtml(error.message) + '</p>';

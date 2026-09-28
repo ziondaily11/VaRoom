@@ -10,6 +10,41 @@ const router = express.Router();
 const STATUSES = new Set(['available', 'booked', 'unavailable', 'paused']);
 const CATEGORIES = ['airbnb', 'hotel', 'venue', 'office', 'shop', 'property'];
 
+// Discover asks for this only for cards entering the viewport.  Returning the
+// first ready video id in one bounded query avoids one `/media` lookup per
+// listing; playback URLs remain protected by the existing playback route.
+router.get('/discover/video-media', async (req, res) => {
+  const rawIds = String(req.query.listingIds || '').split(',').filter(Boolean);
+  if (!rawIds.length || rawIds.length > 24) return res.status(400).json({ error: 'Invalid listing ids' });
+  try {
+    rawIds.forEach((id) => uuid(id, 'listing id'));
+  } catch (error) {
+    return res.status(400).json({ error: 'Invalid listing ids' });
+  }
+
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('property_media')
+      .select('id,property_id,sort_order')
+      .in('property_id', rawIds)
+      .eq('media_type', 'video')
+      .eq('visibility', 'public')
+      .eq('status', 'ready')
+      .is('deleted_at', null)
+      .order('sort_order', { ascending: true });
+    if (error) throw error;
+
+    const videoMedia = {};
+    (data || []).forEach((media) => {
+      if (!videoMedia[media.property_id]) videoMedia[media.property_id] = media.id;
+    });
+    return res.json({ videoMedia });
+  } catch (error) {
+    console.error('Discover video media lookup failed:', error);
+    return res.status(500).json({ error: 'Unable to load video media' });
+  }
+});
+
 function normalizeNiches(niches) {
   if (!Array.isArray(niches) || niches.length !== 1) {
     throw new ValidationError('Hosts must choose exactly one posting niche');
