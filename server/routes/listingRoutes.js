@@ -160,7 +160,13 @@ router.post('/listings', async (req, res) => {
       // `description` remains the short Discover caption for compatibility
       // with existing listings and card queries.
       description: text(req.body.description, 'description', { max: 10000 }),
-      property_description: text(req.body.property_description, 'property_description', { max: 10000 }),
+      // A dining-only hotel does not have accommodation details. Keep the
+      // column optional for that capability while stay and all other listing
+      // modes retain the existing required description contract.
+      property_description: text(req.body.property_description, 'property_description', {
+        required: !(category === 'hotel' && req.body.supports_stay === false),
+        max: 10000,
+      }) || null,
       category,
       location_text: text(req.body.location_text, 'location_text', { max: 300 }),
       verified: false,
