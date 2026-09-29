@@ -429,7 +429,7 @@
           </button>
           <div>
             <h1>Notifications</h1>
-            <p id="notif-subtitle">You have 6 new notifications</p>
+            <p id="notif-subtitle"></p>
           </div>
         </div>
         <div class="header-actions">
@@ -444,8 +444,8 @@
 
       <div class="toolbar">
         <div class="tabs">
-          <button class="tab active" data-filter="all">All (6)</button>
-          <button class="tab" data-filter="booking">Bookings (2)</button>
+          <button class="tab active" data-filter="all">All</button>
+          <button class="tab" data-filter="booking">Bookings</button>
         </div>
         <div class="toolbar-search">
           <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
@@ -453,139 +453,14 @@
         </div>
       </div>
 
-      <!-- TODAY -->
       <div class="section">
-        <p class="section-title">Today</p>
-        <div class="card-list">
-
-          <div class="notif-card" data-category="booking">
-            <div class="notif-icon tint-red">
-              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="m9 16 2 2 4-4"/></svg>
-            </div>
-            <div class="notif-body">
-              <div class="notif-top">
-                <span class="notif-title">New booking request</span>
-                <span class="tag booking">Booking</span>
-              </div>
-              <p class="notif-desc">Wanjiku K. wants to book Riverside Loft for 3 nights, Sep 18–21.</p>
-              <div class="notif-actions" data-actions>
-                <button class="action-btn primary" onclick="resolveCard(this,'Accepted')">Accept</button>
-                <button class="action-btn ghost-red" onclick="resolveCard(this,'Declined')">Decline</button>
-              </div>
-            </div>
-            <div class="notif-meta">
-              <span class="notif-time">15 min ago</span>
-              <span class="dot"></span>
-            </div>
-          </div>
-
-          <div class="notif-card" data-category="payment">
-            <div class="notif-icon tint-green">
-              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
-            </div>
-            <div class="notif-body">
-              <div class="notif-top">
-                <span class="notif-title">Payment received</span>
-                <span class="tag payment">Payment</span>
-              </div>
-              <p class="notif-desc">You received KES 12,500 for booking #VR-2291.</p>
-              <div class="notif-actions" data-actions>
-                <button class="action-btn" onclick="resolveCard(this,'Viewed')">View details</button>
-              </div>
-            </div>
-            <div class="notif-meta">
-              <span class="notif-time">8:30 AM</span>
-              <span class="dot"></span>
-            </div>
-          </div>
-
-          <div class="notif-card" data-category="alert">
-            <div class="notif-icon tint-red">
-              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m10.3 3.9-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3.1l-8-14a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg>
-            </div>
-            <div class="notif-body">
-              <div class="notif-top">
-                <span class="notif-title">Listing photo flagged</span>
-                <span class="tag alert">Alert</span>
-              </div>
-              <p class="notif-desc">Karura Garden Studio has 1 photo pending review before it can go live.</p>
-              <div class="notif-actions" data-actions>
-                <button class="action-btn primary" onclick="resolveCard(this,'Fixed')">Fix now</button>
-              </div>
-            </div>
-            <div class="notif-meta">
-              <span class="notif-time">1:30 AM</span>
-              <span class="dot"></span>
-            </div>
-          </div>
-
-          </div>
-        </div>
+        <p class="section-title"></p>
+        <div class="card-list"></div>
       </div>
 
-      <!-- YESTERDAY -->
       <div class="section">
-        <p class="section-title">Yesterday</p>
-        <div class="card-list">
-
-          <div class="notif-card" data-category="booking">
-            <div class="notif-icon tint-black">
-              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-            </div>
-            <div class="notif-body">
-              <div class="notif-top">
-                <span class="notif-title">Guest checked out</span>
-                <span class="tag booking">Booking</span>
-              </div>
-              <p class="notif-desc">Checkout is complete for Kilimani Studio. Leave a review to boost your ranking.</p>
-              <div class="notif-actions" data-actions>
-                <button class="action-btn primary" onclick="resolveCard(this,'Reviewed')">Leave review</button>
-              </div>
-            </div>
-            <div class="notif-meta">
-              <span class="notif-time">Yesterday</span>
-            </div>
-          </div>
-
-          <div class="notif-card" data-category="reminder">
-            <div class="notif-icon tint-amber">
-              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-9 8.4 8.5 8.5 0 0 1-4-1L3 20l1.3-3.9a8.5 8.5 0 1 1 16.7-4.6Z"/></svg>
-            </div>
-            <div class="notif-body">
-              <div class="notif-top">
-                <span class="notif-title">You haven't replied</span>
-                <span class="tag reminder">Reminder</span>
-              </div>
-              <p class="notif-desc">David M. is waiting on your reply about Lavington Apartment before the offer expires.</p>
-              <div class="notif-actions" data-actions>
-                <button class="action-btn primary" onclick="resolveCard(this,'Replied')">Reply now</button>
-              </div>
-            </div>
-            <div class="notif-meta">
-              <span class="notif-time">Yesterday</span>
-            </div>
-          </div>
-
-          <div class="notif-card" data-category="review">
-            <div class="notif-icon tint-black">
-              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1Z"/></svg>
-            </div>
-            <div class="notif-body">
-              <div class="notif-top">
-                <span class="notif-title">New 5-star review</span>
-                <span class="tag review">Review</span>
-              </div>
-              <p class="notif-desc">Amara left a 5-star review for Two Bedroom Villa – Karen.</p>
-              <div class="notif-actions" data-actions>
-                <button class="action-btn" onclick="resolveCard(this,'Viewed')">View details</button>
-              </div>
-            </div>
-            <div class="notif-meta">
-              <span class="notif-time">Yesterday</span>
-            </div>
-          </div>
-
-        </div>
+        <p class="section-title"></p>
+        <div class="card-list"></div>
       </div>
 
       </div>
