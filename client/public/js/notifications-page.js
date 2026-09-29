@@ -7,9 +7,12 @@
   var currentRole = 'client';
   var markAllReadIcon = '<svg class="icon" viewBox="0 0 28 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 12 4 4 8-9"/></svg>';
   var allReadIcon = '<svg class="icon mark-all-read-complete-icon" viewBox="0 0 32 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 12 4 4 8-9"/><path d="m14 12 4 4 8-9"/></svg>';
-  document.querySelectorAll('.card-list').forEach(function (list) {
-    list.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--text-muted);">Loading notifications...</div>';
-  });
+
+  function finishInitialLoad() {
+    document.body.classList.remove('notifications-loading');
+    document.querySelector('.notifications-skeleton').setAttribute('aria-hidden', 'true');
+    document.querySelector('.notifications-content').setAttribute('aria-hidden', 'false');
+  }
 
   var icons = {
     approved: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4L19 6"/></svg>',
@@ -240,10 +243,12 @@
       .order('created_at', { ascending: false }).limit(100);
     if (result.error) {
       showState('Unable to load notifications. Please refresh and try again.');
+      finishInitialLoad();
       return;
     }
     notifications = result.data || [];
     render();
+    finishInitialLoad();
   }
 
   (async function () {
@@ -263,6 +268,7 @@
     var profile = profileResult.data || { role: 'client' };
     var role = profile.role === 'host' ? 'host' : 'client';
     currentRole = role;
+    document.documentElement.setAttribute('data-account-role', role);
     if (window.VaroomSidebar) {
       window.VaroomSidebar.mount({
         container: document.getElementById('sidebar'),

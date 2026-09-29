@@ -192,6 +192,63 @@ push    min-height:0;
     padding:24px 28px;
     display:flex; flex-direction:column; gap:20px;
   }
+  .pinned-message{
+    display:flex; align-items:center; gap:9px; flex-shrink:0;
+    min-height:38px; padding:8px 28px; border-bottom:1px solid var(--border);
+    color:var(--text-gray-2); font-size:12px; line-height:1.35;
+  }
+  .pinned-message[hidden]{ display:none; }
+  .pinned-message .icon{ flex-shrink:0; color:var(--mint-dark); }
+  .pinned-message span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .chat-message-menu{
+    position:fixed; z-index:30; min-width:190px; padding:5px;
+    border:1px solid var(--border); border-radius:10px; background:var(--white);
+    box-shadow:0 8px 24px rgba(20,22,28,.18); color:var(--text-dark);
+  }
+  .chat-message-menu button{
+    display:flex; align-items:center; gap:9px; width:100%; padding:9px 10px;
+    border:0; border-radius:7px; background:transparent; color:inherit;
+    font:inherit; font-size:12.5px; text-align:left; cursor:pointer;
+  }
+  .chat-message-menu button:hover{ background:var(--bg-soft); }
+  .chat-message-menu .icon{ width:15px; height:15px; flex-shrink:0; }
+  .message-reply-reference{
+    margin-bottom:8px; padding:0 0 6px 8px; border-left:2px solid currentColor;
+    border-bottom:1px solid currentColor;
+    opacity:.76; font-size:11px; line-height:1.35;
+    cursor:pointer;
+  }
+  .message-reply-reference strong{ display:block; font-size:10px; }
+  .message-reply-reference span{
+    display:-webkit-box; overflow:hidden; overflow-wrap:anywhere;
+    -webkit-box-orient:vertical; -webkit-line-clamp:2;
+    line-height:1.35; max-height:2.7em;
+  }
+  .message-reply-reference:focus-visible,
+  .composer-reply-preview:focus-visible{ outline:2px solid var(--mint); outline-offset:2px; }
+  .composer-reply-preview{
+    max-width:100%; margin:0 0 10px; padding:0 0 6px 8px;
+    border-left:2px solid var(--mint-dark); border-bottom:1px solid var(--border);
+    color:var(--text-gray-2); font-size:11px; line-height:1.35; cursor:pointer;
+  }
+  .composer-reply-preview strong{ display:block; font-size:10px; }
+  .composer-reply-preview span{
+    display:-webkit-box; overflow:hidden; overflow-wrap:anywhere;
+    -webkit-box-orient:vertical; -webkit-line-clamp:2;
+    line-height:1.35; max-height:2.7em;
+  }
+  .composer-reply-preview[hidden]{ display:none; }
+  .msg-row.reply-target-highlight .bubble{ animation:reply-target-highlight 1.6s ease-out; }
+  @keyframes reply-target-highlight{
+    0%,35%{ box-shadow:0 0 0 3px var(--mint); }
+    100%{ box-shadow:0 0 0 0 transparent; }
+  }
+  .msg-deleted{ color:var(--text-gray-2); }
+  .msg-deleted .bubble{ display:flex; align-items:center; gap:7px; font-style:italic; }
+  .msg-deleted .icon{ width:14px; height:14px; flex-shrink:0; }
+  [data-theme="dark"] .pinned-message{ border-color:var(--border); color:var(--text-gray); }
+  [data-theme="dark"] .chat-message-menu{ background:#171313; border-color:var(--border); color:var(--text-dark); }
+  [data-theme="dark"] .chat-message-menu button:hover{ background:#242020; }
   .inbox-skeleton{ display:flex; align-items:center; gap:12px; min-height:68px; padding:10px 8px; }
   .inbox-skeleton-avatar,.inbox-skeleton-line{ background:var(--bg-soft); animation:chat-skeleton-pulse 1.25s ease-in-out infinite; }
   .inbox-skeleton-avatar{ width:44px; height:44px; flex-shrink:0; border-radius:50%; }
@@ -552,14 +609,15 @@ push    min-height:0;
     .voice-wave span{ background:#1c1c1e; }
 
     /* ---------- MOBILE COMPOSER (WhatsApp-style interaction) ----------
-       Row 1: notice   Row 2: attachment tray   Row 3: [ sticker | text | clip ]  (send)
+       Row 1: notice   Row 2: reply preview   Row 3: attachment tray
+       Row 4: [ sticker | text | clip ]  (send)
        The rounded "pill" is drawn by ::before behind columns 1-3, so the
        existing desktop markup order is untouched.                              */
     .chat-input-area{
       position:relative;
       display:grid;
       grid-template-columns:40px minmax(0,1fr) 40px 52px;
-      grid-template-rows:auto auto auto;
+      grid-template-rows:auto auto auto auto;
       align-items:end;
       column-gap:0;
       flex:0 0 auto;
@@ -572,7 +630,7 @@ push    min-height:0;
     .app-shell.kb-open .chat-input-area{ padding-bottom:8px; }
 
     .chat-input-area::before{
-      content:""; grid-column:1 / 4; grid-row:3; align-self:stretch; z-index:0;
+      content:""; grid-column:1 / 4; grid-row:4; align-self:stretch; z-index:0;
       background:#ffffff; border:1px solid var(--border); border-radius:24px;
       box-shadow:0 1px 2px rgba(20,22,28,.05);
       pointer-events:none; transition:border-color .15s;
@@ -580,7 +638,7 @@ push    min-height:0;
     .chat-input-area:focus-within::before{ border-color:var(--mint); }
 
     .chat-input-area textarea{
-      grid-column:2; grid-row:3; align-self:end; z-index:1;
+      grid-column:2; grid-row:4; align-self:end; z-index:1;
       width:100%; min-width:0; min-height:44px; height:44px; max-height:min(132px,30dvh);
       padding:11px 0; margin:0; border:0; outline:none; resize:none;
       background:transparent; color:#1c1c1e;
@@ -605,15 +663,15 @@ push    min-height:0;
       background:transparent; color:var(--text-gray-2); font-size:21px; cursor:pointer;
       -webkit-tap-highlight-color:transparent; touch-action:manipulation;
     }
-    .attach-icons .mobile-plus{ grid-column:1; grid-row:3; align-self:end; }
-    .attach-icons .mobile-attach{ grid-column:3; grid-row:3; align-self:end; }
+    .attach-icons .mobile-plus{ grid-column:1; grid-row:4; align-self:end; }
+    .attach-icons .mobile-attach{ grid-column:3; grid-row:4; align-self:end; }
     .attach-icons .mobile-plus:active,
     .attach-icons .mobile-attach:active,
     .attach-icons .mobile-attach[aria-expanded="true"]{ color:var(--mint-dark); }
 
     .attach-icons .send-message{
       display:flex; align-items:center; justify-content:center;
-      grid-column:4; grid-row:3; justify-self:end; align-self:end;
+      grid-column:4; grid-row:4; justify-self:end; align-self:end;
       width:44px; height:44px; padding:0; border:0; border-radius:50%;
       background:#e6e8eb; color:#9aa0ab; font-size:19px; cursor:default;
       transition:background .15s,color .15s,transform .1s;
@@ -632,10 +690,11 @@ push    min-height:0;
       background:#fff4e0; color:#8a5a00; font-size:12.5px; font-weight:600; line-height:1.35;
     }
     .composer-note[hidden]{ display:none; }
+    .composer-reply-preview{ grid-column:1 / -1; grid-row:2; margin:0 0 8px; }
 
     /* pending attachments */
     .composer-tray{
-      grid-column:1 / -1; grid-row:2; min-width:0;
+      grid-column:1 / -1; grid-row:3; min-width:0;
       display:flex; gap:8px; overflow-x:auto; overflow-y:hidden;
       padding:2px 2px 10px; margin:0;
       -webkit-overflow-scrolling:touch; scrollbar-width:none;
@@ -928,13 +987,37 @@ push    min-height:0;
     [data-theme="dark"] .messages .msg-row.in .bubble { background:#171313 !important; color:var(--text-dark) !important; }
     [data-theme="dark"] .messages .msg-row.out .bubble { background:#2563EB !important; color:#fff !important; }
   }
-  .messages,
-  [data-theme="dark"] .messages{
-    background-image:url("/assets/chatbackground.png") !important;
+  [data-theme="dark"] .chat-col,
+  [data-theme="dark"] .chat-col.mobile-visible,
+  html:not([data-theme="dark"]) .chat-col{
     background-repeat:repeat !important;
     background-position:left top !important;
     background-size:min(100%, 414px) auto !important;
     background-attachment:scroll !important;
+  }
+  [data-theme="dark"] .chat-col,
+  [data-theme="dark"] .chat-col.mobile-visible{
+    background-color:#0F0D0D !important;
+    background-image:url("/assets/chatbackground.png") !important;
+  }
+  html:not([data-theme="dark"]) .chat-col{
+    background-color:var(--white) !important;
+    background-image:url("/assets/chatbackground-light.png") !important;
+  }
+  html:not([data-theme="dark"]) .chat-header{
+    background-color:var(--white) !important;
+  }
+  [data-theme="dark"] .messages,
+  html:not([data-theme="dark"]) .messages,
+  [data-theme="dark"] .chat-input-area,
+  html:not([data-theme="dark"]) .chat-input-area{
+    background-color:transparent !important;
+    background-image:none !important;
+  }
+  [data-theme="dark"] .chat-input-area::before,
+  html:not([data-theme="dark"]) .chat-input-area::before{
+    background-color:transparent !important;
+    background-image:none !important;
   }
 </style>
 </head>
@@ -981,6 +1064,9 @@ push    min-height:0;
   <symbol id="i-panel" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M14.5 4.5v15"/></symbol>
   <symbol id="i-chevron-left" viewBox="0 0 24 24"><path d="M15 5 8 12l7 7"/></symbol>
   <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="m16 3 5 5-4 1-4 4v5l-2 2-2-6-6-2 2-2h5l4-4z"/><path d="m9 15-5 5"/></symbol>
+  <symbol id="i-reply" viewBox="0 0 24 24"><path d="M9 10 4 14l5 4v-3c6 0 8 2 10 5-1-6-4-10-10-10z"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 14h12l1-14M9 7V4h6v3"/></symbol>
 </defs>
 </svg>
 
@@ -1002,7 +1088,7 @@ push    min-height:0;
         ['Home', '/host-home', 'i-home'], ['Marketplace', '/marketplace', 'i-store'],
         ['Messages', '/chats', 'i-chat'], ['Calendar', '/bookings', 'i-calendar'],
         ['Notifications', '/notifications', 'i-bell'], ['List a space', '/list', 'i-plus'],
-        ['My listings', '/host-home?view=my-listings', 'i-store'], ['Payments', '/payments', 'i-card'],
+        ['My listings', '/host-home?view=my-listings', 'i-store'],
         ['Analytics', '/analytics', 'i-chart']
       ];
       function icon(id) { return '<svg class="icon"><use href="#' + id + '"/></svg>'; }
@@ -1066,10 +1152,16 @@ push    min-height:0;
       </div>
     </header>
 
+    <div class="pinned-message" id="pinnedMessage" aria-live="polite" hidden>
+      <svg class="icon" aria-hidden="true"><use href="#i-pin"/></svg><span></span>
+    </div>
     <div class="messages"></div>
 
     <div class="chat-input-area">
       <textarea placeholder="Write a message..." aria-label="Write a message"></textarea>
+      <div class="composer-reply-preview" role="button" tabindex="0" hidden>
+        <strong></strong><span></span>
+      </div>
       <div class="desktop-composer-editor" contenteditable="true" role="textbox" aria-multiline="true"
         aria-label="Write a message" data-placeholder="Write a message..."></div>
       <div class="input-toolbar">

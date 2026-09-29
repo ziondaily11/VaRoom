@@ -57,6 +57,10 @@
   display: none;
 }
 
+html[data-account-role="pending"] #sidebar {
+  visibility: hidden;
+}
+
 .sidebar .logo {
   font-family: var(--font-brand);
   font-weight: 900;
@@ -291,15 +295,91 @@
 
 /* Host Home uses the same sidebar structure with its role-specific compact
    item spacing. Keep these rules here so Notifications cannot drift from it. */
-.sidebar.sidebar-host .nav-item {
+:is(html[data-account-role="host"] .sidebar, .sidebar.sidebar-host) .nav-item {
   gap: .7rem;
   padding: .6rem .7rem;
   font-size: .92rem;
 }
 
-.sidebar.sidebar-host .nav-item svg {
+:is(html[data-account-role="host"] .sidebar, .sidebar.sidebar-host) .nav-item svg {
   width: 18px;
   height: 18px;
+}
+
+:is(html[data-account-role="host"] .sidebar, .sidebar.sidebar-host) {
+  --host-control-active: #E9E7E2;
+  --host-control-hover: #EFEDE8;
+  --host-sidebar-line: #E4E1DA;
+}
+
+html[data-theme="dark"][data-account-role="host"] .sidebar,
+[data-theme="dark"] .sidebar.sidebar-host {
+  --host-control-active: #302C2A;
+  --host-control-hover: #25211F;
+  --host-sidebar-line: rgba(255, 255, 255, .12);
+}
+
+:is(html[data-account-role="host"] .sidebar, .sidebar.sidebar-host) .logo .va,
+:is(html[data-account-role="host"] .sidebar, .sidebar.sidebar-host) .beta-pill {
+  color: var(--ink);
+}
+
+:is(html[data-account-role="host"] .sidebar, .sidebar.sidebar-host) .beta-pill,
+:is(html[data-account-role="host"] .sidebar, .sidebar.sidebar-host) .verify-box.not-verified {
+  background: var(--host-control-active);
+  border-color: var(--host-sidebar-line);
+  color: var(--ink);
+}
+
+:is(html[data-account-role="host"] .sidebar, .sidebar.sidebar-host) .nav-group + .nav-group {
+  border-top-color: var(--host-sidebar-line);
+}
+
+:is(html[data-account-role="host"] .sidebar, .sidebar.sidebar-host) .nav-item:hover,
+:is(html[data-account-role="host"] .sidebar, .sidebar.sidebar-host) button.nav-item:hover {
+  background: var(--host-control-hover) !important;
+  color: var(--ink) !important;
+}
+
+:is(html[data-account-role="host"] .sidebar, .sidebar.sidebar-host) .nav-item.active,
+:is(html[data-account-role="host"] .sidebar, .sidebar.sidebar-host) .nav-item.active:hover {
+  background: var(--host-control-active) !important;
+  color: var(--ink) !important;
+}
+
+:is(html[data-account-role="host"] .sidebar, .sidebar.sidebar-host) .list-space-btn {
+  background: var(--ink) !important;
+  border-color: var(--ink) !important;
+  color: var(--white) !important;
+}
+
+:is(html[data-account-role="host"] .sidebar, .sidebar.sidebar-host) .list-space-btn:hover {
+  background: var(--host-control-hover) !important;
+  border-color: var(--host-sidebar-line) !important;
+  color: var(--ink) !important;
+}
+
+:is(html[data-account-role="host"] .sidebar, .sidebar.sidebar-host) .notif-nav-badge {
+  background: var(--host-control-active) !important;
+  color: var(--ink) !important;
+}
+
+:is(html[data-account-role="host"] .sidebar, .sidebar.sidebar-host) .sidebar-note {
+  background: var(--host-control-active) !important;
+  color: var(--ink) !important;
+}
+
+:is(html[data-account-role="host"] .sidebar, .sidebar.sidebar-host) .logout-btn {
+  color: var(--ink) !important;
+}
+
+:is(html[data-account-role="host"] .sidebar, .sidebar.sidebar-host) .logout-btn:hover {
+  background: var(--host-control-hover) !important;
+  opacity: 1;
+}
+
+:is(html[data-account-role="host"] .sidebar, .sidebar.sidebar-host) :focus-visible {
+  outline-color: var(--muted);
 }
 
 /* --------------------------------------------------------------------------
@@ -352,10 +432,15 @@
     gap: .9rem;
   }
 
-  .sidebar.sidebar-host .nav-item {
+  :is(html[data-account-role="host"] .sidebar, .sidebar.sidebar-host) .nav-item {
     font-size: 1.05rem;
     padding: .85rem .9rem;
     gap: .9rem;
+  }
+
+  :is(html[data-account-role="host"] .sidebar, .sidebar.sidebar-host) .nav-item svg {
+    width: 21px;
+    height: 21px;
   }
 
   .sidebar .nav-item svg {
