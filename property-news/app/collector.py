@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 import re
 import ssl
+import socket
 import time
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
@@ -12,6 +14,9 @@ from email.utils import parsedate_to_datetime
 from html.parser import HTMLParser
 from typing import Any, Iterable
 from urllib.parse import urljoin, urlparse
+from urllib.error import HTTPError, URLError
+from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
+from urllib import robotparser
 from uuid import UUID
 
 import httpx
@@ -29,8 +34,17 @@ from .relevance import classify_property_relevance, classify_property_sales_cont
 logger = logging.getLogger(__name__)
 Repository = MemoryNewsRepository | SupabaseNewsRepository
 FAILURE_RETRY_SECONDS = 15 * 60
+FAILURE_BACKOFF_SECONDS = 6 * 60 * 60
+MAX_CONSECUTIVE_FAILURES_BEFORE_BACKOFF = 5
+MAX_NEW_ITEMS_PER_SOURCE = 5
+SOURCE_HARD_TIMEOUT_SECONDS = 45
 MAX_SOURCES_PER_RUN = 20
 SOURCE_GROUP_COUNT = 11
+COLLECTOR_USER_AGENT = "VaRoomNewsBot/1.0 (+https://varoom.co.ke)"
+FAILURE_CATEGORIES = {
+    "blocked_403", "tls_error", "dns_error", "timeout", "upstream_5xx",
+    "not_allowed_host", "no_feed_found", "robots_disallowed",
+}
 
 GENERIC_LINK_TEXTS = {"read more", "click here", "learn more", "continue", "more", "here", "news"}
 NON_ARTICLE_PATH_PARTS = {
@@ -102,10 +116,36 @@ class _ArticleHTMLParser(HTMLParser):
             self._anchor_text.append(value)
 
 
+class CollectionFailure(RuntimeError):
+    def __init__(self, category: str, message: str) -> None:
+        super().__init__(message)
+        if category not in FAILURE_CATEGORIES:
+            raise ValueError(f"Unsupported source failure category: {category}")
+        self.category = category
+
+
+class _AllowedHostRedirect(HTTPRedirectHandler):
+    def __init__(self, hosts: set[str]) -> None:
+        super().__init__()
+        self.hosts = hosts
+
+    def redirect_request(self, request, response, code, message, headers, new_url):
+        parsed = urlparse(new_url)
+        hostname = SourceCollector._normalise_hostname(parsed.hostname)
+        if parsed.scheme not in {"http", "https"} or hostname not in self.hosts:
+            raise CollectionFailure("not_allowed_host", f"robots.txt redirect rejected host={hostname}")
+        return super().redirect_request(request, response, code, message, headers, new_url)
+
+
 class SourceCollector:
     def __init__(self, repository: Repository, settings: Settings) -> None:
         self.repository, self.settings = repository, settings
         self._last_request_at: dict[str, float] = {}
+        self._origin_semaphores: dict[str, asyncio.Semaphore] = {}
+        self._origin_locks: dict[str, asyncio.Lock] = {}
+        self._robots_cache: dict[str, robotparser.RobotFileParser] = {}
+        self._robots_locks: dict[str, asyncio.Lock] = {}
+        self._active_run_ids: dict[UUID, UUID] = {}
         self._rejected_urls: set[str] = set()
         # Use certifi's maintained CA bundle rather than the host OS store.
         # This avoids relying on an incomplete deployment CA store for official
@@ -116,15 +156,16 @@ class SourceCollector:
     async def _get_client(self) -> httpx.AsyncClient:
         if self._client is None or self._client.is_closed:
             headers = {
-                "User-Agent": self.settings.fetch_user_agent,
+                "User-Agent": COLLECTOR_USER_AGENT,
                 "Accept": "application/rss+xml, application/atom+xml, application/xml, text/html, application/json;q=0.9"
             }
             self._client = httpx.AsyncClient(
-                timeout=self.settings.fetch_timeout_seconds,
+                timeout=httpx.Timeout(connect=10.0, read=20.0, write=20.0, pool=10.0),
                 follow_redirects=False,
                 headers=headers,
                 verify=self._ssl_context,
-                limits=httpx.Limits(max_keepalive_connections=20, max_connections=50)
+                limits=httpx.Limits(max_keepalive_connections=20, max_connections=50),
+                trust_env=False,
             )
         return self._client
 
@@ -142,9 +183,8 @@ class SourceCollector:
         # intentionally outside the Property News ingestion scope.
         sources = [source for source in await self.repository.list_sources(active_only=True) if source.platform == "web"]
         if source_group is not None:
-            # Stable name ordering keeps a source in the same group between runs.
-            sources = [source for index, source in enumerate(sources)
-                       if index % source_group_count == source_group]
+            sources = [source for source in sources
+                       if self._source_group(source, source_group_count) == source_group]
         due_sources = [source for source in sources if self._is_due(source)]
         due_sources.sort(key=self._last_attempt_at)
         due_sources = due_sources[:MAX_SOURCES_PER_RUN]
@@ -167,7 +207,7 @@ class SourceCollector:
             )
             return totals
 
-        semaphore = asyncio.Semaphore(4)
+        semaphore = asyncio.Semaphore(min(MAX_SOURCES_PER_RUN, len(due_sources)))
 
         async def _bounded_collect(source: Source) -> dict[str, Any]:
             async with semaphore:
@@ -199,6 +239,44 @@ class SourceCollector:
         return totals
 
     async def collect_source(self, source: Source) -> dict[str, Any]:
+        try:
+            return await asyncio.wait_for(
+                self._collect_source(source),
+                timeout=SOURCE_HARD_TIMEOUT_SECONDS,
+            )
+        except asyncio.TimeoutError as error:
+            now = datetime.now(timezone.utc)
+            source.last_failed_fetch_at = now
+            source.consecutive_failures += 1
+            source.failure_category = "timeout"
+            source.last_error = f"Source exceeded {SOURCE_HARD_TIMEOUT_SECONDS}s collection limit"
+            run_id = self._active_run_ids.pop(source.id, None)
+            try:
+                async def persist_timeout() -> None:
+                    await self.repository.upsert_source(source)
+                    await self.repository.add_event(NewsEvent(
+                        source_id=source.id, event_type="source_fetch_failed",
+                        payload={"error": source.last_error, "failure_category": "timeout"},
+                    ))
+                    if run_id:
+                        await self.repository.finish_fetch_run(
+                            run_id, result="failed", ended_at=now, discovered_count=0,
+                            new_item_count=0, duplicate_count=0, error_message=source.last_error,
+                        )
+
+                await asyncio.wait_for(persist_timeout(), timeout=5)
+            except Exception:
+                logger.exception("Could not persist timeout telemetry for source=%s", source.name)
+            logger.error(
+                "SOURCE FAIL source=%s method=%s discovered=0 accepted=0 rejected=0 category=timeout",
+                source.name, source.fetch_method,
+            )
+            return {
+                "sources_successful": 0, "sources_failed": 1, "failures": 1,
+                "timeouts": 1, "new_items": 0, "duplicates": 0, "new_item_ids": [],
+            }
+
+    async def _collect_source(self, source: Source) -> dict[str, Any]:
         started = datetime.now(timezone.utc)
         result: dict[str, Any] = {
             "sources_successful": 0, "sources_failed": 0, "candidates": 0,
@@ -212,6 +290,7 @@ class SourceCollector:
         run_id: UUID | None = None
         try:
             run_id = await self.repository.start_fetch_run(source.id, started)
+            self._active_run_ids[source.id] = run_id
             discovered = await self._discover(source)
             if isinstance(discovered, tuple):
                 raw_candidates = discovered[0]
@@ -224,6 +303,11 @@ class SourceCollector:
             result["urls_rejected"] = rejected_count
             result["urls_discovered"] = result["articles_discovered"]
             result["security_blocked_urls"] = security_blocked_count
+            if not raw_candidates and security_blocked_count:
+                raise CollectionFailure(
+                    "not_allowed_host",
+                    f"All {security_blocked_count} discovered URLs were outside the approved source hosts",
+                )
 
             # STAGE 2: Pre-fetch strict property relevance filter (cheapest & earliest stage)
             # Evaluates headline + source + short description/snippet + available category metadata
@@ -318,6 +402,8 @@ class SourceCollector:
             result["candidates"] = len(candidates)
             result["articles_parsed"] = len(candidates)
             for candidate in candidates:
+                if result["new_items"] >= MAX_NEW_ITEMS_PER_SOURCE:
+                    break
                 rejection = classify_quality(
                     candidate.source_title, candidate.clean_text, candidate.source_url,
                     candidate.source_published_at,
@@ -344,7 +430,17 @@ class SourceCollector:
                 if stored:
                     result["new_item_ids"].append(stored.id)
                     result["articles_inserted"] += 1
-            source.last_successful_fetch_at = datetime.now(timezone.utc)
+            source.last_success_at = datetime.now(timezone.utc)
+            source.last_successful_fetch_at = source.last_success_at
+            if result["security_blocked_urls"]:
+                source.last_error = (
+                    f"not_allowed_host: rejected {result['security_blocked_urls']} off-host discovered URLs"
+                )
+                source.failure_category = "not_allowed_host"
+            else:
+                source.last_error = None
+                source.failure_category = None
+            source.consecutive_failures = 0
             await self.repository.upsert_source(source)
             await self.repository.add_event(NewsEvent(source_id=source.id, event_type="source_fetch_succeeded", payload={
                 "started_at": started.isoformat(), "candidates": result["candidates"], "new_items": result["new_items"],
@@ -355,30 +451,45 @@ class SourceCollector:
                                                    duplicate_count=result["duplicates"])
             result["sources_successful"] = 1
             logger.info(
-                "Source succeeded: source=%s urls_discovered=%d rejected=%d security_blocked=%d "
-                "articles_fetched=%d parsed=%d inserted=%d duplicates=%d",
-                source.name, result["articles_discovered"], result["articles_rejected"],
-                result["security_blocked_urls"], result["articles_fetched"],
-                result["articles_parsed"], result["articles_inserted"], result["duplicates_skipped"],
+                "SOURCE OK source=%s method=%s discovered=%d accepted=%d rejected=%d",
+                source.name, source.fetch_method, result["articles_discovered"],
+                result["new_items"], result["articles_rejected"],
             )
+            self._active_run_ids.pop(source.id, None)
         except Exception as error:  # A source failure must never stop other sources.
             self._record_failure_kind(result, error)
             logger.warning("Source failure: source=%s error=%s", source.name, error)
             result["failures"] = 1
             result["sources_failed"] = 1
             source.last_failed_fetch_at = datetime.now(timezone.utc)
+            source.consecutive_failures += 1
+            source.failure_category = self.classify_failure(error)
+            source.last_error = f"{source.failure_category}: {error}"[:1000]
             try:
                 await self.repository.upsert_source(source)
                 await self.repository.add_event(NewsEvent(source_id=source.id, event_type="source_fetch_failed", payload={
-                    "started_at": started.isoformat(), "error": str(error)[:1000],
+                    "started_at": started.isoformat(), "error": source.last_error,
+                    "failure_category": source.failure_category,
                 }))
                 if run_id:
                     await self.repository.finish_fetch_run(run_id, result="failed", ended_at=datetime.now(timezone.utc),
                                                            discovered_count=result["candidates"], new_item_count=result["new_items"],
-                                                           duplicate_count=result["duplicates"], error_message=str(error)[:1000])
+                                                           duplicate_count=result["duplicates"], error_message=source.last_error)
             except Exception as persistence_error:
                 logger.error("Could not persist failure telemetry for source %s: %s", source.name, persistence_error)
+            logger.error(
+                "SOURCE FAIL source=%s method=%s discovered=%d accepted=%d rejected=%d category=%s",
+                source.name, source.fetch_method, result["articles_discovered"],
+                result["new_items"], result["articles_rejected"], source.failure_category,
+            )
+            self._active_run_ids.pop(source.id, None)
         return result
+
+    @staticmethod
+    def _source_group(source: Source, source_group_count: int) -> int:
+        hostname = SourceCollector._normalise_hostname(urlparse(source.base_url).hostname).removeprefix("www.")
+        digest = hashlib.sha256(hostname.encode("utf-8")).digest()
+        return int.from_bytes(digest[:8], "big") % source_group_count
 
     @staticmethod
     def _record_failure_kind(result: dict[str, Any], error: Exception) -> None:
@@ -393,6 +504,39 @@ class SourceCollector:
             result["oversized_responses"] += 1
 
     @staticmethod
+    def classify_failure(error: BaseException) -> str:
+        chain: list[BaseException] = []
+        current: BaseException | None = error
+        while current is not None and current not in chain:
+            chain.append(current)
+            current = current.__cause__ or current.__context__
+        for item in chain:
+            if isinstance(item, CollectionFailure):
+                return item.category
+        detail = " ".join(f"{type(item).__name__} {item}" for item in chain).lower()
+        if "403" in detail or "forbidden" in detail:
+            return "blocked_403"
+        if "ssl" in detail or "certificate" in detail or isinstance(error, ssl.SSLError):
+            return "tls_error"
+        if any(isinstance(item, (socket.gaierror,)) for item in chain) or any(
+            token in detail for token in (
+                "name or service not known", "nodename nor servname", "getaddrinfo failed",
+                "temporary failure in name resolution", "name resolution",
+            )
+        ):
+            return "dns_error"
+        if any(isinstance(item, (asyncio.TimeoutError, httpx.TimeoutException, TimeoutError)) for item in chain) \
+                or "timeout" in detail:
+            return "timeout"
+        if re.search(r"\b5\d\d\b", detail) or "server error" in detail:
+            return "upstream_5xx"
+        if "robots" in detail and "disallow" in detail:
+            return "robots_disallowed"
+        if "approved source host" in detail or "allowed source host" in detail:
+            return "not_allowed_host"
+        return "no_feed_found"
+
+    @staticmethod
     def _aware(value: datetime | None) -> datetime | None:
         if value is None:
             return None
@@ -401,10 +545,12 @@ class SourceCollector:
     @staticmethod
     def _is_due(source: Source) -> bool:
         now = datetime.now(timezone.utc)
-        last_success = SourceCollector._aware(source.last_successful_fetch_at)
+        last_success = SourceCollector._aware(source.last_success_at or source.last_successful_fetch_at)
         last_fail = SourceCollector._aware(source.last_failed_fetch_at)
         if last_fail and (not last_success or last_fail > last_success):
-            retry_after = min(FAILURE_RETRY_SECONDS, source.schedule_minutes * 60)
+            retry_after = (FAILURE_BACKOFF_SECONDS
+                           if source.consecutive_failures >= MAX_CONSECUTIVE_FAILURES_BEFORE_BACKOFF
+                           else FAILURE_RETRY_SECONDS)
             return (now - last_fail).total_seconds() >= retry_after
         if not last_success:
             return True
@@ -412,7 +558,7 @@ class SourceCollector:
 
     @staticmethod
     def _last_attempt_at(source: Source) -> datetime:
-        last_success = SourceCollector._aware(source.last_successful_fetch_at)
+        last_success = SourceCollector._aware(source.last_success_at or source.last_successful_fetch_at)
         last_fail = SourceCollector._aware(source.last_failed_fetch_at)
         candidates = [value for value in (last_success, last_fail) if value is not None]
         return max(candidates) if candidates else datetime.min.replace(tzinfo=timezone.utc)
@@ -432,13 +578,20 @@ class SourceCollector:
                     candidates.append(await self._fetch_article(source, url))
                 except Exception:
                     rejected += 1
+            if not candidates and not security_blocked:
+                raise CollectionFailure("no_feed_found", "No manual article URLs were configured or fetched")
             return candidates, rejected, security_blocked
-        endpoint = config.get("discovery_url") or source.base_url
+        configured_urls = config.get("urls", [])
+        endpoint = config.get("discovery_url") or (
+            configured_urls[0] if isinstance(configured_urls, list) and configured_urls else source.base_url
+        )
         if not self._is_allowed_source_url(source, endpoint):
-            raise ValueError("Discovery URL is not an approved source host")
+            raise CollectionFailure("not_allowed_host", "Discovery URL is not an approved source host")
         body = await self._fetch(source, endpoint, allowed_content_types=DISCOVERY_CONTENT_TYPES)
         if source.fetch_method in {"rss", "atom"}:
             candidates = self._parse_feed(source, body, endpoint)
+        elif source.fetch_method == "wp_json":
+            candidates = self._parse_wp_json(source, body, endpoint)
         elif source.fetch_method == "sitemap":
             candidates = self._parse_sitemap(source, body, endpoint)
         elif source.fetch_method == "api":
@@ -447,6 +600,9 @@ class SourceCollector:
             candidates, rejected_count = self._parse_html_discovery(source, body, endpoint)
         else:
             raise ValueError(f"Unsupported fetch method: {source.fetch_method}")
+        candidates = [candidate for candidate in candidates if self._matches_source_filters(source, candidate.source_url)]
+        if not candidates:
+            raise CollectionFailure("no_feed_found", f"No collection items found at {endpoint}")
         if source.fetch_method == "html":
             allowed = []
             security_blocked = 0
@@ -468,58 +624,120 @@ class SourceCollector:
                 rejected += 1
         return allowed, rejected, security_blocked
 
-    async def _fetch(self, source: Source, url: str, *, allowed_content_types: set[str] | None = None) -> str:
-        origin = re.sub(r"^(https?://[^/]+).*$", r"\1", url)
-        delay = self.settings.min_request_interval_seconds - (time.monotonic() - self._last_request_at.get(origin, 0))
-        if delay > 0:
-            await asyncio.sleep(delay)
-        client = await self._get_client()
-        last_error: Exception | None = None
-        for attempt in range(self.settings.fetch_retry_attempts):
-            try:
-                current_url = url
-                for _ in range(5):
-                    async with client.stream("GET", current_url) as response:
-                        if response.is_redirect:
-                            location = response.headers.get("location")
-                            if not location:
-                                raise ValueError("Redirect response missing Location header")
-                            redirect_url = urljoin(current_url, location)
-                            allowed = self._is_allowed_source_url(source, redirect_url)
-                            logger.info(
-                                "Redirect: %s -> %s -> %s -> %s",
-                                source.name,
-                                self._normalise_hostname(urlparse(current_url).hostname),
-                                self._normalise_hostname(urlparse(redirect_url).hostname),
-                                "ALLOWED" if allowed else "BLOCKED",
-                            )
-                            if not allowed:
-                                raise ValueError("Redirect target is not an approved source host")
-                            current_url = redirect_url
-                            continue
-                        response.raise_for_status()
-                        content_type = response.headers.get("content-type", "").split(";", 1)[0].strip().lower()
-                        accepted_types = allowed_content_types or DISCOVERY_CONTENT_TYPES
-                        if content_type not in accepted_types:
-                            raise ValueError(f"Unsupported Content-Type {content_type or '<missing>'}")
-                        chunks: list[bytes] = []
-                        total = 0
-                        async for chunk in response.aiter_bytes():
-                            total += len(chunk)
-                            if total > self.settings.fetch_max_bytes:
-                                raise ValueError("Response exceeded NEWS_FETCH_MAX_BYTES")
-                            chunks.append(chunk)
-                        break
-                else:
-                    raise ValueError("Too many redirects")
-                self._last_request_at[origin] = time.monotonic()
-                return b"".join(chunks).decode("utf-8", errors="replace")
-            except (httpx.HTTPError, ValueError) as error:
-                last_error = error
-                if attempt + 1 < self.settings.fetch_retry_attempts:
-                    await asyncio.sleep(0.5 * (2 ** attempt))
+    async def _wait_for_origin(self, origin: str) -> None:
+        hostname = self._normalise_hostname(urlparse(origin).hostname).removeprefix("www.")
+        lock = self._origin_locks.setdefault(hostname, asyncio.Lock())
+        async with lock:
+            interval = max(1.0, self.settings.min_request_interval_seconds)
+            delay = interval - (
+                time.monotonic() - self._last_request_at.get(hostname, 0)
+            )
+            if delay > 0:
+                await asyncio.sleep(delay)
+            self._last_request_at[hostname] = time.monotonic()
 
-        raise RuntimeError(f"Fetch failed for {url}: {type(last_error).__name__}: {last_error}") from last_error
+    async def _robots_allowed(self, url: str) -> bool:
+        parsed = urlparse(url)
+        origin = f"{parsed.scheme}://{parsed.netloc}"
+        if origin not in self._robots_cache:
+            lock = self._robots_locks.setdefault(origin, asyncio.Lock())
+            async with lock:
+                if origin not in self._robots_cache:
+                    parser = robotparser.RobotFileParser()
+                    robots_url = f"{origin}/robots.txt"
+
+                    def read_robots() -> robotparser.RobotFileParser:
+                        candidate = robotparser.RobotFileParser(robots_url)
+                        request = Request(robots_url, headers={"User-Agent": COLLECTOR_USER_AGENT})
+                        try:
+                            with build_opener(
+                                ProxyHandler({}), _AllowedHostRedirect(self._allowed_hosts(source)),
+                            ).open(request, timeout=10) as response:
+                                candidate.parse(response.read(512_000).decode("utf-8", errors="replace").splitlines())
+                        except HTTPError as error:
+                            if error.code in {401, 403}:
+                                candidate.parse(["User-agent: *", "Disallow: /"])
+                            elif error.code == 404:
+                                candidate.parse([])
+                            elif error.code >= 500:
+                                raise CollectionFailure("upstream_5xx", f"robots.txt returned HTTP {error.code}") from error
+                            else:
+                                candidate.parse([])
+                        except URLError as error:
+                            if isinstance(error.reason, ssl.SSLError):
+                                raise CollectionFailure("tls_error", f"robots.txt TLS failure: {error.reason}") from error
+                            if isinstance(error.reason, socket.gaierror):
+                                raise CollectionFailure("dns_error", f"robots.txt DNS failure: {error.reason}") from error
+                            raise
+                        return candidate
+
+                    await self._wait_for_origin(origin)
+                    parser = await asyncio.to_thread(read_robots)
+                    self._robots_cache[origin] = parser
+        return self._robots_cache[origin].can_fetch(COLLECTOR_USER_AGENT, url)
+
+    async def _fetch(self, source: Source, url: str, *, allowed_content_types: set[str] | None = None) -> str:
+        parsed = urlparse(url)
+        if not self._is_allowed_source_url(source, url):
+            raise CollectionFailure("not_allowed_host", "Fetch URL is not an approved source host")
+        host = self._normalise_hostname(parsed.hostname).removeprefix("www.")
+        semaphore = self._origin_semaphores.setdefault(host, asyncio.Semaphore(2))
+        async with semaphore:
+            if not await self._robots_allowed(url):
+                raise CollectionFailure("robots_disallowed", f"robots.txt disallows {url}")
+            client = await self._get_client()
+            last_error: Exception | None = None
+            for attempt in range(self.settings.fetch_retry_attempts):
+                try:
+                    current_url = url
+                    for _ in range(5):
+                        current_origin = re.sub(r"^(https?://[^/]+).*$", r"\1", current_url)
+                        if not await self._robots_allowed(current_url):
+                            raise CollectionFailure("robots_disallowed", f"robots.txt disallows {current_url}")
+                        await self._wait_for_origin(current_origin)
+                        async with client.stream("GET", current_url) as response:
+                            if response.is_redirect:
+                                location = response.headers.get("location")
+                                if not location:
+                                    raise ValueError("Redirect response missing Location header")
+                                redirect_url = urljoin(current_url, location)
+                                allowed = self._is_allowed_source_url(source, redirect_url)
+                                logger.info(
+                                    "Redirect: source=%s rejected_host=%s configured_host=%s result=%s",
+                                    source.name,
+                                    self._normalise_hostname(urlparse(redirect_url).hostname),
+                                    self._normalise_hostname(urlparse(source.base_url).hostname),
+                                    "ALLOWED" if allowed else "BLOCKED",
+                                )
+                                if not allowed:
+                                    raise CollectionFailure("not_allowed_host", "Redirect target is not an approved source host")
+                                current_url = redirect_url
+                                continue
+                            response.raise_for_status()
+                            content_type = response.headers.get("content-type", "").split(";", 1)[0].strip().lower()
+                            accepted_types = allowed_content_types or DISCOVERY_CONTENT_TYPES
+                            if content_type not in accepted_types:
+                                raise ValueError(f"Unsupported Content-Type {content_type or '<missing>'}")
+                            chunks: list[bytes] = []
+                            total = 0
+                            async for chunk in response.aiter_bytes():
+                                total += len(chunk)
+                                if total > self.settings.fetch_max_bytes:
+                                    raise ValueError("Response exceeded NEWS_FETCH_MAX_BYTES")
+                                chunks.append(chunk)
+                            return b"".join(chunks).decode("utf-8", errors="replace")
+                    else:
+                        raise ValueError("Too many redirects")
+                except CollectionFailure:
+                    raise
+                except (httpx.HTTPError, ValueError) as error:
+                    last_error = error
+                    if attempt + 1 < self.settings.fetch_retry_attempts:
+                        await asyncio.sleep(0.5 * (2 ** attempt))
+
+            if last_error:
+                raise RuntimeError(f"Fetch failed for {url}: {type(last_error).__name__}: {last_error}") from last_error
+            raise CollectionFailure("no_feed_found", f"Fetch produced no response for {url}")
 
     async def _fetch_article(self, source: Source, url: str, title: str | None = None, published_at: datetime | None = None) -> CandidateArticle:
         if not self._is_allowed_source_url(source, url):
@@ -559,25 +777,49 @@ class SourceCollector:
 
     def _parse_feed(self, source: Source, body: str, base_url: str) -> list[CandidateArticle]:
         root = ET.fromstring(body)
+        selectors = source.parser_config.get("selectors", {})
+        selectors = selectors if isinstance(selectors, dict) else {}
+        title_selector = selectors.get("title", "title")
+        url_selector = selectors.get("url", "link")
+        content_selectors = selectors.get("content", ["description", "summary"])
+        date_selectors = selectors.get("published_date", ["pubDate", "published", "updated"])
+        title_selector = title_selector if isinstance(title_selector, str) else "title"
+        url_selector = url_selector if isinstance(url_selector, str) else "link"
+        content_selectors = [content_selectors] if isinstance(content_selectors, str) else content_selectors
+        date_selectors = [date_selectors] if isinstance(date_selectors, str) else date_selectors
+        content_selectors = content_selectors if isinstance(content_selectors, list) else ["description", "summary"]
+        date_selectors = date_selectors if isinstance(date_selectors, list) else ["pubDate", "published", "updated"]
+
+        def selected_text(entry: ET.Element, names: list[Any]) -> str:
+            for name in names:
+                if isinstance(name, str):
+                    value = self._element_text(entry, name)
+                    if value:
+                        return value
+            return ""
+
         articles: list[CandidateArticle] = []
         for entry in root.findall(".//item") + root.findall(".//{http://www.w3.org/2005/Atom}entry"):
-            title = self._element_text(entry, "title") or "Untitled source item"
-            url = self._element_text(entry, "link")
+            title = self._element_text(entry, title_selector) or "Untitled source item"
+            url = self._element_text(entry, url_selector)
             if not url:
                 link = entry.find("{http://www.w3.org/2005/Atom}link")
                 url = link.attrib.get("href") if link is not None else None
             if not url:
                 continue
-            description = self._element_text(entry, "description") or self._element_text(entry, "summary") or ""
-            published = self._parse_date(self._element_text(entry, "pubDate") or self._element_text(entry, "published") or self._element_text(entry, "updated"))
+            description = selected_text(entry, content_selectors)
+            date_text = selected_text(entry, date_selectors) or None
+            published = self._parse_date(date_text)
             articles.append(CandidateArticle(source_id=source.id, source_url=urljoin(base_url, url), source_title=title,
                                              source_published_at=published, original_content=description, clean_text=clean_html(description)))
         return articles
 
     def _parse_sitemap(self, source: Source, body: str, base_url: str) -> list[CandidateArticle]:
         root = ET.fromstring(body)
+        selectors = source.parser_config.get("selectors", {})
+        url_selector = selectors.get("url", "loc") if isinstance(selectors, dict) else "loc"
         articles: list[CandidateArticle] = []
-        for location in root.findall(".//{*}loc")[:200]:
+        for location in root.findall(f".//{{*}}{url_selector}")[:200]:
             url = (location.text or "").strip()
             if url:
                 articles.append(CandidateArticle(source_id=source.id, source_url=urljoin(base_url, url), source_title=url, clean_text=""))
@@ -597,14 +839,81 @@ class SourceCollector:
                                  clean_text=clean_html(str(row.get(text_key) or "")))
                 for row in items if isinstance(row, dict) and row.get(url_key)]
 
+    def _parse_wp_json(self, source: Source, body: str, base_url: str) -> list[CandidateArticle]:
+        payload = json.loads(body)
+        if not isinstance(payload, list):
+            raise ValueError("WordPress REST response must be an array")
+        selectors = source.parser_config.get("selectors", {})
+        selectors = selectors if isinstance(selectors, dict) else {}
+        title_selector = selectors.get("title", "title.rendered")
+        url_selector = selectors.get("url", "link")
+        content_selector = selectors.get("content", "excerpt.rendered")
+        date_selectors = selectors.get("published_date", ["date_gmt", "date"])
+        date_selectors = [date_selectors] if isinstance(date_selectors, str) else date_selectors
+
+        def selected_value(row: dict[str, Any], selector: str) -> Any:
+            value: Any = row
+            for key in selector.split("."):
+                value = value.get(key) if isinstance(value, dict) else None
+            return value
+
+        articles: list[CandidateArticle] = []
+        for row in payload:
+            if not isinstance(row, dict):
+                continue
+            link = selected_value(row, url_selector) if isinstance(url_selector, str) else None
+            if not link:
+                continue
+            title = selected_value(row, title_selector) if isinstance(title_selector, str) else None
+            content = selected_value(row, content_selector) if isinstance(content_selector, str) else None
+            if not content:
+                content = selected_value(row, "content.rendered")
+            title_text = clean_html(str(title or ""))
+            content_text = clean_html(str(content or ""))
+            date_value = next(
+                (selected_value(row, selector) for selector in date_selectors
+                 if isinstance(selector, str) and selected_value(row, selector)),
+                None,
+            )
+            published = self._parse_date(str(date_value or ""))
+            articles.append(CandidateArticle(
+                source_id=source.id,
+                source_url=urljoin(base_url, str(link)),
+                source_title=title_text or str(link),
+                source_published_at=published,
+                external_post_id=str(row["id"]) if row.get("id") is not None else None,
+                original_content=content_text,
+                clean_text=content_text,
+            ))
+        return articles
+
+    @staticmethod
+    def _matches_source_filters(source: Source, url: str) -> bool:
+        config = source.parser_config
+        include = config.get("include_url_contains", [])
+        exclude = config.get("exclude_url_contains", [])
+        path = urlparse(url).path.lower()
+        if isinstance(include, list) and include and not any(
+            isinstance(value, str) and value.lower() in path for value in include
+        ):
+            return False
+        if isinstance(exclude, list) and any(
+            isinstance(value, str) and value.lower() in path for value in exclude
+        ):
+            return False
+        return True
+
     def _parse_html_discovery(self, source: Source, body: str, base_url: str) -> tuple[list[CandidateArticle], int]:
         parser = _ArticleHTMLParser()
         parser.feed(body)
         pattern = source.parser_config.get("url_contains", "")
+        selectors = source.parser_config.get("selectors", {})
         url_regex = source.parser_config.get("url_regex")
+        if not isinstance(url_regex, str) and isinstance(selectors, dict):
+            url_regex = selectors.get("url_regex")
         compiled_regex = re.compile(url_regex) if isinstance(url_regex, str) and url_regex else None
         excluded = [value for value in source.parser_config.get("exclude_url_contains", []) if isinstance(value, str)]
-        max_articles = min(max(int(source.parser_config.get("max_articles", 100)), 1), 100)
+        max_articles = min(max(int(source.parser_config.get("max_articles", 100)), 1), MAX_NEW_ITEMS_PER_SOURCE)
         seen: set[str] = set()
         articles: list[CandidateArticle] = []
         rejected_count = 0
@@ -642,33 +951,39 @@ class SourceCollector:
     @staticmethod
     def _is_allowed_source_url(source: Source, url: str) -> bool:
         parsed = urlparse(url)
-        if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+        if parsed.scheme not in {"http", "https"} or not parsed.hostname or parsed.username or parsed.password:
             return False
         hostname = SourceCollector._normalise_hostname(parsed.hostname)
         allowed_hosts = SourceCollector._allowed_hosts(source)
         allowed = hostname in allowed_hosts
         if not allowed:
-            # Homepages commonly include social/media links. These are expected
-            # to be blocked and should not obscure actionable collection failures.
-            logger.debug(
-                "Blocked source URL: source=%s host=%s allowed_hosts=%s",
-                source.name, hostname, sorted(allowed_hosts),
+            logger.warning(
+                "Rejected source URL host: source=%s rejected_host=%s configured_host=%s allowed_hosts=%s",
+                source.name, hostname,
+                SourceCollector._normalise_hostname(urlparse(source.base_url).hostname),
+                sorted(allowed_hosts),
             )
         return allowed
 
     @staticmethod
     def _normalise_hostname(hostname: str | None) -> str:
-        return (hostname or "").lower().rstrip(".").removeprefix("www.")
+        return (hostname or "").lower().rstrip(".")
 
     @staticmethod
     def _allowed_hosts(source: Source) -> set[str]:
-        hosts = {SourceCollector._normalise_hostname(urlparse(source.base_url).hostname)}
+        configured_host = SourceCollector._normalise_hostname(urlparse(source.base_url).hostname)
+        hosts: set[str] = set()
+        if configured_host:
+            apex = configured_host.removeprefix("www.")
+            hosts.update({apex, f"www.{apex}"})
         for configured in source.parser_config.get("allowed_hosts", []):
             if not isinstance(configured, str):
                 continue
             parsed = urlparse(configured if "://" in configured else f"//{configured}")
             if parsed.hostname:
-                hosts.add(SourceCollector._normalise_hostname(parsed.hostname))
+                explicit_host = SourceCollector._normalise_hostname(parsed.hostname)
+                explicit_apex = explicit_host.removeprefix("www.")
+                hosts.update({explicit_apex, f"www.{explicit_apex}"})
         return {host for host in hosts if host}
 
     @staticmethod

@@ -226,9 +226,15 @@ class MemoryNewsRepository:
                 "verified": source.verified, "platform": source.platform, "source_account": source.source_account,
                 "category": source.category,
                 "last_successful_fetch_at": source.last_successful_fetch_at,
+                "last_success_at": source.last_success_at,
                 "last_failed_fetch_at": source.last_failed_fetch_at,
+                "last_error": source.last_error,
+                "failure_category": source.failure_category,
+                "consecutive_failures": source.consecutive_failures,
                 "last_sync_at": max((run.get("ended_at") for run in runs if run.get("ended_at")), default=None),
-                "last_error": next((run.get("error_message") for run in reversed(runs) if run.get("error_message")), None),
+                "last_error": source.last_error or next(
+                    (run.get("error_message") for run in reversed(runs) if run.get("error_message")), None
+                ),
                 "items_found": sum(int(run.get("discovered_count", 0)) for run in runs),
                 "relevant_items": sum(int(run.get("new_item_count", 0)) for run in runs),
                 "duplicates": sum(int(run.get("duplicate_count", 0)) for run in runs),
