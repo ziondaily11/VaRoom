@@ -233,7 +233,6 @@ export default function HostProfileView() {
           <p className="profile-nav-label">Host</p>
           <a href="/list"><Plus size={17} aria-hidden="true" /> List a space</a>
           <a href="/host-home?view=my-listings"><WalletCards size={17} aria-hidden="true" /> My listings</a>
-          <a href="/payments"><CreditCard size={17} aria-hidden="true" /> Payments</a>
           <a href="/analytics"><BarChart3 size={17} aria-hidden="true" /> Analytics</a>
         </nav>}
         <nav className="sidebar-nav">
