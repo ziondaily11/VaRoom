@@ -517,6 +517,57 @@
   .booking-skeleton .bk-host-name.skeleton-block{ width:5.5rem; height:.85rem; }
   .booking-skeleton .bk-msg-link.skeleton-block{ width:34px; height:34px; border-radius:50%; }
   .booking-skeleton .bk-actions .skeleton-block{ width:7rem; height:2.5rem; border-radius:100px; }
+  .host-bookings-auth-skeleton{ padding-top:1.15rem; }
+  .host-bookings-auth-skeleton .skeleton-block{
+    position:relative; overflow:hidden; background:rgba(128,110,100,.12);
+    border-radius:6px;
+  }
+  .host-bookings-auth-skeleton .skeleton-block::after{
+    content:''; position:absolute; inset:0;
+    background:linear-gradient(90deg, transparent, rgba(255,255,255,.2), transparent);
+    animation:skeleton-booking-shimmer 1.8s infinite;
+  }
+  .host-bookings-auth-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:2rem; }
+  .host-bookings-auth-title{ width:10rem; height:2.3rem; }
+  .host-bookings-auth-subtitle{ width:19rem; max-width:100%; height:.9rem; margin-top:.55rem; }
+  .host-bookings-auth-month{ width:10rem; height:1.8rem; margin-top:.2rem; }
+  .host-bookings-auth-tabs{ display:flex; gap:2.8rem; border-bottom:1px solid var(--line); margin:2rem 0 1.4rem; }
+  .host-bookings-auth-tab{ width:4.5rem; height:1rem; margin-bottom:.8rem; }
+  .host-booking-skeleton .skeleton-block{
+    position:relative; overflow:hidden; background:rgba(128,110,100,.12);
+    border-radius:6px;
+  }
+  .host-booking-skeleton .skeleton-block::after{
+    content:''; position:absolute; inset:0;
+    background:linear-gradient(90deg, transparent, rgba(255,255,255,.2), transparent);
+    animation:skeleton-booking-shimmer 1.8s infinite;
+  }
+  .host-booking-skeleton .bk-thumb.skeleton-block{
+    border-radius:12px; background:rgba(128,110,100,.12);
+  }
+  .host-booking-skeleton .bk-title.skeleton-block{ width:58%; height:.95rem; }
+  .host-booking-skeleton .bk-guest-avatar.skeleton-block{ width:28px; height:28px; border-radius:50%; }
+  .host-booking-skeleton .bk-guest-name.skeleton-block{ width:6.5rem; height:.8rem; }
+  .host-booking-skeleton .bk-meta .skeleton-block{ width:12rem; max-width:100%; height:.75rem; }
+  .host-booking-skeleton .bk-meta span:nth-child(2) .skeleton-block{ width:5.5rem; }
+  .host-booking-skeleton .bk-meta span:nth-child(3) .skeleton-block{ width:8rem; }
+  .host-booking-skeleton .bk-price.skeleton-block{ width:6rem; height:1rem; }
+  .host-booking-skeleton .bk-requested.skeleton-block{ width:7rem; height:.7rem; margin-top:.35rem; }
+  .host-booking-skeleton .bk-actions .skeleton-block{ width:100%; height:1.9rem; border-radius:100px; }
+  .host-booking-results-enter{ opacity:0; transition:opacity .22s ease; }
+  @media (prefers-reduced-motion:reduce){
+    .host-booking-skeleton .skeleton-block::after{ animation:none; }
+    .host-bookings-auth-skeleton .skeleton-block::after{ animation:none; }
+    .host-booking-results-enter{ transition:none; }
+  }
+  @media (max-width:640px){
+    .host-bookings-auth-head{ display:block; }
+    .host-bookings-auth-month{ display:none; }
+    .host-bookings-auth-tabs{ gap:1.2rem; }
+    .host-booking-skeleton .bk-meta .skeleton-block{ width:75%; }
+    .host-booking-skeleton .bk-meta span:nth-child(2) .skeleton-block{ width:40%; }
+    .host-booking-skeleton .bk-meta span:nth-child(3) .skeleton-block{ width:60%; }
+  }
   @keyframes skeleton-booking-shimmer{
     from{ transform:translateX(-100%); }
     to{ transform:translateX(100%); }
@@ -670,7 +721,47 @@
 
     <div class="content-row" id="content-row">
       <div class="feed-area">
-        <div id="checking-auth" class="state-msg">Loading your bookings...</div>
+        <div id="checking-auth" role="status" aria-label="Loading bookings">
+          <div class="host-bookings-auth-skeleton" aria-hidden="true">
+            <div class="host-bookings-auth-head">
+              <div>
+                <div class="host-bookings-auth-title host-booking-skeleton skeleton-block"></div>
+                <div class="host-bookings-auth-subtitle host-booking-skeleton skeleton-block"></div>
+              </div>
+              <div class="host-bookings-auth-month host-booking-skeleton skeleton-block"></div>
+            </div>
+            <div class="host-bookings-auth-tabs">
+              <div class="host-bookings-auth-tab host-booking-skeleton skeleton-block"></div>
+              <div class="host-bookings-auth-tab host-booking-skeleton skeleton-block"></div>
+              <div class="host-bookings-auth-tab host-booking-skeleton skeleton-block"></div>
+              <div class="host-bookings-auth-tab host-booking-skeleton skeleton-block"></div>
+            </div>
+            <div class="booking-card host-booking-card host-booking-skeleton">
+              <div class="bk-thumb-wrap"><div class="bk-thumb skeleton-block"></div></div>
+              <div class="bk-main">
+                <div class="bk-top-row"><div><div class="bk-title skeleton-block"></div><div class="bk-guest"><span class="bk-guest-avatar skeleton-block"></span><span class="bk-guest-name skeleton-block"></span></div></div></div>
+                <div class="bk-meta"><span><span class="skeleton-block"></span></span><span><span class="skeleton-block"></span></span><span><span class="skeleton-block"></span></span></div>
+              </div>
+              <div class="bk-card-side"><div class="bk-price skeleton-block"></div><div class="bk-requested skeleton-block"></div><div class="bk-actions"><span class="skeleton-block"></span><span class="skeleton-block"></span></div></div>
+            </div>
+            <div class="booking-card host-booking-card host-booking-skeleton">
+              <div class="bk-thumb-wrap"><div class="bk-thumb skeleton-block"></div></div>
+              <div class="bk-main">
+                <div class="bk-top-row"><div><div class="bk-title skeleton-block"></div><div class="bk-guest"><span class="bk-guest-avatar skeleton-block"></span><span class="bk-guest-name skeleton-block"></span></div></div></div>
+                <div class="bk-meta"><span><span class="skeleton-block"></span></span><span><span class="skeleton-block"></span></span><span><span class="skeleton-block"></span></span></div>
+              </div>
+              <div class="bk-card-side"><div class="bk-price skeleton-block"></div><div class="bk-requested skeleton-block"></div><div class="bk-actions"><span class="skeleton-block"></span><span class="skeleton-block"></span></div></div>
+            </div>
+            <div class="booking-card host-booking-card host-booking-skeleton">
+              <div class="bk-thumb-wrap"><div class="bk-thumb skeleton-block"></div></div>
+              <div class="bk-main">
+                <div class="bk-top-row"><div><div class="bk-title skeleton-block"></div><div class="bk-guest"><span class="bk-guest-avatar skeleton-block"></span><span class="bk-guest-name skeleton-block"></span></div></div></div>
+                <div class="bk-meta"><span><span class="skeleton-block"></span></span><span><span class="skeleton-block"></span></span><span><span class="skeleton-block"></span></span></div>
+              </div>
+              <div class="bk-card-side"><div class="bk-price skeleton-block"></div><div class="bk-requested skeleton-block"></div><div class="bk-actions"><span class="skeleton-block"></span><span class="skeleton-block"></span></div></div>
+            </div>
+          </div>
+        </div>
 
         <div id="bookings-page" style="display:none;">
           <!-- CLIENT VIEW -->
@@ -874,6 +965,30 @@
         renderHostBookingPanel(status);
       }
 
+      function hostBookingSkeleton(){
+        return '<div class="booking-card host-booking-card host-booking-skeleton" aria-hidden="true">' +
+          '<div class="bk-thumb-wrap"><div class="bk-thumb skeleton-block"></div></div>' +
+          '<div class="bk-main">' +
+            '<div class="bk-top-row"><div><div class="bk-title skeleton-block"></div><div class="bk-guest"><span class="bk-guest-avatar skeleton-block"></span><span class="bk-guest-name skeleton-block"></span></div></div></div>' +
+            '<div class="bk-meta"><span><span class="skeleton-block"></span></span><span><span class="skeleton-block"></span></span><span><span class="skeleton-block"></span></span></div>' +
+          '</div>' +
+          '<div class="bk-card-side"><div class="bk-price skeleton-block"></div><div class="bk-requested skeleton-block"></div><div class="bk-actions"><span class="skeleton-block"></span><span class="skeleton-block"></span></div></div>' +
+        '</div>';
+      }
+
+      function renderHostBookingSkeletons(){
+        const panel = document.getElementById('pending-panel');
+        panel.setAttribute('aria-busy', 'true');
+        panel.innerHTML = hostBookingSkeleton() + hostBookingSkeleton() + hostBookingSkeleton();
+      }
+
+      function revealHostBookingResults(panel){
+        panel.classList.add('host-booking-results-enter');
+        requestAnimationFrame(function(){
+          requestAnimationFrame(function(){ panel.classList.remove('host-booking-results-enter'); });
+        });
+      }
+
       function renderHostBookingDetail(booking){
         if (!booking) {
           selectedHostBookingId = null;
@@ -992,7 +1107,7 @@
           });
 
           updateHostBookingCounts();
-          renderHostBookingPanel('pending');
+          renderHostBookingPanel('pending', true);
           const requestedBookingId = new URLSearchParams(window.location.search).get('booking');
           if (isHost && requestedBookingId) {
             const requestedBooking = (data || []).find(function(booking){ return booking.id === requestedBookingId; });
@@ -1011,7 +1126,9 @@
           }
         } catch (err) {
           console.error('Failed to load host bookings:', err);
-          document.getElementById('pending-panel').innerHTML = '<p class="state-msg">Couldn\'t load bookings. Please try again.</p>';
+          const pendingPanel = document.getElementById('pending-panel');
+          pendingPanel.setAttribute('aria-busy', 'false');
+          pendingPanel.innerHTML = '<p class="state-msg">Couldn\'t load bookings. Please try again.</p>';
         }
       }
 
@@ -1028,10 +1145,11 @@
         setCount('completed-count', hostBookings.completed && hostBookings.completed.length);
       }
 
-      function renderHostBookingPanel(status){
+      function renderHostBookingPanel(status, animateResults){
         const bookings = (hostBookings[status === 'confirmed' ? 'approved' : status] || []).filter(isBookingInMonth);
         const panelId = status + '-panel';
         const panel = document.getElementById(panelId);
+        if (status === 'pending') panel.setAttribute('aria-busy', 'false');
 
         if (!bookings || bookings.length === 0) {
           const messages = {
@@ -1041,6 +1159,7 @@
             completed: 'No completed bookings'
           };
           panel.innerHTML = '<p class="state-msg">' + escapeHtml(messages[status]) + '</p>';
+          if (animateResults) revealHostBookingResults(panel);
           return;
         }
 
@@ -1105,6 +1224,7 @@
             '</div>'
           );
         }).join('');
+        if (animateResults) revealHostBookingResults(panel);
 
         panel.querySelectorAll('.host-booking-card video').forEach(function(video){
           ['click', 'pointerdown', 'keydown'].forEach(function(eventName){
@@ -1305,6 +1425,9 @@
 
       // Load and display host bookings
       renderHostMonth();
+      checkingAuth.style.display = 'none';
+      bookingsPage.style.display = 'block';
+      renderHostBookingSkeletons();
       await loadHostBookings();
     }
 
