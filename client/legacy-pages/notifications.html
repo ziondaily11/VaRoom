@@ -180,6 +180,80 @@
   .notif-time{font-size:12px;color:var(--text-muted);white-space:nowrap;}
   .dot{width:8px;height:8px;border-radius:50%;background:var(--red);}
 
+  .notifications-loading .notifications-content{display:none;}
+  .notifications-skeleton{display:none;}
+  .notifications-loading .notifications-skeleton{display:block;}
+  .notification-skeleton-block{
+    background:rgba(128,110,100,.18);
+    border-radius:5px;
+    animation:notification-skeleton-shimmer 1.5s ease-in-out infinite;
+  }
+  @keyframes notification-skeleton-shimmer{
+    50%{opacity:.48;}
+  }
+  .notification-skeleton-header{
+    display:flex;align-items:flex-start;justify-content:space-between;
+    margin-bottom:20px;
+  }
+  .notification-skeleton-heading{width:220px;}
+  .notification-skeleton-title{height:27px;width:170px;margin-bottom:8px;}
+  .notification-skeleton-subtitle{height:14px;width:205px;}
+  .notification-skeleton-header-actions{display:flex;gap:8px;}
+  .notification-skeleton-header-action{width:38px;height:38px;border-radius:10px;}
+  .notification-skeleton-toolbar{
+    display:flex;align-items:center;justify-content:space-between;
+    gap:10px;flex-wrap:wrap;margin-bottom:22px;
+  }
+  .notification-skeleton-tabs{
+    display:flex;gap:6px;padding:4px;background:var(--white);
+    border:1px solid var(--border);border-radius:11px;
+  }
+  .notification-skeleton-tab{width:74px;height:34px;border-radius:8px;}
+  .notification-skeleton-tab:last-child{width:102px;}
+  .notification-skeleton-search{
+    display:flex;align-items:center;gap:10px;padding:0 14px;
+    width:240px;height:40px;border:1px solid var(--border);
+    border-radius:10px;background:var(--white);
+  }
+  .notification-skeleton-search-icon{width:14px;height:14px;border-radius:50%;flex-shrink:0;}
+  .notification-skeleton-search-text{width:120px;height:12px;}
+  .notification-skeleton-section{margin-bottom:26px;}
+  .notification-skeleton-section-title{height:14px;width:72px;margin:0 0 10px 2px;}
+  .notification-skeleton-list{
+    overflow:hidden;border:1px solid var(--border);
+    border-radius:var(--radius-lg);background:var(--white);
+  }
+  .notification-skeleton-row{
+    display:grid;grid-template-columns:42px minmax(0,1fr) auto;
+    align-items:start;gap:14px;padding:16px 18px;
+    border-bottom:1px solid var(--border);
+  }
+  .notification-skeleton-row:last-child{border-bottom:0;}
+  .notification-skeleton-icon{width:42px;height:42px;border-radius:11px;}
+  .notification-skeleton-copy{min-width:0;padding-top:1px;}
+  .notification-skeleton-title-line{
+    display:flex;gap:8px;width:auto;height:15px;margin-bottom:10px;
+    background:transparent;animation:none;
+  }
+  .notification-skeleton-title-line::before,
+  .notification-skeleton-title-line::after{
+    content:"";height:15px;border-radius:5px;
+    background:rgba(128,110,100,.18);
+    animation:notification-skeleton-shimmer 1.5s ease-in-out infinite;
+  }
+  .notification-skeleton-title-line::before{width:150px;}
+  .notification-skeleton-title-line::after{width:52px;border-radius:100px;}
+  .notification-skeleton-description{height:14px;width:78%;margin-bottom:10px;}
+  .notification-skeleton-actions{display:flex;gap:8px;}
+  .notification-skeleton-button{height:33px;width:76px;border-radius:8px;}
+  .notification-skeleton-button.short{width:66px;}
+  .notification-skeleton-meta{display:flex;flex-direction:column;align-items:flex-end;gap:10px;padding-top:4px;}
+  .notification-skeleton-time{height:12px;width:60px;}
+  .notification-skeleton-dot{width:8px;height:8px;border-radius:50%;}
+  [data-theme="dark"] .notification-skeleton-block,
+  [data-theme="dark"] .notification-skeleton-title-line::before,
+  [data-theme="dark"] .notification-skeleton-title-line::after{background:rgba(245,239,236,.18);}
+
   /* ---------- Mobile ---------- */
   .menu-toggle{display:none;}
 
@@ -193,6 +267,7 @@
     .page-header-left{display:flex;align-items:center;}
     .main-inner{padding:18px 16px 40px;}
     .toolbar-search{display:none;}
+    .notification-skeleton-search{display:none;}
   }
 
   /* Phone-width refinements: stack card meta, full-width tabs and actions
@@ -214,11 +289,24 @@
     .notif-meta .dot{order:-1;}
     .notif-actions{flex-direction:column;}
     .action-btn{width:100%;text-align:center;padding:9px 12px;}
+    .notification-skeleton-header{align-items:center;}
+    .notification-skeleton-heading{width:auto;min-width:0;}
+    .notification-skeleton-title{width:140px;}
+    .notification-skeleton-subtitle{width:160px;}
+    .notification-skeleton-toolbar{display:block;}
+    .notification-skeleton-tabs{width:100%;margin-bottom:10px;}
+    .notification-skeleton-tab{flex:1;width:auto;}
+    .notification-skeleton-tab:last-child{width:auto;}
+    .notification-skeleton-search{display:none;}
+    .notification-skeleton-row{grid-template-columns:38px minmax(0,1fr);gap:12px;padding:14px;}
+    .notification-skeleton-icon{width:38px;height:38px;}
+    .notification-skeleton-meta{grid-column:2;flex-direction:row;justify-content:flex-end;gap:6px;margin-top:0;padding:0;}
+    .notification-skeleton-description{width:95%;}
   }
 </style>
 <link rel="stylesheet" href="js/varoom-dark-theme.css">
 </head>
-<body>
+<body class="notifications-loading">
 
 <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
 
@@ -231,6 +319,109 @@
   <main class="main">
     <div class="main-inner">
 
+      <div class="notifications-skeleton" role="status" aria-label="Loading notifications">
+        <div class="notification-skeleton-header">
+          <div class="notification-skeleton-heading">
+            <div class="notification-skeleton-block notification-skeleton-title"></div>
+            <div class="notification-skeleton-block notification-skeleton-subtitle"></div>
+          </div>
+          <div class="notification-skeleton-header-actions">
+            <div class="notification-skeleton-block notification-skeleton-header-action"></div>
+            <div class="notification-skeleton-block notification-skeleton-header-action"></div>
+          </div>
+        </div>
+        <div class="notification-skeleton-toolbar">
+          <div class="notification-skeleton-tabs">
+            <div class="notification-skeleton-block notification-skeleton-tab"></div>
+            <div class="notification-skeleton-block notification-skeleton-tab"></div>
+          </div>
+          <div class="notification-skeleton-search">
+            <div class="notification-skeleton-block notification-skeleton-search-icon"></div>
+            <div class="notification-skeleton-block notification-skeleton-search-text"></div>
+          </div>
+        </div>
+        <div class="notification-skeleton-section">
+          <div class="notification-skeleton-block notification-skeleton-section-title"></div>
+          <div class="notification-skeleton-list">
+            <div class="notification-skeleton-row">
+              <div class="notification-skeleton-block notification-skeleton-icon"></div>
+              <div class="notification-skeleton-copy">
+                <div class="notification-skeleton-block notification-skeleton-title-line"></div>
+                <div class="notification-skeleton-block notification-skeleton-description"></div>
+                <div class="notification-skeleton-actions">
+                  <div class="notification-skeleton-block notification-skeleton-button"></div>
+                  <div class="notification-skeleton-block notification-skeleton-button short"></div>
+                </div>
+              </div>
+              <div class="notification-skeleton-meta">
+                <div class="notification-skeleton-block notification-skeleton-time"></div>
+                <div class="notification-skeleton-block notification-skeleton-dot"></div>
+              </div>
+            </div>
+            <div class="notification-skeleton-row">
+              <div class="notification-skeleton-block notification-skeleton-icon"></div>
+              <div class="notification-skeleton-copy">
+                <div class="notification-skeleton-block notification-skeleton-title-line"></div>
+                <div class="notification-skeleton-block notification-skeleton-description"></div>
+                <div class="notification-skeleton-actions">
+                  <div class="notification-skeleton-block notification-skeleton-button"></div>
+                </div>
+              </div>
+              <div class="notification-skeleton-meta">
+                <div class="notification-skeleton-block notification-skeleton-time"></div>
+                <div class="notification-skeleton-block notification-skeleton-dot"></div>
+              </div>
+            </div>
+            <div class="notification-skeleton-row">
+              <div class="notification-skeleton-block notification-skeleton-icon"></div>
+              <div class="notification-skeleton-copy">
+                <div class="notification-skeleton-block notification-skeleton-title-line"></div>
+                <div class="notification-skeleton-block notification-skeleton-description"></div>
+                <div class="notification-skeleton-actions">
+                  <div class="notification-skeleton-block notification-skeleton-button"></div>
+                </div>
+              </div>
+              <div class="notification-skeleton-meta">
+                <div class="notification-skeleton-block notification-skeleton-time"></div>
+                <div class="notification-skeleton-block notification-skeleton-dot"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="notification-skeleton-section">
+          <div class="notification-skeleton-block notification-skeleton-section-title"></div>
+          <div class="notification-skeleton-list">
+            <div class="notification-skeleton-row">
+              <div class="notification-skeleton-block notification-skeleton-icon"></div>
+              <div class="notification-skeleton-copy">
+                <div class="notification-skeleton-block notification-skeleton-title-line"></div>
+                <div class="notification-skeleton-block notification-skeleton-description"></div>
+                <div class="notification-skeleton-actions">
+                  <div class="notification-skeleton-block notification-skeleton-button"></div>
+                </div>
+              </div>
+              <div class="notification-skeleton-meta">
+                <div class="notification-skeleton-block notification-skeleton-time"></div>
+              </div>
+            </div>
+            <div class="notification-skeleton-row">
+              <div class="notification-skeleton-block notification-skeleton-icon"></div>
+              <div class="notification-skeleton-copy">
+                <div class="notification-skeleton-block notification-skeleton-title-line"></div>
+                <div class="notification-skeleton-block notification-skeleton-description"></div>
+                <div class="notification-skeleton-actions">
+                  <div class="notification-skeleton-block notification-skeleton-button"></div>
+                </div>
+              </div>
+              <div class="notification-skeleton-meta">
+                <div class="notification-skeleton-block notification-skeleton-time"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="notifications-content" aria-hidden="true">
       <div class="page-header">
         <div class="page-header-left">
           <button class="menu-toggle" id="menu-toggle" type="button" onclick="window.VaroomSidebar &amp;&amp; window.VaroomSidebar.open()" aria-label="Open menu">
@@ -328,6 +519,7 @@
             </div>
           </div>
 
+          </div>
         </div>
       </div>
 
@@ -396,6 +588,7 @@
         </div>
       </div>
 
+      </div>
     </div>
   </main>
 </div>
