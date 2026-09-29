@@ -79,6 +79,8 @@
     position:sticky; top:0; align-self:start; grid-column:1;
     height:100vh; padding:0; border-right:1px solid var(--line);
   }
+  .sidebar-shell.host-sidebar-shell{ border-right-color:#E4E1DA; }
+  [data-theme="dark"] .sidebar-shell.host-sidebar-shell{ border-right-color:rgba(255,255,255,.12); }
   .sidebar{
     height:100vh;
     background:var(--white);
@@ -109,7 +111,25 @@
   .nav-item:hover{ background:var(--paper); }
   .nav-item.active{ background:#FBE4E7; color:var(--red-deep); font-weight:600; }
   .nav-item svg{ width:19px; height:19px; flex-shrink:0; }
-
+  #sidebar-host.sidebar{
+    --white:#FFFFFF; --ink:#24211E; --muted:#5c584f;
+    --host-control-active:#E9E7E2; --host-control-hover:#EFEDE8; --host-sidebar-line:#E4E1DA;
+    padding:1.4rem 1.2rem 1.2rem;
+  }
+  [data-theme="dark"] #sidebar-host.sidebar{
+    --white:#241C1A; --ink:#F5EFEC; --muted:#B8ACA8;
+    --host-control-active:#302C2A; --host-control-hover:#25211F; --host-sidebar-line:rgba(255,255,255,.12);
+  }
+  #sidebar-host .logo .va,
+  #sidebar-host .beta-pill{ color:var(--ink); }
+  #sidebar-host .beta-pill{ background:var(--host-control-active) !important; border-color:var(--host-sidebar-line); }
+  #sidebar-host .nav-group + .nav-group{ border-top-color:var(--host-sidebar-line); }
+  #sidebar-host .nav-item{ gap:.7rem; padding:.6rem .7rem; font-size:.92rem; }
+  #sidebar-host .nav-item svg{ width:18px; height:18px; }
+  #sidebar-host .nav-item:hover,
+  #sidebar-host button.nav-item:hover{ background:var(--host-control-hover) !important; color:var(--ink) !important; }
+  #sidebar-host .nav-item.active,
+  #sidebar-host .nav-item.active:hover{ background:var(--host-control-active) !important; color:var(--ink) !important; }
   .list-space-btn{
     display:flex; align-items:center; gap:.5rem;
     border:1.5px solid var(--red); color:var(--red);
@@ -117,12 +137,15 @@
     font-size:.9rem; font-weight:600;
   }
   .list-space-btn:hover{ background:#FBE4E7; }
+  #sidebar-host .list-space-btn{ background:var(--ink); border-color:var(--ink); color:var(--white); }
+  #sidebar-host .list-space-btn:hover{ background:var(--host-control-hover); border-color:var(--host-sidebar-line); color:var(--ink); }
 
   .verify-box{ border-radius:14px; padding:1rem 1.1rem; font-size:.82rem; line-height:1.5; }
   .verify-box.is-verified{ background:#EAF4EE; color:#1E6B3C; }
   .verify-box.not-verified{ background:#FBE4E7; color:var(--red-deep); }
   .verify-box strong{ display:block; margin-bottom:.2rem; }
   .verify-box a{ font-weight:600; border-bottom:1.5px solid currentColor; }
+  #sidebar-host .verify-box.not-verified{ background:var(--host-control-active) !important; border-color:var(--host-sidebar-line); color:var(--ink) !important; }
 
   .sidebar-note{
     margin-top:auto; background:#FBE4E7; border-radius:14px;
@@ -132,6 +155,9 @@
 
   .logout-btn{ color:var(--red); font-weight:600; font-size:.9rem; padding:.5rem .7rem; text-align:left; margin-top:auto; }
   #sidebar-host .logout-btn{ margin-top:0; } /* host already has margin-top:auto on verify-box above it */
+  #sidebar-host .logout-btn{ color:var(--ink) !important; }
+  #sidebar-host .logout-btn:hover{ background:var(--host-control-hover) !important; }
+  #sidebar-host :focus-visible{ outline-color:var(--muted); }
 
   .sidebar-backdrop{ display:none; }
 
@@ -373,6 +399,7 @@
      ===================================================================== */
   @media (max-width:1100px) and (min-width:861px){
     .app-shell{ grid-template-columns:240px minmax(360px, 390px) minmax(0, 1fr); }
+    .sidebar-shell.host-sidebar-shell{ width:280px; }
   }
 
   @media (max-width:860px){
@@ -383,9 +410,16 @@
       z-index:200; padding:0; transform:translateX(-100%);
       transition:transform .25s ease;
     }
+    .sidebar-shell.host-sidebar-shell{ width:80vw; max-width:360px; }
     .sidebar-shell .sidebar{ border-radius:0; height:100vh; }
     .sidebar-shell.mobile-open{ transform:translateX(0); }
     .sidebar{ box-shadow:0 0 40px rgba(0,0,0,.5); }
+    #sidebar-host.sidebar{ padding:1.6rem 1.3rem 1.3rem; }
+    #sidebar-host .nav-label{ font-size:.8rem; }
+    #sidebar-host .nav-item{ gap:.9rem; padding:.85rem .9rem; font-size:1.05rem; }
+    #sidebar-host .nav-item svg{ width:21px; height:21px; }
+    #sidebar-host .beta-pill{ display:inline-block; font-size:.74rem; }
+    #sidebar-host .logout-btn{ font-size:.98rem; }
 
     .sidebar-backdrop{
       display:none; position:fixed; inset:0; background:rgba(26,18,16,.45); z-index:190;
@@ -498,7 +532,7 @@
     </aside>
 
     <!-- ============ HOST SIDEBAR (matches /host-home's #sidebar) ============ -->
-    <aside class="sidebar" id="sidebar-host" style="display:none;">
+    <aside class="sidebar sidebar-host" id="sidebar-host" style="display:none;">
       <a href="/host-home" class="logo"><span class="va">Va</span><span class="room">Room</span></a>
 
       <nav class="nav-group">
@@ -1140,6 +1174,7 @@
     const sidebarClient = document.getElementById('sidebar-client');
     const sidebarHost = document.getElementById('sidebar-host');
     const activeSidebar = currentRole === 'host' ? sidebarHost : sidebarClient;
+    document.getElementById('sidebar-shell').classList.toggle('host-sidebar-shell', currentRole === 'host');
     (currentRole === 'host' ? sidebarClient : sidebarHost).style.display = 'none';
     activeSidebar.style.display = 'flex';
     activeSidebar.querySelector('[data-role-home]').setAttribute('href', dashboardHref);
