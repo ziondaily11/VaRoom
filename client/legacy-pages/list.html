@@ -238,6 +238,14 @@
   .price-preview .unit{ font-size:.95rem; font-weight:500; color:rgba(255,255,255,.85); }
   .booking-group{ display:none; }
   .booking-group.active{ display:block; }
+  .hotel-offer-mode{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.55rem; margin:1.1rem 0 1.35rem; }
+  .hotel-offer-mode[hidden]{ display:none; }
+  .hotel-offer-option{ appearance:none; border:1px solid rgba(255,255,255,.3); border-radius:10px; background:rgba(255,255,255,.08); color:inherit; padding:.85rem .65rem; text-align:left; cursor:pointer; font:inherit; }
+  .hotel-offer-option strong,.hotel-offer-option small{ display:block; }
+  .hotel-offer-option small{ margin-top:.25rem; opacity:.72; line-height:1.3; }
+  .hotel-offer-option.selected{ background:var(--red); border-color:var(--red); color:#fff; }
+  .hotel-dining-fields{ display:none; }
+  .hotel-dining-fields.active{ display:block; }
   .booking-hint{ font-size:.8rem; margin-bottom:1rem; line-height:1.5; color:rgba(255,255,255,.8); }
 
   .cal-header{ display:flex; align-items:center; justify-content:space-between; margin-bottom:.7rem; }
@@ -433,9 +441,14 @@
           <p class="step-eyebrow" id="about-eyebrow">01 — About the property</p>
           <h1 class="step-title" id="listing-headline">Let's list your first space.</h1>
           <p class="step-sub" id="about-sub">A few thoughtful details now, then VaRoom turns your space into a place people can picture themselves in.</p>
+          <div class="hotel-offer-mode" id="hotel-offer-mode" hidden aria-label="What would you like to offer?">
+            <button type="button" class="hotel-offer-option" data-hotel-mode="table"><strong>Table Reservations</strong><small>Dining reservations only</small></button>
+            <button type="button" class="hotel-offer-option" data-hotel-mode="stay"><strong>Hotel Stay</strong><small>Accommodation only</small></button>
+            <button type="button" class="hotel-offer-option" data-hotel-mode="both"><strong>Both</strong><small>Stays and dining reservations</small></button>
+          </div>
 
           <div class="step-fields">
-            <div class="field">
+            <div class="field" id="property-description-field">
               <label for="title" id="title-label">Title</label>
               <input type="text" id="title" name="title" required placeholder="e.g. Cozy 2-bedroom Airbnb near campus">
             </div>
@@ -521,7 +534,7 @@
               <div class="photo-preview-grid" id="photo-preview"></div>
             </div>
 
-            <div class="field" style="margin-top:.6rem;">
+            <div class="field" id="amenities-field" style="margin-top:.6rem;">
               <label id="amenities-label">Amenities</label>
               <p class="amenities-hint" id="amenities-hint">Select everything this space offers. Shown to guests on the booking page.</p>
               <div class="amenities-grid" id="amenities-grid"></div>
@@ -561,7 +574,7 @@
           </div>
 
           <div class="step-fields">
-            <div class="field field-row">
+            <div class="field field-row" id="stay-price-field">
               <div class="field">
                 <label for="price-amount">Price (KES)</label>
                 <input type="number" id="price-amount" name="price-amount" min="0" step="1" placeholder="e.g. 3500">
@@ -572,7 +585,7 @@
               </div>
             </div>
 
-            <div class="field">
+            <div class="field" id="stay-room-type-field">
               <label for="size-or-type" id="size-label">Size / Type</label>
               <input type="text" id="size-or-type" name="size-or-type" placeholder="e.g. 2 bedrooms">
             </div>
@@ -650,6 +663,22 @@
               <div class="checkbox-row">
                 <input type="checkbox" id="utilities-included">
                 <label for="utilities-included">Utilities included in price</label>
+              </div>
+            </div>
+            <div class="hotel-dining-fields" id="hotel-dining-fields">
+              <div class="field" id="dining-name-field">
+                <label for="dining-restaurant-name">Restaurant / dining name</label>
+                <input type="text" id="dining-restaurant-name" maxlength="300" placeholder="e.g. The Garden Restaurant">
+              </div>
+              <div class="field-row">
+                <div class="field">
+                  <label for="dining-opening-hours">Opening hours</label>
+                  <input type="text" id="dining-opening-hours" maxlength="100" placeholder="e.g. 9:00 AM – 8:00 PM">
+                </div>
+                <div class="field">
+                  <label for="dining-tables-available">Tables available</label>
+                  <input type="number" id="dining-tables-available" min="1" max="1000" placeholder="e.g. 12">
+                </div>
               </div>
             </div>
           </div>
@@ -835,6 +864,44 @@
   const sizeLabel = document.getElementById('size-label');
   const sizeInput = document.getElementById('size-or-type');
   const pricingHeading = document.getElementById('pricing-heading');
+  const hotelOfferMode = document.getElementById('hotel-offer-mode');
+  const hotelDiningFields = document.getElementById('hotel-dining-fields');
+  let hotelListingMode = null;
+
+  function applyHotelMode(mode){
+    hotelListingMode = mode;
+    hotelOfferMode.querySelectorAll('[data-hotel-mode]').forEach(function(button){
+      button.classList.toggle('selected', button.dataset.hotelMode === mode);
+      button.setAttribute('aria-pressed', button.dataset.hotelMode === mode ? 'true' : 'false');
+    });
+    const tableOnly = mode === 'table';
+    const tableEnabled = mode === 'table' || mode === 'both';
+    document.getElementById('property-description-field').style.display = tableOnly ? 'none' : '';
+    document.getElementById('property-description').required = !tableOnly;
+    document.getElementById('stay-price-field').style.display = tableOnly ? 'none' : '';
+    document.getElementById('stay-room-type-field').style.display = tableOnly ? 'none' : '';
+    document.getElementById('amenities-field').style.display = tableOnly ? 'none' : '';
+    shortStayFields.classList.toggle('active', !tableOnly);
+    hotelDiningFields.classList.toggle('active', tableEnabled);
+    document.getElementById('dining-opening-hours').required = tableEnabled;
+    document.getElementById('dining-tables-available').required = tableEnabled;
+    document.getElementById('dining-restaurant-name').required = mode === 'both';
+    if (tableOnly) {
+      setText('about-eyebrow', '01 — About your dining space');
+      setText('about-sub', 'Create a simple dining listing so guests can request a table directly with your hotel.');
+      setText('title-label', 'Restaurant / dining name');
+      document.getElementById('title').placeholder = 'e.g. The Garden Restaurant';
+      setText('caption-label', 'Guest-facing caption');
+      document.getElementById('caption').placeholder = 'Relaxed garden dining with chef-led Kenyan favourites.';
+      setText('pricing-heading', 'Set up table reservations.');
+      bookingSub.textContent = 'Add the hours and table capacity guests need before sending a request.';
+      document.getElementById('dining-name-field').style.display = 'none';
+    } else {
+      configureHotelLanguage();
+      document.getElementById('dining-name-field').style.display = tableEnabled ? '' : 'none';
+      if (mode === 'both') bookingSub.textContent = 'Keep your hotel stay settings, then add dining hours and table capacity.';
+    }
+  }
 
   function setText(id, value){
     const element = document.getElementById(id);
@@ -879,9 +946,10 @@
 
     if (cat === 'hotel') {
       priceUnitField.innerHTML = '<option value="night" selected>Per night</option>';
-      shortStayFields.classList.add('active');
+      shortStayFields.classList.remove('active');
       longTermFields.classList.remove('active');
-      bookingSub.textContent = 'Set a nightly room rate, check-in times, and available stay dates.';
+      bookingSub.textContent = 'Choose what this hotel offers to set up the right booking experience.';
+      hotelOfferMode.hidden = false;
     } else if (SHORT_STAY.includes(cat)) {
       priceUnitField.innerHTML = '<option value="hour">Per hour</option><option value="night" selected>Per night</option>';
       shortStayFields.classList.add('active');
@@ -986,6 +1054,10 @@
       cb.addEventListener('change', function(){ row.classList.toggle('checked', cb.checked); });
     });
   }
+
+  hotelOfferMode.querySelectorAll('[data-hotel-mode]').forEach(function(button){
+    button.addEventListener('click', function(){ applyHotelMode(button.dataset.hotelMode); });
+  });
   renderAmenities();
 
   function getSelectedAmenities(){
@@ -1000,6 +1072,12 @@
   const trackerItems = Array.from(document.querySelectorAll('.tracker-item'));
 
   function validateStep(n){
+    if (n === 1 && hostNiche === 'hotel' && !hotelListingMode) {
+      const firstOption = hotelOfferMode.querySelector('[data-hotel-mode]');
+      if (firstOption) firstOption.focus();
+      alert('Choose whether this hotel offers stays, table reservations, or both.');
+      return false;
+    }
     const frame = document.querySelector('.step-frame[data-step="' + n + '"]');
     const required = frame.querySelectorAll('[required]');
     for (const field of required) {
@@ -1481,6 +1559,10 @@
       title, category, description: caption, property_description: propertyDescription,
       location_text: generalLocation,
     };
+    if (category === 'hotel') {
+      listingPayload.supports_stay = hotelListingMode !== 'table';
+      listingPayload.supports_table_reservation = hotelListingMode === 'table' || hotelListingMode === 'both';
+    }
 
     const { data: { session } } = await supabaseClient.auth.getSession();
     const listingResponse = await fetch('/api/listings', {
@@ -1513,7 +1595,7 @@
       amenities: getSelectedAmenities()
     };
 
-    if (SHORT_STAY.includes(category)) {
+    if (SHORT_STAY.includes(category) && !(category === 'hotel' && hotelListingMode === 'table')) {
       bookingDetails.max_guests = document.getElementById('max-guests').value ? parseInt(document.getElementById('max-guests').value, 10) : null;
       bookingDetails.min_stay_nights = document.getElementById('min-stay').value ? parseInt(document.getElementById('min-stay').value, 10) : null;
       bookingDetails.checkin_time = document.getElementById('checkin-time').value || null;
@@ -1527,10 +1609,29 @@
       bookingDetails.utilities_included = document.getElementById('utilities-included').checked;
     }
 
-    await supabaseClient.from('listing_booking_details').insert(bookingDetails);
+    if (!(category === 'hotel' && hotelListingMode === 'table')) {
+      await supabaseClient.from('listing_booking_details').insert(bookingDetails);
+    }
+
+    if (category === 'hotel' && (hotelListingMode === 'table' || hotelListingMode === 'both')) {
+      const restaurantName = hotelListingMode === 'table' ? title : fieldValue('dining-restaurant-name');
+      const diningResponse = await fetch('/api/listings/' + encodeURIComponent(listingId) + '/dining-config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
+        body: JSON.stringify({
+          restaurant_name: restaurantName,
+          caption: caption,
+          location_text: generalLocation,
+          opening_hours: fieldValue('dining-opening-hours'),
+          tables_available: Number(fieldValue('dining-tables-available'))
+        })
+      });
+      const diningResult = await diningResponse.json().catch(function(){ return {}; });
+      if (!diningResponse.ok) throw new Error(diningResult.error || 'Unable to save dining configuration');
+    }
 
     // ---------- Availability (short-stay only) ----------
-    if (SHORT_STAY.includes(category) && openDates.size > 0) {
+    if (SHORT_STAY.includes(category) && !(category === 'hotel' && hotelListingMode === 'table') && openDates.size > 0) {
       const rows = Array.from(openDates).map(function(d){ return { listing_id: listingId, date: d }; });
       await supabaseClient.from('availability').insert(rows);
     }

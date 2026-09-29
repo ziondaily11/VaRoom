@@ -797,12 +797,14 @@
               <button class="tab" data-tab="confirmed">Confirmed<span class="tab-count" id="confirmed-count"></span></button>
               <button class="tab" data-tab="declined">Declined<span class="tab-count" id="declined-count"></span></button>
               <button class="tab" data-tab="completed">Completed<span class="tab-count" id="completed-count"></span></button>
+              <button class="tab" data-tab="table-reservations">Table Reservations<span class="tab-count" id="table-reservations-count"></span></button>
             </div>
 
             <div id="pending-panel"></div>
             <div id="confirmed-panel" style="display:none;"></div>
             <div id="declined-panel" style="display:none;"></div>
             <div id="completed-panel" style="display:none;"></div>
+            <div id="table-reservations-panel" style="display:none;"></div>
           </div>
         </div>
       </div>
@@ -915,6 +917,7 @@
     // ---------- HOST BOOKING MANAGEMENT ----------
     if (isHost) {
       let hostBookings = {};
+      let hostTableReservations = [];
       let selectedHostBookingId = null;
       let isProcessing = false;
       let hostMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
@@ -958,7 +961,35 @@
       }
 
       function renderHostStatus(status){
+        if (status === 'table-reservations') { renderHostTableReservations(); return; }
         renderHostBookingPanel(status);
+      }
+
+      async function loadHostTableReservations(){
+        try {
+          const response = await fetch('/api/host/table-reservations', { headers: { Authorization: 'Bearer ' + session.access_token } });
+          const payload = await response.json().catch(function(){ return {}; });
+          if (!response.ok) throw new Error(payload.error || 'Unable to load table reservations');
+          hostTableReservations = Array.isArray(payload.reservations) ? payload.reservations : [];
+          const count = document.getElementById('table-reservations-count');
+          if (count) { count.textContent = hostTableReservations.length ? String(hostTableReservations.length) : ''; count.classList.toggle('has-count', hostTableReservations.length > 0); }
+          const active = document.querySelector('#host-bookings-view .tab.active');
+          if (active && active.getAttribute('data-tab') === 'table-reservations') renderHostTableReservations();
+        } catch (error) { console.error('Failed to load table reservations:', error); }
+      }
+
+      function renderHostTableReservations(){
+        const panel = document.getElementById('table-reservations-panel');
+        if (!hostTableReservations.length) { panel.innerHTML = '<p class="state-msg">No table reservations yet.</p>'; return; }
+        panel.innerHTML = hostTableReservations.map(function(reservation){
+          const occasion = reservation.special_occasion ? (' · ' + escapeHtml(reservation.occasion_details || 'Special occasion')) : '';
+          return '<article class="booking-card host-booking-card" style="cursor:default">' +
+            '<div class="bk-thumb-wrap"><div class="bk-thumb" style="display:grid;place-items:center;background:#8f1229;color:white;font-weight:800">TABLE</div></div>' +
+            '<div class="bk-main"><div class="bk-top-row"><div><div class="bk-title">Table Reservation · ' + escapeHtml(reservation.restaurant_name || reservation.listing_title) + '</div><div class="bk-guest"><span class="bk-guest-avatar">' + escapeHtml((reservation.client_name || 'G').charAt(0).toUpperCase()) + '</span><span>' + escapeHtml(reservation.client_name) + '</span></div></div></div>' +
+            '<div class="bk-meta"><span>' + escapeHtml(reservation.requested_date) + ' at ' + escapeHtml(String(reservation.requested_time).slice(0,5)) + '</span><span>' + Number(reservation.guest_count) + ' guests · ' + Number(reservation.table_count) + ' table' + (Number(reservation.table_count) === 1 ? '' : 's') + occasion + '</span></div></div>' +
+            '<div class="bk-card-side"><a class="bk-btn bk-btn-solid" href="tel:' + escapeHtml(String(reservation.client_phone || '').replace(/[^+\d]/g, '')) + '">Call Client</a><div class="bk-requested">' + escapeHtml(reservation.client_phone || '') + '</div></div>' +
+          '</article>';
+        }).join('');
       }
 
       function hostBookingSkeleton(){
@@ -1104,6 +1135,7 @@
 
           updateHostBookingCounts();
           renderHostBookingPanel('pending', true);
+          loadHostTableReservations();
           const requestedBookingId = new URLSearchParams(window.location.search).get('booking');
           if (isHost && requestedBookingId) {
             const requestedBooking = (data || []).find(function(booking){ return booking.id === requestedBookingId; });
@@ -1394,6 +1426,7 @@
           document.getElementById('confirmed-panel').style.display = status === 'confirmed' ? '' : 'none';
           document.getElementById('declined-panel').style.display = status === 'declined' ? '' : 'none';
           document.getElementById('completed-panel').style.display = status === 'completed' ? '' : 'none';
+          document.getElementById('table-reservations-panel').style.display = status === 'table-reservations' ? '' : 'none';
           renderHostBookingDetail(null);
           renderHostStatus(status);
         });

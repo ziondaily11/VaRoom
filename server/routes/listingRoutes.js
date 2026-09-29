@@ -151,7 +151,7 @@ router.post('/listings', async (req, res) => {
   let category;
   let payload;
   try {
-    assertAllowedKeys(req.body, ['title', 'description', 'property_description', 'category', 'location_text', 'latitude', 'longitude', 'place_id', 'formatted_address', 'neighborhood', 'city', 'country']);
+    assertAllowedKeys(req.body, ['title', 'description', 'property_description', 'category', 'location_text', 'supports_stay', 'supports_table_reservation', 'latitude', 'longitude', 'place_id', 'formatted_address', 'neighborhood', 'city', 'country']);
     const niches = normalizeNiches(await hostNiches(user.id));
     category = niches[0];
     payload = {
@@ -165,6 +165,15 @@ router.post('/listings', async (req, res) => {
       location_text: text(req.body.location_text, 'location_text', { max: 300 }),
       verified: false,
     };
+    if (category === 'hotel') {
+      const supportsStay = req.body.supports_stay === undefined ? true : req.body.supports_stay;
+      const supportsTableReservation = req.body.supports_table_reservation === undefined ? false : req.body.supports_table_reservation;
+      if (typeof supportsStay !== 'boolean' || typeof supportsTableReservation !== 'boolean' || (!supportsStay && !supportsTableReservation)) {
+        throw new ValidationError('Hotel listings must offer a stay, table reservations, or both');
+      }
+      payload.supports_stay = supportsStay;
+      payload.supports_table_reservation = supportsTableReservation;
+    }
     ['place_id', 'formatted_address', 'neighborhood', 'city', 'country'].forEach((field) => {
       if (req.body[field] !== undefined) payload[field] = text(req.body[field], field, { required: false, max: 300 }) || null;
     });

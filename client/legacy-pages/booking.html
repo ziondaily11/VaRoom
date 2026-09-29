@@ -767,7 +767,7 @@
     }
     currentUser = session.user;
 
-    const { data: profile } = await supabaseClient.from('profiles').select('role,full_name,avatar_url').eq('id', currentUser.id).maybeSingle();
+    const { data: profile } = await supabaseClient.from('profiles').select('role,full_name,avatar_url,phone').eq('id', currentUser.id).maybeSingle();
     if (!profile) { window.location.href = '/login'; return; }
     currentRole = profile.role;
     homeHref = currentRole === 'host' ? '/host-home' : '/client-home';
@@ -830,7 +830,7 @@
 
     const { data: listing, error: listingError } = await supabaseClient
       .from('listings')
-      .select('id,title,description,property_description,location_text,category,verified,availability_status,host_id,' +
+      .select('id,title,description,property_description,location_text,category,verified,availability_status,host_id,supports_stay,supports_table_reservation,' +
         'host:profiles(full_name,verified,avatar_url,username,phone),listing_photos(storage_path),' +
         'listing_booking_details(*)')
       .eq('id', listingId)
@@ -843,9 +843,21 @@
       return;
     }
 
-    const details = listing.listing_booking_details;
-    if (!details) {
+    const supportsStay = listing.category !== 'hotel' || listing.supports_stay !== false;
+    const supportsTableReservation = listing.category === 'hotel' && listing.supports_table_reservation === true;
+    const supportsBoth = supportsStay && supportsTableReservation;
+    let diningConfig = null;
+    if (supportsTableReservation) {
+      const diningResponse = await fetch('/api/listings/' + encodeURIComponent(listingId) + '/dining-config');
+      if (diningResponse.ok) diningConfig = (await diningResponse.json()).diningConfig;
+    }
+    const details = listing.listing_booking_details || {};
+    if (supportsStay && !listing.listing_booking_details) {
       showError('This listing has no booking details set up yet.');
+      return;
+    }
+    if (supportsTableReservation && !diningConfig) {
+      showError('This hotel has not finished setting up table reservations yet.');
       return;
     }
     const listingUnavailable = listing.availability_status && listing.availability_status !== 'available';
@@ -877,7 +889,7 @@
     breadcrumb.style.display = 'flex';
 
     const SHORT_STAY = ['airbnb', 'hotel', 'venue'];
-    const isShortStay = SHORT_STAY.includes(listing.category);
+    const isShortStay = supportsStay && SHORT_STAY.includes(listing.category);
     const isHotel = listing.category === 'hotel';
     const isHourly = details.price_unit === 'hour';
 
@@ -1248,7 +1260,13 @@
         '</div>'
       : '';
 
-    const colSideHtml =
+    const tableOnlyWidget = !supportsStay && supportsTableReservation
+      ? '<div class="booking-widget"><p class="picker-title">Reserve a table</p>' +
+          '<p class="picker-sub">' + escapeHtml(diningConfig.restaurant_name) + ' · ' + escapeHtml(diningConfig.opening_hours) + '</p>' +
+          '<button type="button" class="confirm-btn" id="table-reserve-btn">Reserve a Table</button>' +
+          '<p class="form-note">Send a reservation request directly to the hotel.</p></div>'
+      : null;
+    const colSideHtml = tableOnlyWidget ||
       '<div class="booking-widget">' +
         '<div class="widget-price-row">' +
           '<div class="widget-price">KSh ' + Number(details.price_amount).toLocaleString() + ' <span>/ ' + details.price_unit + '</span></div>' +
@@ -1258,7 +1276,8 @@
         guestsHtml +
         hotelStayDetailsHtml +
         '<div class="details-box" id="details-box"></div>' +
-        '<button type="button" class="confirm-btn" id="confirm-btn" disabled' + (listingUnavailable ? ' aria-disabled="true"' : '') + '>' + (isHotel ? 'Reserve room' : 'Book now') + '</button>' +
+        '<button type="button" class="confirm-btn" id="confirm-btn" disabled' + (listingUnavailable ? ' aria-disabled="true"' : '') + '>' + (supportsBoth ? 'Choose reservation' : (isHotel ? 'Reserve room' : 'Book now')) + '</button>' +
+        (supportsBoth ? '<button type="button" id="choose-reservation-btn" style="width:100%;margin-top:.65rem;padding:.78rem;border:1px solid var(--red);border-radius:8px;background:transparent;color:var(--red);font-weight:700;cursor:pointer">Choose reservation type</button>' : '') +
         '<p class="form-note">' + (availabilityMessage || (isHotel ? 'This sends a reservation request to the hotel for confirmation.' : 'This creates a request — the host needs to approve it before it\'s confirmed.')) + '</p>' +
         '<div class="success-msg" id="success-msg"></div>' +
       '</div>';
@@ -1267,6 +1286,60 @@
 
     skeleton.style.display = 'none';
     bookingPage.style.display = 'block';
+
+    function openTableReservationCard(){
+      if (!diningConfig) return;
+      const existing = document.getElementById('table-reservation-overlay');
+      if (existing) existing.remove();
+      const overlay = document.createElement('div');
+      overlay.id = 'table-reservation-overlay';
+      overlay.style.cssText = 'position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:1rem;background:rgba(25,20,18,.48);backdrop-filter:blur(7px);';
+      overlay.innerHTML = '<form style="width:min(100%,460px);max-height:90vh;overflow:auto;padding:1.35rem;border:1px solid rgba(255,255,255,.5);border-radius:18px;background:rgba(255,250,247,.92);box-shadow:0 24px 70px rgba(0,0,0,.28);color:#29211f;" novalidate>' +
+        '<div style="display:flex;justify-content:space-between;gap:1rem;align-items:start"><div><h2 style="margin:0;font-size:1.3rem">Reserve a Table</h2><p style="margin:.3rem 0 1rem;color:#746762;font-size:.88rem">' + escapeHtml(diningConfig.restaurant_name) + ' · ' + escapeHtml(diningConfig.opening_hours) + '</p></div><button type="button" data-close style="border:0;background:transparent;font-size:1.35rem;cursor:pointer">×</button></div>' +
+        '<label style="display:block;font-size:.82rem;font-weight:700;margin:.65rem 0 .25rem">Client name</label><input value="' + escapeHtml(profile.full_name || '') + '" readonly style="width:100%;box-sizing:border-box;padding:.65rem;border:1px solid #d7ccc7;border-radius:8px;background:#f6f1ee">' +
+        '<label style="display:block;font-size:.82rem;font-weight:700;margin:.65rem 0 .25rem">Phone number</label><input id="table-phone" value="' + escapeHtml(profile.phone || '') + '" required placeholder="Phone number" style="width:100%;box-sizing:border-box;padding:.65rem;border:1px solid #d7ccc7;border-radius:8px">' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:.7rem"><div><label style="display:block;font-size:.82rem;font-weight:700;margin:.65rem 0 .25rem">Guests</label><input id="table-guests" type="number" min="1" value="2" required style="width:100%;box-sizing:border-box;padding:.65rem;border:1px solid #d7ccc7;border-radius:8px"></div><div><label style="display:block;font-size:.82rem;font-weight:700;margin:.65rem 0 .25rem">Tables</label><input id="table-count" type="number" min="1" max="' + Number(diningConfig.tables_available) + '" value="1" required style="width:100%;box-sizing:border-box;padding:.65rem;border:1px solid #d7ccc7;border-radius:8px"></div></div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:.7rem"><div><label style="display:block;font-size:.82rem;font-weight:700;margin:.65rem 0 .25rem">Arrival date</label><input id="table-date" type="date" min="' + new Date().toISOString().slice(0,10) + '" required style="width:100%;box-sizing:border-box;padding:.65rem;border:1px solid #d7ccc7;border-radius:8px"></div><div><label style="display:block;font-size:.82rem;font-weight:700;margin:.65rem 0 .25rem">Arrival time</label><input id="table-time" type="time" required style="width:100%;box-sizing:border-box;padding:.65rem;border:1px solid #d7ccc7;border-radius:8px"></div></div>' +
+        '<label style="display:flex;gap:.5rem;align-items:center;font-size:.86rem;margin:1rem 0 .4rem"><input id="table-occasion" type="checkbox"> Special occasion</label><textarea id="table-occasion-details" maxlength="500" placeholder="Birthday, anniversary, or other details" style="display:none;width:100%;box-sizing:border-box;padding:.65rem;border:1px solid #d7ccc7;border-radius:8px"></textarea>' +
+        '<p id="table-reservation-error" style="min-height:1.1rem;margin:.7rem 0;color:#a01d31;font-size:.82rem"></p><button class="confirm-btn" type="submit" style="width:100%;margin-top:.1rem">Send Table Request</button></form>';
+      document.body.appendChild(overlay);
+      const form = overlay.querySelector('form');
+      const occasion = overlay.querySelector('#table-occasion');
+      const occasionDetails = overlay.querySelector('#table-occasion-details');
+      occasion.addEventListener('change', function(){ occasionDetails.style.display = occasion.checked ? 'block' : 'none'; occasionDetails.required = occasion.checked; });
+      overlay.querySelector('[data-close]').addEventListener('click', function(){ overlay.remove(); });
+      overlay.addEventListener('click', function(event){ if (event.target === overlay) overlay.remove(); });
+      form.addEventListener('submit', async function(event){
+        event.preventDefault();
+        if (!form.reportValidity()) return;
+        const submit = form.querySelector('[type="submit"]'); const error = overlay.querySelector('#table-reservation-error');
+        submit.disabled = true; submit.textContent = 'Sending request...'; error.textContent = '';
+        const response = await fetch('/api/table-reservations', { method:'POST', headers:{ 'Content-Type':'application/json', Authorization:'Bearer ' + session.access_token }, body:JSON.stringify({ listing_id: listingId, phone: overlay.querySelector('#table-phone').value, guest_count:Number(overlay.querySelector('#table-guests').value), table_count:Number(overlay.querySelector('#table-count').value), requested_date:overlay.querySelector('#table-date').value, requested_time:overlay.querySelector('#table-time').value, special_occasion:occasion.checked, occasion_details:occasionDetails.value }) });
+        const result = await response.json().catch(function(){ return {}; });
+        if (!response.ok) { error.textContent = result.error || 'Unable to send the reservation request.'; submit.disabled = false; submit.textContent = 'Send Table Request'; return; }
+        form.innerHTML = '<h2 style="margin:0 0 .5rem">Request sent</h2><p style="margin:0;color:#746762">The hotel has your contact details and will follow up about your table reservation.</p><button type="button" class="confirm-btn" style="width:100%;margin-top:1rem" data-close>Done</button>';
+        form.querySelector('[data-close]').addEventListener('click', function(){ overlay.remove(); });
+      });
+    }
+
+    if (tableOnlyWidget) {
+      document.getElementById('table-reserve-btn').addEventListener('click', openTableReservationCard);
+      document.getElementById('share-btn').addEventListener('click', async function(){ try { await navigator.clipboard.writeText(window.location.href); } catch (e) {} });
+      return;
+    }
+
+    let bookingIntent = supportsBoth ? null : 'stay';
+    function openReservationChoice(){
+      const overlay = document.createElement('div');
+      overlay.style.cssText = 'position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:1rem;background:rgba(25,20,18,.45);backdrop-filter:blur(7px);';
+      overlay.innerHTML = '<div style="width:min(100%,390px);padding:1.4rem;border-radius:18px;background:rgba(255,250,247,.94);box-shadow:0 24px 70px rgba(0,0,0,.28);color:#29211f"><h2 style="margin:0">What would you like to reserve?</h2><p style="margin:.45rem 0 1rem;color:#746762">Choose one reservation type to continue.</p><button type="button" class="confirm-btn" data-stay style="width:100%;margin:.35rem 0">Reserve a Stay</button><button type="button" data-table style="width:100%;padding:.78rem;border:1px solid #8f1229;border-radius:8px;background:transparent;color:#8f1229;font-weight:700;cursor:pointer">Reserve a Table</button></div>';
+      document.body.appendChild(overlay);
+      overlay.querySelector('[data-stay]').addEventListener('click', function(){ bookingIntent = 'stay'; overlay.remove(); confirmBtn.click(); });
+      overlay.querySelector('[data-table]').addEventListener('click', function(){ overlay.remove(); openTableReservationCard(); });
+      overlay.addEventListener('click', function(event){ if (event.target === overlay) overlay.remove(); });
+    }
+    const chooseReservationBtn = document.getElementById('choose-reservation-btn');
+    if (chooseReservationBtn) chooseReservationBtn.addEventListener('click', openReservationChoice);
 
     // ---------- Share (copies link) ----------
     document.getElementById('share-btn').addEventListener('click', async function(){
@@ -1461,6 +1534,12 @@
 
     // ---------- Confirm booking ----------
     confirmBtn.addEventListener('click', async function(){
+      if (supportsBoth && !bookingIntent) { openReservationChoice(); return; }
+      if (supportsBoth && bookingIntent === 'stay' && (!selectedStart || (!isHourly && !selectedEnd))) {
+        bookingIntent = null;
+        alert('Choose your stay dates before reserving a room.');
+        return;
+      }
       confirmBtn.disabled = true;
       confirmBtn.textContent = 'Sending request...';
 

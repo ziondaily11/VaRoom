@@ -13,6 +13,7 @@ const photoRoutes = require('./routes/photoRoutes');
 const chatRoutes = require('./routes/chatRoutes');
 const reviewRoutes = require('./routes/reviewRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
+const hotelReservationRoutes = require('./routes/hotelReservationRoutes');
 const { createAdminRoutes } = require('./routes/adminRoutes');
 const { rejectSuspendedActivity } = require('./lib/accountAccess');
 const { runFullCleanup } = require('./lib/videoCleanup');
@@ -80,6 +81,7 @@ app.use('/api', photoRoutes);
 app.use('/api', chatRoutes);
 app.use('/api', reviewRoutes);
 app.use('/api', notificationRoutes);
+app.use('/api', hotelReservationRoutes);
 app.use('/api', createBillingRoutes());
 
 // Serve the Next.js public assets when this service is used as the web host.
