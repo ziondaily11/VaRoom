@@ -842,6 +842,7 @@
 
     const SHORT_STAY = ['airbnb', 'hotel', 'venue'];
     const isShortStay = SHORT_STAY.includes(listing.category);
+    const isHotel = listing.category === 'hotel';
     const isHourly = details.price_unit === 'hour';
 
     const photoUrls = (listing.listing_photos || []).map(function(p){
@@ -966,7 +967,7 @@
             return '<div class="amenity-item">' + icon + '<span>' + escapeHtml(label) + '</span></div>';
           }).join('') +
         '</div>'
-      : '<p style="font-size:.8rem; color:var(--muted);">No amenities listed for this space yet.</p>';
+      : '<p style="font-size:.8rem; color:var(--muted);">No amenities have been listed for ' + (isHotel ? 'this hotel room' : 'this space') + ' yet.</p>';
 
     const reviewCount = Number(reviewSummary.review_count || reviews.length);
     const averageRating = Number(reviewSummary.average_rating);
@@ -1028,14 +1029,14 @@
         '<div class="host-card">' +
           '<div style="display:flex; align-items:center; gap:.8rem;">' +
             '<div class="host-avatar">' + (hostAvatarUrl ? '<img src="' + hostAvatarUrl + '" alt="">' : escapeHtml(initials)) + '</div>' +
-            '<a class="host-name" href="/host/' + encodeURIComponent(listing.host_id) + '">Hosted by ' + escapeHtml(hostName) + (listing.host.verified ? ICON_VERIFIED : '') + '</a>' +
+            '<a class="host-name" href="/host/' + encodeURIComponent(listing.host_id) + '">' + (isHotel ? 'Managed by ' : 'Hosted by ') + escapeHtml(hostName) + (listing.host.verified ? ICON_VERIFIED : '') + '</a>' +
           '</div>' +
-          '<button type="button" class="contact-host-btn" id="contact-host-btn">' + ICON_MESSAGE + '<span>Contact Host</span></button>' +
+          '<button type="button" class="contact-host-btn" id="contact-host-btn">' + ICON_MESSAGE + '<span>' + (isHotel ? 'Contact hotel' : 'Contact Host') + '</span></button>' +
         '</div>' +
         '<div class="about-block">' +
-          '<h2 class="about-title">About this place</h2>' +
-          '<p class="about-text">' + (description ? escapeHtml(description) : '<span style="color:var(--muted);">The host hasn\'t added details about this place yet.</span>') + '</p>' +
-          '<h2 class="section-title" style="margin-top:.8rem;">Top amenities</h2>' +
+          '<h2 class="about-title">' + (isHotel ? 'About this room' : 'About this place') + '</h2>' +
+          '<p class="about-text">' + (description ? escapeHtml(description) : '<span style="color:var(--muted);">' + (isHotel ? 'The hotel hasn\'t added room details yet.' : 'The host hasn\'t added details about this place yet.') + '</span>') + '</p>' +
+          '<h2 class="section-title" style="margin-top:.8rem;">' + (isHotel ? 'Room & hotel amenities' : 'Top amenities') + '</h2>' +
           amenitiesHtml +
         '</div>' +
       '</div>' +
@@ -1179,7 +1180,7 @@
         '</div>';
     } else if (isShortStay) {
       pickerHtml =
-        '<p class="picker-title">Pick your dates</p>' +
+        '<p class="picker-title">' + (isHotel ? 'Choose your stay' : 'Pick your dates') + '</p>' +
         '<p class="picker-sub">Tap a check-in date, then a check-out date. Only open dates can be selected.</p>' +
         '<div id="cal-container"></div>' +
         legendHtml +
@@ -1200,7 +1201,15 @@
     }
 
     const guestsHtml = isShortStay
-      ? '<div class="field"><label for="guests-input">Guests</label><select id="guests-input"><option>1 Guest</option><option selected>2 Guests</option><option>3 Guests</option><option>4 Guests</option><option>5+ Guests</option></select></div>'
+      ? '<div class="field"><label for="guests-input">' + (isHotel ? 'Guests in this room' : 'Guests') + '</label><select id="guests-input"><option>1 Guest</option><option selected>2 Guests</option><option>3 Guests</option><option>4 Guests</option><option>5+ Guests</option></select></div>'
+      : '';
+
+    const hotelStayDetailsHtml = isHotel
+      ? '<div class="picker-sub" style="margin:.8rem 0 0; line-height:1.7;">' +
+          (details.checkin_time ? 'Check-in from ' + escapeHtml(details.checkin_time) + '<br>' : '') +
+          (details.checkout_time ? 'Check-out by ' + escapeHtml(details.checkout_time) + '<br>' : '') +
+          (details.cancellation_policy ? escapeHtml(details.cancellation_policy.charAt(0).toUpperCase() + details.cancellation_policy.slice(1)) + ' cancellation policy' : '') +
+        '</div>'
       : '';
 
     const colSideHtml =
@@ -1211,9 +1220,10 @@
         '</div>' +
         pickerHtml +
         guestsHtml +
+        hotelStayDetailsHtml +
         '<div class="details-box" id="details-box"></div>' +
-        '<button type="button" class="confirm-btn" id="confirm-btn" disabled' + (listingUnavailable ? ' aria-disabled="true"' : '') + '>Book now</button>' +
-        '<p class="form-note">' + (availabilityMessage || 'This creates a request — the host needs to approve it before it\'s confirmed.') + '</p>' +
+        '<button type="button" class="confirm-btn" id="confirm-btn" disabled' + (listingUnavailable ? ' aria-disabled="true"' : '') + '>' + (isHotel ? 'Reserve room' : 'Book now') + '</button>' +
+        '<p class="form-note">' + (availabilityMessage || (isHotel ? 'This sends a reservation request to the hotel for confirmation.' : 'This creates a request — the host needs to approve it before it\'s confirmed.')) + '</p>' +
         '<div class="success-msg" id="success-msg"></div>' +
       '</div>';
 
@@ -1250,7 +1260,7 @@
       let html =
         '<div class="details-row"><span class="details-label">' + label + '</span><span>KSh ' + base.toLocaleString() + '</span></div>';
       if (extraFee) {
-        html += '<div class="details-row"><span class="details-label">Cleaning fee</span><span>KSh ' + extraFee.toLocaleString() + '</span></div>';
+        html += '<div class="details-row"><span class="details-label">' + (isHotel ? 'Service fee' : 'Cleaning fee') + '</span><span>KSh ' + extraFee.toLocaleString() + '</span></div>';
       }
       html += '<div class="details-row total"><span>Total</span><span>KSh ' + total.toLocaleString() + '</span></div>';
       detailsBox.innerHTML = html;

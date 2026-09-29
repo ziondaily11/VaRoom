@@ -430,21 +430,21 @@
             <div class="progress-text"><span class="step-count">01 / 05</span><br>Start with the essentials</div>
           </div>
 
-          <p class="step-eyebrow">01 — About the property</p>
+          <p class="step-eyebrow" id="about-eyebrow">01 — About the property</p>
           <h1 class="step-title" id="listing-headline">Let's list your first space.</h1>
-          <p class="step-sub">A few thoughtful details now, then VaRoom turns your space into a place people can picture themselves in.</p>
+          <p class="step-sub" id="about-sub">A few thoughtful details now, then VaRoom turns your space into a place people can picture themselves in.</p>
 
           <div class="step-fields">
             <div class="field">
-              <label for="title">Title</label>
+              <label for="title" id="title-label">Title</label>
               <input type="text" id="title" name="title" required placeholder="e.g. Cozy 2-bedroom Airbnb near campus">
             </div>
             <div class="field">
-              <label for="caption">Caption</label>
+              <label for="caption" id="caption-label">Caption</label>
               <textarea id="caption" name="caption" required maxlength="500" placeholder="A quiet escape above the city."></textarea>
             </div>
             <div class="field">
-              <label for="property-description">Description</label>
+              <label for="property-description" id="description-label">Description</label>
               <textarea id="property-description" name="property_description" required placeholder="Tell guests what they should know about the space — rooms, layout, notable features, atmosphere, and anything important before booking."></textarea>
             </div>
           </div>
@@ -472,13 +472,13 @@
           </div>
 
           <p class="step-eyebrow">02 — Location</p>
-          <h1 class="step-title">Add your property’s area.</h1>
-          <p class="step-sub">A general location helps guests understand where your property is. Exact location details can be added later.</p>
+          <h1 class="step-title" id="location-title">Add your property’s area.</h1>
+          <p class="step-sub" id="location-sub">A general location helps guests understand where your property is. Exact location details can be added later.</p>
 
           <div class="step-fields">
             <div class="field">
-              <label for="location-text">Where is your property located?</label>
-              <p class="location-help">Enter the area, neighbourhood, or town where your property is located. You’ll be able to add the exact location later.</p>
+              <label for="location-text" id="location-label">Where is your property located?</label>
+              <p class="location-help" id="location-help">Enter the area, neighbourhood, or town where your property is located. You’ll be able to add the exact location later.</p>
               <input type="text" id="location-text" name="location_text" required minlength="3" autocomplete="address-level2" placeholder="e.g. Nairobi, Westlands">
             </div>
           </div>
@@ -507,12 +507,12 @@
           </div>
 
           <p class="step-eyebrow">03 — Photos</p>
-          <h1 class="step-title">Arrange the story.</h1>
-          <p class="step-sub">Choose a cover, add your best angles, then drag to set the order.</p>
+          <h1 class="step-title" id="media-title">Arrange the story.</h1>
+          <p class="step-sub" id="media-sub">Choose a cover, add your best angles, then drag to set the order.</p>
 
           <div class="step-fields">
             <div class="field">
-              <p class="photo-hint">Up to 6 photos or videos · JPG, PNG, WEBP, MP4, MOV or WEBM · 5MB max each. Optional, but listings with visuals get noticed more.</p>
+              <p class="photo-hint" id="photo-hint">Up to 6 photos or videos · JPG, PNG, WEBP, MP4, MOV or WEBM · 5MB max each. Optional, but listings with visuals get noticed more.</p>
               <label class="photo-dropzone" id="photo-dropzone" for="photo-input">
                 <span id="dropzone-text">Click to choose photos or videos, or drag them here</span>
                 <input type="file" id="photo-input" accept="image/png,image/jpeg,image/webp,video/mp4,video/quicktime,video/webm" multiple>
@@ -522,8 +522,8 @@
             </div>
 
             <div class="field" style="margin-top:.6rem;">
-              <label>Amenities</label>
-              <p class="amenities-hint">Select everything this space offers. Shown to guests on the booking page.</p>
+              <label id="amenities-label">Amenities</label>
+              <p class="amenities-hint" id="amenities-hint">Select everything this space offers. Shown to guests on the booking page.</p>
               <div class="amenities-grid" id="amenities-grid"></div>
             </div>
           </div>
@@ -581,11 +581,11 @@
             <div class="booking-group" id="short-stay-fields">
               <div class="field-row">
                 <div class="field">
-                  <label for="max-guests">Max guests</label>
+              <label for="max-guests" id="max-guests-label">Max guests</label>
                   <input type="number" id="max-guests" min="1" placeholder="e.g. 4">
                 </div>
                 <div class="field">
-                  <label for="min-stay">Min. stay (nights)</label>
+              <label for="min-stay" id="min-stay-label">Min. stay (nights)</label>
                   <input type="number" id="min-stay" min="1" placeholder="e.g. 2">
                 </div>
               </div>
@@ -600,7 +600,7 @@
                 </div>
               </div>
               <div class="field">
-                <label for="cleaning-fee">Cleaning fee (KES, optional)</label>
+                <label for="cleaning-fee" id="cleaning-fee-label">Cleaning fee (KES, optional)</label>
                 <input type="number" id="cleaning-fee" min="0" placeholder="Leave blank if none">
               </div>
               <div class="field">
@@ -614,7 +614,7 @@
 
               <div class="field">
                 <label>Availability</label>
-                <p class="booking-hint">Tap dates to open them for booking. Clients will only be able to request dates you've opened here.</p>
+                <p class="booking-hint" id="availability-hint">Tap dates to open them for booking. Clients will only be able to request dates you've opened here.</p>
                 <div class="cal-quick">
                   <button type="button" id="cal-open-30">Open next 30 days</button>
                   <button type="button" id="cal-clear">Clear all</button>
@@ -803,20 +803,20 @@
   };
 
   const sizeLabels = {
-    airbnb: 'Size (e.g. 2 bedrooms)', hotel: 'Room size / type', venue: 'Capacity (e.g. seats 50)',
+    airbnb: 'Size (e.g. 2 bedrooms)', hotel: 'Room type & bed setup', venue: 'Capacity (e.g. seats 50)',
     office: 'Size (e.g. 10 x 10m)', shop: 'Size (e.g. 10 x 10m)', property: 'Type (e.g. bedsitter, 1 bedroom)'
   };
   const sizePlaceholders = {
-    airbnb: 'e.g. 2 bedrooms, 1 bath', hotel: 'e.g. Deluxe double room', venue: 'e.g. Seats up to 50',
+    airbnb: 'e.g. 2 bedrooms, 1 bath', hotel: 'e.g. Deluxe King · 1 king bed', venue: 'e.g. Seats up to 50',
     office: 'e.g. 10 x 10m, open plan', shop: 'e.g. 10 x 10m, street-facing', property: 'e.g. Bedsitter, 1 bedroom'
   };
   const pricingHeadings = {
-    airbnb: 'Make every night clear.', hotel: 'Make every night clear.', venue: 'Make every booking clear.',
+    airbnb: 'Make every night clear.', hotel: 'Set your room rate and stay rules.', venue: 'Make every booking clear.',
     office: 'Make every month clear.', shop: 'Make every month clear.', property: 'Make every month clear.'
   };
   const listingHeadlines = {
     airbnb: "Let's list your first Airbnb.",
-    hotel: "Let's list your first hotel suite.",
+    hotel: "Welcome guests to your hotel.",
     villa: "Let's list your first villa.",
     apartment: "Let's list your first apartment.",
     resort: "Let's list your first resort.",
@@ -835,6 +835,46 @@
   const sizeInput = document.getElementById('size-or-type');
   const pricingHeading = document.getElementById('pricing-heading');
 
+  const HOTEL_AMENITY_KEYS = new Set([
+    'wifi', 'parking', 'breakfast', 'power', 'air_conditioning', 'refrigerator',
+    'tv', 'workspace', 'balcony', 'pool', 'gym', 'elevator', 'security_cameras',
+    'towels_linens', 'hair_dryer', 'pet'
+  ]);
+
+  function setText(id, value){
+    const element = document.getElementById(id);
+    if (element) element.textContent = value;
+  }
+
+  function configureHotelLanguage(){
+    const hotel = hostNiche === 'hotel';
+    if (!hotel) return;
+    setText('about-eyebrow', '01 — About the room');
+    setText('about-sub', 'Introduce the room guests will book: its bed setup, in-room comforts, and the service experience they can expect.');
+    setText('title-label', 'Room listing name');
+    document.getElementById('title').placeholder = 'e.g. Deluxe King Room at Westlands';
+    setText('caption-label', 'Guest-facing highlight');
+    document.getElementById('caption').placeholder = 'A calm king room with breakfast and skyline views.';
+    setText('description-label', 'Room and hotel details');
+    document.getElementById('property-description').placeholder = 'Describe the room, bed configuration, bathroom, breakfast, hotel facilities, and anything guests should know before check-in.';
+    setText('location-title', 'Help guests find your hotel.');
+    setText('location-sub', 'Share the neighbourhood or landmark so travellers can plan their stay. Exact location details can be added later.');
+    setText('location-label', 'Where is the hotel located?');
+    setText('location-help', 'Enter the hotel’s neighbourhood, town, or a nearby landmark. You can add the exact address later.');
+    document.getElementById('location-text').placeholder = 'e.g. Westlands, Nairobi · near Sarit Centre';
+    setText('media-title', 'Show the stay, room to lobby.');
+    setText('media-sub', 'Lead with the guest room, then include the bathroom, lobby, dining, and standout hotel facilities.');
+    setText('photo-hint', 'Up to 6 room, hotel, or facility photos/videos · JPG, PNG, WEBP, MP4, MOV or WEBM · 5MB max each.');
+    setText('amenities-label', 'Room & hotel amenities');
+    setText('amenities-hint', 'Choose the comforts and hotel facilities available to guests booking this room.');
+    setText('max-guests-label', 'Guests per room');
+    document.getElementById('max-guests').placeholder = 'e.g. 2';
+    setText('min-stay-label', 'Minimum nights');
+    document.getElementById('min-stay').placeholder = 'e.g. 1';
+    setText('cleaning-fee-label', 'Service fee (KES, optional)');
+    setText('availability-hint', 'Open the dates this room can be reserved. Guests will only be able to request available stay dates.');
+  }
+
   function configureCategory(cat){
     const listingHeadline = document.getElementById('listing-headline');
     if (listingHeadline) listingHeadline.textContent = listingHeadlines[cat] || "Let's list your first space.";
@@ -842,7 +882,12 @@
     sizeInput.placeholder = sizePlaceholders[cat] || '';
     pricingHeading.textContent = pricingHeadings[cat] || 'Make every booking clear.';
 
-    if (SHORT_STAY.includes(cat)) {
+    if (cat === 'hotel') {
+      priceUnitField.innerHTML = '<option value="night" selected>Per night</option>';
+      shortStayFields.classList.add('active');
+      longTermFields.classList.remove('active');
+      bookingSub.textContent = 'Set a nightly room rate, check-in times, and available stay dates.';
+    } else if (SHORT_STAY.includes(cat)) {
       priceUnitField.innerHTML = '<option value="hour">Per hour</option><option value="night" selected>Per night</option>';
       shortStayFields.classList.add('active');
       longTermFields.classList.remove('active');
@@ -853,6 +898,8 @@
       shortStayFields.classList.remove('active');
       bookingSub.textContent = 'Priced per month, for longer-term arrangements.';
     }
+    configureHotelLanguage();
+    renderAmenities(cat);
     updatePricePreview();
   }
 
@@ -902,18 +949,24 @@
   ];
 
   const amenitiesGrid = document.getElementById('amenities-grid');
-  amenitiesGrid.innerHTML = AMENITY_OPTIONS.map(function(a){
-    const key = a[0], labelText = a[1], icon = a[2];
+  function renderAmenities(category){
+    const choices = category === 'hotel'
+      ? AMENITY_OPTIONS.filter(function(amenity){ return HOTEL_AMENITY_KEYS.has(amenity[0]); })
+      : AMENITY_OPTIONS;
+    amenitiesGrid.innerHTML = choices.map(function(a){
+      const key = a[0], labelText = a[1], icon = a[2];
     return '<label class="amenity-check" for="amenity-' + key + '">' +
       '<input type="checkbox" id="amenity-' + key + '" value="' + key + '">' +
       icon + '<span>' + labelText + '</span>' +
     '</label>';
-  }).join('');
+    }).join('');
 
-  amenitiesGrid.querySelectorAll('.amenity-check').forEach(function(row){
-    const cb = row.querySelector('input');
-    cb.addEventListener('change', function(){ row.classList.toggle('checked', cb.checked); });
-  });
+    amenitiesGrid.querySelectorAll('.amenity-check').forEach(function(row){
+      const cb = row.querySelector('input');
+      cb.addEventListener('change', function(){ row.classList.toggle('checked', cb.checked); });
+    });
+  }
+  renderAmenities();
 
   function getSelectedAmenities(){
     return Array.from(amenitiesGrid.querySelectorAll('input:checked')).map(function(cb){ return cb.value; });
