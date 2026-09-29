@@ -302,6 +302,81 @@
   height: 18px;
 }
 
+.sidebar.sidebar-host {
+  --host-control-active: #E9E7E2;
+  --host-control-hover: #EFEDE8;
+  --host-sidebar-line: #E4E1DA;
+}
+
+[data-theme="dark"] .sidebar.sidebar-host {
+  --host-control-active: #302C2A;
+  --host-control-hover: #25211F;
+  --host-sidebar-line: rgba(255, 255, 255, .12);
+}
+
+.sidebar.sidebar-host .logo .va,
+.sidebar.sidebar-host .beta-pill {
+  color: var(--ink);
+}
+
+.sidebar.sidebar-host .beta-pill,
+.sidebar.sidebar-host .verify-box.not-verified {
+  background: var(--host-control-active);
+  border-color: var(--host-sidebar-line);
+  color: var(--ink);
+}
+
+.sidebar.sidebar-host .nav-group + .nav-group {
+  border-top-color: var(--host-sidebar-line);
+}
+
+.sidebar.sidebar-host .nav-item:hover,
+.sidebar.sidebar-host button.nav-item:hover {
+  background: var(--host-control-hover) !important;
+  color: var(--ink) !important;
+}
+
+.sidebar.sidebar-host .nav-item.active,
+.sidebar.sidebar-host .nav-item.active:hover {
+  background: var(--host-control-active) !important;
+  color: var(--ink) !important;
+}
+
+.sidebar.sidebar-host .list-space-btn {
+  background: var(--ink) !important;
+  border-color: var(--ink) !important;
+  color: var(--white) !important;
+}
+
+.sidebar.sidebar-host .list-space-btn:hover {
+  background: var(--host-control-hover) !important;
+  border-color: var(--host-sidebar-line) !important;
+  color: var(--ink) !important;
+}
+
+.sidebar.sidebar-host .notif-nav-badge {
+  background: var(--host-control-active) !important;
+  color: var(--ink) !important;
+}
+
+.sidebar.sidebar-host .sidebar-note {
+  background: var(--host-control-active) !important;
+  color: var(--ink) !important;
+}
+
+.sidebar.sidebar-host .logout-btn {
+  color: var(--ink) !important;
+}
+
+.sidebar.sidebar-host .logout-btn:hover {
+  background: var(--host-control-hover) !important;
+  opacity: 1;
+}
+
+.sidebar.sidebar-host :focus-visible {
+  outline-color: var(--muted);
+}
+
 /* --------------------------------------------------------------------------
    Mobile Drawer & Backdrop
    -------------------------------------------------------------------------- */
@@ -356,6 +431,11 @@
     font-size: 1.05rem;
     padding: .85rem .9rem;
     gap: .9rem;
+  }
+
+  .sidebar.sidebar-host .nav-item svg {
+    width: 21px;
+    height: 21px;
   }
 
   .sidebar .nav-item svg {
