@@ -693,6 +693,7 @@
             <ul class="review-checklist">
               <li><span class="check">✓</span> Details and description added</li>
               <li id="review-location-line"><span class="check">✓</span> Location pinned and ready for GPS verification</li>
+              <li id="review-amenities-line"><span class="check">✓</span> Amenities selected</li>
               <li><span class="check">✓</span> Pricing and booking terms set</li>
             </ul>
           </div>
@@ -835,12 +836,6 @@
   const sizeInput = document.getElementById('size-or-type');
   const pricingHeading = document.getElementById('pricing-heading');
 
-  const HOTEL_AMENITY_KEYS = new Set([
-    'wifi', 'parking', 'breakfast', 'power', 'air_conditioning', 'refrigerator',
-    'tv', 'workspace', 'balcony', 'pool', 'gym', 'elevator', 'security_cameras',
-    'towels_linens', 'hair_dryer', 'pet'
-  ]);
-
   function setText(id, value){
     const element = document.getElementById(id);
     if (element) element.textContent = value;
@@ -948,11 +943,36 @@
     ['hair_dryer', 'Hair dryer', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 10h8a4 4 0 1 0 0-8H8v5M8 10v9m0 0H5m3 0h3"/></svg>']
   ];
 
+  // Hotel amenities deliberately use their own keys and labels. They are not a
+  // filtered version of the home-stay checklist, so hotel selections remain
+  // meaningful on the guest-facing room page.
+  const HOTEL_GENERIC_AMENITY_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h.01M12 7h.01M16 7h.01M8 11h.01M12 11h.01M16 11h.01M9 21v-5h6v5"/></svg>';
+  const HOTEL_AMENITY_OPTIONS = [
+    ['hotel_high_speed_wifi', 'Free High-Speed Wi-Fi', AMENITY_OPTIONS[0][2]],
+    ['hotel_quality_bedding', 'Quality Bedding & Pillows', HOTEL_GENERIC_AMENITY_ICON],
+    ['hotel_climate_control', 'Air Conditioning / Climate Control', AMENITY_OPTIONS[12][2]],
+    ['hotel_bedside_outlets', 'Bedside Outlets & USB/USB-C Ports', HOTEL_GENERIC_AMENITY_ICON],
+    ['hotel_smart_tv', 'Smart TV / Streaming', AMENITY_OPTIONS[5][2]],
+    ['hotel_coffee_maker', 'Coffee Maker / Nespresso', AMENITY_OPTIONS[8][2]],
+    ['hotel_mini_fridge', 'Mini-Fridge', AMENITY_OPTIONS[13][2]],
+    ['hotel_blackout_curtains', 'Blackout Curtains', HOTEL_GENERIC_AMENITY_ICON],
+    ['hotel_hot_water', 'Hot Water & Strong Water Pressure', HOTEL_GENERIC_AMENITY_ICON],
+    ['hotel_in_room_safe', 'In-Room Safe', HOTEL_GENERIC_AMENITY_ICON],
+    ['hotel_complimentary_breakfast', 'Complimentary Breakfast', AMENITY_OPTIONS[8][2]],
+    ['hotel_onsite_parking', 'Free / On-Site Parking', AMENITY_OPTIONS[2][2]],
+    ['hotel_swimming_pool', 'Swimming Pool', AMENITY_OPTIONS[15][2]],
+    ['hotel_fitness_center', 'Fitness Center / Gym', AMENITY_OPTIONS[16][2]],
+    ['hotel_front_desk', '24-Hour Front Desk', HOTEL_GENERIC_AMENITY_ICON],
+    ['hotel_restaurant_bar', 'On-Site Restaurant & Bar', HOTEL_GENERIC_AMENITY_ICON],
+    ['hotel_luggage_storage', 'Luggage Storage', HOTEL_GENERIC_AMENITY_ICON],
+    ['hotel_airport_shuttle', 'Airport Shuttle / Transport', HOTEL_GENERIC_AMENITY_ICON],
+    ['hotel_pet_friendly', 'Pet-Friendly', AMENITY_OPTIONS[10][2]],
+    ['hotel_room_service', 'Room Service', HOTEL_GENERIC_AMENITY_ICON]
+  ];
+
   const amenitiesGrid = document.getElementById('amenities-grid');
   function renderAmenities(category){
-    const choices = category === 'hotel'
-      ? AMENITY_OPTIONS.filter(function(amenity){ return HOTEL_AMENITY_KEYS.has(amenity[0]); })
-      : AMENITY_OPTIONS;
+    const choices = category === 'hotel' ? HOTEL_AMENITY_OPTIONS : AMENITY_OPTIONS;
     amenitiesGrid.innerHTML = choices.map(function(a){
       const key = a[0], labelText = a[1], icon = a[2];
     return '<label class="amenity-check" for="amenity-' + key + '">' +
@@ -1103,6 +1123,16 @@
       locationLine.innerHTML = hasLocation
         ? '<span class="check">✓</span> General location added — exact location can be set later'
         : '<span class="check" style="color:var(--red)">!</span> General location still needed';
+    }
+
+    const amenitiesLine = document.getElementById('review-amenities-line');
+    if (amenitiesLine) {
+      const amenityLabels = (category === 'hotel' ? HOTEL_AMENITY_OPTIONS : AMENITY_OPTIONS)
+        .filter(function(amenity){ return getSelectedAmenities().includes(amenity[0]); })
+        .map(function(amenity){ return amenity[1]; });
+      amenitiesLine.innerHTML = amenityLabels.length
+        ? '<span class="check">✓</span> ' + (category === 'hotel' ? 'Hotel amenities: ' : 'Amenities: ') + amenityLabels.join(' · ')
+        : '<span class="check" style="color:var(--red)">!</span> ' + (category === 'hotel' ? 'Select room or hotel amenities' : 'Select amenities');
     }
 
     const thumbSlot = document.getElementById('review-thumb');

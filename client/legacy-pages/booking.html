@@ -704,6 +704,42 @@
       air_conditioning: 'Air conditioning', refrigerator: 'Refrigerator', washing_machine: 'Washing machine', pool: 'Swimming pool', gym: 'Gym', garden: 'Garden', bbq_grill: 'BBQ grill', hot_tub: 'Hot tub', elevator: 'Elevator', security_cameras: 'Security cameras', smoke_alarm: 'Smoke alarm', towels_linens: 'Towels & linens', hair_dryer: 'Hair dryer'
     };
     const ICON_GENERIC_AMENITY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+    // This is intentionally independent of AMENITY_LABEL: hotel listings
+    // persist hotel_* keys from their dedicated room-and-hotel checklist.
+    const HOTEL_AMENITY_LABEL = {
+      hotel_high_speed_wifi: 'Free High-Speed Wi-Fi',
+      hotel_quality_bedding: 'Quality Bedding & Pillows',
+      hotel_climate_control: 'Air Conditioning / Climate Control',
+      hotel_bedside_outlets: 'Bedside Outlets & USB/USB-C Ports',
+      hotel_smart_tv: 'Smart TV / Streaming',
+      hotel_coffee_maker: 'Coffee Maker / Nespresso',
+      hotel_mini_fridge: 'Mini-Fridge',
+      hotel_blackout_curtains: 'Blackout Curtains',
+      hotel_hot_water: 'Hot Water & Strong Water Pressure',
+      hotel_in_room_safe: 'In-Room Safe',
+      hotel_complimentary_breakfast: 'Complimentary Breakfast',
+      hotel_onsite_parking: 'Free / On-Site Parking',
+      hotel_swimming_pool: 'Swimming Pool',
+      hotel_fitness_center: 'Fitness Center / Gym',
+      hotel_front_desk: '24-Hour Front Desk',
+      hotel_restaurant_bar: 'On-Site Restaurant & Bar',
+      hotel_luggage_storage: 'Luggage Storage',
+      hotel_airport_shuttle: 'Airport Shuttle / Transport',
+      hotel_pet_friendly: 'Pet-Friendly',
+      hotel_room_service: 'Room Service'
+    };
+    const HOTEL_AMENITY_ICON = {
+      hotel_high_speed_wifi: AMENITY_ICON.wifi,
+      hotel_climate_control: AMENITY_ICON.air_conditioning,
+      hotel_smart_tv: AMENITY_ICON.tv,
+      hotel_coffee_maker: AMENITY_ICON.breakfast,
+      hotel_mini_fridge: AMENITY_ICON.refrigerator,
+      hotel_complimentary_breakfast: AMENITY_ICON.breakfast,
+      hotel_onsite_parking: AMENITY_ICON.parking,
+      hotel_swimming_pool: AMENITY_ICON.pool,
+      hotel_fitness_center: AMENITY_ICON.gym,
+      hotel_pet_friendly: AMENITY_ICON.pet
+    };
 
     function showError(msg){
       skeleton.style.display = 'none';
@@ -962,8 +998,8 @@
     const amenitiesHtml = rawAmenities.length
       ? '<div class="amenity-grid">' +
           rawAmenities.map(function(key){
-            const icon = AMENITY_ICON[key] || ICON_GENERIC_AMENITY;
-            const label = AMENITY_LABEL[key] || (key.charAt(0).toUpperCase() + key.slice(1));
+            const icon = (isHotel ? (HOTEL_AMENITY_ICON[key] || AMENITY_ICON[key]) : AMENITY_ICON[key]) || ICON_GENERIC_AMENITY;
+            const label = (isHotel ? (HOTEL_AMENITY_LABEL[key] || AMENITY_LABEL[key]) : AMENITY_LABEL[key]) || (key.charAt(0).toUpperCase() + key.slice(1));
             return '<div class="amenity-item">' + icon + '<span>' + escapeHtml(label) + '</span></div>';
           }).join('') +
         '</div>'
