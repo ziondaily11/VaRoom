@@ -263,6 +263,7 @@
     var profile = profileResult.data || { role: 'client' };
     var role = profile.role === 'host' ? 'host' : 'client';
     currentRole = role;
+    document.documentElement.setAttribute('data-account-role', role);
     if (window.VaroomSidebar) {
       window.VaroomSidebar.mount({
         container: document.getElementById('sidebar'),

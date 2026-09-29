@@ -1289,6 +1289,7 @@
     if (!profile) { window.location.href = '/login'; return; }
     if (!profile.onboarding_completed) { window.location.href = '/onboarding'; return; }
     if (profile.role === 'client') { window.location.href = '/client-home'; return; }
+    try { sessionStorage.setItem('varoom_user_role', 'host'); } catch (e) {}
     const hostNiches = Array.isArray(profile.listing_categories) ? profile.listing_categories : [];
     if (hostNiches.length !== 1) {
       const nichePrompt = document.getElementById('host-niche-prompt');

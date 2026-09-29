@@ -10,6 +10,11 @@
 <link rel="apple-touch-icon" sizes="180x180" href="favicon/favicon-180.png">
 <script>
   (function(){
+    var role = '';
+    try { role = sessionStorage.getItem('varoom_user_role') || ''; } catch (e) {}
+    document.documentElement.setAttribute('data-account-role', role === 'host' ? 'host' : role === 'client' ? 'client' : 'pending');
+  })();
+  (function(){
     try{
       var saved = localStorage.getItem('varoom_theme') || 'system';
       var resolved = saved === 'system'
@@ -70,6 +75,7 @@
     overflow-y:auto; scrollbar-width:none;
   }
   .sidebar::-webkit-scrollbar{ display:none; }
+  html[data-account-role="pending"] #sidebar{ visibility:hidden; }
 
   .logo{ font-family:var(--font-brand); font-weight:900; font-size:1.4rem; display:flex; align-items:baseline; padding:0 .4rem; }
   .logo .va{ color:var(--red); }
@@ -85,29 +91,30 @@
   .nav-item:hover{ background:var(--paper); }
   .nav-item svg{ width:19px; height:19px; flex-shrink:0; }
   .nav-item.active{ background:#FBE4E7; color:var(--red-deep); font-weight:600; }
-  .sidebar.sidebar-host{
+  :is(html[data-account-role="host"] #sidebar, .sidebar.sidebar-host){
     --host-control-active:#E9E7E2; --host-control-hover:#EFEDE8; --host-sidebar-line:#E4E1DA;
   }
+  html[data-theme="dark"][data-account-role="host"] #sidebar,
   [data-theme="dark"] .sidebar.sidebar-host{
     --host-control-active:#302C2A; --host-control-hover:#25211F; --host-sidebar-line:rgba(255,255,255,.12);
   }
-  .sidebar.sidebar-host .logo .va,
-  .sidebar.sidebar-host .beta-pill{ color:var(--ink); }
-  .sidebar.sidebar-host .beta-pill{ background:var(--host-control-active) !important; border-color:var(--host-sidebar-line); }
-  .sidebar.sidebar-host .nav-group + .nav-group{ border-top:1px solid var(--host-sidebar-line); padding-top:1.2rem; }
-  .sidebar.sidebar-host .nav-item{ gap:.7rem; padding:.6rem .7rem; font-size:.92rem; }
-  .sidebar.sidebar-host .nav-item svg{ width:18px; height:18px; }
-  .sidebar.sidebar-host .nav-item:hover,
-  .sidebar.sidebar-host button.nav-item:hover{ background:var(--host-control-hover) !important; color:var(--ink) !important; }
-  .sidebar.sidebar-host .nav-item.active,
-  .sidebar.sidebar-host .nav-item.active:hover{ background:var(--host-control-active) !important; color:var(--ink) !important; }
-  .sidebar.sidebar-host .list-space-btn{ background:var(--ink) !important; border-color:var(--ink) !important; color:var(--white) !important; }
-  .sidebar.sidebar-host .list-space-btn:hover{ background:var(--host-control-hover) !important; border-color:var(--host-sidebar-line) !important; color:var(--ink) !important; }
-  .sidebar.sidebar-host .notif-nav-badge{ background:var(--host-control-active) !important; color:var(--ink) !important; }
-  .sidebar.sidebar-host .sidebar-note{ background:var(--host-control-active) !important; color:var(--ink) !important; }
-  .sidebar.sidebar-host .logout-btn{ color:var(--ink) !important; }
-  .sidebar.sidebar-host .logout-btn:hover{ background:var(--host-control-hover) !important; opacity:1; }
-  .sidebar.sidebar-host :focus-visible{ outline-color:var(--muted); }
+  :is(html[data-account-role="host"] #sidebar, .sidebar.sidebar-host) .logo .va,
+  :is(html[data-account-role="host"] #sidebar, .sidebar.sidebar-host) .beta-pill{ color:var(--ink); }
+  :is(html[data-account-role="host"] #sidebar, .sidebar.sidebar-host) .beta-pill{ background:var(--host-control-active) !important; border-color:var(--host-sidebar-line); }
+  :is(html[data-account-role="host"] #sidebar, .sidebar.sidebar-host) .nav-group + .nav-group{ border-top:1px solid var(--host-sidebar-line); padding-top:1.2rem; }
+  :is(html[data-account-role="host"] #sidebar, .sidebar.sidebar-host) .nav-item{ gap:.7rem; padding:.6rem .7rem; font-size:.92rem; }
+  :is(html[data-account-role="host"] #sidebar, .sidebar.sidebar-host) .nav-item svg{ width:18px; height:18px; }
+  :is(html[data-account-role="host"] #sidebar, .sidebar.sidebar-host) .nav-item:hover,
+  :is(html[data-account-role="host"] #sidebar, .sidebar.sidebar-host) button.nav-item:hover{ background:var(--host-control-hover) !important; color:var(--ink) !important; }
+  :is(html[data-account-role="host"] #sidebar, .sidebar.sidebar-host) .nav-item.active,
+  :is(html[data-account-role="host"] #sidebar, .sidebar.sidebar-host) .nav-item.active:hover{ background:var(--host-control-active) !important; color:var(--ink) !important; }
+  :is(html[data-account-role="host"] #sidebar, .sidebar.sidebar-host) .list-space-btn{ background:var(--ink) !important; border-color:var(--ink) !important; color:var(--white) !important; }
+  :is(html[data-account-role="host"] #sidebar, .sidebar.sidebar-host) .list-space-btn:hover{ background:var(--host-control-hover) !important; border-color:var(--host-sidebar-line) !important; color:var(--ink) !important; }
+  :is(html[data-account-role="host"] #sidebar, .sidebar.sidebar-host) .notif-nav-badge{ background:var(--host-control-active) !important; color:var(--ink) !important; }
+  :is(html[data-account-role="host"] #sidebar, .sidebar.sidebar-host) .sidebar-note{ background:var(--host-control-active) !important; color:var(--ink) !important; }
+  :is(html[data-account-role="host"] #sidebar, .sidebar.sidebar-host) .logout-btn{ color:var(--ink) !important; }
+  :is(html[data-account-role="host"] #sidebar, .sidebar.sidebar-host) .logout-btn:hover{ background:var(--host-control-hover) !important; opacity:1; }
+  :is(html[data-account-role="host"] #sidebar, .sidebar.sidebar-host) :focus-visible{ outline-color:var(--muted); }
 
   .sidebar-note{
     margin-top:auto; background:#FBE4E7; border-radius:14px; padding:1rem 1.1rem;
@@ -174,14 +181,14 @@
       border-radius:0; z-index:200; transform:translateX(-100%); transition:transform .25s ease;
       box-shadow:0 0 40px rgba(26,18,16,.25);
     }
-    .sidebar.sidebar-host{ padding:1.6rem 1.3rem 1.3rem; }
+    :is(html[data-account-role="host"] #sidebar, .sidebar.sidebar-host){ padding:1.6rem 1.3rem 1.3rem; }
     .sidebar.mobile-open{ transform:translateX(0); }
-    .sidebar.sidebar-host .nav-label{ font-size:.8rem; }
-    .sidebar.sidebar-host .nav-item{ font-size:1.05rem; padding:.85rem .9rem; gap:.9rem; }
-    .sidebar.sidebar-host .nav-item svg{ width:21px; height:21px; }
-    .sidebar.sidebar-host .beta-pill{ font-size:.74rem; }
-    .sidebar.sidebar-host .sidebar-note{ font-size:.88rem; }
-    .sidebar.sidebar-host .logout-btn{ font-size:.98rem; }
+    :is(html[data-account-role="host"] #sidebar, .sidebar.sidebar-host) .nav-label{ font-size:.8rem; }
+    :is(html[data-account-role="host"] #sidebar, .sidebar.sidebar-host) .nav-item{ font-size:1.05rem; padding:.85rem .9rem; gap:.9rem; }
+    :is(html[data-account-role="host"] #sidebar, .sidebar.sidebar-host) .nav-item svg{ width:21px; height:21px; }
+    :is(html[data-account-role="host"] #sidebar, .sidebar.sidebar-host) .beta-pill{ font-size:.74rem; }
+    :is(html[data-account-role="host"] #sidebar, .sidebar.sidebar-host) .sidebar-note{ font-size:.88rem; }
+    :is(html[data-account-role="host"] #sidebar, .sidebar.sidebar-host) .logout-btn{ font-size:.98rem; }
     .topbar{ padding:.8rem .9rem 0; min-height:46px; }
     .topbar-avatar-btn{ flex-shrink:0; display:flex; }
     .feed-area{ padding:.6rem .9rem 5.5rem; }
@@ -781,6 +788,8 @@
     const isHost = profile.role === 'host';
     const isClient = profile.role === 'client';
     const dashboardHref = isHost ? '/host-home' : '/client-home';
+    document.documentElement.setAttribute('data-account-role', isHost ? 'host' : 'client');
+    try { sessionStorage.setItem('varoom_user_role', isHost ? 'host' : 'client'); } catch (e) {}
     document.getElementById('sidebar').classList.toggle('sidebar-host', isHost);
     document.getElementById('bookings-home-logo').setAttribute('href', dashboardHref);
     document.getElementById('bookings-home-link').setAttribute('href', dashboardHref);

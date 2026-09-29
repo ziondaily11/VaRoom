@@ -6,6 +6,11 @@
 <title>Notifications · VaRoom</title>
 <script>
   (function(){
+    var role = '';
+    try { role = sessionStorage.getItem('varoom_user_role') || ''; } catch (e) {}
+    document.documentElement.setAttribute('data-account-role', role === 'host' ? 'host' : role === 'client' ? 'client' : 'pending');
+  })();
+  (function(){
     try{
       var saved = localStorage.getItem('varoom_theme') || 'system';
       var resolved = saved === 'system'
