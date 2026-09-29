@@ -45,7 +45,7 @@ class Settings:
     fetch_timeout_seconds: int = _int("NEWS_FETCH_TIMEOUT_SECONDS", 20)
     fetch_max_bytes: int = _int("NEWS_FETCH_MAX_BYTES", 1_500_000)
     fetch_retry_attempts: int = _int("NEWS_FETCH_RETRY_ATTEMPTS", 3)
-    fetch_user_agent: str = os.getenv("NEWS_FETCH_USER_AGENT", "VaRoomPropertyNews/0.1")
+    fetch_user_agent: str = "VaRoomNewsBot/1.0 (+https://varoom.co.ke)"
     min_request_interval_seconds: float = _float("NEWS_MIN_REQUEST_INTERVAL_SECONDS", 1.0)
     public_rate_limit_per_minute: int = _int("NEWS_PUBLIC_RATE_LIMIT_PER_MINUTE", 60)
     admin_api_key: str | None = (os.getenv("NEWS_ADMIN_API_KEY") or "").strip() or None

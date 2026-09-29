@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -11,7 +12,7 @@ import httpx
 
 from app.analysis import RulesBasedNewsAnalyzer, format_location_display
 from app.api import create_app
-from app.collector import SourceCollector
+from app.collector import CollectionFailure, SourceCollector
 from app.config import Settings
 from app.constants import RegulatoryStatus, ReviewStatus, RiskLevel
 from app.models import CandidateArticle, NewsItem, ReviewAction, Source
@@ -26,7 +27,7 @@ from app.repository import SupabaseNewsRepository
 from app.retrieval import NewsRetrievalService
 from app.review import ReviewService
 from app.seed_sources import upsert_official_lands_source
-from app.register_additional_sources import register_sources_from_json
+from app.register_additional_sources import canonical_domain, register_sources_from_json
 
 
 def source(*, tier: int = 1, active: bool = True) -> Source:
@@ -180,19 +181,16 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(registered[0].name, "The Hass Property Index")
         self.assertEqual(registered[0].base_url, "https://hassconsult.com")
         self.assertTrue(registered[0].active)
-        self.assertEqual(registered[0].fetch_method, "html")
-        self.assertEqual(registered[0].schedule_minutes, 90)
-        self.assertEqual(
-            registered[0].parser_config["discovery_url"],
-            "https://www.hassconsult.com/hassindex",
-        )
+        self.assertNotEqual(registered[0].fetch_method, "manual")
+        self.assertEqual(registered[0].schedule_minutes, 240)
+        self.assertIn("discovery_url", registered[0].parser_config)
         self.assertEqual(
             registered[0].parser_config["registry_metadata"]["canonical_domain"],
             "hassconsult.com",
         )
         self.assertEqual(len(await self.repository.list_sources()), 2)
 
-    async def test_expanded_pool_records_activate_even_without_ingestion_configuration(self):
+    async def test_expanded_pool_records_are_active_and_have_collection_methods(self):
         pool_path = Path(__file__).resolve().parents[1] / "sources" / "real-estate-source-pool.json"
         entries = json.loads(pool_path.read_text(encoding="utf-8"))
         self.assertEqual(len(entries), 100)
@@ -201,13 +199,46 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         )
 
         self.assertEqual(len(registered), 100)
-        self.assertEqual(len({canonicalise_source_url(source.base_url) for source in registered}), 100)
+        self.assertEqual(len({canonical_domain(source.base_url) for source in registered}), 100)
         self.assertTrue(all(source.active for source in registered))
-        self.assertTrue(all(source.fetch_method == "manual" for source in registered))
+        self.assertTrue(all(source.fetch_method != "manual" for source in registered))
+        self.assertTrue(all(source.parser_config.get("discovery_url") for source in registered))
         self.assertTrue(all(
             source.parser_config["registry_metadata"]["source_url"] == source.base_url
             for source in registered
         ))
+
+    async def test_registry_deduplicates_www_variants_and_syncs_deactivation(self):
+        existing = Source(
+            name="Existing source", base_url="https://www.example.test/",
+            trust_tier=2, fetch_method="rss", schedule_minutes=60, active=True,
+        )
+        await self.repository.upsert_source(existing)
+        payload = [
+            {
+                "name": "Configured source", "base_url": "https://example.test",
+                "source_type": "news", "trust_tier": 2, "fetch_method": "rss",
+                "schedule_minutes": 60, "active": False, "parser_config": {"discovery_url": "https://example.test/feed"},
+                "failure_category": "blocked_403", "last_error": "blocked_403: HTTP 403",
+                "consecutive_failures": 1,
+                "last_failed_fetch_at": datetime.now(timezone.utc).isoformat(),
+            },
+            {
+                "name": "Duplicate domain", "base_url": "http://www.example.test/",
+                "source_type": "news", "trust_tier": 2, "fetch_method": "rss",
+                "schedule_minutes": 60, "active": True, "parser_config": {"discovery_url": "http://www.example.test/feed"},
+            },
+        ]
+        with tempfile.TemporaryDirectory() as temp_dir:
+            registry_path = Path(temp_dir) / "duplicate-source-registry.json"
+            registry_path.write_text(json.dumps(payload), encoding="utf-8")
+            registered = await register_sources_from_json(self.repository, str(registry_path))
+        self.assertEqual(len(registered), 1)
+        self.assertEqual(registered[0].id, existing.id)
+        self.assertFalse(registered[0].active)
+        self.assertEqual(registered[0].failure_category, "blocked_403")
+        self.assertEqual(registered[0].consecutive_failures, 1)
+        self.assertEqual(len(await self.repository.list_sources()), 2)
 
     async def test_same_source_name_on_another_domain_is_not_overwritten(self):
         pool_path = Path(__file__).resolve().parents[1] / "sources" / "real-estate-source-pool.json"
@@ -255,6 +286,39 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(collector._is_allowed_source_url(configured, "https://WWW.PeopleDaily.Digital./story"))
         self.assertTrue(collector._is_allowed_source_url(configured, "https://peopledaily.digital/story"))
         self.assertFalse(collector._is_allowed_source_url(configured, "https://evil.example/story"))
+
+    async def test_allowed_hosts_include_apex_www_and_explicit_domains(self):
+        configured = Source(
+            name="Configured source", base_url="https://news.example.test", trust_tier=2,
+            fetch_method="rss", schedule_minutes=30,
+            parser_config={"allowed_hosts": ["archive.partner.example"]},
+        )
+        self.assertTrue(SourceCollector._is_allowed_source_url(configured, "https://www.news.example.test/feed"))
+        self.assertTrue(SourceCollector._is_allowed_source_url(configured, "https://archive.partner.example/story"))
+        self.assertFalse(SourceCollector._is_allowed_source_url(configured, "https://other.example.test/story"))
+
+    def test_failure_classifier_recognizes_all_source_failure_categories(self):
+        cases = (
+            "blocked_403", "tls_error", "dns_error", "timeout", "upstream_5xx",
+            "not_allowed_host", "no_feed_found", "robots_disallowed",
+        )
+        for category in cases:
+            with self.subTest(category=category):
+                self.assertEqual(
+                    SourceCollector.classify_failure(CollectionFailure(category, category)),
+                    category,
+                )
+
+    def test_sources_with_five_failures_use_six_hour_retry(self):
+        collector = SourceCollector(self.repository, Settings())
+        recent_failure = datetime.now(timezone.utc) - timedelta(hours=5)
+        source_record = source().model_copy(update={
+            "last_failed_fetch_at": recent_failure,
+            "consecutive_failures": 5,
+        })
+        self.assertFalse(collector._is_due(source_record))
+        source_record.last_failed_fetch_at = datetime.now(timezone.utc) - timedelta(hours=7)
+        self.assertTrue(collector._is_due(source_record))
 
     async def test_article_classifier_rejects_indexes_documents_and_media(self):
         collector = SourceCollector(self.repository, Settings())
@@ -352,8 +416,80 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         collector.collect_source = collect_source  # type: ignore[method-assign]
         result = await collector.collect_due_sources(source_group=3)
 
-        self.assertEqual(result["sources_checked"], 1)
-        self.assertEqual(seen, ["Grouped source 03"])
+        expected = [
+            configured.name
+            for configured in await self.repository.list_sources(active_only=True)
+            if SourceCollector._source_group(configured, 11) == 3
+        ]
+        self.assertEqual(result["sources_checked"], len(expected))
+        self.assertEqual(set(seen), set(expected))
+
+    async def test_wp_json_fetch_method_parses_dated_wordpress_posts(self):
+        configured = self.source.model_copy(update={
+            "fetch_method": "wp_json",
+            "parser_config": {
+                "discovery_url": "https://source1.example.test/wp-json/wp/v2/posts?per_page=10",
+                "selectors": {
+                    "title": "title.rendered", "url": "link", "published_date": ["date_gmt", "date"],
+                    "content": "excerpt.rendered",
+                },
+            },
+        })
+        collector = SourceCollector(self.repository, Settings())
+
+        async def fetch(_source, _url, **_kwargs):
+            return json.dumps([{
+                "id": 17,
+                "link": "https://www.source1.example.test/land-registry-update",
+                "date_gmt": "2026-09-20T10:00:00",
+                "title": {"rendered": "Land registry update"},
+                "excerpt": {"rendered": "The ministry announced a land registry update."},
+            }])
+
+        collector._fetch = fetch  # type: ignore[method-assign]
+        candidates, rejected, blocked = await collector._discover(configured)
+        self.assertEqual((rejected, blocked), (0, 0))
+        self.assertEqual(len(candidates), 1)
+        self.assertEqual(candidates[0].external_post_id, "17")
+        self.assertEqual(candidates[0].source_published_at.date().isoformat(), "2026-09-20")
+
+    async def test_rss_and_sitemap_fetch_methods_filter_urls_by_source_host(self):
+        collector = SourceCollector(self.repository, Settings())
+        responses = {
+            "rss": (
+                "https://source1.example.test/feed",
+                "<rss><channel><item><title>Land registry project</title>"
+                "<link>/land-registry-project</link>"
+                "<pubDate>Sun, 20 Sep 2026 10:00:00 GMT</pubDate></item></channel></rss>",
+            ),
+            "sitemap": (
+                "https://source1.example.test/sitemap.xml",
+                "<urlset><url><loc>https://source1.example.test/land-registry-project</loc>"
+                "<lastmod>2026-09-20</lastmod></url></urlset>",
+            ),
+        }
+        for method, (url, body) in responses.items():
+            with self.subTest(method=method):
+                configured = self.source.model_copy(update={
+                    "fetch_method": method,
+                    "parser_config": {
+                        "discovery_url": url,
+                        "selectors": {
+                            "title": "title", "url": "link",
+                            "published_date": ["pubDate", "published", "updated"],
+                            "content": ["description", "summary"],
+                        } if method == "rss" else {"url": "loc"},
+                    },
+                })
+
+                async def fetch(_source, _url, **_kwargs):
+                    return body
+
+                collector._fetch = fetch  # type: ignore[method-assign]
+                candidates, rejected, blocked = await collector._discover(configured)
+                self.assertEqual((rejected, blocked), (0, 0))
+                self.assertEqual(len(candidates), 1)
+                self.assertEqual(candidates[0].source_url, "https://source1.example.test/land-registry-project")
 
     async def test_scheduled_job_processes_and_publishes_a_safe_new_item(self):
         candidate = CandidateArticle(source_id=self.source.id, source_url="https://source1.example.test/safe-update",

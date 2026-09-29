@@ -23,8 +23,12 @@ class Source(BaseModel):
     verified: bool = True
     category: str | None = Field(default=None, max_length=64)
     parser_config: dict[str, Any] = Field(default_factory=dict)
+    last_success_at: datetime | None = None
     last_successful_fetch_at: datetime | None = None
     last_failed_fetch_at: datetime | None = None
+    last_error: str | None = None
+    failure_category: str | None = None
+    consecutive_failures: int = Field(default=0, ge=0)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
