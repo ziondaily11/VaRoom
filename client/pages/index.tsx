@@ -79,13 +79,30 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
           href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
           rel="stylesheet"
         />
+        <style>{`
+          *, *::before, *::after {
+            box-sizing: border-box;
+          }
+          html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            max-width: 100vw;
+            overflow-x: hidden;
+          }
+          .varoom-logo, .varoom-logo:hover, .varoom-logo:focus, .varoom-logo * {
+            text-decoration: none !important;
+            border-bottom: none !important;
+            box-shadow: none !important;
+          }
+        `}</style>
       </Head>
 
       {/* Supabase scripts required for authentication and session check */}
       <Script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" strategy="beforeInteractive" />
       <Script src="/js/supabase-client.js" strategy="beforeInteractive" />
 
-      <main className="min-h-screen w-full bg-[#f7f3ec] text-[#181513] font-sans antialiased selection:bg-[#bd2337] selection:text-white">
+      <main className="min-h-screen w-full max-w-full overflow-x-hidden box-border bg-[#f7f3ec] text-[#181513] font-sans antialiased selection:bg-[#bd2337] selection:text-white">
         {/* Hero Section with Nairobi illustration */}
         <HeroSection
           onOpenRoleModal={() => setRoleModalOpen(true)}
