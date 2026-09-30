@@ -1,6 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
-import landing2 from '../../assets/landing2.jpg';
+import landing2 from '../../assets/landing2a.jpg';
 import {
   LucideIcon,
   ArrowRight,
