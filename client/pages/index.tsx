@@ -5,7 +5,6 @@ import React, { useEffect, useState } from 'react';
 import { GetStaticProps } from 'next';
 import { HeroSection } from '../components/landing/HeroSection';
 import { PlacesSection } from '../components/landing/PlacesSection';
-import { FeaturedDiscovery } from '../components/landing/FeaturedDiscovery';
 import { HostSection } from '../components/landing/HostSection';
 import { ClientSection } from '../components/landing/ClientSection';
 import { HowItWorksSection } from '../components/landing/HowItWorksSection';
@@ -112,10 +111,6 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
       window.location.assign(destination);
     }
   }
-
-  // Find a standout listing for the Featured Discovery section
-  const featuredListing = listings.find((l) => l.photoUrl && l.category === 'airbnb') || listings[0];
-  const supportingListings = listings.filter((l) => l.id !== featuredListing?.id && l.photoUrl).slice(0, 2);
 
   return (
     <>
@@ -231,12 +226,6 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
           {/* Page 2: Places worth discovering (Real listings from Supabase) */}
           <PlacesSection listings={listings} />
         </div>
-
-        {/* Featured Discovery (Editorial showcase) */}
-        <FeaturedDiscovery
-          featuredListing={featuredListing}
-          supportingListings={supportingListings}
-        />
 
         {/* For Clients Section */}
         <ClientSection onTryElie={handleTryElie} />

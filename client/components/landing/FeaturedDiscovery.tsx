@@ -99,7 +99,7 @@ export const FeaturedDiscovery: React.FC<FeaturedDiscoveryProps> = ({
 
           {/* Supporting Properties Column (5 cols on desktop) */}
           <div className="lg:col-span-5 flex flex-col gap-6 justify-between">
-            {supportingListings.slice(0, 2).map((item) => (
+            {supportingListings.slice(0, 1).map((item) => (
               <Link
                 key={item.id}
                 href={`/booking?listing=${item.id}`}
