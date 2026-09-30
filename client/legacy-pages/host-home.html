@@ -751,6 +751,12 @@
     .media-carousel{ margin-bottom:.55rem; }
     .media-slide img{ height:clamp(220px, 52vw, 460px); }
     .media-carousel.single-media .media-slide img{ height:clamp(250px, 60vw, 520px); }
+    /* Restore natural aspect ratio for discover-media-feed on mobile —
+       the fixed clamp height above must not override discover's own sizing. */
+    #feed-list.discover-media-feed .media-slide img{ height:auto; object-fit:initial; }
+    #feed-list.discover-media-feed .card-video video,
+    #feed-list.discover-media-feed .card-video .varoom-video-player,
+    #feed-list.discover-media-feed .card-video .varoom-video-player > video{ height:auto; object-fit:initial; }
     .media-index-pill{ top:.55rem; right:.55rem; font-size:.66rem; }
     .media-dots{ bottom:.5rem; }
 
