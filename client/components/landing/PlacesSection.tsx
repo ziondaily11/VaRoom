@@ -91,9 +91,9 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ listings }) => {
   return (
     <section
       id="places-section"
-      className="relative z-20 w-full max-w-full min-h-screen sm:h-screen box-border flex flex-col justify-center items-center px-4 sm:px-8 md:px-12 lg:px-16 snap-page backdrop-blur-[2px] py-6 sm:py-0 overflow-y-auto sm:overflow-hidden places-animated-content"
+      className="relative z-20 w-full max-w-full min-h-screen sm:h-screen box-border flex flex-col justify-center items-center px-4 sm:px-8 md:px-12 lg:px-16 snap-page py-6 sm:py-0 overflow-y-auto sm:overflow-hidden places-animated-content"
       style={{
-        backgroundImage: `linear-gradient(rgba(247, 243, 236, .85), rgba(247, 243, 236, .85)), url("${landing2.src}")`,
+        backgroundImage: `url("${landing2.src}")`,
         backgroundPosition: 'center top',
         backgroundSize: 'cover',
       }}
