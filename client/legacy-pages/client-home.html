@@ -611,7 +611,7 @@
   #feed-list.discover-media-feed .card-caption{ margin-left:var(--discover-content-inset); }
   #feed-list.discover-media-feed .media-carousel,
   #feed-list.discover-media-feed .card-video{
-    width:var(--discover-media-width, calc(100% - var(--discover-content-inset))); max-width:calc(100% - var(--discover-content-inset)); height:var(--discover-media-height, auto); margin-left:var(--discover-content-inset); margin-right:auto;
+    width:var(--discover-media-width, calc(100% - var(--discover-content-inset))); max-width:calc(100% - var(--discover-content-inset)); height:var(--discover-media-height, auto); aspect-ratio:var(--discover-media-ratio, auto); margin-left:var(--discover-content-inset); margin-right:auto;
     position:relative; overflow:hidden; border:0; border-radius:12px; background:transparent;
   }
   #feed-list.discover-media-feed .media-slide-track{ height:100%; }
@@ -1421,9 +1421,18 @@
 
     function renderCard(listing){
       const host = listing.host || {};
-      const photos = (listing.listing_photos || []).map(function(p){
-        return supabaseClient.storage.from('listing-photos').getPublicUrl(p.storage_path).data.publicUrl;
+      const mediaMetadata = (listing.property_media || []).filter(function(media){
+        return media && media.status === 'ready' && media.visibility === 'public' && media.width > 0 && media.height > 0;
+      }).sort(function(a, b){ return (a.sort_order || 0) - (b.sort_order || 0); });
+      const photoItems = (listing.listing_photos || []).map(function(p){
+        return {
+          url: supabaseClient.storage.from('listing-photos').getPublicUrl(p.storage_path).data.publicUrl,
+          width: Number(p.width) || 0,
+          height: Number(p.height) || 0
+        };
       });
+      const photos = photoItems.map(function(photo){ return photo.url; });
+      const imageMetadata = mediaMetadata.filter(function(media){ return media.media_type === 'image'; });
       const videoUrl = videoUrlByListing[listing.id] || null;
       const videoThumbnail = videoThumbnailByListing[listing.id] || '';
       const videoState = videoStateByListing[listing.id] || 'unknown';
@@ -1441,7 +1450,9 @@
 
       let photosHtml = '';
       if (videoUrl) {
-        photosHtml = '<div class="card-video single"><video muted playsinline preload="none" poster="' + escapeHtml(videoThumbnail) + '" src="' + videoUrl + '" data-video-url="' + videoUrl + '" data-listing-id="' + listing.id + '" data-video-host-name="' + escapeHtml(host.full_name || 'Host') + '" data-video-username="' + escapeHtml(host.username ? '@' + host.username : '') + '" data-video-avatar="' + escapeHtml(hostAvatarUrl || '') + '" data-video-caption="' + escapeHtml(listing.description || listing.title) + '"></video></div>';
+        const videoMedia = mediaMetadata.find(function(media){ return media.media_type === 'video'; });
+        const videoSize = videoMedia ? ' data-media-width="' + videoMedia.width + '" data-media-height="' + videoMedia.height + '"' : '';
+        photosHtml = '<div class="card-video single"' + videoSize + '><video muted playsinline preload="none" poster="' + escapeHtml(videoThumbnail) + '" src="' + videoUrl + '" data-video-url="' + videoUrl + '" data-listing-id="' + listing.id + '" data-video-host-name="' + escapeHtml(host.full_name || 'Host') + '" data-video-username="' + escapeHtml(host.username ? '@' + host.username : '') + '" data-video-avatar="' + escapeHtml(hostAvatarUrl || '') + '" data-video-caption="' + escapeHtml(listing.description || listing.title) + '"></video></div>';
       } else if (photos.length === 0 && (videoState === 'unknown' || videoState === 'loading')) {
         photosHtml = '<div class="card-media-loading" aria-hidden="true"></div>';
       } else if (photos.length === 0 && videoState === 'unavailable') {
@@ -1449,9 +1460,12 @@
       } else if (photos.length === 0) {
         photosHtml = '<div class="card-photos card-media-empty" role="img" aria-label="No media available for this listing"></div>';
       } else if (photos.length === 1) {
+        const photo = photoItems[0];
+        const metadata = imageMetadata[0] || photo;
+        const size = metadata.width && metadata.height ? ' data-media-width="' + metadata.width + '" data-media-height="' + metadata.height + '"' : '';
         photosHtml = '<div class="media-carousel single-media" data-listing-id="' + listing.id + '" data-photo-count="1">'
           + '<div class="media-slide-track">'
-          + '<div class="media-slide"><div class="media-image-skeleton skeleton" aria-hidden="true"></div><img src="' + escapeHtml(photos[0]) + '" alt="' + escapeHtml(listing.title) + '" loading="lazy" data-listing-id="' + listing.id + '" data-photo-index="0"></div>'
+          + '<div class="media-slide"' + size + '><div class="media-image-skeleton skeleton" aria-hidden="true"></div><img src="' + escapeHtml(photo.url) + '" alt="' + escapeHtml(listing.title) + '" loading="lazy" data-listing-id="' + listing.id + '" data-photo-index="0"></div>'
           + '</div>'
           + '</div>';
       } else {
@@ -1459,8 +1473,10 @@
           + '<div class="media-index-pill">1/' + photos.length + '</div>'
           + '<button type="button" class="media-carousel-arrow prev" data-carousel-prev aria-label="Previous photo">‹</button>'
           + '<button type="button" class="media-carousel-arrow next" data-carousel-next aria-label="Next photo">›</button>'
-          + '<div class="media-slide-track">' + photos.map(function(url, i){
-              return '<div class="media-slide"><div class="media-image-skeleton skeleton" aria-hidden="true"></div><img src="' + escapeHtml(url) + '" alt="' + escapeHtml(listing.title) + '" loading="lazy" data-listing-id="' + listing.id + '" data-photo-index="' + i + '"></div>';
+          + '<div class="media-slide-track">' + photoItems.map(function(photo, i){
+              const metadata = imageMetadata[i] || photo;
+              const size = metadata.width && metadata.height ? ' data-media-width="' + metadata.width + '" data-media-height="' + metadata.height + '"' : '';
+              return '<div class="media-slide"' + size + '><div class="media-image-skeleton skeleton" aria-hidden="true"></div><img src="' + escapeHtml(photo.url) + '" alt="' + escapeHtml(listing.title) + '" loading="lazy" data-listing-id="' + listing.id + '" data-photo-index="' + i + '"></div>';
             }).join('') + '</div>'
           + '<div class="media-dots">' + photos.map(function(_, i){ return '<span class="media-dot ' + (i === 0 ? 'active' : '') + '" data-index="' + i + '"></span>'; }).join('') + '</div>'
           + '</div>';
@@ -1561,14 +1577,14 @@
           const contentInset = parseFloat(getComputedStyle(stage).getPropertyValue('--discover-content-inset')) || 0;
           const availableWidth = Math.max(1, stage.parentElement.clientWidth - contentInset);
           const fallbackHeight = Math.min(maxHeight, availableWidth / (4 / 3));
-          const fallbackFrame = { height:fallbackHeight, width:Math.min(availableWidth, fallbackHeight * (4 / 3)) };
+          const fallbackFrame = { height:fallbackHeight, width:Math.min(availableWidth, fallbackHeight * (4 / 3)), ratio:4 / 3 };
           const frames = media.filter(Boolean).map(function(item){
-            const width = item.videoWidth || item.naturalWidth;
-            const height = item.videoHeight || item.naturalHeight;
+            const metadataSource = item.closest('.media-slide') || stage;
+            const width = Number(metadataSource.getAttribute('data-media-width')) || item.videoWidth || item.naturalWidth;
+            const height = Number(metadataSource.getAttribute('data-media-height')) || item.videoHeight || item.naturalHeight;
             if (!width || !height) return fallbackFrame;
             const ratio = width / height;
-            const fittedHeight = Math.min(maxHeight, availableWidth / ratio);
-            return { height:fittedHeight, width:Math.min(availableWidth, fittedHeight * ratio) };
+            return { height:availableWidth / ratio, width:availableWidth, ratio:ratio };
           });
           if (!frames.length) frames.push(fallbackFrame);
           stage._discoverMediaFrames = frames;
@@ -1576,6 +1592,7 @@
           const frame = frames[activeIndex] || frames[0];
           stage.style.setProperty('--discover-media-height', Math.round(frame.height) + 'px');
           stage.style.setProperty('--discover-media-width', Math.round(frame.width) + 'px');
+          stage.style.setProperty('--discover-media-ratio', frame.ratio);
         }
         media.filter(Boolean).forEach(function(item){
           if (item.getAttribute('data-discover-size-listener') === 'true') return;
