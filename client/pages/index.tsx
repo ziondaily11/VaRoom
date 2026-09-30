@@ -5,6 +5,7 @@ import React, { useEffect, useState } from 'react';
 import { GetStaticProps } from 'next';
 import { HeroSection } from '../components/landing/HeroSection';
 import { PlacesSection } from '../components/landing/PlacesSection';
+import { InteractiveHeroStage } from '../components/landing/InteractiveHeroStage';
 import { FeaturedDiscovery } from '../components/landing/FeaturedDiscovery';
 import { HostSection } from '../components/landing/HostSection';
 import { ClientSection } from '../components/landing/ClientSection';
@@ -147,33 +148,12 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
       <Script src="/js/supabase-client.js" strategy="beforeInteractive" />
 
       <main className="min-h-screen w-full max-w-full overflow-x-hidden box-border bg-[#f7f3ec] text-[#181513] font-sans antialiased selection:bg-[#bd2337] selection:text-white">
-        {/* Seamless 2-Page Stage: Page 1 (Hero) & Page 2 (Places worth discovering) */}
-        <div className="relative w-full">
-          {/* Shared Nairobi Illustration Background pinned behind Page 1 and Page 2 */}
-          <div
-            className="sticky top-0 h-screen w-full -mb-[100vh] pointer-events-none select-none overflow-hidden z-0"
-            aria-hidden="true"
-          >
-            <img
-              src="/assets/landing.jpg"
-              alt="VaRoom Nairobi Skyline"
-              className="w-full h-full object-cover object-top"
-              // @ts-expect-error fetchpriority is a modern HTML attribute
-              fetchpriority="high"
-            />
-            {/* Soft gradient wash ensuring high text contrast across both states */}
-            <div className="absolute inset-0 bg-gradient-to-b from-[#efe8de]/40 via-[#f7f3ec]/65 to-[#f7f3ec]/95 pointer-events-none" />
-          </div>
-
-          {/* Page 1: Hero Section */}
-          <HeroSection
-            onOpenRoleModal={() => setRoleModalOpen(true)}
-            onTryElie={handleTryElie}
-          />
-
-          {/* Page 2: Places worth discovering (Real listings from Supabase) */}
-          <PlacesSection listings={listings} />
-        </div>
+        {/* Single-Page Viewport Reveal: In-Place Content Swap on Scroll Gestures */}
+        <InteractiveHeroStage
+          listings={listings}
+          onOpenRoleModal={() => setRoleModalOpen(true)}
+          onTryElie={handleTryElie}
+        />
 
         {/* Featured Discovery (Editorial showcase) */}
         <FeaturedDiscovery
