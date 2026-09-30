@@ -5,7 +5,6 @@ import React, { useEffect, useState } from 'react';
 import { GetStaticProps } from 'next';
 import { HeroSection } from '../components/landing/HeroSection';
 import { PlacesSection } from '../components/landing/PlacesSection';
-import { FeaturedDiscovery } from '../components/landing/FeaturedDiscovery';
 import { HostSection } from '../components/landing/HostSection';
 import { ClientSection } from '../components/landing/ClientSection';
 import { HowItWorksSection } from '../components/landing/HowItWorksSection';
@@ -15,6 +14,7 @@ import { Footer } from '../components/landing/Footer';
 import { RoleModal } from '../components/landing/RoleModal';
 import { Listing } from '../components/landing/types';
 import { INITIAL_LISTINGS } from '../components/landing/initialListings';
+import { getListingPhotoUrl } from '../lib/listingPhotoUrl';
 
 interface LandingPageProps {
   initialListings: Listing[];
@@ -52,7 +52,9 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
         if (!error && data && data.length > 0 && isMounted) {
           const mapped: Listing[] = data.map((l: any) => {
             const photo = (l.listing_photos || []).find((p: any) => p && p.storage_path);
-            const photoUrl = photo ? sb.storage.from('listing-photos').getPublicUrl(photo.storage_path).data.publicUrl : null;
+            const photoUrl = photo
+              ? getListingPhotoUrl(photo.storage_path, (path) => sb.storage.from('listing-photos').getPublicUrl(path).data.publicUrl)
+              : null;
             const details = Array.isArray(l.listing_booking_details) ? l.listing_booking_details[0] : l.listing_booking_details;
             return {
               id: l.id,
@@ -109,10 +111,6 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
       window.location.assign(destination);
     }
   }
-
-  // Find a standout listing for the Featured Discovery section
-  const featuredListing = listings.find((l) => l.photoUrl && l.category === 'airbnb') || listings[0];
-  const supportingListings = listings.filter((l) => l.id !== featuredListing?.id && l.photoUrl).slice(0, 2);
 
   return (
     <>
@@ -229,12 +227,6 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
           <PlacesSection listings={listings} />
         </div>
 
-        {/* Featured Discovery (Editorial showcase) */}
-        <FeaturedDiscovery
-          featuredListing={featuredListing}
-          supportingListings={supportingListings}
-        />
-
         {/* For Clients Section */}
         <ClientSection onTryElie={handleTryElie} />
 
@@ -289,7 +281,9 @@ export const getStaticProps: GetStaticProps<LandingPageProps> = async () => {
 
     const initialListings: Listing[] = data.map((l: any) => {
       const photo = (l.listing_photos || []).find((p: any) => p && p.storage_path);
-      const photoUrl = photo ? sb.storage.from('listing-photos').getPublicUrl(photo.storage_path).data.publicUrl : null;
+      const photoUrl = photo
+        ? getListingPhotoUrl(photo.storage_path, (path) => sb.storage.from('listing-photos').getPublicUrl(path).data.publicUrl)
+        : null;
       const details = Array.isArray(l.listing_booking_details) ? l.listing_booking_details[0] : l.listing_booking_details;
       return {
         id: l.id,
