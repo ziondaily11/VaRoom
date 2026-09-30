@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import Link from 'next/link';
 import { ArrowRight, MapPin, CheckCircle, Wifi, Car, Utensils, Tv, Sparkles } from 'lucide-react';
 import { Listing } from './types';
@@ -7,25 +7,9 @@ interface PlacesSectionProps {
   listings: Listing[];
 }
 
-const CATEGORY_TABS = [
-  { id: 'all', label: 'All Spaces' },
-  { id: 'airbnb', label: 'Stays & Airbnbs' },
-  { id: 'hotel', label: 'Hotels' },
-  { id: 'venue', label: 'Venues' },
-  { id: 'property', label: 'Properties' },
-];
-
 export const PlacesSection: React.FC<PlacesSectionProps> = ({ listings }) => {
-  const [activeCategory, setActiveCategory] = useState('all');
-
-  // Filter listings by active category tab
-  const filteredListings = listings.filter((listing) => {
-    if (activeCategory === 'all') return true;
-    return listing.category?.toLowerCase() === activeCategory.toLowerCase();
-  });
-
   // Always display exactly up to 6 real listings from the database
-  const visibleListings = filteredListings.slice(0, 6);
+  const visibleListings = (listings || []).slice(0, 6);
 
   const getAmenityIcon = (amenity: string) => {
     switch (amenity.toLowerCase()) {
@@ -45,10 +29,10 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ listings }) => {
   return (
     <section
       id="places-section"
-      className="relative z-20 w-full max-w-full min-h-screen sm:h-screen box-border flex flex-col justify-center items-center px-4 sm:px-8 md:px-12 lg:px-16 snap-page bg-[#f7f3ec]/85 backdrop-blur-[2px] py-8 sm:py-0 overflow-y-auto sm:overflow-hidden places-animated-content"
+      className="relative z-20 w-full max-w-full min-h-screen sm:h-screen box-border flex flex-col justify-center items-center px-4 sm:px-8 md:px-12 lg:px-16 snap-page bg-[#f7f3ec]/85 backdrop-blur-[2px] py-6 sm:py-0 overflow-y-auto sm:overflow-hidden places-animated-content"
     >
       <div className="w-full max-w-6xl mx-auto flex flex-col justify-center">
-        {/* Compact Header: title & link */}
+        {/* Header: title & link (moves naturally directly into the listing grid) */}
         <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-3 sm:mb-4 gap-2">
           <div>
             <h2 className="font-sans font-bold text-2xl sm:text-3xl text-[#181513] tracking-tight">
@@ -69,29 +53,8 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ listings }) => {
           </Link>
         </div>
 
-        {/* Compact Category Filter Tabs */}
-        <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-2 mb-3 sm:mb-4 no-scrollbar">
-          {CATEGORY_TABS.map((tab) => {
-            const isActive = activeCategory === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveCategory(tab.id)}
-                className={`px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all duration-150 cursor-pointer ${
-                  isActive
-                    ? 'bg-[#181513] text-[#faf8f5] shadow-xs'
-                    : 'bg-[#eae3d7]/70 text-[#4a4038] hover:bg-[#eae3d7] hover:text-[#181513]'
-                }`}
-              >
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Compact Six Listing Cards Grid (Fits comfortably in viewport) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-3.5 lg:gap-4">
+        {/* Dense Six Listing Cards Grid (Image-dominant subject, compact caption) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3 lg:gap-3.5">
           {visibleListings.map((listing) => {
             const href = `/booking?listing=${listing.id}`;
             const hasPrice = listing.price != null && !isNaN(Number(listing.price));
@@ -99,8 +62,9 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ listings }) => {
             const priceUnit = listing.priceUnit ? ` / ${listing.priceUnit}` : '';
             const locationClean = listing.location && !/location to be added|not available/i.test(listing.location)
               ? listing.location.trim()
-              : null;
+              : 'Kenya';
             const displayAmenities = (listing.amenities || []).filter(Boolean).slice(0, 3);
+            const displayType = listing.sizeOrType || (listing.category ? `${listing.category.charAt(0).toUpperCase() + listing.category.slice(1)} space` : 'Space');
 
             return (
               <Link
@@ -109,8 +73,8 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ listings }) => {
                 className="group flex flex-col bg-[#fffefc]/90 rounded-xl sm:rounded-2xl overflow-hidden border border-[#2d2724]/10 hover:border-[#181513]/30 transition-all duration-200 hover:shadow-md no-underline"
                 style={{ textDecoration: 'none' }}
               >
-                {/* Compact Card Image */}
-                <div className="relative w-full h-32 sm:h-36 lg:h-38 bg-[#eae2d6] overflow-hidden">
+                {/* 1. Dominant Card Image (Occupies 60–70% of total card height) */}
+                <div className="relative w-full h-36 sm:h-38 lg:h-40 bg-[#eae2d6] overflow-hidden">
                   {listing.photoUrl ? (
                     <img
                       src={listing.photoUrl}
@@ -126,52 +90,48 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ listings }) => {
 
                   {/* Category Pill Tag */}
                   {listing.category && (
-                    <div className="absolute top-2.5 left-2.5 px-2.5 py-0.5 rounded-full bg-[#181513]/70 backdrop-blur-xs text-[#faf8f5] text-[10px] font-semibold uppercase tracking-wider">
+                    <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-[#181513]/70 backdrop-blur-xs text-[#faf8f5] text-[10px] font-semibold uppercase tracking-wider">
                       {listing.category}
                     </div>
                   )}
 
                   {/* Verified Indicator Badge */}
                   {listing.verified && (
-                    <div className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-full bg-[#fffefc]/90 backdrop-blur-xs text-[#181513] text-[10px] font-medium inline-flex items-center gap-1 shadow-xs">
-                      <CheckCircle size={11} className="text-[#bd2337]" />
+                    <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-[#fffefc]/90 backdrop-blur-xs text-[#181513] text-[10px] font-medium inline-flex items-center gap-1 shadow-xs">
+                      <CheckCircle size={10} className="text-[#bd2337]" />
                       <span>Verified</span>
                     </div>
                   )}
                 </div>
 
-                {/* Compact Card Content */}
-                <div className="p-2.5 sm:p-3 flex-1 flex flex-col justify-between">
+                {/* 2. Compact Caption: Location -> Title -> Type/Description -> Amenities + Price */}
+                <div className="px-2.5 sm:px-3 pt-2 pb-2 sm:pb-2.5 flex flex-col justify-between">
                   <div>
-                    {/* Location (only if genuine value present) */}
-                    {locationClean && (
-                      <div className="inline-flex items-center gap-1 text-[11px] font-medium text-[#786e64] mb-0.5">
-                        <MapPin size={11} className="text-[#bd2337] shrink-0" />
-                        <span className="truncate">{locationClean}</span>
-                      </div>
-                    )}
+                    {/* Location */}
+                    <div className="inline-flex items-center gap-1 text-[11px] font-medium text-[#786e64] leading-none mb-0.5 truncate max-w-full">
+                      <MapPin size={11} className="text-[#bd2337] shrink-0" />
+                      <span className="truncate">{locationClean}</span>
+                    </div>
 
-                    {/* Title */}
-                    <h3 className="font-sans font-semibold text-xs sm:text-sm text-[#181513] line-clamp-1 group-hover:text-[#bd2337] transition-colors leading-snug">
+                    {/* Listing Title */}
+                    <h3 className="font-sans font-semibold text-xs sm:text-sm text-[#181513] line-clamp-1 group-hover:text-[#bd2337] transition-colors leading-tight">
                       {listing.title || 'VaRoom Space'}
                     </h3>
 
-                    {/* Room / Property details (only if genuine value present) */}
-                    {listing.sizeOrType && (
-                      <p className="text-[10px] sm:text-[11px] text-[#594f47] line-clamp-1 mt-0.5">
-                        {listing.sizeOrType}
-                      </p>
-                    )}
+                    {/* Short Description / Type */}
+                    <p className="text-[10px] sm:text-[11px] text-[#594f47] line-clamp-1 leading-tight mt-0.5">
+                      {displayType}
+                    </p>
                   </div>
 
-                  {/* Compact Bottom Row: Amenities & Price */}
-                  <div className="mt-2.5 pt-2 border-t border-[#2d2724]/8 flex items-center justify-between">
-                    {/* Amenities chips (only if present) */}
-                    <div className="flex items-center gap-1.5 min-h-[18px]">
+                  {/* Amenity Icons + Real Price */}
+                  <div className="mt-1.5 pt-1.5 border-t border-[#2d2724]/8 flex items-center justify-between gap-1">
+                    {/* Amenities chips */}
+                    <div className="flex items-center gap-1 min-h-[16px]">
                       {displayAmenities.map((amenity, idx) => (
                         <span
                           key={idx}
-                          className="w-4.5 h-4.5 rounded-full bg-[#faf7f2] border border-[#2d2724]/10 flex items-center justify-center"
+                          className="w-4 h-4 rounded-full bg-[#faf7f2] border border-[#2d2724]/10 flex items-center justify-center shrink-0"
                           title={amenity}
                         >
                           {getAmenityIcon(amenity)}
@@ -179,15 +139,15 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ listings }) => {
                       ))}
                     </div>
 
-                    {/* Real Price */}
-                    <div className="text-right">
+                    {/* Price */}
+                    <div className="text-right shrink-0">
                       {formattedPrice ? (
-                        <>
+                        <div className="inline-flex items-baseline gap-0.5">
                           <span className="font-sans font-bold text-xs sm:text-sm text-[#181513]">
                             {formattedPrice}
                           </span>
                           <span className="text-[10px] text-[#786e64] font-medium">{priceUnit}</span>
-                        </>
+                        </div>
                       ) : (
                         <span className="text-[11px] text-[#786e64] font-medium">Inquire</span>
                       )}
@@ -199,8 +159,8 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ listings }) => {
           })}
         </div>
 
-        {/* Compact Marketplace CTA */}
-        <div className="mt-4 sm:mt-5 text-center">
+        {/* Fully visible and intentionally positioned Marketplace CTA */}
+        <div className="mt-3 sm:mt-4 text-center">
           <Link
             href="/marketplace"
             className="inline-flex items-center gap-2 px-5 py-2 sm:px-6 sm:py-2.5 rounded-full bg-[#181513] hover:bg-black text-[#faf8f5] font-medium text-xs sm:text-sm transition-all duration-200 hover:scale-[1.02] shadow-xs no-underline"
