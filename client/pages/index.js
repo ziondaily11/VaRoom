@@ -215,11 +215,9 @@ export default function LandingPage() {
 
         <section className={styles.heroContent} aria-labelledby="hero-title">
           <div className={styles.eyebrow}><PinIcon /> Real locations. Real people. Real spaces.</div>
-          <h1 id="hero-title">The Smarter, Safer Way to Find, Book, Rent, Buy, and Host Properties in Kenya</h1>
+          <h1 id="hero-title">Kenya's marketplace for spaces and stays</h1>
           <p className={styles.description}>
-            From cozy stays to inspiring workspaces, vibrant venues<br className={styles.desktopBreak} />
-            {' '}and prime properties — VaRoom connects you with<br className={styles.desktopBreak} />
-            {' '}real, verified spaces, right where you are.
+            Find, book, rent, buy, or host verified spaces across Kenya—from hotels and Airbnbs to apartments, workspaces, offices, shops, event venues, and more.
           </p>
           <Link className={styles.primaryButton} href="/marketplace">Marketplace <span aria-hidden="true">→</span></Link>
 
