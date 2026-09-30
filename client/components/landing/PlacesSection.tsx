@@ -45,7 +45,7 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ listings }) => {
   return (
     <section
       id="places-section"
-      className="relative w-full max-w-full box-border pt-4 sm:pt-6 md:pt-8 pb-10 sm:pb-14 px-5 sm:px-8 md:px-12 lg:px-16 bg-[#f7f3ec]"
+      className="relative z-30 w-full max-w-full box-border -mt-16 sm:-mt-24 md:-mt-32 lg:-mt-40 pt-4 sm:pt-6 md:pt-8 pb-10 sm:pb-14 px-5 sm:px-8 md:px-12 lg:px-16 bg-gradient-to-b from-transparent via-[#f7f3ec]/85 to-[#f7f3ec]"
     >
       <div className="max-w-6xl mx-auto">
         {/* Compact Header: title & link */}
