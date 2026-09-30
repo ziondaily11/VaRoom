@@ -2,6 +2,7 @@ const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const supabaseAdmin = require('../lib/supabaseClient');
 const mediaStorageService = require('../lib/mediaStorageService');
+const mediaOptimizationService = require('../lib/mediaOptimizationService');
 const { isNewR2PhotoObjectKey, isR2PhotoObjectKey } = require('../lib/photoStorageKeys');
 const { ValidationError, assertAllowedKeys, text, number, enumValue } = require('../lib/inputValidation');
 const { rejectSuspendedActivity } = require('../lib/accountAccess');
@@ -70,6 +71,22 @@ router.post('/photos/upload-complete', async (req, res) => {
     if (!(await mediaStorageService.verifyR2ObjectExists(key))) {
       return res.status(400).json({ error: 'Uploaded photo was not found in R2' });
     }
+
+    try {
+      const objectMetadata = await mediaStorageService.getR2ObjectMetadata(key);
+      const optimization = await mediaOptimizationService.optimizeStoredMediaObject(
+        key,
+        objectMetadata.contentType || 'image/jpeg',
+        key.split('/').pop() || 'photo'
+      );
+      if (optimization.optimized && optimization.outputContentType && optimization.outputContentType !== objectMetadata.contentType) {
+        console.info(`Optimized photo upload for ${key} from ${objectMetadata.contentType || 'unknown'} to ${optimization.outputContentType} (${optimization.bytesSaved} bytes saved)`);
+      }
+    } catch (error) {
+      console.error('Photo optimization failed during upload completion:', error);
+      return res.status(500).json({ error: 'Uploaded photo could not be optimized. Please try again.' });
+    }
+
     return res.json({ key, publicUrl: `/api/photos/${encodeURIComponent(category)}/${key.split('/').map(encodeURIComponent).join('/')}` });
   } catch (error) {
     console.error('Photo upload completion failed:', error);

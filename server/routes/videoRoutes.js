@@ -14,6 +14,7 @@ const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const supabaseAdmin = require('../lib/supabaseClient');
 const mediaStorageService = require('../lib/mediaStorageService');
+const mediaOptimizationService = require('../lib/mediaOptimizationService');
 const { generateVideoThumbnail } = require('../lib/videoThumbnailService');
 const videoEntitlement = require('../lib/videoEntitlement');
 const { ValidationError, assertAllowedKeys, uuid, text, number } = require('../lib/inputValidation');
@@ -320,6 +321,19 @@ router.post('/properties/:propertyId/videos/:mediaId/complete', async (req, res)
       });
     }
 
+    let optimization = null;
+    try {
+      optimization = await mediaOptimizationService.optimizeStoredMediaObject(
+        mediaRecord.storage_key,
+        mediaRecord.mime_type || objectMetadata.contentType || 'video/mp4',
+        mediaRecord.original_filename || 'video'
+      );
+    } catch (optimizationError) {
+      console.error('Video optimization failed:', optimizationError);
+      await supabaseAdmin.from('property_media').update({ status: 'failed' }).eq('id', mediaId);
+      return res.status(500).json({ error: 'Uploaded video could not be optimized. Please try again.' });
+    }
+
     let thumbnailKey = null;
     try {
       thumbnailKey = await generateVideoThumbnail(mediaRecord.storage_key);
@@ -334,7 +348,8 @@ router.post('/properties/:propertyId/videos/:mediaId/complete', async (req, res)
       .update({
         status: 'ready',
         duration_seconds: durationSeconds ?? null,
-        file_size_bytes: objectMetadata.contentLength,
+        file_size_bytes: optimization && optimization.optimized ? optimization.optimizedSize : objectMetadata.contentLength,
+        mime_type: optimization && optimization.outputContentType ? optimization.outputContentType : mediaRecord.mime_type,
         thumbnail_key: thumbnailKey,
         updated_at: new Date().toISOString(),
       })
