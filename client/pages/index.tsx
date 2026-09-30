@@ -15,6 +15,7 @@ import { Footer } from '../components/landing/Footer';
 import { RoleModal } from '../components/landing/RoleModal';
 import { Listing } from '../components/landing/types';
 import { INITIAL_LISTINGS } from '../components/landing/initialListings';
+import { getListingPhotoUrl } from '../lib/listingPhotoUrl';
 
 interface LandingPageProps {
   initialListings: Listing[];
@@ -52,7 +53,9 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
         if (!error && data && data.length > 0 && isMounted) {
           const mapped: Listing[] = data.map((l: any) => {
             const photo = (l.listing_photos || []).find((p: any) => p && p.storage_path);
-            const photoUrl = photo ? sb.storage.from('listing-photos').getPublicUrl(photo.storage_path).data.publicUrl : null;
+            const photoUrl = photo
+              ? getListingPhotoUrl(photo.storage_path, (path) => sb.storage.from('listing-photos').getPublicUrl(path).data.publicUrl)
+              : null;
             const details = Array.isArray(l.listing_booking_details) ? l.listing_booking_details[0] : l.listing_booking_details;
             return {
               id: l.id,
@@ -289,7 +292,9 @@ export const getStaticProps: GetStaticProps<LandingPageProps> = async () => {
 
     const initialListings: Listing[] = data.map((l: any) => {
       const photo = (l.listing_photos || []).find((p: any) => p && p.storage_path);
-      const photoUrl = photo ? sb.storage.from('listing-photos').getPublicUrl(photo.storage_path).data.publicUrl : null;
+      const photoUrl = photo
+        ? getListingPhotoUrl(photo.storage_path, (path) => sb.storage.from('listing-photos').getPublicUrl(path).data.publicUrl)
+        : null;
       const details = Array.isArray(l.listing_booking_details) ? l.listing_booking_details[0] : l.listing_booking_details;
       return {
         id: l.id,
