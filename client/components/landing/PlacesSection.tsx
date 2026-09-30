@@ -1,5 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
+import landing2 from '../../assets/landing2a.jpg';
 import {
   LucideIcon,
   ArrowRight,
@@ -90,7 +91,12 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ listings }) => {
   return (
     <section
       id="places-section"
-      className="relative z-20 w-full max-w-full min-h-screen sm:h-screen box-border flex flex-col justify-center items-center px-4 sm:px-8 md:px-12 lg:px-16 snap-page bg-[#f7f3ec]/85 backdrop-blur-[2px] py-6 sm:py-0 overflow-y-auto sm:overflow-hidden places-animated-content"
+      className="relative z-20 w-full max-w-full min-h-screen sm:h-screen box-border flex flex-col justify-center items-center px-4 sm:px-8 md:px-12 lg:px-16 snap-page py-6 sm:py-0 overflow-y-auto sm:overflow-hidden places-animated-content"
+      style={{
+        backgroundImage: `url("${landing2.src}")`,
+        backgroundPosition: 'center top',
+        backgroundSize: 'cover',
+      }}
     >
       <div className="w-full max-w-6xl mx-auto flex flex-col justify-center">
         {/* Compact Header: title & link (moves naturally directly into listing grid) */}
@@ -118,9 +124,10 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ listings }) => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3 lg:gap-3.5">
           {visibleListings.map((listing) => {
             const href = `/booking?listing=${listing.id}`;
-            const hasPrice = listing.price != null && !isNaN(Number(listing.price));
+            const priceValue = listing.price == null ? null : Number(listing.price);
+            const hasPrice = priceValue !== null && Number.isFinite(priceValue);
             const formattedPrice = hasPrice ? `KSh ${Number(listing.price).toLocaleString()}` : null;
-            const priceUnit = listing.priceUnit ? ` / ${listing.priceUnit}` : '';
+            const priceUnit = listing.priceUnit?.trim() || 'night';
             const locationClean = listing.location && !/location to be added|not available/i.test(listing.location)
               ? listing.location.trim()
               : 'Kenya';
@@ -175,31 +182,30 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ listings }) => {
                 {/* ========================================================= */}
                 {/* 2. COMPACT INFORMATION CAPTION — Approx 30% of card height */}
                 {/* ========================================================= */}
-                <div className="px-2.5 sm:px-3 pt-1.5 pb-2 sm:pb-2.5 flex flex-col justify-between h-[74px] sm:h-[78px] box-border">
-                  <div>
+                <div className="relative px-2.5 sm:px-3 pt-1 pb-1 h-[74px] sm:h-[78px] box-border">
+                  <div className="flex flex-col">
                     {/* Location */}
-                    <div className="inline-flex items-center gap-1 text-[11px] font-medium text-[#786e64] leading-none mb-1 truncate max-w-full">
+                    <div className="inline-flex items-center gap-1 text-[11px] font-medium text-[#786e64] leading-none mb-px truncate max-w-full">
                       <MapPin size={10} className="text-[#bd2337] shrink-0" />
                       <span className="truncate">{locationClean}</span>
                     </div>
 
                     {/* Listing Title */}
-                    <h3 className="font-sans font-semibold text-xs sm:text-sm text-[#181513] truncate group-hover:text-[#bd2337] transition-colors leading-tight mb-0.5">
+                    <h3 className="m-0 font-sans font-semibold text-xs sm:text-sm text-[#181513] truncate group-hover:text-[#bd2337] transition-colors leading-none">
                       {listing.title || 'VaRoom Space'}
                     </h3>
 
                     {/* Short Description / Type */}
-                    <p className="text-[10px] sm:text-[11px] text-[#594f47] truncate leading-none">
+                    <p className="m-0 text-[10px] sm:text-[11px] text-[#594f47] truncate leading-none">
                       {displayType}
                     </p>
                   </div>
 
-                  {/* Real Amenities + Price Bottom Row */}
-                  <div className="pt-1 border-t border-[#2d2724]/8 flex items-center justify-between gap-1 leading-none">
-                    {/* Real Amenity Icons (only real stored amenities from DB, or subtle fallback) */}
-                    <div className="flex items-center gap-1 min-h-[16px]">
-                      {validAmenities.length > 0 ? (
-                        validAmenities.map((amenity, idx) => {
+                  {/* Real Amenities + Booking Action */}
+                  <div className="absolute left-3 right-3 bottom-1 flex items-end justify-between gap-1 leading-none">
+                    {validAmenities.length > 0 && (
+                      <div className="flex items-center gap-1">
+                        {validAmenities.map((amenity, idx) => {
                           const IconComp = amenity.icon;
                           return (
                             <span
@@ -211,24 +217,19 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ listings }) => {
                               <IconComp size={10} className="text-[#594f47]" />
                             </span>
                           );
-                        })
-                      ) : (
-                        <span className="text-[10px] text-[#8e857c] italic">Verified space</span>
-                      )}
-                    </div>
+                        })}
+                      </div>
+                    )}
 
-                    {/* Real Price */}
-                    <div className="text-right shrink-0">
-                      {formattedPrice ? (
-                        <div className="inline-flex items-baseline gap-0.5">
-                          <span className="font-sans font-bold text-xs sm:text-sm text-[#181513]">
-                            {formattedPrice}
-                          </span>
-                          <span className="text-[10px] text-[#786e64] font-medium">{priceUnit}</span>
-                        </div>
-                      ) : (
-                        <span className="text-[11px] text-[#786e64] font-medium">Inquire</span>
+                    <div className="ml-auto flex shrink-0 flex-col items-end gap-0.5">
+                      {formattedPrice && (
+                        <span className="text-[10px] font-medium leading-none text-[#786e64]">
+                          {formattedPrice} / {priceUnit}
+                        </span>
                       )}
+                      <span className="-translate-y-0.5 inline-flex items-center rounded-full bg-[#bd2337] px-2 py-0.5 text-[11px] sm:text-xs font-semibold leading-none text-white transition-colors group-hover:bg-[#a91f31]">
+                        Book
+                      </span>
                     </div>
                   </div>
                 </div>
