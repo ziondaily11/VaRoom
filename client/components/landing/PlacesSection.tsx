@@ -176,8 +176,8 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ listings }) => {
                 {/* ========================================================= */}
                 {/* 2. COMPACT INFORMATION CAPTION — Approx 30% of card height */}
                 {/* ========================================================= */}
-                <div className="px-2.5 sm:px-3 pt-1 pb-1.5 sm:pb-2 flex flex-col justify-between h-[74px] sm:h-[78px] box-border">
-                  <div>
+                <div className="px-2.5 sm:px-3 pt-1 pb-0.5 flex flex-col justify-between h-[74px] sm:h-[78px] box-border">
+                  <div className="flex flex-col">
                     {/* Location */}
                     <div className="inline-flex items-center gap-1 text-[11px] font-medium text-[#786e64] leading-none mb-0.5 truncate max-w-full">
                       <MapPin size={10} className="text-[#bd2337] shrink-0" />
@@ -185,18 +185,18 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ listings }) => {
                     </div>
 
                     {/* Listing Title */}
-                    <h3 className="font-sans font-semibold text-xs sm:text-sm text-[#181513] truncate group-hover:text-[#bd2337] transition-colors leading-tight mb-0">
+                    <h3 className="m-0 font-sans font-semibold text-xs sm:text-sm text-[#181513] truncate group-hover:text-[#bd2337] transition-colors leading-tight">
                       {listing.title || 'VaRoom Space'}
                     </h3>
 
                     {/* Short Description / Type */}
-                    <p className="text-[10px] sm:text-[11px] text-[#594f47] truncate leading-none">
+                    <p className="m-0 text-[10px] sm:text-[11px] text-[#594f47] truncate leading-none">
                       {displayType}
                     </p>
                   </div>
 
                   {/* Real Amenities + Price Bottom Row */}
-                  <div className="pt-1 border-t border-[#2d2724]/8 flex items-center justify-between gap-1 leading-none">
+                  <div className="pt-0.5 border-t border-[#2d2724]/8 flex items-center justify-between gap-1 leading-none">
                     {validAmenities.length > 0 && (
                       <div className="flex items-center gap-1">
                         {validAmenities.map((amenity, idx) => {
@@ -215,8 +215,8 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ listings }) => {
                       </div>
                     )}
 
-                    <span className="shrink-0 inline-flex items-center rounded-full bg-[#bd2337] px-2 py-1 text-[11px] sm:text-xs font-semibold leading-none text-white transition-colors group-hover:bg-[#a91f31]">
-                      Book · {formattedPrice ? `${formattedPrice}/${priceUnit}` : 'Price on request'}
+                    <span className="shrink-0 -translate-y-0.5 inline-flex items-center rounded-full bg-[#bd2337] px-2 py-1 text-[11px] sm:text-xs font-semibold leading-none text-white transition-colors group-hover:bg-[#a91f31]">
+                      {formattedPrice ? `Book · ${formattedPrice}/${priceUnit}` : 'Book'}
                     </span>
                   </div>
                 </div>
