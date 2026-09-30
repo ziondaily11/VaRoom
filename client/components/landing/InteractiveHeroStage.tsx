@@ -38,14 +38,8 @@ export const InteractiveHeroStage: React.FC<InteractiveHeroStageProps> = ({
 }) => {
   // activeView: 0 = Hero Viewport, 1 = Listing Grid Viewport
   const [activeView, setActiveView] = useState<0 | 1>(0);
-  const activeViewRef = useRef<0 | 1>(0);
-  const isAnimatingRef = useRef(false);
   const [activeCategory, setActiveCategory] = useState('all');
-
-  // Keep ref synchronized
-  useEffect(() => {
-    activeViewRef.current = activeView;
-  }, [activeView]);
+  const isAnimating = useRef(false);
 
   // Filter listings by active category tab
   const filteredListings = listings.filter((listing) => {
@@ -70,58 +64,52 @@ export const InteractiveHeroStage: React.FC<InteractiveHeroStageProps> = ({
   };
 
   const transitionTo = useCallback((nextView: 0 | 1) => {
-    if (isAnimatingRef.current || nextView === activeViewRef.current) return;
-    isAnimatingRef.current = true;
-    activeViewRef.current = nextView;
+    if (isAnimating.current || nextView === activeView) return;
+    isAnimating.current = true;
     setActiveView(nextView);
-    // Lock duration matches 700ms transition time
     setTimeout(() => {
-      isAnimatingRef.current = false;
-    }, 750);
-  }, []);
+      isAnimating.current = false;
+    }, 600);
+  }, [activeView]);
 
   const proceedToPage3 = useCallback(() => {
-    if (isAnimatingRef.current) return;
-    isAnimatingRef.current = true;
+    if (isAnimating.current) return;
+    isAnimating.current = true;
     const page3 = document.getElementById('featured-discovery');
     if (page3) {
       page3.scrollIntoView({ behavior: 'smooth' });
     }
     setTimeout(() => {
-      isAnimatingRef.current = false;
-    }, 800);
+      isAnimating.current = false;
+    }, 700);
   }, []);
 
-  // Stable Wheel listener: intercepts gestures at top of page without unbinding
+  // Wheel listener: In-place swap at top of page
   useEffect(() => {
     const handleWheel = (e: WheelEvent) => {
-      const isAtTop = window.scrollY <= 15;
+      const isAtTop = window.scrollY < 20;
 
       // When scrolled down into Page 3 or beyond, let standard document scroll operate
       if (!isAtTop) return;
 
-      // In top state, manage the in-place swap
-      if (isAnimatingRef.current) {
+      if (isAnimating.current) {
         e.preventDefault();
         return;
       }
 
-      if (activeViewRef.current === 0) {
-        if (e.deltaY > 10) {
+      if (activeView === 0) {
+        if (e.deltaY > 15) {
           // Scroll down on Hero -> in-place swap to Listing Grid
           e.preventDefault();
           transitionTo(1);
-        } else if (e.deltaY < 0) {
-          // At top of Hero, prevent window bounce
-          e.preventDefault();
         }
-      } else if (activeViewRef.current === 1) {
-        if (e.deltaY < -10) {
+      } else if (activeView === 1) {
+        if (e.deltaY < -15) {
           // Scroll up on Listing Grid -> in-place swap back to Hero
           e.preventDefault();
           transitionTo(0);
-        } else if (e.deltaY > 15) {
-          // Further scroll down on Listing Grid -> smoothly proceed to Page 3
+        } else if (e.deltaY > 20) {
+          // Further scroll down on Listing Grid -> reveal Page 3
           e.preventDefault();
           proceedToPage3();
         }
@@ -130,7 +118,7 @@ export const InteractiveHeroStage: React.FC<InteractiveHeroStageProps> = ({
 
     window.addEventListener('wheel', handleWheel, { passive: false });
     return () => window.removeEventListener('wheel', handleWheel);
-  }, [transitionTo, proceedToPage3]);
+  }, [activeView, transitionTo, proceedToPage3]);
 
   // Touch gesture listener (swipe up / swipe down)
   useEffect(() => {
@@ -141,21 +129,21 @@ export const InteractiveHeroStage: React.FC<InteractiveHeroStageProps> = ({
     };
 
     const handleTouchEnd = (e: TouchEvent) => {
-      const isAtTop = window.scrollY <= 15;
-      if (!isAtTop || isAnimatingRef.current) return;
+      const isAtTop = window.scrollY < 20;
+      if (!isAtTop || isAnimating.current) return;
 
       const touchEndY = e.changedTouches[0].clientY;
       const deltaY = touchStartY - touchEndY;
 
       if (Math.abs(deltaY) < 30) return;
 
-      if (activeViewRef.current === 0 && deltaY > 30) {
+      if (activeView === 0 && deltaY > 30) {
         // Swiped up (scroll down) -> swap to Listing Grid
         transitionTo(1);
-      } else if (activeViewRef.current === 1 && deltaY < -30) {
+      } else if (activeView === 1 && deltaY < -30) {
         // Swiped down (scroll up) -> swap to Hero
         transitionTo(0);
-      } else if (activeViewRef.current === 1 && deltaY > 40) {
+      } else if (activeView === 1 && deltaY > 40) {
         // Further swipe up on Listing Grid -> reveal Page 3
         proceedToPage3();
       }
@@ -167,24 +155,24 @@ export const InteractiveHeroStage: React.FC<InteractiveHeroStageProps> = ({
       window.removeEventListener('touchstart', handleTouchStart);
       window.removeEventListener('touchend', handleTouchEnd);
     };
-  }, [transitionTo, proceedToPage3]);
+  }, [activeView, transitionTo, proceedToPage3]);
 
   // Keyboard navigation listener (Arrow keys)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      const isAtTop = window.scrollY <= 15;
-      if (!isAtTop || isAnimatingRef.current) return;
+      const isAtTop = window.scrollY < 20;
+      if (!isAtTop || isAnimating.current) return;
 
       if (e.key === 'ArrowDown' || e.key === 'PageDown') {
-        if (activeViewRef.current === 0) {
+        if (activeView === 0) {
           e.preventDefault();
           transitionTo(1);
-        } else if (activeViewRef.current === 1) {
+        } else if (activeView === 1) {
           e.preventDefault();
           proceedToPage3();
         }
       } else if (e.key === 'ArrowUp' || e.key === 'PageUp') {
-        if (activeViewRef.current === 1) {
+        if (activeView === 1) {
           e.preventDefault();
           transitionTo(0);
         }
@@ -193,10 +181,7 @@ export const InteractiveHeroStage: React.FC<InteractiveHeroStageProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [transitionTo, proceedToPage3]);
-
-  // Motion styling spec: duration 0.7s, cubic-bezier(0.16, 1, 0.3, 1)
-  const motionTransition = 'opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1)';
+  }, [activeView, transitionTo, proceedToPage3]);
 
   return (
     <div
@@ -214,13 +199,11 @@ export const InteractiveHeroStage: React.FC<InteractiveHeroStageProps> = ({
         />
         {/* Responsive contrast wash transitioning smoothly depending on active view */}
         <div
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            transition: 'background-color 0.7s cubic-bezier(0.16, 1, 0.3, 1), backdrop-filter 0.7s cubic-bezier(0.16, 1, 0.3, 1)',
-            backgroundColor: activeView === 0 ? 'rgba(239, 232, 222, 0.35)' : 'rgba(247, 243, 236, 0.88)',
-            backdropFilter: activeView === 0 ? 'blur(0px)' : 'blur(4px)',
-            WebkitBackdropFilter: activeView === 0 ? 'blur(0px)' : 'blur(4px)',
-          }}
+          className={`absolute inset-0 transition-opacity duration-600 pointer-events-none ${
+            activeView === 0
+              ? 'bg-gradient-to-b from-[#efe8de]/45 via-[#efe8de]/20 to-[#f7f3ec]/90'
+              : 'bg-gradient-to-b from-[#efe8de]/60 via-[#f7f3ec]/85 to-[#f7f3ec]/95 backdrop-blur-[2px]'
+          }`}
           aria-hidden="true"
         />
       </div>
@@ -234,17 +217,13 @@ export const InteractiveHeroStage: React.FC<InteractiveHeroStageProps> = ({
       <div className="relative z-30 w-full h-[calc(100dvh-72px)] flex items-center justify-center overflow-hidden">
         {/* ========================================================================= */}
         {/* VIEW 0: HERO VIEWPORT (Find your place. & CTA)                           */}
-        {/* Opacity: 1 -> 0, Transform: translateY(0) -> translateY(-40px)           */}
         {/* ========================================================================= */}
         <div
-          className="absolute inset-0 w-full h-full flex flex-col items-center justify-center px-5 sm:px-8 md:px-12 text-center"
-          style={{
-            transition: motionTransition,
-            willChange: 'opacity, transform',
-            opacity: activeView === 0 ? 1 : 0,
-            transform: activeView === 0 ? 'translateY(0px)' : 'translateY(-40px)',
-            pointerEvents: activeView === 0 ? 'auto' : 'none',
-          }}
+          className={`absolute inset-0 w-full h-full flex flex-col items-center justify-center px-5 sm:px-8 md:px-12 text-center transition-all duration-600 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+            activeView === 0
+              ? 'opacity-100 translate-y-0 pointer-events-auto scale-100'
+              : 'opacity-0 -translate-y-14 pointer-events-none scale-95'
+          }`}
           aria-hidden={activeView !== 0}
         >
           <div className="w-full max-w-3xl mx-auto flex flex-col items-center justify-center text-center">
@@ -312,18 +291,14 @@ export const InteractiveHeroStage: React.FC<InteractiveHeroStageProps> = ({
 
         {/* ========================================================================= */}
         {/* VIEW 1: LISTING GRID VIEWPORT (Places worth discovering + 6 cards)        */}
-        {/* Opacity: 0 -> 1, Transform: translateY(40px) -> translateY(0)             */}
         {/* ZERO layout height in document flow when inactive (absolute inset-0)      */}
         {/* ========================================================================= */}
         <div
-          className="absolute inset-0 w-full h-full flex flex-col justify-center items-center px-4 sm:px-8 md:px-12 lg:px-16"
-          style={{
-            transition: motionTransition,
-            willChange: 'opacity, transform',
-            opacity: activeView === 1 ? 1 : 0,
-            transform: activeView === 1 ? 'translateY(0px)' : 'translateY(40px)',
-            pointerEvents: activeView === 1 ? 'auto' : 'none',
-          }}
+          className={`absolute inset-0 w-full h-full flex flex-col justify-center items-center px-4 sm:px-8 md:px-12 lg:px-16 transition-all duration-600 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+            activeView === 1
+              ? 'opacity-100 translate-y-0 pointer-events-auto scale-100'
+              : 'opacity-0 translate-y-14 pointer-events-none scale-95'
+          }`}
           aria-hidden={activeView !== 1}
         >
           <div className="w-full max-w-6xl mx-auto flex flex-col justify-center">
@@ -337,7 +312,7 @@ export const InteractiveHeroStage: React.FC<InteractiveHeroStageProps> = ({
                   <button
                     type="button"
                     onClick={() => transitionTo(0)}
-                    className="inline-flex items-center gap-1 text-[11px] font-medium text-[#786e64] hover:text-[#bd2337] transition-colors cursor-pointer bg-[#faf7f2]/80 px-2.5 py-1 rounded-full border border-[#2d2724]/10 shadow-xs"
+                    className="inline-flex items-center gap-1 text-[11px] font-medium text-[#786e64] hover:text-[#bd2337] transition-colors cursor-pointer bg-[#faf7f2]/80 px-2 py-0.5 rounded-full border border-[#2d2724]/10"
                     title="Return to Hero"
                   >
                     <ChevronUp size={12} />

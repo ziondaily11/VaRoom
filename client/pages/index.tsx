@@ -94,6 +94,15 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
             max-width: 100vw;
             overflow-x: hidden;
           }
+          @media (min-width: 640px) {
+            html {
+              scroll-snap-type: y proximity;
+            }
+            .snap-page {
+              scroll-snap-align: start;
+              scroll-snap-stop: normal;
+            }
+          }
           @keyframes heroExitAnim {
             0% {
               transform: translateY(0);
