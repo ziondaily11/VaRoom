@@ -1,5 +1,7 @@
 import { Listing } from './types';
 
+// Real verified listing records matching the VaRoom Supabase database.
+// Amenities strictly reflect the stored listing_booking_details without any placeholders.
 export const INITIAL_LISTINGS: Listing[] = [
   {
     id: "218f126a-20d6-443b-bf24-546b5fd7366a",
@@ -25,7 +27,7 @@ export const INITIAL_LISTINGS: Listing[] = [
     priceUnit: "night",
     guests: 2,
     sizeOrType: "Studio",
-    amenities: ["wifi", "parking", "kitchen", "tv"],
+    amenities: [],
     verified: true,
     hostName: "Billionaire ZION"
   },
@@ -53,7 +55,7 @@ export const INITIAL_LISTINGS: Listing[] = [
     priceUnit: "night",
     guests: 2,
     sizeOrType: "1 bedroom, studio",
-    amenities: ["wifi", "kitchen", "balcony"],
+    amenities: [],
     verified: true,
     hostName: "Zion Daily"
   },
@@ -67,7 +69,7 @@ export const INITIAL_LISTINGS: Listing[] = [
     priceUnit: "night",
     guests: 2,
     sizeOrType: "Executive Suite",
-    amenities: ["wifi", "parking", "kitchen", "tv"],
+    amenities: ["wifi", "parking", "kitchen", "tv", "bonfire"],
     verified: true,
     hostName: "VaRoom Host"
   },
@@ -81,7 +83,7 @@ export const INITIAL_LISTINGS: Listing[] = [
     priceUnit: "night",
     guests: 2,
     sizeOrType: "Double Bed Oceanfront",
-    amenities: ["pool", "breakfast", "wifi"],
+    amenities: [],
     verified: true,
     hostName: "Billionaire ZION"
   },
@@ -95,7 +97,7 @@ export const INITIAL_LISTINGS: Listing[] = [
     priceUnit: "day",
     guests: 150,
     sizeOrType: "Open Garden & Lawn",
-    amenities: ["parking", "garden", "security_cameras"],
+    amenities: [],
     verified: true,
     hostName: "VaRoom Host"
   },
@@ -109,7 +111,7 @@ export const INITIAL_LISTINGS: Listing[] = [
     priceUnit: "month",
     guests: 2,
     sizeOrType: "Furnished Studio",
-    amenities: ["wifi", "security_cameras", "balcony"],
+    amenities: [],
     verified: true,
     hostName: "VaRoom Host"
   },
@@ -123,7 +125,7 @@ export const INITIAL_LISTINGS: Listing[] = [
     priceUnit: "month",
     guests: 6,
     sizeOrType: "3 bedroom own compound",
-    amenities: ["parking", "garden", "security_cameras"],
+    amenities: [],
     verified: true,
     hostName: "Zion Daily"
   }

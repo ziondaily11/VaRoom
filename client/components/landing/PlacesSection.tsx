@@ -1,30 +1,91 @@
 import React from 'react';
 import Link from 'next/link';
-import { ArrowRight, MapPin, CheckCircle, Wifi, Car, Utensils, Tv, Sparkles } from 'lucide-react';
+import {
+  LucideIcon,
+  ArrowRight,
+  MapPin,
+  CheckCircle,
+  Wifi,
+  Car,
+  Utensils,
+  Tv,
+  Zap,
+  Flame,
+  Briefcase,
+  Coffee,
+  Mountain,
+  Dog,
+  Wind,
+  Waves,
+  Dumbbell,
+  Trees,
+  Building,
+  Camera,
+  Bath,
+  Shirt,
+  ArrowUpDown,
+  ShieldAlert,
+} from 'lucide-react';
 import { Listing } from './types';
 
 interface PlacesSectionProps {
   listings: Listing[];
 }
 
-export const PlacesSection: React.FC<PlacesSectionProps> = ({ listings }) => {
-  // Always display exactly up to 6 real listings from the database
-  const visibleListings = (listings || []).slice(0, 6);
+interface AmenityMeta {
+  label: string;
+  icon: LucideIcon;
+}
 
-  const getAmenityIcon = (amenity: string) => {
-    switch (amenity.toLowerCase()) {
-      case 'wifi':
-        return <Wifi size={11} className="text-[#594f47]" />;
-      case 'parking':
-        return <Car size={11} className="text-[#594f47]" />;
-      case 'kitchen':
-        return <Utensils size={11} className="text-[#594f47]" />;
-      case 'tv':
-        return <Tv size={11} className="text-[#594f47]" />;
-      default:
-        return <Sparkles size={11} className="text-[#594f47]" />;
-    }
-  };
+// Canonical Varoom Amenity Definition & Icon Mapping
+const AMENITY_MAP: Record<string, AmenityMeta> = {
+  wifi: { label: 'Wi-Fi', icon: Wifi },
+  hotel_high_speed_wifi: { label: 'High-speed Wi-Fi', icon: Wifi },
+  parking: { label: 'Free Parking', icon: Car },
+  hotel_onsite_parking: { label: 'On-site Parking', icon: Car },
+  kitchen: { label: 'Kitchen', icon: Utensils },
+  tv: { label: 'TV', icon: Tv },
+  hotel_smart_tv: { label: 'Smart TV', icon: Tv },
+  power: { label: '24/7 Power Backup', icon: Zap },
+  heating: { label: 'Heating', icon: Flame },
+  bonfire: { label: 'Bonfire Area', icon: Flame },
+  bbq_grill: { label: 'BBQ Grill', icon: Flame },
+  workspace: { label: 'Dedicated Workspace', icon: Briefcase },
+  desk: { label: 'Desk & Chair', icon: Briefcase },
+  breakfast: { label: 'Breakfast', icon: Coffee },
+  hotel_complimentary_breakfast: { label: 'Breakfast Included', icon: Coffee },
+  hotel_coffee_maker: { label: 'Coffee Maker', icon: Coffee },
+  mountain: { label: 'Mountain View', icon: Mountain },
+  pet: { label: 'Pet Friendly', icon: Dog },
+  hotel_pet_friendly: { label: 'Pet Friendly', icon: Dog },
+  air_conditioning: { label: 'Air Conditioning', icon: Wind },
+  ac: { label: 'Air Conditioning', icon: Wind },
+  hotel_climate_control: { label: 'Climate Control', icon: Wind },
+  pool: { label: 'Swimming Pool', icon: Waves },
+  hotel_swimming_pool: { label: 'Swimming Pool', icon: Waves },
+  gym: { label: 'Fitness Center / Gym', icon: Dumbbell },
+  hotel_fitness_center: { label: 'Fitness Center', icon: Dumbbell },
+  garden: { label: 'Garden', icon: Trees },
+  balcony: { label: 'Balcony', icon: Building },
+  security_cameras: { label: 'Security Cameras', icon: Camera },
+  camera: { label: 'Security Cameras', icon: Camera },
+  hot_tub: { label: 'Hot Tub', icon: Bath },
+  bath: { label: 'Bathtub', icon: Bath },
+  towels_linens: { label: 'Towels & Linens', icon: Bath },
+  washing_machine: { label: 'Washing Machine', icon: Shirt },
+  elevator: { label: 'Elevator', icon: ArrowUpDown },
+  smoke_alarm: { label: 'Smoke Alarm', icon: ShieldAlert },
+};
+
+function getAmenityMeta(key: string): AmenityMeta | null {
+  if (!key || typeof key !== 'string') return null;
+  const normalized = key.trim().toLowerCase().replace(/[\s-]+/g, '_');
+  return AMENITY_MAP[normalized] || null;
+}
+
+export const PlacesSection: React.FC<PlacesSectionProps> = ({ listings }) => {
+  // Always display up to 6 real listings from the database
+  const visibleListings = (listings || []).slice(0, 6);
 
   return (
     <section
@@ -32,8 +93,8 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ listings }) => {
       className="relative z-20 w-full max-w-full min-h-screen sm:h-screen box-border flex flex-col justify-center items-center px-4 sm:px-8 md:px-12 lg:px-16 snap-page bg-[#f7f3ec]/85 backdrop-blur-[2px] py-6 sm:py-0 overflow-y-auto sm:overflow-hidden places-animated-content"
     >
       <div className="w-full max-w-6xl mx-auto flex flex-col justify-center">
-        {/* Header: title & link (moves naturally directly into the listing grid) */}
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-3 sm:mb-4 gap-2">
+        {/* Compact Header: title & link (moves naturally directly into listing grid) */}
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-2.5 sm:mb-3 gap-2">
           <div>
             <h2 className="font-sans font-bold text-2xl sm:text-3xl text-[#181513] tracking-tight">
               Places worth discovering.
@@ -53,7 +114,7 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ listings }) => {
           </Link>
         </div>
 
-        {/* Dense Six Listing Cards Grid (Image-dominant subject, compact caption) */}
+        {/* 3-Column Listing Grid — Strict 70% Image / 30% Caption Proportion */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3 lg:gap-3.5">
           {visibleListings.map((listing) => {
             const href = `/booking?listing=${listing.id}`;
@@ -63,8 +124,13 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ listings }) => {
             const locationClean = listing.location && !/location to be added|not available/i.test(listing.location)
               ? listing.location.trim()
               : 'Kenya';
-            const displayAmenities = (listing.amenities || []).filter(Boolean).slice(0, 3);
             const displayType = listing.sizeOrType || (listing.category ? `${listing.category.charAt(0).toUpperCase() + listing.category.slice(1)} space` : 'Space');
+
+            // Strictly filter and map real stored amenities from the database
+            const validAmenities = (listing.amenities || [])
+              .map(getAmenityMeta)
+              .filter((item): item is AmenityMeta => item !== null)
+              .slice(0, 4);
 
             return (
               <Link
@@ -73,8 +139,10 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ listings }) => {
                 className="group flex flex-col bg-[#fffefc]/90 rounded-xl sm:rounded-2xl overflow-hidden border border-[#2d2724]/10 hover:border-[#181513]/30 transition-all duration-200 hover:shadow-md no-underline"
                 style={{ textDecoration: 'none' }}
               >
-                {/* 1. Dominant Card Image (Occupies 60–70% of total card height) */}
-                <div className="relative w-full h-36 sm:h-38 lg:h-40 bg-[#eae2d6] overflow-hidden">
+                {/* ========================================================= */}
+                {/* 1. LARGE LISTING IMAGE — Approx 70% of total card height  */}
+                {/* ========================================================= */}
+                <div className="relative w-full h-[172px] sm:h-[180px] lg:h-[184px] bg-[#eae2d6] overflow-hidden">
                   {listing.photoUrl ? (
                     <img
                       src={listing.photoUrl}
@@ -104,42 +172,52 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ listings }) => {
                   )}
                 </div>
 
-                {/* 2. Compact Caption: Location -> Title -> Type/Description -> Amenities + Price */}
-                <div className="px-2.5 sm:px-3 pt-2 pb-2 sm:pb-2.5 flex flex-col justify-between">
+                {/* ========================================================= */}
+                {/* 2. COMPACT INFORMATION CAPTION — Approx 30% of card height */}
+                {/* ========================================================= */}
+                <div className="px-2.5 sm:px-3 pt-1.5 pb-2 sm:pb-2.5 flex flex-col justify-between h-[74px] sm:h-[78px] box-border">
                   <div>
                     {/* Location */}
-                    <div className="inline-flex items-center gap-1 text-[11px] font-medium text-[#786e64] leading-none mb-0.5 truncate max-w-full">
-                      <MapPin size={11} className="text-[#bd2337] shrink-0" />
+                    <div className="inline-flex items-center gap-1 text-[11px] font-medium text-[#786e64] leading-none mb-1 truncate max-w-full">
+                      <MapPin size={10} className="text-[#bd2337] shrink-0" />
                       <span className="truncate">{locationClean}</span>
                     </div>
 
                     {/* Listing Title */}
-                    <h3 className="font-sans font-semibold text-xs sm:text-sm text-[#181513] line-clamp-1 group-hover:text-[#bd2337] transition-colors leading-tight">
+                    <h3 className="font-sans font-semibold text-xs sm:text-sm text-[#181513] truncate group-hover:text-[#bd2337] transition-colors leading-tight mb-0.5">
                       {listing.title || 'VaRoom Space'}
                     </h3>
 
                     {/* Short Description / Type */}
-                    <p className="text-[10px] sm:text-[11px] text-[#594f47] line-clamp-1 leading-tight mt-0.5">
+                    <p className="text-[10px] sm:text-[11px] text-[#594f47] truncate leading-none">
                       {displayType}
                     </p>
                   </div>
 
-                  {/* Amenity Icons + Real Price */}
-                  <div className="mt-1.5 pt-1.5 border-t border-[#2d2724]/8 flex items-center justify-between gap-1">
-                    {/* Amenities chips */}
+                  {/* Real Amenities + Price Bottom Row */}
+                  <div className="pt-1 border-t border-[#2d2724]/8 flex items-center justify-between gap-1 leading-none">
+                    {/* Real Amenity Icons (only real stored amenities from DB, or subtle fallback) */}
                     <div className="flex items-center gap-1 min-h-[16px]">
-                      {displayAmenities.map((amenity, idx) => (
-                        <span
-                          key={idx}
-                          className="w-4 h-4 rounded-full bg-[#faf7f2] border border-[#2d2724]/10 flex items-center justify-center shrink-0"
-                          title={amenity}
-                        >
-                          {getAmenityIcon(amenity)}
-                        </span>
-                      ))}
+                      {validAmenities.length > 0 ? (
+                        validAmenities.map((amenity, idx) => {
+                          const IconComp = amenity.icon;
+                          return (
+                            <span
+                              key={idx}
+                              className="w-4 h-4 rounded-full bg-[#faf7f2] border border-[#2d2724]/10 flex items-center justify-center shrink-0"
+                              title={amenity.label}
+                              aria-label={amenity.label}
+                            >
+                              <IconComp size={10} className="text-[#594f47]" />
+                            </span>
+                          );
+                        })
+                      ) : (
+                        <span className="text-[10px] text-[#8e857c] italic">Verified space</span>
+                      )}
                     </div>
 
-                    {/* Price */}
+                    {/* Real Price */}
                     <div className="text-right shrink-0">
                       {formattedPrice ? (
                         <div className="inline-flex items-baseline gap-0.5">
@@ -160,7 +238,7 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ listings }) => {
         </div>
 
         {/* Fully visible and intentionally positioned Marketplace CTA */}
-        <div className="mt-3 sm:mt-4 text-center">
+        <div className="mt-3 sm:mt-3.5 text-center">
           <Link
             href="/marketplace"
             className="inline-flex items-center gap-2 px-5 py-2 sm:px-6 sm:py-2.5 rounded-full bg-[#181513] hover:bg-black text-[#faf8f5] font-medium text-xs sm:text-sm transition-all duration-200 hover:scale-[1.02] shadow-xs no-underline"

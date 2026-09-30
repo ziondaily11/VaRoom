@@ -32,6 +32,60 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
     }
   }, [router.isReady, router.query.signup]);
 
+  // Fetch real listings and their actual stored amenities from Supabase
+  useEffect(() => {
+    let isMounted = true;
+    async function loadRealListings() {
+      try {
+        const { createClient } = await import('@supabase/supabase-js');
+        const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://deaphymimdaygeavhyek.supabase.co';
+        const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRlYXBoeW1pbWRheWdlYXZoeWVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY1MjAwNDQsImV4cCI6MjEwMjA5NjA0NH0.rbgVhuZCK1fZP7gKV5oO1OUvIT61ir23VhAYm8739SI';
+        const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        const { data, error } = await sb
+          .from('listings')
+          .select('id,title,description,location_text,category,verified,created_at,host_id,availability_status,listing_photos(storage_path),listing_booking_details(*),host:profiles(full_name,verified,avatar_url,username)')
+          .eq('moderation_status', 'active')
+          .order('created_at', { ascending: false })
+          .limit(12);
+
+        if (!error && data && data.length > 0 && isMounted) {
+          const mapped: Listing[] = data.map((l: any) => {
+            const photo = (l.listing_photos || []).find((p: any) => p && p.storage_path);
+            const photoUrl = photo ? sb.storage.from('listing-photos').getPublicUrl(photo.storage_path).data.publicUrl : null;
+            const details = Array.isArray(l.listing_booking_details) ? l.listing_booking_details[0] : l.listing_booking_details;
+            return {
+              id: l.id,
+              title: l.title || 'VaRoom Space',
+              category: l.category || 'property',
+              location: l.location_text || 'Kenya',
+              photoUrl,
+              price: details ? details.price_amount : null,
+              priceUnit: details ? details.price_unit || 'night' : 'night',
+              guests: details ? details.max_guests : null,
+              sizeOrType: details ? details.size_or_type : null,
+              amenities: details && Array.isArray(details.amenities) ? details.amenities : [],
+              verified: Boolean(l.verified || (l.host && l.host.verified)),
+              hostName: l.host ? (l.host.full_name || l.host.username || 'VaRoom Host') : 'VaRoom Host',
+            };
+          });
+
+          const validWithPhotos = mapped.filter((m) => Boolean(m.photoUrl));
+          if (validWithPhotos.length > 0) {
+            setListings(validWithPhotos);
+          }
+        }
+      } catch (err) {
+        console.warn('Live listings retrieval fallback:', err);
+      }
+    }
+
+    loadRealListings();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   // Try Elie AI session handler (preserves existing VaRoom Elie flow)
   async function handleTryElie(event: React.MouseEvent) {
     event.preventDefault();
