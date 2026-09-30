@@ -1,0 +1,238 @@
+/* Light is the default. Dark applies only when an ancestor has data-theme="dark". */
+.pp-root {
+  --pp-bg: #ffffff;
+  --pp-text: #171717;
+  --pp-muted: #666666;
+  --pp-border: #e8e8e8;
+  --pp-surface: #fafafa;
+  --pp-accent: #d71920;
+  background: var(--pp-bg);
+  color: var(--pp-text);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  line-height: 1.7;
+}
+
+[data-theme="dark"] .pp-root {
+  --pp-bg: #0f0f0f;
+  --pp-text: #ededed;
+  --pp-muted: #a0a0a0;
+  --pp-border: #2a2a2a;
+  --pp-surface: #181818;
+  --pp-accent: #ff4d54;
+}
+
+/* Hero: always black, curved into the page background */
+.pp-hero {
+  position: relative;
+  background: #000;
+  color: #fff;
+  text-align: center;
+  padding: 28px 20px 150px;
+}
+
+.pp-hero::after {
+  content: "";
+  position: absolute;
+  left: -10%;
+  right: -10%;
+  bottom: -1px;
+  height: 90px;
+  background: var(--pp-bg);
+  border-radius: 50% 50% 0 0 / 100% 100% 0 0;
+}
+
+.pp-brand {
+  display: block;
+  max-width: 1040px;
+  margin: 0 auto 64px;
+  text-align: left;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -1px;
+  color: #fff;
+  text-decoration: none;
+}
+
+.pp-brand span {
+  color: var(--pp-accent);
+}
+
+.pp-hero h1 {
+  margin: 0;
+  font-size: clamp(36px, 6vw, 60px);
+  line-height: 1.1;
+  letter-spacing: -1.5px;
+}
+
+.pp-hero .pp-updated {
+  margin: 14px 0 0;
+  color: #b5b5b5;
+}
+
+/* Two-column body */
+.pp-body {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 64px;
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 24px 20px 80px;
+}
+
+.pp-toc {
+  position: sticky;
+  top: 24px;
+  align-self: start;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+}
+
+.pp-toc-toggle {
+  display: none;
+}
+
+.pp-toc ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.pp-toc a {
+  display: block;
+  padding: 8px 0;
+  font-size: 15px;
+  line-height: 1.4;
+  color: var(--pp-muted);
+  text-decoration: none;
+}
+
+.pp-toc a:hover {
+  color: var(--pp-text);
+}
+
+.pp-toc a[aria-current="true"] {
+  color: var(--pp-text);
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: var(--pp-accent);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 6px;
+}
+
+.pp-toc a:focus-visible,
+.pp-toc-toggle:focus-visible {
+  outline: 2px solid var(--pp-accent);
+  outline-offset: 3px;
+}
+
+/* Policy text */
+.pp-content {
+  max-width: 680px;
+}
+
+.pp-content section {
+  margin-top: 44px;
+  scroll-margin-top: 24px;
+}
+
+.pp-content h2 {
+  margin: 0 0 12px;
+  font-size: 26px;
+  line-height: 1.25;
+  letter-spacing: -0.5px;
+}
+
+.pp-content h3 {
+  margin: 24px 0 6px;
+  font-size: 18px;
+  line-height: 1.3;
+}
+
+.pp-content p,
+.pp-content li {
+  font-size: 16px;
+}
+
+.pp-content ul {
+  padding-left: 24px;
+}
+
+.pp-content a {
+  color: var(--pp-accent);
+}
+
+.pp-contact {
+  margin-top: 20px;
+  padding: 20px;
+  background: var(--pp-surface);
+  border: 1px solid var(--pp-border);
+  border-radius: 12px;
+}
+
+.pp-contact strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.pp-footer {
+  border-top: 1px solid var(--pp-border);
+  color: var(--pp-muted);
+  text-align: center;
+  padding: 28px 20px;
+  font-size: 14px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html:has(.pp-root) {
+    scroll-behavior: smooth;
+  }
+}
+
+@media (max-width: 900px) {
+  .pp-hero {
+    padding-bottom: 110px;
+  }
+
+  .pp-hero::after {
+    height: 60px;
+  }
+
+  .pp-brand {
+    margin-bottom: 44px;
+  }
+
+  .pp-body {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .pp-toc {
+    position: static;
+    max-height: none;
+    padding: 0 16px;
+    border: 1px solid var(--pp-border);
+    border-radius: 12px;
+  }
+
+  .pp-toc-toggle {
+    display: block;
+    width: 100%;
+    padding: 14px 0;
+    background: none;
+    border: 0;
+    color: var(--pp-text);
+    font: inherit;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .pp-toc-list {
+    display: none;
+  }
+
+  .pp-toc-list.is-open {
+    display: block;
+    padding-bottom: 8px;
+  }
+}
