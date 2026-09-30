@@ -15,7 +15,7 @@ export const FeaturedDiscovery: React.FC<FeaturedDiscoveryProps> = ({
   if (!featuredListing && supportingListings.length === 0) return null;
 
   return (
-    <section id="featured-discovery" className="relative w-full py-20 md:py-28 px-6 sm:px-10 md:px-16 lg:px-20 bg-[#f4eee6] border-t border-[#eae2d6] snap-page">
+    <section className="relative w-full py-20 md:py-28 px-6 sm:px-10 md:px-16 lg:px-20 bg-[#f4eee6] border-t border-[#eae2d6] snap-page">
       <div className="max-w-7xl mx-auto">
         {/* Section Header */}
         <div className="max-w-2xl mb-12">
