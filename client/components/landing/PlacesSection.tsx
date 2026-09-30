@@ -45,16 +45,16 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ listings }) => {
   return (
     <section
       id="places-section"
-      className="relative z-30 w-full max-w-full box-border -mt-16 sm:-mt-24 md:-mt-32 lg:-mt-40 pt-4 sm:pt-6 md:pt-8 pb-10 sm:pb-14 px-5 sm:px-8 md:px-12 lg:px-16 bg-gradient-to-b from-transparent via-[#f7f3ec]/85 to-[#f7f3ec]"
+      className="relative z-20 w-full max-w-full min-h-screen sm:h-screen box-border flex flex-col justify-center items-center px-4 sm:px-8 md:px-12 lg:px-16 snap-page bg-[#f7f3ec]/85 backdrop-blur-[2px] py-8 sm:py-0 overflow-y-auto sm:overflow-hidden places-animated-content"
     >
-      <div className="max-w-6xl mx-auto">
+      <div className="w-full max-w-6xl mx-auto flex flex-col justify-center">
         {/* Compact Header: title & link */}
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-4 sm:mb-6 gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-3 sm:mb-4 gap-2">
           <div>
             <h2 className="font-sans font-bold text-2xl sm:text-3xl text-[#181513] tracking-tight">
               Places worth discovering.
             </h2>
-            <p className="mt-1 text-xs sm:text-sm text-[#594f47] max-w-md">
+            <p className="mt-0.5 text-xs sm:text-sm text-[#594f47] max-w-md">
               Explore stays, spaces and experiences available on VaRoom.
             </p>
           </div>
@@ -70,7 +70,7 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ listings }) => {
         </div>
 
         {/* Compact Category Filter Tabs */}
-        <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-3 mb-5 sm:mb-6 no-scrollbar">
+        <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-2 mb-3 sm:mb-4 no-scrollbar">
           {CATEGORY_TABS.map((tab) => {
             const isActive = activeCategory === tab.id;
             return (
@@ -78,7 +78,7 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ listings }) => {
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveCategory(tab.id)}
-                className={`px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all duration-150 cursor-pointer ${
+                className={`px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all duration-150 cursor-pointer ${
                   isActive
                     ? 'bg-[#181513] text-[#faf8f5] shadow-xs'
                     : 'bg-[#eae3d7]/70 text-[#4a4038] hover:bg-[#eae3d7] hover:text-[#181513]'
@@ -90,8 +90,8 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ listings }) => {
           })}
         </div>
 
-        {/* Compact Six Listing Cards Grid (Fits in ~1 viewport) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4 lg:gap-5">
+        {/* Compact Six Listing Cards Grid (Fits comfortably in viewport) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-3.5 lg:gap-4">
           {visibleListings.map((listing) => {
             const href = `/booking?listing=${listing.id}`;
             const hasPrice = listing.price != null && !isNaN(Number(listing.price));
@@ -110,7 +110,7 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ listings }) => {
                 style={{ textDecoration: 'none' }}
               >
                 {/* Compact Card Image */}
-                <div className="relative w-full h-36 sm:h-40 bg-[#eae2d6] overflow-hidden">
+                <div className="relative w-full h-32 sm:h-36 lg:h-38 bg-[#eae2d6] overflow-hidden">
                   {listing.photoUrl ? (
                     <img
                       src={listing.photoUrl}
@@ -141,37 +141,37 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ listings }) => {
                 </div>
 
                 {/* Compact Card Content */}
-                <div className="p-3 sm:p-3.5 flex-1 flex flex-col justify-between">
+                <div className="p-2.5 sm:p-3 flex-1 flex flex-col justify-between">
                   <div>
                     {/* Location (only if genuine value present) */}
                     {locationClean && (
-                      <div className="inline-flex items-center gap-1 text-[11px] font-medium text-[#786e64] mb-1">
+                      <div className="inline-flex items-center gap-1 text-[11px] font-medium text-[#786e64] mb-0.5">
                         <MapPin size={11} className="text-[#bd2337] shrink-0" />
                         <span className="truncate">{locationClean}</span>
                       </div>
                     )}
 
                     {/* Title */}
-                    <h3 className="font-sans font-semibold text-sm text-[#181513] line-clamp-1 group-hover:text-[#bd2337] transition-colors leading-snug">
+                    <h3 className="font-sans font-semibold text-xs sm:text-sm text-[#181513] line-clamp-1 group-hover:text-[#bd2337] transition-colors leading-snug">
                       {listing.title || 'VaRoom Space'}
                     </h3>
 
                     {/* Room / Property details (only if genuine value present) */}
                     {listing.sizeOrType && (
-                      <p className="text-[11px] text-[#594f47] line-clamp-1 mt-0.5">
+                      <p className="text-[10px] sm:text-[11px] text-[#594f47] line-clamp-1 mt-0.5">
                         {listing.sizeOrType}
                       </p>
                     )}
                   </div>
 
                   {/* Compact Bottom Row: Amenities & Price */}
-                  <div className="mt-3 pt-2.5 border-t border-[#2d2724]/8 flex items-center justify-between">
+                  <div className="mt-2.5 pt-2 border-t border-[#2d2724]/8 flex items-center justify-between">
                     {/* Amenities chips (only if present) */}
-                    <div className="flex items-center gap-1.5 min-h-[20px]">
+                    <div className="flex items-center gap-1.5 min-h-[18px]">
                       {displayAmenities.map((amenity, idx) => (
                         <span
                           key={idx}
-                          className="w-5 h-5 rounded-full bg-[#faf7f2] border border-[#2d2724]/10 flex items-center justify-center"
+                          className="w-4.5 h-4.5 rounded-full bg-[#faf7f2] border border-[#2d2724]/10 flex items-center justify-center"
                           title={amenity}
                         >
                           {getAmenityIcon(amenity)}
@@ -200,10 +200,10 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ listings }) => {
         </div>
 
         {/* Compact Marketplace CTA */}
-        <div className="mt-8 text-center">
+        <div className="mt-4 sm:mt-5 text-center">
           <Link
             href="/marketplace"
-            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-[#181513] hover:bg-black text-[#faf8f5] font-medium text-xs sm:text-sm transition-all duration-200 hover:scale-[1.02] shadow-xs no-underline"
+            className="inline-flex items-center gap-2 px-5 py-2 sm:px-6 sm:py-2.5 rounded-full bg-[#181513] hover:bg-black text-[#faf8f5] font-medium text-xs sm:text-sm transition-all duration-200 hover:scale-[1.02] shadow-xs no-underline"
             style={{ textDecoration: 'none' }}
           >
             <span>Explore all stays & spaces across Kenya</span>

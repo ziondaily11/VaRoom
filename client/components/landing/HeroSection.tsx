@@ -10,28 +10,12 @@ interface HeroSectionProps {
 
 export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenRoleModal, onTryElie }) => {
   return (
-    <section className="relative min-h-[92vh] sm:min-h-svh w-full max-w-full overflow-visible box-border flex flex-col justify-between">
-      {/* Layer 0: Nairobi Illustration Background - Extends seamlessly past hero into marketplace transition */}
-      <div className="absolute inset-x-0 top-0 w-full h-[115%] sm:h-[125%] z-0 pointer-events-none select-none">
-        <img
-          src="/assets/landing.jpg"
-          alt="VaRoom Nairobi Skyline and Architecture Illustration"
-          // @ts-expect-error fetchpriority is a modern HTML attribute
-          fetchpriority="high"
-          className="w-full h-full object-cover object-top"
-        />
-        {/* Subtle Localized Readability Layer transitioning smoothly into page paper color */}
-        <div
-          className="absolute inset-0 pointer-events-none bg-gradient-to-b from-[#efe8de]/50 via-[#efe8de]/15 to-[#f7f3ec]/95"
-          aria-hidden="true"
-        />
-      </div>
-
+    <section className="relative h-screen min-h-screen w-full max-w-full overflow-hidden box-border flex flex-col justify-between snap-page z-10 bg-transparent">
       {/* Layer 20: Floating Minimal Navigation */}
       <Navbar onOpenRoleModal={onOpenRoleModal} onTryElie={onTryElie} />
 
       {/* Layer 30: Hero Editorial Content (Centered Horizontally and Vertically in Main Hero Area) */}
-      <div className="relative z-30 w-full max-w-full box-border px-5 sm:px-8 md:px-12 py-10 sm:py-14 md:py-16 my-auto flex flex-col items-center justify-center text-center">
+      <div className="relative z-30 w-full max-w-full box-border px-5 sm:px-8 md:px-12 py-10 sm:py-14 md:py-16 my-auto flex flex-col items-center justify-center text-center hero-animated-content">
         <div className="w-full max-w-3xl mx-auto flex flex-col items-center justify-center text-center">
           {/* Large Editorial Headline - Eyebrow completely removed, no empty gap */}
           <h1 className="font-sans font-bold text-4xl sm:text-5xl md:text-6xl lg:text-[4.75rem] text-[#181513] tracking-tight leading-[1.04] mb-4 sm:mb-5 text-center">

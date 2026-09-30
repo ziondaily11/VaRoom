@@ -83,12 +83,56 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
           *, *::before, *::after {
             box-sizing: border-box;
           }
+          html {
+            scroll-behavior: smooth;
+          }
           html, body {
             margin: 0;
             padding: 0;
             width: 100%;
             max-width: 100vw;
             overflow-x: hidden;
+          }
+          @media (min-width: 640px) {
+            html {
+              scroll-snap-type: y proximity;
+            }
+            .snap-page {
+              scroll-snap-align: start;
+              scroll-snap-stop: normal;
+            }
+          }
+          @keyframes heroExitAnim {
+            0% {
+              transform: translateY(0);
+              opacity: 1;
+            }
+            100% {
+              transform: translateY(-40px);
+              opacity: 0.15;
+            }
+          }
+          @keyframes placesEnterAnim {
+            0% {
+              transform: translateY(30px);
+              opacity: 0.85;
+            }
+            100% {
+              transform: translateY(0);
+              opacity: 1;
+            }
+          }
+          @supports (animation-timeline: view()) {
+            .hero-animated-content {
+              animation: heroExitAnim linear both;
+              animation-timeline: view();
+              animation-range: exit 0% exit 100%;
+            }
+            .places-animated-content {
+              animation: placesEnterAnim linear both;
+              animation-timeline: view();
+              animation-range: entry 0% entry 100%;
+            }
           }
           .varoom-logo, .varoom-logo:hover, .varoom-logo:focus, .varoom-logo * {
             text-decoration: none !important;
@@ -103,14 +147,33 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
       <Script src="/js/supabase-client.js" strategy="beforeInteractive" />
 
       <main className="min-h-screen w-full max-w-full overflow-x-hidden box-border bg-[#f7f3ec] text-[#181513] font-sans antialiased selection:bg-[#bd2337] selection:text-white">
-        {/* Hero Section with Nairobi illustration */}
-        <HeroSection
-          onOpenRoleModal={() => setRoleModalOpen(true)}
-          onTryElie={handleTryElie}
-        />
+        {/* Seamless 2-Page Stage: Page 1 (Hero) & Page 2 (Places worth discovering) */}
+        <div className="relative w-full">
+          {/* Shared Nairobi Illustration Background pinned behind Page 1 and Page 2 */}
+          <div
+            className="sticky top-0 h-screen w-full -mb-[100vh] pointer-events-none select-none overflow-hidden z-0"
+            aria-hidden="true"
+          >
+            <img
+              src="/assets/landing.jpg"
+              alt="VaRoom Nairobi Skyline"
+              className="w-full h-full object-cover object-top"
+              // @ts-expect-error fetchpriority is a modern HTML attribute
+              fetchpriority="high"
+            />
+            {/* Soft gradient wash ensuring high text contrast across both states */}
+            <div className="absolute inset-0 bg-gradient-to-b from-[#efe8de]/40 via-[#f7f3ec]/65 to-[#f7f3ec]/95 pointer-events-none" />
+          </div>
 
-        {/* Places worth discovering (Real listings from Supabase) */}
-        <PlacesSection listings={listings} />
+          {/* Page 1: Hero Section */}
+          <HeroSection
+            onOpenRoleModal={() => setRoleModalOpen(true)}
+            onTryElie={handleTryElie}
+          />
+
+          {/* Page 2: Places worth discovering (Real listings from Supabase) */}
+          <PlacesSection listings={listings} />
+        </div>
 
         {/* Featured Discovery (Editorial showcase) */}
         <FeaturedDiscovery
