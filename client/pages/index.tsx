@@ -9,7 +9,6 @@ import { HostSection } from '../components/landing/HostSection';
 import { ClientSection } from '../components/landing/ClientSection';
 import { HowItWorksSection } from '../components/landing/HowItWorksSection';
 import { DifferentiatorSection } from '../components/landing/DifferentiatorSection';
-import { FinalCtaSection } from '../components/landing/FinalCtaSection';
 import { Footer } from '../components/landing/Footer';
 import { RoleModal } from '../components/landing/RoleModal';
 import { Listing } from '../components/landing/types';
@@ -238,9 +237,6 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
 
         {/* More than a marketplace (Differentiators) */}
         <DifferentiatorSection />
-
-        {/* Final Call to Action */}
-        <FinalCtaSection />
 
         {/* Footer */}
         <Footer onTryElie={handleTryElie} />
