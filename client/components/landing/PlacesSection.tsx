@@ -1,5 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
+import landing2 from '../../assets/landing2.jpg';
 import {
   LucideIcon,
   ArrowRight,
@@ -90,7 +91,12 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ listings }) => {
   return (
     <section
       id="places-section"
-      className="relative z-20 w-full max-w-full min-h-screen sm:h-screen box-border flex flex-col justify-center items-center px-4 sm:px-8 md:px-12 lg:px-16 snap-page bg-[#f7f3ec]/85 backdrop-blur-[2px] py-6 sm:py-0 overflow-y-auto sm:overflow-hidden places-animated-content"
+      className="relative z-20 w-full max-w-full min-h-screen sm:h-screen box-border flex flex-col justify-center items-center px-4 sm:px-8 md:px-12 lg:px-16 snap-page backdrop-blur-[2px] py-6 sm:py-0 overflow-y-auto sm:overflow-hidden places-animated-content"
+      style={{
+        backgroundImage: `linear-gradient(rgba(247, 243, 236, .85), rgba(247, 243, 236, .85)), url("${landing2.src}")`,
+        backgroundPosition: 'center top',
+        backgroundSize: 'cover',
+      }}
     >
       <div className="w-full max-w-6xl mx-auto flex flex-col justify-center">
         {/* Compact Header: title & link (moves naturally directly into listing grid) */}
