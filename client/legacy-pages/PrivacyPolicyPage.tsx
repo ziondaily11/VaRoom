@@ -109,7 +109,8 @@ export default function PrivacyPolicyPage() {
     <div className="pp-root">
       <header className="pp-hero">
         <a className="pp-brand" href="/">
-          <span>V</span>aRoom
+          <span>Va</span>
+          <span>Room</span>
         </a>
         <h1>Privacy Policy</h1>
         <p className="pp-updated">Last updated: {LAST_UPDATED}</p>
