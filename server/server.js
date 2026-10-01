@@ -91,6 +91,10 @@ app.use(express.static(path.join(clientDirectory, 'public')));
 
 app.use('/admin', createAdminRoutes(supabaseAdmin));
 
+app.get(['/privacy.html', '/legacy-pages/privacy.html'], (_req, res) => {
+  res.redirect(301, '/privacy');
+});
+
 function bearerToken(req) {
   const authHeader = req.headers.authorization || '';
   return authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
@@ -302,7 +306,6 @@ const pageTemplates = {
   '/chat-settings': 'chat-settings.html',
   '/onboarding': 'onboarding.html',
   '/payments': 'payments.html',
-  '/privacy': 'privacy.html',
   '/profile-public': 'profile-public.html',
   '/profile': 'profile.html',
   '/property-news': 'property-news.html',

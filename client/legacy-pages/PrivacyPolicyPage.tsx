@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { LAST_UPDATED, intro, sections, type Block, type Inline } from "./privacyContent";
-import "./privacy.css";
 
 const sectionIds = sections.map((s) => s.id);
 
