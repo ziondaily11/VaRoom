@@ -10,7 +10,6 @@ import { ClientSection } from '../components/landing/ClientSection';
 import { HowItWorksSection } from '../components/landing/HowItWorksSection';
 import { DifferentiatorSection } from '../components/landing/DifferentiatorSection';
 import { Footer } from '../components/landing/Footer';
-import { RoleModal } from '../components/landing/RoleModal';
 import { AuthPanel } from '../components/landing/AuthPanel';
 import { Listing } from '../components/landing/types';
 import { INITIAL_LISTINGS } from '../components/landing/initialListings';
@@ -21,18 +20,30 @@ interface LandingPageProps {
 
 export default function LandingPage({ initialListings }: LandingPageProps) {
   const router = useRouter();
-  const [isRoleModalOpen, setRoleModalOpen] = useState(false);
   const [isAuthOpen, setAuthOpen] = useState(false);
+  const [initialAuthView, setInitialAuthView] = useState<'login' | 'signup'>('login');
+  const [signupRole, setSignupRole] = useState<'host' | 'client'>('client');
   const [listings, setListings] = useState<Listing[]>(initialListings && initialListings.length > 0 ? initialListings : INITIAL_LISTINGS);
   const closeAuth = useCallback(() => setAuthOpen(false), []);
+  const openSignIn = useCallback(() => {
+    setInitialAuthView('login');
+    setSignupRole('client');
+    setAuthOpen(true);
+  }, []);
+  const openSignup = useCallback((role: 'host' | 'client' = 'client') => {
+    setInitialAuthView('signup');
+    setSignupRole(role);
+    setAuthOpen(true);
+  }, []);
 
-  // Synchronize modal state with ?signup=1 parameter
+  // Keep legacy signup links opening the shared authentication shell.
   useEffect(() => {
-    if (router.isReady && router.query.signup === '1') {
-      setRoleModalOpen(true);
-      setAuthOpen(false);
+    if (router.isReady && (router.query.auth === 'signup' || router.query.signup === '1')) {
+      setInitialAuthView('signup');
+      setSignupRole(router.query.role === 'host' ? 'host' : 'client');
+      setAuthOpen(true);
     }
-  }, [router.isReady, router.query.signup]);
+  }, [router.isReady, router.query.auth, router.query.signup, router.query.role]);
 
   // Fetch real listings and their actual stored amenities from Supabase
   useEffect(() => {
@@ -580,12 +591,9 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
           {/* Page 1: Hero Section */}
           <HeroSection
             isAuthOpen={isAuthOpen}
-            onOpenAuth={() => setAuthOpen(true)}
+            onOpenAuth={openSignIn}
             onCloseAuth={closeAuth}
-            onOpenRoleModal={() => {
-              setAuthOpen(false);
-              setRoleModalOpen(true);
-            }}
+            onOpenSignup={() => openSignup()}
             onTryElie={handleTryElie}
           />
 
@@ -597,7 +605,7 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
         <ClientSection onTryElie={handleTryElie} />
 
         {/* For Hosts Section */}
-        <HostSection onTryElie={handleTryElie} />
+        <HostSection onOpenSignup={() => openSignup('host')} onTryElie={handleTryElie} />
 
         {/* How VaRoom Works */}
         <HowItWorksSection />
@@ -611,12 +619,8 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
         <AuthPanel
           isOpen={isAuthOpen}
           onClose={closeAuth}
-        />
-
-        {/* Role Selection Modal */}
-        <RoleModal
-          isOpen={isRoleModalOpen}
-          onClose={() => setRoleModalOpen(false)}
+          initialView={initialAuthView}
+          initialRole={signupRole}
         />
       </main>
     </>

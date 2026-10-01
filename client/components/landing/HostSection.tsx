@@ -1,12 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
 import { ArrowRight, Bot, LayoutDashboard, ShieldCheck, Zap } from 'lucide-react';
 
 interface HostSectionProps {
+  onOpenSignup: () => void;
   onTryElie: (e: React.MouseEvent) => void;
 }
 
-export const HostSection: React.FC<HostSectionProps> = ({ onTryElie }) => {
+export const HostSection: React.FC<HostSectionProps> = ({ onOpenSignup, onTryElie }) => {
   const sectionRef = useRef<HTMLElement | null>(null);
   const [hasEnteredViewport, setHasEnteredViewport] = useState(false);
   const headline = 'Your space belongs here.';
@@ -67,13 +67,14 @@ export const HostSection: React.FC<HostSectionProps> = ({ onTryElie }) => {
             Put your property in front of guests and clients looking for their next stay or workspace. VaRoom gives you intuitive tools to manage conversations, bookings, pricing, and your hosting business—all from one connected platform.
           </p>
           <div className="host-cta mt-8 flex flex-wrap items-center gap-4">
-            <Link
-              href="/signup-host"
+            <button
+              type="button"
+              onClick={onOpenSignup}
               className="landing-cta inline-flex items-center gap-2.5 px-7 py-3.5 rounded-full bg-[#181513] text-[#faf8f5] text-sm font-medium shadow-sm"
             >
               <span>Become a Host</span>
               <ArrowRight size={16} className="host-cta-arrow" />
-            </Link>
+            </button>
             <a
               href="/login"
               onClick={onTryElie}
