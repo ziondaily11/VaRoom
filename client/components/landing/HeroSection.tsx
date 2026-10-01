@@ -31,12 +31,12 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenRoleModal, onTry
           <div className="hero-cta flex items-center justify-center mb-8 sm:mb-10">
             <Link
               href="/marketplace"
-              className="group inline-flex items-center gap-3 bg-[#181513] hover:bg-black text-[#faf8f5] px-8 py-3.5 sm:py-4 rounded-full font-medium text-sm sm:text-base transition-colors duration-200 shadow-sm no-underline"
+              className="landing-cta inline-flex items-center gap-3 bg-[#181513] text-[#faf8f5] px-8 py-3.5 sm:py-4 rounded-full font-medium text-sm sm:text-base shadow-sm no-underline"
             >
               <span>Explore VaRoom</span>
               <ArrowRight
                 size={18}
-                className="hero-cta-arrow transition-transform duration-200 group-hover:translate-x-1"
+                className="hero-cta-arrow"
               />
             </Link>
           </div>

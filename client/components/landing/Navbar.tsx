@@ -66,14 +66,14 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenRoleModal, onTryElie }) =>
       <div className="hero-header-actions hidden md:flex items-center gap-3 sm:gap-4 shrink-0">
         <Link
           href="/login"
-          className="text-sm font-medium text-[#2d2724] hover:text-[#181513] px-4 py-2 rounded-full border border-[#2d2724]/20 hover:border-[#181513]/60 transition-all duration-200 no-underline whitespace-nowrap"
+          className="landing-cta text-sm font-medium text-[#2d2724] px-4 py-2 rounded-full border border-[#2d2724]/20 no-underline whitespace-nowrap"
         >
           Sign in
         </Link>
         <button
           type="button"
           onClick={onOpenRoleModal}
-          className="text-sm font-medium bg-[#181513] hover:bg-black text-[#faf8f5] px-5 py-2.5 rounded-full transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-sm flex items-center gap-1.5 whitespace-nowrap shrink-0"
+          className="landing-cta text-sm font-medium bg-[#181513] text-[#faf8f5] px-5 py-2.5 rounded-full shadow-sm flex items-center gap-1.5 whitespace-nowrap shrink-0"
         >
           <span>Get started</span>
         </button>
@@ -84,7 +84,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenRoleModal, onTryElie }) =>
         <button
           type="button"
           onClick={onOpenRoleModal}
-          className="text-xs font-medium bg-[#181513] text-[#faf8f5] px-3.5 py-2 rounded-full whitespace-nowrap"
+          className="landing-cta text-xs font-medium bg-[#181513] text-[#faf8f5] px-3.5 py-2 rounded-full whitespace-nowrap"
         >
           Get started
         </button>
@@ -144,7 +144,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenRoleModal, onTryElie }) =>
             <Link
               href="/login"
               onClick={() => setMobileMenuOpen(false)}
-              className="text-center text-sm font-medium text-[#181513] py-2.5 rounded-full border border-[#2d2724]/20 no-underline"
+              className="landing-cta text-center text-sm font-medium text-[#181513] py-2.5 rounded-full border border-[#2d2724]/20 no-underline"
             >
               Sign in
             </Link>
@@ -154,7 +154,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenRoleModal, onTryElie }) =>
                 setMobileMenuOpen(false);
                 onOpenRoleModal();
               }}
-              className="text-center text-sm font-medium bg-[#181513] text-[#faf8f5] py-2.5 rounded-full"
+              className="landing-cta text-center text-sm font-medium bg-[#181513] text-[#faf8f5] py-2.5 rounded-full"
             >
               Get started
             </button>

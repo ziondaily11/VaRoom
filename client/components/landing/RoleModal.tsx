@@ -66,15 +66,15 @@ export const RoleModal: React.FC<RoleModalProps> = ({ isOpen, onClose }) => {
           <Link
             href={signupHref('/signup-host')}
             onClick={onClose}
-            className="group flex items-center gap-3.5 p-3.5 sm:p-4 rounded-xl sm:rounded-2xl bg-white/70 hover:bg-white/95 border border-white/70 hover:border-[#181513]/25 transition-all duration-200 hover:shadow-xs no-underline"
+            className="landing-cta flex items-center gap-3.5 p-3.5 sm:p-4 rounded-xl sm:rounded-2xl bg-white/70 border border-white/70 no-underline"
             style={{ textDecoration: 'none' }}
           >
-            <div className="w-10 h-10 rounded-xl bg-[#faf7f2] border border-[#eae2d6] flex items-center justify-center text-[#bd2337] shrink-0 group-hover:scale-105 transition-transform">
+            <div className="w-10 h-10 rounded-xl bg-[#faf7f2] border border-[#eae2d6] flex items-center justify-center text-[#bd2337] shrink-0">
               <Building2 size={20} />
             </div>
             <div className="flex-1 min-w-0">
               <span
-                className="font-sans font-bold text-sm sm:text-base text-[#181513] group-hover:text-[#bd2337] transition-colors block leading-snug"
+                className="font-sans font-bold text-sm sm:text-base text-[#181513] block leading-snug"
                 style={{ textDecoration: 'none' }}
               >
                 Host
@@ -88,22 +88,22 @@ export const RoleModal: React.FC<RoleModalProps> = ({ isOpen, onClose }) => {
             </div>
             <ArrowRight
               size={16}
-              className="text-[#786e64] group-hover:text-[#181513] group-hover:translate-x-1 transition-all shrink-0 ml-auto"
+              className="text-[#786e64] shrink-0 ml-auto"
             />
           </Link>
 
           <Link
             href={signupHref('/signup-client')}
             onClick={onClose}
-            className="group flex items-center gap-3.5 p-3.5 sm:p-4 rounded-xl sm:rounded-2xl bg-white/70 hover:bg-white/95 border border-white/70 hover:border-[#181513]/25 transition-all duration-200 hover:shadow-xs no-underline"
+            className="landing-cta flex items-center gap-3.5 p-3.5 sm:p-4 rounded-xl sm:rounded-2xl bg-white/70 border border-white/70 no-underline"
             style={{ textDecoration: 'none' }}
           >
-            <div className="w-10 h-10 rounded-xl bg-[#faf7f2] border border-[#eae2d6] flex items-center justify-center text-[#bd2337] shrink-0 group-hover:scale-105 transition-transform">
+            <div className="w-10 h-10 rounded-xl bg-[#faf7f2] border border-[#eae2d6] flex items-center justify-center text-[#bd2337] shrink-0">
               <Compass size={20} />
             </div>
             <div className="flex-1 min-w-0">
               <span
-                className="font-sans font-bold text-sm sm:text-base text-[#181513] group-hover:text-[#bd2337] transition-colors block leading-snug"
+                className="font-sans font-bold text-sm sm:text-base text-[#181513] block leading-snug"
                 style={{ textDecoration: 'none' }}
               >
                 Client
@@ -117,7 +117,7 @@ export const RoleModal: React.FC<RoleModalProps> = ({ isOpen, onClose }) => {
             </div>
             <ArrowRight
               size={16}
-              className="text-[#786e64] group-hover:text-[#181513] group-hover:translate-x-1 transition-all shrink-0 ml-auto"
+              className="text-[#786e64] shrink-0 ml-auto"
             />
           </Link>
         </div>
