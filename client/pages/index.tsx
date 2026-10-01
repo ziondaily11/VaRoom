@@ -11,6 +11,7 @@ import { HowItWorksSection } from '../components/landing/HowItWorksSection';
 import { DifferentiatorSection } from '../components/landing/DifferentiatorSection';
 import { Footer } from '../components/landing/Footer';
 import { RoleModal } from '../components/landing/RoleModal';
+import { AuthPanel } from '../components/landing/AuthPanel';
 import { Listing } from '../components/landing/types';
 import { INITIAL_LISTINGS } from '../components/landing/initialListings';
 
@@ -21,12 +22,14 @@ interface LandingPageProps {
 export default function LandingPage({ initialListings }: LandingPageProps) {
   const router = useRouter();
   const [isRoleModalOpen, setRoleModalOpen] = useState(false);
+  const [isAuthOpen, setAuthOpen] = useState(false);
   const [listings, setListings] = useState<Listing[]>(initialListings && initialListings.length > 0 ? initialListings : INITIAL_LISTINGS);
 
   // Synchronize modal state with ?signup=1 parameter
   useEffect(() => {
     if (router.isReady && router.query.signup === '1') {
       setRoleModalOpen(true);
+      setAuthOpen(false);
     }
   }, [router.isReady, router.query.signup]);
 
@@ -569,7 +572,13 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
 
           {/* Page 1: Hero Section */}
           <HeroSection
-            onOpenRoleModal={() => setRoleModalOpen(true)}
+            isAuthOpen={isAuthOpen}
+            onOpenAuth={() => setAuthOpen(true)}
+            onCloseAuth={() => setAuthOpen(false)}
+            onOpenRoleModal={() => {
+              setAuthOpen(false);
+              setRoleModalOpen(true);
+            }}
             onTryElie={handleTryElie}
           />
 
@@ -591,6 +600,15 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
 
         {/* Footer */}
         <Footer onTryElie={handleTryElie} />
+
+        <AuthPanel
+          isOpen={isAuthOpen}
+          onClose={() => setAuthOpen(false)}
+          onOpenRoleModal={() => {
+            setAuthOpen(false);
+            setRoleModalOpen(true);
+          }}
+        />
 
         {/* Role Selection Modal */}
         <RoleModal
