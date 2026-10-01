@@ -11,11 +11,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenRoleModal, onTryElie }) =>
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <header className="relative z-20 w-full max-w-full box-border px-5 sm:px-8 md:px-10 lg:px-14 py-5 md:py-7 flex items-center justify-between">
+    <header className="hero-header relative z-20 w-full max-w-full box-border px-5 sm:px-8 md:px-10 lg:px-14 py-5 md:py-7 flex items-center justify-between">
       {/* Brand Wordmark - completely free of any underline or text decoration */}
       <Link
         href="/"
-        className="varoom-logo no-underline hover:no-underline focus:no-underline group inline-flex items-baseline text-2xl md:text-3xl font-serif font-bold tracking-tight select-none shrink-0"
+        className="hero-header-logo varoom-logo no-underline hover:no-underline focus:no-underline group inline-flex items-baseline text-2xl md:text-3xl font-serif font-bold tracking-tight select-none shrink-0"
         style={{ textDecoration: 'none', borderBottom: 'none' }}
       >
         <span
@@ -33,7 +33,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenRoleModal, onTryElie }) =>
       </Link>
 
       {/* Desktop Navigation Links */}
-      <nav className="hidden md:flex items-center gap-5 lg:gap-8 shrink" aria-label="Main navigation">
+      <nav className="hero-header-nav hidden md:flex items-center gap-5 lg:gap-8 shrink" aria-label="Main navigation">
         <a
           href="#host-section"
           className="text-sm font-medium text-[#2d2724]/80 hover:text-[#181513] transition-colors relative py-1 no-underline after:absolute after:bottom-0 after:left-0 after:w-full after:h-px after:bg-[#181513] after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:origin-left"
@@ -63,7 +63,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenRoleModal, onTryElie }) =>
       </nav>
 
       {/* Right Desktop Actions - Fully visible with generous right spacing, shrink-0 */}
-      <div className="hidden md:flex items-center gap-3 sm:gap-4 shrink-0">
+      <div className="hero-header-actions hidden md:flex items-center gap-3 sm:gap-4 shrink-0">
         <Link
           href="/login"
           className="text-sm font-medium text-[#2d2724] hover:text-[#181513] px-4 py-2 rounded-full border border-[#2d2724]/20 hover:border-[#181513]/60 transition-all duration-200 no-underline whitespace-nowrap"
@@ -80,7 +80,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenRoleModal, onTryElie }) =>
       </div>
 
       {/* Mobile Controls */}
-      <div className="flex md:hidden items-center gap-2.5 shrink-0">
+      <div className="hero-header-mobile flex md:hidden items-center gap-2.5 shrink-0">
         <button
           type="button"
           onClick={onOpenRoleModal}
