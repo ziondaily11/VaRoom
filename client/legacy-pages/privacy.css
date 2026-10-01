@@ -6,6 +6,7 @@
   color: var(--pp-text);
   font-family: Georgia, "Times New Roman", serif;
   line-height: 1.7;
+  overflow-x: hidden;
 }
 
 /* Hero: always black, curved into the page background */
@@ -179,6 +180,10 @@
   html:has(.pp-root) {
     scroll-behavior: smooth;
   }
+}
+
+body:has(.pp-root) {
+  overflow-x: hidden;
 }
 
 @media (max-width: 900px) {
