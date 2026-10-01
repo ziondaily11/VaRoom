@@ -3,12 +3,18 @@ import Link from 'next/link';
 import { Menu, X, ArrowRight } from 'lucide-react';
 
 interface NavbarProps {
+  isAuthOpen: boolean;
+  onOpenAuth: () => void;
   onOpenRoleModal: () => void;
   onTryElie: (e: React.MouseEvent) => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ onOpenRoleModal, onTryElie }) => {
+export const Navbar: React.FC<NavbarProps> = ({ isAuthOpen, onOpenAuth, onOpenRoleModal, onTryElie }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  if (isAuthOpen) {
+    return null;
+  }
 
   return (
     <header className="relative z-20 w-full max-w-full box-border px-5 sm:px-8 md:px-10 lg:px-14 py-5 md:py-7 flex items-center justify-between">
@@ -64,12 +70,13 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenRoleModal, onTryElie }) =>
 
       {/* Right Desktop Actions - Fully visible with generous right spacing, shrink-0 */}
       <div className="hidden md:flex items-center gap-3 sm:gap-4 shrink-0">
-        <Link
-          href="/login"
+        <button
+          type="button"
+          onClick={onOpenAuth}
           className="text-sm font-medium text-[#2d2724] hover:text-[#181513] px-4 py-2 rounded-full border border-[#2d2724]/20 hover:border-[#181513]/60 transition-all duration-200 no-underline whitespace-nowrap"
         >
           Sign in
-        </Link>
+        </button>
         <button
           type="button"
           onClick={onOpenRoleModal}
@@ -141,13 +148,16 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenRoleModal, onTryElie }) =>
             <ArrowRight size={16} className="text-[#2d2724]/40" />
           </a>
           <div className="pt-2 flex flex-col gap-2.5">
-            <Link
-              href="/login"
-              onClick={() => setMobileMenuOpen(false)}
+            <button
+              type="button"
+              onClick={() => {
+                setMobileMenuOpen(false);
+                onOpenAuth();
+              }}
               className="text-center text-sm font-medium text-[#181513] py-2.5 rounded-full border border-[#2d2724]/20 no-underline"
             >
               Sign in
-            </Link>
+            </button>
             <button
               type="button"
               onClick={() => {
