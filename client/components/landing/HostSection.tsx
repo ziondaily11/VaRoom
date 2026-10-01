@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ArrowRight, Bot, LayoutDashboard, ShieldCheck, Zap } from 'lucide-react';
 
@@ -7,28 +7,72 @@ interface HostSectionProps {
 }
 
 export const HostSection: React.FC<HostSectionProps> = ({ onTryElie }) => {
+  const sectionRef = useRef<HTMLElement | null>(null);
+  const [hasEnteredViewport, setHasEnteredViewport] = useState(false);
+  const headline = 'Your space belongs here.';
+
+  useEffect(() => {
+    const section = sectionRef.current;
+    if (!section) return;
+
+    const reduceMotionQuery = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+    if (reduceMotionQuery?.matches || !('IntersectionObserver' in window)) {
+      setHasEnteredViewport(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setHasEnteredViewport(true);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.2 },
+    );
+
+    observer.observe(section);
+    return () => observer.disconnect();
+  }, []);
+
   return (
-    <section id="host-section" className="relative w-full py-20 md:py-28 px-6 sm:px-10 md:px-16 lg:px-20 bg-[#faf7f2] border-t border-[#eae2d6]">
+    <section
+      ref={sectionRef}
+      id="host-section"
+      className={`host-section relative w-full py-20 md:py-28 px-6 sm:px-10 md:px-16 lg:px-20 bg-[#faf7f2] border-t border-[#eae2d6] ${hasEnteredViewport ? 'is-entered' : ''}`}
+    >
       <div className="max-w-7xl mx-auto">
         {/* Host Intro Header */}
         <div className="max-w-3xl mb-16">
-          <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[#bd2337] mb-3">
+          <div className="host-badge inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[#bd2337] mb-3">
             <span className="w-1.5 h-1.5 rounded-full bg-[#bd2337]" />
             <span>For Hosts</span>
           </div>
-          <h2 className="font-sans font-bold text-3xl sm:text-4xl md:text-5xl text-[#181513] tracking-tight mb-5">
-            Your space belongs here.
+          <h2
+            aria-label={headline}
+            className="font-sans font-bold text-3xl sm:text-4xl md:text-5xl text-[#181513] tracking-tight mb-5"
+          >
+            {Array.from(headline).map((character, index) => (
+              <span
+                aria-hidden="true"
+                className="host-headline-character"
+                key={`${character}-${index}`}
+                style={{ animationDelay: `${140 + index * 36}ms` }}
+              >
+                {character}
+              </span>
+            ))}
           </h2>
-          <p className="text-base sm:text-lg md:text-xl text-[#594f47] leading-relaxed">
+          <p className="host-supporting-copy text-base sm:text-lg md:text-xl text-[#594f47] leading-relaxed">
             Put your property in front of guests and clients looking for their next stay or workspace. VaRoom gives you intuitive tools to manage conversations, bookings, pricing, and your hosting business—all from one connected platform.
           </p>
-          <div className="mt-8 flex flex-wrap items-center gap-4">
+          <div className="host-cta mt-8 flex flex-wrap items-center gap-4">
             <Link
               href="/signup-host"
               className="inline-flex items-center gap-2.5 px-7 py-3.5 rounded-full bg-[#181513] hover:bg-black text-[#faf8f5] text-sm font-medium transition-all duration-200 hover:scale-[1.02] shadow-sm"
             >
               <span>Become a Host</span>
-              <ArrowRight size={16} />
+              <ArrowRight size={16} className="host-cta-arrow" />
             </Link>
             <a
               href="/login"
@@ -43,9 +87,9 @@ export const HostSection: React.FC<HostSectionProps> = ({ onTryElie }) => {
 
         {/* 4 Host Capabilities */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="p-7 rounded-2xl bg-[#fffefc] border border-[#eae2d6] flex flex-col justify-between hover:border-[#181513]/30 transition-colors">
+          <div className="host-card p-7 rounded-2xl bg-[#fffefc] border border-[#eae2d6] flex flex-col justify-between hover:border-[#181513]/30 transition-colors">
             <div>
-              <div className="w-11 h-11 rounded-xl bg-[#faf7f2] border border-[#eae2d6] flex items-center justify-center text-[#bd2337] mb-5">
+              <div className="host-card-icon w-11 h-11 rounded-xl bg-[#faf7f2] border border-[#eae2d6] flex items-center justify-center text-[#bd2337] mb-5">
                 <Bot size={22} />
               </div>
               <h3 className="font-sans font-bold text-lg text-[#181513] mb-2">
@@ -60,9 +104,9 @@ export const HostSection: React.FC<HostSectionProps> = ({ onTryElie }) => {
             </div>
           </div>
 
-          <div className="p-7 rounded-2xl bg-[#fffefc] border border-[#eae2d6] flex flex-col justify-between hover:border-[#181513]/30 transition-colors">
+          <div className="host-card p-7 rounded-2xl bg-[#fffefc] border border-[#eae2d6] flex flex-col justify-between hover:border-[#181513]/30 transition-colors">
             <div>
-              <div className="w-11 h-11 rounded-xl bg-[#faf7f2] border border-[#eae2d6] flex items-center justify-center text-[#bd2337] mb-5">
+              <div className="host-card-icon w-11 h-11 rounded-xl bg-[#faf7f2] border border-[#eae2d6] flex items-center justify-center text-[#bd2337] mb-5">
                 <LayoutDashboard size={22} />
               </div>
               <h3 className="font-sans font-bold text-lg text-[#181513] mb-2">
@@ -77,9 +121,9 @@ export const HostSection: React.FC<HostSectionProps> = ({ onTryElie }) => {
             </div>
           </div>
 
-          <div className="p-7 rounded-2xl bg-[#fffefc] border border-[#eae2d6] flex flex-col justify-between hover:border-[#181513]/30 transition-colors">
+          <div className="host-card p-7 rounded-2xl bg-[#fffefc] border border-[#eae2d6] flex flex-col justify-between hover:border-[#181513]/30 transition-colors">
             <div>
-              <div className="w-11 h-11 rounded-xl bg-[#faf7f2] border border-[#eae2d6] flex items-center justify-center text-[#bd2337] mb-5">
+              <div className="host-card-icon w-11 h-11 rounded-xl bg-[#faf7f2] border border-[#eae2d6] flex items-center justify-center text-[#bd2337] mb-5">
                 <ShieldCheck size={22} />
               </div>
               <h3 className="font-sans font-bold text-lg text-[#181513] mb-2">
@@ -94,9 +138,9 @@ export const HostSection: React.FC<HostSectionProps> = ({ onTryElie }) => {
             </div>
           </div>
 
-          <div className="p-7 rounded-2xl bg-[#fffefc] border border-[#eae2d6] flex flex-col justify-between hover:border-[#181513]/30 transition-colors">
+          <div className="host-card p-7 rounded-2xl bg-[#fffefc] border border-[#eae2d6] flex flex-col justify-between hover:border-[#181513]/30 transition-colors">
             <div>
-              <div className="w-11 h-11 rounded-xl bg-[#faf7f2] border border-[#eae2d6] flex items-center justify-center text-[#bd2337] mb-5">
+              <div className="host-card-icon w-11 h-11 rounded-xl bg-[#faf7f2] border border-[#eae2d6] flex items-center justify-center text-[#bd2337] mb-5">
                 <Zap size={22} />
               </div>
               <h3 className="font-sans font-bold text-lg text-[#181513] mb-2">

@@ -262,6 +262,30 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
               transform: translate3d(0, 0, 0);
             }
           }
+          @keyframes hostFadeUp {
+            from {
+              opacity: 0;
+              transform: translate3d(0, 8px, 0);
+            }
+            to {
+              opacity: 1;
+              transform: translate3d(0, 0, 0);
+            }
+          }
+          @keyframes hostCharacterReveal {
+            from { opacity: 0; }
+            to { opacity: 1; }
+          }
+          @keyframes hostCardReveal {
+            from {
+              opacity: 0;
+              transform: translate3d(0, 12px, 0);
+            }
+            to {
+              opacity: 1;
+              transform: translate3d(0, 0, 0);
+            }
+          }
           @keyframes heroBackgroundDrift {
             from {
               transform: scale(1);
@@ -389,6 +413,52 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
             transform: scale(1.05);
             opacity: 1;
           }
+          .host-section:not(.is-entered) .host-badge,
+          .host-section:not(.is-entered) .host-headline-character,
+          .host-section:not(.is-entered) .host-supporting-copy,
+          .host-section:not(.is-entered) .host-cta,
+          .host-section:not(.is-entered) .host-card {
+            opacity: 0;
+          }
+          .host-section.is-entered .host-badge {
+            animation: hostFadeUp 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+          }
+          .host-section.is-entered .host-headline-character {
+            animation: hostCharacterReveal 120ms ease-out both;
+          }
+          .host-section.is-entered .host-supporting-copy {
+            animation: hostFadeUp 620ms cubic-bezier(0.22, 1, 0.36, 1) 1050ms both;
+          }
+          .host-section.is-entered .host-cta {
+            animation: hostFadeUp 560ms cubic-bezier(0.22, 1, 0.36, 1) 1740ms both;
+          }
+          .host-section.is-entered .host-card {
+            animation: hostCardReveal 660ms cubic-bezier(0.22, 1, 0.36, 1) both;
+          }
+          .host-section.is-entered .host-card:nth-child(1) { animation-delay: 2380ms; }
+          .host-section.is-entered .host-card:nth-child(2) { animation-delay: 2505ms; animation-duration: 620ms; }
+          .host-section.is-entered .host-card:nth-child(3) { animation-delay: 2630ms; animation-duration: 700ms; }
+          .host-section.is-entered .host-card:nth-child(4) { animation-delay: 2755ms; animation-duration: 640ms; }
+          .host-card {
+            transition: transform 240ms ease, box-shadow 240ms ease, border-color 240ms ease;
+          }
+          .host-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 18px rgba(24, 21, 19, 0.04);
+          }
+          .host-card-icon {
+            transition: transform 200ms ease, opacity 200ms ease;
+          }
+          .host-card:hover .host-card-icon {
+            transform: scale(1.04);
+            opacity: 1;
+          }
+          .host-cta-arrow {
+            transition: transform 180ms ease;
+          }
+          .host-cta a:hover .host-cta-arrow {
+            transform: translateX(2px);
+          }
           .client-cta-arrow,
           .client-elie-icon {
             transition: transform 180ms ease, opacity 180ms ease;
@@ -435,9 +505,17 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
             .client-section .client-supporting-copy,
             .client-section .client-cta,
             .client-section .client-card,
+            .host-section .host-badge,
+            .host-section .host-headline-character,
+            .host-section .host-supporting-copy,
+            .host-section .host-cta,
+            .host-section .host-card,
             .client-primary-cta,
             .client-elie-button,
             .client-card-icon,
+            .host-card,
+            .host-card-icon,
+            .host-cta-arrow,
             .client-cta-arrow,
             .client-elie-icon {
               animation: none !important;
