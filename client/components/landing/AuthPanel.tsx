@@ -1,15 +1,23 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Eye, EyeOff, Lock, Mail, X } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Eye, EyeOff, Lock, Mail, X } from 'lucide-react';
 import { useRouter } from 'next/router';
+import { SignupForm } from './SignupForm';
 
 interface AuthPanelProps {
   isOpen: boolean;
   onClose: () => void;
-  onOpenRoleModal: () => void;
 }
 
-export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, onOpenRoleModal }) => {
+type AuthView = 'login' | 'signup';
+type ContentAnimation = 'idle' | 'exit-left' | 'exit-right' | 'enter-left' | 'enter-right';
+
+export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose }) => {
   const router = useRouter();
+  const [authView, setAuthView] = useState<AuthView>('login');
+  const [contentAnimation, setContentAnimation] = useState<ContentAnimation>('idle');
+  const contentScrollRef = useRef<HTMLDivElement>(null);
+  const transitionTimer = useRef<number | null>(null);
+  const transitionLocked = useRef(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -23,11 +31,16 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, onOpenRol
     return typeof candidate === 'string' ? candidate : '';
   }, [router.query.redirect]);
 
+  const closePanel = useCallback(() => {
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    onClose();
+  }, [onClose]);
+
   useEffect(() => {
     if (!isOpen) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
+      if (event.key === 'Escape') closePanel();
     };
 
     const previousBodyOverflow = document.body.style.overflow;
@@ -41,7 +54,40 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, onOpenRol
       document.body.style.overflow = previousBodyOverflow;
       document.documentElement.style.overflow = previousDocumentOverflow;
     };
-  }, [isOpen, onClose]);
+  }, [isOpen, closePanel]);
+
+  useEffect(() => {
+    if (isOpen) return;
+    if (transitionTimer.current !== null) window.clearTimeout(transitionTimer.current);
+    transitionTimer.current = null;
+    transitionLocked.current = false;
+    setAuthView('login');
+    setContentAnimation('idle');
+  }, [isOpen]);
+
+  useEffect(() => () => {
+    if (transitionTimer.current !== null) window.clearTimeout(transitionTimer.current);
+  }, []);
+
+  const switchAuthView = (nextView: AuthView) => {
+    if (nextView === authView || transitionLocked.current) return;
+
+    transitionLocked.current = true;
+    setContentAnimation(nextView === 'signup' ? 'exit-left' : 'exit-right');
+    transitionTimer.current = window.setTimeout(() => {
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+      setAuthView(nextView);
+      setContentAnimation(nextView === 'signup' ? 'enter-right' : 'enter-left');
+      contentScrollRef.current?.scrollTo(0, 0);
+      window.requestAnimationFrame(() => {
+        document.getElementById(nextView === 'signup' ? 'signup-fullname' : 'landing-email')?.focus({ preventScroll: true });
+      });
+      transitionTimer.current = window.setTimeout(() => {
+        setContentAnimation('idle');
+        transitionLocked.current = false;
+      }, 180);
+    }, 140);
+  };
 
   const clearAlert = () => setAlert(null);
 
@@ -131,11 +177,6 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, onOpenRol
     }
   };
 
-  const handleCreateAccount = () => {
-    onClose();
-    onOpenRoleModal();
-  };
-
   return (
     <div
       className="fixed inset-0 z-40 pointer-events-none"
@@ -149,7 +190,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, onOpenRol
         type="button"
         aria-label="Close sign-in panel"
         className="absolute inset-0 bg-transparent"
-        onClick={onClose}
+        onClick={closePanel}
         style={{
           pointerEvents: isOpen ? 'auto' : 'none',
           opacity: isOpen ? 1 : 0,
@@ -158,7 +199,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, onOpenRol
       />
 
       <aside
-        className="absolute inset-y-0 right-0 flex h-[100dvh] w-full justify-center overflow-y-auto overscroll-contain md:w-1/2"
+        className="absolute inset-y-0 right-0 h-[100dvh] w-full overflow-hidden md:w-1/2"
         style={{
           pointerEvents: isOpen ? 'auto' : 'none',
           transform: isOpen ? 'translateX(0)' : 'translateX(100%)',
@@ -167,19 +208,31 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, onOpenRol
         }}
         aria-modal="true"
         role="dialog"
-        aria-labelledby="auth-panel-title"
+        aria-labelledby={authView === 'login' ? 'auth-panel-title' : 'auth-panel-signup-title'}
       >
-        <div className="relative flex min-h-full w-full items-center justify-center border-l border-white/10 bg-[rgba(17,18,18,0.88)] text-[#f5efe7]">
+        <div className="relative h-full w-full overflow-hidden border-l border-white/10 bg-[rgba(17,18,18,0.88)] text-[#f5efe7]">
           <button
             type="button"
-            onClick={onClose}
+            onClick={closePanel}
             className="absolute right-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-black/20 text-[#f4efe9] transition-colors hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/70"
             aria-label="Close sign in"
           >
             <X size={18} />
           </button>
 
-          <div className="w-full max-w-[480px] px-6 py-16 sm:px-8 lg:px-10">
+          <div
+            ref={contentScrollRef}
+            className="h-full w-full overflow-y-auto overscroll-contain"
+            data-auth-scroll
+            style={{ pointerEvents: contentAnimation === 'idle' ? 'auto' : 'none' }}
+          >
+            <div className="mx-auto flex min-h-full w-full max-w-[480px] flex-col justify-center px-6 py-16 sm:px-8 lg:px-10">
+              <div
+                className={`auth-content ${contentAnimation === 'exit-left' ? 'auth-content-exit-left' : ''} ${contentAnimation === 'enter-right' ? 'auth-content-enter-right' : ''}`}
+                style={{ display: authView === 'login' ? undefined : 'none' }}
+                aria-hidden={authView !== 'login'}
+              >
+                <div className="w-full">
             <div className="mb-8">
               <p className="mb-2 inline-flex items-center gap-2 rounded-full border border-[#d9d1c6]/15 bg-white/5 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-[#d6ddd2]">
                 <Lock size={12} />
@@ -323,13 +376,71 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, onOpenRol
 
             <p className="mt-7 text-center text-sm text-[#e2d9d1]/80">
               New to VaRoom?{' '}
-              <button type="button" onClick={handleCreateAccount} className="border-0 bg-transparent p-0 font-semibold text-white underline-offset-4 hover:underline">
+              <button type="button" onClick={() => switchAuthView('signup')} className="border-0 bg-transparent p-0 font-semibold text-white underline-offset-4 hover:underline">
                 Create an account
               </button>
             </p>
+                </div>
+              </div>
+
+              <div
+                className={`auth-content ${contentAnimation === 'exit-right' ? 'auth-content-exit-right' : ''} ${contentAnimation === 'enter-left' ? 'auth-content-enter-left' : ''}`}
+                style={{ display: authView === 'signup' ? undefined : 'none' }}
+                aria-hidden={authView !== 'signup'}
+              >
+                <SignupForm
+                  redirect={redirect}
+                  onSwitchToLogin={() => switchAuthView('login')}
+                />
+              </div>
+            </div>
           </div>
         </div>
       </aside>
+      <style jsx>{`
+        .auth-content-exit-left {
+          animation: auth-content-exit-left 140ms ease-in both;
+        }
+
+        .auth-content-exit-right {
+          animation: auth-content-exit-right 140ms ease-in both;
+        }
+
+        .auth-content-enter-right {
+          animation: auth-content-enter-right 180ms ease-out both;
+        }
+
+        .auth-content-enter-left {
+          animation: auth-content-enter-left 180ms ease-out both;
+        }
+
+        @keyframes auth-content-exit-left {
+          to { opacity: 0; transform: translateX(-16px); }
+        }
+
+        @keyframes auth-content-exit-right {
+          to { opacity: 0; transform: translateX(16px); }
+        }
+
+        @keyframes auth-content-enter-right {
+          from { opacity: 0; transform: translateX(16px); }
+          to { opacity: 1; transform: translateX(0); }
+        }
+
+        @keyframes auth-content-enter-left {
+          from { opacity: 0; transform: translateX(-16px); }
+          to { opacity: 1; transform: translateX(0); }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .auth-content-exit-left,
+          .auth-content-exit-right,
+          .auth-content-enter-right,
+          .auth-content-enter-left {
+            animation-duration: 1ms;
+          }
+        }
+      `}</style>
     </div>
   );
 };
