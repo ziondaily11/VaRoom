@@ -282,7 +282,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, initialVi
                     onBlur={() => setFieldErrorState('email', !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) ? 'Please enter a valid email' : '')}
                     placeholder="you@example.com"
                     autoComplete="email"
-                    className={`h-14 w-full rounded-2xl border bg-[#f5efe8]/8 py-0 pl-10 pr-10 text-sm leading-5 text-[#f5efe8] placeholder:text-[#d3c7ba]/55 outline-none transition ${
+                    className={`auth-control h-14 w-full rounded-2xl border bg-[#f5efe8]/8 py-0 pl-10 pr-10 text-sm leading-5 text-[#f5efe8] placeholder:text-[#d3c7ba]/55 outline-none transition ${
                       emailError ? 'border-[#efb6ae] focus:border-[#efb6ae]' : 'border-white/10 focus:border-[#dde3d6]/45'
                     }`}
                     aria-invalid={Boolean(emailError)}
@@ -325,7 +325,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, initialVi
                     onBlur={() => setFieldErrorState('password', !password ? 'Please enter your password' : '')}
                     placeholder="Enter your password"
                     autoComplete="current-password"
-                    className={`h-14 w-full rounded-2xl border bg-[#f5efe8]/8 py-0 pl-10 pr-10 text-sm leading-5 text-[#f5efe8] placeholder:text-[#d3c7ba]/55 outline-none transition ${
+                    className={`auth-control auth-control--trailing-icon h-14 w-full rounded-2xl border bg-[#f5efe8]/8 py-0 pl-10 pr-10 text-sm leading-5 text-[#f5efe8] placeholder:text-[#d3c7ba]/55 outline-none transition ${
                       passwordError ? 'border-[#efb6ae] focus:border-[#efb6ae]' : 'border-white/10 focus:border-[#dde3d6]/45'
                     }`}
                     aria-invalid={Boolean(passwordError)}

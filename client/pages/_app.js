@@ -99,11 +99,6 @@ const designTokensStyle = `
     font: inherit;
   }
 
-  button,
-  [type='button'],
-  [type='submit'],
-  [type='reset'],
-  .landing-cta,
   .va-button {
     min-height: var(--control-height-md) !important;
     border-radius: var(--radius-full) !important;
@@ -113,27 +108,68 @@ const designTokensStyle = `
     cursor: pointer;
   }
 
-  input, textarea, select {
+  .auth-control {
+    display: block;
     width: 100%;
-    min-height: var(--control-height-md) !important;
-    padding: 0 var(--space-4) !important;
-    border-radius: var(--radius-md) !important;
-    border: 1px solid var(--color-border) !important;
-    background: var(--color-surface) !important;
-    color: var(--color-text) !important;
-    box-shadow: none !important;
+    height: 52px !important;
+    min-height: 52px !important;
+    padding: 0 var(--space-4) 0 44px !important;
+    border-radius: 10px !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    background: #0f0d0d !important;
+    color: #f5efec !important;
+    box-shadow: none;
     transition: border-color var(--transition-base), box-shadow var(--transition-base), background-color var(--transition-base);
   }
 
-  input::placeholder,
-  textarea::placeholder {
-    color: var(--color-text-muted) !important;
+  .auth-control::placeholder {
+    color: rgba(245, 239, 236, 0.58) !important;
     opacity: 0.8;
   }
 
-  input:focus-visible,
-  textarea:focus-visible,
-  select:focus-visible,
+  .auth-control:focus {
+    border-color: rgba(221, 227, 214, 0.45) !important;
+    outline: none;
+  }
+
+  .auth-control:focus-visible {
+    outline: none;
+    box-shadow: none;
+  }
+
+  .auth-control[aria-invalid='true'] {
+    border-color: #efb6ae !important;
+  }
+
+  .auth-control--trailing-icon {
+    padding-right: 44px !important;
+  }
+
+  .auth-consent-checkbox {
+    appearance: auto !important;
+    display: block;
+    width: 16px !important;
+    height: 16px !important;
+    min-height: 16px !important;
+    flex: 0 0 16px;
+    margin: 2px 0 0 !important;
+    padding: 0 !important;
+    border-radius: 3px !important;
+    accent-color: #f0e5d9;
+  }
+
+  .auth-consent {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    line-height: 1.5;
+  }
+
+  .auth-consent-copy {
+    display: block;
+    min-width: 0;
+  }
+
   button:focus-visible,
   .landing-cta:focus-visible,
   .va-button:focus-visible,
