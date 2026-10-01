@@ -611,10 +611,6 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
         <AuthPanel
           isOpen={isAuthOpen}
           onClose={closeAuth}
-          onOpenRoleModal={() => {
-            setAuthOpen(false);
-            setRoleModalOpen(true);
-          }}
         />
 
         {/* Role Selection Modal */}
