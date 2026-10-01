@@ -1,7 +1,7 @@
 import Head from 'next/head';
 import Script from 'next/script';
 import { useRouter } from 'next/router';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { GetStaticProps } from 'next';
 import { HeroSection } from '../components/landing/HeroSection';
 import { PlacesSection } from '../components/landing/PlacesSection';
@@ -24,6 +24,7 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
   const [isRoleModalOpen, setRoleModalOpen] = useState(false);
   const [isAuthOpen, setAuthOpen] = useState(false);
   const [listings, setListings] = useState<Listing[]>(initialListings && initialListings.length > 0 ? initialListings : INITIAL_LISTINGS);
+  const closeAuth = useCallback(() => setAuthOpen(false), []);
 
   // Synchronize modal state with ?signup=1 parameter
   useEffect(() => {
@@ -567,14 +568,20 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
               fetchpriority="high"
             />
             {/* Soft gradient wash ensuring high text contrast across both states */}
-            <div className="absolute inset-0 bg-gradient-to-b from-[#efe8de]/40 via-[#f7f3ec]/65 to-[#f7f3ec]/95 pointer-events-none" />
+            <div
+              className={`absolute inset-0 pointer-events-none ${
+                isAuthOpen
+                  ? 'bg-gradient-to-b from-black/10 via-transparent to-black/20'
+                  : 'bg-gradient-to-b from-[#efe8de]/40 via-[#f7f3ec]/65 to-[#f7f3ec]/95'
+              }`}
+            />
           </div>
 
           {/* Page 1: Hero Section */}
           <HeroSection
             isAuthOpen={isAuthOpen}
             onOpenAuth={() => setAuthOpen(true)}
-            onCloseAuth={() => setAuthOpen(false)}
+            onCloseAuth={closeAuth}
             onOpenRoleModal={() => {
               setAuthOpen(false);
               setRoleModalOpen(true);
@@ -603,7 +610,7 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
 
         <AuthPanel
           isOpen={isAuthOpen}
-          onClose={() => setAuthOpen(false)}
+          onClose={closeAuth}
           onOpenRoleModal={() => {
             setAuthOpen(false);
             setRoleModalOpen(true);
