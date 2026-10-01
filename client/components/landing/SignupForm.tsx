@@ -10,6 +10,7 @@ type PasswordCriteria = {
 
 interface SignupFormProps {
   redirect: string;
+  initialRole: AccountRole;
   onSwitchToLogin: () => void;
 }
 
@@ -24,8 +25,8 @@ const isStrongPassword = (password: string) => {
   return criteria.length && criteria.uppercase && criteria.numberOrSpecial;
 };
 
-export const SignupForm: React.FC<SignupFormProps> = ({ redirect, onSwitchToLogin }) => {
-  const [role, setRole] = useState<AccountRole>('client');
+export const SignupForm: React.FC<SignupFormProps> = ({ redirect, initialRole, onSwitchToLogin }) => {
+  const [role, setRole] = useState<AccountRole>(initialRole);
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -44,6 +45,10 @@ export const SignupForm: React.FC<SignupFormProps> = ({ redirect, onSwitchToLogi
   const criteria = passwordCriteria(password);
   const passwordIsStrong = isStrongPassword(password);
   const canSubmit = passwordIsStrong && password === confirmPassword && agreed && !isLoading;
+
+  useEffect(() => {
+    setRole(initialRole);
+  }, [initialRole]);
 
   useEffect(() => {
     if (resendSeconds <= 0) return;

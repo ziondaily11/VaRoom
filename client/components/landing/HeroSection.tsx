@@ -7,11 +7,11 @@ interface HeroSectionProps {
   isAuthOpen: boolean;
   onOpenAuth: () => void;
   onCloseAuth: () => void;
-  onOpenRoleModal: () => void;
+  onOpenSignup: () => void;
   onTryElie: (e: React.MouseEvent) => void;
 }
 
-export const HeroSection: React.FC<HeroSectionProps> = ({ isAuthOpen, onOpenAuth, onCloseAuth, onOpenRoleModal, onTryElie }) => {
+export const HeroSection: React.FC<HeroSectionProps> = ({ isAuthOpen, onOpenAuth, onCloseAuth, onOpenSignup, onTryElie }) => {
   return (
     <>
     <section className="relative h-[100dvh] min-h-[100dvh] w-full max-w-full overflow-hidden box-border flex flex-col justify-between snap-page z-10 bg-transparent">
@@ -20,7 +20,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ isAuthOpen, onOpenAuth
           isAuthOpen={isAuthOpen}
           onOpenAuth={onOpenAuth}
           onCloseAuth={onCloseAuth}
-          onOpenRoleModal={onOpenRoleModal}
+          onOpenSignup={onOpenSignup}
           onTryElie={onTryElie}
         />
       )}

@@ -6,12 +6,14 @@ import { SignupForm } from './SignupForm';
 interface AuthPanelProps {
   isOpen: boolean;
   onClose: () => void;
+  initialView: AuthView;
+  initialRole: 'host' | 'client';
 }
 
 type AuthView = 'login' | 'signup';
 type ContentAnimation = 'idle' | 'exit-left' | 'exit-right' | 'enter-left' | 'enter-right';
 
-export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose }) => {
+export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, initialView, initialRole }) => {
   const router = useRouter();
   const [authView, setAuthView] = useState<AuthView>('login');
   const [contentAnimation, setContentAnimation] = useState<ContentAnimation>('idle');
@@ -57,13 +59,18 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose }) => {
   }, [isOpen, closePanel]);
 
   useEffect(() => {
-    if (isOpen) return;
+    if (isOpen) {
+      setAuthView(initialView);
+      setContentAnimation('idle');
+      contentScrollRef.current?.scrollTo(0, 0);
+      return;
+    }
     if (transitionTimer.current !== null) window.clearTimeout(transitionTimer.current);
     transitionTimer.current = null;
     transitionLocked.current = false;
     setAuthView('login');
     setContentAnimation('idle');
-  }, [isOpen]);
+  }, [isOpen, initialView]);
 
   useEffect(() => () => {
     if (transitionTimer.current !== null) window.clearTimeout(transitionTimer.current);
@@ -389,7 +396,9 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose }) => {
                 aria-hidden={authView !== 'signup'}
               >
                 <SignupForm
+                  key={`${isOpen ? 'open' : 'closed'}-${initialRole}`}
                   redirect={redirect}
+                  initialRole={initialRole}
                   onSwitchToLogin={() => switchAuthView('login')}
                 />
               </div>

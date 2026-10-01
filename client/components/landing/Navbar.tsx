@@ -6,11 +6,11 @@ interface NavbarProps {
   isAuthOpen: boolean;
   onOpenAuth: () => void;
   onCloseAuth: () => void;
-  onOpenRoleModal: () => void;
+  onOpenSignup: () => void;
   onTryElie: (e: React.MouseEvent) => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ isAuthOpen, onOpenAuth, onCloseAuth, onOpenRoleModal, onTryElie }) => {
+export const Navbar: React.FC<NavbarProps> = ({ isAuthOpen, onOpenAuth, onCloseAuth, onOpenSignup, onTryElie }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
@@ -87,7 +87,7 @@ export const Navbar: React.FC<NavbarProps> = ({ isAuthOpen, onOpenAuth, onCloseA
         )}
         <button
           type="button"
-          onClick={onOpenRoleModal}
+          onClick={onOpenSignup}
           className="landing-cta text-sm font-medium bg-[#181513] text-[#faf8f5] px-5 py-2.5 rounded-full shadow-sm flex items-center gap-1.5 whitespace-nowrap shrink-0"
         >
           <span>Get started</span>
@@ -98,7 +98,7 @@ export const Navbar: React.FC<NavbarProps> = ({ isAuthOpen, onOpenAuth, onCloseA
       <div className="hero-header-mobile flex md:hidden items-center gap-2.5 shrink-0">
         <button
           type="button"
-          onClick={onOpenRoleModal}
+          onClick={onOpenSignup}
           className="landing-cta text-xs font-medium bg-[#181513] text-[#faf8f5] px-3.5 py-2 rounded-full whitespace-nowrap"
         >
           Get started
@@ -183,7 +183,7 @@ export const Navbar: React.FC<NavbarProps> = ({ isAuthOpen, onOpenAuth, onCloseA
               type="button"
               onClick={() => {
                 setMobileMenuOpen(false);
-                onOpenRoleModal();
+                onOpenSignup();
               }}
               className="landing-cta text-center text-sm font-medium bg-[#181513] text-[#faf8f5] py-2.5 rounded-full"
             >
