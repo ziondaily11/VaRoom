@@ -185,6 +185,9 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, onOpenRol
                 <Lock size={12} />
                 Secure access
               </p>
+              <p className="mb-1 hidden text-lg font-medium tracking-[-0.02em] text-[#d9d2c9]/80 md:block">
+                Welcome back
+              </p>
               <h2 id="auth-panel-title" className="text-3xl font-semibold tracking-[-0.04em] text-[#f4efe9]">
                 Log in to VaRoom.
               </h2>
@@ -210,7 +213,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, onOpenRol
                   Email
                 </label>
                 <div className="relative">
-                  <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#d7d2ca]/70" />
+                  <Mail className="pointer-events-none absolute inset-y-0 left-3 my-auto h-4 w-4 text-[#d7d2ca]/70" />
                   <input
                     id="landing-email"
                     type="email"
@@ -222,7 +225,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, onOpenRol
                     onBlur={() => setFieldErrorState('email', !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) ? 'Please enter a valid email' : '')}
                     placeholder="you@example.com"
                     autoComplete="email"
-                    className={`w-full rounded-2xl border bg-[#f5efe8]/8 py-3.5 pl-10 pr-3 text-sm text-[#f5efe8] placeholder:text-[#d3c7ba]/55 outline-none transition ${
+                    className={`h-14 w-full rounded-2xl border bg-[#f5efe8]/8 py-0 pl-10 pr-10 text-sm leading-5 text-[#f5efe8] placeholder:text-[#d3c7ba]/55 outline-none transition ${
                       emailError ? 'border-[#efb6ae] focus:border-[#efb6ae]' : 'border-white/10 focus:border-[#dde3d6]/45'
                     }`}
                     aria-invalid={Boolean(emailError)}
@@ -253,7 +256,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, onOpenRol
                 </div>
 
                 <div className="relative">
-                  <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#d7d2ca]/70" />
+                  <Lock className="pointer-events-none absolute inset-y-0 left-3 my-auto h-4 w-4 text-[#d7d2ca]/70" />
                   <input
                     id="landing-password"
                     type={showPassword ? 'text' : 'password'}
@@ -265,7 +268,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, onOpenRol
                     onBlur={() => setFieldErrorState('password', !password ? 'Please enter your password' : '')}
                     placeholder="Enter your password"
                     autoComplete="current-password"
-                    className={`w-full rounded-2xl border bg-[#f5efe8]/8 py-3.5 pl-10 pr-11 text-sm text-[#f5efe8] placeholder:text-[#d3c7ba]/55 outline-none transition ${
+                    className={`h-14 w-full rounded-2xl border bg-[#f5efe8]/8 py-0 pl-10 pr-10 text-sm leading-5 text-[#f5efe8] placeholder:text-[#d3c7ba]/55 outline-none transition ${
                       passwordError ? 'border-[#efb6ae] focus:border-[#efb6ae]' : 'border-white/10 focus:border-[#dde3d6]/45'
                     }`}
                     aria-invalid={Boolean(passwordError)}
@@ -275,7 +278,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, onOpenRol
                     type="button"
                     aria-label={showPassword ? 'Hide password' : 'Show password'}
                     onClick={() => setShowPassword((value) => !value)}
-                    className="absolute right-3 top-1/2 flex -translate-y-1/2 items-center justify-center rounded-full p-1 text-[#d7d2ca] transition hover:text-white"
+                    className="absolute inset-y-0 right-2 my-auto flex h-8 w-8 items-center justify-center rounded-md border-0 bg-transparent p-0 text-[#d7d2ca] transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-white/60"
                   >
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
