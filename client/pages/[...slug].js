@@ -7,6 +7,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { createRoot } from 'react-dom/client';
 import { useEffect, useRef } from 'react';
 import ElieIcon from '../components/ElieIcon';
+import { ThinkingOrb } from 'thinking-orbs';
 
 const templateDirectory = path.join(process.cwd(), 'legacy-pages');
 const routeAliases = {
@@ -196,6 +197,7 @@ export default function LegacyPage({ title, markup, scripts }) {
   useEffect(() => {
     let cancelled = false;
     const avatarRoots = new Map();
+    const orbRoots = new Map();
     const mountAvatars = (node) => {
       if (!node || node.nodeType !== Node.ELEMENT_NODE) return;
       const avatars = [];
@@ -217,17 +219,45 @@ export default function LegacyPage({ title, markup, scripts }) {
         );
       });
     };
+    const mountOrbs = (node) => {
+      if (!node || node.nodeType !== Node.ELEMENT_NODE) return;
+      const orbs = [];
+      if (node.matches('[data-thinking-orb]')) orbs.push(node);
+      orbs.push(...node.querySelectorAll('[data-thinking-orb]'));
+
+      orbs.forEach((orb) => {
+        if (orbRoots.has(orb)) return;
+        const root = createRoot(orb);
+        orbRoots.set(orb, root);
+        root.render(
+          React.createElement(ThinkingOrb, {
+            state: 'connecting',
+            size: 20,
+            'aria-label': 'Signing you in',
+          })
+        );
+      });
+    };
     const avatarObserver = new MutationObserver((records) => {
-      records.forEach((record) => record.addedNodes.forEach(mountAvatars));
+      records.forEach((record) => record.addedNodes.forEach((node) => {
+        mountAvatars(node);
+        mountOrbs(node);
+      }));
       avatarRoots.forEach((root, avatar) => {
         if (avatar.isConnected) return;
         root.unmount();
         avatarRoots.delete(avatar);
       });
+      orbRoots.forEach((root, orb) => {
+        if (orb.isConnected) return;
+        root.unmount();
+        orbRoots.delete(orb);
+      });
     });
     if (containerRef.current) {
       avatarObserver.observe(containerRef.current, { childList: true, subtree: true });
       mountAvatars(containerRef.current);
+      mountOrbs(containerRef.current);
     }
 
     const loadPageScripts = async () => {
@@ -256,6 +286,8 @@ export default function LegacyPage({ title, markup, scripts }) {
       avatarObserver.disconnect();
       avatarRoots.forEach((root) => root.unmount());
       avatarRoots.clear();
+      orbRoots.forEach((root) => root.unmount());
+      orbRoots.clear();
     };
   }, [scripts]);
 

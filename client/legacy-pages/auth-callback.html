@@ -47,10 +47,11 @@
     color:#5c584f; margin-top:-.2rem;
   }
 
+  .loading-orb{ width:20px; height:20px; margin-top:.2rem; }
   .loading-spinner{
     width:22px; height:22px; border-radius:50%;
     border:2.5px solid rgba(26,18,16,.12); border-top-color:var(--red);
-    animation:spin .8s linear infinite; margin-top:.2rem;
+    animation:spin .8s linear infinite;
   }
   @keyframes spin{ to{ transform:rotate(360deg); } }
 
@@ -122,7 +123,9 @@
     </div>
     <p class="brand-tagline">Find. List. Book.</p>
     <p class="loading-text" id="loading-text">Signing you in…</p>
-    <div class="loading-spinner" aria-hidden="true"></div>
+    <div class="loading-orb" data-thinking-orb="true">
+      <div class="loading-spinner" aria-hidden="true"></div>
+    </div>
   </div>
 
   <div id="role-picker" style="display:none; width:100%;">
