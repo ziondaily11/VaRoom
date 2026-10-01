@@ -164,20 +164,24 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
               opacity: 0.15;
             }
           }
-          @keyframes placesEnterAnim {
-            0% {
-              transform: translateY(30px);
-              opacity: 0.85;
-            }
-            100% {
-              transform: translateY(0);
-              opacity: 1;
-            }
-          }
           @keyframes placesCardEnter {
             from {
               opacity: 0;
               transform: translate3d(0, 18px, 0);
+            }
+            to {
+              opacity: 1;
+              transform: translate3d(0, 0, 0);
+            }
+          }
+          @keyframes placesCharacterReveal {
+            from { opacity: 0; }
+            to { opacity: 1; }
+          }
+          @keyframes placesSupportReveal {
+            from {
+              opacity: 0;
+              transform: translate3d(0, 5px, 0);
             }
             to {
               opacity: 1;
@@ -263,31 +267,28 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
           .places-listing-card:hover {
             translate: 0 -4px;
           }
+          .places-section.is-entered .places-heading-char {
+            animation: placesCharacterReveal 90ms ease-out both;
+          }
+          .places-section.is-entered .places-supporting-copy {
+            animation: placesSupportReveal 450ms cubic-bezier(0.22, 1, 0.36, 1) 1120ms both;
+          }
+          .places-section.is-entered .places-listing-card,
+          .places-section.is-entered .places-marketplace-cta {
+            animation: placesCardEnter 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+          }
+          .places-section.is-entered .places-listing-card:nth-child(1) { animation-delay: 1600ms; }
+          .places-section.is-entered .places-listing-card:nth-child(2) { animation-delay: 1670ms; }
+          .places-section.is-entered .places-listing-card:nth-child(3) { animation-delay: 1740ms; }
+          .places-section.is-entered .places-listing-card:nth-child(4) { animation-delay: 1810ms; }
+          .places-section.is-entered .places-listing-card:nth-child(5) { animation-delay: 1880ms; }
+          .places-section.is-entered .places-listing-card:nth-child(6) { animation-delay: 1950ms; }
+          .places-section.is-entered .places-marketplace-cta { animation-delay: 2700ms; }
           @supports (animation-timeline: view()) {
             .hero-animated-content {
               animation: heroExitAnim linear both;
               animation-timeline: view();
               animation-range: exit 0% exit 100%;
-            }
-            .places-animated-content {
-              animation: placesEnterAnim linear both;
-              animation-timeline: view();
-              animation-range: entry 0% entry 100%;
-            }
-            .places-listing-card,
-            .places-marketplace-cta {
-              animation: placesCardEnter 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
-              animation-timeline: view();
-              animation-range: entry 0% entry 45%;
-            }
-            .places-listing-card:nth-child(2) { animation-delay: 70ms; }
-            .places-listing-card:nth-child(3) { animation-delay: 140ms; }
-            .places-listing-card:nth-child(4) { animation-delay: 210ms; }
-            .places-listing-card:nth-child(5) { animation-delay: 280ms; }
-            .places-listing-card:nth-child(6) { animation-delay: 350ms; }
-            .places-marketplace-cta {
-              animation-delay: 500ms;
-              animation-range: entry 0% entry 35%;
             }
           }
           @media (prefers-reduced-motion: reduce) {
@@ -307,9 +308,10 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
             .hero-trust-bookings,
             .hero-trust-divider,
             .hero-animated-content,
-            .places-animated-content,
             .places-listing-card,
-            .places-marketplace-cta {
+            .places-marketplace-cta,
+            .places-heading-char,
+            .places-supporting-copy {
               animation: none !important;
               transform: none !important;
               opacity: 1 !important;

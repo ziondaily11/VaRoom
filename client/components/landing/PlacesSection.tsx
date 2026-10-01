@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import landing2 from '../../assets/landing2a.jpg';
 import {
@@ -87,11 +87,34 @@ function getAmenityMeta(key: string): AmenityMeta | null {
 export const PlacesSection: React.FC<PlacesSectionProps> = ({ listings }) => {
   // Always display up to 6 real listings from the database
   const visibleListings = (listings || []).slice(0, 6);
+  const sectionRef = useRef<HTMLElement>(null);
+  const [hasEnteredViewport, setHasEnteredViewport] = useState(false);
+
+  useEffect(() => {
+    const section = sectionRef.current;
+    if (!section || hasEnteredViewport) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setHasEnteredViewport(true);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.15 },
+    );
+
+    observer.observe(section);
+    return () => observer.disconnect();
+  }, [hasEnteredViewport]);
+
+  const heading = 'Places worth discovering.';
 
   return (
     <section
+      ref={sectionRef}
       id="places-section"
-      className="places-section relative z-20 w-full max-w-full min-h-screen box-border flex flex-col justify-center items-center px-4 sm:px-8 md:px-12 lg:px-16 snap-page py-8 sm:py-10 overflow-visible places-animated-content"
+      className={`places-section relative z-20 w-full max-w-full min-h-screen box-border flex flex-col justify-center items-center px-4 sm:px-8 md:px-12 lg:px-16 snap-page py-8 sm:py-10 overflow-visible${hasEnteredViewport ? ' is-entered' : ''}`}
       style={{
         backgroundImage: `url("${landing2.src}")`,
         backgroundPosition: 'center top',
@@ -102,10 +125,22 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ listings }) => {
         {/* Compact Header: title & link (moves naturally directly into listing grid) */}
         <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-2.5 sm:mb-3 gap-2">
           <div>
-            <h2 className="font-sans font-bold text-2xl sm:text-3xl text-[#181513] tracking-tight">
-              Places worth discovering.
+            <h2
+              aria-label={heading}
+              className="places-heading font-sans font-bold text-2xl sm:text-3xl text-[#181513] tracking-tight"
+            >
+              {Array.from(heading).map((character, index) => (
+                <span
+                  key={index}
+                  aria-hidden="true"
+                  className="places-heading-char"
+                  style={{ animationDelay: `${index * 42}ms` }}
+                >
+                  {character}
+                </span>
+              ))}
             </h2>
-            <p className="mt-0.5 text-xs sm:text-sm text-[#594f47] max-w-md">
+            <p className="places-supporting-copy mt-0.5 text-xs sm:text-sm text-[#594f47] max-w-md">
               Explore stays, spaces and experiences available on VaRoom.
             </p>
           </div>
