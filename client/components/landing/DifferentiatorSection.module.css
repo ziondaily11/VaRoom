@@ -1,0 +1,125 @@
+.label,
+.supportingCopy,
+.card,
+.cardIcon,
+.cardTitle,
+.cardDescription {
+  opacity: 0;
+}
+
+.headline {
+  clip-path: inset(0 100% 0 0);
+}
+
+.card {
+  transform: translate3d(0, 12px, 0);
+}
+
+.cardIcon {
+  transform: scale(0.96);
+}
+
+.cardTitle,
+.cardDescription {
+  transform: translate3d(0, 10px, 0);
+}
+
+.isEntered .label {
+  animation: labelReveal 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.isEntered .headline {
+  animation: headlineReveal 800ms cubic-bezier(0.22, 1, 0.36, 1) 80ms both;
+}
+
+.isEntered .supportingCopy {
+  animation: fadeUp 400ms cubic-bezier(0.22, 1, 0.36, 1) 680ms both;
+}
+
+.isEntered .card {
+  animation: cardReveal 460ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.isEntered .cardIcon {
+  animation: iconReveal 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--card-delay, 0ms) + 70ms);
+}
+
+.isEntered .cardTitle {
+  animation: fadeUp 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--card-delay, 0ms) + 145ms);
+}
+
+.isEntered .cardDescription {
+  animation: fadeUp 400ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--card-delay, 0ms) + 220ms);
+}
+
+.card:nth-child(1) { --card-delay: 1050ms; }
+.card:nth-child(2) { --card-delay: 1210ms; }
+.card:nth-child(3) { --card-delay: 1370ms; }
+.card:nth-child(4) { --card-delay: 1530ms; }
+
+@keyframes labelReveal {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 4px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes headlineReveal {
+  from { clip-path: inset(0 100% 0 0); }
+  to { clip-path: inset(0 0 0 0); }
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes cardReveal {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 12px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes iconReveal {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .label,
+  .headline,
+  .supportingCopy,
+  .card,
+  .cardIcon,
+  .cardTitle,
+  .cardDescription {
+    animation: none !important;
+    clip-path: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
