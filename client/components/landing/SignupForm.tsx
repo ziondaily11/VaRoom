@@ -331,7 +331,7 @@ export const SignupForm: React.FC<SignupFormProps> = ({ redirect, initialRole, o
                   }}
                   autoComplete="name"
                   placeholder="Full name"
-                  className={`h-14 w-full rounded-2xl border bg-[#f5efe8]/8 py-0 pl-10 pr-3 text-sm leading-5 text-[#f5efe8] placeholder:text-[#d3c7ba]/55 outline-none transition ${fieldErrors.fullName ? 'border-[#efb6ae]' : 'border-white/10 focus:border-[#dde3d6]/45'}`}
+                  className={`auth-control h-14 w-full rounded-2xl border bg-[#f5efe8]/8 py-0 pl-10 pr-3 text-sm leading-5 text-[#f5efe8] placeholder:text-[#d3c7ba]/55 outline-none transition ${fieldErrors.fullName ? 'border-[#efb6ae]' : 'border-white/10 focus:border-[#dde3d6]/45'}`}
                   aria-invalid={Boolean(fieldErrors.fullName)}
                 />
               </div>
@@ -352,7 +352,7 @@ export const SignupForm: React.FC<SignupFormProps> = ({ redirect, initialRole, o
                   }}
                   autoComplete="email"
                   placeholder="you@example.com"
-                  className={`h-14 w-full rounded-2xl border bg-[#f5efe8]/8 py-0 pl-10 pr-3 text-sm leading-5 text-[#f5efe8] placeholder:text-[#d3c7ba]/55 outline-none transition ${fieldErrors.email ? 'border-[#efb6ae]' : 'border-white/10 focus:border-[#dde3d6]/45'}`}
+                  className={`auth-control h-14 w-full rounded-2xl border bg-[#f5efe8]/8 py-0 pl-10 pr-3 text-sm leading-5 text-[#f5efe8] placeholder:text-[#d3c7ba]/55 outline-none transition ${fieldErrors.email ? 'border-[#efb6ae]' : 'border-white/10 focus:border-[#dde3d6]/45'}`}
                   aria-invalid={Boolean(fieldErrors.email)}
                 />
               </div>
@@ -371,7 +371,7 @@ export const SignupForm: React.FC<SignupFormProps> = ({ redirect, initialRole, o
                   autoComplete="new-password"
                   placeholder="Password"
                   aria-describedby="signup-password-requirements"
-                  className={`h-14 w-full rounded-2xl border bg-[#f5efe8]/8 py-0 pl-10 pr-12 text-sm leading-5 text-[#f5efe8] placeholder:text-[#d3c7ba]/55 outline-none transition ${fieldErrors.password ? 'border-[#efb6ae]' : 'border-white/10 focus:border-[#dde3d6]/45'}`}
+                  className={`auth-control auth-control--trailing-icon h-14 w-full rounded-2xl border bg-[#f5efe8]/8 py-0 pl-10 pr-12 text-sm leading-5 text-[#f5efe8] placeholder:text-[#d3c7ba]/55 outline-none transition ${fieldErrors.password ? 'border-[#efb6ae]' : 'border-white/10 focus:border-[#dde3d6]/45'}`}
                   aria-invalid={Boolean(fieldErrors.password)}
                 />
                 <button type="button" aria-label={showPassword ? 'Hide password' : 'Show password'} onClick={() => setShowPassword((current) => !current)} className="absolute inset-y-0 right-2 my-auto flex h-8 w-8 items-center justify-center rounded-md border-0 bg-transparent p-0 text-[#d7d2ca] transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-white/60">
@@ -407,7 +407,7 @@ export const SignupForm: React.FC<SignupFormProps> = ({ redirect, initialRole, o
                   }}
                   autoComplete="new-password"
                   placeholder="Confirm password"
-                  className={`h-14 w-full rounded-2xl border bg-[#f5efe8]/8 py-0 pl-10 pr-12 text-sm leading-5 text-[#f5efe8] placeholder:text-[#d3c7ba]/55 outline-none transition disabled:cursor-not-allowed disabled:opacity-50 ${fieldErrors.confirmPassword ? 'border-[#efb6ae]' : 'border-white/10 focus:border-[#dde3d6]/45'}`}
+                  className={`auth-control auth-control--trailing-icon h-14 w-full rounded-2xl border bg-[#f5efe8]/8 py-0 pl-10 pr-12 text-sm leading-5 text-[#f5efe7] placeholder:text-[#d3c7ba]/55 outline-none transition disabled:cursor-not-allowed disabled:opacity-50 ${fieldErrors.confirmPassword ? 'border-[#efb6ae]' : 'border-white/10 focus:border-[#dde3d6]/45'}`}
                   aria-invalid={Boolean(fieldErrors.confirmPassword)}
                 />
                 <button type="button" aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'} onClick={() => setShowConfirmPassword((current) => !current)} disabled={!passwordIsStrong} className="absolute inset-y-0 right-2 my-auto flex h-8 w-8 items-center justify-center rounded-md border-0 bg-transparent p-0 text-[#d7d2ca] transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-white/60 disabled:pointer-events-none">
@@ -417,15 +417,15 @@ export const SignupForm: React.FC<SignupFormProps> = ({ redirect, initialRole, o
               {fieldErrors.confirmPassword && <p className="mt-1 text-xs text-[#f3c0b6]">{fieldErrors.confirmPassword}</p>}
             </div>
 
-            <label htmlFor="signup-agree" className="flex items-start gap-2.5 text-xs leading-relaxed text-[#d9d2c9]/80">
+            <label htmlFor="signup-agree" className="auth-consent text-xs text-[#d9d2c9]/80">
               <input
                 id="signup-agree"
                 type="checkbox"
                 checked={agreed}
                 onChange={(event) => setAgreed(event.target.checked)}
-                className="mt-0.5 h-4 w-4 shrink-0 accent-[#f0e5d9]"
+                className="auth-consent-checkbox mt-0.5 h-4 w-4 shrink-0 accent-[#f0e5d9]"
               />
-              <span>I agree to the <a href="/privacy" className="text-[#f5efe7] underline underline-offset-2">Privacy Policy</a> and <a href="/terms" className="text-[#f5efe7] underline underline-offset-2">Terms of Service</a>.</span>
+              <span className="auth-consent-copy">I agree to the <a href="/privacy" className="text-[#f5efe7] underline underline-offset-2">Privacy Policy</a> and <a href="/terms" className="text-[#f5efe7] underline underline-offset-2">Terms of Service</a>.</span>
             </label>
 
             <button type="submit" disabled={!canSubmit} className="flex h-12 w-full items-center justify-center gap-2 rounded-lg border border-white/10 bg-[#111111] px-4 text-sm font-semibold text-[#f7f3ee] transition-colors duration-200 hover:bg-[#292827] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/70 disabled:cursor-not-allowed disabled:opacity-50">
