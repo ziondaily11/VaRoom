@@ -1,0 +1,96 @@
+.label {
+  opacity: 0;
+}
+
+.headline {
+  clip-path: inset(0 100% 0 0);
+}
+
+.number {
+  opacity: 0;
+}
+
+.numberFrame {
+  animation: numberFrameReveal 120ms ease-out both;
+}
+
+.stepTitle,
+.stepDescription {
+  opacity: 0;
+  transform: translate3d(0, 10px, 0);
+}
+
+.isEntered .label {
+  animation: labelReveal 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.isEntered .headline {
+  animation: headlineReveal 900ms cubic-bezier(0.22, 1, 0.36, 1) 120ms both;
+}
+
+.numberActive {
+  animation: numberReveal 180ms ease-out both;
+}
+
+.contentRevealed.stepTitle {
+  animation: contentReveal 380ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.contentRevealed.stepDescription {
+  animation: contentReveal 420ms cubic-bezier(0.22, 1, 0.36, 1) 100ms both;
+}
+
+@keyframes labelReveal {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 5px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes headlineReveal {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+@keyframes numberReveal {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes numberFrameReveal {
+  from { opacity: 0.45; }
+  to { opacity: 1; }
+}
+
+@keyframes contentReveal {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .label,
+  .headline,
+  .number,
+  .numberFrame,
+  .stepTitle,
+  .stepDescription {
+    animation: none !important;
+    clip-path: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
