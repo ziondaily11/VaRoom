@@ -928,7 +928,7 @@
       if (!window.supabase) await loadScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2');
       if (!window.supabaseClient) await loadScript('/js/supabase-client.js');
     } catch (error) {
-      window.location.href = '/login.html';
+      window.location.href = '/login';
       return;
     }
 
@@ -936,7 +936,7 @@
     var sessionResult = await supabaseClient.auth.getSession();
     var session = sessionResult.data && sessionResult.data.session;
     if (!session || !session.user) {
-      window.location.href = '/login.html';
+      window.location.href = '/login';
       return;
     }
 
@@ -946,14 +946,14 @@
       .eq('id', user.id)
       .maybeSingle();
     if (profileResult.error || !profileResult.data) {
-      window.location.href = '/login.html';
+      window.location.href = '/login';
       return;
     }
 
     var profile = profileResult.data;
     var ROLE = profile.role || (user.user_metadata && user.user_metadata.role);
     if (ROLE !== 'host' && ROLE !== 'client') {
-      window.location.href = '/login.html';
+      window.location.href = '/login';
       return;
     }
     if (profile.onboarding_completed) {

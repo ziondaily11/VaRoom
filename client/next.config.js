@@ -12,6 +12,11 @@ module.exports = {
         permanent: true,
       },
       {
+        source: '/login',
+        destination: '/?auth=login',
+        permanent: true,
+      },
+      {
         source: '/signup-host',
         destination: '/?auth=signup&role=host',
         permanent: true,

@@ -36,11 +36,12 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
     setAuthOpen(true);
   }, []);
 
-  // Keep legacy signup links opening the shared authentication shell.
+  // Route legacy auth URLs into the shared authentication shell.
   useEffect(() => {
-    if (router.isReady && (router.query.auth === 'signup' || router.query.signup === '1')) {
-      setInitialAuthView('signup');
-      setSignupRole(router.query.role === 'host' ? 'host' : 'client');
+    if (router.isReady && (router.query.auth === 'login' || router.query.auth === 'signup' || router.query.signup === '1')) {
+      const isSignup = router.query.auth === 'signup' || router.query.signup === '1';
+      setInitialAuthView(isSignup ? 'signup' : 'login');
+      setSignupRole(isSignup && router.query.role === 'host' ? 'host' : 'client');
       setAuthOpen(true);
     }
   }, [router.isReady, router.query.auth, router.query.signup, router.query.role]);

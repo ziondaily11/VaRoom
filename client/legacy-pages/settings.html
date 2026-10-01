@@ -1335,7 +1335,7 @@
     renderDashboardAccounts();
     addAccountButton.addEventListener('click', function(){
       if (!addAccountButton.disabled) {
-        window.location.href = 'login.html?mode=add&redirect=' + encodeURIComponent('/settings');
+        window.VaRoomAccountSwitcher.startAddAccount('/settings');
       }
     });
     deleteReason.addEventListener('change', function(){

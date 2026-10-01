@@ -11,6 +11,7 @@ const templateDirectory = path.join(process.cwd(), 'legacy-pages');
 const routeAliases = {
   properties: 'list.html',
   'landing-page': 'landing page.html',
+  'login.html': 'login.html',
   chat: 'chats.html'
 };
 
@@ -98,6 +99,7 @@ export async function getStaticPaths() {
     }));
 
   paths.push(
+    { params: { slug: ['login.html'] } },
     { params: { slug: ['properties'] } },
     { params: { slug: ['chat'] } }
   );

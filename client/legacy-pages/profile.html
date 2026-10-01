@@ -735,7 +735,7 @@
 
   /* ── Auth ── */
   const { data: { session } } = await supabaseClient.auth.getSession();
-  if (!session) { window.location.href = 'login.html'; return; }
+  if (!session) { window.location.href = '/login'; return; }
   const currentUser = session.user;
 
   /* ── Account switcher (top-right dropdown) ── */
@@ -754,7 +754,7 @@
     .eq('id', currentUser.id)
     .maybeSingle();
   if (currentProfileError || !currentProfile) {
-    window.location.href = 'login.html';
+    window.location.href = '/login';
     return;
   }
   const currentRole = currentProfile.role || 'client';

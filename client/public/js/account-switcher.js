@@ -61,6 +61,11 @@
     return trimmed ? trimmed.charAt(0).toUpperCase() : '?';
   }
 
+  function startAddAccount(redirectPath) {
+    var destination = redirectPath || window.location.pathname;
+    window.location.href = '/login.html?mode=add&redirect=' + encodeURIComponent(destination);
+  }
+
   function escapeHtml(value) {
     return String(value || '').replace(/[&<>"']/g, function (character) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character];
@@ -175,7 +180,7 @@
     dropdownEl.addEventListener('click', async function (event) {
       var addBtn = event.target.closest('#account-add-btn');
       if (addBtn && !addBtn.disabled) {
-        window.location.href = 'login.html?mode=add&redirect=' + encodeURIComponent(redirectPath);
+        startAddAccount(redirectPath);
         return;
       }
       var row = event.target.closest('.account-row');
@@ -208,6 +213,7 @@
     switchAccount: switchAccount,
     removeAccount: removeAccount,
     canAddAccount: function () { return getLinkedAccounts().length < MAX_LINKED_ACCOUNTS; },
+    startAddAccount: startAddAccount,
     init: init
   };
 })();
