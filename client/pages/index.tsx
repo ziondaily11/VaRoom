@@ -128,7 +128,7 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
-          href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@200..900&display=swap"
           rel="stylesheet"
         />
         <style>{`
@@ -387,20 +387,8 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
           .client-section.is-entered .client-card:nth-child(1) { animation-delay: 1180ms; }
           .client-section.is-entered .client-card:nth-child(2) { animation-delay: 1320ms; }
           .client-section.is-entered .client-card:nth-child(3) { animation-delay: 1460ms; }
-          .client-primary-cta,
-          .client-elie-button,
           .client-card {
             transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease;
-          }
-          .client-primary-cta:hover {
-            transform: translateY(-1px);
-          }
-          .client-primary-cta:hover .client-cta-arrow {
-            transform: translateX(2px);
-          }
-          .client-elie-button:hover .client-elie-icon {
-            transform: translateY(-1px) scale(1.08);
-            opacity: 1;
           }
           .client-card:hover {
             transform: translateY(-4px);
@@ -453,16 +441,6 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
             transform: scale(1.04);
             opacity: 1;
           }
-          .host-cta-arrow {
-            transition: transform 180ms ease;
-          }
-          .host-cta a:hover .host-cta-arrow {
-            transform: translateX(2px);
-          }
-          .client-cta-arrow,
-          .client-elie-icon {
-            transition: transform 180ms ease, opacity 180ms ease;
-          }
           @supports (animation-timeline: view()) {
             .hero-animated-content {
               animation: heroExitAnim linear both;
@@ -510,14 +488,9 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
             .host-section .host-supporting-copy,
             .host-section .host-cta,
             .host-section .host-card,
-            .client-primary-cta,
-            .client-elie-button,
             .client-card-icon,
             .host-card,
-            .host-card-icon,
-            .host-cta-arrow,
-            .client-cta-arrow,
-            .client-elie-icon {
+            .host-card-icon {
               animation: none !important;
               opacity: 1 !important;
               transform: none !important;
@@ -538,6 +511,36 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
             border-bottom: none !important;
             box-shadow: none !important;
           }
+          .landing-page,
+          .landing-page * {
+            font-family: 'Source Serif 4', Georgia, serif !important;
+          }
+          .landing-page .landing-cta {
+            background-image: linear-gradient(rgba(189, 35, 55, 0.2), rgba(189, 35, 55, 0.2));
+            background-repeat: no-repeat;
+            background-size: 0% 100%;
+            transition: background-size 300ms ease, box-shadow 300ms ease, transform 300ms ease;
+          }
+          .landing-page .landing-cta:hover,
+          .landing-page .landing-cta:focus-visible {
+            background-size: 100% 100%;
+            box-shadow: 0 7px 16px rgba(24, 21, 19, 0.14);
+            transform: translateY(-2px);
+          }
+          .landing-page .landing-cta:focus-visible {
+            outline: 2px solid #bd2337;
+            outline-offset: 3px;
+          }
+          @media (prefers-reduced-motion: reduce) {
+            .landing-page .landing-cta {
+              transition: none !important;
+            }
+            .landing-page .landing-cta:hover,
+            .landing-page .landing-cta:focus-visible {
+              background-size: 100% 100%;
+              transform: none;
+            }
+          }
         `}</style>
       </Head>
 
@@ -545,7 +548,7 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
       <Script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" strategy="beforeInteractive" />
       <Script src="/js/supabase-client.js" strategy="beforeInteractive" />
 
-      <main className="min-h-screen w-full max-w-full overflow-x-hidden box-border bg-[#f7f3ec] text-[#181513] font-sans antialiased selection:bg-[#bd2337] selection:text-white">
+      <main className="landing-page min-h-screen w-full max-w-full overflow-x-hidden box-border bg-[#f7f3ec] text-[#181513] font-sans antialiased selection:bg-[#bd2337] selection:text-white">
         {/* Seamless 2-Page Stage: Page 1 (Hero) & Page 2 (Places worth discovering) */}
         <div className="relative w-full">
           {/* Shared Nairobi Illustration Background pinned behind Page 1 and Page 2 */}

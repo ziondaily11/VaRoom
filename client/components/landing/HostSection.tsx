@@ -69,7 +69,7 @@ export const HostSection: React.FC<HostSectionProps> = ({ onTryElie }) => {
           <div className="host-cta mt-8 flex flex-wrap items-center gap-4">
             <Link
               href="/signup-host"
-              className="inline-flex items-center gap-2.5 px-7 py-3.5 rounded-full bg-[#181513] hover:bg-black text-[#faf8f5] text-sm font-medium transition-all duration-200 hover:scale-[1.02] shadow-sm"
+              className="landing-cta inline-flex items-center gap-2.5 px-7 py-3.5 rounded-full bg-[#181513] text-[#faf8f5] text-sm font-medium shadow-sm"
             >
               <span>Become a Host</span>
               <ArrowRight size={16} className="host-cta-arrow" />
@@ -77,7 +77,7 @@ export const HostSection: React.FC<HostSectionProps> = ({ onTryElie }) => {
             <a
               href="/login"
               onClick={onTryElie}
-              className="inline-flex items-center gap-2 px-6 py-3.5 rounded-full border border-[#2d2724]/20 hover:border-[#181513] text-[#181513] text-sm font-medium transition-colors"
+              className="landing-cta inline-flex items-center gap-2 px-6 py-3.5 rounded-full border border-[#2d2724]/20 text-[#181513] text-sm font-medium"
             >
               <Bot size={16} className="text-[#bd2337]" />
               <span>Meet Elie AI Co-Host</span>

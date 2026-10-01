@@ -147,11 +147,11 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ listings }) => {
 
           <Link
             href="/marketplace"
-            className="group inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-[#181513] hover:text-[#bd2337] transition-colors no-underline shrink-0"
+            className="landing-cta inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-[#181513] no-underline shrink-0"
             style={{ textDecoration: 'none' }}
           >
             <span>Browse full marketplace</span>
-            <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
+            <ArrowRight size={14} />
           </Link>
         </div>
 
@@ -277,11 +277,11 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ listings }) => {
         <div className="places-marketplace-cta mt-5 sm:mt-6 text-center">
           <Link
             href="/marketplace"
-            className="group inline-flex items-center gap-2 px-5 py-2 sm:px-6 sm:py-2.5 rounded-full bg-[#181513] hover:bg-black text-[#faf8f5] font-medium text-xs sm:text-sm transition-colors duration-200 shadow-xs no-underline"
+            className="landing-cta inline-flex items-center gap-2 px-5 py-2 sm:px-6 sm:py-2.5 rounded-full bg-[#181513] text-[#faf8f5] font-medium text-xs sm:text-sm shadow-xs no-underline"
             style={{ textDecoration: 'none' }}
           >
             <span>Explore all stays & spaces across Kenya</span>
-            <ArrowRight size={14} className="transition-transform duration-200 group-hover:translate-x-1" />
+            <ArrowRight size={14} />
           </Link>
         </div>
       </div>
