@@ -8,7 +8,7 @@
   'use strict';
 
   var ICONS = {
-    elie: '<img src="/assets/elielogo.jpg" width="22" height="22" class="elie-icon" alt="Elie">',
+    elie: '<span data-elie-bot-avatar="true" data-avatar-size="22" class="elie-logo-nav" aria-label="Elie, AI assistant"></span>',
     home: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9a1 1 0 0 0 1 1H9v-4a1 1 0 0 1 1-1h2a1 0 0 0 1 1v4h2.5a1 1 0 0 0 1-1v-9"/></svg>',
     marketplace: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m15 9-2 6-6 2 2-6 6-2Z"/></svg>',
     saved: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h12a1 1 0 0 1 1 1V21l-7-4-7 4V4.5a1 1 0 0 1 1-1Z"/></svg>',
@@ -41,7 +41,7 @@
 
       '<nav class="nav-group">',
       '  <a href="/chats?conversation=elie" class="' + itemClass(activeNav === 'elie') + '">',
-      '    <span data-elie-icon aria-label="Elie" class="elie-logo-nav">' + ICONS.elie + '</span>',
+      '    ' + ICONS.elie,
       '    Elie',
       '    <span class="beta-pill">Free preview</span>',
       '  </a>',
@@ -119,7 +119,7 @@
 
       '<nav class="nav-group">',
       '  <a href="/chats?conversation=elie" class="' + itemClass(activeNav === 'elie') + '">',
-      '    <span data-elie-icon aria-label="Elie" class="elie-logo-nav">' + ICONS.elie + '</span>',
+      '    ' + ICONS.elie,
       '    Elie',
       '    <span class="beta-pill">Free preview</span>',
       '  </a>',

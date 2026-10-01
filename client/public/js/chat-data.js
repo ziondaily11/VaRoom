@@ -6,6 +6,7 @@
   const state = { session: null, role: 'client', conversations: [], activeId: null, channel: null, channelGeneration: 0, selectionGeneration: 0, onlineConversationIds: new Set(), listings: [], pendingAttachment: null, replyToMessage: null, messageMenu: null, messageMenuCleanup: null, mobileView: 'inbox', mobileInfoReturn: 'conversation', elie: { sessionId: null, history: [] } };
   const isMobile = () => window.matchMedia('(max-width: 760px)').matches;
   const $ = (selector) => document.querySelector(selector);
+  const elieAvatarMarkup = (size) => `<span data-elie-bot-avatar="true" data-avatar-size="${size}" class="elie-icon" aria-label="Elie, AI assistant"></span>`;
   const api = async (url, options) => {
     const response = await fetch(url, {
       ...options,
@@ -542,7 +543,7 @@
         <div class="contact-bottom"><span class="contact-preview"></span></div></div>
         <button class="conversation-menu" type="button" aria-label="Conversation actions" title="Conversation actions"><svg class="icon"><use href="#i-more"/></svg></button>`;
       if (conversation.isElie) {
-        item.querySelector('.avatar-fallback').innerHTML = '<img src="/assets/elielogo.jpg" alt="" style="width:100%;height:100%;object-fit:contain">';
+        item.querySelector('.avatar-fallback').innerHTML = elieAvatarMarkup(40);
         item.querySelector('.avatar-fallback').style.background = '#f6f7f9';
       } else setAvatar(item.querySelector('.avatar-fallback'), person);
       item.querySelector('.contact-name').textContent = person.full_name || person.username || '';
@@ -587,7 +588,10 @@
     const avatar = document.createElement('div');
     avatar.className = 'avatar-fallback';
     avatar.style.background = '#14161c';
-    setAvatar(avatar, person);
+    if (conversation.isElie) {
+      avatar.innerHTML = elieAvatarMarkup(40);
+      avatar.style.background = '#f6f7f9';
+    } else setAvatar(avatar, person);
     const name = document.createElement('div');
     name.className = 'p-name';
     name.textContent = person.full_name || person.username || '';
@@ -1054,7 +1058,7 @@
     $('#chatName').textContent = 'Elie'; $('#statusText').textContent = 'Your VaRoom search assistant'; $('#statusDot').classList.remove('online');
     const historyButton = document.querySelector('.chat-header-actions button:last-child');
     if (historyButton) { historyButton.title = 'Recent Elie chats'; historyButton.setAttribute('aria-label', 'Recent Elie chats'); historyButton.innerHTML = '<svg class="icon"><circle cx="12" cy="12" r="8"></circle><path d="M12 7v5l3 2"></path></svg>'; }
-    const avatar = $('.chat-header-avatar-wrap .avatar-fallback'); if (avatar) { avatar.style.background = '#f6f7f9'; avatar.innerHTML = '<img src="/assets/elielogo.jpg" alt="" style="width:100%;height:100%;object-fit:contain">'; }
+    const avatar = $('.chat-header-avatar-wrap .avatar-fallback'); if (avatar) { avatar.style.background = '#f6f7f9'; avatar.innerHTML = elieAvatarMarkup(40); }
     renderElieInformation(); $('.info-col').classList.add('collapsed'); renderElieIntro();
     if (isMobile()) showMobileConversation();
   }
@@ -1064,7 +1068,7 @@
     if (block) {
       clear(block);
       const avatar = document.createElement('div'); avatar.className = 'avatar-fallback'; avatar.style.background = '#f6f7f9';
-      avatar.innerHTML = '<img src="/assets/elielogo.jpg" alt="Elie" style="width:100%;height:100%;object-fit:contain">';
+      avatar.innerHTML = elieAvatarMarkup(40);
       const name = document.createElement('div'); name.className = 'p-name'; name.textContent = 'Elie';
       const label = document.createElement('div'); label.className = 'p-line'; label.textContent = 'Your VaRoom search assistant';
       block.append(avatar, name, label);

@@ -4,6 +4,7 @@ import Head from 'next/head';
 import Script from 'next/script';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { createRoot } from 'react-dom/client';
 import { useEffect, useRef } from 'react';
 import ElieIcon from '../components/ElieIcon';
 
@@ -36,12 +37,19 @@ function renderLegacyElieIcon(attributes) {
   const className = (attributes.match(/\bclass=["']([^"']*)["']/i) || [])[1] || '';
   const style = (attributes.match(/\bstyle=["']([^"']*)["']/i) || [])[1] || '';
   const alt = (attributes.match(/\b(?:alt|aria-label)=["']([^"']*)["']/i) || [])[1] || '';
+  const size = className.includes('elie-logo-header')
+    ? 34
+    : className.includes('elie-logo-nav')
+      ? 22
+      : 34;
 
   return renderToStaticMarkup(
-    React.createElement(ElieIcon, {
+    React.createElement('span', {
       className,
       style: style ? styleStringToObject(style) : undefined,
-      'aria-label': alt || undefined,
+      'aria-label': alt || 'Elie, AI assistant',
+      'data-elie-bot-avatar': 'true',
+      'data-avatar-size': String(size),
     })
   );
 }
@@ -186,6 +194,40 @@ export default function LegacyPage({ title, markup, scripts }) {
 
   useEffect(() => {
     let cancelled = false;
+    const avatarRoots = new Map();
+    const mountAvatars = (node) => {
+      if (!node || node.nodeType !== Node.ELEMENT_NODE) return;
+      const avatars = [];
+      if (node.matches('[data-elie-bot-avatar]')) avatars.push(node);
+      avatars.push(...node.querySelectorAll('[data-elie-bot-avatar]'));
+
+      avatars.forEach((avatar) => {
+        if (avatarRoots.has(avatar)) return;
+        const root = createRoot(avatar);
+        avatarRoots.set(avatar, root);
+        root.render(
+          React.createElement(ElieIcon, {
+            size: Number(avatar.getAttribute('data-avatar-size')) || 24,
+            className: 'elie-icon',
+            state: avatar.getAttribute('data-avatar-state') || 'default',
+            'aria-label': avatar.getAttribute('aria-label') || 'Elie, AI assistant',
+          })
+        );
+      });
+    };
+    const avatarObserver = new MutationObserver((records) => {
+      records.forEach((record) => record.addedNodes.forEach(mountAvatars));
+      avatarRoots.forEach((root, avatar) => {
+        if (avatar.isConnected) return;
+        root.unmount();
+        avatarRoots.delete(avatar);
+      });
+    });
+    if (containerRef.current) {
+      avatarObserver.observe(containerRef.current, { childList: true, subtree: true });
+      mountAvatars(containerRef.current);
+    }
+
     const loadPageScripts = async () => {
       await runLegacyScripts(containerRef.current, scripts);
       if (cancelled || title !== 'Messenger Dashboard' || document.querySelector('script[data-chat-data]')) return;
@@ -207,7 +249,12 @@ export default function LegacyPage({ title, markup, scripts }) {
       supabaseScript.addEventListener('error', loadChatData, { once: true });
     };
     loadPageScripts().catch((error) => console.error('Legacy page initialization failed:', error));
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      avatarObserver.disconnect();
+      avatarRoots.forEach((root) => root.unmount());
+      avatarRoots.clear();
+    };
   }, [scripts]);
 
   return (
