@@ -3,11 +3,14 @@ import Link from 'next/link';
 import { Menu, X, ArrowRight } from 'lucide-react';
 
 interface NavbarProps {
+  isAuthOpen: boolean;
+  onOpenAuth: () => void;
+  onCloseAuth: () => void;
   onOpenRoleModal: () => void;
   onTryElie: (e: React.MouseEvent) => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ onOpenRoleModal, onTryElie }) => {
+export const Navbar: React.FC<NavbarProps> = ({ isAuthOpen, onOpenAuth, onCloseAuth, onOpenRoleModal, onTryElie }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
@@ -64,12 +67,24 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenRoleModal, onTryElie }) =>
 
       {/* Right Desktop Actions - Fully visible with generous right spacing, shrink-0 */}
       <div className="hero-header-actions hidden md:flex items-center gap-3 sm:gap-4 shrink-0">
-        <Link
-          href="/login"
-          className="landing-cta text-sm font-medium text-[#2d2724] px-4 py-2 rounded-full border border-[#2d2724]/20 no-underline whitespace-nowrap"
-        >
-          Sign in
-        </Link>
+        {isAuthOpen ? (
+          <button
+            type="button"
+            onClick={onCloseAuth}
+            className="landing-cta text-sm font-medium text-[#2d2724] px-4 py-2 rounded-full border border-[#2d2724]/20 no-underline whitespace-nowrap bg-white/40 backdrop-blur-sm"
+            aria-label="Close sign in"
+          >
+            Close
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={onOpenAuth}
+            className="landing-cta text-sm font-medium text-[#2d2724] px-4 py-2 rounded-full border border-[#2d2724]/20 no-underline whitespace-nowrap bg-white/40 backdrop-blur-sm"
+          >
+            Sign in
+          </button>
+        )}
         <button
           type="button"
           onClick={onOpenRoleModal}
@@ -141,13 +156,29 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenRoleModal, onTryElie }) =>
             <ArrowRight size={16} className="text-[#2d2724]/40" />
           </a>
           <div className="pt-2 flex flex-col gap-2.5">
-            <Link
-              href="/login"
-              onClick={() => setMobileMenuOpen(false)}
-              className="landing-cta text-center text-sm font-medium text-[#181513] py-2.5 rounded-full border border-[#2d2724]/20 no-underline"
-            >
-              Sign in
-            </Link>
+            {isAuthOpen ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  onCloseAuth();
+                }}
+                className="landing-cta text-center text-sm font-medium text-[#181513] py-2.5 rounded-full border border-[#2d2724]/20 no-underline bg-white/40"
+              >
+                Close
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  onOpenAuth();
+                }}
+                className="landing-cta text-center text-sm font-medium text-[#181513] py-2.5 rounded-full border border-[#2d2724]/20 no-underline bg-white/40"
+              >
+                Sign in
+              </button>
+            )}
             <button
               type="button"
               onClick={() => {
