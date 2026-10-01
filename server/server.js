@@ -207,9 +207,16 @@ app.post('/api/account-information/google-verification/complete', async (req, re
 app.get('/api/account-status', async (req, res) => {
   const authHeader = req.headers.authorization || '';
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
-  if (!token) return sendError(res, 401, 'Missing access token', ERROR_CODES.UNAUTHORIZED);
+
+  if (!token) {
+    return res.json({ status: 'active', suspended: false });
+  }
+
   const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
-  if (authError || !user) return sendError(res, 401, 'Invalid or expired session', ERROR_CODES.UNAUTHORIZED);
+  if (authError || !user) {
+    return res.json({ status: 'active', suspended: false });
+  }
+
   const { data, error } = await supabaseAdmin.from('account_controls')
     .select('status,changed_at').eq('user_id', user.id).maybeSingle();
   if (error) return sendError(res, 502, 'Unable to load account status');

@@ -9,9 +9,11 @@
   var allReadIcon = '<svg class="icon mark-all-read-complete-icon" viewBox="0 0 32 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 12 4 4 8-9"/><path d="m14 12 4 4 8-9"/></svg>';
 
   function finishInitialLoad() {
-    document.body.classList.remove('notifications-loading');
-    document.querySelector('.notifications-skeleton').setAttribute('aria-hidden', 'true');
-    document.querySelector('.notifications-content').setAttribute('aria-hidden', 'false');
+    if (document.body) document.body.classList.remove('notifications-loading');
+    var skeleton = document.querySelector('.notifications-skeleton');
+    var content = document.querySelector('.notifications-content');
+    if (skeleton) skeleton.setAttribute('aria-hidden', 'true');
+    if (content) content.setAttribute('aria-hidden', 'false');
   }
 
   var icons = {
@@ -140,11 +142,13 @@
     var unread = notifications.filter(function (notification) { return !notification.read; }).length;
     var markAllButton = document.querySelector('.icon-btn.confirm');
     var subtitle = document.getElementById('notif-subtitle');
-    subtitle.textContent = unread ? 'You have ' + unread + ' new notification' + (unread === 1 ? '' : 's') : "You're all caught up";
+    if (subtitle) {
+      subtitle.textContent = unread ? 'You have ' + unread + ' new notification' + (unread === 1 ? '' : 's') : "You're all caught up";
+    }
     var allTab = document.querySelector('[data-filter="all"]');
     var bookingTab = document.querySelector('[data-filter="booking"]');
-    allTab.textContent = 'All (' + notifications.length + ')';
-    bookingTab.textContent = 'Bookings (' + notifications.filter(function (notification) {
+    if (allTab) allTab.textContent = 'All (' + notifications.length + ')';
+    if (bookingTab) bookingTab.textContent = 'Bookings (' + notifications.filter(function (notification) {
       return detailsFor(notification.type).category === 'booking';
     }).length + ')';
     if (window.VaroomSidebar) {
