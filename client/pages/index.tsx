@@ -212,6 +212,56 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
             from { opacity: 0; }
             to { opacity: 1; }
           }
+          @keyframes clientBadgeReveal {
+            from {
+              opacity: 0;
+              transform: translate3d(0, 10px, 0);
+            }
+            to {
+              opacity: 1;
+              transform: translate3d(0, 0, 0);
+            }
+          }
+          @keyframes clientTitleReveal {
+            from {
+              opacity: 0;
+              transform: translate3d(0, 14px, 0);
+            }
+            to {
+              opacity: 1;
+              transform: translate3d(0, 0, 0);
+            }
+          }
+          @keyframes clientCopyReveal {
+            from {
+              opacity: 0;
+              transform: translate3d(0, 12px, 0);
+            }
+            to {
+              opacity: 1;
+              transform: translate3d(0, 0, 0);
+            }
+          }
+          @keyframes clientButtonReveal {
+            from {
+              opacity: 0;
+              transform: translate3d(0, 12px, 0);
+            }
+            to {
+              opacity: 1;
+              transform: translate3d(0, 0, 0);
+            }
+          }
+          @keyframes clientCardReveal {
+            from {
+              opacity: 0;
+              transform: translate3d(0, 18px, 0);
+            }
+            to {
+              opacity: 1;
+              transform: translate3d(0, 0, 0);
+            }
+          }
           @keyframes heroBackgroundDrift {
             from {
               transform: scale(1);
@@ -284,6 +334,65 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
           .places-section.is-entered .places-listing-card:nth-child(5) { animation-delay: 1880ms; }
           .places-section.is-entered .places-listing-card:nth-child(6) { animation-delay: 1950ms; }
           .places-section.is-entered .places-marketplace-cta { animation-delay: 2700ms; }
+          .client-section .client-badge,
+          .client-section .client-title-line,
+          .client-section .client-supporting-copy,
+          .client-section .client-cta,
+          .client-section .client-card {
+            opacity: 0;
+            transform: translate3d(0, 14px, 0);
+          }
+          .client-section.is-entered .client-badge {
+            animation: clientBadgeReveal 550ms cubic-bezier(0.22, 1, 0.36, 1) both;
+          }
+          .client-section.is-entered .client-title-line-1 {
+            animation: clientTitleReveal 600ms cubic-bezier(0.22, 1, 0.36, 1) 110ms both;
+          }
+          .client-section.is-entered .client-title-line-2 {
+            animation: clientTitleReveal 600ms cubic-bezier(0.22, 1, 0.36, 1) 320ms both;
+          }
+          .client-section.is-entered .client-supporting-copy {
+            animation: clientCopyReveal 600ms cubic-bezier(0.22, 1, 0.36, 1) 640ms both;
+          }
+          .client-section.is-entered .client-cta {
+            animation: clientButtonReveal 600ms cubic-bezier(0.22, 1, 0.36, 1) 940ms both;
+          }
+          .client-section.is-entered .client-card {
+            animation: clientCardReveal 640ms cubic-bezier(0.22, 1, 0.36, 1) both;
+          }
+          .client-section.is-entered .client-card:nth-child(1) { animation-delay: 1180ms; }
+          .client-section.is-entered .client-card:nth-child(2) { animation-delay: 1320ms; }
+          .client-section.is-entered .client-card:nth-child(3) { animation-delay: 1460ms; }
+          .client-primary-cta,
+          .client-elie-button,
+          .client-card {
+            transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease;
+          }
+          .client-primary-cta:hover {
+            transform: translateY(-1px);
+          }
+          .client-primary-cta:hover .client-cta-arrow {
+            transform: translateX(2px);
+          }
+          .client-elie-button:hover .client-elie-icon {
+            transform: translateY(-1px) scale(1.08);
+            opacity: 1;
+          }
+          .client-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 18px rgba(24, 21, 19, 0.04);
+          }
+          .client-card-icon {
+            transition: transform 200ms ease, opacity 200ms ease;
+          }
+          .client-card:hover .client-card-icon {
+            transform: scale(1.05);
+            opacity: 1;
+          }
+          .client-cta-arrow,
+          .client-elie-icon {
+            transition: transform 180ms ease, opacity 180ms ease;
+          }
           @supports (animation-timeline: view()) {
             .hero-animated-content {
               animation: heroExitAnim linear both;
@@ -320,6 +429,22 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
             .places-listing-card {
               transition: none !important;
               translate: none !important;
+            }
+            .client-section .client-badge,
+            .client-section .client-title-line,
+            .client-section .client-supporting-copy,
+            .client-section .client-cta,
+            .client-section .client-card,
+            .client-primary-cta,
+            .client-elie-button,
+            .client-card-icon,
+            .client-cta-arrow,
+            .client-elie-icon {
+              animation: none !important;
+              opacity: 1 !important;
+              transform: none !important;
+              transition: none !important;
+              will-change: auto;
             }
             .places-section a svg {
               transition: none !important;
