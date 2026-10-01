@@ -6,7 +6,7 @@
   const state = { session: null, role: 'client', conversations: [], activeId: null, channel: null, channelGeneration: 0, selectionGeneration: 0, onlineConversationIds: new Set(), listings: [], pendingAttachment: null, replyToMessage: null, messageMenu: null, messageMenuCleanup: null, mobileView: 'inbox', mobileInfoReturn: 'conversation', elie: { sessionId: null, history: [] } };
   const isMobile = () => window.matchMedia('(max-width: 760px)').matches;
   const $ = (selector) => document.querySelector(selector);
-  const elieAvatarMarkup = (size) => `<span data-elie-bot-avatar="true" data-avatar-size="${size}" class="elie-icon" aria-label="Elie, AI assistant"></span>`;
+  const elieAvatarMarkup = (size, state = 'default') => `<span data-elie-bot-avatar="true" data-avatar-size="${size}" data-avatar-state="${state}" class="elie-icon" aria-label="Elie, AI assistant"></span>`;
   const api = async (url, options) => {
     const response = await fetch(url, {
       ...options,
@@ -971,6 +971,12 @@
     row.className = `msg-row ${outgoing ? 'out' : 'in'} elie-message`;
     const bubble = document.createElement('div');
     bubble.className = 'bubble';
+    if (!outgoing) {
+      const avatar = document.createElement('span');
+      avatar.className = 'elie-message-avatar';
+      avatar.innerHTML = elieAvatarMarkup(36, options && options.typing ? 'working' : 'default');
+      row.appendChild(avatar);
+    }
     if (options && options.typing) bubble.innerHTML = '<span class="elie-typing"><i></i><i></i><i></i></span>';
     else bubble.textContent = text;
     row.appendChild(bubble);
