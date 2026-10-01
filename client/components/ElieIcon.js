@@ -1,27 +1,25 @@
 import React from 'react';
-
-const ELIE_PROFILE_IMAGE = '/assets/elielogo.jpg';
+import { BotAvatar } from 'bot-avatars';
 
 const ElieIcon = React.forwardRef(function ElieIcon(
-  { size = 24, className = '', color = 'currentColor', ...props },
+  {
+    size = 24,
+    className = 'elie-icon',
+    type = 'drop',
+    face = 'mouth',
+    state = 'default',
+    ...props
+  },
   ref
 ) {
-  const classes = [
-    ...new Set(
-      ['elie-icon', className]
-        .filter(Boolean)
-        .flatMap((value) => value.split(/\s+/))
-    ),
-  ].join(' ');
-
   return (
-    <img
+    <BotAvatar
       ref={ref}
-      className={classes}
-      src={ELIE_PROFILE_IMAGE}
-      alt={props['aria-label'] || ''}
-      width={size}
-      height={size}
+      className={className}
+      type={type}
+      face={face}
+      state={state}
+      size={size}
       {...props}
     />
   );
