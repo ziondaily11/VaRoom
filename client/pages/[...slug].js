@@ -90,7 +90,7 @@ function parseTemplate(source, isEliePage) {
 export async function getStaticPaths() {
   const templates = fs.readdirSync(templateDirectory).filter((file) => file.endsWith('.html'));
   const paths = templates
-    .filter((file) => file !== 'index.html')
+    .filter((file) => file !== 'index.html' && file !== 'terms.html')
     .map((file) => ({
       params: { slug: [file.replace(/\.html$/, '').replace(/ /g, '-') ] }
     }));
