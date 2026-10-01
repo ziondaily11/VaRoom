@@ -1,33 +1,22 @@
-/* Light is the default. Dark applies only when an ancestor has data-theme="dark". */
 .pp-root {
-  --pp-bg: #ffffff;
-  --pp-text: #171717;
-  --pp-muted: #666666;
-  --pp-border: #e8e8e8;
-  --pp-surface: #fafafa;
-  --pp-accent: #d71920;
+  --pp-bg: #faf7f2;
+  --pp-text: #181513;
+  --pp-muted: #4a443f;
   background: var(--pp-bg);
   color: var(--pp-text);
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  font-family: Georgia, "Times New Roman", serif;
   line-height: 1.7;
-}
-
-[data-theme="dark"] .pp-root {
-  --pp-bg: #0f0f0f;
-  --pp-text: #ededed;
-  --pp-muted: #a0a0a0;
-  --pp-border: #2a2a2a;
-  --pp-surface: #181818;
-  --pp-accent: #ff4d54;
+  overflow-x: hidden;
 }
 
 /* Hero: always black, curved into the page background */
 .pp-hero {
   position: relative;
+  z-index: 1;
   background: #000;
   color: #fff;
   text-align: center;
-  padding: 28px 20px 150px;
+  padding: 104px 20px 84px;
 }
 
 .pp-hero::after {
@@ -35,17 +24,18 @@
   position: absolute;
   left: -10%;
   right: -10%;
-  bottom: -1px;
+  bottom: -44px;
   height: 90px;
-  background: var(--pp-bg);
-  border-radius: 50% 50% 0 0 / 100% 100% 0 0;
+  background: #000;
+  border-radius: 0 0 50% 50% / 0 0 100% 100%;
+  pointer-events: none;
 }
 
 .pp-brand {
-  display: block;
-  max-width: 1040px;
-  margin: 0 auto 64px;
-  text-align: left;
+  position: absolute;
+  top: 16px;
+  left: 20px;
+  display: inline-flex;
   font-size: 28px;
   font-weight: 800;
   letter-spacing: -1px;
@@ -53,38 +43,43 @@
   text-decoration: none;
 }
 
-.pp-brand span {
-  color: var(--pp-accent);
+.pp-brand span:first-child {
+  color: #bd2337;
+}
+
+.pp-brand span:last-child {
+  color: #fff;
 }
 
 .pp-hero h1 {
   margin: 0;
-  font-size: clamp(36px, 6vw, 60px);
+  font-family: inherit;
+  font-size: clamp(40px, 6vw, 60px);
+  font-weight: 700;
   line-height: 1.1;
   letter-spacing: -1.5px;
 }
 
 .pp-hero .pp-updated {
   margin: 14px 0 0;
-  color: #b5b5b5;
+  color: #d4d0cc;
 }
 
 /* Two-column body */
 .pp-body {
+  position: relative;
   display: grid;
   grid-template-columns: 260px minmax(0, 1fr);
   gap: 64px;
   max-width: 1040px;
   margin: 0 auto;
-  padding: 24px 20px 80px;
+  padding: 56px 20px 80px;
 }
 
 .pp-toc {
   position: sticky;
   top: 24px;
   align-self: start;
-  max-height: calc(100vh - 48px);
-  overflow-y: auto;
 }
 
 .pp-toc-toggle {
@@ -114,14 +109,14 @@
   color: var(--pp-text);
   font-weight: 600;
   text-decoration: underline;
-  text-decoration-color: var(--pp-accent);
+  text-decoration-color: var(--pp-text);
   text-decoration-thickness: 2px;
   text-underline-offset: 6px;
 }
 
 .pp-toc a:focus-visible,
 .pp-toc-toggle:focus-visible {
-  outline: 2px solid var(--pp-accent);
+  outline: 2px solid var(--pp-text);
   outline-offset: 3px;
 }
 
@@ -137,6 +132,7 @@
 
 .pp-content h2 {
   margin: 0 0 12px;
+  font-family: inherit;
   font-size: 26px;
   line-height: 1.25;
   letter-spacing: -0.5px;
@@ -144,6 +140,7 @@
 
 .pp-content h3 {
   margin: 24px 0 6px;
+  font-family: inherit;
   font-size: 18px;
   line-height: 1.3;
 }
@@ -158,15 +155,13 @@
 }
 
 .pp-content a {
-  color: var(--pp-accent);
+  color: var(--pp-text);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
 }
 
 .pp-contact {
   margin-top: 20px;
-  padding: 20px;
-  background: var(--pp-surface);
-  border: 1px solid var(--pp-border);
-  border-radius: 12px;
 }
 
 .pp-contact strong {
@@ -175,7 +170,6 @@
 }
 
 .pp-footer {
-  border-top: 1px solid var(--pp-border);
   color: var(--pp-muted);
   text-align: center;
   padding: 28px 20px;
@@ -188,30 +182,32 @@
   }
 }
 
+body:has(.pp-root) {
+  overflow-x: hidden;
+}
+
 @media (max-width: 900px) {
   .pp-hero {
-    padding-bottom: 110px;
+    padding: 100px 20px 76px;
   }
 
   .pp-hero::after {
-    height: 60px;
+    height: 72px;
+    bottom: -36px;
   }
 
   .pp-brand {
-    margin-bottom: 44px;
+    left: 16px;
   }
 
   .pp-body {
     grid-template-columns: 1fr;
     gap: 16px;
+    padding-top: 48px;
   }
 
   .pp-toc {
     position: static;
-    max-height: none;
-    padding: 0 16px;
-    border: 1px solid var(--pp-border);
-    border-radius: 12px;
   }
 
   .pp-toc-toggle {

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ArrowRight, Bot, MapPin, Star } from 'lucide-react';
 
@@ -7,37 +7,74 @@ interface ClientSectionProps {
 }
 
 export const ClientSection: React.FC<ClientSectionProps> = ({ onTryElie }) => {
+  const sectionRef = useRef<HTMLElement | null>(null);
+  const [hasEnteredViewport, setHasEnteredViewport] = useState(false);
+
+  useEffect(() => {
+    const section = sectionRef.current;
+    if (!section) return;
+
+    const reduceMotionQuery = typeof window !== 'undefined' && window.matchMedia
+      ? window.matchMedia('(prefers-reduced-motion: reduce)')
+      : null;
+
+    if (reduceMotionQuery && reduceMotionQuery.matches) {
+      setHasEnteredViewport(true);
+      return;
+    }
+
+    if (hasEnteredViewport) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setHasEnteredViewport(true);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.2 },
+    );
+
+    observer.observe(section);
+    return () => observer.disconnect();
+  }, [hasEnteredViewport]);
+
   return (
-    <section id="client-section" className="relative w-full py-20 md:py-28 px-6 sm:px-10 md:px-16 lg:px-20 bg-[#f4eee6] border-t border-[#eae2d6]">
+    <section
+      ref={sectionRef}
+      id="client-section"
+      className={`client-section relative w-full py-20 md:py-28 px-6 sm:px-10 md:px-16 lg:px-20 bg-[#f4eee6] border-t border-[#eae2d6] ${hasEnteredViewport ? 'is-entered' : ''}`}
+    >
       <div className="max-w-7xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
           {/* Left Column: Story & CTAs */}
           <div className="lg:col-span-6">
-            <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[#bd2337] mb-3">
+            <div className="client-badge inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[#bd2337] mb-3">
               <span className="w-1.5 h-1.5 rounded-full bg-[#bd2337]" />
               <span>For Clients</span>
             </div>
             <h2 className="font-sans font-bold text-3xl sm:text-4xl md:text-5xl text-[#181513] tracking-tight mb-5 leading-[1.08]">
-              Find your space.<br />Choose with confidence.
+              <span className="client-title-line block">Find your space.</span>
+              <span className="client-title-line client-title-line-2 block">Choose with confidence.</span>
             </h2>
-            <p className="text-base sm:text-lg text-[#594f47] leading-relaxed mb-8">
+            <p className="client-supporting-copy text-base sm:text-lg text-[#594f47] leading-relaxed mb-8">
               VaRoom makes it easier to discover, compare, and book real spaces across Kenya. Search naturally with Elie AI, explore verified properties, and learn more about the hosts behind the listings before you decide.
             </p>
 
-            <div className="flex flex-wrap items-center gap-4">
+            <div className="client-cta flex flex-wrap items-center gap-4">
               <Link
                 href="/marketplace"
-                className="inline-flex items-center gap-2.5 px-7 py-3.5 rounded-full bg-[#181513] hover:bg-black text-[#faf8f5] text-sm font-medium transition-all duration-200 hover:scale-[1.02] shadow-sm"
+                className="client-primary-cta inline-flex items-center gap-2.5 px-7 py-3.5 rounded-full bg-[#181513] hover:bg-black text-[#faf8f5] text-sm font-medium shadow-sm"
               >
                 <span>Explore the Marketplace</span>
-                <ArrowRight size={16} />
+                <ArrowRight size={16} className="client-cta-arrow" />
               </Link>
               <a
                 href="/login"
                 onClick={onTryElie}
-                className="inline-flex items-center gap-2 px-6 py-3.5 rounded-full border border-[#2d2724]/25 hover:border-[#181513] text-[#181513] text-sm font-medium transition-colors"
+                className="client-elie-button inline-flex items-center gap-2 px-6 py-3.5 rounded-full border border-[#2d2724]/25 hover:border-[#181513] text-[#181513] text-sm font-medium transition-colors"
               >
-                <Bot size={16} className="text-[#bd2337]" />
+                <Bot size={16} className="client-elie-icon text-[#bd2337]" />
                 <span>Try Elie</span>
               </a>
             </div>
@@ -45,8 +82,8 @@ export const ClientSection: React.FC<ClientSectionProps> = ({ onTryElie }) => {
 
           {/* Right Column: 3 Pillars */}
           <div className="lg:col-span-6 space-y-5">
-            <div className="p-6 sm:p-7 rounded-2xl bg-[#fffefc] border border-[#eae2d6] flex items-start gap-5">
-              <div className="w-11 h-11 rounded-xl bg-[#faf7f2] border border-[#eae2d6] flex items-center justify-center text-[#bd2337] shrink-0">
+            <div className="client-card p-6 sm:p-7 rounded-2xl bg-[#fffefc] border border-[#eae2d6] flex items-start gap-5">
+              <div className="client-card-icon w-11 h-11 rounded-xl bg-[#faf7f2] border border-[#eae2d6] flex items-center justify-center text-[#bd2337] shrink-0">
                 <Bot size={20} />
               </div>
               <div>
@@ -59,8 +96,8 @@ export const ClientSection: React.FC<ClientSectionProps> = ({ onTryElie }) => {
               </div>
             </div>
 
-            <div className="p-6 sm:p-7 rounded-2xl bg-[#fffefc] border border-[#eae2d6] flex items-start gap-5">
-              <div className="w-11 h-11 rounded-xl bg-[#faf7f2] border border-[#eae2d6] flex items-center justify-center text-[#bd2337] shrink-0">
+            <div className="client-card p-6 sm:p-7 rounded-2xl bg-[#fffefc] border border-[#eae2d6] flex items-start gap-5">
+              <div className="client-card-icon w-11 h-11 rounded-xl bg-[#faf7f2] border border-[#eae2d6] flex items-center justify-center text-[#bd2337] shrink-0">
                 <MapPin size={20} />
               </div>
               <div>
@@ -73,8 +110,8 @@ export const ClientSection: React.FC<ClientSectionProps> = ({ onTryElie }) => {
               </div>
             </div>
 
-            <div className="p-6 sm:p-7 rounded-2xl bg-[#fffefc] border border-[#eae2d6] flex items-start gap-5">
-              <div className="w-11 h-11 rounded-xl bg-[#faf7f2] border border-[#eae2d6] flex items-center justify-center text-[#bd2337] shrink-0">
+            <div className="client-card p-6 sm:p-7 rounded-2xl bg-[#fffefc] border border-[#eae2d6] flex items-start gap-5">
+              <div className="client-card-icon w-11 h-11 rounded-xl bg-[#faf7f2] border border-[#eae2d6] flex items-center justify-center text-[#bd2337] shrink-0">
                 <Star size={20} />
               </div>
               <div>
