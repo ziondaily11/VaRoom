@@ -174,6 +174,16 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
               opacity: 1;
             }
           }
+          @keyframes placesCardEnter {
+            from {
+              opacity: 0;
+              transform: translate3d(0, 18px, 0);
+            }
+            to {
+              opacity: 1;
+              transform: translate3d(0, 0, 0);
+            }
+          }
           @keyframes heroFadeUp {
             from {
               opacity: 0;
@@ -247,6 +257,12 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
           .hero-trust-hosts { animation-delay: 630ms; }
           .hero-trust-divider:nth-child(4) { animation-delay: 675ms; }
           .hero-trust-bookings { animation-delay: 720ms; }
+          .places-listing-card {
+            transition: translate 240ms ease-out;
+          }
+          .places-listing-card:hover {
+            translate: 0 -4px;
+          }
           @supports (animation-timeline: view()) {
             .hero-animated-content {
               animation: heroExitAnim linear both;
@@ -257,6 +273,21 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
               animation: placesEnterAnim linear both;
               animation-timeline: view();
               animation-range: entry 0% entry 100%;
+            }
+            .places-listing-card,
+            .places-marketplace-cta {
+              animation: placesCardEnter 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+              animation-timeline: view();
+              animation-range: entry 0% entry 45%;
+            }
+            .places-listing-card:nth-child(2) { animation-delay: 70ms; }
+            .places-listing-card:nth-child(3) { animation-delay: 140ms; }
+            .places-listing-card:nth-child(4) { animation-delay: 210ms; }
+            .places-listing-card:nth-child(5) { animation-delay: 280ms; }
+            .places-listing-card:nth-child(6) { animation-delay: 350ms; }
+            .places-marketplace-cta {
+              animation-delay: 500ms;
+              animation-range: entry 0% entry 35%;
             }
           }
           @media (prefers-reduced-motion: reduce) {
@@ -276,11 +307,21 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
             .hero-trust-bookings,
             .hero-trust-divider,
             .hero-animated-content,
-            .places-animated-content {
+            .places-animated-content,
+            .places-listing-card,
+            .places-marketplace-cta {
               animation: none !important;
               transform: none !important;
               opacity: 1 !important;
               will-change: auto;
+            }
+            .places-listing-card {
+              transition: none !important;
+              translate: none !important;
+            }
+            .places-section a svg {
+              transition: none !important;
+              transform: none !important;
             }
             .hero-cta-arrow {
               transition: none !important;

@@ -91,7 +91,7 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ listings }) => {
   return (
     <section
       id="places-section"
-      className="relative z-20 w-full max-w-full min-h-screen sm:h-screen box-border flex flex-col justify-center items-center px-4 sm:px-8 md:px-12 lg:px-16 snap-page py-6 sm:py-0 overflow-y-auto sm:overflow-hidden places-animated-content"
+      className="places-section relative z-20 w-full max-w-full min-h-screen box-border flex flex-col justify-center items-center px-4 sm:px-8 md:px-12 lg:px-16 snap-page py-8 sm:py-10 overflow-visible places-animated-content"
       style={{
         backgroundImage: `url("${landing2.src}")`,
         backgroundPosition: 'center top',
@@ -121,7 +121,7 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ listings }) => {
         </div>
 
         {/* 3-Column Listing Grid — Strict 70% Image / 30% Caption Proportion */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3 lg:gap-3.5">
+        <div className="places-listing-grid relative -top-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3 lg:gap-3.5">
           {visibleListings.map((listing) => {
             const href = `/booking?listing=${listing.id}`;
             const priceValue = listing.price == null ? null : Number(listing.price);
@@ -143,7 +143,7 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ listings }) => {
               <Link
                 key={listing.id}
                 href={href}
-                className="group flex flex-col bg-[#fffefc]/90 rounded-xl sm:rounded-2xl overflow-hidden border border-[#2d2724]/10 hover:border-[#181513]/30 transition-all duration-200 hover:shadow-md no-underline"
+                className="places-listing-card group flex flex-col bg-[#fffefc]/90 rounded-xl sm:rounded-2xl overflow-hidden border border-[#2d2724]/10 hover:border-[#181513]/30 transition-all duration-200 hover:shadow-md no-underline"
                 style={{ textDecoration: 'none' }}
               >
                 {/* ========================================================= */}
@@ -155,7 +155,7 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ listings }) => {
                       src={listing.photoUrl}
                       alt={listing.title || 'VaRoom Space'}
                       loading="lazy"
-                      className="w-full h-full object-cover object-center group-hover:scale-104 transition-transform duration-300 ease-out"
+                      className="w-full h-full object-cover object-center group-hover:scale-[1.02] transition-transform duration-300 ease-out"
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center bg-[#eae2d6] text-[#786e64] text-xs font-semibold uppercase">
@@ -202,7 +202,7 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ listings }) => {
                   </div>
 
                   {/* Real Amenities + Booking Action */}
-                  <div className="absolute left-3 right-3 bottom-1 flex items-end justify-between gap-1 leading-none">
+                  <div className="absolute left-3 right-4 bottom-2 flex items-end justify-between gap-1 leading-none">
                     {validAmenities.length > 0 && (
                       <div className="flex items-center gap-1">
                         {validAmenities.map((amenity, idx) => {
@@ -239,14 +239,14 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ listings }) => {
         </div>
 
         {/* Fully visible and intentionally positioned Marketplace CTA */}
-        <div className="mt-3 sm:mt-3.5 text-center">
+        <div className="places-marketplace-cta mt-5 sm:mt-6 text-center">
           <Link
             href="/marketplace"
-            className="inline-flex items-center gap-2 px-5 py-2 sm:px-6 sm:py-2.5 rounded-full bg-[#181513] hover:bg-black text-[#faf8f5] font-medium text-xs sm:text-sm transition-all duration-200 hover:scale-[1.02] shadow-xs no-underline"
+            className="group inline-flex items-center gap-2 px-5 py-2 sm:px-6 sm:py-2.5 rounded-full bg-[#181513] hover:bg-black text-[#faf8f5] font-medium text-xs sm:text-sm transition-colors duration-200 shadow-xs no-underline"
             style={{ textDecoration: 'none' }}
           >
             <span>Explore all stays & spaces across Kenya</span>
-            <ArrowRight size={14} />
+            <ArrowRight size={14} className="transition-transform duration-200 group-hover:translate-x-1" />
           </Link>
         </div>
       </div>
