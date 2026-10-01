@@ -88,7 +88,8 @@ function parseTemplate(source, isEliePage) {
 }
 
 export async function getStaticPaths() {
-  const templates = fs.readdirSync(templateDirectory).filter((file) => file.endsWith('.html'));
+  const templates = fs.readdirSync(templateDirectory)
+    .filter((file) => file.endsWith('.html') && file.replace(/\.html$/, '') !== 'privacy');
   const paths = templates
     .filter((file) => file !== 'index.html')
     .map((file) => ({

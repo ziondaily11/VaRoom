@@ -1,5 +1,6 @@
 import Head from 'next/head';
 import '../styles/admin.css';
+import '../legacy-pages/privacy.css';
 
 const fontSizeStyle = `
   :root {
