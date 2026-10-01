@@ -295,6 +295,80 @@
   .success-msg.show{ display:block; border:1px solid var(--green-tint-strong); background:var(--green-tint); color:var(--green-deep); }
   .success-msg.error{ background:rgba(196,30,58,.1); border-color:rgba(196,30,58,.35); color:var(--red-deep); }
 
+  /* ========== Paper-airplane booking CTA animation ========== */
+  /* The button uses position:relative + overflow:hidden so the fill layer and
+     airplane are clipped to the pill. Width/height do not change during any state. */
+  .confirm-btn{
+    position:relative; overflow:hidden;
+    display:flex; align-items:center; justify-content:center; gap:.45rem;
+  }
+  /* Label span sits above the fill layer */
+  .confirm-btn .cta-label{
+    position:relative; z-index:2; transition:opacity .18s ease;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  /* Green fill that travels left → right */
+  .confirm-btn .cta-fill{
+    position:absolute; inset:0; z-index:1;
+    background:var(--green);
+    transform:translateX(-100%);
+    transition:none;
+    border-radius:inherit;
+  }
+  /* Paper airplane icon */
+  .confirm-btn .cta-plane{
+    position:absolute; left:0; top:50%; z-index:3;
+    transform:translate(-28px, -50%);
+    opacity:0;
+    transition:none;
+    display:flex; align-items:center;
+    pointer-events:none;
+  }
+  .confirm-btn .cta-plane svg{
+    width:18px; height:18px; flex-shrink:0;
+    filter:drop-shadow(0 1px 3px rgba(0,0,0,.25));
+  }
+
+  /* ---- sending state ---- */
+  .confirm-btn.cta-sending{ cursor:not-allowed; }
+  .confirm-btn.cta-sending .cta-label{ opacity:0; }
+  .confirm-btn.cta-sending .cta-fill{
+    transform:translateX(0%);
+    transition:transform var(--cta-dur, 2s) cubic-bezier(.4,0,.2,1);
+  }
+  .confirm-btn.cta-sending .cta-plane{
+    opacity:1;
+    /* Plane travels from left edge to right edge over the same duration */
+    animation:cta-plane-fly var(--cta-dur, 2s) cubic-bezier(.4,0,.2,1) forwards;
+  }
+  @keyframes cta-plane-fly{
+    0%  { transform:translate(-28px, -50%); }
+    8%  { transform:translate(4px,   -50%); opacity:1; }
+    92% { transform:translate(calc(var(--cta-btn-w, 220px) - 24px), -50%); opacity:1; }
+    100%{ transform:translate(calc(var(--cta-btn-w, 220px) + 4px),  -50%); opacity:0; }
+  }
+
+  /* ---- success state: red again, locked ---- */
+  .confirm-btn.cta-done{
+    background:var(--red); cursor:default;
+    transition:background .35s ease;
+  }
+  .confirm-btn.cta-done .cta-fill{ display:none; }
+  .confirm-btn.cta-done .cta-label{ opacity:1; font-size:.82rem; }
+
+  /* ---- error recovery ---- */
+  .confirm-btn.cta-error{ background:var(--red); cursor:pointer; }
+  .confirm-btn.cta-error .cta-fill{ display:none; }
+  .confirm-btn.cta-error .cta-label{ opacity:1; }
+
+  /* ---- Reduced motion: no animation, just colour change ---- */
+  @media (prefers-reduced-motion: reduce){
+    .confirm-btn.cta-sending .cta-fill{ transition:none; transform:translateX(0); }
+    .confirm-btn.cta-sending .cta-plane{ display:none; }
+    .confirm-btn.cta-sending .cta-label{ opacity:1; }
+  }
+  /* ========================================================== */
+
   /* ---------- Skeleton loading ---------- */
   .skel{ position:relative; overflow:hidden; background:var(--skel-base); border-radius:8px; }
   .skel::after{
@@ -1387,13 +1461,45 @@
       form.addEventListener('submit', async function(event){
         event.preventDefault();
         if (!form.reportValidity()) return;
-        const submit = form.querySelector('[type="submit"]'); const error = overlay.querySelector('#table-reservation-error');
-        submit.disabled = true; submit.textContent = 'Sending request...'; error.textContent = '';
-        const response = await fetch('/api/table-reservations', { method:'POST', headers:{ 'Content-Type':'application/json', Authorization:'Bearer ' + session.access_token }, body:JSON.stringify({ listing_id: listingId, phone: overlay.querySelector('#table-phone').value, guest_count:Number(overlay.querySelector('#table-guests').value), table_count:Number(overlay.querySelector('#table-count').value), requested_date:overlay.querySelector('#table-date').value, requested_time:overlay.querySelector('#table-time').value, special_occasion:occasion.checked, occasion_details:occasionDetails.value }) });
+        const submitBtn = form.querySelector('[type="submit"]');
+        const error = overlay.querySelector('#table-reservation-error');
+        error.textContent = '';
+
+        // Build the airplane CTA on first submit — idempotent afterwards
+        var tableCtrl = buildCtaBtn(submitBtn, 'Send Table Request');
+        if (!tableCtrl.startSending()) return; // duplicate guard
+
+        const response = await fetch('/api/table-reservations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
+          body: JSON.stringify({
+            listing_id: listingId,
+            phone: overlay.querySelector('#table-phone').value,
+            guest_count: Number(overlay.querySelector('#table-guests').value),
+            table_count: Number(overlay.querySelector('#table-count').value),
+            requested_date: overlay.querySelector('#table-date').value,
+            requested_time: overlay.querySelector('#table-time').value,
+            special_occasion: occasion.checked,
+            occasion_details: occasionDetails.value
+          })
+        });
         const result = await response.json().catch(function(){ return {}; });
-        if (!response.ok) { error.textContent = result.error || 'Unable to send the reservation request.'; submit.disabled = false; submit.textContent = 'Send Table Request'; return; }
-        form.innerHTML = '<h2 style="margin:0 0 .5rem">Request sent</h2><p style="margin:0;color:#746762">The hotel has your contact details and will follow up about your table reservation.</p><button type="button" class="confirm-btn" style="width:100%;margin-top:1rem" data-close>Done</button>';
-        form.querySelector('[data-close]').addEventListener('click', function(){ overlay.remove(); });
+
+        if (!response.ok) {
+          error.textContent = result.error || 'Unable to send the reservation request.';
+          tableCtrl.finishError('Send Table Request');
+          return;
+        }
+
+        // Wait for animation to complete before replacing form content
+        tableCtrl.finishSuccess('Reservation request sent');
+        var animDur = 2000;
+        var elapsed = submitBtn._sendStart ? (Date.now() - submitBtn._sendStart) : animDur;
+        var remaining = Math.max(0, animDur - elapsed);
+        setTimeout(function() {
+          form.innerHTML = '<h2 style="margin:0 0 .5rem">Request sent</h2><p style="margin:0;color:#746762">The hotel has your contact details and will follow up about your table reservation.</p><button type="button" class="confirm-btn" style="width:100%;margin-top:1rem" data-close>Done</button>';
+          form.querySelector('[data-close]').addEventListener('click', function(){ overlay.remove(); });
+        }, remaining + 350);
       });
     }
 
@@ -1607,16 +1713,84 @@
       recalc();
     }
 
-    // ---------- Confirm booking ----------
-    confirmBtn.addEventListener('click', async function(){
+    // ---------- Paper-airplane CTA helper ----------
+    // Paper-airplane SVG (matches app's line-icon style; no external library)
+    var ICON_SEND_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>';
+
+    /**
+     * Upgrades a plain .confirm-btn into the animated pill CTA.
+     * Wraps the text content in a .cta-label span and appends the
+     * invisible fill layer + plane icon.
+     * Returns { startSending, finishSuccess, finishError }.
+     */
+    function buildCtaBtn(btn, idleLabel) {
+      if (btn.querySelector('.cta-label')) return btn._ctaCtrl; // idempotent
+
+      btn.innerHTML =
+        '<span class="cta-label">' + escapeHtml(idleLabel) + '</span>' +
+        '<span class="cta-fill" aria-hidden="true"></span>' +
+        '<span class="cta-plane" aria-hidden="true">' + ICON_SEND_SVG + '</span>';
+
+      var submitting = false; // duplicate-submission guard (synchronously set)
+
+      function startSending() {
+        if (submitting) return false; // reject race/double-click
+        submitting = true;
+        btn.disabled = true;
+        btn.setAttribute('aria-busy', 'true');
+        btn.classList.remove('cta-done', 'cta-error');
+        // Stamp pixel width so @keyframes calc() can reference it
+        btn.style.setProperty('--cta-btn-w', btn.offsetWidth + 'px');
+        btn.style.setProperty('--cta-dur', '2s');
+        btn._sendStart = Date.now();
+        btn.classList.add('cta-sending');
+        return true;
+      }
+
+      function finishSuccess(successLabel) {
+        var animDur = 2000; // matches --cta-dur
+        var elapsed = btn._sendStart ? (Date.now() - btn._sendStart) : animDur;
+        var remaining = Math.max(0, animDur - elapsed);
+        setTimeout(function () {
+          btn.classList.remove('cta-sending');
+          btn.classList.add('cta-done');
+          btn.removeAttribute('aria-busy');
+          btn.setAttribute('aria-label', successLabel);
+          btn.querySelector('.cta-label').textContent = successLabel;
+          // submitting stays true — success is a terminal, non-clickable state
+        }, remaining);
+      }
+
+      function finishError(originalLabel) {
+        btn.classList.remove('cta-sending', 'cta-done');
+        btn.classList.add('cta-error');
+        btn.removeAttribute('aria-busy');
+        btn.querySelector('.cta-label').textContent = originalLabel;
+        btn.disabled = false;
+        submitting = false; // allow retry
+        setTimeout(function () { btn.classList.remove('cta-error'); }, 400);
+      }
+
+      var ctrl = { startSending: startSending, finishSuccess: finishSuccess, finishError: finishError };
+      btn._ctaCtrl = ctrl;
+      return ctrl;
+    }
+
+    // ---------- Confirm booking (stay / room reservation) ----------
+    var stayIdleLabel = supportsBoth ? 'Choose reservation' : (isHotel ? 'Reserve room' : 'Book now');
+    var staySuccessLabel = isHotel ? 'Reservation request sent' : 'Booking request sent';
+    var stayCtrl = buildCtaBtn(confirmBtn, stayIdleLabel);
+
+    confirmBtn.addEventListener('click', async function() {
       if (supportsBoth && !bookingIntent) { openReservationChoice(); return; }
       if (supportsBoth && bookingIntent === 'stay' && (!selectedStart || (!isHourly && !selectedEnd))) {
         bookingIntent = null;
         alert('Choose your stay dates before reserving a room.');
         return;
       }
-      confirmBtn.disabled = true;
-      confirmBtn.textContent = 'Sending request...';
+
+      // Guard against rapid clicks / Enter repeats — synchronous, no await yet
+      if (!stayCtrl.startSending()) return;
 
       const payload = {
         listing_id: listingId,
@@ -1643,8 +1817,7 @@
       if (error) {
         successMsg.textContent = 'Something went wrong: ' + error.message;
         successMsg.classList.add('show', 'error');
-        confirmBtn.disabled = false;
-        confirmBtn.textContent = 'Book now';
+        stayCtrl.finishError(stayIdleLabel);
         return;
       }
 
@@ -1653,28 +1826,32 @@
       // keep a booking-related state stale past this user action.
       if (window.VaRoomListingFeedCache) window.VaRoomListingFeedCache.invalidateAll();
 
-      await window.VaRoomNotificationAPI.create({
-        recipient_user_id: listing.host_id,
-        actor_user_id: currentUser.id,
-        type: 'booking_request',
-        title: 'New booking request',
-        message: '"' + (currentUser.full_name || 'A guest') + '" requested to book "' + (listing.title || 'this listing') + '".',
-        related_entity_type: 'booking',
-        related_entity_id: newBooking ? newBooking.id : null,
-        booking_id: newBooking ? newBooking.id : null,
-        event_key: 'booking-request:' + (newBooking ? newBooking.id : listingId),
-        metadata: {
-          listing_id: listingId,
-          listing_name: listing.title,
+      try {
+        await window.VaRoomNotificationAPI.create({
+          recipient_user_id: listing.host_id,
+          actor_user_id: currentUser.id,
+          type: 'booking_request',
+          title: 'New booking request',
+          message: '"' + (currentUser.full_name || 'A guest') + '" requested to book "' + (listing.title || 'this listing') + '".',
+          related_entity_type: 'booking',
+          related_entity_id: newBooking ? newBooking.id : null,
           booking_id: newBooking ? newBooking.id : null,
-          client_id: currentUser.id,
-          client_name: currentUser.full_name || currentUser.email || 'Guest'
-        }
-      });
+          event_key: 'booking-request:' + (newBooking ? newBooking.id : listingId),
+          metadata: {
+            listing_id: listingId,
+            listing_name: listing.title,
+            booking_id: newBooking ? newBooking.id : null,
+            client_id: currentUser.id,
+            client_name: currentUser.full_name || currentUser.email || 'Guest'
+          }
+        });
+      } catch (notifErr) {
+        // Notification failure does not undo a successful booking
+        console.warn('Booking notification failed:', notifErr);
+      }
 
-      successMsg.textContent = 'Request sent! The host has 48 hours to respond — you\'ll be notified either way.';
-      successMsg.classList.add('show');
-      confirmBtn.style.display = 'none';
+      // Animate to success — waits for remaining animation time before switching
+      stayCtrl.finishSuccess(staySuccessLabel);
     });
   })();
 </script>
