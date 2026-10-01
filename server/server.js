@@ -95,6 +95,10 @@ app.get(['/privacy.html', '/legacy-pages/privacy.html'], (_req, res) => {
   res.redirect(301, '/privacy');
 });
 
+app.get(['/terms.html', '/legacy-pages/terms.html'], (_req, res) => {
+  res.redirect(301, '/terms');
+});
+
 function bearerToken(req) {
   const authHeader = req.headers.authorization || '';
   return authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
@@ -313,7 +317,6 @@ const pageTemplates = {
   '/pricing.html': 'pricing.html',
   '/settings': 'settings.html',
   '/support': 'support.html',
-  '/terms': 'terms.html',
   '/transactions': 'transactions.html',
   '/varoom-post': 'varoom-post.html',
   '/landing-page': 'landing page.html'
