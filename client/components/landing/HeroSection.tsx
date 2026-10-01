@@ -21,7 +21,6 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ isAuthOpen, onOpenAuth
 
   return (
     <section className="relative h-screen min-h-screen w-full max-w-full overflow-hidden box-border flex flex-col justify-between snap-page z-10 bg-transparent">
-      {/* Layer 20: Floating Minimal Navigation */}
       <Navbar
         isAuthOpen={isAuthOpen}
         onOpenAuth={onOpenAuth}

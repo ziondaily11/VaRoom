@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Eye, EyeOff, Lock, Mail, X } from 'lucide-react';
+import { Eye, EyeOff, Lock, Mail, X } from 'lucide-react';
 import { useRouter } from 'next/router';
 
 interface AuthPanelProps {
@@ -26,15 +26,20 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, onOpenRol
   useEffect(() => {
     if (!isOpen) return;
 
+    const previousOverflow = document.body.style.overflow;
+    const previousPosition = document.body.style.position;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
     };
 
     document.addEventListener('keydown', handleKeyDown);
     document.body.style.overflow = 'hidden';
+    document.body.style.position = 'relative';
+
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = '';
+      document.body.style.overflow = previousOverflow;
+      document.body.style.position = previousPosition;
     };
   }, [isOpen, onClose]);
 
@@ -134,7 +139,6 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, onOpenRol
   return (
     <div
       className="fixed inset-0 z-40 pointer-events-none"
-      aria-hidden={!isOpen}
       style={{
         opacity: isOpen ? 1 : 0,
         transition: 'opacity 260ms ease',
@@ -143,7 +147,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, onOpenRol
       <button
         type="button"
         aria-label="Close sign-in panel"
-        className="absolute inset-0 bg-[#181513]/35 backdrop-blur-[2px]"
+        className="absolute inset-0 bg-[#161412]/25"
         onClick={onClose}
         style={{
           opacity: isOpen ? 1 : 0,
@@ -152,7 +156,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, onOpenRol
       />
 
       <aside
-        className="absolute inset-y-0 right-0 flex w-full max-w-[42vw] min-w-[320px] items-center justify-center px-5 pb-4 pt-5 sm:px-7 lg:px-8"
+        className="absolute inset-y-0 right-0 flex w-full max-w-[46vw] min-w-[320px] items-stretch justify-center"
         style={{
           pointerEvents: isOpen ? 'auto' : 'none',
           transform: isOpen ? 'translateX(0)' : 'translateX(100%)',
@@ -163,19 +167,20 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, onOpenRol
         role="dialog"
         aria-labelledby="auth-panel-title"
       >
-        <div className="relative h-full w-full max-w-[430px] rounded-l-[32px] border border-white/10 bg-[#10221e]/80 shadow-[0_24px_60px_rgba(3,14,12,0.42)] backdrop-blur-[24px] text-[#f5efe7]">
+        <div className="relative h-full w-full max-w-[520px] border-l border-[#f2ece4]/10 bg-[#111816]/75 backdrop-blur-[18px] text-[#f5efe7] shadow-[0_0_0_1px_rgba(255,255,255,0.03)]">
           <button
             type="button"
             onClick={onClose}
-            className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-[#f4efe9] transition hover:bg-white/10"
+            className="absolute right-4 top-4 flex items-center gap-2 rounded-full border border-white/10 bg-black/15 px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.12em] text-[#f4efe9] transition hover:bg-white/10"
             aria-label="Close sign in"
           >
-            <X size={18} />
+            <span>Close</span>
+            <span className="flex h-5 w-5 items-center justify-center rounded-full border border-[#f4efe9]/50 text-[10px]">×</span>
           </button>
 
           <div className="flex h-full flex-col justify-center px-6 py-10 sm:px-8 lg:px-9">
             <div className="mb-8">
-              <p className="mb-2 inline-flex items-center gap-2 rounded-full border border-[#d9d1c6]/15 bg-white/5 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-[#d6ddd2]">
+              <p className="mb-2 inline-flex items-center gap-2 rounded-full border border-[#d9d1c6]/10 bg-white/5 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-[#d6ddd2]">
                 <Lock size={12} />
                 Secure access
               </p>
@@ -216,8 +221,8 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, onOpenRol
                     onBlur={() => setFieldErrorState('email', !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) ? 'Please enter a valid email' : '')}
                     placeholder="you@example.com"
                     autoComplete="email"
-                    className={`w-full rounded-2xl border bg-[#f5efe8]/8 py-3.5 pl-10 pr-3 text-sm text-[#f5efe8] placeholder:text-[#d3c7ba]/55 outline-none transition ${
-                      emailError ? 'border-[#efb6ae] focus:border-[#efb6ae]' : 'border-white/10 focus:border-[#dde3d6]/45'
+                    className={`w-full rounded-2xl border bg-[#0e1413]/40 py-3.5 pl-10 pr-3 text-sm text-[#f5efe8] placeholder:text-[#d3c7ba]/55 outline-none transition ${
+                      emailError ? 'border-[#efb6ae] focus:border-[#efb6ae]' : 'border-white/10 focus:border-[#dfe7e0]/35'
                     }`}
                     aria-invalid={Boolean(emailError)}
                     aria-describedby={emailError ? 'landing-email-error' : undefined}
@@ -240,7 +245,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, onOpenRol
                         window.location.assign(`/forgot-password${redirect ? `?redirect=${encodeURIComponent(redirect)}` : ''}`);
                       }
                     }}
-                    className="text-xs font-medium text-[#f0e7df] underline-offset-2 hover:underline"
+                    className="text-xs font-medium text-[#f0e7df]/80 transition hover:text-white"
                   >
                     Forgot password?
                   </button>
@@ -259,8 +264,8 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, onOpenRol
                     onBlur={() => setFieldErrorState('password', !password ? 'Please enter your password' : '')}
                     placeholder="Enter your password"
                     autoComplete="current-password"
-                    className={`w-full rounded-2xl border bg-[#f5efe8]/8 py-3.5 pl-10 pr-11 text-sm text-[#f5efe8] placeholder:text-[#d3c7ba]/55 outline-none transition ${
-                      passwordError ? 'border-[#efb6ae] focus:border-[#efb6ae]' : 'border-white/10 focus:border-[#dde3d6]/45'
+                    className={`w-full rounded-2xl border bg-[#0e1413]/40 py-3.5 pl-10 pr-12 text-sm text-[#f5efe8] placeholder:text-[#d3c7ba]/55 outline-none transition ${
+                      passwordError ? 'border-[#efb6ae] focus:border-[#efb6ae]' : 'border-white/10 focus:border-[#dfe7e0]/35'
                     }`}
                     aria-invalid={Boolean(passwordError)}
                     aria-describedby={passwordError ? 'landing-password-error' : undefined}
@@ -269,7 +274,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, onOpenRol
                     type="button"
                     aria-label={showPassword ? 'Hide password' : 'Show password'}
                     onClick={() => setShowPassword((value) => !value)}
-                    className="absolute right-3 top-1/2 flex -translate-y-1/2 items-center justify-center rounded-full p-1 text-[#d7d2ca] transition hover:text-white"
+                    className="absolute right-3 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-[#d7d2ca] transition hover:text-white"
                   >
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
@@ -282,7 +287,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, onOpenRol
               <button
                 type="submit"
                 disabled={isLoading}
-                className="mt-2 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#f0e5d9] px-4 py-3 text-sm font-semibold text-[#151310] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-80"
+                className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-[#f3eadf] px-4 py-3 text-sm font-semibold text-[#151310] transition hover:bg-[#fbf6f1] disabled:cursor-not-allowed disabled:opacity-80"
               >
                 {isLoading ? (
                   <>
@@ -304,7 +309,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, onOpenRol
             <button
               type="button"
               onClick={handleGoogleSignIn}
-              className="flex w-full items-center justify-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-[#f6f0ea] transition hover:bg-white/10"
+              className="flex w-full items-center justify-center gap-3 rounded-xl border border-white/10 bg-[#0e1413]/35 px-4 py-3 text-sm font-medium text-[#f6f0ea] transition hover:bg-[#101b19]/50"
             >
               <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
                 <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
@@ -317,7 +322,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, onOpenRol
 
             <p className="mt-7 text-center text-sm text-[#e2d9d1]/80">
               New to VaRoom?{' '}
-              <button type="button" onClick={handleCreateAccount} className="font-semibold text-white underline-offset-4 hover:underline">
+              <button type="button" onClick={handleCreateAccount} className="font-semibold text-[#f5efe7] transition hover:text-white">
                 Create an account
               </button>
             </p>

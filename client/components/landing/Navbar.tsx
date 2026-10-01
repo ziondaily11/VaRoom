@@ -24,18 +24,8 @@ export const Navbar: React.FC<NavbarProps> = ({ isAuthOpen, onOpenAuth, onOpenRo
         className="varoom-logo no-underline hover:no-underline focus:no-underline group inline-flex items-baseline text-2xl md:text-3xl font-serif font-bold tracking-tight select-none shrink-0"
         style={{ textDecoration: 'none', borderBottom: 'none' }}
       >
-        <span
-          className="text-[#bd2337] transition-transform group-hover:scale-105 inline-block"
-          style={{ textDecoration: 'none' }}
-        >
-          Va
-        </span>
-        <span
-          className="text-[#181513]"
-          style={{ textDecoration: 'none' }}
-        >
-          Room
-        </span>
+        <span className="text-[#bd2337] transition-transform group-hover:scale-105 inline-block" style={{ textDecoration: 'none' }}>Va</span>
+        <span className="text-[#181513]" style={{ textDecoration: 'none' }}>Room</span>
       </Link>
 
       {/* Desktop Navigation Links */}
@@ -60,12 +50,7 @@ export const Navbar: React.FC<NavbarProps> = ({ isAuthOpen, onOpenAuth, onOpenRo
           <span>Elie</span>
           <span className="w-1.5 h-1.5 rounded-full bg-[#bd2337] inline-block animate-pulse" />
         </a>
-        <a
-          href="#why-us"
-          className="text-sm font-medium text-[#2d2724]/80 hover:text-[#181513] transition-colors relative py-1 no-underline after:absolute after:bottom-0 after:left-0 after:w-full after:h-px after:bg-[#181513] after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:origin-left"
-        >
-          Why VaRoom
-        </a>
+        <a href="#why-us" className="text-sm font-medium text-[#2d2724]/80 hover:text-[#181513] transition-colors relative py-1 no-underline after:absolute after:bottom-0 after:left-0 after:w-full after:h-px after:bg-[#181513] after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:origin-left">Why VaRoom</a>
       </nav>
 
       {/* Right Desktop Actions - Fully visible with generous right spacing, shrink-0 */}
@@ -106,47 +91,15 @@ export const Navbar: React.FC<NavbarProps> = ({ isAuthOpen, onOpenAuth, onOpenRo
         </button>
       </div>
 
-      {/* Mobile Menu Dropdown */}
       {mobileMenuOpen && (
         <div className="absolute top-full left-0 w-full px-6 py-5 bg-[#faf6f0]/95 backdrop-blur-md border-b border-[#2d2724]/10 shadow-lg md:hidden flex flex-col gap-4 animate-in fade-in slide-in-from-top-2 duration-200 z-50">
-          <a
-            href="#host-section"
-            onClick={() => setMobileMenuOpen(false)}
-            className="text-base font-medium text-[#181513] py-2 border-b border-[#2d2724]/10 flex items-center justify-between no-underline"
-          >
-            <span>For Hosts</span>
+          <a href="#host-section" onClick={() => setMobileMenuOpen(false)} className="text-base font-medium text-[#181513] py-2 border-b border-[#2d2724]/10 flex items-center justify-between no-underline"><span>For Hosts</span><ArrowRight size={16} className="text-[#2d2724]/40" /></a>
+          <a href="#client-section" onClick={() => setMobileMenuOpen(false)} className="text-base font-medium text-[#181513] py-2 border-b border-[#2d2724]/10 flex items-center justify-between no-underline"><span>For Clients</span><ArrowRight size={16} className="text-[#2d2724]/40" /></a>
+          <a href="/login" onClick={(e) => { setMobileMenuOpen(false); onTryElie(e); }} className="text-base font-medium text-[#181513] py-2 border-b border-[#2d2724]/10 flex items-center justify-between no-underline">
+            <span className="flex items-center gap-2">Elie AI Assistant<span className="w-2 h-2 rounded-full bg-[#bd2337] inline-block" /></span>
             <ArrowRight size={16} className="text-[#2d2724]/40" />
           </a>
-          <a
-            href="#client-section"
-            onClick={() => setMobileMenuOpen(false)}
-            className="text-base font-medium text-[#181513] py-2 border-b border-[#2d2724]/10 flex items-center justify-between no-underline"
-          >
-            <span>For Clients</span>
-            <ArrowRight size={16} className="text-[#2d2724]/40" />
-          </a>
-          <a
-            href="/login"
-            onClick={(e) => {
-              setMobileMenuOpen(false);
-              onTryElie(e);
-            }}
-            className="text-base font-medium text-[#181513] py-2 border-b border-[#2d2724]/10 flex items-center justify-between no-underline"
-          >
-            <span className="flex items-center gap-2">
-              Elie AI Assistant
-              <span className="w-2 h-2 rounded-full bg-[#bd2337] inline-block" />
-            </span>
-            <ArrowRight size={16} className="text-[#2d2724]/40" />
-          </a>
-          <a
-            href="#why-us"
-            onClick={() => setMobileMenuOpen(false)}
-            className="text-base font-medium text-[#181513] py-2 border-b border-[#2d2724]/10 flex items-center justify-between no-underline"
-          >
-            <span>Why VaRoom</span>
-            <ArrowRight size={16} className="text-[#2d2724]/40" />
-          </a>
+          <a href="#why-us" onClick={() => setMobileMenuOpen(false)} className="text-base font-medium text-[#181513] py-2 border-b border-[#2d2724]/10 flex items-center justify-between no-underline"><span>Why VaRoom</span><ArrowRight size={16} className="text-[#2d2724]/40" /></a>
           <div className="pt-2 flex flex-col gap-2.5">
             <button
               type="button"
