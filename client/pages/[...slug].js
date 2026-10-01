@@ -209,6 +209,7 @@ export default function LegacyPage({ title, markup, scripts }) {
           React.createElement(ElieIcon, {
             size: Number(avatar.getAttribute('data-avatar-size')) || 24,
             className: 'elie-icon',
+            type: avatar.getAttribute('data-avatar-type') || 'drop',
             state: avatar.getAttribute('data-avatar-state') || 'default',
             'aria-label': avatar.getAttribute('aria-label') || 'Elie, AI assistant',
           })

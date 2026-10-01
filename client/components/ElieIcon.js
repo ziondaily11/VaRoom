@@ -5,7 +5,7 @@ const ElieIcon = React.forwardRef(function ElieIcon(
   {
     size = 24,
     className = 'elie-icon',
-    type = 'droid',
+    type = 'drop',
     face = 'mouth',
     state = 'default',
     ...props
