@@ -118,8 +118,13 @@ export default function Custom404() {
           justify-content: center;
           overflow: hidden;
           color: var(--not-found-ink);
+          color-scheme: light;
           font-family: Inter, Arial, sans-serif;
           background: radial-gradient(circle at 50% 44%, #fffefa 0, var(--not-found-paper) 62%);
+        }
+        html[data-theme="dark"] .not-found {
+          color: var(--not-found-ink) !important;
+          background: radial-gradient(circle at 50% 44%, #fffefa 0, var(--not-found-paper) 62%) !important;
         }
         .content {
           width: min(100%, 1040px);
@@ -130,6 +135,7 @@ export default function Custom404() {
           flex-direction: column;
           text-align: center;
         }
+        html[data-theme="dark"] .not-found .content { background: transparent !important; }
         .eyebrow {
           margin: 0 0 .35rem;
           color: #c41e3a;
@@ -150,18 +156,19 @@ export default function Custom404() {
           align-items: center;
           gap: .65rem;
           padding: 0 .5rem 0 1rem;
-          border: 1px solid #e6e2dc;
+          border: 1px solid #8a837c;
           border-radius: 999px;
           background: #fff;
           box-shadow: 0 7px 22px rgba(56, 45, 35, .12);
         }
+        .search:focus-within { outline: 3px solid #c41e3a; outline-offset: 3px; }
         .search > span { color: #716b66; font: 1.75rem/1 Arial, sans-serif; transform: rotate(-20deg); }
         .search input { min-width: 0; flex: 1; border: 0; outline: 0; color: var(--not-found-ink); background: transparent; font: .78rem Inter, Arial, sans-serif; }
-        .search input::placeholder { color: #aaa6a1; }
+        .search input::placeholder { color: #6f6a65; opacity: 1; }
         .search button { display: none; }
         .neighborhood { width: min(100%, 760px); height: auto; margin: 1.2rem auto .6rem; }
         .categories { display: flex; flex-wrap: wrap; justify-content: center; gap: .65rem; }
-        .category { padding: .62rem 1.35rem; border: 1px solid #34302d; border-radius: 999px; color: var(--not-found-ink); font-size: .82rem; text-decoration: none; transition: transform .15s ease, background .15s ease; }
+        .category { padding: .62rem 1.35rem; border: 1px solid #8a837c; border-radius: 999px; color: var(--not-found-ink); font-size: .82rem; text-decoration: none; transition: transform .15s ease, background .15s ease; }
         .category:hover { transform: translateY(-2px); background: #ebe7e1; }
         .category.active { color: #fff; background: #292725; }
         .category.active:hover { background: #c41e3a; }
