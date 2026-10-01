@@ -232,7 +232,8 @@ export default function LegacyPage({ title, markup, scripts }) {
         root.render(
           React.createElement(ThinkingOrb, {
             state: 'connecting',
-            size: 20,
+            size: 64,
+            theme: 'dark',
             'aria-label': 'Signing you in',
           })
         );
