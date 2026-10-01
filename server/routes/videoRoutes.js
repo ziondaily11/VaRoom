@@ -393,7 +393,9 @@ router.get('/media/:mediaId/playback', async (req, res) => {
       throw error;
     }
 
-    // Require authentication — video playback URLs must not be handed to anonymous callers.
+    // Public listing videos are safe to render for anonymous viewers. Keep the
+    // auth check optional so the public profile flow can load a signed playback
+    // URL without generating noisy 401s for guests.
     const authHeader = req.headers.authorization || '';
     const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
     let userId = null;
@@ -401,10 +403,6 @@ router.get('/media/:mediaId/playback', async (req, res) => {
     if (token) {
       const { data: { user } } = await supabaseAdmin.auth.getUser(token);
       if (user) userId = user.id;
-    }
-
-    if (!userId) {
-      return res.status(401).json({ error: 'Login required to view videos' });
     }
 
     // Step 1: Fetch media record
@@ -430,6 +428,10 @@ router.get('/media/:mediaId/playback', async (req, res) => {
 
     if (listingError || !listing) {
       return res.status(404).json({ error: 'Property not found' });
+    }
+
+    if (!userId && mediaRecord.visibility !== 'public') {
+      return res.status(403).json({ error: 'Video is not public' });
     }
 
     // The live schema does not include a `listings.status` column, so treat
