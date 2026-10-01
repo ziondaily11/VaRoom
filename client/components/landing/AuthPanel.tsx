@@ -185,9 +185,6 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, onOpenRol
                 <Lock size={12} />
                 Secure access
               </p>
-              <p className="mb-1 hidden text-lg font-medium tracking-[-0.02em] text-[#d9d2c9]/80 md:block">
-                Welcome back
-              </p>
               <h2 id="auth-panel-title" className="text-3xl font-semibold tracking-[-0.04em] text-[#f4efe9]">
                 Log in to VaRoom.
               </h2>

@@ -13,6 +13,7 @@ interface HeroSectionProps {
 
 export const HeroSection: React.FC<HeroSectionProps> = ({ isAuthOpen, onOpenAuth, onCloseAuth, onOpenRoleModal, onTryElie }) => {
   return (
+    <>
     <section className="relative h-[100dvh] min-h-[100dvh] w-full max-w-full overflow-hidden box-border flex flex-col justify-between snap-page z-10 bg-transparent">
       {!isAuthOpen && (
         <Navbar
@@ -79,6 +80,55 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ isAuthOpen, onOpenAuth
           </div>
         </div>
       )}
+      {isAuthOpen && (
+        <div className="pointer-events-none absolute inset-y-0 left-0 z-20 hidden w-1/2 items-end px-7 pb-[12vh] sm:px-10 md:flex lg:px-14">
+          <div className="login-visual-message max-w-sm">
+            <h1 className="font-serif text-4xl font-semibold tracking-[-0.03em] text-[#221d19] lg:text-5xl">
+              Welcome back!
+            </h1>
+            <p className="mt-2 text-base font-medium tracking-[0.02em] text-[#342e2a]">
+              <span className="login-tagline-typing">Find. → Book. → This.</span>
+            </p>
+          </div>
+        </div>
+      )}
     </section>
+    <style jsx>{`
+      .login-tagline-typing {
+        display: inline-block;
+        width: 0;
+        overflow: hidden;
+        border-right: 1px solid rgba(52, 46, 42, 0.65);
+        white-space: nowrap;
+        vertical-align: bottom;
+        animation:
+          login-tagline-type 5s steps(21, end) infinite,
+          login-tagline-caret 0.8s step-end infinite;
+      }
+
+      @keyframes login-tagline-type {
+        0% {
+          width: 0;
+        }
+        72%, 100% {
+          width: 21ch;
+        }
+      }
+
+      @keyframes login-tagline-caret {
+        50% {
+          border-color: transparent;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .login-tagline-typing {
+          animation: none;
+          width: auto;
+          border-right: 0;
+        }
+      }
+    `}</style>
+    </>
   );
 };
