@@ -30,11 +30,16 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, onOpenRol
       if (event.key === 'Escape') onClose();
     };
 
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousDocumentOverflow = document.documentElement.style.overflow;
+
     document.addEventListener('keydown', handleKeyDown);
     document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = '';
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousDocumentOverflow;
     };
   }, [isOpen, onClose]);
 
@@ -143,16 +148,17 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, onOpenRol
       <button
         type="button"
         aria-label="Close sign-in panel"
-        className="absolute inset-0 bg-[#181513]/35 backdrop-blur-[2px]"
+        className="absolute inset-0 bg-transparent"
         onClick={onClose}
         style={{
+          pointerEvents: isOpen ? 'auto' : 'none',
           opacity: isOpen ? 1 : 0,
           transition: 'opacity 260ms ease',
         }}
       />
 
       <aside
-        className="absolute inset-y-0 right-0 flex w-full max-w-[42vw] min-w-[320px] items-center justify-center px-5 pb-4 pt-5 sm:px-7 lg:px-8"
+        className="absolute inset-y-0 right-0 flex h-[100dvh] w-full justify-center overflow-y-auto overscroll-contain md:w-1/2"
         style={{
           pointerEvents: isOpen ? 'auto' : 'none',
           transform: isOpen ? 'translateX(0)' : 'translateX(100%)',
@@ -163,17 +169,17 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, onOpenRol
         role="dialog"
         aria-labelledby="auth-panel-title"
       >
-        <div className="relative h-full w-full max-w-[430px] rounded-l-[32px] border border-white/10 bg-[#10221e]/80 shadow-[0_24px_60px_rgba(3,14,12,0.42)] backdrop-blur-[24px] text-[#f5efe7]">
+        <div className="relative flex min-h-full w-full items-center justify-center border-l border-white/10 bg-[rgba(17,18,18,0.88)] text-[#f5efe7]">
           <button
             type="button"
             onClick={onClose}
-            className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-[#f4efe9] transition hover:bg-white/10"
+            className="absolute right-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-black/20 text-[#f4efe9] transition-colors hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/70"
             aria-label="Close sign in"
           >
             <X size={18} />
           </button>
 
-          <div className="flex h-full flex-col justify-center px-6 py-10 sm:px-8 lg:px-9">
+          <div className="w-full max-w-[480px] px-6 py-16 sm:px-8 lg:px-10">
             <div className="mb-8">
               <p className="mb-2 inline-flex items-center gap-2 rounded-full border border-[#d9d1c6]/15 bg-white/5 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-[#d6ddd2]">
                 <Lock size={12} />
@@ -240,7 +246,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, onOpenRol
                         window.location.assign(`/forgot-password${redirect ? `?redirect=${encodeURIComponent(redirect)}` : ''}`);
                       }
                     }}
-                    className="text-xs font-medium text-[#f0e7df] underline-offset-2 hover:underline"
+                    className="border-0 bg-transparent p-0 text-xs font-medium text-[#f0e7df] underline-offset-2 hover:underline"
                   >
                     Forgot password?
                   </button>
@@ -282,7 +288,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, onOpenRol
               <button
                 type="submit"
                 disabled={isLoading}
-                className="mt-2 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#f0e5d9] px-4 py-3 text-sm font-semibold text-[#151310] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-80"
+                className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-white/10 bg-[#111111] px-4 py-3 text-sm font-semibold text-[#f7f3ee] transition-colors duration-200 hover:bg-[#292827] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/70 disabled:cursor-not-allowed disabled:opacity-80"
               >
                 {isLoading ? (
                   <>
@@ -317,7 +323,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, onOpenRol
 
             <p className="mt-7 text-center text-sm text-[#e2d9d1]/80">
               New to VaRoom?{' '}
-              <button type="button" onClick={handleCreateAccount} className="font-semibold text-white underline-offset-4 hover:underline">
+              <button type="button" onClick={handleCreateAccount} className="border-0 bg-transparent p-0 font-semibold text-white underline-offset-4 hover:underline">
                 Create an account
               </button>
             </p>
