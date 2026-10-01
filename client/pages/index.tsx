@@ -174,6 +174,79 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
               opacity: 1;
             }
           }
+          @keyframes heroFadeUp {
+            from {
+              opacity: 0;
+              transform: translate3d(0, 22px, 0);
+            }
+            to {
+              opacity: 1;
+              transform: translate3d(0, 0, 0);
+            }
+          }
+          @keyframes heroHeaderFadeUp {
+            from {
+              opacity: 0;
+              transform: translate3d(0, 12px, 0);
+            }
+            to {
+              opacity: 1;
+              transform: translate3d(0, 0, 0);
+            }
+          }
+          @keyframes heroTrustFade {
+            from { opacity: 0; }
+            to { opacity: 1; }
+          }
+          @keyframes heroBackgroundDrift {
+            from {
+              transform: scale(1);
+            }
+            to {
+              transform: scale(1.03);
+            }
+          }
+          .hero-background-image {
+            animation: heroBackgroundDrift 26s ease-in-out infinite alternate;
+            transform-origin: center top;
+            will-change: transform;
+          }
+          .hero-header-logo,
+          .hero-header-nav a,
+          .hero-header-actions > *,
+          .hero-header-mobile > * {
+            animation: heroHeaderFadeUp 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+          }
+          .hero-header-nav a:nth-child(1) { animation-delay: 50ms; }
+          .hero-header-nav a:nth-child(2) { animation-delay: 90ms; }
+          .hero-header-nav a:nth-child(3) { animation-delay: 130ms; }
+          .hero-header-nav a:nth-child(4) { animation-delay: 170ms; }
+          .hero-header-actions > :nth-child(1) { animation-delay: 150ms; }
+          .hero-header-actions > :nth-child(2) { animation-delay: 200ms; }
+          .hero-header-mobile > :nth-child(1) { animation-delay: 150ms; }
+          .hero-header-mobile > :nth-child(2) { animation-delay: 200ms; }
+          .hero-headline {
+            animation: heroFadeUp 820ms cubic-bezier(0.22, 1, 0.36, 1) 80ms both;
+          }
+          .hero-subtitle {
+            animation: heroFadeUp 650ms cubic-bezier(0.22, 1, 0.36, 1) 230ms both;
+          }
+          .hero-cta {
+            animation: heroFadeUp 650ms cubic-bezier(0.22, 1, 0.36, 1) 390ms both;
+          }
+          .hero-trust-location,
+          .hero-trust-hosts,
+          .hero-trust-bookings {
+            animation: heroFadeUp 600ms cubic-bezier(0.22, 1, 0.36, 1) both;
+          }
+          .hero-trust-divider {
+            animation: heroTrustFade 450ms ease both;
+          }
+          .hero-trust-location { animation-delay: 540ms; }
+          .hero-trust-divider:nth-child(2) { animation-delay: 585ms; }
+          .hero-trust-hosts { animation-delay: 630ms; }
+          .hero-trust-divider:nth-child(4) { animation-delay: 675ms; }
+          .hero-trust-bookings { animation-delay: 720ms; }
           @supports (animation-timeline: view()) {
             .hero-animated-content {
               animation: heroExitAnim linear both;
@@ -184,6 +257,34 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
               animation: placesEnterAnim linear both;
               animation-timeline: view();
               animation-range: entry 0% entry 100%;
+            }
+          }
+          @media (prefers-reduced-motion: reduce) {
+            html {
+              scroll-behavior: auto;
+            }
+            .hero-background-image,
+            .hero-header-logo,
+            .hero-header-nav a,
+            .hero-header-actions > *,
+            .hero-header-mobile > *,
+            .hero-headline,
+            .hero-subtitle,
+            .hero-cta,
+            .hero-trust-location,
+            .hero-trust-hosts,
+            .hero-trust-bookings,
+            .hero-trust-divider,
+            .hero-animated-content,
+            .places-animated-content {
+              animation: none !important;
+              transform: none !important;
+              opacity: 1 !important;
+              will-change: auto;
+            }
+            .hero-cta-arrow {
+              transition: none !important;
+              transform: none !important;
             }
           }
           .varoom-logo, .varoom-logo:hover, .varoom-logo:focus, .varoom-logo * {
@@ -209,7 +310,7 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
             <img
               src="/assets/landing.jpg"
               alt="VaRoom Nairobi Skyline"
-              className="w-full h-full object-cover object-top"
+              className="hero-background-image w-full h-full object-cover object-top"
               // @ts-expect-error fetchpriority is a modern HTML attribute
               fetchpriority="high"
             />
