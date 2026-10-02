@@ -572,13 +572,16 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
             className="sticky top-0 h-screen w-full -mb-[100vh] pointer-events-none select-none overflow-hidden z-0"
             aria-hidden="true"
           >
-            <img
-              src="/assets/landing.jpg"
-              alt="VaRoom Nairobi Skyline"
-              className="hero-background-image w-full h-full object-cover object-top"
-              // @ts-expect-error fetchpriority is a modern HTML attribute
-              fetchpriority="high"
-            />
+            <picture className="absolute inset-0 block">
+              <source media="(max-width: 767px)" srcSet="/assets/phonelanding.jpg" />
+              <img
+                src="/assets/landing.jpg"
+                alt="VaRoom Nairobi Skyline"
+                className="hero-background-image w-full h-full object-cover object-top"
+                // @ts-expect-error fetchpriority is a modern HTML attribute
+                fetchpriority="high"
+              />
+            </picture>
             {/* Soft gradient wash ensuring high text contrast across both states */}
             <div
               className={`absolute inset-0 pointer-events-none ${
