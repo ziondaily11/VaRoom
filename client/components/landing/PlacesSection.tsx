@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import landing2 from '../../assets/landing2a.jpg';
+import styles from './PlacesSection.module.css';
 import {
   LucideIcon,
   ArrowRight,
@@ -114,7 +115,7 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ listings }) => {
     <section
       ref={sectionRef}
       id="places-section"
-      className={`places-section relative z-20 w-full max-w-full min-h-screen box-border flex flex-col justify-center items-center px-4 sm:px-8 md:px-12 lg:px-16 snap-page py-8 sm:py-10 overflow-visible${hasEnteredViewport ? ' is-entered' : ''}`}
+      className={`${styles.section} places-section relative z-20 w-full max-w-full min-h-screen box-border flex flex-col justify-center items-center px-4 sm:px-8 md:px-12 lg:px-16 snap-page py-8 sm:py-10 overflow-visible${hasEnteredViewport ? ' is-entered' : ''}`}
       style={{
         backgroundImage: `url("${landing2.src}")`,
         backgroundPosition: 'center top',
@@ -155,8 +156,8 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ listings }) => {
           </Link>
         </div>
 
-        {/* 3-Column Listing Grid — Strict 70% Image / 30% Caption Proportion */}
-        <div className="places-listing-grid relative -top-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3 lg:gap-3.5">
+        {/* 2-Column Listing Grid — Strict 70% Image / 30% Caption Proportion */}
+        <div className="places-listing-grid relative -top-1 grid grid-cols-2 gap-2.5 sm:gap-3 lg:gap-3.5">
           {visibleListings.map((listing) => {
             const href = `/booking?listing=${listing.id}`;
             const priceValue = listing.price == null ? null : Number(listing.price);
