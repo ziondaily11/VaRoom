@@ -2,17 +2,22 @@
   --pp-bg: #faf7f2;
   --pp-text: #181513;
   --pp-muted: #4a443f;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
   background: var(--pp-bg);
   color: var(--pp-text);
   font-family: Georgia, "Times New Roman", serif;
   line-height: 1.7;
-  overflow-x: hidden;
+  overflow: hidden;
 }
 
 /* Hero: always black, curved into the page background */
 .pp-hero {
   position: relative;
   z-index: 1;
+  flex: 0 0 auto;
   background: #000;
   color: #fff;
   text-align: center;
@@ -68,18 +73,26 @@
 /* Two-column body */
 .pp-body {
   position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
   display: grid;
+  grid-template-rows: minmax(0, 1fr);
   grid-template-columns: 260px minmax(0, 1fr);
   gap: 64px;
   max-width: 1040px;
   margin: 0 auto;
   padding: 56px 20px 80px;
+  overflow: hidden;
 }
 
 .pp-toc {
   position: sticky;
   top: 24px;
   align-self: start;
+  min-height: 0;
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .pp-toc-toggle {
@@ -123,6 +136,9 @@
 /* Policy text */
 .pp-content {
   max-width: 680px;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .pp-content section {
@@ -170,6 +186,7 @@
 }
 
 .pp-footer {
+  flex: 0 0 auto;
   color: var(--pp-muted);
   text-align: center;
   padding: 28px 20px;
@@ -201,13 +218,21 @@ body:has(.pp-root) {
   }
 
   .pp-body {
-    grid-template-columns: 1fr;
+    display: flex;
+    flex-direction: column;
     gap: 16px;
     padding-top: 48px;
   }
 
   .pp-toc {
     position: static;
+    flex: 0 1 auto;
+    max-height: 30%;
+  }
+
+  .pp-content {
+    flex: 1 1 0;
+    width: 100%;
   }
 
   .pp-toc-toggle {
