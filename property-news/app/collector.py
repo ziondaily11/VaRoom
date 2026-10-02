@@ -636,7 +636,7 @@ class SourceCollector:
                 await asyncio.sleep(delay)
             self._last_request_at[hostname] = time.monotonic()
 
-    async def _robots_allowed(self, url: str) -> bool:
+    async def _robots_allowed(self, source: Source, url: str) -> bool:
         parsed = urlparse(url)
         origin = f"{parsed.scheme}://{parsed.netloc}"
         if origin not in self._robots_cache:
@@ -683,7 +683,7 @@ class SourceCollector:
         host = self._normalise_hostname(parsed.hostname).removeprefix("www.")
         semaphore = self._origin_semaphores.setdefault(host, asyncio.Semaphore(2))
         async with semaphore:
-            if not await self._robots_allowed(url):
+            if not await self._robots_allowed(source, url):
                 raise CollectionFailure("robots_disallowed", f"robots.txt disallows {url}")
             client = await self._get_client()
             last_error: Exception | None = None
@@ -692,7 +692,7 @@ class SourceCollector:
                     current_url = url
                     for _ in range(5):
                         current_origin = re.sub(r"^(https?://[^/]+).*$", r"\1", current_url)
-                        if not await self._robots_allowed(current_url):
+                        if not await self._robots_allowed(source, current_url):
                             raise CollectionFailure("robots_disallowed", f"robots.txt disallows {current_url}")
                         await self._wait_for_origin(current_origin)
                         async with client.stream("GET", current_url) as response:

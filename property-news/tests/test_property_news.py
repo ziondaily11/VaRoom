@@ -297,6 +297,44 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(SourceCollector._is_allowed_source_url(configured, "https://archive.partner.example/story"))
         self.assertFalse(SourceCollector._is_allowed_source_url(configured, "https://other.example.test/story"))
 
+    async def test_robots_fetch_uses_source_hosts_for_redirect_guard(self):
+        collector = SourceCollector(self.repository, Settings())
+        captured = {}
+
+        class RobotsResponse:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return None
+
+            def read(self, _limit):
+                return b"User-agent: *\nAllow: /\n"
+
+        class RobotsOpener:
+            def open(self, request, timeout):
+                captured["url"] = request.full_url
+                captured["timeout"] = timeout
+                return RobotsResponse()
+
+        def build_opener(*handlers):
+            captured["redirect_guard"] = handlers[-1]
+            return RobotsOpener()
+
+        with patch("app.collector.build_opener", side_effect=build_opener):
+            self.assertTrue(await collector._robots_allowed(
+                self.source, "https://source1.example.test/feed",
+            ))
+
+        self.assertEqual(captured["url"], "https://source1.example.test/robots.txt")
+        self.assertEqual(captured["timeout"], 10)
+        self.assertIn("source1.example.test", captured["redirect_guard"].hosts)
+        self.assertIn("www.source1.example.test", captured["redirect_guard"].hosts)
+        with self.assertRaises(CollectionFailure):
+            captured["redirect_guard"].redirect_request(
+                None, None, 302, "Found", {}, "https://outside.example/robots.txt",
+            )
+
     def test_failure_classifier_recognizes_all_source_failure_categories(self):
         cases = (
             "blocked_403", "tls_error", "dns_error", "timeout", "upstream_5xx",
