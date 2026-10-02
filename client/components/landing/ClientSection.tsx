@@ -64,7 +64,7 @@ export const ClientSection: React.FC<ClientSectionProps> = ({ onTryElie }) => {
             <div className="client-cta flex flex-wrap items-center gap-4">
               <Link
                 href="/marketplace"
-                className="landing-cta client-primary-cta inline-flex items-center gap-2.5 px-7 py-3.5 rounded-full bg-[#181513] text-[#faf8f5] text-sm font-medium shadow-sm"
+                className="landing-cta landing-cta-primary client-primary-cta inline-flex items-center gap-2.5 px-7 py-3.5 rounded-full bg-[#181513] text-[#faf8f5] text-sm font-medium shadow-sm"
               >
                 <span>Explore the Marketplace</span>
                 <ArrowRight size={16} className="client-cta-arrow" />
@@ -72,7 +72,7 @@ export const ClientSection: React.FC<ClientSectionProps> = ({ onTryElie }) => {
               <a
                 href="/login"
                 onClick={onTryElie}
-                className="landing-cta client-elie-button inline-flex items-center gap-2 px-6 py-3.5 rounded-full border border-[#2d2724]/25 text-[#181513] text-sm font-medium"
+                className="landing-cta-secondary client-elie-button inline-flex items-center gap-2 px-6 py-3.5 rounded-full border text-sm font-medium"
               >
                 <Bot size={16} className="client-elie-icon text-[#bd2337]" />
                 <span>Try Elie</span>

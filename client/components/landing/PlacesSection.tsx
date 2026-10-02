@@ -123,7 +123,7 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ listings }) => {
       }}
     >
       <div className="w-full max-w-6xl mx-auto flex flex-col justify-center">
-        {/* Compact Header: title & link (moves naturally directly into listing grid) */}
+        {/* Compact Header */}
         <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-2.5 sm:mb-3 gap-2">
           <div>
             <h2
@@ -145,15 +145,6 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ listings }) => {
               Explore stays, spaces and experiences available on VaRoom.
             </p>
           </div>
-
-          <Link
-            href="/marketplace"
-            className="landing-cta inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-[#181513] no-underline shrink-0"
-            style={{ textDecoration: 'none' }}
-          >
-            <span>Browse full marketplace</span>
-            <ArrowRight size={14} />
-          </Link>
         </div>
 
         {/* Responsive Listing Grid — Strict 70% Image / 30% Caption Proportion */}
