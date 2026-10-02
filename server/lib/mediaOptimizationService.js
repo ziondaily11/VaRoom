@@ -103,6 +103,25 @@ async function optimizeVideoBuffer(buffer, mimeType) {
 
   try {
     await fs.writeFile(inputPath, buffer);
+    const { stderr } = await execFileAsync(ffmpegPath, [
+      '-hide_banner',
+      '-i', inputPath,
+      '-map', '0:v:0',
+      '-c', 'copy',
+      '-f', 'null',
+      '-',
+    ], { windowsHide: true, maxBuffer: 512 * 1024 * 1024 });
+    const durationMatch = stderr.match(/Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/);
+    if (!durationMatch) {
+      throw new Error('Unable to determine video duration from media metadata');
+    }
+    const durationSeconds = Number(durationMatch[1]) * 3600 +
+      Number(durationMatch[2]) * 60 +
+      Number(durationMatch[3]);
+    if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) {
+      throw new Error('Video has an invalid duration');
+    }
+
     await execFileAsync(ffmpegPath, [
       '-hide_banner',
       '-loglevel', 'error',
@@ -124,6 +143,7 @@ async function optimizeVideoBuffer(buffer, mimeType) {
       optimized: optimizedBuffer.length < buffer.length,
       mimeType: 'video/mp4',
       buffer: optimizedBuffer.length < buffer.length ? optimizedBuffer : buffer,
+      durationSeconds,
     };
   } finally {
     await fs.rm(tempDir, { recursive: true, force: true });
@@ -164,6 +184,7 @@ async function optimizeStoredMediaObject(objectKey, mimeType, fileName = '') {
       optimizedSize: originalBuffer.length,
       outputContentType: normalizedType,
       reason: 'no-size-gain',
+      durationSeconds: result.durationSeconds,
     };
   }
 
@@ -177,6 +198,7 @@ async function optimizeStoredMediaObject(objectKey, mimeType, fileName = '') {
     optimizedSize: result.buffer.length,
     outputContentType: result.mimeType,
     bytesSaved: originalBuffer.length - result.buffer.length,
+    durationSeconds: result.durationSeconds,
   };
 }
 

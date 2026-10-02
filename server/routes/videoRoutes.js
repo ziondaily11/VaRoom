@@ -334,6 +334,25 @@ router.post('/properties/:propertyId/videos/:mediaId/complete', async (req, res)
       return res.status(500).json({ error: 'Uploaded video could not be optimized. Please try again.' });
     }
 
+    if (!optimization || !Number.isFinite(optimization.durationSeconds)) {
+      await supabaseAdmin.from('property_media').update({ status: 'failed' }).eq('id', mediaId);
+      return res.status(500).json({ error: 'Uploaded video duration could not be verified.' });
+    }
+
+    if (optimization.durationSeconds > videoEntitlement.VIDEO_MAX_DURATION_SECONDS) {
+      const { error: failError } = await supabaseAdmin
+        .from('property_media')
+        .update({ status: 'failed' })
+        .eq('id', mediaId);
+      if (failError) {
+        console.error('Error marking over-limit video as failed:', failError);
+        return res.status(500).json({ error: 'Uploaded video exceeds the maximum duration.' });
+      }
+      return res.status(400).json({
+        error: `Video must be ${videoEntitlement.VIDEO_MAX_DURATION_SECONDS} seconds or shorter.`,
+      });
+    }
+
     let thumbnailKey = null;
     try {
       thumbnailKey = await generateVideoThumbnail(mediaRecord.storage_key);
@@ -347,7 +366,7 @@ router.post('/properties/:propertyId/videos/:mediaId/complete', async (req, res)
       .from('property_media')
       .update({
         status: 'ready',
-        duration_seconds: durationSeconds ?? null,
+        duration_seconds: optimization.durationSeconds,
         file_size_bytes: optimization && optimization.optimized ? optimization.optimizedSize : objectMetadata.contentLength,
         mime_type: optimization && optimization.outputContentType ? optimization.outputContentType : mediaRecord.mime_type,
         thumbnail_key: thumbnailKey,
