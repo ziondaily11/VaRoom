@@ -85,6 +85,35 @@ function getAmenityMeta(key: string): AmenityMeta | null {
   return AMENITY_MAP[normalized] || null;
 }
 
+interface ListingImageProps {
+  src: string;
+  alt: string;
+}
+
+const ListingImage: React.FC<ListingImageProps> = ({ src, alt }) => {
+  const [status, setStatus] = useState<'loading' | 'loaded' | 'error'>('loading');
+
+  return (
+    <>
+      {status !== 'error' && (
+        <img
+          src={src}
+          alt={alt}
+          loading="lazy"
+          onLoad={() => setStatus('loaded')}
+          onError={() => setStatus('error')}
+          className="w-full h-full object-cover object-center group-hover:scale-[1.02] transition-transform duration-300 ease-out"
+        />
+      )}
+      {status !== 'loaded' && (
+        <div className="absolute inset-0 flex items-center justify-center" role="status" aria-label={status === 'error' ? 'Image unavailable' : 'Loading image'}>
+          <span className="h-6 w-6 animate-spin rounded-full border-2 border-[#786e64]/30 border-t-[#bd2337]" aria-hidden="true" />
+        </div>
+      )}
+    </>
+  );
+};
+
 export const PlacesSection: React.FC<PlacesSectionProps> = ({ listings }) => {
   // Always display up to 6 real listings from the database
   const visibleListings = (listings || []).slice(0, 6);
@@ -178,12 +207,7 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ listings }) => {
                 {/* ========================================================= */}
                 <div className="relative w-full h-[172px] sm:h-[180px] lg:h-[184px] bg-[#eae2d6] overflow-hidden">
                   {listing.photoUrl ? (
-                    <img
-                      src={listing.photoUrl}
-                      alt={listing.title || 'VaRoom Space'}
-                      loading="lazy"
-                      className="w-full h-full object-cover object-center group-hover:scale-[1.02] transition-transform duration-300 ease-out"
-                    />
+                    <ListingImage key={listing.photoUrl} src={listing.photoUrl} alt={listing.title || 'VaRoom Space'} />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center bg-[#eae2d6] text-[#786e64] text-xs font-semibold uppercase">
                       {listing.category || 'Property'}
