@@ -15,7 +15,12 @@ const { execFile } = require('child_process');
 const { promisify } = require('util');
 const sharp = require('sharp');
 const ffmpegPath = require('ffmpeg-static');
-const { optimizeImageBuffer, optimizeVideoBuffer } = require('../lib/mediaOptimizationService');
+const mediaStorageService = require('../lib/mediaStorageService');
+const {
+  optimizeImageBuffer,
+  optimizeVideoBuffer,
+  optimizeStoredMediaObject,
+} = require('../lib/mediaOptimizationService');
 
 const execFileAsync = promisify(execFile);
 
@@ -64,8 +69,22 @@ test('optimizeVideoBuffer preserves aspect ratio and returns a valid MP4', async
     const optimized = await optimizeVideoBuffer(original, 'video/mp4');
 
     assert.equal(optimized.mimeType, 'video/mp4');
+    assert.ok(Math.abs(optimized.durationSeconds - 3) < 0.1);
     assert.ok(optimized.buffer.length > 0);
     assert.ok(optimized.buffer.length <= original.length + 1);
+
+    const downloadR2Object = mediaStorageService.downloadR2Object;
+    const uploadR2Object = mediaStorageService.uploadR2Object;
+    mediaStorageService.downloadR2Object = async () => original;
+    mediaStorageService.uploadR2Object = async () => {};
+    try {
+      const storedResult = await optimizeStoredMediaObject('test-video-key', 'video/mp4');
+      assert.ok(Math.abs(storedResult.durationSeconds - 3) < 0.1);
+    } finally {
+      mediaStorageService.downloadR2Object = downloadR2Object;
+      mediaStorageService.uploadR2Object = uploadR2Object;
+    }
+
     await fs.writeFile(outputPath, optimized.buffer);
     const stat = await fs.stat(outputPath);
     assert.ok(stat.size > 0);

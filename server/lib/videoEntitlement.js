@@ -82,25 +82,23 @@ async function canUploadPropertyVideo(supabaseAdmin, user, property, currentVide
  * Used to check against VIDEO_MAX_COUNT_PER_PROPERTY
  */
 async function getPropertyVideoCount(supabaseAdmin, propertyId) {
-  try {
-    const { data, error, count } = await supabaseAdmin
-      .from('property_media')
-      .select('id', { count: 'exact', head: true })
-      .eq('property_id', propertyId)
-      .eq('media_type', 'video')
-      .neq('status', 'deleted')
-      .is('deleted_at', null);
+  const { error, count } = await supabaseAdmin
+    .from('property_media')
+    .select('id', { count: 'exact', head: true })
+    .eq('property_id', propertyId)
+    .eq('media_type', 'video')
+    .neq('status', 'deleted')
+    .is('deleted_at', null);
 
-    if (error) {
-      console.error('Error fetching video count:', error);
-      return 0;
-    }
-
-    return count || 0;
-  } catch (error) {
-    console.error('Error in getPropertyVideoCount:', error);
-    return 0;
+  if (error) {
+    throw new Error(`Failed to fetch property video count: ${error.message || error}`);
   }
+
+  if (!Number.isSafeInteger(count) || count < 0) {
+    throw new Error('Failed to fetch property video count: database returned an invalid count');
+  }
+
+  return count;
 }
 
 /**
