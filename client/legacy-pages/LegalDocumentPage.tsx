@@ -42,10 +42,11 @@ function useActiveSection(ids: string[]): string {
   const [active, setActive] = useState(ids[0] ?? "");
 
   useEffect(() => {
+    const root = document.querySelector<HTMLElement>(".pp-content");
     const els = ids
       .map((id) => document.getElementById(id))
       .filter((el): el is HTMLElement => el !== null);
-    if (!els.length) return;
+    if (!root || !els.length) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -54,7 +55,7 @@ function useActiveSection(ids: string[]): string {
           .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
         if (visible[0]) setActive(visible[0].target.id);
       },
-      { rootMargin: "-15% 0px -75% 0px" }
+      { root, rootMargin: "-15% 0px -75% 0px" }
     );
     els.forEach((el) => observer.observe(el));
     return () => observer.disconnect();
