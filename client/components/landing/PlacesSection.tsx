@@ -156,8 +156,8 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ listings }) => {
           </Link>
         </div>
 
-        {/* 2-Column Listing Grid — Strict 70% Image / 30% Caption Proportion */}
-        <div className="places-listing-grid relative -top-1 grid grid-cols-2 gap-2.5 sm:gap-3 lg:gap-3.5">
+        {/* Responsive Listing Grid — Strict 70% Image / 30% Caption Proportion */}
+        <div className="places-listing-grid relative -top-1 grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-3 lg:gap-3.5">
           {visibleListings.map((listing) => {
             const href = `/booking?listing=${listing.id}`;
             const priceValue = listing.price == null ? null : Number(listing.price);
