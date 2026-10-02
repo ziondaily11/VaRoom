@@ -547,6 +547,30 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
             outline: 2px solid #bd2337;
             outline-offset: 3px;
           }
+          .landing-page .landing-cta-secondary {
+            background-color: transparent;
+            background-image: linear-gradient(rgba(189, 35, 55, 0.2), rgba(189, 35, 55, 0.2));
+            background-position: left center;
+            background-repeat: no-repeat;
+            background-size: 0% 100%;
+            border: 1px solid rgba(45, 39, 36, 0.25);
+            box-shadow: none;
+            color: #2d2724;
+            transition: background-color 300ms ease, background-size 300ms ease, border-color 300ms ease, box-shadow 300ms ease, color 300ms ease, transform 300ms ease;
+          }
+          .landing-page .landing-cta-secondary:hover,
+          .landing-page .landing-cta-secondary:focus-visible {
+            background-color: var(--color-primary-hover) !important;
+            background-size: 100% 100% !important;
+            border-color: var(--color-primary-hover) !important;
+            box-shadow: 0 7px 16px rgba(24, 21, 19, 0.14) !important;
+            color: #faf8f5 !important;
+            transform: translateY(-2px) !important;
+          }
+          .landing-page .landing-cta-secondary:hover svg,
+          .landing-page .landing-cta-secondary:focus-visible svg {
+            color: #faf8f5 !important;
+          }
           @media (prefers-reduced-motion: reduce) {
             .landing-page .landing-cta {
               transition: none !important;
@@ -555,6 +579,10 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
             .landing-page .landing-cta:focus-visible {
               background-size: 100% 100%;
               transform: none;
+            }
+            .landing-page .landing-cta-secondary {
+              transition: none !important;
+              transform: none !important;
             }
           }
         `}</style>
