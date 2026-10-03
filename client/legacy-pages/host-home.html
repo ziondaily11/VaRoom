@@ -2144,7 +2144,7 @@
       );
     }
 
-    const FEED_SELECT = 'id,title,description,location_text,category,verified,availability_status,created_at,host_id,host:profiles(full_name,verified,avatar_url,username),listing_photos(storage_path),listing_booking_details(price_amount,price_unit)';
+    const FEED_SELECT = 'id,title,description,location_text,category,verified,availability_status,created_at,host_id,host:profiles!listings_host_id_fkey(full_name,verified,avatar_url,username),listing_photos(storage_path),listing_booking_details(price_amount,price_unit)';
 
     async function startChat(listingId, hostId){
       const { data, error } = await supabaseClient
