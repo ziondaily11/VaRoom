@@ -60,7 +60,7 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
           sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         }
 
-        const baseSelect = 'id,title,description,location_text,category,verified,created_at,host_id,listing_photos(storage_path),listing_booking_details(*),host:profiles(full_name,verified,avatar_url,username)';
+        const baseSelect = 'id,title,description,location_text,category,verified,created_at,host_id,listing_photos(storage_path),listing_booking_details(*),host:profiles!listings_host_id_fkey(full_name,verified,avatar_url,username)';
         const missingColumnMessage = 'availability_status';
 
         let { data, error } = await sb
@@ -685,7 +685,7 @@ export const getStaticProps: GetStaticProps<LandingPageProps> = async () => {
     const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     const { data, error } = await sb
       .from('listings')
-      .select('id,title,description,location_text,category,verified,created_at,host_id,availability_status,listing_photos(storage_path),listing_booking_details(*),host:profiles(full_name,verified,avatar_url,username)')
+      .select('id,title,description,location_text,category,verified,created_at,host_id,availability_status,listing_photos(storage_path),listing_booking_details(*),host:profiles!listings_host_id_fkey(full_name,verified,avatar_url,username)')
       .eq('moderation_status', 'active')
       .order('created_at', { ascending: false })
       .limit(12);
