@@ -608,6 +608,33 @@
     .col-side{ display:block; margin:0 5vw; }
     .col-side .booking-widget{ position:static; margin-top:1.25rem; padding:1rem; box-shadow:none; }
   }
+
+  /* ---------- Booking CTA sending animation ---------- */
+  .confirm-btn { position:relative; overflow:hidden; }
+  .cta-progress {
+    position:absolute; top:0; left:0; bottom:0; width:100%;
+    background:var(--green); border-radius:inherit;
+    transform:scaleX(0); transform-origin:left center;
+    pointer-events:none; z-index:0;
+  }
+  .cta-airplane {
+    position:absolute; top:50%; left:6px;
+    transform:translateY(-50%);
+    z-index:1; pointer-events:none;
+    opacity:0; display:flex; align-items:center;
+  }
+  .confirm-btn.cta-sending .cta-airplane { opacity:1; }
+  .cta-airplane svg { width:18px; height:18px; transform:rotate(-45deg); }
+  .cta-label { position:relative; z-index:1; }
+  .confirm-btn.cta-sending { cursor:wait; }
+  .confirm-btn.cta-sending:disabled { background:var(--red); color:#fff; cursor:wait; }
+  .confirm-btn.cta-sent { cursor:default; pointer-events:none; }
+  .confirm-btn.cta-sent:disabled { background:var(--red); color:#fff; cursor:default; }
+  [data-theme="dark"] .confirm-btn.cta-sending:disabled,
+  [data-theme="dark"] .confirm-btn.cta-sent:disabled { background:var(--red); color:#fff; }
+  @media (prefers-reduced-motion:reduce) {
+    .cta-progress, .cta-airplane { transition:none !important; }
+  }
 </style>
 </head>
 <body>
@@ -793,6 +820,151 @@
       hotel_fitness_center: AMENITY_ICON.gym,
       hotel_pet_friendly: AMENITY_ICON.pet
     };
+
+    // ---------- Paper airplane icon for booking CTA animation ----------
+    const ICON_AIRPLANE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4z"/><path d="m22 2-11 11"/></svg>';
+
+    // ---------- Booking CTA sending animation ----------
+    // State machine: idle → sending → success  OR  idle → sending → error → idle
+    // Returns { complete: () => Promise, error: () => void }
+    function initSendingAnimation(btn, successText) {
+      var MIN_ANIM_MS = 1800;
+      var prefersRM = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      var idleText = btn.textContent;
+      var rect = btn.getBoundingClientRect();
+      btn.style.minHeight = rect.height + 'px';
+
+      // Lock immediately — prevents duplicate clicks at the DOM level
+      btn.disabled = true;
+      btn.setAttribute('aria-busy', 'true');
+      btn.classList.add('cta-sending');
+
+      // Replace content with animation layers
+      btn.innerHTML =
+        '<span class="cta-progress"></span>' +
+        '<span class="cta-airplane">' + ICON_AIRPLANE + '</span>' +
+        '<span class="cta-label" aria-live="polite"></span>';
+
+      var progEl = btn.querySelector('.cta-progress');
+      var planeEl = btn.querySelector('.cta-airplane');
+      var labelEl = btn.querySelector('.cta-label');
+      var cur = 0;
+      var running = true;
+
+      function setProgress(p) {
+        cur = Math.min(Math.max(p, 0), 1);
+        progEl.style.transform = 'scaleX(' + cur + ')';
+        if (!prefersRM) {
+          var maxX = btn.clientWidth - 24;
+          planeEl.style.transform = 'translateY(-50%) translateX(' + (cur * maxX) + 'px)';
+        }
+      }
+
+      function easeIO(t) { return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2, 3)/2; }
+      function easeOut(t) { return 1 - Math.pow(1 - t, 3); }
+
+      if (prefersRM) {
+        // Reduced-motion: static sending state, no animation
+        labelEl.textContent = 'Sending\u2026';
+        progEl.style.transform = 'scaleX(0.5)';
+        planeEl.style.display = 'none';
+      } else {
+        // Phase 1: animate 0 → 85% over MIN_ANIM_MS
+        var t0 = performance.now();
+        function phase1(now) {
+          if (!running) return;
+          var t = Math.min((now - t0) / MIN_ANIM_MS, 1);
+          setProgress(easeIO(t) * 0.85);
+          if (t < 1) { requestAnimationFrame(phase1); return; }
+          // Phase 2: slowly creep 85% → 95% (waiting for API)
+          var cs = performance.now();
+          function creep(now) {
+            if (!running) return;
+            var t = Math.min((now - cs) / 10000, 1);
+            setProgress(0.85 + t * 0.1);
+            if (t < 1) requestAnimationFrame(creep);
+          }
+          requestAnimationFrame(creep);
+        }
+        requestAnimationFrame(phase1);
+      }
+
+      return {
+        // Call when the API responds with success
+        complete: function() {
+          return new Promise(function(resolve) {
+            running = false;
+            if (prefersRM) {
+              progEl.style.transform = 'scaleX(1)';
+              setTimeout(function() {
+                btn.classList.remove('cta-sending');
+                btn.classList.add('cta-sent');
+                btn.removeAttribute('aria-busy');
+                btn.setAttribute('aria-label', successText);
+                labelEl.textContent = successText;
+                progEl.style.display = 'none';
+                btn.style.minHeight = '';
+                resolve();
+              }, 150);
+              return;
+            }
+            // Smoothly finish from current → 100%
+            var sp = cur, s = performance.now();
+            var dur = Math.max(400, (1 - sp) * 800);
+            function fin(now) {
+              var t = Math.min((now - s) / dur, 1);
+              setProgress(sp + (1 - sp) * easeOut(t));
+              if (t < 1) { requestAnimationFrame(fin); return; }
+              // Fade green → reveal red underneath
+              progEl.style.transition = 'opacity .35s ease';
+              progEl.style.opacity = '0';
+              planeEl.style.transition = 'opacity .25s ease';
+              planeEl.style.opacity = '0';
+              setTimeout(function() {
+                btn.classList.remove('cta-sending');
+                btn.classList.add('cta-sent');
+                btn.removeAttribute('aria-busy');
+                btn.setAttribute('aria-label', successText);
+                progEl.style.display = 'none';
+                planeEl.style.display = 'none';
+                labelEl.textContent = successText;
+                btn.style.minHeight = '';
+                resolve();
+              }, 380);
+            }
+            requestAnimationFrame(fin);
+          });
+        },
+
+        // Call when the API responds with an error
+        error: function() {
+          running = false;
+          if (prefersRM) {
+            btn.classList.remove('cta-sending');
+            btn.removeAttribute('aria-busy');
+            btn.disabled = false;
+            btn.textContent = idleText;
+            btn.style.minHeight = '';
+            return;
+          }
+          // Reverse animation back to 0
+          var sp = cur, s = performance.now();
+          function rev(now) {
+            var t = Math.min((now - s) / 400, 1);
+            setProgress(sp * (1 - t));
+            if (t < 1) { requestAnimationFrame(rev); return; }
+            setTimeout(function() {
+              btn.classList.remove('cta-sending');
+              btn.removeAttribute('aria-busy');
+              btn.disabled = false;
+              btn.textContent = idleText;
+              btn.style.minHeight = '';
+            }, 80);
+          }
+          requestAnimationFrame(rev);
+        }
+      };
+    }
 
     function showError(msg){
       skeleton.style.display = 'none';
@@ -1384,15 +1556,20 @@
       occasion.addEventListener('change', function(){ occasionDetails.style.display = occasion.checked ? 'block' : 'none'; occasionDetails.required = occasion.checked; });
       overlay.querySelector('[data-close]').addEventListener('click', function(){ overlay.remove(); });
       overlay.addEventListener('click', function(event){ if (event.target === overlay) overlay.remove(); });
+      var tableSubmitting = false;
       form.addEventListener('submit', async function(event){
         event.preventDefault();
+        if (tableSubmitting) return;
         if (!form.reportValidity()) return;
-        const submit = form.querySelector('[type="submit"]'); const error = overlay.querySelector('#table-reservation-error');
-        submit.disabled = true; submit.textContent = 'Sending request...'; error.textContent = '';
-        const response = await fetch('/api/table-reservations', { method:'POST', headers:{ 'Content-Type':'application/json', Authorization:'Bearer ' + session.access_token }, body:JSON.stringify({ listing_id: listingId, phone: overlay.querySelector('#table-phone').value, guest_count:Number(overlay.querySelector('#table-guests').value), table_count:Number(overlay.querySelector('#table-count').value), requested_date:overlay.querySelector('#table-date').value, requested_time:overlay.querySelector('#table-time').value, special_occasion:occasion.checked, occasion_details:occasionDetails.value }) });
+        tableSubmitting = true;
+        const submit = form.querySelector('[type="submit"]'); const errorEl = overlay.querySelector('#table-reservation-error');
+        errorEl.textContent = '';
+        var anim = initSendingAnimation(submit, 'Booking request sent');
+        var response; try { response = await fetch('/api/table-reservations', { method:'POST', headers:{ 'Content-Type':'application/json', Authorization:'Bearer ' + session.access_token }, body:JSON.stringify({ listing_id: listingId, phone: overlay.querySelector('#table-phone').value, guest_count:Number(overlay.querySelector('#table-guests').value), table_count:Number(overlay.querySelector('#table-count').value), requested_date:overlay.querySelector('#table-date').value, requested_time:overlay.querySelector('#table-time').value, special_occasion:occasion.checked, occasion_details:occasionDetails.value }) }); } catch(e) { anim.error(); tableSubmitting = false; errorEl.textContent = 'Network error — please try again.'; return; }
         const result = await response.json().catch(function(){ return {}; });
-        if (!response.ok) { error.textContent = result.error || 'Unable to send the reservation request.'; submit.disabled = false; submit.textContent = 'Send Table Request'; return; }
-        form.innerHTML = '<h2 style="margin:0 0 .5rem">Request sent</h2><p style="margin:0;color:#746762">The hotel has your contact details and will follow up about your table reservation.</p><button type="button" class="confirm-btn" style="width:100%;margin-top:1rem" data-close>Done</button>';
+        if (!response.ok) { anim.error(); tableSubmitting = false; errorEl.textContent = result.error || 'Unable to send the reservation request.'; return; }
+        await anim.complete();
+        form.innerHTML = '<h2 style="margin:0 0 .5rem">Request sent</h2><p style="margin:0 0 .6rem;color:#746762">The hotel has your contact details and will follow up about your table reservation.</p><button class="confirm-btn cta-sent" type="button" disabled aria-label="Booking request sent" style="width:100%;pointer-events:none">Booking request sent</button><button type="button" class="confirm-btn" style="width:100%;margin-top:.65rem;background:transparent;color:var(--red-deep);border:1px solid var(--red-deep)" data-close>Done</button>';
         form.querySelector('[data-close]').addEventListener('click', function(){ overlay.remove(); });
       });
     }
@@ -1608,15 +1785,17 @@
     }
 
     // ---------- Confirm booking ----------
+    var staySubmitting = false;
     confirmBtn.addEventListener('click', async function(){
+      if (staySubmitting) return;
       if (supportsBoth && !bookingIntent) { openReservationChoice(); return; }
       if (supportsBoth && bookingIntent === 'stay' && (!selectedStart || (!isHourly && !selectedEnd))) {
         bookingIntent = null;
         alert('Choose your stay dates before reserving a room.');
         return;
       }
-      confirmBtn.disabled = true;
-      confirmBtn.textContent = 'Sending request...';
+      staySubmitting = true;
+      var anim = initSendingAnimation(confirmBtn, 'Reservation request sent');
 
       const payload = {
         listing_id: listingId,
@@ -1641,40 +1820,42 @@
       const successMsg = document.getElementById('success-msg');
 
       if (error) {
+        anim.error();
+        staySubmitting = false;
         successMsg.textContent = 'Something went wrong: ' + error.message;
         successMsg.classList.add('show', 'error');
-        confirmBtn.disabled = false;
-        confirmBtn.textContent = 'Book now';
         return;
       }
 
       // Booking availability is reflected by the next feed revalidation.
-      // Retain cards immediately, but ensure a return to Listings does not
-      // keep a booking-related state stale past this user action.
       if (window.VaRoomListingFeedCache) window.VaRoomListingFeedCache.invalidateAll();
 
-      await window.VaRoomNotificationAPI.create({
-        recipient_user_id: listing.host_id,
-        actor_user_id: currentUser.id,
-        type: 'booking_request',
-        title: 'New booking request',
-        message: '"' + (currentUser.full_name || 'A guest') + '" requested to book "' + (listing.title || 'this listing') + '".',
-        related_entity_type: 'booking',
-        related_entity_id: newBooking ? newBooking.id : null,
-        booking_id: newBooking ? newBooking.id : null,
-        event_key: 'booking-request:' + (newBooking ? newBooking.id : listingId),
-        metadata: {
-          listing_id: listingId,
-          listing_name: listing.title,
+      try {
+        await window.VaRoomNotificationAPI.create({
+          recipient_user_id: listing.host_id,
+          actor_user_id: currentUser.id,
+          type: 'booking_request',
+          title: 'New booking request',
+          message: '"' + (currentUser.full_name || 'A guest') + '" requested to book "' + (listing.title || 'this listing') + '".',
+          related_entity_type: 'booking',
+          related_entity_id: newBooking ? newBooking.id : null,
           booking_id: newBooking ? newBooking.id : null,
-          client_id: currentUser.id,
-          client_name: currentUser.full_name || currentUser.email || 'Guest'
-        }
-      });
+          event_key: 'booking-request:' + (newBooking ? newBooking.id : listingId),
+          metadata: {
+            listing_id: listingId,
+            listing_name: listing.title,
+            booking_id: newBooking ? newBooking.id : null,
+            client_id: currentUser.id,
+            client_name: currentUser.full_name || currentUser.email || 'Guest'
+          }
+        });
+      } catch (notifErr) {
+        console.error('Booking notification failed:', notifErr);
+      }
 
+      await anim.complete();
       successMsg.textContent = 'Request sent! The host has 48 hours to respond — you\'ll be notified either way.';
       successMsg.classList.add('show');
-      confirmBtn.style.display = 'none';
     });
   })();
 </script>
