@@ -647,9 +647,12 @@
     padding:.35rem .55rem; border-radius:999px;
   }
   .action-btn:hover{ color:var(--red); background:var(--line-soft); }
-  .bookmark-btn{ margin-left:auto; color:var(--muted); }
+  .bookmark-btn{ margin-left:0; color:var(--muted); }
   .bookmark-btn:hover{ color:var(--red); }
   .bookmark-btn.saved{ color:var(--red); }
+  .like-btn{ margin-left:auto; color:var(--ink); flex-shrink:0; white-space:nowrap; }
+  .like-btn:hover{ color:var(--ink); }
+  .like-btn .like-count{ font-variant-numeric:tabular-nums; }
 
   .card-photos img{ cursor:pointer; }
 
@@ -1165,6 +1168,7 @@
     let currentCategory = 'all';
     let searchTerm = '';
     let bookmarkedIds = new Set();
+    const listingLikeStates = new Map();
     let currentView = 'home';
     let interestedCategories = [];
 
@@ -1319,6 +1323,197 @@
     const ICON_CHAT = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z"/></svg>';
     const ICON_BOOKMARK_OUTLINE = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h12a1 1 0 0 1 1 1V21l-7-4-7 4V4.5a1 1 0 0 1 1-1Z"/></svg>';
     const ICON_BOOKMARK_FILLED = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h12a1 1 0 0 1 1 1V21l-7-4-7 4V4.5a1 1 0 0 1 1-1Z"/></svg>';
+    const ICON_HEART_OUTLINE = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21l7.8-7.5 1.1-1.1a5.5 5.5 0 0 0-.1-7.8Z"/></svg>';
+    const ICON_HEART_FILLED = '<svg width="16" height="16" viewBox="0 0 24 24" fill="var(--red)" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21l7.8-7.5 1.1-1.1a5.5 5.5 0 0 0-.1-7.8Z"/></svg>';
+
+    function getListingLikeState(listingId){
+      let state = listingLikeStates.get(listingId);
+      if (!state) {
+        state = {
+          count: 0,
+          liked: false,
+          confirmedCount: 0,
+          confirmedLiked: false,
+          loaded: false,
+          loading: false,
+          loadFailed: false,
+          unavailable: false,
+          changed: false,
+          version: 0,
+          saving: false
+        };
+        listingLikeStates.set(listingId, state);
+      }
+      return state;
+    }
+
+    function updateLikeButton(button, state){
+      button.innerHTML = (state.unavailable ? ICON_HEART_OUTLINE : (state.liked ? ICON_HEART_FILLED : ICON_HEART_OUTLINE)) +
+        '<span class="like-count">' + (state.unavailable ? '—' : state.count) + '</span>';
+      button.disabled = state.unavailable;
+      if (state.unavailable) {
+        button.removeAttribute('aria-pressed');
+        button.setAttribute('aria-label', 'Like status unavailable');
+        button.title = 'Like information is temporarily unavailable';
+      } else {
+        button.setAttribute('aria-pressed', state.liked ? 'true' : 'false');
+        button.setAttribute('aria-label', state.liked ? 'Unlike listing' : 'Like listing');
+        button.removeAttribute('title');
+      }
+    }
+
+    function updateListingLikeButtons(listingId, state){
+      document.querySelectorAll('.like-btn').forEach(function(button){
+        if (button.getAttribute('data-listing-id') === listingId) updateLikeButton(button, state);
+      });
+    }
+
+    function isValidListingLikeSummary(summary){
+      const count = summary && Number(summary.like_count);
+      return Number.isSafeInteger(count) && count >= 0 && typeof summary.liked_by_current_user === 'boolean';
+    }
+
+    function applyListingLikeSummary(listingId, summary){
+      if (!isValidListingLikeSummary(summary)) throw new Error('The listing-like summary response was invalid.');
+      const state = getListingLikeState(listingId);
+      state.confirmedCount = Number(summary.like_count);
+      state.confirmedLiked = summary.liked_by_current_user === true;
+      state.loaded = true;
+      state.loading = false;
+      state.loadFailed = false;
+      state.unavailable = false;
+      state.liked = state.confirmedLiked;
+      state.count = state.confirmedCount;
+      updateListingLikeButtons(listingId, state);
+    }
+
+    function summaryForListing(summaries, listingId){
+      return Array.isArray(summaries)
+        ? summaries.find(function(summary){ return summary.listing_id === listingId; })
+        : null;
+    }
+
+    async function loadListingLikeSummaries(listingIds){
+      const ids = Array.from(new Set(listingIds.map(String))).filter(function(id){
+        const state = getListingLikeState(id);
+        if (state.loaded || state.loading || state.loadFailed) return false;
+        state.loading = true;
+        return true;
+      });
+      for (let offset = 0; offset < ids.length; offset += 100) {
+        const batch = ids.slice(offset, offset + 100);
+        const versions = new Map(batch.map(function(id){ return [id, getListingLikeState(id).version]; }));
+        try {
+          const { data, error } = await supabaseClient.rpc('get_listing_like_summaries', { p_listing_ids: batch });
+          if (error) throw error;
+          const summariesById = new Map((data || []).map(function(summary){ return [summary.listing_id, summary]; }));
+          batch.forEach(function(id){
+            if (!isValidListingLikeSummary(summariesById.get(id))) {
+              throw new Error('The listing-like summary response was incomplete.');
+            }
+          });
+          batch.forEach(function(id){
+            const state = getListingLikeState(id);
+            const summary = summariesById.get(id);
+            if (state.version === versions.get(id) && !state.changed) {
+              applyListingLikeSummary(id, summary);
+            } else {
+              state.loading = false;
+              state.loaded = true;
+              updateListingLikeButtons(id, state);
+            }
+          });
+        } catch (error) {
+          console.error('Listing likes could not be loaded:', error);
+          batch.forEach(function(id){
+            const state = getListingLikeState(id);
+            state.loading = false;
+            state.loadFailed = true;
+            state.unavailable = true;
+            updateListingLikeButtons(id, state);
+          });
+          showToast("Couldn't load listing likes. Please refresh and try again.");
+        }
+      }
+    }
+
+    function presentListingLikeState(state){
+      state.count = Math.max(0, state.confirmedCount + (state.liked === state.confirmedLiked ? 0 : (state.liked ? 1 : -1)));
+    }
+
+    async function reconcileListingLike(listingId, error){
+      const state = getListingLikeState(listingId);
+      let reconciled = false;
+      console.error('Listing like update failed:', error);
+      try {
+        const { data, error: reconcileError } = await supabaseClient.rpc('get_listing_like_summaries', {
+          p_listing_ids: [listingId]
+        });
+        if (reconcileError) throw reconcileError;
+        const summary = summaryForListing(data, listingId);
+        if (!isValidListingLikeSummary(summary)) {
+          throw new Error('The listing-like summary response was incomplete.');
+        }
+        state.confirmedCount = Number(summary.like_count);
+        state.confirmedLiked = summary.liked_by_current_user === true;
+        state.loaded = true;
+        state.unavailable = false;
+        reconciled = true;
+      } catch (reconcileError) {
+        console.error('Listing like state could not be reconciled:', reconcileError);
+      }
+      if (reconciled) {
+        state.liked = state.confirmedLiked;
+        state.count = state.confirmedCount;
+      } else {
+        state.unavailable = true;
+        state.loadFailed = true;
+        state.count = 0;
+      }
+      state.version += 1;
+      updateListingLikeButtons(listingId, state);
+      showToast(reconciled
+        ? "Couldn't update that like. The server state was restored."
+        : "Couldn't confirm that like. Please refresh to reload its state.");
+    }
+
+    async function syncListingLike(listingId){
+      const state = getListingLikeState(listingId);
+      if (state.saving) return;
+      state.saving = true;
+      try {
+        while (state.liked !== state.confirmedLiked) {
+          const targetLiked = state.liked;
+          let result;
+          try {
+            result = await supabaseClient.rpc('set_listing_like', {
+              p_listing_id: listingId,
+              p_liked: targetLiked
+            });
+          } catch (error) {
+            await reconcileListingLike(listingId, error);
+            break;
+          }
+          if (result.error) {
+            await reconcileListingLike(listingId, result.error);
+            break;
+          }
+          const summary = Array.isArray(result.data) ? result.data[0] : null;
+          if (!isValidListingLikeSummary(summary)) {
+            await reconcileListingLike(listingId, new Error('The listing-like update response was incomplete.'));
+            break;
+          }
+          state.confirmedCount = Number(summary.like_count);
+          state.confirmedLiked = summary.liked_by_current_user;
+          state.loaded = true;
+          state.unavailable = false;
+          presentListingLikeState(state);
+          updateListingLikeButtons(listingId, state);
+        }
+      } finally {
+        state.saving = false;
+      }
+    }
 
     async function getAuthToken(){
       const { data: { session } } = await supabaseClient.auth.getSession();
@@ -1446,6 +1641,7 @@
         ? '<img src="' + hostAvatarUrl + '" alt="">'
         : initial;
       const isBookmarked = bookmarkedIds.has(listing.id);
+      const likeState = getListingLikeState(String(listing.id));
       photosByListing[listing.id] = photos;
 
       let photosHtml = '';
@@ -1516,6 +1712,9 @@
               (listing.host_id === currentUser.id
                 ? '<span class="action-btn disabled" title="This is your listing">' + ICON_CHAT + 'Chat</span>'
                 : '<button type="button" class="action-btn chat-btn" data-listing-id="' + listing.id + '" data-host-id="' + listing.host_id + '">' + ICON_CHAT + 'Chat</button>') +
+              '<button type="button" class="action-btn like-btn" data-listing-id="' + listing.id + '" aria-label="' + (likeState.liked ? 'Unlike listing' : 'Like listing') + '" aria-pressed="' + (likeState.liked ? 'true' : 'false') + '">' +
+                (likeState.liked ? ICON_HEART_FILLED : ICON_HEART_OUTLINE) + '<span class="like-count">' + likeState.count + '</span>' +
+              '</button>' +
               '<button type="button" class="action-btn bookmark-btn ' + (isBookmarked ? 'saved' : '') + '" data-listing-id="' + listing.id + '">' +
                 (isBookmarked ? ICON_BOOKMARK_FILLED + 'Saved' : ICON_BOOKMARK_OUTLINE + 'Save') +
               '</button>' +
@@ -1621,6 +1820,19 @@
     }
 
     function attachCardListeners(container){
+      container.querySelectorAll('.like-btn').forEach(function(btn){
+        btn.addEventListener('click', function(event){
+          event.stopPropagation();
+          const id = btn.getAttribute('data-listing-id');
+          const state = getListingLikeState(id);
+          state.liked = !state.liked;
+          state.changed = true;
+          state.version += 1;
+          presentListingLikeState(state);
+          updateListingLikeButtons(id, state);
+          syncListingLike(id);
+        });
+      });
       container.querySelectorAll('.bookmark-btn').forEach(function(btn){
         btn.addEventListener('click', async function(){
           const id = btn.getAttribute('data-listing-id');
@@ -2113,6 +2325,7 @@
         : '<div id="listing-feed-sentinel" aria-hidden="true"></div>');
       feedList.innerHTML = '';
       feedList.appendChild(fragment);
+      loadListingLikeSummaries(data.map(function(listing){ return String(listing.id); }));
       sizeDiscoverMediaStages(feedList);
       // Metadata/playback is requested only for cards near this scrollable feed,
       // never for every rendered listing at once.
