@@ -187,8 +187,12 @@ class SourceCollector:
                        if self._source_group(source, source_group_count) == source_group]
         due_sources = [source for source in sources if self._is_due(source)]
         due_sources.sort(key=self._last_attempt_at)
+        sources_due = len(due_sources)
         due_sources = due_sources[:MAX_SOURCES_PER_RUN]
+        sources_deferred = sources_due - len(due_sources)
         totals: dict[str, Any] = {
+            "sources_active": len(sources), "sources_due": sources_due,
+            "sources_deferred": sources_deferred,
             "sources_checked": len(due_sources), "sources_attempted": len(due_sources),
             "sources_successful": 0, "sources_failed": 0, "candidates": 0,
             "articles_discovered": 0, "articles_rejected": 0, "articles_parsed": 0,
@@ -200,10 +204,12 @@ class SourceCollector:
         }
         if not due_sources:
             logger.info(
-                "Collection summary: sources_attempted=0 sources_successful=0 sources_failed=0 "
+                "Collection summary: sources_active=%d sources_due=0 sources_attempted=0 "
+                "sources_deferred=0 sources_successful=0 sources_failed=0 "
                 "urls_discovered=0 urls_rejected=0 articles_fetched=0 articles_parsed=0 "
                 "articles_rejected=0 articles_inserted=0 duplicates_skipped=0 "
                 "security_blocked_urls=0 timeouts=0 http_403=0 http_404=0 oversized_responses=0",
+                totals["sources_active"],
             )
             return totals
 
@@ -226,11 +232,13 @@ class SourceCollector:
                 totals[key] += int(result.get(key, 0))
             totals["new_item_ids"].extend(result["new_item_ids"])
         logger.info(
-            "Collection summary: sources_attempted=%d sources_successful=%d sources_failed=%d "
+            "Collection summary: sources_active=%d sources_due=%d sources_attempted=%d "
+            "sources_deferred=%d sources_successful=%d sources_failed=%d "
             "urls_discovered=%d urls_rejected=%d articles_fetched=%d articles_parsed=%d "
             "articles_rejected=%d articles_inserted=%d duplicates_skipped=%d "
             "security_blocked_urls=%d timeouts=%d http_403=%d http_404=%d oversized_responses=%d",
-            totals["sources_attempted"], totals["sources_successful"], totals["sources_failed"],
+            totals["sources_active"], totals["sources_due"], totals["sources_attempted"],
+            totals["sources_deferred"], totals["sources_successful"], totals["sources_failed"],
             totals["urls_discovered"], totals["urls_rejected"], totals["articles_fetched"],
             totals["articles_parsed"], totals["articles_rejected"], totals["articles_inserted"],
             totals["duplicates_skipped"], totals["security_blocked_urls"], totals["timeouts"],

@@ -29,7 +29,8 @@ async def run_collection_job(repository=None, config=settings, analyzer: NewsAna
             released = 0
         collected = await collector.collect_due_sources(source_group=source_group)
         result = {key: int(collected.get(key, 0)) for key in (
-            "sources_checked", "sources_attempted", "sources_successful", "sources_failed",
+            "sources_active", "sources_due", "sources_deferred", "sources_checked",
+            "sources_attempted", "sources_successful", "sources_failed",
             "candidates", "articles_discovered", "articles_rejected", "articles_parsed",
             "articles_inserted", "new_items", "duplicates", "duplicates_skipped",
             "failures", "article_failures", "urls_discovered", "urls_rejected",

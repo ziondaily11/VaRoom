@@ -7,6 +7,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from .config import settings
+from .collector import SOURCE_GROUP_COUNT, SourceCollector
 from .models import Source
 from .repository import MemoryNewsRepository, SupabaseNewsRepository, build_repository
 
@@ -40,6 +41,29 @@ def deduplicate_sources(source_data: list[dict]) -> list[dict]:
     return list(unique.values())
 
 
+def source_has_verified_endpoint(source_data: dict) -> bool:
+    parser_config = source_data.get("parser_config", {})
+    parser_config = parser_config if isinstance(parser_config, dict) else {}
+    verification = source_data.get("verification") or parser_config.get("verification") or {}
+    if not isinstance(verification, dict):
+        return False
+    method = source_data.get("fetch_method")
+    configured_urls = parser_config.get("urls", [])
+    configured_endpoint = parser_config.get("discovery_url") or (
+        configured_urls[0] if isinstance(configured_urls, list) and configured_urls else source_data.get("base_url")
+    )
+    return (
+        verification.get("http_status") == 200
+        and isinstance(verification.get("item_count"), int)
+        and not isinstance(verification.get("item_count"), bool)
+        and verification["item_count"] > 0
+        and verification.get("method_used") == method
+        and isinstance(configured_endpoint, str)
+        and verification.get("url") == configured_endpoint
+        and method in {"api", "wp_json", "rss", "atom", "sitemap", "html"}
+    )
+
+
 def registry_domains(sources_dir: Path, *, excluding: Path) -> set[str]:
     known: set[str] = set()
     excluded = excluding.resolve()
@@ -58,6 +82,84 @@ def registry_domains(sources_dir: Path, *, excluding: Path) -> set[str]:
     return known
 
 
+async def audit_source_registry(repository: Repository, sources_dir: Path) -> dict:
+    registry_active: dict[str, bool] = {}
+    registry_verified: dict[str, bool] = {}
+    registry_names: dict[str, str] = {}
+    for path in sorted(sources_dir.glob("*.json")):
+        for entry in load_source_data(str(path)):
+            domain = canonical_domain(entry["base_url"])
+            registry_active[domain] = registry_active.get(domain, False) or bool(entry.get("active", False))
+            registry_verified[domain] = (
+                registry_verified.get(domain, False) or source_has_verified_endpoint(entry)
+            )
+            registry_names.setdefault(domain, entry["name"])
+
+    database_sources = await repository.list_sources()
+    database_domains = {canonical_domain(source.base_url) for source in database_sources}
+    active_sources = [source for source in database_sources if source.active]
+    active_web_sources = [
+        source for source in active_sources if source.platform == "web"
+    ]
+    active_web_by_group = {str(group): 0 for group in range(SOURCE_GROUP_COUNT)}
+    due_web_by_group = {str(group): 0 for group in range(SOURCE_GROUP_COUNT)}
+    production_inventory = []
+    for source in database_sources:
+        group = SourceCollector._source_group(source, SOURCE_GROUP_COUNT) if source.platform == "web" else None
+        due = source.active and source.platform == "web" and SourceCollector._is_due(source)
+        if source.active and group is not None:
+            active_web_by_group[str(group)] += 1
+        if due and group is not None:
+            due_web_by_group[str(group)] += 1
+        production_inventory.append({
+            "name": source.name,
+            "domain": canonical_domain(source.base_url),
+            "active": source.active,
+            "platform": source.platform,
+            "fetch_method": source.fetch_method,
+            "group": group,
+            "due": due,
+            "last_success_at": source.last_success_at or source.last_successful_fetch_at,
+            "last_failed_fetch_at": source.last_failed_fetch_at,
+            "failure_category": source.failure_category,
+            "consecutive_failures": source.consecutive_failures,
+        })
+    return {
+        "database_source_count": len(database_sources),
+        "database_active_count": len(active_sources),
+        "database_active_web_count": len(active_web_sources),
+        "active_web_sources_by_group": active_web_by_group,
+        "due_web_sources_by_group": due_web_by_group,
+        "production_inventory": production_inventory,
+        "registry_domain_count": len(registry_names),
+        "registry_domains_not_registered": sorted(set(registry_names) - database_domains),
+        "active_database_sources_not_in_registry": [
+            {
+                "source_id": str(source.id),
+                "name": source.name,
+                "domain": canonical_domain(source.base_url),
+            }
+            for source in active_sources
+            if canonical_domain(source.base_url) not in registry_names
+        ],
+        "active_database_sources_without_verified_registry_endpoint": [
+            {
+                "source_id": str(source.id),
+                "name": source.name,
+                "domain": canonical_domain(source.base_url),
+            }
+            for source in active_sources
+            if canonical_domain(source.base_url) in registry_names
+            and not registry_verified.get(canonical_domain(source.base_url), False)
+        ],
+        "active_registry_sources_without_verified_endpoint": [
+            {"name": registry_names[domain], "domain": domain}
+            for domain, active in registry_active.items()
+            if active and not registry_verified.get(domain, False)
+        ],
+    }
+
+
 def make_upsert_sql(sources: list[dict]) -> str:
     def literal(value: str) -> str:
         return "'" + value.replace("'", "''") + "'"
@@ -69,7 +171,7 @@ def make_upsert_sql(sources: list[dict]) -> str:
     ]
     for row in deduplicate_sources(sources):
         parser_config = json.dumps(row.get("parser_config", {}), ensure_ascii=False, separators=(",", ":"))
-        active = "TRUE" if bool(row.get("active", False)) else "FALSE"
+        active = "TRUE" if bool(row.get("active", False)) and source_has_verified_endpoint(row) else "FALSE"
         category = "NULL" if row.get("category") is None else literal(str(row["category"]))
         failure_category = "NULL" if row.get("failure_category") is None else literal(str(row["failure_category"]))
         last_error = "NULL" if row.get("last_error") is None else literal(str(row["last_error"]))
@@ -138,6 +240,7 @@ async def register_sources_from_json(repository: Repository, json_path: str, act
 
         desired_active = bool(source_data.get("active", False))
         active = desired_active if sync_active else (existing.active if existing else activate)
+        active = active and source_has_verified_endpoint(source_data)
         values = source_data | {"active": active}
         if existing:
             source_config = dict(source_data.get("parser_config", {}))
@@ -178,7 +281,19 @@ async def register_sources_from_json(repository: Repository, json_path: str, act
 
 
 async def _run(json_path: str, activate: bool, sync_active: bool, names: set[str] | None,
-               apply_changes: bool, sql_output: str) -> None:
+               apply_changes: bool, sql_output: str, audit: bool) -> None:
+    if audit:
+        if not settings.supabase_configured:
+            raise RuntimeError("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required for a production source audit")
+        repository = build_repository(settings)
+        try:
+            result = await audit_source_registry(repository, Path(__file__).resolve().parents[1] / "sources")
+            print(json.dumps(result, ensure_ascii=False, indent=2, default=str))
+        finally:
+            if isinstance(repository, SupabaseNewsRepository):
+                await repository.close()
+        return
+
     source_data = deduplicate_sources(load_source_data(json_path))
     source_file = Path(json_path).resolve()
     known_domains = registry_domains(source_file.parent, excluding=source_file)
@@ -187,7 +302,8 @@ async def _run(json_path: str, activate: bool, sync_active: bool, names: set[str
     ]
     for source in selected_sources:
         operation = "UPDATE" if canonical_domain(source["base_url"]) in known_domains else "INSERT"
-        active = bool(source.get("active", False)) if sync_active else bool(source.get("active", activate))
+        requested_active = bool(source.get("active", False)) if sync_active else bool(source.get("active", activate))
+        active = requested_active and source_has_verified_endpoint(source)
         print(f"{operation} {canonical_domain(source['base_url'])} "
               f"[{'ACTIVE' if active else 'INACTIVE'}] {source['name']}")
 
@@ -226,16 +342,18 @@ def main() -> None:
                         help="Write source records to Supabase (default is a local dry run)")
     parser.add_argument("--dry-run", action="store_true",
                         help="Print planned inserts/updates without contacting Supabase")
+    parser.add_argument("--audit", action="store_true",
+                        help="Read-only comparison of production sources with all local JSON registries")
     parser.add_argument("--sql-output", default="reports/real-estate-source-pool-upsert.sql",
                         help="Path for the review-only SQL upsert file")
     parser.add_argument("--name", action="append", dest="names",
                         help="Limit the operation to an exact source name; repeat for multiple names")
     args = parser.parse_args()
-    if args.apply and args.dry_run:
-        parser.error("--apply and --dry-run are mutually exclusive")
+    if args.apply and (args.dry_run or args.audit):
+        parser.error("--apply cannot be combined with --dry-run or --audit")
     asyncio.run(_run(
         args.json_path, args.activate, not args.preserve_active,
-        set(args.names) if args.names else None, args.apply, args.sql_output,
+        set(args.names) if args.names else None, args.apply, args.sql_output, args.audit,
     ))
 
 
