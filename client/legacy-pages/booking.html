@@ -1053,7 +1053,10 @@
 
     if (!listingId) { showError('No listing specified.'); return; }
 
-    const { data: listing, error: listingError } = await supabaseClient
+    const listingSelect = 'id,title,description,property_description,location_text,category,verified,availability_status,host_id,' +
+      'host:profiles(full_name,verified,avatar_url,username,phone),listing_photos(storage_path),' +
+      'listing_booking_details(*)';
+    let listingResult = await supabaseClient
       .from('listings')
       .select('id,title,description,property_description,location_text,category,verified,availability_status,host_id,supports_stay,supports_table_reservation,' +
         'host:profiles(full_name,verified,avatar_url,username,phone),listing_photos(storage_path),' +
@@ -1061,6 +1064,27 @@
       .eq('id', listingId)
       .maybeSingle();
 
+    const listingErrorText = listingResult.error
+      ? [listingResult.error.message, listingResult.error.details, listingResult.error.hint].filter(Boolean).join(' ')
+      : '';
+    const missingHotelBookingColumn = listingResult.error &&
+      ['supports_stay', 'supports_table_reservation'].some(function(column){
+        return listingErrorText.indexOf(column) !== -1;
+      }) &&
+      (listingResult.error.code === '42703' ||
+        listingResult.error.code === 'PGRST204' ||
+        /does not exist|schema cache/i.test(listingErrorText));
+
+    if (missingHotelBookingColumn) {
+      console.warn('Hotel booking options are unavailable; retrying with the legacy listing fields.', listingResult.error);
+      listingResult = await supabaseClient
+        .from('listings')
+        .select(listingSelect)
+        .eq('id', listingId)
+        .maybeSingle();
+    }
+
+    const { data: listing, error: listingError } = listingResult;
     if (listingError || !listing) { showError("Couldn't load that listing."); return; }
 
     if (listing.host_id === currentUser.id) {
