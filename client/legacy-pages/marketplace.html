@@ -711,12 +711,24 @@
   const ICON_SIZE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V4h4M20 8V4h-4M4 16v4h4M20 16v4h-4"/><path d="M8 4 4 8M16 4l4 4M4 16l4 4M20 16l-4 4"/></svg>';
   const PAGE_SIZE = 12;
 
-  const MKT_SELECT = 'id,title,description,location_text,category,verified,created_at,host_id,availability_status,' +
+  let marketplaceAvailabilityStatusSupported = true;
+  const MKT_SELECT = 'id,title,description,location_text,category,verified,created_at,host_id,' +
     'host:profiles!inner(full_name,verified,avatar_url,username),' +
     'listing_photos(storage_path),listing_booking_details(*)';
   const MKT_LEGACY_SELECT = 'id,title,description,location_text,category,verified,created_at,host_id,' +
     'host:profiles!inner(full_name,verified,avatar_url,username),' +
     'listing_photos(storage_path),listing_booking_details(*)';
+
+  function isMissingAvailabilityStatusColumnError(error){
+    if (!error) return false;
+    const message = (error.message || error.details || String(error)).toLowerCase();
+    return message.includes('availability_status') && (
+      message.includes('does not exist') ||
+      message.includes('column') ||
+      message.includes('not found') ||
+      message.includes('missing')
+    );
+  }
 
   function escapeHtml(str){
     const div = document.createElement('div');
@@ -1201,7 +1213,10 @@
   async function fetchListings(select, filterAvailability, offset){
       let query = supabaseClient.from('listings').select(select, { count: 'exact' }).range(offset, offset + PAGE_SIZE - 1);
       query = query.eq('moderation_status', 'active');
-      if (filterAvailability) query = query.eq('availability_status', 'available');
+      if (filterAvailability && marketplaceAvailabilityStatusSupported) {
+        const availabilityQuery = query.eq('availability_status', 'available');
+        query = availabilityQuery;
+      }
       if (state.category && state.category !== 'all') query = query.eq('category', state.category);
       if (state.q) {
         const term = state.q.replace(/[%(),]/g, ' ').trim();
@@ -1230,7 +1245,14 @@
     const currentRequest = ++requestVersion;
     const offset = reset ? 0 : listingOffset;
     let { data, error, count } = await fetchListings(MKT_SELECT, true, offset);
-    if (error || !(data || []).length) {
+    if (error && isMissingAvailabilityStatusColumnError(error)) {
+      marketplaceAvailabilityStatusSupported = false;
+      console.warn('Marketplace database is missing the availability_status column; falling back to the shared listing query without it.', error.message || error.details || error);
+      const fallback = await fetchListings(MKT_LEGACY_SELECT, false, offset);
+      data = fallback.data;
+      error = fallback.error;
+      count = fallback.count;
+    } else if (error || !(data || []).length) {
       console.warn('Marketplace availability-aware query returned no usable listings; retrying shared listing shape:', error ? error.message : 'no rows returned');
       const fallback = await fetchListings(MKT_LEGACY_SELECT, false, offset);
       data = fallback.data;
