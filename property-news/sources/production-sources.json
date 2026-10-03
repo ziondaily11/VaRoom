@@ -6,7 +6,7 @@
     "trust_tier": 1,
     "fetch_method": "html",
     "schedule_minutes": 60,
-    "active": false,
+    "active": true,
     "parser_config": {
       "discovery_url": "https://www.lands.go.ke/allnews",
       "url_regex": "^/[a-z0-9]+(?:-[a-z0-9]+){2,}/?$",

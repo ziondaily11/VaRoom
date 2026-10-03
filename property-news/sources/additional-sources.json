@@ -6,7 +6,7 @@
     "trust_tier": 1,
     "fetch_method": "html",
     "schedule_minutes": 120,
-    "active": false,
+    "active": true,
     "parser_config": {
       "discovery_url": "https://ardhisasa.lands.go.ke",
       "url_regex": "^/[a-z-]+/?$",
@@ -22,7 +22,7 @@
     "trust_tier": 1,
     "fetch_method": "html",
     "schedule_minutes": 120,
-    "active": false,
+    "active": true,
     "parser_config": {
       "discovery_url": "https://landcommission.go.ke",
       "url_regex": "^/[a-z-]+/?$",
@@ -38,7 +38,7 @@
     "trust_tier": 1,
     "fetch_method": "html",
     "schedule_minutes": 180,
-    "active": false,
+    "active": true,
     "parser_config": {
       "discovery_url": "https://ag.ecitizen.go.ke",
       "url_regex": "^/[a-z-]+/?$",
@@ -54,7 +54,7 @@
     "trust_tier": 2,
     "fetch_method": "html",
     "schedule_minutes": 60,
-    "active": false,
+    "active": true,
     "parser_config": {
       "discovery_url": "https://www.businessdailyafrica.com/bd/markets/real-estate",
       "url_regex": "^/bd/markets/real-estate/[a-z0-9-]+/?$",
@@ -70,7 +70,7 @@
     "trust_tier": 2,
     "fetch_method": "html",
     "schedule_minutes": 60,
-    "active": false,
+    "active": true,
     "parser_config": {
       "discovery_url": "https://www.thestandard.ke/business/category/46/real-estate",
       "url_regex": "^/business/real-estate/[a-z0-9-]+/?$",
@@ -86,7 +86,7 @@
     "trust_tier": 2,
     "fetch_method": "html",
     "schedule_minutes": 90,
-    "active": false,
+    "active": true,
     "parser_config": {
       "discovery_url": "https://kenyanwallstreet.com/category/real-estate",
       "url_regex": "^/diaspora-|/newsletter/[a-z0-9-]+/?$",
@@ -102,7 +102,7 @@
     "trust_tier": 2,
     "fetch_method": "html",
     "schedule_minutes": 180,
-    "active": false,
+    "active": true,
     "parser_config": {
       "discovery_url": "https://www.hassconsult.com/hassindex",
       "url_regex": "^/hassindex|/insights|/post/[a-z0-9-]+/?$",
