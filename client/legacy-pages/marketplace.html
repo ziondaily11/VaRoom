@@ -713,10 +713,7 @@
 
   let marketplaceAvailabilityStatusSupported = true;
   const MKT_SELECT = 'id,title,description,location_text,category,verified,created_at,host_id,' +
-    'host:profiles!inner(full_name,verified,avatar_url,username),' +
-    'listing_photos(storage_path),listing_booking_details(*)';
-  const MKT_LEGACY_SELECT = 'id,title,description,location_text,category,verified,created_at,host_id,' +
-    'host:profiles!inner(full_name,verified,avatar_url,username),' +
+    'host:profiles!listings_host_id_fkey(full_name,verified,avatar_url,username),' +
     'listing_photos(storage_path),listing_booking_details(*)';
 
   function isMissingAvailabilityStatusColumnError(error){
@@ -1210,8 +1207,8 @@
   let resultCount = 0;
   let requestVersion = 0;
 
-  async function fetchListings(select, filterAvailability, offset){
-      let query = supabaseClient.from('listings').select(select, { count: 'exact' }).range(offset, offset + PAGE_SIZE - 1);
+  async function fetchListings(filterAvailability, offset){
+      let query = supabaseClient.from('listings').select(MKT_SELECT, { count: 'exact' }).range(offset, offset + PAGE_SIZE - 1);
       query = query.eq('moderation_status', 'active');
       if (filterAvailability && marketplaceAvailabilityStatusSupported) {
         const availabilityQuery = query.eq('availability_status', 'available');
@@ -1232,7 +1229,7 @@
       else if (state.sort === 'price_desc') query = query.order('price_amount', { foreignTable: 'listing_booking_details', ascending: false, nullsFirst: false });
       else query = query.order('created_at', { ascending: false });
       const cacheKey = [
-        'public:listings:marketplace', select, filterAvailability, offset,
+        'public:listings:marketplace', filterAvailability, offset,
         state.category, state.q, state.guests, state.priceMin, state.priceMax,
         state.verifiedOnly, state.sort
       ].join(':');
@@ -1244,20 +1241,11 @@
     loadingMore = true;
     const currentRequest = ++requestVersion;
     const offset = reset ? 0 : listingOffset;
-    let { data, error, count } = await fetchListings(MKT_SELECT, true, offset);
+    let { data, error, count } = await fetchListings(true, offset);
     if (error && isMissingAvailabilityStatusColumnError(error)) {
       marketplaceAvailabilityStatusSupported = false;
       console.warn('Marketplace database is missing the availability_status column; falling back to the shared listing query without it.', error.message || error.details || error);
-      const fallback = await fetchListings(MKT_LEGACY_SELECT, false, offset);
-      data = fallback.data;
-      error = fallback.error;
-      count = fallback.count;
-    } else if (error || !(data || []).length) {
-      console.warn('Marketplace availability-aware query returned no usable listings; retrying shared listing shape:', error ? error.message : 'no rows returned');
-      const fallback = await fetchListings(MKT_LEGACY_SELECT, false, offset);
-      data = fallback.data;
-      error = fallback.error;
-      count = fallback.count;
+      ({ data, error, count } = await fetchListings(false, offset));
     }
     if (currentRequest !== requestVersion) {
       loadingMore = false;
