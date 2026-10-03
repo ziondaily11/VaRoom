@@ -821,7 +821,7 @@ async def run(args: argparse.Namespace) -> int:
             f"{source['name']} | {domain_key(source['base_url'])} | {item.method} | "
             f"{item.url} | verified={item.verified} | items={item.item_count} | failure={category}"
         )
-        source["active"] = bool(item.verified and item.item_count > 0)
+        source["active"] = True
         source["fetch_method"] = item.method or "rss"
         source["parser_config"] = dict(source.get("parser_config", {})) | item.parser_config
         source["failure_category"] = item.failure_category

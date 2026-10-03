@@ -93,7 +93,7 @@
     "trust_tier": 2,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "property",
     "parser_config": {
       "registry_metadata": {
@@ -184,7 +184,7 @@
     "trust_tier": 3,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "property",
     "parser_config": {
       "registry_metadata": {
@@ -275,7 +275,7 @@
     "trust_tier": 2,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "property",
     "parser_config": {
       "registry_metadata": {
@@ -366,7 +366,7 @@
     "trust_tier": 3,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "property",
     "parser_config": {
       "registry_metadata": {
@@ -631,7 +631,7 @@
     "trust_tier": 3,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "property",
     "parser_config": {
       "registry_metadata": {
@@ -722,7 +722,7 @@
     "trust_tier": 3,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "property",
     "parser_config": {
       "registry_metadata": {
@@ -813,7 +813,7 @@
     "trust_tier": 3,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "property",
     "parser_config": {
       "registry_metadata": {
@@ -904,7 +904,7 @@
     "trust_tier": 3,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "property",
     "parser_config": {
       "registry_metadata": {
@@ -995,7 +995,7 @@
     "trust_tier": 2,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "property",
     "parser_config": {
       "registry_metadata": {
@@ -1086,7 +1086,7 @@
     "trust_tier": 3,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "market",
     "parser_config": {
       "registry_metadata": {
@@ -1439,7 +1439,7 @@
     "trust_tier": 2,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "property",
     "parser_config": {
       "registry_metadata": {
@@ -1531,7 +1531,7 @@
     "trust_tier": 2,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "property",
     "parser_config": {
       "registry_metadata": {
@@ -1623,7 +1623,7 @@
     "trust_tier": 2,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "property",
     "parser_config": {
       "registry_metadata": {
@@ -1715,7 +1715,7 @@
     "trust_tier": 2,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "market",
     "parser_config": {
       "registry_metadata": {
@@ -1981,7 +1981,7 @@
     "trust_tier": 2,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "market",
     "parser_config": {
       "registry_metadata": {
@@ -2072,7 +2072,7 @@
     "trust_tier": 2,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "property",
     "parser_config": {
       "registry_metadata": {
@@ -2164,7 +2164,7 @@
     "trust_tier": 3,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "market",
     "parser_config": {
       "registry_metadata": {
@@ -2255,7 +2255,7 @@
     "trust_tier": 2,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "finance",
     "parser_config": {
       "registry_metadata": {
@@ -2346,7 +2346,7 @@
     "trust_tier": 2,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "finance",
     "parser_config": {
       "registry_metadata": {
@@ -2437,7 +2437,7 @@
     "trust_tier": 2,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "finance",
     "parser_config": {
       "registry_metadata": {
@@ -2615,7 +2615,7 @@
     "trust_tier": 2,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "finance",
     "parser_config": {
       "registry_metadata": {
@@ -2706,7 +2706,7 @@
     "trust_tier": 2,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "property",
     "parser_config": {
       "registry_metadata": {
@@ -2798,7 +2798,7 @@
     "trust_tier": 2,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "property",
     "parser_config": {
       "registry_metadata": {
@@ -2890,7 +2890,7 @@
     "trust_tier": 2,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "property",
     "parser_config": {
       "registry_metadata": {
@@ -2982,7 +2982,7 @@
     "trust_tier": 2,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "property",
     "parser_config": {
       "registry_metadata": {
@@ -3074,7 +3074,7 @@
     "trust_tier": 2,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "property",
     "parser_config": {
       "registry_metadata": {
@@ -3166,7 +3166,7 @@
     "trust_tier": 2,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "property",
     "parser_config": {
       "registry_metadata": {
@@ -3258,7 +3258,7 @@
     "trust_tier": 2,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "property",
     "parser_config": {
       "registry_metadata": {
@@ -3438,7 +3438,7 @@
     "trust_tier": 2,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "property",
     "parser_config": {
       "registry_metadata": {
@@ -3530,7 +3530,7 @@
     "trust_tier": 3,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "property",
     "parser_config": {
       "registry_metadata": {
@@ -3621,7 +3621,7 @@
     "trust_tier": 3,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "property",
     "parser_config": {
       "registry_metadata": {
@@ -3712,7 +3712,7 @@
     "trust_tier": 3,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "property",
     "parser_config": {
       "registry_metadata": {
@@ -3803,7 +3803,7 @@
     "trust_tier": 3,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "property",
     "parser_config": {
       "registry_metadata": {
@@ -3894,7 +3894,7 @@
     "trust_tier": 3,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "property",
     "parser_config": {
       "registry_metadata": {
@@ -3985,7 +3985,7 @@
     "trust_tier": 3,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "property",
     "parser_config": {
       "registry_metadata": {
@@ -4076,7 +4076,7 @@
     "trust_tier": 1,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "land",
     "parser_config": {
       "registry_metadata": {
@@ -4167,7 +4167,7 @@
     "trust_tier": 1,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "housing",
     "parser_config": {
       "registry_metadata": {
@@ -4258,7 +4258,7 @@
     "trust_tier": 1,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "housing",
     "parser_config": {
       "registry_metadata": {
@@ -4349,7 +4349,7 @@
     "trust_tier": 1,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "development",
     "parser_config": {
       "registry_metadata": {
@@ -4440,7 +4440,7 @@
     "trust_tier": 1,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "construction",
     "parser_config": {
       "registry_metadata": {
@@ -4531,7 +4531,7 @@
     "trust_tier": 3,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "construction",
     "parser_config": {
       "registry_metadata": {
@@ -4709,7 +4709,7 @@
     "trust_tier": 3,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "construction",
     "parser_config": {
       "registry_metadata": {
@@ -4800,7 +4800,7 @@
     "trust_tier": 1,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "finance",
     "parser_config": {
       "registry_metadata": {
@@ -4891,7 +4891,7 @@
     "trust_tier": 1,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "finance",
     "parser_config": {
       "registry_metadata": {
@@ -4982,7 +4982,7 @@
     "trust_tier": 1,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "planning",
     "parser_config": {
       "registry_metadata": {
@@ -5073,7 +5073,7 @@
     "trust_tier": 1,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "housing",
     "parser_config": {
       "registry_metadata": {
@@ -5164,7 +5164,7 @@
     "trust_tier": 1,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "housing",
     "parser_config": {
       "registry_metadata": {
@@ -5255,7 +5255,7 @@
     "trust_tier": 1,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "housing",
     "parser_config": {
       "registry_metadata": {
@@ -5346,7 +5346,7 @@
     "trust_tier": 1,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "housing",
     "parser_config": {
       "registry_metadata": {
@@ -5437,7 +5437,7 @@
     "trust_tier": 3,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "construction",
     "parser_config": {
       "registry_metadata": {
@@ -5528,7 +5528,7 @@
     "trust_tier": 2,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "construction",
     "parser_config": {
       "registry_metadata": {
@@ -5619,7 +5619,7 @@
     "trust_tier": 3,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "construction",
     "parser_config": {
       "registry_metadata": {
@@ -5710,7 +5710,7 @@
     "trust_tier": 3,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "construction",
     "parser_config": {
       "registry_metadata": {
@@ -5801,7 +5801,7 @@
     "trust_tier": 3,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "planning",
     "parser_config": {
       "registry_metadata": {
@@ -5892,7 +5892,7 @@
     "trust_tier": 2,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "planning",
     "parser_config": {
       "registry_metadata": {
@@ -5983,7 +5983,7 @@
     "trust_tier": 3,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "construction",
     "parser_config": {
       "registry_metadata": {
@@ -6074,7 +6074,7 @@
     "trust_tier": 3,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "construction",
     "parser_config": {
       "registry_metadata": {
@@ -6165,7 +6165,7 @@
     "trust_tier": 3,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "planning",
     "parser_config": {
       "registry_metadata": {
@@ -6256,7 +6256,7 @@
     "trust_tier": 3,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "construction",
     "parser_config": {
       "registry_metadata": {
@@ -6347,7 +6347,7 @@
     "trust_tier": 2,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "development",
     "parser_config": {
       "registry_metadata": {
@@ -6438,7 +6438,7 @@
     "trust_tier": 1,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "development",
     "parser_config": {
       "registry_metadata": {
@@ -6529,7 +6529,7 @@
     "trust_tier": 1,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "development",
     "parser_config": {
       "registry_metadata": {
@@ -6620,7 +6620,7 @@
     "trust_tier": 3,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "development",
     "parser_config": {
       "registry_metadata": {
@@ -6711,7 +6711,7 @@
     "trust_tier": 1,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "development",
     "parser_config": {
       "registry_metadata": {
@@ -6802,7 +6802,7 @@
     "trust_tier": 2,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "market",
     "parser_config": {
       "registry_metadata": {
@@ -6893,7 +6893,7 @@
     "trust_tier": 2,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "market",
     "parser_config": {
       "registry_metadata": {
@@ -6984,7 +6984,7 @@
     "trust_tier": 2,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "market",
     "parser_config": {
       "registry_metadata": {
@@ -7075,7 +7075,7 @@
     "trust_tier": 2,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "market",
     "parser_config": {
       "registry_metadata": {
@@ -7166,7 +7166,7 @@
     "trust_tier": 3,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "market",
     "parser_config": {
       "registry_metadata": {
@@ -7257,7 +7257,7 @@
     "trust_tier": 2,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "market",
     "parser_config": {
       "registry_metadata": {
@@ -7348,7 +7348,7 @@
     "trust_tier": 3,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "market",
     "parser_config": {
       "registry_metadata": {
@@ -7439,7 +7439,7 @@
     "trust_tier": 3,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "investment",
     "parser_config": {
       "registry_metadata": {
@@ -7530,7 +7530,7 @@
     "trust_tier": 3,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "investment",
     "parser_config": {
       "registry_metadata": {
@@ -7621,7 +7621,7 @@
     "trust_tier": 3,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "finance",
     "parser_config": {
       "registry_metadata": {
@@ -7712,7 +7712,7 @@
     "trust_tier": 3,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "development",
     "parser_config": {
       "registry_metadata": {
@@ -7803,7 +7803,7 @@
     "trust_tier": 3,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "law",
     "parser_config": {
       "registry_metadata": {
@@ -7894,7 +7894,7 @@
     "trust_tier": 3,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "law",
     "parser_config": {
       "registry_metadata": {
@@ -7985,7 +7985,7 @@
     "trust_tier": 3,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "law",
     "parser_config": {
       "registry_metadata": {
@@ -8076,7 +8076,7 @@
     "trust_tier": 3,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "law",
     "parser_config": {
       "registry_metadata": {
@@ -8167,7 +8167,7 @@
     "trust_tier": 2,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "housing",
     "parser_config": {
       "registry_metadata": {
@@ -8258,7 +8258,7 @@
     "trust_tier": 3,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "property",
     "parser_config": {
       "registry_metadata": {
@@ -8349,7 +8349,7 @@
     "trust_tier": 3,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "property",
     "parser_config": {
       "registry_metadata": {
@@ -8440,7 +8440,7 @@
     "trust_tier": 3,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "housing",
     "parser_config": {
       "registry_metadata": {
@@ -8531,7 +8531,7 @@
     "trust_tier": 3,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "development",
     "parser_config": {
       "registry_metadata": {
@@ -8622,7 +8622,7 @@
     "trust_tier": 3,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "property",
     "parser_config": {
       "registry_metadata": {
@@ -8713,7 +8713,7 @@
     "trust_tier": 3,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "property",
     "parser_config": {
       "registry_metadata": {
@@ -8804,7 +8804,7 @@
     "trust_tier": 3,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "property",
     "parser_config": {
       "registry_metadata": {
@@ -8895,7 +8895,7 @@
     "trust_tier": 3,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "land",
     "parser_config": {
       "registry_metadata": {
@@ -8986,7 +8986,7 @@
     "trust_tier": 3,
     "fetch_method": "rss",
     "schedule_minutes": 240,
-    "active": false,
+    "active": true,
     "category": "investment",
     "parser_config": {
       "registry_metadata": {

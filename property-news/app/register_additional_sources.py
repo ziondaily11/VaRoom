@@ -171,7 +171,7 @@ def make_upsert_sql(sources: list[dict]) -> str:
     ]
     for row in deduplicate_sources(sources):
         parser_config = json.dumps(row.get("parser_config", {}), ensure_ascii=False, separators=(",", ":"))
-        active = "TRUE" if bool(row.get("active", False)) and source_has_verified_endpoint(row) else "FALSE"
+        active = "TRUE" if bool(row.get("active", False)) else "FALSE"
         category = "NULL" if row.get("category") is None else literal(str(row["category"]))
         failure_category = "NULL" if row.get("failure_category") is None else literal(str(row["failure_category"]))
         last_error = "NULL" if row.get("last_error") is None else literal(str(row["last_error"]))
@@ -240,7 +240,6 @@ async def register_sources_from_json(repository: Repository, json_path: str, act
 
         desired_active = bool(source_data.get("active", False))
         active = desired_active if sync_active else (existing.active if existing else activate)
-        active = active and source_has_verified_endpoint(source_data)
         values = source_data | {"active": active}
         if existing:
             source_config = dict(source_data.get("parser_config", {}))
@@ -302,8 +301,7 @@ async def _run(json_path: str, activate: bool, sync_active: bool, names: set[str
     ]
     for source in selected_sources:
         operation = "UPDATE" if canonical_domain(source["base_url"]) in known_domains else "INSERT"
-        requested_active = bool(source.get("active", False)) if sync_active else bool(source.get("active", activate))
-        active = requested_active and source_has_verified_endpoint(source)
+        active = bool(source.get("active", False)) if sync_active else bool(source.get("active", activate))
         print(f"{operation} {canonical_domain(source['base_url'])} "
               f"[{'ACTIVE' if active else 'INACTIVE'}] {source['name']}")
 

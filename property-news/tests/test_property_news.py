@@ -195,7 +195,7 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(len(await self.repository.list_sources()), 2)
 
-    async def test_expanded_pool_activates_only_sources_with_verified_items(self):
+    async def test_expanded_source_pool_keeps_every_candidate_active(self):
         pool_path = Path(__file__).resolve().parents[1] / "sources" / "real-estate-source-pool.json"
         entries = json.loads(pool_path.read_text(encoding="utf-8"))
         self.assertEqual(len(entries), 100)
@@ -205,16 +205,7 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(len(registered), 100)
         self.assertEqual(len({canonical_domain(source.base_url) for source in registered}), 100)
-        self.assertEqual(sum(source.active for source in registered), 11)
-        self.assertTrue(all(
-            not source.active or (
-                source.parser_config["verification"]["http_status"] == 200
-                and source.parser_config["verification"]["item_count"] > 0
-                and source.parser_config["verification"]["url"]
-                == source.parser_config["discovery_url"]
-            )
-            for source in registered
-        ))
+        self.assertTrue(all(source.active for source in registered))
         self.assertTrue(all(source.fetch_method != "manual" for source in registered))
         self.assertTrue(all(source.parser_config.get("discovery_url") for source in registered))
         self.assertTrue(all(
@@ -302,7 +293,7 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
             [{"name": "Known but unverified", "domain": "known.example.test"}],
         )
 
-    def test_registry_sql_dry_run_does_not_activate_unverified_sources(self):
+    def test_registry_sql_dry_run_preserves_explicit_activation(self):
         sql = make_upsert_sql([{
             "name": "Unverified source",
             "base_url": "https://unverified.example.test",
@@ -322,7 +313,7 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
             },
         }])
 
-        self.assertIn("60, FALSE,", sql)
+        self.assertIn("60, TRUE,", sql)
 
     async def test_source_group_reports_active_due_attempted_and_deferred_counts(self):
         collector = SourceCollector(self.repository, Settings())

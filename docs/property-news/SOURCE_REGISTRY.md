@@ -1,8 +1,8 @@
 # Source Registry
 
-Sources live in `news_sources`; application code does not hard-code active feeds. The example registry at `property-news/sources/initial-sources.example.json` deliberately marks every candidate inactive. `property-news/sources/production-sources.json` contains the first technically verified official source, still inactive until the production migration and scheduler secret are live. The broader Kenyan source intake is recorded in `property-news/sources/kenya-property-sources.json`; it contains 44 additional candidates from government, media, research, property, and professional sources. The exact 100-source expansion is in `property-news/sources/real-estate-source-pool.json`, using the same registry format and importer. Its URLs and active flags are maintained by the discovery verifier. A source is eligible for activation only when its verification evidence records HTTP 200, at least one discovered item, and the same collection method configured for the source. Failed or unverified candidates remain inactive; transient source health after activation is tracked separately by the collector.
+Sources live in `news_sources`; application code does not hard-code active feeds. Entries marked `active: true` in the source registries are intended to be enrolled in scheduled collection. The importer preserves their activation state; it does not deactivate a configured source just because a discovery probe fails. The broader Kenyan source intake is recorded in `property-news/sources/kenya-property-sources.json`; it contains 44 sources from government, media, research, property, and professional publishers. The 100-source expansion is in `property-news/sources/real-estate-source-pool.json`.
 
-Before activation, verify the exact page/feed/API, robots policy, rate limit, terms, copyright constraints, allowed user agent, article URL selector, and the source's authority. Store machine-readable evidence either as top-level `verification` or under `parser_config.verification`, including the exact configured discovery `url`, `http_status: 200`, `item_count` greater than zero, and `method_used` matching `fetch_method`. An operational log alone does not authorize activation.
+Verification metadata records whether a configured endpoint worked during a probe; it is diagnostic evidence, not an activation gate. A source being active means the collector may fetch it when due using its configured method and endpoint. It does not mean the endpoint is valid or that stories will be discovered, inserted, or published. Continue recording each source's probe and collection failures so endpoint issues can be repaired without silently dropping intended sources.
 
 Register the intake file without activating any source:
 
@@ -10,7 +10,7 @@ Register the intake file without activating any source:
 python -m app.register_additional_sources --json-path sources/kenya-property-sources.json
 ```
 
-Do not use `--activate` until each source has a verified narrow feed or article selector. The intake entries intentionally point at site roots as discovery placeholders; activating them as-is would collect unrelated pages.
+The intake entries may include site roots as discovery placeholders. They remain active so collection can attempt them, but a root page configured as an RSS source may fail until its actual feed or a suitable HTML route is identified. Monitor failures and correct the endpoint/method as needed.
 
 Verify the expanded pool without changing its JSON, then inspect the generated report:
 
@@ -18,7 +18,7 @@ Verify the expanded pool without changing its JSON, then inspect the generated r
 python scripts/discover_source_urls.py --dry-run
 ```
 
-The verifier observes robots.txt using the collector User-Agent, checks approved same-domain URLs, and records HTTP/date evidence. It tries RSS/Atom, WordPress REST, sitemaps, then dated HTML listing pages. With `--write`, only sources whose current probe found items are left active; failed probes are not activated:
+The verifier observes robots.txt using the collector User-Agent, checks approved same-domain URLs, and records HTTP/date evidence. It tries RSS/Atom, WordPress REST, sitemaps, then dated HTML listing pages. With `--write`, it updates endpoint/evidence metadata while leaving source activation enabled; failures are recorded for remediation rather than used to skip a configured source:
 
 ```powershell
 python scripts/discover_source_urls.py --write
@@ -30,7 +30,7 @@ Register the expanded source pool in dry-run mode (the default); this writes the
 python -m app.register_additional_sources --json-path sources/real-estate-source-pool.json --dry-run
 ```
 
-Verified pool entries have a collection method, URL, and timestamped verification evidence. A failed probe prevents a candidate from being activated by the importer; once active, transient collection failures are tracked independently and the collector retries a source every six hours after five consecutive failures. Canonical-domain upserts deduplicate `www` and apex host variants across the registry inputs and synchronize configured active flags in both directions. Apply all migrations before using `--apply`; the default is dry-run and does not contact Supabase.
+Pool entries have a configured collection method, URL, and any available timestamped verification evidence. Probe failures do not remove them from scheduled collection. Transient collection failures are tracked independently and the collector retries a source every six hours after five consecutive failures. Canonical-domain upserts deduplicate `www` and apex host variants across the registry inputs and synchronize configured active flags in both directions. Apply all migrations before using `--apply`; the default is dry-run and does not contact Supabase.
 
 To compare production source rows with all local JSON registries without changing the database, configure the production Supabase credentials in the secure environment and run:
 
