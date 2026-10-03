@@ -354,9 +354,15 @@
   .gallery-like-btn{
     position:absolute; top:.65rem; right:.65rem; z-index:4; width:38px; height:38px;
     border-radius:50%; background:rgba(26,18,16,.72); color:#fff; display:flex;
-    align-items:center; justify-content:center; backdrop-filter:blur(8px); cursor:default;
+    align-items:center; justify-content:center; backdrop-filter:blur(8px); cursor:pointer;
   }
   .gallery-like-btn svg{ width:18px; height:18px; }
+  .gallery-like-count{
+    position:absolute; right:calc(100% + .4rem); top:50%; transform:translateY(-50%);
+    color:#fff; font-size:.75rem; font-weight:700; line-height:1;
+    text-shadow:0 1px 3px rgba(0,0,0,.8); white-space:nowrap;
+  }
+  .gallery-like-btn:disabled{ cursor:default; }
   .gallery-close-btn{ display:none; }
   .gallery-index-pill{ right:3.35rem; }
   .title-row{ margin-bottom:.65rem; }
@@ -728,6 +734,8 @@
     const ICON_GRID = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>';
     const ICON_MESSAGE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z"/></svg>';
     const ICON_LOCATION = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 5-8 11-8 11s-8-6-8-11a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg>';
+    const ICON_HEART_OUTLINE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>';
+    const ICON_HEART_FILLED = '<svg viewBox="0 0 24 24" fill="var(--red)" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>';
     const AMENITY_ICON = {
       wifi: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>',
       mountain: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 3 4 8 5-5 5 15H2L8 3z"/></svg>',
@@ -884,7 +892,7 @@
     const { data: listing, error: listingError } = await supabaseClient
       .from('listings')
       .select('id,title,description,property_description,location_text,category,verified,availability_status,host_id,supports_stay,supports_table_reservation,' +
-        'host:profiles(full_name,verified,avatar_url,username,phone),listing_photos(storage_path),' +
+        'host:profiles!listings_host_id_fkey(full_name,verified,avatar_url,username,phone),listing_photos(storage_path),' +
         'listing_booking_details(*)')
       .eq('id', listingId)
       .maybeSingle();
@@ -894,6 +902,119 @@
     if (listing.host_id === currentUser.id) {
       showError("This is your own listing — you can't book it.");
       return;
+    }
+
+    const listingLikeState = {
+      count: 0,
+      liked: false,
+      confirmedCount: 0,
+      confirmedLiked: false,
+      ready: false,
+      saving: false
+    };
+
+    function isValidListingLikeSummary(summary){
+      const count = summary && Number(summary.like_count);
+      return Number.isSafeInteger(count) && count >= 0 && typeof summary.liked_by_current_user === 'boolean';
+    }
+
+    async function refreshListingLikeState(){
+      try {
+        const { data, error } = await supabaseClient.rpc('get_listing_like_summaries', {
+          p_listing_ids: [listingId]
+        });
+        if (error) throw error;
+        const summary = Array.isArray(data) ? data.find(function(item){ return item.listing_id === listingId; }) : null;
+        if (!isValidListingLikeSummary(summary)) throw new Error('The listing-like summary response was invalid.');
+        listingLikeState.confirmedCount = Number(summary.like_count);
+        listingLikeState.confirmedLiked = summary.liked_by_current_user;
+        listingLikeState.count = listingLikeState.confirmedCount;
+        listingLikeState.liked = listingLikeState.confirmedLiked;
+        listingLikeState.ready = true;
+        return true;
+      } catch (error) {
+        console.error('Listing likes could not be loaded:', error);
+        listingLikeState.ready = false;
+        return false;
+      }
+    }
+
+    function updateBookingLikeButton(){
+      const button = document.getElementById('gallery-like-btn');
+      if (!button) return;
+      button.innerHTML = (listingLikeState.liked ? ICON_HEART_FILLED : ICON_HEART_OUTLINE) +
+        '<span class="gallery-like-count" aria-hidden="true">' +
+        (listingLikeState.ready ? listingLikeState.count : '—') + '</span>';
+      button.disabled = !listingLikeState.ready;
+      button.setAttribute('aria-label', listingLikeState.ready
+        ? (listingLikeState.liked ? 'Unlike listing' : 'Like listing')
+        : 'Like status unavailable');
+      if (listingLikeState.ready) {
+        button.setAttribute('aria-pressed', listingLikeState.liked ? 'true' : 'false');
+        button.removeAttribute('title');
+      } else {
+        button.removeAttribute('aria-pressed');
+        button.title = 'Like information is temporarily unavailable';
+      }
+    }
+
+    async function syncBookingLike(){
+      if (listingLikeState.saving || !listingLikeState.ready) return;
+      listingLikeState.saving = true;
+      try {
+        while (listingLikeState.liked !== listingLikeState.confirmedLiked) {
+          const targetLiked = listingLikeState.liked;
+          let result;
+          try {
+            result = await supabaseClient.rpc('set_listing_like', {
+              p_listing_id: listingId,
+              p_liked: targetLiked
+            });
+          } catch (error) {
+            console.error('Listing like update failed:', error);
+            await refreshListingLikeState();
+            break;
+          }
+          if (result.error) {
+            console.error('Listing like update failed:', result.error);
+            await refreshListingLikeState();
+            break;
+          }
+          const summary = Array.isArray(result.data) ? result.data[0] : null;
+          if (!isValidListingLikeSummary(summary)) {
+            console.error('Listing like update failed: The response was invalid.');
+            await refreshListingLikeState();
+            break;
+          }
+          listingLikeState.confirmedCount = Number(summary.like_count);
+          listingLikeState.confirmedLiked = summary.liked_by_current_user;
+          listingLikeState.count = Math.max(0, listingLikeState.confirmedCount +
+            (listingLikeState.liked === listingLikeState.confirmedLiked ? 0 : (listingLikeState.liked ? 1 : -1)));
+          updateBookingLikeButton();
+        }
+      } finally {
+        listingLikeState.saving = false;
+      }
+      if (!listingLikeState.ready) {
+        listingLikeState.liked = listingLikeState.confirmedLiked;
+        listingLikeState.count = listingLikeState.confirmedCount;
+        updateBookingLikeButton();
+        return;
+      }
+      listingLikeState.liked = listingLikeState.confirmedLiked;
+      listingLikeState.count = listingLikeState.confirmedCount;
+      updateBookingLikeButton();
+    }
+
+    await refreshListingLikeState();
+
+    function bookingLikeButtonHtml(){
+      return '<button type="button" class="gallery-like-btn" id="gallery-like-btn" aria-label="' +
+        (listingLikeState.ready ? (listingLikeState.liked ? 'Unlike listing' : 'Like listing') : 'Like status unavailable') + '"' +
+        (listingLikeState.ready ? ' aria-pressed="' + (listingLikeState.liked ? 'true' : 'false') + '"' : ' disabled title="Like information is temporarily unavailable"') + '>' +
+        (listingLikeState.liked ? ICON_HEART_FILLED : ICON_HEART_OUTLINE) +
+        '<span class="gallery-like-count" aria-hidden="true">' + (listingLikeState.ready ? listingLikeState.count : '—') + '</span>' +
+      '</button>';
     }
 
     const supportsStay = listing.category !== 'hotel' || listing.supports_stay !== false;
@@ -1002,9 +1123,7 @@
         '<button type="button" class="gallery-close-btn" id="gallery-close-btn" aria-label="Close property details">' +
           '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
         '</button>' +
-        '<button type="button" class="gallery-like-btn" id="like-placeholder" aria-label="Likes coming soon" title="Likes coming soon">' +
-          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z"/></svg>' +
-        '</button>' +
+        bookingLikeButtonHtml() +
       '</div>';
     } else {
       galleryHtml = '<div class="gallery-carousel" id="gallery-carousel">' +
@@ -1021,9 +1140,7 @@
         '<button type="button" class="gallery-close-btn" id="gallery-close-btn" aria-label="Close property details">' +
           '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
         '</button>' +
-        '<button type="button" class="gallery-like-btn" id="like-placeholder" aria-label="Likes coming soon" title="Likes coming soon">' +
-          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z"/></svg>' +
-        '</button>' +
+        bookingLikeButtonHtml() +
         (mediaUrls.length > 1 ?
           '<button type="button" class="gallery-nav prev" id="gallery-prev" aria-label="Previous photo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>' +
           '<button type="button" class="gallery-nav next" id="gallery-next" aria-label="Next photo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>' +
@@ -1148,6 +1265,21 @@
       '<div class="review-strip">' + reviewCardsHtml + '</div>';
 
     document.getElementById('col-main').innerHTML = colMainHtml;
+
+    const galleryLikeBtn = document.getElementById('gallery-like-btn');
+    updateBookingLikeButton();
+    if (galleryLikeBtn) {
+      galleryLikeBtn.addEventListener('click', function(event){
+        event.preventDefault();
+        event.stopPropagation();
+        if (!listingLikeState.ready) return;
+        listingLikeState.liked = !listingLikeState.liked;
+        listingLikeState.count = Math.max(0, listingLikeState.confirmedCount +
+          (listingLikeState.liked === listingLikeState.confirmedLiked ? 0 : (listingLikeState.liked ? 1 : -1)));
+        updateBookingLikeButton();
+        syncBookingLike();
+      });
+    }
 
     // Reporting remains available without competing with the primary booking actions.
     const reportListingBtn = document.getElementById('report-listing-btn');

@@ -2014,6 +2014,7 @@
         state.loadFailed = true;
         state.count = 0;
       }
+      state.changed = false;
       state.version += 1;
       updateListingLikeButtons(listingId, state);
       showToast(reconciled
@@ -2054,6 +2055,7 @@
           presentListingLikeState(state);
           updateListingLikeButtons(listingId, state);
         }
+        state.changed = false;
       } finally {
         state.saving = false;
       }
@@ -2729,6 +2731,20 @@
     }
 
     window.addEventListener('pagehide', saveFeedScrollPosition);
+    window.addEventListener('pageshow', function(event){
+      if (!event.persisted) return;
+      const listingIds = Array.from(new Set(Array.from(document.querySelectorAll('.like-btn')).map(function(button){
+        return button.getAttribute('data-listing-id');
+      }).filter(Boolean)));
+      listingIds.forEach(function(id){
+        const state = getListingLikeState(id);
+        state.loaded = false;
+        state.loading = false;
+        state.loadFailed = false;
+        state.version += 1;
+      });
+      loadListingLikeSummaries(listingIds);
+    });
     window.addEventListener('scroll', recordFeedScroll, { passive:true });
     (document.querySelector('.dash-main') || document.querySelector('.feed-area')).addEventListener('scroll', recordFeedScroll, { passive:true });
 
