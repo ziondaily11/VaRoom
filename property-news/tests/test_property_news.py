@@ -27,7 +27,12 @@ from app.repository import SupabaseNewsRepository
 from app.retrieval import NewsRetrievalService
 from app.review import ReviewService
 from app.seed_sources import upsert_official_lands_source
-from app.register_additional_sources import canonical_domain, register_sources_from_json
+from app.register_additional_sources import (
+    audit_source_registry,
+    canonical_domain,
+    make_upsert_sql,
+    register_sources_from_json,
+)
 
 
 def source(*, tier: int = 1, active: bool = True) -> Source:
@@ -190,7 +195,7 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(len(await self.repository.list_sources()), 2)
 
-    async def test_expanded_pool_records_are_active_and_have_collection_methods(self):
+    async def test_expanded_pool_activates_only_sources_with_verified_items(self):
         pool_path = Path(__file__).resolve().parents[1] / "sources" / "real-estate-source-pool.json"
         entries = json.loads(pool_path.read_text(encoding="utf-8"))
         self.assertEqual(len(entries), 100)
@@ -200,7 +205,16 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(len(registered), 100)
         self.assertEqual(len({canonical_domain(source.base_url) for source in registered}), 100)
-        self.assertTrue(all(source.active for source in registered))
+        self.assertEqual(sum(source.active for source in registered), 11)
+        self.assertTrue(all(
+            not source.active or (
+                source.parser_config["verification"]["http_status"] == 200
+                and source.parser_config["verification"]["item_count"] > 0
+                and source.parser_config["verification"]["url"]
+                == source.parser_config["discovery_url"]
+            )
+            for source in registered
+        ))
         self.assertTrue(all(source.fetch_method != "manual" for source in registered))
         self.assertTrue(all(source.parser_config.get("discovery_url") for source in registered))
         self.assertTrue(all(
@@ -239,6 +253,109 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(registered[0].failure_category, "blocked_403")
         self.assertEqual(registered[0].consecutive_failures, 1)
         self.assertEqual(len(await self.repository.list_sources()), 2)
+
+    async def test_registry_audit_reports_unregistered_and_unverified_sources(self):
+        await self.repository.upsert_source(self.source.model_copy(update={"active": False}))
+        registered = Source(
+            name="Known but unverified", base_url="https://known.example.test",
+            trust_tier=2, fetch_method="rss", schedule_minutes=60, active=True,
+        )
+        unlisted = Source(
+            name="Unlisted active source", base_url="https://unlisted.example.test",
+            trust_tier=2, fetch_method="rss", schedule_minutes=60, active=True,
+        )
+        await self.repository.upsert_source(registered)
+        await self.repository.upsert_source(unlisted)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            registry_path = Path(temp_dir) / "sources"
+            registry_path.mkdir()
+            (registry_path / "registry.json").write_text(json.dumps([{
+                "name": "Known but unverified", "base_url": registered.base_url,
+                "fetch_method": "rss", "active": True,
+            }]), encoding="utf-8")
+
+            result = await audit_source_registry(self.repository, registry_path)
+
+        self.assertEqual(result["database_source_count"], 3)
+        self.assertEqual(result["database_active_count"], 2)
+        self.assertEqual(result["database_active_web_count"], 2)
+        self.assertEqual(sum(result["active_web_sources_by_group"].values()), 2)
+        self.assertEqual(result["registry_domains_not_registered"], [])
+        self.assertEqual(
+            result["active_database_sources_not_in_registry"],
+            [{
+                "source_id": str(unlisted.id),
+                "name": "Unlisted active source",
+                "domain": "unlisted.example.test",
+            }],
+        )
+        self.assertEqual(
+            result["active_database_sources_without_verified_registry_endpoint"],
+            [{
+                "source_id": str(registered.id),
+                "name": "Known but unverified",
+                "domain": "known.example.test",
+            }],
+        )
+        self.assertEqual(
+            result["active_registry_sources_without_verified_endpoint"],
+            [{"name": "Known but unverified", "domain": "known.example.test"}],
+        )
+
+    def test_registry_sql_dry_run_does_not_activate_unverified_sources(self):
+        sql = make_upsert_sql([{
+            "name": "Unverified source",
+            "base_url": "https://unverified.example.test",
+            "source_type": "news",
+            "trust_tier": 2,
+            "fetch_method": "rss",
+            "schedule_minutes": 60,
+            "active": True,
+            "parser_config": {
+                "discovery_url": "https://unverified.example.test",
+                "verification": {
+                    "url": "https://stale.example.test/feed",
+                    "http_status": 200,
+                    "item_count": 5,
+                    "method_used": "rss",
+                },
+            },
+        }])
+
+        self.assertIn("60, FALSE,", sql)
+
+    async def test_source_group_reports_active_due_attempted_and_deferred_counts(self):
+        collector = SourceCollector(self.repository, Settings())
+        await self.repository.upsert_source(self.source.model_copy(update={"active": False}))
+        configured = [
+            Source(
+                name=f"Capacity source {index}",
+                base_url=f"https://capacity.example.test/{index}",
+                trust_tier=2, fetch_method="rss", schedule_minutes=30, active=True,
+            )
+            for index in range(21)
+        ]
+        for configured_source in configured:
+            await self.repository.upsert_source(configured_source)
+
+        attempted: list[str] = []
+
+        async def collect_source(configured_source):
+            attempted.append(configured_source.name)
+            return {
+                "sources_successful": 1, "sources_failed": 0, "candidates": 0,
+                "new_items": 0, "duplicates": 0, "new_item_ids": [],
+            }
+
+        collector.collect_source = collect_source  # type: ignore[method-assign]
+        group = SourceCollector._source_group(configured[0], 11)
+        result = await collector.collect_due_sources(source_group=group)
+
+        self.assertEqual(result["sources_active"], 21)
+        self.assertEqual(result["sources_due"], 21)
+        self.assertEqual(result["sources_attempted"], 20)
+        self.assertEqual(result["sources_deferred"], 1)
+        self.assertEqual(len(attempted), 20)
 
     async def test_same_source_name_on_another_domain_is_not_overwritten(self):
         pool_path = Path(__file__).resolve().parents[1] / "sources" / "real-estate-source-pool.json"
@@ -541,6 +658,10 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
 
         with patch.object(SourceCollector, "_discover", new=discover):
             result = await run_collection_job(self.repository, Settings())
+        self.assertEqual(result["sources_active"], 1)
+        self.assertEqual(result["sources_due"], 1)
+        self.assertEqual(result["sources_attempted"], 1)
+        self.assertEqual(result["sources_deferred"], 0)
         self.assertEqual(result["new_items"], 1)
         self.assertEqual(result["processed"], 1)
         self.assertEqual(result["published"], 1)

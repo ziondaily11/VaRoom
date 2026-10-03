@@ -721,6 +721,7 @@ class SourceDiscovery:
     def _verification(result: DiscoveryResult, method: str) -> dict[str, Any]:
         return {
             "checked_at": datetime.now(timezone.utc).isoformat(),
+            "url": result.url,
             "http_status": result.http_status or 200,
             "item_count": result.item_count,
             "newest_item_date": result.newest_item_date,
@@ -756,6 +757,7 @@ class SourceDiscovery:
             "exclude_url_contains": list(EXCLUDED_PATH_TERMS),
             "verification": {
                 "checked_at": datetime.now(timezone.utc).isoformat(),
+                "url": attempted_url,
                 "http_status": result.http_status,
                 "item_count": result.item_count,
                 "newest_item_date": result.newest_item_date,
@@ -819,7 +821,7 @@ async def run(args: argparse.Namespace) -> int:
             f"{source['name']} | {domain_key(source['base_url'])} | {item.method} | "
             f"{item.url} | verified={item.verified} | items={item.item_count} | failure={category}"
         )
-        source["active"] = True
+        source["active"] = bool(item.verified and item.item_count > 0)
         source["fetch_method"] = item.method or "rss"
         source["parser_config"] = dict(source.get("parser_config", {})) | item.parser_config
         source["failure_category"] = item.failure_category

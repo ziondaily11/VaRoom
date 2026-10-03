@@ -8,6 +8,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: property-news-collector
+  cancel-in-progress: false
+
 jobs:
   collect:
     strategy:
@@ -48,18 +52,30 @@ jobs:
 
           status = result.get("collection_status")
           required_counts = (
+              "sources_active", "sources_due", "sources_deferred",
               "sources_attempted", "sources_successful", "sources_failed",
-              "articles_discovered", "articles_inserted", "processed",
+              "articles_discovered", "articles_parsed", "articles_inserted", "processed",
               "published", "pending_review", "processing_failures",
           )
           counts = {key: result.get(key) for key in required_counts}
           if any(not isinstance(value, int) or isinstance(value, bool) for value in counts.values()):
               raise SystemExit("Collector response is missing valid collection counts")
+          if (
+              counts["sources_due"] > counts["sources_active"]
+              or counts["sources_attempted"] + counts["sources_deferred"] != counts["sources_due"]
+              or counts["sources_attempted"] > 20
+              or counts["sources_attempted"]
+              != counts["sources_successful"] + counts["sources_failed"]
+          ):
+              raise SystemExit("Collector source coverage counts are inconsistent")
 
           summary = (
               f"## Property News collection — group {os.environ['SOURCE_GROUP']}\n\n"
               f"- Status: `{status}`\n"
-              f"- Sources attempted/succeeded/failed: {counts['sources_attempted']}/"
+              f"- Active/due/attempted/deferred: {counts['sources_active']}/"
+              f"{counts['sources_due']}/{counts['sources_attempted']}/"
+              f"{counts['sources_deferred']}\n"
+              f"- Sources succeeded/failed: "
               f"{counts['sources_successful']}/{counts['sources_failed']}\n"
               f"- Articles discovered/inserted: {counts['articles_discovered']}/"
               f"{counts['articles_inserted']}\n"
@@ -72,11 +88,38 @@ jobs:
 
           if status in {"failed", "already_running"}:
               raise SystemExit(f"Collector group did not complete successfully: {status}")
+          if counts["sources_attempted"] == 0:
+              expected_status = "no_sources_due"
+          elif counts["sources_failed"] == counts["sources_attempted"]:
+              expected_status = "failed"
+          elif counts["sources_failed"]:
+              expected_status = "partial"
+          elif result.get("articles_parsed") == 0:
+              expected_status = "empty"
+          else:
+              expected_status = "succeeded"
+          if status != expected_status:
+              raise SystemExit(
+                  f"Collector status {status!r} conflicts with counts; expected {expected_status!r}"
+              )
+          if counts["sources_deferred"]:
+              raise SystemExit(
+                  f"Collector group {os.environ['SOURCE_GROUP']} left "
+                  f"{counts['sources_deferred']} due sources unattempted "
+                  f"(group cap: 20)"
+              )
           if status == "partial":
+              failure_rate = counts["sources_failed"] / counts["sources_attempted"]
               print(
                   f"::warning::Collector group {os.environ['SOURCE_GROUP']} had "
-                  f"{counts['sources_failed']} source failures"
+                  f"{counts['sources_failed']} source failures "
+                  f"({failure_rate:.0%})"
               )
+              if failure_rate >= 0.25:
+                  raise SystemExit(
+                      f"Collector group {os.environ['SOURCE_GROUP']} source failure rate "
+                      f"{failure_rate:.0%} meets/exceeds the 25% threshold"
+                  )
           elif status not in {"succeeded", "empty", "no_sources_due"}:
               raise SystemExit(f"Collector returned an unknown status: {status}")
           if counts["processing_failures"]:

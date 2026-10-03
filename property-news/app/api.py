@@ -312,6 +312,7 @@ def create_app(config: Settings = settings, repository: Repository | None = None
             return {
                 "status": "already_running",
                 "collection_status": "already_running",
+                "sources_active": 0, "sources_due": 0, "sources_deferred": 0,
                 "sources_checked": 0, "sources_attempted": 0, "sources_successful": 0, "sources_failed": 0,
                 "candidates": 0, "articles_discovered": 0, "articles_rejected": 0,
                 "articles_parsed": 0, "articles_inserted": 0, "new_items": 0,
