@@ -309,7 +309,6 @@ const pageTemplates = {
   '/chat': 'chats.html',
   '/analytics': 'analytics.html',
   '/auth-callback': 'auth-callback.html',
-  '/forgot-password': 'forgot-password.html',
   '/elie': 'elie.html',
   '/map': 'map.html',
   '/marketplace': 'marketplace.html',
@@ -343,6 +342,16 @@ Object.entries(pageTemplates).forEach(([route, template]) => {
       ));
     });
   });
+});
+
+app.get('/forgot-password', (req, res) => {
+  const destination = new URL('/?auth=recovery', process.env.PUBLIC_BASE_URL || `http://localhost:${PORT}`);
+  if (req.query.mode === 'reset' || req.query.step === 'password') destination.searchParams.set('step', 'password');
+  const requestedRedirect = req.query.redirect;
+  if (typeof requestedRedirect === 'string' && /^\/(?!\/)/.test(requestedRedirect)) {
+    destination.searchParams.set('redirect', requestedRedirect);
+  }
+  return res.redirect(302, destination.toString());
 });
 
 app.get('/u/:username', (_req, res) => {

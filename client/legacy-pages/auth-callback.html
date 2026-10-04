@@ -108,7 +108,7 @@
     const authType = hashParams.get('type') || queryParams.get('type') || '';
 
     if (authType === 'recovery') {
-      window.location.replace('/forgot-password?mode=reset');
+      window.location.replace('/?auth=recovery&step=password');
       return;
     }
 

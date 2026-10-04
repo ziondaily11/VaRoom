@@ -17,6 +17,21 @@ module.exports = {
         permanent: true,
       },
       {
+        source: '/forgot-password',
+        destination: '/?auth=recovery',
+        permanent: false,
+      },
+      {
+        source: '/forgot-password.html',
+        destination: '/?auth=recovery',
+        permanent: false,
+      },
+      {
+        source: '/legacy-pages/forgot-password.html',
+        destination: '/?auth=recovery',
+        permanent: false,
+      },
+      {
         source: '/signup-host',
         destination: '/?auth=signup&role=host',
         permanent: true,

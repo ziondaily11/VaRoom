@@ -1,6 +1,8 @@
 {
   "redirects": [
     { "source": "/index.html", "destination": "/", "permanent": true },
+    { "source": "/forgot-password.html", "destination": "/?auth=recovery", "permanent": false },
+    { "source": "/legacy-pages/forgot-password.html", "destination": "/?auth=recovery", "permanent": false },
     { "source": "/properties.html", "destination": "/properties", "permanent": true },
     { "source": "/:page.html", "destination": "/:page", "permanent": true },
     { "source": "/:page.php", "destination": "/:page", "permanent": true }
