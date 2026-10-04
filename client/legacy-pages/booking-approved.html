@@ -16,6 +16,7 @@
   })();
   if (new URLSearchParams(window.location.search).get('embedded') === '1') {
     document.documentElement.setAttribute('data-embedded', 'true');
+    if ('scrollRestoration' in window.history) window.history.scrollRestoration = 'manual';
   }
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -236,9 +237,12 @@
     .listing-block{ flex-direction:column; }
     .listing-photo{ width:100%; height:150px; }
   }
-  html[data-embedded="true"] body{ min-height:100%; }
+  html[data-embedded="true"] body{ min-height:100%; padding-bottom:0 !important; }
+  html[data-embedded="true"] .varoom-mobile-nav{ display:none !important; }
   html[data-embedded="true"] header{ display:none; }
   html[data-embedded="true"] main{ max-width:none; margin:0; padding:0 0 1rem; }
+  html[data-embedded="true"] .listing-block{ flex-direction:row; }
+  html[data-embedded="true"] .listing-photo{ width:130px; height:100px; }
 </style>
 <link rel="stylesheet" href="js/varoom-dark-theme.css">
 </head>
@@ -732,6 +736,7 @@
 
     checkingAuth.style.display = 'none';
     approvedPage.style.display = 'block';
+    if (document.documentElement.getAttribute('data-embedded') === 'true') window.scrollTo(0, 0);
   })();
 </script>
 
