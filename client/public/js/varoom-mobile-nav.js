@@ -2,8 +2,6 @@
 (function (window, document) {
   'use strict';
 
-  if (new URLSearchParams(window.location.search).get('embedded') === '1') return;
-
   var ICONS = {
     home: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9a1 1 0 0 0 1 1H9v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4h2.5a1 1 0 0 0 1-1v-9"/></svg>',
     marketplace: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m15 9-2 6-6 2 2-6 6-2Z"/></svg>',
