@@ -318,16 +318,14 @@
       border-right:1px solid rgba(255,255,255,.08);
     }
     .wizard-sidebar::-webkit-scrollbar{ display:none; }
-    .sidebar-home, .sidebar-nav-icon, .sidebar-step{
+    .sidebar-nav-icon{
       width:2.45rem; height:2.45rem; border-radius:10px; display:grid; place-items:center;
       color:#B8ACA8; transition:background .18s ease, color .18s ease;
     }
-    .sidebar-home:hover, .sidebar-nav-icon:hover, .sidebar-step:hover, .sidebar-step.active{ background:#2A201C; color:#fff; }
-    .sidebar-home svg, .sidebar-nav-icon svg, .sidebar-step svg{ width:18px; height:18px; flex-shrink:0; }
+    .sidebar-nav-icon:hover{ background:#2A201C; color:#fff; }
+    .sidebar-nav-icon svg{ width:18px; height:18px; flex-shrink:0; }
     .sidebar-nav-icon [data-elie-icon]{ width:22px; height:22px; }
-    .sidebar-divider{ width:1.35rem; height:1px; margin:.8rem 0; background:rgba(255,255,255,.12); }
-    .sidebar-host-nav, .sidebar-steps{ display:grid; gap:.5rem; }
-    .sidebar-step.active{ box-shadow:inset 2px 0 0 var(--red); color:#fff; }
+    .sidebar-host-nav{ display:grid; gap:.5rem; }
 
     .wizard-shell{ max-width:1320px; height:calc(100dvh - 2rem); margin:0 auto; padding:0; }
     .step-frame.active{
@@ -441,14 +439,6 @@
       <a href="/support" class="sidebar-nav-icon" aria-label="Help and Support" title="Help and Support"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 4.9.8c0 1.6-2.4 1.9-2.4 3.5"/><path d="M12 17.2v.1"/></svg></a>
       <a href="pricing.html" class="sidebar-nav-icon" aria-label="Upgrade" title="Upgrade"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3Z"/><path d="m19 16 .7 1.8L21.5 18l-1.8.7L19 20.5l-.7-1.8-1.8-.7L19 16Z"/></svg></a>
     </nav>
-    <span class="sidebar-divider" aria-hidden="true"></span>
-    <div class="sidebar-steps">
-      <button type="button" class="sidebar-step active" data-sidebar-step="1" aria-label="About the property" title="About the property"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9a1 1 0 0 0 1 1H9v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4h2.5a1 1 0 0 0 1-1v-9"/></svg></button>
-      <button type="button" class="sidebar-step" data-sidebar-step="2" aria-label="Location and verification" title="Location and verification"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m15 9-2 6-6 2 2-6 6-2Z"/></svg></button>
-      <button type="button" class="sidebar-step" data-sidebar-step="3" aria-label="Photos and gallery" title="Photos and gallery"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m4 18 5-5 4 4 3-3 4 4"/></svg></button>
-      <button type="button" class="sidebar-step" data-sidebar-step="4" aria-label="Pricing and booking" title="Pricing and booking"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="16" rx="2"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg></button>
-      <button type="button" class="sidebar-step" data-sidebar-step="5" aria-label="Review and publish" title="Review and publish"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4" width="17" height="16" rx="2"/><path d="M7.5 9h9M7.5 13h9M7.5 17h5"/></svg></button>
-    </div>
   </aside>
   <nav class="wizard-top-nav">
     <a href="/host-home" class="logo"><span class="va">Va</span><span class="room">Room</span></a>
@@ -1148,9 +1138,6 @@
       t.classList.toggle('active', step === n);
       t.classList.toggle('completed', step < furthestStep || (step < n));
     });
-    document.querySelectorAll('[data-sidebar-step]').forEach(function(item){
-      item.classList.toggle('active', Number(item.dataset.sidebarStep) === n);
-    });
     updateCorrectionNavigation();
     if (n === 5) renderReviewSummary();
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1168,12 +1155,6 @@
   trackerItems.forEach(function(t){
     t.addEventListener('click', function(){
       const target = Number(t.dataset.stepLink);
-      if (target <= furthestStep) goToStep(target);
-    });
-  });
-  document.querySelectorAll('[data-sidebar-step]').forEach(function(item){
-    item.addEventListener('click', function(){
-      const target = Number(item.dataset.sidebarStep);
       if (target <= furthestStep) goToStep(target);
     });
   });
