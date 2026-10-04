@@ -314,18 +314,19 @@
     .wizard-correction-nav button:hover{ background:var(--red-deep); }
     .wizard-sidebar{
       display:flex; position:fixed; z-index:20; inset:0 auto 0 0; width:4.45rem;
-      flex-direction:column; align-items:center; padding:1rem 0; background:#17110F;
+      flex-direction:column; align-items:center; padding:1rem 0; overflow-y:auto; scrollbar-width:none; background:#17110F;
       border-right:1px solid rgba(255,255,255,.08);
     }
-    .sidebar-home, .sidebar-step{
+    .wizard-sidebar::-webkit-scrollbar{ display:none; }
+    .sidebar-home, .sidebar-nav-icon, .sidebar-step{
       width:2.45rem; height:2.45rem; border-radius:10px; display:grid; place-items:center;
       color:#B8ACA8; transition:background .18s ease, color .18s ease;
     }
-    .sidebar-home:hover, .sidebar-step:hover, .sidebar-step.active{ background:#2A201C; color:#fff; }
-    .sidebar-home:hover{ color:#fff; }
-    .sidebar-home svg, .sidebar-step svg{ width:18px; height:18px; flex-shrink:0; }
+    .sidebar-home:hover, .sidebar-nav-icon:hover, .sidebar-step:hover, .sidebar-step.active{ background:#2A201C; color:#fff; }
+    .sidebar-home svg, .sidebar-nav-icon svg, .sidebar-step svg{ width:18px; height:18px; flex-shrink:0; }
+    .sidebar-nav-icon [data-elie-icon]{ width:22px; height:22px; }
     .sidebar-divider{ width:1.35rem; height:1px; margin:.8rem 0; background:rgba(255,255,255,.12); }
-    .sidebar-steps{ display:grid; gap:.5rem; }
+    .sidebar-host-nav, .sidebar-steps{ display:grid; gap:.5rem; }
     .sidebar-step.active{ box-shadow:inset 2px 0 0 var(--red); color:#fff; }
 
     .wizard-shell{ max-width:1320px; height:calc(100dvh - 2rem); margin:0 auto; padding:0; }
@@ -424,9 +425,22 @@
 
 <div class="wizard" id="listing-page" style="display:none;">
   <aside class="wizard-sidebar" aria-label="Listing navigation">
-    <a href="/host-home" class="sidebar-home" aria-label="Home" title="Home">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9a1 1 0 0 0 1 1H9v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4h2.5a1 1 0 0 0 1-1v-9"/></svg>
-    </a>
+    <nav class="sidebar-host-nav" aria-label="VaRoom navigation">
+      <a href="/chats?conversation=elie" class="sidebar-nav-icon" aria-label="Elie" title="Elie"><span data-elie-icon aria-label="Elie" class="elie-logo-nav"></span></a>
+      <a href="/host-home" class="sidebar-nav-icon" aria-label="Home" title="Home"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9a1 1 0 0 0 1 1H9v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4h2.5a1 1 0 0 0 1-1v-9"/></svg></a>
+      <a href="/marketplace" class="sidebar-nav-icon" aria-label="Marketplace" title="Marketplace"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m15 9-2 6-6 2 2-6 6-2Z"/></svg></a>
+      <a href="/host-home" class="sidebar-nav-icon" aria-label="Saved" title="Saved"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3.5h12a1 1 0 0 1 1 1V21l-7-4-7 4V4.5a1 1 0 0 1 1-1Z"/></svg></a>
+      <a href="/bookings" class="sidebar-nav-icon" aria-label="Bookings" title="Bookings"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="16" rx="2"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg></a>
+      <a href="/chats" class="sidebar-nav-icon" aria-label="Chats" title="Chats"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z"/></svg></a>
+      <a href="/notifications" class="sidebar-nav-icon" aria-label="Notifications" title="Notifications"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></a>
+      <a href="/list" class="sidebar-nav-icon" aria-label="List a space" title="List a space"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></a>
+      <a href="/host-home" class="sidebar-nav-icon" aria-label="My Listings" title="My Listings"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4" width="17" height="16" rx="2"/><path d="M7.5 9h9M7.5 13h9M7.5 17h5"/></svg></a>
+      <a href="/analytics" class="sidebar-nav-icon" aria-label="Analytics" title="Analytics"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19V10M11 19V5M18 19v-7"/><path d="M3 19h18"/></svg></a>
+      <a href="/profile" class="sidebar-nav-icon" aria-label="Profile" title="Profile"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.5-7 8-7s8 3 8 7"/></svg></a>
+      <a href="/settings" class="sidebar-nav-icon" aria-label="Settings" title="Settings"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg></a>
+      <a href="/support" class="sidebar-nav-icon" aria-label="Help and Support" title="Help and Support"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 4.9.8c0 1.6-2.4 1.9-2.4 3.5"/><path d="M12 17.2v.1"/></svg></a>
+      <a href="pricing.html" class="sidebar-nav-icon" aria-label="Upgrade" title="Upgrade"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3Z"/><path d="m19 16 .7 1.8L21.5 18l-1.8.7L19 20.5l-.7-1.8-1.8-.7L19 16Z"/></svg></a>
+    </nav>
     <span class="sidebar-divider" aria-hidden="true"></span>
     <div class="sidebar-steps">
       <button type="button" class="sidebar-step active" data-sidebar-step="1" aria-label="About the property" title="About the property"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9a1 1 0 0 0 1 1H9v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4h2.5a1 1 0 0 0 1-1v-9"/></svg></button>
