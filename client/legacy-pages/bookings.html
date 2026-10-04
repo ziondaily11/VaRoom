@@ -147,7 +147,7 @@
   .back-link{ display:none; }
 
   .content-row{
-    display:grid; grid-template-columns: minmax(560px, 1fr) minmax(280px, 380px);
+    display:grid; grid-template-columns: minmax(560px, 1fr) minmax(480px, 500px);
     align-items:start; min-width:0; flex:1 1 auto; min-height:0; overflow:hidden; gap:0; width:100%; max-width:100%;
   }
 
@@ -159,21 +159,117 @@
   .feed-area::-webkit-scrollbar{ display:none; }
 
   .right-rail{
-    width:100%; max-width:380px; padding:.6rem 1.8rem 4rem 1.2rem;
+    width:100%; max-width:500px; padding:.6rem 1rem 1rem;
     display:flex; flex-direction:column; gap:1.3rem; height:100%; overflow-y:auto;
     scrollbar-width:none; justify-self:end; border-left:1px solid var(--line); box-sizing:border-box;
   }
   .right-rail::-webkit-scrollbar{ display:none; }
-  .right-rail.booking-details-open{ overflow:hidden; padding-bottom:1rem; }
+  .right-rail.booking-details-open{ overflow:hidden; gap:.25rem; }
   #client-right-rail{ display:flex; flex:1 1 auto; flex-direction:column; gap:1.3rem; min-height:0; }
-  .booking-detail-panel{ display:flex; flex:1 1 auto; flex-direction:column; min-height:0; }
-  .booking-detail-rail-head{ display:flex; align-items:center; flex:0 0 auto; min-height:2.5rem; margin-bottom:.6rem; }
+  .booking-detail-panel{ --green:#1E6B3C; --green-deep:#153E24; display:flex; flex:1 1 auto; flex-direction:column; min-height:0; }
+  .booking-detail-rail-head{ display:flex; align-items:center; flex:0 0 auto; min-height:2.5rem; margin-bottom:.45rem; }
   .booking-detail-back{ display:inline-flex; align-items:center; gap:.45rem; color:var(--muted); font-size:.84rem; font-weight:600; }
   .booking-detail-back:hover{ color:var(--red); }
   .booking-detail-back svg{ width:17px; height:17px; }
-  .booking-detail-frame{ display:block; width:100%; min-height:0; flex:1 1 auto; border:0; background:var(--paper); }
+  .booking-detail-content{ min-height:0; }
+  .booking-approved-hero{
+    text-align:center; color:#F5EFEC; padding:1rem 1.2rem 1.25rem;
+    background:radial-gradient(ellipse at top, #2A1F1C 0%, #150F0D 70%);
+    border-radius:18px 18px 0 0;
+  }
+  .booking-approved-check{
+    width:42px; height:42px; margin:0 auto .55rem; border-radius:50%;
+    border:2px solid var(--green); display:flex; align-items:center; justify-content:center;
+    color:var(--green);
+  }
+  .booking-approved-check svg{ width:21px; height:21px; }
+  .booking-approved-hero h2{ font-size:1.38rem; line-height:1.2; margin-bottom:.3rem; }
+  .booking-approved-hero h2 span{ color:var(--green); }
+  .booking-approved-hero p{ color:#C9BDB8; font-size:.8rem; line-height:1.4; }
+  .booking-detail-card{
+    background:var(--white); border:1px solid var(--line); border-top:0;
+    border-radius:0 0 18px 18px; padding:1rem 1.1rem;
+    box-shadow:0 12px 28px rgba(26,18,16,.09);
+  }
+  .booking-detail-greeting{ font-size:1rem; font-weight:700; margin-bottom:.2rem; }
+  .booking-detail-intro{ color:var(--muted); font-size:.76rem; line-height:1.4; margin-bottom:.8rem; }
+  .booking-detail-property{
+    display:flex; align-items:stretch; gap:.8rem; padding:.65rem;
+    border-radius:12px; background:var(--paper); margin-bottom:.9rem; min-width:0;
+  }
+  .booking-detail-photo{ width:116px; height:98px; flex:0 0 116px; overflow:hidden; border-radius:9px; background:#E4E1DA; }
+  .booking-detail-photo img{ display:block; width:100%; height:100%; object-fit:cover; }
+  .booking-detail-property-info{ display:flex; flex:1; flex-direction:column; min-width:0; }
+  .booking-detail-property-title{ font-size:.96rem; line-height:1.25; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .booking-detail-location{ display:flex; align-items:baseline; flex-wrap:wrap; gap:.1rem .3rem; color:var(--muted); font-size:.72rem; line-height:1.35; margin-top:.18rem; }
+  .booking-detail-map{ color:var(--red); font-weight:600; white-space:nowrap; }
+  .booking-detail-host{ display:flex; align-items:center; gap:.45rem; margin-top:auto; padding-top:.45rem; min-width:0; }
+  .booking-detail-host-avatar{ width:27px; height:27px; flex:0 0 27px; border-radius:50%; overflow:hidden; display:flex; align-items:center; justify-content:center; background:var(--ink); color:var(--white); font-size:.68rem; font-weight:700; }
+  .booking-detail-host-avatar img{ width:100%; height:100%; object-fit:cover; }
+  .booking-detail-host-label{ color:var(--muted); font-size:.65rem; line-height:1.1; }
+  .booking-detail-host-name{ font-size:.76rem; font-weight:700; line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .booking-detail-section-title{ display:flex; align-items:center; gap:.45rem; font-size:.9rem; font-weight:700; margin-bottom:.35rem; }
+  .booking-detail-section-title svg{ width:16px; height:16px; color:var(--green); flex:0 0 16px; }
+  .booking-detail-rows{ display:grid; grid-template-columns:1fr 1fr; column-gap:1rem; margin-bottom:.7rem; }
+  .booking-detail-row{ display:flex; align-items:center; justify-content:space-between; gap:.45rem; min-width:0; padding:.35rem 0; border-bottom:1px solid var(--line-soft); font-size:.74rem; }
+  .booking-detail-row-label{ display:flex; align-items:center; gap:.35rem; min-width:0; color:var(--muted); }
+  .booking-detail-row-label svg{ width:13px; height:13px; color:var(--green); flex:0 0 13px; }
+  .booking-detail-row-value{ font-weight:600; text-align:right; white-space:nowrap; }
+  .booking-detail-row.total{ grid-column:1 / -1; border-bottom:0; }
+  .booking-detail-row.total .booking-detail-row-value{ color:var(--green); font-size:.9rem; font-weight:700; }
+  .booking-detail-protection{ display:flex; align-items:flex-start; gap:.55rem; padding:.65rem .75rem; border-radius:11px; background:rgba(30,107,60,.07); margin:.6rem 0; }
+  .booking-detail-protection svg{ width:17px; height:17px; flex:0 0 17px; color:var(--green); }
+  .booking-detail-protection-title{ font-size:.75rem; font-weight:700; margin-bottom:.1rem; }
+  .booking-detail-protection-text{ font-size:.69rem; color:var(--muted); line-height:1.35; }
+  .booking-detail-actions{ display:flex; gap:.65rem; margin:.7rem 0; }
+  .booking-detail-actions .bk-btn{ flex:1; padding:.62rem .75rem; font-size:.78rem; }
+  .booking-detail-actions .bk-btn-outline{ border-color:var(--red); color:var(--red); }
+  .booking-detail-pay{ display:inline-flex; align-items:center; justify-content:center; background:var(--green); color:#fff; border-radius:100px; font-size:.8rem; font-weight:700; }
+  .booking-detail-pay:hover{ background:var(--green-deep); }
+  .booking-detail-help{ display:flex; align-items:center; gap:.6rem; padding:.65rem .75rem; background:var(--paper); border-radius:11px; }
+  .booking-detail-help-icon{ width:30px; height:30px; flex:0 0 30px; display:flex; align-items:center; justify-content:center; border-radius:50%; background:var(--ink); color:var(--white); font-weight:700; }
+  .booking-detail-help-text{ flex:1; min-width:0; }
+  .booking-detail-help-title{ font-size:.76rem; font-weight:700; }
+  .booking-detail-help-sub{ font-size:.67rem; line-height:1.35; color:var(--muted); }
+  .booking-detail-help-btn{ flex:0 0 auto; padding:.45rem .65rem; border:1px solid var(--line); border-radius:100px; background:var(--white); font-size:.68rem; font-weight:700; white-space:nowrap; }
+  .booking-detail-help-btn:hover{ border-color:var(--red); color:var(--red); }
+  .booking-detail-status{ padding:1.4rem; border:1px solid var(--line); border-radius:16px; background:var(--white); }
+  .booking-detail-status h2{ font-size:1rem; margin-bottom:.35rem; }
+  .booking-detail-status p{ color:var(--muted); font-size:.8rem; line-height:1.45; }
+  .desktop-pay-backdrop{ display:none; position:fixed; inset:0; z-index:450; align-items:center; justify-content:center; padding:1rem; background:rgba(21,15,13,.5); }
+  .desktop-pay-backdrop.show{ display:flex; }
+  .desktop-pay-dialog{ width:min(100%,440px); max-height:calc(100vh - 2rem); overflow:auto; padding:1.3rem; border:1px solid var(--line); border-radius:18px; background:var(--white); box-shadow:0 24px 60px rgba(26,18,16,.28); }
+  .desktop-pay-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:.8rem; }
+  .desktop-pay-title{ font-size:1.05rem; font-weight:700; }
+  .desktop-pay-close{ padding:.25rem; color:var(--muted); font-size:1.4rem; }
+  .desktop-pay-summary{ color:var(--muted); font-size:.83rem; margin-bottom:1rem; }
+  .desktop-pay-option{ display:flex; align-items:center; gap:.75rem; width:100%; margin-bottom:.6rem; padding:.75rem; border:1.5px solid var(--line); border-radius:12px; text-align:left; }
+  .desktop-pay-option.selected{ border-color:var(--red); background:rgba(196,30,58,.05); }
+  .desktop-pay-option-label{ font-size:.83rem; font-weight:700; }
+  .desktop-pay-option-sub{ display:block; color:var(--muted); font-size:.7rem; font-weight:400; }
+  .desktop-pay-continue{ width:100%; margin-top:.35rem; padding:.72rem; border-radius:100px; background:var(--green); color:#fff; font-weight:700; }
+  .desktop-pay-cancel{ display:block; margin:.65rem auto 0; color:var(--muted); font-size:.8rem; font-weight:600; }
+  .desktop-pay-processing,.desktop-pay-result{text-align:center;padding:1rem .3rem .2rem}
+  .desktop-pay-spinner{width:42px;height:42px;margin:0 auto .9rem;border:3px solid rgba(196,30,58,.15);border-top-color:var(--red);border-radius:50%;animation:booking-payment-spin .8s linear infinite}
+  .desktop-pay-processing h3,.desktop-pay-result h3{font-size:1rem;margin:.5rem 0}
+  .desktop-pay-processing p,.desktop-pay-result p{font-size:.8rem;line-height:1.45;color:var(--muted);margin-bottom:1rem}
+  @keyframes booking-payment-spin{to{transform:rotate(360deg)}}
+  @media (prefers-reduced-motion:reduce){.desktop-pay-spinner{animation-duration:1.6s}}
+  @media (min-width:1321px) and (max-height:820px){
+    .booking-approved-hero{ padding:.7rem 1rem .85rem; }
+    .booking-approved-check{ width:36px; height:36px; margin-bottom:.4rem; }
+    .booking-approved-check svg{ width:18px; height:18px; }
+    .booking-detail-card{ padding:.75rem .9rem; }
+    .booking-detail-intro{ margin-bottom:.55rem; }
+    .booking-detail-property{ margin-bottom:.65rem; }
+    .booking-detail-photo{ width:102px; height:84px; flex-basis:102px; }
+    .booking-detail-rows{ margin-bottom:.45rem; }
+    .booking-detail-protection{ margin:.4rem 0; padding:.5rem .65rem; }
+    .booking-detail-actions{ margin:.5rem 0; }
+    .booking-detail-help{ padding:.5rem .65rem; }
+  }
 
-  @media (max-width:1180px){
+  @media (max-width:1320px){
     .right-rail{ display:none; }
     .content-row{ grid-template-columns: minmax(0, 760px); }
     .feed-area{ margin:0 auto; min-width:0; border-right:none; }
@@ -846,11 +942,42 @@
                 <span>Back to summary</span>
               </button>
             </div>
-            <iframe class="booking-detail-frame" id="booking-detail-frame" title="Selected booking details"></iframe>
+            <div class="booking-detail-content" id="booking-detail-content"></div>
           </div>
         </div>
         <div class="rail-card host-detail" id="host-booking-detail" aria-live="polite"></div>
       </aside>
+    </div>
+  </div>
+</div>
+
+<div class="desktop-pay-backdrop" id="desktop-pay-backdrop">
+  <div class="desktop-pay-dialog" role="dialog" aria-modal="true" aria-labelledby="desktop-pay-title">
+    <div id="desktop-pay-method-step">
+      <div class="desktop-pay-head">
+        <h2 class="desktop-pay-title" id="desktop-pay-title">Choose payment method</h2>
+        <button type="button" class="desktop-pay-close" id="desktop-pay-close" aria-label="Close payment">&times;</button>
+      </div>
+      <p class="desktop-pay-summary" id="desktop-pay-summary"></p>
+      <button type="button" class="desktop-pay-option selected" data-desktop-pay-method="mpesa">
+        <span><span class="desktop-pay-option-label">M-Pesa</span><span class="desktop-pay-option-sub">Pay with your phone via M-Pesa STK push</span></span>
+      </button>
+      <button type="button" class="desktop-pay-option" data-desktop-pay-method="card">
+        <span><span class="desktop-pay-option-label">Card</span><span class="desktop-pay-option-sub">Debit or credit card</span></span>
+      </button>
+      <button type="button" class="desktop-pay-continue" id="desktop-pay-continue">Continue</button>
+      <button type="button" class="desktop-pay-cancel" id="desktop-pay-cancel">Cancel</button>
+    </div>
+    <div class="desktop-pay-processing" id="desktop-pay-processing" style="display:none;">
+      <div class="desktop-pay-spinner" aria-hidden="true"></div>
+      <h3>Processing your payment…</h3>
+      <p id="desktop-pay-processing-sub"></p>
+    </div>
+    <div class="desktop-pay-result" id="desktop-pay-result" style="display:none;">
+      <h3>Online payment isn't connected yet</h3>
+      <p>This is a preview of the payment flow — nothing was charged. In the meantime, coordinate payment for this booking directly with your host via chat.</p>
+      <button type="button" class="desktop-pay-continue" id="desktop-pay-message-host">Message host</button>
+      <button type="button" class="desktop-pay-cancel" id="desktop-pay-close-result">Close</button>
     </div>
   </div>
 </div>
@@ -913,6 +1040,132 @@
     function resolvePhotoUrl(path){
       return supabaseClient.storage.from('listing-photos').getPublicUrl(path).data.publicUrl;
     }
+    function formatDesktopBookingDate(dateStr){
+      if (!dateStr) return '';
+      const date = new Date(dateStr + 'T00:00:00');
+      if (Number.isNaN(date.getTime())) return dateStr;
+      return date.toLocaleDateString(undefined, { weekday:'short', month:'short', day:'numeric' });
+    }
+    function renderDesktopBookingDetails(booking){
+      if (!booking) {
+        bookingDetailContent.innerHTML =
+          '<div class="booking-detail-status"><h2>Booking details unavailable</h2><p>We couldn’t find this booking in your bookings list. Return to the summary and try again.</p></div>';
+        return;
+      }
+      if (booking.status !== 'approved') {
+        const statusMessages = {
+          pending: ['Still awaiting approval', 'Your host hasn’t responded to this booking request yet.'],
+          declined: ['This request was declined', 'Your host wasn’t able to accept this booking request.'],
+          cancelled: ['Booking cancelled', 'This booking request was cancelled.'],
+          expired: ['This request expired', 'The booking window for this request has passed.']
+        };
+        const statusMessage = statusMessages[booking.status] || ['Booking status: ' + booking.status, ''];
+        bookingDetailContent.innerHTML =
+          '<div class="booking-detail-status"><h2>' + escapeHtml(statusMessage[0]) + '</h2><p>' + escapeHtml(statusMessage[1]) + '</p></div>';
+        return;
+      }
+
+      const listing = booking.listing || {};
+      const host = booking.host || {};
+      const photo = (listing.listing_photos || []).find(function(item){ return item && item.storage_path; });
+      const photoHtml = photo
+        ? '<img src="' + escapeHtml(resolvePhotoUrl(photo.storage_path)) + '" alt="' + escapeHtml(listing.title || 'Listing') + '">'
+        : '';
+      const hostAvatarUrl = resolveAvatarUrl(host.avatar_url);
+      const hostAvatar = hostAvatarUrl
+        ? '<img src="' + escapeHtml(hostAvatarUrl) + '" alt="">'
+        : escapeHtml((host.full_name || '?').charAt(0).toUpperCase());
+      const location = listing.location_text
+        ? escapeHtml(listing.location_text)
+        : 'Location not available';
+      const mapLink = '<a class="booking-detail-map" href="/map?booking=' + encodeURIComponent(booking.id) + '">View map &amp; directions</a>';
+      const rows = [];
+      if (booking.hours) {
+        rows.push(['Date', formatDesktopBookingDate(booking.start_date)]);
+        rows.push(['Duration', booking.hours + ' hour' + (booking.hours === 1 ? '' : 's')]);
+      } else if (booking.start_date && booking.end_date) {
+        const nights = Math.round((new Date(booking.end_date) - new Date(booking.start_date)) / 86400000);
+        rows.push(['Check-in', formatDesktopBookingDate(booking.start_date)]);
+        rows.push(['Check-out', formatDesktopBookingDate(booking.end_date)]);
+        rows.push(['Duration', nights + ' night' + (nights === 1 ? '' : 's')]);
+      } else if (booking.lease_start_date) {
+        rows.push(['Move-in date', formatDesktopBookingDate(booking.lease_start_date)]);
+        rows.push(['Lease length', booking.lease_months + ' month' + (booking.lease_months === 1 ? '' : 's')]);
+      }
+      const calendarIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="2"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>';
+      const clockIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>';
+      const cashIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 15.5c.5.7 1.3 1 2.5 1s2.3-.6 2.3-1.6c0-2.3-4.8-1-4.8-3.3 0-1 1.1-1.6 2.3-1.6s2 .3 2.5 1M12 7.5v9"/></svg>';
+      const shieldIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4.5 6v6c0 5 3.2 8.7 7.5 9 4.3-.3 7.5-4 7.5-9V6L12 3Z"/></svg>';
+      const checkIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m20 6-11 11-5-5"/></svg>';
+      const rowsHtml = rows.map(function(row){
+        const icon = row[0] === 'Duration' || row[0] === 'Lease length' ? clockIcon : calendarIcon;
+        return '<div class="booking-detail-row"><span class="booking-detail-row-label">' + icon + '<span>' + escapeHtml(row[0]) + '</span></span><span class="booking-detail-row-value">' + escapeHtml(row[1]) + '</span></div>';
+      }).join('');
+      bookingDetailContent.innerHTML =
+        '<section class="booking-approved-hero" aria-label="Booking approved">' +
+          '<div class="booking-approved-check">' + checkIcon + '</div>' +
+          '<h2>Booking <span>Approved!</span></h2>' +
+          '<p>Great news! Your booking request has been approved by the host.</p>' +
+        '</section>' +
+        '<section class="booking-detail-card">' +
+          '<h3 class="booking-detail-greeting">Hello ' + escapeHtml((profile.full_name || 'there').split(' ')[0]) + ',</h3>' +
+          '<p class="booking-detail-intro">Your booking request for the property below has been approved. Please review your booking details and proceed with payment to confirm your booking.</p>' +
+          '<div class="booking-detail-property">' +
+            '<div class="booking-detail-photo">' + photoHtml + '</div>' +
+            '<div class="booking-detail-property-info">' +
+              '<h3 class="booking-detail-property-title" title="' + escapeHtml(listing.title || 'Listing') + '">' + escapeHtml(listing.title || 'Listing') + '</h3>' +
+                '<div class="booking-detail-location"><span>' + location + '</span>' + mapLink + '</div>' +
+              '<div class="booking-detail-host"><div class="booking-detail-host-avatar">' + hostAvatar + '</div><div><div class="booking-detail-host-label">Hosted by</div><div class="booking-detail-host-name" title="' + escapeHtml(host.full_name || 'VaRoom host') + '">' + escapeHtml(host.full_name || 'VaRoom host') + '</div></div></div>' +
+            '</div>' +
+          '</div>' +
+          '<h3 class="booking-detail-section-title">' + calendarIcon + 'Booking Details</h3>' +
+          '<div class="booking-detail-rows">' +
+            rowsHtml +
+            '<div class="booking-detail-row total"><span class="booking-detail-row-label">' + cashIcon + '<span>Total Amount</span></span><span class="booking-detail-row-value">KSh ' + Number(booking.total_price || 0).toLocaleString() + '</span></div>' +
+          '</div>' +
+          '<div class="booking-detail-protection">' + shieldIcon + '<div><div class="booking-detail-protection-title">Your payment is protected by VaRoom.</div><div class="booking-detail-protection-text">The host can only withdraw your payment after you’ve checked in.</div></div></div>' +
+          '<div class="booking-detail-actions"><button type="button" class="bk-btn bk-btn-outline" id="desktop-booking-cancel">Cancel Booking</button><button type="button" class="bk-btn booking-detail-pay" id="desktop-booking-pay">Pay&nbsp; KSh ' + Number(booking.total_price || 0).toLocaleString() + '</button></div>' +
+          '<div class="booking-detail-help"><div class="booking-detail-help-icon">?</div><div class="booking-detail-help-text"><div class="booking-detail-help-title">Need help?</div><div class="booking-detail-help-sub">Reply in this chat or contact our support team.</div></div><a class="booking-detail-help-btn" href="/support" id="desktop-booking-support">Contact Support ›</a></div>' +
+        '</section>';
+      document.getElementById('desktop-booking-cancel').addEventListener('click', function(){ cancelApprovedBooking(booking); });
+      document.getElementById('desktop-booking-pay').addEventListener('click', function(){ openDesktopPayment(booking); });
+      document.getElementById('desktop-booking-support').addEventListener('click', function(event){
+        event.preventDefault();
+        openBookingChat(booking);
+      });
+      document.getElementById('desktop-pay-message-host').onclick = function(){ openBookingChat(booking); };
+    }
+    function openDesktopPayment(booking){
+      document.getElementById('desktop-pay-summary').textContent =
+        'Paying KSh ' + Number(booking.total_price || 0).toLocaleString() + ' for ' + ((booking.listing || {}).title || 'this listing');
+      document.getElementById('desktop-pay-method-step').style.display = '';
+      document.getElementById('desktop-pay-processing').style.display = 'none';
+      document.getElementById('desktop-pay-result').style.display = 'none';
+      document.querySelectorAll('[data-desktop-pay-method]').forEach(function(button){
+        button.classList.toggle('selected', button.getAttribute('data-desktop-pay-method') === 'mpesa');
+      });
+      document.getElementById('desktop-pay-backdrop').classList.add('show');
+    }
+    let desktopPaymentTimer = null;
+    function closeDesktopPayment(){
+      if (desktopPaymentTimer) clearTimeout(desktopPaymentTimer);
+      desktopPaymentTimer = null;
+      document.getElementById('desktop-pay-backdrop').classList.remove('show');
+    }
+    async function openBookingChat(booking){
+      const listing = booking.listing || {};
+      const host = booking.host || {};
+      if (!host.id || !listing.id) {
+        showToast("Couldn't open that chat: booking details are incomplete.");
+        return;
+      }
+      const { data, error } = await supabaseClient
+        .from('conversations')
+        .upsert({ listing_id: listing.id, host_id: host.id, client_id: currentUser.id }, { onConflict: 'listing_id,client_id' })
+        .select().single();
+      if (error) { showToast("Couldn't open that chat: " + error.message); return; }
+      window.location.href = '/chats?c=' + data.id;
+    }
 
     // ---------- Show/hide client or host view ----------
     const clientView = document.getElementById('client-bookings-view');
@@ -921,22 +1174,52 @@
     const clientRightRail = document.getElementById('client-right-rail');
     const clientRailSummary = document.getElementById('client-rail-summary');
     const clientBookingDetails = document.getElementById('client-booking-details');
-    const bookingDetailFrame = document.getElementById('booking-detail-frame');
+    const bookingDetailContent = document.getElementById('booking-detail-content');
     const hostBookingDetail = document.getElementById('host-booking-detail');
     const contentRow = document.getElementById('content-row');
     function closeClientBookingDetails(){
       clientBookingDetails.style.display = 'none';
       clientRailSummary.style.display = '';
       rightRail.classList.remove('booking-details-open');
-      bookingDetailFrame.removeAttribute('src');
+      bookingDetailContent.innerHTML = '';
     }
     function openClientBookingDetails(bookingId){
+      const booking = allBookings.find(function(item){ return item.id === bookingId; });
       clientRailSummary.style.display = 'none';
       clientBookingDetails.style.display = 'flex';
       rightRail.classList.add('booking-details-open');
-      bookingDetailFrame.src = '/booking-approved?id=' + encodeURIComponent(bookingId) + '&embedded=1';
+      renderDesktopBookingDetails(booking);
     }
     document.getElementById('booking-detail-back').addEventListener('click', closeClientBookingDetails);
+    document.getElementById('desktop-pay-close').addEventListener('click', closeDesktopPayment);
+    document.getElementById('desktop-pay-cancel').addEventListener('click', closeDesktopPayment);
+    document.getElementById('desktop-pay-close-result').addEventListener('click', closeDesktopPayment);
+    document.getElementById('desktop-pay-backdrop').addEventListener('click', function(event){
+      if (event.target.id === 'desktop-pay-backdrop') closeDesktopPayment();
+    });
+    document.addEventListener('keydown', function(event){
+      if (event.key === 'Escape' && document.getElementById('desktop-pay-backdrop').classList.contains('show')) closeDesktopPayment();
+    });
+    document.querySelectorAll('[data-desktop-pay-method]').forEach(function(button){
+      button.addEventListener('click', function(){
+        document.querySelectorAll('[data-desktop-pay-method]').forEach(function(option){ option.classList.remove('selected'); });
+        button.classList.add('selected');
+      });
+    });
+    document.getElementById('desktop-pay-continue').addEventListener('click', function(){
+      document.getElementById('desktop-pay-method-step').style.display = 'none';
+      const processing = document.getElementById('desktop-pay-processing');
+      processing.style.display = '';
+      const method = document.querySelector('[data-desktop-pay-method].selected').getAttribute('data-desktop-pay-method');
+      document.getElementById('desktop-pay-processing-sub').textContent = method === 'mpesa'
+        ? 'Confirming with M-Pesa. This can take up to a minute — don’t close this window.'
+        : 'Confirming your card payment — don’t close this window.';
+      desktopPaymentTimer = setTimeout(function(){
+        processing.style.display = 'none';
+        document.getElementById('desktop-pay-result').style.display = '';
+        desktopPaymentTimer = null;
+      }, 1400);
+    });
     if (isHost) {
       clientView.style.display = 'none';
       hostView.style.display = 'block';
@@ -1657,7 +1940,7 @@
     function attachCardActions(panel){
       panel.querySelectorAll('[data-booking-detail]').forEach(function(link){
         link.addEventListener('click', function(event){
-          if (!window.matchMedia('(min-width: 1181px)').matches) return;
+          if (!window.matchMedia('(min-width: 1321px)').matches) return;
           event.preventDefault();
           openClientBookingDetails(link.getAttribute('data-booking-detail'));
         });
@@ -1794,6 +2077,47 @@
       showToast('Booking cancelled.');
       renderAllPanels();
     }
+    async function cancelApprovedBooking(booking){
+      if (!window.confirm('Cancel this booking? This can’t be undone.')) return;
+      const button = document.getElementById('desktop-booking-cancel');
+      if (button) { button.disabled = true; button.textContent = 'Cancelling…'; }
+      const { error } = await supabaseClient
+        .from('bookings')
+        .update({ status:'cancelled' })
+        .eq('id', booking.id);
+      if (error) {
+        showToast("Couldn't cancel this booking: " + error.message);
+        if (button) { button.disabled = false; button.textContent = 'Cancel Booking'; }
+        return;
+      }
+      const listing = booking.listing || {};
+      const host = booking.host || {};
+      let notificationError = null;
+      try {
+        await window.VaRoomNotificationAPI.create({
+          recipient_user_id: host.id,
+          actor_user_id: currentUser.id,
+          type: 'booking_cancelled',
+          title: 'Booking cancelled',
+          message: '"' + (currentUser.full_name || currentUser.email || 'A guest') + '" cancelled their booking for "' + (listing.title || 'this listing') + '".',
+          related_entity_type: 'booking',
+          related_entity_id: booking.id,
+          booking_id: booking.id,
+          event_key: 'booking-cancelled:' + booking.id,
+          metadata: { booking_id: booking.id, listing_id: listing.id || null, listing_name: listing.title || null }
+        });
+      } catch (error) {
+        notificationError = error;
+      }
+      if (window.VaRoomListingFeedCache) window.VaRoomListingFeedCache.invalidateAll();
+      booking.status = 'cancelled';
+      closeDesktopPayment();
+      closeClientBookingDetails();
+      showToast(notificationError
+        ? 'Booking cancelled, but your host could not be notified: ' + notificationError.message
+        : 'Booking cancelled.');
+      renderAllPanels();
+    }
 
     function computeStats(bookings){
       const approved = bookings.filter(function(b){ return b.status === 'approved'; });
@@ -1836,7 +2160,7 @@
       const now = new Date();
       const upcoming = allBookings.filter(function(b){ return b.status === 'approved' && endMoment(b) >= now; });
       const past = allBookings.filter(function(b){ return b.status === 'approved' && endMoment(b) < now; });
-      const cancelled = allBookings.filter(function(b){ return b.status === 'declined' || b.status === 'expired'; });
+      const cancelled = allBookings.filter(function(b){ return b.status === 'declined' || b.status === 'expired' || b.status === 'cancelled'; });
 
       const upcomingPanel = document.getElementById('upcoming-panel');
       const pastPanel = document.getElementById('past-panel');
