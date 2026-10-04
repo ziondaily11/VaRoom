@@ -153,7 +153,6 @@
       '  <a href="/notifications" class="' + itemClass(activeNav === 'notifications') + '" id="notif-nav-item">',
       '    ' + ICONS.notifications,
       '    Notifications',
-      '    <span class="notif-nav-badge" id="notif-nav-badge" hidden></span>',
       '  </a>',
       '</nav>',
 
@@ -213,6 +212,188 @@
     if (backdrop) backdrop.classList.remove('show');
   }
 
+  var countState = {
+    client: null,
+    userId: null,
+    role: null,
+    channel: null,
+    refreshTimer: null,
+    refreshInterval: null,
+    observer: null,
+    initialized: false
+  };
+
+  function installCountStyles() {
+    if (document.getElementById('varoom-count-badge-styles')) return;
+    var style = document.createElement('style');
+    style.id = 'varoom-count-badge-styles';
+    style.textContent = [
+      '.varoom-count-badge{position:absolute;top:-3px;right:-4px;z-index:2;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:#C41E3A;color:#FFFFFF;display:flex;align-items:center;justify-content:center;font:700 10px/1 Arial,sans-serif;white-space:nowrap;box-sizing:border-box;}',
+      '.sidebar .varoom-count-badge{top:.32rem;right:.55rem;}',
+      '.varoom-count-badge[hidden]{display:none;}'
+    ].join('');
+    document.head.appendChild(style);
+  }
+
+  function ensureCountBadges() {
+    installCountStyles();
+    var targets = [
+      { selector: '#sidebar a[href^="/bookings"], #sidebar button[data-count-kind="bookings"]', kind: 'bookings', label: 'new bookings' },
+      { selector: '#sidebar a[href="/chats"], #sidebar button[data-count-kind="chats"]', kind: 'chats', label: 'unread conversations' },
+      { selector: '#sidebar a[href^="/notifications"], #sidebar button#notif-nav-item, #sidebar button[data-count-kind="notifications"]', kind: 'notifications', label: 'unread notifications' },
+      { selector: '#chatRoleNavigation a[href^="/bookings"]', kind: 'bookings', label: 'new bookings' },
+      { selector: '#chatRoleNavigation a[href="/chats"]', kind: 'chats', label: 'unread conversations' },
+      { selector: '#chatRoleNavigation a[href^="/notifications"]', kind: 'notifications', label: 'unread notifications' }
+    ];
+    targets.forEach(function (target) {
+      document.querySelectorAll(target.selector).forEach(function (item) {
+        var badge = item.querySelector('.varoom-count-badge[data-count-kind="' + target.kind + '"]');
+        if (!badge) {
+          badge = document.createElement('span');
+          badge.className = 'varoom-count-badge';
+          badge.setAttribute('data-count-kind', target.kind);
+          badge.hidden = true;
+          item.appendChild(badge);
+        }
+        badge.setAttribute('aria-label', target.label);
+      });
+    });
+  }
+
+  function setCount(kind, count) {
+    var num = Number(count);
+    if (!Number.isFinite(num) || num < 0) num = 0;
+    ensureCountBadges();
+    document.querySelectorAll('.varoom-count-badge[data-count-kind="' + kind + '"]').forEach(function (badge) {
+      badge.textContent = num > 0 ? String(num) : '';
+      badge.hidden = num === 0;
+      badge.setAttribute('aria-label', num + (kind === 'bookings' ? ' new bookings' :
+        kind === 'chats' ? ' unread conversations' : ' unread notifications'));
+    });
+  }
+
+  function refreshCounts() {
+    if (!countState.client || !countState.userId || !countState.role) return Promise.resolve();
+    var client = countState.client;
+    var userId = countState.userId;
+    ensureCountBadges();
+
+    var notificationsQuery = client.from('notifications')
+      .select('id', { count: 'exact', head: true })
+      .eq('recipient_user_id', userId)
+      .eq('read', false);
+    var bookingsQuery = (function () {
+      var seenBookings = Object.create(null);
+      var offset = 0;
+      var pageSize = 1000;
+      function loadPage() {
+        return client.from('notifications').select('booking_id,related_entity_id')
+          .eq('recipient_user_id', userId).eq('read', false)
+          .in('type', ['booking_request', 'booking_approved', 'booking_declined', 'booking_cancelled'])
+          .order('id', { ascending: true })
+          .range(offset, offset + pageSize - 1)
+          .then(function (result) {
+            if (result.error) throw result.error;
+            (result.data || []).forEach(function (notification, index) {
+              var bookingId = notification.booking_id || notification.related_entity_id;
+              seenBookings[bookingId || 'notification-' + offset + '-' + index] = true;
+            });
+            if ((result.data || []).length === pageSize) {
+              offset += pageSize;
+              return loadPage();
+            }
+            return Object.keys(seenBookings).length;
+          });
+      }
+      return loadPage();
+    }());
+    var unreadConversationsQuery = client.auth.getSession().then(function (sessionResult) {
+      if (sessionResult.error) throw sessionResult.error;
+      var session = sessionResult.data && sessionResult.data.session;
+      if (!session) throw new Error('The current session is unavailable.');
+      return fetch('/api/chat/unread-count', {
+        headers: { Authorization: 'Bearer ' + session.access_token }
+      }).then(function (response) {
+        if (!response.ok) throw new Error('Unable to load unread conversations (' + response.status + ').');
+        return response.json();
+      }).then(function (payload) {
+        return Number(payload.count) || 0;
+      });
+    });
+
+    return Promise.all([
+      notificationsQuery,
+      bookingsQuery,
+      unreadConversationsQuery
+    ]).then(function (results) {
+      var notificationResult = results[0];
+      if (notificationResult.error) throw notificationResult.error;
+      setCount('bookings', results[1]);
+      setCount('notifications', notificationResult.count || 0);
+      setCount('chats', results[2]);
+    }).catch(function (error) {
+      console.error('Unable to refresh sidebar counts:', error);
+    });
+  }
+
+  function scheduleCountRefresh() {
+    if (countState.refreshTimer) window.clearTimeout(countState.refreshTimer);
+    countState.refreshTimer = window.setTimeout(refreshCounts, 150);
+  }
+
+  function initCounts(options) {
+    options = options || {};
+    var client = options.supabaseClient || window.supabaseClient;
+    if (!client || !client.auth) return Promise.resolve();
+    return client.auth.getSession().then(function (sessionResult) {
+      if (sessionResult.error) throw sessionResult.error;
+      var session = sessionResult.data && sessionResult.data.session;
+      if (!session) return;
+      var userId = session.user.id;
+      if (countState.initialized && countState.userId === userId) {
+        countState.client = client;
+        return refreshCounts();
+      }
+      return client.from('profiles').select('role').eq('id', userId).maybeSingle().then(function (profileResult) {
+        if (profileResult.error) throw profileResult.error;
+        countState.client = client;
+        countState.userId = userId;
+        countState.role = profileResult.data && profileResult.data.role === 'host' ? 'host' : 'client';
+        countState.initialized = true;
+
+        if (countState.channel) client.removeChannel(countState.channel);
+        countState.channel = client.channel('sidebar-counts-' + userId)
+          .on('postgres_changes', {
+            event: '*', schema: 'public', table: 'notifications',
+            filter: 'recipient_user_id=eq.' + userId
+          }, scheduleCountRefresh)
+          .on('postgres_changes', {
+            event: '*', schema: 'public', table: 'messages'
+          }, scheduleCountRefresh);
+        countState.channel.subscribe(function (status) {
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+            console.error('Sidebar count realtime subscription failed:', status);
+          }
+        });
+
+        if (!countState.observer) {
+          countState.observer = new MutationObserver(ensureCountBadges);
+          countState.observer.observe(document.body, { childList: true, subtree: true });
+        }
+        if (!countState.refreshInterval) countState.refreshInterval = window.setInterval(refreshCounts, 60000);
+        if (!countState.visibilityHandler) {
+          countState.visibilityHandler = function () {
+            if (document.visibilityState === 'visible') refreshCounts();
+          };
+          document.addEventListener('visibilitychange', countState.visibilityHandler);
+        }
+        return refreshCounts();
+      });
+    }).catch(function (error) {
+      console.error('Unable to initialize sidebar counts:', error);
+    });
+  }
+
   function mount(options) {
     options = options || {};
     var role = options.role === 'host' ? 'host' : 'client';
@@ -223,6 +404,7 @@
     container.classList.toggle('sidebar-client', role !== 'host');
     var html = role === 'host' ? getHostSidebarHtml(options) : getClientSidebarHtml(options);
     container.innerHTML = html;
+    ensureCountBadges();
 
     // Verify box state update if host
     if (role === 'host' && options.profile) {
@@ -276,16 +458,7 @@
   }
 
   function setUnreadCount(count) {
-    var badge = document.getElementById('notif-nav-badge');
-    if (!badge) return;
-    var num = Number(count) || 0;
-    if (num > 0) {
-      badge.textContent = num > 99 ? '99+' : String(num);
-      badge.hidden = false;
-    } else {
-      badge.textContent = '';
-      badge.hidden = true;
-    }
+    setCount('notifications', count);
   }
 
   window.VaroomSidebar = {
@@ -294,6 +467,8 @@
     mount: mount,
     open: openSidebar,
     close: closeSidebar,
-    setUnreadCount: setUnreadCount
+    setUnreadCount: setUnreadCount,
+    setCount: setCount,
+    initCounts: initCounts
   };
 })(window);

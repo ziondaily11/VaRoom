@@ -137,6 +137,41 @@ router.post('/chat/reports', async (req, res) => {
   }
 });
 
+router.get('/chat/unread-count', async (req, res) => {
+  try {
+    const user = await authenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Invalid or expired session' });
+    const { data: conversations, error: conversationError } = await supabaseAdmin
+      .from('conversations')
+      .select('id')
+      .or(`host_id.eq.${user.id},client_id.eq.${user.id}`);
+    if (conversationError) throw conversationError;
+    const conversationIds = (conversations || []).map((conversation) => conversation.id);
+    if (!conversationIds.length) return res.json({ count: 0 });
+
+    const unreadConversationIds = new Set();
+    const pageSize = 1000;
+    for (let offset = 0; ; offset += pageSize) {
+      const { data, error } = await supabaseAdmin
+        .from('messages')
+        .select('conversation_id')
+        .in('conversation_id', conversationIds)
+        .neq('sender_id', user.id)
+        .is('read_at', null)
+        .is('deleted_at', null)
+        .order('id', { ascending: true })
+        .range(offset, offset + pageSize - 1);
+      if (error) throw error;
+      (data || []).forEach((message) => unreadConversationIds.add(message.conversation_id));
+      if (!data || data.length < pageSize) break;
+    }
+    return res.json({ count: unreadConversationIds.size });
+  } catch (error) {
+    console.error('Unread chat count failed:', error);
+    return res.status(502).json({ error: 'Unable to load unread conversations' });
+  }
+});
+
 router.get('/chat/conversations', async (req, res) => {
   try {
     const user = await authenticatedUser(req);
