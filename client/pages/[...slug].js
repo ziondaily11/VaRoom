@@ -133,6 +133,18 @@ async function runLegacyScripts(container, scripts) {
     });
   }
 
+  const hasSidebarScript = scripts.some(({ attributes }) => attributes.includes('varoom-sidebar.js'));
+  if (!window.VaroomSidebar && !hasSidebarScript) {
+    await new Promise((resolve, reject) => {
+      const sidebarScript = document.createElement('script');
+      sidebarScript.src = '/js/varoom-sidebar.js';
+      sidebarScript.dataset.varoomSidebar = 'true';
+      sidebarScript.addEventListener('load', resolve, { once: true });
+      sidebarScript.addEventListener('error', () => reject(new Error('Unable to load sidebar counts.')), { once: true });
+      document.head.appendChild(sidebarScript);
+    });
+  }
+
   if (scripts.some(({ attributes }) => attributes.includes('@supabase/supabase-js'))) {
     await new Promise((resolve, reject) => {
       if (window.supabase) {
@@ -190,6 +202,9 @@ async function runLegacyScripts(container, scripts) {
     } else {
       container.appendChild(script);
     }
+  }
+  if (window.VaroomSidebar && window.VaroomSidebar.initCounts) {
+    await window.VaroomSidebar.initCounts();
   }
 }
 

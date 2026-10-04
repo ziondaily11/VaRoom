@@ -1169,6 +1169,9 @@
     renderInfoAttachments(result.messages);
     if (isMobile()) showMobileConversation();
     await api(`/api/chat/conversations/${encodeURIComponent(id)}/read`, { method: 'POST', body: '{}' });
+    if (window.VaroomSidebar && window.VaroomSidebar.initCounts) {
+      window.VaroomSidebar.initCounts({ supabaseClient: window.supabaseClient });
+    }
     if (selectionGeneration !== state.selectionGeneration || state.activeId !== id) return;
     const channelGeneration = ++state.channelGeneration;
     const channel = window.supabaseClient.channel(`chat:${id}`)
@@ -1263,6 +1266,9 @@
     document.body.setAttribute('data-role', state.role);
     if (window.VaroomChatNavigation && window.VaroomChatNavigation.setRole) {
       window.VaroomChatNavigation.setRole(state.role);
+    }
+    if (window.VaroomSidebar && window.VaroomSidebar.initCounts) {
+      window.VaroomSidebar.initCounts({ supabaseClient: window.supabaseClient });
     }
     configureAttachmentControls();
     const requested = new URLSearchParams(window.location.search).get('c') || new URLSearchParams(window.location.search).get('conversation') || (window.location.pathname === '/elie' ? ELIE_ID : null);

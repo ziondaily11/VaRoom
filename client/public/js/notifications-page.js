@@ -5,6 +5,7 @@
   var currentFilter = 'all';
   var currentUser = null;
   var currentRole = 'client';
+  var sidebarUnreadCount = null;
   var markAllReadIcon = '<svg class="icon" viewBox="0 0 28 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 12 4 4 8-9"/></svg>';
   var allReadIcon = '<svg class="icon mark-all-read-complete-icon" viewBox="0 0 32 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 12 4 4 8-9"/><path d="m14 12 4 4 8-9"/></svg>';
 
@@ -152,7 +153,7 @@
       return detailsFor(notification.type).category === 'booking';
     }).length + ')';
     if (window.VaroomSidebar) {
-      window.VaroomSidebar.setUnreadCount(unread);
+      window.VaroomSidebar.setUnreadCount(sidebarUnreadCount === null ? unread : sidebarUnreadCount);
     }
     if (markAllButton) {
       var complete = unread === 0;
@@ -226,6 +227,7 @@
       return;
     }
     notification.read = true;
+    if (sidebarUnreadCount !== null) sidebarUnreadCount = Math.max(0, sidebarUnreadCount - 1);
     render();
   }
 
@@ -236,6 +238,7 @@
       showState('Unable to update notifications. Please try again.');
       return;
     }
+    sidebarUnreadCount = 0;
     notifications.forEach(function (notification) { notification.read = true; });
     render();
   };
@@ -251,6 +254,15 @@
       return;
     }
     notifications = result.data || [];
+    var unreadResult = await supabaseClient.from('notifications')
+      .select('id', { count: 'exact', head: true })
+      .eq('recipient_user_id', currentUser.id).eq('read', false);
+    if (unreadResult.error) {
+      console.error('Unable to load unread notification count:', unreadResult.error);
+      sidebarUnreadCount = null;
+    } else {
+      sidebarUnreadCount = unreadResult.count || 0;
+    }
     render();
     finishInitialLoad();
   }
