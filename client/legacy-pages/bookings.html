@@ -164,6 +164,14 @@
     scrollbar-width:none; justify-self:end; border-left:1px solid var(--line); box-sizing:border-box;
   }
   .right-rail::-webkit-scrollbar{ display:none; }
+  .right-rail.booking-details-open{ overflow:hidden; padding-bottom:1rem; }
+  #client-right-rail{ display:flex; flex:1 1 auto; flex-direction:column; gap:1.3rem; min-height:0; }
+  .booking-detail-panel{ display:flex; flex:1 1 auto; flex-direction:column; min-height:0; }
+  .booking-detail-rail-head{ display:flex; align-items:center; flex:0 0 auto; min-height:2.5rem; margin-bottom:.6rem; }
+  .booking-detail-back{ display:inline-flex; align-items:center; gap:.45rem; color:var(--muted); font-size:.84rem; font-weight:600; }
+  .booking-detail-back:hover{ color:var(--red); }
+  .booking-detail-back svg{ width:17px; height:17px; }
+  .booking-detail-frame{ display:block; width:100%; min-height:0; flex:1 1 auto; border:0; background:var(--paper); }
 
   @media (max-width:1180px){
     .right-rail{ display:none; }
@@ -811,23 +819,35 @@
 
       <aside class="right-rail" id="right-rail">
         <div id="client-right-rail">
-        <div class="rail-card">
-          <h2>Stats Summary</h2>
-          <div class="stat-row" id="stats-summary">
-            <div class="stat-item">
-              <div class="stat-label">Total Bookings</div>
-              <div class="stat-value">—</div>
+          <div id="client-rail-summary">
+            <div class="rail-card">
+              <h2>Stats Summary</h2>
+              <div class="stat-row" id="stats-summary">
+                <div class="stat-item">
+                  <div class="stat-label">Total Bookings</div>
+                  <div class="stat-value">—</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="rail-card">
+              <div class="cal-head">
+                <span class="cal-month" id="cal-month-label">This month</span>
+                <span class="cal-active-tag">Active Month</span>
+              </div>
+              <div class="cal-grid" id="cal-grid"></div>
             </div>
           </div>
-        </div>
 
-        <div class="rail-card">
-          <div class="cal-head">
-            <span class="cal-month" id="cal-month-label">This month</span>
-            <span class="cal-active-tag">Active Month</span>
+          <div class="booking-detail-panel" id="client-booking-details" style="display:none;">
+            <div class="booking-detail-rail-head">
+              <button type="button" class="booking-detail-back" id="booking-detail-back" aria-label="Back to stats summary and calendar">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/><path d="M9 12h12"/></svg>
+                <span>Back to summary</span>
+              </button>
+            </div>
+            <iframe class="booking-detail-frame" id="booking-detail-frame" title="Selected booking details"></iframe>
           </div>
-          <div class="cal-grid" id="cal-grid"></div>
-        </div>
         </div>
         <div class="rail-card host-detail" id="host-booking-detail" aria-live="polite"></div>
       </aside>
@@ -899,8 +919,24 @@
     const hostView = document.getElementById('host-bookings-view');
     const rightRail = document.getElementById('right-rail');
     const clientRightRail = document.getElementById('client-right-rail');
+    const clientRailSummary = document.getElementById('client-rail-summary');
+    const clientBookingDetails = document.getElementById('client-booking-details');
+    const bookingDetailFrame = document.getElementById('booking-detail-frame');
     const hostBookingDetail = document.getElementById('host-booking-detail');
     const contentRow = document.getElementById('content-row');
+    function closeClientBookingDetails(){
+      clientBookingDetails.style.display = 'none';
+      clientRailSummary.style.display = '';
+      rightRail.classList.remove('booking-details-open');
+      bookingDetailFrame.removeAttribute('src');
+    }
+    function openClientBookingDetails(bookingId){
+      clientRailSummary.style.display = 'none';
+      clientBookingDetails.style.display = 'flex';
+      rightRail.classList.add('booking-details-open');
+      bookingDetailFrame.src = '/booking-approved?id=' + encodeURIComponent(bookingId) + '&embedded=1';
+    }
+    document.getElementById('booking-detail-back').addEventListener('click', closeClientBookingDetails);
     if (isHost) {
       clientView.style.display = 'none';
       hostView.style.display = 'block';
@@ -1609,7 +1645,7 @@
                     ? '<span class="reviewed-badge" aria-label="Reviewed">★ Reviewed</span>'
                     : '<button type="button" class="bk-btn bk-btn-outline" data-review="' + b.id + '">Leave a review</button>')
                   : '') +
-                '<a href="/booking-approved?id=' + b.id + '" class="bk-btn bk-btn-solid">View Details</a>' +
+                '<a href="/booking-approved?id=' + b.id + '" class="bk-btn bk-btn-solid" data-booking-detail="' + b.id + '">View Details</a>' +
               '</div>' +
             '</div>' +
             (opts.showCancel ? '<p class="bk-note" id="cancel-note-' + b.id + '"></p>' : '') +
@@ -1619,6 +1655,13 @@
     }
 
     function attachCardActions(panel){
+      panel.querySelectorAll('[data-booking-detail]').forEach(function(link){
+        link.addEventListener('click', function(event){
+          if (!window.matchMedia('(min-width: 1181px)').matches) return;
+          event.preventDefault();
+          openClientBookingDetails(link.getAttribute('data-booking-detail'));
+        });
+      });
       panel.querySelectorAll('[data-msg-host]').forEach(function(btn){
         btn.addEventListener('click', async function(){
           const hostId = btn.getAttribute('data-msg-host');

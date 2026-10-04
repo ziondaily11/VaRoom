@@ -43,11 +43,13 @@ const VIDEO_CLEANUP_INTERVAL_MS = Math.max(
 app.disable('x-powered-by');
 app.use((req, res, next) => {
   res.set('X-Content-Type-Options', 'nosniff');
-  res.set('X-Frame-Options', 'DENY');
+  const embeddedBookingDetails = req.path === '/booking-approved' && req.query.embedded === '1';
+  res.set('X-Frame-Options', embeddedBookingDetails ? 'SAMEORIGIN' : 'DENY');
   res.set('Referrer-Policy', 'no-referrer');
-  // Block framing from any origin and disallow plugin/object content.
-  // `frame-ancestors 'none'` supersedes X-Frame-Options in modern browsers.
-  res.set('Content-Security-Policy', "frame-ancestors 'none'; object-src 'none'");
+  // Only the bookings-page details panel may frame this same-origin page.
+  res.set('Content-Security-Policy', embeddedBookingDetails
+    ? "frame-ancestors 'self'; object-src 'none'"
+    : "frame-ancestors 'none'; object-src 'none'");
   next();
 });
 // Paystack signs the exact request bytes. This must remain before JSON parsing

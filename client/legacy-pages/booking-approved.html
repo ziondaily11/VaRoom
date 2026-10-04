@@ -14,6 +14,9 @@
       document.documentElement.setAttribute('data-theme', resolved);
     }catch(e){}
   })();
+  if (new URLSearchParams(window.location.search).get('embedded') === '1') {
+    document.documentElement.setAttribute('data-embedded', 'true');
+  }
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -233,6 +236,9 @@
     .listing-block{ flex-direction:column; }
     .listing-photo{ width:100%; height:150px; }
   }
+  html[data-embedded="true"] body{ min-height:100%; }
+  html[data-embedded="true"] header{ display:none; }
+  html[data-embedded="true"] main{ max-width:none; margin:0; padding:0 0 1rem; }
 </style>
 <link rel="stylesheet" href="js/varoom-dark-theme.css">
 </head>
