@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Eye, EyeOff, Lock, Mail, X } from 'lucide-react';
 import { useRouter } from 'next/router';
+import { PasswordRecovery } from './PasswordRecovery';
 import { SignupForm } from './SignupForm';
 
 interface AuthPanelProps {
@@ -8,14 +9,16 @@ interface AuthPanelProps {
   onClose: () => void;
   initialView: AuthView;
   initialRole: 'host' | 'client';
+  initialRecoveryStep: 'email' | 'password';
 }
 
-type AuthView = 'login' | 'signup';
+type AuthView = 'login' | 'signup' | 'recovery';
 type ContentAnimation = 'idle' | 'exit-left' | 'exit-right' | 'enter-left' | 'enter-right';
 
-export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, initialView, initialRole }) => {
+export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, initialView, initialRole, initialRecoveryStep }) => {
   const router = useRouter();
   const [authView, setAuthView] = useState<AuthView>('login');
+  const [recoveryStep, setRecoveryStep] = useState(initialRecoveryStep);
   const [contentAnimation, setContentAnimation] = useState<ContentAnimation>('idle');
   const contentScrollRef = useRef<HTMLDivElement>(null);
   const transitionTimer = useRef<number | null>(null);
@@ -61,6 +64,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, initialVi
   useEffect(() => {
     if (isOpen) {
       setAuthView(initialView);
+      setRecoveryStep(initialRecoveryStep);
       setContentAnimation('idle');
       contentScrollRef.current?.scrollTo(0, 0);
       return;
@@ -69,8 +73,9 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, initialVi
     transitionTimer.current = null;
     transitionLocked.current = false;
     setAuthView('login');
+    setRecoveryStep('email');
     setContentAnimation('idle');
-  }, [isOpen, initialView]);
+  }, [isOpen, initialView, initialRecoveryStep]);
 
   useEffect(() => () => {
     if (transitionTimer.current !== null) window.clearTimeout(transitionTimer.current);
@@ -80,14 +85,21 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, initialVi
     if (nextView === authView || transitionLocked.current) return;
 
     transitionLocked.current = true;
-    setContentAnimation(nextView === 'signup' ? 'exit-left' : 'exit-right');
+    const goingForward = nextView !== 'login';
+    setContentAnimation(goingForward ? 'exit-left' : 'exit-right');
     transitionTimer.current = window.setTimeout(() => {
       if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+      if (nextView === 'login') setRecoveryStep('email');
       setAuthView(nextView);
-      setContentAnimation(nextView === 'signup' ? 'enter-right' : 'enter-left');
+      setContentAnimation(goingForward ? 'enter-right' : 'enter-left');
       contentScrollRef.current?.scrollTo(0, 0);
       window.requestAnimationFrame(() => {
-        document.getElementById(nextView === 'signup' ? 'signup-fullname' : 'landing-email')?.focus({ preventScroll: true });
+        const focusTarget = nextView === 'signup'
+          ? 'signup-fullname'
+          : nextView === 'recovery'
+            ? 'recovery-email'
+            : 'landing-email';
+        document.getElementById(focusTarget)?.focus({ preventScroll: true });
       });
       transitionTimer.current = window.setTimeout(() => {
         setContentAnimation('idle');
@@ -215,7 +227,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, initialVi
         }}
         aria-modal="true"
         role="dialog"
-        aria-labelledby={authView === 'login' ? 'auth-panel-title' : 'auth-panel-signup-title'}
+        aria-labelledby={authView === 'login' ? 'auth-panel-title' : authView === 'signup' ? 'auth-panel-signup-title' : 'auth-panel-recovery-title'}
       >
         <div className="relative h-full w-full overflow-hidden border-l border-white/10 bg-[rgba(17,18,18,0.88)] text-[#f5efe7]">
           <button
@@ -301,11 +313,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, initialVi
                   </label>
                   <button
                     type="button"
-                    onClick={() => {
-                      if (typeof window !== 'undefined') {
-                        window.location.assign(`/forgot-password${redirect ? `?redirect=${encodeURIComponent(redirect)}` : ''}`);
-                      }
-                    }}
+                    onClick={() => switchAuthView('recovery')}
                     className="border-0 bg-transparent p-0 text-xs font-medium text-[#f0e7df] underline-offset-2 hover:underline"
                   >
                     Forgot password?
@@ -399,6 +407,17 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, initialVi
                   key={`${isOpen ? 'open' : 'closed'}-${initialRole}`}
                   redirect={redirect}
                   initialRole={initialRole}
+                  onSwitchToLogin={() => switchAuthView('login')}
+                />
+              </div>
+              <div
+                className={`auth-content ${contentAnimation === 'exit-left' ? 'auth-content-exit-left' : ''} ${contentAnimation === 'enter-right' ? 'auth-content-enter-right' : ''}`}
+                style={{ display: authView === 'recovery' ? undefined : 'none' }}
+                aria-hidden={authView !== 'recovery'}
+              >
+                <PasswordRecovery
+                  key={`${isOpen ? 'open' : 'closed'}-${recoveryStep}`}
+                  initialStep={recoveryStep}
                   onSwitchToLogin={() => switchAuthView('login')}
                 />
               </div>

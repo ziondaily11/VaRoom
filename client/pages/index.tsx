@@ -21,30 +21,38 @@ interface LandingPageProps {
 export default function LandingPage({ initialListings }: LandingPageProps) {
   const router = useRouter();
   const [isAuthOpen, setAuthOpen] = useState(false);
-  const [initialAuthView, setInitialAuthView] = useState<'login' | 'signup'>('login');
+  const [initialAuthView, setInitialAuthView] = useState<'login' | 'signup' | 'recovery'>('login');
+  const [initialRecoveryStep, setInitialRecoveryStep] = useState<'email' | 'password'>('email');
   const [signupRole, setSignupRole] = useState<'host' | 'client'>('client');
   const [listings, setListings] = useState<Listing[]>(initialListings && initialListings.length > 0 ? initialListings : INITIAL_LISTINGS);
-  const closeAuth = useCallback(() => setAuthOpen(false), []);
+  const closeAuth = useCallback(() => {
+    setInitialRecoveryStep('email');
+    setAuthOpen(false);
+  }, []);
   const openSignIn = useCallback(() => {
     setInitialAuthView('login');
+    setInitialRecoveryStep('email');
     setSignupRole('client');
     setAuthOpen(true);
   }, []);
   const openSignup = useCallback((role: 'host' | 'client' = 'client') => {
     setInitialAuthView('signup');
+    setInitialRecoveryStep('email');
     setSignupRole(role);
     setAuthOpen(true);
   }, []);
 
   // Route legacy auth URLs into the shared authentication shell.
   useEffect(() => {
-    if (router.isReady && (router.query.auth === 'login' || router.query.auth === 'signup' || router.query.signup === '1')) {
+    if (router.isReady && (router.query.auth === 'login' || router.query.auth === 'signup' || router.query.auth === 'recovery' || router.query.signup === '1')) {
       const isSignup = router.query.auth === 'signup' || router.query.signup === '1';
-      setInitialAuthView(isSignup ? 'signup' : 'login');
+      const isRecovery = router.query.auth === 'recovery';
+      setInitialAuthView(isRecovery ? 'recovery' : isSignup ? 'signup' : 'login');
+      setInitialRecoveryStep(isRecovery && (router.query.step === 'password' || router.query.mode === 'reset') ? 'password' : 'email');
       setSignupRole(isSignup && router.query.role === 'host' ? 'host' : 'client');
       setAuthOpen(true);
     }
-  }, [router.isReady, router.query.auth, router.query.signup, router.query.role]);
+  }, [router.isReady, router.query.auth, router.query.signup, router.query.role, router.query.step, router.query.mode]);
 
   // Fetch real listings and their actual stored amenities from Supabase
   useEffect(() => {
@@ -669,6 +677,7 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
           onClose={closeAuth}
           initialView={initialAuthView}
           initialRole={signupRole}
+          initialRecoveryStep={initialRecoveryStep}
         />
       </main>
     </>
