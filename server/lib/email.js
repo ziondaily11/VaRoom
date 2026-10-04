@@ -1,3 +1,5 @@
+const SECURITY_EMAIL_FROM = 'VaRoom <otp@varoom.co.ke>';
+
 async function sendEmail({ from, to, subject, html, headers, idempotencyKey }) {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) throw new Error('RESEND_API_KEY is not configured');
@@ -30,4 +32,4 @@ async function sendEmail({ from, to, subject, html, headers, idempotencyKey }) {
   return { id: body.id };
 }
 
-module.exports = { sendEmail };
+module.exports = { sendEmail, SECURITY_EMAIL_FROM };
