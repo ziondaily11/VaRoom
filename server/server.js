@@ -352,7 +352,7 @@ app.get('/u/:username', (_req, res) => {
 const otpRequestTracker = new Map();
 const confirmationRequestTracker = new Map();
 const AUTH_EMAIL_COOLDOWN_MS = 60000;
-const hasEmailProvider = () => Boolean(process.env.RESEND_API_KEY && process.env.RESEND_FROM_EMAIL);
+const hasEmailProvider = () => Boolean(process.env.RESEND_API_KEY);
 function authRedirectUrl(redirect) {
   const baseUrl = `${(process.env.PUBLIC_BASE_URL || `http://localhost:${PORT}`).replace(/\/$/, '')}/auth-callback`;
   // Preserve only a local post-auth destination; never reflect an external URL
@@ -373,7 +373,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
   const waitSeconds = isThrottled(otpRequestTracker, normalizedEmail);
   if (waitSeconds) return sendError(res, 429, `Please wait ${waitSeconds}s before requesting another code.`, ERROR_CODES.RATE_LIMITED);
   if (!hasEmailProvider()) {
-    console.error('Password-reset delivery is not configured: RESEND_API_KEY and RESEND_FROM_EMAIL are required.');
+    console.error('Password-reset delivery is not configured: RESEND_API_KEY is required.');
     return sendError(res, 503, 'Email delivery is temporarily unavailable. Please try again later.');
   }
   try {

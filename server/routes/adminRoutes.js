@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const express = require('express');
 const path = require('path');
-const { sendEmail } = require('../lib/email');
+const { sendEmail, SECURITY_EMAIL_FROM } = require('../lib/email');
 const { createNotification } = require('../lib/notifications');
 
 const SESSION_COOKIE = 'varoom_admin_session';
@@ -606,7 +606,7 @@ function createAdminRoutes(supabaseAdmin) {
     if (error) return res.status(400).json({ error: error.message });
     const link = `${process.env.PUBLIC_BASE_URL || ''}/admin/set-password?token=${inviteToken}`;
     try {
-      await sendEmail({ to: admin.email, subject: 'Your VaRoom admin invite', html: `<p>You have been invited to VaRoom Admin.</p><p><a href="${escapeHtml(link)}">Set your password</a> (expires in 24 hours).</p>` });
+      await sendEmail({ from: SECURITY_EMAIL_FROM, to: admin.email, subject: 'Your VaRoom admin invite', html: `<p>You have been invited to VaRoom Admin.</p><p><a href="${escapeHtml(link)}">Set your password</a> (expires in 24 hours).</p>` });
     } catch (emailError) {
       await supabaseAdmin.from('admins').delete().eq('id', admin.id);
       return res.status(502).json({ error: emailError.message });
