@@ -354,6 +354,8 @@ push    min-height:0;
   }
   .input-toolbar{ display:flex; justify-content:space-between; align-items:center; margin-top:12px; }
   .format-icons, .attach-icons{ display:flex; align-items:center; gap:8px; }
+  .chat-control-liquid{ display:flex; align-items:center; justify-content:flex-end; gap:8px; }
+  .composer-desktop-action-anchor{ position:relative; display:flex; align-items:center; }
   .format-icons button, .attach-icons button{
     width:32px; height:32px; border-radius:9px;
     background:transparent; border:none; color:#d4d4d8;
@@ -363,6 +365,16 @@ push    min-height:0;
   .format-icons button:hover, .attach-icons button:hover{ background:#27272a; color:#fff; }
   .attach-icons button[title="Share listing"]{ background:var(--mint); color:var(--white); }
   .attach-icons button[title="Share listing"]:hover{ background:var(--mint-dark); }
+  .composer-actions-toggle{ display:flex; align-items:center; justify-content:center; }
+  .composer-actions-toggle .icon{ width:18px; height:18px; }
+  .composer-share-menu{
+    position:absolute; right:0; bottom:calc(100% + 8px); z-index:40;
+    display:flex; align-items:center; gap:8px; padding:6px;
+    background:var(--white); border:1px solid var(--border); border-radius:12px;
+    box-shadow:0 10px 30px rgba(20,22,28,.16);
+  }
+  .composer-share-menu[hidden],
+  .composer-share-menu button[hidden]{ display:none !important; }
   .format-icons .divider{ width:1px; height:18px; background:var(--border); margin:0 4px; }
   .fmt-b{ font-weight:800; font-size:13px; }
   .fmt-i{ font-style:italic; font-weight:700; font-size:13px; }
@@ -638,6 +650,7 @@ push    min-height:0;
       align-items:end;
       width:100%;
     }
+    .composer-desktop-action-anchor{ display:none; }
     /* keyboard is open: small visible gap between composer and keyboard */
     .app-shell.kb-open .chat-input-area{ padding-bottom:8px; }
 
