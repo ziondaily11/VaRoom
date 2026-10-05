@@ -178,8 +178,6 @@
       preview.className = 'mobile-preview';
       preview.id = 'mobileComposerPreview';
       $('.chat-input-area').prepend(preview);
-      const plus = $('.attach-icons .mobile-plus');
-      plus.addEventListener('click', openMobileTray);
       $('.chat-header .mobile-back').addEventListener('click', showMobileInbox);
       const identity = $('.chat-header-identity');
       identity.setAttribute('role', 'button');
@@ -227,68 +225,12 @@
     $('.info-col').classList.add('mobile-visible');
   }
 
-  async function openMobileTray() {
-    const sheet = document.getElementById('chatShareSheet');
-    sheet.innerHTML = '<div class="chat-sheet-head"><span>Add to message</span><button class="chat-sheet-close" type="button" aria-label="Close">×</button></div><div class="chat-sheet-list"></div>';
-    sheet.querySelector('.chat-sheet-close').addEventListener('click', () => closeSheet('chatShareSheet'));
-    const list = sheet.querySelector('.chat-sheet-list');
-    const options = [
-      ['Share Photo', 'photo', 'i-image'],
-      ...(state.role === 'host' ? [
-        ['Share File', 'file', 'i-paperclip'],
-        ['Share Listing', 'listing', 'i-share'],
-      ] : []),
-    ];
-    options.forEach(([label, kind, icon]) => {
-      const button = document.createElement('button');
-      button.type = 'button'; button.className = 'chat-sheet-action';
-      button.innerHTML = `<svg class="icon"><use href="#${icon}"/></svg><span></span>`;
-      button.querySelector('span').textContent = label;
-      button.addEventListener('click', () => {
-        closeSheet('chatShareSheet');
-        if (kind === 'listing') openMobileListingPicker();
-        else {
-          fileInputForMobile(kind);
-        }
-      });
-      list.appendChild(button);
-    });
-    sheet.classList.add('open'); sheet.setAttribute('aria-hidden', 'false');
-  }
-
-  async function openMobileListingPicker() {
-    const sheet = document.getElementById('chatShareSheet');
-    sheet.innerHTML = '<div class="chat-sheet-head"><span>Share Listing</span><button class="chat-sheet-close" type="button" aria-label="Close">×</button></div><div class="chat-sheet-list"></div>';
-    sheet.querySelector('.chat-sheet-close').addEventListener('click', () => closeSheet('chatShareSheet'));
-    if (!state.listings.length) state.listings = (await api('/api/chat/listings')).listings || [];
-    const list = sheet.querySelector('.chat-sheet-list');
-    state.listings.forEach((listing) => {
-      const option = document.createElement('button');
-      option.type = 'button'; option.className = 'chat-listing-option';
-      option.textContent = listing.title || 'Listing';
-      option.addEventListener('click', () => {
-        state.pendingAttachment = { kind: 'listing', listing };
-        updateMobilePreview();
-        closeSheet('chatShareSheet');
-      });
-      list.appendChild(option);
-    });
-    sheet.classList.add('open'); sheet.setAttribute('aria-hidden', 'false');
-  }
-
   function updateMobilePreview() {
     const preview = $('#mobileComposerPreview');
     if (!preview) return;
     const pending = state.pendingAttachment;
     preview.textContent = pending ? `${pending.kind === 'listing' ? 'Listing' : pending.kind === 'photo' ? 'Photo' : 'File'}: ${pending.name || pending.listing?.title || ''}` : '';
     preview.classList.toggle('has-content', !!pending);
-  }
-
-  function fileInputForMobile(kind) {
-    const input = document.querySelector('input[data-mobile-file-input]');
-    input.accept = kind === 'photo' ? 'image/*' : '';
-    input.dataset.kind = kind;
-    input.click();
   }
 
   function configureAttachmentControls() {
