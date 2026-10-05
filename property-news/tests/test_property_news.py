@@ -898,6 +898,86 @@ class ApiSecurityTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(accepted.status_code, 200)
         self.assertEqual(accepted.json()["sources_checked"], 0)
 
+    async def test_collection_endpoint_parses_bearer_scheme_case_insensitively(self):
+        secret = "scheduler-key"
+        app = create_app(
+            Settings(
+                scheduler_secret=secret,
+                supabase_url="https://example.test",
+                supabase_service_role_key="server-only",
+                public_rate_limit_per_minute=100,
+            ),
+            MemoryNewsRepository(),
+        )
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            valid_headers = (
+                f"Bearer {secret}",
+                f"bearer {secret}",
+                f"bEaReR {secret}",
+                f"  bEaReR\t{secret}  ",
+            )
+            for authorization in valid_headers:
+                with self.subTest(authorization=authorization.strip().split()[0]):
+                    response = await client.post(
+                        "/api/internal/jobs/collect",
+                        headers={"Authorization": authorization},
+                    )
+                    self.assertEqual(response.status_code, 200)
+
+            for authorization in (None, f"Bearer incorrect-{secret}"):
+                with self.subTest(authorization=authorization):
+                    headers = {} if authorization is None else {"Authorization": authorization}
+                    response = await client.post("/api/internal/jobs/collect", headers=headers)
+                    self.assertEqual(response.status_code, 401)
+
+    async def test_collection_endpoint_returns_service_unavailable_when_secret_is_disabled(self):
+        app = create_app(Settings(), MemoryNewsRepository())
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.post(
+                "/api/internal/jobs/collect",
+                headers={"Authorization": "Bearer configured-secret"},
+            )
+        self.assertEqual(response.status_code, 503)
+
+    async def test_admin_source_list_redacts_credentials_from_fetch_errors(self):
+        private_value = "source-private-key"
+        error_url = (
+            "https://source1.example.test/feed?api_key="
+            f"{private_value}&page=2&access_token=another-private-value"
+        )
+        repository = MemoryNewsRepository()
+        news_source = source()
+        await repository.upsert_source(news_source)
+
+        async def fail_discovery(_collector, _source):
+            raise RuntimeError(f"Fetch failed for {error_url}")
+
+        collector = SourceCollector(repository, Settings())
+        with patch.object(SourceCollector, "_discover", new=fail_discovery):
+            await collector.collect_source(news_source)
+
+        app = create_app(
+            Settings(admin_api_key="admin-key", public_rate_limit_per_minute=100),
+            repository,
+        )
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.get(
+                "/api/admin/sources",
+                headers={"Authorization": "Bearer admin-key"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        listed_sources = response.json()
+        self.assertEqual(len(listed_sources), 1)
+        last_error = listed_sources[0]["last_error"]
+        self.assertNotIn(private_value, last_error)
+        self.assertNotIn("another-private-value", last_error)
+        self.assertIn("api_key=[REDACTED]", last_error)
+        self.assertIn("page=2", last_error)
+
     async def test_latest_news_uses_a_small_public_select(self):
         class CapturingRepository(MemoryNewsRepository):
             def __init__(self):

@@ -165,7 +165,12 @@ def create_app(config: Settings = settings, repository: Repository | None = None
     async def require_scheduler(authorization: str | None = Header(default=None)) -> None:
         if not config.scheduler_secret:
             raise HTTPException(status_code=503, detail="Collection endpoint is disabled until NEWS_SCHEDULER_SECRET is configured.")
-        token = authorization.removeprefix("Bearer ") if authorization else ""
+        credentials = (authorization or "").split()
+        token = (
+            credentials[1]
+            if len(credentials) == 2 and credentials[0].casefold() == "bearer"
+            else ""
+        )
         if not hmac.compare_digest(token, config.scheduler_secret):
             raise HTTPException(status_code=401, detail="Collection authentication failed.")
 
