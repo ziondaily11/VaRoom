@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from html.parser import HTMLParser
 from typing import Any, Iterable
-from urllib.parse import urljoin, urlparse
+from urllib.parse import unquote_plus, urljoin, urlparse
 from urllib.error import HTTPError, URLError
 from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
 from urllib import robotparser
@@ -41,6 +41,7 @@ SOURCE_HARD_TIMEOUT_SECONDS = 45
 MAX_SOURCES_PER_RUN = 20
 SOURCE_GROUP_COUNT = 11
 COLLECTOR_USER_AGENT = "VaRoomNewsBot/1.0 (+https://varoom.co.ke)"
+SENSITIVE_QUERY_PARAMETER_PATTERN = re.compile(r"(?P<prefix>[?&])(?P<name>[^=&#\s]+)=(?P<value>[^&#\s]*)")
 FAILURE_CATEGORIES = {
     "blocked_403", "tls_error", "dns_error", "timeout", "upstream_5xx",
     "not_allowed_host", "no_feed_found", "robots_disallowed",
@@ -135,6 +136,20 @@ class _AllowedHostRedirect(HTTPRedirectHandler):
         if parsed.scheme not in {"http", "https"} or hostname not in self.hosts:
             raise CollectionFailure("not_allowed_host", f"robots.txt redirect rejected host={hostname}")
         return super().redirect_request(request, response, code, message, headers, new_url)
+
+
+def _redact_sensitive_query_parameters(value: str) -> str:
+    def redact(match: re.Match[str]) -> str:
+        name = re.sub(r"[^a-z0-9]", "", unquote_plus(match.group("name")).lower())
+        sensitive = (
+            name in {"auth", "authorization", "credential", "credentials", "key", "sig"}
+            or name.endswith(("apikey", "credential", "password", "secret", "signature", "token"))
+        )
+        if not sensitive:
+            return match.group(0)
+        return f"{match.group('prefix')}{match.group('name')}=[REDACTED]"
+
+    return SENSITIVE_QUERY_PARAMETER_PATTERN.sub(redact, value)
 
 
 class SourceCollector:
@@ -464,7 +479,9 @@ class SourceCollector:
             source.last_failed_fetch_at = datetime.now(timezone.utc)
             source.consecutive_failures += 1
             source.failure_category = self.classify_failure(error)
-            source.last_error = f"{source.failure_category}: {error}"[:1000]
+            source.last_error = _redact_sensitive_query_parameters(
+                f"{source.failure_category}: {error}"
+            )[:1000]
             try:
                 await self.repository.upsert_source(source)
                 await self.repository.add_event(NewsEvent(source_id=source.id, event_type="source_fetch_failed", payload={
