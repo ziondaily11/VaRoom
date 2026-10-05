@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import asyncio
 import json
+import socket
 import tempfile
 import unittest
+import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
+from urllib.error import HTTPError, URLError
 
 import httpx
 
@@ -287,6 +290,50 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(collector._is_allowed_source_url(configured, "https://peopledaily.digital/story"))
         self.assertFalse(collector._is_allowed_source_url(configured, "https://evil.example/story"))
 
+    async def test_people_daily_uses_verified_feed_and_explicit_canonical_hosts(self):
+        pool_path = Path(__file__).resolve().parents[1] / "sources" / "real-estate-source-pool.json"
+        entries = json.loads(pool_path.read_text(encoding="utf-8"))
+        configured = next(entry for entry in entries if entry["name"] == "People Daily")
+        people_daily = Source(**configured)
+
+        self.assertEqual(people_daily.parser_config["discovery_url"], "https://peopledaily.digital/feed")
+        self.assertIn("peopledaily.digital", people_daily.parser_config["allowed_hosts"])
+        self.assertTrue(SourceCollector._is_allowed_source_url(
+            people_daily, "https://www.pd.co.ke/story",
+        ))
+        self.assertTrue(SourceCollector._is_allowed_source_url(
+            people_daily, "https://peopledaily.digital/feed",
+        ))
+        self.assertFalse(SourceCollector._is_allowed_source_url(
+            people_daily, "https://unapproved.example/story",
+        ))
+
+    async def test_source_pool_uses_verified_lapsset_feed_and_explicit_html_fallbacks(self):
+        pool_path = Path(__file__).resolve().parents[1] / "sources" / "real-estate-source-pool.json"
+        entries = {
+            entry["name"]: entry
+            for entry in json.loads(pool_path.read_text(encoding="utf-8"))
+        }
+        self.assertEqual(
+            entries["LAPSSET Corridor Authority"]["parser_config"]["discovery_url"],
+            "https://www.lapsset.go.ke/feed/",
+        )
+        self.assertEqual(
+            entries["State Dept for Housing & Urban Development"]["parser_config"]["html_discovery_url"],
+            "https://housingandurban.go.ke/news",
+        )
+        self.assertEqual(
+            entries["The Citizen Tanzania"]["parser_config"]["html_discovery_url"],
+            "https://www.thecitizen.co.tz/tanzania",
+        )
+        self.assertTrue(
+            entries["National Housing Corporation Kenya"]["parser_config"]["html_fallback"],
+        )
+        self.assertNotIn(
+            "html_fallback",
+            entries["Archstone Kenya"]["parser_config"],
+        )
+
     async def test_allowed_hosts_include_apex_www_and_explicit_domains(self):
         configured = Source(
             name="Configured source", base_url="https://news.example.test", trust_tier=2,
@@ -337,8 +384,9 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
 
     def test_failure_classifier_recognizes_all_source_failure_categories(self):
         cases = (
-            "blocked_403", "tls_error", "dns_error", "timeout", "upstream_5xx",
-            "not_allowed_host", "no_feed_found", "robots_disallowed",
+            "blocked_403", "tls_error", "dns_error", "timeout", "http_404",
+            "http_4xx", "http_5xx", "invalid_feed_xml", "network_error",
+            "parse_error", "not_allowed_host", "no_feed_found", "robots_disallowed",
         )
         for category in cases:
             with self.subTest(category=category):
@@ -346,6 +394,274 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
                     SourceCollector.classify_failure(CollectionFailure(category, category)),
                     category,
                 )
+        self.assertEqual(
+            SourceCollector.classify_failure(
+                CollectionFailure("upstream_5xx", "robots.txt returned HTTP 503"),
+            ),
+            "http_5xx",
+        )
+
+    async def test_rss_parser_accepts_valid_recent_feed_and_classifies_malformed_or_html_bodies(self):
+        collector = SourceCollector(self.repository, Settings())
+        valid_feed = """<?xml version="1.0"?>
+        <rss version="2.0"><channel><item>
+          <title>Nairobi housing plan announced</title>
+          <link>https://source1.example.test/nairobi-housing-plan</link>
+          <pubDate>Mon, 05 Oct 2026 08:00:00 GMT</pubDate>
+          <description>Recent housing update</description>
+        </item></channel></rss>"""
+        candidates = collector._parse_feed(self.source, valid_feed, self.source.base_url)
+        self.assertEqual(len(candidates), 1)
+        self.assertEqual(candidates[0].source_published_at.date().isoformat(), "2026-10-05")
+
+        for body in ("<rss><channel><item><title>broken", "<html><body>Home page</body></html>"):
+            with self.subTest(body=body):
+                with self.assertRaises(CollectionFailure) as raised:
+                    collector._parse_feed(self.source, body, self.source.base_url)
+                self.assertEqual(raised.exception.category, "invalid_feed_xml")
+        self.assertEqual(
+            SourceCollector.classify_failure(ET.ParseError("syntax error")),
+            "invalid_feed_xml",
+        )
+
+    async def test_rss_discovery_uses_configured_html_fallback_without_leaving_host(self):
+        configured = self.source.model_copy(update={
+            "fetch_method": "rss",
+            "parser_config": {
+                "discovery_url": "https://source1.example.test/feed",
+                "html_fallback": True,
+                "html_discovery_url": "https://source1.example.test/news",
+            },
+        })
+        collector = SourceCollector(self.repository, Settings())
+        calls = []
+        html = (
+            "<html><body><a href='/story/nairobi-housing-plan'>"
+            "Nairobi housing plan announced</a></body></html>"
+        )
+
+        async def fetch(_source, url, **_kwargs):
+            calls.append(url)
+            return "<html><body>not xml</body></html>" if url.endswith("/feed") else html
+
+        collector._fetch = fetch  # type: ignore[method-assign]
+        candidates, used_fallback, rejected = await collector._discover_feed(
+            configured, configured.parser_config["discovery_url"],
+        )
+        self.assertTrue(used_fallback)
+        self.assertEqual(rejected, 0)
+        self.assertEqual(calls, [
+            "https://source1.example.test/feed",
+            "https://source1.example.test/news",
+        ])
+        self.assertEqual(
+            candidates[0].source_url,
+            "https://source1.example.test/story/nairobi-housing-plan",
+        )
+
+    async def test_http_403_404_and_robots_disallow_are_distinct_and_not_retried(self):
+        class FakeResponse:
+            def __init__(self, status_code):
+                self.status_code = status_code
+                self.is_redirect = False
+                self.headers = {}
+
+        class FakeStream:
+            def __init__(self, response):
+                self.response = response
+
+            async def __aenter__(self):
+                return self.response
+
+            async def __aexit__(self, *_args):
+                return None
+
+        class FakeClient:
+            def __init__(self, status_code):
+                self.status_code = status_code
+                self.calls = 0
+
+            def stream(self, *_args):
+                self.calls += 1
+                return FakeStream(FakeResponse(self.status_code))
+
+        async def no_wait(_origin):
+            return None
+
+        for status_code, expected_category in (
+            (403, "blocked_403"), (404, "http_404"), (503, "http_5xx"),
+        ):
+            with self.subTest(status_code=status_code):
+                collector = SourceCollector(self.repository, Settings(fetch_retry_attempts=1))
+                fake_client = FakeClient(status_code)
+
+                async def allowed(_source, _url):
+                    return True
+
+                async def get_client():
+                    return fake_client
+
+                collector._robots_allowed = allowed  # type: ignore[method-assign]
+                collector._wait_for_origin = no_wait  # type: ignore[method-assign]
+                collector._get_client = get_client  # type: ignore[method-assign]
+                with self.assertRaises(CollectionFailure) as raised:
+                    await collector._fetch(self.source, f"{self.source.base_url}/feed")
+                self.assertEqual(raised.exception.category, expected_category)
+                self.assertEqual(fake_client.calls, 1)
+
+        collector = SourceCollector(self.repository, Settings())
+
+        async def disallowed(_source, _url):
+            return False
+
+        collector._robots_allowed = disallowed  # type: ignore[method-assign]
+        with self.assertRaises(CollectionFailure) as raised:
+            await collector._fetch(self.source, f"{self.source.base_url}/feed")
+        self.assertEqual(raised.exception.category, "robots_disallowed")
+
+    async def test_fetch_rejects_redirects_to_unconfigured_hosts(self):
+        class RedirectResponse:
+            status_code = 302
+            is_redirect = True
+            headers = {"location": "https://outside.example/story"}
+
+        class FakeStream:
+            async def __aenter__(self):
+                return RedirectResponse()
+
+            async def __aexit__(self, *_args):
+                return None
+
+        class FakeClient:
+            calls = 0
+
+            def stream(self, *_args):
+                self.calls += 1
+                return FakeStream()
+
+        collector = SourceCollector(self.repository, Settings())
+        client = FakeClient()
+
+        async def allowed(_source, _url):
+            return True
+
+        async def no_wait(_origin):
+            return None
+
+        async def get_client():
+            return client
+
+        collector._robots_allowed = allowed  # type: ignore[method-assign]
+        collector._wait_for_origin = no_wait  # type: ignore[method-assign]
+        collector._get_client = get_client  # type: ignore[method-assign]
+        with self.assertRaises(CollectionFailure) as raised:
+            await collector._fetch(self.source, f"{self.source.base_url}/feed")
+        self.assertEqual(raised.exception.category, "not_allowed_host")
+        self.assertEqual(client.calls, 1)
+
+    async def test_robots_dns_failure_is_classified_and_persisted_as_source_failure(self):
+        class FailedOpener:
+            def open(self, *_args, **_kwargs):
+                raise URLError(socket.gaierror("temporary failure in name resolution"))
+
+        collector = SourceCollector(self.repository, Settings())
+
+        async def no_wait(_origin):
+            return None
+
+        collector._wait_for_origin = no_wait  # type: ignore[method-assign]
+        with patch("app.collector.build_opener", return_value=FailedOpener()):
+            with self.assertRaises(CollectionFailure) as raised:
+                await collector._robots_allowed(self.source, f"{self.source.base_url}/feed")
+        self.assertEqual(raised.exception.category, "dns_error")
+
+    async def test_robots_http_403_is_reported_as_robots_disallowed_with_status(self):
+        class FailedOpener:
+            def open(self, *_args, **_kwargs):
+                raise HTTPError(
+                    "https://source1.example.test/robots.txt", 403, "Forbidden", {}, None,
+                )
+
+        collector = SourceCollector(self.repository, Settings())
+
+        async def no_wait(_origin):
+            return None
+
+        collector._wait_for_origin = no_wait  # type: ignore[method-assign]
+        with patch("app.collector.build_opener", return_value=FailedOpener()):
+            with self.assertRaises(CollectionFailure) as raised:
+                await collector._robots_allowed(self.source, f"{self.source.base_url}/feed")
+        self.assertEqual(raised.exception.category, "robots_disallowed")
+        self.assertIn("HTTP 403", str(raised.exception))
+
+    async def test_transient_source_failures_are_backed_off_and_404s_are_retried_weekly(self):
+        now = datetime.now(timezone.utc)
+        collector = SourceCollector(self.repository, Settings())
+
+        for category, delay, expected_due in (
+            ("robots_disallowed", timedelta(hours=1), False),
+            ("blocked_403", timedelta(hours=1), False),
+            ("dns_error", timedelta(hours=1), False),
+            ("http_404", timedelta(days=6), False),
+            ("http_404", timedelta(days=8), True),
+        ):
+            with self.subTest(category=category, delay=delay):
+                source_record = source().model_copy(update={
+                    "last_failed_fetch_at": now - delay,
+                    "failure_category": category,
+                    "consecutive_failures": 1,
+                })
+                self.assertEqual(collector._is_due(source_record), expected_due)
+
+    async def test_timeout_is_persisted_as_source_failure(self):
+        collector = SourceCollector(self.repository, Settings())
+
+        async def hang(_collector, _source):
+            await asyncio.sleep(10)
+
+        with patch("app.collector.SOURCE_HARD_TIMEOUT_SECONDS", 0.001), patch.object(
+            SourceCollector, "_collect_source", new=hang,
+        ):
+            result = await collector.collect_source(self.source)
+
+        stored = await self.repository.get_source(self.source.id)
+        self.assertEqual(result["sources_failed"], 1)
+        self.assertEqual(stored.failure_category, "timeout")
+
+    async def test_source_failure_does_not_abort_collection_job(self):
+        good_source = source(tier=2)
+        await self.repository.upsert_source(good_source)
+        candidate = CandidateArticle(
+            source_id=good_source.id,
+            source_url="https://source2.example.test/nairobi-housing-plan",
+            source_title="Nairobi housing plan announced by county",
+            source_published_at=datetime.now(timezone.utc) - timedelta(days=1),
+            clean_text=(
+                "The county announced a new housing plan in Nairobi to support property "
+                "development, improve access to homes, and expand infrastructure. " * 8
+            ),
+        )
+
+        async def discover(_collector, configured_source):
+            if configured_source.id == self.source.id:
+                raise CollectionFailure("blocked_403", "HTTP 403 response")
+            return [candidate]
+
+        async def materialise(_collector, _source, discovered_candidate):
+            return discovered_candidate
+
+        with patch.object(SourceCollector, "_discover", new=discover), patch.object(
+            SourceCollector, "_materialise_article", new=materialise,
+        ):
+            result = await run_collection_job(
+                self.repository, Settings(), RulesBasedNewsAnalyzer(),
+            )
+
+        self.assertEqual(result["sources_attempted"], 2)
+        self.assertEqual(result["sources_failed"], 1)
+        self.assertEqual(result["sources_successful"], 1)
+        self.assertEqual(result["articles_inserted"], 1)
+        self.assertEqual(result["collection_status"], "partial")
 
     def test_sources_with_five_failures_use_six_hour_retry(self):
         collector = SourceCollector(self.repository, Settings())

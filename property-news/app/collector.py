@@ -43,8 +43,9 @@ SOURCE_GROUP_COUNT = 11
 COLLECTOR_USER_AGENT = "VaRoomNewsBot/1.0 (+https://varoom.co.ke)"
 SENSITIVE_QUERY_PARAMETER_PATTERN = re.compile(r"(?P<prefix>[?&])(?P<name>[^=&#\s]+)=(?P<value>[^&#\s]*)")
 FAILURE_CATEGORIES = {
-    "blocked_403", "tls_error", "dns_error", "timeout", "upstream_5xx",
-    "not_allowed_host", "no_feed_found", "robots_disallowed",
+    "blocked_403", "tls_error", "dns_error", "timeout", "http_404", "http_4xx",
+    "http_5xx", "invalid_feed_xml", "network_error", "parse_error",
+    "not_allowed_host", "no_feed_found", "robots_disallowed", "upstream_5xx",
 }
 
 GENERIC_LINK_TEXTS = {"read more", "click here", "learn more", "continue", "more", "here", "news"}
@@ -254,6 +255,10 @@ class SourceCollector:
         return totals
 
     async def collect_source(self, source: Source) -> dict[str, Any]:
+        attempted_at = datetime.now(timezone.utc)
+        discovery_url = _redact_sensitive_query_parameters(
+            str(source.parser_config.get("discovery_url") or source.base_url)
+        )
         try:
             return await asyncio.wait_for(
                 self._collect_source(source),
@@ -283,8 +288,9 @@ class SourceCollector:
             except Exception:
                 logger.exception("Could not persist timeout telemetry for source=%s", source.name)
             logger.error(
-                "SOURCE FAIL source=%s method=%s discovered=0 accepted=0 rejected=0 category=timeout",
-                source.name, source.fetch_method,
+                "SOURCE FAIL source=%s method=%s discovered=0 accepted=0 rejected=0 "
+                "category=timeout http_status=none feed_url=%s attempted_at=%s",
+                source.name, source.fetch_method, discovery_url, attempted_at.isoformat(),
             )
             return {
                 "sources_successful": 0, "sources_failed": 1, "failures": 1,
@@ -466,14 +472,23 @@ class SourceCollector:
                                                    duplicate_count=result["duplicates"])
             result["sources_successful"] = 1
             logger.info(
-                "SOURCE OK source=%s method=%s discovered=%d accepted=%d rejected=%d",
+                "SOURCE OK source=%s method=%s discovered=%d accepted=%d rejected=%d "
+                "category=%s http_status=none feed_url=%s attempted_at=%s",
                 source.name, source.fetch_method, result["articles_discovered"],
                 result["new_items"], result["articles_rejected"],
+                source.failure_category or "none",
+                _redact_sensitive_query_parameters(
+                    str(source.parser_config.get("discovery_url") or source.base_url)
+                ),
+                started.isoformat(),
             )
             self._active_run_ids.pop(source.id, None)
         except Exception as error:  # A source failure must never stop other sources.
             self._record_failure_kind(result, error)
-            logger.warning("Source failure: source=%s error=%s", source.name, error)
+            logger.warning(
+                "Source failure: source=%s error=%s",
+                source.name, _redact_sensitive_query_parameters(str(error)),
+            )
             result["failures"] = 1
             result["sources_failed"] = 1
             source.last_failed_fetch_at = datetime.now(timezone.utc)
@@ -482,6 +497,7 @@ class SourceCollector:
             source.last_error = _redact_sensitive_query_parameters(
                 f"{source.failure_category}: {error}"
             )[:1000]
+            http_status = self._failure_http_status(source.last_error)
             try:
                 await self.repository.upsert_source(source)
                 await self.repository.add_event(NewsEvent(source_id=source.id, event_type="source_fetch_failed", payload={
@@ -495,9 +511,15 @@ class SourceCollector:
             except Exception as persistence_error:
                 logger.error("Could not persist failure telemetry for source %s: %s", source.name, persistence_error)
             logger.error(
-                "SOURCE FAIL source=%s method=%s discovered=%d accepted=%d rejected=%d category=%s",
+                "SOURCE FAIL source=%s method=%s discovered=%d accepted=%d rejected=%d "
+                "category=%s http_status=%s feed_url=%s attempted_at=%s",
                 source.name, source.fetch_method, result["articles_discovered"],
                 result["new_items"], result["articles_rejected"], source.failure_category,
+                http_status or "none",
+                _redact_sensitive_query_parameters(
+                    str(source.parser_config.get("discovery_url") or source.base_url)
+                ),
+                started.isoformat(),
             )
             self._active_run_ids.pop(source.id, None)
         return result
@@ -521,6 +543,11 @@ class SourceCollector:
             result["oversized_responses"] += 1
 
     @staticmethod
+    def _failure_http_status(error: str) -> int | None:
+        match = re.search(r"\bHTTP\s+(\d{3})\b", error, re.IGNORECASE)
+        return int(match.group(1)) if match else None
+
+    @staticmethod
     def classify_failure(error: BaseException) -> str:
         chain: list[BaseException] = []
         current: BaseException | None = error
@@ -529,9 +556,17 @@ class SourceCollector:
             current = current.__cause__ or current.__context__
         for item in chain:
             if isinstance(item, CollectionFailure):
-                return item.category
+                return "http_5xx" if item.category == "upstream_5xx" else item.category
+        if any(isinstance(item, ET.ParseError) for item in chain):
+            return "invalid_feed_xml"
         detail = " ".join(f"{type(item).__name__} {item}" for item in chain).lower()
-        if "403" in detail or "forbidden" in detail:
+        if re.search(r"\b404\b", detail):
+            return "http_404"
+        if re.search(r"\b5\d\d\b", detail) or "server error" in detail:
+            return "http_5xx"
+        if "robots" in detail and "disallow" in detail:
+            return "robots_disallowed"
+        if re.search(r"\b403\b", detail) or "forbidden" in detail:
             return "blocked_403"
         if "ssl" in detail or "certificate" in detail or isinstance(error, ssl.SSLError):
             return "tls_error"
@@ -545,13 +580,17 @@ class SourceCollector:
         if any(isinstance(item, (asyncio.TimeoutError, httpx.TimeoutException, TimeoutError)) for item in chain) \
                 or "timeout" in detail:
             return "timeout"
-        if re.search(r"\b5\d\d\b", detail) or "server error" in detail:
-            return "upstream_5xx"
-        if "robots" in detail and "disallow" in detail:
-            return "robots_disallowed"
         if "approved source host" in detail or "allowed source host" in detail:
             return "not_allowed_host"
-        return "no_feed_found"
+        if any(isinstance(item, (httpx.NetworkError, URLError, ConnectionError, OSError)) for item in chain):
+            return "network_error"
+        if any(isinstance(item, (ET.ParseError, json.JSONDecodeError, ValueError, TypeError)) for item in chain):
+            return "parse_error"
+        if any(token in detail for token in (
+            "invalid xml", "not well-formed", "undefined entity", "syntax error",
+        )):
+            return "invalid_feed_xml"
+        return "network_error"
 
     @staticmethod
     def _aware(value: datetime | None) -> datetime | None:
@@ -565,9 +604,14 @@ class SourceCollector:
         last_success = SourceCollector._aware(source.last_success_at or source.last_successful_fetch_at)
         last_fail = SourceCollector._aware(source.last_failed_fetch_at)
         if last_fail and (not last_success or last_fail > last_success):
-            retry_after = (FAILURE_BACKOFF_SECONDS
-                           if source.consecutive_failures >= MAX_CONSECUTIVE_FAILURES_BEFORE_BACKOFF
-                           else FAILURE_RETRY_SECONDS)
+            if source.failure_category == "http_404":
+                retry_after = 7 * 24 * 60 * 60
+            elif source.failure_category in {"blocked_403", "robots_disallowed", "dns_error"}:
+                retry_after = FAILURE_BACKOFF_SECONDS
+            else:
+                retry_after = (FAILURE_BACKOFF_SECONDS
+                               if source.consecutive_failures >= MAX_CONSECUTIVE_FAILURES_BEFORE_BACKOFF
+                               else FAILURE_RETRY_SECONDS)
             return (now - last_fail).total_seconds() >= retry_after
         if not last_success:
             return True
@@ -604,23 +648,30 @@ class SourceCollector:
         )
         if not self._is_allowed_source_url(source, endpoint):
             raise CollectionFailure("not_allowed_host", "Discovery URL is not an approved source host")
-        body = await self._fetch(source, endpoint, allowed_content_types=DISCOVERY_CONTENT_TYPES)
+        used_html_fallback = False
+        rejected_count = 0
         if source.fetch_method in {"rss", "atom"}:
-            candidates = self._parse_feed(source, body, endpoint)
+            candidates, used_html_fallback, rejected_count = await self._discover_feed(
+                source, endpoint,
+            )
         elif source.fetch_method == "wp_json":
+            body = await self._fetch(source, endpoint, allowed_content_types=DISCOVERY_CONTENT_TYPES)
             candidates = self._parse_wp_json(source, body, endpoint)
         elif source.fetch_method == "sitemap":
+            body = await self._fetch(source, endpoint, allowed_content_types=DISCOVERY_CONTENT_TYPES)
             candidates = self._parse_sitemap(source, body, endpoint)
         elif source.fetch_method == "api":
+            body = await self._fetch(source, endpoint, allowed_content_types=DISCOVERY_CONTENT_TYPES)
             candidates = self._parse_api(source, body, endpoint)
         elif source.fetch_method == "html":
+            body = await self._fetch(source, endpoint, allowed_content_types=DISCOVERY_CONTENT_TYPES)
             candidates, rejected_count = self._parse_html_discovery(source, body, endpoint)
         else:
             raise ValueError(f"Unsupported fetch method: {source.fetch_method}")
         candidates = [candidate for candidate in candidates if self._matches_source_filters(source, candidate.source_url)]
         if not candidates:
             raise CollectionFailure("no_feed_found", f"No collection items found at {endpoint}")
-        if source.fetch_method == "html":
+        if source.fetch_method == "html" or used_html_fallback:
             allowed = []
             security_blocked = 0
             for candidate in candidates:
@@ -640,6 +691,74 @@ class SourceCollector:
             else:
                 rejected += 1
         return allowed, rejected, security_blocked
+
+    async def _discover_feed(
+        self, source: Source, endpoint: str,
+    ) -> tuple[list[CandidateArticle], bool, int]:
+        configured_feed_urls = source.parser_config.get("feed_urls", [])
+        if isinstance(configured_feed_urls, str):
+            configured_feed_urls = [configured_feed_urls]
+        if not isinstance(configured_feed_urls, list):
+            configured_feed_urls = []
+        feed_urls = list(dict.fromkeys(
+            [url for url in configured_feed_urls if isinstance(url, str)] + [endpoint]
+        ))
+        last_failure: CollectionFailure | None = None
+        last_body: str | None = None
+        last_url: str | None = None
+
+        for feed_url in feed_urls:
+            if not self._is_allowed_source_url(source, feed_url):
+                raise CollectionFailure("not_allowed_host", "Feed URL is not an approved source host")
+            try:
+                body = await self._fetch(
+                    source, feed_url, allowed_content_types=DISCOVERY_CONTENT_TYPES,
+                )
+            except CollectionFailure as error:
+                last_failure = error
+                if error.category == "http_404":
+                    continue
+                raise
+
+            last_body, last_url = body, feed_url
+            try:
+                candidates = self._parse_feed(source, body, feed_url)
+            except CollectionFailure as error:
+                last_failure = error
+                continue
+            if candidates:
+                return candidates, False, 0
+            last_failure = CollectionFailure(
+                "no_feed_found", f"No collection items found at {_redact_sensitive_query_parameters(feed_url)}",
+            )
+
+        if source.parser_config.get("html_fallback") is True:
+            html_url = source.parser_config.get("html_discovery_url") or source.base_url
+            if not isinstance(html_url, str) or not self._is_allowed_source_url(source, html_url):
+                raise CollectionFailure(
+                    "not_allowed_host", "HTML discovery URL is not an approved source host",
+                )
+            if last_body is not None and last_url == html_url:
+                html_body = last_body
+            else:
+                html_body = await self._fetch(
+                    source, html_url, allowed_content_types=DISCOVERY_CONTENT_TYPES,
+                )
+            candidates, rejected_count = self._parse_html_discovery(
+                source, html_body, html_url,
+            )
+            if candidates:
+                return candidates, True, rejected_count
+            if last_failure is None or last_failure.category == "no_feed_found":
+                last_failure = CollectionFailure(
+                    "no_feed_found",
+                    f"No feed items or permitted HTML article links found at "
+                    f"{_redact_sensitive_query_parameters(html_url)}",
+                )
+
+        if last_failure is not None:
+            raise last_failure
+        raise CollectionFailure("no_feed_found", "No feed URLs were configured or fetched")
 
     async def _wait_for_origin(self, origin: str) -> None:
         hostname = self._normalise_hostname(urlparse(origin).hostname).removeprefix("www.")
@@ -673,11 +792,14 @@ class SourceCollector:
                                 candidate.parse(response.read(512_000).decode("utf-8", errors="replace").splitlines())
                         except HTTPError as error:
                             if error.code in {401, 403}:
-                                candidate.parse(["User-agent: *", "Disallow: /"])
+                                raise CollectionFailure(
+                                    "robots_disallowed",
+                                    f"robots.txt returned HTTP {error.code}",
+                                ) from error
                             elif error.code == 404:
                                 candidate.parse([])
                             elif error.code >= 500:
-                                raise CollectionFailure("upstream_5xx", f"robots.txt returned HTTP {error.code}") from error
+                                raise CollectionFailure("http_5xx", f"robots.txt returned HTTP {error.code}") from error
                             else:
                                 candidate.parse([])
                         except URLError as error:
@@ -730,7 +852,23 @@ class SourceCollector:
                                     raise CollectionFailure("not_allowed_host", "Redirect target is not an approved source host")
                                 current_url = redirect_url
                                 continue
-                            response.raise_for_status()
+                            if response.status_code >= 500:
+                                last_error = CollectionFailure(
+                                    "http_5xx", f"HTTP {response.status_code} response",
+                                )
+                                if attempt + 1 < self.settings.fetch_retry_attempts:
+                                    await asyncio.sleep(0.5 * (2 ** attempt))
+                                    break
+                                raise last_error
+                            if response.status_code >= 400:
+                                category = (
+                                    "blocked_403" if response.status_code == 403
+                                    else "http_404" if response.status_code == 404
+                                    else "http_4xx"
+                                )
+                                raise CollectionFailure(
+                                    category, f"HTTP {response.status_code} response",
+                                )
                             content_type = response.headers.get("content-type", "").split(";", 1)[0].strip().lower()
                             accepted_types = allowed_content_types or DISCOVERY_CONTENT_TYPES
                             if content_type not in accepted_types:
@@ -753,8 +891,12 @@ class SourceCollector:
                         await asyncio.sleep(0.5 * (2 ** attempt))
 
             if last_error:
-                raise RuntimeError(f"Fetch failed for {url}: {type(last_error).__name__}: {last_error}") from last_error
-            raise CollectionFailure("no_feed_found", f"Fetch produced no response for {url}")
+                category = self.classify_failure(last_error)
+                detail = _redact_sensitive_query_parameters(str(last_error))
+                raise CollectionFailure(
+                    category, f"Fetch failed: {type(last_error).__name__}: {detail}",
+                ) from last_error
+            raise CollectionFailure("network_error", "Fetch produced no response")
 
     async def _fetch_article(self, source: Source, url: str, title: str | None = None, published_at: datetime | None = None) -> CandidateArticle:
         if not self._is_allowed_source_url(source, url):
@@ -793,7 +935,13 @@ class SourceCollector:
         return article if article.clean_text else candidate
 
     def _parse_feed(self, source: Source, body: str, base_url: str) -> list[CandidateArticle]:
-        root = ET.fromstring(body)
+        try:
+            root = ET.fromstring(body)
+        except ET.ParseError as error:
+            raise CollectionFailure("invalid_feed_xml", "Response is not well-formed feed XML") from error
+        root_name = root.tag.rsplit("}", 1)[-1].lower() if isinstance(root.tag, str) else ""
+        if root_name not in {"rss", "feed", "rdf"}:
+            raise CollectionFailure("invalid_feed_xml", "XML response is not an RSS or Atom feed")
         selectors = source.parser_config.get("selectors", {})
         selectors = selectors if isinstance(selectors, dict) else {}
         title_selector = selectors.get("title", "title")
@@ -832,7 +980,10 @@ class SourceCollector:
         return articles
 
     def _parse_sitemap(self, source: Source, body: str, base_url: str) -> list[CandidateArticle]:
-        root = ET.fromstring(body)
+        try:
+            root = ET.fromstring(body)
+        except ET.ParseError as error:
+            raise CollectionFailure("invalid_feed_xml", "Response is not well-formed sitemap XML") from error
         selectors = source.parser_config.get("selectors", {})
         url_selector = selectors.get("url", "loc") if isinstance(selectors, dict) else "loc"
         articles: list[CandidateArticle] = []

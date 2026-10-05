@@ -2030,7 +2030,7 @@
     "category": "property",
     "parser_config": {
       "registry_metadata": {
-        "canonical_domain": "pd.co.ke",
+        "canonical_domain": "peopledaily.digital",
         "source_url": "https://pd.co.ke",
         "region": "Kenya",
         "content_categories": [
@@ -2041,13 +2041,16 @@
         ],
         "ingestion_status": "not_allowed_host"
       },
-      "discovery_url": "https://pd.co.ke",
+      "discovery_url": "https://peopledaily.digital/feed",
+      "html_discovery_url": "https://peopledaily.digital",
+      "html_fallback": true,
       "urls": [
         "https://pd.co.ke"
       ],
       "allowed_hosts": [
         "pd.co.ke",
-        "www.pd.co.ke"
+        "www.pd.co.ke",
+        "peopledaily.digital"
       ],
       "max_articles": 5,
       "exclude_url_contains": [
@@ -2932,6 +2935,8 @@
         "ingestion_status": "timeout"
       },
       "discovery_url": "https://thecitizen.co.tz",
+      "html_discovery_url": "https://www.thecitizen.co.tz/tanzania",
+      "html_fallback": true,
       "urls": [
         "https://thecitizen.co.tz"
       ],
@@ -4090,6 +4095,8 @@
         "ingestion_status": "timeout"
       },
       "discovery_url": "https://housingandurban.go.ke",
+      "html_discovery_url": "https://housingandurban.go.ke/news",
+      "html_fallback": true,
       "urls": [
         "https://housingandurban.go.ke"
       ],
@@ -4976,6 +4983,8 @@
         "ingestion_status": "timeout"
       },
       "discovery_url": "https://nhckenya.go.ke",
+      "html_discovery_url": "https://nhckenya.go.ke",
+      "html_fallback": true,
       "urls": [
         "https://nhckenya.go.ke"
       ],
@@ -6310,7 +6319,7 @@
         ],
         "ingestion_status": "timeout"
       },
-      "discovery_url": "https://lapsset.go.ke",
+      "discovery_url": "https://www.lapsset.go.ke/feed/",
       "urls": [
         "https://lapsset.go.ke"
       ],
