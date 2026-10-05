@@ -355,7 +355,7 @@ push    min-height:0;
   .input-toolbar{ display:flex; justify-content:space-between; align-items:center; margin-top:12px; }
   .format-icons, .attach-icons{ display:flex; align-items:center; gap:8px; }
   .chat-control-liquid{ display:flex; align-items:center; justify-content:flex-end; gap:8px; }
-  .composer-desktop-action-anchor{ position:relative; display:flex; align-items:center; width:64px; height:64px; }
+  .composer-desktop-action-anchor{ position:relative; display:flex; align-items:center; width:32px; height:32px; }
   .format-icons button, .attach-icons button{
     width:32px; height:32px; border-radius:9px;
     background:transparent; border:none; color:#d4d4d8;
@@ -365,20 +365,11 @@ push    min-height:0;
   .format-icons button:hover, .attach-icons button:hover{ background:#27272a; color:#fff; }
   .attach-icons button[title="Share listing"]{ background:var(--mint); color:var(--white); }
   .attach-icons button[title="Share listing"]:hover{ background:var(--mint-dark); }
-  .composer-share-menu{ position:absolute; inset:0; z-index:40; }
-  .composer-share-menu-liquid{ position:absolute; inset:0; width:64px; height:64px; overflow:visible; }
-  .composer-share-menu button{
-    display:flex; align-items:center; justify-content:center;
-    width:56px; height:56px; padding:0;
-    border:1px solid var(--border); border-radius:50%;
-    background:var(--bg-soft); color:var(--text-dark); font-size:20px;
-  }
-  .composer-share-menu button[aria-hidden="true"]{ opacity:0; pointer-events:none; }
-  .composer-share-menu button[title="Share listing"]{ background:var(--bg-soft); color:var(--text-dark); }
-  .composer-share-menu button[title="Share listing"]:hover{ background:#27272a; color:#fff; }
-  .composer-actions-toggle{ position:relative; z-index:2; display:flex; align-items:center; justify-content:center; width:64px !important; height:64px !important; border:2px solid transparent !important; border-radius:50% !important; background:var(--bg-soft) !important; color:var(--text-dark) !important; font-size:24px !important; }
-  .composer-actions-toggle .icon{ width:24px; height:24px; }
-  .composer-actions-toggle.is-open{ border-color:var(--text-dark) !important; background:var(--bg-soft) !important; }
+  .composer-share-group{ position:absolute !important; inset:0; z-index:40; width:32px; height:32px; overflow:visible; }
+  .composer-share-group button[aria-hidden="true"]{ opacity:0; pointer-events:none; }
+  .composer-actions-toggle{ position:relative; z-index:2; display:flex; align-items:center; justify-content:center; width:32px !important; height:32px !important; border:0 !important; border-radius:9px !important; background:transparent !important; color:var(--text-gray-2) !important; font-size:18px !important; }
+  .composer-actions-toggle .icon{ width:18px; height:18px; }
+  .composer-actions-toggle:hover{ background:#27272a !important; color:#fff !important; }
   .format-icons .divider{ width:1px; height:18px; background:var(--border); margin:0 4px; }
   .fmt-b{ font-weight:800; font-size:13px; }
   .fmt-i{ font-style:italic; font-weight:700; font-size:13px; }
