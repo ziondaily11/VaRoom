@@ -621,13 +621,12 @@ push    min-height:0;
 
     /* ---------- MOBILE COMPOSER (WhatsApp-style interaction) ----------
        Row 1: notice   Row 2: reply preview   Row 3: attachment tray
-       Row 4: [ sticker | text | clip ]  (send)
-       The rounded "pill" is drawn by ::before behind columns 1-3, so the
-       existing desktop markup order is untouched.                              */
+       Row 4: [ text | actions | send ]
+       The rounded "pill" is drawn by ::before behind columns 1-2.               */
     .chat-input-area{
       position:relative;
       display:grid;
-      grid-template-columns:40px minmax(0,1fr) 40px 52px;
+      grid-template-columns:minmax(0,1fr) 40px 52px;
       grid-template-rows:auto auto auto auto;
       align-items:end;
       column-gap:0;
@@ -641,16 +640,23 @@ push    min-height:0;
       grid-column:1 / -1;
       grid-row:4;
       display:grid;
-      grid-template-columns:40px minmax(0,1fr) 40px 52px;
+      grid-template-columns:minmax(0,1fr) 40px 52px;
       align-items:end;
+      gap:0;
       width:100%;
+    }
+    .chat-control-liquid > .composer-mobile-attach-item{
+      grid-column:2; grid-row:1; width:40px; height:44px; align-self:end;
+    }
+    .chat-control-liquid > .composer-mobile-send-item{
+      grid-column:3; grid-row:1; justify-self:end; width:44px; height:44px; align-self:end;
     }
     .composer-desktop-action-anchor{ display:none; }
     /* keyboard is open: small visible gap between composer and keyboard */
     .app-shell.kb-open .chat-input-area{ padding-bottom:8px; }
 
     .chat-input-area::before{
-      content:""; grid-column:1 / 4; grid-row:4; align-self:stretch; z-index:0;
+      content:""; grid-column:1 / 3; grid-row:4; align-self:stretch; z-index:0;
       background:#ffffff; border:1px solid var(--border); border-radius:24px;
       box-shadow:0 1px 2px rgba(20,22,28,.05);
       pointer-events:none; transition:border-color .15s;
@@ -658,7 +664,7 @@ push    min-height:0;
     .chat-input-area:focus-within::before{ border-color:var(--mint); }
 
     .chat-input-area textarea{
-      grid-column:2; grid-row:4; align-self:end; z-index:1;
+      grid-column:1; grid-row:4; align-self:end; z-index:1;
       width:100%; min-width:0; min-height:44px; height:44px; max-height:min(132px,30dvh);
       padding:11px 0; margin:0; border:0; outline:none; resize:none;
       background:transparent; color:#1c1c1e;
@@ -676,16 +682,12 @@ push    min-height:0;
     .attach-icons button.share-file,
     .attach-icons button[title="Share listing"]{ display:none; }
 
-    .attach-icons .mobile-plus,
     .attach-icons .mobile-attach{
       display:flex; align-items:center; justify-content:center; z-index:1;
       width:40px; height:44px; padding:0; border:0; border-radius:50%;
       background:transparent; color:var(--text-gray-2); font-size:21px; cursor:pointer;
       -webkit-tap-highlight-color:transparent; touch-action:manipulation;
     }
-    .attach-icons .mobile-plus{ grid-column:1; grid-row:1; align-self:end; }
-    .attach-icons .mobile-attach{ grid-column:3; grid-row:1; align-self:end; }
-    .attach-icons .mobile-plus:active,
     .attach-icons .mobile-attach:active,
     .attach-icons .mobile-attach[aria-expanded="true"]{ color:var(--mint-dark); }
 
@@ -699,7 +701,6 @@ push    min-height:0;
     }
     .chat-input-area.can-send .attach-icons .send-message{ background:var(--mint); color:var(--rail-bg); cursor:pointer; }
     .chat-input-area.can-send .attach-icons .send-message:active{ transform:scale(.93); }
-    .attach-icons .mobile-plus:focus-visible,
     .attach-icons .mobile-attach:focus-visible,
     .attach-icons .send-message:focus-visible{ outline:2px solid var(--mint-dark); outline-offset:2px; }
 
@@ -760,6 +761,7 @@ push    min-height:0;
       -webkit-tap-highlight-color:transparent; touch-action:manipulation;
     }
     .mobile-attach-item:active{ background:var(--bg-soft); }
+    .mobile-attach-item[hidden]{ display:none; }
     .mobile-attach-item .ico{
       width:34px; height:34px; border-radius:50%; flex-shrink:0; font-size:17px;
       display:flex; align-items:center; justify-content:center;
@@ -777,10 +779,12 @@ push    min-height:0;
     @media (max-width:360px){
       .messages{ padding:14px 10px; }
       .chat-input-area{
-        grid-template-columns:36px minmax(0,1fr) 36px 48px;
+        grid-template-columns:minmax(0,1fr) 36px 48px;
         padding-left:8px; padding-right:8px;
       }
-      .attach-icons .mobile-plus,
+      .chat-control-liquid{ grid-template-columns:minmax(0,1fr) 36px 48px; }
+      .chat-control-liquid > .composer-mobile-attach-item{ width:36px; }
+      .chat-control-liquid > .composer-mobile-send-item{ width:40px; height:40px; }
       .attach-icons .mobile-attach{ width:36px; font-size:20px; }
       .attach-icons .send-message{ width:40px; height:40px; }
       .composer-file{ max-width:170px; }
@@ -830,7 +834,6 @@ push    min-height:0;
     [data-theme="dark"] .chat-input-area{ background:var(--paper,#fbfbfc); border-color:transparent; }
     [data-theme="dark"] .chat-input-area::before{ background:var(--white,#ffffff); border-color:var(--line,#e2e5ea); }
     [data-theme="dark"] .chat-input-area textarea{ color:var(--ink,#1c1c1e); }
-    [data-theme="dark"] .attach-icons .mobile-plus,
     [data-theme="dark"] .attach-icons .mobile-attach{ color:var(--muted,#4b5563); }
     [data-theme="dark"] .mobile-attach-menu,
     [data-theme="dark"] .composer-file{ background:var(--white,#ffffff); border-color:var(--line,#e2e5ea); }
@@ -900,7 +903,6 @@ push    min-height:0;
   }
   @media (min-width:761px){
     .mobile-inbox-title{ display:none; }
-    .mobile-plus{ display:none !important; }
     .mobile-preview{ display:none !important; }
     .mobile-attach,.mobile-attach-menu,.composer-tray,.composer-note{ display:none !important; }
   }
@@ -1281,13 +1283,12 @@ push    min-height:0;
   var ta         = composer.querySelector('textarea');
   var sendBtn    = composer.querySelector('.send-message');
   var attachBtn  = composer.querySelector('.mobile-attach');
-  var stickerBtn = composer.querySelector('.mobile-plus');
   var menu       = document.getElementById('mobileAttachMenu');
   var tray       = document.getElementById('composerTray');
   var note       = document.getElementById('composerNote');
   var photoInput = document.getElementById('composerPhotoInput');
   var fileInput  = document.getElementById('composerFileInput');
-  if (!ta || !sendBtn || !attachBtn || !stickerBtn || !menu || !tray || !note || !photoInput || !fileInput) return;
+  if (!ta || !sendBtn || !attachBtn || !menu || !tray || !note || !photoInput || !fileInput) return;
 
   var mq = window.matchMedia(MOBILE_QUERY);
   function isMobile() { return mq.matches; }
@@ -1367,6 +1368,8 @@ push    min-height:0;
     composer.classList.toggle('has-text', ready);   // kept for existing code that reads this class
     sendBtn.setAttribute('aria-disabled', ready ? 'false' : 'true');
     attachBtn.setAttribute('aria-label', getRole() === 'host' ? 'Attach photos, files or a listing' : 'Add photos');
+    menu.querySelector('[data-attach="files"]').hidden = getRole() !== 'host';
+    menu.querySelector('[data-attach="listing"]').hidden = getRole() !== 'host';
   }
 
   /* ---------------- notice ---------------- */
@@ -1477,12 +1480,7 @@ push    min-height:0;
 
   attachBtn.addEventListener('click', function () {
     if (!isMobile()) return;
-    if (getRole() === 'host') {
-      if (menu.hidden) openMenu(); else closeMenu();
-    } else {
-      closeMenu();
-      photoInput.click();             // clients go straight to the photo picker
-    }
+    if (menu.hidden) openMenu(); else closeMenu();
   });
 
   menu.addEventListener('click', function (e) {
@@ -1511,12 +1509,6 @@ push    min-height:0;
   });
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape' && !menu.hidden) closeMenu();
-  });
-
-  /* ---------------- sticker / emoji button (hook only) ---------------- */
-  stickerBtn.addEventListener('click', function () {
-    if (!isMobile()) return;
-    composer.dispatchEvent(new CustomEvent('varoom:composer-sticker', { bubbles: true }));
   });
 
   /* ---------------- sending ---------------- */
@@ -1556,7 +1548,6 @@ push    min-height:0;
 
   keepFocus(sendBtn);
   keepFocus(attachBtn);
-  keepFocus(stickerBtn);
   keepFocus(menu);
 
   ta.addEventListener('input', function () {
