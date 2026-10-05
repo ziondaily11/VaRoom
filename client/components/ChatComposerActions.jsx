@@ -79,21 +79,29 @@ export default function ChatComposerActions() {
           aria-label="Sharing actions"
           hidden={!shareMenuOpen}
         >
-          <Liquid.Item>
-            <button className="share-photo" type="button" role="menuitem" aria-label="Share photo" onClick={closeShareMenu}>
-              <Icon name="image" />
-            </button>
-          </Liquid.Item>
-          <Liquid.Item>
-            <button className="share-file" type="button" role="menuitem" aria-label="Share file" onClick={closeShareMenu}>
-              <Icon name="paperclip" />
-            </button>
-          </Liquid.Item>
-          <Liquid.Item>
-            <button type="button" title="Share listing" aria-label="Share listing" role="menuitem" onClick={closeShareMenu}>
-              <Icon name="share" />
-            </button>
-          </Liquid.Item>
+          <Liquid
+            className="composer-share-menu-liquid"
+            blur={6}
+            contrast={18}
+            fill="var(--composer-liquid-fill, #fff)"
+            shadow="0 2px 6px rgba(0,0,0,.16)"
+          >
+            <Liquid.Item>
+              <button className="share-photo" type="button" role="menuitem" aria-label="Share photo" onClick={closeShareMenu}>
+                <Icon name="image" />
+              </button>
+            </Liquid.Item>
+            <Liquid.Item>
+              <button className="share-file" type="button" role="menuitem" aria-label="Share file" onClick={closeShareMenu}>
+                <Icon name="paperclip" />
+              </button>
+            </Liquid.Item>
+            <Liquid.Item>
+              <button type="button" title="Share listing" aria-label="Share listing" role="menuitem" onClick={closeShareMenu}>
+                <Icon name="share" />
+              </button>
+            </Liquid.Item>
+          </Liquid>
         </div>
       </div>
       <Liquid.Item>
