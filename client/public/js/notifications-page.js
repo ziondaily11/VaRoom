@@ -74,10 +74,11 @@
   }
 
   function notificationTarget(notification) {
+    var bookingId = notification.related_entity_id || notification.booking_id;
     if (currentRole === 'host' &&
         (notification.related_entity_type === 'booking' || notification.booking_id) &&
-        (notification.related_entity_id || notification.booking_id)) {
-      return '/bookings?booking=' + encodeURIComponent(notification.related_entity_id || notification.booking_id);
+        bookingId) {
+      return '/bookings?booking=' + encodeURIComponent(bookingId);
     }
     if (notification.related_entity_type === 'conversation' && notification.related_entity_id) {
       return '/chats?c=' + encodeURIComponent(notification.related_entity_id);
@@ -86,7 +87,10 @@
       return '/profile';
     }
     if ((notification.related_entity_type === 'booking' || notification.booking_id) &&
-        (notification.related_entity_id || notification.booking_id)) {
+        bookingId) {
+      if (window.matchMedia('(min-width: 1321px)').matches) {
+        return '/bookings?booking=' + encodeURIComponent(bookingId);
+      }
       return '/booking-approved?id=' + encodeURIComponent(notification.related_entity_id || notification.booking_id);
     }
     return null;

@@ -98,7 +98,12 @@ function initNotifications(supabaseClient, currentUser) {
     list.innerHTML = data.map(function (n) {
       const icon = notifIconFor(n.type);
       const primaryText = n.title || n.message || 'Notification';
-      const target = (n.metadata && n.metadata.target) || (n.related_entity_type === 'conversation' && n.related_entity_id ? '/chats?c=' + encodeURIComponent(n.related_entity_id) : null) || (n.booking_id ? '/booking-approved?id=' + encodeURIComponent(n.booking_id) : null);
+      const bookingId = n.related_entity_id || n.booking_id;
+      const desktopBookingTarget = window.matchMedia('(min-width:1321px)').matches &&
+        (n.related_entity_type === 'booking' || n.booking_id) && bookingId
+        ? '/bookings?booking=' + encodeURIComponent(bookingId)
+        : null;
+      const target = desktopBookingTarget || (n.metadata && n.metadata.target) || (n.related_entity_type === 'conversation' && n.related_entity_id ? '/chats?c=' + encodeURIComponent(n.related_entity_id) : null) || (n.booking_id ? '/booking-approved?id=' + encodeURIComponent(n.booking_id) : null);
       const clickable = target ? ' data-target="' + notifEscapeHtml(target) + '" style="cursor:pointer;"' : '';
       return (
         '<div class="notif-row"' + clickable + ' style="display:flex;gap:.7rem;padding:.8rem 1rem;border-bottom:1px solid rgba(128,110,100,.08);' +

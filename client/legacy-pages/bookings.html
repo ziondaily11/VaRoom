@@ -1813,6 +1813,9 @@
       'listing:listings(id,title,location_text,listing_photos(storage_path)),' +
       'host:profiles!bookings_host_id_fkey(id,full_name,avatar_url,username)';
 
+    const requestedDesktopBookingId = window.matchMedia('(min-width: 1321px)').matches
+      ? new URLSearchParams(window.location.search).get('booking')
+      : null;
     let allBookings = [];
     const reviewedBookingIds = new Set();
     let activeReviewBooking = null;
@@ -1899,7 +1902,7 @@
       const calendarIcon = '<i class="booking-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3.5" y="5" width="17" height="16" rx="2"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg></i>';
 
       return (
-        '<div class="booking-card">' +
+        '<div class="booking-card" data-booking-card-id="' + b.id + '">' +
           '<div class="bk-thumb">' + thumbHtml + '</div>' +
           '<div class="bk-main">' +
             '<div class="bk-top-row">' +
@@ -2186,6 +2189,35 @@
       document.getElementById('booking-load-status').textContent = hasMoreBookings ? '' : '';
     }
 
+    function openRequestedDesktopBooking(){
+      if (!requestedDesktopBookingId || !isClient) return;
+      const booking = allBookings.find(function(item){ return item.id === requestedDesktopBookingId; });
+      if (!booking) {
+        showToast('This booking could not be found in your bookings.');
+        return;
+      }
+      const now = new Date();
+      const tabName = booking.status === 'declined' || booking.status === 'expired' || booking.status === 'cancelled'
+        ? 'cancelled'
+        : booking.status === 'approved' && endMoment(booking) < now
+          ? 'past'
+          : 'upcoming';
+      const targetTab = document.querySelector('.tab[data-tab="' + tabName + '"]');
+      if (targetTab && !targetTab.classList.contains('active')) targetTab.click();
+      requestAnimationFrame(function(){
+        const bookingCards = document.querySelectorAll('[data-booking-card-id]');
+        let bookingCard = null;
+        for (let i = 0; i < bookingCards.length; i++) {
+          if (bookingCards[i].getAttribute('data-booking-card-id') === requestedDesktopBookingId) {
+            bookingCard = bookingCards[i];
+            break;
+          }
+        }
+        if (bookingCard) bookingCard.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        openClientBookingDetails(requestedDesktopBookingId);
+      });
+    }
+
     document.querySelectorAll('.tab').forEach(function(tab){
       tab.addEventListener('click', function(){
         document.querySelectorAll('.tab').forEach(function(t){ t.classList.remove('active'); });
@@ -2261,7 +2293,20 @@
       if (result.error) {
         document.getElementById('upcoming-panel').innerHTML = '<p class="state-msg">Couldn\'t load bookings: ' + escapeHtml(result.error.message) + '</p>';
       } else {
+        let requestedBookingLoadError = null;
+        while (requestedDesktopBookingId && !allBookings.some(function(booking){ return booking.id === requestedDesktopBookingId; }) && hasMoreBookings) {
+          const nextResult = await loadBookingBatch();
+          if (nextResult.error) {
+            requestedBookingLoadError = nextResult.error;
+            break;
+          }
+        }
         renderAllPanels();
+        if (requestedBookingLoadError) {
+          document.getElementById('booking-load-status').textContent = 'Couldn\'t load the requested booking: ' + escapeHtml(requestedBookingLoadError.message);
+        } else {
+          openRequestedDesktopBooking();
+        }
       }
       renderCalendarPlaceholder();
     }
