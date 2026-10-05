@@ -5,8 +5,10 @@ import Script from 'next/script';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createRoot } from 'react-dom/client';
+import { flushSync } from 'react-dom';
 import { useEffect, useRef } from 'react';
 import ElieIcon from '../components/ElieIcon';
+import ChatComposerActions from '../components/ChatComposerActions';
 import { ThinkingOrb } from 'thinking-orbs';
 
 const templateDirectory = path.join(process.cwd(), 'legacy-pages');
@@ -213,6 +215,7 @@ export default function LegacyPage({ title, markup, scripts }) {
 
   useEffect(() => {
     let cancelled = false;
+    let composerActionsRoot;
     const avatarRoots = new Map();
     const orbRoots = new Map();
     const mountAvatars = (node) => {
@@ -276,6 +279,11 @@ export default function LegacyPage({ title, markup, scripts }) {
       avatarObserver.observe(containerRef.current, { childList: true, subtree: true });
       mountAvatars(containerRef.current);
       mountOrbs(containerRef.current);
+      const composerActions = containerRef.current.querySelector('[data-chat-composer-actions]');
+      if (composerActions) {
+        composerActionsRoot = createRoot(composerActions);
+        flushSync(() => composerActionsRoot.render(React.createElement(ChatComposerActions)));
+      }
     }
 
     const loadPageScripts = async () => {
@@ -302,6 +310,7 @@ export default function LegacyPage({ title, markup, scripts }) {
     return () => {
       cancelled = true;
       avatarObserver.disconnect();
+      composerActionsRoot?.unmount();
       avatarRoots.forEach((root) => root.unmount());
       avatarRoots.clear();
       orbRoots.forEach((root) => root.unmount());

@@ -329,7 +329,7 @@ push    min-height:0;
   .voice-dur{ font-size:11.5px; color:var(--text-gray-2); font-weight:600; flex-shrink:0; }
   .voice-card > .msg-meta,.file-card > .msg-meta{ width:100%; text-align:right; }
 
-  .chat-input-area{ margin:16px 28px 20px; padding:14px 14px 10px; border:1px solid #27272A; border-radius:16px; background:#18181B; flex-shrink:0; }
+  .chat-input-area{ --composer-liquid-fill:#fff; margin:16px 28px 20px; padding:14px 14px 10px; border:1px solid #27272A; border-radius:16px; background:#18181B; flex-shrink:0; }
   .chat-input-area textarea{
     width:100%; border:none; outline:none; resize:none;
     font-family:inherit; font-size:13.5px; color:var(--text-dark);
@@ -630,6 +630,14 @@ push    min-height:0;
       background:#fbfbfc;
       padding:8px 10px calc(8px + env(safe-area-inset-bottom,0px));
     }
+    .chat-control-liquid{
+      grid-column:1 / -1;
+      grid-row:4;
+      display:grid;
+      grid-template-columns:40px minmax(0,1fr) 40px 52px;
+      align-items:end;
+      width:100%;
+    }
     /* keyboard is open: small visible gap between composer and keyboard */
     .app-shell.kb-open .chat-input-area{ padding-bottom:8px; }
 
@@ -667,15 +675,15 @@ push    min-height:0;
       background:transparent; color:var(--text-gray-2); font-size:21px; cursor:pointer;
       -webkit-tap-highlight-color:transparent; touch-action:manipulation;
     }
-    .attach-icons .mobile-plus{ grid-column:1; grid-row:4; align-self:end; }
-    .attach-icons .mobile-attach{ grid-column:3; grid-row:4; align-self:end; }
+    .attach-icons .mobile-plus{ grid-column:1; grid-row:1; align-self:end; }
+    .attach-icons .mobile-attach{ grid-column:3; grid-row:1; align-self:end; }
     .attach-icons .mobile-plus:active,
     .attach-icons .mobile-attach:active,
     .attach-icons .mobile-attach[aria-expanded="true"]{ color:var(--mint-dark); }
 
     .attach-icons .send-message{
       display:flex; align-items:center; justify-content:center;
-      grid-column:4; grid-row:4; justify-self:end; align-self:end;
+      grid-column:4; grid-row:1; justify-self:end; align-self:end;
       width:44px; height:44px; padding:0; border:0; border-radius:50%;
       background:#e6e8eb; color:#9aa0ab; font-size:19px; cursor:default;
       transition:background .15s,color .15s,transform .1s;
@@ -949,7 +957,7 @@ push    min-height:0;
   [data-theme="dark"] .msg-meta,
   [data-theme="dark"] .chat-header-status,
   [data-theme="dark"] .profile-block .p-line { color:#9CA3AF !important; }
-  [data-theme="dark"] .chat-input-area{ background:#18181B !important; border-color:#27272A !important; }
+  [data-theme="dark"] .chat-input-area{ --composer-liquid-fill:#171313; background:#18181B !important; border-color:#27272A !important; }
   [data-theme="dark"] .msg-row.system .bubble,
   [data-theme="dark"] .voice-card { background:#171313; color:var(--text-gray); }
   [data-theme="dark"] .file-card { background:#171313; border-color:var(--border); }
@@ -1178,15 +1186,7 @@ push    min-height:0;
           <button type="button" class="fmt-ul" aria-label="Bulleted list"><svg class="icon"><use href="#i-list-dot"/></svg></button>
           <button type="button" class="fmt-ol" aria-label="Numbered list"><svg class="icon"><use href="#i-list-sq"/></svg></button>
         </div>
-        <div class="attach-icons">
-          <!-- mobile: sticker / emoji icon, left side of the composer -->
-          <button class="mobile-plus" type="button" title="Emoji and stickers" aria-label="Emoji and stickers"><svg class="icon"><use href="#i-sticker"/></svg></button>
-          <!-- mobile: attachment button, right side inside the composer -->
-          <button class="mobile-attach" type="button" title="Attach" aria-label="Add photos" aria-haspopup="menu" aria-expanded="false"><svg class="icon"><use href="#i-paperclip"/></svg></button>
-          <button class="share-photo"><svg class="icon"><use href="#i-image"/></svg></button>
-          <button class="share-file"><svg class="icon"><use href="#i-paperclip"/></svg></button>
-          <button title="Share listing" aria-label="Share listing"><svg class="icon"><use href="#i-share"/></svg></button>
-          <button class="send-message" type="button" title="Send message" aria-label="Send message" aria-disabled="true"><svg class="icon"><use href="#i-send"/></svg></button>
+        <div class="attach-icons" data-chat-composer-actions>
         </div>
       </div>
 
