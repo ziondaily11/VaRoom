@@ -5,7 +5,6 @@ import Script from 'next/script';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createRoot } from 'react-dom/client';
-import { flushSync } from 'react-dom';
 import { useEffect, useRef } from 'react';
 import ElieIcon from '../components/ElieIcon';
 import ChatComposerActions from '../components/ChatComposerActions';
@@ -267,7 +266,7 @@ export default function LegacyPage({ title, markup, scripts }) {
       const composerActions = containerRef.current.querySelector('[data-chat-composer-actions]');
       if (composerActions) {
         composerActionsRoot = createRoot(composerActions);
-        flushSync(() => composerActionsRoot.render(React.createElement(ChatComposerActions)));
+        composerActionsRoot.render(React.createElement(ChatComposerActions));
       }
     }
 

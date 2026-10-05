@@ -57,52 +57,44 @@ export default function ChatComposerActions() {
         </button>
       </Liquid.Item>
       <div className="composer-desktop-action-anchor" ref={shareMenuAnchorRef}>
-        <Liquid.Item>
-          <button
-            className="composer-actions-toggle"
-            type="button"
-            title="More sharing actions"
-            aria-label="More sharing actions"
-            aria-haspopup="menu"
-            aria-expanded={shareMenuOpen}
-            aria-controls="composerShareMenu"
-            ref={shareMenuToggleRef}
-            onClick={() => setShareMenuOpen((open) => !open)}
-          >
-            <Icon name="plus" />
-          </button>
-        </Liquid.Item>
-        <div
-          className="composer-share-menu"
-          id="composerShareMenu"
-          role="menu"
-          aria-label="Sharing actions"
-          hidden={!shareMenuOpen}
+        <Liquid
+          className="composer-share-group"
+          blur={6}
+          contrast={18}
+          fill="var(--bg-soft)"
+          shadow="0 2px 6px rgba(0,0,0,.16)"
         >
-          <Liquid
-            className="composer-share-menu-liquid"
-            blur={6}
-            contrast={18}
-            fill="var(--composer-liquid-fill, #fff)"
-            shadow="0 2px 6px rgba(0,0,0,.16)"
-          >
-            <Liquid.Item>
-              <button className="share-photo" type="button" role="menuitem" aria-label="Share photo" onClick={closeShareMenu}>
-                <Icon name="image" />
-              </button>
-            </Liquid.Item>
-            <Liquid.Item>
-              <button className="share-file" type="button" role="menuitem" aria-label="Share file" onClick={closeShareMenu}>
-                <Icon name="paperclip" />
-              </button>
-            </Liquid.Item>
-            <Liquid.Item>
-              <button type="button" title="Share listing" aria-label="Share listing" role="menuitem" onClick={closeShareMenu}>
-                <Icon name="share" />
-              </button>
-            </Liquid.Item>
-          </Liquid>
-        </div>
+          <Liquid.Item x={0} y={0} transition="bouncy">
+            <button
+              className={`composer-actions-toggle${shareMenuOpen ? ' is-open' : ''}`}
+              type="button"
+              title={shareMenuOpen ? 'Close sharing actions' : 'More sharing actions'}
+              aria-label={shareMenuOpen ? 'Close sharing actions' : 'More sharing actions'}
+              aria-haspopup="menu"
+              aria-expanded={shareMenuOpen}
+              aria-controls="composerShareMenu"
+              ref={shareMenuToggleRef}
+              onClick={() => setShareMenuOpen((open) => !open)}
+            >
+              <Icon name={shareMenuOpen ? 'close' : 'plus'} />
+            </button>
+          </Liquid.Item>
+          <Liquid.Item x={shareMenuOpen ? -76 : 0} y={shareMenuOpen ? -48 : 0} transition="bouncy" delay={10}>
+            <button className="share-photo" type="button" role="menuitem" aria-label="Share photo" aria-hidden={!shareMenuOpen} tabIndex={shareMenuOpen ? 0 : -1} onClick={closeShareMenu}>
+              <Icon name="image" />
+            </button>
+          </Liquid.Item>
+          <Liquid.Item x={0} y={shareMenuOpen ? -90 : 0} transition="bouncy" delay={40}>
+            <button className="share-file" type="button" role="menuitem" aria-label="Share file" aria-hidden={!shareMenuOpen} tabIndex={shareMenuOpen ? 0 : -1} onClick={closeShareMenu}>
+              <Icon name="paperclip" />
+            </button>
+          </Liquid.Item>
+          <Liquid.Item x={shareMenuOpen ? 76 : 0} y={shareMenuOpen ? -48 : 0} transition="bouncy" delay={80}>
+            <button type="button" title="Share listing" aria-label="Share listing" role="menuitem" aria-hidden={!shareMenuOpen} tabIndex={shareMenuOpen ? 0 : -1} onClick={closeShareMenu}>
+              <Icon name="share" />
+            </button>
+          </Liquid.Item>
+        </Liquid>
       </div>
       <Liquid.Item>
         <button className="send-message" type="button" title="Send message" aria-label="Send message" aria-disabled="true">
