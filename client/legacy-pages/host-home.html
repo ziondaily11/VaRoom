@@ -677,10 +677,11 @@
   #feed-list.discover-media-feed .media-carousel,
   #feed-list.discover-media-feed .card-video{
     width:var(--discover-media-width, calc(100% - var(--discover-content-inset))); max-width:calc(100% - var(--discover-content-inset)); height:var(--discover-media-height, auto); margin-left:var(--discover-content-inset); margin-right:auto;
-    position:relative; overflow:hidden; border:0; border-radius:12px; background:transparent;
+    position:relative; overflow:hidden; border:0; border-radius:12px; background:#000;
   }
-  #feed-list.discover-media-feed .media-slide{ height:auto; display:block; }
-  #feed-list.discover-media-feed .media-slide img{ width:100%; height:auto; object-fit:initial; }
+  #feed-list.discover-media-feed .media-slide-track{ height:100%; }
+  #feed-list.discover-media-feed .media-slide{ height:100%; display:block; background:#000; }
+  #feed-list.discover-media-feed .media-slide img{ max-width:100%; height:auto; object-fit:initial; }
   #feed-list.discover-media-feed .card-video{ height:auto; background:transparent; }
   #feed-list.discover-media-feed .card-video video,
   #feed-list.discover-media-feed .card-video .varoom-video-player,
@@ -2171,11 +2172,6 @@
       const count = carousel.getAttribute('data-photo-count') ? parseInt(carousel.getAttribute('data-photo-count'), 10) : 0;
       if (!count) return;
       carousel.setAttribute('data-discover-active-index', activeIndex);
-      if (carousel._discoverMediaFrames) {
-        const frame = carousel._discoverMediaFrames[activeIndex] || carousel._discoverMediaFrames[0];
-        carousel.style.setProperty('--discover-media-height', Math.round(frame.height) + 'px');
-        carousel.style.setProperty('--discover-media-width', Math.round(frame.width) + 'px');
-      }
       track.style.transform = 'translateX(' + (-(activeIndex * 100)) + '%)';
       const dots = carousel.querySelectorAll('.media-dot');
       dots.forEach(function(dot, idx){
@@ -2224,10 +2220,14 @@
           }
           if (!frames.length) frames.push(fallbackFrame);
           stage._discoverMediaFrames = frames;
-          const activeIndex = parseInt(stage.getAttribute('data-discover-active-index') || '0', 10);
-          const frame = frames[activeIndex] || frames[0];
-          stage.style.setProperty('--discover-media-height', Math.round(frame.height) + 'px');
-          stage.style.setProperty('--discover-media-width', Math.round(frame.width) + 'px');
+          const tallestFrame = frames.reduce(function(tallest, frame){ return frame.height > tallest.height ? frame : tallest; }, frames[0]);
+          const widestFrame = frames.reduce(function(widest, frame){ return frame.width > widest.width ? frame : widest; }, frames[0]);
+          stage.style.setProperty('--discover-media-height', Math.round(tallestFrame.height) + 'px');
+          stage.style.setProperty('--discover-media-width', Math.round(widestFrame.width) + 'px');
+          media.filter(Boolean).forEach(function(item, index){
+            if (item.tagName !== 'IMG') return;
+            item.style.width = Math.round(frames[index].width) + 'px';
+          });
         }
         media.filter(Boolean).forEach(function(item){
           item.addEventListener(item.tagName === 'VIDEO' ? 'loadedmetadata' : 'load', updateHeight);
