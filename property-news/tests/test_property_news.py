@@ -15,7 +15,7 @@ import httpx
 
 from app.analysis import RulesBasedNewsAnalyzer, format_location_display
 from app.api import create_app
-from app.collector import CollectionFailure, SourceCollector
+from app.collector import CollectionFailure, FAILURE_CATEGORIES, SourceCollector
 from app.config import Settings
 from app.constants import RegulatoryStatus, ReviewStatus, RiskLevel
 from app.models import CandidateArticle, NewsItem, ReviewAction, Source
@@ -516,6 +516,14 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
             ),
             "http_5xx",
         )
+
+    def test_database_failure_category_allowlist_covers_collector_categories(self):
+        migration = (
+            Path(__file__).parents[1]
+            / "supabase/migrations/20261006_000001_expand_source_failure_categories.sql"
+        ).read_text(encoding="utf-8")
+        allowed = set(re.findall(r"'([a-z0-9_]+)'", migration))
+        self.assertTrue(FAILURE_CATEGORIES.issubset(allowed))
 
     async def test_rss_parser_accepts_valid_recent_feed_and_classifies_malformed_or_html_bodies(self):
         collector = SourceCollector(self.repository, Settings())

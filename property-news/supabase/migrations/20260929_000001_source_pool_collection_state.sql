@@ -17,8 +17,10 @@ alter table public.news_sources
 alter table public.news_sources
   add constraint news_sources_failure_category_check
     check (failure_category is null or failure_category in (
-      'blocked_403', 'tls_error', 'dns_error', 'timeout', 'upstream_5xx',
-      'not_allowed_host', 'no_feed_found', 'robots_disallowed'
+      'blocked_403', 'tls_error', 'dns_error', 'timeout', 'http_404',
+      'http_4xx', 'http_5xx', 'invalid_feed_xml', 'network_error',
+      'parse_error', 'upstream_5xx', 'not_allowed_host', 'no_feed_found',
+      'robots_disallowed'
     ));
 
 alter table public.news_sources
