@@ -744,6 +744,7 @@
     .media-carousel{ margin-bottom:.55rem; }
     .media-slide img{ height:clamp(220px, 52vw, 460px); }
     .media-carousel.single-media .media-slide img{ height:clamp(250px, 60vw, 520px); }
+    #feed-list.discover-media-feed .media-slide img{ margin-left:auto; margin-right:auto; }
     .media-index-pill{ top:.55rem; right:.55rem; font-size:.66rem; }
     .media-dots{ bottom:.5rem; }
 
@@ -1774,16 +1775,19 @@
           const availableWidth = Math.max(1, stage.parentElement.clientWidth - contentInset);
           var fallbackFrame, frames;
           if (isMobile) {
-            /* Mobile: full card-width, pure proportional height — no desktop cap, no width-narrowing.
-               Restores original Client Home mobile rendering exactly. */
-            fallbackFrame = { height:availableWidth / (4 / 3), width:availableWidth };
+            /* Keep natural proportions, but scale unusually tall media down so
+               it stays a sensible part of a mobile Discover card. */
+            const mobileMaxHeight = Math.min(560, availableWidth * 1.6);
+            const fallbackHeight = Math.min(mobileMaxHeight, availableWidth / (4 / 3));
+            fallbackFrame = { height:fallbackHeight, width:Math.min(availableWidth, fallbackHeight * (4 / 3)) };
             frames = media.filter(Boolean).map(function(item){
               const metadataSource = item.closest('.media-slide') || stage;
               const width = Number(metadataSource.getAttribute('data-media-width')) || item.videoWidth || item.naturalWidth;
               const height = Number(metadataSource.getAttribute('data-media-height')) || item.videoHeight || item.naturalHeight;
               if (!width || !height) return fallbackFrame;
               const ratio = width / height;
-              return { height:availableWidth / ratio, width:availableWidth };
+              const fittedHeight = Math.min(mobileMaxHeight, availableWidth / ratio);
+              return { height:fittedHeight, width:Math.min(availableWidth, fittedHeight * ratio) };
             });
           } else {
             /* Desktop: height capped at maxHeight, container width also constrained.
