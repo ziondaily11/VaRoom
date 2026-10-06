@@ -38,7 +38,8 @@ FAILURE_BACKOFF_SECONDS = 6 * 60 * 60
 MAX_CONSECUTIVE_FAILURES_BEFORE_BACKOFF = 5
 MAX_NEW_ITEMS_PER_SOURCE = 5
 SOURCE_HARD_TIMEOUT_SECONDS = 45
-MAX_SOURCES_PER_RUN = 20
+MAX_SOURCES_PER_RUN = 100
+MAX_CONCURRENT_SOURCE_FETCHES = 10
 SOURCE_GROUP_COUNT = 11
 COLLECTOR_USER_AGENT = "VaRoomNewsBot/1.0 (+https://varoom.co.ke)"
 SENSITIVE_QUERY_PARAMETER_PATTERN = re.compile(r"(?P<prefix>[?&])(?P<name>[^=&#\s]+)=(?P<value>[^&#\s]*)")
@@ -229,7 +230,7 @@ class SourceCollector:
             )
             return totals
 
-        semaphore = asyncio.Semaphore(min(MAX_SOURCES_PER_RUN, len(due_sources)))
+        semaphore = asyncio.Semaphore(min(MAX_CONCURRENT_SOURCE_FETCHES, len(due_sources)))
 
         async def _bounded_collect(source: Source) -> dict[str, Any]:
             async with semaphore:
