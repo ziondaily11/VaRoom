@@ -318,16 +318,22 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertIn("60, TRUE,", sql)
 
-    async def test_source_group_reports_active_due_attempted_and_deferred_counts(self):
+    async def test_source_group_processes_all_100_due_sources_without_deferring(self):
         collector = SourceCollector(self.repository, Settings())
         await self.repository.upsert_source(self.source.model_copy(update={"active": False}))
+        expected_group = SourceCollector._source_group(
+            Source(name="Capacity source 0", base_url="https://capacity0.example.test/",
+                   trust_tier=2, fetch_method="rss", schedule_minutes=30, active=True),
+            11,
+        )
         configured = [
             Source(
                 name=f"Capacity source {index}",
-                base_url=f"https://capacity.example.test/{index}",
+                base_url=f"https://capacity{index}.example.test/",
                 trust_tier=2, fetch_method="rss", schedule_minutes=30, active=True,
+                parser_config={"test_source_group": expected_group},
             )
-            for index in range(21)
+            for index in range(101)
         ]
         for configured_source in configured:
             await self.repository.upsert_source(configured_source)
@@ -342,14 +348,16 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
             }
 
         collector.collect_source = collect_source  # type: ignore[method-assign]
-        group = SourceCollector._source_group(configured[0], 11)
-        result = await collector.collect_due_sources(source_group=group)
+        collector._is_due = staticmethod(lambda _source: True)  # type: ignore[method-assign]
+        # Keep a high-capacity shard fixture without introducing 101 fake domains.
+        collector._source_group = staticmethod(lambda _source, _count: expected_group)  # type: ignore[method-assign]
+        result = await collector.collect_due_sources(source_group=expected_group)
 
-        self.assertEqual(result["sources_active"], 21)
-        self.assertEqual(result["sources_due"], 21)
-        self.assertEqual(result["sources_attempted"], 20)
-        self.assertEqual(result["sources_deferred"], 1)
-        self.assertEqual(len(attempted), 20)
+        self.assertEqual(result["sources_active"], 101)
+        self.assertEqual(result["sources_due"], 101)
+        self.assertEqual(result["sources_attempted"], 100)
+        self.assertEqual(result["sources_deferred"], 0)
+        self.assertEqual(len(attempted), 100)
 
     async def test_same_source_name_on_another_domain_is_not_overwritten(self):
         pool_path = Path(__file__).resolve().parents[1] / "sources" / "real-estate-source-pool.json"
