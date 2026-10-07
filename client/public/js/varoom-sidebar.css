@@ -5,6 +5,8 @@
   --ink: #24211E;
   --paper: #F7F6F3;
   --nav-active-bg: #E9E7E2;
+  --nav-badge-bg: #E9E7E2;
+  --nav-badge-color: #24211E;
   --muted: #5c584f;
   --font-display: 'Helvetica Neue', Arial, sans-serif;
   --font-body: 'Helvetica Neue', Arial, sans-serif;
@@ -21,6 +23,8 @@
   --paper: #15100F;
   --ink: #F5EFEC;
   --nav-active-bg: #302C2A;
+  --nav-badge-bg: #484441;
+  --nav-badge-color: #F5EFEC;
   --muted: #B8ACA8;
   --glass-bg: rgba(28, 20, 18, .55);
   --glass-border: rgba(255, 255, 255, .09);
@@ -171,14 +175,15 @@ html[data-account-role="pending"] #sidebar {
 
 .sidebar .notif-nav-badge {
   position: absolute;
-  top: .32rem;
+  top: 50%;
   right: .55rem;
+  transform: translateY(-50%);
   min-width: 16px;
   height: 16px;
   padding: 0 4px;
   border-radius: 999px;
-  background: var(--nav-active-bg);
-  color: var(--ink);
+  background: var(--nav-badge-bg);
+  color: var(--nav-badge-color);
   display: flex;
   align-items: center;
   justify-content: center;

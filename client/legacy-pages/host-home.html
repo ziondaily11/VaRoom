@@ -118,8 +118,9 @@
   .nav-item.active{ background:var(--control-active, #E9E7E2); color:var(--ink); font-weight:600; }
   .nav-item svg{ flex-shrink:0; }
   .notif-nav-badge{
-    position:absolute; top:.32rem; right:.55rem; min-width:16px; height:16px;
-    padding:0 4px; border-radius:999px; background:var(--control-active, #E9E7E2); color:var(--ink);
+    position:absolute; top:50%; right:.55rem; min-width:16px; height:16px;
+    padding:0 4px; border-radius:999px; background:var(--nav-badge-bg, var(--control-active, #E9E7E2)); color:var(--nav-badge-color, var(--ink));
+    transform:translateY(-50%);
     display:flex; align-items:center; justify-content:center; font-size:.6rem; font-weight:700; line-height:1;
   }
   .notif-nav-badge[hidden]{ display:none; }
@@ -925,8 +926,8 @@
   .avatar-circle,
   .bottom-bar-item .avatar-mini,
   .card-avatar{
-    background:var(--control-active) !important;
-    color:var(--ink) !important;
+    background:var(--nav-badge-bg, var(--control-active)) !important;
+    color:var(--nav-badge-color, var(--ink)) !important;
   }
   .attention-icon,
   .notif-panel-bell,
