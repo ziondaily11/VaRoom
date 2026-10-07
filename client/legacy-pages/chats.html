@@ -634,6 +634,71 @@
     }
   }
 
+  /* Elie-specific composer presentation (message input + send button only) */
+  .chat-col.is-elie .format-icons,
+  .chat-input-area.is-elie .format-icons {
+    display: none !important;
+  }
+  .chat-col.is-elie .composer-desktop-action-anchor,
+  .chat-input-area.is-elie .composer-desktop-action-anchor,
+  .chat-col.is-elie .composer-mobile-attach-item,
+  .chat-input-area.is-elie .composer-mobile-attach-item,
+  .chat-col.is-elie .mobile-attach,
+  .chat-input-area.is-elie .mobile-attach,
+  .chat-col.is-elie .composer-note,
+  .chat-input-area.is-elie .composer-note,
+  .chat-col.is-elie .composer-tray,
+  .chat-input-area.is-elie .composer-tray,
+  .chat-col.is-elie .mobile-attach-menu,
+  .chat-input-area.is-elie .mobile-attach-menu,
+  .chat-col.is-elie .composer-reply-preview,
+  .chat-input-area.is-elie .composer-reply-preview {
+    display: none !important;
+  }
+  @media (min-width:761px){
+    .chat-col.is-elie .input-toolbar,
+    .chat-input-area.is-elie .input-toolbar {
+      justify-content: flex-end;
+    }
+    .chat-col.is-elie .attach-icons,
+    .chat-input-area.is-elie .attach-icons {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+    }
+  }
+  @media (max-width:760px){
+    .chat-input-area.is-elie {
+      grid-template-columns: minmax(0,1fr) 52px;
+    }
+    .chat-input-area.is-elie::before {
+      grid-column: 1;
+    }
+    .chat-input-area.is-elie textarea {
+      grid-column: 1;
+      padding-left: 14px;
+      padding-right: 14px;
+    }
+    .chat-input-area.is-elie .chat-control-liquid {
+      grid-column: 1 / -1;
+      grid-template-columns: minmax(0,1fr) 52px;
+    }
+    .chat-input-area.is-elie .composer-mobile-send-item,
+    .chat-input-area.is-elie .attach-icons .send-message {
+      grid-column: 2;
+      justify-self: end;
+    }
+  }
+  @media (max-width:360px){
+    .chat-input-area.is-elie {
+      grid-template-columns: minmax(0,1fr) 48px;
+    }
+    .chat-input-area.is-elie .chat-control-liquid {
+      grid-template-columns: minmax(0,1fr) 48px;
+    }
+  }
+
   /* ---------- INFO COLUMN ---------- */
   .info-col{
     width:310px; flex-shrink:0;
