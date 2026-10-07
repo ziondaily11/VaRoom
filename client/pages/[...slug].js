@@ -266,12 +266,17 @@ export default function LegacyPage({ title, markup, scripts }) {
         if (orbRoots.has(orb)) return;
         const root = createRoot(orb);
         orbRoots.set(orb, root);
+        const state = orb.getAttribute('data-orb-state') || 'searching';
+        const sizeAttr = orb.getAttribute('data-orb-size');
+        const size = sizeAttr ? Number(sizeAttr) : 20;
+        const theme = orb.getAttribute('data-orb-theme') || 'dark';
+        const ariaLabel = orb.getAttribute('aria-label') || 'Thinking…';
         root.render(
           React.createElement(ThinkingOrb, {
-            state: 'connecting',
-            size: 64,
-            theme: 'dark',
-            'aria-label': 'Signing you in',
+            state,
+            size,
+            theme,
+            'aria-label': ariaLabel,
           })
         );
       });

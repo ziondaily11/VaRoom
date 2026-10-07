@@ -523,6 +523,45 @@
   .elie-result-card:hover{ background:var(--bg-soft); border-color:var(--mint); }
   .elie-result-card strong{ font-size:13px; }.elie-result-card span{ font-size:12px; color:var(--text-gray-2); }.elie-result-card em{ color:var(--mint-dark); font-size:11px; font-style:normal; font-weight:700; }
   .elie-history-list{ display:flex; flex-direction:column; gap:6px; padding-top:12px; }.elie-history-item{ width:100%; background:var(--white); }
+  .msg-row.elie-message.in .elie-thinking-bubble{ background:transparent !important; border:0 !important; padding:2px 0 !important; }
+  .elie-thinking-pill{
+    display:inline-flex;
+    align-items:center;
+    gap:10px;
+    background:#18181b;
+    border:1px solid rgba(255,255,255,0.12);
+    border-radius:9999px;
+    padding:6px 14px 6px 10px;
+    box-shadow:0 4px 14px rgba(0,0,0,0.22);
+    user-select:none;
+    line-height:1;
+  }
+  .elie-thinking-orb-wrap{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:20px;
+    height:20px;
+    flex-shrink:0;
+  }
+  .elie-thinking-orb-wrap canvas{
+    display:block;
+    width:20px;
+    height:20px;
+  }
+  .elie-thinking-text{
+    font-size:13.5px;
+    font-weight:500;
+    color:#d4d4d8;
+    letter-spacing:-0.01em;
+    white-space:nowrap;
+    line-height:1;
+  }
+  [data-theme="dark"] .msg-row.elie-message.in .bubble{ background:transparent !important; }
+  [data-theme="dark"] .elie-thinking-pill{
+    background:#18181b;
+    border-color:rgba(255,255,255,0.14);
+  }
   .elie-typing{ display:flex; gap:4px; padding:3px 1px; }.elie-typing i{ width:6px; height:6px; border-radius:50%; background:var(--text-gray); animation:elie-bounce 1s infinite ease-in-out; }.elie-typing i:nth-child(2){animation-delay:.15s}.elie-typing i:nth-child(3){animation-delay:.3s}@keyframes elie-bounce{50%{transform:translateY(-4px)}}
 
   .file-card{

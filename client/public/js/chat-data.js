@@ -1159,8 +1159,12 @@
       avatar.innerHTML = elieAvatarMarkup(36, options && options.typing ? 'working' : 'default');
       row.appendChild(avatar);
     }
-    if (options && options.typing) bubble.innerHTML = '<span class="elie-typing"><i></i><i></i><i></i></span>';
-    else bubble.textContent = text;
+    if (options && options.typing) {
+      bubble.className = 'bubble elie-thinking-bubble';
+      bubble.innerHTML = '<div class="elie-thinking-pill" role="status" aria-label="Elie is thinking"><span class="elie-thinking-orb-wrap" data-thinking-orb="true" data-orb-state="searching" data-orb-size="20" data-orb-theme="dark" aria-hidden="true"></span><span class="elie-thinking-text">Thinking....</span></div>';
+    } else {
+      bubble.textContent = text;
+    }
     row.appendChild(bubble);
     return row;
   }
