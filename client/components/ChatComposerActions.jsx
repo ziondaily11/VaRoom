@@ -9,10 +9,66 @@ function Icon({ name }) {
   );
 }
 
-export default function ChatComposerActions() {
+export default function ChatComposerActions({ isElie: initialIsElie } = {}) {
   const [shareMenuOpen, setShareMenuOpen] = useState(false);
+  const [isElie, setIsElie] = useState(() => {
+    if (typeof initialIsElie === 'boolean') return initialIsElie;
+    if (typeof window === 'undefined') return false;
+    return (
+      document.querySelector('.chat-input-area')?.classList.contains('is-elie') ||
+      document.querySelector('.chat-col')?.classList.contains('is-elie') ||
+      document.querySelector('.chat-col')?.getAttribute('data-conversation-type') === 'elie' ||
+      window.location.pathname === '/elie' ||
+      new URLSearchParams(window.location.search).get('c') === 'elie'
+    );
+  });
   const shareMenuAnchorRef = useRef(null);
   const shareMenuToggleRef = useRef(null);
+
+  useEffect(() => {
+    if (typeof initialIsElie === 'boolean') {
+      setIsElie(initialIsElie);
+      return;
+    }
+
+    const checkElieState = () => {
+      const active =
+        document.querySelector('.chat-input-area')?.classList.contains('is-elie') ||
+        document.querySelector('.chat-col')?.classList.contains('is-elie') ||
+        document.querySelector('.chat-col')?.getAttribute('data-conversation-type') === 'elie' ||
+        window.location.pathname === '/elie' ||
+        new URLSearchParams(window.location.search).get('c') === 'elie';
+      setIsElie(Boolean(active));
+    };
+
+    checkElieState();
+
+    const handleActiveConversationChanged = (event) => {
+      if (event?.detail && typeof event.detail.isElie === 'boolean') {
+        setIsElie(event.detail.isElie);
+      } else {
+        checkElieState();
+      }
+    };
+
+    window.addEventListener('varoom:active-conversation-changed', handleActiveConversationChanged);
+    window.addEventListener('popstate', checkElieState);
+
+    const chatCol = document.querySelector('.chat-col');
+    const composer = document.querySelector('.chat-input-area');
+    let observer;
+    if (typeof MutationObserver !== 'undefined' && (chatCol || composer)) {
+      observer = new MutationObserver(() => checkElieState());
+      if (chatCol) observer.observe(chatCol, { attributes: true, attributeFilter: ['class', 'data-conversation-type'] });
+      if (composer) observer.observe(composer, { attributes: true, attributeFilter: ['class', 'data-composer-mode'] });
+    }
+
+    return () => {
+      window.removeEventListener('varoom:active-conversation-changed', handleActiveConversationChanged);
+      window.removeEventListener('popstate', checkElieState);
+      if (observer) observer.disconnect();
+    };
+  }, [initialIsElie]);
 
   useEffect(() => {
     if (!shareMenuOpen) return undefined;
@@ -37,6 +93,24 @@ export default function ChatComposerActions() {
   }, [shareMenuOpen]);
 
   const closeShareMenu = () => setShareMenuOpen(false);
+
+  if (isElie) {
+    return (
+      <Liquid
+        className="chat-control-liquid"
+        blur={6}
+        contrast={18}
+        fill="var(--composer-liquid-fill, #fff)"
+        shadow="0 1px 2px rgba(20,22,28,.05)"
+      >
+        <Liquid.Item className="composer-mobile-send-item">
+          <button className="send-message" type="button" title="Send message" aria-label="Send message" aria-disabled="true">
+            <Icon name="send" />
+          </button>
+        </Liquid.Item>
+      </Liquid>
+    );
+  }
 
   return (
     <Liquid

@@ -1237,6 +1237,29 @@
     sheet.classList.add('open'); sheet.setAttribute('aria-hidden', 'false');
   }
 
+  function syncComposerMode() {
+    const isElieActive = isElie();
+    const chatCol = $('.chat-col');
+    const composer = $('.chat-input-area');
+    if (chatCol) {
+      chatCol.classList.toggle('is-elie', isElieActive);
+      if (isElieActive) chatCol.setAttribute('data-conversation-type', 'elie');
+      else chatCol.removeAttribute('data-conversation-type');
+    }
+    if (composer) {
+      composer.classList.toggle('is-elie', isElieActive);
+      if (isElieActive) composer.setAttribute('data-composer-mode', 'elie');
+      else composer.removeAttribute('data-composer-mode');
+    }
+    if (isElieActive) {
+      state.pendingAttachment = null;
+      updateMobilePreview();
+    }
+    window.dispatchEvent(new CustomEvent('varoom:active-conversation-changed', {
+      detail: { id: state.activeId, isElie: isElieActive }
+    }));
+  }
+
   async function selectElieConversation() {
     closeMessageMenu();
     clearReplyState();
@@ -1248,6 +1271,7 @@
     if (historyButton) { historyButton.title = 'Recent Elie chats'; historyButton.setAttribute('aria-label', 'Recent Elie chats'); historyButton.innerHTML = '<svg class="icon"><circle cx="12" cy="12" r="8"></circle><path d="M12 7v5l3 2"></path></svg>'; }
     const avatar = $('.chat-header-avatar-wrap .avatar-fallback'); if (avatar) { avatar.style.background = '#f6f7f9'; avatar.innerHTML = elieAvatarMarkup(40); }
     renderElieInformation(); $('.info-col').classList.add('collapsed'); renderElieIntro();
+    syncComposerMode();
     if (isMobile()) showMobileConversation();
   }
 
@@ -1328,6 +1352,7 @@
     const conversation = state.conversations.find((item) => item.id === id);
     if (!conversation) return;
     showConversationInterface();
+    syncComposerMode();
     const historyButton = document.querySelector('.chat-header-actions button:last-child');
     if (historyButton) { historyButton.title = 'More'; historyButton.setAttribute('aria-label', 'More'); historyButton.innerHTML = '<svg class="icon"><use href="#i-more"></use></svg>'; }
     const person = conversation.participant || {};
@@ -1455,10 +1480,12 @@
     }
     configureAttachmentControls();
     const requested = new URLSearchParams(window.location.search).get('c') || new URLSearchParams(window.location.search).get('conversation') || (window.location.pathname === '/elie' ? ELIE_ID : null);
-    state.activeId = !isMobile() && requested && (requested === ELIE_ID || state.conversations.some((item) => item.id === requested)) ? requested : null;
+    state.activeId = (!isMobile() || requested === ELIE_ID) && requested && (requested === ELIE_ID || state.conversations.some((item) => item.id === requested)) ? requested : null;
     renderConversationList();
-    if (state.activeId) await selectConversation(state.activeId);
-    else {
+    if (state.activeId) {
+      await selectConversation(state.activeId);
+    } else {
+      syncComposerMode();
       $('#chatName').textContent = '';
       $('#statusText').textContent = '';
       $('#statusDot').style.background = '#c7cbd1';
@@ -1482,13 +1509,22 @@
     const desktopEditor = $('.desktop-composer-editor');
     const desktop = !isMobile() && !!desktopEditor;
     const updateComposerState = () => {
-      if (desktop) {
-        $('.chat-input-area').classList.toggle('has-text', !!desktopEditor.textContent.trim());
-        return;
+      const hasText = desktop ? !!desktopEditor.textContent.trim() : !!input.value.trim();
+      const isElieActive = isElie();
+      const ready = hasText || (!isElieActive && !!state.pendingAttachment);
+      const composerEl = $('.chat-input-area');
+      if (composerEl) {
+        composerEl.classList.toggle('has-text', hasText);
+        composerEl.classList.toggle('can-send', ready);
       }
-      $('.chat-input-area').classList.toggle('has-text', !!input.value.trim());
-      input.style.height = 'auto';
-      input.style.height = `${Math.min(input.scrollHeight, 112)}px`;
+      const sendBtn = document.querySelector('.attach-icons button.send-message');
+      if (sendBtn) {
+        sendBtn.setAttribute('aria-disabled', ready ? 'false' : 'true');
+      }
+      if (!desktop) {
+        input.style.height = 'auto';
+        input.style.height = `${Math.min(input.scrollHeight, 112)}px`;
+      }
     };
     const resetDesktopComposer = () => {
       if (!desktop) return;
@@ -1610,6 +1646,10 @@
       await sendText();
     });
     if (desktopEditor) desktopEditor.addEventListener('keydown', (event) => {
+      if (isElie() && (event.ctrlKey || event.metaKey) && ['b', 'i', 'u', 'B', 'I', 'U'].includes(event.key)) {
+        event.preventDefault();
+        return;
+      }
       if (event.key === 'Escape' && state.replyToMessage) clearReplyState();
       if (desktop && event.key === 'Enter' && !event.shiftKey) {
         event.preventDefault();
@@ -1620,7 +1660,7 @@
     fileInput.type = 'file'; fileInput.hidden = true; fileInput.dataset.mobileFileInput = 'true';
     document.body.appendChild(fileInput);
     const upload = async (file, kind) => {
-      if (!state.activeId) return;
+      if (!state.activeId || isElie()) return;
       const init = await api(`/api/chat/conversations/${encodeURIComponent(state.activeId)}/attachments/upload-init`, {
         method: 'POST', body: JSON.stringify({ filename: file.name, mimeType: file.type, fileSize: file.size, kind }),
       });
@@ -1671,6 +1711,14 @@
     if (sendButton) {
       sendButton.disabled = false;
       sendButton.addEventListener('click', sendText);
+    }
+    const composerArea = $('.chat-input-area');
+    if (composerArea) {
+      composerArea.addEventListener('click', (event) => {
+        if (event.target.closest('.send-message')) {
+          sendText();
+        }
+      });
     }
     window.addEventListener('varoom:elie-prompt', async (event) => {
       if (!isElie()) return;
