@@ -8,6 +8,7 @@ import { createRoot } from 'react-dom/client';
 import { useEffect, useRef } from 'react';
 import ElieIcon from '../components/ElieIcon';
 import ChatComposerActions from '../components/ChatComposerActions';
+import ElieComposerBeam from '../components/ElieComposerBeam';
 import { ThinkingOrb } from 'thinking-orbs';
 
 const templateDirectory = path.join(process.cwd(), 'legacy-pages');
@@ -231,6 +232,7 @@ export default function LegacyPage({ title, markup, scripts }) {
   useEffect(() => {
     let cancelled = false;
     let composerActionsRoot;
+    let elieComposerBeamRoot;
     const avatarRoots = new Map();
     const orbRoots = new Map();
     const mountAvatars = (node) => {
@@ -299,6 +301,11 @@ export default function LegacyPage({ title, markup, scripts }) {
         composerActionsRoot = createRoot(composerActions);
         composerActionsRoot.render(React.createElement(ChatComposerActions));
       }
+      const elieBeamMount = containerRef.current.querySelector('[data-elie-composer-beam]');
+      if (elieBeamMount) {
+        elieComposerBeamRoot = createRoot(elieBeamMount);
+        elieComposerBeamRoot.render(React.createElement(ElieComposerBeam));
+      }
     }
 
     const loadPageScripts = async () => {
@@ -326,6 +333,7 @@ export default function LegacyPage({ title, markup, scripts }) {
       cancelled = true;
       avatarObserver.disconnect();
       composerActionsRoot?.unmount();
+      elieComposerBeamRoot?.unmount();
       avatarRoots.forEach((root) => root.unmount());
       avatarRoots.clear();
       orbRoots.forEach((root) => root.unmount());

@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.2",
+    "border-beam": "^1.4.1",
     "bot-avatars": "^0.1.2",
     "liquid-gooey": "^0.2.2",
     "lucide-react": "^1.49.0",
