@@ -228,8 +228,9 @@
     var style = document.createElement('style');
     style.id = 'varoom-count-badge-styles';
     style.textContent = [
-      '.varoom-count-badge{position:absolute;top:-3px;right:-4px;z-index:2;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:var(--nav-active-bg,#E9E7E2);color:var(--ink,#24211E);display:flex;align-items:center;justify-content:center;font:700 10px/1 Arial,sans-serif;white-space:nowrap;box-sizing:border-box;}',
-      '.sidebar .varoom-count-badge{top:.32rem;right:.55rem;}',
+      ':root{--nav-badge-bg:#E9E7E2;--nav-badge-color:#24211E;}',
+      '[data-theme="dark"]{--nav-badge-bg:#484441;--nav-badge-color:#F5EFEC;}',
+      '.varoom-count-badge{position:absolute;top:50%;right:.55rem;z-index:2;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:var(--nav-badge-bg);color:var(--nav-badge-color);display:flex;align-items:center;justify-content:center;font:700 10px/1 Arial,sans-serif;white-space:nowrap;box-sizing:border-box;transform:translateY(-50%);}',
       '.varoom-count-badge[hidden]{display:none;}'
     ].join('');
     document.head.appendChild(style);
