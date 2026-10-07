@@ -1209,8 +1209,53 @@
     scrollElieToBottom();
   }
 
+  function appendElieError(errorText, retryText) {
+    const messages = $('.messages');
+    if (!messages) return;
+    const row = document.createElement('div');
+    row.className = 'msg-row in elie-message elie-error-row';
+    const avatar = document.createElement('span');
+    avatar.className = 'elie-message-avatar';
+    avatar.innerHTML = elieAvatarMarkup(36, 'default');
+    row.appendChild(avatar);
+
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble elie-error-bubble';
+
+    const msgDiv = document.createElement('div');
+    msgDiv.textContent = errorText;
+    bubble.appendChild(msgDiv);
+
+    if (retryText) {
+      const retryBtn = document.createElement('button');
+      retryBtn.type = 'button';
+      retryBtn.className = 'elie-retry-btn';
+      retryBtn.textContent = 'Retry';
+      retryBtn.setAttribute('aria-label', 'Retry searching with Elie');
+      retryBtn.style.cssText = 'display:inline-flex; align-items:center; gap:4px; margin-top:8px; padding:4px 12px; font-size:12px; font-weight:600; border-radius:12px; border:1px solid currentColor; background:transparent; color:inherit; cursor:pointer; opacity:0.9;';
+      retryBtn.addEventListener('click', () => {
+        row.remove();
+        const desktop = Boolean(document.getElementById('desktopEditor'));
+        const desktopEditor = document.getElementById('desktopEditor');
+        const input = document.querySelector('.chat-input');
+        if (desktop && desktopEditor) {
+          desktopEditor.textContent = retryText;
+        } else if (input) {
+          input.value = retryText;
+        }
+        updateComposerState();
+        sendText();
+      });
+      bubble.appendChild(retryBtn);
+    }
+    row.appendChild(bubble);
+    messages.appendChild(row);
+    scrollElieToBottom();
+  }
+
   async function loadElieSession(sessionId) {
     state.elie.sessionId = sessionId; state.elie.history = [];
+    state.selectionGeneration++;
     const messages = $('.messages'); clear(messages);
     const result = await window.supabaseClient.from('elie_messages').select('role,body').eq('session_id', sessionId).order('created_at', { ascending: true });
     if (result.error) throw result.error;
@@ -1220,12 +1265,25 @@
   }
 
   async function persistElieMessage(role, text) {
-    if (!state.elie.sessionId) {
-      const created = await window.supabaseClient.from('elie_sessions').insert({ user_id: state.session.user.id, title: text.slice(0, 60) }).select().single();
-      if (created.error) throw created.error; state.elie.sessionId = created.data.id;
+    try {
+      if (!state.session || !state.session.user) return;
+      if (!state.elie.sessionId) {
+        const created = await window.supabaseClient.from('elie_sessions').insert({ user_id: state.session.user.id, title: text.slice(0, 60) }).select().single();
+        if (created.error) {
+          console.warn('Elie session creation failed:', created.error);
+          return;
+        }
+        state.elie.sessionId = created.data.id;
+      }
+      const insertResult = await window.supabaseClient.from('elie_messages').insert({ session_id: state.elie.sessionId, user_id: state.session.user.id, role, body: text });
+      if (insertResult.error) {
+        console.warn('Elie message insert failed:', insertResult.error);
+        return;
+      }
+      await window.supabaseClient.from('elie_sessions').update({ updated_at: new Date().toISOString() }).eq('id', state.elie.sessionId);
+    } catch (err) {
+      console.warn('Elie persistence error:', err);
     }
-    await window.supabaseClient.from('elie_messages').insert({ session_id: state.elie.sessionId, user_id: state.session.user.id, role, body: text });
-    await window.supabaseClient.from('elie_sessions').update({ updated_at: new Date().toISOString() }).eq('id', state.elie.sessionId);
   }
 
   function formatHistoryDate(value) {
@@ -1652,19 +1710,80 @@
         if (conversationId === ELIE_ID) {
           if (!plainContent) return;
           const userText = plainContent;
-          $('.messages').appendChild(elieRow(userText, true)); scrollElieToBottom();
+          const requestGeneration = ++state.selectionGeneration;
+
+          $('.messages').appendChild(elieRow(userText, true));
+          scrollElieToBottom();
           state.elie.history.push({ role: 'user', text: userText });
-          persistElieMessage('user', userText).catch((error) => console.warn('Elie message persistence failed:', error));
+          persistElieMessage('user', userText);
+
           if (desktop) resetDesktopComposer(); else input.value = '';
           updateComposerState();
-          const typing = elieRow('', false, { typing: true }); $('.messages').appendChild(typing); scrollElieToBottom();
-          const fresh = await window.supabaseClient.auth.getSession();
-          const response = await fetch(ELIE_API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${fresh.data.session.access_token}` }, body: JSON.stringify({ message: userText, history: state.elie.history.slice(-6) }) });
-          const data = await response.json().catch(() => ({})); typing.remove();
-          if (!response.ok) { $('.messages').appendChild(elieRow(data.detail || 'Something went wrong reaching Elie. Please try again.', false)); return; }
-          if (data.reply) { state.elie.history.push({ role: 'elie', text: data.reply }); persistElieMessage('elie', data.reply).catch((error) => console.warn('Elie response persistence failed:', error)); }
-          if (data.suggestion) persistElieMessage('elie', data.suggestion).catch((error) => console.warn('Elie suggestion persistence failed:', error));
-          appendElieResults(data, userText);
+
+          const typing = elieRow('', false, { typing: true });
+          $('.messages').appendChild(typing);
+          scrollElieToBottom();
+
+          const controller = new AbortController();
+          const timeoutId = window.setTimeout(() => controller.abort(), 25000);
+
+          try {
+            const fresh = await window.supabaseClient.auth.getSession();
+            const token = fresh && fresh.data && fresh.data.session ? fresh.data.session.access_token : null;
+            if (!token) {
+              throw new Error('Please log in again to use Elie.');
+            }
+
+            const response = await fetch(ELIE_API_URL, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+                'X-Correlation-ID': `CLIENT-${Date.now().toString(36).toUpperCase()}`
+              },
+              body: JSON.stringify({ message: userText, history: state.elie.history.slice(-6) }),
+              signal: controller.signal
+            });
+
+            window.clearTimeout(timeoutId);
+            const data = await response.json().catch(() => ({}));
+            typing.remove();
+
+            // Guard against session switching or conversation changes while request was in-flight
+            if (state.activeId !== ELIE_ID || state.selectionGeneration !== requestGeneration) {
+              return;
+            }
+
+            if (!response.ok) {
+              const errorMessage = data.detail || 'Something went wrong reaching Elie. Please try again.';
+              appendElieError(errorMessage, userText);
+              return;
+            }
+
+            if (data.reply) {
+              state.elie.history.push({ role: 'elie', text: data.reply });
+              persistElieMessage('elie', data.reply);
+            }
+            if (data.suggestion) {
+              persistElieMessage('elie', data.suggestion);
+            }
+            appendElieResults(data, userText);
+          } catch (error) {
+            window.clearTimeout(timeoutId);
+            typing.remove();
+
+            if (state.activeId !== ELIE_ID || state.selectionGeneration !== requestGeneration) {
+              return;
+            }
+
+            let displayMessage = 'Could not reach Elie. Please check your connection and try again.';
+            if (error && error.name === 'AbortError') {
+              displayMessage = 'Elie is taking longer than expected. Please try again.';
+            } else if (error && error.message) {
+              displayMessage = error.message;
+            }
+            appendElieError(displayMessage, userText);
+          }
           return;
         }
         let result;
