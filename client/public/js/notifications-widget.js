@@ -47,7 +47,7 @@ function initNotifications(supabaseClient, currentUser) {
   // Badge dot
   const badge = document.createElement('span');
   badge.className = 'notif-badge';
-  badge.style.cssText = 'display:none;position:absolute;top:2px;right:2px;width:9px;height:9px;border-radius:50%;background:#C41E3A;border:2px solid var(--white);';
+  badge.style.cssText = 'display:none;position:absolute;top:2px;right:2px;width:9px;height:9px;border-radius:50%;background:var(--muted,#5c584f);border:2px solid var(--white);';
   bellBtn.style.position = 'relative';
   bellBtn.appendChild(badge);
 

@@ -39,7 +39,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
-    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#24211E; --paper:#F7F6F3;
+    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#24211E; --paper:#F7F6F3; --nav-active-bg:#E9E7E2;
     --muted:#5c584f; --line:rgba(26,18,16,.12);
     --font-display:'Helvetica Neue', Arial, sans-serif; --font-body:'Helvetica Neue', Arial, sans-serif; --font-brand:'Fraunces', serif;
     /* Sidebar tokens shared with /client-home and /host-home. */
@@ -48,7 +48,7 @@
     --glass-shadow:0 24px 55px #E4E1DA;
   }
   [data-theme="dark"]{
-    --white:#000000; --paper:#000000; --ink:#F5F5F5; --muted:#8A8A8A; --line:rgba(255,255,255,.14);
+    --white:#000000; --paper:#000000; --ink:#F5F5F5; --muted:#8A8A8A; --line:rgba(255,255,255,.14); --nav-active-bg:#302C2A;
     --glass-bg:#000000;
     --glass-border:rgba(255,255,255,.14);
     --glass-shadow:none;
@@ -119,7 +119,7 @@
     cursor:pointer; width:100%; text-align:left; font-family:inherit;
   }
   .nav-item:hover{ background:var(--paper); }
-  .nav-item.active{ background:#FBE4E7; color:var(--red-deep); font-weight:600; }
+  .nav-item.active{ background:var(--nav-active-bg); color:var(--ink); font-weight:600; }
   .nav-item svg{ width:19px; height:19px; flex-shrink:0; }
   #sidebar-host.sidebar{
     --white:#FFFFFF; --ink:#24211E; --muted:#5c584f;

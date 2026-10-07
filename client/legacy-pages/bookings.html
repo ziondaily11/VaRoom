@@ -32,7 +32,7 @@
 <script src="js/skeleton-loader.js"></script>
 <style>
   :root{
-    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#24211E; --paper:#F7F6F3;
+    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#24211E; --paper:#F7F6F3; --nav-active-bg:#E9E7E2;
     --muted:#5c584f;
     --font-display:'Helvetica Neue', Arial, sans-serif; --font-body:'Helvetica Neue', Arial, sans-serif; --font-brand:'Fraunces', serif;
     --glass-bg:rgba(255,255,255,.55);
@@ -42,7 +42,7 @@
     --line-soft:#E4E1DA;
   }
   [data-theme="dark"]{
-    --white:#241C1A; --paper:#15100F; --ink:#F5EFEC; --muted:#B8ACA8;
+    --white:#241C1A; --paper:#15100F; --ink:#F5EFEC; --muted:#B8ACA8; --nav-active-bg:#302C2A;
     --glass-bg:rgba(28,20,18,.55);
     --glass-border:rgba(255,255,255,.09);
     --glass-shadow:0 24px 55px rgba(0,0,0,.5);
@@ -90,7 +90,7 @@
   }
   .nav-item:hover{ background:var(--paper); }
   .nav-item svg{ width:19px; height:19px; flex-shrink:0; }
-  .nav-item.active{ background:#FBE4E7; color:var(--red-deep); font-weight:600; }
+  .nav-item.active{ background:var(--nav-active-bg, #E9E7E2); color:var(--ink); font-weight:600; }
   :is(html[data-account-role="host"] #sidebar, .sidebar.sidebar-host){
     --host-control-active:#E9E7E2; --host-control-hover:#EFEDE8; --host-sidebar-line:#E4E1DA;
   }
@@ -317,7 +317,7 @@
     font-weight:700;
   }
   .tab-count.has-count{ display:inline-flex; }
-  .host-bookings-tabs .tab.active .tab-count{ background:var(--red); color:#fff; }
+  .host-bookings-tabs .tab.active .tab-count{ background:var(--nav-active-bg, #E9E7E2); color:var(--ink); }
 
   .state-msg{ color:var(--muted); font-size:.92rem; padding:2.2rem 0; text-align:center; }
 

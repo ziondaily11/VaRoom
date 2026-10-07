@@ -31,13 +31,13 @@
 <script src="js/skeleton-loader.js"></script>
 <style>
   :root{
-    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#24211E; --paper:#F7F6F3;
+    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#24211E; --paper:#F7F6F3; --nav-active-bg:#E9E7E2;
     --muted:#5c584f; --card-border:#E4E1DA;
     --font-display:'Helvetica Neue', Arial, sans-serif; --font-body:'Helvetica Neue', Arial, sans-serif; --font-brand:'Fraunces', serif;
     --shell-bg:rgba(255,255,255,0.96); --sidebar-bg:#ffffff; --main-bg:#F7F6F3; --rail-bg:#FFFFFF; --card-bg:#ffffff;
   }
   [data-theme="dark"]{
-    --white:#FFFFFF; --paper:#15100f; --ink:#f2ece9; --muted:#a89f9b; --card-border:rgba(255,255,255,.1);
+    --white:#FFFFFF; --paper:#15100f; --ink:#f2ece9; --muted:#a89f9b; --card-border:rgba(255,255,255,.1); --nav-active-bg:#302C2A;
     --shell-bg:#1c1716; --sidebar-bg:#1c1716; --main-bg:#171313; --rail-bg:#171313; --card-bg:#241d1c;
   }
   *{ margin:0; padding:0; box-sizing:border-box; }
@@ -430,11 +430,11 @@
       font-size:.66rem; font-weight:600; color:var(--muted);
       padding:.3rem .6rem; background:none; border:none; font-family:inherit; cursor:pointer;
     }
-    .bottom-bar-item.active{ color:var(--red-deep); }
+    .bottom-bar-item.active{ color:var(--ink); background:var(--nav-active-bg); border-radius:8px; }
     .bottom-bar-item .notification-icon{ position:relative; display:flex; }
     .bottom-bar-item .notification-count{
       position:absolute; top:-7px; right:-11px; min-width:15px; height:15px;
-      padding:0 4px; border-radius:999px; background:var(--red); color:var(--white);
+      padding:0 4px; border-radius:999px; background:var(--nav-active-bg); color:var(--ink);
       font-size:.58rem; line-height:15px; font-weight:700;
     }
     body{ padding-bottom:70px; }

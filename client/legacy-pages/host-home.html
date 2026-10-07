@@ -115,11 +115,11 @@
     cursor:pointer;
   }
   .nav-item:hover{ background:var(--paper); }
-  .nav-item.active{ background:#FBE4E7; color:var(--red-deep); font-weight:600; }
+  .nav-item.active{ background:var(--control-active, #E9E7E2); color:var(--ink); font-weight:600; }
   .nav-item svg{ flex-shrink:0; }
   .notif-nav-badge{
     position:absolute; top:.32rem; right:.55rem; min-width:16px; height:16px;
-    padding:0 4px; border-radius:999px; background:var(--red); color:var(--white);
+    padding:0 4px; border-radius:999px; background:var(--control-active, #E9E7E2); color:var(--ink);
     display:flex; align-items:center; justify-content:center; font-size:.6rem; font-weight:700; line-height:1;
   }
   .notif-nav-badge[hidden]{ display:none; }
@@ -811,7 +811,7 @@
       padding:.35rem .2rem; background:none; border:none; font-family:inherit; cursor:pointer;
       white-space:nowrap;
     }
-    .bottom-bar-item.active{ background:var(--red); color:#fff; font-weight:700; }
+    .bottom-bar-item.active{ background:var(--control-active, #E9E7E2); color:var(--ink); font-weight:700; }
     .bottom-bar-item svg{ width:1.05rem; height:1.05rem; flex-shrink:0; }
     .bottom-bar-item:focus-visible{ outline-color:var(--red); outline-offset:-2px; }
     .bottom-notification-icon{ position:relative; display:flex; }

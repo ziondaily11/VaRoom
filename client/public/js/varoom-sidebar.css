@@ -4,6 +4,7 @@
   --white: #FFFFFF;
   --ink: #24211E;
   --paper: #F7F6F3;
+  --nav-active-bg: #E9E7E2;
   --muted: #5c584f;
   --font-display: 'Helvetica Neue', Arial, sans-serif;
   --font-body: 'Helvetica Neue', Arial, sans-serif;
@@ -19,6 +20,7 @@
   --white: #241C1A;
   --paper: #15100F;
   --ink: #F5EFEC;
+  --nav-active-bg: #302C2A;
   --muted: #B8ACA8;
   --glass-bg: rgba(28, 20, 18, .55);
   --glass-border: rgba(255, 255, 255, .09);
@@ -157,14 +159,14 @@ html[data-account-role="pending"] #sidebar {
 }
 
 .sidebar .nav-item.active {
-  background: #FBE4E7;
-  color: var(--red-deep);
+  background: var(--nav-active-bg);
+  color: var(--ink);
   font-weight: 600;
 }
 
 [data-theme="dark"] .sidebar .nav-item.active {
-  background: rgba(196, 30, 58, .25);
-  color: #F5EFEC;
+  background: var(--nav-active-bg);
+  color: var(--ink);
 }
 
 .sidebar .notif-nav-badge {
@@ -175,8 +177,8 @@ html[data-account-role="pending"] #sidebar {
   height: 16px;
   padding: 0 4px;
   border-radius: 999px;
-  background: var(--red);
-  color: var(--white);
+  background: var(--nav-active-bg);
+  color: var(--ink);
   display: flex;
   align-items: center;
   justify-content: center;
