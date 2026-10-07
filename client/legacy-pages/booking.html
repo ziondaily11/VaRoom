@@ -21,14 +21,14 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
-    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#24211E; --paper:#F7F6F3;
+    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#24211E; --paper:#F7F6F3; --nav-active-bg:#E9E7E2;
     --muted:#5c584f; --line:#E4E1DA; --line-strong:#E4E1DA;
     --green:#2E9B54; --green-deep:#1E6B3A; --green-tint:rgba(46,155,84,.14); --green-tint-strong:rgba(46,155,84,.24);
     --font-display:'Helvetica Neue', Arial, sans-serif; --font-body:'Helvetica Neue', Arial, sans-serif; --font-brand:'Fraunces', serif;
     --skel-base:rgba(128,110,100,.12); --skel-shine:rgba(128,110,100,.22);
   }
   [data-theme="dark"]{
-    --white:#241C1A; --paper:#120D0C; --ink:#F5EFEC; --muted:#C7BDB9;
+    --white:#241C1A; --paper:#120D0C; --ink:#F5EFEC; --muted:#C7BDB9; --nav-active-bg:#302C2A;
     --line:rgba(255,255,255,.16); --line-strong:rgba(255,255,255,.3);
     --green-tint:rgba(46,155,84,.18); --green-tint-strong:rgba(46,155,84,.3);
     --skel-base:rgba(255,255,255,.06); --skel-shine:rgba(255,255,255,.13);
@@ -425,8 +425,8 @@
       width:34px; height:34px; display:flex; align-items:center; justify-content:center;
       border-radius:10px; color:var(--muted); transition:background .15s ease,color .15s ease;
     }
-    .client-nav-link:hover,.client-nav-link:focus-visible{ color:var(--red); background:rgba(196,30,58,.08); }
-    .client-nav-link.active{ color:var(--red); background:rgba(196,30,58,.08); }
+    .client-nav-link:hover,.client-nav-link:focus-visible{ color:var(--ink); background:var(--nav-active-bg); }
+    .client-nav-link.active{ color:var(--ink); background:var(--nav-active-bg); }
     .client-nav-link svg{ width:18px; height:18px; }
     .client-nav-link [data-elie-bot-avatar]{ display:block; width:22px; height:22px; }
     .main-shell{ height:100vh; min-height:100vh; margin-left:54px; overflow:hidden; }

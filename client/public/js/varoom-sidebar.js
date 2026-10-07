@@ -228,7 +228,7 @@
     var style = document.createElement('style');
     style.id = 'varoom-count-badge-styles';
     style.textContent = [
-      '.varoom-count-badge{position:absolute;top:-3px;right:-4px;z-index:2;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:#C41E3A;color:#FFFFFF;display:flex;align-items:center;justify-content:center;font:700 10px/1 Arial,sans-serif;white-space:nowrap;box-sizing:border-box;}',
+      '.varoom-count-badge{position:absolute;top:-3px;right:-4px;z-index:2;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:var(--nav-active-bg,#E9E7E2);color:var(--ink,#24211E);display:flex;align-items:center;justify-content:center;font:700 10px/1 Arial,sans-serif;white-space:nowrap;box-sizing:border-box;}',
       '.sidebar .varoom-count-badge{top:.32rem;right:.55rem;}',
       '.varoom-count-badge[hidden]{display:none;}'
     ].join('');
