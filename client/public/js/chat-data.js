@@ -80,8 +80,194 @@
     }
   };
 
+  let activePreviewUrl = null;
+  let pendingPhotoFile = null;
+
+  function ensureMediaPreviewModal() {
+    let modal = document.getElementById('chatMediaPreviewModal');
+    const chatCol = $('.chat-col');
+    if (!modal && chatCol) {
+      modal = document.createElement('div');
+      modal.id = 'chatMediaPreviewModal';
+      modal.className = 'chat-media-preview-composer';
+      modal.hidden = true;
+      modal.setAttribute('aria-hidden', 'true');
+      modal.setAttribute('role', 'dialog');
+      modal.setAttribute('aria-label', 'Preview image to share');
+      modal.innerHTML = `
+        <div class="chat-media-preview-header">
+          <button type="button" class="chat-media-preview-close" id="chatMediaPreviewClose" aria-label="Cancel image share" title="Cancel">
+            <svg class="icon" aria-hidden="true"><use href="#i-close"/></svg>
+          </button>
+        </div>
+        <div class="chat-media-preview-body">
+          <img id="chatMediaPreviewImg" class="chat-media-preview-image" alt="Selected image preview" />
+        </div>
+        <div class="chat-media-preview-footer">
+          <div class="chat-media-preview-caption-wrap">
+            <input type="text" id="chatMediaPreviewCaption" class="chat-media-preview-caption-input" placeholder="Type a message" aria-label="Type a message" />
+          </div>
+          <button type="button" class="chat-media-preview-send-btn" id="chatMediaPreviewSend" aria-label="Send photo" title="Send photo">
+            <svg class="icon" aria-hidden="true"><use href="#i-send"/></svg>
+          </button>
+        </div>
+      `;
+      chatCol.appendChild(modal);
+    }
+    if (modal && !modal.dataset.bound) {
+      modal.dataset.bound = 'true';
+      const closeBtn = modal.querySelector('#chatMediaPreviewClose');
+      const sendBtn = modal.querySelector('#chatMediaPreviewSend');
+      const captionInput = modal.querySelector('#chatMediaPreviewCaption');
+
+      if (closeBtn) closeBtn.addEventListener('click', closeMediaPreview);
+      if (sendBtn) sendBtn.addEventListener('click', sendMediaPreview);
+      if (captionInput) {
+        captionInput.addEventListener('keydown', (event) => {
+          if (event.key === 'Escape') {
+            event.preventDefault();
+            closeMediaPreview();
+          } else if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            sendMediaPreview();
+          }
+        });
+      }
+    }
+  }
+
+  function openMediaPreview(file) {
+    if (!file || !state.activeId) return;
+    if (activePreviewUrl) {
+      URL.revokeObjectURL(activePreviewUrl);
+      activePreviewUrl = null;
+    }
+    pendingPhotoFile = file;
+    activePreviewUrl = URL.createObjectURL(file);
+
+    ensureMediaPreviewModal();
+
+    const modal = document.getElementById('chatMediaPreviewModal');
+    const img = document.getElementById('chatMediaPreviewImg');
+    const captionInput = document.getElementById('chatMediaPreviewCaption');
+    const sendBtn = document.getElementById('chatMediaPreviewSend');
+
+    if (!modal || !img || !captionInput || !sendBtn) return;
+
+    img.src = activePreviewUrl;
+    img.alt = file.name || 'Selected image preview';
+    captionInput.value = '';
+    sendBtn.disabled = false;
+    sendBtn.removeAttribute('aria-busy');
+
+    modal.hidden = false;
+    modal.setAttribute('aria-hidden', 'false');
+
+    setTimeout(() => {
+      captionInput.focus();
+    }, 50);
+  }
+
+  function closeMediaPreview() {
+    const modal = document.getElementById('chatMediaPreviewModal');
+    const img = document.getElementById('chatMediaPreviewImg');
+    const captionInput = document.getElementById('chatMediaPreviewCaption');
+    const sendBtn = document.getElementById('chatMediaPreviewSend');
+
+    if (modal) {
+      modal.hidden = true;
+      modal.setAttribute('aria-hidden', 'true');
+    }
+    if (img) img.src = '';
+    if (captionInput) captionInput.value = '';
+    if (sendBtn) {
+      sendBtn.disabled = false;
+      sendBtn.removeAttribute('aria-busy');
+    }
+    if (activePreviewUrl) {
+      URL.revokeObjectURL(activePreviewUrl);
+      activePreviewUrl = null;
+    }
+    pendingPhotoFile = null;
+  }
+
+  async function sendMediaPreview() {
+    if (!pendingPhotoFile || !state.activeId) return;
+    const sendBtn = document.getElementById('chatMediaPreviewSend');
+    const captionInput = document.getElementById('chatMediaPreviewCaption');
+    if (sendBtn) {
+      sendBtn.disabled = true;
+      sendBtn.setAttribute('aria-busy', 'true');
+    }
+
+    const file = pendingPhotoFile;
+    const caption = captionInput ? captionInput.value.trim() : '';
+    const conversationId = state.activeId;
+
+    try {
+      const init = await api(`/api/chat/conversations/${encodeURIComponent(conversationId)}/attachments/upload-init`, {
+        method: 'POST',
+        body: JSON.stringify({ filename: file.name, mimeType: file.type, fileSize: file.size, kind: 'photo' }),
+      });
+      const uploadResponse = await fetch(init.uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': file.type },
+        body: file,
+      });
+      if (!uploadResponse.ok) throw new Error('Photo upload failed');
+      await api(`/api/chat/conversations/${encodeURIComponent(conversationId)}/attachments/${encodeURIComponent(init.attachmentId)}/complete`, {
+        method: 'POST',
+        body: '{}',
+      });
+      const result = await api(`/api/chat/conversations/${encodeURIComponent(conversationId)}/messages`, {
+        method: 'POST',
+        body: JSON.stringify({ content: caption || '', attachmentId: init.attachmentId, messageType: 'photo' }),
+      });
+
+      closeMediaPreview();
+
+      if (state.activeId !== conversationId) return;
+
+      const current = $('.messages');
+      const replyMessages = result.messages || (result.message ? [result.message] : []);
+      replyMessages.forEach((message) => {
+        if (message && !current.querySelector(`[data-message-id="${message.id}"]`)) {
+          current.appendChild(messageRow(message));
+        }
+      });
+      if (replyMessages.length) current.scrollTop = current.scrollHeight;
+      updateConversationPreview(replyMessages[replyMessages.length - 1] || result.message);
+    } catch (error) {
+      console.error('Failed to send image message:', error);
+      if (sendBtn) {
+        sendBtn.disabled = false;
+        sendBtn.removeAttribute('aria-busy');
+      }
+      alert('Failed to send image. Please try again.');
+    }
+  }
+
+  window.openMediaPreview = openMediaPreview;
+  window.closeMediaPreview = closeMediaPreview;
+  document.addEventListener('varoom:open-media-preview', (event) => {
+    if (event.detail && event.detail.file) {
+      openMediaPreview(event.detail.file);
+    }
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      const modal = document.getElementById('chatMediaPreviewModal');
+      if (modal && !modal.hidden) {
+        closeMediaPreview();
+      }
+    }
+  });
+
   function ensureChatPanels() {
-    if (document.getElementById('chatShareSheet')) return;
+    if (document.getElementById('chatShareSheet')) {
+      ensureMediaPreviewModal();
+      return;
+    }
     const style = document.createElement('style');
     style.textContent = `
       .chat-sheet{position:absolute;left:0;right:0;bottom:0;z-index:5;background:#fff;border-top:1px solid #e2e5ea;box-shadow:0 -8px 24px rgba(20,22,28,.12);padding:18px 28px;transform:translateY(110%);transition:transform .2s ease;max-height:70%;overflow:auto}
@@ -111,6 +297,7 @@
       sheet.setAttribute('aria-hidden', 'true');
       chatCol.appendChild(sheet);
     });
+    ensureMediaPreviewModal();
     let savedInformationContent = null;
     const restoreInformationPanel = async () => {
       const info = $('.info-col');
@@ -378,6 +565,7 @@
   }
 
   function renderEmptyState() {
+    closeMediaPreview();
     renderPinnedMessage([]);
     const copy = emptyStateCopy();
     const list = $('#contactList');
@@ -475,7 +663,8 @@
     const conversations = state.role === 'client' ? [elieConversation(), ...state.conversations] : state.conversations;
     conversations.forEach((conversation) => {
       const person = conversation.participant || {};
-      const preview = previewText(conversation.lastMessage && conversation.lastMessage.body);
+      const lastMsg = conversation.lastMessage;
+      const preview = lastMsg ? (lastMsg.message_type === 'photo' ? (previewText(lastMsg.body) || 'Photo') : previewText(lastMsg.body)) : '';
       const item = document.createElement('li');
       item.className = `contact-item${conversation.id === state.activeId ? ' active' : ''}`;
       item.dataset.conversationId = conversation.id;
@@ -678,7 +867,16 @@
         image.src = url;
         image.addEventListener('click', () => openImagePreview(url, image.alt));
       }).catch((error) => { removeLoader(); console.error('Image message unavailable:', error); });
-      block.append(image, meta);
+      block.appendChild(image);
+      const caption = (message.body || '').trim();
+      const filename = message.attachment && message.attachment.original_filename;
+      if (caption && caption !== filename) {
+        const captionEl = document.createElement('div');
+        captionEl.className = 'chat-message-caption';
+        captionEl.textContent = caption;
+        block.appendChild(captionEl);
+      }
+      block.appendChild(meta);
       row.appendChild(block);
     } else if (message.attachment_id) {
       const card = document.createElement('div');
@@ -1078,6 +1276,7 @@
 
   async function selectConversation(id) {
     if (id === ELIE_ID) return selectElieConversation();
+    closeMediaPreview();
     closeMessageMenu();
     clearReplyState();
     const selectionGeneration = ++state.selectionGeneration;
@@ -1397,10 +1596,16 @@
     imageButton.addEventListener('click', () => { fileInput.accept = 'image/*'; fileInput.dataset.kind = 'photo'; fileInput.click(); });
     fileButton.addEventListener('click', () => { fileInput.accept = ''; fileInput.dataset.kind = 'file'; fileInput.click(); });
     fileInput.addEventListener('change', async () => {
-      if (fileInput.files[0] && isMobile()) {
-        state.pendingAttachment = { kind: fileInput.dataset.kind, file: fileInput.files[0], name: fileInput.files[0].name };
+      const file = fileInput.files[0];
+      if (!file) return;
+      if (fileInput.dataset.kind === 'photo' || (file.type && file.type.startsWith('image/'))) {
+        openMediaPreview(file);
+      } else if (isMobile()) {
+        state.pendingAttachment = { kind: fileInput.dataset.kind, file: file, name: file.name };
         updateMobilePreview();
-      } else if (fileInput.files[0]) await upload(fileInput.files[0], fileInput.dataset.kind);
+      } else {
+        await upload(file, fileInput.dataset.kind);
+      }
       fileInput.value = '';
     });
     const bind = (element, event, handler, description) => {
