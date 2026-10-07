@@ -1228,17 +1228,103 @@
     await window.supabaseClient.from('elie_sessions').update({ updated_at: new Date().toISOString() }).eq('id', state.elie.sessionId);
   }
 
+  function formatHistoryDate(value) {
+    if (!value) return '';
+    const date = new Date(value);
+    const now = new Date();
+    const timeStr = date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    const isToday = date.toDateString() === now.toDateString();
+    const yesterday = new Date(now);
+    yesterday.setDate(now.getDate() - 1);
+    const isYesterday = date.toDateString() === yesterday.toDateString();
+
+    if (isToday) return `Today, ${timeStr}`;
+    if (isYesterday) return `Yesterday, ${timeStr}`;
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return `${monthNames[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}, ${timeStr}`;
+  }
+
+  function closeElieHistory() {
+    const panel = document.getElementById('elieHistoryPanel');
+    if (!panel) return;
+    panel.classList.remove('open');
+    panel.setAttribute('aria-hidden', 'true');
+    window.setTimeout(() => {
+      if (!panel.classList.contains('open')) panel.hidden = true;
+    }, 220);
+  }
+
   async function openElieHistory() {
-    const sheet = document.getElementById('chatShareSheet');
-    sheet.innerHTML = '<div class="chat-sheet-head"><span>Recent Elie chats</span><button class="chat-sheet-close" type="button" aria-label="Close">×</button></div><button class="chat-sheet-action" type="button">New chat</button><div class="elie-history-list"></div>';
-    sheet.querySelector('.chat-sheet-close').addEventListener('click', () => closeSheet('chatShareSheet'));
-    sheet.querySelector('.chat-sheet-action').addEventListener('click', () => { state.elie.sessionId = null; state.elie.history = []; renderElieIntro(); closeSheet('chatShareSheet'); });
-    const list = sheet.querySelector('.elie-history-list'); list.textContent = 'Loading…';
-    const result = await window.supabaseClient.from('elie_sessions').select('id,title,updated_at').eq('user_id', state.session.user.id).order('updated_at', { ascending: false }).limit(20);
+    if (!isElie()) return;
+    const panel = document.getElementById('elieHistoryPanel');
+    if (!panel) return;
+    panel.hidden = false;
+    void panel.offsetWidth;
+    panel.classList.add('open');
+    panel.setAttribute('aria-hidden', 'false');
+
+    const list = document.getElementById('elieHistoryList');
+    if (!list) return;
     clear(list);
-    if (result.error || !result.data || !result.data.length) { list.textContent = 'No past chats yet.'; }
-    else result.data.forEach((session) => { const button = document.createElement('button'); button.type = 'button'; button.className = 'elie-history-item'; button.textContent = session.title || 'New conversation'; button.addEventListener('click', async () => { await loadElieSession(session.id); closeSheet('chatShareSheet'); }); list.appendChild(button); });
-    sheet.classList.add('open'); sheet.setAttribute('aria-hidden', 'false');
+    const loading = document.createElement('div');
+    loading.className = 'elie-history-empty';
+    loading.textContent = 'Loading past searches…';
+    list.appendChild(loading);
+
+    try {
+      const result = await window.supabaseClient
+        .from('elie_sessions')
+        .select('id,title,updated_at,created_at')
+        .eq('user_id', state.session.user.id)
+        .order('updated_at', { ascending: false })
+        .limit(30);
+
+      clear(list);
+      if (result.error) throw result.error;
+      if (!result.data || !result.data.length) {
+        const empty = document.createElement('div');
+        empty.className = 'elie-history-empty';
+        empty.textContent = 'No past searches yet.';
+        list.appendChild(empty);
+        return;
+      }
+
+      result.data.forEach((session) => {
+        const item = document.createElement('button');
+        item.type = 'button';
+        item.className = 'elie-history-item';
+        item.innerHTML = `
+          <div class="elie-history-item-copy">
+            <span class="elie-history-item-title"></span>
+            <span class="elie-history-item-time"></span>
+          </div>
+          <svg class="icon elie-history-item-arrow" aria-hidden="true"><use href="#i-chevron-right"/></svg>
+        `;
+        item.querySelector('.elie-history-item-title').textContent = session.title || 'Search conversation';
+        item.querySelector('.elie-history-item-time').textContent = formatHistoryDate(session.updated_at || session.created_at);
+        item.addEventListener('click', async () => {
+          closeElieHistory();
+          await loadElieSession(session.id);
+        });
+        list.appendChild(item);
+      });
+    } catch (error) {
+      console.error('Failed to load Elie history:', error);
+      clear(list);
+      const errorEl = document.createElement('div');
+      errorEl.className = 'elie-history-empty';
+      errorEl.textContent = 'Unable to load search history.';
+      list.appendChild(errorEl);
+    }
+  }
+
+  function toggleElieHistory() {
+    const panel = document.getElementById('elieHistoryPanel');
+    if (panel && panel.classList.contains('open') && !panel.hidden) {
+      closeElieHistory();
+    } else {
+      openElieHistory();
+    }
   }
 
   function syncComposerMode() {
@@ -1258,6 +1344,8 @@
     if (isElieActive) {
       state.pendingAttachment = null;
       updateMobilePreview();
+    } else {
+      closeElieHistory();
     }
     window.dispatchEvent(new CustomEvent('varoom:active-conversation-changed', {
       detail: { id: state.activeId, isElie: isElieActive }
@@ -1265,6 +1353,7 @@
   }
 
   async function selectElieConversation() {
+    closeElieHistory();
     closeMessageMenu();
     clearReplyState();
     renderPinnedMessage([]);
@@ -1272,7 +1361,7 @@
     showConversationInterface(); renderConversationList();
     $('#chatName').textContent = 'Elie'; $('#statusText').textContent = 'Your VaRoom search assistant'; $('#statusDot').classList.remove('online');
     const historyButton = document.querySelector('.chat-header-actions button:last-child');
-    if (historyButton) { historyButton.title = 'Recent Elie chats'; historyButton.setAttribute('aria-label', 'Recent Elie chats'); historyButton.innerHTML = '<svg class="icon"><circle cx="12" cy="12" r="8"></circle><path d="M12 7v5l3 2"></path></svg>'; }
+    if (historyButton) { historyButton.title = 'Search history'; historyButton.setAttribute('aria-label', 'Search history'); historyButton.innerHTML = '<svg class="icon"><use href="#i-clock"/></svg>'; }
     const avatar = $('.chat-header-avatar-wrap .avatar-fallback'); if (avatar) { avatar.style.background = '#f6f7f9'; avatar.innerHTML = elieAvatarMarkup(40); }
     renderElieInformation(); $('.info-col').classList.add('collapsed'); renderElieIntro();
     syncComposerMode();
@@ -1346,6 +1435,7 @@
 
   async function selectConversation(id) {
     if (id === ELIE_ID) return selectElieConversation();
+    closeElieHistory();
     closeMediaPreview();
     closeMessageMenu();
     clearReplyState();
@@ -1729,11 +1819,43 @@
       if (desktop) desktopEditor.textContent = event.detail; else input.value = event.detail;
       updateComposerState(); await sendText();
     });
+    const elieToggle = document.getElementById('elieHistoryToggle');
+    if (elieToggle) {
+      elieToggle.addEventListener('click', (event) => {
+        event.stopPropagation();
+        if (isElie()) toggleElieHistory();
+      });
+    }
+    const elieClose = document.getElementById('elieHistoryClose');
+    if (elieClose) {
+      elieClose.addEventListener('click', (event) => {
+        event.stopPropagation();
+        closeElieHistory();
+      });
+    }
     const elieHistoryButton = document.querySelector('.chat-header-actions button:last-child');
     if (elieHistoryButton) {
       elieHistoryButton.disabled = false;
-      elieHistoryButton.addEventListener('click', () => { if (isElie()) openElieHistory(); });
+      elieHistoryButton.addEventListener('click', () => { if (isElie()) toggleElieHistory(); });
     }
+    document.addEventListener('pointerdown', (event) => {
+      const panel = document.getElementById('elieHistoryPanel');
+      const toggle = document.getElementById('elieHistoryToggle');
+      const historyBtn = document.querySelector('.chat-header-actions button:last-child');
+      if (panel && panel.classList.contains('open') && !panel.contains(event.target)
+        && (!toggle || !toggle.contains(event.target))
+        && (!historyBtn || !historyBtn.contains(event.target))) {
+        closeElieHistory();
+      }
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        const panel = document.getElementById('elieHistoryPanel');
+        if (panel && panel.classList.contains('open')) {
+          closeElieHistory();
+        }
+      }
+    });
     if (isMobile()) bind($('#toggle-info-panel'), 'click', showMobileInfo, 'information panel toggle');
     const actions = document.createElement('div');
     actions.className = 'info-section chat-actions';
