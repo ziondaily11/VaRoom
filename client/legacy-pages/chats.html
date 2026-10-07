@@ -166,18 +166,34 @@
     z-index:35;
     display:flex;
     flex-direction:column;
-    background:#0b0d13;
-    color:#ffffff;
+    background-repeat:repeat !important;
+    background-position:left top !important;
+    background-size:min(100%, 414px) auto !important;
+    background-attachment:scroll !important;
+    border:none !important;
+    box-shadow:none !important;
     overflow:hidden;
   }
   .chat-media-preview-composer[hidden]{
     display:none !important;
   }
+  [data-theme="dark"] .chat-media-preview-composer{
+    background-color:#0F0D0D !important;
+    background-image:url("/assets/chatbackground.png") !important;
+    color:var(--text-dark, #F5EFEC);
+  }
+  html:not([data-theme="dark"]) .chat-media-preview-composer{
+    background-color:var(--white, #ffffff) !important;
+    background-image:url("/assets/chatbackground-light.png") !important;
+    color:var(--text-dark, #14161c);
+  }
+
   .chat-media-preview-header{
     display:flex;
     align-items:center;
     justify-content:flex-start;
-    padding:16px 20px 8px;
+    padding:16px 24px 8px;
+    background:transparent !important;
     flex-shrink:0;
   }
   .chat-media-preview-close{
@@ -187,14 +203,24 @@
     width:38px;
     height:38px;
     border-radius:50%;
-    border:0;
-    background:rgba(255,255,255,0.12);
-    color:#ffffff;
     cursor:pointer;
-    transition:background 0.15s ease, transform 0.1s ease;
+    transition:background 0.15s ease, transform 0.1s ease, border-color 0.15s ease;
   }
-  .chat-media-preview-close:hover{
-    background:rgba(255,255,255,0.22);
+  [data-theme="dark"] .chat-media-preview-close{
+    background:rgba(255,255,255,0.08);
+    border:1px solid rgba(255,255,255,0.12);
+    color:var(--text-dark, #F5EFEC);
+  }
+  [data-theme="dark"] .chat-media-preview-close:hover{
+    background:rgba(255,255,255,0.16);
+  }
+  html:not([data-theme="dark"]) .chat-media-preview-close{
+    background:rgba(0,0,0,0.05);
+    border:1px solid rgba(0,0,0,0.08);
+    color:var(--text-dark, #14161c);
+  }
+  html:not([data-theme="dark"]) .chat-media-preview-close:hover{
+    background:rgba(0,0,0,0.1);
   }
   .chat-media-preview-close:active{
     transform:scale(0.95);
@@ -203,6 +229,7 @@
     width:18px;
     height:18px;
   }
+
   .chat-media-preview-body{
     flex:1;
     min-height:0;
@@ -210,6 +237,7 @@
     align-items:center;
     justify-content:center;
     padding:12px 24px;
+    background:transparent !important;
     overflow:hidden;
     user-select:none;
   }
@@ -220,9 +248,9 @@
     height:auto;
     object-fit:contain;
     border-radius:8px;
-    box-shadow:0 4px 24px rgba(0,0,0,0.45);
     pointer-events:none;
   }
+
   .chat-media-preview-footer{
     display:flex;
     align-items:center;
@@ -233,67 +261,99 @@
     width:100%;
     margin:0 auto;
     box-sizing:border-box;
+    background:transparent !important;
+    border:none !important;
+    box-shadow:none !important;
   }
   .chat-media-preview-caption-wrap{
     flex:1;
     min-width:0;
-    background:rgba(255,255,255,0.09);
-    border:1px solid rgba(255,255,255,0.18);
     border-radius:24px;
     padding:10px 18px;
     display:flex;
     align-items:center;
     transition:border-color 0.15s ease, background 0.15s ease;
   }
-  .chat-media-preview-caption-wrap:focus-within{
-    background:rgba(255,255,255,0.14);
-    border-color:var(--mint, #2563EB);
+  [data-theme="dark"] .chat-media-preview-caption-wrap{
+    background:#18181B;
+    border:1px solid #27272A;
   }
+  [data-theme="dark"] .chat-media-preview-caption-wrap:focus-within{
+    border-color:rgba(255,255,255,0.3);
+  }
+  html:not([data-theme="dark"]) .chat-media-preview-caption-wrap{
+    background:#ffffff;
+    border:1px solid #e2e5ea;
+  }
+  html:not([data-theme="dark"]) .chat-media-preview-caption-wrap:focus-within{
+    border-color:#9ca3af;
+  }
+
   .chat-media-preview-caption-input{
     width:100%;
     border:0;
     outline:none;
-    background:transparent;
-    color:#ffffff;
+    background:transparent !important;
     font-family:inherit;
     font-size:14px;
     line-height:20px;
   }
-  .chat-media-preview-caption-input::placeholder{
-    color:rgba(255,255,255,0.48);
+  [data-theme="dark"] .chat-media-preview-caption-input{
+    color:var(--text-dark, #F5EFEC);
   }
+  [data-theme="dark"] .chat-media-preview-caption-input::placeholder{
+    color:var(--text-gray, rgba(245,239,236,.58));
+  }
+  html:not([data-theme="dark"]) .chat-media-preview-caption-input{
+    color:var(--text-dark, #14161c);
+  }
+  html:not([data-theme="dark"]) .chat-media-preview-caption-input::placeholder{
+    color:var(--text-gray, #6f737a);
+  }
+
   .chat-media-preview-send-btn{
     width:44px;
     height:44px;
     border-radius:50%;
     border:0;
-    background:var(--mint, #2563EB);
-    color:#ffffff;
     display:flex;
     align-items:center;
     justify-content:center;
     cursor:pointer;
     flex-shrink:0;
-    transition:transform 0.15s ease, opacity 0.15s ease, filter 0.15s ease;
-    box-shadow:0 2px 10px rgba(37,99,235,0.35);
+    transition:transform 0.15s ease, opacity 0.15s ease, background-color 0.15s ease;
   }
-  .chat-media-preview-send-btn:hover{
-    filter:brightness(1.1);
+  [data-theme="dark"] .chat-media-preview-send-btn{
+    background:#27272A;
+    border:1px solid rgba(255,255,255,0.1);
+    color:#ffffff;
+  }
+  [data-theme="dark"] .chat-media-preview-send-btn:hover{
+    background:#3f3f46;
+    transform:scale(1.04);
+  }
+  html:not([data-theme="dark"]) .chat-media-preview-send-btn{
+    background:#18181B;
+    border:1px solid #27272A;
+    color:#ffffff;
+  }
+  html:not([data-theme="dark"]) .chat-media-preview-send-btn:hover{
+    background:#27272A;
     transform:scale(1.04);
   }
   .chat-media-preview-send-btn:active{
     transform:scale(0.94);
   }
   .chat-media-preview-send-btn:disabled{
-    opacity:0.5;
+    opacity:0.4;
     cursor:not-allowed;
     transform:none;
-    filter:none;
   }
   .chat-media-preview-send-btn .icon{
-    width:20px;
-    height:20px;
+    width:18px;
+    height:18px;
   }
+
   .chat-message-caption{
     margin-top:6px;
     font-size:13.5px;
