@@ -691,18 +691,23 @@
       }
 
       const loadingRow = addTypingIndicator();
+      const controller = new AbortController();
+      const timeoutId = setTimeout(function(){ controller.abort(); }, 25000);
 
       try {
         const response = await fetch(ELIE_API_URL, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + freshSession.access_token
+            'Authorization': 'Bearer ' + freshSession.access_token,
+            'X-Correlation-ID': 'LEGACY-' + Date.now().toString(36).toUpperCase()
           },
-          body: JSON.stringify({ message: message, history: conversationHistory.slice(-6) })
+          body: JSON.stringify({ message: message, history: conversationHistory.slice(-6) }),
+          signal: controller.signal
         });
 
-        const data = await response.json();
+        clearTimeout(timeoutId);
+        const data = await response.json().catch(function(){ return {}; });
         loadingRow._clearSlowTimer();
         loadingRow.remove();
 
@@ -723,9 +728,14 @@
           persistMessage('elie', data.reply);
         }
       } catch (err) {
+        clearTimeout(timeoutId);
         loadingRow._clearSlowTimer();
         loadingRow.remove();
-        addElieTextMessage("Couldn't reach Elie right now — check your connection and try again.", { error: true });
+        var errMsg = "Couldn't reach Elie right now — check your connection and try again.";
+        if (err && err.name === 'AbortError') {
+          errMsg = "Elie took longer than expected. Please try again.";
+        }
+        addElieTextMessage(errMsg, { error: true });
       }
     }
 
