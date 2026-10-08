@@ -225,21 +225,25 @@ async def call_gemini(
     request_id: Optional[str] = None,
     stage: str = "general",
     response_json: bool = False,
-    temperature: Optional[float] = None,
     max_output_tokens: Optional[int] = None,
     max_attempts_per_model: int = 2,
     total_time_budget: float = 18.0,
     per_attempt_timeout: float = 8.0,
-) -> Optional[str]:
+) -> str:
     """
     Calls Google Generative Language API with bounded exponential backoff,
     transient failure retries, and automatic fallback to a secondary model.
+    Compatible with Gemini 3.8 and Gemini 3.6 Flash thinking configurations.
     Logs structured, sanitized diagnostics with correlation IDs.
     """
     req_id = request_id or get_or_create_correlation_id()
     if not GEMINI_API_KEY:
         logger.error("request_id=%s stage=%s error=GEMINI_AUTH_ERROR detail=API key not configured", req_id, stage)
-        return None
+        raise ElieGenerationError(
+            "Gemini API key is not configured.",
+            category=GeminiErrorCategory.AUTH_ERROR,
+            status_code=500,
+        )
 
     request_body: Dict[str, Any] = {
         "contents": [{"parts": [{"text": prompt}]}]
@@ -247,12 +251,11 @@ async def call_gemini(
     gen_config: Dict[str, Any] = {}
     if response_json:
         gen_config["responseMimeType"] = "application/json"
-    if temperature is not None:
-        gen_config["temperature"] = temperature
     if max_output_tokens is not None:
         gen_config["maxOutputTokens"] = max_output_tokens
     if GEMINI_CAPACITY:
-        gen_config["thinkingConfig"] = {"thinkingEffort": GEMINI_CAPACITY}
+        # Gemini 3.8 & 3.6 use thinkingLevel in thinkingConfig (minimal, low, medium, high)
+        gen_config["thinkingConfig"] = {"thinkingLevel": GEMINI_CAPACITY.lower()}
     if gen_config:
         request_body["generationConfig"] = gen_config
 
@@ -262,6 +265,7 @@ async def call_gemini(
 
     start_time = time.monotonic()
     last_category = GeminiErrorCategory.UNKNOWN_ERROR
+    last_status = 500
 
     for model_idx, model in enumerate(models_to_try):
         is_fallback = model_idx > 0
@@ -276,6 +280,7 @@ async def call_gemini(
                     req_id, stage, model, attempt, int(elapsed * 1000)
                 )
                 last_category = GeminiErrorCategory.TIMEOUT
+                last_status = 504
                 break
 
             attempt_timeout = min(per_attempt_timeout, remaining_budget)
@@ -305,11 +310,16 @@ async def call_gemini(
                                 "request_id=%s stage=%s model=%s attempt=%d status=200 duration_ms=%d category=%s block_reason=%s",
                                 req_id, stage, model, attempt, attempt_duration_ms, last_category, prompt_feedback.get("blockReason")
                             )
-                            return None
+                            raise ElieGenerationError(
+                                f"Gemini safety block: {prompt_feedback.get('blockReason')}",
+                                category=last_category,
+                                status_code=400,
+                            )
 
                         candidates = data.get("candidates") or []
                         if not candidates:
                             last_category = GeminiErrorCategory.EMPTY_RESPONSE
+                            last_status = 503
                             logger.warning(
                                 "request_id=%s stage=%s model=%s attempt=%d status=200 duration_ms=%d category=%s",
                                 req_id, stage, model, attempt, attempt_duration_ms, last_category
@@ -327,7 +337,11 @@ async def call_gemini(
                                 "request_id=%s stage=%s model=%s attempt=%d status=200 duration_ms=%d category=%s finish_reason=%s",
                                 req_id, stage, model, attempt, attempt_duration_ms, last_category, finish_reason
                             )
-                            return None
+                            raise ElieGenerationError(
+                                f"Gemini safety block: {finish_reason}",
+                                category=last_category,
+                                status_code=400,
+                            )
 
                         parts = (candidate.get("content") or {}).get("parts") or []
                         text = "".join(
@@ -338,6 +352,7 @@ async def call_gemini(
 
                         if not text:
                             last_category = GeminiErrorCategory.EMPTY_RESPONSE
+                            last_status = 503
                             logger.warning(
                                 "request_id=%s stage=%s model=%s attempt=%d status=200 duration_ms=%d category=%s finish_reason=%s",
                                 req_id, stage, model, attempt, attempt_duration_ms, last_category, finish_reason
@@ -355,6 +370,7 @@ async def call_gemini(
 
                     # Non-200 responses
                     status = response.status_code
+                    last_status = status
                     if status == 429:
                         last_category = GeminiErrorCategory.RATE_LIMIT
                         logger.warning(
@@ -374,12 +390,16 @@ async def call_gemini(
                             "request_id=%s stage=%s model=%s attempt=%d status=%d duration_ms=%d category=%s",
                             req_id, stage, model, attempt, status, attempt_duration_ms, last_category
                         )
-                        return None
+                        raise ElieGenerationError(
+                            f"Gemini authentication failure ({status}).",
+                            category=last_category,
+                            status_code=status,
+                        )
 
                     elif status == 404:
                         last_category = GeminiErrorCategory.MODEL_ERROR
                         logger.error(
-                            "request_id=%s stage=%s model=%s attempt=%d status=404 duration_ms=%d category=%s",
+                            "request_id=%s stage=%s model=%s attempt=%d status=404 duration_ms=%d category=%s detail=model_not_found",
                             req_id, stage, model, attempt, attempt_duration_ms, last_category
                         )
                         # Switch to fallback model immediately
@@ -387,11 +407,17 @@ async def call_gemini(
 
                     elif 400 <= status < 500:
                         last_category = GeminiErrorCategory.CLIENT_ERROR
+                        raw_err = response.text[:1000]
+                        clean_err = re.sub(r'AIza[0-9A-Za-z-_]{35}', '[REDACTED_API_KEY]', raw_err)
                         logger.error(
-                            "request_id=%s stage=%s model=%s attempt=%d status=%d duration_ms=%d category=%s",
-                            req_id, stage, model, attempt, status, attempt_duration_ms, last_category
+                            "request_id=%s stage=%s model=%s attempt=%d status=%d duration_ms=%d category=%s error_body=%s",
+                            req_id, stage, model, attempt, status, attempt_duration_ms, last_category, clean_err
                         )
-                        return None
+                        raise ElieGenerationError(
+                            f"Gemini client error ({status}): {clean_err}",
+                            category=last_category,
+                            status_code=status,
+                        )
 
                     elif status >= 500:
                         last_category = GeminiErrorCategory.PROVIDER_5XX
@@ -406,8 +432,12 @@ async def call_gemini(
                                 continue
                         break
 
+            except ElieGenerationError:
+                raise
+
             except (httpx.TimeoutException, httpx.TransportError, httpx.ConnectError) as e:
                 attempt_duration_ms = int((time.monotonic() - attempt_start) * 1000)
+                last_status = 504 if isinstance(e, httpx.TimeoutException) else 502
                 last_category = (
                     GeminiErrorCategory.TIMEOUT
                     if isinstance(e, httpx.TimeoutException)
@@ -427,6 +457,7 @@ async def call_gemini(
             except Exception as e:
                 attempt_duration_ms = int((time.monotonic() - attempt_start) * 1000)
                 last_category = GeminiErrorCategory.UNKNOWN_ERROR
+                last_status = 500
                 logger.exception(
                     "request_id=%s stage=%s model=%s attempt=%d status=0 duration_ms=%d category=%s error=%s",
                     req_id, stage, model, attempt, attempt_duration_ms, last_category, type(e).__name__
@@ -435,10 +466,14 @@ async def call_gemini(
 
     total_ms = int((time.monotonic() - start_time) * 1000)
     logger.error(
-        "request_id=%s stage=%s result=all_attempts_failed category=%s total_duration_ms=%d",
-        req_id, stage, last_category, total_ms
+        "request_id=%s stage=%s result=all_attempts_failed category=%s status=%d total_duration_ms=%d",
+        req_id, stage, last_category, last_status, total_ms
     )
-    return None
+    raise ElieGenerationError(
+        f"Gemini generation failed ({last_category}).",
+        category=last_category,
+        status_code=last_status if last_status >= 400 else 503,
+    )
 
 
 # ============================================================
@@ -568,7 +603,11 @@ async def generate_ai_reply(
         "Respond with ONLY a JSON object, nothing else:\n"
         '{"reply": your short reply text as described above}'
     )
-    raw = await call_gemini(prompt, request_id=req_id, stage="host_reply", response_json=True)
+    try:
+        raw = await call_gemini(prompt, request_id=req_id, stage="host_reply", response_json=True)
+    except Exception as exc:
+        logger.warning("request_id=%s stage=host_reply_failed error=%s", req_id, type(exc).__name__)
+        return None
     if not raw:
         return None
     parsed = extract_first_json_object(raw)
@@ -1354,10 +1393,10 @@ async def classify_message(
     )
 
     raw = await call_gemini(prompt, request_id=req_id, stage="classification", response_json=True)
-    if not raw:
+    if not raw or not raw.strip():
         raise ElieGenerationError(
-            "Gemini did not return a response for classification.",
-            category=GeminiErrorCategory.PROVIDER_5XX,
+            "Gemini did not return a valid response for classification.",
+            category=GeminiErrorCategory.EMPTY_RESPONSE,
             status_code=503,
         )
 
@@ -1665,8 +1704,13 @@ async def generate_news_reply(
         "Do not include raw URLs in the prose; the UI will show citations.\n\n"
         f"Question: {query}\nEvidence:\n{evidence_block}\n"
     )
-    reply = await call_gemini(prompt, request_id=req_id, stage="news_reply")
-    return reply or "I found published reports, but I couldn't safely summarize them right now."
+    try:
+        reply = await call_gemini(prompt, request_id=req_id, stage="news_reply")
+        if reply and reply.strip():
+            return reply.strip()
+    except Exception as exc:
+        logger.warning("request_id=%s stage=generate_news_reply_fallback error=%s", req_id, type(exc).__name__)
+    return "I found published reports, but I couldn't safely summarize them right now."
 
 
 @app.post("/elie/search", response_model=ElieSearchResponse)
@@ -1713,6 +1757,16 @@ async def elie_search(
         classification = await classify_message(payload.message, history_dicts, request_id=req_id)
     except ElieGenerationError as exc:
         logger.error("request_id=%s stage=classification error=%s status=%d", req_id, exc.category, exc.status_code)
+        if exc.status_code == 400 or exc.category in (GeminiErrorCategory.CLIENT_ERROR, GeminiErrorCategory.SAFETY_BLOCK):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid request to Elie AI service: {exc}",
+            ) from exc
+        if exc.status_code in (401, 403) or exc.category == GeminiErrorCategory.AUTH_ERROR:
+            raise HTTPException(
+                status_code=500,
+                detail="Elie AI service authentication error.",
+            ) from exc
         raise HTTPException(
             status_code=503,
             detail="Elie is temporarily unavailable because Gemini did not return a response.",
@@ -1839,6 +1893,9 @@ async def elie_diagnostics(request: Request, authorization: Optional[str] = Head
                 connectivity_ok = True
             else:
                 error_detail = "Gemini returned empty or rejected response"
+        except ElieGenerationError as exc:
+            latency_ms = int((time.monotonic() - start_time) * 1000)
+            error_detail = f"Diagnostic probe failed: {exc.category} (status={exc.status_code})"
         except Exception as exc:
             latency_ms = int((time.monotonic() - start_time) * 1000)
             error_detail = f"Diagnostic probe failed: {type(exc).__name__}"

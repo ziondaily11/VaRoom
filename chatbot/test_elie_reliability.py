@@ -89,10 +89,17 @@ def test_call_gemini_primary_success():
             call_url = str(mock_post.call_args[0][0])
             assert "gemini-3.8-flash" in call_url
 
-            # Verify thinkingEffort / capacity is set to medium in generationConfig
+            # Verify thinkingLevel is set to medium in generationConfig
             call_json = mock_post.call_args[1]["json"]
             assert "generationConfig" in call_json
-            assert call_json["generationConfig"].get("thinkingConfig", {}).get("thinkingEffort") == "medium"
+            gen_cfg = call_json["generationConfig"]
+            assert gen_cfg.get("thinkingConfig", {}).get("thinkingLevel") == "medium"
+            # Verify no deprecated/unsupported parameters are sent
+            assert "temperature" not in gen_cfg
+            assert "topP" not in gen_cfg
+            assert "topK" not in gen_cfg
+            assert "thinkingBudget" not in gen_cfg.get("thinkingConfig", {})
+            assert "thinkingEffort" not in gen_cfg.get("thinkingConfig", {})
 
     asyncio.run(run())
 
@@ -149,14 +156,35 @@ def test_call_gemini_fallback_on_consecutive_503():
             # Attempt 3 reaches distinct fallback model (gemini-3.6-flash)
             assert "gemini-3.6-flash" in str(mock_post.call_args_list[2][0][0])
 
-            # Confirm fallback attempt also used medium capacity
+            # Confirm fallback attempt also used medium capacity via thinkingLevel
             fallback_call_json = mock_post.call_args_list[2][1]["json"]
-            assert fallback_call_json["generationConfig"].get("thinkingConfig", {}).get("thinkingEffort") == "medium"
+            assert fallback_call_json["generationConfig"].get("thinkingConfig", {}).get("thinkingLevel") == "medium"
 
     asyncio.run(run())
 
 
-# ── 4. Permanent Auth Errors (401, 403) Fail Fast ──────────────────────────
+# ── 4. Client Error 400 Does NOT Retry and Does NOT Fallback ─────────────────
+
+def test_call_gemini_400_client_error_no_retry():
+    async def run():
+        resp_400 = httpx.Response(
+            400,
+            json={"error": {"code": 400, "message": "Invalid argument", "status": "INVALID_ARGUMENT"}},
+            request=httpx.Request("POST", "https://mock/"),
+        )
+
+        with patch.object(httpx.AsyncClient, "post", new_callable=AsyncMock) as mock_post:
+            mock_post.return_value = resp_400
+            with pytest.raises(ElieGenerationError) as exc_info:
+                await call_gemini("Test 400", request_id="TEST-004-CLIENT", stage="test")
+            assert exc_info.value.category == GeminiErrorCategory.CLIENT_ERROR
+            assert exc_info.value.status_code == 400
+            assert mock_post.call_count == 1
+
+    asyncio.run(run())
+
+
+# ── 5. Permanent Auth Errors (401, 403) Fail Fast ──────────────────────────
 
 def test_call_gemini_permanent_401_no_retry():
     async def run():
@@ -164,8 +192,10 @@ def test_call_gemini_permanent_401_no_retry():
 
         with patch.object(httpx.AsyncClient, "post", new_callable=AsyncMock) as mock_post:
             mock_post.return_value = resp_401
-            result = await call_gemini("Test 401", request_id="TEST-004", stage="test")
-            assert result is None
+            with pytest.raises(ElieGenerationError) as exc_info:
+                await call_gemini("Test 401", request_id="TEST-004", stage="test")
+            assert exc_info.value.category == GeminiErrorCategory.AUTH_ERROR
+            assert exc_info.value.status_code == 401
             assert mock_post.call_count == 1
 
     asyncio.run(run())
@@ -177,14 +207,16 @@ def test_call_gemini_permanent_403_no_retry():
 
         with patch.object(httpx.AsyncClient, "post", new_callable=AsyncMock) as mock_post:
             mock_post.return_value = resp_403
-            result = await call_gemini("Test 403", request_id="TEST-005", stage="test")
-            assert result is None
+            with pytest.raises(ElieGenerationError) as exc_info:
+                await call_gemini("Test 403", request_id="TEST-005", stage="test")
+            assert exc_info.value.category == GeminiErrorCategory.AUTH_ERROR
+            assert exc_info.value.status_code == 403
             assert mock_post.call_count == 1
 
     asyncio.run(run())
 
 
-# ── 5. Model 404 Triggers Fallback Model ───────────────────────────────────
+# ── 6. Model 404 Triggers Fallback Model ───────────────────────────────────
 
 def test_call_gemini_404_model_triggers_fallback():
     async def run():
@@ -210,7 +242,7 @@ def test_call_gemini_404_model_triggers_fallback():
     asyncio.run(run())
 
 
-# ── 6. Safety Block Detection ───────────────────────────────────────────────
+# ── 7. Safety Block Detection ───────────────────────────────────────────────
 
 def test_call_gemini_safety_block_handled():
     async def run():
@@ -226,13 +258,15 @@ def test_call_gemini_safety_block_handled():
 
         with patch.object(httpx.AsyncClient, "post", new_callable=AsyncMock) as mock_post:
             mock_post.return_value = resp_safety
-            result = await call_gemini("Test safety", request_id="TEST-007", stage="test")
-            assert result is None
+            with pytest.raises(ElieGenerationError) as exc_info:
+                await call_gemini("Test safety", request_id="TEST-007", stage="test")
+            assert exc_info.value.category == GeminiErrorCategory.SAFETY_BLOCK
+            assert exc_info.value.status_code == 400
 
     asyncio.run(run())
 
 
-# ── 7. Timeout Handling & Budget ───────────────────────────────────────────
+# ── 8. Timeout Handling & Budget ───────────────────────────────────────────
 
 def test_call_gemini_timeout_triggers_fallback():
     async def run():
@@ -252,6 +286,69 @@ def test_call_gemini_timeout_triggers_fallback():
             result = await call_gemini("Test timeout", request_id="TEST-008", stage="test")
             assert result == "Response after timeout"
             assert mock_post.call_count == 3
+
+    asyncio.run(run())
+
+
+# ── 9. Endpoint Error Classification: 400 Remains 400, 503 Remains 503 ──────
+
+def test_elie_search_handles_400_vs_503():
+    async def run():
+        # Test 1: Gemini 400 raises HTTP 400 in elie/search
+        with patch("main.classify_message", new_callable=AsyncMock) as mock_classify:
+            mock_classify.side_effect = ElieGenerationError(
+                "Gemini client error (400)",
+                category=GeminiErrorCategory.CLIENT_ERROR,
+                status_code=400,
+            )
+            with patch("main.verify_supabase_user", new_callable=AsyncMock) as mock_user, \
+                 patch("main.get_profile", new_callable=AsyncMock) as mock_profile:
+                mock_user.return_value = {"id": "user-123"}
+                mock_profile.return_value = {"role": "client", "elie_premium": True}
+
+                req_payload = main.ElieSearchRequest(message="Search query")
+                mock_request = MagicMock()
+                mock_request.headers = {}
+                mock_request.client.host = "127.0.0.1"
+                mock_response = MagicMock()
+                mock_response.headers = {}
+
+                with pytest.raises(main.HTTPException) as exc_info:
+                    await main.elie_search(
+                        req_payload,
+                        mock_request,
+                        mock_response,
+                        authorization="Bearer test-token",
+                    )
+                assert exc_info.value.status_code == 400
+
+        # Test 2: Gemini 503 raises HTTP 503 in elie/search
+        with patch("main.classify_message", new_callable=AsyncMock) as mock_classify:
+            mock_classify.side_effect = ElieGenerationError(
+                "Gemini generation failed (GEMINI_PROVIDER_5XX)",
+                category=GeminiErrorCategory.PROVIDER_5XX,
+                status_code=503,
+            )
+            with patch("main.verify_supabase_user", new_callable=AsyncMock) as mock_user, \
+                 patch("main.get_profile", new_callable=AsyncMock) as mock_profile:
+                mock_user.return_value = {"id": "user-123"}
+                mock_profile.return_value = {"role": "client", "elie_premium": True}
+
+                req_payload = main.ElieSearchRequest(message="Search query")
+                mock_request = MagicMock()
+                mock_request.headers = {}
+                mock_request.client.host = "127.0.0.1"
+                mock_response = MagicMock()
+                mock_response.headers = {}
+
+                with pytest.raises(main.HTTPException) as exc_info:
+                    await main.elie_search(
+                        req_payload,
+                        mock_request,
+                        mock_response,
+                        authorization="Bearer test-token",
+                    )
+                assert exc_info.value.status_code == 503
 
     asyncio.run(run())
 
@@ -428,7 +525,10 @@ def test_no_secrets_in_logs(caplog):
         resp_503 = httpx.Response(503, text="Service Unavailable", request=httpx.Request("POST", "https://mock/"))
         with patch.object(httpx.AsyncClient, "post", new_callable=AsyncMock) as mock_post:
             mock_post.return_value = resp_503
-            await call_gemini("Test prompt", request_id="SEC-CHECK", stage="test")
+            try:
+                await call_gemini("Test prompt", request_id="SEC-CHECK", stage="test")
+            except ElieGenerationError:
+                pass
 
         for record in caplog.records:
             assert secret_key not in record.message
