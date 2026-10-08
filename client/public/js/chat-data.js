@@ -331,18 +331,19 @@
       html:not([data-theme="dark"]) .chat-media-preview-send-btn{background:#18181B;border:1px solid #27272A;color:#ffffff}
       html:not([data-theme="dark"]) .chat-media-preview-send-btn:hover{background:#27272A;transform:scale(1.04)}
       .chat-media-preview-send-btn:active{transform:scale(.94)}
-      .chat-media-preview-send-btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
-      .bubble.bubble-media{padding:4px 4px 6px 4px;display:flex;flex-direction:column;width:fit-content;max-width:min(328px,100%);box-sizing:border-box;overflow:hidden}
-      .chat-media-wrap{position:relative;display:flex;align-items:center;justify-content:center;border-radius:12px;overflow:hidden;min-width:120px;min-height:80px;background:rgba(0,0,0,0.04)}
+      .msg-row:has(.bubble-media),.msg-row.has-media{max-width:min(72%,460px)}
+      .bubble.bubble-media{padding:4px 4px 6px 4px;display:flex;flex-direction:column;width:fit-content;max-width:min(448px,100%);box-sizing:border-box;overflow:hidden}
+      .chat-media-wrap{position:relative;display:flex;align-items:center;justify-content:center;border-radius:12px;overflow:hidden;min-width:140px;min-height:100px;max-width:100%;background:rgba(0,0,0,0.04)}
       [data-theme="dark"] .chat-media-wrap{background:rgba(255,255,255,0.04)}
       .chat-media-wrap .chat-media-loader{top:50%;left:50%;margin:-17px 0 0 -17px}
-      .chat-message-image{display:block;max-width:320px;max-height:320px;width:auto;height:auto;object-fit:contain;border-radius:12px;cursor:zoom-in;user-select:none}
+      .chat-message-image{display:block;max-width:440px;max-height:480px;width:auto;height:auto;object-fit:contain;border-radius:12px;cursor:zoom-in;user-select:none}
       .bubble-media .chat-message-caption{margin:0;padding:6px 8px 2px 8px;font-size:13.5px;line-height:1.45;word-break:break-word;white-space:pre-wrap;color:inherit;font-weight:500}
       .bubble-media>.msg-meta{align-self:flex-end;margin:2px 6px 0 auto;padding:0;font-size:9px;line-height:1.2;color:inherit;opacity:.68;white-space:nowrap}
       .bubble-media .message-reply-reference{margin:4px 4px 6px 4px;padding:0 0 4px 8px}
       @media(max-width:760px){
-        .bubble.bubble-media{max-width:min(288px,100%)}
-        .chat-message-image{max-width:min(280px,72vw);max-height:280px}
+        .msg-row:has(.bubble-media),.msg-row.has-media{max-width:85%}
+        .bubble.bubble-media{max-width:min(348px,100%)}
+        .chat-message-image{max-width:min(340px,78vw);max-height:420px}
         .chat-media-preview-header{padding:12px 14px 6px}
         .chat-media-preview-body{padding:8px 12px}
         .chat-media-preview-footer{padding:10px 14px calc(14px + env(safe-area-inset-bottom,0px));gap:10px}
@@ -977,6 +978,7 @@
       card.appendChild(meta);
       row.appendChild(card);
     } else if (message.message_type === 'photo' && message.attachment_id) {
+      row.classList.add('has-media');
       const bubble = document.createElement('div');
       bubble.className = 'bubble bubble-media';
       if (message.reply_to_message_id) {
@@ -997,7 +999,8 @@
       image.addEventListener('load', () => {
         removeLoader();
         if (image.naturalWidth) {
-          const renderedWidth = Math.min(image.offsetWidth || image.naturalWidth, 320);
+          const maxAllowed = window.matchMedia('(max-width: 760px)').matches ? 340 : 440;
+          const renderedWidth = Math.min(image.offsetWidth || image.naturalWidth, maxAllowed);
           if (renderedWidth > 0) {
             mediaWrap.style.width = renderedWidth + 'px';
             bubble.style.maxWidth = (renderedWidth + 8) + 'px';
