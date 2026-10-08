@@ -332,10 +332,17 @@
       html:not([data-theme="dark"]) .chat-media-preview-send-btn:hover{background:#27272A;transform:scale(1.04)}
       .chat-media-preview-send-btn:active{transform:scale(.94)}
       .chat-media-preview-send-btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
-      .chat-media-preview-send-btn .icon{width:18px;height:18px}
-      .chat-message-caption{margin-top:6px;font-size:13.5px;line-height:1.45;word-break:break-word;white-space:pre-wrap;padding:0 2px;color:var(--text-dark,#14161c)}
-      [data-theme="dark"] .chat-message-caption{color:var(--ink,#fbfbfc)}
+      .bubble.bubble-media{padding:4px 4px 6px 4px;display:flex;flex-direction:column;width:fit-content;max-width:min(328px,100%);box-sizing:border-box;overflow:hidden}
+      .chat-media-wrap{position:relative;display:flex;align-items:center;justify-content:center;border-radius:12px;overflow:hidden;min-width:120px;min-height:80px;background:rgba(0,0,0,0.04)}
+      [data-theme="dark"] .chat-media-wrap{background:rgba(255,255,255,0.04)}
+      .chat-media-wrap .chat-media-loader{top:50%;left:50%;margin:-17px 0 0 -17px}
+      .chat-message-image{display:block;max-width:320px;max-height:320px;width:auto;height:auto;object-fit:contain;border-radius:12px;cursor:zoom-in;user-select:none}
+      .bubble-media .chat-message-caption{margin:0;padding:6px 8px 2px 8px;font-size:13.5px;line-height:1.45;word-break:break-word;white-space:pre-wrap;color:inherit;font-weight:500}
+      .bubble-media>.msg-meta{align-self:flex-end;margin:2px 6px 0 auto;padding:0;font-size:9px;line-height:1.2;color:inherit;opacity:.68;white-space:nowrap}
+      .bubble-media .message-reply-reference{margin:4px 4px 6px 4px;padding:0 0 4px 8px}
       @media(max-width:760px){
+        .bubble.bubble-media{max-width:min(288px,100%)}
+        .chat-message-image{max-width:min(280px,72vw);max-height:280px}
         .chat-media-preview-header{padding:12px 14px 6px}
         .chat-media-preview-body{padding:8px 12px}
         .chat-media-preview-footer{padding:10px 14px calc(14px + env(safe-area-inset-bottom,0px));gap:10px}
@@ -970,30 +977,50 @@
       card.appendChild(meta);
       row.appendChild(card);
     } else if (message.message_type === 'photo' && message.attachment_id) {
-      const block = document.createElement('div');
-      block.className = 'message-block';
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble bubble-media';
+      if (message.reply_to_message_id) {
+        const referenceLabel = message.reply_to_message
+          ? message.reply_to_message.sender_id === state.session.user.id ? 'You' : 'Reply'
+          : 'Reply';
+        const referenceBody = message.reply_to_message && !message.reply_to_message.deleted_at
+          ? previewText(message.reply_to_message.body)
+          : 'This message is unavailable';
+        bubble.appendChild(makeReplyReference(message.reply_to_message_id, referenceLabel, referenceBody));
+      }
+      const mediaWrap = document.createElement('div');
+      mediaWrap.className = 'chat-media-wrap';
       const image = document.createElement('img');
       image.className = 'chat-message-image';
       image.alt = message.attachment && message.attachment.original_filename || 'Shared image';
-      image.style.cssText = 'display:block;max-width:320px;max-height:260px;width:auto;height:auto;object-fit:contain;border-radius:8px;cursor:zoom-in';
-      const removeLoader = addMediaLoader(block);
-      image.addEventListener('load', removeLoader, { once: true });
+      const removeLoader = addMediaLoader(mediaWrap);
+      image.addEventListener('load', () => {
+        removeLoader();
+        if (image.naturalWidth) {
+          const renderedWidth = Math.min(image.offsetWidth || image.naturalWidth, 320);
+          if (renderedWidth > 0) {
+            mediaWrap.style.width = renderedWidth + 'px';
+            bubble.style.maxWidth = (renderedWidth + 8) + 'px';
+          }
+        }
+      }, { once: true });
       image.addEventListener('error', removeLoader, { once: true });
       downloadAttachment(message.attachment_id).then((url) => {
         image.src = url;
         image.addEventListener('click', () => openImagePreview(url, image.alt));
       }).catch((error) => { removeLoader(); console.error('Image message unavailable:', error); });
-      block.appendChild(image);
+      mediaWrap.appendChild(image);
+      bubble.appendChild(mediaWrap);
       const caption = (message.body || '').trim();
       const filename = message.attachment && message.attachment.original_filename;
       if (caption && caption !== filename) {
         const captionEl = document.createElement('div');
         captionEl.className = 'chat-message-caption';
         captionEl.textContent = caption;
-        block.appendChild(captionEl);
+        bubble.appendChild(captionEl);
       }
-      block.appendChild(meta);
-      row.appendChild(block);
+      bubble.appendChild(meta);
+      row.appendChild(bubble);
     } else if (message.attachment_id) {
       const card = document.createElement('div');
       card.className = 'file-card';
