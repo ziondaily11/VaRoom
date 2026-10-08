@@ -2071,7 +2071,6 @@
     };
 
     if (category === 'property') {
-      bookingDetails.listing_purpose = propertyPurpose;
       const unitsVal = fieldValue('property-units-available');
       if (unitsVal) bookingDetails.units_available = parseInt(unitsVal, 10);
       bookingDetails.available_from = fieldValue('available-from') || null;
@@ -2122,7 +2121,27 @@
     }
 
     if (!(category === 'hotel' && hotelListingMode === 'table')) {
-      await supabaseClient.from('listing_booking_details').insert(bookingDetails);
+      const { error: bookingInsertErr } = await supabaseClient.from('listing_booking_details').insert(bookingDetails);
+      if (bookingInsertErr) {
+        console.warn('Full booking details insert error:', bookingInsertErr);
+        // Fallback: If new migration columns are not yet recognized by Supabase PostgREST,
+        // retry inserting the base core fields so the listing is never left without booking details.
+        const coreDetails = {
+          listing_id: listingId,
+          price_amount: bookingDetails.price_amount,
+          price_unit: bookingDetails.price_unit,
+          size_or_type: bookingDetails.size_or_type,
+          amenities: bookingDetails.amenities,
+          available_from: bookingDetails.available_from || null,
+          min_lease_months: bookingDetails.min_lease_months || null,
+          deposit_amount: bookingDetails.deposit_amount || null,
+          utilities_included: Boolean(bookingDetails.utilities_included)
+        };
+        const { error: fallbackErr } = await supabaseClient.from('listing_booking_details').insert(coreDetails);
+        if (fallbackErr) {
+          throw new Error('Could not save booking details: ' + (fallbackErr.message || bookingInsertErr.message));
+        }
+      }
     }
 
     if (category === 'hotel' && (hotelListingMode === 'table' || hotelListingMode === 'both')) {
