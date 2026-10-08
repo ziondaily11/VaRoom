@@ -245,18 +245,43 @@ router.get('/chat/conversations/:conversationId/messages', async (req, res) => {
     const conversationId = uuid(req.params.conversationId, 'conversation id');
     const conversation = await memberConversation(conversationId, user.id);
     if (!conversation) return res.status(403).json({ error: 'Conversation access denied' });
+<<<<<<< HEAD
     const sinceParam = req.query.since ? String(req.query.since) : null;
+=======
+>>>>>>> f62a0edeb0a976a2a05c9673505c806a07bf63a3
     let query = supabaseAdmin
       .from('messages')
       .select('id,conversation_id,sender_id,ciphertext,iv,key_version,created_at,read_at,message_type,attachment_id,listing_id,reply_to_message_id,deleted_at,pinned_at')
       .eq('conversation_id', conversationId);
 
+<<<<<<< HEAD
     if (sinceParam && !isNaN(new Date(sinceParam).getTime())) {
       query = query.gt('created_at', new Date(sinceParam).toISOString());
     }
 
     const { data, error } = await query.order('created_at', { ascending: true });
+=======
+    const since = typeof req.query.since === 'string' && req.query.since.trim() ? req.query.since.trim() : null;
+    const before = typeof req.query.before === 'string' && req.query.before.trim() ? req.query.before.trim() : null;
+    const limitParam = req.query.limit ? parseInt(req.query.limit, 10) : null;
+    const limit = Number.isInteger(limitParam) && limitParam > 0 ? Math.min(limitParam, 200) : null;
+
+    if (since) {
+      query = query.gt('created_at', since);
+    }
+    if (before) {
+      query = query.lt('created_at', before);
+    }
+    if (limit && !since) {
+      query = query.order('created_at', { ascending: false }).limit(limit);
+    } else {
+      query = query.order('created_at', { ascending: true });
+    }
+
+    const { data, error } = await query;
+>>>>>>> f62a0edeb0a976a2a05c9673505c806a07bf63a3
     if (error) throw error;
+    const rawRows = limit && !since ? (data || []).reverse() : (data || []);
     const deletionResult = await supabaseAdmin
       .from('message_user_deletions')
       .select('message_id')
@@ -264,10 +289,11 @@ router.get('/chat/conversations/:conversationId/messages', async (req, res) => {
       .eq('user_id', user.id);
     if (deletionResult.error) throw deletionResult.error;
     const hiddenMessageIds = new Set((deletionResult.data || []).map((deletion) => deletion.message_id));
-    const visibleRows = (data || []).filter((message) => !hiddenMessageIds.has(message.id));
+    const visibleRows = rawRows.filter((message) => !hiddenMessageIds.has(message.id));
     const visibleById = new Map(visibleRows.map((message) => [message.id, message]));
 
     const missingReplyIds = visibleRows
+<<<<<<< HEAD
       .filter((m) => m.reply_to_message_id && !visibleById.has(m.reply_to_message_id))
       .map((m) => m.reply_to_message_id);
     if (missingReplyIds.length) {
@@ -276,6 +302,22 @@ router.get('/chat/conversations/:conversationId/messages', async (req, res) => {
         .select('id,conversation_id,sender_id,ciphertext,iv,key_version,created_at,read_at,message_type,attachment_id,listing_id,reply_to_message_id,deleted_at,pinned_at')
         .in('id', missingReplyIds);
       (missingReplies || []).forEach((r) => visibleById.set(r.id, r));
+=======
+      .filter((message) => message.reply_to_message_id && !visibleById.has(message.reply_to_message_id))
+      .map((message) => message.reply_to_message_id);
+    if (missingReplyIds.length) {
+      const replyResult = await supabaseAdmin
+        .from('messages')
+        .select('id,conversation_id,sender_id,ciphertext,iv,key_version,created_at,read_at,message_type,attachment_id,listing_id,reply_to_message_id,deleted_at,pinned_at')
+        .in('id', missingReplyIds);
+      if (!replyResult.error && replyResult.data) {
+        replyResult.data.forEach((replyMsg) => {
+          if (!hiddenMessageIds.has(replyMsg.id)) {
+            visibleById.set(replyMsg.id, replyMsg);
+          }
+        });
+      }
+>>>>>>> f62a0edeb0a976a2a05c9673505c806a07bf63a3
     }
     const attachmentIds = visibleRows
       .filter((message) => !message.deleted_at)

@@ -8,6 +8,7 @@ import { createRoot } from 'react-dom/client';
 import { useEffect, useRef } from 'react';
 import ElieIcon from '../components/ElieIcon';
 import ChatComposerActions from '../components/ChatComposerActions';
+import ElieComposerBeam from '../components/ElieComposerBeam';
 import { ThinkingOrb } from 'thinking-orbs';
 
 const templateDirectory = path.join(process.cwd(), 'legacy-pages');
@@ -231,6 +232,7 @@ export default function LegacyPage({ title, markup, scripts }) {
   useEffect(() => {
     let cancelled = false;
     let composerActionsRoot;
+    let elieComposerBeamRoot;
     const avatarRoots = new Map();
     const orbRoots = new Map();
     const mountAvatars = (node) => {
@@ -264,12 +266,17 @@ export default function LegacyPage({ title, markup, scripts }) {
         if (orbRoots.has(orb)) return;
         const root = createRoot(orb);
         orbRoots.set(orb, root);
+        const state = orb.getAttribute('data-orb-state') || 'searching';
+        const sizeAttr = orb.getAttribute('data-orb-size');
+        const size = sizeAttr ? Number(sizeAttr) : 20;
+        const theme = orb.getAttribute('data-orb-theme') || 'dark';
+        const ariaLabel = orb.getAttribute('aria-label') || 'Thinking…';
         root.render(
           React.createElement(ThinkingOrb, {
-            state: 'connecting',
-            size: 64,
-            theme: 'dark',
-            'aria-label': 'Signing you in',
+            state,
+            size,
+            theme,
+            'aria-label': ariaLabel,
           })
         );
       });
@@ -299,11 +306,24 @@ export default function LegacyPage({ title, markup, scripts }) {
         composerActionsRoot = createRoot(composerActions);
         composerActionsRoot.render(React.createElement(ChatComposerActions));
       }
+      const elieBeamMount = containerRef.current.querySelector('[data-elie-composer-beam]');
+      if (elieBeamMount) {
+        elieComposerBeamRoot = createRoot(elieBeamMount);
+        elieComposerBeamRoot.render(React.createElement(ElieComposerBeam));
+      }
     }
 
     const loadPageScripts = async () => {
       await runLegacyScripts(containerRef.current, scripts);
       if (cancelled || title !== 'Messenger Dashboard' || document.querySelector('script[data-chat-data]')) return;
+
+      if (!document.querySelector('script[data-chat-cache]')) {
+        const cacheScript = document.createElement('script');
+        cacheScript.src = '/js/chat-cache.js';
+        cacheScript.dataset.chatCache = 'true';
+        cacheScript.async = false;
+        document.body.appendChild(cacheScript);
+      }
 
       const supabaseScript = document.createElement('script');
       supabaseScript.src = '/js/supabase-client.js';
@@ -334,6 +354,7 @@ export default function LegacyPage({ title, markup, scripts }) {
       cancelled = true;
       avatarObserver.disconnect();
       composerActionsRoot?.unmount();
+      elieComposerBeamRoot?.unmount();
       avatarRoots.forEach((root) => root.unmount());
       avatarRoots.clear();
       orbRoots.forEach((root) => root.unmount());
