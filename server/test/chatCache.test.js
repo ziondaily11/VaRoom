@@ -9,9 +9,11 @@ const chatCache = require(path.join(__dirname, '../../client/public/js/chat-cach
 test('VaRoomChatCache - exports and initialization in memory fallback', async () => {
   assert.equal(typeof chatCache.getInbox, 'function');
   assert.equal(typeof chatCache.setInbox, 'function');
+  assert.equal(typeof chatCache.syncInbox, 'function');
   assert.equal(typeof chatCache.updateInboxConversation, 'function');
   assert.equal(typeof chatCache.getMessages, 'function');
   assert.equal(typeof chatCache.setMessages, 'function');
+  assert.equal(typeof chatCache.syncConversationMessages, 'function');
   assert.equal(typeof chatCache.mergeMessages, 'function');
   assert.equal(typeof chatCache.appendMessage, 'function');
   assert.equal(typeof chatCache.updateMessage, 'function');
@@ -23,6 +25,9 @@ test('VaRoomChatCache - exports and initialization in memory fallback', async ()
   assert.equal(typeof chatCache.removeMedia, 'function');
   assert.equal(typeof chatCache.clearMedia, 'function');
   assert.equal(typeof chatCache.getMediaStats, 'function');
+  assert.equal(typeof chatCache.prefetch, 'function');
+  assert.equal(typeof chatCache.cancelPrefetch, 'function');
+  assert.equal(typeof chatCache.isPrefetching, 'function');
   assert.equal(typeof chatCache.clearUser, 'function');
   assert.equal(typeof chatCache.clearAll, 'function');
 });
@@ -103,6 +108,132 @@ test('VaRoomChatCache - conversation messages caching, deduplication and merging
   const messagesAfterRemove = await chatCache.getMessages(userId, convId);
   assert.equal(messagesAfterRemove.length, 3);
   assert.equal(messagesAfterRemove.find((m) => m.id === 'm1'), undefined);
+});
+
+test('VaRoomChatCache - syncInbox deduplicates concurrent in-flight requests', async () => {
+  await chatCache.clearAll();
+  const userId = 'user-dedup-inbox';
+  let networkCallCount = 0;
+
+  const mockFetchFn = async () => {
+    networkCallCount++;
+    await new Promise((r) => setTimeout(r, 20));
+    return {
+      conversations: [
+        { id: 'c1', participant: { full_name: 'Carol' }, lastMessage: { body: 'Hey' } }
+      ]
+    };
+  };
+
+  // Launch 3 simultaneous sync requests
+  const [res1, res2, res3] = await Promise.all([
+    chatCache.syncInbox(userId, { fetchFn: mockFetchFn }),
+    chatCache.syncInbox(userId, { fetchFn: mockFetchFn }),
+    chatCache.syncInbox(userId, { fetchFn: mockFetchFn })
+  ]);
+
+  assert.equal(networkCallCount, 1, 'Only 1 network call should be made for concurrent syncInbox');
+  assert.equal(res1.length, 1);
+  assert.equal(res2.length, 1);
+  assert.equal(res3.length, 1);
+
+  // Stored in cache
+  const cached = await chatCache.getInbox(userId);
+  assert.equal(cached.length, 1);
+  assert.equal(cached[0].id, 'c1');
+});
+
+test('VaRoomChatCache - syncConversationMessages deduplicates and performs delta sync', async () => {
+  await chatCache.clearAll();
+  const userId = 'user-dedup-conv';
+  const convId = 'conv-alpha';
+  let fetchedUrls = [];
+
+  // Seed initial cache
+  await chatCache.setMessages(userId, convId, [
+    { id: 'm1', created_at: '2026-10-01T10:00:00.000Z', body: 'Msg 1' },
+    { id: 'm2', created_at: '2026-10-01T10:05:00.000Z', body: 'Msg 2' }
+  ]);
+
+  const mockFetchFn = async (url) => {
+    fetchedUrls.push(url);
+    await new Promise((r) => setTimeout(r, 20));
+    return {
+      messages: [
+        { id: 'm3', created_at: '2026-10-01T10:10:00.000Z', body: 'Msg 3' }
+      ]
+    };
+  };
+
+  // Launch 2 concurrent calls
+  const [res1, res2] = await Promise.all([
+    chatCache.syncConversationMessages(userId, convId, { fetchFn: mockFetchFn }),
+    chatCache.syncConversationMessages(userId, convId, { fetchFn: mockFetchFn })
+  ]);
+
+  assert.equal(fetchedUrls.length, 1, 'Concurrent requests should deduplicate to 1 network request');
+  assert.ok(fetchedUrls[0].includes('since=' + encodeURIComponent('2026-10-01T10:05:00.000Z')), 'Delta since param should be used');
+  assert.equal(res1.length, 3);
+  assert.equal(res2.length, 3);
+  assert.equal(res1[2].id, 'm3');
+
+  const cached = await chatCache.getMessages(userId, convId);
+  assert.equal(cached.length, 3);
+});
+
+test('VaRoomChatCache - prefetch routine populates inbox, recent conversations and respects cooldown', async () => {
+  await chatCache.clearAll();
+  const userId = 'user-prefetch-test';
+  let inboxCalls = 0;
+  let convCalls = [];
+
+  const mockFetchFn = async (url) => {
+    if (url === '/api/chat/conversations') {
+      inboxCalls++;
+      return {
+        conversations: [
+          { id: 'conv-10', participant: { full_name: 'User 10' }, lastMessage: { body: 'Hello 10' } },
+          { id: 'conv-20', participant: { full_name: 'User 20' }, lastMessage: { body: 'Hello 20' } }
+        ]
+      };
+    }
+    if (url.startsWith('/api/chat/conversations/')) {
+      convCalls.push(url);
+      return {
+        messages: [
+          { id: 'msg-a', body: 'Preloaded message', created_at: '2026-10-01T12:00:00Z' }
+        ]
+      };
+    }
+    return {};
+  };
+
+  const result = await chatCache.prefetch(userId, {
+    fetchFn: mockFetchFn,
+    priorityCount: 2,
+    skipMedia: true,
+    cooldownMs: 60000
+  });
+
+  assert.ok(result.success);
+  assert.equal(result.prefetchedConversations, 2);
+  assert.equal(inboxCalls, 1);
+  assert.equal(convCalls.length, 2);
+
+  // Cached data is now immediately available
+  const cachedInbox = await chatCache.getInbox(userId);
+  assert.equal(cachedInbox.length, 2);
+  const cachedMessages = await chatCache.getMessages(userId, 'conv-10');
+  assert.equal(cachedMessages.length, 1);
+  assert.equal(cachedMessages[0].id, 'msg-a');
+
+  // Immediate second prefetch call hits cooldown
+  const secondPrefetch = await chatCache.prefetch(userId, {
+    fetchFn: mockFetchFn,
+    cooldownMs: 60000
+  });
+  assert.ok(secondPrefetch.skipped);
+  assert.equal(inboxCalls, 1, 'Should not make another network call during cooldown');
 });
 
 test('VaRoomChatCache - shared media caching, retrieval and stats', async () => {

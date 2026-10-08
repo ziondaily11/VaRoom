@@ -388,6 +388,9 @@
           };
           document.addEventListener('visibilitychange', countState.visibilityHandler);
         }
+        if (window.VaRoomChatCache && typeof window.VaRoomChatCache.prefetch === 'function') {
+          window.VaRoomChatCache.prefetch(userId, { supabaseClient: client });
+        }
         return refreshCounts();
       });
     }).catch(function (error) {
@@ -426,6 +429,9 @@
     if (logoutBtn) {
       logoutBtn.addEventListener('click', async function () {
         var client = options.supabaseClient || window.supabaseClient;
+        if (window.VaRoomChatCache && typeof window.VaRoomChatCache.clearAll === 'function') {
+          try { await window.VaRoomChatCache.clearAll(); } catch (e) {}
+        }
         if (client && client.auth) {
           try { await client.auth.signOut(); } catch (err) { console.error('Sign out error:', err); }
         }
