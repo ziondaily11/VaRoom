@@ -245,15 +245,15 @@ router.get('/chat/conversations/:conversationId/messages', async (req, res) => {
     const conversationId = uuid(req.params.conversationId, 'conversation id');
     const conversation = await memberConversation(conversationId, user.id);
     if (!conversation) return res.status(403).json({ error: 'Conversation access denied' });
-    let query = supabaseAdmin
-      .from('messages')
-      .select('id,conversation_id,sender_id,ciphertext,iv,key_version,created_at,read_at,message_type,attachment_id,listing_id,reply_to_message_id,deleted_at,pinned_at')
-      .eq('conversation_id', conversationId);
-
     const since = typeof req.query.since === 'string' && req.query.since.trim() ? req.query.since.trim() : null;
     const before = typeof req.query.before === 'string' && req.query.before.trim() ? req.query.before.trim() : null;
     const limitParam = req.query.limit ? parseInt(req.query.limit, 10) : null;
     const limit = Number.isInteger(limitParam) && limitParam > 0 ? Math.min(limitParam, 200) : null;
+
+    let query = supabaseAdmin
+      .from('messages')
+      .select('id,conversation_id,sender_id,ciphertext,iv,key_version,created_at,read_at,message_type,attachment_id,listing_id,reply_to_message_id,deleted_at,pinned_at')
+      .eq('conversation_id', conversationId);
 
     if (since) {
       query = query.gt('created_at', since);

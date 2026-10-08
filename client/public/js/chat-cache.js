@@ -4,6 +4,8 @@
  * Provides fast, offline-first client caching for VaRoom Chats:
  * - Inbox conversation list caching with instant render
  * - Per-conversation message caching with background delta sync
+ * - Shared chat media caching (images, videos, audio, thumbnails)
+ * - LRU eviction and maximum media cache size management
  * - Deduplication and chronological sorting
  * - User-scoped storage isolation
  * - Resilient fallback to memory when IndexedDB is unavailable
@@ -19,14 +21,22 @@
   'use strict';
 
   var DB_NAME = 'varoom_chat_cache';
-  var DB_VERSION = 1;
+  var DB_VERSION = 2;
   var STORE_INBOX = 'inbox';
   var STORE_MESSAGES = 'messages';
+  var STORE_MEDIA = 'media';
   var MAX_CACHED_MESSAGES = 1000;
+
+  // Media Cache Quotas (50 MB total, 20 MB max single item)
+  var MAX_TOTAL_MEDIA_CACHE_SIZE = 50 * 1024 * 1024;
+  var MAX_SINGLE_MEDIA_SIZE = 20 * 1024 * 1024;
 
   // In-memory fallback structures
   var memoryInbox = new Map();
   var memoryMessages = new Map();
+  var memoryMedia = new Map();
+  var activeObjectUrls = new Map();
+  var inFlightMediaFetches = new Map();
   var dbPromise = null;
   var dbFailed = false;
 
@@ -35,6 +45,26 @@
       return typeof indexedDB !== 'undefined' && indexedDB !== null;
     } catch (e) {
       return false;
+    }
+  }
+
+  function safeCreateObjectURL(blob) {
+    if (!blob) return null;
+    if (typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function') {
+      try {
+        return URL.createObjectURL(blob);
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  }
+
+  function safeRevokeObjectURL(url) {
+    if (url && typeof URL !== 'undefined' && typeof URL.revokeObjectURL === 'function') {
+      try {
+        URL.revokeObjectURL(url);
+      } catch (e) {}
     }
   }
 
@@ -55,6 +85,11 @@
           }
           if (!db.objectStoreNames.contains(STORE_MESSAGES)) {
             db.createObjectStore(STORE_MESSAGES, { keyPath: 'key' });
+          }
+          if (!db.objectStoreNames.contains(STORE_MEDIA)) {
+            var mediaStore = db.createObjectStore(STORE_MEDIA, { keyPath: 'id' });
+            mediaStore.createIndex('accessedAt', 'accessedAt', { unique: false });
+            mediaStore.createIndex('type', 'type', { unique: false });
           }
         };
 
@@ -329,15 +364,21 @@
     });
   }
 
-  function updateMessage(userId, conversationId, messageId, patch) {
-    if (!userId || !conversationId || !messageId || !patch) return Promise.resolve();
+  function updateMessage(userId, conversationId, messageIdOrObject, patch) {
+    if (!userId || !conversationId || !messageIdOrObject) return Promise.resolve();
+    var targetId = typeof messageIdOrObject === 'object' && messageIdOrObject !== null ? messageIdOrObject.id : messageIdOrObject;
+    var targetPatch = typeof messageIdOrObject === 'object' && messageIdOrObject !== null
+      ? (patch ? Object.assign({}, messageIdOrObject, patch) : messageIdOrObject)
+      : (patch || {});
+    if (!targetId) return Promise.resolve();
+
     return getMessages(userId, conversationId).then(function (messages) {
       if (!messages || !Array.isArray(messages)) return;
       var changed = false;
       var updated = messages.map(function (msg) {
-        if (msg && String(msg.id) === String(messageId)) {
+        if (msg && String(msg.id) === String(targetId)) {
           changed = true;
-          return Object.assign({}, msg, patch);
+          return Object.assign({}, msg, targetPatch);
         }
         return msg;
       });
@@ -357,6 +398,314 @@
       if (filtered.length !== messages.length) {
         return setMessages(userId, conversationId, filtered);
       }
+    });
+  }
+
+  // --- Shared Chat Media Cache Operations ---
+
+  function getMedia(id) {
+    if (!id) return Promise.resolve(null);
+    var strId = String(id);
+
+    return openDatabase().then(function (db) {
+      if (!db) {
+        var mem = memoryMedia.get(strId);
+        if (!mem) return null;
+        mem.accessedAt = Date.now();
+        return mem;
+      }
+
+      return new Promise(function (resolve) {
+        try {
+          var tx = db.transaction(STORE_MEDIA, 'readwrite');
+          var store = tx.objectStore(STORE_MEDIA);
+          var req = store.get(strId);
+
+          req.onsuccess = function () {
+            var record = req.result;
+            if (record && record.blob) {
+              record.accessedAt = Date.now();
+              store.put(record);
+              memoryMedia.set(strId, record);
+              resolve(record);
+            } else {
+              var memFallback = memoryMedia.get(strId);
+              resolve(memFallback || null);
+            }
+          };
+
+          req.onerror = function () {
+            resolve(memoryMedia.get(strId) || null);
+          };
+        } catch (err) {
+          resolve(memoryMedia.get(strId) || null);
+        }
+      });
+    });
+  }
+
+  function getMediaUrl(id) {
+    if (!id) return Promise.resolve(null);
+    var strId = String(id);
+
+    if (activeObjectUrls.has(strId)) {
+      var existingUrl = activeObjectUrls.get(strId);
+      var mem = memoryMedia.get(strId);
+      return Promise.resolve({
+        url: existingUrl,
+        mimeType: mem ? mem.mimeType : '',
+        size: mem ? mem.size : 0,
+        blob: mem ? mem.blob : null
+      });
+    }
+
+    return getMedia(strId).then(function (record) {
+      if (!record || !record.blob) return null;
+      var objectUrl = safeCreateObjectURL(record.blob);
+      if (objectUrl) {
+        activeObjectUrls.set(strId, objectUrl);
+      }
+      return {
+        url: objectUrl,
+        mimeType: record.mimeType,
+        size: record.size,
+        blob: record.blob
+      };
+    }).catch(function (err) {
+      console.warn('[VaRoomChatCache] Media retrieval error:', err);
+      return null;
+    });
+  }
+
+  function evictMediaIfNecessary(db, neededBytes) {
+    return new Promise(function (resolve) {
+      try {
+        var tx = db.transaction(STORE_MEDIA, 'readwrite');
+        var store = tx.objectStore(STORE_MEDIA);
+        var index = store.index('accessedAt');
+        var req = index.openCursor();
+        var totalSize = 0;
+        var items = [];
+
+        req.onsuccess = function (event) {
+          var cursor = event.target.result;
+          if (cursor) {
+            var item = cursor.value;
+            totalSize += (item.size || 0);
+            items.push({ id: item.id, size: item.size || 0, accessedAt: item.accessedAt });
+            cursor.continue();
+          } else {
+            if (totalSize + neededBytes <= MAX_TOTAL_MEDIA_CACHE_SIZE) {
+              resolve();
+              return;
+            }
+
+            // Evict least recently used items until space is available
+            var toEvict = [];
+            var sizeAfterEviction = totalSize;
+            for (var i = 0; i < items.length; i++) {
+              if (sizeAfterEviction + neededBytes <= MAX_TOTAL_MEDIA_CACHE_SIZE) break;
+              toEvict.push(items[i].id);
+              sizeAfterEviction -= items[i].size;
+            }
+
+            toEvict.forEach(function (itemId) {
+              store.delete(itemId);
+              memoryMedia.delete(itemId);
+              if (activeObjectUrls.has(itemId)) {
+                safeRevokeObjectURL(activeObjectUrls.get(itemId));
+                activeObjectUrls.delete(itemId);
+              }
+            });
+
+            resolve();
+          }
+        };
+
+        req.onerror = function () { resolve(); };
+      } catch (err) {
+        resolve();
+      }
+    });
+  }
+
+  function saveMedia(id, blobOrBuffer, options) {
+    if (!id || !blobOrBuffer) return Promise.resolve(null);
+    var strId = String(id);
+    options = options || {};
+
+    var size = blobOrBuffer.size || (blobOrBuffer.byteLength || 0);
+    if (size > MAX_SINGLE_MEDIA_SIZE) {
+      // Exceeds single item limit - skip storing in IndexedDB to avoid quota errors
+      var directUrl = safeCreateObjectURL(blobOrBuffer);
+      return Promise.resolve({ url: directUrl, mimeType: options.mimeType || '', size: size });
+    }
+
+    var record = {
+      id: strId,
+      type: options.type || 'image',
+      mimeType: options.mimeType || (blobOrBuffer.type || 'application/octet-stream'),
+      blob: blobOrBuffer,
+      size: size,
+      createdAt: Date.now(),
+      accessedAt: Date.now()
+    };
+
+    memoryMedia.set(strId, record);
+    var objectUrl = safeCreateObjectURL(blobOrBuffer);
+    if (objectUrl) {
+      activeObjectUrls.set(strId, objectUrl);
+    }
+
+    return openDatabase().then(function (db) {
+      if (!db) {
+        return { url: objectUrl, mimeType: record.mimeType, size: size };
+      }
+
+      return evictMediaIfNecessary(db, size).then(function () {
+        return new Promise(function (resolve) {
+          try {
+            var tx = db.transaction(STORE_MEDIA, 'readwrite');
+            var store = tx.objectStore(STORE_MEDIA);
+            store.put(record);
+            tx.oncomplete = function () {
+              resolve({ url: objectUrl, mimeType: record.mimeType, size: size });
+            };
+            tx.onerror = function () {
+              resolve({ url: objectUrl, mimeType: record.mimeType, size: size });
+            };
+            tx.onabort = function () {
+              resolve({ url: objectUrl, mimeType: record.mimeType, size: size });
+            };
+          } catch (err) {
+            resolve({ url: objectUrl, mimeType: record.mimeType, size: size });
+          }
+        });
+      });
+    }).catch(function (err) {
+      console.warn('[VaRoomChatCache] Media save error:', err);
+      return { url: objectUrl, mimeType: record.mimeType, size: size };
+    });
+  }
+
+  function fetchAndCacheMedia(id, remoteUrl, options) {
+    if (!id || !remoteUrl) return Promise.resolve(remoteUrl);
+    var strId = String(id);
+    options = options || {};
+
+    // Check if already cached
+    return getMediaUrl(strId).then(function (cached) {
+      if (cached && cached.url) {
+        return cached.url;
+      }
+
+      // Deduplicate concurrent in-flight fetches for the same media
+      if (inFlightMediaFetches.has(strId)) {
+        return inFlightMediaFetches.get(strId);
+      }
+
+      var fetchPromise = fetch(remoteUrl).then(function (response) {
+        if (!response.ok) throw new Error('Remote media fetch failed: ' + response.status);
+        return response.blob();
+      }).then(function (blob) {
+        var mimeType = options.mimeType || blob.type || 'application/octet-stream';
+        return saveMedia(strId, blob, { type: options.type || 'image', mimeType: mimeType }).then(function (result) {
+          return result && result.url ? result.url : remoteUrl;
+        });
+      }).catch(function (error) {
+        console.warn('[VaRoomChatCache] Media caching fallback for ' + strId + ':', error && error.message);
+        return remoteUrl;
+      }).finally(function () {
+        inFlightMediaFetches.delete(strId);
+      });
+
+      inFlightMediaFetches.set(strId, fetchPromise);
+      return fetchPromise;
+    });
+  }
+
+  function removeMedia(id) {
+    if (!id) return Promise.resolve();
+    var strId = String(id);
+
+    if (activeObjectUrls.has(strId)) {
+      safeRevokeObjectURL(activeObjectUrls.get(strId));
+      activeObjectUrls.delete(strId);
+    }
+    memoryMedia.delete(strId);
+
+    return openDatabase().then(function (db) {
+      if (!db) return;
+      return new Promise(function (resolve) {
+        try {
+          var tx = db.transaction(STORE_MEDIA, 'readwrite');
+          tx.objectStore(STORE_MEDIA).delete(strId);
+          tx.oncomplete = function () { resolve(); };
+          tx.onerror = function () { resolve(); };
+        } catch (err) {
+          resolve();
+        }
+      });
+    });
+  }
+
+  function clearMedia() {
+    activeObjectUrls.forEach(function (url) {
+      safeRevokeObjectURL(url);
+    });
+    activeObjectUrls.clear();
+    memoryMedia.clear();
+
+    return openDatabase().then(function (db) {
+      if (!db) return;
+      return new Promise(function (resolve) {
+        try {
+          var tx = db.transaction(STORE_MEDIA, 'readwrite');
+          tx.objectStore(STORE_MEDIA).clear();
+          tx.oncomplete = function () { resolve(); };
+          tx.onerror = function () { resolve(); };
+        } catch (err) {
+          resolve();
+        }
+      });
+    });
+  }
+
+  function getMediaStats() {
+    return openDatabase().then(function (db) {
+      if (!db) {
+        var memCount = memoryMedia.size;
+        var memBytes = 0;
+        memoryMedia.forEach(function (val) { memBytes += (val.size || 0); });
+        return { count: memCount, totalBytes: memBytes };
+      }
+
+      return new Promise(function (resolve) {
+        try {
+          var tx = db.transaction(STORE_MEDIA, 'readonly');
+          var store = tx.objectStore(STORE_MEDIA);
+          var req = store.openCursor();
+          var count = 0;
+          var totalBytes = 0;
+
+          req.onsuccess = function (event) {
+            var cursor = event.target.result;
+            if (cursor) {
+              count++;
+              totalBytes += (cursor.value.size || 0);
+              cursor.continue();
+            } else {
+              resolve({ count: count, totalBytes: totalBytes });
+            }
+          };
+
+          req.onerror = function () {
+            resolve({ count: memoryMedia.size, totalBytes: 0 });
+          };
+        } catch (err) {
+          resolve({ count: memoryMedia.size, totalBytes: 0 });
+        }
+      });
     });
   }
 
@@ -407,16 +756,22 @@
   }
 
   function clearAll() {
+    activeObjectUrls.forEach(function (url) {
+      safeRevokeObjectURL(url);
+    });
+    activeObjectUrls.clear();
     memoryInbox.clear();
     memoryMessages.clear();
+    memoryMedia.clear();
 
     return openDatabase().then(function (db) {
       if (!db) return;
       return new Promise(function (resolve) {
         try {
-          var tx = db.transaction([STORE_INBOX, STORE_MESSAGES], 'readwrite');
+          var tx = db.transaction([STORE_INBOX, STORE_MESSAGES, STORE_MEDIA], 'readwrite');
           tx.objectStore(STORE_INBOX).clear();
           tx.objectStore(STORE_MESSAGES).clear();
+          tx.objectStore(STORE_MEDIA).clear();
           tx.oncomplete = function () { resolve(); };
           tx.onerror = function () { resolve(); };
           tx.onabort = function () { resolve(); };
@@ -430,6 +785,8 @@
   return {
     DB_NAME: DB_NAME,
     DB_VERSION: DB_VERSION,
+    MAX_TOTAL_MEDIA_CACHE_SIZE: MAX_TOTAL_MEDIA_CACHE_SIZE,
+    MAX_SINGLE_MEDIA_SIZE: MAX_SINGLE_MEDIA_SIZE,
     isSupported: isIndexedDBAvailable,
     getInbox: getInbox,
     setInbox: setInbox,
@@ -440,6 +797,13 @@
     appendMessage: appendMessage,
     updateMessage: updateMessage,
     removeMessage: removeMessage,
+    getMedia: getMedia,
+    getMediaUrl: getMediaUrl,
+    saveMedia: saveMedia,
+    fetchAndCacheMedia: fetchAndCacheMedia,
+    removeMedia: removeMedia,
+    clearMedia: clearMedia,
+    getMediaStats: getMediaStats,
     clearUser: clearUser,
     clearAll: clearAll
   };

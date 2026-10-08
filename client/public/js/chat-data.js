@@ -226,10 +226,20 @@
 
       closeMediaPreview();
 
+      const replyMessages = result.messages || (result.message ? [result.message] : []);
+      if (window.VaRoomChatCache && state.session && state.session.user && state.session.user.id) {
+        replyMessages.forEach((msg) => {
+          window.VaRoomChatCache.appendMessage(state.session.user.id, conversationId, msg).catch(() => {});
+        });
+        const lastSent = replyMessages[replyMessages.length - 1] || result.message;
+        if (lastSent) {
+          window.VaRoomChatCache.updateInboxConversation(state.session.user.id, conversationId, { lastMessage: lastSent }).catch(() => {});
+        }
+      }
+
       if (state.activeId !== conversationId) return;
 
       const current = $('.messages');
-      const replyMessages = result.messages || (result.message ? [result.message] : []);
       replyMessages.forEach((message) => {
         if (message && !current.querySelector(`[data-message-id="${message.id}"]`)) {
           current.appendChild(messageRow(message));
@@ -549,7 +559,20 @@
       const photo = listing.listing_photos && listing.listing_photos[0];
       const image = document.createElement('img');
       image.alt = listing.title || '';
-      image.src = photo ? window.supabaseClient.storage.from('listing-photos').getPublicUrl(photo.storage_path).data.publicUrl : '';
+      const fallbackUrl = photo ? window.supabaseClient.storage.from('listing-photos').getPublicUrl(photo.storage_path).data.publicUrl : '';
+      image.src = fallbackUrl;
+      if (window.VaRoomChatCache && photo && photo.storage_path) {
+        const photoKey = 'listing-photo:' + photo.storage_path;
+        window.VaRoomChatCache.getMediaUrl(photoKey).then((cached) => {
+          if (cached && cached.url) {
+            image.src = cached.url;
+          } else {
+            window.VaRoomChatCache.fetchAndCacheMedia(photoKey, fallbackUrl, { type: 'image' }).then((cachedUrl) => {
+              if (cachedUrl) image.src = cachedUrl;
+            }).catch(() => {});
+          }
+        }).catch(() => {});
+      }
       const textBlock = document.createElement('div');
       textBlock.innerHTML = `<strong></strong><small></small>`;
       textBlock.querySelector('strong').textContent = listing.title || '';
@@ -564,6 +587,18 @@
         player.playsInline = true;
         player.controls = true;
         player.style.cssText = 'width:100%;height:82px;object-fit:cover;display:block;background:#f6f7f9';
+        if (window.VaRoomChatCache && video.videoId && video.rawPlaybackUrl) {
+          const videoKey = 'listing-video:' + video.videoId;
+          window.VaRoomChatCache.getMediaUrl(videoKey).then((cached) => {
+            if (cached && cached.url) {
+              player.src = cached.url;
+            } else {
+              player.addEventListener('play', () => {
+                window.VaRoomChatCache.fetchAndCacheMedia(videoKey, video.rawPlaybackUrl, { type: 'video' }).catch(() => {});
+              }, { once: true });
+            }
+          }).catch(() => {});
+        }
         image.replaceWith(player);
       }).catch((error) => console.error('Listing video unavailable:', error));
       option.addEventListener('click', () => {
@@ -594,8 +629,14 @@
           body: JSON.stringify({ content: listing.title, listingId: listing.id, messageType: 'listing' }),
         });
         const current = $('.messages');
-        if (result.message && !current.querySelector(`[data-message-id="${result.message.id}"]`)) {
-          current.appendChild(messageRow(result.message));
+        if (result.message) {
+          if (window.VaRoomChatCache && state.session && state.session.user && state.session.user.id) {
+            window.VaRoomChatCache.appendMessage(state.session.user.id, state.activeId, result.message).catch(() => {});
+            window.VaRoomChatCache.updateInboxConversation(state.session.user.id, state.activeId, { lastMessage: result.message }).catch(() => {});
+          }
+          if (!current.querySelector(`[data-message-id="${result.message.id}"]`)) {
+            current.appendChild(messageRow(result.message));
+          }
         }
         if (result.message && window.VaRoomChatCache && state.session && state.session.user) {
           window.VaRoomChatCache.appendMessage(state.session.user.id, state.activeId, result.message).catch(() => {});
@@ -870,8 +911,21 @@
       card.innerHTML = '<div class="chat-listing-card-body"><div class="chat-listing-card-title"></div><div class="chat-listing-card-sub"></div></div>';
       if (photo) {
         const image = document.createElement('img');
-        image.src = window.supabaseClient.storage.from('listing-photos').getPublicUrl(photo.storage_path).data.publicUrl;
+        const fallbackUrl = window.supabaseClient.storage.from('listing-photos').getPublicUrl(photo.storage_path).data.publicUrl;
+        image.src = fallbackUrl;
         image.alt = message.listing.title || 'Listing image';
+        if (window.VaRoomChatCache && photo.storage_path) {
+          const photoKey = 'listing-photo:' + photo.storage_path;
+          window.VaRoomChatCache.getMediaUrl(photoKey).then((cached) => {
+            if (cached && cached.url) {
+              image.src = cached.url;
+            } else {
+              window.VaRoomChatCache.fetchAndCacheMedia(photoKey, fallbackUrl, { type: 'image' }).then((cachedUrl) => {
+                if (cachedUrl) image.src = cachedUrl;
+              }).catch(() => {});
+            }
+          }).catch(() => {});
+        }
         card.insertBefore(image, card.firstChild);
       }
       card.querySelector('.chat-listing-card-title').textContent = message.listing.title || '';
@@ -886,6 +940,18 @@
         player.playsInline = true;
         player.controls = true;
         player.style.cssText = 'width:180px;height:90px;object-fit:cover;border-radius:8px';
+        if (window.VaRoomChatCache && video.videoId && video.rawPlaybackUrl) {
+          const videoKey = 'listing-video:' + video.videoId;
+          window.VaRoomChatCache.getMediaUrl(videoKey).then((cached) => {
+            if (cached && cached.url) {
+              player.src = cached.url;
+            } else {
+              player.addEventListener('play', () => {
+                window.VaRoomChatCache.fetchAndCacheMedia(videoKey, video.rawPlaybackUrl, { type: 'video' }).catch(() => {});
+              }, { once: true });
+            }
+          }).catch(() => {});
+        }
         const existingImage = card.querySelector('img');
         if (existingImage) existingImage.replaceWith(player);
         else card.insertBefore(player, card.firstChild);
@@ -1082,7 +1148,21 @@
   }
 
   async function downloadAttachment(attachmentId) {
+    const cacheKey = 'attachment:' + attachmentId;
+    if (window.VaRoomChatCache) {
+      try {
+        const cached = await window.VaRoomChatCache.getMediaUrl(cacheKey);
+        if (cached && cached.url) return cached.url;
+      } catch (e) {}
+    }
     const result = await api(`/api/chat/attachments/${encodeURIComponent(attachmentId)}/download`);
+    if (window.VaRoomChatCache && result && result.url) {
+      try {
+        return await window.VaRoomChatCache.fetchAndCacheMedia(cacheKey, result.url, { type: 'attachment' });
+      } catch (e) {
+        return result.url;
+      }
+    }
     return result.url;
   }
 
@@ -1099,7 +1179,26 @@
     const video = (mediaResult.media || []).find((item) => item.type === 'video');
     if (!video) return null;
     const playback = await api(`/api/media/${encodeURIComponent(video.id)}/playback`);
-    return { ...video, url: playback.url, thumbnailUrl: playback.thumbnailUrl || video.thumbnailUrl || '' };
+    const rawThumbUrl = playback.thumbnailUrl || video.thumbnailUrl || '';
+    let thumbUrl = rawThumbUrl;
+    if (window.VaRoomChatCache && rawThumbUrl && video.id) {
+      const thumbKey = 'listing-thumb:' + video.id;
+      try {
+        const cachedThumb = await window.VaRoomChatCache.getMediaUrl(thumbKey);
+        if (cachedThumb && cachedThumb.url) {
+          thumbUrl = cachedThumb.url;
+        } else {
+          thumbUrl = await window.VaRoomChatCache.fetchAndCacheMedia(thumbKey, rawThumbUrl, { type: 'image' });
+        }
+      } catch (e) {}
+    }
+    return {
+      ...video,
+      url: playback.url,
+      thumbnailUrl: thumbUrl,
+      rawPlaybackUrl: playback.url,
+      videoId: video.id
+    };
   }
 
   function renderMessages(messages, { scrollToBottom = true } = {}) {
@@ -1127,11 +1226,11 @@
     const previousTop = container.scrollTop;
     const wasAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 40;
     const result = await api(`/api/chat/conversations/${encodeURIComponent(conversationId)}/messages`);
-    if (state.activeId !== conversationId) return;
-    const userId = state.session ? state.session.user.id : null;
+    const userId = state.session && state.session.user ? state.session.user.id : null;
     if (window.VaRoomChatCache && userId) {
       window.VaRoomChatCache.setMessages(userId, conversationId, result.messages || []).catch(() => {});
     }
+    if (state.activeId !== conversationId) return;
     renderMessages(result.messages, { scrollToBottom: !preserveScroll });
     renderInfoAttachments(result.messages);
     const lastMessage = result.messages[result.messages.length - 1];
@@ -1600,7 +1699,6 @@
         container.appendChild(errorNotice);
       }
     }
-
     if (isMobile()) showMobileConversation();
     api(`/api/chat/conversations/${encodeURIComponent(id)}/read`, { method: 'POST', body: '{}' }).catch((err) => {
       console.warn('Unable to mark conversation as read:', err);
@@ -1625,6 +1723,10 @@
             || state.activeId !== id) return;
           const message = (result.messages || []).find((item) => item.id === messageId);
           if (!message || current.querySelector(`[data-message-id="${message.id}"]`)) return;
+          if (window.VaRoomChatCache && userId) {
+            window.VaRoomChatCache.appendMessage(userId, id, message).catch(() => {});
+            window.VaRoomChatCache.updateInboxConversation(userId, id, { lastMessage: message }).catch(() => {});
+          }
           const previousRow = current.lastElementChild;
           const row = messageRow(message);
           if (previousRow && previousRow.classList.contains(message.sender_id === state.session.user.id ? 'out' : 'in')) row.classList.add('same-sender');
@@ -1718,7 +1820,7 @@
     await ensureChatCache();
     const result = await window.supabaseClient.auth.getSession();
     state.session = result.data.session;
-    if (!state.session) { window.location.assign('/login?next=/chats'); return; }
+    if (!state.session || !state.session.user) { window.location.assign('/login?next=/chats'); return; }
     const userId = state.session.user.id;
 
     if (window.supabaseClient.auth && window.supabaseClient.auth.onAuthStateChange) {
@@ -1986,6 +2088,15 @@
         updateMobilePreview();
         const current = $('.messages');
         const replyMessages = result.messages || (result.message ? [result.message] : []);
+        if (window.VaRoomChatCache && state.session && state.session.user && state.session.user.id) {
+          replyMessages.forEach((msg) => {
+            window.VaRoomChatCache.appendMessage(state.session.user.id, conversationId, msg).catch(() => {});
+          });
+          const lastSent = replyMessages[replyMessages.length - 1] || result.message;
+          if (lastSent) {
+            window.VaRoomChatCache.updateInboxConversation(state.session.user.id, conversationId, { lastMessage: lastSent }).catch(() => {});
+          }
+        }
         if (result.message && replyToMessage && !pending) {
           result.message.reply_to_message = {
             id: replyToMessage.id,
@@ -2035,18 +2146,20 @@
     document.body.appendChild(fileInput);
     const upload = async (file, kind) => {
       if (!state.activeId || isElie()) return;
-      const init = await api(`/api/chat/conversations/${encodeURIComponent(state.activeId)}/attachments/upload-init`, {
+      const conversationId = state.activeId;
+      const init = await api(`/api/chat/conversations/${encodeURIComponent(conversationId)}/attachments/upload-init`, {
         method: 'POST', body: JSON.stringify({ filename: file.name, mimeType: file.type, fileSize: file.size, kind }),
       });
       const uploadResponse = await fetch(init.uploadUrl, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file });
       if (!uploadResponse.ok) throw new Error('Attachment upload failed');
-      await api(`/api/chat/conversations/${encodeURIComponent(state.activeId)}/attachments/${encodeURIComponent(init.attachmentId)}/complete`, { method: 'POST', body: '{}' });
-      const result = await api(`/api/chat/conversations/${encodeURIComponent(state.activeId)}/messages`, {
+      await api(`/api/chat/conversations/${encodeURIComponent(conversationId)}/attachments/${encodeURIComponent(init.attachmentId)}/complete`, { method: 'POST', body: '{}' });
+      const result = await api(`/api/chat/conversations/${encodeURIComponent(conversationId)}/messages`, {
         method: 'POST',
         body: JSON.stringify({ content: file.name, attachmentId: init.attachmentId, messageType: kind }),
       });
       if (result && result.message && window.VaRoomChatCache && state.session && state.session.user) {
-        window.VaRoomChatCache.appendMessage(state.session.user.id, state.activeId, result.message).catch(() => {});
+        window.VaRoomChatCache.appendMessage(state.session.user.id, conversationId, result.message).catch(() => {});
+        window.VaRoomChatCache.updateInboxConversation(state.session.user.id, conversationId, { lastMessage: result.message }).catch(() => {});
       }
     };
     const imageButton = $('.attach-icons button.share-photo');

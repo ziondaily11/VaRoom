@@ -331,15 +331,23 @@ export default function LegacyPage({ title, markup, scripts }) {
       supabaseScript.async = false;
       document.body.appendChild(supabaseScript);
 
+      const cacheScript = document.createElement('script');
+      cacheScript.src = '/js/chat-cache.js';
+      cacheScript.dataset.chatCache = 'true';
+      cacheScript.async = false;
+      document.body.appendChild(cacheScript);
+
       const script = document.createElement('script');
       script.src = '/js/chat-data.js';
       script.dataset.chatData = 'true';
       script.async = false;
       const loadChatData = () => {
-        if (!cancelled) document.body.appendChild(script);
+        if (!cancelled && !document.querySelector('script[data-chat-data]')) {
+          document.body.appendChild(script);
+        }
       };
-      supabaseScript.addEventListener('load', loadChatData, { once: true });
-      supabaseScript.addEventListener('error', loadChatData, { once: true });
+      cacheScript.addEventListener('load', loadChatData, { once: true });
+      cacheScript.addEventListener('error', loadChatData, { once: true });
     };
     loadPageScripts().catch((error) => console.error('Legacy page initialization failed:', error));
     return () => {
