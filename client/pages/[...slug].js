@@ -317,6 +317,14 @@ export default function LegacyPage({ title, markup, scripts }) {
       await runLegacyScripts(containerRef.current, scripts);
       if (cancelled || title !== 'Messenger Dashboard' || document.querySelector('script[data-chat-data]')) return;
 
+      if (!document.querySelector('script[data-chat-cache]')) {
+        const cacheScript = document.createElement('script');
+        cacheScript.src = '/js/chat-cache.js';
+        cacheScript.dataset.chatCache = 'true';
+        cacheScript.async = false;
+        document.body.appendChild(cacheScript);
+      }
+
       const supabaseScript = document.createElement('script');
       supabaseScript.src = '/js/supabase-client.js';
       supabaseScript.dataset.chatSupabase = 'true';
