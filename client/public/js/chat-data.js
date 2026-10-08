@@ -1225,15 +1225,24 @@
     const container = $('.messages');
     const previousTop = container.scrollTop;
     const wasAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 40;
-    const result = await api(`/api/chat/conversations/${encodeURIComponent(conversationId)}/messages`);
     const userId = state.session && state.session.user ? state.session.user.id : null;
-    if (window.VaRoomChatCache && userId) {
-      window.VaRoomChatCache.setMessages(userId, conversationId, result.messages || []).catch(() => {});
+    let messages = [];
+    if (window.VaRoomChatCache && window.VaRoomChatCache.syncConversationMessages && userId) {
+      messages = await window.VaRoomChatCache.syncConversationMessages(userId, conversationId, {
+        accessToken: state.session.access_token,
+        fetchFn: api
+      });
+    } else {
+      const result = await api(`/api/chat/conversations/${encodeURIComponent(conversationId)}/messages`);
+      messages = result.messages || [];
+      if (window.VaRoomChatCache && userId) {
+        window.VaRoomChatCache.setMessages(userId, conversationId, messages).catch(() => {});
+      }
     }
     if (state.activeId !== conversationId) return;
-    renderMessages(result.messages, { scrollToBottom: !preserveScroll });
-    renderInfoAttachments(result.messages);
-    const lastMessage = result.messages[result.messages.length - 1];
+    renderMessages(messages, { scrollToBottom: !preserveScroll });
+    renderInfoAttachments(messages);
+    const lastMessage = messages[messages.length - 1];
     if (lastMessage) updateConversationPreview(lastMessage);
     else {
       const conversation = state.conversations.find((item) => item.id === conversationId);
@@ -1659,28 +1668,26 @@
 
     let finalMessages = cachedMessages || [];
     try {
-      const result = await api(fetchUrl);
-      if (selectionGeneration !== state.selectionGeneration || state.activeId !== id) return;
-
-      if (newestCached && cachedMessages) {
-        if (window.VaRoomChatCache && userId) {
+      if (window.VaRoomChatCache && window.VaRoomChatCache.syncConversationMessages && userId) {
+        finalMessages = await window.VaRoomChatCache.syncConversationMessages(userId, id, {
+          accessToken: state.session.access_token,
+          fetchFn: api
+        });
+      } else {
+        const result = await api(fetchUrl);
+        if (newestCached && cachedMessages) {
           finalMessages = await window.VaRoomChatCache.mergeMessages(userId, id, result.messages || []);
         } else {
-          const map = new Map();
-          cachedMessages.forEach((m) => { if (m && m.id) map.set(String(m.id), m); });
-          (result.messages || []).forEach((m) => { if (m && m.id) map.set(String(m.id), m); });
-          finalMessages = Array.from(map.values()).sort((a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime());
-        }
-      } else {
-        finalMessages = result.messages || [];
-        if (window.VaRoomChatCache && userId) {
-          await window.VaRoomChatCache.setMessages(userId, id, finalMessages);
+          finalMessages = result.messages || [];
+          if (window.VaRoomChatCache && userId) {
+            await window.VaRoomChatCache.setMessages(userId, id, finalMessages);
+          }
         }
       }
 
       if (selectionGeneration !== state.selectionGeneration || state.activeId !== id) return;
 
-      if (!newestCached || (result.messages && result.messages.length > 0)) {
+      if (!newestCached || (finalMessages && finalMessages.length > 0)) {
         renderMessages(finalMessages, { scrollToBottom: true });
         renderInfoAttachments(finalMessages);
       }
@@ -1861,12 +1868,22 @@
     }
 
     try {
-      const [data, profileResult] = await Promise.all([
-        api('/api/chat/conversations'),
+      let conversationsPromise;
+      if (window.VaRoomChatCache && window.VaRoomChatCache.syncInbox) {
+        conversationsPromise = window.VaRoomChatCache.syncInbox(userId, {
+          accessToken: state.session.access_token,
+          fetchFn: api
+        });
+      } else {
+        conversationsPromise = api('/api/chat/conversations').then((data) => data.conversations || []);
+      }
+
+      const [conversations, profileResult] = await Promise.all([
+        conversationsPromise,
         window.supabaseClient.from('profiles').select('role').eq('id', userId).maybeSingle()
       ]);
       if (profileResult.error) throw profileResult.error;
-      state.conversations = data.conversations || [];
+      state.conversations = conversations || [];
       if (window.VaRoomChatCache) {
         window.VaRoomChatCache.setInbox(userId, state.conversations).catch((err) => {
           console.warn('[Chats] Inbox cache save warning:', err);
