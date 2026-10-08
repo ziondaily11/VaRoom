@@ -1266,8 +1266,10 @@
       const diningResponse = await fetch('/api/listings/' + encodeURIComponent(listingId) + '/dining-config');
       if (diningResponse.ok) diningConfig = (await diningResponse.json()).diningConfig;
     }
-    const details = listing.listing_booking_details || {};
-    if (supportsStay && !listing.listing_booking_details) {
+    const rawDetails = listing.listing_booking_details;
+    const details = (Array.isArray(rawDetails) ? rawDetails[0] : rawDetails) || {};
+    const hasBookingDetails = Boolean(details && (details.price_amount != null || details.sale_price_amount != null || details.size_or_type || (Array.isArray(details.amenities) && details.amenities.length > 0)));
+    if (supportsStay && (!rawDetails || !hasBookingDetails)) {
       showError('This listing has no booking details set up yet.');
       return;
     }
@@ -1398,8 +1400,9 @@
     const infoChips = [];
     if (listing.category) infoChips.push(listing.category.charAt(0).toUpperCase() + listing.category.slice(1));
     if (listing.category === 'property') {
-      if (details.listing_purpose) {
-        infoChips.push(details.listing_purpose === 'rent' ? 'For rent' : (details.listing_purpose === 'sale' ? 'For sale' : 'Rent & sale'));
+      const propPurpose = listing.listing_purpose || details.listing_purpose;
+      if (propPurpose) {
+        infoChips.push(propPurpose === 'rent' ? 'For rent' : (propPurpose === 'sale' ? 'For sale' : 'Rent & sale'));
       }
       if (details.units_available) {
         infoChips.push(details.units_available + ' unit' + (details.units_available === 1 ? '' : 's') + ' available');
@@ -1724,9 +1727,10 @@
       : null;
     let priceDisplayHtml = '<div class="widget-price">KSh ' + Number(details.price_amount).toLocaleString() + ' <span>/ ' + details.price_unit + '</span></div>';
     if (listing.category === 'property') {
-      if (details.listing_purpose === 'sale' && details.sale_price_amount != null) {
+      const propPurpose = listing.listing_purpose || details.listing_purpose;
+      if (propPurpose === 'sale' && details.sale_price_amount != null) {
         priceDisplayHtml = '<div class="widget-price">' + (details.sale_price_mode === 'starting' ? 'From ' : '') + 'KSh ' + Number(details.sale_price_amount).toLocaleString() + '</div>';
-      } else if (details.listing_purpose === 'both') {
+      } else if (propPurpose === 'both') {
         const rentPart = details.price_amount ? 'Rent: KSh ' + Number(details.price_amount).toLocaleString() + ' / mo' : '';
         const salePart = details.sale_price_amount ? (details.sale_price_mode === 'starting' ? 'From ' : '') + 'KSh ' + Number(details.sale_price_amount).toLocaleString() : '';
         priceDisplayHtml = '<div class="widget-price" style="font-size:1.05rem;line-height:1.4;">' + [rentPart, salePart ? 'Sale: ' + salePart : ''].filter(Boolean).join('<br>') + '</div>';

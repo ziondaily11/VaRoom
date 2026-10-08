@@ -16,6 +16,7 @@ comment on column public.listings.listing_purpose is
   'Property listings only: whether the property is for rent, for sale, or both. NULL for every other category.';
 
 alter table public.listing_booking_details
+  add column if not exists listing_purpose    text    check (listing_purpose in ('rent', 'sale', 'both')),
   add column if not exists sale_price_amount  numeric check (sale_price_amount >= 0),
   add column if not exists sale_price_mode    text    check (sale_price_mode in ('starting', 'exact')),
   add column if not exists units_available    integer check (units_available >= 1),
