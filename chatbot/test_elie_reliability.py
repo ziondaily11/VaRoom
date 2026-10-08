@@ -1,7 +1,7 @@
 """
 Comprehensive unit and integration test suite for Elie Gemini reliability,
 error classification, retry/fallback mechanisms, schema validation,
-database error isolation, correlation tracing, and diagnostic probes.
+database error isolation, correlation tracing, capacity configuration, and diagnostic probes.
 """
 
 import sys
@@ -23,6 +23,7 @@ if str(chatbot_dir) not in sys.path:
 os.environ["GEMINI_API_KEY"] = "test-gemini-key-12345"
 os.environ["GEMINI_MODEL"] = "gemini-3.8-flash"
 os.environ["GEMINI_FALLBACK_MODEL"] = "gemini-3.6-flash"
+os.environ["GEMINI_CAPACITY"] = "medium"
 os.environ["SUPABASE_URL"] = "https://mock-test.supabase.co"
 os.environ["SUPABASE_ANON_KEY"] = "mock-anon-key"
 os.environ["SUPABASE_SERVICE_ROLE_KEY"] = "mock-service-key"
@@ -41,6 +42,7 @@ from main import (
     ListingDatabaseError,
     PRIMARY_GEMINI_MODEL,
     FALLBACK_GEMINI_MODEL,
+    GEMINI_CAPACITY,
     app,
 )
 
@@ -49,10 +51,20 @@ from main import (
 def reset_models():
     main.PRIMARY_GEMINI_MODEL = "gemini-3.8-flash"
     main.FALLBACK_GEMINI_MODEL = "gemini-3.6-flash"
+    main.GEMINI_CAPACITY = "medium"
     main.GEMINI_API_KEY = "test-gemini-key-12345"
 
 
-# ── 1. Primary Model Success ───────────────────────────────────────────────
+# ── 0. Model & Capacity Configuration Verification ────────────────────────
+
+def test_models_and_capacity_configuration():
+    assert main.PRIMARY_GEMINI_MODEL == "gemini-3.8-flash"
+    assert main.FALLBACK_GEMINI_MODEL == "gemini-3.6-flash"
+    assert main.PRIMARY_GEMINI_MODEL != main.FALLBACK_GEMINI_MODEL
+    assert main.GEMINI_CAPACITY == "medium"
+
+
+# ── 1. Primary Model Success & Payload Capacity ────────────────────────────
 
 def test_call_gemini_primary_success():
     async def run():
@@ -76,6 +88,11 @@ def test_call_gemini_primary_success():
             assert mock_post.call_count == 1
             call_url = str(mock_post.call_args[0][0])
             assert "gemini-3.8-flash" in call_url
+
+            # Verify thinkingEffort / capacity is set to medium in generationConfig
+            call_json = mock_post.call_args[1]["json"]
+            assert "generationConfig" in call_json
+            assert call_json["generationConfig"].get("thinkingConfig", {}).get("thinkingEffort") == "medium"
 
     asyncio.run(run())
 
@@ -106,7 +123,7 @@ def test_call_gemini_retry_503_to_success():
     asyncio.run(run())
 
 
-# ── 3. Fallback Model on Consecutive 503s ───────────────────────────────────
+# ── 3. Fallback Model on Consecutive 503s with Medium Capacity ──────────────
 
 def test_call_gemini_fallback_on_consecutive_503():
     async def run():
@@ -126,9 +143,15 @@ def test_call_gemini_fallback_on_consecutive_503():
             result = await call_gemini("Test fallback", request_id="TEST-003", stage="test")
             assert result == "Fallback model answer"
             assert mock_post.call_count == 3
+            # Attempts 1 & 2 use primary model (gemini-3.8-flash)
             assert "gemini-3.8-flash" in str(mock_post.call_args_list[0][0][0])
             assert "gemini-3.8-flash" in str(mock_post.call_args_list[1][0][0])
+            # Attempt 3 reaches distinct fallback model (gemini-3.6-flash)
             assert "gemini-3.6-flash" in str(mock_post.call_args_list[2][0][0])
+
+            # Confirm fallback attempt also used medium capacity
+            fallback_call_json = mock_post.call_args_list[2][1]["json"]
+            assert fallback_call_json["generationConfig"].get("thinkingConfig", {}).get("thinkingEffort") == "medium"
 
     asyncio.run(run())
 
@@ -373,6 +396,7 @@ def test_health_check_lightweight():
     assert response["status"] == "ok"
     assert response["primary_model"] == "gemini-3.8-flash"
     assert response["fallback_model"] == "gemini-3.6-flash"
+    assert response["capacity"] == "medium"
     assert response["ai_configured"] is True
 
 
@@ -387,6 +411,8 @@ def test_diagnostics_endpoint_ok():
             assert res["status"] == "ok"
             assert res["gemini_connectivity"] is True
             assert res["primary_model"] == "gemini-3.8-flash"
+            assert res["fallback_model"] == "gemini-3.6-flash"
+            assert res["capacity"] == "medium"
             assert res["request_id"] == "DIAG-123"
 
     asyncio.run(run())

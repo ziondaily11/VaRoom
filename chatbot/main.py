@@ -68,6 +68,16 @@ if configured_fallback_model in ("gemini-2.5-flash", "gemini-1.5-flash"):
     configured_fallback_model = ""
 FALLBACK_GEMINI_MODEL = configured_fallback_model or "gemini-3.6-flash"
 
+# Guard against duplicate model configuration for primary & fallback
+if PRIMARY_GEMINI_MODEL == FALLBACK_GEMINI_MODEL:
+    if PRIMARY_GEMINI_MODEL == "gemini-3.6-flash":
+        PRIMARY_GEMINI_MODEL = "gemini-3.8-flash"
+    else:
+        FALLBACK_GEMINI_MODEL = "gemini-3.6-flash"
+
+GEMINI_CAPACITY = (os.getenv("GEMINI_CAPACITY") or os.getenv("GEMINI_EFFORT") or "medium").strip().lower()
+GEMINI_EFFORT = GEMINI_CAPACITY
+
 # Retain GEMINI_MODEL reference for backward compatibility
 GEMINI_MODEL = PRIMARY_GEMINI_MODEL
 
@@ -116,9 +126,10 @@ def get_or_create_correlation_id(request: Optional[Request] = None, header_val: 
 
 # ── Startup diagnostics (No secret keys logged) ─────────────────────────
 logger.info(
-    "[Elie] Initialized models: primary=%s fallback=%s | key_configured=%s | supabase_configured=%s",
+    "[Elie] Initialized models: primary=%s fallback=%s capacity=%s | key_configured=%s | supabase_configured=%s",
     PRIMARY_GEMINI_MODEL,
     FALLBACK_GEMINI_MODEL,
+    GEMINI_CAPACITY,
     bool(GEMINI_API_KEY),
     bool(SUPABASE_URL and SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY),
 )
@@ -240,6 +251,8 @@ async def call_gemini(
         gen_config["temperature"] = temperature
     if max_output_tokens is not None:
         gen_config["maxOutputTokens"] = max_output_tokens
+    if GEMINI_CAPACITY:
+        gen_config["thinkingConfig"] = {"thinkingEffort": GEMINI_CAPACITY}
     if gen_config:
         request_body["generationConfig"] = gen_config
 
@@ -1793,6 +1806,7 @@ def health_check():
         "status": "ok",
         "primary_model": PRIMARY_GEMINI_MODEL,
         "fallback_model": FALLBACK_GEMINI_MODEL,
+        "capacity": GEMINI_CAPACITY,
         "ai_configured": bool(GEMINI_API_KEY),
         "supabase_configured": bool(SUPABASE_URL and SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY),
     }
@@ -1834,6 +1848,7 @@ async def elie_diagnostics(request: Request, authorization: Optional[str] = Head
         "request_id": req_id,
         "primary_model": PRIMARY_GEMINI_MODEL,
         "fallback_model": FALLBACK_GEMINI_MODEL,
+        "capacity": GEMINI_CAPACITY,
         "ai_configured": bool(GEMINI_API_KEY),
         "supabase_configured": bool(SUPABASE_URL and SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY),
         "gemini_connectivity": connectivity_ok,
