@@ -245,11 +245,17 @@ router.get('/chat/conversations/:conversationId/messages', async (req, res) => {
     const conversationId = uuid(req.params.conversationId, 'conversation id');
     const conversation = await memberConversation(conversationId, user.id);
     if (!conversation) return res.status(403).json({ error: 'Conversation access denied' });
-    const { data, error } = await supabaseAdmin
+    const sinceParam = req.query.since ? String(req.query.since) : null;
+    let query = supabaseAdmin
       .from('messages')
       .select('id,conversation_id,sender_id,ciphertext,iv,key_version,created_at,read_at,message_type,attachment_id,listing_id,reply_to_message_id,deleted_at,pinned_at')
-      .eq('conversation_id', conversationId)
-      .order('created_at', { ascending: true });
+      .eq('conversation_id', conversationId);
+
+    if (sinceParam && !isNaN(new Date(sinceParam).getTime())) {
+      query = query.gt('created_at', new Date(sinceParam).toISOString());
+    }
+
+    const { data, error } = await query.order('created_at', { ascending: true });
     if (error) throw error;
     const deletionResult = await supabaseAdmin
       .from('message_user_deletions')
@@ -260,6 +266,17 @@ router.get('/chat/conversations/:conversationId/messages', async (req, res) => {
     const hiddenMessageIds = new Set((deletionResult.data || []).map((deletion) => deletion.message_id));
     const visibleRows = (data || []).filter((message) => !hiddenMessageIds.has(message.id));
     const visibleById = new Map(visibleRows.map((message) => [message.id, message]));
+
+    const missingReplyIds = visibleRows
+      .filter((m) => m.reply_to_message_id && !visibleById.has(m.reply_to_message_id))
+      .map((m) => m.reply_to_message_id);
+    if (missingReplyIds.length) {
+      const { data: missingReplies } = await supabaseAdmin
+        .from('messages')
+        .select('id,conversation_id,sender_id,ciphertext,iv,key_version,created_at,read_at,message_type,attachment_id,listing_id,reply_to_message_id,deleted_at,pinned_at')
+        .in('id', missingReplyIds);
+      (missingReplies || []).forEach((r) => visibleById.set(r.id, r));
+    }
     const attachmentIds = visibleRows
       .filter((message) => !message.deleted_at)
       .map((message) => message.attachment_id)
