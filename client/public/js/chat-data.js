@@ -1226,16 +1226,11 @@
     const previousTop = container.scrollTop;
     const wasAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 40;
     const result = await api(`/api/chat/conversations/${encodeURIComponent(conversationId)}/messages`);
-    if (state.activeId !== conversationId) return;
-<<<<<<< HEAD
-    if (window.VaRoomChatCache && state.session && state.session.user && state.session.user.id) {
-      window.VaRoomChatCache.setMessages(state.session.user.id, conversationId, result.messages).catch(() => {});
-=======
-    const userId = state.session ? state.session.user.id : null;
+    const userId = state.session && state.session.user ? state.session.user.id : null;
     if (window.VaRoomChatCache && userId) {
       window.VaRoomChatCache.setMessages(userId, conversationId, result.messages || []).catch(() => {});
->>>>>>> f62a0edeb0a976a2a05c9673505c806a07bf63a3
     }
+    if (state.activeId !== conversationId) return;
     renderMessages(result.messages, { scrollToBottom: !preserveScroll });
     renderInfoAttachments(result.messages);
     const lastMessage = result.messages[result.messages.length - 1];
@@ -1656,64 +1651,6 @@
       renderConversationList();
     }
 
-<<<<<<< HEAD
-    const userId = state.session ? state.session.user.id : null;
-    let cachedMessages = null;
-    if (window.VaRoomChatCache && userId) {
-      try {
-        cachedMessages = await window.VaRoomChatCache.getMessages(userId, id);
-        if (selectionGeneration === state.selectionGeneration && state.activeId === id && cachedMessages && cachedMessages.length) {
-          renderMessages(cachedMessages);
-          renderInfoAttachments(cachedMessages);
-        }
-      } catch (err) {
-        console.warn('Failed to load cached conversation messages:', err);
-      }
-    }
-
-    if (!cachedMessages || !cachedMessages.length) {
-      renderChatSkeleton();
-    }
-
-    let result;
-    try {
-      if (cachedMessages && cachedMessages.length) {
-        const newest = cachedMessages[cachedMessages.length - 1];
-        const since = newest && newest.created_at ? encodeURIComponent(newest.created_at) : '';
-        if (since) {
-          const deltaResult = await api(`/api/chat/conversations/${encodeURIComponent(id)}/messages?since=${since}`);
-          if (selectionGeneration !== state.selectionGeneration || state.activeId !== id) return;
-          const deltaMessages = deltaResult.messages || [];
-          if (deltaMessages.length && window.VaRoomChatCache && userId) {
-            const merged = await window.VaRoomChatCache.mergeMessages(userId, id, deltaMessages);
-            result = { conversation: deltaResult.conversation || conversation, messages: merged };
-          } else {
-            result = { conversation: deltaResult.conversation || conversation, messages: cachedMessages };
-          }
-        } else {
-          result = await api(`/api/chat/conversations/${encodeURIComponent(id)}/messages`);
-          if (window.VaRoomChatCache && userId) {
-            await window.VaRoomChatCache.setMessages(userId, id, result.messages);
-          }
-        }
-      } else {
-        result = await api(`/api/chat/conversations/${encodeURIComponent(id)}/messages`);
-        if (window.VaRoomChatCache && userId) {
-          await window.VaRoomChatCache.setMessages(userId, id, result.messages);
-        }
-      }
-    } catch (fetchError) {
-      if (cachedMessages && cachedMessages.length) {
-        result = { conversation, messages: cachedMessages };
-      } else {
-        throw fetchError;
-      }
-    }
-
-    if (selectionGeneration !== state.selectionGeneration || state.activeId !== id) return;
-    renderMessages(result.messages);
-    renderInfoAttachments(result.messages);
-=======
     let fetchUrl = `/api/chat/conversations/${encodeURIComponent(id)}/messages`;
     const newestCached = cachedMessages && cachedMessages.length > 0 ? cachedMessages[cachedMessages.length - 1] : null;
     if (newestCached && newestCached.created_at) {
@@ -1762,8 +1699,6 @@
         container.appendChild(errorNotice);
       }
     }
-
->>>>>>> f62a0edeb0a976a2a05c9673505c806a07bf63a3
     if (isMobile()) showMobileConversation();
     api(`/api/chat/conversations/${encodeURIComponent(id)}/read`, { method: 'POST', body: '{}' }).catch((err) => {
       console.warn('Unable to mark conversation as read:', err);
@@ -1885,74 +1820,7 @@
     await ensureChatCache();
     const result = await window.supabaseClient.auth.getSession();
     state.session = result.data.session;
-    if (!state.session) { window.location.assign('/login?next=/chats'); return; }
-<<<<<<< HEAD
-
-    const userId = state.session.user.id;
-    let hasCachedInbox = false;
-    if (window.VaRoomChatCache) {
-      try {
-        const cachedInbox = await window.VaRoomChatCache.getInbox(userId);
-        if (cachedInbox && Array.isArray(cachedInbox) && cachedInbox.length) {
-          state.conversations = cachedInbox;
-          renderConversationList();
-          hasCachedInbox = true;
-        }
-      } catch (e) {
-        console.warn('Failed to load cached inbox:', e);
-      }
-    }
-
-    const profilePromise = window.supabaseClient
-      .from('profiles').select('role').eq('id', userId).maybeSingle().then((profileResult) => {
-        if (profileResult.error) throw profileResult.error;
-        state.role = profileResult.data && profileResult.data.role === 'host' ? 'host' : 'client';
-        document.documentElement.setAttribute('data-role', state.role);
-        document.body.setAttribute('data-role', state.role);
-        if (window.VaroomChatNavigation && window.VaroomChatNavigation.setRole) {
-          window.VaroomChatNavigation.setRole(state.role);
-        }
-        if (window.VaroomSidebar && window.VaroomSidebar.initCounts) {
-          window.VaroomSidebar.initCounts({ supabaseClient: window.supabaseClient });
-        }
-        configureAttachmentControls();
-      });
-
-    const requested = new URLSearchParams(window.location.search).get('c') || new URLSearchParams(window.location.search).get('conversation') || (window.location.pathname === '/elie' ? ELIE_ID : null);
-    if (hasCachedInbox) {
-      state.activeId = (!isMobile() || requested === ELIE_ID) && requested && (requested === ELIE_ID || state.conversations.some((item) => item.id === requested)) ? requested : null;
-      if (state.activeId) {
-        selectConversation(state.activeId).catch((err) => console.error(err));
-      }
-    }
-
-    try {
-      const data = await api('/api/chat/conversations');
-      state.conversations = data.conversations || [];
-      if (window.VaRoomChatCache) {
-        window.VaRoomChatCache.setInbox(userId, state.conversations).catch(() => {});
-      }
-    } catch (inboxErr) {
-      if (!hasCachedInbox) throw inboxErr;
-    }
-
-    await profilePromise;
-
-    state.activeId = (!isMobile() || requested === ELIE_ID) && requested && (requested === ELIE_ID || state.conversations.some((item) => item.id === requested)) ? requested : null;
-    renderConversationList();
-    if (state.activeId) {
-      await selectConversation(state.activeId);
-    } else {
-      syncComposerMode();
-      $('#chatName').textContent = '';
-      $('#statusText').textContent = '';
-      $('#statusDot').style.background = '#c7cbd1';
-      clear($('.messages'));
-      renderProfile(null);
-      renderInfoAttachments([]);
-      if (state.conversations.length) {
-        renderNoSelectionState();
-=======
+    if (!state.session || !state.session.user) { window.location.assign('/login?next=/chats'); return; }
     const userId = state.session.user.id;
 
     if (window.supabaseClient.auth && window.supabaseClient.auth.onAuthStateChange) {
@@ -2020,7 +1888,6 @@
 
       if (state.activeId) {
         await selectConversation(state.activeId);
->>>>>>> f62a0edeb0a976a2a05c9673505c806a07bf63a3
       } else {
         syncComposerMode();
         $('#chatName').textContent = '';
@@ -2285,24 +2152,14 @@
       });
       const uploadResponse = await fetch(init.uploadUrl, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file });
       if (!uploadResponse.ok) throw new Error('Attachment upload failed');
-<<<<<<< HEAD
       await api(`/api/chat/conversations/${encodeURIComponent(conversationId)}/attachments/${encodeURIComponent(init.attachmentId)}/complete`, { method: 'POST', body: '{}' });
       const result = await api(`/api/chat/conversations/${encodeURIComponent(conversationId)}/messages`, {
         method: 'POST',
         body: JSON.stringify({ content: file.name, attachmentId: init.attachmentId, messageType: kind }),
       });
-      if (result.message && window.VaRoomChatCache && state.session && state.session.user && state.session.user.id) {
+      if (result && result.message && window.VaRoomChatCache && state.session && state.session.user) {
         window.VaRoomChatCache.appendMessage(state.session.user.id, conversationId, result.message).catch(() => {});
         window.VaRoomChatCache.updateInboxConversation(state.session.user.id, conversationId, { lastMessage: result.message }).catch(() => {});
-=======
-      await api(`/api/chat/conversations/${encodeURIComponent(state.activeId)}/attachments/${encodeURIComponent(init.attachmentId)}/complete`, { method: 'POST', body: '{}' });
-      const result = await api(`/api/chat/conversations/${encodeURIComponent(state.activeId)}/messages`, {
-        method: 'POST',
-        body: JSON.stringify({ content: file.name, attachmentId: init.attachmentId, messageType: kind }),
-      });
-      if (result && result.message && window.VaRoomChatCache && state.session && state.session.user) {
-        window.VaRoomChatCache.appendMessage(state.session.user.id, state.activeId, result.message).catch(() => {});
->>>>>>> f62a0edeb0a976a2a05c9673505c806a07bf63a3
       }
     };
     const imageButton = $('.attach-icons button.share-photo');

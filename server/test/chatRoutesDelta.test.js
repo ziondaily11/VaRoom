@@ -2,7 +2,12 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-<<<<<<< HEAD
+const crypto = require('crypto');
+
+process.env.VA_ROOM_ENCRYPTION_KEY = crypto.randomBytes(32).toString('base64');
+process.env.VA_ROOM_ENCRYPTION_ACTIVE_VERSION = '1';
+
+const { encryptMessage, decryptMessage } = require('../lib/messageEncryptionService');
 
 test('Delta query parsing validates ISO timestamps correctly', () => {
   const validIso = '2026-10-01T10:00:00.000Z';
@@ -50,13 +55,7 @@ test('Reply resolution correctly connects replied messages even when reply is hi
   });
 
   assert.equal(resolved[0].reply_to_message.body, 'Original question');
-=======
-const crypto = require('crypto');
-
-process.env.VA_ROOM_ENCRYPTION_KEY = crypto.randomBytes(32).toString('base64');
-process.env.VA_ROOM_ENCRYPTION_ACTIVE_VERSION = '1';
-
-const { encryptMessage, decryptMessage } = require('../lib/messageEncryptionService');
+});
 
 test('message encryption and decryption preserves message body for delta sync', () => {
   const original = 'Hello from delta sync test!';
@@ -99,5 +98,4 @@ test('backward pagination with before and limit retrieves preceding slice', () =
   assert.equal(preceding.length, 2);
   assert.equal(preceding[0].id, 'm2');
   assert.equal(preceding[1].id, 'm3');
->>>>>>> f62a0edeb0a976a2a05c9673505c806a07bf63a3
 });

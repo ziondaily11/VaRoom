@@ -4,11 +4,8 @@
  * Provides fast, offline-first client caching for VaRoom Chats:
  * - Inbox conversation list caching with instant render
  * - Per-conversation message caching with background delta sync
-<<<<<<< HEAD
  * - Shared chat media caching (images, videos, audio, thumbnails)
  * - LRU eviction and maximum media cache size management
-=======
->>>>>>> f62a0edeb0a976a2a05c9673505c806a07bf63a3
  * - Deduplication and chronological sorting
  * - User-scoped storage isolation
  * - Resilient fallback to memory when IndexedDB is unavailable
@@ -24,7 +21,6 @@
   'use strict';
 
   var DB_NAME = 'varoom_chat_cache';
-<<<<<<< HEAD
   var DB_VERSION = 2;
   var STORE_INBOX = 'inbox';
   var STORE_MESSAGES = 'messages';
@@ -41,16 +37,6 @@
   var memoryMedia = new Map();
   var activeObjectUrls = new Map();
   var inFlightMediaFetches = new Map();
-=======
-  var DB_VERSION = 1;
-  var STORE_INBOX = 'inbox';
-  var STORE_MESSAGES = 'messages';
-  var MAX_CACHED_MESSAGES = 1000;
-
-  // In-memory fallback structures
-  var memoryInbox = new Map();
-  var memoryMessages = new Map();
->>>>>>> f62a0edeb0a976a2a05c9673505c806a07bf63a3
   var dbPromise = null;
   var dbFailed = false;
 
@@ -62,7 +48,6 @@
     }
   }
 
-<<<<<<< HEAD
   function safeCreateObjectURL(blob) {
     if (!blob) return null;
     if (typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function') {
@@ -83,8 +68,6 @@
     }
   }
 
-=======
->>>>>>> f62a0edeb0a976a2a05c9673505c806a07bf63a3
   function openDatabase() {
     if (dbPromise) return dbPromise;
     if (!isIndexedDBAvailable() || dbFailed) {
@@ -103,14 +86,11 @@
           if (!db.objectStoreNames.contains(STORE_MESSAGES)) {
             db.createObjectStore(STORE_MESSAGES, { keyPath: 'key' });
           }
-<<<<<<< HEAD
           if (!db.objectStoreNames.contains(STORE_MEDIA)) {
             var mediaStore = db.createObjectStore(STORE_MEDIA, { keyPath: 'id' });
             mediaStore.createIndex('accessedAt', 'accessedAt', { unique: false });
             mediaStore.createIndex('type', 'type', { unique: false });
           }
-=======
->>>>>>> f62a0edeb0a976a2a05c9673505c806a07bf63a3
         };
 
         request.onsuccess = function (event) {
@@ -375,10 +355,7 @@
   function appendMessage(userId, conversationId, message) {
     if (!userId || !conversationId || !message) return Promise.resolve();
     return mergeMessages(userId, conversationId, [message]).then(function (merged) {
-<<<<<<< HEAD
-=======
       // Also update inbox lastMessage preview if inbox is cached
->>>>>>> f62a0edeb0a976a2a05c9673505c806a07bf63a3
       return updateInboxConversation(userId, conversationId, {
         lastMessage: message
       }).then(function () {
@@ -387,7 +364,6 @@
     });
   }
 
-<<<<<<< HEAD
   function updateMessage(userId, conversationId, messageIdOrObject, patch) {
     if (!userId || !conversationId || !messageIdOrObject) return Promise.resolve();
     var targetId = typeof messageIdOrObject === 'object' && messageIdOrObject !== null ? messageIdOrObject.id : messageIdOrObject;
@@ -396,23 +372,13 @@
       : (patch || {});
     if (!targetId) return Promise.resolve();
 
-=======
-  function updateMessage(userId, conversationId, messageId, patch) {
-    if (!userId || !conversationId || !messageId || !patch) return Promise.resolve();
->>>>>>> f62a0edeb0a976a2a05c9673505c806a07bf63a3
     return getMessages(userId, conversationId).then(function (messages) {
       if (!messages || !Array.isArray(messages)) return;
       var changed = false;
       var updated = messages.map(function (msg) {
-<<<<<<< HEAD
         if (msg && String(msg.id) === String(targetId)) {
           changed = true;
           return Object.assign({}, msg, targetPatch);
-=======
-        if (msg && String(msg.id) === String(messageId)) {
-          changed = true;
-          return Object.assign({}, msg, patch);
->>>>>>> f62a0edeb0a976a2a05c9673505c806a07bf63a3
         }
         return msg;
       });
@@ -435,7 +401,6 @@
     });
   }
 
-<<<<<<< HEAD
   // --- Shared Chat Media Cache Operations ---
 
   function getMedia(id) {
@@ -744,8 +709,6 @@
     });
   }
 
-=======
->>>>>>> f62a0edeb0a976a2a05c9673505c806a07bf63a3
   // --- Cache Invalidation & Session Cleanup ---
 
   function clearUser(userId) {
@@ -793,7 +756,6 @@
   }
 
   function clearAll() {
-<<<<<<< HEAD
     activeObjectUrls.forEach(function (url) {
       safeRevokeObjectURL(url);
     });
@@ -801,25 +763,15 @@
     memoryInbox.clear();
     memoryMessages.clear();
     memoryMedia.clear();
-=======
-    memoryInbox.clear();
-    memoryMessages.clear();
->>>>>>> f62a0edeb0a976a2a05c9673505c806a07bf63a3
 
     return openDatabase().then(function (db) {
       if (!db) return;
       return new Promise(function (resolve) {
         try {
-<<<<<<< HEAD
           var tx = db.transaction([STORE_INBOX, STORE_MESSAGES, STORE_MEDIA], 'readwrite');
           tx.objectStore(STORE_INBOX).clear();
           tx.objectStore(STORE_MESSAGES).clear();
           tx.objectStore(STORE_MEDIA).clear();
-=======
-          var tx = db.transaction([STORE_INBOX, STORE_MESSAGES], 'readwrite');
-          tx.objectStore(STORE_INBOX).clear();
-          tx.objectStore(STORE_MESSAGES).clear();
->>>>>>> f62a0edeb0a976a2a05c9673505c806a07bf63a3
           tx.oncomplete = function () { resolve(); };
           tx.onerror = function () { resolve(); };
           tx.onabort = function () { resolve(); };
@@ -833,11 +785,8 @@
   return {
     DB_NAME: DB_NAME,
     DB_VERSION: DB_VERSION,
-<<<<<<< HEAD
     MAX_TOTAL_MEDIA_CACHE_SIZE: MAX_TOTAL_MEDIA_CACHE_SIZE,
     MAX_SINGLE_MEDIA_SIZE: MAX_SINGLE_MEDIA_SIZE,
-=======
->>>>>>> f62a0edeb0a976a2a05c9673505c806a07bf63a3
     isSupported: isIndexedDBAvailable,
     getInbox: getInbox,
     setInbox: setInbox,
@@ -848,7 +797,6 @@
     appendMessage: appendMessage,
     updateMessage: updateMessage,
     removeMessage: removeMessage,
-<<<<<<< HEAD
     getMedia: getMedia,
     getMediaUrl: getMediaUrl,
     saveMedia: saveMedia,
@@ -856,8 +804,6 @@
     removeMedia: removeMedia,
     clearMedia: clearMedia,
     getMediaStats: getMediaStats,
-=======
->>>>>>> f62a0edeb0a976a2a05c9673505c806a07bf63a3
     clearUser: clearUser,
     clearAll: clearAll
   };
