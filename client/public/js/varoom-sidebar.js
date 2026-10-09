@@ -30,6 +30,7 @@
 
   function activeNavFromLocation() {
     var pathname = window.location.pathname;
+    if (pathname === '/analytics' || pathname === '/analytics.html') return 'analytics';
     return pathname === '/pricing' || pathname === '/pricing.html' ? 'upgrade' : null;
   }
 
