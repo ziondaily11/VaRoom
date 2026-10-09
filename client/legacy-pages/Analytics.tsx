@@ -1,8 +1,4 @@
-/**
- * HostAnalytics.tsx: VaRoom host analytics, front end only.
- * Wire-up: implement HostAnalyticsApi and render <HostAnalytics api={yourApi} />.
- * Without an api prop it shows clearly labelled sample data. Only dependency: react.
- */
+/** Host analytics dashboard. */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
@@ -40,83 +36,7 @@ export interface HostAnalyticsApi {
   getPlanPayments(signal: AbortSignal): Promise<PlanPayment[]>;
 }
 
-/* ---------- Sample data (swap for your real api) ---------- */
-export type Section = 'summary' | 'trend' | 'listings' | 'reservations' | 'reviews' | 'plan';
 const DAY = 86400000;
-const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-
-function seeded(seed: number) {
-  return () => {
-    seed = (seed + 0x6d2b79f5) | 0;
-    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-/** Options let you preview the empty state and per-section errors. */
-export function createMockApi(o: { delayMs?: number; empty?: boolean; failing?: Section[] } = {}): HostAnalyticsApi {
-  const { delayMs = 500, empty = false, failing = [] } = o;
-  const run = <T,>(s: Section, make: () => T): Promise<T> =>
-    new Promise((res, rej) =>
-      setTimeout(() => (failing.includes(s) ? rej(new Error(`Sample failure in "${s}".`)) : res(make())), delayMs));
-  const span = (r: DateRange) => Math.round((Date.parse(r.to) - Date.parse(r.from)) / DAY) + 1;
-
-  return {
-    isMock: true,
-    getBookingSummary: (range) => run('summary', () => {
-      if (empty) return { requests: 0, byStatus: [], approvedCount: 0, approvedValue: 0, averageApprovedValue: null, completedStays: 0 };
-      const requests = Math.round((40 * span(range)) / 30);
-      const approved = Math.round(requests * 0.55), declined = Math.round(requests * 0.2), expired = Math.round(requests * 0.1);
-      return {
-        requests, approvedCount: approved, approvedValue: approved * 21500, averageApprovedValue: 21500,
-        completedStays: Math.round(approved * 0.7),
-        byStatus: [
-          { status: 'approved', count: approved }, { status: 'pending', count: requests - approved - declined - expired },
-          { status: 'declined', count: declined }, { status: 'expired', count: expired },
-        ],
-      };
-    }),
-    getBookingTrend: (range, g) => run('trend', () => {
-      if (empty) return [];
-      const step = g === 'day' ? 1 : g === 'week' ? 7 : 30;
-      const r = seeded(step * 7 + 1);
-      const out: TrendPoint[] = [];
-      for (let t = Date.parse(range.from); t <= Date.parse(range.to); t += step * DAY) {
-        const requests = Math.round((g === 'day' ? 1 : step / 2) * (1 + r() * 3));
-        out.push({ bucket: new Date(t).toISOString().slice(0, 10), requests, approvedValue: Math.round(requests * 0.55 * (15000 + r() * 12000)) });
-      }
-      return out;
-    }),
-    getListingRanking: (range) => run('listings', () => {
-      if (empty) return [];
-      const f = span(range) / 30;
-      return [
-        { listingId: 'l1', title: 'Karen garden cottage', requests: 18, approved: 11, approvedValue: 264000 },
-        { listingId: 'l2', title: 'Westlands studio', requests: 14, approved: 7, approvedValue: 119000 },
-        { listingId: 'l3', title: 'Diani beach villa', requests: 9, approved: 3, approvedValue: 141000 },
-        { listingId: 'l4', title: 'Nakuru conference hall', requests: 4, approved: 1, approvedValue: 30000 },
-      ].map((l) => ({ ...l, requests: Math.round(l.requests * f), approved: Math.round(l.approved * f), approvedValue: Math.round(l.approvedValue * f) }));
-    }),
-    getReservationSummary: (range) => run('reservations', () => {
-      if (empty) return null;
-      const f = span(range) / 30;
-      return {
-        total: Math.round(26 * f), guests: Math.round(88 * f), tables: Math.round(31 * f),
-        byStatus: [{ status: 'requested', count: Math.round(9 * f) }, { status: 'contacted', count: Math.round(6 * f) }, { status: 'closed', count: Math.round(11 * f) }],
-        byWeekday: [2, 3, 4, 3, 7, 9, 6].map((n) => Math.round(n * f)),
-      };
-    }),
-    getReviewSummary: () => run('reviews', () =>
-      empty ? { average: null, count: 0, distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } }
-        : { average: 4.6, count: 37, distribution: { 1: 0, 2: 1, 3: 3, 4: 8, 5: 25 } }),
-    getPlanPayments: () => run('plan', () =>
-      empty ? [] : [
-        { id: 'p2', paidAt: '2026-09-01', plan: 'Pro', amount: 2500, status: 'paid' },
-        { id: 'p1', paidAt: '2026-08-01', plan: 'Pro', amount: 2500, status: 'paid' },
-      ]),
-  };
-}
 
 /* ---------- Helpers ---------- */
 type AsyncState<T> = { status: 'loading' } | { status: 'error'; message: string } | { status: 'ready'; data: T };
@@ -154,6 +74,17 @@ const kes = new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES',
 const num = new Intl.NumberFormat('en-KE');
 const short = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${Math.round(n / 1e3)}K` : String(Math.round(n)));
 const label = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+const nairobiDate = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'Africa/Nairobi',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+const ymd = (d: Date) => {
+  const parts = nairobiDate.formatToParts(d);
+  const value = (type: string) => parts.find((part) => part.type === type)?.value ?? '';
+  return `${value('year')}-${value('month')}-${value('day')}`;
+};
 const fmtDate = (iso: string, g: Granularity = 'day') =>
   new Date(iso).toLocaleDateString('en-KE', { timeZone: 'UTC', ...(g === 'month' ? { month: 'short', year: '2-digit' } : { day: 'numeric', month: 'short' }) });
 const tone = (s: string) =>
@@ -162,7 +93,8 @@ const tone = (s: string) =>
 function rangeFor(k: RangeKey): DateRange {
   const days = k === '30d' ? 30 : k === '90d' ? 90 : 365;
   const to = new Date();
-  return { from: ymd(new Date(to.getTime() - (days - 1) * DAY)), to: ymd(to) };
+  const from = new Date(to.getTime() - (days - 1) * DAY);
+  return { from: ymd(from), to: ymd(to) };
 }
 
 /* ---------- Building blocks ---------- */
@@ -293,8 +225,8 @@ function ListingTable({ rows }: { rows: ListingRow[] }) {
 }
 
 /* ---------- Page ---------- */
-export default function HostAnalytics({ api }: { api?: HostAnalyticsApi }) {
-  const client = useMemo(() => api ?? createMockApi(), [api]);
+export default function HostAnalytics({ api }: { api: HostAnalyticsApi }) {
+  const client = api;
   const [rk, setRk] = useState<RangeKey>('30d');
   const range = useMemo(() => rangeFor(rk), [rk]);
   const g: Granularity = rk === '30d' ? 'day' : rk === '90d' ? 'week' : 'month';
@@ -317,7 +249,6 @@ export default function HostAnalytics({ api }: { api?: HostAnalyticsApi }) {
         <div>
           <h1>Analytics</h1>
           <p className="va-note">Your bookings, dining reservations, and reviews on VaRoom.</p>
-          {client.isMock && <p className="va-badge">Sample data. These are not your real results.</p>}
         </div>
         <div className="va-tabs" role="group" aria-label="Date range">
           {ranges.map(([k, text]) => <button key={k} type="button" aria-pressed={rk === k} onClick={() => setRk(k)}>{text}</button>)}
@@ -403,7 +334,7 @@ export default function HostAnalytics({ api }: { api?: HostAnalyticsApi }) {
                 <tbody>
                   {d.map((p) => (
                     <tr key={p.id}>
-                      <th scope="row">{fmtDate(p.paidAt)}</th>
+                      <th scope="row">{p.paidAt ? fmtDate(p.paidAt) : 'Not paid'}</th>
                       <td>{p.plan}</td>
                       <td><span className={`va-pill t-${tone(p.status)}`}>{label(p.status)}</span></td>
                       <td className="num">{kes.format(p.amount)}</td>
