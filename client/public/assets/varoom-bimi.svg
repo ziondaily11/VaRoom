@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<svg width="440" height="440" viewBox="0 0 440 440" role="img" version="1.2" baseProfile="tiny-ps" xmlns="http://www.w3.org/2000/svg">
+  <title>bimi-svg-tiny-12-ps</title>
+  <rect width="440" height="440" fill="#ffffff"/>
+  <g transform="translate(0 32.5)">
+    <g fill="#000000">
+      <path d="M 386 41 L 374 32 L 359 24 L 344 19 L 334 18 L 333 17 L 321 17 L 320 16 L 265 17 L 264 16 L 263 17 L 227 17 L 226 18 L 223 28 L 212 53 L 211 58 L 159 186 L 156 196 L 153 201 L 152 206 L 90 361 L 162 361 L 163 360 L 175 330 L 176 325 L 194 282 L 195 277 L 215 229 L 216 224 L 221 214 L 222 209 L 238 171 L 239 166 L 261 113 L 262 108 L 267 98 L 270 88 L 273 84 L 322 84 L 335 88 L 348 100 L 352 108 L 353 116 L 354 117 L 353 128 L 351 134 L 346 142 L 337 150 L 331 153 L 324 155 L 272 155 L 245 222 L 277 222 L 280 225 L 317 300 L 317 302 L 337 341 L 337 343 L 345 359 L 347 361 L 421 361 L 351 220 L 353 217 L 358 216 L 378 205 L 395 190 L 409 170 L 415 157 L 420 140 L 420 135 L 421 134 L 421 106 L 416 85 L 412 75 L 404 61 L 398 53 Z"/>
+    </g>
+    <g fill="#C41E3A">
+      <path d="M 16 17 L 108 244 L 144 154 L 89 17 Z"/>
+    </g>
+  </g>
+</svg>
