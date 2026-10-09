@@ -1,0 +1,60 @@
+.appShell {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  min-height: 100vh;
+  background: #fff;
+}
+
+.sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  background: #fff;
+  border-right: 1px solid #e4e1da;
+}
+
+.content {
+  min-width: 0;
+}
+
+.loading,
+.error {
+  margin: 2rem;
+  font: 500 .95rem Inter, Arial, sans-serif;
+}
+
+.error {
+  color: #8f1229;
+}
+
+.menuToggle {
+  display: none;
+}
+
+@media (max-width: 850px) {
+  .appShell {
+    display: block;
+  }
+
+  .sidebar {
+    height: 100vh;
+    left: 0;
+    position: fixed;
+    top: 0;
+    transform: translateX(-100%);
+    transition: transform .2s ease;
+    width: min(300px, 86vw);
+    z-index: 200;
+  }
+
+  .sidebar:global(.mobile-open) {
+    transform: translateX(0);
+  }
+
+  .menuToggle {
+    display: block;
+    margin: 1rem 1.2rem 0 auto;
+    padding: .45rem .8rem;
+  }
+}

@@ -1,12 +1,13 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
+  BookingSummary,
+  DateRange,
+  Granularity,
   HostAnalyticsApi,
-  HostBookingSummary,
-  HostBookingTrendPoint,
-  HostListingRanking,
-  HostPlanPayment,
-  HostReservationSummary,
-  HostReviewSummary,
+  ListingRow,
+  PlanPayment,
+  ReservationSummary,
+  ReviewSummary,
   StatusCount,
 } from './Analytics';
 
@@ -56,8 +57,12 @@ function statusCounts(value: unknown): StatusCount[] {
 }
 
 export const supabaseHostAnalyticsApi: HostAnalyticsApi = {
-  async getBookingSummary(from, to, signal): Promise<HostBookingSummary> {
-    const result = object(await rpc('host_booking_summary', { p_from: from, p_to: to }, signal));
+  async getBookingSummary(range: DateRange, signal: AbortSignal): Promise<BookingSummary> {
+    const result = object(await rpc(
+      'host_booking_summary',
+      { p_from: range.from, p_to: range.to },
+      signal
+    ));
     return {
       requests: count(result.requests),
       byStatus: statusCounts(result.by_status),
@@ -70,10 +75,14 @@ export const supabaseHostAnalyticsApi: HostAnalyticsApi = {
     };
   },
 
-  async getBookingTrend(from, to, granularity, signal): Promise<HostBookingTrendPoint[]> {
+  async getBookingTrend(
+    range: DateRange,
+    granularity: Granularity,
+    signal: AbortSignal
+  ) {
     return rows(await rpc(
       'host_booking_trend',
-      { p_from: from, p_to: to, p_granularity: granularity },
+      { p_from: range.from, p_to: range.to, p_granularity: granularity },
       signal
     )).map((row) => ({
       bucket: String(row.bucket),
@@ -82,8 +91,12 @@ export const supabaseHostAnalyticsApi: HostAnalyticsApi = {
     }));
   },
 
-  async getListingRanking(from, to, signal): Promise<HostListingRanking[]> {
-    return rows(await rpc('host_listing_ranking', { p_from: from, p_to: to }, signal)).map((row) => ({
+  async getListingRanking(range: DateRange, signal: AbortSignal): Promise<ListingRow[]> {
+    return rows(await rpc(
+      'host_listing_ranking',
+      { p_from: range.from, p_to: range.to },
+      signal
+    )).map((row) => ({
       listingId: String(row.listing_id),
       title: String(row.title ?? ''),
       requests: count(row.requests),
@@ -92,8 +105,15 @@ export const supabaseHostAnalyticsApi: HostAnalyticsApi = {
     }));
   },
 
-  async getReservationSummary(from, to, signal): Promise<HostReservationSummary | null> {
-    const result = await rpc<unknown>('host_reservation_summary', { p_from: from, p_to: to }, signal);
+  async getReservationSummary(
+    range: DateRange,
+    signal: AbortSignal
+  ): Promise<ReservationSummary | null> {
+    const result = await rpc<unknown>(
+      'host_reservation_summary',
+      { p_from: range.from, p_to: range.to },
+      signal
+    );
     if (result === null) return null;
     const value = object(result);
     const rawWeekday = value.by_weekday;
@@ -107,7 +127,7 @@ export const supabaseHostAnalyticsApi: HostAnalyticsApi = {
     };
   },
 
-  async getReviewSummary(signal): Promise<HostReviewSummary> {
+  async getReviewSummary(signal: AbortSignal): Promise<ReviewSummary> {
     const result = object(await rpc('host_review_summary', {}, signal));
     const distribution = object(result.distribution);
     return {
@@ -123,10 +143,10 @@ export const supabaseHostAnalyticsApi: HostAnalyticsApi = {
     };
   },
 
-  async getPlanPayments(signal): Promise<HostPlanPayment[]> {
+  async getPlanPayments(signal: AbortSignal): Promise<PlanPayment[]> {
     return rows(await rpc('host_plan_payments', {}, signal)).map((row) => ({
       id: String(row.id),
-      paidAt: typeof row.paid_at === 'string' ? row.paid_at : null,
+      paidAt: typeof row.paid_at === 'string' ? row.paid_at : '',
       plan: String(row.plan ?? ''),
       amount: count(row.amount),
       status: String(row.status),

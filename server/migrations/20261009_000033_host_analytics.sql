@@ -154,7 +154,6 @@ as $$
     from public.listings l
     where l.host_id = auth.uid()
       and l.category = 'hotel'
-      and l.supports_table_reservation = true
   ),
   scoped_reservations as (
     select r.status, r.guest_count, r.table_count, r.requested_date
