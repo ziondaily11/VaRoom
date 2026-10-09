@@ -102,6 +102,35 @@ export default function AnalyticsPage() {
       profile,
       supabaseClient: client,
     });
+    const itemLabels: Record<string, string> = {
+      '/chats?conversation=elie': 'Elie',
+      '/host-home': 'Home',
+      '/marketplace': 'Marketplace',
+      '/host-home?view=saved': 'Saved',
+      '/bookings': 'Bookings',
+      '/chats': 'Chats',
+      '/notifications': 'Notifications',
+      '/host-home?view=my-listings': 'My Listings',
+      '/analytics': 'Analytics',
+      '/profile': 'Profile',
+      '/settings': 'Settings',
+      '/support': 'Help & Support',
+      'pricing.html': 'Upgrade',
+      '/list': 'List a space',
+    };
+    sidebarRef.current.querySelectorAll<HTMLAnchorElement>('a').forEach((link) => {
+      const label = link.classList.contains('logo')
+        ? 'VaRoom home'
+        : itemLabels[link.getAttribute('href') || ''];
+      if (!label) return;
+      link.title = label;
+      link.setAttribute('aria-label', label);
+    });
+    const logout = sidebarRef.current.querySelector<HTMLButtonElement>('.logout-btn');
+    if (logout) {
+      logout.title = 'Log out';
+      logout.setAttribute('aria-label', 'Log out');
+    }
     void sidebar.initCounts({ supabaseClient: client });
   }, [client, profile, sidebarReady]);
 
