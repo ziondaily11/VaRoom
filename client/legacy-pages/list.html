@@ -414,6 +414,59 @@
     .step-panel{ padding:2rem 1.4rem 1.8rem; }
     .field-row{ grid-template-columns:1fr; }
   }
+
+  /* ============ PROPERTY: purpose selector (Card 1) ============ */
+  .property-purpose-mode{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.55rem; margin:.3rem 0 1.05rem; }
+  .property-purpose-mode[hidden]{ display:none; }
+  .property-purpose-option{ appearance:none; border:1px solid rgba(255,255,255,.3); border-radius:10px; background:rgba(255,255,255,.08); color:inherit; padding:.85rem .65rem; text-align:left; cursor:pointer; font:inherit; transition:background .18s ease, border-color .18s ease; }
+  .property-purpose-option strong, .property-purpose-option small{ display:block; }
+  .property-purpose-option small{ margin-top:.22rem; opacity:.72; line-height:1.3; font-size:.75rem; }
+  .property-purpose-option.selected{ background:var(--red); border-color:var(--red); color:#fff; }
+  .property-purpose-option.selected small{ opacity:.88; }
+
+  /* ============ PROPERTY: policy upload (Card 3) ============ */
+  .property-policy-section[hidden]{ display:none; }
+  .policy-upload-link{ display:inline-flex; align-items:center; gap:.42rem; font-size:.83rem; font-weight:600; color:var(--red); cursor:pointer; background:none; border:none; border-bottom:1.5px solid transparent; padding:0; transition:border-color .18s ease; }
+  .policy-upload-link:hover{ border-bottom-color:var(--red); }
+  .policy-upload-link svg{ width:14px; height:14px; flex-shrink:0; }
+  .policy-file-name{ display:none; align-items:center; gap:.55rem; font-size:.82rem; margin-top:.38rem; color:#C9BDB8; }
+  .policy-file-name.show{ display:flex; }
+  .policy-preview-btn{ background:none; border:none; padding:0; color:#C9BDB8; font-size:.82rem; cursor:pointer; font-family:inherit; text-decoration:underline; }
+  .policy-preview-btn:hover{ color:#fff; }
+  .policy-remove{ background:none; border:none; padding:0; color:#ff9d9d; font-size:.82rem; cursor:pointer; font-family:inherit; }
+  .policy-remove:hover{ text-decoration:underline; }
+  /* Overlay sits inside the existing .step-photo right panel */
+  .policy-preview-overlay{ position:absolute; inset:0; z-index:10; background:#1a1210; display:none; flex-direction:column; border-radius:inherit; overflow:hidden; }
+  .policy-preview-overlay.show{ display:flex; }
+  .policy-preview-toolbar{ display:flex; align-items:center; justify-content:space-between; padding:.65rem 1rem; background:rgba(0,0,0,.45); flex-shrink:0; }
+  .policy-preview-toolbar span{ font-size:.78rem; color:#C9BDB8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:18ch; }
+  .policy-preview-close{ width:28px; height:28px; border-radius:50%; background:rgba(255,255,255,.14); color:#fff; display:grid; place-items:center; cursor:pointer; border:none; flex-shrink:0; }
+  .policy-preview-close:hover{ background:rgba(255,255,255,.28); }
+  .policy-preview-frame{ flex:1; border:none; background:#fff; }
+
+  /* ============ PROPERTY: sale pricing (Card 4) ============ */
+  .property-rent-section{ }
+  .property-rent-section[hidden]{ display:none; }
+  .property-sale-section{ margin-top:.9rem; padding-top:.85rem; border-top:1px solid rgba(255,255,255,.18); }
+  .property-sale-section[hidden]{ display:none; }
+  .property-section-label{ font-size:.7rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:rgba(255,255,255,.6); margin-bottom:.55rem; display:block; }
+  .sale-price-mode-row{ display:grid; grid-template-columns:1fr 1fr; gap:.5rem; margin-bottom:.65rem; }
+  .sale-mode-option{ appearance:none; border:1px solid rgba(255,255,255,.3); border-radius:10px; background:rgba(255,255,255,.08); color:inherit; padding:.6rem .7rem; text-align:center; cursor:pointer; font:inherit; font-size:.82rem; font-weight:600; transition:background .18s ease, border-color .18s ease; }
+  .sale-mode-option.selected{ background:rgba(255,255,255,.22); border-color:rgba(255,255,255,.75); }
+
+  /* ============ PROPERTY: pay-to-list placeholder (Card 5) ============ */
+  .pay-to-list-btn{ width:100%; padding:1rem 1.6rem; border-radius:100px; font-weight:600; font-size:.97rem; background:transparent; color:var(--wz-ink-onlight); border:1.5px solid var(--wz-cream-border); cursor:pointer; margin-bottom:.6rem; transition:background .2s ease, border-color .2s ease; display:flex; align-items:center; justify-content:center; gap:.5rem; font-family:inherit; }
+  .pay-to-list-btn:hover{ background:rgba(26,18,16,.06); border-color:rgba(26,18,16,.32); }
+  .pay-to-list-btn[hidden]{ display:none; }
+
+  @media(max-width:520px){
+    .property-purpose-mode{ grid-template-columns:1fr; }
+    .sale-price-mode-row{ grid-template-columns:1fr; }
+  }
+  @media(min-width:901px){
+    .property-purpose-option{ padding:.65rem .5rem; }
+    .pay-to-list-btn{ font-size:.88rem; padding:.78rem 1rem; }
+  }
 </style>
 <link rel="stylesheet" href="js/varoom-dark-theme.css">
 </head>
@@ -475,6 +528,13 @@
             <button type="button" class="hotel-offer-option" data-hotel-mode="table"><strong>Table Reservations</strong><small>Dining reservations only</small></button>
             <button type="button" class="hotel-offer-option" data-hotel-mode="stay"><strong>Hotel Stay</strong><small>Accommodation only</small></button>
             <button type="button" class="hotel-offer-option" data-hotel-mode="both"><strong>Both</strong><small>Stays and dining reservations</small></button>
+          </div>
+
+          <!-- PROPERTY-ONLY: listing purpose selector. Hidden for every other category. -->
+          <div class="property-purpose-mode" id="property-purpose-mode" hidden aria-label="What is this property listed for?">
+            <button type="button" class="property-purpose-option selected" data-property-purpose="rent" aria-pressed="true"><strong>For rent</strong><small>Monthly rental listing</small></button>
+            <button type="button" class="property-purpose-option" data-property-purpose="sale" aria-pressed="false"><strong>For sale</strong><small>Property sale listing</small></button>
+            <button type="button" class="property-purpose-option" data-property-purpose="both" aria-pressed="false"><strong>Both</strong><small>Rent and sale options</small></button>
           </div>
 
           <div class="step-fields">
@@ -569,6 +629,19 @@
               <p class="amenities-hint" id="amenities-hint">Select everything this space offers. Shown to guests on the booking page.</p>
               <div class="amenities-grid" id="amenities-grid"></div>
             </div>
+
+            <!-- PROPERTY-ONLY: policy / brochure document upload link. Hidden for other categories. -->
+            <div class="field property-policy-section" id="property-policy-section" hidden>
+              <button type="button" class="policy-upload-link" id="policy-upload-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+                Upload property policy document (PDF)
+              </button>
+              <input type="file" id="policy-input" accept="application/pdf,.pdf" style="display:none">
+              <div class="policy-file-name" id="policy-file-name">
+                <button type="button" class="policy-preview-btn" id="policy-preview-btn"></button>
+                <button type="button" class="policy-remove" id="policy-remove-btn">Remove</button>
+              </div>
+            </div>
           </div>
 
           <div class="panel-actions">
@@ -577,6 +650,16 @@
           </div>
         </div>
         <div class="step-photo" style="background-image:url('assets/listing-wizard/step-3.jpg');">
+          <!-- PROPERTY-ONLY: policy preview overlay (fills the right panel; does not affect media gallery). -->
+          <div class="policy-preview-overlay" id="policy-preview-overlay">
+            <div class="policy-preview-toolbar">
+              <span id="policy-preview-filename"></span>
+              <button type="button" class="policy-preview-close" id="policy-preview-close" aria-label="Close policy preview">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+            <iframe class="policy-preview-frame" id="policy-preview-frame" title="Policy document preview"></iframe>
+          </div>
           <div class="step-photo-badge"><span class="check">✓</span> Gallery ready</div>
           <div class="step-photo-caption">
             <h3>Show, don't just tell.</h3>
@@ -711,6 +794,25 @@
                 </div>
               </div>
             </div>
+
+            <!-- PROPERTY-ONLY: units available (shown for all property purposes). -->
+            <div class="field" id="property-units-field" hidden>
+              <label for="property-units-available">Units available</label>
+              <input type="number" id="property-units-available" min="1" placeholder="e.g. 8">
+            </div>
+
+            <!-- PROPERTY-ONLY: sale pricing (shown for "sale" and "both" purposes). -->
+            <div class="property-sale-section" id="property-sale-section" hidden>
+              <span class="property-section-label">Sale price</span>
+              <div class="sale-price-mode-row">
+                <button type="button" class="sale-mode-option selected" data-sale-mode="exact" aria-pressed="true">Exact price</button>
+                <button type="button" class="sale-mode-option" data-sale-mode="starting" aria-pressed="false">Starting from</button>
+              </div>
+              <div class="field">
+                <label for="property-sale-price">Sale price (KES)</label>
+                <input type="number" id="property-sale-price" min="0" step="1" placeholder="e.g. 12500000">
+              </div>
+            </div>
           </div>
 
           <div class="panel-actions">
@@ -753,11 +855,13 @@
               <li><span class="check">✓</span> Details and description added</li>
               <li id="review-location-line"><span class="check">✓</span> Location pinned and ready for GPS verification</li>
               <li id="review-amenities-line"><span class="check">✓</span> Amenities selected</li>
-              <li><span class="check">✓</span> Pricing and booking terms set</li>
+              <li id="review-policy-line" hidden><span class="check">✓</span> Property policy document attached</li>
+              <li id="review-pricing-line"><span class="check">✓</span> Pricing and booking terms set</li>
             </ul>
           </div>
 
           <div class="submit-row">
+            <button type="button" class="pay-to-list-btn" id="pay-to-list-btn" hidden>Pay KES 3,000 to list</button>
             <button type="submit" class="submit-btn" id="submit-btn">Publish listing <span>✓</span></button>
             <p class="form-note">Goes live once saved, subject to GPS location verification.</p>
           </div>
@@ -898,6 +1002,36 @@
   const hotelDiningFields = document.getElementById('hotel-dining-fields');
   let hotelListingMode = null;
 
+  // ---------- PROPERTY-ONLY: state & elements ----------
+  const PROPERTY_LISTING_FEE_KES = 3000;
+  const propertyPurposeMode = document.getElementById('property-purpose-mode');
+  const propertyUnitsField = document.getElementById('property-units-field');
+  const propertyUnitsInput = document.getElementById('property-units-available');
+  const propertySaleSection = document.getElementById('property-sale-section');
+  const propertySalePriceInput = document.getElementById('property-sale-price');
+  const propertyPolicySection = document.getElementById('property-policy-section');
+  const policyUploadBtn = document.getElementById('policy-upload-btn');
+  const policyInput = document.getElementById('policy-input');
+  const policyFileName = document.getElementById('policy-file-name');
+  const policyPreviewBtn = document.getElementById('policy-preview-btn');
+  const policyRemoveBtn = document.getElementById('policy-remove-btn');
+  const policyPreviewOverlay = document.getElementById('policy-preview-overlay');
+  const policyPreviewClose = document.getElementById('policy-preview-close');
+  const policyPreviewFrame = document.getElementById('policy-preview-frame');
+  const policyPreviewFilename = document.getElementById('policy-preview-filename');
+  const payToListBtn = document.getElementById('pay-to-list-btn');
+
+  let propertyPurpose = 'rent'; // 'rent' | 'sale' | 'both'
+  let propertySalePriceMode = 'exact'; // 'exact' | 'starting'
+  let selectedPolicyFile = null;
+
+  function escapeHtml(str){
+    if (!str) return '';
+    return String(str).replace(/[&<>"']/g, function(m){
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m];
+    });
+  }
+
   function applyHotelMode(mode){
     hotelListingMode = mode;
     hotelOfferMode.querySelectorAll('[data-hotel-mode]').forEach(function(button){
@@ -967,6 +1101,113 @@
     setText('availability-hint', 'Open the dates this room can be reserved. Guests will only be able to request available stay dates.');
   }
 
+  function configurePropertyLanguage(){
+    const isProp = hostNiche === 'property';
+    if (!isProp) return;
+    if (propertyPurposeMode) propertyPurposeMode.hidden = false;
+    if (propertyPolicySection) propertyPolicySection.hidden = false;
+    if (payToListBtn) {
+      payToListBtn.hidden = false;
+      payToListBtn.textContent = 'Pay KES ' + PROPERTY_LISTING_FEE_KES.toLocaleString() + ' to list';
+    }
+
+    setText('about-eyebrow', '01 — About the property');
+    setText('about-sub', 'A few thoughtful details now, then VaRoom turns your property into a place people can picture living in.');
+    setText('title-label', 'Property name');
+    document.getElementById('title').placeholder = 'e.g. Karen Villas, Amani Apartments, or Greenview Residences';
+    setText('caption-label', 'Summary highlight');
+    document.getElementById('caption').placeholder = 'A calm executive residence with generous natural light and secure compound.';
+    setText('description-label', 'Property & unit details');
+    document.getElementById('property-description').placeholder = 'Tell buyers or tenants what they should know — available units, property/unit sizes, bedrooms and bathrooms, layout, notable compound features, location access, and terms before deciding to rent or buy.';
+    setText('location-title', 'Add your property’s area.');
+    setText('location-sub', 'A general location helps tenants and buyers understand where your property is situated. Exact location details can be added later.');
+    setText('location-label', 'Where is the property located?');
+    setText('location-help', 'Enter the area, neighbourhood, or town where your property is located. You’ll be able to add the exact location later.');
+    document.getElementById('location-text').placeholder = 'e.g. Nairobi, Kilimani · near Yaya Centre';
+    setText('media-title', 'Showcase the property.');
+    setText('media-sub', 'Choose a cover, add angles of the interior, exterior and compound, then drag to set the order.');
+    setText('photo-hint', 'Up to 6 photos or video tours · JPG, PNG, WEBP, MP4, MOV or WEBM · 5MB max each.');
+    setText('amenities-label', 'Property features & amenities');
+    setText('amenities-hint', 'Select the key features and facilities this property offers to prospective tenants or buyers.');
+  }
+
+  function applyPropertyPurpose(purpose){
+    if (hostNiche !== 'property') return;
+    propertyPurpose = purpose;
+    if (propertyPurposeMode) {
+      propertyPurposeMode.querySelectorAll('[data-property-purpose]').forEach(function(button){
+        const isSelected = button.dataset.propertyPurpose === purpose;
+        button.classList.toggle('selected', isSelected);
+        button.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+      });
+    }
+
+    const isRent = purpose === 'rent';
+    const isSale = purpose === 'sale';
+    const isBoth = purpose === 'both';
+
+    if (propertyUnitsField) propertyUnitsField.hidden = false;
+
+    const stayPriceField = document.getElementById('stay-price-field');
+    const depositField = document.getElementById('deposit-amount') ? document.getElementById('deposit-amount').closest('.field') : null;
+    const minLeaseField = document.getElementById('min-lease') ? document.getElementById('min-lease').closest('.field') : null;
+    const utilRow = document.querySelector('.checkbox-row');
+    const priceAmountInput = document.getElementById('price-amount');
+
+    longTermFields.classList.add('active');
+
+    if (isSale) {
+      if (stayPriceField) stayPriceField.style.display = 'none';
+      if (depositField) depositField.style.display = 'none';
+      if (minLeaseField) minLeaseField.style.display = 'none';
+      if (utilRow) utilRow.style.display = 'none';
+      if (priceAmountInput) priceAmountInput.required = false;
+
+      if (propertySaleSection) propertySaleSection.hidden = false;
+      if (propertySalePriceInput) propertySalePriceInput.required = true;
+
+      pricingHeading.textContent = 'Set your sale price.';
+      bookingSub.textContent = 'Specify whether this is an exact sale price or a starting price.';
+    } else if (isRent) {
+      if (stayPriceField) stayPriceField.style.display = '';
+      if (depositField) depositField.style.display = '';
+      if (minLeaseField) minLeaseField.style.display = '';
+      if (utilRow) utilRow.style.display = '';
+      if (priceAmountInput) priceAmountInput.required = true;
+
+      if (propertySaleSection) propertySaleSection.hidden = true;
+      if (propertySalePriceInput) propertySalePriceInput.required = false;
+
+      pricingHeading.textContent = 'Make every month clear.';
+      bookingSub.textContent = 'Priced per month, for longer-term rental arrangements.';
+    } else { // both
+      if (stayPriceField) stayPriceField.style.display = '';
+      if (depositField) depositField.style.display = '';
+      if (minLeaseField) minLeaseField.style.display = '';
+      if (utilRow) utilRow.style.display = '';
+      if (priceAmountInput) priceAmountInput.required = true;
+
+      if (propertySaleSection) propertySaleSection.hidden = false;
+      if (propertySalePriceInput) propertySalePriceInput.required = true;
+
+      pricingHeading.textContent = 'Set rental & sale pricing.';
+      bookingSub.textContent = 'Provide both monthly rental terms and purchase pricing for interested clients.';
+    }
+    updatePricePreview();
+  }
+
+  function applyPropertySaleMode(mode){
+    propertySalePriceMode = mode;
+    if (propertySaleSection) {
+      propertySaleSection.querySelectorAll('[data-sale-mode]').forEach(function(button){
+        const isSelected = button.dataset.saleMode === mode;
+        button.classList.toggle('selected', isSelected);
+        button.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+      });
+    }
+    updatePricePreview();
+  }
+
   function configureCategory(cat){
     const listingHeadline = document.getElementById('listing-headline');
     if (listingHeadline) listingHeadline.textContent = listingHeadlines[cat] || "Let's list your first space.";
@@ -992,6 +1233,10 @@
       bookingSub.textContent = 'Priced per month, for longer-term arrangements.';
     }
     configureHotelLanguage();
+    if (cat === 'property') {
+      configurePropertyLanguage();
+      applyPropertyPurpose(propertyPurpose);
+    }
     renderAmenities(cat);
     updatePricePreview();
   }
@@ -1004,11 +1249,87 @@
   }
   function updatePricePreview(){
     const amount = document.getElementById('price-amount').value;
+    const saleAmount = propertySalePriceInput ? propertySalePriceInput.value : '';
+
+    if (hostNiche === 'property') {
+      const previewAmountEl = document.getElementById('price-preview-amount');
+      const previewUnitEl = document.getElementById('price-preview-unit');
+      if (propertyPurpose === 'sale') {
+        const prefix = propertySalePriceMode === 'starting' ? 'From KES ' : 'KES ';
+        previewAmountEl.textContent = saleAmount ? (prefix + Number(saleAmount).toLocaleString()) : 'KES 0';
+        previewUnitEl.textContent = ' (for sale)';
+      } else if (propertyPurpose === 'both') {
+        const salePrefix = propertySalePriceMode === 'starting' ? 'From KES ' : 'KES ';
+        const rentPart = 'Rent: KES ' + (amount ? Number(amount).toLocaleString() : '0') + ' / mo';
+        const salePart = 'Sale: ' + (saleAmount ? (salePrefix + Number(saleAmount).toLocaleString()) : 'Not set');
+        previewAmountEl.textContent = rentPart;
+        previewUnitEl.textContent = ' · ' + salePart;
+      } else {
+        previewAmountEl.textContent = 'KES ' + (amount ? Number(amount).toLocaleString() : '0');
+        previewUnitEl.textContent = unitLabel();
+      }
+      return;
+    }
+
     document.getElementById('price-preview-amount').textContent = 'KES ' + (amount ? Number(amount).toLocaleString() : '0');
     document.getElementById('price-preview-unit').textContent = unitLabel();
   }
   document.getElementById('price-amount').addEventListener('input', updatePricePreview);
   priceUnitField.addEventListener('change', updatePricePreview);
+  if (propertySalePriceInput) propertySalePriceInput.addEventListener('input', updatePricePreview);
+
+  if (propertyPurposeMode) {
+    propertyPurposeMode.querySelectorAll('[data-property-purpose]').forEach(function(button){
+      button.addEventListener('click', function(){ applyPropertyPurpose(button.dataset.propertyPurpose); });
+    });
+  }
+  if (propertySaleSection) {
+    propertySaleSection.querySelectorAll('[data-sale-mode]').forEach(function(button){
+      button.addEventListener('click', function(){ applyPropertySaleMode(button.dataset.saleMode); });
+    });
+  }
+
+  if (policyUploadBtn && policyInput) {
+    policyUploadBtn.addEventListener('click', function(){ policyInput.click(); });
+    policyInput.addEventListener('change', function(){
+      if (policyInput.files && policyInput.files[0]) {
+        selectedPolicyFile = policyInput.files[0];
+        if (policyPreviewBtn) policyPreviewBtn.textContent = selectedPolicyFile.name;
+        if (policyFileName) policyFileName.classList.add('show');
+      }
+    });
+  }
+  if (policyRemoveBtn) {
+    policyRemoveBtn.addEventListener('click', function(){
+      selectedPolicyFile = null;
+      if (policyInput) policyInput.value = '';
+      if (policyFileName) policyFileName.classList.remove('show');
+      if (policyPreviewOverlay) policyPreviewOverlay.classList.remove('show');
+      if (policyPreviewFrame) policyPreviewFrame.src = 'about:blank';
+    });
+  }
+  if (policyPreviewBtn) {
+    policyPreviewBtn.addEventListener('click', function(){
+      if (!selectedPolicyFile) return;
+      const url = URL.createObjectURL(selectedPolicyFile);
+      if (policyPreviewFrame) policyPreviewFrame.src = url;
+      if (policyPreviewFilename) policyPreviewFilename.textContent = selectedPolicyFile.name;
+      if (policyPreviewOverlay) policyPreviewOverlay.classList.add('show');
+    });
+  }
+  if (policyPreviewClose) {
+    policyPreviewClose.addEventListener('click', function(){
+      if (policyPreviewOverlay) policyPreviewOverlay.classList.remove('show');
+      if (policyPreviewFrame) policyPreviewFrame.src = 'about:blank';
+    });
+  }
+
+  if (payToListBtn) {
+    payToListBtn.addEventListener('click', function(){
+      alert('Listing fee is KES ' + PROPERTY_LISTING_FEE_KES.toLocaleString() + '. This is currently a preview placeholder — you can publish your listing directly using the "Publish listing" button below.');
+    });
+  }
+
 
   // ---------- Amenities (full list for every category, for now) ----------
   // Same keys/icons as the booking page's amenity grid, so once this data
@@ -1068,9 +1389,37 @@
     ['hotel_room_service', 'Room Service', HOTEL_GENERIC_AMENITY_ICON]
   ];
 
+  // PROPERTY-ONLY amenities tailored specifically for residential rental and sale.
+  // Replaces short-stay/hospitality items with real property features.
+  const PROPERTY_AMENITY_OPTIONS = [
+    ['security', '24/7 Security & Guard', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>'],
+    ['security_cameras', 'Security cameras', AMENITY_OPTIONS.find(function(a){ return a[0] === 'security_cameras'; })[2]],
+    ['power', '24/7 Power Backup', AMENITY_OPTIONS.find(function(a){ return a[0] === 'power'; })[2]],
+    ['parking', 'Dedicated Parking', AMENITY_OPTIONS.find(function(a){ return a[0] === 'parking'; })[2]],
+    ['proximity_main_road', 'Proximity to main roads', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19L8 5m8 14l4-14M12 7v2m0 4v2m0 4v2"/></svg>'],
+    ['proximity_schools', 'Proximity to schools', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>'],
+    ['furnished', 'Furnished', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 9V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v2"/><path d="M2 11v5a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-5a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z"/><line x1="6" y1="18" x2="6" y2="21"/><line x1="18" y1="18" x2="18" y2="21"/></svg>'],
+    ['unfurnished', 'Unfurnished', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="m3 9 18 0M9 21V9"/></svg>'],
+    ['gym', 'Gym', AMENITY_OPTIONS.find(function(a){ return a[0] === 'gym'; })[2]],
+    ['pool', 'Swimming pool', AMENITY_OPTIONS.find(function(a){ return a[0] === 'pool'; })[2]],
+    ['balcony', 'Balcony', AMENITY_OPTIONS.find(function(a){ return a[0] === 'balcony'; })[2]],
+    ['in_unit_laundry', 'In-unit laundry', AMENITY_OPTIONS.find(function(a){ return a[0] === 'washing_machine'; })[2]],
+    ['onsite_laundry', 'On-site laundry', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="20" x="4" y="2" rx="2"/><circle cx="12" cy="13" r="5"/><path d="M12 10a3 3 0 0 1 3 3"/></svg>'],
+    ['elevator', 'Elevator', AMENITY_OPTIONS.find(function(a){ return a[0] === 'elevator'; })[2]],
+    ['garden', 'Garden / compound', AMENITY_OPTIONS.find(function(a){ return a[0] === 'garden'; })[2]],
+    ['kitchen', 'Fitted kitchen', AMENITY_OPTIONS.find(function(a){ return a[0] === 'kitchen'; })[2]],
+    ['refrigerator', 'Refrigerator', AMENITY_OPTIONS.find(function(a){ return a[0] === 'refrigerator'; })[2]],
+    ['pet', 'Pet friendly', AMENITY_OPTIONS.find(function(a){ return a[0] === 'pet'; })[2]],
+    ['borehole_water', 'Borehole / Water backup', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>'],
+    ['wifi', 'High-Speed Internet / Fiber', AMENITY_OPTIONS.find(function(a){ return a[0] === 'wifi'; })[2]]
+  ];
+
   const amenitiesGrid = document.getElementById('amenities-grid');
   function renderAmenities(category){
-    const choices = category === 'hotel' ? HOTEL_AMENITY_OPTIONS : AMENITY_OPTIONS;
+    let choices = AMENITY_OPTIONS;
+    if (category === 'hotel') choices = HOTEL_AMENITY_OPTIONS;
+    else if (category === 'property') choices = PROPERTY_AMENITY_OPTIONS;
+
     amenitiesGrid.innerHTML = choices.map(function(a){
       const key = a[0], labelText = a[1], icon = a[2];
     return '<label class="amenity-check" for="amenity-' + key + '">' +
@@ -1088,7 +1437,7 @@
   hotelOfferMode.querySelectorAll('[data-hotel-mode]').forEach(function(button){
     button.addEventListener('click', function(){ applyHotelMode(button.dataset.hotelMode); });
   });
-  renderAmenities();
+  renderAmenities(hostNiche);
 
   function getSelectedAmenities(){
     return Array.from(amenitiesGrid.querySelectorAll('input:checked')).map(function(cb){ return cb.value; });
@@ -1117,6 +1466,36 @@
       if (firstOption) firstOption.focus();
       alert('Choose whether this hotel offers stays, table reservations, or both.');
       return false;
+    }
+    if (n === 4 && hostNiche === 'property') {
+      if (propertyPurpose === 'sale') {
+        const salePrice = fieldValue('property-sale-price');
+        if (!salePrice || Number(salePrice) <= 0) {
+          const sInput = document.getElementById('property-sale-price');
+          if (sInput) { sInput.focus(); sInput.reportValidity(); }
+          return false;
+        }
+      } else if (propertyPurpose === 'both') {
+        const rentPrice = fieldValue('price-amount');
+        const salePrice = fieldValue('property-sale-price');
+        if (!rentPrice || Number(rentPrice) <= 0) {
+          const rInput = document.getElementById('price-amount');
+          if (rInput) { rInput.focus(); rInput.reportValidity(); }
+          return false;
+        }
+        if (!salePrice || Number(salePrice) <= 0) {
+          const sInput = document.getElementById('property-sale-price');
+          if (sInput) { sInput.focus(); sInput.reportValidity(); }
+          return false;
+        }
+      } else { // rent
+        const rentPrice = fieldValue('price-amount');
+        if (!rentPrice || Number(rentPrice) <= 0) {
+          const rInput = document.getElementById('price-amount');
+          if (rInput) { rInput.focus(); rInput.reportValidity(); }
+          return false;
+        }
+      }
     }
     const frame = document.querySelector('.step-frame[data-step="' + n + '"]');
     const required = frame.querySelectorAll('[required]');
@@ -1225,13 +1604,39 @@
     const reviewPrice = document.getElementById('review-price');
     if (reviewTitle) reviewTitle.textContent = title;
     if (reviewMeta) {
-      reviewMeta.textContent =
-        [CATEGORY_LABELS[category] || 'Listing', generalLocation].filter(Boolean).join(' · ');
+      if (category === 'property') {
+        const purposeLabel = propertyPurpose === 'rent' ? 'For rent' : (propertyPurpose === 'sale' ? 'For sale' : 'For rent & sale');
+        const unitsVal = fieldValue('property-units-available');
+        const unitsLabel = unitsVal ? (unitsVal + ' unit' + (unitsVal === '1' ? '' : 's') + ' available') : '';
+        reviewMeta.textContent = ['Property', purposeLabel, unitsLabel, generalLocation].filter(Boolean).join(' · ');
+      } else {
+        reviewMeta.textContent =
+          [CATEGORY_LABELS[category] || 'Listing', generalLocation].filter(Boolean).join(' · ');
+      }
     }
     if (reviewPrice) {
-      reviewPrice.textContent = amount
-        ? 'KES ' + Number(amount).toLocaleString() + unitLabel()
-        : 'Price not set';
+      if (category === 'property') {
+        if (propertyPurpose === 'sale') {
+          const sAmt = fieldValue('property-sale-price');
+          const prefix = propertySalePriceMode === 'starting' ? 'From KES ' : 'KES ';
+          reviewPrice.textContent = sAmt ? (prefix + Number(sAmt).toLocaleString()) : 'Price not set';
+        } else if (propertyPurpose === 'both') {
+          const rAmt = fieldValue('price-amount');
+          const sAmt = fieldValue('property-sale-price');
+          const sPrefix = propertySalePriceMode === 'starting' ? 'From KES ' : 'KES ';
+          const rentPart = rAmt ? ('Rent: KES ' + Number(rAmt).toLocaleString() + ' / month') : '';
+          const salePart = sAmt ? ('Sale: ' + sPrefix + Number(sAmt).toLocaleString()) : '';
+          reviewPrice.textContent = [rentPart, salePart].filter(Boolean).join(' · ') || 'Price not set';
+        } else {
+          reviewPrice.textContent = amount
+            ? 'KES ' + Number(amount).toLocaleString() + unitLabel()
+            : 'Price not set';
+        }
+      } else {
+        reviewPrice.textContent = amount
+          ? 'KES ' + Number(amount).toLocaleString() + unitLabel()
+          : 'Price not set';
+      }
     }
 
     const locationLine = document.getElementById('review-location-line');
@@ -1244,12 +1649,28 @@
 
     const amenitiesLine = document.getElementById('review-amenities-line');
     if (amenitiesLine) {
-      const amenityLabels = (category === 'hotel' ? HOTEL_AMENITY_OPTIONS : AMENITY_OPTIONS)
+      let choices = AMENITY_OPTIONS;
+      let labelPrefix = 'Amenities: ';
+      if (category === 'hotel') { choices = HOTEL_AMENITY_OPTIONS; labelPrefix = 'Hotel amenities: '; }
+      else if (category === 'property') { choices = PROPERTY_AMENITY_OPTIONS; labelPrefix = 'Property amenities: '; }
+      const amenityLabels = choices
         .filter(function(amenity){ return getSelectedAmenities().includes(amenity[0]); })
         .map(function(amenity){ return amenity[1]; });
       amenitiesLine.innerHTML = amenityLabels.length
-        ? '<span class="check">✓</span> ' + (category === 'hotel' ? 'Hotel amenities: ' : 'Amenities: ') + amenityLabels.join(' · ')
-        : '<span class="check" style="color:var(--red)">!</span> ' + (category === 'hotel' ? 'Select room or hotel amenities' : 'Select amenities');
+        ? '<span class="check">✓</span> ' + labelPrefix + amenityLabels.join(' · ')
+        : '<span class="check" style="color:var(--red)">!</span> ' + (category === 'hotel' ? 'Select room or hotel amenities' : (category === 'property' ? 'Select property amenities' : 'Select amenities'));
+    }
+
+    const policyLine = document.getElementById('review-policy-line');
+    if (policyLine) {
+      if (category === 'property') {
+        policyLine.hidden = false;
+        policyLine.innerHTML = selectedPolicyFile
+          ? '<span class="check">✓</span> Property policy attached: ' + escapeHtml(selectedPolicyFile.name)
+          : '<span class="check" style="color:#C9BDB8">○</span> Property policy document (optional, none attached)';
+      } else {
+        policyLine.hidden = true;
+      }
     }
 
     const thumbSlot = document.getElementById('review-thumb');
@@ -1257,7 +1678,19 @@
     const heroBadge = document.getElementById('review-hero-badge');
     const heroTitle = document.getElementById('review-hero-title');
     const heroSub = document.getElementById('review-hero-sub');
-    const priceLine = amount ? ('KES ' + Number(amount).toLocaleString() + unitLabel()) : 'Price not set';
+    let priceLine = amount ? ('KES ' + Number(amount).toLocaleString() + unitLabel()) : 'Price not set';
+    if (category === 'property') {
+      if (propertyPurpose === 'sale') {
+        const sAmt = fieldValue('property-sale-price');
+        const prefix = propertySalePriceMode === 'starting' ? 'From KES ' : 'KES ';
+        priceLine = sAmt ? (prefix + Number(sAmt).toLocaleString()) : 'Price not set';
+      } else if (propertyPurpose === 'both') {
+        const sAmt = fieldValue('property-sale-price');
+        const sPrefix = propertySalePriceMode === 'starting' ? 'From KES ' : 'KES ';
+        priceLine = (amount ? ('Rent KES ' + Number(amount).toLocaleString() + '/mo') : '') +
+          (sAmt ? (' · Sale ' + sPrefix + Number(sAmt).toLocaleString()) : '');
+      }
+    }
 
     if (selectedFiles.length > 0) {
       if (thumbSlot) thumbSlot.classList.remove('placeholder');
@@ -1602,6 +2035,9 @@
       listingPayload.supports_stay = hotelListingMode !== 'table';
       listingPayload.supports_table_reservation = hotelListingMode === 'table' || hotelListingMode === 'both';
     }
+    if (category === 'property') {
+      listingPayload.listing_purpose = propertyPurpose;
+    }
 
     const { data: { session } } = await supabaseClient.auth.getSession();
     const listingResponse = await fetch('/api/listings', {
@@ -1626,15 +2062,51 @@
     // ---------- Booking details ----------
     const bookingDetails = {
       listing_id: listingId,
-      price_amount: parseFloat(priceAmount),
-      price_unit: document.getElementById('price-unit').value,
+      price_amount: parseFloat(priceAmount) || 0,
+      price_unit: document.getElementById('price-unit').value || 'month',
       size_or_type: sizeInput.value || null,
       // NOTE: assumes `listing_booking_details` has an `amenities` column
       // (text[] or jsonb). Flagging this in case that column doesn't exist yet.
       amenities: getSelectedAmenities()
     };
 
-    if (SHORT_STAY.includes(category) && !(category === 'hotel' && hotelListingMode === 'table')) {
+    if (category === 'property') {
+      const unitsVal = fieldValue('property-units-available');
+      if (unitsVal) bookingDetails.units_available = parseInt(unitsVal, 10);
+      bookingDetails.available_from = fieldValue('available-from') || null;
+
+      if (propertyPurpose === 'sale') {
+        const saleVal = fieldValue('property-sale-price');
+        bookingDetails.sale_price_amount = saleVal ? parseFloat(saleVal) : null;
+        bookingDetails.sale_price_mode = propertySalePriceMode;
+        bookingDetails.price_amount = bookingDetails.sale_price_amount || 0;
+        bookingDetails.price_unit = 'month';
+      } else if (propertyPurpose === 'both') {
+        const saleVal = fieldValue('property-sale-price');
+        bookingDetails.sale_price_amount = saleVal ? parseFloat(saleVal) : null;
+        bookingDetails.sale_price_mode = propertySalePriceMode;
+        bookingDetails.min_lease_months = fieldValue('min-lease') ? parseInt(fieldValue('min-lease'), 10) : null;
+        bookingDetails.deposit_amount = fieldValue('deposit-amount') ? parseFloat(fieldValue('deposit-amount')) : null;
+        bookingDetails.utilities_included = document.getElementById('utilities-included').checked;
+      } else { // rent
+        bookingDetails.min_lease_months = fieldValue('min-lease') ? parseInt(fieldValue('min-lease'), 10) : null;
+        bookingDetails.deposit_amount = fieldValue('deposit-amount') ? parseFloat(fieldValue('deposit-amount')) : null;
+        bookingDetails.utilities_included = document.getElementById('utilities-included').checked;
+      }
+
+      if (selectedPolicyFile) {
+        try {
+          submitBtn.textContent = 'Uploading policy document...';
+          const policyPath = currentUser.id + '/' + listingId + '/policy_' + Date.now() + '_' + sanitizeFilename(selectedPolicyFile.name);
+          const { data: uploadedPolicy, error: policyUploadErr } = await supabaseClient.storage.from('listing-photos').upload(policyPath, selectedPolicyFile, { upsert: false });
+          if (!policyUploadErr && uploadedPolicy) {
+            bookingDetails.policy_storage_path = uploadedPolicy.path;
+          }
+        } catch (policyErr) {
+          console.warn('Policy upload failed, proceeding with listing publication:', policyErr);
+        }
+      }
+    } else if (SHORT_STAY.includes(category) && !(category === 'hotel' && hotelListingMode === 'table')) {
       bookingDetails.max_guests = document.getElementById('max-guests').value ? parseInt(document.getElementById('max-guests').value, 10) : null;
       bookingDetails.min_stay_nights = document.getElementById('min-stay').value ? parseInt(document.getElementById('min-stay').value, 10) : null;
       bookingDetails.checkin_time = document.getElementById('checkin-time').value || null;
@@ -1649,7 +2121,27 @@
     }
 
     if (!(category === 'hotel' && hotelListingMode === 'table')) {
-      await supabaseClient.from('listing_booking_details').insert(bookingDetails);
+      const { error: bookingInsertErr } = await supabaseClient.from('listing_booking_details').insert(bookingDetails);
+      if (bookingInsertErr) {
+        console.warn('Full booking details insert error:', bookingInsertErr);
+        // Fallback: If new migration columns are not yet recognized by Supabase PostgREST,
+        // retry inserting the base core fields so the listing is never left without booking details.
+        const coreDetails = {
+          listing_id: listingId,
+          price_amount: bookingDetails.price_amount,
+          price_unit: bookingDetails.price_unit,
+          size_or_type: bookingDetails.size_or_type,
+          amenities: bookingDetails.amenities,
+          available_from: bookingDetails.available_from || null,
+          min_lease_months: bookingDetails.min_lease_months || null,
+          deposit_amount: bookingDetails.deposit_amount || null,
+          utilities_included: Boolean(bookingDetails.utilities_included)
+        };
+        const { error: fallbackErr } = await supabaseClient.from('listing_booking_details').insert(coreDetails);
+        if (fallbackErr) {
+          throw new Error('Could not save booking details: ' + (fallbackErr.message || bookingInsertErr.message));
+        }
+      }
     }
 
     if (category === 'hotel' && (hotelListingMode === 'table' || hotelListingMode === 'both')) {

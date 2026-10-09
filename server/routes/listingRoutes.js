@@ -151,7 +151,7 @@ router.post('/listings', async (req, res) => {
   let category;
   let payload;
   try {
-    assertAllowedKeys(req.body, ['title', 'description', 'property_description', 'category', 'location_text', 'supports_stay', 'supports_table_reservation', 'latitude', 'longitude', 'place_id', 'formatted_address', 'neighborhood', 'city', 'country']);
+    assertAllowedKeys(req.body, ['title', 'description', 'property_description', 'category', 'location_text', 'supports_stay', 'supports_table_reservation', 'latitude', 'longitude', 'place_id', 'formatted_address', 'neighborhood', 'city', 'country', 'listing_purpose']);
     const niches = normalizeNiches(await hostNiches(user.id));
     category = niches[0];
     payload = {
@@ -180,6 +180,19 @@ router.post('/listings', async (req, res) => {
       payload.supports_stay = supportsStay;
       payload.supports_table_reservation = supportsTableReservation;
     }
+    // PROPERTY-ONLY: persist whether this is a rent, sale, or dual-purpose listing.
+    // Guarded by category so Hotels, Airbnbs, Offices, Shops, and Event Venues
+    // are completely unaffected.
+    if (category === 'property' && req.body.listing_purpose !== undefined) {
+      const PURPOSES = ['rent', 'sale', 'both'];
+      try {
+        payload.listing_purpose = enumValue(req.body.listing_purpose, 'listing_purpose', PURPOSES);
+      } catch (purposeError) {
+        if (purposeError instanceof ValidationError) throw purposeError;
+        payload.listing_purpose = null;
+      }
+    }
+
     ['place_id', 'formatted_address', 'neighborhood', 'city', 'country'].forEach((field) => {
       if (req.body[field] !== undefined) payload[field] = text(req.body[field], field, { required: false, max: 300 }) || null;
     });

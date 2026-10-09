@@ -121,7 +121,7 @@
     position:relative; width:100%; height:150px; border-radius:16px; overflow:hidden; margin-bottom:.7rem;
     background:linear-gradient(135deg, var(--red) 0%, var(--red-deep) 100%); touch-action:pan-y;
   }
-  @media (min-width:960px){ .gallery-carousel{ height:clamp(280px, 40vh, 385px); } }
+  @media (min-width:960px){ .gallery-carousel{ aspect-ratio:16 / 9; height:auto; } }
   .gallery-slide-track{ display:flex; width:100%; height:100%; transition:transform .3s ease; will-change:transform; }
   .gallery-slide{ flex:0 0 100%; width:100%; height:100%; }
   .gallery-slide img,.gallery-slide video{ width:100%; height:100%; object-fit:cover; display:block; -webkit-user-drag:none; user-select:none; }
@@ -310,7 +310,7 @@
   @keyframes skel-pulse{ 0%,100%{ opacity:1; } 50%{ opacity:.55; } }
 
   .skel-gallery{ height:150px; border-radius:16px; margin-bottom:.7rem; }
-  @media (min-width:960px){ .skel-gallery{ height:clamp(280px, 40vh, 385px); margin-bottom:1.15rem; } }
+  @media (min-width:960px){ .skel-gallery{ aspect-ratio:16 / 9; height:auto; margin-bottom:1.15rem; } }
   .skel-shell{ display:block; padding:.75rem 6vw; overflow-y:auto; height:100%; scrollbar-width:none; }
   .skel-shell::-webkit-scrollbar{ display:none; width:0; height:0; }
   @media (min-width:960px){
@@ -343,7 +343,7 @@
   .content-grid{ max-width:1240px; padding:1.5rem 5vw 4rem; gap:3.5rem; }
   .col-main{ min-width:0; }
   .col-side{ min-width:0; }
-  .gallery-carousel{ height:clamp(280px, 31vw, 390px); border-radius:20px; margin-bottom:1.75rem; }
+  .gallery-carousel{ aspect-ratio:16 / 9; height:auto; border-radius:20px; margin-bottom:1.75rem; }
   .gallery-index-pill,.view-all-btn{ background:rgba(26,18,16,.72); backdrop-filter:blur(8px); }
   .gallery-report-btn{
     position:absolute; top:.65rem; left:.65rem; z-index:3; width:34px; height:34px;
@@ -457,26 +457,30 @@
     .col-side::-webkit-scrollbar-track{ background:transparent; }
     .col-side::-webkit-scrollbar-thumb{ background:var(--line-strong); border-radius:99px; }
 
-    /* --- Gallery: zoomed-out default image, uncropped & undistorted, with dark framing --- */
+    /* --- Gallery: fixed 16:9 container, edge-to-edge cover framing --- */
     .gallery-carousel{
-      height:clamp(280px, 40vh, 385px);
+      width:100%;
+      aspect-ratio:16 / 9;
+      height:auto;
       margin-bottom:1.15rem;
       border-radius:14px;
-      background:#110d0c;
+      background:transparent;
+      overflow:hidden;
     }
     .gallery-slide{
       display:flex;
       align-items:center;
       justify-content:center;
-      background:#110d0c;
       width:100%;
       height:100%;
+      background:transparent;
     }
     .gallery-slide img, .gallery-slide video{
       width:100%;
       height:100%;
-      object-fit:contain;
+      object-fit:cover;
       object-position:center;
+      display:block;
     }
     .gallery-index-pill,.gallery-report-btn,.gallery-like-btn{ box-shadow:0 2px 10px rgba(0,0,0,.18); }
     .gallery-report-btn,.gallery-like-btn{ width:32px; height:32px; }
@@ -839,13 +843,22 @@
       gym: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9v6M9 7v10M15 7v10M18 9v6M9 12h6"/></svg>', garden: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21V11M12 15c-4 0-6-2-6-6 4 0 6 2 6 6Zm0 0c4 0 6-2 6-6-4 0-6 2-6 6Z"/></svg>',
       bbq_grill: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="11" r="6"/><path d="m8 16-2 5m10-5 2 5M6 11h12"/></svg>', hot_tub: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12h16v5a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3v-5Z"/><path d="M8 8V5m4 3V4m4 4V5"/></svg>',
       elevator: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="3" width="14" height="18" rx="1"/><path d="m9 10 3-3 3 3m0 4-3 3-3-3"/></svg>', security_cameras: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m4 10 12-4 3 5-12 4-3-5Z"/><path d="m16 14 2 5M7 15l-2 4"/></svg>',
-      smoke_alarm: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="8" width="14" height="8" rx="3"/><path d="M8 5c0-1 1-2 1-3m3 3c0-1 1-2 1-3m3 3c0-1 1-2 1-3"/></svg>', towels_linens: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 5h14v14H5zM5 10h14M10 5v5"/></svg>', hair_dryer: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 10h8a4 4 0 1 0 0-8H8v5M8 10v9m0 0H5m3 0h3"/></svg>'
+      smoke_alarm: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="8" width="14" height="8" rx="3"/><path d="M8 5c0-1 1-2 1-3m3 3c0-1 1-2 1-3m3 3c0-1 1-2 1-3"/></svg>', towels_linens: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 5h14v14H5zM5 10h14M10 5v5"/></svg>', hair_dryer: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 10h8a4 4 0 1 0 0-8H8v5M8 10v9m0 0H5m3 0h3"/></svg>',
+      security: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
+      proximity_main_road: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19L8 5m8 14l4-14M12 7v2m0 4v2m0 4v2"/></svg>',
+      proximity_schools: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>',
+      furnished: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 9V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v2"/><path d="M2 11v5a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-5a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z"/><line x1="6" y1="18" x2="6" y2="21"/><line x1="18" y1="18" x2="18" y2="21"/></svg>',
+      unfurnished: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="m3 9 18 0M9 21V9"/></svg>',
+      in_unit_laundry: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="18" x="4" y="3" rx="2"/><circle cx="12" cy="12" r="4"/><path d="M8 6h.01M16 6h.01"/></svg>',
+      onsite_laundry: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="20" x="4" y="2" rx="2"/><circle cx="12" cy="13" r="5"/><path d="M12 10a3 3 0 0 1 3 3"/></svg>',
+      borehole_water: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>'
     };
     const AMENITY_LABEL = {
       wifi: 'Free Wi-Fi', mountain: 'Mountain View', parking: 'Free Parking', kitchen: 'Kitchen',
       heating: 'Heating', tv: 'TV', workspace: 'Workspace', balcony: 'Balcony',
       breakfast: 'Breakfast', bonfire: 'Bonfire Area', pet: 'Pet Friendly', power: '24/7 Power Backup',
-      air_conditioning: 'Air conditioning', refrigerator: 'Refrigerator', washing_machine: 'Washing machine', pool: 'Swimming pool', gym: 'Gym', garden: 'Garden', bbq_grill: 'BBQ grill', hot_tub: 'Hot tub', elevator: 'Elevator', security_cameras: 'Security cameras', smoke_alarm: 'Smoke alarm', towels_linens: 'Towels & linens', hair_dryer: 'Hair dryer'
+      air_conditioning: 'Air conditioning', refrigerator: 'Refrigerator', washing_machine: 'Washing machine', pool: 'Swimming pool', gym: 'Gym', garden: 'Garden', bbq_grill: 'BBQ grill', hot_tub: 'Hot tub', elevator: 'Elevator', security_cameras: 'Security cameras', smoke_alarm: 'Smoke alarm', towels_linens: 'Towels & linens', hair_dryer: 'Hair dryer',
+      security: '24/7 Security & Guard', proximity_main_road: 'Proximity to main roads', proximity_schools: 'Proximity to schools', furnished: 'Furnished', unfurnished: 'Unfurnished', in_unit_laundry: 'In-unit laundry', onsite_laundry: 'On-site laundry', borehole_water: 'Borehole / Water backup'
     };
     const ICON_GENERIC_AMENITY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
     // This is intentionally independent of AMENITY_LABEL: hotel listings
@@ -1257,8 +1270,10 @@
       const diningResponse = await fetch('/api/listings/' + encodeURIComponent(listingId) + '/dining-config');
       if (diningResponse.ok) diningConfig = (await diningResponse.json()).diningConfig;
     }
-    const details = listing.listing_booking_details || {};
-    if (supportsStay && !listing.listing_booking_details) {
+    const rawDetails = listing.listing_booking_details;
+    const details = (Array.isArray(rawDetails) ? rawDetails[0] : rawDetails) || {};
+    const hasBookingDetails = Boolean(details && (details.price_amount != null || details.sale_price_amount != null || details.size_or_type || (Array.isArray(details.amenities) && details.amenities.length > 0)));
+    if (supportsStay && (!rawDetails || !hasBookingDetails)) {
       showError('This listing has no booking details set up yet.');
       return;
     }
@@ -1388,6 +1403,15 @@
 
     const infoChips = [];
     if (listing.category) infoChips.push(listing.category.charAt(0).toUpperCase() + listing.category.slice(1));
+    if (listing.category === 'property') {
+      const propPurpose = listing.listing_purpose || details.listing_purpose;
+      if (propPurpose) {
+        infoChips.push(propPurpose === 'rent' ? 'For rent' : (propPurpose === 'sale' ? 'For sale' : 'Rent & sale'));
+      }
+      if (details.units_available) {
+        infoChips.push(details.units_available + ' unit' + (details.units_available === 1 ? '' : 's') + ' available');
+      }
+    }
     if (details.size_or_type) infoChips.push(escapeHtml(details.size_or_type));
 
     const hostName = listing.host.full_name || 'Host';
@@ -1705,10 +1729,22 @@
           '<button type="button" class="confirm-btn" id="table-reserve-btn">Reserve a Table</button>' +
           '<p class="form-note">Send a reservation request directly to the hotel.</p></div>'
       : null;
+    let priceDisplayHtml = '<div class="widget-price">KSh ' + Number(details.price_amount).toLocaleString() + ' <span>/ ' + details.price_unit + '</span></div>';
+    if (listing.category === 'property') {
+      const propPurpose = listing.listing_purpose || details.listing_purpose;
+      if (propPurpose === 'sale' && details.sale_price_amount != null) {
+        priceDisplayHtml = '<div class="widget-price">' + (details.sale_price_mode === 'starting' ? 'From ' : '') + 'KSh ' + Number(details.sale_price_amount).toLocaleString() + '</div>';
+      } else if (propPurpose === 'both') {
+        const rentPart = details.price_amount ? 'Rent: KSh ' + Number(details.price_amount).toLocaleString() + ' / mo' : '';
+        const salePart = details.sale_price_amount ? (details.sale_price_mode === 'starting' ? 'From ' : '') + 'KSh ' + Number(details.sale_price_amount).toLocaleString() : '';
+        priceDisplayHtml = '<div class="widget-price" style="font-size:1.05rem;line-height:1.4;">' + [rentPart, salePart ? 'Sale: ' + salePart : ''].filter(Boolean).join('<br>') + '</div>';
+      }
+    }
+
     const colSideHtml = tableOnlyWidget ||
       '<div class="booking-widget">' +
         '<div class="widget-price-row">' +
-          '<div class="widget-price">KSh ' + Number(details.price_amount).toLocaleString() + ' <span>/ ' + details.price_unit + '</span></div>' +
+          priceDisplayHtml +
           '<div class="widget-rating">' + (reviewCount ? ICON_STAR + ' ' + escapeHtml(ratingText) + ' <span style="color:var(--muted); font-weight:400;">(' + reviewCount + ')</span>' : '<span style="color:var(--muted); font-weight:400;">No reviews yet</span>') + '</div>' +
         '</div>' +
         pickerHtml +

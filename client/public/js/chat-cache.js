@@ -4,13 +4,12 @@
  * Provides fast, offline-first client caching for VaRoom Chats:
  * - Inbox conversation list caching with instant render
  * - Per-conversation message caching with background delta sync
-<<<<<<< HEAD
+ * - Background Chat Prefetch (low-priority, non-blocking, asynchronous)
+ * - In-flight request deduplication across prefetch and UI operations
  * - Shared chat media caching (images, videos, audio, thumbnails)
- * - LRU eviction and maximum media cache size management
-=======
->>>>>>> f62a0edeb0a976a2a05c9673505c806a07bf63a3
+ * - LRU eviction and maximum media cache size management (50MB quota)
  * - Deduplication and chronological sorting
- * - User-scoped storage isolation
+ * - User-scoped storage isolation & cleanup on sign-out
  * - Resilient fallback to memory when IndexedDB is unavailable
  */
 (function (root, factory) {
@@ -24,7 +23,6 @@
   'use strict';
 
   var DB_NAME = 'varoom_chat_cache';
-<<<<<<< HEAD
   var DB_VERSION = 2;
   var STORE_INBOX = 'inbox';
   var STORE_MESSAGES = 'messages';
@@ -35,22 +33,30 @@
   var MAX_TOTAL_MEDIA_CACHE_SIZE = 50 * 1024 * 1024;
   var MAX_SINGLE_MEDIA_SIZE = 20 * 1024 * 1024;
 
+  // Background Prefetch Constants
+  var DEFAULT_PREFETCH_CONVERSATIONS = 4;
+  var PREFETCH_COOLDOWN_MS = 60 * 1000; // 60s cooldown
+
   // In-memory fallback structures
   var memoryInbox = new Map();
   var memoryMessages = new Map();
   var memoryMedia = new Map();
   var activeObjectUrls = new Map();
   var inFlightMediaFetches = new Map();
-=======
-  var DB_VERSION = 1;
-  var STORE_INBOX = 'inbox';
-  var STORE_MESSAGES = 'messages';
-  var MAX_CACHED_MESSAGES = 1000;
 
-  // In-memory fallback structures
-  var memoryInbox = new Map();
-  var memoryMessages = new Map();
->>>>>>> f62a0edeb0a976a2a05c9673505c806a07bf63a3
+  // In-flight sync request deduplication
+  var inFlightInboxSync = new Map();
+  var inFlightConversationSyncs = new Map();
+
+  // Prefetch execution state
+  var prefetchState = {
+    inProgress: false,
+    currentUserId: null,
+    lastPrefetchTime: 0,
+    activePromise: null,
+    cancelled: false
+  };
+
   var dbPromise = null;
   var dbFailed = false;
 
@@ -62,7 +68,6 @@
     }
   }
 
-<<<<<<< HEAD
   function safeCreateObjectURL(blob) {
     if (!blob) return null;
     if (typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function') {
@@ -83,8 +88,6 @@
     }
   }
 
-=======
->>>>>>> f62a0edeb0a976a2a05c9673505c806a07bf63a3
   function openDatabase() {
     if (dbPromise) return dbPromise;
     if (!isIndexedDBAvailable() || dbFailed) {
@@ -103,14 +106,11 @@
           if (!db.objectStoreNames.contains(STORE_MESSAGES)) {
             db.createObjectStore(STORE_MESSAGES, { keyPath: 'key' });
           }
-<<<<<<< HEAD
           if (!db.objectStoreNames.contains(STORE_MEDIA)) {
             var mediaStore = db.createObjectStore(STORE_MEDIA, { keyPath: 'id' });
             mediaStore.createIndex('accessedAt', 'accessedAt', { unique: false });
             mediaStore.createIndex('type', 'type', { unique: false });
           }
-=======
->>>>>>> f62a0edeb0a976a2a05c9673505c806a07bf63a3
         };
 
         request.onsuccess = function (event) {
@@ -287,6 +287,78 @@
     });
   }
 
+  async function resolveAuthToken(options) {
+    options = options || {};
+    if (options.accessToken) return options.accessToken;
+    if (options.supabaseClient && options.supabaseClient.auth) {
+      try {
+        var sessRes = await options.supabaseClient.auth.getSession();
+        if (sessRes && sessRes.data && sessRes.data.session) {
+          return sessRes.data.session.access_token;
+        }
+      } catch (e) {}
+    }
+    if (typeof window !== 'undefined' && window.supabaseClient && window.supabaseClient.auth) {
+      try {
+        var sessRes2 = await window.supabaseClient.auth.getSession();
+        if (sessRes2 && sessRes2.data && sessRes2.data.session) {
+          return sessRes2.data.session.access_token;
+        }
+      } catch (e) {}
+    }
+    return null;
+  }
+
+  /**
+   * Synchronize inbox conversations from server with in-flight request deduplication.
+   */
+  function syncInbox(userId, options) {
+    if (!userId) return Promise.resolve([]);
+    var strUserId = String(userId);
+    options = options || {};
+
+    if (inFlightInboxSync.has(strUserId)) {
+      return inFlightInboxSync.get(strUserId);
+    }
+
+    var syncPromise = (async function () {
+      try {
+        var conversations = null;
+        if (typeof options.fetchFn === 'function') {
+          var res = await options.fetchFn('/api/chat/conversations');
+          conversations = res && res.conversations ? res.conversations : (Array.isArray(res) ? res : []);
+        } else {
+          var token = await resolveAuthToken(options);
+          if (!token) {
+            var cached = await getInbox(strUserId);
+            return cached || [];
+          }
+          var headers = { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token };
+          var response = await fetch('/api/chat/conversations', { headers: headers });
+          if (!response.ok) throw new Error('Inbox sync HTTP ' + response.status);
+          var data = await response.json();
+          conversations = data && data.conversations ? data.conversations : [];
+        }
+
+        if (Array.isArray(conversations)) {
+          await setInbox(strUserId, conversations);
+          return cloneData(conversations);
+        }
+        var currentCached = await getInbox(strUserId);
+        return currentCached || [];
+      } catch (err) {
+        console.warn('[VaRoomChatCache] Inbox sync warning:', err && err.message);
+        var fallback = await getInbox(strUserId);
+        return fallback || [];
+      } finally {
+        inFlightInboxSync.delete(strUserId);
+      }
+    })();
+
+    inFlightInboxSync.set(strUserId, syncPromise);
+    return syncPromise;
+  }
+
   // --- Messages Operations ---
 
   function getMessages(userId, conversationId) {
@@ -375,10 +447,6 @@
   function appendMessage(userId, conversationId, message) {
     if (!userId || !conversationId || !message) return Promise.resolve();
     return mergeMessages(userId, conversationId, [message]).then(function (merged) {
-<<<<<<< HEAD
-=======
-      // Also update inbox lastMessage preview if inbox is cached
->>>>>>> f62a0edeb0a976a2a05c9673505c806a07bf63a3
       return updateInboxConversation(userId, conversationId, {
         lastMessage: message
       }).then(function () {
@@ -387,7 +455,6 @@
     });
   }
 
-<<<<<<< HEAD
   function updateMessage(userId, conversationId, messageIdOrObject, patch) {
     if (!userId || !conversationId || !messageIdOrObject) return Promise.resolve();
     var targetId = typeof messageIdOrObject === 'object' && messageIdOrObject !== null ? messageIdOrObject.id : messageIdOrObject;
@@ -396,23 +463,13 @@
       : (patch || {});
     if (!targetId) return Promise.resolve();
 
-=======
-  function updateMessage(userId, conversationId, messageId, patch) {
-    if (!userId || !conversationId || !messageId || !patch) return Promise.resolve();
->>>>>>> f62a0edeb0a976a2a05c9673505c806a07bf63a3
     return getMessages(userId, conversationId).then(function (messages) {
       if (!messages || !Array.isArray(messages)) return;
       var changed = false;
       var updated = messages.map(function (msg) {
-<<<<<<< HEAD
         if (msg && String(msg.id) === String(targetId)) {
           changed = true;
           return Object.assign({}, msg, targetPatch);
-=======
-        if (msg && String(msg.id) === String(messageId)) {
-          changed = true;
-          return Object.assign({}, msg, patch);
->>>>>>> f62a0edeb0a976a2a05c9673505c806a07bf63a3
         }
         return msg;
       });
@@ -435,7 +492,80 @@
     });
   }
 
-<<<<<<< HEAD
+  /**
+   * Synchronize conversation messages with server using delta query and request deduplication.
+   */
+  function syncConversationMessages(userId, conversationId, options) {
+    if (!userId || !conversationId) return Promise.resolve([]);
+    var strUserId = String(userId);
+    var strConvId = String(conversationId);
+    var key = conversationMessageKey(strUserId, strConvId);
+    options = options || {};
+
+    if (inFlightConversationSyncs.has(key)) {
+      return inFlightConversationSyncs.get(key);
+    }
+
+    var syncPromise = (async function () {
+      try {
+        var cached = await getMessages(strUserId, strConvId);
+        var newestCached = cached && cached.length ? cached[cached.length - 1] : null;
+        var fetchUrl = '/api/chat/conversations/' + encodeURIComponent(strConvId) + '/messages';
+        var isDelta = false;
+        if (newestCached && newestCached.created_at) {
+          fetchUrl += '?since=' + encodeURIComponent(newestCached.created_at);
+          isDelta = true;
+        }
+
+        var incomingMessages = [];
+        if (typeof options.fetchFn === 'function') {
+          var res = await options.fetchFn(fetchUrl);
+          incomingMessages = res && res.messages ? res.messages : (Array.isArray(res) ? res : []);
+        } else {
+          var token = await resolveAuthToken(options);
+          if (!token) {
+            return cached || [];
+          }
+          var headers = { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token };
+          var response = await fetch(fetchUrl, { headers: headers });
+          if (!response.ok) throw new Error('Conversation messages sync HTTP ' + response.status);
+          var data = await response.json();
+          incomingMessages = data && data.messages ? data.messages : [];
+        }
+
+        var finalMessages = [];
+        if (isDelta && cached && cached.length) {
+          if (incomingMessages && incomingMessages.length) {
+            finalMessages = await mergeMessages(strUserId, strConvId, incomingMessages);
+          } else {
+            finalMessages = cached;
+          }
+        } else {
+          finalMessages = incomingMessages || [];
+          await setMessages(strUserId, strConvId, finalMessages);
+        }
+
+        if (finalMessages && finalMessages.length) {
+          var latestMsg = finalMessages[finalMessages.length - 1];
+          if (latestMsg) {
+            updateInboxConversation(strUserId, strConvId, { lastMessage: latestMsg }).catch(function () {});
+          }
+        }
+
+        return cloneData(finalMessages);
+      } catch (err) {
+        console.warn('[VaRoomChatCache] Conversation sync warning:', err && err.message);
+        var fallback = await getMessages(strUserId, strConvId);
+        return fallback || [];
+      } finally {
+        inFlightConversationSyncs.delete(key);
+      }
+    })();
+
+    inFlightConversationSyncs.set(key, syncPromise);
+    return syncPromise;
+  }
+
   // --- Shared Chat Media Cache Operations ---
 
   function getMedia(id) {
@@ -535,7 +665,6 @@
               return;
             }
 
-            // Evict least recently used items until space is available
             var toEvict = [];
             var sizeAfterEviction = totalSize;
             for (var i = 0; i < items.length; i++) {
@@ -571,7 +700,6 @@
 
     var size = blobOrBuffer.size || (blobOrBuffer.byteLength || 0);
     if (size > MAX_SINGLE_MEDIA_SIZE) {
-      // Exceeds single item limit - skip storing in IndexedDB to avoid quota errors
       var directUrl = safeCreateObjectURL(blobOrBuffer);
       return Promise.resolve({ url: directUrl, mimeType: options.mimeType || '', size: size });
     }
@@ -628,13 +756,11 @@
     var strId = String(id);
     options = options || {};
 
-    // Check if already cached
     return getMediaUrl(strId).then(function (cached) {
       if (cached && cached.url) {
         return cached.url;
       }
 
-      // Deduplicate concurrent in-flight fetches for the same media
       if (inFlightMediaFetches.has(strId)) {
         return inFlightMediaFetches.get(strId);
       }
@@ -744,20 +870,135 @@
     });
   }
 
-=======
->>>>>>> f62a0edeb0a976a2a05c9673505c806a07bf63a3
+  // --- Background Chat Prefetch ---
+
+  function scheduleIdleTask(callback, timeoutMs) {
+    if (typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function') {
+      return window.requestIdleCallback(callback, { timeout: timeoutMs || 2500 });
+    }
+    return setTimeout(callback, 200);
+  }
+
+  function cancelPrefetch() {
+    prefetchState.cancelled = true;
+    prefetchState.inProgress = false;
+  }
+
+  function isPrefetching() {
+    return prefetchState.inProgress;
+  }
+
+  /**
+   * Performs low-priority, non-blocking background Chats prefetching.
+   * Priority 1: Fetch lightweight inbox
+   * Priority 2: Fetch recent messages for top active conversations
+   * Priority 3: Pre-cache lightweight thumbnails/previews
+   */
+  function prefetch(userId, options) {
+    if (!userId) return Promise.resolve({ success: false, reason: 'no-user' });
+    var strUserId = String(userId);
+    options = options || {};
+    var cooldown = options.cooldownMs || PREFETCH_COOLDOWN_MS;
+    var maxConversations = options.priorityCount || DEFAULT_PREFETCH_CONVERSATIONS;
+
+    if (prefetchState.inProgress && prefetchState.currentUserId === strUserId) {
+      return prefetchState.activePromise || Promise.resolve({ success: true, reason: 'in-progress' });
+    }
+
+    var now = Date.now();
+    if (prefetchState.currentUserId === strUserId && (now - prefetchState.lastPrefetchTime) < cooldown) {
+      return Promise.resolve({ success: true, skipped: true, reason: 'cooldown-active' });
+    }
+
+    prefetchState.cancelled = false;
+    prefetchState.inProgress = true;
+    prefetchState.currentUserId = strUserId;
+
+    var prefetchPromise = new Promise(function (resolve) {
+      scheduleIdleTask(async function () {
+        if (prefetchState.cancelled || prefetchState.currentUserId !== strUserId) {
+          prefetchState.inProgress = false;
+          resolve({ success: false, reason: 'cancelled' });
+          return;
+        }
+
+        try {
+          // Priority 1: Fetch lightweight inbox data
+          var conversations = await syncInbox(strUserId, options);
+          if (prefetchState.cancelled || prefetchState.currentUserId !== strUserId) {
+            prefetchState.inProgress = false;
+            resolve({ success: false, reason: 'cancelled' });
+            return;
+          }
+
+          var prefetchedCount = 0;
+          if (Array.isArray(conversations) && conversations.length > 0) {
+            // Priority 2: Select the top most active/recent conversations
+            var recentConversations = conversations.slice(0, maxConversations);
+
+            for (var i = 0; i < recentConversations.length; i++) {
+              if (prefetchState.cancelled || prefetchState.currentUserId !== strUserId) break;
+              var conv = recentConversations[i];
+              if (!conv || !conv.id) continue;
+
+              // Synchronize newest messages for this conversation
+              var messages = await syncConversationMessages(strUserId, conv.id, options);
+              prefetchedCount++;
+
+              // Priority 3: Lightweight thumbnail pre-caching if present
+              if (messages && messages.length && !options.skipMedia) {
+                var lastFew = messages.slice(-3);
+                for (var m = 0; m < lastFew.length; m++) {
+                  var msg = lastFew[m];
+                  if (msg && msg.listing_id && msg.listing && msg.listing.thumbnail_url) {
+                    var thumbKey = 'listing-thumb:' + msg.listing_id;
+                    fetchAndCacheMedia(thumbKey, msg.listing.thumbnail_url, { type: 'image' }).catch(function () {});
+                  }
+                }
+              }
+
+              // Yield to event loop between conversation syncs
+              await new Promise(function (r) { setTimeout(r, 40); });
+            }
+          }
+
+          prefetchState.lastPrefetchTime = Date.now();
+          prefetchState.inProgress = false;
+          resolve({ success: true, prefetchedConversations: prefetchedCount });
+        } catch (err) {
+          console.warn('[VaRoomChatCache] Background prefetch warning:', err && err.message);
+          prefetchState.inProgress = false;
+          resolve({ success: false, error: err && err.message });
+        }
+      }, 3000);
+    });
+
+    prefetchState.activePromise = prefetchPromise;
+    return prefetchPromise;
+  }
+
   // --- Cache Invalidation & Session Cleanup ---
 
   function clearUser(userId) {
     if (!userId) return Promise.resolve();
     var strUserId = String(userId);
+
+    if (prefetchState.currentUserId === strUserId) {
+      cancelPrefetch();
+    }
+
+    inFlightInboxSync.delete(strUserId);
     memoryInbox.delete(strUserId);
 
-    // Remove user keys from memoryMessages
     var prefix = strUserId + ':';
     memoryMessages.forEach(function (_, key) {
       if (key.indexOf(prefix) === 0) {
         memoryMessages.delete(key);
+      }
+    });
+    inFlightConversationSyncs.forEach(function (_, key) {
+      if (key.indexOf(prefix) === 0) {
+        inFlightConversationSyncs.delete(key);
       }
     });
 
@@ -793,7 +1034,11 @@
   }
 
   function clearAll() {
-<<<<<<< HEAD
+    cancelPrefetch();
+    inFlightInboxSync.clear();
+    inFlightConversationSyncs.clear();
+    inFlightMediaFetches.clear();
+
     activeObjectUrls.forEach(function (url) {
       safeRevokeObjectURL(url);
     });
@@ -801,25 +1046,15 @@
     memoryInbox.clear();
     memoryMessages.clear();
     memoryMedia.clear();
-=======
-    memoryInbox.clear();
-    memoryMessages.clear();
->>>>>>> f62a0edeb0a976a2a05c9673505c806a07bf63a3
 
     return openDatabase().then(function (db) {
       if (!db) return;
       return new Promise(function (resolve) {
         try {
-<<<<<<< HEAD
           var tx = db.transaction([STORE_INBOX, STORE_MESSAGES, STORE_MEDIA], 'readwrite');
           tx.objectStore(STORE_INBOX).clear();
           tx.objectStore(STORE_MESSAGES).clear();
           tx.objectStore(STORE_MEDIA).clear();
-=======
-          var tx = db.transaction([STORE_INBOX, STORE_MESSAGES], 'readwrite');
-          tx.objectStore(STORE_INBOX).clear();
-          tx.objectStore(STORE_MESSAGES).clear();
->>>>>>> f62a0edeb0a976a2a05c9673505c806a07bf63a3
           tx.oncomplete = function () { resolve(); };
           tx.onerror = function () { resolve(); };
           tx.onabort = function () { resolve(); };
@@ -833,22 +1068,20 @@
   return {
     DB_NAME: DB_NAME,
     DB_VERSION: DB_VERSION,
-<<<<<<< HEAD
     MAX_TOTAL_MEDIA_CACHE_SIZE: MAX_TOTAL_MEDIA_CACHE_SIZE,
     MAX_SINGLE_MEDIA_SIZE: MAX_SINGLE_MEDIA_SIZE,
-=======
->>>>>>> f62a0edeb0a976a2a05c9673505c806a07bf63a3
     isSupported: isIndexedDBAvailable,
     getInbox: getInbox,
     setInbox: setInbox,
+    syncInbox: syncInbox,
     updateInboxConversation: updateInboxConversation,
     getMessages: getMessages,
     setMessages: setMessages,
+    syncConversationMessages: syncConversationMessages,
     mergeMessages: mergeMessages,
     appendMessage: appendMessage,
     updateMessage: updateMessage,
     removeMessage: removeMessage,
-<<<<<<< HEAD
     getMedia: getMedia,
     getMediaUrl: getMediaUrl,
     saveMedia: saveMedia,
@@ -856,8 +1089,9 @@
     removeMedia: removeMedia,
     clearMedia: clearMedia,
     getMediaStats: getMediaStats,
-=======
->>>>>>> f62a0edeb0a976a2a05c9673505c806a07bf63a3
+    prefetch: prefetch,
+    cancelPrefetch: cancelPrefetch,
+    isPrefetching: isPrefetching,
     clearUser: clearUser,
     clearAll: clearAll
   };

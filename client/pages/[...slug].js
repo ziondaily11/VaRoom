@@ -163,6 +163,14 @@ async function runLegacyScripts(container, scripts) {
     });
   }
 
+  if (!document.querySelector('script[data-chat-cache]')) {
+    const chatCacheScript = document.createElement('script');
+    chatCacheScript.src = '/js/chat-cache.js';
+    chatCacheScript.dataset.chatCache = 'true';
+    chatCacheScript.async = true;
+    document.head.appendChild(chatCacheScript);
+  }
+
   if (scripts.some(({ attributes }) => attributes.includes('@supabase/supabase-js'))) {
     await new Promise((resolve, reject) => {
       if (window.supabase) {
@@ -317,25 +325,22 @@ export default function LegacyPage({ title, markup, scripts }) {
       await runLegacyScripts(containerRef.current, scripts);
       if (cancelled || title !== 'Messenger Dashboard' || document.querySelector('script[data-chat-data]')) return;
 
-      if (!document.querySelector('script[data-chat-cache]')) {
-        const cacheScript = document.createElement('script');
+      let cacheScript = document.querySelector('script[data-chat-cache]');
+      if (!cacheScript) {
+        cacheScript = document.createElement('script');
         cacheScript.src = '/js/chat-cache.js';
         cacheScript.dataset.chatCache = 'true';
         cacheScript.async = false;
         document.body.appendChild(cacheScript);
       }
 
-      const supabaseScript = document.createElement('script');
-      supabaseScript.src = '/js/supabase-client.js';
-      supabaseScript.dataset.chatSupabase = 'true';
-      supabaseScript.async = false;
-      document.body.appendChild(supabaseScript);
-
-      const cacheScript = document.createElement('script');
-      cacheScript.src = '/js/chat-cache.js';
-      cacheScript.dataset.chatCache = 'true';
-      cacheScript.async = false;
-      document.body.appendChild(cacheScript);
+      if (!document.querySelector('script[data-chat-supabase]')) {
+        const supabaseScript = document.createElement('script');
+        supabaseScript.src = '/js/supabase-client.js';
+        supabaseScript.dataset.chatSupabase = 'true';
+        supabaseScript.async = false;
+        document.body.appendChild(supabaseScript);
+      }
 
       const script = document.createElement('script');
       script.src = '/js/chat-data.js';
@@ -346,8 +351,13 @@ export default function LegacyPage({ title, markup, scripts }) {
           document.body.appendChild(script);
         }
       };
-      cacheScript.addEventListener('load', loadChatData, { once: true });
-      cacheScript.addEventListener('error', loadChatData, { once: true });
+
+      if (window.VaRoomChatCache) {
+        loadChatData();
+      } else {
+        cacheScript.addEventListener('load', loadChatData, { once: true });
+        cacheScript.addEventListener('error', loadChatData, { once: true });
+      }
     };
     loadPageScripts().catch((error) => console.error('Legacy page initialization failed:', error));
     return () => {
