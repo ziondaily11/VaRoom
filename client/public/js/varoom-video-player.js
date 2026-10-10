@@ -470,6 +470,11 @@
       wrapper.classList.remove('is-buffering');
       setStatus(wrapper, '', false);
     });
+    video.addEventListener('loadeddata', function () {
+      wrapper.classList.add('is-ready');
+      wrapper.classList.remove('is-buffering');
+      setStatus(wrapper, '', false);
+    });
     video.addEventListener('ended', function () {
       wrapper.classList.remove('is-playing');
       wrapper.classList.add('is-ended');

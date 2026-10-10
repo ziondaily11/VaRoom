@@ -52,6 +52,10 @@ export default function VideoMedia({ src, title, className, style, ...videoProps
         onLoadedMetadata={(event) => {
           videoProps.onLoadedMetadata?.(event);
         }}
+        onLoadedData={(event) => {
+          setState('ready');
+          videoProps.onLoadedData?.(event);
+        }}
         onCanPlay={(event) => {
           setState('ready');
           videoProps.onCanPlay?.(event);
@@ -71,7 +75,7 @@ export default function VideoMedia({ src, title, className, style, ...videoProps
         style={{
           width: '100%',
           height: '100%',
-          objectFit: 'cover',
+          objectFit: 'contain',
           display: 'block',
           background: '#050505',
           opacity: isLoading ? 0 : 1,
