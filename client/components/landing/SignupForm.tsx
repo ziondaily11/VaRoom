@@ -1,5 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Eye, EyeOff, Lock, Mail, User } from 'lucide-react';
+import { accountTypeDescriptions, createEmptyOtpCode, createSubmissionGate } from '../../public/js/auth-flow-utils';
+import { OtpCodeInput } from './OtpCodeInput';
+import type { OtpCodeInputHandle } from './OtpCodeInput';
 
 type AccountRole = 'host' | 'client';
 type PasswordCriteria = {
@@ -38,9 +41,11 @@ export const SignupForm: React.FC<SignupFormProps> = ({ redirect, initialRole, o
   const [alert, setAlert] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [verificationEmail, setVerificationEmail] = useState('');
-  const [verificationCode, setVerificationCode] = useState(['', '', '', '', '', '']);
+  const [verificationCode, setVerificationCode] = useState(createEmptyOtpCode());
   const [isVerifying, setIsVerifying] = useState(false);
   const [resendSeconds, setResendSeconds] = useState(0);
+  const otpInputRef = useRef<OtpCodeInputHandle>(null);
+  const verificationGate = useRef(createSubmissionGate()).current;
 
   const criteria = passwordCriteria(password);
   const passwordIsStrong = isStrongPassword(password);
@@ -134,7 +139,7 @@ export const SignupForm: React.FC<SignupFormProps> = ({ redirect, initialRole, o
 
       window.sessionStorage.setItem('varoom_intended_role', role);
       setVerificationEmail(email.trim());
-      setVerificationCode(['', '', '', '', '', '']);
+      setVerificationCode(createEmptyOtpCode());
       setIsVerifying(true);
     } catch (error: any) {
       setAlert(error?.message || 'Something went wrong. Please try again.');
@@ -143,9 +148,7 @@ export const SignupForm: React.FC<SignupFormProps> = ({ redirect, initialRole, o
     }
   };
 
-  const handleVerify = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const code = verificationCode.join('');
+  const verifyCode = async (code: string) => verificationGate.run(async () => {
     if (code.length !== 6) {
       setAlert('Enter the complete 6-digit verification code.');
       return;
@@ -167,18 +170,29 @@ export const SignupForm: React.FC<SignupFormProps> = ({ redirect, initialRole, o
       });
       if (error) {
         setAlert(error.message || 'That code is invalid or expired. Please try again.');
+        otpInputRef.current?.clearAndFocus();
         return;
       }
       window.location.assign(`/auth-callback${redirect ? `?redirect=${encodeURIComponent(redirect)}` : ''}`);
     } catch (error: any) {
       setAlert(error?.message || 'That code is invalid or expired. Please try again.');
+      otpInputRef.current?.clearAndFocus();
     } finally {
       setIsLoading(false);
     }
+  });
+
+  const handleVerify = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    void verifyCode(verificationCode.join(''));
   };
 
   const handleResendCode = async () => {
+    if (isLoading) return;
     setAlert('');
+    otpInputRef.current?.clearAndFocus();
+    setVerificationCode(createEmptyOtpCode());
+    setIsLoading(true);
     setResendSeconds(60);
     try {
       const response = await fetch('/api/auth/resend-confirmation', {
@@ -190,26 +204,10 @@ export const SignupForm: React.FC<SignupFormProps> = ({ redirect, initialRole, o
       if (!response.ok) setAlert(result.error || 'Could not resend the verification code.');
     } catch (error: any) {
       setAlert(error?.message || 'Could not resend the verification code.');
+    } finally {
+      setIsLoading(false);
+      window.requestAnimationFrame(() => otpInputRef.current?.focusFirst());
     }
-  };
-
-  const updateVerificationDigit = (index: number, value: string) => {
-    const digit = value.replace(/\D/g, '').slice(-1);
-    setVerificationCode((current) => current.map((currentDigit, currentIndex) => currentIndex === index ? digit : currentDigit));
-    if (digit && index < 5) document.getElementById(`signup-code-${index + 1}`)?.focus();
-  };
-
-  const handleVerificationKeyDown = (index: number, event: React.KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === 'Backspace' && !verificationCode[index] && index > 0) {
-      document.getElementById(`signup-code-${index - 1}`)?.focus();
-    }
-  };
-
-  const handleVerificationPaste = (event: React.ClipboardEvent<HTMLInputElement>) => {
-    event.preventDefault();
-    const digits = event.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6).split('');
-    setVerificationCode(digits.concat(['', '', '', '', '', '']).slice(0, 6));
-    document.getElementById(`signup-code-${Math.min(digits.length, 5)}`)?.focus();
   };
 
   return (
@@ -244,23 +242,14 @@ export const SignupForm: React.FC<SignupFormProps> = ({ redirect, initialRole, o
             We sent a verification code to <strong className="text-[#f5efe7]">{verificationEmail}</strong>
           </p>
           <form className="space-y-5" onSubmit={handleVerify} noValidate>
-            <div className="grid grid-cols-6 gap-2" aria-label="Six-digit verification code">
-              {verificationCode.map((digit, index) => (
-                <input
-                  key={index}
-                  id={`signup-code-${index}`}
-                  inputMode="numeric"
-                  autoComplete={index === 0 ? 'one-time-code' : undefined}
-                  maxLength={1}
-                  aria-label={`Digit ${index + 1}`}
-                  value={digit}
-                  onChange={(event) => updateVerificationDigit(index, event.target.value)}
-                  onKeyDown={(event) => handleVerificationKeyDown(index, event)}
-                  onPaste={handleVerificationPaste}
-                  className="h-12 min-w-0 rounded-lg border border-white/10 bg-white/5 text-center text-lg text-[#f5efe7] outline-none focus:border-white/40"
-                />
-              ))}
-            </div>
+            <OtpCodeInput
+              ref={otpInputRef}
+              idPrefix="signup-code"
+              value={verificationCode}
+              onChange={setVerificationCode}
+              onComplete={(token) => { void verifyCode(token); }}
+              disabled={isLoading}
+            />
             <button type="submit" disabled={isLoading} className="flex h-12 w-full items-center justify-center rounded-lg border border-white/10 bg-[#111111] px-4 text-sm font-semibold text-[#f7f3ee] transition-colors hover:bg-[#292827] disabled:opacity-70">
               {isLoading ? 'Verifying...' : 'Continue'}
             </button>
@@ -268,7 +257,7 @@ export const SignupForm: React.FC<SignupFormProps> = ({ redirect, initialRole, o
           <button
             type="button"
             onClick={handleResendCode}
-            disabled={resendSeconds > 0}
+            disabled={resendSeconds > 0 || isLoading}
             className="mt-4 w-full border-0 bg-transparent p-0 text-center text-sm font-medium text-[#f0e7df] hover:underline disabled:cursor-default disabled:text-[#d9d2c9]/55"
           >
             {resendSeconds > 0 ? `Code sent — try again in ${resendSeconds}s` : 'Resend code'}
@@ -284,17 +273,26 @@ export const SignupForm: React.FC<SignupFormProps> = ({ redirect, initialRole, o
                   key={option}
                   type="button"
                   aria-pressed={role === option}
+                  aria-describedby={`signup-role-${option}-description`}
                   onClick={() => setRole(option)}
-                  className={`h-11 rounded-lg border px-3 text-sm font-medium capitalize transition-colors ${
+                  className={`group min-h-[60px] rounded-lg border px-3 py-2 text-sm font-medium capitalize transition-colors ${
                     role === option
-                      ? 'border-white/30 bg-white/10 text-white'
-                      : 'border-white/10 bg-transparent text-[#d9d2c9]/75 hover:bg-white/5'
+                      ? 'border-white/10 bg-[#090909] text-[#d9d2c9]/75'
+                      : 'border-white/25 bg-white/10 text-white hover:bg-white/15'
                   }`}
                 >
-                  {option}
+                  <span className="block">{option}</span>
+                  <span id={`signup-role-${option}-description`} className="account-type-description block max-h-5 overflow-hidden text-[10px] font-normal normal-case tracking-normal text-[#d9d2c9]/75 opacity-0 transition-all group-hover:opacity-100 group-focus-visible:opacity-100">
+                    {accountTypeDescriptions[option]}
+                  </span>
                 </button>
               ))}
             </div>
+            <style jsx>{`
+              @media (hover: none) {
+                .account-type-description { opacity: 1; }
+              }
+            `}</style>
           </div>
 
           <button
