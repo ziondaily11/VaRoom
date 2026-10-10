@@ -84,7 +84,7 @@ async function authenticatedHost(req, res) {
 
 async function ownedListing(id, userId, res) {
   const { data, error } = await supabaseAdmin
-    .from('listings').select('id,host_id,title,description,property_description,category,location_text,supports_stay,supports_table_reservation,listing_purpose')
+    .from('listings').select('id,host_id,title,description,property_description,category,location_text,supports_stay,supports_table_reservation,listing_purpose,availability_status,paid_listing_until')
     .eq('id', id).maybeSingle();
   if (error) {
     console.error('Listing ownership lookup failed:', error.message);
@@ -113,7 +113,17 @@ router.patch('/listings/:id/status', async (req, res) => {
     if (error instanceof ValidationError) return res.status(400).json({ error: 'Invalid input' });
     throw error;
   }
-  if (!(await ownedListing(req.params.id, user.id, res))) return;
+  const listing = await ownedListing(req.params.id, user.id, res);
+  if (!listing) return;
+  if (req.body.status === 'available' && ['property', 'shop', 'office'].includes(listing.category)) {
+    const feeIsCurrent = listing.paid_listing_until && new Date(listing.paid_listing_until).getTime() > Date.now();
+    const planIds = listing.category === 'property'
+      ? ['property_basic', 'property_pro', 'property_premium']
+      : ['shops_basic', 'shops_pro', 'shops_premium'];
+    const { data: subscription } = await supabaseAdmin.from('host_subscriptions').select('id')
+      .eq('host_id', user.id).eq('status', 'active').in('plan_id', planIds).limit(1).maybeSingle();
+    if (!feeIsCurrent && !subscription) return res.status(402).json({ error: 'A verified listing payment or active niche subscription is required before activation', code: 'LISTING_PAYMENT_REQUIRED' });
+  }
   const { data, error } = await supabaseAdmin.from('listings')
     .update({ availability_status: req.body.status }).eq('id', req.params.id)
     .select('id,availability_status').single();
@@ -148,6 +158,30 @@ router.put('/host/niches', async (req, res) => {
 router.post('/listings', async (req, res) => {
   const user = await authenticatedHost(req, res);
   if (!user) return;
+  // New subscription quotas apply only to the opted-in Property and combined
+  // Shops & Offices plans. Legacy hospitality plans retain their old behavior.
+  const { data: activeSubscription } = await supabaseAdmin.from('host_subscriptions')
+    .select('plan_id,status,current_period_end,billing_plans(features)')
+    .eq('host_id', user.id).eq('status', 'active').in('plan_id', [
+      'property_basic', 'property_pro', 'property_premium', 'shops_basic', 'shops_pro', 'shops_premium'
+    ]).order('updated_at', { ascending: false }).limit(1).maybeSingle();
+  const subscriptionIsCurrent = activeSubscription && (!activeSubscription.current_period_end || new Date(activeSubscription.current_period_end).getTime() > Date.now());
+  if (subscriptionIsCurrent) {
+    const featureValue = activeSubscription.billing_plans && activeSubscription.billing_plans.features;
+    const limit = Number(featureValue && featureValue.max_active_listings);
+    if (Number.isInteger(limit) && limit > 0) {
+      const { data: profile } = await supabaseAdmin.from('profiles').select('listing_categories').eq('id', user.id).maybeSingle();
+      const chosen = Array.isArray(profile?.listing_categories) ? profile.listing_categories[0] : null;
+      const query = supabaseAdmin.from('listings').select('id', { count: 'exact', head: true })
+        .eq('host_id', user.id).eq('availability_status', 'available')
+        .or('paid_listing_until.is.null,paid_listing_until.gt.' + new Date().toISOString());
+      if (chosen === 'property') query.eq('category', 'property');
+      else query.in('category', ['shop', 'office']);
+      const { count, error } = await query;
+      if (error) return res.status(503).json({ error: 'Unable to validate your active listing allowance' });
+      if ((count || 0) >= limit) return res.status(409).json({ error: `Your plan allows up to ${limit} active listings. Upgrade your plan or deactivate a listing first.`, code: 'LISTING_LIMIT_REACHED' });
+    }
+  }
   let category;
   let payload;
   try {
@@ -171,6 +205,7 @@ router.post('/listings', async (req, res) => {
       location_text: text(req.body.location_text, 'location_text', { max: 300 }),
       verified: false,
     };
+    if (['property', 'shop', 'office'].includes(category)) payload.availability_status = subscriptionIsCurrent ? 'available' : 'paused';
     if (category === 'hotel') {
       const supportsStay = req.body.supports_stay === undefined ? true : req.body.supports_stay;
       const supportsTableReservation = req.body.supports_table_reservation === undefined ? false : req.body.supports_table_reservation;

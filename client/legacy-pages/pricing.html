@@ -249,53 +249,47 @@
     <h1 class="pricing-title">Pricing</h1>
 
     <!--
-      Pricing config lives here, on the cards. No pricing/billing config exists elsewhere in the
-      app yet. When annual prices are decided, fill in each data-price-yearly value and the
-      Yearly toggle switches on by itself (it stays disabled until all three are filled in).
+      Property and Shops & Offices plans are loaded from server-owned billing configuration.
     -->
     <div class="plans">
 
-      <article class="plan" data-plan="basic" data-price-monthly="800" data-price-yearly="" aria-labelledby="plan-basic-name">
-        <p class="plan-price"><span class="cur">KSh</span> <span class="amt" data-amount>800</span> <span class="per" data-period>/month</span></p>
+      <article class="plan" data-plan="basic" data-price-monthly="3000" data-price-yearly="" aria-labelledby="plan-basic-name">
+        <p class="plan-price"><span class="cur">KSh</span> <span class="amt" data-amount>3,000</span> <span class="per" data-period>/month</span></p>
         <h2 class="plan-name" id="plan-basic-name">Basic</h2>
-        <p class="plan-desc">Essential tools for getting started on Varoom</p>
+        <p class="plan-desc">For hosts getting started with their niche.</p>
         <hr class="plan-divider">
         <ul class="plan-features">
-          <li><svg class="check" aria-hidden="true"><use href="#pc-check"/></svg><span>All core host tools</span></li>
-          <li><svg class="check" aria-hidden="true"><use href="#pc-check"/></svg><span>Limited storage</span></li>
-          <li><svg class="check" aria-hidden="true"><use href="#pc-check"/></svg><span>Standard listing access</span></li>
+          <li><svg class="check" aria-hidden="true"><use href="#pc-check"/></svg><span>Up to 5 active listings</span></li>
+          <li><svg class="check" aria-hidden="true"><use href="#pc-check"/></svg><span>Analytics included</span></li>
+          <li><svg class="check" aria-hidden="true"><use href="#pc-check"/></svg><span>No landing-page promotion eligibility</span></li>
         </ul>
         <button type="button" class="plan-cta" data-plan-cta="basic" aria-describedby="plan-basic-name">Get Started</button>
       </article>
 
-      <article class="plan plan--featured" data-plan="growth" data-price-monthly="1300" data-price-yearly="" aria-labelledby="plan-growth-name">
-        <p class="plan-price"><span class="cur">KSh</span> <span class="amt" data-amount>1,300</span> <span class="per" data-period>/month</span></p>
-        <h2 class="plan-name" id="plan-growth-name">Growth</h2>
-        <p class="plan-desc">More visibility and better listing capabilities</p>
+      <article class="plan plan--featured" data-plan="pro" data-price-monthly="6000" data-price-yearly="" aria-labelledby="plan-growth-name">
+        <p class="plan-price"><span class="cur">KSh</span> <span class="amt" data-amount>6,000</span> <span class="per" data-period>/month</span></p>
+        <h2 class="plan-name" id="plan-growth-name">Pro</h2>
+        <p class="plan-desc">More room to grow and become eligible for promotion.</p>
         <hr class="plan-divider">
         <ul class="plan-features">
-          <li><svg class="check" aria-hidden="true"><use href="#pc-check"/></svg><span>Everything in Basic</span></li>
-          <li><svg class="check" aria-hidden="true"><use href="#pc-check"/></svg><span>Video listings</span></li>
-          <li><svg class="check" aria-hidden="true"><use href="#pc-check"/></svg><span>Increased storage</span></li>
-          <li><svg class="check" aria-hidden="true"><use href="#pc-check"/></svg><span>Get showcased to new clients searching within your niche</span></li>
+          <li><svg class="check" aria-hidden="true"><use href="#pc-check"/></svg><span>Up to 12 active listings</span></li>
+          <li><svg class="check" aria-hidden="true"><use href="#pc-check"/></svg><span>Analytics included</span></li>
+          <li><svg class="check" aria-hidden="true"><use href="#pc-check"/></svg><span>Eligible for landing-page promotion; featuring is not guaranteed</span></li>
         </ul>
-        <button type="button" class="plan-cta plan-cta--primary" data-plan-cta="growth" aria-describedby="plan-growth-name">Upgrade to Growth</button>
+        <button type="button" class="plan-cta plan-cta--primary" data-plan-cta="pro" aria-describedby="plan-growth-name">Go Pro</button>
       </article>
 
-      <article class="plan" data-plan="pro" data-price-monthly="1800" data-price-yearly="" aria-labelledby="plan-pro-name">
-        <p class="plan-price"><span class="cur">KSh</span> <span class="amt" data-amount>1,800</span> <span class="per" data-period>/month</span></p>
-        <h2 class="plan-name" id="plan-pro-name">Pro</h2>
-        <p class="plan-desc">Maximum visibility and intelligent client engagement</p>
+      <article class="plan" data-plan="premium" data-price-monthly="12000" data-price-yearly="" aria-labelledby="plan-pro-name">
+        <p class="plan-price"><span class="cur">KSh</span> <span class="amt" data-amount>12,000</span> <span class="per" data-period>/month</span></p>
+        <h2 class="plan-name" id="plan-pro-name">Premium</h2>
+        <p class="plan-desc">Maximum capacity with landing-page promotion eligibility.</p>
         <hr class="plan-divider">
         <ul class="plan-features">
-          <li><svg class="check" aria-hidden="true"><use href="#pc-check"/></svg><span>Everything in Growth</span></li>
-          <li><svg class="check" aria-hidden="true"><use href="#pc-check"/></svg><span>Elie</span></li>
-          <li><svg class="check" aria-hidden="true"><use href="#pc-check"/></svg><span>Advanced video listing capabilities</span></li>
-          <li><svg class="check" aria-hidden="true"><use href="#pc-check"/></svg><span>Maximum storage</span></li>
-          <li><svg class="check" aria-hidden="true"><use href="#pc-check"/></svg><span>Get showcased to new clients in Marketplace and Discover</span></li>
-          <li><svg class="check" aria-hidden="true"><use href="#pc-check"/></svg><span>Elie can encourage clients in empty conversations to start conversations with hosts in their niche</span></li>
+          <li><svg class="check" aria-hidden="true"><use href="#pc-check"/></svg><span>Up to 20 active listings</span></li>
+          <li><svg class="check" aria-hidden="true"><use href="#pc-check"/></svg><span>Analytics included</span></li>
+          <li><svg class="check" aria-hidden="true"><use href="#pc-check"/></svg><span>Eligible for landing-page promotion; featuring is not guaranteed</span></li>
         </ul>
-        <button type="button" class="plan-cta" data-plan-cta="pro" aria-describedby="plan-pro-name">Upgrade to Pro</button>
+        <button type="button" class="plan-cta" data-plan-cta="premium" aria-describedby="plan-pro-name">Choose Premium</button>
       </article>
 
     </div>
@@ -394,6 +388,43 @@
     monthlyLabel.addEventListener('click', function(){ toggle('monthly'); });
     yearlyLabel.addEventListener('click', function(){ toggle('yearly'); });
 
+    /* ---------- Server-owned niche plan IDs ---------- */
+    (async function loadPlans(){
+      try {
+        const sessionResult = await supabaseClient.auth.getSession();
+        const session = sessionResult && sessionResult.data && sessionResult.data.session;
+        if (!session || !session.access_token) return;
+        const response = await fetch('/api/billing/plans', { headers: { Authorization: 'Bearer ' + session.access_token } });
+        const result = await response.json().catch(function(){ return {}; });
+        if (!response.ok || !Array.isArray(result.plans) || !result.plans.length) throw new Error(result.error || 'No plans configured');
+        const isLegacy = result.plans[0].niche === 'legacy';
+        const legacyFeatures = [
+          ['All core host tools', 'Limited storage', 'Standard listing access'],
+          ['Everything in Basic', 'Video listings', 'Increased storage', 'Get showcased to new clients searching within your niche'],
+          ['Everything in Growth', 'Elie', 'Advanced video listing capabilities', 'Maximum storage', 'Get showcased to new clients in Marketplace and Discover', 'Elie can encourage clients in empty conversations to start conversations with hosts in their niche']
+        ];
+        result.plans.forEach(function(plan, index){
+          const shortName = plan.display_name.toLowerCase();
+          const card = isLegacy ? plans[index] : plans.find(function(item){ return item.querySelector('.plan-name').textContent.toLowerCase() === shortName; });
+          if (!card) return;
+          if (isLegacy) {
+            card.querySelector('.plan-name').textContent = plan.display_name;
+            card.querySelector('.plan-desc').textContent = ['Essential tools for getting started on VaRoom', 'More visibility and better listing capabilities', 'Maximum visibility and intelligent client engagement'][index];
+            card.querySelector('.plan-features').innerHTML = legacyFeatures[index].map(function(feature){ return '<li><svg class="check" aria-hidden="true"><use href="#pc-check"/></svg><span>' + feature + '</span></li>'; }).join('');
+            card.querySelector('[data-plan-cta]').textContent = ['Get Started', 'Upgrade to Growth', 'Upgrade to Pro'][index];
+          }
+          card.setAttribute('data-plan', plan.id);
+          card.setAttribute('data-price-monthly', String(plan.monthly_amount_minor / 100));
+          card.querySelector('[data-amount]').textContent = fmt(plan.monthly_amount_minor / 100);
+          const limit = plan.features && plan.features.max_active_listings;
+          const rows = card.querySelectorAll('.plan-features li span');
+          if (rows[0] && limit) rows[0].textContent = 'Up to ' + limit + ' active listings';
+          const cta = card.querySelector('[data-plan-cta]');
+          cta.setAttribute('data-plan-cta', plan.id);
+        });
+      } catch (error) { status.textContent = error.message || 'Unable to load plans'; }
+    })();
+
     /* ---------- CTAs ----------
        The browser supplies only a VaRoom plan ID. The server owns prices,
        Paystack plan codes and activation; return/callback pages never grant access. */
@@ -409,10 +440,14 @@
           const sessionResult = await supabaseClient.auth.getSession();
           const session = sessionResult && sessionResult.data && sessionResult.data.session;
           if (!session || !session.access_token) throw new Error('Please log in again to continue.');
+          let pendingListingId = null;
+          try { const pending = JSON.parse(sessionStorage.getItem('varoom_listing_after_upgrade') || 'null'); pendingListingId = pending && pending.id || null; } catch (_) {}
+          const checkoutBody = { plan: id };
+          if (pendingListingId) checkoutBody.listing_id = pendingListingId;
           const response = await fetch('/api/billing/checkout', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
-            body: JSON.stringify({ plan: id })
+            body: JSON.stringify(checkoutBody)
           });
           const result = await response.json().catch(function(){ return {}; });
           if (!response.ok || !result.authorization_url) throw new Error(result.error || 'Unable to start checkout.');
