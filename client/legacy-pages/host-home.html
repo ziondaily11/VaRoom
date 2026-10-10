@@ -693,6 +693,7 @@
   #feed-list.discover-media-feed .card-video .varoom-video-player > video{
     display:block; width:100%; height:auto; object-fit:initial; background:transparent;
   }
+  #feed-list.discover-media-feed .card-video .varoom-video-player{ height:100%; display:flex; align-items:center; justify-content:center; }
   #feed-list.discover-media-feed .media-slide img{ position:relative; z-index:1; margin:0; }
   #feed-list.discover-media-feed .card-video > video{ position:relative; z-index:1; }
   #feed-list.discover-media-feed .card-media-empty{
@@ -2292,7 +2293,7 @@
           });
         }
         media.filter(Boolean).forEach(function(item){
-          item.addEventListener(item.tagName === 'VIDEO' ? 'loadedmetadata' : 'load', updateHeight);
+          item.addEventListener(item.tagName === 'VIDEO' ? 'loadeddata' : 'load', updateHeight);
         });
         updateHeight();
       });
