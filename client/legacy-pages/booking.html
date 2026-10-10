@@ -1168,7 +1168,7 @@
 
     const { data: listing, error: listingError } = await supabaseClient
       .from('listings')
-      .select('id,title,description,property_description,location_text,category,listing_purpose,verified,availability_status,host_id,supports_stay,supports_table_reservation,' +
+      .select('id,title,description,property_description,location_text,category,listing_purpose,verified,availability_status,paid_listing_until,host_id,supports_stay,supports_table_reservation,' +
         'host:profiles!listings_host_id_fkey(full_name,verified,avatar_url,username,phone),listing_photos(storage_path),' +
         'listing_booking_details(*)')
       .eq('id', listingId)
@@ -1319,9 +1319,10 @@
       showError('This hotel has not finished setting up table reservations yet.');
       return;
     }
-    const listingUnavailable = listing.availability_status && listing.availability_status !== 'available';
+    const paidTermExpired = listing.paid_listing_until && new Date(listing.paid_listing_until).getTime() <= Date.now();
+    const listingUnavailable = (listing.availability_status && listing.availability_status !== 'available') || paidTermExpired;
     const availabilityMessage = listingUnavailable
-      ? 'This listing is currently ' + String(listing.availability_status).replace('_', ' ') + ' and cannot accept new bookings.'
+      ? (paidTermExpired ? 'This listing’s 30-day paid listing period has ended.' : 'This listing is currently ' + String(listing.availability_status).replace('_', ' ') + ' and cannot accept new bookings.')
       : '';
 
     let reviews = [];

@@ -861,7 +861,8 @@
           </div>
 
           <div class="submit-row">
-            <button type="button" class="pay-to-list-btn" id="pay-to-list-btn" hidden>Pay KES 3,000 to list</button>
+            <button type="button" class="pay-to-list-btn" id="pay-to-list-btn" hidden>Pay KSh 1,000</button>
+            <button type="button" class="submit-btn" id="go-pro-btn" hidden>Go Pro</button>
             <button type="submit" class="submit-btn" id="submit-btn">Publish listing <span>✓</span></button>
             <p class="form-note">Goes live once saved, subject to GPS location verification.</p>
           </div>
@@ -908,6 +909,9 @@
   let hostNiche = null;
   const editListingId = new URLSearchParams(window.location.search).get('edit');
   const editMode = Boolean(editListingId);
+  let checkoutIntent = null;
+  let listingIsPaused = false;
+  let hasActiveNichePlan = false;
   let editListing = null;
   let editBookingDetails = null;
   let existingPhotos = [];
@@ -1057,12 +1061,13 @@
     const labels = { airbnb: 'Airbnb', hotel: 'Hotel', venue: 'Event ground / venue', office: 'Office', shop: 'Shop', property: 'Property to let or buy' };
     if (editMode) {
       const { data: listing, error: listingError } = await supabaseClient.from('listings')
-        .select('id,host_id,category').eq('id', editListingId).eq('host_id', currentUser.id).maybeSingle();
+        .select('id,host_id,category,availability_status').eq('id', editListingId).eq('host_id', currentUser.id).maybeSingle();
       if (listingError || !listing || !Object.prototype.hasOwnProperty.call(labels, listing.category)) {
         checkingAuth.textContent = listingError ? 'Unable to load this listing. Please try again.' : 'This listing could not be found or is not yours to edit.';
         return;
       }
       hostNiche = listing.category;
+      listingIsPaused = listing.availability_status === 'paused';
     } else {
       const hostNiches = Array.isArray(profile.listing_categories) ? profile.listing_categories : [];
       if (hostNiches.length !== 1 || !Object.prototype.hasOwnProperty.call(labels, hostNiches[0])) {
@@ -1073,7 +1078,26 @@
       hostNiche = hostNiches[0];
     }
 
+    if (!editMode && ['property', 'office', 'shop'].includes(hostNiche)) {
+      try {
+        const entitlementResponse = await fetch('/api/billing/entitlements', { headers: { Authorization: 'Bearer ' + session.access_token } });
+        const entitlementResult = await entitlementResponse.json().catch(function(){ return {}; });
+        const entitlement = entitlementResult.entitlements;
+        const expectedNiche = hostNiche === 'property' ? 'property' : 'shops_offices';
+        hasActiveNichePlan = Boolean(entitlementResponse.ok && entitlement && entitlement.active && entitlement.subscription && entitlement.subscription.niche === expectedNiche);
+      } catch (_) {}
+    }
+
     configureCategory(hostNiche);
+  if ((!editMode && !hasActiveNichePlan || editMode && listingIsPaused) && ['property', 'office', 'shop'].includes(hostNiche)) {
+    document.getElementById('pay-to-list-btn').hidden = false;
+    document.getElementById('go-pro-btn').hidden = false;
+    if (!editMode) document.getElementById('submit-btn').hidden = true;
+  } else {
+    document.getElementById('pay-to-list-btn').hidden = true;
+    document.getElementById('go-pro-btn').hidden = true;
+    document.getElementById('submit-btn').hidden = false;
+  }
     if (editMode) {
       try {
         await loadEditListing(editListingId, session.access_token);
@@ -1131,7 +1155,7 @@
   let hotelListingMode = null;
 
   // ---------- PROPERTY-ONLY: state & elements ----------
-  const PROPERTY_LISTING_FEE_KES = 3000;
+  const PROPERTY_LISTING_FEE_KES = 1000;
   const propertyPurposeMode = document.getElementById('property-purpose-mode');
   const propertyUnitsField = document.getElementById('property-units-field');
   const propertyUnitsInput = document.getElementById('property-units-available');
@@ -1236,7 +1260,7 @@
     if (propertyPolicySection) propertyPolicySection.hidden = false;
     if (payToListBtn) {
       payToListBtn.hidden = false;
-      payToListBtn.textContent = 'Pay KES ' + PROPERTY_LISTING_FEE_KES.toLocaleString() + ' to list';
+      payToListBtn.textContent = 'Pay KSh ' + PROPERTY_LISTING_FEE_KES.toLocaleString();
     }
 
     setText('about-eyebrow', '01 — About the property');
@@ -1452,13 +1476,6 @@
       if (policyPreviewFrame) policyPreviewFrame.src = 'about:blank';
     });
   }
-
-  if (payToListBtn) {
-    payToListBtn.addEventListener('click', function(){
-      alert('Listing fee is KES ' + PROPERTY_LISTING_FEE_KES.toLocaleString() + '. This is currently a preview placeholder — you can publish your listing directly using the "Publish listing" button below.');
-    });
-  }
-
 
   // ---------- Amenities (full list for every category, for now) ----------
   // Same keys/icons as the booking page's amenity grid, so once this data
@@ -2177,6 +2194,14 @@
     const successMsg = document.getElementById('success-msg');
     const successMsgInner = document.getElementById('success-msg-inner');
     const submitBtn = document.getElementById('submit-btn');
+    const payButton = document.getElementById('pay-to-list-btn');
+    const proButton = document.getElementById('go-pro-btn');
+
+    if ((!editMode && !hasActiveNichePlan || editMode && listingIsPaused) && ['property', 'office', 'shop'].includes(category)) {
+      payButton.hidden = false;
+      proButton.hidden = false;
+      submitBtn.hidden = true;
+    }
 
     const generalLocation = fieldValue('location-text');
 
@@ -2426,12 +2451,40 @@
     successMsg.classList.add('show');
     successMsg.scrollIntoView({ behavior:'smooth', block:'center' });
 
+    if (checkoutIntent === 'listing') {
+      const checkoutResponse = await fetch('/api/billing/listing-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
+        body: JSON.stringify({ listing_id: listingId })
+      });
+      const checkout = await checkoutResponse.json().catch(function(){ return {}; });
+      if (!checkoutResponse.ok || !checkout.authorization_url) {
+        window.location.assign('/list?edit=' + encodeURIComponent(listingId) + '&payment=retry');
+        return;
+      }
+      window.location.assign(checkout.authorization_url);
+      return;
+    }
+    if (checkoutIntent === 'pro') {
+      sessionStorage.setItem('varoom_listing_after_upgrade', JSON.stringify({ id: listingId, category: category }));
+      window.location.assign('/pricing?niche=' + encodeURIComponent(category) + '&returnTo=list');
+      return;
+    }
     setTimeout(function(){ window.location.href = '/host-home'; }, 1400);
     } catch (error) {
       // A failed request or a temporarily absent optional field must not leave
       // the wizard stuck on "Publishing…" or produce an unhandled promise.
       showPublishError(error);
     }
+  });
+
+  document.getElementById('pay-to-list-btn').addEventListener('click', function(){
+    checkoutIntent = 'listing';
+    document.getElementById('list-form').requestSubmit();
+  });
+  document.getElementById('go-pro-btn').addEventListener('click', function(){
+    checkoutIntent = 'pro';
+    document.getElementById('list-form').requestSubmit();
   });
 </script>
 

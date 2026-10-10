@@ -629,3 +629,23 @@ If you get stuck on any configuration:
 ---
 
 **Remember:** Never commit `server/.env` to git. Use `.env.example` for template.
+# Property and Shops & Offices Paystack test billing
+
+The `20261010_000035_property_shops_monetization.sql` migration adds separate
+Property and Shops & Offices subscription plans. Existing Basic/Growth/Pro
+records and hospitality billing remain in place. Configure the six server-only
+`PAYSTACK_PLAN_*` variables from `server/.env.example` with the matching test
+plan codes; blank values intentionally leave checkout disabled.
+
+In the Paystack Test dashboard, create six recurring plans with currency KES,
+monthly interval, and amounts KSh 3,000 / 6,000 / 12,000 for each niche. Copy
+each plan's `PLN_...` code into its matching environment variable. Keep the
+existing test webhook endpoint `/api/billing/paystack/webhook` configured for
+`charge.success` and `subscription.disable`, using the same server-side webhook
+secret as `PAYSTACK_WEBHOOK_SECRET`. The one-time listing charge is KSh 1,000
+and uses the existing transaction initialization and verification API; it does
+not require a Paystack subscription plan.
+
+Apply the SQL migration before deploying the server. Test credentials and test
+plan codes are not included in source control. Paystack dashboard plan creation
+requires account access and must be completed separately.
