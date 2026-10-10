@@ -13,6 +13,7 @@ import { Footer } from '../components/landing/Footer';
 import { AuthPanel } from '../components/landing/AuthPanel';
 import { Listing } from '../components/landing/types';
 import { INITIAL_LISTINGS } from '../components/landing/initialListings';
+import { normalizeSignupRole } from '../public/js/auth-flow-utils';
 
 interface LandingPageProps {
   initialListings: Listing[];
@@ -49,7 +50,7 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
       const isRecovery = router.query.auth === 'recovery';
       setInitialAuthView(isRecovery ? 'recovery' : isSignup ? 'signup' : 'login');
       setInitialRecoveryStep(isRecovery && (router.query.step === 'password' || router.query.mode === 'reset') ? 'password' : 'email');
-      setSignupRole(isSignup && router.query.role === 'host' ? 'host' : 'client');
+      setSignupRole(isSignup ? normalizeSignupRole(router.query.role) : 'client');
       setAuthOpen(true);
     }
   }, [router.isReady, router.query.auth, router.query.signup, router.query.role, router.query.step, router.query.mode]);

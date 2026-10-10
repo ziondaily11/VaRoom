@@ -919,6 +919,7 @@
 
 </main>
 
+<script src="/js/auth-flow-utils.js"></script>
 <script>
   (async function () {
     function loadScript(src) {
@@ -1255,7 +1256,7 @@
         key: 'username',
         wrap: document.getElementById('fieldUsername'),
         input: document.getElementById('inpUsername'),
-        clean: function (v) { return v.trim().replace(/^@+/, ''); },
+        clean: function (v) { return window.VaRoomAuthFlowUtils.normalizeUsername(v.trim().replace(/^@+/, '')); },
         valid: function (v) { return /^[a-z0-9._]{3,20}$/.test(v); },
         error: '3–20 letters, numbers, . or _'
       },
@@ -1292,6 +1293,9 @@
 
     fields.forEach(function (f) {
       f.input.addEventListener('input', function () {
+        if (f.key === 'username') {
+          f.input.value = window.VaRoomAuthFlowUtils.normalizeUsername(f.input.value);
+        }
         if (f.wrap.classList.contains('is-invalid')) setInvalid(f, false);
         if (f === fields[0]) {
           usernameHint.textContent = '';
@@ -1345,7 +1349,7 @@
 
       var details = getDetails();
       var usernameField = fields[0];
-      var normalizedUsername = details.username.toLowerCase();
+      var normalizedUsername = window.VaRoomAuthFlowUtils.normalizeUsername(details.username);
       details.username = normalizedUsername;
       usernameField.input.value = normalizedUsername;
       usernameHint.textContent = '';
