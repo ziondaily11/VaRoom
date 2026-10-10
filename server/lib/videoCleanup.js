@@ -110,8 +110,10 @@ async function cleanupOrphanedR2Objects() {
 async function cleanupStuckMediaRecords() {
   console.log(`\n[${new Date().toISOString()}] Checking for stuck media records`);
 
-  const stuckStates = ['pending', 'uploading'];
-  const graceMs = 30 * 60 * 1000; // 30 minutes for stuck uploads
+  const stuckStates = ['pending', 'uploading', 'processing'];
+  // Upload URLs expire after 30 minutes. Leave additional time for a PUT that
+  // began just before expiry to finish before releasing its quota reservation.
+  const graceMs = 2 * 60 * 60 * 1000;
 
   try {
     const { data: records, error } = await supabaseAdmin
