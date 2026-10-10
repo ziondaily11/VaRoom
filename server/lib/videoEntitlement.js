@@ -87,7 +87,7 @@ async function getPropertyVideoCount(supabaseAdmin, propertyId) {
     .select('id', { count: 'exact', head: true })
     .eq('property_id', propertyId)
     .eq('media_type', 'video')
-    .neq('status', 'deleted')
+    .in('status', ['pending', 'uploading', 'processing', 'ready'])
     .is('deleted_at', null);
 
   if (error) {
@@ -110,6 +110,7 @@ function validateVideoFile(fileName, mimeType, fileSizeBytes, durationSeconds = 
   const ALLOWED_MIME_TYPES = [
     'video/mp4',
     'video/quicktime',
+    'video/webm',
   ];
 
   if (typeof fileName !== 'string' || fileName.length < 1 || fileName.length > 255 ||
@@ -152,7 +153,7 @@ function getFileExtension(fileName) {
   if (!fileName || typeof fileName !== 'string') return 'mp4';
   const parts = fileName.split('.');
   const extension = parts.length > 1 ? parts[parts.length - 1].toLowerCase() : 'mp4';
-  return ['mp4', 'mov'].includes(extension) ? extension : 'mp4';
+  return ['mp4', 'mov', 'webm'].includes(extension) ? extension : 'mp4';
 }
 
 module.exports = {
