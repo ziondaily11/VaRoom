@@ -906,6 +906,13 @@
   const listingPage = document.getElementById('listing-page');
   let currentUser = null;
   let hostNiche = null;
+  const editListingId = new URLSearchParams(window.location.search).get('edit');
+  const editMode = Boolean(editListingId);
+  let editListing = null;
+  let editBookingDetails = null;
+  let existingPhotos = [];
+  let existingPolicyUrl = null;
+  const originalOpenDates = new Set();
 
   // The page is rendered through both the legacy Express host and the Next.js
   // compatibility page. Keep optional wizard fields genuinely optional when a
@@ -926,8 +933,111 @@
     }
     if (button) {
       button.disabled = false;
-      button.textContent = 'Publish listing ✓';
+      button.innerHTML = editMode ? 'Save changes <span>✓</span>' : 'Publish listing <span>✓</span>';
     }
+  }
+
+  function setFieldValue(id, value){
+    const field = document.getElementById(id);
+    if (field && value !== undefined && value !== null) field.value = value;
+  }
+
+  async function loadEditListing(id, accessToken){
+    const [listingResult, detailsResult, photosResult] = await Promise.all([
+      supabaseClient.from('listings').select('*').eq('id', id).eq('host_id', currentUser.id).maybeSingle(),
+      supabaseClient.from('listing_booking_details').select('*').eq('listing_id', id).maybeSingle(),
+      supabaseClient.from('listing_photos').select('storage_path').eq('listing_id', id)
+    ]);
+    if (listingResult.error) throw listingResult.error;
+    if (!listingResult.data) throw new Error('This listing could not be found or is not yours to edit.');
+    if (detailsResult.error) throw detailsResult.error;
+    if (photosResult.error) throw photosResult.error;
+
+    editListing = listingResult.data;
+    editBookingDetails = detailsResult.data;
+    existingPhotos = (photosResult.data || []).filter(function(photo){ return photo.storage_path; }).map(function(photo){
+      return {
+        url: supabaseClient.storage.from('listing-photos').getPublicUrl(photo.storage_path).data.publicUrl
+      };
+    });
+
+    setFieldValue('title', editListing.title);
+    setFieldValue('caption', editListing.description);
+    setFieldValue('property-description', editListing.property_description);
+    setFieldValue('location-text', editListing.location_text);
+
+    const details = editBookingDetails || {};
+    setFieldValue('price-amount', details.price_amount);
+    setFieldValue('price-unit', details.price_unit);
+    setFieldValue('size-or-type', details.size_or_type);
+    setFieldValue('max-guests', details.max_guests);
+    setFieldValue('min-stay', details.min_stay_nights);
+    setFieldValue('checkin-time', details.checkin_time);
+    setFieldValue('checkout-time', details.checkout_time);
+    setFieldValue('cleaning-fee', details.cleaning_fee);
+    setFieldValue('cancellation-policy', details.cancellation_policy || 'moderate');
+    setFieldValue('available-from', details.available_from);
+    setFieldValue('min-lease', details.min_lease_months);
+    setFieldValue('deposit-amount', details.deposit_amount);
+    setFieldValue('property-units-available', details.units_available);
+    setFieldValue('property-sale-price', details.sale_price_amount);
+    setFieldValue('dining-restaurant-name', details.restaurant_name);
+    setFieldValue('dining-opening-hours', details.opening_hours);
+    setFieldValue('dining-tables-available', details.tables_available);
+    document.getElementById('utilities-included').checked = details.utilities_included === true;
+    (Array.isArray(details.amenities) ? details.amenities : []).forEach(function(amenity){
+      const checkbox = document.getElementById('amenity-' + amenity);
+      if (checkbox) {
+        checkbox.checked = true;
+        checkbox.closest('.amenity-check').classList.add('checked');
+      }
+    });
+
+    if (hostNiche === 'property') {
+      const purpose = editListing.listing_purpose
+        || (details.sale_price_amount != null && Number(details.price_amount) > 0 ? 'both'
+          : details.sale_price_amount != null ? 'sale' : 'rent');
+      applyPropertyPurpose(purpose);
+      applyPropertySaleMode(details.sale_price_mode || 'exact');
+      if (details.policy_storage_path) {
+        const policyName = details.policy_storage_path.split('/').pop();
+        existingPolicyUrl = supabaseClient.storage.from('listing-photos').getPublicUrl(details.policy_storage_path).data.publicUrl;
+        policyPreviewBtn.textContent = policyName;
+        policyFileName.classList.add('show');
+      }
+    }
+
+    if (hostNiche === 'hotel') {
+      const supportsStay = editListing.supports_stay !== false;
+      const supportsDining = editListing.supports_table_reservation === true;
+      applyHotelMode(supportsStay && supportsDining ? 'both' : supportsDining ? 'table' : 'stay');
+      if (supportsDining) {
+        const diningResponse = await fetch('/api/listings/' + encodeURIComponent(id) + '/dining-config', {
+          headers: { Authorization: 'Bearer ' + accessToken }
+        });
+        const diningResult = await diningResponse.json().catch(function(){ return {}; });
+        if (!diningResponse.ok) throw new Error(diningResult.error || 'Unable to load dining settings.');
+        const dining = diningResult.diningConfig || {};
+        setFieldValue('dining-restaurant-name', dining.restaurant_name);
+        setFieldValue('dining-opening-hours', dining.opening_hours);
+        setFieldValue('dining-tables-available', dining.tables_available);
+      }
+    }
+
+    const availabilityResult = await supabaseClient.from('availability').select('date').eq('listing_id', id);
+    if (availabilityResult.error) throw availabilityResult.error;
+    (availabilityResult.data || []).forEach(function(row){
+      openDates.add(row.date);
+      originalOpenDates.add(row.date);
+    });
+    renderCalendar();
+    renderPreviews();
+    updatePricePreview();
+    document.getElementById('listing-headline').textContent = 'Edit your listing.';
+    document.getElementById('submit-btn').innerHTML = 'Save changes <span>✓</span>';
+    document.getElementById('photo-hint').textContent = 'Existing listing photos cannot be added, removed, or reordered here.';
+    dropzoneText.textContent = 'Photos are locked while editing this listing';
+    photoDropzone.setAttribute('aria-disabled', 'true');
   }
 
   (async function checkAuth(){
@@ -944,18 +1054,36 @@
       return;
     }
 
-    const hostNiches = Array.isArray(profile.listing_categories) ? profile.listing_categories : [];
     const labels = { airbnb: 'Airbnb', hotel: 'Hotel', venue: 'Event ground / venue', office: 'Office', shop: 'Shop', property: 'Property to let or buy' };
-    if (hostNiches.length !== 1 || !Object.prototype.hasOwnProperty.call(labels, hostNiches[0])) {
-      checkingAuth.textContent = 'Choose your posting niche before creating a listing. Redirecting...';
-      setTimeout(function(){ window.location.href = '/profile?select-niches=1'; }, 1200);
-      return;
+    if (editMode) {
+      const { data: listing, error: listingError } = await supabaseClient.from('listings')
+        .select('id,host_id,category').eq('id', editListingId).eq('host_id', currentUser.id).maybeSingle();
+      if (listingError || !listing || !Object.prototype.hasOwnProperty.call(labels, listing.category)) {
+        checkingAuth.textContent = listingError ? 'Unable to load this listing. Please try again.' : 'This listing could not be found or is not yours to edit.';
+        return;
+      }
+      hostNiche = listing.category;
+    } else {
+      const hostNiches = Array.isArray(profile.listing_categories) ? profile.listing_categories : [];
+      if (hostNiches.length !== 1 || !Object.prototype.hasOwnProperty.call(labels, hostNiches[0])) {
+        checkingAuth.textContent = 'Choose your posting niche before creating a listing. Redirecting...';
+        setTimeout(function(){ window.location.href = '/profile?select-niches=1'; }, 1200);
+        return;
+      }
+      hostNiche = hostNiches[0];
     }
-    hostNiche = hostNiches[0];
 
+    configureCategory(hostNiche);
+    if (editMode) {
+      try {
+        await loadEditListing(editListingId, session.access_token);
+      } catch (error) {
+        checkingAuth.textContent = 'Unable to load this listing: ' + error.message;
+        return;
+      }
+    }
     checkingAuth.style.display = 'none';
     listingPage.style.display = 'block';
-    configureCategory(hostNiche);
   })();
 
   // ---------- Category-driven booking fields ----------
@@ -1301,6 +1429,7 @@
   }
   if (policyRemoveBtn) {
     policyRemoveBtn.addEventListener('click', function(){
+      if (editMode && existingPolicyUrl) return;
       selectedPolicyFile = null;
       if (policyInput) policyInput.value = '';
       if (policyFileName) policyFileName.classList.remove('show');
@@ -1310,10 +1439,10 @@
   }
   if (policyPreviewBtn) {
     policyPreviewBtn.addEventListener('click', function(){
-      if (!selectedPolicyFile) return;
-      const url = URL.createObjectURL(selectedPolicyFile);
+      if (!selectedPolicyFile && !existingPolicyUrl) return;
+      const url = selectedPolicyFile ? URL.createObjectURL(selectedPolicyFile) : existingPolicyUrl;
       if (policyPreviewFrame) policyPreviewFrame.src = url;
-      if (policyPreviewFilename) policyPreviewFilename.textContent = selectedPolicyFile.name;
+      if (policyPreviewFilename) policyPreviewFilename.textContent = selectedPolicyFile ? selectedPolicyFile.name : policyPreviewBtn.textContent;
       if (policyPreviewOverlay) policyPreviewOverlay.classList.add('show');
     });
   }
@@ -1550,7 +1679,8 @@
     if (!heroPhoto) return;
     const existing = heroPhoto.querySelector('.review-mobile-gallery');
     if (existing) existing.remove();
-    if (selectedFiles.length === 0) return;
+    const mediaItems = editMode ? existingPhotos : selectedFiles;
+    if (mediaItems.length === 0) return;
 
     const gallery = document.createElement('div');
     gallery.className = 'review-mobile-gallery';
@@ -1558,18 +1688,19 @@
     track.className = 'review-mobile-gallery-track';
     gallery.appendChild(track);
 
-    selectedFiles.forEach(function(file, index){
+    mediaItems.forEach(function(file, index){
       const slide = document.createElement('div');
       slide.className = 'review-mobile-gallery-slide';
-      const media = document.createElement(file.type && file.type.startsWith('video/') ? 'video' : 'img');
-      media.src = URL.createObjectURL(file);
+      const isVideo = editMode ? file.isVideo : file.type && file.type.startsWith('video/');
+      const media = document.createElement(isVideo ? 'video' : 'img');
+      media.src = editMode ? file.url : URL.createObjectURL(file);
       if (media.tagName === 'VIDEO') { media.muted = true; media.playsInline = true; media.controls = true; }
       else media.alt = index === 0 ? 'Listing cover photo' : 'Listing photo ' + (index + 1);
       slide.appendChild(media);
       track.appendChild(slide);
     });
 
-    if (selectedFiles.length > 1) {
+    if (mediaItems.length > 1) {
       const controls = document.createElement('div');
       controls.className = 'review-mobile-gallery-controls';
       const previous = document.createElement('button');
@@ -1577,7 +1708,7 @@
       const dots = document.createElement('div'); dots.className = 'review-gallery-dots'; dots.setAttribute('aria-label', 'Photo position');
       const next = document.createElement('button');
       next.type = 'button'; next.className = 'review-gallery-arrow'; next.setAttribute('aria-label', 'Next photo'); next.textContent = '›';
-      selectedFiles.forEach(function(_, index){
+      mediaItems.forEach(function(_, index){
         const dot = document.createElement('span'); dot.className = 'review-gallery-dot' + (index === 0 ? ' active' : ''); dots.appendChild(dot);
       });
       const move = function(direction){ track.scrollBy({ left: direction * track.clientWidth, behavior:'smooth' }); };
@@ -1667,7 +1798,9 @@
         policyLine.hidden = false;
         policyLine.innerHTML = selectedPolicyFile
           ? '<span class="check">✓</span> Property policy attached: ' + escapeHtml(selectedPolicyFile.name)
-          : '<span class="check" style="color:#C9BDB8">○</span> Property policy document (optional, none attached)';
+          : existingPolicyUrl
+            ? '<span class="check">✓</span> Existing property policy attached'
+            : '<span class="check" style="color:#C9BDB8">○</span> Property policy document (optional, none attached)';
       } else {
         policyLine.hidden = true;
       }
@@ -1692,11 +1825,12 @@
       }
     }
 
-    if (selectedFiles.length > 0) {
+    const reviewMedia = editMode ? existingPhotos : selectedFiles;
+    if (reviewMedia.length > 0) {
       if (thumbSlot) thumbSlot.classList.remove('placeholder');
-      const coverFile = selectedFiles[0];
-      const coverUrl = URL.createObjectURL(coverFile);
-      const isVideo = coverFile.type && coverFile.type.startsWith('video/');
+      const coverFile = reviewMedia[0];
+      const coverUrl = editMode ? coverFile.url : URL.createObjectURL(coverFile);
+      const isVideo = editMode ? coverFile.isVideo : coverFile.type && coverFile.type.startsWith('video/');
 
       if (isVideo) {
         if (thumbSlot) thumbSlot.innerHTML = '<video src="' + coverUrl + '" autoplay muted loop playsinline style="width:100%;height:100%;object-fit:cover;border-radius:10px;display:block;"></video>';
@@ -1796,8 +1930,8 @@
   const photoLightboxMedia = document.getElementById('photo-lightbox-media');
 
   function openPhotoLightbox(file){
-    const url = URL.createObjectURL(file);
-    const isVideo = file.type && file.type.startsWith('video/');
+    const url = typeof file === 'string' ? file : URL.createObjectURL(file);
+    const isVideo = typeof file !== 'string' && file.type && file.type.startsWith('video/');
     photoLightboxMedia.innerHTML = isVideo
       ? '<video src="' + url + '" controls autoplay playsinline></video>'
       : '<img src="' + url + '" alt="Preview">';
@@ -1824,6 +1958,7 @@
   function clearPhotoError(){ photoError.classList.remove('show'); }
 
   function addFiles(fileList){
+    if (editMode) return;
     clearPhotoError();
     const incoming = Array.from(fileList);
     for (const file of incoming) {
@@ -1841,6 +1976,26 @@
 
   function renderPreviews(){
     photoPreview.innerHTML = '';
+    if (editMode) {
+      existingPhotos.forEach(function(photo, index){
+        const thumb = document.createElement('div');
+        thumb.className = 'photo-thumb';
+        thumb.dataset.index = index;
+        const image = document.createElement('img');
+        image.src = photo.url;
+        image.alt = index === 0 ? 'Existing listing cover photo' : 'Existing listing photo';
+        thumb.appendChild(image);
+        if (index === 0) {
+          const coverTag = document.createElement('span');
+          coverTag.className = 'cover-tag';
+          coverTag.textContent = 'Cover';
+          thumb.appendChild(coverTag);
+        }
+        photoPreview.appendChild(thumb);
+        thumb.addEventListener('click', function(){ openPhotoLightbox(photo.url); });
+      });
+      return;
+    }
     dropzoneText.textContent = selectedFiles.length === 0
       ? 'Click to choose photos or videos, or drag them here'
       : selectedFiles.length + ' of ' + MAX_PHOTOS + ' photos/videos selected — drag to reorder, first is the cover';
@@ -1912,10 +2067,11 @@
     });
   }
 
+  if (editMode) photoInput.disabled = true;
   photoInput.addEventListener('change', function(){ addFiles(photoInput.files); photoInput.value = ''; });
-  photoDropzone.addEventListener('dragover', function(e){ e.preventDefault(); photoDropzone.classList.add('dragover'); });
+  photoDropzone.addEventListener('dragover', function(e){ if (editMode) return; e.preventDefault(); photoDropzone.classList.add('dragover'); });
   photoDropzone.addEventListener('dragleave', function(){ photoDropzone.classList.remove('dragover'); });
-  photoDropzone.addEventListener('drop', function(e){ e.preventDefault(); photoDropzone.classList.remove('dragover'); addFiles(e.dataTransfer.files); });
+  photoDropzone.addEventListener('drop', function(e){ e.preventDefault(); photoDropzone.classList.remove('dragover'); if (!editMode) addFiles(e.dataTransfer.files); });
 
   function sanitizeFilename(name){ return name.replace(/[^a-zA-Z0-9.\-_]/g, '_'); }
 
@@ -2025,12 +2181,13 @@
     const generalLocation = fieldValue('location-text');
 
     submitBtn.disabled = true;
-    submitBtn.textContent = 'Publishing...';
+    submitBtn.textContent = editMode ? 'Saving changes...' : 'Publishing...';
 
     const listingPayload = {
-      title, category, description: caption, property_description: propertyDescription,
+      title, description: caption, property_description: propertyDescription,
       location_text: generalLocation,
     };
+    if (!editMode) listingPayload.category = category;
     if (category === 'hotel') {
       listingPayload.supports_stay = hotelListingMode !== 'table';
       listingPayload.supports_table_reservation = hotelListingMode === 'table' || hotelListingMode === 'both';
@@ -2040,8 +2197,8 @@
     }
 
     const { data: { session } } = await supabaseClient.auth.getSession();
-    const listingResponse = await fetch('/api/listings', {
-      method: 'POST',
+    const listingResponse = await fetch(editMode ? '/api/listings/' + encodeURIComponent(editListingId) : '/api/listings', {
+      method: editMode ? 'PATCH' : 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
       body: JSON.stringify(listingPayload)
     });
@@ -2053,11 +2210,11 @@
       successMsgInner.textContent = 'Something went wrong: ' + error.message;
       successMsg.classList.add('show', 'error');
       successMsg.scrollIntoView({ behavior:'smooth', block:'center' });
-      submitBtn.disabled = false; submitBtn.textContent = 'Publish listing ✓';
+      submitBtn.disabled = false; submitBtn.textContent = editMode ? 'Save changes ✓' : 'Publish listing ✓';
       return;
     }
 
-    const listingId = data.id;
+    const listingId = editMode ? editListingId : data.id;
 
     // ---------- Booking details ----------
     const bookingDetails = {
@@ -2072,7 +2229,7 @@
 
     if (category === 'property') {
       const unitsVal = fieldValue('property-units-available');
-      if (unitsVal) bookingDetails.units_available = parseInt(unitsVal, 10);
+      if (unitsVal || editMode) bookingDetails.units_available = unitsVal ? parseInt(unitsVal, 10) : null;
       bookingDetails.available_from = fieldValue('available-from') || null;
 
       if (propertyPurpose === 'sale') {
@@ -2081,6 +2238,11 @@
         bookingDetails.sale_price_mode = propertySalePriceMode;
         bookingDetails.price_amount = bookingDetails.sale_price_amount || 0;
         bookingDetails.price_unit = 'month';
+        if (editMode) {
+          bookingDetails.min_lease_months = null;
+          bookingDetails.deposit_amount = null;
+          bookingDetails.utilities_included = false;
+        }
       } else if (propertyPurpose === 'both') {
         const saleVal = fieldValue('property-sale-price');
         bookingDetails.sale_price_amount = saleVal ? parseFloat(saleVal) : null;
@@ -2089,6 +2251,10 @@
         bookingDetails.deposit_amount = fieldValue('deposit-amount') ? parseFloat(fieldValue('deposit-amount')) : null;
         bookingDetails.utilities_included = document.getElementById('utilities-included').checked;
       } else { // rent
+        if (editMode) {
+          bookingDetails.sale_price_amount = null;
+          bookingDetails.sale_price_mode = null;
+        }
         bookingDetails.min_lease_months = fieldValue('min-lease') ? parseInt(fieldValue('min-lease'), 10) : null;
         bookingDetails.deposit_amount = fieldValue('deposit-amount') ? parseFloat(fieldValue('deposit-amount')) : null;
         bookingDetails.utilities_included = document.getElementById('utilities-included').checked;
@@ -2121,25 +2287,37 @@
     }
 
     if (!(category === 'hotel' && hotelListingMode === 'table')) {
-      const { error: bookingInsertErr } = await supabaseClient.from('listing_booking_details').insert(bookingDetails);
-      if (bookingInsertErr) {
-        console.warn('Full booking details insert error:', bookingInsertErr);
-        // Fallback: If new migration columns are not yet recognized by Supabase PostgREST,
-        // retry inserting the base core fields so the listing is never left without booking details.
-        const coreDetails = {
-          listing_id: listingId,
-          price_amount: bookingDetails.price_amount,
-          price_unit: bookingDetails.price_unit,
-          size_or_type: bookingDetails.size_or_type,
-          amenities: bookingDetails.amenities,
-          available_from: bookingDetails.available_from || null,
-          min_lease_months: bookingDetails.min_lease_months || null,
-          deposit_amount: bookingDetails.deposit_amount || null,
-          utilities_included: Boolean(bookingDetails.utilities_included)
-        };
-        const { error: fallbackErr } = await supabaseClient.from('listing_booking_details').insert(coreDetails);
-        if (fallbackErr) {
-          throw new Error('Could not save booking details: ' + (fallbackErr.message || bookingInsertErr.message));
+      if (editMode) {
+        const detailsPatch = Object.assign({}, bookingDetails);
+        delete detailsPatch.listing_id;
+        const detailResponse = await fetch('/api/listings/' + encodeURIComponent(listingId), {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
+          body: JSON.stringify({ booking_details: detailsPatch })
+        });
+        const detailResult = await detailResponse.json().catch(function(){ return {}; });
+        if (!detailResponse.ok) throw new Error(detailResult.error || 'Unable to update booking details');
+      } else {
+        const { error: bookingInsertErr } = await supabaseClient.from('listing_booking_details').insert(bookingDetails);
+        if (bookingInsertErr) {
+          console.warn('Full booking details insert error:', bookingInsertErr);
+          // Fallback: If new migration columns are not yet recognized by Supabase PostgREST,
+          // retry inserting the base core fields so the listing is never left without booking details.
+          const coreDetails = {
+            listing_id: listingId,
+            price_amount: bookingDetails.price_amount,
+            price_unit: bookingDetails.price_unit,
+            size_or_type: bookingDetails.size_or_type,
+            amenities: bookingDetails.amenities,
+            available_from: bookingDetails.available_from || null,
+            min_lease_months: bookingDetails.min_lease_months || null,
+            deposit_amount: bookingDetails.deposit_amount || null,
+            utilities_included: Boolean(bookingDetails.utilities_included)
+          };
+          const { error: fallbackErr } = await supabaseClient.from('listing_booking_details').insert(coreDetails);
+          if (fallbackErr) {
+            throw new Error('Could not save booking details: ' + (fallbackErr.message || bookingInsertErr.message));
+          }
         }
       }
     }
@@ -2162,9 +2340,24 @@
     }
 
     // ---------- Availability (short-stay only) ----------
-    if (SHORT_STAY.includes(category) && !(category === 'hotel' && hotelListingMode === 'table') && openDates.size > 0) {
-      const rows = Array.from(openDates).map(function(d){ return { listing_id: listingId, date: d }; });
-      await supabaseClient.from('availability').insert(rows);
+    if (SHORT_STAY.includes(category) && !(category === 'hotel' && hotelListingMode === 'table')) {
+      if (editMode) {
+        const removedDates = Array.from(originalOpenDates).filter(function(date){ return !openDates.has(date); });
+        const addedDates = Array.from(openDates).filter(function(date){ return !originalOpenDates.has(date); });
+        if (removedDates.length) {
+          const { error: removeDatesError } = await supabaseClient.from('availability').delete()
+            .eq('listing_id', listingId).in('date', removedDates);
+          if (removeDatesError) throw removeDatesError;
+        }
+        if (addedDates.length) {
+          const rows = addedDates.map(function(date){ return { listing_id: listingId, date: date }; });
+          const { error: addDatesError } = await supabaseClient.from('availability').insert(rows);
+          if (addDatesError) throw addDatesError;
+        }
+      } else if (openDates.size > 0) {
+        const rows = Array.from(openDates).map(function(d){ return { listing_id: listingId, date: d }; });
+        await supabaseClient.from('availability').insert(rows);
+      }
     }
 
     // ---------- Photos / videos ----------
@@ -2199,7 +2392,7 @@
       }
     }
 
-    if (selectedFiles.length > 0 && failedCount > 0) {
+    if (!editMode && selectedFiles.length > 0 && failedCount > 0) {
       for (const mediaId of videoMediaIds) {
         await deleteVideoFromR2(listingId, mediaId);
       }
@@ -2223,7 +2416,9 @@
     if (window.VaRoomListingFeedCache) window.VaRoomListingFeedCache.invalidateAll();
 
     successMsg.classList.remove('error');
-    let message = 'Listing published! Taking you back to your home page...';
+    let message = editMode
+      ? 'Listing updated! Taking you back to your home page...'
+      : 'Listing published! Taking you back to your home page...';
     if (selectedFiles.length > 0) {
       message += ' All ' + uploadedCount + ' media item' + (uploadedCount === 1 ? '' : 's') + ' uploaded successfully.';
     }

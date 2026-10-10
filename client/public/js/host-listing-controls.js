@@ -102,70 +102,6 @@
       .then(function () { toast('Listing link copied'); })
       .catch(function () { toast('Unable to copy listing link'); });
   }
-  function ensureModal() {
-    if (document.getElementById('host-listing-edit-modal')) return;
-    var overlay = document.createElement('div');
-    overlay.id = 'host-listing-edit-modal'; overlay.className = 'modal-overlay open';
-    overlay.innerHTML = '<div class="modal-card"><h2>Edit listing</h2>' +
-      '<div class="modal-field"><label>Title</label><input id="host-edit-title"></div>' +
-      '<div class="modal-field"><label>Description</label><textarea id="host-edit-description"></textarea></div>' +
-      '<div class="modal-field"><label>Category</label><select id="host-edit-category"><option value="airbnb">Airbnb</option><option value="hotel">Hotel</option><option value="venue">Event Venue</option><option value="office">Office</option><option value="shop">Shop</option><option value="property">Property</option></select></div>' +
-      '<div class="modal-field"><label>Location</label><input id="host-edit-location"></div>' +
-      '<div class="modal-field"><label>Price</label><input id="host-edit-price" type="number" min="0"></div>' +
-      '<div class="modal-field"><label>Price unit</label><select id="host-edit-price-unit"><option value="hour">hour</option><option value="night">night</option><option value="month">month</option></select></div>' +
-      '<div class="modal-actions"><button class="modal-cancel" id="host-edit-cancel">Cancel</button><button class="modal-save" id="host-edit-save">Save changes</button></div><p class="modal-msg" id="host-edit-msg"></p></div>';
-    document.body.appendChild(overlay);
-    overlay.addEventListener('click', function (event) { if (event.target === overlay) overlay.remove(); });
-    document.getElementById('host-edit-cancel').addEventListener('click', function () { overlay.remove(); });
-  }
-  function edit(listing) {
-    ensureModal();
-    var detail = Array.isArray(listing.listing_booking_details) ? listing.listing_booking_details[0] : listing.listing_booking_details;
-    document.getElementById('host-edit-title').value = listing.title || '';
-    document.getElementById('host-edit-description').value = listing.description || '';
-    document.getElementById('host-edit-category').value = listing.category || 'property';
-    document.getElementById('host-edit-location').value = listing.location_text || '';
-    document.getElementById('host-edit-price').value = detail && detail.price_amount || '';
-    document.getElementById('host-edit-price-unit').value = detail && detail.price_unit || 'night';
-    document.getElementById('host-edit-save').onclick = function () {
-      var button = this;
-      button.disabled = true;
-      var patch = {
-        title: document.getElementById('host-edit-title').value.trim(),
-        description: document.getElementById('host-edit-description').value.trim(),
-        category: document.getElementById('host-edit-category').value,
-        location_text: document.getElementById('host-edit-location').value.trim(),
-        price_amount: document.getElementById('host-edit-price').value,
-        price_unit: document.getElementById('host-edit-price-unit').value
-      };
-      var previous = {
-        title: listing.title || '',
-        description: listing.description || '',
-        category: listing.category || 'property',
-        location_text: listing.location_text || ''
-      };
-      publishListingUpdate(listing.id, patch);
-      request('/listings/' + encodeURIComponent(listing.id), { method: 'PATCH', body: JSON.stringify(patch) }).then(function () {
-        var detail = Array.isArray(listing.listing_booking_details) ? listing.listing_booking_details[0] : listing.listing_booking_details;
-        publishListingUpdate(listing.id, {
-          title: patch.title,
-          description: patch.description,
-          category: patch.category,
-          location_text: patch.location_text,
-          listing_booking_details: Object.assign({}, detail || {}, {
-            price_amount: Number(patch.price_amount),
-            price_unit: patch.price_unit
-          })
-        });
-        var modal = document.getElementById('host-listing-edit-modal');
-        if (modal) modal.remove();
-        toast('Listing updated');
-      }).catch(function (error) {
-        publishListingUpdate(listing.id, previous);
-        document.getElementById('host-edit-msg').textContent = error.message; button.disabled = false;
-      });
-    };
-  }
   function confirmDeletion() {
     return new Promise(function (resolve) {
       var overlay = document.createElement('div');
@@ -196,7 +132,9 @@
         container.querySelectorAll('.card-menu-dropdown.open').forEach(function (menu) { menu.classList.remove('open'); });
         if (action === 'status') {
           persistStatus(button, listing);
-        } else if (action === 'edit') edit(listing);
+        } else if (action === 'edit') {
+          window.location.href = '/list?edit=' + encodeURIComponent(listing.id);
+        }
         else if (action === 'share') share(listing.id, listing.title);
         else if (action === 'copy') {
           if (!navigator.clipboard || !navigator.clipboard.writeText) {
