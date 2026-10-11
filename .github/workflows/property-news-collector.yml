@@ -2,7 +2,7 @@ name: Property News collector
 
 on:
   schedule:
-    - cron: "0 * * * *"
+    - cron: "17,47 * * * *"
   workflow_dispatch:
 
 permissions:
@@ -14,11 +14,18 @@ concurrency:
 
 jobs:
   collect:
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        source_group: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     runs-on: ubuntu-latest
     steps:
-      - name: Run due Property News sources
+      - name: Run source group ${{ matrix.source_group }}
         env:
           NEWS_SCHEDULER_SECRET: ${{ secrets.NEWS_SCHEDULER_SECRET }}
+          SOURCE_GROUP: ${{ matrix.source_group }}
         run: |
           test -n "$NEWS_SCHEDULER_SECRET"
           curl --fail --silent --show-error --retry 2 --retry-all-errors \
@@ -32,7 +39,7 @@ jobs:
             --header "Authorization: Bearer $NEWS_SCHEDULER_SECRET" \
             --header "Accept: application/json" \
             --connect-timeout 20 --max-time 840 \
-            "https://property-news-pnsj.onrender.com/api/internal/jobs/collect" \
+            "https://property-news-pnsj.onrender.com/api/internal/jobs/collect?source_group=${SOURCE_GROUP}" \
             --output "$response_file"
           python3 - "$response_file" <<'PY'
           import json
@@ -59,11 +66,12 @@ jobs:
               or counts["sources_attempted"] + counts["sources_deferred"] != counts["sources_due"]
               or counts["sources_attempted"]
               != counts["sources_successful"] + counts["sources_failed"]
+              or counts["articles_inserted"] > counts["articles_parsed"]
           ):
-              raise SystemExit("Collector source coverage counts are inconsistent")
+              raise SystemExit("Collector response counts are inconsistent")
 
           summary = (
-              "## Property News collection\n\n"
+              f"## Property News collection — group {os.environ['SOURCE_GROUP']}\n\n"
               f"- Status: `{status}`\n"
               f"- Active/due/attempted/deferred: {counts['sources_active']}/"
               f"{counts['sources_due']}/{counts['sources_attempted']}/"
@@ -97,17 +105,26 @@ jobs:
               )
           if counts["sources_deferred"]:
               raise SystemExit(
-                  f"Collector left {counts['sources_deferred']} due sources unattempted"
+                  f"Collector group {os.environ['SOURCE_GROUP']} left "
+                  f"{counts['sources_deferred']} due sources unattempted"
               )
           if status == "partial":
               failure_rate = counts["sources_failed"] / counts["sources_attempted"]
               print(
-                  f"::warning::Collector had "
+                  f"::warning::Collector group {os.environ['SOURCE_GROUP']} had "
                   f"{counts['sources_failed']} source failures "
                   f"({failure_rate:.0%})"
               )
+              if failure_rate >= 0.25:
+                  raise SystemExit(
+                      f"Collector group {os.environ['SOURCE_GROUP']} source failure rate "
+                      f"{failure_rate:.0%} meets/exceeds the 25% threshold"
+                  )
           elif status not in {"succeeded", "empty", "no_sources_due"}:
               raise SystemExit(f"Collector returned an unknown status: {status}")
           if counts["processing_failures"]:
-              print(f"::warning::Collector had {counts['processing_failures']} processing failures")
+              raise SystemExit(
+                  f"Collector group {os.environ['SOURCE_GROUP']} had "
+                  f"{counts['processing_failures']} item processing failures"
+              )
           PY

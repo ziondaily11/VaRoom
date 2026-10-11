@@ -50,7 +50,11 @@ async def run_collection_job(repository=None, config=settings, analyzer: NewsAna
             async with semaphore:
                 try:
                     return await processor.process(item_id)
-                except Exception:
+                except Exception as error:
+                    logging.getLogger(__name__).error(
+                        "Item processing failed item_id=%s error_type=%s",
+                        item_id, type(error).__name__,
+                    )
                     return None
 
         processed_items = await asyncio.gather(*[_bounded_process(iid) for iid in item_ids])

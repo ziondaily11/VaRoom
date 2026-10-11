@@ -981,6 +981,39 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["processed"], 1)
         self.assertEqual(result["published"], 1)
 
+    async def test_scheduled_job_logs_and_counts_item_processing_failures(self):
+        candidate = CandidateArticle(
+            source_id=self.source.id,
+            source_url="https://source1.example.test/processing-failure",
+            source_title="Land registry digitisation update",
+            source_published_at=datetime.now(timezone.utc) - timedelta(days=2),
+            clean_text=(
+                "The ministry announced land registry digitisation in Nairobi, "
+                "adding online services for property owners and developers. " * 8
+            ),
+        )
+
+        class FailingAnalyzer:
+            async def analyse(self, _item, _source):
+                raise RuntimeError("Analyzer unavailable")
+
+        async def discover(_collector, _source):
+            return [candidate]
+
+        with patch.object(SourceCollector, "_discover", new=discover):
+            with self.assertLogs("app.jobs", level="ERROR") as captured:
+                result = await run_collection_job(
+                    self.repository, Settings(), analyzer=FailingAnalyzer(),
+                )
+
+        self.assertEqual(result["processing_failures"], 1)
+        self.assertEqual(result["processed"], 0)
+        self.assertIn("error_type=RuntimeError", captured.output[0])
+        self.assertIn("item_id=", captured.output[0])
+        item = await self.repository.find_by_canonical_url(candidate.source_url)
+        self.assertIsNotNone(item)
+        self.assertEqual(item.review_status, ReviewStatus.FAILED)
+
     async def test_safe_items_are_released_one_hour_apart(self):
         candidates = [
             CandidateArticle(source_id=self.source.id, source_url=f"https://source1.example.test/safe-{index}",
