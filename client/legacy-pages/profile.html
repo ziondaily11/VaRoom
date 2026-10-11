@@ -184,8 +184,8 @@
   :is(html[data-account-role="host"] .profile-sidebar, .profile-sidebar.sidebar-host) :focus-visible{ outline-color:var(--muted); }
 
   /* ── CENTER COLUMN ── */
-  .profile-main{ background:var(--main-bg); padding:16px 20px 30px; }
-  .profile-topbar{ display:flex; align-items:center; justify-content:space-between; padding:0 4px; }
+  .profile-main{ position:relative; background:var(--main-bg); padding:0 20px 30px; }
+  .profile-topbar{ position:absolute; z-index:4; top:16px; left:20px; right:20px; display:flex; align-items:center; justify-content:space-between; padding:0 4px; }
   .topbar-spacer{ flex:1; }
   .topbar-actions{ display:flex; align-items:center; gap:12px; }
   .topbar-icon{ width:36px; height:36px; border-radius:50%; background:var(--card-bg); border:1px solid var(--card-border); color:var(--ink); display:flex; align-items:center; justify-content:center; }
@@ -217,7 +217,7 @@
   .account-add-btn.disabled svg{ opacity:.65; }
 
   .profile-header{ margin-top:0; border-bottom:1px solid var(--card-border); }
-  .profile-banner{height:230px;position:relative;border-radius:16px 16px 0 0;background:radial-gradient(ellipse at 70% 20%,#75583c 0,#3b3028 38%,#181615 82%);background-size:cover;background-position:center 45%;overflow:hidden}
+  .profile-banner{height:230px;position:relative;margin:0 -20px;border-radius:0;background:radial-gradient(ellipse at 70% 20%,#75583c 0,#3b3028 38%,#181615 82%);background-size:cover;background-position:center 45%;overflow:hidden}
   .profile-banner::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,rgba(0,0,0,.63),transparent 70%),linear-gradient(0deg,rgba(0,0,0,.65),transparent 75%)}
   .profile-banner-actions{position:absolute;z-index:2;right:18px;top:16px;display:flex;gap:8px}
   .profile-banner-actions button{display:flex;align-items:center;gap:7px;padding:9px 12px;border:1px solid #ffffff55;border-radius:999px;background:#090909bb;color:#fff;font:600 12px inherit;cursor:pointer}
@@ -468,9 +468,10 @@
     body{ height:auto; overflow:auto; }
     .profile-desktop-shell{ display:block; max-width:none; height:auto; border-radius:0; border:none; box-shadow:none; }
     .profile-sidebar{ display:none; }
-    .profile-main{ border-right:none; height:auto; overflow:visible; }
+    .profile-main{ border-right:none; height:auto; overflow:visible; padding:0 16px 30px; }
+    .profile-topbar{ top:12px; left:16px; right:16px; }
     .profile-header-body{ display:block; }
-    .profile-banner{height:165px;border-radius:0}
+    .profile-banner{height:165px;margin:0 -16px;border-radius:0}
     .trip-grid{ grid-template-columns:1fr; }
     .booking-item{ grid-template-columns:1fr; }
     .booking-thumb{ width:100%; }
