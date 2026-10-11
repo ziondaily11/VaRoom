@@ -13,7 +13,8 @@ Property News is mounted in the established Render FastAPI service (`main.py`) a
    - a new high-entropy `NEWS_SCHEDULER_SECRET`
    - optional `NEWS_ENVIRONMENT=production`, `NEWS_LOG_LEVEL=INFO`, and fetch limits from `.env.example`
 4. Set the GitHub repository secret `NEWS_SCHEDULER_SECRET` to match the Render secret exactly. The collector workflow targets the canonical Render service URL directly, so a stale scheduler URL secret cannot send collection to an old deployment.
-   - Leave `NEWS_ENABLE_BACKGROUND_SCHEDULER` unset or `false` on Render so GitHub Actions is the only collector.
+   - Leave `NEWS_ENABLE_BACKGROUND_SCHEDULER` unset or `false` on Render so GitHub Actions is the only collector and requests cannot race across schedulers.
+   - The active workflow schedules collection at minutes 17 and 47 UTC (twice hourly, away from the top-of-hour scheduling spike). GitHub scheduled workflows are best-effort and may still be delayed or skipped; confirm recent runs in Actions and use the next scheduled invocation to catch up on due sources.
 5. After Render is healthy and the migration is visible through PostgREST, activate the verified official Lands source once:
 
    ```sh
@@ -22,7 +23,7 @@ Property News is mounted in the established Render FastAPI service (`main.py`) a
      https://property-news-pnsj.onrender.com/api/internal/sources/seed-official-lands
    ```
 
-6. Run the **Property News collector** GitHub Actions workflow once from the Actions tab. The workflow processes the active source registry in 11 deterministic groups, one group at a time, so each request handles at most roughly five sources instead of holding one request open for the entire registry. GitHub may delay scheduled runs; do not add a second in-process cron on the web service.
+6. The **Property News collector** GitHub Actions workflow runs automatically. It processes the active source registry in 11 deterministic host groups, one group at a time, to keep each Render request bounded. It validates per-group source/article counts and fails the workflow for deferred due sources, materially high source failure rates, or any item-processing failure. GitHub may delay or skip scheduled runs; do not add a second in-process cron on the web service.
 7. Verify `https://varoom.co.ke/api/news/latest?limit=1` and the host dashboard after a published low-risk item is available. High-risk and ownership-sensitive items must remain in review.
 
 ## Failure handling and rollback

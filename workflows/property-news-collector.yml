@@ -14,6 +14,7 @@ concurrency:
 
 jobs:
   collect:
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       max-parallel: 1
@@ -38,7 +39,7 @@ jobs:
             --header "Authorization: Bearer $NEWS_SCHEDULER_SECRET" \
             --header "Accept: application/json" \
             --connect-timeout 20 --max-time 840 \
-            "https://property-news-pnsj.onrender.com/api/internal/jobs/collect?source_group=${SOURCE_GROUP}&source_group_count=11" \
+            "https://property-news-pnsj.onrender.com/api/internal/jobs/collect?source_group=${SOURCE_GROUP}" \
             --output "$response_file"
           python3 - "$response_file" <<'PY'
           import json
@@ -63,11 +64,11 @@ jobs:
           if (
               counts["sources_due"] > counts["sources_active"]
               or counts["sources_attempted"] + counts["sources_deferred"] != counts["sources_due"]
-              or counts["sources_attempted"] > 20
               or counts["sources_attempted"]
               != counts["sources_successful"] + counts["sources_failed"]
+              or counts["articles_inserted"] > counts["articles_parsed"]
           ):
-              raise SystemExit("Collector source coverage counts are inconsistent")
+              raise SystemExit("Collector response counts are inconsistent")
 
           summary = (
               f"## Property News collection — group {os.environ['SOURCE_GROUP']}\n\n"
@@ -105,8 +106,7 @@ jobs:
           if counts["sources_deferred"]:
               raise SystemExit(
                   f"Collector group {os.environ['SOURCE_GROUP']} left "
-                  f"{counts['sources_deferred']} due sources unattempted "
-                  f"(group cap: 20)"
+                  f"{counts['sources_deferred']} due sources unattempted"
               )
           if status == "partial":
               failure_rate = counts["sources_failed"] / counts["sources_attempted"]
@@ -123,8 +123,8 @@ jobs:
           elif status not in {"succeeded", "empty", "no_sources_due"}:
               raise SystemExit(f"Collector returned an unknown status: {status}")
           if counts["processing_failures"]:
-              print(
-                  f"::warning::Collector group {os.environ['SOURCE_GROUP']} had "
-                  f"{counts['processing_failures']} processing failures"
+              raise SystemExit(
+                  f"Collector group {os.environ['SOURCE_GROUP']} had "
+                  f"{counts['processing_failures']} item processing failures"
               )
           PY
