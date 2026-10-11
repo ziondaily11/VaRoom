@@ -1,4 +1,4 @@
-const PHOTO_CATEGORIES = new Set(['listing-photos', 'avatars', 'update-images']);
+const PHOTO_CATEGORIES = new Set(['listing-photos', 'avatars', 'update-images', 'profile-banners']);
 
 function isNewR2PhotoObjectKey(category, key, environment = process.env.NODE_ENV || 'development') {
   return PHOTO_CATEGORIES.has(category)
@@ -15,6 +15,7 @@ function isR2PhotoObjectKey(category, key, environment = process.env.NODE_ENV ||
     'listing-photos': `listing-photos/${environment}/`,
     avatars: `avatars/${environment}/`,
     'update-images': `updates/${environment}/`,
+    'profile-banners': `photos/${environment}/profile-banners/`,
   };
   const migratedPrefix = migratedPrefixByCategory[category];
   return Boolean(migratedPrefix && key.startsWith(migratedPrefix));

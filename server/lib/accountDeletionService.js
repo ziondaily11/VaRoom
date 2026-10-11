@@ -35,7 +35,7 @@ async function deleteR2Objects(keys) {
 
 async function collectOwnedStorage(userId) {
   const [{ data: profile, error: profileError }, { data: listings, error: listingsError }] = await Promise.all([
-    supabaseAdmin.from('profiles').select('avatar_url').eq('id', userId).maybeSingle(),
+    supabaseAdmin.from('profiles').select('avatar_url,banner_image_key').eq('id', userId).maybeSingle(),
     supabaseAdmin.from('listings').select('id').eq('host_id', userId),
   ]);
   if (profileError) throw new Error(`Unable to load profile media: ${profileError.message}`);
@@ -71,6 +71,7 @@ async function collectOwnedStorage(userId) {
       if (avatarPath) supabaseObjects.push({ bucket: 'avatars', key: avatarPath });
     }
   }
+  if (profile && profile.banner_image_key) r2Keys.push(profile.banner_image_key);
   for (const photo of photos || []) {
     if (!photo.storage_path) continue;
     if (mediaStorageService.isR2PhotoObjectKey('listing-photos', photo.storage_path)) {
