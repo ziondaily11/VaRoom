@@ -4,7 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('crypto');
 const { verifyWebhookSignature } = require('../lib/paystackClient');
-const { recordWebhookEvent, applyVerifiedTransaction } = require('../lib/billingService');
+const { recordWebhookEvent, applyVerifiedTransaction, cancelReplacedSubscription } = require('../lib/billingService');
 
 test('accepts a valid raw-body Paystack signature and rejects an invalid one', () => {
   const secret = 'sk_test_example';
@@ -66,6 +66,11 @@ test('only a verified matching successful transaction activates a subscription; 
   const failed = await applyVerifiedTransaction(failedDb, { id: 11, reference: 'ref', status: 'failed', amount: 130000, currency: 'KES', metadata: { host_id: 'host-1', plan_id: 'growth' } });
   assert.equal(failed.activated, false);
   assert.equal(failedDb.updates.find((entry) => entry.table === 'host_subscriptions').value.status, 'failed');
+  const pendingDb = paymentSupabase();
+  const pending = await applyVerifiedTransaction(pendingDb, { id: 13, reference: 'ref', status: 'pending', amount: 130000, currency: 'KES', metadata: { host_id: 'host-1', plan_id: 'growth' } });
+  assert.equal(pending.payment.status, 'pending');
+  assert.equal(pending.activated, false);
+  assert.equal(pendingDb.updates.some((entry) => entry.table === 'host_subscriptions'), false);
 });
 
 test('listing fee activation requires matching server-verified metadata and is idempotent', async () => {
@@ -91,8 +96,21 @@ test('listing fee activation requires matching server-verified metadata and is i
   assert.equal(writes.filter((write) => write.table === 'listings').length, 1);
   const firstExpiry = writes.find((write) => write.table === 'listings').value.paid_listing_until;
   assert.equal(firstExpiry, '2026-11-09T00:00:00.000Z');
+  assert.equal(writes.find((write) => write.table === 'listings').value.availability_status, undefined,
+    'verified payment grants the fee entitlement but leaves publication to the listing flow');
   await applyVerifiedTransaction(db, transaction);
   assert.equal(writes.filter((write) => write.table === 'listings').length, 2);
   assert.equal(writes.filter((write) => write.table === 'listings')[1].value.paid_listing_until, firstExpiry);
   await assert.rejects(() => applyVerifiedTransaction(db, { ...transaction, metadata: { ...transaction.metadata, listing_id: 'other-listing' } }), /does not match/);
+});
+
+test('subscription upgrades cancel the replaced Paystack subscription without persisting its email token afterward', async () => {
+  let disabled;
+  let persisted;
+  const db = { from() { return { update(value) { return { eq: async () => { persisted = value; return { error: null }; } }; } }; } };
+  const payment = { id: 'payment-2', provider_payload: { replaces_subscription: { code: 'SUB_old', token: 'private-token' } } };
+  await cancelReplacedSubscription(db, { disableSubscription: async (value) => { disabled = value; } }, payment);
+  assert.deepEqual(disabled, { code: 'SUB_old', token: 'private-token' });
+  assert.equal(persisted.provider_payload.replaces_subscription.cancelled, true);
+  assert.equal(Object.hasOwn(persisted.provider_payload.replaces_subscription, 'token'), false);
 });

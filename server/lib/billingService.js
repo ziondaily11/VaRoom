@@ -1,14 +1,19 @@
 'use strict';
 
 function paystackStatus(data) {
-  return data && data.status === 'success' ? 'succeeded' : 'failed';
+  const status = String(data && data.status || '').toLowerCase();
+  if (status === 'success') return 'succeeded';
+  if (status === 'pending' || status === 'ongoing' || status === 'processing') return 'pending';
+  if (status === 'abandoned') return 'abandoned';
+  if (status === 'reversed' || status === 'refunded') return 'refunded';
+  return 'failed';
 }
 
 async function applyVerifiedTransaction(supabaseAdmin, transaction) {
   const reference = transaction && transaction.reference;
   if (!reference) throw new Error('Verified Paystack transaction has no reference');
   const { data: payment, error } = await supabaseAdmin.from('billing_payments')
-    .select('id,host_id,subscription_id,plan_id,amount_minor,currency,status,listing_id,payment_kind,niche,billing_interval')
+    .select('id,host_id,subscription_id,plan_id,amount_minor,currency,status,listing_id,payment_kind,niche,billing_interval,provider_payload')
     .eq('provider_reference', reference).maybeSingle();
   if (error) throw new Error('Unable to load billing payment');
   // Paystack creates a fresh transaction reference for each recurring charge.
@@ -35,7 +40,7 @@ async function applyVerifiedTransaction(supabaseAdmin, transaction) {
     verified_at: new Date().toISOString(),
     paid_at: status === 'succeeded' ? (transaction.paid_at || new Date().toISOString()) : null,
     provider_transaction_id: transaction.id ? String(transaction.id) : null,
-    provider_payload: transaction,
+    provider_payload: { ...(payment.provider_payload || {}), last_verification: transaction },
   };
   const paymentWrite = supabaseAdmin.from('billing_payments').update(paymentUpdate).eq('id', payment.id);
   if (status === 'succeeded') paymentWrite.neq('status', 'succeeded');
@@ -48,7 +53,6 @@ async function applyVerifiedTransaction(supabaseAdmin, transaction) {
     const paidAt = transaction.paid_at || new Date().toISOString();
     const { error: listingError } = await supabaseAdmin.from('listings').update({
       paid_listing_until: new Date(new Date(paidAt).getTime() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-      availability_status: 'available',
     }).eq('id', payment.listing_id).eq('host_id', payment.host_id);
     if (listingError) throw new Error('Unable to activate paid listing');
   } else if (status === 'succeeded') {
@@ -56,6 +60,8 @@ async function applyVerifiedTransaction(supabaseAdmin, transaction) {
     const periodEnd = new Date(paidAt);
     periodEnd.setMonth(periodEnd.getMonth() + 1);
     const subscriptionUpdate = {
+      plan_id: payment.plan_id,
+      niche: payment.niche || 'legacy',
       status: 'active',
       current_period_start: paidAt,
       current_period_end: periodEnd.toISOString(),
@@ -66,12 +72,7 @@ async function applyVerifiedTransaction(supabaseAdmin, transaction) {
     Object.keys(subscriptionUpdate).forEach((key) => subscriptionUpdate[key] === undefined && delete subscriptionUpdate[key]);
     const { error: subscriptionError } = await supabaseAdmin.from('host_subscriptions').update(subscriptionUpdate).eq('id', payment.subscription_id);
     if (subscriptionError) throw new Error('Unable to activate host subscription');
-    if (payment.listing_id) {
-      const { error: listingError } = await supabaseAdmin.from('listings').update({ availability_status: 'available' })
-        .eq('id', payment.listing_id).eq('host_id', payment.host_id).eq('availability_status', 'paused');
-      if (listingError) throw new Error('Unable to activate subscription listing');
-    }
-  } else {
+  } else if (['failed', 'abandoned', 'refunded'].includes(status)) {
     await supabaseAdmin.from('host_subscriptions').update({ status: 'failed', provider_metadata: transaction }).eq('id', payment.subscription_id).eq('status', 'pending');
   }
   return { payment: { ...payment, ...paymentUpdate }, activated: status === 'succeeded' && Boolean(paymentChanged && paymentChanged.length) };
@@ -124,9 +125,24 @@ async function updateSubscriptionFromWebhook(supabaseAdmin, code, patch) {
   if (!code) return false;
   const { data: subscription, error: lookupError } = await supabaseAdmin.from('host_subscriptions')
     .select('id,status').eq('provider_subscription_code', code).maybeSingle();
-  if (lookupError || !subscription) throw new Error('Paystack subscription was not found');
+  if (lookupError) throw new Error('Unable to load Paystack subscription');
+  if (!subscription) return false;
   const { error } = await supabaseAdmin.from('host_subscriptions').update(patch).eq('id', subscription.id);
   if (error) throw new Error('Unable to update Paystack subscription');
+  return true;
+}
+
+async function cancelReplacedSubscription(supabaseAdmin, paystack, payment) {
+  const replacement = payment && payment.provider_payload && payment.provider_payload.replaces_subscription;
+  if (!replacement || replacement.cancelled || !replacement.code || !replacement.token) return false;
+  await paystack.disableSubscription({ code: replacement.code, token: replacement.token });
+  const { token: _removedToken, ...replacementRecord } = replacement;
+  const providerPayload = {
+    ...(payment.provider_payload || {}),
+    replaces_subscription: { ...replacementRecord, cancelled: true },
+  };
+  const { error } = await supabaseAdmin.from('billing_payments').update({ provider_payload: providerPayload }).eq('id', payment.id);
+  if (error) throw new Error('Unable to record replaced subscription cancellation');
   return true;
 }
 
@@ -155,4 +171,4 @@ async function markWebhookEvent(supabaseAdmin, id, status, processingError = nul
   }).eq('id', id);
 }
 
-module.exports = { paystackStatus, applyVerifiedTransaction, updateSubscriptionFromWebhook, recordWebhookEvent, markWebhookEvent };
+module.exports = { paystackStatus, applyVerifiedTransaction, updateSubscriptionFromWebhook, cancelReplacedSubscription, recordWebhookEvent, markWebhookEvent };

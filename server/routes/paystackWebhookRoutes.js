@@ -3,7 +3,7 @@
 const express = require('express');
 const supabaseDefault = require('../lib/supabaseClient');
 const { createPaystackClient } = require('../lib/paystackClient');
-const { applyVerifiedTransaction, updateSubscriptionFromWebhook, recordWebhookEvent, markWebhookEvent } = require('../lib/billingService');
+const { applyVerifiedTransaction, updateSubscriptionFromWebhook, cancelReplacedSubscription, recordWebhookEvent, markWebhookEvent } = require('../lib/billingService');
 
 function createPaystackWebhookRoutes({ supabaseAdmin = supabaseDefault, paystack = createPaystackClient() } = {}) {
   const router = express.Router();
@@ -23,7 +23,10 @@ function createPaystackWebhookRoutes({ supabaseAdmin = supabaseDefault, paystack
         const reference = event.data.reference;
         if (!reference) throw new Error('charge.success is missing a reference');
         // Never trust the signed event alone: verify its transaction with Paystack.
-        await applyVerifiedTransaction(supabaseAdmin, await paystack.verifyTransaction(reference));
+        const applied = await applyVerifiedTransaction(supabaseAdmin, await paystack.verifyTransaction(reference));
+        if (applied.payment && applied.payment.status === 'succeeded' && applied.payment.payment_kind !== 'listing') {
+          await cancelReplacedSubscription(supabaseAdmin, paystack, applied.payment);
+        }
       } else if (['invoice.payment_failed', 'subscription.not_renew', 'subscription.disable'].includes(event.event)) {
         const code = event.data.subscription_code || (event.data.subscription && event.data.subscription.subscription_code);
         if (code) {

@@ -645,6 +645,8 @@ subscription code and checked against the configured plan amount and currency.
 The one-time listing charge is KSh 1,000 and uses transaction initialization
 and server-side verification; it does not require a Paystack subscription plan.
 
-Apply the SQL migration before deploying the server. Test credentials and test
-plan codes are not included in source control. Paystack dashboard plan creation
-requires account access and must be completed separately.
+Apply migrations `20261010_000035_property_shops_monetization.sql` and
+`20261011_000036_listing_entitlement_activation.sql` before deploying the
+server. Test credentials and plan codes are not included in source control.
+Paystack dashboard plan creation requires account access and must be completed
+separately.
