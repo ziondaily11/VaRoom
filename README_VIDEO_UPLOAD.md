@@ -317,7 +317,7 @@ VIDEO_PREMIUM_REQUIRED=true
 ### Step 1: Create Cloudflare R2 Bucket
 1. Log into Cloudflare dashboard
 2. Navigate to R2 section
-3. Create bucket (e.g., "varoom-videos-production")
+3. Select the app's existing shared media bucket (for example, `varoom`). Photos, videos, and other app media can share one R2 bucket; R2 does not require video-only buckets.
 4. Note your Account ID
 5. Generate API token with R2 read/write access
 6. Note: Access Key ID and Secret Access Key

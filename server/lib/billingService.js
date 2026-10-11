@@ -10,7 +10,11 @@ async function applyVerifiedTransaction(supabaseAdmin, transaction) {
   const { data: payment, error } = await supabaseAdmin.from('billing_payments')
     .select('id,host_id,subscription_id,plan_id,amount_minor,currency,status,listing_id,payment_kind,niche,billing_interval')
     .eq('provider_reference', reference).maybeSingle();
-  if (error || !payment) throw new Error('Billing payment was not found');
+  if (error) throw new Error('Unable to load billing payment');
+  // Paystack creates a fresh transaction reference for each recurring charge.
+  // Those references do not have a checkout row, so match renewals through the
+  // subscription code returned by the server-side transaction verification.
+  if (!payment) return applyVerifiedRenewal(supabaseAdmin, transaction);
 
   const status = paystackStatus(transaction);
   const amountMatches = Number(transaction.amount) === Number(payment.amount_minor);
@@ -48,9 +52,13 @@ async function applyVerifiedTransaction(supabaseAdmin, transaction) {
     }).eq('id', payment.listing_id).eq('host_id', payment.host_id);
     if (listingError) throw new Error('Unable to activate paid listing');
   } else if (status === 'succeeded') {
+    const paidAt = transaction.paid_at || new Date().toISOString();
+    const periodEnd = new Date(paidAt);
+    periodEnd.setMonth(periodEnd.getMonth() + 1);
     const subscriptionUpdate = {
       status: 'active',
-      current_period_start: transaction.paid_at || new Date().toISOString(),
+      current_period_start: paidAt,
+      current_period_end: periodEnd.toISOString(),
       provider_subscription_code: transaction.subscription && transaction.subscription.subscription_code || undefined,
       provider_email_token: transaction.subscription && transaction.subscription.email_token || undefined,
       provider_metadata: transaction,
@@ -67,6 +75,59 @@ async function applyVerifiedTransaction(supabaseAdmin, transaction) {
     await supabaseAdmin.from('host_subscriptions').update({ status: 'failed', provider_metadata: transaction }).eq('id', payment.subscription_id).eq('status', 'pending');
   }
   return { payment: { ...payment, ...paymentUpdate }, activated: status === 'succeeded' && Boolean(paymentChanged && paymentChanged.length) };
+}
+
+async function applyVerifiedRenewal(supabaseAdmin, transaction) {
+  if (paystackStatus(transaction) !== 'succeeded') throw new Error('Billing payment was not found');
+  const code = transaction.subscription && transaction.subscription.subscription_code;
+  if (!code) throw new Error('Unrecognized Paystack transaction reference');
+  const { data: subscription, error: subscriptionLookupError } = await supabaseAdmin.from('host_subscriptions')
+    .select('id,host_id,plan_id,provider_subscription_code,niche,status')
+    .eq('provider_subscription_code', code).maybeSingle();
+  if (subscriptionLookupError || !subscription) throw new Error('Paystack subscription was not found');
+  if (!['active', 'past_due', 'cancel_requested'].includes(subscription.status)) throw new Error('Paystack subscription is not renewable');
+  const { data: plan, error: planError } = await supabaseAdmin.from('billing_plans')
+    .select('id,monthly_amount_minor,currency,billing_interval,niche').eq('id', subscription.plan_id).maybeSingle();
+  if (planError || !plan || Number(transaction.amount) !== Number(plan.monthly_amount_minor) || transaction.currency !== plan.currency) {
+    throw new Error('Recurring Paystack transaction does not match the VaRoom subscription');
+  }
+  const paidAt = transaction.paid_at || new Date().toISOString();
+  const periodEnd = new Date(paidAt);
+  periodEnd.setMonth(periodEnd.getMonth() + 1);
+  const { error: insertError } = await supabaseAdmin.from('billing_payments').insert({
+    host_id: subscription.host_id,
+    subscription_id: subscription.id,
+    plan_id: plan.id,
+    niche: subscription.niche || plan.niche || 'legacy',
+    billing_interval: plan.billing_interval || 'monthly',
+    provider_reference: transaction.reference,
+    provider_transaction_id: transaction.id ? String(transaction.id) : null,
+    amount_minor: plan.monthly_amount_minor,
+    currency: plan.currency,
+    status: 'succeeded',
+    verified_at: new Date().toISOString(),
+    paid_at: paidAt,
+    provider_payload: transaction,
+  });
+  if (insertError && insertError.code !== '23505') throw new Error('Unable to record recurring Paystack payment');
+  const { error: updateError } = await supabaseAdmin.from('host_subscriptions').update({
+    status: 'active',
+    current_period_start: paidAt,
+    current_period_end: periodEnd.toISOString(),
+    provider_metadata: transaction,
+  }).eq('id', subscription.id);
+  if (updateError) throw new Error('Unable to renew host subscription');
+  return { payment: { provider_reference: transaction.reference, status: 'succeeded' }, activated: !insertError };
+}
+
+async function updateSubscriptionFromWebhook(supabaseAdmin, code, patch) {
+  if (!code) return false;
+  const { data: subscription, error: lookupError } = await supabaseAdmin.from('host_subscriptions')
+    .select('id,status').eq('provider_subscription_code', code).maybeSingle();
+  if (lookupError || !subscription) throw new Error('Paystack subscription was not found');
+  const { error } = await supabaseAdmin.from('host_subscriptions').update(patch).eq('id', subscription.id);
+  if (error) throw new Error('Unable to update Paystack subscription');
+  return true;
 }
 
 async function recordWebhookEvent(supabaseAdmin, event) {
@@ -94,4 +155,4 @@ async function markWebhookEvent(supabaseAdmin, id, status, processingError = nul
   }).eq('id', id);
 }
 
-module.exports = { paystackStatus, applyVerifiedTransaction, recordWebhookEvent, markWebhookEvent };
+module.exports = { paystackStatus, applyVerifiedTransaction, updateSubscriptionFromWebhook, recordWebhookEvent, markWebhookEvent };
