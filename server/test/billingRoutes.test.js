@@ -9,6 +9,8 @@ test('checkout accepts only canonical VaRoom plan identifiers, never a browser p
   assert.equal(normalizeRequestedPlan('basic'), 'basic');
   assert.equal(normalizeRequestedPlan('growth'), 'growth');
   assert.equal(normalizeRequestedPlan('pro'), 'pro');
+  assert.equal(normalizeRequestedPlan('property_basic'), 'property_basic');
+  assert.equal(normalizeRequestedPlan('shops_premium'), 'shops_premium');
   assert.throws(() => normalizeRequestedPlan('pro?amount=1'), ValidationError);
   assert.throws(() => normalizeRequestedPlan({ plan: 'pro', amount: 1 }), ValidationError);
 });

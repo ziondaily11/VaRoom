@@ -43,11 +43,10 @@ const VIDEO_CLEANUP_INTERVAL_MS = Math.max(
 app.disable('x-powered-by');
 app.use((req, res, next) => {
   res.set('X-Content-Type-Options', 'nosniff');
-  res.set('X-Frame-Options', 'DENY');
+  res.set('X-Frame-Options', 'SAMEORIGIN');
   res.set('Referrer-Policy', 'no-referrer');
-  // Block framing from any origin and disallow plugin/object content.
-  // `frame-ancestors 'none'` supersedes X-Frame-Options in modern browsers.
-  res.set('Content-Security-Policy', "frame-ancestors 'none'; object-src 'none'");
+  // Preserve the same-origin chat settings iframe while blocking cross-origin framing.
+  res.set('Content-Security-Policy', "frame-ancestors 'self'; object-src 'none'; base-uri 'self'");
   next();
 });
 // Paystack signs the exact request bytes. This must remain before JSON parsing
@@ -71,6 +70,11 @@ app.use('/api', (req, res, next) => {
   recent.push(now);
   apiRequestTracker.set(key, recent);
   return next();
+});
+
+app.use(['/api/chat', '/api/billing', '/admin'], (_req, res, next) => {
+  res.set('Cache-Control', 'no-store');
+  next();
 });
 
 // Mount video upload routes

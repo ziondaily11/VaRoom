@@ -26,6 +26,7 @@ const videoRoutes = require('../routes/videoRoutes');
 
 async function withServer(options, run) {
   let insertedRecord = null;
+  let reservedCount = options.count ?? 0;
   let recordStatus = 'pending';
   let savedDuration = null;
   const mediaRecord = {
@@ -39,6 +40,15 @@ async function withServer(options, run) {
   };
 
   supabaseAdmin.auth.getUser = async () => ({ data: { user }, error: null });
+  supabaseAdmin.rpc = async (name, params) => {
+    assert.equal(name, 'reserve_property_video_upload');
+    if (reservedCount >= params.p_max_count) {
+      return { data: [{ reserved: false, current_count: reservedCount }], error: null };
+    }
+    reservedCount += 1;
+    insertedRecord = { ...params, status: 'pending' };
+    return { data: [{ reserved: true, current_count: reservedCount - 1 }], error: null };
+  };
   supabaseAdmin.from = (table) => {
     if (table === 'listings') {
       const query = {
@@ -58,6 +68,7 @@ async function withServer(options, run) {
       },
       eq() { return this; },
       neq() { return this; },
+      in() { return this; },
       is() { return this; },
       insert(record) {
         insertedRecord = record;
@@ -93,7 +104,8 @@ async function withServer(options, run) {
     return query;
   };
 
-  mediaStorageService.generateR2ObjectKey = () => mediaRecord.storage_key;
+  mediaStorageService.generateR2ObjectKey = (_hostId, _propertyId, _mediaId, extension) =>
+    `videos/test/original.${extension}`;
   mediaStorageService.generateR2UploadAuthorization = async () => ({
     uploadUrl: 'https://r2.example/upload',
     endpoint: 'https://r2.example',
@@ -145,6 +157,47 @@ function initBody(durationSeconds) {
     ...(durationSeconds === undefined ? {} : { durationSeconds }),
   };
 }
+
+test('accepts WebM MIME and preserves its extension in upload initialization', async () => {
+  assert.deepEqual(videoEntitlement.validateVideoFile('clip.webm', 'video/webm', 100), { valid: true });
+  assert.equal(videoEntitlement.getFileExtension('clip.WEBM'), 'webm');
+  await withServer({ count: 0 }, async (state) => {
+    const response = await state.send(`/properties/${propertyId}/videos/upload-init`, {
+      filename: 'clip.webm', mimeType: 'video/webm', fileSize: 100,
+    });
+    assert.equal(response.status, 200);
+    assert.equal(state.insertedRecord.p_mime_type, 'video/webm');
+    assert.equal(state.insertedRecord.p_storage_key.endsWith('.webm'), true);
+  });
+});
+
+test('rejects unsupported video MIME types and keeps extension fallback safe', () => {
+  assert.equal(videoEntitlement.validateVideoFile('clip.avi', 'video/x-msvideo', 100).valid, false);
+  assert.equal(videoEntitlement.getFileExtension('clip.avi'), 'mp4');
+});
+
+test('failed rows do not consume quota while ready videos still do', async () => {
+  const eligibleStatuses = ['pending', 'uploading', 'processing', 'ready'];
+  assert.deepEqual(eligibleStatuses, ['pending', 'uploading', 'processing', 'ready']);
+  // Count query explicitly filters to these quota-reserving lifecycle states;
+  // failed/deleted rows are consequently excluded and ready rows retained.
+  let filteredStatuses;
+  const query = {
+    select() { return this; }, eq() { return this; },
+    in(_column, values) { filteredStatuses = values; return this; },
+    is() { return this; }, then(resolve) { return Promise.resolve({ count: 1, error: null }).then(resolve); },
+  };
+  const count = await videoEntitlement.getPropertyVideoCount({ from: () => query }, propertyId);
+  assert.equal(count, 1);
+  assert.deepEqual(filteredStatuses, eligibleStatuses);
+});
+
+test('concurrent upload initialization cannot exceed the quota', async () => {
+  await withServer({ count: videoEntitlement.VIDEO_MAX_COUNT_PER_PROPERTY - 1 }, async (state) => {
+    const results = await Promise.all([initializeUpload(state.send), initializeUpload(state.send)]);
+    assert.deepEqual(results.map((result) => result.status).sort(), [200, 403]);
+  });
+});
 
 async function initializeUpload(send, durationSeconds) {
   return send(`/properties/${propertyId}/videos/upload-init`, initBody(durationSeconds));

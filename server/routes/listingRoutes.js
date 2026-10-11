@@ -84,7 +84,7 @@ async function authenticatedHost(req, res) {
 
 async function ownedListing(id, userId, res) {
   const { data, error } = await supabaseAdmin
-    .from('listings').select('id,host_id,title,description,property_description,category,location_text')
+    .from('listings').select('id,host_id,title,description,property_description,category,location_text,supports_stay,supports_table_reservation,listing_purpose,availability_status,paid_listing_until')
     .eq('id', id).maybeSingle();
   if (error) {
     console.error('Listing ownership lookup failed:', error.message);
@@ -113,7 +113,19 @@ router.patch('/listings/:id/status', async (req, res) => {
     if (error instanceof ValidationError) return res.status(400).json({ error: 'Invalid input' });
     throw error;
   }
-  if (!(await ownedListing(req.params.id, user.id, res))) return;
+  const listing = await ownedListing(req.params.id, user.id, res);
+  if (!listing) return;
+  if (req.body.status === 'available' && ['property', 'shop', 'office'].includes(listing.category)) {
+    const { data: result, error: activationError } = await supabaseAdmin.rpc('activate_listing_with_entitlement', {
+      p_listing_id: req.params.id,
+      p_host_id: user.id,
+    });
+    if (activationError) return res.status(500).json({ error: 'Unable to verify listing entitlement' });
+    if (result && result.code === 'LISTING_PAYMENT_REQUIRED') return res.status(402).json({ error: result.error, code: result.code });
+    if (result && result.code === 'LISTING_LIMIT_REACHED') return res.status(409).json({ error: result.error, code: result.code });
+    if (!result || !result.listing) return res.status(404).json({ error: 'Listing not found or could not be activated' });
+    return res.json({ listing: result.listing });
+  }
   const { data, error } = await supabaseAdmin.from('listings')
     .update({ availability_status: req.body.status }).eq('id', req.params.id)
     .select('id,availability_status').single();
@@ -148,12 +160,43 @@ router.put('/host/niches', async (req, res) => {
 router.post('/listings', async (req, res) => {
   const user = await authenticatedHost(req, res);
   if (!user) return;
+  const paymentDraft = req.body && req.body.payment_draft === true;
+  if (req.body && Object.prototype.hasOwnProperty.call(req.body, 'payment_draft') && typeof req.body.payment_draft !== 'boolean') {
+    return res.status(400).json({ error: 'Invalid listing draft request', code: 'INVALID_LISTING' });
+  }
+  // New subscription quotas apply only to the opted-in Property and combined
+  // Shops & Offices plans. Legacy hospitality plans retain their old behavior.
+  const { data: activeSubscription } = await supabaseAdmin.from('host_subscriptions')
+    .select('plan_id,status,current_period_end,billing_plans(features)')
+    .eq('host_id', user.id).eq('status', 'active').in('plan_id', [
+      'property_basic', 'property_pro', 'property_premium', 'shops_basic', 'shops_pro', 'shops_premium'
+    ]).order('updated_at', { ascending: false }).limit(1).maybeSingle();
+  const subscriptionIsCurrent = activeSubscription && (!activeSubscription.current_period_end || new Date(activeSubscription.current_period_end).getTime() > Date.now());
+  if (subscriptionIsCurrent && !paymentDraft) {
+    const featureValue = activeSubscription.billing_plans && activeSubscription.billing_plans.features;
+    const limit = Number(featureValue && featureValue.max_active_listings);
+    if (Number.isInteger(limit) && limit > 0) {
+      const { data: profile } = await supabaseAdmin.from('profiles').select('listing_categories').eq('id', user.id).maybeSingle();
+      const chosen = Array.isArray(profile?.listing_categories) ? profile.listing_categories[0] : null;
+      const query = supabaseAdmin.from('listings').select('id', { count: 'exact', head: true })
+        .eq('host_id', user.id).eq('availability_status', 'available')
+        .is('paid_listing_until', null);
+      if (chosen === 'property') query.eq('category', 'property');
+      else query.in('category', ['shop', 'office']);
+      const { count, error } = await query;
+      if (error) return res.status(503).json({ error: 'Unable to validate your active listing allowance' });
+      if ((count || 0) >= limit) return res.status(409).json({ error: `Your plan allows up to ${limit} active listings. Upgrade your plan or deactivate a listing first.`, code: 'LISTING_LIMIT_REACHED' });
+    }
+  }
   let category;
   let payload;
   try {
-    assertAllowedKeys(req.body, ['title', 'description', 'property_description', 'category', 'location_text', 'supports_stay', 'supports_table_reservation', 'latitude', 'longitude', 'place_id', 'formatted_address', 'neighborhood', 'city', 'country', 'listing_purpose']);
+    assertAllowedKeys(req.body, ['title', 'description', 'property_description', 'category', 'location_text', 'supports_stay', 'supports_table_reservation', 'latitude', 'longitude', 'place_id', 'formatted_address', 'neighborhood', 'city', 'country', 'listing_purpose', 'payment_draft']);
     const niches = normalizeNiches(await hostNiches(user.id));
     category = niches[0];
+    if (paymentDraft && !['property', 'shop', 'office'].includes(category)) {
+      return res.status(400).json({ error: 'Payment drafts are only available for Property and Shops & Offices', code: 'INVALID_LISTING' });
+    }
     payload = {
       host_id: user.id,
       title: text(req.body.title, 'title', { max: 300 }),
@@ -171,6 +214,7 @@ router.post('/listings', async (req, res) => {
       location_text: text(req.body.location_text, 'location_text', { max: 300 }),
       verified: false,
     };
+    if (['property', 'shop', 'office'].includes(category)) payload.availability_status = 'paused';
     if (category === 'hotel') {
       const supportsStay = req.body.supports_stay === undefined ? true : req.body.supports_stay;
       const supportsTableReservation = req.body.supports_table_reservation === undefined ? false : req.body.supports_table_reservation;
@@ -218,18 +262,33 @@ router.patch('/listings/:id', async (req, res) => {
   if (!user) return;
   try {
     uuid(req.params.id, 'listing id');
-    assertAllowedKeys(req.body, ['title', 'description', 'property_description', 'category', 'location_text', 'price_amount', 'price_unit']);
+    assertAllowedKeys(req.body, ['title', 'description', 'property_description', 'category', 'location_text', 'price_amount', 'price_unit', 'supports_stay', 'supports_table_reservation', 'listing_purpose', 'booking_details']);
+    if (req.body.booking_details !== undefined) {
+      assertAllowedKeys(req.body.booking_details, [
+        'price_amount', 'price_unit', 'size_or_type', 'amenities', 'max_guests', 'min_stay_nights',
+        'checkin_time', 'checkout_time', 'cleaning_fee', 'cancellation_policy', 'available_from',
+        'min_lease_months', 'deposit_amount', 'utilities_included', 'sale_price_amount',
+        'sale_price_mode', 'units_available', 'policy_storage_path',
+      ]);
+    }
   } catch (error) {
     if (error instanceof ValidationError) return res.status(400).json({ error: 'Invalid input' });
     throw error;
   }
-  if (!(await ownedListing(req.params.id, user.id, res))) return;
+  const listing = await ownedListing(req.params.id, user.id, res);
+  if (!listing) return;
   const allowed = ['title', 'description', 'property_description', 'category', 'location_text'];
   const update = {};
   for (const key of allowed) {
     if (Object.prototype.hasOwnProperty.call(req.body || {}, key)) {
       try {
-        update[key] = text(req.body[key], key, { max: ['description', 'property_description'].includes(key) ? 10000 : 300 });
+        const tableOnlyHotel = listing.category === 'hotel'
+          && req.body.supports_stay === false
+          && req.body.supports_table_reservation === true;
+        update[key] = text(req.body[key], key, {
+          required: key !== 'property_description' || !tableOnlyHotel,
+          max: ['description', 'property_description'].includes(key) ? 10000 : 300,
+        });
         if (key === 'category') {
           update[key] = enumValue(update[key], key, CATEGORIES);
           const niches = normalizeNiches(await hostNiches(user.id));
@@ -243,22 +302,94 @@ router.patch('/listings/:id', async (req, res) => {
       }
     }
   }
-  if (!Object.keys(update).length) return res.status(400).json({ error: 'No listing fields supplied' });
-  const { data, error } = await supabaseAdmin.from('listings').update(update)
-    .eq('id', req.params.id).select('id,title,description,property_description,category,location_text').single();
-  if (error) return res.status(500).json({ error: 'Unable to update listing' });
-  if (req.body.price_amount !== undefined || req.body.price_unit !== undefined) {
-    const detailUpdate = {};
+  if (req.body.supports_stay !== undefined || req.body.supports_table_reservation !== undefined) {
+    const supportsStay = req.body.supports_stay === undefined ? listing.supports_stay : req.body.supports_stay;
+    const supportsDining = req.body.supports_table_reservation === undefined
+      ? listing.supports_table_reservation : req.body.supports_table_reservation;
+    if (listing.category !== 'hotel' || typeof supportsStay !== 'boolean' || typeof supportsDining !== 'boolean' || (!supportsStay && !supportsDining)) {
+      return res.status(400).json({ error: 'Invalid input' });
+    }
+    update.supports_stay = supportsStay;
+    update.supports_table_reservation = supportsDining;
+  }
+  if (req.body.listing_purpose !== undefined) {
+    if (listing.category !== 'property') return res.status(400).json({ error: 'Invalid input' });
     try {
-      if (req.body.price_amount !== undefined) detailUpdate.price_amount = number(req.body.price_amount, 'price_amount', { min: 0, max: 100000000 });
-      if (req.body.price_unit !== undefined) detailUpdate.price_unit = enumValue(req.body.price_unit, 'price_unit', ['hour', 'day', 'night', 'month']);
+      update.listing_purpose = enumValue(req.body.listing_purpose, 'listing_purpose', ['rent', 'sale', 'both']);
     } catch (error) {
       if (error instanceof ValidationError) return res.status(400).json({ error: 'Invalid input' });
       throw error;
     }
-    const { error: detailError } = await supabaseAdmin.from('listing_booking_details')
-      .update(detailUpdate).eq('listing_id', req.params.id);
-    if (detailError) return res.status(500).json({ error: 'Unable to update listing details' });
+  }
+  const detailUpdate = {};
+  try {
+    if (req.body.price_amount !== undefined) detailUpdate.price_amount = number(req.body.price_amount, 'price_amount', { min: 0, max: 100000000 });
+    if (req.body.price_unit !== undefined) detailUpdate.price_unit = enumValue(req.body.price_unit, 'price_unit', ['hour', 'day', 'night', 'month']);
+    const details = req.body.booking_details || {};
+    Object.keys(details).forEach((key) => {
+      const value = details[key];
+      if (['price_amount', 'cleaning_fee', 'deposit_amount', 'sale_price_amount'].includes(key)) {
+        detailUpdate[key] = value === null && key !== 'price_amount'
+          ? null : number(value, key, { min: 0, max: 100000000 });
+      } else if (['max_guests', 'min_stay_nights', 'min_lease_months', 'units_available'].includes(key)) {
+        detailUpdate[key] = value === null ? null : number(value, key, { integer: true, min: 1, max: 100000 });
+      } else if (key === 'price_unit') {
+        detailUpdate[key] = enumValue(value, key, ['hour', 'day', 'night', 'month']);
+      } else if (key === 'cancellation_policy') {
+        detailUpdate[key] = enumValue(value, key, ['flexible', 'moderate', 'strict']);
+      } else if (key === 'sale_price_mode') {
+        detailUpdate[key] = value === null ? null : enumValue(value, key, ['starting', 'exact']);
+      } else if (key === 'amenities') {
+        if (!Array.isArray(value) || value.length > 100) throw new ValidationError('amenities is invalid');
+        detailUpdate[key] = value.map((amenity) => text(amenity, 'amenity', { max: 80 }));
+      } else if (key === 'utilities_included') {
+        if (typeof value !== 'boolean') throw new ValidationError('utilities_included is invalid');
+        detailUpdate[key] = value;
+      } else if (key === 'checkin_time' || key === 'checkout_time') {
+        if (value !== null && !/^\d{2}:\d{2}$/.test(text(value, key, { max: 5 }))) {
+          throw new ValidationError(`${key} is invalid`);
+        }
+        detailUpdate[key] = value;
+      } else if (key === 'available_from') {
+        if (value !== null && !/^\d{4}-\d{2}-\d{2}$/.test(text(value, key, { max: 10 }))) {
+          throw new ValidationError('available_from is invalid');
+        }
+        detailUpdate[key] = value;
+      } else if (key === 'size_or_type') {
+        detailUpdate[key] = value === null ? null : (text(value, key, { required: false, max: 300 }) || null);
+      } else if (key === 'policy_storage_path') {
+        const path = text(value, key, { max: 500 });
+        if (listing.category !== 'property' || !path.startsWith(`${user.id}/${req.params.id}/policy_`)) {
+          throw new ValidationError('policy_storage_path is invalid');
+        }
+        detailUpdate[key] = path;
+      }
+    });
+    if (listing.category !== 'property' && ['sale_price_amount', 'sale_price_mode', 'units_available'].some((key) => Object.prototype.hasOwnProperty.call(detailUpdate, key))) {
+      throw new ValidationError('Property details are only valid for property listings');
+    }
+  } catch (error) {
+    if (error instanceof ValidationError) return res.status(400).json({ error: 'Invalid input' });
+    throw error;
+  }
+  if (!Object.keys(update).length && !Object.keys(detailUpdate).length) {
+    return res.status(400).json({ error: 'No listing fields supplied' });
+  }
+  let data = listing;
+  if (Object.keys(update).length) {
+    const { data: updatedListing, error } = await supabaseAdmin.from('listings').update(update)
+      .eq('id', req.params.id).select('id,title,description,property_description,category,location_text').single();
+    if (error) return res.status(500).json({ error: 'Unable to update listing' });
+    data = updatedListing;
+  }
+  if (Object.keys(detailUpdate).length) {
+    const { data: existingDetails, error: lookupError } = await supabaseAdmin.from('listing_booking_details')
+      .select('listing_id').eq('listing_id', req.params.id).maybeSingle();
+    if (lookupError) return res.status(500).json({ error: 'Unable to load listing details' });
+    const detailResult = existingDetails
+      ? await supabaseAdmin.from('listing_booking_details').update(detailUpdate).eq('listing_id', req.params.id)
+      : await supabaseAdmin.from('listing_booking_details').insert(Object.assign({ listing_id: req.params.id }, detailUpdate));
+    if (detailResult.error) return res.status(500).json({ error: 'Unable to update listing details' });
   }
   return res.json({ listing: data });
 });

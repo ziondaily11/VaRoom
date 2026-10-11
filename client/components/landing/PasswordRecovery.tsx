@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Check, Eye, EyeOff, Lock, Mail } from 'lucide-react';
+import { createEmptyOtpCode, createSubmissionGate } from '../../public/js/auth-flow-utils';
+import { OtpCodeInput, OtpCodeInputHandle } from './OtpCodeInput';
 
 type RecoveryStep = 'email' | 'otp' | 'password' | 'success';
 type RecoveryAlert = { type: 'error' | 'success'; message: string };
@@ -14,7 +16,7 @@ const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const PasswordRecovery: React.FC<PasswordRecoveryProps> = ({ initialStep, onSwitchToLogin }) => {
   const [step, setStep] = useState<RecoveryStep>(initialStep);
   const [email, setEmail] = useState('');
-  const [code, setCode] = useState(['', '', '', '', '', '']);
+  const [code, setCode] = useState(createEmptyOtpCode());
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -31,7 +33,8 @@ export const PasswordRecovery: React.FC<PasswordRecoveryProps> = ({ initialStep,
   const transitionTimer = useRef<number | null>(null);
   const emailInputRef = useRef<HTMLInputElement>(null);
   const passwordInputRef = useRef<HTMLInputElement>(null);
-  const otpFirstInputRef = useRef<HTMLInputElement>(null);
+  const otpInputRef = useRef<OtpCodeInputHandle>(null);
+  const verificationGate = useRef(createSubmissionGate()).current;
 
   useEffect(() => {
     if (initialStep !== 'password') return;
@@ -84,7 +87,7 @@ export const PasswordRecovery: React.FC<PasswordRecoveryProps> = ({ initialStep,
       setAnimation('enter');
       window.requestAnimationFrame(() => {
         if (nextStep === 'email') emailInputRef.current?.focus({ preventScroll: true });
-        if (nextStep === 'otp') otpFirstInputRef.current?.focus({ preventScroll: true });
+        if (nextStep === 'otp') otpInputRef.current?.focusFirst();
         if (nextStep === 'password') passwordInputRef.current?.focus({ preventScroll: true });
       });
       transitionTimer.current = window.setTimeout(() => setAnimation('idle'), 180);
@@ -114,7 +117,7 @@ export const PasswordRecovery: React.FC<PasswordRecoveryProps> = ({ initialStep,
     try {
       await sendCode(normalizedEmail);
       setEmail(normalizedEmail);
-      setCode(['', '', '', '', '', '']);
+      setCode(createEmptyOtpCode());
       setFailedAttempts(0);
       setResendSeconds(60);
       changeStep('otp');
@@ -126,39 +129,11 @@ export const PasswordRecovery: React.FC<PasswordRecoveryProps> = ({ initialStep,
     }
   };
 
-  const updateCodeDigit = (index: number, value: string) => {
-    const digit = value.replace(/\D/g, '').slice(-1);
-    setCode((current) => current.map((currentDigit, currentIndex) => currentIndex === index ? digit : currentDigit));
-    if (digit && index < 5) document.getElementById(`recovery-code-${index + 1}`)?.focus();
-    if (digit) clearAlert();
-  };
-
-  const handleCodeKeyDown = (index: number, event: React.KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === 'Backspace' && !code[index] && index > 0) {
-      document.getElementById(`recovery-code-${index - 1}`)?.focus();
-    } else if (event.key === 'ArrowLeft' && index > 0) {
-      document.getElementById(`recovery-code-${index - 1}`)?.focus();
-    } else if (event.key === 'ArrowRight' && index < 5) {
-      document.getElementById(`recovery-code-${index + 1}`)?.focus();
-    }
-  };
-
-  const handleCodePaste = (event: React.ClipboardEvent<HTMLInputElement>) => {
-    event.preventDefault();
-    const digits = event.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6).split('');
-    if (!digits.length) return;
-    setCode(digits.concat(['', '', '', '', '', '']).slice(0, 6));
-    document.getElementById(`recovery-code-${Math.min(digits.length, 5)}`)?.focus();
+  const verifyCode = async (token: string) => verificationGate.run(async () => {
     clearAlert();
-  };
-
-  const handleVerifyCode = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    clearAlert();
-    const token = code.join('');
     if (token.length !== 6) {
       setAlert({ type: 'error', message: 'Please enter the complete 6-digit verification code.' });
-      otpFirstInputRef.current?.focus();
+      otpInputRef.current?.focusFirst();
       return;
     }
     if (failedAttempts >= 5) {
@@ -176,7 +151,7 @@ export const PasswordRecovery: React.FC<PasswordRecoveryProps> = ({ initialStep,
       if (error) {
         const nextAttempts = failedAttempts + 1;
         setFailedAttempts(nextAttempts);
-        setCode(['', '', '', '', '', '']);
+        otpInputRef.current?.clearAndFocus();
         if (/expired/i.test(error.message || '')) {
           setAlert({ type: 'error', message: 'This verification code has expired. Please click "Resend code" to get a fresh one.' });
         } else if (/invalid|token/i.test(error.message || '')) {
@@ -190,7 +165,6 @@ export const PasswordRecovery: React.FC<PasswordRecoveryProps> = ({ initialStep,
         } else {
           setAlert({ type: 'error', message: `Verification failed: ${error.message || 'Please try again.'}` });
         }
-        otpFirstInputRef.current?.focus();
         return;
       }
       setPassword('');
@@ -198,32 +172,39 @@ export const PasswordRecovery: React.FC<PasswordRecoveryProps> = ({ initialStep,
       changeStep('password');
       setAlert({ type: 'success', message: 'Email verified. Now create your new password.' });
     } catch (error: any) {
+      otpInputRef.current?.clearAndFocus();
       setAlert({ type: 'error', message: error?.message || 'Could not verify code. Please check your connection and try again.' });
     } finally {
       setIsLoading(false);
     }
+  });
+
+  const handleVerifyCode = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    void verifyCode(code.join(''));
   };
 
   const handleResendCode = async () => {
     if (resendSeconds > 0 || isLoading) return;
     clearAlert();
+    otpInputRef.current?.clearAndFocus();
+    setCode(createEmptyOtpCode());
     setIsLoading(true);
     try {
       await sendCode(email);
-      setCode(['', '', '', '', '', '']);
       setFailedAttempts(0);
       setResendSeconds(60);
       setAlert({ type: 'success', message: "If an account exists for this email, we've sent you a verification code." });
-      otpFirstInputRef.current?.focus();
     } catch (error: any) {
       setAlert({ type: 'error', message: error?.message || 'Could not resend the verification code. Please try again.' });
     } finally {
       setIsLoading(false);
+      window.requestAnimationFrame(() => otpInputRef.current?.focusFirst());
     }
   };
 
   const handleChangeEmail = () => {
-    setCode(['', '', '', '', '', '']);
+    setCode(createEmptyOtpCode());
     setFailedAttempts(0);
     setResendSeconds(0);
     clearAlert();
@@ -257,7 +238,7 @@ export const PasswordRecovery: React.FC<PasswordRecoveryProps> = ({ initialStep,
       if (error) throw error;
       setPassword('');
       setConfirmPassword('');
-      setCode(['', '', '', '', '', '']);
+      setCode(createEmptyOtpCode());
       setEmail('');
       setAlert(null);
       changeStep('success');
@@ -271,7 +252,7 @@ export const PasswordRecovery: React.FC<PasswordRecoveryProps> = ({ initialStep,
   const handleReturnToLogin = () => {
     setStep('email');
     setEmail('');
-    setCode(['', '', '', '', '', '']);
+    setCode(createEmptyOtpCode());
     setPassword('');
     setConfirmPassword('');
     setAlert(null);
@@ -375,26 +356,17 @@ export const PasswordRecovery: React.FC<PasswordRecoveryProps> = ({ initialStep,
         <>
           <form className="space-y-5" onSubmit={handleVerifyCode} noValidate>
             <div>
-              <div className="grid grid-cols-6 gap-2" aria-label="Six-digit verification code">
-                {code.map((digit, index) => (
-                  <input
-                    key={index}
-                    ref={index === 0 ? otpFirstInputRef : undefined}
-                    id={`recovery-code-${index}`}
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    autoComplete={index === 0 ? 'one-time-code' : undefined}
-                    maxLength={1}
-                    value={digit}
-                    onChange={(event) => updateCodeDigit(index, event.target.value)}
-                    onKeyDown={(event) => handleCodeKeyDown(index, event)}
-                    onPaste={handleCodePaste}
-                    aria-label={`Digit ${index + 1} of 6`}
-                    className="h-12 min-w-0 rounded-lg border border-white/10 bg-white/5 text-center text-lg text-[#f5efe7] outline-none focus:border-white/40"
-                  />
-                ))}
-              </div>
+              <OtpCodeInput
+                ref={otpInputRef}
+                idPrefix="recovery-code"
+                value={code}
+                onChange={(nextCode) => {
+                  setCode(nextCode);
+                  clearAlert();
+                }}
+                onComplete={(token) => { void verifyCode(token); }}
+                disabled={isLoading || failedAttempts >= 5}
+              />
               <div className="mt-3 flex items-center justify-between gap-3 text-xs text-[#d9d2c9]/65">
                 <span>Didn't receive it? Check spam</span>
                 <button type="button" onClick={handleChangeEmail} className="border-0 bg-transparent p-0 text-xs font-medium text-[#f0e7df] hover:underline">

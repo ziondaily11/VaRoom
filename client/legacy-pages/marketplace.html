@@ -1223,6 +1223,9 @@
   async function fetchListings(filterAvailability, offset){
       let query = supabaseClient.from('listings').select(MKT_SELECT, { count: 'exact' }).range(offset, offset + PAGE_SIZE - 1);
       query = query.eq('moderation_status', 'active');
+      // A paid Property / Shops & Offices listing is publicly active only
+      // through its verified 30-day term. Legacy rows keep a NULL term.
+      query = query.or('paid_listing_until.is.null,paid_listing_until.gt.' + new Date().toISOString());
       if (filterAvailability && marketplaceAvailabilityStatusSupported) {
         const availabilityQuery = query.eq('availability_status', 'available');
         query = availabilityQuery;

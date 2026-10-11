@@ -6,23 +6,20 @@
 1. Log into **Cloudflare Dashboard**
 2. Navigate to **R2** in the left sidebar
 3. Click **Create Bucket**
-4. Enter bucket name (e.g., `varoom-videos-prod` or `varoom-videos-dev`)
+4. Use the existing shared media bucket (e.g., `varoom`); separate buckets for videos and photos are not required.
 5. Select region (e.g., WEUR for Europe)
 6. Click **Create Bucket**
 
-### Step 1.2: Generate API Token
-1. Go to **Account Settings** → **API Tokens**
-2. Click **Create Token**
-3. Select **Custom Token**
-4. Name it: `VaRoom Video Upload`
-5. Set permissions:
-   - Account → R2 → Read & Write
-6. Set TTL: No expiration (or as needed)
-7. Click **Continue to Summary**
-8. Click **Create Token**
-9. **SAVE THESE IMMEDIATELY**:
-   - Access Key ID
-   - Secret Access Key
+### Step 1.2: Generate R2 S3 API Credentials
+1. Open **Storage & databases** → **R2** → **Overview**.
+2. Under **Account Details**, choose **Manage** next to **API Tokens**.
+3. Choose **Create Account API token** (or **Create User API token** if it should follow your individual account access).
+4. Name it: `VaRoom Video Upload`.
+5. Choose **Object Read & Write** and restrict it to the VaRoom bucket you created above.
+6. Create the token and immediately save its **Access Key ID** and **Secret Access Key**. Cloudflare only shows the secret once.
+7. Copy the S3 endpoint shown on the confirmation page; it is `https://<ACCOUNT_ID>.r2.cloudflarestorage.com` for a standard bucket.
+
+Do not use the general Cloudflare API-token permissions named **Workers R2 Storage Read/Edit** for the app's AWS S3 client. They grant broader account-level R2 access. The app needs R2 S3-compatible credentials with Object Read & Write access to its bucket.
 
 ### Step 1.3: Get Account ID
 1. In R2 dashboard, click on your bucket name
@@ -68,7 +65,7 @@ Then edit `server/.env` with your actual values.
 # Cloudflare R2 Configuration (Required)
 # ============================================================
 R2_ACCOUNT_ID=your_account_id_here
-R2_BUCKET_NAME=varoom-videos-prod
+R2_BUCKET_NAME=varoom
 R2_ACCESS_KEY_ID=your_access_key_here
 R2_SECRET_ACCESS_KEY=your_secret_key_here
 R2_ENDPOINT=https://r2.cloudflarestorage.com
@@ -79,10 +76,10 @@ R2_ENDPOINT=https://r2.cloudflarestorage.com
 
 **Getting these values:**
 - `R2_ACCOUNT_ID`: From Cloudflare R2 dashboard → Click bucket → Account ID
-- `R2_BUCKET_NAME`: Name you created (e.g., `varoom-videos-prod`)
+- `R2_BUCKET_NAME`: Your existing shared media bucket name (e.g., `varoom`)
 - `R2_ACCESS_KEY_ID`: From API token creation step
 - `R2_SECRET_ACCESS_KEY`: From API token creation step
-- `R2_ENDPOINT`: Use `https://r2.cloudflarestorage.com` (or your custom domain)
+- `R2_ENDPOINT`: Use `https://<ACCOUNT_ID>.r2.cloudflarestorage.com` (or the jurisdiction-specific endpoint Cloudflare shows)
 
 ### Step 2.3: Add Video Feature Flags
 
@@ -561,7 +558,7 @@ cat server/.gitignore | grep ".env"
 | Variable | Required | Default | Example | Purpose |
 |----------|----------|---------|---------|---------|
 | `R2_ACCOUNT_ID` | ✅ Yes | - | `abc123` | Cloudflare account ID |
-| `R2_BUCKET_NAME` | ✅ Yes | - | `varoom-videos-prod` | R2 bucket name |
+| `R2_BUCKET_NAME` | ✅ Yes | - | `varoom` | Shared R2 bucket for app media |
 | `R2_ACCESS_KEY_ID` | ✅ Yes | - | `abc123xyz` | R2 API access key |
 | `R2_SECRET_ACCESS_KEY` | ✅ Yes | - | `secret123` | R2 API secret key |
 | `R2_ENDPOINT` | ✅ Yes | - | `https://r2.cloudflarestorage.com` | R2 endpoint |
@@ -618,7 +615,7 @@ If you get stuck on any configuration:
 3. Check the backend logs: `npm start` in server directory
 4. Test R2 credentials with curl:
    ```bash
-   curl -X GET https://ACCOUNT_ID.r2.cloudflarestorage.com/varoom-videos-prod
+   curl -X GET https://ACCOUNT_ID.r2.cloudflarestorage.com/varoom
    ```
 5. Test Supabase connection:
    ```bash
@@ -629,3 +626,27 @@ If you get stuck on any configuration:
 ---
 
 **Remember:** Never commit `server/.env` to git. Use `.env.example` for template.
+# Property and Shops & Offices Paystack test billing
+
+The `20261010_000035_property_shops_monetization.sql` migration adds separate
+Property and Shops & Offices subscription plans. Existing Basic/Growth/Pro
+records and hospitality billing remain in place. Configure the six server-only
+`PAYSTACK_PLAN_*` variables from `server/.env.example` with the matching test
+plan codes; blank values intentionally leave checkout disabled.
+
+In the Paystack Test dashboard, create six recurring plans with currency KES,
+monthly interval, and amounts KSh 3,000 / 6,000 / 12,000 for each niche. Copy
+each plan's `PLN_...` code into its matching environment variable. Keep the
+existing test webhook endpoint `/api/billing/paystack/webhook` configured for
+`charge.success`, `invoice.payment_failed`, `subscription.not_renew`, and
+`subscription.disable`, using the same server-side webhook secret as
+`PAYSTACK_WEBHOOK_SECRET`. Renewals are matched to the stored Paystack
+subscription code and checked against the configured plan amount and currency.
+The one-time listing charge is KSh 1,000 and uses transaction initialization
+and server-side verification; it does not require a Paystack subscription plan.
+
+Apply migrations `20261010_000035_property_shops_monetization.sql` and
+`20261011_000036_listing_entitlement_activation.sql` before deploying the
+server. Test credentials and plan codes are not included in source control.
+Paystack dashboard plan creation requires account access and must be completed
+separately.

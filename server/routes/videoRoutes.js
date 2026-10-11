@@ -182,30 +182,30 @@ router.post('/properties/:propertyId/videos/upload-init', async (req, res) => {
     );
 
     // Step 8: Create pending media record in database
-    const { data: mediaRecord, error: insertError } = await supabaseAdmin
-      .from('property_media')
-      .insert({
-        id: mediaId,
-        property_id: propertyId,
-        host_id: user.id,
-        media_type: 'video',
-        storage_provider: 'r2',
-        storage_bucket: mediaStorageService.R2_BUCKET_NAME,
-        storage_key: objectKey,
-        original_filename: filename,
-        mime_type: mimeType,
-        file_size_bytes: fileSize,
-        status: 'pending',
-        visibility: 'public',
-        upload_id: uploadId,
-        sort_order: currentVideoCount,
-      })
-      .select()
-      .single();
+    const { data: reservation, error: insertError } = await supabaseAdmin.rpc(
+      'reserve_property_video_upload',
+      {
+        p_property_id: propertyId,
+        p_host_id: user.id,
+        p_media_id: mediaId,
+        p_upload_id: uploadId,
+        p_storage_bucket: mediaStorageService.R2_BUCKET_NAME,
+        p_storage_key: objectKey,
+        p_original_filename: filename,
+        p_mime_type: mimeType,
+        p_file_size_bytes: fileSize,
+        p_max_count: videoEntitlement.VIDEO_MAX_COUNT_PER_PROPERTY,
+      }
+    );
 
     if (insertError) {
-      console.error('Error creating media record:', insertError);
+      console.error('Error reserving video quota:', insertError);
       return res.status(500).json({ error: 'Failed to initialize upload' });
+    }
+    if (!reservation || reservation.length !== 1 || !reservation[0].reserved) {
+      return res.status(403).json({
+        error: `Property has reached maximum video limit (${videoEntitlement.VIDEO_MAX_COUNT_PER_PROPERTY}).`,
+      });
     }
 
     // Step 9: Return only what the frontend needs (never expose secret keys)
@@ -293,6 +293,9 @@ router.post('/properties/:propertyId/videos/:mediaId/complete', async (req, res)
 
     if (fetchError || !mediaRecord) {
       return res.status(404).json({ error: 'Media record not found' });
+    }
+    if (mediaRecord.status === 'failed' || mediaRecord.status === 'deleted') {
+      return res.status(409).json({ error: 'This video upload is no longer active.' });
     }
 
     // Step 4: Verify uploadId matches (idempotency check)

@@ -882,7 +882,7 @@
       ? 'Member since ' + new Date(profileData.created_at).getFullYear()
       : 'Member since 2024';
     const nichesEl = document.getElementById('profile-niches');
-    const nicheLabels = { airbnb:'Airbnb', hotel:'Hotel', venue:'Event ground / venue', office:'Office', shop:'Shop', property:'Property' };
+    const nicheLabels = { airbnb:'Airbnb', hotel:'Hotel', venue:'Event ground / venue', office:'Offices & Shops', shop:'Offices & Shops', property:'Property' };
     const niches = Array.isArray(profileData.listing_categories) ? profileData.listing_categories : [];
     if (profileData.role === 'host' && niches.length === 1) {
       nichesEl.textContent = 'Specializes in ' + (nicheLabels[niches[0]] || niches[0]);
