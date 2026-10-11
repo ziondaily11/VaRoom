@@ -444,6 +444,7 @@
           try { const pending = JSON.parse(sessionStorage.getItem('varoom_listing_after_upgrade') || 'null'); pendingListingId = pending && pending.id || null; } catch (_) {}
           const checkoutBody = { plan: id };
           if (pendingListingId) checkoutBody.listing_id = pendingListingId;
+          if (new URLSearchParams(window.location.search).get('returnTo') === 'list') checkoutBody.return_to = 'list';
           const response = await fetch('/api/billing/checkout', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
@@ -461,18 +462,34 @@
 
     async function refreshReturnedBillingStatus(){
       if (new URLSearchParams(window.location.search).get('billing') !== 'return') return;
-      try {
-        const sessionResult = await supabaseClient.auth.getSession();
-        const session = sessionResult && sessionResult.data && sessionResult.data.session;
-        if (!session || !session.access_token) return;
-        const response = await fetch('/api/billing/subscription', { headers: { Authorization: 'Bearer ' + session.access_token } });
-        const result = await response.json().catch(function(){ return {}; });
-        const subscription = result.subscription;
-        if (response.ok && subscription && subscription.status === 'active') status.textContent = 'Your ' + subscription.plan_id + ' plan is active.';
-        else status.textContent = 'Your payment is being verified. Your plan will activate only after VaRoom confirms it.';
-      } catch (error) {
-        status.textContent = 'Your payment is being verified. Refresh this page shortly for the latest status.';
+      const returnParams = new URLSearchParams(window.location.search);
+      const returnToList = returnParams.get('returnTo') === 'list';
+      const expectedPlan = returnParams.get('plan');
+      let attempts = 0;
+      async function checkStatus(){
+        try {
+          const sessionResult = await supabaseClient.auth.getSession();
+          const session = sessionResult && sessionResult.data && sessionResult.data.session;
+          if (!session || !session.access_token) return;
+          const response = await fetch('/api/billing/subscription', { headers: { Authorization: 'Bearer ' + session.access_token } });
+          const result = await response.json().catch(function(){ return {}; });
+          const subscription = result.subscription;
+          if (response.ok && subscription && subscription.status === 'active' && (!expectedPlan || subscription.plan_id === expectedPlan)) {
+            status.textContent = 'Your ' + subscription.plan_id + ' plan is active.';
+            if (returnToList) {
+              try { sessionStorage.removeItem('varoom_listing_after_upgrade'); } catch (_) {}
+              window.setTimeout(function(){ window.location.replace('/list?subscription=return'); }, 700);
+            }
+            return;
+          }
+          status.textContent = 'Your payment is being verified. Your plan will activate only after VaRoom confirms it.';
+        } catch (error) {
+          status.textContent = 'Your payment is being verified. Refresh this page shortly for the latest status.';
+        }
+        attempts++;
+        if (returnToList && attempts < 60) window.setTimeout(checkStatus, 2000);
       }
+      checkStatus();
     }
 
     render();

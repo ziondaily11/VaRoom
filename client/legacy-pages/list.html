@@ -281,7 +281,8 @@
   .review-checklist li{ list-style:none; display:flex; gap:.5rem; }
   .review-checklist .check{ color:#2E7D32; font-weight:800; }
 
-  .submit-row{ margin-top:auto; }
+  .submit-row{ margin-top:auto; display:flex; flex-wrap:wrap; gap:.6rem; }
+  .submit-row [hidden]{ display:none !important; }
   .submit-btn{ background:var(--red); color:#fff; padding:1.05rem 1.6rem; border-radius:100px; font-weight:600; font-size:1rem; width:100%; transition:background .2s ease; display:flex; align-items:center; justify-content:center; gap:.5rem; }
   .submit-btn:hover{ background:var(--red-deep); }
   .submit-btn:disabled{ background:#c9c0bd; cursor:not-allowed; }
@@ -455,13 +456,18 @@
   .sale-mode-option.selected{ background:rgba(255,255,255,.22); border-color:rgba(255,255,255,.75); }
 
   /* ============ PROPERTY: pay-to-list placeholder (Card 5) ============ */
-  .pay-to-list-btn{ width:100%; padding:1rem 1.6rem; border-radius:100px; font-weight:600; font-size:.97rem; background:transparent; color:var(--wz-ink-onlight); border:1.5px solid var(--wz-cream-border); cursor:pointer; margin-bottom:.6rem; transition:background .2s ease, border-color .2s ease; display:flex; align-items:center; justify-content:center; gap:.5rem; font-family:inherit; }
+  .pay-to-list-btn{ flex:1 1 calc(50% - .3rem); min-width:0; min-height:3.25rem; padding:.9rem 1rem; border-radius:100px; font-weight:600; font-size:.97rem; background:transparent; color:var(--wz-ink-onlight); border:1.5px solid var(--wz-cream-border); cursor:pointer; transition:background .2s ease, border-color .2s ease; display:flex; align-items:center; justify-content:center; gap:.5rem; font-family:inherit; }
+  .submit-row #go-pro-btn{ flex:1 1 calc(50% - .3rem); min-width:0; min-height:3.25rem; width:auto; padding:.9rem 1rem; }
+  .submit-row .form-note{ flex:1 0 100%; }
+  .submit-row #submit-btn{ flex:1 0 100%; }
+  .pay-to-list-btn:disabled,.submit-row #go-pro-btn:disabled{ opacity:.65; cursor:wait; }
   .pay-to-list-btn:hover{ background:rgba(26,18,16,.06); border-color:rgba(26,18,16,.32); }
   .pay-to-list-btn[hidden]{ display:none; }
 
   @media(max-width:520px){
     .property-purpose-mode{ grid-template-columns:1fr; }
     .sale-price-mode-row{ grid-template-columns:1fr; }
+    .pay-to-list-btn,.submit-row #go-pro-btn{ min-height:2.9rem; padding:.65rem .45rem; font-size:.82rem; }
   }
   @media(min-width:901px){
     .property-purpose-option{ padding:.65rem .5rem; }
@@ -864,6 +870,7 @@
             <button type="button" class="pay-to-list-btn" id="pay-to-list-btn" hidden>Pay KSh 1,000</button>
             <button type="button" class="submit-btn" id="go-pro-btn" hidden>Go Pro</button>
             <button type="submit" class="submit-btn" id="submit-btn">Publish listing <span>✓</span></button>
+            <p class="form-note" id="listing-entitlement-note" hidden></p>
             <p class="form-note">Goes live once saved, subject to GPS location verification.</p>
           </div>
           <div class="panel-actions" style="margin-top:1rem;">
@@ -900,6 +907,15 @@
   <div class="photo-lightbox-media" id="photo-lightbox-media"></div>
 </div>
 
+<script>
+  (function(){
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('payment') === 'return' && window.opener && window.opener !== window) {
+      try { window.opener.postMessage({ type: 'varoom-listing-payment-return', reference: params.get('reference') }, window.location.origin); } catch (_) {}
+      if (!window.opener.closed) window.close();
+    }
+  })();
+</script>
 <script src="js/supabase-client.js"></script>
 <script src="js/listing-feed-cache.js"></script>
 <script>
@@ -909,7 +925,12 @@
   let hostNiche = null;
   const editListingId = new URLSearchParams(window.location.search).get('edit');
   const editMode = Boolean(editListingId);
-  let checkoutIntent = null;
+  let paymentFlowInProgress = false;
+  let publishInProgress = false;
+  let preparedPaymentListingId = null;
+  let listingPaymentVerified = false;
+  let hasCurrentListingFee = false;
+  let nicheEntitlementChecked = false;
   let listingIsPaused = false;
   let hasActiveNichePlan = false;
   let editListing = null;
@@ -1061,13 +1082,14 @@
     const labels = { airbnb: 'Airbnb', hotel: 'Hotel', venue: 'Event ground / venue', office: 'Office', shop: 'Shop', property: 'Property to let or buy' };
     if (editMode) {
       const { data: listing, error: listingError } = await supabaseClient.from('listings')
-        .select('id,host_id,category,availability_status').eq('id', editListingId).eq('host_id', currentUser.id).maybeSingle();
+        .select('id,host_id,category,availability_status,paid_listing_until').eq('id', editListingId).eq('host_id', currentUser.id).maybeSingle();
       if (listingError || !listing || !Object.prototype.hasOwnProperty.call(labels, listing.category)) {
         checkingAuth.textContent = listingError ? 'Unable to load this listing. Please try again.' : 'This listing could not be found or is not yours to edit.';
         return;
       }
       hostNiche = listing.category;
       listingIsPaused = listing.availability_status === 'paused';
+      hasCurrentListingFee = Boolean(listing.paid_listing_until && new Date(listing.paid_listing_until).getTime() > Date.now());
     } else {
       const hostNiches = Array.isArray(profile.listing_categories) ? profile.listing_categories : [];
       if (hostNiches.length !== 1 || !Object.prototype.hasOwnProperty.call(labels, hostNiches[0])) {
@@ -1078,21 +1100,31 @@
       hostNiche = hostNiches[0];
     }
 
-    if (!editMode && ['property', 'office', 'shop'].includes(hostNiche)) {
+    if (['property', 'office', 'shop'].includes(hostNiche)) {
       try {
         const entitlementResponse = await fetch('/api/billing/entitlements', { headers: { Authorization: 'Bearer ' + session.access_token } });
         const entitlementResult = await entitlementResponse.json().catch(function(){ return {}; });
         const entitlement = entitlementResult.entitlements;
         const expectedNiche = hostNiche === 'property' ? 'property' : 'shops_offices';
-        hasActiveNichePlan = Boolean(entitlementResponse.ok && entitlement && entitlement.active && entitlement.subscription && entitlement.subscription.niche === expectedNiche);
-      } catch (_) {}
+        const listingAllowance = entitlement && entitlement.canCreateAnotherListing;
+        hasActiveNichePlan = Boolean(entitlementResponse.ok && entitlement && entitlement.active && entitlement.subscription
+          && entitlement.subscription.niche === expectedNiche && listingAllowance && listingAllowance.allowed);
+      } catch (_) {} finally { nicheEntitlementChecked = true; }
     }
 
     configureCategory(hostNiche);
-  if ((!editMode && !hasActiveNichePlan || editMode && listingIsPaused) && ['property', 'office', 'shop'].includes(hostNiche)) {
+  if (!editMode) restoreListingDraftAfterUpgrade();
+  const needsListingPayment = ['property', 'office', 'shop'].includes(hostNiche)
+    && !hasActiveNichePlan && !(editMode && hasCurrentListingFee);
+  if (needsListingPayment && nicheEntitlementChecked) {
     document.getElementById('pay-to-list-btn').hidden = false;
     document.getElementById('go-pro-btn').hidden = false;
-    if (!editMode) document.getElementById('submit-btn').hidden = true;
+    document.getElementById('submit-btn').hidden = true;
+  } else if (needsListingPayment) {
+    document.getElementById('submit-btn').hidden = true;
+    const note = document.getElementById('listing-entitlement-note');
+    note.hidden = false;
+    note.textContent = 'Unable to confirm your listing allowance. Refresh this page to try again before publishing or paying.';
   } else {
     document.getElementById('pay-to-list-btn').hidden = true;
     document.getElementById('go-pro-btn').hidden = true;
@@ -1108,6 +1140,21 @@
     }
     checkingAuth.style.display = 'none';
     listingPage.style.display = 'block';
+    const paymentReturnParams = new URLSearchParams(window.location.search);
+    if (paymentReturnParams.get('payment') === 'return' && (!window.opener || window.opener.closed)) {
+      const reference = paymentReturnParams.get('reference');
+      if (reference) {
+        const paymentResponse = await fetch('/api/billing/payments/' + encodeURIComponent(reference), {
+          headers: { Authorization: 'Bearer ' + session.access_token },
+        });
+        const paymentResult = await paymentResponse.json().catch(function(){ return {}; });
+        if (paymentResponse.ok && paymentResult.payment && paymentResult.payment.status === 'succeeded' && paymentResult.payment.listing_id) {
+          window.location.replace('/list?edit=' + encodeURIComponent(paymentResult.payment.listing_id) + '&payment=verified');
+          return;
+        }
+        showPaymentMessage('Payment is not confirmed yet. Your listing has not been published; you can retry checkout after checking its status.', true);
+      }
+    }
   })();
 
   // ---------- Category-driven booking fields ----------
@@ -2177,6 +2224,8 @@
   // ---------- Submit ----------
   document.getElementById('list-form').addEventListener('submit', async function(e){
     e.preventDefault();
+    if (publishInProgress || paymentFlowInProgress) return;
+    publishInProgress = true;
 
     try {
 
@@ -2194,13 +2243,11 @@
     const successMsg = document.getElementById('success-msg');
     const successMsgInner = document.getElementById('success-msg-inner');
     const submitBtn = document.getElementById('submit-btn');
-    const payButton = document.getElementById('pay-to-list-btn');
-    const proButton = document.getElementById('go-pro-btn');
-
-    if ((!editMode && !hasActiveNichePlan || editMode && listingIsPaused) && ['property', 'office', 'shop'].includes(category)) {
-      payButton.hidden = false;
-      proButton.hidden = false;
-      submitBtn.hidden = true;
+    if (['property', 'office', 'shop'].includes(category) && !hasActiveNichePlan
+        && !hasCurrentListingFee && !listingPaymentVerified) {
+      successMsgInner.textContent = 'Choose Pay KSh 1,000 or Go Pro before publishing this listing.';
+      successMsg.classList.add('show', 'error');
+      return;
     }
 
     const generalLocation = fieldValue('location-text');
@@ -2212,7 +2259,8 @@
       title, description: caption, property_description: propertyDescription,
       location_text: generalLocation,
     };
-    if (!editMode) listingPayload.category = category;
+    const existingSubmissionListingId = editMode ? editListingId : preparedPaymentListingId;
+    if (!existingSubmissionListingId) listingPayload.category = category;
     if (category === 'hotel') {
       listingPayload.supports_stay = hotelListingMode !== 'table';
       listingPayload.supports_table_reservation = hotelListingMode === 'table' || hotelListingMode === 'both';
@@ -2222,8 +2270,8 @@
     }
 
     const { data: { session } } = await supabaseClient.auth.getSession();
-    const listingResponse = await fetch(editMode ? '/api/listings/' + encodeURIComponent(editListingId) : '/api/listings', {
-      method: editMode ? 'PATCH' : 'POST',
+    const listingResponse = await fetch(existingSubmissionListingId ? '/api/listings/' + encodeURIComponent(existingSubmissionListingId) : '/api/listings', {
+      method: existingSubmissionListingId ? 'PATCH' : 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
       body: JSON.stringify(listingPayload)
     });
@@ -2239,7 +2287,7 @@
       return;
     }
 
-    const listingId = editMode ? editListingId : data.id;
+    const listingId = editMode ? editListingId : (preparedPaymentListingId || data.id);
 
     // ---------- Booking details ----------
     const bookingDetails = {
@@ -2426,13 +2474,32 @@
       if (SHORT_STAY.includes(category) && openDates.size > 0) {
         await supabaseClient.from('availability').delete().eq('listing_id', listingId);
       }
-      await supabaseClient.from('listings').delete().eq('id', listingId);
+      if (listingPaymentVerified) {
+        await supabaseClient.from('listings').update({ availability_status: 'paused' }).eq('id', listingId);
+      } else {
+        await supabaseClient.from('listings').delete().eq('id', listingId);
+      }
 
       successMsgInner.textContent = 'Media upload failed, so the listing was not published. Please try again with the selected files.';
       successMsg.classList.add('show', 'error');
       successMsg.scrollIntoView({ behavior:'smooth', block:'center' });
       submitBtn.disabled = false; submitBtn.textContent = 'Publish listing ✓';
       return;
+    }
+
+    if (listingPaymentVerified
+        || (!editMode && hasActiveNichePlan && ['property', 'shop', 'office'].includes(category))
+        || (editMode && listingIsPaused && (hasCurrentListingFee || hasActiveNichePlan))
+        || (editMode && hasActiveNichePlan && !hasCurrentListingFee && ['property', 'shop', 'office'].includes(category))) {
+      const { data: { session: publishSession } } = await supabaseClient.auth.getSession();
+      const activateResponse = await fetch('/api/listings/' + encodeURIComponent(listingId) + '/status', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + publishSession.access_token },
+        body: JSON.stringify({ status: 'available' })
+      });
+      const activateResult = await activateResponse.json().catch(function(){ return {}; });
+      if (!activateResponse.ok) throw new Error(activateResult.error || 'Payment is confirmed, but this listing could not be activated yet.');
+      listingIsPaused = false;
     }
 
     // The feed cache is scoped to the signed-in browser session. A newly
@@ -2451,40 +2518,191 @@
     successMsg.classList.add('show');
     successMsg.scrollIntoView({ behavior:'smooth', block:'center' });
 
-    if (checkoutIntent === 'listing') {
-      const checkoutResponse = await fetch('/api/billing/listing-checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
-        body: JSON.stringify({ listing_id: listingId })
-      });
-      const checkout = await checkoutResponse.json().catch(function(){ return {}; });
-      if (!checkoutResponse.ok || !checkout.authorization_url) {
-        window.location.assign('/list?edit=' + encodeURIComponent(listingId) + '&payment=retry');
-        return;
-      }
-      window.location.assign(checkout.authorization_url);
-      return;
-    }
-    if (checkoutIntent === 'pro') {
-      sessionStorage.setItem('varoom_listing_after_upgrade', JSON.stringify({ id: listingId, category: category }));
-      window.location.assign('/pricing?niche=' + encodeURIComponent(category) + '&returnTo=list');
-      return;
-    }
     setTimeout(function(){ window.location.href = '/host-home'; }, 1400);
     } catch (error) {
       // A failed request or a temporarily absent optional field must not leave
       // the wizard stuck on "Publishing…" or produce an unhandled promise.
       showPublishError(error);
+    } finally {
+      publishInProgress = false;
     }
   });
 
-  document.getElementById('pay-to-list-btn').addEventListener('click', function(){
-    checkoutIntent = 'listing';
-    document.getElementById('list-form').requestSubmit();
+  function showPaymentMessage(message, isError){
+    const box = document.getElementById('success-msg');
+    const text = document.getElementById('success-msg-inner');
+    text.textContent = message;
+    box.classList.toggle('error', Boolean(isError));
+    box.classList.add('show');
+    box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  function restoreListingDraftAfterUpgrade(){
+    let snapshot;
+    try { snapshot = JSON.parse(sessionStorage.getItem('varoom_listing_draft_after_upgrade') || 'null'); } catch (_) { snapshot = null; }
+    if (!snapshot || snapshot.category !== hostNiche || !snapshot.fields) return;
+    if (snapshot.createdAt && Date.now() - snapshot.createdAt > 30 * 60 * 1000) {
+      try { sessionStorage.removeItem('varoom_listing_draft_after_upgrade'); } catch (_) {}
+      return;
+    }
+    try { sessionStorage.removeItem('varoom_listing_draft_after_upgrade'); } catch (_) {}
+    if (snapshot.propertyPurpose && hostNiche === 'property') applyPropertyPurpose(snapshot.propertyPurpose);
+    if (snapshot.propertySalePriceMode && hostNiche === 'property') applyPropertySaleMode(snapshot.propertySalePriceMode);
+    Object.keys(snapshot.fields).forEach(function(id){
+      const field = document.getElementById(id);
+      if (!field || field.type === 'file') return;
+      if (field.type === 'checkbox' || field.type === 'radio') field.checked = snapshot.fields[id] === true;
+      else field.value = snapshot.fields[id];
+      field.dispatchEvent(new Event('input', { bubbles: true }));
+      field.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    renderReviewSummary();
+    goToStep(5);
+    if (snapshot.mediaSelected || snapshot.policyAttached) {
+      showPaymentMessage('Your listing details were restored. Please reselect your photos, videos, or policy document; browsers do not keep file selections after leaving the page.', false);
+    }
+  }
+
+  async function startPayToListFlow(){
+    if (paymentFlowInProgress || publishInProgress) return;
+    for (let step = 1; step <= 4; step++) {
+      if (!validateStep(step)) { goToStep(step); return; }
+    }
+
+    // Open synchronously from the button click so browser popup blockers do
+    // not interrupt checkout. Keeping the wizard tab alive preserves selected
+    // media until Paystack confirms the one-time payment.
+    const checkoutWindow = window.open('about:blank', 'varoom-listing-payment');
+    if (!checkoutWindow) {
+      showPaymentMessage('Allow the Paystack checkout window to open, then try again.', true);
+      return;
+    }
+    paymentFlowInProgress = true;
+    const payButton = document.getElementById('pay-to-list-btn');
+    const proButton = document.getElementById('go-pro-btn');
+    const submitButton = document.getElementById('submit-btn');
+    const originalPayLabel = payButton.textContent;
+    payButton.disabled = true;
+    proButton.disabled = true;
+    submitButton.disabled = true;
+    payButton.textContent = 'Preparing payment…';
+
+    try {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (!session || !session.access_token) throw new Error('Please log in again to continue.');
+
+      if (editMode && !preparedPaymentListingId) preparedPaymentListingId = editListingId;
+      if (!preparedPaymentListingId) {
+        const draftPayload = {
+          title: fieldValue('title'),
+          description: fieldValue('caption'),
+          property_description: fieldValue('property-description'),
+          location_text: fieldValue('location-text'),
+          payment_draft: true,
+        };
+        if (hostNiche === 'property') draftPayload.listing_purpose = propertyPurpose;
+        const draftResponse = await fetch('/api/listings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
+          body: JSON.stringify(draftPayload),
+        });
+        const draftResult = await draftResponse.json().catch(function(){ return {}; });
+        if (!draftResponse.ok || !draftResult.listing || !draftResult.listing.id) {
+          throw new Error(draftResult.error || 'Unable to prepare your listing for checkout.');
+        }
+        preparedPaymentListingId = draftResult.listing.id;
+      }
+
+      const checkoutResponse = await fetch('/api/billing/listing-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
+        body: JSON.stringify({ listing_id: preparedPaymentListingId }),
+      });
+      const checkout = await checkoutResponse.json().catch(function(){ return {}; });
+      if (!checkoutResponse.ok || !checkout.authorization_url || !checkout.reference) {
+        throw new Error(checkout.error || 'Unable to start Paystack checkout.');
+      }
+      checkoutWindow.location.assign(checkout.authorization_url);
+      payButton.textContent = 'Waiting for payment…';
+      showPaymentMessage('Complete the KSh 1,000 payment in the Paystack window. Your listing will publish only after VaRoom verifies the payment.', false);
+
+      async function readVerifiedPayment(){
+        const response = await fetch('/api/billing/payments/' + encodeURIComponent(checkout.reference), {
+          headers: { Authorization: 'Bearer ' + session.access_token },
+        });
+        const result = await response.json().catch(function(){ return {}; });
+        if (!response.ok) return null;
+        return result.payment || null;
+      }
+
+      let paid = false;
+      let paymentStatus = null;
+      for (let attempt = 0; attempt < 180; attempt++) {
+        if (checkoutWindow.closed) break;
+        await new Promise(function(resolve){ setTimeout(resolve, 2000); });
+        const payment = await readVerifiedPayment();
+        if (!payment) continue;
+        paymentStatus = payment.status;
+        if (payment.status === 'succeeded') { paid = true; break; }
+        if (['failed', 'abandoned', 'refunded'].includes(payment.status)) break;
+      }
+      if (!paid) {
+        // Paystack's callback can close the popup before the last poll runs.
+        const finalPayment = await readVerifiedPayment();
+        paymentStatus = finalPayment && finalPayment.status || paymentStatus;
+        paid = Boolean(finalPayment && finalPayment.status === 'succeeded');
+      }
+      if (!paid) {
+        throw new Error(paymentStatus === 'failed' || paymentStatus === 'abandoned'
+          ? 'Payment was not completed. You can retry when ready.'
+          : 'Payment is not confirmed yet. Your listing has not been published; you can retry after checking the payment status.');
+      }
+
+      listingPaymentVerified = true;
+      paymentFlowInProgress = false;
+      if (!checkoutWindow.closed) checkoutWindow.close();
+      payButton.hidden = true;
+      proButton.hidden = true;
+      submitButton.hidden = false;
+      submitButton.disabled = false;
+      submitButton.textContent = 'Publishing listing…';
+      document.getElementById('list-form').requestSubmit();
+    } catch (error) {
+      if (!checkoutWindow.closed) checkoutWindow.close();
+      showPaymentMessage(error.message || 'Unable to start payment. Please try again.', true);
+    } finally {
+      paymentFlowInProgress = false;
+      if (!listingPaymentVerified) {
+        payButton.disabled = false;
+        proButton.disabled = false;
+        submitButton.disabled = false;
+        payButton.textContent = originalPayLabel;
+      }
+    }
+  }
+
+  document.getElementById('pay-to-list-btn').addEventListener('click', function(event){
+    event.preventDefault();
+    event.stopPropagation();
+    startPayToListFlow();
   });
-  document.getElementById('go-pro-btn').addEventListener('click', function(){
-    checkoutIntent = 'pro';
-    document.getElementById('list-form').requestSubmit();
+  document.getElementById('go-pro-btn').addEventListener('click', function(event){
+    event.preventDefault();
+    event.stopPropagation();
+    if (paymentFlowInProgress || publishInProgress) return;
+    const fields = {};
+    document.querySelectorAll('#list-form input, #list-form select, #list-form textarea').forEach(function(field){
+      if (!field.id || field.type === 'file' || field.type === 'password') return;
+      fields[field.id] = field.type === 'checkbox' || field.type === 'radio' ? field.checked : field.value;
+    });
+    try {
+      sessionStorage.setItem('varoom_listing_draft_after_upgrade', JSON.stringify({
+        category: hostNiche, fields, propertyPurpose, propertySalePriceMode, createdAt: Date.now(),
+        mediaSelected: selectedFiles.length > 0, policyAttached: Boolean(selectedPolicyFile || existingPolicyUrl),
+      }));
+    } catch (_) {}
+    try { sessionStorage.setItem('varoom_listing_after_upgrade', JSON.stringify({ category: hostNiche, returnTo: 'list' })); } catch (_) {}
+    window.location.assign('/pricing?niche=' + encodeURIComponent(hostNiche) + '&returnTo=list');
   });
 </script>
 
