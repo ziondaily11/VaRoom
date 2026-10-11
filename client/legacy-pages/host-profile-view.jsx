@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import VideoMedia from "../components/VideoMedia";
+import ProfileCategoryNav from "./ProfileCategoryNav";
+import ProfileBanner from "./ProfileBanner";
 import {
   Home,
   Compass,
@@ -49,6 +51,8 @@ function resolveAvatarUrl(avatarUrl) {
 export default function HostProfileView() {
   const router = useRouter();
   const [tab, setTab] = useState("listings");
+  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [categoryListings, setCategoryListings] = useState({});
   const [visibleReviews, setVisibleReviews] = useState(3);
   const [profile, setProfile] = useState(null);
   const [listings, setListings] = useState([]);
@@ -117,7 +121,7 @@ export default function HostProfileView() {
       }
 
       const [profileResult, listingsResult] = await Promise.all([
-        client.from("profiles").select("id,role,full_name,username,bio,avatar_url,verified,city,created_at").eq("id", hostId).eq("role", "host").maybeSingle(),
+        client.from("profiles").select("id,role,full_name,username,bio,avatar_url,banner_image_key,verified,city,created_at").eq("id", hostId).eq("role", "host").maybeSingle(),
         client.from("listings").select("id,title,category,location_text,created_at,listing_photos(storage_path),listing_booking_details(price_amount,price_unit)").eq("host_id", hostId).order("created_at", { ascending: false }),
       ]);
 
@@ -211,6 +215,7 @@ export default function HostProfileView() {
     ? `Member since ${new Date(host.created_at).getFullYear()}`
     : "Member date not available";
   const canMessageHost = viewerRole !== "host" && viewerId !== host.id;
+  const isOwner = viewerId === host.id;
 
   function Sidebar() {
     const isHost = viewerRole === "host";
@@ -290,16 +295,18 @@ export default function HostProfileView() {
         .sidebar-logout { margin-top: auto; padding: 8px 10px; color: #c41e3a; text-align: left; font-weight: 600; }
         .host-profile-main { min-width: 0; }
         .host-profile-content { width: min(100%, 1320px); margin: 0 auto; padding-bottom: 64px; }
+        .host-profile-content > .profile-banner + div { position:relative; z-index:1; margin-top:-82px; padding-top:28px !important; }
         .host-profile-listing-grid { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
         .host-profile-listing-card { color: #f5f5f5; text-decoration: none; }
         @media (max-width: 1100px) { .host-profile-shell { grid-template-columns: 220px minmax(0, 1fr); } .host-profile-listing-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; } }
-        @media (max-width: 760px) { .host-profile-shell { display: block; } .host-profile-sidebar { display: none; } .host-profile-content { padding-bottom: 24px; } .host-profile-listing-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } }
+        @media (max-width: 760px) { .host-profile-shell { display: block; } .host-profile-sidebar { display: none; } .host-profile-content { padding-bottom: 24px; } .host-profile-content > .profile-banner + div { margin-top:-58px; padding-top:14px !important; } .host-profile-listing-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } }
         @media (max-width: 480px) { .host-profile-listing-grid { grid-template-columns: 1fr !important; } }
       `}</style>
       <div className="host-profile-shell">
         <Sidebar />
         <main className="host-profile-main">
           <div className="host-profile-content">
+        <ProfileBanner hostId={host.id} imageKey={host.banner_image_key} isOwner={isOwner} onChange={(banner_image_key) => setProfile((current) => ({ ...current, banner_image_key }))} />
         <div style={{ padding: "32px 24px 0" }}>
           {loadError && (
             <p role="alert" style={{ color: "#F2A3AE", fontSize: 14, margin: "0 0 20px" }}>
@@ -466,44 +473,10 @@ export default function HostProfileView() {
             </p>
           </div>
 
-          <div
-            role="tablist"
-            aria-label="Host profile content"
-            style={{
-              display: "flex",
-              gap: 24,
-              marginTop: 28,
-              borderBottom: "1px solid #1C1C1C",
-            }}
-          >
-            {[
-              { id: "listings", label: `Listings · ${listings.length}` },
-              { id: "reviews", label: `Reviews · ${reviews.length}` },
-            ].map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                role="tab"
-                aria-selected={tab === t.id}
-                aria-controls={`host-profile-${t.id}`}
-                onClick={() => setTab(t.id)}
-                style={{
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  fontSize: 14,
-                  fontWeight: 600,
-                  padding: "0 2px 12px",
-                  color: tab === t.id ? "#F5F5F5" : "#7A7A7A",
-                  borderBottom:
-                    tab === t.id
-                      ? "2px solid #E5384F"
-                      : "2px solid transparent",
-                }}
-              >
-                {t.label}
-              </button>
-            ))}
+          <ProfileCategoryNav hostId={host.id} listings={listings} isOwner={isOwner} value={selectedCategory} onChange={(id) => { setSelectedCategory(id); setTab("listings"); }} onCategoryListings={setCategoryListings} />
+          <div role="tablist" aria-label="Host profile content" style={{ display:"flex",gap:18,borderBottom:"1px solid #1C1C1C" }}>
+            <button type="button" role="tab" aria-selected={tab === "listings"} onClick={() => setTab("listings")} style={{ padding:"12px 8px",background:"transparent",border:0,borderBottom:tab === "listings" ? "2px solid #E5384F" : "2px solid transparent",color:tab === "listings" ? "#fff" : "#999",cursor:"pointer" }}>Listings · {listings.length}</button>
+            <button type="button" role="tab" aria-selected={tab === "reviews"} onClick={() => setTab("reviews")} style={{ padding:"12px 8px",background:"transparent",border:0,borderBottom:tab === "reviews" ? "2px solid #E5384F" : "2px solid transparent",color:tab === "reviews" ? "#fff" : "#999",cursor:"pointer" }}>Reviews · {reviews.length}</button>
           </div>
         </div>
 
@@ -526,7 +499,7 @@ export default function HostProfileView() {
               {!isLoading && listings.length === 0 && (
                 <p style={{ color: "#8A8A8A" }}>No listings available.</p>
               )}
-              {listings.map((l) => (
+              {listings.filter((listing) => !selectedCategory || (categoryListings[selectedCategory] || []).includes(listing.id)).map((l) => (
                 <a
                   key={l.id}
                   href={`/booking?listing=${encodeURIComponent(l.id)}`}
@@ -594,6 +567,7 @@ export default function HostProfileView() {
                   </div>
                   </a>
               ))}
+              {!isLoading && listings.filter((listing) => !selectedCategory || (categoryListings[selectedCategory] || []).includes(listing.id)).length === 0 && <p style={{ color:"#8A8A8A",gridColumn:"1/-1" }}>{selectedCategory ? "No listings in this category yet." : "No listings available."}</p>}
             </div>
           </div>
         )}

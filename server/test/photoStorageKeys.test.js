@@ -11,6 +11,16 @@ test('recognizes current listing photo keys for rendering and upload completion'
   assert.equal(isR2PhotoObjectKey('listing-photos', key, 'production'), true);
 });
 
+test('recognizes profile banner R2 keys only in the profile-banners namespace', () => {
+  const key = 'photos/production/profile-banners/user-id/banner-id/original.webp';
+
+  assert.equal(isNewR2PhotoObjectKey('profile-banners', key, 'production'), true);
+  assert.equal(isR2PhotoObjectKey('profile-banners', key, 'production'), true);
+  assert.equal(isR2PhotoObjectKey('avatars', key, 'production'), false);
+  assert.equal(isR2PhotoObjectKey('profile-banners', key, 'development'), false);
+  assert.equal(isR2PhotoObjectKey('profile-banners', 'photos/production/profile-banners/../banner.webp', 'production'), false);
+});
+
 test('recognizes keys written by the earlier listing-photo migration', () => {
   const key = 'listing-photos/production/listing-id/media-id.jpg';
 

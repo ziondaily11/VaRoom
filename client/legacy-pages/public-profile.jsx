@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import VideoMedia from "../components/VideoMedia";
+import ProfileCategoryNav from "./ProfileCategoryNav";
+import ProfileBanner from "./ProfileBanner";
 import {
   MapPin,
   Star,
@@ -154,6 +156,8 @@ function ReviewCard({ review }) {
 export default function PublicHostProfile() {
   const router = useRouter();
   const [tab, setTab] = useState("listings");
+  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [categoryListings, setCategoryListings] = useState({});
   const [isSignInPromptOpen, setIsSignInPromptOpen] = useState(false);
   const [host, setHost] = useState({
     name: "",
@@ -178,7 +182,7 @@ export default function PublicHostProfile() {
       const hostIdentifier = String(router.query.hostId || router.query.username).replace(/^@/, "");
       const profileQuery = client
         .from("profiles")
-        .select("id,full_name,username,bio,avatar_url,verified,city")
+        .select("id,full_name,username,bio,avatar_url,banner_image_key,verified,city")
         .eq("role", "host");
       const profileResult = router.query.hostId
         ? await profileQuery.eq("id", hostIdentifier).maybeSingle()
@@ -342,10 +346,12 @@ export default function PublicHostProfile() {
         : [];
 
       setHost({
+        id: profile.id,
         name: profile.full_name || "Host",
         handle: profile.username ? `@${profile.username.replace(/^@/, "")}` : "",
         tagline: profile.bio || profile.city || "",
         photo: avatarUrl,
+        bannerImageKey: profile.banner_image_key || null,
         verified: Boolean(profile.verified),
         rating,
         reviewCount,
@@ -456,7 +462,8 @@ export default function PublicHostProfile() {
       {/* ------------------------------------------------------------- */}
       {/* Main profile                                                   */}
       {/* ------------------------------------------------------------- */}
-      <main className="public-profile-main" style={{ flex: 1, padding: "24px 32px 64px" }}>
+      <main className="public-profile-main" style={{ flex: 1, padding: "0 32px 64px" }}>
+        <ProfileBanner imageKey={host.bannerImageKey} hostId={host.id} />
         {/* Header — compact, single row, no dashboard-style padding */}
         <div
           className="public-profile-header"
@@ -535,36 +542,10 @@ export default function PublicHostProfile() {
         </div>
 
         {/* Tabs */}
-        <div
-          className="public-profile-tabs"
-          style={{
-            display: "flex",
-            gap: 28,
-            marginTop: 20,
-            borderBottom: "1px solid #1A1A1A",
-          }}
-        >
-          {[
-            { key: "listings", label: `Listings · ${listings.length}` },
-            { key: "reviews", label: `Reviews · ${reviews.length}` },
-          ].map((t) => (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              style={{
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                padding: "10px 2px 12px",
-                fontSize: 13.5,
-                fontWeight: 500,
-                color: tab === t.key ? "#F2F2F2" : "#6E6E6E",
-                borderBottom: tab === t.key ? "2px solid #E5384F" : "2px solid transparent",
-              }}
-            >
-              {t.label}
-            </button>
-          ))}
+        <ProfileCategoryNav hostId={host.id} listings={listings} value={selectedCategory} onChange={(id) => { setSelectedCategory(id); setTab("listings"); }} onCategoryListings={setCategoryListings} />
+        <div className="public-profile-tabs" role="tablist" aria-label="Profile sections">
+          <button type="button" role="tab" aria-selected={tab === "listings"} onClick={() => setTab("listings")}>Listings · {selectedCategory ? (categoryListings[selectedCategory] || []).filter((id) => listings.some((listing) => listing.id === id)).length : listings.length}</button>
+          <button type="button" role="tab" aria-selected={tab === "reviews"} onClick={() => setTab("reviews")}>Reviews · {reviews.length}</button>
         </div>
 
         {/* Tab content */}
@@ -578,9 +559,10 @@ export default function PublicHostProfile() {
               marginTop: 24,
             }}
           >
-            {listings.map((l) => (
+            {listings.filter((listing) => !selectedCategory || (categoryListings[selectedCategory] || []).includes(listing.id)).map((l) => (
               <ListingCard key={l.id} listing={l} />
             ))}
+            {listings.filter((listing) => !selectedCategory || (categoryListings[selectedCategory] || []).includes(listing.id)).length === 0 && <p style={{ color:"#888",gridColumn:"1/-1",textAlign:"center",padding:32 }}>{selectedCategory ? "No listings in this category yet." : "No listings available."}</p>}
           </div>
         ) : (
           <div className="public-profile-reviews" style={{ marginTop: 8, maxWidth: 560, marginLeft: "auto", marginRight: "auto" }}>
@@ -622,6 +604,7 @@ export default function PublicHostProfile() {
 
       <style jsx global>{`
         .public-profile-shell { overflow-x: hidden; }
+        .public-profile-header { position: relative; z-index: 1; margin-top: -88px; padding-top: 48px; min-height: 142px; }
         .mobile-message-button, .mobile-sign-in-overlay { display: none; }
 
         @media (max-width: 700px) {
@@ -637,9 +620,9 @@ export default function PublicHostProfile() {
           .public-profile-main {
             width: 100%;
             min-width: 0;
-            padding: 20px 16px 40px !important;
+            padding: 0 16px 40px !important;
           }
-          .public-profile-header { gap: 12px !important; padding-bottom: 14px !important; }
+          .public-profile-header { gap: 12px !important; padding: 26px 0 14px !important; margin-top: -58px; min-height: 110px; }
           .public-profile-header img { width: 52px !important; height: 52px !important; }
           .public-profile-header h1 { font-size: 16px !important; }
           .mobile-message-button {
@@ -658,8 +641,9 @@ export default function PublicHostProfile() {
             font-weight: 600;
             cursor: pointer;
           }
-          .public-profile-tabs { gap: 0 !important; justify-content: space-between; margin-top: 16px !important; }
-          .public-profile-tabs button { font-size: 12.5px !important; white-space: nowrap; }
+          .public-profile-tabs { display:flex; gap:16px; margin-top:8px; border-bottom:1px solid #1a1a1a; }
+          .public-profile-tabs button { background:transparent;border:0;border-bottom:2px solid transparent;color:#aaa;padding:12px 8px;white-space:nowrap; }
+          .public-profile-tabs button[aria-selected="true"] { color:#fff;border-bottom-color:#e5384f; }
           .public-profile-listings {
             grid-template-columns: minmax(0, 1fr) !important;
             gap: 14px !important;

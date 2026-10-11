@@ -217,7 +217,11 @@
   .account-add-btn.disabled svg{ opacity:.65; }
 
   .profile-header{ margin-top:0; border-bottom:1px solid var(--card-border); }
-  .profile-header-body{ display:flex; align-items:center; gap:20px; padding:6px 0; }
+  .profile-banner{height:230px;position:relative;border-radius:16px 16px 0 0;background:radial-gradient(ellipse at 70% 20%,#75583c 0,#3b3028 38%,#181615 82%);background-size:cover;background-position:center 45%;overflow:hidden}
+  .profile-banner::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,rgba(0,0,0,.63),transparent 70%),linear-gradient(0deg,rgba(0,0,0,.65),transparent 75%)}
+  .profile-banner-actions{position:absolute;z-index:2;right:18px;top:16px;display:flex;gap:8px}
+  .profile-banner-actions button{display:flex;align-items:center;gap:7px;padding:9px 12px;border:1px solid #ffffff55;border-radius:999px;background:#090909bb;color:#fff;font:600 12px inherit;cursor:pointer}
+  .profile-header-body{display:flex;align-items:center;gap:20px;padding:0 10px 16px;position:relative;margin-top:-62px;z-index:1}
   .profile-header-actions{ margin-left:auto; align-self:center; flex-shrink:0; }
   .profile-personal{ display:flex; align-items:center; gap:18px; min-width:0; flex:1; }
   .profile-avatar-wrap{ position:relative; flex-shrink:0; }
@@ -340,6 +344,18 @@
     display:flex; align-items:center; justify-content:center;
     margin:0 auto 1rem;
   }
+  .profile-category-row{display:flex;align-items:center;gap:8px;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none;white-space:nowrap;border-bottom:1px solid var(--card-border);margin:12px 0 18px}
+  .profile-category-row::-webkit-scrollbar{display:none}
+  .profile-category-row button{flex:0 0 auto;padding:12px 10px 10px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--muted);font:600 13px inherit;cursor:pointer}
+  .profile-category-row button[aria-selected="true"]{border-bottom-color:var(--red);color:var(--ink)}
+  .profile-category-row .category-manage{margin-left:auto;color:var(--red)}
+  .profile-category-manager{display:none;position:fixed;inset:0;z-index:800;background:rgba(0,0,0,.7);align-items:center;justify-content:center;padding:16px}
+  .profile-category-manager.open{display:flex}
+  .profile-category-manager-card{width:min(560px,100%);max-height:85vh;overflow:auto;background:var(--card-bg);color:var(--ink);border:1px solid var(--card-border);border-radius:16px;padding:20px}
+  .profile-category-manager-card input[type=text]{min-width:0;flex:1;padding:10px;border-radius:8px;border:1px solid var(--card-border);background:var(--paper);color:var(--ink)}
+  .profile-category-entry{padding:12px 0;border-top:1px solid var(--card-border)}
+  .profile-review-section{display:none;padding:18px 0}
+  .profile-review-card{padding:14px 0;border-bottom:1px solid var(--card-border)}
 
   /* ============================================================
      EDIT MODAL
@@ -454,6 +470,7 @@
     .profile-sidebar{ display:none; }
     .profile-main{ border-right:none; height:auto; overflow:visible; }
     .profile-header-body{ display:block; }
+    .profile-banner{height:165px;border-radius:0}
     .trip-grid{ grid-template-columns:1fr; }
     .booking-item{ grid-template-columns:1fr; }
     .booking-thumb{ width:100%; }
@@ -601,6 +618,13 @@
       </header>
 
       <section class="profile-header">
+        <div class="profile-banner" id="profile-banner">
+          <div class="profile-banner-actions" id="profile-banner-actions" style="display:none">
+            <input type="file" id="banner-input" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
+            <button type="button" id="banner-change-btn"><span id="banner-change-label">Add banner</span></button>
+            <button type="button" id="banner-remove-btn" style="display:none">Remove</button>
+          </div>
+        </div>
         <div class="profile-header-body">
           <div class="profile-personal">
             <div class="profile-avatar-wrap">
@@ -690,12 +714,24 @@
             <span class="listings-count" id="listings-count"></span>
           </div>
         </div>
+        <div class="profile-category-row" id="profile-category-nav" role="tablist" aria-label="Profile listing categories"></div>
+        <div class="profile-review-section" id="profile-review-section" aria-label="Host reviews"></div>
         <div class="listings-grid" id="listings-grid"></div>
       </div>
     </main>
 
   </div>
 </div><!-- /#profile-content -->
+
+<div class="profile-category-manager" id="profile-category-manager" role="dialog" aria-modal="true" aria-labelledby="profile-category-title">
+  <section class="profile-category-manager-card">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px"><h2 id="profile-category-title" style="margin:0;font-size:18px">Organise your listings</h2><button type="button" id="profile-category-close" aria-label="Close">×</button></div>
+    <p style="font-size:13px;color:var(--muted)">Categories group listings already created through VaRoom.</p>
+    <form id="profile-category-form" style="display:flex;gap:8px;margin:14px 0"><input type="text" id="profile-category-name" maxlength="60" placeholder="e.g. Beach houses" aria-label="Category name"><button type="submit" class="btn-solid" id="profile-category-save">Add</button></form>
+    <div id="profile-category-manager-list"></div>
+    <div style="display:flex;justify-content:flex-end;margin-top:16px"><button type="button" class="btn-outline" id="profile-category-done">Done</button></div>
+  </section>
+</div>
 
 <!-- Mobile bottom bar -->
 <nav class="bottom-bar" id="bottom-bar">
@@ -777,7 +813,7 @@
   let profileData = null;
   let isOwner = false;
 
-  const SELECT = 'id, role, full_name, username, phone, bio, avatar_url, city, listing_categories, created_at';
+  const SELECT = 'id, role, full_name, username, phone, bio, avatar_url, banner_image_key, city, listing_categories, created_at';
   // UUID pattern — ?u= can be a username OR a UUID (fallback when no username set)
   const isUUID = viewUsername && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(viewUsername);
   async function loadProfile(column, value){
@@ -890,6 +926,14 @@
     }
     document.getElementById('ask-name').textContent = (displayName || 'host').split(' ')[0];
     document.getElementById('avatar-upload-label').style.display = isOwner ? 'flex' : 'none';
+    const banner = document.getElementById('profile-banner');
+    const bannerKey = profileData.banner_image_key;
+    banner.style.backgroundImage = bannerKey
+      ? 'linear-gradient(90deg,rgba(0,0,0,.68),rgba(0,0,0,.18)),linear-gradient(0deg,rgba(0,0,0,.68),transparent 75%),url("/api/photos/profile-banners/' + bannerKey.split('/').map(encodeURIComponent).join('/') + '")'
+      : '';
+    document.getElementById('profile-banner-actions').style.display = isOwner && profileData.role === 'host' ? 'flex' : 'none';
+    document.getElementById('banner-change-label').textContent = bannerKey ? 'Change banner' : 'Add banner';
+    document.getElementById('banner-remove-btn').style.display = bannerKey ? 'inline-flex' : 'none';
 
     const showingAsVisitor = !isOwner;
     document.getElementById('owner-actions').style.display = showingAsVisitor ? 'none' : 'flex';
@@ -1124,6 +1168,7 @@
     .select('id, title, description, category, location_text, availability_status, created_at, listing_photos(storage_path), listing_booking_details(price_amount, price_unit)')
     .eq('host_id', profileData.id);
   const { data: listings, error: listingsError } = await listingsQuery.order('created_at', { ascending: false });
+  const listingRows = listings || [];
 
   const grid = document.getElementById('listings-grid');
   if (listingsError) {
@@ -1187,12 +1232,11 @@
     }
   }
 
-  if (!listings || listings.length === 0) {
+  if (!listingRows.length) {
     grid.innerHTML = '<div class="listings-empty">' +
       '<div class="listings-empty-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 8v8M8 12h8"/></svg></div>' +
       (isOwner ? 'No listings yet. <a href="list.html" style="color:var(--red);font-weight:600;">List your first space →</a>' : 'No listings yet.') +
       '</div>';
-    return;
   }
 
   function getPhotoUrl(listing){
@@ -1245,7 +1289,7 @@
     return '<span class="listing-card-status available" data-listing-status>Available</span>';
   }
 
-  grid.innerHTML = listings.map(function(l){
+  grid.innerHTML = listingRows.map(function(l){
     return '<a class="listing-card" data-listing-card="' + l.id + '" href="/booking?listing=' + l.id + '">' +
       getListingMediaMarkup(l) +
       (isOwner ? '<div class="listing-card-menu">' + VaRoomHostListings.menu(l) + '</div>' : '') +
@@ -1262,6 +1306,173 @@
   if (isOwner) {
     grid.querySelectorAll('.listing-card-menu').forEach(function(menu){ VaRoomHostListings.bind(menu); });
   }
+
+  let profileCategories = [];
+  let categoryListingIds = {};
+  let activeProfileCategory = null;
+  let categoryEditId = null;
+  const categoryNav = document.getElementById('profile-category-nav');
+  const reviewsPanel = document.getElementById('profile-review-section');
+  const manager = document.getElementById('profile-category-manager');
+  const managerList = document.getElementById('profile-category-manager-list');
+  async function loadProfileCategories(){
+    const { data: categories, error } = await supabaseClient.from('profile_categories').select('id,host_id,name,sort_order,created_at').eq('host_id',profileData.id).order('sort_order').order('created_at');
+    if (error) { console.warn('Profile categories are unavailable:',error.message); return; }
+    profileCategories = categories || [];
+    const categoryIds = profileCategories.map(function(category){return category.id;});
+    const { data: links, error: linkError } = categoryIds.length
+      ? await supabaseClient.from('profile_category_listings').select('category_id,listing_id').in('category_id',categoryIds)
+      : { data: [], error: null };
+    if (linkError) { console.warn('Category assignments are unavailable:',linkError.message); return; }
+    categoryListingIds = {};
+    (links || []).forEach(function(link){ (categoryListingIds[link.category_id] ||= []).push(link.listing_id); });
+    renderCategoryNav();
+    if (manager.classList.contains('open')) renderCategoryManager();
+  }
+  function selectProfileCategory(categoryId){
+    activeProfileCategory = categoryId;
+    document.getElementById('profile-review-section').style.display = 'none';
+    grid.style.display = 'grid';
+    grid.querySelectorAll('[data-listing-card]').forEach(function(card){
+      const visible = !categoryId || (categoryListingIds[categoryId] || []).includes(card.getAttribute('data-listing-card'));
+      card.style.display = visible ? '' : 'none';
+    });
+    let empty = document.getElementById('profile-category-empty');
+    const visibleCount = Array.from(grid.querySelectorAll('[data-listing-card]')).filter(function(card){return card.style.display !== 'none';}).length;
+    if (!visibleCount) {
+      if (!empty) { empty = document.createElement('div'); empty.id='profile-category-empty'; empty.className='listings-empty'; grid.appendChild(empty); }
+      empty.innerHTML = categoryId
+        ? 'No listings in this category yet.'
+        : (isOwner && !listingRows.length ? 'No listings yet. <a href="list.html" style="color:var(--red);font-weight:600;">List your first space →</a>' : 'No listings available.');
+      empty.style.display = '';
+    } else if (empty) empty.style.display = 'none';
+    renderCategoryNav();
+  }
+  function showProfileReviews(){
+    activeProfileCategory = null;
+    grid.style.display = 'none';
+    reviewsPanel.style.display = 'block';
+    renderCategoryNav();
+  }
+  function renderCategoryNav(){
+    categoryNav.innerHTML = '';
+    function addTab(label, selected, action, extraClass){
+      const button = document.createElement('button');
+      button.type='button'; button.setAttribute('role','tab'); button.setAttribute('aria-selected',selected ? 'true' : 'false');
+      button.textContent=label; if (extraClass) button.className=extraClass;
+      button.addEventListener('click',action); categoryNav.appendChild(button);
+    }
+    addTab('All listings',!activeProfileCategory && reviewsPanel.style.display !== 'block',function(){selectProfileCategory(null);});
+    profileCategories.forEach(function(category){
+      const count = (categoryListingIds[category.id] || []).filter(function(id){return (listings || []).some(function(item){return item.id === id;});}).length;
+      addTab(category.name + ' · ' + count,activeProfileCategory === category.id,function(){selectProfileCategory(category.id);});
+    });
+    addTab('Reviews',reviewsPanel.style.display === 'block',showProfileReviews);
+    if (isOwner) addTab('+ Manage categories',false,function(){manager.classList.add('open');renderCategoryManager();},'category-manage');
+  }
+  function renderCategoryManager(){
+    managerList.innerHTML = '';
+    profileCategories.forEach(function(category){
+      const section = document.createElement('section'); section.className='profile-category-entry';
+      const title = document.createElement('strong'); title.textContent=category.name;
+      const rename = document.createElement('button'); rename.type='button'; rename.textContent='Rename'; rename.className='btn-outline'; rename.style.marginLeft='8px';
+      rename.addEventListener('click',function(){categoryEditId=category.id;document.getElementById('profile-category-name').value=category.name;document.getElementById('profile-category-save').textContent='Save';});
+      const remove = document.createElement('button'); remove.type='button'; remove.textContent='Delete'; remove.className='btn-outline'; remove.style.marginLeft='6px';
+      remove.addEventListener('click',async function(){
+        if(!window.confirm('Delete “'+category.name+'”? Its listings will remain on VaRoom.')) return;
+        const {error:deleteError}=await supabaseClient.from('profile_categories').delete().eq('id',category.id);
+        if(deleteError){showToast('Could not delete category.');return;}
+        if(activeProfileCategory===category.id) selectProfileCategory(null);
+        await loadProfileCategories();
+      });
+      const heading=document.createElement('div'); heading.append(title,rename,remove); section.appendChild(heading);
+      (listings || []).forEach(function(listing){
+        const label=document.createElement('label'); label.style.cssText='display:flex;align-items:center;gap:8px;padding:6px 2px;font-size:13px;color:var(--ink)';
+        const checkbox=document.createElement('input'); checkbox.type='checkbox'; checkbox.checked=(categoryListingIds[category.id] || []).includes(listing.id);
+        checkbox.addEventListener('change',async function(){
+          const result=checkbox.checked
+            ? await supabaseClient.from('profile_category_listings').upsert({category_id:category.id,host_id:profileData.id,listing_id:listing.id},{onConflict:'category_id,listing_id'})
+            : await supabaseClient.from('profile_category_listings').delete().eq('category_id',category.id).eq('listing_id',listing.id);
+          if(result.error){checkbox.checked=!checkbox.checked;showToast('Could not update category.');return;}
+          const ids=new Set(categoryListingIds[category.id] || []); if(checkbox.checked) ids.add(listing.id); else ids.delete(listing.id);
+          categoryListingIds[category.id]=Array.from(ids);renderCategoryNav();selectProfileCategory(activeProfileCategory);
+        });
+        const text=document.createElement('span'); text.textContent=listing.title || 'Untitled listing'; label.append(checkbox,text); section.appendChild(label);
+      });
+      if(!(listings || []).length){const empty=document.createElement('p');empty.textContent='No existing listings available to assign yet.';empty.style.color='var(--muted)';section.appendChild(empty);}
+      managerList.appendChild(section);
+    });
+    if(!profileCategories.length){const empty=document.createElement('p');empty.textContent='No categories yet.';managerList.appendChild(empty);}
+  }
+  categoryNav.style.display='flex';
+  document.getElementById('profile-category-form').addEventListener('submit',async function(event){
+    event.preventDefault(); if(!isOwner)return;
+    const name=document.getElementById('profile-category-name').value.trim();
+    if(!name || name.length>60){showToast('Enter a category name (1–60 characters).');return;}
+    const result=categoryEditId
+      ? await supabaseClient.from('profile_categories').update({name:name,updated_at:new Date().toISOString()}).eq('id',categoryEditId)
+      : await supabaseClient.from('profile_categories').insert({host_id:profileData.id,name:name,sort_order:profileCategories.length});
+    if(result.error){showToast(result.error.code==='23505'?'That category name already exists.':'Could not save category.');return;}
+    categoryEditId=null;this.reset();document.getElementById('profile-category-save').textContent='Add';await loadProfileCategories();
+  });
+  ['profile-category-close','profile-category-done'].forEach(function(id){document.getElementById(id).addEventListener('click',function(){manager.classList.remove('open');});});
+  manager.addEventListener('click',function(event){if(event.target===manager)manager.classList.remove('open');});
+  await loadProfileCategories();
+  {
+    try {
+      const reviewResponse=await fetch('/api/hosts/'+encodeURIComponent(profileData.id)+'/reviews');
+      if(reviewResponse.ok){
+        const payload=await reviewResponse.json();
+        (payload.reviews || []).forEach(function(review){
+          const card=document.createElement('article');card.className='profile-review-card';
+          const heading=document.createElement('div');heading.style.cssText='display:flex;justify-content:space-between;gap:12px';
+          const reviewer=document.createElement('strong');reviewer.textContent=review.client?.full_name || 'Guest';
+          const date=document.createElement('time');date.textContent=review.created_at ? new Date(review.created_at).toLocaleDateString() : '';
+          const rating=document.createElement('div');rating.textContent='★'.repeat(Number(review.rating)||0)+'☆'.repeat(5-(Number(review.rating)||0));rating.style.color='#e5384f';
+          const text=document.createElement('p');text.textContent=review.comment || '';text.style.cssText='color:var(--muted);line-height:1.5';
+          heading.append(reviewer,date);card.append(heading,rating,text);reviewsPanel.appendChild(card);
+        });
+        if(!(payload.reviews || []).length){const empty=document.createElement('p');empty.textContent='No reviews yet.';reviewsPanel.appendChild(empty);}
+      }
+    } catch (error) { console.warn('Host reviews could not be loaded.',error); }
+  }
+  renderCategoryNav();
+
+  const bannerInput=document.getElementById('banner-input');
+  async function discardBannerObject(key,token){
+    if(!key || !token)return;
+    try{await fetch('/api/photos/upload-discard',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({category:'profile-banners',key:key})});}catch(error){console.warn('Uploaded banner cleanup could not be completed.',error);}
+  }
+  document.getElementById('banner-change-btn').addEventListener('click',function(){bannerInput.click();});
+  bannerInput.addEventListener('change',async function(){
+    const file=this.files && this.files[0]; if(!file)return;
+    if(!['image/jpeg','image/png','image/webp','image/gif'].includes(file.type) || file.size<1 || file.size>15*1024*1024){showToast('Choose a JPEG, PNG, WebP, or GIF image under 15 MB.');this.value='';return;}
+    const {data:{session:bannerSession}}=await supabaseClient.auth.getSession();
+    if(!bannerSession || bannerSession.user.id!==profileData.id){showToast('Sign in as this host to change the banner.');return;}
+    const changeButton=document.getElementById('banner-change-btn');changeButton.disabled=true;document.getElementById('banner-change-label').textContent='Uploading…';
+    let uploadedKey=null;
+    try{
+      const initResponse=await fetch('/api/photos/upload-init',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+bannerSession.access_token},body:JSON.stringify({category:'profile-banners',filename:file.name,mimeType:file.type,fileSize:file.size})});
+      const init=await initResponse.json();if(!initResponse.ok)throw new Error(init.error || 'Unable to prepare banner upload.');uploadedKey=init.key;
+      const putResponse=await fetch(init.uploadUrl,{method:'PUT',headers:{'Content-Type':file.type},body:file});if(!putResponse.ok)throw new Error('Banner upload failed.');
+      const completeResponse=await fetch('/api/photos/upload-complete',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+bannerSession.access_token},body:JSON.stringify({category:'profile-banners',key:uploadedKey})});
+      const complete=await completeResponse.json();if(!completeResponse.ok)throw new Error(complete.error || 'Unable to verify banner upload.');
+      const saveResponse=await fetch('/api/profile/banner',{method:'PUT',headers:{'Content-Type':'application/json',Authorization:'Bearer '+bannerSession.access_token},body:JSON.stringify({key:uploadedKey})});
+      const saved=await saveResponse.json();if(!saveResponse.ok)throw new Error(saved.error || 'Banner uploaded but could not be saved to your profile.');
+      const oldKey=saved.previousKey || profileData.banner_image_key;
+      profileData.banner_image_key=uploadedKey;renderProfile();await discardBannerObject(oldKey,bannerSession.access_token);showToast('Banner updated ✓');
+    }catch(error){await discardBannerObject(uploadedKey,bannerSession.access_token);showToast(error.message || 'Banner upload failed.');}
+    finally{changeButton.disabled=false;this.value='';renderProfile();}
+  });
+  document.getElementById('banner-remove-btn').addEventListener('click',async function(){
+    const {data:{session:bannerSession}}=await supabaseClient.auth.getSession();
+    if(!bannerSession || bannerSession.user.id!==profileData.id){showToast('Sign in as this host to change the banner.');return;}
+    this.disabled=true;
+    const response=await fetch('/api/profile/banner',{method:'DELETE',headers:{Authorization:'Bearer '+bannerSession.access_token}});const result=await response.json();
+    if(!response.ok)showToast(result.error || 'Could not remove banner.');else{profileData.banner_image_key=null;renderProfile();await discardBannerObject(result.previousKey || null,bannerSession.access_token);showToast('Banner removed ✓');}
+    this.disabled=false;
+  });
+
   } // end host-only listings block
 
   /* ── Avatar upload ── */

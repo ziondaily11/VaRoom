@@ -8,9 +8,18 @@ const { ValidationError, assertAllowedKeys, text, number, enumValue } = require(
 const { rejectSuspendedActivity } = require('../lib/accountAccess');
 
 const router = express.Router();
-const PHOTO_CATEGORIES = new Set(['listing-photos', 'avatars', 'update-images']);
+const PHOTO_CATEGORIES = new Set(['listing-photos', 'avatars', 'update-images', 'profile-banners']);
 const PHOTO_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 const MAX_PHOTO_SIZE = 15 * 1024 * 1024;
+
+function hasImageSignature(buffer, mimeType) {
+  if (!Buffer.isBuffer(buffer)) return false;
+  if (mimeType === 'image/jpeg') return buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+  if (mimeType === 'image/png') return buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+  if (mimeType === 'image/webp') return buffer.length >= 12 && buffer.toString('ascii', 0, 4) === 'RIFF' && buffer.toString('ascii', 8, 12) === 'WEBP';
+  if (mimeType === 'image/gif') return ['GIF87a', 'GIF89a'].includes(buffer.toString('ascii', 0, 6));
+  return false;
+}
 
 async function authenticatedUser(req) {
   const header = req.headers.authorization || '';
@@ -18,6 +27,16 @@ async function authenticatedUser(req) {
   if (!token) return null;
   const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
   return error ? null : user;
+}
+
+async function requireHost(userId, res) {
+  const { data: profile, error } = await supabaseAdmin.from('profiles').select('role').eq('id', userId).maybeSingle();
+  if (error) throw error;
+  if (!profile || profile.role !== 'host') {
+    res.status(403).json({ error: 'Only hosts can upload profile banners' });
+    return false;
+  }
+  return true;
 }
 
 function extensionOf(filename, mimeType) {
@@ -45,6 +64,7 @@ router.post('/photos/upload-init', async (req, res) => {
       if (error instanceof ValidationError) return res.status(400).json({ error: 'Invalid photo metadata' });
       throw error;
     }
+    if (category === 'profile-banners' && !(await requireHost(user.id, res))) return;
     if (!PHOTO_TYPES.has(mimeType)) return res.status(400).json({ error: 'Only JPEG, PNG, WebP, and GIF images are supported' });
     const extension = extensionOf(filename, mimeType);
     if (!extension) return res.status(400).json({ error: 'Photo filename must include a valid extension' });
@@ -63,9 +83,11 @@ router.post('/photos/upload-complete', async (req, res) => {
     const user = await authenticatedUser(req);
     if (!user) return res.status(401).json({ error: 'Invalid or expired session' });
     const { category, key } = req.body || {};
+    if (category === 'profile-banners' && !(await requireHost(user.id, res))) return;
+    const ownerPrefix = `photos/${mediaStorageService.ENVIRONMENT}/${category}/${user.id}/`;
     if (!PHOTO_CATEGORIES.has(category)
       || !isNewR2PhotoObjectKey(category, key, mediaStorageService.ENVIRONMENT)
-      || !key.includes(`/${user.id}/`)) {
+      || !key.startsWith(ownerPrefix)) {
       return res.status(400).json({ error: 'Invalid photo key' });
     }
     if (!(await mediaStorageService.verifyR2ObjectExists(key))) {
@@ -74,6 +96,14 @@ router.post('/photos/upload-complete', async (req, res) => {
 
     try {
       const objectMetadata = await mediaStorageService.getR2ObjectMetadata(key);
+      if (category === 'profile-banners') {
+        const contentType = String(objectMetadata.contentType || '').toLowerCase();
+        if (!PHOTO_TYPES.has(contentType) || objectMetadata.contentLength < 1 || objectMetadata.contentLength > MAX_PHOTO_SIZE) {
+          return res.status(400).json({ error: 'Banner must be a supported image under 15 MB' });
+        }
+        const bytes = await mediaStorageService.downloadR2Object(key);
+        if (!hasImageSignature(bytes, contentType)) return res.status(400).json({ error: 'Banner file contents do not match its image type' });
+      }
       const optimization = await mediaOptimizationService.optimizeStoredMediaObject(
         key,
         objectMetadata.contentType || 'image/jpeg',
@@ -91,6 +121,25 @@ router.post('/photos/upload-complete', async (req, res) => {
   } catch (error) {
     console.error('Photo upload completion failed:', error);
     return res.status(500).json({ error: 'Unable to finalize photo upload' });
+  }
+});
+
+router.post('/photos/upload-discard', async (req, res) => {
+  try {
+    const user = await authenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Invalid or expired session' });
+    const { category, key } = req.body || {};
+    const ownerPrefix = `photos/${mediaStorageService.ENVIRONMENT}/${category}/${user.id}/`;
+    if (!PHOTO_CATEGORIES.has(category)
+      || !isNewR2PhotoObjectKey(category, key, mediaStorageService.ENVIRONMENT)
+      || !key.startsWith(ownerPrefix)) {
+      return res.status(400).json({ error: 'Invalid photo key' });
+    }
+    await mediaStorageService.deleteR2Object(key);
+    return res.json({ success: true });
+  } catch (error) {
+    console.error('Photo upload discard failed:', error);
+    return res.status(500).json({ error: 'Unable to remove uploaded photo' });
   }
 });
 
