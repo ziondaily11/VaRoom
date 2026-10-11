@@ -408,7 +408,7 @@ VIDEO_PREMIUM_REQUIRED=true
 
 ### 1. Cloudflare R2 Bucket Creation
 - Log into Cloudflare dashboard
-- Create R2 bucket (e.g., "varoom-videos-production" or "varoom-videos-development")
+- Use the existing shared media bucket (for example, `varoom`). Photos and videos can share one R2 bucket; separate video-only buckets are optional, not required.
 - Generate API token with R2 read/write access
 - Note Account ID, Bucket Name, Access Key ID, Secret Key
 - Set CORS policy to allow browser uploads
