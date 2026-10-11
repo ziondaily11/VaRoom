@@ -294,7 +294,7 @@ export default function HostProfileView() {
         .sidebar-nav a:hover, .sidebar-nav a:focus-visible { background: rgba(255,255,255,.1); color: #fff; }
         .sidebar-logout { margin-top: auto; padding: 8px 10px; color: #c41e3a; text-align: left; font-weight: 600; }
         .host-profile-main { min-width: 0; }
-        .host-profile-content { width: min(100%, 1320px); margin: 0 auto; padding-bottom: 64px; }
+        .host-profile-content { width: 100%; margin: 0; padding-bottom: 64px; }
         .host-profile-content > .profile-banner + div { position:relative; z-index:1; margin-top:-82px; padding-top:28px !important; }
         .host-profile-listing-grid { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
         .host-profile-listing-card { color: #f5f5f5; text-decoration: none; }

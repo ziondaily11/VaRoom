@@ -604,6 +604,7 @@ export default function PublicHostProfile() {
 
       <style jsx global>{`
         .public-profile-shell { overflow-x: hidden; }
+        .public-profile-main > .profile-banner { margin-left: -32px; margin-right: -32px; }
         .public-profile-header { position: relative; z-index: 1; margin-top: -88px; padding-top: 48px; min-height: 142px; }
         .mobile-message-button, .mobile-sign-in-overlay { display: none; }
 
@@ -622,6 +623,7 @@ export default function PublicHostProfile() {
             min-width: 0;
             padding: 0 16px 40px !important;
           }
+          .public-profile-main > .profile-banner { margin-left: -16px; margin-right: -16px; }
           .public-profile-header { gap: 12px !important; padding: 26px 0 14px !important; margin-top: -58px; min-height: 110px; }
           .public-profile-header img { width: 52px !important; height: 52px !important; }
           .public-profile-header h1 { font-size: 16px !important; }
