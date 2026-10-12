@@ -80,7 +80,7 @@ async function applyVerifiedTransaction(supabaseAdmin, transaction) {
     Object.keys(subscriptionUpdate).forEach((key) => subscriptionUpdate[key] === undefined && delete subscriptionUpdate[key]);
     const { error: subscriptionError } = await supabaseAdmin.from('host_subscriptions').update(subscriptionUpdate).eq('id', payment.subscription_id);
     if (subscriptionError) throw new Error('Unable to activate host subscription');
-  } else if (['failed', 'abandoned', 'refunded'].includes(status)) {
+  } else if (payment.payment_kind !== 'listing' && ['failed', 'abandoned', 'refunded'].includes(status)) {
     await supabaseAdmin.from('host_subscriptions').update({ status: 'failed', provider_metadata: transaction }).eq('id', payment.subscription_id).eq('status', 'pending');
   }
   return { payment: { ...payment, ...paymentUpdate }, activated: status === 'succeeded' && Boolean(paymentChanged && paymentChanged.length) };

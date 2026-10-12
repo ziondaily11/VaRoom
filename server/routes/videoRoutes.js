@@ -47,7 +47,7 @@ async function verifyPropertyOwnership(propertyId, userId) {
   try {
     const { data, error } = await supabaseAdmin
       .from('listings')
-      .select('id, host_id')
+      .select('id, host_id, category')
       .eq('id', propertyId)
       .single();
 

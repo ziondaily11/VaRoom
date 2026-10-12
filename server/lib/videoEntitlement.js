@@ -44,7 +44,8 @@ async function canUploadPropertyVideo(supabaseAdmin, user, property, currentVide
   }
 
   // Step 2: Check premium requirement
-  if (VIDEO_PREMIUM_REQUIRED) {
+  const usesListingPublicationEntitlement = ['property', 'shop', 'office'].includes(property.category);
+  if (VIDEO_PREMIUM_REQUIRED && !usesListingPublicationEntitlement) {
     let entitlements;
     try {
       entitlements = await getHostEntitlements(supabaseAdmin, user.id);

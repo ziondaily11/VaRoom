@@ -51,14 +51,15 @@ test('all Discover feed branches require active moderation and available status'
 
 test('failed new-listing media upload exits before requesting activation', () => {
   const failedMediaStart = listingPage.indexOf("if (!editMode && selectedFiles.length > 0 && failedCount > 0)");
-  const activationMatch = /if \(listingPaymentVerified\s*\|\|/.exec(listingPage.slice(failedMediaStart));
+  const activationMatch = /if \(listingPaymentVerified\s*\|\|\s*\(!editMode/.exec(listingPage.slice(failedMediaStart));
   const activationStart = activationMatch ? failedMediaStart + activationMatch.index : -1;
   assert.ok(failedMediaStart >= 0 && activationStart > failedMediaStart);
 
   const failedMediaBranch = listingPage.slice(failedMediaStart, activationStart);
-  assert.match(failedMediaBranch, /Media upload failed, so the listing was not published/);
   assert.match(failedMediaBranch, /return;/);
   assert.doesNotMatch(failedMediaBranch, /\/status/);
+  assert.match(listingPage.slice(failedMediaStart, activationStart),
+    /Media upload failed, so the listing was not published/);
 });
 
 test('server activation keeps subscription limits and verified listing-payment entitlement checks', () => {

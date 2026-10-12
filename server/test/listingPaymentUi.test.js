@@ -37,10 +37,37 @@ test('one-time checkout verifies payment before requesting listing publication',
 
   assert.match(flow, /\/api\/billing\/listing-checkout/);
   assert.match(flow, /\/api\/billing\/payments\//);
-  assert.match(flow, /payment_draft: true/);
+  assert.match(listingPage, /payment_draft: true/);
   assert.doesNotMatch(flow, /uploadVideoToR2|storage\.from\('listing-photos'\)\.upload/);
   assert.match(flow, /paymentFlowInProgress \|\| publishInProgress/);
   assert.ok(verifyIndex >= 0 && publishIndex > verifyIndex, 'publication must follow server-confirmed payment');
+  assert.match(flow, /closedPopupAttempts/);
+  assert.doesNotMatch(flow, /if \(checkoutWindow\.closed\) break/);
+  assert.match(flow, /Payment is still being verified/);
+  assert.match(flow, /\['failed', 'abandoned', 'refunded'\]\.includes\(paymentStatus\)/);
+});
+
+test('listing video client matches server duration validation and uses the proxied completion route', () => {
+  assert.match(listingPage, /durationSeconds > 60\).*Videos must be 60 seconds or less/);
+  assert.match(listingPage, /\/api\/properties\/'\s*\+\s*encodeURIComponent\(listingId\)\s*\+\s*'\/videos\/'\s*\+\s*encodeURIComponent\(mediaId\)\s*\+\s*'\/complete/);
+  assert.match(listingPage, /body: JSON\.stringify\(\{ uploadId: initPayload\.uploadId \}\)/);
+});
+
+test('Go Pro saves the host-scoped listing and actual selected files before redirecting', () => {
+  const goProStart = listingPage.indexOf("document.getElementById('go-pro-btn').addEventListener");
+  const goProHandler = listingPage.slice(goProStart, listingPage.indexOf('</script>', goProStart));
+  assert.ok(goProHandler.indexOf('persistBeforeCheckout(session)') < goProHandler.indexOf("window.location.assign('/pricing?"));
+  assert.match(listingPage, /mediaFiles: selectedFiles\.slice\(\)/);
+  assert.match(listingPage, /policyFile: selectedPolicyFile/);
+  assert.match(listingPage, /await listingDraftCache\.load\(pointer\.cacheKey\)/);
+  assert.match(listingPage, /!Number\.isFinite\(snapshot\.createdAt\)/);
+  assert.match(listingPage, /preparedPaymentListingId = snapshot\.listingId \|\| pointer\.listingId/);
+  assert.match(listingPage, /method: existingSubmissionListingId \? 'PATCH' : 'POST'/);
+  assert.match(listingPage, /await listingDraftCache\.clearForHost\(currentUser\.id\)/);
+  assert.match(pricingPage, /pointer\.listingId/);
+  assert.match(pricingPage, /window\.location\.replace\('\/list\?subscription=return'\)/);
+  assert.match(pricingPage, /paymentReference && payment && payment\.status === 'succeeded'/);
+  assert.match(listingPage, /listingPaymentVerified \|\| hasActiveNichePlan \|\| preparedPaymentListingId/);
 });
 
 test('pricing callback verifies the returned reference and marks only the purchased active plan current', () => {
