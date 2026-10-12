@@ -156,7 +156,7 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
   return (
     <>
       <Head>
-        <title>VaRoom | Find your place. Real spaces across Kenya.</title>
+        <title>VaRoom | Spaces for the way you live. Real spaces across Kenya.</title>
         <meta
           name="description"
           content="Discover stays, spaces and experiences from real people across Kenya. GPS verified locations, trusted hosts, secure bookings."
@@ -185,6 +185,15 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
             width: 100%;
             max-width: 100vw;
             overflow-x: hidden;
+          }
+          .hero-section {
+            min-height: 100svh;
+            min-height: 100dvh;
+          }
+          @media (min-width: 1280px) and (min-height: 850px) {
+            .hero-animated-content {
+              padding-bottom: 80px !important;
+            }
           }
           @media (min-width: 640px) {
             html {
@@ -368,13 +377,8 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
           .hero-trust-bookings {
             animation: heroFadeUp 600ms cubic-bezier(0.22, 1, 0.36, 1) both;
           }
-          .hero-trust-divider {
-            animation: heroTrustFade 450ms ease both;
-          }
           .hero-trust-location { animation-delay: 540ms; }
-          .hero-trust-divider:nth-child(2) { animation-delay: 585ms; }
           .hero-trust-hosts { animation-delay: 630ms; }
-          .hero-trust-divider:nth-child(4) { animation-delay: 675ms; }
           .hero-trust-bookings { animation-delay: 720ms; }
           .places-listing-card {
             transition: translate 240ms ease-out;
@@ -556,60 +560,6 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
           .landing-page * {
             font-family: 'Source Serif 4', Georgia, serif !important;
           }
-          .landing-page .landing-cta {
-            background-image: linear-gradient(rgba(189, 35, 55, 0.2), rgba(189, 35, 55, 0.2));
-            background-repeat: no-repeat;
-            background-size: 0% 100%;
-            transition: background-size 300ms ease, box-shadow 300ms ease, transform 300ms ease;
-          }
-          .landing-page .landing-cta:hover,
-          .landing-page .landing-cta:focus-visible {
-            background-size: 100% 100%;
-            box-shadow: 0 7px 16px rgba(24, 21, 19, 0.14);
-            transform: translateY(-2px);
-          }
-          .landing-page .landing-cta:focus-visible {
-            outline: 2px solid #bd2337;
-            outline-offset: 3px;
-          }
-          .landing-page .landing-cta-secondary {
-            background-color: transparent;
-            background-image: linear-gradient(rgba(189, 35, 55, 0.2), rgba(189, 35, 55, 0.2));
-            background-position: left center;
-            background-repeat: no-repeat;
-            background-size: 0% 100%;
-            border: 1px solid rgba(45, 39, 36, 0.25);
-            box-shadow: none;
-            color: #2d2724;
-            transition: background-color 300ms ease, background-size 300ms ease, border-color 300ms ease, box-shadow 300ms ease, color 300ms ease, transform 300ms ease;
-          }
-          .landing-page .landing-cta-secondary:hover,
-          .landing-page .landing-cta-secondary:focus-visible {
-            background-color: var(--color-primary-hover) !important;
-            background-size: 100% 100% !important;
-            border-color: var(--color-primary-hover) !important;
-            box-shadow: 0 7px 16px rgba(24, 21, 19, 0.14) !important;
-            color: #faf8f5 !important;
-            transform: translateY(-2px) !important;
-          }
-          .landing-page .landing-cta-secondary:hover svg,
-          .landing-page .landing-cta-secondary:focus-visible svg {
-            color: #faf8f5 !important;
-          }
-          @media (prefers-reduced-motion: reduce) {
-            .landing-page .landing-cta {
-              transition: none !important;
-            }
-            .landing-page .landing-cta:hover,
-            .landing-page .landing-cta:focus-visible {
-              background-size: 100% 100%;
-              transform: none;
-            }
-            .landing-page .landing-cta-secondary {
-              transition: none !important;
-              transform: none !important;
-            }
-          }
         `}</style>
       </Head>
 
@@ -622,7 +572,7 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
         <div className="relative w-full">
           {/* Shared Nairobi Illustration Background pinned behind Page 1 and Page 2 */}
           <div
-            className="sticky top-0 h-screen w-full -mb-[100vh] pointer-events-none select-none overflow-hidden z-0"
+            className="sticky top-0 h-[100dvh] w-full -mb-[100dvh] pointer-events-none select-none overflow-hidden z-0"
             aria-hidden="true"
           >
             <picture className="absolute inset-0 block">
@@ -640,7 +590,7 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
               className={`absolute inset-0 pointer-events-none ${
                 isAuthOpen
                   ? 'bg-gradient-to-b from-black/10 via-transparent to-black/20'
-                  : 'bg-gradient-to-b from-[#efe8de]/40 via-[#f7f3ec]/65 to-[#f7f3ec]/95'
+                  : 'bg-[linear-gradient(to_top_right,rgba(8,9,9,0.62)_0%,rgba(8,9,9,0.32)_32%,rgba(8,9,9,0.12)_57%,rgba(247,243,236,0.24)_100%)]'
               }`}
             />
           </div>

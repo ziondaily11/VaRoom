@@ -356,7 +356,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, initialVi
               <button
                 type="submit"
                 disabled={isLoading}
-                className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-white/10 bg-[#111111] px-4 py-3 text-sm font-semibold text-[#f7f3ee] transition-colors duration-200 hover:bg-[#292827] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/70 disabled:cursor-not-allowed disabled:opacity-80"
+                className="va-button va-button-primary mt-2 flex w-full items-center justify-center gap-2 px-4 text-sm font-semibold disabled:cursor-not-allowed"
               >
                 {isLoading ? (
                   <>
@@ -378,7 +378,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, initialVi
             <button
               type="button"
               onClick={handleGoogleSignIn}
-              className="flex w-full items-center justify-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-[#f6f0ea] transition hover:bg-white/10"
+              className="flex w-full items-center justify-center gap-3 rounded border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-[#f6f0ea] transition hover:bg-white/10"
             >
               <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
                 <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>

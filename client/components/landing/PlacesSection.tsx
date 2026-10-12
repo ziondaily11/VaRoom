@@ -293,7 +293,7 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ listings }) => {
         <div className="places-marketplace-cta mt-5 sm:mt-6 text-center">
           <Link
             href="/marketplace"
-            className="landing-cta inline-flex items-center gap-2 px-5 py-2 sm:px-6 sm:py-2.5 rounded-full bg-[#181513] text-[#faf8f5] font-medium text-xs sm:text-sm shadow-xs no-underline"
+            className="landing-cta landing-cta-compact inline-flex items-center gap-2 px-5 sm:px-6 text-[13px] sm:text-sm font-semibold no-underline"
             style={{ textDecoration: 'none' }}
           >
             <span>Explore all stays & spaces across Kenya</span>

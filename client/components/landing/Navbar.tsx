@@ -66,12 +66,12 @@ export const Navbar: React.FC<NavbarProps> = ({ isAuthOpen, onOpenAuth, onCloseA
       </nav>
 
       {/* Right Desktop Actions - Fully visible with generous right spacing, shrink-0 */}
-      <div className="hero-header-actions hidden md:flex items-center gap-3 sm:gap-4 shrink-0">
+      <div className="hero-header-actions hidden md:flex items-center gap-3 shrink-0">
         {isAuthOpen ? (
           <button
             type="button"
             onClick={onCloseAuth}
-            className="landing-cta text-sm font-medium text-[#2d2724] px-4 py-2 rounded-full border border-[#2d2724]/20 no-underline whitespace-nowrap bg-white/40 backdrop-blur-sm"
+            className="landing-cta-secondary text-sm font-medium px-5 no-underline whitespace-nowrap"
             aria-label="Close sign in"
           >
             Close
@@ -80,7 +80,7 @@ export const Navbar: React.FC<NavbarProps> = ({ isAuthOpen, onOpenAuth, onCloseA
           <button
             type="button"
             onClick={onOpenAuth}
-            className="landing-cta-secondary text-sm font-medium px-4 py-2 rounded-full border no-underline whitespace-nowrap"
+            className="landing-cta-secondary text-sm font-medium px-5 no-underline whitespace-nowrap"
           >
             Sign in
           </button>
@@ -88,7 +88,7 @@ export const Navbar: React.FC<NavbarProps> = ({ isAuthOpen, onOpenAuth, onCloseA
         <button
           type="button"
           onClick={onOpenSignup}
-          className="landing-cta landing-cta-primary text-sm font-medium bg-[#181513] text-[#faf8f5] px-5 py-2.5 rounded-full shadow-sm flex items-center gap-1.5 whitespace-nowrap shrink-0"
+          className="landing-cta landing-cta-primary text-sm font-semibold px-5 flex items-center gap-1.5 whitespace-nowrap shrink-0"
         >
           <span>Get started</span>
         </button>
@@ -99,7 +99,7 @@ export const Navbar: React.FC<NavbarProps> = ({ isAuthOpen, onOpenAuth, onCloseA
         <button
           type="button"
           onClick={onOpenSignup}
-          className="landing-cta landing-cta-primary text-xs font-medium bg-[#181513] text-[#faf8f5] px-3.5 py-2 rounded-full whitespace-nowrap"
+          className="landing-cta landing-cta-primary landing-cta-compact text-sm font-semibold px-4 whitespace-nowrap"
         >
           Get started
         </button>
@@ -163,7 +163,7 @@ export const Navbar: React.FC<NavbarProps> = ({ isAuthOpen, onOpenAuth, onCloseA
                   setMobileMenuOpen(false);
                   onCloseAuth();
                 }}
-                className="landing-cta text-center text-sm font-medium text-[#181513] py-2.5 rounded-full border border-[#2d2724]/20 no-underline bg-white/40"
+                className="landing-cta-secondary w-full justify-center text-center text-sm font-medium px-4 no-underline"
               >
                 Close
               </button>
@@ -174,7 +174,7 @@ export const Navbar: React.FC<NavbarProps> = ({ isAuthOpen, onOpenAuth, onCloseA
                   setMobileMenuOpen(false);
                   onOpenAuth();
                 }}
-                className="landing-cta-secondary text-center text-sm font-medium py-2.5 rounded-full border no-underline"
+                className="landing-cta-secondary w-full justify-center text-center text-sm font-medium px-4 no-underline"
               >
                 Sign in
               </button>
@@ -185,7 +185,7 @@ export const Navbar: React.FC<NavbarProps> = ({ isAuthOpen, onOpenAuth, onCloseA
                 setMobileMenuOpen(false);
                 onOpenSignup();
               }}
-              className="landing-cta landing-cta-primary text-center text-sm font-medium bg-[#181513] text-[#faf8f5] py-2.5 rounded-full"
+              className="landing-cta landing-cta-primary w-full justify-center text-center text-sm font-semibold px-4"
             >
               Get started
             </button>
