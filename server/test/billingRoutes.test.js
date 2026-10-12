@@ -2,7 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { normalizeRequestedPlan, authenticatedHost } = require('../routes/billingRoutes');
+const { normalizeRequestedPlan, authenticatedHost, resolvePaymentCallbackOrigin, buildPaymentCallbackUrl } = require('../routes/billingRoutes');
 const { ValidationError } = require('../lib/inputValidation');
 
 test('checkout accepts only canonical VaRoom plan identifiers, never a browser price', () => {
@@ -32,4 +32,28 @@ test('unauthenticated and client callers cannot begin host checkout', async () =
 test('a verified host is eligible to use the host-only billing route', async () => {
   const result = await authenticatedHost({ headers: { authorization: 'Bearer valid' } }, fakeSupabase({ user: { id: 'host-id', email: 'a@example.test' }, role: 'host' }));
   assert.equal(result.user.id, 'host-id');
+});
+
+test('production Paystack callbacks use the configured HTTPS public origin and preserve return parameters', () => {
+  const origin = resolvePaymentCallbackOrigin('https://varoom.co.ke', { nodeEnv: 'production' });
+  assert.equal(
+    buildPaymentCallbackUrl(origin, '/pricing', { billing: 'return', returnTo: 'list', plan: 'property_basic', trxref: 'varoom_reference' }),
+    'https://varoom.co.ke/pricing?billing=return&returnTo=list&plan=property_basic&trxref=varoom_reference'
+  );
+  assert.equal(
+    buildPaymentCallbackUrl(origin, '/list', { payment: 'return', reference: 'varoom_reference' }),
+    'https://varoom.co.ke/list?payment=return&reference=varoom_reference'
+  );
+});
+
+test('local payment callbacks continue to use the local configured origin', () => {
+  const origin = resolvePaymentCallbackOrigin('http://localhost:3000', { nodeEnv: 'development' });
+  assert.equal(
+    buildPaymentCallbackUrl(origin, '/pricing', { billing: 'return', returnTo: 'list', plan: 'property_basic' }),
+    'http://localhost:3000/pricing?billing=return&returnTo=list&plan=property_basic'
+  );
+  assert.throws(
+    () => resolvePaymentCallbackOrigin('http://localhost:3000', { nodeEnv: 'production' }),
+    /must use HTTPS in production/
+  );
 });

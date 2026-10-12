@@ -5,7 +5,7 @@ const supabaseDefault = require('../lib/supabaseClient');
 const { createPaystackClient } = require('../lib/paystackClient');
 const { getCurrentSubscription, getHostEntitlements } = require('../lib/billingEntitlement');
 const { applyVerifiedTransaction, cancelReplacedSubscription } = require('../lib/billingService');
-const { ValidationError, assertAllowedKeys, text } = require('../lib/inputValidation');
+const { ValidationError, assertAllowedKeys, text, uuid } = require('../lib/inputValidation');
 
 const VALID_PLAN_IDS = new Set(['basic', 'growth', 'pro', 'property_basic', 'property_pro', 'property_premium', 'shops_basic', 'shops_pro', 'shops_premium']);
 
@@ -13,6 +13,35 @@ function normalizeRequestedPlan(value) {
   const planId = text(value, 'plan', { max: 20 });
   if (!VALID_PLAN_IDS.has(planId)) throw new ValidationError('Unknown plan');
   return planId;
+}
+
+function resolvePaymentCallbackOrigin(baseUrl, { nodeEnv = process.env.NODE_ENV, port = process.env.PORT || 3000 } = {}) {
+  const configuredBaseUrl = baseUrl || (nodeEnv === 'production' ? null : `http://localhost:${port}`);
+  if (!configuredBaseUrl) {
+    throw new Error('PUBLIC_BASE_URL must be configured in production for Paystack callbacks');
+  }
+
+  let parsed;
+  try { parsed = new URL(configuredBaseUrl); }
+  catch { throw new Error('PUBLIC_BASE_URL must be a valid absolute URL'); }
+  if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password || parsed.pathname !== '/' || parsed.search || parsed.hash) {
+    throw new Error('PUBLIC_BASE_URL must be an absolute origin without a path, query, or credentials');
+  }
+  if (nodeEnv === 'production' && parsed.protocol !== 'https:') {
+    throw new Error('PUBLIC_BASE_URL must use HTTPS in production');
+  }
+  if (nodeEnv === 'production' && ['localhost', '127.0.0.1', '::1'].includes(parsed.hostname)) {
+    throw new Error('PUBLIC_BASE_URL cannot point to localhost in production');
+  }
+  return parsed.origin;
+}
+
+function buildPaymentCallbackUrl(origin, pathname, parameters) {
+  const callbackUrl = new URL(pathname, origin);
+  for (const [key, value] of Object.entries(parameters)) {
+    if (value !== undefined && value !== null && value !== '') callbackUrl.searchParams.set(key, String(value));
+  }
+  return callbackUrl.toString();
 }
 
 async function authenticatedHost(req, supabaseAdmin) {
@@ -26,8 +55,9 @@ async function authenticatedHost(req, supabaseAdmin) {
   return { user };
 }
 
-function createBillingRoutes({ supabaseAdmin = supabaseDefault, paystack = createPaystackClient(), baseUrl = process.env.PUBLIC_BASE_URL || process.env.CLIENT_BASE_URL } = {}) {
+function createBillingRoutes({ supabaseAdmin = supabaseDefault, paystack = createPaystackClient(), baseUrl = process.env.PUBLIC_BASE_URL || process.env.CLIENT_BASE_URL, nodeEnv = process.env.NODE_ENV, port = process.env.PORT || 3000 } = {}) {
   const router = express.Router();
+  const callbackOrigin = resolvePaymentCallbackOrigin(baseUrl, { nodeEnv, port });
   const requireHost = async (req, res) => {
     const result = await authenticatedHost(req, supabaseAdmin);
     if (result.error) { res.status(result.error[0]).json({ error: result.error[1] }); return null; }
@@ -119,7 +149,10 @@ function createBillingRoutes({ supabaseAdmin = supabaseDefault, paystack = creat
       };
     }
     const reference = paystack.generateReference();
-    const callbackUrl = baseUrl ? `${baseUrl.replace(/\/$/, '')}/pricing?billing=return${req.body.return_to === 'list' ? '&returnTo=list&plan=' + encodeURIComponent(plan.id) : ''}` : undefined;
+    const callbackUrl = buildPaymentCallbackUrl(callbackOrigin, '/pricing', {
+      billing: 'return',
+      ...(req.body.return_to === 'list' ? { returnTo: 'list', plan: plan.id } : {}),
+    });
     let initialized;
     try {
       initialized = await paystack.initializeTransaction({ email: user.email, amount: plan.monthly_amount_minor, currency: plan.currency, plan: paystackPlanCode, reference, callback_url: callbackUrl, metadata: { host_id: user.id, plan_id: plan.id, niche, billing_interval: plan.billing_interval, ...(pendingListing ? { listing_id: pendingListing.id } : {}), varoom_billing: true } });
@@ -163,7 +196,7 @@ function createBillingRoutes({ supabaseAdmin = supabaseDefault, paystack = creat
     let initialized;
     try {
       initialized = await paystack.initializeTransaction({ email: user.email, amount: 100000, currency: 'KES', reference,
-        callback_url: baseUrl ? `${baseUrl.replace(/\/$/, '')}/list?payment=return&reference=${encodeURIComponent(reference)}` : undefined,
+        callback_url: buildPaymentCallbackUrl(callbackOrigin, '/list', { payment: 'return', reference }),
         metadata: { host_id: user.id, listing_id: listing.id, niche: listing.category === 'property' ? 'property' : 'shops_offices', billing_interval: 'one_time', payment_kind: 'listing', varoom_billing: true } });
     } catch (error) { return res.status(503).json({ error: error.message || 'Unable to initialize checkout' }); }
     const payment = { host_id: user.id, listing_id: listing.id, payment_kind: 'listing', niche: listing.category === 'property' ? 'property' : 'shops_offices', billing_interval: 'one_time', plan_id: null, subscription_id: null,
@@ -203,4 +236,4 @@ function createBillingRoutes({ supabaseAdmin = supabaseDefault, paystack = creat
   });
   return router;
 }
-module.exports = { createBillingRoutes, authenticatedHost, VALID_PLAN_IDS, normalizeRequestedPlan };
+module.exports = { createBillingRoutes, authenticatedHost, VALID_PLAN_IDS, normalizeRequestedPlan, resolvePaymentCallbackOrigin, buildPaymentCallbackUrl };
