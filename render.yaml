@@ -1,0 +1,14 @@
+services:
+  - type: cron
+    name: varoom-property-news-hourly-scheduler
+    runtime: python
+    plan: starter
+    schedule: "0 * * * *"
+    rootDir: property-news
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m app.hourly_scheduler
+    envVars:
+      - key: PROPERTY_NEWS_SERVICE_URL
+        value: https://property-news-pnsj.onrender.com
+      - key: NEWS_SCHEDULER_SECRET
+        sync: false
