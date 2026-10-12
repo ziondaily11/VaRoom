@@ -645,6 +645,36 @@ subscription code and checked against the configured plan amount and currency.
 The one-time listing charge is KSh 1,000 and uses transaction initialization
 and server-side verification; it does not require a Paystack subscription plan.
 
+### Deployed Paystack callback origin
+
+On the deployed VaRoom server, set these environment variables and restart the
+service:
+
+```dotenv
+NODE_ENV=production
+PUBLIC_BASE_URL=https://varoom.co.ke
+CLIENT_BASE_URL=https://varoom.co.ke
+```
+
+`PUBLIC_BASE_URL` is used first for both subscription and one-time listing
+checkout callbacks. The transaction initialization payload supplies
+`https://varoom.co.ke/pricing?billing=return...` for subscriptions and
+`https://varoom.co.ke/list?payment=return...` for the KSh 1,000 listing fee.
+Paystack appends its transaction parameters, while VaRoom continues to verify
+the transaction on the server before activating a subscription or listing.
+
+For local development, keep both values as `http://localhost:3000`. Do not put
+localhost in the deployed environment. Production startup rejects a missing,
+non-HTTPS, or localhost `PUBLIC_BASE_URL`.
+
+In the **Paystack Test** dashboard, set the webhook URL to
+`https://varoom.co.ke/api/billing/paystack/webhook` and enable
+`charge.success`, `invoice.payment_failed`, `subscription.not_renew`, and
+`subscription.disable`. If a dashboard callback URL is configured as a
+fallback, set it to `https://varoom.co.ke`; the per-transaction callback URL
+sent by VaRoom remains authoritative. Keep `PAYSTACK_MODE=test` with the
+existing `sk_test_`/`pk_test_` credentials and test plan codes.
+
 Apply migrations `20261010_000035_property_shops_monetization.sql` and
 `20261011_000036_listing_entitlement_activation.sql` before deploying the
 server. Test credentials and plan codes are not included in source control.
