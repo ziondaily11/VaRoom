@@ -6,6 +6,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const listingPage = fs.readFileSync(path.join(__dirname, '..', '..', 'client', 'legacy-pages', 'list.html'), 'utf8');
+const pricingPage = fs.readFileSync(path.join(__dirname, '..', '..', 'client', 'legacy-pages', 'pricing.html'), 'utf8');
+const listingEntitlementMigration = fs.readFileSync(path.join(__dirname, '..', 'migrations', '20261011_000036_listing_entitlement_activation.sql'), 'utf8');
 
 test('review payment actions are non-submit buttons with independent handlers', () => {
   assert.match(listingPage, /\.submit-row \[hidden\]\{ display:none !important; \}/);
@@ -39,4 +41,29 @@ test('one-time checkout verifies payment before requesting listing publication',
   assert.doesNotMatch(flow, /uploadVideoToR2|storage\.from\('listing-photos'\)\.upload/);
   assert.match(flow, /paymentFlowInProgress \|\| publishInProgress/);
   assert.ok(verifyIndex >= 0 && publishIndex > verifyIndex, 'publication must follow server-confirmed payment');
+});
+
+test('pricing callback verifies the returned reference and marks only the purchased active plan current', () => {
+  assert.match(pricingPage, /returnParams\.get\('reference'\) \|\| returnParams\.get\('trxref'\)/);
+  assert.ok(pricingPage.includes("fetch('/api/billing/payments/' + encodeURIComponent(paymentReference)"));
+  assert.match(pricingPage, /payment\.status === 'succeeded'/);
+  assert.match(pricingPage, /entitlements\.active && subscription && subscription\.status === 'active'/);
+  assert.match(pricingPage, /subscription\.plan_id === payment\.plan_id/);
+  assert.match(pricingPage, /currentPlanButton\.textContent = 'Current Plan'/);
+});
+
+test('review publication requires an active matching entitlement and preserves pay and upgrade actions otherwise', () => {
+  assert.match(listingPage, /entitlement\.subscription\.status === 'active'/);
+  assert.match(listingPage, /entitlement\.subscription\.niche === expectedNiche/);
+  assert.match(listingPage, /listingAllowance && listingAllowance\.allowed/);
+  assert.match(listingPage, /if \(!entitlementResponse\.ok\) throw new Error\('Unable to confirm your listing allowance'\)/);
+  assert.match(listingPage, /else if \(needsListingPayment\)[\s\S]*Unable to confirm your listing allowance/);
+  assert.match(listingPage, /document\.getElementById\('pay-to-list-btn'\)\.hidden = false/);
+  assert.match(listingPage, /document\.getElementById\('go-pro-btn'\)\.hidden = false/);
+  assert.match(listingPage, /document\.getElementById\('submit-btn'\)\.hidden = false/);
+  assert.match(listingPage, /id="submit-btn">Publish Listing/);
+  assert.match(listingPage, /window\.location\.assign\('\/pricing\?/);
+  assert.match(listingPage, /\/api\/billing\/listing-checkout/);
+  assert.match(listingEntitlementMigration, /hs\.status = 'active'/);
+  assert.match(listingEntitlementMigration, /if v_active_count >= v_limit then/);
 });

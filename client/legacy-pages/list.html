@@ -869,7 +869,7 @@
           <div class="submit-row">
             <button type="button" class="pay-to-list-btn" id="pay-to-list-btn" hidden>Pay KSh 1,000</button>
             <button type="button" class="submit-btn" id="go-pro-btn" hidden>Go Pro</button>
-            <button type="submit" class="submit-btn" id="submit-btn">Publish listing <span>✓</span></button>
+            <button type="submit" class="submit-btn" id="submit-btn">Publish Listing <span>✓</span></button>
             <p class="form-note" id="listing-entitlement-note" hidden></p>
             <p class="form-note">Goes live once saved, subject to GPS location verification.</p>
           </div>
@@ -1103,13 +1103,19 @@
     if (['property', 'office', 'shop'].includes(hostNiche)) {
       try {
         const entitlementResponse = await fetch('/api/billing/entitlements', { headers: { Authorization: 'Bearer ' + session.access_token } });
+        if (!entitlementResponse.ok) throw new Error('Unable to confirm your listing allowance');
         const entitlementResult = await entitlementResponse.json().catch(function(){ return {}; });
         const entitlement = entitlementResult.entitlements;
+        if (!entitlement || typeof entitlement.active !== 'boolean' || !entitlement.canCreateAnotherListing) {
+          throw new Error('Unable to confirm your listing allowance');
+        }
         const expectedNiche = hostNiche === 'property' ? 'property' : 'shops_offices';
         const listingAllowance = entitlement && entitlement.canCreateAnotherListing;
-        hasActiveNichePlan = Boolean(entitlementResponse.ok && entitlement && entitlement.active && entitlement.subscription
-          && entitlement.subscription.niche === expectedNiche && listingAllowance && listingAllowance.allowed);
-      } catch (_) {} finally { nicheEntitlementChecked = true; }
+        hasActiveNichePlan = Boolean(entitlement && entitlement.active && entitlement.subscription
+          && entitlement.subscription.status === 'active' && entitlement.subscription.niche === expectedNiche
+          && listingAllowance && listingAllowance.allowed);
+        nicheEntitlementChecked = true;
+      } catch (_) {}
     }
 
     configureCategory(hostNiche);

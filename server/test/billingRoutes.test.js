@@ -2,7 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { normalizeRequestedPlan, authenticatedHost, resolvePaymentCallbackOrigin, buildPaymentCallbackUrl } = require('../routes/billingRoutes');
+const { createBillingRoutes, normalizeRequestedPlan, authenticatedHost, resolvePaymentCallbackOrigin, buildPaymentCallbackUrl } = require('../routes/billingRoutes');
 const { ValidationError } = require('../lib/inputValidation');
 
 test('checkout accepts only canonical VaRoom plan identifiers, never a browser price', () => {
@@ -37,8 +37,8 @@ test('a verified host is eligible to use the host-only billing route', async () 
 test('production Paystack callbacks use the configured HTTPS public origin and preserve return parameters', () => {
   const origin = resolvePaymentCallbackOrigin('https://varoom.co.ke', { nodeEnv: 'production' });
   assert.equal(
-    buildPaymentCallbackUrl(origin, '/pricing', { billing: 'return', returnTo: 'list', plan: 'property_basic', trxref: 'varoom_reference' }),
-    'https://varoom.co.ke/pricing?billing=return&returnTo=list&plan=property_basic&trxref=varoom_reference'
+    buildPaymentCallbackUrl(origin, '/pricing', { billing: 'return', reference: 'varoom_reference', plan: 'property_basic', returnTo: 'list', trxref: 'varoom_reference' }),
+    'https://varoom.co.ke/pricing?billing=return&reference=varoom_reference&plan=property_basic&returnTo=list&trxref=varoom_reference'
   );
   assert.equal(
     buildPaymentCallbackUrl(origin, '/list', { payment: 'return', reference: 'varoom_reference' }),
@@ -56,4 +56,60 @@ test('local payment callbacks continue to use the local configured origin', () =
     () => resolvePaymentCallbackOrigin('http://localhost:3000', { nodeEnv: 'production' }),
     /must use HTTPS in production/
   );
+});
+
+test('subscription checkout callback includes its generated payment reference and selected plan', async () => {
+  let initialized;
+  const plan = {
+    id: 'property_basic', active: true, niche: 'property', monthly_amount_minor: 300000,
+    currency: 'KES', billing_interval: 'monthly', paystack_plan_code: 'PLN_TEST',
+  };
+  const supabase = {
+    auth: { getUser: async () => ({ data: { user: { id: 'host-1', email: 'host@example.test' } }, error: null }) },
+    from(table) {
+      const query = {
+        select() { return query; }, eq() { return query; }, in() { return query; },
+        insert(value) { query.inserted = value; return query; },
+        maybeSingle: async () => ({
+          data: table === 'profiles' && query.selected === 'role' ? { role: 'host' }
+            : table === 'profiles' ? { listing_categories: ['property'] }
+              : table === 'billing_plans' ? plan : null,
+          error: null,
+        }),
+        single: async () => ({ data: { id: 'sub-1' }, error: null }),
+      };
+      query.select = (columns) => { query.selected = columns; return query; };
+      return query;
+    },
+  };
+  const router = createBillingRoutes({
+    supabaseAdmin: supabase,
+    baseUrl: 'https://varoom.co.ke',
+    nodeEnv: 'production',
+    paystack: {
+      generateReference: () => 'checkout-reference',
+      initializeTransaction: async (payload) => {
+        initialized = payload;
+        return { authorization_url: 'https://checkout.paystack.test/' };
+      },
+    },
+  });
+  const checkoutRoute = router.stack.find((layer) => layer.route && layer.route.path === '/billing/checkout');
+  let responseCode;
+  let responseBody;
+  const response = {
+    status(code) { responseCode = code; return this; },
+    json(body) { responseBody = body; return this; },
+  };
+
+  await checkoutRoute.route.stack[0].handle({
+    headers: { authorization: 'Bearer host-token' },
+    body: { plan: 'property_basic' },
+  }, response);
+
+  const callback = new URL(initialized.callback_url);
+  assert.equal(responseCode, 201);
+  assert.equal(responseBody.reference, 'checkout-reference');
+  assert.equal(callback.searchParams.get('reference'), responseBody.reference);
+  assert.equal(callback.searchParams.get('plan'), 'property_basic');
 });
