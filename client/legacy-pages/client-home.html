@@ -1734,7 +1734,7 @@
       );
     }
 
-    const FEED_SELECT = 'id,title,description,location_text,category,verified,created_at,host_id,host:profiles!listings_host_id_fkey(full_name,verified,avatar_url,username),listing_photos(storage_path)';
+    const FEED_SELECT = 'id,title,description,location_text,category,verified,availability_status,created_at,host_id,host:profiles!listings_host_id_fkey(full_name,verified,avatar_url,username),listing_photos(storage_path)';
 
     async function startChat(listingId, hostId){
       const { data, error } = await supabaseClient
@@ -2164,6 +2164,8 @@
         .from('listings')
         .select('id,title,location_text,category,listing_photos(storage_path)')
         .eq('is_promoted', true)
+        .eq('moderation_status', 'active')
+        .eq('availability_status', 'available')
         .order('created_at', { ascending:false })
         .limit(6);
 
@@ -2236,6 +2238,7 @@
 
       function withCategory(query){
         query = query.eq('moderation_status', 'active');
+        query = query.eq('availability_status', 'available');
         if (category !== 'all') return query.eq('category', category);
         if (view === 'home' && interests.length > 0) return query.in('category', interests);
         return query;
@@ -2578,6 +2581,8 @@
         .from('listings')
         .select(FEED_SELECT)
         .in('id', Array.from(bookmarkedIds))
+        .eq('moderation_status', 'active')
+        .eq('availability_status', 'available')
         .then(function(res){
           if (!res.data || res.data.length === 0) {
             feedList.innerHTML = '<p class="state-msg">Nothing saved yet — tap the bookmark icon on a listing to save it here.</p>';

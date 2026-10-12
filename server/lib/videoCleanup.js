@@ -118,7 +118,7 @@ async function cleanupStuckMediaRecords() {
   try {
     const { data: records, error } = await supabaseAdmin
       .from('property_media')
-      .select('id, status, created_at')
+      .select('id, status, updated_at')
       .in('status', stuckStates);
 
     if (error) {
@@ -130,17 +130,23 @@ async function cleanupStuckMediaRecords() {
     let count = 0;
 
     for (const record of records || []) {
-      const createdAt = new Date(record.created_at).getTime();
-      if (now - createdAt > graceMs) {
+      const updatedAt = new Date(record.updated_at).getTime();
+      if (now - updatedAt > graceMs) {
         if (!DRY_RUN) {
-          const { error: updateError } = await supabaseAdmin
+          const { data: failedRecord, error: updateError } = await supabaseAdmin
             .from('property_media')
             .update({ status: 'failed' })
-            .eq('id', record.id);
+            .eq('id', record.id)
+            .eq('status', record.status)
+            .lte('updated_at', new Date(now - graceMs).toISOString())
+            .select('id')
+            .maybeSingle();
 
           if (!updateError) {
-            console.log(`Marked stuck record as failed: ${record.id} (state: ${record.status})`);
-            count++;
+            if (failedRecord) {
+              console.log(`Marked stuck record as failed: ${record.id} (state: ${record.status})`);
+              count++;
+            }
           } else {
             console.error(`Failed to update record ${record.id}:`, updateError);
           }

@@ -459,11 +459,23 @@ router.delete('/listings/:id', async (req, res) => {
       .eq('property_id', req.params.id),
   ]);
 
+  const { error: mediaDeleteError } = await supabaseAdmin.from('property_media')
+    .delete().eq('property_id', req.params.id);
+  if (mediaDeleteError) {
+    if (mediaDeleteError.code === '55000') {
+      return res.status(409).json({
+        error: 'A video is being finalized. Please try deleting this listing again shortly.',
+        code: 'MEDIA_FINALIZATION_IN_PROGRESS',
+      });
+    }
+    console.error('Listing media deletion failed:', mediaDeleteError);
+    return res.status(500).json({ error: 'Unable to delete listing media' });
+  }
+
   await supabaseAdmin.from('availability').delete().eq('listing_id', req.params.id);
   await supabaseAdmin.from('bookmarks').delete().eq('listing_id', req.params.id);
   await supabaseAdmin.from('reviews').delete().eq('listing_id', req.params.id);
   await supabaseAdmin.from('listing_photos').delete().eq('listing_id', req.params.id);
-  await supabaseAdmin.from('property_media').delete().eq('property_id', req.params.id);
   await supabaseAdmin.from('listing_booking_details').delete().eq('listing_id', req.params.id);
 
   const { data: deletedListing, error } = await supabaseAdmin.from('listings')
