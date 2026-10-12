@@ -66,6 +66,20 @@ async function verifyPropertyOwnership(propertyId, userId) {
   }
 }
 
+function processingMediaQuery({ propertyId, mediaId, uploadId, hostId }) {
+  return supabaseAdmin.from('property_media')
+    .update({ status: 'failed' })
+    .eq('id', mediaId)
+    .eq('property_id', propertyId)
+    .eq('host_id', hostId)
+    .eq('upload_id', uploadId)
+    .eq('media_type', 'video')
+    .eq('status', 'processing')
+    .is('deleted_at', null)
+    .select('id')
+    .maybeSingle();
+}
+
 /**
  * POST /api/properties/:propertyId/videos/upload-init
  *
@@ -294,31 +308,90 @@ router.post('/properties/:propertyId/videos/:mediaId/complete', async (req, res)
     if (fetchError || !mediaRecord) {
       return res.status(404).json({ error: 'Media record not found' });
     }
+    if (mediaRecord.media_type !== 'video') {
+      return res.status(409).json({ error: 'This media record is not a video upload.' });
+    }
     if (mediaRecord.status === 'failed' || mediaRecord.status === 'deleted') {
       return res.status(409).json({ error: 'This video upload is no longer active.' });
     }
 
     // Step 4: Verify uploadId matches (idempotency check)
-    if (uploadId && mediaRecord.upload_id !== uploadId) {
+    if (mediaRecord.upload_id !== uploadId) {
       return res.status(400).json({ error: 'Upload ID mismatch' });
     }
 
-    // Step 5: Verify the R2 object exists
-    const objectMetadata = await mediaStorageService.getR2ObjectMetadata(mediaRecord.storage_key);
-    if (!objectMetadata.exists) {
-      // Object doesn't exist in R2 — this is an orphaned/failed upload
-      // Mark as failed so cleanup can handle it
-      await supabaseAdmin
-        .from('property_media')
-        .update({ status: 'failed' })
-        .eq('id', mediaId);
+    if (mediaRecord.status === 'ready') {
+      return res.status(200).json({
+        success: true,
+        status: 'ready',
+        media: mediaRecord,
+      });
+    }
 
+    if (!['pending', 'uploading'].includes(mediaRecord.status)) {
+      return res.status(409).json({ error: 'This video upload is already being finalized or is no longer active.' });
+    }
+
+    // Claim the transition before external storage or media work. The RPC
+    // also takes a short-lived lock on the listing so listing deletion cannot
+    // race the claim; no lock is held while R2 or ffmpeg work runs.
+    const { data: claimedRecords, error: claimError } = await supabaseAdmin.rpc(
+      'claim_property_video_finalization',
+      {
+        p_property_id: propertyId,
+        p_media_id: mediaId,
+        p_host_id: user.id,
+        p_upload_id: uploadId,
+      }
+    );
+    if (claimError) {
+      console.error('Error claiming media record for finalization:', claimError);
+      return res.status(500).json({ error: 'Unable to claim upload for finalization' });
+    }
+    const claimedRecord = Array.isArray(claimedRecords) ? claimedRecords[0] : null;
+    if (!claimedRecord) {
+      const { data: currentRecord, error: currentRecordError } = await supabaseAdmin
+        .from('property_media')
+        .select('*')
+        .eq('id', mediaId)
+        .eq('property_id', propertyId)
+        .eq('host_id', user.id)
+        .eq('upload_id', uploadId)
+        .maybeSingle();
+      if (currentRecordError) {
+        console.error('Error checking media finalization state:', currentRecordError);
+        return res.status(500).json({ error: 'Unable to verify upload finalization state' });
+      }
+      if (currentRecord && currentRecord.status === 'ready') {
+        return res.status(200).json({ success: true, status: 'ready', media: currentRecord });
+      }
+      return res.status(409).json({ error: 'This video upload changed state and cannot be finalized.' });
+    }
+
+    // Step 5: Verify the R2 object exists
+    const objectMetadata = await mediaStorageService.getR2ObjectMetadata(claimedRecord.storage_key);
+    if (!objectMetadata.exists) {
+      const { data: failedRecord, error: failError } = await processingMediaQuery({
+        propertyId, mediaId, uploadId, hostId: user.id,
+      });
+      if (failError) {
+        console.error('Error marking missing video as failed:', failError);
+        return res.status(500).json({ error: 'Unable to mark the failed upload' });
+      }
+      if (!failedRecord) return res.status(409).json({ error: 'This video upload changed state before finalization.' });
       return res.status(400).json({
         error: 'Video file not found in storage. Please try uploading again.',
       });
     }
     if (objectMetadata.contentLength > videoEntitlement.VIDEO_MAX_FILE_SIZE_MB * 1024 * 1024) {
-      await supabaseAdmin.from('property_media').update({ status: 'failed' }).eq('id', mediaId);
+      const { data: failedRecord, error: failError } = await processingMediaQuery({
+        propertyId, mediaId, uploadId, hostId: user.id,
+      });
+      if (failError) {
+        console.error('Error marking over-limit video as failed:', failError);
+        return res.status(500).json({ error: 'Unable to mark the failed upload' });
+      }
+      if (!failedRecord) return res.status(409).json({ error: 'This video upload changed state before finalization.' });
       return res.status(400).json({
         error: `Video must be ${videoEntitlement.VIDEO_MAX_FILE_SIZE_MB} MB or smaller.`,
       });
@@ -327,30 +400,41 @@ router.post('/properties/:propertyId/videos/:mediaId/complete', async (req, res)
     let optimization = null;
     try {
       optimization = await mediaOptimizationService.optimizeStoredMediaObject(
-        mediaRecord.storage_key,
-        mediaRecord.mime_type || objectMetadata.contentType || 'video/mp4',
-        mediaRecord.original_filename || 'video'
+        claimedRecord.storage_key,
+        claimedRecord.mime_type || objectMetadata.contentType || 'video/mp4',
+        claimedRecord.original_filename || 'video'
       );
     } catch (optimizationError) {
       console.error('Video optimization failed:', optimizationError);
-      await supabaseAdmin.from('property_media').update({ status: 'failed' }).eq('id', mediaId);
+      const { data: failedRecord, error: failError } = await processingMediaQuery({
+        propertyId, mediaId, uploadId, hostId: user.id,
+      });
+      if (failError) console.error('Error marking failed optimization as failed:', failError);
+      if (!failedRecord) return res.status(failError ? 500 : 409).json({ error: 'Uploaded video could not be finalized.' });
       return res.status(500).json({ error: 'Uploaded video could not be optimized. Please try again.' });
     }
 
     if (!optimization || !Number.isFinite(optimization.durationSeconds)) {
-      await supabaseAdmin.from('property_media').update({ status: 'failed' }).eq('id', mediaId);
+      const { data: failedRecord, error: failError } = await processingMediaQuery({
+        propertyId, mediaId, uploadId, hostId: user.id,
+      });
+      if (failError) {
+        console.error('Error marking unverifiable video as failed:', failError);
+        return res.status(500).json({ error: 'Unable to mark the failed upload' });
+      }
+      if (!failedRecord) return res.status(409).json({ error: 'This video upload changed state before finalization.' });
       return res.status(500).json({ error: 'Uploaded video duration could not be verified.' });
     }
 
     if (optimization.durationSeconds > videoEntitlement.VIDEO_MAX_DURATION_SECONDS) {
-      const { error: failError } = await supabaseAdmin
-        .from('property_media')
-        .update({ status: 'failed' })
-        .eq('id', mediaId);
+      const { data: failedRecord, error: failError } = await processingMediaQuery({
+        propertyId, mediaId, uploadId, hostId: user.id,
+      });
       if (failError) {
         console.error('Error marking over-limit video as failed:', failError);
         return res.status(500).json({ error: 'Uploaded video exceeds the maximum duration.' });
       }
+      if (!failedRecord) return res.status(409).json({ error: 'This video upload changed state before finalization.' });
       return res.status(400).json({
         error: `Video must be ${videoEntitlement.VIDEO_MAX_DURATION_SECONDS} seconds or shorter.`,
       });
@@ -358,7 +442,7 @@ router.post('/properties/:propertyId/videos/:mediaId/complete', async (req, res)
 
     let thumbnailKey = null;
     try {
-      thumbnailKey = await generateVideoThumbnail(mediaRecord.storage_key);
+      thumbnailKey = await generateVideoThumbnail(claimedRecord.storage_key);
     } catch (thumbnailError) {
       // A thumbnail failure must not make a valid uploaded video unavailable.
       console.error('Video thumbnail generation failed:', thumbnailError);
@@ -371,17 +455,26 @@ router.post('/properties/:propertyId/videos/:mediaId/complete', async (req, res)
         status: 'ready',
         duration_seconds: optimization.durationSeconds,
         file_size_bytes: optimization && optimization.optimized ? optimization.optimizedSize : objectMetadata.contentLength,
-        mime_type: optimization && optimization.outputContentType ? optimization.outputContentType : mediaRecord.mime_type,
+        mime_type: optimization && optimization.outputContentType ? optimization.outputContentType : claimedRecord.mime_type,
         thumbnail_key: thumbnailKey,
         updated_at: new Date().toISOString(),
       })
       .eq('id', mediaId)
+      .eq('property_id', propertyId)
+      .eq('host_id', user.id)
+      .eq('upload_id', uploadId)
+      .eq('media_type', 'video')
+      .eq('status', 'processing')
+      .is('deleted_at', null)
       .select()
-      .single();
+      .maybeSingle();
 
     if (updateError) {
       console.error('Error updating media record:', updateError);
       return res.status(500).json({ error: 'Failed to finalize upload' });
+    }
+    if (!updatedRecord) {
+      return res.status(409).json({ error: 'This video upload changed state before it could be finalized.' });
     }
 
     res.status(200).json({
@@ -558,19 +651,33 @@ router.delete('/properties/:propertyId/videos/:mediaId', async (req, res) => {
     if (fetchError || !mediaRecord) {
       return res.status(404).json({ error: 'Media not found' });
     }
+    if (mediaRecord.status === 'processing') {
+      return res.status(409).json({ error: 'This video is being finalized and cannot be deleted yet.' });
+    }
 
     // Step 4: Mark media as deleted (soft delete)
-    const { error: updateError } = await supabaseAdmin
+    const { data: deletedRecord, error: updateError } = await supabaseAdmin
       .from('property_media')
       .update({
         status: 'deleted',
         deleted_at: new Date().toISOString(),
       })
-      .eq('id', mediaId);
+      .eq('id', mediaId)
+      .eq('property_id', propertyId)
+      .eq('host_id', user.id)
+      .neq('status', 'processing')
+      .select('id')
+      .maybeSingle();
 
     if (updateError) {
       console.error('Error marking media as deleted:', updateError);
+      if (updateError.code === '55000') {
+        return res.status(409).json({ error: 'This video is being finalized and cannot be deleted yet.' });
+      }
       return res.status(500).json({ error: 'Failed to delete media record' });
+    }
+    if (!deletedRecord) {
+      return res.status(409).json({ error: 'This video changed state before it could be deleted.' });
     }
 
     // Step 5: Queue R2 deletion (fire-and-forget; cleanup handles failures)
