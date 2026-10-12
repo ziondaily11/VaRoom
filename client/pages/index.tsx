@@ -190,6 +190,24 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
             min-height: 100svh;
             min-height: 100dvh;
           }
+          @media (max-width: 639px) {
+            .hero-section {
+              overflow: visible;
+            }
+            .hero-animated-content {
+              flex: 1 0 auto;
+              justify-content: center;
+              margin-top: 0;
+              padding: clamp(24px, 7vh, 56px) 20px clamp(20px, 3vh, 32px);
+            }
+            .hero-animated-content > div {
+              max-width: 420px;
+            }
+            .hero-cta .landing-cta {
+              min-height: 48px;
+              border-radius: 4px !important;
+            }
+          }
           @media (min-width: 1280px) and (min-height: 850px) {
             .hero-animated-content {
               padding-bottom: 80px !important;
@@ -587,7 +605,7 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
             </picture>
             {/* Soft gradient wash ensuring high text contrast across both states */}
             <div
-              className={`absolute inset-0 pointer-events-none ${
+              className={`absolute inset-0 pointer-events-none max-[639px]:hidden ${
                 isAuthOpen
                   ? 'bg-gradient-to-b from-black/10 via-transparent to-black/20'
                   : 'bg-[linear-gradient(to_top_right,rgba(8,9,9,0.62)_0%,rgba(8,9,9,0.32)_32%,rgba(8,9,9,0.12)_57%,rgba(247,243,236,0.24)_100%)]'
