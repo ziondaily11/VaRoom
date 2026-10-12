@@ -422,6 +422,19 @@
           const cta = card.querySelector('[data-plan-cta]');
           cta.setAttribute('data-plan-cta', plan.id);
         });
+        const entitlementResponse = await fetch('/api/billing/entitlements', { headers: { Authorization: 'Bearer ' + session.access_token } });
+        const entitlementResult = await entitlementResponse.json().catch(function(){ return {}; });
+        if (!entitlementResponse.ok) throw new Error(entitlementResult.error || 'Unable to load your subscription');
+        const entitlements = entitlementResult.entitlements;
+        const currentPlanId = entitlements && entitlements.active && entitlements.subscription && entitlements.subscription.plan_id;
+        if (currentPlanId) {
+          const currentPlanButton = page.querySelector('[data-plan="' + currentPlanId + '"] [data-plan-cta]');
+          if (currentPlanButton) {
+            currentPlanButton.textContent = 'Current Plan';
+            currentPlanButton.disabled = true;
+            currentPlanButton.setAttribute('aria-current', 'true');
+          }
+        }
       } catch (error) { status.textContent = error.message || 'Unable to load plans'; }
     })();
 
@@ -464,22 +477,44 @@
       if (new URLSearchParams(window.location.search).get('billing') !== 'return') return;
       const returnParams = new URLSearchParams(window.location.search);
       const returnToList = returnParams.get('returnTo') === 'list';
-      const expectedPlan = returnParams.get('plan');
+      const paymentReference = returnParams.get('reference') || returnParams.get('trxref');
       let attempts = 0;
       async function checkStatus(){
         try {
           const sessionResult = await supabaseClient.auth.getSession();
           const session = sessionResult && sessionResult.data && sessionResult.data.session;
           if (!session || !session.access_token) return;
-          const response = await fetch('/api/billing/subscription', { headers: { Authorization: 'Bearer ' + session.access_token } });
+          let payment = null;
+          if (paymentReference) {
+            const paymentResponse = await fetch('/api/billing/payments/' + encodeURIComponent(paymentReference), {
+              headers: { Authorization: 'Bearer ' + session.access_token }
+            });
+            const paymentResult = await paymentResponse.json().catch(function(){ return {}; });
+            if (!paymentResponse.ok) throw new Error(paymentResult.error || 'Unable to verify payment');
+            payment = paymentResult.payment;
+          }
+          const response = await fetch('/api/billing/entitlements', { headers: { Authorization: 'Bearer ' + session.access_token } });
           const result = await response.json().catch(function(){ return {}; });
-          const subscription = result.subscription;
-          if (response.ok && subscription && subscription.status === 'active' && (!expectedPlan || subscription.plan_id === expectedPlan)) {
+          const entitlements = result.entitlements;
+          const subscription = entitlements && entitlements.subscription;
+          if (response.ok && entitlements && entitlements.active && subscription && subscription.status === 'active'
+              && paymentReference && payment && payment.status === 'succeeded'
+              && subscription.plan_id === payment.plan_id) {
             status.textContent = 'Your ' + subscription.plan_id + ' plan is active.';
+            const currentPlanButton = page.querySelector('[data-plan="' + subscription.plan_id + '"] [data-plan-cta]');
+            if (currentPlanButton) {
+              currentPlanButton.textContent = 'Current Plan';
+              currentPlanButton.disabled = true;
+              currentPlanButton.setAttribute('aria-current', 'true');
+            }
             if (returnToList) {
               try { sessionStorage.removeItem('varoom_listing_after_upgrade'); } catch (_) {}
               window.setTimeout(function(){ window.location.replace('/list?subscription=return'); }, 700);
             }
+            return;
+          }
+          if (payment && ['failed', 'abandoned', 'refunded'].includes(payment.status)) {
+            status.textContent = 'Your payment was not completed. Your plan has not been activated.';
             return;
           }
           status.textContent = 'Your payment is being verified. Your plan will activate only after VaRoom confirms it.';
@@ -487,7 +522,7 @@
           status.textContent = 'Your payment is being verified. Refresh this page shortly for the latest status.';
         }
         attempts++;
-        if (returnToList && attempts < 60) window.setTimeout(checkStatus, 2000);
+        if (attempts < 60) window.setTimeout(checkStatus, 2000);
       }
       checkStatus();
     }

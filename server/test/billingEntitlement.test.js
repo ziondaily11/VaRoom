@@ -35,3 +35,12 @@ test('verified Growth activates video entitlement; absent or expired subscriptio
   assert.equal(expired.active, false);
   assert.equal(expired.canUploadPremiumVideo, false);
 });
+
+test('pending and failed subscriptions do not grant active listing entitlements', async () => {
+  const pending = await getHostEntitlements(entitlementSupabase({ id: 's3', plan_id: 'property_basic', status: 'pending' }), 'host-id');
+  assert.equal(pending.active, false);
+  assert.equal(pending.planId, null);
+  const failed = await getHostEntitlements(entitlementSupabase({ id: 's4', plan_id: 'shops_pro', status: 'failed' }), 'host-id');
+  assert.equal(failed.active, false);
+  assert.equal(failed.planId, null);
+});

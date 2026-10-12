@@ -151,7 +151,9 @@ function createBillingRoutes({ supabaseAdmin = supabaseDefault, paystack = creat
     const reference = paystack.generateReference();
     const callbackUrl = buildPaymentCallbackUrl(callbackOrigin, '/pricing', {
       billing: 'return',
-      ...(req.body.return_to === 'list' ? { returnTo: 'list', plan: plan.id } : {}),
+      reference,
+      plan: plan.id,
+      ...(req.body.return_to === 'list' ? { returnTo: 'list' } : {}),
     });
     let initialized;
     try {

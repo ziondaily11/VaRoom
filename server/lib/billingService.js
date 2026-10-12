@@ -13,7 +13,7 @@ async function applyVerifiedTransaction(supabaseAdmin, transaction) {
   const reference = transaction && transaction.reference;
   if (!reference) throw new Error('Verified Paystack transaction has no reference');
   const { data: payment, error } = await supabaseAdmin.from('billing_payments')
-    .select('id,host_id,subscription_id,plan_id,amount_minor,currency,status,listing_id,payment_kind,niche,billing_interval,provider_payload')
+    .select('id,host_id,subscription_id,plan_id,amount_minor,currency,status,paid_at,listing_id,payment_kind,niche,billing_interval,provider_payload')
     .eq('provider_reference', reference).maybeSingle();
   if (error) throw new Error('Unable to load billing payment');
   // Paystack creates a fresh transaction reference for each recurring charge.
@@ -38,25 +38,33 @@ async function applyVerifiedTransaction(supabaseAdmin, transaction) {
   const paymentUpdate = {
     status,
     verified_at: new Date().toISOString(),
-    paid_at: status === 'succeeded' ? (transaction.paid_at || new Date().toISOString()) : null,
+    paid_at: status === 'succeeded' ? (transaction.paid_at || payment.paid_at || new Date().toISOString()) : null,
     provider_transaction_id: transaction.id ? String(transaction.id) : null,
     provider_payload: { ...(payment.provider_payload || {}), last_verification: transaction },
   };
   const paymentWrite = supabaseAdmin.from('billing_payments').update(paymentUpdate).eq('id', payment.id);
   if (status === 'succeeded') paymentWrite.neq('status', 'succeeded');
-  const { data: paymentChanged, error: paymentError } = await paymentWrite.select('id');
+  const { data: paymentChanged, error: paymentError } = await paymentWrite.select('id,paid_at');
   if (paymentError) throw new Error('Unable to update billing payment');
+  let verifiedPaidAt = transaction.paid_at || (paymentChanged && paymentChanged[0] && paymentChanged[0].paid_at) || payment.paid_at;
+  if (status === 'succeeded' && !verifiedPaidAt) {
+    const { data: persistedPayment, error: persistedPaymentError } = await supabaseAdmin.from('billing_payments')
+      .select('paid_at').eq('id', payment.id).maybeSingle();
+    if (persistedPaymentError || !persistedPayment) throw new Error('Unable to load verified payment timestamp');
+    verifiedPaidAt = persistedPayment.paid_at || paymentUpdate.paid_at;
+  }
+  verifiedPaidAt = verifiedPaidAt || paymentUpdate.paid_at;
 
   if (status === 'succeeded' && payment.payment_kind === 'listing') {
     // Payment records are keyed by a unique provider reference. Activation is
     // tied to that record and may be repeated safely after webhook retries.
-    const paidAt = transaction.paid_at || new Date().toISOString();
+    const paidAt = verifiedPaidAt;
     const { error: listingError } = await supabaseAdmin.from('listings').update({
       paid_listing_until: new Date(new Date(paidAt).getTime() + 30 * 24 * 60 * 60 * 1000).toISOString(),
     }).eq('id', payment.listing_id).eq('host_id', payment.host_id);
     if (listingError) throw new Error('Unable to activate paid listing');
   } else if (status === 'succeeded') {
-    const paidAt = transaction.paid_at || new Date().toISOString();
+    const paidAt = verifiedPaidAt;
     const periodEnd = new Date(paidAt);
     periodEnd.setMonth(periodEnd.getMonth() + 1);
     const subscriptionUpdate = {
@@ -92,9 +100,7 @@ async function applyVerifiedRenewal(supabaseAdmin, transaction) {
   if (planError || !plan || Number(transaction.amount) !== Number(plan.monthly_amount_minor) || transaction.currency !== plan.currency) {
     throw new Error('Recurring Paystack transaction does not match the VaRoom subscription');
   }
-  const paidAt = transaction.paid_at || new Date().toISOString();
-  const periodEnd = new Date(paidAt);
-  periodEnd.setMonth(periodEnd.getMonth() + 1);
+  let paidAt = transaction.paid_at || new Date().toISOString();
   const { error: insertError } = await supabaseAdmin.from('billing_payments').insert({
     host_id: subscription.host_id,
     subscription_id: subscription.id,
@@ -111,6 +117,14 @@ async function applyVerifiedRenewal(supabaseAdmin, transaction) {
     provider_payload: transaction,
   });
   if (insertError && insertError.code !== '23505') throw new Error('Unable to record recurring Paystack payment');
+  if (insertError) {
+    const { data: existingPayment, error: existingPaymentError } = await supabaseAdmin.from('billing_payments')
+      .select('paid_at').eq('provider_reference', transaction.reference).maybeSingle();
+    if (existingPaymentError || !existingPayment) throw new Error('Unable to load recurring Paystack payment');
+    paidAt = existingPayment.paid_at || paidAt;
+  }
+  const periodEnd = new Date(paidAt);
+  periodEnd.setMonth(periodEnd.getMonth() + 1);
   const { error: updateError } = await supabaseAdmin.from('host_subscriptions').update({
     status: 'active',
     current_period_start: paidAt,

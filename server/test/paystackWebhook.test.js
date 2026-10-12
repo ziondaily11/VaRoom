@@ -62,6 +62,10 @@ test('only a verified matching successful transaction activates a subscription; 
   const success = await applyVerifiedTransaction(successDb, { id: 10, reference: 'ref', status: 'success', amount: 130000, currency: 'KES', metadata: { host_id: 'host-1', plan_id: 'growth' } });
   assert.equal(success.activated, true);
   assert.equal(successDb.updates.find((entry) => entry.table === 'host_subscriptions').value.status, 'active');
+  await assert.rejects(
+    () => applyVerifiedTransaction(paymentSupabase(), { id: 10, reference: 'ref', status: 'success', amount: 1, currency: 'KES', metadata: { host_id: 'host-1', plan_id: 'growth' } }),
+    /does not match/
+  );
   const failedDb = paymentSupabase();
   const failed = await applyVerifiedTransaction(failedDb, { id: 11, reference: 'ref', status: 'failed', amount: 130000, currency: 'KES', metadata: { host_id: 'host-1', plan_id: 'growth' } });
   assert.equal(failed.activated, false);
@@ -71,6 +75,57 @@ test('only a verified matching successful transaction activates a subscription; 
   assert.equal(pending.payment.status, 'pending');
   assert.equal(pending.activated, false);
   assert.equal(pendingDb.updates.some((entry) => entry.table === 'host_subscriptions'), false);
+});
+
+test('callback and webhook retries keep the original subscription period and payment reference', async () => {
+  const payment = {
+    id: 'p1', host_id: 'host-1', subscription_id: 'sub-1', plan_id: 'property_basic',
+    amount_minor: 300000, currency: 'KES', status: 'initialized', paid_at: null,
+    niche: 'property', billing_interval: 'monthly', provider_payload: {},
+  };
+  const subscriptionUpdates = [];
+  const db = {
+    from(table) {
+      if (table === 'billing_payments') return {
+        select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: payment, error: null }) }) }),
+        update(value) {
+          let onlyIfNotSucceeded = false;
+          const query = {
+            eq: () => query,
+            neq: (_column, valueToExclude) => { onlyIfNotSucceeded = valueToExclude === 'succeeded'; return query; },
+            select: async () => {
+              if (onlyIfNotSucceeded && payment.status === 'succeeded') return { data: [], error: null };
+              Object.assign(payment, value);
+              return { data: [{ id: payment.id }], error: null };
+            },
+          };
+          return query;
+        },
+      };
+      return {
+        update(value) {
+          subscriptionUpdates.push(value);
+          return { eq: async () => ({ error: null }) };
+        },
+      };
+    },
+  };
+  const transaction = {
+    id: 21, reference: 'checkout-ref', status: 'success', amount: 300000, currency: 'KES',
+    metadata: { host_id: 'host-1', plan_id: 'property_basic', niche: 'property', billing_interval: 'monthly' },
+  };
+
+  await applyVerifiedTransaction(db, transaction); // browser callback verifies first
+  const firstPeriodStart = subscriptionUpdates[0].current_period_start;
+  const firstPeriodEnd = subscriptionUpdates[0].current_period_end;
+  await applyVerifiedTransaction(db, transaction); // charge.success webhook retries afterward
+
+  assert.equal(payment.status, 'succeeded');
+  assert.equal(payment.provider_transaction_id, '21');
+  assert.equal(subscriptionUpdates.length, 2);
+  assert.equal(subscriptionUpdates[1].current_period_start, firstPeriodStart);
+  assert.equal(subscriptionUpdates[1].current_period_end, firstPeriodEnd);
+  assert.equal(subscriptionUpdates[1].plan_id, 'property_basic');
 });
 
 test('listing fee activation requires matching server-verified metadata and is idempotent', async () => {
