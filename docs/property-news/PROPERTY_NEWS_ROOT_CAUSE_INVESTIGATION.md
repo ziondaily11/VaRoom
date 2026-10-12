@@ -468,3 +468,55 @@ The repository change now:
 - logs the failed item ID and exception type for processing errors rather than silently swallowing them.
 
 These changes are local to this branch and require merge/deployment to affect production. GitHub Actions cron is best-effort and cannot promise that every scheduled dispatch starts exactly on time; the twice-hourly schedule increases recovery opportunities but does not eliminate scheduler delays or skipped triggers. This follow-up did not access production database data, inspect Render logs, or alter live configuration. A specific low-rate source failure cannot be fixed without the source-specific `source_fetch_runs`/Render error details.
+
+## Current-Branch and Vercel Preview Recheck (11 October 2026)
+
+The concern that the initial report and preview used an older VaRoom snapshot was valid. The first task branch revision was `e8ca8a4` (11 October 2026, 11:20 EAT), based on `c474fa8`; the then-current `main` had advanced to `c5e543e` (11 October 2026, 14:31 EAT). In particular, the old branch still used Next.js 14, while current `main` had upgraded the client build to Next.js 16.4.0, pinned the Node runtime to 24.x, refreshed the client lockfile, and constrained Turbopack's root in `client/next.config.js`.
+
+The failed Vercel deployment (`dpl_H5Vmcm5MNhsTAfHk1kGfzK2mTim7`) cloned `e8ca8a4`, used Next.js 14.2.35, and failed resolving `liquid-gooey`, `border-beam`, `bot-avatars`, and `thinking-orbs` from the client components. These packages were already listed in that revision's `client/package.json` and `client/package-lock.json`; they were not missing dependency declarations. A clean `npm ci --prefix client` followed by `npm run build --prefix client` succeeded on that revision, so the precise cause of the Vercel-only dependency resolution failure is not proven by the available logs. The evidence is consistent with a stale deployment/build-cache or install-context mismatch; it does not justify attributing the failure to a missing package declaration.
+
+The task branch was then updated from current `main` with merge commit `4f425a9` and pushed to PR #285. On the updated tree, a clean client dependency install and `npm run build --prefix client` succeeded using Next.js 16.4.0/Turbopack. The subsequent Vercel preview check for the updated PR revision completed successfully. This confirms that the stale branch snapshot was removed and the current tree deploys as a preview, but does not identify which individual upstream build change resolved the earlier deployment failure.
+
+The `property-news/app/collector.py`, `property-news/app/api.py`, and `property-news/app/repository.py` files on the refreshed tree match current `main`; the earlier robot-check defect is fixed in that code. The Property News public client remains `client/public/js/property-news-api.js`, used by the host dashboard in `client/legacy-pages/host-home.html`. The main-branch update changed frontend build/runtime configuration and several unrelated frontend/backend areas; it did not change those collection/API/repository implementations. The live production database and Render logs remain unverified, so this corrected repository/preview evidence cannot establish current production ingestion or source health.
+
+## Scheduled-Run and Source-Failure Log Review (12 October 2026)
+
+The user-provided Render excerpts and GitHub Actions run history were reviewed together. This adds production-log evidence to the earlier repository-only investigation; it does not imply that production registry rows or scheduler configuration were changed.
+
+### Scheduler cadence
+
+The scheduled GitHub Actions runs observed for 11–12 October were at `2026-10-11T17:47Z`, `2026-10-11T21:56Z`, `2026-10-12T01:19Z`, and `2026-10-12T07:58Z`. The gaps were approximately 4h09, 3h23, and 6h39 despite a twice-hourly workflow schedule. This confirms the user-visible cadence problem: the configured GitHub Actions schedule did not yield hourly collection starts in this observed window. Scheduled workflows are best-effort; changing the cron expression alone cannot guarantee an hourly start.
+
+### Why run #464 failed
+
+Run #464 was triggered at approximately `2026-10-12T07:58Z`. All 11 source-group jobs failed. Ten groups explicitly failed the configured 25% source-failure health threshold; group 3 returned `collection_status=failed` without printing its source-rate summary. The available group summaries were:
+
+| Group | Failed sources | Failure rate |
+| --- | ---: | ---: |
+| 0 | 6 | 67% |
+| 1 | 8 | 62% |
+| 2 | 13 | 81% |
+| 3 | Not reported | `failed` status |
+| 4 | 10 | 91% |
+| 5 | 14 | 93% |
+| 6 | 10 | 83% |
+| 7 | 6 | 75% |
+| 8 | 9 | 60% |
+| 9 | 6 | 50% |
+| 10 | 10 | 77% |
+
+The supplied `08:02–08:03Z` excerpt is principally from groups 8 and 9, not group 1. Group 1's own Actions output confirms 8 failures (62%), which exceeded the threshold. The threshold is therefore reporting genuine source-health problems; relaxing it would make the workflow appear healthier without repairing collection.
+
+### Source-level evidence in the supplied logs
+
+- Host allowlist mismatches: WASREB discovered `wimis.wasreb.go.ke` while the configured allowlist contained only `wasreb.go.ke` and `www.wasreb.go.ke`; Kenya Law discovered links on `kenyalaw.org` while configured for `new.kenyalaw.org`; People Daily discovered `www.pd.co.ke` while configured for `peopledaily.digital`.
+- Invalid RSS configuration or response format: Maploti, Boma Yangu, State Dept for Housing, National Housing Corporation Kenya, Shelter Afrique, Architectural Association of Kenya, Archstone Kenya, The Reporter Ethiopia, and The Citizen Tanzania returned non-feed XML/HTML for RSS requests.
+- Other upstream/site issues: NHCC Uganda TLS failure; ILAM Fahari I-REIT and Mombasa Real Estate DNS failures; robots denial for Council of Governors, Kenyan Wallstreet, and Daily Nation; HTTP 403 responses for UN-Habitat and Kenya Property Centre.
+
+These are distinct source-configuration and upstream availability failures, not evidence of a scheduler-authentication or collection-endpoint outage: the group POST requests returned HTTP 200, while their response payloads and source telemetry reported failures. A successful POST alone does not imply successful collection.
+
+### Remaining actions and limits
+
+The source collector reads production `news_sources` rows from Supabase. The checked-in JSON source catalogs do not prove that their records match the live rows, so changing local JSON alone would not repair the observed production configuration. Safe source corrections require the affected production row IDs and current `parser_config`/`allowed_hosts`, or a verified registry export, before preparing a targeted database change. No live database edits were made.
+
+GitHub Actions cron alone cannot guarantee an hourly scheduler. The operator plans to use cron-job.org instead of adding a paid Render Cron service. Configure 11 hourly POST jobs, one for each `source_group` value 0–10, staggered five minutes apart in UTC. Select the Bearer authorization scheme and provide the exact `NEWS_SCHEDULER_SECRET` configured on the Render web service. Running only one group per hour does not cover the full source registry. The GitHub schedule remains as a backup. Since the endpoint can return HTTP 200 while individual sources fail, verify Render logs and source telemetry as well as cron-job.org request status. No external jobs were configured and no production database rows were edited.
