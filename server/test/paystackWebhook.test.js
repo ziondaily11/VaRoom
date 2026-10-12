@@ -159,6 +159,50 @@ test('listing fee activation requires matching server-verified metadata and is i
   await assert.rejects(() => applyVerifiedTransaction(db, { ...transaction, metadata: { ...transaction.metadata, listing_id: 'other-listing' } }), /does not match/);
 });
 
+test('pending or failed listing transactions never grant listing entitlement', async () => {
+  for (const status of ['pending', 'failed', 'abandoned']) {
+    const writes = [];
+    const payment = {
+      id: 'fee-1', host_id: 'host-1', listing_id: 'listing-1', payment_kind: 'listing',
+      amount_minor: 100000, currency: 'KES', status: 'initialized',
+      niche: 'property', billing_interval: 'one_time', provider_payload: {},
+    };
+    const db = {
+      from(table) {
+        if (table === 'billing_payments') return {
+          select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: payment, error: null }) }) }),
+          update: (value) => {
+            const query = {
+              eq: () => query,
+              neq: () => query,
+              select: async () => {
+                Object.assign(payment, value);
+                return { data: [{ id: payment.id }], error: null };
+              },
+            };
+            return query;
+          },
+        };
+        return {
+          update: (value) => {
+            writes.push({ table, value });
+            return { eq: () => ({ error: null }) };
+          },
+        };
+      },
+    };
+    const result = await applyVerifiedTransaction(db, {
+      reference: 'listing-ref',
+      status,
+      amount: 100000,
+      currency: 'KES',
+      metadata: { host_id: 'host-1', listing_id: 'listing-1', niche: 'property', billing_interval: 'one_time', payment_kind: 'listing' },
+    });
+    assert.equal(result.payment.status, status);
+    assert.equal(writes.some((write) => write.table === 'listings'), false);
+  }
+});
+
 test('subscription upgrades cancel the replaced Paystack subscription without persisting its email token afterward', async () => {
   let disabled;
   let persisted;

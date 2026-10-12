@@ -29,14 +29,16 @@ async function withServer(options, run) {
   let reservedCount = options.count ?? 0;
   let recordExists = options.recordExists !== false;
   let recordStatus = options.recordStatus || 'pending';
+  let expectedMediaId = mediaId;
+  let expectedUploadId = options.recordUploadId || uploadId;
   let savedDuration = null;
   let optimizationCalls = 0;
   let finalizationFilters = null;
   const mediaRecord = {
-    id: mediaId,
+    id: expectedMediaId,
     property_id: propertyId,
     host_id: user.id,
-    upload_id: options.recordUploadId || uploadId,
+    upload_id: expectedUploadId,
     media_type: 'video',
     deleted_at: null,
     storage_key: 'videos/test/original.mp4',
@@ -49,9 +51,9 @@ async function withServer(options, run) {
     if (name === 'claim_property_video_finalization') {
       if (options.changeStateAtClaim) recordStatus = options.changeStateAtClaim;
       const identifiersMatch = params.p_property_id === propertyId
-        && params.p_media_id === mediaId
+        && params.p_media_id === expectedMediaId
         && params.p_host_id === user.id
-        && params.p_upload_id === uploadId;
+        && params.p_upload_id === expectedUploadId;
       if (!recordExists || !identifiersMatch || !['pending', 'uploading'].includes(recordStatus)) {
         return { data: [], error: null };
       }
@@ -61,6 +63,10 @@ async function withServer(options, run) {
     assert.equal(name, 'reserve_property_video_upload');
     if (reservedCount >= params.p_max_count) return { data: [{ reserved: false, current_count: reservedCount }], error: null };
     reservedCount += 1;
+    expectedMediaId = params.p_media_id;
+    expectedUploadId = params.p_upload_id;
+    mediaRecord.id = expectedMediaId;
+    mediaRecord.upload_id = expectedUploadId;
     insertedRecord = { ...params, status: 'pending' };
     return { data: [{ reserved: true, current_count: reservedCount - 1 }], error: null };
   };
@@ -69,7 +75,7 @@ async function withServer(options, run) {
       const query = {
         select() { return this; },
         eq() { return this; },
-        single: async () => ({ data: { id: propertyId, host_id: user.id }, error: null }),
+        single: async () => ({ data: { id: propertyId, host_id: user.id, category: options.category || 'property' }, error: null }),
       };
       return query;
     }
@@ -257,9 +263,9 @@ async function initializeUpload(send, durationSeconds) {
   return send(`/properties/${propertyId}/videos/upload-init`, initBody(durationSeconds));
 }
 
-async function completeUpload(send, durationSeconds) {
-  return send(`/properties/${propertyId}/videos/${mediaId}/complete`, {
-    uploadId,
+async function completeUpload(send, durationSeconds, currentUploadId = uploadId, currentMediaId = mediaId) {
+  return send(`/properties/${propertyId}/videos/${currentMediaId}/complete`, {
+    uploadId: currentUploadId,
     ...(durationSeconds === undefined ? {} : { durationSeconds }),
   });
 }
@@ -269,6 +275,20 @@ test('allows initialization below the video-count limit', async () => {
     const response = await initializeUpload(state.send);
     assert.equal(response.status, 200);
     assert.equal(state.insertedRecord.status, 'pending');
+  });
+
+  test('video upload initialization and finalization retain the existing flow across listing niches', async (t) => {
+    for (const category of ['property', 'shop', 'office', 'hotel', 'airbnb', 'venue']) {
+      await t.test(category, async () => {
+        await withServer({ category, count: 0, actualDuration: 3 }, async (state) => {
+          const initialized = await initializeUpload(state.send);
+          assert.equal(initialized.status, 200);
+          const completed = await completeUpload(state.send, undefined, initialized.body.uploadId, initialized.body.mediaId);
+          assert.equal(completed.status, 200);
+          assert.equal(completed.body.status, 'ready');
+        });
+      });
+    }
   });
 });
 
@@ -294,7 +314,7 @@ test('rejects an over-limit probed duration when the client reports a short dura
   await withServer({ count: 0, actualDuration: videoEntitlement.VIDEO_MAX_DURATION_SECONDS + 1 }, async (state) => {
     const initialized = await initializeUpload(state.send, 10);
     assert.equal(initialized.status, 200);
-    const response = await completeUpload(state.send, 10);
+    const response = await completeUpload(state.send, 10, initialized.body.uploadId, initialized.body.mediaId);
     assert.equal(response.status, 400);
     assert.equal(state.recordStatus, 'failed');
     assert.notEqual(state.recordStatus, 'ready');
@@ -305,7 +325,7 @@ test('rejects an over-limit probed duration when client duration is omitted', as
   await withServer({ count: 0, actualDuration: videoEntitlement.VIDEO_MAX_DURATION_SECONDS + 1 }, async (state) => {
     const initialized = await initializeUpload(state.send);
     assert.equal(initialized.status, 200);
-    const response = await completeUpload(state.send);
+    const response = await completeUpload(state.send, undefined, initialized.body.uploadId, initialized.body.mediaId);
     assert.equal(response.status, 400);
     assert.equal(state.recordStatus, 'failed');
   });
@@ -315,16 +335,16 @@ test('successful completion records the probed duration', async () => {
   await withServer({ count: 0, actualDuration: 3 }, async (state) => {
     const initialized = await initializeUpload(state.send);
     assert.equal(initialized.status, 200);
-    const response = await completeUpload(state.send, 2);
+    const response = await completeUpload(state.send, 2, initialized.body.uploadId, initialized.body.mediaId);
     assert.equal(response.status, 200);
     assert.equal(response.body.status, 'ready');
     assert.equal(state.recordStatus, 'ready');
     assert.equal(state.savedDuration, 3);
     assert.deepEqual(state.finalizationFilters, {
-      id: mediaId,
+      id: initialized.body.mediaId,
       property_id: propertyId,
       host_id: user.id,
-      upload_id: uploadId,
+      upload_id: initialized.body.uploadId,
       media_type: 'video',
       status: 'processing',
       deleted_at: null,

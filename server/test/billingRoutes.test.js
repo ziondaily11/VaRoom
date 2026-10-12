@@ -113,3 +113,71 @@ test('subscription checkout callback includes its generated payment reference an
   assert.equal(callback.searchParams.get('reference'), responseBody.reference);
   assert.equal(callback.searchParams.get('plan'), 'property_basic');
 });
+
+test('pay-as-you-list checkout initializes KSh 1,000 with its listing-bound callback metadata', async () => {
+  const insertedPayments = [];
+  let initialized;
+  const supabase = {
+    auth: { getUser: async () => ({ data: { user: { id: 'host-1', email: 'host@example.test' } }, error: null }) },
+    from(table) {
+      const query = {
+        selected: '',
+        filters: {},
+        select(columns) { this.selected = columns; return this; },
+        eq(column, value) { this.filters[column] = value; return this; },
+        maybeSingle: async () => {
+          if (table === 'profiles' && query.selected === 'role') return { data: { role: 'host' }, error: null };
+          if (table === 'profiles') return { data: { listing_categories: ['property'] }, error: null };
+          if (table === 'listings') return { data: { id: 'listing-1', host_id: 'host-1', category: 'property' }, error: null };
+          if (table === 'billing_payments') return { data: null, error: null };
+          return { data: null, error: null };
+        },
+        insert(value) { insertedPayments.push(value); return Promise.resolve({ error: null }); },
+      };
+      return query;
+    },
+  };
+  const router = createBillingRoutes({
+    supabaseAdmin: supabase,
+    baseUrl: 'https://varoom.co.ke',
+    nodeEnv: 'production',
+    paystack: {
+      generateReference: () => 'listing-checkout-reference',
+      initializeTransaction: async (payload) => {
+        initialized = payload;
+        return { authorization_url: 'https://checkout.paystack.test/' };
+      },
+    },
+  });
+  const checkoutRoute = router.stack.find((layer) => layer.route && layer.route.path === '/billing/listing-checkout');
+  let responseCode;
+  let responseBody;
+  const response = {
+    status(code) { responseCode = code; return this; },
+    json(body) { responseBody = body; return this; },
+  };
+
+  await checkoutRoute.route.stack[0].handle({
+    headers: { authorization: 'Bearer session-token' },
+    body: { listing_id: '11111111-1111-4111-8111-111111111111' },
+  }, response);
+
+  assert.equal(responseCode, 201);
+  assert.equal(responseBody.reference, 'listing-checkout-reference');
+  assert.equal(initialized.amount, 100000);
+  assert.equal(initialized.currency, 'KES');
+  assert.deepEqual(initialized.metadata, {
+    host_id: 'host-1',
+    listing_id: 'listing-1',
+    niche: 'property',
+    billing_interval: 'one_time',
+    payment_kind: 'listing',
+    varoom_billing: true,
+  });
+  const callback = new URL(initialized.callback_url);
+  assert.equal(callback.pathname, '/list');
+  assert.equal(callback.searchParams.get('payment'), 'return');
+  assert.equal(callback.searchParams.get('reference'), responseBody.reference);
+  assert.equal(insertedPayments[0].status, 'initialized');
+  assert.equal(insertedPayments[0].amount_minor, 100000);
+});
