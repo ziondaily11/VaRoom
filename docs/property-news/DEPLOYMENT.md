@@ -12,11 +12,11 @@ Property News is mounted in the established Render FastAPI service (`main.py`) a
    - `PROPERTY_NEWS_API_URL=https://property-news-pnsj.onrender.com` and `PROPERTY_NEWS_ADMIN_API_KEY`, where the latter exactly matches the Property News service's `NEWS_ADMIN_API_KEY`
    - a new high-entropy `NEWS_SCHEDULER_SECRET`
    - optional `NEWS_ENVIRONMENT=production`, `NEWS_LOG_LEVEL=INFO`, and fetch limits from `.env.example`
-4. Set the GitHub repository secret `NEWS_SCHEDULER_SECRET` to match the Render web service secret exactly. The collector workflow targets the canonical Render service URL directly, so a stale scheduler URL secret cannot send collection to an old deployment.
+4. Configure the external schedulers with the same high-entropy `NEWS_SCHEDULER_SECRET` set on the Render web service. The GitHub collector workflow targets the canonical Render service URL directly, so a stale scheduler URL secret cannot send collection to an old deployment.
    - Keep `NEWS_ENABLE_BACKGROUND_SCHEDULER` unset or `false`; collection is triggered by external schedulers.
-   - Provision the hourly Render Cron Job from the repository's root `render.yaml` Blueprint. Set its `NEWS_SCHEDULER_SECRET` to the same value as the web service. The blueprint uses the lowest paid Cron plan and calls the existing protected API, so it does not need its own Supabase or AI credentials. Render charges at least $1/month per Cron service, plus prorated compute while it runs.
-   - The Render Cron Job runs at minute 0 UTC each hour and calls all 11 source groups serially. It reports unhealthy groups as failed while continuing the other groups.
-   - GitHub Actions remains a twice-hourly backup at minutes 17 and 47 UTC, as well as a manual dispatch path. Both schedulers use the protected, serialized collection endpoint and database due-source checks; a repeated invocation should not re-fetch sources that are not due. GitHub Actions remains best-effort and can still be delayed or skipped.
+   - For cron-job.org, create 11 hourly POST jobs targeting `https://property-news-pnsj.onrender.com/api/internal/jobs/collect?source_group=N`, replacing `N` with each integer from `0` through `10`. Stagger the jobs five minutes apart in UTC to avoid concurrent requests. Select its Bearer authorization scheme and provide the exact `NEWS_SCHEDULER_SECRET` value configured on the Render service; do not put the secret in the URL. Set `Accept: application/json`; no request body is needed. Confirm the cron-job.org request timeout accommodates the Render response time.
+   - The collector partitions due sources into 11 deterministic groups. Calling only one group each hour would leave the other groups unprocessed, so all 11 group jobs are needed for hourly coverage. Each call uses the protected, serialized collection endpoint and database due-source checks.
+   - GitHub Actions remains a twice-hourly backup at minutes 17 and 47 UTC, as well as a manual dispatch path. Its scheduled runs are best-effort and may be delayed or skipped.
 5. After Render is healthy and the migration is visible through PostgREST, activate the verified official Lands source once:
 
    ```sh
@@ -25,7 +25,7 @@ Property News is mounted in the established Render FastAPI service (`main.py`) a
      https://property-news-pnsj.onrender.com/api/internal/sources/seed-official-lands
    ```
 
-6. Verify the **Property News hourly Render Cron Job** appears in Render and completes its first run. The GitHub Actions workflow is retained as an independent backup and manual recovery path. Both validate per-group source/article counts and report deferred due sources, materially high source failure rates, or item-processing failures.
+6. Verify all 11 cron-job.org jobs are enabled and their request history shows successful responses. An HTTP 200 can still contain source failures, so also check Render logs and per-source fetch telemetry. Review the GitHub Actions workflow, retained as an independent backup and manual recovery path; it validates per-group counts and reports deferred due sources, materially high source failure rates, or item-processing failures.
 7. Verify `https://varoom.co.ke/api/news/latest?limit=1` and the host dashboard after a published low-risk item is available. High-risk and ownership-sensitive items must remain in review.
 
 ## Failure handling and rollback
