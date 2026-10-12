@@ -14,6 +14,9 @@ const designTokensStyle = `
     --color-border-strong: rgba(24, 21, 19, 0.25);
     --color-primary: #bd2337;
     --color-primary-hover: #a5202d;
+    --color-cta-primary: #111111;
+    --color-cta-primary-hover: #292929;
+    --color-cta-secondary-border: #b8b2a7;
     --color-danger: #b42318;
     --color-success: #1a7a59;
     --color-warning: #b75d00;
@@ -44,6 +47,7 @@ const designTokensStyle = `
     --radius-lg: 1rem;
     --radius-xl: 1.5rem;
     --radius-full: 9999px;
+    --radius-cta: 4px;
 
     --shadow-sm: 0 1px 2px rgba(24, 21, 19, 0.06), 0 0 0 1px rgba(24, 21, 19, 0.04);
     --shadow-md: 0 12px 28px rgba(24, 21, 19, 0.12);
@@ -97,15 +101,6 @@ const designTokensStyle = `
 
   a, button, input, select, textarea {
     font: inherit;
-  }
-
-  .va-button {
-    min-height: var(--control-height-md) !important;
-    border-radius: var(--radius-full) !important;
-    border: 1px solid transparent;
-    padding: 0 var(--space-4) !important;
-    transition: background-color var(--transition-base), border-color var(--transition-base), color var(--transition-base), transform var(--transition-fast), box-shadow var(--transition-base);
-    cursor: pointer;
   }
 
   .auth-control {
@@ -178,25 +173,88 @@ const designTokensStyle = `
     outline-offset: 2px;
   }
 
-  .va-button-primary,
+  .va-button,
   .landing-cta,
-  .va-button[data-variant='primary'] {
-    background: var(--color-primary) !important;
-    color: var(--color-text-inverse) !important;
-    box-shadow: var(--shadow-sm);
+  .landing-cta-secondary {
+    align-items: center;
+    border-radius: var(--radius-cta) !important;
+    cursor: pointer;
+    display: inline-flex;
+    font-weight: 600;
+    justify-content: center;
+    min-height: 44px;
+    padding-bottom: 0 !important;
+    padding-top: 0 !important;
+    text-decoration: none;
+    transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease;
   }
 
-  .va-button-primary:hover,
-  .landing-cta:hover,
-  .va-button[data-variant='primary']:hover {
-    background: var(--color-primary-hover) !important;
+  .va-button-primary,
+  .va-button[data-variant='primary'],
+  .landing-cta:not(.landing-cta-secondary),
+  .landing-cta-primary {
+    background: var(--color-cta-primary) !important;
+    border: 1px solid var(--color-cta-primary) !important;
+    box-shadow: none !important;
+    color: #ffffff !important;
   }
 
   .va-button-secondary,
-  .va-button[data-variant='secondary'] {
-    background: var(--color-surface) !important;
-    color: var(--color-text) !important;
-    border-color: var(--color-border) !important;
+  .va-button[data-variant='secondary'],
+  .landing-cta-secondary {
+    background: transparent !important;
+    border: 1px solid var(--color-cta-secondary-border) !important;
+    box-shadow: none !important;
+    color: #171717 !important;
+  }
+
+  .va-button-primary:hover:not(:disabled):not([aria-disabled='true']),
+  .va-button[data-variant='primary']:hover:not(:disabled):not([aria-disabled='true']),
+  .landing-cta:not(.landing-cta-secondary):hover:not(:disabled):not([aria-disabled='true']),
+  .landing-cta-primary:hover:not(:disabled):not([aria-disabled='true']) {
+    background: var(--color-cta-primary-hover) !important;
+    border-color: var(--color-cta-primary-hover) !important;
+  }
+
+  .va-button-secondary:hover:not(:disabled):not([aria-disabled='true']),
+  .va-button[data-variant='secondary']:hover:not(:disabled):not([aria-disabled='true']),
+  .landing-cta-secondary:hover:not(:disabled):not([aria-disabled='true']) {
+    background: #f3f1ed !important;
+  }
+
+  .va-button:focus-visible,
+  .landing-cta:focus-visible,
+  .landing-cta-secondary:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+  }
+
+  .va-button--large,
+  .landing-cta-large {
+    min-height: 50px;
+  }
+
+  .va-button--compact,
+  .landing-cta-compact {
+    min-height: 40px;
+  }
+
+  .va-button:disabled,
+  .landing-cta:disabled,
+  .landing-cta-secondary:disabled,
+  .va-button[aria-disabled='true'],
+  .landing-cta[aria-disabled='true'],
+  .landing-cta-secondary[aria-disabled='true'] {
+    cursor: not-allowed !important;
+    opacity: 0.55 !important;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .va-button,
+    .landing-cta,
+    .landing-cta-secondary {
+      transition: none;
+    }
   }
 
   html[data-theme="dark"], html[data-theme="dark"] body, html[data-theme="dark"] #__next {

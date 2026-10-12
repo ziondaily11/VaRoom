@@ -335,7 +335,7 @@ export const PasswordRecovery: React.FC<PasswordRecoveryProps> = ({ initialStep,
             <button
               type="submit"
               disabled={isLoading}
-              className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-white/10 bg-[#111111] px-4 py-3 text-sm font-semibold text-[#f7f3ee] transition-colors duration-200 hover:bg-[#292827] disabled:cursor-not-allowed disabled:opacity-80"
+              className="va-button va-button-primary mt-2 flex w-full items-center justify-center gap-2 px-4 text-sm font-semibold disabled:cursor-not-allowed"
             >
               {isLoading ? <><span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" /> Sending code...</> : 'Send OTP'}
             </button>
@@ -377,7 +377,7 @@ export const PasswordRecovery: React.FC<PasswordRecoveryProps> = ({ initialStep,
             <button
               type="submit"
               disabled={isLoading || failedAttempts >= 5}
-              className="flex h-12 w-full items-center justify-center rounded-lg border border-white/10 bg-[#111111] px-4 text-sm font-semibold text-[#f7f3ee] transition-colors hover:bg-[#292827] disabled:cursor-not-allowed disabled:opacity-70"
+              className="va-button va-button-primary flex h-12 w-full items-center justify-center px-4 text-sm font-semibold disabled:cursor-not-allowed"
             >
               {isLoading ? 'Verifying...' : 'Continue'}
             </button>
@@ -477,7 +477,7 @@ export const PasswordRecovery: React.FC<PasswordRecoveryProps> = ({ initialStep,
           <button
             type="submit"
             disabled={isLoading}
-            className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-white/10 bg-[#111111] px-4 py-3 text-sm font-semibold text-[#f7f3ee] transition-colors duration-200 hover:bg-[#292827] disabled:cursor-not-allowed disabled:opacity-80"
+            className="va-button va-button-primary mt-2 flex w-full items-center justify-center gap-2 px-4 text-sm font-semibold disabled:cursor-not-allowed"
           >
             {isLoading ? 'Updating password...' : 'Update password'}
           </button>
@@ -506,7 +506,7 @@ export const PasswordRecovery: React.FC<PasswordRecoveryProps> = ({ initialStep,
           <button
             type="button"
             onClick={handleReturnToLogin}
-            className="mt-7 flex w-full items-center justify-center rounded-lg border border-white/10 bg-[#111111] px-4 py-3 text-sm font-semibold text-[#f7f3ee] transition-colors duration-200 hover:bg-[#292827]"
+            className="va-button va-button-primary mt-7 flex w-full items-center justify-center px-4 text-sm font-semibold"
           >
             Return to Login
           </button>

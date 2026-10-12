@@ -250,7 +250,7 @@ export const SignupForm: React.FC<SignupFormProps> = ({ redirect, initialRole, o
               onComplete={(token) => { void verifyCode(token); }}
               disabled={isLoading}
             />
-            <button type="submit" disabled={isLoading} className="flex h-12 w-full items-center justify-center rounded-lg border border-white/10 bg-[#111111] px-4 text-sm font-semibold text-[#f7f3ee] transition-colors hover:bg-[#292827] disabled:opacity-70">
+            <button type="submit" disabled={isLoading} className="va-button va-button-primary flex h-12 w-full items-center justify-center px-4 text-sm font-semibold">
               {isLoading ? 'Verifying...' : 'Continue'}
             </button>
           </form>
@@ -298,7 +298,7 @@ export const SignupForm: React.FC<SignupFormProps> = ({ redirect, initialRole, o
           <button
             type="button"
             onClick={handleSignupWithGoogle}
-            className="flex h-12 w-full items-center justify-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 text-sm font-medium text-[#f6f0ea] transition-colors hover:bg-white/10"
+            className="flex h-12 w-full items-center justify-center gap-3 rounded border border-white/10 bg-white/5 px-4 text-sm font-medium text-[#f6f0ea] transition-colors hover:bg-white/10"
           >
             <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
               <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
@@ -426,7 +426,7 @@ export const SignupForm: React.FC<SignupFormProps> = ({ redirect, initialRole, o
               <span className="auth-consent-copy">I agree to the <a href="/privacy" className="text-[#f5efe7] underline underline-offset-2">Privacy Policy</a> and <a href="/terms" className="text-[#f5efe7] underline underline-offset-2">Terms of Service</a>.</span>
             </label>
 
-            <button type="submit" disabled={!canSubmit} className="flex h-12 w-full items-center justify-center gap-2 rounded-lg border border-white/10 bg-[#111111] px-4 text-sm font-semibold text-[#f7f3ee] transition-colors duration-200 hover:bg-[#292827] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/70 disabled:cursor-not-allowed disabled:opacity-50">
+            <button type="submit" disabled={!canSubmit} className="va-button va-button-primary flex h-12 w-full items-center justify-center gap-2 px-4 text-sm font-semibold disabled:cursor-not-allowed">
               {isLoading ? 'Creating account...' : `Create ${role} account`}
             </button>
           </form>
