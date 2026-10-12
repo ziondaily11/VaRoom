@@ -41,7 +41,24 @@ SOURCE_HARD_TIMEOUT_SECONDS = 45
 MAX_SOURCES_PER_RUN = 200
 MAX_CONCURRENT_SOURCE_FETCHES = 10
 SOURCE_GROUP_COUNT = 11
-COLLECTOR_USER_AGENT = "VaRoomNewsBot/1.0 (+https://varoom.co.ke)"
+# Prevent a source on a shared country-code suffix or hosting platform from
+# implicitly authorizing unrelated tenants on that same suffix.
+MULTI_LABEL_PUBLIC_SUFFIXES = {
+    "ac.ke", "co.ke", "go.ke", "or.ke", "sc.ke",
+    "ac.ug", "co.ug", "go.ug", "or.ug",
+    "ac.tz", "co.tz", "go.tz", "or.tz",
+    "ac.rw", "co.rw", "go.rw", "or.rw",
+    "co.za", "org.za", "gov.za", "ac.za",
+    "co.uk", "org.uk", "gov.uk", "ac.uk", "me.uk",
+    "com.au", "net.au", "org.au", "edu.au", "gov.au",
+    "co.nz", "org.nz", "govt.nz", "ac.nz",
+    "com.br", "com.cn", "com.hk", "com.sg", "com.my",
+    "co.in", "firm.in", "net.in", "org.in", "gen.in",
+}
+PRIVATE_HOSTING_SUFFIXES = {
+    "github.io", "vercel.app", "netlify.app", "pages.dev",
+    "web.app", "firebaseapp.com", "blogspot.com", "wordpress.com",
+}
 SENSITIVE_QUERY_PARAMETER_PATTERN = re.compile(r"(?P<prefix>[?&])(?P<name>[^=&#\s]+)=(?P<value>[^&#\s]*)")
 FAILURE_CATEGORIES = {
     "blocked_403", "tls_error", "dns_error", "timeout", "http_404", "http_4xx",
@@ -119,6 +136,26 @@ class _ArticleHTMLParser(HTMLParser):
             self._anchor_text.append(value)
 
 
+class _AlternateFeedHTMLParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.feed_urls: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag.lower() != "link":
+            return
+        attributes = {key.lower(): value for key, value in attrs}
+        rel = set((attributes.get("rel") or "").lower().split())
+        content_type = (attributes.get("type") or "").lower().split(";", 1)[0].strip()
+        href = attributes.get("href")
+        if (
+            "alternate" in rel
+            and href
+            and content_type in {"application/rss+xml", "application/atom+xml", "application/xml", "text/xml"}
+        ):
+            self.feed_urls.append(href.strip())
+
+
 class CollectionFailure(RuntimeError):
     def __init__(self, category: str, message: str) -> None:
         super().__init__(message)
@@ -135,7 +172,7 @@ class _AllowedHostRedirect(HTTPRedirectHandler):
     def redirect_request(self, request, response, code, message, headers, new_url):
         parsed = urlparse(new_url)
         hostname = SourceCollector._normalise_hostname(parsed.hostname)
-        if parsed.scheme not in {"http", "https"} or hostname not in self.hosts:
+        if parsed.scheme not in {"http", "https"} or not SourceCollector._hostname_allowed(hostname, self.hosts):
             raise CollectionFailure("not_allowed_host", f"robots.txt redirect rejected host={hostname}")
         return super().redirect_request(request, response, code, message, headers, new_url)
 
@@ -164,6 +201,7 @@ class SourceCollector:
         self._robots_locks: dict[str, asyncio.Lock] = {}
         self._active_run_ids: dict[UUID, UUID] = {}
         self._rejected_urls: set[str] = set()
+        self._last_modified_by_url: dict[str, datetime] = {}
         # Use certifi's maintained CA bundle rather than the host OS store.
         # This avoids relying on an incomplete deployment CA store for official
         # government sites (including NCA). Verification remains mandatory.
@@ -173,8 +211,9 @@ class SourceCollector:
     async def _get_client(self) -> httpx.AsyncClient:
         if self._client is None or self._client.is_closed:
             headers = {
-                "User-Agent": COLLECTOR_USER_AGENT,
-                "Accept": "application/rss+xml, application/atom+xml, application/xml, text/html, application/json;q=0.9"
+                "User-Agent": self.settings.fetch_user_agent,
+                "Accept": "application/rss+xml, application/atom+xml, application/xml, text/html, application/json;q=0.9",
+                "Accept-Language": "en-KE,en;q=0.9",
             }
             self._client = httpx.AsyncClient(
                 timeout=httpx.Timeout(connect=10.0, read=20.0, write=20.0, pool=10.0),
@@ -674,7 +713,7 @@ class SourceCollector:
             candidates = self._parse_api(source, body, endpoint)
         elif source.fetch_method == "html":
             body = await self._fetch(source, endpoint, allowed_content_types=DISCOVERY_CONTENT_TYPES)
-            candidates, rejected_count = self._parse_html_discovery(source, body, endpoint)
+            candidates, rejected_count = await self._discover_html(source, body, endpoint)
         else:
             raise ValueError(f"Unsupported fetch method: {source.fetch_method}")
         candidates = [candidate for candidate in candidates if self._matches_source_filters(source, candidate.source_url)]
@@ -701,6 +740,35 @@ class SourceCollector:
                 rejected += 1
         return allowed, rejected, security_blocked
 
+    async def _discover_html(
+        self, source: Source, body: str, endpoint: str,
+    ) -> tuple[list[CandidateArticle], int]:
+        for feed_url in self._parse_alternate_feed_links(body, endpoint):
+            if not self._is_allowed_source_url(source, feed_url):
+                logger.warning(
+                    "Rejected alternate feed host source=%s url=%s",
+                    source.name, _redact_sensitive_query_parameters(feed_url),
+                )
+                continue
+            try:
+                feed_body = await self._fetch(
+                    source, feed_url, allowed_content_types=DISCOVERY_CONTENT_TYPES,
+                )
+                candidates = self._parse_feed(source, feed_body, feed_url)
+            except CollectionFailure as error:
+                logger.info(
+                    "HTML source alternate feed unavailable source=%s url=%s category=%s",
+                    source.name, _redact_sensitive_query_parameters(feed_url), error.category,
+                )
+                continue
+            if candidates:
+                logger.info(
+                    "HTML source alternate feed succeeded source=%s url=%s candidates=%d",
+                    source.name, _redact_sensitive_query_parameters(feed_url), len(candidates),
+                )
+                return candidates, 0
+        return self._parse_html_discovery(source, body, endpoint)
+
     async def _discover_feed(
         self, source: Source, endpoint: str,
     ) -> tuple[list[CandidateArticle], bool, int]:
@@ -715,6 +783,8 @@ class SourceCollector:
         last_failure: CollectionFailure | None = None
         last_body: str | None = None
         last_url: str | None = None
+        homepage = source.parser_config.get("feed_discovery_url") or source.base_url
+        homepage_body: str | None = None
 
         for feed_url in feed_urls:
             if not self._is_allowed_source_url(source, feed_url):
@@ -730,6 +800,8 @@ class SourceCollector:
                 raise
 
             last_body, last_url = body, feed_url
+            if feed_url == homepage:
+                homepage_body = body
             try:
                 candidates = self._parse_feed(source, body, feed_url)
             except CollectionFailure as error:
@@ -741,13 +813,67 @@ class SourceCollector:
                 "no_feed_found", f"No collection items found at {_redact_sensitive_query_parameters(feed_url)}",
             )
 
-        if source.parser_config.get("html_fallback") is True:
+        if not isinstance(homepage, str) or not self._is_allowed_source_url(source, homepage):
+            homepage = source.base_url
+        if last_body is not None and last_url == homepage:
+            homepage_body = last_body
+        if homepage_body is None:
+            try:
+                homepage_body = await self._fetch(
+                    source, homepage, allowed_content_types=DISCOVERY_CONTENT_TYPES,
+                )
+            except CollectionFailure as error:
+                logger.info(
+                    "Feed autodiscovery unavailable source=%s url=%s category=%s",
+                    source.name, _redact_sensitive_query_parameters(homepage), error.category,
+                )
+        if homepage_body is not None:
+            alternate_feeds = self._parse_alternate_feed_links(homepage_body, homepage)
+            for alternate_url in alternate_feeds:
+                if not self._is_allowed_source_url(source, alternate_url):
+                    logger.warning(
+                        "Rejected alternate feed host source=%s url=%s",
+                        source.name, _redact_sensitive_query_parameters(alternate_url),
+                    )
+                    continue
+                try:
+                    alternate_body = await self._fetch(
+                        source, alternate_url, allowed_content_types=DISCOVERY_CONTENT_TYPES,
+                    )
+                    candidates = self._parse_feed(source, alternate_body, alternate_url)
+                except CollectionFailure as error:
+                    last_failure = error
+                    logger.info(
+                        "Alternate feed failed source=%s url=%s category=%s",
+                        source.name, _redact_sensitive_query_parameters(alternate_url), error.category,
+                    )
+                    continue
+                if candidates:
+                    logger.info(
+                        "Feed autodiscovery succeeded source=%s url=%s candidates=%d",
+                        source.name, _redact_sensitive_query_parameters(alternate_url), len(candidates),
+                    )
+                    return candidates, False, 0
+                last_failure = CollectionFailure(
+                    "no_feed_found",
+                    f"Alternate feed contained no items at "
+                    f"{_redact_sensitive_query_parameters(alternate_url)}",
+                )
+
+        endpoint_path = urlparse(endpoint).path.rstrip("/")
+        homepage_fallback = (
+            source.parser_config.get("html_fallback") is True
+            or (endpoint_path == "" and endpoint.rstrip("/") == source.base_url.rstrip("/"))
+        )
+        if homepage_fallback:
             html_url = source.parser_config.get("html_discovery_url") or source.base_url
             if not isinstance(html_url, str) or not self._is_allowed_source_url(source, html_url):
                 raise CollectionFailure(
                     "not_allowed_host", "HTML discovery URL is not an approved source host",
                 )
-            if last_body is not None and last_url == html_url:
+            if homepage_body is not None and homepage == html_url:
+                html_body = homepage_body
+            elif last_body is not None and last_url == html_url:
                 html_body = last_body
             else:
                 html_body = await self._fetch(
@@ -768,6 +894,12 @@ class SourceCollector:
         if last_failure is not None:
             raise last_failure
         raise CollectionFailure("no_feed_found", "No feed URLs were configured or fetched")
+
+    @staticmethod
+    def _parse_alternate_feed_links(body: str, base_url: str) -> list[str]:
+        parser = _AlternateFeedHTMLParser()
+        parser.feed(body)
+        return list(dict.fromkeys(urljoin(base_url, href) for href in parser.feed_urls))
 
     async def _wait_for_origin(self, origin: str) -> None:
         hostname = self._normalise_hostname(urlparse(origin).hostname).removeprefix("www.")
@@ -793,7 +925,11 @@ class SourceCollector:
 
                     def read_robots() -> robotparser.RobotFileParser:
                         candidate = robotparser.RobotFileParser(robots_url)
-                        request = Request(robots_url, headers={"User-Agent": COLLECTOR_USER_AGENT})
+                        request = Request(robots_url, headers={
+                            "User-Agent": self.settings.fetch_user_agent,
+                            "Accept": "text/plain,*/*;q=0.8",
+                            "Accept-Language": "en-KE,en;q=0.9",
+                        })
                         try:
                             with build_opener(
                                 ProxyHandler({}), _AllowedHostRedirect(self._allowed_hosts(source)),
@@ -804,6 +940,10 @@ class SourceCollector:
                                 raise CollectionFailure(
                                     "robots_disallowed",
                                     f"robots.txt returned HTTP {error.code}",
+                                ) from error
+                            elif error.code == 429:
+                                raise CollectionFailure(
+                                    "http_4xx", "robots.txt returned HTTP 429",
                                 ) from error
                             elif error.code == 404:
                                 candidate.parse([])
@@ -822,12 +962,13 @@ class SourceCollector:
                     await self._wait_for_origin(origin)
                     parser = await asyncio.to_thread(read_robots)
                     self._robots_cache[origin] = parser
-        return self._robots_cache[origin].can_fetch(COLLECTOR_USER_AGENT, url)
+        return self._robots_cache[origin].can_fetch(self.settings.fetch_user_agent, url)
 
     async def _fetch(self, source: Source, url: str, *, allowed_content_types: set[str] | None = None) -> str:
         parsed = urlparse(url)
         if not self._is_allowed_source_url(source, url):
             raise CollectionFailure("not_allowed_host", "Fetch URL is not an approved source host")
+        self._last_modified_by_url.pop(canonicalise_url(url), None)
         host = self._normalise_hostname(parsed.hostname).removeprefix("www.")
         semaphore = self._origin_semaphores.setdefault(host, asyncio.Semaphore(2))
         async with semaphore:
@@ -861,12 +1002,21 @@ class SourceCollector:
                                     raise CollectionFailure("not_allowed_host", "Redirect target is not an approved source host")
                                 current_url = redirect_url
                                 continue
-                            if response.status_code >= 500:
+                            if response.status_code == 429 or response.status_code >= 500:
+                                category = "http_5xx" if response.status_code >= 500 else "http_4xx"
                                 last_error = CollectionFailure(
-                                    "http_5xx", f"HTTP {response.status_code} response",
+                                    category, f"HTTP {response.status_code} response",
+                                )
+                                logger.warning(
+                                    "Retryable upstream response source=%s status=%d attempt=%d/%d "
+                                    "content_type=%s url=%s",
+                                    source.name, response.status_code, attempt + 1,
+                                    self.settings.fetch_retry_attempts,
+                                    response.headers.get("content-type", "<missing>"),
+                                    _redact_sensitive_query_parameters(current_url),
                                 )
                                 if attempt + 1 < self.settings.fetch_retry_attempts:
-                                    await asyncio.sleep(0.5 * (2 ** attempt))
+                                    await asyncio.sleep(self._retry_delay(response, attempt))
                                     break
                                 raise last_error
                             if response.status_code >= 400:
@@ -875,13 +1025,30 @@ class SourceCollector:
                                     else "http_404" if response.status_code == 404
                                     else "http_4xx"
                                 )
+                                logger.warning(
+                                    "Upstream rejected source request source=%s status=%d "
+                                    "content_type=%s url=%s",
+                                    source.name, response.status_code,
+                                    response.headers.get("content-type", "<missing>"),
+                                    _redact_sensitive_query_parameters(current_url),
+                                )
                                 raise CollectionFailure(
                                     category, f"HTTP {response.status_code} response",
                                 )
                             content_type = response.headers.get("content-type", "").split(";", 1)[0].strip().lower()
                             accepted_types = allowed_content_types or DISCOVERY_CONTENT_TYPES
                             if content_type not in accepted_types:
+                                logger.warning(
+                                    "Unexpected upstream content type source=%s status=%d "
+                                    "content_type=%s url=%s",
+                                    source.name, response.status_code, content_type or "<missing>",
+                                    _redact_sensitive_query_parameters(current_url),
+                                )
                                 raise ValueError(f"Unsupported Content-Type {content_type or '<missing>'}")
+                            last_modified = parse_source_date(response.headers.get("last-modified"))
+                            if last_modified:
+                                self._last_modified_by_url[canonicalise_url(current_url)] = last_modified
+                                self._last_modified_by_url[canonicalise_url(url)] = last_modified
                             chunks: list[bytes] = []
                             total = 0
                             async for chunk in response.aiter_bytes():
@@ -907,6 +1074,23 @@ class SourceCollector:
                 ) from last_error
             raise CollectionFailure("network_error", "Fetch produced no response")
 
+    @staticmethod
+    def _retry_delay(response: httpx.Response, attempt: int) -> float:
+        delay = min(10.0, 0.5 * (2 ** attempt))
+        retry_after = response.headers.get("retry-after")
+        if retry_after:
+            try:
+                delay = float(retry_after)
+            except ValueError:
+                try:
+                    retry_at = parsedate_to_datetime(retry_after)
+                    if retry_at.tzinfo is None:
+                        retry_at = retry_at.replace(tzinfo=timezone.utc)
+                    delay = (retry_at - datetime.now(timezone.utc)).total_seconds()
+                except (TypeError, ValueError, OverflowError):
+                    pass
+        return max(0.0, min(delay, 10.0))
+
     async def _fetch_article(self, source: Source, url: str, title: str | None = None, published_at: datetime | None = None) -> CandidateArticle:
         if not self._is_allowed_source_url(source, url):
             raise ValueError("Article URL is not an approved source host")
@@ -920,6 +1104,12 @@ class SourceCollector:
         extracted_title = (metadata.title if metadata else None) or None
         extracted_date = parse_source_date(getattr(metadata, "date", None) if metadata else None)
         extracted_date = extracted_date or parse_source_date(title)
+        last_modified = self._last_modified_by_url.get(canonicalise_url(url))
+        if not (published_at or extracted_date) and last_modified:
+            logger.info(
+                "Using HTTP Last-Modified as publication-date fallback source=%s url=%s date=%s",
+                source.name, _redact_sensitive_query_parameters(url), last_modified.isoformat(),
+            )
         image_url = extract_article_image_url(html, url, source.base_url)
 
         usable_title = SourceCollector._usable_title(title)
@@ -933,12 +1123,13 @@ class SourceCollector:
             resolved_title = extracted_title or usable_title or " ".join(parser.title) or url
 
         return CandidateArticle(source_id=source.id, source_url=canonicalise_url(url), source_title=resolved_title,
-                                source_published_at=published_at or extracted_date, original_content=html, clean_text=clean_text,
+                                source_published_at=published_at or extracted_date or last_modified,
+                                original_content=html, clean_text=clean_text,
                                 image_url=image_url)
 
     async def _materialise_article(self, source: Source, candidate: CandidateArticle) -> CandidateArticle:
         """Fetch a discovered article when only a feed excerpt/link was available."""
-        if len(candidate.clean_text) >= 500:
+        if len(candidate.clean_text) >= 500 and candidate.source_published_at is not None:
             return candidate
         article = await self._fetch_article(source, candidate.source_url, candidate.source_title, candidate.source_published_at)
         return article if article.clean_text else candidate
@@ -973,11 +1164,19 @@ class SourceCollector:
             return ""
 
         articles: list[CandidateArticle] = []
-        for entry in root.findall(".//item") + root.findall(".//{http://www.w3.org/2005/Atom}entry"):
+        entries = [
+            element for element in root.iter()
+            if isinstance(element.tag, str) and element.tag.rsplit("}", 1)[-1].lower() in {"item", "entry"}
+        ]
+        for entry in entries:
             title = self._element_text(entry, title_selector) or "Untitled source item"
             url = self._element_text(entry, url_selector)
             if not url:
-                link = entry.find("{http://www.w3.org/2005/Atom}link")
+                link = next((
+                    element for element in entry
+                    if isinstance(element.tag, str)
+                    and element.tag.rsplit("}", 1)[-1].lower() == "link"
+                ), None)
                 url = link.attrib.get("href") if link is not None else None
             if not url:
                 continue
@@ -1132,7 +1331,7 @@ class SourceCollector:
             return False
         hostname = SourceCollector._normalise_hostname(parsed.hostname)
         allowed_hosts = SourceCollector._allowed_hosts(source)
-        allowed = hostname in allowed_hosts
+        allowed = SourceCollector._hostname_allowed(hostname, allowed_hosts)
         if not allowed:
             logger.warning(
                 "Rejected source URL host: source=%s rejected_host=%s configured_host=%s allowed_hosts=%s",
@@ -1147,20 +1346,39 @@ class SourceCollector:
         return (hostname or "").lower().rstrip(".")
 
     @staticmethod
+    def _hostname_allowed(hostname: str, allowed_hosts: set[str]) -> bool:
+        return any(hostname == allowed or hostname.endswith(f".{allowed}") for allowed in allowed_hosts)
+
+    @staticmethod
+    def _registrable_host(hostname: str) -> str:
+        labels = hostname.split(".")
+        if len(labels) < 2:
+            return hostname
+        last_two = ".".join(labels[-2:])
+        if last_two in PRIVATE_HOSTING_SUFFIXES | MULTI_LABEL_PUBLIC_SUFFIXES:
+            return ".".join(labels[-3:]) if len(labels) >= 3 else ""
+        return last_two
+
+    @staticmethod
     def _allowed_hosts(source: Source) -> set[str]:
         configured_host = SourceCollector._normalise_hostname(urlparse(source.base_url).hostname)
         hosts: set[str] = set()
         if configured_host:
-            apex = configured_host.removeprefix("www.")
-            hosts.update({apex, f"www.{apex}"})
+            apex = SourceCollector._registrable_host(configured_host.removeprefix("www."))
+            if apex:
+                hosts.update({apex, f"www.{apex}"})
         for configured in source.parser_config.get("allowed_hosts", []):
             if not isinstance(configured, str):
                 continue
+            configured = configured.strip()
+            if configured.startswith("*."):
+                configured = configured[2:]
             parsed = urlparse(configured if "://" in configured else f"//{configured}")
             if parsed.hostname:
                 explicit_host = SourceCollector._normalise_hostname(parsed.hostname)
-                explicit_apex = explicit_host.removeprefix("www.")
-                hosts.update({explicit_apex, f"www.{explicit_apex}"})
+                explicit_apex = SourceCollector._registrable_host(explicit_host.removeprefix("www."))
+                if explicit_apex:
+                    hosts.update({explicit_apex, f"www.{explicit_apex}"})
         return {host for host in hosts if host}
 
     @staticmethod
@@ -1184,22 +1402,18 @@ class SourceCollector:
 
     @staticmethod
     def _element_text(entry: ET.Element, name: str) -> str | None:
-        element = entry.find(name)
-        if element is None:
-            element = entry.find(f"{{http://www.w3.org/2005/Atom}}{name}")
-        return (element.text or "").strip() if element is not None and element.text else None
+        local_name = name.rsplit(":", 1)[-1].lower()
+        element = next((
+            child for child in entry
+            if isinstance(child.tag, str) and child.tag.rsplit("}", 1)[-1].lower() == local_name
+        ), None)
+        if element is None or not element.text:
+            return None
+        return element.text.strip() or None
 
     @staticmethod
     def _parse_date(value: str | None) -> datetime | None:
-        if not value:
-            return None
-        try:
-            return datetime.fromisoformat(value.replace("Z", "+00:00"))
-        except ValueError:
-            try:
-                return parsedate_to_datetime(value)
-            except (TypeError, ValueError):
-                return None
+        return parse_source_date(value)
 
     async def _store_candidate(self, source: Source, candidate: CandidateArticle) -> tuple[NewsItem | None, bool]:
         is_sales, sales_reason = classify_property_sales_content(
