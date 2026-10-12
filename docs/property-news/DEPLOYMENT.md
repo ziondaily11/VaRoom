@@ -34,3 +34,10 @@ Property News is mounted in the established Render FastAPI service (`main.py`) a
 - A source error does not stop other sources. Processing errors mark the item `failed`; high-risk material remains `pending_review`.
 - To pause ingestion, disable the source (`active=false`) in `news_sources` or remove the GitHub Actions secrets. This does not delete published data.
 - To remove public availability while investigating an incident, pause the Vercel deployment or remove only the two `/api/news` rewrites; do not remove the RLS controls or database evidence.
+
+## Source configuration and access policy
+
+- `property-news/sources/real-estate-source-pool.json` is a repository-side candidate catalog, not proof of the live Supabase `news_sources` contents. The catalog now uses RSS only for explicit feed-like endpoints; homepage/category endpoints use HTML discovery, which checks declared RSS/Atom alternate links before extracting article links. Apply and verify corresponding changes in the production registry separately.
+- Scraper requests use an identifiable VaRoom User-Agent with feed/HTML Accept types and an English/Kenyan-language preference. The collector respects `robots.txt` and source host boundaries. It does not impersonate browser clients, rotate proxies, or use headless browsers to evade 403s or other access restrictions.
+- 429 and 5xx responses are retried with bounded backoff, honoring `Retry-After` up to 10 seconds. A 403 remains a source failure and is not bypassed.
+- Publication dates accept ISO-8601, RFC-style, and common human-readable forms. If an article has no publication date, a valid HTTP `Last-Modified` value may be used as a lower-confidence fallback. Ingestion time is never substituted for publication time; missing-date items without a usable header remain rejected.

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import socket
 import tempfile
 import unittest
@@ -10,6 +11,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
 from urllib.error import HTTPError, URLError
+from urllib.parse import urlparse
 
 import httpx
 
@@ -97,6 +99,17 @@ class NormalisationTests(unittest.TestCase):
                              "https://source.test/story", None)[0],
             "MISSING_PUBLICATION_DATE",
         )
+
+    def test_source_dates_support_rfc_and_human_formats_as_utc(self):
+        cases = {
+            "Mon, 05 Oct 2026 08:00:00 GMT": datetime(2026, 10, 5, 8, tzinfo=timezone.utc),
+            "2026-10-05T11:00:00+03:00": datetime(2026, 10, 5, 8, tzinfo=timezone.utc),
+            "October 5, 2026": datetime(2026, 10, 5, tzinfo=timezone.utc),
+            "5 October 2026": datetime(2026, 10, 5, tzinfo=timezone.utc),
+        }
+        for value, expected in cases.items():
+            with self.subTest(value=value):
+                self.assertEqual(parse_source_date(value), expected)
 
     def test_quality_gate_accepts_present_tense_official_land_events(self):
         recent = datetime.now(timezone.utc) - timedelta(days=2)
@@ -441,6 +454,19 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
             "html_fallback",
             entries["Archstone Kenya"]["parser_config"],
         )
+        for configured in entries.values():
+            if configured["fetch_method"] not in {"rss", "atom"}:
+                continue
+            parser_config = configured.get("parser_config", {})
+            feed_urls = parser_config.get("feed_urls") or parser_config.get("urls") or []
+            endpoint = parser_config.get("discovery_url") or (
+                feed_urls[0] if feed_urls else configured["base_url"]
+            )
+            self.assertRegex(
+                urlparse(endpoint).path.lower(),
+                r"(feed|rss|atom|index\.xml|\.xml)",
+                f"{configured['name']} uses an HTML page as an RSS endpoint",
+            )
 
     async def test_allowed_hosts_include_apex_www_and_explicit_domains(self):
         configured = Source(
@@ -449,8 +475,47 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
             parser_config={"allowed_hosts": ["archive.partner.example"]},
         )
         self.assertTrue(SourceCollector._is_allowed_source_url(configured, "https://www.news.example.test/feed"))
+        self.assertTrue(SourceCollector._is_allowed_source_url(configured, "https://other.example.test/story"))
         self.assertTrue(SourceCollector._is_allowed_source_url(configured, "https://archive.partner.example/story"))
-        self.assertFalse(SourceCollector._is_allowed_source_url(configured, "https://other.example.test/story"))
+        self.assertFalse(SourceCollector._is_allowed_source_url(configured, "https://news.example.attacker.test/story"))
+
+    async def test_allowed_hosts_include_subdomains_but_reject_lookalike_suffixes(self):
+        configured = Source(
+            name="WASREB", base_url="https://wasreb.go.ke", trust_tier=1,
+            fetch_method="html", schedule_minutes=30,
+        )
+        self.assertTrue(SourceCollector._is_allowed_source_url(
+            configured, "https://wimis.wasreb.go.ke/news",
+        ))
+        self.assertTrue(SourceCollector._is_allowed_source_url(
+            configured, "https://api.wimis.wasreb.go.ke/news",
+        ))
+        self.assertFalse(SourceCollector._is_allowed_source_url(
+            configured, "https://wasreb.go.ke.attacker.example/news",
+        ))
+
+    async def test_parent_domain_allowlisting_handles_common_country_suffixes_safely(self):
+        configured = Source(
+            name="Kenya Law", base_url="https://new.kenyalaw.org", trust_tier=1,
+            fetch_method="html", schedule_minutes=30,
+        )
+        self.assertTrue(SourceCollector._is_allowed_source_url(
+            configured, "https://kenyalaw.org/case",
+        ))
+        self.assertTrue(SourceCollector._is_allowed_source_url(
+            configured, "https://www.kenyalaw.org/case",
+        ))
+
+        shared_hosting = Source(
+            name="Hosted source", base_url="https://tenant.github.io",
+            trust_tier=1, fetch_method="html", schedule_minutes=30,
+        )
+        self.assertTrue(SourceCollector._is_allowed_source_url(
+            shared_hosting, "https://docs.tenant.github.io/story",
+        ))
+        self.assertFalse(SourceCollector._is_allowed_source_url(
+            shared_hosting, "https://other-tenant.github.io/story",
+        ))
 
     async def test_robots_fetch_uses_source_hosts_for_redirect_guard(self):
         collector = SourceCollector(self.repository, Settings())
@@ -483,12 +548,29 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(captured["url"], "https://source1.example.test/robots.txt")
         self.assertEqual(captured["timeout"], 10)
-        self.assertIn("source1.example.test", captured["redirect_guard"].hosts)
-        self.assertIn("www.source1.example.test", captured["redirect_guard"].hosts)
+        self.assertIn("example.test", captured["redirect_guard"].hosts)
+        self.assertTrue(SourceCollector._hostname_allowed(
+            "source1.example.test", captured["redirect_guard"].hosts,
+        ))
         with self.assertRaises(CollectionFailure):
             captured["redirect_guard"].redirect_request(
                 None, None, 302, "Found", {}, "https://outside.example/robots.txt",
             )
+
+    async def test_http_client_uses_configured_identifiable_scraper_headers(self):
+        collector = SourceCollector(
+            self.repository,
+            Settings(fetch_user_agent="VaRoomNewsBotTest/1.0 (+https://varoom.co.ke)"),
+        )
+        client = await collector._get_client()
+        try:
+            self.assertEqual(
+                client.headers["User-Agent"],
+                "VaRoomNewsBotTest/1.0 (+https://varoom.co.ke)",
+            )
+            self.assertIn("en-KE", client.headers["Accept-Language"])
+        finally:
+            await collector.close()
 
     def test_failure_classifier_recognizes_all_source_failure_categories(self):
         cases = (
@@ -568,12 +650,162 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(rejected, 0)
         self.assertEqual(calls, [
             "https://source1.example.test/feed",
+            "https://source1.example.test",
             "https://source1.example.test/news",
         ])
         self.assertEqual(
             candidates[0].source_url,
             "https://source1.example.test/story/nairobi-housing-plan",
         )
+
+    async def test_rss_homepage_discovers_and_uses_alternate_feed(self):
+        configured = self.source.model_copy(update={
+            "fetch_method": "rss",
+            "parser_config": {"discovery_url": self.source.base_url},
+        })
+        collector = SourceCollector(self.repository, Settings())
+        calls = []
+        homepage = (
+            '<html><head><link rel="alternate" type="application/rss+xml" '
+            'href="/news/feed.xml"></head></html>'
+        )
+        feed = """<rss><channel><item>
+          <title>Nairobi housing plan announced</title>
+          <link>https://source1.example.test/story/housing-plan</link>
+          <pubDate>Mon, 05 Oct 2026 08:00:00 GMT</pubDate>
+          <description>New development announced</description>
+        </item></channel></rss>"""
+
+        async def fetch(_source, url, **_kwargs):
+            calls.append(url)
+            return homepage if url == self.source.base_url else feed
+
+        collector._fetch = fetch  # type: ignore[method-assign]
+        candidates, used_html_fallback, rejected = await collector._discover_feed(
+            configured, configured.parser_config["discovery_url"],
+        )
+
+        self.assertEqual(calls, [
+            "https://source1.example.test",
+            "https://source1.example.test/news/feed.xml",
+        ])
+        self.assertFalse(used_html_fallback)
+        self.assertEqual(rejected, 0)
+        self.assertEqual(candidates[0].source_url, "https://source1.example.test/story/housing-plan")
+
+    async def test_html_source_prefers_declared_alternate_feed_before_dom_fallback(self):
+        configured = self.source.model_copy(update={"fetch_method": "html"})
+        collector = SourceCollector(self.repository, Settings())
+        homepage = (
+            '<html><head><link rel="alternate" type="application/atom+xml" '
+            'href="/updates.atom"></head><body><a href="/story/old">'
+            "Fallback story</a></body></html>"
+        )
+        feed = """<feed xmlns="http://www.w3.org/2005/Atom"><entry>
+          <title>Nairobi housing plan announced</title>
+          <link href="https://source1.example.test/story/housing-plan"/>
+          <updated>2026-10-05T08:00:00Z</updated>
+          <summary>Housing development announcement</summary>
+        </entry></feed>"""
+        calls = []
+
+        async def fetch(_source, url, **_kwargs):
+            calls.append(url)
+            return homepage if url == self.source.base_url else feed
+
+        collector._fetch = fetch  # type: ignore[method-assign]
+        candidates, rejected = await collector._discover_html(
+            configured, homepage, self.source.base_url,
+        )
+
+        self.assertEqual(calls, [
+            "https://source1.example.test/updates.atom",
+        ])
+        self.assertEqual(rejected, 0)
+        self.assertEqual(candidates[0].source_url, "https://source1.example.test/story/housing-plan")
+
+    def test_retry_after_is_bounded_for_429_and_server_errors(self):
+        response = httpx.Response(429, headers={"Retry-After": "60"})
+
+        self.assertEqual(SourceCollector._retry_delay(response, attempt=0), 10)
+        self.assertEqual(SourceCollector._retry_delay(httpx.Response(503), attempt=2), 2)
+
+    async def test_fetch_retries_429_before_succeeding(self):
+        class FakeResponse:
+            is_redirect = False
+
+            def __init__(self, status_code, headers, body=b""):
+                self.status_code = status_code
+                self.headers = headers
+                self.body = body
+
+            async def aiter_bytes(self):
+                yield self.body
+
+        class FakeStream:
+            def __init__(self, response):
+                self.response = response
+
+            async def __aenter__(self):
+                return self.response
+
+            async def __aexit__(self, *_args):
+                return None
+
+        class FakeClient:
+            def __init__(self):
+                self.responses = [
+                    FakeResponse(429, {"retry-after": "1"}),
+                    FakeResponse(200, {"content-type": "application/rss+xml"}, b"<rss/>"),
+                ]
+
+            def stream(self, *_args):
+                return FakeStream(self.responses.pop(0))
+
+        collector = SourceCollector(self.repository, Settings(fetch_retry_attempts=2))
+        client = FakeClient()
+        sleeps = []
+
+        async def allowed(_source, _url):
+            return True
+
+        async def no_wait(_origin):
+            return None
+
+        async def get_client():
+            return client
+
+        async def record_sleep(delay):
+            sleeps.append(delay)
+
+        collector._robots_allowed = allowed  # type: ignore[method-assign]
+        collector._wait_for_origin = no_wait  # type: ignore[method-assign]
+        collector._get_client = get_client  # type: ignore[method-assign]
+        with patch("app.collector.asyncio.sleep", new=record_sleep):
+            body = await collector._fetch(
+                self.source, f"{self.source.base_url}/feed",
+            )
+
+        self.assertEqual(body, "<rss/>")
+        self.assertEqual(sleeps, [1.0])
+
+    async def test_article_uses_http_last_modified_if_source_date_is_missing(self):
+        collector = SourceCollector(self.repository, Settings())
+        url = f"{self.source.base_url}/story/housing-plan"
+        fallback_date = datetime(2026, 10, 5, 8, tzinfo=timezone.utc)
+
+        async def fetch(_source, _url, **_kwargs):
+            collector._last_modified_by_url[url] = fallback_date
+            return "<html><body>Housing update</body></html>"
+
+        collector._fetch = fetch  # type: ignore[method-assign]
+        with patch(
+            "app.collector.trafilatura.extract",
+            return_value="A housing project was announced in Nairobi. " * 10,
+        ), patch("app.collector.trafilatura.extract_metadata", return_value=None):
+            article = await collector._fetch_article(self.source, url)
+
+        self.assertEqual(article.source_published_at, fallback_date)
 
     async def test_http_403_404_and_robots_disallow_are_distinct_and_not_retried(self):
         class FakeResponse:

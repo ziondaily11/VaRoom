@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from datetime import datetime, timedelta, timezone
+from email.utils import parsedate_to_datetime
 from urllib.parse import urlparse
 
 INSTITUTIONAL_TERMS = (
@@ -21,21 +22,46 @@ EVENT_TERMS = (
 def parse_source_date(value: str | None) -> datetime | None:
     if not value:
         return None
-    text = value.strip().replace("Z", "+00:00")
-    embedded = re.search(r"\b(\d{1,2}/\d{1,2}/\d{4})\b", text)
-    if embedded:
-        text = embedded.group(1)
-    for parser in (
-        lambda item: datetime.fromisoformat(item),
-        lambda item: datetime.strptime(item, "%d/%m/%Y").replace(tzinfo=timezone.utc),
-        lambda item: datetime.strptime(item, "%Y-%m-%d").replace(tzinfo=timezone.utc),
-        lambda item: datetime.strptime(item, "%B %d, %Y").replace(tzinfo=timezone.utc),
-    ):
+    text = value.strip()
+    if not text:
+        return None
+
+    candidates = [text]
+    embedded = re.search(
+        r"\b(?:\d{4}-\d{1,2}-\d{1,2}(?:[T ][0-9:.+-]+Z?)?"
+        r"|\d{1,2}/\d{1,2}/\d{4}"
+        r"|\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4}"
+        r"|[A-Za-z]{3,9}\s+\d{1,2},?\s+\d{4})\b",
+        text,
+    )
+    if embedded and embedded.group(0) != text:
+        candidates.append(embedded.group(0))
+
+    formats = (
+        "%d/%m/%Y", "%Y-%m-%d", "%B %d, %Y", "%b %d, %Y",
+        "%d %B %Y", "%d %b %Y", "%A, %d %B %Y", "%a, %d %b %Y",
+        "%B %d %Y", "%b %d %Y",
+    )
+    for candidate in candidates:
+        normalised = candidate.strip().replace("Z", "+00:00")
         try:
-            parsed = parser(text)
-            return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+            parsed = datetime.fromisoformat(normalised)
         except ValueError:
-            continue
+            try:
+                parsed = parsedate_to_datetime(candidate)
+            except (TypeError, ValueError, OverflowError):
+                parsed = None
+        if parsed is None:
+            for date_format in formats:
+                try:
+                    parsed = datetime.strptime(candidate, date_format)
+                    break
+                except ValueError:
+                    continue
+        if parsed is not None:
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=timezone.utc)
+            return parsed.astimezone(timezone.utc)
     return None
 
 
