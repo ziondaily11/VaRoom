@@ -204,11 +204,12 @@
     var json = JSON.stringify(listing).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
     return '<div class="card-menu-wrap"><button type="button" class="card-menu-btn" data-menu-toggle="' + listing.id + '" aria-label="Manage listing">⋮</button><div class="card-menu-dropdown" id="menu-' + listing.id + '">' +
       '<button class="card-menu-item" data-host-action="edit" data-listing="' + json + '">Edit listing</button>' +
-      '<div class="card-menu-section">Change availability</div>' +
+      '<div class="card-menu-section">Change listing status</div>' +
       '<button class="card-menu-item" data-host-action="status" data-status="available" data-status-action="available" data-listing="' + json + '">Make available</button>' +
       '<button class="card-menu-item" data-host-action="status" data-status="booked" data-status-action="booked" data-listing="' + json + '">Mark booked</button>' +
       '<button class="card-menu-item" data-host-action="status" data-status="unavailable" data-status-action="unavailable" data-listing="' + json + '">Mark unavailable</button>' +
       '<button class="card-menu-item" data-host-action="status" data-status="paused" data-status-action="paused" data-listing="' + json + '">Pause listing</button>' +
+      '<button class="card-menu-item" data-host-action="status" data-status="draft" data-status-action="draft" data-listing="' + json + '">Save as draft</button>' +
       '<button class="card-menu-item" data-host-action="share" data-listing="' + json + '">Share listing</button><button class="card-menu-item" data-host-action="copy" data-listing="' + json + '">Copy listing link</button>' +
       '<button class="card-menu-item" data-host-action="bookings" data-listing="' + json + '">View bookings</button><button class="card-menu-item" data-host-action="analytics" data-listing="' + json + '">View analytics</button><button class="card-menu-item" data-host-action="duplicate" data-listing="' + json + '">Duplicate listing</button><button class="card-menu-item destructive" data-host-action="delete" data-listing="' + json + '">Delete listing</button></div></div>';
   }};

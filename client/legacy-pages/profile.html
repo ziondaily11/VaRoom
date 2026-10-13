@@ -1168,6 +1168,11 @@
     .from('listings')
     .select('id, title, description, category, location_text, availability_status, created_at, listing_photos(storage_path), listing_booking_details(price_amount, price_unit)')
     .eq('host_id', profileData.id);
+  if (!isOwner) {
+    listingsQuery = listingsQuery
+      .eq('moderation_status', 'active')
+      .eq('availability_status', 'available');
+  }
   const { data: listings, error: listingsError } = await listingsQuery.order('created_at', { ascending: false });
   const listingRows = listings || [];
 
@@ -1286,6 +1291,7 @@
     if (s === 'booked') return '<span class="listing-card-status booked" data-listing-status>Booked</span>';
     if (s === 'paused') return '<span class="listing-card-status paused" data-listing-status>Paused</span>';
     if (s === 'unavailable') return '<span class="listing-card-status unavailable" data-listing-status>Unavailable</span>';
+    if (s === 'draft') return '<span class="listing-card-status paused" data-listing-status>Draft</span>';
     if (s === 'few_dates') return '<span class="listing-card-status" data-listing-status style="color:#b45309;">Few dates left</span>';
     return '<span class="listing-card-status available" data-listing-status>Available</span>';
   }

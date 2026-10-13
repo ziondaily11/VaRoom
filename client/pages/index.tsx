@@ -70,27 +70,14 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
         }
 
         const baseSelect = 'id,title,description,location_text,category,verified,created_at,host_id,listing_photos(storage_path),listing_booking_details(*),host:profiles!listings_host_id_fkey(full_name,verified,avatar_url,username)';
-        const missingColumnMessage = 'availability_status';
 
-        let { data, error } = await sb
+        const { data, error } = await sb
           .from('listings')
           .select(`${baseSelect},availability_status`)
           .eq('moderation_status', 'active')
+          .eq('availability_status', 'available')
           .order('created_at', { ascending: false })
           .limit(12);
-
-        if (error && String(error.message || error.details || error).toLowerCase().includes(missingColumnMessage) &&
-          (String(error.message || error.details || error).toLowerCase().includes('does not exist') ||
-           String(error.message || error.details || error).toLowerCase().includes('not found') ||
-           String(error.message || error.details || error).toLowerCase().includes('column') ||
-           String(error.message || error.details || error).toLowerCase().includes('missing'))) {
-          ({ data, error } = await sb
-            .from('listings')
-            .select(baseSelect)
-            .eq('moderation_status', 'active')
-            .order('created_at', { ascending: false })
-            .limit(12));
-        }
 
         if (!error && data && data.length > 0 && isMounted) {
           const mapped: Listing[] = data.map((l: any) => {
@@ -665,6 +652,7 @@ export const getStaticProps: GetStaticProps<LandingPageProps> = async () => {
       .from('listings')
       .select('id,title,description,location_text,category,verified,created_at,host_id,availability_status,listing_photos(storage_path),listing_booking_details(*),host:profiles!listings_host_id_fkey(full_name,verified,avatar_url,username)')
       .eq('moderation_status', 'active')
+      .eq('availability_status', 'available')
       .order('created_at', { ascending: false })
       .limit(12);
 

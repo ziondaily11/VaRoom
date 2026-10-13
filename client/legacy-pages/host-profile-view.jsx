@@ -120,9 +120,18 @@ export default function HostProfileView() {
         }
       }
 
+      let listingsQuery = client
+        .from("listings")
+        .select("id,title,category,location_text,availability_status,created_at,listing_photos(storage_path),listing_booking_details(price_amount,price_unit)")
+        .eq("host_id", hostId);
+      if (sessionResult.data.session?.user?.id !== hostId) {
+        listingsQuery = listingsQuery
+          .eq("moderation_status", "active")
+          .eq("availability_status", "available");
+      }
       const [profileResult, listingsResult] = await Promise.all([
         client.from("profiles").select("id,role,full_name,username,bio,avatar_url,banner_image_key,verified,city,created_at").eq("id", hostId).eq("role", "host").maybeSingle(),
-        client.from("listings").select("id,title,category,location_text,created_at,listing_photos(storage_path),listing_booking_details(price_amount,price_unit)").eq("host_id", hostId).order("created_at", { ascending: false }),
+        listingsQuery.order("created_at", { ascending: false }),
       ]);
 
       if (cancelled) return;
