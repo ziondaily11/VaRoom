@@ -7,9 +7,19 @@ const path = require('node:path');
 
 const repositoryRoot = path.join(__dirname, '..', '..');
 const discoverPage = fs.readFileSync(path.join(repositoryRoot, 'client', 'legacy-pages', 'client-home.html'), 'utf8');
+const hostHomePage = fs.readFileSync(path.join(repositoryRoot, 'client', 'legacy-pages', 'host-home.html'), 'utf8');
 const marketplacePage = fs.readFileSync(path.join(repositoryRoot, 'client', 'legacy-pages', 'marketplace.html'), 'utf8');
+const landingPage = fs.readFileSync(path.join(repositoryRoot, 'client', 'pages', 'index.tsx'), 'utf8');
+const profilePage = fs.readFileSync(path.join(repositoryRoot, 'client', 'legacy-pages', 'profile.html'), 'utf8');
+const publicHostProfile = fs.readFileSync(path.join(repositoryRoot, 'client', 'legacy-pages', 'public-profile.jsx'), 'utf8');
+const hostProfileView = fs.readFileSync(path.join(repositoryRoot, 'client', 'legacy-pages', 'host-profile-view.jsx'), 'utf8');
+const hostListingControls = fs.readFileSync(path.join(repositoryRoot, 'client', 'public', 'js', 'host-listing-controls.js'), 'utf8');
 const listingPage = fs.readFileSync(path.join(repositoryRoot, 'client', 'legacy-pages', 'list.html'), 'utf8');
 const listingRoutes = fs.readFileSync(path.join(__dirname, '..', 'routes', 'listingRoutes.js'), 'utf8');
+const draftStatusMigration = fs.readFileSync(
+  path.join(__dirname, '..', 'migrations', '20261013_000039_listing_draft_status.sql'),
+  'utf8'
+);
 const activationMigration = fs.readFileSync(
   path.join(__dirname, '..', 'migrations', '20261011_000036_listing_entitlement_activation.sql'),
   'utf8'
@@ -41,12 +51,49 @@ test('all Discover feed branches require active moderation and available status'
   assert.match(discoverPage, /\.in\('id', Array\.from\(bookmarkedIds\)\)\s*\.eq\('moderation_status', 'active'\)\s*\.eq\('availability_status', 'available'\)/);
 
   const marketplaceFetch = marketplacePage.slice(
-    marketplacePage.indexOf('async function fetchListings(filterAvailability, offset)'),
+    marketplacePage.indexOf('async function fetchListings(offset)'),
     marketplacePage.indexOf('async function loadListings(reset)')
   );
   assert.match(marketplaceFetch, /query\.eq\('moderation_status', 'active'\)/);
   assert.match(marketplaceFetch, /query\.eq\('availability_status', 'available'\)/);
-  assert.match(marketplacePage, /isMissingAvailabilityStatusColumnError\(error\)[\s\S]*fetchListings\(false, offset\)/);
+  assert.doesNotMatch(marketplacePage, /isMissingAvailabilityStatusColumnError|fetchListings\(false/);
+  assert.match(landingPage, /\.eq\('moderation_status', 'active'\)\s*\.eq\('availability_status', 'available'\)/);
+  assert.doesNotMatch(landingPage, /missingColumnMessage|select\(baseSelect\)/);
+
+  const hostFeedFilter = hostHomePage.slice(
+    hostHomePage.indexOf('function withFilters(query)'),
+    hostHomePage.indexOf('return async function(offset, limit)', hostHomePage.indexOf('function withFilters(query)'))
+  );
+  assert.match(hostFeedFilter, /if \(onlyMine\) query = query\.eq\('host_id', currentUser\.id\)/);
+  assert.match(hostFeedFilter, /else query = query\.eq\('moderation_status', 'active'\)\.eq\('availability_status', 'available'\)/);
+  assert.match(hostHomePage, /\.eq\('host_id', currentUser\.id\)\s*\.order\('created_at', \{ ascending:false \}\)/);
+
+  const profileListings = profilePage.slice(
+    profilePage.indexOf('let listingsQuery = supabaseClient'),
+    profilePage.indexOf('const { data: listings, error: listingsError }', profilePage.indexOf('let listingsQuery = supabaseClient'))
+  );
+  assert.match(profileListings, /\.eq\('host_id', profileData\.id\)/);
+  assert.match(profileListings, /if \(!isOwner\)[\s\S]*\.eq\('moderation_status', 'active'\)[\s\S]*\.eq\('availability_status', 'available'\)/);
+  assert.match(profilePage, /s === 'draft'[\s\S]*>Draft</);
+
+  assert.match(publicHostProfile, /\.eq\("moderation_status", "active"\)\s*\.eq\("availability_status", "available"\)/);
+  assert.match(hostProfileView, /if \(sessionResult\.data\.session\?\.user\?\.id !== hostId\)[\s\S]*\.eq\("moderation_status", "active"\)[\s\S]*\.eq\("availability_status", "available"\)/);
+  assert.match(hostListingControls, /data-status="draft"[^>]*>Save as draft/);
+
+  assert.match(listingRoutes, /const STATUSES = new Set\(\['available', 'booked', 'unavailable', 'paused', 'draft'\]\)/);
+  assert.match(draftStatusMigration, /availability_status in \('available', 'booked', 'unavailable', 'paused', 'draft'\)/);
+  const statusRoute = listingRoutes.slice(
+    listingRoutes.indexOf("router.patch('/listings/:id/status'"),
+    listingRoutes.indexOf("// This is intentionally separate", listingRoutes.indexOf("router.patch('/listings/:id/status'"))
+  );
+  assert.match(statusRoute, /\.update\(\{ availability_status: req\.body\.status \}\)/);
+  assert.doesNotMatch(statusRoute, /\.delete\(/);
+  const ownershipCheck = listingRoutes.slice(
+    listingRoutes.indexOf('async function ownedListing'),
+    listingRoutes.indexOf("router.patch('/listings/:id/status'")
+  );
+  assert.match(ownershipCheck, /\.eq\('id', id\)[\s\S]*if \(data\.host_id !== userId\)/);
+  assert.match(listingPage, /\.eq\('id', editListingId\)\.eq\('host_id', currentUser\.id\)/);
 });
 
 test('failed new-listing media upload exits before requesting activation', () => {

@@ -7,7 +7,7 @@ const {
 const { rejectSuspendedActivity } = require('../lib/accountAccess');
 
 const router = express.Router();
-const STATUSES = new Set(['available', 'booked', 'unavailable', 'paused']);
+const STATUSES = new Set(['available', 'booked', 'unavailable', 'paused', 'draft']);
 const CATEGORIES = ['airbnb', 'hotel', 'venue', 'office', 'shop', 'property'];
 
 // Discover asks for this only for cards entering the viewport.  Returning the

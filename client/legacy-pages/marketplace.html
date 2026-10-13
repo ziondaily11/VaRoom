@@ -711,21 +711,9 @@
   const ICON_SIZE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V4h4M20 8V4h-4M4 16v4h4M20 16v4h-4"/><path d="M8 4 4 8M16 4l4 4M4 16l4 4M20 16l-4 4"/></svg>';
   const PAGE_SIZE = 12;
 
-  let marketplaceAvailabilityStatusSupported = true;
   const MKT_SELECT = 'id,title,description,location_text,category,verified,created_at,host_id,' +
     'host:profiles!listings_host_id_fkey(full_name,verified,avatar_url,username),' +
     'listing_photos(storage_path),listing_booking_details(*)';
-
-  function isMissingAvailabilityStatusColumnError(error){
-    if (!error) return false;
-    const message = (error.message || error.details || String(error)).toLowerCase();
-    return message.includes('availability_status') && (
-      message.includes('does not exist') ||
-      message.includes('column') ||
-      message.includes('not found') ||
-      message.includes('missing')
-    );
-  }
 
   function escapeHtml(str){
     const div = document.createElement('div');
@@ -1220,16 +1208,13 @@
   let resultCount = 0;
   let requestVersion = 0;
 
-  async function fetchListings(filterAvailability, offset){
+  async function fetchListings(offset){
       let query = supabaseClient.from('listings').select(MKT_SELECT, { count: 'exact' }).range(offset, offset + PAGE_SIZE - 1);
       query = query.eq('moderation_status', 'active');
+      query = query.eq('availability_status', 'available');
       // A paid Property / Shops & Offices listing is publicly active only
       // through its verified 30-day term. Legacy rows keep a NULL term.
       query = query.or('paid_listing_until.is.null,paid_listing_until.gt.' + new Date().toISOString());
-      if (filterAvailability && marketplaceAvailabilityStatusSupported) {
-        const availabilityQuery = query.eq('availability_status', 'available');
-        query = availabilityQuery;
-      }
       if (state.category && state.category !== 'all') query = query.eq('category', state.category);
       if (state.q) {
         const term = state.q.replace(/[%(),]/g, ' ').trim();
@@ -1245,7 +1230,7 @@
       else if (state.sort === 'price_desc') query = query.order('price_amount', { foreignTable: 'listing_booking_details', ascending: false, nullsFirst: false });
       else query = query.order('created_at', { ascending: false });
       const cacheKey = [
-        'public:listings:marketplace', filterAvailability, offset,
+        'public:listings:marketplace', offset,
         state.category, state.q, state.guests, state.priceMin, state.priceMax,
         state.verifiedOnly, state.sort
       ].join(':');
@@ -1257,12 +1242,7 @@
     loadingMore = true;
     const currentRequest = ++requestVersion;
     const offset = reset ? 0 : listingOffset;
-    let { data, error, count } = await fetchListings(true, offset);
-    if (error && isMissingAvailabilityStatusColumnError(error)) {
-      marketplaceAvailabilityStatusSupported = false;
-      console.warn('Marketplace database is missing the availability_status column; falling back to the shared listing query without it.', error.message || error.details || error);
-      ({ data, error, count } = await fetchListings(false, offset));
-    }
+    let { data, error, count } = await fetchListings(offset);
     if (currentRequest !== requestVersion) {
       loadingMore = false;
       return;

@@ -203,6 +203,7 @@ export default function PublicHostProfile() {
           .select("id,title,category,host_id,created_at")
           .eq("host_id", hostId)
           .eq("moderation_status", "active")
+          .eq("availability_status", "available")
           .order("created_at", { ascending: false }),
         client
           .from("reviews")

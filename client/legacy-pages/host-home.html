@@ -2613,7 +2613,7 @@
 
       function withFilters(query){
         if (onlyMine) query = query.eq('host_id', currentUser.id);
-        else query = query.eq('moderation_status', 'active');
+        else query = query.eq('moderation_status', 'active').eq('availability_status', 'available');
         if (category !== 'all') query = query.eq('category', category);
         return query;
       }
