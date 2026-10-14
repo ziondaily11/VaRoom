@@ -185,6 +185,7 @@
 
   /* ── CENTER COLUMN ── */
   .profile-main{ position:relative; background:var(--main-bg); padding:0 20px 30px; }
+  [data-theme="dark"] .profile-main{--main-bg:#0c0b0b;--card-bg:#141212;--card-border:rgba(255,255,255,.11)}
   .profile-topbar{ position:absolute; z-index:4; top:16px; left:20px; right:20px; display:flex; align-items:center; justify-content:space-between; padding:0 4px; }
   .topbar-spacer{ flex:1; }
   .topbar-actions{ display:flex; align-items:center; gap:12px; }
@@ -216,33 +217,48 @@
   .account-add-btn.disabled{ color:var(--muted); cursor:not-allowed; opacity:.8; }
   .account-add-btn.disabled svg{ opacity:.65; }
 
-  .profile-header{ margin-top:0; border-bottom:1px solid var(--card-border); }
-  .profile-banner{height:230px;position:relative;margin:0 -20px;border-radius:0;background:radial-gradient(ellipse at 70% 20%,#75583c 0,#3b3028 38%,#181615 82%);background-size:cover;background-position:center 45%;overflow:hidden}
-  .profile-banner::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,rgba(0,0,0,.63),transparent 70%),linear-gradient(0deg,rgba(0,0,0,.65),transparent 75%)}
-  .profile-banner-actions{position:absolute;z-index:2;right:18px;top:16px;display:flex;gap:8px}
-  .profile-banner-actions button{display:flex;align-items:center;gap:7px;padding:9px 12px;border:1px solid #ffffff55;border-radius:999px;background:#090909bb;color:#fff;font:600 12px inherit;cursor:pointer}
-  .profile-header-body{display:flex;align-items:center;gap:20px;padding:0 10px 16px;position:relative;margin-top:-62px;z-index:1}
+  .profile-header{ margin:0; border:0; }
+  .profile-banner{
+    height:330px;position:relative;isolation:isolate;margin:0 -20px;border-radius:0;
+    background-color:#30251e;background-size:cover;background-position:center 48%;overflow:hidden;
+  }
+  .profile-banner::before{
+    content:'';position:absolute;z-index:-1;inset:0;pointer-events:none;
+    background:linear-gradient(180deg,rgba(255,255,255,0) 8%,rgba(255,255,255,.2) 48%,rgba(255,255,255,.94) 100%);
+  }
+  .profile-banner-actions{position:absolute;z-index:2;left:20px;top:16px;display:flex;gap:8px}
+  .profile-banner-actions button{
+    display:flex;align-items:center;gap:7px;padding:9px 12px;border:1px solid rgba(255,255,255,.38);
+    border-radius:999px;background:rgba(10,10,10,.62);color:#fff;font:600 12px var(--font-body);
+    cursor:pointer;backdrop-filter:blur(10px);
+  }
+  .profile-banner-actions button:hover{background:rgba(10,10,10,.82)}
+  .profile-header-body{
+    position:absolute;z-index:1;left:30px;right:30px;bottom:22px;
+    display:flex;align-items:center;gap:20px;padding:0;
+  }
   .profile-header-actions{ margin-left:auto; align-self:center; flex-shrink:0; }
   .profile-personal{ display:flex; align-items:center; gap:18px; min-width:0; flex:1; }
   .profile-avatar-wrap{ position:relative; flex-shrink:0; }
   .profile-avatar{
     width:92px; height:92px; border-radius:50%; background:linear-gradient(135deg, #1d1b1a, #5a4e4b); color:#fff;
     display:flex; align-items:center; justify-content:center; font-size:32px; font-weight:700; overflow:hidden;
-    border:3px solid #fff; box-shadow:0 8px 18px rgba(26,18,16,0.10);
+    border:3px solid rgba(255,255,255,.94); box-shadow:0 6px 18px rgba(0,0,0,.28);
   }
   .profile-avatar img{ width:100%; height:100%; object-fit:cover; display:block; }
   .avatar-upload-btn{
-    position:absolute; right:-2px; bottom:0; width:30px; height:30px; border-radius:50%; background:#24211E; color:#fff;
-    display:flex; align-items:center; justify-content:center; border:2px solid var(--card-bg); cursor:pointer;
+    position:absolute; right:-2px; bottom:0; width:30px; height:30px; border-radius:50%; background:#171615; color:#fff;
+    display:flex; align-items:center; justify-content:center; border:2px solid #fff; cursor:pointer;
   }
   .avatar-upload-btn input{ display:none; }
   .avatar-upload-btn svg{ width:13px; height:13px; }
   .profile-details{ min-width:0; }
-  .profile-details h1{ margin:0; font-size:22px; font-weight:700; line-height:1.2; }
-  .profile-handle{ color:var(--muted); font-size:14px; margin-top:4px; }
-  .profile-line{ color:var(--ink); font-size:13px; margin-top:8px; }
-  .profile-meta-row{ display:flex; flex-wrap:wrap; gap:14px; margin-top:12px; }
-  .meta-item{ display:flex; align-items:center; gap:6px; color:var(--muted); font-size:12px; }
+  .profile-details{ color:#24211e; text-shadow:0 1px 3px rgba(255,255,255,.3); }
+  .profile-details h1{ margin:0; font-size:clamp(21px,2vw,27px); font-weight:700; line-height:1.2; color:#171615; }
+  .profile-handle{ color:#514b47; font-size:14px; margin-top:4px; }
+  .profile-line{ display:none; }
+  .profile-meta-row{ display:flex; flex-wrap:wrap; gap:14px; margin-top:11px; }
+  .meta-item{ display:flex; align-items:center; gap:6px; color:#514b47; font-size:12px; }
   .meta-item svg{ width:14px; height:14px; color:#c41e3a; }
 
   .content-section{ padding-top:18px; }
@@ -291,24 +307,28 @@
   }
   .btn-solid:hover{ background:var(--red-deep); }
   .btn-solid svg{ width:14px; height:14px; }
+  .profile-header-actions .profile-actions .btn-outline{background:rgba(255,255,255,.76);color:#171615;border-color:rgba(23,22,21,.28)}
+  .profile-header-actions .profile-actions .btn-outline:hover{background:#fff;border-color:var(--red);color:var(--red)}
+  .profile-header-actions #owner-actions .btn-outline:last-child,
+  .profile-header-actions #visitor-actions .btn-outline{background:var(--red);border-color:var(--red);color:#fff}
+  .profile-header-actions #owner-actions .btn-outline:last-child:hover,
+  .profile-header-actions #visitor-actions .btn-outline:hover{background:var(--red-deep);color:#fff}
 
   /* ============================================================
      LISTINGS (host listings shown when viewing another user's profile)
   ============================================================ */
-  .listings-section-head{ display:flex; align-items:baseline; justify-content:space-between; margin:2rem 0 1.2rem; }
-  .listings-section-head h2{ font-family:var(--font-display); font-weight:600; font-size:clamp(1.2rem, 2vw, 1.5rem); letter-spacing:-.5px; }
-  .listings-count{ font-size:.85rem; color:var(--muted); margin-left:.6rem; }
-  .listings-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:1.1rem; margin-bottom:3rem; }
+  .listings-grid{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:1rem; margin:0 0 3rem; }
   .listing-card{
     background:var(--card-bg); border:1px solid var(--card-border);
-    border-radius:16px; overflow:hidden;
+    border-radius:16px; overflow:hidden;min-width:0;
     position:relative;
-    transition:transform .18s ease, box-shadow .18s ease;
+    transition:transform .18s ease,border-color .18s ease;
     cursor:pointer;
   }
-  .listing-card:hover{ transform:translateY(-3px); box-shadow:0 16px 40px -18px rgba(26,18,16,.3); }
-  .listing-thumb{ position:relative; height:180px; background:linear-gradient(135deg, var(--red) 0%, var(--red-deep) 100%); overflow:hidden; }
-  .listing-thumb img{ width:100%; height:100%; object-fit:cover; }
+  .listing-card:hover{ transform:translateY(-2px);border-color:rgba(196,30,58,.55); }
+  .listing-card:focus-visible{outline:3px solid var(--red);outline-offset:3px}
+  .listing-thumb{ position:relative; aspect-ratio:4/3; background:linear-gradient(135deg, var(--red) 0%, var(--red-deep) 100%); overflow:hidden; }
+  .listing-thumb img,.listing-thumb video{ width:100%; height:100%; object-fit:cover;display:block; }
   .listing-cat-pill{
     position:absolute; top:.7rem; left:.7rem;
     font-size:.66rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em;
@@ -316,17 +336,17 @@
     padding:.3rem .7rem; border-radius:100px;
     box-shadow:0 2px 8px rgba(26,18,16,.25);
   }
-  .listing-card-body{ padding:1rem 1.1rem 1.2rem; }
-  .listing-card-title{ font-family:var(--font-display); font-weight:600; font-size:1rem; margin-bottom:.25rem; line-height:1.25; }
-  .listing-card-loc{ font-size:.8rem; color:var(--muted); margin-bottom:.5rem; }
-  .listing-card-footer{ display:flex; align-items:center; justify-content:space-between; }
-  .listing-card-price{ font-size:.88rem; font-weight:700; }
-  .listing-card-status{ font-size:.72rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--red-deep); }
-  .listing-card-status.available{ color:#1E6B3C; }
+  .listing-card-body{ padding:.9rem 1rem 1rem; }
+  .listing-card-title{ font-family:var(--font-display); font-weight:650; font-size:.96rem; margin-bottom:.28rem; line-height:1.3; }
+  .listing-card-loc{ font-size:.8rem; color:var(--muted); margin-bottom:.65rem; }
+  .listing-card-footer{ display:flex; align-items:center; justify-content:space-between;gap:8px; }
+  .listing-card-price{ font-size:.86rem; font-weight:700; }
+  .listing-card-status{ font-size:.68rem; font-weight:700; letter-spacing:.045em; text-transform:uppercase; color:var(--red);white-space:nowrap; }
+  .listing-card-status.available{ color:#238653; }
   .listing-card-status.booked{ color:var(--muted); }
   .listing-card-status.unavailable, .listing-card-status.paused{ color:#b45309; }
   .listing-card-menu{ position:absolute; top:.65rem; right:.65rem; z-index:20; }
-  .listing-card-menu .card-menu-btn{ background:rgba(255,255,255,.95); color:#24211E; box-shadow:0 2px 8px rgba(26,18,16,.25); }
+  .listing-card-menu .card-menu-btn{ background:var(--card-bg);color:var(--ink);border:1px solid var(--card-border);box-shadow:0 2px 8px rgba(0,0,0,.16); }
   .listing-card-menu .card-menu-btn svg{ width:16px; height:16px; }
   .card-menu-wrap{ position:relative; }
   .card-menu-btn{ width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:var(--card-bg); color:var(--ink); font-size:1.2rem; }
@@ -344,7 +364,7 @@
     display:flex; align-items:center; justify-content:center;
     margin:0 auto 1rem;
   }
-  .profile-category-row{display:flex;align-items:center;gap:8px;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none;white-space:nowrap;border-bottom:1px solid var(--card-border);margin:12px 0 18px}
+  .profile-category-row{display:flex;align-items:center;gap:8px;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none;white-space:nowrap;border-bottom:1px solid var(--card-border);margin:0 0 18px}
   .profile-category-row::-webkit-scrollbar{display:none}
   .profile-category-row button{flex:0 0 auto;padding:12px 10px 10px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--muted);font:600 13px inherit;cursor:pointer}
   .profile-category-row button[aria-selected="true"]{border-bottom-color:var(--red);color:var(--ink)}
@@ -356,6 +376,18 @@
   .profile-category-entry{padding:12px 0;border-top:1px solid var(--card-border)}
   .profile-review-section{display:none;padding:18px 0}
   .profile-review-card{padding:14px 0;border-bottom:1px solid var(--card-border)}
+  [data-theme="dark"] .profile-banner::before{
+    background:linear-gradient(180deg,rgba(0,0,0,.04) 8%,rgba(0,0,0,.28) 48%,rgba(0,0,0,.9) 100%);
+  }
+  [data-theme="dark"] .profile-details{color:#fff;text-shadow:0 1px 8px rgba(0,0,0,.6)}
+  [data-theme="dark"] .profile-details h1{color:#fff}
+  [data-theme="dark"] .profile-handle,[data-theme="dark"] .meta-item{color:rgba(255,255,255,.82)}
+  [data-theme="dark"] .profile-header-actions .profile-actions .btn-outline{
+    background:rgba(12,12,12,.58);color:#fff;border-color:rgba(255,255,255,.5);
+  }
+  [data-theme="dark"] .profile-header-actions .profile-actions .btn-outline:hover{background:rgba(12,12,12,.82);color:#fff}
+  [data-theme="dark"] .profile-header-actions #owner-actions .btn-outline:last-child,
+  [data-theme="dark"] .profile-header-actions #visitor-actions .btn-outline{background:var(--red);border-color:var(--red);color:#fff}
 
   /* ============================================================
      EDIT MODAL
@@ -463,6 +495,13 @@
     .profile-desktop-shell{ grid-template-columns: 220px minmax(0, 1fr); }
     .profile-desktop-shell.host-sidebar-shell{ grid-template-columns:280px minmax(0, 1fr); }
     html[data-account-role="host"] .profile-desktop-shell{ grid-template-columns:280px minmax(0, 1fr); }
+    .listings-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+  }
+  @media (max-width: 1200px){
+    .listings-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+  }
+  @media (max-width: 1050px){
+    .listings-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
   }
   @media (max-width: 930px){
     body{ height:auto; overflow:auto; }
@@ -470,8 +509,16 @@
     .profile-sidebar{ display:none; }
     .profile-main{ border-right:none; height:auto; overflow:visible; padding:0 16px 30px; }
     .profile-topbar{ top:12px; left:16px; right:16px; }
-    .profile-header-body{ display:block; }
-    .profile-banner{height:165px;margin:0 -16px;border-radius:0}
+    .profile-header-body{
+      left:18px;right:18px;bottom:18px;display:grid;
+      grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:0;
+    }
+    .profile-banner{height:290px;margin:0 -16px;border-radius:0}
+    .profile-personal{grid-column:1/-1;gap:14px}
+    .profile-header-actions{grid-column:1/-1;justify-self:end;margin:0}
+    .profile-avatar{width:78px;height:78px;font-size:27px}
+    .profile-meta-row{gap:8px 12px;margin-top:8px}
+    .profile-category-row{margin-top:0}
     .trip-grid{ grid-template-columns:1fr; }
     .booking-item{ grid-template-columns:1fr; }
     .booking-thumb{ width:100%; }
@@ -480,6 +527,18 @@
 
   }
   @media (max-width:500px){
+    .profile-banner{height:280px}
+    .profile-header-body{left:14px;right:14px;bottom:16px;gap:10px}
+    .profile-personal{gap:11px}
+    .profile-avatar{width:66px;height:66px;font-size:23px}
+    .profile-details h1{font-size:20px}
+    .profile-handle{font-size:13px}
+    .profile-meta-row{gap:6px 10px}
+    .meta-item{font-size:11px}
+    .profile-header-actions .profile-actions{gap:8px}
+    .profile-header-actions .btn-outline,.profile-header-actions .btn-solid{padding:.55rem .9rem;font-size:.8rem}
+    .profile-banner-actions{left:12px;top:12px}
+    .profile-banner-actions button{padding:8px 10px}
     .listings-grid{ grid-template-columns:1fr; }
   }
 </style>
@@ -625,47 +684,45 @@
             <button type="button" id="banner-change-btn"><span id="banner-change-label">Add banner</span></button>
             <button type="button" id="banner-remove-btn" style="display:none">Remove</button>
           </div>
-        </div>
-        <div class="profile-header-body">
-          <div class="profile-personal">
-            <div class="profile-avatar-wrap">
-              <div class="profile-avatar" id="profile-avatar">•</div>
-              <label class="avatar-upload-btn" id="avatar-upload-label" for="avatar-input" aria-label="Change photo" style="display:none;">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2Z"/><circle cx="12" cy="13" r="4"/></svg>
-                <input type="file" id="avatar-input" accept="image/png,image/jpeg,image/webp">
-              </label>
-            </div>
+          <div class="profile-header-body">
+            <div class="profile-personal">
+              <div class="profile-avatar-wrap">
+                <div class="profile-avatar" id="profile-avatar">•</div>
+                <label class="avatar-upload-btn" id="avatar-upload-label" for="avatar-input" aria-label="Change photo" style="display:none;">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2Z"/><circle cx="12" cy="13" r="4"/></svg>
+                  <input type="file" id="avatar-input" accept="image/png,image/jpeg,image/webp">
+                </label>
+              </div>
 
-            <div class="profile-details">
-              <h1 id="profile-header-name">Profile</h1>
-              <div class="profile-handle" id="profile-username">@username</div>
-              <div class="profile-line" id="profile-email">email@example.com</div>
-              <div class="profile-meta-row">
-                <span class="meta-item" id="profile-location">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>
-                  <span id="profile-location-text">Location</span>
-                </span>
-                <span class="meta-item" id="profile-since">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3.5" y="5" width="17" height="16" rx="2"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>
-                  <span id="profile-since-text">Member since</span>
-                </span>
-                <span class="meta-item" id="profile-niches" style="display:none;"></span>
+              <div class="profile-details">
+                <h1 id="profile-header-name">Profile</h1>
+                <div class="profile-handle" id="profile-username">@username</div>
+                <div class="profile-line" id="profile-email">email@example.com</div>
+                <div class="profile-meta-row">
+                  <span class="meta-item" id="profile-location">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>
+                    <span id="profile-location-text">Location</span>
+                  </span>
+                  <span class="meta-item" id="profile-since">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3.5" y="5" width="17" height="16" rx="2"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>
+                    <span id="profile-since-text">Member since</span>
+                  </span>
+                  <span class="meta-item" id="profile-niches" style="display:none;"></span>
+                </div>
+              </div>
+            </div>
+            <div class="profile-header-actions">
+              <div class="profile-actions hidden-actions" id="owner-actions" style="display:none;">
+                <button type="button" class="btn-outline" id="edit-profile-btn">Edit profile</button>
+                <button type="button" class="btn-outline" id="share-profile-btn">Share profile</button>
+              </div>
+              <div class="profile-actions hidden-actions" id="visitor-actions" style="display:none;">
+                <a href="chats.html" class="btn-solid" id="ask-host-btn">Ask <span id="ask-name">host</span></a>
+                <button type="button" class="btn-outline" id="share-profile-btn-visitor">Share profile</button>
               </div>
             </div>
           </div>
-
-          <div class="profile-header-actions">
-            <div class="profile-actions hidden-actions" id="owner-actions" style="display:none;">
-              <button type="button" class="btn-outline" id="edit-profile-btn">Edit profile</button>
-              <button type="button" class="btn-outline" id="share-profile-btn">Share profile</button>
-            </div>
-            <div class="profile-actions hidden-actions" id="visitor-actions" style="display:none;">
-              <a href="chats.html" class="btn-solid" id="ask-host-btn">Ask <span id="ask-name">host</span></a>
-              <button type="button" class="btn-outline" id="share-profile-btn-visitor">Share profile</button>
-            </div>
-          </div>
         </div>
-
       </section>
 
       <div class="content-section" id="upcoming-bookings-section">
@@ -709,12 +766,6 @@
 
       <!-- Host listings — only shown when the profile being viewed belongs to a host -->
       <div id="listings-section" style="display:none;">
-        <div class="listings-section-head">
-          <div>
-            <h2 id="listings-heading">Places</h2>
-            <span class="listings-count" id="listings-count"></span>
-          </div>
-        </div>
         <div class="profile-category-row" id="profile-category-nav" role="tablist" aria-label="Profile listing categories"></div>
         <div class="profile-review-section" id="profile-review-section" aria-label="Host reviews"></div>
         <div class="listings-grid" id="listings-grid"></div>
@@ -930,7 +981,7 @@
     const banner = document.getElementById('profile-banner');
     const bannerKey = profileData.banner_image_key;
     banner.style.backgroundImage = bannerKey
-      ? 'linear-gradient(90deg,rgba(0,0,0,.68),rgba(0,0,0,.18)),linear-gradient(0deg,rgba(0,0,0,.68),transparent 75%),url("/api/photos/profile-banners/' + bannerKey.split('/').map(encodeURIComponent).join('/') + '")'
+      ? 'url("/api/photos/profile-banners/' + bannerKey.split('/').map(encodeURIComponent).join('/') + '")'
       : '';
     document.getElementById('profile-banner-actions').style.display = isOwner && profileData.role === 'host' ? 'flex' : 'none';
     document.getElementById('banner-change-label').textContent = bannerKey ? 'Change banner' : 'Add banner';
@@ -1187,9 +1238,6 @@
   if (count > 0 || isOwner) {
     listingsSection.style.display = 'block';
   }
-  document.getElementById('listings-count').textContent =
-    count + ' space' + (count !== 1 ? 's' : '') +
-    (profileData.city ? ' in ' + profileData.city : '');
 
   const CAT_LABELS = { airbnb:'Airbnb', hotel:'Hotel', venue:'Event Venue', office:'Office', shop:'Shop', property:'Property' };
   const listingVideoUrls = {};
