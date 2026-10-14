@@ -1066,12 +1066,10 @@
 
   /* ---------- Expanded account menu ---------- */
   .account-menu {
-    position: absolute;
-    /* Anchor above the identity strip; sidebar is position:relative-capable
-       via its own stacking context. We attach to the bottom of the sidebar. */
-    bottom: calc(100% + .4rem);
-    left: .5rem; right: .5rem;
-    z-index: 300;
+    /* position:fixed escapes the sidebar's overflow-y:auto clipping context.
+       left/bottom are set dynamically in openMenu() via getBoundingClientRect(). */
+    position: fixed;
+    z-index: 400;
     background: #1A1411;
     color: #F5EFEC;
     border-radius: 18px;
@@ -1080,9 +1078,6 @@
     display: flex; flex-direction: column; gap: 0;
   }
   .account-menu[hidden] { display: none; }
-
-  /* account-menu needs its parent (.sidebar) to be position:relative */
-  .sidebar { position: relative; }
 
   /* ---------- Account rows inside the menu ---------- */
   .account-menu-list {
@@ -1158,14 +1153,7 @@
   .account-menu-logout { color: rgba(245,239,236,.75); }
   .account-menu-logout:hover { color: #F5EFEC; background: rgba(255,255,255,.08); }
 
-  /* Mobile: account menu expands upward and fits narrow widths */
-  @media (max-width: 860px) {
-    .account-menu {
-      left: 0; right: 0;
-      bottom: calc(100% + .3rem);
-      border-radius: 16px;
-    }
-  }
+
 </style>
 </head>
 <body>
@@ -3072,9 +3060,26 @@
       }
 
       // ---- toggle menu open / close ----
+      function positionMenu() {
+        var rect = identityBtn.getBoundingClientRect();
+        var GAP = 8; // px gap between menu bottom and identity top
+        // Align menu left/right to the identity button's horizontal span
+        accountMenu.style.left   = rect.left + 'px';
+        accountMenu.style.width  = (rect.right - rect.left) + 'px';
+        accountMenu.style.right  = '';        // clear any stale value
+        // Open upward: bottom of menu = top of identity button − gap
+        var bottomFromViewport = window.innerHeight - rect.top + GAP;
+        accountMenu.style.bottom = bottomFromViewport + 'px';
+        accountMenu.style.top    = '';        // clear any stale value
+        // Safety: never taller than the space above the button
+        accountMenu.style.maxHeight = (rect.top - GAP * 2) + 'px';
+        accountMenu.style.overflowY = 'auto';
+      }
+
       function openMenu() {
         renderMenuRows(currentUser.id);
         accountMenu.removeAttribute('hidden');
+        positionMenu();
         identityBtn.setAttribute('aria-expanded', 'true');
       }
       function closeMenu() {
