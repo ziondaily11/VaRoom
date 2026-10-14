@@ -352,6 +352,10 @@
   .card-menu-btn{ width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:var(--card-bg); color:var(--ink); font-size:1.2rem; }
   .card-menu-dropdown{ display:none; position:absolute; top:34px; right:0; z-index:100; min-width:180px; padding:.4rem; background:var(--card-bg); border:1px solid var(--card-border); border-radius:12px; box-shadow:0 12px 30px rgba(26,18,16,.2); }
   .card-menu-dropdown.open{ display:block; }
+  .card-menu-dropdown.open.is-portaled{
+    position:fixed; top:0; right:auto; z-index:1000;
+    max-width:calc(100vw - 16px); overflow-y:auto; overscroll-behavior:contain;
+  }
   .card-menu-item{ display:block; width:100%; text-align:left; padding:.55rem .7rem; border-radius:8px; color:var(--ink); font-size:.8rem; }
   .card-menu-item:hover{ background:rgba(196,30,58,.08); }
   .card-menu-item.destructive{ border-top:1px solid var(--card-border); margin-top:.3rem; color:#C41E3A; }

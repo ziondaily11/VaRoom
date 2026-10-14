@@ -41,6 +41,10 @@ test('host controls label draft deletion explicitly and remove deleted listings 
   assert.match(controls, /Delete draft permanently/);
   assert.match(controls, /including Discover and all profiles/);
   assert.match(controls, /LISTING_DELETED_MEDIA_CLEANUP_FAILED/);
+  assert.match(controls, /document\.body\.appendChild\(dropdown\)/);
+  assert.match(controls, /dropdown\.style\.overflowY = 'auto'/);
+  assert.match(profile, /\.card-menu-dropdown\.open\.is-portaled/);
+  assert.match(profile, /overscroll-behavior:contain/);
   assert.match(profile, /varoom:listing-deleted/);
   assert.match(profile, /categoryListingIds\[categoryId\].*filter/);
 });
