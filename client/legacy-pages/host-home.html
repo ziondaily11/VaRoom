@@ -609,6 +609,11 @@
     box-shadow:0 12px 30px -10px rgba(26,18,16,.3); min-width:170px; padding:.4rem;
   }
   .card-menu-dropdown.open{ display:block; }
+  .card-menu-dropdown.open.is-portaled{
+    position:fixed; top:0; right:auto; z-index:1000;
+    max-height:calc(100vh - 16px); max-width:calc(100vw - 16px);
+    overflow-y:auto; overscroll-behavior:contain;
+  }
   .card-video .varoom-video-player{ z-index:1; }
   .card-menu-item{
     display:block; width:100%; text-align:left; padding:.6rem .8rem; border-radius:8px;
