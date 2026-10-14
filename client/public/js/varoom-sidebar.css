@@ -82,6 +82,10 @@ html[data-account-role="pending"] #sidebar {
   color: var(--red);
 }
 
+.sidebar .logo .room {
+  color: var(--ink);
+}
+
 .sidebar .elie-logo-nav {
   width: 22px;
   height: 22px;
@@ -326,7 +330,6 @@ html[data-theme="dark"][data-account-role="host"] .sidebar,
   --host-sidebar-line: rgba(255, 255, 255, .12);
 }
 
-:is(html[data-account-role="host"] .sidebar, .sidebar.sidebar-host) .logo .va,
 :is(html[data-account-role="host"] .sidebar, .sidebar.sidebar-host) .beta-pill {
   color: var(--ink);
 }
