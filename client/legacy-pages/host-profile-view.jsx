@@ -304,19 +304,24 @@ export default function HostProfileView() {
         .sidebar-logout { margin-top: auto; padding: 8px 10px; color: #c41e3a; text-align: left; font-weight: 600; }
         .host-profile-main { min-width: 0; }
         .host-profile-content { width: 100%; margin: 0; padding-bottom: 64px; }
-        .host-profile-content > .profile-banner + div { position:relative; z-index:1; margin-top:-82px; padding-top:28px !important; }
+        .host-profile-header { position:relative; }
+        .host-profile-header.is-owner { isolation:isolate; }
+        .host-profile-header-content { position:relative; z-index:1; }
+        .host-profile-header:not(.is-owner) > .host-profile-header-content { margin-top:-82px; padding-top:28px !important; }
+        .host-profile-header.is-owner > .host-profile-header-content { margin-top:0; padding:210px 24px 24px !important; border-bottom:1px solid rgba(255,255,255,.16); }
         .host-profile-listing-grid { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
         .host-profile-listing-card { color: #f5f5f5; text-decoration: none; }
         @media (max-width: 1100px) { .host-profile-shell { grid-template-columns: 220px minmax(0, 1fr); } .host-profile-listing-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; } }
-        @media (max-width: 760px) { .host-profile-shell { display: block; } .host-profile-sidebar { display: none; } .host-profile-content { padding-bottom: 24px; } .host-profile-content > .profile-banner + div { margin-top:-58px; padding-top:14px !important; } .host-profile-listing-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } }
+        @media (max-width: 760px) { .host-profile-shell { display: block; } .host-profile-sidebar { display: none; } .host-profile-content { padding-bottom: 24px; } .host-profile-header:not(.is-owner) > .host-profile-header-content { margin-top:-58px; padding-top:14px !important; } .host-profile-header.is-owner > .host-profile-header-content { padding:128px 16px 20px !important; } .host-profile-listing-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } }
         @media (max-width: 480px) { .host-profile-listing-grid { grid-template-columns: 1fr !important; } }
       `}</style>
       <div className="host-profile-shell">
         <Sidebar />
         <main className="host-profile-main">
           <div className="host-profile-content">
-        <ProfileBanner hostId={host.id} imageKey={host.banner_image_key} isOwner={isOwner} onChange={(banner_image_key) => setProfile((current) => ({ ...current, banner_image_key }))} />
-        <div style={{ padding: "32px 24px 0" }}>
+        <section className={`host-profile-header${isOwner ? " is-owner" : ""}`}>
+        <ProfileBanner hostId={host.id} imageKey={host.banner_image_key} isOwner={isOwner} coverHeader={isOwner} onChange={(banner_image_key) => setProfile((current) => ({ ...current, banner_image_key }))} />
+        <div className="host-profile-header-content" style={{ padding: "32px 24px 0" }}>
           {loadError && (
             <p role="alert" style={{ color: "#F2A3AE", fontSize: 14, margin: "0 0 20px" }}>
               {loadError}
@@ -454,7 +459,7 @@ export default function HostProfileView() {
               flexWrap: "wrap",
               marginTop: 18,
               paddingTop: 16,
-              borderTop: "1px solid #1C1C1C",
+              borderTop: isOwner ? "none" : "1px solid #1C1C1C",
               fontSize: 13,
               color: "#D5D5D5",
             }}
@@ -481,7 +486,10 @@ export default function HostProfileView() {
               {host.bio || "Bio not available"}
             </p>
           </div>
+        </div>
 
+        </section>
+        <div style={{ padding: "0 24px" }}>
           <ProfileCategoryNav hostId={host.id} listings={listings} isOwner={isOwner} value={selectedCategory} onChange={(id) => { setSelectedCategory(id); setTab("listings"); }} onCategoryListings={setCategoryListings} />
           <div role="tablist" aria-label="Host profile content" style={{ display:"flex",gap:18,borderBottom:"1px solid #1C1C1C" }}>
             <button type="button" role="tab" aria-selected={tab === "listings"} onClick={() => setTab("listings")} style={{ padding:"12px 8px",background:"transparent",border:0,borderBottom:tab === "listings" ? "2px solid #E5384F" : "2px solid transparent",color:tab === "listings" ? "#fff" : "#999",cursor:"pointer" }}>Listings · {listings.length}</button>
