@@ -79,6 +79,7 @@
 
   .logo{ font-family:var(--font-brand); font-weight:900; font-size:1.4rem; display:flex; align-items:baseline; padding:0 .4rem; }
   .logo .va{ color:var(--red); }
+  .logo .room{ color:var(--ink); }
   .elie-logo-nav{ width:22px; height:22px; object-fit:contain; flex-shrink:0; }
   .beta-pill{ margin-left:auto; font-size:.68rem; font-weight:600; background:#FBE4E7; color:var(--red-deep); padding:.15rem .5rem; border-radius:100px; }
   .nav-group{ display:flex; flex-direction:column; gap:.2rem; }
@@ -98,7 +99,6 @@
   [data-theme="dark"] .sidebar.sidebar-host{
     --host-control-active:#302C2A; --host-control-hover:#25211F; --host-sidebar-line:rgba(255,255,255,.12);
   }
-  :is(html[data-account-role="host"] #sidebar, .sidebar.sidebar-host) .logo .va,
   :is(html[data-account-role="host"] #sidebar, .sidebar.sidebar-host) .beta-pill{ color:var(--ink); }
   :is(html[data-account-role="host"] #sidebar, .sidebar.sidebar-host) .beta-pill{ background:var(--host-control-active) !important; border-color:var(--host-sidebar-line); }
   :is(html[data-account-role="host"] #sidebar, .sidebar.sidebar-host) .nav-group + .nav-group{ border-top:1px solid var(--host-sidebar-line); padding-top:1.2rem; }

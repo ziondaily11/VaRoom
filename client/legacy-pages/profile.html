@@ -131,6 +131,7 @@
   }
   .brand-logo{ display:flex; align-items:baseline; padding:0 10px; font-family:'Fraunces', serif; font-size:22px; font-weight:900; letter-spacing:-0.04em; }
   .brand-logo .va{ color:#c41e3a; }
+  .brand-logo .room{ color:var(--ink); }
 
   .nav-group{ display:flex; flex-direction:column; gap:4px; }
   .nav-group-compact{ margin-top:4px; }
@@ -162,7 +163,6 @@
     --host-control-active:#302C2A; --host-control-hover:#25211F; --host-sidebar-line:rgba(255,255,255,.12);
   }
   :is(html[data-account-role="host"] .profile-sidebar, .profile-sidebar.sidebar-host) .brand-logo{ padding:0 .4rem; font-size:1.4rem; letter-spacing:normal; }
-  :is(html[data-account-role="host"] .profile-sidebar, .profile-sidebar.sidebar-host) .brand-logo .va{ color:var(--ink); }
   :is(html[data-account-role="host"] .profile-sidebar, .profile-sidebar.sidebar-host) .nav-group{ gap:.2rem; }
   :is(html[data-account-role="host"] .profile-sidebar, .profile-sidebar.sidebar-host) .nav-group-compact{ margin-top:0; }
   :is(html[data-account-role="host"] .profile-sidebar, .profile-sidebar.sidebar-host) .nav-group + .nav-group{
