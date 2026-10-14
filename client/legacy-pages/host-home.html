@@ -147,15 +147,8 @@
   }
   .list-space-btn:hover{ background:#FBE4E7; }
 
-  .verify-box{
-    border-radius:14px; padding:1rem 1.1rem; font-size:.82rem; line-height:1.5;
-  }
-  .verify-box.is-verified{ background:#EAF4EE; color:#1E6B3C; }
-  .verify-box.not-verified{ background:#FBE4E7; color:var(--red-deep); }
-  .verify-box strong{ display:block; margin-bottom:.2rem; }
-  .verify-box a{ font-weight:600; border-bottom:1.5px solid currentColor; }
 
-  .logout-btn{ color:var(--red); font-weight:600; font-size:.9rem; padding:.5rem .7rem; text-align:left; }
+
 
   .toast{
     position:fixed; bottom:1.5rem; left:50%; transform:translateX(-50%) translateY(20px);
@@ -876,8 +869,7 @@
   .verified-tick{ color:var(--ink); }
   .beta-pill,
   .property-news-status,
-  .host-video-upload-btn,
-  .verify-box.not-verified{
+  .host-video-upload-btn{
     background:var(--control-active);
     color:var(--ink);
     border-color:var(--line);
@@ -1011,6 +1003,170 @@
   .card-map-link:hover,
   .property-news-view-all:hover{ color:var(--red-deep); }
 </style>
+
+<style>
+  /* =====================================================================
+     ACCOUNT IDENTITY + ACCOUNT MENU
+     Replaces the verify-box and exposed logout button.
+     Uses existing design tokens — no new colour values.
+     ===================================================================== */
+
+  /* ---------- Collapsed account identity (sidebar footer) ---------- */
+  .account-identity {
+    margin-top: auto;
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    width: 100%;
+    padding: .65rem .6rem;
+    border-radius: 12px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    text-align: left;
+    color: var(--ink);
+    flex-shrink: 0;
+    position: relative;
+  }
+  .account-identity:hover { background: var(--control-hover, var(--paper)); }
+
+  .account-identity-avatar {
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    background: var(--control-active, #E9E7E2);
+    color: var(--ink);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: .92rem;
+    flex-shrink: 0; overflow: hidden;
+  }
+  .account-identity-avatar img {
+    width: 100%; height: 100%; object-fit: cover; display: block;
+  }
+
+  .account-identity-info {
+    display: flex; flex-direction: column; gap: .05rem;
+    min-width: 0; flex: 1;
+  }
+  .account-identity-name {
+    font-size: .88rem; font-weight: 700;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    color: var(--ink);
+  }
+  .account-identity-username {
+    font-size: .76rem; color: var(--muted);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  .account-identity-dots {
+    flex-shrink: 0; color: var(--muted);
+    margin-left: auto;
+  }
+  .account-identity:hover .account-identity-dots { color: var(--ink); }
+
+  /* ---------- Expanded account menu ---------- */
+  .account-menu {
+    position: absolute;
+    /* Anchor above the identity strip; sidebar is position:relative-capable
+       via its own stacking context. We attach to the bottom of the sidebar. */
+    bottom: calc(100% + .4rem);
+    left: .5rem; right: .5rem;
+    z-index: 300;
+    background: #1A1411;
+    color: #F5EFEC;
+    border-radius: 18px;
+    box-shadow: 0 16px 48px -8px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.09);
+    padding: .6rem .5rem .5rem;
+    display: flex; flex-direction: column; gap: 0;
+  }
+  .account-menu[hidden] { display: none; }
+
+  /* account-menu needs its parent (.sidebar) to be position:relative */
+  .sidebar { position: relative; }
+
+  /* ---------- Account rows inside the menu ---------- */
+  .account-menu-list {
+    display: flex; flex-direction: column; gap: 0;
+    padding: 0 0 .15rem;
+  }
+  .account-menu-row {
+    display: flex; align-items: center; gap: .75rem;
+    width: 100%; padding: .65rem .65rem;
+    border-radius: 12px;
+    background: none; border: none; cursor: pointer;
+    font-family: inherit; text-align: left;
+    color: #F5EFEC;
+  }
+  .account-menu-row:hover { background: rgba(255,255,255,.08); }
+  .account-menu-row.active { cursor: default; }
+
+  .account-menu-row-avatar {
+    width: 38px; height: 38px; border-radius: 50%;
+    background: rgba(255,255,255,.15); color: #F5EFEC;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: .9rem;
+    flex-shrink: 0; overflow: hidden;
+  }
+  .account-menu-row-avatar img {
+    width: 100%; height: 100%; object-fit: cover; display: block;
+  }
+
+  .account-menu-row-info {
+    display: flex; flex-direction: column; gap: .06rem;
+    min-width: 0; flex: 1;
+  }
+  .account-menu-row-name {
+    font-size: .88rem; font-weight: 700; color: #F5EFEC;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .account-menu-row-username {
+    font-size: .76rem; color: rgba(245,239,236,.55);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  .account-menu-row-check {
+    flex-shrink: 0; margin-left: auto;
+    width: 22px; height: 22px; border-radius: 50%;
+    background: #28A745; color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: .7rem; font-weight: 900;
+  }
+
+  .account-menu-row.switching { opacity: .5; pointer-events: none; }
+
+  /* ---------- Divider ---------- */
+  .account-menu-divider {
+    height: 1px; background: rgba(255,255,255,.1);
+    margin: .35rem .15rem;
+  }
+
+  /* ---------- Action buttons (Add / Manage / Log out) ---------- */
+  .account-menu-action {
+    display: block; width: 100%;
+    padding: .7rem .75rem;
+    border-radius: 10px;
+    background: none; border: none; cursor: pointer;
+    font-family: inherit; font-size: .88rem; font-weight: 600;
+    text-align: left; color: #F5EFEC; text-decoration: none;
+  }
+  .account-menu-action:hover { background: rgba(255,255,255,.08); }
+
+  .account-menu-action.disabled {
+    opacity: .45; cursor: default; pointer-events: none;
+  }
+
+  .account-menu-logout { color: rgba(245,239,236,.75); }
+  .account-menu-logout:hover { color: #F5EFEC; background: rgba(255,255,255,.08); }
+
+  /* Mobile: account menu expands upward and fits narrow widths */
+  @media (max-width: 860px) {
+    .account-menu {
+      left: 0; right: 0;
+      bottom: calc(100% + .3rem);
+      border-radius: 16px;
+    }
+  }
+</style>
 </head>
 <body>
 
@@ -1142,9 +1298,25 @@
       </a>
     </nav>
 
-    <div class="verify-box" id="verify-box"></div>
+    <!-- Account identity + switcher (replaces verify-box and exposed logout) -->
+    <div id="account-menu" class="account-menu" role="menu" aria-label="Account menu" hidden>
+      <div id="account-menu-list" class="account-menu-list"></div>
+      <div class="account-menu-divider"></div>
+      <button type="button" class="account-menu-action" id="account-add-btn">Add an existing account</button>
+      <a href="/settings" class="account-menu-action" id="account-manage-btn">Manage accounts</a>
+      <button type="button" class="account-menu-action account-menu-logout" id="account-logout-btn">Log out</button>
+    </div>
 
-    <button type="button" class="logout-btn" id="logout-btn">Log out</button>
+    <button type="button" class="account-identity" id="account-identity-btn" aria-haspopup="true" aria-expanded="false" aria-controls="account-menu">
+      <span class="account-identity-avatar" id="acct-avatar-collapsed" aria-hidden="true"></span>
+      <span class="account-identity-info">
+        <span class="account-identity-name" id="acct-name-collapsed">…</span>
+        <span class="account-identity-username" id="acct-username-collapsed"></span>
+      </span>
+      <svg class="account-identity-dots" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/>
+      </svg>
+    </button>
   </aside>
 
   <div class="main-col">
@@ -1270,6 +1442,7 @@
 </div>
 
 <script src="js/supabase-client.js"></script>
+<script src="js/account-switcher.js"></script>
 <script src="js/listing-feed-cache.js"></script>
 <script src="js/host-listing-controls.js"></script>
 <script src="js/property-news-api.js"></script>
@@ -1353,14 +1526,6 @@
     // them in parallel so their count, glance, notification, and bookmark
     // queries never delay restoring cached listing cards.
     (async function initialiseHostDashboard(){
-    const verifyBox = document.getElementById('verify-box');
-    if (profile.verified) {
-      verifyBox.className = 'verify-box is-verified';
-      verifyBox.innerHTML = '<strong>You\'re verified!</strong>Your account is verified. Keep providing great experiences.';
-    } else {
-      verifyBox.className = 'verify-box not-verified';
-      verifyBox.innerHTML = '<strong>Get verified</strong>Verification isn\'t self-serve yet — reach out via Help &amp; Support to get your blue tick.';
-    }
 
     // ---------- Your listings count (real) ----------
     const { count: listingCount } = await supabaseClient
@@ -2826,10 +2991,175 @@
       searchDebounce = setTimeout(function(){ searchTerm = searchInput.value; loadFeed(); }, 350);
     });
 
-    document.getElementById('logout-btn').addEventListener('click', async function(){
-      await supabaseClient.auth.signOut();
-      window.location.href = '/';
-    });
+    // ---------- Account identity + switcher ----------
+    // Reuses window.VaRoomAccountSwitcher (account-switcher.js).
+    // Extends per-account data with `username` (fetched from the profiles table
+    // once per load for the active account and stored alongside the tokens).
+    (function initAccountSwitcher() {
+      const switcher = window.VaRoomAccountSwitcher;
+      if (!switcher) return; // guard: script may have failed to load
+
+      const identityBtn  = document.getElementById('account-identity-btn');
+      const accountMenu  = document.getElementById('account-menu');
+      const menuList     = document.getElementById('account-menu-list');
+      const addBtn       = document.getElementById('account-add-btn');
+      const logoutBtn    = document.getElementById('account-logout-btn');
+
+      // ---- helpers ----
+      function initial(name) {
+        var s = String(name || '').trim();
+        return s ? s.charAt(0).toUpperCase() : '?';
+      }
+      function avatarUrl(path) {
+        if (!path) return null;
+        if (path.indexOf('http') === 0) return path;
+        try { return supabaseClient.storage.from('avatars').getPublicUrl(path).data.publicUrl; } catch (e) { return null; }
+      }
+      function esc(v) {
+        return String(v || '').replace(/[&<>"']/g, function(c) {
+          return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+        });
+      }
+
+      // ---- render collapsed identity strip ----
+      function renderIdentity(account) {
+        var url = avatarUrl(account.avatar_url);
+        var avatarEl = document.getElementById('acct-avatar-collapsed');
+        if (url) {
+          avatarEl.innerHTML = '<img src="' + esc(url) + '" alt="">';
+        } else {
+          avatarEl.innerHTML = '';
+          avatarEl.textContent = initial(account.full_name);
+        }
+        document.getElementById('acct-name-collapsed').textContent = account.full_name || 'VaRoom member';
+        var uname = account.username ? '@' + account.username : (account.email || '');
+        document.getElementById('acct-username-collapsed').textContent = uname;
+
+        // Update logout label with username
+        var logoutLabel = account.username ? 'Log out @' + account.username : 'Log out';
+        logoutBtn.textContent = logoutLabel;
+      }
+
+      // ---- render expanded menu account rows ----
+      function renderMenuRows(activeUserId) {
+        var accounts = switcher.getLinkedAccounts();
+        if (!accounts.length) return;
+        menuList.innerHTML = accounts.map(function(acct) {
+          var isActive = acct.id === activeUserId;
+          var url = avatarUrl(acct.avatar_url);
+          var avatarInner = url
+            ? '<img src="' + esc(url) + '" alt="">'
+            : esc(initial(acct.full_name));
+          var uname = acct.username ? '@' + esc(acct.username) : esc(acct.email || '');
+          return '<button type="button" class="account-menu-row' + (isActive ? ' active' : '') +
+            '" data-account-id="' + esc(acct.id) + '">' +
+            '<span class="account-menu-row-avatar">' + avatarInner + '</span>' +
+            '<span class="account-menu-row-info">' +
+              '<span class="account-menu-row-name">' + esc(acct.full_name || 'VaRoom member') + '</span>' +
+              '<span class="account-menu-row-username">' + uname + '</span>' +
+            '</span>' +
+            (isActive ? '<span class="account-menu-row-check" aria-label="Active account">✓</span>' : '') +
+            '</button>';
+        }).join('');
+
+        // Grey out "Add" when at limit
+        var atLimit = accounts.length >= 3;
+        addBtn.classList.toggle('disabled', atLimit);
+        addBtn.disabled = atLimit;
+        addBtn.setAttribute('aria-disabled', atLimit ? 'true' : 'false');
+        if (atLimit) addBtn.textContent = 'Account limit reached (3/3)';
+        else addBtn.textContent = 'Add an existing account';
+      }
+
+      // ---- toggle menu open / close ----
+      function openMenu() {
+        renderMenuRows(currentUser.id);
+        accountMenu.removeAttribute('hidden');
+        identityBtn.setAttribute('aria-expanded', 'true');
+      }
+      function closeMenu() {
+        accountMenu.setAttribute('hidden', '');
+        identityBtn.setAttribute('aria-expanded', 'false');
+      }
+
+      identityBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        if (accountMenu.hasAttribute('hidden')) openMenu(); else closeMenu();
+      });
+      document.addEventListener('click', function(e) {
+        if (!accountMenu.hasAttribute('hidden') &&
+            !accountMenu.contains(e.target) &&
+            !identityBtn.contains(e.target)) {
+          closeMenu();
+        }
+      });
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && !accountMenu.hasAttribute('hidden')) closeMenu();
+      });
+
+      // ---- account row click → switch ----
+      menuList.addEventListener('click', async function(e) {
+        var row = e.target.closest('.account-menu-row');
+        if (!row || row.classList.contains('active')) return;
+        var accountId = row.getAttribute('data-account-id');
+        var accounts = switcher.getLinkedAccounts();
+        var target = null;
+        for (var i = 0; i < accounts.length; i++) { if (accounts[i].id === accountId) { target = accounts[i]; break; } }
+        if (!target) return;
+
+        row.classList.add('switching');
+        try {
+          await switcher.switchAccount(supabaseClient, target);
+          window.location.reload();
+        } catch (err) {
+          row.classList.remove('switching');
+          switcher.removeAccount(accountId);
+          renderMenuRows(currentUser.id);
+          var msg = 'That account needs you to sign in again.';
+          if (window.varoomShowToast) window.varoomShowToast(msg);
+          else showToast(msg);
+        }
+      });
+
+      // ---- add account ----
+      addBtn.addEventListener('click', function() {
+        if (addBtn.disabled) return;
+        switcher.startAddAccount(window.location.pathname);
+      });
+
+      // ---- logout (through menu only) ----
+      logoutBtn.addEventListener('click', async function() {
+        await supabaseClient.auth.signOut();
+        window.location.href = '/';
+      });
+
+      // ---- bootstrap: sync current session into the linked-accounts store
+      //      then enrich it with the username from the profiles row ----
+      (async function bootstrap() {
+        var result = await supabaseClient.auth.getSession();
+        var session = result && result.data && result.data.session;
+        if (session) {
+          await switcher.upsertFromSession(supabaseClient, session);
+          // Fetch username separately (not stored in upsertFromSession by default)
+          var accounts = switcher.getLinkedAccounts();
+          var mine = null;
+          for (var i = 0; i < accounts.length; i++) { if (accounts[i].id === currentUser.id) { mine = accounts[i]; break; } }
+          // Attach username from the already-loaded profile
+          if (mine && profile.username && !mine.username) {
+            mine.username = profile.username;
+            switcher.upsertAccount(mine);
+          }
+          renderIdentity(mine || { full_name: profile.full_name, avatar_url: profile.avatar_url, username: profile.username });
+        }
+
+        // Keep tokens fresh — update stored record whenever Supabase refreshes
+        supabaseClient.auth.onAuthStateChange(function(event, session) {
+          if ((event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN') && session) {
+            switcher.upsertFromSession(supabaseClient, session);
+          }
+        });
+      })();
+    })();
 
     // ---------- Toast (honest "coming soon" feedback) ----------
     const toastEl = document.getElementById('toast');
@@ -2859,7 +3189,7 @@
     function closeSidebar(){ sidebar.classList.remove('mobile-open'); backdrop.classList.remove('show'); }
 
     backdrop.addEventListener('click', closeSidebar);
-    sidebar.querySelectorAll('.nav-item, .list-space-btn, .logout-btn').forEach(function(el){
+    sidebar.querySelectorAll('.nav-item, .list-space-btn').forEach(function(el){
       el.addEventListener('click', closeSidebar);
     });
     document.getElementById('topbar-avatar-btn').addEventListener('click', openSidebar);
