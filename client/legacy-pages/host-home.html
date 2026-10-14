@@ -2238,6 +2238,13 @@
       const avatarHtml = hostAvatarUrl
         ? '<img src="' + hostAvatarUrl + '" alt="">'
         : initial;
+      const isOwnProfile = listing.host_id === currentUser.id;
+      const hostProfileHref = isOwnProfile
+        ? '/profile'
+        : '/host/' + encodeURIComponent(listing.host_id);
+      const hostProfileLabel = isOwnProfile
+        ? 'Edit your profile'
+        : 'View ' + (host.full_name || 'Host') + '\'s profile';
       const isBookmarked = bookmarkedIds.has(listing.id);
       const likeState = getListingLikeState(String(listing.id));
       let photosHtml = '';
@@ -2270,9 +2277,9 @@
       return (
         '<div class="card" data-listing-card="' + listing.id + '" data-listing-id="' + listing.id + '">' +
           '<div class="card-head">' +
-            '<a class="card-avatar" href="/host/' + encodeURIComponent(listing.host_id) + '" aria-label="View ' + escapeHtml(host.full_name || 'Host') + '\'s profile">' + avatarHtml + '</a>' +
+            '<a class="card-avatar" href="' + hostProfileHref + '" aria-label="' + escapeHtml(hostProfileLabel) + '">' + avatarHtml + '</a>' +
             '<div>' +
-              '<a class="card-host-name" href="/host/' + encodeURIComponent(listing.host_id) + '">' + escapeHtml(host.full_name || 'Host') + (host.verified ? '<span class="verified-tick">✔</span>' : '') + '</a>' +
+              '<a class="card-host-name" href="' + hostProfileHref + '"' + (isOwnProfile ? ' aria-label="Edit your profile"' : '') + '>' + escapeHtml(host.full_name || 'Host') + (host.verified ? '<span class="verified-tick">✔</span>' : '') + '</a>' +
               '<div class="card-location">' + (host.username ? '@' + escapeHtml(host.username) + ' · ' : '') + escapeHtml(listing.location_text) +
                 ' · <a href="/map?listing=' + listing.id + '" class="card-map-link">View on Map</a>' +
               '</div>' +
