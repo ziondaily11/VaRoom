@@ -119,14 +119,6 @@
       '</a>',
 
       '<nav class="nav-group">',
-      '  <a href="/chats?conversation=elie" class="' + itemClass(activeNav === 'elie') + '">',
-      '    ' + ICONS.elie,
-      '    Elie',
-      '    <span class="beta-pill">Free preview</span>',
-      '  </a>',
-      '</nav>',
-
-      '<nav class="nav-group">',
       '  <a href="/host-home" class="' + itemClass(activeNav === 'home') + '" data-nav="home">',
       '    ' + ICONS.home,
       '    Home',
