@@ -14,7 +14,11 @@
       options.headers = Object.assign({ 'Content-Type': 'application/json', Authorization: 'Bearer ' + accessToken }, options.headers || {});
       return fetch('/api' + path, options).then(function (response) {
         return response.json().then(function (body) {
-          if (!response.ok) throw new Error(body.error || 'Request failed');
+          if (!response.ok) {
+            var error = new Error(body.error || 'Request failed');
+            error.code = body.code;
+            throw error;
+          }
           return body;
         });
       });
@@ -102,16 +106,38 @@
       .then(function () { toast('Listing link copied'); })
       .catch(function () { toast('Unable to copy listing link'); });
   }
-  function confirmDeletion() {
+  function confirmDeletion(listing) {
     return new Promise(function (resolve) {
       var overlay = document.createElement('div');
       overlay.className = 'modal-overlay open';
-      overlay.innerHTML = '<div class="modal-card"><h2>Delete listing?</h2><p>This is permanent. The listing, its photos, and discovery record will be removed.</p><div class="modal-actions"><button class="modal-cancel">Keep listing</button><button class="modal-save" style="background:#8F1229">Delete permanently</button></div></div>';
+      var dialog = document.createElement('div');
+      dialog.className = 'modal-card';
+      dialog.setAttribute('role', 'alertdialog');
+      dialog.setAttribute('aria-modal', 'true');
+      var heading = document.createElement('h2');
+      heading.textContent = listing.availability_status === 'draft' ? 'Delete draft listing?' : 'Delete listing?';
+      var message = document.createElement('p');
+      message.textContent = listing.availability_status === 'draft'
+        ? 'This permanently removes "' + (listing.title || 'this draft') + '" and its listing media from VaRoom, including Discover and all profiles. This cannot be undone.'
+        : 'This is permanent. The listing, its photos, and discovery record will be removed.';
+      var actions = document.createElement('div');
+      actions.className = 'modal-actions';
+      var cancel = document.createElement('button');
+      cancel.className = 'modal-cancel';
+      cancel.textContent = 'Keep listing';
+      var confirm = document.createElement('button');
+      confirm.className = 'modal-save';
+      confirm.style.background = '#8F1229';
+      confirm.textContent = 'Delete permanently';
+      actions.append(cancel, confirm);
+      dialog.append(heading, message, actions);
+      overlay.appendChild(dialog);
       document.body.appendChild(overlay);
       function finish(value) { overlay.remove(); resolve(value); }
-      overlay.querySelector('.modal-cancel').onclick = function () { finish(false); };
-      overlay.querySelector('.modal-save').onclick = function () { finish(true); };
+      cancel.onclick = function () { finish(false); };
+      confirm.onclick = function () { finish(true); };
       overlay.onclick = function (event) { if (event.target === overlay) finish(false); };
+      confirm.focus();
     });
   }
   function bind(container) {
@@ -148,9 +174,19 @@
         else if (action === 'bookings') window.location.href = '/bookings?listing=' + encodeURIComponent(listing.id);
         else if (action === 'analytics') window.location.href = '/analytics?listing=' + encodeURIComponent(listing.id);
         else if (action === 'duplicate') request('/listings/' + encodeURIComponent(listing.id) + '/duplicate', { method: 'POST' }).then(function () { invalidateListingCache(); toast('Listing duplicated'); }).catch(function (error) { toast(error.message); });
-        else if (action === 'delete') confirmDeletion().then(function (confirmed) {
+        else if (action === 'delete') confirmDeletion(listing).then(function (confirmed) {
           if (!confirmed) return;
-          request('/listings/' + encodeURIComponent(listing.id), { method: 'DELETE' }).then(function () { removeCachedListing(listing.id); document.dispatchEvent(new CustomEvent('varoom:listing-deleted', { detail: { id: listing.id } })); toast('Listing deleted'); }).catch(function (error) { toast(error.message); });
+          request('/listings/' + encodeURIComponent(listing.id), { method: 'DELETE' }).then(function () {
+            removeCachedListing(listing.id);
+            document.dispatchEvent(new CustomEvent('varoom:listing-deleted', { detail: { id: listing.id } }));
+            toast(listing.availability_status === 'draft' ? 'Draft listing permanently deleted' : 'Listing deleted');
+          }).catch(function (error) {
+            if (error.code === 'LISTING_DELETED_MEDIA_CLEANUP_FAILED') {
+              removeCachedListing(listing.id);
+              document.dispatchEvent(new CustomEvent('varoom:listing-deleted', { detail: { id: listing.id } }));
+            }
+            toast(error.message);
+          });
         });
       });
     });
@@ -211,6 +247,8 @@
       '<button class="card-menu-item" data-host-action="status" data-status="paused" data-status-action="paused" data-listing="' + json + '">Pause listing</button>' +
       '<button class="card-menu-item" data-host-action="status" data-status="draft" data-status-action="draft" data-listing="' + json + '">Save as draft</button>' +
       '<button class="card-menu-item" data-host-action="share" data-listing="' + json + '">Share listing</button><button class="card-menu-item" data-host-action="copy" data-listing="' + json + '">Copy listing link</button>' +
-      '<button class="card-menu-item" data-host-action="bookings" data-listing="' + json + '">View bookings</button><button class="card-menu-item" data-host-action="analytics" data-listing="' + json + '">View analytics</button><button class="card-menu-item" data-host-action="duplicate" data-listing="' + json + '">Duplicate listing</button><button class="card-menu-item destructive" data-host-action="delete" data-listing="' + json + '">Delete listing</button></div></div>';
+      '<button class="card-menu-item" data-host-action="bookings" data-listing="' + json + '">View bookings</button><button class="card-menu-item" data-host-action="analytics" data-listing="' + json + '">View analytics</button><button class="card-menu-item" data-host-action="duplicate" data-listing="' + json + '">Duplicate listing</button><button class="card-menu-item destructive" data-host-action="delete" data-listing="' + json + '">' +
+      (listing.availability_status === 'draft' ? 'Delete draft permanently' : 'Delete listing') +
+      '</button></div></div>';
   }};
 })();

@@ -1425,6 +1425,18 @@
     addTab('Reviews',reviewsPanel.style.display === 'block',showProfileReviews);
     if (isOwner) addTab('+ Manage categories',false,function(){manager.classList.add('open');renderCategoryManager();},'category-manage');
   }
+  document.addEventListener('varoom:listing-deleted',function(event){
+    const deletedId = event.detail && event.detail.id;
+    if (!deletedId) return;
+    const listingIndex = listingRows.findIndex(function(listing){return listing.id === deletedId;});
+    if (listingIndex === -1) return;
+    listingRows.splice(listingIndex,1);
+    Object.keys(categoryListingIds).forEach(function(categoryId){
+      categoryListingIds[categoryId] = categoryListingIds[categoryId].filter(function(id){return id !== deletedId;});
+    });
+    renderCategoryNav();
+    if (reviewsPanel.style.display !== 'block') selectProfileCategory(activeProfileCategory);
+  });
   function renderCategoryManager(){
     managerList.innerHTML = '';
     profileCategories.forEach(function(category){
