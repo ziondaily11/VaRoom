@@ -100,8 +100,8 @@
   :focus-visible{ outline:2px solid var(--red); outline-offset:2px; }
 
   .app-shell{
-    display:flex;
-    justify-content:center;
+    display:grid;
+    grid-template-columns: 260px minmax(0, 1fr);
     width:100%;
     height:100vh;
     overflow:hidden;
@@ -214,11 +214,9 @@
      Structured 3-column layout emulating X:
      600px middle feed, 1px hairline divider, 359px right rail. */
   .main-col{
-    width:960px;
-    max-width:calc(100vw - 260px);
     display:grid;
     grid-template-rows: auto 1fr;
-    grid-template-columns: minmax(0, 600px) 1px 359px;
+    grid-template-columns: 600px 1px clamp(380px, 32vw, 480px);
     height:100vh;
     overflow:hidden;
     min-width:0;
@@ -256,8 +254,8 @@
 
   .search-wrap{
     flex:1; display:flex; align-items:center; gap:.6rem;
-    background:var(--control-bg); border-radius:9999px; padding:.55rem 1rem;
-    border:1px solid transparent;
+    background:transparent; border-radius:9999px; padding:.55rem 1rem;
+    border:1px solid var(--line);
     box-shadow:none;
     min-width:0;
     transition:all .18s ease;
@@ -265,9 +263,9 @@
   .search-wrap input{ flex:1; min-width:0; border:none; background:transparent; font-family:inherit; font-size:.92rem; color:var(--ink); }
   .search-wrap input:focus{ outline:none; }
   .search-wrap:focus-within{
-    border-color:var(--red);
-    background:var(--paper);
-    box-shadow:0 0 0 1px var(--red);
+    border-color:var(--muted);
+    background:transparent;
+    box-shadow:0 0 0 1px var(--muted);
   }
   .search-btn{ color:var(--muted); display:flex; align-items:center; }
   .search-wrap input::placeholder{ color:var(--muted); opacity:1; }
@@ -309,7 +307,7 @@
   .host-rail{
     grid-column: 3;
     grid-row: 2;
-    padding:.75rem 1rem 3rem 1.25rem;
+    padding:.75rem 1.25rem 3rem 1.5rem;
     display:flex;
     flex-direction:column;
     align-items:stretch;
@@ -390,15 +388,15 @@
   .attention-clear-sub{ font-size:.78rem; color:var(--muted); }
 
   /* ---------- DESKTOP RIGHT-RAIL MODULES ----------
-     Elevated card surfaces emulating X's right sidebar widgets. */
+     Transparent card surfaces with subtle hairline outlines against page background. */
   .host-rail > .sidebar-module{
     width:100%;
     flex:0 0 auto;
-    background:var(--surface-card) !important;
+    background:transparent !important;
     border:1px solid var(--line) !important;
     border-radius:16px !important;
     box-shadow:none !important;
-    padding:1rem 1.15rem !important;
+    padding:1.15rem 1.25rem !important;
     box-sizing:border-box;
   }
   .host-rail > .sidebar-module .stats-head{ margin-bottom:.85rem; }
@@ -408,13 +406,14 @@
   .listings-glance-card{ }
   .listings-glance-grid{ display:grid; grid-template-columns:1fr 1fr; gap:.65rem; }
   .glance-tile{
-    background:var(--tile-bg); border:1px solid var(--line); border-radius:12px;
+    background:transparent !important; border:1px solid var(--line) !important; border-radius:12px;
     overflow:hidden; display:block; transition:border-color .15s ease;
   }
-  .glance-tile:hover{ border-color:var(--red); }
+  .glance-tile:hover{ border-color:var(--muted) !important; }
   .glance-thumb{
-    height:76px; background:var(--control-active); color:var(--muted);
+    height:76px; background:transparent !important; color:var(--muted);
     display:flex; align-items:center; justify-content:center;
+    border-bottom:1px solid var(--line);
   }
   .glance-thumb img{ width:100%; height:100%; object-fit:cover; display:block; }
   .glance-body{ padding:.5rem .6rem; }
@@ -423,9 +422,9 @@
   .glance-tile.add-tile{
     display:flex; flex-direction:column; align-items:center; justify-content:center;
     gap:.35rem; color:var(--muted); min-height:104px; font-size:.78rem; font-weight:600;
-    border:1px dashed var(--line); background:transparent;
+    border:1px dashed var(--line) !important; background:transparent !important;
   }
-  .glance-tile.add-tile:hover{ color:var(--red); border-color:var(--red); }
+  .glance-tile.add-tile:hover{ color:var(--red); border-color:var(--red) !important; }
 
   /* ---------- VAROOM UPDATES ---------- */
   .varoom-updates-card{ }
@@ -966,16 +965,16 @@
 
   .search-wrap,
   [data-theme="dark"] .search-wrap{
-    background:var(--control-bg) !important;
-    outline:1px solid transparent !important;
-    border:0 !important;
+    background:transparent !important;
+    border:1px solid var(--line) !important;
+    outline:none !important;
     box-shadow:none !important;
   }
   .search-wrap:focus-within,
   [data-theme="dark"] .search-wrap:focus-within{
-    outline-color:var(--red) !important;
-    background:var(--paper) !important;
-    box-shadow:0 0 0 1px var(--red) !important;
+    border-color:var(--muted) !important;
+    background:transparent !important;
+    box-shadow:0 0 0 1px var(--muted) !important;
   }
 
   .list-btn-primary,
@@ -1024,17 +1023,17 @@
   .bookmark-btn.saved{ color:var(--ink); }
   .topbar-avatar-btn:hover .avatar-circle{ outline-color:var(--neutral-icon); }
 
-  /* Desktop right rail modules: elevated card surfaces emulating X's right rail */
+  /* Desktop right rail modules: transparent card surfaces with subtle elegant outlines against page background */
   .host-rail > .sidebar-module,
   .host-rail > .listings-glance-card,
   .host-rail > .property-news-card,
   .host-rail > .varoom-updates-card{
     position:relative;
-    background:var(--surface-card) !important;
+    background:transparent !important;
     border:1px solid var(--line) !important;
     border-radius:16px !important;
     box-shadow:none !important;
-    padding:1rem 1.15rem !important;
+    padding:1.15rem 1.25rem !important;
     box-sizing:border-box;
   }
   .host-rail > .listings-glance-card::after,
