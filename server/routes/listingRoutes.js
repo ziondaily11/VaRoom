@@ -102,6 +102,46 @@ async function ownedListing(id, userId, res) {
   return data;
 }
 
+async function deleteListingStorageObjects(photos, propertyMedia) {
+  const r2Keys = new Set();
+  const legacyPaths = new Set();
+  const mediaBuckets = new Map();
+
+  for (const photo of photos || []) {
+    if (!photo.storage_path) continue;
+    if (mediaStorageService.isR2PhotoObjectKey('listing-photos', photo.storage_path)) {
+      r2Keys.add(photo.storage_path);
+    } else {
+      legacyPaths.add(photo.storage_path);
+    }
+  }
+
+  for (const media of propertyMedia || []) {
+    if (!media.storage_key) continue;
+    if (media.storage_provider === 'r2') {
+      r2Keys.add(media.storage_key);
+      if (media.thumbnail_key) r2Keys.add(media.thumbnail_key);
+      continue;
+    }
+
+    const bucket = media.storage_bucket || 'property-media';
+    const keys = mediaBuckets.get(bucket) || new Set();
+    keys.add(media.storage_key);
+    if (media.thumbnail_key) keys.add(media.thumbnail_key);
+    mediaBuckets.set(bucket, keys);
+  }
+
+  await Promise.all([...r2Keys].map((key) => mediaStorageService.deleteR2Object(key)));
+  if (legacyPaths.size) {
+    const { error } = await supabaseAdmin.storage.from('listing-photos').remove([...legacyPaths]);
+    if (error) throw error;
+  }
+  for (const [bucket, keys] of mediaBuckets.entries()) {
+    const { error } = await supabaseAdmin.storage.from(bucket).remove([...keys]);
+    if (error) throw error;
+  }
+}
+
 router.patch('/listings/:id/status', async (req, res) => {
   const user = await authenticatedHost(req, res);
   if (!user) return;
@@ -449,15 +489,61 @@ router.post('/listings/:id/duplicate', async (req, res) => {
 router.delete('/listings/:id', async (req, res) => {
   const user = await authenticatedHost(req, res);
   if (!user) return;
+  try {
+    uuid(req.params.id, 'listing id');
+  } catch (error) {
+    if (error instanceof ValidationError) return res.status(400).json({ error: 'Invalid listing id' });
+    throw error;
+  }
   const listing = await ownedListing(req.params.id, user.id, res);
   if (!listing) return;
 
-  const [{ data: photos }, { data: propertyMedia }] = await Promise.all([
+  if (listing.availability_status === 'draft') {
+    const { data: media, error: deleteError } = await supabaseAdmin.rpc('varoom_delete_draft_listing', {
+      p_listing_id: req.params.id,
+      p_host_id: user.id,
+    });
+    if (deleteError) {
+      if (deleteError.code === 'P0002') return res.status(404).json({ error: 'Draft listing not found' });
+      if (deleteError.code === '22023') return res.status(409).json({ error: 'This listing is no longer a draft', code: 'LISTING_NOT_DRAFT' });
+      if (deleteError.code === '23503') return res.status(409).json({ error: deleteError.message, code: 'LISTING_HAS_HISTORY' });
+      if (deleteError.code === 'PGRST202' || deleteError.code === '42883') {
+        return res.status(503).json({ error: 'Draft deletion is not enabled yet. Apply the draft listing deletion migration.' });
+      }
+      if (deleteError.code === '55000') {
+        return res.status(409).json({
+          error: 'A video is being finalized. Please try deleting this draft again shortly.',
+          code: 'MEDIA_FINALIZATION_IN_PROGRESS',
+        });
+      }
+      console.error('Draft listing deletion failed:', deleteError);
+      return res.status(500).json({ error: 'Unable to delete draft listing' });
+    }
+
+    try {
+      await deleteListingStorageObjects(media?.photo_paths, media?.property_media);
+    } catch (error) {
+      console.error(`Draft listing ${req.params.id} was deleted but media cleanup failed:`, error);
+      return res.status(500).json({
+        error: 'The draft was removed from VaRoom, but some uploaded media could not be deleted.',
+        code: 'LISTING_DELETED_MEDIA_CLEANUP_FAILED',
+      });
+    }
+    return res.json({ success: true, deleted: 'draft' });
+  }
+
+  const [photosResult, mediaResult] = await Promise.all([
     supabaseAdmin.from('listing_photos').select('storage_path').eq('listing_id', req.params.id),
     supabaseAdmin.from('property_media')
       .select('storage_provider,storage_bucket,storage_key,thumbnail_key')
       .eq('property_id', req.params.id),
   ]);
+  if (photosResult.error || mediaResult.error) {
+    console.error('Listing media lookup failed:', photosResult.error || mediaResult.error);
+    return res.status(500).json({ error: 'Unable to load listing media for deletion' });
+  }
+  const photos = photosResult.data;
+  const propertyMedia = mediaResult.data;
 
   const { error: mediaDeleteError } = await supabaseAdmin.from('property_media')
     .delete().eq('property_id', req.params.id);
