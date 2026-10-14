@@ -172,7 +172,7 @@
   .sidebar-backdrop{ display:none; }
 
   /* =====================================================================
-     MAIN COLUMN — original settings content, unchanged below this point
+     MAIN COLUMN — Settings navigation and detail panes
      ===================================================================== */
   .main-col{ min-width:0; display:contents; }
 
@@ -199,33 +199,90 @@
   #settings-page > [id^="view-"]:not(#view-list){ grid-column:2; min-width:0; padding:1.6rem clamp(1.5rem, 4vw, 4rem) 5rem; }
   #settings-page:not(.has-selection) > [id^="view-"]:not(#view-list){ display:none !important; }
   .settings-skeleton{
-    grid-column:2; min-width:0; padding:1.6rem clamp(1.5rem, 4vw, 4rem) 5rem;
+    grid-column:1; min-width:0; padding:1.6rem 1rem 4rem; border-right:1px solid var(--line);
   }
   .settings-skeleton[hidden]{ display:none; }
-  .skeleton-title,
-  .skeleton-description,
-  .skeleton-icon,
-  .skeleton-copy,
-  .skeleton-action{
-    position:relative; overflow:hidden; background:var(--line); border:1px solid transparent;
+  .settings-skeleton{ --skeleton-highlight:rgba(255,255,255,.5); }
+  [data-theme="dark"] .settings-skeleton{ --skeleton-highlight:rgba(255,255,255,.12); }
+  .skeleton-heading,
+  .skeleton-search-placeholder,
+  .skeleton-nav-title,
+  .skeleton-nav-icon-shape{
+    position:relative; overflow:hidden; background:var(--line);
   }
-  .skeleton-title::after,
-  .skeleton-description::after,
-  .skeleton-icon::after,
-  .skeleton-copy::after,
-  .skeleton-action::after{
+  .skeleton-heading::after,
+  .skeleton-search-placeholder::after,
+  .skeleton-nav-title::after,
+  .skeleton-nav-icon-shape::after{
     content:''; position:absolute; inset:0; transform:translateX(-100%);
-    background:linear-gradient(100deg, transparent, rgba(255,255,255,.35), transparent);
-    animation:skeleton-shimmer 2.8s ease-in-out infinite;
+    background:linear-gradient(100deg, transparent, var(--skeleton-highlight), transparent);
+    animation:settings-skeleton-shimmer 2.4s ease-in-out infinite;
   }
-  .skeleton-title{ width:220px; height:28px; border-radius:5px; margin:0 0 1rem 2.8rem; }
-  .skeleton-description{ width:min(440px, 75%); height:14px; border:none; border-radius:4px; margin:0 0 2rem; }
-  .skeleton-row{ display:flex; align-items:center; gap:.9rem; min-height:72px; border-top:1px solid var(--line); }
-  .skeleton-icon{ width:40px; height:40px; border-radius:10px; flex-shrink:0; }
-  .skeleton-copy{ width:45%; height:15px; border:none; border-radius:4px; }
-  .skeleton-copy.short{ width:28%; height:11px; margin-top:.35rem; }
-  .skeleton-action{ width:10px; height:18px; border:none; border-radius:3px; margin-left:auto; }
-  @keyframes skeleton-shimmer{ 0%, 55%{ transform:translateX(-100%); } 100%{ transform:translateX(100%); } }
+  .skeleton-heading{ width:5.2rem; height:1.15em; border-radius:4px; }
+  .skeleton-search{
+    display:flex; align-items:center; gap:.45rem; height:38px; margin-bottom:1rem;
+    padding:0 .85rem 0 .8rem; border:1px solid var(--line); border-radius:999px;
+  }
+  .skeleton-search-glyph{ width:14px; height:14px; position:relative; flex-shrink:0; }
+  .skeleton-search-glyph::before{
+    content:''; position:absolute; width:9px; height:9px; left:0; top:0;
+    border:2px solid var(--muted); border-radius:50%;
+  }
+  .skeleton-search-glyph::after{
+    content:''; position:absolute; width:5px; height:2px; right:-1px; bottom:0;
+    background:var(--muted); transform:rotate(45deg); transform-origin:center;
+  }
+  .skeleton-search-placeholder{ width:7.3rem; height:.8rem; border-radius:4px; }
+  .skeleton-cat-row{
+    display:flex; align-items:center; gap:1rem; min-height:0; width:100%;
+    padding:1rem .75rem; border-bottom:1px solid var(--line);
+  }
+  .skeleton-nav-icon{
+    display:flex; align-items:center; justify-content:center; width:30px; height:30px;
+    background:transparent; overflow:visible; flex-shrink:0;
+  }
+  .skeleton-nav-icon-shape{ position:relative; overflow:hidden; width:20px; height:20px; border-radius:5px; background:var(--line); }
+  .skeleton-nav-icon-shape::after{
+    content:''; position:absolute; inset:0; transform:translateX(-100%);
+    background:linear-gradient(100deg, transparent, var(--skeleton-highlight), transparent);
+    animation:settings-skeleton-shimmer 2.4s ease-in-out infinite;
+  }
+  .skeleton-nav-title{ width:42%; height:1rem; border-radius:4px; }
+  .skeleton-nav-chevron{ display:flex; align-items:center; justify-content:center; width:18px; height:18px; margin-left:auto; flex-shrink:0; background:transparent; overflow:visible; }
+  .skeleton-nav-chevron-shape{
+    width:7px; height:7px; transform:rotate(45deg);
+    border-top:2px solid var(--line); border-right:2px solid var(--line); border-radius:1px;
+    animation:settings-skeleton-chevron-shimmer 2.4s ease-in-out infinite;
+  }
+  .skeleton-soon-divider{ margin:.8rem 0 -.1rem; }
+  .skeleton-cat-row:last-child{ border-bottom:none; opacity:.55; }
+  @keyframes settings-skeleton-shimmer{
+    0%, 55%{ transform:translateX(-100%); }
+    100%{ transform:translateX(100%); }
+  }
+  @keyframes settings-skeleton-chevron-shimmer{
+    0%, 55%{ border-color:var(--line); }
+    100%{ border-color:var(--skeleton-highlight); }
+  }
+  @media (min-width:861px){
+    /* Let sticky desktop columns attach to the viewport scrollport. */
+    body{ overflow-x:clip; }
+    #view-list,
+    #settings-page > [id^="view-"]:not(#view-list),
+    .settings-skeleton{ grid-row:1; }
+    #view-list,
+    .settings-skeleton{
+      position:sticky; top:0; align-self:start; height:100vh;
+    }
+    #settings-page.is-loading #view-list{ visibility:hidden; }
+  }
+  @media (prefers-reduced-motion:reduce){
+    .skeleton-heading::after,
+    .skeleton-search-placeholder::after,
+    .skeleton-nav-title::after,
+    .skeleton-nav-icon-shape::after,
+    .skeleton-nav-chevron-shape{ animation:none; }
+  }
 
   .detail-head{ display:flex; align-items:center; gap:.9rem; margin-bottom:.3rem; border-bottom:1px solid var(--line); padding-bottom:1.1rem; }
   .detail-back{ width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; color:var(--ink); }
@@ -668,29 +725,22 @@
     <main class="settings-main">
       <div id="checking-auth" class="checking-msg">Loading your settings...</div>
 
-      <div id="settings-page" style="display:grid;">
-        <div class="settings-skeleton" id="settings-skeleton" aria-label="Loading settings" role="status">
-          <div class="skeleton-title"></div>
-          <div class="skeleton-description"></div>
-          <div class="skeleton-row">
-            <div class="skeleton-icon"></div>
-            <div><div class="skeleton-copy"></div><div class="skeleton-copy short"></div></div>
-            <div class="skeleton-action"></div>
+      <div id="settings-page" class="is-loading" style="display:grid;">
+        <div class="settings-skeleton" id="settings-skeleton" aria-label="Loading settings navigation" role="status">
+          <div class="page-title" aria-hidden="true"><div class="skeleton-heading"></div></div>
+          <div class="skeleton-search" aria-hidden="true">
+            <span class="skeleton-search-glyph"></span>
+            <span class="skeleton-search-placeholder"></span>
           </div>
-          <div class="skeleton-row">
-            <div class="skeleton-icon"></div>
-            <div><div class="skeleton-copy"></div><div class="skeleton-copy short"></div></div>
-            <div class="skeleton-action"></div>
-          </div>
-          <div class="skeleton-row">
-            <div class="skeleton-icon"></div>
-            <div><div class="skeleton-copy"></div><div class="skeleton-copy short"></div></div>
-            <div class="skeleton-action"></div>
-          </div>
-          <div class="skeleton-row">
-            <div class="skeleton-icon"></div>
-            <div><div class="skeleton-copy"></div><div class="skeleton-copy short"></div></div>
-            <div class="skeleton-action"></div>
+          <div class="cat-list" aria-hidden="true">
+            <div class="skeleton-cat-row"><span class="skeleton-nav-icon"><span class="skeleton-nav-icon-shape"></span></span><span class="cat-main"><span class="skeleton-nav-title"></span></span><span class="skeleton-nav-chevron"><span class="skeleton-nav-chevron-shape"></span></span></div>
+            <div class="skeleton-cat-row"><span class="skeleton-nav-icon"><span class="skeleton-nav-icon-shape"></span></span><span class="cat-main"><span class="skeleton-nav-title"></span></span><span class="skeleton-nav-chevron"><span class="skeleton-nav-chevron-shape"></span></span></div>
+            <div class="skeleton-cat-row"><span class="skeleton-nav-icon"><span class="skeleton-nav-icon-shape"></span></span><span class="cat-main"><span class="skeleton-nav-title"></span></span><span class="skeleton-nav-chevron"><span class="skeleton-nav-chevron-shape"></span></span></div>
+            <div class="skeleton-cat-row"><span class="skeleton-nav-icon"><span class="skeleton-nav-icon-shape"></span></span><span class="cat-main"><span class="skeleton-nav-title"></span></span><span class="skeleton-nav-chevron"><span class="skeleton-nav-chevron-shape"></span></span></div>
+            <div class="skeleton-cat-row"><span class="skeleton-nav-icon"><span class="skeleton-nav-icon-shape"></span></span><span class="cat-main"><span class="skeleton-nav-title"></span></span><span class="skeleton-nav-chevron"><span class="skeleton-nav-chevron-shape"></span></span></div>
+            <div class="skeleton-cat-row"><span class="skeleton-nav-icon"><span class="skeleton-nav-icon-shape"></span></span><span class="cat-main"><span class="skeleton-nav-title"></span></span><span class="skeleton-nav-chevron"><span class="skeleton-nav-chevron-shape"></span></span></div>
+            <div class="soon-divider skeleton-soon-divider" aria-hidden="true">Coming soon</div>
+            <div class="skeleton-cat-row"><span class="skeleton-nav-icon"><span class="skeleton-nav-icon-shape"></span></span><span class="cat-main"><span class="skeleton-nav-title"></span></span></div>
           </div>
         </div>
 
@@ -1422,6 +1472,7 @@
 
     checkingAuth.style.display = 'none';
     settingsSkeleton.hidden = true;
+    settingsPage.classList.remove('is-loading');
     settingsPage.classList.add('has-selection');
     settingsPage.style.display = 'grid';
 
