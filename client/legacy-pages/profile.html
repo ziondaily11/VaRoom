@@ -316,6 +316,10 @@
     width:38px;height:38px;justify-content:center;padding:0;border-radius:50%;
   }
   .profile-banner-actions .banner-camera-btn svg{width:17px;height:17px}
+  .profile-banner-actions .banner-file-input{
+    position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
+    clip:rect(0,0,0,0);white-space:nowrap;border:0;
+  }
   .profile-banner-options{
     position:absolute;top:46px;left:0;z-index:5;display:grid;gap:4px;min-width:152px;
     padding:5px;border:1px solid var(--card-border);border-radius:12px;
@@ -822,7 +826,7 @@
       <section class="profile-header">
         <div class="profile-banner" id="profile-banner">
           <div class="profile-banner-actions" id="profile-banner-actions" style="display:none">
-            <input type="file" id="banner-input" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
+            <input type="file" id="banner-input" class="banner-file-input" accept="image/jpeg,image/png,image/webp,image/gif" aria-label="Choose profile banner image">
             <button type="button" id="banner-change-btn" class="banner-camera-btn" aria-label="Add profile banner" title="Add profile banner" aria-haspopup="menu" aria-expanded="false" aria-controls="banner-options-menu">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h-4L8 7H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2-3Z"/><circle cx="12" cy="13" r="3"/></svg>
             </button>
@@ -1222,17 +1226,25 @@
     bannerMenu.hidden=!open;
     bannerButton.setAttribute('aria-expanded',String(open));
   }
+  function openBannerFilePicker(){
+    bannerInput.value='';
+    if(typeof bannerInput.showPicker==='function'){
+      try{bannerInput.showPicker();return;}
+      catch(error){console.warn('Native banner file picker could not open; trying the click fallback.',error);}
+    }
+    bannerInput.click();
+  }
   async function discardBannerObject(key,token){
     if(!key || !token)return;
     try{await fetch('/api/photos/upload-discard',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({category:'profile-banners',key:key})});}catch(error){console.warn('Uploaded banner cleanup could not be completed.',error);}
   }
   bannerButton.addEventListener('click',function(){
     if(profileData.banner_image_key) toggleBannerMenu();
-    else bannerInput.click();
+    else openBannerFilePicker();
   });
   document.getElementById('banner-menu-change').addEventListener('click',function(){
     closeBannerMenu();
-    bannerInput.click();
+    openBannerFilePicker();
   });
   document.addEventListener('click',function(event){
     if(!event.target.closest('#profile-banner-actions')) closeBannerMenu();
