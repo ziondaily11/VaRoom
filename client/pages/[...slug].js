@@ -318,7 +318,6 @@ export default function LegacyPage({ title, markup, scripts }) {
       });
     });
     if (containerRef.current) {
-      purgeDuplicateSidebars(containerRef.current);
       avatarObserver.observe(containerRef.current, { childList: true, subtree: true });
       mountAvatars(containerRef.current);
       mountOrbs(containerRef.current);
