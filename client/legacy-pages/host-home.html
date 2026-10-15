@@ -3391,6 +3391,19 @@
     loadVaroomUpdates('varoom-updates');
     loadPropertyNews();
     startPropertyNewsTimers();
+
+    try {
+      var initialParams = new URLSearchParams(window.location.search);
+      var initView = initialParams.get('view');
+      if (initView && viewHandlers[initView]) {
+        viewHandlers[initView]();
+      }
+      window.addEventListener('varoom-host-view-change', function(ev) {
+        if (ev.detail && ev.detail.view && viewHandlers[ev.detail.view]) {
+          viewHandlers[ev.detail.view]();
+        }
+      });
+    } catch (e) {}
   })();
 
   // ---------- More button popover ----------

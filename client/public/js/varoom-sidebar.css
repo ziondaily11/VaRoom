@@ -318,6 +318,8 @@ html[data-account-role="pending"] #sidebar {
 }
 
 :is(html[data-account-role="host"] .sidebar, .sidebar.sidebar-host) {
+  width: 295px !important;
+  min-width: 295px !important;
   --host-control-active: #E9E7E2;
   --host-control-hover: #EFEDE8;
   --host-sidebar-line: #E4E1DA;

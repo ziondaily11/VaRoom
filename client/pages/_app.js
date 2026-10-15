@@ -1,4 +1,7 @@
 import Head from 'next/head';
+import { useRouter } from 'next/router';
+import { useState, useEffect } from 'react';
+import HostLayout from '../components/HostLayout';
 import '../styles/admin.css';
 import '../legacy-pages/privacy.css';
 
@@ -282,6 +285,42 @@ const fontSizeScript = `
 `;
 
 export default function App({ Component, pageProps }) {
+  const router = useRouter();
+  const [role, setRole] = useState(null);
+
+  useEffect(() => {
+    const updateRole = () => {
+      try {
+        const r = sessionStorage.getItem('varoom_user_role') || localStorage.getItem('varoom_last_role') || '';
+        setRole(r);
+      } catch (e) {}
+    };
+    updateRole();
+    window.addEventListener('storage', updateRole);
+    return () => window.removeEventListener('storage', updateRole);
+  }, []);
+
+  const path = router.pathname || '';
+  const asPath = router.asPath || '';
+  const isHostHome = path === '/host-home' || asPath.startsWith('/host-home');
+  const isAnalytics = path === '/analytics' || asPath.startsWith('/analytics');
+  const isClientHome = path === '/client-home' || asPath.startsWith('/client-home');
+
+  // Shared routes
+  const isSharedRoute = [
+    '/bookings',
+    '/notifications',
+    '/profile',
+    '/settings',
+    '/support',
+    '/host/'
+  ].some((r) => path.startsWith(r) || asPath.startsWith(r));
+
+  // Determine whether this page should use the persistent HostLayout
+  const isHostMode = !isClientHome && (isHostHome || isAnalytics || ((role === 'host' || isHostHome) && isSharedRoute));
+
+  const pageElement = <Component {...pageProps} />;
+
   return (
     <>
       <Head>
@@ -294,7 +333,14 @@ export default function App({ Component, pageProps }) {
         <style dangerouslySetInnerHTML={{ __html: designTokensStyle }} />
         <script dangerouslySetInnerHTML={{ __html: fontSizeScript }} />
       </Head>
-      <Component {...pageProps} />
+      {Component.getLayout ? (
+        Component.getLayout(pageElement)
+      ) : isHostMode ? (
+        <HostLayout>{pageElement}</HostLayout>
+      ) : (
+        pageElement
+      )}
     </>
   );
 }
+
