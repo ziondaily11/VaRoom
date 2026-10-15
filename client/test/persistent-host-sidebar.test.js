@@ -55,6 +55,20 @@ test('_app.js wraps designated host-facing routes with persistent HostLayout', (
   assert.match(appCode, /isAnalytics/, 'Detects analytics route');
   assert.match(appCode, /isSharedRoute/, 'Detects shared host routes');
   assert.match(appCode, /<HostLayout>\{pageElement\}<\/HostLayout>/, 'Mounts persistent HostLayout');
+  assert.match(appCode, /useState\('host'\)/, 'Uses the same initial role on server and client');
+  assert.doesNotMatch(appCode, /useState\(\(\) => \{[\s\S]*?sessionStorage/, 'Does not read browser storage during initial render');
+});
+
+test('SharedHostSidebar defers browser-specific account data until after hydration', () => {
+  const sidebarCode = fs.readFileSync(path.join(clientDir, 'components', 'SharedHostSidebar.jsx'), 'utf8');
+  const initialUser = sidebarCode.match(/function getInitialUser\(\) \{([\s\S]*?)\n\}/);
+
+  assert.ok(initialUser, 'Has a deterministic initial account');
+  assert.doesNotMatch(initialUser[1], /window|localStorage|sessionStorage/);
+  assert.match(sidebarCode, /function getStoredUser\(\)/, 'Reads the cached account separately');
+  assert.match(sidebarCode, /setUser\(getStoredUser\(\)\)/, 'Loads cached account in an effect');
+  assert.match(sidebarCode, /id="host-profile-nav-link"/);
+  assert.doesNotMatch(sidebarCode, /id="profile-brand-link"/, 'Does not reuse the profile page brand-link ID');
 });
 
 test('Duplicate sidebars are suppressed in HostLayout and cleaned up', () => {
@@ -78,4 +92,11 @@ test('Host profile uses the shared sidebar without colliding or covering it whil
   assert.match(profileCode, /\.host-layout-active \.host-page-content #loading-state\{\s*position:absolute/);
   assert.match(profileCode, /\.host-layout-active \.host-page-content #loading-state > \.skeleton-sidebar,[\s\S]*?display:none !important/);
   assert.match(profileCode, /\.host-layout-active \.host-page-content #profile-content \.profile-main\{\s*width:100%; height:auto; min-height:100vh; overflow:visible;/);
+});
+
+test('Video player treats pause-interrupted play requests separately from playback failures', () => {
+  const playerCode = fs.readFileSync(path.join(clientDir, 'public', 'js', 'varoom-video-player.js'), 'utf8');
+
+  assert.match(playerCode, /video\.play\(\)\.catch\(function \(error\) \{\s*if \(error && error\.name === 'AbortError'\) return;/);
+  assert.match(playerCode, /console\.warn\('Video playback was blocked or failed:', error\)/);
 });

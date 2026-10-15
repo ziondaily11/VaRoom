@@ -18,14 +18,15 @@ function resolveAvatar(url) {
 }
 
 function getInitialUser() {
-  if (typeof window === 'undefined') {
-    return {
-      full_name: 'Amazing Stays 🌴',
-      username: 'amazingstays',
-      avatar_url: null,
-      email: 'host@varoom.co.ke'
-    };
-  }
+  return {
+    full_name: 'Amazing Stays 🌴',
+    username: 'amazingstays',
+    avatar_url: null,
+    email: 'host@varoom.co.ke'
+  };
+}
+
+function getStoredUser() {
   try {
     if (window.VaRoomAccountSwitcher) {
       const active = window.VaRoomAccountSwitcher.getActiveAccount?.();
@@ -55,6 +56,7 @@ export default function SharedHostSidebar({ activeNav: explicitActiveNav }) {
   const [accountOpen, setAccountOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [linkedAccounts, setLinkedAccounts] = useState([]);
+  const [hasMounted, setHasMounted] = useState(false);
 
   const moreBtnRef = useRef(null);
   const moreMenuRef = useRef(null);
@@ -63,14 +65,14 @@ export default function SharedHostSidebar({ activeNav: explicitActiveNav }) {
 
   // Compute active navigation item from router or explicit prop
   const currentPath = router.pathname || '';
-  const currentView = router.query?.view || '';
-  const asPath = router.asPath || '';
+  const currentView = hasMounted ? router.query?.view || '' : '';
+  const asPath = (router.asPath || '').split('?')[0];
 
   let activeNav = explicitActiveNav || 'home';
   if (!explicitActiveNav) {
-    if (asPath.includes('view=my-listings') || currentView === 'my-listings') {
+    if (currentView === 'my-listings') {
       activeNav = 'my-listings';
-    } else if (asPath.includes('view=saved') || currentView === 'saved') {
+    } else if (currentView === 'saved') {
       activeNav = 'saved';
     } else if (asPath.startsWith('/host-home') || currentPath === '/host-home') {
       activeNav = 'home';
@@ -149,6 +151,11 @@ export default function SharedHostSidebar({ activeNav: explicitActiveNav }) {
   }, []);
 
   useEffect(() => {
+    setHasMounted(true);
+    setUser(getStoredUser());
+    if (window.VaRoomAccountSwitcher) {
+      setLinkedAccounts(window.VaRoomAccountSwitcher.getLinkedAccounts() || []);
+    }
     refreshUser();
     const interval = setInterval(refreshUser, 30000);
     return () => clearInterval(interval);
@@ -535,7 +542,7 @@ export default function SharedHostSidebar({ activeNav: explicitActiveNav }) {
           <a
             href="/profile"
             className={`nav-item ${activeNav === 'profile' ? 'active' : ''}`}
-            id="profile-brand-link"
+            id="host-profile-nav-link"
             onClick={(e) => handleNav(e, '/profile')}
           >
             <svg

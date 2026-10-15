@@ -286,15 +286,7 @@ const fontSizeScript = `
 
 export default function App({ Component, pageProps }) {
   const router = useRouter();
-  const [role, setRole] = useState(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const stored = sessionStorage.getItem('varoom_user_role') || localStorage.getItem('varoom_last_role');
-        if (stored) return stored;
-      } catch (e) {}
-    }
-    return 'host';
-  });
+  const [role, setRole] = useState('host');
 
   useEffect(() => {
     const updateRole = () => {
@@ -355,4 +347,3 @@ export default function App({ Component, pageProps }) {
     </>
   );
 }
-
