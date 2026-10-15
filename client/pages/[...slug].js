@@ -95,10 +95,13 @@ function markElieComposer(source, isEliePage) {
   return source;
 }
 
-function parseTemplate(source, isEliePage) {
+function parseTemplate(source, isEliePage, isHostPage) {
   source = markActiveElieNavigation(source, isEliePage);
   source = markElieComposer(source, isEliePage);
   source = replaceLegacyElieIcons(source);
+  if (isHostPage) {
+    source = source.replace(/<aside\b[^>]*\bclass=["'][^"']*\bsidebar\b[^"']*["'][^>]*>[\s\S]*?<\/aside>/gi, '');
+  }
   const title = (source.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [])[1] || 'VaRoom';
   const head = (source.match(/<head[^>]*>([\s\S]*?)<\/head>/i) || [])[1] || '';
   const body = (source.match(/<body[^>]*>([\s\S]*?)<\/body>/i) || [])[1] || source;
@@ -134,9 +137,10 @@ export async function getStaticPaths() {
 export async function getStaticProps({ params }) {
   const slugKey = params && params.slug ? params.slug.join('/') : '';
   const isElieSlug = slugKey === 'elie' || slugKey === 'elie.html';
+  const isHostSlug = slugKey === 'host-home' || slugKey === 'host-home.html';
   const templateName = templateForSlug(params && params.slug);
   const source = fs.readFileSync(path.join(templateDirectory, templateName), 'utf8');
-  return { props: { ...parseTemplate(source, templateName === 'elie.html' || isElieSlug) } };
+  return { props: { ...parseTemplate(source, templateName === 'elie.html' || isElieSlug, isHostSlug) } };
 }
 
 async function runLegacyScripts(container, scripts) {
@@ -306,6 +310,13 @@ export default function LegacyPage({ title, markup, scripts }) {
       });
     });
     if (containerRef.current) {
+      const isHostLayout = !!containerRef.current.closest('.host-layout-active');
+      if (isHostLayout) {
+        const duplicateSidebars = containerRef.current.querySelectorAll(
+          'aside.sidebar, aside.profile-sidebar, aside.host-profile-sidebar, #sidebar-client, #sidebar-host, .skeleton-sidebar'
+        );
+        duplicateSidebars.forEach((el) => el.remove());
+      }
       avatarObserver.observe(containerRef.current, { childList: true, subtree: true });
       mountAvatars(containerRef.current);
       mountOrbs(containerRef.current);
