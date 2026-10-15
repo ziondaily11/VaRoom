@@ -71,17 +71,15 @@ test('SharedHostSidebar defers browser-specific account data until after hydrati
   assert.doesNotMatch(sidebarCode, /id="profile-brand-link"/, 'Does not reuse the profile page brand-link ID');
 });
 
-test('Duplicate sidebars are suppressed in HostLayout and cleaned up', () => {
+test('Duplicate sidebars are hidden by HostLayout without mutating legacy page DOM', () => {
   const layoutCode = fs.readFileSync(path.join(clientDir, 'components', 'HostLayout.jsx'), 'utf8');
   const slugCode = fs.readFileSync(path.join(clientDir, 'pages', '[...slug].js'), 'utf8');
 
-  // Check CSS suppression rules in HostLayout
   assert.match(layoutCode, /\.host-layout-active \.host-page-content aside\.sidebar/);
   assert.match(layoutCode, /\.host-layout-active \.host-page-content aside\.profile-sidebar/);
   assert.match(layoutCode, /\.host-layout-active \.host-page-content aside\.host-profile-sidebar/);
-
-  // Check dynamic suppression in [...slug].js
-  assert.match(slugCode, /purgeDuplicateSidebars/);
+  assert.doesNotMatch(slugCode, /purgeDuplicateSidebars/);
+  assert.doesNotMatch(slugCode, /querySelectorAll\(selector\)\.forEach\(\(el\) => el\.remove\(\)\)/);
 });
 
 test('Host profile uses the shared sidebar without colliding or covering it while loading', () => {
