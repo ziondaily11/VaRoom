@@ -315,8 +315,6 @@ export default function App({ Component, pageProps }) {
     '/notifications',
     '/profile',
     '/settings',
-    '/support',
-    '/chats',
     '/marketplace'
   ].some((r) => path.startsWith(r) || asPath.startsWith(r));
 
