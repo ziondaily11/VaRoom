@@ -293,16 +293,8 @@ export default function LegacyPage({ title, markup, scripts }) {
         );
       });
     };
-    const isHostLayout = typeof document !== 'undefined' && !!document.querySelector('.host-layout-active');
-    const purgeDuplicateSidebars = (root) => {
-      if (!isHostLayout || !root) return;
-      const selector = 'aside.sidebar, aside.profile-sidebar, aside.host-profile-sidebar, #sidebar, #sidebar-client, #sidebar-host, #sidebar-shell, .skeleton-sidebar';
-      if (root.nodeType === Node.ELEMENT_NODE && root.matches(selector)) root.remove();
-      else if (root.querySelectorAll) root.querySelectorAll(selector).forEach((el) => el.remove());
-    };
     const avatarObserver = new MutationObserver((records) => {
       records.forEach((record) => record.addedNodes.forEach((node) => {
-        purgeDuplicateSidebars(node);
         mountAvatars(node);
         mountOrbs(node);
       }));

@@ -72,7 +72,7 @@ test('SharedHostSidebar defers browser-specific account data until after hydrati
   assert.doesNotMatch(sidebarCode, /id="profile-brand-link"/, 'Does not reuse the profile page brand-link ID');
 });
 
-test('Duplicate legacy sidebars are hidden without removing React-owned DOM', () => {
+test('Duplicate legacy sidebars are hidden without mutating legacy page DOM', () => {
   const layoutCode = fs.readFileSync(path.join(clientDir, 'components', 'HostLayout.jsx'), 'utf8');
   const slugCode = fs.readFileSync(path.join(clientDir, 'pages', '[...slug].js'), 'utf8');
 
@@ -80,7 +80,8 @@ test('Duplicate legacy sidebars are hidden without removing React-owned DOM', ()
   assert.match(layoutCode, /\.host-layout-active \.host-page-content aside\.profile-sidebar/);
   assert.match(layoutCode, /\.host-layout-active \.host-page-content aside\.host-profile-sidebar/);
   assert.match(layoutCode, /\.host-layout-active \.host-page-content #sidebar/);
-  assert.match(slugCode, /purgeDuplicateSidebars/);
+  assert.doesNotMatch(slugCode, /purgeDuplicateSidebars/);
+  assert.doesNotMatch(slugCode, /querySelectorAll\(selector\)\.forEach\(\(el\) => el\.remove\(\)\)/);
 });
 
 test('R2 avatar keys use the application photo route rather than Supabase Storage', () => {
