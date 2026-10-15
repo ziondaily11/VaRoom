@@ -265,7 +265,8 @@
   /* ── CENTER COLUMN ── */
   .profile-main{ position:relative; background:var(--main-bg); padding:0 20px 30px; }
   [data-theme="dark"] .profile-main{--main-bg:#0c0b0b;--card-bg:#141212;--card-border:rgba(255,255,255,.11)}
-  .profile-topbar{ position:absolute; z-index:4; top:16px; left:20px; right:20px; display:flex; align-items:center; justify-content:space-between; padding:0 4px; }
+  .profile-topbar{ position:absolute; z-index:4; top:16px; left:20px; right:20px; display:flex; align-items:center; justify-content:space-between; padding:0 4px; pointer-events:none; }
+  .profile-topbar .topbar-actions{ pointer-events:auto; }
   .topbar-spacer{ flex:1; }
   .topbar-actions{ display:flex; align-items:center; gap:12px; }
   .topbar-icon{ width:36px; height:36px; border-radius:50%; background:var(--card-bg); border:1px solid var(--card-border); color:var(--ink); display:flex; align-items:center; justify-content:center; }
