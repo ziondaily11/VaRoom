@@ -21,7 +21,6 @@ import {
   MapPin,
   MessageCircle,
   BadgeCheck,
-  Clock,
   ChevronDown,
 } from "lucide-react";
 
@@ -46,6 +45,51 @@ function resolveAvatarUrl(avatarUrl) {
   if (avatarUrl.startsWith("http")) return avatarUrl;
   const client = typeof window !== "undefined" ? window.supabaseClient : null;
   return client ? client.storage.from("avatars").getPublicUrl(avatarUrl).data.publicUrl : avatarUrl;
+}
+
+function ProfileSkeleton() {
+  return (
+    <div className="host-profile-skeleton" role="status" aria-label="Loading host profile" aria-busy="true">
+      <span className="host-profile-skeleton-sr">Loading host profile</span>
+      <div className="host-profile-skeleton-banner" aria-hidden="true">
+        <div className="host-profile-skeleton-identity">
+          <div className="host-profile-skeleton-avatar" />
+          <div className="host-profile-skeleton-details">
+            <div className="host-profile-skeleton-line host-profile-skeleton-name" />
+            <div className="host-profile-skeleton-line host-profile-skeleton-username" />
+            <div className="host-profile-skeleton-meta">
+              <div className="host-profile-skeleton-line" />
+              <div className="host-profile-skeleton-line" />
+              <div className="host-profile-skeleton-line" />
+            </div>
+            <div className="host-profile-skeleton-line host-profile-skeleton-rating" />
+          </div>
+          <div className="host-profile-skeleton-message" />
+        </div>
+      </div>
+      <div className="host-profile-skeleton-body" aria-hidden="true">
+        <div className="host-profile-skeleton-line host-profile-skeleton-bio" />
+        <div className="host-profile-skeleton-line host-profile-skeleton-bio-short" />
+        <div className="host-profile-skeleton-tabs">
+          <div className="host-profile-skeleton-line" />
+          <div className="host-profile-skeleton-line" />
+          <div className="host-profile-skeleton-line" />
+        </div>
+        <div className="host-profile-skeleton-grid">
+          {[0, 1, 2, 3].map((item) => (
+            <div className="host-profile-skeleton-card" key={item}>
+              <div className="host-profile-skeleton-card-image" />
+              <div className="host-profile-skeleton-card-copy">
+                <div className="host-profile-skeleton-line" />
+                <div className="host-profile-skeleton-line" />
+                <div className="host-profile-skeleton-line" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function HostProfileView() {
@@ -130,7 +174,7 @@ export default function HostProfileView() {
           .eq("availability_status", "available");
       }
       const [profileResult, listingsResult] = await Promise.all([
-        client.from("profiles").select("id,role,full_name,username,bio,avatar_url,banner_image_key,verified,city,created_at").eq("id", hostId).eq("role", "host").maybeSingle(),
+        client.from("profiles").select("id,role,full_name,username,bio,avatar_url,banner_image_key,verified,city,created_at,listing_categories").eq("id", hostId).eq("role", "host").maybeSingle(),
         listingsQuery.order("created_at", { ascending: false }),
       ]);
 
@@ -222,7 +266,18 @@ export default function HostProfileView() {
   const avatarUrl = resolveAvatarUrl(host.avatar_url);
   const memberSince = host.created_at
     ? `Member since ${new Date(host.created_at).getFullYear()}`
-    : "Member date not available";
+    : null;
+  const specializationLabels = {
+    airbnb: "Airbnb",
+    hotel: "Hotel",
+    venue: "Event ground / venue",
+    office: "Offices & Shops",
+    shop: "Offices & Shops",
+    property: "Property",
+  };
+  const specializations = Array.isArray(host.listing_categories)
+    ? [...new Set(host.listing_categories.map((category) => specializationLabels[category] || category))]
+    : [];
   const canMessageHost = viewerRole !== "host" && viewerId !== host.id;
   const isOwner = viewerId === host.id;
 
@@ -291,220 +346,213 @@ export default function HostProfileView() {
   return (
     <>
       <style jsx global>{`
-        html, body, #__next { margin: 0; min-height: 100%; background: #0a0a0a; }
+        :root {
+          --host-profile-page: #f7f6f3;
+          --host-profile-surface: #fff;
+          --host-profile-surface-raised: #f1efeb;
+          --host-profile-border: #e2dfd9;
+          --host-profile-text: #24211e;
+          --host-profile-muted: #68635d;
+          --host-profile-subtle: #8a847d;
+          --host-profile-sidebar: #fff;
+          --host-profile-sidebar-hover: #f1efeb;
+          --host-profile-avatar-fallback: #e8e4de;
+          --host-profile-rating-track: #e7e3dc;
+          --host-profile-error: #a82038;
+          --host-profile-banner-ink: #241e1b;
+          --host-profile-banner-muted: rgba(36,30,27,.82);
+        }
+        html[data-theme="dark"] {
+          --host-profile-page: #0c0b0b;
+          --host-profile-surface: #141212;
+          --host-profile-surface-raised: #232020;
+          --host-profile-border: rgba(255,255,255,.11);
+          --host-profile-text: #f5efec;
+          --host-profile-muted: #c2b9b5;
+          --host-profile-subtle: #958b87;
+          --host-profile-sidebar: #1c1716;
+          --host-profile-sidebar-hover: rgba(255,255,255,.1);
+          --host-profile-avatar-fallback: #302b29;
+          --host-profile-rating-track: #302b29;
+          --host-profile-error: #f2a3ae;
+          --host-profile-banner-ink: #fff;
+          --host-profile-banner-muted: rgba(255,255,255,.82);
+        }
+        html, body, #__next { margin: 0; min-height: 100%; background: var(--host-profile-page); }
         body { overflow-x: hidden; }
-        .host-profile-shell { min-height: 100vh; display: grid; grid-template-columns: 260px minmax(0, 1fr); background: #171313; color: #f2ece9; font-family: "Helvetica Neue", Arial, sans-serif; }
-        .host-profile-sidebar { display: flex; flex-direction: column; gap: 18px; min-height: 100vh; padding: 18px 12px 14px; border-right: 1px solid rgba(255,255,255,.1); background: #1c1716; }
-        .profile-sidebar-logo { padding: 0 10px; color: #f2ece9; font-family: Fraunces, serif; font-size: 22px; font-weight: 900; letter-spacing: -.04em; text-decoration: none; }
+        .host-profile-shell { min-height: 100vh; display: grid; grid-template-columns: 260px minmax(0, 1fr); background: var(--host-profile-page); color: var(--host-profile-text); font-family: "Helvetica Neue", Arial, sans-serif; }
+        .host-profile-sidebar { display: flex; flex-direction: column; gap: 18px; min-height: 100vh; padding: 18px 12px 14px; border-right: 1px solid var(--host-profile-border); background: var(--host-profile-sidebar); }
+        .profile-sidebar-logo { padding: 0 10px; color: var(--host-profile-text); font-family: Fraunces, serif; font-size: 22px; font-weight: 900; letter-spacing: -.04em; text-decoration: none; }
         .profile-sidebar-logo span { color: #c41e3a; }
         .sidebar-nav { display: flex; flex-direction: column; gap: 4px; }
-        .profile-nav-label { margin: 4px 0 0; padding: 8px 12px 6px; color: #a89f9b; font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
-        .sidebar-nav a { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 10px; color: #f2ece9; text-decoration: none; font-size: 14px; font-weight: 500; }
-        .sidebar-nav a:hover, .sidebar-nav a:focus-visible { background: rgba(255,255,255,.1); color: #fff; }
-        .sidebar-logout { margin-top: auto; padding: 8px 10px; color: #c41e3a; text-align: left; font-weight: 600; }
+        .profile-nav-label { margin: 4px 0 0; padding: 8px 12px 6px; color: var(--host-profile-subtle); font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+        .sidebar-nav a { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 10px; color: var(--host-profile-text); text-decoration: none; font-size: 14px; font-weight: 500; }
+        .sidebar-nav a:hover, .sidebar-nav a:focus-visible { background: var(--host-profile-sidebar-hover); color: var(--host-profile-text); }
+        .sidebar-logout { margin-top: auto; padding: 8px 10px; border:0; border-radius:8px; background:transparent; color:#c41e3a; text-align:left; font-weight:600; cursor:pointer; }
+        .sidebar-logout:hover, .sidebar-logout:focus-visible { background:var(--host-profile-sidebar-hover); }
         .host-profile-main { min-width: 0; }
         .host-profile-content { width: 100%; margin: 0; padding-bottom: 64px; }
-        .host-profile-header { position:relative; }
-        .host-profile-header.is-owner { isolation:isolate; }
-        .host-profile-header-content { position:relative; z-index:1; }
-        .host-profile-header:not(.is-owner) > .host-profile-header-content { margin-top:-82px; padding-top:28px !important; }
-        .host-profile-header.is-owner > .host-profile-header-content { margin-top:0; padding:210px 24px 24px !important; border-bottom:1px solid rgba(255,255,255,.16); }
+
+        .host-profile-skeleton-sr { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+        .host-profile-skeleton-banner { position:relative; height:350px; overflow:hidden; background:var(--host-profile-surface-raised); }
+        .host-profile-skeleton-identity { position:absolute; inset:auto 24px 24px; display:grid; grid-template-columns:88px minmax(0,1fr) 150px; align-items:center; gap:18px; }
+        .host-profile-skeleton-avatar, .host-profile-skeleton-line, .host-profile-skeleton-message, .host-profile-skeleton-card-image { background:linear-gradient(100deg,var(--host-profile-surface-raised) 20%,var(--host-profile-border) 38%,var(--host-profile-surface-raised) 58%); background-size:220% 100%; animation:host-profile-shimmer 1.4s ease-in-out infinite; }
+        .host-profile-skeleton-avatar { width:88px; height:88px; border-radius:50%; }
+        .host-profile-skeleton-details { display:grid; gap:10px; max-width:560px; }
+        .host-profile-skeleton-line { height:12px; border-radius:999px; }
+        .host-profile-skeleton-name { width:min(250px,65%); height:24px; }
+        .host-profile-skeleton-username { width:140px; }
+        .host-profile-skeleton-meta { display:flex; gap:10px; }
+        .host-profile-skeleton-meta .host-profile-skeleton-line { width:120px; }
+        .host-profile-skeleton-meta .host-profile-skeleton-line:last-child { width:160px; }
+        .host-profile-skeleton-rating { width:170px; margin-top:2px; }
+        .host-profile-skeleton-message { width:130px; height:40px; border-radius:10px; }
+        .host-profile-skeleton-body { padding:20px 24px 0; }
+        .host-profile-skeleton-bio { width:min(780px,90%); }
+        .host-profile-skeleton-bio-short { width:min(520px,62%); margin-top:8px; }
+        .host-profile-skeleton-tabs { display:flex; gap:18px; height:52px; align-items:center; border-bottom:1px solid var(--host-profile-border); margin-top:14px; }
+        .host-profile-skeleton-tabs .host-profile-skeleton-line { width:72px; height:14px; }
+        .host-profile-skeleton-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:16px; padding-top:20px; }
+        .host-profile-skeleton-card { overflow:hidden; border:1px solid var(--host-profile-border); border-radius:14px; background:var(--host-profile-surface); }
+        .host-profile-skeleton-card-image { height:160px; }
+        .host-profile-skeleton-card-copy { display:grid; gap:10px; padding:14px; }
+        .host-profile-skeleton-card-copy .host-profile-skeleton-line:first-child { width:75%; }
+        .host-profile-skeleton-card-copy .host-profile-skeleton-line:nth-child(2) { width:48%; height:10px; }
+        .host-profile-skeleton-card-copy .host-profile-skeleton-line:last-child { width:58%; }
+        @keyframes host-profile-shimmer { to { background-position-x:-220%; } }
+        @media(prefers-reduced-motion:reduce) { .host-profile-skeleton-avatar,.host-profile-skeleton-line,.host-profile-skeleton-message,.host-profile-skeleton-card-image { animation:none; } }
+        .host-profile-banner-wrap { position: relative; isolation: isolate; }
+        .host-profile-identity { position:absolute; z-index:2; left:24px; right:24px; bottom:24px; display:grid; grid-template-columns:88px minmax(0,1fr) auto; align-items:center; gap:18px; color:var(--host-profile-banner-ink); }
+        .host-profile-avatar { width:88px; height:88px; border:3px solid rgba(255,255,255,.9); border-radius:50%; object-fit:cover; }
+        .host-profile-avatar-fallback { display:grid; place-items:center; background:var(--host-profile-avatar-fallback); color:var(--host-profile-text); font-size:30px; font-weight:700; }
+        .host-profile-identity h1 { font-size:clamp(21px,2.2vw,30px); font-weight:700; line-height:1.2; margin:0; color:inherit; }
+        .host-profile-username { margin:4px 0 0; color:var(--host-profile-banner-muted); font-size:14px; }
+        .host-profile-meta { display:flex; gap:14px 18px; margin-top:10px; flex-wrap:wrap; font-size:13px; color:var(--host-profile-banner-muted); }
+        .host-profile-meta-item { display:flex; align-items:center; gap:6px; }
+        .host-profile-rating { display:flex; align-items:center; gap:7px; margin-top:9px; font-size:13px; color:var(--host-profile-banner-ink); }
+        .host-profile-rating-count { color:var(--host-profile-banner-muted); }
+        .host-profile-message { display:flex; align-items:center; justify-content:center; gap:8px; padding:10px 18px; border:0; border-radius:10px; background:#e5384f; color:#fff; font-size:14px; font-weight:600; cursor:pointer; white-space:nowrap; }
+        .host-profile-message:hover { background:#c9233c; }
+        .host-profile-body { padding:20px 24px 0; }
+        .host-profile-bio { margin:0 0 14px; color:var(--host-profile-muted); font-size:14px; line-height:1.6; }
+        .host-profile-listings-panel { padding:20px 24px 0; }
         .host-profile-listing-grid { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
-        .host-profile-listing-card { color: #f5f5f5; text-decoration: none; }
-        @media (max-width: 1100px) { .host-profile-shell { grid-template-columns: 220px minmax(0, 1fr); } .host-profile-listing-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; } }
-        @media (max-width: 760px) { .host-profile-shell { display: block; } .host-profile-sidebar { display: none; } .host-profile-content { padding-bottom: 24px; } .host-profile-header:not(.is-owner) > .host-profile-header-content { margin-top:-58px; padding-top:14px !important; } .host-profile-header.is-owner > .host-profile-header-content { padding:128px 16px 20px !important; } .host-profile-listing-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } }
-        @media (max-width: 480px) { .host-profile-listing-grid { grid-template-columns: 1fr !important; } }
+        .host-profile-listing-card { color: var(--host-profile-text); text-decoration: none; }
+        .host-profile-load-error { color:var(--host-profile-error); }
+        .host-profile-load-muted { color:var(--host-profile-subtle); }
+        .host-profile-more-reviews { border:1px solid var(--host-profile-border); color:var(--host-profile-text); }
+        .host-profile-more-reviews:hover { background:var(--host-profile-surface-raised); }
+        @media (max-width: 1100px) { .host-profile-shell { grid-template-columns: 220px minmax(0, 1fr); } .host-profile-listing-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; } .host-profile-skeleton-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+        @media (max-width: 760px) {
+          .host-profile-shell { display:block; }
+          .host-profile-sidebar { display:none; }
+          .host-profile-content { padding-bottom:24px; }
+          .host-profile-skeleton-identity { inset:auto 16px 18px; grid-template-columns:68px minmax(0,1fr); gap:12px; }
+          .host-profile-skeleton-avatar { width:68px; height:68px; }
+          .host-profile-skeleton-message { display:none; }
+          .host-profile-skeleton-meta { flex-wrap:wrap; }
+          .host-profile-skeleton-meta .host-profile-skeleton-line { width:92px; }
+          .host-profile-skeleton-meta .host-profile-skeleton-line:last-child { width:122px; }
+          .host-profile-skeleton-body { padding:16px 16px 0; }
+          .host-profile-skeleton-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+          .host-profile-identity { left:16px; right:16px; bottom:18px; grid-template-columns:68px minmax(0,1fr); gap:12px; }
+          .host-profile-avatar { width:68px; height:68px; }
+          .host-profile-message { grid-column:2; justify-self:start; padding:8px 14px; }
+          .host-profile-meta { gap:8px 12px; font-size:12px; }
+          .host-profile-body { padding:16px 16px 0; }
+          .host-profile-listings-panel { padding:16px 16px 0; }
+          .host-profile-listing-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+        }
+        @media (max-width: 480px) {
+          .host-profile-skeleton-identity { inset:auto 12px 18px; grid-template-columns:56px minmax(0,1fr); gap:10px; }
+          .host-profile-skeleton-avatar { width:56px; height:56px; }
+          .host-profile-skeleton-meta .host-profile-skeleton-line:nth-child(3) { display:none; }
+          .host-profile-skeleton-grid { grid-template-columns:1fr; }
+          .host-profile-identity { grid-template-columns:56px minmax(0,1fr); left:12px; right:12px; gap:10px; }
+          .host-profile-avatar { width:56px; height:56px; }
+          .host-profile-identity h1 { font-size:20px; }
+          .host-profile-meta { font-size:11px; gap:7px 10px; }
+          .host-profile-listing-grid { grid-template-columns:1fr !important; }
+        }
       `}</style>
       <div className="host-profile-shell">
         <Sidebar />
         <main className="host-profile-main">
           <div className="host-profile-content">
-        <section className={`host-profile-header${isOwner ? " is-owner" : ""}`}>
-        <ProfileBanner hostId={host.id} imageKey={host.banner_image_key} isOwner={isOwner} coverHeader={isOwner} onChange={(banner_image_key) => setProfile((current) => ({ ...current, banner_image_key }))} />
-        <div className="host-profile-header-content" style={{ padding: "32px 24px 0" }}>
-          {loadError && (
-            <p role="alert" style={{ color: "#F2A3AE", fontSize: 14, margin: "0 0 20px" }}>
-              {loadError}
-            </p>
-          )}
-          <div style={{ display: "flex", gap: 20, alignItems: "flex-start" }}>
-            <div style={{ position: "relative", flexShrink: 0 }}>
-              {avatarUrl ? (
-              <img
-                src={avatarUrl}
-                alt={host.full_name || "Host"}
-                style={{
-                  width: 88,
-                  height: 88,
-                  borderRadius: "50%",
-                  objectFit: "cover",
-                  border: "3px solid #1C1C1C",
-                }}
-              />
-              ) : (
-              <div
-                aria-label={`${host.full_name || "Host"} profile photo unavailable`}
-                style={{
-                  width: 88,
-                  height: 88,
-                  borderRadius: "50%",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  background: "#232323",
-                  color: "#F5F5F5",
-                  fontSize: 30,
-                  fontWeight: 700,
-                  border: "3px solid #1C1C1C",
-                }}
-              >
+            {isLoading ? (
+              <ProfileSkeleton />
+            ) : !profile ? (
+              <p className="host-profile-load-error" role="alert" style={{ padding: 24 }}>
+                {loadError || "Could not load this host profile."}
+              </p>
+            ) : (
+              <>
+        <div className="host-profile-banner-wrap">
+          <ProfileBanner hostId={host.id} imageKey={host.banner_image_key} isOwner={isOwner} coverHeader={isOwner} onChange={(banner_image_key) => setProfile((current) => ({ ...current, banner_image_key }))} />
+          <section className="host-profile-identity" aria-label={`${host.full_name || "Host"} profile`}>
+            {avatarUrl ? (
+              <img className="host-profile-avatar" src={avatarUrl} alt={host.full_name || "Host"} />
+            ) : (
+              <div className="host-profile-avatar host-profile-avatar-fallback" aria-label={`${host.full_name || "Host"} profile photo unavailable`}>
                 {(host.full_name || "H").charAt(0).toUpperCase()}
               </div>
+            )}
+            <div style={{ minWidth: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap" }}>
+                {host.full_name && <h1>{host.full_name}</h1>}
+                {host.verified && <BadgeCheck size={19} color="#E5384F" aria-label="Verified host" />}
+              </div>
+              {host.username && <p className="host-profile-username">@{host.username}</p>}
+              <div className="host-profile-meta">
+                {host.city && <span className="host-profile-meta-item">
+                  <MapPin size={14} aria-hidden="true" /> {host.city}
+                </span>}
+                {host.created_at && <span className="host-profile-meta-item">
+                  <CalendarDays size={14} aria-hidden="true" /> {memberSince}
+                </span>}
+                {specializations.map((specialization) => (
+                  <span className="host-profile-meta-item" key={specialization}>
+                    <ShieldCheck size={14} aria-hidden="true" /> Specializes in {specialization}
+                  </span>
+                ))}
+              </div>
+              {(averageRating !== null || reviewCount > 0) && (
+                <div className="host-profile-rating" aria-label={`${averageRating !== null ? averageRating.toFixed(1) : ""}, ${reviewCount} reviews`}>
+                  <Stars count={averageRating !== null ? Math.round(averageRating) : 0} size={13} />
+                  {averageRating !== null && <span style={{ fontWeight: 600 }}>{averageRating.toFixed(1)}</span>}
+                  <span className="host-profile-rating-count">({reviewCount} reviews)</span>
+                </div>
               )}
-              <div
-                style={{
-                  position: "absolute",
-                  bottom: -2,
-                  right: -2,
-                  background: "#0A0A0A",
-                  borderRadius: "50%",
-                  padding: 3,
-                }}
-              >
-                {host.verified && <BadgeCheck size={20} color="#E5384F" fill="#0A0A0A" />}
-              </div>
             </div>
-
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  flexWrap: "wrap",
-                }}
+            {canMessageHost && (
+              <button
+                type="button"
+                className="host-profile-message"
+                onClick={startChat}
+                aria-label={`Message ${host.full_name || host.username || "host"}`}
               >
-                <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>
-                  {host.full_name || "Host name not available"}
-                </h1>
-                <span
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 4,
-                    fontSize: 11,
-                    fontWeight: 600,
-                    color: "#E5384F",
-                    border: "1px solid #E5384F",
-                    borderRadius: 20,
-                    padding: "3px 10px",
-                  }}
-                >
-                  <ShieldCheck size={12} />
-                  HOST
-                </span>
-              </div>
-              <p style={{ margin: "4px 0 0", color: "#9A9A9A", fontSize: 14 }}>
-                {host.username ? `@${host.username}` : "Username not available"}
-              </p>
-
-              <div
-                style={{
-                  display: "flex",
-                  gap: 16,
-                  marginTop: 10,
-                  flexWrap: "wrap",
-                  fontSize: 13,
-                  color: "#B5B5B5",
-                }}
-              >
-                <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <MapPin size={14} /> {host.city || "Location not available"}
-                </span>
-                <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <CalendarDays size={14} /> {memberSince}
-                </span>
-              </div>
-            </div>
-
-            {canMessageHost && <button
-              type="button"
-              onClick={startChat}
-              aria-label={`Message ${host.full_name || "host"}`}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                background: "#E5384F",
-                border: "none",
-                color: "#fff",
-                fontWeight: 600,
-                fontSize: 14,
-                padding: "10px 18px",
-                borderRadius: 10,
-                cursor: "pointer",
-                whiteSpace: "nowrap",
-              }}
-            >
-              <MessageCircle size={16} />
-              Message
-            </button>}
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 18,
-              flexWrap: "wrap",
-              marginTop: 18,
-              paddingTop: 16,
-              borderTop: isOwner ? "none" : "1px solid #1C1C1C",
-              fontSize: 13,
-              color: "#D5D5D5",
-            }}
-          >
-            <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <Stars count={averageRating ? Math.round(averageRating) : 0} size={13} />
-            <span style={{ fontWeight: 600 }}>{averageRating ? averageRating.toFixed(1) : "No ratings yet"}</span>
-            <span style={{ color: "#8A8A8A" }}>({reviewCount} reviews)</span>
-            </span>
-            <span style={{ color: "#3A3A3A" }}>·</span>
-            <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <ShieldCheck size={14} color="#8A8A8A" />
-              Response rate not available
-            </span>
-            <span style={{ color: "#3A3A3A" }}>·</span>
-            <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <Clock size={14} color="#8A8A8A" />
-              Response time not available
-            </span>
-          </div>
-
-          <div style={{ marginTop: 20 }}>
-            <p style={{ fontSize: 14, color: "#B5B5B5", lineHeight: 1.6, margin: 0 }}>
-              {host.bio || "Bio not available"}
-            </p>
-          </div>
+                <MessageCircle size={16} aria-hidden="true" />
+                Message
+              </button>
+            )}
+          </section>
         </div>
-
-        </section>
-        <div style={{ padding: "0 24px" }}>
-          <ProfileCategoryNav hostId={host.id} listings={listings} isOwner={isOwner} value={selectedCategory} onChange={(id) => { setSelectedCategory(id); setTab("listings"); }} onCategoryListings={setCategoryListings} />
-          <div role="tablist" aria-label="Host profile content" style={{ display:"flex",gap:18,borderBottom:"1px solid #1C1C1C" }}>
-            <button type="button" role="tab" aria-selected={tab === "listings"} onClick={() => setTab("listings")} style={{ padding:"12px 8px",background:"transparent",border:0,borderBottom:tab === "listings" ? "2px solid #E5384F" : "2px solid transparent",color:tab === "listings" ? "#fff" : "#999",cursor:"pointer" }}>Listings · {listings.length}</button>
-            <button type="button" role="tab" aria-selected={tab === "reviews"} onClick={() => setTab("reviews")} style={{ padding:"12px 8px",background:"transparent",border:0,borderBottom:tab === "reviews" ? "2px solid #E5384F" : "2px solid transparent",color:tab === "reviews" ? "#fff" : "#999",cursor:"pointer" }}>Reviews · {reviews.length}</button>
-          </div>
+        <div className="host-profile-body">
+          {host.bio && <p className="host-profile-bio">{host.bio}</p>}
+          <ProfileCategoryNav
+            hostId={host.id}
+            listings={listings}
+            isOwner={isOwner}
+            value={selectedCategory}
+            activeTab={tab}
+            onTabChange={setTab}
+            onChange={(id) => { setSelectedCategory(id); setTab("listings"); }}
+            onCategoryListings={setCategoryListings}
+          />
         </div>
-
-        {isLoading && (
-          <p role="status" style={{ padding: "24px", color: "#8A8A8A" }}>
-            Loading host profile…
-          </p>
-        )}
 
         {tab === "listings" && (
-          <div id="host-profile-listings" role="tabpanel" aria-label="Listings" style={{ padding: "24px 24px 0" }}>
+          <div id="host-profile-listings" role="tabpanel" aria-label="Spaces" className="host-profile-listings-panel">
             <div
               className="host-profile-listing-grid"
               style={{
@@ -513,23 +561,20 @@ export default function HostProfileView() {
                 gap: 16,
               }}
             >
-              {!isLoading && listings.length === 0 && (
-                <p style={{ color: "#8A8A8A" }}>No listings available.</p>
-              )}
               {listings.filter((listing) => !selectedCategory || (categoryListings[selectedCategory] || []).includes(listing.id)).map((l) => (
                 <a
                   key={l.id}
                   href={`/booking?listing=${encodeURIComponent(l.id)}`}
                   className="host-profile-listing-card"
                   style={{
-                    background: "#141414",
-                    border: "1px solid #1E1E1E",
+                    background: "var(--host-profile-surface)",
+                    border: "1px solid var(--host-profile-border)",
                     borderRadius: 14,
                     overflow: "hidden",
                     cursor: "pointer",
                   }}
                 >
-                  <div style={{ position: "relative", height: 140, background: "#232323" }}>
+                  <div style={{ position: "relative", height: 140, background: "var(--host-profile-avatar-fallback)" }}>
                     {l.videoUrl ? (
                       <VideoMedia
                         src={l.videoUrl}
@@ -543,7 +588,7 @@ export default function HostProfileView() {
                     ) : l.img ? (
                       <img src={l.img} alt={l.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                     ) : (
-                      <div style={{ height: "100%", display: "grid", placeItems: "center", color: "#8A8A8A", fontSize: 12 }}>
+                      <div className="host-profile-load-muted" style={{ height: "100%", display: "grid", placeItems: "center", fontSize: 12 }}>
                         Listing photo not available
                       </div>
                     )}
@@ -568,7 +613,7 @@ export default function HostProfileView() {
                     <div style={{ fontWeight: 600, fontSize: 14 }}>
                       {l.title}
                     </div>
-                    <div style={{ fontSize: 12, color: "#8A8A8A", marginTop: 2 }}>
+                    <div className="host-profile-load-muted" style={{ fontSize: 12, marginTop: 2 }}>
                       {l.location}
                     </div>
                     <div
@@ -576,7 +621,7 @@ export default function HostProfileView() {
                         fontSize: 13,
                         fontWeight: 600,
                         marginTop: 8,
-                        color: "#F5F5F5",
+                        color: "var(--host-profile-text)",
                       }}
                     >
                       {l.price}
@@ -584,20 +629,20 @@ export default function HostProfileView() {
                   </div>
                   </a>
               ))}
-              {!isLoading && listings.filter((listing) => !selectedCategory || (categoryListings[selectedCategory] || []).includes(listing.id)).length === 0 && <p style={{ color:"#8A8A8A",gridColumn:"1/-1" }}>{selectedCategory ? "No listings in this category yet." : "No listings available."}</p>}
+              {!isLoading && listings.filter((listing) => !selectedCategory || (categoryListings[selectedCategory] || []).includes(listing.id)).length === 0 && <p className="host-profile-load-muted" style={{ gridColumn:"1/-1" }}>{selectedCategory ? "No listings in this category yet." : "No listings available."}</p>}
             </div>
           </div>
         )}
 
         {tab === "reviews" && (
-          <div id="host-profile-reviews" role="tabpanel" aria-label="Reviews" style={{ padding: "24px 24px 0" }}>
+          <div id="host-profile-reviews" role="tabpanel" aria-label="Reviews" className="host-profile-listings-panel">
             <div
               style={{
                 display: "flex",
                 gap: 28,
                 flexWrap: "wrap",
-                background: "#141414",
-                border: "1px solid #1E1E1E",
+                background: "var(--host-profile-surface)",
+                border: "1px solid var(--host-profile-border)",
                 borderRadius: 14,
                 padding: 20,
                 marginBottom: 20,
@@ -610,13 +655,13 @@ export default function HostProfileView() {
                   alignItems: "center",
                   justifyContent: "center",
                   minWidth: 100,
-                  borderRight: "1px solid #1E1E1E",
+                  borderRight: "1px solid var(--host-profile-border)",
                   paddingRight: 24,
                 }}
               >
                 <div style={{ fontSize: 34, fontWeight: 700 }}>{averageRating ? averageRating.toFixed(1) : "—"}</div>
                 <Stars count={averageRating ? Math.round(averageRating) : 0} size={13} />
-                <div style={{ fontSize: 12, color: "#8A8A8A", marginTop: 6 }}>
+                <div className="host-profile-load-muted" style={{ fontSize: 12, marginTop: 6 }}>
                   {reviewCount ? `${reviewCount} reviews` : "No reviews yet"}
                 </div>
               </div>
@@ -636,14 +681,14 @@ export default function HostProfileView() {
                     key={r.star}
                     style={{ display: "flex", alignItems: "center", gap: 8 }}
                   >
-                    <span style={{ fontSize: 12, color: "#8A8A8A", width: 10 }}>
+                    <span className="host-profile-load-muted" style={{ fontSize: 12, width: 10 }}>
                       {r.star}
                     </span>
                     <div
                       style={{
                         flex: 1,
                         height: 6,
-                        background: "#232323",
+                        background: "var(--host-profile-rating-track)",
                         borderRadius: 4,
                         overflow: "hidden",
                       }}
@@ -656,7 +701,7 @@ export default function HostProfileView() {
                         }}
                       />
                     </div>
-                    <span style={{ fontSize: 12, color: "#8A8A8A", width: 30 }}>
+                    <span className="host-profile-load-muted" style={{ fontSize: 12, width: 30 }}>
                       {r.pct}%
                     </span>
                   </div>
@@ -666,17 +711,17 @@ export default function HostProfileView() {
 
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               {reviewsError && (
-                <p role="alert" style={{ color: "#F2A3AE" }}>{reviewsError}</p>
+                <p role="alert" className="host-profile-load-error">{reviewsError}</p>
               )}
               {!isLoading && !reviewsError && reviews.length === 0 && (
-                <p style={{ color: "#8A8A8A" }}>No reviews yet.</p>
+                <p className="host-profile-load-muted">No reviews yet.</p>
               )}
               {reviews.slice(0, visibleReviews).map((r, i) => (
                 <div
                   key={r.id}
                   style={{
-                    background: "#141414",
-                    border: "1px solid #1E1E1E",
+                    background: "var(--host-profile-surface)",
+                    border: "1px solid var(--host-profile-border)",
                     borderRadius: 14,
                     padding: 18,
                   }}
@@ -687,13 +732,13 @@ export default function HostProfileView() {
                         width: 38,
                         height: 38,
                         borderRadius: "50%",
-                        background: "#232323",
+                        background: "var(--host-profile-avatar-fallback)",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
                         fontSize: 13,
                         fontWeight: 600,
-                        color: "#F5F5F5",
+                        color: "var(--host-profile-text)",
                         flexShrink: 0,
                       }}
                     >
@@ -703,7 +748,7 @@ export default function HostProfileView() {
                       <div style={{ fontWeight: 600, fontSize: 14 }}>
                         {r.name}
                       </div>
-                      <div style={{ fontSize: 12, color: "#8A8A8A" }}>
+                      <div className="host-profile-load-muted" style={{ fontSize: 12 }}>
                         {r.date}
                       </div>
                     </div>
@@ -712,7 +757,7 @@ export default function HostProfileView() {
                   <p
                     style={{
                       fontSize: 14,
-                      color: "#C7C7C7",
+                      color: "var(--host-profile-muted)",
                       lineHeight: 1.6,
                       margin: "12px 0 0",
                     }}
@@ -726,14 +771,15 @@ export default function HostProfileView() {
             {visibleReviews < reviews.length && (
               <button
                 onClick={() => setVisibleReviews(reviews.length)}
+                className="host-profile-more-reviews"
                 style={{
                   display: "flex",
                   alignItems: "center",
                   gap: 6,
                   margin: "18px auto 0",
                   background: "none",
-                  border: "1px solid #2A2A2A",
-                  color: "#F5F5F5",
+                  border: "1px solid var(--host-profile-border)",
+                  color: "var(--host-profile-text)",
                   fontSize: 13,
                   fontWeight: 600,
                   padding: "10px 20px",
@@ -747,6 +793,8 @@ export default function HostProfileView() {
             )}
           </div>
         )}
+              </>
+            )}
           </div>
         </main>
       </div>
