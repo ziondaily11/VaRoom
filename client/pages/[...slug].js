@@ -292,6 +292,7 @@ export default function LegacyPage({ title, markup, scripts }) {
           })
         );
       });
+    };
     const isHostLayout = typeof document !== 'undefined' && !!document.querySelector('.host-layout-active');
     const purgeDuplicateSidebars = (root) => {
       if (!isHostLayout || !root) return;
