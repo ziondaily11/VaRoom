@@ -67,5 +67,15 @@ test('Duplicate sidebars are suppressed in HostLayout and cleaned up', () => {
   assert.match(layoutCode, /\.host-layout-active \.host-page-content aside\.host-profile-sidebar/);
 
   // Check dynamic suppression in [...slug].js
-  assert.match(slugCode, /duplicateSidebars\.forEach/);
+  assert.match(slugCode, /purgeDuplicateSidebars/);
+});
+
+test('Host profile uses the shared sidebar without colliding or covering it while loading', () => {
+  const profileCode = fs.readFileSync(path.join(clientDir, 'legacy-pages', 'profile.html'), 'utf8');
+
+  assert.doesNotMatch(profileCode, /<aside class="profile-sidebar" id="sidebar"/);
+  assert.doesNotMatch(profileCode, /getElementById\('sidebar'\)/);
+  assert.match(profileCode, /\.host-layout-active \.host-page-content #loading-state\{\s*position:absolute/);
+  assert.match(profileCode, /\.host-layout-active \.host-page-content #loading-state > \.skeleton-sidebar,[\s\S]*?display:none !important/);
+  assert.match(profileCode, /\.host-layout-active \.host-page-content #profile-content \.profile-main\{\s*width:100%; height:auto; min-height:100vh; overflow:visible;/);
 });
