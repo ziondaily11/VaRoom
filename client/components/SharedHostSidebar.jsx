@@ -17,9 +17,39 @@ function resolveAvatar(url) {
   return url;
 }
 
+function getInitialUser() {
+  if (typeof window === 'undefined') {
+    return {
+      full_name: 'Amazing Stays 🌴',
+      username: 'amazingstays',
+      avatar_url: null,
+      email: 'host@varoom.co.ke'
+    };
+  }
+  try {
+    if (window.VaRoomAccountSwitcher) {
+      const active = window.VaRoomAccountSwitcher.getActiveAccount?.();
+      if (active) return active;
+    }
+    const cached = localStorage.getItem('varoom_cached_profile') || sessionStorage.getItem('varoom_cached_profile');
+    if (cached) return JSON.parse(cached);
+    const linked = localStorage.getItem('varoom_linked_accounts');
+    if (linked) {
+      const list = JSON.parse(linked);
+      if (Array.isArray(list) && list.length > 0) return list[0];
+    }
+  } catch (e) {}
+  return {
+    full_name: 'Amazing Stays 🌴',
+    username: 'amazingstays',
+    avatar_url: null,
+    email: 'host@varoom.co.ke'
+  };
+}
+
 export default function SharedHostSidebar({ activeNav: explicitActiveNav }) {
   const router = useRouter();
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(getInitialUser);
   const [unreadCount, setUnreadCount] = useState(0);
   const [moreOpen, setMoreOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
@@ -42,23 +72,23 @@ export default function SharedHostSidebar({ activeNav: explicitActiveNav }) {
       activeNav = 'my-listings';
     } else if (asPath.includes('view=saved') || currentView === 'saved') {
       activeNav = 'saved';
-    } else if (currentPath === '/host-home') {
+    } else if (asPath.startsWith('/host-home') || currentPath === '/host-home') {
       activeNav = 'home';
-    } else if (currentPath.startsWith('/marketplace')) {
+    } else if (asPath.startsWith('/marketplace') || currentPath.startsWith('/marketplace')) {
       activeNav = 'marketplace';
-    } else if (currentPath.startsWith('/bookings')) {
+    } else if (asPath.startsWith('/bookings') || currentPath.startsWith('/bookings')) {
       activeNav = 'bookings';
-    } else if (currentPath.startsWith('/chats')) {
+    } else if (asPath.startsWith('/chats') || currentPath.startsWith('/chats')) {
       activeNav = 'chats';
-    } else if (currentPath.startsWith('/notifications')) {
+    } else if (asPath.startsWith('/notifications') || currentPath.startsWith('/notifications')) {
       activeNav = 'notifications';
-    } else if (currentPath.startsWith('/profile') || currentPath.startsWith('/host/')) {
+    } else if (asPath.startsWith('/profile') || asPath.startsWith('/host/') || currentPath.startsWith('/profile') || currentPath.startsWith('/host/')) {
       activeNav = 'profile';
-    } else if (currentPath.startsWith('/analytics')) {
+    } else if (asPath.startsWith('/analytics') || currentPath.startsWith('/analytics')) {
       activeNav = 'analytics';
-    } else if (currentPath.startsWith('/settings')) {
+    } else if (asPath.startsWith('/settings') || currentPath.startsWith('/settings')) {
       activeNav = 'settings';
-    } else if (currentPath.startsWith('/support')) {
+    } else if (asPath.startsWith('/support') || currentPath.startsWith('/support')) {
       activeNav = 'support';
     }
   }
@@ -84,13 +114,17 @@ export default function SharedHostSidebar({ activeNav: explicitActiveNav }) {
         .maybeSingle();
 
       if (profile) {
-        setUser({
+        const userData = {
           id: profile.id,
-          full_name: profile.full_name || session.user.user_metadata?.full_name || 'VaRoom Host',
-          username: profile.username || session.user.email?.split('@')[0] || '',
+          full_name: profile.full_name || session.user.user_metadata?.full_name || 'Amazing Stays 🌴',
+          username: profile.username || session.user.email?.split('@')[0] || 'amazingstays',
           avatar_url: profile.avatar_url || session.user.user_metadata?.avatar_url || null,
           email: session.user.email,
-        });
+        };
+        setUser(userData);
+        try {
+          localStorage.setItem('varoom_cached_profile', JSON.stringify(userData));
+        } catch (e) {}
       }
 
       // Load linked accounts from switcher if available
@@ -103,7 +137,7 @@ export default function SharedHostSidebar({ activeNav: explicitActiveNav }) {
         const { count } = await client
           .from('notifications')
           .select('id', { count: 'exact', head: true })
-          .eq('user_id', userId)
+          .eq('recipient_user_id', userId)
           .eq('read', false);
         if (typeof count === 'number') {
           setUnreadCount(count);
@@ -125,13 +159,15 @@ export default function SharedHostSidebar({ activeNav: explicitActiveNav }) {
     if (!btn || !menu) return;
     const rect = btn.getBoundingClientRect();
     const GAP = 8;
+    menu.style.position = 'fixed';
+    menu.style.zIndex = '99999';
     menu.style.left = `${rect.left}px`;
     menu.style.width = `${rect.right - rect.left}px`;
-    menu.style.right = '';
+    menu.style.right = 'auto';
     const bottomFromViewport = window.innerHeight - rect.top + GAP;
     menu.style.bottom = `${bottomFromViewport}px`;
-    menu.style.top = '';
-    menu.style.maxHeight = `${rect.top - GAP * 2}px`;
+    menu.style.top = 'auto';
+    menu.style.maxHeight = `${Math.max(200, rect.top - GAP * 2)}px`;
     menu.style.overflowY = 'auto';
   };
 
@@ -150,20 +186,25 @@ export default function SharedHostSidebar({ activeNav: explicitActiveNav }) {
   // Close menus on outside click or Escape
   useEffect(() => {
     const handleDocumentClick = (e) => {
-      if (
-        moreOpen &&
-        moreMenuRef.current &&
-        !moreMenuRef.current.contains(e.target) &&
-        !moreBtnRef.current.contains(e.target)
-      ) {
+      const path = typeof e.composedPath === 'function' ? e.composedPath() : [];
+      const target = e.target;
+
+      const isInsideMore =
+        path.includes(moreBtnRef.current) ||
+        path.includes(moreMenuRef.current) ||
+        moreBtnRef.current?.contains(target) ||
+        moreMenuRef.current?.contains(target);
+
+      const isInsideAccount =
+        path.includes(identityBtnRef.current) ||
+        path.includes(accountMenuRef.current) ||
+        identityBtnRef.current?.contains(target) ||
+        accountMenuRef.current?.contains(target);
+
+      if (!isInsideMore) {
         setMoreOpen(false);
       }
-      if (
-        accountOpen &&
-        accountMenuRef.current &&
-        !accountMenuRef.current.contains(e.target) &&
-        !identityBtnRef.current.contains(e.target)
-      ) {
+      if (!isInsideAccount) {
         setAccountOpen(false);
       }
     };
@@ -176,13 +217,13 @@ export default function SharedHostSidebar({ activeNav: explicitActiveNav }) {
       }
     };
 
-    document.addEventListener('click', handleDocumentClick);
+    document.addEventListener('pointerdown', handleDocumentClick);
     document.addEventListener('keydown', handleKeyDown);
     return () => {
-      document.removeEventListener('click', handleDocumentClick);
+      document.removeEventListener('pointerdown', handleDocumentClick);
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [moreOpen, accountOpen]);
+  }, []);
 
   // Mobile drawer listener (responds to topbar hamburger/avatar button clicks)
   useEffect(() => {
@@ -625,9 +666,10 @@ export default function SharedHostSidebar({ activeNav: explicitActiveNav }) {
           aria-expanded={moreOpen}
           aria-controls="more-menu"
           onClick={(e) => {
+            e.preventDefault();
             e.stopPropagation();
-            setMoreOpen((prev) => !prev);
             setAccountOpen(false);
+            setMoreOpen((prev) => !prev);
           }}
         >
           <svg
@@ -750,9 +792,10 @@ export default function SharedHostSidebar({ activeNav: explicitActiveNav }) {
           aria-expanded={accountOpen}
           aria-controls="account-menu"
           onClick={(e) => {
+            e.preventDefault();
             e.stopPropagation();
-            setAccountOpen((prev) => !prev);
             setMoreOpen(false);
+            setAccountOpen((prev) => !prev);
           }}
         >
           <span className="account-identity-avatar" id="acct-avatar-collapsed" aria-hidden="true">

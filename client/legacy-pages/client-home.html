@@ -103,7 +103,7 @@
 
   .app-shell{
     display:grid;
-    grid-template-columns: 295px minmax(0, 1fr);
+    grid-template-columns: 260px minmax(0, 1fr);
     width:100%;
     height:100vh;
     overflow:hidden;
@@ -113,7 +113,7 @@
   /* ---------- SIDEBAR (line-separated column) ----------
      Spacious vertical layout emulating X navigation. */
   .sidebar{
-    width:295px;
+    width:260px;
     flex-shrink:0;
     background:var(--paper);
     border:none;
@@ -193,11 +193,11 @@
 
   /* ---------- MAIN COLUMN ----------
      Structured 3-column layout emulating X:
-     635px middle feed, 1px hairline divider, max-width 430px right rail. */
+     580px middle feed, 1px hairline divider, flexible right rail. */
   .main-col{
     display:grid;
     grid-template-rows: auto 1fr;
-    grid-template-columns: 635px 1px minmax(0, 1fr);
+    grid-template-columns: 580px 1px minmax(0, 1fr);
     height:100vh;
     overflow:hidden;
     min-width:0;
@@ -266,7 +266,7 @@
     grid-row: 2;
     width:100%;
     margin:0 auto;
-    padding:0 0 2rem;
+    padding:.75rem 1rem 2rem;
     height:100%;
     overflow-y:auto;
     scrollbar-width:none;
@@ -280,11 +280,11 @@
   @media(max-width:680px){.suspension-notice{padding:.9rem 0}.suspension-notice-title{font-size:1.08rem}.suspension-notice-action{font-size:.82rem}}
 
   /* ---------- RIGHT RAIL ----------
-     Scrolls independently too. Flexible column capped at 430px. */
+     Scrolls independently too. Flexible column with comfortable width. */
   .right-rail{
     grid-column: 3;
     grid-row: 2;
-    padding:.75rem 1.25rem 3rem 1.5rem;
+    padding:.75rem 1.25rem 3rem 1.25rem;
     display:flex;
     flex-direction:column;
     gap:1rem;
@@ -292,7 +292,7 @@
     overflow-y:auto;
     scrollbar-width:none;
     min-width:0;
-    max-width:430px;
+    max-width:480px;
     box-sizing:border-box;
   }
   .right-rail::-webkit-scrollbar{ display:none; }
@@ -460,12 +460,12 @@
   .mobile-property-news-section{ display:none; }
 
   h1.feed-title{
-    font-family:var(--font-display); font-weight:600; font-size:1.5rem; margin-bottom:1.2rem;
+    font-family:var(--font-display); font-weight:700; font-size:1.25rem; margin-bottom:.8rem; letter-spacing:-.01em;
   }
 
-  .tabs{ display:flex; flex-wrap:wrap; gap:.6rem; margin-bottom:1.6rem; }
+  .tabs{ display:flex; flex-wrap:wrap; gap:.5rem; margin-bottom:1rem; }
   .tab{
-    padding:.5rem 1.1rem; border-radius:100px; font-size:.88rem; font-weight:600;
+    padding:.45rem 1rem; border-radius:100px; font-size:.85rem; font-weight:600;
     background:var(--white); border:1px solid var(--line); color:var(--ink);
   }
   .tab.active{ background:var(--red); color:var(--white); border-color:var(--red); }

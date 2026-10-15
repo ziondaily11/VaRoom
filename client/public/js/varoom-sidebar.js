@@ -487,6 +487,9 @@
   }
 
   function mount(options) {
+    if (typeof document !== 'undefined' && document.querySelector('.host-layout-active')) {
+      return;
+    }
     options = options || {};
     var role = options.role === 'host' ? 'host' : 'client';
     var container = options.container || document.getElementById('sidebar');

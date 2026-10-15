@@ -1026,9 +1026,9 @@
     const dashboardHref = isHost ? '/host-home' : '/client-home';
     document.documentElement.setAttribute('data-account-role', isHost ? 'host' : 'client');
     try { sessionStorage.setItem('varoom_user_role', isHost ? 'host' : 'client'); } catch (e) {}
-    document.getElementById('sidebar').classList.toggle('sidebar-host', isHost);
-    document.getElementById('bookings-home-logo').setAttribute('href', dashboardHref);
-    document.getElementById('bookings-home-link').setAttribute('href', dashboardHref);
+    document.getElementById('sidebar')?.classList.toggle('sidebar-host', isHost);
+    document.getElementById('bookings-home-logo')?.setAttribute('href', dashboardHref);
+    document.getElementById('bookings-home-link')?.setAttribute('href', dashboardHref);
 
     function escapeHtml(str){ const d = document.createElement('div'); d.textContent = str || ''; return d.innerHTML; }
 
@@ -2243,11 +2243,11 @@
     // ---------- Mobile sidebar drawer ----------
     const sidebar = document.getElementById('sidebar');
     const backdrop = document.getElementById('sidebar-backdrop');
-    function openSidebar(){ sidebar.classList.add('mobile-open'); backdrop.classList.add('show'); }
-    function closeSidebar(){ sidebar.classList.remove('mobile-open'); backdrop.classList.remove('show'); }
-    backdrop.addEventListener('click', closeSidebar);
-    sidebar.querySelectorAll('.nav-item, .logout-btn').forEach(function(el){ el.addEventListener('click', closeSidebar); });
-    document.getElementById('topbar-avatar-btn').addEventListener('click', openSidebar);
+    function openSidebar(){ sidebar?.classList.add('mobile-open'); backdrop?.classList.add('show'); }
+    function closeSidebar(){ sidebar?.classList.remove('mobile-open'); backdrop?.classList.remove('show'); }
+    backdrop?.addEventListener('click', closeSidebar);
+    sidebar?.querySelectorAll('.nav-item, .logout-btn').forEach(function(el){ el.addEventListener('click', closeSidebar); });
+    document.getElementById('topbar-avatar-btn')?.addEventListener('click', openSidebar);
     const feedArea = document.querySelector('.feed-area');
     async function loadMoreBookings(){
       if (!isClient || bookingsLoading || !hasMoreBookings) return;
@@ -2259,11 +2259,13 @@
       }
       renderAllPanels();
     }
-    feedArea.addEventListener('scroll', function(){
-      if (feedArea.scrollTop + feedArea.clientHeight >= feedArea.scrollHeight - 500) {
-        loadMoreBookings();
-      }
-    });
+    if (feedArea) {
+      feedArea.addEventListener('scroll', function(){
+        if (feedArea.scrollTop + feedArea.clientHeight >= feedArea.scrollHeight - 500) {
+          loadMoreBookings();
+        }
+      });
+    }
     window.addEventListener('scroll', function(){
       if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 500) {
         loadMoreBookings();
@@ -2273,13 +2275,13 @@
     if (typeof initNotifications === 'function') {
       initNotifications(supabaseClient, currentUser);
     }
-    document.getElementById('notif-nav-item').addEventListener('click', function(e){
+    document.getElementById('notif-nav-item')?.addEventListener('click', function(e){
       e.stopPropagation();
       const bell = document.getElementById('notif-bell');
       if (bell) bell.click();
     });
 
-    document.getElementById('logout-btn').addEventListener('click', async function(){
+    document.getElementById('logout-btn')?.addEventListener('click', async function(){
       await supabaseClient.auth.signOut();
       window.location.href = '/';
     });
