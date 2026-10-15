@@ -1001,10 +1001,10 @@
   const dashboardHref = currentRole === 'host' ? 'host-home.html' : 'client-home.html';
   document.documentElement.setAttribute('data-account-role', currentRole === 'host' ? 'host' : 'client');
   try { sessionStorage.setItem('varoom_user_role', currentRole === 'host' ? 'host' : 'client'); } catch (e) {}
-  document.getElementById('sidebar').classList.toggle('sidebar-host', currentRole === 'host');
-  document.querySelector('.profile-desktop-shell').classList.toggle('host-sidebar-shell', currentRole === 'host');
-  document.getElementById('profile-home-link').setAttribute('href', dashboardHref);
-  document.getElementById('profile-brand-link').setAttribute('href', dashboardHref);
+  document.getElementById('sidebar')?.classList.toggle('sidebar-host', currentRole === 'host');
+  document.querySelector('.profile-desktop-shell')?.classList.toggle('host-sidebar-shell', currentRole === 'host');
+  document.getElementById('profile-home-link')?.setAttribute('href', dashboardHref);
+  document.getElementById('profile-brand-link')?.setAttribute('href', dashboardHref);
   document.querySelectorAll('a[href="host-home.html"]').forEach(function(link){
     if (!link.closest('#host-tools-nav')) link.setAttribute('href', dashboardHref);
   });
@@ -1084,6 +1084,7 @@
       loadingState.setAttribute('aria-label', 'Profile unavailable');
       loadingState.innerHTML = '<div style="grid-column:1/-1; display:flex; align-items:center; justify-content:center; height:100vh; padding:2rem; text-align:center; color:var(--ink); font-size:0.95rem; font-weight:600;">Unable to load your profile. Check your connection and try again.</div>';
     }
+    revealProfile();
     return;
   }
 
@@ -1094,17 +1095,19 @@
       .select('id', { count:'exact', head:true })
       .eq('recipient_user_id', currentUser.id)
       .eq('read', false);
-    if (error) return;
+    if (error || !notificationCount) return;
     notificationCount.textContent = count > 99 ? '99+' : String(count || '');
     notificationCount.style.display = count > 0 ? 'block' : 'none';
   }
   refreshNotificationCount();
-  supabaseClient.channel('profile-notifications-' + currentUser.id)
-    .on('postgres_changes', {
-      event:'*', schema:'public', table:'notifications',
-      filter:'recipient_user_id=eq.' + currentUser.id
-    }, refreshNotificationCount)
-    .subscribe();
+  try {
+    supabaseClient.channel('profile-notifications-' + currentUser.id)
+      .on('postgres_changes', {
+        event:'*', schema:'public', table:'notifications',
+        filter:'recipient_user_id=eq.' + currentUser.id
+      }, refreshNotificationCount)
+      .subscribe();
+  } catch (e) {}
 
   /* ── Render profile header ── */
   function renderProfile(){
@@ -1117,49 +1120,65 @@
       : null;
 
     if (avatarUrl) {
-      av.innerHTML = '<img src="' + avatarUrl + '" alt="' + displayName + '">';
-      topbarAvatar.innerHTML = '<img src="' + avatarUrl + '" alt="' + displayName + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%">';
+      if (av) av.innerHTML = '<img src="' + avatarUrl + '" alt="' + displayName + '">';
+      if (topbarAvatar) topbarAvatar.innerHTML = '<img src="' + avatarUrl + '" alt="' + displayName + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%">';
     } else {
       const letter = (displayName || '?').charAt(0).toUpperCase();
-      av.textContent = letter;
-      topbarAvatar.textContent = letter;
+      if (av) av.textContent = letter;
+      if (topbarAvatar) topbarAvatar.textContent = letter;
     }
 
-    document.getElementById('profile-header-name').textContent = displayName;
-    document.getElementById('topbar-name').textContent = displayName;
-    document.getElementById('profile-username').textContent = profileData.username ? '@' + profileData.username : '@user';
-    document.getElementById('profile-email').textContent = currentUser.email || 'No email on file';
-    document.getElementById('profile-location-text').textContent = profileData.city || 'Unknown location';
-    document.getElementById('profile-since-text').textContent = profileData.created_at
-      ? 'Member since ' + new Date(profileData.created_at).getFullYear()
-      : 'Member since 2024';
+    const setText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    setText('profile-header-name', displayName);
+    setText('topbar-name', displayName);
+    setText('profile-username', profileData.username ? '@' + profileData.username : '@user');
+    setText('profile-email', currentUser.email || 'No email on file');
+    setText('profile-location-text', profileData.city || 'Unknown location');
+    setText('profile-since-text', profileData.created_at ? 'Member since ' + new Date(profileData.created_at).getFullYear() : 'Member since 2024');
+    
     const nichesEl = document.getElementById('profile-niches');
     const nicheLabels = { airbnb:'Airbnb', hotel:'Hotel', venue:'Event ground / venue', office:'Offices & Shops', shop:'Offices & Shops', property:'Property' };
     const niches = Array.isArray(profileData.listing_categories) ? profileData.listing_categories : [];
-    if (profileData.role === 'host' && niches.length === 1) {
+    if (nichesEl && profileData.role === 'host' && niches.length === 1) {
       nichesEl.textContent = 'Specializes in ' + (nicheLabels[niches[0]] || niches[0]);
       nichesEl.style.display = '';
     }
-    document.getElementById('ask-name').textContent = (displayName || 'host').split(' ')[0];
-    document.getElementById('avatar-upload-label').style.display = isOwner ? 'flex' : 'none';
+    setText('ask-name', (displayName || 'host').split(' ')[0]);
+    const uploadLabel = document.getElementById('avatar-upload-label');
+    if (uploadLabel) uploadLabel.style.display = isOwner ? 'flex' : 'none';
+
     const banner = document.getElementById('profile-banner');
     const bannerKey = profileData.banner_image_key;
-    banner.style.backgroundImage = bannerKey
-      ? 'url("/api/photos/profile-banners/' + bannerKey.split('/').map(encodeURIComponent).join('/') + '")'
-      : '';
-    document.getElementById('profile-banner-actions').style.display = isOwner && profileData.role === 'host' ? 'flex' : 'none';
+    if (banner) {
+      banner.style.backgroundImage = bannerKey
+        ? 'url("/api/photos/profile-banners/' + bannerKey.split('/').map(encodeURIComponent).join('/') + '")'
+        : '';
+    }
+    const bannerActions = document.getElementById('profile-banner-actions');
+    if (bannerActions) bannerActions.style.display = isOwner && profileData.role === 'host' ? 'flex' : 'none';
+
     const bannerButton = document.getElementById('banner-change-btn');
-    bannerButton.setAttribute('aria-label', bannerKey ? 'Banner options' : 'Add profile banner');
-    bannerButton.title = bannerKey ? 'Banner options' : 'Add profile banner';
-    bannerButton.setAttribute('aria-expanded', 'false');
-    document.getElementById('banner-options-menu').hidden = true;
-    document.getElementById('banner-menu-change').textContent = 'Change banner';
-    document.getElementById('banner-remove-btn').hidden = !bannerKey;
+    if (bannerButton) {
+      bannerButton.setAttribute('aria-label', bannerKey ? 'Banner options' : 'Add profile banner');
+      bannerButton.title = bannerKey ? 'Banner options' : 'Add profile banner';
+      bannerButton.setAttribute('aria-expanded', 'false');
+    }
+    const bannerMenu = document.getElementById('banner-options-menu');
+    if (bannerMenu) bannerMenu.hidden = true;
+    const bannerMenuChange = document.getElementById('banner-menu-change');
+    if (bannerMenuChange) bannerMenuChange.textContent = 'Change banner';
+    const bannerRemoveBtn = document.getElementById('banner-remove-btn');
+    if (bannerRemoveBtn) bannerRemoveBtn.hidden = !bannerKey;
 
     const showingAsVisitor = !isOwner;
-    document.getElementById('owner-actions').style.display = showingAsVisitor ? 'none' : 'flex';
-    document.getElementById('visitor-actions').style.display = showingAsVisitor ? 'flex' : 'none';
+    const ownerActions = document.getElementById('owner-actions');
+    if (ownerActions) ownerActions.style.display = showingAsVisitor ? 'none' : 'flex';
+    const visitorActions = document.getElementById('visitor-actions');
+    if (visitorActions) visitorActions.style.display = showingAsVisitor ? 'flex' : 'none';
   }
+
+  renderProfile();
+  revealProfile();
 
   function renderBookings(upcoming, past){
     const upcomingEl = document.getElementById('upcoming-bookings');
@@ -1779,12 +1798,12 @@
       window.location.href = bottomNavMap[btn.getAttribute('data-nav')] || '#';
     });
   });
-  document.getElementById('mobile-notifications-btn').addEventListener('click', function(){
+  document.getElementById('mobile-notifications-btn')?.addEventListener('click', function(){
     window.location.href = 'notifications.html';
   });
 
   /* ── Logout ── */
-  document.getElementById('logout-btn').addEventListener('click', async function(){
+  document.getElementById('logout-btn')?.addEventListener('click', async function(){
     await supabaseClient.auth.signOut();
     window.location.href = 'index.html';
   });

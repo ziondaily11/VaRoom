@@ -292,9 +292,16 @@ export default function LegacyPage({ title, markup, scripts }) {
           })
         );
       });
+    const isHostLayout = typeof document !== 'undefined' && !!document.querySelector('.host-layout-active');
+    const purgeDuplicateSidebars = (root) => {
+      if (!isHostLayout || !root) return;
+      const selector = 'aside.sidebar, aside.profile-sidebar, aside.host-profile-sidebar, #sidebar, #sidebar-client, #sidebar-host, #sidebar-shell, .skeleton-sidebar';
+      if (root.nodeType === Node.ELEMENT_NODE && root.matches(selector)) root.remove();
+      else if (root.querySelectorAll) root.querySelectorAll(selector).forEach((el) => el.remove());
     };
     const avatarObserver = new MutationObserver((records) => {
       records.forEach((record) => record.addedNodes.forEach((node) => {
+        purgeDuplicateSidebars(node);
         mountAvatars(node);
         mountOrbs(node);
       }));
@@ -310,13 +317,7 @@ export default function LegacyPage({ title, markup, scripts }) {
       });
     });
     if (containerRef.current) {
-      const isHostLayout = !!containerRef.current.closest('.host-layout-active');
-      if (isHostLayout) {
-        const duplicateSidebars = containerRef.current.querySelectorAll(
-          'aside.sidebar, aside.profile-sidebar, aside.host-profile-sidebar, #sidebar-client, #sidebar-host, .skeleton-sidebar'
-        );
-        duplicateSidebars.forEach((el) => el.remove());
-      }
+      purgeDuplicateSidebars(containerRef.current);
       avatarObserver.observe(containerRef.current, { childList: true, subtree: true });
       mountAvatars(containerRef.current);
       mountOrbs(containerRef.current);
