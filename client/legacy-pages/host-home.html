@@ -3304,19 +3304,6 @@
       window.location.href = '/notifications';
     });
 
-    // ---------- Mobile sidebar drawer (doubles as the "You" menu on mobile) ----------
-    const sidebar = document.getElementById('sidebar');
-    const backdrop = document.getElementById('sidebar-backdrop');
-
-    function openSidebar(){ sidebar.classList.add('mobile-open'); backdrop.classList.add('show'); }
-    function closeSidebar(){ sidebar.classList.remove('mobile-open'); backdrop.classList.remove('show'); }
-
-    backdrop.addEventListener('click', closeSidebar);
-    sidebar.querySelectorAll('.nav-item, .list-space-btn').forEach(function(el){
-      el.addEventListener('click', closeSidebar);
-    });
-    document.getElementById('topbar-avatar-btn').addEventListener('click', openSidebar);
-
     // ---------- Shared view switching (sidebar nav-items + bottom bar both call these) ----------
     function setActiveNav(viewName){
       document.querySelectorAll('.nav-item[data-nav]').forEach(function(n){
