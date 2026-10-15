@@ -63,7 +63,8 @@
   display: none;
 }
 
-html[data-account-role="pending"] #sidebar {
+html[data-account-role="pending"] #sidebar,
+html[data-account-role="pending"] #host-sidebar {
   visibility: hidden;
 }
 

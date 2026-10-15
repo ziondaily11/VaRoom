@@ -14,6 +14,7 @@ import { AuthPanel } from '../components/landing/AuthPanel';
 import { Listing } from '../components/landing/types';
 import { INITIAL_LISTINGS } from '../components/landing/initialListings';
 import { normalizeSignupRole } from '../public/js/auth-flow-utils';
+const { resolveStoredPhotoUrl } = require('../components/resolveStoredPhotoUrl');
 
 interface LandingPageProps {
   initialListings: Listing[];
@@ -25,7 +26,11 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
   const [initialAuthView, setInitialAuthView] = useState<'login' | 'signup' | 'recovery'>('login');
   const [initialRecoveryStep, setInitialRecoveryStep] = useState<'email' | 'password'>('email');
   const [signupRole, setSignupRole] = useState<'host' | 'client'>('client');
-  const [listings, setListings] = useState<Listing[]>(initialListings && initialListings.length > 0 ? initialListings : INITIAL_LISTINGS);
+  const fallbackListings = INITIAL_LISTINGS.map((listing) => ({
+    ...listing,
+    photoUrl: resolveStoredPhotoUrl(listing.photoUrl, 'listing-photos'),
+  }));
+  const [listings, setListings] = useState<Listing[]>(initialListings && initialListings.length > 0 ? initialListings : fallbackListings);
   const closeAuth = useCallback(() => {
     setInitialRecoveryStep('email');
     setAuthOpen(false);
@@ -82,7 +87,7 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
         if (!error && data && data.length > 0 && isMounted) {
           const mapped: Listing[] = data.map((l: any) => {
             const photo = (l.listing_photos || []).find((p: any) => p && p.storage_path);
-            const photoUrl = photo ? sb.storage.from('listing-photos').getPublicUrl(photo.storage_path).data.publicUrl : null;
+            const photoUrl = photo ? resolveStoredPhotoUrl(photo.storage_path, 'listing-photos', sb) : null;
             const details = Array.isArray(l.listing_booking_details) ? l.listing_booking_details[0] : l.listing_booking_details;
             return {
               id: l.id,
