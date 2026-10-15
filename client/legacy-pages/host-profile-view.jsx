@@ -282,6 +282,9 @@ export default function HostProfileView() {
   const isOwner = viewerId === host.id;
 
   function Sidebar() {
+    if (typeof document !== 'undefined' && document.querySelector('.host-layout-active')) {
+      return null;
+    }
     const isHost = viewerRole === "host";
     const homeHref = isHost ? "/host-home" : "/client-home";
     return (

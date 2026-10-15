@@ -179,9 +179,25 @@
       '  More',
       '</button>',
 
-      verifyBoxHtml,
+      // Account identity + switcher
+      '<div id="account-menu" class="account-menu" role="menu" aria-label="Account menu" hidden>',
+      '  <div id="account-menu-list" class="account-menu-list"></div>',
+      '  <div class="account-menu-divider"></div>',
+      '  <button type="button" class="account-menu-action" id="account-add-btn">Add an existing account</button>',
+      '  <a href="/settings" class="account-menu-action" id="account-manage-btn">Manage accounts</a>',
+      '  <button type="button" class="account-menu-action account-menu-logout" id="account-logout-btn">Log out</button>',
+      '</div>',
 
-      '<button type="button" class="logout-btn" id="logout-btn">Log out</button>'
+      '<button type="button" class="account-identity" id="account-identity-btn" aria-haspopup="true" aria-expanded="false" aria-controls="account-menu">',
+      '  <span class="account-identity-avatar" id="acct-avatar-collapsed" aria-hidden="true"></span>',
+      '  <span class="account-identity-info">',
+      '    <span class="account-identity-name" id="acct-name-collapsed">…</span>',
+      '    <span class="account-identity-username" id="acct-username-collapsed"></span>',
+      '  </span>',
+      '  <svg class="account-identity-dots" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">',
+      '    <circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/>',
+      '  </svg>',
+      '</button>'
     ].join('\n');
   }
 
