@@ -206,6 +206,7 @@ const hostLayoutStyles = `
   .host-layout-active .host-page-content aside.sidebar,
   .host-layout-active .host-page-content aside.profile-sidebar,
   .host-layout-active .host-page-content aside.host-profile-sidebar,
+  .host-layout-active .host-page-content #sidebar,
   .host-layout-active .host-page-content #sidebar-client,
   .host-layout-active .host-page-content #sidebar-host,
   .host-layout-active .host-page-content #sidebar-shell,

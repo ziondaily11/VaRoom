@@ -1,20 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/router';
+const { resolveAvatarUrl } = require('./resolveStoredPhotoUrl');
 
 function getInitial(name) {
   const str = String(name || '').trim();
   return str ? str.charAt(0).toUpperCase() : '?';
-}
-
-function resolveAvatar(url) {
-  if (!url) return null;
-  if (url.startsWith('http')) return url;
-  try {
-    if (typeof window !== 'undefined' && window.supabaseClient) {
-      return window.supabaseClient.storage.from('avatars').getPublicUrl(url).data.publicUrl;
-    }
-  } catch (e) {}
-  return url;
 }
 
 export default function SharedHostSidebar({ activeNav: explicitActiveNav }) {
@@ -270,7 +260,8 @@ export default function SharedHostSidebar({ activeNav: explicitActiveNav }) {
     }
   };
 
-  const userAvatarUrl = user ? resolveAvatar(user.avatar_url) : null;
+  const supabaseClient = typeof window !== 'undefined' ? window.supabaseClient : null;
+  const userAvatarUrl = user ? resolveAvatarUrl(user.avatar_url, supabaseClient) : null;
   const displayName = user?.full_name || 'VaRoom Host';
   const displayUsername = user?.username ? `@${user.username}` : (user?.email || '');
 
@@ -285,7 +276,7 @@ export default function SharedHostSidebar({ activeNav: explicitActiveNav }) {
 
       <aside
         className={`sidebar ${mobileOpen ? 'mobile-open' : ''}`}
-        id="sidebar"
+        id="host-sidebar"
         aria-label="Host navigation"
       >
         <a
@@ -662,7 +653,7 @@ export default function SharedHostSidebar({ activeNav: explicitActiveNav }) {
             {linkedAccounts.length > 0 ? (
               linkedAccounts.map((acct) => {
                 const isActive = acct.id === user?.id;
-                const acctAvatar = resolveAvatar(acct.avatar_url);
+                const acctAvatar = resolveAvatarUrl(acct.avatar_url, supabaseClient);
                 return (
                   <button
                     key={acct.id}

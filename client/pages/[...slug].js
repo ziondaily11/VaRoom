@@ -310,13 +310,6 @@ export default function LegacyPage({ title, markup, scripts }) {
       });
     });
     if (containerRef.current) {
-      const isHostLayout = !!containerRef.current.closest('.host-layout-active');
-      if (isHostLayout) {
-        const duplicateSidebars = containerRef.current.querySelectorAll(
-          'aside.sidebar, aside.profile-sidebar, aside.host-profile-sidebar, #sidebar-client, #sidebar-host, .skeleton-sidebar'
-        );
-        duplicateSidebars.forEach((el) => el.remove());
-      }
       avatarObserver.observe(containerRef.current, { childList: true, subtree: true });
       mountAvatars(containerRef.current);
       mountOrbs(containerRef.current);
