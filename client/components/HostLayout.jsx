@@ -224,7 +224,6 @@ const hostLayoutStyles = `
   .host-layout-active .host-page-content .app-layout,
   .host-layout-active .host-page-content .profile-layout,
   .host-layout-active .host-page-content .profile-desktop-shell,
-  .host-layout-active .host-page-content .skeleton-shell,
   .host-layout-active .host-page-content .host-profile-shell {
     display: block !important;
     width: 100% !important;
