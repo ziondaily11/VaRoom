@@ -286,12 +286,12 @@ const fontSizeScript = `
 
 export default function App({ Component, pageProps }) {
   const router = useRouter();
-  const [role, setRole] = useState(null);
+  const [role, setRole] = useState('host');
 
   useEffect(() => {
     const updateRole = () => {
       try {
-        const r = sessionStorage.getItem('varoom_user_role') || localStorage.getItem('varoom_last_role') || '';
+        const r = sessionStorage.getItem('varoom_user_role') || localStorage.getItem('varoom_last_role') || 'host';
         setRole(r);
       } catch (e) {}
     };
@@ -306,18 +306,22 @@ export default function App({ Component, pageProps }) {
   const isAnalytics = path === '/analytics' || asPath.startsWith('/analytics');
   const isClientHome = path === '/client-home' || asPath.startsWith('/client-home');
 
-  // Shared routes
+  // Explicit host routes that must always use HostLayout
+  const isHostRoute = isHostHome || isAnalytics || path.startsWith('/host/') || asPath.startsWith('/host/');
+
+  // Shared routes that use HostLayout unless user explicitly switched to client role
   const isSharedRoute = [
     '/bookings',
     '/notifications',
     '/profile',
     '/settings',
     '/support',
-    '/host/'
+    '/chats',
+    '/marketplace'
   ].some((r) => path.startsWith(r) || asPath.startsWith(r));
 
   // Determine whether this page should use the persistent HostLayout
-  const isHostMode = !isClientHome && (isHostHome || isAnalytics || ((role === 'host' || isHostHome) && isSharedRoute));
+  const isHostMode = !isClientHome && (isHostRoute || (isSharedRoute && role !== 'client'));
 
   const pageElement = <Component {...pageProps} />;
 
@@ -343,4 +347,3 @@ export default function App({ Component, pageProps }) {
     </>
   );
 }
-

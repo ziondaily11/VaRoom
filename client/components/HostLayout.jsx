@@ -201,6 +201,11 @@ const hostLayoutStyles = `
     .host-app-layout > .sidebar.mobile-open { transform: translateX(0); }
   }
 
+  .host-app-layout .nav-item svg,
+  .host-app-layout .account-identity svg {
+    pointer-events: none;
+  }
+
   /* ---------- Content isolation and duplicate sidebar suppression ---------- */
   /* When rendered inside HostLayout, any page-internal duplicate sidebar is suppressed */
   .host-layout-active .host-page-content aside.sidebar,
@@ -218,6 +223,7 @@ const hostLayoutStyles = `
   .host-layout-active .host-page-content .app-shell,
   .host-layout-active .host-page-content .app-layout,
   .host-layout-active .host-page-content .profile-layout,
+  .host-layout-active .host-page-content .profile-desktop-shell,
   .host-layout-active .host-page-content .host-profile-shell {
     display: block !important;
     width: 100% !important;
@@ -225,9 +231,13 @@ const hostLayoutStyles = `
     grid-template-columns: none !important;
   }
 
-  .host-layout-active .host-page-content .main-col {
+  .host-layout-active .host-page-content .main-col,
+  .host-layout-active .host-page-content .profile-main-col,
+  .host-layout-active .host-page-content .skeleton-main,
+  .host-layout-active .host-page-content .host-profile-main {
     width: 100% !important;
     max-width: 100% !important;
+    margin: 0 !important;
   }
 `;
 

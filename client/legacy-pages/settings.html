@@ -1260,19 +1260,23 @@
     document.documentElement.setAttribute('data-account-role', currentRole === 'host' ? 'host' : 'client');
     try { sessionStorage.setItem('varoom_user_role', currentRole === 'host' ? 'host' : 'client'); } catch (e) {}
     const activeSidebar = currentRole === 'host' ? sidebarHost : sidebarClient;
-    document.getElementById('sidebar-shell').classList.toggle('host-sidebar-shell', currentRole === 'host');
-    (currentRole === 'host' ? sidebarClient : sidebarHost).style.display = 'none';
-    activeSidebar.style.display = 'flex';
-    activeSidebar.querySelector('[data-role-home]').setAttribute('href', dashboardHref);
+    document.getElementById('sidebar-shell')?.classList.toggle('host-sidebar-shell', currentRole === 'host');
+    if (sidebarClient && sidebarHost && activeSidebar) {
+      (currentRole === 'host' ? sidebarClient : sidebarHost).style.display = 'none';
+      activeSidebar.style.display = 'flex';
+      activeSidebar.querySelector('[data-role-home]')?.setAttribute('href', dashboardHref);
+    }
 
     if (currentRole === 'host') {
       const verifyBox = document.getElementById('verify-box');
-      if (profile.verified) {
-        verifyBox.className = 'verify-box is-verified';
-        verifyBox.innerHTML = '<strong>You\'re verified!</strong>Your account is verified. Keep providing great experiences.';
-      } else {
-        verifyBox.className = 'verify-box not-verified';
-        verifyBox.innerHTML = '<strong>Get verified</strong>Verification isn\'t self-serve yet — reach out via Help &amp; Support to get your blue tick.';
+      if (verifyBox) {
+        if (profile.verified) {
+          verifyBox.className = 'verify-box is-verified';
+          verifyBox.innerHTML = '<strong>You\'re verified!</strong>Your account is verified. Keep providing great experiences.';
+        } else {
+          verifyBox.className = 'verify-box not-verified';
+          verifyBox.innerHTML = '<strong>Get verified</strong>Verification isn\'t self-serve yet — reach out via Help &amp; Support to get your blue tick.';
+        }
       }
     }
 
@@ -1280,21 +1284,37 @@
     // dashboards (Explore/Saved/My Listings, the notif bell), not real
     // links — copying them verbatim would leave dead buttons here, so they
     // navigate back to the right dashboard instead.
-    activeSidebar.querySelectorAll('[data-goto]').forEach(function(el){
+    activeSidebar?.querySelectorAll('[data-goto]').forEach(function(el){
       el.addEventListener('click', function(){
         window.location.href = el.getAttribute('data-goto');
       });
     });
 
+    function revealSettings() {
+      const checkingAuth = document.getElementById('checking-auth');
+      const settingsSkeleton = document.getElementById('settings-skeleton');
+      const settingsPage = document.getElementById('settings-page');
+      if (checkingAuth) checkingAuth.style.display = 'none';
+      if (settingsSkeleton) settingsSkeleton.hidden = true;
+      if (settingsPage) {
+        settingsPage.classList.remove('is-loading');
+        settingsPage.classList.add('has-selection');
+        settingsPage.style.display = 'grid';
+      }
+    }
+
     // ---------- Populate current values ----------
-    document.getElementById('notify-messages').checked = profile.notify_messages;
-    document.getElementById('notify-bookings').checked = profile.notify_bookings;
-    document.getElementById('notify-account-updates').checked = profile.notify_account_updates;
-    document.getElementById('notify-marketing').checked = profile.notify_marketing;
-    document.getElementById('profile-visibility').value = profile.profile_visibility;
-    document.getElementById('who-can-message').value = profile.who_can_message;
-    document.getElementById('location-visibility').value = profile.location_visibility;
-    document.getElementById('about-year').textContent = new Date().getFullYear();
+    const setChecked = (id, val) => { const el = document.getElementById(id); if (el) el.checked = !!val; };
+    const setValue = (id, val) => { const el = document.getElementById(id); if (el && val != null) el.value = val; };
+    setChecked('notify-messages', profile.notify_messages);
+    setChecked('notify-bookings', profile.notify_bookings);
+    setChecked('notify-account-updates', profile.notify_account_updates);
+    setChecked('notify-marketing', profile.notify_marketing);
+    setValue('profile-visibility', profile.profile_visibility);
+    setValue('who-can-message', profile.who_can_message);
+    setValue('location-visibility', profile.location_visibility);
+    const aboutYear = document.getElementById('about-year');
+    if (aboutYear) aboutYear.textContent = new Date().getFullYear();
 
     // ---------- Dashboard accounts ----------
     const accountList = document.getElementById('dashboard-accounts-list');
@@ -1314,10 +1334,10 @@
 
     function openDeleteDialog(account){
       accountPendingDeletion = account;
-      deleteForm.reset();
-      deleteDetails.hidden = true;
-      deleteConfirmButton.disabled = true;
-      deleteDialog.showModal();
+      if (deleteForm) deleteForm.reset();
+      if (deleteDetails) deleteDetails.hidden = true;
+      if (deleteConfirmButton) deleteConfirmButton.disabled = true;
+      if (deleteDialog && typeof deleteDialog.showModal === 'function') deleteDialog.showModal();
     }
 
     function createAccountRow(account, isActive){
@@ -1361,7 +1381,9 @@
         loginButton.addEventListener('click', async function(){
           loginButton.disabled = true;
           try {
-            await window.VaRoomAccountSwitcher.switchAccount(supabaseClient, account);
+            if (window.VaRoomAccountSwitcher) {
+              await window.VaRoomAccountSwitcher.switchAccount(supabaseClient, account);
+            }
             window.location.reload();
           } catch (error) {
             loginButton.disabled = false;
@@ -1386,11 +1408,12 @@
     }
 
     function renderDashboardAccounts(){
-      const accounts = window.VaRoomAccountSwitcher.getLinkedAccounts()
-        .filter(function(account){ return account.id !== currentUser.id; });
+      if (!accountList) return;
+      const switcher = window.VaRoomAccountSwitcher;
+      const allAccounts = switcher && typeof switcher.getLinkedAccounts === 'function' ? switcher.getLinkedAccounts() : [];
+      const accounts = allAccounts.filter(function(account){ return account.id !== currentUser.id; });
       accountList.innerHTML = '';
-      const currentAccount = window.VaRoomAccountSwitcher.getLinkedAccounts()
-        .find(function(account){ return account.id === currentUser.id; });
+      const currentAccount = allAccounts.find(function(account){ return account.id === currentUser.id; });
       if (currentAccount) accountList.appendChild(createAccountRow(currentAccount, true));
 
       if (!accounts.length) {
@@ -1404,37 +1427,56 @@
         accountList.appendChild(createAccountRow(account, false));
       });
 
-      const storedCount = window.VaRoomAccountSwitcher.getLinkedAccounts().length;
-      const atLimit = !window.VaRoomAccountSwitcher.canAddAccount();
-      addAccountButton.disabled = atLimit;
-      addAccountButton.setAttribute('aria-disabled', String(atLimit));
-      accountLimitNote.textContent = atLimit ? 'Account limit reached (3/3).' : (storedCount + '/3 accounts stored on this dashboard.');
+      const storedCount = allAccounts.length;
+      const atLimit = switcher && typeof switcher.canAddAccount === 'function' ? !switcher.canAddAccount() : false;
+      if (addAccountButton) {
+        addAccountButton.disabled = atLimit;
+        addAccountButton.setAttribute('aria-disabled', String(atLimit));
+      }
+      if (accountLimitNote) {
+        accountLimitNote.textContent = atLimit ? 'Account limit reached (3/3).' : (storedCount + '/3 accounts stored on this dashboard.');
+      }
     }
 
-    await window.VaRoomAccountSwitcher.upsertFromSession(supabaseClient, session);
-    renderDashboardAccounts();
-    addAccountButton.addEventListener('click', function(){
-      if (!addAccountButton.disabled) {
+    try {
+      if (window.VaRoomAccountSwitcher && typeof window.VaRoomAccountSwitcher.upsertFromSession === 'function') {
+        await window.VaRoomAccountSwitcher.upsertFromSession(supabaseClient, session);
+      }
+      renderDashboardAccounts();
+    } catch (e) {
+      console.warn('Dashboard accounts render issue:', e);
+    }
+
+    addAccountButton?.addEventListener('click', function(){
+      if (!addAccountButton.disabled && window.VaRoomAccountSwitcher) {
         window.VaRoomAccountSwitcher.startAddAccount('/settings');
       }
     });
-    deleteReason.addEventListener('change', function(){
-      deleteDetails.hidden = deleteReason.value !== 'Other';
-      deleteDetails.required = deleteReason.value === 'Other';
-      deleteConfirmButton.disabled = !deleteReason.value || (deleteReason.value === 'Other' && !deleteDetails.value.trim());
+    deleteReason?.addEventListener('change', function(){
+      if (deleteDetails) {
+        deleteDetails.hidden = deleteReason.value !== 'Other';
+        deleteDetails.required = deleteReason.value === 'Other';
+      }
+      if (deleteConfirmButton) {
+        deleteConfirmButton.disabled = !deleteReason.value || (deleteReason.value === 'Other' && !deleteDetails?.value.trim());
+      }
     });
-    deleteDetails.addEventListener('input', function(){
-      deleteConfirmButton.disabled = deleteReason.value === 'Other' && !deleteDetails.value.trim();
+    deleteDetails?.addEventListener('input', function(){
+      if (deleteConfirmButton) {
+        deleteConfirmButton.disabled = deleteReason?.value === 'Other' && !deleteDetails.value.trim();
+      }
     });
-    document.getElementById('delete-account-cancel-btn').addEventListener('click', function(){
+    document.getElementById('delete-account-cancel-btn')?.addEventListener('click', function(){
       accountPendingDeletion = null;
-      deleteDialog.close();
+      if (deleteDialog && typeof deleteDialog.close === 'function') deleteDialog.close();
     });
-    deleteForm.addEventListener('submit', async function(event){
+    deleteForm?.addEventListener('submit', async function(event){
       event.preventDefault();
-      if (!accountPendingDeletion || !deleteReason.value || (deleteReason.value === 'Other' && !deleteDetails.value.trim())) return;
-      deleteConfirmButton.disabled = true;
-      deleteConfirmButton.textContent = 'Deleting...';
+      if (!accountPendingDeletion || !deleteReason?.value || (deleteReason.value === 'Other' && !deleteDetails?.value.trim())) return;
+      if (deleteConfirmButton) {
+        deleteConfirmButton.disabled = true;
+        deleteConfirmButton.textContent = 'Deleting...';
+      }
       try {
         const response = await fetch('/api/delete-account', {
           method: 'POST',
@@ -1444,14 +1486,14 @@
           },
           body: JSON.stringify({
             reason: deleteReason.value,
-            reason_details: deleteDetails.value.trim()
+            reason_details: deleteDetails ? deleteDetails.value.trim() : ''
           })
         });
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || 'Unable to delete account');
 
         const deletedId = currentUser.id;
-        window.VaRoomAccountSwitcher.removeAccount(deletedId);
+        if (window.VaRoomAccountSwitcher) window.VaRoomAccountSwitcher.removeAccount(deletedId);
         if (window.VaRoomDataCache) window.VaRoomDataCache.invalidate('account:' + deletedId + ':');
         try {
           window.sessionStorage.clear();
@@ -1459,31 +1501,29 @@
           window.localStorage.removeItem('varoom_theme');
         } catch (storageError) {}
         accountPendingDeletion = null;
-        deleteDialog.close();
+        if (deleteDialog && typeof deleteDialog.close === 'function') deleteDialog.close();
         await supabaseClient.auth.signOut({ scope: 'local' });
         window.location.href = '/login?deleted=1';
       } catch (error) {
-        deleteConfirmButton.disabled = false;
-        deleteConfirmButton.textContent = 'Delete account permanently';
+        if (deleteConfirmButton) {
+          deleteConfirmButton.disabled = false;
+          deleteConfirmButton.textContent = 'Delete account permanently';
+        }
         if (window.varoomShowToast) window.varoomShowToast(error.message);
         else alert(error.message);
       }
     });
 
-    checkingAuth.style.display = 'none';
-    settingsSkeleton.hidden = true;
-    settingsPage.classList.remove('is-loading');
-    settingsPage.classList.add('has-selection');
-    settingsPage.style.display = 'grid';
+    revealSettings();
 
     // ---------- Mobile sidebar drawer (same mechanism as the dashboards) ----------
     const sidebarShell = document.getElementById('sidebar-shell');
     const backdrop = document.getElementById('sidebar-backdrop');
-    function openSidebar(){ sidebarShell.classList.add('mobile-open'); backdrop.classList.add('show'); }
-    function closeSidebar(){ sidebarShell.classList.remove('mobile-open'); backdrop.classList.remove('show'); }
-    document.getElementById('mobile-menu-btn').addEventListener('click', openSidebar);
-    backdrop.addEventListener('click', closeSidebar);
-    activeSidebar.querySelectorAll('.nav-item, .list-space-btn, [data-logout-btn]').forEach(function(el){
+    function openSidebar(){ sidebarShell?.classList.add('mobile-open'); backdrop?.classList.add('show'); }
+    function closeSidebar(){ sidebarShell?.classList.remove('mobile-open'); backdrop?.classList.remove('show'); }
+    document.getElementById('mobile-menu-btn')?.addEventListener('click', openSidebar);
+    backdrop?.addEventListener('click', closeSidebar);
+    activeSidebar?.querySelectorAll('.nav-item, .list-space-btn, [data-logout-btn]').forEach(function(el){
       el.addEventListener('click', closeSidebar);
     });
 

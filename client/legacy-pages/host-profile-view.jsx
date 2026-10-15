@@ -282,43 +282,7 @@ export default function HostProfileView() {
   const isOwner = viewerId === host.id;
 
   function Sidebar() {
-    if (typeof document !== 'undefined' && document.querySelector('.host-layout-active')) {
-      return null;
-    }
-    const isHost = viewerRole === "host";
-    const homeHref = isHost ? "/host-home" : "/client-home";
-    return (
-      <aside className="host-profile-sidebar" aria-label="VaRoom navigation">
-        <a className="profile-sidebar-logo" href={homeHref}><span>Va</span>Room</a>
-        <nav className="sidebar-nav">
-          <a href={homeHref}><Home size={17} aria-hidden="true" /> Home</a>
-          <a href="/marketplace"><Compass size={17} aria-hidden="true" /> Marketplace</a>
-          <a href={`${homeHref}#saved`}><Bookmark size={17} aria-hidden="true" /> Saved</a>
-          {!isHost && <a href="/signup-host"><Plus size={17} aria-hidden="true" /> Become a Host</a>}
-        </nav>
-        <nav className="sidebar-nav">
-          <p className="profile-nav-label">My activity</p>
-          <a href="/bookings"><CalendarDays size={17} aria-hidden="true" /> Bookings</a>
-          <a href="/chats"><MessageSquare size={17} aria-hidden="true" /> Chats</a>
-        </nav>
-        {isHost && <nav className="sidebar-nav">
-          <p className="profile-nav-label">Host</p>
-          <a href="/list"><Plus size={17} aria-hidden="true" /> List a space</a>
-          <a href="/host-home?view=my-listings"><WalletCards size={17} aria-hidden="true" /> My listings</a>
-          <a href="/analytics"><BarChart3 size={17} aria-hidden="true" /> Analytics</a>
-        </nav>}
-        <nav className="sidebar-nav">
-          <p className="profile-nav-label">Account</p>
-          <a href="/profile"><UserRound size={17} aria-hidden="true" /> Profile</a>
-          <a href="/settings"><Settings size={17} aria-hidden="true" /> Settings</a>
-          <a href="/support"><LifeBuoy size={17} aria-hidden="true" /> Help &amp; Support</a>
-        </nav>
-        <button type="button" className="sidebar-logout" onClick={async () => {
-          await window.supabaseClient?.auth.signOut();
-          router.push("/login");
-        }}>Log out</button>
-      </aside>
-    );
+    return null;
   }
 
   function startChat() {
@@ -383,7 +347,7 @@ export default function HostProfileView() {
         }
         html, body, #__next { margin: 0; min-height: 100%; background: var(--host-profile-page); }
         body { overflow-x: hidden; }
-        .host-profile-shell { min-height: 100vh; display: grid; grid-template-columns: 260px minmax(0, 1fr); background: var(--host-profile-page); color: var(--host-profile-text); font-family: "Helvetica Neue", Arial, sans-serif; }
+        .host-profile-shell { min-height: 100vh; display: block !important; width: 100% !important; background: var(--host-profile-page); color: var(--host-profile-text); font-family: "Helvetica Neue", Arial, sans-serif; }
         .host-profile-sidebar { display: flex; flex-direction: column; gap: 18px; min-height: 100vh; padding: 18px 12px 14px; border-right: 1px solid var(--host-profile-border); background: var(--host-profile-sidebar); }
         .profile-sidebar-logo { padding: 0 10px; color: var(--host-profile-text); font-family: Fraunces, serif; font-size: 22px; font-weight: 900; letter-spacing: -.04em; text-decoration: none; }
         .profile-sidebar-logo span { color: #c41e3a; }

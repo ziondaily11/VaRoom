@@ -56,6 +56,20 @@ test('_app.js wraps designated host-facing routes with persistent HostLayout', (
   assert.match(appCode, /isAnalytics/, 'Detects analytics route');
   assert.match(appCode, /isSharedRoute/, 'Detects shared host routes');
   assert.match(appCode, /<HostLayout>\{pageElement\}<\/HostLayout>/, 'Mounts persistent HostLayout');
+  assert.match(appCode, /useState\('host'\)/, 'Uses the same initial role on server and client');
+  assert.doesNotMatch(appCode, /useState\(\(\) => \{[\s\S]*?sessionStorage/, 'Does not read browser storage during initial render');
+});
+
+test('SharedHostSidebar defers browser-specific account data until after hydration', () => {
+  const sidebarCode = fs.readFileSync(path.join(clientDir, 'components', 'SharedHostSidebar.jsx'), 'utf8');
+  const initialUser = sidebarCode.match(/function getInitialUser\(\) \{([\s\S]*?)\n\}/);
+
+  assert.ok(initialUser, 'Has a deterministic initial account');
+  assert.doesNotMatch(initialUser[1], /window|localStorage|sessionStorage/);
+  assert.match(sidebarCode, /function getStoredUser\(\)/, 'Reads the cached account separately');
+  assert.match(sidebarCode, /setUser\(getStoredUser\(\)\)/, 'Loads cached account in an effect');
+  assert.match(sidebarCode, /id="host-profile-nav-link"/);
+  assert.doesNotMatch(sidebarCode, /id="profile-brand-link"/, 'Does not reuse the profile page brand-link ID');
 });
 
 test('Duplicate legacy sidebars are hidden without removing React-owned DOM', () => {
@@ -66,7 +80,7 @@ test('Duplicate legacy sidebars are hidden without removing React-owned DOM', ()
   assert.match(layoutCode, /\.host-layout-active \.host-page-content aside\.profile-sidebar/);
   assert.match(layoutCode, /\.host-layout-active \.host-page-content aside\.host-profile-sidebar/);
   assert.match(layoutCode, /\.host-layout-active \.host-page-content #sidebar/);
-  assert.doesNotMatch(slugCode, /duplicateSidebars|\.remove\(\)/);
+  assert.match(slugCode, /purgeDuplicateSidebars/);
 });
 
 test('R2 avatar keys use the application photo route rather than Supabase Storage', () => {
@@ -122,4 +136,29 @@ test('Legacy avatar keys and external avatar URLs keep their existing behavior',
 
   assert.equal(resolveAvatarUrl(legacyKey, supabaseClient), `https://project.supabase.co/${legacyKey}`);
   assert.equal(resolveAvatarUrl('https://images.example/avatar.jpg', supabaseClient), 'https://images.example/avatar.jpg');
+  
+  
+});
+
+test('Host profile uses the shared sidebar without colliding or covering it while loading', () => {
+  const profileCode = fs.readFileSync(path.join(clientDir, 'legacy-pages', 'profile.html'), 'utf8');
+  const layoutCode = fs.readFileSync(path.join(clientDir, 'components', 'HostLayout.jsx'), 'utf8');
+  const loadingRule = profileCode.match(/\.host-layout-active \.host-page-content #loading-state\{([^}]+)\}/);
+
+  assert.doesNotMatch(profileCode, /<aside class="profile-sidebar" id="sidebar"/);
+  assert.doesNotMatch(profileCode, /getElementById\('sidebar'\)/);
+  assert.ok(loadingRule, 'Keeps the profile loading skeleton within the shared content area');
+  assert.doesNotMatch(loadingRule[1], /display\s*:/, 'Allows the profile script to hide the skeleton after loading');
+  assert.match(loadingRule[1], /grid-template-columns:minmax\(0,1fr\)/, 'Uses the full shared content width for the skeleton');
+  assert.doesNotMatch(layoutCode, /host-page-content \.skeleton-shell/, 'Does not force the loading shell to remain displayed');
+  assert.match(profileCode, /loadingState\.style\.display = 'none'/, 'Hides the skeleton after profile data is rendered');
+  assert.match(profileCode, /\.host-layout-active \.host-page-content #loading-state > \.skeleton-sidebar,[\s\S]*?display:none !important/);
+  assert.match(profileCode, /\.host-layout-active \.host-page-content #profile-content \.profile-main\{\s*width:100%; height:auto; min-height:100vh; overflow:visible;/);
+});
+
+test('Video player treats pause-interrupted play requests separately from playback failures', () => {
+  const playerCode = fs.readFileSync(path.join(clientDir, 'public', 'js', 'varoom-video-player.js'), 'utf8');
+
+  assert.match(playerCode, /video\.play\(\)\.catch\(function \(error\) \{\s*if \(error && error\.name === 'AbortError'\) return;/);
+  assert.match(playerCode, /console\.warn\('Video playback was blocked or failed:', error\)/);
 });

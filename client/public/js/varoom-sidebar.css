@@ -328,8 +328,8 @@ html[data-account-role="pending"] #host-sidebar {
 
 html[data-theme="dark"][data-account-role="host"] .sidebar,
 [data-theme="dark"] .sidebar.sidebar-host {
-  --host-control-active: #302C2A;
-  --host-control-hover: #25211F;
+  --host-control-active: rgba(255, 255, 255, 0.16);
+  --host-control-hover: rgba(255, 255, 255, 0.1);
   --host-sidebar-line: rgba(255, 255, 255, .12);
 }
 
@@ -356,25 +356,26 @@ html[data-theme="dark"][data-account-role="host"] .sidebar,
 
 :is(html[data-account-role="host"] .sidebar, .sidebar.sidebar-host) .nav-item.active,
 :is(html[data-account-role="host"] .sidebar, .sidebar.sidebar-host) .nav-item.active:hover {
-  background: var(--host-control-active) !important;
+  background: var(--control-active, rgba(255, 255, 255, 0.16)) !important;
   color: var(--ink) !important;
+  font-weight: 700 !important;
 }
 
 :is(html[data-account-role="host"] .sidebar, .sidebar.sidebar-host) .list-space-btn {
-  background: var(--ink) !important;
-  border-color: var(--ink) !important;
-  color: var(--white) !important;
+  background: var(--red, #C41E3A) !important;
+  border: none !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(196, 30, 58, .25) !important;
 }
 
 :is(html[data-account-role="host"] .sidebar, .sidebar.sidebar-host) .list-space-btn:hover {
-  background: var(--host-control-hover) !important;
-  border-color: var(--host-sidebar-line) !important;
-  color: var(--ink) !important;
+  background: var(--red-deep, #8F1229) !important;
+  color: #ffffff !important;
 }
 
 :is(html[data-account-role="host"] .sidebar, .sidebar.sidebar-host) .notif-nav-badge {
-  background: var(--host-control-active) !important;
-  color: var(--ink) !important;
+  background: var(--red, #C41E3A) !important;
+  color: #ffffff !important;
 }
 
 :is(html[data-account-role="host"] .sidebar, .sidebar.sidebar-host) .sidebar-note {

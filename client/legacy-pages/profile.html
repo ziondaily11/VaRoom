@@ -81,7 +81,7 @@
   html[data-account-role="host"] .skeleton-sidebar{ background:#fff; }
   html[data-theme="dark"][data-account-role="host"] .skeleton-sidebar{ background:#241C1A; }
   html[data-account-role="pending"] .skeleton-sidebar,
-  html[data-account-role="pending"] #sidebar{ visibility:hidden; }
+  html[data-account-role="pending"] .profile-sidebar{ visibility:hidden; }
   .skeleton-sidebar-group{ display:flex; flex-direction:column; gap:8px; }
   .skeleton-sidebar .skel-logo{ width:90px; height:22px; margin:0 10px 4px; }
   .skeleton-sidebar .skel-nav-label{ width:76px; height:10px; margin:4px 10px 2px; }
@@ -226,41 +226,6 @@
 
   .logout-btn{ margin-top:auto; text-align:left; color:#c41e3a; font-weight:600; padding:8px 10px; border-radius:8px; }
   .logout-btn:hover{ background:#fce9ec; }
-
-  :is(html[data-account-role="host"] .profile-sidebar, .profile-sidebar.sidebar-host){
-    --sidebar-bg:#FFFFFF; --ink:#24211E; --muted:#5c584f;
-    --host-control-active:#E9E7E2; --host-control-hover:#EFEDE8; --host-sidebar-line:#E4E1DA;
-    border-right-color:var(--host-sidebar-line);
-    background:var(--sidebar-bg);
-    color:var(--ink);
-    padding:1.4rem 1.2rem 1.2rem;
-    gap:1.4rem;
-  }
-  html[data-theme="dark"][data-account-role="host"] .profile-sidebar,
-  [data-theme="dark"] .profile-sidebar.sidebar-host{
-    --sidebar-bg:#241C1A; --ink:#F5EFEC; --muted:#B8ACA8;
-    --host-control-active:#302C2A; --host-control-hover:#25211F; --host-sidebar-line:rgba(255,255,255,.12);
-  }
-  :is(html[data-account-role="host"] .profile-sidebar, .profile-sidebar.sidebar-host) .brand-logo{ padding:0 .4rem; font-size:1.4rem; letter-spacing:normal; }
-  :is(html[data-account-role="host"] .profile-sidebar, .profile-sidebar.sidebar-host) .nav-group{ gap:.2rem; }
-  :is(html[data-account-role="host"] .profile-sidebar, .profile-sidebar.sidebar-host) .nav-group-compact{ margin-top:0; }
-  :is(html[data-account-role="host"] .profile-sidebar, .profile-sidebar.sidebar-host) .nav-group + .nav-group{
-    border-top:1px solid var(--host-sidebar-line);
-    padding-top:1.2rem;
-  }
-  :is(html[data-account-role="host"] .profile-sidebar, .profile-sidebar.sidebar-host) .nav-label{ padding:.6rem .6rem .3rem; font-size:.72rem; letter-spacing:.08em; }
-  :is(html[data-account-role="host"] .profile-sidebar, .profile-sidebar.sidebar-host) .nav-item{
-    gap:.7rem; padding:.6rem .7rem; font-size:.92rem;
-  }
-  :is(html[data-account-role="host"] .profile-sidebar, .profile-sidebar.sidebar-host) .nav-item svg{ width:18px; height:18px; }
-  :is(html[data-account-role="host"] .profile-sidebar, .profile-sidebar.sidebar-host) .nav-item:hover{ background:var(--host-control-hover) !important; color:var(--ink) !important; }
-  :is(html[data-account-role="host"] .profile-sidebar, .profile-sidebar.sidebar-host) .nav-item.active,
-  :is(html[data-account-role="host"] .profile-sidebar, .profile-sidebar.sidebar-host) .nav-item.active:hover{
-    background:var(--host-control-active) !important; color:var(--ink) !important;
-  }
-  :is(html[data-account-role="host"] .profile-sidebar, .profile-sidebar.sidebar-host) .logout-btn{ color:var(--ink) !important; }
-  :is(html[data-account-role="host"] .profile-sidebar, .profile-sidebar.sidebar-host) .logout-btn:hover{ background:var(--host-control-hover) !important; }
-  :is(html[data-account-role="host"] .profile-sidebar, .profile-sidebar.sidebar-host) :focus-visible{ outline-color:var(--muted); }
 
   /* ── CENTER COLUMN ── */
   .profile-main{ position:relative; background:var(--main-bg); padding:0 20px 30px; }
@@ -597,8 +562,6 @@
   ============================================================ */
   @media (max-width: 1100px){
     .profile-desktop-shell{ grid-template-columns: 220px minmax(0, 1fr); }
-    .profile-desktop-shell.host-sidebar-shell{ grid-template-columns:280px minmax(0, 1fr); }
-    html[data-account-role="host"] .profile-desktop-shell{ grid-template-columns:280px minmax(0, 1fr); }
     .listings-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
   }
   @media (max-width: 1200px){
@@ -644,6 +607,25 @@
     .profile-banner-actions{left:12px;top:12px}
     .profile-banner-actions button{padding:8px 10px}
     .listings-grid{ grid-template-columns:1fr; }
+  }
+
+  /* The host shell owns its sidebar and scroll area; keep profile loading/content inside it. */
+  .host-layout-active .host-page-content #loading-state{
+    position:absolute; inset:0; z-index:1; grid-template-columns:minmax(0,1fr);
+    width:100%; height:100%; min-height:100vh;
+  }
+  .host-layout-active .host-page-content #loading-state > .skeleton-sidebar,
+  .host-layout-active .host-page-content #loading-state > .skeleton-mobile-nav{
+    display:none !important;
+  }
+  .host-layout-active .host-page-content #loading-state > .skeleton-main{
+    width:100%; height:100%; min-height:100vh; overflow:visible;
+  }
+  .host-layout-active .host-page-content #profile-content .profile-desktop-shell{
+    display:block; width:100%; height:auto; min-height:100vh; overflow:visible;
+  }
+  .host-layout-active .host-page-content #profile-content .profile-main{
+    width:100%; height:auto; min-height:100vh; overflow:visible;
   }
 </style>
 <link rel="stylesheet" href="js/varoom-dark-theme.css">
@@ -754,7 +736,7 @@
 
 <div id="profile-content" style="display:none;">
   <div class="profile-desktop-shell">
-    <aside class="profile-sidebar" id="sidebar">
+    <aside class="profile-sidebar">
       <a href="client-home.html" class="brand-logo" id="profile-brand-link"><span class="va">Va</span><span class="room">Room</span></a>
 
       <nav class="nav-group">
@@ -1001,10 +983,8 @@
   const dashboardHref = currentRole === 'host' ? 'host-home.html' : 'client-home.html';
   document.documentElement.setAttribute('data-account-role', currentRole === 'host' ? 'host' : 'client');
   try { sessionStorage.setItem('varoom_user_role', currentRole === 'host' ? 'host' : 'client'); } catch (e) {}
-  document.getElementById('sidebar').classList.toggle('sidebar-host', currentRole === 'host');
-  document.querySelector('.profile-desktop-shell').classList.toggle('host-sidebar-shell', currentRole === 'host');
-  document.getElementById('profile-home-link').setAttribute('href', dashboardHref);
-  document.getElementById('profile-brand-link').setAttribute('href', dashboardHref);
+  document.getElementById('profile-home-link')?.setAttribute('href', dashboardHref);
+  document.getElementById('profile-brand-link')?.setAttribute('href', dashboardHref);
   document.querySelectorAll('a[href="host-home.html"]').forEach(function(link){
     if (!link.closest('#host-tools-nav')) link.setAttribute('href', dashboardHref);
   });
@@ -1084,6 +1064,7 @@
       loadingState.setAttribute('aria-label', 'Profile unavailable');
       loadingState.innerHTML = '<div style="grid-column:1/-1; display:flex; align-items:center; justify-content:center; height:100vh; padding:2rem; text-align:center; color:var(--ink); font-size:0.95rem; font-weight:600;">Unable to load your profile. Check your connection and try again.</div>';
     }
+    revealProfile();
     return;
   }
 
@@ -1094,17 +1075,19 @@
       .select('id', { count:'exact', head:true })
       .eq('recipient_user_id', currentUser.id)
       .eq('read', false);
-    if (error) return;
+    if (error || !notificationCount) return;
     notificationCount.textContent = count > 99 ? '99+' : String(count || '');
     notificationCount.style.display = count > 0 ? 'block' : 'none';
   }
   refreshNotificationCount();
-  supabaseClient.channel('profile-notifications-' + currentUser.id)
-    .on('postgres_changes', {
-      event:'*', schema:'public', table:'notifications',
-      filter:'recipient_user_id=eq.' + currentUser.id
-    }, refreshNotificationCount)
-    .subscribe();
+  try {
+    supabaseClient.channel('profile-notifications-' + currentUser.id)
+      .on('postgres_changes', {
+        event:'*', schema:'public', table:'notifications',
+        filter:'recipient_user_id=eq.' + currentUser.id
+      }, refreshNotificationCount)
+      .subscribe();
+  } catch (e) {}
 
   /* ── Render profile header ── */
   function renderProfile(){
@@ -1117,49 +1100,65 @@
       : null;
 
     if (avatarUrl) {
-      av.innerHTML = '<img src="' + avatarUrl + '" alt="' + displayName + '">';
-      topbarAvatar.innerHTML = '<img src="' + avatarUrl + '" alt="' + displayName + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%">';
+      if (av) av.innerHTML = '<img src="' + avatarUrl + '" alt="' + displayName + '">';
+      if (topbarAvatar) topbarAvatar.innerHTML = '<img src="' + avatarUrl + '" alt="' + displayName + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%">';
     } else {
       const letter = (displayName || '?').charAt(0).toUpperCase();
-      av.textContent = letter;
-      topbarAvatar.textContent = letter;
+      if (av) av.textContent = letter;
+      if (topbarAvatar) topbarAvatar.textContent = letter;
     }
 
-    document.getElementById('profile-header-name').textContent = displayName;
-    document.getElementById('topbar-name').textContent = displayName;
-    document.getElementById('profile-username').textContent = profileData.username ? '@' + profileData.username : '@user';
-    document.getElementById('profile-email').textContent = currentUser.email || 'No email on file';
-    document.getElementById('profile-location-text').textContent = profileData.city || 'Unknown location';
-    document.getElementById('profile-since-text').textContent = profileData.created_at
-      ? 'Member since ' + new Date(profileData.created_at).getFullYear()
-      : 'Member since 2024';
+    const setText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    setText('profile-header-name', displayName);
+    setText('topbar-name', displayName);
+    setText('profile-username', profileData.username ? '@' + profileData.username : '@user');
+    setText('profile-email', currentUser.email || 'No email on file');
+    setText('profile-location-text', profileData.city || 'Unknown location');
+    setText('profile-since-text', profileData.created_at ? 'Member since ' + new Date(profileData.created_at).getFullYear() : 'Member since 2024');
+    
     const nichesEl = document.getElementById('profile-niches');
     const nicheLabels = { airbnb:'Airbnb', hotel:'Hotel', venue:'Event ground / venue', office:'Offices & Shops', shop:'Offices & Shops', property:'Property' };
     const niches = Array.isArray(profileData.listing_categories) ? profileData.listing_categories : [];
-    if (profileData.role === 'host' && niches.length === 1) {
+    if (nichesEl && profileData.role === 'host' && niches.length === 1) {
       nichesEl.textContent = 'Specializes in ' + (nicheLabels[niches[0]] || niches[0]);
       nichesEl.style.display = '';
     }
-    document.getElementById('ask-name').textContent = (displayName || 'host').split(' ')[0];
-    document.getElementById('avatar-upload-label').style.display = isOwner ? 'flex' : 'none';
+    setText('ask-name', (displayName || 'host').split(' ')[0]);
+    const uploadLabel = document.getElementById('avatar-upload-label');
+    if (uploadLabel) uploadLabel.style.display = isOwner ? 'flex' : 'none';
+
     const banner = document.getElementById('profile-banner');
     const bannerKey = profileData.banner_image_key;
-    banner.style.backgroundImage = bannerKey
-      ? 'url("/api/photos/profile-banners/' + bannerKey.split('/').map(encodeURIComponent).join('/') + '")'
-      : '';
-    document.getElementById('profile-banner-actions').style.display = isOwner && profileData.role === 'host' ? 'flex' : 'none';
+    if (banner) {
+      banner.style.backgroundImage = bannerKey
+        ? 'url("/api/photos/profile-banners/' + bannerKey.split('/').map(encodeURIComponent).join('/') + '")'
+        : '';
+    }
+    const bannerActions = document.getElementById('profile-banner-actions');
+    if (bannerActions) bannerActions.style.display = isOwner && profileData.role === 'host' ? 'flex' : 'none';
+
     const bannerButton = document.getElementById('banner-change-btn');
-    bannerButton.setAttribute('aria-label', bannerKey ? 'Banner options' : 'Add profile banner');
-    bannerButton.title = bannerKey ? 'Banner options' : 'Add profile banner';
-    bannerButton.setAttribute('aria-expanded', 'false');
-    document.getElementById('banner-options-menu').hidden = true;
-    document.getElementById('banner-menu-change').textContent = 'Change banner';
-    document.getElementById('banner-remove-btn').hidden = !bannerKey;
+    if (bannerButton) {
+      bannerButton.setAttribute('aria-label', bannerKey ? 'Banner options' : 'Add profile banner');
+      bannerButton.title = bannerKey ? 'Banner options' : 'Add profile banner';
+      bannerButton.setAttribute('aria-expanded', 'false');
+    }
+    const bannerMenu = document.getElementById('banner-options-menu');
+    if (bannerMenu) bannerMenu.hidden = true;
+    const bannerMenuChange = document.getElementById('banner-menu-change');
+    if (bannerMenuChange) bannerMenuChange.textContent = 'Change banner';
+    const bannerRemoveBtn = document.getElementById('banner-remove-btn');
+    if (bannerRemoveBtn) bannerRemoveBtn.hidden = !bannerKey;
 
     const showingAsVisitor = !isOwner;
-    document.getElementById('owner-actions').style.display = showingAsVisitor ? 'none' : 'flex';
-    document.getElementById('visitor-actions').style.display = showingAsVisitor ? 'flex' : 'none';
+    const ownerActions = document.getElementById('owner-actions');
+    if (ownerActions) ownerActions.style.display = showingAsVisitor ? 'none' : 'flex';
+    const visitorActions = document.getElementById('visitor-actions');
+    if (visitorActions) visitorActions.style.display = showingAsVisitor ? 'flex' : 'none';
   }
+
+  renderProfile();
+  revealProfile();
 
   function renderBookings(upcoming, past){
     const upcomingEl = document.getElementById('upcoming-bookings');
@@ -1779,12 +1778,12 @@
       window.location.href = bottomNavMap[btn.getAttribute('data-nav')] || '#';
     });
   });
-  document.getElementById('mobile-notifications-btn').addEventListener('click', function(){
+  document.getElementById('mobile-notifications-btn')?.addEventListener('click', function(){
     window.location.href = 'notifications.html';
   });
 
   /* ── Logout ── */
-  document.getElementById('logout-btn').addEventListener('click', async function(){
+  document.getElementById('logout-btn')?.addEventListener('click', async function(){
     await supabaseClient.auth.signOut();
     window.location.href = 'index.html';
   });

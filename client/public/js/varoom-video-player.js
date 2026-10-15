@@ -323,6 +323,7 @@
     var video = wrapper.querySelector('video');
     stopOtherVideos(video);
     video.play().catch(function (error) {
+      if (error && error.name === 'AbortError') return;
       console.warn('Video playback was blocked or failed:', error);
       setStatus(wrapper, 'Tap play to start', false);
     });

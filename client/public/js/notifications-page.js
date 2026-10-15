@@ -289,7 +289,7 @@
     var role = profile.role === 'host' ? 'host' : 'client';
     currentRole = role;
     document.documentElement.setAttribute('data-account-role', role);
-    if (window.VaroomSidebar) {
+    if (window.VaroomSidebar && !document.querySelector('.host-layout-active')) {
       window.VaroomSidebar.mount({
         container: document.getElementById('sidebar'),
         role: role,
