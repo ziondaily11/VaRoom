@@ -523,7 +523,8 @@ export default function PublicHostProfile() {
   }, [router.isReady, router.query.hostId, router.query.username]);
 
   const signIn = () => {
-    router.push(`/?auth=login&redirect=${encodeURIComponent(router.asPath)}`);
+    const hostProfilePath = `/host/${encodeURIComponent(host.id)}`;
+    router.push(`/?auth=login&redirect=${encodeURIComponent(hostProfilePath)}`);
   };
 
   if (isLoading) return <PublicProfileSkeleton />;
@@ -540,7 +541,8 @@ export default function PublicHostProfile() {
       className="public-profile-shell"
       style={{
         minHeight: "100vh",
-        background: "#000000",
+      height: "100vh",
+      background: "#000000",
         color: "#F2F2F2",
         fontFamily:
           "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
@@ -554,11 +556,13 @@ export default function PublicHostProfile() {
         className="desktop-sign-in-rail"
         style={{
           width: 240,
+          height: "100vh",
           flexShrink: 0,
           borderRight: "1px solid #1A1A1A",
           padding: "24px 22px",
           display: "flex",
           flexDirection: "column",
+          overflow: "hidden",
         }}
       >
         <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 24 }}>
@@ -571,7 +575,7 @@ export default function PublicHostProfile() {
             Sign in to message {host.name.split(" ")[0]}
           </h2>
           <p style={{ fontSize: 13.5, color: "#8A8A8A", lineHeight: 1.5, margin: "0 0 20px 0" }}>
-            You'll come right back to this profile once you're signed in.
+            You'll be redirected to this host's profile once you're signed in.
           </p>
           <button
             onClick={signIn}
@@ -666,7 +670,15 @@ export default function PublicHostProfile() {
           </div>
         </section>
 
-        <ProfileCategoryNav hostId={host.id} listings={listings} value={selectedCategory} onChange={(id) => { setSelectedCategory(id); setTab("listings"); }} onCategoryListings={setCategoryListings} />
+        <ProfileCategoryNav
+          hostId={host.id}
+          listings={listings}
+          value={selectedCategory}
+          activeTab={tab}
+          onTabChange={setTab}
+          onChange={(id) => { setSelectedCategory(id); setTab("listings"); }}
+          onCategoryListings={setCategoryListings}
+        />
 
         {/* Tab content */}
         {tab === "listings" ? (
@@ -711,7 +723,7 @@ export default function PublicHostProfile() {
               ×
             </button>
             <h2 id="mobile-sign-in-title">Sign in to message {host.name.split(" ")[0]}</h2>
-            <p>You'll come right back to this profile once you're signed in.</p>
+            <p>You'll be redirected to this host's profile once you're signed in.</p>
             <button type="button" className="mobile-sign-in-option" onClick={signIn}>
               <GoogleIcon /> Continue with Google
             </button>
@@ -723,7 +735,11 @@ export default function PublicHostProfile() {
       )}
 
       <style jsx global>{`
-        .public-profile-shell { overflow-x: hidden; }
+        .public-profile-shell { height:100vh; min-height:0 !important; overflow:hidden; overflow-x:hidden; align-items:stretch; }
+        .desktop-sign-in-rail { position:sticky; top:0; align-self:flex-start; overflow:hidden; }
+        .public-profile-main { height:100vh; min-height:0; overflow-y:auto; overflow-x:hidden; overscroll-behavior-y:contain; scrollbar-width:thin; scrollbar-color:#3a3a3a transparent; }
+        .public-profile-main::-webkit-scrollbar { width:8px; }
+        .public-profile-main::-webkit-scrollbar-thumb { border:2px solid transparent; border-radius:999px; background:#3a3a3a; background-clip:padding-box; }
         .public-profile-banner-stage { position: relative; isolation: isolate; margin: 0 -32px 16px; }
         .public-profile-banner-stage > .profile-banner { height: 400px !important; }
         .public-profile-banner-stage > .profile-banner::after {
@@ -756,12 +772,17 @@ export default function PublicHostProfile() {
             display: block !important;
             width: 100%;
             min-width: 0;
+            height: auto;
             min-height: 100dvh !important;
+            overflow: visible;
           }
           .desktop-sign-in-rail { display: none !important; }
           .public-profile-main {
             width: 100%;
             min-width: 0;
+            height: auto;
+            min-height: 100dvh;
+            overflow: visible;
             padding: 0 16px 40px !important;
           }
           .public-profile-banner-stage { margin: 0 -16px 12px; }
