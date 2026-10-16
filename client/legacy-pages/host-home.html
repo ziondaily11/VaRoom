@@ -1577,7 +1577,10 @@
     if (!profile) { window.location.href = '/login'; return; }
     if (!profile.onboarding_completed) { window.location.href = '/onboarding'; return; }
     if (profile.role === 'client') { window.location.href = '/client-home'; return; }
-    try { sessionStorage.setItem('varoom_user_role', 'host'); } catch (e) {}
+    try {
+      sessionStorage.setItem('varoom_user_role', 'host');
+      localStorage.setItem('varoom_last_role', 'host');
+    } catch (e) {}
     const hostNiches = Array.isArray(profile.listing_categories) ? profile.listing_categories : [];
     if (hostNiches.length !== 1) {
       const nichePrompt = document.getElementById('host-niche-prompt');
@@ -1821,21 +1824,25 @@
       const mobileNotificationCount = document.getElementById('mobile-notification-count');
 
       if (items.length === 0) {
-        mobileNotificationCount.setAttribute('hidden', '');
-        notifNavBadge.setAttribute('hidden', '');
+        if (mobileNotificationCount) mobileNotificationCount.setAttribute('hidden', '');
+        if (notifNavBadge) notifNavBadge.setAttribute('hidden', '');
         return;
       }
 
       items.sort(function(a, b){ return new Date(b.time) - new Date(a.time); });
 
       const totalNotifications = items.length > 99 ? '99+' : String(items.length);
-      mobileNotificationCount.textContent = totalNotifications;
-      mobileNotificationCount.removeAttribute('hidden');
-      notifNavBadge.textContent = totalNotifications;
-      notifNavBadge.removeAttribute('hidden');
+      if (mobileNotificationCount) {
+        mobileNotificationCount.textContent = totalNotifications;
+        mobileNotificationCount.removeAttribute('hidden');
+      }
+      if (notifNavBadge) {
+        notifNavBadge.textContent = totalNotifications;
+        notifNavBadge.removeAttribute('hidden');
+      }
     })();
 
-    document.getElementById('notif-nav-item').addEventListener('click', function(){
+    document.getElementById('notif-nav-item')?.addEventListener('click', function(){
       window.location.href = '/notifications';
     });
 
