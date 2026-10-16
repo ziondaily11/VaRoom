@@ -330,8 +330,8 @@ export default function App({ Component, pageProps }) {
   const isAnalytics = path === '/analytics' || asPath.startsWith('/analytics');
   const isClientHome = path === '/client-home' || asPath.startsWith('/client-home');
 
-  // Explicit host routes that must always use HostLayout
-  const isHostRoute = isHostHome || isAnalytics || path.startsWith('/host/') || asPath.startsWith('/host/');
+  // Explicit host routes that must always use HostLayout (analytics retains its own layout)
+  const isHostRoute = !isAnalytics && (isHostHome || path.startsWith('/host/') || asPath.startsWith('/host/'));
 
   // Shared routes that use HostLayout unless user explicitly switched to client role
   const isSharedRoute = [
