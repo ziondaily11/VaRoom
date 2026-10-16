@@ -487,7 +487,7 @@
   }
 
   function mount(options) {
-    if (typeof document !== 'undefined' && document.querySelector('.host-layout-active')) {
+    if (typeof document !== 'undefined' && (document.querySelector('.host-layout-active') || document.querySelector('.client-layout-active'))) {
       return;
     }
     options = options || {};
