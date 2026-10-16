@@ -409,7 +409,7 @@ export default function HostProfileView() {
         .host-profile-load-muted { color:var(--host-profile-subtle); }
         .host-profile-more-reviews { border:1px solid var(--host-profile-border); color:var(--host-profile-text); }
         .host-profile-more-reviews:hover { background:var(--host-profile-surface-raised); }
-        @media (max-width: 1100px) { .host-profile-shell { grid-template-columns: 220px minmax(0, 1fr); } .host-profile-listing-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; } .host-profile-skeleton-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+        @media (max-width: 1100px) { .host-profile-listing-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; } .host-profile-skeleton-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
         @media (max-width: 760px) {
           .host-profile-shell { display:block; }
           .host-profile-sidebar { display:none; }

@@ -2,6 +2,7 @@ import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useState, useEffect } from 'react';
 import HostLayout from '../components/HostLayout';
+import ClientLayout from '../components/ClientLayout';
 import '../styles/admin.css';
 import '../legacy-pages/privacy.css';
 
@@ -330,8 +331,9 @@ export default function App({ Component, pageProps }) {
   const isAnalytics = path === '/analytics' || asPath.startsWith('/analytics');
   const isClientHome = path === '/client-home' || asPath.startsWith('/client-home');
 
+  const isHostProfileRoute = path.startsWith('/host/') || asPath.startsWith('/host/');
   // Explicit host routes that must always use HostLayout (analytics retains its own layout)
-  const isHostRoute = !isAnalytics && (isHostHome || path.startsWith('/host/') || asPath.startsWith('/host/'));
+  const isHostRoute = !isAnalytics && (isHostHome || (isHostProfileRoute && role !== 'client'));
 
   // Shared routes that use HostLayout unless user explicitly switched to client role
   const isSharedRoute = [
@@ -343,6 +345,11 @@ export default function App({ Component, pageProps }) {
 
   // Determine whether this page should use the persistent HostLayout
   const isHostMode = !isClientHome && (isHostRoute || (isSharedRoute && role !== 'client'));
+
+  // Client routes that use the persistent ClientLayout
+  const isClientSharedRoute = isSharedRoute && role === 'client';
+  const isClientHostProfile = isHostProfileRoute && role === 'client';
+  const isClientMode = !isHostMode && (isClientHome || isClientSharedRoute || isClientHostProfile);
 
   const pageElement = <Component {...pageProps} />;
 
@@ -362,6 +369,8 @@ export default function App({ Component, pageProps }) {
         Component.getLayout(pageElement)
       ) : isHostMode ? (
         <HostLayout>{pageElement}</HostLayout>
+      ) : isClientMode ? (
+        <ClientLayout>{pageElement}</ClientLayout>
       ) : (
         pageElement
       )}
