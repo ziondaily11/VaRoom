@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 interface GoogleSignInButtonProps {
@@ -7,19 +7,14 @@ interface GoogleSignInButtonProps {
   intendedRole?: 'host' | 'client';
   clearIntendedRole?: boolean;
   active: boolean;
-  theme?: 'outline' | 'filled_black';
   text?: 'continue_with' | 'signin_with' | 'signup_with';
 }
 
-interface GoogleSignInMountOptions {
+interface GoogleSignInOAuthOptions {
   client: SupabaseClient;
   redirectTo: string;
   intendedRole?: 'host' | 'client';
   clearIntendedRole?: boolean;
-  theme?: 'outline' | 'filled_black';
-  text?: 'continue_with' | 'signin_with' | 'signup_with';
-  customButton?: boolean;
-  onReady: () => void;
   onLoading: (loading: boolean) => void;
   onError: (message: string) => void;
 }
@@ -27,8 +22,7 @@ interface GoogleSignInMountOptions {
 declare global {
   interface Window {
     VaRoomGoogleSignIn?: {
-      mount: (container: HTMLElement, options: GoogleSignInMountOptions) => () => void;
-      prompt: (container: HTMLElement) => void;
+      oauth: (options: GoogleSignInOAuthOptions) => Promise<void>;
     };
   }
 }
@@ -39,57 +33,28 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
   intendedRole,
   clearIntendedRole = false,
   active,
-  theme = 'filled_black',
   text = 'continue_with',
 }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    setIsReady(false);
-    if (!active || !client || !containerRef.current) return;
+  const startGoogleSignIn = async () => {
+    if (!client || !active || isLoading) return;
     const googleSignIn = window.VaRoomGoogleSignIn;
     if (!googleSignIn) {
-      setError('Google sign-in could not load. Refresh the page and try again.');
+      setError('Google sign-in is unavailable right now. Please refresh and try again.');
       return;
     }
 
     setError('');
-    const unmount = googleSignIn.mount(containerRef.current, {
+    await googleSignIn.oauth({
       client,
       redirectTo,
       intendedRole,
       clearIntendedRole,
-      theme,
-      text,
-      customButton: true,
-      onReady: () => setIsReady(true),
       onLoading: setIsLoading,
       onError: setError,
     });
-
-    return () => {
-      setIsReady(false);
-      unmount();
-    };
-  }, [active, client, redirectTo, intendedRole, clearIntendedRole, theme, text]);
-
-  const continueWithRedirect = async () => {
-    if (!client || isLoading) return;
-    setError('');
-    setIsLoading(true);
-    try {
-      const { error: authError } = await client.auth.signInWithOAuth({
-        provider: 'google',
-        options: { redirectTo },
-      });
-      if (authError) throw authError;
-    } catch (authError) {
-      setError(authError instanceof Error ? authError.message : 'Could not connect to Google. Please try again.');
-      setIsLoading(false);
-    }
   };
 
   const label = text === 'signup_with'
@@ -97,18 +62,13 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
     : text === 'signin_with'
       ? 'Sign in with Google'
       : 'Continue with Google';
-  const startGoogleSignIn = () => {
-    setError('');
-    if (containerRef.current) window.VaRoomGoogleSignIn?.prompt(containerRef.current);
-  };
 
   return (
     <div className="google-signin-control flex w-full flex-col items-center">
-      <div ref={containerRef} className="hidden" aria-hidden="true" />
       <button
         type="button"
         onClick={startGoogleSignIn}
-        disabled={!active || !isReady || isLoading}
+        disabled={!active || !client || isLoading}
         aria-label={label}
         aria-busy={isLoading}
         className="flex h-12 w-full max-w-[400px] items-center justify-center gap-3 rounded-md border border-[#111111] bg-[#111111] px-4 text-sm font-semibold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/70 disabled:cursor-wait disabled:opacity-70"
@@ -127,14 +87,6 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
       {error && (
         <div className="mt-2 text-center">
           <p className="text-xs text-[#f9d3ce]" role="alert">{error}</p>
-          <button
-            type="button"
-            onClick={continueWithRedirect}
-            disabled={!active || isLoading}
-            className="mt-2 border-0 bg-transparent p-1 text-xs text-[#d9d2c9]/80 underline-offset-2 hover:text-white hover:underline disabled:cursor-wait"
-          >
-            Continue with Google another way
-          </button>
         </div>
       )}
     </div>
