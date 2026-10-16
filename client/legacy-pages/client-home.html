@@ -197,7 +197,7 @@
   .main-col{
     display:grid;
     grid-template-rows: auto 1fr;
-    grid-template-columns: 525px 1px minmax(0, 1fr);
+    grid-template-columns: minmax(620px, 1.3fr) 1px minmax(380px, 1fr);
     height:100vh;
     overflow:hidden;
     min-width:0;
@@ -310,13 +310,13 @@
     gap:.75rem;
     width:100%;
   }
-  @container (min-width: 440px){
+  @container (min-width: 380px){
     .dest-grid{
       grid-template-columns:repeat(3, 1fr);
       gap:.8rem;
     }
   }
-  @container (min-width: 680px){
+  @container (min-width: 660px){
     .dest-grid{
       grid-template-columns:repeat(4, 1fr);
       gap:.85rem;
@@ -337,7 +337,7 @@
   .dest-card-count{ font-size:.68rem; opacity:.85; text-shadow:0 1px 2px rgba(0,0,0,.3); }
 
   @media (max-width:1360px){
-    .main-col{ grid-template-columns: 525px 1px minmax(0, 1fr); }
+    .main-col{ grid-template-columns: minmax(580px, 1.25fr) 1px minmax(360px, 1fr); }
     .feed-area{ min-width:0; padding-inline:1rem; }
     .right-rail{ padding-left:1.25rem; padding-right:1.25rem; }
   }
