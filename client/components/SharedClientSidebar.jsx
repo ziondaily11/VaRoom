@@ -29,16 +29,29 @@ function getInitialUser() {
 
 function getStoredUser() {
   try {
+    // 1. Prefer the account-switcher's authoritative active account
     if (window.VaRoomAccountSwitcher) {
       const active = window.VaRoomAccountSwitcher.getActiveAccount?.();
       if (active) return active;
     }
+    // 2. Use cached profile ONLY if its ID matches varoom_active_account_id
+    const activeId = localStorage.getItem('varoom_active_account_id');
     const cached = localStorage.getItem('varoom_cached_profile') || sessionStorage.getItem('varoom_cached_profile');
-    if (cached) return JSON.parse(cached);
-    const linked = localStorage.getItem('varoom_linked_accounts');
-    if (linked) {
-      const list = JSON.parse(linked);
-      if (Array.isArray(list) && list.length > 0) return list[0];
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      // If we have an activeId recorded, enforce it; otherwise trust the cache
+      if (!activeId || parsed.id === activeId) return parsed;
+    }
+    // 3. Match the active ID against the linked accounts list
+    if (activeId) {
+      const linked = localStorage.getItem('varoom_linked_accounts');
+      if (linked) {
+        const list = JSON.parse(linked);
+        if (Array.isArray(list)) {
+          const match = list.find(a => a.id === activeId);
+          if (match) return match;
+        }
+      }
     }
   } catch (e) {}
   return {
@@ -93,16 +106,21 @@ export default function SharedClientSidebar({ activeNav: explicitActiveNav }) {
       setLinkedAccounts(window.VaRoomAccountSwitcher.getLinkedAccounts() || []);
     }
 
-    const loadProfile = async () => {
-      if (typeof window === 'undefined') return;
+    let cancelled = false;
+
+    const runLoadProfile = async () => {
+      if (cancelled || typeof window === 'undefined') return;
       const client = window.supabaseClient;
-      if (!client || !client.auth) return;
+      if (!client || !client.auth) return false; // signal: not ready
 
       const { data: sessionData } = await client.auth.getSession();
       const session = sessionData?.session;
-      if (!session || !session.user) return;
+      if (!session || !session.user) return true; // ready but no session
 
       const userId = session.user.id;
+
+      // Record active account ID now that we have an authoritative session
+      try { localStorage.setItem('varoom_active_account_id', userId); } catch (e) {}
 
       // Load profile
       const { data: profile } = await client
@@ -111,22 +129,23 @@ export default function SharedClientSidebar({ activeNav: explicitActiveNav }) {
         .eq('id', userId)
         .maybeSingle();
 
-      if (profile) {
+      if (!cancelled && profile) {
         const userData = {
           id: profile.id,
           full_name: profile.full_name || session.user.user_metadata?.full_name || 'VaRoom Member',
           username: profile.username || session.user.email?.split('@')[0] || 'member',
           avatar_url: profile.avatar_url || session.user.user_metadata?.avatar_url || null,
           email: session.user.email,
+          role: profile.role || 'client',
         };
-        setUser(userData);
+        if (!cancelled) setUser(userData);
         try {
           localStorage.setItem('varoom_cached_profile', JSON.stringify(userData));
         } catch (e) {}
       }
 
       // Load linked accounts from switcher if available
-      if (window.VaRoomAccountSwitcher) {
+      if (!cancelled && window.VaRoomAccountSwitcher) {
         setLinkedAccounts(window.VaRoomAccountSwitcher.getLinkedAccounts() || []);
       }
 
@@ -137,19 +156,37 @@ export default function SharedClientSidebar({ activeNav: explicitActiveNav }) {
           .select('id', { count: 'exact', head: true })
           .eq('recipient_user_id', userId)
           .eq('read', false);
-        if (typeof count === 'number') {
+        if (!cancelled && typeof count === 'number') {
           setUnreadCount(count);
         }
       } catch (e) {}
+
+      return true; // done
     };
 
-    loadProfile();
+    // Retry until window.supabaseClient is available (up to 3s, 50ms intervals)
+    let retries = 0;
+    const MAX_RETRIES = 60; // 60 * 50ms = 3 000ms
+    const poll = async () => {
+      if (cancelled) return;
+      const ready = await runLoadProfile();
+      if (!ready && retries < MAX_RETRIES) {
+        retries++;
+        setTimeout(poll, 50);
+      }
+    };
+    poll();
 
     // Listen for storage changes from account switcher or other tabs
     const handleStorage = (e) => {
       if (e.key === 'varoom_cached_profile' && e.newValue) {
         try {
-          setUser(JSON.parse(e.newValue));
+          const parsed = JSON.parse(e.newValue);
+          const activeId = localStorage.getItem('varoom_active_account_id');
+          // Only apply the new cached profile if it matches the active account
+          if (!activeId || parsed.id === activeId) {
+            setUser(parsed);
+          }
         } catch (err) {}
       }
       if (e.key === 'varoom_linked_accounts' && e.newValue) {
@@ -159,7 +196,10 @@ export default function SharedClientSidebar({ activeNav: explicitActiveNav }) {
       }
     };
     window.addEventListener('storage', handleStorage);
-    return () => window.removeEventListener('storage', handleStorage);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('storage', handleStorage);
+    };
   }, []);
 
   // Position popovers upward above trigger buttons
