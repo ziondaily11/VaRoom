@@ -362,7 +362,6 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, initialVi
               client={googleClient}
               redirectTo={`${typeof window === 'undefined' ? '' : window.location.origin}/auth-callback${redirect ? `?redirect=${encodeURIComponent(redirect)}` : ''}`}
               clearIntendedRole
-              theme="filled_black"
               text="signin_with"
             />
 

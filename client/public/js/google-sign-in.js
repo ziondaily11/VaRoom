@@ -9,7 +9,6 @@
   var rawNonce;
   var mountedButtons = new Set();
   var isAuthenticating = false;
-  var promptingButton = null;
 
   function loadGoogleIdentityServices() {
     if (root.google && root.google.accounts && root.google.accounts.id) {
@@ -92,6 +91,46 @@
     });
   }
 
+  function startOAuth(options) {
+    options = options || {};
+    var client = options.client;
+    if (!client || !client.auth || typeof client.auth.signInWithOAuth !== 'function') {
+      if (options.onError) options.onError('Google sign-in is unavailable right now. Please try again.');
+      return Promise.resolve();
+    }
+    if (isAuthenticating) return Promise.resolve();
+
+    try {
+      if (options.intendedRole === 'host' || options.intendedRole === 'client') {
+        root.sessionStorage.setItem('varoom_intended_role', options.intendedRole);
+      } else if (options.clearIntendedRole) {
+        root.sessionStorage.removeItem('varoom_intended_role');
+      }
+    } catch (error) {
+      if (options.onError) {
+        options.onError('Your browser prevented saving sign-in preferences. Please enable site storage and try again.');
+      }
+      return Promise.resolve();
+    }
+
+    isAuthenticating = true;
+    if (options.onLoading) options.onLoading(true);
+    return Promise.resolve().then(function () {
+      return client.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: options.redirectTo }
+      });
+    }).then(function (result) {
+      if (result.error) throw result.error;
+    }).catch(function (error) {
+      isAuthenticating = false;
+      if (options.onLoading) options.onLoading(false);
+      if (options.onError) {
+        options.onError(error && error.message ? error.message : 'Could not connect to Google. Please try again.');
+      }
+    });
+  }
+
   async function handleCredential(response) {
     if (isAuthenticating) return;
     if (!response || !response.credential || !rawNonce) {
@@ -99,7 +138,6 @@
       return;
     }
 
-    promptingButton = null;
     isAuthenticating = true;
     setButtonsBusy(true);
     try {
@@ -168,7 +206,6 @@
       redirectTo: options.redirectTo,
       container: container,
       fallbackButton: options.fallbackButton || null,
-      customButton: options.customButton === true,
       ready: false,
       statusElement: null,
       onError: options.onError,
@@ -213,7 +250,6 @@
       if (!mountedButtons.has(button)) return;
       button.ready = true;
       if (button.onReady) button.onReady();
-      if (button.customButton) return;
 
       var availableWidth = container.clientWidth || Math.max(200, root.innerWidth - 48);
       root.google.accounts.id.renderButton(container, {
@@ -232,7 +268,6 @@
 
     return function unmount() {
       mountedButtons.delete(button);
-      if (promptingButton === button) promptingButton = null;
       if (button.fallbackButton) {
         button.fallbackButton.removeEventListener('click', button.onFallback);
       }
@@ -244,35 +279,5 @@
     };
   }
 
-  function prompt(container) {
-    var button = Array.from(mountedButtons).find(function (candidate) {
-      return candidate.container === container && candidate.customButton;
-    });
-    if (!button || !button.ready || isAuthenticating || promptingButton) return;
-
-    promptingButton = button;
-    setButtonsBusy(true);
-    try {
-      root.google.accounts.id.prompt(function (notification) {
-        if (promptingButton !== button) return;
-
-        if (notification.isNotDisplayed()) {
-          promptingButton = null;
-          setButtonsBusy(false);
-          if (button.onError) {
-            button.onError('Google sign-in could not open. You can try the alternate sign-in option below.');
-          }
-        } else if (notification.isSkippedMoment() || notification.isDismissedMoment()) {
-          promptingButton = null;
-          setButtonsBusy(false);
-        }
-      });
-    } catch (error) {
-      promptingButton = null;
-      setButtonsBusy(false);
-      if (button.onError) reportError(error);
-    }
-  }
-
-  root.VaRoomGoogleSignIn = { mount: mount, prompt: prompt };
+  root.VaRoomGoogleSignIn = { mount: mount, oauth: startOAuth };
 })(typeof window !== 'undefined' ? window : null);

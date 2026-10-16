@@ -284,7 +284,6 @@ export const SignupForm: React.FC<SignupFormProps> = ({ redirect, initialRole, a
             client={googleClient}
             redirectTo={`${typeof window === 'undefined' ? '' : window.location.origin}/auth-callback${redirect ? `?redirect=${encodeURIComponent(redirect)}` : ''}`}
             intendedRole={role}
-            theme="filled_black"
             text="signup_with"
           />
           <div className="my-5 flex items-center gap-3 text-[11px] font-medium uppercase tracking-[0.14em] text-[#d7d2ca]/65">

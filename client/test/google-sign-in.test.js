@@ -34,8 +34,6 @@ function createContainer() {
 function loadHelper(auth) {
   let googleConfiguration;
   let renderedButton;
-  let promptNotification;
-  let promptCount = 0;
   const assignedUrls = [];
   const savedValues = new Map();
   const window = {
@@ -51,11 +49,7 @@ function loadHelper(auth) {
       accounts: {
         id: {
           initialize: (configuration) => { googleConfiguration = configuration; },
-          renderButton: (_container, options) => { renderedButton = options; },
-          prompt: (callback) => {
-            promptCount += 1;
-            promptNotification = callback;
-          }
+          renderButton: (_container, options) => { renderedButton = options; }
         }
       }
     },
@@ -78,8 +72,6 @@ function loadHelper(auth) {
     api: window.VaRoomGoogleSignIn,
     getGoogleConfiguration: () => googleConfiguration,
     getRenderedButton: () => renderedButton,
-    getPromptCount: () => promptCount,
-    notifyPrompt: (notification) => promptNotification(notification),
     assignedUrls,
     savedValues,
     client: { auth }
@@ -139,79 +131,54 @@ test('Google GIS popup credential is exchanged through Supabase and returns to t
   assert.deepEqual(errors, []);
 });
 
-test('custom VaRoom button opens the GIS prompt and preserves Supabase token exchange', async () => {
-  let credentials;
+test('React Google sign-in uses Supabase OAuth and preserves the selected signup role', async () => {
+  let oauthRequest;
   const testContext = loadHelper({
-    signInWithIdToken: async (input) => {
-      credentials = input;
-      return { data: { session: { access_token: 'supabase-session' } }, error: null };
+    signInWithOAuth: async (request) => {
+      oauthRequest = request;
+      return { error: null };
     }
   });
-  const container = createContainer();
-  const readyStates = [];
   const loadingStates = [];
   const errors = [];
-  let ready;
-  const isReady = new Promise((resolve) => { ready = resolve; });
 
-  testContext.api.mount(container, {
+  await testContext.api.oauth({
     client: testContext.client,
-    redirectTo: 'https://varoom.example/auth-callback',
-    customButton: true,
-    onReady: () => {
-      readyStates.push(true);
-      ready();
-    },
+    redirectTo: 'https://varoom.example/auth-callback?redirect=%2Fbookings',
+    intendedRole: 'host',
     onLoading: (loading) => loadingStates.push(loading),
     onError: (message) => errors.push(message)
   });
 
-  await isReady;
-  assert.deepEqual(readyStates, [true]);
-  assert.equal(testContext.getRenderedButton(), undefined);
-
-  testContext.api.prompt(container);
-  assert.equal(testContext.getPromptCount(), 1);
+  assert.equal(oauthRequest.provider, 'google');
+  assert.equal(
+    oauthRequest.options.redirectTo,
+    'https://varoom.example/auth-callback?redirect=%2Fbookings'
+  );
+  assert.equal(testContext.savedValues.get('varoom_intended_role'), 'host');
   assert.deepEqual(loadingStates, [true]);
-  await testContext.getGoogleConfiguration().callback({ credential: 'google-id-token' });
-
-  assert.equal(credentials.provider, 'google');
-  assert.equal(credentials.token, 'google-id-token');
-  assert.deepEqual(testContext.assignedUrls, ['https://varoom.example/auth-callback']);
   assert.deepEqual(errors, []);
 });
 
-test('dismissing the GIS prompt clears its loading state without reporting an error', async () => {
+test('React Google sign-in clears stale role and reports OAuth errors', async () => {
   const testContext = loadHelper({
-    signInWithIdToken: async () => ({
-      data: { session: { access_token: 'supabase-session' } },
-      error: null
-    })
+    signInWithOAuth: async () => ({ error: new Error('Google OAuth failed') })
   });
-  const container = createContainer();
   const loadingStates = [];
   const errors = [];
-  const ready = new Promise((resolve) => {
-    testContext.api.mount(container, {
-      client: testContext.client,
-      redirectTo: 'https://varoom.example/auth-callback',
-      customButton: true,
-      onReady: resolve,
-      onLoading: (loading) => loadingStates.push(loading),
-      onError: (message) => errors.push(message)
-    });
+  testContext.savedValues.set('varoom_intended_role', 'host');
+
+  await testContext.api.oauth({
+    client: testContext.client,
+    redirectTo: 'https://varoom.example/auth-callback',
+    clearIntendedRole: true,
+    onLoading: (loading) => loadingStates.push(loading),
+    onError: (message) => errors.push(message)
   });
 
-  await ready;
-  testContext.api.prompt(container);
-  testContext.notifyPrompt({
-    isNotDisplayed: () => false,
-    isSkippedMoment: () => false,
-    isDismissedMoment: () => true
-  });
-
+  assert.equal(testContext.savedValues.has('varoom_intended_role'), false);
   assert.deepEqual(loadingStates, [true, false]);
-  assert.deepEqual(errors, []);
+  assert.deepEqual(errors, ['Google OAuth failed']);
 });
 
 test('Google credential exchange errors do not redirect or leave sign-in busy', async () => {
