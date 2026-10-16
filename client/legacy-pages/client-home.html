@@ -3049,6 +3049,7 @@
 
     // ---------- Account identity + switcher ----------
     (function initAccountSwitcher() {
+      if (document.querySelector('.host-layout-active')) return;
       const switcher     = window.VaRoomAccountSwitcher;
       const identityBtn  = document.getElementById('account-identity-btn');
       const accountMenu  = document.getElementById('account-menu');
@@ -3234,6 +3235,7 @@
 
     // ---------- More popup menu ----------
     (function initMoreMenu() {
+      if (document.querySelector('.host-layout-active')) return;
       var moreBtn  = document.getElementById('more-nav-btn');
       var moreMenu = document.getElementById('more-menu');
       if (!moreBtn || !moreMenu) return;

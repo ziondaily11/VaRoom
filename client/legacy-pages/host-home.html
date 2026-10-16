@@ -3109,6 +3109,7 @@
     // Extends per-account data with `username` (fetched from the profiles table
     // once per load for the active account and stored alongside the tokens).
     (function initAccountSwitcher() {
+      if (document.querySelector('.host-layout-active')) return;
       const switcher = window.VaRoomAccountSwitcher;
       if (!switcher) return; // guard: script may have failed to load
 
@@ -3414,6 +3415,7 @@
 
   // ---------- More button popover ----------
   (function initMoreMenu() {
+    if (document.querySelector('.host-layout-active')) return;
     var moreBtn  = document.getElementById('more-nav-btn');
     var moreMenu = document.getElementById('more-menu');
     if (!moreBtn || !moreMenu) return;

@@ -1945,6 +1945,7 @@
 
     // ---------- More button popover ----------
     (function initMoreMenu() {
+      if (document.querySelector('.host-layout-active')) return;
       var moreBtn  = document.getElementById('more-nav-btn');
       var moreMenu = document.getElementById('more-menu');
       if (!moreBtn || !moreMenu) return;
