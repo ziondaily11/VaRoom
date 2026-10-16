@@ -39,8 +39,8 @@
     --glass-shadow:0 24px 55px rgba(0,0,0,.08);
     --glow-a:transparent;
     --glow-b:transparent;
-    --line:#EFF3F4;
-    --line-soft:#EFF3F4;
+    --line:#D4D8DA;
+    --line-soft:#DDE1E3;
     --control-bg:#EFF3F4;
     --control-active:#E1E8ED;
     --control-hover:#F2F5F7;
@@ -197,7 +197,7 @@
   .main-col{
     display:grid;
     grid-template-rows: auto 1fr;
-    grid-template-columns: 580px 1px minmax(0, 1fr);
+    grid-template-columns: 525px 1px minmax(0, 1fr);
     height:100vh;
     overflow:hidden;
     min-width:0;
@@ -320,8 +320,8 @@
   .dest-card-count{ font-size:.68rem; opacity:.85; text-shadow:0 1px 2px rgba(0,0,0,.3); }
 
   @media (max-width:1360px){
-    .main-col{ grid-template-columns: minmax(540px, 680px) 1px minmax(260px, 360px); }
-    .feed-area{ min-width:540px; padding-inline:1.6rem; }
+    .main-col{ grid-template-columns: minmax(490px, 620px) 1px minmax(300px, 380px); }
+    .feed-area{ min-width:490px; padding-inline:1.6rem; }
     .right-rail{ padding-right:1.2rem; }
   }
 
@@ -833,6 +833,44 @@
     }
     .bottom-bar-item .avatar-mini img{ width:100%; height:100%; object-fit:cover; }
   }
+
+  /* ── Light-mode contrast improvements ──────────────────────────────────
+     Applied only to light theme. Dark mode retains existing styling.
+     Targets: headings, labels, nav items, metadata, body captions, dividers. */
+  html[data-theme="light"] {
+    --muted: #374248;
+  }
+  html[data-theme="light"] .nav-label{ color:#374248; font-weight:700; }
+  html[data-theme="light"] .nav-item{ font-weight:600; color:#0F1419; }
+  html[data-theme="light"] .nav-item.active{ font-weight:700; }
+  html[data-theme="light"] h1.feed-title{ font-weight:800; }
+  html[data-theme="light"] .rail-card-head h2,
+  html[data-theme="light"] .property-news-widget-head h2,
+  html[data-theme="light"] .mobile-widget-head h2{ font-weight:700; }
+  html[data-theme="light"] .card-host-name{ font-weight:700; color:#0F1419; }
+  html[data-theme="light"] .card-caption,
+  html[data-theme="light"] .card-desc{ color:#374248; }
+  html[data-theme="light"] .client-property-news-title{ font-weight:700; }
+  html[data-theme="light"] .client-property-news-meta,
+  html[data-theme="light"] .client-property-news-source,
+  html[data-theme="light"] .card-time,
+  html[data-theme="light"] .card-location{ color:#4A5660; }
+  /* Column separation dividers */
+  html[data-theme="light"] .sidebar{ border-right-color:#BBBFC2; }
+  html[data-theme="light"] .col-divider{ background:#BBBFC2; }
+  html[data-theme="light"] .topbar{ border-bottom-color:#BBBFC2; }
+  /* Feed card separators */
+  html[data-theme="light"] .card,
+  html[data-theme="light"] .skel-card,
+  html[data-theme="light"] .update-card,
+  html[data-theme="light"] .client-property-news-item,
+  html[data-theme="light"] .skel-update,
+  html[data-theme="light"] .skel-news-item{ border-bottom-color:#CBCFD2; }
+  /* Nav group dividers */
+  html[data-theme="light"] .nav-group + .nav-group{ border-top-color:#BBBFC2; }
+  /* Tabs and search */
+  html[data-theme="light"] .tab{ border-color:#BBBFC2; font-weight:600; color:#0F1419; }
+  html[data-theme="light"] .search-wrap{ outline-color:#BBBFC2 !important; }
 </style>
 <link rel="stylesheet" href="js/varoom-dark-theme.css">
 <style>
