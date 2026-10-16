@@ -9,6 +9,7 @@
   var rawNonce;
   var mountedButtons = new Set();
   var isAuthenticating = false;
+  var promptingButton = null;
 
   function loadGoogleIdentityServices() {
     if (root.google && root.google.accounts && root.google.accounts.id) {
@@ -98,6 +99,7 @@
       return;
     }
 
+    promptingButton = null;
     isAuthenticating = true;
     setButtonsBusy(true);
     try {
@@ -139,7 +141,8 @@
         ux_mode: 'popup',
         auto_select: false,
         cancel_on_tap_outside: true,
-        use_fedcm_for_button: true
+        use_fedcm_for_button: true,
+        use_fedcm_for_prompt: true
       });
       return client;
     })();
@@ -165,8 +168,11 @@
       redirectTo: options.redirectTo,
       container: container,
       fallbackButton: options.fallbackButton || null,
+      customButton: options.customButton === true,
+      ready: false,
       statusElement: null,
       onError: options.onError,
+      onReady: options.onReady,
       onLoading: options.onLoading
     };
     mountedButtons.add(button);
@@ -205,6 +211,10 @@
 
     initialize(button.client).then(function () {
       if (!mountedButtons.has(button)) return;
+      button.ready = true;
+      if (button.onReady) button.onReady();
+      if (button.customButton) return;
+
       var availableWidth = container.clientWidth || Math.max(200, root.innerWidth - 48);
       root.google.accounts.id.renderButton(container, {
         type: 'standard',
@@ -222,6 +232,7 @@
 
     return function unmount() {
       mountedButtons.delete(button);
+      if (promptingButton === button) promptingButton = null;
       if (button.fallbackButton) {
         button.fallbackButton.removeEventListener('click', button.onFallback);
       }
@@ -233,5 +244,35 @@
     };
   }
 
-  root.VaRoomGoogleSignIn = { mount: mount };
+  function prompt(container) {
+    var button = Array.from(mountedButtons).find(function (candidate) {
+      return candidate.container === container && candidate.customButton;
+    });
+    if (!button || !button.ready || isAuthenticating || promptingButton) return;
+
+    promptingButton = button;
+    setButtonsBusy(true);
+    try {
+      root.google.accounts.id.prompt(function (notification) {
+        if (promptingButton !== button) return;
+
+        if (notification.isNotDisplayed()) {
+          promptingButton = null;
+          setButtonsBusy(false);
+          if (button.onError) {
+            button.onError('Google sign-in could not open. You can try the alternate sign-in option below.');
+          }
+        } else if (notification.isSkippedMoment() || notification.isDismissedMoment()) {
+          promptingButton = null;
+          setButtonsBusy(false);
+        }
+      });
+    } catch (error) {
+      promptingButton = null;
+      setButtonsBusy(false);
+      if (button.onError) reportError(error);
+    }
+  }
+
+  root.VaRoomGoogleSignIn = { mount: mount, prompt: prompt };
 })(typeof window !== 'undefined' ? window : null);
