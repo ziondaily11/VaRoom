@@ -1,6 +1,6 @@
 import Head from 'next/head';
 import { useRouter } from 'next/router';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useLayoutEffect } from 'react';
 import HostLayout from '../components/HostLayout';
 import ClientLayout from '../components/ClientLayout';
 import '../styles/admin.css';
@@ -309,20 +309,84 @@ if (typeof window !== 'undefined' && typeof Node !== 'undefined' && Node.prototy
   };
 }
 
+const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
+
 export default function App({ Component, pageProps }) {
   const router = useRouter();
   const [role, setRole] = useState('host');
 
-  useEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     const updateRole = () => {
       try {
-        const r = sessionStorage.getItem('varoom_user_role') || localStorage.getItem('varoom_last_role') || 'host';
-        setRole(r);
+        const docRole = document.documentElement.getAttribute('data-account-role');
+        if (docRole === 'client' || docRole === 'host') {
+          setRole(docRole);
+          return;
+        }
+        const cached = localStorage.getItem('varoom_cached_profile');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed && (parsed.role === 'client' || parsed.role === 'host')) {
+            setRole(parsed.role);
+            return;
+          }
+        }
+        const r = sessionStorage.getItem('varoom_user_role') || localStorage.getItem('varoom_last_role');
+        if (r === 'client' || r === 'host') {
+          setRole(r);
+          return;
+        }
       } catch (e) {}
     };
+
     updateRole();
+
+    // Observe data-account-role attribute changes on documentElement
+    let observer = null;
+    if (typeof MutationObserver !== 'undefined') {
+      observer = new MutationObserver(() => {
+        const docRole = document.documentElement.getAttribute('data-account-role');
+        if (docRole === 'client' || docRole === 'host') {
+          setRole(docRole);
+        }
+      });
+      observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-account-role'] });
+    }
+
+    const handleRoleEvent = (e) => {
+      if (e.detail?.role) {
+        setRole(e.detail.role);
+      } else {
+        updateRole();
+      }
+    };
+
     window.addEventListener('storage', updateRole);
-    return () => window.removeEventListener('storage', updateRole);
+    window.addEventListener('varoom_role_change', handleRoleEvent);
+
+    // If supabaseClient is available, verify authoritative profile role
+    if (typeof window !== 'undefined' && window.supabaseClient && window.supabaseClient.auth) {
+      window.supabaseClient.auth.getSession().then(({ data }) => {
+        const userId = data?.session?.user?.id;
+        if (userId) {
+          window.supabaseClient.from('profiles').select('role').eq('id', userId).maybeSingle().then(({ data: p }) => {
+            if (p?.role) {
+              try {
+                sessionStorage.setItem('varoom_user_role', p.role);
+                localStorage.setItem('varoom_last_role', p.role);
+              } catch (e) {}
+              setRole(p.role);
+            }
+          });
+        }
+      });
+    }
+
+    return () => {
+      window.removeEventListener('storage', updateRole);
+      window.removeEventListener('varoom_role_change', handleRoleEvent);
+      if (observer) observer.disconnect();
+    };
   }, []);
 
   const path = router.pathname || '';

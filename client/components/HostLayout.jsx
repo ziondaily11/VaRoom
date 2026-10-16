@@ -243,6 +243,12 @@ const hostLayoutStyles = `
     display: none !important;
   }
 
+  /* When data-account-role is client, hide host-exclusive actions */
+  html[data-account-role="client"] .host-app-layout .list-space-btn,
+  html[data-account-role="client"] .host-app-layout [data-nav="my-listings"] {
+    display: none !important;
+  }
+
   /* Make legacy host page shells fill 100% of the content width */
   .host-layout-active .host-page-content .app-shell,
   .host-layout-active .host-page-content .app-layout,

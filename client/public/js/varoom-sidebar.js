@@ -555,10 +555,12 @@
       menuToggle.addEventListener('click', openSidebar);
     }
 
-    // Persist cached role in session storage for faster zero-flicker reload
+    // Persist cached role in session and local storage for faster zero-flicker reload
     try {
       window.sessionStorage.setItem('varoom_user_role', role);
+      window.localStorage.setItem('varoom_last_role', role);
     } catch (e) {}
+    window.dispatchEvent(new CustomEvent('varoom_role_change', { detail: { role: role } }));
   }
 
   function setUnreadCount(count) {
