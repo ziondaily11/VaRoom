@@ -34,6 +34,8 @@ function createContainer() {
 function loadHelper(auth) {
   let googleConfiguration;
   let renderedButton;
+  let promptNotification;
+  let promptCount = 0;
   const assignedUrls = [];
   const savedValues = new Map();
   const window = {
@@ -49,7 +51,11 @@ function loadHelper(auth) {
       accounts: {
         id: {
           initialize: (configuration) => { googleConfiguration = configuration; },
-          renderButton: (_container, options) => { renderedButton = options; }
+          renderButton: (_container, options) => { renderedButton = options; },
+          prompt: (callback) => {
+            promptCount += 1;
+            promptNotification = callback;
+          }
         }
       }
     },
@@ -72,6 +78,8 @@ function loadHelper(auth) {
     api: window.VaRoomGoogleSignIn,
     getGoogleConfiguration: () => googleConfiguration,
     getRenderedButton: () => renderedButton,
+    getPromptCount: () => promptCount,
+    notifyPrompt: (notification) => promptNotification(notification),
     assignedUrls,
     savedValues,
     client: { auth }
@@ -89,23 +97,26 @@ test('Google GIS popup credential is exchanged through Supabase and returns to t
   const container = createContainer();
   const loadingStates = [];
   const errors = [];
-
-  testContext.api.mount(container, {
-    client: testContext.client,
-    redirectTo: 'https://varoom.example/auth-callback?redirect=%2Fbookings',
-    intendedRole: 'host',
-    theme: 'filled_black',
-    text: 'signup_with',
-    onLoading: (loading) => loadingStates.push(loading),
-    onError: (message) => errors.push(message)
+  const ready = new Promise((resolve) => {
+    testContext.api.mount(container, {
+      client: testContext.client,
+      redirectTo: 'https://varoom.example/auth-callback?redirect=%2Fbookings',
+      intendedRole: 'host',
+      theme: 'filled_black',
+      text: 'signup_with',
+      onReady: resolve,
+      onLoading: (loading) => loadingStates.push(loading),
+      onError: (message) => errors.push(message)
+    });
   });
 
-  await new Promise((resolve) => setImmediate(resolve));
+  await ready;
   const configuration = testContext.getGoogleConfiguration();
   assert.equal(configuration.client_id, 'test-google-client-id');
   assert.equal(configuration.ux_mode, 'popup');
   assert.equal(configuration.auto_select, false);
   assert.equal(configuration.use_fedcm_for_button, true);
+  assert.equal(configuration.use_fedcm_for_prompt, true);
   assert.equal(testContext.getRenderedButton().text, 'signup_with');
   assert.equal(testContext.getRenderedButton().shape, 'rectangular');
   assert.equal(testContext.getRenderedButton().width, 360);
@@ -128,6 +139,81 @@ test('Google GIS popup credential is exchanged through Supabase and returns to t
   assert.deepEqual(errors, []);
 });
 
+test('custom VaRoom button opens the GIS prompt and preserves Supabase token exchange', async () => {
+  let credentials;
+  const testContext = loadHelper({
+    signInWithIdToken: async (input) => {
+      credentials = input;
+      return { data: { session: { access_token: 'supabase-session' } }, error: null };
+    }
+  });
+  const container = createContainer();
+  const readyStates = [];
+  const loadingStates = [];
+  const errors = [];
+  let ready;
+  const isReady = new Promise((resolve) => { ready = resolve; });
+
+  testContext.api.mount(container, {
+    client: testContext.client,
+    redirectTo: 'https://varoom.example/auth-callback',
+    customButton: true,
+    onReady: () => {
+      readyStates.push(true);
+      ready();
+    },
+    onLoading: (loading) => loadingStates.push(loading),
+    onError: (message) => errors.push(message)
+  });
+
+  await isReady;
+  assert.deepEqual(readyStates, [true]);
+  assert.equal(testContext.getRenderedButton(), undefined);
+
+  testContext.api.prompt(container);
+  assert.equal(testContext.getPromptCount(), 1);
+  assert.deepEqual(loadingStates, [true]);
+  await testContext.getGoogleConfiguration().callback({ credential: 'google-id-token' });
+
+  assert.equal(credentials.provider, 'google');
+  assert.equal(credentials.token, 'google-id-token');
+  assert.deepEqual(testContext.assignedUrls, ['https://varoom.example/auth-callback']);
+  assert.deepEqual(errors, []);
+});
+
+test('dismissing the GIS prompt clears its loading state without reporting an error', async () => {
+  const testContext = loadHelper({
+    signInWithIdToken: async () => ({
+      data: { session: { access_token: 'supabase-session' } },
+      error: null
+    })
+  });
+  const container = createContainer();
+  const loadingStates = [];
+  const errors = [];
+  const ready = new Promise((resolve) => {
+    testContext.api.mount(container, {
+      client: testContext.client,
+      redirectTo: 'https://varoom.example/auth-callback',
+      customButton: true,
+      onReady: resolve,
+      onLoading: (loading) => loadingStates.push(loading),
+      onError: (message) => errors.push(message)
+    });
+  });
+
+  await ready;
+  testContext.api.prompt(container);
+  testContext.notifyPrompt({
+    isNotDisplayed: () => false,
+    isSkippedMoment: () => false,
+    isDismissedMoment: () => true
+  });
+
+  assert.deepEqual(loadingStates, [true, false]);
+  assert.deepEqual(errors, []);
+});
+
 test('Google credential exchange errors do not redirect or leave sign-in busy', async () => {
   const testContext = loadHelper({
     signInWithIdToken: async () => ({
@@ -138,15 +224,17 @@ test('Google credential exchange errors do not redirect or leave sign-in busy', 
   const container = createContainer();
   const loadingStates = [];
   const errors = [];
-
-  testContext.api.mount(container, {
-    client: testContext.client,
-    redirectTo: 'https://varoom.example/auth-callback',
-    onLoading: (loading) => loadingStates.push(loading),
-    onError: (message) => errors.push(message)
+  const ready = new Promise((resolve) => {
+    testContext.api.mount(container, {
+      client: testContext.client,
+      redirectTo: 'https://varoom.example/auth-callback',
+      onReady: resolve,
+      onLoading: (loading) => loadingStates.push(loading),
+      onError: (message) => errors.push(message)
+    });
   });
 
-  await new Promise((resolve) => setImmediate(resolve));
+  await ready;
   await testContext.getGoogleConfiguration().callback({ credential: 'invalid-token' });
 
   assert.deepEqual(testContext.assignedUrls, []);
