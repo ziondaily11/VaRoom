@@ -6,9 +6,9 @@ const path = require('node:path');
 const appCode = fs.readFileSync(path.join(__dirname, '..', 'pages', '_app.js'), 'utf8');
 const sharedRoutes = appCode.match(/const isSharedRoute = \[([\s\S]*?)\]\.some/);
 
-test('Chats, Support, and Marketplace retain their page layouts outside HostLayout', () => {
+test('Chats, Support, Marketplace, and Analytics retain their page layouts outside HostLayout', () => {
   assert.ok(sharedRoutes, 'Defines the HostLayout shared-route allowlist');
-  assert.doesNotMatch(sharedRoutes[1], /['"]\/(?:chats|support|marketplace)['"]/);
+  assert.doesNotMatch(sharedRoutes[1], /['"]\/(?:chats|support|marketplace|analytics)['"]/);
   assert.match(appCode, /isHostMode = !isClientHome && \(isHostRoute \|\| \(isSharedRoute && role !== 'client'\)\)/);
 });
 
