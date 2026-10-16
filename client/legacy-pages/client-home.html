@@ -292,7 +292,6 @@
     overflow-y:auto;
     scrollbar-width:none;
     min-width:0;
-    max-width:430px;
     box-sizing:border-box;
   }
   .right-rail::-webkit-scrollbar{ display:none; }
@@ -963,6 +962,9 @@
   .right-rail > .rail-card,
   .right-rail > #client-property-news-widget{
     position:relative;
+    width:100%;
+    height:auto;
+    flex-shrink:0;
     background:transparent !important;
     border:0 !important;
     border-radius:16px !important;
