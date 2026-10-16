@@ -191,6 +191,20 @@ export default function SharedHostSidebar({ activeNav: explicitActiveNav }) {
     }
   }, [accountOpen]);
 
+  useEffect(() => {
+    if (!moreOpen && !accountOpen) return;
+    const handleReposition = () => {
+      if (moreOpen && moreBtnRef.current && moreMenuRef.current) {
+        positionPopover(moreBtnRef.current, moreMenuRef.current);
+      }
+      if (accountOpen && identityBtnRef.current && accountMenuRef.current) {
+        positionPopover(identityBtnRef.current, accountMenuRef.current);
+      }
+    };
+    window.addEventListener('resize', handleReposition);
+    return () => window.removeEventListener('resize', handleReposition);
+  }, [moreOpen, accountOpen]);
+
   // Close menus on outside click or Escape
   useEffect(() => {
     const handleDocumentClick = (e) => {
