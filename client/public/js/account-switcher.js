@@ -43,6 +43,11 @@
   function removeAccount(userId) {
     var list = getLinkedAccounts().filter(function (a) { return a.id !== userId; });
     saveLinkedAccounts(list);
+    try {
+      if (localStorage.getItem('varoom_active_account_id') === userId) {
+        localStorage.removeItem('varoom_active_account_id');
+      }
+    } catch (e) {}
   }
 
   async function switchAccount(client, account) {
@@ -54,6 +59,18 @@
       refresh_token: account.refresh_token
     });
     if (switchResult.error) throw switchResult.error;
+    try {
+      localStorage.setItem('varoom_active_account_id', account.id);
+      var cached = {
+        id: account.id,
+        full_name: account.full_name || 'VaRoom Member',
+        username: account.username || (account.email ? account.email.split('@')[0] : 'member'),
+        avatar_url: account.avatar_url || null,
+        email: account.email || '',
+        role: account.role || 'client'
+      };
+      localStorage.setItem('varoom_cached_profile', JSON.stringify(cached));
+    } catch (e) {}
   }
 
   function initial(name) {
@@ -101,7 +118,48 @@
       refresh_token: session.refresh_token
     };
     upsertAccount(account);
+    try {
+      localStorage.setItem('varoom_active_account_id', session.user.id);
+      var cached = {
+        id: account.id,
+        full_name: account.full_name,
+        username: (profile && profile.username) || (session.user.email ? session.user.email.split('@')[0] : 'member'),
+        avatar_url: account.avatar_url,
+        email: account.email,
+        role: account.role
+      };
+      localStorage.setItem('varoom_cached_profile', JSON.stringify(cached));
+    } catch (e) {}
     return account;
+  }
+
+  function getActiveAccountId() {
+    try {
+      var id = localStorage.getItem('varoom_active_account_id');
+      if (id) return id;
+      for (var i = 0; i < localStorage.length; i++) {
+        var key = localStorage.key(i);
+        if (key && (key.indexOf('sb-') === 0 || key.indexOf('-auth-token') !== -1) && key.indexOf('-auth-token') === key.length - 11) {
+          var raw = localStorage.getItem(key);
+          if (raw) {
+            var parsed = JSON.parse(raw);
+            var uid = (parsed && parsed.user && parsed.user.id) || (parsed && parsed.currentSession && parsed.currentSession.user && parsed.currentSession.user.id);
+            if (uid) return uid;
+          }
+        }
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  function getActiveAccount() {
+    var activeId = getActiveAccountId();
+    if (!activeId) return null;
+    var list = getLinkedAccounts();
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].id === activeId) return list[i];
+    }
+    return null;
   }
 
   function renderDropdown(dropdownEl, client, activeUserId, accounts) {
@@ -208,6 +266,8 @@
 
   window.VaRoomAccountSwitcher = {
     getLinkedAccounts: getLinkedAccounts,
+    getActiveAccountId: getActiveAccountId,
+    getActiveAccount: getActiveAccount,
     upsertAccount: upsertAccount,
     upsertFromSession: upsertFromSession,
     switchAccount: switchAccount,

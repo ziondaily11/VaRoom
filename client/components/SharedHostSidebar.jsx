@@ -29,23 +29,35 @@ function getInitialUser() {
 
 function getStoredUser() {
   try {
+    // 1. Prefer the account-switcher's authoritative active account
     if (window.VaRoomAccountSwitcher) {
       const active = window.VaRoomAccountSwitcher.getActiveAccount?.();
       if (active) return active;
     }
+    // 2. Use cached profile ONLY if its ID matches varoom_active_account_id
+    const activeId = localStorage.getItem('varoom_active_account_id');
     const cached = localStorage.getItem('varoom_cached_profile') || sessionStorage.getItem('varoom_cached_profile');
-    if (cached) return JSON.parse(cached);
-    const linked = localStorage.getItem('varoom_linked_accounts');
-    if (linked) {
-      const list = JSON.parse(linked);
-      if (Array.isArray(list) && list.length > 0) return list[0];
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (!activeId || parsed.id === activeId) return parsed;
+    }
+    // 3. Match the active ID against the linked accounts list
+    if (activeId) {
+      const linked = localStorage.getItem('varoom_linked_accounts');
+      if (linked) {
+        const list = JSON.parse(linked);
+        if (Array.isArray(list)) {
+          const match = list.find(a => a.id === activeId);
+          if (match) return match;
+        }
+      }
     }
   } catch (e) {}
   return {
-    full_name: 'Amazing Stays 🌴',
-    username: 'amazingstays',
+    full_name: 'VaRoom Host',
+    username: 'host',
     avatar_url: null,
-    email: 'host@varoom.co.ke'
+    email: ''
   };
 }
 
@@ -98,18 +110,22 @@ export default function SharedHostSidebar({ activeNav: explicitActiveNav }) {
 
   const isMoreActive = ['analytics', 'settings', 'support', 'upgrade'].includes(activeNav);
 
-  // Load user profile & session
+  // Load user profile & session. Returns true if supabaseClient was ready (even if no session), false if not yet available.
   const refreshUser = useCallback(async () => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined') return true;
     const client = window.supabaseClient;
-    if (!client?.auth) return;
+    if (!client?.auth) return false; // not ready yet
 
     try {
       const { data } = await client.auth.getSession();
       const session = data?.session;
-      if (!session?.user) return;
+      if (!session?.user) return true; // ready but no session
 
       const userId = session.user.id;
+
+      // Record authoritative active account ID
+      try { localStorage.setItem('varoom_active_account_id', userId); } catch (e) {}
+
       const { data: profile } = await client
         .from('profiles')
         .select('id,full_name,username,avatar_url,role')
@@ -119,10 +135,11 @@ export default function SharedHostSidebar({ activeNav: explicitActiveNav }) {
       if (profile) {
         const userData = {
           id: profile.id,
-          full_name: profile.full_name || session.user.user_metadata?.full_name || 'Amazing Stays 🌴',
-          username: profile.username || session.user.email?.split('@')[0] || 'amazingstays',
+          full_name: profile.full_name || session.user.user_metadata?.full_name || 'VaRoom Host',
+          username: profile.username || session.user.email?.split('@')[0] || 'host',
           avatar_url: profile.avatar_url || session.user.user_metadata?.avatar_url || null,
           email: session.user.email,
+          role: profile.role || 'host',
         };
         setUser(userData);
         try {
@@ -149,6 +166,7 @@ export default function SharedHostSidebar({ activeNav: explicitActiveNav }) {
     } catch (err) {
       console.warn('Unable to load user profile in host sidebar:', err);
     }
+    return true;
   }, []);
 
   useEffect(() => {
@@ -157,9 +175,26 @@ export default function SharedHostSidebar({ activeNav: explicitActiveNav }) {
     if (window.VaRoomAccountSwitcher) {
       setLinkedAccounts(window.VaRoomAccountSwitcher.getLinkedAccounts() || []);
     }
-    refreshUser();
+
+    // Retry until window.supabaseClient is available (up to 3s, 50ms intervals)
+    let cancelled = false;
+    let retries = 0;
+    const MAX_RETRIES = 60;
+    const poll = async () => {
+      if (cancelled) return;
+      const ready = await refreshUser();
+      if (!ready && retries < MAX_RETRIES) {
+        retries++;
+        setTimeout(poll, 50);
+      }
+    };
+    poll();
+
     const interval = setInterval(refreshUser, 30000);
-    return () => clearInterval(interval);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, [refreshUser]);
 
   // Position popover menus
