@@ -16,6 +16,7 @@ interface GoogleSignInOAuthOptions {
   intendedRole?: 'host' | 'client';
   clearIntendedRole?: boolean;
   onLoading: (loading: boolean) => void;
+  onPopupChange: (open: boolean) => void;
   onError: (message: string) => void;
 }
 
@@ -23,6 +24,7 @@ declare global {
   interface Window {
     VaRoomGoogleSignIn?: {
       oauth: (options: GoogleSignInOAuthOptions) => Promise<void>;
+      cancel: () => void;
     };
   }
 }
@@ -36,6 +38,7 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
   text = 'continue_with',
 }) => {
   const [isLoading, setIsLoading] = useState(false);
+  const [popupOpen, setPopupOpen] = useState(false);
   const [error, setError] = useState('');
 
   const startGoogleSignIn = async () => {
@@ -53,8 +56,13 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
       intendedRole,
       clearIntendedRole,
       onLoading: setIsLoading,
+      onPopupChange: setPopupOpen,
       onError: setError,
     });
+  };
+
+  const cancelGoogleSignIn = () => {
+    window.VaRoomGoogleSignIn?.cancel();
   };
 
   const label = text === 'signup_with'
@@ -88,6 +96,15 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
         <div className="mt-2 text-center">
           <p className="text-xs text-[#f9d3ce]" role="alert">{error}</p>
         </div>
+      )}
+      {popupOpen && (
+        <button
+          type="button"
+          onClick={cancelGoogleSignIn}
+          className="mt-2 text-xs text-white/70 underline underline-offset-2 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/70"
+        >
+          Cancel Google sign-in
+        </button>
       )}
     </div>
   );

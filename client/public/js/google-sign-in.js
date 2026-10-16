@@ -9,6 +9,7 @@
   var rawNonce;
   var mountedButtons = new Set();
   var isAuthenticating = false;
+  var activePopup = null;
 
   function loadGoogleIdentityServices() {
     if (root.google && root.google.accounts && root.google.accounts.id) {
@@ -113,10 +114,134 @@
       return Promise.resolve();
     }
 
+    var popup = null;
+    try {
+      popup = root.open('', 'varoom-google-sign-in', 'popup,width=520,height=680,resizable=yes,scrollbars=yes');
+    } catch (error) {
+      popup = null;
+    }
+    if (!popup) {
+      return startFullPageOAuth(options);
+    }
+
+    var callbackUrl;
+    var requestId;
+    try {
+      callbackUrl = new URL(options.redirectTo, root.location.origin);
+      if (callbackUrl.origin !== root.location.origin) {
+        throw new Error('The sign-in callback must use the current VaRoom origin.');
+      }
+      var requestBytes = new Uint8Array(16);
+      root.crypto.getRandomValues(requestBytes);
+      requestId = Array.from(requestBytes, function (byte) {
+        return byte.toString(16).padStart(2, '0');
+      }).join('');
+      callbackUrl.searchParams.set('auth_popup', '1');
+      callbackUrl.searchParams.set('auth_popup_id', requestId);
+    } catch (error) {
+      popup.close();
+      if (options.onError) {
+        options.onError(error && error.message ? error.message : 'Could not start Google sign-in. Please try again.');
+      }
+      return Promise.resolve();
+    }
+
     isAuthenticating = true;
     if (options.onLoading) options.onLoading(true);
+
+    var channel = null;
+    var popupSession = { popup: popup, cancel: null };
+    function cleanupPopup() {
+      root.removeEventListener('message', handlePopupMessage);
+      if (channel) channel.close();
+      if (activePopup === popupSession) activePopup = null;
+      if (options.onPopupChange) options.onPopupChange(false);
+    }
+    function failPopup(message) {
+      cleanupPopup();
+      isAuthenticating = false;
+      if (options.onLoading) options.onLoading(false);
+      if (options.onError) options.onError(message);
+    }
+    function handlePopupResult(data) {
+      if (!data || data.requestId !== requestId) return;
+      if (data.type === 'varoom:google-auth-error') {
+        failPopup(data.message || 'Google sign-in could not be completed. Please try again.');
+        return;
+      }
+      if (data.type !== 'varoom:google-auth-complete') return;
+
+      var destination;
+      try {
+        destination = new URL(data.destination, root.location.origin);
+      } catch (error) {
+        failPopup('Google sign-in completed, but VaRoom could not open your destination.');
+        return;
+      }
+      if (destination.origin !== root.location.origin) {
+        failPopup('Google sign-in completed, but VaRoom could not open your destination.');
+        return;
+      }
+
+      cleanupPopup();
+      isAuthenticating = false;
+      if (options.onLoading) options.onLoading(false);
+      root.location.assign(destination.href);
+    }
+    function handlePopupMessage(event) {
+      if (event.origin !== root.location.origin || event.source !== popup) return;
+      handlePopupResult(event.data);
+    }
+
+    popupSession.cancel = function () {
+      cleanupPopup();
+      isAuthenticating = false;
+      popup.close();
+      if (options.onLoading) options.onLoading(false);
+    };
+    activePopup = popupSession;
+    if (options.onPopupChange) options.onPopupChange(true);
+    root.addEventListener('message', handlePopupMessage);
+    if (typeof root.BroadcastChannel === 'function') {
+      channel = new root.BroadcastChannel('varoom-google-auth');
+      channel.addEventListener('message', function (event) {
+        handlePopupResult(event.data);
+      });
+    }
+
     return Promise.resolve().then(function () {
       return client.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: callbackUrl.href,
+          skipBrowserRedirect: true
+        }
+      });
+    }).then(function (result) {
+      if (activePopup !== popupSession) return;
+      if (result.error) throw result.error;
+      if (!result.data || !result.data.url) {
+        throw new Error('Google sign-in did not return an authorization URL.');
+      }
+      popup.location.href = result.data.url;
+    }).catch(function (error) {
+      if (activePopup !== popupSession) return;
+      popup.close();
+      failPopup(error && error.message ? error.message : 'Could not connect to Google. Please try again.');
+    });
+  }
+
+  function cancelOAuth() {
+    if (activePopup && activePopup.cancel) activePopup.cancel();
+  }
+
+  function startFullPageOAuth(options) {
+    if (isAuthenticating) return Promise.resolve();
+    isAuthenticating = true;
+    if (options.onLoading) options.onLoading(true);
+
+    return Promise.resolve().then(function () {
+      return options.client.auth.signInWithOAuth({
         provider: 'google',
         options: { redirectTo: options.redirectTo }
       });
@@ -279,5 +404,5 @@
     };
   }
 
-  root.VaRoomGoogleSignIn = { mount: mount, oauth: startOAuth };
+  root.VaRoomGoogleSignIn = { mount: mount, oauth: startOAuth, cancel: cancelOAuth };
 })(typeof window !== 'undefined' ? window : null);
