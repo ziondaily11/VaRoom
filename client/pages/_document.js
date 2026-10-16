@@ -1,4 +1,5 @@
 import { Html, Head, Main, NextScript } from 'next/document';
+import Script from 'next/script';
 
 // This runs before React or a route's legacy markup is painted.  Keeping the
 // resolved theme on <html> avoids the browser painting its default white page
@@ -23,7 +24,11 @@ export default function Document() {
         <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
         <style>{`html{background:#F7F6F3;color-scheme:light}html[data-theme="dark"]{background:#15100F;color-scheme:dark}body{margin:0;background:#F7F6F3}html[data-theme="dark"] body{background:#15100F}`}</style>
       </Head>
-      <body><Main /><NextScript /></body>
+      <body>
+        <Main />
+        <NextScript />
+        <Script src="/js/google-sign-in.js" strategy="beforeInteractive" />
+      </body>
     </Html>
   );
 }

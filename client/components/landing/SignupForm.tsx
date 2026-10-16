@@ -1,8 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { Eye, EyeOff, Lock, Mail, User } from 'lucide-react';
 import { accountTypeDescriptions, createEmptyOtpCode, createSubmissionGate } from '../../public/js/auth-flow-utils';
 import { OtpCodeInput } from './OtpCodeInput';
 import type { OtpCodeInputHandle } from './OtpCodeInput';
+import { GoogleSignInButton } from './GoogleSignInButton';
 
 type AccountRole = 'host' | 'client';
 type PasswordCriteria = {
@@ -14,6 +16,7 @@ type PasswordCriteria = {
 interface SignupFormProps {
   redirect: string;
   initialRole: AccountRole;
+  active: boolean;
   onSwitchToLogin: () => void;
 }
 
@@ -28,7 +31,7 @@ const isStrongPassword = (password: string) => {
   return criteria.length && criteria.uppercase && criteria.numberOrSpecial;
 };
 
-export const SignupForm: React.FC<SignupFormProps> = ({ redirect, initialRole, onSwitchToLogin }) => {
+export const SignupForm: React.FC<SignupFormProps> = ({ redirect, initialRole, active, onSwitchToLogin }) => {
   const [role, setRole] = useState<AccountRole>(initialRole);
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -50,6 +53,9 @@ export const SignupForm: React.FC<SignupFormProps> = ({ redirect, initialRole, o
   const criteria = passwordCriteria(password);
   const passwordIsStrong = isStrongPassword(password);
   const canSubmit = passwordIsStrong && password === confirmPassword && agreed && !isLoading;
+  const googleClient = typeof window === 'undefined'
+    ? null
+    : (window as Window & { supabaseClient?: SupabaseClient }).supabaseClient || null;
 
   useEffect(() => {
     setRole(initialRole);
@@ -69,28 +75,6 @@ export const SignupForm: React.FC<SignupFormProps> = ({ redirect, initialRole, o
     setPassword(value);
     if (!isStrongPassword(value)) setConfirmPassword('');
     if (fieldErrors.password) setFieldError('password', '');
-  };
-
-  const handleSignupWithGoogle = async () => {
-    setAlert('');
-    const client = (window as any).supabaseClient;
-    if (!client) {
-      setAlert('Google authentication is unavailable right now.');
-      return;
-    }
-
-    try {
-      window.sessionStorage.setItem('varoom_intended_role', role);
-      const { error } = await client.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/auth-callback${redirect ? `?redirect=${encodeURIComponent(redirect)}` : ''}`,
-        },
-      });
-      if (error) setAlert(error.message || 'Could not connect to Google. Please try again.');
-    } catch (error: any) {
-      setAlert(error?.message || 'Could not connect to Google. Please try again.');
-    }
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -295,19 +279,14 @@ export const SignupForm: React.FC<SignupFormProps> = ({ redirect, initialRole, o
             `}</style>
           </div>
 
-          <button
-            type="button"
-            onClick={handleSignupWithGoogle}
-            className="flex h-12 w-full items-center justify-center gap-3 rounded border border-white/10 bg-white/5 px-4 text-sm font-medium text-[#f6f0ea] transition-colors hover:bg-white/10"
-          >
-            <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
-              <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
-              <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
-              <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
-              <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
-            </svg>
-            Continue with Google
-          </button>
+          <GoogleSignInButton
+            active={active && !isVerifying}
+            client={googleClient}
+            redirectTo={`${typeof window === 'undefined' ? '' : window.location.origin}/auth-callback${redirect ? `?redirect=${encodeURIComponent(redirect)}` : ''}`}
+            intendedRole={role}
+            theme="filled_black"
+            text="signup_with"
+          />
           <div className="my-5 flex items-center gap-3 text-[11px] font-medium uppercase tracking-[0.14em] text-[#d7d2ca]/65">
             <span className="h-px flex-1 bg-white/10" />
             <span>or</span>
