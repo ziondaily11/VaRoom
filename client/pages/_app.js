@@ -284,6 +284,30 @@ const fontSizeScript = `
   })();
 `;
 
+if (typeof window !== 'undefined' && typeof Node !== 'undefined' && Node.prototype) {
+  const originalRemoveChild = Node.prototype.removeChild;
+  Node.prototype.removeChild = function (child) {
+    if (child && child.parentNode !== this) {
+      if (typeof console !== 'undefined' && console.warn) {
+        console.warn('Safely ignored removeChild on detached node:', child);
+      }
+      return child;
+    }
+    return originalRemoveChild.apply(this, arguments);
+  };
+
+  const originalInsertBefore = Node.prototype.insertBefore;
+  Node.prototype.insertBefore = function (newNode, referenceNode) {
+    if (referenceNode && referenceNode.parentNode !== this) {
+      if (typeof console !== 'undefined' && console.warn) {
+        console.warn('Safely ignored insertBefore on detached reference node:', referenceNode);
+      }
+      return newNode;
+    }
+    return originalInsertBefore.apply(this, arguments);
+  };
+}
+
 export default function App({ Component, pageProps }) {
   const router = useRouter();
   const [role, setRole] = useState('host');
@@ -314,8 +338,7 @@ export default function App({ Component, pageProps }) {
     '/bookings',
     '/notifications',
     '/profile',
-    '/settings',
-    '/marketplace'
+    '/settings'
   ].some((r) => path.startsWith(r) || asPath.startsWith(r));
 
   // Determine whether this page should use the persistent HostLayout

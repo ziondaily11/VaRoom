@@ -6,6 +6,7 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createRoot } from 'react-dom/client';
 import { useEffect, useRef } from 'react';
+import { useRouter } from 'next/router';
 import ElieIcon from '../components/ElieIcon';
 import ChatComposerActions from '../components/ChatComposerActions';
 import ElieComposerBeam from '../components/ElieComposerBeam';
@@ -239,6 +240,7 @@ async function runLegacyScripts(container, scripts) {
 }
 
 export default function LegacyPage({ title, markup, scripts }) {
+  const router = useRouter();
   const containerRef = useRef(null);
 
   useEffect(() => {
@@ -300,12 +302,12 @@ export default function LegacyPage({ title, markup, scripts }) {
       }));
       avatarRoots.forEach((root, avatar) => {
         if (avatar.isConnected) return;
-        root.unmount();
+        try { root.unmount(); } catch (e) {}
         avatarRoots.delete(avatar);
       });
       orbRoots.forEach((root, orb) => {
         if (orb.isConnected) return;
-        root.unmount();
+        try { root.unmount(); } catch (e) {}
         orbRoots.delete(orb);
       });
     });
@@ -367,11 +369,15 @@ export default function LegacyPage({ title, markup, scripts }) {
     return () => {
       cancelled = true;
       avatarObserver.disconnect();
-      composerActionsRoot?.unmount();
-      elieComposerBeamRoot?.unmount();
-      avatarRoots.forEach((root) => root.unmount());
+      try { composerActionsRoot?.unmount(); } catch (e) {}
+      try { elieComposerBeamRoot?.unmount(); } catch (e) {}
+      avatarRoots.forEach((root) => {
+        try { root.unmount(); } catch (e) {}
+      });
       avatarRoots.clear();
-      orbRoots.forEach((root) => root.unmount());
+      orbRoots.forEach((root) => {
+        try { root.unmount(); } catch (e) {}
+      });
       orbRoots.clear();
     };
   }, [scripts]);
@@ -391,7 +397,7 @@ export default function LegacyPage({ title, markup, scripts }) {
         strategy="beforeInteractive"
       />
       <Script src="/js/varoom-mobile-nav.js" strategy="afterInteractive" />
-      <main ref={containerRef} dangerouslySetInnerHTML={{ __html: markup }} />
+      <main key={router?.asPath || title} ref={containerRef} dangerouslySetInnerHTML={{ __html: markup }} />
     </>
   );
 }

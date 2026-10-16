@@ -1445,6 +1445,14 @@
       window.location.href = '/onboarding';
       return;
     }
+    if (profile.role === 'host') {
+      window.location.href = '/host-home';
+      return;
+    }
+    try {
+      sessionStorage.setItem('varoom_user_role', 'client');
+      localStorage.setItem('varoom_last_role', 'client');
+    } catch (e) {}
     // Do not hold cached Discover cards behind this secondary account check.
     // The feed can restore from its per-tab cache as soon as the profile has
     // established its cache key; this check updates the suspension banner in
