@@ -243,30 +243,6 @@ const clientLayoutStyles = `
     width: 100% !important;
     max-width: 100% !important;
     margin: 0 !important;
-    /* bookings.html sets height:100vh; overflow:hidden — reset so content scrolls properly */
-    height: auto !important;
-    overflow: visible !important;
-    /* settings.html sets display:contents — reset so width overrides take effect */
-    display: block !important;
-  }
-
-  /* settings.html: settings-main uses grid-column:2/4 inside a 3-col grid.
-     Under ClientLayout the app-shell becomes display:block, so grid-column is ignored,
-     but we reset it explicitly to prevent any residual layout shift. */
-  .client-layout-active .client-page-content .settings-main {
-    grid-column: auto !important;
-    width: 100% !important;
-    min-width: 0 !important;
-    max-width: 100% !important;
-  }
-
-  /* settings.html: #settings-page uses grid-column:1/-1 (subgrid spanning)
-     Under ClientLayout the settings-main is display:block so subgrid is irrelevant,
-     but explicit reset prevents any edge-case column bleed. */
-  .client-layout-active .client-page-content #settings-page {
-    grid-column: auto !important;
-    width: 100% !important;
-    min-width: 0 !important;
   }
 `;
 

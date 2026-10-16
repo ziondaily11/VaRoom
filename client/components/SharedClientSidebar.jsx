@@ -249,12 +249,27 @@ export default function SharedClientSidebar({ activeNav: explicitActiveNav }) {
 
   // Mobile drawer listener (responds to topbar hamburger/avatar button clicks)
   useEffect(() => {
+    const handleTopbarClick = (e) => {
+      const trigger = e.target.closest('#topbar-avatar-btn, #menu-toggle, .menu-toggle');
+      if (trigger) {
+        e.preventDefault();
+        setMobileOpen((prev) => !prev);
+      }
+    };
+
     const handleToggle = () => setMobileOpen((prev) => !prev);
+    const handleOpen = () => setMobileOpen(true);
     const handleClose = () => setMobileOpen(false);
 
+    document.addEventListener('click', handleTopbarClick);
+    window.addEventListener('open-client-sidebar', handleOpen);
+    window.addEventListener('close-client-sidebar', handleClose);
     window.addEventListener('varoom-toggle-sidebar', handleToggle);
     window.addEventListener('varoom-close-sidebar', handleClose);
     return () => {
+      document.removeEventListener('click', handleTopbarClick);
+      window.removeEventListener('open-client-sidebar', handleOpen);
+      window.removeEventListener('close-client-sidebar', handleClose);
       window.removeEventListener('varoom-toggle-sidebar', handleToggle);
       window.removeEventListener('varoom-close-sidebar', handleClose);
     };

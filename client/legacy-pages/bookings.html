@@ -1025,7 +1025,11 @@
     const isClient = profile.role === 'client';
     const dashboardHref = isHost ? '/host-home' : '/client-home';
     document.documentElement.setAttribute('data-account-role', isHost ? 'host' : 'client');
-    try { sessionStorage.setItem('varoom_user_role', isHost ? 'host' : 'client'); } catch (e) {}
+    try {
+      sessionStorage.setItem('varoom_user_role', isHost ? 'host' : 'client');
+      localStorage.setItem('varoom_last_role', isHost ? 'host' : 'client');
+    } catch (e) {}
+    window.dispatchEvent(new CustomEvent('varoom_role_change', { detail: { role: isHost ? 'host' : 'client' } }));
     document.getElementById('sidebar')?.classList.toggle('sidebar-host', isHost);
     document.getElementById('bookings-home-logo')?.setAttribute('href', dashboardHref);
     document.getElementById('bookings-home-link')?.setAttribute('href', dashboardHref);

@@ -1001,7 +1001,11 @@
   const currentRole = currentProfile.role || 'client';
   const dashboardHref = currentRole === 'host' ? 'host-home.html' : 'client-home.html';
   document.documentElement.setAttribute('data-account-role', currentRole === 'host' ? 'host' : 'client');
-  try { sessionStorage.setItem('varoom_user_role', currentRole === 'host' ? 'host' : 'client'); } catch (e) {}
+  try {
+    sessionStorage.setItem('varoom_user_role', currentRole === 'host' ? 'host' : 'client');
+    localStorage.setItem('varoom_last_role', currentRole === 'host' ? 'host' : 'client');
+  } catch (e) {}
+  window.dispatchEvent(new CustomEvent('varoom_role_change', { detail: { role: currentRole === 'host' ? 'host' : 'client' } }));
   document.getElementById('profile-home-link')?.setAttribute('href', dashboardHref);
   document.getElementById('profile-brand-link')?.setAttribute('href', dashboardHref);
   document.querySelectorAll('a[href="host-home.html"]').forEach(function(link){

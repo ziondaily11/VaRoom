@@ -1258,7 +1258,11 @@
     const sidebarClient = document.getElementById('sidebar-client');
     const sidebarHost = document.getElementById('sidebar-host');
     document.documentElement.setAttribute('data-account-role', currentRole === 'host' ? 'host' : 'client');
-    try { sessionStorage.setItem('varoom_user_role', currentRole === 'host' ? 'host' : 'client'); } catch (e) {}
+    try {
+      sessionStorage.setItem('varoom_user_role', currentRole === 'host' ? 'host' : 'client');
+      localStorage.setItem('varoom_last_role', currentRole === 'host' ? 'host' : 'client');
+    } catch (e) {}
+    window.dispatchEvent(new CustomEvent('varoom_role_change', { detail: { role: currentRole === 'host' ? 'host' : 'client' } }));
     const activeSidebar = currentRole === 'host' ? sidebarHost : sidebarClient;
     document.getElementById('sidebar-shell')?.classList.toggle('host-sidebar-shell', currentRole === 'host');
     if (sidebarClient && sidebarHost && activeSidebar) {

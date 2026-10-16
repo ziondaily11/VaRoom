@@ -287,8 +287,12 @@
     }
     var profile = profileResult.data || { role: 'client' };
     var role = profile.role === 'host' ? 'host' : 'client';
-    currentRole = role;
     document.documentElement.setAttribute('data-account-role', role);
+    try {
+      sessionStorage.setItem('varoom_user_role', role);
+      localStorage.setItem('varoom_last_role', role);
+    } catch (e) {}
+    window.dispatchEvent(new CustomEvent('varoom_role_change', { detail: { role: role } }));
     if (window.VaroomSidebar && !document.querySelector('.host-layout-active') && !document.querySelector('.client-layout-active')) {
       window.VaroomSidebar.mount({
         container: document.getElementById('sidebar'),
