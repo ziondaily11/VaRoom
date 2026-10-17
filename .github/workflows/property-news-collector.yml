@@ -42,6 +42,7 @@ jobs:
             "https://property-news-pnsj.onrender.com/api/internal/jobs/collect?source_group=${SOURCE_GROUP}" \
             --output "$response_file"
           python3 - "$response_file" <<'PY'
+          from collections import Counter
           import json
           import os
           import sys
@@ -55,12 +56,24 @@ jobs:
           required_counts = (
               "sources_active", "sources_due", "sources_deferred",
               "sources_attempted", "sources_successful", "sources_failed",
-              "articles_discovered", "articles_parsed", "articles_inserted", "processed",
-              "published", "pending_review", "processing_failures",
+              "urls_discovered", "urls_rejected", "security_blocked_urls",
+              "articles_discovered", "articles_fetched", "articles_parsed",
+              "articles_rejected", "articles_inserted", "duplicates_skipped",
+              "article_failures", "processed", "published", "pending_review",
+              "processing_failures",
+              "timeouts", "http_403", "http_404", "oversized_responses",
           )
           counts = {key: result.get(key) for key in required_counts}
           if any(not isinstance(value, int) or isinstance(value, bool) for value in counts.values()):
               raise SystemExit("Collector response is missing valid collection counts")
+          source_failures = result.get("source_failures", [])
+          if not isinstance(source_failures, list) or any(
+              not isinstance(failure, dict)
+              or not isinstance(failure.get("name"), str)
+              or not isinstance(failure.get("category"), str)
+              for failure in source_failures
+          ):
+              raise SystemExit("Collector response contains invalid source failure details")
           if (
               counts["sources_due"] > counts["sources_active"]
               or counts["sources_attempted"] + counts["sources_deferred"] != counts["sources_due"]
@@ -78,12 +91,32 @@ jobs:
               f"{counts['sources_deferred']}\n"
               f"- Sources succeeded/failed: "
               f"{counts['sources_successful']}/{counts['sources_failed']}\n"
-              f"- Articles discovered/inserted: {counts['articles_discovered']}/"
-              f"{counts['articles_inserted']}\n"
+              f"- Fetch errors (403/404/timeouts/oversized): "
+              f"{counts['http_403']}/{counts['http_404']}/{counts['timeouts']}/"
+              f"{counts['oversized_responses']}\n"
+              f"- URLs discovered/rejected/off-host: {counts['urls_discovered']}/"
+              f"{counts['urls_rejected']}/{counts['security_blocked_urls']}\n"
+              f"- Articles discovered/fetched/parsed/rejected: "
+              f"{counts['articles_discovered']}/{counts['articles_fetched']}/"
+              f"{counts['articles_parsed']}/{counts['articles_rejected']}\n"
+              f"- Articles inserted/duplicates/article failures: "
+              f"{counts['articles_inserted']}/{counts['duplicates_skipped']}/"
+              f"{counts['article_failures']}\n"
               f"- Items processed/published/pending review/processing failures: "
               f"{counts['processed']}/{counts['published']}/{counts['pending_review']}/"
               f"{counts['processing_failures']}\n"
           )
+          if source_failures:
+              categories = Counter(failure["category"] for failure in source_failures)
+              summary += "\n### Failed sources\n\n"
+              summary += "| Source | Failure category |\n|---|---|\n"
+              for failure in source_failures:
+                  name = failure["name"].replace("|", "\\|").replace("\n", " ")
+                  category = failure["category"].replace("|", "\\|").replace("\n", " ")
+                  summary += f"| {name} | `{category}` |\n"
+              summary += "\nFailure categories: " + ", ".join(
+                  f"`{category}`: {count}" for category, count in sorted(categories.items())
+              ) + "\n"
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as step_summary:
               step_summary.write(summary)
 
