@@ -256,7 +256,7 @@ class SourceCollector:
             "duplicates_skipped": 0, "failures": 0, "article_failures": 0,
             "urls_discovered": 0, "urls_rejected": 0, "security_blocked_urls": 0, "articles_fetched": 0,
             "timeouts": 0, "http_403": 0, "http_404": 0, "oversized_responses": 0,
-            "new_item_ids": [],
+            "new_item_ids": [], "source_failures": [],
         }
         if not due_sources:
             logger.info(
@@ -287,6 +287,7 @@ class SourceCollector:
             ):
                 totals[key] += int(result.get(key, 0))
             totals["new_item_ids"].extend(result["new_item_ids"])
+            totals["source_failures"].extend(result.get("source_failures", []))
         logger.info(
             "Collection summary: sources_active=%d sources_due=%d sources_attempted=%d "
             "sources_deferred=%d sources_successful=%d sources_failed=%d "
@@ -343,6 +344,7 @@ class SourceCollector:
             return {
                 "sources_successful": 0, "sources_failed": 1, "failures": 1,
                 "timeouts": 1, "new_items": 0, "duplicates": 0, "new_item_ids": [],
+                "source_failures": [{"name": source.name, "category": "timeout"}],
             }
 
     async def _collect_source(self, source: Source) -> dict[str, Any]:
@@ -354,7 +356,7 @@ class SourceCollector:
             "duplicates_skipped": 0, "failures": 0, "article_failures": 0,
             "urls_discovered": 0, "urls_rejected": 0, "security_blocked_urls": 0, "articles_fetched": 0,
             "timeouts": 0, "http_403": 0, "http_404": 0, "oversized_responses": 0,
-            "new_item_ids": [],
+            "new_item_ids": [], "source_failures": [],
         }
         run_id: UUID | None = None
         try:
@@ -542,6 +544,10 @@ class SourceCollector:
             source.last_failed_fetch_at = datetime.now(timezone.utc)
             source.consecutive_failures += 1
             source.failure_category = self.classify_failure(error)
+            result["source_failures"].append({
+                "name": source.name,
+                "category": source.failure_category,
+            })
             source.last_error = _redact_sensitive_query_parameters(
                 f"{source.failure_category}: {error}"
             )[:1000]
