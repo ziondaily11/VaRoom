@@ -195,10 +195,22 @@ export default function SharedClientSidebar({ activeNav: explicitActiveNav }) {
         } catch (err) {}
       }
     };
+    const handleAccountsChanged = (e) => {
+      if (e.detail?.accounts) {
+        setLinkedAccounts(e.detail.accounts);
+      } else {
+        try {
+          const raw = localStorage.getItem('varoom_linked_accounts');
+          if (raw) setLinkedAccounts(JSON.parse(raw));
+        } catch (err) {}
+      }
+    };
     window.addEventListener('storage', handleStorage);
+    window.addEventListener('varoom_linked_accounts_changed', handleAccountsChanged);
     return () => {
       cancelled = true;
       window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('varoom_linked_accounts_changed', handleAccountsChanged);
     };
   }, []);
 
@@ -352,10 +364,10 @@ export default function SharedClientSidebar({ activeNav: explicitActiveNav }) {
   // Add existing account handler
   const handleAddAccount = () => {
     setAccountOpen(false);
-    if (window.VaRoomAccountSwitcher) {
-      window.VaRoomAccountSwitcher.startAddAccount(window.location.pathname);
+    if (window.VaRoomAccountSwitcher && typeof window.VaRoomAccountSwitcher.openAddAccountModal === 'function') {
+      window.VaRoomAccountSwitcher.openAddAccountModal();
     } else {
-      router.push(`/login?addAccount=true&redirect=${encodeURIComponent(window.location.pathname)}`);
+      window.dispatchEvent(new CustomEvent('varoom:open-add-account'));
     }
   };
 

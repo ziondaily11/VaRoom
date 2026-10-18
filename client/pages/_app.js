@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import { useState, useEffect, useLayoutEffect } from 'react';
 import HostLayout from '../components/HostLayout';
 import ClientLayout from '../components/ClientLayout';
+import AddAccountModal from '../components/AddAccountModal';
 import '../styles/admin.css';
 import '../legacy-pages/privacy.css';
 
@@ -557,6 +558,7 @@ export default function App({ Component, pageProps }) {
       ) : (
         pageElement
       )}
+      <AddAccountModal />
     </>
   );
 }

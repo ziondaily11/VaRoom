@@ -962,3 +962,85 @@ html:not([data-theme="dark"]) .va-button[data-variant='secondary'] {
   [data-theme="dark"] .stats-row > .stat + .stat { padding-left: .75rem; }
 }
 
+/* ---------- In-App Add Account Modal Glassmorphism (Dark Mode) ---------- */
+[data-theme="dark"] .add-account-overlay {
+  background: rgba(0, 0, 0, 0.72) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+}
+
+[data-theme="dark"] .add-account-card {
+  background: rgba(18, 18, 20, 0.88) !important;
+  backdrop-filter: blur(24px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(160%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 24px 64px -12px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.06) !important;
+  color: #FFFFFF !important;
+}
+
+[data-theme="dark"] .add-account-sub {
+  color: rgba(255, 255, 255, 0.65) !important;
+}
+
+[data-theme="dark"] .add-account-close-btn {
+  color: #FFFFFF !important;
+}
+
+[data-theme="dark"] .add-account-close-btn:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+[data-theme="dark"] .add-account-google-btn {
+  background: #FFFFFF !important;
+  color: #0F1419 !important;
+  border: none !important;
+}
+
+[data-theme="dark"] .add-account-google-btn:hover:not(:disabled) {
+  background: #EAEAEA !important;
+}
+
+[data-theme="dark"] .add-account-divider {
+  color: rgba(255, 255, 255, 0.45) !important;
+}
+
+[data-theme="dark"] .add-account-divider::before,
+[data-theme="dark"] .add-account-divider::after {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12) !important;
+}
+
+[data-theme="dark"] .add-account-input {
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  color: #FFFFFF !important;
+}
+
+[data-theme="dark"] .add-account-input::placeholder {
+  color: rgba(255, 255, 255, 0.45) !important;
+}
+
+[data-theme="dark"] .add-account-input:focus {
+  border-color: #FFFFFF !important;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.12) !important;
+  background: rgba(255, 255, 255, 0.07) !important;
+}
+
+[data-theme="dark"] .add-account-pw-toggle {
+  color: rgba(255, 255, 255, 0.5) !important;
+}
+
+[data-theme="dark"] .add-account-pw-toggle:hover {
+  color: #FFFFFF !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+[data-theme="dark"] .add-account-submit-btn {
+  background: #EFF3F4 !important;
+  color: #0F1419 !important;
+}
+
+[data-theme="dark"] .add-account-submit-btn:hover:not(:disabled) {
+  background: #D7DBDC !important;
+}
+
+
