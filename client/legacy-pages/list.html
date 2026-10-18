@@ -933,6 +933,7 @@
   let hasCurrentListingFee = false;
   let nicheEntitlementChecked = false;
   let listingIsPaused = false;
+  let listingNeedsPublication = false;
   let hasActiveNichePlan = false;
   const listingDraftCache = window.VaRoomListingDraftCache.createListingDraftCache();
   const LISTING_DRAFT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -1180,13 +1181,14 @@
     const labels = { airbnb: 'Airbnb', hotel: 'Hotel', venue: 'Event ground / venue', office: 'Office', shop: 'Shop', property: 'Property to let or buy' };
     if (editMode) {
       const { data: listing, error: listingError } = await supabaseClient.from('listings')
-        .select('id,host_id,category,availability_status,paid_listing_until').eq('id', editListingId).eq('host_id', currentUser.id).maybeSingle();
+        .select('id,host_id,category,availability_status,publication_state,paid_listing_until').eq('id', editListingId).eq('host_id', currentUser.id).maybeSingle();
       if (listingError || !listing || !Object.prototype.hasOwnProperty.call(labels, listing.category)) {
         checkingAuth.textContent = listingError ? 'Unable to load this listing. Please try again.' : 'This listing could not be found or is not yours to edit.';
         return;
       }
       hostNiche = listing.category;
       listingIsPaused = listing.availability_status === 'paused';
+      listingNeedsPublication = listing.publication_state !== 'published';
       hasCurrentListingFee = Boolean(listing.paid_listing_until && new Date(listing.paid_listing_until).getTime() > Date.now());
     } else {
       const hostNiches = Array.isArray(profile.listing_categories) ? profile.listing_categories : [];
@@ -2591,21 +2593,7 @@
     }
 
     if (!editMode && selectedFiles.length > 0 && failedCount > 0) {
-      for (const mediaId of videoMediaIds) {
-        await deleteVideoFromR2(listingId, mediaId);
-      }
-      await supabaseClient.from('listing_photos').delete().eq('listing_id', listingId);
-      await supabaseClient.from('listing_booking_details').delete().eq('listing_id', listingId);
-      if (SHORT_STAY.includes(category) && openDates.size > 0) {
-        await supabaseClient.from('availability').delete().eq('listing_id', listingId);
-      }
-      if (listingPaymentVerified || hasActiveNichePlan || preparedPaymentListingId) {
-        await supabaseClient.from('listings').update({ availability_status: 'paused' }).eq('id', listingId);
-      } else {
-        await supabaseClient.from('listings').delete().eq('id', listingId);
-      }
-
-      successMsgInner.textContent = 'Media upload failed, so the listing was not published. Please try again with the selected files.';
+      successMsgInner.textContent = 'Media upload failed, so the listing was not published. Your private draft and uploaded media are preserved; edit the draft to retry.';
       successMsg.classList.add('show', 'error');
       successMsg.scrollIntoView({ behavior:'smooth', block:'center' });
       submitBtn.disabled = false; submitBtn.textContent = 'Publish listing ✓';
@@ -2615,7 +2603,8 @@
     if (listingPaymentVerified
         || (!editMode && hasActiveNichePlan && ['property', 'shop', 'office'].includes(category))
         || (editMode && listingIsPaused && (hasCurrentListingFee || hasActiveNichePlan))
-        || (editMode && hasActiveNichePlan && !hasCurrentListingFee && ['property', 'shop', 'office'].includes(category))) {
+        || (editMode && hasActiveNichePlan && !hasCurrentListingFee && ['property', 'shop', 'office'].includes(category))
+        || (!['property', 'shop', 'office'].includes(category) && (!editMode || listingNeedsPublication))) {
       const { data: { session: publishSession } } = await supabaseClient.auth.getSession();
       const activateResponse = await fetch('/api/listings/' + encodeURIComponent(listingId) + '/status', {
         method: 'PATCH',

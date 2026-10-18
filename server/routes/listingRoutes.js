@@ -5,6 +5,8 @@ const {
   ValidationError, assertAllowedKeys, text, uuid, number, enumValue,
 } = require('../lib/inputValidation');
 const { rejectSuspendedActivity } = require('../lib/accountAccess');
+const { decideListingMediaAccess } = require('../lib/listingMediaAccess');
+const { promoteListingMedia } = require('../lib/listingMediaPromotion');
 
 const router = express.Router();
 const STATUSES = new Set(['available', 'booked', 'unavailable', 'paused', 'draft']);
@@ -23,10 +25,18 @@ router.get('/discover/video-media', async (req, res) => {
   }
 
   try {
+    const { data: listings, error: listingError } = await supabaseAdmin.from('listings')
+      .select('id,publication_state,availability_status,created_at')
+      .in('id', rawIds);
+    if (listingError) throw listingError;
+    const publishedIds = (listings || [])
+      .filter((listing) => decideListingMediaAccess(listing, null).published)
+      .map((listing) => listing.id);
+    if (!publishedIds.length) return res.json({ videoMedia: {} });
     const { data, error } = await supabaseAdmin
       .from('property_media')
       .select('id,property_id,sort_order')
-      .in('property_id', rawIds)
+      .in('property_id', publishedIds)
       .eq('media_type', 'video')
       .eq('visibility', 'public')
       .eq('status', 'ready')
@@ -84,7 +94,7 @@ async function authenticatedHost(req, res) {
 
 async function ownedListing(id, userId, res) {
   const { data, error } = await supabaseAdmin
-    .from('listings').select('id,host_id,title,description,property_description,category,location_text,supports_stay,supports_table_reservation,listing_purpose,availability_status,paid_listing_until')
+    .from('listings').select('id,host_id,title,description,property_description,category,location_text,supports_stay,supports_table_reservation,listing_purpose,availability_status,publication_state,created_at,paid_listing_until')
     .eq('id', id).maybeSingle();
   if (error) {
     console.error('Listing ownership lookup failed:', error.message);
@@ -156,6 +166,15 @@ router.patch('/listings/:id/status', async (req, res) => {
   const listing = await ownedListing(req.params.id, user.id, res);
   if (!listing) return;
   if (req.body.status === 'available' && ['property', 'shop', 'office'].includes(listing.category)) {
+    if (['discarded', 'cleanup_pending', 'expired'].includes(listing.publication_state)) {
+      return res.status(409).json({ error: 'This listing can no longer be published', code: 'LISTING_NOT_PUBLISHABLE' });
+    }
+    try {
+      await promoteListingMedia(req.params.id, { hostId: user.id });
+    } catch (promotionError) {
+      console.error('Listing media promotion failed:', promotionError.message);
+      return res.status(409).json({ error: 'Listing media is not ready to publish', code: 'MEDIA_PROMOTION_FAILED' });
+    }
     const { data: result, error: activationError } = await supabaseAdmin.rpc('activate_listing_with_entitlement', {
       p_listing_id: req.params.id,
       p_host_id: user.id,
@@ -163,18 +182,48 @@ router.patch('/listings/:id/status', async (req, res) => {
     if (activationError) return res.status(500).json({ error: 'Unable to verify listing entitlement' });
     if (result && result.code === 'LISTING_PAYMENT_REQUIRED') return res.status(402).json({ error: result.error, code: result.code });
     if (result && result.code === 'LISTING_LIMIT_REACHED') return res.status(409).json({ error: result.error, code: result.code });
+    if (result && result.code === 'LISTING_MEDIA_NOT_READY') return res.status(409).json({ error: result.error, code: result.code });
+    if (result && result.code === 'LISTING_INVALID') return res.status(422).json({ error: result.error, code: result.code });
     if (!result || !result.listing) return res.status(404).json({ error: 'Listing not found or could not be activated' });
     return res.json({ listing: result.listing });
   }
+  const changes = { availability_status: req.body.status };
+  if (req.body.status === 'available') {
+    if (['discarded', 'cleanup_pending', 'expired'].includes(listing.publication_state)) {
+      return res.status(409).json({ error: 'This listing can no longer be published', code: 'LISTING_NOT_PUBLISHABLE' });
+    }
+    const { data: unfinished, error: readinessError } = await supabaseAdmin.from('property_media')
+      .select('id').eq('property_id', req.params.id).is('deleted_at', null)
+      .not('status', 'in', '("ready","deleted")');
+    if (readinessError) return res.status(500).json({ error: 'Unable to verify listing media readiness' });
+    if (unfinished && unfinished.length) {
+      return res.status(409).json({ error: 'Listing media is still processing', code: 'LISTING_MEDIA_NOT_READY' });
+    }
+    try {
+      await promoteListingMedia(req.params.id, { hostId: user.id });
+    } catch (promotionError) {
+      console.error('Listing media promotion failed:', promotionError.message);
+      return res.status(409).json({ error: 'Listing media is not ready to publish', code: 'MEDIA_PROMOTION_FAILED' });
+    }
+    const { error: visibilityError } = await supabaseAdmin.from('property_media')
+      .update({ visibility: 'public' }).eq('property_id', req.params.id)
+      .eq('status', 'ready').is('deleted_at', null);
+    if (visibilityError) return res.status(500).json({ error: 'Unable to prepare listing media for publication' });
+    changes.publication_state = 'published';
+  } else if (req.body.status === 'draft') {
+    changes.publication_state = 'draft';
+  }
   const { data, error } = await supabaseAdmin.from('listings')
-    .update({ availability_status: req.body.status }).eq('id', req.params.id)
-    .select('id,availability_status').single();
+    .update(changes).eq('id', req.params.id).eq('host_id', user.id)
+    .not('publication_state', 'in', '("discarded","cleanup_pending","expired")')
+    .select('id,availability_status,publication_state').maybeSingle();
   if (error) {
     if (error.message && error.message.includes('availability_status')) {
       return res.status(503).json({ error: 'Listing status controls are not enabled yet. Apply the listing-controls migration.' });
     }
     return res.status(500).json({ error: 'Unable to update listing status' });
   }
+  if (!data) return res.status(409).json({ error: 'This listing can no longer be changed' });
   return res.json({ listing: data });
 });
 
@@ -255,6 +304,8 @@ router.post('/listings', async (req, res) => {
       verified: false,
     };
     if (['property', 'shop', 'office'].includes(category)) payload.availability_status = 'paused';
+    else payload.availability_status = 'draft';
+    payload.publication_state = paymentDraft ? 'payment_pending' : 'draft';
     if (category === 'hotel') {
       const supportsStay = req.body.supports_stay === undefined ? true : req.body.supports_stay;
       const supportsTableReservation = req.body.supports_table_reservation === undefined ? false : req.body.supports_table_reservation;
@@ -498,38 +549,22 @@ router.delete('/listings/:id', async (req, res) => {
   const listing = await ownedListing(req.params.id, user.id, res);
   if (!listing) return;
 
-  if (listing.availability_status === 'draft') {
-    const { data: media, error: deleteError } = await supabaseAdmin.rpc('varoom_delete_draft_listing', {
+  if (['draft', 'payment_pending', 'failed', 'discarded', 'cleanup_pending', 'expired'].includes(listing.publication_state)
+    || listing.availability_status === 'draft') {
+    const { error: deleteError } = await supabaseAdmin.rpc('varoom_discard_draft_listing', {
       p_listing_id: req.params.id,
       p_host_id: user.id,
     });
     if (deleteError) {
       if (deleteError.code === 'P0002') return res.status(404).json({ error: 'Draft listing not found' });
-      if (deleteError.code === '22023') return res.status(409).json({ error: 'This listing is no longer a draft', code: 'LISTING_NOT_DRAFT' });
-      if (deleteError.code === '23503') return res.status(409).json({ error: deleteError.message, code: 'LISTING_HAS_HISTORY' });
+      if (deleteError.code === '22023') return res.status(409).json({ error: 'This listing is no longer an unpublished draft', code: 'LISTING_NOT_DRAFT' });
       if (deleteError.code === 'PGRST202' || deleteError.code === '42883') {
-        return res.status(503).json({ error: 'Draft deletion is not enabled yet. Apply the draft listing deletion migration.' });
-      }
-      if (deleteError.code === '55000') {
-        return res.status(409).json({
-          error: 'A video is being finalized. Please try deleting this draft again shortly.',
-          code: 'MEDIA_FINALIZATION_IN_PROGRESS',
-        });
+        return res.status(503).json({ error: 'Draft cleanup is not enabled yet. Apply the draft media lifecycle migration.' });
       }
       console.error('Draft listing deletion failed:', deleteError);
-      return res.status(500).json({ error: 'Unable to delete draft listing' });
+      return res.status(500).json({ error: 'Unable to discard draft listing' });
     }
-
-    try {
-      await deleteListingStorageObjects(media?.photo_paths, media?.property_media);
-    } catch (error) {
-      console.error(`Draft listing ${req.params.id} was deleted but media cleanup failed:`, error);
-      return res.status(500).json({
-        error: 'The draft was removed from VaRoom, but some uploaded media could not be deleted.',
-        code: 'LISTING_DELETED_MEDIA_CLEANUP_FAILED',
-      });
-    }
-    return res.json({ success: true, deleted: 'draft' });
+    return res.json({ success: true, discarded: true, cleanup: 'queued' });
   }
 
   const [photosResult, mediaResult] = await Promise.all([

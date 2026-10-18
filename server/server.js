@@ -678,4 +678,7 @@ setInterval(() => {
 
 app.listen(PORT, () => {
   console.log(`VaRoom server listening on port ${PORT}`);
+  runFullCleanup().catch((error) => {
+    console.error('Initial scheduled cleanup failed:', error);
+  });
 });
