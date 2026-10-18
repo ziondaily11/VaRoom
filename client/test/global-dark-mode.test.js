@@ -109,3 +109,28 @@ test('Light mode tokens remain intact and untouched', () => {
   const clientHome = fs.readFileSync(path.join(clientRoot, 'legacy-pages', 'client-home.html'), 'utf8');
   assert.match(clientHome, /:root\{[\s\S]*--white:#FFFFFF;[\s\S]*--paper:#FFFFFF;/, 'Light mode client-home tokens must remain intact');
 });
+
+test('Landing page is exempted from global dark mode and CTA buttons have high contrast', () => {
+  const docJs = fs.readFileSync(path.join(clientRoot, 'pages', '_document.js'), 'utf8');
+  assert.match(docJs, /window\.location\.pathname === '\/'/, '_document.js must check for landing page to force light mode');
+
+  const appJs = fs.readFileSync(path.join(clientRoot, 'pages', '_app.js'), 'utf8');
+  assert.match(appJs, /var isLanding = window\.location\.pathname === '\/'/, '_app.js fontSizeScript must exempt landing page');
+  assert.match(appJs, /html\[data-theme="dark"\] \.va-button-primary[\s\S]*color:\s*#0F1419 !important;/, 'Dark primary buttons must have dark text');
+  assert.match(appJs, /\.landing-cta:not\(\.landing-cta-secondary\),[\s\S]*background:\s*#111111 !important;/, 'Landing CTA must preserve vintage #111111');
+
+  const indexTsx = fs.readFileSync(path.join(clientRoot, 'pages', 'index.tsx'), 'utf8');
+  assert.match(indexTsx, /document\.documentElement\.setAttribute\('data-theme',\s*'light'\)/, 'index.tsx must ensure light mode');
+});
+
+test('Hero headline, support text, and CTA are centered strictly on mobile while desktop remains left aligned', () => {
+  const heroTsx = fs.readFileSync(path.join(clientRoot, 'components', 'landing', 'HeroSection.tsx'), 'utf8');
+  assert.match(heroTsx, /hero-animated-content[\s\S]*items-start justify-end text-left max-\[639px\]:items-center max-\[639px\]:justify-center max-\[639px\]:text-center/, 'Hero container must center on mobile and align left on desktop');
+  assert.match(heroTsx, /hero-headline[\s\S]*max-\[639px\]:text-center max-\[639px\]:mx-auto/, 'Headline must center on mobile');
+  assert.match(heroTsx, /hero-subtitle[\s\S]*max-\[639px\]:text-center max-\[639px\]:mx-auto/, 'Subtitle must center on mobile');
+  assert.match(heroTsx, /hero-cta[\s\S]*max-\[639px\]:justify-center/, 'CTA must center on mobile');
+
+  const indexTsx = fs.readFileSync(path.join(clientRoot, 'pages', 'index.tsx'), 'utf8');
+  assert.match(indexTsx, /@media \(max-width:\s*639px\)[\s\S]*\.hero-headline\s*\{\s*text-align:\s*center !important;/, 'index.tsx media query must center headline on mobile');
+  assert.match(indexTsx, /@media \(max-width:\s*639px\)[\s\S]*\.hero-subtitle\s*\{\s*text-align:\s*center !important;/, 'index.tsx media query must center subtitle on mobile');
+});
