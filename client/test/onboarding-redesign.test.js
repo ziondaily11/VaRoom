@@ -106,9 +106,11 @@ test('Host Onboarding Card 2: contains listing category single-selection and dis
   );
 });
 
-test('Design System: includes layered card treatment and responsive tokens', () => {
-  assert.ok(onboardingHtml.includes('card-layer-back'), 'Contains layered card backdrop element');
+test('Design System: single outline border, username spinner, and no watermarks', () => {
+  assert.ok(!onboardingHtml.includes('card-layer-back'), 'No second layered card outline (single outline only)');
   assert.ok(onboardingHtml.includes('card-foreground'), 'Contains foreground card container');
-  assert.ok(onboardingHtml.includes('--brand-red'), 'Defines brand red token');
-  assert.ok(onboardingHtml.includes('--shadow-front'), 'Defines card shadow token');
+  assert.ok(onboardingHtml.includes('id="usernameSpinner"'), 'Contains username availability spinner');
+  assert.ok(!onboardingHtml.includes('ambient-sparkle'), 'Ambient sparkle watermarks removed');
+  assert.ok(!onboardingHtml.includes('btn-sparkle'), 'Button sparkle watermark removed');
+  assert.ok(onboardingHtml.includes('--card-border: rgba(255, 255, 255, 0.12)'), 'Darkmode defines single subtle grey outline border');
 });
