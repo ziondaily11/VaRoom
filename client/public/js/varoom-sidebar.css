@@ -22,7 +22,7 @@
   --white: #000000;
   --paper: #000000;
   --ink: #E7E9EA;
-  --nav-active-bg: rgba(255, 255, 255, .06);
+  --nav-active-bg: rgba(255, 255, 255, 0.14);
   --nav-badge-bg: #2f3336;
   --nav-badge-color: #E7E9EA;
   --muted: #71767b;
@@ -101,16 +101,16 @@ html[data-account-role="pending"] #host-sidebar {
   margin-left: auto;
   font-size: .68rem;
   font-weight: 600;
-  background: #FBE4E7;
-  color: var(--red-deep);
+  background: var(--nav-badge-bg, #E9E7E2);
+  color: var(--ink);
   padding: .15rem .5rem;
   border-radius: 100px;
   white-space: nowrap;
 }
 
 [data-theme="dark"] .sidebar .beta-pill {
-  background: rgba(196, 30, 58, .25);
-  color: #F5EFEC;
+  background: var(--nav-badge-bg, #2f3336);
+  color: var(--ink, #E7E9EA);
 }
 
 .sidebar .nav-group {
@@ -168,14 +168,33 @@ html[data-account-role="pending"] #host-sidebar {
 }
 
 .sidebar .nav-item.active {
-  background: var(--nav-active-bg);
-  color: var(--ink);
+  background: var(--nav-active-bg, #E9E7E2) !important;
+  color: var(--ink) !important;
   font-weight: 600;
+  border: none !important;
 }
 
 [data-theme="dark"] .sidebar .nav-item.active {
-  background: var(--nav-active-bg);
-  color: var(--ink);
+  background: var(--nav-active-bg, rgba(255, 255, 255, 0.14)) !important;
+  color: var(--ink, #E7E9EA) !important;
+  border: none !important;
+}
+
+.sidebar .nav-item.active svg {
+  color: var(--ink) !important;
+  stroke: currentColor;
+}
+
+.sidebar .nav-item.active .beta-pill,
+.sidebar .nav-item.active .notif-nav-badge {
+  background: var(--nav-badge-bg, #E9E7E2) !important;
+  color: var(--nav-badge-color, var(--ink)) !important;
+}
+
+[data-theme="dark"] .sidebar .nav-item.active .beta-pill,
+[data-theme="dark"] .sidebar .nav-item.active .notif-nav-badge {
+  background: var(--nav-badge-bg, #2f3336) !important;
+  color: var(--nav-badge-color, #E7E9EA) !important;
 }
 
 .sidebar .notif-nav-badge {
@@ -356,9 +375,25 @@ html[data-theme="dark"][data-account-role="host"] .sidebar,
 
 :is(html[data-account-role="host"] .sidebar, .sidebar.sidebar-host) .nav-item.active,
 :is(html[data-account-role="host"] .sidebar, .sidebar.sidebar-host) .nav-item.active:hover {
-  background: var(--control-active, rgba(255, 255, 255, 0.16)) !important;
+  background: var(--control-active, var(--host-control-active, var(--nav-active-bg, #E9E7E2))) !important;
   color: var(--ink) !important;
   font-weight: 700 !important;
+  border: none !important;
+}
+
+html[data-theme="dark"][data-account-role="host"] .sidebar .nav-item.active,
+html[data-theme="dark"][data-account-role="host"] .sidebar .nav-item.active:hover,
+[data-theme="dark"] .sidebar.sidebar-host .nav-item.active,
+[data-theme="dark"] .sidebar.sidebar-host .nav-item.active:hover {
+  background: var(--control-active, var(--host-control-active, var(--nav-active-bg, rgba(255, 255, 255, 0.16)))) !important;
+  color: var(--ink, #E7E9EA) !important;
+  font-weight: 700 !important;
+  border: none !important;
+}
+
+:is(html[data-account-role="host"] .sidebar, .sidebar.sidebar-host) .nav-item.active svg {
+  color: var(--ink) !important;
+  stroke: currentColor;
 }
 
 :is(html[data-account-role="host"] .sidebar, .sidebar.sidebar-host) .list-space-btn {
@@ -374,8 +409,19 @@ html[data-theme="dark"][data-account-role="host"] .sidebar,
 }
 
 :is(html[data-account-role="host"] .sidebar, .sidebar.sidebar-host) .notif-nav-badge {
-  background: var(--red, #C41E3A) !important;
-  color: #ffffff !important;
+  background: var(--red, #C41E3A);
+  color: #ffffff;
+}
+
+:is(html[data-account-role="host"] .sidebar, .sidebar.sidebar-host) .nav-item.active .notif-nav-badge {
+  background: var(--host-control-active, var(--nav-badge-bg, #E9E7E2)) !important;
+  color: var(--ink) !important;
+}
+
+html[data-theme="dark"][data-account-role="host"] .sidebar .nav-item.active .notif-nav-badge,
+[data-theme="dark"] .sidebar.sidebar-host .nav-item.active .notif-nav-badge {
+  background: var(--host-control-active, var(--nav-badge-bg, #2f3336)) !important;
+  color: var(--ink, #E7E9EA) !important;
 }
 
 :is(html[data-account-role="host"] .sidebar, .sidebar.sidebar-host) .sidebar-note {

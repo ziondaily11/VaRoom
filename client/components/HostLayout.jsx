@@ -97,7 +97,15 @@ const hostLayoutStyles = `
     font-family: inherit;
   }
   .host-app-layout .nav-item:hover { background: var(--control-hover, var(--layout-control-hover)); }
-  .host-app-layout .nav-item.active { background: var(--control-active, var(--layout-control-active)); color: var(--ink, var(--layout-ink)); font-weight: 700; }
+  .host-app-layout .nav-item.active {
+    background: var(--control-active, var(--layout-control-active)) !important;
+    color: var(--ink, var(--layout-ink)) !important;
+    font-weight: 700 !important;
+    border: none !important;
+  }
+  .host-app-layout .nav-item.active svg {
+    color: var(--ink, var(--layout-ink)) !important;
+  }
   .host-app-layout .nav-item svg { width: 18px; height: 18px; flex-shrink: 0; }
 
   .host-app-layout .notif-nav-badge {
@@ -105,6 +113,10 @@ const hostLayoutStyles = `
     padding: 0 5px; border-radius: 999px; background: var(--red, #C41E3A); color: #fff;
     transform: translateY(-50%);
     display: flex; align-items: center; justify-content: center; font-size: .65rem; font-weight: 700; line-height: 1;
+  }
+  .host-app-layout .nav-item.active .notif-nav-badge {
+    background: var(--nav-badge-bg, var(--layout-control-active)) !important;
+    color: var(--nav-badge-color, var(--ink, var(--layout-ink))) !important;
   }
 
   .host-app-layout .list-space-btn {
