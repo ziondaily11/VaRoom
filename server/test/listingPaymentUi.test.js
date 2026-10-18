@@ -67,7 +67,7 @@ test('Go Pro saves the host-scoped listing and actual selected files before redi
   assert.match(pricingPage, /pointer\.listingId/);
   assert.match(pricingPage, /window\.location\.replace\('\/list\?subscription=return'\)/);
   assert.match(pricingPage, /paymentReference && payment && payment\.status === 'succeeded'/);
-  assert.match(listingPage, /listingPaymentVerified \|\| hasActiveNichePlan \|\| preparedPaymentListingId/);
+  assert.match(listingPage, /Your private draft and uploaded media are preserved/);
 });
 
 test('pricing callback verifies the returned reference and marks only the purchased active plan current', () => {

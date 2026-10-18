@@ -48,15 +48,15 @@ test('builds a photo API URL for migrated listing keys', () => {
   assert.deepEqual(legacyCalls, []);
 });
 
-test('keeps legacy Supabase listing paths on Supabase public URLs', () => {
+test('routes legacy Supabase listing paths through server authorization', () => {
   const { client, legacyCalls } = patchedStorage();
   const result = client.storage.from('listing-photos').getPublicUrl('user-id/listing-id/photo.jpg');
 
   assert.equal(
     result.data.publicUrl,
-    'https://supabase.example/listing-photos/user-id/listing-id/photo.jpg',
+    '/api/photos/listing-photos/user-id/listing-id/photo.jpg',
   );
-  assert.deepEqual(legacyCalls, [{ bucket: 'listing-photos', key: 'user-id/listing-id/photo.jpg' }]);
+  assert.deepEqual(legacyCalls, []);
 });
 
 test('uploads supported listing photos through the signed R2 flow', async () => {

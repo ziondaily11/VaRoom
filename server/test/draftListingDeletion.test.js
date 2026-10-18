@@ -10,6 +10,10 @@ const migration = fs.readFileSync(
   path.join(__dirname, '..', 'migrations', '20261014_000039_delete_draft_listings.sql'),
   'utf8'
 );
+const lifecycleMigration = fs.readFileSync(
+  path.join(__dirname, '..', 'migrations', '20261018_000040_draft_media_lifecycle.sql'),
+  'utf8'
+);
 const route = fs.readFileSync(path.join(__dirname, '..', 'routes', 'listingRoutes.js'), 'utf8');
 const controls = fs.readFileSync(
   path.join(repositoryRoot, 'client', 'public', 'js', 'host-listing-controls.js'),
@@ -32,9 +36,10 @@ test('draft deletion SQL is service-only and rejects non-drafts and retained his
 
 test('host deletion endpoint verifies ownership and gathers media in the deletion transaction', () => {
   assert.match(route, /const user = await authenticatedHost\(req, res\);[\s\S]*?router\.delete\('\/listings\/:id'/);
-  assert.match(route, /rpc\('varoom_delete_draft_listing'/);
-  assert.match(route, /deleteListingStorageObjects\(media\?\.photo_paths, media\?\.property_media\)/);
-  assert.match(route, /LISTING_DELETED_MEDIA_CLEANUP_FAILED/);
+  assert.match(route, /rpc\('varoom_discard_draft_listing'/);
+  assert.match(route, /cleanup: 'queued'/);
+  assert.match(lifecycleMigration, /create table if not exists public\.draft_media_cleanup_jobs/);
+  assert.match(lifecycleMigration, /create or replace function public\.claim_draft_media_cleanup/);
 });
 
 test('host controls label draft deletion explicitly and remove deleted listings from profile tabs', () => {
