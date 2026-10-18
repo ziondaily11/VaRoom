@@ -190,10 +190,29 @@ export default function SharedHostSidebar({ activeNav: explicitActiveNav }) {
     };
     poll();
 
+    const handleAccountsChanged = (e) => {
+      if (e.detail?.accounts) {
+        setLinkedAccounts(e.detail.accounts);
+      } else if (e.key === 'varoom_linked_accounts' && e.newValue) {
+        try {
+          setLinkedAccounts(JSON.parse(e.newValue));
+        } catch (err) {}
+      } else {
+        try {
+          const raw = localStorage.getItem('varoom_linked_accounts');
+          if (raw) setLinkedAccounts(JSON.parse(raw));
+        } catch (err) {}
+      }
+    };
+    window.addEventListener('storage', handleAccountsChanged);
+    window.addEventListener('varoom_linked_accounts_changed', handleAccountsChanged);
+
     const interval = setInterval(refreshUser, 30000);
     return () => {
       cancelled = true;
       clearInterval(interval);
+      window.removeEventListener('storage', handleAccountsChanged);
+      window.removeEventListener('varoom_linked_accounts_changed', handleAccountsChanged);
     };
   }, [refreshUser]);
 
@@ -362,9 +381,13 @@ export default function SharedHostSidebar({ activeNav: explicitActiveNav }) {
   };
 
   const handleAddAccount = () => {
+    setAccountOpen(false);
     if (typeof window !== 'undefined') {
-      const dest = window.location.pathname;
-      window.location.href = `/login.html?mode=add&redirect=${encodeURIComponent(dest)}`;
+      if (window.VaRoomAccountSwitcher && typeof window.VaRoomAccountSwitcher.openAddAccountModal === 'function') {
+        window.VaRoomAccountSwitcher.openAddAccountModal();
+      } else {
+        window.dispatchEvent(new CustomEvent('varoom:open-add-account'));
+      }
     }
   };
 

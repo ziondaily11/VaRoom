@@ -78,11 +78,13 @@
   </div>
 </main>
 <script src="/js/supabase-client.js"></script>
+<script src="/js/account-switcher.js"></script>
 <script>
   (async function(){
     const hashParams = new URLSearchParams((window.location.hash || '').replace(/^#/, ''));
     const queryParams = new URLSearchParams(window.location.search || '');
     const requestedRedirect = queryParams.get('redirect') || '';
+    const isAddAccount = queryParams.get('addAccount') === 'true';
 
     function getSafeRedirect(value){
       if (!value) return '';
@@ -148,6 +150,46 @@
     if (!session) {
       if (sessionError) console.error('Sign-in callback failed to load the session.');
       failAuth('Google sign-in did not finish. Please try again.');
+      return;
+    }
+
+    // In-app add-account callback handling
+    if (isAddAccount) {
+      // If opened in a popup window, pass session to parent and close popup
+      if (window.opener && !window.opener.closed) {
+        try {
+          window.opener.postMessage({
+            type: 'VAROOM_ADD_ACCOUNT_SUCCESS',
+            session: {
+              access_token: session.access_token,
+              refresh_token: session.refresh_token,
+              user: session.user
+            }
+          }, window.location.origin);
+          window.close();
+          return;
+        } catch (e) {
+          console.warn('Could not postMessage to opener:', e);
+        }
+      }
+
+      // If full page redirect, save newly added session and restore active account
+      if (window.VaRoomAccountSwitcher) {
+        await window.VaRoomAccountSwitcher.upsertFromSession(supabaseClient, session);
+        const originalActiveId = sessionStorage.getItem('varoom_oauth_active_account_id');
+        if (originalActiveId) {
+          const linked = window.VaRoomAccountSwitcher.getLinkedAccounts();
+          const orig = linked.find(a => a.id === originalActiveId);
+          if (orig) {
+            await window.VaRoomAccountSwitcher.switchAccount(supabaseClient, orig);
+          }
+          sessionStorage.removeItem('varoom_oauth_active_account_id');
+        }
+      }
+
+      const returnUrl = sessionStorage.getItem('varoom_add_account_redirect') || postAuthRedirect || '/client-home';
+      sessionStorage.removeItem('varoom_add_account_redirect');
+      window.location.replace(returnUrl);
       return;
     }
 
