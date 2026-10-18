@@ -7,6 +7,11 @@ import Script from 'next/script';
 const themeBootScript = `
   (function () {
     try {
+      if (window.location.pathname === '/' || window.location.pathname === '') {
+        document.documentElement.setAttribute('data-theme', 'light');
+        document.documentElement.style.colorScheme = 'light';
+        return;
+      }
       var saved = localStorage.getItem('varoom_theme') || 'system';
       var theme = saved === 'system'
         ? (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')

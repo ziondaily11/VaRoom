@@ -177,7 +177,7 @@ const designTokensStyle = `
     outline-offset: 2px;
   }
 
-  .va-button,
+  /* Landing page CTA buttons — strictly preserve vintage editorial styling */
   .landing-cta,
   .landing-cta-secondary {
     align-items: center;
@@ -193,19 +193,58 @@ const designTokensStyle = `
     transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease;
   }
 
-  .va-button-primary,
-  .va-button[data-variant='primary'],
   .landing-cta:not(.landing-cta-secondary),
   .landing-cta-primary {
-    background: var(--color-cta-primary) !important;
-    border: 1px solid var(--color-cta-primary) !important;
+    background: #111111 !important;
+    border: 1px solid #111111 !important;
+    box-shadow: none !important;
+    color: #ffffff !important;
+  }
+
+  .landing-cta-secondary {
+    background: transparent !important;
+    border: 1px solid #b8b2a7 !important;
+    box-shadow: none !important;
+    color: #171717 !important;
+  }
+
+  .landing-cta:not(.landing-cta-secondary):hover:not(:disabled):not([aria-disabled='true']),
+  .landing-cta-primary:hover:not(:disabled):not([aria-disabled='true']) {
+    background: #292929 !important;
+    border-color: #292929 !important;
+    color: #ffffff !important;
+  }
+
+  .landing-cta-secondary:hover:not(:disabled):not([aria-disabled='true']) {
+    background: #f3f1ed !important;
+    color: #171717 !important;
+  }
+
+  /* Platform UI action buttons */
+  .va-button {
+    align-items: center;
+    border-radius: var(--radius-cta) !important;
+    cursor: pointer;
+    display: inline-flex;
+    font-weight: 600;
+    justify-content: center;
+    min-height: 44px;
+    padding-bottom: 0 !important;
+    padding-top: 0 !important;
+    text-decoration: none;
+    transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease;
+  }
+
+  .va-button-primary,
+  .va-button[data-variant='primary'] {
+    background: #111111 !important;
+    border: 1px solid #111111 !important;
     box-shadow: none !important;
     color: #ffffff !important;
   }
 
   .va-button-secondary,
-  .va-button[data-variant='secondary'],
-  .landing-cta-secondary {
+  .va-button[data-variant='secondary'] {
     background: transparent !important;
     border: 1px solid var(--color-cta-secondary-border) !important;
     box-shadow: none !important;
@@ -213,17 +252,44 @@ const designTokensStyle = `
   }
 
   .va-button-primary:hover:not(:disabled):not([aria-disabled='true']),
-  .va-button[data-variant='primary']:hover:not(:disabled):not([aria-disabled='true']),
-  .landing-cta:not(.landing-cta-secondary):hover:not(:disabled):not([aria-disabled='true']),
-  .landing-cta-primary:hover:not(:disabled):not([aria-disabled='true']) {
-    background: var(--color-cta-primary-hover) !important;
-    border-color: var(--color-cta-primary-hover) !important;
+  .va-button[data-variant='primary']:hover:not(:disabled):not([aria-disabled='true']) {
+    background: #292929 !important;
+    border-color: #292929 !important;
+    color: #ffffff !important;
   }
 
   .va-button-secondary:hover:not(:disabled):not([aria-disabled='true']),
-  .va-button[data-variant='secondary']:hover:not(:disabled):not([aria-disabled='true']),
-  .landing-cta-secondary:hover:not(:disabled):not([aria-disabled='true']) {
+  .va-button[data-variant='secondary']:hover:not(:disabled):not([aria-disabled='true']) {
     background: #f3f1ed !important;
+    color: #171717 !important;
+  }
+
+  /* Global dark-mode button high contrast overrides */
+  html[data-theme="dark"] .va-button-primary,
+  html[data-theme="dark"] .va-button[data-variant='primary'] {
+    background: #EFF3F4 !important;
+    border: 1px solid #EFF3F4 !important;
+    color: #0F1419 !important;
+  }
+
+  html[data-theme="dark"] .va-button-primary:hover:not(:disabled):not([aria-disabled='true']),
+  html[data-theme="dark"] .va-button[data-variant='primary']:hover:not(:disabled):not([aria-disabled='true']) {
+    background: #D7DBDC !important;
+    border-color: #D7DBDC !important;
+    color: #0F1419 !important;
+  }
+
+  html[data-theme="dark"] .va-button-secondary,
+  html[data-theme="dark"] .va-button[data-variant='secondary'] {
+    background: transparent !important;
+    border: 1px solid rgba(255, 255, 255, 0.22) !important;
+    color: #E7E9EA !important;
+  }
+
+  html[data-theme="dark"] .va-button-secondary:hover:not(:disabled):not([aria-disabled='true']),
+  html[data-theme="dark"] .va-button[data-variant='secondary']:hover:not(:disabled):not([aria-disabled='true']) {
+    background: rgba(255, 255, 255, 0.08) !important;
+    color: #FFFFFF !important;
   }
 
   .va-button:focus-visible,
@@ -272,8 +338,8 @@ const designTokensStyle = `
     --color-border-strong: rgba(255, 255, 255, 0.22);
     --color-primary: #e0425e;
     --color-primary-hover: #ff6b81;
-    --color-cta-primary: #E7E9EA;
-    --color-cta-primary-hover: #d5d8da;
+    --color-cta-primary: #EFF3F4;
+    --color-cta-primary-hover: #D7DBDC;
     --color-cta-secondary-border: rgba(255, 255, 255, 0.22);
     --color-danger: #ff7186;
     --color-success: #4cc38a;
@@ -291,11 +357,16 @@ const designTokensStyle = `
 const fontSizeScript = `
   (function () {
     try {
-      var savedTheme = localStorage.getItem('varoom_theme') || 'system';
-      var resolvedTheme = savedTheme === 'system'
-        ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-        : savedTheme;
-      document.documentElement.setAttribute('data-theme', resolvedTheme);
+      var isLanding = window.location.pathname === '/' || window.location.pathname === '';
+      if (!isLanding) {
+        var savedTheme = localStorage.getItem('varoom_theme') || 'system';
+        var resolvedTheme = savedTheme === 'system'
+          ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+          : savedTheme;
+        document.documentElement.setAttribute('data-theme', resolvedTheme);
+      } else {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
       var scales = { small: '0.9', default: '1', large: '1.1', xlarge: '1.2' };
       var choice = localStorage.getItem('varoom_font_size') || 'default';
       document.documentElement.style.setProperty('--varoom-font-scale', scales[choice] || scales.default);
@@ -336,6 +407,32 @@ const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffec
 export default function App({ Component, pageProps }) {
   const router = useRouter();
   const [role, setRole] = useState('host');
+
+  useEffect(() => {
+    const applyThemeForRoute = (url) => {
+      const targetPath = typeof url === 'string' ? url : router.pathname || '';
+      const isLanding = targetPath === '/' || targetPath === '';
+      if (isLanding) {
+        document.documentElement.setAttribute('data-theme', 'light');
+        document.documentElement.style.colorScheme = 'light';
+        return;
+      }
+      try {
+        const savedTheme = localStorage.getItem('varoom_theme') || 'system';
+        const resolvedTheme = savedTheme === 'system'
+          ? (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+          : savedTheme;
+        document.documentElement.setAttribute('data-theme', resolvedTheme);
+        document.documentElement.style.colorScheme = resolvedTheme;
+      } catch (e) {}
+    };
+
+    applyThemeForRoute(router.asPath || router.pathname);
+    router.events.on('routeChangeComplete', applyThemeForRoute);
+    return () => {
+      router.events.off('routeChangeComplete', applyThemeForRoute);
+    };
+  }, [router]);
 
   useIsomorphicLayoutEffect(() => {
     const updateRole = () => {

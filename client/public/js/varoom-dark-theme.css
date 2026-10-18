@@ -902,12 +902,39 @@
 }
 
 /* ================================================================
-   SECONDARY BUTTON LIGHT MODE — keep light-mode text readable
+   BUTTON THEMING — Ensure high-contrast readable buttons
    ================================================================ */
-.va-button-secondary,
-.va-button[data-variant='secondary'],
-.landing-cta-secondary {
+.landing-cta-secondary,
+html:not([data-theme="dark"]) .va-button-secondary,
+html:not([data-theme="dark"]) .va-button[data-variant='secondary'] {
   color: #171717 !important;
+}
+
+[data-theme="dark"] .va-button-primary,
+[data-theme="dark"] .va-button[data-variant='primary'] {
+  background: #EFF3F4 !important;
+  border-color: #EFF3F4 !important;
+  color: #0F1419 !important;
+}
+
+[data-theme="dark"] .va-button-primary:hover,
+[data-theme="dark"] .va-button[data-variant='primary']:hover {
+  background: #D7DBDC !important;
+  border-color: #D7DBDC !important;
+  color: #0F1419 !important;
+}
+
+[data-theme="dark"] .va-button-secondary,
+[data-theme="dark"] .va-button[data-variant='secondary'] {
+  background: transparent !important;
+  border-color: rgba(255, 255, 255, 0.22) !important;
+  color: #E7E9EA !important;
+}
+
+[data-theme="dark"] .va-button-secondary:hover,
+[data-theme="dark"] .va-button[data-variant='secondary']:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #FFFFFF !important;
 }
 
 @media (max-width: 860px) {

@@ -48,6 +48,22 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
     setAuthOpen(true);
   }, []);
 
+  // Landing page must strictly remain in light mode
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', 'light');
+    document.documentElement.style.colorScheme = 'light';
+    return () => {
+      try {
+        const saved = localStorage.getItem('varoom_theme') || 'system';
+        const resolved = saved === 'system'
+          ? (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+          : saved;
+        document.documentElement.setAttribute('data-theme', resolved);
+        document.documentElement.style.colorScheme = resolved;
+      } catch (e) {}
+    };
+  }, []);
+
   // Route legacy auth URLs into the shared authentication shell.
   useEffect(() => {
     if (router.isReady && (router.query.auth === 'login' || router.query.auth === 'signup' || router.query.auth === 'recovery' || router.query.signup === '1')) {
@@ -165,6 +181,10 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
           rel="stylesheet"
         />
         <style>{`
+          html, body {
+            background: #f7f3ec !important;
+            color: #181513 !important;
+          }
           *, *::before, *::after {
             box-sizing: border-box;
           }
@@ -188,16 +208,40 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
             }
             .hero-animated-content {
               flex: 1 0 auto;
-              justify-content: center;
+              align-items: center !important;
+              justify-content: center !important;
+              text-align: center !important;
               margin-top: 0;
               padding: clamp(24px, 7vh, 56px) 20px clamp(20px, 3vh, 32px);
             }
             .hero-animated-content > div {
               max-width: 420px;
+              align-items: center !important;
+              text-align: center !important;
+              margin-left: auto !important;
+              margin-right: auto !important;
+            }
+            .hero-headline {
+              text-align: center !important;
+              margin-left: auto !important;
+              margin-right: auto !important;
+            }
+            .hero-subtitle {
+              text-align: center !important;
+              margin-left: auto !important;
+              margin-right: auto !important;
+            }
+            .hero-cta {
+              justify-content: center !important;
+              width: 100% !important;
+              margin-left: auto !important;
+              margin-right: auto !important;
             }
             .hero-cta .landing-cta {
               min-height: 48px;
               border-radius: 4px !important;
+              margin-left: auto !important;
+              margin-right: auto !important;
             }
           }
           @media (min-width: 1280px) and (min-height: 850px) {
