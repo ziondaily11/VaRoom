@@ -33,13 +33,13 @@
     --text-muted: #8E95A2;
     --line: #E5E7EB;
     --line-subtle: #F0F2F5;
-    --input-bg: #FFFFFF;
+    --input-bg: transparent;
     --input-border: #D8DCE2;
     --input-focus: #111827;
-    --brand-red: #D32323;
-    --brand-red-hover: #BA1C1C;
+    --brand-red: #E50914;
+    --brand-red-hover: #C40812;
     --brand-red-light: #FFF5F5;
-    --brand-red-border: #D32323;
+    --brand-red-border: #E50914;
     --disabled-bg: #D1D5DB;
     --disabled-text: #FFFFFF;
     --pill-bg: #111827;
@@ -57,7 +57,7 @@
     --text-muted: #6B7280;
     --line: rgba(255, 255, 255, 0.12);
     --line-subtle: rgba(255, 255, 255, 0.06);
-    --input-bg: #1B202B;
+    --input-bg: transparent;
     --input-border: rgba(255, 255, 255, 0.14);
     --input-focus: #FFFFFF;
     --brand-red: #E50914;
@@ -252,8 +252,8 @@
     width: 38px;
     height: 38px;
     border-radius: 50%;
-    background: var(--brand-red);
-    color: #FFFFFF;
+    background: #FFFFFF;
+    color: #111827;
     border: 3px solid var(--card-bg);
     display: flex;
     align-items: center;
@@ -265,7 +265,7 @@
   }
   .avatar-camera-btn:hover {
     transform: scale(1.06);
-    background: var(--brand-red-hover);
+    background: #F3F4F6;
   }
   .avatar-camera-btn svg {
     width: 18px;
@@ -804,7 +804,7 @@
               <label class="form-label" for="inpPhone">Phone number</label>
               <div class="input-wrapper" id="wrapPhone">
                 <span class="input-phone-code">+254</span>
-                <input class="input-field" type="tel" id="inpPhone" name="phone" placeholder="(555) 000-0000"
+                <input class="input-field" type="tel" id="inpPhone" name="phone" placeholder="712345678"
                        autocomplete="tel" inputmode="tel" maxlength="20">
               </div>
               <p class="form-helper" id="phoneHelper" style="display:none;"></p>
