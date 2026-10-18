@@ -1,47 +1,81 @@
 /*
- * Shared dark-mode surface system for the legacy dashboard templates.
- * This file is loaded after each page's inline theme so the shared tokens
- * remain the single source of truth for the dark visual system.
+ * varoom-dark-theme.css — Global dark-mode surface system.
  *
- * DESIGN INTENT
- * Dark mode uses a warm, near-black VaRoom canvas. Structure comes from
- * quiet dividers, spacing, and type—not a stack of darker rectangles.
- * Elevated surfaces are reserved for menus, dialogs, and message bubbles.
+ * DESIGN: X "Lights Out" — genuine black canvas (#000000) with crisp white
+ * text, subtle visible dividers, and floating UI as the only raised surface.
+ * Grey backgrounds must not dominate. VaRoom red is minimal, reserved for
+ * brand elements and important states only.
+ *
+ * This file is the SINGLE SOURCE OF TRUTH for all dark-mode surface tokens.
+ * Every legacy HTML page inherits from this; per-page dark overrides must not
+ * redefine backgrounds to warm browns or near-blacks.
  */
+
+/* ================================================================
+   GLOBAL DARK TOKENS — html[data-theme="dark"]
+   ================================================================ */
 [data-theme="dark"] {
-  /* ── Surfaces ─────────────────────────────────────────────────── */
-  --paper:       #0F0D0D;          /* continuous application canvas  */
-  --white:       #0F0D0D;          /* primary surface: same canvas   */
-  --surface:     #0F0D0D;
-  --surface-elevated: #171313;     /* only floating / focused UI     */
-  --input-bg:    #0F0D0D;
-  --card-border: rgba(255,255,255,.10);
-  --shell-bg:    #0F0D0D;
-  --sidebar-bg:  #0F0D0D;
-  --main-bg:     #0F0D0D;
-  --rail-bg:     #0F0D0D;
-  --card-bg:     #0F0D0D;
+  /* ── Core surfaces ────────────────────────────────────────────── */
+  --paper:           #000000;          /* continuous page canvas           */
+  --white:           #000000;          /* alias used by legacy pages        */
+  --surface:         #000000;
+  --surface-elevated: #16181c;         /* floating UI only: menus, modals   */
+  --input-bg:        #000000;
+  --card-border:     rgba(255,255,255,.12);
+
+  /* Legacy dashboard aliases */
+  --shell-bg:    #000000;
+  --sidebar-bg:  #000000;
+  --main-bg:     #000000;
+  --rail-bg:     #000000;
+  --card-bg:     #000000;
 
   /* ── Text ─────────────────────────────────────────────────────── */
-  --ink:   #F5EFEC;                /* primary text                   */
-  --muted: rgba(245,239,236,.58);  /* secondary / supporting text    */
+  --ink:   #E7E9EA;                    /* primary text                      */
+  --muted: #71767b;                    /* secondary / supporting text       */
 
   /* ── Structural ───────────────────────────────────────────────── */
-  --glass-bg:     #0F0D0D;
-  --glass-border: rgba(255,255,255,.10);
+  --glass-bg:     #000000;
+  --glass-border: rgba(255,255,255,.12);
   --line:         rgba(255,255,255,.12);
-  --line-soft:    rgba(255,255,255,.08);
+  --line-soft:    rgba(255,255,255,.07);
   --glass-shadow: none;
   --glow-a:       transparent;
   --glow-b:       transparent;
+
+  /* ── Design-system colour tokens ─────────────────────────────── */
+  --color-bg:           #000000;
+  --color-surface:      #000000;
+  --color-surface-muted:#000000;
+  --color-text:         #E7E9EA;
+  --color-text-muted:   #71767b;
+  --color-text-inverse: #000000;
+  --color-border:       rgba(255,255,255,.12);
+  --color-border-strong:rgba(255,255,255,.22);
+  --color-cta-primary:  #E7E9EA;
+  --color-cta-primary-hover: #d5d8da;
+  --color-cta-secondary-border: rgba(255,255,255,.22);
+  --color-danger:  #ff7186;
+  --color-success: #4cc38a;
+  --color-warning: #e0a23b;
+
+  /* ── Shadows ──────────────────────────────────────────────────── */
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.5);
+  --shadow-md: 0 8px 24px rgba(0,0,0,.7);
+  --shadow-lg: 0 24px 56px rgba(0,0,0,.85);
 }
 
 /* ================================================================
    BODY / APP SHELL
    ================================================================ */
 [data-theme="dark"] body {
-  background: var(--paper) !important;
+  background: #000000 !important;
   color: var(--ink);
+}
+
+[data-theme="dark"] html,
+[data-theme="dark"] #__next {
+  background: #000000;
 }
 
 [data-theme="dark"] .app-shell,
@@ -50,20 +84,19 @@
 [data-theme="dark"] .feed-area,
 [data-theme="dark"] .dash-main,
 [data-theme="dark"] .content-row {
-  background: var(--paper) !important;
+  background: #000000 !important;
 }
 
-/* Right rail & host rail sit on page background */
 [data-theme="dark"] .right-rail,
 [data-theme="dark"] .host-rail {
-  background: var(--paper) !important;
+  background: #000000 !important;
 }
 
 /* ================================================================
    SIDEBAR
    ================================================================ */
 [data-theme="dark"] .sidebar {
-  background: var(--white) !important;
+  background: #000000 !important;
   border-color: var(--line) !important;
 }
 
@@ -73,59 +106,46 @@
 
 /* ================================================================
    CARDS & PANELS
-   Cards use --white (raised surface) so they lift off --paper.
+   Feed cards: borderless with a subtle bottom separator.
    ================================================================ */
 [data-theme="dark"] .card,
 [data-theme="dark"] .stats-card,
 [data-theme="dark"] .listings-glance-card,
-[data-theme="dark"] .rail-card,
-[data-theme="dark"] .notif-panel-card,
-[data-theme="dark"] .property-news-card,
-[data-theme="dark"] .varoom-updates-card,
-[data-theme="dark"] .mobile-widget-card,
-[data-theme="dark"] .glance-tile {
-  background: var(--white) !important;
-  border-color: var(--card-border) !important;
-  box-shadow: none !important;
-}
-
-/* Feed cards: borderless with a subtle bottom separator */
-[data-theme="dark"] .card,
-[data-theme="dark"] .stats-card,
-[data-theme="dark"] .listings-glance-card,
 [data-theme="dark"] .mobile-widget-card {
+  background: transparent !important;
   border: 0 !important;
   border-bottom: 1px solid var(--line-soft) !important;
   border-radius: 0 !important;
+  box-shadow: none !important;
 }
 
-[data-theme="dark"] .card,
-[data-theme="dark"] .stats-card {
-  border-left: 0 !important;
-  border-right: 0 !important;
-}
-
-/* Rail panels */
 [data-theme="dark"] .rail-card,
 [data-theme="dark"] .notif-panel-card,
 [data-theme="dark"] .property-news-card,
 [data-theme="dark"] .varoom-updates-card {
-  border-bottom-color: var(--line) !important;
+  background: transparent !important;
+  border-color: var(--line) !important;
+  box-shadow: none !important;
+}
+
+[data-theme="dark"] .glance-tile {
+  background: transparent !important;
+  border-color: var(--line-soft) !important;
+  box-shadow: none !important;
 }
 
 /* ================================================================
    SEARCH
    ================================================================ */
 [data-theme="dark"] .search-wrap {
-  background: var(--white) !important;
-  outline: 1px solid rgba(196,30,58,.30) !important;
-  border: 0 !important;
-  box-shadow: 0 0 10px rgba(196,30,58,.12) !important;
+  background: transparent !important;
+  border: 1px solid var(--line) !important;
+  box-shadow: none !important;
 }
 
 [data-theme="dark"] .search-wrap:focus-within {
-  outline-color: var(--red) !important;
-  box-shadow: 0 0 0 2px rgba(196,30,58,.18), 0 0 14px rgba(196,30,58,.25) !important;
+  border-color: var(--red, #C41E3A) !important;
+  box-shadow: 0 0 0 2px rgba(196,30,58,.18) !important;
 }
 
 /* ================================================================
@@ -135,7 +155,7 @@
 [data-theme="dark"] input,
 [data-theme="dark"] textarea,
 [data-theme="dark"] select {
-  background-color: var(--input-bg);
+  background-color: #000000;
   color: var(--ink);
   border-color: var(--line);
 }
@@ -171,19 +191,18 @@
 
 [data-theme="dark"] .nav-item.active {
   background: rgba(196,30,58,.18) !important;
-  color: #F5EFEC !important;
+  color: #E7E9EA !important;
 }
 
 /* Active tabs keep the red fill */
 [data-theme="dark"] .tab.active,
 [data-theme="dark"] .tab[aria-selected="true"] {
-  background: var(--red) !important;
+  background: var(--red, #C41E3A) !important;
   color: #ffffff !important;
   border-color: transparent !important;
 }
 
-/* Notifications page surfaces use page-local aliases; map them to the same
-   warm contrast as Home instead of leaving light-mode values in dark mode. */
+/* Notifications page text */
 [data-theme="dark"] .main,
 [data-theme="dark"] .main-inner {
   color: var(--ink);
@@ -198,22 +217,21 @@
 }
 
 [data-theme="dark"] .icon-btn,
-[data-theme="dark"] .tabs,
 [data-theme="dark"] .toolbar-search,
 [data-theme="dark"] .card-list,
 [data-theme="dark"] .notif-card,
 [data-theme="dark"] .menu-toggle {
-  background: var(--white);
-  border-color: var(--line);
+  background: transparent !important;
+  border-color: var(--line) !important;
 }
 
 [data-theme="dark"] .notif-card {
-  border-bottom-color: var(--line-soft);
+  border-bottom-color: var(--line-soft) !important;
 }
 
 [data-theme="dark"] .notif-card:hover,
 [data-theme="dark"] .icon-btn:hover {
-  background: rgba(255,255,255,.06);
+  background: rgba(255,255,255,.06) !important;
 }
 
 [data-theme="dark"] .toolbar-search input {
@@ -246,18 +264,23 @@
 }
 
 [data-theme="dark"] .action-btn.primary {
-  background: var(--red);
-  border-color: var(--red);
+  background: var(--red, #C41E3A);
+  border-color: var(--red, #C41E3A);
   color: #ffffff;
 }
 
-[data-theme="dark"] .icon-btn,
-[data-theme="dark"] .toolbar-search,
-[data-theme="dark"] .card-list,
-[data-theme="dark"] .notif-card,
-[data-theme="dark"] .menu-toggle {
-  background: #151211 !important;
-  border-color: var(--line) !important;
+[data-theme="dark"] .notif-icon.tint-red,
+[data-theme="dark"] .notif-icon.tint-green,
+[data-theme="dark"] .notif-icon.tint-amber,
+[data-theme="dark"] .notif-icon.tint-black {
+  background: rgba(255,255,255,.06) !important;
+  color: var(--ink) !important;
+}
+
+[data-theme="dark"] .tag.booking {
+  background: rgba(255,255,255,.08) !important;
+  border: 1px solid var(--line-soft);
+  color: var(--ink) !important;
 }
 
 [data-theme="dark"] .icon-btn,
@@ -275,24 +298,6 @@
   color: #7ce7a3 !important;
 }
 
-[data-theme="dark"] .notif-card {
-  border-bottom-color: var(--line-soft) !important;
-}
-
-[data-theme="dark"] .notif-icon.tint-red,
-[data-theme="dark"] .notif-icon.tint-green,
-[data-theme="dark"] .notif-icon.tint-amber,
-[data-theme="dark"] .notif-icon.tint-black {
-  background: #0d0b0a !important;
-  color: var(--ink) !important;
-}
-
-[data-theme="dark"] .tag.booking {
-  background: rgba(255,255,255,.08) !important;
-  border: 1px solid var(--line-soft);
-  color: var(--ink) !important;
-}
-
 /* ================================================================
    TABS, BUTTONS, ACTION ROW
    ================================================================ */
@@ -300,20 +305,20 @@
 [data-theme="dark"] .secondary-btn,
 [data-theme="dark"] .action-btn,
 [data-theme="dark"] .report-cancel-btn {
-  background: var(--white) !important;
+  background: transparent !important;
   border: 1px solid var(--line) !important;
   color: var(--ink) !important;
 }
 
 [data-theme="dark"] .tab:hover,
 [data-theme="dark"] .action-btn:hover {
-  background: rgba(255,255,255,.08) !important;
+  background: rgba(255,255,255,.06) !important;
 }
 
 /* Primary buttons — red fill */
 [data-theme="dark"] .list-space-btn {
   border-color: rgba(196,30,58,.55);
-  color: var(--red);
+  color: var(--red, #C41E3A);
 }
 [data-theme="dark"] .list-space-btn:hover {
   background: rgba(196,30,58,.12);
@@ -322,7 +327,7 @@
 [data-theme="dark"] .list-btn-top,
 [data-theme="dark"] .list-btn-primary,
 [data-theme="dark"] .report-submit-btn {
-  background: var(--red);
+  background: var(--red, #C41E3A);
   color: #ffffff;
 }
 
@@ -362,7 +367,7 @@
    ================================================================ */
 [data-theme="dark"] .listings-glance-card .glance-tile.add-tile {
   border-color: var(--line) !important;
-  background: var(--paper) !important;
+  background: transparent !important;
 }
 
 [data-theme="dark"] .host-rail .listings-glance-card,
@@ -399,24 +404,23 @@
 }
 
 /* ================================================================
-   MODALS & DROPDOWNS
-   (Previously missing — caused invisible white-on-white text)
+   MODALS & DROPDOWNS — Floating surfaces get a raised tone
    ================================================================ */
 [data-theme="dark"] .modal-overlay {
-  background: rgba(0,0,0,.65);
+  background: rgba(0,0,0,.75);
 }
 
 [data-theme="dark"] .modal-card,
 [data-theme="dark"] .report-modal {
-  background: var(--white) !important;
+  background: var(--surface-elevated) !important;
   border: 1px solid var(--line);
   color: var(--ink);
 }
 
 [data-theme="dark"] .card-menu-dropdown {
-  background: var(--white) !important;
+  background: var(--surface-elevated) !important;
   border-color: var(--line) !important;
-  box-shadow: 0 12px 30px -10px rgba(0,0,0,.6) !important;
+  box-shadow: 0 12px 30px -10px rgba(0,0,0,.8) !important;
 }
 
 [data-theme="dark"] .card-menu-item {
@@ -424,7 +428,7 @@
 }
 
 [data-theme="dark"] .card-menu-item:hover {
-  background: rgba(255,255,255,.08);
+  background: rgba(255,255,255,.06);
 }
 
 [data-theme="dark"] .card-menu-item.destructive {
@@ -437,11 +441,10 @@
 }
 
 /* ================================================================
-   TOAST
-   (Previously invisible — white text on white background)
+   TOAST — floating, gets raised surface
    ================================================================ */
 [data-theme="dark"] .toast {
-  background: var(--white) !important;
+  background: var(--surface-elevated) !important;
   color: var(--ink) !important;
   border: 1px solid var(--line);
 }
@@ -451,12 +454,12 @@
    ================================================================ */
 [data-theme="dark"] .empty-state-card {
   border-color: var(--line) !important;
-  background: var(--white) !important;
+  background: transparent !important;
 }
 
 [data-theme="dark"] .property-news-empty-card,
 [data-theme="dark"] .client-property-news-empty-card {
-  background: var(--white) !important;
+  background: transparent !important;
 }
 
 [data-theme="dark"] .attention-icon {
@@ -492,7 +495,7 @@
 }
 
 [data-theme="dark"] .media-dot.active {
-  background: var(--red);
+  background: var(--red, #C41E3A);
 }
 
 /* ================================================================
@@ -511,9 +514,9 @@
    BOTTOM BAR (mobile)
    ================================================================ */
 [data-theme="dark"] .bottom-bar {
-  background: var(--white) !important;
+  background: #000000 !important;
   border-color: var(--line) !important;
-  box-shadow: 0 -4px 20px rgba(0,0,0,.4) !important;
+  box-shadow: 0 -4px 20px rgba(0,0,0,.6) !important;
 }
 
 [data-theme="dark"] .bottom-bar-item {
@@ -521,7 +524,7 @@
 }
 
 [data-theme="dark"] .bottom-bar-item.active {
-  background: var(--red) !important;
+  background: var(--red, #C41E3A) !important;
   color: #ffffff;
 }
 
@@ -543,7 +546,7 @@
 [data-theme="dark"] .skeleton-sidebar,
 [data-theme="dark"] .skeleton-main,
 [data-theme="dark"] .skeleton-rail {
-  background: var(--paper) !important;
+  background: #000000 !important;
   border-color: var(--line) !important;
 }
 
@@ -552,8 +555,8 @@
 [data-theme="dark"] .profile-panel,
 [data-theme="dark"] .skeleton-card,
 [data-theme="dark"] .skel-rail-card {
-  background: var(--white) !important;
-  border-color: var(--card-border) !important;
+  background: transparent !important;
+  border-color: var(--line-soft) !important;
   box-shadow: none !important;
 }
 
@@ -561,7 +564,7 @@
 [data-theme="dark"] .profile-wrap,
 [data-theme="dark"] .signup-aside,
 [data-theme="dark"] main {
-  background: var(--paper) !important;
+  background: #000000 !important;
 }
 
 [data-theme="dark"] .signup-aside {
@@ -573,8 +576,8 @@
    ================================================================ */
 [data-theme="dark"] .listing-card,
 [data-theme="dark"] .listing-menu ul {
-  background: var(--white) !important;
-  border-color: var(--card-border) !important;
+  background: transparent !important;
+  border-color: var(--line-soft) !important;
   box-shadow: none !important;
 }
 
@@ -592,7 +595,7 @@
 [data-theme="dark"] body.support-page-body,
 [data-theme="dark"] .support-page main,
 [data-theme="dark"] .support-page .topbar {
-  background: var(--bg) !important;
+  background: #000000 !important;
 }
 
 [data-theme="dark"] .support-page .topbar {
@@ -600,22 +603,22 @@
 }
 
 [data-theme="dark"] .support-page .search {
-  background: var(--white) !important;
+  background: rgba(255,255,255,.05) !important;
   border-color: var(--line) !important;
 }
 
 [data-theme="dark"] .support-page .action,
 [data-theme="dark"] .support-page .write-card,
 [data-theme="dark"] .support-page .article {
-  background: var(--white) !important;
-  border-color: var(--card-border) !important;
+  background: rgba(255,255,255,.03) !important;
+  border-color: var(--line-soft) !important;
   box-shadow: none !important;
 }
 
 [data-theme="dark"] .support-page .action-icon,
 [data-theme="dark"] .support-page .article-icon,
 [data-theme="dark"] .support-page .search button {
-  background: var(--white) !important;
+  background: rgba(255,255,255,.06) !important;
   border: 1px solid var(--line-soft);
 }
 
@@ -628,14 +631,19 @@
    ================================================================ */
 @media (max-width: 860px) {
   [data-theme="dark"] .topbar {
-    background: var(--white) !important;
+    background: rgba(0,0,0,.92) !important;
     backdrop-filter: blur(18px) saturate(140%);
     -webkit-backdrop-filter: blur(18px) saturate(140%);
   }
 
   [data-theme="dark"] .sidebar {
-    box-shadow: 0 0 40px rgba(0,0,0,.5) !important;
+    box-shadow: 0 0 40px rgba(0,0,0,.7) !important;
   }
+}
+
+@media (max-width: 860px) {
+  [data-theme="dark"] .topbar { backdrop-filter: none; -webkit-backdrop-filter: none; }
+  [data-theme="dark"] .sidebar { box-shadow: none !important; }
 }
 
 @media (max-width: 800px) {
@@ -643,15 +651,15 @@
   [data-theme="dark"] body.support-page-body,
   [data-theme="dark"] .support-page main,
   [data-theme="dark"] .support-page footer {
-    background: var(--bg) !important;
+    background: #000000 !important;
   }
 
   [data-theme="dark"] .support-page .search,
   [data-theme="dark"] .support-page .action,
   [data-theme="dark"] .support-page .write-card,
   [data-theme="dark"] .support-page .article {
-    background: var(--white) !important;
-    border-color: var(--card-border) !important;
+    background: rgba(255,255,255,.03) !important;
+    border-color: var(--line-soft) !important;
   }
 }
 
@@ -666,9 +674,10 @@
 }
 
 /* ================================================================
-   CONTINUOUS-CANVAS REFINEMENT
-   Keep the product's warm VaRoom palette and red accent, while making
-   the information architecture read through lines and rhythm.
+   CONTINUOUS-CANVAS SYSTEM
+   All structural shells share the same black canvas.
+   Structure comes from hairline dividers and whitespace—not from
+   stacked darker rectangles.
    ================================================================ */
 [data-theme="dark"] .sidebar,
 [data-theme="dark"] .topbar,
@@ -681,7 +690,7 @@
 [data-theme="dark"] .content,
 [data-theme="dark"] .content-area,
 [data-theme="dark"] .page-content {
-  background: var(--paper) !important;
+  background: #000000 !important;
   box-shadow: none !important;
 }
 
@@ -711,7 +720,7 @@
 [data-theme="dark"] .host-rail > *,
 [data-theme="dark"] .right-rail > * { margin-bottom: 0 !important; }
 
-/* Filters are controls, not a separate band of surface color. */
+/* Filters are controls, not a separate band of surface colour. */
 [data-theme="dark"] .tabs,
 [data-theme="dark"] .filter-bar,
 [data-theme="dark"] .category-bar,
@@ -739,7 +748,7 @@
   background: rgba(255,255,255,.055) !important;
 }
 
-/* Actual objects retain a quiet outline without becoming nested slabs. */
+/* Objects with quiet outlines — no nested slabs. */
 [data-theme="dark"] .listing-card,
 [data-theme="dark"] .notif-card,
 [data-theme="dark"] .profile-card,
@@ -760,7 +769,9 @@
   border-color: var(--line) !important;
 }
 
-/* Chat stays one continuous workspace; message bubbles remain semantic. */
+/* ================================================================
+   CHAT — one continuous black workspace
+   ================================================================ */
 [data-theme="dark"] .chat-shell,
 [data-theme="dark"] .chat-main,
 [data-theme="dark"] .contacts-panel,
@@ -768,15 +779,138 @@
 [data-theme="dark"] .chat-list,
 [data-theme="dark"] .chat-header,
 [data-theme="dark"] .chat-input-area {
-  background: var(--paper) !important;
+  background: #000000 !important;
   border-color: var(--line-soft) !important;
   box-shadow: none !important;
 }
 [data-theme="dark"] .contact-item { background: transparent !important; border-bottom-color: var(--line-soft) !important; }
 [data-theme="dark"] .msg-row.in .bubble { background: var(--surface-elevated) !important; }
 
+/* ================================================================
+   AUTHENTICATION & FORMS (login.html, signup, forgot-password)
+   ================================================================ */
+[data-theme="dark"] .form-panel {
+  background: #000000 !important;
+  color: var(--ink) !important;
+}
+
+[data-theme="dark"] .form-title {
+  color: #FFFFFF !important;
+}
+
+[data-theme="dark"] .btn-google {
+  background: #000000 !important;
+  border-color: var(--line) !important;
+  color: #FFFFFF !important;
+}
+
+[data-theme="dark"] .btn-google:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+[data-theme="dark"] .divider {
+  color: var(--muted) !important;
+}
+
+[data-theme="dark"] .field label {
+  color: var(--muted) !important;
+}
+
+[data-theme="dark"] .field input {
+  background: #000000 !important;
+  border-color: var(--line) !important;
+  color: #FFFFFF !important;
+}
+
+[data-theme="dark"] .field input:focus {
+  border-color: #FFFFFF !important;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.15) !important;
+}
+
+[data-theme="dark"] .btn-submit {
+  background: #EFF3F4 !important;
+  color: #0F1419 !important;
+}
+
+[data-theme="dark"] .btn-submit:hover {
+  background: #D7DBDC !important;
+}
+
+[data-theme="dark"] .toggle-pw {
+  color: var(--muted) !important;
+}
+
+[data-theme="dark"] .toggle-pw:hover {
+  color: #FFFFFF !important;
+}
+
+/* ================================================================
+   TRANSACTIONS (transactions.html)
+   ================================================================ */
+[data-theme="dark"] .tx-card {
+  background: transparent !important;
+  border-color: var(--line) !important;
+  color: var(--ink) !important;
+}
+
+[data-theme="dark"] .tx-bottom {
+  border-top-color: var(--line-soft) !important;
+  color: var(--muted) !important;
+}
+
+[data-theme="dark"] .tx-icon {
+  background: var(--surface-elevated) !important;
+  color: var(--red) !important;
+}
+
+/* ================================================================
+   MAP & LOCATION (map.html)
+   ================================================================ */
+[data-theme="dark"] .sheet {
+  background: #000000 !important;
+  border-top: 1px solid var(--line) !important;
+}
+
+[data-theme="dark"] .sheet-status {
+  background: var(--surface-elevated) !important;
+  color: var(--ink) !important;
+}
+
+[data-theme="dark"] .sheet-status.unlocked {
+  background: rgba(30, 107, 60, .2) !important;
+  color: #7cc99a !important;
+}
+
+[data-theme="dark"] .btn {
+  background: transparent !important;
+  border-color: var(--line) !important;
+  color: var(--ink) !important;
+}
+
+/* ================================================================
+   BOOKINGS & APPROVALS (booking.html, booking-approved.html)
+   ================================================================ */
+[data-theme="dark"] .booking-card,
+[data-theme="dark"] .booking-summary,
+[data-theme="dark"] .booking-box {
+  background: transparent !important;
+  border-color: var(--line) !important;
+}
+
+[data-theme="dark"] .hero {
+  border-color: var(--line-soft);
+}
+
+/* ================================================================
+   SECONDARY BUTTON LIGHT MODE — keep light-mode text readable
+   ================================================================ */
+.va-button-secondary,
+.va-button[data-variant='secondary'],
+.landing-cta-secondary {
+  color: #171717 !important;
+}
+
 @media (max-width: 860px) {
-  [data-theme="dark"] .topbar { backdrop-filter: none; -webkit-backdrop-filter: none; }
-  [data-theme="dark"] .sidebar { box-shadow: none !important; }
   [data-theme="dark"] .stats-row > .stat + .stat { padding-left: .75rem; }
 }
+

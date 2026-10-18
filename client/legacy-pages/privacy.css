@@ -9,6 +9,12 @@
   overflow-x: hidden;
 }
 
+[data-theme="dark"] .pp-root {
+  --pp-bg: #000000;
+  --pp-text: #FFFFFF;
+  --pp-muted: #71767b;
+}
+
 /* Hero: always black, curved into the page background */
 .pp-hero {
   position: relative;

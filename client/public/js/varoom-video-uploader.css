@@ -208,7 +208,7 @@
 
 /* Dark theme support */
 [data-theme="dark"] .video-uploader-input-zone {
-  background: var(--white, #241C1A);
+  background: var(--white, #000000);
   border-color: rgba(196, 30, 58, 0.2);
 }
 
@@ -217,7 +217,7 @@
 }
 
 [data-theme="dark"] .upload-item {
-  background: var(--white, #241C1A);
+  background: var(--white, #000000);
   border-color: rgba(196, 30, 58, 0.2);
 }
 

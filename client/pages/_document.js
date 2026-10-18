@@ -22,7 +22,7 @@ export default function Document() {
     <Html lang="en">
       <Head>
         <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
-        <style>{`html{background:#F7F6F3;color-scheme:light}html[data-theme="dark"]{background:#15100F;color-scheme:dark}body{margin:0;background:#F7F6F3}html[data-theme="dark"] body{background:#15100F}`}</style>
+        <style>{`html{background:#FFFFFF;color-scheme:light}html[data-theme="dark"]{background:#000000;color-scheme:dark}body{margin:0;background:#FFFFFF}html[data-theme="dark"] body{background:#000000}`}</style>
       </Head>
       <body>
         <Main />

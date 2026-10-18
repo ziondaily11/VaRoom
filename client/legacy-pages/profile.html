@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -37,8 +37,8 @@
     --shell-bg:rgba(255,255,255,0.96); --sidebar-bg:#ffffff; --main-bg:#F7F6F3; --rail-bg:#FFFFFF; --card-bg:#ffffff;
   }
   [data-theme="dark"]{
-    --white:#FFFFFF; --paper:#15100f; --ink:#f2ece9; --muted:#a89f9b; --card-border:rgba(255,255,255,.1); --nav-active-bg:#302C2A;
-    --shell-bg:#1c1716; --sidebar-bg:#1c1716; --main-bg:#171313; --rail-bg:#171313; --card-bg:#241d1c;
+    --white:#000000; --paper:#000000; --ink:#E7E9EA; --muted:#71767b; --card-border:rgba(255,255,255,.12); --nav-active-bg:rgba(255,255,255,.06);
+    --shell-bg:#000000; --sidebar-bg:#000000; --main-bg:#000000; --rail-bg:#000000; --card-bg:#000000;
   }
   *{ margin:0; padding:0; box-sizing:border-box; }
   a{ color:inherit; text-decoration:none; }
@@ -79,7 +79,7 @@
     padding:18px 12px 14px; display:flex; flex-direction:column; gap:18px;
   }
   html[data-account-role="host"] .skeleton-sidebar{ background:#fff; }
-  html[data-theme="dark"][data-account-role="host"] .skeleton-sidebar{ background:#241C1A; }
+  html[data-theme="dark"][data-account-role="host"] .skeleton-sidebar{ background:#000000; }
   html[data-account-role="pending"] .skeleton-sidebar,
   html[data-account-role="pending"] .profile-sidebar{ visibility:hidden; }
   .skeleton-sidebar-group{ display:flex; flex-direction:column; gap:8px; }

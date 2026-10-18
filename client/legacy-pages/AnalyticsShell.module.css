@@ -5,7 +5,7 @@
   height: 100dvh;
   min-height: 0;
   overflow: hidden;
-  background: #fff;
+  background: var(--color-bg, #fff);
 }
 
 .sidebar {
@@ -17,8 +17,8 @@
   min-width: 76px !important;
   padding: 1.1rem .45rem !important;
   gap: .65rem !important;
-  background: #fff;
-  border-right: 1px solid #e4e1da;
+  background: var(--color-bg, #fff);
+  border-right: 1px solid var(--color-border, #e4e1da);
 }
 
 .sidebar :global(.logo) {

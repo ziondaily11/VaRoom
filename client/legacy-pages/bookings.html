@@ -42,7 +42,7 @@
     --line-soft:#E4E1DA;
   }
   [data-theme="dark"]{
-    --white:#241C1A; --paper:#15100F; --ink:#F5EFEC; --muted:#B8ACA8; --nav-active-bg:#302C2A;
+    --white:#000000; --paper:#000000; --ink:#E7E9EA; --muted:#71767b; --nav-active-bg:rgba(255,255,255,.06);
     --glass-bg:rgba(28,20,18,.55);
     --glass-border:rgba(255,255,255,.09);
     --glass-shadow:0 24px 55px rgba(0,0,0,.5);
@@ -97,7 +97,7 @@
   }
   html[data-theme="dark"][data-account-role="host"] #sidebar,
   [data-theme="dark"] .sidebar.sidebar-host{
-    --host-control-active:#302C2A; --host-control-hover:#25211F; --host-sidebar-line:rgba(255,255,255,.12);
+    --host-control-active:rgba(255,255,255,.1); --host-control-hover:rgba(255,255,255,.06); --host-sidebar-line:rgba(255,255,255,.12);
   }
   :is(html[data-account-role="host"] #sidebar, .sidebar.sidebar-host) .beta-pill{ color:var(--ink); }
   :is(html[data-account-role="host"] #sidebar, .sidebar.sidebar-host) .beta-pill{ background:var(--host-control-active) !important; border-color:var(--host-sidebar-line); }
