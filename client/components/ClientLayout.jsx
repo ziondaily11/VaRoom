@@ -97,7 +97,15 @@ const clientLayoutStyles = `
     font-family: inherit;
   }
   .client-app-layout .nav-item:hover { background: var(--control-hover, var(--layout-control-hover)); }
-  .client-app-layout .nav-item.active { background: var(--control-active, var(--layout-control-active)); color: var(--ink, var(--layout-ink)); font-weight: 700; }
+  .client-app-layout .nav-item.active {
+    background: var(--control-active, var(--layout-control-active)) !important;
+    color: var(--ink, var(--layout-ink)) !important;
+    font-weight: 700 !important;
+    border: none !important;
+  }
+  .client-app-layout .nav-item.active svg {
+    color: var(--ink, var(--layout-ink)) !important;
+  }
   .client-app-layout .nav-item svg { width: 20px; height: 20px; flex-shrink: 0; }
 
   .client-app-layout .notif-nav-badge {
@@ -105,6 +113,10 @@ const clientLayoutStyles = `
     padding: 0 5px; border-radius: 999px; background: var(--red, #C41E3A); color: #fff;
     transform: translateY(-50%);
     display: flex; align-items: center; justify-content: center; font-size: .65rem; font-weight: 700; line-height: 1;
+  }
+  .client-app-layout .nav-item.active .notif-nav-badge {
+    background: var(--nav-badge-bg, var(--layout-control-active)) !important;
+    color: var(--nav-badge-color, var(--ink, var(--layout-ink))) !important;
   }
 
   /* Account menu popover */

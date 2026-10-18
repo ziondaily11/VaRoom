@@ -33,6 +33,9 @@
   /* ── Text ─────────────────────────────────────────────────────── */
   --ink:   #E7E9EA;                    /* primary text                      */
   --muted: #71767b;                    /* secondary / supporting text       */
+  --nav-active-bg:   rgba(255, 255, 255, 0.14);
+  --nav-badge-bg:    #2f3336;
+  --nav-badge-color: #E7E9EA;
 
   /* ── Structural ───────────────────────────────────────────────── */
   --glass-bg:     #000000;
@@ -189,9 +192,27 @@
   color: var(--ink);
 }
 
-[data-theme="dark"] .nav-item.active {
-  background: rgba(196,30,58,.18) !important;
-  color: #E7E9EA !important;
+[data-theme="dark"] .nav-item.active,
+[data-theme="dark"] .sidebar .nav-item.active,
+[data-theme="dark"] .host-app-layout .nav-item.active,
+[data-theme="dark"] .client-app-layout .nav-item.active {
+  background: var(--nav-active-bg, var(--control-active, rgba(255, 255, 255, 0.14))) !important;
+  color: var(--ink, #E7E9EA) !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+[data-theme="dark"] .nav-item.active svg,
+[data-theme="dark"] .nav-item.active .nav-icon {
+  color: var(--ink, #E7E9EA) !important;
+  stroke: currentColor;
+}
+
+[data-theme="dark"] .nav-item.active .beta-pill,
+[data-theme="dark"] .nav-item.active .notif-nav-badge {
+  background: var(--nav-badge-bg, #2f3336) !important;
+  color: var(--nav-badge-color, #E7E9EA) !important;
+  border-color: transparent !important;
 }
 
 /* Active tabs keep the red fill */

@@ -48,7 +48,7 @@
     --glass-shadow:0 24px 55px #E4E1DA;
   }
   [data-theme="dark"]{
-    --white:#000000; --paper:#000000; --ink:#E7E9EA; --muted:#71767b; --line:rgba(255,255,255,.12); --nav-active-bg:rgba(255,255,255,.06);
+    --white:#000000; --paper:#000000; --ink:#E7E9EA; --muted:#71767b; --line:rgba(255,255,255,.12); --nav-active-bg:rgba(255,255,255,.14);
     --glass-bg:#000000;
     --glass-border:rgba(255,255,255,.14);
     --glass-shadow:none;
@@ -108,7 +108,7 @@
   #sidebar-host::-webkit-scrollbar{ display:none; }
 
   .elie-logo-nav{ width:22px; height:22px; object-fit:contain; flex-shrink:0; }
-  .beta-pill{ margin-left:auto; font-size:.68rem; font-weight:600; background:#FBE4E7; color:var(--red-deep); padding:.15rem .5rem; border-radius:100px; }
+  .beta-pill{ margin-left:auto; font-size:.68rem; font-weight:600; background:var(--nav-badge-bg, #E9E7E2); color:var(--ink); padding:.15rem .5rem; border-radius:100px; }
   .nav-group{ display:flex; flex-direction:column; gap:.2rem; }
   .nav-group + .nav-group{ border-top:1px solid var(--line); padding-top:1.2rem; }
   .nav-label{ font-size:.72rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); padding:.6rem .6rem .3rem; }
@@ -120,7 +120,8 @@
     cursor:pointer; width:100%; text-align:left; font-family:inherit;
   }
   .nav-item:hover{ background:var(--paper); }
-  .nav-item.active{ background:var(--nav-active-bg); color:var(--ink); font-weight:600; }
+  .nav-item.active{ background:var(--nav-active-bg, #E9E7E2) !important; color:var(--ink) !important; font-weight:600; border:none; }
+  .nav-item.active svg{ color:var(--ink); stroke:currentColor; }
   .nav-item svg{ width:19px; height:19px; flex-shrink:0; }
   #sidebar-host.sidebar{
     --white:#FFFFFF; --ink:#24211E; --muted:#5c584f;
