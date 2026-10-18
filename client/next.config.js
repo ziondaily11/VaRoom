@@ -16,6 +16,16 @@ module.exports = {
         permanent: true,
       },
       {
+        source: '/terms.html',
+        destination: '/terms',
+        permanent: true,
+      },
+      {
+        source: '/legacy-pages/terms.html',
+        destination: '/terms',
+        permanent: true,
+      },
+      {
         source: '/login',
         destination: '/?auth=login',
         permanent: true,

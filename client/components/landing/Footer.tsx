@@ -50,8 +50,8 @@ export const Footer: React.FC<FooterProps> = ({ onTryElie }) => {
           <nav className={styles.column} aria-label="Legal and safety">
             <h2>Legal &amp; Safety</h2>
             <ul>
-              <li><Link href="/privacy">Privacy</Link></li>
-              <li><Link href="/terms">Terms</Link></li>
+              <li><Link href="/privacy" target="_blank" rel="noopener noreferrer">Privacy</Link></li>
+              <li><Link href="/terms" target="_blank" rel="noopener noreferrer">Terms</Link></li>
               <li><Link href="/cookies">Cookies Policy</Link></li>
             </ul>
           </nav>
