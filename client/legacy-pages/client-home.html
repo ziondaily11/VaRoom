@@ -888,7 +888,7 @@
   html[data-theme="light"] .nav-group + .nav-group{ border-top-color:#BBBFC2; }
   /* Tabs and search */
   html[data-theme="light"] .tab{ border-color:#BBBFC2; font-weight:600; color:#0F1419; }
-  html[data-theme="light"] .search-wrap{ outline-color:#BBBFC2 !important; }
+  html[data-theme="light"] .search-wrap{ border-color:#BBBFC2 !important; outline:none !important; }
 </style>
 <link rel="stylesheet" href="js/varoom-dark-theme.css">
 <style>
@@ -942,15 +942,35 @@
 
   .search-wrap,
   [data-theme="dark"] .search-wrap{
-    background:var(--client-control-bg) !important;
-    outline:1px solid var(--line) !important;
-    border:0 !important;
+    background:#000000 !important;
+    border:1px solid rgba(255,255,255,.22) !important;
+    outline:none !important;
     box-shadow:none !important;
+  }
+  .search-wrap input,
+  [data-theme="dark"] .search-wrap input{
+    background:transparent !important;
+    background-color:transparent !important;
+    border:none !important;
+    outline:none !important;
+    box-shadow:none !important;
+    color:var(--ink) !important;
   }
   .search-wrap:focus-within,
   [data-theme="dark"] .search-wrap:focus-within{
-    outline-color:var(--client-neutral-icon) !important;
-    box-shadow:0 0 0 2px color-mix(in srgb, var(--client-neutral-icon) 20%, transparent) !important;
+    border-color:rgba(255,255,255,.45) !important;
+    outline:none !important;
+    box-shadow:0 0 0 2px rgba(255,255,255,.12) !important;
+  }
+  html[data-theme="light"] .search-wrap{
+    background:#FFFFFF !important;
+    border:1px solid #BBBFC2 !important;
+    outline:none !important;
+  }
+  html[data-theme="light"] .search-wrap:focus-within{
+    border-color:#5C584F !important;
+    outline:none !important;
+    box-shadow:0 0 0 2px rgba(92,88,79,.15) !important;
   }
   .search-btn:hover{ color:var(--ink); }
 
