@@ -19,16 +19,16 @@
 }
 
 [data-theme="dark"] {
-  --white: #241C1A;
-  --paper: #15100F;
-  --ink: #F5EFEC;
-  --nav-active-bg: #302C2A;
-  --nav-badge-bg: #484441;
-  --nav-badge-color: #F5EFEC;
-  --muted: #B8ACA8;
-  --glass-bg: rgba(28, 20, 18, .55);
-  --glass-border: rgba(255, 255, 255, .09);
-  --glass-shadow: 0 24px 55px rgba(0, 0, 0, .5);
+  --white: #000000;
+  --paper: #000000;
+  --ink: #E7E9EA;
+  --nav-active-bg: rgba(255, 255, 255, .06);
+  --nav-badge-bg: #2f3336;
+  --nav-badge-color: #E7E9EA;
+  --muted: #71767b;
+  --glass-bg: rgba(0, 0, 0, .85);
+  --glass-border: rgba(255, 255, 255, .12);
+  --glass-shadow: none;
   --line: rgba(255, 255, 255, .12);
   --line-soft: rgba(255, 255, 255, .07);
 }

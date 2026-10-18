@@ -5,6 +5,7 @@ module.exports = {
     './components/**/*.{js,jsx,ts,tsx}',
     './legacy-pages/**/*.{js,jsx,ts,tsx,html}',
   ],
+  darkMode: ['selector', '[data-theme="dark"]'],
   corePlugins: {
     preflight: false,
   },

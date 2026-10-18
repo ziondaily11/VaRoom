@@ -1,4 +1,4 @@
-/* Skeleton Loading System */
+﻿/* Skeleton Loading System */
 
 .skeleton {
   position: relative;
@@ -328,11 +328,11 @@
 
 /* Dark theme support */
 [data-theme="dark"] .skeleton {
-  background: var(--white, #241c1a);
+  background: var(--white, #000000);
 }
 
 [data-theme="dark"] .skeleton-card {
-  background: var(--white, #241c1a);
+  background: var(--white, #000000);
 }
 
 [data-theme="dark"] .skeleton-line,
@@ -361,7 +361,7 @@
 
 [data-theme="dark"] .skeleton-booking-card,
 [data-theme="dark"] .skeleton-chat-item {
-  background: var(--white, #241c1a);
+  background: var(--white, #000000);
 }
 
 /* Responsive adjustments */

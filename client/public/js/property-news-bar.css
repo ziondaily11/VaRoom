@@ -1,4 +1,4 @@
-/* Property News Bar Component Styles */
+﻿/* Property News Bar Component Styles */
 
 .property-news-bar {
   background: var(--white, #171717);
@@ -228,35 +228,35 @@
 
 /* Dark theme support */
 [data-theme="dark"] .property-news-bar {
-  background: var(--white, #241C1A);
+  background: var(--white, #000000);
   border-color: rgba(245, 239, 236, 0.1);
 }
 
 [data-theme="dark"] .property-news-bar-item:hover {
-  background: var(--paper, #15100F);
+  background: var(--paper, #000000);
 }
 
 [data-theme="dark"] .property-news-bar-refresh:hover {
-  background: var(--paper, #15100F);
-  color: var(--ink, #F5EFEC);
+  background: var(--paper, #000000);
+  color: var(--ink, #FFFFFF);
 }
 
 [data-theme="dark"] .property-news-loading,
 [data-theme="dark"] .property-news-empty {
-  color: var(--muted, #B8ACA8);
+  color: var(--muted, #71767b);
 }
 
 [data-theme="dark"] .property-news-empty-card {
-  background: var(--paper, #15100F);
+  background: var(--paper, #000000);
   border-color: rgba(245, 239, 236, 0.08);
 }
 
 [data-theme="dark"] .property-news-empty-title {
-  color: var(--ink, #F5EFEC);
+  color: var(--ink, #FFFFFF);
 }
 
 [data-theme="dark"] .property-news-empty-desc {
-  color: var(--muted, #B8ACA8);
+  color: var(--muted, #71767b);
 }
 
 [data-theme="dark"] .property-news-empty-badge {

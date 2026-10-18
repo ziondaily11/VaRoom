@@ -1,18 +1,16 @@
 @tailwind utilities;
 
 [data-theme="dark"] .admin-dashboard {
-  /* Deliberately separate the three surfaces. The prior near-black values
-     caused cards, navigation, borders and chart data to collapse together. */
-  --admin-surface: #201B1A;
-  --admin-canvas: #120F0F;
-  --admin-raised: #2B2523;
-  --admin-ink: #FFF9F6;
-  --admin-muted: #D7CCC6;
-  --admin-subtle: #B8AAA3;
-  --admin-line: #5D514C;
-  --admin-focus: #72D4B8;
-  --admin-success: #35A487;
-  --admin-danger: #FF947F;
+  --admin-surface: #000000;
+  --admin-canvas: #000000;
+  --admin-raised: #16181c;
+  --admin-ink: #FFFFFF;
+  --admin-muted: #71767b;
+  --admin-subtle: #71767b;
+  --admin-line: #2f3336;
+  --admin-focus: #00ba7c;
+  --admin-success: #00ba7c;
+  --admin-danger: #f4212e;
   background: var(--admin-canvas) !important;
   color: var(--admin-ink) !important;
 }
@@ -51,12 +49,12 @@
 /* Important status and primary actions need a solid, not translucent, fill. */
 [data-theme="dark"] .admin-dashboard [class*="bg-[#1F6F5C]"] {
   background-color: var(--admin-success) !important;
-  color: #071C16 !important;
+  color: #000000 !important;
 }
 
 [data-theme="dark"] .admin-dashboard [class*="bg-[#B5482E]"] {
-  background-color: #C95440 !important;
-  color: #FFF9F6 !important;
+  background-color: #bd2337 !important;
+  color: #FFFFFF !important;
 }
 
 [data-theme="dark"] .admin-dashboard [class*="bg-[#24211E]"] {
@@ -72,24 +70,22 @@
 [data-theme="dark"] .admin-dashboard input:focus-visible,
 [data-theme="dark"] .admin-dashboard textarea:focus-visible,
 [data-theme="dark"] .admin-dashboard select:focus-visible {
-  outline: 3px solid var(--admin-focus);
+  outline: 2px solid var(--admin-focus);
   outline-offset: 2px;
 }
 
-/* The logout button was picking up a low-contrast browser/theme fill. */
 [data-theme="dark"] .admin-dashboard aside > button {
   background: var(--admin-raised);
   color: var(--admin-ink) !important;
 }
 
 [data-theme="dark"] .admin-dashboard aside > button:hover {
-  background: #3A322F;
+  background: rgba(255, 255, 255, 0.1);
 }
 
-/* Recharts uses SVG presentation attributes, so it needs explicit dark-mode
-   values rather than inheriting the light palette embedded in the component. */
+/* Recharts uses SVG presentation attributes */
 [data-theme="dark"] .admin-dashboard .recharts-cartesian-grid line {
-  stroke: #756761 !important;
+  stroke: #2f3336 !important;
 }
 
 [data-theme="dark"] .admin-dashboard .recharts-cartesian-axis-tick-value,
@@ -115,7 +111,7 @@
 
 [data-theme="dark"] .admin-dashboard ::selection {
   background: var(--admin-success);
-  color: #071C16;
+  color: #000000;
 }
 
 [data-theme="dark"] .admin-dashboard input,

@@ -28,15 +28,15 @@ const hostLayoutStyles = `
 
   html[data-theme="dark"] .host-app-layout {
     --layout-bg: #000000;
-    --layout-ink: #E7E9EA;
+    --layout-ink: #FFFFFF;
     --layout-muted: #71767b;
     --layout-line: #2f3336;
     --layout-line-soft: #202327;
     --layout-control-hover: rgba(239, 243, 244, 0.1);
-    --layout-control-active: #2f3336;
-    --layout-popover-bg: #16181c;
-    --layout-popover-border: rgba(255, 255, 255, 0.12);
-    --layout-popover-shadow: 0 16px 48px -8px rgba(0, 0, 0, 0.65);
+    --layout-control-active: rgba(239, 243, 244, 0.15);
+    --layout-popover-bg: #000000;
+    --layout-popover-border: #2f3336;
+    --layout-popover-shadow: 0 16px 48px -8px rgba(0, 0, 0, 0.85);
   }
 
   .host-page-content {
@@ -218,7 +218,7 @@ const hostLayoutStyles = `
     .host-page-content { height: auto; overflow: visible; }
     .host-app-layout > .sidebar {
       position: fixed; inset: 0 auto 0 0; width: 80vw; max-width: 360px; height: 100vh; margin: 0;
-      background: var(--paper, #15100F); border-radius: 0; z-index: 200;
+      background: var(--paper, var(--layout-bg)); border-radius: 0; z-index: 200;
       transform: translateX(-100%); transition: transform .25s ease;
       box-shadow: 0 0 40px rgba(26, 18, 16, .25);
     }

@@ -261,8 +261,30 @@ const designTokensStyle = `
     }
   }
 
+  html[data-theme="dark"] {
+    --color-bg: #000000;
+    --color-surface: #000000;
+    --color-surface-muted: #000000;
+    --color-text: #E7E9EA;
+    --color-text-muted: #71767b;
+    --color-text-inverse: #000000;
+    --color-border: rgba(255, 255, 255, 0.12);
+    --color-border-strong: rgba(255, 255, 255, 0.22);
+    --color-primary: #e0425e;
+    --color-primary-hover: #ff6b81;
+    --color-cta-primary: #E7E9EA;
+    --color-cta-primary-hover: #d5d8da;
+    --color-cta-secondary-border: rgba(255, 255, 255, 0.22);
+    --color-danger: #ff7186;
+    --color-success: #4cc38a;
+    --color-warning: #e0a23b;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+    --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.7);
+    --shadow-lg: 0 24px 56px rgba(0, 0, 0, 0.85);
+  }
+
   html[data-theme="dark"], html[data-theme="dark"] body, html[data-theme="dark"] #__next {
-    background: #15100F;
+    background: #000000;
   }
 `;
 
