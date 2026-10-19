@@ -930,6 +930,7 @@
   let publishInProgress = false;
   let preparedPaymentListingId = null;
   let listingPaymentVerified = false;
+  let returnedListingPaymentVerified = false;
   let hasCurrentListingFee = false;
   let nicheEntitlementChecked = false;
   let listingIsPaused = false;
@@ -1200,6 +1201,33 @@
       hostNiche = hostNiches[0];
     }
 
+    const returnedListingPayment = new URLSearchParams(window.location.search);
+    if (returnedListingPayment.get('payment') === 'verified') {
+      const reference = returnedListingPayment.get('reference');
+      if (reference) {
+        try {
+          const paymentResponse = await fetch('/api/billing/payments/' + encodeURIComponent(reference), {
+            headers: { Authorization: 'Bearer ' + session.access_token },
+          });
+          const paymentResult = await paymentResponse.json().catch(function(){ return {}; });
+          const payment = paymentResult.payment;
+          if (paymentResponse.ok && payment && payment.status === 'succeeded'
+              && payment.payment_kind === 'listing' && payment.listing_id) {
+            // A payment query parameter alone grants nothing. This state is
+            // set only after the server verifies the Paystack transaction.
+            listingPaymentVerified = true;
+            returnedListingPaymentVerified = true;
+            hasCurrentListingFee = true;
+            preparedPaymentListingId = payment.listing_id;
+          } else if (payment && ['failed', 'abandoned', 'refunded'].includes(payment.status)) {
+            showPaymentMessage('Payment was not completed. Your listing has not been published; you can retry checkout.', true);
+          }
+        } catch (error) {
+          console.warn('Listing payment return verification is temporarily unavailable:', error);
+        }
+      }
+    }
+
     if (['property', 'office', 'shop'].includes(hostNiche)) {
       try {
         const entitlementResponse = await fetch('/api/billing/entitlements', { headers: { Authorization: 'Bearer ' + session.access_token } });
@@ -1228,7 +1256,7 @@
     configureCategory(hostNiche);
   if (!editMode) await restoreListingDraftAfterUpgrade(currentUser.id);
   const needsListingPayment = ['property', 'office', 'shop'].includes(hostNiche)
-    && !hasActiveNichePlan && !(editMode && hasCurrentListingFee);
+    && !hasActiveNichePlan && !listingPaymentVerified && !(editMode && hasCurrentListingFee);
   if (needsListingPayment && nicheEntitlementChecked) {
     document.getElementById('pay-to-list-btn').hidden = false;
     document.getElementById('go-pro-btn').hidden = false;
@@ -1253,6 +1281,9 @@
     }
     checkingAuth.style.display = 'none';
     listingPage.style.display = 'block';
+    if (returnedListingPaymentVerified) {
+      showPaymentMessage('Payment confirmed. Review your listing, then select Publish Listing when you are ready.', false);
+    }
     const paymentReturnParams = new URLSearchParams(window.location.search);
     if (paymentReturnParams.get('payment') === 'return' && (!window.opener || window.opener.closed)) {
       const reference = paymentReturnParams.get('reference');
@@ -1269,7 +1300,7 @@
             console.warn('Listing payment return verification is temporarily unavailable:', error);
           }
           if (payment && payment.status === 'succeeded' && payment.listing_id) {
-            window.location.replace('/list?edit=' + encodeURIComponent(payment.listing_id) + '&payment=verified');
+            window.location.replace('/list?payment=verified&reference=' + encodeURIComponent(reference));
             return;
           }
           if (payment && ['failed', 'abandoned', 'refunded'].includes(payment.status)) break;
@@ -2745,14 +2776,6 @@
       if (!validateStep(step)) { goToStep(step); return; }
     }
 
-    // Open synchronously from the button click so browser popup blockers do
-    // not interrupt checkout. Keeping the wizard tab alive preserves selected
-    // media until Paystack confirms the one-time payment.
-    const checkoutWindow = window.open('about:blank', 'varoom-listing-payment');
-    if (!checkoutWindow) {
-      showPaymentMessage('Allow the Paystack checkout window to open, then try again.', true);
-      return;
-    }
     paymentFlowInProgress = true;
     const payButton = document.getElementById('pay-to-list-btn');
     const proButton = document.getElementById('go-pro-btn');
@@ -2778,71 +2801,13 @@
       if (!checkoutResponse.ok || !checkout.authorization_url || !checkout.reference) {
         throw new Error(checkout.error || 'Unable to start Paystack checkout.');
       }
-      checkoutWindow.location.assign(checkout.authorization_url);
-      payButton.textContent = 'Waiting for payment…';
-      showPaymentMessage('Complete the KSh 1,000 payment in the Paystack window. Your listing will publish only after VaRoom verifies the payment.', false);
-
-      async function readVerifiedPayment(){
-        let response;
-        try {
-          response = await fetch('/api/billing/payments/' + encodeURIComponent(checkout.reference), {
-            headers: { Authorization: 'Bearer ' + session.access_token },
-          });
-        } catch (error) {
-          console.warn('Listing payment status is temporarily unavailable:', error);
-          return null;
-        }
-        const result = await response.json().catch(function(){ return {}; });
-        if (response.status === 401 || response.status === 403) {
-          throw new Error('Your session expired. Sign in again to check this payment.');
-        }
-        if (!response.ok) {
-          console.warn('Listing payment verification is still pending:', result.error || response.status);
-          return null;
-        }
-        return result.payment || null;
-      }
-
-      let paid = false;
-      let paymentStatus = null;
-      let closedPopupAttempts = 0;
-      for (let attempt = 0; attempt < 180; attempt++) {
-        if (checkoutWindow.closed) {
-          closedPopupAttempts++;
-          if (closedPopupAttempts >= 30) break;
-        }
-        await new Promise(function(resolve){ setTimeout(resolve, 2000); });
-        const payment = await readVerifiedPayment();
-        if (!payment) continue;
-        paymentStatus = payment.status;
-        if (payment.status === 'succeeded') { paid = true; break; }
-        if (['failed', 'abandoned', 'refunded'].includes(payment.status)) break;
-      }
-      if (!paid) {
-        // Paystack's callback can close the popup before the last poll runs.
-        const finalPayment = await readVerifiedPayment();
-        paymentStatus = finalPayment && finalPayment.status || paymentStatus;
-        paid = Boolean(finalPayment && finalPayment.status === 'succeeded');
-      }
-      if (!paid && ['failed', 'abandoned', 'refunded'].includes(paymentStatus)) {
-        throw new Error('Payment was not completed. You can retry when ready.');
-      }
-      if (!paid) {
-        showPaymentMessage('Payment is still being verified. Your listing has not been published. You can safely check again or retry checkout; VaRoom will publish only after server verification.', false);
-        return;
-      }
-
-      listingPaymentVerified = true;
-      paymentFlowInProgress = false;
-      if (!checkoutWindow.closed) checkoutWindow.close();
-      payButton.hidden = true;
-      proButton.hidden = true;
-      submitButton.hidden = false;
-      submitButton.disabled = false;
-      submitButton.innerHTML = 'Publish Listing <span>✓</span>';
-      showPaymentMessage('Payment confirmed. Review your listing, then select Publish Listing when you are ready.', false);
+      payButton.textContent = 'Opening secure checkout…';
+      showPaymentMessage('Opening secure Paystack checkout. Your listing remains a saved draft until payment is verified and you select Publish Listing.', false);
+      // The draft, including selected files, has already been saved above.
+      // Use the main tab so browsers cannot terminate an async popup. Paystack
+      // returns to /list, where VaRoom verifies the reference server-side.
+      window.location.assign(checkout.authorization_url);
     } catch (error) {
-      if (!checkoutWindow.closed) checkoutWindow.close();
       showPaymentMessage(error.message || 'Unable to start payment. Please try again.', true);
     } finally {
       paymentFlowInProgress = false;

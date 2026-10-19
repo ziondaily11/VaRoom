@@ -28,25 +28,23 @@ test('review payment actions are non-submit buttons with independent handlers', 
   assert.doesNotMatch(payClickHandler, /requestSubmit|\/pricing/);
 });
 
-test('one-time checkout verifies payment before returning the host to the review page to publish', () => {
+test('one-time checkout uses same-tab Paystack navigation and returns only after server verification', () => {
   const flowStart = listingPage.indexOf('async function startPayToListFlow()');
   const flowEnd = listingPage.indexOf("document.getElementById('pay-to-list-btn').addEventListener", flowStart);
   const flow = listingPage.slice(flowStart, flowEnd);
-  const verifyIndex = flow.indexOf("payment.status === 'succeeded'");
-  const publishButtonIndex = flow.indexOf("submitButton.innerHTML = 'Publish Listing <span>✓</span>'");
-
   assert.match(flow, /\/api\/billing\/listing-checkout/);
-  assert.match(flow, /\/api\/billing\/payments\//);
   assert.match(listingPage, /payment_draft: true/);
   assert.doesNotMatch(flow, /uploadVideoToR2|storage\.from\('listing-photos'\)\.upload/);
   assert.match(flow, /paymentFlowInProgress \|\| publishInProgress/);
-  assert.ok(verifyIndex >= 0 && publishButtonIndex > verifyIndex, 'the publish button must appear only after server-confirmed payment');
-  assert.doesNotMatch(flow, /requestSubmit\(\)/, 'confirmed payment must not publish without a host action');
-  assert.match(flow, /Payment confirmed\. Review your listing, then select Publish Listing/);
-  assert.match(flow, /closedPopupAttempts/);
-  assert.doesNotMatch(flow, /if \(checkoutWindow\.closed\) break/);
-  assert.match(flow, /Payment is still being verified/);
-  assert.match(flow, /\['failed', 'abandoned', 'refunded'\]\.includes\(paymentStatus\)/);
+  assert.match(flow, /window\.location\.assign\(checkout\.authorization_url\)/);
+  assert.doesNotMatch(flow, /window\.open|checkoutWindow|requestSubmit\(\)/,
+    'checkout must not depend on an async popup or publish without a host action');
+  assert.match(listingPage, /paymentReturnParams\.get\('payment'\) === 'return'/);
+  assert.match(listingPage, /window\.location\.replace\('\/list\?payment=verified&reference=' \+ encodeURIComponent\(reference\)\)/);
+  assert.match(listingPage, /returnedListingPayment\.get\('payment'\) === 'verified'/);
+  assert.match(listingPage, /payment\.payment_kind === 'listing' && payment\.listing_id/);
+  assert.match(listingPage, /listingPaymentVerified = true/);
+  assert.match(listingPage, /Payment confirmed\. Review your listing, then select Publish Listing/);
 });
 
 test('listing video client matches server duration validation and uses the proxied completion route', () => {

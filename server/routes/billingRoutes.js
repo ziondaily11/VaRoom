@@ -158,7 +158,10 @@ function createBillingRoutes({ supabaseAdmin = supabaseDefault, paystack = creat
     let initialized;
     try {
       initialized = await paystack.initializeTransaction({ email: user.email, amount: plan.monthly_amount_minor, currency: plan.currency, plan: paystackPlanCode, reference, callback_url: callbackUrl, metadata: { host_id: user.id, plan_id: plan.id, niche, billing_interval: plan.billing_interval, ...(pendingListing ? { listing_id: pendingListing.id } : {}), varoom_billing: true } });
-    } catch (error) { return res.status(503).json({ error: error.message || 'Unable to initialize checkout' }); }
+    } catch (error) {
+      console.error('Paystack subscription checkout initialization failed', { userId: user.id, planId: plan.id, reference, message: error.message });
+      return res.status(503).json({ error: error.message || 'Unable to initialize checkout' });
+    }
     let subscriptionId = existing && existing.id;
     if (!subscriptionId) {
       const { data: subscription, error: subscriptionError } = await supabaseAdmin.from('host_subscriptions').insert({ host_id: user.id, plan_id: plan.id, niche, status: 'pending', provider_metadata: { reference } }).select('id').single();
@@ -200,7 +203,10 @@ function createBillingRoutes({ supabaseAdmin = supabaseDefault, paystack = creat
       initialized = await paystack.initializeTransaction({ email: user.email, amount: 100000, currency: 'KES', reference,
         callback_url: buildPaymentCallbackUrl(callbackOrigin, '/list', { payment: 'return', reference }),
         metadata: { host_id: user.id, listing_id: listing.id, niche: listing.category === 'property' ? 'property' : 'shops_offices', billing_interval: 'one_time', payment_kind: 'listing', varoom_billing: true } });
-    } catch (error) { return res.status(503).json({ error: error.message || 'Unable to initialize checkout' }); }
+    } catch (error) {
+      console.error('Paystack listing checkout initialization failed', { listingId: listing.id, reference, message: error.message });
+      return res.status(503).json({ error: error.message || 'Unable to initialize checkout' });
+    }
     const payment = { host_id: user.id, listing_id: listing.id, payment_kind: 'listing', niche: listing.category === 'property' ? 'property' : 'shops_offices', billing_interval: 'one_time', plan_id: null, subscription_id: null,
       provider_reference: reference, amount_minor: 100000, currency: 'KES', status: 'initialized', provider_payload: { authorization_url: initialized.authorization_url } };
     const result = existing
