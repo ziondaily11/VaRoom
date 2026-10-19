@@ -478,7 +478,7 @@
 </head>
 <body>
 
-<div class="checking-msg" id="checking-auth">Checking your account...</div>
+<div class="checking-msg" id="checking-auth" aria-live="polite">Checking your account...</div>
 
 <div class="wizard" id="listing-page" style="display:none;">
   <aside class="wizard-sidebar" aria-label="Listing navigation">
@@ -910,9 +910,9 @@
 <script>
   (function(){
     const params = new URLSearchParams(window.location.search);
-    if (params.get('payment') === 'return' && window.opener && window.opener !== window) {
-      try { window.opener.postMessage({ type: 'varoom-listing-payment-return', reference: params.get('reference') }, window.location.origin); } catch (_) {}
-      if (!window.opener.closed) window.close();
+    if (params.get('payment') === 'return') {
+      const checking = document.getElementById('checking-auth');
+      if (checking) checking.textContent = 'Confirming your payment...';
     }
   })();
 </script>
@@ -922,6 +922,9 @@
 <script>
   const checkingAuth = document.getElementById('checking-auth');
   const listingPage = document.getElementById('listing-page');
+  const listingReturnParams = new URLSearchParams(window.location.search);
+  const listingPaymentReturnMode = listingReturnParams.get('payment');
+  const listingPaymentReturnReference = listingReturnParams.get('reference') || listingReturnParams.get('trxref');
   let currentUser = null;
   let hostNiche = null;
   const editListingId = new URLSearchParams(window.location.search).get('edit');
@@ -931,6 +934,7 @@
   let preparedPaymentListingId = null;
   let listingPaymentVerified = false;
   let returnedListingPaymentVerified = false;
+  let returnedListingPaymentMessage = null;
   let hasCurrentListingFee = false;
   let nicheEntitlementChecked = false;
   let listingIsPaused = false;
@@ -1045,6 +1049,31 @@
     const listingId = await ensurePaymentDraft(session);
     await saveListingDraft(session.user.id, listingId);
     return listingId;
+  }
+
+  async function verifyReturnedListingPayment(accessToken){
+    if (!listingPaymentReturnReference || !['return', 'verified'].includes(listingPaymentReturnMode)) return null;
+
+    const attempts = listingPaymentReturnMode === 'return' ? 30 : 1;
+    let payment = null;
+    for (let attempt = 0; attempt < attempts; attempt++) {
+      try {
+        const response = await fetch('/api/billing/payments/' + encodeURIComponent(listingPaymentReturnReference), {
+          headers: { Authorization: 'Bearer ' + accessToken },
+        });
+        const result = await response.json().catch(function(){ return {}; });
+        if (response.status === 401 || response.status === 403) throw new Error('Your session expired. Sign in again to check this payment.');
+        if (response.ok) payment = result.payment || null;
+      } catch (error) {
+        if (attempt === attempts - 1) throw error;
+      }
+
+      if (payment && payment.status === 'succeeded'
+          && payment.payment_kind === 'listing' && payment.listing_id) return payment;
+      if (payment && ['failed', 'abandoned', 'refunded'].includes(payment.status)) return payment;
+      if (attempt < attempts - 1) await new Promise(function(resolve){ setTimeout(resolve, 2000); });
+    }
+    return payment;
   }
 
   function showPublishError(error){
@@ -1201,30 +1230,30 @@
       hostNiche = hostNiches[0];
     }
 
-    const returnedListingPayment = new URLSearchParams(window.location.search);
-    if (returnedListingPayment.get('payment') === 'verified') {
-      const reference = returnedListingPayment.get('reference');
-      if (reference) {
-        try {
-          const paymentResponse = await fetch('/api/billing/payments/' + encodeURIComponent(reference), {
-            headers: { Authorization: 'Bearer ' + session.access_token },
-          });
-          const paymentResult = await paymentResponse.json().catch(function(){ return {}; });
-          const payment = paymentResult.payment;
-          if (paymentResponse.ok && payment && payment.status === 'succeeded'
-              && payment.payment_kind === 'listing' && payment.listing_id) {
-            // A payment query parameter alone grants nothing. This state is
-            // set only after the server verifies the Paystack transaction.
-            listingPaymentVerified = true;
-            returnedListingPaymentVerified = true;
-            hasCurrentListingFee = true;
-            preparedPaymentListingId = payment.listing_id;
-          } else if (payment && ['failed', 'abandoned', 'refunded'].includes(payment.status)) {
-            showPaymentMessage('Payment was not completed. Your listing has not been published; you can retry checkout.', true);
-          }
-        } catch (error) {
-          console.warn('Listing payment return verification is temporarily unavailable:', error);
+    if (listingPaymentReturnReference && ['return', 'verified'].includes(listingPaymentReturnMode)) {
+      checkingAuth.textContent = 'Confirming your payment...';
+      try {
+        const payment = await verifyReturnedListingPayment(session.access_token);
+        if (payment && payment.status === 'succeeded'
+            && payment.payment_kind === 'listing' && payment.listing_id) {
+          // A callback query parameter cannot unlock publication. This state is
+          // set only after the authenticated server verifies the transaction.
+          listingPaymentVerified = true;
+          returnedListingPaymentVerified = true;
+          hasCurrentListingFee = true;
+          preparedPaymentListingId = payment.listing_id;
+          const verifiedParams = new URLSearchParams(window.location.search);
+          verifiedParams.set('payment', 'verified');
+          verifiedParams.set('reference', listingPaymentReturnReference);
+          window.history.replaceState({}, '', '/list?' + verifiedParams.toString());
+        } else if (payment && ['failed', 'abandoned', 'refunded'].includes(payment.status)) {
+          returnedListingPaymentMessage = 'Payment was not completed. Your listing has not been published; you can retry checkout.';
+        } else {
+          returnedListingPaymentMessage = 'Payment is still being verified. Your listing has not been published; your saved draft is preserved. Return to this page shortly to check again.';
         }
+      } catch (error) {
+        console.warn('Listing payment return verification is temporarily unavailable:', error);
+        returnedListingPaymentMessage = error.message || 'Unable to confirm this payment yet. Your saved draft is preserved.';
       }
     }
 
@@ -1250,7 +1279,7 @@
       const pointer = getListingDraftPointer(currentUser.id);
       if (pointer && pointer.category === hostNiche) {
         listingDraftCacheKey = pointer.cacheKey;
-        preparedPaymentListingId = pointer.listingId || null;
+        preparedPaymentListingId = preparedPaymentListingId || pointer.listingId || null;
       }
     }
     configureCategory(hostNiche);
@@ -1283,35 +1312,8 @@
     listingPage.style.display = 'block';
     if (returnedListingPaymentVerified) {
       showPaymentMessage('Payment confirmed. Review your listing, then select Publish Listing when you are ready.', false);
-    }
-    const paymentReturnParams = new URLSearchParams(window.location.search);
-    if (paymentReturnParams.get('payment') === 'return' && (!window.opener || window.opener.closed)) {
-      const reference = paymentReturnParams.get('reference');
-      if (reference) {
-        let payment = null;
-        for (let attempt = 0; attempt < 30; attempt++) {
-          try {
-            const paymentResponse = await fetch('/api/billing/payments/' + encodeURIComponent(reference), {
-              headers: { Authorization: 'Bearer ' + session.access_token },
-            });
-            const paymentResult = await paymentResponse.json().catch(function(){ return {}; });
-            if (paymentResponse.ok) payment = paymentResult.payment || null;
-          } catch (error) {
-            console.warn('Listing payment return verification is temporarily unavailable:', error);
-          }
-          if (payment && payment.status === 'succeeded' && payment.listing_id) {
-            window.location.replace('/list?payment=verified&reference=' + encodeURIComponent(reference));
-            return;
-          }
-          if (payment && ['failed', 'abandoned', 'refunded'].includes(payment.status)) break;
-          if (attempt < 29) await new Promise(function(resolve){ setTimeout(resolve, 2000); });
-        }
-        if (payment && ['failed', 'abandoned', 'refunded'].includes(payment.status)) {
-          showPaymentMessage('Payment was not completed. Your listing has not been published; your saved draft is preserved and you can retry checkout.', true);
-        } else {
-          showPaymentMessage('Payment is still being verified. Your listing has not been published; your saved draft is preserved. You can return to this page to check again.', false);
-        }
-      }
+    } else if (returnedListingPaymentMessage) {
+      showPaymentMessage(returnedListingPaymentMessage, true);
     }
   })();
 
@@ -2712,7 +2714,7 @@
         snapshot = null;
       }
       if (snapshot) {
-        preparedPaymentListingId = snapshot.listingId || pointer.listingId || null;
+        preparedPaymentListingId = preparedPaymentListingId || snapshot.listingId || pointer.listingId || null;
         listingDraftCacheKey = snapshot.cacheKey;
       } else {
         showPaymentMessage('Your saved listing details are unavailable, but the paused listing is preserved. You can continue editing without creating another listing.', true);
@@ -2803,9 +2805,8 @@
       }
       payButton.textContent = 'Opening secure checkout…';
       showPaymentMessage('Opening secure Paystack checkout. Your listing remains a saved draft until payment is verified and you select Publish Listing.', false);
-      // The draft, including selected files, has already been saved above.
-      // Use the main tab so browsers cannot terminate an async popup. Paystack
-      // returns to /list, where VaRoom verifies the reference server-side.
+      // This is a same-tab navigation. The callback returns to this review
+      // page, which verifies the reference before revealing Publish Listing.
       window.location.assign(checkout.authorization_url);
     } catch (error) {
       showPaymentMessage(error.message || 'Unable to start payment. Please try again.', true);

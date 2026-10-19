@@ -28,23 +28,25 @@ test('review payment actions are non-submit buttons with independent handlers', 
   assert.doesNotMatch(payClickHandler, /requestSubmit|\/pricing/);
 });
 
-test('one-time checkout uses same-tab Paystack navigation and returns only after server verification', () => {
+test('one-time checkout uses same-tab navigation and reveals Publish Listing only after server verification', () => {
   const flowStart = listingPage.indexOf('async function startPayToListFlow()');
   const flowEnd = listingPage.indexOf("document.getElementById('pay-to-list-btn').addEventListener", flowStart);
   const flow = listingPage.slice(flowStart, flowEnd);
+
   assert.match(flow, /\/api\/billing\/listing-checkout/);
   assert.match(listingPage, /payment_draft: true/);
   assert.doesNotMatch(flow, /uploadVideoToR2|storage\.from\('listing-photos'\)\.upload/);
   assert.match(flow, /paymentFlowInProgress \|\| publishInProgress/);
   assert.match(flow, /window\.location\.assign\(checkout\.authorization_url\)/);
   assert.doesNotMatch(flow, /window\.open|checkoutWindow|requestSubmit\(\)/,
-    'checkout must not depend on an async popup or publish without a host action');
-  assert.match(listingPage, /paymentReturnParams\.get\('payment'\) === 'return'/);
-  assert.match(listingPage, /window\.location\.replace\('\/list\?payment=verified&reference=' \+ encodeURIComponent\(reference\)\)/);
-  assert.match(listingPage, /returnedListingPayment\.get\('payment'\) === 'verified'/);
+    'checkout must not use a popup or submit the listing automatically');
+  assert.match(listingPage, /async function verifyReturnedListingPayment/);
   assert.match(listingPage, /payment\.payment_kind === 'listing' && payment\.listing_id/);
   assert.match(listingPage, /listingPaymentVerified = true/);
+  assert.match(listingPage, /checkingAuth\.textContent = 'Confirming your payment\.\.\.'/);
   assert.match(listingPage, /Payment confirmed\. Review your listing, then select Publish Listing/);
+  assert.doesNotMatch(listingPage, /window\.location\.replace\('\/list\?edit=/,
+    'a verified listing payment must return to the restored review page, not edit mode');
 });
 
 test('listing video client matches server duration validation and uses the proxied completion route', () => {
@@ -61,7 +63,7 @@ test('Go Pro saves the host-scoped listing and actual selected files before redi
   assert.match(listingPage, /policyFile: selectedPolicyFile/);
   assert.match(listingPage, /await listingDraftCache\.load\(pointer\.cacheKey\)/);
   assert.match(listingPage, /!Number\.isFinite\(snapshot\.createdAt\)/);
-  assert.match(listingPage, /preparedPaymentListingId = snapshot\.listingId \|\| pointer\.listingId/);
+  assert.match(listingPage, /preparedPaymentListingId = preparedPaymentListingId \|\| snapshot\.listingId \|\| pointer\.listingId/);
   assert.match(listingPage, /method: existingSubmissionListingId \? 'PATCH' : 'POST'/);
   assert.match(listingPage, /await listingDraftCache\.clearForHost\(currentUser\.id\)/);
   assert.match(pricingPage, /pointer\.listingId/);
