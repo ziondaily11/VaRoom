@@ -135,6 +135,13 @@
     display: flex;
     flex-direction: column;
     min-height: 520px;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.22s ease, visibility 0.22s ease;
+  }
+  .card-foreground.is-ready {
+    opacity: 1;
+    visibility: visible;
   }
 
   /* ---------- Card Header ---------- */
@@ -673,7 +680,7 @@
     width: 100%;
     height: 48px;
     border-radius: 12px;
-    background: var(--brand-green);
+    background: #10B981;
     color: #FFFFFF;
     font-size: 14.5px;
     font-weight: 600;
@@ -682,8 +689,8 @@
     align-items: center;
     justify-content: center;
     gap: 8px;
-    transition: background-color 0.15s ease, transform 0.1s ease, opacity 0.15s ease;
-    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.28);
+    transition: background 0.2s ease, transform 0.12s ease, opacity 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    box-shadow: 0 4px 18px rgba(16, 185, 129, 0.4);
   }
   .btn-continue:hover:not(:disabled) {
     background: var(--brand-green-hover);
@@ -696,6 +703,34 @@
     color: var(--disabled-text);
     box-shadow: none;
     cursor: not-allowed;
+  }
+
+  /* Card 1: Faint green when details are not yet complete */
+  .btn-continue.is-faint {
+    background: rgba(16, 185, 129, 0.24) !important;
+    color: rgba(255, 255, 255, 0.65) !important;
+    border: 1px solid rgba(16, 185, 129, 0.3) !important;
+    box-shadow: none !important;
+  }
+  [data-theme="dark"] .btn-continue.is-faint {
+    background: rgba(16, 185, 129, 0.16) !important;
+    color: rgba(255, 255, 255, 0.55) !important;
+    border: 1px solid rgba(16, 185, 129, 0.2) !important;
+    box-shadow: none !important;
+  }
+
+  /* Card 1: Upgraded vibrant bold green when all details are filled */
+  .btn-continue.is-upgraded {
+    background: linear-gradient(135deg, #10B981 0%, #059669 100%) !important;
+    color: #FFFFFF !important;
+    border: none !important;
+    box-shadow: 0 6px 22px rgba(16, 185, 129, 0.5) !important;
+    cursor: pointer !important;
+  }
+  .btn-continue.is-upgraded:hover {
+    background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
+    box-shadow: 0 8px 26px rgba(16, 185, 129, 0.6) !important;
+    transform: translateY(-1px);
   }
 
   .footer-subtext {
@@ -1241,6 +1276,8 @@
     if (ROLE === 'client') {
       var clientCard = document.getElementById('cardClientPreferences');
       clientCard.hidden = false;
+      var onboardingCard = document.getElementById('onboardingCard');
+      if (onboardingCard) onboardingCard.classList.add('is-ready');
 
       var clientCategories = Array.from(document.querySelectorAll('#clientCategoryGrid .cat-card'));
       var timelineCards = Array.from(document.querySelectorAll('#timelineGrid .timeline-card'));
@@ -1369,6 +1406,8 @@
     var cardHostCategory = document.getElementById('cardHostCategory');
 
     function showHostCard(cardNum) {
+      var onboardingCard = document.getElementById('onboardingCard');
+      if (onboardingCard) onboardingCard.classList.add('is-ready');
       if (cardNum === 1) {
         cardHostProfile.hidden = false;
         cardHostCategory.hidden = true;
@@ -1605,6 +1644,24 @@
       return val.trim().length >= 2;
     }
 
+    function updateHostProfileButtonState() {
+      var u = cleanUsername(inpUsername.value);
+      var p = inpPhone.value.trim();
+      var l = inpLocation.value.trim();
+
+      var isUsernameOk = u.length >= 3 && u.length <= 20 && /^[a-z0-9._]+$/.test(u) && isUsernameAvailable;
+      var isPhoneOk = isPhoneValid(p);
+      var isLocationOk = isLocationValid(l);
+
+      if (isUsernameOk && isPhoneOk && isLocationOk) {
+        btnHostProfileContinue.classList.remove('is-faint');
+        btnHostProfileContinue.classList.add('is-upgraded');
+      } else {
+        btnHostProfileContinue.classList.add('is-faint');
+        btnHostProfileContinue.classList.remove('is-upgraded');
+      }
+    }
+
     // Real-time username checking with debounce & spinner
     var usernameDebounceTimer = null;
     var isUsernameAvailable = Boolean(profile.username);
@@ -1621,6 +1678,7 @@
         usernameSpinner.hidden = true;
         usernameStatusIcon.hidden = true;
         isUsernameAvailable = false;
+        updateHostProfileButtonState();
         return;
       }
 
@@ -1634,6 +1692,7 @@
         usernameSpinner.hidden = true;
         usernameStatusIcon.hidden = true;
         isUsernameAvailable = false;
+        updateHostProfileButtonState();
         return;
       }
 
@@ -1646,6 +1705,7 @@
         usernameSpinner.hidden = true;
         usernameStatusIcon.hidden = true;
         isUsernameAvailable = false;
+        updateHostProfileButtonState();
         return;
       }
 
@@ -1658,6 +1718,7 @@
         usernameSpinner.hidden = true;
         usernameStatusIcon.hidden = true;
         isUsernameAvailable = false;
+        updateHostProfileButtonState();
         return;
       }
 
@@ -1673,6 +1734,7 @@
         usernameStatusIcon.hidden = false;
         isUsernameAvailable = true;
         lastCheckedUsername = rawVal;
+        updateHostProfileButtonState();
         return;
       }
 
@@ -1683,6 +1745,7 @@
       usernameSpinner.hidden = false;
       usernameStatusIcon.hidden = true;
       isUsernameAvailable = false;
+      updateHostProfileButtonState();
 
       clearTimeout(usernameDebounceTimer);
       usernameDebounceTimer = setTimeout(async function () {
@@ -1723,6 +1786,7 @@
           // Fallback allow continue to validate on submit if query failed
           isUsernameAvailable = true;
         }
+        updateHostProfileButtonState();
       }, 350);
     }
 
@@ -1740,6 +1804,7 @@
       wrapPhone.classList.remove('is-invalid');
       phoneHelper.style.display = 'none';
       phoneHelper.classList.remove('is-error');
+      updateHostProfileButtonState();
     }
     inpPhone.addEventListener('input', cleanPhoneDisplay);
     inpPhone.addEventListener('change', cleanPhoneDisplay);
@@ -1749,7 +1814,12 @@
       wrapLocation.classList.remove('is-invalid');
       locationHelper.style.display = 'none';
       locationHelper.classList.remove('is-error');
+      updateHostProfileButtonState();
     });
+    inpLocation.addEventListener('change', updateHostProfileButtonState);
+
+    // Initial button state evaluation
+    updateHostProfileButtonState();
 
     var hostProfileSaving = false;
     btnHostProfileContinue.addEventListener('click', async function () {
@@ -1820,18 +1890,31 @@
           return;
         }
 
-        // Upload photo if provided (optional)
+        // Upload photo if provided (optional) — OPTIMISTIC UI:
+        // Do NOT block advancing to Card 2 while image uploads to R2/Storage!
         var avatarUrlToSave = profile.avatar_url || null;
         if (selectedPhotoFile) {
-          btnHostProfileContinue.querySelector('span').textContent = 'Uploading photo...';
-          var croppedBlob = await createCroppedPhoto();
-          var filePath = user.id + '/avatar_' + Date.now() + '.jpg';
-          var uploadRes = await supabaseClient.storage.from('avatars').upload(filePath, croppedBlob, {
-            contentType: 'image/jpeg',
-            upsert: false
-          });
-          if (uploadRes.error) throw uploadRes.error;
-          avatarUrlToSave = uploadRes.data.path;
+          window._hostAvatarUploadPromise = (async function () {
+            try {
+              var croppedBlob = await createCroppedPhoto();
+              var filePath = user.id + '/avatar_' + Date.now() + '.jpg';
+              var uploadRes = await supabaseClient.storage.from('avatars').upload(filePath, croppedBlob, {
+                contentType: 'image/jpeg',
+                upsert: false
+              });
+              if (uploadRes.error) {
+                console.warn('Background avatar upload error:', uploadRes.error);
+                return null;
+              }
+              var uploadedPath = uploadRes.data.path;
+              profile.avatar_url = uploadedPath;
+              await supabaseClient.from('profiles').update({ avatar_url: uploadedPath }).eq('id', user.id);
+              return uploadedPath;
+            } catch (bgErr) {
+              console.warn('Background avatar upload exception:', bgErr);
+              return null;
+            }
+          })();
         }
 
         btnHostProfileContinue.querySelector('span').textContent = 'Saving details...';
@@ -1852,7 +1935,6 @@
         profile.username = rawUsername;
         profile.phone = formattedPhone;
         profile.city = rawLocation;
-        if (avatarUrlToSave) profile.avatar_url = avatarUrlToSave;
 
         hostProfileSaving = false;
         btnHostProfileContinue.disabled = false;
@@ -1968,6 +2050,16 @@
         if (updateResult.error) throw updateResult.error;
 
         try { localStorage.removeItem(hostStepKey); } catch (e) {}
+
+        // If avatar background upload is still in flight, wait briefly for it
+        if (window._hostAvatarUploadPromise) {
+          try {
+            await Promise.race([
+              window._hostAvatarUploadPromise,
+              new Promise(function (resolve) { setTimeout(resolve, 3500); })
+            ]);
+          } catch (e) {}
+        }
 
         // Final destination for hosts is VaRoom Discover (/host-home)
         window.location.href = '/host-home';
