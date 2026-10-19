@@ -36,10 +36,11 @@
     --input-bg: transparent;
     --input-border: #D8DCE2;
     --input-focus: #111827;
-    --brand-red: #E50914;
-    --brand-red-hover: #C40812;
-    --brand-red-light: #FFF5F5;
-    --brand-red-border: #E50914;
+    --brand-green: #10B981;
+    --brand-green-hover: #059669;
+    --brand-green-light: #ECFDF5;
+    --brand-green-border: #10B981;
+    --danger-red: #EF4444;
     --disabled-bg: #D1D5DB;
     --disabled-text: #FFFFFF;
     --pill-bg: #111827;
@@ -60,10 +61,11 @@
     --input-bg: transparent;
     --input-border: rgba(255, 255, 255, 0.14);
     --input-focus: #FFFFFF;
-    --brand-red: #E50914;
-    --brand-red-hover: #C40812;
-    --brand-red-light: rgba(229, 9, 20, 0.12);
-    --brand-red-border: #E50914;
+    --brand-green: #10B981;
+    --brand-green-hover: #059669;
+    --brand-green-light: rgba(16, 185, 129, 0.12);
+    --brand-green-border: #10B981;
+    --danger-red: #EF4444;
     --disabled-bg: #222630;
     --disabled-text: #525866;
     --pill-bg: #FFFFFF;
@@ -132,7 +134,15 @@
     font-size: 22px;
     font-weight: 700;
     letter-spacing: -0.03em;
-    color: var(--text-primary);
+    display: inline-flex;
+    align-items: baseline;
+    user-select: none;
+  }
+  .wordmark .wordmark-va {
+    color: #E50914; /* Signature red */
+  }
+  .wordmark .wordmark-room {
+    color: var(--text-primary); /* Dark mode white, Light mode dark ink */
   }
 
   .pill-badge {
@@ -279,7 +289,7 @@
     text-align: center;
   }
   .avatar-hint.is-error {
-    color: var(--brand-red);
+    color: var(--danger-red);
   }
 
   /* Host Form Fields */
@@ -306,7 +316,7 @@
     position: relative;
     display: flex;
     align-items: center;
-    background: var(--input-bg);
+    background: var(--card-bg);
     border: 1px solid var(--input-border);
     border-radius: 12px;
     height: 46px;
@@ -318,10 +328,10 @@
     box-shadow: 0 0 0 1px var(--input-focus);
   }
   .input-wrapper.is-invalid {
-    border-color: var(--brand-red) !important;
+    border-color: var(--danger-red) !important;
   }
   .input-wrapper.is-valid {
-    border-color: #10B981 !important;
+    border-color: var(--brand-green) !important;
   }
 
   .input-prefix {
@@ -337,7 +347,7 @@
     width: 100%;
     height: 100%;
     border: none;
-    background: transparent;
+    background: transparent !important;
     font-size: 14px;
     color: var(--text-primary);
     outline: none;
@@ -348,12 +358,42 @@
     font-weight: 400;
   }
 
+  /* Completely eliminate grey/blue browser autofill background */
+  .input-field:-webkit-autofill,
+  .input-field:-webkit-autofill:hover,
+  .input-field:-webkit-autofill:focus,
+  .input-field:-webkit-autofill:active,
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 1000px var(--card-bg) inset !important;
+    box-shadow: 0 0 0 1000px var(--card-bg) inset !important;
+    -webkit-text-fill-color: var(--text-primary) !important;
+    color: var(--text-primary) !important;
+    caret-color: var(--text-primary) !important;
+    transition: background-color 50000s ease-in-out 0s, color 50000s ease-in-out 0s !important;
+    background-color: transparent !important;
+  }
+  .input-field:autofill,
+  .input-field:autofill:hover,
+  .input-field:autofill:focus,
+  input:autofill,
+  input:autofill:hover,
+  input:autofill:focus {
+    box-shadow: 0 0 0 1000px var(--card-bg) inset !important;
+    -webkit-text-fill-color: var(--text-primary) !important;
+    color: var(--text-primary) !important;
+    caret-color: var(--text-primary) !important;
+    background-color: transparent !important;
+  }
+
   /* Inline spinner for real-time username availability check */
   .input-spinner {
     width: 16px;
     height: 16px;
     border: 2px solid var(--text-muted);
-    border-top-color: var(--brand-red);
+    border-top-color: var(--brand-green);
     border-radius: 50%;
     animation: spin 0.6s linear infinite;
     margin-left: 8px;
@@ -409,10 +449,10 @@
     margin: 2px 0 0;
   }
   .form-helper.is-error {
-    color: var(--brand-red) !important;
+    color: var(--danger-red) !important;
   }
   .form-helper.is-success {
-    color: #10B981 !important;
+    color: var(--brand-green) !important;
   }
 
   /* ---------- Category Cards (Client & Host Card 2) ---------- */
@@ -441,8 +481,8 @@
   }
 
   .cat-card.is-selected {
-    border: 1.5px solid var(--brand-red);
-    background: var(--brand-red-light);
+    border: 1.5px solid var(--brand-green);
+    background: var(--brand-green-light);
   }
 
   .cat-card-icon {
@@ -461,7 +501,7 @@
     background: rgba(255, 255, 255, 0.08);
   }
   .cat-card.is-selected .cat-card-icon {
-    background: var(--brand-red);
+    background: var(--brand-green);
     color: #FFFFFF;
   }
   .cat-card-icon svg {
@@ -505,8 +545,8 @@
     transition: border-color 0.15s ease, background-color 0.15s ease;
   }
   .cat-card.is-selected .cat-card-radio {
-    border-color: var(--brand-red);
-    background: var(--brand-red);
+    border-color: var(--brand-green);
+    background: var(--brand-green);
     color: #FFFFFF;
   }
   .cat-card-radio svg {
@@ -558,8 +598,8 @@
     border-color: var(--text-secondary);
   }
   .timeline-card.is-selected {
-    border: 1.5px solid var(--brand-red);
-    background: var(--brand-red-light);
+    border: 1.5px solid var(--brand-green);
+    background: var(--brand-green-light);
   }
 
   .timeline-dot {
@@ -573,7 +613,7 @@
     flex-shrink: 0;
   }
   .timeline-card.is-selected .timeline-dot {
-    border-color: var(--brand-red);
+    border-color: var(--brand-green);
   }
   .timeline-dot::after {
     content: "";
@@ -583,7 +623,7 @@
     background: transparent;
   }
   .timeline-card.is-selected .timeline-dot::after {
-    background: var(--brand-red);
+    background: var(--brand-green);
   }
 
   .timeline-text {
@@ -614,7 +654,7 @@
     width: 100%;
     height: 48px;
     border-radius: 12px;
-    background: var(--brand-red);
+    background: var(--brand-green);
     color: #FFFFFF;
     font-size: 14.5px;
     font-weight: 600;
@@ -624,10 +664,10 @@
     justify-content: center;
     gap: 8px;
     transition: background-color 0.15s ease, transform 0.1s ease, opacity 0.15s ease;
-    box-shadow: 0 4px 14px rgba(211, 35, 35, 0.25);
+    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.28);
   }
   .btn-continue:hover:not(:disabled) {
-    background: var(--brand-red-hover);
+    background: var(--brand-green-hover);
   }
   .btn-continue:active:not(:disabled) {
     transform: scale(0.99);
@@ -671,7 +711,7 @@
     margin: 0;
   }
   .global-feedback.is-error {
-    color: var(--brand-red);
+    color: var(--danger-red);
   }
 
   /* ---------- Responsive Styles ---------- */
@@ -749,7 +789,7 @@
     <section id="cardHostProfile" hidden>
       <header class="card-header">
         <div class="header-brand-row">
-          <span class="wordmark">varoom</span>
+          <span class="wordmark"><span class="wordmark-va">Va</span><span class="wordmark-room">Room</span></span>
           <span class="pill-badge">
             <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2L14.4 9.6L22 12L14.4 14.4L12 22L9.6 14.4L2 12L9.6 9.6L12 2Z"/></svg>
             MAKE YOURSELF AT HOME
@@ -1669,11 +1709,22 @@
 
     inpUsername.addEventListener('input', checkUsernameImmediately);
 
-    inpPhone.addEventListener('input', function () {
+    function cleanPhoneDisplay() {
+      var val = inpPhone.value.trim();
+      if (val.startsWith('+254')) {
+        inpPhone.value = val.slice(4).trim();
+      } else if (val.startsWith('254') && val.length > 9) {
+        inpPhone.value = val.slice(3).trim();
+      } else if (val.startsWith('0') && val.length === 10) {
+        inpPhone.value = val.slice(1).trim();
+      }
       wrapPhone.classList.remove('is-invalid');
       phoneHelper.style.display = 'none';
       phoneHelper.classList.remove('is-error');
-    });
+    }
+    inpPhone.addEventListener('input', cleanPhoneDisplay);
+    inpPhone.addEventListener('change', cleanPhoneDisplay);
+    inpPhone.addEventListener('blur', cleanPhoneDisplay);
 
     inpLocation.addEventListener('input', function () {
       wrapLocation.classList.remove('is-invalid');
