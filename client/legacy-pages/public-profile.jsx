@@ -9,6 +9,7 @@ import {
   MoreHorizontal,
   Mail,
   ShieldCheck,
+  CalendarDays,
 } from "lucide-react";
 
 function GoogleIcon({ size = 16 }) {
@@ -153,16 +154,147 @@ function ReviewCard({ review }) {
   );
 }
 
+function PublicProfileSkeleton() {
+  return (
+    <div className="public-profile-skeleton" role="status" aria-label="Loading host profile" aria-busy="true">
+      <span className="public-profile-skeleton-label">Loading host profile</span>
+      <aside className="public-profile-skeleton-rail" aria-hidden="true">
+        <div className="public-profile-skeleton-logo" />
+        <div className="public-profile-skeleton-rail-copy">
+          <div /><div /><div />
+        </div>
+        <div className="public-profile-skeleton-rail-button" />
+        <div className="public-profile-skeleton-rail-button" />
+      </aside>
+      <main className="public-profile-skeleton-main" aria-hidden="true">
+        <div className="public-profile-skeleton-banner">
+          <div className="public-profile-skeleton-identity">
+            <div className="public-profile-skeleton-avatar" />
+            <div className="public-profile-skeleton-details">
+              <div /><div /><div /><div />
+            </div>
+          </div>
+        </div>
+        <div className="public-profile-skeleton-tabs"><div /><div /><div /><div /></div>
+        <div className="public-profile-skeleton-grid">
+          {[0, 1, 2, 3, 4, 5, 6, 7].map((item) => (
+            <div className="public-profile-skeleton-card" key={item}>
+              <div className="public-profile-skeleton-card-image" />
+              <div className="public-profile-skeleton-card-copy"><div /><div /><div /></div>
+            </div>
+          ))}
+        </div>
+      </main>
+      <style jsx global>{`
+        .public-profile-skeleton {
+          --public-skeleton-base: #191919;
+          --public-skeleton-highlight: #292929;
+          display: grid;
+          grid-template-columns: 240px minmax(0,1fr);
+          min-height: 100vh;
+          overflow: hidden;
+          background: #000;
+          color: #f2f2f2;
+          font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+        }
+        .public-profile-skeleton-label {
+          position: absolute;
+          width: 1px;
+          height: 1px;
+          overflow: hidden;
+          clip: rect(0,0,0,0);
+          white-space: nowrap;
+        }
+        .public-profile-skeleton-rail {
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+          padding: 24px 22px;
+          border-right: 1px solid #1a1a1a;
+        }
+        .public-profile-skeleton-logo,
+        .public-profile-skeleton-rail-copy div,
+        .public-profile-skeleton-rail-button,
+        .public-profile-skeleton-tabs div,
+        .public-profile-skeleton-avatar,
+        .public-profile-skeleton-details div,
+        .public-profile-skeleton-card-image,
+        .public-profile-skeleton-card-copy div {
+          background: linear-gradient(100deg,var(--public-skeleton-base) 20%,var(--public-skeleton-highlight) 42%,var(--public-skeleton-base) 64%);
+          background-size: 220% 100%;
+          animation: public-profile-shimmer 1.5s ease-in-out infinite;
+        }
+        .public-profile-skeleton-logo { width: 92px; height: 24px; margin-bottom: 20px; border-radius: 6px; }
+        .public-profile-skeleton-rail-copy { display: grid; gap: 10px; margin: 4px 0 10px; }
+        .public-profile-skeleton-rail-copy div { width: 100%; height: 14px; border-radius: 999px; }
+        .public-profile-skeleton-rail-copy div:first-child { width: 82%; height: 20px; }
+        .public-profile-skeleton-rail-button { height: 46px; border: 1px solid #242424; border-radius: 999px; }
+        .public-profile-skeleton-main { min-width: 0; padding: 0 32px 48px; }
+        .public-profile-skeleton-banner {
+          position: relative;
+          height: 400px;
+          margin: 0 -32px;
+          background: linear-gradient(110deg,#171717 20%,#242424 48%,#171717 76%);
+          background-size: 220% 100%;
+          animation: public-profile-shimmer 1.5s ease-in-out infinite;
+        }
+        .public-profile-skeleton-identity { position: absolute; inset: auto 36px 24px; display: flex; align-items: center; gap: 18px; }
+        .public-profile-skeleton-avatar { width: 72px; height: 72px; flex: 0 0 auto; border: 3px solid #111; border-radius: 50%; }
+        .public-profile-skeleton-details { display: grid; width: min(520px,70%); gap: 10px; }
+        .public-profile-skeleton-details div { width: 70%; height: 13px; border-radius: 999px; }
+        .public-profile-skeleton-details div:first-child { width: 45%; height: 22px; }
+        .public-profile-skeleton-details div:nth-child(2) { width: 30%; }
+        .public-profile-skeleton-details div:last-child { width: 55%; }
+        .public-profile-skeleton-tabs { display: flex; gap: 22px; align-items: center; height: 62px; border-bottom: 1px solid #1a1a1a; }
+        .public-profile-skeleton-tabs div { width: 82px; height: 14px; border-radius: 999px; }
+        .public-profile-skeleton-tabs div:first-child { width: 52px; }
+        .public-profile-skeleton-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 16px; padding-top: 22px; }
+        .public-profile-skeleton-card { overflow: hidden; border: 1px solid #232323; border-radius: 12px; background: #101010; }
+        .public-profile-skeleton-card-image { aspect-ratio: 4/3; }
+        .public-profile-skeleton-card-copy { display: grid; gap: 10px; padding: 13px; }
+        .public-profile-skeleton-card-copy div { width: 78%; height: 14px; border-radius: 999px; }
+        .public-profile-skeleton-card-copy div:nth-child(2) { width: 48%; height: 11px; }
+        .public-profile-skeleton-card-copy div:last-child { width: 58%; height: 12px; }
+        @keyframes public-profile-shimmer { to { background-position-x: -220%; } }
+        @media (max-width: 1100px) { .public-profile-skeleton-grid { grid-template-columns: repeat(3,minmax(0,1fr)); } }
+        @media (max-width: 760px) {
+          .public-profile-skeleton { display: block; }
+          .public-profile-skeleton-rail { display: none; }
+          .public-profile-skeleton-main { padding: 0 16px 36px; }
+          .public-profile-skeleton-banner { height: 320px; margin: 0 -16px; }
+          .public-profile-skeleton-identity { inset: auto 18px 20px; gap: 12px; }
+          .public-profile-skeleton-avatar { width: 60px; height: 60px; }
+          .public-profile-skeleton-details { width: min(420px,75%); gap: 8px; }
+          .public-profile-skeleton-details div { width: 90%; }
+          .public-profile-skeleton-tabs { gap: 16px; height: 54px; }
+          .public-profile-skeleton-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; padding-top: 16px; }
+        }
+        @media (max-width: 380px) { .public-profile-skeleton-grid { grid-template-columns: 1fr; } }
+        @media (prefers-reduced-motion: reduce) {
+          .public-profile-skeleton-logo,.public-profile-skeleton-rail-copy div,.public-profile-skeleton-rail-button,
+          .public-profile-skeleton-tabs div,.public-profile-skeleton-avatar,.public-profile-skeleton-details div,
+          .public-profile-skeleton-card-image,.public-profile-skeleton-card-copy div { animation: none; }
+        }
+      `}</style>
+    </div>
+  );
+}
+
 export default function PublicHostProfile() {
   const router = useRouter();
   const [tab, setTab] = useState("listings");
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [categoryListings, setCategoryListings] = useState({});
   const [isSignInPromptOpen, setIsSignInPromptOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [host, setHost] = useState({
     name: "",
     handle: "",
     tagline: "",
+    city: "",
+    memberSince: "",
+    specializations: [],
     photo: "",
     verified: false,
     rating: 0,
@@ -175,14 +307,16 @@ export default function PublicHostProfile() {
     if (!router.isReady || (!router.query.hostId && !router.query.username)) return undefined;
 
     let cancelled = false;
+    setIsLoading(true);
+    setLoadError("");
     const loadProfile = async () => {
       const client = typeof window !== "undefined" ? window.supabaseClient : null;
-      if (!client) return;
+      if (!client) throw new Error("Public host profiles are unavailable right now.");
 
       const hostIdentifier = String(router.query.hostId || router.query.username).replace(/^@/, "");
       const profileQuery = client
         .from("profiles")
-        .select("id,full_name,username,bio,avatar_url,banner_image_key,verified,city")
+        .select("id,full_name,username,bio,avatar_url,banner_image_key,verified,city,created_at,listing_categories")
         .eq("role", "host");
       const profileResult = router.query.hostId
         ? await profileQuery.eq("id", hostIdentifier).maybeSingle()
@@ -190,11 +324,12 @@ export default function PublicHostProfile() {
       const hostId = profileResult.data?.id;
       if (profileResult.error) {
         console.error("Unable to load public host profile", profileResult.error);
-        return;
+        throw new Error("Could not load this host profile.");
       }
-      if (cancelled || !hostId) {
+      if (cancelled) return;
+      if (!hostId) {
         console.error("Public host profile was not found", hostIdentifier);
-        return;
+        throw new Error("This host profile could not be found.");
       }
 
       const [listingsResult, reviewsResult] = await Promise.all([
@@ -346,11 +481,24 @@ export default function PublicHostProfile() {
         }))
         : [];
 
+      const specializationLabels = {
+        airbnb: "Airbnb",
+        hotel: "Hotel",
+        venue: "Event ground / venue",
+        office: "Offices & Shops",
+        shop: "Offices & Shops",
+        property: "Property",
+      };
       setHost({
         id: profile.id,
         name: profile.full_name || "Host",
         handle: profile.username ? `@${profile.username.replace(/^@/, "")}` : "",
-        tagline: profile.bio || profile.city || "",
+        tagline: profile.bio || "",
+        city: profile.city || "",
+        memberSince: profile.created_at ? `Member since ${new Date(profile.created_at).getFullYear()}` : "",
+        specializations: Array.isArray(profile.listing_categories)
+          ? [...new Set(profile.listing_categories.map((category) => specializationLabels[category] || category))]
+          : [],
         photo: avatarUrl,
         bannerImageKey: profile.banner_image_key || null,
         verified: Boolean(profile.verified),
@@ -364,8 +512,10 @@ export default function PublicHostProfile() {
     loadProfile().catch((error) => {
       console.error("Unable to load public host profile", error);
       if (!cancelled) {
-        setHost((current) => ({ ...current, name: "Host" }));
+        setLoadError(error.message || "Could not load this host profile.");
       }
+    }).finally(() => {
+      if (!cancelled) setIsLoading(false);
     });
     return () => {
       cancelled = true;
@@ -373,15 +523,26 @@ export default function PublicHostProfile() {
   }, [router.isReady, router.query.hostId, router.query.username]);
 
   const signIn = () => {
-    router.push(`/login?redirect=${encodeURIComponent(router.asPath)}`);
+    const hostProfilePath = `/host/${encodeURIComponent(host.id)}`;
+    router.push(`/?auth=login&redirect=${encodeURIComponent(hostProfilePath)}`);
   };
+
+  if (isLoading) return <PublicProfileSkeleton />;
+  if (loadError) {
+    return (
+      <main role="alert" style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: 24, background: "#000", color: "#F2F2F2", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
+        {loadError}
+      </main>
+    );
+  }
 
   return (
     <div
       className="public-profile-shell"
       style={{
         minHeight: "100vh",
-        background: "#000000",
+      height: "100vh",
+      background: "#000000",
         color: "#F2F2F2",
         fontFamily:
           "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
@@ -395,11 +556,13 @@ export default function PublicHostProfile() {
         className="desktop-sign-in-rail"
         style={{
           width: 240,
+          height: "100vh",
           flexShrink: 0,
           borderRight: "1px solid #1A1A1A",
           padding: "24px 22px",
           display: "flex",
           flexDirection: "column",
+          overflow: "hidden",
         }}
       >
         <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 24 }}>
@@ -412,7 +575,7 @@ export default function PublicHostProfile() {
             Sign in to message {host.name.split(" ")[0]}
           </h2>
           <p style={{ fontSize: 13.5, color: "#8A8A8A", lineHeight: 1.5, margin: "0 0 20px 0" }}>
-            You'll come right back to this profile once you're signed in.
+            You'll be redirected to this host's profile once you're signed in.
           </p>
           <button
             onClick={signIn}
@@ -464,90 +627,58 @@ export default function PublicHostProfile() {
       {/* Main profile                                                   */}
       {/* ------------------------------------------------------------- */}
       <main className="public-profile-main" style={{ flex: 1, padding: "0 32px 64px" }}>
-        <ProfileBanner imageKey={host.bannerImageKey} hostId={host.id} />
-        {/* Header — compact, single row, no dashboard-style padding */}
-        <div
-          className="public-profile-header"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 16,
-            paddingBottom: 16,
-            borderBottom: "1px solid #1A1A1A",
-          }}
-        >
-          <img
-            src={host.photo}
-            alt={host.name}
-            style={{
-              width: 56,
-              height: 56,
-              borderRadius: "50%",
-              objectFit: "cover",
-              border: "2px solid #1A1A1A",
-              flexShrink: 0,
-            }}
-          />
-
-          <div style={{ minWidth: 0 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-              <h1 style={{ fontSize: 17, fontWeight: 700, margin: 0 }}>{host.name}</h1>
-              {host.verified && (
-                <span
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 4,
-                    fontSize: 10.5,
-                    fontWeight: 600,
-                    color: "#E5384F",
-                    border: "1px solid #E5384F",
-                    borderRadius: 999,
-                    padding: "2px 8px",
-                  }}
-                >
-                  <ShieldCheck size={11} /> HOST
-                </span>
-              )}
+        <section className="public-profile-banner-stage" aria-label="Host profile">
+          <ProfileBanner imageKey={host.bannerImageKey} hostId={host.id} />
+          <div className="public-profile-header">
+            {host.photo ? (
+              <img src={host.photo} alt={host.name} />
+            ) : (
+              <div className="public-profile-avatar-fallback" aria-hidden="true">
+                {host.name.charAt(0).toUpperCase()}
+              </div>
+            )}
+            <div className="public-profile-identity">
+              <div className="public-profile-name-row">
+                <h1>{host.name}</h1>
+                {host.verified && (
+                  <span className="public-profile-verified">
+                    <ShieldCheck size={12} aria-hidden="true" /> HOST
+                  </span>
+                )}
+              </div>
+              {host.handle && <div className="public-profile-handle">{host.handle}</div>}
+              <div className="public-profile-meta">
+                {host.city && <span><MapPin size={13} aria-hidden="true" />{host.city}</span>}
+                {host.memberSince && <span><CalendarDays size={13} aria-hidden="true" />{host.memberSince}</span>}
+                {host.specializations.map((specialization) => (
+                  <span key={specialization}><ShieldCheck size={13} aria-hidden="true" />{specialization}</span>
+                ))}
+              </div>
+              {host.tagline && <p className="public-profile-bio">{host.tagline}</p>}
+              <div className="public-profile-rating">
+                <Stars value={host.rating} size={12} />
+                <span>{host.rating ? host.rating.toFixed(1) : "No ratings"} ({host.reviewCount} reviews)</span>
+              </div>
             </div>
-
-            <div style={{ fontSize: 12.5, color: "#8A8A8A", marginTop: 2 }}>{host.handle}</div>
-
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                fontSize: 12.5,
-                color: "#B8B8B8",
-                marginTop: 5,
-                flexWrap: "wrap",
-              }}
+            <button
+              type="button"
+              className="mobile-message-button"
+              onClick={() => setIsSignInPromptOpen(true)}
             >
-              <MapPin size={12} />
-              {host.tagline}
-              <span style={{ color: "#4A4A4A" }}>·</span>
-              <Stars value={host.rating} size={11} />
-              <span>
-                {host.rating ? host.rating.toFixed(1) : "No ratings"} ({host.reviewCount} reviews)
-              </span>
-            </div>
+              Message
+            </button>
           </div>
-          <button
-            type="button"
-            className="mobile-message-button"
-            onClick={() => setIsSignInPromptOpen(true)}
-          >
-            Message
-          </button>
-        </div>
+        </section>
 
-        {/* Tabs */}
-        <ProfileCategoryNav hostId={host.id} listings={listings} value={selectedCategory} onChange={(id) => { setSelectedCategory(id); setTab("listings"); }} onCategoryListings={setCategoryListings} />
-        <div className="public-profile-tabs" role="tablist" aria-label="Profile sections">
-          <button type="button" role="tab" aria-selected={tab === "listings"} onClick={() => setTab("listings")}>Listings · {selectedCategory ? (categoryListings[selectedCategory] || []).filter((id) => listings.some((listing) => listing.id === id)).length : listings.length}</button>
-          <button type="button" role="tab" aria-selected={tab === "reviews"} onClick={() => setTab("reviews")}>Reviews · {reviews.length}</button>
-        </div>
+        <ProfileCategoryNav
+          hostId={host.id}
+          listings={listings}
+          value={selectedCategory}
+          activeTab={tab}
+          onTabChange={setTab}
+          onChange={(id) => { setSelectedCategory(id); setTab("listings"); }}
+          onCategoryListings={setCategoryListings}
+        />
 
         {/* Tab content */}
         {tab === "listings" ? (
@@ -592,7 +723,7 @@ export default function PublicHostProfile() {
               ×
             </button>
             <h2 id="mobile-sign-in-title">Sign in to message {host.name.split(" ")[0]}</h2>
-            <p>You'll come right back to this profile once you're signed in.</p>
+            <p>You'll be redirected to this host's profile once you're signed in.</p>
             <button type="button" className="mobile-sign-in-option" onClick={signIn}>
               <GoogleIcon /> Continue with Google
             </button>
@@ -604,9 +735,34 @@ export default function PublicHostProfile() {
       )}
 
       <style jsx global>{`
-        .public-profile-shell { overflow-x: hidden; }
-        .public-profile-main > .profile-banner { margin-left: -32px; margin-right: -32px; }
-        .public-profile-header { position: relative; z-index: 1; margin-top: -88px; padding-top: 48px; min-height: 142px; }
+        .public-profile-shell { height:100vh; min-height:0 !important; overflow:hidden; overflow-x:hidden; align-items:stretch; }
+        .desktop-sign-in-rail { position:sticky; top:0; align-self:flex-start; overflow:hidden; }
+        .public-profile-main { height:100vh; min-height:0; overflow-y:auto; overflow-x:hidden; overscroll-behavior-y:contain; scrollbar-width:thin; scrollbar-color:#3a3a3a transparent; }
+        .public-profile-main::-webkit-scrollbar { width:8px; }
+        .public-profile-main::-webkit-scrollbar-thumb { border:2px solid transparent; border-radius:999px; background:#3a3a3a; background-clip:padding-box; }
+        .public-profile-banner-stage { position: relative; isolation: isolate; margin: 0 -32px 16px; }
+        .public-profile-banner-stage > .profile-banner { height: 400px !important; }
+        .public-profile-banner-stage > .profile-banner::after {
+          background: linear-gradient(to top,rgba(0,0,0,.96) 0%,rgba(0,0,0,.78) 24%,rgba(0,0,0,.24) 66%,transparent 100%) !important;
+        }
+        .public-profile-header {
+          position: absolute; z-index: 2; left: 36px; right: 36px; bottom: 22px;
+          display: flex; align-items: center; gap: 16px; color: #fff;
+        }
+        .public-profile-header > img, .public-profile-avatar-fallback {
+          width: 68px; height: 68px; flex: 0 0 auto; border: 2px solid rgba(255,255,255,.9);
+          border-radius: 50%; object-fit: cover;
+        }
+        .public-profile-avatar-fallback { display: grid; place-items: center; background: #302b29; color: #fff; font-size: 26px; font-weight: 700; }
+        .public-profile-identity { min-width: 0; max-width: 850px; }
+        .public-profile-name-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .public-profile-name-row h1 { margin: 0; color: #fff; font-size: clamp(19px,2vw,27px); line-height: 1.2; font-weight: 700; }
+        .public-profile-verified { display: inline-flex; align-items: center; gap: 4px; border: 1px solid #e5384f; border-radius: 999px; padding: 3px 8px; color: #ff9eab; font-size: 10px; font-weight: 700; }
+        .public-profile-handle { margin-top: 3px; color: rgba(255,255,255,.76); font-size: 13px; }
+        .public-profile-meta { display: flex; align-items: center; gap: 7px 16px; flex-wrap: wrap; margin-top: 8px; color: rgba(255,255,255,.86); font-size: 12.5px; }
+        .public-profile-meta span { display: inline-flex; align-items: center; gap: 5px; }
+        .public-profile-bio { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; margin: 7px 0 0; color: rgba(255,255,255,.86); font-size: 13px; line-height: 1.4; }
+        .public-profile-rating { display: flex; align-items: center; gap: 7px; margin-top: 7px; color: #fff; font-size: 12px; }
         .mobile-message-button, .mobile-sign-in-overlay { display: none; }
 
         @media (max-width: 700px) {
@@ -616,18 +772,29 @@ export default function PublicHostProfile() {
             display: block !important;
             width: 100%;
             min-width: 0;
+            height: auto;
             min-height: 100dvh !important;
+            overflow: visible;
           }
           .desktop-sign-in-rail { display: none !important; }
           .public-profile-main {
             width: 100%;
             min-width: 0;
+            height: auto;
+            min-height: 100dvh;
+            overflow: visible;
             padding: 0 16px 40px !important;
           }
-          .public-profile-main > .profile-banner { margin-left: -16px; margin-right: -16px; }
-          .public-profile-header { gap: 12px !important; padding: 26px 0 14px !important; margin-top: -58px; min-height: 110px; }
-          .public-profile-header img { width: 52px !important; height: 52px !important; }
-          .public-profile-header h1 { font-size: 16px !important; }
+          .public-profile-banner-stage { margin: 0 -16px 12px; }
+          .public-profile-banner-stage > .profile-banner { height: 330px !important; }
+          .public-profile-header { left: 16px; right: 16px; bottom: 17px; align-items: flex-end; gap: 10px; }
+          .public-profile-header > img, .public-profile-avatar-fallback { width: 54px; height: 54px; }
+          .public-profile-avatar-fallback { font-size: 20px; }
+          .public-profile-identity { flex: 1; }
+          .public-profile-name-row h1 { font-size: 17px; }
+          .public-profile-meta { gap: 6px 10px; margin-top: 6px; font-size: 11px; }
+          .public-profile-bio { font-size: 12px; }
+          .public-profile-rating { gap: 5px; margin-top: 6px; font-size: 11px; }
           .mobile-message-button {
             display: inline-flex;
             align-items: center;
@@ -644,9 +811,6 @@ export default function PublicHostProfile() {
             font-weight: 600;
             cursor: pointer;
           }
-          .public-profile-tabs { display:flex; gap:16px; margin-top:8px; border-bottom:1px solid #1a1a1a; }
-          .public-profile-tabs button { background:transparent;border:0;border-bottom:2px solid transparent;color:#aaa;padding:12px 8px;white-space:nowrap; }
-          .public-profile-tabs button[aria-selected="true"] { color:#fff;border-bottom-color:#e5384f; }
           .public-profile-listings {
             grid-template-columns: minmax(0, 1fr) !important;
             gap: 14px !important;
@@ -709,6 +873,14 @@ export default function PublicHostProfile() {
             font-weight: 500;
             cursor: pointer;
           }
+        }
+        @media (max-width: 430px) {
+          .public-profile-banner-stage > .profile-banner { height: 360px !important; }
+          .public-profile-header { left: 13px; right: 13px; bottom: 14px; align-items: flex-start; }
+          .public-profile-header > img, .public-profile-avatar-fallback { width: 48px; height: 48px; }
+          .public-profile-header .mobile-message-button { position: absolute; top: -44px; right: 0; }
+          .public-profile-identity { max-width: calc(100% - 58px); }
+          .public-profile-meta { gap: 5px 8px; }
         }
       `}</style>
     </div>

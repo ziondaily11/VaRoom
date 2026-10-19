@@ -29,7 +29,8 @@
 
   function removePageSpecificBars() {
     document.querySelectorAll('.bottom-bar, .mobile-bottom-nav').forEach(function (bar) {
-      bar.remove();
+      bar.setAttribute('hidden', '');
+      bar.style.display = 'none';
     });
   }
 

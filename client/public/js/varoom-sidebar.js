@@ -119,14 +119,6 @@
       '</a>',
 
       '<nav class="nav-group">',
-      '  <a href="/chats?conversation=elie" class="' + itemClass(activeNav === 'elie') + '">',
-      '    ' + ICONS.elie,
-      '    Elie',
-      '    <span class="beta-pill">Free preview</span>',
-      '  </a>',
-      '</nav>',
-
-      '<nav class="nav-group">',
       '  <a href="/host-home" class="' + itemClass(activeNav === 'home') + '" data-nav="home">',
       '    ' + ICONS.home,
       '    Home',
@@ -167,35 +159,45 @@
       '    ' + ICONS.myListings,
       '    My Listings',
       '  </a>',
-      '  <a href="/analytics" class="' + itemClass(activeNav === 'analytics') + '">',
-      '    ' + ICONS.analytics,
-      '    Analytics',
-      '  </a>',
-      '</nav>',
-
-      '<nav class="nav-group">',
-      '  <p class="nav-label">Account</p>',
       '  <a href="/profile" class="' + itemClass(activeNav === 'profile') + '">',
       '    ' + ICONS.profile,
       '    Profile',
       '  </a>',
-      '  <a href="/settings" class="' + itemClass(activeNav === 'settings') + '">',
-      '    ' + ICONS.settings,
-      '    Settings',
-      '  </a>',
-      '  <a href="/support" class="' + itemClass(activeNav === 'support') + '">',
-      '    ' + ICONS.support,
-      '    Help &amp; Support',
-      '  </a>',
-      '  <a href="pricing.html" class="' + itemClass(activeNav === 'upgrade') + '">',
-      '    ' + ICONS.upgrade,
-      '    Upgrade',
-      '  </a>',
       '</nav>',
 
-      verifyBoxHtml,
+      // More menu popup
+      '<div id="more-menu" class="account-menu" role="menu" aria-label="More options" hidden>',
+      '  <a href="/analytics" class="account-menu-action" role="menuitem">' + ICONS.analytics + ' Analytics</a>',
+      '  <a href="/settings" class="account-menu-action' + (activeNav === 'settings' ? ' active' : '') + '" role="menuitem">' + ICONS.settings + ' Settings</a>',
+      '  <a href="/support" class="account-menu-action' + (activeNav === 'support' ? ' active' : '') + '" role="menuitem">' + ICONS.support + ' Help &amp; Support</a>',
+      '  <a href="pricing.html" class="account-menu-action' + (activeNav === 'upgrade' ? ' active' : '') + '" role="menuitem">' + ICONS.upgrade + ' Premium</a>',
+      '</div>',
 
-      '<button type="button" class="logout-btn" id="logout-btn">Log out</button>'
+      // More button
+      '<button type="button" class="nav-item' + (activeNav === 'analytics' || activeNav === 'settings' || activeNav === 'support' || activeNav === 'upgrade' ? ' active' : '') + '" id="more-nav-btn" aria-haspopup="true" aria-expanded="false" aria-controls="more-menu">',
+      '  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="8" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="16" cy="12" r="1.5" fill="currentColor" stroke="none"/></svg>',
+      '  More',
+      '</button>',
+
+      // Account identity + switcher
+      '<div id="account-menu" class="account-menu" role="menu" aria-label="Account menu" hidden>',
+      '  <div id="account-menu-list" class="account-menu-list"></div>',
+      '  <div class="account-menu-divider"></div>',
+      '  <button type="button" class="account-menu-action" id="account-add-btn">Add an existing account</button>',
+      '  <a href="/settings" class="account-menu-action" id="account-manage-btn">Manage accounts</a>',
+      '  <button type="button" class="account-menu-action account-menu-logout" id="account-logout-btn">Log out</button>',
+      '</div>',
+
+      '<button type="button" class="account-identity" id="account-identity-btn" aria-haspopup="true" aria-expanded="false" aria-controls="account-menu">',
+      '  <span class="account-identity-avatar" id="acct-avatar-collapsed" aria-hidden="true"></span>',
+      '  <span class="account-identity-info">',
+      '    <span class="account-identity-name" id="acct-name-collapsed">…</span>',
+      '    <span class="account-identity-username" id="acct-username-collapsed"></span>',
+      '  </span>',
+      '  <svg class="account-identity-dots" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">',
+      '    <circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/>',
+      '  </svg>',
+      '</button>'
     ].join('\n');
   }
 
@@ -230,7 +232,7 @@
     style.id = 'varoom-count-badge-styles';
     style.textContent = [
       ':root{--nav-badge-bg:#E9E7E2;--nav-badge-color:#24211E;}',
-      '[data-theme="dark"]{--nav-badge-bg:#484441;--nav-badge-color:#F5EFEC;}',
+      '[data-theme="dark"]{--nav-badge-bg:#2f3336;--nav-badge-color:#E7E9EA;}',
       '.varoom-count-badge{position:absolute;top:50%;right:.55rem;z-index:2;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:var(--nav-badge-bg);color:var(--nav-badge-color);display:flex;align-items:center;justify-content:center;font:700 10px/1 Arial,sans-serif;white-space:nowrap;box-sizing:border-box;transform:translateY(-50%);}',
       '.varoom-count-badge[hidden]{display:none;}'
     ].join('');
@@ -399,7 +401,95 @@
     });
   }
 
+  function installMoreMenuStyles() {
+    if (document.getElementById('varoom-more-menu-styles')) return;
+    var style = document.createElement('style');
+    style.id = 'varoom-more-menu-styles';
+    style.textContent = [
+      '.account-menu{position:fixed;z-index:400;background:#1A1411;color:#F5EFEC;border-radius:18px;',
+      'box-shadow:0 16px 48px -8px rgba(0,0,0,.55),0 0 0 1px rgba(255,255,255,.09);',
+      'padding:.6rem .5rem .5rem;display:flex;flex-direction:column;gap:0;}',
+      '.account-menu[hidden]{display:none;}',
+      '.account-menu-action{display:flex;align-items:center;width:100%;padding:.7rem .75rem;',
+      'border-radius:10px;background:none;border:none;cursor:pointer;font-family:inherit;',
+      'font-size:.88rem;font-weight:600;text-align:left;color:#F5EFEC;text-decoration:none;}',
+      '.account-menu-action:hover{background:rgba(255,255,255,.08);}',
+      '.account-menu-action.active{background:rgba(255,255,255,.12);}'
+    ].join('');
+    document.head.appendChild(style);
+  }
+
+  function initMoreMenuForContainer(container) {
+    var moreBtn  = container.querySelector('#more-nav-btn');
+    var moreMenu = container.querySelector('#more-menu');
+    if (!moreBtn || !moreMenu) return;
+
+    // Detach the menu from the sidebar so position:fixed works correctly
+    document.body.appendChild(moreMenu);
+
+    var MORE_PATHS = ['/analytics', '/settings', '/support', '/pricing'];
+
+    if (MORE_PATHS.some(function(p) { return window.location.pathname.startsWith(p); })) {
+      moreBtn.classList.add('active');
+    }
+
+    function positionMoreMenu() {
+      var rect = moreBtn.getBoundingClientRect();
+      var GAP  = 8;
+      moreMenu.style.left      = rect.left + 'px';
+      moreMenu.style.width     = (rect.right - rect.left) + 'px';
+      moreMenu.style.right     = '';
+      moreMenu.style.bottom    = (window.innerHeight - rect.top + GAP) + 'px';
+      moreMenu.style.top       = '';
+      moreMenu.style.maxHeight = (rect.top - GAP * 2) + 'px';
+      moreMenu.style.overflowY = 'auto';
+    }
+
+    function openMore() {
+      moreMenu.removeAttribute('hidden');
+      moreBtn.setAttribute('aria-expanded', 'true');
+      moreBtn.classList.add('active');
+      positionMoreMenu();
+    }
+
+    function closeMore() {
+      moreMenu.setAttribute('hidden', '');
+      moreBtn.setAttribute('aria-expanded', 'false');
+      if (!MORE_PATHS.some(function(p) { return window.location.pathname.startsWith(p); })) {
+        moreBtn.classList.remove('active');
+      }
+    }
+
+    moreBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      if (moreMenu.hasAttribute('hidden')) openMore(); else closeMore();
+    });
+
+    document.addEventListener('click', function(e) {
+      if (!moreMenu.hasAttribute('hidden') &&
+          !moreMenu.contains(e.target) &&
+          !moreBtn.contains(e.target)) {
+        closeMore();
+      }
+    });
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && !moreMenu.hasAttribute('hidden')) closeMore();
+    });
+
+    moreMenu.addEventListener('click', function(e) {
+      if (e.target.closest('a, button')) closeMore();
+    });
+
+    window.addEventListener('resize', function() {
+      if (!moreMenu.hasAttribute('hidden')) positionMoreMenu();
+    });
+  }
+
   function mount(options) {
+    if (typeof document !== 'undefined' && (document.querySelector('.host-layout-active') || document.querySelector('.client-layout-active'))) {
+      return;
+    }
     options = options || {};
     var role = options.role === 'host' ? 'host' : 'client';
     var container = options.container || document.getElementById('sidebar');
@@ -440,6 +530,12 @@
       });
     }
 
+    // More button popup
+    if (role === 'host') {
+      installMoreMenuStyles();
+      initMoreMenuForContainer(container);
+    }
+
     // Backdrop dismissal
     var backdrop = document.getElementById('sidebar-backdrop');
     if (backdrop) {
@@ -459,10 +555,12 @@
       menuToggle.addEventListener('click', openSidebar);
     }
 
-    // Persist cached role in session storage for faster zero-flicker reload
+    // Persist cached role in session and local storage for faster zero-flicker reload
     try {
       window.sessionStorage.setItem('varoom_user_role', role);
+      window.localStorage.setItem('varoom_last_role', role);
     } catch (e) {}
+    window.dispatchEvent(new CustomEvent('varoom_role_change', { detail: { role: role } }));
   }
 
   function setUnreadCount(count) {

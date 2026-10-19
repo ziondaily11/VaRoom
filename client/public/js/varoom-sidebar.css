@@ -19,16 +19,16 @@
 }
 
 [data-theme="dark"] {
-  --white: #241C1A;
-  --paper: #15100F;
-  --ink: #F5EFEC;
-  --nav-active-bg: #302C2A;
-  --nav-badge-bg: #484441;
-  --nav-badge-color: #F5EFEC;
-  --muted: #B8ACA8;
-  --glass-bg: rgba(28, 20, 18, .55);
-  --glass-border: rgba(255, 255, 255, .09);
-  --glass-shadow: 0 24px 55px rgba(0, 0, 0, .5);
+  --white: #000000;
+  --paper: #000000;
+  --ink: #E7E9EA;
+  --nav-active-bg: rgba(255, 255, 255, 0.14);
+  --nav-badge-bg: #2f3336;
+  --nav-badge-color: #E7E9EA;
+  --muted: #71767b;
+  --glass-bg: rgba(0, 0, 0, .85);
+  --glass-border: rgba(255, 255, 255, .12);
+  --glass-shadow: none;
   --line: rgba(255, 255, 255, .12);
   --line-soft: rgba(255, 255, 255, .07);
 }
@@ -63,7 +63,8 @@
   display: none;
 }
 
-html[data-account-role="pending"] #sidebar {
+html[data-account-role="pending"] #sidebar,
+html[data-account-role="pending"] #host-sidebar {
   visibility: hidden;
 }
 
@@ -82,6 +83,10 @@ html[data-account-role="pending"] #sidebar {
   color: var(--red);
 }
 
+.sidebar .logo .room {
+  color: var(--ink);
+}
+
 .sidebar .elie-logo-nav {
   width: 22px;
   height: 22px;
@@ -96,16 +101,16 @@ html[data-account-role="pending"] #sidebar {
   margin-left: auto;
   font-size: .68rem;
   font-weight: 600;
-  background: #FBE4E7;
-  color: var(--red-deep);
+  background: var(--nav-badge-bg, #E9E7E2);
+  color: var(--ink);
   padding: .15rem .5rem;
   border-radius: 100px;
   white-space: nowrap;
 }
 
 [data-theme="dark"] .sidebar .beta-pill {
-  background: rgba(196, 30, 58, .25);
-  color: #F5EFEC;
+  background: var(--nav-badge-bg, #2f3336);
+  color: var(--ink, #E7E9EA);
 }
 
 .sidebar .nav-group {
@@ -163,14 +168,33 @@ html[data-account-role="pending"] #sidebar {
 }
 
 .sidebar .nav-item.active {
-  background: var(--nav-active-bg);
-  color: var(--ink);
+  background: var(--nav-active-bg, #E9E7E2) !important;
+  color: var(--ink) !important;
   font-weight: 600;
+  border: none !important;
 }
 
 [data-theme="dark"] .sidebar .nav-item.active {
-  background: var(--nav-active-bg);
-  color: var(--ink);
+  background: var(--nav-active-bg, rgba(255, 255, 255, 0.14)) !important;
+  color: var(--ink, #E7E9EA) !important;
+  border: none !important;
+}
+
+.sidebar .nav-item.active svg {
+  color: var(--ink) !important;
+  stroke: currentColor;
+}
+
+.sidebar .nav-item.active .beta-pill,
+.sidebar .nav-item.active .notif-nav-badge {
+  background: var(--nav-badge-bg, #E9E7E2) !important;
+  color: var(--nav-badge-color, var(--ink)) !important;
+}
+
+[data-theme="dark"] .sidebar .nav-item.active .beta-pill,
+[data-theme="dark"] .sidebar .nav-item.active .notif-nav-badge {
+  background: var(--nav-badge-bg, #2f3336) !important;
+  color: var(--nav-badge-color, #E7E9EA) !important;
 }
 
 .sidebar .notif-nav-badge {
@@ -314,6 +338,8 @@ html[data-account-role="pending"] #sidebar {
 }
 
 :is(html[data-account-role="host"] .sidebar, .sidebar.sidebar-host) {
+  width: 295px !important;
+  min-width: 295px !important;
   --host-control-active: #E9E7E2;
   --host-control-hover: #EFEDE8;
   --host-sidebar-line: #E4E1DA;
@@ -321,12 +347,11 @@ html[data-account-role="pending"] #sidebar {
 
 html[data-theme="dark"][data-account-role="host"] .sidebar,
 [data-theme="dark"] .sidebar.sidebar-host {
-  --host-control-active: #302C2A;
-  --host-control-hover: #25211F;
+  --host-control-active: rgba(255, 255, 255, 0.16);
+  --host-control-hover: rgba(255, 255, 255, 0.1);
   --host-sidebar-line: rgba(255, 255, 255, .12);
 }
 
-:is(html[data-account-role="host"] .sidebar, .sidebar.sidebar-host) .logo .va,
 :is(html[data-account-role="host"] .sidebar, .sidebar.sidebar-host) .beta-pill {
   color: var(--ink);
 }
@@ -350,25 +375,53 @@ html[data-theme="dark"][data-account-role="host"] .sidebar,
 
 :is(html[data-account-role="host"] .sidebar, .sidebar.sidebar-host) .nav-item.active,
 :is(html[data-account-role="host"] .sidebar, .sidebar.sidebar-host) .nav-item.active:hover {
-  background: var(--host-control-active) !important;
+  background: var(--control-active, var(--host-control-active, var(--nav-active-bg, #E9E7E2))) !important;
   color: var(--ink) !important;
+  font-weight: 700 !important;
+  border: none !important;
+}
+
+html[data-theme="dark"][data-account-role="host"] .sidebar .nav-item.active,
+html[data-theme="dark"][data-account-role="host"] .sidebar .nav-item.active:hover,
+[data-theme="dark"] .sidebar.sidebar-host .nav-item.active,
+[data-theme="dark"] .sidebar.sidebar-host .nav-item.active:hover {
+  background: var(--control-active, var(--host-control-active, var(--nav-active-bg, rgba(255, 255, 255, 0.16)))) !important;
+  color: var(--ink, #E7E9EA) !important;
+  font-weight: 700 !important;
+  border: none !important;
+}
+
+:is(html[data-account-role="host"] .sidebar, .sidebar.sidebar-host) .nav-item.active svg {
+  color: var(--ink) !important;
+  stroke: currentColor;
 }
 
 :is(html[data-account-role="host"] .sidebar, .sidebar.sidebar-host) .list-space-btn {
-  background: var(--ink) !important;
-  border-color: var(--ink) !important;
-  color: var(--white) !important;
+  background: var(--red, #C41E3A) !important;
+  border: none !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(196, 30, 58, .25) !important;
 }
 
 :is(html[data-account-role="host"] .sidebar, .sidebar.sidebar-host) .list-space-btn:hover {
-  background: var(--host-control-hover) !important;
-  border-color: var(--host-sidebar-line) !important;
-  color: var(--ink) !important;
+  background: var(--red-deep, #8F1229) !important;
+  color: #ffffff !important;
 }
 
 :is(html[data-account-role="host"] .sidebar, .sidebar.sidebar-host) .notif-nav-badge {
-  background: var(--host-control-active) !important;
+  background: var(--red, #C41E3A);
+  color: #ffffff;
+}
+
+:is(html[data-account-role="host"] .sidebar, .sidebar.sidebar-host) .nav-item.active .notif-nav-badge {
+  background: var(--host-control-active, var(--nav-badge-bg, #E9E7E2)) !important;
   color: var(--ink) !important;
+}
+
+html[data-theme="dark"][data-account-role="host"] .sidebar .nav-item.active .notif-nav-badge,
+[data-theme="dark"] .sidebar.sidebar-host .nav-item.active .notif-nav-badge {
+  background: var(--host-control-active, var(--nav-badge-bg, #2f3336)) !important;
+  color: var(--ink, #E7E9EA) !important;
 }
 
 :is(html[data-account-role="host"] .sidebar, .sidebar.sidebar-host) .sidebar-note {

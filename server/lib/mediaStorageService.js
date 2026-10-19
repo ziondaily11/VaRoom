@@ -21,6 +21,9 @@ const {
   HeadObjectCommand,
   GetObjectCommand,
   DeleteObjectCommand,
+  ListObjectsV2Command,
+  DeleteObjectsCommand,
+  CopyObjectCommand,
 } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const { isR2PhotoObjectKey } = require('./photoStorageKeys');
@@ -94,6 +97,24 @@ function generateR2ObjectKey(hostId, propertyId, mediaId, extension) {
     throw new Error('Invalid file extension');
   }
   return `videos/${ENVIRONMENT}/${hostId}/${propertyId}/${mediaId}/original.${cleanExt}`;
+}
+
+function generateDraftR2ObjectKey(hostId, propertyId, mediaId, extension) {
+  if (!hostId || !propertyId || !mediaId || !extension) {
+    throw new Error('Missing required parameters for draft R2 key generation');
+  }
+  const cleanExt = String(extension).replace(/[^a-z0-9]/gi, '').toLowerCase();
+  if (!cleanExt) throw new Error('Invalid file extension');
+  return `drafts/videos/${ENVIRONMENT}/${hostId}/${propertyId}/${mediaId}/original.${cleanExt}`;
+}
+
+function generateDraftPhotoObjectKey(hostId, propertyId, photoId, extension) {
+  if (!hostId || !propertyId || !photoId || !extension) {
+    throw new Error('Missing required parameters for draft photo key generation');
+  }
+  const cleanExt = String(extension).replace(/[^a-z0-9]/gi, '').toLowerCase();
+  if (!cleanExt) throw new Error('Invalid file extension');
+  return `drafts/photos/${ENVIRONMENT}/${hostId}/${propertyId}/${photoId}/original.${cleanExt}`;
 }
 
 function generateChatAttachmentObjectKey(userId, conversationId, attachmentId, extension) {
@@ -256,6 +277,57 @@ async function deleteR2Object(objectKey) {
   }
 }
 
+async function listR2Objects(prefix) {
+  assertConfigured();
+  if (!prefix || prefix.includes('..')) throw new Error('Invalid R2 object prefix');
+  const objects = [];
+  let continuationToken;
+  do {
+    const response = await s3Client.send(new ListObjectsV2Command({
+      Bucket: R2_BUCKET_NAME,
+      Prefix: prefix,
+      ContinuationToken: continuationToken,
+      MaxKeys: 1000,
+    }));
+    (response.Contents || []).forEach((object) => {
+      if (object.Key) objects.push(object.Key);
+    });
+    continuationToken = response.IsTruncated ? response.NextContinuationToken : undefined;
+  } while (continuationToken);
+  return objects;
+}
+
+async function deleteR2Objects(objectKeys) {
+  assertConfigured();
+  const keys = [...new Set((objectKeys || []).filter(Boolean))];
+  for (let index = 0; index < keys.length; index += 1000) {
+    await s3Client.send(new DeleteObjectsCommand({
+      Bucket: R2_BUCKET_NAME,
+      Delete: {
+        Objects: keys.slice(index, index + 1000).map((Key) => ({ Key })),
+        Quiet: true,
+      },
+    }));
+  }
+}
+
+async function copyR2Object(sourceKey, destinationKey) {
+  assertConfigured();
+  if (!sourceKey || !destinationKey || sourceKey.includes('..') || destinationKey.includes('..')) {
+    throw new Error('Invalid R2 copy keys');
+  }
+  const copySource = `${R2_BUCKET_NAME}/${sourceKey.split('/').map(encodeURIComponent).join('/')}`;
+  await s3Client.send(new CopyObjectCommand({
+    Bucket: R2_BUCKET_NAME,
+    Key: destinationKey,
+    CopySource: copySource,
+    MetadataDirective: 'COPY',
+  }));
+  const metadata = await getR2ObjectMetadata(destinationKey);
+  if (!metadata.exists) throw new Error('R2 media copy could not be verified');
+  return metadata;
+}
+
 /**
  * Store a small image as a Supabase Storage object (for thumbnails, future use)
  */
@@ -317,6 +389,8 @@ async function deleteSupabaseStorage(bucketName, objectKey) {
 
 module.exports = {
   generateR2ObjectKey,
+  generateDraftR2ObjectKey,
+  generateDraftPhotoObjectKey,
   generateChatAttachmentObjectKey,
   generatePhotoObjectKey,
   isR2PhotoObjectKey,
@@ -328,6 +402,9 @@ module.exports = {
   downloadR2Object,
   uploadR2Object,
   deleteR2Object,
+  listR2Objects,
+  deleteR2Objects,
+  copyR2Object,
   uploadSupabaseStorage,
   getSupabasePublicUrl,
   deleteSupabaseStorage,

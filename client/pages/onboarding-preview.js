@@ -43,11 +43,14 @@ function parseTemplate(source) {
 
 const MOCK_SCRIPT_CONTENT = /* js */ `
 (function () {
+  var urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+  var roleParam = urlParams && urlParams.get('role') === 'host' ? 'host' : 'client';
   var MOCK_USER    = { id: 'preview-00000000-0000-0000-0000-000000000001' };
   var MOCK_SESSION = { user: MOCK_USER, access_token: 'preview-token' };
   var MOCK_PROFILE = {
-    role: 'client',
-    username: 'preview_user',
+    id: MOCK_USER.id,
+    role: roleParam,
+    username: roleParam === 'host' ? '' : 'preview_user',
     onboarding_completed: false
   };
 
@@ -61,17 +64,19 @@ const MOCK_SCRIPT_CONTENT = /* js */ `
     from: function (table) {
       return {
         select: function () {
-          return {
-            eq: function () {
-              return {
-                maybeSingle: function () {
-                  return Promise.resolve({ data: MOCK_PROFILE, error: null });
-                }
-              };
+          var queryObj = {
+            eq: function () { return queryObj; },
+            ilike: function () { return queryObj; },
+            neq: function () { return queryObj; },
+            limit: function () { return Promise.resolve({ data: [], error: null }); },
+            maybeSingle: function () {
+              return Promise.resolve({ data: MOCK_PROFILE, error: null });
             }
           };
+          return queryObj;
         },
-        update: function () {
+        update: function (updateData) {
+          Object.assign(MOCK_PROFILE, updateData);
           return {
             eq: function () {
               return Promise.resolve({ error: null });
@@ -85,8 +90,6 @@ const MOCK_SCRIPT_CONTENT = /* js */ `
       from: function () {
         return {
           upload: function (filePath) {
-            // Simulate a successful upload; return the same path the real
-            // bucket would return so avatar_url is saved correctly in answers.
             return Promise.resolve({ data: { path: filePath }, error: null });
           }
         };
@@ -98,7 +101,7 @@ const MOCK_SCRIPT_CONTENT = /* js */ `
     }
   };
 
-  console.log('[onboarding-preview] Mock supabaseClient active.');
+  console.log('[onboarding-preview] Mock supabaseClient active with role:', roleParam);
 })();
 `;
 

@@ -9,7 +9,7 @@ export function profileBannerUrl(client, key) {
   return `/api/photos/profile-banners/${key.split("/").map(encodeURIComponent).join("/")}`;
 }
 
-export default function ProfileBanner({ hostId, imageKey, isOwner = false, onChange }) {
+export default function ProfileBanner({ hostId, imageKey, isOwner = false, coverHeader = false, onChange }) {
   const inputRef = useRef(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -85,23 +85,50 @@ export default function ProfileBanner({ hostId, imageKey, isOwner = false, onCha
     setBusy(false);
   }
 
+  function openFilePicker() {
+    const input = inputRef.current;
+    if (!input) return;
+    input.value = "";
+    if (typeof input.showPicker === "function") {
+      try {
+        input.showPicker();
+        return;
+      } catch (error) {
+        console.warn("Native banner file picker could not open; trying the click fallback.", error);
+      }
+    }
+    input.click();
+  }
+
   const url = profileBannerUrl(null, imageKey);
   return <>
-    <header className="profile-banner" style={url ? { backgroundImage: `linear-gradient(90deg,rgba(0,0,0,.72),rgba(0,0,0,.22)),linear-gradient(0deg,rgba(0,0,0,.62),transparent 72%),url("${url}")` } : undefined}>
+    <header
+      className={`profile-banner${coverHeader ? " profile-banner-full-header" : ""}`}
+      style={url ? { backgroundImage: coverHeader
+        ? `linear-gradient(0deg,rgba(0,0,0,.35),transparent 72%),url("${url}")`
+        : `url("${url}")` } : undefined}
+    >
       {isOwner && <div className="profile-banner-actions">
-        <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" hidden onChange={(event) => handleFile(event.target.files?.[0])}/>
-        <button type="button" disabled={busy} onClick={() => inputRef.current?.click()}><Camera size={15}/>{busy ? "Saving…" : imageKey ? "Change banner" : "Add banner"}</button>
+        <input ref={inputRef} className="profile-banner-file-input" type="file" accept="image/jpeg,image/png,image/webp,image/gif" aria-label="Choose profile banner image" onChange={(event) => handleFile(event.target.files?.[0])}/>
+        <button type="button" disabled={busy} onClick={openFilePicker}><Camera size={15}/>{busy ? "Saving…" : imageKey ? "Change banner" : "Add banner"}</button>
         {imageKey && <button type="button" disabled={busy} aria-label="Remove profile banner" onClick={removeBanner}><X size={15}/>Remove</button>}
       </div>}
       {message && <span className="profile-banner-message" role="status">{message}</span>}
     </header>
     <style jsx>{`
-      .profile-banner { position:relative; height:260px; background:radial-gradient(ellipse at 70% 20%,#6a4b34 0,#392c25 35%,#171615 76%); background-position:center 45%; background-size:cover; }
-      .profile-banner-actions { position:absolute; right:22px; top:18px; display:flex; gap:8px; }
-      .profile-banner-actions button { display:flex;align-items:center;gap:7px;padding:9px 12px;border:1px solid #ffffff55;border-radius:999px;background:#090909b8;color:#fff;font-size:12px;cursor:pointer;backdrop-filter:blur(10px); }
+      .profile-banner { position:relative; height:350px; overflow:hidden; background:var(--host-profile-avatar-fallback,#d9d3ca); background-position:center 45%; background-size:cover; }
+      .profile-banner.profile-banner-full-header { position:absolute; inset:0; z-index:0; height:auto; min-height:100%; pointer-events:none; background-position:center; }
+      .profile-banner-full-header .profile-banner-actions { pointer-events:auto; }
+      .profile-banner::after { content:""; position:absolute; inset:0; z-index:1; pointer-events:none; background:linear-gradient(to top,rgba(255,255,255,.96) 0%,rgba(255,255,255,.72) 24%,rgba(255,255,255,.16) 62%,transparent 100%); }
+      :global(html[data-theme="dark"]) .profile-banner::after { background:linear-gradient(to top,rgba(0,0,0,.94) 0%,rgba(0,0,0,.68) 27%,rgba(0,0,0,.2) 66%,transparent 100%); }
+      .profile-banner-actions { position:absolute; z-index:2; right:22px; top:18px; display:flex; gap:8px; }
+      .profile-banner-file-input { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+      .profile-banner-actions button { display:flex;align-items:center;gap:7px;padding:9px 12px;border:1px solid #ffffff88;border-radius:999px;background:#090909b8;color:#fff;font-size:12px;cursor:pointer;backdrop-filter:blur(10px); }
+      .profile-banner-full-header::after { display:none; }
       .profile-banner-actions button:disabled { opacity:.6;cursor:wait; }
-      .profile-banner-message { position:absolute; right:22px; bottom:14px; color:white; background:#101010c9; border-radius:8px; padding:7px 10px; font-size:12px; }
-      @media(max-width:700px) { .profile-banner { height:165px; } .profile-banner-actions { right:12px;top:12px; } .profile-banner-actions button { padding:8px 10px; } }
+      .profile-banner-message { position:absolute; z-index:2; right:22px; bottom:14px; color:white; background:#101010c9; border-radius:8px; padding:7px 10px; font-size:12px; }
+      @media(max-width:760px) { .profile-banner { height:350px; } }
+      @media(max-width:700px) { .profile-banner-actions { right:12px;top:12px; } .profile-banner-actions button { padding:8px 10px; } }
     `}</style>
   </>;
 }

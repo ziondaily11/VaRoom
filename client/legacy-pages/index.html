@@ -13,72 +13,10 @@
     window.VAROOM_SUPABASE_URL = window.VAROOM_SUPABASE_URL || 'https://deaphymimdaygeavhyek.supabase.co';
     window.VAROOM_SUPABASE_ANON_KEY = window.VAROOM_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRlYXBoeW1pbWRheWdlYXZoeWVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY1MjAwNDQsImV4cCI6MjEwMjA5NjA0NH0.rbgVhuZCK1fZP7gKV5oO1OUvIT61ir23VhAYm8739SI';
     window.GOOGLE_CLIENT_ID = window.GOOGLE_CLIENT_ID || '369292685051-ibng5c6hcuqs20fkfuk5ljip74fka3if.apps.googleusercontent.com';
-    window.VAROOM_GOOGLE_NONCE = null;
 
-    window.handleOneTapCredential = async function (response) {
-      if (!response || !response.credential || !window.supabaseClient || !window.VAROOM_GOOGLE_NONCE) {
-        return;
-      }
-
-      const { error } = await window.supabaseClient.auth.signInWithIdToken({
-        provider: 'google',
-        token: response.credential,
-        nonce: window.VAROOM_GOOGLE_NONCE
-      });
-
-      if (error) {
-        console.error('Google One Tap sign-in failed:', error);
-        return;
-      }
-
-      const redirect = new URLSearchParams(window.location.search).get('redirect');
-      window.location.href = redirect || '/client-home';
-    };
-
-    window.initializeGoogleOneTap = async function () {
-      const oneTapContainer = document.getElementById('one-tap-container');
-      if (!oneTapContainer) return;
-      if (window.VAROOM_GOOGLE_ONE_TAP_INITIALIZED) return;
-
-      if (window.GOOGLE_CLIENT_ID) {
-        if (!window.google || !window.google.accounts || !window.google.accounts.id) {
-          window.setTimeout(window.initializeGoogleOneTap, 100);
-          return;
-        }
-
-        const randomBytes = new Uint8Array(32);
-        window.crypto.getRandomValues(randomBytes);
-        const rawNonce = Array.from(randomBytes, function (byte) {
-          return byte.toString(16).padStart(2, '0');
-        }).join('');
-        const hashedNonce = Array.from(new Uint8Array(
-          await window.crypto.subtle.digest('SHA-256', new TextEncoder().encode(rawNonce))
-        ), function (byte) {
-          return byte.toString(16).padStart(2, '0');
-        }).join('');
-
-        window.VAROOM_GOOGLE_NONCE = rawNonce;
-        window.google.accounts.id.initialize({
-          client_id: window.GOOGLE_CLIENT_ID,
-          callback: window.handleOneTapCredential,
-          nonce: hashedNonce,
-          cancel_on_tap_outside: false,
-          itp_support: true
-        });
-        window.VAROOM_GOOGLE_ONE_TAP_INITIALIZED = true;
-        window.google.accounts.id.prompt();
-      } else {
-        console.warn('Google One Tap disabled because GOOGLE_CLIENT_ID is not set.');
-        if (oneTapContainer) oneTapContainer.remove();
-      }
-    };
-
-    window.setTimeout(window.initializeGoogleOneTap, 2500);
   </script>
   <!-- Google Identity Services — One Tap -->
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <!-- One Tap prompt container -->
-  <div id="one-tap-container" style="position:fixed;top:70px;right:24px;z-index:9999;"></div>
   <style>
     /* ============================================================
        TOKENS
@@ -2974,7 +2912,7 @@
       <div class="mob-spinner"></div>
     </button>
 
-    <button type="button" class="btn-mob-google" id="mob-google-btn">
+    <div class="btn-mob-google google-signin-slot" id="mob-google-btn" style="background:transparent;border:0;padding:0;box-shadow:none;visibility:hidden;">
       <svg width="18" height="18" viewBox="0 0 48 48">
         <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
         <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
@@ -2982,6 +2920,9 @@
         <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
       </svg>
       <span>Continue with Google</span>
+    </div>
+    <button type="button" id="mob-google-fallback" style="width:100%;border:0;background:transparent;color:rgba(255,255,255,.7);font-size:12px;text-decoration:underline;">
+      If Google doesn&apos;t open, use the full-page sign-in
     </button>
 
     <p class="mob-auth-footer" id="mob-auth-footer">
@@ -3571,8 +3512,8 @@
   <div class="footer-bottom">
     <span class="footer-bottom-left">© 2025 VaRoom. A place to begin.</span>
     <div class="footer-bottom-center">
-      <a href="#">Privacy policy</a>
-      <a href="/terms">Terms &amp; conditions</a>
+      <a href="/privacy" target="_blank" rel="noopener noreferrer">Privacy policy</a>
+      <a href="/terms" target="_blank" rel="noopener noreferrer">Terms &amp; conditions</a>
       <a href="#">Cookie policy</a>
     </div>
     <div class="footer-socials">
@@ -3612,7 +3553,7 @@
       <p class="modal-sub" id="role-sub"></p>
       <div class="auth-options">
         <a href="#" class="auth-btn auth-email" id="email-signup-link">Register with email</a>
-        <button type="button" class="auth-btn auth-google" id="google-auth-btn">
+        <div class="auth-btn auth-google google-signin-slot" id="google-auth-btn" style="background:transparent;border:0;padding:0;box-shadow:none;visibility:hidden;">
           <svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true">
             <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 3l6-6C34.1 5.1 29.3 3 24 3 12.4 3 3 12.4 3 24s9.4 21 21 21 21-9.4 21-21c0-1.3-.1-2.7-.4-3.5z"/>
             <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.5 16 18.9 13 24 13c3.1 0 5.8 1.1 8 3l6-6C34.1 5.1 29.3 3 24 3c-7.6 0-14.1 4.3-17.7 10.7z"/>
@@ -3620,9 +3561,13 @@
             <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.2 5.7l6.2 5.2C40.8 36.5 44 30.9 44 24c0-1.3-.1-2.7-.4-3.5z"/>
           </svg>
           Continue with Google
+        </div>
+        <button type="button" id="google-auth-fallback" style="width:100%;border:0;background:transparent;color:#555;font-size:12px;text-decoration:underline;">
+          If Google doesn&apos;t open, use the full-page sign-in
         </button>
       </div>
       <p class="auth-note">You'll be signed up and logged in right away.</p>
+      <p id="google-auth-error" role="alert" style="display:none;color:#c41e3a;font-size:12px;"></p>
     </div>
   </div>
 </div>
@@ -3730,7 +3675,6 @@
     var roleSub = document.getElementById('role-sub');
     var emailLink = document.getElementById('email-signup-link');
     var googleBtn = document.getElementById('google-auth-btn');
-    var selectedRole = null;
     var urlParams = new URLSearchParams(window.location.search);
     var pendingRedirect = urlParams.get('redirect');
 
@@ -3772,7 +3716,7 @@
     modal.querySelectorAll('.role-card').forEach(function (card) {
       card.addEventListener('click', function () {
         var role = card.getAttribute('data-role');
-        selectedRole = role;
+        sessionStorage.setItem('varoom_intended_role', role);
         var content = roleContent[role];
         roleLabel.textContent = content.label;
         roleSub.textContent = content.sub;
@@ -3786,17 +3730,17 @@
     });
 
     if (googleBtn) {
-      googleBtn.addEventListener('click', async function () {
-        if (selectedRole === 'host' || selectedRole === 'client') {
-          sessionStorage.setItem('varoom_intended_role', selectedRole);
+      window.VaRoomGoogleSignIn.mount(googleBtn, {
+        client: supabaseClient,
+        redirectTo: window.location.origin + '/auth-callback' +
+          (pendingRedirect ? '?redirect=' + encodeURIComponent(pendingRedirect) : ''),
+        text: 'signup_with',
+        fallbackButton: document.getElementById('google-auth-fallback'),
+        onError: function (message) {
+          var error = document.getElementById('google-auth-error');
+          error.textContent = message;
+          error.style.display = 'block';
         }
-        await supabaseClient.auth.signInWithOAuth({
-          provider: 'google',
-          options: {
-            redirectTo: window.location.origin + '/auth-callback' +
-              (pendingRedirect ? '?redirect=' + encodeURIComponent(pendingRedirect) : '')
-          }
-        });
       });
     }
   }
@@ -3835,6 +3779,7 @@
     clearAlert();
 
     if (mode === 'signup') {
+      sessionStorage.setItem('varoom_intended_role', selectedRole);
       if (headingEl) headingEl.textContent = 'Create your account';
       if (roleSelector) roleSelector.style.display = 'flex';
       if (nameWrap) nameWrap.style.display = 'block';
@@ -3843,6 +3788,7 @@
       if (toggleModeBtn) toggleModeBtn.textContent = 'Log In';
       if (forgotWrap) forgotWrap.style.display = 'none';
     } else {
+      sessionStorage.removeItem('varoom_intended_role');
       if (headingEl) headingEl.textContent = 'Welcome back';
       if (roleSelector) roleSelector.style.display = 'none';
       if (nameWrap) nameWrap.style.display = 'none';
@@ -3911,6 +3857,9 @@
       roleChips.forEach(function (c) { c.classList.remove('active'); });
       chip.classList.add('active');
       selectedRole = chip.getAttribute('data-role') || 'client';
+      if (currentMode === 'signup') {
+        sessionStorage.setItem('varoom_intended_role', selectedRole);
+      }
     });
   });
 
@@ -3992,24 +3941,16 @@
     });
   }
 
-  // Handle Google OAuth
+  // Google Identity Services preserves this page and returns an ID token to Supabase.
   if (googleBtn) {
-    googleBtn.addEventListener('click', async function () {
-      try {
-        var redirect = new URLSearchParams(window.location.search).get('redirect');
-        if (currentMode === 'signup' && selectedRole) {
-          sessionStorage.setItem('varoom_intended_role', selectedRole);
-        }
-        await supabaseClient.auth.signInWithOAuth({
-          provider: 'google',
-          options: {
-            redirectTo: window.location.origin + '/auth-callback' +
-              (redirect ? '?redirect=' + encodeURIComponent(redirect) : '')
-          }
-        });
-      } catch (err) {
-        showAlert('Google sign-in failed. Please try again.', false);
-      }
+    var googleRedirect = new URLSearchParams(window.location.search).get('redirect');
+    window.VaRoomGoogleSignIn.mount(googleBtn, {
+      client: supabaseClient,
+      redirectTo: window.location.origin + '/auth-callback' +
+        (googleRedirect ? '?redirect=' + encodeURIComponent(googleRedirect) : ''),
+      clearIntendedRole: true,
+      fallbackButton: document.getElementById('mob-google-fallback'),
+      onError: function (message) { showAlert(message, false); }
     });
   }
 })();
@@ -4113,7 +4054,7 @@
     <button class="scroll-prompt-dismiss" id="prompt-dismiss" aria-label="Dismiss">&times;</button>
   </div>
   <p>Find the space that feels like yours. Join free.</p>
-  <button class="scroll-prompt-google" id="prompt-google-btn">
+  <div class="scroll-prompt-google google-signin-slot" id="prompt-google-btn" style="background:transparent;border:0;padding:0;box-shadow:none;visibility:hidden;">
     <svg width="17" height="17" viewBox="0 0 48 48">
       <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
       <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
@@ -4121,7 +4062,11 @@
       <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
     </svg>
     Continue with Google
+  </div>
+  <button type="button" id="prompt-google-fallback" style="width:100%;border:0;background:transparent;color:#555;font-size:11px;text-decoration:underline;">
+    If Google doesn&apos;t open, use the full-page sign-in
   </button>
+  <p id="prompt-google-error" role="alert" style="display:none;color:#c41e3a;font-size:11px;"></p>
   <a class="scroll-prompt-email open-account-trigger">Create account with email</a>
 </div>
 
@@ -4160,17 +4105,15 @@
     if (res.data && res.data.session) dismissed = true;
   });
 
-  // Google button — uses same signInWithOAuth as the rest of the site
-  googleBtn.addEventListener('click', async function() {
-    try {
-      await supabaseClient.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: window.location.origin + '/auth-callback'
-        }
-      });
-    } catch(e) {
-      console.error('Google sign-in failed:', e.message);
+  window.VaRoomGoogleSignIn.mount(googleBtn, {
+    client: supabaseClient,
+    redirectTo: window.location.origin + '/auth-callback',
+    intendedRole: 'client',
+    fallbackButton: document.getElementById('prompt-google-fallback'),
+    onError: function (message) {
+      var error = document.getElementById('prompt-google-error');
+      error.textContent = message;
+      error.style.display = 'block';
     }
   });
 })();

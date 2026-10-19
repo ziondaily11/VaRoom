@@ -1,4 +1,9 @@
 import Head from 'next/head';
+import { useRouter } from 'next/router';
+import { useState, useEffect, useLayoutEffect } from 'react';
+import HostLayout from '../components/HostLayout';
+import ClientLayout from '../components/ClientLayout';
+import AddAccountModal from '../components/AddAccountModal';
 import '../styles/admin.css';
 import '../legacy-pages/privacy.css';
 
@@ -173,7 +178,7 @@ const designTokensStyle = `
     outline-offset: 2px;
   }
 
-  .va-button,
+  /* Landing page CTA buttons — strictly preserve vintage editorial styling */
   .landing-cta,
   .landing-cta-secondary {
     align-items: center;
@@ -189,19 +194,58 @@ const designTokensStyle = `
     transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease;
   }
 
-  .va-button-primary,
-  .va-button[data-variant='primary'],
   .landing-cta:not(.landing-cta-secondary),
   .landing-cta-primary {
-    background: var(--color-cta-primary) !important;
-    border: 1px solid var(--color-cta-primary) !important;
+    background: #111111 !important;
+    border: 1px solid #111111 !important;
+    box-shadow: none !important;
+    color: #ffffff !important;
+  }
+
+  .landing-cta-secondary {
+    background: transparent !important;
+    border: 1px solid #b8b2a7 !important;
+    box-shadow: none !important;
+    color: #171717 !important;
+  }
+
+  .landing-cta:not(.landing-cta-secondary):hover:not(:disabled):not([aria-disabled='true']),
+  .landing-cta-primary:hover:not(:disabled):not([aria-disabled='true']) {
+    background: #292929 !important;
+    border-color: #292929 !important;
+    color: #ffffff !important;
+  }
+
+  .landing-cta-secondary:hover:not(:disabled):not([aria-disabled='true']) {
+    background: #f3f1ed !important;
+    color: #171717 !important;
+  }
+
+  /* Platform UI action buttons */
+  .va-button {
+    align-items: center;
+    border-radius: var(--radius-cta) !important;
+    cursor: pointer;
+    display: inline-flex;
+    font-weight: 600;
+    justify-content: center;
+    min-height: 44px;
+    padding-bottom: 0 !important;
+    padding-top: 0 !important;
+    text-decoration: none;
+    transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease;
+  }
+
+  .va-button-primary,
+  .va-button[data-variant='primary'] {
+    background: #111111 !important;
+    border: 1px solid #111111 !important;
     box-shadow: none !important;
     color: #ffffff !important;
   }
 
   .va-button-secondary,
-  .va-button[data-variant='secondary'],
-  .landing-cta-secondary {
+  .va-button[data-variant='secondary'] {
     background: transparent !important;
     border: 1px solid var(--color-cta-secondary-border) !important;
     box-shadow: none !important;
@@ -209,17 +253,44 @@ const designTokensStyle = `
   }
 
   .va-button-primary:hover:not(:disabled):not([aria-disabled='true']),
-  .va-button[data-variant='primary']:hover:not(:disabled):not([aria-disabled='true']),
-  .landing-cta:not(.landing-cta-secondary):hover:not(:disabled):not([aria-disabled='true']),
-  .landing-cta-primary:hover:not(:disabled):not([aria-disabled='true']) {
-    background: var(--color-cta-primary-hover) !important;
-    border-color: var(--color-cta-primary-hover) !important;
+  .va-button[data-variant='primary']:hover:not(:disabled):not([aria-disabled='true']) {
+    background: #292929 !important;
+    border-color: #292929 !important;
+    color: #ffffff !important;
   }
 
   .va-button-secondary:hover:not(:disabled):not([aria-disabled='true']),
-  .va-button[data-variant='secondary']:hover:not(:disabled):not([aria-disabled='true']),
-  .landing-cta-secondary:hover:not(:disabled):not([aria-disabled='true']) {
+  .va-button[data-variant='secondary']:hover:not(:disabled):not([aria-disabled='true']) {
     background: #f3f1ed !important;
+    color: #171717 !important;
+  }
+
+  /* Global dark-mode button high contrast overrides */
+  html[data-theme="dark"] .va-button-primary,
+  html[data-theme="dark"] .va-button[data-variant='primary'] {
+    background: #EFF3F4 !important;
+    border: 1px solid #EFF3F4 !important;
+    color: #0F1419 !important;
+  }
+
+  html[data-theme="dark"] .va-button-primary:hover:not(:disabled):not([aria-disabled='true']),
+  html[data-theme="dark"] .va-button[data-variant='primary']:hover:not(:disabled):not([aria-disabled='true']) {
+    background: #D7DBDC !important;
+    border-color: #D7DBDC !important;
+    color: #0F1419 !important;
+  }
+
+  html[data-theme="dark"] .va-button-secondary,
+  html[data-theme="dark"] .va-button[data-variant='secondary'] {
+    background: transparent !important;
+    border: 1px solid rgba(255, 255, 255, 0.22) !important;
+    color: #E7E9EA !important;
+  }
+
+  html[data-theme="dark"] .va-button-secondary:hover:not(:disabled):not([aria-disabled='true']),
+  html[data-theme="dark"] .va-button[data-variant='secondary']:hover:not(:disabled):not([aria-disabled='true']) {
+    background: rgba(255, 255, 255, 0.08) !important;
+    color: #FFFFFF !important;
   }
 
   .va-button:focus-visible,
@@ -257,19 +328,46 @@ const designTokensStyle = `
     }
   }
 
+  html[data-theme="dark"] {
+    --color-bg: #000000;
+    --color-surface: #000000;
+    --color-surface-muted: #000000;
+    --color-text: #E7E9EA;
+    --color-text-muted: #71767b;
+    --color-text-inverse: #000000;
+    --color-border: rgba(255, 255, 255, 0.12);
+    --color-border-strong: rgba(255, 255, 255, 0.22);
+    --color-primary: #e0425e;
+    --color-primary-hover: #ff6b81;
+    --color-cta-primary: #EFF3F4;
+    --color-cta-primary-hover: #D7DBDC;
+    --color-cta-secondary-border: rgba(255, 255, 255, 0.22);
+    --color-danger: #ff7186;
+    --color-success: #4cc38a;
+    --color-warning: #e0a23b;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+    --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.7);
+    --shadow-lg: 0 24px 56px rgba(0, 0, 0, 0.85);
+  }
+
   html[data-theme="dark"], html[data-theme="dark"] body, html[data-theme="dark"] #__next {
-    background: #15100F;
+    background: #000000;
   }
 `;
 
 const fontSizeScript = `
   (function () {
     try {
-      var savedTheme = localStorage.getItem('varoom_theme') || 'system';
-      var resolvedTheme = savedTheme === 'system'
-        ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-        : savedTheme;
-      document.documentElement.setAttribute('data-theme', resolvedTheme);
+      var isLanding = window.location.pathname === '/' || window.location.pathname === '';
+      if (!isLanding) {
+        var savedTheme = localStorage.getItem('varoom_theme') || 'system';
+        var resolvedTheme = savedTheme === 'system'
+          ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+          : savedTheme;
+        document.documentElement.setAttribute('data-theme', resolvedTheme);
+      } else {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
       var scales = { small: '0.9', default: '1', large: '1.1', xlarge: '1.2' };
       var choice = localStorage.getItem('varoom_font_size') || 'default';
       document.documentElement.style.setProperty('--varoom-font-scale', scales[choice] || scales.default);
@@ -281,7 +379,164 @@ const fontSizeScript = `
   })();
 `;
 
+if (typeof window !== 'undefined' && typeof Node !== 'undefined' && Node.prototype) {
+  const originalRemoveChild = Node.prototype.removeChild;
+  Node.prototype.removeChild = function (child) {
+    if (child && child.parentNode !== this) {
+      if (typeof console !== 'undefined' && console.warn) {
+        console.warn('Safely ignored removeChild on detached node:', child);
+      }
+      return child;
+    }
+    return originalRemoveChild.apply(this, arguments);
+  };
+
+  const originalInsertBefore = Node.prototype.insertBefore;
+  Node.prototype.insertBefore = function (newNode, referenceNode) {
+    if (referenceNode && referenceNode.parentNode !== this) {
+      if (typeof console !== 'undefined' && console.warn) {
+        console.warn('Safely ignored insertBefore on detached reference node:', referenceNode);
+      }
+      return newNode;
+    }
+    return originalInsertBefore.apply(this, arguments);
+  };
+}
+
+const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
+
 export default function App({ Component, pageProps }) {
+  const router = useRouter();
+  const [role, setRole] = useState('host');
+
+  useEffect(() => {
+    const applyThemeForRoute = (url) => {
+      const targetPath = typeof url === 'string' ? url : router.pathname || '';
+      const isLanding = targetPath === '/' || targetPath === '';
+      if (isLanding) {
+        document.documentElement.setAttribute('data-theme', 'light');
+        document.documentElement.style.colorScheme = 'light';
+        return;
+      }
+      try {
+        const savedTheme = localStorage.getItem('varoom_theme') || 'system';
+        const resolvedTheme = savedTheme === 'system'
+          ? (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+          : savedTheme;
+        document.documentElement.setAttribute('data-theme', resolvedTheme);
+        document.documentElement.style.colorScheme = resolvedTheme;
+      } catch (e) {}
+    };
+
+    applyThemeForRoute(router.asPath || router.pathname);
+    router.events.on('routeChangeComplete', applyThemeForRoute);
+    return () => {
+      router.events.off('routeChangeComplete', applyThemeForRoute);
+    };
+  }, [router]);
+
+  useIsomorphicLayoutEffect(() => {
+    const updateRole = () => {
+      try {
+        const docRole = document.documentElement.getAttribute('data-account-role');
+        if (docRole === 'client' || docRole === 'host') {
+          setRole(docRole);
+          return;
+        }
+        const cached = localStorage.getItem('varoom_cached_profile');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed && (parsed.role === 'client' || parsed.role === 'host')) {
+            setRole(parsed.role);
+            return;
+          }
+        }
+        const r = sessionStorage.getItem('varoom_user_role') || localStorage.getItem('varoom_last_role');
+        if (r === 'client' || r === 'host') {
+          setRole(r);
+          return;
+        }
+      } catch (e) {}
+    };
+
+    updateRole();
+
+    // Observe data-account-role attribute changes on documentElement
+    let observer = null;
+    if (typeof MutationObserver !== 'undefined') {
+      observer = new MutationObserver(() => {
+        const docRole = document.documentElement.getAttribute('data-account-role');
+        if (docRole === 'client' || docRole === 'host') {
+          setRole(docRole);
+        }
+      });
+      observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-account-role'] });
+    }
+
+    const handleRoleEvent = (e) => {
+      if (e.detail?.role) {
+        setRole(e.detail.role);
+      } else {
+        updateRole();
+      }
+    };
+
+    window.addEventListener('storage', updateRole);
+    window.addEventListener('varoom_role_change', handleRoleEvent);
+
+    // If supabaseClient is available, verify authoritative profile role
+    if (typeof window !== 'undefined' && window.supabaseClient && window.supabaseClient.auth) {
+      window.supabaseClient.auth.getSession().then(({ data }) => {
+        const userId = data?.session?.user?.id;
+        if (userId) {
+          window.supabaseClient.from('profiles').select('role').eq('id', userId).maybeSingle().then(({ data: p }) => {
+            if (p?.role) {
+              try {
+                sessionStorage.setItem('varoom_user_role', p.role);
+                localStorage.setItem('varoom_last_role', p.role);
+              } catch (e) {}
+              setRole(p.role);
+            }
+          });
+        }
+      });
+    }
+
+    return () => {
+      window.removeEventListener('storage', updateRole);
+      window.removeEventListener('varoom_role_change', handleRoleEvent);
+      if (observer) observer.disconnect();
+    };
+  }, []);
+
+  const path = router.pathname || '';
+  const asPath = router.asPath || '';
+  const isHostHome = path === '/host-home' || asPath.startsWith('/host-home');
+  const isAnalytics = path === '/analytics' || asPath.startsWith('/analytics');
+  const isClientHome = path === '/client-home' || asPath.startsWith('/client-home');
+
+  const isHostProfileRoute = path.startsWith('/host/') || asPath.startsWith('/host/');
+  // Explicit host routes that must always use HostLayout (analytics retains its own layout)
+  const isHostRoute = !isAnalytics && (isHostHome || (isHostProfileRoute && role !== 'client'));
+
+  // Shared routes that use HostLayout unless user explicitly switched to client role
+  const isSharedRoute = [
+    '/bookings',
+    '/notifications',
+    '/profile',
+    '/settings'
+  ].some((r) => path.startsWith(r) || asPath.startsWith(r));
+
+  // Determine whether this page should use the persistent HostLayout
+  const isHostMode = !isClientHome && (isHostRoute || (isSharedRoute && role !== 'client'));
+
+  // Client routes that use the persistent ClientLayout
+  const isClientSharedRoute = isSharedRoute && role === 'client';
+  const isClientHostProfile = isHostProfileRoute && role === 'client';
+  const isClientMode = !isHostMode && (isClientHome || isClientSharedRoute || isClientHostProfile);
+
+  const pageElement = <Component {...pageProps} />;
+
   return (
     <>
       <Head>
@@ -294,7 +549,16 @@ export default function App({ Component, pageProps }) {
         <style dangerouslySetInnerHTML={{ __html: designTokensStyle }} />
         <script dangerouslySetInnerHTML={{ __html: fontSizeScript }} />
       </Head>
-      <Component {...pageProps} />
+      {Component.getLayout ? (
+        Component.getLayout(pageElement)
+      ) : isHostMode ? (
+        <HostLayout>{pageElement}</HostLayout>
+      ) : isClientMode ? (
+        <ClientLayout>{pageElement}</ClientLayout>
+      ) : (
+        pageElement
+      )}
+      <AddAccountModal />
     </>
   );
 }

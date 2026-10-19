@@ -28,25 +28,49 @@
 <script src="js/skeleton-loader.js"></script>
 <style>
   :root{
-    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#24211E; --paper:#FFFFFF;
-    --muted:#5c584f;
-    --font-display:'Helvetica Neue', Arial, sans-serif; --font-body:'Helvetica Neue', Arial, sans-serif;
+    --red:#C41E3A; --red-deep:#8F1229; --white:#FFFFFF; --ink:#0F1419; --paper:#FFFFFF;
+    --surface-card:#F7F9F9;
+    --muted:#536471;
+    --font-display:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --font-body:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     --font-brand:'Fraunces', serif;
-    --glass-bg:rgba(255,255,255,.55);
-    --glass-border:rgba(255,255,255,.6);
-    --glass-shadow:0 24px 55px #E4E1DA;
-    --line:#E4E1DA;
-    --line-soft:#E4E1DA;
-    --media-stage-fill:#F7F6F3;
+    --glass-bg:rgba(255,255,255,.85);
+    --glass-border:rgba(0,0,0,.08);
+    --glass-shadow:0 24px 55px rgba(0,0,0,.08);
+    --glow-a:transparent;
+    --glow-b:transparent;
+    --line:#D4D8DA;
+    --line-soft:#DDE1E3;
+    --control-bg:#EFF3F4;
+    --control-active:#E1E8ED;
+    --control-hover:#F2F5F7;
+    --control-strong:#0F1419;
+    --control-strong-text:#FFFFFF;
+    --neutral-icon:#536471;
+    --tile-bg:#F7F9F9;
+    --media-stage-fill:#F7F9F9;
   }
   [data-theme="dark"]{
-    --white:#241C1A; --paper:#15100F; --ink:#F5EFEC; --muted:#B8ACA8;
-    --glass-bg:rgba(28,20,18,.55);
+    --white:#000000;
+    --paper:#000000;
+    --surface-card:#0d0d0d;
+    --ink:#E7E9EA;
+    --muted:#71767b;
+    --glass-bg:rgba(0,0,0,.85);
     --glass-border:rgba(255,255,255,.09);
     --glass-shadow:0 24px 55px rgba(0,0,0,.5);
-    --line:rgba(255,255,255,.12);
-    --line-soft:rgba(255,255,255,.07);
-    --media-stage-fill:#1B1614;
+    --glow-a:transparent;
+    --glow-b:transparent;
+    --line:#2f3336;
+    --line-soft:#202327;
+    --control-bg:#202327;
+    --control-active:#2f3336;
+    --control-hover:rgba(239, 243, 244, 0.1);
+    --control-strong:#EFF3F4;
+    --control-strong-text:#0F1419;
+    --neutral-icon:#71767b;
+    --tile-bg:#0d0d0d;
+    --media-stage-fill:#0a0a0a;
   }
   *{ margin:0; padding:0; box-sizing:border-box; }
   html{ overflow-x:hidden; }
@@ -55,60 +79,93 @@
     transition:background .2s ease, color .2s ease;
     background:var(--paper);
   }
-  /* One continuous light canvas; hierarchy comes from hairline dividers. */
+  /* Continuous canvas; hierarchy comes from hairline dividers. */
   html[data-theme="light"] body,
   html[data-theme="light"] .app-shell,
+  html[data-theme="light"] .sidebar,
   html[data-theme="light"] .main-col,
   html[data-theme="light"] .topbar,
   html[data-theme="light"] .feed-area,
   html[data-theme="light"] .right-rail{ background:#fff; }
+
+  html[data-theme="dark"] body,
+  html[data-theme="dark"] .app-shell,
+  html[data-theme="dark"] .sidebar,
+  html[data-theme="dark"] .main-col,
+  html[data-theme="dark"] .topbar,
+  html[data-theme="dark"] .feed-area,
+  html[data-theme="dark"] .right-rail{ background:#000000; }
+
   a{ color:inherit; text-decoration:none; }
   button{ font-family:inherit; cursor:pointer; border:none; background:none; }
-  :focus-visible{ outline:3px solid var(--red-deep); outline-offset:3px; }
+  :focus-visible{ outline:2px solid var(--red); outline-offset:2px; }
   ul{ list-style:none; }
 
   .app-shell{
     display:grid;
-    grid-template-columns: 280px minmax(0, 1fr);
+    grid-template-columns: 260px minmax(0, 1fr);
+    width:100%;
     height:100vh;
     overflow:hidden;
+    background:var(--paper);
   }
 
+  /* ---------- SIDEBAR (line-separated column) ----------
+     Spacious vertical layout emulating X navigation. */
   .sidebar{
-    height:100vh;
-    margin:0;
-    background:var(--white);
+    width:260px;
+    flex-shrink:0;
+    background:var(--paper);
     border:none;
     border-right:1px solid var(--line);
     border-radius:0;
     box-shadow:none;
-    padding:1.4rem 1.2rem 1.2rem;
+    margin:0;
+    padding:0.75rem 0.85rem 1rem;
     display:flex;
     flex-direction:column;
-    gap:1.4rem;
+    gap:0.75rem;
+    height:100vh;
     overflow-y:auto;
     scrollbar-width:none;
+    box-sizing:border-box;
   }
   .sidebar::-webkit-scrollbar{ display:none; }
 
-  .logo{ font-family:var(--font-brand); font-weight:900; font-size:1.4rem; display:flex; align-items:baseline; padding:0 .4rem; }
+  .logo{
+    font-family:var(--font-brand);
+    font-weight:900;
+    font-size:1.5rem;
+    display:flex;
+    align-items:baseline;
+    padding:.35rem .6rem;
+    margin-bottom:.2rem;
+    text-decoration:none;
+  }
   .logo .va{ color:var(--red); }
-  .elie-logo-nav{ width:22px; height:22px; object-fit:contain; flex-shrink:0; }
-  .beta-pill{ margin-left:auto; font-size:.68rem; font-weight:600; background:#FBE4E7; color:var(--red-deep); padding:.15rem .5rem; border-radius:100px; }
-  .nav-group{ display:flex; flex-direction:column; gap:.2rem; }
-  .nav-group + .nav-group{ border-top:1px solid var(--line); padding-top:1.2rem; }
-  .nav-label{ font-size:.72rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); padding:.6rem .6rem .3rem; }
+  .logo .room{ color:var(--ink); }
+  .beta-pill{ margin-left:auto; font-size:.68rem; font-weight:600; background:rgba(196,30,58,.12); color:var(--red); padding:.15rem .5rem; border-radius:100px; }
+  .nav-group{ display:flex; flex-direction:column; gap:.35rem; }
+  .nav-group + .nav-group{ border-top:1px solid var(--line); padding-top:.75rem; margin-top:.15rem; }
+  .nav-label{ font-size:.72rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); padding:.25rem .75rem .1rem; }
 
   .nav-item{
-    display:flex; align-items:center; gap:.8rem;
-    padding:.72rem .8rem; border-radius:10px;
-    font-size:.95rem; font-weight:500; color:var(--ink);
-    cursor:pointer;
+    position:relative; display:flex; align-items:center; gap:1rem;
+    padding:.65rem .95rem; border-radius:9999px;
+    font-size:1rem; font-weight:500; color:var(--ink);
+    cursor:pointer; transition:background .15s ease, color .15s ease;
+    text-decoration:none;
   }
-  .nav-item:hover{ background:var(--paper); }
-  .nav-item svg{ width:19px; height:19px; }
-  .nav-item.active{ background:var(--client-control-active, #E9E7E2); color:var(--ink); font-weight:600; }
-  .nav-item svg{ flex-shrink:0; }
+  .nav-item:hover{ background:var(--control-hover); }
+  .nav-item.active{ background:var(--control-active); color:var(--ink); font-weight:700; }
+  .nav-item svg{ width:20px; height:20px; flex-shrink:0; }
+  .notif-nav-badge{
+    position:absolute; top:50%; right:.75rem; min-width:18px; height:18px;
+    padding:0 5px; border-radius:999px; background:var(--red); color:#fff;
+    transform:translateY(-50%);
+    display:flex; align-items:center; justify-content:center; font-size:.65rem; font-weight:700; line-height:1;
+  }
+  .notif-nav-badge[hidden]{ display:none; }
 
   .nav-item.soon{ color:var(--muted); cursor:default; }
   .nav-item.soon:hover{ background:none; }
@@ -116,26 +173,13 @@
   button.nav-item.soon-active{
     width:100%; text-align:left; font-family:inherit; color:var(--muted);
   }
-  button.nav-item.soon-active:hover{ background:var(--paper); color:var(--ink); }
+  button.nav-item.soon-active:hover{ background:var(--control-hover); color:var(--ink); }
 
   .soon-pill{
     margin-left:auto; font-size:.68rem; font-weight:600;
-    background:var(--line-soft); color:var(--muted);
+    background:var(--control-bg); color:var(--muted);
     padding:.15rem .5rem; border-radius:100px;
   }
-
-  .sidebar-note{
-    margin-top:auto;
-    background:#FBE4E7;
-    border-radius:14px;
-    padding:1rem 1.1rem;
-    font-size:.82rem;
-    line-height:1.5;
-    color:var(--red-deep);
-  }
-  .sidebar-note strong{ display:block; margin-bottom:.2rem; }
-
-  .logout-btn{ color:var(--red); font-weight:600; font-size:.9rem; padding:.5rem .7rem; text-align:left; }
 
   .toast{
     position:fixed; bottom:1.5rem; left:50%; transform:translateX(-50%) translateY(20px);
@@ -148,26 +192,27 @@
   .bottom-bar{ display:none; }
 
   /* ---------- MAIN COLUMN ----------
-     A single grid controls both the topbar row and the content row, using
-     one shared column track set (feed | 1px divider | rail). The divider
-     is its own grid item spanning grid-row:1/-1, so the line runs from the
-     very top of the viewport straight through the topbar and down the
-     full height — not just alongside the feed/rail content below it. */
+     Structured 3-column layout emulating X:
+     580px middle feed, 1px hairline divider, flexible right rail. */
   .main-col{
     display:grid;
     grid-template-rows: auto 1fr;
-    grid-template-columns: minmax(620px, 760px) 1px minmax(280px, 420px);
+    grid-template-columns: minmax(620px, 1.3fr) 1px minmax(380px, 1fr);
     height:100vh;
     overflow:hidden;
     min-width:0;
+    background:var(--paper);
   }
 
   .topbar{
-    grid-column: 1 / -1;
+    grid-column: 1;
     grid-row: 1;
-    display:flex; align-items:center; gap:1rem;
-    padding:1.2rem 2rem;
+    display:flex; align-items:center; gap:.75rem;
+    padding:.75rem 1rem;
+    width:100%;
+    box-sizing:border-box;
     background:transparent;
+    border-bottom:1px solid var(--line);
   }
 
   .col-divider{
@@ -180,24 +225,26 @@
 
   .search-wrap{
     flex:1; display:flex; align-items:center; gap:.6rem;
-    background:var(--paper); border-radius:100px; padding:.6rem 1rem;
-    outline:1px solid rgba(196,30,58,.45);
-    box-shadow:0 0 12px rgba(196,30,58,.2);
-    max-width:520px;
+    background:transparent; border-radius:9999px; padding:.55rem 1rem;
+    border:1px solid var(--line);
+    box-shadow:none;
+    min-width:0;
+    transition:all .18s ease;
   }
   .search-wrap input{
-    flex:1; border:none; background:transparent; font-family:inherit; font-size:.92rem; color:var(--ink);
+    flex:1; min-width:0; border:none; background:transparent; font-family:inherit; font-size:.92rem; color:var(--ink);
   }
   .search-wrap input:focus{ outline:none; }
   .search-wrap:focus-within{
-    outline-color:var(--red);
-    box-shadow:0 0 0 2px rgba(196,30,58,.14), 0 0 18px rgba(196,30,58,.35);
+    border-color:var(--muted);
+    background:transparent;
+    box-shadow:0 0 0 1px var(--muted);
   }
   .search-btn{ color:var(--muted); display:flex; align-items:center; }
-  .search-btn:hover{ color:var(--red); }
+  .search-btn:hover{ color:var(--ink); }
   .search-wrap input::placeholder{ color:var(--muted); opacity:1; }
 
-  .topbar-right{ margin-left:auto; display:flex; align-items:center; gap:1.4rem; }
+  .topbar-right{ margin-left:auto; display:flex; align-items:center; gap:1.2rem; }
   .icon-btn{ color:var(--muted); position:relative; }
   .icon-btn:hover{ color:var(--ink); }
 
@@ -218,9 +265,8 @@
     grid-column: 1;
     grid-row: 2;
     width:100%;
-    max-width:760px;
-    min-width:620px;
-    padding:1.8rem 2rem 4rem;
+    margin:0 auto;
+    padding:.75rem 1rem 2rem;
     height:100%;
     overflow-y:auto;
     scrollbar-width:none;
@@ -234,33 +280,48 @@
   @media(max-width:680px){.suspension-notice{padding:.9rem 0}.suspension-notice-title{font-size:1.08rem}.suspension-notice-action{font-size:.82rem}}
 
   /* ---------- RIGHT RAIL ----------
-     Scrolls independently too. Top padding trimmed so Popular Destinations
-     sits closer to the topbar instead of floating lower than the feed's
-     first card. */
+     Scrolls independently too. Flexible column with comfortable width. */
   .right-rail{
     grid-column: 3;
     grid-row: 2;
-    width:100%;
-    max-width:420px;
-    padding:1rem 1.8rem 4rem 1.2rem;
+    padding:0 1.25rem 3rem 1.25rem;
     display:flex;
     flex-direction:column;
-    gap:0;
+    gap:1rem;
     height:100%;
     overflow-y:auto;
     scrollbar-width:none;
+    min-width:0;
+    width:100%;
     box-sizing:border-box;
   }
   .right-rail::-webkit-scrollbar{ display:none; }
 
   /* Rail sections use the same white surface and hairline border as the feed. */
-  .rail-card{ background:var(--white); border:1px solid var(--line); border-radius:0; padding:1.2rem 1.2rem 1.3rem; margin-bottom:1.3rem; }
+  .rail-card{ background:var(--white); border:1px solid var(--line); border-radius:0; padding:1.2rem 1.2rem 1.3rem; margin-bottom:1.3rem; width:100%; box-sizing:border-box; }
   .rail-card-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem; }
   .rail-card-head h2{ font-family:var(--font-display); font-weight:600; font-size:1.05rem; }
   .rail-view-all{ font-size:.78rem; font-weight:600; color:var(--red); }
   .rail-view-all:hover{ text-decoration:underline; }
 
-  .dest-grid{ display:grid; grid-template-columns:1fr 1fr; gap:.7rem; }
+  .dest-grid{
+    display:grid;
+    grid-template-columns:repeat(2, 1fr);
+    gap:.75rem;
+    width:100%;
+  }
+  @container (min-width: 380px){
+    .dest-grid{
+      grid-template-columns:repeat(3, 1fr);
+      gap:.8rem;
+    }
+  }
+  @container (min-width: 660px){
+    .dest-grid{
+      grid-template-columns:repeat(4, 1fr);
+      gap:.85rem;
+    }
+  }
   .dest-card{
     position:relative; border-radius:12px; overflow:hidden; aspect-ratio:4/3;
     cursor:pointer; border:none; padding:0; display:block; width:100%;
@@ -276,9 +337,9 @@
   .dest-card-count{ font-size:.68rem; opacity:.85; text-shadow:0 1px 2px rgba(0,0,0,.3); }
 
   @media (max-width:1360px){
-    .main-col{ grid-template-columns: minmax(540px, 680px) 1px minmax(260px, 360px); }
-    .feed-area{ min-width:540px; padding-inline:1.6rem; }
-    .right-rail{ padding-right:1.2rem; }
+    .main-col{ grid-template-columns: minmax(580px, 1.25fr) 1px minmax(360px, 1fr); }
+    .feed-area{ min-width:0; padding-inline:1rem; }
+    .right-rail{ padding-left:1.25rem; padding-right:1.25rem; }
   }
 
   @media (max-width:1180px){
@@ -340,7 +401,8 @@
   }
   .bottom-bar-elie.active .elie-badge{ background:var(--client-control-active, #E9E7E2); }
 
-  .update-card{ padding-bottom:.9rem; border-bottom:1px solid var(--line); }
+  #varoom-updates{ width:100%; }
+  .update-card{ width:100%; box-sizing:border-box; padding-bottom:.9rem; border-bottom:1px solid var(--line); }
   .update-card:last-child{ border-bottom:none; padding-bottom:0; }
   .update-photos{ display:grid; grid-template-columns:repeat(auto-fit, minmax(70px, 1fr)); gap:.4rem; margin-bottom:.5rem; }
   .update-photos .update-img{ width:100%; aspect-ratio:1/1; object-fit:cover; margin-bottom:0; border-radius:8px; }
@@ -416,12 +478,12 @@
   .mobile-property-news-section{ display:none; }
 
   h1.feed-title{
-    font-family:var(--font-display); font-weight:600; font-size:1.5rem; margin-bottom:1.2rem;
+    font-family:var(--font-display); font-weight:700; font-size:1.25rem; margin-bottom:.8rem; letter-spacing:-.01em;
   }
 
-  .tabs{ display:flex; flex-wrap:wrap; gap:.6rem; margin-bottom:1.6rem; }
+  .tabs{ display:flex; flex-wrap:wrap; gap:.5rem; margin-bottom:1rem; }
   .tab{
-    padding:.5rem 1.1rem; border-radius:100px; font-size:.88rem; font-weight:600;
+    padding:.45rem 1rem; border-radius:100px; font-size:.85rem; font-weight:600;
     background:var(--white); border:1px solid var(--line); color:var(--ink);
   }
   .tab.active{ background:var(--red); color:var(--white); border-color:var(--red); }
@@ -692,15 +754,21 @@
     .lightbox-nav.next{ right:.5rem; }
   }
 
+  @media (max-width:1100px){
+    .right-rail{ display:none; }
+    .col-divider{ display:none; }
+    .main-col{ grid-template-columns: minmax(0, 1fr); max-width:620px; }
+    .feed-area{ min-width:0; }
+  }
+
   @media (max-width:860px){
-    body{ height:auto; overflow:visible; }
-    .app-shell{ grid-template-columns:1fr; height:auto; overflow:visible; }
-    .main-col{ height:auto; overflow:visible; grid-template-rows:auto auto; }
+    body{ height:auto; overflow-y:visible; overflow-x:hidden; }
+    .app-shell{ grid-template-columns:1fr; height:auto; overflow-y:visible; overflow-x:hidden; }
+    .main-col{ height:auto; overflow-y:visible; overflow-x:hidden; grid-template-rows:auto auto; }
     .content-row{ overflow:visible; }
     .col-divider{ display:none; }
-    .feed-area{ height:auto; overflow-y:visible; }
+    .feed-area{ padding:.75rem .7rem 5.5rem; height:auto; overflow-y:visible; }
     .right-rail{ display:none; height:auto; overflow-y:visible; }
-    .app-shell{ grid-template-columns:1fr; }
 
     .sidebar{
       position:fixed;
@@ -715,7 +783,6 @@
       transform:translateX(-100%);
       transition:transform .25s ease;
       box-shadow:0 0 40px rgba(26,18,16,.25);
-      padding:1.6rem 1.3rem 1.3rem;
     }
     .sidebar.mobile-open{ transform:translateX(0); }
 
@@ -724,8 +791,6 @@
     .sidebar .nav-item{ font-size:1.05rem; padding:.85rem .9rem; gap:.9rem; }
     .sidebar .nav-item svg{ width:21px; height:21px; }
     .sidebar .beta-pill{ font-size:.74rem; }
-    .sidebar-note{ font-size:.88rem; }
-    .logout-btn{ font-size:.98rem; }
 
     .sidebar-backdrop{
       display:none;
@@ -740,6 +805,11 @@
 
     .topbar-avatar-btn{ flex-shrink:0; display:flex; }
     .topbar-avatar-btn:hover .avatar-circle{ outline:2px solid rgba(196,30,58,.25); outline-offset:2px; }
+    .topbar{
+      position:sticky; top:0; z-index:100;
+      background:var(--glass-bg);
+      backdrop-filter:blur(18px) saturate(140%); -webkit-backdrop-filter:blur(18px) saturate(140%);
+    }
 
     .feed-area{ padding:.75rem .7rem 5.5rem; }
 
@@ -781,6 +851,44 @@
     }
     .bottom-bar-item .avatar-mini img{ width:100%; height:100%; object-fit:cover; }
   }
+
+  /* ── Light-mode contrast improvements ──────────────────────────────────
+     Applied only to light theme. Dark mode retains existing styling.
+     Targets: headings, labels, nav items, metadata, body captions, dividers. */
+  html[data-theme="light"] {
+    --muted: #374248;
+  }
+  html[data-theme="light"] .nav-label{ color:#374248; font-weight:700; }
+  html[data-theme="light"] .nav-item{ font-weight:600; color:#0F1419; }
+  html[data-theme="light"] .nav-item.active{ font-weight:700; }
+  html[data-theme="light"] h1.feed-title{ font-weight:800; }
+  html[data-theme="light"] .rail-card-head h2,
+  html[data-theme="light"] .property-news-widget-head h2,
+  html[data-theme="light"] .mobile-widget-head h2{ font-weight:700; }
+  html[data-theme="light"] .card-host-name{ font-weight:700; color:#0F1419; }
+  html[data-theme="light"] .card-caption,
+  html[data-theme="light"] .card-desc{ color:#374248; }
+  html[data-theme="light"] .client-property-news-title{ font-weight:700; }
+  html[data-theme="light"] .client-property-news-meta,
+  html[data-theme="light"] .client-property-news-source,
+  html[data-theme="light"] .card-time,
+  html[data-theme="light"] .card-location{ color:#4A5660; }
+  /* Column separation dividers */
+  html[data-theme="light"] .sidebar{ border-right-color:#BBBFC2; }
+  html[data-theme="light"] .col-divider{ background:#BBBFC2; }
+  html[data-theme="light"] .topbar{ border-bottom-color:#BBBFC2; }
+  /* Feed card separators */
+  html[data-theme="light"] .card,
+  html[data-theme="light"] .skel-card,
+  html[data-theme="light"] .update-card,
+  html[data-theme="light"] .client-property-news-item,
+  html[data-theme="light"] .skel-update,
+  html[data-theme="light"] .skel-news-item{ border-bottom-color:#CBCFD2; }
+  /* Nav group dividers */
+  html[data-theme="light"] .nav-group + .nav-group{ border-top-color:#BBBFC2; }
+  /* Tabs and search */
+  html[data-theme="light"] .tab{ border-color:#BBBFC2; font-weight:600; color:#0F1419; }
+  html[data-theme="light"] .search-wrap{ border-color:#BBBFC2 !important; outline:none !important; }
 </style>
 <link rel="stylesheet" href="js/varoom-dark-theme.css">
 <style>
@@ -796,18 +904,17 @@
     --client-rail-outline:#C9C5BD;
   }
   [data-theme="dark"]{
-    --client-control-bg:#1A1716;
-    --client-control-active:#302C2A;
-    --client-control-hover:#25211F;
-    --client-control-strong:#F5EFEC;
-    --client-control-strong-text:#15100F;
-    --client-neutral-icon:#B8ACA8;
-    --client-rail-outline:rgba(255,255,255,.28);
+    --client-control-bg:#202327;
+    --client-control-active:rgba(255,255,255,.1);
+    --client-control-hover:rgba(255,255,255,.06);
+    --client-control-strong:#EFF3F4;
+    --client-control-strong-text:#000000;
+    --client-neutral-icon:#71767b;
+    --client-rail-outline:rgba(255,255,255,.12);
   }
 
   :focus-visible,
   .bottom-bar-item:focus-visible{ outline-color:var(--client-neutral-icon); }
-  .logo .va,
   .beta-pill,
   .sidebar-note,
   .verified-tick,
@@ -835,15 +942,35 @@
 
   .search-wrap,
   [data-theme="dark"] .search-wrap{
-    background:var(--client-control-bg) !important;
-    outline:1px solid var(--line) !important;
-    border:0 !important;
+    background:#000000 !important;
+    border:1px solid rgba(255,255,255,.22) !important;
+    outline:none !important;
     box-shadow:none !important;
+  }
+  .search-wrap input,
+  [data-theme="dark"] .search-wrap input{
+    background:transparent !important;
+    background-color:transparent !important;
+    border:none !important;
+    outline:none !important;
+    box-shadow:none !important;
+    color:var(--ink) !important;
   }
   .search-wrap:focus-within,
   [data-theme="dark"] .search-wrap:focus-within{
-    outline-color:var(--client-neutral-icon) !important;
-    box-shadow:0 0 0 2px color-mix(in srgb, var(--client-neutral-icon) 20%, transparent) !important;
+    border-color:rgba(255,255,255,.45) !important;
+    outline:none !important;
+    box-shadow:0 0 0 2px rgba(255,255,255,.12) !important;
+  }
+  html[data-theme="light"] .search-wrap{
+    background:#FFFFFF !important;
+    border:1px solid #BBBFC2 !important;
+    outline:none !important;
+  }
+  html[data-theme="light"] .search-wrap:focus-within{
+    border-color:#5C584F !important;
+    outline:none !important;
+    box-shadow:0 0 0 2px rgba(92,88,79,.15) !important;
   }
   .search-btn:hover{ color:var(--ink); }
 
@@ -874,6 +1001,11 @@
   .right-rail > .rail-card,
   .right-rail > #client-property-news-widget{
     position:relative;
+    width:100%;
+    height:auto;
+    flex-shrink:0;
+    box-sizing:border-box;
+    container-type:inline-size;
     background:transparent !important;
     border:0 !important;
     border-radius:16px !important;
@@ -928,6 +1060,240 @@
   .rail-view-all:hover,
   .card-map-link:hover,
   .client-property-news-view-all:hover{ color:var(--red-deep); }
+
+  /* ---------- RIGHT RAIL FOOTER (Social & Legal) ---------- */
+  .rail-footer{
+    width:100%;
+    margin-top:0.25rem;
+    padding:0.2rem 0.25rem 0.5rem;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    text-align:center;
+    gap:0.5rem;
+    box-sizing:border-box;
+    flex-shrink:0;
+    background:transparent !important;
+    border:none !important;
+    border-radius:0 !important;
+    box-shadow:none !important;
+  }
+  .rail-footer::after{
+    display:none !important;
+  }
+  .rail-social-row{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:18px;
+    flex-wrap:nowrap;
+    width:100%;
+  }
+  .rail-social-link{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    color:var(--muted);
+    transition:color .18s ease, transform .18s ease;
+    text-decoration:none;
+    line-height:1;
+  }
+  .rail-social-link:hover{
+    color:var(--ink);
+    transform:translateY(-1px);
+  }
+  .rail-social-link:focus-visible{
+    outline:2px solid var(--red);
+    outline-offset:2px;
+    border-radius:4px;
+  }
+  .rail-social-link svg{
+    width:20px;
+    height:20px;
+    display:block;
+    flex-shrink:0;
+  }
+  .rail-legal-links{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:0.4rem;
+    flex-wrap:nowrap;
+    width:100%;
+    font-size:10px;
+    line-height:1.4;
+  }
+  .rail-legal-link{
+    color:var(--muted);
+    text-decoration:none;
+    white-space:nowrap;
+    transition:color .15s ease;
+  }
+  .rail-legal-link:hover{
+    color:var(--ink);
+    text-decoration:underline;
+  }
+  .rail-legal-link:focus-visible{
+    outline:2px solid var(--red);
+    outline-offset:2px;
+    border-radius:2px;
+  }
+  .rail-legal-divider{
+    color:var(--line);
+    font-size:9px;
+    opacity:0.85;
+    user-select:none;
+  }
+</style>
+
+<style>
+  /* =====================================================================
+     ACCOUNT IDENTITY + ACCOUNT MENU + MORE MENU
+     Replaces the exposed logout button.
+     Uses existing design tokens — matching host-home exactly.
+     ===================================================================== */
+
+  /* ---------- Collapsed account identity (sidebar footer) ---------- */
+  .account-identity {
+    margin-top: auto;
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    width: 100%;
+    padding: .65rem .75rem;
+    border-radius: 9999px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    text-align: left;
+    color: var(--ink);
+    flex-shrink: 0;
+    position: relative;
+    transition: background .15s ease;
+  }
+  .account-identity:hover { background: var(--control-hover); }
+
+  .account-identity-avatar {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    background: var(--control-active);
+    color: var(--ink);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: .95rem;
+    flex-shrink: 0; overflow: hidden;
+  }
+  .account-identity-avatar img {
+    width: 100%; height: 100%; object-fit: cover; display: block;
+  }
+
+  .account-identity-info {
+    display: flex; flex-direction: column; gap: .05rem;
+    min-width: 0; flex: 1;
+  }
+  .account-identity-name {
+    font-size: .92rem; font-weight: 700;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    color: var(--ink);
+  }
+  .account-identity-username {
+    font-size: .8rem; color: var(--muted);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  .account-identity-dots {
+    flex-shrink: 0; color: var(--muted);
+    margin-left: auto;
+  }
+  .account-identity:hover .account-identity-dots { color: var(--ink); }
+
+  /* ---------- Expanded account menu & more menu ---------- */
+  .account-menu {
+    position: fixed;
+    z-index: 400;
+    background: var(--surface-card, #16181c);
+    color: var(--ink);
+    border-radius: 16px;
+    border: 1px solid var(--line);
+    box-shadow: 0 16px 48px -8px rgba(0,0,0,.65);
+    padding: .6rem .5rem .5rem;
+    display: flex; flex-direction: column; gap: 0;
+  }
+  .account-menu[hidden] { display: none; }
+
+  /* ---------- Account rows inside the menu ---------- */
+  .account-menu-list {
+    display: flex; flex-direction: column; gap: 0;
+    padding: 0 0 .15rem;
+  }
+  .account-menu-row {
+    display: flex; align-items: center; gap: .75rem;
+    width: 100%; padding: .65rem .65rem;
+    border-radius: 12px;
+    background: none; border: none; cursor: pointer;
+    font-family: inherit; text-align: left;
+    color: var(--ink);
+  }
+  .account-menu-row:hover { background: var(--control-hover); }
+  .account-menu-row.active { cursor: default; }
+
+  .account-menu-row-avatar {
+    width: 38px; height: 38px; border-radius: 50%;
+    background: var(--control-active); color: var(--ink);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: .9rem;
+    flex-shrink: 0; overflow: hidden;
+  }
+  .account-menu-row-avatar img {
+    width: 100%; height: 100%; object-fit: cover; display: block;
+  }
+
+  .account-menu-row-info {
+    display: flex; flex-direction: column; gap: .06rem;
+    min-width: 0; flex: 1;
+  }
+  .account-menu-row-name {
+    font-size: .88rem; font-weight: 700; color: var(--ink);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .account-menu-row-username {
+    font-size: .76rem; color: var(--muted);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  .account-menu-row-check {
+    flex-shrink: 0; margin-left: auto;
+    width: 22px; height: 22px; border-radius: 50%;
+    background: #00BA7C; color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: .7rem; font-weight: 900;
+  }
+
+  .account-menu-row.switching { opacity: .5; pointer-events: none; }
+
+  /* ---------- Divider ---------- */
+  .account-menu-divider {
+    height: 1px; background: var(--line);
+    margin: .35rem .15rem;
+  }
+
+  /* ---------- Action buttons (Add / Manage / Log out) ---------- */
+  .account-menu-action {
+    display: block; width: 100%;
+    padding: .7rem .75rem;
+    border-radius: 10px;
+    background: none; border: none; cursor: pointer;
+    font-family: inherit; font-size: .88rem; font-weight: 600;
+    text-align: left; color: var(--ink); text-decoration: none;
+  }
+  .account-menu-action:hover { background: var(--control-hover); }
+
+  .account-menu-action.disabled {
+    opacity: .45; cursor: default; pointer-events: none;
+  }
+
+  .account-menu-logout { color: var(--muted); }
+  .account-menu-logout:hover { color: var(--red); background: var(--control-hover); }
 </style>
 </head>
 <body>
@@ -979,16 +1345,11 @@
 <div class="app-shell">
 
   <aside class="sidebar" id="sidebar">
-    <a href="/client-home" class="logo"><span class="va">Va</span><span class="room">Room</span></a>
+    <a href="/client-home" class="logo">
+      <span class="va">Va</span><span class="room">Room</span>
+    </a>
 
-    <nav class="nav-group">
-      <a href="/chats?conversation=elie" class="nav-item">
-        <span data-elie-icon aria-label="Elie" class="elie-logo-nav"></span>
-        Elie
-        <span class="beta-pill">Free preview</span>
-      </a>
-    </nav>
-
+    <!-- Primary navigation -->
     <nav class="nav-group">
       <a href="/client-home" class="nav-item active" data-nav="home">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9a1 1 0 0 0 1 1H9v-4a1 1 0 0 1 1-1h2a1 0 0 0 1 1v4h2.5a1 1 0 0 0 1-1v-9"/></svg>
@@ -998,12 +1359,13 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m15 9-2 6-6 2 2-6 6-2Z"/></svg>
         Marketplace
       </a>
-      <div class="nav-item" data-nav="saved" data-mobile-hide>
+      <div class="nav-item" data-nav="saved">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h12a1 1 0 0 1 1 1V21l-7-4-7 4V4.5a1 1 0 0 1 1-1Z"/></svg>
         Saved
       </div>
     </nav>
 
+    <!-- My activity -->
     <nav class="nav-group">
       <p class="nav-label">My activity</p>
       <a href="/bookings" class="nav-item">
@@ -1017,31 +1379,61 @@
       <a href="/notifications" class="nav-item" id="notif-nav-item">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
         Notifications
+        <span class="notif-nav-badge" id="notif-nav-badge" hidden></span>
       </a>
     </nav>
 
-    <nav class="nav-group">
-      <p class="nav-label">Account</p>
-      <a href="/profile" class="nav-item">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.5-7 8-7s8 3 8 7"/></svg>
+    <!-- More menu popup (fixed-position, opened upward by positionMoreMenu()) -->
+    <div id="more-menu" class="account-menu" role="menu" aria-label="More options" hidden>
+      <a href="/profile" class="account-menu-action" role="menuitem">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:.45rem;flex-shrink:0"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.5-7 8-7s8 3 8 7"/></svg>
         Profile
       </a>
-      <a href="/settings" class="nav-item">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>
+      <a href="/settings" class="account-menu-action" role="menuitem">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:.45rem;flex-shrink:0"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>
         Settings
       </a>
-      <a href="/support" class="nav-item">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 4.9.8c0 1.6-2.4 1.9-2.4 3.5"/><path d="M12 17.2v.1"/></svg>
+      <a href="/support" class="account-menu-action" role="menuitem">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:.45rem;flex-shrink:0"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 4.9.8c0 1.6-2.4 1.9-2.4 3.5"/><path d="M12 17.2v.1"/></svg>
         Help &amp; Support
       </a>
-    </nav>
-
-    <div class="sidebar-note">
-      <strong>Book with confidence</strong>
-      GPS-verified listings and verified hosts help you know what's real before you reach out.
+      <a href="/signup-host" class="account-menu-action" role="menuitem">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:.45rem;flex-shrink:0"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+        Become a Host
+      </a>
     </div>
 
-    <button type="button" class="logout-btn" id="logout-btn">Log out</button>
+    <!-- More button — sits just above the account identity row -->
+    <button type="button" class="nav-item" id="more-nav-btn"
+            aria-haspopup="true" aria-expanded="false" aria-controls="more-menu">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="10"/>
+        <circle cx="8"  cy="12" r="1.5" fill="currentColor" stroke="none"/>
+        <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/>
+        <circle cx="16" cy="12" r="1.5" fill="currentColor" stroke="none"/>
+      </svg>
+      More
+    </button>
+
+    <!-- Account identity + switcher -->
+    <div id="account-menu" class="account-menu" role="menu" aria-label="Account menu" hidden>
+      <div id="account-menu-list" class="account-menu-list"></div>
+      <div class="account-menu-divider"></div>
+      <button type="button" class="account-menu-action" id="account-add-btn">Add an existing account</button>
+      <a href="/settings" class="account-menu-action" id="account-manage-btn">Manage accounts</a>
+      <button type="button" class="account-menu-action account-menu-logout" id="account-logout-btn">Log out</button>
+    </div>
+
+    <button type="button" class="account-identity" id="account-identity-btn" aria-haspopup="true" aria-expanded="false" aria-controls="account-menu">
+      <span class="account-identity-avatar" id="acct-avatar-collapsed" aria-hidden="true"></span>
+      <span class="account-identity-info">
+        <span class="account-identity-name" id="acct-name-collapsed">…</span>
+        <span class="account-identity-username" id="acct-username-collapsed"></span>
+      </span>
+      <svg class="account-identity-dots" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/>
+      </svg>
+    </button>
   </aside>
 
   <div class="main-col">
@@ -1139,6 +1531,28 @@
           </div>
           <a class="client-property-news-view-all" href="/property-news">View all news →</a>
         </div>
+
+        <footer class="rail-footer" aria-label="Sidebar footer">
+          <div class="rail-social-row" aria-label="Social media">
+            <a href="https://www.instagram.com/varoom.co.ke?vrfl=ZmJzbGVkM3AwOWNu" target="_blank" rel="noopener noreferrer" class="rail-social-link" aria-label="Instagram">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+            </a>
+            <a href="https://www.tiktok.com/@varoom.co.ke?_r=1&_t=ZS-9AeSyJKRgM3" target="_blank" rel="noopener noreferrer" class="rail-social-link" aria-label="TikTok">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64c.298-.002.595.042.88.13V9.4a6.33 6.33 0 0 0-1-.08A6.34 6.34 0 0 0 3 15.66a6.34 6.34 0 0 0 10.82 4.46 6.27 6.27 0 0 0 1.88-4.48V8.34a8.28 8.28 0 0 0 4.89 1.58V6.69z"/></svg>
+            </a>
+            <a href="#" onclick="return false;" target="_blank" rel="noopener noreferrer" class="rail-social-link" aria-label="X (formerly Twitter)">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+            </a>
+            <a href="#" onclick="return false;" target="_blank" rel="noopener noreferrer" class="rail-social-link" aria-label="Facebook">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M14 13.5h2.5l1-4H14v-2c0-1.03.73-1.5 1.63-1.5H17.5V2.14C16.8 2.05 15.65 2 14.37 2 11.7 2 9.87 3.63 9.87 6.63v2.87H6.5v4h3.37V22h4.13v-8.5z"/></svg>
+            </a>
+          </div>
+          <div class="rail-legal-links">
+            <a href="/privacy" target="_blank" rel="noopener noreferrer" class="rail-legal-link">Privacy Policy</a>
+            <span class="rail-legal-divider" aria-hidden="true">|</span>
+            <a href="/terms" target="_blank" rel="noopener noreferrer" class="rail-legal-link">Terms &amp; Conditions</a>
+          </div>
+        </footer>
       </aside>
     </div>
 
@@ -1168,6 +1582,7 @@
 </div>
 
 <script src="js/supabase-client.js"></script>
+<script src="js/account-switcher.js"></script>
 <script src="js/listing-feed-cache.js"></script>
 <script src="js/notifications-widget.js"></script>
 <script>
@@ -1205,7 +1620,7 @@
 
     const { data: profile } = await supabaseClient
       .from('profiles')
-      .select('role, full_name, avatar_url, interested_categories, looking_timeline, onboarding_completed')
+      .select('role, full_name, avatar_url, username, interested_categories, looking_timeline, onboarding_completed')
       .eq('id', currentUser.id)
       .maybeSingle();
 
@@ -1217,6 +1632,14 @@
       window.location.href = '/onboarding';
       return;
     }
+    if (profile.role === 'host') {
+      window.location.href = '/host-home';
+      return;
+    }
+    try {
+      sessionStorage.setItem('varoom_user_role', 'client');
+      localStorage.setItem('varoom_last_role', 'client');
+    } catch (e) {}
     // Do not hold cached Discover cards behind this secondary account check.
     // The feed can restore from its per-tab cache as soon as the profile has
     // established its cache key; this check updates the suspension banner in
@@ -2516,7 +2939,7 @@
     }
 
     backdrop.addEventListener('click', closeSidebar);
-    sidebar.querySelectorAll('.nav-item, .logout-btn').forEach(function(el){
+    sidebar.querySelectorAll('.nav-item').forEach(function(el){
       el.addEventListener('click', closeSidebar);
     });
     document.getElementById('topbar-avatar-btn').addEventListener('click', openSidebar);
@@ -2630,11 +3053,6 @@
         loadFeed();
         updateMarketplaceSwitch();
       }, 350);
-    });
-
-    document.getElementById('logout-btn').addEventListener('click', async function(){
-      await supabaseClient.auth.signOut();
-      window.location.href = '/';
     });
 
     function wireDestClicks(container){
@@ -2815,6 +3233,258 @@
         );
       }).join('');
     }
+
+    // ---------- Account identity + switcher ----------
+    (function initAccountSwitcher() {
+      if (document.querySelector('.host-layout-active') || document.querySelector('.client-layout-active')) return;
+      const switcher     = window.VaRoomAccountSwitcher;
+      const identityBtn  = document.getElementById('account-identity-btn');
+      const accountMenu  = document.getElementById('account-menu');
+      const menuList     = document.getElementById('account-menu-list');
+      const addBtn       = document.getElementById('account-add-btn');
+      const logoutBtn    = document.getElementById('account-logout-btn');
+
+      if (!switcher || !identityBtn || !accountMenu) return;
+
+      // ---- helpers ----
+      function initial(name) {
+        var s = String(name || '').trim();
+        return s ? s.charAt(0).toUpperCase() : '?';
+      }
+      function avatarUrl(path) {
+        if (!path) return null;
+        if (path.indexOf('http') === 0) return path;
+        try { return supabaseClient.storage.from('avatars').getPublicUrl(path).data.publicUrl; } catch (e) { return null; }
+      }
+      function esc(v) {
+        return String(v || '').replace(/[&<>"']/g, function(c) {
+          return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+        });
+      }
+
+      // ---- render collapsed identity strip ----
+      function renderIdentity(account) {
+        var url = avatarUrl(account.avatar_url);
+        var avatarEl = document.getElementById('acct-avatar-collapsed');
+        if (url) {
+          avatarEl.innerHTML = '<img src="' + esc(url) + '" alt="">';
+        } else {
+          avatarEl.textContent = initial(account.full_name || account.email || 'You');
+        }
+        var nameEl = document.getElementById('acct-name-collapsed');
+        nameEl.textContent = account.full_name || 'VaRoom member';
+
+        var unameEl = document.getElementById('acct-username-collapsed');
+        if (account.username) {
+          unameEl.textContent = '@' + account.username.replace(/^@/, '');
+        } else if (account.email) {
+          unameEl.textContent = account.email;
+        } else {
+          unameEl.textContent = '';
+        }
+      }
+
+      // ---- render rows inside the opened menu ----
+      function renderMenuRows(activeId) {
+        var accounts = switcher.getLinkedAccounts();
+        menuList.innerHTML = accounts.map(function(acct) {
+          var isActive = acct.id === activeId;
+          var url = avatarUrl(acct.avatar_url);
+          var avatarInner = url
+            ? '<img src="' + esc(url) + '" alt="">'
+            : esc(initial(acct.full_name || acct.email));
+          var uname = acct.username
+            ? '@' + esc(acct.username.replace(/^@/, ''))
+            : (acct.email ? esc(acct.email) : '');
+
+          return '<button type="button" class="account-menu-row' + (isActive ? ' active' : '') +
+            '" data-account-id="' + esc(acct.id) + '">' +
+            '<span class="account-menu-row-avatar">' + avatarInner + '</span>' +
+            '<span class="account-menu-row-info">' +
+              '<span class="account-menu-row-name">' + esc(acct.full_name || 'VaRoom member') + '</span>' +
+              '<span class="account-menu-row-username">' + uname + '</span>' +
+            '</span>' +
+            (isActive ? '<span class="account-menu-row-check" aria-label="Active account">✓</span>' : '') +
+            '</button>';
+        }).join('');
+
+        // Grey out "Add" when at limit
+        var atLimit = accounts.length >= 3;
+        addBtn.classList.toggle('disabled', atLimit);
+        addBtn.disabled = atLimit;
+        addBtn.setAttribute('aria-disabled', atLimit ? 'true' : 'false');
+        if (atLimit) addBtn.textContent = 'Account limit reached (3/3)';
+        else addBtn.textContent = 'Add an existing account';
+      }
+
+      // ---- toggle menu open / close ----
+      function positionMenu() {
+        var rect = identityBtn.getBoundingClientRect();
+        var GAP = 8; // px gap between menu bottom and identity top
+        // Align menu left/right to the identity button's horizontal span
+        accountMenu.style.left   = rect.left + 'px';
+        accountMenu.style.width  = (rect.right - rect.left) + 'px';
+        accountMenu.style.right  = '';
+        // Open upward: bottom of menu = top of identity button - gap
+        var bottomFromViewport = window.innerHeight - rect.top + GAP;
+        accountMenu.style.bottom = bottomFromViewport + 'px';
+        accountMenu.style.top    = '';
+        // Safety: never taller than the space above the button
+        accountMenu.style.maxHeight = (rect.top - GAP * 2) + 'px';
+        accountMenu.style.overflowY = 'auto';
+      }
+
+      function openMenu() {
+        renderMenuRows(currentUser.id);
+        accountMenu.removeAttribute('hidden');
+        positionMenu();
+        identityBtn.setAttribute('aria-expanded', 'true');
+      }
+      function closeMenu() {
+        accountMenu.setAttribute('hidden', '');
+        identityBtn.setAttribute('aria-expanded', 'false');
+      }
+
+      identityBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        if (accountMenu.hasAttribute('hidden')) openMenu(); else closeMenu();
+      });
+      document.addEventListener('click', function(e) {
+        if (!accountMenu.hasAttribute('hidden') &&
+            !accountMenu.contains(e.target) &&
+            !identityBtn.contains(e.target)) {
+          closeMenu();
+        }
+      });
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && !accountMenu.hasAttribute('hidden')) closeMenu();
+      });
+
+      // ---- account row click -> switch ----
+      menuList.addEventListener('click', async function(e) {
+        var row = e.target.closest('.account-menu-row');
+        if (!row || row.classList.contains('active')) return;
+        var accountId = row.getAttribute('data-account-id');
+        var accounts = switcher.getLinkedAccounts();
+        var target = null;
+        for (var i = 0; i < accounts.length; i++) { if (accounts[i].id === accountId) { target = accounts[i]; break; } }
+        if (!target) return;
+
+        row.classList.add('switching');
+        try {
+          await switcher.switchAccount(supabaseClient, target);
+          window.location.reload();
+        } catch (err) {
+          row.classList.remove('switching');
+          switcher.removeAccount(accountId);
+          renderMenuRows(currentUser.id);
+          var msg = 'That account needs you to sign in again.';
+          if (window.varoomShowToast) window.varoomShowToast(msg);
+          else showToast(msg);
+        }
+      });
+
+      // ---- add account ----
+      addBtn.addEventListener('click', function() {
+        if (addBtn.disabled) return;
+        switcher.startAddAccount(window.location.pathname);
+      });
+
+      // ---- logout (through menu only) ----
+      logoutBtn.addEventListener('click', async function() {
+        await supabaseClient.auth.signOut();
+        window.location.href = '/';
+      });
+
+      // ---- bootstrap: sync current session into the linked-accounts store ----
+      (async function bootstrap() {
+        var result = await supabaseClient.auth.getSession();
+        var session = result && result.data && result.data.session;
+        if (session) {
+          await switcher.upsertFromSession(supabaseClient, session);
+          var accounts = switcher.getLinkedAccounts();
+          var mine = null;
+          for (var i = 0; i < accounts.length; i++) { if (accounts[i].id === currentUser.id) { mine = accounts[i]; break; } }
+          if (mine && profile.username && !mine.username) {
+            mine.username = profile.username;
+            switcher.upsertAccount(mine);
+          }
+          renderIdentity(mine || { full_name: profile.full_name, avatar_url: profile.avatar_url, username: profile.username });
+        }
+
+        supabaseClient.auth.onAuthStateChange(function(event, session) {
+          if ((event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN') && session) {
+            switcher.upsertFromSession(supabaseClient, session);
+          }
+        });
+      })();
+    })();
+
+    // ---------- More popup menu ----------
+    (function initMoreMenu() {
+      if (document.querySelector('.host-layout-active') || document.querySelector('.client-layout-active')) return;
+      var moreBtn  = document.getElementById('more-nav-btn');
+      var moreMenu = document.getElementById('more-menu');
+      if (!moreBtn || !moreMenu) return;
+
+      var MORE_PATHS = ['/profile', '/settings', '/support', '/signup-host'];
+
+      if (MORE_PATHS.some(function(p) { return window.location.pathname.startsWith(p); })) {
+        moreBtn.classList.add('active');
+      }
+
+      function positionMoreMenu() {
+        var rect = moreBtn.getBoundingClientRect();
+        var GAP  = 8;
+        moreMenu.style.left      = rect.left + 'px';
+        moreMenu.style.width     = (rect.right - rect.left) + 'px';
+        moreMenu.style.right     = '';
+        moreMenu.style.bottom    = (window.innerHeight - rect.top + GAP) + 'px';
+        moreMenu.style.top       = '';
+        moreMenu.style.maxHeight = (rect.top - GAP * 2) + 'px';
+        moreMenu.style.overflowY = 'auto';
+      }
+
+      function openMore() {
+        moreMenu.removeAttribute('hidden');
+        moreBtn.setAttribute('aria-expanded', 'true');
+        moreBtn.classList.add('active');
+        positionMoreMenu();
+      }
+
+      function closeMore() {
+        moreMenu.setAttribute('hidden', '');
+        moreBtn.setAttribute('aria-expanded', 'false');
+        if (!MORE_PATHS.some(function(p) { return window.location.pathname.startsWith(p); })) {
+          moreBtn.classList.remove('active');
+        }
+      }
+
+      moreBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        if (moreMenu.hasAttribute('hidden')) openMore(); else closeMore();
+      });
+
+      document.addEventListener('click', function(e) {
+        if (!moreMenu.hasAttribute('hidden') &&
+            !moreMenu.contains(e.target) &&
+            !moreBtn.contains(e.target)) {
+          closeMore();
+        }
+      });
+
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && !moreMenu.hasAttribute('hidden')) closeMore();
+      });
+
+      moreMenu.addEventListener('click', function(e) {
+        if (e.target.closest('a, button')) closeMore();
+      });
+
+      window.addEventListener('resize', function() {
+        if (!moreMenu.hasAttribute('hidden')) positionMoreMenu();
+      });
+    })();
 
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('view') === 'saved') {

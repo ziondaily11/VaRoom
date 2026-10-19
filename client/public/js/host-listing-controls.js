@@ -14,7 +14,11 @@
       options.headers = Object.assign({ 'Content-Type': 'application/json', Authorization: 'Bearer ' + accessToken }, options.headers || {});
       return fetch('/api' + path, options).then(function (response) {
         return response.json().then(function (body) {
-          if (!response.ok) throw new Error(body.error || 'Request failed');
+          if (!response.ok) {
+            var error = new Error(body.error || 'Request failed');
+            error.code = body.code;
+            throw error;
+          }
           return body;
         });
       });
@@ -102,17 +106,75 @@
       .then(function () { toast('Listing link copied'); })
       .catch(function () { toast('Unable to copy listing link'); });
   }
-  function confirmDeletion() {
+  function confirmDeletion(listing) {
     return new Promise(function (resolve) {
       var overlay = document.createElement('div');
       overlay.className = 'modal-overlay open';
-      overlay.innerHTML = '<div class="modal-card"><h2>Delete listing?</h2><p>This is permanent. The listing, its photos, and discovery record will be removed.</p><div class="modal-actions"><button class="modal-cancel">Keep listing</button><button class="modal-save" style="background:#8F1229">Delete permanently</button></div></div>';
+      var dialog = document.createElement('div');
+      dialog.className = 'modal-card';
+      dialog.setAttribute('role', 'alertdialog');
+      dialog.setAttribute('aria-modal', 'true');
+      var heading = document.createElement('h2');
+      heading.textContent = listing.availability_status === 'draft' ? 'Delete draft listing?' : 'Delete listing?';
+      var message = document.createElement('p');
+      message.textContent = listing.availability_status === 'draft'
+        ? 'This permanently removes "' + (listing.title || 'this draft') + '" and its listing media from VaRoom, including Discover and all profiles. This cannot be undone.'
+        : 'This is permanent. The listing, its photos, and discovery record will be removed.';
+      var actions = document.createElement('div');
+      actions.className = 'modal-actions';
+      var cancel = document.createElement('button');
+      cancel.className = 'modal-cancel';
+      cancel.textContent = 'Keep listing';
+      var confirm = document.createElement('button');
+      confirm.className = 'modal-save';
+      confirm.style.background = '#8F1229';
+      confirm.textContent = 'Delete permanently';
+      actions.append(cancel, confirm);
+      dialog.append(heading, message, actions);
+      overlay.appendChild(dialog);
       document.body.appendChild(overlay);
       function finish(value) { overlay.remove(); resolve(value); }
-      overlay.querySelector('.modal-cancel').onclick = function () { finish(false); };
-      overlay.querySelector('.modal-save').onclick = function () { finish(true); };
+      cancel.onclick = function () { finish(false); };
+      confirm.onclick = function () { finish(true); };
       overlay.onclick = function (event) { if (event.target === overlay) finish(false); };
+      confirm.focus();
     });
+  }
+  function closeListingMenus(except) {
+    document.querySelectorAll('.card-menu-dropdown.open').forEach(function (menu) {
+      if (menu === except) return;
+      menu.classList.remove('open', 'is-portaled');
+      if (menu._menuOrigin) {
+        menu._menuOrigin.appendChild(menu);
+        delete menu._menuOrigin;
+      }
+      menu.style.removeProperty('top');
+      menu.style.removeProperty('left');
+      menu.style.removeProperty('max-height');
+      menu.style.removeProperty('overflow-y');
+    });
+  }
+  function openListingMenu(dropdown, button) {
+    dropdown._menuOrigin = dropdown.parentNode;
+    document.body.appendChild(dropdown);
+    dropdown.classList.add('open', 'is-portaled');
+    dropdown.style.maxHeight = Math.max(0, window.innerHeight - 16) + 'px';
+    dropdown.style.overflowY = 'auto';
+
+    var buttonRect = button.getBoundingClientRect();
+    var menuRect = dropdown.getBoundingClientRect();
+    var spaceBelow = window.innerHeight - buttonRect.bottom - 8;
+    var spaceAbove = buttonRect.top - 8;
+    var openAbove = spaceBelow < menuRect.height && spaceAbove > spaceBelow;
+    var top = openAbove
+      ? buttonRect.top - Math.min(menuRect.height, spaceAbove)
+      : Math.min(buttonRect.bottom + 4, window.innerHeight - menuRect.height - 8);
+    var left = Math.min(
+      Math.max(8, buttonRect.right - menuRect.width),
+      window.innerWidth - menuRect.width - 8
+    );
+    dropdown.style.top = Math.max(8, top) + 'px';
+    dropdown.style.left = Math.max(8, left) + 'px';
   }
   function bind(container) {
     container.querySelectorAll('[data-menu-toggle]').forEach(function (button) {
@@ -120,8 +182,8 @@
         event.preventDefault(); event.stopPropagation();
         var dropdown = document.getElementById('menu-' + button.getAttribute('data-menu-toggle'));
         var open = dropdown.classList.contains('open');
-        document.querySelectorAll('.card-menu-dropdown.open').forEach(function (menu) { menu.classList.remove('open'); });
-        if (!open) dropdown.classList.add('open');
+        closeListingMenus();
+        if (!open) openListingMenu(dropdown, button);
       });
     });
     container.querySelectorAll('[data-host-action]').forEach(function (button) {
@@ -129,7 +191,7 @@
         event.preventDefault(); event.stopPropagation();
         var listing = JSON.parse(button.getAttribute('data-listing'));
         var action = button.getAttribute('data-host-action');
-        container.querySelectorAll('.card-menu-dropdown.open').forEach(function (menu) { menu.classList.remove('open'); });
+        closeListingMenus();
         if (action === 'status') {
           persistStatus(button, listing);
         } else if (action === 'edit') {
@@ -148,13 +210,27 @@
         else if (action === 'bookings') window.location.href = '/bookings?listing=' + encodeURIComponent(listing.id);
         else if (action === 'analytics') window.location.href = '/analytics?listing=' + encodeURIComponent(listing.id);
         else if (action === 'duplicate') request('/listings/' + encodeURIComponent(listing.id) + '/duplicate', { method: 'POST' }).then(function () { invalidateListingCache(); toast('Listing duplicated'); }).catch(function (error) { toast(error.message); });
-        else if (action === 'delete') confirmDeletion().then(function (confirmed) {
+        else if (action === 'delete') confirmDeletion(listing).then(function (confirmed) {
           if (!confirmed) return;
-          request('/listings/' + encodeURIComponent(listing.id), { method: 'DELETE' }).then(function () { removeCachedListing(listing.id); document.dispatchEvent(new CustomEvent('varoom:listing-deleted', { detail: { id: listing.id } })); toast('Listing deleted'); }).catch(function (error) { toast(error.message); });
+          request('/listings/' + encodeURIComponent(listing.id), { method: 'DELETE' }).then(function () {
+            removeCachedListing(listing.id);
+            document.dispatchEvent(new CustomEvent('varoom:listing-deleted', { detail: { id: listing.id } }));
+            toast(listing.availability_status === 'draft' ? 'Draft listing permanently deleted' : 'Listing deleted');
+          }).catch(function (error) {
+            if (error.code === 'LISTING_DELETED_MEDIA_CLEANUP_FAILED') {
+              removeCachedListing(listing.id);
+              document.dispatchEvent(new CustomEvent('varoom:listing-deleted', { detail: { id: listing.id } }));
+            }
+            toast(error.message);
+          });
         });
       });
     });
   }
+  document.addEventListener('click', function (event) {
+    if (!event.target.closest('.card-menu-dropdown, [data-menu-toggle]')) closeListingMenus();
+  });
+  window.addEventListener('resize', function () { closeListingMenus(); });
   document.addEventListener('varoom:listing-updated', function (event) {
     var detail = event.detail || {};
     var id = detail.id;
@@ -211,6 +287,8 @@
       '<button class="card-menu-item" data-host-action="status" data-status="paused" data-status-action="paused" data-listing="' + json + '">Pause listing</button>' +
       '<button class="card-menu-item" data-host-action="status" data-status="draft" data-status-action="draft" data-listing="' + json + '">Save as draft</button>' +
       '<button class="card-menu-item" data-host-action="share" data-listing="' + json + '">Share listing</button><button class="card-menu-item" data-host-action="copy" data-listing="' + json + '">Copy listing link</button>' +
-      '<button class="card-menu-item" data-host-action="bookings" data-listing="' + json + '">View bookings</button><button class="card-menu-item" data-host-action="analytics" data-listing="' + json + '">View analytics</button><button class="card-menu-item" data-host-action="duplicate" data-listing="' + json + '">Duplicate listing</button><button class="card-menu-item destructive" data-host-action="delete" data-listing="' + json + '">Delete listing</button></div></div>';
+      '<button class="card-menu-item" data-host-action="bookings" data-listing="' + json + '">View bookings</button><button class="card-menu-item" data-host-action="analytics" data-listing="' + json + '">View analytics</button><button class="card-menu-item" data-host-action="duplicate" data-listing="' + json + '">Duplicate listing</button><button class="card-menu-item destructive" data-host-action="delete" data-listing="' + json + '">' +
+      (listing.availability_status === 'draft' ? 'Delete draft permanently' : 'Delete listing') +
+      '</button></div></div>';
   }};
 })();

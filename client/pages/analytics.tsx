@@ -92,79 +92,20 @@ export default function AnalyticsPage() {
     };
   }, [sdkReady]);
 
-  useEffect(() => {
-    const sidebar = sharedClientWindow().VaroomSidebar;
-    if (!client || !profile || !sidebarReady || !sidebarRef.current || !sidebar) return;
-    sidebar.mount({
-      container: sidebarRef.current,
-      role: 'host',
-      activeNav: 'analytics',
-      profile,
-      supabaseClient: client,
-    });
-    const itemLabels: Record<string, string> = {
-      '/chats?conversation=elie': 'Elie',
-      '/host-home': 'Home',
-      '/marketplace': 'Marketplace',
-      '/host-home?view=saved': 'Saved',
-      '/bookings': 'Bookings',
-      '/chats': 'Chats',
-      '/notifications': 'Notifications',
-      '/host-home?view=my-listings': 'My Listings',
-      '/analytics': 'Analytics',
-      '/profile': 'Profile',
-      '/settings': 'Settings',
-      '/support': 'Help & Support',
-      'pricing.html': 'Upgrade',
-      '/list': 'List a space',
-    };
-    sidebarRef.current.querySelectorAll<HTMLAnchorElement>('a').forEach((link) => {
-      const label = link.classList.contains('logo')
-        ? 'VaRoom home'
-        : itemLabels[link.getAttribute('href') || ''];
-      if (!label) return;
-      link.title = label;
-      link.setAttribute('aria-label', label);
-    });
-    const logout = sidebarRef.current.querySelector<HTMLButtonElement>('.logout-btn');
-    if (logout) {
-      logout.title = 'Log out';
-      logout.setAttribute('aria-label', 'Log out');
-    }
-    void sidebar.initCounts({ supabaseClient: client });
-  }, [client, profile, sidebarReady]);
-
   return (
     <>
       <Head>
         <title>Host Analytics — VaRoom</title>
-        <link rel="stylesheet" href="/js/varoom-sidebar.css" />
       </Head>
       <Script
         src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"
         strategy="afterInteractive"
         onReady={() => setSdkReady(true)}
       />
-      <Script
-        src="/js/varoom-sidebar.js"
-        strategy="afterInteractive"
-        onReady={() => setSidebarReady(true)}
-      />
-      <div className={shell.appShell}>
-        <aside
-          id="sidebar"
-          ref={sidebarRef}
-          className={`sidebar sidebar-host ${shell.sidebar}`}
-        />
-        <button id="menu-toggle" className={shell.menuToggle} type="button" aria-label="Open navigation">
-          Menu
-        </button>
-        <div id="sidebar-backdrop" className="sidebar-backdrop" />
-        <div className={shell.content}>
-          {error && <p className={shell.error} role="alert">{error}</p>}
-          {!profile && !error && <p className={shell.loading}>Loading your host account…</p>}
-          {profile && client && <HostAnalytics api={supabaseHostAnalyticsApi} />}
-        </div>
+      <div className={shell.content} style={{ width: '100%', maxWidth: '100%', height: '100vh', overflowY: 'auto' }}>
+        {error && <p className={shell.error} role="alert">{error}</p>}
+        {!profile && !error && <p className={shell.loading}>Loading your host account…</p>}
+        {profile && client && <HostAnalytics api={supabaseHostAnalyticsApi} />}
       </div>
     </>
   );

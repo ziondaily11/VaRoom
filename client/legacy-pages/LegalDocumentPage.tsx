@@ -1,7 +1,8 @@
 "use client";
 
 import Head from "next/head";
-import { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
 // Content model shared by the legal documents (Privacy Policy, Terms of Service).
 export type Inline = string | { strong: string } | { text: string; href: string };
 
@@ -38,35 +39,19 @@ export interface LegalDocumentPageProps {
   headDescription?: string;
 }
 
-function useActiveSection(ids: string[]): string {
-  const [active, setActive] = useState(ids[0] ?? "");
-
-  useEffect(() => {
-    const els = ids
-      .map((id) => document.getElementById(id))
-      .filter((el): el is HTMLElement => el !== null);
-    if (!els.length) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((e) => e.isIntersecting)
-          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-        if (visible[0]) setActive(visible[0].target.id);
-      },
-      { rootMargin: "-15% 0px -75% 0px" }
-    );
-    els.forEach((el) => observer.observe(el));
-    return () => observer.disconnect();
-  }, [ids]);
-
-  return active;
-}
-
 function Rich({ node }: { node: Inline }) {
   if (typeof node === "string") return <>{node}</>;
   if ("strong" in node) return <strong>{node.strong}</strong>;
-  return <a href={node.href}>{node.text}</a>;
+  const isExternal = node.href.startsWith("http");
+  return (
+    <a
+      href={node.href}
+      target={isExternal ? "_blank" : undefined}
+      rel={isExternal ? "noopener noreferrer" : undefined}
+    >
+      {node.text}
+    </a>
+  );
 }
 
 function BlockView({ block }: { block: Block }) {
@@ -120,11 +105,13 @@ function TableOfContents({
   active,
   label,
   dense,
+  onSelectSection,
 }: {
   sections: Section[];
   active: string;
   label: string;
   dense: boolean;
+  onSelectSection: (id: string) => void;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -144,7 +131,11 @@ function TableOfContents({
             <a
               href={`#${s.id}`}
               aria-current={active === s.id ? "true" : undefined}
-              onClick={() => setOpen(false)}
+              onClick={(e) => {
+                e.preventDefault();
+                setOpen(false);
+                onSelectSection(s.id);
+              }}
             >
               {i + 1}. {s.title}
             </a>
@@ -166,7 +157,112 @@ export default function LegalDocumentPage({
   headDescription,
 }: LegalDocumentPageProps) {
   const sectionIds = useMemo(() => sections.map((s) => s.id), [sections]);
-  const active = useActiveSection(sectionIds);
+  const [active, setActive] = useState<string>(sectionIds[0] ?? "");
+  const contentPaneRef = useRef<HTMLDivElement>(null);
+
+  const handleSelectSection = useCallback((id: string) => {
+    const target = document.getElementById(id);
+    if (!target) return;
+
+    const pane = contentPaneRef.current;
+    if (pane && typeof window !== "undefined" && window.innerWidth > 900) {
+      const paneRect = pane.getBoundingClientRect();
+      const targetRect = target.getBoundingClientRect();
+      const offsetTop = targetRect.top - paneRect.top + pane.scrollTop - 24;
+
+      pane.scrollTo({
+        top: Math.max(0, offsetTop),
+        behavior: "smooth",
+      });
+    } else {
+      target.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }
+
+    if (typeof window !== "undefined" && window.history && window.history.pushState) {
+      window.history.pushState(null, "", `#${id}`);
+    }
+    setActive(id);
+  }, []);
+
+  // Tag document for desktop overflow containment & handle direct hash navigation
+  useEffect(() => {
+    document.documentElement.classList.add("has-legal-page");
+    document.body.classList.add("has-legal-page");
+
+    if (typeof window !== "undefined" && window.location.hash) {
+      const hash = window.location.hash.replace(/^#/, "");
+      if (hash) {
+        const timer = setTimeout(() => {
+          handleSelectSection(hash);
+        }, 120);
+        return () => {
+          clearTimeout(timer);
+          document.documentElement.classList.remove("has-legal-page");
+          document.body.classList.remove("has-legal-page");
+        };
+      }
+    }
+
+    return () => {
+      document.documentElement.classList.remove("has-legal-page");
+      document.body.classList.remove("has-legal-page");
+    };
+  }, [handleSelectSection]);
+
+  // Synchronize active section during scrolling on both desktop pane and mobile window
+  useEffect(() => {
+    const pane = contentPaneRef.current;
+
+    const updateActiveSection = () => {
+      const isDesktop = typeof window !== "undefined" && window.innerWidth > 900;
+      const container = isDesktop && pane ? pane : null;
+
+      let current = "";
+      for (const id of sectionIds) {
+        const el = document.getElementById(id);
+        if (!el) continue;
+
+        if (container) {
+          const paneRect = container.getBoundingClientRect();
+          const elRect = el.getBoundingClientRect();
+          if (elRect.top - paneRect.top <= 140) {
+            current = id;
+          }
+        } else {
+          const elRect = el.getBoundingClientRect();
+          if (elRect.top <= 180) {
+            current = id;
+          }
+        }
+      }
+
+      if (current) {
+        setActive(current);
+      }
+    };
+
+    const isDesktop = typeof window !== "undefined" && window.innerWidth > 900;
+    const scrollTarget = isDesktop && pane ? pane : typeof window !== "undefined" ? window : null;
+
+    if (scrollTarget) {
+      scrollTarget.addEventListener("scroll", updateActiveSection, { passive: true });
+    }
+    if (typeof window !== "undefined") {
+      window.addEventListener("resize", updateActiveSection, { passive: true });
+    }
+
+    return () => {
+      if (scrollTarget) {
+        scrollTarget.removeEventListener("scroll", updateActiveSection);
+      }
+      if (typeof window !== "undefined") {
+        window.removeEventListener("resize", updateActiveSection);
+      }
+    };
+  }, [sectionIds]);
 
   return (
     <div className="pp-root">
@@ -187,25 +283,32 @@ export default function LegalDocumentPage({
       </header>
 
       <div className="pp-body">
-        <TableOfContents sections={sections} active={active} label={navLabel} dense={denseNav} />
-        <article className="pp-content">
-          {intro.map((block, i) => (
-            <BlockView key={i} block={block} />
-          ))}
-          {sections.map((s, i) => (
-            <section key={s.id} id={s.id} aria-labelledby={`${s.id}-title`}>
-              <h2 id={`${s.id}-title`}>
-                {i + 1}. {s.title}
-              </h2>
-              {s.blocks.map((block, j) => (
-                <BlockView key={j} block={block} />
-              ))}
-            </section>
-          ))}
-        </article>
+        <TableOfContents
+          sections={sections}
+          active={active}
+          label={navLabel}
+          dense={denseNav}
+          onSelectSection={handleSelectSection}
+        />
+        <div className="pp-content-pane" ref={contentPaneRef}>
+          <article className="pp-content">
+            {intro.map((block, i) => (
+              <BlockView key={i} block={block} />
+            ))}
+            {sections.map((s, i) => (
+              <section key={s.id} id={s.id} aria-labelledby={`${s.id}-title`}>
+                <h2 id={`${s.id}-title`}>
+                  {i + 1}. {s.title}
+                </h2>
+                {s.blocks.map((block, j) => (
+                  <BlockView key={j} block={block} />
+                ))}
+              </section>
+            ))}
+          </article>
+          <footer className="pp-footer">© 2026 Varoom. All rights reserved.</footer>
+        </div>
       </div>
-
-      <footer className="pp-footer">© 2026 Varoom. All rights reserved.</footer>
     </div>
   );
 }

@@ -368,14 +368,9 @@
     <div class="divider">or sign in with</div>
 
     <!-- Google sign-in -->
-    <button type="button" class="btn-google" id="google-btn">
-      <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
-        <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
-        <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
-        <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
-        <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
-      </svg>
-      Continue with Google
+    <div class="btn-google google-signin-slot" id="google-btn" style="padding:0;background:transparent;border:0;box-shadow:none;"></div>
+    <button type="button" class="google-redirect-fallback" id="google-redirect-fallback" style="display:block;width:100%;margin:8px 0 18px;border:0;background:transparent;color:#555;font:12px Arial,sans-serif;text-align:center;text-decoration:underline;cursor:pointer;">
+      If the Google prompt doesn&apos;t open, use the full-page sign-in
     </button>
 
     <p class="form-switch">New to VaRoom? <a href="/?signup=1" id="create-link">Create an account</a></p>
@@ -434,14 +429,38 @@
     document.getElementById('eye-icon').style.opacity = show ? '0.4' : '1';
   });
 
-  /* ── Google OAuth ── */
-  document.getElementById('google-btn').addEventListener('click', async function() {
+  /* ── Google sign-in ── */
+  var googleButton = document.getElementById('google-btn');
+  var redirectFallback = document.getElementById('google-redirect-fallback');
+  var callbackUrl = window.location.origin + '/auth-callback' +
+    (redirect ? '?redirect=' + encodeURIComponent(redirect) : '');
+
+  if (mode === 'add') {
+    googleButton.style.display = 'none';
+    redirectFallback.textContent = 'Continue with Google';
+    redirectFallback.style.color = '#1d1d1d';
+    redirectFallback.style.fontWeight = '700';
+  } else if (window.VaRoomGoogleSignIn) {
+    window.VaRoomGoogleSignIn.mount(googleButton, {
+      client: supabaseClient,
+      redirectTo: callbackUrl,
+      fallbackButton: redirectFallback,
+      onError: function(message) { showAlert(message, 'error'); }
+    });
+  } else {
+    googleButton.style.display = 'none';
+    showAlert('Google sign-in could not load. Use the full-page option or try again.', 'error');
+  }
+
+  redirectFallback.addEventListener('click', async function(event) {
+    if (mode !== 'add' && window.VaRoomGoogleSignIn) return;
+    event.preventDefault();
     try {
-      if (mode === 'add' && window.VaRoomAccountSwitcher && !window.VaRoomAccountSwitcher.canAddAccount()) {
+      if (window.VaRoomAccountSwitcher && !window.VaRoomAccountSwitcher.canAddAccount()) {
         showAlert('You can link up to 3 accounts. Remove an account before adding another.', 'error');
         return;
       }
-      if (mode === 'add' && window.VaRoomAccountSwitcher) {
+      if (window.VaRoomAccountSwitcher) {
         var existing = await supabaseClient.auth.getSession();
         var outgoingSession = existing.data && existing.data.session;
         if (outgoingSession) {
@@ -450,10 +469,7 @@
       }
       var { error } = await supabaseClient.auth.signInWithOAuth({
         provider: 'google',
-        options: {
-          redirectTo: window.location.origin + '/auth-callback' +
-            (redirect ? '?redirect=' + encodeURIComponent(redirect) : '')
-        }
+        options: { redirectTo: callbackUrl }
       });
       if (error) showAlert(error.message, 'error');
     } catch(e) {
@@ -520,7 +536,11 @@
 
       var profileResult = await supabaseClient.from('profiles').select('role,onboarding_completed').eq('id', data.user.id).maybeSingle();
       var profile = profileResult.data;
-      var role = (profile && profile.role) || (data.user.user_metadata && data.user.user_metadata.role);
+      var role = (profile && profile.role) || (data.user.user_metadata && data.user.user_metadata.role) || 'client';
+      try {
+        sessionStorage.setItem('varoom_user_role', role);
+        localStorage.setItem('varoom_last_role', role);
+      } catch(e) {}
       if (!profile || !profile.onboarding_completed) {
         window.location.href = '/onboarding' + (redirect ? '?redirect=' + encodeURIComponent(redirect) : '');
       } else {
@@ -555,7 +575,11 @@
         if (data && data.session) {
           var profileResult = await supabaseClient.from('profiles').select('role,onboarding_completed').eq('id', data.session.user.id).maybeSingle();
           var profile = profileResult.data;
-          var role = (profile && profile.role) || (data.session.user.user_metadata && data.session.user.user_metadata.role);
+          var role = (profile && profile.role) || (data.session.user.user_metadata && data.session.user.user_metadata.role) || 'client';
+          try {
+            sessionStorage.setItem('varoom_user_role', role);
+            localStorage.setItem('varoom_last_role', role);
+          } catch(e) {}
           if (!profile || !profile.onboarding_completed) {
             window.location.href = '/onboarding' + (redirect ? '?redirect=' + encodeURIComponent(redirect) : '');
           } else {

@@ -48,11 +48,11 @@
     /* Keep the marketplace on the same continuous VaRoom dark canvas as
        the dashboards. Listing cards are delineated by their outline and
        imagery, rather than a second dark slab behind every property. */
-    --bg-surface: #0F0D0D;
-    --card-bg: #0F0D0D;
-    --card-bg-hover: #151211;
+    --bg-surface: #000000;
+    --card-bg: #000000;
+    --card-bg-hover: #0d0d0d;
     --border-subtle: rgba(255,255,255,.10);
-    --white: var(--bg-surface); --paper: var(--bg-surface); --ink: var(--text-primary); --muted: var(--text-secondary); --nav-active-bg:#302C2A;
+    --white: var(--bg-surface); --paper: var(--bg-surface); --ink: var(--text-primary); --muted: var(--text-secondary); --nav-active-bg:rgba(255,255,255,.14);
     --line: rgba(255,255,255,.12);
     --line-soft: rgba(255,255,255,.07);
   }
@@ -69,6 +69,7 @@
   }
   .logo{ font-family:var(--font-brand); font-weight:900; font-size:1.3rem; display:flex; align-items:baseline; white-space:nowrap; }
   .logo .va{ color:var(--red); }
+  .logo .room{ color:var(--ink); }
   .mode-switch{
     display:flex; align-items:center; gap:.4rem; font-size:.82rem; color:var(--muted); font-weight:600;
     padding:.35rem .5rem; border-radius:100px; background:var(--paper);
