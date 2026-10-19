@@ -28,19 +28,21 @@ test('review payment actions are non-submit buttons with independent handlers', 
   assert.doesNotMatch(payClickHandler, /requestSubmit|\/pricing/);
 });
 
-test('one-time checkout verifies payment before requesting listing publication', () => {
+test('one-time checkout verifies payment before returning the host to the review page to publish', () => {
   const flowStart = listingPage.indexOf('async function startPayToListFlow()');
   const flowEnd = listingPage.indexOf("document.getElementById('pay-to-list-btn').addEventListener", flowStart);
   const flow = listingPage.slice(flowStart, flowEnd);
   const verifyIndex = flow.indexOf("payment.status === 'succeeded'");
-  const publishIndex = flow.indexOf("document.getElementById('list-form').requestSubmit()");
+  const publishButtonIndex = flow.indexOf("submitButton.innerHTML = 'Publish Listing <span>✓</span>'");
 
   assert.match(flow, /\/api\/billing\/listing-checkout/);
   assert.match(flow, /\/api\/billing\/payments\//);
   assert.match(listingPage, /payment_draft: true/);
   assert.doesNotMatch(flow, /uploadVideoToR2|storage\.from\('listing-photos'\)\.upload/);
   assert.match(flow, /paymentFlowInProgress \|\| publishInProgress/);
-  assert.ok(verifyIndex >= 0 && publishIndex > verifyIndex, 'publication must follow server-confirmed payment');
+  assert.ok(verifyIndex >= 0 && publishButtonIndex > verifyIndex, 'the publish button must appear only after server-confirmed payment');
+  assert.doesNotMatch(flow, /requestSubmit\(\)/, 'confirmed payment must not publish without a host action');
+  assert.match(flow, /Payment confirmed\. Review your listing, then select Publish Listing/);
   assert.match(flow, /closedPopupAttempts/);
   assert.doesNotMatch(flow, /if \(checkoutWindow\.closed\) break/);
   assert.match(flow, /Payment is still being verified/);

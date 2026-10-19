@@ -2850,8 +2850,8 @@
       proButton.hidden = true;
       submitButton.hidden = false;
       submitButton.disabled = false;
-      submitButton.textContent = 'Publishing listing…';
-      document.getElementById('list-form').requestSubmit();
+      submitButton.innerHTML = 'Publish Listing <span>✓</span>';
+      showPaymentMessage('Payment confirmed. Review your listing, then select Publish Listing when you are ready.', false);
     } catch (error) {
       if (!checkoutWindow.closed) checkoutWindow.close();
       showPaymentMessage(error.message || 'Unable to start payment. Please try again.', true);
