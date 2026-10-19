@@ -19,10 +19,142 @@
 require('dotenv').config();
 const supabaseAdmin = require('./supabaseClient');
 const mediaStorageService = require('./mediaStorageService');
+const { isR2PhotoObjectKey } = require('./photoStorageKeys');
 
 const CLEANUP_GRACE_PERIOD_MS = parseInt(process.env.VIDEO_CLEANUP_GRACE_PERIOD_HOURS || '1', 10) * 60 * 60 * 1000;
 const DRY_RUN = process.env.VIDEO_CLEANUP_DRY_RUN === 'true';
 const ENVIRONMENT = process.env.NODE_ENV || 'development';
+const DRAFT_CLEANUP_BATCH_SIZE = 25;
+const UPLOAD_SETTLE_GRACE_MS = 2 * 60 * 60 * 1000;
+
+async function cleanupExpiredDraftUploadSessions() {
+  const { data: sessions, error } = await supabaseAdmin.from('draft_media_upload_sessions')
+    .select('object_key,listing_id').lte(
+      'expires_at',
+      new Date(Date.now() - UPLOAD_SETTLE_GRACE_MS).toISOString()
+    ).limit(250);
+  if (error) throw new Error(`Unable to load expired draft upload sessions: ${error.message}`);
+
+  let deleted = 0;
+  for (const session of sessions || []) {
+    try {
+      const [originalReference, thumbnailReference, photoReference] = await Promise.all([
+        supabaseAdmin.from('property_media').select('id').eq('property_id', session.listing_id)
+          .eq('storage_key', session.object_key).limit(1),
+        supabaseAdmin.from('property_media').select('id').eq('property_id', session.listing_id)
+          .eq('thumbnail_key', session.object_key).limit(1),
+        supabaseAdmin.from('listing_photos').select('storage_path')
+          .eq('listing_id', session.listing_id).eq('storage_path', session.object_key).limit(1),
+      ]);
+      if (originalReference.error || thumbnailReference.error || photoReference.error) {
+        throw new Error(originalReference.error?.message || thumbnailReference.error?.message || photoReference.error?.message);
+      }
+      const referenced = (originalReference.data || []).length
+        || (thumbnailReference.data || []).length
+        || (photoReference.data || []).length;
+      const { data: currentSession, error: currentSessionError } = await supabaseAdmin.from('draft_media_upload_sessions')
+        .select('expires_at').eq('object_key', session.object_key).maybeSingle();
+      if (currentSessionError) throw new Error(currentSessionError.message);
+      if (!currentSession || new Date(currentSession.expires_at).getTime() > Date.now() - UPLOAD_SETTLE_GRACE_MS) continue;
+      if (!referenced) {
+        await mediaStorageService.deleteR2Object(session.object_key);
+        deleted++;
+      }
+      const { error: removeSessionError } = await supabaseAdmin.from('draft_media_upload_sessions')
+        .delete().eq('object_key', session.object_key).eq('expires_at', currentSession.expires_at);
+      if (removeSessionError) throw new Error(removeSessionError.message);
+    } catch (sessionError) {
+      console.error(JSON.stringify({
+        event: 'draft_upload_session_reconciliation_failed',
+        listing_id: session.listing_id,
+        error: sessionError.message,
+      }));
+    }
+  }
+  return { examined: (sessions || []).length, deleted };
+}
+
+async function cleanupExpiredDraftMedia() {
+  const { data: jobs, error } = await supabaseAdmin.rpc('claim_draft_media_cleanup', {
+    p_batch_size: DRAFT_CLEANUP_BATCH_SIZE,
+  });
+  if (error) throw new Error(`Unable to claim expired draft cleanup: ${error.message}`);
+
+  const summary = { claimed: (jobs || []).length, completed: 0, retried: 0 };
+  for (const job of jobs || []) {
+    try {
+      const snapshot = job.objects || {};
+      const r2Keys = new Set();
+      const supabaseBuckets = new Map();
+
+      for (const media of snapshot.media || []) {
+        if (media.storage_provider === 'r2') {
+          if (media.storage_key) r2Keys.add(media.storage_key);
+          if (media.thumbnail_key) r2Keys.add(media.thumbnail_key);
+        } else if (media.storage_key) {
+          const bucket = media.storage_bucket || 'property-media';
+          const keys = supabaseBuckets.get(bucket) || new Set();
+          keys.add(media.storage_key);
+          if (media.thumbnail_key) keys.add(media.thumbnail_key);
+          supabaseBuckets.set(bucket, keys);
+        }
+      }
+      for (const key of snapshot.photos || []) {
+        if (!key) continue;
+        if (isR2PhotoObjectKey('listing-photos', key, ENVIRONMENT)) r2Keys.add(key);
+        else {
+          const keys = supabaseBuckets.get('listing-photos') || new Set();
+          keys.add(key);
+          supabaseBuckets.set('listing-photos', keys);
+        }
+      }
+      for (const key of snapshot.uploads || []) if (key) r2Keys.add(key);
+
+      const videoPrefix = `drafts/videos/${ENVIRONMENT}/${job.host_id}/${job.listing_id}/`;
+      const photoPrefix = `drafts/photos/${ENVIRONMENT}/${job.host_id}/${job.listing_id}/`;
+      for (const objectKey of await mediaStorageService.listR2Objects(videoPrefix)) r2Keys.add(objectKey);
+      for (const objectKey of await mediaStorageService.listR2Objects(photoPrefix)) r2Keys.add(objectKey);
+      await mediaStorageService.deleteR2Objects([...r2Keys]);
+
+      for (const [bucket, keys] of supabaseBuckets) {
+        const { error: removeError } = await supabaseAdmin.storage.from(bucket).remove([...keys]);
+        if (removeError) throw new Error(`Unable to remove ${bucket} objects: ${removeError.message}`);
+      }
+
+      const { data: finished, error: finishError } = await supabaseAdmin.rpc('finish_draft_media_cleanup', {
+        p_listing_id: job.listing_id,
+      });
+      if (finishError || !finished) throw new Error(finishError?.message || 'Draft cleanup finalization was rejected');
+      summary.completed++;
+      console.info(JSON.stringify({
+        event: 'draft_media_cleanup_completed',
+        listing_id: job.listing_id,
+        object_count: r2Keys.size,
+        attempt: job.attempts + 1,
+      }));
+    } catch (cleanupError) {
+      const { error: retryError } = await supabaseAdmin.rpc('retry_draft_media_cleanup', {
+        p_listing_id: job.listing_id,
+        p_error: cleanupError.message || 'Draft media cleanup failed',
+      });
+      if (retryError) {
+        console.error(JSON.stringify({
+          event: 'draft_media_cleanup_retry_schedule_failed',
+          listing_id: job.listing_id,
+          error: retryError.message,
+        }));
+      }
+      summary.retried++;
+      console.error(JSON.stringify({
+        event: 'draft_media_cleanup_failed',
+        listing_id: job.listing_id,
+        attempt: job.attempts + 1,
+        error: cleanupError.message,
+      }));
+    }
+  }
+  return summary;
+}
 
 /**
  * Find and delete orphaned R2 objects
@@ -39,7 +171,7 @@ async function cleanupOrphanedR2Objects() {
     // Step 1: Fetch all media records from database
     const { data: mediaRecords, error } = await supabaseAdmin
       .from('property_media')
-      .select('storage_key, thumbnail_key, storage_provider, created_at, status, deleted_at')
+      .select('property_id,storage_key,thumbnail_key,storage_provider,created_at,status,deleted_at')
       .eq('storage_provider', 'r2');
 
     if (error) {
@@ -50,6 +182,22 @@ async function cleanupOrphanedR2Objects() {
     // Create a set of active object keys
     const activeKeys = new Set();
     const deletedKeys = new Set();
+    const failedPropertyIds = [...new Set((mediaRecords || [])
+      .filter((record) => record.status === 'failed' && record.property_id)
+      .map((record) => record.property_id))];
+    let privateFailedListingIds = new Set();
+    if (failedPropertyIds.length) {
+      const { data: listings, error: listingsError } = await supabaseAdmin.from('listings')
+        .select('id,publication_state,created_at').in('id', failedPropertyIds);
+      if (listingsError) {
+        console.error('Unable to classify failed media records:', listingsError);
+        return { error: listingsError.message };
+      }
+      privateFailedListingIds = new Set((listings || [])
+        .filter((listing) => ['draft', 'payment_pending', 'failed', 'discarded', 'cleanup_pending'].includes(listing.publication_state)
+          && new Date(listing.created_at).getTime() + 5 * 24 * 60 * 60 * 1000 > Date.now())
+        .map((listing) => listing.id));
+    }
 
     for (const record of mediaRecords || []) {
       if (record.status === 'deleted' && record.deleted_at) {
@@ -66,7 +214,10 @@ async function cleanupOrphanedR2Objects() {
         // Failed records older than grace period
         const createdAt = new Date(record.created_at).getTime();
         const now = Date.now();
-        if (now - createdAt > CLEANUP_GRACE_PERIOD_MS) {
+        if (privateFailedListingIds.has(record.property_id)) {
+          activeKeys.add(record.storage_key);
+          if (record.thumbnail_key) activeKeys.add(record.thumbnail_key);
+        } else if (now - createdAt > CLEANUP_GRACE_PERIOD_MS) {
           deletedKeys.add(record.storage_key);
         }
       }
@@ -182,6 +333,8 @@ async function runFullCleanup() {
 
   results.orphans = await cleanupOrphanedR2Objects();
   results.stuck = await cleanupStuckMediaRecords();
+  results.uploadSessions = await cleanupExpiredDraftUploadSessions();
+  results.drafts = await cleanupExpiredDraftMedia();
 
   results.endTime = new Date().toISOString();
 
@@ -207,4 +360,6 @@ module.exports = {
   runFullCleanup,
   cleanupOrphanedR2Objects,
   cleanupStuckMediaRecords,
+  cleanupExpiredDraftMedia,
+  cleanupExpiredDraftUploadSessions,
 };

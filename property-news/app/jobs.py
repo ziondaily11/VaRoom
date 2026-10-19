@@ -37,6 +37,7 @@ async def run_collection_job(repository=None, config=settings, analyzer: NewsAna
             "security_blocked_urls", "articles_fetched",
             "timeouts", "http_403", "http_404", "oversized_responses",
         )}
+        result["source_failures"] = collected.get("source_failures", [])
         result["collection_status"] = _collection_status(result)
         failed_item_ids = [item.id for item in await store.list_failed_items()]
         item_ids = list(dict.fromkeys([*collected["new_item_ids"], *failed_item_ids]))

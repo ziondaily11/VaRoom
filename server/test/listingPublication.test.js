@@ -21,7 +21,7 @@ const draftStatusMigration = fs.readFileSync(
   'utf8'
 );
 const activationMigration = fs.readFileSync(
-  path.join(__dirname, '..', 'migrations', '20261011_000036_listing_entitlement_activation.sql'),
+  path.join(__dirname, '..', 'migrations', '20261018_000040_draft_media_lifecycle.sql'),
   'utf8'
 );
 const finalizationMigration = fs.readFileSync(
@@ -86,7 +86,8 @@ test('all Discover feed branches require active moderation and available status'
     listingRoutes.indexOf("router.patch('/listings/:id/status'"),
     listingRoutes.indexOf("// This is intentionally separate", listingRoutes.indexOf("router.patch('/listings/:id/status'"))
   );
-  assert.match(statusRoute, /\.update\(\{ availability_status: req\.body\.status \}\)/);
+  assert.match(statusRoute, /\.update\(changes\)/);
+  assert.match(statusRoute, /publication_state = 'published'|publication_state: 'published'/);
   assert.doesNotMatch(statusRoute, /\.delete\(/);
   const ownershipCheck = listingRoutes.slice(
     listingRoutes.indexOf('async function ownedListing'),
