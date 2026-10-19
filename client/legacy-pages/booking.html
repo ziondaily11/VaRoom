@@ -203,7 +203,33 @@
   .contact-host-btn svg{ width:15px; height:15px; }
 
   .about-block .about-title, .section-title{ font-family:var(--font-display); font-weight:600; font-size:.92rem; margin-bottom:.3rem; }
-  .about-text{ font-size:.8rem; line-height:1.4; color:var(--ink); }
+  .about-text{ font-size:.8rem; line-height:1.5; color:var(--muted); }
+  .about-paragraph{
+    margin:0 0 .65rem 0;
+    white-space:pre-wrap;
+    word-break:break-word;
+    overflow-wrap:break-word;
+    line-height:1.5;
+  }
+  .about-paragraph:last-child{ margin-bottom:0; }
+  .about-toggle-btn{
+    display:inline;
+    background:none;
+    border:none;
+    padding:0;
+    margin:0 0 0 .35rem;
+    font-family:inherit;
+    font-size:inherit;
+    font-weight:600;
+    color:var(--ink);
+    text-decoration:underline;
+    text-underline-offset:2px;
+    cursor:pointer;
+    white-space:nowrap;
+    vertical-align:baseline;
+  }
+  .about-toggle-btn:hover{ color:var(--red); }
+  .about-toggle-btn:focus-visible{ outline:2px solid var(--red); outline-offset:2px; border-radius:2px; }
 
   /* ---------- Amenities (placeholder) ---------- */
   .amenity-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:.4rem .7rem; }
@@ -565,7 +591,7 @@
     .host-card{ flex-direction:row; align-items:center; justify-content:space-between; gap:.75rem; }
     .contact-host-btn{ width:auto; min-width:152px; min-height:34px; padding:.5rem 1rem; border-radius:100px; }
     .about-block .about-title,.section-title{ font-size:.92rem; margin-bottom:.25rem; font-weight:700; }
-    .about-text{ font-size:.8rem; line-height:1.5; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+    .about-text{ font-size:.8rem; line-height:1.5; color:var(--muted); }
     .amenity-grid{ grid-template-columns:repeat(4,minmax(0,1fr)); gap:.5rem .8rem; }
     .amenity-item{ font-size:.74rem; gap:.4rem; color:var(--muted); }
     .amenity-item svg{ width:15px; height:15px; color:var(--ink); }
@@ -1083,6 +1109,86 @@
 
     function escapeHtml(str){ const d = document.createElement('div'); d.textContent = str || ''; return d.innerHTML; }
 
+    function getCleanTruncatedDescription(fullText, maxChars, maxLines) {
+      if (!maxChars) maxChars = 220;
+      if (!maxLines) maxLines = 3;
+      const normalized = (fullText || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
+      if (!normalized) return { text: '', hasOverflow: false };
+
+      const rawLines = normalized.split('\n');
+      if (rawLines.length <= maxLines && normalized.length <= maxChars) {
+        return { text: normalized, hasOverflow: false };
+      }
+
+      let accumulated = [];
+      let currentLength = 0;
+      for (let i = 0; i < rawLines.length; i++) {
+        const line = rawLines[i];
+        if (accumulated.length >= maxLines) break;
+        if (currentLength + line.length > maxChars && accumulated.length > 0) {
+          const remaining = Math.max(30, maxChars - currentLength);
+          let partial = line.slice(0, remaining);
+          const lastSpace = partial.search(/\s+[^\s]*$/);
+          if (lastSpace > partial.length * 0.5) {
+            partial = partial.slice(0, lastSpace);
+          }
+          partial = partial.replace(/[\s,;:\-\u2013\u2014\.\*\u2022]+(\s*and)?$/i, '').trim();
+          if (partial) accumulated.push(partial);
+          break;
+        }
+        accumulated.push(line);
+        currentLength += line.length + 1;
+        if (currentLength >= maxChars) {
+          let longLine = accumulated.pop();
+          let cut = longLine.slice(0, maxChars);
+          const lastSpace = cut.search(/\s+[^\s]*$/);
+          if (lastSpace > cut.length * 0.5) {
+            cut = cut.slice(0, lastSpace);
+          }
+          cut = cut.replace(/[\s,;:\-\u2013\u2014\.\*\u2022]+(\s*and)?$/i, '').trim();
+          if (cut) accumulated.push(cut);
+          break;
+        }
+      }
+
+      let result = accumulated.join('\n').trim();
+      if (!result) {
+        result = normalized.slice(0, maxChars);
+        const lastSpace = result.search(/\s+[^\s]*$/);
+        if (lastSpace > result.length * 0.5) {
+          result = result.slice(0, lastSpace);
+        }
+        result = result.replace(/[\s,;:\-\u2013\u2014\.\*\u2022]+(\s*and)?$/i, '').trim();
+      }
+      result = result.replace(/[\s,;:\-\u2013\u2014\.\*\u2022]+(\s*and)?$/i, '').trim();
+
+      if (result.length >= normalized.length) {
+        return { text: normalized, hasOverflow: false };
+      }
+
+      return { text: result, hasOverflow: true };
+    }
+
+    function formatDescriptionHtml(text, isExpanded, hasOverflow) {
+      const normalized = (text || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
+      if (!normalized) return '';
+      const paragraphs = normalized.split(/\n\s*\n/).filter(function(p){ return p.trim().length > 0; });
+      if (!paragraphs.length) return '';
+
+      return paragraphs.map(function(p, idx){
+        const isLast = idx === paragraphs.length - 1;
+        let html = escapeHtml(p.trim());
+        if (isLast && hasOverflow) {
+          if (!isExpanded) {
+            html += ' <button type="button" class="about-toggle-btn" id="about-desc-toggle" aria-expanded="false">Read more</button>';
+          } else {
+            html += ' <button type="button" class="about-toggle-btn" id="about-desc-toggle" aria-expanded="true">Show less</button>';
+          }
+        }
+        return '<p class="about-paragraph">' + html + '</p>';
+      }).join('');
+    }
+
     function resolveAvatarUrl(avatarValue){
       if (!avatarValue) return null;
       if (avatarValue.indexOf('http') === 0) return avatarValue;
@@ -1464,6 +1570,16 @@
     // the legacy description/caption. Keep them readable while new listings
     // show their dedicated detailed description here.
     const description = listing.property_description || listing.description || '';
+    const previewLimit = (typeof window !== 'undefined' && window.innerWidth < 640) ? 140 : 220;
+    const descTruncation = getCleanTruncatedDescription(description, previewLimit, 3);
+    const hasDescriptionOverflow = descTruncation.hasOverflow;
+    let isDescriptionExpanded = false;
+
+    const descriptionHtml = description
+      ? '<div class="about-text" id="about-desc-container">' +
+          formatDescriptionHtml(descTruncation.text, false, hasDescriptionOverflow) +
+        '</div>'
+      : '<div class="about-text"><span style="color:var(--muted);">' + (isHotel ? 'The hotel hasn\'t added room details yet.' : 'The host hasn\'t added details about this place yet.') + '</span></div>';
     const mapUrl = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(listing.location_text || listing.title);
 
     // Real amenities selected by the host during listing creation.
@@ -1545,7 +1661,7 @@
         '</div>' +
         '<div class="about-block">' +
           '<h2 class="about-title">' + (isHotel ? 'About this room' : 'About this place') + '</h2>' +
-          '<p class="about-text">' + (description ? escapeHtml(description) : '<span style="color:var(--muted);">' + (isHotel ? 'The hotel hasn\'t added room details yet.' : 'The host hasn\'t added details about this place yet.') + '</span>') + '</p>' +
+          descriptionHtml +
           '<h2 class="section-title" style="margin-top:.8rem;">' + (isHotel ? 'Room & hotel amenities' : 'Top amenities') + '</h2>' +
           amenitiesHtml +
         '</div>' +
@@ -1558,6 +1674,35 @@
       '<div class="review-strip">' + reviewCardsHtml + '</div>';
 
     document.getElementById('col-main').innerHTML = colMainHtml;
+
+    function setupDescriptionToggle() {
+      if (!hasDescriptionOverflow) return;
+      const descContainer = document.getElementById('about-desc-container');
+      if (!descContainer) return;
+
+      function bindToggle() {
+        const toggleBtn = document.getElementById('about-desc-toggle');
+        if (!toggleBtn) return;
+        toggleBtn.addEventListener('click', function(e){
+          e.preventDefault();
+          isDescriptionExpanded = !isDescriptionExpanded;
+          const targetText = isDescriptionExpanded ? description : descTruncation.text;
+          descContainer.innerHTML = formatDescriptionHtml(targetText, isDescriptionExpanded, hasDescriptionOverflow);
+          bindToggle();
+          if (!isDescriptionExpanded) {
+            const aboutBlock = document.querySelector('.about-block');
+            if (aboutBlock) {
+              const rect = aboutBlock.getBoundingClientRect();
+              if (rect.top < 0) {
+                aboutBlock.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+              }
+            }
+          }
+        });
+      }
+      bindToggle();
+    }
+    setupDescriptionToggle();
 
     const galleryLikeBtn = document.getElementById('gallery-like-btn');
     updateBookingLikeButton();
