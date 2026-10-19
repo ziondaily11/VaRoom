@@ -9,6 +9,70 @@ const { rejectSuspendedActivity } = require('../lib/accountAccess');
 const router = express.Router();
 const STATUSES = new Set(['available', 'booked', 'unavailable', 'paused', 'draft']);
 const CATEGORIES = ['airbnb', 'hotel', 'venue', 'office', 'shop', 'property'];
+const OFFICE_SHOP_CATEGORIES = new Set(['office', 'shop']);
+
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function canUseListingCategory(hostNiche, category) {
+  return hostNiche === category || (OFFICE_SHOP_CATEGORIES.has(hostNiche) && OFFICE_SHOP_CATEGORIES.has(category));
+}
+
+function officeShopDetails(value, category) {
+  if (!OFFICE_SHOP_CATEGORIES.has(category) || !isPlainObject(value)) {
+    throw new ValidationError('office_shop_details is invalid');
+  }
+  const allowed = new Set(['subtype', 'role', 'amenities', 'location', 'space', 'parking', 'rules', 'pricing', 'costs', 'lease', 'documents']);
+  Object.keys(value).forEach((key) => { if (!allowed.has(key)) throw new ValidationError('office_shop_details is invalid'); });
+  const subtype = category === 'office'
+    ? ['private_office', 'shared_office', 'serviced_office', 'coworking_desk', 'meeting_room']
+    : ['street_front_shop', 'mall_unit', 'showroom', 'studio'];
+  enumValue(value.subtype, 'subtype', subtype);
+  enumValue(value.role, 'role', ['owner', 'authorized_manager', 'agent']);
+  if (!isPlainObject(value.amenities) || !isPlainObject(value.space) || !isPlainObject(value.pricing)
+    || !isPlainObject(value.costs) || !isPlainObject(value.lease) || !isPlainObject(value.rules)) {
+    throw new ValidationError('office_shop_details is invalid');
+  }
+  number(value.space.area, 'area', { min: 0, max: 100000000 });
+  enumValue(value.space.area_unit, 'area_unit', ['sq_ft', 'm2']);
+  enumValue(value.space.fitout_status, 'fitout_status', ['shell_core', 'partly_fitted', 'fitted', 'furnished']);
+  number(value.pricing.amount, 'price_amount', { min: 0, max: 100000000 });
+  enumValue(value.pricing.basis, 'pricing_basis', ['whole_month', 'whole_year', 'per_area', 'per_desk', 'daily_weekly_hourly', 'turnover']);
+  if (category !== 'shop' && value.pricing.basis === 'turnover') throw new ValidationError('turnover pricing is Shop-only');
+  if (value.pricing.basis === 'per_area') enumValue(value.space.area_measure, 'area_measure', ['usable', 'rentable', 'estimate']);
+  if (value.pricing.basis === 'per_desk') number(value.space.desks, 'desks', { integer: true, min: 1, max: 100000 });
+  if (category === 'office') number(value.space.capacity, 'capacity', { integer: true, min: 1, max: 100000 });
+  if (category === 'office' && ['shared_office', 'serviced_office', 'coworking_desk'].includes(value.subtype)) {
+    number(value.space.desks, 'desks', { integer: true, min: 1, max: 100000 });
+  }
+  enumValue(value.costs.service_charge, 'service_charge', ['included', 'not_included', 'not_confirmed']);
+  enumValue(value.costs.utilities, 'utilities', ['included', 'metered', 'fixed_fee', 'tenant_arranges', 'not_confirmed']);
+  enumValue(value.costs.tax, 'tax', ['included', 'added', 'not_applicable', 'needs_confirmation']);
+  if (value.costs.service_charge === 'not_included') {
+    number(value.costs.service_amount, 'service_amount', { min: 0, max: 100000000 });
+    enumValue(value.costs.service_frequency, 'service_frequency', ['monthly', 'quarterly', 'annual', 'one_off']);
+  }
+  if (value.costs.utilities === 'fixed_fee') number(value.costs.utilities_amount, 'utilities_amount', { min: 0, max: 100000000 });
+  if (value.parking && value.parking.cost === 'paid') number(value.parking.paid_amount, 'parking_paid_amount', { min: 0, max: 100000000 });
+  if (!Array.isArray(value.costs.compulsory_charges) || value.costs.compulsory_charges.length > 20) throw new ValidationError('compulsory_charges is invalid');
+  value.costs.compulsory_charges.forEach((charge) => {
+    if (!isPlainObject(charge)) throw new ValidationError('compulsory_charges is invalid');
+    enumValue(charge.type, 'charge type', ['parking', 'access_cards', 'cleaning', 'internet', 'agent_fee', 'legal_registration', 'signage', 'building_fee']);
+    number(charge.amount, 'charge amount', { min: 0, max: 100000000 });
+    enumValue(charge.frequency, 'charge frequency', ['monthly', 'quarterly', 'annual', 'one_off']);
+  });
+  text(value.costs.security_deposit, 'security_deposit', { max: 200 });
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text(value.lease.available_from, 'available_from', { max: 10 }))) {
+    throw new ValidationError('available_from is invalid');
+  }
+  number(value.lease.minimum_term, 'minimum_term', { integer: true, min: 1, max: 100000 });
+  enumValue(value.lease.payment_frequency, 'payment_frequency', ['monthly', 'quarterly', 'annually', 'custom']);
+  enumValue(value.lease.viewing_required, 'viewing_required', ['yes', 'no']);
+  const serialized = JSON.stringify(value);
+  if (serialized.length > 60000) throw new ValidationError('office_shop_details is too large');
+  return value;
+}
 
 // Discover asks for this only for cards entering the viewport.  Returning the
 // first ready video id in one bounded query avoids one `/media` lookup per
@@ -84,7 +148,7 @@ async function authenticatedHost(req, res) {
 
 async function ownedListing(id, userId, res) {
   const { data, error } = await supabaseAdmin
-    .from('listings').select('id,host_id,title,description,property_description,category,location_text,supports_stay,supports_table_reservation,listing_purpose,availability_status,paid_listing_until')
+    .from('listings').select('id,host_id,title,description,property_description,category,location_text,city,neighborhood,address_visibility,supports_stay,supports_table_reservation,listing_purpose,availability_status,paid_listing_until')
     .eq('id', id).maybeSingle();
   if (error) {
     console.error('Listing ownership lookup failed:', error.message);
@@ -155,6 +219,23 @@ router.patch('/listings/:id/status', async (req, res) => {
   }
   const listing = await ownedListing(req.params.id, user.id, res);
   if (!listing) return;
+  if (req.body.status === 'available' && OFFICE_SHOP_CATEGORIES.has(listing.category)) {
+    const { data: details, error: detailsError } = await supabaseAdmin.from('listing_booking_details')
+      .select('office_shop_details,office_shop_last_confirmed_at').eq('listing_id', req.params.id).maybeSingle();
+    const { count: photoCount, error: photoError } = await supabaseAdmin.from('listing_photos')
+      .select('id', { count: 'exact', head: true }).eq('listing_id', req.params.id);
+    const { count: videoCount, error: videoError } = await supabaseAdmin.from('property_media')
+      .select('id', { count: 'exact', head: true }).eq('property_id', req.params.id)
+      .eq('media_type', 'video').eq('status', 'ready').is('deleted_at', null);
+    if (detailsError || photoError || videoError) return res.status(500).json({ error: 'Unable to validate the commercial listing before publication' });
+    if (!listing.city || !listing.neighborhood || !listing.address_visibility
+      || !details?.office_shop_last_confirmed_at || !details?.office_shop_details?.subtype) {
+      return res.status(422).json({ error: 'Complete the required Office or Shop details and confirm they are accurate before publishing' });
+    }
+    if ((photoCount || 0) + (videoCount || 0) < 1) {
+      return res.status(422).json({ error: 'Add at least one photo or video of the actual Office or Shop space before publishing' });
+    }
+  }
   if (req.body.status === 'available' && ['property', 'shop', 'office'].includes(listing.category)) {
     const { data: result, error: activationError } = await supabaseAdmin.rpc('activate_listing_with_entitlement', {
       p_listing_id: req.params.id,
@@ -231,9 +312,11 @@ router.post('/listings', async (req, res) => {
   let category;
   let payload;
   try {
-    assertAllowedKeys(req.body, ['title', 'description', 'property_description', 'category', 'location_text', 'supports_stay', 'supports_table_reservation', 'latitude', 'longitude', 'place_id', 'formatted_address', 'neighborhood', 'city', 'country', 'listing_purpose', 'payment_draft']);
+    assertAllowedKeys(req.body, ['title', 'description', 'property_description', 'category', 'location_text', 'supports_stay', 'supports_table_reservation', 'latitude', 'longitude', 'place_id', 'formatted_address', 'neighborhood', 'city', 'country', 'address_visibility', 'listing_purpose', 'payment_draft']);
     const niches = normalizeNiches(await hostNiches(user.id));
-    category = niches[0];
+    const hostNiche = niches[0];
+    category = req.body.category === undefined ? hostNiche : enumValue(req.body.category, 'category', CATEGORIES);
+    if (!canUseListingCategory(hostNiche, category)) throw new ValidationError('Listing category must match the host niche');
     if (paymentDraft && !['property', 'shop', 'office'].includes(category)) {
       return res.status(400).json({ error: 'Payment drafts are only available for Property and Shops & Offices', code: 'INVALID_LISTING' });
     }
@@ -280,6 +363,9 @@ router.post('/listings', async (req, res) => {
     ['place_id', 'formatted_address', 'neighborhood', 'city', 'country'].forEach((field) => {
       if (req.body[field] !== undefined) payload[field] = text(req.body[field], field, { required: false, max: 300 }) || null;
     });
+    if (req.body.address_visibility !== undefined) {
+      payload.address_visibility = enumValue(req.body.address_visibility, 'address_visibility', ['full', 'after_inquiry']);
+    }
     if (req.body.latitude !== undefined) payload.latitude = number(req.body.latitude, 'latitude', { min: -90, max: 90 });
     if (req.body.longitude !== undefined) payload.longitude = number(req.body.longitude, 'longitude', { min: -180, max: 180 });
   } catch (error) {
@@ -302,13 +388,13 @@ router.patch('/listings/:id', async (req, res) => {
   if (!user) return;
   try {
     uuid(req.params.id, 'listing id');
-    assertAllowedKeys(req.body, ['title', 'description', 'property_description', 'category', 'location_text', 'price_amount', 'price_unit', 'supports_stay', 'supports_table_reservation', 'listing_purpose', 'booking_details']);
+    assertAllowedKeys(req.body, ['title', 'description', 'property_description', 'category', 'location_text', 'city', 'neighborhood', 'country', 'address_visibility', 'price_amount', 'price_unit', 'supports_stay', 'supports_table_reservation', 'listing_purpose', 'booking_details']);
     if (req.body.booking_details !== undefined) {
       assertAllowedKeys(req.body.booking_details, [
         'price_amount', 'price_unit', 'size_or_type', 'amenities', 'max_guests', 'min_stay_nights',
         'checkin_time', 'checkout_time', 'cleaning_fee', 'cancellation_policy', 'available_from',
         'min_lease_months', 'deposit_amount', 'utilities_included', 'sale_price_amount',
-        'sale_price_mode', 'units_available', 'policy_storage_path',
+        'sale_price_mode', 'units_available', 'policy_storage_path', 'office_shop_details', 'office_shop_accuracy_confirmed',
       ]);
     }
   } catch (error) {
@@ -317,7 +403,7 @@ router.patch('/listings/:id', async (req, res) => {
   }
   const listing = await ownedListing(req.params.id, user.id, res);
   if (!listing) return;
-  const allowed = ['title', 'description', 'property_description', 'category', 'location_text'];
+  const allowed = ['title', 'description', 'property_description', 'category', 'location_text', 'city', 'neighborhood', 'country'];
   const update = {};
   for (const key of allowed) {
     if (Object.prototype.hasOwnProperty.call(req.body || {}, key)) {
@@ -332,7 +418,7 @@ router.patch('/listings/:id', async (req, res) => {
         if (key === 'category') {
           update[key] = enumValue(update[key], key, CATEGORIES);
           const niches = normalizeNiches(await hostNiches(user.id));
-          if (!niches.includes(update[key])) {
+          if (!canUseListingCategory(niches[0], update[key])) {
             return res.status(422).json({ error: 'Listing category must match the host niche', code: 'HOST_NICHE_NOT_ALLOWED' });
           }
         }
@@ -340,6 +426,14 @@ router.patch('/listings/:id', async (req, res) => {
         if (error instanceof ValidationError) return res.status(400).json({ error: 'Invalid input' });
         throw error;
       }
+    }
+  }
+  if (req.body.address_visibility !== undefined) {
+    try {
+      update.address_visibility = enumValue(req.body.address_visibility, 'address_visibility', ['full', 'after_inquiry']);
+    } catch (error) {
+      if (error instanceof ValidationError) return res.status(400).json({ error: 'Invalid input' });
+      throw error;
     }
   }
   if (req.body.supports_stay !== undefined || req.body.supports_table_reservation !== undefined) {
@@ -364,7 +458,7 @@ router.patch('/listings/:id', async (req, res) => {
   const detailUpdate = {};
   try {
     if (req.body.price_amount !== undefined) detailUpdate.price_amount = number(req.body.price_amount, 'price_amount', { min: 0, max: 100000000 });
-    if (req.body.price_unit !== undefined) detailUpdate.price_unit = enumValue(req.body.price_unit, 'price_unit', ['hour', 'day', 'night', 'month']);
+    if (req.body.price_unit !== undefined) detailUpdate.price_unit = enumValue(req.body.price_unit, 'price_unit', ['hour', 'day', 'week', 'night', 'month', 'year', 'sq_ft', 'm2', 'desk', 'turnover']);
     const details = req.body.booking_details || {};
     Object.keys(details).forEach((key) => {
       const value = details[key];
@@ -374,7 +468,7 @@ router.patch('/listings/:id', async (req, res) => {
       } else if (['max_guests', 'min_stay_nights', 'min_lease_months', 'units_available'].includes(key)) {
         detailUpdate[key] = value === null ? null : number(value, key, { integer: true, min: 1, max: 100000 });
       } else if (key === 'price_unit') {
-        detailUpdate[key] = enumValue(value, key, ['hour', 'day', 'night', 'month']);
+        detailUpdate[key] = enumValue(value, key, ['hour', 'day', 'week', 'night', 'month', 'year', 'sq_ft', 'm2', 'desk', 'turnover']);
       } else if (key === 'cancellation_policy') {
         detailUpdate[key] = enumValue(value, key, ['flexible', 'moderate', 'strict']);
       } else if (key === 'sale_price_mode') {
@@ -403,6 +497,13 @@ router.patch('/listings/:id', async (req, res) => {
           throw new ValidationError('policy_storage_path is invalid');
         }
         detailUpdate[key] = path;
+      } else if (key === 'office_shop_details') {
+        detailUpdate[key] = officeShopDetails(value, listing.category);
+      } else if (key === 'office_shop_accuracy_confirmed') {
+        if (!OFFICE_SHOP_CATEGORIES.has(listing.category) || value !== true) {
+          throw new ValidationError('office_shop_accuracy_confirmed is invalid');
+        }
+        detailUpdate.office_shop_last_confirmed_at = new Date().toISOString();
       }
     });
     if (listing.category !== 'property' && ['sale_price_amount', 'sale_price_mode', 'units_available'].some((key) => Object.prototype.hasOwnProperty.call(detailUpdate, key))) {

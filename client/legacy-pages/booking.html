@@ -238,6 +238,23 @@
   .amenity-item{ display:flex; align-items:center; gap:.45rem; font-size:.76rem; }
   .amenity-item svg{ width:14px; height:14px; color:var(--red); }
 
+  /* ---------- Office & shop details ---------- */
+  .commercial-section{ margin-top:1.05rem; }
+  .commercial-section + .commercial-section{ border-top:1px solid var(--line); padding-top:1rem; }
+  .commercial-section-title{ font-family:var(--font-display); font-size:.98rem; font-weight:600; margin:0 0 .55rem; }
+  .commercial-grid{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.55rem .8rem; }
+  .commercial-item{ min-width:0; }
+  .commercial-item dt{ color:var(--muted); font-size:.69rem; font-weight:600; line-height:1.25; }
+  .commercial-item dd{ margin:.14rem 0 0; font-size:.8rem; line-height:1.35; overflow-wrap:anywhere; }
+  .commercial-list{ margin:0; padding-left:1.1rem; color:var(--muted); font-size:.8rem; line-height:1.55; }
+  .commercial-list li + li{ margin-top:.2rem; }
+  .commercial-note{ margin:.5rem 0 0; color:var(--muted); font-size:.76rem; line-height:1.45; }
+  .commercial-disclosure{ margin:.55rem 0 0; padding:.55rem .65rem; border-radius:9px; background:var(--green-tint); color:var(--green-deep); font-size:.76rem; line-height:1.4; }
+  .commercial-document-list{ display:grid; gap:.45rem; }
+  .commercial-document-link{ display:flex; align-items:center; gap:.5rem; padding:.5rem .6rem; border:1px solid var(--line); border-radius:9px; background:var(--paper); font-size:.78rem; font-weight:600; overflow-wrap:anywhere; }
+  .commercial-document-link:hover{ border-color:var(--red); color:var(--red); }
+  @media (min-width:640px){ .commercial-grid{ grid-template-columns:repeat(3,minmax(0,1fr)); } }
+
   /* ---------- Reviews ---------- */
   .reviews-header{ display:flex; align-items:center; justify-content:space-between; margin-bottom:.4rem; flex-wrap:wrap; gap:.5rem; }
   .reviews-header .section-title{ margin-bottom:0; display:flex; align-items:center; gap:.35rem; }
@@ -1274,7 +1291,7 @@
 
     const { data: listing, error: listingError } = await supabaseClient
       .from('listings')
-      .select('id,title,description,property_description,location_text,category,listing_purpose,verified,availability_status,paid_listing_until,host_id,supports_stay,supports_table_reservation,' +
+      .select('id,title,description,property_description,location_text,city,neighborhood,address_visibility,category,listing_purpose,verified,availability_status,paid_listing_until,host_id,supports_stay,supports_table_reservation,' +
         'host:profiles!listings_host_id_fkey(full_name,verified,avatar_url,username,phone),listing_photos(storage_path),' +
         'listing_booking_details(*)')
       .eq('id', listingId)
@@ -1411,12 +1428,16 @@
     const rawDetails = listing.listing_booking_details;
     const details = (Array.isArray(rawDetails) ? rawDetails[0] : rawDetails) || {};
     const isProperty = listing.category === 'property';
+    const isOfficeShop = ['office', 'shop'].includes(listing.category);
+    const officeShop = isOfficeShop && details.office_shop_details && typeof details.office_shop_details === 'object' && !Array.isArray(details.office_shop_details)
+      ? details.office_shop_details
+      : null;
     const propertyPurpose = isProperty
       ? (listing.listing_purpose || details.listing_purpose || 'rent')
       : null;
     const isPropertySaleOnly = isProperty && propertyPurpose === 'sale';
     const propertyHasRentalPurpose = isProperty && (propertyPurpose === 'rent' || propertyPurpose === 'both');
-    const hasBookingDetails = Boolean(details && (details.price_amount != null || details.sale_price_amount != null || details.size_or_type || (Array.isArray(details.amenities) && details.amenities.length > 0)));
+    const hasBookingDetails = Boolean(details && (officeShop || details.price_amount != null || details.sale_price_amount != null || details.size_or_type || (Array.isArray(details.amenities) && details.amenities.length > 0)));
     if (supportsStay && (!rawDetails || !hasBookingDetails)) {
       showError('This listing has no booking details set up yet.');
       return;
@@ -1555,6 +1576,12 @@
         infoChips.push(details.units_available + ' unit' + (details.units_available === 1 ? '' : 's') + ' available');
       }
     }
+    if (officeShop && officeShop.subtype) {
+      infoChips.push(commercialLabel(officeShop.subtype, {
+        private_office: 'Private office', shared_office: 'Shared office', serviced_office: 'Serviced office', coworking_desk: 'Coworking desk', meeting_room: 'Meeting room',
+        street_front_shop: 'Street-front shop', mall_unit: 'Mall unit', showroom: 'Showroom', studio: 'Studio'
+      }));
+    }
     if (details.size_or_type) infoChips.push(escapeHtml(details.size_or_type));
 
     const hostName = listing.host.full_name || 'Host';
@@ -1580,7 +1607,11 @@
           formatDescriptionHtml(descTruncation.text, false, hasDescriptionOverflow) +
         '</div>'
       : '<div class="about-text"><span style="color:var(--muted);">' + (isHotel ? 'The hotel hasn\'t added room details yet.' : 'The host hasn\'t added details about this place yet.') + '</span></div>';
-    const mapUrl = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(listing.location_text || listing.title);
+    const commercialPublicLocation = isOfficeShop
+      ? [listing.neighborhood, listing.city].filter(Boolean).join(', ')
+      : '';
+    const listingLocationText = commercialPublicLocation || listing.location_text || '';
+    const mapUrl = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(listingLocationText || listing.title);
 
     // Real amenities selected by the host during listing creation.
     // Falls back gracefully for listings saved before this column existed.
@@ -1594,6 +1625,198 @@
           }).join('') +
         '</div>'
       : '<p style="font-size:.8rem; color:var(--muted);">No amenities have been listed for ' + (isHotel ? 'this hotel room' : 'this space') + ' yet.</p>';
+
+    function commercialLabel(value, labels) {
+      return labels[value] || (value ? String(value).replace(/_/g, ' ') : null);
+    }
+    function commercialNumber(value) {
+      const numberValue = Number(value);
+      return Number.isFinite(numberValue) ? numberValue.toLocaleString() : null;
+    }
+    function commercialKes(value) {
+      const numberValue = commercialNumber(value);
+      return numberValue == null ? null : 'KSh ' + numberValue;
+    }
+    function commercialDate(value) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value || ''))) return null;
+      const date = new Date(value + 'T00:00:00');
+      return Number.isNaN(date.getTime()) ? null : date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+    }
+    function commercialGrid(items) {
+      const visible = items.filter(function(item){ return item && item.value !== null && item.value !== undefined && item.value !== ''; });
+      return visible.length
+        ? '<dl class="commercial-grid">' + visible.map(function(item){
+            return '<div class="commercial-item"><dt>' + escapeHtml(item.label) + '</dt><dd>' + escapeHtml(String(item.value)) + '</dd></div>';
+          }).join('') + '</dl>'
+        : '';
+    }
+
+    let commercialDetailsHtml = '';
+    if (officeShop) {
+      const space = officeShop.space || {};
+      const amenities = officeShop.amenities || {};
+      const parking = officeShop.parking || {};
+      const pricing = officeShop.pricing || {};
+      const costs = officeShop.costs || {};
+      const lease = officeShop.lease || {};
+      const rules = officeShop.rules || {};
+      const documents = officeShop.documents || {};
+      const isCommercialOffice = listing.category === 'office';
+      const enumLabels = {
+        subtype: {
+          private_office: 'Private office', shared_office: 'Shared office', serviced_office: 'Serviced office', coworking_desk: 'Coworking desk', meeting_room: 'Meeting room',
+          street_front_shop: 'Street-front shop', mall_unit: 'Mall unit', showroom: 'Showroom', studio: 'Studio'
+        },
+        role: { owner: 'Owner', authorized_manager: 'Authorised property manager', agent: 'Agent' },
+        fitout: { shell_core: 'Shell-and-core', partly_fitted: 'Partly fitted', fitted: 'Fitted', furnished: 'Furnished' },
+        measure: { usable: 'Usable area', rentable: 'Rentable area', estimate: 'Estimated area' },
+        pricing: { whole_month: 'Whole unit, per month', whole_year: 'Whole unit, per year', per_area: 'Per area', per_desk: 'Per desk or person', daily_weekly_hourly: 'Daily, weekly or hourly', turnover: 'Turnover rent' },
+        yesNo: { yes: 'Yes', no: 'No', allowed: 'Allowed', not_allowed: 'Not allowed', landlord_consent: 'Allowed with landlord consent', landlord_approval: 'Subject to landlord approval', to_confirm: 'To confirm', not_confirmed: 'Not confirmed', tenant_must_restore: 'Tenant must restore', not_required: 'Not required' },
+        service: { included: 'Included', not_included: 'Not included', not_confirmed: 'Not confirmed' },
+        utilities: { included: 'Included', metered: 'Metered separately', fixed_fee: 'Fixed monthly fee', tenant_arranges: 'Tenant arranges', not_confirmed: 'Not confirmed' },
+        tax: { included: 'Included', added: 'Added on top', not_applicable: 'Not applicable', needs_confirmation: 'Needs confirmation' },
+        afterHours: { '24_7': '24/7', business_hours: 'Business hours only', not_confirmed: 'Not confirmed' },
+        frequency: { monthly: 'Monthly', quarterly: 'Quarterly', annual: 'Annual', annually: 'Annually', one_off: 'One-off', custom: 'Custom' },
+        increases: { none: 'None', annual: 'Annual escalation', stepped: 'Stepped', index_linked: 'Index-linked', not_confirmed: 'Not confirmed' }
+      };
+      const areaValue = commercialNumber(space.area);
+      const areaText = areaValue == null ? null : areaValue + ' ' + (space.area_unit === 'm2' ? 'm²' : 'sq ft');
+      const trueAmenities = {
+        mains_supply: 'Mains supply', backup_generator: 'Backup generator', ups: 'UPS', fibre: 'Fibre available', wifi_included: 'Wi-Fi included in rent', tenant_internet: 'Tenant arranges internet',
+        reliable_water: 'Reliable water supply', borehole: 'Borehole', private_washroom: 'Private washroom', shared_washroom: 'Shared washroom', drainage: 'Drainage connection',
+        guards: 'Guards', cctv: 'CCTV', controlled_entry: 'Controlled entry', alarm: 'Alarm', lighting: 'Lighting', lift: 'Lift', accessibility: 'Accessibility features',
+        ac_ventilation: 'AC or ventilation', natural_light: 'Natural light', cleaning: 'Cleaning', maintenance: 'Maintenance', waste_collection: 'Waste collection', reception: 'Reception', shared_kitchen: 'Shared kitchen', meeting_rooms: 'Meeting rooms'
+      };
+      const amenityItems = Object.keys(trueAmenities).filter(function(key){ return amenities[key] === true; }).map(function(key){ return trueAmenities[key]; });
+      const layout = isCommercialOffice ? space.office_layout : space.shop_layout;
+      const locationHtml = commercialGrid([
+        { label: 'City / county', value: listing.city },
+        { label: 'Neighbourhood', value: listing.neighborhood },
+        { label: 'Building / complex', value: officeShop.location && officeShop.location.building_name },
+        { label: 'Listed by', value: commercialLabel(officeShop.role, enumLabels.role) }
+      ]);
+      const spaceHtml = commercialGrid([
+        { label: 'Area', value: areaText },
+        { label: 'Area type', value: commercialLabel(space.area_measure, enumLabels.measure) },
+        { label: 'Fit-out', value: commercialLabel(space.fitout_status, enumLabels.fitout) },
+        { label: 'Floor / level', value: space.floor_level },
+        { label: 'Rooms', value: commercialNumber(space.room_count) },
+        { label: 'Ceiling height', value: space.ceiling_height },
+        { label: 'Capacity', value: isCommercialOffice ? commercialNumber(space.capacity) : null },
+        { label: 'Desks', value: isCommercialOffice ? commercialNumber(space.desks) : null },
+        { label: 'Private offices / meeting rooms', value: isCommercialOffice ? commercialNumber(space.private_rooms) : null },
+        { label: 'Furniture / partitions', value: isCommercialOffice && space.furniture_included ? 'Included' : null },
+        { label: 'Customer-facing area', value: !isCommercialOffice ? commercialNumber(space.customer_area) : null },
+        { label: 'Storage / mezzanine area', value: !isCommercialOffice ? commercialNumber(space.storage_area) : null },
+        { label: 'Street frontage', value: !isCommercialOffice ? commercialLabel(space.street_frontage, enumLabels.yesNo) : null },
+        { label: 'Frontage width', value: !isCommercialOffice ? space.frontage_width : null },
+        { label: 'Display windows', value: !isCommercialOffice ? commercialLabel(space.display_windows, enumLabels.yesNo) : null },
+        { label: 'Delivery / loading access', value: !isCommercialOffice ? commercialLabel(space.loading_access, enumLabels.yesNo) : null },
+        { label: 'Foot traffic', value: !isCommercialOffice ? space.foot_traffic : null },
+        { label: 'Nearby anchors', value: !isCommercialOffice ? space.nearby_anchors : null }
+      ]);
+      const parkingText = parking.cost === 'paid' && commercialKes(parking.paid_amount)
+        ? 'Paid · ' + commercialKes(parking.paid_amount)
+        : commercialLabel(parking.cost, { free: 'Free', paid: 'Paid', not_confirmed: 'Not confirmed' });
+      const parkingHtml = commercialGrid([
+        { label: 'Parking spaces', value: commercialNumber(parking.spaces) },
+        { label: 'Parking cost', value: parkingText },
+        { label: 'Allocated to this unit', value: parking.allocated ? 'Yes' : null },
+        { label: 'Visitor parking', value: parking.visitor ? 'Available' : null },
+        { label: 'Customer parking', value: parking.customer ? 'Available' : null }
+      ]);
+      const priceAmount = commercialKes(pricing.amount);
+      const pricingHtml = commercialGrid([
+        { label: 'Pricing basis', value: commercialLabel(pricing.basis, enumLabels.pricing) },
+        { label: 'Price', value: priceAmount },
+        { label: 'Per-area period', value: pricing.basis === 'per_area' ? commercialLabel(pricing.area_period, { month: 'Per month', year: 'Per year' }) : null },
+        { label: 'Monthly payment for annual rent', value: pricing.basis === 'whole_year' ? commercialLabel(pricing.monthly_payment, enumLabels.yesNo) : null },
+        { label: 'Desk fee includes', value: pricing.basis === 'per_desk' ? pricing.desk_included : null },
+        { label: 'Short-term terms', value: pricing.basis === 'daily_weekly_hourly' ? pricing.short_pricing_note : null },
+        { label: 'Turnover terms', value: pricing.basis === 'turnover' ? pricing.turnover_threshold : null }
+      ]);
+      const chargeItems = Array.isArray(costs.compulsory_charges) ? costs.compulsory_charges : [];
+      const chargeLabels = { parking: 'Parking', access_cards: 'Access cards', cleaning: 'Cleaning', internet: 'Internet', agent_fee: 'Agent fee', legal_registration: 'Legal or registration', signage: 'Signage', building_fee: 'Building fee' };
+      const costsHtml = commercialGrid([
+        { label: 'Service charge', value: commercialLabel(costs.service_charge, enumLabels.service) + (costs.service_charge === 'not_included' && commercialKes(costs.service_amount) ? ' · ' + commercialKes(costs.service_amount) + (costs.service_frequency ? ' / ' + commercialLabel(costs.service_frequency, enumLabels.frequency).toLowerCase() : '') : '') },
+        { label: 'Utilities', value: commercialLabel(costs.utilities, enumLabels.utilities) + (costs.utilities === 'fixed_fee' && commercialKes(costs.utilities_amount) ? ' · ' + commercialKes(costs.utilities_amount) + ' / month' : '') },
+        { label: 'VAT / tax', value: commercialLabel(costs.tax, enumLabels.tax) },
+        { label: 'Security deposit', value: costs.security_deposit },
+        { label: 'Advance rent', value: costs.advance_rent },
+        { label: 'Rent increases', value: commercialLabel(costs.rent_increases, enumLabels.increases) }
+      ]) + (chargeItems.length
+        ? '<p class="commercial-note"><strong>Other compulsory charges</strong></p><ul class="commercial-list">' + chargeItems.map(function(charge){
+            return '<li>' + escapeHtml(commercialLabel(charge.type, chargeLabels) + ': ' + (commercialKes(charge.amount) || 'Not provided') + ' · ' + commercialLabel(charge.frequency, enumLabels.frequency)) + '</li>';
+          }).join('') + '</ul>'
+        : '');
+      const leaseHtml = commercialGrid([
+        { label: 'Available from', value: commercialDate(lease.available_from) },
+        { label: 'Minimum lease term', value: commercialNumber(lease.minimum_term) ? commercialNumber(lease.minimum_term) + ' month(s)' : null },
+        { label: 'Payment frequency', value: commercialLabel(lease.payment_frequency, enumLabels.frequency) },
+        { label: 'Viewing before renting', value: commercialLabel(lease.viewing_required, enumLabels.yesNo) },
+        { label: 'Preferred lease term', value: commercialNumber(lease.preferred_term) ? commercialNumber(lease.preferred_term) + ' month(s)' : null },
+        { label: 'Renewal options', value: commercialLabel(lease.renewal, enumLabels.yesNo) },
+        { label: 'Notice period', value: lease.notice_period },
+        { label: 'Lock-in / early-exit rules', value: lease.lock_in },
+        { label: 'Viewing availability', value: lease.viewing_availability },
+        { label: 'Accepted payment methods', value: lease.payment_methods }
+      ]);
+      const rulesHtml = commercialGrid([
+        { label: 'Fit-out or renovation', value: commercialLabel(rules.fitout, enumLabels.yesNo) },
+        { label: 'Signage', value: commercialLabel(rules.signage, enumLabels.yesNo) },
+        { label: 'Subletting or assignment', value: commercialLabel(rules.subletting, enumLabels.yesNo) },
+        { label: 'Restoration on exit', value: commercialLabel(rules.restoration, enumLabels.yesNo) },
+        { label: 'Operating hour / noise limits', value: rules.noise_limits },
+        { label: 'Visitor policy', value: rules.visitor_policy }
+      ]) + (Array.isArray(rules.permitted_uses) && rules.permitted_uses.length
+        ? '<p class="commercial-note"><strong>Permitted business uses:</strong> ' + escapeHtml(rules.permitted_uses.map(function(use){ return commercialLabel(use, {
+          office_or_professional: 'Office or professional', general_retail: 'General retail', fashion: 'Fashion', electronics: 'Electronics', salon_or_beauty: 'Salon or beauty', food_or_cafe: 'Food or cafe', pharmacy_or_healthcare: 'Pharmacy or healthcare', creative_studio: 'Creative studio', other: 'Other', not_sure_renter_to_confirm: 'Not sure — renter to confirm'
+        }); }).join(', ')) + '</p>'
+        : '');
+      const amenityHtml = amenityItems.length
+        ? '<div class="amenity-grid">' + amenityItems.map(function(label){ return '<div class="amenity-item">' + ICON_GENERIC_AMENITY + '<span>' + escapeHtml(label) + '</span></div>'; }).join('') + '</div>'
+        : '<p class="commercial-note">No commercial amenities were listed.</p>';
+      const amenityNotesHtml = commercialGrid([
+        { label: 'After-hours access', value: commercialLabel(amenities.after_hours, enumLabels.afterHours) },
+        { label: 'Power note', value: amenities.power_note },
+        { label: 'Internet note', value: amenities.internet_note },
+        { label: 'Accessibility note', value: amenities.accessibility_note }
+      ]);
+      const documentPaths = [];
+      if (documents.floor_plan_path) documentPaths.push({ path: documents.floor_plan_path, label: 'Floor plan' });
+      if (documents.policy_path) documentPaths.push({ path: documents.policy_path, label: 'Policy or rules document' });
+      (Array.isArray(documents.management_document_paths) ? documents.management_document_paths : []).forEach(function(path, index){
+        if (path) documentPaths.push({ path: path, label: 'Ownership or management document ' + (index + 1) });
+      });
+      const signedDocuments = await Promise.all(documentPaths.map(async function(document){
+        try {
+          const result = await supabaseClient.storage.from('listing-photos').createSignedUrl(document.path, 3600);
+          return result.error || !result.data || !result.data.signedUrl ? null : { label: document.label, url: result.data.signedUrl };
+        } catch (error) {
+          return null;
+        }
+      }));
+      const documentHtml = signedDocuments.filter(Boolean).length
+        ? '<div class="commercial-document-list">' + signedDocuments.filter(Boolean).map(function(document){ return '<a class="commercial-document-link" href="' + escapeHtml(document.url) + '" target="_blank" rel="noopener">' + escapeHtml(document.label) + '</a>'; }).join('') + '</div>'
+        : '';
+      commercialDetailsHtml =
+        '<section class="commercial-section" aria-labelledby="commercial-location-heading"><h2 class="commercial-section-title" id="commercial-location-heading">Commercial location</h2>' + locationHtml +
+          (listing.address_visibility === 'after_inquiry' ? '<p class="commercial-disclosure">The exact unit address is shared after an inquiry.</p>' : '') +
+        '</section>' +
+        '<section class="commercial-section" aria-labelledby="commercial-space-heading"><h2 class="commercial-section-title" id="commercial-space-heading">Space</h2>' + spaceHtml +
+          (Array.isArray(layout) && layout.length ? '<p class="commercial-note"><strong>Layout:</strong> ' + escapeHtml(layout.join(', ')) + '</p>' : '') +
+        '</section>' +
+        '<section class="commercial-section" aria-labelledby="commercial-amenities-heading"><h2 class="commercial-section-title" id="commercial-amenities-heading">Amenities and building services</h2>' + amenityHtml + amenityNotesHtml + parkingHtml +
+        '</section>' +
+        '<section class="commercial-section" aria-labelledby="commercial-pricing-heading"><h2 class="commercial-section-title" id="commercial-pricing-heading">Pricing and costs</h2>' + pricingHtml + costsHtml +
+        '</section>' +
+        '<section class="commercial-section" aria-labelledby="commercial-lease-heading"><h2 class="commercial-section-title" id="commercial-lease-heading">Lease and availability</h2>' + leaseHtml +
+        '</section>' +
+        '<section class="commercial-section" aria-labelledby="commercial-rules-heading"><h2 class="commercial-section-title" id="commercial-rules-heading">Rules and policies</h2>' + rulesHtml +
+          '<p class="commercial-note">Please confirm licences, zoning, and any approvals needed for your business before renting.</p>' +
+        '</section>' +
+        (documentHtml || documents.documents_on_request ? '<section class="commercial-section" aria-labelledby="commercial-documents-heading"><h2 class="commercial-section-title" id="commercial-documents-heading">Documents</h2>' + documentHtml + (documents.documents_on_request ? '<p class="commercial-note">Ownership or management documents can be provided on request.</p>' : '') + '</section>' : '');
+    }
 
     const reviewCount = Number(reviewSummary.review_count || reviews.length);
     const averageRating = Number(reviewSummary.average_rating);
@@ -1646,7 +1869,7 @@
       '<div class="rating-row">' +
         (reviewCount ? ICON_STAR + '<span>' + escapeHtml(ratingText) + '</span><span>' + escapeHtml(ratingCountText) + '</span>' : '<span>' + escapeHtml(ratingText) + '</span>') +
       '</div>' +
-      '<p class="listing-loc">' + ICON_LOCATION + '<span>' + escapeHtml(listing.location_text) + '</span><a class="map-link-inline" href="' + mapUrl + '" target="_blank" rel="noopener">View on map</a></p>' +
+      '<p class="listing-loc">' + ICON_LOCATION + '<span>' + escapeHtml(listingLocationText) + '</span><a class="map-link-inline" href="' + mapUrl + '" target="_blank" rel="noopener">View on map</a></p>' +
       hostPhoneHtml +
       (badges.length ? '<div class="badge-row">' + badges.map(function(b){ return '<span class="mini-badge">' + ICON_VERIFIED + b + '</span>'; }).join('') + '</div>' : '') +
       (infoChips.length ? '<div class="info-chip-row">' + infoChips.map(function(c){ return '<span class="info-chip">' + c + '</span>'; }).join('') + '</div>' : '') +
@@ -1660,10 +1883,11 @@
           '<button type="button" class="contact-host-btn" id="contact-host-btn">' + ICON_MESSAGE + '<span>' + (isHotel ? 'Contact hotel' : 'Contact Host') + '</span></button>' +
         '</div>' +
         '<div class="about-block">' +
-          '<h2 class="about-title">' + (isHotel ? 'About this room' : 'About this place') + '</h2>' +
+          '<h2 class="about-title">' + (isHotel ? 'About this room' : (isOfficeShop ? 'About this commercial space' : 'About this place')) + '</h2>' +
           descriptionHtml +
-          '<h2 class="section-title" style="margin-top:.8rem;">' + (isHotel ? 'Room & hotel amenities' : 'Top amenities') + '</h2>' +
-          amenitiesHtml +
+          (isOfficeShop
+            ? commercialDetailsHtml
+            : '<h2 class="section-title" style="margin-top:.8rem;">' + (isHotel ? 'Room & hotel amenities' : 'Top amenities') + '</h2>' + amenitiesHtml) +
         '</div>' +
       '</div>' +
       '<hr class="divider">' +

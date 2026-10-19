@@ -224,6 +224,20 @@
   .tone-dark .amenities-hint{ color:#B8ACA8; }
   .amenities-grid{ display:grid; grid-template-columns:repeat(2, 1fr); gap:.6rem .8rem; }
   @media (min-width:520px){ .amenities-grid{ grid-template-columns:repeat(3, 1fr); } }
+  .office-shop-section{ display:none; margin-top:1rem; }
+  .office-shop-section.active{ display:block; }
+  .office-shop-section .section-heading{ font-family:var(--font-display); font-size:1.15rem; margin:1.2rem 0 .45rem; }
+  .office-shop-section .section-help{ font-size:.8rem; line-height:1.45; margin:-.1rem 0 .7rem; opacity:.78; }
+  .office-shop-section .field-row{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.7rem; }
+  .office-shop-section .option-grid{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.45rem .7rem; }
+  .office-shop-section .option-grid label{ display:flex; align-items:center; gap:.42rem; font-size:.82rem; cursor:pointer; }
+  .office-shop-section .conditional[hidden]{ display:none; }
+  .office-shop-type{ display:none; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.65rem; margin-bottom:1rem; }
+  .office-shop-type.active{ display:grid; }
+  .office-shop-type button{ border:1px solid rgba(255,255,255,.3); border-radius:10px; padding:.7rem; background:transparent; color:inherit; text-align:left; cursor:pointer; }
+  .office-shop-type button.selected{ border-color:var(--red); background:rgba(170,41,41,.15); }
+  .office-shop-type button small{ display:block; margin-top:.18rem; opacity:.74; }
+  @media (max-width:520px){ .office-shop-section .field-row,.office-shop-section .option-grid{ grid-template-columns:1fr; } }
   .amenity-check{
     display:flex; align-items:center; gap:.5rem; padding:.55rem .6rem; border-radius:10px;
     border:1px solid var(--wz-dark-border); cursor:pointer; font-size:.82rem; transition:border-color .2s ease, background .2s ease;
@@ -530,6 +544,11 @@
           <p class="step-eyebrow" id="about-eyebrow">01 — About the property</p>
           <h1 class="step-title" id="listing-headline">Let's list your first space.</h1>
           <p class="step-sub" id="about-sub">A few thoughtful details now, then VaRoom turns your space into a place people can picture themselves in.</p>
+          <div class="office-shop-type" id="office-shop-type" aria-label="Listing type">
+            <button type="button" data-office-shop-type="office"><strong>Office</strong><small>Offices, desks, meeting rooms and serviced workspaces</small></button>
+            <button type="button" data-office-shop-type="shop"><strong>Shop</strong><small>Retail units, showrooms, studios and street-front shops</small></button>
+          </div>
+          <div class="office-shop-section" id="office-shop-details-fields"></div>
           <div class="hotel-offer-mode" id="hotel-offer-mode" hidden aria-label="What would you like to offer?">
             <button type="button" class="hotel-offer-option" data-hotel-mode="table"><strong>Table Reservations</strong><small>Dining reservations only</small></button>
             <button type="button" class="hotel-offer-option" data-hotel-mode="stay"><strong>Hotel Stay</strong><small>Accommodation only</small></button>
@@ -590,6 +609,7 @@
               <p class="location-help" id="location-help">Enter the area, neighbourhood, or town where your property is located. You’ll be able to add the exact location later.</p>
               <input type="text" id="location-text" name="location_text" required minlength="3" autocomplete="address-level2" placeholder="e.g. Nairobi, Westlands">
             </div>
+            <div class="office-shop-section" id="office-shop-location-fields"></div>
           </div>
 
           <div class="panel-actions">
@@ -635,6 +655,7 @@
               <p class="amenities-hint" id="amenities-hint">Select everything this space offers. Shown to guests on the booking page.</p>
               <div class="amenities-grid" id="amenities-grid"></div>
             </div>
+            <div class="office-shop-section" id="office-shop-media-fields"></div>
 
             <!-- PROPERTY-ONLY: policy / brochure document upload link. Hidden for other categories. -->
             <div class="field property-policy-section" id="property-policy-section" hidden>
@@ -693,6 +714,7 @@
           </div>
 
           <div class="step-fields">
+            <div class="office-shop-section" id="office-shop-pricing-fields"></div>
             <div class="field field-row" id="stay-price-field">
               <div class="field">
                 <label for="price-amount">Price (KES)</label>
@@ -864,6 +886,12 @@
               <li id="review-policy-line" hidden><span class="check">✓</span> Property policy document attached</li>
               <li id="review-pricing-line"><span class="check">✓</span> Pricing and booking terms set</li>
             </ul>
+            <div class="office-shop-section" id="office-shop-review-fields">
+              <h3 class="section-heading">Commercial listing summary</h3>
+              <p class="section-help" id="office-shop-review-summary"></p>
+              <label><input type="checkbox" id="os-accuracy-confirmed"> Availability and pricing are accurate today</label>
+              <p class="section-help">VaRoom records the confirmation date when you publish.</p>
+            </div>
           </div>
 
           <div class="submit-row">
@@ -1089,6 +1117,9 @@
     setFieldValue('caption', editListing.description);
     setFieldValue('property-description', editListing.property_description);
     setFieldValue('location-text', editListing.location_text);
+    setFieldValue('os-city', editListing.city);
+    setFieldValue('os-neighborhood', editListing.neighborhood);
+    setFieldValue('os-address-visibility', editListing.address_visibility);
 
     const details = editBookingDetails || {};
     setFieldValue('price-amount', details.price_amount);
@@ -1116,6 +1147,7 @@
         checkbox.closest('.amenity-check').classList.add('checked');
       }
     });
+    if (isOfficeShop(hostNiche)) hydrateOfficeShopDetails(details.office_shop_details || {});
 
     if (hostNiche === 'property') {
       const purpose = editListing.listing_purpose
@@ -1379,6 +1411,205 @@
   let propertyPurpose = 'rent'; // 'rent' | 'sale' | 'both'
   let propertySalePriceMode = 'exact'; // 'exact' | 'starting'
   let selectedPolicyFile = null;
+  const officeShopType = document.getElementById('office-shop-type');
+  const officeShopDetailsFields = document.getElementById('office-shop-details-fields');
+  const officeShopLocationFields = document.getElementById('office-shop-location-fields');
+  const officeShopMediaFields = document.getElementById('office-shop-media-fields');
+  const officeShopPricingFields = document.getElementById('office-shop-pricing-fields');
+  const officeShopReviewFields = document.getElementById('office-shop-review-fields');
+  let officeShopFloorPlanFile = null;
+  let officeShopPolicyFile = null;
+  let officeShopDocumentFiles = [];
+  let officeShopExistingDetails = {};
+  let officeShopTypeSelected = editMode;
+
+  function isOfficeShop(category){ return category === 'office' || category === 'shop'; }
+  function osValue(id){ return fieldValue(id).trim(); }
+  function osNumber(id){ const value = osValue(id); return value === '' ? null : Number(value); }
+  function osChecked(id){ const field = document.getElementById(id); return Boolean(field && field.checked); }
+
+  function renderOfficeShopFields(){
+    const isOffice = hostNiche === 'office';
+    const isShop = hostNiche === 'shop';
+    officeShopType.classList.toggle('active', isOffice || isShop);
+    [officeShopDetailsFields, officeShopLocationFields, officeShopMediaFields, officeShopPricingFields].forEach(function(section){ section.classList.toggle('active', isOffice || isShop); });
+    if (!isOffice && !isShop) return;
+    officeShopType.querySelectorAll('[data-office-shop-type]').forEach(function(button){
+      const selected = button.dataset.officeShopType === hostNiche;
+      button.classList.toggle('selected', selected);
+      button.setAttribute('aria-pressed', selected ? 'true' : 'false');
+    });
+    const subtypeOptions = isOffice
+      ? [['private_office','Private office'],['shared_office','Shared office'],['serviced_office','Serviced office'],['coworking_desk','Coworking desk'],['meeting_room','Meeting room']]
+      : [['street_front_shop','Street-front shop'],['mall_unit','Mall unit'],['showroom','Showroom'],['studio','Studio']];
+    officeShopDetailsFields.innerHTML = '<div class="field"><label for="os-subtype">Subtype</label><select id="os-subtype" required><option value="">Choose one</option>'+subtypeOptions.map(function(option){ return '<option value="'+option[0]+'">'+option[1]+'</option>'; }).join('')+'</select></div><div class="field"><label for="os-role">Your role</label><select id="os-role" required><option value="">Choose one</option><option value="owner">Owner</option><option value="authorized_manager">Authorised property manager</option><option value="agent">Agent</option></select></div>';
+    officeShopLocationFields.innerHTML = `
+      <h2 class="section-heading">Structured location</h2><p class="section-help">The neighbourhood is public. A map pin is reserved for a later maps release.</p>
+      <div class="field-row"><div class="field"><label for="os-city">City / county</label><input id="os-city" required placeholder="e.g. Nairobi"></div><div class="field"><label for="os-neighborhood">Neighbourhood</label><input id="os-neighborhood" required placeholder="e.g. Westlands"></div></div>
+      <div class="field"><label for="os-building">Building or complex name <small>(optional)</small></label><input id="os-building" placeholder="e.g. Delta Towers"></div>
+      <div class="field"><label for="os-address-visibility">Address visibility</label><select id="os-address-visibility" required><option value="">Choose one</option><option value="full">Show the full address</option><option value="after_inquiry">Share the exact unit after an inquiry</option></select></div>
+      <div class="field"><label>Map pin</label><p class="location-help">Reserved for the maps release.</p></div>`;
+    officeShopMediaFields.innerHTML = `
+      <h2 class="section-heading">Office & shop amenities</h2><p class="section-help">Choose what the space actually offers. Selected filter items are stored as boolean values.</p>
+      ${osAmenityGroup('Power', [['mains_supply','Mains supply'],['backup_generator','Backup generator (filter)'],['ups','UPS (filter)']])}
+      <div class="field"><label for="os-power-note">Power capacity or known limitations <small>(optional)</small></label><input id="os-power-note" maxlength="300"></div>
+      ${osAmenityGroup('Internet', [['fibre','Fibre available (filter)'],['wifi_included','Wi-Fi included in the rent'],['tenant_internet','Tenant arranges own internet']])}
+      <div class="field"><label for="os-internet-note">Known providers or speeds <small>(only if verified)</small></label><input id="os-internet-note" maxlength="300"></div>
+      ${osAmenityGroup('Water and washrooms', [['reliable_water','Reliable water supply'],['borehole','Borehole'],['private_washroom','Private washroom'],['shared_washroom','Shared washroom'],['drainage','Drainage connection']])}
+      ${osAmenityGroup('Security', [['guards','Guards (filter)'],['cctv','CCTV (filter)'],['controlled_entry','Controlled entry (filter)'],['alarm','Alarm'],['lighting','Lighting']])}
+      <div class="field"><label for="os-after-hours">After-hours access</label><select id="os-after-hours"><option value="not_confirmed">Not confirmed</option><option value="24_7">24/7</option><option value="business_hours">Business hours only</option></select></div>
+      ${osAmenityGroup('Building services', [['lift','Lift (filter)'],['accessibility','Accessibility features (filter)'],['ac_ventilation','AC or ventilation (filter)'],['natural_light','Natural light'],['cleaning','Cleaning'],['maintenance','Maintenance'],['waste_collection','Waste collection'],['reception','Reception'],['shared_kitchen','Shared kitchen'],['meeting_rooms','Meeting rooms']])}
+      <div class="field"><label for="os-accessibility-note">Accessibility note <small>(optional)</small></label><input id="os-accessibility-note" maxlength="300"></div>
+      <h3 class="section-heading">Parking</h3><div class="field-row"><div class="field"><label for="os-parking-spaces">Number of spaces</label><input id="os-parking-spaces" type="number" min="0"></div><div class="field"><label for="os-parking-cost">Parking cost</label><select id="os-parking-cost"><option value="not_confirmed">Not confirmed</option><option value="free">Free</option><option value="paid">Paid</option></select></div><div class="field"><label for="os-parking-paid-amount">Paid parking amount <small>(if paid)</small></label><input id="os-parking-paid-amount" type="number" min="0"></div></div>
+      <div class="option-grid"><label><input id="os-parking-allocated" type="checkbox"> Allocated to this unit</label><label><input id="os-visitor-parking" type="checkbox"> Visitor parking</label>${isShop ? '<label><input id="os-customer-parking" type="checkbox"> Customer parking</label>' : ''}</div>
+      <h3 class="section-heading">Documents and rules</h3><div class="field"><label for="os-floor-plan">Floor plan <small>(optional)</small></label><input id="os-floor-plan" type="file" accept="application/pdf,image/png,image/jpeg,image/webp"></div><div class="field"><label for="os-documents">Ownership or management documents <small>(optional)</small></label><input id="os-documents" type="file" multiple accept="application/pdf,image/png,image/jpeg,image/webp"></div><label><input id="os-documents-on-request" type="checkbox"> Can provide ownership or management documents on request</label><div class="field"><label for="os-policy-file">Policy or rules document <small>(optional)</small></label><input id="os-policy-file" type="file" accept="application/pdf"></div>
+      <h3 class="section-heading">Rules and policy</h3><div class="field"><label for="os-permitted-uses">Permitted business uses</label><div class="option-grid" id="os-permitted-uses">${['Office or professional','General retail','Fashion','Electronics','Salon or beauty','Food or cafe','Pharmacy or healthcare','Creative studio','Other','Not sure — renter to confirm'].map(function(label){ const key = label.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,''); return '<label><input type="checkbox" data-os-use="'+key+'"> '+label+'</label>'; }).join('')}</div></div>
+      <div class="field-row"><div class="field"><label for="os-fitout-rule">Fit-out or renovation</label><select id="os-fitout-rule"><option value="">Choose one</option><option value="allowed">Allowed</option><option value="landlord_consent">Allowed with landlord consent</option><option value="not_allowed">Not allowed</option><option value="to_confirm">To confirm</option></select></div>${isShop ? '<div class="field"><label for="os-signage">Signage</label><select id="os-signage"><option value="to_confirm">To confirm</option><option value="allowed">Allowed</option><option value="landlord_approval">Subject to landlord approval</option><option value="not_allowed">Not allowed</option></select></div>' : ''}</div>
+      <div class="field-row"><div class="field"><label for="os-subletting">Subletting or assignment</label><select id="os-subletting"><option value="to_confirm">To confirm</option><option value="allowed">Allowed</option><option value="not_allowed">Not allowed</option></select></div><div class="field"><label for="os-restoration">Restoration on exit</label><select id="os-restoration"><option value="to_confirm">To confirm</option><option value="tenant_must_restore">Tenant must restore</option><option value="not_required">Not required</option></select></div></div><div class="field-row"><div class="field"><label for="os-noise-limits">Operating hour or noise limits <small>(optional)</small></label><input id="os-noise-limits" maxlength="300"></div><div class="field"><label for="os-visitor-policy">Visitor policy <small>(optional)</small></label><input id="os-visitor-policy" maxlength="300"></div></div>`;
+    officeShopPricingFields.innerHTML = `
+      <details open><summary class="section-heading">Space</summary><div class="field-row"><div class="field"><label for="os-area">Area</label><input id="os-area" type="number" min="0" step="0.01" required></div><div class="field"><label for="os-area-unit">Area unit</label><select id="os-area-unit" required><option value="">Choose one</option><option value="sq_ft">sq ft</option><option value="m2">m²</option></select></div></div><div class="field-row"><div class="field"><label for="os-area-measure">What the area measures</label><select id="os-area-measure"><option value="">Choose one</option><option value="usable">Usable</option><option value="rentable">Rentable</option><option value="estimate">Estimate</option></select></div><div class="field"><label for="os-fitout-status">Fit-out status</label><select id="os-fitout-status" required><option value="">Choose one</option><option value="shell_core">Shell-and-core</option><option value="partly_fitted">Partly fitted</option><option value="fitted">Fitted</option><option value="furnished">Furnished</option></select></div></div><div class="field-row"><div class="field"><label for="os-floor-level">Floor / level <small>(optional)</small></label><input id="os-floor-level"></div><div class="field"><label for="os-room-count">Number of rooms <small>(optional)</small></label><input id="os-room-count" type="number" min="0"></div><div class="field"><label for="os-ceiling-height">Ceiling height <small>(optional)</small></label><input id="os-ceiling-height"></div></div>
+      <div id="os-office-space" class="conditional" ${isOffice ? '' : 'hidden'}><div class="field-row"><div class="field"><label for="os-capacity">Capacity</label><input id="os-capacity" type="number" min="1" ${isOffice ? 'required' : ''}></div><div class="field"><label for="os-desks">Desks</label><input id="os-desks" type="number" min="0"></div></div><div class="field"><label>Layout <small>(optional)</small></label>${osChecks('os-office-layout',['Open plan','Private offices','Meeting room','Reception','Server / IT room','Storage','Kitchenette'])}</div><div class="field"><label for="os-private-rooms">Private offices and meeting rooms <small>(optional)</small></label><input id="os-private-rooms" type="number" min="0"></div><label><input id="os-furniture" type="checkbox"> Furniture and partitions included</label></div>
+      <div id="os-shop-space" class="conditional" ${isShop ? '' : 'hidden'}><div class="field-row"><div class="field"><label for="os-customer-area">Customer-facing floor area <small>(optional)</small></label><input id="os-customer-area" type="number" min="0"></div><div class="field"><label for="os-storage-area">Storage or mezzanine area <small>(optional)</small></label><input id="os-storage-area" type="number" min="0"></div></div><div class="field"><label>Layout <small>(optional)</small></label>${osChecks('os-shop-layout',['Sales floor','Stockroom','Counter / display area','Back room','Loading / storage'])}</div><div class="field-row"><div class="field"><label for="os-street-frontage">Street frontage</label><select id="os-street-frontage"><option value="not_confirmed">Not confirmed</option><option value="yes">Yes</option><option value="no">No</option></select></div><div class="field"><label for="os-frontage-width">Frontage width <small>(optional)</small></label><input id="os-frontage-width"></div><div class="field"><label for="os-display-windows">Display windows</label><select id="os-display-windows"><option value="not_confirmed">Not confirmed</option><option value="yes">Yes</option><option value="no">No</option></select></div></div><div class="field-row"><div class="field"><label for="os-loading-access">Delivery / loading access</label><select id="os-loading-access"><option value="not_confirmed">Not confirmed</option><option value="yes">Yes</option><option value="no">No</option></select></div><div class="field"><label for="os-foot-traffic">Foot traffic <small>(optional)</small></label><input id="os-foot-traffic" maxlength="300"></div><div class="field"><label for="os-nearby-anchors">Nearby anchors <small>(optional)</small></label><input id="os-nearby-anchors" maxlength="300"></div></div></div></details>
+      <details open><summary class="section-heading">Price and costs</summary><div class="field-row"><div class="field"><label for="os-pricing-basis">Pricing basis</label><select id="os-pricing-basis" required><option value="">Choose one</option><option value="whole_month">Whole unit, per month</option><option value="whole_year">Whole unit, per year</option><option value="per_area">Per sq ft or per m²</option><option value="per_desk">Per desk or person</option><option value="daily_weekly_hourly">Daily, weekly or hourly</option>${isShop ? '<option value="turnover">Turnover rent</option>' : ''}</select></div><div class="field"><label for="os-price-amount">Amount (KSh)</label><input id="os-price-amount" type="number" min="0" step="1" required></div></div><div id="os-yearly-extra" class="conditional field" hidden><label for="os-monthly-payment">Can rent be paid monthly?</label><select id="os-monthly-payment"><option value="to_confirm">To confirm</option><option value="yes">Yes</option><option value="no">No</option></select></div><div id="os-area-extra" class="conditional field" hidden><label for="os-area-period">Per-area period</label><select id="os-area-period"><option value="month">Per month</option><option value="year">Per year</option></select></div><div id="os-desk-extra" class="conditional field"><label for="os-desk-included">What the desk fee covers</label><input id="os-desk-included" placeholder="Internet, utilities, meeting rooms, access hours"></div><div id="os-short-extra" class="conditional field" hidden><label for="os-short-pricing-note">Operating hours, overtime, cancellation, tax or cleaning</label><input id="os-short-pricing-note" maxlength="500"></div><div id="os-turnover-extra" class="conditional field" hidden><label for="os-turnover-threshold">Percentage and sales threshold</label><input id="os-turnover-threshold"></div>
+      <div class="field-row"><div class="field"><label for="os-service-charge">Service charge</label><select id="os-service-charge" required><option value="">Choose one</option><option value="included">Included</option><option value="not_included">Not included</option><option value="not_confirmed">Not confirmed</option></select></div><div class="field"><label for="os-service-amount">Service amount <small>(if not included)</small></label><input id="os-service-amount" type="number" min="0"></div><div class="field"><label for="os-service-frequency">Service frequency <small>(if not included)</small></label><select id="os-service-frequency"><option value="">Choose one</option><option value="monthly">Monthly</option><option value="quarterly">Quarterly</option><option value="annual">Annual</option><option value="one_off">One-off</option></select></div></div><div class="field-row"><div class="field"><label for="os-utilities">Utilities</label><select id="os-utilities" required><option value="">Choose one</option><option value="included">Included</option><option value="metered">Metered separately</option><option value="fixed_fee">Fixed monthly fee</option><option value="tenant_arranges">Tenant arranges</option><option value="not_confirmed">Not confirmed</option></select></div><div class="field"><label for="os-utilities-amount">Fixed utilities amount <small>(if fixed)</small></label><input id="os-utilities-amount" type="number" min="0"></div><div class="field"><label for="os-tax">VAT / tax</label><select id="os-tax" required><option value="">Choose one</option><option value="included">Included</option><option value="added">Added on top</option><option value="not_applicable">Not applicable</option><option value="needs_confirmation">Needs confirmation</option></select></div></div><div class="field-row"><div class="field"><label for="os-deposit">Security deposit</label><input id="os-deposit" required placeholder="Amount, months, or Not confirmed"></div><div class="field"><label for="os-advance-rent">Advance rent <small>(optional)</small></label><input id="os-advance-rent" placeholder="Periods due or Not confirmed"></div></div><div class="field"><label>Other compulsory charges <small>(optional)</small></label><div id="os-charges-rows"></div><button type="button" id="os-add-charge">Add charge</button></div><div class="field"><label for="os-rent-increases">Rent increases <small>(optional)</small></label><select id="os-rent-increases"><option value="not_confirmed">Not confirmed</option><option value="none">None</option><option value="annual">Annual escalation</option><option value="stepped">Stepped</option><option value="index_linked">Index-linked</option></select></div></details>
+      <details open><summary class="section-heading">Lease and availability</summary><div class="field-row"><div class="field"><label for="os-available-from">Available from</label><input id="os-available-from" type="date" required></div><div class="field"><label for="os-min-term">Minimum lease term</label><input id="os-min-term" type="number" min="1" required></div><div class="field"><label for="os-payment-frequency">Payment frequency</label><select id="os-payment-frequency" required><option value="">Choose one</option><option value="monthly">Monthly</option><option value="quarterly">Quarterly</option><option value="annually">Annually</option><option value="custom">Custom</option></select></div></div><div class="field-row"><div class="field"><label for="os-viewing-required">Viewing required before renting</label><select id="os-viewing-required" required><option value="">Choose one</option><option value="yes">Yes</option><option value="no">No</option></select></div><div class="field"><label for="os-preferred-term">Preferred lease term <small>(optional)</small></label><input id="os-preferred-term" type="number" min="1"></div><div class="field"><label for="os-renewal">Renewal options <small>(optional)</small></label><select id="os-renewal"><option value="to_confirm">To confirm</option><option value="yes">Yes</option><option value="no">No</option></select></div></div><div class="field-row"><div class="field"><label for="os-notice-period">Notice period <small>(optional)</small></label><input id="os-notice-period"></div><div class="field"><label for="os-lock-in">Lock-in or early-exit rules <small>(optional)</small></label><input id="os-lock-in" maxlength="500"></div></div><div class="field-row"><div class="field"><label for="os-viewing-availability">Viewing availability <small>(optional)</small></label><input id="os-viewing-availability" maxlength="300"></div><div class="field"><label for="os-payment-methods">Accepted payment methods <small>(optional)</small></label><input id="os-payment-methods" maxlength="300"></div></div></details>`;
+    attachOfficeShopFieldHandlers();
+  }
+
+  function osAmenityGroup(title, choices){ return '<h3 class="section-heading">'+title+'</h3>'+osChecks('os-amenities', choices.map(function(choice){ return choice[1]; }), choices.map(function(choice){ return choice[0]; })); }
+  function osChecks(group, labels, keys){ return '<div class="option-grid">'+labels.map(function(label,index){ const key = keys ? keys[index] : label.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,''); return '<label><input type="checkbox" data-os-group="'+group+'" data-os-key="'+key+'"> '+label+'</label>'; }).join('')+'</div>'; }
+
+  function attachOfficeShopFieldHandlers(){
+    const basis = document.getElementById('os-pricing-basis');
+    if (basis) basis.addEventListener('change', function(){ updateOfficeShopConditions(); updatePricePreview(); });
+    const amount = document.getElementById('os-price-amount');
+    if (amount) amount.addEventListener('input', function(){
+      const legacyAmount = document.getElementById('price-amount');
+      if (legacyAmount) legacyAmount.value = amount.value;
+      updatePricePreview();
+    });
+    const areaUnit = document.getElementById('os-area-unit');
+    if (areaUnit) areaUnit.addEventListener('change', function(){ updateOfficeShopConditions(); updatePricePreview(); });
+    const type = document.getElementById('office-shop-type');
+    type.querySelectorAll('[data-office-shop-type]').forEach(function(button){ button.addEventListener('click', function(){ officeShopTypeSelected = true; hostNiche = button.dataset.officeShopType; configureCategory(hostNiche); }); });
+    const floorPlan = document.getElementById('os-floor-plan');
+    const policy = document.getElementById('os-policy-file');
+    const documents = document.getElementById('os-documents');
+    if (floorPlan) floorPlan.addEventListener('change', function(){ officeShopFloorPlanFile = floorPlan.files[0] || null; });
+    if (policy) policy.addEventListener('change', function(){ officeShopPolicyFile = policy.files[0] || null; });
+    if (documents) documents.addEventListener('change', function(){ officeShopDocumentFiles = Array.from(documents.files || []); });
+    const addCharge = document.getElementById('os-add-charge');
+    if (addCharge) addCharge.addEventListener('click', function(){ addOfficeShopCharge(); });
+  }
+  function updateOfficeShopConditions(){
+    const basis = osValue('os-pricing-basis');
+    [['os-yearly-extra','whole_year'],['os-area-extra','per_area'],['os-desk-extra','per_desk'],['os-short-extra','daily_weekly_hourly'],['os-turnover-extra','turnover']].forEach(function(pair){ const element=document.getElementById(pair[0]); if(element) element.hidden=basis!==pair[1]; });
+    const areaMeasure = document.getElementById('os-area-measure'); if (areaMeasure) areaMeasure.required = basis === 'per_area';
+    const minTermLabel = document.querySelector('label[for="os-min-term"]');
+    const minTerm = document.getElementById('os-min-term');
+    if (minTermLabel && minTerm) {
+      const shortRate = basis === 'daily_weekly_hourly';
+      minTermLabel.textContent = shortRate ? 'Minimum booking duration' : 'Minimum lease term';
+      minTerm.placeholder = shortRate ? 'Number of days, weeks or hours' : 'Months';
+    }
+    if (isOfficeShop(hostNiche)) {
+      const legacyUnit = document.getElementById('price-unit');
+      if (legacyUnit) legacyUnit.innerHTML = '<option value="' + officeShopPriceUnit({ pricing:{ basis:basis }, space:{ area_unit:osValue('os-area-unit') }}) + '"></option>';
+    }
+  }
+
+  function addOfficeShopCharge(charge){
+    const rows = document.getElementById('os-charges-rows');
+    if (!rows) return;
+    const row = document.createElement('div');
+    row.className = 'field-row';
+    row.innerHTML = '<div class="field"><label>Type</label><select data-os-charge="type"><option value="parking">Parking</option><option value="access_cards">Access cards</option><option value="cleaning">Cleaning</option><option value="internet">Internet</option><option value="agent_fee">Agent fee</option><option value="legal_registration">Legal or registration</option><option value="signage">Signage</option><option value="building_fee">Building fee</option></select></div><div class="field"><label>Amount (KSh)</label><input data-os-charge="amount" type="number" min="0"></div><div class="field"><label>Frequency</label><select data-os-charge="frequency"><option value="monthly">Monthly</option><option value="quarterly">Quarterly</option><option value="annual">Annual</option><option value="one_off">One-off</option></select></div><button type="button" class="step-btn back" data-os-remove-charge>Remove</button>';
+    rows.appendChild(row);
+    if (charge) {
+      row.querySelector('[data-os-charge="type"]').value = charge.type || 'parking';
+      row.querySelector('[data-os-charge="amount"]').value = charge.amount == null ? '' : charge.amount;
+      row.querySelector('[data-os-charge="frequency"]').value = charge.frequency || 'monthly';
+    }
+    row.querySelector('[data-os-remove-charge]').addEventListener('click', function(){ row.remove(); });
+  }
+
+  function collectOfficeShopCharges(){
+    return Array.from(document.querySelectorAll('#os-charges-rows > .field-row')).map(function(row){
+      const type = row.querySelector('[data-os-charge="type"]').value;
+      const amountValue = row.querySelector('[data-os-charge="amount"]').value;
+      const frequency = row.querySelector('[data-os-charge="frequency"]').value;
+      return amountValue === '' ? null : { type: type, amount: Number(amountValue), frequency: frequency };
+    }).filter(Boolean);
+  }
+
+  function collectOfficeShopDetails(){
+    const checks = {};
+    document.querySelectorAll('[data-os-group="os-amenities"]').forEach(function(field){ checks[field.dataset.osKey] = field.checked; });
+    const selectedUses = Array.from(document.querySelectorAll('[data-os-use]:checked')).map(function(field){ return field.dataset.osUse; });
+    const selectedLayout = function(prefix){ return Array.from(document.querySelectorAll('#'+prefix+' .option-grid input:checked')).map(function(field){ return field.parentElement.textContent.trim(); }); };
+    return {
+      subtype: osValue('os-subtype'), role: osValue('os-role'), amenities: Object.assign(checks, {
+        power_note: osValue('os-power-note') || null,
+        internet_note: osValue('os-internet-note') || null,
+        after_hours: osValue('os-after-hours') || 'not_confirmed',
+        accessibility_note: osValue('os-accessibility-note') || null
+      }),
+      location: { building_name: osValue('os-building') },
+      space: { area: osNumber('os-area'), area_unit: osValue('os-area-unit'), area_measure: osValue('os-area-measure') || null, fitout_status: osValue('os-fitout-status'), floor_level: osValue('os-floor-level') || null, room_count: osNumber('os-room-count'), ceiling_height: osValue('os-ceiling-height') || null, capacity: osNumber('os-capacity'), desks: osNumber('os-desks'), office_layout: selectedLayout('os-office-space'), private_rooms: osNumber('os-private-rooms'), furniture_included: osChecked('os-furniture'), customer_area: osNumber('os-customer-area'), storage_area: osNumber('os-storage-area'), shop_layout: selectedLayout('os-shop-space'), street_frontage: osValue('os-street-frontage') || null, frontage_width: osValue('os-frontage-width') || null, display_windows: osValue('os-display-windows') || null, loading_access: osValue('os-loading-access') || null, foot_traffic: osValue('os-foot-traffic') || null, nearby_anchors: osValue('os-nearby-anchors') || null },
+      parking: { spaces: osNumber('os-parking-spaces'), allocated: osChecked('os-parking-allocated'), visitor: osChecked('os-visitor-parking'), customer: osChecked('os-customer-parking'), cost: osValue('os-parking-cost') || 'not_confirmed', paid_amount: osNumber('os-parking-paid-amount') },
+      rules: { permitted_uses: selectedUses, fitout: osValue('os-fitout-rule'), signage: osValue('os-signage') || null, subletting: osValue('os-subletting'), restoration: osValue('os-restoration'), noise_limits: osValue('os-noise-limits') || null, visitor_policy: osValue('os-visitor-policy') || null },
+      pricing: { basis: osValue('os-pricing-basis'), amount: osNumber('os-price-amount'), area_period: osValue('os-area-period') || null, monthly_payment: osValue('os-monthly-payment') || null, desk_included: osValue('os-desk-included') || null, short_pricing_note: osValue('os-short-pricing-note') || null, turnover_threshold: osValue('os-turnover-threshold') || null },
+      costs: { service_charge: osValue('os-service-charge'), service_amount: osNumber('os-service-amount'), service_frequency: osValue('os-service-frequency') || null, utilities: osValue('os-utilities'), utilities_amount: osNumber('os-utilities-amount'), tax: osValue('os-tax'), security_deposit: osValue('os-deposit'), advance_rent: osValue('os-advance-rent') || null, compulsory_charges: collectOfficeShopCharges(), rent_increases: osValue('os-rent-increases') || null },
+      lease: { available_from: osValue('os-available-from'), minimum_term: osNumber('os-min-term'), payment_frequency: osValue('os-payment-frequency'), viewing_required: osValue('os-viewing-required'), preferred_term: osNumber('os-preferred-term'), renewal: osValue('os-renewal') || null, notice_period: osValue('os-notice-period') || null, lock_in: osValue('os-lock-in') || null, viewing_availability: osValue('os-viewing-availability') || null, payment_methods: osValue('os-payment-methods') || null },
+      documents: Object.assign({}, officeShopExistingDetails.documents || {}, { documents_on_request: osChecked('os-documents-on-request') })
+    };
+  }
+
+  function officeShopPriceUnit(details){
+    if (details.pricing.basis === 'whole_year') return 'year';
+    if (details.pricing.basis === 'per_area') return details.space.area_unit === 'm2' ? 'm2' : 'sq_ft';
+    if (details.pricing.basis === 'per_desk') return 'desk';
+    if (details.pricing.basis === 'daily_weekly_hourly') return 'day';
+    if (details.pricing.basis === 'turnover') return 'turnover';
+    return 'month';
+  }
+
+  async function uploadOfficeShopMedia(listingId, details){
+    const documents = Object.assign({}, details.documents || {});
+    const upload = async function(file, kind){
+      if (!file) return null;
+      const path = currentUser.id + '/' + listingId + '/office_shop_' + kind + '_' + Date.now() + '_' + sanitizeFilename(file.name);
+      const { data, error } = await supabaseClient.storage.from('listing-photos').upload(path, file, { upsert: false });
+      if (error) throw new Error('Could not upload ' + kind.replace(/_/g, ' ') + ': ' + error.message);
+      return data.path;
+    };
+    if (officeShopFloorPlanFile) documents.floor_plan_path = await upload(officeShopFloorPlanFile, 'floor_plan');
+    if (officeShopPolicyFile) documents.policy_path = await upload(officeShopPolicyFile, 'policy');
+    if (officeShopDocumentFiles.length) {
+      const current = Array.isArray(documents.management_document_paths) ? documents.management_document_paths : [];
+      for (const file of officeShopDocumentFiles) current.push(await upload(file, 'management_document'));
+      documents.management_document_paths = current;
+    }
+    details.documents = documents;
+    return details;
+  }
+
+  function hydrateOfficeShopDetails(details){
+    if (!isOfficeShop(hostNiche) || !details) return;
+    officeShopExistingDetails = details;
+    const set = function(id, value){ if (value !== undefined && value !== null) setFieldValue(id, value); };
+    set('os-subtype', details.subtype); set('os-role', details.role);
+    const location = details.location || {}; set('os-building', location.building_name);
+    const space = details.space || {}; set('os-area', space.area); set('os-area-unit', space.area_unit); set('os-area-measure', space.area_measure); set('os-fitout-status', space.fitout_status); set('os-floor-level', space.floor_level); set('os-room-count', space.room_count); set('os-ceiling-height', space.ceiling_height); set('os-capacity', space.capacity); set('os-desks', space.desks); set('os-private-rooms', space.private_rooms); set('os-customer-area', space.customer_area); set('os-storage-area', space.storage_area); set('os-street-frontage', space.street_frontage); set('os-frontage-width', space.frontage_width); set('os-display-windows', space.display_windows); set('os-loading-access', space.loading_access); set('os-foot-traffic', space.foot_traffic); set('os-nearby-anchors', space.nearby_anchors);
+    const parking = details.parking || {}; set('os-parking-spaces', parking.spaces); set('os-parking-cost', parking.cost); set('os-parking-paid-amount', parking.paid_amount); ['allocated','visitor','customer'].forEach(function(key){ const field=document.getElementById('os-parking-'+(key === 'allocated' ? 'allocated' : key+'-parking')); if(field) field.checked=parking[key]===true; });
+    const rules = details.rules || {}; set('os-fitout-rule', rules.fitout); set('os-signage', rules.signage); set('os-subletting', rules.subletting); set('os-restoration', rules.restoration); set('os-noise-limits', rules.noise_limits); set('os-visitor-policy', rules.visitor_policy); (rules.permitted_uses || []).forEach(function(key){ const field=document.querySelector('[data-os-use="'+key+'"]'); if(field) field.checked=true; });
+    const pricing = details.pricing || {}; set('os-pricing-basis', pricing.basis); set('os-price-amount', pricing.amount); set('os-area-period', pricing.area_period); set('os-monthly-payment', pricing.monthly_payment); set('os-desk-included', pricing.desk_included); set('os-short-pricing-note', pricing.short_pricing_note); set('os-turnover-threshold', pricing.turnover_threshold);
+    const costs = details.costs || {}; set('os-service-charge', costs.service_charge); set('os-service-amount', costs.service_amount); set('os-service-frequency', costs.service_frequency); set('os-utilities', costs.utilities); set('os-utilities-amount', costs.utilities_amount); set('os-tax', costs.tax); set('os-deposit', costs.security_deposit); set('os-advance-rent', costs.advance_rent); (costs.compulsory_charges || []).forEach(addOfficeShopCharge); set('os-rent-increases', costs.rent_increases);
+    const lease = details.lease || {}; set('os-available-from', lease.available_from); set('os-min-term', lease.minimum_term); set('os-payment-frequency', lease.payment_frequency); set('os-viewing-required', lease.viewing_required); set('os-preferred-term', lease.preferred_term); set('os-renewal', lease.renewal); set('os-notice-period', lease.notice_period); set('os-lock-in', lease.lock_in); set('os-viewing-availability', lease.viewing_availability); set('os-payment-methods', lease.payment_methods);
+    const amenities = details.amenities || {}; Object.keys(amenities).forEach(function(key){ const field=document.querySelector('[data-os-key="'+key+'"]'); if(field) field.checked=amenities[key]===true; }); set('os-power-note', amenities.power_note); set('os-internet-note', amenities.internet_note); set('os-after-hours', amenities.after_hours); set('os-accessibility-note', amenities.accessibility_note);
+    const documents = details.documents || {}; const onRequest=document.getElementById('os-documents-on-request'); if(onRequest) onRequest.checked=documents.documents_on_request===true;
+    updateOfficeShopConditions();
+  }
 
   function escapeHtml(str){
     if (!str) return '';
@@ -1592,6 +1823,25 @@
       configurePropertyLanguage();
       applyPropertyPurpose(propertyPurpose);
     }
+    const officeShop = isOfficeShop(cat);
+    document.getElementById('amenities-field').style.display = officeShop ? 'none' : '';
+    document.getElementById('stay-price-field').style.display = officeShop ? 'none' : '';
+    document.getElementById('stay-room-type-field').style.display = officeShop ? 'none' : '';
+    if (officeShop) {
+      longTermFields.classList.remove('active');
+      shortStayFields.classList.remove('active');
+      priceUnitField.innerHTML = '<option value="month">Per month</option>';
+      setText('about-eyebrow', '01 — ' + (cat === 'office' ? 'Office' : 'Shop') + ' details');
+      setText('about-sub', 'Choose the type of space, then add the information renters need to compare it confidently.');
+      setText('location-title', 'Add the public location details.');
+      setText('location-sub', 'The neighbourhood is public. Exact-unit sharing stays under your control.');
+      setText('media-title', 'Show the actual space.');
+      setText('media-sub', 'Add at least one photo or video of the unit, then specify its work-ready features.');
+      setText('photo-hint', 'At least one photo or video of the actual unit is required. Up to 6 files · JPG, PNG, WEBP, MP4, MOV or WEBM · 5MB max each.');
+      setText('pricing-heading', 'Set the commercial terms.');
+      bookingSub.textContent = 'Choose the pricing basis, then add costs and availability clearly.';
+    }
+    renderOfficeShopFields();
     renderAmenities(cat);
     updatePricePreview();
   }
@@ -1599,6 +1849,13 @@
   function unitLabel(){
     const val = priceUnitField.value;
     if (val === 'hour') return ' / hour';
+    if (val === 'day') return ' / day';
+    if (val === 'week') return ' / week';
+    if (val === 'year') return ' / year';
+    if (val === 'sq_ft') return ' / sq ft';
+    if (val === 'm2') return ' / m²';
+    if (val === 'desk') return ' / desk';
+    if (val === 'turnover') return ' / turnover';
     if (val === 'month') return ' / month';
     return ' / night';
   }
@@ -1810,6 +2067,12 @@
   }
 
   function validateStep(n){
+    if (n === 1 && isOfficeShop(hostNiche) && !officeShopTypeSelected) {
+      const firstOption = officeShopType.querySelector('[data-office-shop-type]');
+      if (firstOption) firstOption.focus();
+      alert('Choose whether you are listing an Office or a Shop.');
+      return false;
+    }
     if (n === 1 && hostNiche === 'hotel' && !hotelListingMode) {
       const firstOption = hotelOfferMode.querySelector('[data-hotel-mode]');
       if (firstOption) firstOption.focus();
@@ -1845,6 +2108,25 @@
           return false;
         }
       }
+    }
+    if (n === 3 && isOfficeShop(hostNiche) && selectedFiles.length === 0 && existingPhotos.length === 0) {
+      showPhotoError('Add at least one photo or video of the actual unit before continuing.');
+      photoDropzone.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return false;
+    }
+    if (n === 4 && isOfficeShop(hostNiche)) {
+      const subtype = osValue('os-subtype');
+      const desks = document.getElementById('os-desks');
+      if (hostNiche === 'office' && ['shared_office','serviced_office','coworking_desk'].includes(subtype) && (!desks || desks.value === '')) {
+        if (desks) { desks.required = true; desks.focus(); desks.reportValidity(); }
+        return false;
+      }
+    }
+    if (n === 5 && isOfficeShop(hostNiche) && !osChecked('os-accuracy-confirmed')) {
+      const accuracy = document.getElementById('os-accuracy-confirmed');
+      if (accuracy) { accuracy.focus(); accuracy.reportValidity(); }
+      alert('Confirm that availability and pricing are accurate today before publishing.');
+      return false;
     }
     const frame = document.querySelector('.step-frame[data-step="' + n + '"]');
     const required = frame.querySelectorAll('[required]');
@@ -1949,6 +2231,20 @@
     const category = hostNiche;
     const generalLocation = fieldValue('location-text');
     const amount = fieldValue('price-amount');
+    const isCommercial = isOfficeShop(category);
+    if (officeShopReviewFields) {
+      officeShopReviewFields.classList.toggle('active', isCommercial);
+      if (isCommercial) {
+        const commercialAmount = osValue('os-price-amount');
+        const summary = document.getElementById('office-shop-review-summary');
+        if (summary) summary.textContent = [
+          osValue('os-subtype').replace(/_/g, ' '),
+          osValue('os-area') ? osValue('os-area') + ' ' + osValue('os-area-unit').replace('_', ' ') : '',
+          commercialAmount ? 'KSh ' + Number(commercialAmount).toLocaleString() + unitLabel() : 'Price not provided',
+          osValue('os-available-from') ? 'Available ' + osValue('os-available-from') : ''
+        ].filter(Boolean).join(' · ');
+      }
+    }
 
     const reviewTitle = document.getElementById('review-title');
     const reviewMeta = document.getElementById('review-meta');
@@ -2000,6 +2296,12 @@
 
     const amenitiesLine = document.getElementById('review-amenities-line');
     if (amenitiesLine) {
+      if (isCommercial) {
+        const chosen = Object.keys(collectOfficeShopDetails().amenities).filter(function(key){ return collectOfficeShopDetails().amenities[key]; });
+        amenitiesLine.innerHTML = chosen.length
+          ? '<span class="check">✓</span> Commercial amenities selected'
+          : '<span class="check" style="color:#C9BDB8">○</span> No commercial amenities selected';
+      } else {
       let choices = AMENITY_OPTIONS;
       let labelPrefix = 'Amenities: ';
       if (category === 'hotel') { choices = HOTEL_AMENITY_OPTIONS; labelPrefix = 'Hotel amenities: '; }
@@ -2010,6 +2312,7 @@
       amenitiesLine.innerHTML = amenityLabels.length
         ? '<span class="check">✓</span> ' + labelPrefix + amenityLabels.join(' · ')
         : '<span class="check" style="color:var(--red)">!</span> ' + (category === 'hotel' ? 'Select room or hotel amenities' : (category === 'property' ? 'Select property amenities' : 'Select amenities'));
+      }
     }
 
     const policyLine = document.getElementById('review-policy-line');
@@ -2387,7 +2690,7 @@
 
     // Final guard: revalidate every step, in case someone reached step 5
     // via the tracker without the normal Next-button checks.
-    for (let s = 1; s <= 4; s++) {
+    for (let s = 1; s <= 5; s++) {
       if (!validateStep(s)) { goToStep(s); return; }
     }
 
@@ -2415,6 +2718,12 @@
       title, description: caption, property_description: propertyDescription,
       location_text: generalLocation,
     };
+    if (isOfficeShop(category)) {
+      listingPayload.city = osValue('os-city');
+      listingPayload.neighborhood = osValue('os-neighborhood');
+      listingPayload.country = 'Kenya';
+      listingPayload.address_visibility = osValue('os-address-visibility');
+    }
     const existingSubmissionListingId = editMode ? editListingId : preparedPaymentListingId;
     if (!existingSubmissionListingId) listingPayload.category = category;
     if (category === 'hotel') {
@@ -2456,7 +2765,17 @@
       amenities: getSelectedAmenities()
     };
 
-    if (category === 'property') {
+    if (isOfficeShop(category)) {
+      const officeShopDetails = await uploadOfficeShopMedia(listingId, collectOfficeShopDetails());
+      bookingDetails.office_shop_details = officeShopDetails;
+      bookingDetails.office_shop_accuracy_confirmed = osChecked('os-accuracy-confirmed');
+      bookingDetails.price_amount = officeShopDetails.pricing.amount;
+      bookingDetails.price_unit = officeShopPriceUnit(officeShopDetails);
+      bookingDetails.size_or_type = officeShopDetails.subtype;
+      bookingDetails.available_from = officeShopDetails.lease.available_from;
+      bookingDetails.min_lease_months = officeShopDetails.pricing.basis === 'daily_weekly_hourly' ? null : officeShopDetails.lease.minimum_term;
+      bookingDetails.amenities = Object.keys(officeShopDetails.amenities).filter(function(key){ return officeShopDetails.amenities[key]; });
+    } else if (category === 'property') {
       const unitsVal = fieldValue('property-units-available');
       if (unitsVal || editMode) bookingDetails.units_available = unitsVal ? parseInt(unitsVal, 10) : null;
       bookingDetails.available_from = fieldValue('available-from') || null;
@@ -2526,6 +2845,16 @@
         });
         const detailResult = await detailResponse.json().catch(function(){ return {}; });
         if (!detailResponse.ok) throw new Error(detailResult.error || 'Unable to update booking details');
+      } else if (isOfficeShop(category)) {
+        const detailsPatch = Object.assign({}, bookingDetails);
+        delete detailsPatch.listing_id;
+        const detailResponse = await fetch('/api/listings/' + encodeURIComponent(listingId), {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
+          body: JSON.stringify({ booking_details: detailsPatch })
+        });
+        const detailResult = await detailResponse.json().catch(function(){ return {}; });
+        if (!detailResponse.ok) throw new Error(detailResult.error || 'Unable to save commercial listing details');
       } else {
         const { error: bookingInsertErr } = await supabaseClient.from('listing_booking_details').insert(bookingDetails);
         if (bookingInsertErr) {
