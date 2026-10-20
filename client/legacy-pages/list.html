@@ -17,7 +17,7 @@
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;0,9..144,900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;0,9..144,900&family=Inter:wght@400;500;600;700&family=Roboto+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
@@ -55,7 +55,7 @@
   .checking-msg{ text-align:center; padding:6rem 0; color:var(--muted); }
 
   /* ============ WIZARD SHELL ============ */
-  .wizard{ background:#0E0A09; min-height:100vh; padding:0 0 3rem; }
+  .wizard{ background:#090909; min-height:100vh; padding:0 0 3rem; }
   .wizard-top-nav{ display:flex; align-items:center; justify-content:space-between; padding:1.4rem 2.5rem; }
   .wizard-top-nav .logo{ color:#F5EFEC; }
   .wizard-top-nav .logo .va{ color:var(--red); }
@@ -223,6 +223,38 @@
   .amenities-hint{ font-size:.78rem; margin-bottom:.8rem; }
   .tone-dark .amenities-hint{ color:#B8ACA8; }
   .amenities-grid{ display:grid; grid-template-columns:repeat(2, 1fr); gap:.6rem .8rem; }
+  .amenities-grid.library-state-store{ position:absolute!important; width:1px!important; height:1px!important; overflow:hidden!important; clip:rect(0,0,0,0)!important; white-space:nowrap!important; }
+  .amenities-library-open{ display:inline-flex; align-items:center; justify-content:center; gap:.5rem; min-height:3.1rem; padding:.75rem 1.2rem; border:1px solid rgba(255,255,255,.45); border-radius:12px; background:var(--red); color:#fff; font:inherit; font-size:.95rem; font-weight:600; cursor:pointer; transition:transform .18s ease,background .18s ease; }
+  .amenities-library-open[hidden],.amenities-library-summary[hidden]{ display:none!important; }
+  .amenities-library-open:hover{ background:var(--red-deep); transform:translateY(-1px); }
+  .amenities-library-summary{ margin:.55rem 0 0; color:#c7c3c3; font-size:.78rem; line-height:1.45; }
+  .amenities-library-overlay{ position:absolute; inset:0; z-index:5; display:flex; align-items:center; justify-content:center; padding:clamp(.5rem,2vw,1.25rem); background:rgba(0,0,0,.22); }
+  .amenities-library-overlay[hidden]{ display:none; }
+  .amenities-library-dialog{ display:flex; flex-direction:column; width:min(100%,620px); max-height:min(92%,620px); min-height:0; overflow:hidden; border:1px solid rgba(255,255,255,.35); border-radius:16px; background:rgba(18,18,18,.68); color:#fff; box-shadow:0 18px 55px rgba(0,0,0,.4); backdrop-filter:blur(18px) saturate(135%); -webkit-backdrop-filter:blur(18px) saturate(135%); }
+  .amenities-library-header{ padding:.85rem .9rem .6rem; }
+  .amenities-library-title-row{ display:flex; align-items:center; justify-content:space-between; gap:.6rem; margin-bottom:.65rem; }
+  .amenities-library-title{ margin:0; font-size:.94rem; font-weight:700; }
+  .amenities-library-count{ color:#b9f5cd; font-size:.72rem; white-space:nowrap; }
+  .amenities-library-search{ display:flex; align-items:center; gap:.5rem; min-height:2.55rem; padding:0 .75rem; border:1px solid rgba(255,255,255,.42); border-radius:10px; background:rgba(0,0,0,.42); color:#fff; }
+  .amenities-library-search svg{ width:17px; height:17px; flex:none; opacity:.9; }
+  .amenities-library-search input{ width:100%; min-width:0; border:0; outline:0; background:transparent; color:inherit; font:inherit; font-size:.82rem; }
+  .amenities-library-search input::placeholder{ color:rgba(255,255,255,.72); }
+  .amenities-library-categories{ display:flex; gap:.4rem; overflow-x:auto; padding:.65rem .9rem .55rem; scrollbar-width:thin; }
+  .amenities-library-category{ flex:none; border:1px solid rgba(255,255,255,.26); border-radius:100px; padding:.38rem .66rem; background:rgba(0,0,0,.36); color:#fff; font:inherit; font-size:.7rem; font-weight:600; cursor:pointer; }
+  .amenities-library-category[aria-pressed="true"]{ border-color:#17c96b; background:rgba(10,119,59,.42); }
+  .amenities-library-options{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.48rem; overflow:auto; padding:.45rem .9rem .9rem; min-height:0; }
+  .amenities-library-option{ display:flex; align-items:center; gap:.5rem; min-width:0; min-height:2.55rem; border:1px solid transparent; border-radius:9px; padding:.5rem .58rem; background:rgba(0,0,0,.72); color:#fff; text-align:left; font:inherit; font-size:.74rem; font-weight:600; cursor:pointer; transition:border-color .16s ease,background .16s ease; }
+  .amenities-library-option:hover{ border-color:rgba(255,255,255,.55); }
+  .amenities-library-option.selected{ border:2px solid #11c969; background:rgba(0,0,0,.9); padding:calc(.5rem - 1px) calc(.58rem - 1px); }
+  .amenities-library-option svg{ flex:none; width:17px; height:17px; color:#fff; }
+  .amenities-library-option span{ overflow:hidden; text-overflow:ellipsis; }
+  .amenities-library-empty{ grid-column:1/-1; padding:1.2rem .4rem; color:rgba(255,255,255,.78); font-size:.82rem; text-align:center; }
+  .amenities-library-footer{ display:flex; justify-content:flex-end; padding:.6rem .9rem .85rem; border-top:1px solid rgba(255,255,255,.18); }
+  .amenities-library-done{ display:inline-flex; align-items:center; gap:.45rem; min-height:2.55rem; border:0; border-radius:100px; padding:.55rem 1.1rem; background:#050505; color:#20e66e; font:inherit; font-size:.82rem; font-weight:700; cursor:pointer; }
+  .amenities-library-done:hover{ background:#101810; }
+  @media(prefers-color-scheme:light){ .amenities-library-dialog{ background:rgba(19,19,19,.78); } }
+  @media(max-width:680px){ .amenities-library-overlay{ align-items:flex-end; } .amenities-library-dialog{ max-height:min(82%,560px); } }
+  @media(max-width:390px){ .amenities-library-options{ grid-template-columns:1fr; } }
   @media (min-width:520px){ .amenities-grid{ grid-template-columns:repeat(3, 1fr); } }
   .office-shop-section{ display:none; margin-top:1rem; }
   .office-shop-section.active{ display:block; }
@@ -317,16 +349,14 @@
     .wizard{ min-height:100dvh; height:100dvh; padding:1rem 1.25rem 1rem 5.7rem; overflow:hidden; }
     .wizard-top-nav{ display:none; }
     .wizard-correction-nav{
-      display:flex; position:fixed; z-index:30; top:1.35rem; right:1.5rem;
-      align-items:center; gap:.55rem; padding:.45rem .55rem .45rem .85rem;
-      border:1px solid rgba(255,255,255,.14); border-radius:12px;
-      background:rgba(23,17,15,.88); box-shadow:0 8px 24px rgba(0,0,0,.22);
-      color:#F5EFEC; backdrop-filter:blur(8px);
+      display:flex; position:absolute; z-index:5; top:.55rem; right:.55rem;
+      align-items:center; gap:0; padding:0; overflow:hidden;
+      border:1px solid rgba(255,255,255,.2); border-radius:0; background:#222; color:#F5EFEC;
     }
-    .wizard-correction-nav label{ font-size:.75rem; color:#C9BDB8; white-space:nowrap; }
-    .wizard-correction-nav select{ width:auto; min-width:10.5rem; padding:.45rem .6rem; border-radius:8px; border:1px solid rgba(255,255,255,.14); background:#2A201C; color:#F5EFEC; font-size:.78rem; }
-    .wizard-correction-nav button{ padding:.45rem .65rem; border-radius:8px; background:var(--red); color:#fff; font-size:.78rem; font-weight:700; }
-    .wizard-correction-nav button:hover{ background:var(--red-deep); }
+    .wizard-correction-nav label{ position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+    .wizard-correction-nav select{ width:15rem; min-width:0; padding:.72rem .9rem; border:0; border-radius:0; background:#222; color:#F5EFEC; font-size:.95rem; font-weight:700; }
+    .wizard-correction-nav button{ min-width:7rem; padding:.72rem .9rem; align-self:stretch; border-radius:0; background:#ff343c; color:#fff; font-size:.95rem; font-weight:700; }
+    .wizard-correction-nav button:hover{ background:#df2029; }
     .wizard-sidebar{
       display:flex; position:fixed; z-index:20; inset:0 auto 0 0; width:4.45rem;
       flex-direction:column; align-items:center; padding:1rem 0; overflow-y:auto; scrollbar-width:none; background:#17110F;
@@ -342,32 +372,97 @@
     .sidebar-nav-icon [data-elie-icon]{ width:22px; height:22px; }
     .sidebar-host-nav{ display:grid; gap:.5rem; }
 
-    .wizard-shell{ max-width:1320px; height:calc(100dvh - 2rem); margin:0 auto; padding:0; }
+    .wizard-shell{ position:relative; max-width:1320px; height:calc(100dvh - 2rem); margin:0 auto; padding:0; }
     .step-frame.active{
-      grid-template-columns:minmax(330px,430px) 1fr; min-height:0; height:100%; border-radius:18px;
+      grid-template-columns:minmax(0,1.35fr) minmax(0,1fr); min-height:0; height:100%; border-radius:22px;
     }
     .step-panel{ min-height:0; padding:1.45rem 1.8rem 1.3rem; }
+    .step-frame[data-step="1"] .step-panel{ padding:1.25rem 1.5rem 1.05rem; background:#242424!important; font-family:'Roboto Condensed','Arial Narrow',Arial,sans-serif; }
     .panel-brand{ display:none; }
     .progress-row{ gap:.7rem; margin-bottom:1rem; }
     .progress-ring{ width:48px; height:48px; }
     .progress-ring::after{ inset:5px; }
-    .step-eyebrow{ font-size:.7rem; margin-bottom:.38rem; }
     .step-title{ font-size:clamp(1.45rem,2vw,1.85rem); margin-bottom:.4rem; }
     .step-sub{ font-size:.84rem; line-height:1.4; margin-bottom:.9rem; }
+    .step-frame[data-step="1"] .progress-row{ gap:.9rem; margin-bottom:.45rem; }
+    .step-frame[data-step="1"] .progress-ring{ width:76px; height:76px; }
+    .step-frame[data-step="1"] .progress-ring::after{ inset:6px; }
+    .step-frame[data-step="1"] .progress-ring{ --ring-fg:#18b66b; --ring-bg:#a8a8ad; --ring-hole:#242424; }
+    .step-frame[data-step="1"] .progress-ring span{ font-size:1rem; }
+    .step-frame[data-step="1"] .progress-text{ font-size:1rem; line-height:1.6; color:#fff!important; }
+    .step-frame[data-step="1"] .step-eyebrow{ display:none; }
+    .step-frame[data-step="1"] .step-title{ font-size:clamp(1.55rem,2.2vw,2rem); margin-bottom:.2rem; }
+    .step-frame[data-step="1"] .step-sub{ font-size:.88rem; line-height:1.55; margin:0 0 .85rem; padding-left:.65rem; color:#d0d0d0!important; }
     .step-fields{ min-height:0; overflow:auto; padding-right:.25rem; scrollbar-width:thin; }
-    .step-frame[data-step="1"] .step-fields{ display:flex; flex-direction:column; }
-    .step-frame[data-step="1"] #property-description-field{ flex:1; min-height:0; }
-    .step-frame[data-step="1"] #property-description{ flex:1; min-height:200px; }
+    .step-frame[data-step="1"] .step-fields{ display:flex; flex-direction:column; gap:.45rem; overflow:visible; }
+    .step-frame[data-step="1"] #property-description-field{ flex:1; min-height:5.5rem; }
+    .step-frame[data-step="1"] #property-description{ flex:1; min-height:5.5rem; }
     .field{ gap:.3rem; margin-bottom:.65rem; }
     label{ font-size:.78rem; }
     input, textarea, select{ font-size:.84rem; padding:.55rem .7rem; }
+    .step-frame[data-step="1"] .field{ gap:.25rem; margin-bottom:.45rem; }
+    .step-frame[data-step="1"] label{ font-size:.9rem; }
+    .step-frame[data-step="1"] input,
+    .step-frame[data-step="1"] textarea,
+    .step-frame[data-step="1"] select{ font-size:.88rem; padding:.62rem .78rem; border-radius:10px; }
+    .step-frame[data-step="1"].tone-dark input,
+    .step-frame[data-step="1"].tone-dark textarea,
+    .step-frame[data-step="1"].tone-dark select{ background:#050505; color:#fff; border-color:transparent; }
     textarea{ min-height:64px; }
+    .step-frame[data-step="1"] textarea{ resize:none; }
+    .step-frame[data-step="1"] #caption{ min-height:4.6rem; }
+    .step-frame[data-step="1"] #property-description{ min-height:7.5rem; }
     .panel-actions{ margin-top:auto; padding-top:.85rem; }
     .step-btn{ padding:.72rem 1rem; font-size:.84rem; }
-    .step-photo-badge{ top:1rem; left:1rem; font-size:.74rem; padding:.42rem .72rem; }
-    .step-photo-caption{ left:1.3rem; right:1.3rem; bottom:1.25rem; }
-    .step-photo-caption h3{ font-size:1.28rem; }
-    .step-photo-caption p{ font-size:.8rem; }
+    .step-frame[data-step="1"] .panel-actions{ padding-top:.35rem; }
+    .step-frame[data-step="1"] .step-btn{ font-size:.9rem; }
+    .step-frame[data-step="1"] .step-btn.next{ background:#d10e09; }
+    .step-frame[data-step="1"] .step-btn.next:hover{ background:#b90b08; }
+    .step-frame[data-step="1"] .step-photo{ min-height:0; background-position:center; }
+    .step-frame[data-step="1"] .step-photo::after,
+    .step-frame[data-step="1"] .step-photo-badge,
+    .step-frame[data-step="1"] .step-photo-caption{ display:none; }
+    .step-frame[data-step="1"] .office-shop-type{ grid-template-columns:1fr 1fr; margin:.15rem 0 .65rem; }
+    .step-frame[data-step="1"] .office-shop-type button{ min-height:4.5rem; border:0; border-radius:10px; padding:.7rem; background:#050505; color:#fff; text-align:center; font-size:1rem; }
+    .step-frame[data-step="1"] .office-shop-type button.selected{ background:#ff343c; }
+    .step-frame[data-step="1"] .office-shop-type button small{ display:none; }
+    .step-frame[data-step="1"] #office-shop-details-fields.active{ display:grid; grid-template-columns:1fr 1fr; gap:.65rem; margin:0 0 .4rem; }
+    .step-frame[data-step="1"] #office-shop-details-fields .field{ margin:0; }
+    .step-frame[data-step="1"] #office-shop-details-fields select{ padding:.45rem .65rem; }
+    .step-frame[data-step="1"] .hotel-offer-mode{ margin:.15rem 0 .65rem; }
+    .step-frame[data-step="1"] .hotel-offer-option,
+    .step-frame[data-step="1"] .property-purpose-option{ background:#050505; color:#fff; border:0; border-radius:10px; padding:.72rem .65rem; }
+    .step-frame[data-step="1"] .hotel-offer-option.selected,
+    .step-frame[data-step="1"] .property-purpose-option.selected{ background:#ff343c; }
+    .step-frame[data-step="1"] .hotel-offer-option small,
+    .step-frame[data-step="1"] .property-purpose-option small{ font-size:.7rem; }
+    .step-frame[data-step="1"] .property-purpose-mode{ margin:.15rem 0 .65rem; }
+    .step-frame[data-step="2"] .step-panel{ padding:1.25rem 1.5rem 1.05rem; background:#242424!important; font-family:'Roboto Condensed','Arial Narrow',Arial,sans-serif; }
+    .step-frame[data-step="2"] .progress-row{ gap:.9rem; margin-bottom:.45rem; }
+    .step-frame[data-step="2"] .progress-ring{ width:76px; height:76px; --ring-fg:#18b66b; --ring-bg:#a8a8ad; --ring-hole:#242424; }
+    .step-frame[data-step="2"] .progress-ring::after{ inset:6px; }
+    .step-frame[data-step="2"] .progress-ring span{ font-size:1rem; }
+    .step-frame[data-step="2"] .progress-text{ font-size:1rem; line-height:1.6; color:#fff!important; }
+    .step-frame[data-step="2"] .step-eyebrow{ display:none; }
+    .step-frame[data-step="2"] .step-title{ font-size:clamp(1.55rem,2.2vw,2rem); line-height:1.05; margin-bottom:.25rem; }
+    .step-frame[data-step="2"] .step-sub{ font-size:.88rem; line-height:1.55; margin:0 0 .85rem; padding-left:.65rem; color:#d0d0d0!important; }
+    .step-frame[data-step="2"] .step-fields{ overflow:visible; }
+    .step-frame[data-step="2"] .step-fields > .field,
+    .step-frame[data-step="2"] #office-shop-location-fields .field{ max-width:85%; gap:.25rem; margin-bottom:.8rem; }
+    .step-frame[data-step="2"] label{ font-size:.9rem; }
+    .step-frame[data-step="2"] input{ font-size:.88rem; padding:.62rem .78rem; border-radius:10px; }
+    .step-frame[data-step="2"] input{ background:#050505; color:#fff; border-color:transparent; }
+    .step-frame[data-step="2"] .location-help{ display:none; }
+    .step-frame[data-step="2"] #office-shop-location-fields.active{ display:block; margin-top:.65rem; }
+    .step-frame[data-step="2"] .panel-actions{ margin-top:auto; padding-top:.5rem; }
+    .step-frame[data-step="2"] .step-btn{ font-size:.9rem; }
+    .step-frame[data-step="2"] .step-btn.back{ padding:.72rem 1rem; color:#fff!important; }
+    .step-frame[data-step="2"] .step-btn.next{ flex:0 1 64%; padding:.72rem 1rem; background:#d10e09; }
+    .step-frame[data-step="2"] .step-btn.next:hover{ background:#b90b08; }
+    .step-frame[data-step="2"] .step-photo{ min-height:0; background-position:center; }
+    .step-frame[data-step="2"] .step-photo::after,
+    .step-frame[data-step="2"] .step-photo-badge,
+    .step-frame[data-step="2"] .step-photo-caption{ display:none; }
     .step-tracker{ display:none; }
 
     /* Compact the denser steps without changing their fields or controls. */
@@ -436,7 +531,7 @@
   .property-purpose-option{ appearance:none; border:1px solid rgba(255,255,255,.3); border-radius:10px; background:rgba(255,255,255,.08); color:inherit; padding:.85rem .65rem; text-align:left; cursor:pointer; font:inherit; transition:background .18s ease, border-color .18s ease; }
   .property-purpose-option strong, .property-purpose-option small{ display:block; }
   .property-purpose-option small{ margin-top:.22rem; opacity:.72; line-height:1.3; font-size:.75rem; }
-  .property-purpose-option.selected{ background:var(--red); border-color:var(--red); color:#fff; }
+      .property-purpose-option.selected{ background:var(--red); border-color:var(--red); color:#fff; }
   .property-purpose-option.selected small{ opacity:.88; }
 
   /* ============ PROPERTY: policy upload (Card 3) ============ */
@@ -517,20 +612,19 @@
     <a href="/host-home" class="logo"><span class="va">Va</span><span class="room">Room</span></a>
     <a href="/host-home" class="back-link">← Back to VaRoom</a>
   </nav>
-  <div class="wizard-correction-nav" aria-label="Edit an earlier step">
-    <label for="correction-step">Need to correct something?</label>
-    <select id="correction-step">
-      <option value="1">1. Listing details</option>
-      <option value="2">2. Location</option>
-      <option value="3">3. Media & amenities</option>
-      <option value="4">4. Pricing & booking</option>
-      <option value="5">5. Review</option>
-    </select>
-    <button type="button" id="correction-step-go">Edit</button>
-  </div>
-
   <form id="list-form">
     <div class="wizard-shell">
+      <div class="wizard-correction-nav" aria-label="Edit an earlier step">
+        <label for="correction-step">Need to correct something?</label>
+        <select id="correction-step">
+          <option value="1">1. Listing details</option>
+          <option value="2">2. Location</option>
+          <option value="3">3. Media & amenities</option>
+          <option value="4">4. Pricing & booking</option>
+          <option value="5">5. Review</option>
+        </select>
+        <button type="button" id="correction-step-go">Edit</button>
+      </div>
 
       <!-- STEP 1 — About the property -->
       <section class="step-frame active tone-dark" data-step="1">
@@ -538,12 +632,12 @@
           <div class="panel-brand"><span class="roof"></span> VaRoom</div>
           <div class="progress-row">
             <div class="progress-ring" style="--pct:20"><span>20%</span></div>
-            <div class="progress-text"><span class="step-count">01 / 05</span><br>Start with the essentials</div>
+            <div class="progress-text"><span class="step-count">01/5</span><br><span id="progress-step-label">Listing Introduction</span></div>
           </div>
 
           <p class="step-eyebrow" id="about-eyebrow">01 — About the property</p>
-          <h1 class="step-title" id="listing-headline">Let's list your first space.</h1>
-          <p class="step-sub" id="about-sub">A few thoughtful details now, then VaRoom turns your space into a place people can picture themselves in.</p>
+          <h1 class="step-title" id="listing-headline">Turn Your Space Into an Opportunity</h1>
+          <p class="step-sub" id="about-sub">Every great stay, successful business, or memorable experience begins with the right space. Showcase yours on VaRoom and connect with people looking for exactly what you offer.</p>
           <div class="office-shop-type" id="office-shop-type" aria-label="Listing type">
             <button type="button" data-office-shop-type="office"><strong>Office</strong><small>Offices, desks, meeting rooms and serviced workspaces</small></button>
             <button type="button" data-office-shop-type="shop"><strong>Shop</strong><small>Retail units, showrooms, studios and street-front shops</small></button>
@@ -557,9 +651,9 @@
 
           <!-- PROPERTY-ONLY: listing purpose selector. Hidden for every other category. -->
           <div class="property-purpose-mode" id="property-purpose-mode" hidden aria-label="What is this property listed for?">
-            <button type="button" class="property-purpose-option selected" data-property-purpose="rent" aria-pressed="true"><strong>For rent</strong><small>Monthly rental listing</small></button>
+            <button type="button" class="property-purpose-option selected" data-property-purpose="rent" aria-pressed="true"><strong>Rental</strong><small>Monthly rental listing</small></button>
             <button type="button" class="property-purpose-option" data-property-purpose="sale" aria-pressed="false"><strong>For sale</strong><small>Property sale listing</small></button>
-            <button type="button" class="property-purpose-option" data-property-purpose="both" aria-pressed="false"><strong>Both</strong><small>Rent and sale options</small></button>
+            <button type="button" class="property-purpose-option" data-property-purpose="both" aria-pressed="false"><strong>Both</strong><small>Selling and renting are both options</small></button>
           </div>
 
           <div class="step-fields">
@@ -591,30 +685,29 @@
       </section>
 
       <!-- STEP 2 — Location & verification -->
-      <section class="step-frame tone-cream" data-step="2">
+      <section class="step-frame tone-dark" data-step="2">
         <div class="step-panel">
           <div class="panel-brand"><span class="roof"></span> VaRoom</div>
           <div class="progress-row">
             <div class="progress-ring" style="--pct:40"><span>40%</span></div>
-            <div class="progress-text"><span class="step-count">02 / 05</span><br>Add the general area</div>
+            <div class="progress-text"><span class="step-count">02/05</span><br>Location</div>
           </div>
 
           <p class="step-eyebrow">02 — Location</p>
-          <h1 class="step-title" id="location-title">Add your property’s area.</h1>
-          <p class="step-sub" id="location-sub">A general location helps guests understand where your property is. Exact location details can be added later.</p>
+          <h1 class="step-title" id="location-title">Help Guests Find Your Space</h1>
+          <p class="step-sub" id="location-sub">Tell us the neighbourhood, town, or area your property is in. Help guests discover your space in a location that suits their plans. You can add the exact location later.</p>
 
           <div class="step-fields">
             <div class="field">
-              <label for="location-text" id="location-label">Where is your property located?</label>
-              <p class="location-help" id="location-help">Enter the area, neighbourhood, or town where your property is located. You’ll be able to add the exact location later.</p>
-              <input type="text" id="location-text" name="location_text" required minlength="3" autocomplete="address-level2" placeholder="e.g. Nairobi, Westlands">
+              <label for="location-text" id="location-label">neighbourhood, city</label>
+              <input type="text" id="location-text" name="location_text" required minlength="3" autocomplete="address-level2" placeholder="eg Westlands, Nairobi">
             </div>
             <div class="office-shop-section" id="office-shop-location-fields"></div>
           </div>
 
           <div class="panel-actions">
             <button type="button" class="step-btn back" data-back>← Back</button>
-            <button type="button" class="step-btn next" data-next>Continue to photos →</button>
+            <button type="button" class="step-btn next" data-next>continue to media &amp; amenities →</button>
           </div>
         </div>
         <div class="step-photo" style="background-image:url('assets/listing-wizard/step-2.jpg');">
@@ -653,6 +746,8 @@
             <div class="field" id="amenities-field" style="margin-top:.6rem;">
               <label id="amenities-label">Amenities</label>
               <p class="amenities-hint" id="amenities-hint">Select everything this space offers. Shown to guests on the booking page.</p>
+              <button type="button" class="amenities-library-open" id="amenities-library-open">Amenities Library</button>
+              <p class="amenities-library-summary" id="amenities-library-summary" aria-live="polite">No amenities selected yet.</p>
               <div class="amenities-grid" id="amenities-grid"></div>
             </div>
             <div class="office-shop-section" id="office-shop-media-fields"></div>
@@ -677,6 +772,20 @@
           </div>
         </div>
         <div class="step-photo" style="background-image:url('assets/listing-wizard/step-3.jpg');">
+          <div class="amenities-library-overlay" id="amenities-library-overlay" hidden>
+            <section class="amenities-library-dialog" role="dialog" aria-modal="true" aria-labelledby="amenities-library-title">
+              <header class="amenities-library-header">
+                <div class="amenities-library-title-row"><h2 class="amenities-library-title" id="amenities-library-title">Amenities Library</h2><span class="amenities-library-count" id="amenities-library-count">0 selected</span></div>
+                <label class="amenities-library-search">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+                  <input type="search" id="amenities-library-search" placeholder="Search amenities" autocomplete="off" aria-label="Search amenities">
+                </label>
+              </header>
+              <nav class="amenities-library-categories" id="amenities-library-categories" aria-label="Amenity categories"></nav>
+              <div class="amenities-library-options" id="amenities-library-options" role="group" aria-label="Available amenities"></div>
+              <footer class="amenities-library-footer"><button type="button" class="amenities-library-done" id="amenities-library-done"><span aria-hidden="true">✓</span> Done</button></footer>
+            </section>
+          </div>
           <!-- PROPERTY-ONLY: policy preview overlay (fills the right panel; does not affect media gallery). -->
           <div class="policy-preview-overlay" id="policy-preview-overlay">
             <div class="policy-preview-toolbar">
@@ -983,6 +1092,14 @@
   function fieldValue(id){
     const field = document.getElementById(id);
     return field ? field.value : '';
+  }
+
+  function splitListingArea(value){
+    const parts = String(value || '').split(',').map(function(part){ return part.trim(); }).filter(Boolean);
+    return {
+      neighborhood: parts[0] || '',
+      city: parts.length > 1 ? parts.slice(1).join(', ') : '',
+    };
   }
 
   function makeListingDraftKey(hostId){
@@ -1370,16 +1487,16 @@
     office: 'Make every month clear.', shop: 'Make every month clear.', property: 'Make every month clear.'
   };
   const listingHeadlines = {
-    airbnb: "Let's list your first Airbnb.",
-    hotel: "Welcome guests to your hotel.",
+    airbnb: 'Turn Your Space Into an Opportunity',
+    hotel: 'Turn Your Space Into an Opportunity',
     villa: "Let's list your first villa.",
     apartment: "Let's list your first apartment.",
     resort: "Let's list your first resort.",
     guesthouse: "Let's list your first guesthouse.",
     venue: "Let's list your first event venue.",
-    office: "Let's list your first office space.",
-    shop: "Let's list your first shop.",
-    property: "Let's list your first property."
+    office: 'Turn Your Space Into an Opportunity',
+    shop: 'Turn Your Space Into an Opportunity',
+    property: 'Put Your Property on the Map'
   };
 
   const priceUnitField = document.getElementById('price-unit');
@@ -1447,12 +1564,7 @@
       ? [['private_office','Private office'],['shared_office','Shared office'],['serviced_office','Serviced office'],['coworking_desk','Coworking desk'],['meeting_room','Meeting room']]
       : [['street_front_shop','Street-front shop'],['mall_unit','Mall unit'],['showroom','Showroom'],['studio','Studio']];
     officeShopDetailsFields.innerHTML = '<div class="field"><label for="os-subtype">Subtype</label><select id="os-subtype" required><option value="">Choose one</option>'+subtypeOptions.map(function(option){ return '<option value="'+option[0]+'">'+option[1]+'</option>'; }).join('')+'</select></div><div class="field"><label for="os-role">Your role</label><select id="os-role" required><option value="">Choose one</option><option value="owner">Owner</option><option value="authorized_manager">Authorised property manager</option><option value="agent">Agent</option></select></div>';
-    officeShopLocationFields.innerHTML = `
-      <h2 class="section-heading">Structured location</h2><p class="section-help">The neighbourhood is public. A map pin is reserved for a later maps release.</p>
-      <div class="field-row"><div class="field"><label for="os-city">City / county</label><input id="os-city" required placeholder="e.g. Nairobi"></div><div class="field"><label for="os-neighborhood">Neighbourhood</label><input id="os-neighborhood" required placeholder="e.g. Westlands"></div></div>
-      <div class="field"><label for="os-building">Building or complex name <small>(optional)</small></label><input id="os-building" placeholder="e.g. Delta Towers"></div>
-      <div class="field"><label for="os-address-visibility">Address visibility</label><select id="os-address-visibility" required><option value="">Choose one</option><option value="full">Show the full address</option><option value="after_inquiry">Share the exact unit after an inquiry</option></select></div>
-      <div class="field"><label>Map pin</label><p class="location-help">Reserved for the maps release.</p></div>`;
+      officeShopLocationFields.innerHTML = '<div class="field"><label for="os-building">Building or Complex name <small>(optional)</small></label><input id="os-building" maxlength="300" placeholder="eg BMW Towers"></div>';
     officeShopMediaFields.innerHTML = `
       <h2 class="section-heading">Office & shop amenities</h2><p class="section-help">Choose what the space actually offers. Selected filter items are stored as boolean values.</p>
       ${osAmenityGroup('Power', [['mains_supply','Mains supply'],['backup_generator','Backup generator (filter)'],['ups','UPS (filter)']])}
@@ -1642,7 +1754,7 @@
     document.getElementById('dining-restaurant-name').required = mode === 'both';
     if (tableOnly) {
       setText('about-eyebrow', '01 — About your dining space');
-      setText('about-sub', 'Create a simple dining listing so guests can request a table directly with your hotel.');
+      setText('about-sub', 'Every great stay, successful business, or memorable experience begins with the right space. Showcase yours on VaRoom and connect with people looking for exactly what you offer.');
       setText('title-label', 'Restaurant / dining name');
       document.getElementById('title').placeholder = 'e.g. The Garden Restaurant';
       setText('caption-label', 'Guest-facing caption');
@@ -1666,18 +1778,17 @@
     const hotel = hostNiche === 'hotel';
     if (!hotel) return;
     setText('about-eyebrow', '01 — About the room');
-    setText('about-sub', 'Introduce the room guests will book: its bed setup, in-room comforts, and the service experience they can expect.');
+    setText('about-sub', 'Every great stay, successful business, or memorable experience begins with the right space. Showcase yours on VaRoom and connect with people looking for exactly what you offer.');
     setText('title-label', 'Room listing name');
     document.getElementById('title').placeholder = 'e.g. Deluxe King Room at Westlands';
     setText('caption-label', 'Guest-facing highlight');
     document.getElementById('caption').placeholder = 'A calm king room with breakfast and skyline views.';
     setText('description-label', 'Room and hotel details');
     document.getElementById('property-description').placeholder = 'Describe the room, bed configuration, bathroom, breakfast, hotel facilities, and anything guests should know before check-in.';
-    setText('location-title', 'Help guests find your hotel.');
-    setText('location-sub', 'Share the neighbourhood or landmark so travellers can plan their stay. Exact location details can be added later.');
-    setText('location-label', 'Where is the hotel located?');
-    setText('location-help', 'Enter the hotel’s neighbourhood, town, or a nearby landmark. You can add the exact address later.');
-    document.getElementById('location-text').placeholder = 'e.g. Westlands, Nairobi · near Sarit Centre';
+    setText('location-title', 'Help Guests Find Your Space');
+    setText('location-sub', 'Tell us the neighbourhood, town, or area your property is in. Help guests discover your space in a location that suits their plans. You can add the exact location later.');
+    setText('location-label', 'neighbourhood, city');
+    document.getElementById('location-text').placeholder = 'eg Westlands, Nairobi';
     setText('media-title', 'Show the stay, room to lobby.');
     setText('media-sub', 'Lead with the guest room, then include the bathroom, lobby, dining, and standout hotel facilities.');
     setText('photo-hint', 'Up to 6 room, hotel, or facility photos/videos · JPG, PNG, WEBP, MP4, MOV or WEBM · 5MB max each.');
@@ -1702,18 +1813,17 @@
     }
 
     setText('about-eyebrow', '01 — About the property');
-    setText('about-sub', 'A few thoughtful details now, then VaRoom turns your property into a place people can picture living in.');
+    setText('about-sub', 'The right tenant or buyer could be looking for a property just like yours. Create your listing on VaRoom, showcase its potential, and make it easier for the right people to find it.');
     setText('title-label', 'Property name');
     document.getElementById('title').placeholder = 'e.g. Karen Villas, Amani Apartments, or Greenview Residences';
     setText('caption-label', 'Summary highlight');
     document.getElementById('caption').placeholder = 'A calm executive residence with generous natural light and secure compound.';
     setText('description-label', 'Property & unit details');
     document.getElementById('property-description').placeholder = 'Tell buyers or tenants what they should know — available units, property/unit sizes, bedrooms and bathrooms, layout, notable compound features, location access, and terms before deciding to rent or buy.';
-    setText('location-title', 'Add your property’s area.');
-    setText('location-sub', 'A general location helps tenants and buyers understand where your property is situated. Exact location details can be added later.');
-    setText('location-label', 'Where is the property located?');
-    setText('location-help', 'Enter the area, neighbourhood, or town where your property is located. You’ll be able to add the exact location later.');
-    document.getElementById('location-text').placeholder = 'e.g. Nairobi, Kilimani · near Yaya Centre';
+    setText('location-title', 'Bring Your Property Closer to the Right People');
+    setText('location-sub', 'Every property search starts with a location. Tell us the neighbourhood, town, or area so prospective tenants and buyers can discover your property. You can add the exact location later.');
+    setText('location-label', 'neighbourhood, county/city');
+    document.getElementById('location-text').placeholder = 'eg Westlands, Nairobi';
     setText('media-title', 'Showcase the property.');
     setText('media-sub', 'Choose a cover, add angles of the interior, exterior and compound, then drag to set the order.');
     setText('photo-hint', 'Up to 6 photos or video tours · JPG, PNG, WEBP, MP4, MOV or WEBM · 5MB max each.');
@@ -1829,6 +1939,7 @@
     }
     const officeShop = isOfficeShop(cat);
     document.getElementById('amenities-field').style.display = officeShop ? 'none' : '';
+    propertyPolicySection.hidden = cat !== 'property';
     document.getElementById('stay-price-field').style.display = officeShop ? 'none' : '';
     document.getElementById('stay-room-type-field').style.display = officeShop ? 'none' : '';
     if (officeShop) {
@@ -1836,9 +1947,11 @@
       shortStayFields.classList.remove('active');
       priceUnitField.innerHTML = '<option value="month">Per month</option>';
       setText('about-eyebrow', '01 — ' + (cat === 'office' ? 'Office' : 'Shop') + ' details');
-      setText('about-sub', 'Choose the type of space, then add the information renters need to compare it confidently.');
-      setText('location-title', 'Add the public location details.');
-      setText('location-sub', 'The neighbourhood is public. Exact-unit sharing stays under your control.');
+      setText('about-sub', 'Every great stay, successful business, or memorable experience begins with the right space. Showcase yours on VaRoom and connect with people looking for exactly what you offer.');
+      setText('location-title', 'Put Your Business Space in the Right Place');
+      setText('location-sub', 'Add the area where your property is located so businesses can discover a space that fits their customers, operations, and ambitions. You can provide the exact location later.');
+      setText('location-label', 'neighbourhood, city');
+      document.getElementById('location-text').placeholder = 'eg Westlands, Nairobi';
       setText('media-title', 'Show the actual space.');
       setText('media-sub', 'Add at least one photo or video of the unit, then specify its work-ready features.');
       setText('photo-hint', 'At least one photo or video of the actual unit is required. Up to 6 files · JPG, PNG, WEBP, MP4, MOV or WEBM · 5MB max each.');
@@ -2025,6 +2138,84 @@
   ];
 
   const amenitiesGrid = document.getElementById('amenities-grid');
+  const amenitiesLibraryOpen = document.getElementById('amenities-library-open');
+  const amenitiesLibraryOverlay = document.getElementById('amenities-library-overlay');
+  const amenitiesLibrarySearch = document.getElementById('amenities-library-search');
+  const amenitiesLibraryCategories = document.getElementById('amenities-library-categories');
+  const amenitiesLibraryOptions = document.getElementById('amenities-library-options');
+  const amenitiesLibraryDone = document.getElementById('amenities-library-done');
+  const amenitiesLibraryCount = document.getElementById('amenities-library-count');
+  const amenitiesLibrarySummary = document.getElementById('amenities-library-summary');
+  let activeAmenityLibraryCategory = 'All';
+  const LIBRARY_AMENITY_CATEGORIES = ['All', 'Essentials', 'Comfort', 'Kitchen & dining', 'Work & entertainment', 'Outdoor', 'Building & security', 'Family & safety', 'Services'];
+  const AMENITY_CATEGORY_TERMS = {
+    Essentials: ['wifi','parking','power','water','security','smoke','alarm','camera','internet','fiber'],
+    Comfort: ['heating','air conditioning','climate','bedding','pillows','hot water','curtain','towel','linen','hair dryer','furnished','unfurnished'],
+    'Kitchen & dining': ['kitchen','refrigerator','fridge','coffee','breakfast','restaurant','bar','room service'],
+    'Work & entertainment': ['workspace','tv','streaming','outlet','usb','gym','fitness','elevator','desk'],
+    Outdoor: ['mountain','balcony','garden','pool','bonfire','bbq','grill','hot tub','main road','school','compound'],
+    'Building & security': ['security','camera','power backup','elevator','parking','guard','water backup','borehole','road','school'],
+    'Family & safety': ['pet','smoke','alarm','security','water backup'],
+    Services: ['front desk','luggage','shuttle','transport','laundry','onsite','on-site','complimentary','breakfast','room service','parking']
+  };
+  function isAmenityLibraryNiche(category){ return category === 'airbnb' || category === 'hotel' || category === 'property'; }
+  function amenityCategoryFor(item){
+    const haystack = (item[0] + ' ' + item[1]).toLowerCase();
+    for (const category of LIBRARY_AMENITY_CATEGORIES.slice(1)) {
+      if (AMENITY_CATEGORY_TERMS[category].some(function(term){ return haystack.includes(term); })) return category;
+    }
+    return 'Comfort';
+  }
+  function selectedAmenityCheckboxes(){ return Array.from(amenitiesGrid.querySelectorAll('input[type="checkbox"]:checked')); }
+  function syncAmenityLibrarySummary(){
+    const selected = selectedAmenityCheckboxes();
+    const count = selected.length;
+    amenitiesLibraryCount.textContent = count + ' selected';
+    amenitiesLibrarySummary.textContent = count ? selected.map(function(input){
+      const option = input.closest('.amenity-check');
+      return option ? option.querySelector('span').textContent : input.value;
+    }).join(' · ') : 'No amenities selected yet.';
+  }
+  function renderAmenityLibrary(){
+    const options = Array.from(amenitiesGrid.querySelectorAll('input[type="checkbox"]')).map(function(input){
+      const row = input.closest('.amenity-check');
+      return { input:input, key:input.value, label:row.querySelector('span').textContent, icon:row.querySelector('svg').outerHTML };
+    });
+    const query = amenitiesLibrarySearch.value.trim().toLowerCase();
+    amenitiesLibraryCategories.innerHTML = LIBRARY_AMENITY_CATEGORIES.map(function(category){
+      return '<button type="button" class="amenities-library-category" data-library-category="' + category + '" aria-pressed="' + (activeAmenityLibraryCategory === category) + '">' + category + '</button>';
+    }).join('');
+    amenitiesLibraryCategories.querySelectorAll('[data-library-category]').forEach(function(button){
+      button.addEventListener('click', function(){ activeAmenityLibraryCategory = button.dataset.libraryCategory; renderAmenityLibrary(); });
+    });
+    const filtered = options.filter(function(option){
+      const category = amenityCategoryFor([option.key,option.label]);
+      const matchesCategory = activeAmenityLibraryCategory === 'All' || category === activeAmenityLibraryCategory;
+      const matchesSearch = !query || (option.key + ' ' + option.label + ' ' + category).toLowerCase().includes(query);
+      return matchesCategory && matchesSearch;
+    });
+    amenitiesLibraryOptions.innerHTML = filtered.length ? filtered.map(function(option){
+      return '<button type="button" class="amenities-library-option' + (option.input.checked ? ' selected' : '') + '" data-amenity-key="' + option.key + '" aria-pressed="' + (option.input.checked ? 'true' : 'false') + '">' + option.icon + '<span>' + escapeHtml(option.label) + '</span></button>';
+    }).join('') : '<p class="amenities-library-empty">No amenities match this search.</p>';
+    amenitiesLibraryOptions.querySelectorAll('[data-amenity-key]').forEach(function(button){
+      button.addEventListener('click', function(){
+        const checkbox = Array.from(amenitiesGrid.querySelectorAll('input[type="checkbox"]')).find(function(input){ return input.value === button.dataset.amenityKey; });
+        if (!checkbox) return;
+        checkbox.checked = !checkbox.checked;
+        checkbox.closest('.amenity-check').classList.toggle('checked', checkbox.checked);
+        syncAmenityLibrarySummary(); renderAmenityLibrary();
+      });
+    });
+    syncAmenityLibrarySummary();
+  }
+  function closeAmenityLibrary(){ amenitiesLibraryOverlay.hidden = true; amenitiesLibraryOpen.focus(); }
+  amenitiesLibraryOpen.addEventListener('click', function(){
+    activeAmenityLibraryCategory = 'All'; amenitiesLibraryOverlay.hidden = false; renderAmenityLibrary(); amenitiesLibrarySearch.focus();
+  });
+  amenitiesLibrarySearch.addEventListener('input', renderAmenityLibrary);
+  amenitiesLibraryDone.addEventListener('click', closeAmenityLibrary);
+  amenitiesLibraryOverlay.addEventListener('click', function(event){ if (event.target === amenitiesLibraryOverlay) closeAmenityLibrary(); });
+  document.addEventListener('keydown', function(event){ if (event.key === 'Escape' && !amenitiesLibraryOverlay.hidden) closeAmenityLibrary(); });
   function renderAmenities(category){
     let choices = AMENITY_OPTIONS;
     if (category === 'hotel') choices = HOTEL_AMENITY_OPTIONS;
@@ -2038,10 +2229,18 @@
     '</label>';
     }).join('');
 
+    const useLibrary = isAmenityLibraryNiche(category);
+    amenitiesGrid.classList.toggle('library-state-store', useLibrary);
+    amenitiesLibraryOpen.hidden = !useLibrary;
+    amenitiesLibrarySummary.hidden = !useLibrary;
+    amenitiesLibrarySearch.value = '';
+    activeAmenityLibraryCategory = 'All';
+
     amenitiesGrid.querySelectorAll('.amenity-check').forEach(function(row){
       const cb = row.querySelector('input');
-      cb.addEventListener('change', function(){ row.classList.toggle('checked', cb.checked); });
+      cb.addEventListener('change', function(){ row.classList.toggle('checked', cb.checked); syncAmenityLibrarySummary(); });
     });
+    syncAmenityLibrarySummary();
   }
 
   hotelOfferMode.querySelectorAll('[data-hotel-mode]').forEach(function(button){
@@ -2071,6 +2270,19 @@
   }
 
   function validateStep(n){
+    if (n === 2 && isOfficeShop(hostNiche)) {
+      const areaParts = splitListingArea(fieldValue('location-text'));
+      if (!areaParts.neighborhood || !areaParts.city) {
+        const areaInput = document.getElementById('location-text');
+        if (areaInput) {
+          areaInput.setCustomValidity('Enter the neighbourhood and city separated by a comma, for example Westlands, Nairobi.');
+          areaInput.reportValidity();
+          areaInput.addEventListener('input', function clearAreaValidity(){ areaInput.setCustomValidity(''); areaInput.removeEventListener('input', clearAreaValidity); }, { once:true });
+          areaInput.focus();
+        }
+        return false;
+      }
+    }
     if (n === 1 && isOfficeShop(hostNiche) && !officeShopTypeSelected) {
       const firstOption = officeShopType.querySelector('[data-office-shop-type]');
       if (firstOption) firstOption.focus();
@@ -2718,15 +2930,18 @@
     submitBtn.disabled = true;
     submitBtn.textContent = editMode ? 'Saving changes...' : 'Publishing...';
 
+    const areaParts = splitListingArea(generalLocation);
     const listingPayload = {
       title, description: caption, property_description: propertyDescription,
       location_text: generalLocation,
     };
+    if (areaParts.neighborhood) listingPayload.neighborhood = areaParts.neighborhood;
+    if (areaParts.city) listingPayload.city = areaParts.city;
     if (isOfficeShop(category)) {
-      listingPayload.city = osValue('os-city');
-      listingPayload.neighborhood = osValue('os-neighborhood');
       listingPayload.country = 'Kenya';
-      listingPayload.address_visibility = osValue('os-address-visibility');
+      // Keep the current server and booking flow compatible while sharing only
+      // the general area on this card. Exact unit details remain private.
+      listingPayload.address_visibility = 'after_inquiry';
     }
     const existingSubmissionListingId = editMode ? editListingId : preparedPaymentListingId;
     if (!existingSubmissionListingId) listingPayload.category = category;
