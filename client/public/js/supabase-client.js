@@ -40,11 +40,12 @@
 
       storage.getPublicUrl = function (path) {
         var isNewR2Key = typeof path === 'string' && path.indexOf('photos/') === 0;
+        var isListingPhoto = bucket === 'listing-photos';
         var migratedPrefix = migratedKeyPrefixes[bucket];
         var isMigratedR2Key = typeof path === 'string'
           && migratedPrefix
           && path.indexOf(migratedPrefix) === 0;
-        if (isNewR2Key || isMigratedR2Key) {
+        if (isListingPhoto || isNewR2Key || isMigratedR2Key) {
           return { data: { publicUrl: '/api/photos/' + encodeURIComponent(bucket) + '/' + path.split('/').map(encodeURIComponent).join('/') } };
         }
         return originalGetPublicUrl(path);
@@ -62,10 +63,12 @@
           var token = sessionResult.data && sessionResult.data.session && sessionResult.data.session.access_token;
           if (!token) throw new Error('Authentication is required to upload photos.');
           var filename = file.name || (_path && String(_path).split('/').pop()) || 'photo.jpg';
+          var pathParts = typeof _path === 'string' ? _path.split('/') : [];
+          var listingId = bucket === 'listing-photos' && pathParts.length >= 3 ? pathParts[1] : null;
           var initResponse = await fetch('/api/photos/upload-init', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-            body: JSON.stringify({ category: bucket, filename: filename, mimeType: file.type, fileSize: file.size })
+            body: JSON.stringify({ category: bucket, filename: filename, mimeType: file.type, fileSize: file.size, ...(listingId ? { listingId: listingId } : {}) })
           });
           var init = await initResponse.json().catch(function () { return {}; });
           if (!initResponse.ok) throw new Error(init.error || 'Unable to prepare photo upload.');
@@ -74,7 +77,7 @@
           var completeResponse = await fetch('/api/photos/upload-complete', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-            body: JSON.stringify({ category: bucket, key: init.key })
+            body: JSON.stringify({ category: bucket, key: init.key, ...(listingId ? { listingId: listingId } : {}) })
           });
           var complete = await completeResponse.json().catch(function () { return {}; });
           if (!completeResponse.ok) throw new Error(complete.error || 'Unable to finalize photo upload.');

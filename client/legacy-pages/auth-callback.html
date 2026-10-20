@@ -98,11 +98,58 @@
     }
 
     const postAuthRedirect = getSafeRedirect(requestedRedirect);
+    const isPopupAuth = queryParams.get('auth_popup') === '1';
+    const popupRequestId = queryParams.get('auth_popup_id') || '';
+
+    function notifyPopup(message){
+      if (!isPopupAuth || !popupRequestId) return false;
+      const result = Object.assign({ requestId: popupRequestId }, message);
+      let notified = false;
+
+      if (typeof BroadcastChannel === 'function') {
+        const channel = new BroadcastChannel('varoom-google-auth');
+        channel.postMessage(result);
+        channel.close();
+        notified = true;
+      }
+      if (window.opener) {
+        try {
+          window.opener.postMessage(result, window.location.origin);
+          notified = true;
+        } catch (error) {
+          console.error('Could not return the sign-in result with postMessage.');
+        }
+      }
+      return notified;
+    }
+
+    function finishAuth(destination){
+      if (notifyPopup({
+        type: 'varoom:google-auth-complete',
+        destination: destination
+      })) {
+        window.close();
+        return;
+      }
+      window.location.replace(destination);
+    }
+
+    function failAuth(message){
+      if (notifyPopup({
+        type: 'varoom:google-auth-error',
+        message: message
+      })) {
+        window.close();
+        return;
+      }
+      window.location.replace('/login');
+    }
+
     const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
 
     if (!session) {
       if (sessionError) console.error('Sign-in callback failed to load the session.');
-      window.location.replace('/login');
+      failAuth('Google sign-in did not finish. Please try again.');
       return;
     }
 
@@ -150,12 +197,12 @@
     const authType = hashParams.get('type') || queryParams.get('type') || '';
 
     if (authType === 'recovery') {
-      window.location.replace('/?auth=recovery&step=password');
+      finishAuth('/?auth=recovery&step=password');
       return;
     }
 
     if (user.email === 'varoonhq@gmail.com') {
-      window.location.replace('/varoom-post');
+      finishAuth('/varoom-post');
       return;
     }
 
@@ -167,12 +214,12 @@
 
     if (profileError) {
       console.error('Sign-in callback could not load the profile.');
-      window.location.replace('/login');
+      failAuth('VaRoom could not load your account. Please try again.');
       return;
     }
 
     if (profile && profile.role) {
-      redirectByRole(profile.role, profile.onboarding_completed);
+      finishAuth(getRoleRedirect(profile.role, profile.onboarding_completed));
       return;
     }
 
@@ -180,7 +227,7 @@
     const fullName = user.user_metadata.full_name || user.user_metadata.name || user.email;
 
     if (intendedRole !== 'host' && intendedRole !== 'client') {
-      window.location.replace('/?auth=signup');
+      finishAuth('/?auth=signup');
       return;
     }
 
@@ -190,21 +237,19 @@
 
     if (upsertError) {
       console.error('Sign-in callback could not finish setting up the profile.');
-      window.location.replace('/login');
+      failAuth('VaRoom could not finish setting up your account. Please try again.');
       return;
     }
 
     sessionStorage.removeItem('varoom_intended_role');
-    redirectByRole(intendedRole, false);
+    finishAuth(getRoleRedirect(intendedRole, false));
 
-    function redirectByRole(role, onboardingCompleted){
+    function getRoleRedirect(role, onboardingCompleted){
       if (!onboardingCompleted) {
-        window.location.replace('/onboarding' + (postAuthRedirect ? '?redirect=' + encodeURIComponent(postAuthRedirect) : ''));
-      } else if (postAuthRedirect) {
-        window.location.replace(postAuthRedirect);
-      } else {
-        window.location.replace(role === 'host' ? '/host-home' : '/client-home');
+        return '/onboarding' + (postAuthRedirect ? '?redirect=' + encodeURIComponent(postAuthRedirect) : '');
       }
+      if (postAuthRedirect) return postAuthRedirect;
+      return role === 'host' ? '/host-home' : '/client-home';
     }
   })();
 </script>

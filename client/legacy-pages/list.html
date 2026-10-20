@@ -256,6 +256,20 @@
   @media(max-width:680px){ .amenities-library-overlay{ align-items:flex-end; } .amenities-library-dialog{ max-height:min(82%,560px); } }
   @media(max-width:390px){ .amenities-library-options{ grid-template-columns:1fr; } }
   @media (min-width:520px){ .amenities-grid{ grid-template-columns:repeat(3, 1fr); } }
+  .office-shop-section{ display:none; margin-top:1rem; }
+  .office-shop-section.active{ display:block; }
+  .office-shop-section .section-heading{ font-family:var(--font-display); font-size:1.15rem; margin:1.2rem 0 .45rem; }
+  .office-shop-section .section-help{ font-size:.8rem; line-height:1.45; margin:-.1rem 0 .7rem; opacity:.78; }
+  .office-shop-section .field-row{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.7rem; }
+  .office-shop-section .option-grid{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.45rem .7rem; }
+  .office-shop-section .option-grid label{ display:flex; align-items:center; gap:.42rem; font-size:.82rem; cursor:pointer; }
+  .office-shop-section .conditional[hidden]{ display:none; }
+  .office-shop-type{ display:none; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.65rem; margin-bottom:1rem; }
+  .office-shop-type.active{ display:grid; }
+  .office-shop-type button{ border:1px solid rgba(255,255,255,.3); border-radius:10px; padding:.7rem; background:transparent; color:inherit; text-align:left; cursor:pointer; }
+  .office-shop-type button.selected{ border-color:var(--red); background:rgba(170,41,41,.15); }
+  .office-shop-type button small{ display:block; margin-top:.18rem; opacity:.74; }
+  @media (max-width:520px){ .office-shop-section .field-row,.office-shop-section .option-grid{ grid-template-columns:1fr; } }
   .amenity-check{
     display:flex; align-items:center; gap:.5rem; padding:.55rem .6rem; border-radius:10px;
     border:1px solid var(--wz-dark-border); cursor:pointer; font-size:.82rem; transition:border-color .2s ease, background .2s ease;
@@ -573,7 +587,7 @@
 </head>
 <body>
 
-<div class="checking-msg" id="checking-auth">Checking your account...</div>
+<div class="checking-msg" id="checking-auth" aria-live="polite">Checking your account...</div>
 
 <div class="wizard" id="listing-page" style="display:none;">
   <aside class="wizard-sidebar" aria-label="Listing navigation">
@@ -688,6 +702,7 @@
               <label for="location-text" id="location-label">neighbourhood, city</label>
               <input type="text" id="location-text" name="location_text" required minlength="3" autocomplete="address-level2" placeholder="eg Westlands, Nairobi">
             </div>
+            <div class="office-shop-section" id="office-shop-location-fields"></div>
           </div>
 
           <div class="panel-actions">
@@ -735,6 +750,7 @@
               <p class="amenities-library-summary" id="amenities-library-summary" aria-live="polite">No amenities selected yet.</p>
               <div class="amenities-grid" id="amenities-grid"></div>
             </div>
+            <div class="office-shop-section" id="office-shop-media-fields"></div>
 
             <!-- PROPERTY-ONLY: policy / brochure document upload link. Hidden for other categories. -->
             <div class="field property-policy-section" id="property-policy-section" hidden>
@@ -807,6 +823,7 @@
           </div>
 
           <div class="step-fields">
+            <div class="office-shop-section" id="office-shop-pricing-fields"></div>
             <div class="field field-row" id="stay-price-field">
               <div class="field">
                 <label for="price-amount">Price (KES)</label>
@@ -978,6 +995,12 @@
               <li id="review-policy-line" hidden><span class="check">✓</span> Property policy document attached</li>
               <li id="review-pricing-line"><span class="check">✓</span> Pricing and booking terms set</li>
             </ul>
+            <div class="office-shop-section" id="office-shop-review-fields">
+              <h3 class="section-heading">Commercial listing summary</h3>
+              <p class="section-help" id="office-shop-review-summary"></p>
+              <label><input type="checkbox" id="os-accuracy-confirmed"> Availability and pricing are accurate today</label>
+              <p class="section-help">VaRoom records the confirmation date when you publish.</p>
+            </div>
           </div>
 
           <div class="submit-row">
@@ -1024,9 +1047,9 @@
 <script>
   (function(){
     const params = new URLSearchParams(window.location.search);
-    if (params.get('payment') === 'return' && window.opener && window.opener !== window) {
-      try { window.opener.postMessage({ type: 'varoom-listing-payment-return', reference: params.get('reference') }, window.location.origin); } catch (_) {}
-      if (!window.opener.closed) window.close();
+    if (params.get('payment') === 'return') {
+      const checking = document.getElementById('checking-auth');
+      if (checking) checking.textContent = 'Confirming your payment...';
     }
   })();
 </script>
@@ -1036,6 +1059,9 @@
 <script>
   const checkingAuth = document.getElementById('checking-auth');
   const listingPage = document.getElementById('listing-page');
+  const listingReturnParams = new URLSearchParams(window.location.search);
+  const listingPaymentReturnMode = listingReturnParams.get('payment');
+  const listingPaymentReturnReference = listingReturnParams.get('reference') || listingReturnParams.get('trxref');
   let currentUser = null;
   let hostNiche = null;
   const editListingId = new URLSearchParams(window.location.search).get('edit');
@@ -1045,9 +1071,11 @@
   let preparedPaymentListingId = null;
   let listingPaymentVerified = false;
   let returnedListingPaymentVerified = false;
+  let returnedListingPaymentMessage = null;
   let hasCurrentListingFee = false;
   let nicheEntitlementChecked = false;
   let listingIsPaused = false;
+  let listingNeedsPublication = false;
   let hasActiveNichePlan = false;
   const listingDraftCache = window.VaRoomListingDraftCache.createListingDraftCache();
   const LISTING_DRAFT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -1168,6 +1196,31 @@
     return listingId;
   }
 
+  async function verifyReturnedListingPayment(accessToken){
+    if (!listingPaymentReturnReference || !['return', 'verified'].includes(listingPaymentReturnMode)) return null;
+
+    const attempts = listingPaymentReturnMode === 'return' ? 30 : 1;
+    let payment = null;
+    for (let attempt = 0; attempt < attempts; attempt++) {
+      try {
+        const response = await fetch('/api/billing/payments/' + encodeURIComponent(listingPaymentReturnReference), {
+          headers: { Authorization: 'Bearer ' + accessToken },
+        });
+        const result = await response.json().catch(function(){ return {}; });
+        if (response.status === 401 || response.status === 403) throw new Error('Your session expired. Sign in again to check this payment.');
+        if (response.ok) payment = result.payment || null;
+      } catch (error) {
+        if (attempt === attempts - 1) throw error;
+      }
+
+      if (payment && payment.status === 'succeeded'
+          && payment.payment_kind === 'listing' && payment.listing_id) return payment;
+      if (payment && ['failed', 'abandoned', 'refunded'].includes(payment.status)) return payment;
+      if (attempt < attempts - 1) await new Promise(function(resolve){ setTimeout(resolve, 2000); });
+    }
+    return payment;
+  }
+
   function showPublishError(error){
     const message = document.getElementById('success-msg');
     const messageInner = document.getElementById('success-msg-inner');
@@ -1211,6 +1264,9 @@
     setFieldValue('caption', editListing.description);
     setFieldValue('property-description', editListing.property_description);
     setFieldValue('location-text', editListing.location_text);
+    setFieldValue('os-city', editListing.city);
+    setFieldValue('os-neighborhood', editListing.neighborhood);
+    setFieldValue('os-address-visibility', editListing.address_visibility);
 
     const details = editBookingDetails || {};
     setFieldValue('price-amount', details.price_amount);
@@ -1238,6 +1294,7 @@
         checkbox.closest('.amenity-check').classList.add('checked');
       }
     });
+    if (isOfficeShop(hostNiche)) hydrateOfficeShopDetails(details.office_shop_details || {});
 
     if (hostNiche === 'property') {
       const purpose = editListing.listing_purpose
@@ -1303,13 +1360,14 @@
     const labels = { airbnb: 'Airbnb', hotel: 'Hotel', venue: 'Event ground / venue', office: 'Office', shop: 'Shop', property: 'Property to let or buy' };
     if (editMode) {
       const { data: listing, error: listingError } = await supabaseClient.from('listings')
-        .select('id,host_id,category,availability_status,paid_listing_until').eq('id', editListingId).eq('host_id', currentUser.id).maybeSingle();
+        .select('id,host_id,category,availability_status,publication_state,paid_listing_until').eq('id', editListingId).eq('host_id', currentUser.id).maybeSingle();
       if (listingError || !listing || !Object.prototype.hasOwnProperty.call(labels, listing.category)) {
         checkingAuth.textContent = listingError ? 'Unable to load this listing. Please try again.' : 'This listing could not be found or is not yours to edit.';
         return;
       }
       hostNiche = listing.category;
       listingIsPaused = listing.availability_status === 'paused';
+      listingNeedsPublication = listing.publication_state !== 'published';
       hasCurrentListingFee = Boolean(listing.paid_listing_until && new Date(listing.paid_listing_until).getTime() > Date.now());
     } else {
       const hostNiches = Array.isArray(profile.listing_categories) ? profile.listing_categories : [];
@@ -1321,30 +1379,30 @@
       hostNiche = hostNiches[0];
     }
 
-    const returnedListingPayment = new URLSearchParams(window.location.search);
-    if (returnedListingPayment.get('payment') === 'verified') {
-      const reference = returnedListingPayment.get('reference');
-      if (reference) {
-        try {
-          const paymentResponse = await fetch('/api/billing/payments/' + encodeURIComponent(reference), {
-            headers: { Authorization: 'Bearer ' + session.access_token },
-          });
-          const paymentResult = await paymentResponse.json().catch(function(){ return {}; });
-          const payment = paymentResult.payment;
-          if (paymentResponse.ok && payment && payment.status === 'succeeded'
-              && payment.payment_kind === 'listing' && payment.listing_id) {
-            // A payment query parameter alone grants nothing. This state is
-            // set only after the server verifies the Paystack transaction.
-            listingPaymentVerified = true;
-            returnedListingPaymentVerified = true;
-            hasCurrentListingFee = true;
-            preparedPaymentListingId = payment.listing_id;
-          } else if (payment && ['failed', 'abandoned', 'refunded'].includes(payment.status)) {
-            showPaymentMessage('Payment was not completed. Your listing has not been published; you can retry checkout.', true);
-          }
-        } catch (error) {
-          console.warn('Listing payment return verification is temporarily unavailable:', error);
+    if (listingPaymentReturnReference && ['return', 'verified'].includes(listingPaymentReturnMode)) {
+      checkingAuth.textContent = 'Confirming your payment...';
+      try {
+        const payment = await verifyReturnedListingPayment(session.access_token);
+        if (payment && payment.status === 'succeeded'
+            && payment.payment_kind === 'listing' && payment.listing_id) {
+          // A callback query parameter cannot unlock publication. This state is
+          // set only after the authenticated server verifies the transaction.
+          listingPaymentVerified = true;
+          returnedListingPaymentVerified = true;
+          hasCurrentListingFee = true;
+          preparedPaymentListingId = payment.listing_id;
+          const verifiedParams = new URLSearchParams(window.location.search);
+          verifiedParams.set('payment', 'verified');
+          verifiedParams.set('reference', listingPaymentReturnReference);
+          window.history.replaceState({}, '', '/list?' + verifiedParams.toString());
+        } else if (payment && ['failed', 'abandoned', 'refunded'].includes(payment.status)) {
+          returnedListingPaymentMessage = 'Payment was not completed. Your listing has not been published; you can retry checkout.';
+        } else {
+          returnedListingPaymentMessage = 'Payment is still being verified. Your listing has not been published; your saved draft is preserved. Return to this page shortly to check again.';
         }
+      } catch (error) {
+        console.warn('Listing payment return verification is temporarily unavailable:', error);
+        returnedListingPaymentMessage = error.message || 'Unable to confirm this payment yet. Your saved draft is preserved.';
       }
     }
 
@@ -1370,7 +1428,7 @@
       const pointer = getListingDraftPointer(currentUser.id);
       if (pointer && pointer.category === hostNiche) {
         listingDraftCacheKey = pointer.cacheKey;
-        preparedPaymentListingId = pointer.listingId || null;
+        preparedPaymentListingId = preparedPaymentListingId || pointer.listingId || null;
       }
     }
     configureCategory(hostNiche);
@@ -1403,35 +1461,8 @@
     listingPage.style.display = 'block';
     if (returnedListingPaymentVerified) {
       showPaymentMessage('Payment confirmed. Review your listing, then select Publish Listing when you are ready.', false);
-    }
-    const paymentReturnParams = new URLSearchParams(window.location.search);
-    if (paymentReturnParams.get('payment') === 'return' && (!window.opener || window.opener.closed)) {
-      const reference = paymentReturnParams.get('reference');
-      if (reference) {
-        let payment = null;
-        for (let attempt = 0; attempt < 30; attempt++) {
-          try {
-            const paymentResponse = await fetch('/api/billing/payments/' + encodeURIComponent(reference), {
-              headers: { Authorization: 'Bearer ' + session.access_token },
-            });
-            const paymentResult = await paymentResponse.json().catch(function(){ return {}; });
-            if (paymentResponse.ok) payment = paymentResult.payment || null;
-          } catch (error) {
-            console.warn('Listing payment return verification is temporarily unavailable:', error);
-          }
-          if (payment && payment.status === 'succeeded' && payment.listing_id) {
-            window.location.replace('/list?payment=verified&reference=' + encodeURIComponent(reference));
-            return;
-          }
-          if (payment && ['failed', 'abandoned', 'refunded'].includes(payment.status)) break;
-          if (attempt < 29) await new Promise(function(resolve){ setTimeout(resolve, 2000); });
-        }
-        if (payment && ['failed', 'abandoned', 'refunded'].includes(payment.status)) {
-          showPaymentMessage('Payment was not completed. Your listing has not been published; your saved draft is preserved and you can retry checkout.', true);
-        } else {
-          showPaymentMessage('Payment is still being verified. Your listing has not been published; your saved draft is preserved. You can return to this page to check again.', false);
-        }
-      }
+    } else if (returnedListingPaymentMessage) {
+      showPaymentMessage(returnedListingPaymentMessage, true);
     }
   })();
 
@@ -1935,6 +1966,13 @@
   function unitLabel(){
     const val = priceUnitField.value;
     if (val === 'hour') return ' / hour';
+    if (val === 'day') return ' / day';
+    if (val === 'week') return ' / week';
+    if (val === 'year') return ' / year';
+    if (val === 'sq_ft') return ' / sq ft';
+    if (val === 'm2') return ' / m²';
+    if (val === 'desk') return ' / desk';
+    if (val === 'turnover') return ' / turnover';
     if (val === 'month') return ' / month';
     return ' / night';
   }
@@ -2287,6 +2325,25 @@
         }
       }
     }
+    if (n === 3 && isOfficeShop(hostNiche) && selectedFiles.length === 0 && existingPhotos.length === 0) {
+      showPhotoError('Add at least one photo or video of the actual unit before continuing.');
+      photoDropzone.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return false;
+    }
+    if (n === 4 && isOfficeShop(hostNiche)) {
+      const subtype = osValue('os-subtype');
+      const desks = document.getElementById('os-desks');
+      if (hostNiche === 'office' && ['shared_office','serviced_office','coworking_desk'].includes(subtype) && (!desks || desks.value === '')) {
+        if (desks) { desks.required = true; desks.focus(); desks.reportValidity(); }
+        return false;
+      }
+    }
+    if (n === 5 && isOfficeShop(hostNiche) && !osChecked('os-accuracy-confirmed')) {
+      const accuracy = document.getElementById('os-accuracy-confirmed');
+      if (accuracy) { accuracy.focus(); accuracy.reportValidity(); }
+      alert('Confirm that availability and pricing are accurate today before publishing.');
+      return false;
+    }
     const frame = document.querySelector('.step-frame[data-step="' + n + '"]');
     const required = frame.querySelectorAll('[required]');
     for (const field of required) {
@@ -2390,6 +2447,20 @@
     const category = hostNiche;
     const generalLocation = fieldValue('location-text');
     const amount = fieldValue('price-amount');
+    const isCommercial = isOfficeShop(category);
+    if (officeShopReviewFields) {
+      officeShopReviewFields.classList.toggle('active', isCommercial);
+      if (isCommercial) {
+        const commercialAmount = osValue('os-price-amount');
+        const summary = document.getElementById('office-shop-review-summary');
+        if (summary) summary.textContent = [
+          osValue('os-subtype').replace(/_/g, ' '),
+          osValue('os-area') ? osValue('os-area') + ' ' + osValue('os-area-unit').replace('_', ' ') : '',
+          commercialAmount ? 'KSh ' + Number(commercialAmount).toLocaleString() + unitLabel() : 'Price not provided',
+          osValue('os-available-from') ? 'Available ' + osValue('os-available-from') : ''
+        ].filter(Boolean).join(' · ');
+      }
+    }
 
     const reviewTitle = document.getElementById('review-title');
     const reviewMeta = document.getElementById('review-meta');
@@ -2441,6 +2512,12 @@
 
     const amenitiesLine = document.getElementById('review-amenities-line');
     if (amenitiesLine) {
+      if (isCommercial) {
+        const chosen = Object.keys(collectOfficeShopDetails().amenities).filter(function(key){ return collectOfficeShopDetails().amenities[key]; });
+        amenitiesLine.innerHTML = chosen.length
+          ? '<span class="check">✓</span> Commercial amenities selected'
+          : '<span class="check" style="color:#C9BDB8">○</span> No commercial amenities selected';
+      } else {
       let choices = AMENITY_OPTIONS;
       let labelPrefix = 'Amenities: ';
       if (category === 'hotel') { choices = HOTEL_AMENITY_OPTIONS; labelPrefix = 'Hotel amenities: '; }
@@ -2451,6 +2528,7 @@
       amenitiesLine.innerHTML = amenityLabels.length
         ? '<span class="check">✓</span> ' + labelPrefix + amenityLabels.join(' · ')
         : '<span class="check" style="color:var(--red)">!</span> ' + (category === 'hotel' ? 'Select room or hotel amenities' : (category === 'property' ? 'Select property amenities' : 'Select amenities'));
+      }
     }
 
     const policyLine = document.getElementById('review-policy-line');
@@ -2828,7 +2906,7 @@
 
     // Final guard: revalidate every step, in case someone reached step 5
     // via the tracker without the normal Next-button checks.
-    for (let s = 1; s <= 4; s++) {
+    for (let s = 1; s <= 5; s++) {
       if (!validateStep(s)) { goToStep(s); return; }
     }
 
@@ -2906,7 +2984,17 @@
       amenities: getSelectedAmenities()
     };
 
-    if (category === 'property') {
+    if (isOfficeShop(category)) {
+      const officeShopDetails = await uploadOfficeShopMedia(listingId, collectOfficeShopDetails());
+      bookingDetails.office_shop_details = officeShopDetails;
+      bookingDetails.office_shop_accuracy_confirmed = osChecked('os-accuracy-confirmed');
+      bookingDetails.price_amount = officeShopDetails.pricing.amount;
+      bookingDetails.price_unit = officeShopPriceUnit(officeShopDetails);
+      bookingDetails.size_or_type = officeShopDetails.subtype;
+      bookingDetails.available_from = officeShopDetails.lease.available_from;
+      bookingDetails.min_lease_months = officeShopDetails.pricing.basis === 'daily_weekly_hourly' ? null : officeShopDetails.lease.minimum_term;
+      bookingDetails.amenities = Object.keys(officeShopDetails.amenities).filter(function(key){ return officeShopDetails.amenities[key]; });
+    } else if (category === 'property') {
       const unitsVal = fieldValue('property-units-available');
       if (unitsVal || editMode) bookingDetails.units_available = unitsVal ? parseInt(unitsVal, 10) : null;
       bookingDetails.available_from = fieldValue('available-from') || null;
@@ -2976,6 +3064,16 @@
         });
         const detailResult = await detailResponse.json().catch(function(){ return {}; });
         if (!detailResponse.ok) throw new Error(detailResult.error || 'Unable to update booking details');
+      } else if (isOfficeShop(category)) {
+        const detailsPatch = Object.assign({}, bookingDetails);
+        delete detailsPatch.listing_id;
+        const detailResponse = await fetch('/api/listings/' + encodeURIComponent(listingId), {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
+          body: JSON.stringify({ booking_details: detailsPatch })
+        });
+        const detailResult = await detailResponse.json().catch(function(){ return {}; });
+        if (!detailResponse.ok) throw new Error(detailResult.error || 'Unable to save commercial listing details');
       } else {
         const { error: bookingInsertErr } = await supabaseClient.from('listing_booking_details').insert(bookingDetails);
         if (bookingInsertErr) {
@@ -3072,21 +3170,7 @@
     }
 
     if (!editMode && selectedFiles.length > 0 && failedCount > 0) {
-      for (const mediaId of videoMediaIds) {
-        await deleteVideoFromR2(listingId, mediaId);
-      }
-      await supabaseClient.from('listing_photos').delete().eq('listing_id', listingId);
-      await supabaseClient.from('listing_booking_details').delete().eq('listing_id', listingId);
-      if (SHORT_STAY.includes(category) && openDates.size > 0) {
-        await supabaseClient.from('availability').delete().eq('listing_id', listingId);
-      }
-      if (listingPaymentVerified || hasActiveNichePlan || preparedPaymentListingId) {
-        await supabaseClient.from('listings').update({ availability_status: 'paused' }).eq('id', listingId);
-      } else {
-        await supabaseClient.from('listings').delete().eq('id', listingId);
-      }
-
-      successMsgInner.textContent = 'Media upload failed, so the listing was not published. Please try again with the selected files.';
+      successMsgInner.textContent = 'Media upload failed, so the listing was not published. Your private draft and uploaded media are preserved; edit the draft to retry.';
       successMsg.classList.add('show', 'error');
       successMsg.scrollIntoView({ behavior:'smooth', block:'center' });
       submitBtn.disabled = false; submitBtn.textContent = 'Publish listing ✓';
@@ -3096,7 +3180,8 @@
     if (listingPaymentVerified
         || (!editMode && hasActiveNichePlan && ['property', 'shop', 'office'].includes(category))
         || (editMode && listingIsPaused && (hasCurrentListingFee || hasActiveNichePlan))
-        || (editMode && hasActiveNichePlan && !hasCurrentListingFee && ['property', 'shop', 'office'].includes(category))) {
+        || (editMode && hasActiveNichePlan && !hasCurrentListingFee && ['property', 'shop', 'office'].includes(category))
+        || (!['property', 'shop', 'office'].includes(category) && (!editMode || listingNeedsPublication))) {
       const { data: { session: publishSession } } = await supabaseClient.auth.getSession();
       const activateResponse = await fetch('/api/listings/' + encodeURIComponent(listingId) + '/status', {
         method: 'PATCH',
@@ -3173,7 +3258,7 @@
         snapshot = null;
       }
       if (snapshot) {
-        preparedPaymentListingId = snapshot.listingId || pointer.listingId || null;
+        preparedPaymentListingId = preparedPaymentListingId || snapshot.listingId || pointer.listingId || null;
         listingDraftCacheKey = snapshot.cacheKey;
       } else {
         showPaymentMessage('Your saved listing details are unavailable, but the paused listing is preserved. You can continue editing without creating another listing.', true);
@@ -3264,9 +3349,8 @@
       }
       payButton.textContent = 'Opening secure checkout…';
       showPaymentMessage('Opening secure Paystack checkout. Your listing remains a saved draft until payment is verified and you select Publish Listing.', false);
-      // The draft, including selected files, has already been saved above.
-      // Use the main tab so browsers cannot terminate an async popup. Paystack
-      // returns to /list, where VaRoom verifies the reference server-side.
+      // This is a same-tab navigation. The callback returns to this review
+      // page, which verifies the reference before revealing Publish Listing.
       window.location.assign(checkout.authorization_url);
     } catch (error) {
       showPaymentMessage(error.message || 'Unable to start payment. Please try again.', true);
