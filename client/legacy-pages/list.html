@@ -228,6 +228,7 @@
   .amenities-library-open[hidden],.amenities-library-summary[hidden]{ display:none!important; }
   .amenities-library-open:hover{ background:var(--red-deep); transform:translateY(-1px); }
   .amenities-library-summary{ margin:.55rem 0 0; color:#c7c3c3; font-size:.78rem; line-height:1.45; }
+  .amenities-library-summary[hidden]{ display:none!important; }
   .amenities-library-overlay{ position:absolute; inset:0; z-index:5; display:flex; align-items:center; justify-content:center; padding:clamp(.5rem,2vw,1.25rem); background:rgba(0,0,0,.22); }
   .amenities-library-overlay[hidden]{ display:none; }
   .amenities-library-dialog{ display:flex; flex-direction:column; width:min(100%,620px); max-height:min(92%,620px); min-height:0; overflow:hidden; border:1px solid rgba(255,255,255,.35); border-radius:16px; background:rgba(18,18,18,.68); color:#fff; box-shadow:0 18px 55px rgba(0,0,0,.4); backdrop-filter:blur(18px) saturate(135%); -webkit-backdrop-filter:blur(18px) saturate(135%); }
@@ -465,6 +466,54 @@
     .step-frame[data-step="2"] .step-photo-caption{ display:none; }
     .step-tracker{ display:none; }
 
+    /* Match the supplied media-and-amenities card for stay and residential
+       listings. Office/shop cards retain their existing styles and controls. */
+    #listing-page:is([data-listing-niche="airbnb"],[data-listing-niche="hotel"],[data-listing-niche="property"]) .step-frame[data-step="3"] .step-panel{ padding:1.25rem 1.5rem 1.05rem; background:#242424!important; color:#fff; font-family:'Roboto Condensed','Arial Narrow',Arial,sans-serif; }
+    #listing-page:is([data-listing-niche="airbnb"],[data-listing-niche="hotel"],[data-listing-niche="property"]) .step-frame[data-step="3"] .progress-row{ gap:.9rem; margin-bottom:.45rem; }
+    #listing-page:is([data-listing-niche="airbnb"],[data-listing-niche="hotel"],[data-listing-niche="property"]) .step-frame[data-step="3"] .progress-ring{ width:76px; height:76px; --ring-fg:#18b66b; --ring-bg:#a8a8ad; --ring-hole:#242424; }
+    #listing-page:is([data-listing-niche="airbnb"],[data-listing-niche="hotel"],[data-listing-niche="property"]) .step-frame[data-step="3"] .progress-ring::after{ inset:6px; }
+    #listing-page:is([data-listing-niche="airbnb"],[data-listing-niche="hotel"],[data-listing-niche="property"]) .step-frame[data-step="3"] .progress-ring span{ font-size:1rem; }
+    #listing-page:is([data-listing-niche="airbnb"],[data-listing-niche="hotel"],[data-listing-niche="property"]) .step-frame[data-step="3"] .progress-text{ color:#fff!important; font-size:1rem; line-height:1.6; font-weight:600; }
+    #listing-page:is([data-listing-niche="airbnb"],[data-listing-niche="hotel"],[data-listing-niche="property"]) .step-frame[data-step="3"] .step-eyebrow{ display:none; }
+    #listing-page:is([data-listing-niche="airbnb"],[data-listing-niche="hotel"],[data-listing-niche="property"]) .step-frame[data-step="3"] .step-title{ margin-bottom:.15rem; font-size:clamp(1.55rem,2.2vw,2rem); }
+    #listing-page:is([data-listing-niche="airbnb"],[data-listing-niche="hotel"],[data-listing-niche="property"]) .step-frame[data-step="3"] .step-sub{ margin:0 0 .55rem; padding-left:.4rem; color:#d0d0d0!important; font-size:.84rem; line-height:1.35; }
+    #listing-page:is([data-listing-niche="airbnb"],[data-listing-niche="hotel"],[data-listing-niche="property"]) .step-frame[data-step="3"] .step-fields{ overflow:auto; }
+    #listing-page:is([data-listing-niche="airbnb"],[data-listing-niche="hotel"],[data-listing-niche="property"]) .step-frame[data-step="3"] .field{ margin-bottom:.55rem; }
+    #listing-page:is([data-listing-niche="airbnb"],[data-listing-niche="hotel"],[data-listing-niche="property"]) .step-frame[data-step="3"] .photo-hint,
+    #listing-page:is([data-listing-niche="airbnb"],[data-listing-niche="hotel"],[data-listing-niche="property"]) .step-frame[data-step="3"] .amenities-hint{ margin-bottom:.45rem; color:#d0d0d0; font-size:.76rem; line-height:1.3; }
+    #listing-page:is([data-listing-niche="airbnb"],[data-listing-niche="hotel"],[data-listing-niche="property"]) .step-frame[data-step="3"] .photo-dropzone{ padding:.95rem .8rem; border:1.5px dashed rgba(255,255,255,.72); border-radius:12px; color:#f1f1f1; font-size:.86rem; }
+    #listing-page:is([data-listing-niche="airbnb"],[data-listing-niche="hotel"],[data-listing-niche="property"]) .step-frame[data-step="3"] #amenities-field{ margin-top:.5rem!important; }
+    #listing-page:is([data-listing-niche="airbnb"],[data-listing-niche="hotel"],[data-listing-niche="property"]) .step-frame[data-step="3"] #amenities-label{ display:block; margin-bottom:.25rem; font-size:.95rem; }
+    #listing-page:is([data-listing-niche="airbnb"],[data-listing-niche="hotel"],[data-listing-niche="property"]) .step-frame[data-step="3"] .amenities-library-open{ display:flex; width:max-content; min-width:10.5rem; min-height:3.6rem; margin:.7rem auto .4rem; padding:.7rem 1rem; border:1px solid rgba(255,255,255,.72); border-radius:12px; background:#ff343c; color:#fff; font-size:.95rem; }
+    #listing-page:is([data-listing-niche="airbnb"],[data-listing-niche="hotel"],[data-listing-niche="property"]) .step-frame[data-step="3"] .amenities-library-open:hover{ background:#e9232e; }
+    #listing-page:is([data-listing-niche="airbnb"],[data-listing-niche="hotel"],[data-listing-niche="property"]) .step-frame[data-step="3"] .amenities-library-summary{ margin:.2rem 0 0; color:#d0d0d0; font-size:.76rem; }
+    #listing-page[data-listing-niche="property"] .step-frame[data-step="3"] .property-policy-section{ margin:.85rem 0 0; }
+    #listing-page[data-listing-niche="property"] .step-frame[data-step="3"] .policy-upload-link{ display:flex; width:100%; min-height:5.3rem; justify-content:center; padding:1rem; border:1.5px dashed rgba(255,255,255,.58); border-radius:12px; color:#fff; font-size:.9rem; }
+    #listing-page[data-listing-niche="property"] .step-frame[data-step="3"] .policy-upload-link:hover{ border-color:#fff; }
+    #listing-page[data-listing-niche="property"] .step-frame[data-step="3"] .policy-upload-link svg{ width:28px; height:28px; }
+    #listing-page:is([data-listing-niche="airbnb"],[data-listing-niche="hotel"],[data-listing-niche="property"]) .step-frame[data-step="3"] .panel-actions{ padding-top:.45rem; }
+    #listing-page:is([data-listing-niche="airbnb"],[data-listing-niche="hotel"],[data-listing-niche="property"]) .step-frame[data-step="3"] .step-btn{ font-size:.9rem; }
+    #listing-page:is([data-listing-niche="airbnb"],[data-listing-niche="hotel"],[data-listing-niche="property"]) .step-frame[data-step="3"] .step-btn.next{ background:#d10e09; }
+    #listing-page:is([data-listing-niche="airbnb"],[data-listing-niche="hotel"],[data-listing-niche="property"]) .step-frame[data-step="3"] .step-btn.next:hover{ background:#b90b08; }
+    #listing-page:is([data-listing-niche="airbnb"],[data-listing-niche="hotel"],[data-listing-niche="property"]) .step-frame[data-step="3"] .step-photo{ min-height:0; background-position:center; }
+    #listing-page:is([data-listing-niche="airbnb"],[data-listing-niche="hotel"],[data-listing-niche="property"]) .step-frame[data-step="3"] .step-photo::after,
+    #listing-page:is([data-listing-niche="airbnb"],[data-listing-niche="hotel"],[data-listing-niche="property"]) .step-frame[data-step="3"] .step-photo-badge,
+    #listing-page:is([data-listing-niche="airbnb"],[data-listing-niche="hotel"],[data-listing-niche="property"]) .step-frame[data-step="3"] .step-photo-caption{ display:none; }
+    #listing-page:is([data-listing-niche="airbnb"],[data-listing-niche="hotel"],[data-listing-niche="property"]) .step-frame[data-step="3"] .amenities-library-overlay{ background:rgba(0,0,0,.18); }
+    #listing-page:is([data-listing-niche="airbnb"],[data-listing-niche="hotel"],[data-listing-niche="property"]) .step-frame[data-step="3"] .amenities-library-dialog{ width:88%; max-height:68%; border-color:rgba(255,255,255,.46); border-radius:10px; background:rgba(31,31,31,.36); backdrop-filter:blur(12px) saturate(125%); -webkit-backdrop-filter:blur(12px) saturate(125%); }
+    #listing-page:is([data-listing-niche="airbnb"],[data-listing-niche="hotel"],[data-listing-niche="property"]) .step-frame[data-step="3"] .amenities-library-header{ padding:.45rem .55rem .2rem; }
+    #listing-page:is([data-listing-niche="airbnb"],[data-listing-niche="hotel"],[data-listing-niche="property"]) .step-frame[data-step="3"] .amenities-library-title-row{ display:none; }
+    #listing-page:is([data-listing-niche="airbnb"],[data-listing-niche="hotel"],[data-listing-niche="property"]) .step-frame[data-step="3"] .amenities-library-search{ min-height:2rem; padding:0 .45rem; border:0; border-bottom:1px solid rgba(255,255,255,.7); border-radius:0; background:transparent; }
+    #listing-page:is([data-listing-niche="airbnb"],[data-listing-niche="hotel"],[data-listing-niche="property"]) .step-frame[data-step="3"] .amenities-library-search input{ font-size:.78rem; font-weight:600; }
+    #listing-page:is([data-listing-niche="airbnb"],[data-listing-niche="hotel"],[data-listing-niche="property"]) .step-frame[data-step="3"] .amenities-library-categories{ gap:.25rem; padding:.35rem .55rem .2rem; }
+    #listing-page:is([data-listing-niche="airbnb"],[data-listing-niche="hotel"],[data-listing-niche="property"]) .step-frame[data-step="3"] .amenities-library-category{ padding:.25rem .45rem; font-size:.62rem; }
+    #listing-page:is([data-listing-niche="airbnb"],[data-listing-niche="hotel"],[data-listing-niche="property"]) .step-frame[data-step="3"] .amenities-library-options{ grid-template-columns:repeat(3,minmax(0,1fr)); gap:.35rem; padding:.35rem .55rem .55rem; }
+    #listing-page:is([data-listing-niche="airbnb"],[data-listing-niche="hotel"],[data-listing-niche="property"]) .step-frame[data-step="3"] .amenities-library-option{ justify-content:center; min-height:2.1rem; gap:.25rem; padding:.35rem .3rem; border-radius:8px; font-size:.68rem; }
+    #listing-page:is([data-listing-niche="airbnb"],[data-listing-niche="hotel"],[data-listing-niche="property"]) .step-frame[data-step="3"] .amenities-library-option.selected{ padding:calc(.35rem - 1px) calc(.3rem - 1px); }
+    #listing-page:is([data-listing-niche="airbnb"],[data-listing-niche="hotel"],[data-listing-niche="property"]) .step-frame[data-step="3"] .amenities-library-option svg{ width:15px; height:15px; }
+    #listing-page:is([data-listing-niche="airbnb"],[data-listing-niche="hotel"],[data-listing-niche="property"]) .step-frame[data-step="3"] .amenities-library-footer{ justify-content:center; padding:.3rem .5rem .45rem; border:0; }
+    #listing-page:is([data-listing-niche="airbnb"],[data-listing-niche="hotel"],[data-listing-niche="property"]) .step-frame[data-step="3"] .amenities-library-done{ min-height:2.35rem; padding:.45rem 1rem; background:#050505; color:#20e66e; }
+
     /* Compact the denser steps without changing their fields or controls. */
     .location-help{ font-size:.74rem; }
     .photo-hint, .amenities-hint{ font-size:.7rem; margin-bottom:.5rem; }
@@ -499,6 +548,12 @@
     .step-frame.active{ grid-template-columns:1fr; }
     .step-photo{ min-height:200px; order:-1; }
     .step-tracker{ display:none; }
+    #listing-page:is([data-listing-niche="airbnb"],[data-listing-niche="hotel"],[data-listing-niche="property"]) .step-frame[data-step="3"] .step-panel{ background:#242424!important; color:#fff; font-family:'Roboto Condensed','Arial Narrow',Arial,sans-serif; }
+    #listing-page:is([data-listing-niche="airbnb"],[data-listing-niche="hotel"],[data-listing-niche="property"]) .step-frame[data-step="3"] .progress-ring{ --ring-fg:#18b66b; --ring-bg:#a8a8ad; --ring-hole:#242424; }
+    #listing-page:is([data-listing-niche="airbnb"],[data-listing-niche="hotel"],[data-listing-niche="property"]) .step-frame[data-step="3"] .amenities-library-open{ width:max-content; min-height:3.2rem; margin:.6rem auto .35rem; background:#ff343c; color:#fff; }
+    #listing-page:is([data-listing-niche="airbnb"],[data-listing-niche="hotel"],[data-listing-niche="property"]) .step-frame[data-step="3"] .step-btn.next{ background:#d10e09; }
+    #listing-page[data-listing-niche="property"] .step-frame[data-step="3"] .policy-upload-link{ display:flex; min-height:4.5rem; justify-content:center; padding:.8rem; border:1.5px dashed rgba(255,255,255,.58); border-radius:12px; color:#fff; }
+    #listing-page:is([data-listing-niche="airbnb"],[data-listing-niche="hotel"],[data-listing-niche="property"]) .step-frame[data-step="3"] .amenities-library-dialog{ width:92%; max-height:78%; }
     /* Mobile review is a visual final check: give the chosen media the top
        half of the workspace while leaving the desktop review untouched. */
     .step-frame[data-step="5"].active{ min-height:100dvh; }
@@ -725,16 +780,16 @@
           <div class="panel-brand"><span class="roof"></span> VaRoom</div>
           <div class="progress-row">
             <div class="progress-ring" style="--pct:60"><span>60%</span></div>
-            <div class="progress-text"><span class="step-count">03 / 05</span><br>Arrange the story</div>
+            <div class="progress-text"><span class="step-count">03/05</span><br>media &amp; amenities</div>
           </div>
 
           <p class="step-eyebrow">03 — Photos</p>
-          <h1 class="step-title" id="media-title">Arrange the story.</h1>
-          <p class="step-sub" id="media-sub">Choose a cover, add your best angles, then drag to set the order.</p>
+          <h1 class="step-title" id="media-title">Showcase the property.</h1>
+          <p class="step-sub" id="media-sub">Choose a cover, add angles of the interior, exterior and compound, then drag to set the order.</p>
 
           <div class="step-fields">
             <div class="field">
-              <p class="photo-hint" id="photo-hint">Up to 6 photos or videos · JPG, PNG, WEBP, MP4, MOV or WEBM · 5MB max each. Optional, but listings with visuals get noticed more.</p>
+              <p class="photo-hint" id="photo-hint">Up to 6 photos or video tours · JPG, PNG, WEBP, MP4, MOV or WEBM · 5MB max each.</p>
               <label class="photo-dropzone" id="photo-dropzone" for="photo-input">
                 <span id="dropzone-text">Click to choose photos or videos, or drag them here</span>
                 <input type="file" id="photo-input" accept="image/png,image/jpeg,image/webp,video/mp4,video/quicktime,video/webm" multiple>
@@ -756,7 +811,7 @@
             <div class="field property-policy-section" id="property-policy-section" hidden>
               <button type="button" class="policy-upload-link" id="policy-upload-btn">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
-                Upload property policy document (PDF)
+                Upload your property policy PDF (optional)
               </button>
               <input type="file" id="policy-input" accept="application/pdf,.pdf" style="display:none">
               <div class="policy-file-name" id="policy-file-name">
@@ -1789,7 +1844,7 @@
     setText('location-sub', 'Tell us the neighbourhood, town, or area your property is in. Help guests discover your space in a location that suits their plans. You can add the exact location later.');
     setText('location-label', 'neighbourhood, city');
     document.getElementById('location-text').placeholder = 'eg Westlands, Nairobi';
-    setText('media-title', 'Show the stay, room to lobby.');
+    setText('media-title', 'Showcase the stay.');
     setText('media-sub', 'Lead with the guest room, then include the bathroom, lobby, dining, and standout hotel facilities.');
     setText('photo-hint', 'Up to 6 room, hotel, or facility photos/videos · JPG, PNG, WEBP, MP4, MOV or WEBM · 5MB max each.');
     setText('amenities-label', 'Room & hotel amenities');
@@ -1814,6 +1869,7 @@
 
     setText('about-eyebrow', '01 — About the property');
     setText('about-sub', 'The right tenant or buyer could be looking for a property just like yours. Create your listing on VaRoom, showcase its potential, and make it easier for the right people to find it.');
+    setText('media-title', 'Showcase the property.');
     setText('title-label', 'Property name');
     document.getElementById('title').placeholder = 'e.g. Karen Villas, Amani Apartments, or Greenview Residences';
     setText('caption-label', 'Summary highlight');
@@ -1909,6 +1965,7 @@
   }
 
   function configureCategory(cat){
+    document.getElementById('listing-page').dataset.listingNiche = cat;
     const listingHeadline = document.getElementById('listing-headline');
     if (listingHeadline) listingHeadline.textContent = listingHeadlines[cat] || "Let's list your first space.";
     sizeLabel.textContent = sizeLabels[cat] || 'Size / Type';
@@ -1937,6 +1994,7 @@
       configurePropertyLanguage();
       applyPropertyPurpose(propertyPurpose);
     }
+    if (cat === 'airbnb') setText('media-title', 'Showcase the space.');
     const officeShop = isOfficeShop(cat);
     document.getElementById('amenities-field').style.display = officeShop ? 'none' : '';
     propertyPolicySection.hidden = cat !== 'property';
@@ -2171,6 +2229,7 @@
     const selected = selectedAmenityCheckboxes();
     const count = selected.length;
     amenitiesLibraryCount.textContent = count + ' selected';
+    amenitiesLibrarySummary.hidden = count === 0;
     amenitiesLibrarySummary.textContent = count ? selected.map(function(input){
       const option = input.closest('.amenity-check');
       return option ? option.querySelector('span').textContent : input.value;
