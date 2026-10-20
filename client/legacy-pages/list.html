@@ -17,7 +17,7 @@
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;0,9..144,900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;0,9..144,900&family=Inter:wght@400;500;600;700&family=Roboto+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
@@ -55,7 +55,7 @@
   .checking-msg{ text-align:center; padding:6rem 0; color:var(--muted); }
 
   /* ============ WIZARD SHELL ============ */
-  .wizard{ background:#0E0A09; min-height:100vh; padding:0 0 3rem; }
+  .wizard{ background:#090909; min-height:100vh; padding:0 0 3rem; }
   .wizard-top-nav{ display:flex; align-items:center; justify-content:space-between; padding:1.4rem 2.5rem; }
   .wizard-top-nav .logo{ color:#F5EFEC; }
   .wizard-top-nav .logo .va{ color:var(--red); }
@@ -223,6 +223,38 @@
   .amenities-hint{ font-size:.78rem; margin-bottom:.8rem; }
   .tone-dark .amenities-hint{ color:#B8ACA8; }
   .amenities-grid{ display:grid; grid-template-columns:repeat(2, 1fr); gap:.6rem .8rem; }
+  .amenities-grid.library-state-store{ position:absolute!important; width:1px!important; height:1px!important; overflow:hidden!important; clip:rect(0,0,0,0)!important; white-space:nowrap!important; }
+  .amenities-library-open{ display:inline-flex; align-items:center; justify-content:center; gap:.5rem; min-height:3.1rem; padding:.75rem 1.2rem; border:1px solid rgba(255,255,255,.45); border-radius:12px; background:var(--red); color:#fff; font:inherit; font-size:.95rem; font-weight:600; cursor:pointer; transition:transform .18s ease,background .18s ease; }
+  .amenities-library-open[hidden],.amenities-library-summary[hidden]{ display:none!important; }
+  .amenities-library-open:hover{ background:var(--red-deep); transform:translateY(-1px); }
+  .amenities-library-summary{ margin:.55rem 0 0; color:#c7c3c3; font-size:.78rem; line-height:1.45; }
+  .amenities-library-overlay{ position:absolute; inset:0; z-index:5; display:flex; align-items:center; justify-content:center; padding:clamp(.5rem,2vw,1.25rem); background:rgba(0,0,0,.22); }
+  .amenities-library-overlay[hidden]{ display:none; }
+  .amenities-library-dialog{ display:flex; flex-direction:column; width:min(100%,620px); max-height:min(92%,620px); min-height:0; overflow:hidden; border:1px solid rgba(255,255,255,.35); border-radius:16px; background:rgba(18,18,18,.68); color:#fff; box-shadow:0 18px 55px rgba(0,0,0,.4); backdrop-filter:blur(18px) saturate(135%); -webkit-backdrop-filter:blur(18px) saturate(135%); }
+  .amenities-library-header{ padding:.85rem .9rem .6rem; }
+  .amenities-library-title-row{ display:flex; align-items:center; justify-content:space-between; gap:.6rem; margin-bottom:.65rem; }
+  .amenities-library-title{ margin:0; font-size:.94rem; font-weight:700; }
+  .amenities-library-count{ color:#b9f5cd; font-size:.72rem; white-space:nowrap; }
+  .amenities-library-search{ display:flex; align-items:center; gap:.5rem; min-height:2.55rem; padding:0 .75rem; border:1px solid rgba(255,255,255,.42); border-radius:10px; background:rgba(0,0,0,.42); color:#fff; }
+  .amenities-library-search svg{ width:17px; height:17px; flex:none; opacity:.9; }
+  .amenities-library-search input{ width:100%; min-width:0; border:0; outline:0; background:transparent; color:inherit; font:inherit; font-size:.82rem; }
+  .amenities-library-search input::placeholder{ color:rgba(255,255,255,.72); }
+  .amenities-library-categories{ display:flex; gap:.4rem; overflow-x:auto; padding:.65rem .9rem .55rem; scrollbar-width:thin; }
+  .amenities-library-category{ flex:none; border:1px solid rgba(255,255,255,.26); border-radius:100px; padding:.38rem .66rem; background:rgba(0,0,0,.36); color:#fff; font:inherit; font-size:.7rem; font-weight:600; cursor:pointer; }
+  .amenities-library-category[aria-pressed="true"]{ border-color:#17c96b; background:rgba(10,119,59,.42); }
+  .amenities-library-options{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.48rem; overflow:auto; padding:.45rem .9rem .9rem; min-height:0; }
+  .amenities-library-option{ display:flex; align-items:center; gap:.5rem; min-width:0; min-height:2.55rem; border:1px solid transparent; border-radius:9px; padding:.5rem .58rem; background:rgba(0,0,0,.72); color:#fff; text-align:left; font:inherit; font-size:.74rem; font-weight:600; cursor:pointer; transition:border-color .16s ease,background .16s ease; }
+  .amenities-library-option:hover{ border-color:rgba(255,255,255,.55); }
+  .amenities-library-option.selected{ border:2px solid #11c969; background:rgba(0,0,0,.9); padding:calc(.5rem - 1px) calc(.58rem - 1px); }
+  .amenities-library-option svg{ flex:none; width:17px; height:17px; color:#fff; }
+  .amenities-library-option span{ overflow:hidden; text-overflow:ellipsis; }
+  .amenities-library-empty{ grid-column:1/-1; padding:1.2rem .4rem; color:rgba(255,255,255,.78); font-size:.82rem; text-align:center; }
+  .amenities-library-footer{ display:flex; justify-content:flex-end; padding:.6rem .9rem .85rem; border-top:1px solid rgba(255,255,255,.18); }
+  .amenities-library-done{ display:inline-flex; align-items:center; gap:.45rem; min-height:2.55rem; border:0; border-radius:100px; padding:.55rem 1.1rem; background:#050505; color:#20e66e; font:inherit; font-size:.82rem; font-weight:700; cursor:pointer; }
+  .amenities-library-done:hover{ background:#101810; }
+  @media(prefers-color-scheme:light){ .amenities-library-dialog{ background:rgba(19,19,19,.78); } }
+  @media(max-width:680px){ .amenities-library-overlay{ align-items:flex-end; } .amenities-library-dialog{ max-height:min(82%,560px); } }
+  @media(max-width:390px){ .amenities-library-options{ grid-template-columns:1fr; } }
   @media (min-width:520px){ .amenities-grid{ grid-template-columns:repeat(3, 1fr); } }
   .amenity-check{
     display:flex; align-items:center; gap:.5rem; padding:.55rem .6rem; border-radius:10px;
@@ -303,16 +335,14 @@
     .wizard{ min-height:100dvh; height:100dvh; padding:1rem 1.25rem 1rem 5.7rem; overflow:hidden; }
     .wizard-top-nav{ display:none; }
     .wizard-correction-nav{
-      display:flex; position:fixed; z-index:30; top:1.35rem; right:1.5rem;
-      align-items:center; gap:.55rem; padding:.45rem .55rem .45rem .85rem;
-      border:1px solid rgba(255,255,255,.14); border-radius:12px;
-      background:rgba(23,17,15,.88); box-shadow:0 8px 24px rgba(0,0,0,.22);
-      color:#F5EFEC; backdrop-filter:blur(8px);
+      display:flex; position:absolute; z-index:5; top:.55rem; right:.55rem;
+      align-items:center; gap:0; padding:0; overflow:hidden;
+      border:1px solid rgba(255,255,255,.2); border-radius:0; background:#222; color:#F5EFEC;
     }
-    .wizard-correction-nav label{ font-size:.75rem; color:#C9BDB8; white-space:nowrap; }
-    .wizard-correction-nav select{ width:auto; min-width:10.5rem; padding:.45rem .6rem; border-radius:8px; border:1px solid rgba(255,255,255,.14); background:#2A201C; color:#F5EFEC; font-size:.78rem; }
-    .wizard-correction-nav button{ padding:.45rem .65rem; border-radius:8px; background:var(--red); color:#fff; font-size:.78rem; font-weight:700; }
-    .wizard-correction-nav button:hover{ background:var(--red-deep); }
+    .wizard-correction-nav label{ position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+    .wizard-correction-nav select{ width:15rem; min-width:0; padding:.72rem .9rem; border:0; border-radius:0; background:#222; color:#F5EFEC; font-size:.95rem; font-weight:700; }
+    .wizard-correction-nav button{ min-width:7rem; padding:.72rem .9rem; align-self:stretch; border-radius:0; background:#ff343c; color:#fff; font-size:.95rem; font-weight:700; }
+    .wizard-correction-nav button:hover{ background:#df2029; }
     .wizard-sidebar{
       display:flex; position:fixed; z-index:20; inset:0 auto 0 0; width:4.45rem;
       flex-direction:column; align-items:center; padding:1rem 0; overflow-y:auto; scrollbar-width:none; background:#17110F;
@@ -328,32 +358,97 @@
     .sidebar-nav-icon [data-elie-icon]{ width:22px; height:22px; }
     .sidebar-host-nav{ display:grid; gap:.5rem; }
 
-    .wizard-shell{ max-width:1320px; height:calc(100dvh - 2rem); margin:0 auto; padding:0; }
+    .wizard-shell{ position:relative; max-width:1320px; height:calc(100dvh - 2rem); margin:0 auto; padding:0; }
     .step-frame.active{
-      grid-template-columns:minmax(330px,430px) 1fr; min-height:0; height:100%; border-radius:18px;
+      grid-template-columns:minmax(0,1.35fr) minmax(0,1fr); min-height:0; height:100%; border-radius:22px;
     }
     .step-panel{ min-height:0; padding:1.45rem 1.8rem 1.3rem; }
+    .step-frame[data-step="1"] .step-panel{ padding:1.25rem 1.5rem 1.05rem; background:#242424!important; font-family:'Roboto Condensed','Arial Narrow',Arial,sans-serif; }
     .panel-brand{ display:none; }
     .progress-row{ gap:.7rem; margin-bottom:1rem; }
     .progress-ring{ width:48px; height:48px; }
     .progress-ring::after{ inset:5px; }
-    .step-eyebrow{ font-size:.7rem; margin-bottom:.38rem; }
     .step-title{ font-size:clamp(1.45rem,2vw,1.85rem); margin-bottom:.4rem; }
     .step-sub{ font-size:.84rem; line-height:1.4; margin-bottom:.9rem; }
+    .step-frame[data-step="1"] .progress-row{ gap:.9rem; margin-bottom:.45rem; }
+    .step-frame[data-step="1"] .progress-ring{ width:76px; height:76px; }
+    .step-frame[data-step="1"] .progress-ring::after{ inset:6px; }
+    .step-frame[data-step="1"] .progress-ring{ --ring-fg:#18b66b; --ring-bg:#a8a8ad; --ring-hole:#242424; }
+    .step-frame[data-step="1"] .progress-ring span{ font-size:1rem; }
+    .step-frame[data-step="1"] .progress-text{ font-size:1rem; line-height:1.6; color:#fff!important; }
+    .step-frame[data-step="1"] .step-eyebrow{ display:none; }
+    .step-frame[data-step="1"] .step-title{ font-size:clamp(1.55rem,2.2vw,2rem); margin-bottom:.2rem; }
+    .step-frame[data-step="1"] .step-sub{ font-size:.88rem; line-height:1.55; margin:0 0 .85rem; padding-left:.65rem; color:#d0d0d0!important; }
     .step-fields{ min-height:0; overflow:auto; padding-right:.25rem; scrollbar-width:thin; }
-    .step-frame[data-step="1"] .step-fields{ display:flex; flex-direction:column; }
-    .step-frame[data-step="1"] #property-description-field{ flex:1; min-height:0; }
-    .step-frame[data-step="1"] #property-description{ flex:1; min-height:200px; }
+    .step-frame[data-step="1"] .step-fields{ display:flex; flex-direction:column; gap:.45rem; overflow:visible; }
+    .step-frame[data-step="1"] #property-description-field{ flex:1; min-height:5.5rem; }
+    .step-frame[data-step="1"] #property-description{ flex:1; min-height:5.5rem; }
     .field{ gap:.3rem; margin-bottom:.65rem; }
     label{ font-size:.78rem; }
     input, textarea, select{ font-size:.84rem; padding:.55rem .7rem; }
+    .step-frame[data-step="1"] .field{ gap:.25rem; margin-bottom:.45rem; }
+    .step-frame[data-step="1"] label{ font-size:.9rem; }
+    .step-frame[data-step="1"] input,
+    .step-frame[data-step="1"] textarea,
+    .step-frame[data-step="1"] select{ font-size:.88rem; padding:.62rem .78rem; border-radius:10px; }
+    .step-frame[data-step="1"].tone-dark input,
+    .step-frame[data-step="1"].tone-dark textarea,
+    .step-frame[data-step="1"].tone-dark select{ background:#050505; color:#fff; border-color:transparent; }
     textarea{ min-height:64px; }
+    .step-frame[data-step="1"] textarea{ resize:none; }
+    .step-frame[data-step="1"] #caption{ min-height:4.6rem; }
+    .step-frame[data-step="1"] #property-description{ min-height:7.5rem; }
     .panel-actions{ margin-top:auto; padding-top:.85rem; }
     .step-btn{ padding:.72rem 1rem; font-size:.84rem; }
-    .step-photo-badge{ top:1rem; left:1rem; font-size:.74rem; padding:.42rem .72rem; }
-    .step-photo-caption{ left:1.3rem; right:1.3rem; bottom:1.25rem; }
-    .step-photo-caption h3{ font-size:1.28rem; }
-    .step-photo-caption p{ font-size:.8rem; }
+    .step-frame[data-step="1"] .panel-actions{ padding-top:.35rem; }
+    .step-frame[data-step="1"] .step-btn{ font-size:.9rem; }
+    .step-frame[data-step="1"] .step-btn.next{ background:#d10e09; }
+    .step-frame[data-step="1"] .step-btn.next:hover{ background:#b90b08; }
+    .step-frame[data-step="1"] .step-photo{ min-height:0; background-position:center; }
+    .step-frame[data-step="1"] .step-photo::after,
+    .step-frame[data-step="1"] .step-photo-badge,
+    .step-frame[data-step="1"] .step-photo-caption{ display:none; }
+    .step-frame[data-step="1"] .office-shop-type{ grid-template-columns:1fr 1fr; margin:.15rem 0 .65rem; }
+    .step-frame[data-step="1"] .office-shop-type button{ min-height:4.5rem; border:0; border-radius:10px; padding:.7rem; background:#050505; color:#fff; text-align:center; font-size:1rem; }
+    .step-frame[data-step="1"] .office-shop-type button.selected{ background:#ff343c; }
+    .step-frame[data-step="1"] .office-shop-type button small{ display:none; }
+    .step-frame[data-step="1"] #office-shop-details-fields.active{ display:grid; grid-template-columns:1fr 1fr; gap:.65rem; margin:0 0 .4rem; }
+    .step-frame[data-step="1"] #office-shop-details-fields .field{ margin:0; }
+    .step-frame[data-step="1"] #office-shop-details-fields select{ padding:.45rem .65rem; }
+    .step-frame[data-step="1"] .hotel-offer-mode{ margin:.15rem 0 .65rem; }
+    .step-frame[data-step="1"] .hotel-offer-option,
+    .step-frame[data-step="1"] .property-purpose-option{ background:#050505; color:#fff; border:0; border-radius:10px; padding:.72rem .65rem; }
+    .step-frame[data-step="1"] .hotel-offer-option.selected,
+    .step-frame[data-step="1"] .property-purpose-option.selected{ background:#ff343c; }
+    .step-frame[data-step="1"] .hotel-offer-option small,
+    .step-frame[data-step="1"] .property-purpose-option small{ font-size:.7rem; }
+    .step-frame[data-step="1"] .property-purpose-mode{ margin:.15rem 0 .65rem; }
+    .step-frame[data-step="2"] .step-panel{ padding:1.25rem 1.5rem 1.05rem; background:#242424!important; font-family:'Roboto Condensed','Arial Narrow',Arial,sans-serif; }
+    .step-frame[data-step="2"] .progress-row{ gap:.9rem; margin-bottom:.45rem; }
+    .step-frame[data-step="2"] .progress-ring{ width:76px; height:76px; --ring-fg:#18b66b; --ring-bg:#a8a8ad; --ring-hole:#242424; }
+    .step-frame[data-step="2"] .progress-ring::after{ inset:6px; }
+    .step-frame[data-step="2"] .progress-ring span{ font-size:1rem; }
+    .step-frame[data-step="2"] .progress-text{ font-size:1rem; line-height:1.6; color:#fff!important; }
+    .step-frame[data-step="2"] .step-eyebrow{ display:none; }
+    .step-frame[data-step="2"] .step-title{ font-size:clamp(1.55rem,2.2vw,2rem); line-height:1.05; margin-bottom:.25rem; }
+    .step-frame[data-step="2"] .step-sub{ font-size:.88rem; line-height:1.55; margin:0 0 .85rem; padding-left:.65rem; color:#d0d0d0!important; }
+    .step-frame[data-step="2"] .step-fields{ overflow:visible; }
+    .step-frame[data-step="2"] .step-fields > .field,
+    .step-frame[data-step="2"] #office-shop-location-fields .field{ max-width:85%; gap:.25rem; margin-bottom:.8rem; }
+    .step-frame[data-step="2"] label{ font-size:.9rem; }
+    .step-frame[data-step="2"] input{ font-size:.88rem; padding:.62rem .78rem; border-radius:10px; }
+    .step-frame[data-step="2"] input{ background:#050505; color:#fff; border-color:transparent; }
+    .step-frame[data-step="2"] .location-help{ display:none; }
+    .step-frame[data-step="2"] #office-shop-location-fields.active{ display:block; margin-top:.65rem; }
+    .step-frame[data-step="2"] .panel-actions{ margin-top:auto; padding-top:.5rem; }
+    .step-frame[data-step="2"] .step-btn{ font-size:.9rem; }
+    .step-frame[data-step="2"] .step-btn.back{ padding:.72rem 1rem; color:#fff!important; }
+    .step-frame[data-step="2"] .step-btn.next{ flex:0 1 64%; padding:.72rem 1rem; background:#d10e09; }
+    .step-frame[data-step="2"] .step-btn.next:hover{ background:#b90b08; }
+    .step-frame[data-step="2"] .step-photo{ min-height:0; background-position:center; }
+    .step-frame[data-step="2"] .step-photo::after,
+    .step-frame[data-step="2"] .step-photo-badge,
+    .step-frame[data-step="2"] .step-photo-caption{ display:none; }
     .step-tracker{ display:none; }
 
     /* Compact the denser steps without changing their fields or controls. */
@@ -422,7 +517,7 @@
   .property-purpose-option{ appearance:none; border:1px solid rgba(255,255,255,.3); border-radius:10px; background:rgba(255,255,255,.08); color:inherit; padding:.85rem .65rem; text-align:left; cursor:pointer; font:inherit; transition:background .18s ease, border-color .18s ease; }
   .property-purpose-option strong, .property-purpose-option small{ display:block; }
   .property-purpose-option small{ margin-top:.22rem; opacity:.72; line-height:1.3; font-size:.75rem; }
-  .property-purpose-option.selected{ background:var(--red); border-color:var(--red); color:#fff; }
+      .property-purpose-option.selected{ background:var(--red); border-color:var(--red); color:#fff; }
   .property-purpose-option.selected small{ opacity:.88; }
 
   /* ============ PROPERTY: policy upload (Card 3) ============ */
@@ -503,20 +598,19 @@
     <a href="/host-home" class="logo"><span class="va">Va</span><span class="room">Room</span></a>
     <a href="/host-home" class="back-link">← Back to VaRoom</a>
   </nav>
-  <div class="wizard-correction-nav" aria-label="Edit an earlier step">
-    <label for="correction-step">Need to correct something?</label>
-    <select id="correction-step">
-      <option value="1">1. Listing details</option>
-      <option value="2">2. Location</option>
-      <option value="3">3. Media & amenities</option>
-      <option value="4">4. Pricing & booking</option>
-      <option value="5">5. Review</option>
-    </select>
-    <button type="button" id="correction-step-go">Edit</button>
-  </div>
-
   <form id="list-form">
     <div class="wizard-shell">
+      <div class="wizard-correction-nav" aria-label="Edit an earlier step">
+        <label for="correction-step">Need to correct something?</label>
+        <select id="correction-step">
+          <option value="1">1. Listing details</option>
+          <option value="2">2. Location</option>
+          <option value="3">3. Media & amenities</option>
+          <option value="4">4. Pricing & booking</option>
+          <option value="5">5. Review</option>
+        </select>
+        <button type="button" id="correction-step-go">Edit</button>
+      </div>
 
       <!-- STEP 1 — About the property -->
       <section class="step-frame active tone-dark" data-step="1">
@@ -524,12 +618,22 @@
           <div class="panel-brand"><span class="roof"></span> VaRoom</div>
           <div class="progress-row">
             <div class="progress-ring" style="--pct:20"><span>20%</span></div>
-            <div class="progress-text"><span class="step-count">01 / 05</span><br>Start with the essentials</div>
+            <div class="progress-text"><span class="step-count">01/5</span><br><span id="progress-step-label">Listing Introduction</span></div>
           </div>
 
           <p class="step-eyebrow" id="about-eyebrow">01 — About the property</p>
+<<<<<<< HEAD
           <h1 class="step-title" id="listing-headline">Let's list your first space.</h1>
           <p class="step-sub" id="about-sub">A few thoughtful details now, then VaRoom turns your space into a place people can picture themselves in.</p>
+=======
+          <h1 class="step-title" id="listing-headline">Turn Your Space Into an Opportunity</h1>
+          <p class="step-sub" id="about-sub">Every great stay, successful business, or memorable experience begins with the right space. Showcase yours on VaRoom and connect with people looking for exactly what you offer.</p>
+          <div class="office-shop-type" id="office-shop-type" aria-label="Listing type">
+            <button type="button" data-office-shop-type="office"><strong>Office</strong><small>Offices, desks, meeting rooms and serviced workspaces</small></button>
+            <button type="button" data-office-shop-type="shop"><strong>Shop</strong><small>Retail units, showrooms, studios and street-front shops</small></button>
+          </div>
+          <div class="office-shop-section" id="office-shop-details-fields"></div>
+>>>>>>> ee616d3 (started repairing the listing ui)
           <div class="hotel-offer-mode" id="hotel-offer-mode" hidden aria-label="What would you like to offer?">
             <button type="button" class="hotel-offer-option" data-hotel-mode="table"><strong>Table Reservations</strong><small>Dining reservations only</small></button>
             <button type="button" class="hotel-offer-option" data-hotel-mode="stay"><strong>Hotel Stay</strong><small>Accommodation only</small></button>
@@ -538,9 +642,9 @@
 
           <!-- PROPERTY-ONLY: listing purpose selector. Hidden for every other category. -->
           <div class="property-purpose-mode" id="property-purpose-mode" hidden aria-label="What is this property listed for?">
-            <button type="button" class="property-purpose-option selected" data-property-purpose="rent" aria-pressed="true"><strong>For rent</strong><small>Monthly rental listing</small></button>
+            <button type="button" class="property-purpose-option selected" data-property-purpose="rent" aria-pressed="true"><strong>Rental</strong><small>Monthly rental listing</small></button>
             <button type="button" class="property-purpose-option" data-property-purpose="sale" aria-pressed="false"><strong>For sale</strong><small>Property sale listing</small></button>
-            <button type="button" class="property-purpose-option" data-property-purpose="both" aria-pressed="false"><strong>Both</strong><small>Rent and sale options</small></button>
+            <button type="button" class="property-purpose-option" data-property-purpose="both" aria-pressed="false"><strong>Both</strong><small>Selling and renting are both options</small></button>
           </div>
 
           <div class="step-fields">
@@ -572,29 +676,28 @@
       </section>
 
       <!-- STEP 2 — Location & verification -->
-      <section class="step-frame tone-cream" data-step="2">
+      <section class="step-frame tone-dark" data-step="2">
         <div class="step-panel">
           <div class="panel-brand"><span class="roof"></span> VaRoom</div>
           <div class="progress-row">
             <div class="progress-ring" style="--pct:40"><span>40%</span></div>
-            <div class="progress-text"><span class="step-count">02 / 05</span><br>Add the general area</div>
+            <div class="progress-text"><span class="step-count">02/05</span><br>Location</div>
           </div>
 
           <p class="step-eyebrow">02 — Location</p>
-          <h1 class="step-title" id="location-title">Add your property’s area.</h1>
-          <p class="step-sub" id="location-sub">A general location helps guests understand where your property is. Exact location details can be added later.</p>
+          <h1 class="step-title" id="location-title">Help Guests Find Your Space</h1>
+          <p class="step-sub" id="location-sub">Tell us the neighbourhood, town, or area your property is in. Help guests discover your space in a location that suits their plans. You can add the exact location later.</p>
 
           <div class="step-fields">
             <div class="field">
-              <label for="location-text" id="location-label">Where is your property located?</label>
-              <p class="location-help" id="location-help">Enter the area, neighbourhood, or town where your property is located. You’ll be able to add the exact location later.</p>
-              <input type="text" id="location-text" name="location_text" required minlength="3" autocomplete="address-level2" placeholder="e.g. Nairobi, Westlands">
+              <label for="location-text" id="location-label">neighbourhood, city</label>
+              <input type="text" id="location-text" name="location_text" required minlength="3" autocomplete="address-level2" placeholder="eg Westlands, Nairobi">
             </div>
           </div>
 
           <div class="panel-actions">
             <button type="button" class="step-btn back" data-back>← Back</button>
-            <button type="button" class="step-btn next" data-next>Continue to photos →</button>
+            <button type="button" class="step-btn next" data-next>continue to media &amp; amenities →</button>
           </div>
         </div>
         <div class="step-photo" style="background-image:url('assets/listing-wizard/step-2.jpg');">
@@ -633,6 +736,8 @@
             <div class="field" id="amenities-field" style="margin-top:.6rem;">
               <label id="amenities-label">Amenities</label>
               <p class="amenities-hint" id="amenities-hint">Select everything this space offers. Shown to guests on the booking page.</p>
+              <button type="button" class="amenities-library-open" id="amenities-library-open">Amenities Library</button>
+              <p class="amenities-library-summary" id="amenities-library-summary" aria-live="polite">No amenities selected yet.</p>
               <div class="amenities-grid" id="amenities-grid"></div>
             </div>
 
@@ -656,6 +761,20 @@
           </div>
         </div>
         <div class="step-photo" style="background-image:url('assets/listing-wizard/step-3.jpg');">
+          <div class="amenities-library-overlay" id="amenities-library-overlay" hidden>
+            <section class="amenities-library-dialog" role="dialog" aria-modal="true" aria-labelledby="amenities-library-title">
+              <header class="amenities-library-header">
+                <div class="amenities-library-title-row"><h2 class="amenities-library-title" id="amenities-library-title">Amenities Library</h2><span class="amenities-library-count" id="amenities-library-count">0 selected</span></div>
+                <label class="amenities-library-search">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+                  <input type="search" id="amenities-library-search" placeholder="Search amenities" autocomplete="off" aria-label="Search amenities">
+                </label>
+              </header>
+              <nav class="amenities-library-categories" id="amenities-library-categories" aria-label="Amenity categories"></nav>
+              <div class="amenities-library-options" id="amenities-library-options" role="group" aria-label="Available amenities"></div>
+              <footer class="amenities-library-footer"><button type="button" class="amenities-library-done" id="amenities-library-done"><span aria-hidden="true">✓</span> Done</button></footer>
+            </section>
+          </div>
           <!-- PROPERTY-ONLY: policy preview overlay (fills the right panel; does not affect media gallery). -->
           <div class="policy-preview-overlay" id="policy-preview-overlay">
             <div class="policy-preview-toolbar">
@@ -950,6 +1069,14 @@
   function fieldValue(id){
     const field = document.getElementById(id);
     return field ? field.value : '';
+  }
+
+  function splitListingArea(value){
+    const parts = String(value || '').split(',').map(function(part){ return part.trim(); }).filter(Boolean);
+    return {
+      neighborhood: parts[0] || '',
+      city: parts.length > 1 ? parts.slice(1).join(', ') : '',
+    };
   }
 
   function makeListingDraftKey(hostId){
@@ -1334,16 +1461,16 @@
     office: 'Make every month clear.', shop: 'Make every month clear.', property: 'Make every month clear.'
   };
   const listingHeadlines = {
-    airbnb: "Let's list your first Airbnb.",
-    hotel: "Welcome guests to your hotel.",
+    airbnb: 'Turn Your Space Into an Opportunity',
+    hotel: 'Turn Your Space Into an Opportunity',
     villa: "Let's list your first villa.",
     apartment: "Let's list your first apartment.",
     resort: "Let's list your first resort.",
     guesthouse: "Let's list your first guesthouse.",
     venue: "Let's list your first event venue.",
-    office: "Let's list your first office space.",
-    shop: "Let's list your first shop.",
-    property: "Let's list your first property."
+    office: 'Turn Your Space Into an Opportunity',
+    shop: 'Turn Your Space Into an Opportunity',
+    property: 'Put Your Property on the Map'
   };
 
   const priceUnitField = document.getElementById('price-unit');
@@ -1379,6 +1506,203 @@
   let propertyPurpose = 'rent'; // 'rent' | 'sale' | 'both'
   let propertySalePriceMode = 'exact'; // 'exact' | 'starting'
   let selectedPolicyFile = null;
+<<<<<<< HEAD
+=======
+  const officeShopType = document.getElementById('office-shop-type');
+  const officeShopDetailsFields = document.getElementById('office-shop-details-fields');
+  const officeShopLocationFields = document.getElementById('office-shop-location-fields');
+  const officeShopMediaFields = document.getElementById('office-shop-media-fields');
+  const officeShopPricingFields = document.getElementById('office-shop-pricing-fields');
+  const officeShopReviewFields = document.getElementById('office-shop-review-fields');
+  let officeShopFloorPlanFile = null;
+  let officeShopPolicyFile = null;
+  let officeShopDocumentFiles = [];
+  let officeShopExistingDetails = {};
+  let officeShopTypeSelected = editMode;
+
+  function isOfficeShop(category){ return category === 'office' || category === 'shop'; }
+  function osValue(id){ return fieldValue(id).trim(); }
+  function osNumber(id){ const value = osValue(id); return value === '' ? null : Number(value); }
+  function osChecked(id){ const field = document.getElementById(id); return Boolean(field && field.checked); }
+
+  function renderOfficeShopFields(){
+    const isOffice = hostNiche === 'office';
+    const isShop = hostNiche === 'shop';
+    officeShopType.classList.toggle('active', isOffice || isShop);
+    [officeShopDetailsFields, officeShopLocationFields, officeShopMediaFields, officeShopPricingFields].forEach(function(section){ section.classList.toggle('active', isOffice || isShop); });
+    if (!isOffice && !isShop) return;
+    officeShopType.querySelectorAll('[data-office-shop-type]').forEach(function(button){
+      const selected = button.dataset.officeShopType === hostNiche;
+      button.classList.toggle('selected', selected);
+      button.setAttribute('aria-pressed', selected ? 'true' : 'false');
+    });
+    const subtypeOptions = isOffice
+      ? [['private_office','Private office'],['shared_office','Shared office'],['serviced_office','Serviced office'],['coworking_desk','Coworking desk'],['meeting_room','Meeting room']]
+      : [['street_front_shop','Street-front shop'],['mall_unit','Mall unit'],['showroom','Showroom'],['studio','Studio']];
+    officeShopDetailsFields.innerHTML = '<div class="field"><label for="os-subtype">Subtype</label><select id="os-subtype" required><option value="">Choose one</option>'+subtypeOptions.map(function(option){ return '<option value="'+option[0]+'">'+option[1]+'</option>'; }).join('')+'</select></div><div class="field"><label for="os-role">Your role</label><select id="os-role" required><option value="">Choose one</option><option value="owner">Owner</option><option value="authorized_manager">Authorised property manager</option><option value="agent">Agent</option></select></div>';
+      officeShopLocationFields.innerHTML = '<div class="field"><label for="os-building">Building or Complex name <small>(optional)</small></label><input id="os-building" maxlength="300" placeholder="eg BMW Towers"></div>';
+    officeShopMediaFields.innerHTML = `
+      <h2 class="section-heading">Office & shop amenities</h2><p class="section-help">Choose what the space actually offers. Selected filter items are stored as boolean values.</p>
+      ${osAmenityGroup('Power', [['mains_supply','Mains supply'],['backup_generator','Backup generator (filter)'],['ups','UPS (filter)']])}
+      <div class="field"><label for="os-power-note">Power capacity or known limitations <small>(optional)</small></label><input id="os-power-note" maxlength="300"></div>
+      ${osAmenityGroup('Internet', [['fibre','Fibre available (filter)'],['wifi_included','Wi-Fi included in the rent'],['tenant_internet','Tenant arranges own internet']])}
+      <div class="field"><label for="os-internet-note">Known providers or speeds <small>(only if verified)</small></label><input id="os-internet-note" maxlength="300"></div>
+      ${osAmenityGroup('Water and washrooms', [['reliable_water','Reliable water supply'],['borehole','Borehole'],['private_washroom','Private washroom'],['shared_washroom','Shared washroom'],['drainage','Drainage connection']])}
+      ${osAmenityGroup('Security', [['guards','Guards (filter)'],['cctv','CCTV (filter)'],['controlled_entry','Controlled entry (filter)'],['alarm','Alarm'],['lighting','Lighting']])}
+      <div class="field"><label for="os-after-hours">After-hours access</label><select id="os-after-hours"><option value="not_confirmed">Not confirmed</option><option value="24_7">24/7</option><option value="business_hours">Business hours only</option></select></div>
+      ${osAmenityGroup('Building services', [['lift','Lift (filter)'],['accessibility','Accessibility features (filter)'],['ac_ventilation','AC or ventilation (filter)'],['natural_light','Natural light'],['cleaning','Cleaning'],['maintenance','Maintenance'],['waste_collection','Waste collection'],['reception','Reception'],['shared_kitchen','Shared kitchen'],['meeting_rooms','Meeting rooms']])}
+      <div class="field"><label for="os-accessibility-note">Accessibility note <small>(optional)</small></label><input id="os-accessibility-note" maxlength="300"></div>
+      <h3 class="section-heading">Parking</h3><div class="field-row"><div class="field"><label for="os-parking-spaces">Number of spaces</label><input id="os-parking-spaces" type="number" min="0"></div><div class="field"><label for="os-parking-cost">Parking cost</label><select id="os-parking-cost"><option value="not_confirmed">Not confirmed</option><option value="free">Free</option><option value="paid">Paid</option></select></div><div class="field"><label for="os-parking-paid-amount">Paid parking amount <small>(if paid)</small></label><input id="os-parking-paid-amount" type="number" min="0"></div></div>
+      <div class="option-grid"><label><input id="os-parking-allocated" type="checkbox"> Allocated to this unit</label><label><input id="os-visitor-parking" type="checkbox"> Visitor parking</label>${isShop ? '<label><input id="os-customer-parking" type="checkbox"> Customer parking</label>' : ''}</div>
+      <h3 class="section-heading">Documents and rules</h3><div class="field"><label for="os-floor-plan">Floor plan <small>(optional)</small></label><input id="os-floor-plan" type="file" accept="application/pdf,image/png,image/jpeg,image/webp"></div><div class="field"><label for="os-documents">Ownership or management documents <small>(optional)</small></label><input id="os-documents" type="file" multiple accept="application/pdf,image/png,image/jpeg,image/webp"></div><label><input id="os-documents-on-request" type="checkbox"> Can provide ownership or management documents on request</label><div class="field"><label for="os-policy-file">Policy or rules document <small>(optional)</small></label><input id="os-policy-file" type="file" accept="application/pdf"></div>
+      <h3 class="section-heading">Rules and policy</h3><div class="field"><label for="os-permitted-uses">Permitted business uses</label><div class="option-grid" id="os-permitted-uses">${['Office or professional','General retail','Fashion','Electronics','Salon or beauty','Food or cafe','Pharmacy or healthcare','Creative studio','Other','Not sure — renter to confirm'].map(function(label){ const key = label.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,''); return '<label><input type="checkbox" data-os-use="'+key+'"> '+label+'</label>'; }).join('')}</div></div>
+      <div class="field-row"><div class="field"><label for="os-fitout-rule">Fit-out or renovation</label><select id="os-fitout-rule"><option value="">Choose one</option><option value="allowed">Allowed</option><option value="landlord_consent">Allowed with landlord consent</option><option value="not_allowed">Not allowed</option><option value="to_confirm">To confirm</option></select></div>${isShop ? '<div class="field"><label for="os-signage">Signage</label><select id="os-signage"><option value="to_confirm">To confirm</option><option value="allowed">Allowed</option><option value="landlord_approval">Subject to landlord approval</option><option value="not_allowed">Not allowed</option></select></div>' : ''}</div>
+      <div class="field-row"><div class="field"><label for="os-subletting">Subletting or assignment</label><select id="os-subletting"><option value="to_confirm">To confirm</option><option value="allowed">Allowed</option><option value="not_allowed">Not allowed</option></select></div><div class="field"><label for="os-restoration">Restoration on exit</label><select id="os-restoration"><option value="to_confirm">To confirm</option><option value="tenant_must_restore">Tenant must restore</option><option value="not_required">Not required</option></select></div></div><div class="field-row"><div class="field"><label for="os-noise-limits">Operating hour or noise limits <small>(optional)</small></label><input id="os-noise-limits" maxlength="300"></div><div class="field"><label for="os-visitor-policy">Visitor policy <small>(optional)</small></label><input id="os-visitor-policy" maxlength="300"></div></div>`;
+    officeShopPricingFields.innerHTML = `
+      <details open><summary class="section-heading">Space</summary><div class="field-row"><div class="field"><label for="os-area">Area</label><input id="os-area" type="number" min="0" step="0.01" required></div><div class="field"><label for="os-area-unit">Area unit</label><select id="os-area-unit" required><option value="">Choose one</option><option value="sq_ft">sq ft</option><option value="m2">m²</option></select></div></div><div class="field-row"><div class="field"><label for="os-area-measure">What the area measures</label><select id="os-area-measure"><option value="">Choose one</option><option value="usable">Usable</option><option value="rentable">Rentable</option><option value="estimate">Estimate</option></select></div><div class="field"><label for="os-fitout-status">Fit-out status</label><select id="os-fitout-status" required><option value="">Choose one</option><option value="shell_core">Shell-and-core</option><option value="partly_fitted">Partly fitted</option><option value="fitted">Fitted</option><option value="furnished">Furnished</option></select></div></div><div class="field-row"><div class="field"><label for="os-floor-level">Floor / level <small>(optional)</small></label><input id="os-floor-level"></div><div class="field"><label for="os-room-count">Number of rooms <small>(optional)</small></label><input id="os-room-count" type="number" min="0"></div><div class="field"><label for="os-ceiling-height">Ceiling height <small>(optional)</small></label><input id="os-ceiling-height"></div></div>
+      <div id="os-office-space" class="conditional" ${isOffice ? '' : 'hidden'}><div class="field-row"><div class="field"><label for="os-capacity">Capacity</label><input id="os-capacity" type="number" min="1" ${isOffice ? 'required' : ''}></div><div class="field"><label for="os-desks">Desks</label><input id="os-desks" type="number" min="0"></div></div><div class="field"><label>Layout <small>(optional)</small></label>${osChecks('os-office-layout',['Open plan','Private offices','Meeting room','Reception','Server / IT room','Storage','Kitchenette'])}</div><div class="field"><label for="os-private-rooms">Private offices and meeting rooms <small>(optional)</small></label><input id="os-private-rooms" type="number" min="0"></div><label><input id="os-furniture" type="checkbox"> Furniture and partitions included</label></div>
+      <div id="os-shop-space" class="conditional" ${isShop ? '' : 'hidden'}><div class="field-row"><div class="field"><label for="os-customer-area">Customer-facing floor area <small>(optional)</small></label><input id="os-customer-area" type="number" min="0"></div><div class="field"><label for="os-storage-area">Storage or mezzanine area <small>(optional)</small></label><input id="os-storage-area" type="number" min="0"></div></div><div class="field"><label>Layout <small>(optional)</small></label>${osChecks('os-shop-layout',['Sales floor','Stockroom','Counter / display area','Back room','Loading / storage'])}</div><div class="field-row"><div class="field"><label for="os-street-frontage">Street frontage</label><select id="os-street-frontage"><option value="not_confirmed">Not confirmed</option><option value="yes">Yes</option><option value="no">No</option></select></div><div class="field"><label for="os-frontage-width">Frontage width <small>(optional)</small></label><input id="os-frontage-width"></div><div class="field"><label for="os-display-windows">Display windows</label><select id="os-display-windows"><option value="not_confirmed">Not confirmed</option><option value="yes">Yes</option><option value="no">No</option></select></div></div><div class="field-row"><div class="field"><label for="os-loading-access">Delivery / loading access</label><select id="os-loading-access"><option value="not_confirmed">Not confirmed</option><option value="yes">Yes</option><option value="no">No</option></select></div><div class="field"><label for="os-foot-traffic">Foot traffic <small>(optional)</small></label><input id="os-foot-traffic" maxlength="300"></div><div class="field"><label for="os-nearby-anchors">Nearby anchors <small>(optional)</small></label><input id="os-nearby-anchors" maxlength="300"></div></div></div></details>
+      <details open><summary class="section-heading">Price and costs</summary><div class="field-row"><div class="field"><label for="os-pricing-basis">Pricing basis</label><select id="os-pricing-basis" required><option value="">Choose one</option><option value="whole_month">Whole unit, per month</option><option value="whole_year">Whole unit, per year</option><option value="per_area">Per sq ft or per m²</option><option value="per_desk">Per desk or person</option><option value="daily_weekly_hourly">Daily, weekly or hourly</option>${isShop ? '<option value="turnover">Turnover rent</option>' : ''}</select></div><div class="field"><label for="os-price-amount">Amount (KSh)</label><input id="os-price-amount" type="number" min="0" step="1" required></div></div><div id="os-yearly-extra" class="conditional field" hidden><label for="os-monthly-payment">Can rent be paid monthly?</label><select id="os-monthly-payment"><option value="to_confirm">To confirm</option><option value="yes">Yes</option><option value="no">No</option></select></div><div id="os-area-extra" class="conditional field" hidden><label for="os-area-period">Per-area period</label><select id="os-area-period"><option value="month">Per month</option><option value="year">Per year</option></select></div><div id="os-desk-extra" class="conditional field"><label for="os-desk-included">What the desk fee covers</label><input id="os-desk-included" placeholder="Internet, utilities, meeting rooms, access hours"></div><div id="os-short-extra" class="conditional field" hidden><label for="os-short-pricing-note">Operating hours, overtime, cancellation, tax or cleaning</label><input id="os-short-pricing-note" maxlength="500"></div><div id="os-turnover-extra" class="conditional field" hidden><label for="os-turnover-threshold">Percentage and sales threshold</label><input id="os-turnover-threshold"></div>
+      <div class="field-row"><div class="field"><label for="os-service-charge">Service charge</label><select id="os-service-charge" required><option value="">Choose one</option><option value="included">Included</option><option value="not_included">Not included</option><option value="not_confirmed">Not confirmed</option></select></div><div class="field"><label for="os-service-amount">Service amount <small>(if not included)</small></label><input id="os-service-amount" type="number" min="0"></div><div class="field"><label for="os-service-frequency">Service frequency <small>(if not included)</small></label><select id="os-service-frequency"><option value="">Choose one</option><option value="monthly">Monthly</option><option value="quarterly">Quarterly</option><option value="annual">Annual</option><option value="one_off">One-off</option></select></div></div><div class="field-row"><div class="field"><label for="os-utilities">Utilities</label><select id="os-utilities" required><option value="">Choose one</option><option value="included">Included</option><option value="metered">Metered separately</option><option value="fixed_fee">Fixed monthly fee</option><option value="tenant_arranges">Tenant arranges</option><option value="not_confirmed">Not confirmed</option></select></div><div class="field"><label for="os-utilities-amount">Fixed utilities amount <small>(if fixed)</small></label><input id="os-utilities-amount" type="number" min="0"></div><div class="field"><label for="os-tax">VAT / tax</label><select id="os-tax" required><option value="">Choose one</option><option value="included">Included</option><option value="added">Added on top</option><option value="not_applicable">Not applicable</option><option value="needs_confirmation">Needs confirmation</option></select></div></div><div class="field-row"><div class="field"><label for="os-deposit">Security deposit</label><input id="os-deposit" required placeholder="Amount, months, or Not confirmed"></div><div class="field"><label for="os-advance-rent">Advance rent <small>(optional)</small></label><input id="os-advance-rent" placeholder="Periods due or Not confirmed"></div></div><div class="field"><label>Other compulsory charges <small>(optional)</small></label><div id="os-charges-rows"></div><button type="button" id="os-add-charge">Add charge</button></div><div class="field"><label for="os-rent-increases">Rent increases <small>(optional)</small></label><select id="os-rent-increases"><option value="not_confirmed">Not confirmed</option><option value="none">None</option><option value="annual">Annual escalation</option><option value="stepped">Stepped</option><option value="index_linked">Index-linked</option></select></div></details>
+      <details open><summary class="section-heading">Lease and availability</summary><div class="field-row"><div class="field"><label for="os-available-from">Available from</label><input id="os-available-from" type="date" required></div><div class="field"><label for="os-min-term">Minimum lease term</label><input id="os-min-term" type="number" min="1" required></div><div class="field"><label for="os-payment-frequency">Payment frequency</label><select id="os-payment-frequency" required><option value="">Choose one</option><option value="monthly">Monthly</option><option value="quarterly">Quarterly</option><option value="annually">Annually</option><option value="custom">Custom</option></select></div></div><div class="field-row"><div class="field"><label for="os-viewing-required">Viewing required before renting</label><select id="os-viewing-required" required><option value="">Choose one</option><option value="yes">Yes</option><option value="no">No</option></select></div><div class="field"><label for="os-preferred-term">Preferred lease term <small>(optional)</small></label><input id="os-preferred-term" type="number" min="1"></div><div class="field"><label for="os-renewal">Renewal options <small>(optional)</small></label><select id="os-renewal"><option value="to_confirm">To confirm</option><option value="yes">Yes</option><option value="no">No</option></select></div></div><div class="field-row"><div class="field"><label for="os-notice-period">Notice period <small>(optional)</small></label><input id="os-notice-period"></div><div class="field"><label for="os-lock-in">Lock-in or early-exit rules <small>(optional)</small></label><input id="os-lock-in" maxlength="500"></div></div><div class="field-row"><div class="field"><label for="os-viewing-availability">Viewing availability <small>(optional)</small></label><input id="os-viewing-availability" maxlength="300"></div><div class="field"><label for="os-payment-methods">Accepted payment methods <small>(optional)</small></label><input id="os-payment-methods" maxlength="300"></div></div></details>`;
+    attachOfficeShopFieldHandlers();
+  }
+
+  function osAmenityGroup(title, choices){ return '<h3 class="section-heading">'+title+'</h3>'+osChecks('os-amenities', choices.map(function(choice){ return choice[1]; }), choices.map(function(choice){ return choice[0]; })); }
+  function osChecks(group, labels, keys){ return '<div class="option-grid">'+labels.map(function(label,index){ const key = keys ? keys[index] : label.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,''); return '<label><input type="checkbox" data-os-group="'+group+'" data-os-key="'+key+'"> '+label+'</label>'; }).join('')+'</div>'; }
+
+  function attachOfficeShopFieldHandlers(){
+    const basis = document.getElementById('os-pricing-basis');
+    if (basis) basis.addEventListener('change', function(){ updateOfficeShopConditions(); updatePricePreview(); });
+    const amount = document.getElementById('os-price-amount');
+    if (amount) amount.addEventListener('input', function(){
+      const legacyAmount = document.getElementById('price-amount');
+      if (legacyAmount) legacyAmount.value = amount.value;
+      updatePricePreview();
+    });
+    const areaUnit = document.getElementById('os-area-unit');
+    if (areaUnit) areaUnit.addEventListener('change', function(){ updateOfficeShopConditions(); updatePricePreview(); });
+    const type = document.getElementById('office-shop-type');
+    type.querySelectorAll('[data-office-shop-type]').forEach(function(button){ button.addEventListener('click', function(){ officeShopTypeSelected = true; hostNiche = button.dataset.officeShopType; configureCategory(hostNiche); }); });
+    const floorPlan = document.getElementById('os-floor-plan');
+    const policy = document.getElementById('os-policy-file');
+    const documents = document.getElementById('os-documents');
+    if (floorPlan) floorPlan.addEventListener('change', function(){ officeShopFloorPlanFile = floorPlan.files[0] || null; });
+    if (policy) policy.addEventListener('change', function(){ officeShopPolicyFile = policy.files[0] || null; });
+    if (documents) documents.addEventListener('change', function(){ officeShopDocumentFiles = Array.from(documents.files || []); });
+    const addCharge = document.getElementById('os-add-charge');
+    if (addCharge) addCharge.addEventListener('click', function(){ addOfficeShopCharge(); });
+  }
+  function updateOfficeShopConditions(){
+    const basis = osValue('os-pricing-basis');
+    [['os-yearly-extra','whole_year'],['os-area-extra','per_area'],['os-desk-extra','per_desk'],['os-short-extra','daily_weekly_hourly'],['os-turnover-extra','turnover']].forEach(function(pair){ const element=document.getElementById(pair[0]); if(element) element.hidden=basis!==pair[1]; });
+    const areaMeasure = document.getElementById('os-area-measure'); if (areaMeasure) areaMeasure.required = basis === 'per_area';
+    const minTermLabel = document.querySelector('label[for="os-min-term"]');
+    const minTerm = document.getElementById('os-min-term');
+    if (minTermLabel && minTerm) {
+      const shortRate = basis === 'daily_weekly_hourly';
+      minTermLabel.textContent = shortRate ? 'Minimum booking duration' : 'Minimum lease term';
+      minTerm.placeholder = shortRate ? 'Number of days, weeks or hours' : 'Months';
+    }
+    if (isOfficeShop(hostNiche)) {
+      const legacyUnit = document.getElementById('price-unit');
+      if (legacyUnit) legacyUnit.innerHTML = '<option value="' + officeShopPriceUnit({ pricing:{ basis:basis }, space:{ area_unit:osValue('os-area-unit') }}) + '"></option>';
+    }
+  }
+
+  function addOfficeShopCharge(charge){
+    const rows = document.getElementById('os-charges-rows');
+    if (!rows) return;
+    const row = document.createElement('div');
+    row.className = 'field-row';
+    row.innerHTML = '<div class="field"><label>Type</label><select data-os-charge="type"><option value="parking">Parking</option><option value="access_cards">Access cards</option><option value="cleaning">Cleaning</option><option value="internet">Internet</option><option value="agent_fee">Agent fee</option><option value="legal_registration">Legal or registration</option><option value="signage">Signage</option><option value="building_fee">Building fee</option></select></div><div class="field"><label>Amount (KSh)</label><input data-os-charge="amount" type="number" min="0"></div><div class="field"><label>Frequency</label><select data-os-charge="frequency"><option value="monthly">Monthly</option><option value="quarterly">Quarterly</option><option value="annual">Annual</option><option value="one_off">One-off</option></select></div><button type="button" class="step-btn back" data-os-remove-charge>Remove</button>';
+    rows.appendChild(row);
+    if (charge) {
+      row.querySelector('[data-os-charge="type"]').value = charge.type || 'parking';
+      row.querySelector('[data-os-charge="amount"]').value = charge.amount == null ? '' : charge.amount;
+      row.querySelector('[data-os-charge="frequency"]').value = charge.frequency || 'monthly';
+    }
+    row.querySelector('[data-os-remove-charge]').addEventListener('click', function(){ row.remove(); });
+  }
+
+  function collectOfficeShopCharges(){
+    return Array.from(document.querySelectorAll('#os-charges-rows > .field-row')).map(function(row){
+      const type = row.querySelector('[data-os-charge="type"]').value;
+      const amountValue = row.querySelector('[data-os-charge="amount"]').value;
+      const frequency = row.querySelector('[data-os-charge="frequency"]').value;
+      return amountValue === '' ? null : { type: type, amount: Number(amountValue), frequency: frequency };
+    }).filter(Boolean);
+  }
+
+  function collectOfficeShopDetails(){
+    const checks = {};
+    document.querySelectorAll('[data-os-group="os-amenities"]').forEach(function(field){ checks[field.dataset.osKey] = field.checked; });
+    const selectedUses = Array.from(document.querySelectorAll('[data-os-use]:checked')).map(function(field){ return field.dataset.osUse; });
+    const selectedLayout = function(prefix){ return Array.from(document.querySelectorAll('#'+prefix+' .option-grid input:checked')).map(function(field){ return field.parentElement.textContent.trim(); }); };
+    return {
+      subtype: osValue('os-subtype'), role: osValue('os-role'), amenities: Object.assign(checks, {
+        power_note: osValue('os-power-note') || null,
+        internet_note: osValue('os-internet-note') || null,
+        after_hours: osValue('os-after-hours') || 'not_confirmed',
+        accessibility_note: osValue('os-accessibility-note') || null
+      }),
+      location: { building_name: osValue('os-building') },
+      space: { area: osNumber('os-area'), area_unit: osValue('os-area-unit'), area_measure: osValue('os-area-measure') || null, fitout_status: osValue('os-fitout-status'), floor_level: osValue('os-floor-level') || null, room_count: osNumber('os-room-count'), ceiling_height: osValue('os-ceiling-height') || null, capacity: osNumber('os-capacity'), desks: osNumber('os-desks'), office_layout: selectedLayout('os-office-space'), private_rooms: osNumber('os-private-rooms'), furniture_included: osChecked('os-furniture'), customer_area: osNumber('os-customer-area'), storage_area: osNumber('os-storage-area'), shop_layout: selectedLayout('os-shop-space'), street_frontage: osValue('os-street-frontage') || null, frontage_width: osValue('os-frontage-width') || null, display_windows: osValue('os-display-windows') || null, loading_access: osValue('os-loading-access') || null, foot_traffic: osValue('os-foot-traffic') || null, nearby_anchors: osValue('os-nearby-anchors') || null },
+      parking: { spaces: osNumber('os-parking-spaces'), allocated: osChecked('os-parking-allocated'), visitor: osChecked('os-visitor-parking'), customer: osChecked('os-customer-parking'), cost: osValue('os-parking-cost') || 'not_confirmed', paid_amount: osNumber('os-parking-paid-amount') },
+      rules: { permitted_uses: selectedUses, fitout: osValue('os-fitout-rule'), signage: osValue('os-signage') || null, subletting: osValue('os-subletting'), restoration: osValue('os-restoration'), noise_limits: osValue('os-noise-limits') || null, visitor_policy: osValue('os-visitor-policy') || null },
+      pricing: { basis: osValue('os-pricing-basis'), amount: osNumber('os-price-amount'), area_period: osValue('os-area-period') || null, monthly_payment: osValue('os-monthly-payment') || null, desk_included: osValue('os-desk-included') || null, short_pricing_note: osValue('os-short-pricing-note') || null, turnover_threshold: osValue('os-turnover-threshold') || null },
+      costs: { service_charge: osValue('os-service-charge'), service_amount: osNumber('os-service-amount'), service_frequency: osValue('os-service-frequency') || null, utilities: osValue('os-utilities'), utilities_amount: osNumber('os-utilities-amount'), tax: osValue('os-tax'), security_deposit: osValue('os-deposit'), advance_rent: osValue('os-advance-rent') || null, compulsory_charges: collectOfficeShopCharges(), rent_increases: osValue('os-rent-increases') || null },
+      lease: { available_from: osValue('os-available-from'), minimum_term: osNumber('os-min-term'), payment_frequency: osValue('os-payment-frequency'), viewing_required: osValue('os-viewing-required'), preferred_term: osNumber('os-preferred-term'), renewal: osValue('os-renewal') || null, notice_period: osValue('os-notice-period') || null, lock_in: osValue('os-lock-in') || null, viewing_availability: osValue('os-viewing-availability') || null, payment_methods: osValue('os-payment-methods') || null },
+      documents: Object.assign({}, officeShopExistingDetails.documents || {}, { documents_on_request: osChecked('os-documents-on-request') })
+    };
+  }
+
+  function officeShopPriceUnit(details){
+    if (details.pricing.basis === 'whole_year') return 'year';
+    if (details.pricing.basis === 'per_area') return details.space.area_unit === 'm2' ? 'm2' : 'sq_ft';
+    if (details.pricing.basis === 'per_desk') return 'desk';
+    if (details.pricing.basis === 'daily_weekly_hourly') return 'day';
+    if (details.pricing.basis === 'turnover') return 'turnover';
+    return 'month';
+  }
+
+  async function uploadOfficeShopMedia(listingId, details){
+    const documents = Object.assign({}, details.documents || {});
+    const upload = async function(file, kind){
+      if (!file) return null;
+      const path = currentUser.id + '/' + listingId + '/office_shop_' + kind + '_' + Date.now() + '_' + sanitizeFilename(file.name);
+      const { data, error } = await supabaseClient.storage.from('listing-photos').upload(path, file, { upsert: false });
+      if (error) throw new Error('Could not upload ' + kind.replace(/_/g, ' ') + ': ' + error.message);
+      return data.path;
+    };
+    if (officeShopFloorPlanFile) documents.floor_plan_path = await upload(officeShopFloorPlanFile, 'floor_plan');
+    if (officeShopPolicyFile) documents.policy_path = await upload(officeShopPolicyFile, 'policy');
+    if (officeShopDocumentFiles.length) {
+      const current = Array.isArray(documents.management_document_paths) ? documents.management_document_paths : [];
+      for (const file of officeShopDocumentFiles) current.push(await upload(file, 'management_document'));
+      documents.management_document_paths = current;
+    }
+    details.documents = documents;
+    return details;
+  }
+
+  function hydrateOfficeShopDetails(details){
+    if (!isOfficeShop(hostNiche) || !details) return;
+    officeShopExistingDetails = details;
+    const set = function(id, value){ if (value !== undefined && value !== null) setFieldValue(id, value); };
+    set('os-subtype', details.subtype); set('os-role', details.role);
+    const location = details.location || {}; set('os-building', location.building_name);
+    const space = details.space || {}; set('os-area', space.area); set('os-area-unit', space.area_unit); set('os-area-measure', space.area_measure); set('os-fitout-status', space.fitout_status); set('os-floor-level', space.floor_level); set('os-room-count', space.room_count); set('os-ceiling-height', space.ceiling_height); set('os-capacity', space.capacity); set('os-desks', space.desks); set('os-private-rooms', space.private_rooms); set('os-customer-area', space.customer_area); set('os-storage-area', space.storage_area); set('os-street-frontage', space.street_frontage); set('os-frontage-width', space.frontage_width); set('os-display-windows', space.display_windows); set('os-loading-access', space.loading_access); set('os-foot-traffic', space.foot_traffic); set('os-nearby-anchors', space.nearby_anchors);
+    const parking = details.parking || {}; set('os-parking-spaces', parking.spaces); set('os-parking-cost', parking.cost); set('os-parking-paid-amount', parking.paid_amount); ['allocated','visitor','customer'].forEach(function(key){ const field=document.getElementById('os-parking-'+(key === 'allocated' ? 'allocated' : key+'-parking')); if(field) field.checked=parking[key]===true; });
+    const rules = details.rules || {}; set('os-fitout-rule', rules.fitout); set('os-signage', rules.signage); set('os-subletting', rules.subletting); set('os-restoration', rules.restoration); set('os-noise-limits', rules.noise_limits); set('os-visitor-policy', rules.visitor_policy); (rules.permitted_uses || []).forEach(function(key){ const field=document.querySelector('[data-os-use="'+key+'"]'); if(field) field.checked=true; });
+    const pricing = details.pricing || {}; set('os-pricing-basis', pricing.basis); set('os-price-amount', pricing.amount); set('os-area-period', pricing.area_period); set('os-monthly-payment', pricing.monthly_payment); set('os-desk-included', pricing.desk_included); set('os-short-pricing-note', pricing.short_pricing_note); set('os-turnover-threshold', pricing.turnover_threshold);
+    const costs = details.costs || {}; set('os-service-charge', costs.service_charge); set('os-service-amount', costs.service_amount); set('os-service-frequency', costs.service_frequency); set('os-utilities', costs.utilities); set('os-utilities-amount', costs.utilities_amount); set('os-tax', costs.tax); set('os-deposit', costs.security_deposit); set('os-advance-rent', costs.advance_rent); (costs.compulsory_charges || []).forEach(addOfficeShopCharge); set('os-rent-increases', costs.rent_increases);
+    const lease = details.lease || {}; set('os-available-from', lease.available_from); set('os-min-term', lease.minimum_term); set('os-payment-frequency', lease.payment_frequency); set('os-viewing-required', lease.viewing_required); set('os-preferred-term', lease.preferred_term); set('os-renewal', lease.renewal); set('os-notice-period', lease.notice_period); set('os-lock-in', lease.lock_in); set('os-viewing-availability', lease.viewing_availability); set('os-payment-methods', lease.payment_methods);
+    const amenities = details.amenities || {}; Object.keys(amenities).forEach(function(key){ const field=document.querySelector('[data-os-key="'+key+'"]'); if(field) field.checked=amenities[key]===true; }); set('os-power-note', amenities.power_note); set('os-internet-note', amenities.internet_note); set('os-after-hours', amenities.after_hours); set('os-accessibility-note', amenities.accessibility_note);
+    const documents = details.documents || {}; const onRequest=document.getElementById('os-documents-on-request'); if(onRequest) onRequest.checked=documents.documents_on_request===true;
+    updateOfficeShopConditions();
+  }
+>>>>>>> ee616d3 (started repairing the listing ui)
 
   function escapeHtml(str){
     if (!str) return '';
@@ -1407,7 +1731,7 @@
     document.getElementById('dining-restaurant-name').required = mode === 'both';
     if (tableOnly) {
       setText('about-eyebrow', '01 — About your dining space');
-      setText('about-sub', 'Create a simple dining listing so guests can request a table directly with your hotel.');
+      setText('about-sub', 'Every great stay, successful business, or memorable experience begins with the right space. Showcase yours on VaRoom and connect with people looking for exactly what you offer.');
       setText('title-label', 'Restaurant / dining name');
       document.getElementById('title').placeholder = 'e.g. The Garden Restaurant';
       setText('caption-label', 'Guest-facing caption');
@@ -1431,18 +1755,17 @@
     const hotel = hostNiche === 'hotel';
     if (!hotel) return;
     setText('about-eyebrow', '01 — About the room');
-    setText('about-sub', 'Introduce the room guests will book: its bed setup, in-room comforts, and the service experience they can expect.');
+    setText('about-sub', 'Every great stay, successful business, or memorable experience begins with the right space. Showcase yours on VaRoom and connect with people looking for exactly what you offer.');
     setText('title-label', 'Room listing name');
     document.getElementById('title').placeholder = 'e.g. Deluxe King Room at Westlands';
     setText('caption-label', 'Guest-facing highlight');
     document.getElementById('caption').placeholder = 'A calm king room with breakfast and skyline views.';
     setText('description-label', 'Room and hotel details');
     document.getElementById('property-description').placeholder = 'Describe the room, bed configuration, bathroom, breakfast, hotel facilities, and anything guests should know before check-in.';
-    setText('location-title', 'Help guests find your hotel.');
-    setText('location-sub', 'Share the neighbourhood or landmark so travellers can plan their stay. Exact location details can be added later.');
-    setText('location-label', 'Where is the hotel located?');
-    setText('location-help', 'Enter the hotel’s neighbourhood, town, or a nearby landmark. You can add the exact address later.');
-    document.getElementById('location-text').placeholder = 'e.g. Westlands, Nairobi · near Sarit Centre';
+    setText('location-title', 'Help Guests Find Your Space');
+    setText('location-sub', 'Tell us the neighbourhood, town, or area your property is in. Help guests discover your space in a location that suits their plans. You can add the exact location later.');
+    setText('location-label', 'neighbourhood, city');
+    document.getElementById('location-text').placeholder = 'eg Westlands, Nairobi';
     setText('media-title', 'Show the stay, room to lobby.');
     setText('media-sub', 'Lead with the guest room, then include the bathroom, lobby, dining, and standout hotel facilities.');
     setText('photo-hint', 'Up to 6 room, hotel, or facility photos/videos · JPG, PNG, WEBP, MP4, MOV or WEBM · 5MB max each.');
@@ -1467,18 +1790,17 @@
     }
 
     setText('about-eyebrow', '01 — About the property');
-    setText('about-sub', 'A few thoughtful details now, then VaRoom turns your property into a place people can picture living in.');
+    setText('about-sub', 'The right tenant or buyer could be looking for a property just like yours. Create your listing on VaRoom, showcase its potential, and make it easier for the right people to find it.');
     setText('title-label', 'Property name');
     document.getElementById('title').placeholder = 'e.g. Karen Villas, Amani Apartments, or Greenview Residences';
     setText('caption-label', 'Summary highlight');
     document.getElementById('caption').placeholder = 'A calm executive residence with generous natural light and secure compound.';
     setText('description-label', 'Property & unit details');
     document.getElementById('property-description').placeholder = 'Tell buyers or tenants what they should know — available units, property/unit sizes, bedrooms and bathrooms, layout, notable compound features, location access, and terms before deciding to rent or buy.';
-    setText('location-title', 'Add your property’s area.');
-    setText('location-sub', 'A general location helps tenants and buyers understand where your property is situated. Exact location details can be added later.');
-    setText('location-label', 'Where is the property located?');
-    setText('location-help', 'Enter the area, neighbourhood, or town where your property is located. You’ll be able to add the exact location later.');
-    document.getElementById('location-text').placeholder = 'e.g. Nairobi, Kilimani · near Yaya Centre';
+    setText('location-title', 'Bring Your Property Closer to the Right People');
+    setText('location-sub', 'Every property search starts with a location. Tell us the neighbourhood, town, or area so prospective tenants and buyers can discover your property. You can add the exact location later.');
+    setText('location-label', 'neighbourhood, county/city');
+    document.getElementById('location-text').placeholder = 'eg Westlands, Nairobi';
     setText('media-title', 'Showcase the property.');
     setText('media-sub', 'Choose a cover, add angles of the interior, exterior and compound, then drag to set the order.');
     setText('photo-hint', 'Up to 6 photos or video tours · JPG, PNG, WEBP, MP4, MOV or WEBM · 5MB max each.');
@@ -1592,6 +1914,31 @@
       configurePropertyLanguage();
       applyPropertyPurpose(propertyPurpose);
     }
+<<<<<<< HEAD
+=======
+    const officeShop = isOfficeShop(cat);
+    document.getElementById('amenities-field').style.display = officeShop ? 'none' : '';
+    propertyPolicySection.hidden = cat !== 'property';
+    document.getElementById('stay-price-field').style.display = officeShop ? 'none' : '';
+    document.getElementById('stay-room-type-field').style.display = officeShop ? 'none' : '';
+    if (officeShop) {
+      longTermFields.classList.remove('active');
+      shortStayFields.classList.remove('active');
+      priceUnitField.innerHTML = '<option value="month">Per month</option>';
+      setText('about-eyebrow', '01 — ' + (cat === 'office' ? 'Office' : 'Shop') + ' details');
+      setText('about-sub', 'Every great stay, successful business, or memorable experience begins with the right space. Showcase yours on VaRoom and connect with people looking for exactly what you offer.');
+      setText('location-title', 'Put Your Business Space in the Right Place');
+      setText('location-sub', 'Add the area where your property is located so businesses can discover a space that fits their customers, operations, and ambitions. You can provide the exact location later.');
+      setText('location-label', 'neighbourhood, city');
+      document.getElementById('location-text').placeholder = 'eg Westlands, Nairobi';
+      setText('media-title', 'Show the actual space.');
+      setText('media-sub', 'Add at least one photo or video of the unit, then specify its work-ready features.');
+      setText('photo-hint', 'At least one photo or video of the actual unit is required. Up to 6 files · JPG, PNG, WEBP, MP4, MOV or WEBM · 5MB max each.');
+      setText('pricing-heading', 'Set the commercial terms.');
+      bookingSub.textContent = 'Choose the pricing basis, then add costs and availability clearly.';
+    }
+    renderOfficeShopFields();
+>>>>>>> ee616d3 (started repairing the listing ui)
     renderAmenities(cat);
     updatePricePreview();
   }
@@ -1764,6 +2111,84 @@
   ];
 
   const amenitiesGrid = document.getElementById('amenities-grid');
+  const amenitiesLibraryOpen = document.getElementById('amenities-library-open');
+  const amenitiesLibraryOverlay = document.getElementById('amenities-library-overlay');
+  const amenitiesLibrarySearch = document.getElementById('amenities-library-search');
+  const amenitiesLibraryCategories = document.getElementById('amenities-library-categories');
+  const amenitiesLibraryOptions = document.getElementById('amenities-library-options');
+  const amenitiesLibraryDone = document.getElementById('amenities-library-done');
+  const amenitiesLibraryCount = document.getElementById('amenities-library-count');
+  const amenitiesLibrarySummary = document.getElementById('amenities-library-summary');
+  let activeAmenityLibraryCategory = 'All';
+  const LIBRARY_AMENITY_CATEGORIES = ['All', 'Essentials', 'Comfort', 'Kitchen & dining', 'Work & entertainment', 'Outdoor', 'Building & security', 'Family & safety', 'Services'];
+  const AMENITY_CATEGORY_TERMS = {
+    Essentials: ['wifi','parking','power','water','security','smoke','alarm','camera','internet','fiber'],
+    Comfort: ['heating','air conditioning','climate','bedding','pillows','hot water','curtain','towel','linen','hair dryer','furnished','unfurnished'],
+    'Kitchen & dining': ['kitchen','refrigerator','fridge','coffee','breakfast','restaurant','bar','room service'],
+    'Work & entertainment': ['workspace','tv','streaming','outlet','usb','gym','fitness','elevator','desk'],
+    Outdoor: ['mountain','balcony','garden','pool','bonfire','bbq','grill','hot tub','main road','school','compound'],
+    'Building & security': ['security','camera','power backup','elevator','parking','guard','water backup','borehole','road','school'],
+    'Family & safety': ['pet','smoke','alarm','security','water backup'],
+    Services: ['front desk','luggage','shuttle','transport','laundry','onsite','on-site','complimentary','breakfast','room service','parking']
+  };
+  function isAmenityLibraryNiche(category){ return category === 'airbnb' || category === 'hotel' || category === 'property'; }
+  function amenityCategoryFor(item){
+    const haystack = (item[0] + ' ' + item[1]).toLowerCase();
+    for (const category of LIBRARY_AMENITY_CATEGORIES.slice(1)) {
+      if (AMENITY_CATEGORY_TERMS[category].some(function(term){ return haystack.includes(term); })) return category;
+    }
+    return 'Comfort';
+  }
+  function selectedAmenityCheckboxes(){ return Array.from(amenitiesGrid.querySelectorAll('input[type="checkbox"]:checked')); }
+  function syncAmenityLibrarySummary(){
+    const selected = selectedAmenityCheckboxes();
+    const count = selected.length;
+    amenitiesLibraryCount.textContent = count + ' selected';
+    amenitiesLibrarySummary.textContent = count ? selected.map(function(input){
+      const option = input.closest('.amenity-check');
+      return option ? option.querySelector('span').textContent : input.value;
+    }).join(' · ') : 'No amenities selected yet.';
+  }
+  function renderAmenityLibrary(){
+    const options = Array.from(amenitiesGrid.querySelectorAll('input[type="checkbox"]')).map(function(input){
+      const row = input.closest('.amenity-check');
+      return { input:input, key:input.value, label:row.querySelector('span').textContent, icon:row.querySelector('svg').outerHTML };
+    });
+    const query = amenitiesLibrarySearch.value.trim().toLowerCase();
+    amenitiesLibraryCategories.innerHTML = LIBRARY_AMENITY_CATEGORIES.map(function(category){
+      return '<button type="button" class="amenities-library-category" data-library-category="' + category + '" aria-pressed="' + (activeAmenityLibraryCategory === category) + '">' + category + '</button>';
+    }).join('');
+    amenitiesLibraryCategories.querySelectorAll('[data-library-category]').forEach(function(button){
+      button.addEventListener('click', function(){ activeAmenityLibraryCategory = button.dataset.libraryCategory; renderAmenityLibrary(); });
+    });
+    const filtered = options.filter(function(option){
+      const category = amenityCategoryFor([option.key,option.label]);
+      const matchesCategory = activeAmenityLibraryCategory === 'All' || category === activeAmenityLibraryCategory;
+      const matchesSearch = !query || (option.key + ' ' + option.label + ' ' + category).toLowerCase().includes(query);
+      return matchesCategory && matchesSearch;
+    });
+    amenitiesLibraryOptions.innerHTML = filtered.length ? filtered.map(function(option){
+      return '<button type="button" class="amenities-library-option' + (option.input.checked ? ' selected' : '') + '" data-amenity-key="' + option.key + '" aria-pressed="' + (option.input.checked ? 'true' : 'false') + '">' + option.icon + '<span>' + escapeHtml(option.label) + '</span></button>';
+    }).join('') : '<p class="amenities-library-empty">No amenities match this search.</p>';
+    amenitiesLibraryOptions.querySelectorAll('[data-amenity-key]').forEach(function(button){
+      button.addEventListener('click', function(){
+        const checkbox = Array.from(amenitiesGrid.querySelectorAll('input[type="checkbox"]')).find(function(input){ return input.value === button.dataset.amenityKey; });
+        if (!checkbox) return;
+        checkbox.checked = !checkbox.checked;
+        checkbox.closest('.amenity-check').classList.toggle('checked', checkbox.checked);
+        syncAmenityLibrarySummary(); renderAmenityLibrary();
+      });
+    });
+    syncAmenityLibrarySummary();
+  }
+  function closeAmenityLibrary(){ amenitiesLibraryOverlay.hidden = true; amenitiesLibraryOpen.focus(); }
+  amenitiesLibraryOpen.addEventListener('click', function(){
+    activeAmenityLibraryCategory = 'All'; amenitiesLibraryOverlay.hidden = false; renderAmenityLibrary(); amenitiesLibrarySearch.focus();
+  });
+  amenitiesLibrarySearch.addEventListener('input', renderAmenityLibrary);
+  amenitiesLibraryDone.addEventListener('click', closeAmenityLibrary);
+  amenitiesLibraryOverlay.addEventListener('click', function(event){ if (event.target === amenitiesLibraryOverlay) closeAmenityLibrary(); });
+  document.addEventListener('keydown', function(event){ if (event.key === 'Escape' && !amenitiesLibraryOverlay.hidden) closeAmenityLibrary(); });
   function renderAmenities(category){
     let choices = AMENITY_OPTIONS;
     if (category === 'hotel') choices = HOTEL_AMENITY_OPTIONS;
@@ -1777,10 +2202,18 @@
     '</label>';
     }).join('');
 
+    const useLibrary = isAmenityLibraryNiche(category);
+    amenitiesGrid.classList.toggle('library-state-store', useLibrary);
+    amenitiesLibraryOpen.hidden = !useLibrary;
+    amenitiesLibrarySummary.hidden = !useLibrary;
+    amenitiesLibrarySearch.value = '';
+    activeAmenityLibraryCategory = 'All';
+
     amenitiesGrid.querySelectorAll('.amenity-check').forEach(function(row){
       const cb = row.querySelector('input');
-      cb.addEventListener('change', function(){ row.classList.toggle('checked', cb.checked); });
+      cb.addEventListener('change', function(){ row.classList.toggle('checked', cb.checked); syncAmenityLibrarySummary(); });
     });
+    syncAmenityLibrarySummary();
   }
 
   hotelOfferMode.querySelectorAll('[data-hotel-mode]').forEach(function(button){
@@ -1810,6 +2243,28 @@
   }
 
   function validateStep(n){
+<<<<<<< HEAD
+=======
+    if (n === 2 && isOfficeShop(hostNiche)) {
+      const areaParts = splitListingArea(fieldValue('location-text'));
+      if (!areaParts.neighborhood || !areaParts.city) {
+        const areaInput = document.getElementById('location-text');
+        if (areaInput) {
+          areaInput.setCustomValidity('Enter the neighbourhood and city separated by a comma, for example Westlands, Nairobi.');
+          areaInput.reportValidity();
+          areaInput.addEventListener('input', function clearAreaValidity(){ areaInput.setCustomValidity(''); areaInput.removeEventListener('input', clearAreaValidity); }, { once:true });
+          areaInput.focus();
+        }
+        return false;
+      }
+    }
+    if (n === 1 && isOfficeShop(hostNiche) && !officeShopTypeSelected) {
+      const firstOption = officeShopType.querySelector('[data-office-shop-type]');
+      if (firstOption) firstOption.focus();
+      alert('Choose whether you are listing an Office or a Shop.');
+      return false;
+    }
+>>>>>>> ee616d3 (started repairing the listing ui)
     if (n === 1 && hostNiche === 'hotel' && !hotelListingMode) {
       const firstOption = hotelOfferMode.querySelector('[data-hotel-mode]');
       if (firstOption) firstOption.focus();
@@ -2411,10 +2866,22 @@
     submitBtn.disabled = true;
     submitBtn.textContent = editMode ? 'Saving changes...' : 'Publishing...';
 
+    const areaParts = splitListingArea(generalLocation);
     const listingPayload = {
       title, description: caption, property_description: propertyDescription,
       location_text: generalLocation,
     };
+<<<<<<< HEAD
+=======
+    if (areaParts.neighborhood) listingPayload.neighborhood = areaParts.neighborhood;
+    if (areaParts.city) listingPayload.city = areaParts.city;
+    if (isOfficeShop(category)) {
+      listingPayload.country = 'Kenya';
+      // Keep the current server and booking flow compatible while sharing only
+      // the general area on this card. Exact unit details remain private.
+      listingPayload.address_visibility = 'after_inquiry';
+    }
+>>>>>>> ee616d3 (started repairing the listing ui)
     const existingSubmissionListingId = editMode ? editListingId : preparedPaymentListingId;
     if (!existingSubmissionListingId) listingPayload.category = category;
     if (category === 'hotel') {
