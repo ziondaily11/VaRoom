@@ -622,10 +622,6 @@
           </div>
 
           <p class="step-eyebrow" id="about-eyebrow">01 — About the property</p>
-<<<<<<< HEAD
-          <h1 class="step-title" id="listing-headline">Let's list your first space.</h1>
-          <p class="step-sub" id="about-sub">A few thoughtful details now, then VaRoom turns your space into a place people can picture themselves in.</p>
-=======
           <h1 class="step-title" id="listing-headline">Turn Your Space Into an Opportunity</h1>
           <p class="step-sub" id="about-sub">Every great stay, successful business, or memorable experience begins with the right space. Showcase yours on VaRoom and connect with people looking for exactly what you offer.</p>
           <div class="office-shop-type" id="office-shop-type" aria-label="Listing type">
@@ -633,7 +629,6 @@
             <button type="button" data-office-shop-type="shop"><strong>Shop</strong><small>Retail units, showrooms, studios and street-front shops</small></button>
           </div>
           <div class="office-shop-section" id="office-shop-details-fields"></div>
->>>>>>> ee616d3 (started repairing the listing ui)
           <div class="hotel-offer-mode" id="hotel-offer-mode" hidden aria-label="What would you like to offer?">
             <button type="button" class="hotel-offer-option" data-hotel-mode="table"><strong>Table Reservations</strong><small>Dining reservations only</small></button>
             <button type="button" class="hotel-offer-option" data-hotel-mode="stay"><strong>Hotel Stay</strong><small>Accommodation only</small></button>
@@ -1506,8 +1501,6 @@
   let propertyPurpose = 'rent'; // 'rent' | 'sale' | 'both'
   let propertySalePriceMode = 'exact'; // 'exact' | 'starting'
   let selectedPolicyFile = null;
-<<<<<<< HEAD
-=======
   const officeShopType = document.getElementById('office-shop-type');
   const officeShopDetailsFields = document.getElementById('office-shop-details-fields');
   const officeShopLocationFields = document.getElementById('office-shop-location-fields');
@@ -1702,7 +1695,6 @@
     const documents = details.documents || {}; const onRequest=document.getElementById('os-documents-on-request'); if(onRequest) onRequest.checked=documents.documents_on_request===true;
     updateOfficeShopConditions();
   }
->>>>>>> ee616d3 (started repairing the listing ui)
 
   function escapeHtml(str){
     if (!str) return '';
@@ -1914,8 +1906,6 @@
       configurePropertyLanguage();
       applyPropertyPurpose(propertyPurpose);
     }
-<<<<<<< HEAD
-=======
     const officeShop = isOfficeShop(cat);
     document.getElementById('amenities-field').style.display = officeShop ? 'none' : '';
     propertyPolicySection.hidden = cat !== 'property';
@@ -1938,7 +1928,6 @@
       bookingSub.textContent = 'Choose the pricing basis, then add costs and availability clearly.';
     }
     renderOfficeShopFields();
->>>>>>> ee616d3 (started repairing the listing ui)
     renderAmenities(cat);
     updatePricePreview();
   }
@@ -2243,8 +2232,6 @@
   }
 
   function validateStep(n){
-<<<<<<< HEAD
-=======
     if (n === 2 && isOfficeShop(hostNiche)) {
       const areaParts = splitListingArea(fieldValue('location-text'));
       if (!areaParts.neighborhood || !areaParts.city) {
@@ -2264,7 +2251,6 @@
       alert('Choose whether you are listing an Office or a Shop.');
       return false;
     }
->>>>>>> ee616d3 (started repairing the listing ui)
     if (n === 1 && hostNiche === 'hotel' && !hotelListingMode) {
       const firstOption = hotelOfferMode.querySelector('[data-hotel-mode]');
       if (firstOption) firstOption.focus();
@@ -2871,8 +2857,6 @@
       title, description: caption, property_description: propertyDescription,
       location_text: generalLocation,
     };
-<<<<<<< HEAD
-=======
     if (areaParts.neighborhood) listingPayload.neighborhood = areaParts.neighborhood;
     if (areaParts.city) listingPayload.city = areaParts.city;
     if (isOfficeShop(category)) {
@@ -2881,7 +2865,6 @@
       // the general area on this card. Exact unit details remain private.
       listingPayload.address_visibility = 'after_inquiry';
     }
->>>>>>> ee616d3 (started repairing the listing ui)
     const existingSubmissionListingId = editMode ? editListingId : preparedPaymentListingId;
     if (!existingSubmissionListingId) listingPayload.category = category;
     if (category === 'hotel') {
