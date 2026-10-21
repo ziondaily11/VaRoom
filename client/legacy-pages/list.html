@@ -811,6 +811,27 @@
   @media(min-width:901px){
     #listing-page[data-listing-niche] .step-frame.active:is([data-step="1"],[data-step="2"],[data-step="3"],[data-step="4"]){ grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
   }
+  /* Keep long form content in its own scroll area so the CTA always has a
+     dedicated row at the bottom of the card. */
+  #listing-page[data-listing-niche] .step-frame:is([data-step="1"],[data-step="2"],[data-step="3"],[data-step="4"]) .step-panel{ min-width:0; min-height:0; display:flex; flex-direction:column; }
+  #listing-page[data-listing-niche] .step-frame:is([data-step="1"],[data-step="2"],[data-step="3"],[data-step="4"]) .step-fields{ flex:1 1 auto; min-width:0; min-height:0; overflow-x:hidden; overflow-y:auto!important; padding:0 .35rem 1rem 0; overscroll-behavior:contain; scrollbar-width:thin; }
+  #listing-page[data-listing-niche] .step-frame:is([data-step="1"],[data-step="2"],[data-step="3"],[data-step="4"]) .panel-actions{ position:relative; z-index:2; flex:0 0 auto; margin-top:auto; padding:.85rem 0 0; background:#C41E3A; }
+  #listing-page[data-listing-niche] .step-frame.active:is([data-step="1"],[data-step="2"],[data-step="3"],[data-step="4"]){ background:#C41E3A; }
+  @media(min-width:901px){
+    #listing-page[data-listing-niche] .step-frame:is([data-step="1"],[data-step="2"],[data-step="3"],[data-step="4"]) .step-panel{ border-radius:0 20px 20px 0; }
+    #listing-page[data-listing-niche] .step-frame:is([data-step="1"],[data-step="2"],[data-step="3"],[data-step="4"]) .step-photo{ border-radius:20px 0 0 20px; overflow:hidden; }
+    .wizard-correction-nav{ border:0; border-radius:13px; overflow:hidden; box-shadow:0 0 0 1px rgba(255,255,255,.3); }
+    .wizard-correction-nav select{ border:0; border-radius:0; }
+    .wizard-correction-nav button{ border:0!important; border-radius:0; outline:none; box-shadow:none; }
+    .wizard-correction-nav select:focus,
+    .wizard-correction-nav button:focus{ outline:none; box-shadow:none; }
+    .wizard-correction-nav select:focus-visible,
+    .wizard-correction-nav button:focus-visible{ outline:2px solid #fff!important; outline-offset:-3px; box-shadow:none!important; position:relative; z-index:2; }
+  }
+  @media(max-width:900px){
+    #listing-page[data-listing-niche] .step-frame:is([data-step="1"],[data-step="2"],[data-step="3"],[data-step="4"]) .step-panel{ border-radius:18px 18px 0 0; }
+    #listing-page[data-listing-niche] .step-frame:is([data-step="1"],[data-step="2"],[data-step="3"],[data-step="4"]) .step-photo{ border-radius:0 0 18px 18px; overflow:hidden; }
+  }
 </style>
 <link rel="stylesheet" href="js/varoom-dark-theme.css">
 </head>
