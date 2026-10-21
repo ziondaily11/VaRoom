@@ -426,6 +426,9 @@ router.post('/listings', async (req, res) => {
   }
   const { data, error } = await supabaseAdmin.from('listings').insert(payload).select().single();
   if (error) {
+    // Keep the client response generic, but retain the database error code and
+    // message server-side so schema drift and constraint failures are diagnosable.
+    console.error('Listing insert failed:', { code: error.code || null, message: error.message || 'Unknown database error' });
     if (error.code === 'P0001' || /niche/i.test(error.message || '')) {
       return res.status(422).json({ error: 'Listing category must match the host niche', code: 'HOST_NICHE_NOT_ALLOWED' });
     }
