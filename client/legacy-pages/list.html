@@ -719,7 +719,7 @@
   #listing-page[data-listing-niche] .step-frame[data-step="3"] .step-panel select,
   #listing-page[data-listing-niche] .step-frame[data-step="4"] .step-panel input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
   #listing-page[data-listing-niche] .step-frame[data-step="4"] .step-panel textarea,
-  #listing-page[data-listing-niche] .step-frame[data-step="4"] .step-panel select{ background:rgba(255,255,255,.15)!important; border:1px solid rgba(255,255,255,.35)!important; color:#fff!important; color-scheme:dark; }
+  #listing-page[data-listing-niche] .step-frame[data-step="4"] .step-panel select{ background:rgba(255,255,255,.12)!important; border:1px solid rgba(255,255,255,.35)!important; color:#fff!important; color-scheme:dark; }
   #listing-page[data-listing-niche] .step-frame[data-step="1"] .step-panel input::placeholder,
   #listing-page[data-listing-niche] .step-frame[data-step="1"] .step-panel textarea::placeholder,
   #listing-page[data-listing-niche] .step-frame[data-step="2"] .step-panel input::placeholder,
@@ -743,7 +743,7 @@
   #listing-page[data-listing-niche] .step-frame[data-step="3"] .step-panel input[type="checkbox"],
   #listing-page[data-listing-niche] .step-frame[data-step="3"] .step-panel input[type="radio"],
   #listing-page[data-listing-niche] .step-frame[data-step="4"] .step-panel input[type="checkbox"],
-  #listing-page[data-listing-niche] .step-frame[data-step="4"] .step-panel input[type="radio"]{ appearance:none; -webkit-appearance:none; display:inline-grid; place-content:center; width:1rem; height:1rem; flex:none; padding:0!important; border:1px solid rgba(255,255,255,.35)!important; border-radius:3px; background:rgba(255,255,255,.15)!important; vertical-align:middle; cursor:pointer; }
+  #listing-page[data-listing-niche] .step-frame[data-step="4"] .step-panel input[type="radio"]{ appearance:none; -webkit-appearance:none; display:inline-grid; place-content:center; width:1rem; height:1rem; flex:none; padding:0!important; border:1px solid rgba(255,255,255,.35)!important; border-radius:3px; background:rgba(255,255,255,.12)!important; vertical-align:middle; cursor:pointer; }
   #listing-page[data-listing-niche] .step-frame[data-step="1"] .step-panel input[type="checkbox"]:checked,
   #listing-page[data-listing-niche] .step-frame[data-step="1"] .step-panel input[type="radio"]:checked,
   #listing-page[data-listing-niche] .step-frame[data-step="2"] .step-panel input[type="checkbox"]:checked,
@@ -770,11 +770,11 @@
   #listing-page[data-listing-niche] .step-frame[data-step="4"] .step-panel select option{ background:#8F1229; color:#fff; }
   #listing-page[data-listing-niche] .step-frame[data-step="1"] .office-shop-type button,
   #listing-page[data-listing-niche] .step-frame[data-step="1"] .hotel-offer-option,
-  #listing-page[data-listing-niche] .step-frame[data-step="1"] .property-purpose-option{ background:rgba(255,255,255,.15)!important; border:1px solid rgba(255,255,255,.35)!important; color:#fff!important; }
+  #listing-page[data-listing-niche] .step-frame[data-step="1"] .property-purpose-option{ background:rgba(255,255,255,.12)!important; border:1px solid rgba(255,255,255,.35)!important; color:#fff!important; }
   #listing-page[data-listing-niche] .step-frame[data-step="1"] .office-shop-type button.selected,
   #listing-page[data-listing-niche] .step-frame[data-step="1"] .hotel-offer-option.selected,
   #listing-page[data-listing-niche] .step-frame[data-step="1"] .property-purpose-option.selected{ background:rgba(255,255,255,.3)!important; border-color:rgba(255,255,255,.78)!important; color:#fff!important; }
-  #listing-page[data-listing-niche] .step-frame[data-step="4"] .sale-mode-option{ background:rgba(255,255,255,.15)!important; border:1px solid rgba(255,255,255,.35)!important; color:#fff!important; }
+  #listing-page[data-listing-niche] .step-frame[data-step="4"] .sale-mode-option{ background:rgba(255,255,255,.12)!important; border:1px solid rgba(255,255,255,.35)!important; color:#fff!important; }
   #listing-page[data-listing-niche] .step-frame[data-step="4"] .sale-mode-option.selected{ background:rgba(255,255,255,.3)!important; border-color:rgba(255,255,255,.78)!important; color:#fff!important; }
   #listing-page[data-listing-niche] .step-frame[data-step="1"] .step-btn.next,
   #listing-page[data-listing-niche] .step-frame[data-step="2"] .step-btn.next,
@@ -796,6 +796,18 @@
   #listing-page[data-listing-niche] .step-frame[data-step="4"] .step-panel input:focus-visible,
   #listing-page[data-listing-niche] .step-frame[data-step="4"] .step-panel textarea:focus-visible,
   #listing-page[data-listing-niche] .step-frame[data-step="4"] .step-panel select:focus-visible{ outline:2px solid rgba(255,255,255,.9); outline-offset:1px; border-color:rgba(255,255,255,.85)!important; }
+  #listing-page[data-listing-niche] .step-frame:is([data-step="1"],[data-step="2"],[data-step="3"],[data-step="4"]) .step-panel :is(label,.section-heading,.section-help,.step-eyebrow,.step-sub,.location-help,.photo-hint,.amenities-hint,.booking-hint,.property-section-label){ color:#fff!important; font-weight:700!important; }
+  #listing-page[data-listing-niche] .step-frame[data-step="3"] .amenities-library-search input{ background:rgba(255,255,255,.12)!important; border:1px solid rgba(255,255,255,.35)!important; color:#fff!important; }
+  /* Keep the reference captions visible across every niche and wizard step. */
+  #listing-page[data-listing-niche] .step-frame:is([data-step="1"],[data-step="2"],[data-step="3"],[data-step="4"]) .step-photo::after{ display:block!important; }
+  #listing-page[data-listing-niche] .step-frame:is([data-step="1"],[data-step="2"],[data-step="3"],[data-step="4"]) .step-photo-caption{ display:block!important; left:1.35rem; right:1.35rem; bottom:1.35rem; z-index:3; max-width:38rem; color:#fff!important; text-shadow:0 1px 3px rgba(0,0,0,.55); }
+  #listing-page[data-listing-niche] .step-frame:is([data-step="1"],[data-step="2"],[data-step="3"],[data-step="4"]) .step-photo-caption h3{ color:#fff!important; font-weight:700; }
+  #listing-page[data-listing-niche] .step-frame:is([data-step="1"],[data-step="2"],[data-step="3"],[data-step="4"]) .step-photo-caption p{ color:rgba(255,255,255,.92)!important; max-width:38ch; }
+  @media(max-width:900px){
+    #listing-page[data-listing-niche] .step-frame:is([data-step="1"],[data-step="2"],[data-step="3"],[data-step="4"]) .step-photo-caption{ left:1rem; right:1rem; bottom:1rem; }
+    #listing-page[data-listing-niche] .step-frame:is([data-step="1"],[data-step="2"],[data-step="3"],[data-step="4"]) .step-photo-caption h3{ font-size:1.1rem; }
+    #listing-page[data-listing-niche] .step-frame:is([data-step="1"],[data-step="2"],[data-step="3"],[data-step="4"]) .step-photo-caption p{ font-size:.75rem; }
+  }
   @media(min-width:901px){
     #listing-page[data-listing-niche] .step-frame.active:is([data-step="1"],[data-step="2"],[data-step="3"],[data-step="4"]){ grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
   }
@@ -876,15 +888,15 @@
           <div class="step-fields">
             <div class="field">
               <label for="title" id="title-label">Title</label>
-              <input type="text" id="title" name="title" required placeholder="e.g. Cozy 2-bedroom Airbnb near campus">
+              <input type="text" id="title" name="title" required placeholder="e.g. Modern 2-bedroom apartment in Kilimani">
             </div>
             <div class="field">
-              <label for="caption" id="caption-label">Caption</label>
-              <textarea id="caption" name="caption" required maxlength="500" placeholder="A quiet escape above the city."></textarea>
+              <label for="caption" id="caption-label">Summary highlight</label>
+              <textarea id="caption" name="caption" required maxlength="500" placeholder="e.g. A stylish city retreat with everything you need for a comfortable stay."></textarea>
             </div>
             <div class="field" id="property-description-field">
               <label for="property-description" id="description-label">Description</label>
-              <textarea id="property-description" name="property_description" required placeholder="Tell guests what they should know about the space — rooms, layout, notable features, atmosphere, and anything important before booking."></textarea>
+              <textarea id="property-description" name="property_description" required placeholder="Describe the accommodation, rooms, amenities, atmosphere, location, and what makes the stay special."></textarea>
             </div>
           </div>
 
@@ -895,8 +907,8 @@
         <div class="step-photo" style="background-image:url('assets/listing-wizard/step-1.jpg');">
           <div class="step-photo-badge"><span class="check">✓</span> Your listing, coming to life</div>
           <div class="step-photo-caption">
-            <h3>A place worth remembering.</h3>
-            <p>Thoughtfully stage the moments that make this property feel like home.</p>
+            <h3>Every space has a story.</h3>
+            <p>Introduce your space and show people what makes it worth discovering.</p>
           </div>
         </div>
       </section>
@@ -930,8 +942,8 @@
         <div class="step-photo" style="background-image:url('assets/listing-wizard/step-2.jpg');">
           <div class="step-photo-badge"><span class="check">✓</span> Location details added</div>
           <div class="step-photo-caption">
-            <h3>Every neighbourhood has a story.</h3>
-            <p>Let guests know the area your property calls home.</p>
+            <h3>Put your space on the map.</h3>
+            <p>Help people find your space with clear, accurate location details.</p>
           </div>
         </div>
       </section>
@@ -1015,8 +1027,8 @@
           </div>
           <div class="step-photo-badge"><span class="check">✓</span> Gallery ready</div>
           <div class="step-photo-caption">
-            <h3>Show, don't just tell.</h3>
-            <p>Great photos are the first thing a guest trusts about a space.</p>
+            <h3>Show what makes it special.</h3>
+            <p>Bring your space to life with photos, videos, and the details that matter.</p>
           </div>
         </div>
       </section>
@@ -1177,8 +1189,8 @@
         <div class="step-photo" style="background-image:url('assets/listing-wizard/step-4.jpg');">
           <div class="step-photo-badge"><span class="check">✓</span> Pricing set</div>
           <div class="step-photo-caption">
-            <h3>Every night, accounted for.</h3>
-            <p>Set the terms once — VaRoom handles the requests from here.</p>
+            <h3>Make every detail count.</h3>
+            <p>Set clear terms so people know what to expect when booking or renting your space.</p>
           </div>
         </div>
       </section>
@@ -2020,11 +2032,52 @@
       document.getElementById('dining-name-field').style.display = tableEnabled ? '' : 'none';
       if (mode === 'both') bookingSub.textContent = 'Keep your hotel stay settings, then add dining hours and table capacity.';
     }
+    configureListingIntro(hostNiche);
   }
 
   function setText(id, value){
     const element = document.getElementById(id);
     if (element) element.textContent = value;
+  }
+
+  const LISTING_INTRO_PLACEHOLDERS = {
+    airbnb: {
+      title: 'e.g. Modern 2-bedroom apartment in Kilimani',
+      summary: 'e.g. A stylish city retreat with everything you need for a comfortable stay.',
+      description: 'Describe the accommodation, rooms, amenities, atmosphere, location, and what makes the stay special.'
+    },
+    hotel: {
+      title: 'e.g. Boutique hotel in Westlands, Nairobi',
+      summary: 'e.g. Comfortable rooms, thoughtful service, and a welcoming atmosphere.',
+      description: 'Describe the rooms, facilities, services, location, dining options, and guest experience.'
+    },
+    venue: {
+      title: 'e.g. Garden wedding venue in Karen',
+      summary: 'e.g. An elegant outdoor setting for unforgettable celebrations.',
+      description: 'Describe the venue, capacity, layout, facilities, event types, accessibility, and available amenities.'
+    },
+    commercial: {
+      title: 'e.g. Furnished office space in Westlands',
+      summary: 'e.g. A professional, accessible space designed for business and growth.',
+      description: 'Describe the space, layout, facilities, location, accessibility, and suitability for its intended business use.'
+    }
+  };
+
+  function configureListingIntro(category){
+    const copy = isOfficeShop(category) ? LISTING_INTRO_PLACEHOLDERS.commercial : LISTING_INTRO_PLACEHOLDERS[category];
+    if (!copy) return;
+    setText('caption-label', 'Summary highlight');
+    if (category === 'hotel' && hotelListingMode === 'table') {
+      // The hotel dining-only subtype uses these same persisted fields for a
+      // restaurant listing, so keep its examples specific to that subtype.
+      document.getElementById('title').placeholder = 'e.g. The Garden Restaurant';
+      document.getElementById('caption').placeholder = 'e.g. Relaxed garden dining with chef-led Kenyan favourites.';
+      document.getElementById('property-description').placeholder = copy.description;
+      return;
+    }
+    document.getElementById('title').placeholder = copy.title;
+    document.getElementById('caption').placeholder = copy.summary;
+    document.getElementById('property-description').placeholder = copy.description;
   }
 
   function configureHotelLanguage(){
@@ -2217,6 +2270,7 @@
     renderOfficeShopFields();
     renderAmenities(cat);
     updatePricePreview();
+    configureListingIntro(cat);
   }
 
   function unitLabel(){
