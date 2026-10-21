@@ -1406,9 +1406,11 @@
   let listingDraftId = requestedDraftId;
   let continuationDraftRecord = null;
   let continuationDraftPointer = null;
+  let paymentCheckoutSnapshot = null;
   let draftSaveTimer = null;
   let draftSaveQueue = Promise.resolve();
   let restoringListingDraft = false;
+  let listingCheckoutHandoffInProgress = false;
   let editListing = null;
   let editBookingDetails = null;
   let existingPhotos = [];
@@ -1448,6 +1450,75 @@
     }
   }
 
+  function checkoutStatePointerKey(hostId, listingId){
+    return 'varoom_listing_checkout_state:' + hostId + ':' + listingId;
+  }
+
+  function getListingCheckoutStatePointer(hostId, listingId){
+    if (!hostId || !listingId) return null;
+    try {
+      const pointer = JSON.parse(localStorage.getItem(checkoutStatePointerKey(hostId, listingId)) || 'null');
+      if (!pointer || pointer.hostId !== hostId || pointer.listingId !== listingId
+          || pointer.cacheKey !== hostId + ':checkout:' + listingId) return null;
+      return pointer;
+    } catch (error) {
+      console.warn('Unable to read the payment checkout save state:', error);
+      return null;
+    }
+  }
+
+  async function saveListingCheckoutState(hostId, listingId){
+    if (!hostId || !listingId) throw new Error('The payment listing could not be linked to its saved form.');
+    const cacheKey = hostId + ':checkout:' + listingId;
+    const snapshot = captureListingDraft(hostId, listingId);
+    snapshot.cacheKey = cacheKey;
+    snapshot.checkoutState = true;
+    snapshot.createdAt = Date.now();
+    // IndexedDB stores the complete form plus File objects. Wait for its
+    // transaction to commit before sending the host to Paystack.
+    await listingDraftCache.save(snapshot);
+    const persistedSnapshot = await listingDraftCache.load(cacheKey);
+    const fileMatches = function(savedFile, sourceFile){
+      if (!sourceFile) return !savedFile;
+      return Boolean(savedFile && savedFile.name === sourceFile.name
+        && savedFile.size === sourceFile.size && savedFile.type === sourceFile.type
+        && savedFile.lastModified === sourceFile.lastModified && typeof savedFile.slice === 'function');
+    };
+    const filesMatch = function(savedFiles, sourceFiles){
+      return Array.isArray(savedFiles) && Array.isArray(sourceFiles) && savedFiles.length === sourceFiles.length
+        && savedFiles.every(function(file, index){ return fileMatches(file, sourceFiles[index]); });
+    };
+    const savedOfficeFiles = persistedSnapshot && persistedSnapshot.officeShopFiles;
+    const sourceOfficeFiles = snapshot.officeShopFiles;
+    if (!persistedSnapshot || !persistedSnapshot.fields
+        || Object.keys(persistedSnapshot.fields).length !== Object.keys(snapshot.fields).length
+        || !filesMatch(persistedSnapshot.mediaFiles, snapshot.mediaFiles)
+        || !fileMatches(persistedSnapshot.policyFile, snapshot.policyFile)
+        || !savedOfficeFiles || !sourceOfficeFiles
+        || !fileMatches(savedOfficeFiles.floorPlan, sourceOfficeFiles.floorPlan)
+        || !fileMatches(savedOfficeFiles.policy, sourceOfficeFiles.policy)
+        || !filesMatch(savedOfficeFiles.documents, sourceOfficeFiles.documents)) {
+      throw new Error('The saved checkout state could not be verified.');
+    }
+    const pointer = {
+      hostId: hostId,
+      listingId: listingId,
+      category: snapshot.category,
+      draftId: snapshot.draftId || null,
+      cacheKey: cacheKey,
+      createdAt: snapshot.createdAt,
+    };
+    localStorage.setItem(checkoutStatePointerKey(hostId, listingId), JSON.stringify(pointer));
+    return snapshot;
+  }
+
+  async function clearListingCheckoutState(hostId, listingId){
+    const pointer = getListingCheckoutStatePointer(hostId, listingId);
+    if (!pointer) return;
+    await listingDraftCache.remove(pointer.cacheKey);
+    localStorage.removeItem(checkoutStatePointerKey(hostId, listingId));
+  }
+
   function captureListingDraft(hostId, listingId){
     const fields = {};
     document.querySelectorAll('#list-form input, #list-form select, #list-form textarea').forEach(function(field){
@@ -1464,8 +1535,15 @@
       fields: fields,
       propertyPurpose: propertyPurpose,
       propertySalePriceMode: propertySalePriceMode,
+      hotelListingMode: hotelListingMode,
+      availableDates: Array.from(openDates),
       mediaFiles: selectedFiles.slice(),
       policyFile: selectedPolicyFile,
+      officeShopFiles: {
+        floorPlan: officeShopFloorPlanFile,
+        policy: officeShopPolicyFile,
+        documents: officeShopDocumentFiles.slice(),
+      },
     };
   }
 
@@ -1501,6 +1579,8 @@
       fields: draft.fields,
       propertyPurpose: draft.propertyPurpose,
       propertySalePriceMode: draft.propertySalePriceMode,
+      hotelListingMode: draft.hotelListingMode,
+      availableDates: draft.availableDates,
     };
     const mediaMetadata = draft.mediaFiles.map(function(file){
       return { name: file.name, type: file.type, size: file.size, lastModified: file.lastModified };
@@ -1530,7 +1610,7 @@
   }
 
   function queueListingDraftSave(){
-    if (!currentUser || editMode || restoringListingDraft) return;
+    if (!currentUser || editMode || restoringListingDraft || listingCheckoutHandoffInProgress) return;
     window.clearTimeout(draftSaveTimer);
     draftSaveTimer = window.setTimeout(function(){
       draftSaveQueue = draftSaveQueue.catch(function(){}).then(function(){
@@ -1550,7 +1630,7 @@
     });
   }
   window.addEventListener('pagehide', function(){
-    if (!currentUser || editMode || restoringListingDraft) return;
+    if (!currentUser || editMode || restoringListingDraft || listingCheckoutHandoffInProgress) return;
     window.clearTimeout(draftSaveTimer);
     draftSaveQueue = draftSaveQueue.catch(function(){}).then(function(){
       return saveListingDraft(currentUser.id, preparedPaymentListingId, true);
@@ -1586,17 +1666,26 @@
     return preparedPaymentListingId;
   }
 
-  async function persistBeforeCheckout(session){
+  async function persistBeforeCheckout(session, options){
     window.clearTimeout(draftSaveTimer);
-    await draftSaveQueue.catch(function(){});
-    try { await saveListingDraft(session.user.id, preparedPaymentListingId, false, { localOnly: true }); }
-    catch (error) { console.warn('Local draft snapshot could not be updated before checkout:', error); }
-    const listingId = await ensurePaymentDraft(session);
-    try { await saveListingDraft(session.user.id, listingId, false, { localOnly: true }); }
-    catch (error) { console.warn('Local draft snapshot could not be linked to checkout:', error); }
-    try { await saveListingDraft(session.user.id, listingId); }
-    catch (error) { console.warn('Listing draft profile sync failed; continuing to checkout:', error); }
-    return listingId;
+    const checkoutHandoff = !(options && options.saveProfileDraft);
+    if (checkoutHandoff) listingCheckoutHandoffInProgress = true;
+    try {
+      const listingId = await ensurePaymentDraft(session);
+      try { await saveListingCheckoutState(session.user.id, listingId); }
+      catch (error) {
+        console.error('Unable to persist the listing checkout state:', error);
+        throw new Error('Your listing could not be safely saved for checkout. No payment was started. Please try again or contact support.');
+      }
+      if (options && options.saveProfileDraft) {
+        try { await saveListingDraft(session.user.id, listingId); }
+        catch (error) { console.warn('Listing draft profile sync failed; continuing to checkout:', error); }
+      }
+      return listingId;
+    } catch (error) {
+      if (checkoutHandoff) listingCheckoutHandoffInProgress = false;
+      throw error;
+    }
   }
 
   async function verifyReturnedListingPayment(accessToken){
@@ -1840,7 +1929,31 @@
         const payment = await verifyReturnedListingPayment(session.access_token);
         if (payment && payment.payment_kind === 'listing' && payment.listing_id) {
           preparedPaymentListingId = payment.listing_id;
-          try {
+          const checkoutPointer = getListingCheckoutStatePointer(currentUser.id, payment.listing_id);
+          if (checkoutPointer) {
+            try {
+              const cachedCheckout = await listingDraftCache.load(checkoutPointer.cacheKey);
+              const categoryMatchesHost = cachedCheckout && (cachedCheckout.category === hostNiche
+                || (['office','shop'].includes(cachedCheckout.category) && ['office','shop'].includes(hostNiche)));
+              if (cachedCheckout && cachedCheckout.checkoutState === true
+                  && cachedCheckout.hostId === currentUser.id
+                  && cachedCheckout.listingId === payment.listing_id
+                  && cachedCheckout.cacheKey === checkoutPointer.cacheKey
+                  && cachedCheckout.fields && categoryMatchesHost) {
+                paymentCheckoutSnapshot = cachedCheckout;
+                continuationDraftPointer = checkoutPointer;
+                listingDraftId = checkoutPointer.draftId || cachedCheckout.draftId || null;
+                listingDraftCacheKey = checkoutPointer.cacheKey;
+                hostNiche = cachedCheckout.category;
+                configureCategory(hostNiche);
+              }
+            } catch (checkoutStateError) {
+              console.warn('Unable to load the local payment save state:', checkoutStateError);
+            }
+          }
+          // Older checkouts may not have a dedicated save state yet. Use the
+          // server draft only as a fallback; its absence never blocks payment.
+          if (!paymentCheckoutSnapshot) try {
             const draftsResponse = await fetch('/api/listing-drafts', {
               headers: { Authorization: 'Bearer ' + session.access_token },
             });
@@ -1902,7 +2015,7 @@
 
     configureCategory(hostNiche);
     if (!editMode && (requestedDraftId || listingPaymentReturnReference)) {
-      await restoreListingDraftAfterUpgrade(currentUser.id, session.access_token, continuationDraftRecord, continuationDraftPointer);
+      await restoreListingDraftAfterUpgrade(currentUser.id, session.access_token, continuationDraftRecord, continuationDraftPointer, paymentCheckoutSnapshot);
     }
   const needsListingPayment = ['property', 'office', 'shop'].includes(hostNiche)
     && !hasActiveNichePlan && !listingPaymentVerified && !(editMode && hasCurrentListingFee);
@@ -3883,13 +3996,18 @@
     if (!editMode && listingDraftCacheKey) {
       try {
         const pointer = getListingDraftPointer(currentUser.id);
-        if (pointer && pointer.cacheKey === listingDraftCacheKey
+        if (pointer && (pointer.cacheKey === listingDraftCacheKey
+            || (listingDraftId && pointer.draftId === listingDraftId))
             && (!pointer.listingId || pointer.listingId === listingId)) {
           await listingDraftCache.clearForHost(currentUser.id);
         }
       } catch (error) {
         console.error('Listing published, but the saved draft could not be fully cleared:', error);
       }
+    }
+    if (!editMode && preparedPaymentListingId) {
+      try { await clearListingCheckoutState(currentUser.id, preparedPaymentListingId); }
+      catch (error) { console.error('Listing is published, but its checkout save state could not be cleared:', error); }
     }
     if (listingDraftId) {
       try {
@@ -3940,8 +4058,8 @@
     box.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
-  async function restoreListingDraftAfterUpgrade(hostId, accessToken, remoteDraft, pointer){
-    let snapshot = null;
+  async function restoreListingDraftAfterUpgrade(hostId, accessToken, remoteDraft, pointer, localSnapshot){
+    let snapshot = localSnapshot || null;
     restoringListingDraft = true;
     try {
       const serverDraft = remoteDraft || null;
@@ -3951,7 +4069,7 @@
         listingDraftCacheKey = cacheKey;
         preparedPaymentListingId = serverDraft.listing_id || null;
       }
-      if (cacheKey) {
+      if (!snapshot && cacheKey) {
         try { snapshot = await listingDraftCache.load(cacheKey); }
         catch (error) {
           console.error('Unable to restore the local media cache:', error);
@@ -4008,8 +4126,16 @@
         return;
       }
 
+      if (snapshot.draftId) listingDraftId = snapshot.draftId;
+      if (snapshot.checkoutState) listingDraftCacheKey = snapshot.cacheKey;
+      if (snapshot.listingId && (!preparedPaymentListingId || snapshot.listingId === preparedPaymentListingId)) {
+        preparedPaymentListingId = snapshot.listingId;
+      }
+
       if (snapshot.propertyPurpose && hostNiche === 'property') applyPropertyPurpose(snapshot.propertyPurpose);
       if (snapshot.propertySalePriceMode && hostNiche === 'property') applyPropertySaleMode(snapshot.propertySalePriceMode);
+      if (snapshot.hotelListingMode && hostNiche === 'hotel') applyHotelMode(snapshot.hotelListingMode);
+      if (isOfficeShop(hostNiche)) officeShopTypeSelected = true;
       Object.keys(snapshot.fields).forEach(function(id){
         const field = document.getElementById(id);
         if (!field || field.type === 'file') return;
@@ -4030,6 +4156,30 @@
         selectedPolicyFile = snapshot.policyFile;
         if (policyPreviewBtn) policyPreviewBtn.textContent = selectedPolicyFile.name;
         if (policyFileName) policyFileName.classList.add('show');
+      }
+      if (snapshot.officeShopFiles && isOfficeShop(hostNiche)) {
+        officeShopFloorPlanFile = snapshot.officeShopFiles.floorPlan || null;
+        officeShopPolicyFile = snapshot.officeShopFiles.policy || null;
+        officeShopDocumentFiles = Array.isArray(snapshot.officeShopFiles.documents)
+          ? snapshot.officeShopFiles.documents.filter(function(file){ return file && typeof file.slice === 'function'; })
+          : [];
+        [
+          ['os-floor-plan', officeShopFloorPlanFile, 'Floor plan (optional)', false],
+          ['os-policy-file', officeShopPolicyFile, 'Property Policy', false],
+          ['os-documents', officeShopDocumentFiles, 'Ownership and management (optional)', true],
+        ].forEach(function(item){
+          const input = document.getElementById(item[0]);
+          const label = input && input.closest('.office-shop-document-card')?.querySelector('[data-os-upload-name]');
+          const files = item[3] ? item[1] : (item[1] ? [item[1]] : []);
+          if (label) label.textContent = files.length
+            ? (item[3] && files.length > 1 ? files.length + ' files selected' : files.map(function(file){ return file.name; }).join(', '))
+            : item[2];
+        });
+      }
+      if (Array.isArray(snapshot.availableDates)) {
+        openDates.clear();
+        snapshot.availableDates.forEach(function(date){ if (/^\d{4}-\d{2}-\d{2}$/.test(date)) openDates.add(date); });
+        renderCalendar();
       }
       renderPreviews();
       renderReviewSummary();
@@ -4059,6 +4209,7 @@
     proButton.disabled = true;
     submitButton.disabled = true;
     payButton.textContent = 'Preparing payment…';
+    let checkoutRedirectStarted = false;
 
     try {
       const { data: { session } } = await supabaseClient.auth.getSession();
@@ -4080,10 +4231,12 @@
       // This is a same-tab navigation. The callback returns to this review
       // page, which verifies the reference before revealing Publish Listing.
       window.location.assign(checkout.authorization_url);
+      checkoutRedirectStarted = true;
     } catch (error) {
       showPaymentMessage(error.message || 'Unable to start payment. Please try again.', true);
     } finally {
       paymentFlowInProgress = false;
+      if (!checkoutRedirectStarted) listingCheckoutHandoffInProgress = false;
       if (!listingPaymentVerified) {
         payButton.disabled = false;
         proButton.disabled = false;
@@ -4112,7 +4265,7 @@
       }
       const { data: { session } } = await supabaseClient.auth.getSession();
       if (!session || !session.access_token) throw new Error('Please log in again to continue.');
-      await persistBeforeCheckout(session);
+      await persistBeforeCheckout(session, { saveProfileDraft: true });
       window.location.assign('/pricing?niche=' + encodeURIComponent(hostNiche) + '&returnTo=list');
     } catch (error) {
       showPaymentMessage(error.message || 'Unable to save your listing before checkout.', true);

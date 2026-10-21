@@ -14,10 +14,36 @@ const migration = fs.readFileSync(path.join(__dirname, '..', 'migrations', '2026
 test('a fresh listing session does not read or restore the previous host draft pointer', () => {
   assert.match(listingPage, /const requestedDraftId = new URLSearchParams\(window\.location\.search\)\.get\('draft'\)/);
   assert.match(listingPage, /if \(!editMode && \(requestedDraftId \|\| listingPaymentReturnReference\)\)/);
-  assert.match(listingPage, /await restoreListingDraftAfterUpgrade\(currentUser\.id, session\.access_token, continuationDraftRecord, continuationDraftPointer\)/);
+  assert.match(listingPage, /await restoreListingDraftAfterUpgrade\(currentUser\.id, session\.access_token, continuationDraftRecord, continuationDraftPointer, paymentCheckoutSnapshot\)/);
   assert.doesNotMatch(listingPage, /if \(!editMode\) await restoreListingDraftAfterUpgrade/);
   assert.match(listingPage, /queueListingDraftSave/);
   assert.match(listingPage, /method: 'PUT'/);
+});
+
+test('Paystack uses a verified per-listing save state and restores complete form state before draft fallbacks', () => {
+  assert.match(listingPage, /async function saveListingCheckoutState\(hostId, listingId\)/);
+  assert.match(listingPage, /await listingDraftCache\.save\(snapshot\);[\s\S]*await listingDraftCache\.load\(cacheKey\)/);
+  assert.match(listingPage, /const cacheKey = hostId \+ ':checkout:' \+ listingId/);
+  assert.match(listingPage, /hotelListingMode: hotelListingMode/);
+  assert.match(listingPage, /availableDates: Array\.from\(openDates\)/);
+  assert.match(listingPage, /officeShopFiles: \{[\s\S]*floorPlan: officeShopFloorPlanFile[\s\S]*documents: officeShopDocumentFiles\.slice\(\)/);
+  assert.match(listingPage, /!filesMatch\(persistedSnapshot\.mediaFiles, snapshot\.mediaFiles\)/);
+  assert.match(listingPage, /!fileMatches\(savedOfficeFiles\.policy, sourceOfficeFiles\.policy\)/);
+  assert.match(listingPage, /!filesMatch\(savedOfficeFiles\.documents, sourceOfficeFiles\.documents\)/);
+
+  const payFlowStart = listingPage.indexOf('async function startPayToListFlow()');
+  const payFlowEnd = listingPage.indexOf("document.getElementById('pay-to-list-btn').addEventListener", payFlowStart);
+  const payFlow = listingPage.slice(payFlowStart, payFlowEnd);
+  assert.ok(payFlow.indexOf('await persistBeforeCheckout(session)') < payFlow.indexOf("fetch('/api/billing/listing-checkout'"));
+  assert.match(payFlow, /checkoutRedirectStarted = true/);
+  assert.match(listingPage, /listingCheckoutHandoffInProgress\) return/);
+  assert.match(listingPage, /if \(options && options\.saveProfileDraft\) \{[\s\S]*?await saveListingDraft/);
+
+  assert.match(listingPage, /getListingCheckoutStatePointer\(currentUser\.id, payment\.listing_id\)/);
+  assert.match(listingPage, /cachedCheckout\.listingId === payment\.listing_id/);
+  assert.match(listingPage, /restoreListingDraftAfterUpgrade\(currentUser\.id, session\.access_token, continuationDraftRecord, continuationDraftPointer, paymentCheckoutSnapshot\)/);
+  assert.match(listingPage, /applyHotelMode\(snapshot\.hotelListingMode\)/);
+  assert.match(listingPage, /openDates\.clear\(\);[\s\S]*snapshot\.availableDates\.forEach/);
 });
 
 test('My Profile displays private saved drafts and Continue Listing opens their explicit draft id', () => {
