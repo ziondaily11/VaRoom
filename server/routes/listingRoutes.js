@@ -462,14 +462,14 @@ router.post('/listings', async (req, res) => {
   // New subscription quotas apply only to the opted-in Property and combined
   // Shops & Offices plans. Legacy hospitality plans retain their old behavior.
   const { data: activeSubscription } = await supabaseAdmin.from('host_subscriptions')
-    .select('plan_id,status,current_period_end,billing_plans(features)')
+    .select('plan_id,status,current_period_end,listing_allowance_limit,billing_plans(features)')
     .eq('host_id', user.id).eq('status', 'active').in('plan_id', [
       'property_basic', 'property_pro', 'property_premium', 'shops_basic', 'shops_pro', 'shops_premium'
     ]).order('updated_at', { ascending: false }).limit(1).maybeSingle();
   const subscriptionIsCurrent = activeSubscription && (!activeSubscription.current_period_end || new Date(activeSubscription.current_period_end).getTime() > Date.now());
   if (subscriptionIsCurrent && !paymentDraft) {
     const featureValue = activeSubscription.billing_plans && activeSubscription.billing_plans.features;
-    const limit = Number(featureValue && featureValue.max_active_listings);
+    const limit = Number(activeSubscription.listing_allowance_limit ?? (featureValue && featureValue.max_active_listings));
     if (Number.isInteger(limit) && limit > 0) {
       const { data: profile } = await supabaseAdmin.from('profiles').select('listing_categories').eq('id', user.id).maybeSingle();
       const chosen = Array.isArray(profile?.listing_categories) ? profile.listing_categories[0] : null;
