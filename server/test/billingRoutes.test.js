@@ -2,7 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createBillingRoutes, normalizeRequestedPlan, authenticatedHost, resolvePaymentCallbackOrigin, buildPaymentCallbackUrl } = require('../routes/billingRoutes');
+const { createBillingRoutes, normalizeRequestedPlan, authenticatedHost, resolvePaymentCallbackOrigin, buildPaymentCallbackUrl, isEligibleListingForHost } = require('../routes/billingRoutes');
 const { ValidationError } = require('../lib/inputValidation');
 
 test('checkout accepts only canonical VaRoom plan identifiers, never a browser price', () => {
@@ -180,4 +180,78 @@ test('pay-as-you-list checkout initializes KSh 1,000 with its listing-bound call
   assert.equal(callback.searchParams.get('reference'), responseBody.reference);
   assert.equal(insertedPayments[0].status, 'initialized');
   assert.equal(insertedPayments[0].amount_minor, 100000);
+});
+
+test('listing checkout eligibility preserves property, office, and shop categories and verifies ownership', () => {
+  const hostId = 'host-1';
+  assert.equal(isEligibleListingForHost({ host_id: hostId, category: 'property' }, hostId, ['property']), true);
+  assert.equal(isEligibleListingForHost({ host_id: hostId, category: 'office' }, hostId, ['office']), true);
+  assert.equal(isEligibleListingForHost({ host_id: hostId, category: 'shop' }, hostId, ['shop']), true);
+  assert.equal(isEligibleListingForHost({ host_id: hostId, category: 'shop' }, hostId, ['office']), true);
+  assert.equal(isEligibleListingForHost({ host_id: 'another-host', category: 'property' }, hostId, ['property']), false);
+  assert.equal(isEligibleListingForHost({ host_id: hostId, category: 'shop' }, hostId, ['property']), false);
+  assert.equal(isEligibleListingForHost({ host_id: hostId, category: 'hotel' }, hostId, ['office']), false);
+});
+
+test('listing checkout starts payment only for the authenticated host and matching niche', async (t) => {
+  for (const scenario of [
+    { category: 'property', hostCategories: ['property'], expectedNiche: 'property' },
+    { category: 'office', hostCategories: ['office'], expectedNiche: 'shops_offices' },
+    { category: 'shop', hostCategories: ['shop'], expectedNiche: 'shops_offices' },
+    { category: 'shop', hostCategories: ['office'], expectedNiche: 'shops_offices' },
+  ]) {
+    await t.test(scenario.category + ' from profile ' + scenario.hostCategories[0], async () => {
+      let initialized;
+      const listing = { id: 'listing-1', host_id: 'host-1', category: scenario.category };
+      const supabase = {
+        auth: { getUser: async () => ({ data: { user: { id: 'host-1', email: 'host@example.test' } }, error: null }) },
+        from(table) {
+          const query = { selected: '', filters: {}, select(columns) { this.selected = columns; return this; },
+            eq(column, value) { this.filters[column] = value; return this; },
+            maybeSingle: async () => table === 'profiles'
+              ? (query.selected === 'role' ? { data: { role: 'host' }, error: null } : { data: { listing_categories: scenario.hostCategories }, error: null })
+              : table === 'listings' ? { data: listing, error: null } : { data: null, error: null },
+            insert: async () => ({ error: null }),
+          };
+          return query;
+        },
+      };
+      const router = createBillingRoutes({
+        supabaseAdmin: supabase, baseUrl: 'https://varoom.co.ke', nodeEnv: 'production',
+        paystack: { generateReference: () => 'reference-' + scenario.category,
+          initializeTransaction: async (payload) => { initialized = payload; return { authorization_url: 'https://checkout.paystack.test/' }; } },
+      });
+      const route = router.stack.find((layer) => layer.route && layer.route.path === '/billing/listing-checkout');
+      let status;
+      const response = { status(code) { status = code; return this; }, json(body) { this.body = body; return this; } };
+      await route.route.stack[0].handle({ headers: { authorization: 'Bearer token' }, body: { listing_id: '11111111-1111-4111-8111-111111111111' } }, response);
+      assert.equal(status, 201);
+      assert.equal(initialized.metadata.host_id, 'host-1');
+      assert.equal(initialized.metadata.listing_id, listing.id);
+      assert.equal(initialized.metadata.niche, scenario.expectedNiche);
+    });
+  }
+});
+
+test('listing checkout rejects another host\'s listing before initializing payment', async () => {
+  let initialized = false;
+  const supabase = {
+    auth: { getUser: async () => ({ data: { user: { id: 'host-1', email: 'host@example.test' } }, error: null }) },
+    from(table) {
+      const query = { selected: '', select(columns) { this.selected = columns; return this; }, eq() { return this; },
+        maybeSingle: async () => table === 'profiles'
+          ? (query.selected === 'role' ? { data: { role: 'host' }, error: null } : { data: { listing_categories: ['property'] }, error: null })
+          : table === 'listings' ? { data: { id: 'listing-1', host_id: 'other-host', category: 'property' }, error: null }
+            : { data: null, error: null } };
+      return query;
+    },
+  };
+  const router = createBillingRoutes({ supabaseAdmin: supabase, baseUrl: 'https://varoom.co.ke', nodeEnv: 'production',
+    paystack: { generateReference: () => 'unused', initializeTransaction: async () => { initialized = true; return {}; } } });
+  const route = router.stack.find((layer) => layer.route && layer.route.path === '/billing/listing-checkout');
+  let status;
+  const response = { status(code) { status = code; return this; }, json() { return this; } };
+  await route.route.stack[0].handle({ headers: { authorization: 'Bearer token' }, body: { listing_id: '11111111-1111-4111-8111-111111111111' } }, response);
+  assert.equal(status, 404);
+  assert.equal(initialized, false);
 });

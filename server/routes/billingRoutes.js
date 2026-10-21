@@ -9,6 +9,13 @@ const { ValidationError, assertAllowedKeys, text, uuid } = require('../lib/input
 
 const VALID_PLAN_IDS = new Set(['basic', 'growth', 'pro', 'property_basic', 'property_pro', 'property_premium', 'shops_basic', 'shops_pro', 'shops_premium']);
 
+function isEligibleListingForHost(listing, hostId, categories) {
+  if (!listing || listing.host_id !== hostId) return false;
+  if (listing.category === 'property') return categories.includes('property');
+  return ['office', 'shop'].includes(listing.category)
+    && categories.some((category) => ['office', 'shop'].includes(category));
+}
+
 function normalizeRequestedPlan(value) {
   const planId = text(value, 'plan', { max: 20 });
   if (!VALID_PLAN_IDS.has(planId)) throw new ValidationError('Unknown plan');
@@ -185,11 +192,16 @@ function createBillingRoutes({ supabaseAdmin = supabaseDefault, paystack = creat
     const user = await requireHost(req, res); if (!user) return;
     try { assertAllowedKeys(req.body || {}, ['listing_id']); uuid(req.body.listing_id, 'listing_id'); }
     catch { return res.status(400).json({ error: 'Invalid listing checkout request' }); }
-    const { data: profile } = await supabaseAdmin.from('profiles').select('listing_categories').eq('id', user.id).maybeSingle();
+    const { data: profile, error: profileError } = await supabaseAdmin.from('profiles').select('listing_categories').eq('id', user.id).maybeSingle();
+    if (profileError) return res.status(503).json({ error: 'Unable to verify your listing category' });
     const categories = Array.isArray(profile?.listing_categories) ? profile.listing_categories : [];
     if (!categories.some((category) => ['property', 'office', 'shop'].includes(category))) return res.status(403).json({ error: 'Pay-as-you-list is not available for this niche' });
-    const { data: listing } = await supabaseAdmin.from('listings').select('id,host_id,category').eq('id', req.body.listing_id).maybeSingle();
-    if (!listing || listing.host_id !== user.id || !['property', 'office', 'shop'].includes(listing.category)) return res.status(404).json({ error: 'Eligible listing not found' });
+    const { data: listing, error: listingError } = await supabaseAdmin.from('listings').select('id,host_id,category').eq('id', req.body.listing_id).maybeSingle();
+    if (listingError) {
+      console.error('Pay-as-you-list eligibility lookup failed:', { listingId: req.body.listing_id, hostId: user.id, message: listingError.message });
+      return res.status(503).json({ error: 'Unable to verify listing eligibility right now' });
+    }
+    if (!isEligibleListingForHost(listing, user.id, categories)) return res.status(404).json({ error: 'Eligible listing not found' });
     const { data: existing } = await supabaseAdmin.from('billing_payments').select('id,status,provider_reference,provider_payload').eq('listing_id', listing.id).eq('payment_kind', 'listing').maybeSingle();
     if (existing?.status === 'succeeded') return res.status(409).json({ error: 'This listing has already been paid' });
     if (existing && ['initialized', 'pending'].includes(existing.status)) {
@@ -244,4 +256,4 @@ function createBillingRoutes({ supabaseAdmin = supabaseDefault, paystack = creat
   });
   return router;
 }
-module.exports = { createBillingRoutes, authenticatedHost, VALID_PLAN_IDS, normalizeRequestedPlan, resolvePaymentCallbackOrigin, buildPaymentCallbackUrl };
+module.exports = { createBillingRoutes, authenticatedHost, VALID_PLAN_IDS, normalizeRequestedPlan, resolvePaymentCallbackOrigin, buildPaymentCallbackUrl, isEligibleListingForHost };

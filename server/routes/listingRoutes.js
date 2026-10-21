@@ -156,6 +156,131 @@ async function authenticatedHost(req, res) {
   return user;
 }
 
+function isValidDraftFormData(value) {
+  return isPlainObject(value) && Buffer.byteLength(JSON.stringify(value), 'utf8') <= 100000;
+}
+
+function normalizeDraftMediaMetadata(value) {
+  if (!Array.isArray(value) || value.length > 7) throw new ValidationError('Draft media metadata is invalid');
+  return value.map((item) => {
+    if (!isPlainObject(item)) throw new ValidationError('Draft media metadata is invalid');
+    const size = item.size === undefined || item.size === null ? 0 : number(item.size, 'media size', { min: 0, max: 52428800 });
+    const lastModified = item.lastModified === undefined || item.lastModified === null
+      ? 0 : number(item.lastModified, 'media last modified', { min: 0, max: 8640000000000000 });
+    return {
+      name: text(item.name, 'media name', { required: false, max: 255 }) || '',
+      type: text(item.type, 'media type', { required: false, max: 100 }) || '',
+      size,
+      lastModified,
+    };
+  });
+}
+
+// Draft form data is owner-scoped and intentionally separate from public
+// listing rows until checkout or publication creates/updates the listing.
+router.get('/listing-drafts', async (req, res) => {
+  const user = await authenticatedHost(req, res);
+  if (!user) return;
+  const { data, error } = await supabaseAdmin.from('host_listing_drafts')
+    .select('id,listing_id,category,form_data,media_metadata,created_at,updated_at')
+    .eq('host_id', user.id).order('updated_at', { ascending: false });
+  if (error) {
+    console.error('Host listing draft lookup failed:', error.message);
+    return res.status(500).json({ error: 'Unable to load your saved listing drafts' });
+  }
+  return res.json({ drafts: data || [] });
+});
+
+router.get('/listing-drafts/:id', async (req, res) => {
+  const user = await authenticatedHost(req, res);
+  if (!user) return;
+  let id;
+  try { id = uuid(req.params.id, 'draft id'); }
+  catch (_) { return res.status(400).json({ error: 'Invalid listing draft id' }); }
+  const { data, error } = await supabaseAdmin.from('host_listing_drafts')
+    .select('id,listing_id,category,form_data,media_metadata,created_at,updated_at')
+    .eq('id', id).eq('host_id', user.id).maybeSingle();
+  if (error) {
+    console.error('Host listing draft lookup failed:', error.message);
+    return res.status(500).json({ error: 'Unable to load this listing draft' });
+  }
+  if (!data) return res.status(404).json({ error: 'Listing draft not found' });
+  return res.json({ draft: data });
+});
+
+router.put('/listing-drafts/:id', async (req, res) => {
+  const user = await authenticatedHost(req, res);
+  if (!user) return;
+  let id;
+  let category;
+  let mediaMetadata;
+  try {
+    id = uuid(req.params.id, 'draft id');
+    assertAllowedKeys(req.body, ['category', 'form_data', 'media_metadata', 'listing_id']);
+    category = enumValue(req.body.category, 'category', CATEGORIES);
+    if (!isValidDraftFormData(req.body.form_data)) throw new ValidationError('Listing draft is too large or invalid');
+    mediaMetadata = normalizeDraftMediaMetadata(req.body.media_metadata || []);
+  } catch (error) {
+    if (error instanceof ValidationError) return res.status(400).json({ error: error.message, code: 'INVALID_LISTING_DRAFT' });
+    return res.status(400).json({ error: 'Invalid listing draft' });
+  }
+
+  let niches;
+  try { niches = normalizeNiches(await hostNiches(user.id)); }
+  catch (_) { return res.status(403).json({ error: 'Choose a valid listing niche before saving a draft' }); }
+  if (!canUseListingCategory(niches[0], category)) {
+    return res.status(403).json({ error: 'Listing category must match the host niche' });
+  }
+
+  const { data: existing, error: existingError } = await supabaseAdmin.from('host_listing_drafts')
+    .select('id,host_id,created_at').eq('id', id).maybeSingle();
+  if (existingError) return res.status(500).json({ error: 'Unable to save this listing draft' });
+  if (existing && existing.host_id !== user.id) return res.status(404).json({ error: 'Listing draft not found' });
+
+  let listingId = null;
+  if (req.body.listing_id) {
+    try { listingId = uuid(req.body.listing_id, 'listing id'); }
+    catch (_) { return res.status(400).json({ error: 'Invalid linked listing id' }); }
+    const listing = await ownedListing(listingId, user.id, res);
+    if (!listing) return;
+    if (listing.category !== category) return res.status(409).json({ error: 'Draft category does not match its saved listing' });
+  }
+
+  const now = new Date().toISOString();
+  const payload = {
+    id,
+    host_id: user.id,
+    listing_id: listingId,
+    category,
+    form_data: req.body.form_data,
+    media_metadata: mediaMetadata,
+    updated_at: now,
+  };
+  if (!existing) payload.created_at = now;
+  const draftQuery = supabaseAdmin.from('host_listing_drafts');
+  const { data, error } = (existing
+    ? draftQuery.update(payload).eq('id', id).eq('host_id', user.id)
+    : draftQuery.insert(payload))
+    .select('id,listing_id,category,form_data,media_metadata,created_at,updated_at').single();
+  if (error) {
+    console.error('Host listing draft save failed:', error.message);
+    return res.status(500).json({ error: 'Unable to save your listing draft' });
+  }
+  return res.json({ draft: data });
+});
+
+router.delete('/listing-drafts/:id', async (req, res) => {
+  const user = await authenticatedHost(req, res);
+  if (!user) return;
+  let id;
+  try { id = uuid(req.params.id, 'draft id'); }
+  catch (_) { return res.status(400).json({ error: 'Invalid listing draft id' }); }
+  const { error } = await supabaseAdmin.from('host_listing_drafts').delete()
+    .eq('id', id).eq('host_id', user.id);
+  if (error) return res.status(500).json({ error: 'Unable to remove the saved listing draft' });
+  return res.status(204).end();
+});
+
 async function ownedListing(id, userId, res) {
   const { data, error } = await supabaseAdmin
     .from('listings').select('id,host_id,title,description,property_description,category,location_text,city,neighborhood,address_visibility,supports_stay,supports_table_reservation,listing_purpose,availability_status,publication_state,created_at,paid_listing_until')

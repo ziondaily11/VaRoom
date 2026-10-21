@@ -1508,6 +1508,16 @@
     return session && session.access_token ? session.access_token : null;
   }
   const authToken = await getAuthToken();
+  let savedListingDrafts = [];
+  if (isOwner && authToken) {
+    try {
+      const draftsResponse = await fetch('/api/listing-drafts', { headers: { Authorization: 'Bearer ' + authToken } });
+      const draftsPayload = draftsResponse.ok ? await draftsResponse.json() : null;
+      savedListingDrafts = draftsPayload && Array.isArray(draftsPayload.drafts) ? draftsPayload.drafts : [];
+    } catch (error) {
+      console.warn('Could not load saved listing drafts:', error);
+    }
+  }
   for (const listing of (listings || [])) {
     try {
       if (!authToken) {
@@ -1606,9 +1616,12 @@
   }
 
   grid.innerHTML = listingRows.map(function(l){
-    return '<a class="listing-card" data-listing-card="' + l.id + '" href="/booking?listing=' + l.id + '">' +
+    const savedDraft = savedListingDrafts.find(function(draft){ return draft.listing_id === l.id; });
+    const menuListing = savedDraft ? Object.assign({}, l, { listing_draft_id: savedDraft.id }) : l;
+    return '<a class="listing-card" data-listing-card="' + l.id + '" href="' +
+      (savedDraft ? '/list?draft=' + encodeURIComponent(savedDraft.id) : '/booking?listing=' + encodeURIComponent(l.id)) + '">' +
       getListingMediaMarkup(l) +
-      (isOwner ? '<div class="listing-card-menu">' + VaRoomHostListings.menu(l) + '</div>' : '') +
+      (isOwner ? '<div class="listing-card-menu">' + VaRoomHostListings.menu(menuListing) + '</div>' : '') +
       '<div class="listing-card-body">' +
         '<div class="listing-card-title" data-listing-title>' + l.title + '</div>' +
         '<div class="listing-card-loc">' + (l.location_text || '') + '</div>' +
@@ -1621,6 +1634,40 @@
   }).join('');
   if (isOwner) {
     grid.querySelectorAll('.listing-card-menu').forEach(function(menu){ VaRoomHostListings.bind(menu); });
+    savedListingDrafts.filter(function(draft){ return !draft.listing_id; }).forEach(function(draft){
+      const card = document.createElement('a');
+      card.className = 'listing-card';
+      card.href = '/list?draft=' + encodeURIComponent(draft.id);
+      card.setAttribute('data-saved-listing-draft', draft.id);
+      card.setAttribute('aria-label', 'Continue draft listing');
+      const media = document.createElement('div');
+      media.className = 'listing-card-media';
+      media.style.background = 'linear-gradient(135deg, rgba(198, 25, 55, .22), rgba(30, 20, 18, .92))';
+      media.innerHTML = '<span class="listing-card-status paused">Draft</span>';
+      const body = document.createElement('div');
+      body.className = 'listing-card-body';
+      const title = document.createElement('div');
+      title.className = 'listing-card-title';
+      title.textContent = draft.form_data && draft.form_data.fields && draft.form_data.fields.title
+        || ({ property: 'Property draft', office: 'Office draft', shop: 'Shop draft', airbnb: 'Airbnb draft', hotel: 'Hotel draft', venue: 'Venue draft' }[draft.category] || 'Listing draft');
+      const location = document.createElement('div');
+      location.className = 'listing-card-loc';
+      location.textContent = 'Saved privately · ' + (draft.category || 'listing');
+      const mediaNames = (Array.isArray(draft.media_metadata) ? draft.media_metadata : [])
+        .map(function(item){ return item && item.name; }).filter(Boolean);
+      const mediaFilesMeta = document.createElement('div');
+      mediaFilesMeta.className = 'listing-card-loc';
+      mediaFilesMeta.textContent = mediaNames.length ? 'Saved media: ' + mediaNames.join(', ') : 'No media selected';
+      const footer = document.createElement('div');
+      footer.className = 'listing-card-footer';
+      const continueLabel = document.createElement('span');
+      continueLabel.className = 'listing-card-status paused';
+      continueLabel.textContent = 'Continue Listing →';
+      footer.appendChild(continueLabel);
+      body.append(title, location, mediaFilesMeta, footer);
+      card.append(media, body);
+      grid.prepend(card);
+    });
   }
 
   let profileCategories = [];

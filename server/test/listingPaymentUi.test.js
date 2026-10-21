@@ -61,9 +61,11 @@ test('Go Pro saves the host-scoped listing and actual selected files before redi
   assert.ok(goProHandler.indexOf('persistBeforeCheckout(session)') < goProHandler.indexOf("window.location.assign('/pricing?"));
   assert.match(listingPage, /mediaFiles: selectedFiles\.slice\(\)/);
   assert.match(listingPage, /policyFile: selectedPolicyFile/);
-  assert.match(listingPage, /await listingDraftCache\.load\(pointer\.cacheKey\)/);
+  assert.match(listingPage, /await listingDraftCache\.load\(cacheKey\)/);
   assert.match(listingPage, /!Number\.isFinite\(snapshot\.createdAt\)/);
-  assert.match(listingPage, /preparedPaymentListingId = preparedPaymentListingId \|\| snapshot\.listingId \|\| pointer\.listingId/);
+  assert.match(listingPage, /preparedPaymentListingId = serverDraft\.listing_id \|\| null/);
+  assert.doesNotMatch(listingPage, /preparedPaymentListingId = preparedPaymentListingId \|\| pointer\.listingId/);
+  assert.match(listingPage, /requestedDraftId \|\| listingPaymentReturnReference/);
   assert.match(listingPage, /method: existingSubmissionListingId \? 'PATCH' : 'POST'/);
   assert.match(listingPage, /await listingDraftCache\.clearForHost\(currentUser\.id\)/);
   assert.match(pricingPage, /pointer\.listingId/);
