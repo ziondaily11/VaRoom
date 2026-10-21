@@ -514,6 +514,50 @@
     #listing-page:is([data-listing-niche="airbnb"],[data-listing-niche="hotel"],[data-listing-niche="property"]) .step-frame[data-step="3"] .amenities-library-footer{ justify-content:center; padding:.3rem .5rem .45rem; border:0; }
     #listing-page:is([data-listing-niche="airbnb"],[data-listing-niche="hotel"],[data-listing-niche="property"]) .step-frame[data-step="3"] .amenities-library-done{ min-height:2.35rem; padding:.45rem 1rem; background:#050505; color:#20e66e; }
 
+    /* The office/shop version uses the same reference card and library. */
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] .step-panel{ padding:1.25rem 1.5rem 1.05rem; background:#242424!important; color:#fff; font-family:'Roboto Condensed','Arial Narrow',Arial,sans-serif; }
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] .progress-row{ gap:.9rem; margin-bottom:.45rem; }
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] .progress-ring{ width:76px; height:76px; --ring-fg:#18b66b; --ring-bg:#a8a8ad; --ring-hole:#242424; }
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] .progress-ring::after{ inset:6px; }
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] .progress-ring span{ font-size:1rem; }
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] .progress-text{ color:#fff!important; font-size:1rem; line-height:1.6; font-weight:600; }
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] .step-eyebrow{ display:none; }
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] .step-title{ margin-bottom:.15rem; font-size:clamp(1.55rem,2.2vw,2rem); }
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] .step-sub{ margin:0 0 .55rem; padding-left:.4rem; color:#d0d0d0!important; font-size:.84rem; line-height:1.35; }
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] .step-fields{ overflow:auto; }
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] .field{ margin-bottom:.55rem; }
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] input,
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] select,
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] textarea{ background:#050505; color:#fff; border:1px solid rgba(255,255,255,.68); border-radius:10px; }
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] .section-heading{ margin:.8rem 0 .35rem; color:#fff; font-size:1rem; }
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] .section-help{ color:#d0d0d0; font-size:.76rem; }
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .office-shop-amenities-store{ display:none!important; }
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] .amenities-library-open{ display:flex; width:max-content; min-width:10.5rem; min-height:3rem; margin:.7rem auto .4rem; padding:.7rem 1rem; border:1px solid rgba(255,255,255,.72); border-radius:12px; background:#ff343c; color:#fff; font-size:.95rem; }
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] .amenities-library-summary{ margin:.2rem 0 0; color:#d0d0d0; font-size:.76rem; }
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] #office-shop-media-fields .field-row{ grid-template-columns:repeat(2,minmax(0,1fr)); gap:.55rem; }
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] #office-shop-media-fields .option-grid{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.4rem .7rem; }
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] #office-shop-media-fields .option-grid label{ display:flex; align-items:center; gap:.42rem; color:#fff; font-size:.82rem; }
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] #office-shop-media-fields input[type="checkbox"]{ width:auto; accent-color:#ff343c; }
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] #office-shop-media-fields input[type="file"]{ width:100%; min-height:5rem; padding:.85rem; border:1.5px dashed rgba(255,255,255,.62); background:#050505; }
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] #office-shop-media-fields input[type="file"]::file-selector-button{ margin-right:.65rem; padding:.45rem .6rem; border:0; border-radius:6px; background:#242424; color:#fff; }
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] .panel-actions{ padding-top:.45rem; }
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] .step-btn{ font-size:.9rem; }
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] .step-btn.next{ background:#d10e09; }
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] .step-photo{ min-height:0; background-position:center; }
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] .step-photo::after,
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] .step-photo-badge,
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] .step-photo-caption{ display:none; }
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] .amenities-library-dialog{ width:88%; max-height:68%; border-color:rgba(255,255,255,.46); border-radius:10px; background:rgba(31,31,31,.36); backdrop-filter:blur(12px) saturate(125%); -webkit-backdrop-filter:blur(12px) saturate(125%); }
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] .amenities-library-header{ padding:.45rem .55rem .2rem; }
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] .amenities-library-title-row{ display:none; }
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] .amenities-library-search{ min-height:2rem; padding:0 .45rem; border:0; border-bottom:1px solid rgba(255,255,255,.7); border-radius:0; background:transparent; }
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] .amenities-library-categories{ gap:.25rem; padding:.35rem .55rem .2rem; }
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] .amenities-library-category{ padding:.25rem .45rem; font-size:.62rem; }
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] .amenities-library-options{ grid-template-columns:repeat(3,minmax(0,1fr)); gap:.35rem; padding:.35rem .55rem .55rem; }
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] .amenities-library-option{ justify-content:center; min-height:2.1rem; gap:.25rem; padding:.35rem .3rem; border-radius:8px; font-size:.68rem; }
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] .amenities-library-footer{ justify-content:center; padding:.3rem .5rem .45rem; border:0; }
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] .amenities-library-done{ min-height:2.35rem; padding:.45rem 1rem; background:#050505; color:#20e66e; }
+
     /* Compact the denser steps without changing their fields or controls. */
     .location-help{ font-size:.74rem; }
     .photo-hint, .amenities-hint{ font-size:.7rem; margin-bottom:.5rem; }
@@ -554,6 +598,12 @@
     #listing-page:is([data-listing-niche="airbnb"],[data-listing-niche="hotel"],[data-listing-niche="property"]) .step-frame[data-step="3"] .step-btn.next{ background:#d10e09; }
     #listing-page[data-listing-niche="property"] .step-frame[data-step="3"] .policy-upload-link{ display:flex; min-height:4.5rem; justify-content:center; padding:.8rem; border:1.5px dashed rgba(255,255,255,.58); border-radius:12px; color:#fff; }
     #listing-page:is([data-listing-niche="airbnb"],[data-listing-niche="hotel"],[data-listing-niche="property"]) .step-frame[data-step="3"] .amenities-library-dialog{ width:92%; max-height:78%; }
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] .step-panel{ background:#242424!important; color:#fff; font-family:'Roboto Condensed','Arial Narrow',Arial,sans-serif; }
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] .progress-ring{ --ring-fg:#18b66b; --ring-bg:#a8a8ad; --ring-hole:#242424; }
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .office-shop-amenities-store{ display:none!important; }
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] .amenities-library-open{ width:max-content; min-height:3.2rem; margin:.6rem auto .35rem; background:#ff343c; color:#fff; }
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] .step-btn.next{ background:#d10e09; }
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] .amenities-library-dialog{ width:92%; max-height:78%; }
     /* Mobile review is a visual final check: give the chosen media the top
        half of the workspace while leaving the desktop review untouched. */
     .step-frame[data-step="5"].active{ min-height:100dvh; }
@@ -1620,23 +1670,28 @@
       : [['street_front_shop','Street-front shop'],['mall_unit','Mall unit'],['showroom','Showroom'],['studio','Studio']];
     officeShopDetailsFields.innerHTML = '<div class="field"><label for="os-subtype">Subtype</label><select id="os-subtype" required><option value="">Choose one</option>'+subtypeOptions.map(function(option){ return '<option value="'+option[0]+'">'+option[1]+'</option>'; }).join('')+'</select></div><div class="field"><label for="os-role">Your role</label><select id="os-role" required><option value="">Choose one</option><option value="owner">Owner</option><option value="authorized_manager">Authorised property manager</option><option value="agent">Agent</option></select></div>';
       officeShopLocationFields.innerHTML = '<div class="field"><label for="os-building">Building or Complex name <small>(optional)</small></label><input id="os-building" maxlength="300" placeholder="eg BMW Towers"></div>';
-    officeShopMediaFields.innerHTML = `
-      <h2 class="section-heading">Office & shop amenities</h2><p class="section-help">Choose what the space actually offers. Selected filter items are stored as boolean values.</p>
-      ${osAmenityGroup('Power', [['mains_supply','Mains supply'],['backup_generator','Backup generator (filter)'],['ups','UPS (filter)']])}
+      officeShopMediaFields.innerHTML = `
+      <h2 class="section-heading">Office & shop amenities</h2><p class="section-help">Choose what the space actually offers.</p>
+      <button type="button" class="amenities-library-open" id="office-shop-amenities-open">Amenities Library</button>
+      <p class="amenities-library-summary" id="office-shop-amenities-summary" aria-live="polite" hidden></p>
+      <div class="office-shop-amenities-store" aria-hidden="true">
+        ${osAmenityGroup('Power', [['mains_supply','Main supply'],['backup_generator','Backup generator'],['ups','UPS']], 'Power')}
+        ${osAmenityGroup('Internet', [['fibre','Fibre available'],['wifi_included','Wi-Fi included in the rent'],['tenant_internet','Tenant arranges own internet']], 'Internet')}
+        ${osAmenityGroup('Water and washrooms', [['reliable_water','Reliable water supply'],['borehole','Borehole'],['private_washroom','Private washroom'],['shared_washroom','Shared washroom'],['drainage','Drainage connection']], 'Water and washrooms')}
+        ${osAmenityGroup('Security', [['guards','Guards'],['cctv','CCTV'],['controlled_entry','Controlled entry'],['alarm','Alarm'],['lighting','Security lighting']], 'Security')}
+        ${osAmenityGroup('Building services', [['lift','Lift'],['accessibility','Accessibility features'],['ac_ventilation','AC or ventilation'],['natural_light','Natural light'],['cleaning','Cleaning'],['maintenance','Maintenance'],['waste_collection','Waste collection'],['reception','Reception'],['shared_kitchen','Shared kitchen'],['meeting_rooms','Meeting rooms']], 'Building services')}
+      </div>
       <div class="field"><label for="os-power-note">Power capacity or known limitations <small>(optional)</small></label><input id="os-power-note" maxlength="300"></div>
-      ${osAmenityGroup('Internet', [['fibre','Fibre available (filter)'],['wifi_included','Wi-Fi included in the rent'],['tenant_internet','Tenant arranges own internet']])}
       <div class="field"><label for="os-internet-note">Known providers or speeds <small>(only if verified)</small></label><input id="os-internet-note" maxlength="300"></div>
-      ${osAmenityGroup('Water and washrooms', [['reliable_water','Reliable water supply'],['borehole','Borehole'],['private_washroom','Private washroom'],['shared_washroom','Shared washroom'],['drainage','Drainage connection']])}
-      ${osAmenityGroup('Security', [['guards','Guards (filter)'],['cctv','CCTV (filter)'],['controlled_entry','Controlled entry (filter)'],['alarm','Alarm'],['lighting','Lighting']])}
       <div class="field"><label for="os-after-hours">After-hours access</label><select id="os-after-hours"><option value="not_confirmed">Not confirmed</option><option value="24_7">24/7</option><option value="business_hours">Business hours only</option></select></div>
-      ${osAmenityGroup('Building services', [['lift','Lift (filter)'],['accessibility','Accessibility features (filter)'],['ac_ventilation','AC or ventilation (filter)'],['natural_light','Natural light'],['cleaning','Cleaning'],['maintenance','Maintenance'],['waste_collection','Waste collection'],['reception','Reception'],['shared_kitchen','Shared kitchen'],['meeting_rooms','Meeting rooms']])}
+      <div class="field"><label for="os-operating-hours">Operational / accessible hours <small>(optional)</small></label><input id="os-operating-hours" type="time"></div>
       <div class="field"><label for="os-accessibility-note">Accessibility note <small>(optional)</small></label><input id="os-accessibility-note" maxlength="300"></div>
       <h3 class="section-heading">Parking</h3><div class="field-row"><div class="field"><label for="os-parking-spaces">Number of spaces</label><input id="os-parking-spaces" type="number" min="0"></div><div class="field"><label for="os-parking-cost">Parking cost</label><select id="os-parking-cost"><option value="not_confirmed">Not confirmed</option><option value="free">Free</option><option value="paid">Paid</option></select></div><div class="field"><label for="os-parking-paid-amount">Paid parking amount <small>(if paid)</small></label><input id="os-parking-paid-amount" type="number" min="0"></div></div>
       <div class="option-grid"><label><input id="os-parking-allocated" type="checkbox"> Allocated to this unit</label><label><input id="os-visitor-parking" type="checkbox"> Visitor parking</label>${isShop ? '<label><input id="os-customer-parking" type="checkbox"> Customer parking</label>' : ''}</div>
       <h3 class="section-heading">Documents and rules</h3><div class="field"><label for="os-floor-plan">Floor plan <small>(optional)</small></label><input id="os-floor-plan" type="file" accept="application/pdf,image/png,image/jpeg,image/webp"></div><div class="field"><label for="os-documents">Ownership or management documents <small>(optional)</small></label><input id="os-documents" type="file" multiple accept="application/pdf,image/png,image/jpeg,image/webp"></div><label><input id="os-documents-on-request" type="checkbox"> Can provide ownership or management documents on request</label><div class="field"><label for="os-policy-file">Policy or rules document <small>(optional)</small></label><input id="os-policy-file" type="file" accept="application/pdf"></div>
       <h3 class="section-heading">Rules and policy</h3><div class="field"><label for="os-permitted-uses">Permitted business uses</label><div class="option-grid" id="os-permitted-uses">${['Office or professional','General retail','Fashion','Electronics','Salon or beauty','Food or cafe','Pharmacy or healthcare','Creative studio','Other','Not sure — renter to confirm'].map(function(label){ const key = label.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,''); return '<label><input type="checkbox" data-os-use="'+key+'"> '+label+'</label>'; }).join('')}</div></div>
       <div class="field-row"><div class="field"><label for="os-fitout-rule">Fit-out or renovation</label><select id="os-fitout-rule"><option value="">Choose one</option><option value="allowed">Allowed</option><option value="landlord_consent">Allowed with landlord consent</option><option value="not_allowed">Not allowed</option><option value="to_confirm">To confirm</option></select></div>${isShop ? '<div class="field"><label for="os-signage">Signage</label><select id="os-signage"><option value="to_confirm">To confirm</option><option value="allowed">Allowed</option><option value="landlord_approval">Subject to landlord approval</option><option value="not_allowed">Not allowed</option></select></div>' : ''}</div>
-      <div class="field-row"><div class="field"><label for="os-subletting">Subletting or assignment</label><select id="os-subletting"><option value="to_confirm">To confirm</option><option value="allowed">Allowed</option><option value="not_allowed">Not allowed</option></select></div><div class="field"><label for="os-restoration">Restoration on exit</label><select id="os-restoration"><option value="to_confirm">To confirm</option><option value="tenant_must_restore">Tenant must restore</option><option value="not_required">Not required</option></select></div></div><div class="field-row"><div class="field"><label for="os-noise-limits">Operating hour or noise limits <small>(optional)</small></label><input id="os-noise-limits" maxlength="300"></div><div class="field"><label for="os-visitor-policy">Visitor policy <small>(optional)</small></label><input id="os-visitor-policy" maxlength="300"></div></div>`;
+      <div class="field-row"><div class="field"><label for="os-subletting">Subletting or assignment</label><select id="os-subletting"><option value="to_confirm">To confirm</option><option value="allowed">Allowed</option><option value="not_allowed">Not allowed</option></select></div><div class="field"><label for="os-restoration">Restoration on exit</label><select id="os-restoration"><option value="to_confirm">To confirm</option><option value="tenant_must_restore">Tenant must restore</option><option value="not_required">Not required</option></select></div></div><div class="field"><label for="os-noise-limits">Operating hour or noise limits <small>(optional)</small></label><input id="os-noise-limits" maxlength="300"></div>`;
     officeShopPricingFields.innerHTML = `
       <details open><summary class="section-heading">Space</summary><div class="field-row"><div class="field"><label for="os-area">Area</label><input id="os-area" type="number" min="0" step="0.01" required></div><div class="field"><label for="os-area-unit">Area unit</label><select id="os-area-unit" required><option value="">Choose one</option><option value="sq_ft">sq ft</option><option value="m2">m²</option></select></div></div><div class="field-row"><div class="field"><label for="os-area-measure">What the area measures</label><select id="os-area-measure"><option value="">Choose one</option><option value="usable">Usable</option><option value="rentable">Rentable</option><option value="estimate">Estimate</option></select></div><div class="field"><label for="os-fitout-status">Fit-out status</label><select id="os-fitout-status" required><option value="">Choose one</option><option value="shell_core">Shell-and-core</option><option value="partly_fitted">Partly fitted</option><option value="fitted">Fitted</option><option value="furnished">Furnished</option></select></div></div><div class="field-row"><div class="field"><label for="os-floor-level">Floor / level <small>(optional)</small></label><input id="os-floor-level"></div><div class="field"><label for="os-room-count">Number of rooms <small>(optional)</small></label><input id="os-room-count" type="number" min="0"></div><div class="field"><label for="os-ceiling-height">Ceiling height <small>(optional)</small></label><input id="os-ceiling-height"></div></div>
       <div id="os-office-space" class="conditional" ${isOffice ? '' : 'hidden'}><div class="field-row"><div class="field"><label for="os-capacity">Capacity</label><input id="os-capacity" type="number" min="1" ${isOffice ? 'required' : ''}></div><div class="field"><label for="os-desks">Desks</label><input id="os-desks" type="number" min="0"></div></div><div class="field"><label>Layout <small>(optional)</small></label>${osChecks('os-office-layout',['Open plan','Private offices','Meeting room','Reception','Server / IT room','Storage','Kitchenette'])}</div><div class="field"><label for="os-private-rooms">Private offices and meeting rooms <small>(optional)</small></label><input id="os-private-rooms" type="number" min="0"></div><label><input id="os-furniture" type="checkbox"> Furniture and partitions included</label></div>
@@ -1647,8 +1702,8 @@
     attachOfficeShopFieldHandlers();
   }
 
-  function osAmenityGroup(title, choices){ return '<h3 class="section-heading">'+title+'</h3>'+osChecks('os-amenities', choices.map(function(choice){ return choice[1]; }), choices.map(function(choice){ return choice[0]; })); }
-  function osChecks(group, labels, keys){ return '<div class="option-grid">'+labels.map(function(label,index){ const key = keys ? keys[index] : label.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,''); return '<label><input type="checkbox" data-os-group="'+group+'" data-os-key="'+key+'"> '+label+'</label>'; }).join('')+'</div>'; }
+  function osAmenityGroup(title, choices, category){ return '<h3 class="section-heading">'+title+'</h3>'+osChecks('os-amenities', choices.map(function(choice){ return choice[1]; }), choices.map(function(choice){ return choice[0]; }), category); }
+  function osChecks(group, labels, keys, category){ return '<div class="option-grid">'+labels.map(function(label,index){ const key = keys ? keys[index] : label.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,''); return '<label><input type="checkbox" data-os-group="'+group+'" data-os-key="'+key+'"'+(category ? ' data-os-category="'+category+'"' : '')+'> '+label+'</label>'; }).join('')+'</div>'; }
 
   function attachOfficeShopFieldHandlers(){
     const basis = document.getElementById('os-pricing-basis');
@@ -1723,12 +1778,13 @@
         power_note: osValue('os-power-note') || null,
         internet_note: osValue('os-internet-note') || null,
         after_hours: osValue('os-after-hours') || 'not_confirmed',
+        operational_accessible_hours: osValue('os-operating-hours') || null,
         accessibility_note: osValue('os-accessibility-note') || null
       }),
       location: { building_name: osValue('os-building') },
       space: { area: osNumber('os-area'), area_unit: osValue('os-area-unit'), area_measure: osValue('os-area-measure') || null, fitout_status: osValue('os-fitout-status'), floor_level: osValue('os-floor-level') || null, room_count: osNumber('os-room-count'), ceiling_height: osValue('os-ceiling-height') || null, capacity: osNumber('os-capacity'), desks: osNumber('os-desks'), office_layout: selectedLayout('os-office-space'), private_rooms: osNumber('os-private-rooms'), furniture_included: osChecked('os-furniture'), customer_area: osNumber('os-customer-area'), storage_area: osNumber('os-storage-area'), shop_layout: selectedLayout('os-shop-space'), street_frontage: osValue('os-street-frontage') || null, frontage_width: osValue('os-frontage-width') || null, display_windows: osValue('os-display-windows') || null, loading_access: osValue('os-loading-access') || null, foot_traffic: osValue('os-foot-traffic') || null, nearby_anchors: osValue('os-nearby-anchors') || null },
       parking: { spaces: osNumber('os-parking-spaces'), allocated: osChecked('os-parking-allocated'), visitor: osChecked('os-visitor-parking'), customer: osChecked('os-customer-parking'), cost: osValue('os-parking-cost') || 'not_confirmed', paid_amount: osNumber('os-parking-paid-amount') },
-      rules: { permitted_uses: selectedUses, fitout: osValue('os-fitout-rule'), signage: osValue('os-signage') || null, subletting: osValue('os-subletting'), restoration: osValue('os-restoration'), noise_limits: osValue('os-noise-limits') || null, visitor_policy: osValue('os-visitor-policy') || null },
+      rules: { permitted_uses: selectedUses, fitout: osValue('os-fitout-rule'), signage: osValue('os-signage') || null, subletting: osValue('os-subletting'), restoration: osValue('os-restoration'), noise_limits: osValue('os-noise-limits') || null },
       pricing: { basis: osValue('os-pricing-basis'), amount: osNumber('os-price-amount'), area_period: osValue('os-area-period') || null, monthly_payment: osValue('os-monthly-payment') || null, desk_included: osValue('os-desk-included') || null, short_pricing_note: osValue('os-short-pricing-note') || null, turnover_threshold: osValue('os-turnover-threshold') || null },
       costs: { service_charge: osValue('os-service-charge'), service_amount: osNumber('os-service-amount'), service_frequency: osValue('os-service-frequency') || null, utilities: osValue('os-utilities'), utilities_amount: osNumber('os-utilities-amount'), tax: osValue('os-tax'), security_deposit: osValue('os-deposit'), advance_rent: osValue('os-advance-rent') || null, compulsory_charges: collectOfficeShopCharges(), rent_increases: osValue('os-rent-increases') || null },
       lease: { available_from: osValue('os-available-from'), minimum_term: osNumber('os-min-term'), payment_frequency: osValue('os-payment-frequency'), viewing_required: osValue('os-viewing-required'), preferred_term: osNumber('os-preferred-term'), renewal: osValue('os-renewal') || null, notice_period: osValue('os-notice-period') || null, lock_in: osValue('os-lock-in') || null, viewing_availability: osValue('os-viewing-availability') || null, payment_methods: osValue('os-payment-methods') || null },
@@ -1773,11 +1829,11 @@
     const location = details.location || {}; set('os-building', location.building_name);
     const space = details.space || {}; set('os-area', space.area); set('os-area-unit', space.area_unit); set('os-area-measure', space.area_measure); set('os-fitout-status', space.fitout_status); set('os-floor-level', space.floor_level); set('os-room-count', space.room_count); set('os-ceiling-height', space.ceiling_height); set('os-capacity', space.capacity); set('os-desks', space.desks); set('os-private-rooms', space.private_rooms); set('os-customer-area', space.customer_area); set('os-storage-area', space.storage_area); set('os-street-frontage', space.street_frontage); set('os-frontage-width', space.frontage_width); set('os-display-windows', space.display_windows); set('os-loading-access', space.loading_access); set('os-foot-traffic', space.foot_traffic); set('os-nearby-anchors', space.nearby_anchors);
     const parking = details.parking || {}; set('os-parking-spaces', parking.spaces); set('os-parking-cost', parking.cost); set('os-parking-paid-amount', parking.paid_amount); ['allocated','visitor','customer'].forEach(function(key){ const field=document.getElementById('os-parking-'+(key === 'allocated' ? 'allocated' : key+'-parking')); if(field) field.checked=parking[key]===true; });
-    const rules = details.rules || {}; set('os-fitout-rule', rules.fitout); set('os-signage', rules.signage); set('os-subletting', rules.subletting); set('os-restoration', rules.restoration); set('os-noise-limits', rules.noise_limits); set('os-visitor-policy', rules.visitor_policy); (rules.permitted_uses || []).forEach(function(key){ const field=document.querySelector('[data-os-use="'+key+'"]'); if(field) field.checked=true; });
+    const rules = details.rules || {}; set('os-fitout-rule', rules.fitout); set('os-signage', rules.signage); set('os-subletting', rules.subletting); set('os-restoration', rules.restoration); set('os-noise-limits', rules.noise_limits); (rules.permitted_uses || []).forEach(function(key){ const field=document.querySelector('[data-os-use="'+key+'"]'); if(field) field.checked=true; });
     const pricing = details.pricing || {}; set('os-pricing-basis', pricing.basis); set('os-price-amount', pricing.amount); set('os-area-period', pricing.area_period); set('os-monthly-payment', pricing.monthly_payment); set('os-desk-included', pricing.desk_included); set('os-short-pricing-note', pricing.short_pricing_note); set('os-turnover-threshold', pricing.turnover_threshold);
     const costs = details.costs || {}; set('os-service-charge', costs.service_charge); set('os-service-amount', costs.service_amount); set('os-service-frequency', costs.service_frequency); set('os-utilities', costs.utilities); set('os-utilities-amount', costs.utilities_amount); set('os-tax', costs.tax); set('os-deposit', costs.security_deposit); set('os-advance-rent', costs.advance_rent); (costs.compulsory_charges || []).forEach(addOfficeShopCharge); set('os-rent-increases', costs.rent_increases);
     const lease = details.lease || {}; set('os-available-from', lease.available_from); set('os-min-term', lease.minimum_term); set('os-payment-frequency', lease.payment_frequency); set('os-viewing-required', lease.viewing_required); set('os-preferred-term', lease.preferred_term); set('os-renewal', lease.renewal); set('os-notice-period', lease.notice_period); set('os-lock-in', lease.lock_in); set('os-viewing-availability', lease.viewing_availability); set('os-payment-methods', lease.payment_methods);
-    const amenities = details.amenities || {}; Object.keys(amenities).forEach(function(key){ const field=document.querySelector('[data-os-key="'+key+'"]'); if(field) field.checked=amenities[key]===true; }); set('os-power-note', amenities.power_note); set('os-internet-note', amenities.internet_note); set('os-after-hours', amenities.after_hours); set('os-accessibility-note', amenities.accessibility_note);
+    const amenities = details.amenities || {}; Object.keys(amenities).forEach(function(key){ const field=document.querySelector('[data-os-key="'+key+'"]'); if(field) field.checked=amenities[key]===true; }); set('os-power-note', amenities.power_note); set('os-internet-note', amenities.internet_note); set('os-after-hours', amenities.after_hours); set('os-operating-hours', amenities.operational_accessible_hours); set('os-accessibility-note', amenities.accessibility_note);
     const documents = details.documents || {}; const onRequest=document.getElementById('os-documents-on-request'); if(onRequest) onRequest.checked=documents.documents_on_request===true;
     updateOfficeShopConditions();
   }
@@ -2224,52 +2280,90 @@
     }
     return 'Comfort';
   }
-  function selectedAmenityCheckboxes(){ return Array.from(amenitiesGrid.querySelectorAll('input[type="checkbox"]:checked')); }
+  function amenityLibraryCheckboxes(){
+    return isOfficeShop(hostNiche)
+      ? Array.from(officeShopMediaFields.querySelectorAll('[data-os-group="os-amenities"]'))
+      : Array.from(amenitiesGrid.querySelectorAll('input[type="checkbox"]'));
+  }
+  function amenityCheckboxKey(input){ return input.dataset.osKey || input.value; }
+  function amenityCheckboxLabel(input){
+    const row = input.closest('.amenity-check') || input.closest('label');
+    const label = row && row.querySelector('span');
+    return (label ? label.textContent : row ? row.textContent : amenityCheckboxKey(input)).replace(/\s+/g,' ').trim();
+  }
+  function amenityCheckboxIcon(input){
+    const row = input.closest('.amenity-check');
+    if (row && row.querySelector('svg')) return row.querySelector('svg').outerHTML;
+    const key = amenityCheckboxKey(input);
+    const aliases = {mains_supply:'power',backup_generator:'power',ups:'power',fibre:'wifi',wifi_included:'wifi',tenant_internet:'wifi',lift:'workspace',accessibility:'workspace',ac_ventilation:'air_conditioning',reliable_water:'pool',borehole:'pool',private_washroom:'pool',shared_washroom:'pool',drainage:'pool',guards:'pet',cctv:'pet',controlled_entry:'pet',alarm:'pet',lighting:'power'};
+    const iconKey = aliases[key] || key;
+    const option = AMENITY_OPTIONS.find(function(item){ return item[0] === iconKey; });
+    return option ? option[2] : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 12h8"/></svg>';
+  }
+  function amenityLibraryCategories(){
+    return isOfficeShop(hostNiche)
+      ? ['All','Power','Building services','Internet','Water and washrooms','Security']
+      : LIBRARY_AMENITY_CATEGORIES;
+  }
+  function selectedAmenityCheckboxes(){ return amenityLibraryCheckboxes().filter(function(input){ return input.checked; }); }
   function syncAmenityLibrarySummary(){
     const selected = selectedAmenityCheckboxes();
     const count = selected.length;
     amenitiesLibraryCount.textContent = count + ' selected';
-    amenitiesLibrarySummary.hidden = count === 0;
-    amenitiesLibrarySummary.textContent = count ? selected.map(function(input){
-      const option = input.closest('.amenity-check');
-      return option ? option.querySelector('span').textContent : input.value;
-    }).join(' · ') : 'No amenities selected yet.';
+    const summary = isOfficeShop(hostNiche) ? document.getElementById('office-shop-amenities-summary') : amenitiesLibrarySummary;
+    if (summary) {
+      summary.hidden = count === 0;
+      summary.textContent = selected.map(amenityCheckboxLabel).join(' · ');
+    }
   }
   function renderAmenityLibrary(){
-    const options = Array.from(amenitiesGrid.querySelectorAll('input[type="checkbox"]')).map(function(input){
-      const row = input.closest('.amenity-check');
-      return { input:input, key:input.value, label:row.querySelector('span').textContent, icon:row.querySelector('svg').outerHTML };
+    const options = amenityLibraryCheckboxes().map(function(input){
+      const key = amenityCheckboxKey(input);
+      const label = amenityCheckboxLabel(input);
+      const category = input.dataset.osCategory || amenityCategoryFor([key,label]);
+      return {input:input,key:key,label:label,category:category,icon:amenityCheckboxIcon(input)};
     });
     const query = amenitiesLibrarySearch.value.trim().toLowerCase();
-    amenitiesLibraryCategories.innerHTML = LIBRARY_AMENITY_CATEGORIES.map(function(category){
-      return '<button type="button" class="amenities-library-category" data-library-category="' + category + '" aria-pressed="' + (activeAmenityLibraryCategory === category) + '">' + category + '</button>';
+    const categories = amenityLibraryCategories();
+    amenitiesLibraryCategories.innerHTML = categories.map(function(category){
+      return '<button type="button" class="amenities-library-category" data-library-category="' + escapeHtml(category) + '" aria-pressed="' + (activeAmenityLibraryCategory === category) + '">' + escapeHtml(category) + '</button>';
     }).join('');
     amenitiesLibraryCategories.querySelectorAll('[data-library-category]').forEach(function(button){
       button.addEventListener('click', function(){ activeAmenityLibraryCategory = button.dataset.libraryCategory; renderAmenityLibrary(); });
     });
     const filtered = options.filter(function(option){
-      const category = amenityCategoryFor([option.key,option.label]);
-      const matchesCategory = activeAmenityLibraryCategory === 'All' || category === activeAmenityLibraryCategory;
-      const matchesSearch = !query || (option.key + ' ' + option.label + ' ' + category).toLowerCase().includes(query);
+      const matchesCategory = activeAmenityLibraryCategory === 'All' || option.category === activeAmenityLibraryCategory;
+      const matchesSearch = !query || (option.key + ' ' + option.label + ' ' + option.category).toLowerCase().includes(query);
       return matchesCategory && matchesSearch;
     });
     amenitiesLibraryOptions.innerHTML = filtered.length ? filtered.map(function(option){
-      return '<button type="button" class="amenities-library-option' + (option.input.checked ? ' selected' : '') + '" data-amenity-key="' + option.key + '" aria-pressed="' + (option.input.checked ? 'true' : 'false') + '">' + option.icon + '<span>' + escapeHtml(option.label) + '</span></button>';
+      return '<button type="button" class="amenities-library-option' + (option.input.checked ? ' selected' : '') + '" data-amenity-key="' + escapeHtml(option.key) + '" aria-pressed="' + (option.input.checked ? 'true' : 'false') + '">' + option.icon + '<span>' + escapeHtml(option.label) + '</span></button>';
     }).join('') : '<p class="amenities-library-empty">No amenities match this search.</p>';
     amenitiesLibraryOptions.querySelectorAll('[data-amenity-key]').forEach(function(button){
       button.addEventListener('click', function(){
-        const checkbox = Array.from(amenitiesGrid.querySelectorAll('input[type="checkbox"]')).find(function(input){ return input.value === button.dataset.amenityKey; });
+        const checkbox = amenityLibraryCheckboxes().find(function(input){ return amenityCheckboxKey(input) === button.dataset.amenityKey; });
         if (!checkbox) return;
         checkbox.checked = !checkbox.checked;
-        checkbox.closest('.amenity-check').classList.toggle('checked', checkbox.checked);
+        const row = checkbox.closest('.amenity-check');
+        if (row) row.classList.toggle('checked', checkbox.checked);
         syncAmenityLibrarySummary(); renderAmenityLibrary();
       });
     });
     syncAmenityLibrarySummary();
   }
-  function closeAmenityLibrary(){ amenitiesLibraryOverlay.hidden = true; amenitiesLibraryOpen.focus(); }
-  amenitiesLibraryOpen.addEventListener('click', function(){
-    activeAmenityLibraryCategory = 'All'; amenitiesLibraryOverlay.hidden = false; renderAmenityLibrary(); amenitiesLibrarySearch.focus();
+  let activeAmenityLibraryTrigger = amenitiesLibraryOpen;
+  function openAmenityLibrary(trigger){
+    activeAmenityLibraryTrigger = trigger;
+    activeAmenityLibraryCategory = 'All';
+    amenitiesLibraryOverlay.hidden = false;
+    renderAmenityLibrary();
+    amenitiesLibrarySearch.focus();
+  }
+  function closeAmenityLibrary(){ amenitiesLibraryOverlay.hidden = true; if (activeAmenityLibraryTrigger && activeAmenityLibraryTrigger.isConnected) activeAmenityLibraryTrigger.focus(); }
+  amenitiesLibraryOpen.addEventListener('click', function(){ openAmenityLibrary(amenitiesLibraryOpen); });
+  officeShopMediaFields.addEventListener('click', function(event){
+    const trigger = event.target.closest('#office-shop-amenities-open');
+    if (trigger) openAmenityLibrary(trigger);
   });
   amenitiesLibrarySearch.addEventListener('input', renderAmenityLibrary);
   amenitiesLibraryDone.addEventListener('click', closeAmenityLibrary);
