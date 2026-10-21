@@ -28,6 +28,7 @@ async function createNotification({
   metadata = {},
   bookingId = null,
   eventKey = null,
+  supabase = supabaseAdmin,
 }) {
   if (!recipientUserId) throw new Error('Notification recipient is required');
   if (!type || !title || !message) throw new Error('Notification type, title and message are required');
@@ -63,13 +64,22 @@ async function createNotification({
     type: payload.type,
     recipientResolved: Boolean(payload.user_id),
   });
-  const { data, error } = await supabaseAdmin
+  const notificationColumns = 'id,recipient_user_id,actor_user_id,type,title,message,related_entity_type,related_entity_id,booking_id,metadata,read,created_at,event_key';
+  const { data, error } = await supabase
     .from('notifications')
-    .upsert(payload, { onConflict: 'event_key' })
-    .select('id,recipient_user_id,actor_user_id,type,title,message,related_entity_type,related_entity_id,booking_id,metadata,read,created_at,event_key')
+    .insert(payload)
+    .select(notificationColumns)
     .single();
 
   if (error) {
+    // The unique event_key index is the idempotency boundary. Read the
+    // existing row on a retry instead of upserting read=false over it.
+    if (error.code === '23505' && payload.event_key) {
+      const { data: existing, error: lookupError } = await supabase.from('notifications')
+        .select(notificationColumns).eq('event_key', payload.event_key).maybeSingle();
+      if (!lookupError && existing) return existing;
+      if (lookupError) error.lookupError = lookupError;
+    }
     console.error('Notification persistence failed:', {
       table: 'notifications',
       conflictTarget: 'event_key',

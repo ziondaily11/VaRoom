@@ -125,10 +125,21 @@ function createBillingRoutes({ supabaseAdmin = supabaseDefault, paystack = creat
     }
     const paystackPlanCode = plan.paystack_plan_env ? process.env[plan.paystack_plan_env] : plan.paystack_plan_code;
     if (!paystackPlanCode) return res.status(503).json({ error: 'Checkout is not configured for this plan yet' });
-    const { data: existing, error: existingError } = await supabaseAdmin.from('host_subscriptions')
+    let { data: existing, error: existingError } = await supabaseAdmin.from('host_subscriptions')
       .select('id,plan_id,status,current_period_end,provider_subscription_code,provider_email_token,niche,billing_plans(monthly_amount_minor,features,niche)')
       .eq('host_id', user.id).in('status', ['pending', 'active', 'past_due', 'cancel_requested']).maybeSingle();
     if (existingError) return res.status(500).json({ error: 'Unable to check the current subscription' });
+    if (existing && existing.status === 'pending') {
+      const { data: lastPayment, error: lastPaymentError } = await supabaseAdmin.from('billing_payments')
+        .select('id,status').eq('subscription_id', existing.id).order('created_at', { ascending: false }).limit(1).maybeSingle();
+      if (lastPaymentError) return res.status(500).json({ error: 'Unable to check the pending subscription payment' });
+      if (!lastPayment || ['failed', 'abandoned', 'refunded'].includes(lastPayment.status)) {
+        const { error: staleSubscriptionError } = await supabaseAdmin.from('host_subscriptions')
+          .update({ status: 'failed' }).eq('id', existing.id).eq('status', 'pending');
+        if (staleSubscriptionError) return res.status(500).json({ error: 'Unable to clear the previous failed subscription attempt' });
+        existing = null;
+      }
+    }
     let replacingSubscription = null;
     if (existing) {
       if (existing.status !== 'active' || existing.niche !== niche || !existing.provider_subscription_code || !existing.provider_email_token) {
