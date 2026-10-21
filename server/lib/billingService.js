@@ -71,12 +71,14 @@ async function applyVerifiedTransaction(supabaseAdmin, transaction) {
     const paidAt = verifiedPaidAt;
     const periodEnd = new Date(paidAt);
     periodEnd.setMonth(periodEnd.getMonth() + 1);
+    const listingAllowanceLimit = await resolveListingAllowanceLimit(supabaseAdmin, payment);
     const subscriptionUpdate = {
       plan_id: payment.plan_id,
       niche: payment.niche || 'legacy',
       status: 'active',
       current_period_start: paidAt,
       current_period_end: periodEnd.toISOString(),
+      listing_allowance_limit: listingAllowanceLimit,
       provider_subscription_code: transaction.subscription && transaction.subscription.subscription_code || undefined,
       provider_email_token: transaction.subscription && transaction.subscription.email_token || undefined,
       provider_metadata: transaction,
@@ -128,6 +130,18 @@ async function applyVerifiedTransaction(supabaseAdmin, transaction) {
   return { payment: { ...payment, ...paymentUpdate }, activated: status === 'succeeded' && Boolean(paymentChanged && paymentChanged.length) };
 }
 
+async function resolveListingAllowanceLimit(supabaseAdmin, payment) {
+  const transition = payment.provider_payload && payment.provider_payload.listing_allowance_transition;
+  if (transition && Object.prototype.hasOwnProperty.call(transition, 'limit')) {
+    return transition.limit;
+  }
+  const { data: plan, error } = await supabaseAdmin.from('billing_plans')
+    .select('features').eq('id', payment.plan_id).maybeSingle();
+  if (error || !plan) throw new Error('Unable to load the verified subscription allowance');
+  const standardLimit = Number(plan.features && plan.features.max_active_listings);
+  return Number.isInteger(standardLimit) && standardLimit > 0 ? standardLimit : null;
+}
+
 async function applyVerifiedRenewal(supabaseAdmin, transaction) {
   if (paystackStatus(transaction) !== 'succeeded') throw new Error('Billing payment was not found');
   const code = transaction.subscription && transaction.subscription.subscription_code;
@@ -138,7 +152,7 @@ async function applyVerifiedRenewal(supabaseAdmin, transaction) {
   if (subscriptionLookupError || !subscription) throw new Error('Paystack subscription was not found');
   if (!['active', 'past_due', 'cancel_requested'].includes(subscription.status)) throw new Error('Paystack subscription is not renewable');
   const { data: plan, error: planError } = await supabaseAdmin.from('billing_plans')
-    .select('id,monthly_amount_minor,currency,billing_interval,niche').eq('id', subscription.plan_id).maybeSingle();
+    .select('id,monthly_amount_minor,currency,billing_interval,niche,features').eq('id', subscription.plan_id).maybeSingle();
   if (planError || !plan || Number(transaction.amount) !== Number(plan.monthly_amount_minor) || transaction.currency !== plan.currency) {
     throw new Error('Recurring Paystack transaction does not match the VaRoom subscription');
   }
@@ -171,6 +185,9 @@ async function applyVerifiedRenewal(supabaseAdmin, transaction) {
     status: 'active',
     current_period_start: paidAt,
     current_period_end: periodEnd.toISOString(),
+    listing_allowance_limit: Number(plan.features && plan.features.max_active_listings) > 0
+      ? Number(plan.features.max_active_listings)
+      : null,
     provider_metadata: transaction,
   }).eq('id', subscription.id);
   if (updateError) throw new Error('Unable to renew host subscription');

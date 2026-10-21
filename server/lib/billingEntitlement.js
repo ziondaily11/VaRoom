@@ -9,7 +9,7 @@ function planAtLeast(planId, requiredPlan) {
 
 async function getCurrentSubscription(supabaseAdmin, hostId) {
   const { data, error } = await supabaseAdmin.from('host_subscriptions')
-    .select('id,host_id,plan_id,status,current_period_start,current_period_end,cancel_at_period_end,updated_at,niche,billing_plans(id,display_name,features)')
+    .select('id,host_id,plan_id,status,current_period_start,current_period_end,cancel_at_period_end,listing_allowance_limit,updated_at,niche,billing_plans(id,display_name,features)')
     .eq('host_id', hostId).in('status', [...LIVE_STATUSES]).order('updated_at', { ascending: false }).limit(1).maybeSingle();
   if (error) throw new Error('Unable to load subscription');
   return data || null;
@@ -21,7 +21,10 @@ async function getHostEntitlements(supabaseAdmin, hostId) {
   const periodHasExpired = subscription && subscription.current_period_end && new Date(subscription.current_period_end).getTime() <= Date.now();
   const active = Boolean(subscription && LIVE_STATUSES.has(subscription.status) && !periodHasExpired);
   const features = subscription && subscription.billing_plans && subscription.billing_plans.features || {};
-  const listingLimit = active && Number.isInteger(Number(features.max_active_listings)) ? Number(features.max_active_listings) : null;
+  const configuredListingLimit = subscription && subscription.listing_allowance_limit != null
+    ? subscription.listing_allowance_limit
+    : features.max_active_listings;
+  const listingLimit = active && Number.isInteger(Number(configuredListingLimit)) ? Number(configuredListingLimit) : null;
   return {
     subscription,
     planId: active ? planId : null,

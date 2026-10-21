@@ -44,3 +44,11 @@ test('pending and failed subscriptions do not grant active listing entitlements'
   assert.equal(failed.active, false);
   assert.equal(failed.planId, null);
 });
+
+test('active upgraded subscriptions use their transition allowance override', async () => {
+  const upgraded = await getHostEntitlements(entitlementSupabase({
+    id: 's5', plan_id: 'property_pro', status: 'active', listing_allowance_limit: 14,
+    billing_plans: { features: { max_active_listings: 12 } },
+  }), 'host-id');
+  assert.equal(upgraded.canCreateAnotherListing.limit, 14);
+});
