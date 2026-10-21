@@ -1437,7 +1437,7 @@
       : null;
     const isPropertySaleOnly = isProperty && propertyPurpose === 'sale';
     const propertyHasRentalPurpose = isProperty && (propertyPurpose === 'rent' || propertyPurpose === 'both');
-    const hasBookingDetails = Boolean(details && (officeShop || details.price_amount != null || details.sale_price_amount != null || details.size_or_type || (Array.isArray(details.amenities) && details.amenities.length > 0)));
+    const hasBookingDetails = Boolean(details && (officeShop || details.price_amount != null || details.sale_price_amount != null || details.size_or_type || details.bathrooms != null || (Array.isArray(details.amenities) && details.amenities.length > 0)));
     if (supportsStay && (!rawDetails || !hasBookingDetails)) {
       showError('This listing has no booking details set up yet.');
       return;
@@ -1574,6 +1574,9 @@
       infoChips.push(propertyPurpose === 'rent' ? 'For rent' : (propertyPurpose === 'sale' ? 'For sale' : 'Rent & sale'));
       if (details.units_available) {
         infoChips.push(details.units_available + ' unit' + (details.units_available === 1 ? '' : 's') + ' available');
+      }
+      if (details.bathrooms != null) {
+        infoChips.push(details.bathrooms + ' bathroom' + (Number(details.bathrooms) === 1 ? '' : 's'));
       }
     }
     if (officeShop && officeShop.subtype) {

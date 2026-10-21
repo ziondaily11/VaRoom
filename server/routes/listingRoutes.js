@@ -445,7 +445,7 @@ router.patch('/listings/:id', async (req, res) => {
         'price_amount', 'price_unit', 'size_or_type', 'amenities', 'max_guests', 'min_stay_nights',
         'checkin_time', 'checkout_time', 'cleaning_fee', 'cancellation_policy', 'available_from',
         'min_lease_months', 'deposit_amount', 'utilities_included', 'sale_price_amount',
-        'sale_price_mode', 'units_available', 'policy_storage_path', 'office_shop_details', 'office_shop_accuracy_confirmed',
+        'sale_price_mode', 'units_available', 'bathrooms', 'policy_storage_path', 'office_shop_details', 'office_shop_accuracy_confirmed',
       ]);
     }
   } catch (error) {
@@ -518,6 +518,8 @@ router.patch('/listings/:id', async (req, res) => {
           ? null : number(value, key, { min: 0, max: 100000000 });
       } else if (['max_guests', 'min_stay_nights', 'min_lease_months', 'units_available'].includes(key)) {
         detailUpdate[key] = value === null ? null : number(value, key, { integer: true, min: 1, max: 100000 });
+      } else if (key === 'bathrooms') {
+        detailUpdate[key] = value === null ? null : number(value, key, { integer: true, min: 1, max: 1000 });
       } else if (key === 'price_unit') {
         detailUpdate[key] = enumValue(value, key, ['hour', 'day', 'week', 'night', 'month', 'year', 'sq_ft', 'm2', 'desk', 'turnover']);
       } else if (key === 'cancellation_policy') {
@@ -557,7 +559,7 @@ router.patch('/listings/:id', async (req, res) => {
         detailUpdate.office_shop_last_confirmed_at = new Date().toISOString();
       }
     });
-    if (listing.category !== 'property' && ['sale_price_amount', 'sale_price_mode', 'units_available'].some((key) => Object.prototype.hasOwnProperty.call(detailUpdate, key))) {
+    if (listing.category !== 'property' && ['sale_price_amount', 'sale_price_mode', 'units_available', 'bathrooms'].some((key) => Object.prototype.hasOwnProperty.call(detailUpdate, key))) {
       throw new ValidationError('Property details are only valid for property listings');
     }
   } catch (error) {
