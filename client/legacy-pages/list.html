@@ -540,6 +540,13 @@
     #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] #office-shop-media-fields input[type="checkbox"]{ width:auto; accent-color:#ff343c; }
     #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] #office-shop-media-fields input[type="file"]{ width:100%; min-height:5rem; padding:.85rem; border:1.5px dashed rgba(255,255,255,.62); background:#050505; }
     #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] #office-shop-media-fields input[type="file"]::file-selector-button{ margin-right:.65rem; padding:.45rem .6rem; border:0; border-radius:6px; background:#242424; color:#fff; }
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] .office-shop-document-grid{ display:grid; grid-template-columns:repeat(3,minmax(0,110px)); gap:clamp(.55rem,3.5vw,2.4rem); align-items:stretch; max-width:460px; margin:.55rem 0 .65rem; }
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] .office-shop-document-card{ position:relative; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.5rem; min-width:0; min-height:112px; padding:.45rem .3rem; overflow:hidden; border:1.5px dashed rgba(255,255,255,.58); border-radius:10px; background:transparent; color:#fff; text-align:center; cursor:pointer; }
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] .office-shop-document-card svg{ width:34px; height:40px; flex:none; fill:currentColor; }
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] .office-shop-document-card span{ font-size:.68rem; font-weight:600; line-height:1.2; }
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] #office-shop-media-fields .office-shop-document-card input[type="file"]{ position:absolute; inset:0; width:100%; height:100%; min-height:0; padding:0; border:0; border-radius:0; background:transparent; opacity:0; cursor:pointer; }
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] .office-shop-document-card:focus-within{ outline:2px solid #ff343c; outline-offset:2px; }
+    @media(max-width:900px){ #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] .office-shop-document-grid{ grid-template-columns:repeat(3,minmax(0,1fr)); gap:.45rem; max-width:100%; } #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] .office-shop-document-card{ min-height:106px; } }
     #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] .panel-actions{ padding-top:.45rem; }
     #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] .step-btn{ font-size:.9rem; }
     #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] .step-btn.next{ background:#d10e09; }
@@ -1688,7 +1695,25 @@
       <div class="field"><label for="os-accessibility-note">Accessibility note <small>(optional)</small></label><input id="os-accessibility-note" maxlength="300"></div>
       <h3 class="section-heading">Parking</h3><div class="field-row"><div class="field"><label for="os-parking-spaces">Number of spaces</label><input id="os-parking-spaces" type="number" min="0"></div><div class="field"><label for="os-parking-cost">Parking cost</label><select id="os-parking-cost"><option value="not_confirmed">Not confirmed</option><option value="free">Free</option><option value="paid">Paid</option></select></div><div class="field"><label for="os-parking-paid-amount">Paid parking amount <small>(if paid)</small></label><input id="os-parking-paid-amount" type="number" min="0"></div></div>
       <div class="option-grid"><label><input id="os-parking-allocated" type="checkbox"> Allocated to this unit</label><label><input id="os-visitor-parking" type="checkbox"> Visitor parking</label>${isShop ? '<label><input id="os-customer-parking" type="checkbox"> Customer parking</label>' : ''}</div>
-      <h3 class="section-heading">Documents and rules</h3><div class="field"><label for="os-floor-plan">Floor plan <small>(optional)</small></label><input id="os-floor-plan" type="file" accept="application/pdf,image/png,image/jpeg,image/webp"></div><div class="field"><label for="os-documents">Ownership or management documents <small>(optional)</small></label><input id="os-documents" type="file" multiple accept="application/pdf,image/png,image/jpeg,image/webp"></div><label><input id="os-documents-on-request" type="checkbox"> Can provide ownership or management documents on request</label><div class="field"><label for="os-policy-file">Policy or rules document <small>(optional)</small></label><input id="os-policy-file" type="file" accept="application/pdf"></div>
+      <h3 class="section-heading">Documents and rules</h3>
+      <div class="office-shop-document-grid" aria-label="Optional property documents">
+        <label class="office-shop-document-card" for="os-floor-plan">
+          <svg viewBox="0 0 32 40" aria-hidden="true"><path d="M5 1h14l9 9v27a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2zm13 2v8h8z"/></svg>
+          <span data-os-upload-name>Floor plan (optional)</span>
+          <input id="os-floor-plan" type="file" accept="application/pdf,image/png,image/jpeg,image/webp" aria-label="Upload floor plan">
+        </label>
+        <label class="office-shop-document-card" for="os-documents">
+          <svg viewBox="0 0 32 40" aria-hidden="true"><path d="M5 1h14l9 9v27a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2zm13 2v8h8z"/></svg>
+          <span data-os-upload-name>Ownership and management (optional)</span>
+          <input id="os-documents" type="file" multiple accept="application/pdf,image/png,image/jpeg,image/webp" aria-label="Upload ownership and management documents">
+        </label>
+        <label class="office-shop-document-card" for="os-policy-file">
+          <svg viewBox="0 0 32 40" aria-hidden="true"><path d="M5 1h14l9 9v27a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2zm13 2v8h8z"/></svg>
+          <span data-os-upload-name>Property Policy</span>
+          <input id="os-policy-file" type="file" accept="application/pdf" aria-label="Upload property policy">
+        </label>
+      </div>
+      <label><input id="os-documents-on-request" type="checkbox"> Can provide ownership or management documents on request</label>
       <h3 class="section-heading">Rules and policy</h3><div class="field"><label for="os-permitted-uses">Permitted business uses</label><div class="option-grid" id="os-permitted-uses">${['Office or professional','General retail','Fashion','Electronics','Salon or beauty','Food or cafe','Pharmacy or healthcare','Creative studio','Other','Not sure — renter to confirm'].map(function(label){ const key = label.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,''); return '<label><input type="checkbox" data-os-use="'+key+'"> '+label+'</label>'; }).join('')}</div></div>
       <div class="field-row"><div class="field"><label for="os-fitout-rule">Fit-out or renovation</label><select id="os-fitout-rule"><option value="">Choose one</option><option value="allowed">Allowed</option><option value="landlord_consent">Allowed with landlord consent</option><option value="not_allowed">Not allowed</option><option value="to_confirm">To confirm</option></select></div>${isShop ? '<div class="field"><label for="os-signage">Signage</label><select id="os-signage"><option value="to_confirm">To confirm</option><option value="allowed">Allowed</option><option value="landlord_approval">Subject to landlord approval</option><option value="not_allowed">Not allowed</option></select></div>' : ''}</div>
       <div class="field-row"><div class="field"><label for="os-subletting">Subletting or assignment</label><select id="os-subletting"><option value="to_confirm">To confirm</option><option value="allowed">Allowed</option><option value="not_allowed">Not allowed</option></select></div><div class="field"><label for="os-restoration">Restoration on exit</label><select id="os-restoration"><option value="to_confirm">To confirm</option><option value="tenant_must_restore">Tenant must restore</option><option value="not_required">Not required</option></select></div></div><div class="field"><label for="os-noise-limits">Operating hour or noise limits <small>(optional)</small></label><input id="os-noise-limits" maxlength="300"></div>`;
@@ -1721,9 +1746,21 @@
     const floorPlan = document.getElementById('os-floor-plan');
     const policy = document.getElementById('os-policy-file');
     const documents = document.getElementById('os-documents');
-    if (floorPlan) floorPlan.addEventListener('change', function(){ officeShopFloorPlanFile = floorPlan.files[0] || null; });
-    if (policy) policy.addEventListener('change', function(){ officeShopPolicyFile = policy.files[0] || null; });
-    if (documents) documents.addEventListener('change', function(){ officeShopDocumentFiles = Array.from(documents.files || []); });
+    function trackOfficeShopUpload(input, onChange, defaultLabel, multiple) {
+      if (!input) return;
+      input.addEventListener('change', function(){
+        const files = Array.from(input.files || []);
+        onChange(files);
+        const label = input.closest('.office-shop-document-card')?.querySelector('[data-os-upload-name]');
+        if (label) {
+          label.textContent = files.length ? (multiple && files.length > 1 ? files.length + ' files selected' : files.map(function(file){ return file.name; }).join(', ')) : defaultLabel;
+          label.title = files.length ? files.map(function(file){ return file.name; }).join(', ') : defaultLabel;
+        }
+      });
+    }
+    trackOfficeShopUpload(floorPlan, function(files){ officeShopFloorPlanFile = files[0] || null; }, 'Floor plan (optional)', false);
+    trackOfficeShopUpload(policy, function(files){ officeShopPolicyFile = files[0] || null; }, 'Property Policy', false);
+    trackOfficeShopUpload(documents, function(files){ officeShopDocumentFiles = files; }, 'Ownership and management (optional)', true);
     const addCharge = document.getElementById('os-add-charge');
     if (addCharge) addCharge.addEventListener('click', function(){ addOfficeShopCharge(); });
   }
