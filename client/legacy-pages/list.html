@@ -697,6 +697,108 @@
     .property-purpose-option{ padding:.65rem .5rem; }
     .pay-to-list-btn{ font-size:.88rem; padding:.78rem 1rem; }
   }
+
+  /* Shared listing-card visual system: keep niche content and behavior while
+     giving Steps 1–4 the same red form panel and image split. */
+  #listing-page[data-listing-niche] .step-frame[data-step="1"] .step-panel,
+  #listing-page[data-listing-niche] .step-frame[data-step="2"] .step-panel,
+  #listing-page[data-listing-niche] .step-frame[data-step="3"] .step-panel,
+  #listing-page[data-listing-niche] .step-frame[data-step="4"] .step-panel{ background:#C41E3A!important; color:#fff!important; }
+  #listing-page[data-listing-niche] .step-frame[data-step="1"] .progress-ring,
+  #listing-page[data-listing-niche] .step-frame[data-step="2"] .progress-ring,
+  #listing-page[data-listing-niche] .step-frame[data-step="3"] .progress-ring,
+  #listing-page[data-listing-niche] .step-frame[data-step="4"] .progress-ring{ --ring-fg:#fff; --ring-bg:rgba(255,255,255,.28); --ring-hole:#C41E3A; }
+  #listing-page[data-listing-niche] .step-frame[data-step="1"] .step-panel input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+  #listing-page[data-listing-niche] .step-frame[data-step="1"] .step-panel textarea,
+  #listing-page[data-listing-niche] .step-frame[data-step="1"] .step-panel select,
+  #listing-page[data-listing-niche] .step-frame[data-step="2"] .step-panel input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+  #listing-page[data-listing-niche] .step-frame[data-step="2"] .step-panel textarea,
+  #listing-page[data-listing-niche] .step-frame[data-step="2"] .step-panel select,
+  #listing-page[data-listing-niche] .step-frame[data-step="3"] .step-panel input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+  #listing-page[data-listing-niche] .step-frame[data-step="3"] .step-panel textarea,
+  #listing-page[data-listing-niche] .step-frame[data-step="3"] .step-panel select,
+  #listing-page[data-listing-niche] .step-frame[data-step="4"] .step-panel input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+  #listing-page[data-listing-niche] .step-frame[data-step="4"] .step-panel textarea,
+  #listing-page[data-listing-niche] .step-frame[data-step="4"] .step-panel select{ background:rgba(255,255,255,.15)!important; border:1px solid rgba(255,255,255,.35)!important; color:#fff!important; color-scheme:dark; }
+  #listing-page[data-listing-niche] .step-frame[data-step="1"] .step-panel input::placeholder,
+  #listing-page[data-listing-niche] .step-frame[data-step="1"] .step-panel textarea::placeholder,
+  #listing-page[data-listing-niche] .step-frame[data-step="2"] .step-panel input::placeholder,
+  #listing-page[data-listing-niche] .step-frame[data-step="2"] .step-panel textarea::placeholder,
+  #listing-page[data-listing-niche] .step-frame[data-step="3"] .step-panel input::placeholder,
+  #listing-page[data-listing-niche] .step-frame[data-step="3"] .step-panel textarea::placeholder,
+  #listing-page[data-listing-niche] .step-frame[data-step="4"] .step-panel input::placeholder,
+  #listing-page[data-listing-niche] .step-frame[data-step="4"] .step-panel textarea::placeholder{ color:rgba(255,255,255,.7)!important; }
+  #listing-page[data-listing-niche] .step-frame[data-step="1"] .step-panel input[type="checkbox"],
+  #listing-page[data-listing-niche] .step-frame[data-step="1"] .step-panel input[type="radio"],
+  #listing-page[data-listing-niche] .step-frame[data-step="2"] .step-panel input[type="checkbox"],
+  #listing-page[data-listing-niche] .step-frame[data-step="2"] .step-panel input[type="radio"],
+  #listing-page[data-listing-niche] .step-frame[data-step="3"] .step-panel input[type="checkbox"],
+  #listing-page[data-listing-niche] .step-frame[data-step="3"] .step-panel input[type="radio"],
+  #listing-page[data-listing-niche] .step-frame[data-step="4"] .step-panel input[type="checkbox"],
+  #listing-page[data-listing-niche] .step-frame[data-step="4"] .step-panel input[type="radio"]{ accent-color:#fff; }
+  #listing-page[data-listing-niche] .step-frame[data-step="1"] .step-panel input[type="checkbox"],
+  #listing-page[data-listing-niche] .step-frame[data-step="1"] .step-panel input[type="radio"],
+  #listing-page[data-listing-niche] .step-frame[data-step="2"] .step-panel input[type="checkbox"],
+  #listing-page[data-listing-niche] .step-frame[data-step="2"] .step-panel input[type="radio"],
+  #listing-page[data-listing-niche] .step-frame[data-step="3"] .step-panel input[type="checkbox"],
+  #listing-page[data-listing-niche] .step-frame[data-step="3"] .step-panel input[type="radio"],
+  #listing-page[data-listing-niche] .step-frame[data-step="4"] .step-panel input[type="checkbox"],
+  #listing-page[data-listing-niche] .step-frame[data-step="4"] .step-panel input[type="radio"]{ appearance:none; -webkit-appearance:none; display:inline-grid; place-content:center; width:1rem; height:1rem; flex:none; padding:0!important; border:1px solid rgba(255,255,255,.35)!important; border-radius:3px; background:rgba(255,255,255,.15)!important; vertical-align:middle; cursor:pointer; }
+  #listing-page[data-listing-niche] .step-frame[data-step="1"] .step-panel input[type="checkbox"]:checked,
+  #listing-page[data-listing-niche] .step-frame[data-step="1"] .step-panel input[type="radio"]:checked,
+  #listing-page[data-listing-niche] .step-frame[data-step="2"] .step-panel input[type="checkbox"]:checked,
+  #listing-page[data-listing-niche] .step-frame[data-step="2"] .step-panel input[type="radio"]:checked,
+  #listing-page[data-listing-niche] .step-frame[data-step="3"] .step-panel input[type="checkbox"]:checked,
+  #listing-page[data-listing-niche] .step-frame[data-step="3"] .step-panel input[type="radio"]:checked,
+  #listing-page[data-listing-niche] .step-frame[data-step="4"] .step-panel input[type="checkbox"]:checked,
+  #listing-page[data-listing-niche] .step-frame[data-step="4"] .step-panel input[type="radio"]:checked{ background:#fff!important; border-color:#fff!important; }
+  #listing-page[data-listing-niche] .step-frame[data-step="1"] .step-panel input[type="checkbox"]:checked::before,
+  #listing-page[data-listing-niche] .step-frame[data-step="2"] .step-panel input[type="checkbox"]:checked::before,
+  #listing-page[data-listing-niche] .step-frame[data-step="3"] .step-panel input[type="checkbox"]:checked::before,
+  #listing-page[data-listing-niche] .step-frame[data-step="4"] .step-panel input[type="checkbox"]:checked::before{ content:""; width:.28rem; height:.53rem; border:solid #8F1229; border-width:0 2px 2px 0; transform:rotate(45deg) translate(-1px,-1px); }
+  #listing-page[data-listing-niche] .step-frame[data-step="1"] .step-panel input[type="radio"],
+  #listing-page[data-listing-niche] .step-frame[data-step="2"] .step-panel input[type="radio"],
+  #listing-page[data-listing-niche] .step-frame[data-step="3"] .step-panel input[type="radio"],
+  #listing-page[data-listing-niche] .step-frame[data-step="4"] .step-panel input[type="radio"]{ border-radius:50%; }
+  #listing-page[data-listing-niche] .step-frame[data-step="1"] .step-panel input[type="radio"]:checked::before,
+  #listing-page[data-listing-niche] .step-frame[data-step="2"] .step-panel input[type="radio"]:checked::before,
+  #listing-page[data-listing-niche] .step-frame[data-step="3"] .step-panel input[type="radio"]:checked::before,
+  #listing-page[data-listing-niche] .step-frame[data-step="4"] .step-panel input[type="radio"]:checked::before{ content:""; width:.4rem; height:.4rem; border-radius:50%; background:#8F1229; }
+  #listing-page[data-listing-niche] .step-frame[data-step="1"] .step-panel select option,
+  #listing-page[data-listing-niche] .step-frame[data-step="2"] .step-panel select option,
+  #listing-page[data-listing-niche] .step-frame[data-step="3"] .step-panel select option,
+  #listing-page[data-listing-niche] .step-frame[data-step="4"] .step-panel select option{ background:#8F1229; color:#fff; }
+  #listing-page[data-listing-niche] .step-frame[data-step="1"] .office-shop-type button,
+  #listing-page[data-listing-niche] .step-frame[data-step="1"] .hotel-offer-option,
+  #listing-page[data-listing-niche] .step-frame[data-step="1"] .property-purpose-option{ background:rgba(255,255,255,.15)!important; border:1px solid rgba(255,255,255,.35)!important; color:#fff!important; }
+  #listing-page[data-listing-niche] .step-frame[data-step="1"] .office-shop-type button.selected,
+  #listing-page[data-listing-niche] .step-frame[data-step="1"] .hotel-offer-option.selected,
+  #listing-page[data-listing-niche] .step-frame[data-step="1"] .property-purpose-option.selected{ background:rgba(255,255,255,.3)!important; border-color:rgba(255,255,255,.78)!important; color:#fff!important; }
+  #listing-page[data-listing-niche] .step-frame[data-step="4"] .sale-mode-option{ background:rgba(255,255,255,.15)!important; border:1px solid rgba(255,255,255,.35)!important; color:#fff!important; }
+  #listing-page[data-listing-niche] .step-frame[data-step="4"] .sale-mode-option.selected{ background:rgba(255,255,255,.3)!important; border-color:rgba(255,255,255,.78)!important; color:#fff!important; }
+  #listing-page[data-listing-niche] .step-frame[data-step="1"] .step-btn.next,
+  #listing-page[data-listing-niche] .step-frame[data-step="2"] .step-btn.next,
+  #listing-page[data-listing-niche] .step-frame[data-step="3"] .step-btn.next,
+  #listing-page[data-listing-niche] .step-frame[data-step="4"] .step-btn.next{ background:#fff!important; color:#8F1229!important; }
+  #listing-page[data-listing-niche] .step-frame[data-step="1"] .step-btn.next:hover,
+  #listing-page[data-listing-niche] .step-frame[data-step="2"] .step-btn.next:hover,
+  #listing-page[data-listing-niche] .step-frame[data-step="3"] .step-btn.next:hover,
+  #listing-page[data-listing-niche] .step-frame[data-step="4"] .step-btn.next:hover{ background:#f2e4e4!important; }
+  #listing-page[data-listing-niche] .step-frame[data-step="1"] .step-panel input:focus-visible,
+  #listing-page[data-listing-niche] .step-frame[data-step="1"] .step-panel textarea:focus-visible,
+  #listing-page[data-listing-niche] .step-frame[data-step="1"] .step-panel select:focus-visible,
+  #listing-page[data-listing-niche] .step-frame[data-step="2"] .step-panel input:focus-visible,
+  #listing-page[data-listing-niche] .step-frame[data-step="2"] .step-panel textarea:focus-visible,
+  #listing-page[data-listing-niche] .step-frame[data-step="2"] .step-panel select:focus-visible,
+  #listing-page[data-listing-niche] .step-frame[data-step="3"] .step-panel input:focus-visible,
+  #listing-page[data-listing-niche] .step-frame[data-step="3"] .step-panel textarea:focus-visible,
+  #listing-page[data-listing-niche] .step-frame[data-step="3"] .step-panel select:focus-visible,
+  #listing-page[data-listing-niche] .step-frame[data-step="4"] .step-panel input:focus-visible,
+  #listing-page[data-listing-niche] .step-frame[data-step="4"] .step-panel textarea:focus-visible,
+  #listing-page[data-listing-niche] .step-frame[data-step="4"] .step-panel select:focus-visible{ outline:2px solid rgba(255,255,255,.9); outline-offset:1px; border-color:rgba(255,255,255,.85)!important; }
+  @media(min-width:901px){
+    #listing-page[data-listing-niche] .step-frame.active:is([data-step="1"],[data-step="2"],[data-step="3"],[data-step="4"]){ grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
+  }
 </style>
 <link rel="stylesheet" href="js/varoom-dark-theme.css">
 </head>
