@@ -564,6 +564,11 @@
     #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] .amenities-library-option{ justify-content:center; min-height:2.1rem; gap:.25rem; padding:.35rem .3rem; border-radius:8px; font-size:.68rem; }
     #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] .amenities-library-footer{ justify-content:center; padding:.3rem .5rem .45rem; border:0; }
     #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] .amenities-library-done{ min-height:2.35rem; padding:.45rem 1rem; background:#050505; color:#20e66e; }
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] .amenities-library-dialog.office-shop-library-locked{ height:var(--office-shop-library-baseline-height); }
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] .amenities-library-header,
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] .amenities-library-categories,
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] .amenities-library-footer{ flex:0 0 auto; }
+    #listing-page:is([data-listing-niche="office"],[data-listing-niche="shop"]) .step-frame[data-step="3"] .amenities-library-options{ flex:1 1 auto; min-height:0; align-content:start; grid-auto-rows:min-content; overflow-y:auto; overscroll-behavior:contain; }
 
     /* Compact the denser steps without changing their fields or controls. */
     .location-help{ font-size:.74rem; }
@@ -2328,10 +2333,42 @@
     const label = row && row.querySelector('span');
     return (label ? label.textContent : row ? row.textContent : amenityCheckboxKey(input)).replace(/\s+/g,' ').trim();
   }
+  function officeShopAmenityIcon(paths){
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + paths + '</svg>';
+  }
+  const OFFICE_SHOP_AMENITY_ICONS = {
+    mains_supply: officeShopAmenityIcon('<path d="M12 2v10M6.4 5.5a8 8 0 1 0 11.2 0"/>'),
+    backup_generator: officeShopAmenityIcon('<path d="M12 2 5 13h6l-1 9 9-12h-6l1-8Z"/>'),
+    ups: officeShopAmenityIcon('<rect x="3" y="7" width="17" height="10" rx="2"/><path d="M23 10v4M11 9l-2 3h3l-1 3 4-5h-3l1-1"/>'),
+    fibre: officeShopAmenityIcon('<path d="M5 12.55a11 11 0 0 1 14.08 0M1.42 9a16 16 0 0 1 21.16 0M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="20" r="1"/>'),
+    wifi_included: officeShopAmenityIcon('<path d="M5 12.55a11 11 0 0 1 14.08 0M1.42 9a16 16 0 0 1 21.16 0M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="20" r="1"/>'),
+    tenant_internet: officeShopAmenityIcon('<rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8m-4-4v4m-5-9a7 7 0 0 1 10 0m-7.5 2.5a3.5 3.5 0 0 1 5 0"/>'),
+    reliable_water: officeShopAmenityIcon('<path d="M12 3c-2.7 3.5-6 7-6 11a6 6 0 0 0 12 0c0-4-3.3-7.5-6-11Z"/><path d="M9 15a3 3 0 0 0 3 3"/>'),
+    borehole: officeShopAmenityIcon('<path d="M4 21h16M7 21V8h10v13M9 8V4h6v4m-3 0v5m-2 0h4"/><path d="M12 15c-1.3 1.5-2 2.3-2 3a2 2 0 0 0 4 0c0-.7-.7-1.5-2-3Z"/>'),
+    private_washroom: officeShopAmenityIcon('<path d="M5 12h14l-1 5a4 4 0 0 1-4 3h-4a4 4 0 0 1-4-3l-1-5Zm3 0V5a2 2 0 0 1 2-2h4"/><path d="M8 20v2m8-2v2"/>'),
+    shared_washroom: officeShopAmenityIcon('<path d="M4 12h16l-1 5a4 4 0 0 1-4 3h-6a4 4 0 0 1-4-3l-1-5Zm4 0V5a2 2 0 0 1 2-2h4"/><path d="M8 20v2m8-2v2"/>'),
+    drainage: officeShopAmenityIcon('<path d="M4 4v6a4 4 0 0 0 4 4h8a4 4 0 0 1 4 4v2M2 4h4m12 16h4"/>'),
+    guards: officeShopAmenityIcon('<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/>'),
+    cctv: officeShopAmenityIcon('<path d="m4 10 12-4 4 6-12 4-4-6Z"/><path d="m16 14 2 5m-11-4-2 4"/><circle cx="17" cy="9" r=".7"/>'),
+    controlled_entry: officeShopAmenityIcon('<path d="M4 21V4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v17M2 21h20"/><path d="M8 21v-5h6v5m-3-10h.01"/><path d="m18 7 2 2 3-4"/>'),
+    alarm: officeShopAmenityIcon('<path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9Zm-8 13h4"/><path d="M3 4 1 2m20 2 2-2"/>'),
+    lighting: officeShopAmenityIcon('<path d="M9 18h6m-5 4h4m-6-7a7 7 0 1 1 8 0c-.8.6-1 1.3-1 3h-6c0-1.7-.2-2.4-1-3Z"/>'),
+    lift: officeShopAmenityIcon('<rect x="5" y="3" width="14" height="18" rx="2"/><path d="m9 8 3-3 3 3m0 8-3 3-3-3"/>'),
+    accessibility: officeShopAmenityIcon('<circle cx="12" cy="4" r="2"/><path d="M5 8h8l2 4h4M10 8l-2 6h5l2 5m-7-5-3 5m3-5a5 5 0 1 0 9 2"/>'),
+    ac_ventilation: officeShopAmenityIcon('<path d="M3 8h12a3 3 0 1 0-3-3M2 12h17a3 3 0 1 1-3 3M4 16h8a3 3 0 1 1-3 3"/>'),
+    natural_light: officeShopAmenityIcon('<circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>'),
+    cleaning: officeShopAmenityIcon('<path d="m12 3 1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Z"/><path d="m19 14 .9 2.1L22 17l-2.1.9L19 20l-.9-2.1L16 17l2.1-.9L19 14Z"/>'),
+    maintenance: officeShopAmenityIcon('<path d="M14.7 6.3a5 5 0 0 0-6.4 6.4L3 18l3 3 5.3-5.3a5 5 0 0 0 6.4-6.4L15 12l-3-3 2.7-2.7Z"/>'),
+    waste_collection: officeShopAmenityIcon('<path d="M3 6h18m-2 0-1 14H6L5 6m4 0V4h6v2m-5 4v6m4-6v6"/>'),
+    reception: officeShopAmenityIcon('<path d="M3 20h18M5 17h14c0-5-3-9-7-9s-7 4-7 9Z"/><path d="M12 8V5m-2 0h4"/>'),
+    shared_kitchen: officeShopAmenityIcon('<path d="M4 12h16l-1 7H5l-1-7Zm2 0V8a6 6 0 0 1 12 0v4M12 2v3"/><path d="M8 22v-3m8 3v-3"/>'),
+    meeting_rooms: officeShopAmenityIcon('<path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2m2-13a4 4 0 1 0 8 0 4 4 0 0 0-8 0Zm10 3a3 3 0 1 0 0-6m4 16v-2a4 4 0 0 0-3-3.87"/>')
+  };
   function amenityCheckboxIcon(input){
     const row = input.closest('.amenity-check');
     if (row && row.querySelector('svg')) return row.querySelector('svg').outerHTML;
     const key = amenityCheckboxKey(input);
+    if (isOfficeShop(hostNiche) && OFFICE_SHOP_AMENITY_ICONS[key]) return OFFICE_SHOP_AMENITY_ICONS[key];
     const aliases = {mains_supply:'power',backup_generator:'power',ups:'power',fibre:'wifi',wifi_included:'wifi',tenant_internet:'wifi',lift:'workspace',accessibility:'workspace',ac_ventilation:'air_conditioning',reliable_water:'pool',borehole:'pool',private_washroom:'pool',shared_washroom:'pool',drainage:'pool',guards:'pet',cctv:'pet',controlled_entry:'pet',alarm:'pet',lighting:'power'};
     const iconKey = aliases[key] || key;
     const option = AMENITY_OPTIONS.find(function(item){ return item[0] === iconKey; });
@@ -2394,6 +2431,16 @@
     activeAmenityLibraryCategory = 'All';
     amenitiesLibraryOverlay.hidden = false;
     renderAmenityLibrary();
+    if (isOfficeShop(hostNiche)) {
+      const dialog = amenitiesLibraryOverlay.querySelector('.amenities-library-dialog');
+      if (dialog && !dialog.classList.contains('office-shop-library-locked')) {
+        const initialHeight = dialog.getBoundingClientRect().height;
+        if (initialHeight > 0) {
+          dialog.style.setProperty('--office-shop-library-baseline-height', initialHeight + 'px');
+          dialog.classList.add('office-shop-library-locked');
+        }
+      }
+    }
     amenitiesLibrarySearch.focus();
   }
   function closeAmenityLibrary(){ amenitiesLibraryOverlay.hidden = true; if (activeAmenityLibraryTrigger && activeAmenityLibraryTrigger.isConnected) activeAmenityLibraryTrigger.focus(); }
