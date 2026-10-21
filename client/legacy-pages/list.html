@@ -1089,6 +1089,25 @@
               <label for="size-or-type" id="size-label">Size / Type</label>
               <input type="text" id="size-or-type" name="size-or-type" placeholder="e.g. 2 bedrooms">
             </div>
+            <div class="field-row property-bed-bath-fields" id="property-bed-bath-fields" style="display:none;">
+              <div class="field">
+                <label for="property-bedroom-type">Type</label>
+                <select id="property-bedroom-type" name="property-bedroom-type">
+                  <option value="">Choose type</option>
+                  <option value="Bedsitter">Bedsitter</option>
+                  <option value="Studio">Studio</option>
+                  <option value="1 bedroom">1 bedroom</option>
+                  <option value="2 bedrooms">2 bedrooms</option>
+                  <option value="3 bedrooms">3 bedrooms</option>
+                  <option value="4 bedrooms">4 bedrooms</option>
+                  <option value="5 bedrooms">5 bedrooms</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="property-bathrooms">Bathrooms</label>
+                <input type="number" id="property-bathrooms" name="property-bathrooms" min="1" step="1" inputmode="numeric" placeholder="e.g. 1">
+              </div>
+            </div>
 
             <!-- Short-stay fields: Airbnb, Hotel, Event ground -->
             <div class="booking-group" id="short-stay-fields">
@@ -1491,6 +1510,20 @@
     if (field && value !== undefined && value !== null) field.value = value;
   }
 
+  function setPropertyBedroomType(value){
+    if (!propertyBedroomType || value === undefined || value === null || value === '') return;
+    const legacyValue = String(value);
+    const hasOption = Array.from(propertyBedroomType.options).some(function(option){ return option.value === legacyValue; });
+    if (!hasOption) {
+      const legacyOption = document.createElement('option');
+      legacyOption.value = legacyValue;
+      legacyOption.textContent = legacyValue;
+      legacyOption.dataset.legacyValue = 'true';
+      propertyBedroomType.appendChild(legacyOption);
+    }
+    propertyBedroomType.value = legacyValue;
+  }
+
   async function loadEditListing(id, accessToken){
     const [listingResult, detailsResult, photosResult] = await Promise.all([
       supabaseClient.from('listings').select('*').eq('id', id).eq('host_id', currentUser.id).maybeSingle(),
@@ -1522,6 +1555,8 @@
     setFieldValue('price-amount', details.price_amount);
     setFieldValue('price-unit', details.price_unit);
     setFieldValue('size-or-type', details.size_or_type);
+    if (hostNiche === 'property') setPropertyBedroomType(details.size_or_type);
+    setFieldValue('property-bathrooms', details.bathrooms);
     setFieldValue('max-guests', details.max_guests);
     setFieldValue('min-stay', details.min_stay_nights);
     setFieldValue('checkin-time', details.checkin_time);
@@ -1755,6 +1790,9 @@
   const bookingSub = document.getElementById('booking-heading-sub');
   const sizeLabel = document.getElementById('size-label');
   const sizeInput = document.getElementById('size-or-type');
+  const propertyBedBathFields = document.getElementById('property-bed-bath-fields');
+  const propertyBedroomType = document.getElementById('property-bedroom-type');
+  const propertyBathroomsInput = document.getElementById('property-bathrooms');
   const pricingHeading = document.getElementById('pricing-heading');
   const hotelOfferMode = document.getElementById('hotel-offer-mode');
   const hotelDiningFields = document.getElementById('hotel-dining-fields');
@@ -2268,10 +2306,11 @@
     }
     if (cat === 'airbnb') setText('media-title', 'Showcase the space.');
     const officeShop = isOfficeShop(cat);
+    propertyBedBathFields.style.display = cat === 'property' ? 'grid' : 'none';
     document.getElementById('amenities-field').style.display = officeShop ? 'none' : '';
     propertyPolicySection.hidden = cat !== 'property';
     document.getElementById('stay-price-field').style.display = officeShop ? 'none' : '';
-    document.getElementById('stay-room-type-field').style.display = officeShop ? 'none' : '';
+    document.getElementById('stay-room-type-field').style.display = officeShop || cat === 'property' ? 'none' : '';
     if (officeShop) {
       longTermFields.classList.remove('active');
       shortStayFields.classList.remove('active');
@@ -2882,7 +2921,10 @@
         const purposeLabel = propertyPurpose === 'rent' ? 'For rent' : (propertyPurpose === 'sale' ? 'For sale' : 'For rent & sale');
         const unitsVal = fieldValue('property-units-available');
         const unitsLabel = unitsVal ? (unitsVal + ' unit' + (unitsVal === '1' ? '' : 's') + ' available') : '';
-        reviewMeta.textContent = ['Property', purposeLabel, unitsLabel, generalLocation].filter(Boolean).join(' · ');
+        const bedroomType = propertyBedroomType.value;
+        const bathrooms = propertyBathroomsInput.value;
+        const bedBathLabel = [bedroomType, bathrooms ? bathrooms + ' bathroom' + (bathrooms === '1' ? '' : 's') : ''].filter(Boolean).join(' · ');
+        reviewMeta.textContent = ['Property', purposeLabel, unitsLabel, bedBathLabel, generalLocation].filter(Boolean).join(' · ');
       } else {
         reviewMeta.textContent =
           [CATEGORY_LABELS[category] || 'Listing', generalLocation].filter(Boolean).join(' · ');
@@ -3389,7 +3431,7 @@
       listing_id: listingId,
       price_amount: parseFloat(priceAmount) || 0,
       price_unit: document.getElementById('price-unit').value || 'month',
-      size_or_type: sizeInput.value || null,
+      size_or_type: category === 'property' ? (propertyBedroomType.value || null) : (sizeInput.value || null),
       // NOTE: assumes `listing_booking_details` has an `amenities` column
       // (text[] or jsonb). Flagging this in case that column doesn't exist yet.
       amenities: getSelectedAmenities()
@@ -3407,6 +3449,8 @@
       bookingDetails.amenities = Object.keys(officeShopDetails.amenities).filter(function(key){ return officeShopDetails.amenities[key]; });
     } else if (category === 'property') {
       const unitsVal = fieldValue('property-units-available');
+      const bathroomsVal = propertyBathroomsInput.value;
+      bookingDetails.bathrooms = bathroomsVal ? parseInt(bathroomsVal, 10) : null;
       if (unitsVal || editMode) bookingDetails.units_available = unitsVal ? parseInt(unitsVal, 10) : null;
       bookingDetails.available_from = fieldValue('available-from') || null;
 
@@ -3706,6 +3750,11 @@
       field.dispatchEvent(new Event('input', { bubbles: true }));
       field.dispatchEvent(new Event('change', { bubbles: true }));
     });
+    // Drafts saved before the Property bed/bath controls existed stored the
+    // bedroom/unit type in the shared size-or-type field.
+    if (hostNiche === 'property' && !Object.prototype.hasOwnProperty.call(snapshot.fields, 'property-bedroom-type')) {
+      setPropertyBedroomType(snapshot.fields['size-or-type']);
+    }
     if (Array.isArray(snapshot.mediaFiles)) {
       selectedFiles = snapshot.mediaFiles.filter(function(file){
         return file && typeof file.name === 'string' && typeof file.slice === 'function';
