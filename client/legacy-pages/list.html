@@ -1779,8 +1779,12 @@
     const labels = { airbnb: 'Airbnb', hotel: 'Hotel', venue: 'Event ground / venue', office: 'Office', shop: 'Shop', property: 'Property to let or buy' };
     if (!editMode && (requestedDraftId || listingPaymentReturnReference)) {
       continuationDraftPointer = getListingDraftPointer(currentUser.id);
-      if (requestedDraftId || (continuationDraftPointer && continuationDraftPointer.draftId)) {
-        const draftIdToLoad = requestedDraftId || continuationDraftPointer.draftId;
+      // An explicit Continue Listing action must load its selected profile
+      // draft. A Paystack callback is different: verify payment first, then
+      // restore the device snapshot as a best-effort recovery path. Requiring
+      // the remote draft here can strand a successful payment on a 404.
+      if (requestedDraftId) {
+        const draftIdToLoad = requestedDraftId;
         try {
           const draftResponse = await fetch('/api/listing-drafts/' + encodeURIComponent(draftIdToLoad), {
             headers: { Authorization: 'Bearer ' + session.access_token },
@@ -1793,6 +1797,9 @@
           checkingAuth.textContent = 'Unable to continue this listing: ' + error.message;
           return;
         }
+      } else if (listingPaymentReturnReference && continuationDraftPointer) {
+        listingDraftId = continuationDraftPointer.draftId || null;
+        listingDraftCacheKey = continuationDraftPointer.cacheKey || null;
       }
     }
     if (editMode) {
@@ -3983,6 +3990,20 @@
         } else snapshot = null;
       }
       if (!snapshot || snapshot.category !== hostNiche || !snapshot.fields) {
+        if (listingPaymentReturnReference && returnedListingPaymentVerified) {
+          // Keep the paid listing's review step reachable even if this device
+          // no longer has the form snapshot. Do not permit publishing an
+          // incomplete listing; ask the host to recover its saved details.
+          renderReviewSummary();
+          goToStep(5);
+          const publishButton = document.getElementById('submit-btn');
+          if (publishButton) {
+            publishButton.disabled = true;
+            publishButton.title = 'Restore the saved listing details before publishing.';
+          }
+          showPaymentMessage('Payment confirmed. Listing details could not be restored on this device, so publishing is paused. Restore the saved listing from My Profile or contact support.', true);
+          return;
+        }
         showPaymentMessage('This saved listing could not be restored. Its profile draft is still preserved; try Continue Listing again.', true);
         return;
       }
