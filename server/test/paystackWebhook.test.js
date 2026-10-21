@@ -32,7 +32,7 @@ test('malformed webhook data has no stable event identity', async () => {
 
 function paymentSupabase() {
   const updates = [];
-  const payment = { id: 'p1', host_id: 'host-1', subscription_id: 'sub-1', plan_id: 'growth', amount_minor: 130000, currency: 'KES', status: 'initialized' };
+  const payment = { id: 'p1', host_id: 'host-1', subscription_id: 'sub-1', plan_id: 'growth', amount_minor: 130000, currency: 'KES', status: 'initialized', provider_payload: { listing_allowance_transition: { limit: null } } };
   return {
     updates,
     from(table) {
@@ -81,7 +81,7 @@ test('callback and webhook retries keep the original subscription period and pay
   const payment = {
     id: 'p1', host_id: 'host-1', subscription_id: 'sub-1', plan_id: 'property_basic',
     amount_minor: 300000, currency: 'KES', status: 'initialized', paid_at: null,
-    niche: 'property', billing_interval: 'monthly', provider_payload: {},
+    niche: 'property', billing_interval: 'monthly', provider_payload: { listing_allowance_transition: { limit: 5 } },
   };
   const subscriptionUpdates = [];
   const db = {
@@ -126,6 +126,114 @@ test('callback and webhook retries keep the original subscription period and pay
   assert.equal(subscriptionUpdates[1].current_period_start, firstPeriodStart);
   assert.equal(subscriptionUpdates[1].current_period_end, firstPeriodEnd);
   assert.equal(subscriptionUpdates[1].plan_id, 'property_basic');
+});
+
+test('verified upgrade keeps its transition allowance and period across callback and webhook retries', async () => {
+  const payment = {
+    id: 'upgrade-payment', host_id: 'host-1', subscription_id: 'sub-1', plan_id: 'property_pro',
+    amount_minor: 600000, currency: 'KES', status: 'initialized', paid_at: null,
+    niche: 'property', billing_interval: 'monthly',
+    provider_payload: { listing_allowance_transition: { limit: 14, previous_remaining: 2, newly_granted: 12 } },
+  };
+  const subscriptionUpdates = [];
+  const db = {
+    from(table) {
+      if (table === 'billing_payments') return {
+        select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: payment, error: null }) }) }),
+        update(value) {
+          const query = { eq: () => query, neq: () => query, select: async () => {
+            if (payment.status === 'succeeded') return { data: [], error: null };
+            Object.assign(payment, value);
+            return { data: [{ id: payment.id, paid_at: payment.paid_at }], error: null };
+          } };
+          return query;
+        },
+      };
+      return { update(value) { subscriptionUpdates.push(value); const query = { eq: async () => ({ error: null }) }; return query; } };
+    },
+  };
+  const transaction = {
+    id: 44, reference: 'upgrade-ref', status: 'success', amount: 600000, currency: 'KES',
+    paid_at: '2026-10-21T10:00:00.000Z',
+    metadata: { host_id: 'host-1', plan_id: 'property_pro', niche: 'property', billing_interval: 'monthly' },
+    subscription: { subscription_code: 'SUB_new' },
+  };
+  await applyVerifiedTransaction(db, transaction);
+  const firstPeriodStart = subscriptionUpdates[0].current_period_start;
+  const firstPeriodEnd = subscriptionUpdates[0].current_period_end;
+  await applyVerifiedTransaction(db, transaction);
+  assert.equal(subscriptionUpdates[0].listing_allowance_limit, 14);
+  assert.equal(subscriptionUpdates[1].listing_allowance_limit, 14);
+  assert.equal(subscriptionUpdates[1].current_period_start, firstPeriodStart);
+  assert.equal(subscriptionUpdates[1].current_period_end, firstPeriodEnd);
+  assert.equal(payment.status, 'succeeded');
+});
+
+test('failed upgrade payment leaves the existing active subscription and allowance intact', async () => {
+  const payment = {
+    id: 'upgrade-payment', host_id: 'host-1', subscription_id: 'sub-1', plan_id: 'property_pro',
+    amount_minor: 600000, currency: 'KES', status: 'initialized', niche: 'property', billing_interval: 'monthly',
+    provider_payload: { listing_allowance_transition: { limit: 14, previous_remaining: 2, newly_granted: 12 } },
+  };
+  const subscription = { plan_id: 'property_basic', status: 'active', listing_allowance_limit: 5 };
+  const subscriptionUpdates = [];
+  const db = { from(table) {
+    if (table === 'billing_payments') return {
+      select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: payment, error: null }) }) }),
+      update: (value) => { const query = { eq: () => query, neq: () => query, select: async () => { Object.assign(payment, value); return { data: [{ id: payment.id }], error: null }; } }; return query; },
+    };
+    return { update(value) {
+      subscriptionUpdates.push(value);
+      const filters = {};
+      const query = { eq: (column, expected) => { filters[column] = expected; return query; },
+        then: (resolve) => { if (Object.entries(filters).every(([key, expected]) => subscription[key] === expected)) Object.assign(subscription, value); return resolve({ error: null }); } };
+      return query;
+    } };
+  } };
+  const result = await applyVerifiedTransaction(db, {
+    reference: 'upgrade-ref', status: 'failed', amount: 600000, currency: 'KES',
+    metadata: { host_id: 'host-1', plan_id: 'property_pro', niche: 'property', billing_interval: 'monthly' },
+  });
+  assert.equal(result.payment.status, 'failed');
+  assert.deepEqual(subscription, { plan_id: 'property_basic', status: 'active', listing_allowance_limit: 5 });
+  assert.equal(subscriptionUpdates.length, 1);
+  assert.equal(subscriptionUpdates[0].status, 'failed');
+  assert.equal(subscriptionUpdates[0].provider_metadata.reference, 'upgrade-ref');
+});
+
+test('a duplicate renewal resets transition allowance to the new plan standard only once', async () => {
+  const subscription = { id: 'sub-1', host_id: 'host-1', plan_id: 'property_pro', provider_subscription_code: 'SUB_new', niche: 'property', status: 'active' };
+  const updates = [];
+  let renewalInserted = false;
+  const renewalPayment = { paid_at: '2026-10-21T10:00:00.000Z' };
+  const db = { from(table) {
+    if (table === 'billing_payments') return {
+      select: (columns) => {
+        const query = { eq: () => query, maybeSingle: async () => ({ data: columns === 'paid_at' && renewalInserted ? renewalPayment : null, error: null }) };
+        return query;
+      },
+      insert: () => { if (renewalInserted) return Promise.resolve({ error: { code: '23505' } }); renewalInserted = true; return Promise.resolve({ error: null }); },
+    };
+    if (table === 'host_subscriptions') return {
+      select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: subscription, error: null }) }) }),
+      update(value) { updates.push(value); const query = { eq: async () => ({ error: null }) }; return query; },
+    };
+    return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: {
+      id: 'property_pro', monthly_amount_minor: 600000, currency: 'KES', billing_interval: 'monthly', niche: 'property',
+      features: { max_active_listings: 12 },
+    }, error: null }) }) }) };
+  } };
+  const transaction = {
+    id: 45, reference: 'renewal-ref', status: 'success', amount: 600000, currency: 'KES',
+    paid_at: renewalPayment.paid_at, subscription: { subscription_code: 'SUB_new' },
+    metadata: { host_id: 'host-1', plan_id: 'property_pro', niche: 'property', billing_interval: 'monthly' },
+  };
+  await applyVerifiedTransaction(db, transaction);
+  await applyVerifiedTransaction(db, transaction);
+  assert.equal(updates[0].listing_allowance_limit, 12);
+  assert.equal(updates[1].listing_allowance_limit, 12);
+  assert.equal(updates[1].current_period_start, updates[0].current_period_start);
+  assert.equal(updates[1].current_period_end, updates[0].current_period_end);
 });
 
 test('listing fee activation requires matching server-verified metadata and is idempotent', async () => {

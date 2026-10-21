@@ -44,6 +44,15 @@ function buildPaymentCallbackUrl(origin, pathname, parameters) {
   return callbackUrl.toString();
 }
 
+function calculateTransitionAllowance(previousLimit, activeListings, newLimit) {
+  const granted = Number.isInteger(Number(newLimit)) && Number(newLimit) > 0 ? Number(newLimit) : null;
+  if (!granted) return { limit: null, previous_remaining: 0, newly_granted: null };
+  const previous = Number.isInteger(Number(previousLimit)) && Number(previousLimit) > 0 ? Number(previousLimit) : 0;
+  const active = Number.isInteger(Number(activeListings)) && Number(activeListings) > 0 ? Number(activeListings) : 0;
+  const remaining = Math.max(0, previous - active);
+  return { limit: remaining + granted, previous_remaining: remaining, newly_granted: granted };
+}
+
 async function authenticatedHost(req, supabaseAdmin) {
   const header = req.headers.authorization || '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : null;
@@ -126,26 +135,42 @@ function createBillingRoutes({ supabaseAdmin = supabaseDefault, paystack = creat
     const paystackPlanCode = plan.paystack_plan_env ? process.env[plan.paystack_plan_env] : plan.paystack_plan_code;
     if (!paystackPlanCode) return res.status(503).json({ error: 'Checkout is not configured for this plan yet' });
     const { data: existing, error: existingError } = await supabaseAdmin.from('host_subscriptions')
-      .select('id,plan_id,status,current_period_end,provider_subscription_code,provider_email_token,niche,billing_plans(monthly_amount_minor,features,niche)')
+      .select('id,plan_id,status,current_period_end,listing_allowance_limit,provider_subscription_code,provider_email_token,niche,billing_plans(monthly_amount_minor,features,niche)')
       .eq('host_id', user.id).in('status', ['pending', 'active', 'past_due', 'cancel_requested']).maybeSingle();
     if (existingError) return res.status(500).json({ error: 'Unable to check the current subscription' });
     let replacingSubscription = null;
+    let activeListingCount = 0;
     if (existing) {
       if (existing.status !== 'active' || existing.niche !== niche || !existing.provider_subscription_code || !existing.provider_email_token) {
         return res.status(409).json({ error: 'Your current subscription cannot be upgraded yet.' });
       }
       const currentFeatures = existing.billing_plans && existing.billing_plans.features || {};
       const targetFeatures = plan.features || {};
-      const currentLimit = Number(currentFeatures.max_active_listings || 0);
+      const currentLimit = Number(existing.listing_allowance_limit ?? currentFeatures.max_active_listings ?? 0);
       const targetLimit = Number(targetFeatures.max_active_listings || 0);
       if (targetLimit <= currentLimit) return res.status(409).json({ error: 'Choose a plan with a higher listing allowance to upgrade.' });
+      if (currentLimit > 0 && targetLimit > 0) {
+        const activeListingsQuery = supabaseAdmin.from('listings').select('id', { count: 'exact', head: true })
+          .eq('host_id', user.id).eq('availability_status', 'available').is('paid_listing_until', null);
+        if (niche === 'property') activeListingsQuery.eq('category', 'property');
+        else activeListingsQuery.in('category', ['shop', 'office']);
+        const { count, error: activeListingsError } = await activeListingsQuery;
+        if (activeListingsError) return res.status(503).json({ error: 'Unable to reconcile the current listing allowance' });
+        activeListingCount = count || 0;
+      }
       const { data: pendingUpgrade, error: pendingError } = await supabaseAdmin.from('billing_payments')
-        .select('id').eq('subscription_id', existing.id).in('status', ['initialized', 'pending']).maybeSingle();
+        .select('id,provider_reference,provider_payload').eq('subscription_id', existing.id).in('status', ['initialized', 'pending']).maybeSingle();
       if (pendingError) return res.status(500).json({ error: 'Unable to check for a pending upgrade' });
-      if (pendingUpgrade) return res.status(409).json({ error: 'An upgrade payment is already being processed.' });
+      if (pendingUpgrade) {
+        const authorizationUrl = pendingUpgrade.provider_payload && pendingUpgrade.provider_payload.authorization_url;
+        if (authorizationUrl) return res.status(200).json({ reference: pendingUpgrade.provider_reference, authorization_url: authorizationUrl, reused: true });
+        return res.status(409).json({ error: 'An upgrade payment is already being processed.' });
+      }
       replacingSubscription = {
         code: existing.provider_subscription_code,
         token: existing.provider_email_token,
+        previous_plan_id: existing.plan_id,
+        previous_allowance_limit: currentLimit,
       };
     }
     const reference = paystack.generateReference();
@@ -155,13 +180,6 @@ function createBillingRoutes({ supabaseAdmin = supabaseDefault, paystack = creat
       plan: plan.id,
       ...(req.body.return_to === 'list' ? { returnTo: 'list' } : {}),
     });
-    let initialized;
-    try {
-      initialized = await paystack.initializeTransaction({ email: user.email, amount: plan.monthly_amount_minor, currency: plan.currency, plan: paystackPlanCode, reference, callback_url: callbackUrl, metadata: { host_id: user.id, plan_id: plan.id, niche, billing_interval: plan.billing_interval, ...(pendingListing ? { listing_id: pendingListing.id } : {}), varoom_billing: true } });
-    } catch (error) {
-      console.error('Paystack subscription checkout initialization failed', { userId: user.id, planId: plan.id, reference, message: error.message });
-      return res.status(503).json({ error: error.message || 'Unable to initialize checkout' });
-    }
     let subscriptionId = existing && existing.id;
     if (!subscriptionId) {
       const { data: subscription, error: subscriptionError } = await supabaseAdmin.from('host_subscriptions').insert({ host_id: user.id, plan_id: plan.id, niche, status: 'pending', provider_metadata: { reference } }).select('id').single();
@@ -172,12 +190,36 @@ function createBillingRoutes({ supabaseAdmin = supabaseDefault, paystack = creat
       host_id: user.id, subscription_id: subscriptionId, plan_id: plan.id, niche, billing_interval: plan.billing_interval,
       ...(pendingListing ? { listing_id: pendingListing.id } : {}), provider_reference: reference,
       amount_minor: plan.monthly_amount_minor, currency: plan.currency, status: 'initialized',
-      provider_payload: replacingSubscription ? { replaces_subscription: replacingSubscription } : {},
+      provider_payload: {
+        checkout_reservation: true,
+        listing_allowance_transition: calculateTransitionAllowance(
+          replacingSubscription ? replacingSubscription.previous_allowance_limit : 0,
+          activeListingCount,
+          Number(plan.features && plan.features.max_active_listings)
+        ),
+        ...(replacingSubscription ? { replaces_subscription: replacingSubscription } : {}),
+      },
     };
     const { error: paymentError } = await supabaseAdmin.from('billing_payments').insert(payment);
     if (paymentError) {
       if (!existing) await supabaseAdmin.from('host_subscriptions').delete().eq('id', subscriptionId);
+      if (paymentError.code === '23505') return res.status(409).json({ error: 'An upgrade payment is already being processed.' });
       return res.status(500).json({ error: 'Unable to create billing payment' });
+    }
+    let initialized;
+    try {
+      initialized = await paystack.initializeTransaction({ email: user.email, amount: plan.monthly_amount_minor, currency: plan.currency, plan: paystackPlanCode, reference, callback_url: callbackUrl, metadata: { host_id: user.id, plan_id: plan.id, niche, billing_interval: plan.billing_interval, ...(pendingListing ? { listing_id: pendingListing.id } : {}), varoom_billing: true } });
+    } catch (error) {
+      // Keep the reservation initialized when the network result is uncertain;
+      // allowing another checkout here could charge twice for the same upgrade.
+      console.error('Paystack subscription checkout initialization is unresolved', { userId: user.id, planId: plan.id, reference, message: error.message });
+      return res.status(503).json({ error: 'Unable to confirm checkout initialization. Check the payment status before retrying.' });
+    }
+    const { error: checkoutUrlError } = await supabaseAdmin.from('billing_payments')
+      .update({ provider_payload: { ...payment.provider_payload, authorization_url: initialized.authorization_url } })
+      .eq('provider_reference', reference);
+    if (checkoutUrlError) {
+      console.error('Unable to save Paystack subscription checkout URL', { userId: user.id, planId: plan.id, reference, message: checkoutUrlError.message });
     }
     return res.status(201).json({ reference, authorization_url: initialized.authorization_url, access_code: initialized.access_code });
   });
@@ -244,4 +286,4 @@ function createBillingRoutes({ supabaseAdmin = supabaseDefault, paystack = creat
   });
   return router;
 }
-module.exports = { createBillingRoutes, authenticatedHost, VALID_PLAN_IDS, normalizeRequestedPlan, resolvePaymentCallbackOrigin, buildPaymentCallbackUrl };
+module.exports = { createBillingRoutes, authenticatedHost, VALID_PLAN_IDS, normalizeRequestedPlan, resolvePaymentCallbackOrigin, buildPaymentCallbackUrl, calculateTransitionAllowance };
