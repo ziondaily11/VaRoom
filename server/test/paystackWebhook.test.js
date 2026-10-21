@@ -333,6 +333,9 @@ test('a late verified failure cannot downgrade an already successful payment', a
           return query;
         },
       };
+      if (table === 'billing_plans') return {
+        select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { features: { max_active_listings: 5 } }, error: null }) }) }),
+      };
       return { update: () => { const query = { eq: () => query, then: (resolve) => resolve({ error: null }) }; return query; } };
     },
   };

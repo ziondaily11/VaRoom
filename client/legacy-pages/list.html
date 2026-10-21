@@ -1361,8 +1361,14 @@
   let listingNeedsPublication = false;
   let hasActiveNichePlan = false;
   const listingDraftCache = window.VaRoomListingDraftCache.createListingDraftCache();
-  const LISTING_DRAFT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
   let listingDraftCacheKey = null;
+  const requestedDraftId = new URLSearchParams(window.location.search).get('draft');
+  let listingDraftId = requestedDraftId;
+  let continuationDraftRecord = null;
+  let continuationDraftPointer = null;
+  let draftSaveTimer = null;
+  let draftSaveQueue = Promise.resolve();
+  let restoringListingDraft = false;
   let editListing = null;
   let editBookingDetails = null;
   let existingPhotos = [];
@@ -1395,13 +1401,6 @@
   function getListingDraftPointer(hostId){
     try {
       const pointer = listingDraftCache.getPointer(hostId);
-      if (!pointer) return null;
-      if (Date.now() - pointer.createdAt > LISTING_DRAFT_MAX_AGE_MS) {
-        listingDraftCache.clearForHost(hostId).catch(function(error){
-          console.error('Unable to clear an expired listing draft:', error);
-        });
-        return null;
-      }
       return pointer;
     } catch (error) {
       console.error('Unable to read the saved listing draft index:', error);
@@ -1416,7 +1415,8 @@
       fields[field.id] = field.type === 'checkbox' || field.type === 'radio' ? field.checked : field.value;
     });
     return {
-      cacheKey: listingDraftCacheKey || makeListingDraftKey(hostId),
+      cacheKey: listingDraftCacheKey || (hostId + ':' + listingDraftId),
+      draftId: listingDraftId,
       hostId: hostId,
       listingId: listingId || null,
       category: hostNiche,
@@ -1429,20 +1429,84 @@
     };
   }
 
-  async function saveListingDraft(hostId, listingId){
+  async function saveListingDraft(hostId, listingId, keepalive){
+    if (!listingDraftId) {
+      listingDraftId = window.crypto && typeof window.crypto.randomUUID === 'function'
+        ? window.crypto.randomUUID()
+        : makeListingDraftKey(hostId).split(':').pop();
+    }
+    listingDraftCacheKey = hostId + ':' + listingDraftId;
     const draft = captureListingDraft(hostId, listingId);
     listingDraftCacheKey = draft.cacheKey;
     await listingDraftCache.save(draft);
     listingDraftCache.setPointer(hostId, {
       hostId: hostId,
       cacheKey: draft.cacheKey,
+      draftId: draft.draftId,
       listingId: draft.listingId,
       category: draft.category,
       createdAt: draft.createdAt,
       returnTo: 'list',
     });
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session || !session.access_token || session.user.id !== hostId) {
+      throw new Error('Sign in again to save this listing draft to your profile.');
+    }
+    const formData = {
+      fields: draft.fields,
+      propertyPurpose: draft.propertyPurpose,
+      propertySalePriceMode: draft.propertySalePriceMode,
+    };
+    const mediaMetadata = draft.mediaFiles.map(function(file){
+      return { name: file.name, type: file.type, size: file.size, lastModified: file.lastModified };
+    });
+    if (draft.policyFile) mediaMetadata.push({
+      name: draft.policyFile.name, type: draft.policyFile.type,
+      size: draft.policyFile.size, lastModified: draft.policyFile.lastModified,
+    });
+    const response = await fetch('/api/listing-drafts/' + encodeURIComponent(listingDraftId), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
+      keepalive: Boolean(keepalive),
+      body: JSON.stringify({
+        category: draft.category,
+        form_data: formData,
+        media_metadata: mediaMetadata,
+        listing_id: draft.listingId,
+      }),
+    });
+    const result = await response.json().catch(function(){ return {}; });
+    if (!response.ok) throw new Error(result.error || 'Unable to save your listing draft to My Profile.');
     return draft;
   }
+
+  function queueListingDraftSave(){
+    if (!currentUser || editMode || restoringListingDraft) return;
+    window.clearTimeout(draftSaveTimer);
+    draftSaveTimer = window.setTimeout(function(){
+      draftSaveQueue = draftSaveQueue.catch(function(){}).then(function(){
+        return saveListingDraft(currentUser.id, preparedPaymentListingId);
+      }).catch(function(error){
+        console.warn('Unable to save the listing draft:', error);
+      });
+    }, 450);
+  }
+
+  const listingDraftForm = document.getElementById('list-form');
+  if (listingDraftForm) {
+    listingDraftForm.addEventListener('input', queueListingDraftSave);
+    listingDraftForm.addEventListener('change', queueListingDraftSave);
+    listingDraftForm.querySelectorAll('[data-office-shop-type]').forEach(function(button){
+      button.addEventListener('click', queueListingDraftSave);
+    });
+  }
+  window.addEventListener('pagehide', function(){
+    if (!currentUser || editMode || restoringListingDraft) return;
+    window.clearTimeout(draftSaveTimer);
+    draftSaveQueue = draftSaveQueue.catch(function(){}).then(function(){
+      return saveListingDraft(currentUser.id, preparedPaymentListingId, true);
+    }).catch(function(error){ console.warn('Unable to save the listing draft before leaving:', error); });
+  });
 
   async function ensurePaymentDraft(session){
     if (preparedPaymentListingId) return preparedPaymentListingId;
@@ -1474,6 +1538,8 @@
   }
 
   async function persistBeforeCheckout(session){
+    window.clearTimeout(draftSaveTimer);
+    await draftSaveQueue.catch(function(){});
     await saveListingDraft(session.user.id, preparedPaymentListingId);
     const listingId = await ensurePaymentDraft(session);
     await saveListingDraft(session.user.id, listingId);
@@ -1658,6 +1724,24 @@
     }
 
     const labels = { airbnb: 'Airbnb', hotel: 'Hotel', venue: 'Event ground / venue', office: 'Office', shop: 'Shop', property: 'Property to let or buy' };
+    if (!editMode && (requestedDraftId || listingPaymentReturnReference)) {
+      continuationDraftPointer = getListingDraftPointer(currentUser.id);
+      if (requestedDraftId || (continuationDraftPointer && continuationDraftPointer.draftId)) {
+        const draftIdToLoad = requestedDraftId || continuationDraftPointer.draftId;
+        try {
+          const draftResponse = await fetch('/api/listing-drafts/' + encodeURIComponent(draftIdToLoad), {
+            headers: { Authorization: 'Bearer ' + session.access_token },
+          });
+          const draftResult = await draftResponse.json().catch(function(){ return {}; });
+          if (!draftResponse.ok || !draftResult.draft) throw new Error(draftResult.error || 'Listing draft not found');
+          continuationDraftRecord = draftResult.draft;
+          listingDraftId = continuationDraftRecord.id;
+        } catch (error) {
+          checkingAuth.textContent = 'Unable to continue this listing: ' + error.message;
+          return;
+        }
+      }
+    }
     if (editMode) {
       const { data: listing, error: listingError } = await supabaseClient.from('listings')
         .select('id,host_id,category,availability_status,publication_state,paid_listing_until').eq('id', editListingId).eq('host_id', currentUser.id).maybeSingle();
@@ -1677,12 +1761,44 @@
         return;
       }
       hostNiche = hostNiches[0];
+      const resumeCategory = continuationDraftRecord && continuationDraftRecord.category
+        || continuationDraftPointer && continuationDraftPointer.category;
+      if (resumeCategory && Object.prototype.hasOwnProperty.call(labels, resumeCategory)) {
+        const hostCategoryAllowsDraft = hostNiche === resumeCategory
+          || (['office', 'shop'].includes(hostNiche) && ['office', 'shop'].includes(resumeCategory));
+        if (!hostCategoryAllowsDraft) {
+          checkingAuth.textContent = 'This saved listing does not match your host profile category.';
+          return;
+        }
+        hostNiche = resumeCategory;
+      }
     }
 
     if (listingPaymentReturnReference && ['return', 'verified'].includes(listingPaymentReturnMode)) {
       checkingAuth.textContent = 'Confirming your payment...';
       try {
         const payment = await verifyReturnedListingPayment(session.access_token);
+        if (payment && payment.payment_kind === 'listing' && payment.listing_id) {
+          preparedPaymentListingId = payment.listing_id;
+          try {
+            const draftsResponse = await fetch('/api/listing-drafts', {
+              headers: { Authorization: 'Bearer ' + session.access_token },
+            });
+            const draftsResult = draftsResponse.ok ? await draftsResponse.json() : null;
+            const matchedDraft = draftsResult && Array.isArray(draftsResult.drafts)
+              ? draftsResult.drafts.find(function(draft){ return draft.listing_id === payment.listing_id; })
+              : null;
+            if (matchedDraft) {
+              continuationDraftRecord = matchedDraft;
+              continuationDraftPointer = null;
+              listingDraftId = matchedDraft.id;
+              hostNiche = matchedDraft.category;
+              configureCategory(hostNiche);
+            }
+          } catch (draftLookupError) {
+            console.warn('Unable to match the returned payment to its saved listing draft:', draftLookupError);
+          }
+        }
         if (payment && payment.status === 'succeeded'
             && payment.payment_kind === 'listing' && payment.listing_id) {
           // A callback query parameter cannot unlock publication. This state is
@@ -1724,15 +1840,10 @@
       } catch (_) {}
     }
 
-    if (!editMode) {
-      const pointer = getListingDraftPointer(currentUser.id);
-      if (pointer && pointer.category === hostNiche) {
-        listingDraftCacheKey = pointer.cacheKey;
-        preparedPaymentListingId = preparedPaymentListingId || pointer.listingId || null;
-      }
-    }
     configureCategory(hostNiche);
-  if (!editMode) await restoreListingDraftAfterUpgrade(currentUser.id);
+    if (!editMode && (requestedDraftId || listingPaymentReturnReference)) {
+      await restoreListingDraftAfterUpgrade(currentUser.id, session.access_token, continuationDraftRecord, continuationDraftPointer);
+    }
   const needsListingPayment = ['property', 'office', 'shop'].includes(hostNiche)
     && !hasActiveNichePlan && !listingPaymentVerified && !(editMode && hasCurrentListingFee);
   if (needsListingPayment && nicheEntitlementChecked) {
@@ -3673,6 +3784,19 @@
         console.error('Listing published, but the saved draft could not be fully cleared:', error);
       }
     }
+    if (listingDraftId) {
+      try {
+        const { data: { session: cleanupSession } } = await supabaseClient.auth.getSession();
+        if (cleanupSession && cleanupSession.access_token) {
+          const cleanupResponse = await fetch('/api/listing-drafts/' + encodeURIComponent(listingDraftId), {
+            method: 'DELETE', headers: { Authorization: 'Bearer ' + cleanupSession.access_token },
+          });
+          if (!cleanupResponse.ok) console.error('Listing published, but its saved profile draft could not be cleared.');
+        }
+      } catch (error) {
+        console.error('Listing published, but its saved profile draft could not be cleared:', error);
+      }
+    }
 
     // The feed cache is scoped to the signed-in browser session. A newly
     // published listing belongs at the top of several cached views, so mark
@@ -3709,84 +3833,93 @@
     box.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
-  async function restoreListingDraftAfterUpgrade(hostId){
-    const pointer = getListingDraftPointer(hostId);
+  async function restoreListingDraftAfterUpgrade(hostId, accessToken, remoteDraft, pointer){
     let snapshot = null;
-    if (pointer && pointer.category === hostNiche) {
-      try {
-        snapshot = await listingDraftCache.load(pointer.cacheKey);
-      } catch (error) {
-        console.error('Unable to restore the saved listing draft:', error);
-        showPaymentMessage('Your saved listing draft could not be opened. Your cached files have not been deleted; refresh and try again.', true);
-        return;
+    restoringListingDraft = true;
+    try {
+      const serverDraft = remoteDraft || null;
+      const cacheKey = serverDraft ? hostId + ':' + serverDraft.id : pointer && pointer.cacheKey;
+      if (serverDraft) {
+        listingDraftId = serverDraft.id;
+        listingDraftCacheKey = cacheKey;
+        preparedPaymentListingId = serverDraft.listing_id || null;
+      }
+      if (cacheKey) {
+        try { snapshot = await listingDraftCache.load(cacheKey); }
+        catch (error) {
+          console.error('Unable to restore the local media cache:', error);
+        }
       }
       if (snapshot && (snapshot.hostId !== hostId || snapshot.category !== hostNiche
-          || snapshot.cacheKey !== pointer.cacheKey || !Number.isFinite(snapshot.createdAt)
-          || !snapshot.fields || typeof snapshot.fields !== 'object'
-          || Date.now() - snapshot.createdAt > LISTING_DRAFT_MAX_AGE_MS)) {
-        snapshot = null;
-      }
-      if (snapshot) {
-        preparedPaymentListingId = preparedPaymentListingId || snapshot.listingId || pointer.listingId || null;
-        listingDraftCacheKey = snapshot.cacheKey;
-      } else {
-        showPaymentMessage('Your saved listing details are unavailable, but the paused listing is preserved. You can continue editing without creating another listing.', true);
-      }
-    }
+          || snapshot.cacheKey !== cacheKey || !Number.isFinite(snapshot.createdAt)
+          || !snapshot.fields || typeof snapshot.fields !== 'object')) snapshot = null;
+      if (snapshot && serverDraft) snapshot.serverMediaMetadata = serverDraft.media_metadata || [];
 
-    if (!snapshot) {
-      try { snapshot = JSON.parse(sessionStorage.getItem('varoom_listing_draft_after_upgrade') || 'null'); }
-      catch (error) {
-        console.warn('Ignoring an unreadable legacy listing draft:', error);
-        snapshot = null;
+      if (!snapshot && serverDraft && serverDraft.form_data) {
+        snapshot = Object.assign({}, serverDraft.form_data, {
+          cacheKey: cacheKey,
+          draftId: serverDraft.id,
+          hostId: hostId,
+          listingId: serverDraft.listing_id || null,
+          category: serverDraft.category,
+          createdAt: new Date(serverDraft.updated_at).getTime() || Date.now(),
+          fields: serverDraft.form_data.fields || {},
+          mediaFiles: [],
+          policyFile: null,
+          serverMediaMetadata: serverDraft.media_metadata || [],
+        });
       }
-      if (!snapshot || snapshot.category !== hostNiche || !snapshot.fields) return;
-      try {
-        sessionStorage.removeItem('varoom_listing_draft_after_upgrade');
-        sessionStorage.removeItem('varoom_listing_after_upgrade');
-      } catch (error) {
-        console.warn('Unable to clear the restored legacy listing draft:', error);
+
+      // The legacy upgrade handoff is accepted only on an explicit payment
+      // return, never on a clean visit to /list.
+      if (!snapshot && !requestedDraftId && listingPaymentReturnReference) {
+        try { snapshot = JSON.parse(sessionStorage.getItem('varoom_listing_draft_after_upgrade') || 'null'); }
+        catch (error) { console.warn('Ignoring an unreadable legacy listing draft:', error); }
+        if (snapshot && snapshot.category === hostNiche && snapshot.fields) {
+          try {
+            sessionStorage.removeItem('varoom_listing_draft_after_upgrade');
+            sessionStorage.removeItem('varoom_listing_after_upgrade');
+          } catch (error) { console.warn('Unable to clear the restored legacy listing draft:', error); }
+        } else snapshot = null;
       }
-    }
-    if (snapshot.createdAt && Date.now() - snapshot.createdAt > LISTING_DRAFT_MAX_AGE_MS) {
-      try { sessionStorage.removeItem('varoom_listing_draft_after_upgrade'); } catch (error) {
-        console.warn('Unable to clear the expired legacy listing draft:', error);
+      if (!snapshot || snapshot.category !== hostNiche || !snapshot.fields) {
+        showPaymentMessage('This saved listing could not be restored. Its profile draft is still preserved; try Continue Listing again.', true);
+        return;
       }
-      return;
-    }
-    if (snapshot.propertyPurpose && hostNiche === 'property') applyPropertyPurpose(snapshot.propertyPurpose);
-    if (snapshot.propertySalePriceMode && hostNiche === 'property') applyPropertySaleMode(snapshot.propertySalePriceMode);
-    Object.keys(snapshot.fields).forEach(function(id){
-      const field = document.getElementById(id);
-      if (!field || field.type === 'file') return;
-      if (field.type === 'checkbox' || field.type === 'radio') field.checked = snapshot.fields[id] === true;
-      else field.value = snapshot.fields[id];
-      field.dispatchEvent(new Event('input', { bubbles: true }));
-      field.dispatchEvent(new Event('change', { bubbles: true }));
-    });
-    // Drafts saved before the Property bed/bath controls existed stored the
-    // bedroom/unit type in the shared size-or-type field.
-    if (hostNiche === 'property' && !Object.prototype.hasOwnProperty.call(snapshot.fields, 'property-bedroom-type')) {
-      setPropertyBedroomType(snapshot.fields['size-or-type']);
-    }
-    if (Array.isArray(snapshot.mediaFiles)) {
-      selectedFiles = snapshot.mediaFiles.filter(function(file){
-        return file && typeof file.name === 'string' && typeof file.slice === 'function';
+
+      if (snapshot.propertyPurpose && hostNiche === 'property') applyPropertyPurpose(snapshot.propertyPurpose);
+      if (snapshot.propertySalePriceMode && hostNiche === 'property') applyPropertySaleMode(snapshot.propertySalePriceMode);
+      Object.keys(snapshot.fields).forEach(function(id){
+        const field = document.getElementById(id);
+        if (!field || field.type === 'file') return;
+        if (field.type === 'checkbox' || field.type === 'radio') field.checked = snapshot.fields[id] === true;
+        else field.value = snapshot.fields[id];
+        field.dispatchEvent(new Event('input', { bubbles: true }));
+        field.dispatchEvent(new Event('change', { bubbles: true }));
       });
-    }
-    if (snapshot.policyFile && typeof snapshot.policyFile.slice === 'function') {
-      selectedPolicyFile = snapshot.policyFile;
-      if (policyPreviewBtn) policyPreviewBtn.textContent = selectedPolicyFile.name;
-      if (policyFileName) policyFileName.classList.add('show');
-    }
-    renderPreviews();
-    renderReviewSummary();
-    goToStep(5);
-    if (snapshot.mediaSelected || snapshot.policyAttached) {
-      showPaymentMessage('Your listing details were restored. Please reselect your photos, videos, or policy document; browsers do not keep file selections after leaving the page.', false);
-    }
-    if (selectedFiles.length || selectedPolicyFile) {
-      showPaymentMessage('Your saved listing, selected photos/videos, and policy document have been restored.', false);
+      if (hostNiche === 'property' && !Object.prototype.hasOwnProperty.call(snapshot.fields, 'property-bedroom-type')) {
+        setPropertyBedroomType(snapshot.fields['size-or-type']);
+      }
+      if (Array.isArray(snapshot.mediaFiles)) {
+        selectedFiles = snapshot.mediaFiles.filter(function(file){
+          return file && typeof file.name === 'string' && typeof file.slice === 'function';
+        });
+      }
+      if (snapshot.policyFile && typeof snapshot.policyFile.slice === 'function') {
+        selectedPolicyFile = snapshot.policyFile;
+        if (policyPreviewBtn) policyPreviewBtn.textContent = selectedPolicyFile.name;
+        if (policyFileName) policyFileName.classList.add('show');
+      }
+      renderPreviews();
+      renderReviewSummary();
+      goToStep(requestedDraftId ? 1 : 5);
+      if (selectedFiles.length || selectedPolicyFile) {
+        showPaymentMessage('Your saved listing, photos/videos, and policy document have been restored.', false);
+      } else if ((snapshot.serverMediaMetadata || []).length || snapshot.mediaSelected || snapshot.policyAttached) {
+        showPaymentMessage('Your listing details are restored. Reselect the saved media files shown in My Profile; browsers keep file data only on this device.', false);
+      }
+    } finally {
+      restoringListingDraft = false;
     }
   }
 
