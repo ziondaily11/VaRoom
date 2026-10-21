@@ -869,6 +869,16 @@
     #listing-page[data-listing-niche] .step-frame[data-step="3"] .amenities-library-options{ grid-template-columns:repeat(2,minmax(0,1fr)); flex:1 1 auto; min-height:0; }
     #listing-page[data-listing-niche] .step-frame[data-step="3"] .amenities-library-footer{ padding:.5rem .75rem .65rem; }
   }
+  /* Keep commercial checkboxes at a visible, stable size despite shared input
+     sizing rules in the red listing panel. */
+  #listing-page[data-listing-niche="office"] .step-frame[data-step="3"] #office-shop-media-fields input[type="checkbox"],
+  #listing-page[data-listing-niche="shop"] .step-frame[data-step="3"] #office-shop-media-fields input[type="checkbox"]{ appearance:none!important; -webkit-appearance:none!important; display:inline-grid!important; place-content:center; box-sizing:border-box; width:1.15rem!important; min-width:1.15rem!important; max-width:1.15rem!important; height:1.15rem!important; min-height:1.15rem!important; flex:0 0 1.15rem!important; margin:0 .1rem 0 0; padding:0!important; border:1.5px solid rgba(255,255,255,.9)!important; border-radius:3px; background:rgba(20,15,15,.35)!important; vertical-align:middle; cursor:pointer; }
+  #listing-page[data-listing-niche="office"] .step-frame[data-step="3"] #office-shop-media-fields input[type="checkbox"]:checked,
+  #listing-page[data-listing-niche="shop"] .step-frame[data-step="3"] #office-shop-media-fields input[type="checkbox"]:checked{ background:#fff!important; border-color:#fff!important; }
+  #listing-page[data-listing-niche="office"] .step-frame[data-step="3"] #office-shop-media-fields input[type="checkbox"]:checked::before,
+  #listing-page[data-listing-niche="shop"] .step-frame[data-step="3"] #office-shop-media-fields input[type="checkbox"]:checked::before{ content:""; width:.3rem; height:.55rem; border:solid #8F1229; border-width:0 2px 2px 0; transform:rotate(45deg) translate(-1px,-1px); }
+  #listing-page[data-listing-niche="office"] .step-frame[data-step="3"] #office-shop-media-fields input[type="checkbox"]:focus-visible,
+  #listing-page[data-listing-niche="shop"] .step-frame[data-step="3"] #office-shop-media-fields input[type="checkbox"]:focus-visible{ outline:2px solid #fff; outline-offset:2px; }
 </style>
 <link rel="stylesheet" href="js/varoom-dark-theme.css">
 </head>
@@ -1459,7 +1469,8 @@
     };
   }
 
-  async function saveListingDraft(hostId, listingId, keepalive){
+  let listingDraftRemoteSaveUnavailable = false;
+  async function saveListingDraft(hostId, listingId, keepalive, options){
     if (!listingDraftId) {
       listingDraftId = window.crypto && typeof window.crypto.randomUUID === 'function'
         ? window.crypto.randomUUID()
@@ -1478,9 +1489,13 @@
       createdAt: draft.createdAt,
       returnTo: 'list',
     });
+    if (options && options.localOnly) return draft;
+    if (listingDraftRemoteSaveUnavailable) return draft;
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (!session || !session.access_token || session.user.id !== hostId) {
-      throw new Error('Sign in again to save this listing draft to your profile.');
+      listingDraftRemoteSaveUnavailable = true;
+      console.warn('Listing draft is saved locally; profile sync will resume after signing in.');
+      return draft;
     }
     const formData = {
       fields: draft.fields,
@@ -1506,7 +1521,11 @@
       }),
     });
     const result = await response.json().catch(function(){ return {}; });
-    if (!response.ok) throw new Error(result.error || 'Unable to save your listing draft to My Profile.');
+    if (!response.ok) {
+      listingDraftRemoteSaveUnavailable = true;
+      console.warn('Listing draft profile sync is unavailable:', result.error || response.status);
+      return draft;
+    }
     return draft;
   }
 
@@ -1570,9 +1589,13 @@
   async function persistBeforeCheckout(session){
     window.clearTimeout(draftSaveTimer);
     await draftSaveQueue.catch(function(){});
-    await saveListingDraft(session.user.id, preparedPaymentListingId);
+    try { await saveListingDraft(session.user.id, preparedPaymentListingId, false, { localOnly: true }); }
+    catch (error) { console.warn('Local draft snapshot could not be updated before checkout:', error); }
     const listingId = await ensurePaymentDraft(session);
-    await saveListingDraft(session.user.id, listingId);
+    try { await saveListingDraft(session.user.id, listingId, false, { localOnly: true }); }
+    catch (error) { console.warn('Local draft snapshot could not be linked to checkout:', error); }
+    try { await saveListingDraft(session.user.id, listingId); }
+    catch (error) { console.warn('Listing draft profile sync failed; continuing to checkout:', error); }
     return listingId;
   }
 
@@ -2022,8 +2045,8 @@
       </div>
       <div class="field"><label for="os-power-note">Power capacity or known limitations <small>(optional)</small></label><input id="os-power-note" maxlength="300"></div>
       <div class="field"><label for="os-internet-note">Known providers or speeds <small>(only if verified)</small></label><input id="os-internet-note" maxlength="300"></div>
-      <div class="field"><label for="os-after-hours">After-hours access</label><select id="os-after-hours"><option value="not_confirmed">Not confirmed</option><option value="24_7">24/7</option><option value="business_hours">Business hours only</option></select></div>
-      <div class="field"><label for="os-operating-hours">Operational / accessible hours <small>(optional)</small></label><input id="os-operating-hours" type="time"></div>
+      <div class="field"><label for="os-after-hours">Accessible hours</label><select id="os-after-hours"><option value="not_confirmed">Not confirmed</option><option value="24_7">24/7</option><option value="business_hours">Business hours</option></select></div>
+      <div class="field" id="os-business-hours-fields" hidden><label>Business hours <small>(required for business hours access)</small></label><div class="field-row"><div class="field"><label for="os-operating-hours-from">From</label><input id="os-operating-hours-from" type="time" aria-label="Business hours start time"></div><div class="field"><label for="os-operating-hours-to">To</label><input id="os-operating-hours-to" type="time" aria-label="Business hours end time"></div></div></div>
       <div class="field"><label for="os-accessibility-note">Accessibility note <small>(optional)</small></label><input id="os-accessibility-note" maxlength="300"></div>
       <h3 class="section-heading">Parking</h3><div class="field-row"><div class="field"><label for="os-parking-spaces">Number of spaces</label><input id="os-parking-spaces" type="number" min="0"></div><div class="field"><label for="os-parking-cost">Parking cost</label><select id="os-parking-cost"><option value="not_confirmed">Not confirmed</option><option value="free">Free</option><option value="paid">Paid</option></select></div><div class="field"><label for="os-parking-paid-amount">Paid parking amount <small>(if paid)</small></label><input id="os-parking-paid-amount" type="number" min="0"></div></div>
       <div class="option-grid"><label><input id="os-parking-allocated" type="checkbox"> Allocated to this unit</label><label><input id="os-visitor-parking" type="checkbox"> Visitor parking</label>${isShop ? '<label><input id="os-customer-parking" type="checkbox"> Customer parking</label>' : ''}</div>
@@ -2065,6 +2088,8 @@
   function attachOfficeShopFieldHandlers(){
     const basis = document.getElementById('os-pricing-basis');
     if (basis) basis.addEventListener('change', function(){ updateOfficeShopConditions(); updatePricePreview(); });
+    const accessibleHours = document.getElementById('os-after-hours');
+    if (accessibleHours) accessibleHours.addEventListener('change', updateOfficeShopConditions);
     const amount = document.getElementById('os-price-amount');
     if (amount) amount.addEventListener('input', function(){
       const legacyAmount = document.getElementById('price-amount');
@@ -2100,6 +2125,13 @@
     const basis = osValue('os-pricing-basis');
     [['os-yearly-extra','whole_year'],['os-area-extra','per_area'],['os-desk-extra','per_desk'],['os-short-extra','daily_weekly_hourly'],['os-turnover-extra','turnover']].forEach(function(pair){ const element=document.getElementById(pair[0]); if(element) element.hidden=basis!==pair[1]; });
     const areaMeasure = document.getElementById('os-area-measure'); if (areaMeasure) areaMeasure.required = basis === 'per_area';
+    const businessHours = osValue('os-after-hours') === 'business_hours';
+    const businessHoursFields = document.getElementById('os-business-hours-fields');
+    const businessHoursFrom = document.getElementById('os-operating-hours-from');
+    const businessHoursTo = document.getElementById('os-operating-hours-to');
+    if (businessHoursFields) businessHoursFields.hidden = !businessHours;
+    if (businessHoursFrom) { businessHoursFrom.required = businessHours; businessHoursFrom.setCustomValidity(''); }
+    if (businessHoursTo) { businessHoursTo.required = businessHours; businessHoursTo.setCustomValidity(''); }
     const minTermLabel = document.querySelector('label[for="os-min-term"]');
     const minTerm = document.getElementById('os-min-term');
     if (minTermLabel && minTerm) {
@@ -2147,7 +2179,9 @@
         power_note: osValue('os-power-note') || null,
         internet_note: osValue('os-internet-note') || null,
         after_hours: osValue('os-after-hours') || 'not_confirmed',
-        operational_accessible_hours: osValue('os-operating-hours') || null,
+        operational_accessible_hours: osValue('os-after-hours') === 'business_hours'
+          ? [osValue('os-operating-hours-from'), osValue('os-operating-hours-to')].filter(Boolean).join('-') || null
+          : null,
         accessibility_note: osValue('os-accessibility-note') || null
       }),
       location: { building_name: osValue('os-building') },
@@ -2202,7 +2236,7 @@
     const pricing = details.pricing || {}; set('os-pricing-basis', pricing.basis); set('os-price-amount', pricing.amount); set('os-area-period', pricing.area_period); set('os-monthly-payment', pricing.monthly_payment); set('os-desk-included', pricing.desk_included); set('os-short-pricing-note', pricing.short_pricing_note); set('os-turnover-threshold', pricing.turnover_threshold);
     const costs = details.costs || {}; set('os-service-charge', costs.service_charge); set('os-service-amount', costs.service_amount); set('os-service-frequency', costs.service_frequency); set('os-utilities', costs.utilities); set('os-utilities-amount', costs.utilities_amount); set('os-tax', costs.tax); set('os-deposit', costs.security_deposit); set('os-advance-rent', costs.advance_rent); (costs.compulsory_charges || []).forEach(addOfficeShopCharge); set('os-rent-increases', costs.rent_increases);
     const lease = details.lease || {}; set('os-available-from', lease.available_from); set('os-min-term', lease.minimum_term); set('os-payment-frequency', lease.payment_frequency); set('os-viewing-required', lease.viewing_required); set('os-preferred-term', lease.preferred_term); set('os-renewal', lease.renewal); set('os-notice-period', lease.notice_period); set('os-lock-in', lease.lock_in); set('os-viewing-availability', lease.viewing_availability); set('os-payment-methods', lease.payment_methods);
-    const amenities = details.amenities || {}; Object.keys(amenities).forEach(function(key){ const field=document.querySelector('[data-os-key="'+key+'"]'); if(field) field.checked=amenities[key]===true; }); set('os-power-note', amenities.power_note); set('os-internet-note', amenities.internet_note); set('os-after-hours', amenities.after_hours); set('os-operating-hours', amenities.operational_accessible_hours); set('os-accessibility-note', amenities.accessibility_note);
+    const amenities = details.amenities || {}; Object.keys(amenities).forEach(function(key){ const field=document.querySelector('[data-os-key="'+key+'"]'); if(field) field.checked=amenities[key]===true; }); set('os-power-note', amenities.power_note); set('os-internet-note', amenities.internet_note); set('os-after-hours', amenities.after_hours); const storedHours = String(amenities.operational_accessible_hours || ''); const hoursMatch = storedHours.match(/^(\d{2}:\d{2})\s*[-–]\s*(\d{2}:\d{2})$/); if (hoursMatch) { set('os-operating-hours-from', hoursMatch[1]); set('os-operating-hours-to', hoursMatch[2]); } else if (/^\d{2}:\d{2}$/.test(storedHours)) { set('os-operating-hours-from', storedHours); } set('os-accessibility-note', amenities.accessibility_note);
     const documents = details.documents || {}; const onRequest=document.getElementById('os-documents-on-request'); if(onRequest) onRequest.checked=documents.documents_on_request===true;
     updateOfficeShopConditions();
   }
@@ -2954,6 +2988,17 @@
           if (rInput) { rInput.focus(); rInput.reportValidity(); }
           return false;
         }
+      }
+    }
+    if (n === 3 && isOfficeShop(hostNiche) && osValue('os-after-hours') === 'business_hours') {
+      const from = document.getElementById('os-operating-hours-from');
+      const to = document.getElementById('os-operating-hours-to');
+      if (from && to && from.value && to.value && to.value <= from.value) {
+        to.setCustomValidity('End time must be later than the start time.');
+        to.reportValidity();
+        to.addEventListener('input', function clearBusinessHoursValidity(){ to.setCustomValidity(''); to.removeEventListener('input', clearBusinessHoursValidity); }, { once:true });
+        to.focus();
+        return false;
       }
     }
     if (n === 3 && isOfficeShop(hostNiche) && selectedFiles.length === 0 && existingPhotos.length === 0) {
