@@ -339,7 +339,11 @@
   .form-note{ font-size:.8rem; text-align:center; margin-top:.7rem; color:var(--wz-cream-text-muted); }
 
   .success-msg{ display:none; max-width:1240px; margin:2rem auto 0; padding:0 2.2vw; }
-  .success-msg .inner{ background:var(--white); border:1px solid #E4E1DA; border-radius:14px; padding:1.4rem 1.6rem; font-size:.95rem; color:var(--ink); }
+  .success-msg .inner{ display:flex; align-items:flex-start; gap:1rem; background:var(--white); border:1px solid #E4E1DA; border-radius:14px; padding:1.1rem 1.25rem; font-size:.95rem; color:var(--ink); }
+  .success-msg #success-msg-inner{ flex:1 1 auto; min-width:0; }
+  .success-msg-close{ flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center; width:2rem; height:2rem; margin:-.3rem -.35rem 0 0; border:0; border-radius:50%; background:transparent; color:inherit; font-size:1.5rem; line-height:1; cursor:pointer; }
+  .success-msg-close:hover{ background:rgba(0,0,0,.08); }
+  .success-msg-close:focus-visible{ outline:2px solid currentColor; outline-offset:2px; }
   .success-msg.show{ display:block; }
   .success-msg.error .inner{ background:#FBE9E9; border-color:rgba(196,30,58,.3); color:var(--red-deep); }
   .success-msg a{ color:var(--red); font-weight:600; border-bottom:1.5px solid var(--red); }
@@ -1303,7 +1307,7 @@
     <div class="tracker-item" data-step-link="5"><span class="t-num">05</span><span class="t-label">Review & publish</span></div>
   </div>
 
-  <div class="success-msg" id="success-msg"><div class="inner" id="success-msg-inner"></div></div>
+  <div class="success-msg" id="success-msg" role="status" aria-live="polite"><div class="inner"><span id="success-msg-inner"></span><button class="success-msg-close" id="success-msg-close" type="button" aria-label="Dismiss message">&times;</button></div></div>
 </div>
 
 <div class="photo-lightbox" id="photo-lightbox">
@@ -1328,6 +1332,13 @@
 <script>
   const checkingAuth = document.getElementById('checking-auth');
   const listingPage = document.getElementById('listing-page');
+  const listingMessage = document.getElementById('success-msg');
+  const listingMessageClose = document.getElementById('success-msg-close');
+  if (listingMessageClose && listingMessage) {
+    listingMessageClose.addEventListener('click', function(){
+      listingMessage.classList.remove('show', 'error');
+    });
+  }
   const listingReturnParams = new URLSearchParams(window.location.search);
   const listingPaymentReturnMode = listingReturnParams.get('payment');
   const listingPaymentReturnReference = listingReturnParams.get('reference') || listingReturnParams.get('trxref');
