@@ -270,8 +270,8 @@
   .office-shop-section .conditional[hidden]{ display:none; }
   .office-shop-type{ display:none; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.65rem; margin-bottom:1rem; }
   .office-shop-type.active{ display:grid; }
-  .office-shop-type button{ border:1px solid rgba(255,255,255,.3); border-radius:10px; padding:.7rem; background:transparent; color:inherit; text-align:left; cursor:pointer; }
-  .office-shop-type button.selected{ border-color:var(--red); background:rgba(170,41,41,.15); }
+  .office-shop-type button{ border:1px solid rgba(255,255,255,.45); border-radius:10px; padding:.7rem; background:rgba(255,255,255,.14); color:inherit; text-align:left; cursor:pointer; }
+  .office-shop-type button.selected{ border-color:#050505; background:#050505; color:#fff; }
   .office-shop-type button small{ display:block; margin-top:.18rem; opacity:.74; }
   @media (max-width:520px){ .office-shop-section .field-row,.office-shop-section .option-grid{ grid-template-columns:1fr; } }
   .amenity-check{
@@ -431,8 +431,8 @@
     .step-frame[data-step="1"] .step-photo-badge,
     .step-frame[data-step="1"] .step-photo-caption{ display:none; }
     .step-frame[data-step="1"] .office-shop-type{ grid-template-columns:1fr 1fr; margin:.15rem 0 .65rem; }
-    .step-frame[data-step="1"] .office-shop-type button{ min-height:4.5rem; border:0; border-radius:10px; padding:.7rem; background:#050505; color:#fff; text-align:center; font-size:1rem; }
-    .step-frame[data-step="1"] .office-shop-type button.selected{ background:#ff343c; }
+    .step-frame[data-step="1"] .office-shop-type button{ min-height:4.5rem; border:1px solid rgba(255,255,255,.5); border-radius:10px; padding:.7rem; background:rgba(255,255,255,.14); color:#fff; text-align:center; font-size:1rem; }
+    .step-frame[data-step="1"] .office-shop-type button.selected{ border-color:#050505; background:#050505; color:#fff; }
     .step-frame[data-step="1"] .office-shop-type button small{ display:none; }
     .step-frame[data-step="1"] #office-shop-details-fields.active{ display:grid; grid-template-columns:1fr 1fr; gap:.65rem; margin:0 0 .4rem; }
     .step-frame[data-step="1"] #office-shop-details-fields .field{ margin:0; }
@@ -1452,6 +1452,7 @@
     }
 
     const payload = {
+      category: hostNiche,
       title: fieldValue('title'),
       description: fieldValue('caption'),
       property_description: fieldValue('property-description'),
