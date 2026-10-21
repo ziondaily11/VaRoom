@@ -414,6 +414,7 @@ router.post('/listings', async (req, res) => {
     ['place_id', 'formatted_address', 'neighborhood', 'city', 'country'].forEach((field) => {
       if (req.body[field] !== undefined) payload[field] = text(req.body[field], field, { required: false, max: 300 }) || null;
     });
+    if (!payload.country) payload.country = 'Kenya';
     if (req.body.address_visibility !== undefined) {
       payload.address_visibility = enumValue(req.body.address_visibility, 'address_visibility', ['full', 'after_inquiry']);
     }

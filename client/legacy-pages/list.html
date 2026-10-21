@@ -3386,12 +3386,11 @@
     const areaParts = splitListingArea(generalLocation);
     const listingPayload = {
       title, description: caption, property_description: propertyDescription,
-      location_text: generalLocation,
+      location_text: generalLocation, country: 'Kenya',
     };
     if (areaParts.neighborhood) listingPayload.neighborhood = areaParts.neighborhood;
     if (areaParts.city) listingPayload.city = areaParts.city;
     if (isOfficeShop(category)) {
-      listingPayload.country = 'Kenya';
       // Keep the current server and booking flow compatible while sharing only
       // the general area on this card. Exact unit details remain private.
       listingPayload.address_visibility = 'after_inquiry';
