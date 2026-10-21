@@ -159,7 +159,7 @@ test('listing fee activation requires matching server-verified metadata and is i
   await assert.rejects(() => applyVerifiedTransaction(db, { ...transaction, metadata: { ...transaction.metadata, listing_id: 'other-listing' } }), /does not match/);
 });
 
-test('pending or failed listing transactions never grant listing entitlement', async () => {
+test('pending listing payments grant nothing and terminal failures restore the listing draft', async () => {
   for (const status of ['pending', 'failed', 'abandoned']) {
     const writes = [];
     const payment = {
@@ -186,7 +186,8 @@ test('pending or failed listing transactions never grant listing entitlement', a
         return {
           update: (value) => {
             writes.push({ table, value });
-            return { eq: () => ({ error: null }) };
+            const query = { eq: () => query, then: (resolve) => resolve({ error: null }) };
+            return query;
           },
         };
       },
@@ -199,8 +200,41 @@ test('pending or failed listing transactions never grant listing entitlement', a
       metadata: { host_id: 'host-1', listing_id: 'listing-1', niche: 'property', billing_interval: 'one_time', payment_kind: 'listing' },
     });
     assert.equal(result.payment.status, status);
-    assert.equal(writes.some((write) => write.table === 'listings'), false);
+    const listingWrite = writes.find((write) => write.table === 'listings');
+    if (status === 'failed' || status === 'abandoned') {
+      assert.deepEqual(listingWrite.value, { publication_state: 'draft' });
+    } else {
+      assert.equal(listingWrite, undefined);
+    }
   }
+});
+
+test('a late verified failure cannot downgrade an already successful payment', async () => {
+  const payment = {
+    id: 'p1', host_id: 'host-1', subscription_id: 'sub-1', plan_id: 'growth',
+    amount_minor: 130000, currency: 'KES', status: 'succeeded', paid_at: '2026-10-10T00:00:00.000Z',
+  };
+  let excludedSucceeded = false;
+  const db = {
+    from(table) {
+      if (table === 'billing_payments') return {
+        select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: payment, error: null }) }) }),
+        update: () => {
+          const query = { eq: () => query, neq: (column, value) => { excludedSucceeded = column === 'status' && value === 'succeeded'; return query; },
+            select: async () => excludedSucceeded ? { data: [], error: null } : { data: [{ id: payment.id }], error: null } };
+          return query;
+        },
+      };
+      return { update: () => { const query = { eq: () => query, then: (resolve) => resolve({ error: null }) }; return query; } };
+    },
+  };
+  const result = await applyVerifiedTransaction(db, {
+    reference: 'ref', status: 'failed', amount: 130000, currency: 'KES',
+    metadata: { host_id: 'host-1', plan_id: 'growth' },
+  });
+  assert.equal(excludedSucceeded, true);
+  assert.equal(result.payment.status, 'succeeded');
+  assert.equal(payment.status, 'succeeded');
 });
 
 test('subscription upgrades cancel the replaced Paystack subscription without persisting its email token afterward', async () => {

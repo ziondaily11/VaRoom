@@ -125,10 +125,21 @@ function createBillingRoutes({ supabaseAdmin = supabaseDefault, paystack = creat
     }
     const paystackPlanCode = plan.paystack_plan_env ? process.env[plan.paystack_plan_env] : plan.paystack_plan_code;
     if (!paystackPlanCode) return res.status(503).json({ error: 'Checkout is not configured for this plan yet' });
-    const { data: existing, error: existingError } = await supabaseAdmin.from('host_subscriptions')
+    let { data: existing, error: existingError } = await supabaseAdmin.from('host_subscriptions')
       .select('id,plan_id,status,current_period_end,provider_subscription_code,provider_email_token,niche,billing_plans(monthly_amount_minor,features,niche)')
       .eq('host_id', user.id).in('status', ['pending', 'active', 'past_due', 'cancel_requested']).maybeSingle();
     if (existingError) return res.status(500).json({ error: 'Unable to check the current subscription' });
+    if (existing && existing.status === 'pending') {
+      const { data: lastPayment, error: lastPaymentError } = await supabaseAdmin.from('billing_payments')
+        .select('id,status').eq('subscription_id', existing.id).order('created_at', { ascending: false }).limit(1).maybeSingle();
+      if (lastPaymentError) return res.status(500).json({ error: 'Unable to check the pending subscription payment' });
+      if (!lastPayment || ['failed', 'abandoned', 'refunded'].includes(lastPayment.status)) {
+        const { error: staleSubscriptionError } = await supabaseAdmin.from('host_subscriptions')
+          .update({ status: 'failed' }).eq('id', existing.id).eq('status', 'pending');
+        if (staleSubscriptionError) return res.status(500).json({ error: 'Unable to clear the previous failed subscription attempt' });
+        existing = null;
+      }
+    }
     let replacingSubscription = null;
     if (existing) {
       if (existing.status !== 'active' || existing.niche !== niche || !existing.provider_subscription_code || !existing.provider_email_token) {
@@ -158,7 +169,10 @@ function createBillingRoutes({ supabaseAdmin = supabaseDefault, paystack = creat
     let initialized;
     try {
       initialized = await paystack.initializeTransaction({ email: user.email, amount: plan.monthly_amount_minor, currency: plan.currency, plan: paystackPlanCode, reference, callback_url: callbackUrl, metadata: { host_id: user.id, plan_id: plan.id, niche, billing_interval: plan.billing_interval, ...(pendingListing ? { listing_id: pendingListing.id } : {}), varoom_billing: true } });
-    } catch (error) { return res.status(503).json({ error: error.message || 'Unable to initialize checkout' }); }
+    } catch (error) {
+      console.error('Paystack subscription checkout initialization failed', { userId: user.id, planId: plan.id, reference, message: error.message });
+      return res.status(503).json({ error: error.message || 'Unable to initialize checkout' });
+    }
     let subscriptionId = existing && existing.id;
     if (!subscriptionId) {
       const { data: subscription, error: subscriptionError } = await supabaseAdmin.from('host_subscriptions').insert({ host_id: user.id, plan_id: plan.id, niche, status: 'pending', provider_metadata: { reference } }).select('id').single();
@@ -200,7 +214,10 @@ function createBillingRoutes({ supabaseAdmin = supabaseDefault, paystack = creat
       initialized = await paystack.initializeTransaction({ email: user.email, amount: 100000, currency: 'KES', reference,
         callback_url: buildPaymentCallbackUrl(callbackOrigin, '/list', { payment: 'return', reference }),
         metadata: { host_id: user.id, listing_id: listing.id, niche: listing.category === 'property' ? 'property' : 'shops_offices', billing_interval: 'one_time', payment_kind: 'listing', varoom_billing: true } });
-    } catch (error) { return res.status(503).json({ error: error.message || 'Unable to initialize checkout' }); }
+    } catch (error) {
+      console.error('Paystack listing checkout initialization failed', { listingId: listing.id, reference, message: error.message });
+      return res.status(503).json({ error: error.message || 'Unable to initialize checkout' });
+    }
     const payment = { host_id: user.id, listing_id: listing.id, payment_kind: 'listing', niche: listing.category === 'property' ? 'property' : 'shops_offices', billing_interval: 'one_time', plan_id: null, subscription_id: null,
       provider_reference: reference, amount_minor: 100000, currency: 'KES', status: 'initialized', provider_payload: { authorization_url: initialized.authorization_url } };
     const result = existing
