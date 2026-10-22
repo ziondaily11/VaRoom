@@ -234,12 +234,16 @@ test('ownership documents remain host-only while public listing documents can be
     const publicList = await state.send(`/listings/${listingId}/documents`, { token: null });
     assert.equal(publicList.response.status, 200);
     assert.deepEqual(publicList.body.documents.map((item) => item.documentType), ['floor_plan']);
+    assert.match(publicList.body.documents[0].previewUrl, /disposition=inline/);
+    assert.match(publicList.body.documents[0].downloadUrl, /disposition=attachment/);
 
     const privateDownload = await state.send('/listing-documents/55555555-5555-4555-8555-555555555555/download', { token: 'other-token' });
     assert.equal(privateDownload.response.status, 404);
     const ownerList = await state.send(`/listings/${listingId}/documents`);
     assert.equal(ownerList.body.documents.length, 2);
     assert.match(ownerList.body.documents[0].downloadUrl, /ttl=300/);
+    assert.match(ownerList.body.documents[0].previewUrl, /disposition=inline/);
+    assert.match(ownerList.body.documents[1].previewUrl, /disposition=inline/);
   });
 });
 
