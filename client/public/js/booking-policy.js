@@ -38,6 +38,9 @@
         && typeof document.downloadUrl === 'string' && /^https?:\/\//i.test(document.downloadUrl);
     }) || null;
   }
+  function previewableMime(mimeType) {
+    return mimeType === 'application/pdf' || ['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(mimeType);
+  }
   function buildListingPolicyHtml(category, details, documents, documentsLoaded) {
     details = details && typeof details === 'object' && !Array.isArray(details) ? details : {};
     documents = Array.isArray(documents) ? documents : [];
@@ -67,9 +70,11 @@
     let documentHtml = '';
     if (policyDocument) {
       const filename = cleanText(policyDocument.filename) || 'Property policy document';
-      documentHtml = '<a class="property-policy-link" href="' + escapeHtml(policyDocument.downloadUrl) + '" target="_blank" rel="noopener" aria-label="Open property policy document: ' + escapeHtml(filename) + '">' +
+      const previewUrl = typeof policyDocument.previewUrl === 'string' && /^https?:\/\//i.test(policyDocument.previewUrl) ? policyDocument.previewUrl : '';
+      const mimeType = cleanText(policyDocument.mimeType);
+      documentHtml = '<button type="button" class="property-policy-link property-policy-preview-trigger" data-policy-preview data-document-id="' + escapeHtml(policyDocument.id || '') + '" data-preview-url="' + escapeHtml(previewUrl) + '" data-download-url="' + escapeHtml(policyDocument.downloadUrl) + '" data-mime-type="' + escapeHtml(mimeType) + '" data-document-title="' + escapeHtml(filename) + '" aria-label="Preview property policy document: ' + escapeHtml(filename) + '">' +
         '<svg class="property-policy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2h9l5 5v15H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z"/><path d="M14 2v6h6M8 13h8M8 17h8"/></svg>' +
-        '<span class="property-policy-name">' + escapeHtml(filename) + '<span class="property-policy-action">Policy document</span></span></a>';
+        '<span class="property-policy-name">' + escapeHtml(filename) + '<span class="property-policy-action">' + (previewableMime(mimeType) ? 'Preview policy document' : 'Preview unavailable — select to see options') + '</span></span></button>';
     }
     const knownInformation = rows.length > 0 || Boolean(policyDocument);
     const emptyHtml = knownInformation ? '' : (documentsLoaded
@@ -77,7 +82,8 @@
       : '<p class="property-policy-empty">Policy information is temporarily unavailable.</p>');
     return '<section class="property-policy" aria-labelledby="property-policy-heading">' +
       '<h2 class="property-policy-title" id="property-policy-heading"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2h9l5 5v15H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z"/><path d="M14 2v6h6M8 13h8M8 17h8"/></svg>Property Policies</h2>' +
-      (textHtml ? '<dl class="property-policy-details">' + textHtml + '</dl>' : '') + documentHtml + emptyHtml + '</section>';
+      (textHtml ? '<dl class="property-policy-details">' + textHtml + '</dl>' : '') + documentHtml +
+      '<div class="property-policy-preview" data-policy-preview-panel hidden role="region" aria-label="Policy document preview"><div class="property-policy-preview-header"><strong data-policy-preview-title></strong><button type="button" class="property-policy-preview-close" data-policy-preview-close aria-label="Close document preview">Close</button></div><p class="property-policy-preview-status" data-policy-preview-status role="status" aria-live="polite"></p><div class="property-policy-preview-content" data-policy-preview-content></div></div>' + emptyHtml + '</section>';
   }
   function buildListingDocumentsHtml(category, documents) {
     if (category !== 'office' && category !== 'shop') return '';

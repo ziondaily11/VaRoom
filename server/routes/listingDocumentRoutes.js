@@ -71,6 +71,12 @@ function filenameForHeader(filename) {
   return `attachment; filename="${safe}"; filename*=UTF-8''${encodeURIComponent(original)}`;
 }
 
+function inlineFilenameForHeader(filename) {
+  const original = String(filename || 'listing-document').replace(/[\r\n]/g, '_').slice(0, 180);
+  const safe = original.replace(/[^\x20-\x7E]|["\\]/g, '_');
+  return `inline; filename="${safe}"; filename*=UTF-8''${encodeURIComponent(original)}`;
+}
+
 async function getOwnedDocument(id, hostId) {
   const { data, error } = await supabaseAdmin.from('listing_documents')
     .select('id,listing_id,host_id,document_type,storage_provider,storage_bucket,storage_key,original_filename,mime_type,file_size_bytes,sha256,status,visibility,upload_expires_at')
@@ -276,20 +282,32 @@ router.get('/listings/:listingId/documents', async (req, res) => {
     res.set('Cache-Control', 'private, no-store');
     const documents = await Promise.all((data || []).filter((item) => documentTypeMatchesCategory(item.document_type, listing.category)).map(async (item) => {
       let downloadUrl;
+      let previewUrl = null;
       if (item.storage_provider === 'supabase') {
         const { data: signed, error: signError } = await supabaseAdmin.storage.from(item.storage_bucket)
           .createSignedUrl(item.storage_key, 300, { download: item.original_filename });
         if (signError || !signed?.signedUrl) throw signError || new Error('Unable to sign the legacy document');
         downloadUrl = signed.signedUrl;
+        if (DOCUMENT_RULES[item.mime_type]) {
+          const { data: preview, error: previewError } = await supabaseAdmin.storage.from(item.storage_bucket)
+            .createSignedUrl(item.storage_key, 300);
+          if (previewError || !preview?.signedUrl) throw previewError || new Error('Unable to sign the document preview');
+          previewUrl = preview.signedUrl;
+        }
       } else {
         downloadUrl = (await mediaStorageService.generateR2DownloadAuthorization(
           item.storage_key, item.mime_type, 300, filenameForHeader(item.original_filename),
         )).url;
+        if (DOCUMENT_RULES[item.mime_type]) {
+          previewUrl = (await mediaStorageService.generateR2DownloadAuthorization(
+            item.storage_key, item.mime_type, 300, inlineFilenameForHeader(item.original_filename),
+          )).url;
+        }
       }
       return {
         id: item.id, documentType: item.document_type, filename: item.original_filename,
         mimeType: item.mime_type, fileSize: item.file_size_bytes === null ? null : Number(item.file_size_bytes),
-        downloadUrl,
+        downloadUrl, previewUrl,
       };
     }));
     return res.json({ documents });

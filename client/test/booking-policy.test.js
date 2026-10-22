@@ -9,6 +9,7 @@ const { buildListingPolicyHtml, buildListingDocumentsHtml } = require('../public
 const document = (documentType, overrides = {}) => Object.assign({
   documentType,
   filename: 'policy.pdf',
+  mimeType: 'application/pdf',
   downloadUrl: 'https://storage.example/signed-policy'
 }, overrides);
 
@@ -30,7 +31,29 @@ test('office rules and document display together without duplicating the documen
   const html = buildListingPolicyHtml('office', details, [document('commercial_policy')], true);
   assert.match(html, /Not allowed/);
   assert.match(html, /policy\.pdf/);
-  assert.equal((html.match(/Policy document/g) || []).length, 1);
+  assert.match(html, /data-policy-preview/);
+  assert.doesNotMatch(html, /target="_blank"/);
+  assert.equal((html.match(/Preview policy document/g) || []).length, 1);
+});
+
+test('policy document preview controls carry authorized inline URLs and allow image previews', () => {
+  const imageDoc = document('property_policy', {
+    filename: 'house-rules.png', mimeType: 'image/png', previewUrl: 'https://storage.example/inline-image'
+  });
+  const html = buildListingPolicyHtml('property', {}, [imageDoc], true);
+  assert.match(html, /data-preview-url="https:\/\/storage\.example\/inline-image"/);
+  assert.match(html, /data-mime-type="image\/png"/);
+  assert.match(html, /data-policy-preview-panel/);
+  assert.doesNotMatch(html, /target="_blank"/);
+});
+
+test('unsupported policy types omit the preview URL and retain an explicit download option flow', () => {
+  const html = buildListingPolicyHtml('property', {}, [document('property_policy', {
+    filename: 'policy.docx', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  })], true);
+  assert.match(html, /data-preview-url=""/);
+  assert.match(html, /Preview unavailable/);
+  assert.match(html, /data-download-url="https:\/\/storage\.example\/signed-policy"/);
 });
 
 test('office and shop structured rules display as policy rows', () => {
