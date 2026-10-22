@@ -58,7 +58,7 @@ test('listing video client matches server duration validation and uses the proxi
 test('Go Pro saves the host-scoped listing and actual selected files before redirecting', () => {
   const goProStart = listingPage.indexOf("document.getElementById('go-pro-btn').addEventListener");
   const goProHandler = listingPage.slice(goProStart, listingPage.indexOf('</script>', goProStart));
-  assert.ok(goProHandler.indexOf('persistBeforeCheckout(session)') < goProHandler.indexOf("window.location.assign('/pricing?"));
+  assert.ok(goProHandler.indexOf('persistBeforeCheckout(session, { saveProfileDraft: true })') < goProHandler.indexOf("window.location.assign('/pricing?"));
   assert.match(listingPage, /mediaFiles: selectedFiles\.slice\(\)/);
   assert.match(listingPage, /policyFile: selectedPolicyFile/);
   assert.match(listingPage, /await listingDraftCache\.load\(cacheKey\)/);
