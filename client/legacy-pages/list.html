@@ -1444,12 +1444,17 @@
   let paymentCheckoutSnapshot = null;
   let draftSaveTimer = null;
   let draftSaveQueue = Promise.resolve();
+  // Autosave, document persistence, pagehide, and checkout can all request a
+  // draft write from different event queues. Serialize the actual remote
+  // writes so two requests never reuse the same revision.
+  let listingDraftWriteQueue = Promise.resolve();
   let listingDraftRevision = 0;
   let listingDraftRevisionConflict = false;
   let listingDraftRemoteSaveUnavailable = false;
   let listingDocumentUploadQueue = Promise.resolve();
   let restoringListingDraft = false;
   let listingCheckoutHandoffInProgress = false;
+  let paymentDraftCreationPromise = null;
   let editListing = null;
   let editBookingDetails = null;
   let existingPhotos = [];
@@ -1701,7 +1706,7 @@
     return mediaMetadata;
   }
 
-  async function saveListingDraft(hostId, listingId, keepalive, options){
+  async function saveListingDraftNow(hostId, listingId, keepalive, options){
     if (!listingDraftId) {
       listingDraftId = window.crypto && typeof window.crypto.randomUUID === 'function'
         ? window.crypto.randomUUID()
@@ -1722,6 +1727,16 @@
       createdAt: draft.createdAt,
       returnTo: 'list',
     });
+    // Keep the active draft identity in the URL so a hard refresh of the
+    // wizard reopens this exact session instead of creating a second shell.
+    if (!editMode && !listingPaymentReturnReference && !listingSubscriptionReturnReference
+        && listingDraftId && /\/list(?:\.html)?$/.test(window.location.pathname)) {
+      const activeParams = new URLSearchParams(window.location.search);
+      if (!activeParams.get('draft')) {
+        activeParams.set('draft', listingDraftId);
+        window.history.replaceState({}, '', window.location.pathname + '?' + activeParams.toString());
+      }
+    }
     if (options && options.localOnly) return draft;
     if (listingDraftRevisionConflict) {
       setListingDraftStatus('Saved on this device. A newer draft exists on another session; reload from My Profile before syncing.', 'error');
@@ -1776,6 +1791,14 @@
     catch (checkoutCacheError) { console.warn('Unable to refresh the local post-checkout save state:', checkoutCacheError); }
     setListingDraftStatus('Saved', 'saved');
     return draft;
+  }
+
+  async function saveListingDraft(hostId, listingId, keepalive, options){
+    const write = listingDraftWriteQueue.catch(function(){}).then(function(){
+      return saveListingDraftNow(hostId, listingId, keepalive, options);
+    });
+    listingDraftWriteQueue = write.catch(function(){});
+    return write;
   }
 
   function queueListingDraftSave(){
@@ -1937,26 +1960,37 @@
       return preparedPaymentListingId;
     }
 
-    const payload = {
-      category: hostNiche,
-      title: fieldValue('title'),
-      description: fieldValue('caption'),
-      property_description: fieldValue('property-description'),
-      location_text: fieldValue('location-text'),
-      payment_draft: true,
-    };
-    if (hostNiche === 'property') payload.listing_purpose = propertyPurpose;
-    const response = await fetch('/api/listings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
-      body: JSON.stringify(payload),
-    });
-    const result = await response.json().catch(function(){ return {}; });
-    if (!response.ok || !result.listing || !result.listing.id) {
-      throw new Error(result.error || 'Unable to prepare your listing for checkout.');
+    // Multiple document changes, autosave callbacks, or a fast checkout click
+    // can reach this function before the first POST returns. Share one
+    // creation request so the active creation session owns one shell only.
+    if (paymentDraftCreationPromise) return paymentDraftCreationPromise;
+    paymentDraftCreationPromise = (async function(){
+      const payload = {
+        category: hostNiche,
+        title: fieldValue('title'),
+        description: fieldValue('caption'),
+        property_description: fieldValue('property-description'),
+        location_text: fieldValue('location-text'),
+        payment_draft: true,
+      };
+      if (hostNiche === 'property') payload.listing_purpose = propertyPurpose;
+      const response = await fetch('/api/listings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
+        body: JSON.stringify(payload),
+      });
+      const result = await response.json().catch(function(){ return {}; });
+      if (!response.ok || !result.listing || !result.listing.id) {
+        throw new Error(result.error || 'Unable to prepare your listing for checkout.');
+      }
+      preparedPaymentListingId = result.listing.id;
+      return preparedPaymentListingId;
+    })();
+    try {
+      return await paymentDraftCreationPromise;
+    } finally {
+      paymentDraftCreationPromise = null;
     }
-    preparedPaymentListingId = result.listing.id;
-    return preparedPaymentListingId;
   }
 
   async function persistBeforeCheckout(session, options){
@@ -1977,7 +2011,10 @@
       }
       await saveListingDraft(session.user.id, listingId);
       if (listingDraftRevisionConflict) {
-        throw new Error('A newer copy of this listing exists in My Profile. Reopen that copy before starting checkout.');
+        // The verified per-listing checkout snapshot is the active creation
+        // session. A stale profile-draft revision must not strand checkout or
+        // redirect the host to My Profile; the remote draft remains intact.
+        setListingDraftStatus('Checkout save is ready. The saved profile copy will sync after this listing returns.', 'error');
       }
       if (listingDraftRemoteSaveUnavailable) {
         // The complete, verified IndexedDB checkout snapshot is already saved.
@@ -2851,17 +2888,11 @@
   function queueSelectedDocumentUploads(){
     const hasSelected = Boolean(selectedPolicyFile || officeShopFloorPlanFile || officeShopPolicyFile || officeShopDocumentFiles.length);
     if (!hasSelected || !currentUser || editMode) return;
-    listingDocumentUploadQueue = listingDocumentUploadQueue.catch(function(){}).then(async function(){
-      const { data: { session } } = await supabaseClient.auth.getSession();
-      if (!session || !session.access_token || session.user.id !== currentUser.id) throw new Error('Please sign in again to save these documents.');
-      const listingId = await ensurePaymentDraft(session);
-      setListingDraftStatus('Saving documents securely…', 'saving');
-      await persistSelectedListingDocuments(listingId);
-      await saveListingDraft(currentUser.id, listingId);
-    }).catch(function(error){
-      setListingDraftStatus('Document upload needs attention: ' + (error.message || 'retry the selected file.'), 'error');
-      showPaymentMessage('Document upload failed: ' + (error.message || 'Please try the selected file again.'), true);
-    });
+    // Keep selected document metadata in the private recovery snapshot. The
+    // actual document upload needs a listing id, so defer it until checkout
+    // or an explicit Save as draft action; autosave must never create a
+    // payment-pending listing shell.
+    queueListingDraftSave();
   }
 
   async function uploadOfficeShopMedia(listingId, details){
