@@ -524,7 +524,9 @@
             }
             if (returnToList) {
               try { sessionStorage.removeItem('varoom_listing_after_upgrade'); } catch (_) {}
-              window.setTimeout(function(){ window.location.replace('/list?subscription=return'); }, 700);
+              window.setTimeout(function(){
+                window.location.replace('/list?subscription=return&reference=' + encodeURIComponent(paymentReference));
+              }, 700);
             }
             return;
           }

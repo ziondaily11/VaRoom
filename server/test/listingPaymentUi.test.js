@@ -55,21 +55,22 @@ test('listing video client matches server duration validation and uses the proxi
   assert.match(listingPage, /body: JSON\.stringify\(\{ uploadId: initPayload\.uploadId \}\)/);
 });
 
-test('Go Pro saves the host-scoped listing and actual selected files before redirecting', () => {
+test('Go Pro checkpoints host-scoped state before subscription checkout and restores the verified listing return', () => {
   const goProStart = listingPage.indexOf("document.getElementById('go-pro-btn').addEventListener");
   const goProHandler = listingPage.slice(goProStart, listingPage.indexOf('</script>', goProStart));
   assert.ok(goProHandler.indexOf('persistBeforeCheckout(session, { saveProfileDraft: true })') < goProHandler.indexOf("window.location.assign('/pricing?"));
   assert.match(listingPage, /mediaFiles: selectedFiles\.slice\(\)/);
-  assert.match(listingPage, /policyFile: selectedPolicyFile/);
+  assert.match(listingPage, /policyFile: null/);
+  assert.match(listingPage, /uploadedDocumentRefs: listingUploadedDocumentRefs/);
   assert.match(listingPage, /await listingDraftCache\.load\(cacheKey\)/);
   assert.match(listingPage, /!Number\.isFinite\(snapshot\.createdAt\)/);
   assert.match(listingPage, /preparedPaymentListingId = serverDraft\.listing_id \|\| null/);
   assert.doesNotMatch(listingPage, /preparedPaymentListingId = preparedPaymentListingId \|\| pointer\.listingId/);
-  assert.match(listingPage, /requestedDraftId \|\| listingPaymentReturnReference/);
+  assert.match(listingPage, /requestedDraftId \|\| listingRecoveryReturnReference/);
   assert.match(listingPage, /method: existingSubmissionListingId \? 'PATCH' : 'POST'/);
   assert.match(listingPage, /await listingDraftCache\.clearForHost\(currentUser\.id\)/);
   assert.match(pricingPage, /pointer\.listingId/);
-  assert.match(pricingPage, /window\.location\.replace\('\/list\?subscription=return'\)/);
+  assert.match(pricingPage, /window\.location\.replace\('\/list\?subscription=return&reference=' \+ encodeURIComponent\(paymentReference\)\)/);
   assert.match(pricingPage, /paymentReference && payment && payment\.status === 'succeeded'/);
   assert.match(listingPage, /Your private draft and uploaded media are preserved/);
 });

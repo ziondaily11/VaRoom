@@ -13,7 +13,7 @@ const migration = fs.readFileSync(path.join(__dirname, '..', 'migrations', '2026
 
 test('a fresh listing session does not read or restore the previous host draft pointer', () => {
   assert.match(listingPage, /const requestedDraftId = new URLSearchParams\(window\.location\.search\)\.get\('draft'\)/);
-  assert.match(listingPage, /if \(!editMode && \(requestedDraftId \|\| listingPaymentReturnReference\)\)/);
+  assert.match(listingPage, /if \(!editMode && \(requestedDraftId \|\| listingRecoveryReturnReference\)\)/);
   assert.match(listingPage, /await restoreListingDraftAfterUpgrade\(currentUser\.id, session\.access_token, continuationDraftRecord, continuationDraftPointer, paymentCheckoutSnapshot\)/);
   assert.doesNotMatch(listingPage, /if \(!editMode\) await restoreListingDraftAfterUpgrade/);
   assert.match(listingPage, /queueListingDraftSave/);
@@ -26,24 +26,37 @@ test('Paystack uses a verified per-listing save state and restores complete form
   assert.match(listingPage, /const cacheKey = hostId \+ ':checkout:' \+ listingId/);
   assert.match(listingPage, /hotelListingMode: hotelListingMode/);
   assert.match(listingPage, /availableDates: Array\.from\(openDates\)/);
-  assert.match(listingPage, /officeShopFiles: \{[\s\S]*floorPlan: officeShopFloorPlanFile[\s\S]*documents: officeShopDocumentFiles\.slice\(\)/);
+  assert.match(listingPage, /officeShopFiles: \{ floorPlan: null, policy: null, documents: \[\] \}/);
+  assert.match(listingPage, /uploadedDocumentRefs: listingUploadedDocumentRefs/);
+  assert.match(listingPage, /serverRevision: listingDraftRevision/);
+  assert.match(listingPage, /listingDraftCache\.save\(draft\);[\s\S]*?draft\.serverRevision = listingDraftRevision/);
   assert.match(listingPage, /!filesMatch\(persistedSnapshot\.mediaFiles, snapshot\.mediaFiles\)/);
-  assert.match(listingPage, /!fileMatches\(savedOfficeFiles\.policy, sourceOfficeFiles\.policy\)/);
-  assert.match(listingPage, /!filesMatch\(savedOfficeFiles\.documents, sourceOfficeFiles\.documents\)/);
+  assert.match(listingPage, /documentSelections: \{[\s\S]*officeShop: officeDocumentSelections/);
 
   const payFlowStart = listingPage.indexOf('async function startPayToListFlow()');
   const payFlowEnd = listingPage.indexOf("document.getElementById('pay-to-list-btn').addEventListener", payFlowStart);
   const payFlow = listingPage.slice(payFlowStart, payFlowEnd);
   assert.ok(payFlow.indexOf('await persistBeforeCheckout(session)') < payFlow.indexOf("fetch('/api/billing/listing-checkout'"));
+  const checkoutStart = listingPage.indexOf('async function persistBeforeCheckout(session, options)');
+  const checkoutEnd = listingPage.indexOf('async function verifyReturnedListingPayment', checkoutStart);
+  const checkoutFlow = listingPage.slice(checkoutStart, checkoutEnd);
+  assert.ok(checkoutFlow.indexOf('await saveListingCheckoutState(session.user.id, listingId)') < checkoutFlow.indexOf('await saveListingDraft(session.user.id, listingId)'));
+  assert.match(checkoutFlow, /if \(listingDraftRevisionConflict\)[\s\S]*A newer copy of this listing exists in My Profile/);
+  assert.match(checkoutFlow, /if \(listingDraftRemoteSaveUnavailable\)[\s\S]*Profile sync will resume when connected/);
   assert.match(payFlow, /checkoutRedirectStarted = true/);
   assert.match(listingPage, /listingCheckoutHandoffInProgress\) return/);
-  assert.match(listingPage, /if \(options && options\.saveProfileDraft\) \{[\s\S]*?await saveListingDraft/);
+  assert.match(listingPage, /const checkoutHandoff = !\(options && options\.saveProfileDraft\)/);
 
   assert.match(listingPage, /getListingCheckoutStatePointer\(currentUser\.id, payment\.listing_id\)/);
   assert.match(listingPage, /cachedCheckout\.listingId === payment\.listing_id/);
   assert.match(listingPage, /restoreListingDraftAfterUpgrade\(currentUser\.id, session\.access_token, continuationDraftRecord, continuationDraftPointer, paymentCheckoutSnapshot\)/);
   assert.match(listingPage, /applyHotelMode\(snapshot\.hotelListingMode\)/);
   assert.match(listingPage, /openDates\.clear\(\);[\s\S]*snapshot\.availableDates\.forEach/);
+  assert.match(listingPage, /listingSubscriptionReturnReference/);
+  assert.match(listingPage, /payment\.niche === \(hostNiche === 'property' \? 'property' : 'shops_offices'\)/);
+  assert.match(listingPage, /Your plan is active\. Your saved listing has been restored for review and publishing\./);
+  const subscriptionReturn = fs.readFileSync(path.join(root, 'client', 'legacy-pages', 'pricing.html'), 'utf8');
+  assert.match(subscriptionReturn, /subscription=return&reference=' \+ encodeURIComponent\(paymentReference\)/);
 });
 
 test('My Profile displays private saved drafts and Continue Listing opens their explicit draft id', () => {
@@ -51,6 +64,16 @@ test('My Profile displays private saved drafts and Continue Listing opens their 
   assert.match(profilePage, /savedListingDrafts\.filter\(function\(draft\)\{ return !draft\.listing_id; \}\)/);
   assert.match(profilePage, /\/list\?draft=/);
   assert.match(profilePage, /Continue Listing →/);
+});
+
+test('edit mode restores private document references before the next save', () => {
+  assert.match(listingPage, /fetch\('\/api\/listings\/' \+ encodeURIComponent\(id\) \+ '\/documents'/);
+  assert.match(listingPage, /listingUploadedDocumentRefs\[item\.documentType\]\.push\(\{[\s\S]*id: item\.id/);
+  assert.match(listingPage, /officeDocuments\.floor_plan_document_id = floorPlan\[floorPlan\.length - 1\]\.id/);
+  assert.match(listingPage, /officeDocuments\.policy_document_id = commercialPolicy\[commercialPolicy\.length - 1\]\.id/);
+  assert.match(listingPage, /officeDocuments\.management_document_ids = ownershipDocuments\.map/);
+  assert.match(listingPage, /hydrateOfficeShopDetails\(details\.office_shop_details \|\| \{\}\)/);
+  assert.match(listingPage, /Unable to restore listing documents\. Please try again before saving\./);
 });
 
 test('draft API routes authenticate the host, enforce owner scoping, and persist the canonical category', () => {

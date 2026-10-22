@@ -74,6 +74,70 @@ async function cleanupExpiredDraftUploadSessions() {
   return { examined: (sessions || []).length, deleted };
 }
 
+async function cleanupExpiredListingDocuments() {
+  const cutoff = new Date(Date.now() - CLEANUP_GRACE_PERIOD_MS).toISOString();
+  const { data: pending, error } = await supabaseAdmin.from('listing_documents')
+    .select('id,storage_provider,storage_key,upload_expires_at')
+    .in('status', ['pending', 'verifying']).lte('upload_expires_at', cutoff).limit(250);
+  if (error) throw new Error(`Unable to load expired listing document uploads: ${error.message}`);
+  let cleaned = 0;
+  for (const document of pending || []) {
+    try {
+      if (document.storage_provider === 'r2' && document.storage_key) {
+        await mediaStorageService.deleteR2Object(document.storage_key);
+        const verifiedKey = document.storage_key.replace(/\/incoming\./, '/verified.');
+        if (verifiedKey !== document.storage_key) await mediaStorageService.deleteR2Object(verifiedKey);
+      }
+      const { error: updateError } = await supabaseAdmin.from('listing_documents')
+        .update({ status: 'failed', upload_expires_at: null, updated_at: new Date().toISOString() })
+        .eq('id', document.id).in('status', ['pending', 'verifying']).eq('upload_expires_at', document.upload_expires_at);
+      if (updateError) throw updateError;
+      cleaned++;
+    } catch (cleanupError) {
+      console.error(JSON.stringify({ event: 'listing_document_expiry_cleanup_failed', document_id: document.id, error: cleanupError.message }));
+    }
+  }
+  const { data: staged, error: stagedError } = await supabaseAdmin.from('listing_documents')
+    .select('id,storage_key,upload_expires_at')
+    .eq('storage_provider', 'r2').eq('status', 'ready').not('upload_expires_at', 'is', null)
+    .lte('upload_expires_at', cutoff).limit(250);
+  if (stagedError) throw new Error(`Unable to load completed document staging objects: ${stagedError.message}`);
+  for (const document of staged || []) {
+    try {
+      const incomingKey = document.storage_key.replace(/\/verified\./, '/incoming.');
+      if (incomingKey !== document.storage_key) await mediaStorageService.deleteR2Object(incomingKey);
+      const { error: updateError } = await supabaseAdmin.from('listing_documents')
+        .update({ upload_expires_at: null, updated_at: new Date().toISOString() })
+        .eq('id', document.id).eq('status', 'ready').eq('upload_expires_at', document.upload_expires_at);
+      if (updateError) throw updateError;
+      cleaned++;
+    } catch (cleanupError) {
+      console.error(JSON.stringify({ event: 'listing_document_staging_cleanup_failed', document_id: document.id, error: cleanupError.message }));
+    }
+  }
+  const { data: deleted, error: deletedError } = await supabaseAdmin.from('listing_documents')
+    .select('id,storage_provider,storage_bucket,storage_key')
+    .eq('status', 'deleted').is('storage_cleaned_at', null).lte('deleted_at', cutoff).limit(250);
+  if (deletedError) throw new Error(`Unable to load retired listing documents for cleanup: ${deletedError.message}`);
+  for (const document of deleted || []) {
+    try {
+      if (document.storage_provider === 'r2' && document.storage_key) {
+        await mediaStorageService.deleteR2Object(document.storage_key);
+      } else if (document.storage_provider === 'supabase' && document.storage_key) {
+        const { error: removeError } = await supabaseAdmin.storage.from(document.storage_bucket || 'listing-photos').remove([document.storage_key]);
+        if (removeError) throw removeError;
+      }
+      const { error: markError } = await supabaseAdmin.from('listing_documents')
+        .update({ storage_cleaned_at: new Date().toISOString() }).eq('id', document.id).eq('status', 'deleted').is('storage_cleaned_at', null);
+      if (markError) throw markError;
+      cleaned++;
+    } catch (cleanupError) {
+      console.error(JSON.stringify({ event: 'listing_document_retired_cleanup_failed', document_id: document.id, error: cleanupError.message }));
+    }
+  }
+  return { examined: (pending || []).length, cleaned };
+}
+
 async function cleanupExpiredDraftMedia() {
   const { data: jobs, error } = await supabaseAdmin.rpc('claim_draft_media_cleanup', {
     p_batch_size: DRAFT_CLEANUP_BATCH_SIZE,
@@ -110,6 +174,22 @@ async function cleanupExpiredDraftMedia() {
       }
       for (const key of snapshot.uploads || []) if (key) r2Keys.add(key);
 
+      // Listing support documents share the draft listing lifecycle. Read
+      // their exact server-owned keys while the rows still exist so a retry
+      // remains possible if storage cleanup or the final state transition fails.
+      const { data: documents, error: documentsError } = await supabaseAdmin.from('listing_documents')
+        .select('storage_provider,storage_bucket,storage_key').eq('listing_id', job.listing_id);
+      if (documentsError) throw new Error(`Unable to load listing documents for cleanup: ${documentsError.message}`);
+      for (const document of documents || []) {
+        if (document.storage_provider === 'r2') r2Keys.add(document.storage_key);
+        else {
+          const bucket = document.storage_bucket || 'listing-photos';
+          const keys = supabaseBuckets.get(bucket) || new Set();
+          keys.add(document.storage_key);
+          supabaseBuckets.set(bucket, keys);
+        }
+      }
+
       const videoPrefix = `drafts/videos/${ENVIRONMENT}/${job.host_id}/${job.listing_id}/`;
       const photoPrefix = `drafts/photos/${ENVIRONMENT}/${job.host_id}/${job.listing_id}/`;
       for (const objectKey of await mediaStorageService.listR2Objects(videoPrefix)) r2Keys.add(objectKey);
@@ -120,6 +200,10 @@ async function cleanupExpiredDraftMedia() {
         const { error: removeError } = await supabaseAdmin.storage.from(bucket).remove([...keys]);
         if (removeError) throw new Error(`Unable to remove ${bucket} objects: ${removeError.message}`);
       }
+
+      const { error: documentRetireError } = await supabaseAdmin.from('listing_documents')
+        .update({ status: 'deleted', deleted_at: new Date().toISOString() }).eq('listing_id', job.listing_id);
+      if (documentRetireError) throw new Error(`Unable to retire listing document metadata: ${documentRetireError.message}`);
 
       const { data: finished, error: finishError } = await supabaseAdmin.rpc('finish_draft_media_cleanup', {
         p_listing_id: job.listing_id,
@@ -334,6 +418,7 @@ async function runFullCleanup() {
   results.orphans = await cleanupOrphanedR2Objects();
   results.stuck = await cleanupStuckMediaRecords();
   results.uploadSessions = await cleanupExpiredDraftUploadSessions();
+  results.documents = await cleanupExpiredListingDocuments();
   results.drafts = await cleanupExpiredDraftMedia();
 
   results.endTime = new Date().toISOString();
@@ -362,4 +447,5 @@ module.exports = {
   cleanupStuckMediaRecords,
   cleanupExpiredDraftMedia,
   cleanupExpiredDraftUploadSessions,
+  cleanupExpiredListingDocuments,
 };
