@@ -28,6 +28,10 @@ const allowanceTransitionMigration = fs.readFileSync(
   path.join(__dirname, '..', 'migrations', '20261021_000044_subscription_allowance_transitions.sql'),
   'utf8'
 );
+const publicationActivationFixMigration = fs.readFileSync(
+  path.join(__dirname, '..', 'migrations', '20261022_000047_fix_listing_publication_activation.sql'),
+  'utf8'
+);
 const finalizationMigration = fs.readFileSync(
   path.join(__dirname, '..', 'migrations', '20261012_000038_property_video_finalization_claim.sql'),
   'utf8'
@@ -127,6 +131,10 @@ test('server activation keeps subscription limits and verified listing-payment e
   assert.match(allowanceTransitionMigration, /v_subscription.listing_allowance_limit/);
   assert.match(allowanceTransitionMigration, /billing_payments_checkout_reservation_idx/);
   assert.match(allowanceTransitionMigration, /checkout_reservation/);
+  assert.match(publicationActivationFixMigration, /availability_status = 'available', publication_state = 'published'/);
+  assert.match(publicationActivationFixMigration, /publication_state = 'published', paid_listing_until = null/);
+  assert.match(publicationActivationFixMigration, /publication_state = 'published'/);
+  assert.match(publicationActivationFixMigration, /l\.publication_state = 'payment_pending'[\s\S]*p\.status = 'succeeded'/);
 });
 
 test('video finalization claim is scoped and deletion cannot remove a processing video', () => {
