@@ -124,6 +124,7 @@
   @media (min-width:960px){ .gallery-carousel{ aspect-ratio:16 / 9; height:auto; } }
   .gallery-slide-track{ display:flex; width:100%; height:100%; transition:transform .3s ease; will-change:transform; }
   .gallery-slide{ flex:0 0 100%; width:100%; height:100%; }
+  .gallery-slide-background{ display:none; }
   .gallery-slide img,.gallery-slide video{ width:100%; height:100%; object-fit:cover; display:block; -webkit-user-drag:none; user-select:none; }
   .gallery-index-pill{
     position:absolute; top:.65rem; left:.65rem; z-index:3; background:rgba(0,0,0,.55); color:#fff;
@@ -539,6 +540,7 @@
       overflow:hidden;
     }
     .gallery-slide{
+      position:relative;
       display:flex;
       align-items:center;
       justify-content:center;
@@ -552,6 +554,25 @@
       object-fit:cover;
       object-position:center;
       display:block;
+    }
+    .gallery-slide > .gallery-slide-background{
+      display:block;
+      position:absolute;
+      inset:0;
+      z-index:0;
+      object-fit:cover;
+      filter:blur(18px);
+      transform:scale(1.08);
+      opacity:.72;
+      pointer-events:none;
+    }
+    .gallery-slide > img:not(.gallery-slide-background){
+      position:relative;
+      z-index:1;
+      width:100%;
+      height:100%;
+      object-fit:contain;
+      object-position:center;
     }
     .gallery-index-pill,.gallery-report-btn,.gallery-like-btn{ box-shadow:0 2px 10px rgba(0,0,0,.18); }
     .gallery-report-btn,.gallery-like-btn{ width:32px; height:32px; }
@@ -1553,7 +1574,7 @@
             return '<div class="gallery-slide">' +
               (listingVideoUrl && index === 0
                 ? '<video src="' + u + '" poster="' + escapeHtml(listingVideoThumbnailUrl || '') + '" muted autoplay loop playsinline controlslist="nodownload" aria-label="' + escapeHtml(listing.title) + ' video"></video>'
-                : '<img src="' + u + '" alt="' + escapeHtml(listing.title) + '">') +
+                : '<img class="gallery-slide-background" src="' + escapeHtml(u) + '" alt="" aria-hidden="true"><img src="' + u + '" alt="' + escapeHtml(listing.title) + '">') +
             '</div>';
           }).join('') +
         '</div>' +
