@@ -46,7 +46,9 @@ test('Paystack uses a verified per-listing save state and restores complete form
   const checkoutEnd = listingPage.indexOf('async function verifyReturnedListingPayment', checkoutStart);
   const checkoutFlow = listingPage.slice(checkoutStart, checkoutEnd);
   assert.ok(checkoutFlow.indexOf('await saveListingCheckoutState(session.user.id, listingId)') < checkoutFlow.indexOf('await saveListingDraft(session.user.id, listingId)'));
-  assert.match(checkoutFlow, /if \(listingDraftRevisionConflict\)[\s\S]*A newer copy of this listing exists in My Profile/);
+  assert.match(listingPage, /let listingDraftWriteQueue = Promise\.resolve\(\)/);
+  assert.match(listingPage, /async function saveListingDraftNow\(/);
+  assert.match(checkoutFlow, /if \(listingDraftRevisionConflict\)[\s\S]*must not strand checkout/);
   assert.match(checkoutFlow, /if \(listingDraftRemoteSaveUnavailable\)[\s\S]*Profile sync will resume when connected/);
   assert.match(payFlow, /checkoutRedirectStarted = true/);
   assert.match(listingPage, /listingCheckoutHandoffInProgress\) return/);
@@ -66,9 +68,22 @@ test('Paystack uses a verified per-listing save state and restores complete form
 
 test('My Profile displays private saved drafts and Continue Listing opens their explicit draft id', () => {
   assert.match(profilePage, /fetch\('\/api\/listing-drafts'/);
-  assert.match(profilePage, /savedListingDrafts\.filter\(function\(draft\)\{ return !draft\.listing_id; \}\)/);
+  assert.match(profilePage, /publication_state, created_at/);
+  assert.match(profilePage, /listingRows = listingRows\.filter\(function\(listing\)\{ return listing\.publication_state === 'published'; \}\)/);
+  assert.match(profilePage, /savedListingDrafts\.filter\(function\(draft\)\{ return !draft\.listing_id \|\| !publishedListingIds\.has\(draft\.listing_id\); \}\)/);
   assert.match(profilePage, /\/list\?draft=/);
   assert.match(profilePage, /Continue Listing →/);
+});
+
+test('autosave does not create a payment listing shell and checkout shell creation is single-flight', () => {
+  const documentQueueStart = listingPage.indexOf('function queueSelectedDocumentUploads()');
+  const documentQueueEnd = listingPage.indexOf('async function uploadOfficeShopMedia', documentQueueStart);
+  const documentQueue = listingPage.slice(documentQueueStart, documentQueueEnd);
+  assert.doesNotMatch(documentQueue, /ensurePaymentDraft\(session\)/);
+  assert.match(documentQueue, /queueListingDraftSave\(\)/);
+  assert.match(listingPage, /let paymentDraftCreationPromise = null/);
+  assert.match(listingPage, /if \(paymentDraftCreationPromise\) return paymentDraftCreationPromise/);
+  assert.match(listingPage, /activeParams\.set\('draft', listingDraftId\)/);
 });
 
 test('edit mode restores private document references before the next save', () => {
