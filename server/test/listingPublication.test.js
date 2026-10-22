@@ -135,6 +135,8 @@ test('server activation keeps subscription limits and verified listing-payment e
   assert.match(publicationActivationFixMigration, /publication_state = 'published', paid_listing_until = null/);
   assert.match(publicationActivationFixMigration, /publication_state = 'published'/);
   assert.match(publicationActivationFixMigration, /l\.publication_state = 'payment_pending'[\s\S]*p\.status = 'succeeded'/);
+  assert.match(publicationActivationFixMigration, /disable trigger varoom_guard_listing_publication_state_trigger/);
+  assert.match(publicationActivationFixMigration, /enable trigger varoom_guard_listing_publication_state_trigger/);
 });
 
 test('video finalization claim is scoped and deletion cannot remove a processing video', () => {

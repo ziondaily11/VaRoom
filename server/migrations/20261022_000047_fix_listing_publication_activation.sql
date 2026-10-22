@@ -117,19 +117,31 @@ grant execute on function public.activate_listing_with_entitlement(uuid, uuid) t
 
 -- Repair rows that already completed a verified listing payment and were
 -- marked available by the broken function, but never received the published
--- publication state. This is limited to active listings with a live paid
--- entitlement and a succeeded listing payment.
-update public.listings l
-set publication_state = 'published'
-where l.publication_state = 'payment_pending'
-  and l.availability_status = 'available'
-  and l.moderation_status = 'active'
-  and l.paid_listing_until > now()
-  and exists (
-    select 1
-    from public.billing_payments p
-    where p.listing_id = l.id
-      and p.host_id = l.host_id
-      and p.payment_kind = 'listing'
-      and p.status = 'succeeded'
-  );
+-- publication state. The guard trigger intentionally rejects direct state
+-- changes, so this one-time, tightly scoped repair disables only that trigger
+-- inside the migration and restores it before the migration finishes.
+do $$
+begin
+  execute 'alter table public.listings disable trigger varoom_guard_listing_publication_state_trigger';
+  begin
+    update public.listings l
+    set publication_state = 'published'
+    where l.publication_state = 'payment_pending'
+      and l.availability_status = 'available'
+      and l.moderation_status = 'active'
+      and l.paid_listing_until > now()
+      and exists (
+        select 1
+        from public.billing_payments p
+        where p.listing_id = l.id
+          and p.host_id = l.host_id
+          and p.payment_kind = 'listing'
+          and p.status = 'succeeded'
+      );
+  exception when others then
+    execute 'alter table public.listings enable trigger varoom_guard_listing_publication_state_trigger';
+    raise;
+  end;
+  execute 'alter table public.listings enable trigger varoom_guard_listing_publication_state_trigger';
+end;
+$$;
