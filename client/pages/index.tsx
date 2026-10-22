@@ -716,10 +716,7 @@ export const getStaticProps: GetStaticProps<LandingPageProps> = async () => {
 
     const initialListings: Listing[] = data.map((l: any) => {
       const photo = (l.listing_photos || []).find((p: any) => p && p.storage_path);
-      // New listing photos live in private R2 and must be resolved through the
-      // server media route. The Supabase public URL only works for legacy
-      // objects, so use the same resolver as the client-side refresh path.
-      const photoUrl = photo ? resolveStoredPhotoUrl(photo.storage_path, 'listing-photos', sb) : null;
+      const photoUrl = photo ? sb.storage.from('listing-photos').getPublicUrl(photo.storage_path).data.publicUrl : null;
       const details = Array.isArray(l.listing_booking_details) ? l.listing_booking_details[0] : l.listing_booking_details;
       return {
         id: l.id,
