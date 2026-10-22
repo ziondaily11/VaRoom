@@ -493,7 +493,6 @@
       padding:.9rem 0; border-right:1px solid var(--line); background:var(--white);
       scrollbar-width:thin;
     }
-    .client-sidebar::before{ content:''; width:3px; height:20px; border-radius:99px; background:var(--red); }
     .client-nav-link{
       width:34px; height:34px; display:flex; align-items:center; justify-content:center;
       border-radius:10px; color:var(--muted); transition:background .15s ease,color .15s ease;
@@ -501,7 +500,6 @@
     .client-nav-link:hover,.client-nav-link:focus-visible{ color:var(--ink); background:var(--nav-active-bg); }
     .client-nav-link.active{ color:var(--ink); background:var(--nav-active-bg); }
     .client-nav-link svg{ width:18px; height:18px; }
-    .client-nav-link [data-elie-bot-avatar]{ display:block; width:22px; height:22px; }
     .main-shell{ height:100vh; min-height:100vh; margin-left:54px; overflow:hidden; }
     #booking-page{ height:100%; overflow:hidden; }
     .content-grid{
@@ -842,7 +840,6 @@
     const ICON_GRID = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>';
     const ICON_MESSAGE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z"/></svg>';
     const SIDEBAR_ICONS = {
-      elie: '<span data-elie-bot-avatar="true" data-avatar-size="22" aria-label="Elie, AI assistant"></span>',
       home: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9a1 1 0 0 1 1 1H9v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4h2.5a1 1 0 0 0 1-1v-9"/></svg>',
       hostMarketplace: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m15 9-2 6-6 2 2-6 6-2Z"/></svg>',
       clientMarketplace: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2.25 4.75-4.75 2.25 2.25-4.75 4.75-2.25Z"/></svg>',
@@ -862,7 +859,6 @@
       const isHost = role === 'host';
       const items = isHost
         ? [
-            ['/chats?conversation=elie', 'Elie', SIDEBAR_ICONS.elie],
             ['/host-home', 'Home', SIDEBAR_ICONS.home],
             ['/marketplace', 'Marketplace', SIDEBAR_ICONS.hostMarketplace, true],
             ['/host-home', 'Saved', SIDEBAR_ICONS.saved],
@@ -878,7 +874,6 @@
             ['/pricing', 'Upgrade', SIDEBAR_ICONS.upgrade]
           ]
         : [
-            ['/chats?conversation=elie', 'Elie', SIDEBAR_ICONS.elie],
             ['/client-home', 'Home', SIDEBAR_ICONS.home],
             ['/marketplace', 'Discover marketplace', SIDEBAR_ICONS.clientMarketplace, true],
             ['/client-home?view=saved', 'Saved', SIDEBAR_ICONS.saved],
