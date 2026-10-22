@@ -296,13 +296,17 @@
   .property-unit-item strong,.property-unit-item span{ display:block; font-size:.76rem; line-height:1.4; }
   .property-unit-item span{ color:var(--muted); font-size:.7rem; }
   .property-booking-widget .picker-title{ margin-top:.45rem; }
-  .property-booking-widget .property-policy{ border-top:1px solid var(--line); margin-top:.55rem; padding-top:.65rem; }
+  .booking-widget .property-policy{ border-top:1px solid var(--line); margin-top:.55rem; padding-top:.65rem; }
   .property-policy-title{ display:flex; align-items:center; gap:.5rem; margin-bottom:.45rem; font-size:.88rem; font-weight:700; }
   .property-policy-link{ display:flex; align-items:center; gap:.7rem; min-width:0; padding:.55rem .65rem; border:1px solid var(--line); border-radius:12px; background:var(--paper); }
   .property-policy-link:hover{ border-color:var(--red); }
   .property-policy-icon{ width:24px; height:28px; color:var(--green); }
   .property-policy-name{ min-width:0; overflow-wrap:anywhere; font-size:.76rem; font-weight:600; }
   .property-policy-action{ display:block; margin-top:.12rem; color:var(--muted); font-size:.68rem; font-weight:400; }
+  .property-policy-details{ display:grid; gap:.5rem; margin:0 0 .55rem; }
+  .property-policy-row{ min-width:0; }
+  .property-policy-row dt{ color:var(--muted); font-size:.7rem; font-weight:600; }
+  .property-policy-row dd{ margin:.12rem 0 0; font-size:.78rem; line-height:1.45; overflow-wrap:anywhere; white-space:pre-wrap; }
   .property-purchase-btn{ width:100%; margin-top:.55rem; padding:.68rem 1rem; border:1px solid var(--line-strong); border-radius:100px; color:var(--ink); font-size:.82rem; font-weight:700; }
   .property-purchase-btn:hover{ border-color:var(--red); color:var(--red); }
   .property-purchase-btn.property-purchase-primary{ border-color:var(--red); background:var(--red); color:#fff; }
@@ -846,6 +850,7 @@
 
 <script src="js/supabase-client.js"></script>
 <script src="js/listing-feed-cache.js"></script>
+<script src="js/booking-policy.js"></script>
 <script>
   (async function(){
     const skeleton = document.getElementById('skeleton');
@@ -1446,12 +1451,16 @@
     const isProperty = listing.category === 'property';
     const isOfficeShop = ['office', 'shop'].includes(listing.category);
     let listingDocuments = [];
+    let listingDocumentsLoaded = false;
     try {
       const headers = session && session.access_token ? { Authorization: 'Bearer ' + session.access_token } : {};
       const documentsResponse = await fetch('/api/listings/' + encodeURIComponent(listingId) + '/documents', { headers: headers });
       if (documentsResponse.ok) {
         const documentsResult = await documentsResponse.json();
-        listingDocuments = Array.isArray(documentsResult.documents) ? documentsResult.documents : [];
+        if (documentsResult && Array.isArray(documentsResult.documents)) {
+          listingDocuments = documentsResult.documents;
+          listingDocumentsLoaded = true;
+        }
       }
     } catch (documentLookupError) {
       console.warn('Listing documents could not be loaded:', documentLookupError);
@@ -2176,25 +2185,9 @@
         '</div>'
       : '';
 
-    let propertyPolicyHtml = '';
-    if (isProperty) {
-      const policyRecord = listingDocuments.find(function(document){ return document.documentType === 'property_policy' && document.downloadUrl; });
-      let policyDocumentHtml = '<p class="property-policy-empty">No property policies provided.</p>';
-      if (policyRecord) {
-          const filename = policyRecord.filename || 'Property policy document';
-          policyDocumentHtml =
-            '<a class="property-policy-link" href="' + escapeHtml(policyRecord.downloadUrl) + '" target="_blank" rel="noopener" aria-label="Open property policy document: ' + escapeHtml(filename) + '">' +
-              '<svg class="property-policy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2h9l5 5v15H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z"/><path d="M14 2v6h6M8 13h8M8 17h8"/></svg>' +
-              '<span class="property-policy-name">' + escapeHtml(filename) + '<span class="property-policy-action">Open property policies</span></span>' +
-            '</a>';
-      }
-      propertyPolicyHtml =
-        '<section class="property-policy" aria-labelledby="property-policy-heading">' +
-          '<h2 class="property-policy-title" id="property-policy-heading"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2h9l5 5v15H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z"/><path d="M14 2v6h6M8 13h8M8 17h8"/></svg>Property Policies</h2>' +
-          policyDocumentHtml +
-        '</section>';
-    }
-
+    const propertyPolicyHtml = window.VaRoomBookingPolicy
+      ? window.VaRoomBookingPolicy.buildListingPolicyHtml(listing.category, details, listingDocuments, listingDocumentsLoaded)
+      : '';
     const propertyUnitItems = isProperty
       ? [
           details.units_available != null
