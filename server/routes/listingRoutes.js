@@ -736,7 +736,7 @@ router.patch('/listings/:id', async (req, res) => {
       throw new ValidationError('Property details are only valid for property listings');
     }
   } catch (error) {
-    if (error instanceof ValidationError) return res.status(400).json({ error: 'Invalid input' });
+    if (error instanceof ValidationError) return res.status(400).json({ error: error.message || 'Invalid listing details', code: 'INVALID_LISTING_DETAILS' });
     throw error;
   }
   if (!Object.keys(update).length && !Object.keys(detailUpdate).length) {
@@ -752,11 +752,37 @@ router.patch('/listings/:id', async (req, res) => {
   if (Object.keys(detailUpdate).length) {
     const { data: existingDetails, error: lookupError } = await supabaseAdmin.from('listing_booking_details')
       .select('listing_id').eq('listing_id', req.params.id).maybeSingle();
-    if (lookupError) return res.status(500).json({ error: 'Unable to load listing details' });
-    const detailResult = existingDetails
+    if (lookupError) {
+      console.error('Listing detail lookup failed:', {
+        listingId: req.params.id, category: listing.category,
+        code: lookupError.code || null, message: lookupError.message || 'Unknown database error',
+      });
+      return res.status(500).json({ error: 'Unable to load saved listing details', code: 'LISTING_DETAILS_LOOKUP_FAILED' });
+    }
+    let detailResult = existingDetails
       ? await supabaseAdmin.from('listing_booking_details').update(detailUpdate).eq('listing_id', req.params.id)
       : await supabaseAdmin.from('listing_booking_details').insert(Object.assign({ listing_id: req.params.id }, detailUpdate));
-    if (detailResult.error) return res.status(500).json({ error: 'Unable to update listing details' });
+    // A concurrent retry can create the one-to-one details row after the
+    // lookup. Retry only that unique-row race as an update, preserving fields
+    // that are not present in this section's patch.
+    if (!existingDetails && detailResult.error && detailResult.error.code === '23505') {
+      detailResult = await supabaseAdmin.from('listing_booking_details').update(detailUpdate).eq('listing_id', req.params.id);
+    }
+    if (detailResult.error) {
+      console.error('Listing detail persistence failed:', {
+        listingId: req.params.id,
+        category: listing.category,
+        operation: existingDetails ? 'update' : 'insert',
+        code: detailResult.error.code || null,
+        constraint: detailResult.error.constraint || null,
+        table: detailResult.error.table || 'listing_booking_details',
+        message: detailResult.error.message || 'Unknown database error',
+      });
+      return res.status(500).json({
+        error: 'Your listing details could not be saved. Your listing and payment are preserved; please retry. If this continues, contact support with reference LISTING_DETAILS_WRITE_FAILED.',
+        code: 'LISTING_DETAILS_WRITE_FAILED',
+      });
+    }
   }
   return res.json({ listing: data });
 });
