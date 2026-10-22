@@ -69,6 +69,23 @@ test('office and shop structured rules display as policy rows', () => {
   assert.doesNotMatch(html, /No property policies provided/);
 });
 
+test('office/shop policy rows remain in the right-card helper and the left listing no longer renders duplicate rules', () => {
+  const booking = fs.readFileSync(path.join(__dirname, '..', 'legacy-pages', 'booking.html'), 'utf8');
+  const helper = buildListingPolicyHtml('office', { office_shop_details: { rules: {
+    fitout: 'allowed', subletting: 'not_allowed', restoration: 'tenant_must_restore',
+    permitted_uses: ['office_or_professional']
+  } } }, [], true);
+  assert.match(helper, /Fit-out or renovation/);
+  assert.match(helper, /Subletting or assignment/);
+  assert.match(helper, /Restoration on exit/);
+  assert.match(helper, /Permitted business uses/);
+  assert.doesNotMatch(booking, /commercial-rules-heading|rulesHtml|Please confirm licences, zoning/);
+  assert.match(booking, /Amenities and building services/);
+  assert.match(booking, /Pricing and costs/);
+  assert.match(booking, /Lease and availability/);
+  assert.match(booking, /What guests say/);
+});
+
 test('office/shop commercial policy document is recognized', () => {
   for (const category of ['office', 'shop']) {
     const html = buildListingPolicyHtml(category, {}, [document('commercial_policy')], true);

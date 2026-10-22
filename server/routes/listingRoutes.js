@@ -99,7 +99,7 @@ router.get('/discover/video-media', async (req, res) => {
     if (!publishedIds.length) return res.json({ videoMedia: {} });
     const { data, error } = await supabaseAdmin
       .from('property_media')
-      .select('id,property_id,sort_order')
+      .select('id,property_id,sort_order,width,height')
       .in('property_id', publishedIds)
       .eq('media_type', 'video')
       .eq('visibility', 'public')
@@ -109,10 +109,16 @@ router.get('/discover/video-media', async (req, res) => {
     if (error) throw error;
 
     const videoMedia = {};
+    const videoDimensions = {};
     (data || []).forEach((media) => {
-      if (!videoMedia[media.property_id]) videoMedia[media.property_id] = media.id;
+      if (videoMedia[media.property_id]) return;
+      videoMedia[media.property_id] = media.id;
+      videoDimensions[media.property_id] = {
+        width: Number.isInteger(media.width) && media.width > 0 ? media.width : null,
+        height: Number.isInteger(media.height) && media.height > 0 ? media.height : null,
+      };
     });
-    return res.json({ videoMedia });
+    return res.json({ videoMedia, videoDimensions });
   } catch (error) {
     console.error('Discover video media lookup failed:', error);
     return res.status(500).json({ error: 'Unable to load video media' });

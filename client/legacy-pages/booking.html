@@ -1699,7 +1699,6 @@
       const pricing = officeShop.pricing || {};
       const costs = officeShop.costs || {};
       const lease = officeShop.lease || {};
-      const rules = officeShop.rules || {};
       const documents = officeShop.documents || {};
       const isCommercialOffice = listing.category === 'office';
       const enumLabels = {
@@ -1801,18 +1800,6 @@
         { label: 'Viewing availability', value: lease.viewing_availability },
         { label: 'Accepted payment methods', value: lease.payment_methods }
       ]);
-      const rulesHtml = commercialGrid([
-        { label: 'Fit-out or renovation', value: commercialLabel(rules.fitout, enumLabels.yesNo) },
-        { label: 'Signage', value: commercialLabel(rules.signage, enumLabels.yesNo) },
-        { label: 'Subletting or assignment', value: commercialLabel(rules.subletting, enumLabels.yesNo) },
-        { label: 'Restoration on exit', value: commercialLabel(rules.restoration, enumLabels.yesNo) },
-        { label: 'Operating hour / noise limits', value: rules.noise_limits },
-        { label: 'Visitor policy', value: rules.visitor_policy }
-      ]) + (Array.isArray(rules.permitted_uses) && rules.permitted_uses.length
-        ? '<p class="commercial-note"><strong>Permitted business uses:</strong> ' + escapeHtml(rules.permitted_uses.map(function(use){ return commercialLabel(use, {
-          office_or_professional: 'Office or professional', general_retail: 'General retail', fashion: 'Fashion', electronics: 'Electronics', salon_or_beauty: 'Salon or beauty', food_or_cafe: 'Food or cafe', pharmacy_or_healthcare: 'Pharmacy or healthcare', creative_studio: 'Creative studio', other: 'Other', not_sure_renter_to_confirm: 'Not sure — renter to confirm'
-        }); }).join(', ')) + '</p>'
-        : '');
       const amenityHtml = amenityItems.length
         ? '<div class="amenity-grid">' + amenityItems.map(function(label){ return '<div class="amenity-item">' + ICON_GENERIC_AMENITY + '<span>' + escapeHtml(label) + '</span></div>'; }).join('') + '</div>'
         : '<p class="commercial-note">No commercial amenities were listed.</p>';
@@ -1834,9 +1821,6 @@
         '<section class="commercial-section" aria-labelledby="commercial-pricing-heading"><h2 class="commercial-section-title" id="commercial-pricing-heading">Pricing and costs</h2>' + pricingHtml + costsHtml +
         '</section>' +
         '<section class="commercial-section" aria-labelledby="commercial-lease-heading"><h2 class="commercial-section-title" id="commercial-lease-heading">Lease and availability</h2>' + leaseHtml +
-        '</section>' +
-        '<section class="commercial-section" aria-labelledby="commercial-rules-heading"><h2 class="commercial-section-title" id="commercial-rules-heading">Rules and policies</h2>' + rulesHtml +
-          '<p class="commercial-note">Please confirm licences, zoning, and any approvals needed for your business before renting.</p>' +
         '</section>' +
         (documents.documents_on_request ? '<section class="commercial-section" aria-labelledby="commercial-documents-heading"><h2 class="commercial-section-title" id="commercial-documents-heading">Documents</h2><p class="commercial-note">Ownership or management documents can be provided on request.</p></section>' : '');
     }
