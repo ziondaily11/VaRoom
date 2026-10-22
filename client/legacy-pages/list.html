@@ -4201,6 +4201,24 @@
     });
   }
 
+  function getImageDimensions(file){
+    return new Promise(function(resolve){
+      if (window.createImageBitmap) {
+        window.createImageBitmap(file).then(function(bitmap){
+          const dimensions = { width:bitmap.width, height:bitmap.height };
+          bitmap.close();
+          resolve(dimensions);
+        }).catch(function(){ resolve({ width:null, height:null }); });
+        return;
+      }
+      const url = URL.createObjectURL(file);
+      const image = new Image();
+      image.onload = function(){ URL.revokeObjectURL(url); resolve({ width:image.naturalWidth || null, height:image.naturalHeight || null }); };
+      image.onerror = function(){ URL.revokeObjectURL(url); resolve({ width:null, height:null }); };
+      image.src = url;
+    });
+  }
+
   async function uploadVideoToR2(file, listingId){
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (!session || !session.access_token) throw new Error('Your session expired. Please sign in again.');
@@ -4490,10 +4508,11 @@
         }
 
         const path = currentUser.id + '/' + listingId + '/' + Date.now() + '_' + i + '_' + sanitizeFilename(file.name);
+        const dimensions = await getImageDimensions(file);
         const { data: uploadedPhoto, error: uploadError } = await supabaseClient.storage.from('listing-photos').upload(path, file, { upsert: false });
         if (uploadError) { failedCount++; continue; }
         const { error: photoRowError } = await supabaseClient.from('listing_photos').insert({
-          listing_id: listingId, storage_path: uploadedPhoto.path
+          listing_id: listingId, storage_path: uploadedPhoto.path, width:dimensions.width, height:dimensions.height
         });
         if (photoRowError) failedCount++; else uploadedCount++;
       }

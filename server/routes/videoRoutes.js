@@ -490,6 +490,8 @@ router.post('/properties/:propertyId/videos/:mediaId/complete', async (req, res)
       .update({
         status: 'ready',
         duration_seconds: optimization.durationSeconds,
+        width: Number.isInteger(optimization.width) && optimization.width > 0 ? optimization.width : null,
+        height: Number.isInteger(optimization.height) && optimization.height > 0 ? optimization.height : null,
         file_size_bytes: optimization && optimization.optimized ? optimization.optimizedSize : objectMetadata.contentLength,
         mime_type: optimization && optimization.outputContentType ? optimization.outputContentType : claimedRecord.mime_type,
         thumbnail_key: thumbnailKey,
