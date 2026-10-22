@@ -1821,14 +1821,6 @@
         { label: 'Internet note', value: amenities.internet_note },
         { label: 'Accessibility note', value: amenities.accessibility_note }
       ]);
-      const visibleCommercialDocuments = listingDocuments.filter(function(document){
-        return ['floor_plan', 'commercial_policy'].includes(document.documentType) && document.downloadUrl;
-      }).map(function(document){
-        return { label: document.documentType === 'floor_plan' ? 'Floor plan' : 'Policy or rules document', url: document.downloadUrl };
-      });
-      const documentHtml = visibleCommercialDocuments.length
-        ? '<div class="commercial-document-list">' + visibleCommercialDocuments.map(function(document){ return '<a class="commercial-document-link" href="' + escapeHtml(document.url) + '" target="_blank" rel="noopener">' + escapeHtml(document.label) + '</a>'; }).join('') + '</div>'
-        : '';
       commercialDetailsHtml =
         '<section class="commercial-section" aria-labelledby="commercial-location-heading"><h2 class="commercial-section-title" id="commercial-location-heading">Commercial location</h2>' + locationHtml +
           (listing.address_visibility === 'after_inquiry' ? '<p class="commercial-disclosure">The exact unit address is shared after an inquiry.</p>' : '') +
@@ -1845,7 +1837,7 @@
         '<section class="commercial-section" aria-labelledby="commercial-rules-heading"><h2 class="commercial-section-title" id="commercial-rules-heading">Rules and policies</h2>' + rulesHtml +
           '<p class="commercial-note">Please confirm licences, zoning, and any approvals needed for your business before renting.</p>' +
         '</section>' +
-        (documentHtml || documents.documents_on_request ? '<section class="commercial-section" aria-labelledby="commercial-documents-heading"><h2 class="commercial-section-title" id="commercial-documents-heading">Documents</h2>' + documentHtml + (documents.documents_on_request ? '<p class="commercial-note">Ownership or management documents can be provided on request.</p>' : '') + '</section>' : '');
+        (documents.documents_on_request ? '<section class="commercial-section" aria-labelledby="commercial-documents-heading"><h2 class="commercial-section-title" id="commercial-documents-heading">Documents</h2><p class="commercial-note">Ownership or management documents can be provided on request.</p></section>' : '');
     }
 
     const reviewCount = Number(reviewSummary.review_count || reviews.length);
@@ -2188,6 +2180,9 @@
     const propertyPolicyHtml = window.VaRoomBookingPolicy
       ? window.VaRoomBookingPolicy.buildListingPolicyHtml(listing.category, details, listingDocuments, listingDocumentsLoaded)
       : '';
+    const listingDocumentsHtml = window.VaRoomBookingPolicy
+      ? window.VaRoomBookingPolicy.buildListingDocumentsHtml(listing.category, listingDocuments)
+      : '';
     const propertyUnitItems = isProperty
       ? [
           details.units_available != null
@@ -2259,6 +2254,8 @@
         guestsHtml +
         hotelStayDetailsHtml +
         '<div class="details-box" id="details-box"></div>' +
+        propertyPolicyHtml +
+        listingDocumentsHtml +
         '<button type="button" class="confirm-btn" id="confirm-btn" disabled' + (listingUnavailable ? ' aria-disabled="true"' : '') + '>' + (supportsBoth ? 'Choose reservation' : (isHotel ? 'Reserve room' : 'Book now')) + '</button>' +
         (supportsBoth ? '<button type="button" id="choose-reservation-btn" style="width:100%;margin-top:.65rem;padding:.78rem;border:1px solid var(--red);border-radius:8px;background:transparent;color:var(--red);font-weight:700;cursor:pointer">Choose reservation type</button>' : '') +
         '<p class="form-note">' + (availabilityMessage || (isHotel ? 'This sends a reservation request to the hotel for confirmation.' : 'This creates a request — the host needs to approve it before it\'s confirmed.')) + '</p>' +

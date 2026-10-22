@@ -79,5 +79,22 @@
       '<h2 class="property-policy-title" id="property-policy-heading"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2h9l5 5v15H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z"/><path d="M14 2v6h6M8 13h8M8 17h8"/></svg>Property Policies</h2>' +
       (textHtml ? '<dl class="property-policy-details">' + textHtml + '</dl>' : '') + documentHtml + emptyHtml + '</section>';
   }
-  return { buildListingPolicyHtml: buildListingPolicyHtml };
+  function buildListingDocumentsHtml(category, documents) {
+    if (category !== 'office' && category !== 'shop') return '';
+    const available = [
+      { type: 'floor_plan', label: 'Floor plan' },
+      { type: 'ownership_management', label: 'Ownership and management' }
+    ].map(function(item) {
+      const document = validDocument(documents, item.type);
+      if (!document) return '';
+      const filename = cleanText(document.filename) || item.label;
+      return '<a class="property-policy-link" href="' + escapeHtml(document.downloadUrl) + '" target="_blank" rel="noopener" aria-label="Open ' + escapeHtml(item.label.toLowerCase()) + ': ' + escapeHtml(filename) + '">' +
+        '<svg class="property-policy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2h9l5 5v15H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z"/><path d="M14 2v6h6M8 13h8M8 17h8"/></svg>' +
+        '<span class="property-policy-name">' + escapeHtml(filename) + '<span class="property-policy-action">' + escapeHtml(item.label) + '</span></span></a>';
+    }).filter(Boolean);
+    if (!available.length) return '';
+    return '<section class="property-policy" aria-labelledby="listing-documents-heading">' +
+      '<h2 class="property-policy-title" id="listing-documents-heading">Documents</h2>' + available.join('') + '</section>';
+  }
+  return { buildListingPolicyHtml: buildListingPolicyHtml, buildListingDocumentsHtml: buildListingDocumentsHtml };
 });

@@ -4,7 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { buildListingPolicyHtml } = require('../public/js/booking-policy.js');
+const { buildListingPolicyHtml, buildListingDocumentsHtml } = require('../public/js/booking-policy.js');
 
 const document = (documentType, overrides = {}) => Object.assign({
   documentType,
@@ -52,6 +52,20 @@ test('office/shop commercial policy document is recognized', () => {
     assert.match(html, /policy\.pdf/);
     assert.doesNotMatch(html, /No property policies provided/);
   }
+});
+
+test('office/shop supporting documents render in the booking-card documents section, excluding policy duplicates', () => {
+  const html = buildListingDocumentsHtml('office', [
+    document('floor_plan', { filename: 'floor-plan.pdf' }),
+    document('commercial_policy', { filename: 'rules.pdf' }),
+    document('ownership_management', { filename: 'ownership.pdf' })
+  ]);
+  assert.match(html, /Documents/);
+  assert.match(html, /floor-plan\.pdf/);
+  assert.match(html, /ownership\.pdf/);
+  assert.doesNotMatch(html, /rules\.pdf/);
+  assert.equal((html.match(/property-policy-link/g) || []).length, 2);
+  assert.equal(buildListingDocumentsHtml('property', [document('floor_plan')]), '');
 });
 
 test('genuinely empty listing shows the no-policy fallback after successful lookup', () => {
