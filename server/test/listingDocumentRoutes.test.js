@@ -234,16 +234,25 @@ test('ownership documents remain host-only while public listing documents can be
     const publicList = await state.send(`/listings/${listingId}/documents`, { token: null });
     assert.equal(publicList.response.status, 200);
     assert.deepEqual(publicList.body.documents.map((item) => item.documentType), ['floor_plan']);
-    assert.match(publicList.body.documents[0].previewUrl, /disposition=inline/);
     assert.match(publicList.body.documents[0].downloadUrl, /disposition=attachment/);
+    assert.equal(publicList.body.documents[0].previewUrl, undefined);
+    const publicPreview = await state.send('/listing-documents/44444444-4444-4444-8444-444444444444/preview', { token: null });
+    assert.equal(publicPreview.response.status, 302);
+    assert.match(publicPreview.response.headers.get('location'), /disposition=inline/);
+    assert.match(publicPreview.response.headers.get('location'), /type=application%2Fpdf/);
+    assert.equal(publicPreview.response.headers.get('cache-control'), 'private, no-store');
+    assert.equal(publicPreview.response.headers.get('referrer-policy'), 'no-referrer');
 
     const privateDownload = await state.send('/listing-documents/55555555-5555-4555-8555-555555555555/download', { token: 'other-token' });
     assert.equal(privateDownload.response.status, 404);
+    const privatePreview = await state.send('/listing-documents/55555555-5555-4555-8555-555555555555/preview', { token: 'other-token' });
+    assert.equal(privatePreview.response.status, 404);
     const ownerList = await state.send(`/listings/${listingId}/documents`);
     assert.equal(ownerList.body.documents.length, 2);
     assert.match(ownerList.body.documents[0].downloadUrl, /ttl=300/);
-    assert.match(ownerList.body.documents[0].previewUrl, /disposition=inline/);
-    assert.match(ownerList.body.documents[1].previewUrl, /disposition=inline/);
+    const ownerPreview = await state.send('/listing-documents/55555555-5555-4555-8555-555555555555/preview');
+    assert.equal(ownerPreview.response.status, 302);
+    assert.match(ownerPreview.response.headers.get('location'), /disposition=inline/);
   });
 });
 
@@ -257,6 +266,8 @@ test('rejects document access to drafts and does not allow one host to delete an
   await withDocumentServer({ category: 'property', publicationState: 'draft', seedDocuments }, async (state) => {
     const response = await state.send(`/listings/${listingId}/documents`, { token: null });
     assert.equal(response.response.status, 404);
+    const preview = await state.send('/listing-documents/66666666-6666-4666-8666-666666666666/preview', { token: null });
+    assert.equal(preview.response.status, 404);
     const deletion = await state.send('/listing-documents/66666666-6666-4666-8666-666666666666', { token: 'other-token', method: 'DELETE' });
     assert.equal(deletion.response.status, 404);
     assert.equal(state.documents[0].status, 'ready');
