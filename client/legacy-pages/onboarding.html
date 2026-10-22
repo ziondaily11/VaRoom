@@ -3,925 +3,1280 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#09090a">
 <title>Welcome to VaRoom</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<script>
+  (function () {
+    try {
+      var saved = localStorage.getItem('varoom_theme') || 'system';
+      var resolved = saved === 'system'
+        ? (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+        : saved;
+      document.documentElement.setAttribute('data-theme', resolved);
+      document.documentElement.style.colorScheme = resolved;
+    } catch (e) {}
+  })();
+</script>
 
 <style>
   /* ---------- Tokens ---------- */
   :root {
-    /* Onboarding uses one black surface at every breakpoint. */
-    --bg: #000;
-    --line: rgba(255, 255, 255, 0.12);
-    --line-strong: rgba(255, 255, 255, 0.28);
-    --line-soft: rgba(255, 255, 255, 0.06);
-    --text: #f4f4f5;
-    --text-muted: rgba(244, 244, 245, 0.62);
-    --text-faint: rgba(244, 244, 245, 0.4);
-    --error: #ff9b9b;
-    --font: "Montserrat", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
-    --onboarding-gradient: var(--bg);
+    --bg-page: #FFFFFF;
+    --card-bg: transparent;
+    --card-border: rgba(255, 255, 255, 0.12);
+    --text-primary: #FFFFFF;
+    --text-secondary: rgba(255, 255, 255, 0.85);
+    --text-muted: rgba(255, 255, 255, 0.65);
+    --line: rgba(255, 255, 255, 0.2);
+    --line-subtle: rgba(255, 255, 255, 0.1);
+    --input-bg: rgba(255, 255, 255, 0.08);
+    --input-border: rgba(255, 255, 255, 0.16);
+    --input-focus: #10B981;
+    --brand-green: #10B981;
+    --brand-green-hover: #059669;
+    --brand-green-light: rgba(16, 185, 129, 0.2);
+    --brand-green-border: #10B981;
+    --danger-red: #EF4444;
+    --disabled-bg: rgba(255, 255, 255, 0.12);
+    --disabled-text: rgba(255, 255, 255, 0.4);
+    --pill-bg: rgba(255, 255, 255, 0.16);
+    --pill-text: #FFFFFF;
+    --font: "Montserrat", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --shadow-front: none;
+    --bg-hero: url("/assets/onboarding-hero.webp");
+  }
+
+  [data-theme="dark"] {
+    --bg-page: #FFFFFF;
+    --card-bg: transparent;
+    --card-border: rgba(255, 255, 255, 0.12); /* single outline border in subtle grey */
+    --text-primary: #FFFFFF;
+    --text-secondary: rgba(255, 255, 255, 0.85);
+    --text-muted: rgba(255, 255, 255, 0.65);
+    --line: rgba(255, 255, 255, 0.2);
+    --line-subtle: rgba(255, 255, 255, 0.1);
+    --input-bg: rgba(255, 255, 255, 0.08);
+    --input-border: rgba(255, 255, 255, 0.16);
+    --input-focus: #FFFFFF;
+    --brand-green: #10B981;
+    --brand-green-hover: #059669;
+    --brand-green-light: rgba(16, 185, 129, 0.2);
+    --brand-green-border: #10B981;
+    --danger-red: #EF4444;
+    --disabled-bg: rgba(255, 255, 255, 0.12);
+    --disabled-text: rgba(255, 255, 255, 0.4);
+    --pill-bg: rgba(255, 255, 255, 0.16);
+    --pill-text: #FFFFFF;
+    --shadow-front: none;
+    --bg-hero: url("/assets/onboarding-hero.webp");
   }
 
   *, *::before, *::after { box-sizing: border-box; }
   [hidden] { display: none !important; }
-  html, body { height: 100%; }
+  html, body { min-height: 100%; margin: 0; padding: 0; }
 
   body {
-    margin: 0;
-    background: var(--onboarding-gradient);
-    color: var(--text);
+    background-color: #FFFFFF;
+    color: var(--text-primary);
     font-family: var(--font);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
-  }
-
-  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
-  input  { font: inherit; color: inherit; }
-  svg { display: block; }
-
-  /* ---------- Background: one consistent black canvas ---------- */
-  .screen {
-    position: relative;
-    min-height: 100dvh;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
-    padding:
-      calc(env(safe-area-inset-top, 0px) + 28px)
-      24px
-      calc(env(safe-area-inset-bottom, 0px) + 28px);
-    background: var(--onboarding-gradient);
-  }
-
-  .screen > * { position: relative; z-index: 1; }
-
-  /* ---------- Top bar (shared) ---------- */
-  .top {
-    display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 32px;
+    min-height: 100vh;
+    padding: 32px 16px;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  /* Fixed Hero Background Image (maintains white background image in all modes) */
+  body::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: url("/assets/onboarding-hero.webp");
+    background-repeat: no-repeat;
+    background-position: center center;
+    background-size: cover;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 1;
+  }
+
+  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; }
+  input, select { font: inherit; color: inherit; }
+  svg { display: block; }
+
+  /* ---------- Single Middle Card Container ---------- */
+  .onboarding-wrap {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 660px;
+    margin: auto;
+  }
+
+  /* ---------- 3D Glassmorphism Card System ---------- */
+  .glass3d { 
+    --filter-glass3d: blur(28px) brightness(0.92) saturate(2.2); 
+    --color-glass3d: hsl(189 65% 8% / 0.72); 
+    --noise-glass3d: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E"), url("https://www.transparenttextures.com/patterns/egg-shell.png"); 
+
+    position: relative; 
+    z-index: 4; 
+    -webkit-backdrop-filter: var(--filter-glass3d);
+    backdrop-filter: var(--filter-glass3d);
+    box-shadow:  
+      0 0 0.75px hsl(205 20% 10% / 0.2), 
+      0.7px 0.8px 1.2px -0.4px hsl(205 20% 10% / 0.1), 
+      1.3px 1.5px 2.2px -0.8px hsl(205 20% 10% / 0.1), 
+      2.3px 2.6px 3.9px -1.2px hsl(205 20% 10% / 0.1), 
+      3.9px 4.4px 6.6px -1.7px hsl(205 20% 10% / 0.1), 
+      6.5px 7.2px 10.9px -2.1px hsl(205 20% 10% / 0.1), 
+      8px 9px 14px -2.5px hsl(205 20% 10% / 0.2),
+      0 24px 50px -12px rgba(0, 0, 0, 0.45); 
+  }
+
+  .glass3d::before { 
+    content: ""; 
+    position: absolute; 
+    inset: 0; 
+    pointer-events: none; 
+    border-radius: inherit; 
+    overflow: hidden; 
+    z-index: 3; 
+    
+    -webkit-backdrop-filter: var(--filter-glass3d); 
+    backdrop-filter: var(--filter-glass3d); 
+    background-color: var(--color-glass3d); 
+    background-image: var(--noise-glass3d); 
+    background-size: 100px; 
+    background-repeat: repeat; 
+  }
+
+  .glass3d::after { 
+    content: ""; 
+    position: absolute; 
+    inset: 0; 
+    pointer-events: none; 
+    border-radius: inherit; 
+    overflow: hidden; 
+    z-index: 5; 
+    border: 1px solid var(--card-border);
+    box-shadow: 
+      inset 2px 2px 1px -3px hsl(205 20% 90% / 0.8), 
+      inset 4px 4px 2px -6px hsl(205 20% 90% / 0.3), 
+      inset 1.5px 1.5px 1.5px -0.75px hsl(205 20% 90% / 0.15), 
+      inset 1.5px 1.5px 0.25px hsl(205 20% 90% / 0.03), 
+      inset 0 0 0.25px 0.5px hsl(205 20% 90% / 0.03); 
+  }
+
+  .glass3d > * { 
+    position: relative; 
+    z-index: 6; 
+  }
+
+  .card-foreground {
+    position: relative;
+    background: transparent;
+    border: none;
+    border-radius: 24px;
+    padding: 34px 40px 30px;
+    display: flex;
+    flex-direction: column;
+    min-height: 520px;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.22s ease, visibility 0.22s ease;
+  }
+  .card-foreground.is-ready {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  /* ---------- Card Header ---------- */
+  .card-header {
+    margin-bottom: 24px;
+  }
+
+  .header-brand-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
   }
 
   .wordmark {
-    font-size: 17px;
-    font-weight: 600;
-    letter-spacing: -0.01em;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    display: inline-flex;
+    align-items: baseline;
+    user-select: none;
+  }
+  .wordmark .wordmark-va {
+    color: #E50914; /* Signature red */
+  }
+  .wordmark .wordmark-room {
+    color: var(--text-primary); /* Dark mode white, Light mode dark ink */
   }
 
-  .steps { display: none; }
-
-  /* ---------- Content shell (shared) ---------- */
-  .content {
-    flex: 1;
-    display: grid;
-    width: 100%;
-    max-width: 440px;
-    margin-inline: auto;
-    justify-items: center;
-    text-align: center;
-  }
-  .content[hidden] { display: none; }
-  .content--details #btnSkip2 { display: none; }
-
-  .content--photo {
-    grid-template-rows: auto 1fr auto;
-    grid-template-areas: "copy" "avatar" "actions";
-    padding-top: clamp(24px, 6vh, 56px);
-  }
-
-  .content--details {
-    grid-template-rows: auto 1fr auto;
-    grid-template-areas: "copy" "form" "actions";
-    padding-top: clamp(20px, 4.5vh, 44px);
-  }
-
-  .content--interests {
-    grid-template-rows: auto 1fr auto;
-    grid-template-areas: "copy" "picks" "actions";
-    padding-top: clamp(20px, 4.5vh, 44px);
-  }
-
-  .copy { grid-area: copy; }
-
-  .eyebrow {
-    margin: 0 0 clamp(12px, 2.2vh, 18px);
-    font-size: 10.5px;
-    font-weight: 500;
-    letter-spacing: 0.22em;
+  .pill-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--pill-bg);
+    color: var(--pill-text);
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
-    color: var(--text-muted);
+    padding: 6px 12px;
+    border-radius: 100px;
   }
-  .content--photo .eyebrow { display: none; }
+  .pill-badge svg {
+    width: 11px;
+    height: 11px;
+  }
 
-  h1 {
-    margin: 0;
-    font-size: clamp(26px, min(8.2vw, 4.8vh), 38px);
-    line-height: 1.12;
+  .card-title {
+    margin: 0 0 6px;
+    font-size: 26px;
+    font-weight: 700;
     letter-spacing: -0.02em;
-    font-weight: 300;
+    line-height: 1.2;
+    color: var(--text-primary);
   }
-  h1 strong { display: block; font-weight: 600; }
-  h1:focus { outline: none; }
 
-  .sub {
-    margin: clamp(10px, 1.8vh, 14px) auto 0;
-    max-width: 26ch;
-    font-size: 14px;
-    line-height: 1.55;
-    color: var(--text-muted);
+  .card-subtitle {
+    margin: 0;
+    font-size: 13.5px;
+    line-height: 1.45;
+    color: var(--text-secondary);
   }
-  .content--photo .sub { max-width: 22ch; }
-  .content--details .sub { max-width: 30ch; }
-  .content--interests .sub { max-width: 30ch; }
 
-  /* ---------- Step 1 · Avatar ---------- */
-  .avatar-wrap {
-    grid-area: avatar;
+  /* ---------- Card Body ---------- */
+  .card-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ---------- Profile Setup (Host Card 1) Layout ---------- */
+  .host-profile-layout {
     display: grid;
-    place-items: center;
-    width: 100%;
-    padding-block: clamp(12px, 2.6vh, 24px);
+    grid-template-columns: 210px 1fr;
+    gap: 32px;
+    align-items: center;
+    padding-block: 8px 12px;
   }
 
-  .avatar {
-    --size: clamp(180px, min(58vw, 30vh), 232px);
+  .avatar-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .avatar-frame {
     position: relative;
-    width: var(--size);
-    height: var(--size);
+    width: 190px;
+    height: 190px;
+    border-radius: 50%;
+    padding: 4px;
+    border: 1px solid var(--line);
+    background: transparent;
+  }
+
+  .avatar-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
     border-radius: 50%;
     overflow: hidden;
-    background: radial-gradient(circle at 50% 30%, #161618 0%, #0c0c0d 70%);
-    border: 1px solid var(--line);
-    box-shadow:
-      0 0 0 10px rgba(255, 255, 255, 0.025),
-      0 0 0 11px var(--line-soft),
-      0 30px 70px rgba(0, 0, 0, 0.55),
-      inset 0 1px 0 rgba(255, 255, 255, 0.06);
-    transition: border-color 0.4s var(--ease);
+    background: radial-gradient(circle at 50% 35%, #E5E7EB 0%, #D1D5DB 100%);
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+  }
+  [data-theme="dark"] .avatar-inner {
+    background: radial-gradient(circle at 50% 35%, #27272A 0%, #18181B 100%);
   }
 
-  .avatar::after {
-    content: "";
-    position: absolute;
-    inset: 12px;
-    border-radius: 50%;
-    border: 1px solid var(--line-soft);
+  .avatar-placeholder {
+    width: 58%;
+    height: 58%;
+    color: #4B5563;
     pointer-events: none;
   }
-
-  .avatar-placeholder { position: absolute; inset: 0; display: grid; place-items: center; }
-  .avatar-placeholder svg { width: 46%; height: auto; transform: translateY(6%); }
+  [data-theme="dark"] .avatar-placeholder {
+    color: #9CA3AF;
+  }
 
   .avatar-preview {
     position: absolute;
     inset: auto;
     left: 50%;
     top: 50%;
+    transform: translate(-50%, -50%);
     max-width: none;
     max-height: none;
-    object-fit: fill;
-    transform: translate(-50%, -50%);
     display: none;
     cursor: grab;
     touch-action: none;
     user-select: none;
     -webkit-user-drag: none;
   }
-
   .has-photo .avatar-preview { display: block; }
   .has-photo .avatar-placeholder { display: none; }
-  .has-photo .avatar { border-color: rgba(255, 255, 255, 0.22); }
-  .avatar.is-adjusting .avatar-preview { cursor: grabbing; }
+  .avatar-inner.is-adjusting .avatar-preview { cursor: grabbing; }
 
-  /* ---------- Actions (shared) ---------- */
-  .actions {
-    grid-area: actions;
+  .avatar-camera-btn {
+    position: absolute;
+    right: 6px;
+    bottom: 6px;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: #FFFFFF;
+    color: #111827;
+    border: 3px solid var(--card-bg);
     display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: clamp(12px, 2.6vh, 22px);
-    width: 100%;
-  }
-
-  .btn-add {
-    display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
-    width: 100%;
-    max-width: 360px;
-    height: 52px;
-    padding: 0 28px;
-    border-radius: 999px;
-    border: 1px solid var(--line);
-    background: #000;
-    font-size: 14px;
-    font-weight: 500;
-    letter-spacing: 0.01em;
-    transition: background 0.25s var(--ease), border-color 0.25s var(--ease), transform 0.25s var(--ease);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.18);
+    transition: transform 0.15s ease, background-color 0.15s ease;
+    cursor: pointer;
+    z-index: 10;
   }
-  .btn-add:hover { background: #000; border-color: var(--line-strong); }
-  .btn-add:active { transform: scale(0.985); }
-
-  /* Step 1: text-style continue */
-  .btn-continue {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 15px;
-    font-weight: 500;
-    padding: 6px 10px;
-    transition: opacity 0.3s var(--ease);
+  .avatar-camera-btn:hover {
+    transform: scale(1.06);
+    background: #F3F4F6;
   }
-  .btn-continue:disabled { opacity: 0.35; cursor: not-allowed; }
-
-  /* Step 2: pill continue */
-  .btn-pill {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    width: 100%;
-    height: 54px;
-    border-radius: 999px;
-    border: 1px solid var(--line-strong);
-    background: #000;
-    font-size: 15px;
-    font-weight: 500;
-    transition: background 0.25s var(--ease), border-color 0.25s var(--ease), transform 0.25s var(--ease);
+  .avatar-camera-btn svg {
+    width: 18px;
+    height: 18px;
   }
-  .btn-pill:hover { background: #000; border-color: rgba(255, 255, 255, 0.4); }
-  .btn-pill:active { transform: scale(0.985); }
 
-  .btn-skip {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 12px;
-    color: var(--text-faint);
-    padding: 6px 10px;
-    transition: color 0.2s var(--ease);
-  }
-  .btn-skip:hover { color: var(--text-muted); }
-  .btn-skip svg { display: none; }
-
-  .btn-back {
-    font-size: 14px;
-    font-weight: 400;
-    padding: 6px 12px;
-    color: var(--text);
-    opacity: 0.85;
-    transition: opacity 0.2s var(--ease);
-  }
-  .btn-back:hover { opacity: 1; }
-
-  .actions-row { display: flex; align-items: center; justify-content: center; gap: 14px; }
-
-  .hint {
-    min-height: 18px;
-    margin: -8px 0 0;
-    font-size: 12px;
+  .avatar-hint {
+    margin: 8px 0 0;
+    font-size: 11px;
     color: var(--text-muted);
     text-align: center;
   }
-
-  .icon    { width: 18px; height: 18px; flex: none; }
-  .icon-sm { width: 15px; height: 15px; flex: none; }
-
-  :focus-visible {
-    outline: 2px solid rgba(255, 255, 255, 0.7);
-    outline-offset: 3px;
-    border-radius: 999px;
+  .avatar-hint.is-error {
+    color: var(--danger-red);
   }
 
-  .sr-only {
-    position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
-    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
-  }
-
-  /* ---------- Step 2 · Form ---------- */
-  .details-form { display: contents; }
-
-  .fields {
-    grid-area: form;
-    align-self: center;
+  /* Host Form Fields */
+  .profile-form {
     display: flex;
     flex-direction: column;
-    gap: clamp(10px, 1.8vh, 14px);
-    width: 100%;
-    padding-block: 20px;
+    gap: 16px;
   }
 
-  .field {
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    position: relative;
+  }
+
+  .form-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .input-wrapper {
+    position: relative;
     display: flex;
     align-items: center;
-    gap: 16px;
-    height: clamp(54px, 8.4vh, 64px);
-    padding: 0 18px;
-    border-radius: 14px;
-    border: 1px solid var(--line);
-    background: #000;
-    text-align: left;
-    cursor: text;
-    transition: border-color 0.2s var(--ease), background 0.2s var(--ease);
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-radius: 12px;
+    height: 46px;
+    padding-inline: 14px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
   }
-  .field:hover { border-color: rgba(255, 255, 255, 0.18); }
-  .field:focus-within { border-color: var(--line-strong); background: #000; }
-  .field.is-invalid { border-color: rgba(255, 155, 155, 0.45); }
+  .input-wrapper:focus-within {
+    border-color: var(--input-focus);
+    box-shadow: 0 0 0 1px var(--input-focus);
+  }
+  .input-wrapper.is-invalid {
+    border-color: var(--danger-red) !important;
+  }
+  .input-wrapper.is-valid {
+    border-color: var(--brand-green) !important;
+  }
 
-  .field-icon { width: 20px; height: 20px; flex: none; color: var(--text-muted); }
-
-  .field-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-
-  .field-label {
-    font-size: 11.5px;
+  .input-prefix {
+    font-size: 14px;
     font-weight: 500;
-    line-height: 1.2;
     color: var(--text-muted);
+    margin-right: 6px;
+    user-select: none;
+  }
+
+  .input-field {
+    flex: 1;
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: transparent !important;
+    font-size: 14px;
+    color: var(--text-primary);
+    outline: none;
+    padding: 0;
+  }
+  .input-field::placeholder {
+    color: var(--text-muted);
+    font-weight: 400;
+  }
+
+  /* Completely eliminate grey/blue browser autofill background */
+  .input-field:-webkit-autofill,
+  .input-field:-webkit-autofill:hover,
+  .input-field:-webkit-autofill:focus,
+  .input-field:-webkit-autofill:active,
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 1000px var(--card-bg) inset !important;
+    box-shadow: 0 0 0 1000px var(--card-bg) inset !important;
+    -webkit-text-fill-color: var(--text-primary) !important;
+    color: var(--text-primary) !important;
+    caret-color: var(--text-primary) !important;
+    transition: background-color 50000s ease-in-out 0s, color 50000s ease-in-out 0s !important;
+    background-color: transparent !important;
+  }
+  .input-field:autofill,
+  .input-field:autofill:hover,
+  .input-field:autofill:focus,
+  input:autofill,
+  input:autofill:hover,
+  input:autofill:focus {
+    box-shadow: 0 0 0 1000px var(--card-bg) inset !important;
+    -webkit-text-fill-color: var(--text-primary) !important;
+    color: var(--text-primary) !important;
+    caret-color: var(--text-primary) !important;
+    background-color: transparent !important;
+  }
+
+  /* Inline spinner for real-time username availability check */
+  .input-spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--text-muted);
+    border-top-color: var(--brand-green);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    margin-left: 8px;
+    flex-shrink: 0;
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .input-status-icon {
+    width: 16px;
+    height: 16px;
+    margin-left: 8px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .input-phone-code {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-primary);
+    padding-right: 12px;
+    border-right: 1px solid var(--line);
+    margin-right: 12px;
+    user-select: none;
+  }
+
+  .input-icon-left {
+    width: 16px;
+    height: 16px;
+    color: var(--text-muted);
+    margin-right: 10px;
+    flex-shrink: 0;
+  }
+
+  .input-icon-right {
+    width: 16px;
+    height: 16px;
+    color: var(--text-muted);
+    margin-left: 8px;
+    flex-shrink: 0;
+    pointer-events: none;
+  }
+
+  .form-helper {
+    font-size: 11.5px;
+    color: var(--text-muted);
+    margin: 2px 0 0;
+  }
+  .form-helper.is-error {
+    color: var(--danger-red) !important;
+  }
+  .form-helper.is-success {
+    color: var(--brand-green) !important;
+  }
+
+  /* ---------- Category Cards (Client & Host Card 2) ---------- */
+  .category-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-bottom: 22px;
+  }
+
+  .cat-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-radius: 14px;
+    cursor: pointer;
+    text-align: left;
+    transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+    user-select: none;
+  }
+  .cat-card:hover {
+    border-color: var(--text-secondary);
+  }
+
+  .cat-card.is-selected {
+    border: 1.5px solid var(--brand-green);
+    background: var(--brand-green-light);
+  }
+
+  .cat-card-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: var(--line-subtle);
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background-color 0.15s ease, color 0.15s ease;
+  }
+  [data-theme="dark"] .cat-card-icon {
+    background: rgba(255, 255, 255, 0.08);
+  }
+  .cat-card.is-selected .cat-card-icon {
+    background: var(--brand-green);
+    color: #FFFFFF;
+  }
+  .cat-card-icon svg {
+    width: 19px;
+    height: 19px;
+  }
+
+  .cat-card-text {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .cat-card-title {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 2px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  .field.is-invalid .field-label { color: var(--error); }
 
-  .username-hint {
+  .cat-card-desc {
+    font-size: 11px;
+    color: var(--text-secondary);
+    line-height: 1.35;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .cat-card-radio {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 1.5px solid var(--text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+  }
+  .cat-card.is-selected .cat-card-radio {
+    border-color: var(--brand-green);
+    background: var(--brand-green);
+    color: #FFFFFF;
+  }
+  .cat-card-radio svg {
+    width: 11px;
+    height: 11px;
+    stroke-width: 3;
     display: none;
-    margin: -4px 0 0;
-    padding-inline: 18px;
-    color: var(--error);
-    font-size: 12px;
-    line-height: 1.45;
-    text-align: left;
+  }
+  .cat-card.is-selected .cat-card-radio svg {
+    display: block;
   }
 
-  .field input {
-    width: 100%;
-    padding: 0;
-    border: 0;
-    background: transparent;
+  .category-grid .cat-card:nth-child(5) {
+    grid-column: span 2;
+  }
+
+  /* ---------- Discovery Timeline Selector (Client) ---------- */
+  .timeline-section {
+    margin-bottom: 20px;
+  }
+
+  .timeline-heading {
     font-size: 14px;
-    line-height: 1.3;
-    color: var(--text);
-  }
-  .field input::placeholder { color: var(--text-faint); }
-  .field input:focus,
-  .field input:focus-visible { outline: none; }
-  .field input:-webkit-autofill {
-    -webkit-text-fill-color: var(--text);
-    transition: background-color 99999s ease-out;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 10px;
   }
 
-  .content--details .actions,
-  .content--interests .actions { gap: 14px; }
+  .timeline-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
 
-  .aside { display: none; }
+  .timeline-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-radius: 12px;
+    cursor: pointer;
+    text-align: left;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+    user-select: none;
+  }
+  .timeline-card:hover {
+    border-color: var(--text-secondary);
+  }
+  .timeline-card.is-selected {
+    border: 1.5px solid var(--brand-green);
+    background: var(--brand-green-light);
+  }
 
-  /* ---------- Step 3 · Interests ---------- */
-  .interests-form { display: contents; }
+  .timeline-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 1.5px solid var(--text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .timeline-card.is-selected .timeline-dot {
+    border-color: var(--brand-green);
+  }
+  .timeline-dot::after {
+    content: "";
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: transparent;
+  }
+  .timeline-card.is-selected .timeline-dot::after {
+    background: var(--brand-green);
+  }
 
-  .picks {
-    grid-area: picks;
-    align-self: center;
+  .timeline-text {
+    flex: 1;
+  }
+  .timeline-title {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+  }
+  .timeline-desc {
+    font-size: 11px;
+    color: var(--text-secondary);
+  }
+
+  /* ---------- Card Footer & CTA ---------- */
+  .card-footer {
+    margin-top: auto;
+    padding-top: 14px;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: clamp(10px, 2.2vh, 18px);
+    gap: 10px;
+  }
+
+  .btn-continue {
+    position: relative;
     width: 100%;
-    padding-block: 12px;
-  }
-
-  .chips {
+    height: 48px;
+    border-radius: 12px;
+    background: #10B981;
+    color: #FFFFFF;
+    font-size: 14.5px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
     display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 8px;
-  }
-
-  .chip {
-    display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
-    height: 44px;
-    padding: 0 16px;
-    border-radius: 999px;
-    border: 1px solid var(--line);
-    background: #000;
-    font-size: 13.5px;
-    font-weight: 400;
-    color: var(--text-muted);
-    white-space: nowrap;
-    transition: background 0.2s var(--ease), border-color 0.2s var(--ease), color 0.2s var(--ease), opacity 0.2s var(--ease);
+    transition: background 0.2s ease, transform 0.12s ease, opacity 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    box-shadow: 0 4px 18px rgba(16, 185, 129, 0.4);
   }
-  .chip:hover { border-color: rgba(255, 255, 255, 0.24); color: var(--text); }
-
-  .chip-icon { position: relative; width: 18px; height: 18px; flex: none; }
-  .chip-icon svg { width: 18px; height: 18px; }
-  .chip-icon .ic-check { display: none; }
-
-  .chip[aria-pressed="true"] {
-    border-color: rgba(255, 255, 255, 0.5);
-    background: rgba(255, 255, 255, 0.11);
-    color: var(--text);
-    font-weight: 500;
+  .btn-continue:hover:not(:disabled) {
+    background: var(--brand-green-hover);
   }
-  .chip[aria-pressed="true"] .ic-cat   { display: none; }
-  .chip[aria-pressed="true"] .ic-check { display: block; }
+  .btn-continue:active:not(:disabled) {
+    transform: scale(0.99);
+  }
+  .btn-continue:disabled {
+    background: var(--disabled-bg);
+    color: var(--disabled-text);
+    box-shadow: none;
+    cursor: not-allowed;
+  }
 
-  .chip.is-locked { opacity: 0.4; }
-  .chip.is-locked:hover { border-color: var(--line); color: var(--text-muted); }
+  /* Card 1: Faint green when details are not yet complete */
+  .btn-continue.is-faint {
+    background: rgba(16, 185, 129, 0.24) !important;
+    color: rgba(255, 255, 255, 0.65) !important;
+    border: 1px solid rgba(16, 185, 129, 0.3) !important;
+    box-shadow: none !important;
+  }
+  [data-theme="dark"] .btn-continue.is-faint {
+    background: rgba(16, 185, 129, 0.16) !important;
+    color: rgba(255, 255, 255, 0.55) !important;
+    border: 1px solid rgba(16, 185, 129, 0.2) !important;
+    box-shadow: none !important;
+  }
 
-  .picks .field { width: 100%; }
+  /* Card 1: Upgraded vibrant bold green when all details are filled */
+  .btn-continue.is-upgraded {
+    background: linear-gradient(135deg, #10B981 0%, #059669 100%) !important;
+    color: #FFFFFF !important;
+    border: none !important;
+    box-shadow: 0 6px 22px rgba(16, 185, 129, 0.5) !important;
+    cursor: pointer !important;
+  }
+  .btn-continue.is-upgraded:hover {
+    background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
+    box-shadow: 0 8px 26px rgba(16, 185, 129, 0.6) !important;
+    transform: translateY(-1px);
+  }
 
-  .pick-hint {
+  .footer-subtext {
     margin: 0;
-    min-height: 18px;
+    font-size: 11.5px;
+    color: var(--text-muted);
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+  }
+
+  .btn-back-link {
     font-size: 12px;
     color: var(--text-muted);
     text-align: center;
+    margin-top: 4px;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
   }
-  .pick-hint.is-error { color: var(--error); }
-
-  .timeline {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 10px;
-    width: 100%;
-  }
-  .group-label { font-size: 12px; font-weight: 500; color: var(--text-muted); }
-  .group-label.is-error { color: var(--error); }
-  .timeline-options { display: flex; gap: 8px; width: 100%; }
-  .timeline-options .chip { flex: 1; padding: 0 12px; }
-
-  /* ---------- Desktop ---------- */
-  @media (min-width: 900px) {
-    .screen { padding: 40px clamp(32px, 4.5vw, 64px); }
-
-    .top { justify-content: space-between; width: 100%; max-width: 1240px; margin-inline: auto; }
-    .wordmark { font-size: 19px; }
-
-    .steps {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      font-size: 10px;
-      font-weight: 500;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      color: var(--text-muted);
-    }
-    .steps-bars { display: flex; gap: 6px; }
-    .steps-bars span { width: 20px; height: 2px; border-radius: 2px; background: rgba(255, 255, 255, 0.16); transition: background 0.3s var(--ease); }
-    .steps-bars span.is-active { background: var(--text); }
-
-    .content {
-      max-width: 1240px;
-      grid-template-columns: 1fr 1fr;
-      column-gap: clamp(32px, 6vw, 96px);
-      justify-items: start;
-      align-items: start;
-      text-align: left;
-      padding-top: 0;
-    }
-
-    .content--photo {
-      grid-template-rows: 1fr auto auto 1fr;
-      grid-template-areas:
-        ". avatar"
-        "copy avatar"
-        "actions avatar"
-        ". avatar";
-    }
-
-    .content--interests {
-      grid-template-rows: 1fr auto auto auto 1fr;
-      grid-template-areas:
-        ". aside"
-        "copy aside"
-        "picks aside"
-        "actions aside"
-        ". aside";
-    }
-
-    .content--details {
-      grid-template-rows: 1fr auto auto auto 1fr;
-      grid-template-areas:
-        ". aside"
-        "copy aside"
-        "form aside"
-        "actions aside"
-        ". aside";
-    }
-
-    .eyebrow,
-    .content--photo .eyebrow {
-      display: block;
-      margin: 0 0 clamp(14px, 3vh, 22px);
-      font-size: 11px;
-    }
-
-    h1 { font-size: clamp(38px, min(4.6vw, 7.4vh), 64px); line-height: 1.08; }
-
-    .sub { margin: clamp(14px, 2.6vh, 22px) 0 0; font-size: 16px; }
-    .content--photo .sub { max-width: 26ch; }
-    .content--details .sub { max-width: 28ch; font-size: 15px; }
-    .content--interests .sub { max-width: 36ch; font-size: 15px; }
-
-    /* Step 1 */
-    .avatar-wrap { justify-self: center; align-self: center; padding: 0; }
-    .avatar { --size: clamp(240px, min(30vw, 58vh), 400px); }
-    .avatar::after { inset: 18px; }
-
-    .content--photo .actions { align-items: flex-start; gap: 22px; margin-top: clamp(24px, 4.5vh, 36px); }
-    .btn-add { width: auto; max-width: none; min-width: 210px; height: 48px; }
-    .btn-skip { padding: 6px 0; font-size: 13px; color: var(--text-muted); }
-    .btn-skip svg { display: block; }
-    .btn-skip:hover { color: var(--text); }
-    .btn-continue { padding: 6px 0; }
-    body:not(.has-photo) .btn-continue { display: none; }   /* desktop: Continue appears once a photo is chosen */
-    .hint { text-align: left; margin: -8px 0 0; }
-
-    /* Step 2 */
-    .fields { max-width: 400px; align-self: start; padding-block: 0; margin-top: clamp(20px, 3.8vh, 32px); }
-    .content--details .actions { max-width: 400px; margin-top: clamp(18px, 3.4vh, 28px); }
-    .btn-pill { height: 50px; }
-
-    /* Step 3 */
-    .picks { align-self: start; align-items: flex-start; max-width: 520px; padding-block: 0; margin-top: clamp(18px, 3.4vh, 28px); }
-    .chips { justify-content: flex-start; }
-    .pick-hint { text-align: left; }
-    .timeline { align-items: flex-start; }
-    .content--interests .actions { max-width: 520px; margin-top: clamp(18px, 3.4vh, 28px); }
-    .chip { height: 46px; font-size: 14px; padding: 0 18px; }
-    .content--interests h1 { font-size: clamp(34px, min(4.2vw, 6.4vh), 60px); }
-    .timeline-options { width: auto; }
-    .timeline-options .chip { flex: none; padding: 0 24px; }
-
-    .content--details .aside,
-    .content--interests .aside {
-      grid-area: aside;
-      align-self: stretch;
-      justify-self: end;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      align-items: flex-start;
-      padding-block: clamp(8px, 5vh, 56px);
-    }
-    .aside-block {
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-      font-size: 10px;
-      font-weight: 500;
-      letter-spacing: 0.2em;
-      line-height: 2;
-      text-transform: uppercase;
-      color: var(--text-muted);
-    }
-    .aside-block::after { content: ""; width: 24px; height: 1px; background: var(--text-faint); }
+  .btn-back-link:hover {
+    color: var(--text-primary);
   }
 
-  /* ---------- Short screens: keep everything in view ---------- */
-  @media (max-height: 700px) {
-    .content--interests .sub { display: none; }
+  .global-feedback {
+    min-height: 18px;
+    font-size: 12px;
+    font-weight: 500;
+    text-align: center;
+    margin: 0;
   }
-  @media (max-height: 620px) {
-    .content--interests .eyebrow { display: none; }
-  }
-
-  /* ---------- Short phones ---------- */
-  @media (max-width: 899px) and (max-height: 660px) {
-    .avatar { --size: clamp(136px, 26vh, 190px); }
-    .btn-add { height: 48px; }
-    .btn-pill { height: 50px; }
-    .chip { height: 44px; }
-    .screen { padding-top: calc(env(safe-area-inset-top, 0px) + 18px); padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 18px); }
+  .global-feedback.is-error {
+    color: var(--danger-red);
   }
 
-  /* Mobile onboarding is one continuous canvas. The app shell's shared dark
-     surface must not show around, or behind, an individual onboarding step. */
-  @media (max-width: 899px) {
-    html,
-    body,
-    #__next,
-    html[data-theme] body,
-    html[data-theme] body > #__next,
-    html[data-theme] body > #__next > main,
-    html[data-theme] .screen {
-      background: #000 !important;
+  /* ---------- Responsive Styles ---------- */
+  @media (max-width: 640px) {
+    body {
+      padding: 12px;
+      align-items: stretch;
+      min-height: 100dvh;
     }
 
-    html[data-theme] .screen .content {
-      background: transparent !important;
+    .onboarding-wrap {
+      max-width: 100%;
+      margin: auto 0;
     }
 
-  }
+    .card-foreground {
+      padding: 24px 18px 20px;
+      border-radius: 20px;
+      min-height: auto;
+    }
 
-  /* ---------- Motion: one quiet load-in, nothing else ---------- */
-  @media (prefers-reduced-motion: no-preference) {
-    .avatar { animation: settle 0.9s var(--ease) both; }
-    @keyframes settle {
-      from { opacity: 0; transform: scale(0.965); }
-      to   { opacity: 1; transform: none; }
+    .wordmark {
+      font-size: 20px;
+    }
+
+    .card-title {
+      font-size: 22px;
+    }
+
+    .card-subtitle {
+      font-size: 12.5px;
+    }
+
+    .host-profile-layout {
+      grid-template-columns: 1fr;
+      gap: 20px;
+      padding-block: 4px 12px;
+    }
+
+    .avatar-frame {
+      width: 150px;
+      height: 150px;
+    }
+
+    .avatar-camera-btn {
+      width: 34px;
+      height: 34px;
+      right: 4px;
+      bottom: 4px;
+    }
+
+    .category-grid {
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+
+    .category-grid .cat-card:nth-child(5) {
+      grid-column: span 1;
+    }
+
+    .timeline-grid {
+      grid-template-columns: 1fr;
+      gap: 8px;
     }
   }
 </style>
 </head>
 
 <body>
-<main class="screen" id="screen">
 
-  <!-- Shared header -->
-  <header class="top">
-    <span class="wordmark">VaRoom.</span>
+<div class="onboarding-wrap">
+  <main class="card-foreground glass3d" id="onboardingCard">
 
-    <div class="steps" id="steps" aria-label="Step 1 of 3">
-      <span id="stepsLabel">Step 1 of 3</span>
-      <div class="steps-bars" id="stepsBars" aria-hidden="true">
-        <span></span><span></span><span></span>
-      </div>
-    </div>
-  </header>
-
-  <!-- ============ STEP 1 · Profile photo ============ -->
-  <section class="content content--photo" id="step1" data-step="1">
-
-    <div class="copy">
-      <p class="eyebrow">Your profile</p>
-      <h1 tabindex="-1">Add your <strong>profile photo</strong></h1>
-      <p class="sub">Let people know who you're connecting with.</p>
-    </div>
-
-    <div class="avatar-wrap">
-      <div class="avatar" id="avatar">
-        <div class="avatar-placeholder" aria-hidden="true">
-          <svg viewBox="0 0 120 120" fill="none">
-            <defs>
-              <linearGradient id="sil" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0" stop-color="#8b8b90"/>
-                <stop offset="1" stop-color="#4c4c51"/>
-              </linearGradient>
-            </defs>
-            <circle cx="60" cy="38" r="21" fill="url(#sil)"/>
-            <path d="M14 112c0-24 20-38 46-38s46 14 46 38v8H14z" fill="url(#sil)"/>
-          </svg>
+    <!-- ==================== HOST CARD 1: PROFILE SETUP ==================== -->
+    <section id="cardHostProfile" hidden>
+      <header class="card-header">
+        <div class="header-brand-row">
+          <span class="wordmark"><span class="wordmark-va">Va</span><span class="wordmark-room">Room</span></span>
+          <span class="pill-badge">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2L14.4 9.6L22 12L14.4 14.4L12 22L9.6 14.4L2 12L9.6 9.6L12 2Z"/></svg>
+            MAKE YOURSELF AT HOME
+          </span>
         </div>
-        <img class="avatar-preview" id="preview" alt="Preview of your profile photo">
+        <h1 class="card-title">A little more you.</h1>
+        <p class="card-subtitle">Let's set up your profile so people can put a face to your name.</p>
+      </header>
+
+      <div class="card-body">
+        <div class="host-profile-layout">
+          <!-- Profile Photo with repositioning support -->
+          <div class="avatar-container">
+            <div class="avatar-frame">
+              <div class="avatar-inner" id="avatarBox" title="Click to choose profile photo">
+                <svg class="avatar-placeholder" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                  <circle cx="12" cy="7" r="4"/>
+                </svg>
+                <img class="avatar-preview" id="avatarPreview" alt="Preview of your profile photo">
+              </div>
+
+              <input class="sr-only" type="file" id="hostPhotoInput" accept="image/*" style="display:none;">
+
+              <button class="avatar-camera-btn" type="button" id="btnUploadPhoto" aria-label="Upload profile photo">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                  <circle cx="12" cy="13" r="4"/>
+                </svg>
+              </button>
+            </div>
+            <p class="avatar-hint" id="avatarHint">Drag or scroll to adjust photo</p>
+          </div>
+
+          <!-- Form Fields -->
+          <form class="profile-form" id="hostProfileForm" novalidate>
+            <!-- Username with real-time validation and spinner -->
+            <div class="form-group" id="groupUsername">
+              <label class="form-label" for="inpUsername">Username</label>
+              <div class="input-wrapper" id="wrapUsername">
+                <span class="input-prefix">@</span>
+                <input class="input-field" type="text" id="inpUsername" name="username" placeholder="Choose a username"
+                       autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="20">
+                <div class="input-spinner" id="usernameSpinner" hidden></div>
+                <div class="input-status-icon" id="usernameStatusIcon" hidden></div>
+              </div>
+              <p class="form-helper" id="usernameHelper">Your unique name. You can always change it later.</p>
+            </div>
+
+            <!-- Phone Number -->
+            <div class="form-group" id="groupPhone">
+              <label class="form-label" for="inpPhone">Phone number</label>
+              <div class="input-wrapper" id="wrapPhone">
+                <span class="input-phone-code">+254</span>
+                <input class="input-field" type="tel" id="inpPhone" name="phone" placeholder="712345678"
+                       autocomplete="tel" inputmode="tel" maxlength="20">
+              </div>
+              <p class="form-helper" id="phoneHelper" style="display:none;"></p>
+            </div>
+
+            <!-- Location -->
+            <div class="form-group" id="groupLocation">
+              <label class="form-label" for="inpLocation">Location</label>
+              <div class="input-wrapper" id="wrapLocation">
+                <svg class="input-icon-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                  <circle cx="12" cy="10" r="3"/>
+                </svg>
+                <input class="input-field" type="text" id="inpLocation" name="city" list="kenyaCities" placeholder="City, country"
+                       autocomplete="address-level2" maxlength="60">
+                <svg class="input-icon-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <polyline points="6 9 12 15 18 9"/>
+                </svg>
+                <datalist id="kenyaCities">
+                  <option value="Nairobi, Kenya"></option>
+                  <option value="Mombasa, Kenya"></option>
+                  <option value="Diani, Kenya"></option>
+                  <option value="Kisumu, Kenya"></option>
+                  <option value="Nakuru, Kenya"></option>
+                  <option value="Naivasha, Kenya"></option>
+                  <option value="Eldoret, Kenya"></option>
+                  <option value="Malindi, Kenya"></option>
+                  <option value="Kilifi, Kenya"></option>
+                  <option value="Nanyuki, Kenya"></option>
+                  <option value="Kiambu, Kenya"></option>
+                </datalist>
+              </div>
+              <p class="form-helper" id="locationHelper" style="display:none;"></p>
+            </div>
+          </form>
+        </div>
       </div>
-    </div>
 
-    <div class="actions">
-      <input class="sr-only" type="file" id="photoInput" accept="image/*" tabindex="-1">
-
-      <button class="btn-add" type="button" id="btnAdd">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2.2a1.5 1.5 0 0 0 1.2-.6l.7-1A1.5 1.5 0 0 1 10.8 5h2.4a1.5 1.5 0 0 1 1.2.6l.7 1a1.5 1.5 0 0 0 1.2.6h2.2A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5z"/>
-          <circle cx="12" cy="12.5" r="3.4"/>
-        </svg>
-        <span id="btnAddLabel">Add profile photo</span>
-      </button>
-
-      <p class="hint" id="hint" role="status" aria-live="polite"></p>
-
-      <button class="btn-continue" type="button" id="btnContinue" disabled>
-        <span>Continue</span>
-        <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M5 12h14M13 6l6 6-6 6"/>
-        </svg>
-      </button>
-
-      <button class="btn-skip" type="button" id="btnSkip">
-        <span>Skip for now</span>
-        <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M5 12h14M13 6l6 6-6 6"/>
-        </svg>
-      </button>
-    </div>
-  </section>
-
-  <!-- ============ STEP 2 · Your details ============ -->
-  <section class="content content--details" id="step2" data-step="2" hidden>
-
-    <div class="copy">
-      <p class="eyebrow">Your details</p>
-      <h1 tabindex="-1">Tell us a little <strong>about you</strong></h1>
-      <p class="sub">This helps people connect with you and find you easily.</p>
-    </div>
-
-    <form class="details-form" id="detailsForm" novalidate>
-
-      <div class="fields">
-        <label class="field" id="fieldUsername">
-          <svg class="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <circle cx="12" cy="8" r="3.6"/>
-            <path d="M4.8 20c.6-3.6 3.6-5.6 7.2-5.6s6.6 2 7.2 5.6"/>
-          </svg>
-          <span class="field-body">
-            <span class="field-label" data-label="Username">Username</span>
-            <input type="text" id="inpUsername" name="username" placeholder="@yourusername"
-                   autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="21">
-          </span>
-        </label>
-        <p class="username-hint" id="usernameHint" role="alert"></p>
-
-        <label class="field" id="fieldPhone">
-          <svg class="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
-          </svg>
-          <span class="field-body">
-            <span class="field-label" data-label="Phone number">Phone number</span>
-            <input type="tel" id="inpPhone" name="phone" placeholder="+254 712 345 678"
-                   autocomplete="tel" inputmode="tel" maxlength="20">
-          </span>
-        </label>
-
-        <label class="field" id="fieldCity">
-          <svg class="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/>
-            <circle cx="12" cy="10" r="2.4"/>
-          </svg>
-          <span class="field-body">
-            <span class="field-label" data-label="City / Area">City / Area</span>
-            <input type="text" id="inpCity" name="city" placeholder="e.g. Nairobi, Westlands"
-                   autocomplete="address-level2" maxlength="60">
-          </span>
-        </label>
-      </div>
-
-      <div class="actions">
-        <button class="btn-pill" type="submit" id="btnDetailsContinue">
+      <footer class="card-footer">
+        <p class="global-feedback" id="hostProfileFeedback" role="alert"></p>
+        <button class="btn-continue" type="button" id="btnHostProfileContinue">
           <span>Continue</span>
-          <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M5 12h14M13 6l6 6-6 6"/>
           </svg>
         </button>
-
-        <div class="actions-row">
-          <button class="btn-back" type="button" id="btnBack">Back</button>
-          <!-- TEMP: preview-only skip, delete this button and its handler (btnSkip2) when wiring -->
-          <button class="btn-skip" type="button" id="btnSkip2">
-            <span>Skip for now</span>
-            <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M5 12h14M13 6l6 6-6 6"/>
-            </svg>
-          </button>
-        </div>
-      </div>
-
-    </form>
-
-    <!-- desktop only, quiet right-hand side -->
-    <aside class="aside" aria-hidden="true">
-      <div class="aside-block">
-        <span>People</span><span>Places</span><span>Possibilities</span>
-      </div>
-      <div class="aside-block">
-        <span>A more connected you</span>
-      </div>
-    </aside>
-  </section>
-
-  <!-- ============ STEP 3 · Interests (hosts: what they list · clients: what they want) ============ -->
-  <section class="content content--interests" id="step3" data-step="3" hidden>
-
-    <div class="copy">
-      <p class="eyebrow" data-for="host">Your listings</p>
-      <p class="eyebrow" data-for="client">Your interests</p>
-      <h1 tabindex="-1">
-        <span data-for="host">What will you <strong>be listing?</strong></span>
-        <span data-for="client">What are you <strong>looking for?</strong></span>
-      </h1>
-      <p class="sub" data-for="host">Pick the 2 that fit you best.</p>
-      <p class="sub" data-for="client">Pick what interests you and we'll fill your marketplace with it.</p>
-    </div>
-
-    <form class="interests-form" id="interestsForm" novalidate>
-
-      <div class="picks">
-        <div class="chips" id="chips" role="group" aria-label="Categories">
-          <button class="chip" type="button" data-value="airbnb" aria-pressed="false">
-            <span class="chip-icon" aria-hidden="true">
-              <svg class="ic-cat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.5 12 5l8 6.5V19a1 1 0 0 1-1 1h-4.5v-5.5h-5V20H5a1 1 0 0 1-1-1z"/></svg>
-              <svg class="ic-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>
-            </span>
-            <span>Airbnbs</span>
-          </button>
-          <button class="chip" type="button" data-value="hotel" aria-pressed="false">
-            <span class="chip-icon" aria-hidden="true">
-              <svg class="ic-cat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V6a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v14M15 10h3a1 1 0 0 1 1 1v9M3 20h18M8.5 9h3M8.5 12.5h3M8.5 16h3"/></svg>
-              <svg class="ic-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>
-            </span>
-            <span>Hotels</span>
-          </button>
-          <button class="chip" type="button" data-value="venue" aria-pressed="false">
-            <span class="chip-icon" aria-hidden="true">
-              <svg class="ic-cat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5.5" width="16" height="14.5" rx="2"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/></svg>
-              <svg class="ic-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>
-            </span>
-            <span>Event grounds &amp; venues</span>
-          </button>
-          <button class="chip" type="button" data-value="office" data-for="host" aria-pressed="false">
-            <span class="chip-icon" aria-hidden="true">
-              <svg class="ic-cat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="7.5" width="17" height="12" rx="2"/><path d="M9 7.5V6a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 15 6v1.5M3.5 13h17"/></svg>
-              <svg class="ic-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>
-            </span>
-            <span>Offices &amp; Shops</span>
-          </button>
-          <button class="chip" type="button" data-value="office" data-for="client" aria-pressed="false">
-            <span class="chip-icon" aria-hidden="true">
-              <svg class="ic-cat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="7.5" width="17" height="12" rx="2"/><path d="M9 7.5V6a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 15 6v1.5M3.5 13h17"/></svg>
-              <svg class="ic-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>
-            </span>
-            <span>Offices</span>
-          </button>
-          <button class="chip" type="button" data-value="shop" data-for="client" aria-pressed="false">
-            <span class="chip-icon" aria-hidden="true">
-              <svg class="ic-cat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9.5 6.3 4.5h11.4L19 9.5M5 9.5a2.5 2.5 0 0 0 4.7 1.2 2.5 2.5 0 0 0 4.6 0 2.5 2.5 0 0 0 4.7-1.2M5.5 12v8h13v-8M10 20v-4.5h4V20"/></svg>
-              <svg class="ic-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>
-            </span>
-            <span>Shops</span>
-          </button>
-          <button class="chip" type="button" data-value="property" aria-pressed="false">
-            <span class="chip-icon" aria-hidden="true">
-              <svg class="ic-cat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="3.5"/><path d="m10.5 12.5 8-8M15.5 7.5l2.5 2.5M13.5 9.5l2 2"/></svg>
-              <svg class="ic-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>
-            </span>
-            <span>Property to let or buy</span>
-          </button>
-        </div>
-
-        <p class="pick-hint" id="pickHint" role="status" aria-live="polite"></p>
-
-        <!-- Hosts: the name they appear with in discover -->
-        <label class="field" id="fieldDiscover" data-for="host">
-          <svg class="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <circle cx="12" cy="12" r="8.5"/>
-            <path d="m15.5 8.5-2 5-5 2 2-5z"/>
+        <p class="footer-subtext">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
           </svg>
-          <span class="field-body">
-            <span class="field-label" data-label="Name in discover">Name in discover</span>
-            <input type="text" id="inpDiscover" name="discover_name" placeholder="How you'll appear to others"
-                   autocomplete="off" maxlength="40">
-          </span>
-        </label>
+          Your phone number stays private.
+        </p>
+      </footer>
+    </section>
 
-        <!-- Clients: how soon they're looking -->
-        <div class="timeline" data-for="client" role="group" aria-labelledby="timelineLabel">
-          <span class="group-label" id="timelineLabel" data-label="When are you looking?">When are you looking?</span>
-          <div class="timeline-options" id="timelineOptions">
-            <button class="chip" type="button" data-value="soon" aria-pressed="false">
-              <span class="chip-icon" aria-hidden="true">
-                <svg class="ic-cat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>
-                <svg class="ic-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>
-              </span>
-              <span>Looking soon</span>
-            </button>
-            <button class="chip" type="button" data-value="browsing" aria-pressed="false">
-              <span class="chip-icon" aria-hidden="true">
-                <svg class="ic-cat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></svg>
-                <svg class="ic-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>
-              </span>
-              <span>Just browsing</span>
-            </button>
+
+    <!-- ==================== HOST CARD 2: LISTING CATEGORY ==================== -->
+    <section id="cardHostCategory" hidden>
+      <header class="card-header">
+        <h1 class="card-title">What will you be listing?</h1>
+        <p class="card-subtitle">Choose the category that best describes your place.</p>
+      </header>
+
+      <div class="card-body">
+        <div class="category-grid" id="hostCategoryGrid" role="radiogroup" aria-label="Listing categories">
+          <!-- Airbnb -->
+          <div class="cat-card" data-niche="airbnb" role="radio" aria-checked="false" tabindex="0">
+            <div class="cat-card-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                <polyline points="9 22 9 12 15 12 15 22"/>
+              </svg>
+            </div>
+            <div class="cat-card-text">
+              <div class="cat-card-title">Airbnbs</div>
+            </div>
+            <div class="cat-card-radio">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+          </div>
+
+          <!-- Hotels -->
+          <div class="cat-card" data-niche="hotel" role="radio" aria-checked="false" tabindex="0">
+            <div class="cat-card-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/>
+                <path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/>
+                <path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/>
+                <path d="M10 6h4M10 10h4M10 14h4M10 18h4"/>
+              </svg>
+            </div>
+            <div class="cat-card-text">
+              <div class="cat-card-title">Hotels</div>
+            </div>
+            <div class="cat-card-radio">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+          </div>
+
+          <!-- Property to let / buy -->
+          <div class="cat-card" data-niche="property" role="radio" aria-checked="false" tabindex="0">
+            <div class="cat-card-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="7.5" cy="15.5" r="4.5"/>
+                <path d="m11 12 8-8"/>
+                <path d="m15 4 4 4"/>
+                <path d="m17 8 2 2"/>
+              </svg>
+            </div>
+            <div class="cat-card-text">
+              <div class="cat-card-title">Property to let / buy</div>
+            </div>
+            <div class="cat-card-radio">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+          </div>
+
+          <!-- Shops & offices -->
+          <div class="cat-card" data-niche="office" role="radio" aria-checked="false" tabindex="0">
+            <div class="cat-card-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                <path d="M9 22V12h6v10"/>
+                <path d="M3 9h18"/>
+              </svg>
+            </div>
+            <div class="cat-card-text">
+              <div class="cat-card-title">Shops &amp; offices</div>
+            </div>
+            <div class="cat-card-radio">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+          </div>
+
+          <!-- Event venues -->
+          <div class="cat-card" data-niche="venue" role="radio" aria-checked="false" tabindex="0">
+            <div class="cat-card-icon">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2L14.4 9.6L22 12L14.4 14.4L12 22L9.6 14.4L2 12L9.6 9.6L12 2Z"/>
+              </svg>
+            </div>
+            <div class="cat-card-text">
+              <div class="cat-card-title">Event venues</div>
+            </div>
+            <div class="cat-card-radio">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- Display Name -->
+        <div class="form-group" style="margin-top: 4px;">
+          <label class="form-label" for="inpDiscoverName">How you'll appear in Varoom's Discover</label>
+          <div class="input-wrapper" id="wrapDiscoverName">
+            <input class="input-field" type="text" id="inpDiscoverName" name="discover_name" placeholder="e.g. Palm View Apartments"
+                   autocomplete="off" maxlength="40">
+          </div>
+          <p class="form-helper" id="discoverHelper" style="display:none;"></p>
+        </div>
+      </div>
+
+      <footer class="card-footer">
+        <p class="global-feedback" id="hostCategoryFeedback" role="alert"></p>
+        <button class="btn-continue" type="button" id="btnHostCategoryContinue" disabled>
+          <span>Continue</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M5 12h14M13 6l6 6-6 6"/>
+          </svg>
+        </button>
+        <p class="footer-subtext">You can update these listing details anytime.</p>
+        <button class="btn-back-link" type="button" id="btnHostBackToProfile">← Back to profile setup</button>
+      </footer>
+    </section>
+
+
+    <!-- ==================== CLIENT ONBOARDING: ONE CARD ONLY ==================== -->
+    <section id="cardClientPreferences" hidden>
+      <header class="card-header">
+        <h1 class="card-title">What are you hoping to find?</h1>
+        <p class="card-subtitle">Choose the types of spaces you're interested in right now.</p>
+      </header>
+
+      <div class="card-body">
+        <!-- Categories Multi-Select -->
+        <div class="category-grid" id="clientCategoryGrid" role="group" aria-label="Space categories">
+          <!-- Airbnbs -->
+          <div class="cat-card" data-category="airbnb" role="checkbox" aria-checked="false" tabindex="0">
+            <div class="cat-card-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                <polyline points="9 22 9 12 15 12 15 22"/>
+              </svg>
+            </div>
+            <div class="cat-card-text">
+              <div class="cat-card-title">Airbnbs</div>
+              <div class="cat-card-desc">Unique stays that feel like home</div>
+            </div>
+            <div class="cat-card-radio">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+          </div>
+
+          <!-- Hotels -->
+          <div class="cat-card" data-category="hotel" role="checkbox" aria-checked="false" tabindex="0">
+            <div class="cat-card-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/>
+                <path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/>
+                <path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/>
+                <path d="M10 6h4M10 10h4M10 14h4M10 18h4"/>
+              </svg>
+            </div>
+            <div class="cat-card-text">
+              <div class="cat-card-title">Hotels</div>
+              <div class="cat-card-desc">Comfort, service and easy booking</div>
+            </div>
+            <div class="cat-card-radio">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+          </div>
+
+          <!-- Property to let / buy -->
+          <div class="cat-card" data-category="property" role="checkbox" aria-checked="false" tabindex="0">
+            <div class="cat-card-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="7.5" cy="15.5" r="4.5"/>
+                <path d="m11 12 8-8"/>
+                <path d="m15 4 4 4"/>
+                <path d="m17 8 2 2"/>
+              </svg>
+            </div>
+            <div class="cat-card-text">
+              <div class="cat-card-title">Property to let / buy</div>
+              <div class="cat-card-desc">Your next home or investment</div>
+            </div>
+            <div class="cat-card-radio">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+          </div>
+
+          <!-- Shops & offices -->
+          <div class="cat-card" data-category="office" role="checkbox" aria-checked="false" tabindex="0">
+            <div class="cat-card-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                <path d="M9 22V12h6v10"/>
+                <path d="M3 9h18"/>
+              </svg>
+            </div>
+            <div class="cat-card-text">
+              <div class="cat-card-title">Shops &amp; offices</div>
+              <div class="cat-card-desc">Spaces for work and business</div>
+            </div>
+            <div class="cat-card-radio">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+          </div>
+
+          <!-- Event venues -->
+          <div class="cat-card" data-category="venue" role="checkbox" aria-checked="false" tabindex="0">
+            <div class="cat-card-icon">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2L14.4 9.6L22 12L14.4 14.4L12 22L9.6 14.4L2 12L9.6 9.6L12 2Z"/>
+              </svg>
+            </div>
+            <div class="cat-card-text">
+              <div class="cat-card-title">Event venues</div>
+              <div class="cat-card-desc">The right setting for your occasion</div>
+            </div>
+            <div class="cat-card-radio">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- Timeline Section -->
+        <div class="timeline-section">
+          <h2 class="timeline-heading">When are you looking?</h2>
+          <div class="timeline-grid" id="timelineGrid" role="radiogroup" aria-label="Looking timeline">
+            <div class="timeline-card" data-timeline="soon" role="radio" aria-checked="false" tabindex="0">
+              <div class="timeline-dot"></div>
+              <div class="timeline-text">
+                <div class="timeline-title">Looking soon</div>
+                <div class="timeline-desc">I'm ready to find it</div>
+              </div>
+            </div>
+
+            <div class="timeline-card" data-timeline="browsing" role="radio" aria-checked="false" tabindex="0">
+              <div class="timeline-dot"></div>
+              <div class="timeline-text">
+                <div class="timeline-title">Just browsing</div>
+                <div class="timeline-desc">I'm exploring for now</div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      <div class="actions">
-        <button class="btn-pill" type="submit" id="btnInterestsContinue">
+      <footer class="card-footer">
+        <p class="global-feedback" id="clientFeedback" role="alert"></p>
+        <button class="btn-continue" type="button" id="btnClientContinue" disabled>
           <span>Continue</span>
-          <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M5 12h14M13 6l6 6-6 6"/>
           </svg>
         </button>
-        <button class="btn-back" type="button" id="btnBack3">Back</button>
-      </div>
+        <p class="footer-subtext">You can change these preferences anytime.</p>
+      </footer>
+    </section>
 
-    </form>
-
-    <aside class="aside" aria-hidden="true">
-      <div class="aside-block">
-        <span>People</span><span>Places</span><span>Possibilities</span>
-      </div>
-      <div class="aside-block">
-        <span>A more connected you</span>
-      </div>
-    </aside>
-  </section>
-
-</main>
+  </main>
+</div>
 
 <script src="/js/auth-flow-utils.js"></script>
 <script>
   (async function () {
+    'use strict';
+
     function loadScript(src) {
       return new Promise(function (resolve, reject) {
         var script = document.createElement('script');
@@ -953,6 +1308,7 @@
       .select('id, role, username, phone, city, avatar_url, listing_categories, interested_categories, looking_timeline, onboarding_completed, full_name')
       .eq('id', user.id)
       .maybeSingle();
+
     if (profileResult.error || !profileResult.data) {
       window.location.href = '/login';
       return;
@@ -964,107 +1320,211 @@
       window.location.href = '/login';
       return;
     }
+
+    // Already completed users go directly to their destination
     if (profile.onboarding_completed) {
       window.location.href = ROLE === 'host' ? '/host-home' : '/client-home';
       return;
     }
 
-    var TOTAL_STEPS = 3;
-    var current = 1;
-    var stepStorageKey = 'varoom_onboarding_step_' + user.id;
+    var hostStepKey = 'varoom_host_onboarding_step_' + user.id;
 
-    var sections   = { 1: document.getElementById('step1'), 2: document.getElementById('step2'), 3: document.getElementById('step3') };
-    var stepsEl    = document.getElementById('steps');
-    var stepsLabel = document.getElementById('stepsLabel');
-    var bars       = document.querySelectorAll('#stepsBars span');
+    /* =========================================================================
+       FLOW 1: CLIENT ONBOARDING (ONE CARD ONLY)
+       ========================================================================= */
+    if (ROLE === 'client') {
+      var clientCard = document.getElementById('cardClientPreferences');
+      clientCard.hidden = false;
+      var onboardingCard = document.getElementById('onboardingCard');
+      if (onboardingCard) onboardingCard.classList.add('is-ready');
 
-    /* ---------- Step navigation ---------- */
-    function isStep(n) {
-      return Number.isInteger(n) && n >= 1 && n <= TOTAL_STEPS;
+      var clientCategories = Array.from(document.querySelectorAll('#clientCategoryGrid .cat-card'));
+      var timelineCards = Array.from(document.querySelectorAll('#timelineGrid .timeline-card'));
+      var btnClientContinue = document.getElementById('btnClientContinue');
+      var clientFeedback = document.getElementById('clientFeedback');
+
+      var selectedCategories = Array.isArray(profile.interested_categories) ? profile.interested_categories.slice() : [];
+      var selectedTimeline = profile.looking_timeline || null;
+
+      function updateClientUI() {
+        clientCategories.forEach(function (card) {
+          var val = card.getAttribute('data-category');
+          var isSelected = selectedCategories.indexOf(val) > -1;
+          card.classList.toggle('is-selected', isSelected);
+          card.setAttribute('aria-checked', isSelected ? 'true' : 'false');
+        });
+
+        timelineCards.forEach(function (card) {
+          var val = card.getAttribute('data-timeline');
+          var isSelected = (selectedTimeline === val);
+          card.classList.toggle('is-selected', isSelected);
+          card.setAttribute('aria-checked', isSelected ? 'true' : 'false');
+        });
+
+        var isValid = (selectedCategories.length > 0 && selectedTimeline !== null);
+        btnClientContinue.disabled = !isValid;
+        if (isValid && clientFeedback.classList.contains('is-error')) {
+          clientFeedback.textContent = '';
+          clientFeedback.classList.remove('is-error');
+        }
+      }
+
+      // Multi-select for client categories
+      clientCategories.forEach(function (card) {
+        function toggleCategory() {
+          var val = card.getAttribute('data-category');
+          var idx = selectedCategories.indexOf(val);
+          if (idx > -1) {
+            selectedCategories.splice(idx, 1);
+          } else {
+            selectedCategories.push(val);
+          }
+          updateClientUI();
+        }
+
+        card.addEventListener('click', toggleCategory);
+        card.addEventListener('keydown', function (e) {
+          if (e.key === ' ' || e.key === 'Enter') {
+            e.preventDefault();
+            toggleCategory();
+          }
+        });
+      });
+
+      // Single-select radio for timeline
+      timelineCards.forEach(function (card) {
+        function selectTimeline() {
+          selectedTimeline = card.getAttribute('data-timeline');
+          updateClientUI();
+        }
+
+        card.addEventListener('click', selectTimeline);
+        card.addEventListener('keydown', function (e) {
+          if (e.key === ' ' || e.key === 'Enter') {
+            e.preventDefault();
+            selectTimeline();
+          }
+        });
+      });
+
+      updateClientUI();
+
+      var clientSubmitting = false;
+      btnClientContinue.addEventListener('click', async function () {
+        if (clientSubmitting) return;
+        if (!selectedCategories.length) {
+          clientFeedback.textContent = 'Please choose at least one category to continue.';
+          clientFeedback.classList.add('is-error');
+          return;
+        }
+        if (!selectedTimeline) {
+          clientFeedback.textContent = 'Please select when you are looking.';
+          clientFeedback.classList.add('is-error');
+          return;
+        }
+
+        clientSubmitting = true;
+        btnClientContinue.disabled = true;
+        btnClientContinue.querySelector('span').textContent = 'Saving...';
+        clientFeedback.textContent = '';
+        clientFeedback.classList.remove('is-error');
+
+        try {
+          var updatePayload = {
+            interested_categories: selectedCategories,
+            looking_timeline: selectedTimeline,
+            onboarding_completed: true
+          };
+
+          var updateResult = await supabaseClient.from('profiles').update(updatePayload).eq('id', user.id);
+          if (updateResult.error) throw updateResult.error;
+
+          if (selectedTimeline === 'soon') {
+            window.location.href = '/marketplace';
+          } else {
+            window.location.href = '/client-home';
+          }
+        } catch (err) {
+          console.error('Failed to complete client onboarding:', err);
+          clientFeedback.textContent = err.message || 'Could not save your preferences. Please try again.';
+          clientFeedback.classList.add('is-error');
+          clientSubmitting = false;
+          btnClientContinue.disabled = false;
+          btnClientContinue.querySelector('span').textContent = 'Continue';
+        }
+      });
+
+      return;
     }
 
-    function saveStep(n) {
-      try { localStorage.setItem(stepStorageKey, String(n)); } catch (error) {}
-    }
 
-    function savedStep() {
-      try {
-        var n = parseInt(localStorage.getItem(stepStorageKey), 10);
-        return isStep(n) ? n : null;
-      } catch (error) {
-        return null;
+    /* =========================================================================
+       FLOW 2: HOST ONBOARDING (TWO CARDS SEQUENTIALLY)
+       ========================================================================= */
+    var cardHostProfile = document.getElementById('cardHostProfile');
+    var cardHostCategory = document.getElementById('cardHostCategory');
+
+    function showHostCard(cardNum) {
+      var onboardingCard = document.getElementById('onboardingCard');
+      if (onboardingCard) onboardingCard.classList.add('is-ready');
+      if (cardNum === 1) {
+        cardHostProfile.hidden = false;
+        cardHostCategory.hidden = true;
+        try { localStorage.setItem(hostStepKey, '1'); } catch (e) {}
+      } else {
+        cardHostProfile.hidden = true;
+        cardHostCategory.hidden = false;
+        try { localStorage.setItem(hostStepKey, '2'); } catch (e) {}
       }
     }
 
-    function historyStep() {
-      var state = window.history.state;
-      return state && state.onboardingUserId === user.id && isStep(state.onboardingStep)
-        ? state.onboardingStep
-        : null;
+    var hasCompletedCard1 = Boolean(profile.username && profile.phone && profile.city);
+    var savedHostStep = null;
+    try { savedHostStep = localStorage.getItem(hostStepKey); } catch (e) {}
+
+    if (savedHostStep === '2' && hasCompletedCard1) {
+      showHostCard(2);
+    } else {
+      showHostCard(1);
     }
 
-    function updateHistory(n, mode) {
-      if (!mode || !window.history || !window.history.replaceState) return;
-      var state = Object.assign({}, window.history.state || {}, {
-        onboardingUserId: user.id,
-        onboardingStep: n
-      });
-      if (mode === 'push') window.history.pushState(state, '', window.location.href);
-      else window.history.replaceState(state, '', window.location.href);
+    /* ---------- HOST CARD 1: Profile Setup ---------- */
+    var avatarBox = document.getElementById('avatarBox');
+    var avatarPreview = document.getElementById('avatarPreview');
+    var hostPhotoInput = document.getElementById('hostPhotoInput');
+    var btnUploadPhoto = document.getElementById('btnUploadPhoto');
+    var avatarHint = document.getElementById('avatarHint');
+
+    var inpUsername = document.getElementById('inpUsername');
+    var wrapUsername = document.getElementById('wrapUsername');
+    var usernameHelper = document.getElementById('usernameHelper');
+    var usernameSpinner = document.getElementById('usernameSpinner');
+    var usernameStatusIcon = document.getElementById('usernameStatusIcon');
+
+    var inpPhone = document.getElementById('inpPhone');
+    var wrapPhone = document.getElementById('wrapPhone');
+    var phoneHelper = document.getElementById('phoneHelper');
+
+    var inpLocation = document.getElementById('inpLocation');
+    var wrapLocation = document.getElementById('wrapLocation');
+    var locationHelper = document.getElementById('locationHelper');
+
+    var btnHostProfileContinue = document.getElementById('btnHostProfileContinue');
+    var hostProfileFeedback = document.getElementById('hostProfileFeedback');
+
+    if (profile.username) inpUsername.value = profile.username;
+    if (profile.phone) {
+      inpPhone.value = profile.phone.replace(/^\+254/, '').trim();
     }
+    if (profile.city) inpLocation.value = profile.city;
 
-    function goTo(n, moveFocus, historyMode) {
-      if (!isStep(n)) return;
-      current = n;
-      saveStep(n);
-      updateHistory(n, historyMode);
-      Object.keys(sections).forEach(function (k) {
-        sections[k].hidden = (Number(k) !== n);
-      });
-
-      stepsEl.setAttribute('aria-label', 'Step ' + n + ' of ' + TOTAL_STEPS);
-      stepsLabel.textContent = 'Step ' + n + ' of ' + TOTAL_STEPS;
-      bars.forEach(function (bar, i) { bar.classList.toggle('is-active', i < n); });
-
-      if (moveFocus) {
-        var h1 = sections[n].querySelector('h1');
-        if (h1) h1.focus({ preventScroll: true });
-      }
-    }
-
-    window.addEventListener('popstate', function () {
-      // Browser navigation is explicit navigation too: restore its recorded
-      // card rather than re-running completion-based resume logic.
-      goTo(historyStep() || savedStep() || 1, false, null);
-    });
-
-    /* ---------- Step 1 · Profile photo ---------- */
-    var MAX_BYTES = 5 * 1024 * 1024; // 5 MB
-
-    var input       = document.getElementById('photoInput');
-    var btnAdd      = document.getElementById('btnAdd');
-    var btnAddLabel = document.getElementById('btnAddLabel');
-    var btnContinue = document.getElementById('btnContinue');
-    var btnSkip     = document.getElementById('btnSkip');
-    var avatar      = document.getElementById('avatar');
-    var preview     = document.getElementById('preview');
-    var hint        = document.getElementById('hint');
-
-    var selectedFile = null;
-    var previewUrl = null;
+    // Repositioning and cropping state
+    var MAX_BYTES = 5 * 1024 * 1024;
+    var selectedPhotoFile = null;
+    var photoPreviewUrl = null;
     var crop = null;
     var activePointers = {};
     var dragPointerId = null;
-    var photoDecisionKey = 'varoom_onboarding_photo_decision_' + user.id;
-
-    function savePhotoDecision(decision) {
-      try { localStorage.setItem(photoDecisionKey, decision); } catch (error) {}
-    }
-
-    function hasPhotoDecision() {
-      if (profile.avatar_url) return true;
-      try { return localStorage.getItem(photoDecisionKey) === 'skipped'; } catch (error) { return false; }
-    }
 
     function constrainCrop() {
       if (!crop) return;
@@ -1079,10 +1539,10 @@
     function renderCrop() {
       if (!crop) return;
       constrainCrop();
-      preview.style.width = (crop.baseWidth * crop.zoom) + 'px';
-      preview.style.height = (crop.baseHeight * crop.zoom) + 'px';
-      preview.style.left = (crop.frameSize / 2 + crop.offsetX) + 'px';
-      preview.style.top = (crop.frameSize / 2 + crop.offsetY) + 'px';
+      avatarPreview.style.width = (crop.baseWidth * crop.zoom) + 'px';
+      avatarPreview.style.height = (crop.baseHeight * crop.zoom) + 'px';
+      avatarPreview.style.left = (crop.frameSize / 2 + crop.offsetX) + 'px';
+      avatarPreview.style.top = (crop.frameSize / 2 + crop.offsetY) + 'px';
     }
 
     function setCropZoom(zoom) {
@@ -1092,21 +1552,19 @@
     }
 
     function initialiseCrop() {
-      var frameSize = avatar.getBoundingClientRect().width;
-      if (!frameSize || !preview.naturalWidth || !preview.naturalHeight) return;
-      var fit = Math.max(frameSize / preview.naturalWidth, frameSize / preview.naturalHeight);
+      var frameSize = avatarBox.getBoundingClientRect().width;
+      if (!frameSize || !avatarPreview.naturalWidth || !avatarPreview.naturalHeight) return;
+      var fit = Math.max(frameSize / avatarPreview.naturalWidth, frameSize / avatarPreview.naturalHeight);
       crop = {
         frameSize: frameSize,
-        baseWidth: preview.naturalWidth * fit,
-        baseHeight: preview.naturalHeight * fit,
+        baseWidth: avatarPreview.naturalWidth * fit,
+        baseHeight: avatarPreview.naturalHeight * fit,
         zoom: 1,
         offsetX: 0,
         offsetY: 0
       };
       renderCrop();
     }
-
-    function pointerCount() { return Object.keys(activePointers).length; }
 
     function distanceBetweenPointers() {
       var ids = Object.keys(activePointers);
@@ -1116,30 +1574,30 @@
       return Math.hypot(a.x - b.x, a.y - b.y);
     }
 
-    avatar.addEventListener('pointerdown', function (event) {
+    avatarBox.addEventListener('pointerdown', function (event) {
       if (!crop) return;
       activePointers[event.pointerId] = { x: event.clientX, y: event.clientY };
-      avatar.setPointerCapture(event.pointerId);
-      if (pointerCount() === 1) {
+      avatarBox.setPointerCapture(event.pointerId);
+      if (Object.keys(activePointers).length === 1) {
         dragPointerId = event.pointerId;
-      } else if (pointerCount() === 2) {
+      } else if (Object.keys(activePointers).length === 2) {
         dragPointerId = null;
         crop.pinchDistance = distanceBetweenPointers();
         crop.pinchZoom = crop.zoom;
       }
-      avatar.classList.add('is-adjusting');
+      avatarBox.classList.add('is-adjusting');
       event.preventDefault();
     });
 
-    avatar.addEventListener('pointermove', function (event) {
+    avatarBox.addEventListener('pointermove', function (event) {
       if (!crop || !activePointers[event.pointerId]) return;
-      var previous = activePointers[event.pointerId];
+      var prev = activePointers[event.pointerId];
       activePointers[event.pointerId] = { x: event.clientX, y: event.clientY };
-      if (pointerCount() >= 2 && crop.pinchDistance) {
+      if (Object.keys(activePointers).length >= 2 && crop.pinchDistance) {
         setCropZoom(crop.pinchZoom * (distanceBetweenPointers() / crop.pinchDistance));
       } else if (dragPointerId === event.pointerId) {
-        crop.offsetX += event.clientX - previous.x;
-        crop.offsetY += event.clientY - previous.y;
+        crop.offsetX += event.clientX - prev.x;
+        crop.offsetY += event.clientY - prev.y;
         renderCrop();
       }
       event.preventDefault();
@@ -1149,18 +1607,14 @@
       if (!activePointers[event.pointerId]) return;
       delete activePointers[event.pointerId];
       crop.pinchDistance = null;
-      if (pointerCount() === 1) {
-        var remainingId = Object.keys(activePointers)[0];
-        dragPointerId = Number(remainingId);
-      } else {
-        dragPointerId = null;
-      }
-      if (!pointerCount()) avatar.classList.remove('is-adjusting');
+      var remaining = Object.keys(activePointers);
+      dragPointerId = remaining.length === 1 ? Number(remaining[0]) : null;
+      if (!remaining.length) avatarBox.classList.remove('is-adjusting');
     }
 
-    avatar.addEventListener('pointerup', finishPointer);
-    avatar.addEventListener('pointercancel', finishPointer);
-    avatar.addEventListener('wheel', function (event) {
+    avatarBox.addEventListener('pointerup', finishPointer);
+    avatarBox.addEventListener('pointercancel', finishPointer);
+    avatarBox.addEventListener('wheel', function (event) {
       if (!crop) return;
       event.preventDefault();
       setCropZoom(crop.zoom * (event.deltaY < 0 ? 1.1 : 0.9));
@@ -1168,8 +1622,8 @@
 
     function createCroppedPhoto() {
       return new Promise(function (resolve, reject) {
-        if (!crop || !preview.naturalWidth || !preview.naturalHeight) {
-          reject(new Error('Could not prepare your photo. Please choose it again.'));
+        if (!crop || !avatarPreview.naturalWidth || !avatarPreview.naturalHeight) {
+          reject(new Error('Could not prepare your photo. Please select it again.'));
           return;
         }
         var outputSize = 1024;
@@ -1182,7 +1636,7 @@
         canvas.width = outputSize;
         canvas.height = outputSize;
         var context = canvas.getContext('2d');
-        context.drawImage(preview, left * scale, top * scale, width * scale, height * scale);
+        context.drawImage(avatarPreview, left * scale, top * scale, width * scale, height * scale);
         canvas.toBlob(function (blob) {
           if (blob) resolve(blob);
           else reject(new Error('Could not prepare your photo. Please try again.'));
@@ -1190,356 +1644,494 @@
       });
     }
 
-    btnAdd.addEventListener('click', function () { input.click(); });
+    function openPhotoPicker() {
+      hostPhotoInput.click();
+    }
+    btnUploadPhoto.addEventListener('click', openPhotoPicker);
+    avatarBox.addEventListener('click', function () {
+      if (!selectedPhotoFile) openPhotoPicker();
+    });
 
-    input.addEventListener('change', function () {
-      var file = input.files && input.files[0];
+    hostPhotoInput.addEventListener('change', function () {
+      var file = hostPhotoInput.files && hostPhotoInput.files[0];
       if (!file) return;
 
       if (!file.type || file.type.indexOf('image/') !== 0) {
-        hint.textContent = 'Please choose an image file.';
+        avatarHint.textContent = 'Please choose an image file.';
+        avatarHint.classList.add('is-error');
         return;
       }
       if (file.size > MAX_BYTES) {
-        hint.textContent = 'That photo is over 5 MB. Try a smaller one.';
+        avatarHint.textContent = 'That photo is over 5 MB. Try a smaller one.';
+        avatarHint.classList.add('is-error');
         return;
       }
 
-      hint.textContent = '';
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
-      previewUrl = URL.createObjectURL(file);
-      selectedFile = file;
-      preview.onload = initialiseCrop;
-      preview.src = previewUrl;
+      avatarHint.textContent = 'Drag or scroll to adjust photo';
+      avatarHint.classList.remove('is-error');
 
-      document.body.classList.add('has-photo');
-      btnAddLabel.textContent = 'Change photo';
-      btnContinue.disabled = false;
+      if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl);
+      photoPreviewUrl = URL.createObjectURL(file);
+      selectedPhotoFile = file;
+
+      avatarPreview.onload = initialiseCrop;
+      avatarPreview.src = photoPreviewUrl;
+      avatarBox.classList.add('has-photo');
     });
 
-    btnContinue.addEventListener('click', async function () {
-      if (!selectedFile) return;
-      if (!selectedFile.type || selectedFile.type.indexOf('image/') !== 0 || selectedFile.size > MAX_BYTES) {
-        hint.textContent = 'Please choose an image file under 5 MB.';
-        return;
-      }
-      btnContinue.disabled = true;
-      try {
-        var croppedPhoto = await createCroppedPhoto();
-        var path = user.id + '/avatar_' + Date.now() + '.jpg';
-        var uploadResult = await supabaseClient.storage.from('avatars').upload(path, croppedPhoto, { contentType: 'image/jpeg', upsert: false });
-        if (uploadResult.error) throw uploadResult.error;
-        var avatarPath = uploadResult.data.path;
-        var avatarResult = await supabaseClient.from('profiles').update({ avatar_url: avatarPath }).eq('id', user.id);
-        if (avatarResult.error) throw avatarResult.error;
-        profile.avatar_url = avatarPath;
-        savePhotoDecision('added');
-        goTo(2, true, 'push');
-      } catch (error) {
-        hint.textContent = error.message || 'Could not save your photo. Please try again.';
-        btnContinue.disabled = false;
-      }
-    });
-
-    btnSkip.addEventListener('click', function () {
-      savePhotoDecision('skipped');
-      goTo(2, true, 'push');
-    });
-
-    /* ---------- Step 2 · Your details ---------- */
-    var form    = document.getElementById('detailsForm');
-    var btnBack = document.getElementById('btnBack');
-    var usernameHint = document.getElementById('usernameHint');
-
-    var fields = [
-      {
-        key: 'username',
-        wrap: document.getElementById('fieldUsername'),
-        input: document.getElementById('inpUsername'),
-        clean: function (v) { return window.VaRoomAuthFlowUtils.normalizeUsername(v.trim().replace(/^@+/, '')); },
-        valid: function (v) { return /^[a-z0-9._]{3,20}$/.test(v); },
-        error: '3–20 letters, numbers, . or _'
-      },
-      {
-        key: 'phone',
-        wrap: document.getElementById('fieldPhone'),
-        input: document.getElementById('inpPhone'),
-        clean: function (v) { return v.trim(); },
-        valid: function (v) {
-          var digits = v.replace(/\D/g, '');
-          return /^[+\d\s\-()]+$/.test(v) && digits.length >= 9 && digits.length <= 15;
-        },
-        error: 'Enter a valid phone number'
-      },
-      {
-        key: 'city',
-        wrap: document.getElementById('fieldCity'),
-        input: document.getElementById('inpCity'),
-        clean: function (v) { return v.trim(); },
-        valid: function (v) { return v.length >= 2; },
-        error: 'Enter your city or area'
-      }
-    ];
-
-    function setInvalid(f, isInvalid) {
-      var label = f.wrap.querySelector('.field-label');
-      f.wrap.classList.toggle('is-invalid', isInvalid);
-      f.input.setAttribute('aria-invalid', isInvalid ? 'true' : 'false');
-      // Username messages are kept below the input, not in its label.
-      if (f.key !== 'username') {
-        label.textContent = isInvalid ? f.error : label.getAttribute('data-label');
-      }
+    // Validation helpers
+    function cleanUsername(v) {
+      return (window.VaRoomAuthFlowUtils && window.VaRoomAuthFlowUtils.normalizeUsername)
+        ? window.VaRoomAuthFlowUtils.normalizeUsername(v.trim().replace(/^@+/, ''))
+        : v.trim().replace(/^@+/, '').toLowerCase();
     }
 
-    fields.forEach(function (f) {
-      f.input.addEventListener('input', function () {
-        if (f.key === 'username') {
-          f.input.value = window.VaRoomAuthFlowUtils.normalizeUsername(f.input.value);
-        }
-        if (f.wrap.classList.contains('is-invalid')) setInvalid(f, false);
-        if (f === fields[0]) {
-          usernameHint.textContent = '';
-          usernameHint.style.display = 'none';
-        }
-      });
-    });
-
-    function getDetails() {
-      var out = {};
-      fields.forEach(function (f) { out[f.key] = f.clean(f.input.value); });
-      return out;
-    }
-
-    function normalisePhone(value) {
-      var digits = value.replace(/\D/g, '');
+    function normalisePhone(val) {
+      var digits = val.replace(/\D/g, '');
       if (digits.indexOf('254') === 0) return '+' + digits;
       if (digits.charAt(0) === '0') return '+254' + digits.slice(1);
       if (digits.length === 9) return '+254' + digits;
       return '+' + digits;
     }
 
-    function showUsernameHint(message) {
-      usernameHint.textContent = message;
-      usernameHint.style.display = 'block';
+    function isPhoneValid(val) {
+      var digits = val.replace(/\D/g, '');
+      return digits.length >= 9 && digits.length <= 15;
     }
 
-    function usernameSuggestion(value) {
-      var base = value.toLowerCase().replace(/[^a-z0-9._]/g, '').slice(0, 17) || 'user';
-      return base + '_01';
+    function isLocationValid(val) {
+      return val.trim().length >= 2;
     }
 
-    form.addEventListener('submit', async function (e) {
-      e.preventDefault();
+    function updateHostProfileButtonState() {
+      var u = cleanUsername(inpUsername.value);
+      var p = inpPhone.value.trim();
+      var l = inpLocation.value.trim();
 
-      var firstBad = null;
-      fields.forEach(function (f) {
-        var ok = f.valid(f.clean(f.input.value));
-        setInvalid(f, !ok);
-        if (!ok && !firstBad) firstBad = f;
-      });
+      var isUsernameOk = u.length >= 3 && u.length <= 20 && /^[a-z0-9._]+$/.test(u) && isUsernameAvailable;
+      var isPhoneOk = isPhoneValid(p);
+      var isLocationOk = isLocationValid(l);
 
-      if (firstBad) {
-        if (firstBad === fields[0]) {
-          var enteredUsername = fields[0].clean(fields[0].input.value);
-          showUsernameHint('Username only allows lowercase letters, numbers, dots, and underscores (3–20 characters). Try "' + usernameSuggestion(enteredUsername) + '".');
-        }
-        firstBad.input.focus();
+      if (isUsernameOk && isPhoneOk && isLocationOk) {
+        btnHostProfileContinue.classList.remove('is-faint');
+        btnHostProfileContinue.classList.add('is-upgraded');
+      } else {
+        btnHostProfileContinue.classList.add('is-faint');
+        btnHostProfileContinue.classList.remove('is-upgraded');
+      }
+    }
+
+    // Real-time username checking with debounce & spinner
+    var usernameDebounceTimer = null;
+    var isUsernameAvailable = Boolean(profile.username);
+    var lastCheckedUsername = profile.username || '';
+
+    function checkUsernameImmediately() {
+      var rawVal = cleanUsername(inpUsername.value);
+      inpUsername.value = rawVal;
+
+      if (!rawVal) {
+        wrapUsername.classList.remove('is-invalid', 'is-valid');
+        usernameHelper.textContent = 'Your unique name. You can always change it later.';
+        usernameHelper.classList.remove('is-error', 'is-success');
+        usernameSpinner.hidden = true;
+        usernameStatusIcon.hidden = true;
+        isUsernameAvailable = false;
+        updateHostProfileButtonState();
         return;
       }
 
-      var details = getDetails();
-      var usernameField = fields[0];
-      var normalizedUsername = window.VaRoomAuthFlowUtils.normalizeUsername(details.username);
-      details.username = normalizedUsername;
-      usernameField.input.value = normalizedUsername;
-      usernameHint.textContent = '';
-      usernameHint.style.display = 'none';
+      // Format validations right away
+      if (rawVal.length < 3) {
+        wrapUsername.classList.add('is-invalid');
+        wrapUsername.classList.remove('is-valid');
+        usernameHelper.textContent = 'Username must be at least 3 characters.';
+        usernameHelper.classList.add('is-error');
+        usernameHelper.classList.remove('is-success');
+        usernameSpinner.hidden = true;
+        usernameStatusIcon.hidden = true;
+        isUsernameAvailable = false;
+        updateHostProfileButtonState();
+        return;
+      }
+
+      if (!/^[a-z0-9._]+$/.test(rawVal)) {
+        wrapUsername.classList.add('is-invalid');
+        wrapUsername.classList.remove('is-valid');
+        usernameHelper.textContent = 'Only lowercase letters, numbers, dot, and underscore allowed.';
+        usernameHelper.classList.add('is-error');
+        usernameHelper.classList.remove('is-success');
+        usernameSpinner.hidden = true;
+        usernameStatusIcon.hidden = true;
+        isUsernameAvailable = false;
+        updateHostProfileButtonState();
+        return;
+      }
+
+      if (rawVal.length > 20) {
+        wrapUsername.classList.add('is-invalid');
+        wrapUsername.classList.remove('is-valid');
+        usernameHelper.textContent = 'Username must be 20 characters or fewer.';
+        usernameHelper.classList.add('is-error');
+        usernameHelper.classList.remove('is-success');
+        usernameSpinner.hidden = true;
+        usernameStatusIcon.hidden = true;
+        isUsernameAvailable = false;
+        updateHostProfileButtonState();
+        return;
+      }
+
+      // If matches user's current username, it's valid immediately
+      if (rawVal === profile.username) {
+        wrapUsername.classList.remove('is-invalid');
+        wrapUsername.classList.add('is-valid');
+        usernameHelper.textContent = 'Your current username.';
+        usernameHelper.classList.remove('is-error');
+        usernameHelper.classList.add('is-success');
+        usernameSpinner.hidden = true;
+        usernameStatusIcon.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+        usernameStatusIcon.hidden = false;
+        isUsernameAvailable = true;
+        lastCheckedUsername = rawVal;
+        updateHostProfileButtonState();
+        return;
+      }
+
+      // Show spinner & check server availability
+      wrapUsername.classList.remove('is-invalid', 'is-valid');
+      usernameHelper.textContent = 'Checking availability...';
+      usernameHelper.classList.remove('is-error', 'is-success');
+      usernameSpinner.hidden = false;
+      usernameStatusIcon.hidden = true;
+      isUsernameAvailable = false;
+      updateHostProfileButtonState();
+
+      clearTimeout(usernameDebounceTimer);
+      usernameDebounceTimer = setTimeout(async function () {
+        try {
+          var checkRes = await supabaseClient.from('profiles')
+            .select('id')
+            .ilike('username', rawVal)
+            .neq('id', user.id)
+            .limit(1);
+
+          // If user kept typing, discard this stale check
+          if (cleanUsername(inpUsername.value) !== rawVal) return;
+
+          usernameSpinner.hidden = true;
+
+          if (checkRes.data && checkRes.data.length > 0) {
+            wrapUsername.classList.add('is-invalid');
+            wrapUsername.classList.remove('is-valid');
+            usernameHelper.textContent = 'Username "' + rawVal + '" is already taken. Try another.';
+            usernameHelper.classList.add('is-error');
+            usernameHelper.classList.remove('is-success');
+            usernameStatusIcon.hidden = true;
+            isUsernameAvailable = false;
+          } else {
+            wrapUsername.classList.remove('is-invalid');
+            wrapUsername.classList.add('is-valid');
+            usernameHelper.textContent = 'Username is available.';
+            usernameHelper.classList.remove('is-error');
+            usernameHelper.classList.add('is-success');
+            usernameStatusIcon.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+            usernameStatusIcon.hidden = false;
+            isUsernameAvailable = true;
+            lastCheckedUsername = rawVal;
+          }
+        } catch (e) {
+          if (cleanUsername(inpUsername.value) !== rawVal) return;
+          usernameSpinner.hidden = true;
+          // Fallback allow continue to validate on submit if query failed
+          isUsernameAvailable = true;
+        }
+        updateHostProfileButtonState();
+      }, 350);
+    }
+
+    inpUsername.addEventListener('input', checkUsernameImmediately);
+
+    function cleanPhoneDisplay() {
+      var val = inpPhone.value.trim();
+      if (val.startsWith('+254')) {
+        inpPhone.value = val.slice(4).trim();
+      } else if (val.startsWith('254') && val.length > 9) {
+        inpPhone.value = val.slice(3).trim();
+      } else if (val.startsWith('0') && val.length === 10) {
+        inpPhone.value = val.slice(1).trim();
+      }
+      wrapPhone.classList.remove('is-invalid');
+      phoneHelper.style.display = 'none';
+      phoneHelper.classList.remove('is-error');
+      updateHostProfileButtonState();
+    }
+    inpPhone.addEventListener('input', cleanPhoneDisplay);
+    inpPhone.addEventListener('change', cleanPhoneDisplay);
+    inpPhone.addEventListener('blur', cleanPhoneDisplay);
+
+    inpLocation.addEventListener('input', function () {
+      wrapLocation.classList.remove('is-invalid');
+      locationHelper.style.display = 'none';
+      locationHelper.classList.remove('is-error');
+      updateHostProfileButtonState();
+    });
+    inpLocation.addEventListener('change', updateHostProfileButtonState);
+
+    // Initial button state evaluation
+    updateHostProfileButtonState();
+
+    var hostProfileSaving = false;
+    btnHostProfileContinue.addEventListener('click', async function () {
+      if (hostProfileSaving) return;
+
+      var rawUsername = cleanUsername(inpUsername.value);
+      var rawPhone = inpPhone.value.trim();
+      var rawLocation = inpLocation.value.trim();
+
+      var hasError = false;
+
+      // Validate Username
+      if (!rawUsername || rawUsername.length < 3 || rawUsername.length > 20 || !/^[a-z0-9._]+$/.test(rawUsername)) {
+        wrapUsername.classList.add('is-invalid');
+        usernameHelper.textContent = '3–20 characters, lowercase letters, numbers, dot or underscore.';
+        usernameHelper.classList.add('is-error');
+        hasError = true;
+      } else if (!isUsernameAvailable && rawUsername !== profile.username) {
+        wrapUsername.classList.add('is-invalid');
+        usernameHelper.textContent = 'Username "' + rawUsername + '" is already taken. Try another.';
+        usernameHelper.classList.add('is-error');
+        hasError = true;
+      }
+
+      // Validate Phone
+      if (!isPhoneValid(rawPhone)) {
+        wrapPhone.classList.add('is-invalid');
+        phoneHelper.textContent = 'Please enter a valid phone number.';
+        phoneHelper.classList.add('is-error');
+        phoneHelper.style.display = 'block';
+        hasError = true;
+      }
+
+      // Validate Location
+      if (!isLocationValid(rawLocation)) {
+        wrapLocation.classList.add('is-invalid');
+        locationHelper.textContent = 'Please enter or select your city/area.';
+        locationHelper.classList.add('is-error');
+        locationHelper.style.display = 'block';
+        hasError = true;
+      }
+
+      if (hasError) return;
+
+      hostProfileSaving = true;
+      btnHostProfileContinue.disabled = true;
+      btnHostProfileContinue.querySelector('span').textContent = 'Validating...';
+      hostProfileFeedback.textContent = '';
+      hostProfileFeedback.classList.remove('is-error');
+
       try {
+        // Final uniqueness safeguard
         var usernameCheck = await supabaseClient.from('profiles')
           .select('id')
-          .ilike('username', details.username)
+          .ilike('username', rawUsername)
           .neq('id', user.id)
           .limit(1);
+
         if (usernameCheck.error) throw usernameCheck.error;
-        if (usernameCheck.data && usernameCheck.data.length) {
-          usernameField.error = 'Username already taken';
-          setInvalid(usernameField, true);
-          showUsernameHint('Username "' + normalizedUsername + '" already exists. Try "' + usernameSuggestion(normalizedUsername) + '" instead.');
-          usernameField.input.focus();
+        if (usernameCheck.data && usernameCheck.data.length > 0) {
+          wrapUsername.classList.add('is-invalid');
+          usernameHelper.textContent = 'Username "' + rawUsername + '" is already taken. Try another.';
+          usernameHelper.classList.add('is-error');
+          inpUsername.focus();
+          hostProfileSaving = false;
+          btnHostProfileContinue.disabled = false;
+          btnHostProfileContinue.querySelector('span').textContent = 'Continue';
           return;
         }
 
-        var detailsResult = await supabaseClient.from('profiles').update({
-          username: normalizedUsername,
-          phone: normalisePhone(details.phone),
-          city: details.city
-        }).eq('id', user.id);
-        if (detailsResult.error) throw detailsResult.error;
-        profile.username = normalizedUsername;
-        profile.phone = normalisePhone(details.phone);
-        profile.city = details.city;
-        goTo(3, true, 'push');
-      } catch (error) {
-        if (error.code === '23514' || /username_format/i.test(error.message || '')) {
-          usernameField.error = 'Use a valid username';
-          setInvalid(usernameField, true);
-          showUsernameHint('Username only allows lowercase letters, numbers, dots, and underscores (3–20 characters). Try "' + usernameSuggestion(normalizedUsername) + '".');
-        } else if (error.code === '23505' || /unique/i.test(error.message || '')) {
-          usernameField.error = 'Username already taken';
-          setInvalid(usernameField, true);
-          showUsernameHint('Username "' + normalizedUsername + '" already exists. Try "' + usernameSuggestion(normalizedUsername) + '" instead.');
-        } else {
-          usernameField.error = 'Could not save your details';
-          setInvalid(usernameField, true);
-          showUsernameHint('We could not save your details. Please check them and try again.');
+        // Upload photo if provided (optional) — OPTIMISTIC UI:
+        // Do NOT block advancing to Card 2 while image uploads to R2/Storage!
+        var avatarUrlToSave = profile.avatar_url || null;
+        if (selectedPhotoFile) {
+          window._hostAvatarUploadPromise = (async function () {
+            try {
+              var croppedBlob = await createCroppedPhoto();
+              var filePath = user.id + '/avatar_' + Date.now() + '.jpg';
+              var uploadRes = await supabaseClient.storage.from('avatars').upload(filePath, croppedBlob, {
+                contentType: 'image/jpeg',
+                upsert: false
+              });
+              if (uploadRes.error) {
+                console.warn('Background avatar upload error:', uploadRes.error);
+                return null;
+              }
+              var uploadedPath = uploadRes.data.path;
+              profile.avatar_url = uploadedPath;
+              await supabaseClient.from('profiles').update({ avatar_url: uploadedPath }).eq('id', user.id);
+              return uploadedPath;
+            } catch (bgErr) {
+              console.warn('Background avatar upload exception:', bgErr);
+              return null;
+            }
+          })();
         }
-        usernameField.input.focus();
+
+        btnHostProfileContinue.querySelector('span').textContent = 'Saving details...';
+
+        var formattedPhone = normalisePhone(rawPhone);
+        var hostProfileUpdate = {
+          username: rawUsername,
+          phone: formattedPhone,
+          city: rawLocation
+        };
+        if (avatarUrlToSave) {
+          hostProfileUpdate.avatar_url = avatarUrlToSave;
+        }
+
+        var updateResult = await supabaseClient.from('profiles').update(hostProfileUpdate).eq('id', user.id);
+        if (updateResult.error) throw updateResult.error;
+
+        profile.username = rawUsername;
+        profile.phone = formattedPhone;
+        profile.city = rawLocation;
+
+        hostProfileSaving = false;
+        btnHostProfileContinue.disabled = false;
+        btnHostProfileContinue.querySelector('span').textContent = 'Continue';
+        showHostCard(2);
+      } catch (err) {
+        console.error('Error saving host profile:', err);
+        hostProfileFeedback.textContent = err.message || 'Could not save profile. Please check your inputs and try again.';
+        hostProfileFeedback.classList.add('is-error');
+        hostProfileSaving = false;
+        btnHostProfileContinue.disabled = false;
+        btnHostProfileContinue.querySelector('span').textContent = 'Continue';
       }
     });
 
-    btnBack.addEventListener('click', function () { goTo(1, true, 'push'); });
 
-    // TEMP: preview-only skip, remove with the btnSkip2 button when wiring.
-    document.getElementById('btnSkip2').addEventListener('click', function () { goTo(3, true, 'push'); });
+    /* ---------- HOST CARD 2: Listing Category & Display Name ---------- */
+    var hostCategoryCards = Array.from(document.querySelectorAll('#hostCategoryGrid .cat-card'));
+    var inpDiscoverName = document.getElementById('inpDiscoverName');
+    var wrapDiscoverName = document.getElementById('wrapDiscoverName');
+    var discoverHelper = document.getElementById('discoverHelper');
+    var btnHostCategoryContinue = document.getElementById('btnHostCategoryContinue');
+    var hostCategoryFeedback = document.getElementById('hostCategoryFeedback');
+    var btnHostBackToProfile = document.getElementById('btnHostBackToProfile');
 
-    /* ---------- Step 3 · Interests ---------- */
-    var HOST_PICKS = 1;
+    var selectedHostNiche = (Array.isArray(profile.listing_categories) && profile.listing_categories.length === 1)
+      ? profile.listing_categories[0]
+      : null;
 
-    document.body.setAttribute('data-role', ROLE);
-    Array.prototype.forEach.call(document.querySelectorAll('[data-for]'), function (el) {
-      el.hidden = (el.getAttribute('data-for') !== ROLE);
-    });
-
-    var chips         = Array.prototype.slice.call(document.querySelectorAll('#chips .chip'));
-    var pickHint      = document.getElementById('pickHint');
-    var timelineBtns  = Array.prototype.slice.call(document.querySelectorAll('#timelineOptions .chip'));
-    var timelineLabel = document.getElementById('timelineLabel');
-    var interestsForm = document.getElementById('interestsForm');
-    var btnInterestsContinue = document.getElementById('btnInterestsContinue');
-    var btnBack3      = document.getElementById('btnBack3');
-
-    var discover = {
-      wrap: document.getElementById('fieldDiscover'),
-      input: document.getElementById('inpDiscover'),
-      error: 'Enter a name (2–40 characters)'
-    };
-
-    var picks = [];
-    var timeline = null;
-
-    function pickMessage() {
-      if (ROLE === 'host') return picks.length + ' of ' + HOST_PICKS + ' selected';
-      return picks.length ? picks.length + ' selected' : 'Choose one or more';
+    if (profile.full_name) {
+      inpDiscoverName.value = profile.full_name;
     }
 
-    function renderPicks() {
-      chips.forEach(function (chip) {
-        var on = picks.indexOf(chip.getAttribute('data-value')) > -1;
-        chip.setAttribute('aria-pressed', on ? 'true' : 'false');
-        chip.classList.toggle('is-locked', ROLE === 'host' && !on && picks.length >= HOST_PICKS);
+    function updateHostCategoryUI() {
+      hostCategoryCards.forEach(function (card) {
+        var niche = card.getAttribute('data-niche');
+        var isSelected = (selectedHostNiche === niche);
+        card.classList.toggle('is-selected', isSelected);
+        card.setAttribute('aria-checked', isSelected ? 'true' : 'false');
       });
-      pickHint.textContent = pickMessage();
-      pickHint.classList.remove('is-error');
+
+      var nameVal = inpDiscoverName.value.trim();
+      var isNameValid = (nameVal.length >= 2 && nameVal.length <= 40);
+      var isCategoryValid = (selectedHostNiche !== null);
+
+      btnHostCategoryContinue.disabled = !(isCategoryValid && isNameValid);
+      if (isCategoryValid && isNameValid && hostCategoryFeedback.classList.contains('is-error')) {
+        hostCategoryFeedback.textContent = '';
+        hostCategoryFeedback.classList.remove('is-error');
+      }
     }
 
-    chips.forEach(function (chip) {
-      chip.addEventListener('click', function () {
-        var v = chip.getAttribute('data-value');
-        var i = picks.indexOf(v);
-        if (i > -1) {
-          picks.splice(i, 1);
-        } else if (ROLE === 'host' && picks.length >= HOST_PICKS) {
-          pickHint.textContent = 'You can choose 1.';
-          pickHint.classList.remove('is-error');
-          return;
-        } else {
-          picks.push(v);
-        }
-        renderPicks();
-      });
-    });
-
-    timelineBtns.forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        timeline = btn.getAttribute('data-value');
-        timelineBtns.forEach(function (b) {
-          b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
-        });
-        timelineLabel.textContent = timelineLabel.getAttribute('data-label');
-        timelineLabel.classList.remove('is-error');
-      });
-    });
-
-    discover.input.addEventListener('input', function () {
-      if (discover.wrap.classList.contains('is-invalid')) setInvalid(discover, false);
-    });
-
-    function getInterests() {
-      var out = { role: ROLE, niches: picks.slice() };
-      if (ROLE === 'host') out.discoverName = discover.input.value.trim();
-      else out.timeline = timeline;   // 'soon' or 'browsing'
-      return out;
-    }
-
-    interestsForm.addEventListener('submit', async function (e) {
-      e.preventDefault();
-      var firstBad = null;
-
-      if (ROLE === 'host') {
-        if (picks.length !== HOST_PICKS) {
-          pickHint.textContent = 'Choose exactly 1 to continue';
-          pickHint.classList.add('is-error');
-          firstBad = chips[0];
-        }
-        var name = discover.input.value.trim();
-        var nameOk = name.length >= 2 && name.length <= 40;
-        setInvalid(discover, !nameOk);
-        if (!nameOk && !firstBad) firstBad = discover.input;
-      } else {
-        if (!picks.length) {
-          pickHint.textContent = 'Choose at least one';
-          pickHint.classList.add('is-error');
-          firstBad = chips[0];
-        }
-        if (!timeline) {
-          timelineLabel.textContent = 'Choose one';
-          timelineLabel.classList.add('is-error');
-          if (!firstBad) firstBad = timelineBtns[0];
-        }
+    hostCategoryCards.forEach(function (card) {
+      function selectNiche() {
+        selectedHostNiche = card.getAttribute('data-niche');
+        updateHostCategoryUI();
       }
 
-      if (firstBad) { firstBad.focus(); return; }
+      card.addEventListener('click', selectNiche);
+      card.addEventListener('keydown', function (e) {
+        if (e.key === ' ' || e.key === 'Enter') {
+          e.preventDefault();
+          selectNiche();
+        }
+      });
+    });
 
-      var interests = getInterests();
-      var update = { onboarding_completed: true };
-      if (ROLE === 'host') {
-        update.listing_categories = interests.niches;
-        update.full_name = interests.discoverName;
-      } else {
-        update.interested_categories = interests.niches;
-        update.looking_timeline = interests.timeline;
+    inpDiscoverName.addEventListener('input', function () {
+      wrapDiscoverName.classList.remove('is-invalid');
+      discoverHelper.style.display = 'none';
+      updateHostCategoryUI();
+    });
+
+    btnHostBackToProfile.addEventListener('click', function () {
+      showHostCard(1);
+    });
+
+    updateHostCategoryUI();
+
+    var hostCategorySaving = false;
+    btnHostCategoryContinue.addEventListener('click', async function () {
+      if (hostCategorySaving) return;
+
+      var nameVal = inpDiscoverName.value.trim();
+      if (!selectedHostNiche) {
+        hostCategoryFeedback.textContent = 'Please select exactly one listing category.';
+        hostCategoryFeedback.classList.add('is-error');
+        return;
+      }
+      if (nameVal.length < 2 || nameVal.length > 40) {
+        wrapDiscoverName.classList.add('is-invalid');
+        discoverHelper.textContent = 'Please enter a name between 2 and 40 characters.';
+        discoverHelper.classList.add('is-error');
+        discoverHelper.style.display = 'block';
+        inpDiscoverName.focus();
+        return;
       }
 
-      btnInterestsContinue.disabled = true;
+      hostCategorySaving = true;
+      btnHostCategoryContinue.disabled = true;
+      btnHostCategoryContinue.querySelector('span').textContent = 'Finishing setup...';
+      hostCategoryFeedback.textContent = '';
+      hostCategoryFeedback.classList.remove('is-error');
+
       try {
-        var interestsResult = await supabaseClient.from('profiles').update(update).eq('id', user.id);
-        if (interestsResult.error) throw interestsResult.error;
-        try { localStorage.removeItem(stepStorageKey); } catch (storageError) {}
-        window.location.href = ROLE === 'host' ? '/host-home' : '/client-home';
-      } catch (error) {
-        pickHint.textContent = error.message || 'Could not finish onboarding. Please try again.';
-        pickHint.classList.add('is-error');
-        btnInterestsContinue.disabled = false;
+        var hostFinalUpdate = {
+          listing_categories: [selectedHostNiche],
+          full_name: nameVal,
+          onboarding_completed: true
+        };
+
+        var updateResult = await supabaseClient.from('profiles').update(hostFinalUpdate).eq('id', user.id);
+        if (updateResult.error) throw updateResult.error;
+
+        try { localStorage.removeItem(hostStepKey); } catch (e) {}
+
+        // If avatar background upload is still in flight, wait briefly for it
+        if (window._hostAvatarUploadPromise) {
+          try {
+            await Promise.race([
+              window._hostAvatarUploadPromise,
+              new Promise(function (resolve) { setTimeout(resolve, 3500); })
+            ]);
+          } catch (e) {}
+        }
+
+        // Final destination for hosts is VaRoom Discover (/host-home)
+        window.location.href = '/host-home';
+      } catch (err) {
+        console.error('Failed to complete host onboarding:', err);
+        hostCategoryFeedback.textContent = err.message || 'Could not finish onboarding. Please try again.';
+        hostCategoryFeedback.classList.add('is-error');
+        hostCategorySaving = false;
+        btnHostCategoryContinue.disabled = false;
+        btnHostCategoryContinue.querySelector('span').textContent = 'Continue';
       }
     });
 
-    btnBack3.addEventListener('click', function () { goTo(2, true, 'push'); });
-
-    renderPicks();
-
-    // First-time onboarding always starts at Profile Photo. Afterwards the
-    // exact card is restored from browser history or local storage on refresh.
-    goTo(historyStep() || savedStep() || 1, false, 'replace');
   })();
 </script>
 </body>

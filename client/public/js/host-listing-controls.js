@@ -195,7 +195,9 @@
         if (action === 'status') {
           persistStatus(button, listing);
         } else if (action === 'edit') {
-          window.location.href = '/list?edit=' + encodeURIComponent(listing.id);
+          window.location.href = listing.listing_draft_id
+            ? '/list?draft=' + encodeURIComponent(listing.listing_draft_id)
+            : '/list?edit=' + encodeURIComponent(listing.id);
         }
         else if (action === 'share') share(listing.id, listing.title);
         else if (action === 'copy') {
@@ -279,7 +281,8 @@
     listingStates[listing.id] = Object.assign({}, listingStates[listing.id] || {}, listing);
     var json = JSON.stringify(listing).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
     return '<div class="card-menu-wrap"><button type="button" class="card-menu-btn" data-menu-toggle="' + listing.id + '" aria-label="Manage listing">⋮</button><div class="card-menu-dropdown" id="menu-' + listing.id + '">' +
-      '<button class="card-menu-item" data-host-action="edit" data-listing="' + json + '">Edit listing</button>' +
+      '<button class="card-menu-item" data-host-action="edit" data-listing="' + json + '">' +
+        (listing.listing_draft_id || listing.availability_status === 'draft' ? 'Continue Listing' : 'Edit listing') + '</button>' +
       '<div class="card-menu-section">Change listing status</div>' +
       '<button class="card-menu-item" data-host-action="status" data-status="available" data-status-action="available" data-listing="' + json + '">Make available</button>' +
       '<button class="card-menu-item" data-host-action="status" data-status="booked" data-status-action="booked" data-listing="' + json + '">Mark booked</button>' +

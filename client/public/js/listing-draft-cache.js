@@ -46,12 +46,23 @@
       });
     }
 
+    function safeDraftCopy(draft){
+      const safe = Object.assign({}, draft);
+      // Private supporting documents must be uploaded through the server's
+      // authenticated document flow. Keep only their metadata and IDs here.
+      safe.policyFile = null;
+      if (safe.officeShopFiles && typeof safe.officeShopFiles === 'object') {
+        safe.officeShopFiles = { floorPlan: null, policy: null, documents: [] };
+      }
+      return safe;
+    }
+
     return {
       save: function(draft){
         if (!draft || typeof draft.cacheKey !== 'string' || !draft.cacheKey) {
           return Promise.reject(new Error('A valid listing draft key is required.'));
         }
-        return transact(draft.cacheKey, function(store){ return store.put(draft); });
+        return transact(draft.cacheKey, function(store){ return store.put(safeDraftCopy(draft)); });
       },
       load: function(cacheKey){
         if (typeof cacheKey !== 'string' || !cacheKey) return Promise.resolve(null);
@@ -82,6 +93,13 @@
         if (!pointer || pointer.hostId !== hostId || typeof pointer.cacheKey !== 'string'
             || !Number.isFinite(pointer.createdAt)) return null;
         return pointer;
+      },
+      clearPointer: function(hostId, expectedCacheKey){
+        if (!storage || !hostId) return false;
+        const pointer = this.getPointer(hostId);
+        if (!pointer || (expectedCacheKey && pointer.cacheKey !== expectedCacheKey)) return false;
+        storage.removeItem(POINTER_PREFIX + hostId);
+        return true;
       },
       clearForHost: function(hostId){
         if (!storage || !hostId) return Promise.resolve();

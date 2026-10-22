@@ -888,7 +888,7 @@
   html[data-theme="light"] .nav-group + .nav-group{ border-top-color:#BBBFC2; }
   /* Tabs and search */
   html[data-theme="light"] .tab{ border-color:#BBBFC2; font-weight:600; color:#0F1419; }
-  html[data-theme="light"] .search-wrap{ outline-color:#BBBFC2 !important; }
+  html[data-theme="light"] .search-wrap{ border-color:#BBBFC2 !important; outline:none !important; }
 </style>
 <link rel="stylesheet" href="js/varoom-dark-theme.css">
 <style>
@@ -942,15 +942,35 @@
 
   .search-wrap,
   [data-theme="dark"] .search-wrap{
-    background:var(--client-control-bg) !important;
-    outline:1px solid var(--line) !important;
-    border:0 !important;
+    background:#000000 !important;
+    border:1px solid rgba(255,255,255,.22) !important;
+    outline:none !important;
     box-shadow:none !important;
+  }
+  .search-wrap input,
+  [data-theme="dark"] .search-wrap input{
+    background:transparent !important;
+    background-color:transparent !important;
+    border:none !important;
+    outline:none !important;
+    box-shadow:none !important;
+    color:var(--ink) !important;
   }
   .search-wrap:focus-within,
   [data-theme="dark"] .search-wrap:focus-within{
-    outline-color:var(--client-neutral-icon) !important;
-    box-shadow:0 0 0 2px color-mix(in srgb, var(--client-neutral-icon) 20%, transparent) !important;
+    border-color:rgba(255,255,255,.45) !important;
+    outline:none !important;
+    box-shadow:0 0 0 2px rgba(255,255,255,.12) !important;
+  }
+  html[data-theme="light"] .search-wrap{
+    background:#FFFFFF !important;
+    border:1px solid #BBBFC2 !important;
+    outline:none !important;
+  }
+  html[data-theme="light"] .search-wrap:focus-within{
+    border-color:#5C584F !important;
+    outline:none !important;
+    box-shadow:0 0 0 2px rgba(92,88,79,.15) !important;
   }
   .search-btn:hover{ color:var(--ink); }
 
@@ -1528,9 +1548,9 @@
             </a>
           </div>
           <div class="rail-legal-links">
-            <a href="/privacy" class="rail-legal-link">Privacy Policy</a>
+            <a href="/privacy" target="_blank" rel="noopener noreferrer" class="rail-legal-link">Privacy Policy</a>
             <span class="rail-legal-divider" aria-hidden="true">|</span>
-            <a href="/terms" class="rail-legal-link">Terms &amp; Conditions</a>
+            <a href="/terms" target="_blank" rel="noopener noreferrer" class="rail-legal-link">Terms &amp; Conditions</a>
           </div>
         </footer>
       </aside>
@@ -1726,6 +1746,7 @@
     const videoLookupByListing = {};
     const videoStateByListing = {};
     const videoMediaIdByListing = {};
+    const videoMetadataByListing = {};
     let discoverMediaObserver = null;
     let pendingVideoMetadata = new Set();
     let videoMetadataTimer = null;
@@ -1945,7 +1966,7 @@
         if (!response.ok) return null;
         const media = (await response.json()).media || [];
         const video = media.find(function(item){ return item && item.type === 'video' && item.id; });
-        return video ? video.id : null;
+        return video ? { id:video.id, width:video.width, height:video.height } : null;
       } catch (error) { return null; }
     }
 
@@ -1988,16 +2009,20 @@
           if (!response.ok) throw new Error('media lookup failed');
           const payload = await response.json();
           const found = payload.videoMedia || {};
+          const dimensions = payload.videoDimensions || {};
           await Promise.all(ids.map(function(id){
             if (!found[id]) { videoStateByListing[id] = 'no-media'; return null; }
-            videoMediaIdByListing[id] = found[id];
+            const videoMedia = Object.assign({ id:found[id] }, dimensions[id] || {});
+            videoMediaIdByListing[id] = videoMedia.id;
+            videoMetadataByListing[id] = videoMedia;
             return loadListingVideoPlayback(id);
           }));
         } catch (error) {
           await Promise.all(ids.map(async function(id){
-            const mediaId = await findListingVideoMediaId(id);
-            if (!mediaId) { videoStateByListing[id] = 'no-media'; return; }
-            videoMediaIdByListing[id] = mediaId;
+            const videoMedia = await findListingVideoMediaId(id);
+            if (!videoMedia) { videoStateByListing[id] = 'no-media'; return; }
+            videoMediaIdByListing[id] = videoMedia.id;
+            videoMetadataByListing[id] = videoMedia;
             await loadListingVideoPlayback(id);
           }));
         }
@@ -2029,9 +2054,6 @@
 
     function renderCard(listing){
       const host = listing.host || {};
-      const mediaMetadata = (listing.property_media || []).filter(function(media){
-        return media && media.status === 'ready' && media.visibility === 'public' && media.width > 0 && media.height > 0;
-      }).sort(function(a, b){ return (a.sort_order || 0) - (b.sort_order || 0); });
       const photoItems = (listing.listing_photos || []).map(function(p){
         return {
           url: supabaseClient.storage.from('listing-photos').getPublicUrl(p.storage_path).data.publicUrl,
@@ -2040,7 +2062,6 @@
         };
       });
       const photos = photoItems.map(function(photo){ return photo.url; });
-      const imageMetadata = mediaMetadata.filter(function(media){ return media.media_type === 'image'; });
       const videoUrl = videoUrlByListing[listing.id] || null;
       const videoThumbnail = videoThumbnailByListing[listing.id] || '';
       const videoState = videoStateByListing[listing.id] || 'unknown';
@@ -2059,8 +2080,8 @@
 
       let photosHtml = '';
       if (videoUrl) {
-        const videoMedia = mediaMetadata.find(function(media){ return media.media_type === 'video'; });
-        const videoSize = videoMedia ? ' data-media-width="' + videoMedia.width + '" data-media-height="' + videoMedia.height + '"' : '';
+        const videoMedia = videoMetadataByListing[listing.id] || {};
+        const videoSize = videoMedia.width > 0 && videoMedia.height > 0 ? ' data-media-width="' + videoMedia.width + '" data-media-height="' + videoMedia.height + '"' : '';
         photosHtml = '<div class="card-video single"' + videoSize + '><video muted playsinline preload="none" poster="' + escapeHtml(videoThumbnail) + '" src="' + videoUrl + '" data-video-url="' + videoUrl + '" data-listing-id="' + listing.id + '" data-video-host-name="' + escapeHtml(host.full_name || 'Host') + '" data-video-username="' + escapeHtml(host.username ? '@' + host.username : '') + '" data-video-avatar="' + escapeHtml(hostAvatarUrl || '') + '" data-video-caption="' + escapeHtml(listing.description || listing.title) + '"></video></div>';
       } else if (photos.length === 0 && (videoState === 'unknown' || videoState === 'loading')) {
         photosHtml = '<div class="card-media-loading" aria-hidden="true"></div>';
@@ -2070,7 +2091,7 @@
         photosHtml = '<div class="card-photos card-media-empty" role="img" aria-label="No media available for this listing"></div>';
       } else if (photos.length === 1) {
         const photo = photoItems[0];
-        const metadata = imageMetadata[0] || photo;
+        const metadata = photo;
         const size = metadata.width && metadata.height ? ' data-media-width="' + metadata.width + '" data-media-height="' + metadata.height + '"' : '';
         photosHtml = '<div class="media-carousel single-media" data-listing-id="' + listing.id + '" data-photo-count="1">'
           + '<div class="media-slide-track">'
@@ -2083,7 +2104,7 @@
           + '<button type="button" class="media-carousel-arrow prev" data-carousel-prev aria-label="Previous photo">‹</button>'
           + '<button type="button" class="media-carousel-arrow next" data-carousel-next aria-label="Next photo">›</button>'
           + '<div class="media-slide-track">' + photoItems.map(function(photo, i){
-              const metadata = imageMetadata[i] || photo;
+              const metadata = photo;
               const size = metadata.width && metadata.height ? ' data-media-width="' + metadata.width + '" data-media-height="' + metadata.height + '"' : '';
               return '<div class="media-slide"' + size + '><div class="media-image-skeleton skeleton" aria-hidden="true"></div><img src="' + escapeHtml(photo.url) + '" alt="' + escapeHtml(listing.title) + '" loading="lazy" data-listing-id="' + listing.id + '" data-photo-index="' + i + '"></div>';
             }).join('') + '</div>'
@@ -2137,7 +2158,7 @@
       );
     }
 
-    const FEED_SELECT = 'id,title,description,location_text,category,verified,availability_status,created_at,host_id,host:profiles!listings_host_id_fkey(full_name,verified,avatar_url,username),listing_photos(storage_path)';
+    const FEED_SELECT = 'id,title,description,location_text,category,verified,availability_status,created_at,host_id,host:profiles!listings_host_id_fkey(full_name,verified,avatar_url,username),listing_photos(storage_path,width,height)';
 
     async function startChat(listingId, hostId){
       const { data, error } = await supabaseClient

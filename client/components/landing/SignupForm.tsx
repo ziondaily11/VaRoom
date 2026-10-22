@@ -401,7 +401,7 @@ export const SignupForm: React.FC<SignupFormProps> = ({ redirect, initialRole, a
                 onChange={(event) => setAgreed(event.target.checked)}
                 className="auth-consent-checkbox mt-0.5 h-4 w-4 shrink-0 accent-[#f0e5d9]"
               />
-              <span className="auth-consent-copy">I agree to the <a href="/privacy" className="text-[#f5efe7] underline underline-offset-2">Privacy Policy</a> and <a href="/terms" className="text-[#f5efe7] underline underline-offset-2">Terms of Service</a>.</span>
+              <span className="auth-consent-copy">I agree to the <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-[#f5efe7] underline underline-offset-2">Privacy Policy</a> and <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-[#f5efe7] underline underline-offset-2">Terms of Service</a>.</span>
             </label>
 
             <button type="submit" disabled={!canSubmit} className="va-button va-button-primary flex h-12 w-full items-center justify-center gap-2 px-4 text-sm font-semibold disabled:cursor-not-allowed">

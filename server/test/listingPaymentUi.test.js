@@ -28,23 +28,25 @@ test('review payment actions are non-submit buttons with independent handlers', 
   assert.doesNotMatch(payClickHandler, /requestSubmit|\/pricing/);
 });
 
-test('one-time checkout verifies payment before requesting listing publication', () => {
+test('one-time checkout uses same-tab navigation and reveals Publish Listing only after server verification', () => {
   const flowStart = listingPage.indexOf('async function startPayToListFlow()');
   const flowEnd = listingPage.indexOf("document.getElementById('pay-to-list-btn').addEventListener", flowStart);
   const flow = listingPage.slice(flowStart, flowEnd);
-  const verifyIndex = flow.indexOf("payment.status === 'succeeded'");
-  const publishIndex = flow.indexOf("document.getElementById('list-form').requestSubmit()");
 
   assert.match(flow, /\/api\/billing\/listing-checkout/);
-  assert.match(flow, /\/api\/billing\/payments\//);
   assert.match(listingPage, /payment_draft: true/);
   assert.doesNotMatch(flow, /uploadVideoToR2|storage\.from\('listing-photos'\)\.upload/);
   assert.match(flow, /paymentFlowInProgress \|\| publishInProgress/);
-  assert.ok(verifyIndex >= 0 && publishIndex > verifyIndex, 'publication must follow server-confirmed payment');
-  assert.match(flow, /closedPopupAttempts/);
-  assert.doesNotMatch(flow, /if \(checkoutWindow\.closed\) break/);
-  assert.match(flow, /Payment is still being verified/);
-  assert.match(flow, /\['failed', 'abandoned', 'refunded'\]\.includes\(paymentStatus\)/);
+  assert.match(flow, /window\.location\.assign\(checkout\.authorization_url\)/);
+  assert.doesNotMatch(flow, /window\.open|checkoutWindow|requestSubmit\(\)/,
+    'checkout must not use a popup or submit the listing automatically');
+  assert.match(listingPage, /async function verifyReturnedListingPayment/);
+  assert.match(listingPage, /payment\.payment_kind === 'listing' && payment\.listing_id/);
+  assert.match(listingPage, /listingPaymentVerified = true/);
+  assert.match(listingPage, /checkingAuth\.textContent = 'Confirming your payment\.\.\.'/);
+  assert.match(listingPage, /Payment confirmed\. Review your listing, then select Publish Listing/);
+  assert.doesNotMatch(listingPage, /window\.location\.replace\('\/list\?edit=/,
+    'a verified listing payment must return to the restored review page, not edit mode');
 });
 
 test('listing video client matches server duration validation and uses the proxied completion route', () => {
@@ -53,19 +55,22 @@ test('listing video client matches server duration validation and uses the proxi
   assert.match(listingPage, /body: JSON\.stringify\(\{ uploadId: initPayload\.uploadId \}\)/);
 });
 
-test('Go Pro saves the host-scoped listing and actual selected files before redirecting', () => {
+test('Go Pro checkpoints host-scoped state before subscription checkout and restores the verified listing return', () => {
   const goProStart = listingPage.indexOf("document.getElementById('go-pro-btn').addEventListener");
   const goProHandler = listingPage.slice(goProStart, listingPage.indexOf('</script>', goProStart));
-  assert.ok(goProHandler.indexOf('persistBeforeCheckout(session)') < goProHandler.indexOf("window.location.assign('/pricing?"));
+  assert.ok(goProHandler.indexOf('persistBeforeCheckout(session, { saveProfileDraft: true })') < goProHandler.indexOf("window.location.assign('/pricing?"));
   assert.match(listingPage, /mediaFiles: selectedFiles\.slice\(\)/);
-  assert.match(listingPage, /policyFile: selectedPolicyFile/);
-  assert.match(listingPage, /await listingDraftCache\.load\(pointer\.cacheKey\)/);
+  assert.match(listingPage, /policyFile: null/);
+  assert.match(listingPage, /uploadedDocumentRefs: listingUploadedDocumentRefs/);
+  assert.match(listingPage, /await listingDraftCache\.load\(cacheKey\)/);
   assert.match(listingPage, /!Number\.isFinite\(snapshot\.createdAt\)/);
-  assert.match(listingPage, /preparedPaymentListingId = snapshot\.listingId \|\| pointer\.listingId/);
+  assert.match(listingPage, /preparedPaymentListingId = serverDraft\.listing_id \|\| null/);
+  assert.doesNotMatch(listingPage, /preparedPaymentListingId = preparedPaymentListingId \|\| pointer\.listingId/);
+  assert.match(listingPage, /requestedDraftId \|\| listingRecoveryReturnReference/);
   assert.match(listingPage, /method: existingSubmissionListingId \? 'PATCH' : 'POST'/);
   assert.match(listingPage, /await listingDraftCache\.clearForHost\(currentUser\.id\)/);
   assert.match(pricingPage, /pointer\.listingId/);
-  assert.match(pricingPage, /window\.location\.replace\('\/list\?subscription=return'\)/);
+  assert.match(pricingPage, /window\.location\.replace\('\/list\?subscription=return&reference=' \+ encodeURIComponent\(paymentReference\)\)/);
   assert.match(pricingPage, /paymentReference && payment && payment\.status === 'succeeded'/);
   assert.match(listingPage, /Your private draft and uploaded media are preserved/);
 });

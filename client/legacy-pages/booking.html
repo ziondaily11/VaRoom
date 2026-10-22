@@ -109,7 +109,7 @@
 
   @media (min-width:960px){
     .content-grid{
-      display:grid; grid-template-columns:minmax(0,1fr) minmax(340px,380px); gap:28px;
+      display:grid; grid-template-columns:minmax(0,1fr) minmax(374px,418px); gap:28px;
       align-items:stretch; max-width:1280px; margin:0 auto; padding:16px 28px 0; height:100%; overflow:hidden;
     }
     .col-main{ height:100%; min-height:0; overflow-y:auto; padding:0 6px 40px 0; scrollbar-width:thin; }
@@ -124,6 +124,7 @@
   @media (min-width:960px){ .gallery-carousel{ aspect-ratio:16 / 9; height:auto; } }
   .gallery-slide-track{ display:flex; width:100%; height:100%; transition:transform .3s ease; will-change:transform; }
   .gallery-slide{ flex:0 0 100%; width:100%; height:100%; }
+  .gallery-slide-background{ display:none; }
   .gallery-slide img,.gallery-slide video{ width:100%; height:100%; object-fit:cover; display:block; -webkit-user-drag:none; user-select:none; }
   .gallery-index-pill{
     position:absolute; top:.65rem; left:.65rem; z-index:3; background:rgba(0,0,0,.55); color:#fff;
@@ -194,16 +195,45 @@
   .host-name{ font-weight:700; font-size:.85rem; display:flex; align-items:center; gap:.35rem; flex-wrap:wrap; }
   .host-name{ color:inherit; text-decoration:none; }
   .host-name .icon-verified{ width:13px; height:13px; color:var(--red); }
-  .contact-host-btn{
-    display:flex; align-items:center; justify-content:center; gap:.5rem; width:100%;
-    font-size:.82rem; font-weight:700; padding:.65rem .9rem; border-radius:10px;
-    background:var(--red); color:#fff;
+  .contact-controls{ display:flex; align-items:center; justify-content:flex-end; gap:.6rem; flex-shrink:0; }
+  .contact-control{
+    display:inline-flex; align-items:center; justify-content:center; flex:0 0 44px;
+    width:44px; height:44px; padding:0; border:1px solid var(--line-strong);
+    border-radius:50%; color:var(--ink); background:transparent; cursor:pointer;
   }
-  .contact-host-btn:hover{ background:var(--red-deep); }
-  .contact-host-btn svg{ width:15px; height:15px; }
+  .contact-control img{ display:block; width:27px; height:27px; object-fit:contain; }
+  .contact-control svg{ display:block; width:20px; height:20px; }
+  .contact-control[aria-disabled="true"]{ cursor:default; }
+  .contact-control:not([aria-disabled="true"]):hover{ background:var(--ink); color:var(--white); }
 
   .about-block .about-title, .section-title{ font-family:var(--font-display); font-weight:600; font-size:.92rem; margin-bottom:.3rem; }
-  .about-text{ font-size:.8rem; line-height:1.4; color:var(--ink); }
+  .about-text{ font-size:.8rem; line-height:1.5; color:var(--muted); }
+  .about-paragraph{
+    margin:0 0 .65rem 0;
+    white-space:pre-wrap;
+    word-break:break-word;
+    overflow-wrap:break-word;
+    line-height:1.5;
+  }
+  .about-paragraph:last-child{ margin-bottom:0; }
+  .about-toggle-btn{
+    display:inline;
+    background:none;
+    border:none;
+    padding:0;
+    margin:0 0 0 .35rem;
+    font-family:inherit;
+    font-size:inherit;
+    font-weight:600;
+    color:var(--ink);
+    text-decoration:underline;
+    text-underline-offset:2px;
+    cursor:pointer;
+    white-space:nowrap;
+    vertical-align:baseline;
+  }
+  .about-toggle-btn:hover{ color:var(--red); }
+  .about-toggle-btn:focus-visible{ outline:2px solid var(--red); outline-offset:2px; border-radius:2px; }
 
   /* ---------- Amenities (placeholder) ---------- */
   .amenity-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:.4rem .7rem; }
@@ -211,6 +241,23 @@
   @media (min-width:1180px){ .amenity-grid{ grid-template-columns:repeat(4,1fr); } }
   .amenity-item{ display:flex; align-items:center; gap:.45rem; font-size:.76rem; }
   .amenity-item svg{ width:14px; height:14px; color:var(--red); }
+
+  /* ---------- Office & shop details ---------- */
+  .commercial-section{ margin-top:1.05rem; }
+  .commercial-section + .commercial-section{ border-top:1px solid var(--line); padding-top:1rem; }
+  .commercial-section-title{ font-family:var(--font-display); font-size:.98rem; font-weight:600; margin:0 0 .55rem; }
+  .commercial-grid{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.55rem .8rem; }
+  .commercial-item{ min-width:0; }
+  .commercial-item dt{ color:var(--muted); font-size:.69rem; font-weight:600; line-height:1.25; }
+  .commercial-item dd{ margin:.14rem 0 0; font-size:.8rem; line-height:1.35; overflow-wrap:anywhere; }
+  .commercial-list{ margin:0; padding-left:1.1rem; color:var(--muted); font-size:.8rem; line-height:1.55; }
+  .commercial-list li + li{ margin-top:.2rem; }
+  .commercial-note{ margin:.5rem 0 0; color:var(--muted); font-size:.76rem; line-height:1.45; }
+  .commercial-disclosure{ margin:.55rem 0 0; padding:.55rem .65rem; border-radius:9px; background:var(--green-tint); color:var(--green-deep); font-size:.76rem; line-height:1.4; }
+  .commercial-document-list{ display:grid; gap:.45rem; }
+  .commercial-document-link{ display:flex; align-items:center; gap:.5rem; padding:.5rem .6rem; border:1px solid var(--line); border-radius:9px; background:var(--paper); font-size:.78rem; font-weight:600; overflow-wrap:anywhere; }
+  .commercial-document-link:hover{ border-color:var(--red); color:var(--red); }
+  @media (min-width:640px){ .commercial-grid{ grid-template-columns:repeat(3,minmax(0,1fr)); } }
 
   /* ---------- Reviews ---------- */
   .reviews-header{ display:flex; align-items:center; justify-content:space-between; margin-bottom:.4rem; flex-wrap:wrap; gap:.5rem; }
@@ -249,13 +296,18 @@
   .property-unit-item strong,.property-unit-item span{ display:block; font-size:.76rem; line-height:1.4; }
   .property-unit-item span{ color:var(--muted); font-size:.7rem; }
   .property-booking-widget .picker-title{ margin-top:.45rem; }
-  .property-booking-widget .property-policy{ border-top:1px solid var(--line); margin-top:.55rem; padding-top:.65rem; }
+  .booking-widget .property-policy{ border-top:1px solid var(--line); margin-top:.55rem; padding-top:.65rem; }
   .property-policy-title{ display:flex; align-items:center; gap:.5rem; margin-bottom:.45rem; font-size:.88rem; font-weight:700; }
-  .property-policy-link{ display:flex; align-items:center; gap:.7rem; min-width:0; padding:.55rem .65rem; border:1px solid var(--line); border-radius:12px; background:var(--paper); }
+  .property-policy-link{ display:flex; align-items:center; gap:.7rem; width:100%; min-width:0; padding:.55rem .65rem; border:1px solid var(--line); border-radius:12px; background:var(--paper); color:inherit; text-align:left; text-decoration:none; }
   .property-policy-link:hover{ border-color:var(--red); }
   .property-policy-icon{ width:24px; height:28px; color:var(--green); }
   .property-policy-name{ min-width:0; overflow-wrap:anywhere; font-size:.76rem; font-weight:600; }
   .property-policy-action{ display:block; margin-top:.12rem; color:var(--muted); font-size:.68rem; font-weight:400; }
+  .property-policy-details{ display:grid; gap:.5rem; margin:0 0 .55rem; }
+  .property-policy-row{ min-width:0; }
+  .property-policy-row dt{ color:var(--muted); font-size:.7rem; font-weight:600; }
+  .property-policy-row dd{ margin:.12rem 0 0; font-size:.78rem; line-height:1.45; overflow-wrap:anywhere; white-space:pre-wrap; }
+  .property-policy-download{ display:inline-block; margin:.35rem 0 0 .15rem; color:var(--ink); font-size:.75rem; font-weight:600; text-decoration:underline; }
   .property-purchase-btn{ width:100%; margin-top:.55rem; padding:.68rem 1rem; border:1px solid var(--line-strong); border-radius:100px; color:var(--ink); font-size:.82rem; font-weight:700; }
   .property-purchase-btn:hover{ border-color:var(--red); color:var(--red); }
   .property-purchase-btn.property-purchase-primary{ border-color:var(--red); background:var(--red); color:#fff; }
@@ -344,7 +396,7 @@
   .skel-shell::-webkit-scrollbar{ display:none; width:0; height:0; }
   @media (min-width:960px){
     .skel-shell{
-      display:grid; grid-template-columns:minmax(0,1fr) minmax(340px,380px); gap:28px;
+      display:grid; grid-template-columns:minmax(0,1fr) minmax(374px,418px); gap:28px;
       padding:16px 28px 0; max-width:1280px; margin:0 auto; height:100%; overflow:hidden; box-sizing:border-box;
     }
   }
@@ -407,8 +459,6 @@
   .divider{ margin:1.8rem 0; }
   .host-about-row{ display:grid; grid-template-columns:minmax(170px,.35fr) minmax(0,1fr); gap:2.5rem; }
   .host-card{ padding-top:.15rem; }
-  .contact-host-btn{ background:transparent; color:var(--ink); border:1px solid var(--line-strong); border-radius:100px; }
-  .contact-host-btn:hover{ background:var(--ink); color:var(--white); }
   .about-block .about-title,.section-title{ font-size:1.05rem; }
   .about-text{ font-size:.92rem; line-height:1.7; color:var(--muted); }
   .amenity-grid{ grid-template-columns:repeat(3,minmax(0,1fr)); gap:1rem 1.5rem; }
@@ -450,7 +500,6 @@
       padding:.9rem 0; border-right:1px solid var(--line); background:var(--white);
       scrollbar-width:thin;
     }
-    .client-sidebar::before{ content:''; width:3px; height:20px; border-radius:99px; background:var(--red); }
     .client-nav-link{
       width:34px; height:34px; display:flex; align-items:center; justify-content:center;
       border-radius:10px; color:var(--muted); transition:background .15s ease,color .15s ease;
@@ -458,11 +507,10 @@
     .client-nav-link:hover,.client-nav-link:focus-visible{ color:var(--ink); background:var(--nav-active-bg); }
     .client-nav-link.active{ color:var(--ink); background:var(--nav-active-bg); }
     .client-nav-link svg{ width:18px; height:18px; }
-    .client-nav-link [data-elie-bot-avatar]{ display:block; width:22px; height:22px; }
     .main-shell{ height:100vh; min-height:100vh; margin-left:54px; overflow:hidden; }
     #booking-page{ height:100%; overflow:hidden; }
     .content-grid{
-      display:grid; grid-template-columns:minmax(0,1fr) minmax(340px,380px);
+      display:grid; grid-template-columns:minmax(0,1fr) minmax(374px,418px);
       align-items:stretch;
       max-width:1280px; height:100%; max-height:100%; margin:0 auto; padding:16px 28px 0; gap:28px;
       overflow:hidden; box-sizing:border-box;
@@ -498,6 +546,7 @@
       overflow:hidden;
     }
     .gallery-slide{
+      position:relative;
       display:flex;
       align-items:center;
       justify-content:center;
@@ -511,6 +560,25 @@
       object-fit:cover;
       object-position:center;
       display:block;
+    }
+    .gallery-slide > .gallery-slide-background{
+      display:block;
+      position:absolute;
+      inset:0;
+      z-index:0;
+      object-fit:cover;
+      filter:blur(18px);
+      transform:scale(1.08);
+      opacity:.72;
+      pointer-events:none;
+    }
+    .gallery-slide > img:not(.gallery-slide-background){
+      position:relative;
+      z-index:1;
+      width:100%;
+      height:100%;
+      object-fit:contain;
+      object-position:center;
     }
     .gallery-index-pill,.gallery-report-btn,.gallery-like-btn{ box-shadow:0 2px 10px rgba(0,0,0,.18); }
     .gallery-report-btn,.gallery-like-btn{ width:32px; height:32px; }
@@ -563,9 +631,8 @@
     .divider{ margin:.8rem 0; }
     .host-about-row{ grid-template-columns:1fr; gap:.6rem; }
     .host-card{ flex-direction:row; align-items:center; justify-content:space-between; gap:.75rem; }
-    .contact-host-btn{ width:auto; min-width:152px; min-height:34px; padding:.5rem 1rem; border-radius:100px; }
     .about-block .about-title,.section-title{ font-size:.92rem; margin-bottom:.25rem; font-weight:700; }
-    .about-text{ font-size:.8rem; line-height:1.5; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+    .about-text{ font-size:.8rem; line-height:1.5; color:var(--muted); }
     .amenity-grid{ grid-template-columns:repeat(4,minmax(0,1fr)); gap:.5rem .8rem; }
     .amenity-item{ font-size:.74rem; gap:.4rem; color:var(--muted); }
     .amenity-item svg{ width:15px; height:15px; color:var(--ink); }
@@ -784,6 +851,7 @@
 
 <script src="js/supabase-client.js"></script>
 <script src="js/listing-feed-cache.js"></script>
+<script src="js/booking-policy.js"></script>
 <script>
   (async function(){
     const skeleton = document.getElementById('skeleton');
@@ -799,7 +867,6 @@
     const ICON_GRID = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>';
     const ICON_MESSAGE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z"/></svg>';
     const SIDEBAR_ICONS = {
-      elie: '<span data-elie-bot-avatar="true" data-avatar-size="22" aria-label="Elie, AI assistant"></span>',
       home: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9a1 1 0 0 1 1 1H9v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4h2.5a1 1 0 0 0 1-1v-9"/></svg>',
       hostMarketplace: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m15 9-2 6-6 2 2-6 6-2Z"/></svg>',
       clientMarketplace: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2.25 4.75-4.75 2.25 2.25-4.75 4.75-2.25Z"/></svg>',
@@ -819,7 +886,6 @@
       const isHost = role === 'host';
       const items = isHost
         ? [
-            ['/chats?conversation=elie', 'Elie', SIDEBAR_ICONS.elie],
             ['/host-home', 'Home', SIDEBAR_ICONS.home],
             ['/marketplace', 'Marketplace', SIDEBAR_ICONS.hostMarketplace, true],
             ['/host-home', 'Saved', SIDEBAR_ICONS.saved],
@@ -835,7 +901,6 @@
             ['/pricing', 'Upgrade', SIDEBAR_ICONS.upgrade]
           ]
         : [
-            ['/chats?conversation=elie', 'Elie', SIDEBAR_ICONS.elie],
             ['/client-home', 'Home', SIDEBAR_ICONS.home],
             ['/marketplace', 'Discover marketplace', SIDEBAR_ICONS.clientMarketplace, true],
             ['/client-home?view=saved', 'Saved', SIDEBAR_ICONS.saved],
@@ -1083,6 +1148,86 @@
 
     function escapeHtml(str){ const d = document.createElement('div'); d.textContent = str || ''; return d.innerHTML; }
 
+    function getCleanTruncatedDescription(fullText, maxChars, maxLines) {
+      if (!maxChars) maxChars = 220;
+      if (!maxLines) maxLines = 3;
+      const normalized = (fullText || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
+      if (!normalized) return { text: '', hasOverflow: false };
+
+      const rawLines = normalized.split('\n');
+      if (rawLines.length <= maxLines && normalized.length <= maxChars) {
+        return { text: normalized, hasOverflow: false };
+      }
+
+      let accumulated = [];
+      let currentLength = 0;
+      for (let i = 0; i < rawLines.length; i++) {
+        const line = rawLines[i];
+        if (accumulated.length >= maxLines) break;
+        if (currentLength + line.length > maxChars && accumulated.length > 0) {
+          const remaining = Math.max(30, maxChars - currentLength);
+          let partial = line.slice(0, remaining);
+          const lastSpace = partial.search(/\s+[^\s]*$/);
+          if (lastSpace > partial.length * 0.5) {
+            partial = partial.slice(0, lastSpace);
+          }
+          partial = partial.replace(/[\s,;:\-\u2013\u2014\.\*\u2022]+(\s*and)?$/i, '').trim();
+          if (partial) accumulated.push(partial);
+          break;
+        }
+        accumulated.push(line);
+        currentLength += line.length + 1;
+        if (currentLength >= maxChars) {
+          let longLine = accumulated.pop();
+          let cut = longLine.slice(0, maxChars);
+          const lastSpace = cut.search(/\s+[^\s]*$/);
+          if (lastSpace > cut.length * 0.5) {
+            cut = cut.slice(0, lastSpace);
+          }
+          cut = cut.replace(/[\s,;:\-\u2013\u2014\.\*\u2022]+(\s*and)?$/i, '').trim();
+          if (cut) accumulated.push(cut);
+          break;
+        }
+      }
+
+      let result = accumulated.join('\n').trim();
+      if (!result) {
+        result = normalized.slice(0, maxChars);
+        const lastSpace = result.search(/\s+[^\s]*$/);
+        if (lastSpace > result.length * 0.5) {
+          result = result.slice(0, lastSpace);
+        }
+        result = result.replace(/[\s,;:\-\u2013\u2014\.\*\u2022]+(\s*and)?$/i, '').trim();
+      }
+      result = result.replace(/[\s,;:\-\u2013\u2014\.\*\u2022]+(\s*and)?$/i, '').trim();
+
+      if (result.length >= normalized.length) {
+        return { text: normalized, hasOverflow: false };
+      }
+
+      return { text: result, hasOverflow: true };
+    }
+
+    function formatDescriptionHtml(text, isExpanded, hasOverflow) {
+      const normalized = (text || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
+      if (!normalized) return '';
+      const paragraphs = normalized.split(/\n\s*\n/).filter(function(p){ return p.trim().length > 0; });
+      if (!paragraphs.length) return '';
+
+      return paragraphs.map(function(p, idx){
+        const isLast = idx === paragraphs.length - 1;
+        let html = escapeHtml(p.trim());
+        if (isLast && hasOverflow) {
+          if (!isExpanded) {
+            html += ' <button type="button" class="about-toggle-btn" id="about-desc-toggle" aria-expanded="false">Read more</button>';
+          } else {
+            html += ' <button type="button" class="about-toggle-btn" id="about-desc-toggle" aria-expanded="true">Show less</button>';
+          }
+        }
+        return '<p class="about-paragraph">' + html + '</p>';
+      }).join('');
+    }
+
     function resolveAvatarUrl(avatarValue){
       if (!avatarValue) return null;
       if (avatarValue.indexOf('http') === 0) return avatarValue;
@@ -1168,7 +1313,7 @@
 
     const { data: listing, error: listingError } = await supabaseClient
       .from('listings')
-      .select('id,title,description,property_description,location_text,category,listing_purpose,verified,availability_status,paid_listing_until,host_id,supports_stay,supports_table_reservation,' +
+      .select('id,title,description,property_description,location_text,city,neighborhood,address_visibility,category,listing_purpose,verified,availability_status,paid_listing_until,host_id,supports_stay,supports_table_reservation,' +
         'host:profiles!listings_host_id_fkey(full_name,verified,avatar_url,username,phone),listing_photos(storage_path),' +
         'listing_booking_details(*)')
       .eq('id', listingId)
@@ -1305,12 +1450,31 @@
     const rawDetails = listing.listing_booking_details;
     const details = (Array.isArray(rawDetails) ? rawDetails[0] : rawDetails) || {};
     const isProperty = listing.category === 'property';
+    const isOfficeShop = ['office', 'shop'].includes(listing.category);
+    let listingDocuments = [];
+    let listingDocumentsLoaded = false;
+    try {
+      const headers = session && session.access_token ? { Authorization: 'Bearer ' + session.access_token } : {};
+      const documentsResponse = await fetch('/api/listings/' + encodeURIComponent(listingId) + '/documents', { headers: headers });
+      if (documentsResponse.ok) {
+        const documentsResult = await documentsResponse.json();
+        if (documentsResult && Array.isArray(documentsResult.documents)) {
+          listingDocuments = documentsResult.documents;
+          listingDocumentsLoaded = true;
+        }
+      }
+    } catch (documentLookupError) {
+      console.warn('Listing documents could not be loaded:', documentLookupError);
+    }
+    const officeShop = isOfficeShop && details.office_shop_details && typeof details.office_shop_details === 'object' && !Array.isArray(details.office_shop_details)
+      ? details.office_shop_details
+      : null;
     const propertyPurpose = isProperty
       ? (listing.listing_purpose || details.listing_purpose || 'rent')
       : null;
     const isPropertySaleOnly = isProperty && propertyPurpose === 'sale';
     const propertyHasRentalPurpose = isProperty && (propertyPurpose === 'rent' || propertyPurpose === 'both');
-    const hasBookingDetails = Boolean(details && (details.price_amount != null || details.sale_price_amount != null || details.size_or_type || (Array.isArray(details.amenities) && details.amenities.length > 0)));
+    const hasBookingDetails = Boolean(details && (officeShop || details.price_amount != null || details.sale_price_amount != null || details.size_or_type || details.bathrooms != null || (Array.isArray(details.amenities) && details.amenities.length > 0)));
     if (supportsStay && (!rawDetails || !hasBookingDetails)) {
       showError('This listing has no booking details set up yet.');
       return;
@@ -1420,7 +1584,7 @@
             return '<div class="gallery-slide">' +
               (listingVideoUrl && index === 0
                 ? '<video src="' + u + '" poster="' + escapeHtml(listingVideoThumbnailUrl || '') + '" muted autoplay loop playsinline controlslist="nodownload" aria-label="' + escapeHtml(listing.title) + ' video"></video>'
-                : '<img src="' + u + '" alt="' + escapeHtml(listing.title) + '">') +
+                : '<img class="gallery-slide-background" src="' + escapeHtml(u) + '" alt="" aria-hidden="true"><img src="' + u + '" alt="' + escapeHtml(listing.title) + '">') +
             '</div>';
           }).join('') +
         '</div>' +
@@ -1448,6 +1612,15 @@
       if (details.units_available) {
         infoChips.push(details.units_available + ' unit' + (details.units_available === 1 ? '' : 's') + ' available');
       }
+      if (details.bathrooms != null) {
+        infoChips.push(details.bathrooms + ' bathroom' + (Number(details.bathrooms) === 1 ? '' : 's'));
+      }
+    }
+    if (officeShop && officeShop.subtype) {
+      infoChips.push(commercialLabel(officeShop.subtype, {
+        private_office: 'Private office', shared_office: 'Shared office', serviced_office: 'Serviced office', coworking_desk: 'Coworking desk', meeting_room: 'Meeting room',
+        street_front_shop: 'Street-front shop', mall_unit: 'Mall unit', showroom: 'Showroom', studio: 'Studio'
+      }));
     }
     if (details.size_or_type) infoChips.push(escapeHtml(details.size_or_type));
 
@@ -1464,7 +1637,21 @@
     // the legacy description/caption. Keep them readable while new listings
     // show their dedicated detailed description here.
     const description = listing.property_description || listing.description || '';
-    const mapUrl = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(listing.location_text || listing.title);
+    const previewLimit = (typeof window !== 'undefined' && window.innerWidth < 640) ? 140 : 220;
+    const descTruncation = getCleanTruncatedDescription(description, previewLimit, 3);
+    const hasDescriptionOverflow = descTruncation.hasOverflow;
+    let isDescriptionExpanded = false;
+
+    const descriptionHtml = description
+      ? '<div class="about-text" id="about-desc-container">' +
+          formatDescriptionHtml(descTruncation.text, false, hasDescriptionOverflow) +
+        '</div>'
+      : '<div class="about-text"><span style="color:var(--muted);">' + (isHotel ? 'The hotel hasn\'t added room details yet.' : 'The host hasn\'t added details about this place yet.') + '</span></div>';
+    const commercialPublicLocation = isOfficeShop
+      ? [listing.neighborhood, listing.city].filter(Boolean).join(', ')
+      : '';
+    const listingLocationText = commercialPublicLocation || listing.location_text || '';
+    const mapUrl = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(listingLocationText || listing.title);
 
     // Real amenities selected by the host during listing creation.
     // Falls back gracefully for listings saved before this column existed.
@@ -1478,6 +1665,165 @@
           }).join('') +
         '</div>'
       : '<p style="font-size:.8rem; color:var(--muted);">No amenities have been listed for ' + (isHotel ? 'this hotel room' : 'this space') + ' yet.</p>';
+
+    function commercialLabel(value, labels) {
+      return labels[value] || (value ? String(value).replace(/_/g, ' ') : null);
+    }
+    function commercialNumber(value) {
+      const numberValue = Number(value);
+      return Number.isFinite(numberValue) ? numberValue.toLocaleString() : null;
+    }
+    function commercialKes(value) {
+      const numberValue = commercialNumber(value);
+      return numberValue == null ? null : 'KSh ' + numberValue;
+    }
+    function commercialDate(value) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value || ''))) return null;
+      const date = new Date(value + 'T00:00:00');
+      return Number.isNaN(date.getTime()) ? null : date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+    }
+    function commercialGrid(items) {
+      const visible = items.filter(function(item){ return item && item.value !== null && item.value !== undefined && item.value !== ''; });
+      return visible.length
+        ? '<dl class="commercial-grid">' + visible.map(function(item){
+            return '<div class="commercial-item"><dt>' + escapeHtml(item.label) + '</dt><dd>' + escapeHtml(String(item.value)) + '</dd></div>';
+          }).join('') + '</dl>'
+        : '';
+    }
+
+    let commercialDetailsHtml = '';
+    if (officeShop) {
+      const space = officeShop.space || {};
+      const amenities = officeShop.amenities || {};
+      const parking = officeShop.parking || {};
+      const pricing = officeShop.pricing || {};
+      const costs = officeShop.costs || {};
+      const lease = officeShop.lease || {};
+      const documents = officeShop.documents || {};
+      const isCommercialOffice = listing.category === 'office';
+      const enumLabels = {
+        subtype: {
+          private_office: 'Private office', shared_office: 'Shared office', serviced_office: 'Serviced office', coworking_desk: 'Coworking desk', meeting_room: 'Meeting room',
+          street_front_shop: 'Street-front shop', mall_unit: 'Mall unit', showroom: 'Showroom', studio: 'Studio'
+        },
+        role: { owner: 'Owner', authorized_manager: 'Authorised property manager', agent: 'Agent' },
+        fitout: { shell_core: 'Shell-and-core', partly_fitted: 'Partly fitted', fitted: 'Fitted', furnished: 'Furnished' },
+        measure: { usable: 'Usable area', rentable: 'Rentable area', estimate: 'Estimated area' },
+        pricing: { whole_month: 'Whole unit, per month', whole_year: 'Whole unit, per year', per_area: 'Per area', per_desk: 'Per desk or person', daily_weekly_hourly: 'Daily, weekly or hourly', turnover: 'Turnover rent' },
+        yesNo: { yes: 'Yes', no: 'No', allowed: 'Allowed', not_allowed: 'Not allowed', landlord_consent: 'Allowed with landlord consent', landlord_approval: 'Subject to landlord approval', to_confirm: 'To confirm', not_confirmed: 'Not confirmed', tenant_must_restore: 'Tenant must restore', not_required: 'Not required' },
+        service: { included: 'Included', not_included: 'Not included', not_confirmed: 'Not confirmed' },
+        utilities: { included: 'Included', metered: 'Metered separately', fixed_fee: 'Fixed monthly fee', tenant_arranges: 'Tenant arranges', not_confirmed: 'Not confirmed' },
+        tax: { included: 'Included', added: 'Added on top', not_applicable: 'Not applicable', needs_confirmation: 'Needs confirmation' },
+        afterHours: { '24_7': '24/7', business_hours: 'Business hours only', not_confirmed: 'Not confirmed' },
+        frequency: { monthly: 'Monthly', quarterly: 'Quarterly', annual: 'Annual', annually: 'Annually', one_off: 'One-off', custom: 'Custom' },
+        increases: { none: 'None', annual: 'Annual escalation', stepped: 'Stepped', index_linked: 'Index-linked', not_confirmed: 'Not confirmed' }
+      };
+      const areaValue = commercialNumber(space.area);
+      const areaText = areaValue == null ? null : areaValue + ' ' + (space.area_unit === 'm2' ? 'm²' : 'sq ft');
+      const trueAmenities = {
+        mains_supply: 'Mains supply', backup_generator: 'Backup generator', ups: 'UPS', fibre: 'Fibre available', wifi_included: 'Wi-Fi included in rent', tenant_internet: 'Tenant arranges internet',
+        reliable_water: 'Reliable water supply', borehole: 'Borehole', private_washroom: 'Private washroom', shared_washroom: 'Shared washroom', drainage: 'Drainage connection',
+        guards: 'Guards', cctv: 'CCTV', controlled_entry: 'Controlled entry', alarm: 'Alarm', lighting: 'Lighting', lift: 'Lift', accessibility: 'Accessibility features',
+        ac_ventilation: 'AC or ventilation', natural_light: 'Natural light', cleaning: 'Cleaning', maintenance: 'Maintenance', waste_collection: 'Waste collection', reception: 'Reception', shared_kitchen: 'Shared kitchen', meeting_rooms: 'Meeting rooms'
+      };
+      const amenityItems = Object.keys(trueAmenities).filter(function(key){ return amenities[key] === true; }).map(function(key){ return trueAmenities[key]; });
+      const layout = isCommercialOffice ? space.office_layout : space.shop_layout;
+      const locationHtml = commercialGrid([
+        { label: 'City / county', value: listing.city },
+        { label: 'Neighbourhood', value: listing.neighborhood },
+        { label: 'Building / complex', value: officeShop.location && officeShop.location.building_name },
+        { label: 'Listed by', value: commercialLabel(officeShop.role, enumLabels.role) }
+      ]);
+      const spaceHtml = commercialGrid([
+        { label: 'Area', value: areaText },
+        { label: 'Area type', value: commercialLabel(space.area_measure, enumLabels.measure) },
+        { label: 'Fit-out', value: commercialLabel(space.fitout_status, enumLabels.fitout) },
+        { label: 'Floor / level', value: space.floor_level },
+        { label: 'Rooms', value: commercialNumber(space.room_count) },
+        { label: 'Ceiling height', value: space.ceiling_height },
+        { label: 'Capacity', value: isCommercialOffice ? commercialNumber(space.capacity) : null },
+        { label: 'Desks', value: isCommercialOffice ? commercialNumber(space.desks) : null },
+        { label: 'Private offices / meeting rooms', value: isCommercialOffice ? commercialNumber(space.private_rooms) : null },
+        { label: 'Furniture / partitions', value: isCommercialOffice && space.furniture_included ? 'Included' : null },
+        { label: 'Customer-facing area', value: !isCommercialOffice ? commercialNumber(space.customer_area) : null },
+        { label: 'Storage / mezzanine area', value: !isCommercialOffice ? commercialNumber(space.storage_area) : null },
+        { label: 'Street frontage', value: !isCommercialOffice ? commercialLabel(space.street_frontage, enumLabels.yesNo) : null },
+        { label: 'Frontage width', value: !isCommercialOffice ? space.frontage_width : null },
+        { label: 'Display windows', value: !isCommercialOffice ? commercialLabel(space.display_windows, enumLabels.yesNo) : null },
+        { label: 'Delivery / loading access', value: !isCommercialOffice ? commercialLabel(space.loading_access, enumLabels.yesNo) : null },
+        { label: 'Foot traffic', value: !isCommercialOffice ? space.foot_traffic : null },
+        { label: 'Nearby anchors', value: !isCommercialOffice ? space.nearby_anchors : null }
+      ]);
+      const parkingText = parking.cost === 'paid' && commercialKes(parking.paid_amount)
+        ? 'Paid · ' + commercialKes(parking.paid_amount)
+        : commercialLabel(parking.cost, { free: 'Free', paid: 'Paid', not_confirmed: 'Not confirmed' });
+      const parkingHtml = commercialGrid([
+        { label: 'Parking spaces', value: commercialNumber(parking.spaces) },
+        { label: 'Parking cost', value: parkingText },
+        { label: 'Allocated to this unit', value: parking.allocated ? 'Yes' : null },
+        { label: 'Visitor parking', value: parking.visitor ? 'Available' : null },
+        { label: 'Customer parking', value: parking.customer ? 'Available' : null }
+      ]);
+      const priceAmount = commercialKes(pricing.amount);
+      const pricingHtml = commercialGrid([
+        { label: 'Pricing basis', value: commercialLabel(pricing.basis, enumLabels.pricing) },
+        { label: 'Price', value: priceAmount },
+        { label: 'Per-area period', value: pricing.basis === 'per_area' ? commercialLabel(pricing.area_period, { month: 'Per month', year: 'Per year' }) : null },
+        { label: 'Monthly payment for annual rent', value: pricing.basis === 'whole_year' ? commercialLabel(pricing.monthly_payment, enumLabels.yesNo) : null },
+        { label: 'Desk fee includes', value: pricing.basis === 'per_desk' ? pricing.desk_included : null },
+        { label: 'Short-term terms', value: pricing.basis === 'daily_weekly_hourly' ? pricing.short_pricing_note : null },
+        { label: 'Turnover terms', value: pricing.basis === 'turnover' ? pricing.turnover_threshold : null }
+      ]);
+      const chargeItems = Array.isArray(costs.compulsory_charges) ? costs.compulsory_charges : [];
+      const chargeLabels = { parking: 'Parking', access_cards: 'Access cards', cleaning: 'Cleaning', internet: 'Internet', agent_fee: 'Agent fee', legal_registration: 'Legal or registration', signage: 'Signage', building_fee: 'Building fee' };
+      const costsHtml = commercialGrid([
+        { label: 'Service charge', value: commercialLabel(costs.service_charge, enumLabels.service) + (costs.service_charge === 'not_included' && commercialKes(costs.service_amount) ? ' · ' + commercialKes(costs.service_amount) + (costs.service_frequency ? ' / ' + commercialLabel(costs.service_frequency, enumLabels.frequency).toLowerCase() : '') : '') },
+        { label: 'Utilities', value: commercialLabel(costs.utilities, enumLabels.utilities) + (costs.utilities === 'fixed_fee' && commercialKes(costs.utilities_amount) ? ' · ' + commercialKes(costs.utilities_amount) + ' / month' : '') },
+        { label: 'VAT / tax', value: commercialLabel(costs.tax, enumLabels.tax) },
+        { label: 'Security deposit', value: costs.security_deposit },
+        { label: 'Advance rent', value: costs.advance_rent },
+        { label: 'Rent increases', value: commercialLabel(costs.rent_increases, enumLabels.increases) }
+      ]) + (chargeItems.length
+        ? '<p class="commercial-note"><strong>Other compulsory charges</strong></p><ul class="commercial-list">' + chargeItems.map(function(charge){
+            return '<li>' + escapeHtml(commercialLabel(charge.type, chargeLabels) + ': ' + (commercialKes(charge.amount) || 'Not provided') + ' · ' + commercialLabel(charge.frequency, enumLabels.frequency)) + '</li>';
+          }).join('') + '</ul>'
+        : '');
+      const leaseHtml = commercialGrid([
+        { label: 'Available from', value: commercialDate(lease.available_from) },
+        { label: 'Minimum lease term', value: commercialNumber(lease.minimum_term) ? commercialNumber(lease.minimum_term) + ' month(s)' : null },
+        { label: 'Payment frequency', value: commercialLabel(lease.payment_frequency, enumLabels.frequency) },
+        { label: 'Viewing before renting', value: commercialLabel(lease.viewing_required, enumLabels.yesNo) },
+        { label: 'Preferred lease term', value: commercialNumber(lease.preferred_term) ? commercialNumber(lease.preferred_term) + ' month(s)' : null },
+        { label: 'Renewal options', value: commercialLabel(lease.renewal, enumLabels.yesNo) },
+        { label: 'Notice period', value: lease.notice_period },
+        { label: 'Lock-in / early-exit rules', value: lease.lock_in },
+        { label: 'Viewing availability', value: lease.viewing_availability },
+        { label: 'Accepted payment methods', value: lease.payment_methods }
+      ]);
+      const amenityHtml = amenityItems.length
+        ? '<div class="amenity-grid">' + amenityItems.map(function(label){ return '<div class="amenity-item">' + ICON_GENERIC_AMENITY + '<span>' + escapeHtml(label) + '</span></div>'; }).join('') + '</div>'
+        : '<p class="commercial-note">No commercial amenities were listed.</p>';
+      const amenityNotesHtml = commercialGrid([
+        { label: 'After-hours access', value: commercialLabel(amenities.after_hours, enumLabels.afterHours) },
+        { label: 'Power note', value: amenities.power_note },
+        { label: 'Internet note', value: amenities.internet_note },
+        { label: 'Accessibility note', value: amenities.accessibility_note }
+      ]);
+      commercialDetailsHtml =
+        '<section class="commercial-section" aria-labelledby="commercial-location-heading"><h2 class="commercial-section-title" id="commercial-location-heading">Commercial location</h2>' + locationHtml +
+          (listing.address_visibility === 'after_inquiry' ? '<p class="commercial-disclosure">The exact unit address is shared after an inquiry.</p>' : '') +
+        '</section>' +
+        '<section class="commercial-section" aria-labelledby="commercial-space-heading"><h2 class="commercial-section-title" id="commercial-space-heading">Space</h2>' + spaceHtml +
+          (Array.isArray(layout) && layout.length ? '<p class="commercial-note"><strong>Layout:</strong> ' + escapeHtml(layout.join(', ')) + '</p>' : '') +
+        '</section>' +
+        '<section class="commercial-section" aria-labelledby="commercial-amenities-heading"><h2 class="commercial-section-title" id="commercial-amenities-heading">Amenities and building services</h2>' + amenityHtml + amenityNotesHtml + parkingHtml +
+        '</section>' +
+        '<section class="commercial-section" aria-labelledby="commercial-pricing-heading"><h2 class="commercial-section-title" id="commercial-pricing-heading">Pricing and costs</h2>' + pricingHtml + costsHtml +
+        '</section>' +
+        '<section class="commercial-section" aria-labelledby="commercial-lease-heading"><h2 class="commercial-section-title" id="commercial-lease-heading">Lease and availability</h2>' + leaseHtml +
+        '</section>' +
+        (documents.documents_on_request ? '<section class="commercial-section" aria-labelledby="commercial-documents-heading"><h2 class="commercial-section-title" id="commercial-documents-heading">Documents</h2><p class="commercial-note">Ownership or management documents can be provided on request.</p></section>' : '');
+    }
 
     const reviewCount = Number(reviewSummary.review_count || reviews.length);
     const averageRating = Number(reviewSummary.average_rating);
@@ -1530,7 +1876,7 @@
       '<div class="rating-row">' +
         (reviewCount ? ICON_STAR + '<span>' + escapeHtml(ratingText) + '</span><span>' + escapeHtml(ratingCountText) + '</span>' : '<span>' + escapeHtml(ratingText) + '</span>') +
       '</div>' +
-      '<p class="listing-loc">' + ICON_LOCATION + '<span>' + escapeHtml(listing.location_text) + '</span><a class="map-link-inline" href="' + mapUrl + '" target="_blank" rel="noopener">View on map</a></p>' +
+      '<p class="listing-loc">' + ICON_LOCATION + '<span>' + escapeHtml(listingLocationText) + '</span><a class="map-link-inline" href="' + mapUrl + '" target="_blank" rel="noopener">View on map</a></p>' +
       hostPhoneHtml +
       (badges.length ? '<div class="badge-row">' + badges.map(function(b){ return '<span class="mini-badge">' + ICON_VERIFIED + b + '</span>'; }).join('') + '</div>' : '') +
       (infoChips.length ? '<div class="info-chip-row">' + infoChips.map(function(c){ return '<span class="info-chip">' + c + '</span>'; }).join('') + '</div>' : '') +
@@ -1541,13 +1887,19 @@
             '<div class="host-avatar">' + (hostAvatarUrl ? '<img src="' + hostAvatarUrl + '" alt="">' : escapeHtml(initials)) + '</div>' +
             '<a class="host-name" href="/host/' + encodeURIComponent(listing.host_id) + '">' + (isHotel ? 'Managed by ' : 'Hosted by ') + escapeHtml(hostName) + (listing.host.verified ? ICON_VERIFIED : '') + '</a>' +
           '</div>' +
-          '<button type="button" class="contact-host-btn" id="contact-host-btn">' + ICON_MESSAGE + '<span>' + (isHotel ? 'Contact hotel' : 'Contact Host') + '</span></button>' +
+          '<div class="contact-controls" role="group" aria-label="Contact host options">' +
+            '<button type="button" class="contact-control" aria-disabled="true" aria-label="WhatsApp (display only)" title="WhatsApp — display only"><img src="/assets/whatsapp.svg" alt="" aria-hidden="true"></button>' +
+            '<button type="button" class="contact-control" aria-disabled="true" aria-label="Gmail (display only)" title="Gmail — display only"><img src="/assets/gmail.svg" alt="" aria-hidden="true"></button>' +
+            '<button type="button" class="contact-control" aria-disabled="true" aria-label="Phone (display only)" title="Phone — display only">' + ICON_PHONE + '</button>' +
+            '<button type="button" class="contact-control" id="contact-host-btn" aria-label="Message host" title="' + (isHotel ? 'Message hotel' : 'Message host') + '">' + ICON_MESSAGE + '</button>' +
+          '</div>' +
         '</div>' +
         '<div class="about-block">' +
-          '<h2 class="about-title">' + (isHotel ? 'About this room' : 'About this place') + '</h2>' +
-          '<p class="about-text">' + (description ? escapeHtml(description) : '<span style="color:var(--muted);">' + (isHotel ? 'The hotel hasn\'t added room details yet.' : 'The host hasn\'t added details about this place yet.') + '</span>') + '</p>' +
-          '<h2 class="section-title" style="margin-top:.8rem;">' + (isHotel ? 'Room & hotel amenities' : 'Top amenities') + '</h2>' +
-          amenitiesHtml +
+          '<h2 class="about-title">' + (isHotel ? 'About this room' : (isOfficeShop ? 'About this commercial space' : 'About this place')) + '</h2>' +
+          descriptionHtml +
+          (isOfficeShop
+            ? commercialDetailsHtml
+            : '<h2 class="section-title" style="margin-top:.8rem;">' + (isHotel ? 'Room & hotel amenities' : 'Top amenities') + '</h2>' + amenitiesHtml) +
         '</div>' +
       '</div>' +
       '<hr class="divider">' +
@@ -1558,6 +1910,35 @@
       '<div class="review-strip">' + reviewCardsHtml + '</div>';
 
     document.getElementById('col-main').innerHTML = colMainHtml;
+
+    function setupDescriptionToggle() {
+      if (!hasDescriptionOverflow) return;
+      const descContainer = document.getElementById('about-desc-container');
+      if (!descContainer) return;
+
+      function bindToggle() {
+        const toggleBtn = document.getElementById('about-desc-toggle');
+        if (!toggleBtn) return;
+        toggleBtn.addEventListener('click', function(e){
+          e.preventDefault();
+          isDescriptionExpanded = !isDescriptionExpanded;
+          const targetText = isDescriptionExpanded ? description : descTruncation.text;
+          descContainer.innerHTML = formatDescriptionHtml(targetText, isDescriptionExpanded, hasDescriptionOverflow);
+          bindToggle();
+          if (!isDescriptionExpanded) {
+            const aboutBlock = document.querySelector('.about-block');
+            if (aboutBlock) {
+              const rect = aboutBlock.getBoundingClientRect();
+              if (rect.top < 0) {
+                aboutBlock.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+              }
+            }
+          }
+        });
+      }
+      bindToggle();
+    }
+    setupDescriptionToggle();
 
     const galleryLikeBtn = document.getElementById('gallery-like-btn');
     updateBookingLikeButton();
@@ -1781,40 +2162,12 @@
         '</div>'
       : '';
 
-    let propertyPolicyHtml = '';
-    if (isProperty) {
-      const policyPath = String(details.policy_storage_path || '');
-      let policyDocumentHtml = '<p class="property-policy-empty">No property policies provided.</p>';
-      if (policyPath) {
-        let policyDocument = null;
-        let policyError = null;
-        try {
-          const result = await supabaseClient.storage.from('listing-photos').createSignedUrl(policyPath, 3600);
-          policyDocument = result.data;
-          policyError = result.error;
-        } catch (error) {
-          policyError = error;
-        }
-        if (policyError || !policyDocument || !policyDocument.signedUrl) {
-          console.error('Property policy document could not be opened:', policyError || new Error('No signed document URL was returned.'));
-          policyDocumentHtml = '<p class="property-policy-empty">The uploaded policy document is currently unavailable.</p>';
-        } else {
-          const storedFilename = policyPath.split('/').pop() || 'Property policy document';
-          const filename = storedFilename.replace(/^policy_\d+_/, '') || 'Property policy document';
-          policyDocumentHtml =
-            '<a class="property-policy-link" href="' + escapeHtml(policyDocument.signedUrl) + '" target="_blank" rel="noopener" aria-label="Open property policy document: ' + escapeHtml(filename) + '">' +
-              '<svg class="property-policy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2h9l5 5v15H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z"/><path d="M14 2v6h6M8 13h8M8 17h8"/></svg>' +
-              '<span class="property-policy-name">' + escapeHtml(filename) + '<span class="property-policy-action">Open property policies</span></span>' +
-            '</a>';
-        }
-      }
-      propertyPolicyHtml =
-        '<section class="property-policy" aria-labelledby="property-policy-heading">' +
-          '<h2 class="property-policy-title" id="property-policy-heading"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2h9l5 5v15H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z"/><path d="M14 2v6h6M8 13h8M8 17h8"/></svg>Property Policies</h2>' +
-          policyDocumentHtml +
-        '</section>';
-    }
-
+    const propertyPolicyHtml = window.VaRoomBookingPolicy
+      ? window.VaRoomBookingPolicy.buildListingPolicyHtml(listing.category, details, listingDocuments, listingDocumentsLoaded)
+      : '';
+    const listingDocumentsHtml = window.VaRoomBookingPolicy
+      ? window.VaRoomBookingPolicy.buildListingDocumentsHtml(listing.category, listingDocuments)
+      : '';
     const propertyUnitItems = isProperty
       ? [
           details.units_available != null
@@ -1886,6 +2239,8 @@
         guestsHtml +
         hotelStayDetailsHtml +
         '<div class="details-box" id="details-box"></div>' +
+        propertyPolicyHtml +
+        listingDocumentsHtml +
         '<button type="button" class="confirm-btn" id="confirm-btn" disabled' + (listingUnavailable ? ' aria-disabled="true"' : '') + '>' + (supportsBoth ? 'Choose reservation' : (isHotel ? 'Reserve room' : 'Book now')) + '</button>' +
         (supportsBoth ? '<button type="button" id="choose-reservation-btn" style="width:100%;margin-top:.65rem;padding:.78rem;border:1px solid var(--red);border-radius:8px;background:transparent;color:var(--red);font-weight:700;cursor:pointer">Choose reservation type</button>' : '') +
         '<p class="form-note">' + (availabilityMessage || (isHotel ? 'This sends a reservation request to the hotel for confirmation.' : 'This creates a request — the host needs to approve it before it\'s confirmed.')) + '</p>' +

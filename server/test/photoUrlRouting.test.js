@@ -6,6 +6,11 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
+const landingPageSource = fs.readFileSync(
+  path.resolve(__dirname, '../../client/pages/index.tsx'),
+  'utf8',
+);
+
 function patchedStorage(fetchImpl = () => { throw new Error('Unexpected network request'); }) {
   const legacyCalls = [];
   const legacyUploadCalls = [];
@@ -109,4 +114,15 @@ test('leaves storage uploads outside photo categories unchanged', async () => {
 
   assert.deepEqual(result, { data: { path: 'conversation-id/document.pdf' }, error: null });
   assert.deepEqual(legacyUploadCalls, [{ bucket: 'chat-attachments', key: 'conversation-id/document.pdf' }]);
+});
+
+test('server-rendered landing listings resolve R2 photos through the media route', () => {
+  assert.match(
+    landingPageSource,
+    /const photoUrl = photo \? resolveStoredPhotoUrl\(photo\.storage_path, 'listing-photos', sb\) : null;/,
+  );
+  assert.doesNotMatch(
+    landingPageSource,
+    /const photoUrl = photo \? sb\.storage\.from\('listing-photos'\)\.getPublicUrl\(photo\.storage_path\)\.data\.publicUrl : null;/,
+  );
 });
