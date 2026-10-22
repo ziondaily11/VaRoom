@@ -879,6 +879,37 @@
   #listing-page[data-listing-niche="shop"] .step-frame[data-step="3"] #office-shop-media-fields input[type="checkbox"]:checked::before{ content:""; width:.3rem; height:.55rem; border:solid #8F1229; border-width:0 2px 2px 0; transform:rotate(45deg) translate(-1px,-1px); }
   #listing-page[data-listing-niche="office"] .step-frame[data-step="3"] #office-shop-media-fields input[type="checkbox"]:focus-visible,
   #listing-page[data-listing-niche="shop"] .step-frame[data-step="3"] #office-shop-media-fields input[type="checkbox"]:focus-visible{ outline:2px solid #fff; outline-offset:2px; }
+
+  /* Shared compact confirmation dialog for leaving a listing. */
+  .listing-leave-dialog{
+    position:fixed; inset:0; margin:auto; width:min(30rem,calc(100vw - 2rem)); max-width:none;
+    max-height:calc(100dvh - 2rem); overflow:auto; padding:0; border:1px solid rgba(255,255,255,.22);
+    border-radius:20px; color:#fff; background:#211916; box-shadow:0 24px 80px rgba(0,0,0,.48); font-family:inherit;
+  }
+  .listing-leave-dialog:not([open]){ display:none; }
+  .listing-leave-dialog[open]{ display:block; }
+  .listing-leave-dialog::backdrop{ background:rgba(6,4,4,.72); backdrop-filter:blur(5px); -webkit-backdrop-filter:blur(5px); }
+  body.listing-leave-fallback::before{ content:""; position:fixed; inset:0; z-index:9998; background:rgba(6,4,4,.72); backdrop-filter:blur(5px); }
+  body.listing-leave-fallback .listing-leave-dialog{ z-index:9999; }
+  .listing-leave-card{ padding:clamp(1.25rem,4vw,1.8rem); }
+  .listing-leave-dialog h2{ margin:0 0 .55rem; color:#fff; font-size:clamp(1.35rem,3vw,1.7rem); line-height:1.15; }
+  .listing-leave-dialog p{ margin:0; color:rgba(255,255,255,.78); line-height:1.5; }
+  .listing-leave-actions{ display:grid; grid-template-columns:1fr; gap:.65rem; margin-top:1.3rem; }
+  .listing-leave-actions button{
+    min-height:3rem; padding:.75rem 1rem; border:1px solid rgba(255,255,255,.22); border-radius:12px;
+    color:#fff; background:rgba(255,255,255,.08); font:inherit; font-size:1rem; font-weight:600; cursor:pointer;
+  }
+  .listing-leave-actions button[data-leave-action="save"]{ border-color:#c41e3a; background:#c41e3a; }
+  .listing-leave-actions button[data-leave-action="discard"],
+  .listing-leave-actions button[data-leave-action="confirm-discard"]{ border-color:rgba(255,100,115,.55); color:#ffb4bd; background:rgba(140,15,35,.28); }
+  .listing-leave-actions button:hover{ filter:brightness(1.1); }
+  .listing-leave-actions button:focus-visible{ outline:3px solid #fff; outline-offset:2px; }
+  .listing-leave-actions button:disabled{ opacity:.65; cursor:wait; }
+  @media(max-width:480px){
+    .listing-leave-dialog{ width:calc(100vw - 1.25rem); max-height:calc(100dvh - 1.25rem); border-radius:16px; }
+    .listing-leave-card{ padding:1.15rem; }
+    .listing-leave-actions button{ min-height:2.9rem; }
+  }
 </style>
 <link rel="stylesheet" href="js/varoom-dark-theme.css">
 </head>
@@ -1521,6 +1552,8 @@
     if (!persistedSnapshot || !persistedSnapshot.fields
         || Object.keys(persistedSnapshot.fields).length !== Object.keys(snapshot.fields).length
         || !Array.isArray(persistedSnapshot.controls) || persistedSnapshot.controls.length !== snapshot.controls.length
+        || ['fields','controls','propertyPurpose','propertySalePriceMode','hotelListingMode','availableDates','currentStep','furthestStep','amenities','officeShopAmenitySelections','officeShopPermittedUses','officeShopCharges','uploadedDocumentRefs','documentSelections']
+          .some(function(key){ return JSON.stringify(persistedSnapshot[key] === undefined ? null : persistedSnapshot[key]) !== JSON.stringify(snapshot[key] === undefined ? null : snapshot[key]); })
         || JSON.stringify(persistedSnapshot.uploadedDocumentRefs || {}) !== JSON.stringify(snapshot.uploadedDocumentRefs || {})
         || !filesMatch(persistedSnapshot.mediaFiles, snapshot.mediaFiles)
         || !fileMatches(persistedSnapshot.policyFile, snapshot.policyFile)
@@ -1547,6 +1580,24 @@
     if (!pointer) return;
     await listingDraftCache.remove(pointer.cacheKey);
     localStorage.removeItem(checkoutStatePointerKey(hostId, listingId));
+  }
+
+  async function mirrorVerifiedCheckoutDraft(hostId, draft, serverMediaMetadata){
+    if (!draft || !(listingPaymentVerified || returnedListingPaymentVerified || returnedSubscriptionPaymentVerified)) return;
+    const listingId = draft.listingId || preparedPaymentListingId;
+    const pointer = getListingCheckoutStatePointer(hostId, listingId);
+    if (!pointer || pointer.hostId !== hostId || pointer.listingId !== listingId
+        || (pointer.draftId && pointer.draftId !== draft.draftId)) return;
+    const checkoutSnapshot = Object.assign({}, draft, {
+      cacheKey: pointer.cacheKey,
+      draftId: pointer.draftId || draft.draftId,
+      listingId: listingId,
+      checkoutState: true,
+      serverMediaMetadata: serverMediaMetadata || draft.serverMediaMetadata || [],
+      mediaSelected: Boolean(draft.mediaFiles && draft.mediaFiles.length
+        || (serverMediaMetadata || draft.serverMediaMetadata || []).some(function(item){ return item.kind === 'listing_media'; })),
+    });
+    await listingDraftCache.save(checkoutSnapshot);
   }
 
   function captureListingDraft(hostId, listingId){
@@ -1660,6 +1711,8 @@
     const draft = captureListingDraft(hostId, listingId);
     listingDraftCacheKey = draft.cacheKey;
     await listingDraftCache.save(draft);
+    try { await mirrorVerifiedCheckoutDraft(hostId, draft); }
+    catch (checkoutCacheError) { console.warn('Unable to refresh the local post-checkout save state:', checkoutCacheError); }
     listingDraftCache.setPointer(hostId, {
       hostId: hostId,
       cacheKey: draft.cacheKey,
@@ -1719,6 +1772,8 @@
     draft.serverRevision = listingDraftRevision;
     draft.updatedAt = result.draft && result.draft.updated_at || new Date().toISOString();
     await listingDraftCache.save(draft);
+    try { await mirrorVerifiedCheckoutDraft(hostId, draft, result.draft && result.draft.media_metadata); }
+    catch (checkoutCacheError) { console.warn('Unable to refresh the local post-checkout save state:', checkoutCacheError); }
     setListingDraftStatus('Saved', 'saved');
     return draft;
   }
@@ -1753,31 +1808,56 @@
     const dialog = document.createElement('dialog');
     dialog.className = 'listing-leave-dialog';
     dialog.setAttribute('aria-labelledby', 'listing-leave-title');
-    dialog.innerHTML = '<h2 id="listing-leave-title">Leave this listing?</h2><p>Your latest changes are saved automatically. You can keep this listing as a draft or discard it.</p><p class="listing-leave-status" role="status" aria-live="polite"></p><div class="listing-leave-actions"><button type="button" data-leave-action="stay">Keep editing</button><button type="button" data-leave-action="discard">Discard</button><button type="button" data-leave-action="save">Save as draft</button></div>';
-    if (listingPaymentVerified) dialog.querySelector('[data-leave-action="discard"]').hidden = true;
+    dialog.innerHTML = '<div class="listing-leave-card"><h2 id="listing-leave-title">Leave this listing?</h2><p class="listing-leave-copy">Save your progress as a draft, or discard your changes.</p><div class="listing-leave-actions"><button type="button" data-leave-action="stay">Keep editing</button><button type="button" data-leave-action="save">Save as draft</button><button type="button" data-leave-action="discard">Discard listing</button></div></div>';
     document.body.appendChild(dialog);
+    let returnFocus = null;
+    function closeDialog(){
+      if (typeof dialog.close === 'function' && dialog.open) dialog.close();
+      else dialog.removeAttribute('open');
+      document.body.classList.remove('listing-leave-fallback');
+      if (returnFocus && returnFocus.isConnected) returnFocus.focus();
+    }
+    function resetDialog(){
+      dialog.querySelector('.listing-leave-copy').textContent = 'Save your progress as a draft, or discard your changes.';
+      dialog.querySelector('.listing-leave-actions').innerHTML = '<button type="button" data-leave-action="stay">Keep editing</button><button type="button" data-leave-action="save">Save as draft</button><button type="button" data-leave-action="discard">Discard listing</button>';
+      dialog.querySelector('[data-leave-action="discard"]').hidden = Boolean(listingPaymentVerified);
+    }
+    function showDiscardConfirmation(){
+      dialog.querySelector('.listing-leave-copy').textContent = 'Discard this unpublished listing? This cannot be undone.';
+      dialog.querySelector('.listing-leave-actions').innerHTML = '<button type="button" data-leave-action="cancel-discard">Keep editing</button><button type="button" data-leave-action="confirm-discard">Discard listing</button>';
+      dialog.querySelector('[data-leave-action="confirm-discard"]').focus();
+    }
     leaveLinks.forEach(function(link){
       link.addEventListener('click', function(event){
         if (editMode || !currentUser) return;
         event.preventDefault();
+        returnFocus = link;
+        resetDialog();
         dialog.dataset.destination = link.href;
-        const status = dialog.querySelector('.listing-leave-status');
-        if (status) status.textContent = '';
         if (typeof dialog.showModal === 'function') dialog.showModal();
-        else dialog.setAttribute('open', '');
+        else {
+          dialog.setAttribute('open', '');
+          document.body.classList.add('listing-leave-fallback');
+        }
+        dialog.querySelector('[data-leave-action="stay"]').focus();
       });
     });
     dialog.addEventListener('click', async function(event){
+      if (event.target === dialog) { closeDialog(); return; }
       const button = event.target.closest('[data-leave-action]');
       if (!button) return;
       const action = button.dataset.leaveAction;
-      const status = dialog.querySelector('.listing-leave-status');
       const destination = dialog.dataset.destination || '/host-home';
-      if (action === 'stay') { dialog.close ? dialog.close() : dialog.removeAttribute('open'); return; }
+      if (action === 'stay' || action === 'cancel-discard') {
+        if (action === 'cancel-discard') resetDialog();
+        closeDialog();
+        return;
+      }
+      if (action === 'discard') { showDiscardConfirmation(); return; }
       button.disabled = true;
       try {
         if (action === 'save') {
-          if (status) status.textContent = 'Saving your draft…';
+          button.textContent = 'Saving draft…';
           await listingDocumentUploadQueue;
           await draftSaveQueue.catch(function(){});
           const { data: { session } } = await supabaseClient.auth.getSession();
@@ -1786,43 +1866,51 @@
           await persistSelectedListingDocuments(listingId);
           await saveListingDraft(currentUser.id, listingId);
           if (listingDraftRemoteSaveUnavailable || listingDraftRevisionConflict) {
-            if (status) status.textContent = 'The draft is saved on this device, but could not be synced to My Profile. Reconnect and retry before leaving.';
-            return;
+            throw new Error('Your draft could not be saved to My Profile. Please try again before leaving.');
           }
+          closeDialog();
           window.location.assign(destination);
           return;
         }
-        if (action === 'discard') {
+        if (action === 'confirm-discard') {
           if (listingPaymentVerified) {
-            if (status) status.textContent = 'This listing has a verified payment. Save it as a draft or keep editing to finish publishing.';
-            return;
+            throw new Error('A paid listing cannot be discarded. Save it as a draft or keep editing.');
           }
-          if (!window.confirm('Permanently discard this listing draft? This cannot be undone.')) return;
-          if (status) status.textContent = 'Discarding this draft…';
+          button.textContent = 'Discarding…';
           const { data: { session } } = await supabaseClient.auth.getSession();
-          if (session && session.access_token && listingDraftId) {
-            const response = await fetch('/api/listing-drafts/' + encodeURIComponent(listingDraftId), {
-              method: 'DELETE', headers: { Authorization: 'Bearer ' + session.access_token },
-            });
-            if (!response.ok) throw new Error('The saved draft could not be removed from My Profile.');
+          if (!session || !session.access_token || session.user.id !== currentUser.id) {
+            throw new Error('Please sign in again before discarding this listing. Your draft is still saved.');
           }
-          if (session && session.access_token && preparedPaymentListingId) {
+          // Remove the listing shell first. Its FK sets listing_id to null on
+          // the private profile draft, so a failure never deletes the only
+          // recoverable copy of the host's form data.
+          if (preparedPaymentListingId) {
             const discardResponse = await fetch('/api/listings/' + encodeURIComponent(preparedPaymentListingId), {
               method: 'DELETE', headers: { Authorization: 'Bearer ' + session.access_token },
             });
             if (!discardResponse.ok) throw new Error('The unpublished listing shell could not be discarded safely.');
           }
+          if (listingDraftId) {
+            const response = await fetch('/api/listing-drafts/' + encodeURIComponent(listingDraftId), {
+              method: 'DELETE', headers: { Authorization: 'Bearer ' + session.access_token },
+            });
+            if (!response.ok) throw new Error('The saved draft could not be removed from My Profile.');
+          }
           const cacheKey = listingDraftCacheKey;
           if (cacheKey) await listingDraftCache.remove(cacheKey);
           listingDraftCache.clearPointer(currentUser.id, cacheKey);
+          if (preparedPaymentListingId) await clearListingCheckoutState(currentUser.id, preparedPaymentListingId);
+          closeDialog();
           window.location.assign(destination);
         }
       } catch (error) {
-        if (status) status.textContent = error.message || 'Unable to save or discard this draft.';
+        closeDialog();
+        showPaymentMessage(error.message || 'Unable to save or discard this draft. Your listing remains available to edit.', true);
       } finally {
         button.disabled = false;
       }
     });
+    dialog.addEventListener('close', function(){ document.body.classList.remove('listing-leave-fallback'); });
   }
   installSaveOrDiscardNavigation();
 
@@ -1876,6 +1964,9 @@
     const checkoutHandoff = !(options && options.saveProfileDraft);
     if (checkoutHandoff) listingCheckoutHandoffInProgress = true;
     try {
+      // Do not let an autosave already in flight race the final checkout
+      // snapshot or write an older revision after it.
+      await draftSaveQueue.catch(function(){});
       await listingDocumentUploadQueue;
       const listingId = await ensurePaymentDraft(session);
       await persistSelectedListingDocuments(listingId);
@@ -4325,7 +4416,6 @@
     }
 
     if (!(category === 'hotel' && hotelListingMode === 'table')) {
-      if (editMode) {
         const detailsPatch = Object.assign({}, bookingDetails);
         delete detailsPatch.listing_id;
         const detailResponse = await fetch('/api/listings/' + encodeURIComponent(listingId), {
@@ -4334,40 +4424,9 @@
           body: JSON.stringify({ booking_details: detailsPatch })
         });
         const detailResult = await detailResponse.json().catch(function(){ return {}; });
-        if (!detailResponse.ok) throw new Error(detailResult.error || 'Unable to update booking details');
-      } else if (isOfficeShop(category)) {
-        const detailsPatch = Object.assign({}, bookingDetails);
-        delete detailsPatch.listing_id;
-        const detailResponse = await fetch('/api/listings/' + encodeURIComponent(listingId), {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
-          body: JSON.stringify({ booking_details: detailsPatch })
-        });
-        const detailResult = await detailResponse.json().catch(function(){ return {}; });
-        if (!detailResponse.ok) throw new Error(detailResult.error || 'Unable to save commercial listing details');
-      } else {
-        const { error: bookingInsertErr } = await supabaseClient.from('listing_booking_details').insert(bookingDetails);
-        if (bookingInsertErr) {
-          console.warn('Full booking details insert error:', bookingInsertErr);
-          // Fallback: If new migration columns are not yet recognized by Supabase PostgREST,
-          // retry inserting the base core fields so the listing is never left without booking details.
-          const coreDetails = {
-            listing_id: listingId,
-            price_amount: bookingDetails.price_amount,
-            price_unit: bookingDetails.price_unit,
-            size_or_type: bookingDetails.size_or_type,
-            amenities: bookingDetails.amenities,
-            available_from: bookingDetails.available_from || null,
-            min_lease_months: bookingDetails.min_lease_months || null,
-            deposit_amount: bookingDetails.deposit_amount || null,
-            utilities_included: Boolean(bookingDetails.utilities_included)
-          };
-          const { error: fallbackErr } = await supabaseClient.from('listing_booking_details').insert(coreDetails);
-          if (fallbackErr) {
-            throw new Error('Could not save booking details: ' + (fallbackErr.message || bookingInsertErr.message));
-          }
+        if (!detailResponse.ok) {
+          throw new Error(detailResult.error || (editMode ? 'Unable to update booking details' : 'Unable to save booking details'));
         }
-      }
     }
 
     if (category === 'hotel' && (hotelListingMode === 'table' || hotelListingMode === 'both')) {
@@ -4747,6 +4806,10 @@
       const sanitizedSnapshot = captureListingDraft(hostId, preparedPaymentListingId);
       sanitizedSnapshot.cacheKey = cacheKey;
       sanitizedSnapshot.draftId = listingDraftId;
+      sanitizedSnapshot.checkoutState = snapshot.checkoutState === true;
+      sanitizedSnapshot.serverMediaMetadata = snapshot.serverMediaMetadata || [];
+      sanitizedSnapshot.mediaSelected = Boolean(snapshot.mediaSelected || selectedFiles.length
+        || (sanitizedSnapshot.serverMediaMetadata || []).some(function(item){ return item.kind === 'listing_media'; }));
       if (localRevisionConflict) {
         sanitizedSnapshot.serverRevision = localServerRevision;
         sanitizedSnapshot.updatedAt = snapshot.updatedAt || sanitizedSnapshot.updatedAt;

@@ -31,6 +31,11 @@ test('Paystack uses a verified per-listing save state and restores complete form
   assert.match(listingPage, /serverRevision: listingDraftRevision/);
   assert.match(listingPage, /listingDraftCache\.save\(draft\);[\s\S]*?draft\.serverRevision = listingDraftRevision/);
   assert.match(listingPage, /!filesMatch\(persistedSnapshot\.mediaFiles, snapshot\.mediaFiles\)/);
+  assert.match(listingPage, /await draftSaveQueue\.catch\(function\(\)\{\}\);[\s\S]*await listingDocumentUploadQueue;[\s\S]*await saveListingCheckoutState/);
+  assert.match(listingPage, /sanitizedSnapshot\.checkoutState = snapshot\.checkoutState === true/);
+  assert.match(listingPage, /async function mirrorVerifiedCheckoutDraft\(hostId, draft, serverMediaMetadata\)/);
+  assert.match(listingPage, /mirrorVerifiedCheckoutDraft\(hostId, draft, result\.draft && result\.draft\.media_metadata\)/);
+  assert.match(listingPage, /'fields','controls','propertyPurpose','propertySalePriceMode','hotelListingMode','availableDates','currentStep','furthestStep','amenities','officeShopAmenitySelections','officeShopPermittedUses','officeShopCharges','uploadedDocumentRefs','documentSelections'[\s\S]*JSON\.stringify\(persistedSnapshot\[key\][\s\S]*JSON\.stringify\(snapshot\[key\]/);
   assert.match(listingPage, /documentSelections: \{[\s\S]*officeShop: officeDocumentSelections/);
 
   const payFlowStart = listingPage.indexOf('async function startPayToListFlow()');
@@ -97,5 +102,28 @@ test('database draft rows are host-private and public listing details/photos req
   assert.match(migration, /listing_photos_published_select[\s\S]*publication_state = 'published'/);
   assert.match(migration, /listing_booking_details_owner_select[\s\S]*l\.host_id = auth\.uid\(\)/);
   assert.match(migration, /listing_photos_owner_select[\s\S]*l\.host_id = auth\.uid\(\)/);
+});
+
+test('the paid listing is edited through the authenticated API and the leave dialog separates discard confirmation', () => {
+  const submitStart = listingPage.indexOf("document.getElementById('list-form').addEventListener('submit'");
+  const submitEnd = listingPage.indexOf("document.getElementById('pay-to-list-btn').addEventListener", submitStart);
+  const submitFlow = listingPage.slice(submitStart, submitEnd);
+  assert.match(submitFlow, /const existingSubmissionListingId = editMode \? editListingId : preparedPaymentListingId/);
+  assert.match(submitFlow, /fetch\(existingSubmissionListingId \? '\/api\/listings\/' \+ encodeURIComponent\(existingSubmissionListingId\) : '\/api\/listings'/);
+  assert.match(submitFlow, /booking_details: detailsPatch/);
+  assert.doesNotMatch(submitFlow, /supabaseClient\.from\(['"]listing_booking_details['"]\)\.insert/);
+  assert.match(listingPage, /dialog\.innerHTML = '<div class="listing-leave-card"><h2 id="listing-leave-title">Leave this listing\?<\/h2><p class="listing-leave-copy">Save your progress as a draft, or discard your changes\.<\/p>/);
+  assert.match(listingPage, /data-leave-action="confirm-discard"/);
+  assert.doesNotMatch(listingPage, /window\.confirm\(/);
+  assert.match(listingPage, /clearListingCheckoutState\(currentUser\.id, preparedPaymentListingId\)/);
+});
+
+test('the price-unit migration admits every unit validated by the listing API without running SQL', () => {
+  const priceUnitMigration = fs.readFileSync(path.join(__dirname, '..', 'migrations', '20261022_000046_listing_booking_price_units.sql'), 'utf8');
+  for (const unit of ['hour', 'day', 'week', 'night', 'month', 'year', 'sq_ft', 'm2', 'desk', 'turnover']) {
+    assert.match(priceUnitMigration, new RegExp(`'${unit}'`));
+  }
+  assert.match(priceUnitMigration, /drop constraint if exists listing_booking_details_price_unit_check/i);
+  assert.match(listingRoutes, /enumValue\(value, key, \['hour', 'day', 'week', 'night', 'month', 'year', 'sq_ft', 'm2', 'desk', 'turnover'\]\)/);
 });
 
