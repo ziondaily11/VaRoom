@@ -2265,31 +2265,29 @@
                it stays a sensible part of a mobile Discover card. */
             const mobileMaxHeight = Math.min(560, availableWidth * 1.6);
             const fallbackHeight = Math.min(mobileMaxHeight, availableWidth / (4 / 3));
-            fallbackFrame = { height:fallbackHeight, width:Math.min(availableWidth, fallbackHeight * (4 / 3)), metadataValid:false };
+            fallbackFrame = { height:fallbackHeight, width:Math.min(availableWidth, fallbackHeight * (4 / 3)) };
             frames = media.filter(Boolean).map(function(item){
               const metadataSource = item.closest('.media-slide') || stage;
-              const width = Number(metadataSource.getAttribute('data-media-width'));
-              const height = Number(metadataSource.getAttribute('data-media-height'));
-              if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return fallbackFrame;
+              const width = Number(metadataSource.getAttribute('data-media-width')) || item.videoWidth || item.naturalWidth;
+              const height = Number(metadataSource.getAttribute('data-media-height')) || item.videoHeight || item.naturalHeight;
+              if (!width || !height) return fallbackFrame;
               const ratio = width / height;
-              if (!Number.isFinite(ratio) || ratio <= 0) return fallbackFrame;
               const fittedHeight = Math.min(mobileMaxHeight, availableWidth / ratio);
-              return { height:fittedHeight, width:Math.min(availableWidth, fittedHeight * ratio), metadataValid:true };
+              return { height:fittedHeight, width:Math.min(availableWidth, fittedHeight * ratio) };
             });
           } else {
             /* Desktop: height capped at maxHeight, container width also constrained.
                Unchanged from the recent successful desktop fix. */
             const fallbackHeight = Math.min(maxHeight, availableWidth / (4 / 3));
-            fallbackFrame = { height:fallbackHeight, width:Math.min(availableWidth, fallbackHeight * (4 / 3)), metadataValid:false };
+            fallbackFrame = { height:fallbackHeight, width:Math.min(availableWidth, fallbackHeight * (4 / 3)) };
             frames = media.filter(Boolean).map(function(item){
               const metadataSource = item.closest('.media-slide') || stage;
-              const width = Number(metadataSource.getAttribute('data-media-width'));
-              const height = Number(metadataSource.getAttribute('data-media-height'));
-              if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return fallbackFrame;
+              const width = Number(metadataSource.getAttribute('data-media-width')) || item.videoWidth || item.naturalWidth;
+              const height = Number(metadataSource.getAttribute('data-media-height')) || item.videoHeight || item.naturalHeight;
+              if (!width || !height) return fallbackFrame;
               const ratio = width / height;
-              if (!Number.isFinite(ratio) || ratio <= 0) return fallbackFrame;
               const fittedHeight = Math.min(maxHeight, availableWidth / ratio);
-              return { height:fittedHeight, width:Math.min(availableWidth, fittedHeight * ratio), metadataValid:true };
+              return { height:fittedHeight, width:Math.min(availableWidth, fittedHeight * ratio) };
             });
           }
           if (!frames.length) frames.push(fallbackFrame);
@@ -2300,16 +2298,13 @@
           stage.style.setProperty('--discover-media-width', Math.round(widestFrame.width) + 'px');
           media.filter(Boolean).forEach(function(item, index){
             item.style.width = Math.round(frames[index].width) + 'px';
-            item.style.height = Math.round(frames[index].height) + 'px';
-            item.style.objectFit = frames[index].metadataValid ? '' : 'contain';
+            item.style.height = 'auto';
           });
         }
         media.filter(Boolean).forEach(function(item){
           if (item.getAttribute('data-discover-size-listener') === 'true') return;
           item.setAttribute('data-discover-size-listener', 'true');
-          item.addEventListener('load', function(){
-            if (item.tagName !== 'VIDEO' && item.complete && item.naturalWidth > 0) setDiscoverAmbientImage(item.closest('.media-slide'), item.currentSrc || item.src);
-          }, { once:true });
+          item.addEventListener(item.tagName === 'VIDEO' ? 'loadeddata' : 'load', updateHeight, { once:true });
         });
         updateHeight();
       });
