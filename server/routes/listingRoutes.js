@@ -161,7 +161,7 @@ function isValidDraftFormData(value) {
 }
 
 function normalizeDraftMediaMetadata(value) {
-  if (!Array.isArray(value) || value.length > 7) throw new ValidationError('Draft media metadata is invalid');
+  if (!Array.isArray(value) || value.length > 32) throw new ValidationError('Draft media metadata is invalid');
   return value.map((item) => {
     if (!isPlainObject(item)) throw new ValidationError('Draft media metadata is invalid');
     const size = item.size === undefined || item.size === null ? 0 : number(item.size, 'media size', { min: 0, max: 52428800 });
@@ -170,6 +170,7 @@ function normalizeDraftMediaMetadata(value) {
     return {
       name: text(item.name, 'media name', { required: false, max: 255 }) || '',
       type: text(item.type, 'media type', { required: false, max: 100 }) || '',
+      kind: text(item.kind, 'media kind', { required: false, max: 40 }) || '',
       size,
       lastModified,
     };
@@ -182,7 +183,7 @@ router.get('/listing-drafts', async (req, res) => {
   const user = await authenticatedHost(req, res);
   if (!user) return;
   const { data, error } = await supabaseAdmin.from('host_listing_drafts')
-    .select('id,listing_id,category,form_data,media_metadata,created_at,updated_at')
+    .select('id,listing_id,category,form_data,media_metadata,created_at,updated_at,revision')
     .eq('host_id', user.id).order('updated_at', { ascending: false });
   if (error) {
     console.error('Host listing draft lookup failed:', error.message);
@@ -198,7 +199,7 @@ router.get('/listing-drafts/:id', async (req, res) => {
   try { id = uuid(req.params.id, 'draft id'); }
   catch (_) { return res.status(400).json({ error: 'Invalid listing draft id' }); }
   const { data, error } = await supabaseAdmin.from('host_listing_drafts')
-    .select('id,listing_id,category,form_data,media_metadata,created_at,updated_at')
+    .select('id,listing_id,category,form_data,media_metadata,created_at,updated_at,revision')
     .eq('id', id).eq('host_id', user.id).maybeSingle();
   if (error) {
     console.error('Host listing draft lookup failed:', error.message);
@@ -214,12 +215,14 @@ router.put('/listing-drafts/:id', async (req, res) => {
   let id;
   let category;
   let mediaMetadata;
+  let clientRevision;
   try {
     id = uuid(req.params.id, 'draft id');
-    assertAllowedKeys(req.body, ['category', 'form_data', 'media_metadata', 'listing_id']);
+    assertAllowedKeys(req.body, ['category', 'form_data', 'media_metadata', 'listing_id', 'revision']);
     category = enumValue(req.body.category, 'category', CATEGORIES);
     if (!isValidDraftFormData(req.body.form_data)) throw new ValidationError('Listing draft is too large or invalid');
     mediaMetadata = normalizeDraftMediaMetadata(req.body.media_metadata || []);
+    if (req.body.revision !== undefined) clientRevision = number(req.body.revision, 'revision', { integer: true, min: 0, max: 2147483646 });
   } catch (error) {
     if (error instanceof ValidationError) return res.status(400).json({ error: error.message, code: 'INVALID_LISTING_DRAFT' });
     return res.status(400).json({ error: 'Invalid listing draft' });
@@ -233,9 +236,27 @@ router.put('/listing-drafts/:id', async (req, res) => {
   }
 
   const { data: existing, error: existingError } = await supabaseAdmin.from('host_listing_drafts')
-    .select('id,host_id,created_at').eq('id', id).maybeSingle();
+    .select('id,host_id,created_at,revision,listing_id,category,form_data,media_metadata,updated_at').eq('id', id).maybeSingle();
   if (existingError) return res.status(500).json({ error: 'Unable to save this listing draft' });
   if (existing && existing.host_id !== user.id) return res.status(404).json({ error: 'Listing draft not found' });
+  if (existing && clientRevision !== undefined && clientRevision !== existing.revision) {
+    const isRetryOfLatest = clientRevision + 1 === existing.revision
+      && existing.category === category
+      && (existing.listing_id || null) === (req.body.listing_id || null)
+      && JSON.stringify(existing.form_data) === JSON.stringify(req.body.form_data)
+      && JSON.stringify(existing.media_metadata) === JSON.stringify(mediaMetadata);
+    if (isRetryOfLatest) {
+      return res.json({ draft: {
+        id: existing.id, listing_id: existing.listing_id, category: existing.category,
+        form_data: existing.form_data, media_metadata: existing.media_metadata,
+        created_at: existing.created_at, updated_at: existing.updated_at, revision: existing.revision,
+      } });
+    }
+    return res.status(409).json({ error: 'A newer copy of this listing draft is already saved. Reload the draft before continuing.', code: 'LISTING_DRAFT_REVISION_CONFLICT' });
+  }
+  if (!existing && clientRevision !== undefined && clientRevision !== 0) {
+    return res.status(409).json({ error: 'This listing draft has already changed. Reload it before saving.', code: 'LISTING_DRAFT_REVISION_CONFLICT' });
+  }
 
   let listingId = null;
   if (req.body.listing_id) {
@@ -255,14 +276,37 @@ router.put('/listing-drafts/:id', async (req, res) => {
     form_data: req.body.form_data,
     media_metadata: mediaMetadata,
     updated_at: now,
+    revision: existing ? existing.revision + 1 : 1,
   };
   if (!existing) payload.created_at = now;
   const draftQuery = supabaseAdmin.from('host_listing_drafts');
-  const { data, error } = (existing
-    ? draftQuery.update(payload).eq('id', id).eq('host_id', user.id)
-    : draftQuery.insert(payload))
-    .select('id,listing_id,category,form_data,media_metadata,created_at,updated_at').single();
+  const saveQuery = existing
+    ? draftQuery.update(payload).eq('id', id).eq('host_id', user.id).eq('revision', existing.revision)
+    : draftQuery.insert(payload);
+  const { data, error } = await saveQuery
+    .select('id,listing_id,category,form_data,media_metadata,created_at,updated_at,revision').maybeSingle();
+  if (!error && !data) {
+    return res.status(409).json({ error: 'A newer copy of this listing draft is already saved. Reload the draft before continuing.', code: 'LISTING_DRAFT_REVISION_CONFLICT' });
+  }
   if (error) {
+    // Two tabs can create the same initially generated draft ID before either
+    // sees a server row. Treat an identical winning insert as an idempotent
+    // retry, while refusing to expose another host's colliding row.
+    if (!existing && error.code === '23505') {
+      const { data: raced, error: racedError } = await supabaseAdmin.from('host_listing_drafts')
+        .select('id,host_id,listing_id,category,form_data,media_metadata,created_at,updated_at,revision')
+        .eq('id', id).maybeSingle();
+      if (racedError) return res.status(500).json({ error: 'Unable to save your listing draft' });
+      if (!raced || raced.host_id !== user.id) {
+        return res.status(409).json({ error: 'This listing draft changed in another session. Reload it before saving.', code: 'LISTING_DRAFT_REVISION_CONFLICT' });
+      }
+      const sameDraft = raced.category === category
+        && (raced.listing_id || null) === (req.body.listing_id || null)
+        && JSON.stringify(raced.form_data) === JSON.stringify(req.body.form_data)
+        && JSON.stringify(raced.media_metadata) === JSON.stringify(mediaMetadata);
+      if (sameDraft) return res.json({ draft: raced });
+      return res.status(409).json({ error: 'This listing draft changed in another session. Reload it before saving.', code: 'LISTING_DRAFT_REVISION_CONFLICT' });
+    }
     console.error('Host listing draft save failed:', error.message);
     return res.status(500).json({ error: 'Unable to save your listing draft' });
   }
@@ -799,18 +843,21 @@ router.delete('/listings/:id', async (req, res) => {
     return res.json({ success: true, discarded: true, cleanup: 'queued' });
   }
 
-  const [photosResult, mediaResult] = await Promise.all([
+  const [photosResult, mediaResult, documentsResult] = await Promise.all([
     supabaseAdmin.from('listing_photos').select('storage_path').eq('listing_id', req.params.id),
     supabaseAdmin.from('property_media')
       .select('storage_provider,storage_bucket,storage_key,thumbnail_key')
       .eq('property_id', req.params.id),
+    supabaseAdmin.from('listing_documents')
+      .select('storage_provider,storage_bucket,storage_key').eq('listing_id', req.params.id),
   ]);
-  if (photosResult.error || mediaResult.error) {
-    console.error('Listing media lookup failed:', photosResult.error || mediaResult.error);
-    return res.status(500).json({ error: 'Unable to load listing media for deletion' });
+  if (photosResult.error || mediaResult.error || documentsResult.error) {
+    console.error('Listing media/document lookup failed:', photosResult.error || mediaResult.error || documentsResult.error);
+    return res.status(500).json({ error: 'Unable to load listing media and documents for deletion' });
   }
   const photos = photosResult.data;
   const propertyMedia = mediaResult.data;
+  const documents = documentsResult.data || [];
 
   const { error: mediaDeleteError } = await supabaseAdmin.from('property_media')
     .delete().eq('property_id', req.params.id);
@@ -867,7 +914,18 @@ router.delete('/listings/:id', async (req, res) => {
     mediaBuckets.set(bucket, keyList);
   }
 
-  await Promise.all(r2Keys.map((key) => mediaStorageService.deleteR2Object(key)));
+  for (const document of documents) {
+    if (!document.storage_key) continue;
+    if (document.storage_provider === 'r2') r2Keys.push(document.storage_key);
+    else {
+      const bucket = document.storage_bucket || 'listing-photos';
+      const keyList = mediaBuckets.get(bucket) || [];
+      keyList.push(document.storage_key);
+      mediaBuckets.set(bucket, keyList);
+    }
+  }
+
+  await mediaStorageService.deleteR2Objects([...new Set(r2Keys)]);
   if (legacyPaths.length) await supabaseAdmin.storage.from('listing-photos').remove(legacyPaths);
   for (const [bucket, keys] of mediaBuckets.entries()) {
     if (!keys.length) continue;

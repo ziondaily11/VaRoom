@@ -1429,6 +1429,17 @@
     const details = (Array.isArray(rawDetails) ? rawDetails[0] : rawDetails) || {};
     const isProperty = listing.category === 'property';
     const isOfficeShop = ['office', 'shop'].includes(listing.category);
+    let listingDocuments = [];
+    try {
+      const headers = session && session.access_token ? { Authorization: 'Bearer ' + session.access_token } : {};
+      const documentsResponse = await fetch('/api/listings/' + encodeURIComponent(listingId) + '/documents', { headers: headers });
+      if (documentsResponse.ok) {
+        const documentsResult = await documentsResponse.json();
+        listingDocuments = Array.isArray(documentsResult.documents) ? documentsResult.documents : [];
+      }
+    } catch (documentLookupError) {
+      console.warn('Listing documents could not be loaded:', documentLookupError);
+    }
     const officeShop = isOfficeShop && details.office_shop_details && typeof details.office_shop_details === 'object' && !Array.isArray(details.office_shop_details)
       ? details.office_shop_details
       : null;
@@ -1785,22 +1796,13 @@
         { label: 'Internet note', value: amenities.internet_note },
         { label: 'Accessibility note', value: amenities.accessibility_note }
       ]);
-      const documentPaths = [];
-      if (documents.floor_plan_path) documentPaths.push({ path: documents.floor_plan_path, label: 'Floor plan' });
-      if (documents.policy_path) documentPaths.push({ path: documents.policy_path, label: 'Policy or rules document' });
-      (Array.isArray(documents.management_document_paths) ? documents.management_document_paths : []).forEach(function(path, index){
-        if (path) documentPaths.push({ path: path, label: 'Ownership or management document ' + (index + 1) });
+      const visibleCommercialDocuments = listingDocuments.filter(function(document){
+        return ['floor_plan', 'commercial_policy'].includes(document.documentType) && document.downloadUrl;
+      }).map(function(document){
+        return { label: document.documentType === 'floor_plan' ? 'Floor plan' : 'Policy or rules document', url: document.downloadUrl };
       });
-      const signedDocuments = await Promise.all(documentPaths.map(async function(document){
-        try {
-          const result = await supabaseClient.storage.from('listing-photos').createSignedUrl(document.path, 3600);
-          return result.error || !result.data || !result.data.signedUrl ? null : { label: document.label, url: result.data.signedUrl };
-        } catch (error) {
-          return null;
-        }
-      }));
-      const documentHtml = signedDocuments.filter(Boolean).length
-        ? '<div class="commercial-document-list">' + signedDocuments.filter(Boolean).map(function(document){ return '<a class="commercial-document-link" href="' + escapeHtml(document.url) + '" target="_blank" rel="noopener">' + escapeHtml(document.label) + '</a>'; }).join('') + '</div>'
+      const documentHtml = visibleCommercialDocuments.length
+        ? '<div class="commercial-document-list">' + visibleCommercialDocuments.map(function(document){ return '<a class="commercial-document-link" href="' + escapeHtml(document.url) + '" target="_blank" rel="noopener">' + escapeHtml(document.label) + '</a>'; }).join('') + '</div>'
         : '';
       commercialDetailsHtml =
         '<section class="commercial-section" aria-labelledby="commercial-location-heading"><h2 class="commercial-section-title" id="commercial-location-heading">Commercial location</h2>' + locationHtml +
@@ -2155,30 +2157,15 @@
 
     let propertyPolicyHtml = '';
     if (isProperty) {
-      const policyPath = String(details.policy_storage_path || '');
+      const policyRecord = listingDocuments.find(function(document){ return document.documentType === 'property_policy' && document.downloadUrl; });
       let policyDocumentHtml = '<p class="property-policy-empty">No property policies provided.</p>';
-      if (policyPath) {
-        let policyDocument = null;
-        let policyError = null;
-        try {
-          const result = await supabaseClient.storage.from('listing-photos').createSignedUrl(policyPath, 3600);
-          policyDocument = result.data;
-          policyError = result.error;
-        } catch (error) {
-          policyError = error;
-        }
-        if (policyError || !policyDocument || !policyDocument.signedUrl) {
-          console.error('Property policy document could not be opened:', policyError || new Error('No signed document URL was returned.'));
-          policyDocumentHtml = '<p class="property-policy-empty">The uploaded policy document is currently unavailable.</p>';
-        } else {
-          const storedFilename = policyPath.split('/').pop() || 'Property policy document';
-          const filename = storedFilename.replace(/^policy_\d+_/, '') || 'Property policy document';
+      if (policyRecord) {
+          const filename = policyRecord.filename || 'Property policy document';
           policyDocumentHtml =
-            '<a class="property-policy-link" href="' + escapeHtml(policyDocument.signedUrl) + '" target="_blank" rel="noopener" aria-label="Open property policy document: ' + escapeHtml(filename) + '">' +
+            '<a class="property-policy-link" href="' + escapeHtml(policyRecord.downloadUrl) + '" target="_blank" rel="noopener" aria-label="Open property policy document: ' + escapeHtml(filename) + '">' +
               '<svg class="property-policy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2h9l5 5v15H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z"/><path d="M14 2v6h6M8 13h8M8 17h8"/></svg>' +
               '<span class="property-policy-name">' + escapeHtml(filename) + '<span class="property-policy-action">Open property policies</span></span>' +
             '</a>';
-        }
       }
       propertyPolicyHtml =
         '<section class="property-policy" aria-labelledby="property-policy-heading">' +

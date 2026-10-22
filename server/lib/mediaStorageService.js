@@ -148,16 +148,19 @@ function generatePhotoObjectKey(userId, category, photoId, extension) {
  *
  * No access keys ever reach the browser — only this single-use, expiring URL.
  */
-async function generateR2UploadAuthorization(objectKey, contentType, maxFileSize) {
+async function generateR2UploadAuthorization(objectKey, contentType, maxFileSize, expiresInSeconds = 30 * 60, expectedContentLength) {
   assertConfigured();
 
   const command = new PutObjectCommand({
     Bucket: R2_BUCKET_NAME,
     Key: objectKey,
     ContentType: contentType || 'video/mp4',
+    ...(Number.isInteger(expectedContentLength) && expectedContentLength > 0
+      ? { ContentLength: expectedContentLength }
+      : {}),
   });
 
-  const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 30 * 60 }); // 30 min
+  const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: expiresInSeconds });
 
   return {
     uploadUrl,
@@ -166,7 +169,7 @@ async function generateR2UploadAuthorization(objectKey, contentType, maxFileSize
     objectKey,
     contentType: contentType || 'video/mp4',
     maxFileSize: maxFileSize || 500 * 1024 * 1024, // 500MB default
-    expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+    expiresAt: new Date(Date.now() + expiresInSeconds * 1000).toISOString(),
   };
 }
 
@@ -189,12 +192,13 @@ async function generateR2PlaybackUrl(objectKey, expiresInSeconds = 3600) {
   };
 }
 
-async function generateR2DownloadAuthorization(objectKey, contentType, expiresInSeconds = 3600) {
+async function generateR2DownloadAuthorization(objectKey, contentType, expiresInSeconds = 3600, contentDisposition) {
   assertConfigured();
   const command = new GetObjectCommand({
     Bucket: R2_BUCKET_NAME,
     Key: objectKey,
     ResponseContentType: contentType || undefined,
+    ResponseContentDisposition: contentDisposition || undefined,
   });
   const url = await getSignedUrl(s3Client, command, { expiresIn: expiresInSeconds });
   return { url, expiresAt: new Date(Date.now() + expiresInSeconds * 1000) };

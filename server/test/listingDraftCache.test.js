@@ -61,7 +61,7 @@ function createMemoryStorage(){
   };
 }
 
-test('listing drafts persist actual image/video/policy File objects in IndexedDB', async () => {
+test('listing drafts persist local image/video files but strip private document bytes', async () => {
   const cache = createListingDraftCache({
     indexedDBRef: createMemoryIndexedDB(),
     storage: createMemoryStorage(),
@@ -71,6 +71,8 @@ test('listing drafts persist actual image/video/policy File objects in IndexedDB
     new File(['video bytes'], 'video.mp4', { type: 'video/mp4' }),
   ];
   const policyFile = new File(['policy bytes'], 'policy.pdf', { type: 'application/pdf' });
+  const floorPlanFile = new File(['floor plan bytes'], 'floor-plan.pdf', { type: 'application/pdf' });
+  const ownershipFile = new File(['ownership bytes'], 'ownership.pdf', { type: 'application/pdf' });
   const draft = {
     cacheKey: 'host-1:draft-1',
     hostId: 'host-1',
@@ -80,6 +82,8 @@ test('listing drafts persist actual image/video/policy File objects in IndexedDB
     fields: { title: 'Restored listing' },
     mediaFiles: files,
     policyFile,
+    officeShopFiles: { floorPlan: floorPlanFile, policy: null, documents: [ownershipFile] },
+    uploadedDocumentRefs: { property_policy: [{ id: 'doc-1', filename: 'policy.pdf' }] },
   };
 
   await cache.save(draft);
@@ -91,8 +95,9 @@ test('listing drafts persist actual image/video/policy File objects in IndexedDB
   assert.equal(restored.mediaFiles[0].name, 'photo.jpg');
   assert.ok(restored.mediaFiles[1] instanceof File);
   assert.equal(restored.mediaFiles[1].name, 'video.mp4');
-  assert.ok(restored.policyFile instanceof File);
-  assert.equal(restored.policyFile.name, 'policy.pdf');
+  assert.equal(restored.policyFile, null);
+  assert.deepEqual(restored.officeShopFiles, { floorPlan: null, policy: null, documents: [] });
+  assert.deepEqual(restored.uploadedDocumentRefs, { property_policy: [{ id: 'doc-1', filename: 'policy.pdf' }] });
 });
 
 test('draft pointers are host-scoped and clearing a host removes its cache entry', async () => {

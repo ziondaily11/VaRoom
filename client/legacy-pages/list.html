@@ -1055,7 +1055,7 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
                 Upload your property policy PDF (optional)
               </button>
-              <input type="file" id="policy-input" accept="application/pdf,.pdf" style="display:none">
+              <input type="file" id="policy-input" accept="application/pdf,image/jpeg,image/png,image/webp,image/gif,.pdf,.jpg,.jpeg,.png,.webp,.gif" style="display:none">
               <div class="policy-file-name" id="policy-file-name">
                 <button type="button" class="policy-preview-btn" id="policy-preview-btn"></button>
                 <button type="button" class="policy-remove" id="policy-remove-btn">Remove</button>
@@ -1363,7 +1363,7 @@
 <script>
   (function(){
     const params = new URLSearchParams(window.location.search);
-    if (params.get('payment') === 'return') {
+    if (params.get('payment') === 'return' || ['return', 'verified'].includes(params.get('subscription'))) {
       const checking = document.getElementById('checking-auth');
       if (checking) checking.textContent = 'Confirming your payment...';
     }
@@ -1385,6 +1385,9 @@
   const listingReturnParams = new URLSearchParams(window.location.search);
   const listingPaymentReturnMode = listingReturnParams.get('payment');
   const listingPaymentReturnReference = listingReturnParams.get('reference') || listingReturnParams.get('trxref');
+  const listingSubscriptionReturnReference = ['return', 'verified'].includes(listingReturnParams.get('subscription'))
+    ? (listingReturnParams.get('reference') || listingReturnParams.get('trxref')) : null;
+  const listingRecoveryReturnReference = listingPaymentReturnReference || listingSubscriptionReturnReference;
   let currentUser = null;
   let hostNiche = null;
   const editListingId = new URLSearchParams(window.location.search).get('edit');
@@ -1394,6 +1397,7 @@
   let preparedPaymentListingId = null;
   let listingPaymentVerified = false;
   let returnedListingPaymentVerified = false;
+  let returnedSubscriptionPaymentVerified = false;
   let returnedListingPaymentMessage = null;
   let hasCurrentListingFee = false;
   let nicheEntitlementChecked = false;
@@ -1409,6 +1413,10 @@
   let paymentCheckoutSnapshot = null;
   let draftSaveTimer = null;
   let draftSaveQueue = Promise.resolve();
+  let listingDraftRevision = 0;
+  let listingDraftRevisionConflict = false;
+  let listingDraftRemoteSaveUnavailable = false;
+  let listingDocumentUploadQueue = Promise.resolve();
   let restoringListingDraft = false;
   let listingCheckoutHandoffInProgress = false;
   let editListing = null;
@@ -1416,6 +1424,26 @@
   let existingPhotos = [];
   let existingPolicyUrl = null;
   const originalOpenDates = new Set();
+
+  const listingDraftStatusStyle = document.createElement('style');
+  listingDraftStatusStyle.textContent = '.listing-save-status{display:block;margin:.25rem 0 .6rem;color:rgba(255,255,255,.82);font-size:.78rem;line-height:1.35}.listing-save-status[data-state="saved"]{color:#c9ffe3}.listing-save-status[data-state="error"]{color:#ffe0e0}';
+  document.head.appendChild(listingDraftStatusStyle);
+  const listingDraftStatusElements = [];
+  document.querySelectorAll('.step-panel .progress-row').forEach(function(row){
+    const status = document.createElement('span');
+    status.className = 'listing-save-status';
+    status.setAttribute('role', 'status');
+    status.setAttribute('aria-live', 'polite');
+    status.textContent = 'Changes save automatically.';
+    row.insertAdjacentElement('afterend', status);
+    listingDraftStatusElements.push(status);
+  });
+  function setListingDraftStatus(message, state){
+    listingDraftStatusElements.forEach(function(element){
+      element.textContent = message;
+      element.dataset.state = state || 'saving';
+    });
+  }
 
   // The page is rendered through both the legacy Express host and the Next.js
   // compatibility page. Keep optional wizard fields genuinely optional when a
@@ -1492,6 +1520,8 @@
     const sourceOfficeFiles = snapshot.officeShopFiles;
     if (!persistedSnapshot || !persistedSnapshot.fields
         || Object.keys(persistedSnapshot.fields).length !== Object.keys(snapshot.fields).length
+        || !Array.isArray(persistedSnapshot.controls) || persistedSnapshot.controls.length !== snapshot.controls.length
+        || JSON.stringify(persistedSnapshot.uploadedDocumentRefs || {}) !== JSON.stringify(snapshot.uploadedDocumentRefs || {})
         || !filesMatch(persistedSnapshot.mediaFiles, snapshot.mediaFiles)
         || !fileMatches(persistedSnapshot.policyFile, snapshot.policyFile)
         || !savedOfficeFiles || !sourceOfficeFiles
@@ -1525,6 +1555,24 @@
       if (!field.id || field.type === 'file' || field.type === 'password') return;
       fields[field.id] = field.type === 'checkbox' || field.type === 'radio' ? field.checked : field.value;
     });
+    const controls = [];
+    const namedControlIndexes = Object.create(null);
+    let formIndex = 0;
+    document.querySelectorAll('#list-form input, #list-form select, #list-form textarea').forEach(function(field){
+      const controlPosition = formIndex++;
+      if (field.type === 'file' || field.type === 'password') return;
+      const index = field.name ? (namedControlIndexes[field.name] || 0) : 0;
+      if (field.name) namedControlIndexes[field.name] = index + 1;
+      controls.push({ formIndex: controlPosition, id: field.id || '', name: field.name || '', nameIndex: index, osKey: field.dataset.osKey || '', osUse: field.dataset.osUse || '', type: field.type || field.tagName.toLowerCase(), value: field.value, checked: field.type === 'checkbox' || field.type === 'radio' ? field.checked : undefined });
+    });
+    function fileSelection(file){
+      return file ? { filename: file.name, mimeType: file.type, fileSize: file.size, lastModified: file.lastModified || 0 } : null;
+    }
+    const officeDocumentSelections = {
+      floorPlan: fileSelection(officeShopFloorPlanFile),
+      policy: fileSelection(officeShopPolicyFile),
+      documents: officeShopDocumentFiles.map(fileSelection),
+    };
     return {
       cacheKey: listingDraftCacheKey || (hostId + ':' + listingDraftId),
       draftId: listingDraftId,
@@ -1532,22 +1580,76 @@
       listingId: listingId || null,
       category: hostNiche,
       createdAt: Date.now(),
+      updatedAt: new Date().toISOString(),
+      serverRevision: listingDraftRevision,
       fields: fields,
       propertyPurpose: propertyPurpose,
       propertySalePriceMode: propertySalePriceMode,
       hotelListingMode: hotelListingMode,
       availableDates: Array.from(openDates),
-      mediaFiles: selectedFiles.slice(),
-      policyFile: selectedPolicyFile,
-      officeShopFiles: {
-        floorPlan: officeShopFloorPlanFile,
-        policy: officeShopPolicyFile,
-        documents: officeShopDocumentFiles.slice(),
+      currentStep: currentStep,
+      furthestStep: furthestStep,
+      controls: controls,
+      amenities: amenityLibraryCheckboxes().map(function(input){ return { key: amenityCheckboxKey(input), checked: input.checked }; }),
+      officeShopAmenitySelections: Object.fromEntries(Array.from(document.querySelectorAll('[data-os-key]')).map(function(input){ return [input.dataset.osKey, input.checked]; })),
+      officeShopPermittedUses: Array.from(document.querySelectorAll('[data-os-use]:checked')).map(function(input){ return input.dataset.osUse; }),
+      officeShopCharges: isOfficeShop(hostNiche) ? collectOfficeShopCharges() : [],
+      uploadedDocumentRefs: listingUploadedDocumentRefs,
+      documentSelections: {
+        propertyPolicy: fileSelection(selectedPolicyFile),
+        officeShop: officeDocumentSelections,
       },
+      mediaFiles: selectedFiles.slice(),
+      // Private document bytes are uploaded to the authenticated document
+      // service instead of being copied into browser storage.
+      policyFile: null,
+      officeShopFiles: { floorPlan: null, policy: null, documents: [] },
     };
   }
 
-  let listingDraftRemoteSaveUnavailable = false;
+  function listingDraftFormData(draft){
+    return {
+      fields: draft.fields,
+      controls: draft.controls,
+      propertyPurpose: draft.propertyPurpose,
+      propertySalePriceMode: draft.propertySalePriceMode,
+      hotelListingMode: draft.hotelListingMode,
+      availableDates: draft.availableDates,
+      currentStep: draft.currentStep,
+      furthestStep: draft.furthestStep,
+      amenities: draft.amenities,
+      officeShopAmenitySelections: draft.officeShopAmenitySelections,
+      officeShopPermittedUses: draft.officeShopPermittedUses,
+      officeShopCharges: draft.officeShopCharges,
+      uploadedDocumentRefs: draft.uploadedDocumentRefs,
+      documentSelections: draft.documentSelections,
+    };
+  }
+
+  function listingDraftMediaMetadata(draft){
+    const mediaMetadata = (draft.mediaFiles || []).map(function(file){
+      return { name: file.name, type: file.type, kind: 'listing_media', size: file.size, lastModified: file.lastModified };
+    });
+    const selectionMetadata = draft.documentSelections || {};
+    const refMetadata = Object.keys(draft.uploadedDocumentRefs || {}).reduce(function(all, key){
+      return all.concat((draft.uploadedDocumentRefs[key] || []).map(function(item){ return Object.assign({ kind: key }, item); }));
+    }, []);
+    [
+      ['property_policy', selectionMetadata.propertyPolicy],
+      ['floor_plan', selectionMetadata.officeShop && selectionMetadata.officeShop.floorPlan],
+      ['commercial_policy', selectionMetadata.officeShop && selectionMetadata.officeShop.policy],
+    ].forEach(function(item){
+      if (item[1]) mediaMetadata.push({ name: item[1].filename, type: item[1].mimeType, kind: item[0], size: item[1].fileSize, lastModified: item[1].lastModified });
+    });
+    ((selectionMetadata.officeShop && selectionMetadata.officeShop.documents) || []).forEach(function(item){
+      mediaMetadata.push({ name: item.filename, type: item.mimeType, kind: 'ownership_management', size: item.fileSize, lastModified: item.lastModified });
+    });
+    refMetadata.forEach(function(item){
+      mediaMetadata.push({ name: item.filename || '', type: item.mimeType || '', kind: item.kind, size: item.fileSize || 0, lastModified: item.lastModified || 0 });
+    });
+    return mediaMetadata;
+  }
+
   async function saveListingDraft(hostId, listingId, keepalive, options){
     if (!listingDraftId) {
       listingDraftId = window.crypto && typeof window.crypto.randomUUID === 'function'
@@ -1568,44 +1670,56 @@
       returnTo: 'list',
     });
     if (options && options.localOnly) return draft;
-    if (listingDraftRemoteSaveUnavailable) return draft;
+    if (listingDraftRevisionConflict) {
+      setListingDraftStatus('Saved on this device. A newer draft exists on another session; reload from My Profile before syncing.', 'error');
+      return draft;
+    }
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (!session || !session.access_token || session.user.id !== hostId) {
       listingDraftRemoteSaveUnavailable = true;
-      console.warn('Listing draft is saved locally; profile sync will resume after signing in.');
+      setListingDraftStatus('Saved on this device; waiting for a connection to sync.', 'error');
       return draft;
     }
-    const formData = {
-      fields: draft.fields,
-      propertyPurpose: draft.propertyPurpose,
-      propertySalePriceMode: draft.propertySalePriceMode,
-      hotelListingMode: draft.hotelListingMode,
-      availableDates: draft.availableDates,
-    };
-    const mediaMetadata = draft.mediaFiles.map(function(file){
-      return { name: file.name, type: file.type, size: file.size, lastModified: file.lastModified };
-    });
-    if (draft.policyFile) mediaMetadata.push({
-      name: draft.policyFile.name, type: draft.policyFile.type,
-      size: draft.policyFile.size, lastModified: draft.policyFile.lastModified,
-    });
-    const response = await fetch('/api/listing-drafts/' + encodeURIComponent(listingDraftId), {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
-      keepalive: Boolean(keepalive),
-      body: JSON.stringify({
-        category: draft.category,
-        form_data: formData,
-        media_metadata: mediaMetadata,
-        listing_id: draft.listingId,
-      }),
-    });
+    const formData = listingDraftFormData(draft);
+    const mediaMetadata = listingDraftMediaMetadata(draft);
+    let response;
+    try {
+      response = await fetch('/api/listing-drafts/' + encodeURIComponent(listingDraftId), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
+        keepalive: Boolean(keepalive),
+        body: JSON.stringify({
+          category: draft.category,
+          form_data: formData,
+          media_metadata: mediaMetadata,
+          listing_id: draft.listingId,
+          revision: listingDraftRevision,
+        }),
+      });
+    } catch (error) {
+      listingDraftRemoteSaveUnavailable = true;
+      setListingDraftStatus('Saved on this device; sync will retry when the connection returns.', 'error');
+      console.warn('Listing draft profile sync is unavailable:', error.message || error);
+      return draft;
+    }
     const result = await response.json().catch(function(){ return {}; });
     if (!response.ok) {
-      listingDraftRemoteSaveUnavailable = true;
-      console.warn('Listing draft profile sync is unavailable:', result.error || response.status);
+      if (response.status === 409 && result.code === 'LISTING_DRAFT_REVISION_CONFLICT') {
+        listingDraftRevisionConflict = true;
+        setListingDraftStatus('Saved on this device. Another session has a newer copy; reopen the saved draft from My Profile.', 'error');
+      } else {
+        listingDraftRemoteSaveUnavailable = true;
+        setListingDraftStatus('Saved on this device; sync will retry when the connection returns.', 'error');
+        console.warn('Listing draft profile sync is unavailable:', result.error || response.status);
+      }
       return draft;
     }
+    listingDraftRemoteSaveUnavailable = false;
+    listingDraftRevision = Number(result.draft && result.draft.revision) || (listingDraftRevision + 1);
+    draft.serverRevision = listingDraftRevision;
+    draft.updatedAt = result.draft && result.draft.updated_at || new Date().toISOString();
+    await listingDraftCache.save(draft);
+    setListingDraftStatus('Saved', 'saved');
     return draft;
   }
 
@@ -1613,6 +1727,7 @@
     if (!currentUser || editMode || restoringListingDraft || listingCheckoutHandoffInProgress) return;
     window.clearTimeout(draftSaveTimer);
     draftSaveTimer = window.setTimeout(function(){
+      setListingDraftStatus('Saving…', 'saving');
       draftSaveQueue = draftSaveQueue.catch(function(){}).then(function(){
         return saveListingDraft(currentUser.id, preparedPaymentListingId);
       }).catch(function(error){
@@ -1620,6 +1735,96 @@
       });
     }, 450);
   }
+
+  window.addEventListener('online', function(){
+    if (!currentUser || editMode || listingDraftRevisionConflict) return;
+    listingDraftRemoteSaveUnavailable = false;
+    queueListingDraftSave();
+  });
+  document.addEventListener('visibilitychange', function(){
+    if (document.visibilityState === 'hidden' && currentUser && !editMode && !listingCheckoutHandoffInProgress) {
+      queueListingDraftSave();
+    }
+  });
+
+  function installSaveOrDiscardNavigation(){
+    const leaveLinks = document.querySelectorAll('a[href="/host-home"], a[href^="/host-home?"]');
+    if (!leaveLinks.length) return;
+    const dialog = document.createElement('dialog');
+    dialog.className = 'listing-leave-dialog';
+    dialog.setAttribute('aria-labelledby', 'listing-leave-title');
+    dialog.innerHTML = '<h2 id="listing-leave-title">Leave this listing?</h2><p>Your latest changes are saved automatically. You can keep this listing as a draft or discard it.</p><p class="listing-leave-status" role="status" aria-live="polite"></p><div class="listing-leave-actions"><button type="button" data-leave-action="stay">Keep editing</button><button type="button" data-leave-action="discard">Discard</button><button type="button" data-leave-action="save">Save as draft</button></div>';
+    if (listingPaymentVerified) dialog.querySelector('[data-leave-action="discard"]').hidden = true;
+    document.body.appendChild(dialog);
+    leaveLinks.forEach(function(link){
+      link.addEventListener('click', function(event){
+        if (editMode || !currentUser) return;
+        event.preventDefault();
+        dialog.dataset.destination = link.href;
+        const status = dialog.querySelector('.listing-leave-status');
+        if (status) status.textContent = '';
+        if (typeof dialog.showModal === 'function') dialog.showModal();
+        else dialog.setAttribute('open', '');
+      });
+    });
+    dialog.addEventListener('click', async function(event){
+      const button = event.target.closest('[data-leave-action]');
+      if (!button) return;
+      const action = button.dataset.leaveAction;
+      const status = dialog.querySelector('.listing-leave-status');
+      const destination = dialog.dataset.destination || '/host-home';
+      if (action === 'stay') { dialog.close ? dialog.close() : dialog.removeAttribute('open'); return; }
+      button.disabled = true;
+      try {
+        if (action === 'save') {
+          if (status) status.textContent = 'Saving your draft…';
+          await listingDocumentUploadQueue;
+          await draftSaveQueue.catch(function(){});
+          const { data: { session } } = await supabaseClient.auth.getSession();
+          if (!session || !session.access_token) throw new Error('Please sign in again before saving this draft.');
+          const listingId = await ensurePaymentDraft(session);
+          await persistSelectedListingDocuments(listingId);
+          await saveListingDraft(currentUser.id, listingId);
+          if (listingDraftRemoteSaveUnavailable || listingDraftRevisionConflict) {
+            if (status) status.textContent = 'The draft is saved on this device, but could not be synced to My Profile. Reconnect and retry before leaving.';
+            return;
+          }
+          window.location.assign(destination);
+          return;
+        }
+        if (action === 'discard') {
+          if (listingPaymentVerified) {
+            if (status) status.textContent = 'This listing has a verified payment. Save it as a draft or keep editing to finish publishing.';
+            return;
+          }
+          if (!window.confirm('Permanently discard this listing draft? This cannot be undone.')) return;
+          if (status) status.textContent = 'Discarding this draft…';
+          const { data: { session } } = await supabaseClient.auth.getSession();
+          if (session && session.access_token && listingDraftId) {
+            const response = await fetch('/api/listing-drafts/' + encodeURIComponent(listingDraftId), {
+              method: 'DELETE', headers: { Authorization: 'Bearer ' + session.access_token },
+            });
+            if (!response.ok) throw new Error('The saved draft could not be removed from My Profile.');
+          }
+          if (session && session.access_token && preparedPaymentListingId) {
+            const discardResponse = await fetch('/api/listings/' + encodeURIComponent(preparedPaymentListingId), {
+              method: 'DELETE', headers: { Authorization: 'Bearer ' + session.access_token },
+            });
+            if (!discardResponse.ok) throw new Error('The unpublished listing shell could not be discarded safely.');
+          }
+          const cacheKey = listingDraftCacheKey;
+          if (cacheKey) await listingDraftCache.remove(cacheKey);
+          listingDraftCache.clearPointer(currentUser.id, cacheKey);
+          window.location.assign(destination);
+        }
+      } catch (error) {
+        if (status) status.textContent = error.message || 'Unable to save or discard this draft.';
+      } finally {
+        button.disabled = false;
+      }
+    });
+  }
+  installSaveOrDiscardNavigation();
 
   const listingDraftForm = document.getElementById('list-form');
   if (listingDraftForm) {
@@ -1671,15 +1876,23 @@
     const checkoutHandoff = !(options && options.saveProfileDraft);
     if (checkoutHandoff) listingCheckoutHandoffInProgress = true;
     try {
+      await listingDocumentUploadQueue;
       const listingId = await ensurePaymentDraft(session);
+      await persistSelectedListingDocuments(listingId);
       try { await saveListingCheckoutState(session.user.id, listingId); }
       catch (error) {
         console.error('Unable to persist the listing checkout state:', error);
         throw new Error('Your listing could not be safely saved for checkout. No payment was started. Please try again or contact support.');
       }
-      if (options && options.saveProfileDraft) {
-        try { await saveListingDraft(session.user.id, listingId); }
-        catch (error) { console.warn('Listing draft profile sync failed; continuing to checkout:', error); }
+      await saveListingDraft(session.user.id, listingId);
+      if (listingDraftRevisionConflict) {
+        throw new Error('A newer copy of this listing exists in My Profile. Reopen that copy before starting checkout.');
+      }
+      if (listingDraftRemoteSaveUnavailable) {
+        // The complete, verified IndexedDB checkout snapshot is already saved.
+        // Keep checkout available during a temporary profile-draft API outage;
+        // the same host can recover this state when Paystack returns.
+        setListingDraftStatus('Checkout save is ready. Profile sync will resume when connected.', 'error');
       }
       return listingId;
     } catch (error) {
@@ -1688,14 +1901,16 @@
     }
   }
 
-  async function verifyReturnedListingPayment(accessToken){
-    if (!listingPaymentReturnReference || !['return', 'verified'].includes(listingPaymentReturnMode)) return null;
+  async function verifyReturnedListingPayment(accessToken, reference){
+    const subscriptionReturnMode = listingReturnParams.get('subscription');
+    const isSubscriptionReturn = Boolean(listingSubscriptionReturnReference);
+    if (!reference || (!isSubscriptionReturn && !['return', 'verified'].includes(listingPaymentReturnMode))) return null;
 
-    const attempts = listingPaymentReturnMode === 'return' ? 30 : 1;
+    const attempts = listingPaymentReturnMode === 'return' || subscriptionReturnMode === 'return' ? 30 : 1;
     let payment = null;
     for (let attempt = 0; attempt < attempts; attempt++) {
       try {
-        const response = await fetch('/api/billing/payments/' + encodeURIComponent(listingPaymentReturnReference), {
+        const response = await fetch('/api/billing/payments/' + encodeURIComponent(reference), {
           headers: { Authorization: 'Bearer ' + accessToken },
         });
         const result = await response.json().catch(function(){ return {}; });
@@ -1705,8 +1920,9 @@
         if (attempt === attempts - 1) throw error;
       }
 
-      if (payment && payment.status === 'succeeded'
-          && payment.payment_kind === 'listing' && payment.listing_id) return payment;
+      if (payment && payment.status === 'succeeded' && payment.listing_id
+          && (payment.payment_kind === 'listing'
+            || (isSubscriptionReturn && payment.payment_kind !== 'listing'))) return payment;
       if (payment && ['failed', 'abandoned', 'refunded'].includes(payment.status)) return payment;
       if (attempt < attempts - 1) await new Promise(function(resolve){ setTimeout(resolve, 2000); });
     }
@@ -1802,6 +2018,74 @@
         checkbox.closest('.amenity-check').classList.add('checked');
       }
     });
+    const existingDocumentsResponse = await fetch('/api/listings/' + encodeURIComponent(id) + '/documents', {
+      headers: { Authorization: 'Bearer ' + accessToken },
+    });
+    const existingDocumentsResult = await existingDocumentsResponse.json().catch(function(){ return {}; });
+    if (!existingDocumentsResponse.ok) {
+      throw new Error(existingDocumentsResult.error || 'Unable to restore listing documents. Please try again before saving.');
+    }
+    const existingDocuments = Array.isArray(existingDocumentsResult.documents) ? existingDocumentsResult.documents : [];
+      listingUploadedDocumentRefs = {};
+      existingDocuments.forEach(function(item){
+        if (!item || !item.id || !item.documentType) return;
+        if (!Array.isArray(listingUploadedDocumentRefs[item.documentType])) listingUploadedDocumentRefs[item.documentType] = [];
+        listingUploadedDocumentRefs[item.documentType].push({
+          id: item.id,
+          documentType: item.documentType,
+          filename: String(item.filename || ''),
+          fileSize: Number(item.fileSize) || 0,
+          lastModified: 0,
+          mimeType: String(item.mimeType || ''),
+        });
+      });
+      if (hostNiche === 'property') {
+        const policy = existingDocuments.find(function(item){ return item.documentType === 'property_policy'; });
+        if (policy) {
+          existingPolicyUrl = policy.downloadUrl;
+          if (policyPreviewBtn) policyPreviewBtn.textContent = policy.filename || 'Property policy document';
+          if (policyFileName) policyFileName.classList.add('show');
+        }
+      }
+      if (isOfficeShop(hostNiche)) {
+        const officeDocuments = Object.assign({}, details.office_shop_details && details.office_shop_details.documents || {});
+        const floorPlan = listingUploadedDocumentRefs.floor_plan || [];
+        const commercialPolicy = listingUploadedDocumentRefs.commercial_policy || [];
+        const ownershipDocuments = listingUploadedDocumentRefs.ownership_management || [];
+        if (floorPlan.length) officeDocuments.floor_plan_document_id = floorPlan[floorPlan.length - 1].id;
+        if (commercialPolicy.length) officeDocuments.policy_document_id = commercialPolicy[commercialPolicy.length - 1].id;
+        if (ownershipDocuments.length) officeDocuments.management_document_ids = ownershipDocuments.map(function(item){ return item.id; });
+        details.office_shop_details = Object.assign({}, details.office_shop_details || {}, { documents: officeDocuments });
+
+        const documentTypes = [
+          ['floor_plan', 'Floor plan'],
+          ['commercial_policy', 'Property Policy'],
+          ['ownership_management', 'Ownership / management document'],
+        ];
+        const mediaFields = document.getElementById('office-shop-media-fields');
+        if (mediaFields) {
+          let links = mediaFields.querySelector('.office-shop-existing-documents');
+          if (!links) {
+            links = document.createElement('div');
+            links.className = 'office-shop-existing-documents';
+            mediaFields.appendChild(links);
+          }
+          links.innerHTML = existingDocuments.map(function(item){
+            const type = documentTypes.find(function(entry){ return entry[0] === item.documentType; });
+            return type ? '<a href="' + escapeHtml(item.downloadUrl) + '" target="_blank" rel="noopener">' + escapeHtml(type[1] + ': ' + (item.filename || 'Open document')) + '</a>' : '';
+          }).filter(Boolean).join(' · ');
+        }
+        [
+          ['os-floor-plan', 'floor_plan', 'Floor plan (optional)'],
+          ['os-policy-file', 'commercial_policy', 'Property Policy'],
+          ['os-documents', 'ownership_management', 'Ownership and management (optional)'],
+        ].forEach(function(entry){
+          const input = document.getElementById(entry[0]);
+          const label = input && input.closest('.office-shop-document-card')?.querySelector('[data-os-upload-name]');
+          const refs = listingUploadedDocumentRefs[entry[1]] || [];
+          if (label && refs.length) label.textContent = refs.map(function(ref){ return ref.filename; }).join(', ');
+        });
+      }
     if (isOfficeShop(hostNiche)) hydrateOfficeShopDetails(details.office_shop_details || {});
 
     if (hostNiche === 'property') {
@@ -1810,12 +2094,6 @@
           : details.sale_price_amount != null ? 'sale' : 'rent');
       applyPropertyPurpose(purpose);
       applyPropertySaleMode(details.sale_price_mode || 'exact');
-      if (details.policy_storage_path) {
-        const policyName = details.policy_storage_path.split('/').pop();
-        existingPolicyUrl = supabaseClient.storage.from('listing-photos').getPublicUrl(details.policy_storage_path).data.publicUrl;
-        policyPreviewBtn.textContent = policyName;
-        policyFileName.classList.add('show');
-      }
     }
 
     if (hostNiche === 'hotel') {
@@ -1866,7 +2144,7 @@
     }
 
     const labels = { airbnb: 'Airbnb', hotel: 'Hotel', venue: 'Event ground / venue', office: 'Office', shop: 'Shop', property: 'Property to let or buy' };
-    if (!editMode && (requestedDraftId || listingPaymentReturnReference)) {
+    if (!editMode && (requestedDraftId || listingRecoveryReturnReference)) {
       continuationDraftPointer = getListingDraftPointer(currentUser.id);
       // An explicit Continue Listing action must load its selected profile
       // draft. A Paystack callback is different: verify payment first, then
@@ -1923,11 +2201,15 @@
       }
     }
 
-    if (listingPaymentReturnReference && ['return', 'verified'].includes(listingPaymentReturnMode)) {
+    if (listingRecoveryReturnReference && (['return', 'verified'].includes(listingPaymentReturnMode) || listingSubscriptionReturnReference)) {
       checkingAuth.textContent = 'Confirming your payment...';
       try {
-        const payment = await verifyReturnedListingPayment(session.access_token);
-        if (payment && payment.payment_kind === 'listing' && payment.listing_id) {
+        const payment = await verifyReturnedListingPayment(session.access_token, listingRecoveryReturnReference);
+        const isListingPayment = payment && payment.payment_kind === 'listing';
+        const isLinkedSubscriptionPayment = payment && listingSubscriptionReturnReference
+          && payment.payment_kind !== 'listing' && payment.listing_id
+          && payment.niche === (hostNiche === 'property' ? 'property' : 'shops_offices');
+        if (payment && payment.listing_id && (isListingPayment || isLinkedSubscriptionPayment)) {
           preparedPaymentListingId = payment.listing_id;
           const checkoutPointer = getListingCheckoutStatePointer(currentUser.id, payment.listing_id);
           if (checkoutPointer) {
@@ -1949,6 +2231,21 @@
               }
             } catch (checkoutStateError) {
               console.warn('Unable to load the local payment save state:', checkoutStateError);
+            }
+            if (checkoutPointer.draftId) {
+              try {
+                const draftResponse = await fetch('/api/listing-drafts/' + encodeURIComponent(checkoutPointer.draftId), {
+                  headers: { Authorization: 'Bearer ' + session.access_token },
+                });
+                const draftResult = draftResponse.ok ? await draftResponse.json().catch(function(){ return {}; }) : null;
+                if (draftResult && draftResult.draft && draftResult.draft.listing_id === payment.listing_id) {
+                  continuationDraftRecord = draftResult.draft;
+                  listingDraftId = draftResult.draft.id;
+                  listingDraftRevision = Number(draftResult.draft.revision) || 0;
+                }
+              } catch (draftRevisionError) {
+                console.warn('Unable to load the latest server draft revision after checkout:', draftRevisionError);
+              }
             }
           }
           // Older checkouts may not have a dedicated save state yet. Use the
@@ -1982,7 +2279,16 @@
           preparedPaymentListingId = payment.listing_id;
           const verifiedParams = new URLSearchParams(window.location.search);
           verifiedParams.set('payment', 'verified');
-          verifiedParams.set('reference', listingPaymentReturnReference);
+          verifiedParams.set('reference', listingRecoveryReturnReference);
+          window.history.replaceState({}, '', '/list?' + verifiedParams.toString());
+        } else if (payment && payment.status === 'succeeded'
+            && listingSubscriptionReturnReference && payment.payment_kind !== 'listing'
+            && payment.listing_id && payment.niche === (hostNiche === 'property' ? 'property' : 'shops_offices')) {
+          returnedSubscriptionPaymentVerified = true;
+          returnedListingPaymentVerified = true;
+          const verifiedParams = new URLSearchParams(window.location.search);
+          verifiedParams.set('subscription', 'verified');
+          verifiedParams.set('reference', listingRecoveryReturnReference);
           window.history.replaceState({}, '', '/list?' + verifiedParams.toString());
         } else if (payment && ['failed', 'abandoned', 'refunded'].includes(payment.status)) {
           returnedListingPaymentMessage = 'Payment was not completed. Your listing has not been published; you can retry checkout.';
@@ -2014,7 +2320,7 @@
     }
 
     configureCategory(hostNiche);
-    if (!editMode && (requestedDraftId || listingPaymentReturnReference)) {
+    if (!editMode && (requestedDraftId || listingRecoveryReturnReference)) {
       await restoreListingDraftAfterUpgrade(currentUser.id, session.access_token, continuationDraftRecord, continuationDraftPointer, paymentCheckoutSnapshot);
     }
   const needsListingPayment = ['property', 'office', 'shop'].includes(hostNiche)
@@ -2043,7 +2349,9 @@
     }
     checkingAuth.style.display = 'none';
     listingPage.style.display = 'block';
-    if (returnedListingPaymentVerified) {
+    if (returnedSubscriptionPaymentVerified) {
+      showPaymentMessage('Your plan is active. Your saved listing has been restored for review and publishing.', false);
+    } else if (returnedListingPaymentVerified) {
       showPaymentMessage('Payment confirmed. Review your listing, then select Publish Listing when you are ready.', false);
     } else if (returnedListingPaymentMessage) {
       showPaymentMessage(returnedListingPaymentMessage, true);
@@ -2119,6 +2427,7 @@
   let propertyPurpose = 'rent'; // 'rent' | 'sale' | 'both'
   let propertySalePriceMode = 'exact'; // 'exact' | 'starting'
   let selectedPolicyFile = null;
+  let listingUploadedDocumentRefs = {};
   const officeShopType = document.getElementById('office-shop-type');
   const officeShopDetailsFields = document.getElementById('office-shop-details-fields');
   const officeShopLocationFields = document.getElementById('office-shop-location-fields');
@@ -2175,17 +2484,17 @@
         <label class="office-shop-document-card" for="os-floor-plan">
           <svg viewBox="0 0 32 40" aria-hidden="true"><path d="M5 1h14l9 9v27a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2zm13 2v8h8z"/></svg>
           <span data-os-upload-name>Floor plan (optional)</span>
-          <input id="os-floor-plan" type="file" accept="application/pdf,image/png,image/jpeg,image/webp" aria-label="Upload floor plan">
+          <input id="os-floor-plan" type="file" accept="application/pdf,image/png,image/jpeg,image/webp,image/gif,.pdf,.png,.jpg,.jpeg,.webp,.gif" aria-label="Upload floor plan">
         </label>
         <label class="office-shop-document-card" for="os-documents">
           <svg viewBox="0 0 32 40" aria-hidden="true"><path d="M5 1h14l9 9v27a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2zm13 2v8h8z"/></svg>
           <span data-os-upload-name>Ownership and management (optional)</span>
-          <input id="os-documents" type="file" multiple accept="application/pdf,image/png,image/jpeg,image/webp" aria-label="Upload ownership and management documents">
+          <input id="os-documents" type="file" multiple accept="application/pdf,image/png,image/jpeg,image/webp,image/gif,.pdf,.png,.jpg,.jpeg,.webp,.gif" aria-label="Upload ownership and management documents">
         </label>
         <label class="office-shop-document-card" for="os-policy-file">
           <svg viewBox="0 0 32 40" aria-hidden="true"><path d="M5 1h14l9 9v27a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2zm13 2v8h8z"/></svg>
           <span data-os-upload-name>Property Policy</span>
-          <input id="os-policy-file" type="file" accept="application/pdf" aria-label="Upload property policy">
+          <input id="os-policy-file" type="file" accept="application/pdf,image/png,image/jpeg,image/webp,image/gif,.pdf,.png,.jpg,.jpeg,.webp,.gif" aria-label="Upload property policy">
         </label>
       </div>
       <label><input id="os-documents-on-request" type="checkbox"> Can provide ownership or management documents on request</label>
@@ -2227,12 +2536,21 @@
       if (!input) return;
       input.addEventListener('change', function(){
         const files = Array.from(input.files || []);
+        try { files.forEach(listingDocumentMimeType); }
+        catch (error) {
+          input.value = '';
+          onChange([]);
+          if (label) { label.textContent = defaultLabel; label.title = defaultLabel; }
+          showPaymentMessage(error.message, true);
+          return;
+        }
         onChange(files);
         const label = input.closest('.office-shop-document-card')?.querySelector('[data-os-upload-name]');
         if (label) {
           label.textContent = files.length ? (multiple && files.length > 1 ? files.length + ' files selected' : files.map(function(file){ return file.name; }).join(', ')) : defaultLabel;
           label.title = files.length ? files.map(function(file){ return file.name; }).join(', ') : defaultLabel;
         }
+        if (files.length) queueSelectedDocumentUploads();
       });
     }
     trackOfficeShopUpload(floorPlan, function(files){ officeShopFloorPlanFile = files[0] || null; }, 'Floor plan (optional)', false);
@@ -2324,21 +2642,170 @@
     return 'month';
   }
 
+  function listingDocumentMimeType(file){
+    const extension = String(file && file.name || '').toLowerCase().match(/\.([a-z0-9]+)$/)?.[1] || '';
+    const byExtension = { pdf:'application/pdf', jpg:'image/jpeg', jpeg:'image/jpeg', png:'image/png', webp:'image/webp', gif:'image/gif' };
+    const mimeType = file && file.type || byExtension[extension];
+    const accepted = { 'application/pdf':['pdf'], 'image/jpeg':['jpg','jpeg'], 'image/png':['png'], 'image/webp':['webp'], 'image/gif':['gif'] };
+    if (!mimeType || !accepted[mimeType] || !accepted[mimeType].includes(extension)) {
+      throw new Error('Choose a PDF, JPEG, PNG, WebP, or GIF document.');
+    }
+    if (!file.size || file.size > 15 * 1024 * 1024) throw new Error('Documents must be no larger than 15 MB.');
+    return mimeType;
+  }
+
+  function sameListingDocumentFile(reference, file){
+    return reference && file && reference.filename === file.name
+      && Number(reference.fileSize) === Number(file.size)
+      && Number(reference.lastModified || 0) === Number(file.lastModified || 0);
+  }
+
+  async function uploadListingDocument(file, documentType, listingId){
+    if (!file) return null;
+    const mimeType = listingDocumentMimeType(file);
+    const prior = Array.isArray(listingUploadedDocumentRefs[documentType])
+      ? listingUploadedDocumentRefs[documentType] : [];
+    const existing = prior.find(function(reference){ return sameListingDocumentFile(reference, file); });
+    if (existing && existing.id) return existing;
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session || !session.access_token) throw new Error('Please sign in again before uploading documents.');
+    const initResponse = await fetch('/api/listing-documents/upload-init', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
+      body: JSON.stringify({ listingId: listingId, documentType: documentType, filename: file.name, mimeType: mimeType, fileSize: file.size }),
+    });
+    const initResult = await initResponse.json().catch(function(){ return {}; });
+    if (!initResponse.ok || !initResult.document || !initResult.upload || !initResult.upload.uploadUrl) {
+      throw new Error(initResult.error || 'Unable to prepare this document upload.');
+    }
+    let completeResult;
+    try {
+      const binaryResponse = await fetch(initResult.upload.uploadUrl, {
+        method: 'PUT', headers: { 'Content-Type': mimeType }, body: file,
+      });
+      if (!binaryResponse.ok) throw new Error('R2 rejected the document upload (' + binaryResponse.status + ').');
+      const completeResponse = await fetch('/api/listing-documents/' + encodeURIComponent(initResult.document.id) + '/complete', {
+        method: 'POST', headers: { Authorization: 'Bearer ' + session.access_token },
+      });
+      completeResult = await completeResponse.json().catch(function(){ return {}; });
+      if (!completeResponse.ok || !completeResult.document) {
+        throw new Error(completeResult.error || 'The document could not be verified after upload.');
+      }
+    } catch (uploadError) {
+      try {
+        await fetch('/api/listing-documents/' + encodeURIComponent(initResult.document.id), {
+          method: 'DELETE', headers: { Authorization: 'Bearer ' + session.access_token },
+        });
+      } catch (cleanupError) { console.warn('The incomplete document upload will be cleaned up after its authorization expires.'); }
+      throw uploadError;
+    }
+    const reference = {
+      id: completeResult.document.id,
+      documentType: documentType,
+      filename: file.name,
+      fileSize: file.size,
+      lastModified: file.lastModified || 0,
+      mimeType: mimeType,
+    };
+    listingUploadedDocumentRefs[documentType] = ['property_policy','floor_plan','commercial_policy'].includes(documentType)
+      ? [reference] : prior.concat([reference]);
+    return reference;
+  }
+
+  function latestListingDocumentRef(documentType){
+    const refs = listingUploadedDocumentRefs[documentType];
+    return Array.isArray(refs) && refs.length ? refs[refs.length - 1] : null;
+  }
+
+  async function persistSelectedListingDocuments(listingId){
+    if (!listingId) return;
+    const propertyPolicyFile = selectedPolicyFile;
+    const floorPlanFile = officeShopFloorPlanFile;
+    const officePolicyFile = officeShopPolicyFile;
+    const managementFiles = officeShopDocumentFiles.slice();
+    if (hostNiche === 'property' && propertyPolicyFile) {
+      await uploadListingDocument(propertyPolicyFile, 'property_policy', listingId);
+      if (selectedPolicyFile === propertyPolicyFile) selectedPolicyFile = null;
+      if (!selectedPolicyFile && policyInput) policyInput.value = '';
+      const policy = latestListingDocumentRef('property_policy');
+      if (policyPreviewBtn && policy) policyPreviewBtn.textContent = policy.filename;
+      if (policyFileName) policyFileName.classList.toggle('show', Boolean(policy));
+    }
+    if (isOfficeShop(hostNiche)) {
+      if (floorPlanFile) await uploadListingDocument(floorPlanFile, 'floor_plan', listingId);
+      if (officePolicyFile) await uploadListingDocument(officePolicyFile, 'commercial_policy', listingId);
+      for (const file of managementFiles) await uploadListingDocument(file, 'ownership_management', listingId);
+      if (officeShopFloorPlanFile === floorPlanFile) officeShopFloorPlanFile = null;
+      if (officeShopPolicyFile === officePolicyFile) officeShopPolicyFile = null;
+      officeShopDocumentFiles = officeShopDocumentFiles.filter(function(file){ return !managementFiles.includes(file); });
+      [['os-floor-plan','floor_plan','Floor plan (optional)'],['os-policy-file','commercial_policy','Property Policy'],['os-documents','ownership_management','Ownership and management (optional)']].forEach(function(item){
+        const input = document.getElementById(item[0]);
+        const stillSelected = item[1] === 'floor_plan' ? officeShopFloorPlanFile
+          : item[1] === 'commercial_policy' ? officeShopPolicyFile : officeShopDocumentFiles.length;
+        if (input && !stillSelected) input.value = '';
+        const label = input && input.closest('.office-shop-document-card')?.querySelector('[data-os-upload-name]');
+        const refs = listingUploadedDocumentRefs[item[1]] || [];
+        const selectedNames = item[1] === 'floor_plan' ? (officeShopFloorPlanFile ? [officeShopFloorPlanFile.name] : [])
+          : item[1] === 'commercial_policy' ? (officeShopPolicyFile ? [officeShopPolicyFile.name] : [])
+            : officeShopDocumentFiles.map(function(file){ return file.name; });
+        const displayNames = refs.map(function(ref){ return ref.filename; }).concat(selectedNames);
+        if (label) label.textContent = displayNames.length
+          ? displayNames.join(', ')
+          : item[2];
+      });
+    }
+    queueListingDraftSave();
+  }
+
+  function queueSelectedDocumentUploads(){
+    const hasSelected = Boolean(selectedPolicyFile || officeShopFloorPlanFile || officeShopPolicyFile || officeShopDocumentFiles.length);
+    if (!hasSelected || !currentUser || editMode) return;
+    listingDocumentUploadQueue = listingDocumentUploadQueue.catch(function(){}).then(async function(){
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (!session || !session.access_token || session.user.id !== currentUser.id) throw new Error('Please sign in again to save these documents.');
+      const listingId = await ensurePaymentDraft(session);
+      setListingDraftStatus('Saving documents securely…', 'saving');
+      await persistSelectedListingDocuments(listingId);
+      await saveListingDraft(currentUser.id, listingId);
+    }).catch(function(error){
+      setListingDraftStatus('Document upload needs attention: ' + (error.message || 'retry the selected file.'), 'error');
+      showPaymentMessage('Document upload failed: ' + (error.message || 'Please try the selected file again.'), true);
+    });
+  }
+
   async function uploadOfficeShopMedia(listingId, details){
     const documents = Object.assign({}, details.documents || {});
-    const upload = async function(file, kind){
+    const upload = async function(file, documentType, label){
       if (!file) return null;
-      const path = currentUser.id + '/' + listingId + '/office_shop_' + kind + '_' + Date.now() + '_' + sanitizeFilename(file.name);
-      const { data, error } = await supabaseClient.storage.from('listing-photos').upload(path, file, { upsert: false });
-      if (error) throw new Error('Could not upload ' + kind.replace(/_/g, ' ') + ': ' + error.message);
-      return data.path;
+      try { return await uploadListingDocument(file, documentType, listingId); }
+      catch (error) { throw new Error('Could not upload ' + label + ': ' + error.message); }
     };
-    if (officeShopFloorPlanFile) documents.floor_plan_path = await upload(officeShopFloorPlanFile, 'floor_plan');
-    if (officeShopPolicyFile) documents.policy_path = await upload(officeShopPolicyFile, 'policy');
+    if (officeShopFloorPlanFile) {
+      const document = await upload(officeShopFloorPlanFile, 'floor_plan', 'floor plan');
+      documents.floor_plan_document_id = document.id;
+      delete documents.floor_plan_path;
+    }
+    if (officeShopPolicyFile) {
+      const document = await upload(officeShopPolicyFile, 'commercial_policy', 'policy');
+      documents.policy_document_id = document.id;
+      delete documents.policy_path;
+    }
     if (officeShopDocumentFiles.length) {
-      const current = Array.isArray(documents.management_document_paths) ? documents.management_document_paths : [];
-      for (const file of officeShopDocumentFiles) current.push(await upload(file, 'management_document'));
-      documents.management_document_paths = current;
+      const current = Array.isArray(documents.management_document_ids) ? documents.management_document_ids : [];
+      for (const file of officeShopDocumentFiles) {
+        const document = await upload(file, 'ownership_management', 'ownership or management document');
+        if (!current.includes(document.id)) current.push(document.id);
+      }
+      documents.management_document_ids = current;
+    }
+    const floorPlanRef = latestListingDocumentRef('floor_plan');
+    const policyRef = latestListingDocumentRef('commercial_policy');
+    const managementRefs = listingUploadedDocumentRefs.ownership_management || [];
+    if (floorPlanRef) { documents.floor_plan_document_id = floorPlanRef.id; delete documents.floor_plan_path; }
+    if (policyRef) { documents.policy_document_id = policyRef.id; delete documents.policy_path; }
+    if (managementRefs.length) {
+      documents.management_document_ids = Array.from(new Set((documents.management_document_ids || []).concat(managementRefs.map(function(ref){ return ref.id; }))));
+      delete documents.management_document_paths;
     }
     details.documents = documents;
     return details;
@@ -2702,9 +3169,17 @@
     policyUploadBtn.addEventListener('click', function(){ policyInput.click(); });
     policyInput.addEventListener('change', function(){
       if (policyInput.files && policyInput.files[0]) {
+        try { listingDocumentMimeType(policyInput.files[0]); }
+        catch (error) {
+          policyInput.value = '';
+          selectedPolicyFile = null;
+          showPaymentMessage(error.message, true);
+          return;
+        }
         selectedPolicyFile = policyInput.files[0];
         if (policyPreviewBtn) policyPreviewBtn.textContent = selectedPolicyFile.name;
         if (policyFileName) policyFileName.classList.add('show');
+        queueSelectedDocumentUploads();
       }
     });
   }
@@ -3162,6 +3637,7 @@
     });
     updateCorrectionNavigation();
     if (n === 5) renderReviewSummary();
+    if (!restoringListingDraft) queueListingDraftSave();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -3333,9 +3809,12 @@
     const policyLine = document.getElementById('review-policy-line');
     if (policyLine) {
       if (category === 'property') {
+        const storedPolicy = latestListingDocumentRef('property_policy');
         policyLine.hidden = false;
         policyLine.innerHTML = selectedPolicyFile
           ? '<span class="check">✓</span> Property policy attached: ' + escapeHtml(selectedPolicyFile.name)
+          : storedPolicy
+            ? '<span class="check">✓</span> Property policy attached: ' + escapeHtml(storedPolicy.filename)
           : existingPolicyUrl
             ? '<span class="check">✓</span> Existing property policy attached'
             : '<span class="check" style="color:#C9BDB8">○</span> Property policy document (optional, none attached)';
@@ -3828,16 +4307,8 @@
       }
 
       if (selectedPolicyFile) {
-        try {
-          submitBtn.textContent = 'Uploading policy document...';
-          const policyPath = currentUser.id + '/' + listingId + '/policy_' + Date.now() + '_' + sanitizeFilename(selectedPolicyFile.name);
-          const { data: uploadedPolicy, error: policyUploadErr } = await supabaseClient.storage.from('listing-photos').upload(policyPath, selectedPolicyFile, { upsert: false });
-          if (!policyUploadErr && uploadedPolicy) {
-            bookingDetails.policy_storage_path = uploadedPolicy.path;
-          }
-        } catch (policyErr) {
-          console.warn('Policy upload failed, proceeding with listing publication:', policyErr);
-        }
+        submitBtn.textContent = 'Uploading policy document...';
+        await uploadListingDocument(selectedPolicyFile, 'property_policy', listingId);
       }
     } else if (SHORT_STAY.includes(category) && !(category === 'hotel' && hotelListingMode === 'table')) {
       bookingDetails.max_guests = document.getElementById('max-guests').value ? parseInt(document.getElementById('max-guests').value, 10) : null;
@@ -4060,6 +4531,8 @@
 
   async function restoreListingDraftAfterUpgrade(hostId, accessToken, remoteDraft, pointer, localSnapshot){
     let snapshot = localSnapshot || null;
+    let localRevisionConflict = false;
+    let localServerRevision = 0;
     restoringListingDraft = true;
     try {
       const serverDraft = remoteDraft || null;
@@ -4068,6 +4541,7 @@
         listingDraftId = serverDraft.id;
         listingDraftCacheKey = cacheKey;
         preparedPaymentListingId = serverDraft.listing_id || null;
+        listingDraftRevision = Number(serverDraft.revision) || 0;
       }
       if (!snapshot && cacheKey) {
         try { snapshot = await listingDraftCache.load(cacheKey); }
@@ -4075,10 +4549,29 @@
           console.error('Unable to restore the local media cache:', error);
         }
       }
+      const isMatchingCheckoutSnapshot = Boolean(snapshot && snapshot.checkoutState === true && serverDraft
+        && snapshot.hostId === hostId && snapshot.listingId === serverDraft.listing_id
+        && snapshot.category === serverDraft.category);
       if (snapshot && (snapshot.hostId !== hostId || snapshot.category !== hostNiche
-          || snapshot.cacheKey !== cacheKey || !Number.isFinite(snapshot.createdAt)
+          || (snapshot.cacheKey !== cacheKey && !isMatchingCheckoutSnapshot) || !Number.isFinite(snapshot.createdAt)
           || !snapshot.fields || typeof snapshot.fields !== 'object')) snapshot = null;
-      if (snapshot && serverDraft) snapshot.serverMediaMetadata = serverDraft.media_metadata || [];
+      if (snapshot && serverDraft) {
+        localServerRevision = Number.isInteger(snapshot.serverRevision) ? snapshot.serverRevision : 0;
+        const serverRevision = Number(serverDraft.revision) || 0;
+        const matchesServerFields = JSON.stringify(listingDraftFormData(snapshot)) === JSON.stringify(serverDraft.form_data || {});
+        const matchesServerMedia = JSON.stringify(listingDraftMediaMetadata(snapshot)) === JSON.stringify(serverDraft.media_metadata || []);
+        if (localServerRevision < serverRevision && matchesServerFields && matchesServerMedia) {
+          snapshot.serverRevision = serverRevision;
+          snapshot.updatedAt = serverDraft.updated_at || snapshot.updatedAt;
+        } else if (localServerRevision !== serverRevision) {
+          // Keep an offline/device copy, but never send it with a newer
+          // server revision. The host can still review it and choose a safe
+          // recovery path from My Profile.
+          localRevisionConflict = true;
+          listingDraftRevisionConflict = true;
+        }
+        snapshot.serverMediaMetadata = serverDraft.media_metadata || [];
+      }
 
       if (!snapshot && serverDraft && serverDraft.form_data) {
         snapshot = Object.assign({}, serverDraft.form_data, {
@@ -4088,6 +4581,8 @@
           listingId: serverDraft.listing_id || null,
           category: serverDraft.category,
           createdAt: new Date(serverDraft.updated_at).getTime() || Date.now(),
+          updatedAt: serverDraft.updated_at || new Date().toISOString(),
+          serverRevision: Number(serverDraft.revision) || 0,
           fields: serverDraft.form_data.fields || {},
           mediaFiles: [],
           policyFile: null,
@@ -4097,7 +4592,7 @@
 
       // The legacy upgrade handoff is accepted only on an explicit payment
       // return, never on a clean visit to /list.
-      if (!snapshot && !requestedDraftId && listingPaymentReturnReference) {
+      if (!snapshot && !requestedDraftId && listingRecoveryReturnReference) {
         try { snapshot = JSON.parse(sessionStorage.getItem('varoom_listing_draft_after_upgrade') || 'null'); }
         catch (error) { console.warn('Ignoring an unreadable legacy listing draft:', error); }
         if (snapshot && snapshot.category === hostNiche && snapshot.fields) {
@@ -4108,7 +4603,7 @@
         } else snapshot = null;
       }
       if (!snapshot || snapshot.category !== hostNiche || !snapshot.fields) {
-        if (listingPaymentReturnReference && returnedListingPaymentVerified) {
+        if (listingRecoveryReturnReference && returnedListingPaymentVerified) {
           // Keep the paid listing's review step reachable even if this device
           // no longer has the form snapshot. Do not permit publishing an
           // incomplete listing; ask the host to recover its saved details.
@@ -4144,6 +4639,60 @@
         field.dispatchEvent(new Event('input', { bubbles: true }));
         field.dispatchEvent(new Event('change', { bubbles: true }));
       });
+      if (Array.isArray(snapshot.controls)) {
+        const formControls = Array.from(document.querySelectorAll('#list-form input, #list-form select, #list-form textarea'));
+        snapshot.controls.forEach(function(saved){
+          let field = saved.id ? document.getElementById(saved.id) : null;
+          if (!field && saved.osKey) field = document.querySelector('[data-os-key="' + CSS.escape(saved.osKey) + '"]');
+          if (!field && saved.osUse) field = document.querySelector('[data-os-use="' + CSS.escape(saved.osUse) + '"]');
+          if (!field && saved.name) {
+            const namedFields = formControls.filter(function(item){ return item.name === saved.name; });
+            field = namedFields[saved.nameIndex] || null;
+          }
+          if (!field && Number.isInteger(saved.formIndex) && formControls[saved.formIndex]
+              && formControls[saved.formIndex].type === saved.type) field = formControls[saved.formIndex];
+          if (!field || field.type === 'file' || field.type === 'password') return;
+          if (field.type === 'checkbox' || field.type === 'radio') field.checked = saved.checked === true;
+          else field.value = saved.value == null ? '' : saved.value;
+          field.dispatchEvent(new Event('input', { bubbles: true }));
+          field.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+      }
+      if (Array.isArray(snapshot.amenities)) {
+        snapshot.amenities.forEach(function(saved){
+          const checkbox = amenityLibraryCheckboxes().find(function(input){ return amenityCheckboxKey(input) === saved.key; });
+          if (!checkbox) return;
+          checkbox.checked = saved.checked === true;
+          const row = checkbox.closest('.amenity-check');
+          if (row) row.classList.toggle('checked', checkbox.checked);
+        });
+        syncAmenityLibrarySummary();
+      }
+      if (snapshot.officeShopAmenitySelections && isOfficeShop(hostNiche)) {
+        Object.keys(snapshot.officeShopAmenitySelections).forEach(function(key){
+          const checkbox = document.querySelector('[data-os-key="' + CSS.escape(key) + '"]');
+          if (checkbox) checkbox.checked = snapshot.officeShopAmenitySelections[key] === true;
+        });
+      }
+      if (Array.isArray(snapshot.officeShopPermittedUses) && isOfficeShop(hostNiche)) {
+        document.querySelectorAll('[data-os-use]').forEach(function(input){
+          input.checked = snapshot.officeShopPermittedUses.includes(input.dataset.osUse);
+        });
+      }
+      if (Array.isArray(snapshot.officeShopCharges) && isOfficeShop(hostNiche)) {
+        const charges = document.getElementById('os-charges-rows');
+        if (charges) charges.innerHTML = '';
+        snapshot.officeShopCharges.forEach(addOfficeShopCharge);
+      }
+      listingUploadedDocumentRefs = {};
+      if (snapshot.uploadedDocumentRefs && typeof snapshot.uploadedDocumentRefs === 'object') {
+        Object.keys(snapshot.uploadedDocumentRefs).forEach(function(type){
+          const refs = Array.isArray(snapshot.uploadedDocumentRefs[type]) ? snapshot.uploadedDocumentRefs[type] : [];
+          listingUploadedDocumentRefs[type] = refs.filter(function(ref){ return ref && typeof ref.id === 'string'; }).map(function(ref){
+            return { id: ref.id, documentType: type, filename: String(ref.filename || ''), fileSize: Number(ref.fileSize) || 0, lastModified: Number(ref.lastModified) || 0, mimeType: String(ref.mimeType || '') };
+          });
+        });
+      }
       if (hostNiche === 'property' && !Object.prototype.hasOwnProperty.call(snapshot.fields, 'property-bedroom-type')) {
         setPropertyBedroomType(snapshot.fields['size-or-type']);
       }
@@ -4152,17 +4701,18 @@
           return file && typeof file.name === 'string' && typeof file.slice === 'function';
         });
       }
-      if (snapshot.policyFile && typeof snapshot.policyFile.slice === 'function') {
-        selectedPolicyFile = snapshot.policyFile;
-        if (policyPreviewBtn) policyPreviewBtn.textContent = selectedPolicyFile.name;
+      selectedPolicyFile = null;
+      const restoredPolicy = latestListingDocumentRef('property_policy');
+      if (restoredPolicy) {
+        if (policyPreviewBtn) policyPreviewBtn.textContent = restoredPolicy.filename;
         if (policyFileName) policyFileName.classList.add('show');
       }
       if (snapshot.officeShopFiles && isOfficeShop(hostNiche)) {
-        officeShopFloorPlanFile = snapshot.officeShopFiles.floorPlan || null;
-        officeShopPolicyFile = snapshot.officeShopFiles.policy || null;
-        officeShopDocumentFiles = Array.isArray(snapshot.officeShopFiles.documents)
-          ? snapshot.officeShopFiles.documents.filter(function(file){ return file && typeof file.slice === 'function'; })
-          : [];
+        // Older snapshots may contain document File blobs. Never put those
+        // private files back into the live form or persist them again.
+        officeShopFloorPlanFile = null;
+        officeShopPolicyFile = null;
+        officeShopDocumentFiles = [];
         [
           ['os-floor-plan', officeShopFloorPlanFile, 'Floor plan (optional)', false],
           ['os-policy-file', officeShopPolicyFile, 'Property Policy', false],
@@ -4175,19 +4725,54 @@
             ? (item[3] && files.length > 1 ? files.length + ' files selected' : files.map(function(file){ return file.name; }).join(', '))
             : item[2];
         });
+        [['floor_plan','Floor plan (optional)'],['commercial_policy','Property Policy'],['ownership_management','Ownership and management (optional)']].forEach(function(item){
+          const input = document.getElementById(item[0] === 'floor_plan' ? 'os-floor-plan' : item[0] === 'commercial_policy' ? 'os-policy-file' : 'os-documents');
+          const label = input && input.closest('.office-shop-document-card')?.querySelector('[data-os-upload-name]');
+          const refs = listingUploadedDocumentRefs[item[0]] || [];
+          if (label && !officeShopFloorPlanFile && !officeShopPolicyFile && !officeShopDocumentFiles.length) {
+            label.textContent = refs.length ? refs.map(function(ref){ return ref.filename; }).join(', ') : item[1];
+          }
+        });
       }
       if (Array.isArray(snapshot.availableDates)) {
         openDates.clear();
         snapshot.availableDates.forEach(function(date){ if (/^\d{4}-\d{2}-\d{2}$/.test(date)) openDates.add(date); });
         renderCalendar();
       }
+      if (Number.isInteger(snapshot.furthestStep)) furthestStep = Math.max(1, Math.min(TOTAL_STEPS, snapshot.furthestStep));
       renderPreviews();
       renderReviewSummary();
-      goToStep(requestedDraftId ? 1 : 5);
-      if (selectedFiles.length || selectedPolicyFile) {
-        showPaymentMessage('Your saved listing, photos/videos, and policy document have been restored.', false);
-      } else if ((snapshot.serverMediaMetadata || []).length || snapshot.mediaSelected || snapshot.policyAttached) {
-        showPaymentMessage('Your listing details are restored. Reselect the saved media files shown in My Profile; browsers keep file data only on this device.', false);
+      goToStep(requestedDraftId ? (Number.isInteger(snapshot.currentStep) ? snapshot.currentStep : 1) : 5);
+      // Rewrite older IndexedDB snapshots without private document blobs.
+      const sanitizedSnapshot = captureListingDraft(hostId, preparedPaymentListingId);
+      sanitizedSnapshot.cacheKey = cacheKey;
+      sanitizedSnapshot.draftId = listingDraftId;
+      if (localRevisionConflict) {
+        sanitizedSnapshot.serverRevision = localServerRevision;
+        sanitizedSnapshot.updatedAt = snapshot.updatedAt || sanitizedSnapshot.updatedAt;
+      }
+      await listingDraftCache.save(sanitizedSnapshot);
+      const uploadedDocumentCount = Object.values(listingUploadedDocumentRefs).reduce(function(total, refs){ return total + (Array.isArray(refs) ? refs.length : 0); }, 0);
+      if (selectedFiles.length || uploadedDocumentCount) {
+        showPaymentMessage('Your saved listing, media, and securely uploaded documents have been restored.', false);
+      } else if ((snapshot.serverMediaMetadata || []).some(function(item){ return item.kind === 'listing_media'; }) || snapshot.mediaSelected) {
+        showPaymentMessage('Your listing details are restored. Reselect the saved photo or video files shown in My Profile; browsers keep media files only on this device.', false);
+      }
+      const selections = snapshot.documentSelections || {
+        propertyPolicy: snapshot.policyFile ? { filename: snapshot.policyFile.name } : null,
+        officeShop: {
+          floorPlan: snapshot.officeShopFiles && snapshot.officeShopFiles.floorPlan ? { filename: snapshot.officeShopFiles.floorPlan.name } : null,
+          policy: snapshot.officeShopFiles && snapshot.officeShopFiles.policy ? { filename: snapshot.officeShopFiles.policy.name } : null,
+          documents: snapshot.officeShopFiles && Array.isArray(snapshot.officeShopFiles.documents) ? snapshot.officeShopFiles.documents.map(function(file){ return { filename: file.name }; }) : [],
+        },
+      };
+      const pendingDocumentSelections = [selections.propertyPolicy, selections.officeShop && selections.officeShop.floorPlan, selections.officeShop && selections.officeShop.policy]
+        .concat(selections.officeShop && Array.isArray(selections.officeShop.documents) ? selections.officeShop.documents : []).filter(Boolean);
+      if (pendingDocumentSelections.length && !uploadedDocumentCount) {
+        showPaymentMessage('Your listing details are restored, but selected documents were not uploaded yet. Please choose those files again before publishing.', true);
+      }
+      if (localRevisionConflict) {
+        showPaymentMessage('This device has a saved copy, and a newer version is in My Profile. The device copy is preserved and will not overwrite the newer draft.', true);
       }
     } finally {
       restoringListingDraft = false;
