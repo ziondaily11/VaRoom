@@ -684,7 +684,11 @@
   #feed-list.discover-media-feed .media-slide{ height:100%; display:flex; align-items:center; justify-content:center; position:relative; background:transparent; }
   #feed-list.discover-media-feed .media-slide img{ display:block; position:relative; z-index:1; max-width:100%; height:auto; margin:0; object-fit:initial; opacity:0; transition:opacity .2s ease; }
   #feed-list.discover-media-feed .media-slide img.is-loaded{ opacity:1; }
-  .media-image-skeleton{ position:absolute; inset:0; z-index:1; background:var(--media-stage-fill); }
+  .media-image-skeleton{ position:absolute; inset:0; z-index:2; display:flex; align-items:center; justify-content:center; background:#fff; }
+  .media-image-skeleton::after,.media-loading-indicator::after{ content:''; width:22px; height:22px; border:2px solid var(--line); border-top-color:var(--red); border-radius:50%; animation:discover-media-spin .8s linear infinite; }
+  .media-loading-indicator{ position:absolute; inset:0; z-index:2; display:flex; align-items:center; justify-content:center; background:#fff; }
+  [data-theme="dark"] .media-image-skeleton,[data-theme="dark"] .media-loading-indicator{ background:#0a0a0a; }
+  .card-video.is-loaded .media-loading-indicator,.card-video.is-failed .media-loading-indicator{ display:none; }
   #feed-list.discover-media-feed .card-video{ height:auto; background:transparent; }
   #feed-list.discover-media-feed .card-video video,
   #feed-list.discover-media-feed .card-video .varoom-video-player,
@@ -2082,7 +2086,7 @@
       if (videoUrl) {
         const videoMedia = videoMetadataByListing[listing.id] || {};
         const videoSize = videoMedia.width > 0 && videoMedia.height > 0 ? ' data-media-width="' + videoMedia.width + '" data-media-height="' + videoMedia.height + '"' : '';
-        photosHtml = '<div class="card-video single"' + videoSize + '><video muted playsinline preload="none" poster="' + escapeHtml(videoThumbnail) + '" src="' + videoUrl + '" data-video-url="' + videoUrl + '" data-listing-id="' + listing.id + '" data-video-host-name="' + escapeHtml(host.full_name || 'Host') + '" data-video-username="' + escapeHtml(host.username ? '@' + host.username : '') + '" data-video-avatar="' + escapeHtml(hostAvatarUrl || '') + '" data-video-caption="' + escapeHtml(listing.description || listing.title) + '"></video></div>';
+        photosHtml = '<div class="card-video single"' + videoSize + '><div class="media-loading-indicator" aria-hidden="true"></div><video muted playsinline preload="none" poster="' + escapeHtml(videoThumbnail) + '" src="' + videoUrl + '" data-video-url="' + videoUrl + '" data-listing-id="' + listing.id + '" data-video-host-name="' + escapeHtml(host.full_name || 'Host') + '" data-video-username="' + escapeHtml(host.username ? '@' + host.username : '') + '" data-video-avatar="' + escapeHtml(hostAvatarUrl || '') + '" data-video-caption="' + escapeHtml(listing.description || listing.title) + '"></video></div>';
       } else if (photos.length === 0 && (videoState === 'unknown' || videoState === 'loading')) {
         photosHtml = '<div class="card-media-loading" aria-hidden="true"></div>';
       } else if (photos.length === 0 && videoState === 'unavailable') {
@@ -2095,7 +2099,7 @@
         const size = metadata.width && metadata.height ? ' data-media-width="' + metadata.width + '" data-media-height="' + metadata.height + '"' : '';
         photosHtml = '<div class="media-carousel single-media" data-listing-id="' + listing.id + '" data-photo-count="1">'
           + '<div class="media-slide-track">'
-          + '<div class="media-slide"' + size + '><div class="media-image-skeleton skeleton" aria-hidden="true"></div><img src="' + escapeHtml(photo.url) + '" alt="' + escapeHtml(listing.title) + '" loading="lazy" data-listing-id="' + listing.id + '" data-photo-index="0"></div>'
+          + '<div class="media-slide"' + size + '><div class="media-image-skeleton" aria-hidden="true"></div><img src="' + escapeHtml(photo.url) + '" alt="' + escapeHtml(listing.title) + '" loading="lazy" data-listing-id="' + listing.id + '" data-photo-index="0"></div>'
           + '</div>'
           + '</div>';
       } else {
@@ -2106,7 +2110,7 @@
           + '<div class="media-slide-track">' + photoItems.map(function(photo, i){
               const metadata = photo;
               const size = metadata.width && metadata.height ? ' data-media-width="' + metadata.width + '" data-media-height="' + metadata.height + '"' : '';
-              return '<div class="media-slide"' + size + '><div class="media-image-skeleton skeleton" aria-hidden="true"></div><img src="' + escapeHtml(photo.url) + '" alt="' + escapeHtml(listing.title) + '" loading="lazy" data-listing-id="' + listing.id + '" data-photo-index="' + i + '"></div>';
+              return '<div class="media-slide"' + size + '><div class="media-image-skeleton" aria-hidden="true"></div><img src="' + escapeHtml(photo.url) + '" alt="' + escapeHtml(listing.title) + '" loading="lazy" data-listing-id="' + listing.id + '" data-photo-index="' + i + '"></div>';
             }).join('') + '</div>'
           + '<div class="media-dots">' + photos.map(function(_, i){ return '<span class="media-dot ' + (i === 0 ? 'active' : '') + '" data-index="' + i + '"></span>'; }).join('') + '</div>'
           + '</div>';
@@ -2261,29 +2265,31 @@
                it stays a sensible part of a mobile Discover card. */
             const mobileMaxHeight = Math.min(560, availableWidth * 1.6);
             const fallbackHeight = Math.min(mobileMaxHeight, availableWidth / (4 / 3));
-            fallbackFrame = { height:fallbackHeight, width:Math.min(availableWidth, fallbackHeight * (4 / 3)) };
+            fallbackFrame = { height:fallbackHeight, width:Math.min(availableWidth, fallbackHeight * (4 / 3)), metadataValid:false };
             frames = media.filter(Boolean).map(function(item){
               const metadataSource = item.closest('.media-slide') || stage;
-              const width = Number(metadataSource.getAttribute('data-media-width')) || item.videoWidth || item.naturalWidth;
-              const height = Number(metadataSource.getAttribute('data-media-height')) || item.videoHeight || item.naturalHeight;
-              if (!width || !height) return fallbackFrame;
+              const width = Number(metadataSource.getAttribute('data-media-width'));
+              const height = Number(metadataSource.getAttribute('data-media-height'));
+              if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return fallbackFrame;
               const ratio = width / height;
+              if (!Number.isFinite(ratio) || ratio <= 0) return fallbackFrame;
               const fittedHeight = Math.min(mobileMaxHeight, availableWidth / ratio);
-              return { height:fittedHeight, width:Math.min(availableWidth, fittedHeight * ratio) };
+              return { height:fittedHeight, width:Math.min(availableWidth, fittedHeight * ratio), metadataValid:true };
             });
           } else {
             /* Desktop: height capped at maxHeight, container width also constrained.
                Unchanged from the recent successful desktop fix. */
             const fallbackHeight = Math.min(maxHeight, availableWidth / (4 / 3));
-            fallbackFrame = { height:fallbackHeight, width:Math.min(availableWidth, fallbackHeight * (4 / 3)) };
+            fallbackFrame = { height:fallbackHeight, width:Math.min(availableWidth, fallbackHeight * (4 / 3)), metadataValid:false };
             frames = media.filter(Boolean).map(function(item){
               const metadataSource = item.closest('.media-slide') || stage;
-              const width = Number(metadataSource.getAttribute('data-media-width')) || item.videoWidth || item.naturalWidth;
-              const height = Number(metadataSource.getAttribute('data-media-height')) || item.videoHeight || item.naturalHeight;
-              if (!width || !height) return fallbackFrame;
+              const width = Number(metadataSource.getAttribute('data-media-width'));
+              const height = Number(metadataSource.getAttribute('data-media-height'));
+              if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return fallbackFrame;
               const ratio = width / height;
+              if (!Number.isFinite(ratio) || ratio <= 0) return fallbackFrame;
               const fittedHeight = Math.min(maxHeight, availableWidth / ratio);
-              return { height:fittedHeight, width:Math.min(availableWidth, fittedHeight * ratio) };
+              return { height:fittedHeight, width:Math.min(availableWidth, fittedHeight * ratio), metadataValid:true };
             });
           }
           if (!frames.length) frames.push(fallbackFrame);
@@ -2294,13 +2300,16 @@
           stage.style.setProperty('--discover-media-width', Math.round(widestFrame.width) + 'px');
           media.filter(Boolean).forEach(function(item, index){
             item.style.width = Math.round(frames[index].width) + 'px';
-            item.style.height = 'auto';
+            item.style.height = Math.round(frames[index].height) + 'px';
+            item.style.objectFit = frames[index].metadataValid ? '' : 'contain';
           });
         }
         media.filter(Boolean).forEach(function(item){
           if (item.getAttribute('data-discover-size-listener') === 'true') return;
           item.setAttribute('data-discover-size-listener', 'true');
-          item.addEventListener(item.tagName === 'VIDEO' ? 'loadeddata' : 'load', updateHeight, { once:true });
+          item.addEventListener('load', function(){
+            if (item.tagName !== 'VIDEO' && item.complete && item.naturalWidth > 0) setDiscoverAmbientImage(item.closest('.media-slide'), item.currentSrc || item.src);
+          }, { once:true });
         });
         updateHeight();
       });
@@ -2337,7 +2346,25 @@
           if (skeleton) skeleton.remove();
         }
         img.addEventListener('load', showLoadedImage, { once:true });
-        if (img.complete && img.naturalWidth > 0) showLoadedImage();
+        img.addEventListener('error', function(){
+          const skeleton = img.parentElement.querySelector('.media-image-skeleton');
+          if (skeleton) skeleton.remove();
+        }, { once:true });
+        if (img.complete) {
+          if (img.naturalWidth > 0) showLoadedImage();
+          else {
+            const skeleton = img.parentElement.querySelector('.media-image-skeleton');
+            if (skeleton) skeleton.remove();
+          }
+        }
+      });
+      container.querySelectorAll('.card-video video').forEach(function(video){
+        const stage = video.closest('.card-video');
+        function finishVideoLoad(){ if (stage) stage.classList.add('is-loaded'); }
+        function failVideoLoad(){ if (stage) stage.classList.add('is-failed'); }
+        video.addEventListener('loadeddata', finishVideoLoad, { once:true });
+        video.addEventListener('error', failVideoLoad, { once:true });
+        if (video.readyState >= 2) finishVideoLoad();
       });
       container.querySelectorAll('.media-slide img[data-listing-id], .card-photos img[data-listing-id]').forEach(function(img){
         img.addEventListener('click', function(){

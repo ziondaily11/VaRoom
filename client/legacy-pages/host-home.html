@@ -820,6 +820,11 @@
   #feed-list.discover-media-feed .media-slide-track{ height:100%; }
   #feed-list.discover-media-feed .media-slide{ height:100%; display:flex; align-items:center; justify-content:center; position:relative; background:transparent; }
   #feed-list.discover-media-feed .media-slide img{ max-width:100%; height:auto; object-fit:initial; }
+  .media-image-skeleton{ position:absolute; inset:0; z-index:2; display:flex; align-items:center; justify-content:center; background:#fff; }
+  .media-image-skeleton::after,.media-loading-indicator::after{ content:''; width:22px; height:22px; border:2px solid var(--line); border-top-color:var(--red); border-radius:50%; animation:discover-media-spin .8s linear infinite; }
+  .media-loading-indicator{ position:absolute; inset:0; z-index:2; display:flex; align-items:center; justify-content:center; background:#fff; }
+  [data-theme="dark"] .media-image-skeleton,[data-theme="dark"] .media-loading-indicator{ background:#0a0a0a; }
+  .card-video.is-loaded .media-loading-indicator,.card-video.is-failed .media-loading-indicator{ display:none; }
   #feed-list.discover-media-feed .card-video{ height:auto; background:transparent; }
   #feed-list.discover-media-feed .card-video video,
   #feed-list.discover-media-feed .card-video .varoom-video-player,
@@ -2539,7 +2544,7 @@
       if (videoUrl) {
         const videoDimensions = listingVideoMetadata[listing.id] || {};
         const videoSize = videoDimensions.width > 0 && videoDimensions.height > 0 ? ' data-media-width="' + videoDimensions.width + '" data-media-height="' + videoDimensions.height + '"' : '';
-        photosHtml = '<div class="card-video single"' + videoSize + '><video muted playsinline preload="none" poster="' + escapeHtml(videoThumbnail) + '" src="' + videoUrl + '" data-video-url="' + videoUrl + '" data-listing-id="' + listing.id + '" data-video-host-name="' + escapeHtml(host.full_name || 'Host') + '" data-video-username="' + escapeHtml(host.username ? '@' + host.username : '') + '" data-video-avatar="' + escapeHtml(hostAvatarUrl || '') + '" data-video-caption="' + escapeHtml(listing.description || listing.title) + '"></video></div>';
+        photosHtml = '<div class="card-video single"' + videoSize + '><div class="media-loading-indicator" aria-hidden="true"></div><video muted playsinline preload="none" poster="' + escapeHtml(videoThumbnail) + '" src="' + videoUrl + '" data-video-url="' + videoUrl + '" data-listing-id="' + listing.id + '" data-video-host-name="' + escapeHtml(host.full_name || 'Host') + '" data-video-username="' + escapeHtml(host.username ? '@' + host.username : '') + '" data-video-avatar="' + escapeHtml(hostAvatarUrl || '') + '" data-video-caption="' + escapeHtml(listing.description || listing.title) + '"></video></div>';
       } else if (photos.length === 0 && (mediaState === 'unknown' || mediaState === 'loading')) {
         photosHtml = '<div class="card-media-loading" role="status" aria-label="Preparing listing media">Preparing media preview…</div>';
       } else if (photos.length === 0 && mediaState === 'unavailable') {
@@ -2549,7 +2554,7 @@
       } else if (photos.length === 1) {
         photosHtml = '<div class="media-carousel single-media" data-listing-id="' + listing.id + '" data-photo-count="1">'
           + '<div class="media-slide-track">'
-          + '<div class="media-slide"' + (photos[0].width > 0 && photos[0].height > 0 ? ' data-media-width="' + photos[0].width + '" data-media-height="' + photos[0].height + '"' : '') + '><img src="' + photos[0].url + '" alt="' + escapeHtml(listing.title) + '" loading="lazy" data-listing-id="' + listing.id + '" data-photo-index="0"></div>'
+          + '<div class="media-slide"' + (photos[0].width > 0 && photos[0].height > 0 ? ' data-media-width="' + photos[0].width + '" data-media-height="' + photos[0].height + '"' : '') + '><div class="media-image-skeleton" aria-hidden="true"></div><img src="' + photos[0].url + '" alt="' + escapeHtml(listing.title) + '" loading="lazy" data-listing-id="' + listing.id + '" data-photo-index="0"></div>'
           + '</div>'
           + '</div>';
       } else {
@@ -2558,7 +2563,7 @@
           + '<button type="button" class="media-carousel-arrow prev" data-carousel-prev aria-label="Previous photo">‹</button>'
           + '<button type="button" class="media-carousel-arrow next" data-carousel-next aria-label="Next photo">›</button>'
           + '<div class="media-slide-track">' + photos.map(function(photo, i){
-              return '<div class="media-slide"' + (photo.width > 0 && photo.height > 0 ? ' data-media-width="' + photo.width + '" data-media-height="' + photo.height + '"' : '') + '><img src="' + photo.url + '" alt="' + escapeHtml(listing.title) + '" loading="lazy" data-listing-id="' + listing.id + '" data-photo-index="' + i + '"></div>';
+              return '<div class="media-slide"' + (photo.width > 0 && photo.height > 0 ? ' data-media-width="' + photo.width + '" data-media-height="' + photo.height + '"' : '') + '><div class="media-image-skeleton" aria-hidden="true"></div><img src="' + photo.url + '" alt="' + escapeHtml(listing.title) + '" loading="lazy" data-listing-id="' + listing.id + '" data-photo-index="' + i + '"></div>';
             }).join('') + '</div>'
           + '<div class="media-dots">' + photos.map(function(_, i){ return '<span class="media-dot ' + (i === 0 ? 'active' : '') + '" data-index="' + i + '"></span>'; }).join('') + '</div>'
           + '</div>';
@@ -2708,27 +2713,31 @@
                it stays a sensible part of a mobile Discover card. */
             const mobileMaxHeight = Math.min(560, availableWidth * 1.6);
             const fallbackHeight = Math.min(mobileMaxHeight, availableWidth / (4 / 3));
-            fallbackFrame = { height:fallbackHeight, width:Math.min(availableWidth, fallbackHeight * (4 / 3)) };
+            fallbackFrame = { height:fallbackHeight, width:Math.min(availableWidth, fallbackHeight * (4 / 3)), metadataValid:false };
             frames = media.filter(Boolean).map(function(item){
-              const width = item.videoWidth || item.naturalWidth;
-              const height = item.videoHeight || item.naturalHeight;
-              if (!width || !height) return fallbackFrame;
+              const metadataSource = item.closest('.media-slide') || stage;
+              const width = Number(metadataSource.getAttribute('data-media-width'));
+              const height = Number(metadataSource.getAttribute('data-media-height'));
+              if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return fallbackFrame;
               const ratio = width / height;
+              if (!Number.isFinite(ratio) || ratio <= 0) return fallbackFrame;
               const fittedHeight = Math.min(mobileMaxHeight, availableWidth / ratio);
-              return { height:fittedHeight, width:Math.min(availableWidth, fittedHeight * ratio) };
+              return { height:fittedHeight, width:Math.min(availableWidth, fittedHeight * ratio), metadataValid:true };
             });
           } else {
             /* Desktop: height capped at maxHeight, container width also constrained.
                Unchanged from the existing desktop implementation. */
             const fallbackHeight = Math.min(maxHeight, availableWidth / (4 / 3));
-            fallbackFrame = { height:fallbackHeight, width:Math.min(availableWidth, fallbackHeight * (4 / 3)) };
+            fallbackFrame = { height:fallbackHeight, width:Math.min(availableWidth, fallbackHeight * (4 / 3)), metadataValid:false };
             frames = media.filter(Boolean).map(function(item){
-              const width = item.videoWidth || item.naturalWidth;
-              const height = item.videoHeight || item.naturalHeight;
-              if (!width || !height) return fallbackFrame;
+              const metadataSource = item.closest('.media-slide') || stage;
+              const width = Number(metadataSource.getAttribute('data-media-width'));
+              const height = Number(metadataSource.getAttribute('data-media-height'));
+              if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return fallbackFrame;
               const ratio = width / height;
+              if (!Number.isFinite(ratio) || ratio <= 0) return fallbackFrame;
               const fittedHeight = Math.min(maxHeight, availableWidth / ratio);
-              return { height:fittedHeight, width:Math.min(availableWidth, fittedHeight * ratio) };
+              return { height:fittedHeight, width:Math.min(availableWidth, fittedHeight * ratio), metadataValid:true };
             });
           }
           if (!frames.length) frames.push(fallbackFrame);
@@ -2739,17 +2748,39 @@
           stage.style.setProperty('--discover-media-width', Math.round(widestFrame.width) + 'px');
           media.filter(Boolean).forEach(function(item, index){
             item.style.width = Math.round(frames[index].width) + 'px';
-            item.style.height = 'auto';
+            item.style.height = Math.round(frames[index].height) + 'px';
+            item.style.objectFit = frames[index].metadataValid ? '' : 'contain';
           });
         }
         media.filter(Boolean).forEach(function(item){
-          item.addEventListener(item.tagName === 'VIDEO' ? 'loadeddata' : 'load', updateHeight);
+          item.addEventListener(item.tagName === 'VIDEO' ? 'loadeddata' : 'load', function(){
+            if (item.tagName === 'VIDEO') item.closest('.card-video').classList.add('is-loaded');
+            else if (item.complete && item.naturalWidth > 0) setDiscoverAmbientImage(item.closest('.media-slide'), item.currentSrc || item.src);
+          }, { once:true });
         });
         updateHeight();
       });
     }
 
     function attachCardListeners(container){
+      container.querySelectorAll('.media-slide img').forEach(function(img){
+        const slide = img.closest('.media-slide');
+        function finishImageLoad(){
+          const skeleton = slide && slide.querySelector('.media-image-skeleton');
+          if (skeleton) skeleton.remove();
+        }
+        img.addEventListener('load', finishImageLoad, { once:true });
+        img.addEventListener('error', finishImageLoad, { once:true });
+        if (img.complete) finishImageLoad();
+      });
+      container.querySelectorAll('.card-video video').forEach(function(video){
+        const stage = video.closest('.card-video');
+        function finishVideoLoad(){ if (stage) stage.classList.add('is-loaded'); }
+        function failVideoLoad(){ if (stage) stage.classList.add('is-failed'); }
+        video.addEventListener('loadeddata', finishVideoLoad, { once:true });
+        video.addEventListener('error', failVideoLoad, { once:true });
+        if (video.readyState >= 2) finishVideoLoad();
+      });
       container.querySelectorAll('.like-btn').forEach(function(btn){
         btn.addEventListener('click', function(event){
           event.stopPropagation();
