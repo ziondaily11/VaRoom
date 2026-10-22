@@ -299,7 +299,6 @@
   .booking-widget .property-policy{ border-top:1px solid var(--line); margin-top:.55rem; padding-top:.65rem; }
   .property-policy-title{ display:flex; align-items:center; gap:.5rem; margin-bottom:.45rem; font-size:.88rem; font-weight:700; }
   .property-policy-link{ display:flex; align-items:center; gap:.7rem; width:100%; min-width:0; padding:.55rem .65rem; border:1px solid var(--line); border-radius:12px; background:var(--paper); color:inherit; text-align:left; text-decoration:none; }
-  .property-policy-preview-trigger{ cursor:pointer; font:inherit; }
   .property-policy-link:hover{ border-color:var(--red); }
   .property-policy-icon{ width:24px; height:28px; color:var(--green); }
   .property-policy-name{ min-width:0; overflow-wrap:anywhere; font-size:.76rem; font-weight:600; }
@@ -308,15 +307,7 @@
   .property-policy-row{ min-width:0; }
   .property-policy-row dt{ color:var(--muted); font-size:.7rem; font-weight:600; }
   .property-policy-row dd{ margin:.12rem 0 0; font-size:.78rem; line-height:1.45; overflow-wrap:anywhere; white-space:pre-wrap; }
-  .property-policy-preview{ margin-top:.55rem; padding:.6rem; border:1px solid var(--line); border-radius:12px; background:var(--paper); }
-  .property-policy-preview-header{ display:flex; align-items:center; justify-content:space-between; gap:.6rem; min-width:0; font-size:.75rem; }
-  .property-policy-preview-header strong{ min-width:0; overflow-wrap:anywhere; }
-  .property-policy-preview-close{ flex:0 0 auto; border:1px solid var(--line-strong); border-radius:999px; padding:.3rem .65rem; background:transparent; color:inherit; cursor:pointer; font:inherit; }
-  .property-policy-preview-status{ margin:.35rem 0; color:var(--muted); font-size:.72rem; }
-  .property-policy-preview-content{ max-height: min(42vh, 460px); overflow:auto; overscroll-behavior:contain; }
-  .property-policy-preview-frame{ display:block; width:100%; height:min(40vh, 440px); min-height:240px; border:0; background:#fff; }
-  .property-policy-preview-image{ display:block; max-width:100%; max-height:40vh; width:auto; height:auto; margin:0 auto; object-fit:contain; }
-  .property-policy-preview-download{ display:inline-block; margin:.2rem 0 .15rem; color:var(--ink); font-size:.75rem; font-weight:600; text-decoration:underline; }
+  .property-policy-download{ display:inline-block; margin:.35rem 0 0 .15rem; color:var(--ink); font-size:.75rem; font-weight:600; text-decoration:underline; }
   .property-purchase-btn{ width:100%; margin-top:.55rem; padding:.68rem 1rem; border:1px solid var(--line-strong); border-radius:100px; color:var(--ink); font-size:.82rem; font-weight:700; }
   .property-purchase-btn:hover{ border-color:var(--red); color:var(--red); }
   .property-purchase-btn.property-purchase-primary{ border-color:var(--red); background:var(--red); color:#fff; }
@@ -2273,94 +2264,6 @@
       '</div>';
 
     document.getElementById('col-side').innerHTML = colSideHtml;
-    const policyPreviewRoot = document.getElementById('col-side');
-    if (policyPreviewRoot) {
-      policyPreviewRoot.addEventListener('click', function(event) {
-        const closeButton = event.target.closest('[data-policy-preview-close]');
-        if (closeButton) {
-          const panel = closeButton.closest('[data-policy-preview-panel]');
-          if (panel) {
-            panel.hidden = true;
-            if (panel._policyPreviewTimeout) window.clearTimeout(panel._policyPreviewTimeout);
-            panel._policyPreviewTimeout = null;
-            const content = panel.querySelector('[data-policy-preview-content]');
-            if (content) content.replaceChildren();
-          }
-          return;
-        }
-        const trigger = event.target.closest('[data-policy-preview]');
-        if (!trigger || trigger.matches('[data-policy-preview-panel]')) return;
-        event.preventDefault();
-        const panel = trigger.parentElement.querySelector('[data-policy-preview-panel]');
-        if (!panel) return;
-        const title = panel.querySelector('[data-policy-preview-title]');
-        const status = panel.querySelector('[data-policy-preview-status]');
-        const content = panel.querySelector('[data-policy-preview-content]');
-        const filename = trigger.dataset.documentTitle || 'Policy document';
-        const mimeType = trigger.dataset.mimeType || '';
-        const previewUrl = trigger.dataset.previewUrl || '';
-        const downloadUrl = trigger.dataset.downloadUrl || '';
-        if (title) title.textContent = filename;
-        if (status) status.textContent = 'Loading document…';
-        if (content) content.replaceChildren();
-        panel.hidden = false;
-        const addDownloadLink = function() {
-          if (!content || !downloadUrl || content.querySelector('[data-policy-download]')) return;
-          const link = document.createElement('a');
-          link.href = downloadUrl;
-          link.className = 'property-policy-preview-download';
-          link.rel = 'noopener';
-          link.textContent = 'Download document';
-          link.dataset.policyDownload = 'true';
-          content.appendChild(link);
-        };
-        const failPreview = function(message) {
-          if (panel.hidden) return;
-          if (status) status.textContent = message;
-          addDownloadLink();
-        };
-        if (!content) return;
-        if (!previewUrl || !/^(application\/pdf|image\/(jpeg|png|webp|gif))$/.test(mimeType)) {
-          failPreview('This file type cannot be previewed here. You can download it instead.');
-          return;
-        }
-        if (mimeType === 'application/pdf') {
-          const frame = document.createElement('iframe');
-          frame.className = 'property-policy-preview-frame';
-          frame.title = filename;
-          frame.referrerPolicy = 'no-referrer';
-          frame.src = previewUrl;
-          let loaded = false;
-          const timeout = window.setTimeout(function() {
-            panel._policyPreviewTimeout = null;
-            if (!loaded) failPreview('The preview is taking too long. The link may have expired; try downloading the document or reload the page.');
-          }, 15000);
-          panel._policyPreviewTimeout = timeout;
-          frame.onload = function() {
-            loaded = true;
-            window.clearTimeout(timeout);
-            panel._policyPreviewTimeout = null;
-            if (status) status.textContent = 'If the preview does not appear, use the download link.';
-          };
-          frame.onerror = function() {
-            loaded = true;
-            window.clearTimeout(timeout);
-            panel._policyPreviewTimeout = null;
-            failPreview('The document could not be previewed. The link may have expired; try downloading it or reload the page.');
-          };
-          content.appendChild(frame);
-        } else {
-          const image = document.createElement('img');
-          image.className = 'property-policy-preview-image';
-          image.alt = filename;
-          image.src = previewUrl;
-          image.onload = function() { if (status) status.textContent = ''; };
-          image.onerror = function() { failPreview('The image could not be loaded. The link may have expired; try downloading it or reload the page.'); };
-          content.appendChild(image);
-        }
-        addDownloadLink();
-      });
-    }
     const propertyPurchaseButton = document.getElementById('property-purchase-btn');
     if (propertyPurchaseButton) {
       propertyPurchaseButton.addEventListener('click', function(){

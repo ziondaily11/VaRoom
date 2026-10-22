@@ -7,6 +7,7 @@ const path = require('node:path');
 const { buildListingPolicyHtml, buildListingDocumentsHtml } = require('../public/js/booking-policy.js');
 
 const document = (documentType, overrides = {}) => Object.assign({
+  id: '99999999-9999-4999-8999-999999999999',
   documentType,
   filename: 'policy.pdf',
   mimeType: 'application/pdf',
@@ -22,7 +23,7 @@ test('unrelated short-stay cancellation policy is not mislabeled as a residentia
 test('residential property policy document is recognized', () => {
   const html = buildListingPolicyHtml('property', {}, [document('property_policy')], true);
   assert.match(html, /policy\.pdf/);
-  assert.match(html, /https:\/\/storage\.example\/signed-policy/);
+  assert.match(html, /\/api\/listing-documents\/99999999-9999-4999-8999-999999999999\/preview/);
   assert.doesNotMatch(html, /No property policies provided/);
 });
 
@@ -31,29 +32,28 @@ test('office rules and document display together without duplicating the documen
   const html = buildListingPolicyHtml('office', details, [document('commercial_policy')], true);
   assert.match(html, /Not allowed/);
   assert.match(html, /policy\.pdf/);
-  assert.match(html, /data-policy-preview/);
-  assert.doesNotMatch(html, /target="_blank"/);
-  assert.equal((html.match(/Preview policy document/g) || []).length, 1);
+  assert.match(html, /href="\/api\/listing-documents\/[^\"]+\/preview" target="_blank" rel="noopener noreferrer"/);
+  assert.match(html, /Download document/);
+  assert.equal((html.match(/Open document in new tab/g) || []).length, 1);
 });
 
-test('policy document preview controls carry authorized inline URLs and allow image previews', () => {
+test('policy image documents open through the same-origin preview route and retain explicit downloads', () => {
   const imageDoc = document('property_policy', {
-    filename: 'house-rules.png', mimeType: 'image/png', previewUrl: 'https://storage.example/inline-image'
+    id: 'abc123', filename: 'house-rules.png', mimeType: 'image/png'
   });
   const html = buildListingPolicyHtml('property', {}, [imageDoc], true);
-  assert.match(html, /data-preview-url="https:\/\/storage\.example\/inline-image"/);
-  assert.match(html, /data-mime-type="image\/png"/);
-  assert.match(html, /data-policy-preview-panel/);
-  assert.doesNotMatch(html, /target="_blank"/);
+  assert.match(html, /href="\/api\/listing-documents\/abc123\/preview"/);
+  assert.match(html, /rel="noopener noreferrer"/);
+  assert.match(html, /Download document/);
 });
 
-test('unsupported policy types omit the preview URL and retain an explicit download option flow', () => {
+test('unsupported policy types omit the preview route and retain an explicit authorized download action', () => {
   const html = buildListingPolicyHtml('property', {}, [document('property_policy', {
     filename: 'policy.docx', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
   })], true);
-  assert.match(html, /data-preview-url=""/);
+  assert.doesNotMatch(html, /\/preview"/);
   assert.match(html, /Preview unavailable/);
-  assert.match(html, /data-download-url="https:\/\/storage\.example\/signed-policy"/);
+  assert.match(html, /href="\/api\/listing-documents\/99999999-9999-4999-8999-999999999999\/download"[^>]*>Download document/);
 });
 
 test('office and shop structured rules display as policy rows', () => {
