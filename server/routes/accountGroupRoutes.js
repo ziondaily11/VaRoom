@@ -103,10 +103,20 @@ function createAccountGroupRoutes(admin) {
     try {
       const { data, error } = await admin.auth.getUser(additionalToken);
       if (error || !data || !data.user) {
+        console.error('Additional account token validation failed:', {
+          status: error && error.status,
+          code: error && error.code,
+          name: error && error.name
+        });
         return res.status(401).json({ error: 'The account being added needs to sign in again.' });
       }
       additionalUser = data.user;
-    } catch (_error) {
+    } catch (error) {
+      console.error('Additional account token validation failed:', {
+        status: error && error.status,
+        code: error && error.code,
+        name: error && error.name
+      });
       return res.status(401).json({ error: 'The account being added needs to sign in again.' });
     }
     if (additionalUser.id === currentUser.id) {

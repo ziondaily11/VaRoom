@@ -87,11 +87,11 @@ test('AddAccountModal does not contain forbidden bright blue or purple styling',
 });
 
 test('AddAccountModal delegates linking to the authenticated account-group service', () => {
-  // Verifies that tempClient is created with persistSession: false
+  // Verifies that email sign-in uses the same per-flow isolated client setup as OAuth.
   assert.match(
     addAccountModalCode,
-    /persistSession:\s*false/,
-    'Uses an isolated client with persistSession: false so active session is untouched'
+    /VaRoomAccountAuth\.createClient\([\s\S]*?\{\s*usesRedirect: false,\s*flowId: accountAuthFlow\s*\}\s*\)/,
+    'Uses a per-flow isolated auth client so active session and auth locks are untouched'
   );
   assert.match(
     addAccountModalCode,
@@ -149,8 +149,8 @@ test('account-switcher.js startAddAccount opens in-app modal and exports openAdd
   );
   assert.match(
     accountSwitcherCode,
-    /persistSession:\s*false/,
-    'Vanilla modal uses persistSession: false'
+    /VaRoomAccountAuth\.createClient\([\s\S]*?\{\s*usesRedirect: false,\s*flowId: window\.VaRoomAccountAuth\.createFlowId\(\)\s*\}\s*\)/,
+    'Vanilla modal uses a per-flow isolated auth client'
   );
 });
 

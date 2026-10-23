@@ -530,7 +530,7 @@
         await window.VaRoomAccountSwitcher.loadLinkedAccounts(supabaseClient, outgoingSession, { force: true });
         await window.VaRoomAccountSwitcher.upsertFromSession(supabaseClient, outgoingSession);
         if (!window.VaRoomAccountSwitcher.canAddAccount()) throw new Error('Account limit reached (3/3). This group cannot include another account.');
-        authClient = window.VaRoomAccountAuth.createClient(window.supabase, window.VAROOM_SUPABASE_URL, window.VAROOM_SUPABASE_ANON_KEY, { usesRedirect: false });
+        authClient = window.VaRoomAccountAuth.createClient(window.supabase, window.VAROOM_SUPABASE_URL, window.VAROOM_SUPABASE_ANON_KEY, { usesRedirect: false, flowId: window.VaRoomAccountAuth.createFlowId() });
       }
 
       var { data, error } = await authClient.auth.signInWithPassword({ email, password: pass });
