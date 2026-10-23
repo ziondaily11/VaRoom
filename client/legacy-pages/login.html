@@ -379,6 +379,7 @@
 
 </div>
 
+<script src="js/account-auth.js"></script>
 <script src="js/supabase-client.js" onerror="console.warn('Using inline Supabase client')"></script>
 <script src="js/account-switcher.js" onerror="console.warn('Account switcher unavailable')"></script>
 <script>
@@ -419,6 +420,9 @@
   function clearAlert() { alertBox.className = 'alert'; }
   if (params.get('deleted') === '1') {
     showAlert('Your VaRoom account and associated data were permanently deleted.', 'success');
+  }
+  if (params.get('error') === 'google_add_failed') {
+    showAlert('Google sign-in could not add the account. Your current session was preserved. Please try again.', 'error');
   }
 
   /* ── Password toggle ── */
@@ -467,7 +471,14 @@
           await window.VaRoomAccountSwitcher.upsertFromSession(supabaseClient, outgoingSession);
         }
       }
-      var { error } = await supabaseClient.auth.signInWithOAuth({
+      var oauthClient = mode === 'add'
+        ? window.VaRoomAccountAuth.createClient(window.supabase, window.VAROOM_SUPABASE_URL, window.VAROOM_SUPABASE_ANON_KEY, { usesRedirect: true })
+        : supabaseClient;
+      var callbackUrl = window.location.origin + '/auth-callback' +
+        (mode === 'add'
+          ? '?add_account_callback=1' + (redirect ? '&redirect=' + encodeURIComponent(redirect) : '')
+          : (redirect ? '?redirect=' + encodeURIComponent(redirect) : ''));
+      var { error } = await oauthClient.auth.signInWithOAuth({
         provider: 'google',
         options: { redirectTo: callbackUrl }
       });
@@ -515,20 +526,22 @@
     submitBtn.disabled = true;
 
     try {
-      var outgoingSession = null;
+      var authClient = supabaseClient;
       if (mode === 'add') {
         var existing = await supabaseClient.auth.getSession();
-        outgoingSession = existing.data && existing.data.session;
+        var outgoingSession = existing.data && existing.data.session;
+        if (outgoingSession && window.VaRoomAccountSwitcher) {
+          await window.VaRoomAccountSwitcher.upsertFromSession(supabaseClient, outgoingSession);
+        }
+        authClient = window.VaRoomAccountAuth.createClient(window.supabase, window.VAROOM_SUPABASE_URL, window.VAROOM_SUPABASE_ANON_KEY, { usesRedirect: false });
       }
 
-      var { data, error } = await supabaseClient.auth.signInWithPassword({ email, password: pass });
+      var { data, error } = await authClient.auth.signInWithPassword({ email, password: pass });
       if (error) throw error;
 
       if (mode === 'add') {
-        // Save the account we were signed in as before it got overwritten above,
-        // so the switcher on profile.html can offer to switch back to it.
-        if (outgoingSession && window.VaRoomAccountSwitcher) {
-          await window.VaRoomAccountSwitcher.upsertFromSession(supabaseClient, outgoingSession);
+        if (window.VaRoomAccountSwitcher) {
+          await window.VaRoomAccountSwitcher.upsertFromSession(authClient, data.session);
         }
         window.location.href = redirect || '/profile.html';
         return;
