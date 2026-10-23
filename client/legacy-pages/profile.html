@@ -439,11 +439,54 @@
   .profile-category-row button{flex:0 0 auto;padding:12px 10px 10px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--muted);font:600 13px inherit;cursor:pointer}
   .profile-category-row button[aria-selected="true"]{border-bottom-color:var(--red);color:var(--ink)}
   .profile-category-row .category-manage{margin-left:auto;color:var(--red)}
-  .profile-category-manager{display:none;position:fixed;inset:0;z-index:800;background:rgba(0,0,0,.7);align-items:center;justify-content:center;padding:16px}
-  .profile-category-manager.open{display:flex}
-  .profile-category-manager-card{width:min(560px,100%);max-height:85vh;overflow:auto;background:var(--card-bg);color:var(--ink);border:1px solid var(--card-border);border-radius:16px;padding:20px}
-  .profile-category-manager-card input[type=text]{min-width:0;flex:1;padding:10px;border-radius:8px;border:1px solid var(--card-border);background:var(--paper);color:var(--ink)}
-  .profile-category-entry{padding:12px 0;border-top:1px solid var(--card-border)}
+  .profile-category-manager{display:none;position:fixed;inset:0;z-index:1200;overflow:auto;background:#050505;color:#f7f7f7;padding:28px 24px 34px}
+  .profile-category-manager.open{display:block}
+  .profile-category-manager-card{width:min(900px,100%);min-height:calc(100vh - 62px);margin:auto;background:#050505;color:#f7f7f7;border:0;border-radius:0;padding:18px 28px 28px}
+  .category-create-view{max-width:620px;margin:12px auto 0;text-align:center}
+  .category-stack{height:242px;position:relative;width:350px;max-width:100%;margin:0 auto 10px}
+  .category-stack img{position:absolute;top:17px;left:50%;width:145px;height:190px;object-fit:cover;border-radius:12px;box-shadow:0 12px 28px #0009}
+  .category-stack img:nth-child(1){transform:translateX(-83%) rotate(-10deg)}
+  .category-stack img:nth-child(2){transform:translateX(-50%) rotate(0deg);top:26px}
+  .category-stack img:nth-child(3){transform:translateX(-17%) rotate(10deg);top:39px}
+  .category-create-view h2{margin:0;font-size:28px;line-height:1.2;font-weight:700}
+  .category-create-view>p{margin:7px 0 26px;color:#aaa;font-size:14px}
+  .category-create-form{text-align:left}
+  .category-create-form label{display:block;margin-bottom:5px;font-size:16px;font-weight:600}
+  .category-create-form .category-field-label{display:block;margin-bottom:8px;color:#888;font-size:11px}
+  .category-create-form input[type=text],.category-search{width:100%;min-width:0;padding:13px 14px;border:1px solid #303030;border-radius:11px;background:#101010;color:#fff;font:inherit;outline:none}
+  .category-create-form input:focus,.category-search:focus{border-color:#888}
+  .category-primary{width:100%;margin-top:9px;padding:14px 18px;border:0;border-radius:999px;background:#fff;color:#080808;font:inherit;font-size:13px;font-weight:700;cursor:pointer}
+  .category-primary:disabled,.category-add:disabled{opacity:.55;cursor:wait}
+  .category-existing{max-width:620px;margin:30px auto 0}
+  .category-existing h3{margin:0 0 10px;font-size:14px;color:#aaa}
+  .profile-category-entry{display:flex;align-items:center;gap:8px;padding:10px 0;border-top:1px solid #242424}
+  .profile-category-entry strong{flex:1;min-width:0}
+  .category-selection-view{display:none;max-width:1000px;margin:0 auto}
+  .category-selection-view.active{display:block}
+  .category-selection-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin:10px 0 18px}
+  .category-selection-brand{color:#aaa;font-size:12px}
+  .category-selection-head h2{margin:5px 0;font-size:24px}
+  .category-selection-head p{margin:0;color:#aaa;font-size:13px}
+  .category-selected-count{flex:0 0 auto;padding:9px 12px;border:1px solid #292929;border-radius:999px;background:#111;font-size:12px}
+  .category-search{height:44px;border-radius:999px;margin-bottom:14px}
+  .category-listing-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+  .category-listing-card{min-width:0;overflow:hidden;border:1px solid #292929;border-radius:12px;background:#080808}
+  .category-listing-card img{display:block;width:100%;aspect-ratio:1.62;object-fit:cover;background:#171717}
+  .category-listing-copy{padding:10px 11px 11px}
+  .category-listing-title-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .category-listing-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;font-weight:600}
+  .category-listing-location{margin-top:5px;color:#929292;font-size:11px}
+  .category-listing-price-row{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-top:7px}
+  .category-listing-price{font-weight:700;font-size:15px}
+  .category-listing-period{color:#999;font-size:10px}
+  .category-toggle{flex:0 0 auto;padding:6px 10px;border:1px solid #292929;border-radius:999px;background:#111;color:#f7f7f7;font:inherit;font-size:11px;font-weight:600;cursor:pointer}
+  .category-toggle.selected{border-color:#fff;background:#fff;color:#090909}
+  .category-selection-footer{position:sticky;bottom:-28px;display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px;padding:12px 0 6px;background:#050505}
+  .category-available-count{color:#999;font-size:11px}
+  .category-add{padding:10px 17px;border:0;border-radius:999px;background:#fff;color:#080808;font:inherit;font-size:12px;font-weight:700;cursor:pointer}
+  .category-manager-error{color:#ff9eaa;font-size:13px}
+  @media(max-width:600px){.profile-category-manager{padding:14px 12px 24px}.profile-category-manager-card{min-height:calc(100vh - 38px);padding:8px 8px 22px}.category-create-view{margin-top:25px}.category-stack{height:220px}.category-stack img{width:128px;height:170px}.category-create-view h2{font-size:25px}.category-create-view>p{font-size:13px;margin-bottom:22px}.category-selection-head{align-items:flex-start}.category-selection-head h2{font-size:21px}.category-selection-head p{max-width:290px;line-height:1.4}.category-listing-grid{gap:9px}.category-listing-copy{padding:8px}.category-listing-title{font-size:12px}.category-toggle{padding:5px 8px;font-size:10px}.category-listing-price{font-size:13px}.category-listing-location{font-size:10px}}
+  @media(max-width:460px){.category-listing-grid{grid-template-columns:minmax(0,1fr)}}
   .profile-review-section{display:none;padding:18px 0}
   .profile-review-card{padding:14px 0;border-bottom:1px solid var(--card-border)}
   [data-theme="dark"] .profile-banner::before{
@@ -931,11 +974,25 @@
 
 <div class="profile-category-manager" id="profile-category-manager" role="dialog" aria-modal="true" aria-labelledby="profile-category-title">
   <section class="profile-category-manager-card">
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px"><h2 id="profile-category-title" style="margin:0;font-size:18px">Organise your listings</h2><button type="button" id="profile-category-close" aria-label="Close">×</button></div>
-    <p style="font-size:13px;color:var(--muted)">Categories group listings already created through VaRoom.</p>
-    <form id="profile-category-form" style="display:flex;gap:8px;margin:14px 0"><input type="text" id="profile-category-name" maxlength="60" placeholder="e.g. Beach houses" aria-label="Category name"><button type="submit" class="btn-solid" id="profile-category-save">Add</button></form>
-    <div id="profile-category-manager-list"></div>
-    <div style="display:flex;justify-content:flex-end;margin-top:16px"><button type="button" class="btn-outline" id="profile-category-done">Done</button></div>
+    <div style="display:flex;justify-content:flex-end"><button type="button" id="profile-category-close" aria-label="Close" class="category-toggle">Close</button></div>
+    <div id="category-create-view" class="category-create-view">
+      <div class="category-stack" aria-hidden="true"><img src="/assets/101.jpg" alt=""><img src="/assets/101.jpg" alt=""><img src="/assets/101.jpg" alt=""></div>
+      <h2 id="profile-category-title">Organise your listings</h2>
+      <p>Categories group listings already created through VaRoom.</p>
+      <form id="profile-category-form" class="category-create-form">
+        <label for="profile-category-name">Create new category</label><span class="category-field-label">Category name</span>
+        <input type="text" id="profile-category-name" maxlength="60" placeholder="e.g. two-bedroom units" aria-label="Category name">
+        <button type="submit" class="category-primary" id="profile-category-save">ADD SPACES</button>
+        <p id="category-manager-error" class="category-manager-error" role="alert" hidden></p>
+      </form>
+      <div class="category-existing" id="profile-category-manager-list"></div>
+    </div>
+    <div id="category-selection-view" class="category-selection-view">
+      <div class="category-selection-head"><div><div class="category-selection-brand">VaRoom</div><h2>Select listings</h2><p>Choose existing listings to add to this category. Selected listings will be grouped together.</p></div><span class="category-selected-count" id="category-selected-count">0 Selected</span></div>
+      <input type="search" id="category-listing-search" class="category-search" placeholder="⌕  Search by listing title" aria-label="Search listings by title">
+      <div id="category-listing-grid" class="category-listing-grid"></div>
+      <div class="category-selection-footer"><span class="category-available-count" id="category-available-count">0 listings available</span><button type="button" id="category-selection-add" class="category-add">＋ ADD</button></div>
+    </div>
   </section>
 </div>
 
@@ -1683,11 +1740,23 @@
   let profileCategories = [];
   let categoryListingIds = {};
   let activeProfileCategory = null;
-  let categoryEditId = null;
   const categoryNav = document.getElementById('profile-category-nav');
   const reviewsPanel = document.getElementById('profile-review-section');
   const manager = document.getElementById('profile-category-manager');
   const managerList = document.getElementById('profile-category-manager-list');
+  const categoryCreateView = document.getElementById('category-create-view');
+  const categorySelectionView = document.getElementById('category-selection-view');
+  const categoryListingGrid = document.getElementById('category-listing-grid');
+  const categorySearch = document.getElementById('category-listing-search');
+  const categorySelectedCount = document.getElementById('category-selected-count');
+  const categoryAvailableCount = document.getElementById('category-available-count');
+  const categorySelectionAdd = document.getElementById('category-selection-add');
+  const categoryManagerError = document.getElementById('category-manager-error');
+  let editingCategoryId = null;
+  let assignmentCategoryId = null;
+  let selectedCategoryListingIds = new Set();
+  let categoryAssignmentSaving = false;
+  let newlyCreatedCategoryId = null;
   async function loadProfileCategories(){
     const { data: categories, error } = await supabaseClient.from('profile_categories').select('id,host_id,name,sort_order,created_at').eq('host_id',profileData.id).order('sort_order').order('created_at');
     if (error) { console.warn('Profile categories are unavailable:',error.message); return; }
@@ -1741,7 +1810,7 @@
       addTab(category.name + ' · ' + count,activeProfileCategory === category.id,function(){selectProfileCategory(category.id);});
     });
     addTab('Reviews',reviewsPanel.style.display === 'block',showProfileReviews);
-    if (isOwner) addTab('+ Manage categories',false,function(){manager.classList.add('open');renderCategoryManager();},'category-manage');
+    if (isOwner) addTab('+ Manage categories',false,openCategoryManager,'category-manage');
   }
   document.addEventListener('varoom:listing-deleted',function(event){
     const deletedId = event.detail && event.detail.id;
@@ -1757,50 +1826,137 @@
   });
   function renderCategoryManager(){
     managerList.innerHTML = '';
+    managerList.innerHTML = '<h3>Your categories</h3>';
     profileCategories.forEach(function(category){
       const section = document.createElement('section'); section.className='profile-category-entry';
       const title = document.createElement('strong'); title.textContent=category.name;
-      const rename = document.createElement('button'); rename.type='button'; rename.textContent='Rename'; rename.className='btn-outline'; rename.style.marginLeft='8px';
-      rename.addEventListener('click',function(){categoryEditId=category.id;document.getElementById('profile-category-name').value=category.name;document.getElementById('profile-category-save').textContent='Save';});
-      const remove = document.createElement('button'); remove.type='button'; remove.textContent='Delete'; remove.className='btn-outline'; remove.style.marginLeft='6px';
+      const choose = document.createElement('button'); choose.type='button'; choose.textContent='Select listings'; choose.className='category-toggle';
+      choose.addEventListener('click',function(){openCategorySelection(category.id,false);});
+      const rename = document.createElement('button'); rename.type='button'; rename.textContent='Rename'; rename.className='category-toggle';
+      rename.addEventListener('click',function(){editingCategoryId=category.id;document.getElementById('profile-category-name').value=category.name;document.getElementById('profile-category-save').textContent='SAVE CATEGORY';document.getElementById('profile-category-name').focus();});
+      const remove = document.createElement('button'); remove.type='button'; remove.textContent='Delete'; remove.className='category-toggle';
       remove.addEventListener('click',async function(){
         if(!window.confirm('Delete “'+category.name+'”? Its listings will remain on VaRoom.')) return;
         const {error:deleteError}=await supabaseClient.from('profile_categories').delete().eq('id',category.id);
         if(deleteError){showToast('Could not delete category.');return;}
         if(activeProfileCategory===category.id) selectProfileCategory(null);
+        if(assignmentCategoryId===category.id) closeCategorySelection();
         await loadProfileCategories();
       });
-      const heading=document.createElement('div'); heading.append(title,rename,remove); section.appendChild(heading);
-      (listings || []).forEach(function(listing){
-        const label=document.createElement('label'); label.style.cssText='display:flex;align-items:center;gap:8px;padding:6px 2px;font-size:13px;color:var(--ink)';
-        const checkbox=document.createElement('input'); checkbox.type='checkbox'; checkbox.checked=(categoryListingIds[category.id] || []).includes(listing.id);
-        checkbox.addEventListener('change',async function(){
-          const result=checkbox.checked
-            ? await supabaseClient.from('profile_category_listings').upsert({category_id:category.id,host_id:profileData.id,listing_id:listing.id},{onConflict:'category_id,listing_id'})
-            : await supabaseClient.from('profile_category_listings').delete().eq('category_id',category.id).eq('listing_id',listing.id);
-          if(result.error){checkbox.checked=!checkbox.checked;showToast('Could not update category.');return;}
-          const ids=new Set(categoryListingIds[category.id] || []); if(checkbox.checked) ids.add(listing.id); else ids.delete(listing.id);
-          categoryListingIds[category.id]=Array.from(ids);renderCategoryNav();selectProfileCategory(activeProfileCategory);
-        });
-        const text=document.createElement('span'); text.textContent=listing.title || 'Untitled listing'; label.append(checkbox,text); section.appendChild(label);
-      });
-      if(!(listings || []).length){const empty=document.createElement('p');empty.textContent='No existing listings available to assign yet.';empty.style.color='var(--muted)';section.appendChild(empty);}
+      section.append(title,choose,rename,remove);
       managerList.appendChild(section);
     });
-    if(!profileCategories.length){const empty=document.createElement('p');empty.textContent='No categories yet.';managerList.appendChild(empty);}
+    if(!profileCategories.length){const empty=document.createElement('p');empty.textContent='No categories yet.';empty.style.color='#888';managerList.appendChild(empty);}
   }
+
+  function setCategoryManagerError(message){
+    categoryManagerError.textContent=message || '';
+    categoryManagerError.hidden=!message;
+  }
+
+  function openCategoryManager(){
+    editingCategoryId=null;
+    document.getElementById('profile-category-form').reset();
+    document.getElementById('profile-category-save').textContent='ADD SPACES';
+    setCategoryManagerError('');
+    categoryCreateView.style.display='';
+    categorySelectionView.classList.remove('active');
+    manager.classList.add('open');
+    renderCategoryManager();
+    document.getElementById('profile-category-name').focus();
+  }
+
+  function closeCategorySelection(){
+    categorySelectionView.classList.remove('active');
+    categoryCreateView.style.display='';
+    assignmentCategoryId=null;
+  }
+
+  function openCategorySelection(categoryId,isNewCategory){
+    const category=profileCategories.find(function(item){return item.id===categoryId;});
+    if(!category) return;
+    assignmentCategoryId=categoryId;
+    newlyCreatedCategoryId=isNewCategory?categoryId:null;
+    selectedCategoryListingIds=new Set(categoryListingIds[categoryId] || []);
+    categoryCreateView.style.display='none';
+    categorySelectionView.classList.add('active');
+    categorySearch.value='';
+    renderCategoryListingPicker();
+  }
+
+  function renderCategoryListingPicker(){
+    const query=categorySearch.value.trim().toLocaleLowerCase();
+    const filtered=(listingRows || []).filter(function(listing){return String(listing.title || '').toLocaleLowerCase().includes(query);});
+    categorySelectedCount.textContent=selectedCategoryListingIds.size+' Selected';
+    categoryAvailableCount.textContent=(listingRows || []).length+' listings available';
+    categoryListingGrid.innerHTML='';
+    if(!filtered.length){const empty=document.createElement('p');empty.textContent=query?'No listings match your search.':'No existing listings available yet.';empty.style.cssText='grid-column:1/-1;color:#999;text-align:center;padding:30px 10px';categoryListingGrid.appendChild(empty);}
+    filtered.forEach(function(listing){
+      const details=Array.isArray(listing.listing_booking_details)?listing.listing_booking_details[0]:listing.listing_booking_details;
+      const card=document.createElement('article');card.className='category-listing-card';
+      const image=document.createElement('img');image.src=getPhotoUrl(listing) || listingVideoThumbnails[listing.id] || '/assets/101.jpg';image.alt=listing.title || 'Listing photo';image.loading='lazy';image.onerror=function(){if(image.src.indexOf('/assets/101.jpg')===-1)image.src='/assets/101.jpg';};
+      const copy=document.createElement('div');copy.className='category-listing-copy';
+      const titleRow=document.createElement('div');titleRow.className='category-listing-title-row';
+      const title=document.createElement('div');title.className='category-listing-title';title.textContent=listing.title || 'Untitled listing';
+      const toggle=document.createElement('button');toggle.type='button';toggle.className='category-toggle';
+      function syncToggle(){const selected=selectedCategoryListingIds.has(listing.id);toggle.classList.toggle('selected',selected);toggle.setAttribute('aria-pressed',String(selected));toggle.textContent=selected?'✓ Selected':'＋ Select';}
+      syncToggle();
+      toggle.addEventListener('click',function(){if(selectedCategoryListingIds.has(listing.id))selectedCategoryListingIds.delete(listing.id);else selectedCategoryListingIds.add(listing.id);syncToggle();categorySelectedCount.textContent=selectedCategoryListingIds.size+' Selected';});
+      titleRow.append(title,toggle);
+      const location=document.createElement('div');location.className='category-listing-location';location.textContent=listing.location_text || 'Location not provided';
+      const priceRow=document.createElement('div');priceRow.className='category-listing-price-row';
+      const price=document.createElement('span');price.className='category-listing-price';price.textContent=details && details.price_amount?'KES '+Number(details.price_amount).toLocaleString():'Price on request';
+      const period=document.createElement('span');period.className='category-listing-period';period.textContent=details && details.price_unit?'/ '+details.price_unit:'/ listing';
+      priceRow.append(price,period);copy.append(titleRow,location,priceRow);card.append(image,copy);categoryListingGrid.appendChild(card);
+    });
+    categorySelectionAdd.disabled=categoryAssignmentSaving;
+    categorySelectionAdd.textContent=categoryAssignmentSaving?'SAVING…':'＋ ADD';
+  }
+
+  categorySearch.addEventListener('input',renderCategoryListingPicker);
+  categorySelectionAdd.addEventListener('click',async function(){
+    if(!assignmentCategoryId || categoryAssignmentSaving)return;
+    categoryAssignmentSaving=true;renderCategoryListingPicker();
+    const currentIds=new Set(categoryListingIds[assignmentCategoryId] || []);
+    const toAdd=Array.from(selectedCategoryListingIds).filter(function(id){return !currentIds.has(id);});
+    const toRemove=Array.from(currentIds).filter(function(id){return !selectedCategoryListingIds.has(id);});
+    const operations=[];
+    if(toAdd.length)operations.push(supabaseClient.from('profile_category_listings').upsert(toAdd.map(function(id){return {category_id:assignmentCategoryId,host_id:profileData.id,listing_id:id};}),{onConflict:'category_id,listing_id'}));
+    if(toRemove.length)operations.push(supabaseClient.from('profile_category_listings').delete().eq('category_id',assignmentCategoryId).in('listing_id',toRemove));
+    const results=await Promise.all(operations);
+    const failed=results.some(function(result){return result.error;});
+    categoryAssignmentSaving=false;
+    if(failed){renderCategoryListingPicker();showToast('Could not save listing selections. Please try again.');return;}
+    categoryListingIds[assignmentCategoryId]=Array.from(selectedCategoryListingIds);
+    const savedCategoryId=assignmentCategoryId;
+    const wasNew=Boolean(newlyCreatedCategoryId);
+    newlyCreatedCategoryId=null;
+    await loadProfileCategories();
+    closeCategorySelection();
+    activeProfileCategory=savedCategoryId;
+    renderCategoryManager();
+    renderCategoryNav();
+    if(reviewsPanel.style.display!=='block')selectProfileCategory(activeProfileCategory);
+    showToast(wasNew?'Category created and listings added.':'Category listings updated.');
+  });
+
   categoryNav.style.display='flex';
   document.getElementById('profile-category-form').addEventListener('submit',async function(event){
     event.preventDefault(); if(!isOwner)return;
     const name=document.getElementById('profile-category-name').value.trim();
-    if(!name || name.length>60){showToast('Enter a category name (1–60 characters).');return;}
-    const result=categoryEditId
-      ? await supabaseClient.from('profile_categories').update({name:name,updated_at:new Date().toISOString()}).eq('id',categoryEditId)
-      : await supabaseClient.from('profile_categories').insert({host_id:profileData.id,name:name,sort_order:profileCategories.length});
-    if(result.error){showToast(result.error.code==='23505'?'That category name already exists.':'Could not save category.');return;}
-    categoryEditId=null;this.reset();document.getElementById('profile-category-save').textContent='Add';await loadProfileCategories();
+    if(!name || name.length>60){setCategoryManagerError('Enter a category name (1–60 characters).');return;}
+    const saveButton=document.getElementById('profile-category-save');saveButton.disabled=true;saveButton.textContent=editingCategoryId?'SAVING…':'ADDING…';setCategoryManagerError('');
+    const result=editingCategoryId
+      ? await supabaseClient.from('profile_categories').update({name:name,updated_at:new Date().toISOString()}).eq('id',editingCategoryId).select('id').maybeSingle()
+      : await supabaseClient.from('profile_categories').insert({host_id:profileData.id,name:name,sort_order:profileCategories.length}).select('id').single();
+    saveButton.disabled=false;saveButton.textContent=editingCategoryId?'SAVE CATEGORY':'ADD SPACES';
+    if(result.error){setCategoryManagerError(result.error.code==='23505'?'That category name already exists.':'Could not save category. Please try again.');return;}
+    if(editingCategoryId){editingCategoryId=null;this.reset();saveButton.textContent='ADD SPACES';await loadProfileCategories();showToast('Category renamed.');return;}
+    const createdId=result.data && result.data.id;
+    if(!createdId){setCategoryManagerError('Category was saved, but could not open its listing selector. Reopen Manage categories to continue.');await loadProfileCategories();return;}
+    this.reset();await loadProfileCategories();openCategorySelection(createdId,true);
   });
-  ['profile-category-close','profile-category-done'].forEach(function(id){document.getElementById(id).addEventListener('click',function(){manager.classList.remove('open');});});
+  document.getElementById('profile-category-close').addEventListener('click',function(){manager.classList.remove('open');closeCategorySelection();});
   manager.addEventListener('click',function(event){if(event.target===manager)manager.classList.remove('open');});
   await loadProfileCategories();
   {
