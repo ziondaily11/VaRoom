@@ -327,3 +327,21 @@ test('rejects document access to drafts and does not allow one host to delete an
     assert.equal(state.documents[0].status, 'ready');
   });
 });
+
+test('deletes an owned policy through the authenticated document route and retires its storage object', async () => {
+  const seedDocuments = [{
+    id: '77777777-7777-4777-8777-777777777777', listing_id: listingId, host_id: ownerId,
+    document_type: 'property_policy', storage_provider: 'r2', storage_bucket: 'test-bucket',
+    storage_key: 'listing-documents/test/policy/verified.pdf', original_filename: 'policy.pdf',
+    mime_type: 'application/pdf', file_size_bytes: pdfBytes.length, status: 'ready', visibility: 'listing', deleted_at: null,
+  }];
+  await withDocumentServer({ category: 'property', seedDocuments }, async (state) => {
+    const row = state.documents[0];
+    state.objects.set(row.storage_key, { bytes: Buffer.from(pdfBytes), contentType: 'application/pdf' });
+    const removed = await state.send(`/listing-documents/${row.id}`, { method: 'DELETE' });
+    assert.equal(removed.response.status, 204);
+    assert.equal(row.status, 'deleted');
+    assert.ok(row.deleted_at);
+    assert.equal(state.objects.has(row.storage_key), false);
+  });
+});

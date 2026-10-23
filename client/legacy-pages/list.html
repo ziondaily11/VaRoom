@@ -1404,6 +1404,7 @@
 <script src="js/listing-feed-cache.js"></script>
 <script src="js/listing-draft-cache.js"></script>
 <script src="js/listing-policy-preview.js"></script>
+<script src="js/listing-policy-removal.js"></script>
 <script>
   const checkingAuth = document.getElementById('checking-auth');
   const listingPage = document.getElementById('listing-page');
@@ -1455,6 +1456,7 @@
   let editBookingDetails = null;
   let existingPhotos = [];
   let existingPolicyUrl = null;
+  let policyRemoveInProgress = false;
   const originalOpenDates = new Set();
 
   const listingDraftStatusStyle = document.createElement('style');
@@ -3276,8 +3278,44 @@
     });
   }
   if (policyRemoveBtn) {
-    policyRemoveBtn.addEventListener('click', function(){
-      if (editMode && existingPolicyUrl) return;
+    policyRemoveBtn.addEventListener('click', async function(){
+      if (policyRemoveInProgress) return;
+      if (editMode && existingPolicyUrl) {
+        policyRemoveInProgress = true;
+        policyRemoveBtn.disabled = true;
+        policyRemoveBtn.textContent = 'Removing…';
+        try {
+          const { data: { session } } = await supabaseClient.auth.getSession();
+          const formState = {
+            documentRefs: listingUploadedDocumentRefs.property_policy || [],
+            existingPolicyUrl: existingPolicyUrl,
+          };
+          const result = await window.VaRoomListingPolicyRemoval.removeCurrentPolicyDocument(
+            editListingId, session && session.access_token, undefined, formState,
+          );
+          const state = result.formState;
+          listingUploadedDocumentRefs.property_policy = state.documentRefs;
+          existingPolicyUrl = state.existingPolicyUrl;
+          selectedPolicyFile = null;
+          if (policyInput) policyInput.value = '';
+          if (policyPreviewBtn) policyPreviewBtn.textContent = state.filename;
+          if (policyFileName) policyFileName.classList.toggle('show', state.visible);
+          if (policyPreviewOverlay) policyPreviewOverlay.classList.remove('show');
+          if (policyPreviewFrame) policyPreviewFrame.src = 'about:blank';
+          renderReviewSummary();
+          queueListingDraftSave();
+          if (result.removed) showPaymentMessage('Property policy document removed.', false);
+          else if (result.currentPolicy) showPaymentMessage('The policy changed while you were removing it. The currently attached document is shown.', false);
+          else showPaymentMessage('This property policy document was already unavailable.', false);
+        } catch (error) {
+          showPaymentMessage(error.message || 'Unable to remove this policy document. Please try again.', true);
+        } finally {
+          policyRemoveInProgress = false;
+          policyRemoveBtn.disabled = false;
+          policyRemoveBtn.textContent = 'Remove';
+        }
+        return;
+      }
       selectedPolicyFile = null;
       if (policyInput) policyInput.value = '';
       if (policyFileName) policyFileName.classList.remove('show');
