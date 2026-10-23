@@ -169,7 +169,8 @@
       const returnTo = postAuthRedirect || '/profile.html';
       try {
         if (!session || !session.user) throw new Error('Google sign-in did not return an account session.');
-        await linkAddAccountSession(session);
+        const additionalSession = await window.VaRoomAccountAuth.refreshAccountAddSession(supabaseClient, session);
+        await linkAddAccountSession(additionalSession);
         // Remove the short-lived PKCE callback code from the visible URL and
         // clear only the isolated sessionStorage client used for account add.
         const cleanUrl = new URL(window.location.href);
@@ -203,15 +204,17 @@
     // In-app add-account callback handling
     if (isAddAccount) {
       try {
+      const additionalSession = await window.VaRoomAccountAuth.refreshAccountAddSession(supabaseClient, session);
       // If opened in a popup window, pass session to parent and close popup
       if (window.opener && !window.opener.closed) {
         try {
           window.opener.postMessage({
             type: 'VAROOM_ADD_ACCOUNT_SUCCESS',
             session: {
-              access_token: session.access_token,
-              refresh_token: session.refresh_token,
-              user: session.user
+              access_token: additionalSession.access_token,
+              refresh_token: additionalSession.refresh_token,
+              expires_at: additionalSession.expires_at,
+              user: additionalSession.user
             }
           }, window.location.origin);
           await supabaseClient.auth.signOut({ scope: 'local' });
@@ -223,7 +226,7 @@
         }
       }
 
-      await linkAddAccountSession(session);
+      await linkAddAccountSession(additionalSession);
       await supabaseClient.auth.signOut({ scope: 'local' });
       clearAddAccountSession();
 

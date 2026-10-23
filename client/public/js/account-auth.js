@@ -45,6 +45,26 @@
     return supabase.createClient(url, anonKey, clientOptions(options));
   }
 
+  async function refreshAccountAddSession(client, session) {
+    if (!client || !client.auth || typeof client.auth.refreshSession !== 'function'
+      || !session || !session.user || !session.user.id || !session.refresh_token) {
+      throw new Error('The account needs to be signed in again.');
+    }
+
+    var result;
+    try {
+      result = await client.auth.refreshSession({ refresh_token: session.refresh_token });
+    } catch (_error) {
+      throw new Error('The account needs to be signed in again.');
+    }
+    var refreshed = result && result.data && result.data.session;
+    if ((result && result.error) || !refreshed || !refreshed.user || !refreshed.access_token
+      || !refreshed.refresh_token || refreshed.user.id !== session.user.id) {
+      throw new Error('The account needs to be signed in again.');
+    }
+    return refreshed;
+  }
+
   function clearTemporarySession(flowId) {
     var key;
     try { key = storageKey(flowId); } catch (_error) { return; }
@@ -60,6 +80,7 @@
     storageKey: storageKey,
     clientOptions: clientOptions,
     createClient: createClient,
+    refreshAccountAddSession: refreshAccountAddSession,
     clearTemporarySession: clearTemporarySession
   };
 })(window);

@@ -228,6 +228,46 @@ test('add-account auth uses isolated storage and OAuth callback uses the same te
   );
 });
 
+test('Google add-account callback refreshes the session and uses the rotated tokens for the same identity', async () => {
+  const initial = session('google-added-account', 'callback-access-stale', 'callback-refresh-current');
+  const rotated = session('google-added-account', 'callback-access-current', 'callback-refresh-rotated');
+  let requestedRefreshToken;
+  const client = {
+    auth: {
+      async refreshSession(tokens) {
+        requestedRefreshToken = tokens.refresh_token;
+        return { data: { session: rotated }, error: null };
+      }
+    }
+  };
+  const window = {};
+  vm.runInNewContext(accountAuthSource, { window });
+
+  const fresh = await window.VaRoomAccountAuth.refreshAccountAddSession(client, initial);
+  assert.equal(requestedRefreshToken, 'callback-refresh-current');
+  assert.equal(fresh.user.id, 'google-added-account');
+  assert.equal(fresh.access_token, 'callback-access-current');
+  assert.equal(fresh.refresh_token, 'callback-refresh-rotated');
+});
+
+test('Google add-account callback rejects missing, rejected, or cross-identity refresh results', async () => {
+  const window = {};
+  vm.runInNewContext(accountAuthSource, { window });
+  const original = session('google-added-account', 'access', 'refresh');
+  await assert.rejects(
+    window.VaRoomAccountAuth.refreshAccountAddSession({ auth: {} }, original),
+    /signed in again/i
+  );
+  await assert.rejects(
+    window.VaRoomAccountAuth.refreshAccountAddSession({ auth: { async refreshSession() { return { data: { session: null }, error: new Error('invalid') }; } } }, original),
+    /signed in again/i
+  );
+  await assert.rejects(
+    window.VaRoomAccountAuth.refreshAccountAddSession({ auth: { async refreshSession() { return { data: { session: session('different-account', 'other-access', 'other-refresh') }, error: null }; } } }, original),
+    /signed in again/i
+  );
+});
+
 test('email and Google add-account flows use isolated auth clients; callback links accounts without replacing the active session', () => {
   assert.match(loginSource, /createClient\(window\.supabase,[\s\S]*?\{ usesRedirect: false, flowId: window\.VaRoomAccountAuth\.createFlowId\(\) \}\)/);
   assert.match(addAccountModalSource, /VaRoomAccountAuth\.createClient\([\s\S]*?\{\s*usesRedirect: false,\s*flowId: accountAuthFlow\s*\}\s*\)/);
@@ -236,6 +276,9 @@ test('email and Google add-account flows use isolated auth clients; callback lin
   assert.match(loginSource, /add_account_callback=1/);
   assert.match(callbackSource, /add_account_callback/);
   assert.match(callbackSource, /linkAdditionalSession\(primaryClient, additionalSession\)/);
+  assert.match(callbackSource, /refreshAccountAddSession\(supabaseClient, session\)/);
+  assert.match(callbackSource, /access_token: additionalSession\.access_token/);
+  assert.match(callbackSource, /linkAddAccountSession\(additionalSession\)/);
   assert.match(callbackSource, /clearTemporarySession\(accountAuthFlow\)/);
   assert.match(callbackSource, /signOut\(\{ scope: 'local' \}\)/);
 });
