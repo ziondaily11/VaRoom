@@ -1,0 +1,282 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const test = require('node:test');
+const vm = require('node:vm');
+
+const accountSwitcherSource = fs.readFileSync(
+  path.join(__dirname, '../public/js/account-switcher.js'),
+  'utf8'
+);
+const accountAuthSource = fs.readFileSync(
+  path.join(__dirname, '../public/js/account-auth.js'),
+  'utf8'
+);
+const loginSource = fs.readFileSync(
+  path.join(__dirname, '../legacy-pages/login.html'),
+  'utf8'
+);
+const callbackSource = fs.readFileSync(
+  path.join(__dirname, '../legacy-pages/auth-callback.html'),
+  'utf8'
+);
+const supabaseClientSource = fs.readFileSync(
+  path.join(__dirname, '../public/js/supabase-client.js'),
+  'utf8'
+);
+
+function createSwitcher(storage = new Map()) {
+  const localStorage = {
+    getItem(key) { return storage.has(key) ? storage.get(key) : null; },
+    setItem(key, value) { storage.set(key, String(value)); },
+    removeItem(key) { storage.delete(key); }
+  };
+  const window = { localStorage };
+  vm.runInNewContext(accountSwitcherSource, { window, localStorage, document: {}, alert() {} });
+  return { api: window.VaRoomAccountSwitcher, storage, localStorage };
+}
+
+function account(id, accessToken, refreshToken) {
+  return {
+    id,
+    email: `${id}@example.test`,
+    full_name: id,
+    access_token: accessToken,
+    refresh_token: refreshToken,
+    expires_at: 2_000_000_000
+  };
+}
+
+function session(id, accessToken, refreshToken) {
+  return {
+    user: { id, email: `${id}@example.test`, user_metadata: {} },
+    access_token: accessToken,
+    refresh_token: refreshToken,
+    expires_at: 2_000_000_000
+  };
+}
+
+function createMockClient(initialSession, refreshSessions) {
+  let activeSession = initialSession;
+  const calls = [];
+  return {
+    calls,
+    auth: {
+      async getSession() {
+        return { data: { session: activeSession }, error: null };
+      },
+      async setSession(tokens) {
+        calls.push(tokens);
+        const next = refreshSessions.get(tokens.refresh_token);
+        if (!next) {
+          return { data: { session: null }, error: new Error('Invalid Refresh Token: Refresh Token Not Found') };
+        }
+        activeSession = next;
+        return { data: { session: next, user: next.user }, error: null };
+      },
+      async signOut() {
+        activeSession = null;
+        return { error: null };
+      }
+    },
+    from() {
+      return {
+        select() { return this; },
+        eq() { return this; },
+        async maybeSingle() { return { data: null, error: null }; }
+      };
+    },
+    setActiveSession(next) { activeSession = next; },
+    getActiveSession() { return activeSession; }
+  };
+}
+
+test('switching an expired account authenticates the selected user and persists its rotated tokens before returning', async () => {
+  const context = createSwitcher();
+  const currentA = session('account-a', 'access-a', 'refresh-a');
+  const rotatedB = session('account-b', 'access-b-rotated', 'refresh-b-rotated');
+  const tokens = new Map([
+    ['refresh-b-old', rotatedB],
+    ['refresh-a', currentA],
+    ['refresh-b-rotated', rotatedB]
+  ]);
+  const client = createMockClient(currentA, tokens);
+  context.api.upsertAccount(account('account-a', 'access-a', 'refresh-a'));
+  context.api.upsertAccount(account('account-b', 'access-b-old', 'refresh-b-old'));
+
+  const switched = await context.api.switchAccount(client, context.api.getLinkedAccounts()[1]);
+  assert.equal(switched.user.id, 'account-b');
+  assert.equal(client.getActiveSession().user.id, 'account-b');
+  assert.equal(client.calls[0].refresh_token, 'refresh-b-old');
+  const cachedB = context.api.getLinkedAccounts().find((item) => item.id === 'account-b');
+  assert.equal(cachedB.access_token, 'access-b-rotated');
+  assert.equal(cachedB.refresh_token, 'refresh-b-rotated');
+
+  const cachedA = context.api.getLinkedAccounts().find((item) => item.id === 'account-a');
+  const switchedBack = await context.api.switchAccount(client, cachedA);
+  assert.equal(switchedBack.user.id, 'account-a');
+  assert.equal(client.calls[1].refresh_token, 'refresh-a');
+
+  const switchedToBAgain = await context.api.switchAccount(client, cachedB);
+  assert.equal(switchedToBAgain.user.id, 'account-b');
+  assert.equal(client.calls[2].refresh_token, 'refresh-b-rotated');
+});
+
+test('missing or rotated refresh tokens fail without changing the active session or saved membership', async () => {
+  const context = createSwitcher();
+  const currentA = session('account-a', 'access-a', 'refresh-a');
+  const client = createMockClient(currentA, new Map([['refresh-a', currentA]]));
+  const staleB = account('account-b', 'access-b', 'refresh-b-rotated-away');
+  context.api.upsertAccount(account('account-a', 'access-a', 'refresh-a'));
+  context.api.upsertAccount(staleB);
+
+  await assert.rejects(context.api.switchAccount(client, { ...staleB, refresh_token: '' }), /sign in again/i);
+  await assert.rejects(context.api.switchAccount(client, { ...staleB, access_token: '' }), /sign in again/i);
+  await assert.rejects(context.api.switchAccount(client, staleB), /Refresh Token Not Found/);
+  assert.equal(client.getActiveSession().user.id, 'account-a');
+  assert.equal(context.api.getLinkedAccounts().map((item) => item.id).join(','), 'account-a,account-b');
+});
+
+test('a localStorage failure after setSession restores the original session and keeps the saved account', async () => {
+  const storage = new Map();
+  const context = createSwitcher(storage);
+  const currentA = session('account-a', 'access-a', 'refresh-a');
+  const rotatedB = session('account-b', 'access-b-new', 'refresh-b-new');
+  const client = createMockClient(currentA, new Map([
+    ['refresh-b-old', rotatedB],
+    ['refresh-a', currentA]
+  ]));
+  context.api.upsertAccount(account('account-a', 'access-a', 'refresh-a'));
+  context.api.upsertAccount(account('account-b', 'access-b-old', 'refresh-b-old'));
+  const originalSetItem = context.localStorage.setItem;
+  context.localStorage.setItem = (key, value) => {
+    if (String(value).includes('access-b-new')) throw new Error('storage unavailable');
+    originalSetItem(key, value);
+  };
+
+  await assert.rejects(context.api.switchAccount(client, context.api.getLinkedAccounts()[1]), /Could not save/);
+  assert.equal(client.getActiveSession().user.id, 'account-a');
+  assert.equal(context.api.getLinkedAccounts().map((item) => item.id).join(','), 'account-a,account-b');
+});
+
+test('a concurrent cross-tab switch is not overwritten by rollback from an older switch attempt', async () => {
+  const context = createSwitcher();
+  const currentA = session('account-a', 'access-a', 'refresh-a');
+  const selectedB = session('account-b', 'access-b', 'refresh-b');
+  const otherTabC = session('account-c', 'access-c', 'refresh-c');
+  const client = createMockClient(currentA, new Map([['refresh-b', selectedB], ['refresh-a', currentA]]));
+  context.api.upsertAccount(account('account-b', 'access-b', 'refresh-b'));
+  const originalGetSession = client.auth.getSession;
+  let reads = 0;
+  client.auth.getSession = async () => {
+    reads += 1;
+    if (reads === 2) client.setActiveSession(otherTabC);
+    return originalGetSession();
+  };
+
+  await assert.rejects(context.api.switchAccount(client, context.api.getLinkedAccounts()[0]), /session changed/);
+  assert.equal(client.getActiveSession().user.id, 'account-c');
+  assert.equal(client.calls.length, 1);
+  assert.equal(context.api.getLinkedAccounts().length, 1);
+});
+
+test('add-account auth uses isolated storage and OAuth callback uses the same temporary namespace', () => {
+  const window = { sessionStorage: { removeItem() {} } };
+  vm.runInNewContext(accountAuthSource, { window });
+  const emailOptions = window.VaRoomAccountAuth.clientOptions({ usesRedirect: false });
+  const oauthOptions = window.VaRoomAccountAuth.clientOptions({ usesRedirect: true });
+  const callbackOptions = window.VaRoomAccountAuth.clientOptions({ usesRedirect: true, isCallback: true });
+
+  assert.equal(emailOptions.auth.persistSession, false);
+  assert.equal(emailOptions.auth.detectSessionInUrl, false);
+  assert.equal(oauthOptions.auth.persistSession, true);
+  assert.equal(oauthOptions.auth.detectSessionInUrl, false);
+  assert.equal(callbackOptions.auth.detectSessionInUrl, true);
+  assert.equal(emailOptions.auth.storageKey, oauthOptions.auth.storageKey);
+  assert.equal(oauthOptions.auth.storage, window.sessionStorage);
+  assert.equal(oauthOptions.auth.storageKey, 'varoom-add-account-auth');
+
+  const blockedStorageWindow = {};
+  Object.defineProperty(blockedStorageWindow, 'sessionStorage', {
+    get() { throw new Error('blocked'); }
+  });
+  vm.runInNewContext(accountAuthSource, { window: blockedStorageWindow });
+  assert.throws(
+    () => blockedStorageWindow.VaRoomAccountAuth.clientOptions({ usesRedirect: true }),
+    /cannot keep the temporary sign-in state/i
+  );
+});
+
+test('email and Google add-account flows use isolated auth clients; callback registers and clears only that session', () => {
+  assert.match(loginSource, /createClient\(window\.supabase,[\s\S]*?\{ usesRedirect: false \}\)/);
+  assert.match(loginSource, /createClient\(window\.supabase,[\s\S]*?\{ usesRedirect: true \}\)/);
+  assert.match(loginSource, /add_account_callback=1/);
+  assert.match(callbackSource, /add_account_callback/);
+  assert.match(callbackSource, /upsertFromSession\(supabaseClient, session\)/);
+  assert.match(callbackSource, /clearTemporarySession\(\)/);
+  assert.match(callbackSource, /signOut\(\{ scope: 'local' \}\)/);
+});
+
+test('concurrent refresh callbacks cannot let an older profile lookup overwrite newer tokens', async () => {
+  const context = createSwitcher();
+  let releaseOlderProfile;
+  let profileCalls = 0;
+  const client = {
+    from() {
+      return {
+        select() { return this; },
+        eq() { return this; },
+        maybeSingle() {
+          profileCalls += 1;
+          if (profileCalls === 1) return new Promise((resolve) => { releaseOlderProfile = resolve; });
+          return Promise.resolve({ data: null, error: null });
+        }
+      };
+    }
+  };
+  context.api.upsertAccount(account('account-a', 'access-old', 'refresh-old'));
+  const olderWrite = context.api.upsertFromSession(client, session('account-a', 'access-old', 'refresh-old'));
+  const newerSession = session('account-a', 'access-new', 'refresh-new');
+  await context.api.upsertFromSession(client, newerSession);
+  releaseOlderProfile({ data: null, error: null });
+  await olderWrite;
+
+  const cached = context.api.getLinkedAccounts()[0];
+  assert.equal(cached.access_token, 'access-new');
+  assert.equal(cached.refresh_token, 'refresh-new');
+});
+
+test('normal login remains on the primary client and refresh-token rotation stays enabled', async () => {
+  assert.match(loginSource, /var authClient = supabaseClient/);
+  assert.match(loginSource, /authClient = window\.VaRoomAccountAuth\.createClient/);
+  assert.match(loginSource, /: supabaseClient/);
+  assert.match(loginSource, /oauthClient\.auth\.signInWithOAuth/);
+  assert.match(loginSource, /authClient\.auth\.signInWithPassword/);
+  assert.match(supabaseClientSource, /add_account_callback/);
+  assert.match(fs.readFileSync(path.join(__dirname, '../../supabase/config.toml'), 'utf8'), /enable_refresh_token_rotation\s*=\s*true/);
+});
+
+test('edited login and callback inline scripts remain syntactically valid', () => {
+  for (const [filename, html] of [
+    ['login.html', loginSource],
+    ['auth-callback.html', callbackSource]
+  ]) {
+    const scripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)];
+    for (const [, source] of scripts) {
+      if (!source.trim()) continue;
+      new vm.Script(source, { filename });
+    }
+  }
+});
+
+test('a later token expiry already written by another tab cannot be replaced by an older refresh event', () => {
+  const sharedStorage = new Map();
+  const newerTab = createSwitcher(sharedStorage);
+  const olderTab = createSwitcher(sharedStorage);
+  newerTab.api.upsertAccount({ ...account('account-a', 'access-newer', 'refresh-newer'), expires_at: 2_000_000_200 });
+  olderTab.api.upsertAccount({ ...account('account-a', 'access-older', 'refresh-older'), expires_at: 2_000_000_100 });
+
+  const stored = newerTab.api.getLinkedAccounts()[0];
+  assert.equal(stored.access_token, 'access-newer');
+  assert.equal(stored.refresh_token, 'refresh-newer');
+});

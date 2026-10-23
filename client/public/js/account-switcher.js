@@ -10,12 +10,13 @@
  * re-saving the active account's session on every load and on Supabase's
  * TOKEN_REFRESHED event.
  *
- * This intentionally only supports email/password add-account flows today
- * (see login.html mode=add) — Google OAuth add-account is not wired up yet.
+ * Account-add authentication is handled by login.html and auth-callback.html;
+ * this module stores sessions returned by those flows and by the main client.
  */
 (function () {
   var STORAGE_KEY = 'varoom_linked_accounts';
   var MAX_LINKED_ACCOUNTS = 3;
+  var sessionWriteVersions = Object.create(null);
 
   function getLinkedAccounts() {
     try {
@@ -25,7 +26,12 @@
   }
 
   function saveLinkedAccounts(list) {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); } catch (e) {}
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+      return true;
+    } catch (e) {
+      return false;
+    }
   }
 
   function upsertAccount(account) {
@@ -33,11 +39,19 @@
     var list = getLinkedAccounts();
     var idx = -1;
     for (var i = 0; i < list.length; i++) { if (list[i].id === account.id) { idx = i; break; } }
-    if (idx >= 0) list[idx] = Object.assign({}, list[idx], account);
+    if (idx >= 0) {
+      var existing = list[idx];
+      if (existing.expires_at && account.expires_at
+        && Number(existing.expires_at) > Number(account.expires_at)) {
+        // Another tab may have completed a later refresh first. Do not replace
+        // its newer rotating token pair with a stale event from this tab.
+        return true;
+      }
+      list[idx] = Object.assign({}, existing, account);
+    }
     else if (list.length < MAX_LINKED_ACCOUNTS) list.push(account);
     else return false;
-    saveLinkedAccounts(list);
-    return true;
+    return saveLinkedAccounts(list);
   }
 
   function removeAccount(userId) {
@@ -54,23 +68,73 @@
     if (!client || !account || !account.access_token || !account.refresh_token) {
       throw new Error('This account needs you to sign in again.');
     }
-    var switchResult = await client.auth.setSession({
-      access_token: account.access_token,
-      refresh_token: account.refresh_token
-    });
-    if (switchResult.error) throw switchResult.error;
+    var previousResult = await client.auth.getSession();
+    var previousSession = previousResult && previousResult.data && previousResult.data.session;
+    var switchedSession = null;
     try {
-      localStorage.setItem('varoom_active_account_id', account.id);
-      var cached = {
-        id: account.id,
-        full_name: account.full_name || 'VaRoom Member',
-        username: account.username || (account.email ? account.email.split('@')[0] : 'member'),
-        avatar_url: account.avatar_url || null,
-        email: account.email || '',
-        role: account.role || 'client'
-      };
-      localStorage.setItem('varoom_cached_profile', JSON.stringify(cached));
-    } catch (e) {}
+      var switchResult = await client.auth.setSession({
+        access_token: account.access_token,
+        refresh_token: account.refresh_token
+      });
+      if (switchResult.error) throw switchResult.error;
+
+      switchedSession = switchResult.data && switchResult.data.session;
+      if (!switchedSession || !switchedSession.user || switchedSession.user.id !== account.id) {
+        throw new Error('The selected account could not be authenticated.');
+      }
+
+      // setSession refreshes expired access tokens and returns the rotated token
+      // pair. Persist that exact session before the page reloads.
+      await upsertFromSession(client, switchedSession);
+      var confirmedResult = await client.auth.getSession();
+      var confirmedSession = confirmedResult && confirmedResult.data && confirmedResult.data.session;
+      if (!confirmedSession || !confirmedSession.user || confirmedSession.user.id !== account.id) {
+        throw new Error('The active session changed while switching accounts. Please try again.');
+      }
+      try {
+        localStorage.setItem('varoom_active_account_id', account.id);
+        var cached = {
+          id: account.id,
+          full_name: account.full_name || 'VaRoom Member',
+          username: account.username || (account.email ? account.email.split('@')[0] : 'member'),
+          avatar_url: account.avatar_url || null,
+          email: account.email || '',
+          role: account.role || 'client'
+        };
+        localStorage.setItem('varoom_cached_profile', JSON.stringify(cached));
+      } catch (storageError) {
+        throw new Error('Could not save the selected account in this browser. Please try again.');
+      }
+      return confirmedSession;
+    } catch (error) {
+      // If a later verification/storage error occurred after setSession changed
+      // the active user, restore the previously authenticated session. Never
+      // remove the saved account on a failed switch.
+      try {
+        var afterFailureResult = await client.auth.getSession();
+        var afterFailure = afterFailureResult && afterFailureResult.data && afterFailureResult.data.session;
+        var previousId = previousSession && previousSession.user && previousSession.user.id;
+        var afterFailureId = afterFailure && afterFailure.user && afterFailure.user.id;
+        var sessionStillFromThisSwitch = switchedSession
+          && afterFailure
+          && afterFailure.access_token === switchedSession.access_token
+          && afterFailureId === switchedSession.user.id;
+        if (sessionStillFromThisSwitch && afterFailureId !== previousId) {
+          if (previousSession && previousSession.access_token && previousSession.refresh_token) {
+            await client.auth.setSession({
+              access_token: previousSession.access_token,
+              refresh_token: previousSession.refresh_token
+            });
+            // If the prior session has expired and can no longer be restored,
+            // leave the current valid session alone. Never turn a switch error
+            // into an implicit logout.
+          }
+        }
+      } catch (_restoreError) {
+        // Keep the original switching error for the caller.
+      }
+      throw error;
+    }
   }
 
   function initial(name) {
@@ -401,7 +465,19 @@
   // Safe to call repeatedly — always upserts the latest tokens + profile info.
   async function upsertFromSession(client, session) {
     if (!session || !session.user) return null;
+    var userId = session.user.id;
+    if (!session.access_token || !session.refresh_token) {
+      throw new Error('The account session is missing authentication tokens.');
+    }
+    var version = (sessionWriteVersions[userId] || 0) + 1;
+    sessionWriteVersions[userId] = version;
     var profile = await fetchProfileBasics(client, session.user.id);
+    // Profile lookups may finish out of order when auth events arrive close
+    // together. Only the most recently observed session is written.
+    if (sessionWriteVersions[userId] !== version) {
+      var latest = getLinkedAccounts().find(function (item) { return item.id === userId; });
+      return latest || null;
+    }
     var account = {
       id: session.user.id,
       email: session.user.email,
@@ -409,9 +485,15 @@
       avatar_url: (profile && profile.avatar_url) || null,
       role: (profile && profile.role) || 'client',
       access_token: session.access_token,
-      refresh_token: session.refresh_token
+      refresh_token: session.refresh_token,
+      expires_at: session.expires_at || null
     };
-    upsertAccount(account);
+    var currentAccounts = getLinkedAccounts();
+    var alreadySaved = currentAccounts.some(function (item) { return item.id === userId; });
+    var atCapacityForNewAccount = !alreadySaved && currentAccounts.length >= MAX_LINKED_ACCOUNTS;
+    if (!upsertAccount(account) && !atCapacityForNewAccount) {
+      throw new Error('Could not save the account session in this browser. Check storage availability and try again.');
+    }
     try {
       localStorage.setItem('varoom_active_account_id', session.user.id);
       var cached = {
@@ -515,7 +597,16 @@
     // Keep cached tokens fresh so switching back to this account later still works.
     client.auth.onAuthStateChange(function (event, session) {
       if ((event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN') && session) {
-        upsertFromSession(client, session).then(function () { refresh(session.user.id); });
+        upsertFromSession(client, session).then(function () {
+          refresh(session.user.id);
+        }).catch(function () {
+          // Keep the current session and membership intact if browser storage
+          // temporarily cannot accept the refreshed token pair. Surface a
+          // generic warning without exposing either token.
+          var message = 'Could not save refreshed sign-in details in this browser. Switching may require you to sign in again.';
+          if (window.varoomShowToast) window.varoomShowToast(message);
+          else if (window.console && window.console.warn) window.console.warn(message);
+        });
       }
     });
 
@@ -549,7 +640,6 @@
         window.location.reload();
       } catch (err) {
         row.classList.remove('switching');
-        removeAccount(accountId);
         refresh(currentUser.id);
         var message = 'That account needs you to sign in again.';
         if (window.varoomShowToast) window.varoomShowToast(message);

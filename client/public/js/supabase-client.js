@@ -6,7 +6,12 @@
   window.VAROOM_SUPABASE_ANON_KEY = SUPABASE_ANON_KEY;
 
   if (!window.supabaseClient) {
-    window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    var callbackParams = new URLSearchParams(window.location.search || '');
+    var isAddAccountCallback = callbackParams.get('add_account_callback') === '1';
+    var clientOptions = isAddAccountCallback && window.VaRoomAccountAuth
+      ? window.VaRoomAccountAuth.clientOptions({ usesRedirect: true, isCallback: true })
+      : undefined;
+    window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, clientOptions);
     if (window.VaRoomDataCache) {
       window.supabaseClient.auth.onAuthStateChange(function (event, session) {
         var nextUserId = session && session.user ? session.user.id : null;
