@@ -837,7 +837,10 @@
   #feed-list.discover-media-feed .card-media-empty{
     height:auto; min-height:0; padding:1.4rem; border-radius:16px; background:transparent; border:1px solid var(--line);
   }
-  #feed-list.discover-media-feed .card-media-loading,
+  #feed-list.discover-media-feed .card-media-loading{
+    height:auto; aspect-ratio:4 / 3; min-height:0; padding:0; margin-left:var(--discover-content-inset); width:calc(100% - var(--discover-content-inset));
+    display:flex; align-items:center; justify-content:center; background:var(--media-stage-fill); color:transparent;
+  }
   #feed-list.discover-media-feed .card-media-unavailable{
     height:auto; min-height:0; padding:1.4rem; margin-left:var(--discover-content-inset); width:calc(100% - var(--discover-content-inset)); background:transparent;
   }
@@ -2546,7 +2549,7 @@
         const videoSize = videoDimensions.width > 0 && videoDimensions.height > 0 ? ' data-media-width="' + videoDimensions.width + '" data-media-height="' + videoDimensions.height + '"' : '';
         photosHtml = '<div class="card-video single"' + videoSize + '><div class="media-loading-indicator" aria-hidden="true"></div><video muted playsinline preload="none" poster="' + escapeHtml(videoThumbnail) + '" src="' + videoUrl + '" data-video-url="' + videoUrl + '" data-listing-id="' + listing.id + '" data-video-host-name="' + escapeHtml(host.full_name || 'Host') + '" data-video-username="' + escapeHtml(host.username ? '@' + host.username : '') + '" data-video-avatar="' + escapeHtml(hostAvatarUrl || '') + '" data-video-caption="' + escapeHtml(listing.description || listing.title) + '"></video></div>';
       } else if (photos.length === 0 && (mediaState === 'unknown' || mediaState === 'loading')) {
-        photosHtml = '<div class="card-media-loading" role="status" aria-label="Preparing listing media">Preparing media preview…</div>';
+        photosHtml = '<div class="card-media-loading" role="status" aria-label="Preparing listing media"></div>';
       } else if (photos.length === 0 && mediaState === 'unavailable') {
         photosHtml = '<div class="card-media-unavailable" role="status">Video unavailable</div>';
       } else if (photos.length === 0) {
@@ -2716,11 +2719,10 @@
             fallbackFrame = { height:fallbackHeight, width:Math.min(availableWidth, fallbackHeight * (4 / 3)) };
             frames = media.filter(Boolean).map(function(item){
               const metadataSource = item.closest('.media-slide') || stage;
-              const waitingForMedia = item.tagName === 'VIDEO' ? item.readyState < 2 : !item.complete;
-              const metadataWidth = waitingForMedia ? Number(metadataSource.getAttribute('data-media-width')) : 0;
-              const metadataHeight = waitingForMedia ? Number(metadataSource.getAttribute('data-media-height')) : 0;
-              const width = item.videoWidth || item.naturalWidth || (Number.isFinite(metadataWidth) && metadataWidth > 0 ? metadataWidth : 0);
-              const height = item.videoHeight || item.naturalHeight || (Number.isFinite(metadataHeight) && metadataHeight > 0 ? metadataHeight : 0);
+              const metadataWidth = Number(metadataSource.getAttribute('data-media-width'));
+              const metadataHeight = Number(metadataSource.getAttribute('data-media-height'));
+              const width = Number.isFinite(metadataWidth) && metadataWidth > 0 ? metadataWidth : item.videoWidth || item.naturalWidth;
+              const height = Number.isFinite(metadataHeight) && metadataHeight > 0 ? metadataHeight : item.videoHeight || item.naturalHeight;
               if (!width || !height) return fallbackFrame;
               const ratio = width / height;
               const fittedHeight = Math.min(mobileMaxHeight, availableWidth / ratio);
@@ -2733,11 +2735,10 @@
             fallbackFrame = { height:fallbackHeight, width:Math.min(availableWidth, fallbackHeight * (4 / 3)) };
             frames = media.filter(Boolean).map(function(item){
               const metadataSource = item.closest('.media-slide') || stage;
-              const waitingForMedia = item.tagName === 'VIDEO' ? item.readyState < 2 : !item.complete;
-              const metadataWidth = waitingForMedia ? Number(metadataSource.getAttribute('data-media-width')) : 0;
-              const metadataHeight = waitingForMedia ? Number(metadataSource.getAttribute('data-media-height')) : 0;
-              const width = item.videoWidth || item.naturalWidth || (Number.isFinite(metadataWidth) && metadataWidth > 0 ? metadataWidth : 0);
-              const height = item.videoHeight || item.naturalHeight || (Number.isFinite(metadataHeight) && metadataHeight > 0 ? metadataHeight : 0);
+              const metadataWidth = Number(metadataSource.getAttribute('data-media-width'));
+              const metadataHeight = Number(metadataSource.getAttribute('data-media-height'));
+              const width = Number.isFinite(metadataWidth) && metadataWidth > 0 ? metadataWidth : item.videoWidth || item.naturalWidth;
+              const height = Number.isFinite(metadataHeight) && metadataHeight > 0 ? metadataHeight : item.videoHeight || item.naturalHeight;
               if (!width || !height) return fallbackFrame;
               const ratio = width / height;
               const fittedHeight = Math.min(maxHeight, availableWidth / ratio);
@@ -2756,6 +2757,12 @@
           });
         }
         media.filter(Boolean).forEach(function(item){
+          if (item.tagName === 'VIDEO') {
+            const metadataSource = item.closest('.media-slide') || stage;
+            const metadataWidth = Number(metadataSource.getAttribute('data-media-width'));
+            const metadataHeight = Number(metadataSource.getAttribute('data-media-height'));
+            if (Number.isFinite(metadataWidth) && metadataWidth > 0 && Number.isFinite(metadataHeight) && metadataHeight > 0) return;
+          }
           item.addEventListener(item.tagName === 'VIDEO' ? 'loadeddata' : 'load', updateHeight);
         });
         updateHeight();
