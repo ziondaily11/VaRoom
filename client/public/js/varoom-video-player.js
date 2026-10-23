@@ -325,7 +325,12 @@
     video.play().catch(function (error) {
       if (error && error.name === 'AbortError') return;
       console.warn('Video playback was blocked or failed:', error);
-      setStatus(wrapper, 'Tap play to start', false);
+      wrapper.classList.remove('is-buffering', 'is-error');
+      wrapper.classList.add('is-autoplay-blocked');
+      var status = wrapper.querySelector('.varoom-video-status');
+      wrapper.querySelector('.varoom-video-status-text').textContent = 'Tap play to start';
+      status.setAttribute('aria-label', 'Tap play to start');
+      video.dispatchEvent(new CustomEvent('varoomautoplayblocked', { bubbles: true }));
     });
   }
 
@@ -343,7 +348,7 @@
     wrapper.appendChild(video);
     wrapper._varoomVideoUrl = video.dataset.videoUrl || video.getAttribute('src') || '';
     wrapper.insertAdjacentHTML('beforeend',
-      '<div class="varoom-video-status" role="status"><span class="varoom-video-status-text"></span><button type="button" class="varoom-video-error-retry">Retry</button></div>' +
+      '<div class="varoom-video-status" role="status"><span class="varoom-video-status-text"></span><button type="button" class="varoom-video-play-retry" aria-label="Play video">' + icon('play') + '</button><button type="button" class="varoom-video-error-retry">Retry</button></div>' +
       '<button type="button" class="varoom-video-control varoom-video-mobile-mute" data-video-action="mobile-mute" aria-label="Unmute video"></button>' +
       '<div class="varoom-video-controls" aria-label="Video controls">' +
         '<button type="button" class="varoom-video-control" data-video-action="play" aria-label="Play video"></button>' +
@@ -408,6 +413,10 @@
       event.stopPropagation();
       setStatus(wrapper, 'Loading…', false);
       video.load();
+      playWrapper(wrapper);
+    });
+    wrapper.querySelector('.varoom-video-play-retry').addEventListener('click', function (event) {
+      event.stopPropagation();
       playWrapper(wrapper);
     });
     progress.addEventListener('pointerdown', function () { showControls(wrapper); });
@@ -484,8 +493,14 @@
     });
     video.addEventListener('error', function () {
       console.error('Video failed to load:', video.currentSrc || video.src, video.error);
+      wrapper.classList.remove('is-autoplay-blocked');
       setStatus(wrapper, 'Video unavailable', true);
       updatePlayButton(wrapper, video);
+    });
+    video.addEventListener('playing', function () {
+      wrapper.classList.remove('is-autoplay-blocked');
+      setStatus(wrapper, '', false);
+      video.dispatchEvent(new CustomEvent('varoomvideoplaying', { bubbles: true }));
     });
 
     updatePlayButton(wrapper, video);
