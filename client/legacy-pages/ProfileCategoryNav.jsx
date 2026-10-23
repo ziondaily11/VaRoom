@@ -10,6 +10,8 @@ export default function ProfileCategoryNav({ hostId, listings = [], isOwner = fa
   const [editing, setEditing] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [draftListingIds, setDraftListingIds] = useState([]);
+  const [categoryLimit, setCategoryLimit] = useState(null);
   const client = typeof window !== "undefined" ? window.supabaseClient : null;
 
   async function refresh() {
@@ -27,6 +29,10 @@ export default function ProfileCategoryNav({ hostId, listings = [], isOwner = fa
     setCategories(rows || []);
     setMemberships(next);
     onCategoryListings?.(next);
+    if (isOwner) {
+      const { data: limit } = await client.rpc("profile_category_limit");
+      if (Number.isInteger(Number(limit))) setCategoryLimit(Number(limit));
+    }
     setError("");
   }
 
@@ -36,18 +42,20 @@ export default function ProfileCategoryNav({ hostId, listings = [], isOwner = fa
   async function createCategory() {
     const clean = name.trim();
     if (!clean || clean.length > 60) { setError("Enter a category name (1–60 characters)."); return; }
+    if (!editing && categoryLimit !== null && categories.length >= categoryLimit) { setError(categoryLimit === 5 ? "Premium hosts can create up to 5 categories." : "Your plan allows 1 category."); return; }
+    if (!editing && !draftListingIds.length) { setError("Select at least one listing before saving a category."); return; }
     setSaving(true);
     const payload = editing
-      ? await client.from("profile_categories").update({ name: clean, updated_at: new Date().toISOString() }).eq("id", editing)
-      : await client.from("profile_categories").insert({ host_id: hostId, name: clean, sort_order: categories.length });
+      ? await client.rpc("rename_profile_category", { p_category_id: editing, p_name: clean })
+      : await client.rpc("save_profile_category_with_listings", { p_category_id: null, p_name: clean, p_listing_ids: draftListingIds });
     setSaving(false);
     if (payload.error) { setError(payload.error.code === "23505" ? "That category name already exists." : "Could not save this category."); return; }
-    setName(""); setEditing(null); await refresh();
+    setName(""); setEditing(null); setDraftListingIds([]); await refresh();
   }
 
   async function removeCategory(category) {
     if (!window.confirm(`Delete “${category.name}”? Its listings will remain on VaRoom.`)) return;
-    const { error: deleteError } = await client.from("profile_categories").delete().eq("id", category.id);
+    const { error: deleteError } = await client.rpc("delete_profile_category", { p_category_id: category.id });
     if (deleteError) { setError("Could not delete this category."); return; }
     if (value === category.id) onChange?.(null);
     await refresh();
@@ -55,15 +63,14 @@ export default function ProfileCategoryNav({ hostId, listings = [], isOwner = fa
 
   async function toggleListing(categoryId, listingId, checked) {
     setSaving(true);
-    const result = checked
-      ? await client.from("profile_category_listings").upsert({ category_id: categoryId, host_id: hostId, listing_id: listingId }, { onConflict: "category_id,listing_id" })
-      : await client.from("profile_category_listings").delete().eq("category_id", categoryId).eq("listing_id", listingId);
+    const nextIds = new Set(memberships[categoryId] || []);
+    if (checked) nextIds.add(listingId); else nextIds.delete(listingId);
+    if (!nextIds.size) { setSaving(false); setError("A category must contain at least one listing."); return; }
+    const result = await client.rpc("save_profile_category_with_listings", { p_category_id: categoryId, p_name: null, p_listing_ids: [...nextIds] });
     setSaving(false);
     if (result.error) { setError("Could not update this listing's category."); return; }
     setMemberships((currentMap) => {
-      const ids = new Set(currentMap[categoryId] || []);
-      if (checked) ids.add(listingId); else ids.delete(listingId);
-      const next = { ...currentMap, [categoryId]: [...ids] };
+      const next = { ...currentMap, [categoryId]: [...nextIds] };
       onCategoryListings?.(next);
       return next;
     });
@@ -96,9 +103,10 @@ export default function ProfileCategoryNav({ hostId, listings = [], isOwner = fa
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:12 }}><h2 id="profile-categories-title" style={{ margin:0,fontSize:18 }}>Organise your listings</h2><button type="button" aria-label="Close" onClick={() => setOpen(false)}><X size={19}/></button></div>
           <p style={{ color:"var(--host-profile-muted,#aaa)", fontSize:13 }}>Categories only group listings already created through VaRoom.</p>
           {error && <p role="alert" className="profile-category-error">{error}</p>}
-          <form onSubmit={(event) => { event.preventDefault(); createCategory(); }} style={{ display:"flex", gap:8, margin:"16px 0" }}>
+          <form onSubmit={(event) => { event.preventDefault(); createCategory(); }} style={{ display:"flex", gap:8, margin:"16px 0", flexWrap:"wrap" }}>
             <input aria-label="Category name" maxLength={60} value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Beach houses" style={{ flex:1,minWidth:0,padding:10,borderRadius:8,border:"1px solid var(--host-profile-border,#444)",background:"var(--host-profile-page,#0d0d0d)",color:"var(--host-profile-text,white)" }}/>
-            <button type="submit" disabled={saving} style={{ padding:"8px 12px",borderRadius:8,background:"#e5384f",color:"white",border:0 }}>{editing ? "Save" : "Add"}</button>
+            <button type="submit" disabled={saving || (!editing && categoryLimit !== null && categories.length >= categoryLimit)} style={{ padding:"8px 12px",borderRadius:8,background:"#e5384f",color:"white",border:0 }}>{editing ? "Save" : "Add"}</button>
+            {!editing && <div style={{ width:"100%",display:"grid",gap:7,marginTop:4 }}>{listings.map((listing) => <label key={listing.id} style={{ display:"flex",alignItems:"center",gap:9,color:"var(--host-profile-muted,#ddd)",fontSize:13 }}><input type="checkbox" checked={draftListingIds.includes(listing.id)} disabled={saving} onChange={(event) => setDraftListingIds((current) => event.target.checked ? [...new Set([...current, listing.id])] : current.filter((id) => id !== listing.id))}/>{listing.title}</label>)}</div>}
           </form>
           {categories.map((category) => <div key={category.id} style={{ borderTop:"1px solid var(--host-profile-border,#303030)",paddingTop:14,marginTop:14 }}>
             <div style={{ display:"flex",alignItems:"center",gap:8 }}><strong style={{ flex:1 }}>{category.name}</strong><button type="button" aria-label={`Rename ${category.name}`} onClick={() => { setEditing(category.id);setName(category.name); }}><Pencil size={15}/></button><button type="button" aria-label={`Delete ${category.name}`} onClick={() => removeCategory(category)}><Trash2 size={15}/></button></div>
