@@ -281,6 +281,10 @@ test('email and Google add-account flows use isolated auth clients; callback lin
   assert.match(callbackSource, /linkAddAccountSession\(additionalSession\)/);
   assert.match(callbackSource, /clearTemporarySession\(accountAuthFlow\)/);
   assert.match(callbackSource, /signOut\(\{ scope: 'local' \}\)/);
+  const supabaseSdkScript = callbackSource.indexOf('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2');
+  const sharedSupabaseScript = callbackSource.indexOf('/js/supabase-client.js');
+  assert.notEqual(supabaseSdkScript, -1, 'OAuth callback loads the Supabase SDK it relies on');
+  assert.ok(supabaseSdkScript < sharedSupabaseScript, 'Supabase SDK loads before shared client initialization');
 });
 
 test('concurrent refresh callbacks cannot let an older profile lookup overwrite newer tokens', async () => {
