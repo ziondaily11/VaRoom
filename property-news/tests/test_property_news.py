@@ -974,6 +974,10 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
 
         stored = await self.repository.get_source(self.source.id)
         self.assertEqual(result["sources_failed"], 1)
+        self.assertEqual(
+            result["source_failures"],
+            [{"name": self.source.name, "category": "timeout"}],
+        )
         self.assertEqual(stored.failure_category, "timeout")
 
     async def test_source_failure_does_not_abort_collection_job(self):
@@ -1010,6 +1014,10 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["sources_successful"], 1)
         self.assertEqual(result["articles_inserted"], 1)
         self.assertEqual(result["collection_status"], "partial")
+        self.assertEqual(
+            result["source_failures"],
+            [{"name": self.source.name, "category": "blocked_403"}],
+        )
 
     def test_sources_with_five_failures_use_six_hour_retry(self):
         collector = SourceCollector(self.repository, Settings())

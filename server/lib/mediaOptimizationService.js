@@ -112,6 +112,7 @@ async function optimizeVideoBuffer(buffer, mimeType) {
       '-',
     ], { windowsHide: true, maxBuffer: 512 * 1024 * 1024 });
     const durationMatch = stderr.match(/Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/);
+    const dimensions = videoDimensionsFromProbe(stderr);
     if (!durationMatch) {
       throw new Error('Unable to determine video duration from media metadata');
     }
@@ -144,9 +145,33 @@ async function optimizeVideoBuffer(buffer, mimeType) {
       mimeType: 'video/mp4',
       buffer: optimizedBuffer.length < buffer.length ? optimizedBuffer : buffer,
       durationSeconds,
+      width:dimensions.width,
+      height:dimensions.height,
     };
   } finally {
     await fs.rm(tempDir, { recursive: true, force: true });
+  }
+}
+
+function videoDimensionsFromProbe(output){
+  const videoStream = String(output || '').match(/Stream #\d+:\d+[^\n]*Video:[^\n]*?(\d{2,5})x(\d{2,5})/);
+  return videoStream ? { width:Number(videoStream[1]), height:Number(videoStream[2]) } : { width:0, height:0 };
+}
+
+async function inspectVideoDimensions(buffer, mimeType){
+  const normalizedType = normalizeMimeType(mimeType);
+  if (!buffer || !buffer.length || !normalizedType.startsWith('video/')) return { width:0, height:0 };
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'varoom-video-metadata-'));
+  const inputExt = normalizedType === 'video/quicktime' ? '.mov' : normalizedType === 'video/webm' ? '.webm' : '.mp4';
+  const inputPath = path.join(tempDir, `input${inputExt}`);
+  try {
+    await fs.writeFile(inputPath, buffer);
+    const { stderr } = await execFileAsync(ffmpegPath, [
+      '-hide_banner', '-i', inputPath, '-map', '0:v:0', '-c', 'copy', '-f', 'null', '-'
+    ], { windowsHide:true, maxBuffer:512 * 1024 * 1024 });
+    return videoDimensionsFromProbe(stderr);
+  } finally {
+    await fs.rm(tempDir, { recursive:true, force:true });
   }
 }
 
@@ -185,6 +210,8 @@ async function optimizeStoredMediaObject(objectKey, mimeType, fileName = '') {
       outputContentType: normalizedType,
       reason: 'no-size-gain',
       durationSeconds: result.durationSeconds,
+      width: result.width,
+      height: result.height,
     };
   }
 
@@ -199,6 +226,8 @@ async function optimizeStoredMediaObject(objectKey, mimeType, fileName = '') {
     outputContentType: result.mimeType,
     bytesSaved: originalBuffer.length - result.buffer.length,
     durationSeconds: result.durationSeconds,
+    width: result.width,
+    height: result.height,
   };
 }
 
@@ -206,4 +235,5 @@ module.exports = {
   optimizeImageBuffer,
   optimizeVideoBuffer,
   optimizeStoredMediaObject,
+  inspectVideoDimensions,
 };

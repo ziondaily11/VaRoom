@@ -70,6 +70,8 @@ test('optimizeVideoBuffer preserves aspect ratio and returns a valid MP4', async
 
     assert.equal(optimized.mimeType, 'video/mp4');
     assert.ok(Math.abs(optimized.durationSeconds - 3) < 0.1);
+    assert.equal(optimized.width, 1920);
+    assert.equal(optimized.height, 1080);
     assert.ok(optimized.buffer.length > 0);
     assert.ok(optimized.buffer.length <= original.length + 1);
 
@@ -80,6 +82,8 @@ test('optimizeVideoBuffer preserves aspect ratio and returns a valid MP4', async
     try {
       const storedResult = await optimizeStoredMediaObject('test-video-key', 'video/mp4');
       assert.ok(Math.abs(storedResult.durationSeconds - 3) < 0.1);
+      assert.equal(storedResult.width, 1920);
+      assert.equal(storedResult.height, 1080);
     } finally {
       mediaStorageService.downloadR2Object = downloadR2Object;
       mediaStorageService.uploadR2Object = uploadR2Object;

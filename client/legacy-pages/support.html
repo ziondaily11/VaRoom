@@ -43,7 +43,7 @@
   .hero-copy { margin-top:.85rem; max-width:570px; color:#aab0b7; font-size:.9rem; line-height:1.65; }
   .search { display:flex; align-items:center; gap:.75rem; max-width:610px; margin-top:1.7rem; padding:.35rem .4rem .35rem 1rem; border:1px solid #34393e; border-radius:999px; background:rgba(20,23,26,.72); }
   .search svg { flex:none; color:#d2d4d6; }
-  .search input { min-width:0; flex:1; border:0; outline:0; color:var(--text); background:transparent; font-size:.78rem; }
+  .search input { min-width:0; flex:1; border:0 !important; outline:0 !important; color:var(--text) !important; background:transparent !important; background-color:transparent !important; box-shadow:none !important; -webkit-appearance:none; appearance:none; font-size:.78rem; }
   .search input::placeholder { color:#8a9098; }
   .search button { display:grid; place-items:center; width:31px; height:31px; border:0; border-radius:50%; color:#e5e5e5; background:#171a1d; }
   .search button:hover { background:var(--red); }
@@ -166,6 +166,17 @@
   .support-page main,
   .support-page footer { background:#000 !important; }
   .support-page .search { background:rgba(20,23,26,.72) !important; border-color:#34393e !important; }
+  .support-page .search input,
+  .support-page #search-input {
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    color: var(--text) !important;
+  }
   .support-page .action { background:linear-gradient(135deg,rgba(20,23,25,.9),rgba(10,12,13,.9)) !important; border-color:var(--line) !important; }
   .support-page .write-card { background:rgba(17,20,22,.8) !important; border-color:var(--line) !important; }
   .support-page .article { background:linear-gradient(145deg,rgba(16,19,21,.9),rgba(9,11,12,.95)) !important; border-color:var(--line) !important; }
@@ -263,7 +274,7 @@
 
   <footer>
     <strong><span class="logo"><span class="va">Va</span>Room</span></strong>
-    <nav aria-label="Footer navigation"><a href="/terms">Terms &amp; Conditions</a><a href="/privacy">Privacy Policy</a><a href="#">Community Guidelines</a><a href="#">Cookie Preferences</a><a href="/support">Support / Help</a></nav>
+    <nav aria-label="Footer navigation"><a href="/terms" target="_blank" rel="noopener noreferrer">Terms &amp; Conditions</a><a href="/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a><a href="#">Community Guidelines</a><a href="#">Cookie Preferences</a><a href="/support">Support / Help</a></nav>
     <span>© 2026 VaRoom. All rights reserved.</span>
   </footer>
 </div>

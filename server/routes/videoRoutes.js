@@ -18,6 +18,7 @@ const mediaOptimizationService = require('../lib/mediaOptimizationService');
 const { generateVideoThumbnail } = require('../lib/videoThumbnailService');
 const videoEntitlement = require('../lib/videoEntitlement');
 const { ValidationError, assertAllowedKeys, uuid, text, number } = require('../lib/inputValidation');
+const { decideListingMediaAccess } = require('../lib/listingMediaAccess');
 
 const router = express.Router();
 
@@ -47,7 +48,7 @@ async function verifyPropertyOwnership(propertyId, userId) {
   try {
     const { data, error } = await supabaseAdmin
       .from('listings')
-      .select('id, host_id, category')
+      .select('id,host_id,category,publication_state,availability_status,created_at')
       .eq('id', propertyId)
       .single();
 
@@ -59,11 +60,49 @@ async function verifyPropertyOwnership(propertyId, userId) {
       return { authorized: false, error: 'Not authorized to edit this property' };
     }
 
+    const access = decideListingMediaAccess(data, userId);
+    if (!access.allowed) {
+      return { authorized: false, error: 'This listing is no longer available for media changes' };
+    }
+
     return { authorized: true, property: data };
   } catch (error) {
     console.error('Error verifying property ownership:', error);
     return { authorized: false, error: 'Error verifying ownership' };
   }
+}
+
+async function optionalMediaViewer(req, res) {
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  if (!token) return { userId: null };
+  const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
+  if (error || !user) {
+    res.status(401).json({ error: 'Invalid or expired session' });
+    return null;
+  }
+  return { userId: user.id };
+}
+
+async function authorizeListingMedia(req, res, propertyId, visibility = 'public') {
+  const viewer = await optionalMediaViewer(req, res);
+  if (!viewer) return null;
+
+  const { data: listing, error } = await supabaseAdmin.from('listings')
+    .select('id,host_id,publication_state,availability_status,created_at')
+    .eq('id', propertyId).maybeSingle();
+  if (error) {
+    console.error('Listing media authorization lookup failed:', error.message);
+    res.status(500).json({ error: 'Unable to authorize media access' });
+    return null;
+  }
+
+  const access = decideListingMediaAccess(listing, viewer.userId);
+  if (!access.allowed || (visibility !== 'public' && !access.owner)) {
+    res.status(404).json({ error: 'Media not found' });
+    return null;
+  }
+  return access;
 }
 
 function processingMediaQuery({ propertyId, mediaId, uploadId, hostId }) {
@@ -180,12 +219,9 @@ router.post('/properties/:propertyId/videos/upload-init', async (req, res) => {
     const extension = videoEntitlement.getFileExtension(filename);
 
     // Step 7: Generate R2 object key server-side
-    const objectKey = mediaStorageService.generateR2ObjectKey(
-      user.id,
-      propertyId,
-      mediaId,
-      extension
-    );
+    const objectKey = ['draft', 'payment_pending', 'failed'].includes(property.publication_state)
+      ? mediaStorageService.generateDraftR2ObjectKey(user.id, propertyId, mediaId, extension)
+      : mediaStorageService.generateR2ObjectKey(user.id, propertyId, mediaId, extension);
 
     // Generate the presigned URL before creating the database record so a
     // missing R2 configuration cannot leave an unusable pending row behind.
@@ -454,6 +490,8 @@ router.post('/properties/:propertyId/videos/:mediaId/complete', async (req, res)
       .update({
         status: 'ready',
         duration_seconds: optimization.durationSeconds,
+        width: Number.isInteger(optimization.width) && optimization.width > 0 ? optimization.width : null,
+        height: Number.isInteger(optimization.height) && optimization.height > 0 ? optimization.height : null,
         file_size_bytes: optimization && optimization.optimized ? optimization.optimizedSize : objectMetadata.contentLength,
         mime_type: optimization && optimization.outputContentType ? optimization.outputContentType : claimedRecord.mime_type,
         thumbnail_key: thumbnailKey,
@@ -508,18 +546,6 @@ router.get('/media/:mediaId/playback', async (req, res) => {
       throw error;
     }
 
-    // Public listing videos are safe to render for anonymous viewers. Keep the
-    // auth check optional so the public profile flow can load a signed playback
-    // URL without generating noisy 401s for guests.
-    const authHeader = req.headers.authorization || '';
-    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
-    let userId = null;
-
-    if (token) {
-      const { data: { user } } = await supabaseAdmin.auth.getUser(token);
-      if (user) userId = user.id;
-    }
-
     // Step 1: Fetch media record
     const { data: mediaRecord, error: fetchError } = await supabaseAdmin
       .from('property_media')
@@ -534,31 +560,16 @@ router.get('/media/:mediaId/playback', async (req, res) => {
       return res.status(404).json({ error: 'Video not found' });
     }
 
-    // Step 2: Fetch listing to confirm it still exists.
-    const { data: listing, error: listingError } = await supabaseAdmin
-      .from('listings')
-      .select('id, host_id')
-      .eq('id', mediaRecord.property_id)
-      .single();
-
-    if (listingError || !listing) {
-      return res.status(404).json({ error: 'Property not found' });
-    }
-
-    if (!userId && mediaRecord.visibility !== 'public') {
-      return res.status(403).json({ error: 'Video is not public' });
-    }
-
-    // The live schema does not include a `listings.status` column, so treat
-    // valid listings as viewable and only gate the host-specific checks.
+    const access = await authorizeListingMedia(req, res, mediaRecord.property_id, mediaRecord.visibility);
+    if (!access) return;
 
     // Step 3: Generate controlled playback URL
     const playbackUrl = await mediaStorageService.generateR2PlaybackUrl(
       mediaRecord.storage_key,
-      3600 // 1 hour expiration
+      300
     );
     const thumbnailUrl = mediaRecord.thumbnail_key
-      ? await mediaStorageService.generateR2DownloadAuthorization(mediaRecord.thumbnail_key, 'image/jpeg', 3600)
+      ? await mediaStorageService.generateR2DownloadAuthorization(mediaRecord.thumbnail_key, 'image/jpeg', 300)
       : null;
 
     res.status(200).json({
@@ -583,7 +594,7 @@ router.get('/media/:mediaId/thumbnail', async (req, res) => {
     uuid(req.params.mediaId, 'media id');
     const { data: mediaRecord, error } = await supabaseAdmin
       .from('property_media')
-      .select('storage_key,thumbnail_key')
+      .select('property_id,visibility,thumbnail_key')
       .eq('id', req.params.mediaId)
       .eq('media_type', 'video')
       .eq('status', 'ready')
@@ -592,8 +603,10 @@ router.get('/media/:mediaId/thumbnail', async (req, res) => {
     if (error || !mediaRecord || !mediaRecord.thumbnail_key) {
       return res.status(404).json({ error: 'Video thumbnail not found' });
     }
+    const access = await authorizeListingMedia(req, res, mediaRecord.property_id, mediaRecord.visibility);
+    if (!access) return;
     const thumbnail = await mediaStorageService.generateR2DownloadAuthorization(
-      mediaRecord.thumbnail_key, 'image/jpeg', 3600
+      mediaRecord.thumbnail_key, 'image/jpeg', 300
     );
     return res.json({ url: thumbnail.url, expiresAt: thumbnail.expiresAt });
   } catch (error) {
@@ -720,40 +733,19 @@ router.get('/properties/:propertyId/media', async (req, res) => {
       throw error;
     }
 
-    // Optionally get authenticated user for private listing access
-    const authHeader = req.headers.authorization || '';
-    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
-    let userId = null;
-
-    if (token) {
-      const { data: { user } } = await supabaseAdmin.auth.getUser(token);
-      if (user) userId = user.id;
-    }
-
-    // Step 1: Fetch property/listing
-    const { data: listing, error: listingError } = await supabaseAdmin
-      .from('listings')
-      .select('id, host_id')
-      .eq('id', propertyId)
-      .single();
-
-    if (listingError || !listing) {
-      return res.status(200).json({ media: [] });
-    }
-
-    // The live schema does not include a `listings.status` column, so valid
-    // listings are treated as viewable and the host-specific checks remain the
-    // only access control that matters in the current MVP.
+    const listingAccess = await authorizeListingMedia(req, res, propertyId);
+    if (!listingAccess) return;
 
     // Step 2: Fetch media sorted by order
-    const { data: media, error: mediaError } = await supabaseAdmin
+    let mediaQuery = supabaseAdmin
       .from('property_media')
       .select('*')
       .eq('property_id', propertyId)
-      .eq('visibility', 'public')
       .is('deleted_at', null)
       .eq('status', 'ready')
       .order('sort_order', { ascending: true });
+    if (!listingAccess.owner || listingAccess.published) mediaQuery = mediaQuery.eq('visibility', 'public');
+    const { data: media, error: mediaError } = await mediaQuery;
 
     if (mediaError) {
       console.error('Error fetching media:', mediaError);
@@ -761,7 +753,7 @@ router.get('/properties/:propertyId/media', async (req, res) => {
     }
 
     // Step 4: Transform media for response (don't expose internal fields)
-    const transformedMedia = await Promise.all(media.map(async (m) => ({
+    const transformedMedia = await Promise.all((media || []).map(async (m) => ({
       id: m.id,
       type: m.media_type,
       mimeType: m.mime_type,
@@ -771,7 +763,7 @@ router.get('/properties/:propertyId/media', async (req, res) => {
       height: m.height,
       createdAt: m.created_at,
       thumbnailUrl: m.thumbnail_key
-        ? (await mediaStorageService.generateR2DownloadAuthorization(m.thumbnail_key, 'image/jpeg', 3600)).url
+        ? (await mediaStorageService.generateR2DownloadAuthorization(m.thumbnail_key, 'image/jpeg', 300)).url
         : null,
     })));
 

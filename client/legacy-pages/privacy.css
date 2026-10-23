@@ -6,17 +6,22 @@
   color: var(--pp-text);
   font-family: Georgia, "Times New Roman", serif;
   line-height: 1.7;
-  overflow-x: hidden;
 }
 
-/* Hero: always black, curved into the page background */
+[data-theme="dark"] .pp-root,
+html[data-theme="dark"] .pp-root {
+  --pp-bg: #000000;
+  --pp-text: #FFFFFF;
+  --pp-muted: #71767b;
+}
+
+/* Base Hero: black, curved into the page background */
 .pp-hero {
   position: relative;
-  z-index: 1;
+  z-index: 10;
   background: #000;
   color: #fff;
   text-align: center;
-  padding: 104px 20px 84px;
 }
 
 .pp-hero::after {
@@ -24,8 +29,6 @@
   position: absolute;
   left: -10%;
   right: -10%;
-  bottom: -44px;
-  height: 90px;
   background: #000;
   border-radius: 0 0 50% 50% / 0 0 100% 100%;
   pointer-events: none;
@@ -54,34 +57,18 @@
 .pp-hero h1 {
   margin: 0;
   font-family: inherit;
-  font-size: clamp(40px, 6vw, 60px);
   font-weight: 700;
   line-height: 1.1;
   letter-spacing: -1.5px;
 }
 
 .pp-hero .pp-updated {
-  margin: 14px 0 0;
+  margin: 10px 0 0;
   color: #d4d0cc;
+  font-size: 14.5px;
 }
 
-/* Two-column body */
-.pp-body {
-  position: relative;
-  display: grid;
-  grid-template-columns: 260px minmax(0, 1fr);
-  gap: 64px;
-  max-width: 1040px;
-  margin: 0 auto;
-  padding: 56px 20px 80px;
-}
-
-.pp-toc {
-  position: sticky;
-  top: 24px;
-  align-self: start;
-}
-
+/* Table of contents shared styles */
 .pp-toc-toggle {
   display: none;
 }
@@ -99,6 +86,13 @@
   line-height: 1.4;
   color: var(--pp-muted);
   text-decoration: none;
+  transition: color 140ms ease;
+}
+
+.pp-toc--dense a {
+  padding: 5px 0;
+  font-size: 14px;
+  line-height: 1.35;
 }
 
 .pp-toc a:hover {
@@ -120,7 +114,7 @@
   outline-offset: 3px;
 }
 
-/* Policy text */
+/* Policy text shared styles */
 .pp-content {
   max-width: 680px;
 }
@@ -160,6 +154,25 @@
   text-underline-offset: 2px;
 }
 
+.pp-notice {
+  margin: 24px 0;
+  padding: 16px 20px;
+  background: rgba(189, 35, 55, 0.06);
+  border-left: 3px solid #bd2337;
+  border-radius: 4px;
+}
+
+.pp-notice p {
+  margin: 0;
+  font-size: 15px;
+}
+
+[data-theme="dark"] .pp-notice,
+html[data-theme="dark"] .pp-notice {
+  background: rgba(224, 66, 94, 0.12);
+  border-left-color: #e0425e;
+}
+
 .pp-contact {
   margin-top: 20px;
 }
@@ -172,21 +185,95 @@
 .pp-footer {
   color: var(--pp-muted);
   text-align: center;
-  padding: 28px 20px;
+  padding: 40px 20px 28px;
   font-size: 14px;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  html:has(.pp-root) {
+/* Desktop Independent Scrolling Layout */
+@media (min-width: 901px) {
+  html:has(.pp-root),
+  body:has(.pp-root),
+  html.has-legal-page,
+  body.has-legal-page {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .pp-root {
+    height: 100vh;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .pp-hero {
+    flex-shrink: 0;
+    padding: clamp(32px, 4.5vh, 48px) 20px clamp(24px, 3.5vh, 36px);
+  }
+
+  .pp-hero::after {
+    height: 56px;
+    bottom: -28px;
+  }
+
+  .pp-hero h1 {
+    font-size: clamp(32px, 3.2vw, 48px);
+  }
+
+  .pp-body {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: 280px minmax(0, 1fr);
+    gap: 48px;
+    max-width: 1080px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 0 24px;
+    overflow: hidden;
+  }
+
+  .pp-toc {
+    position: static;
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    padding: 36px 12px 64px 0;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .pp-toc::-webkit-scrollbar {
+    display: none;
+  }
+
+  .pp-content-pane {
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    padding: 36px 16px 80px 0;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
     scroll-behavior: smooth;
+  }
+
+  .pp-content-pane::-webkit-scrollbar {
+    display: none;
   }
 }
 
-body:has(.pp-root) {
-  overflow-x: hidden;
-}
-
+/* Mobile & Tablet Layout (natural document scrolling without awkward nested scrollbars) */
 @media (max-width: 900px) {
+  .pp-root {
+    min-height: 100vh;
+    display: block;
+    overflow-x: hidden;
+  }
+
   .pp-hero {
     padding: 100px 20px 76px;
   }
@@ -196,18 +283,26 @@ body:has(.pp-root) {
     bottom: -36px;
   }
 
+  .pp-hero h1 {
+    font-size: clamp(38px, 6vw, 56px);
+  }
+
   .pp-brand {
     left: 16px;
   }
 
   .pp-body {
-    grid-template-columns: 1fr;
-    gap: 16px;
-    padding-top: 48px;
+    display: block;
+    grid-template-columns: none;
+    max-width: 100%;
+    margin: 0 auto;
+    padding: 48px 20px 60px;
   }
 
   .pp-toc {
     position: static;
+    height: auto;
+    overflow: visible;
   }
 
   .pp-toc-toggle {
@@ -230,5 +325,16 @@ body:has(.pp-root) {
   .pp-toc-list.is-open {
     display: block;
     padding-bottom: 8px;
+  }
+
+  .pp-content-pane {
+    height: auto;
+    overflow: visible;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pp-content-pane {
+    scroll-behavior: auto !important;
   }
 }

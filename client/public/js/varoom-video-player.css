@@ -44,7 +44,9 @@
 }
 
 .varoom-video-viewer-slide .varoom-video-player > video {
-  object-fit: cover;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain;
 }
 
 .varoom-video-viewer-details {
@@ -295,6 +297,9 @@
   appearance: none;
   -webkit-appearance: none;
   background: linear-gradient(to right, #fff var(--video-progress, 0%), rgba(255, 255, 255, .42) var(--video-progress, 0%)) center / 100% 3px no-repeat;
+  background-color: transparent !important;
+  border: 0;
+  box-shadow: none;
   cursor: pointer;
 }
 
@@ -371,6 +376,57 @@
   display: none;
 }
 
+.varoom-video-player.is-autoplay-blocked .varoom-video-status {
+  inset: 50% auto auto 50%;
+  display: flex;
+  width: auto;
+  height: auto;
+  min-width: 7.5rem;
+  min-height: 7.5rem;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+  padding: .75rem;
+  border-radius: 1rem;
+  color: #fff;
+  background: rgba(0, 0, 0, .58);
+}
+
+.varoom-video-player.is-autoplay-blocked .varoom-video-status::before {
+  display: none;
+}
+
+.varoom-video-player.is-autoplay-blocked .varoom-video-status-text {
+  display: block;
+  color: #fff;
+  font-size: .82rem;
+}
+
+.varoom-video-play-retry {
+  display: none;
+  width: 3rem;
+  height: 3rem;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: #fff;
+  background: rgba(255, 255, 255, .2);
+  cursor: pointer;
+  pointer-events: auto;
+  touch-action: manipulation;
+}
+
+.varoom-video-player.is-autoplay-blocked .varoom-video-play-retry {
+  display: grid;
+}
+
+.varoom-video-play-retry:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 3px;
+}
+
 .varoom-video-error-retry {
   display: none;
   margin-top: .45rem;
@@ -421,6 +477,12 @@
 
   .varoom-video-player:not(:fullscreen):not(:-webkit-full-screen):not(.is-fullscreen) .varoom-video-mobile-mute {
     display: grid;
+  }
+
+  .varoom-video-player.controls-visible .varoom-video-mobile-mute,
+  .varoom-video-player.is-ended .varoom-video-mobile-mute,
+  .varoom-video-player.is-error .varoom-video-mobile-mute {
+    display: none;
   }
 
   .varoom-video-player:fullscreen .varoom-video-mobile-mute,

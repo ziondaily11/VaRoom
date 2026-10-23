@@ -10,6 +10,7 @@ const videoRoutes = require('./routes/videoRoutes');
 const listingRoutes = require('./routes/listingRoutes');
 const chatAttachmentRoutes = require('./routes/chatAttachmentRoutes');
 const photoRoutes = require('./routes/photoRoutes');
+const listingDocumentRoutes = require('./routes/listingDocumentRoutes');
 const profileRoutes = require('./routes/profileRoutes');
 const chatRoutes = require('./routes/chatRoutes');
 const reviewRoutes = require('./routes/reviewRoutes');
@@ -83,6 +84,7 @@ app.use('/api', videoRoutes);
 app.use('/api', listingRoutes);
 app.use('/api', chatAttachmentRoutes);
 app.use('/api', photoRoutes);
+app.use('/api', listingDocumentRoutes);
 app.use('/api', profileRoutes);
 app.use('/api', chatRoutes);
 app.use('/api', reviewRoutes);
@@ -678,4 +680,7 @@ setInterval(() => {
 
 app.listen(PORT, () => {
   console.log(`VaRoom server listening on port ${PORT}`);
+  runFullCleanup().catch((error) => {
+    console.error('Initial scheduled cleanup failed:', error);
+  });
 });

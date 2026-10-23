@@ -6,6 +6,7 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createRoot } from 'react-dom/client';
 import { useEffect, useRef } from 'react';
+import { useRouter } from 'next/router';
 import ElieIcon from '../components/ElieIcon';
 import ChatComposerActions from '../components/ChatComposerActions';
 import ElieComposerBeam from '../components/ElieComposerBeam';
@@ -95,10 +96,13 @@ function markElieComposer(source, isEliePage) {
   return source;
 }
 
-function parseTemplate(source, isEliePage) {
+function parseTemplate(source, isEliePage, isHostPage) {
   source = markActiveElieNavigation(source, isEliePage);
   source = markElieComposer(source, isEliePage);
   source = replaceLegacyElieIcons(source);
+  if (isHostPage) {
+    source = source.replace(/<aside\b[^>]*\bclass=["'][^"']*\bsidebar\b[^"']*["'][^>]*>[\s\S]*?<\/aside>/gi, '');
+  }
   const title = (source.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [])[1] || 'VaRoom';
   const head = (source.match(/<head[^>]*>([\s\S]*?)<\/head>/i) || [])[1] || '';
   const body = (source.match(/<body[^>]*>([\s\S]*?)<\/body>/i) || [])[1] || source;
@@ -134,9 +138,10 @@ export async function getStaticPaths() {
 export async function getStaticProps({ params }) {
   const slugKey = params && params.slug ? params.slug.join('/') : '';
   const isElieSlug = slugKey === 'elie' || slugKey === 'elie.html';
+  const isHostSlug = slugKey === 'host-home' || slugKey === 'host-home.html';
   const templateName = templateForSlug(params && params.slug);
   const source = fs.readFileSync(path.join(templateDirectory, templateName), 'utf8');
-  return { props: { ...parseTemplate(source, templateName === 'elie.html' || isElieSlug) } };
+  return { props: { ...parseTemplate(source, templateName === 'elie.html' || isElieSlug, isHostSlug) } };
 }
 
 async function runLegacyScripts(container, scripts) {
@@ -235,6 +240,7 @@ async function runLegacyScripts(container, scripts) {
 }
 
 export default function LegacyPage({ title, markup, scripts }) {
+  const router = useRouter();
   const containerRef = useRef(null);
 
   useEffect(() => {
@@ -296,12 +302,12 @@ export default function LegacyPage({ title, markup, scripts }) {
       }));
       avatarRoots.forEach((root, avatar) => {
         if (avatar.isConnected) return;
-        root.unmount();
+        try { root.unmount(); } catch (e) {}
         avatarRoots.delete(avatar);
       });
       orbRoots.forEach((root, orb) => {
         if (orb.isConnected) return;
-        root.unmount();
+        try { root.unmount(); } catch (e) {}
         orbRoots.delete(orb);
       });
     });
@@ -363,11 +369,15 @@ export default function LegacyPage({ title, markup, scripts }) {
     return () => {
       cancelled = true;
       avatarObserver.disconnect();
-      composerActionsRoot?.unmount();
-      elieComposerBeamRoot?.unmount();
-      avatarRoots.forEach((root) => root.unmount());
+      try { composerActionsRoot?.unmount(); } catch (e) {}
+      try { elieComposerBeamRoot?.unmount(); } catch (e) {}
+      avatarRoots.forEach((root) => {
+        try { root.unmount(); } catch (e) {}
+      });
       avatarRoots.clear();
-      orbRoots.forEach((root) => root.unmount());
+      orbRoots.forEach((root) => {
+        try { root.unmount(); } catch (e) {}
+      });
       orbRoots.clear();
     };
   }, [scripts]);
@@ -387,7 +397,7 @@ export default function LegacyPage({ title, markup, scripts }) {
         strategy="beforeInteractive"
       />
       <Script src="/js/varoom-mobile-nav.js" strategy="afterInteractive" />
-      <main ref={containerRef} dangerouslySetInnerHTML={{ __html: markup }} />
+      <main key={router?.asPath || title} ref={containerRef} dangerouslySetInnerHTML={{ __html: markup }} />
     </>
   );
 }

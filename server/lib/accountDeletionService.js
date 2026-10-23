@@ -48,7 +48,7 @@ async function collectOwnedStorage(userId) {
     .or(`host_id.eq.${userId},client_id.eq.${userId}`);
   if (conversationsError) throw new Error(`Unable to load conversations: ${conversationsError.message}`);
   const conversationIds = (conversations || []).map((conversation) => conversation.id);
-  const [{ data: propertyMedia, error: mediaError }, { data: photos, error: photosError }, { data: attachments, error: attachmentsError }] = await Promise.all([
+  const [{ data: propertyMedia, error: mediaError }, { data: photos, error: photosError }, { data: attachments, error: attachmentsError }, { data: documents, error: documentsError }] = await Promise.all([
     supabaseAdmin.from('property_media').select('storage_provider,storage_bucket,storage_key,thumbnail_key').or(`host_id.eq.${userId},property_id.in.(${listingIds.join(',') || '00000000-0000-0000-0000-000000000000'})`),
     listingIds.length
       ? supabaseAdmin.from('listing_photos').select('storage_path').in('listing_id', listingIds)
@@ -56,10 +56,14 @@ async function collectOwnedStorage(userId) {
     conversationIds.length
       ? supabaseAdmin.from('message_attachments').select('storage_provider,storage_bucket,storage_key').or(`uploader_id.eq.${userId},conversation_id.in.(${conversationIds.join(',')})`)
       : supabaseAdmin.from('message_attachments').select('storage_provider,storage_bucket,storage_key').eq('uploader_id', userId),
+    listingIds.length
+      ? supabaseAdmin.from('listing_documents').select('storage_provider,storage_bucket,storage_key').in('listing_id', listingIds)
+      : Promise.resolve({ data: [], error: null }),
   ]);
   if (mediaError) throw new Error(`Unable to load property media: ${mediaError.message}`);
   if (photosError) throw new Error(`Unable to load listing photos: ${photosError.message}`);
   if (attachmentsError) throw new Error(`Unable to load chat attachments: ${attachmentsError.message}`);
+  if (documentsError) throw new Error(`Unable to load listing documents: ${documentsError.message}`);
 
   const supabaseObjects = [];
   const r2Keys = [];
@@ -91,6 +95,10 @@ async function collectOwnedStorage(userId) {
   for (const attachment of attachments || []) {
     if (attachment.storage_provider === 'r2') r2Keys.push(attachment.storage_key);
     else supabaseObjects.push({ bucket: attachment.storage_bucket, key: attachment.storage_key });
+  }
+  for (const document of documents || []) {
+    if (document.storage_provider === 'r2') r2Keys.push(document.storage_key);
+    else supabaseObjects.push({ bucket: document.storage_bucket || 'listing-photos', key: document.storage_key });
   }
   return { supabaseObjects, r2Keys };
 }

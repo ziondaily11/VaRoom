@@ -1,5 +1,7 @@
 'use strict';
 
+const { createNotification } = require('./notifications');
+
 function paystackStatus(data) {
   const status = String(data && data.status || '').toLowerCase();
   if (status === 'success') return 'succeeded';
@@ -21,7 +23,7 @@ async function applyVerifiedTransaction(supabaseAdmin, transaction) {
   // subscription code returned by the server-side transaction verification.
   if (!payment) return applyVerifiedRenewal(supabaseAdmin, transaction);
 
-  const status = paystackStatus(transaction);
+  let status = paystackStatus(transaction);
   const amountMatches = Number(transaction.amount) === Number(payment.amount_minor);
   const currencyMatches = transaction.currency === payment.currency;
   const metadata = transaction.metadata || {};
@@ -34,6 +36,7 @@ async function applyVerifiedTransaction(supabaseAdmin, transaction) {
   if (status === 'succeeded' && (!amountMatches || !currencyMatches || !ownershipMatches)) {
     throw new Error('Verified Paystack transaction does not match the VaRoom payment');
   }
+  if (payment.status === 'succeeded' && status !== 'succeeded') status = 'succeeded';
 
   const paymentUpdate = {
     status,
@@ -43,7 +46,8 @@ async function applyVerifiedTransaction(supabaseAdmin, transaction) {
     provider_payload: { ...(payment.provider_payload || {}), last_verification: transaction },
   };
   const paymentWrite = supabaseAdmin.from('billing_payments').update(paymentUpdate).eq('id', payment.id);
-  if (status === 'succeeded') paymentWrite.neq('status', 'succeeded');
+  // A delayed failure callback must never downgrade a verified success.
+  paymentWrite.neq('status', 'succeeded');
   const { data: paymentChanged, error: paymentError } = await paymentWrite.select('id,paid_at');
   if (paymentError) throw new Error('Unable to update billing payment');
   let verifiedPaidAt = transaction.paid_at || (paymentChanged && paymentChanged[0] && paymentChanged[0].paid_at) || payment.paid_at;
@@ -67,12 +71,14 @@ async function applyVerifiedTransaction(supabaseAdmin, transaction) {
     const paidAt = verifiedPaidAt;
     const periodEnd = new Date(paidAt);
     periodEnd.setMonth(periodEnd.getMonth() + 1);
+    const listingAllowanceLimit = await resolveListingAllowanceLimit(supabaseAdmin, payment);
     const subscriptionUpdate = {
       plan_id: payment.plan_id,
       niche: payment.niche || 'legacy',
       status: 'active',
       current_period_start: paidAt,
       current_period_end: periodEnd.toISOString(),
+      listing_allowance_limit: listingAllowanceLimit,
       provider_subscription_code: transaction.subscription && transaction.subscription.subscription_code || undefined,
       provider_email_token: transaction.subscription && transaction.subscription.email_token || undefined,
       provider_metadata: transaction,
@@ -81,9 +87,59 @@ async function applyVerifiedTransaction(supabaseAdmin, transaction) {
     const { error: subscriptionError } = await supabaseAdmin.from('host_subscriptions').update(subscriptionUpdate).eq('id', payment.subscription_id);
     if (subscriptionError) throw new Error('Unable to activate host subscription');
   } else if (payment.payment_kind !== 'listing' && ['failed', 'abandoned', 'refunded'].includes(status)) {
-    await supabaseAdmin.from('host_subscriptions').update({ status: 'failed', provider_metadata: transaction }).eq('id', payment.subscription_id).eq('status', 'pending');
+    const { error: subscriptionError } = await supabaseAdmin.from('host_subscriptions').update({ status: 'failed', provider_metadata: transaction }).eq('id', payment.subscription_id).eq('status', 'pending');
+    if (subscriptionError) throw new Error('Unable to close failed pending subscription');
+  }
+
+  if (payment.payment_kind === 'listing' && ['failed', 'abandoned'].includes(status)) {
+    const { error: listingError } = await supabaseAdmin.from('listings').update({ publication_state: 'draft' })
+      .eq('id', payment.listing_id).eq('host_id', payment.host_id).eq('publication_state', 'payment_pending');
+    if (listingError) throw new Error('Unable to return failed listing payment to draft');
+  }
+
+  if (['succeeded', 'failed', 'abandoned'].includes(status)) {
+    const notificationType = status === 'succeeded' ? 'payment_success' : 'payment_failed';
+    const isListing = payment.payment_kind === 'listing';
+    try {
+      await createNotification({
+        recipientUserId: payment.host_id,
+        type: notificationType,
+        title: isListing
+          ? (status === 'succeeded' ? 'Listing payment successful' : 'Listing payment failed')
+          : (status === 'succeeded' ? 'Subscription payment successful' : 'Subscription payment failed'),
+        message: isListing
+          ? (status === 'succeeded' ? 'Your listing payment was verified.' : 'Your listing payment was not completed. Your listing remains a draft.')
+          : (status === 'succeeded' ? 'Your subscription payment was verified and your plan is active.' : 'Your subscription payment was not completed. You can try again.'),
+        relatedEntityType: isListing ? 'listing' : 'subscription',
+        relatedEntityId: isListing ? payment.listing_id : payment.subscription_id,
+        metadata: { payment_id: payment.id, payment_kind: isListing ? 'listing' : 'subscription', status },
+        eventKey: `billing:${payment.id}:${status}`,
+        supabase: supabaseAdmin,
+      });
+    } catch (notificationError) {
+      // A notification write must never undo a verified payment or entitlement.
+      console.error('Billing notification delivery failed:', {
+        paymentId: payment.id,
+        hostId: payment.host_id,
+        status,
+        message: notificationError.message,
+        code: notificationError.code,
+      });
+    }
   }
   return { payment: { ...payment, ...paymentUpdate }, activated: status === 'succeeded' && Boolean(paymentChanged && paymentChanged.length) };
+}
+
+async function resolveListingAllowanceLimit(supabaseAdmin, payment) {
+  const transition = payment.provider_payload && payment.provider_payload.listing_allowance_transition;
+  if (transition && Object.prototype.hasOwnProperty.call(transition, 'limit')) {
+    return transition.limit;
+  }
+  const { data: plan, error } = await supabaseAdmin.from('billing_plans')
+    .select('features').eq('id', payment.plan_id).maybeSingle();
+  if (error || !plan) throw new Error('Unable to load the verified subscription allowance');
+  const standardLimit = Number(plan.features && plan.features.max_active_listings);
+  return Number.isInteger(standardLimit) && standardLimit > 0 ? standardLimit : null;
 }
 
 async function applyVerifiedRenewal(supabaseAdmin, transaction) {
@@ -96,7 +152,7 @@ async function applyVerifiedRenewal(supabaseAdmin, transaction) {
   if (subscriptionLookupError || !subscription) throw new Error('Paystack subscription was not found');
   if (!['active', 'past_due', 'cancel_requested'].includes(subscription.status)) throw new Error('Paystack subscription is not renewable');
   const { data: plan, error: planError } = await supabaseAdmin.from('billing_plans')
-    .select('id,monthly_amount_minor,currency,billing_interval,niche').eq('id', subscription.plan_id).maybeSingle();
+    .select('id,monthly_amount_minor,currency,billing_interval,niche,features').eq('id', subscription.plan_id).maybeSingle();
   if (planError || !plan || Number(transaction.amount) !== Number(plan.monthly_amount_minor) || transaction.currency !== plan.currency) {
     throw new Error('Recurring Paystack transaction does not match the VaRoom subscription');
   }
@@ -129,6 +185,9 @@ async function applyVerifiedRenewal(supabaseAdmin, transaction) {
     status: 'active',
     current_period_start: paidAt,
     current_period_end: periodEnd.toISOString(),
+    listing_allowance_limit: Number(plan.features && plan.features.max_active_listings) > 0
+      ? Number(plan.features.max_active_listings)
+      : null,
     provider_metadata: transaction,
   }).eq('id', subscription.id);
   if (updateError) throw new Error('Unable to renew host subscription');

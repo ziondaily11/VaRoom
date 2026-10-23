@@ -667,12 +667,17 @@ For local development, keep both values as `http://localhost:3000`. Do not put
 localhost in the deployed environment. Production startup rejects a missing,
 non-HTTPS, or localhost `PUBLIC_BASE_URL`.
 
-In the **Paystack Test** dashboard, set the webhook URL to
-`https://varoom.co.ke/api/billing/paystack/webhook` and enable
-`charge.success`, `invoice.payment_failed`, `subscription.not_renew`, and
-`subscription.disable`. If a dashboard callback URL is configured as a
-fallback, set it to `https://varoom.co.ke`; the per-transaction callback URL
-sent by VaRoom remains authoritative. Keep `PAYSTACK_MODE=test` with the
+In the **Paystack Test** dashboard, set:
+
+```text
+Test Callback URL: https://varoom.co.ke/pricing
+Test Webhook URL:  https://varoom.co.ke/api/billing/paystack/webhook
+```
+
+Enable `charge.success`, `invoice.payment_failed`, `subscription.not_renew`,
+and `subscription.disable`. The dashboard callback is only the fallback. Each
+VaRoom checkout sends its own callback URL, which preserves the selected plan,
+return destination, and payment reference. Keep `PAYSTACK_MODE=test` with the
 existing `sk_test_`/`pk_test_` credentials and test plan codes.
 
 Apply migrations `20261010_000035_property_shops_monetization.sql` and

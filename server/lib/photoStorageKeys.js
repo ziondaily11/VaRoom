@@ -7,8 +7,16 @@ function isNewR2PhotoObjectKey(category, key, environment = process.env.NODE_ENV
     && !key.includes('..');
 }
 
+function isDraftR2PhotoObjectKey(category, key, environment = process.env.NODE_ENV || 'development') {
+  return category === 'listing-photos'
+    && typeof key === 'string'
+    && key.startsWith(`drafts/photos/${environment}/`)
+    && !key.includes('..');
+}
+
 function isR2PhotoObjectKey(category, key, environment = process.env.NODE_ENV || 'development') {
   if (typeof key !== 'string' || key.includes('..')) return false;
+  if (isDraftR2PhotoObjectKey(category, key, environment)) return true;
   if (isNewR2PhotoObjectKey(category, key, environment)) return true;
 
   const migratedPrefixByCategory = {
@@ -21,4 +29,4 @@ function isR2PhotoObjectKey(category, key, environment = process.env.NODE_ENV ||
   return Boolean(migratedPrefix && key.startsWith(migratedPrefix));
 }
 
-module.exports = { isNewR2PhotoObjectKey, isR2PhotoObjectKey };
+module.exports = { isNewR2PhotoObjectKey, isDraftR2PhotoObjectKey, isR2PhotoObjectKey };

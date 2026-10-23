@@ -6,6 +6,11 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
+const landingPageSource = fs.readFileSync(
+  path.resolve(__dirname, '../../client/pages/index.tsx'),
+  'utf8',
+);
+
 function patchedStorage(fetchImpl = () => { throw new Error('Unexpected network request'); }) {
   const legacyCalls = [];
   const legacyUploadCalls = [];
@@ -48,15 +53,15 @@ test('builds a photo API URL for migrated listing keys', () => {
   assert.deepEqual(legacyCalls, []);
 });
 
-test('keeps legacy Supabase listing paths on Supabase public URLs', () => {
+test('routes legacy Supabase listing paths through server authorization', () => {
   const { client, legacyCalls } = patchedStorage();
   const result = client.storage.from('listing-photos').getPublicUrl('user-id/listing-id/photo.jpg');
 
   assert.equal(
     result.data.publicUrl,
-    'https://supabase.example/listing-photos/user-id/listing-id/photo.jpg',
+    '/api/photos/listing-photos/user-id/listing-id/photo.jpg',
   );
-  assert.deepEqual(legacyCalls, [{ bucket: 'listing-photos', key: 'user-id/listing-id/photo.jpg' }]);
+  assert.deepEqual(legacyCalls, []);
 });
 
 test('uploads supported listing photos through the signed R2 flow', async () => {
@@ -109,4 +114,15 @@ test('leaves storage uploads outside photo categories unchanged', async () => {
 
   assert.deepEqual(result, { data: { path: 'conversation-id/document.pdf' }, error: null });
   assert.deepEqual(legacyUploadCalls, [{ bucket: 'chat-attachments', key: 'conversation-id/document.pdf' }]);
+});
+
+test('server-rendered landing listings resolve R2 photos through the media route', () => {
+  assert.match(
+    landingPageSource,
+    /const photoUrl = photo \? resolveStoredPhotoUrl\(photo\.storage_path, 'listing-photos', sb\) : null;/,
+  );
+  assert.doesNotMatch(
+    landingPageSource,
+    /const photoUrl = photo \? sb\.storage\.from\('listing-photos'\)\.getPublicUrl\(photo\.storage_path\)\.data\.publicUrl : null;/,
+  );
 });
