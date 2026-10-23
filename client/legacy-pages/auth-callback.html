@@ -86,6 +86,23 @@
     const queryParams = new URLSearchParams(window.location.search || '');
     const requestedRedirect = queryParams.get('redirect') || '';
     const isAddAccount = queryParams.get('addAccount') === 'true';
+    const accountAuthFlow = queryParams.get('account_auth_flow') || '';
+
+    function createPrimarySessionClient(){
+      return window.supabase.createClient(window.VAROOM_SUPABASE_URL, window.VAROOM_SUPABASE_ANON_KEY, {
+        auth: { detectSessionInUrl: false }
+      });
+    }
+
+    async function linkAddAccountSession(additionalSession){
+      if (!window.VaRoomAccountSwitcher || !accountAuthFlow) throw new Error('The temporary account sign-in has expired. Please try again.');
+      const primaryClient = createPrimarySessionClient();
+      return window.VaRoomAccountSwitcher.linkAdditionalSession(primaryClient, additionalSession);
+    }
+
+    function clearAddAccountSession(){
+      try { window.VaRoomAccountAuth.clearTemporarySession(accountAuthFlow); } catch (_error) {}
+    }
 
     function getSafeRedirect(value){
       if (!value) return '';
@@ -152,21 +169,19 @@
       const returnTo = postAuthRedirect || '/profile.html';
       try {
         if (!session || !session.user) throw new Error('Google sign-in did not return an account session.');
-        if (!window.VaRoomAccountSwitcher) throw new Error('Account storage is not available.');
-
-        await window.VaRoomAccountSwitcher.upsertFromSession(supabaseClient, session);
+        await linkAddAccountSession(session);
         // Remove the short-lived PKCE callback code from the visible URL and
         // clear only the isolated sessionStorage client used for account add.
         const cleanUrl = new URL(window.location.href);
-        ['code', 'state', 'error', 'error_description'].forEach(function(key){ cleanUrl.searchParams.delete(key); });
+        ['code', 'state', 'error', 'error_description', 'account_auth_flow'].forEach(function(key){ cleanUrl.searchParams.delete(key); });
         cleanUrl.hash = '';
         window.history.replaceState({}, document.title, cleanUrl.pathname + cleanUrl.search);
         await supabaseClient.auth.signOut({ scope: 'local' });
-        window.VaRoomAccountAuth.clearTemporarySession();
+        clearAddAccountSession();
         window.location.replace(returnTo);
       } catch (_error) {
         try { await supabaseClient.auth.signOut({ scope: 'local' }); } catch (_signOutError) {}
-        window.VaRoomAccountAuth.clearTemporarySession();
+        clearAddAccountSession();
         const loginUrl = '/login.html?mode=add&error=google_add_failed' +
           (postAuthRedirect ? '&redirect=' + encodeURIComponent(postAuthRedirect) : '');
         window.location.replace(loginUrl);
@@ -175,6 +190,11 @@
     }
 
     if (!session) {
+      if (isAddAccount) {
+        clearAddAccountSession();
+        window.location.replace('/login.html?mode=add&error=google_add_failed');
+        return;
+      }
       if (sessionError) console.error('Sign-in callback failed to load the session.');
       failAuth('Google sign-in did not finish. Please try again.');
       return;
@@ -182,6 +202,7 @@
 
     // In-app add-account callback handling
     if (isAddAccount) {
+      try {
       // If opened in a popup window, pass session to parent and close popup
       if (window.opener && !window.opener.closed) {
         try {
@@ -193,6 +214,8 @@
               user: session.user
             }
           }, window.location.origin);
+          await supabaseClient.auth.signOut({ scope: 'local' });
+          clearAddAccountSession();
           window.close();
           return;
         } catch (e) {
@@ -200,24 +223,20 @@
         }
       }
 
-      // If full page redirect, save newly added session and restore active account
-      if (window.VaRoomAccountSwitcher) {
-        await window.VaRoomAccountSwitcher.upsertFromSession(supabaseClient, session);
-        const originalActiveId = sessionStorage.getItem('varoom_oauth_active_account_id');
-        if (originalActiveId) {
-          const linked = window.VaRoomAccountSwitcher.getLinkedAccounts();
-          const orig = linked.find(a => a.id === originalActiveId);
-          if (orig) {
-            await window.VaRoomAccountSwitcher.switchAccount(supabaseClient, orig);
-          }
-          sessionStorage.removeItem('varoom_oauth_active_account_id');
-        }
-      }
+      await linkAddAccountSession(session);
+      await supabaseClient.auth.signOut({ scope: 'local' });
+      clearAddAccountSession();
 
       const returnUrl = sessionStorage.getItem('varoom_add_account_redirect') || postAuthRedirect || '/client-home';
       sessionStorage.removeItem('varoom_add_account_redirect');
       window.location.replace(returnUrl);
       return;
+    } catch (_error) {
+      try { await supabaseClient.auth.signOut({ scope: 'local' }); } catch (_signOutError) {}
+      clearAddAccountSession();
+      window.location.replace('/login.html?mode=add&error=google_add_failed');
+      return;
+    }
     }
 
     const user = session.user;

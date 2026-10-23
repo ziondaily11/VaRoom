@@ -29,29 +29,9 @@ function getInitialUser() {
 
 function getStoredUser() {
   try {
-    // 1. Prefer the account-switcher's authoritative active account
     if (window.VaRoomAccountSwitcher) {
       const active = window.VaRoomAccountSwitcher.getActiveAccount?.();
       if (active) return active;
-    }
-    // 2. Use cached profile ONLY if its ID matches varoom_active_account_id
-    const activeId = localStorage.getItem('varoom_active_account_id');
-    const cached = localStorage.getItem('varoom_cached_profile') || sessionStorage.getItem('varoom_cached_profile');
-    if (cached) {
-      const parsed = JSON.parse(cached);
-      // If we have an activeId recorded, enforce it; otherwise trust the cache
-      if (!activeId || parsed.id === activeId) return parsed;
-    }
-    // 3. Match the active ID against the linked accounts list
-    if (activeId) {
-      const linked = localStorage.getItem('varoom_linked_accounts');
-      if (linked) {
-        const list = JSON.parse(linked);
-        if (Array.isArray(list)) {
-          const match = list.find(a => a.id === activeId);
-          if (match) return match;
-        }
-      }
     }
   } catch (e) {}
   return {
@@ -116,6 +96,10 @@ export default function SharedClientSidebar({ activeNav: explicitActiveNav }) {
       const { data: sessionData } = await client.auth.getSession();
       const session = sessionData?.session;
       if (!session || !session.user) return true; // ready but no session
+
+      if (window.VaRoomAccountSwitcher) {
+        await window.VaRoomAccountSwitcher.upsertFromSession(client, session);
+      }
 
       const userId = session.user.id;
 
@@ -189,20 +173,16 @@ export default function SharedClientSidebar({ activeNav: explicitActiveNav }) {
           }
         } catch (err) {}
       }
-      if (e.key === 'varoom_linked_accounts' && e.newValue) {
-        try {
-          setLinkedAccounts(JSON.parse(e.newValue));
-        } catch (err) {}
+      if (e.key === 'varoom_linked_accounts' && window.VaRoomAccountSwitcher && window.supabaseClient) {
+        window.VaRoomAccountSwitcher.loadLinkedAccounts(window.supabaseClient)
+          .then(setLinkedAccounts).catch(() => setLinkedAccounts([]));
       }
     };
     const handleAccountsChanged = (e) => {
       if (e.detail?.accounts) {
         setLinkedAccounts(e.detail.accounts);
       } else {
-        try {
-          const raw = localStorage.getItem('varoom_linked_accounts');
-          if (raw) setLinkedAccounts(JSON.parse(raw));
-        } catch (err) {}
+        setLinkedAccounts(window.VaRoomAccountSwitcher?.getLinkedAccounts?.() || []);
       }
     };
     window.addEventListener('storage', handleStorage);
