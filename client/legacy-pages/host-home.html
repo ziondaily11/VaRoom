@@ -912,6 +912,12 @@
     #feed-list.discover-media-feed .card-video video,
     #feed-list.discover-media-feed .card-video .varoom-video-player,
     #feed-list.discover-media-feed .card-video .varoom-video-player > video{ height:auto; object-fit:initial; }
+    #feed-list.discover-media-feed .media-carousel,
+    #feed-list.discover-media-feed .card-video{
+      width:var(--discover-media-width, calc(100% - 2 * var(--discover-content-inset)));
+      max-width:calc(100% - 2 * var(--discover-content-inset));
+    }
+    #feed-list.discover-media-feed .card-media-loading{ width:calc(100% - 2 * var(--discover-content-inset)); }
     #feed-list.discover-media-feed .media-slide{ display:flex; align-items:center; }
     #feed-list.discover-media-feed .media-slide img{ margin:auto; }
     .media-index-pill{ top:.55rem; right:.55rem; font-size:.66rem; }
@@ -2709,7 +2715,8 @@
             });
           }
           const contentInset = parseFloat(getComputedStyle(stage).getPropertyValue('--discover-content-inset')) || 0;
-          const availableWidth = Math.max(1, stage.parentElement.clientWidth - contentInset);
+          const rightInset = isMobile ? contentInset : 0;
+          const availableWidth = Math.max(1, stage.parentElement.clientWidth - contentInset - rightInset);
           const fallbackWidth = stage.matches('.card-video') ? availableWidth : Math.min(availableWidth, 360);
           var fallbackFrame, frames;
           if (isMobile) {
