@@ -2710,13 +2710,14 @@
           }
           const contentInset = parseFloat(getComputedStyle(stage).getPropertyValue('--discover-content-inset')) || 0;
           const availableWidth = Math.max(1, stage.parentElement.clientWidth - contentInset);
+          const fallbackWidth = stage.matches('.card-video') ? availableWidth : Math.min(availableWidth, 360);
           var fallbackFrame, frames;
           if (isMobile) {
             /* Keep natural proportions, but scale unusually tall media down so
                it stays a sensible part of a mobile Discover card. */
             const mobileMaxHeight = Math.min(560, availableWidth * 1.6);
-            const fallbackHeight = Math.min(mobileMaxHeight, availableWidth / (4 / 3));
-            fallbackFrame = { height:fallbackHeight, width:Math.min(availableWidth, fallbackHeight * (4 / 3)) };
+            const fallbackHeight = Math.min(mobileMaxHeight, fallbackWidth / (4 / 3));
+            fallbackFrame = { height:fallbackHeight, width:Math.min(fallbackWidth, fallbackHeight * (4 / 3)) };
             frames = media.filter(Boolean).map(function(item){
               const metadataSource = item.closest('.media-slide') || stage;
               const metadataWidth = Number(metadataSource.getAttribute('data-media-width'));
@@ -2731,8 +2732,8 @@
           } else {
             /* Desktop: height capped at maxHeight, container width also constrained.
                Unchanged from the existing desktop implementation. */
-            const fallbackHeight = Math.min(maxHeight, availableWidth / (4 / 3));
-            fallbackFrame = { height:fallbackHeight, width:Math.min(availableWidth, fallbackHeight * (4 / 3)) };
+            const fallbackHeight = Math.min(maxHeight, fallbackWidth / (4 / 3));
+            fallbackFrame = { height:fallbackHeight, width:Math.min(fallbackWidth, fallbackHeight * (4 / 3)) };
             frames = media.filter(Boolean).map(function(item){
               const metadataSource = item.closest('.media-slide') || stage;
               const metadataWidth = Number(metadataSource.getAttribute('data-media-width'));
