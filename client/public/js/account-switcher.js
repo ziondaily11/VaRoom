@@ -1,14 +1,9 @@
 /**
  * VaRoomAccountSwitcher
  * ---------------------
- * Supabase's client only ever holds ONE active session at a time, so "being
- * signed into two VaRoom accounts at once" is implemented here rather than
- * in Supabase itself: every account the person has ever added on this
- * browser gets its access/refresh tokens cached in localStorage under
- * STORAGE_KEY. "Switching" means calling supabase.auth.setSession() with a
- * cached account's tokens and reloading the page. Tokens are kept fresh by
- * re-saving the active account's session on every load and on Supabase's
- * TOKEN_REFRESHED event.
+ * Supabase's client holds one active session. The authenticated backend owns
+ * linked-account membership; this browser caches session tokens only for
+ * members of the currently authenticated account's group.
  *
  * Account-add authentication is handled by login.html and auth-callback.html;
  * this module stores sessions returned by those flows and by the main client.
@@ -17,12 +12,13 @@
   var STORAGE_KEY = 'varoom_linked_accounts';
   var MAX_LINKED_ACCOUNTS = 3;
   var sessionWriteVersions = Object.create(null);
+  var linkedAccounts = [];
+  var membershipUserId = null;
+  var membershipLoaded = false;
+  var membershipRequestVersion = 0;
 
   function getLinkedAccounts() {
-    try {
-      var raw = localStorage.getItem(STORAGE_KEY);
-      return raw ? JSON.parse(raw) : [];
-    } catch (e) { return []; }
+    return membershipLoaded ? linkedAccounts.slice() : [];
   }
 
   function saveLinkedAccounts(list) {
@@ -36,22 +32,177 @@
 
   function upsertAccount(account) {
     if (!account || !account.id) return false;
+    if (!membershipLoaded || !linkedAccounts.some(function (member) { return member.id === account.id; })) return false;
     var list = getLinkedAccounts();
+    var cachedList = readCachedAccounts();
     var idx = -1;
-    for (var i = 0; i < list.length; i++) { if (list[i].id === account.id) { idx = i; break; } }
+    for (var i = 0; i < cachedList.length; i++) { if (cachedList[i].id === account.id) { idx = i; break; } }
     if (idx >= 0) {
-      var existing = list[idx];
+      var existing = cachedList[idx];
       if (existing.expires_at && account.expires_at
         && Number(existing.expires_at) > Number(account.expires_at)) {
         // Another tab may have completed a later refresh first. Do not replace
         // its newer rotating token pair with a stale event from this tab.
         return true;
       }
-      list[idx] = Object.assign({}, existing, account);
+      cachedList[idx] = Object.assign({}, existing, account);
     }
-    else if (list.length < MAX_LINKED_ACCOUNTS) list.push(account);
+    else if (cachedList.length < MAX_LINKED_ACCOUNTS) cachedList.push(account);
     else return false;
-    return saveLinkedAccounts(list);
+    var saved = saveLinkedAccounts(cachedList);
+    if (saved) {
+      linkedAccounts = linkedAccounts.map(function (member) {
+        return member.id === account.id ? Object.assign({}, member, account) : member;
+      });
+    }
+    return saved;
+  }
+
+  function readCachedAccounts() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      var parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed.filter(function (item) { return item && item.id; }) : [];
+    } catch (e) { return []; }
+  }
+
+  function publishAccounts() {
+    try {
+      window.dispatchEvent(new CustomEvent('varoom_linked_accounts_changed', {
+        detail: { accounts: getLinkedAccounts() }
+      }));
+    } catch (e) {}
+  }
+
+  function installMembership(snapshot, userId, session) {
+    var members = snapshot && snapshot.members;
+    if (!Array.isArray(members) || !members.length || members.length > MAX_LINKED_ACCOUNTS
+      || !members.some(function (member) { return member.id === userId; })) {
+      throw new Error('The linked-account group response was invalid.');
+    }
+
+    var memberIds = new Set(members.map(function (member) { return member.id; }));
+    var cached = readCachedAccounts();
+    var allowedCache = cached.filter(function (account) { return memberIds.has(account.id); });
+    var removedLegacyEntries = cached.length - allowedCache.length;
+    // Old browser-wide associations are deliberately not imported. Keep only
+    // local sessions whose IDs the authenticated backend confirms are members.
+    if (!saveLinkedAccounts(allowedCache)) {
+      throw new Error('Could not safely update saved sign-in details in this browser.');
+    }
+    linkedAccounts = members.map(function (member) {
+      var localSession = allowedCache.find(function (account) { return account.id === member.id; });
+      return Object.assign({}, member, localSession || {});
+    });
+    membershipUserId = userId;
+    membershipLoaded = true;
+
+    if (removedLegacyEntries > 0 && !window.__varoomLegacyAccountNoticeShown) {
+      window.__varoomLegacyAccountNoticeShown = true;
+      var notice = 'Saved accounts from this browser were not linked automatically. Add each account again to enroll it safely.';
+      if (window.varoomShowToast) window.varoomShowToast(notice);
+    }
+    publishAccounts();
+    return getLinkedAccounts();
+  }
+
+  async function loadLinkedAccounts(client, session, options) {
+    options = options || {};
+    if (!client || !client.auth) throw new Error('Authentication client is not available.');
+    if (!session) {
+      var activeResult = await client.auth.getSession();
+      session = activeResult && activeResult.data && activeResult.data.session;
+    }
+    if (!session || !session.user || !session.access_token) {
+      membershipRequestVersion += 1;
+      linkedAccounts = [];
+      membershipUserId = null;
+      membershipLoaded = false;
+      publishAccounts();
+      return [];
+    }
+
+    var userId = session.user.id;
+    if (!options.force && membershipLoaded && membershipUserId === userId) return getLinkedAccounts();
+    var requestVersion = ++membershipRequestVersion;
+    if (membershipUserId !== userId) {
+      linkedAccounts = [];
+      membershipLoaded = false;
+      membershipUserId = userId;
+      publishAccounts();
+    }
+
+    var fetcher = window.fetch || fetch;
+    var response = await fetcher('/api/account-groups/current', {
+      headers: { Authorization: 'Bearer ' + session.access_token, Accept: 'application/json' },
+      cache: 'no-store'
+    });
+    var snapshot = await response.json().catch(function () { return {}; });
+    if (!response.ok) throw new Error(snapshot.error || 'Unable to load linked accounts.');
+
+    var activeResultAfterFetch = await client.auth.getSession();
+    var activeSessionAfterFetch = activeResultAfterFetch && activeResultAfterFetch.data && activeResultAfterFetch.data.session;
+    if (!activeSessionAfterFetch || !activeSessionAfterFetch.user || activeSessionAfterFetch.user.id !== userId) {
+      throw new Error('The active account changed while loading linked accounts. Please retry.');
+    }
+    if (requestVersion !== membershipRequestVersion) return getLinkedAccounts();
+    return installMembership(snapshot, userId, activeSessionAfterFetch);
+  }
+
+  async function linkAdditionalSession(client, additionalSession) {
+    if (!client || !client.auth || !additionalSession || !additionalSession.user
+      || !additionalSession.access_token) {
+      throw new Error('Sign in to the account you want to link and try again.');
+    }
+    var activeResult = await client.auth.getSession();
+    var currentSession = activeResult && activeResult.data && activeResult.data.session;
+    if (!currentSession || !currentSession.user || !currentSession.access_token) {
+      throw new Error('Sign in to your current VaRoom account before adding another account.');
+    }
+    if (currentSession.user.id === additionalSession.user.id) {
+      throw new Error('This account is already active.');
+    }
+
+    await loadLinkedAccounts(client, currentSession, { force: true });
+    if (linkedAccounts.some(function (member) { return member.id === additionalSession.user.id; })) {
+      throw new Error('This account is already linked. You can switch to it from the account menu.');
+    }
+    if (linkedAccounts.length >= MAX_LINKED_ACCOUNTS) {
+      throw new Error('Account limit reached (3/3). This group cannot include another account.');
+    }
+
+    var fetcher = window.fetch || fetch;
+    var response = await fetcher('/api/account-groups/link', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + currentSession.access_token
+      },
+      body: JSON.stringify({ additional_access_token: additionalSession.access_token })
+    });
+    var snapshot = await response.json().catch(function () { return {}; });
+    if (!response.ok) throw new Error(snapshot.error || 'Unable to link this account.');
+
+    var activeResultAfterLink = await client.auth.getSession();
+    var activeSessionAfterLink = activeResultAfterLink && activeResultAfterLink.data && activeResultAfterLink.data.session;
+    if (!activeSessionAfterLink || !activeSessionAfterLink.user
+      || activeSessionAfterLink.user.id !== currentSession.user.id) {
+      throw new Error('The active account changed while linking. Please retry.');
+    }
+    installMembership(snapshot, currentSession.user.id, activeSessionAfterLink);
+    var linkedMember = linkedAccounts.find(function (member) { return member.id === additionalSession.user.id; });
+    if (!linkedMember) throw new Error('The account group was updated but the new member was not returned.');
+    var savedSession = upsertAccount(Object.assign({}, linkedMember, {
+      email: additionalSession.user.email || linkedMember.email || '',
+      access_token: additionalSession.access_token,
+      refresh_token: additionalSession.refresh_token,
+      expires_at: additionalSession.expires_at || null
+    }));
+    if (!savedSession && window.varoomShowToast) {
+      window.varoomShowToast('The account was linked, but this browser could not save its sign-in. You may need to sign in again before switching.');
+    }
+    publishAccounts();
+    return Object.assign({}, linkedMember, { session_cached: savedSession });
   }
 
   function removeAccount(userId) {
@@ -299,10 +450,6 @@
     // Google button
     googleBtn.addEventListener('click', async function() {
       hideAlert();
-      if (!window.VaRoomAccountSwitcher.canAddAccount()) {
-        showAlert('Account limit reached (3/3). Remove an account before adding another.', true);
-        return;
-      }
       var sup = window.supabaseClient || (window.supabase && window.supabase.createClient(window.VAROOM_SUPABASE_URL, window.VAROOM_SUPABASE_ANON_KEY));
       if (!sup) {
         showAlert('Authentication client is not available.', true);
@@ -310,15 +457,20 @@
       }
       try {
         var sess = await sup.auth.getSession();
-        if (sess.data && sess.data.session) {
-          await upsertFromSession(sup, sess.data.session);
-          sessionStorage.setItem('varoom_oauth_active_account_id', sess.data.session.user.id);
-        }
-      } catch(e) {}
+        if (!sess.data || !sess.data.session) throw new Error('Sign in to your current account before adding another.');
+        await loadLinkedAccounts(sup, sess.data.session, { force: true });
+        if (!canAddAccount()) throw new Error('Account limit reached (3/3). This group cannot include another account.');
+        await upsertFromSession(sup, sess.data.session);
+      } catch(e) {
+        showAlert(e.message || 'Unable to verify the linked-account group.', true);
+        return;
+      }
 
-      var callbackUrl = window.location.origin + '/auth-callback?addAccount=true';
-      var tempClient = window.supabase.createClient(window.VAROOM_SUPABASE_URL, window.VAROOM_SUPABASE_ANON_KEY, {
-        auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
+      var accountAuthFlow = window.VaRoomAccountAuth.createFlowId();
+      var callbackUrl = window.location.origin + '/auth-callback?addAccount=true&account_auth_flow=' + encodeURIComponent(accountAuthFlow);
+      var tempClient = window.VaRoomAccountAuth.createClient(window.supabase, window.VAROOM_SUPABASE_URL, window.VAROOM_SUPABASE_ANON_KEY, {
+        usesRedirect: true,
+        flowId: accountAuthFlow
       });
 
       var res = await tempClient.auth.signInWithOAuth({
@@ -345,20 +497,10 @@
             window.removeEventListener('message', onMsg);
             try {
               var s = evt.data.session;
-              var prof = await fetchProfileBasics(sup, s.user.id);
-              var newAcct = {
-                id: s.user.id,
-                email: s.user.email,
-                full_name: (prof && prof.full_name) || (s.user.user_metadata && s.user.user_metadata.full_name) || 'VaRoom Member',
-                username: (prof && prof.username) || (s.user.email ? s.user.email.split('@')[0] : 'member'),
-                avatar_url: (prof && prof.avatar_url) || null,
-                role: (prof && prof.role) || 'client',
-                access_token: s.access_token,
-                refresh_token: s.refresh_token
-              };
-              upsertAccount(newAcct);
-              window.dispatchEvent(new CustomEvent('varoom_linked_accounts_changed', { detail: { accounts: getLinkedAccounts() } }));
-              showAlert('Account added! You can now switch to this account anytime.', false);
+              var result = await linkAdditionalSession(sup, s);
+              showAlert(result.session_cached
+                ? 'Account added! You can now switch to this account anytime.'
+                : 'Account linked. Sign in again on this browser before switching to it.', false);
               setTimeout(closeModal, 1200);
             } catch(err) {
               showAlert(err.message || 'Error saving account.', true);
@@ -379,8 +521,6 @@
       if (!emailVal) { showAlert('Please enter your email address.', true); return; }
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal)) { showAlert('Please enter a valid email address.', true); return; }
       if (!passVal) { showAlert('Please enter your password.', true); return; }
-      if (!canAddAccount()) { showAlert('Account limit reached (3/3). Remove an account before adding another.', true); return; }
-
       submitBtn.disabled = true;
       submitBtn.innerHTML = '<div class="add-account-spinner"></div><span>Adding Account...</span>';
 
@@ -399,29 +539,12 @@
         var user = authRes.data && authRes.data.user;
         if (!session || !user) throw new Error('Authentication failed.');
 
-        var activeId = getActiveAccountId();
-        if (activeId === user.id) throw new Error('This account is already signed in.');
-        var linked = getLinkedAccounts();
-        for (var i = 0; i < linked.length; i++) {
-          if (linked[i].id === user.id) throw new Error('This account is already linked. You can switch to it from the account menu.');
-        }
-
-        var sup = window.supabaseClient || tempClient;
-        var prof = await fetchProfileBasics(tempClient, user.id);
-        var newAcct = {
-          id: user.id,
-          email: user.email,
-          full_name: (prof && prof.full_name) || (user.user_metadata && user.user_metadata.full_name) || 'VaRoom Member',
-          username: (prof && prof.username) || (user.email ? user.email.split('@')[0] : 'member'),
-          avatar_url: (prof && prof.avatar_url) || null,
-          role: (prof && prof.role) || (user.user_metadata && user.user_metadata.role) || 'client',
-          access_token: session.access_token,
-          refresh_token: session.refresh_token
-        };
-
-        upsertAccount(newAcct);
-        window.dispatchEvent(new CustomEvent('varoom_linked_accounts_changed', { detail: { accounts: getLinkedAccounts() } }));
-        showAlert('Account added! You can now switch to this account anytime.', false);
+        var sup = window.supabaseClient;
+        if (!sup) throw new Error('Your current account session is unavailable. Sign in again and retry.');
+        var result = await linkAdditionalSession(sup, session);
+        showAlert(result.session_cached
+          ? 'Account added! You can now switch to this account anytime.'
+          : 'Account linked. Sign in again on this browser before switching to it.', false);
         setTimeout(closeModal, 1200);
       } catch(err) {
         showAlert(err.message || 'Failed to add account.', true);
@@ -469,6 +592,12 @@
     if (!session.access_token || !session.refresh_token) {
       throw new Error('The account session is missing authentication tokens.');
     }
+    if (!membershipLoaded || membershipUserId !== userId) {
+      await loadLinkedAccounts(client, session);
+    }
+    if (!linkedAccounts.some(function (member) { return member.id === userId; })) {
+      throw new Error('The current account is not present in its authenticated account group.');
+    }
     var version = (sessionWriteVersions[userId] || 0) + 1;
     sessionWriteVersions[userId] = version;
     var profile = await fetchProfileBasics(client, session.user.id);
@@ -488,10 +617,7 @@
       refresh_token: session.refresh_token,
       expires_at: session.expires_at || null
     };
-    var currentAccounts = getLinkedAccounts();
-    var alreadySaved = currentAccounts.some(function (item) { return item.id === userId; });
-    var atCapacityForNewAccount = !alreadySaved && currentAccounts.length >= MAX_LINKED_ACCOUNTS;
-    if (!upsertAccount(account) && !atCapacityForNewAccount) {
+    if (!upsertAccount(account)) {
       throw new Error('Could not save the account session in this browser. Check storage availability and try again.');
     }
     try {
@@ -650,13 +776,15 @@
 
   window.VaRoomAccountSwitcher = {
     getLinkedAccounts: getLinkedAccounts,
+    loadLinkedAccounts: loadLinkedAccounts,
+    linkAdditionalSession: linkAdditionalSession,
     getActiveAccountId: getActiveAccountId,
     getActiveAccount: getActiveAccount,
     upsertAccount: upsertAccount,
     upsertFromSession: upsertFromSession,
     switchAccount: switchAccount,
     removeAccount: removeAccount,
-    canAddAccount: function () { return getLinkedAccounts().length < MAX_LINKED_ACCOUNTS; },
+    canAddAccount: function () { return membershipLoaded && getLinkedAccounts().length < MAX_LINKED_ACCOUNTS; },
     startAddAccount: startAddAccount,
     openAddAccountModal: openAddAccountModal,
     init: init

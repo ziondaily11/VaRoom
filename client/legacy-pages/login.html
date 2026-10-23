@@ -460,23 +460,24 @@
     if (mode !== 'add' && window.VaRoomGoogleSignIn) return;
     event.preventDefault();
     try {
-      if (window.VaRoomAccountSwitcher && !window.VaRoomAccountSwitcher.canAddAccount()) {
-        showAlert('You can link up to 3 accounts. Remove an account before adding another.', 'error');
-        return;
-      }
+      var accountAuthFlow = mode === 'add' ? window.VaRoomAccountAuth.createFlowId() : null;
       if (window.VaRoomAccountSwitcher) {
         var existing = await supabaseClient.auth.getSession();
         var outgoingSession = existing.data && existing.data.session;
-        if (outgoingSession) {
-          await window.VaRoomAccountSwitcher.upsertFromSession(supabaseClient, outgoingSession);
+        if (!outgoingSession) throw new Error('Sign in to your current account before adding another.');
+        await window.VaRoomAccountSwitcher.loadLinkedAccounts(supabaseClient, outgoingSession, { force: true });
+        await window.VaRoomAccountSwitcher.upsertFromSession(supabaseClient, outgoingSession);
+        if (mode === 'add' && !window.VaRoomAccountSwitcher.canAddAccount()) {
+          showAlert('Account limit reached (3/3). This group cannot include another account.', 'error');
+          return;
         }
       }
       var oauthClient = mode === 'add'
-        ? window.VaRoomAccountAuth.createClient(window.supabase, window.VAROOM_SUPABASE_URL, window.VAROOM_SUPABASE_ANON_KEY, { usesRedirect: true })
+        ? window.VaRoomAccountAuth.createClient(window.supabase, window.VAROOM_SUPABASE_URL, window.VAROOM_SUPABASE_ANON_KEY, { usesRedirect: true, flowId: accountAuthFlow })
         : supabaseClient;
       var callbackUrl = window.location.origin + '/auth-callback' +
         (mode === 'add'
-          ? '?add_account_callback=1' + (redirect ? '&redirect=' + encodeURIComponent(redirect) : '')
+          ? '?add_account_callback=1&account_auth_flow=' + encodeURIComponent(accountAuthFlow) + (redirect ? '&redirect=' + encodeURIComponent(redirect) : '')
           : (redirect ? '?redirect=' + encodeURIComponent(redirect) : ''));
       var { error } = await oauthClient.auth.signInWithOAuth({
         provider: 'google',
@@ -517,11 +518,6 @@
 
     if (!valid) return;
 
-    if (mode === 'add' && window.VaRoomAccountSwitcher && !window.VaRoomAccountSwitcher.canAddAccount()) {
-      showAlert('You can link up to 3 accounts. Remove an account before adding another.', 'error');
-      return;
-    }
-
     submitBtn.classList.add('loading');
     submitBtn.disabled = true;
 
@@ -530,9 +526,10 @@
       if (mode === 'add') {
         var existing = await supabaseClient.auth.getSession();
         var outgoingSession = existing.data && existing.data.session;
-        if (outgoingSession && window.VaRoomAccountSwitcher) {
-          await window.VaRoomAccountSwitcher.upsertFromSession(supabaseClient, outgoingSession);
-        }
+        if (!outgoingSession || !window.VaRoomAccountSwitcher) throw new Error('Sign in to your current account before adding another.');
+        await window.VaRoomAccountSwitcher.loadLinkedAccounts(supabaseClient, outgoingSession, { force: true });
+        await window.VaRoomAccountSwitcher.upsertFromSession(supabaseClient, outgoingSession);
+        if (!window.VaRoomAccountSwitcher.canAddAccount()) throw new Error('Account limit reached (3/3). This group cannot include another account.');
         authClient = window.VaRoomAccountAuth.createClient(window.supabase, window.VAROOM_SUPABASE_URL, window.VAROOM_SUPABASE_ANON_KEY, { usesRedirect: false });
       }
 
@@ -541,7 +538,7 @@
 
       if (mode === 'add') {
         if (window.VaRoomAccountSwitcher) {
-          await window.VaRoomAccountSwitcher.upsertFromSession(authClient, data.session);
+          await window.VaRoomAccountSwitcher.linkAdditionalSession(supabaseClient, data.session);
         }
         window.location.href = redirect || '/profile.html';
         return;

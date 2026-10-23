@@ -7,10 +7,14 @@
 
   if (!window.supabaseClient) {
     var callbackParams = new URLSearchParams(window.location.search || '');
-    var isAddAccountCallback = callbackParams.get('add_account_callback') === '1';
-    var clientOptions = isAddAccountCallback && window.VaRoomAccountAuth
-      ? window.VaRoomAccountAuth.clientOptions({ usesRedirect: true, isCallback: true })
-      : undefined;
+    var isAddAccountCallback = callbackParams.get('add_account_callback') === '1'
+      || callbackParams.get('addAccount') === 'true';
+    var accountAuthFlow = callbackParams.get('account_auth_flow');
+    var clientOptions = !isAddAccountCallback
+      ? undefined
+      : (window.VaRoomAccountAuth && accountAuthFlow
+        ? window.VaRoomAccountAuth.clientOptions({ usesRedirect: true, isCallback: true, flowId: accountAuthFlow })
+        : { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: 'varoom-invalid-add-account-callback' } });
     window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, clientOptions);
     if (window.VaRoomDataCache) {
       window.supabaseClient.auth.onAuthStateChange(function (event, session) {

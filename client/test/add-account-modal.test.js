@@ -86,7 +86,7 @@ test('AddAccountModal does not contain forbidden bright blue or purple styling',
   assert.doesNotMatch(addAccountModalCode, /border-color:\s*(#00f|#1d9bf0|blue|purple)/i, 'No blue or purple borders');
 });
 
-test('AddAccountModal uses isolated Supabase client to avoid logging out active session', () => {
+test('AddAccountModal delegates linking to the authenticated account-group service', () => {
   // Verifies that tempClient is created with persistSession: false
   assert.match(
     addAccountModalCode,
@@ -100,18 +100,13 @@ test('AddAccountModal uses isolated Supabase client to avoid logging out active 
   );
   assert.match(
     addAccountModalCode,
-    /This account is already signed in\./,
-    'Guards against adding the current active account'
+    /linkAdditionalSession\(window\.supabaseClient, session\)/,
+    'Uses the shared account-group operation to validate and add the second authenticated account'
   );
   assert.match(
     addAccountModalCode,
-    /This account is already linked\./,
-    'Guards against adding duplicate accounts'
-  );
-  assert.match(
-    addAccountModalCode,
-    /Account limit reached \(3\/3\)/,
-    'Enforces 3-account limit'
+    /Secure account linking is not available/,
+    'Fails closed when the account-group API is unavailable'
   );
 });
 

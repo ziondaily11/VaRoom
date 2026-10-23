@@ -85,8 +85,10 @@ export default function AddAccountModal() {
         setIsGoogleLoading(true);
         setError(null);
         try {
-          await registerAdditionalSession(session);
-          setSuccess('Account added! You can now switch to this account anytime.');
+          const linked = await registerAdditionalSession(session);
+          setSuccess(linked.session_cached
+            ? 'Account added! You can now switch to this account anytime.'
+            : 'Account linked. Sign in again on this browser before switching to it.');
           setTimeout(() => {
             setIsOpen(false);
           }, 1200);
@@ -103,86 +105,12 @@ export default function AddAccountModal() {
   }, []);
 
   // Helper to register an authenticated session into linked accounts
-  const registerAdditionalSession = async (session, customClient) => {
+  const registerAdditionalSession = async (session) => {
     const switcher = window.VaRoomAccountSwitcher;
-    if (switcher && !switcher.canAddAccount()) {
-      throw new Error('Account limit reached (3/3). Remove an account before adding another.');
+    if (!switcher?.linkAdditionalSession || !window.supabaseClient) {
+      throw new Error('Secure account linking is not available. Refresh the page and try again.');
     }
-
-    const newUserId = session.user?.id;
-    if (!newUserId) throw new Error('Missing account identification.');
-
-    // Duplicate account validation
-    const activeId = switcher?.getActiveAccountId?.() ||
-      (window.supabaseClient?.auth?.getSession ? (await window.supabaseClient.auth.getSession()).data?.session?.user?.id : null);
-
-    if (activeId === newUserId) {
-      throw new Error('This account is already signed in.');
-    }
-
-    const linkedAccounts = switcher?.getLinkedAccounts?.() || [];
-    if (linkedAccounts.some((a) => a.id === newUserId)) {
-      throw new Error('This account is already linked. You can switch to it from the account menu.');
-    }
-
-    if (linkedAccounts.length >= 3) {
-      throw new Error('Account limit reached (3/3). You can link up to 3 accounts.');
-    }
-
-    // Fetch profile data
-    let profile = null;
-    try {
-      const clientToUse = customClient || window.supabaseClient;
-      if (clientToUse) {
-        const { data: profData } = await clientToUse
-          .from('profiles')
-          .select('id, full_name, username, avatar_url, role')
-          .eq('id', newUserId)
-          .maybeSingle();
-        profile = profData;
-      }
-    } catch (e) {
-      console.warn('Could not fetch new user profile:', e);
-    }
-
-    // Ensure current active account is saved in varoom_linked_accounts
-    if (window.supabaseClient?.auth && switcher?.upsertFromSession) {
-      try {
-        const activeRes = await window.supabaseClient.auth.getSession();
-        if (activeRes.data?.session) {
-          await switcher.upsertFromSession(window.supabaseClient, activeRes.data.session);
-        }
-      } catch (e) {}
-    }
-
-    const newAccount = {
-      id: newUserId,
-      email: session.user.email || '',
-      full_name: (profile && profile.full_name) || (session.user.user_metadata && (session.user.user_metadata.full_name || session.user.user_metadata.name)) || 'VaRoom Member',
-      username: (profile && profile.username) || (session.user.email ? session.user.email.split('@')[0] : 'member'),
-      avatar_url: (profile && profile.avatar_url) || null,
-      role: (profile && profile.role) || (session.user.user_metadata && session.user.user_metadata.role) || 'client',
-      access_token: session.access_token,
-      refresh_token: session.refresh_token
-    };
-
-    if (switcher) {
-      switcher.upsertAccount(newAccount);
-    } else {
-      const list = [...linkedAccounts, newAccount];
-      localStorage.setItem('varoom_linked_accounts', JSON.stringify(list));
-    }
-
-    // Notify listeners across the app
-    try {
-      const currentList = switcher ? switcher.getLinkedAccounts() : JSON.parse(localStorage.getItem('varoom_linked_accounts') || '[]');
-      window.dispatchEvent(new CustomEvent('varoom_linked_accounts_changed', {
-        detail: { accounts: currentList, added: newAccount }
-      }));
-      localStorage.setItem('varoom_linked_accounts', JSON.stringify(currentList));
-    } catch (e) {}
-
-    return newAccount;
+    return switcher.linkAdditionalSession(window.supabaseClient, session);
   };
 
   // Google sign in handler
@@ -191,20 +119,17 @@ export default function AddAccountModal() {
     setSuccess(null);
 
     const switcher = window.VaRoomAccountSwitcher;
-    if (switcher && !switcher.canAddAccount()) {
-      setError('Account limit reached (3/3). Remove an account before adding another.');
-      return;
-    }
 
     // Save current active account info
-    if (window.supabaseClient?.auth) {
-      try {
-        const { data: { session } } = await window.supabaseClient.auth.getSession();
-        if (session && switcher) {
-          await switcher.upsertFromSession(window.supabaseClient, session);
-          sessionStorage.setItem('varoom_oauth_active_account_id', session.user.id);
-        }
-      } catch (e) {}
+    try {
+      if (!window.supabaseClient?.auth || !switcher) throw new Error('Your current account session is unavailable.');
+      const { data: { session } } = await window.supabaseClient.auth.getSession();
+      if (!session) throw new Error('Sign in to your current account before adding another.');
+      await switcher.loadLinkedAccounts(window.supabaseClient, session, { force: true });
+      if (!switcher.canAddAccount()) throw new Error('Account limit reached (3/3). This group cannot include another account.');
+    } catch (e) {
+      setError(e.message || 'Unable to verify the linked-account group.');
+      return;
     }
 
     const supabaseUrl = window.VAROOM_SUPABASE_URL || 'https://deaphymimdaygeavhyek.supabase.co';
@@ -218,15 +143,12 @@ export default function AddAccountModal() {
     setIsGoogleLoading(true);
 
     try {
-      const tempClient = window.supabase.createClient(supabaseUrl, supabaseAnonKey, {
-        auth: {
-          persistSession: false,
-          autoRefreshToken: false,
-          detectSessionInUrl: false
-        }
-      });
+      const accountAuthFlow = window.VaRoomAccountAuth.createFlowId();
+      const tempClient = window.VaRoomAccountAuth.createClient(
+        window.supabase, supabaseUrl, supabaseAnonKey, { usesRedirect: true, flowId: accountAuthFlow }
+      );
 
-      const callbackUrl = `${window.location.origin}/auth-callback?addAccount=true`;
+      const callbackUrl = `${window.location.origin}/auth-callback?addAccount=true&account_auth_flow=${encodeURIComponent(accountAuthFlow)}`;
       const { data, error: oauthError } = await tempClient.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -302,10 +224,6 @@ export default function AddAccountModal() {
     }
 
     const switcher = window.VaRoomAccountSwitcher;
-    if (switcher && !switcher.canAddAccount()) {
-      setError('Account limit reached (3/3). Remove an account before adding another.');
-      return;
-    }
 
     setIsLoading(true);
 
@@ -345,9 +263,11 @@ export default function AddAccountModal() {
         throw new Error('Failed to retrieve authentication tokens.');
       }
 
-      await registerAdditionalSession(data.session, tempClient);
+      const linked = await registerAdditionalSession(data.session, tempClient);
 
-      setSuccess('Account added! You can now switch to this account anytime.');
+      setSuccess(linked.session_cached
+        ? 'Account added! You can now switch to this account anytime.'
+        : 'Account linked. Sign in again on this browser before switching to it.');
       setTimeout(() => {
         setIsOpen(false);
       }, 1200);

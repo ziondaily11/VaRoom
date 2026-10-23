@@ -17,6 +17,7 @@ const reviewRoutes = require('./routes/reviewRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const hotelReservationRoutes = require('./routes/hotelReservationRoutes');
 const { createAdminRoutes } = require('./routes/adminRoutes');
+const createAccountGroupRoutes = require('./routes/accountGroupRoutes');
 const { rejectSuspendedActivity } = require('./lib/accountAccess');
 const { runFullCleanup } = require('./lib/videoCleanup');
 const { MAX_JSON_BYTES, validateJsonPayload, ValidationError, uuid, text, number } = require('./lib/inputValidation');
@@ -90,6 +91,7 @@ app.use('/api', chatRoutes);
 app.use('/api', reviewRoutes);
 app.use('/api', notificationRoutes);
 app.use('/api', hotelReservationRoutes);
+app.use('/api', createAccountGroupRoutes(supabaseAdmin));
 app.use('/api', createBillingRoutes());
 
 // Serve the Next.js public assets when this service is used as the web host.

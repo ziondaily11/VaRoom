@@ -32,6 +32,8 @@ export default function Document() {
       <body>
         <Main />
         <NextScript />
+        <Script src="/js/account-auth.js" strategy="beforeInteractive" />
+        <Script src="/js/account-switcher.js" strategy="beforeInteractive" />
         <Script src="/js/google-sign-in.js" strategy="beforeInteractive" />
       </body>
     </Html>
