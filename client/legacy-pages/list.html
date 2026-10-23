@@ -1403,6 +1403,7 @@
 <script src="js/supabase-client.js"></script>
 <script src="js/listing-feed-cache.js"></script>
 <script src="js/listing-draft-cache.js"></script>
+<script src="js/listing-policy-preview.js"></script>
 <script>
   const checkingAuth = document.getElementById('checking-auth');
   const listingPage = document.getElementById('listing-page');
@@ -3285,11 +3286,23 @@
     });
   }
   if (policyPreviewBtn) {
-    policyPreviewBtn.addEventListener('click', function(){
+    policyPreviewBtn.addEventListener('click', async function(){
       if (!selectedPolicyFile && !existingPolicyUrl) return;
-      const url = selectedPolicyFile ? URL.createObjectURL(selectedPolicyFile) : existingPolicyUrl;
-      if (policyPreviewFrame) policyPreviewFrame.src = url;
-      if (policyPreviewFilename) policyPreviewFilename.textContent = selectedPolicyFile ? selectedPolicyFile.name : policyPreviewBtn.textContent;
+      if (selectedPolicyFile) {
+        if (policyPreviewFrame) policyPreviewFrame.src = URL.createObjectURL(selectedPolicyFile);
+        if (policyPreviewFilename) policyPreviewFilename.textContent = selectedPolicyFile.name;
+        if (policyPreviewOverlay) policyPreviewOverlay.classList.add('show');
+        return;
+      }
+      try {
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        const preview = await window.VaRoomListingPolicyPreview.resolveCurrentPolicyPreview(editListingId, session && session.access_token);
+        if (policyPreviewFrame) policyPreviewFrame.src = preview.url;
+        if (policyPreviewFilename) policyPreviewFilename.textContent = preview.filename;
+      } catch (_) {
+        if (policyPreviewFrame) policyPreviewFrame.srcdoc = '<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><body style="font:16px system-ui,sans-serif;padding:2rem;color:#333"><p>This document is no longer available. Please refresh the listing and try again.</p></body></html>';
+        if (policyPreviewFilename) policyPreviewFilename.textContent = 'Document unavailable';
+      }
       if (policyPreviewOverlay) policyPreviewOverlay.classList.add('show');
     });
   }
