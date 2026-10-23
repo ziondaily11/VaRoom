@@ -67,9 +67,10 @@ function makeQuery({ rows, table, onInsert, onUpdate }) {
   return query;
 }
 
-async function withDocumentServer({ category = 'property', publicationState = 'draft', seedDocuments = [] } = {}, run) {
+async function withDocumentServer({ category = 'property', publicationState = 'draft', seedDocuments = [], synchronizeSingletonCompletions = false } = {}, run) {
   const saved = {
     from: supabaseAdmin.from,
+    rpc: supabaseAdmin.rpc,
     getUser: supabaseAdmin.auth.getUser,
     bucket: mediaStorageService.R2_BUCKET_NAME,
     environment: mediaStorageService.ENVIRONMENT,
@@ -84,6 +85,9 @@ async function withDocumentServer({ category = 'property', publicationState = 'd
   const documents = structuredClone(seedDocuments);
   const objects = new Map();
   const deleted = [];
+  let singletonRpcArrivals = 0;
+  let releaseSingletonRpc;
+  const singletonRpcBarrier = new Promise((resolve) => { releaseSingletonRpc = resolve; });
   mediaStorageService.R2_BUCKET_NAME = 'test-bucket';
   mediaStorageService.ENVIRONMENT = 'test';
   supabaseAdmin.auth.getUser = async (token) => ({
@@ -95,6 +99,31 @@ async function withDocumentServer({ category = 'property', publicationState = 'd
     if (table === 'listing_documents') return makeQuery({ rows: documents, table, onInsert: (record) => documents.push(record) });
     if (table === 'account_controls') return makeQuery({ rows: [], table });
     throw new Error(`Unexpected table: ${table}`);
+  };
+  supabaseAdmin.rpc = async (name, args) => {
+    assert.equal(name, 'replace_listing_singleton_document');
+    // Hold both completion requests at the database boundary, then model the
+    // serialized transaction and its Supabase { data, error } result.
+    if (synchronizeSingletonCompletions) {
+      singletonRpcArrivals += 1;
+      if (singletonRpcArrivals === 2) releaseSingletonRpc();
+      if (singletonRpcArrivals <= 2) await singletonRpcBarrier;
+    }
+    const target = documents.find((row) => row.id === args.p_document_id
+      && row.host_id === args.p_host_id && row.status === 'verifying' && row.deleted_at == null);
+    if (!target || !['property_policy', 'floor_plan', 'commercial_policy'].includes(target.document_type)) {
+      return { data: { committed: false, retired: [] }, error: null };
+    }
+    Object.assign(target, { status: 'ready', storage_key: args.p_storage_key, sha256: args.p_sha256 });
+    const retired = [];
+    for (const row of documents) {
+      if (row.id !== target.id && row.listing_id === target.listing_id && row.host_id === target.host_id
+          && row.document_type === target.document_type && row.status === 'ready' && row.deleted_at == null) {
+        Object.assign(row, { status: 'deleted', deleted_at: new Date().toISOString() });
+        retired.push({ id: row.id, storage_provider: row.storage_provider, storage_bucket: row.storage_bucket, storage_key: row.storage_key });
+      }
+    }
+    return { data: { committed: true, retired }, error: null };
   };
   mediaStorageService.generateR2UploadAuthorization = async (key, contentType, maxFileSize, expiry, expectedLength) => ({
     uploadUrl: 'https://r2.invalid/presigned-put', endpoint: 'https://r2.invalid', bucketName: 'test-bucket',
@@ -138,6 +167,7 @@ async function withDocumentServer({ category = 'property', publicationState = 'd
   } finally {
     await new Promise((resolve) => server.close(resolve));
     supabaseAdmin.from = saved.from;
+    supabaseAdmin.rpc = saved.rpc;
     supabaseAdmin.auth.getUser = saved.getUser;
     mediaStorageService.generateR2UploadAuthorization = saved.generateUpload;
     mediaStorageService.getR2ObjectMetadata = saved.metadata;
@@ -176,6 +206,30 @@ test('accepts and verifies a PDF for a Property listing before persisting its im
     assert.equal(row.sha256, require('crypto').createHash('sha256').update(pdfBytes).digest('hex'));
     assert.equal(state.objects.get(row.storage_key).bytes.equals(pdfBytes), true);
     assert.equal(state.objects.has(row.storage_key.replace('/verified.', '/incoming.')), false);
+  });
+});
+
+test('serializes concurrent singleton completions and preserves the winning document object', async () => {
+  await withDocumentServer({ category: 'property', synchronizeSingletonCompletions: true }, async (state) => {
+    const uploads = await Promise.all([1, 2].map(async (n) => {
+      const initialized = await state.send('/listing-documents/upload-init', {
+        method: 'POST', body: { listingId, documentType: 'property_policy', filename: `policy-${n}.pdf`, mimeType: 'application/pdf', fileSize: pdfBytes.length },
+      });
+      assert.equal(initialized.response.status, 201);
+      const row = state.documents.find((item) => item.id === initialized.body.document.id);
+      state.objects.set(row.storage_key, { bytes: Buffer.from(pdfBytes), contentType: 'application/pdf' });
+      return row;
+    }));
+
+    const completions = await Promise.all(uploads.map((row) => state.send(`/listing-documents/${row.id}/complete`, { method: 'POST' })));
+    assert.deepEqual(completions.map((result) => result.response.status), [200, 200]);
+    const ready = state.documents.filter((row) => row.document_type === 'property_policy' && row.status === 'ready' && row.deleted_at == null);
+    assert.equal(ready.length, 1);
+    assert.equal(state.objects.has(ready[0].storage_key), true, 'the winning verified storage object must remain intact');
+    assert.equal(state.objects.get(ready[0].storage_key).bytes.equals(pdfBytes), true);
+    const retired = uploads.find((row) => row.id !== ready[0].id);
+    assert.equal(retired.status, 'deleted');
+    assert.equal(state.objects.has(retired.storage_key), false, 'the retired object is removed after the atomic replacement commits');
   });
 });
 

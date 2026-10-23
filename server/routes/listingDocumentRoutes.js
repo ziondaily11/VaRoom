@@ -201,41 +201,37 @@ router.post('/listing-documents/:id/complete', async (req, res) => {
       throw new Error('Uploaded document content did not match its declared type');
     }
     const sha256 = require('crypto').createHash('sha256').update(bytes).digest('hex');
-    const { data: ready, error } = await supabaseAdmin.from('listing_documents')
-      .update({ status: 'ready', storage_key: verifiedKey, sha256, updated_at: new Date().toISOString() })
-      .eq('id', id).eq('host_id', user.id).eq('status', 'verifying').select('id').maybeSingle();
-    if (error) throw error;
-    if (!ready) {
-      const current = await getOwnedDocument(id, user.id);
-      if (!current || current.status !== 'ready') throw new Error('Unable to finalize document metadata');
+    let retiredDocuments = [];
+    if (SINGLETON_TYPES.has(document.document_type)) {
+      const { data: replacement, error } = await supabaseAdmin.rpc('replace_listing_singleton_document', {
+        p_document_id: id,
+        p_host_id: user.id,
+        p_storage_key: verifiedKey,
+        p_sha256: sha256,
+      });
+      if (error) throw error;
+      if (!replacement?.committed) throw new Error('Unable to finalize document metadata');
+      retiredDocuments = replacement.retired || [];
+    } else {
+      const { data: ready, error } = await supabaseAdmin.from('listing_documents')
+        .update({ status: 'ready', storage_key: verifiedKey, sha256, updated_at: new Date().toISOString() })
+        .eq('id', id).eq('host_id', user.id).eq('status', 'verifying').select('id').maybeSingle();
+      if (error) throw error;
+      if (!ready) {
+        const current = await getOwnedDocument(id, user.id);
+        if (!current || current.status !== 'ready') throw new Error('Unable to finalize document metadata');
+      }
     }
 
-    // Replace single-file documents only after the new object is verified and
-    // associated. Ownership/management documents intentionally remain a list.
-    if (SINGLETON_TYPES.has(document.document_type)) {
-      const { data: previous, error: previousError } = await supabaseAdmin.from('listing_documents')
-        .select('id,storage_provider,storage_bucket,storage_key').eq('listing_id', document.listing_id).eq('host_id', user.id)
-        .eq('document_type', document.document_type).eq('status', 'ready').is('deleted_at', null).neq('id', id);
-      if (previousError) {
-        console.error('Unable to inspect replaced listing documents:', previousError.message);
-      } else if (previous && previous.length) {
-        const oldIds = previous.map((row) => row.id);
-        const { error: retireError } = await supabaseAdmin.from('listing_documents')
-          .update({ status: 'deleted', deleted_at: new Date().toISOString() }).in('id', oldIds).eq('host_id', user.id);
-        if (retireError) {
-          console.error('Unable to retire replaced listing documents:', retireError.message);
-        } else {
-          for (const row of previous) {
-            try {
-              if (row.storage_provider === 'supabase') {
-                const { error: removeError } = await supabaseAdmin.storage.from(row.storage_bucket).remove([row.storage_key]);
-                if (removeError) throw removeError;
-              } else await mediaStorageService.deleteR2Object(row.storage_key);
-            }
-            catch (cleanupError) { console.error('Replaced listing document cleanup failed:', cleanupError.message); }
-          }
-        }
-      }
+    // The RPC commits the replacement and retirement atomically before old
+    // objects are removed. Ownership/management documents remain a list.
+    for (const row of retiredDocuments) {
+      try {
+        if (row.storage_provider === 'supabase') {
+          const { error: removeError } = await supabaseAdmin.storage.from(row.storage_bucket).remove([row.storage_key]);
+          if (removeError) throw removeError;
+        } else await mediaStorageService.deleteR2Object(row.storage_key);
+      } catch (cleanupError) { console.error('Replaced listing document cleanup failed:', cleanupError.message); }
     }
     // The presigned URL targets the incoming key and cannot overwrite the
     // immutable key now referenced by the ready metadata row.
