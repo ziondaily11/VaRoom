@@ -283,6 +283,28 @@ test('email and Google add-account flows use isolated auth clients; callback lin
   assert.match(callbackSource, /signOut\(\{ scope: 'local' \}\)/);
 });
 
+test('successful Google add-account callbacks keep the added session valid for linking and switching', () => {
+  assert.match(callbackSource, /<script src="https:\/\/cdn\.jsdelivr\.net\/npm\/@supabase\/supabase-js@2"><\/script>/);
+
+  const legacyCallbackStart = callbackSource.indexOf("if (queryParams.get('add_account_callback') === '1')");
+  const legacyCallbackCatch = callbackSource.indexOf('      } catch (_error) {', legacyCallbackStart);
+  assert.ok(legacyCallbackStart >= 0 && legacyCallbackCatch > legacyCallbackStart);
+  assert.doesNotMatch(callbackSource.slice(legacyCallbackStart, legacyCallbackCatch), /signOut\(\{ scope: 'local' \}\)/);
+
+  const popupStart = callbackSource.indexOf('if (window.opener && !window.opener.closed)');
+  const popupCatch = callbackSource.indexOf('        } catch (e) {', popupStart);
+  assert.ok(popupStart >= 0 && popupCatch > popupStart);
+  assert.doesNotMatch(callbackSource.slice(popupStart, popupCatch), /signOut\(\{ scope: 'local' \}\)/);
+
+  const redirectStart = callbackSource.indexOf('      await linkAddAccountSession(additionalSession);', popupCatch);
+  const redirectCatch = callbackSource.indexOf('    } catch (_error) {', redirectStart);
+  assert.ok(redirectStart >= 0 && redirectCatch > redirectStart);
+  assert.doesNotMatch(callbackSource.slice(redirectStart, redirectCatch), /signOut\(\{ scope: 'local' \}\)/);
+
+  // Failed and cancelled flows still revoke their unlinked temporary session.
+  assert.match(callbackSource.slice(legacyCallbackCatch), /signOut\(\{ scope: 'local' \}\)/);
+});
+
 test('concurrent refresh callbacks cannot let an older profile lookup overwrite newer tokens', async () => {
   const context = createSwitcher(new Map(), ['account-a']);
   let releaseOlderProfile;
