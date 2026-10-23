@@ -829,6 +829,7 @@
   .media-loading-indicator{ position:absolute; inset:0; z-index:2; display:flex; align-items:center; justify-content:center; background:#fff; }
   html[data-theme="dark"] .card-media-loading,html[data-theme="dark"] .media-image-skeleton,html[data-theme="dark"] .media-loading-indicator{ background:#000; }
   .card-video.is-loaded .media-loading-indicator,.card-video.is-failed .media-loading-indicator{ display:none; }
+  .card-video.is-autoplay-blocked .media-loading-indicator{ display:none; pointer-events:none; }
   #feed-list.discover-media-feed .card-video{ height:auto; background:transparent; }
   #feed-list.discover-media-feed .card-video video,
   #feed-list.discover-media-feed .card-video .varoom-video-player,
@@ -2797,7 +2798,9 @@
       container.querySelectorAll('.card-video video').forEach(function(video){
         const stage = video.closest('.card-video');
         function finishVideoLoad(){ if (stage) stage.classList.add('is-loaded'); }
-        function failVideoLoad(){ if (stage) stage.classList.add('is-failed'); }
+        function failVideoLoad(){ if (stage) { stage.classList.remove('is-autoplay-blocked'); stage.classList.add('is-failed'); } }
+        video.addEventListener('varoomautoplayblocked', function(){ if (stage) stage.classList.add('is-autoplay-blocked'); });
+        video.addEventListener('varoomvideoplaying', function(){ if (stage) stage.classList.remove('is-autoplay-blocked'); });
         video.addEventListener('loadeddata', finishVideoLoad, { once:true });
         video.addEventListener('error', failVideoLoad, { once:true });
         if (video.readyState >= 2) finishVideoLoad();
