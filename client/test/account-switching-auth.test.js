@@ -12,6 +12,10 @@ const accountAuthSource = fs.readFileSync(
   path.join(__dirname, '../public/js/account-auth.js'),
   'utf8'
 );
+const addAccountModalSource = fs.readFileSync(
+  path.join(__dirname, '../components/AddAccountModal.jsx'),
+  'utf8'
+);
 const loginSource = fs.readFileSync(
   path.join(__dirname, '../legacy-pages/login.html'),
   'utf8'
@@ -225,7 +229,9 @@ test('add-account auth uses isolated storage and OAuth callback uses the same te
 });
 
 test('email and Google add-account flows use isolated auth clients; callback links accounts without replacing the active session', () => {
-  assert.match(loginSource, /createClient\(window\.supabase,[\s\S]*?\{ usesRedirect: false \}\)/);
+  assert.match(loginSource, /createClient\(window\.supabase,[\s\S]*?\{ usesRedirect: false, flowId: window\.VaRoomAccountAuth\.createFlowId\(\) \}\)/);
+  assert.match(addAccountModalSource, /VaRoomAccountAuth\.createClient\([\s\S]*?\{\s*usesRedirect: false,\s*flowId: accountAuthFlow\s*\}\s*\)/);
+  assert.match(accountSwitcherSource, /VaRoomAccountAuth\.createClient\([\s\S]*?\{\s*usesRedirect: false,\s*flowId: window\.VaRoomAccountAuth\.createFlowId\(\)\s*\}\s*\)/);
   assert.match(loginSource, /createClient\(window\.supabase,[\s\S]*?\{ usesRedirect: true, flowId: accountAuthFlow \}\)/);
   assert.match(loginSource, /add_account_callback=1/);
   assert.match(callbackSource, /add_account_callback/);

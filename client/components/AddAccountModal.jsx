@@ -235,14 +235,15 @@ export default function AddAccountModal() {
         throw new Error('Authentication service is initializing. Please try again.');
       }
 
-      // Isolated Supabase client: does NOT alter active session in localStorage!
-      const tempClient = window.supabase.createClient(supabaseUrl, supabaseAnonKey, {
-        auth: {
-          persistSession: false,
-          autoRefreshToken: false,
-          detectSessionInUrl: false
-        }
-      });
+      // Use a flow-specific auth storage key so this temporary sign-in cannot
+      // share auth state or the cross-tab lock namespace with the active user.
+      const accountAuthFlow = window.VaRoomAccountAuth.createFlowId();
+      const tempClient = window.VaRoomAccountAuth.createClient(
+        window.supabase,
+        supabaseUrl,
+        supabaseAnonKey,
+        { usesRedirect: false, flowId: accountAuthFlow }
+      );
 
       const { data, error: authError } = await tempClient.auth.signInWithPassword({
         email: trimmedEmail,

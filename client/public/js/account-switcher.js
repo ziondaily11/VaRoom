@@ -525,9 +525,12 @@
       submitBtn.innerHTML = '<div class="add-account-spinner"></div><span>Adding Account...</span>';
 
       try {
-        var tempClient = window.supabase.createClient(window.VAROOM_SUPABASE_URL, window.VAROOM_SUPABASE_ANON_KEY, {
-          auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
-        });
+        var tempClient = window.VaRoomAccountAuth.createClient(
+          window.supabase,
+          window.VAROOM_SUPABASE_URL,
+          window.VAROOM_SUPABASE_ANON_KEY,
+          { usesRedirect: false, flowId: window.VaRoomAccountAuth.createFlowId() }
+        );
         var authRes = await tempClient.auth.signInWithPassword({ email: emailVal, password: passVal });
         if (authRes.error) {
           var msg = authRes.error.message || 'Authentication failed.';
