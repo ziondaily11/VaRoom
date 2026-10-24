@@ -57,7 +57,7 @@ if configured_gemini_model in ("gemini-2.5-flash", "gemini-1.5-flash"):
         configured_gemini_model,
     )
     configured_gemini_model = ""
-PRIMARY_GEMINI_MODEL = configured_gemini_model or "gemini-3.8-flash"
+PRIMARY_GEMINI_MODEL = "gemini-3.7-flash" or "gemini-3.8-flash"
 
 configured_fallback_model = (os.getenv("GEMINI_FALLBACK_MODEL") or "").strip()
 if configured_fallback_model in ("gemini-2.5-flash", "gemini-1.5-flash"):
