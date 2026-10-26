@@ -300,11 +300,13 @@ export default function NotificationsPage() {
     mountedRef.current = true;
     let cancelled = false;
 
-    // Immediately alert _app.js and environment of cached role
+    let earlyUserId: string | null = null;
+    // Immediately alert _app.js and environment of cached role & hydrate cache instantly
     try {
       const cachedRaw = localStorage.getItem('varoom_cached_profile');
       if (cachedRaw) {
         const parsed = JSON.parse(cachedRaw);
+        if (parsed?.id) earlyUserId = parsed.id;
         if (parsed && (parsed.role === 'host' || parsed.role === 'client')) {
           document.documentElement.setAttribute('data-account-role', parsed.role);
           window.dispatchEvent(new CustomEvent('varoom_role_change', { detail: { role: parsed.role } }));
@@ -316,7 +318,22 @@ export default function NotificationsPage() {
           window.dispatchEvent(new CustomEvent('varoom_role_change', { detail: { role: stored } }));
         }
       }
+      if (!earlyUserId) {
+        earlyUserId = localStorage.getItem('varoom_active_account_id');
+      }
     } catch (e) {}
+
+    // Instant cache presentation: if we have a known active user, display cached notifications immediately
+    if (earlyUserId) {
+      setUserId(earlyUserId);
+      const earlyCached = getCachedNotifications(earlyUserId);
+      if (earlyCached && earlyCached.items) {
+        setNotifications(earlyCached.items);
+        setUnreadCount(earlyCached.unreadCount);
+        setLoading(false);
+        syncSidebarUnreadCount(earlyCached.unreadCount);
+      }
+    }
 
     const initAuthAndData = async () => {
       let client = (window as any).supabaseClient || getOrInitSupabaseClient();
@@ -428,10 +445,33 @@ export default function NotificationsPage() {
 
     void initAuthAndData();
 
+    const handleAccountChange = () => {
+      const currentActiveId = localStorage.getItem('varoom_active_account_id');
+      if (currentActiveId && currentActiveId !== userId) {
+        setUserId(currentActiveId);
+        const nextCached = getCachedNotifications(currentActiveId);
+        if (nextCached && nextCached.items) {
+          setNotifications(nextCached.items);
+          setUnreadCount(nextCached.unreadCount);
+          setLoading(false);
+          syncSidebarUnreadCount(nextCached.unreadCount);
+        } else {
+          setNotifications([]);
+          setUnreadCount(0);
+          setLoading(true);
+        }
+        void initAuthAndData();
+      }
+    };
+    window.addEventListener('varoom_active_account_changed', handleAccountChange);
+    window.addEventListener('varoom_linked_accounts_changed', handleAccountChange);
+
     return () => {
       mountedRef.current = false;
       cancelled = true;
       requestVersionRef.current += 1;
+      window.removeEventListener('varoom_active_account_changed', handleAccountChange);
+      window.removeEventListener('varoom_linked_accounts_changed', handleAccountChange);
 
       // Clean up ONLY the page-owned realtime channel
       if (realtimeChannelRef.current) {
@@ -796,6 +836,8 @@ export default function NotificationsPage() {
           --border: #EAEAEC;
           --text: #17171C;
           --text-muted: #6E6E76;
+          --ink: #0F1419;
+          --muted: #536471;
           --green: #1B8A5A;
           --green-soft: #E7F7EE;
           --amber: #B45309;
@@ -810,6 +852,8 @@ export default function NotificationsPage() {
           --white: #000000;
           --text: #E7E9EA;
           --text-muted: #71767b;
+          --ink: #FFFFFF;
+          --muted: #71767b;
           --border: rgba(255, 255, 255, 0.12);
           --red-soft: rgba(196, 30, 58, 0.15);
           --red-soft-2: rgba(196, 30, 58, 0.22);

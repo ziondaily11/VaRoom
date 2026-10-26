@@ -2280,11 +2280,7 @@
     if (typeof initNotifications === 'function') {
       initNotifications(supabaseClient, currentUser);
     }
-    document.getElementById('notif-nav-item')?.addEventListener('click', function(e){
-      e.stopPropagation();
-      const bell = document.getElementById('notif-bell');
-      if (bell) bell.click();
-    });
+    // Notification navigation is handled directly by the shared sidebar link (/notifications).
 
     document.getElementById('logout-btn')?.addEventListener('click', async function(){
       await supabaseClient.auth.signOut();

@@ -534,9 +534,10 @@ export default function SharedHostSidebar({ activeNav: explicitActiveNav }) {
             </svg>
             Chats
           </a>
-          <button
-            type="button"
+          <a
+            href="/notifications"
             className={`nav-item ${activeNav === 'notifications' ? 'active' : ''}`}
+            data-nav="notifications"
             id="notif-nav-item"
             onClick={(e) => handleNav(e, '/notifications')}
           >
@@ -560,7 +561,7 @@ export default function SharedHostSidebar({ activeNav: explicitActiveNav }) {
                 {unreadCount > 99 ? '99+' : unreadCount}
               </span>
             )}
-          </button>
+          </a>
         </nav>
 
         {/* Host nav group */}

@@ -2139,7 +2139,8 @@
       }
     })();
 
-    document.getElementById('notif-nav-item')?.addEventListener('click', function(){
+    // In shared layout, sidebar navigation is handled natively by Next.js router.
+    document.querySelector('#sidebar #notif-nav-item')?.addEventListener('click', function(){
       window.location.href = '/notifications';
     });
 
@@ -3681,8 +3682,8 @@
         showToast(el.getAttribute('data-soon') + ' is coming soon.');
       });
     });
-    // Open the dedicated notifications view from the sidebar.
-    document.getElementById('notif-nav-item').addEventListener('click', function(e){
+    // Open the dedicated notifications view from legacy sidebar if present.
+    document.querySelector('#sidebar #notif-nav-item')?.addEventListener('click', function(e){
       e.preventDefault();
       window.location.href = '/notifications';
     });

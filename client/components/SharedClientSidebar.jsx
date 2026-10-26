@@ -530,6 +530,7 @@ export default function SharedClientSidebar({ activeNav: explicitActiveNav }) {
           <a
             href="/notifications"
             className={`nav-item ${activeNav === 'notifications' ? 'active' : ''}`}
+            data-nav="notifications"
             id="notif-nav-item"
             onClick={(e) => handleNav(e, '/notifications')}
           >
