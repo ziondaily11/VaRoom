@@ -24,6 +24,10 @@ test('Home side widgets keep their containers mounted and settle loading indicat
 
   assert.doesNotMatch(client, /skel-dest-card|skel-update-media|skel-news-media/);
   assert.doesNotMatch(host, /property-news-skeleton|skel-update-media/);
+  assert.match(client, /skel-card" data-skeleton-layout="' \+ skeletonLayout/);
+  assert.match(client, /skel-card\[data-skeleton-layout="mobile"\] \.skel-media[\s\S]*?height:clamp\(220px, 52vw, 460px\)/);
+  assert.match(host, /homeSkeleton\.dataset\.skeletonLayout = window\.matchMedia\('\(max-width:860px\)'\)/);
+  assert.match(host, /@media \(max-width:860px\)[\s\S]*?\.host-home-skeleton \.host-skel-media[\s\S]*?height:clamp\(220px, 52vw, 460px\)/);
   assert.match(client, /No Property News is available right now/);
   assert.match(host, /No Property News is available right now/);
 });
