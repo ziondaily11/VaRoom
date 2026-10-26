@@ -30,7 +30,7 @@ function createSession(id) {
   };
 }
 
-function createContext({ groupByUser, storage = new Map(), failLink = false }) {
+function createContext({ groupByUser, storage = new Map(), failLink = false, failRemove = false }) {
   const localStorage = {
     getItem(key) { return storage.has(key) ? storage.get(key) : null; },
     setItem(key, value) { storage.set(key, String(value)); },
@@ -56,6 +56,16 @@ function createContext({ groupByUser, storage = new Map(), failLink = false }) {
         groupByUser[userId] = members;
         groupByUser[additionalId] = members;
         return { ok: true, async json() { return { current_user_id: userId, members: members.map((id) => ({ id, full_name: id.toUpperCase(), username: id, email: id === userId ? id + '@example.test' : '' })) }; } };
+      }
+      if (url.startsWith('/api/account-groups/') && options.method === 'DELETE') {
+        if (failRemove) return { ok: false, status: 409, async json() { return { error: 'This account is no longer linked. Refresh and try again.' }; } };
+        const removedId = decodeURIComponent(url.slice('/api/account-groups/'.length));
+        const members = groupByUser[userId] || [userId];
+        if (!members.includes(removedId)) return { ok: false, status: 409, async json() { return { error: 'This account is no longer linked. Refresh and try again.' }; } };
+        const remaining = members.filter((id) => id !== removedId);
+        remaining.forEach((id) => { groupByUser[id] = remaining; });
+        groupByUser[removedId] = [removedId];
+        return { ok: true, async json() { return { current_user_id: userId, members: remaining.map((id) => ({ id, full_name: id.toUpperCase(), username: id, email: id === userId ? id + '@example.test' : '' })) }; } };
       }
       throw new Error('Unexpected account-group endpoint: ' + url);
     }
@@ -138,6 +148,77 @@ test('a rejected membership operation does not add the account to the displayed 
   await assert.rejects(context.api.linkAdditionalSession(client, createSession('y')), /limit reached/i);
   assert.deepEqual(context.api.getLinkedAccounts().map((member) => member.id), ['x']);
   assert.deepEqual(JSON.parse(context.storage.get('varoom_linked_accounts')), []);
+});
+
+test('removing a saved non-current account updates the authorized group and only clears its local credentials', async () => {
+  const groupByUser = { x: ['x', 'y', 'z'], y: ['x', 'y', 'z'], z: ['x', 'y', 'z'], f: ['f'] };
+  const context = createContext({ groupByUser });
+  const client = createClient(createSession('x'));
+  await context.api.loadLinkedAccounts(client, createSession('x'));
+  context.api.upsertAccount(createAccount('x'));
+  context.api.upsertAccount(createAccount('y'));
+  context.api.upsertAccount(createAccount('z'));
+
+  const remaining = await context.api.removeLinkedAccount(client, 'y');
+  assert.deepEqual(remaining.map((member) => member.id), ['x', 'z']);
+  assert.deepEqual(context.api.getLinkedAccounts().map((member) => member.id), ['x', 'z']);
+  assert.equal((await client.auth.getSession()).data.session.user.id, 'x');
+  assert.equal(JSON.parse(context.storage.get('varoom_linked_accounts')).some((account) => account.id === 'y'), false);
+  assert.deepEqual(groupByUser.y, ['y']);
+  assert.deepEqual(groupByUser.f, ['f']);
+  const removeRequest = context.requests.find((request) => request.url === '/api/account-groups/y');
+  assert.equal(removeRequest.options.method, 'DELETE');
+  assert.equal(removeRequest.options.headers.Authorization, 'Bearer access-x');
+
+  await context.api.linkAdditionalSession(client, createSession('a'));
+  assert.deepEqual(context.api.getLinkedAccounts().map((member) => member.id), ['x', 'z', 'a']);
+});
+
+test('a failed saved-account removal preserves the displayed group, local credentials, and current session', async () => {
+  const context = createContext({ groupByUser: { x: ['x', 'y'], y: ['x', 'y'] }, failRemove: true });
+  const client = createClient(createSession('x'));
+  await context.api.loadLinkedAccounts(client, createSession('x'));
+  context.api.upsertAccount(createAccount('x'));
+  context.api.upsertAccount(createAccount('y'));
+
+  await assert.rejects(context.api.removeLinkedAccount(client, 'y'), /no longer linked/i);
+  assert.deepEqual(context.api.getLinkedAccounts().map((member) => member.id), ['x', 'y']);
+  assert.equal(JSON.parse(context.storage.get('varoom_linked_accounts')).some((account) => account.id === 'y'), true);
+  assert.equal((await client.auth.getSession()).data.session.user.id, 'x');
+});
+
+test('a storage failure after authorized removal keeps the removed account out of the current tab', async () => {
+  const context = createContext({ groupByUser: { x: ['x', 'y'], y: ['x', 'y'] } });
+  const client = createClient(createSession('x'));
+  await context.api.loadLinkedAccounts(client, createSession('x'));
+  context.api.upsertAccount(createAccount('x'));
+  context.api.upsertAccount(createAccount('y'));
+  const originalSetItem = context.localStorage.setItem;
+  context.localStorage.setItem = (key, value) => {
+    if (key === 'varoom_linked_accounts' && !String(value).includes('"id":"y"')) {
+      throw new Error('storage unavailable');
+    }
+    originalSetItem(key, value);
+  };
+
+  let error;
+  try {
+    await context.api.removeLinkedAccount(client, 'y');
+  } catch (caught) {
+    error = caught;
+  }
+  assert.ok(error);
+  assert.equal(error.removalSucceeded, true);
+  assert.match(error.message, /was removed/i);
+  assert.deepEqual(context.api.getLinkedAccounts().map((member) => member.id), ['x']);
+  assert.equal((await client.auth.getSession()).data.session.user.id, 'x');
+});
+
+test('the current account cannot be removed through the saved-account operation', async () => {
+  const context = createContext({ groupByUser: { x: ['x', 'y'], y: ['x', 'y'] } });
+  const client = createClient(createSession('x'));
+  await context.api.loadLinkedAccounts(client, createSession('x'));
+  await assert.rejects(context.api.removeLinkedAccount(client, 'x'), /switch accounts/i);
 });
 
 test('a second browser receives group profiles but not another member refresh tokens', async () => {

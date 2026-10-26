@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { Menu, X, ArrowRight } from 'lucide-react';
 
@@ -12,9 +12,103 @@ interface NavbarProps {
 
 export const Navbar: React.FC<NavbarProps> = ({ isAuthOpen, onOpenAuth, onCloseAuth, onOpenSignup, onTryElie }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const headerRef = useRef<HTMLElement>(null);
+  const [headerHeight, setHeaderHeight] = useState<number>(72);
+
+  const closeMenu = useCallback(() => {
+    setMobileMenuOpen(false);
+  }, []);
+
+  const handleNavAnchor = useCallback((e: React.MouseEvent<HTMLAnchorElement>, hash: string) => {
+    closeMenu();
+    const target = document.querySelector(hash);
+    if (target) {
+      e.preventDefault();
+      target.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [closeMenu]);
+
+  const handleElieClick = useCallback((e: React.MouseEvent<HTMLAnchorElement>) => {
+    closeMenu();
+    onTryElie(e);
+  }, [closeMenu, onTryElie]);
+
+  const handleSignInClick = useCallback(() => {
+    closeMenu();
+    onOpenAuth();
+  }, [closeMenu, onOpenAuth]);
+
+  const handleCloseAuthClick = useCallback(() => {
+    closeMenu();
+    onCloseAuth();
+  }, [closeMenu, onCloseAuth]);
+
+  const handleGetStartedClick = useCallback(() => {
+    closeMenu();
+    onOpenSignup();
+  }, [closeMenu, onOpenSignup]);
+
+  // Track header height on mount and resize
+  useEffect(() => {
+    const updateHeaderHeight = () => {
+      if (headerRef.current) {
+        const height = headerRef.current.offsetHeight;
+        if (height > 0) {
+          setHeaderHeight(height);
+        }
+      }
+    };
+
+    updateHeaderHeight();
+    window.addEventListener('resize', updateHeaderHeight);
+    return () => window.removeEventListener('resize', updateHeaderHeight);
+  }, []);
+
+  // Lock body scroll and listen for Escape key when mobile menu is open
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        closeMenu();
+      }
+    };
+
+    const handleResize = () => {
+      if (window.innerWidth >= 768) {
+        closeMenu();
+      } else if (headerRef.current) {
+        const height = headerRef.current.offsetHeight;
+        if (height > 0) {
+          setHeaderHeight(height);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousHtmlOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [mobileMenuOpen, closeMenu]);
 
   return (
-    <header className="hero-header relative z-20 w-full max-w-full box-border px-5 sm:px-8 md:px-10 lg:px-14 py-5 md:py-7 flex items-center justify-between">
+    <header
+      ref={headerRef}
+      className={`hero-header relative w-full max-w-full box-border px-5 sm:px-8 md:px-10 lg:px-14 py-5 md:py-7 flex items-center justify-between transition-colors ${
+        mobileMenuOpen ? 'z-40 bg-[#faf6f0] md:bg-transparent' : 'z-20'
+      }`}
+    >
       {/* Brand Wordmark - completely free of any underline or text decoration */}
       <Link
         href="/"
@@ -109,71 +203,79 @@ export const Navbar: React.FC<NavbarProps> = ({ isAuthOpen, onOpenAuth, onCloseA
           className="p-2 text-[#181513] rounded-full hover:bg-black/5 transition"
           aria-label="Toggle navigation menu"
           aria-expanded={mobileMenuOpen}
+          aria-controls="mobile-navigation-menu"
         >
           {mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
         </button>
       </div>
 
-      {/* Mobile Menu Dropdown */}
+      {/* Mobile Menu Overlay / Drawer */}
       {mobileMenuOpen && (
-        <div className="absolute top-full left-0 w-full px-6 py-5 bg-[#faf6f0]/95 backdrop-blur-md border-b border-[#2d2724]/10 shadow-lg md:hidden flex flex-col gap-4 animate-in fade-in slide-in-from-top-2 duration-200 z-50">
-          <a
-            href="#host-section"
-            onClick={() => setMobileMenuOpen(false)}
-            className="text-base font-medium text-[#181513] py-2 border-b border-[#2d2724]/10 flex items-center justify-between no-underline"
-          >
-            <span>For Hosts</span>
-            <ArrowRight size={16} className="text-[#2d2724]/40" />
-          </a>
-          <a
-            href="#client-section"
-            onClick={() => setMobileMenuOpen(false)}
-            className="text-base font-medium text-[#181513] py-2 border-b border-[#2d2724]/10 flex items-center justify-between no-underline"
-          >
-            <span>For Clients</span>
-            <ArrowRight size={16} className="text-[#2d2724]/40" />
-          </a>
-          <a
-            href="/login"
-            onClick={(e) => {
-              setMobileMenuOpen(false);
-              onTryElie(e);
-            }}
-            className="text-base font-medium text-[#181513] py-2 border-b border-[#2d2724]/10 flex items-center justify-between no-underline"
-          >
-            <span className="flex items-center gap-2">
-              Elie AI Assistant
-              <span className="w-2 h-2 rounded-full bg-[#bd2337] inline-block" />
-            </span>
-            <ArrowRight size={16} className="text-[#2d2724]/40" />
-          </a>
-          <a
-            href="#why-us"
-            onClick={() => setMobileMenuOpen(false)}
-            className="text-base font-medium text-[#181513] py-2 border-b border-[#2d2724]/10 flex items-center justify-between no-underline"
-          >
-            <span>Why VaRoom</span>
-            <ArrowRight size={16} className="text-[#2d2724]/40" />
-          </a>
-          <div className="pt-2 flex flex-col gap-2.5">
+        <div
+          id="mobile-navigation-menu"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Mobile navigation"
+          className="absolute top-full left-0 w-full bg-[#faf6f0] border-t border-[#2d2724]/10 shadow-2xl md:hidden flex flex-col justify-between px-6 py-5 overflow-y-auto overscroll-contain animate-in fade-in slide-in-from-top-2 duration-200 z-50"
+          style={{
+            height: `calc(100dvh - ${headerHeight}px)`,
+            maxHeight: `calc(100dvh - ${headerHeight}px)`,
+          }}
+        >
+          {/* Nav Links */}
+          <div className="flex flex-col gap-1">
+            <a
+              href="#host-section"
+              onClick={(e) => handleNavAnchor(e, '#host-section')}
+              className="text-base font-medium text-[#181513] py-3 border-b border-[#2d2724]/10 flex items-center justify-between no-underline"
+            >
+              <span>For Hosts</span>
+              <ArrowRight size={16} className="text-[#2d2724]/40" />
+            </a>
+            <a
+              href="#client-section"
+              onClick={(e) => handleNavAnchor(e, '#client-section')}
+              className="text-base font-medium text-[#181513] py-3 border-b border-[#2d2724]/10 flex items-center justify-between no-underline"
+            >
+              <span>For Clients</span>
+              <ArrowRight size={16} className="text-[#2d2724]/40" />
+            </a>
+            <a
+              href="/login"
+              onClick={handleElieClick}
+              className="text-base font-medium text-[#181513] py-3 border-b border-[#2d2724]/10 flex items-center justify-between no-underline"
+            >
+              <span className="flex items-center gap-2">
+                Elie AI Assistant
+                <span className="w-2 h-2 rounded-full bg-[#bd2337] inline-block" />
+              </span>
+              <ArrowRight size={16} className="text-[#2d2724]/40" />
+            </a>
+            <a
+              href="#why-us"
+              onClick={(e) => handleNavAnchor(e, '#why-us')}
+              className="text-base font-medium text-[#181513] py-3 border-b border-[#2d2724]/10 flex items-center justify-between no-underline"
+            >
+              <span>Why VaRoom</span>
+              <ArrowRight size={16} className="text-[#2d2724]/40" />
+            </a>
+          </div>
+
+          {/* Action CTAs */}
+          <div className="pt-4 pb-6 flex flex-col gap-2.5 shrink-0">
             {isAuthOpen ? (
               <button
                 type="button"
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  onCloseAuth();
-                }}
+                onClick={handleCloseAuthClick}
                 className="landing-cta-secondary w-full justify-center text-center text-sm font-medium px-4 no-underline"
+                aria-label="Close sign in"
               >
                 Close
               </button>
             ) : (
               <button
                 type="button"
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  onOpenAuth();
-                }}
+                onClick={handleSignInClick}
                 className="landing-cta-secondary w-full justify-center text-center text-sm font-medium px-4 no-underline"
               >
                 Sign in
@@ -181,10 +283,7 @@ export const Navbar: React.FC<NavbarProps> = ({ isAuthOpen, onOpenAuth, onCloseA
             )}
             <button
               type="button"
-              onClick={() => {
-                setMobileMenuOpen(false);
-                onOpenSignup();
-              }}
+              onClick={handleGetStartedClick}
               className="landing-cta landing-cta-primary w-full justify-center text-center text-sm font-semibold px-4"
             >
               Get started

@@ -439,6 +439,8 @@
   .dashboard-account-actions .login-account-btn:hover{ background:rgba(255,255,255,.08); border-color:rgba(255,255,255,.28); }
   .dashboard-account-actions .delete-account-btn{ color:var(--red); background:transparent; border-color:rgba(196,30,58,.45); }
   .dashboard-account-actions .delete-account-btn:hover{ background:rgba(196,30,58,.1); border-color:var(--red); }
+  .dashboard-account-actions .remove-account-btn{ color:var(--red); background:transparent; border-color:rgba(196,30,58,.45); }
+  .dashboard-account-actions .remove-account-btn:hover{ background:rgba(196,30,58,.1); border-color:var(--red); }
   .dashboard-account-actions button:disabled{ opacity:.5; cursor:wait; }
   .accounts-empty{ padding:1.1rem; color:var(--muted); font-size:.85rem; }
   .account-limit-note{ margin-top:.65rem; color:var(--muted); font-size:.78rem; }
@@ -1184,6 +1186,15 @@
   </form>
 </dialog>
 
+<dialog class="delete-account-dialog" id="remove-linked-account-dialog" aria-labelledby="remove-linked-account-title">
+  <h2 id="remove-linked-account-title">Remove saved account?</h2>
+  <p id="remove-linked-account-description">This removes the saved account association from this dashboard. The VaRoom account and its listings, bookings, chats, profile, and other data will remain available.</p>
+  <div class="delete-account-actions">
+    <button type="button" class="btn btn-ghost" id="remove-linked-account-cancel-btn">Cancel</button>
+    <button type="button" class="btn btn-danger" id="remove-linked-account-confirm-btn">Remove account</button>
+  </div>
+</dialog>
+
 <script src="js/supabase-client.js"></script>
 <script src="js/account-auth.js"></script>
 <script src="js/account-switcher.js"></script>
@@ -1331,7 +1342,11 @@
     const deleteReason = document.getElementById('delete-account-reason');
     const deleteDetails = document.getElementById('delete-account-details');
     const deleteConfirmButton = document.getElementById('delete-account-confirm-btn');
+    const removeLinkedAccountDialog = document.getElementById('remove-linked-account-dialog');
+    const removeLinkedAccountDescription = document.getElementById('remove-linked-account-description');
+    const removeLinkedAccountConfirmButton = document.getElementById('remove-linked-account-confirm-btn');
     let accountPendingDeletion = null;
+    let accountPendingRemoval = null;
 
     function accountInitial(account){
       const name = (account.full_name || account.email || 'VaRoom member').trim();
@@ -1344,6 +1359,19 @@
       if (deleteDetails) deleteDetails.hidden = true;
       if (deleteConfirmButton) deleteConfirmButton.disabled = true;
       if (deleteDialog && typeof deleteDialog.showModal === 'function') deleteDialog.showModal();
+    }
+
+    function openRemoveLinkedAccountDialog(account){
+      accountPendingRemoval = account;
+      if (removeLinkedAccountDescription) {
+        const name = account.full_name || account.email || 'this account';
+        removeLinkedAccountDescription.textContent = 'Remove ' + name + ' from this dashboard? This only removes the saved account association. The VaRoom account and its listings, bookings, chats, profile, and other data will remain available.';
+      }
+      if (removeLinkedAccountConfirmButton) {
+        removeLinkedAccountConfirmButton.disabled = false;
+        removeLinkedAccountConfirmButton.textContent = 'Remove account';
+      }
+      if (removeLinkedAccountDialog && typeof removeLinkedAccountDialog.showModal === 'function') removeLinkedAccountDialog.showModal();
     }
 
     function createAccountRow(account, isActive){
@@ -1398,6 +1426,12 @@
           }
         });
         actions.appendChild(loginButton);
+        const removeButton = document.createElement('button');
+        removeButton.type = 'button';
+        removeButton.className = 'remove-account-btn';
+        removeButton.textContent = 'Remove account';
+        removeButton.addEventListener('click', function(){ openRemoveLinkedAccountDialog(account); });
+        actions.appendChild(removeButton);
       }
       if (isActive) {
         const deleteButton = document.createElement('button');
@@ -1472,6 +1506,35 @@
         deleteConfirmButton.disabled = deleteReason?.value === 'Other' && !deleteDetails.value.trim();
       }
     });
+    document.getElementById('remove-linked-account-cancel-btn')?.addEventListener('click', function(){
+      accountPendingRemoval = null;
+      if (removeLinkedAccountDialog && typeof removeLinkedAccountDialog.close === 'function') removeLinkedAccountDialog.close();
+    });
+    removeLinkedAccountConfirmButton?.addEventListener('click', async function(){
+      const account = accountPendingRemoval;
+      if (!account || !window.VaRoomAccountSwitcher?.removeLinkedAccount) return;
+      removeLinkedAccountConfirmButton.disabled = true;
+      removeLinkedAccountConfirmButton.textContent = 'Removing...';
+      try {
+        await window.VaRoomAccountSwitcher.removeLinkedAccount(supabaseClient, account.id);
+        accountPendingRemoval = null;
+        if (removeLinkedAccountDialog && typeof removeLinkedAccountDialog.close === 'function') removeLinkedAccountDialog.close();
+        renderDashboardAccounts();
+        if (window.varoomShowToast) window.varoomShowToast('Saved account removed. Its VaRoom account and data were not deleted.');
+      } catch (error) {
+        if (error && error.removalSucceeded) {
+          accountPendingRemoval = null;
+          if (removeLinkedAccountDialog && typeof removeLinkedAccountDialog.close === 'function') removeLinkedAccountDialog.close();
+          renderDashboardAccounts();
+        } else {
+          removeLinkedAccountConfirmButton.disabled = false;
+          removeLinkedAccountConfirmButton.textContent = 'Remove account';
+        }
+        if (window.varoomShowToast) window.varoomShowToast(error.message || 'Unable to remove this saved account.');
+        else alert(error.message || 'Unable to remove this saved account.');
+      }
+    });
+    window.addEventListener('varoom_linked_accounts_changed', renderDashboardAccounts);
     document.getElementById('delete-account-cancel-btn')?.addEventListener('click', function(){
       accountPendingDeletion = null;
       if (deleteDialog && typeof deleteDialog.close === 'function') deleteDialog.close();
