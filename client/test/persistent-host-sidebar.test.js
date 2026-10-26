@@ -92,6 +92,17 @@ test('Duplicate legacy sidebars are hidden without mutating legacy page DOM', ()
   assert.doesNotMatch(slugCode, /querySelectorAll\(selector\)\.forEach\(\(el\) => el\.remove\(\)\)/);
 });
 
+test('Host Home keeps its template sidebar until the authenticated HostLayout mounts', () => {
+  const hostHome = fs.readFileSync(path.join(clientDir, 'legacy-pages', 'host-home.html'), 'utf8');
+  const slugCode = fs.readFileSync(path.join(clientDir, 'pages', '[...slug].js'), 'utf8');
+  const layoutCode = fs.readFileSync(path.join(clientDir, 'components', 'HostLayout.jsx'), 'utf8');
+
+  assert.match(hostHome, /<aside class="sidebar" id="sidebar">/);
+  assert.doesNotMatch(slugCode, /source\.replace\(\/<aside\\b[\s\S]*?class=[\s\S]*?sidebar/);
+  assert.match(layoutCode, /\.host-layout-active \.host-page-content aside\.sidebar[\s\S]*?display:\s*none\s*!important/);
+  assert.match(slugCode, /parseTemplate\(source, templateName === 'elie\.html' \|\| isElieSlug\)/);
+});
+
 test('R2 avatar keys use the application photo route rather than Supabase Storage', () => {
   const key = 'photos/production/avatars/user-id/photo-id/original.jpg';
   const supabaseClient = {

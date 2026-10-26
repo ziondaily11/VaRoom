@@ -97,13 +97,10 @@ function markElieComposer(source, isEliePage) {
   return source;
 }
 
-function parseTemplate(source, isEliePage, isHostPage) {
+function parseTemplate(source, isEliePage) {
   source = markActiveElieNavigation(source, isEliePage);
   source = markElieComposer(source, isEliePage);
   source = replaceLegacyElieIcons(source);
-  if (isHostPage) {
-    source = source.replace(/<aside\b[^>]*\bclass=["'][^"']*\bsidebar\b[^"']*["'][^>]*>[\s\S]*?<\/aside>/gi, '');
-  }
   const title = (source.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [])[1] || 'VaRoom';
   const head = (source.match(/<head[^>]*>([\s\S]*?)<\/head>/i) || [])[1] || '';
   const body = (source.match(/<body[^>]*>([\s\S]*?)<\/body>/i) || [])[1] || source;
@@ -139,10 +136,9 @@ export async function getStaticPaths() {
 export async function getStaticProps({ params }) {
   const slugKey = params && params.slug ? params.slug.join('/') : '';
   const isElieSlug = slugKey === 'elie' || slugKey === 'elie.html';
-  const isHostSlug = slugKey === 'host-home' || slugKey === 'host-home.html';
   const templateName = templateForSlug(params && params.slug);
   const source = fs.readFileSync(path.join(templateDirectory, templateName), 'utf8');
-  return { props: { ...parseTemplate(source, templateName === 'elie.html' || isElieSlug, isHostSlug), templateName } };
+  return { props: { ...parseTemplate(source, templateName === 'elie.html' || isElieSlug), templateName } };
 }
 
 async function runLegacyScripts(container, scripts, pageLifecycle, templateName) {
