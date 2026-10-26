@@ -320,7 +320,8 @@ export default function HostLayout({ children, activeNav }) {
         '/support',
         '/marketplace',
         '/list',
-        '/host/'
+        '/host/',
+        '/property-news'
       ];
 
       const isInternal = internalRoutes.some((route) => href.startsWith(route));
