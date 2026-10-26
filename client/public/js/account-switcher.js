@@ -227,55 +227,105 @@
     return Object.assign({}, linkedMember, { session_cached: savedSession });
   }
 
-  async function removeLinkedAccount(client, removedUserId) {
-    if (!client || !client.auth || !removedUserId) {
-      throw new Error('Choose a saved account to remove.');
+  function beginLinkedAccountRemoval(removedUserId) {
+    if (!membershipLoaded || !membershipUserId) {
+      throw new Error('Saved accounts are still loading. Please try again.');
     }
-    var activeResult = await client.auth.getSession();
-    var currentSession = activeResult && activeResult.data && activeResult.data.session;
-    if (!currentSession || !currentSession.user || !currentSession.access_token) {
-      throw new Error('Sign in to your current VaRoom account before removing another account.');
-    }
-    if (currentSession.user.id === removedUserId) {
+    if (membershipUserId === removedUserId) {
       throw new Error('Switch accounts before removing the current account.');
     }
-
-    await loadLinkedAccounts(client, currentSession, { force: true });
     if (!linkedAccounts.some(function (member) { return member.id === removedUserId; })) {
       throw new Error('This account is no longer linked. Refresh and try again.');
     }
 
-    var fetcher = window.fetch || fetch;
-    var response = await fetcher('/api/account-groups/' + encodeURIComponent(removedUserId), {
-      method: 'DELETE',
-      headers: { Authorization: 'Bearer ' + currentSession.access_token }
-    });
-    var snapshot = await response.json().catch(function () { return {}; });
-    if (!response.ok) throw new Error(snapshot.error || 'Unable to remove this saved account.');
+    // Record exactly what this tab knew before hiding the row. The server
+    // remains authoritative; this snapshot is only used to restore the UI if
+    // its deletion request cannot be completed.
+    var previousState = {
+      accounts: linkedAccounts.slice(),
+      cachedAccounts: readCachedAccounts(),
+      membershipUserId: membershipUserId,
+      membershipLoaded: membershipLoaded
+    };
+    membershipRequestVersion += 1;
+    linkedAccounts = linkedAccounts.filter(function (member) { return member.id !== removedUserId; });
+    saveLinkedAccounts(previousState.cachedAccounts.filter(function (account) { return account.id !== removedUserId; }));
+    publishAccounts();
+    return previousState;
+  }
 
-    var activeResultAfterRemoval = await client.auth.getSession();
-    var activeSessionAfterRemoval = activeResultAfterRemoval && activeResultAfterRemoval.data && activeResultAfterRemoval.data.session;
-    if (!activeSessionAfterRemoval || !activeSessionAfterRemoval.user
-      || activeSessionAfterRemoval.user.id !== currentSession.user.id) {
-      throw new Error('The active account changed while removing the saved account. Please retry.');
+  function restoreLinkedAccountRemoval(previousState) {
+    if (!previousState) return;
+    membershipRequestVersion += 1;
+    linkedAccounts = previousState.accounts;
+    membershipUserId = previousState.membershipUserId;
+    membershipLoaded = previousState.membershipLoaded;
+    saveLinkedAccounts(previousState.cachedAccounts);
+    publishAccounts();
+  }
+
+  async function removeLinkedAccount(client, removedUserId) {
+    if (!client || !client.auth || !removedUserId) {
+      throw new Error('Choose a saved account to remove.');
     }
+
+    // Do this before the first await so Settings can update immediately. The
+    // request below is still the only operation that changes group membership.
+    var previousState = beginLinkedAccountRemoval(removedUserId);
+    var currentSession = null;
     try {
-      installMembership(snapshot, currentSession.user.id, activeSessionAfterRemoval);
+      var activeResult = await client.auth.getSession();
+      currentSession = activeResult && activeResult.data && activeResult.data.session;
+      if (!currentSession || !currentSession.user || !currentSession.access_token) {
+        throw new Error('Sign in to your current VaRoom account before removing another account.');
+      }
+      if (currentSession.user.id !== membershipUserId) {
+        throw new Error('The active account changed while removing the saved account. Please retry.');
+      }
+
+      var fetcher = window.fetch || fetch;
+      var response = await fetcher('/api/account-groups/' + encodeURIComponent(removedUserId), {
+        method: 'DELETE',
+        headers: { Authorization: 'Bearer ' + currentSession.access_token }
+      });
+      var snapshot = await response.json().catch(function () { return {}; });
+      if (!response.ok) throw new Error(snapshot.error || 'Unable to remove this saved account.');
+
+      var activeResultAfterRemoval = await client.auth.getSession();
+      var activeSessionAfterRemoval = activeResultAfterRemoval && activeResultAfterRemoval.data && activeResultAfterRemoval.data.session;
+      if (!activeSessionAfterRemoval || !activeSessionAfterRemoval.user
+        || activeSessionAfterRemoval.user.id !== currentSession.user.id) {
+        throw new Error('The active account changed while removing the saved account. Please retry.');
+      }
+      try {
+        installMembership(snapshot, currentSession.user.id, activeSessionAfterRemoval);
+      } catch (error) {
+        if (!linkedAccounts.some(function (member) { return member.id === removedUserId; })) {
+          var cleanupError = new Error('The saved account was removed, but this browser could not clear its saved sign-in details. Refresh before switching accounts.');
+          cleanupError.removalSucceeded = true;
+          throw cleanupError;
+        }
+        throw error;
+      }
+      if (linkedAccounts.some(function (member) { return member.id === removedUserId; })) {
+        throw new Error('The saved account was not removed from the linked group.');
+      }
+      try {
+        localStorage.setItem(MEMBERSHIP_SYNC_KEY, String(Date.now()));
+      } catch (e) {}
+      return getLinkedAccounts();
     } catch (error) {
-      if (!linkedAccounts.some(function (member) { return member.id === removedUserId; })) {
-        var cleanupError = new Error('The saved account was removed, but this browser could not clear its saved sign-in details. Refresh before switching accounts.');
-        cleanupError.removalSucceeded = true;
-        throw cleanupError;
+      if (!error || !error.removalSucceeded) {
+        restoreLinkedAccountRemoval(previousState);
+        // A response can be lost after the server completes the deletion. Ask
+        // for the authoritative group in the background so that case corrects
+        // itself without ever trusting the optimistic state as final.
+        if (currentSession) {
+          loadLinkedAccounts(client, currentSession, { force: true }).catch(function () {});
+        }
       }
       throw error;
     }
-    if (linkedAccounts.some(function (member) { return member.id === removedUserId; })) {
-      throw new Error('The saved account was not removed from the linked group.');
-    }
-    try {
-      localStorage.setItem(MEMBERSHIP_SYNC_KEY, String(Date.now()));
-    } catch (e) {}
-    return getLinkedAccounts();
   }
 
   function removeAccount(userId) {
