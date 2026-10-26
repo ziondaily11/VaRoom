@@ -11,6 +11,7 @@ import ElieIcon from '../components/ElieIcon';
 import ChatComposerActions from '../components/ChatComposerActions';
 import ElieComposerBeam from '../components/ElieComposerBeam';
 import { ThinkingOrb } from 'thinking-orbs';
+const { createLegacyPageLifecycle } = require('../lib/legacyPageLifecycle');
 
 const templateDirectory = path.join(process.cwd(), 'legacy-pages');
 const routeAliases = {
@@ -141,10 +142,13 @@ export async function getStaticProps({ params }) {
   const isHostSlug = slugKey === 'host-home' || slugKey === 'host-home.html';
   const templateName = templateForSlug(params && params.slug);
   const source = fs.readFileSync(path.join(templateDirectory, templateName), 'utf8');
-  return { props: { ...parseTemplate(source, templateName === 'elie.html' || isElieSlug, isHostSlug) } };
+  return { props: { ...parseTemplate(source, templateName === 'elie.html' || isElieSlug, isHostSlug), templateName } };
 }
 
-async function runLegacyScripts(container, scripts) {
+async function runLegacyScripts(container, scripts, pageLifecycle) {
+  const pageWasLeft = () => pageLifecycle && !pageLifecycle.isActive();
+  if (pageWasLeft()) return;
+
   if (!document.querySelector('script[data-varoom-data-cache]')) {
     await new Promise((resolve, reject) => {
       const cacheScript = document.createElement('script');
@@ -155,6 +159,7 @@ async function runLegacyScripts(container, scripts) {
       document.head.appendChild(cacheScript);
     });
   }
+  if (pageWasLeft()) return;
 
   const hasSidebarScript = scripts.some(({ attributes }) => attributes.includes('varoom-sidebar.js'));
   if (!window.VaroomSidebar && !hasSidebarScript) {
@@ -167,6 +172,7 @@ async function runLegacyScripts(container, scripts) {
       document.head.appendChild(sidebarScript);
     });
   }
+  if (pageWasLeft()) return;
 
   if (!document.querySelector('script[data-chat-cache]')) {
     const chatCacheScript = document.createElement('script');
@@ -212,8 +218,10 @@ async function runLegacyScripts(container, scripts) {
       }
     });
   }
+  if (pageWasLeft()) return;
 
   for (const { attributes, content } of scripts) {
+    if (pageWasLeft()) return;
     const script = document.createElement('script');
     const attributePattern = /([^\s=]+)(?:="([^"]*)")?/g;
     let match;
@@ -237,14 +245,26 @@ async function runLegacyScripts(container, scripts) {
   if (window.VaroomSidebar && window.VaroomSidebar.initCounts) {
     await window.VaroomSidebar.initCounts();
   }
+
+  if (pageLifecycle && pageLifecycle.isActive()) {
+    const initializer = window.VaRoomLegacyPageInitializers
+      && window.VaRoomLegacyPageInitializers.propertyNews;
+    await pageLifecycle.initialize(initializer, {
+      container,
+      search: window.location.search,
+    });
+  }
 }
 
-export default function LegacyPage({ title, markup, scripts }) {
+export default function LegacyPage({ title, markup, scripts, templateName }) {
   const router = useRouter();
   const containerRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
+    const pageLifecycle = templateName === 'property-news.html'
+      ? createLegacyPageLifecycle()
+      : null;
     let composerActionsRoot;
     let elieComposerBeamRoot;
     const avatarRoots = new Map();
@@ -328,7 +348,7 @@ export default function LegacyPage({ title, markup, scripts }) {
     }
 
     const loadPageScripts = async () => {
-      await runLegacyScripts(containerRef.current, scripts);
+      await runLegacyScripts(containerRef.current, scripts, pageLifecycle);
       if (cancelled || title !== 'Messenger Dashboard' || document.querySelector('script[data-chat-data]')) return;
 
       let cacheScript = document.querySelector('script[data-chat-cache]');
@@ -368,6 +388,7 @@ export default function LegacyPage({ title, markup, scripts }) {
     loadPageScripts().catch((error) => console.error('Legacy page initialization failed:', error));
     return () => {
       cancelled = true;
+      pageLifecycle?.dispose();
       avatarObserver.disconnect();
       try { composerActionsRoot?.unmount(); } catch (e) {}
       try { elieComposerBeamRoot?.unmount(); } catch (e) {}
@@ -380,7 +401,7 @@ export default function LegacyPage({ title, markup, scripts }) {
       });
       orbRoots.clear();
     };
-  }, [scripts]);
+  }, [scripts, templateName]);
 
   return (
     <>
