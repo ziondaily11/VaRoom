@@ -18,6 +18,7 @@ export interface PropertyNewsItem {
   category?: string;
   image_url?: string;
   source?: PropertyNewsSource;
+  hasFullBody?: boolean;
 }
 
 export interface CachedNewsListResult {
@@ -27,8 +28,10 @@ export interface CachedNewsListResult {
 }
 
 const CACHE_KEY = 'varoom_property_news_react_cache_v1';
+const DETAILS_CACHE_KEY = 'varoom_property_news_article_details_v1';
 const SCROLL_KEY = 'varoom_property_news_scroll_v1';
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes fresh TTL
+const ARTICLE_DETAIL_TTL_MS = 30 * 60 * 1000; // 30 minutes for full articles
 
 interface InMemoryStore {
   items: PropertyNewsItem[] | null;
@@ -83,7 +86,6 @@ export function getCachedNewsList(currentUserId?: string | null): CachedNewsList
         return null;
       }
       const age = now - parsed.timestamp;
-      // Hydrate in-memory store
       inMemoryStore.items = parsed.items;
       inMemoryStore.timestamp = parsed.timestamp;
       inMemoryStore.userId = parsed.userId || null;
@@ -123,13 +125,49 @@ export function setCachedNewsList(items: PropertyNewsItem[], currentUserId?: str
   }
 }
 
+/**
+ * Returns a cached complete article only if it has been fully fetched (contains article body).
+ * Does not confuse short listing previews for complete article records.
+ */
 export function getCachedArticle(id: string | number): PropertyNewsItem | null {
   const key = String(id);
-  // Check details in memory
-  if (inMemoryStore.details[key]) {
-    return inMemoryStore.details[key].item;
+  const now = Date.now();
+
+  // Check in-memory details
+  const cached = inMemoryStore.details[key];
+  if (cached && cached.item) {
+    const hasBody = Boolean(cached.item.body && cached.item.body.trim());
+    const isFresh = (now - cached.timestamp) < ARTICLE_DETAIL_TTL_MS;
+    if (hasBody || isFresh) {
+      return cached.item;
+    }
   }
-  // Check if article is inside cached items list
+
+  // Check sessionStorage details
+  const storage = getStorageSafe();
+  if (storage) {
+    try {
+      const raw = storage.getItem(DETAILS_CACHE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && parsed[key] && parsed[key].item) {
+          const detail = parsed[key];
+          inMemoryStore.details[key] = detail;
+          return detail.item;
+        }
+      }
+    } catch {}
+  }
+
+  return null;
+}
+
+/**
+ * Returns a lightweight preview (headline, summary teaser, image, location)
+ * from the loaded list to render headers immediately while fetching full article content.
+ */
+export function getCachedPreview(id: string | number): PropertyNewsItem | null {
+  const key = String(id);
   if (inMemoryStore.items) {
     const match = inMemoryStore.items.find((item) => String(item.id) === key);
     if (match) return match;
@@ -137,12 +175,47 @@ export function getCachedArticle(id: string | number): PropertyNewsItem | null {
   return null;
 }
 
+/**
+ * Caches a complete article record. Does not let an empty summary overwrite
+ * a previously loaded complete article body.
+ */
 export function setCachedArticle(id: string | number, item: PropertyNewsItem): void {
   const key = String(id);
-  inMemoryStore.details[key] = {
-    item,
-    timestamp: Date.now(),
+  const now = Date.now();
+
+  const existing = inMemoryStore.details[key];
+  if (existing && existing.item?.body && !item.body) {
+    // Do not overwrite an existing full body with an empty or partial body
+    return;
+  }
+
+  const completeItem: PropertyNewsItem = {
+    ...item,
+    hasFullBody: Boolean(item.body && item.body.trim()),
   };
+
+  inMemoryStore.details[key] = {
+    item: completeItem,
+    timestamp: now,
+  };
+
+  const storage = getStorageSafe();
+  if (storage) {
+    try {
+      let detailsMap: Record<string, { item: PropertyNewsItem; timestamp: number }> = {};
+      const raw = storage.getItem(DETAILS_CACHE_KEY);
+      if (raw) {
+        detailsMap = JSON.parse(raw) || {};
+      }
+      detailsMap[key] = {
+        item: completeItem,
+        timestamp: now,
+      };
+      storage.setItem(DETAILS_CACHE_KEY, JSON.stringify(detailsMap));
+    } catch (e) {
+      console.warn('Unable to persist article details cache:', e);
+    }
+  }
 }
 
 export function saveScrollPosition(position: number): void {
@@ -180,6 +253,7 @@ export function clearPropertyNewsCache(): void {
   if (storage) {
     try {
       storage.removeItem(CACHE_KEY);
+      storage.removeItem(DETAILS_CACHE_KEY);
       storage.removeItem(SCROLL_KEY);
     } catch {}
   }

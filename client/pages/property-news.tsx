@@ -7,6 +7,7 @@ import {
   getCachedNewsList,
   setCachedNewsList,
   getCachedArticle,
+  getCachedPreview,
   setCachedArticle,
   saveScrollPosition,
   getScrollPosition,
@@ -228,16 +229,28 @@ export default function PropertyNewsPage() {
 
   // Fetch or restore article detail
   const loadDetail = useCallback(async (id: string, signal?: AbortSignal) => {
-    const cachedArticle = getCachedArticle(id);
-    if (cachedArticle) {
-      setDetailItem(cachedArticle);
+    // 1. Check if we already have the complete article in cache
+    const completeCached = getCachedArticle(id);
+    if (completeCached && completeCached.body && completeCached.body.trim()) {
+      setDetailItem(completeCached);
       setDetailLoading(false);
+      setDetailError(false);
       return;
     }
 
-    setDetailLoading(true);
-    setDetailError(false);
+    // 2. If no complete cached article, check if we have a listing preview
+    // to display headline, hero image, and location immediately
+    const preview = getCachedPreview(id);
+    if (preview) {
+      setDetailItem(preview);
+      setDetailLoading(true); // body is still loading
+      setDetailError(false);
+    } else {
+      setDetailLoading(true);
+      setDetailError(false);
+    }
 
+    // 3. Fetch the full article from /api/news/:id
     try {
       const response = await fetch(`/api/news/${encodeURIComponent(id)}`, {
         headers: { Accept: 'application/json' },
@@ -246,16 +259,18 @@ export default function PropertyNewsPage() {
       if (!response.ok) {
         throw new Error(`Failed to load news article: ${response.status}`);
       }
-      const item: PropertyNewsItem = await response.json();
+      const fullItem: PropertyNewsItem = await response.json();
       if (!signal?.aborted) {
-        setDetailItem(item);
-        setCachedArticle(id, item);
+        setDetailItem(fullItem);
+        setCachedArticle(id, fullItem);
         setDetailLoading(false);
       }
     } catch (err: any) {
       if (signal?.aborted) return;
       console.warn('Property news article detail notice:', err?.message || err);
-      setDetailError(true);
+      if (!preview) {
+        setDetailError(true);
+      }
       setDetailLoading(false);
     }
   }, []);
@@ -350,10 +365,10 @@ export default function PropertyNewsPage() {
           {articleId ? (
             /* =================== ARTICLE DETAIL VIEW =================== */
             <article className="detail" id="news-detail" aria-live="polite">
-              {detailLoading ? (
-                <div className="skeleton"></div>
-              ) : detailError || !detailItem ? (
+              {detailError && !detailItem ? (
                 <EmptyState />
+              ) : !detailItem ? (
+                <div className="skeleton" style={{ height: '320px' }}></div>
               ) : (
                 <div className="detail-card">
                   <p className="eyebrow">Property Intelligence</p>
@@ -375,9 +390,75 @@ export default function PropertyNewsPage() {
                     ) : null;
                   })()}
 
-                  <p className="detail-summary">{detailItem.summary || ''}</p>
+                  {/* Complete Article Content Rendering */}
+                  {(() => {
+                    const bodyText = (detailItem.body || '').trim();
+                    const summaryText = (detailItem.summary || '').trim();
 
-                  {detailItem.body && <div className="detail-body">{detailItem.body}</div>}
+                    // If full body is actively loading while preview is shown
+                    if (detailLoading && !bodyText) {
+                      return (
+                        <div className="detail-content-area">
+                          {summaryText && <p className="detail-summary">{summaryText}</p>}
+                          <div className="detail-body-loading">
+                            <div className="skeleton" style={{ height: '16px', marginBottom: '12px', width: '100%' }}></div>
+                            <div className="skeleton" style={{ height: '16px', marginBottom: '12px', width: '94%' }}></div>
+                            <div className="skeleton" style={{ height: '16px', marginBottom: '12px', width: '97%' }}></div>
+                            <div className="skeleton" style={{ height: '16px', marginBottom: '12px', width: '82%' }}></div>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    // When full article body is available
+                    if (bodyText) {
+                      const paragraphs = bodyText
+                        .split(/\n+/)
+                        .map((p) => p.trim())
+                        .filter(Boolean);
+
+                      // Avoid repeating exact summary if body begins with the same text
+                      const cleanSummaryPrefix = summaryText.replace(/[\.\s]+$/, '').slice(0, 50).toLowerCase();
+                      const firstParaPrefix = (paragraphs[0] || '').slice(0, 50).toLowerCase();
+                      const bodyStartsWithSummary = cleanSummaryPrefix && (
+                        firstParaPrefix.startsWith(cleanSummaryPrefix) ||
+                        cleanSummaryPrefix.startsWith(firstParaPrefix)
+                      );
+
+                      // If summary is distinct from body (e.g. editorial analysis summary), display it as lead summary
+                      const showDistinctSummary = summaryText && !bodyStartsWithSummary;
+
+                      return (
+                        <div className="detail-content-area">
+                          {showDistinctSummary && (
+                            <p className="detail-summary">{summaryText}</p>
+                          )}
+                          <div className="detail-body">
+                            {paragraphs.map((paragraph, idx) => (
+                              <p
+                                key={idx}
+                                className={idx === 0 && !showDistinctSummary ? 'detail-lead' : 'detail-p'}
+                              >
+                                {paragraph}
+                              </p>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    // Fallback when source genuinely provides only a summary excerpt
+                    return (
+                      <div className="detail-content-area">
+                        <p className="detail-summary">
+                          {summaryText || 'Read the full update at the source below.'}
+                        </p>
+                        <div className="detail-notice">
+                          Full report not syndicated. Please refer to the official publication source below.
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   <div className="fact-grid">
                     <div>
@@ -678,17 +759,44 @@ export default function PropertyNewsPage() {
         .detail .article-meta {
           margin: 1rem 0 1.25rem;
         }
+        .detail-content-area {
+          margin: 1.25rem 0 1.5rem;
+        }
         .detail-summary {
           font-size: 1.05rem;
           line-height: 1.62;
           color: #3e302c;
-          margin: 1.25rem 0;
+          margin: 0 0 1.25rem;
+        }
+        .detail-lead {
+          font-size: 1.05rem;
+          line-height: 1.65;
+          color: #24211e;
+          font-weight: 500;
+          margin: 0 0 1.2rem;
         }
         .detail-body {
-          color: #4b3d38;
-          font-size: 0.94rem;
-          line-height: 1.65;
-          white-space: pre-line;
+          color: #38302c;
+          font-size: 0.96rem;
+          line-height: 1.7;
+        }
+        .detail-body p {
+          margin: 0 0 1.15rem;
+        }
+        .detail-body p:last-child {
+          margin-bottom: 0;
+        }
+        .detail-notice {
+          margin: 1rem 0;
+          padding: 0.75rem 1rem;
+          background: rgba(196, 30, 58, 0.05);
+          border-left: 3px solid var(--red);
+          font-size: 0.85rem;
+          color: var(--muted);
+          border-radius: 0 8px 8px 0;
+        }
+        .detail-body-loading {
+          padding: 0.5rem 0;
         }
         .fact-grid {
           display: grid;
@@ -854,4 +962,3 @@ export default function PropertyNewsPage() {
 }
 
 PropertyNewsPage.getLayout = (page: React.ReactElement) => page;
-

@@ -60,7 +60,7 @@ test('Phase 2 & 3: [...slug].js excludes property-news.html from getStaticPaths'
   assert.match(slugSource, /!\[.*?property-news\.html.*?\]\.includes\(file\)/);
 });
 
-test('Phase 4 & 5: State preservation and caching logic', async () => {
+test('Phase 4 & 5: State preservation, preview vs. complete article distinction, and caching logic', async () => {
   // Mock browser sessionStorage for testing
   const store = new Map();
   global.window = {
@@ -88,10 +88,10 @@ test('Phase 4 & 5: State preservation and caching logic', async () => {
   // Test initial empty state
   assert.equal(cache.getCachedNewsList(), null);
 
-  // Test caching items
+  // Test caching list items (previews without full body)
   const mockItems = [
-    { id: 'item-1', title: 'New Land Registration Law in Kenya', summary: 'Summary 1', counties: ['Nairobi', 'Kiambu'] },
-    { id: 'item-2', title: 'Mombasa Coastal Zoning Update', summary: 'Summary 2', counties: ['Mombasa'] },
+    { id: 'item-1', title: 'New Land Registration Law in Kenya', summary: 'Short summary 1', counties: ['Nairobi', 'Kiambu'] },
+    { id: 'item-2', title: 'Mombasa Coastal Zoning Update', summary: 'Short summary 2', counties: ['Mombasa'] },
   ];
   cache.setCachedNewsList(mockItems, 'user-1');
 
@@ -101,16 +101,33 @@ test('Phase 4 & 5: State preservation and caching logic', async () => {
   assert.equal(cached.items[0].id, 'item-1');
   assert.equal(cached.isFresh, true);
 
-  // Test detail retrieval from items list
-  const detail = cache.getCachedArticle('item-1');
-  assert.ok(detail);
-  assert.equal(detail.title, 'New Land Registration Law in Kenya');
+  // Test that a listing item without body is NOT mistaken for a complete article
+  const articleWithoutBody = cache.getCachedArticle('item-1');
+  assert.equal(articleWithoutBody, null, 'List preview should not be mistaken for complete article');
 
-  // Test explicit detail caching
-  cache.setCachedArticle('item-detail-99', { id: 'item-detail-99', title: 'Detailed Gazette Notice' });
-  const customDetail = cache.getCachedArticle('item-detail-99');
-  assert.ok(customDetail);
-  assert.equal(customDetail.title, 'Detailed Gazette Notice');
+  // Test preview lookup from loaded list items
+  const preview = cache.getCachedPreview('item-1');
+  assert.ok(preview);
+  assert.equal(preview.title, 'New Land Registration Law in Kenya');
+
+  // Test caching full article with complete body
+  const fullArticle = {
+    id: 'item-1',
+    title: 'New Land Registration Law in Kenya',
+    summary: 'Short summary 1',
+    body: 'Paragraph 1: Full legal context.\n\nParagraph 2: Implementation timeline and county mandates.',
+  };
+  cache.setCachedArticle('item-1', fullArticle);
+
+  const cachedFull = cache.getCachedArticle('item-1');
+  assert.ok(cachedFull);
+  assert.equal(cachedFull.hasFullBody, true);
+  assert.match(cachedFull.body, /Paragraph 2/);
+
+  // Test that an empty body cannot overwrite a previously loaded complete article
+  cache.setCachedArticle('item-1', { id: 'item-1', title: 'New Land Registration Law in Kenya', summary: 'Short summary 1' });
+  const stillFull = cache.getCachedArticle('item-1');
+  assert.ok(stillFull.body, 'Cached full body must not be overwritten by empty body');
 
   // Test scroll position preservation
   cache.saveScrollPosition(520);
@@ -118,7 +135,6 @@ test('Phase 4 & 5: State preservation and caching logic', async () => {
 
   // Test account isolation
   const isolatedResult = cache.getCachedNewsList('user-2');
-  // Different user should not see user-1's session cache if scoped
   assert.equal(isolatedResult, null);
 
   // Cleanup
@@ -127,8 +143,14 @@ test('Phase 4 & 5: State preservation and caching logic', async () => {
   delete global.window;
 });
 
-test('Phase 6: Image lifecycle resilience and safe URL validation in property-news.tsx', () => {
+test('Phase 6: Full article rendering and image lifecycle resilience in property-news.tsx', () => {
   const source = fs.readFileSync(propertyNewsPath, 'utf8');
+
+  // Full article rendering logic
+  assert.match(source, /const paragraphs = bodyText\s*\.split\(\/\\n\+\/\)/);
+  assert.match(source, /paragraphs\.map\(\(paragraph, idx\)/);
+  assert.match(source, /className="detail-body"/);
+  assert.match(source, /detail-lead/);
 
   // Image graceful handling
   assert.match(source, /function NewsCardImage/);
