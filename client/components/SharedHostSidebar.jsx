@@ -196,7 +196,11 @@ export default function SharedHostSidebar({ activeNav: explicitActiveNav }) {
       }
     };
     window.addEventListener('storage', handleAccountsChanged);
+    const handleCountUpdate = (e) => {
+      if (typeof e?.detail?.count === 'number') setUnreadCount(e.detail.count);
+    };
     window.addEventListener('varoom_linked_accounts_changed', handleAccountsChanged);
+    window.addEventListener('varoom_notification_count', handleCountUpdate);
 
     const interval = setInterval(refreshUser, 30000);
     return () => {
@@ -204,6 +208,7 @@ export default function SharedHostSidebar({ activeNav: explicitActiveNav }) {
       clearInterval(interval);
       window.removeEventListener('storage', handleAccountsChanged);
       window.removeEventListener('varoom_linked_accounts_changed', handleAccountsChanged);
+      window.removeEventListener('varoom_notification_count', handleCountUpdate);
     };
   }, [refreshUser]);
 
