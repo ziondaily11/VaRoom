@@ -202,6 +202,11 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
             min-height: 100svh;
             min-height: 100dvh;
           }
+          @media (max-height: 600px) {
+            .hero-section {
+              overflow: visible;
+            }
+          }
           @media (max-width: 639px) {
             .hero-section {
               overflow: visible;

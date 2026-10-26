@@ -259,14 +259,14 @@ export const SignupForm: React.FC<SignupFormProps> = ({ redirect, initialRole, a
                   aria-pressed={role === option}
                   aria-describedby={`signup-role-${option}-description`}
                   onClick={() => setRole(option)}
-                  className={`group min-h-[60px] rounded-lg border px-3 py-2 text-sm font-medium capitalize transition-colors ${
+                  className={`group min-h-[68px] rounded-lg border px-3 py-2 text-sm font-medium capitalize transition-colors ${
                     role === option
                       ? 'border-white/10 bg-[#090909] text-[#d9d2c9]/75'
                       : 'border-white/25 bg-white/10 text-white hover:bg-white/15'
                   }`}
                 >
                   <span className="block">{option}</span>
-                  <span id={`signup-role-${option}-description`} className="account-type-description block max-h-5 overflow-hidden text-[10px] font-normal normal-case tracking-normal text-[#d9d2c9]/75 opacity-0 transition-all group-hover:opacity-100 group-focus-visible:opacity-100">
+                  <span id={`signup-role-${option}-description`} className="account-type-description block min-h-[1.25rem] text-[10px] font-normal normal-case tracking-normal leading-tight text-[#d9d2c9]/75 opacity-0 transition-all group-hover:opacity-100 group-focus-visible:opacity-100">
                     {accountTypeDescriptions[option]}
                   </span>
                 </button>
