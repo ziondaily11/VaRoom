@@ -550,8 +550,6 @@
     width:6px; height:6px; border-radius:50%; background:#28a745; box-shadow:0 0 0 2px rgba(40,167,69,.2);
   }
   .property-news-error{ color:var(--red-deep); }
-  .property-news-skeleton{ height:54px; border:none !important; border-bottom:1px solid var(--line) !important; border-radius:0 !important; margin:0; background:transparent; }
-  .property-news-skeleton:last-child{ border-bottom:none !important; }
   .property-news-view-all{ display:inline-flex; margin-top:.85rem; font-size:.82rem; font-weight:600; color:var(--red); }
   .property-news-view-all:hover{ color:var(--red-deep); }
   .property-news-mobile-slot{ display:none; }
@@ -604,10 +602,7 @@
 
   .state-msg{ color:var(--muted); font-size:.95rem; padding:2rem 0; text-align:center; }
 
-  /* ---------- SKELETON LOADING ----------
-     Local skeleton system so every loading state (feed, VaRoom Updates)
-     matches the current layout exactly. Property News already has its own
-     shimmer skeleton (.property-news-skeleton, above) — left as-is. */
+  /* ---------- HOME FEED SKELETON ---------- */
   @keyframes skel-pulse{ 0%,100%{ opacity:.55; } 50%{ opacity:1; } }
   .skel{ background:var(--line-soft); border-radius:6px; animation:skel-pulse 1.3s ease-in-out infinite; }
 
@@ -622,23 +617,31 @@
   .skel-card-head{ display:flex; align-items:center; gap:.7rem; margin-bottom:.55rem; }
   .skel-avatar{ width:38px; height:38px; border-radius:50%; flex-shrink:0; }
   .skel-card-head-body{ flex:1; min-width:0; }
+  .skel-menu{ width:24px; height:24px; flex:0 0 24px; border-radius:50%; }
   .skel-name{ width:130px; height:12px; margin-bottom:.4rem; }
   .skel-loc{ width:190px; height:9px; }
   .skel-line{ height:9px; margin-bottom:.4rem; }
   .skel-line.short{ width:55%; margin-bottom:.75rem; }
-  .skel-media{ width:100%; height:clamp(200px, 28vw, 360px); border-radius:16px; margin-bottom:.75rem; }
+  .skel-media{ width:min(100%, 650px); height:auto; aspect-ratio:1 / 1; border-radius:16px; margin-bottom:.75rem; }
   .skel-actions{ display:flex; gap:.5rem; }
   .skel-pill{ width:58px; height:24px; border-radius:999px; }
 
-  .skel-update{
-    width:100%; box-sizing:border-box; background:transparent;
-    border:none !important; border-bottom:1px solid var(--line) !important; border-radius:0 !important;
-    padding-bottom:.9rem !important; margin-bottom:.9rem;
+  .home-widget-loader{
+    min-height:180px; width:100%; display:grid; place-items:center;
+    box-sizing:border-box; color:var(--muted); font-size:.82rem; text-align:center;
   }
-  .skel-update:last-child{ border-bottom:none !important; margin-bottom:0 !important; padding-bottom:0 !important; }
-  .skel-update-media{ width:100%; height:80px; border-radius:8px; margin-bottom:.5rem; }
-  .skel-update-line{ height:9px; margin-bottom:.3rem; }
-  .skel-update-line.short{ width:60%; margin-bottom:0; }
+  .home-widget-message{ width:100%; display:grid; place-items:center; box-sizing:border-box; padding:1rem; color:var(--muted); font-size:.82rem; text-align:center; }
+  .home-widget-spinner{
+    width:22px; height:22px; border:2px solid var(--line); border-top-color:var(--muted);
+    border-radius:50%; animation:home-widget-spin .8s linear infinite;
+  }
+  @keyframes home-widget-spin{ to{ transform:rotate(360deg); } }
+  @media (prefers-reduced-motion:reduce){ .home-widget-spinner{ animation:none; border-top-color:var(--line); } }
+  .home-widget-content{ display:flex; flex-direction:column; gap:.9rem; }
+  .home-widget-content[data-loading="true"]{ min-height:90px; }
+  .home-widget-content[data-loading="true"] .home-widget-loader{ min-height:90px; }
+  #listings-glance-grid[data-loading="true"]{ min-height:350px; display:grid; place-items:center; }
+  .property-news-list{ min-height:180px; }
 
   .card{
     background:transparent;
@@ -853,11 +856,22 @@
 
   /* Reserve the dashboard's final footprint while account data is loading. */
   .dash-main.is-loading > :not(.host-home-skeleton){ display:none; }
-  .host-home-skeleton{ padding:1.8rem 2rem 4rem; }
-  .host-skel-tabs{ display:flex; gap:.6rem; margin-bottom:1.5rem; }
-  .host-skel-tabs .skel{ width:78px; height:34px; border-radius:999px; }
-  .host-skel-card{ height:250px; margin-bottom:1.2rem; }
-  @media (max-width:700px){ .host-home-skeleton{ padding:1.2rem 1rem 6rem; }.host-skel-card{ height:190px; } }
+  .host-home-skeleton{ padding:1rem 1rem 4rem; }
+  .host-skel-tabs{ display:flex; gap:.55rem; overflow:hidden; margin:0 1rem 1.5rem; }
+  .host-skel-tabs .skel{ flex:0 0 78px; height:34px; border-radius:999px; }
+  .host-skel-card{ margin:.75rem 1rem; padding:1rem 1.15rem .85rem; border:1px solid var(--line); border-radius:16px; }
+  .host-skel-card-head{ display:flex; align-items:center; gap:.7rem; margin-bottom:.7rem; }
+  .host-skel-avatar{ width:38px; height:38px; flex:0 0 38px; border-radius:50%; }
+  .host-skel-profile{ display:grid; gap:.4rem; flex:1; }
+  .host-skel-name{ width:min(140px, 60%); height:12px; }
+  .host-skel-location{ width:min(190px, 75%); height:9px; }
+  .host-skel-menu{ width:24px; height:24px; border-radius:50%; }
+  .host-skel-caption{ width:88%; height:10px; margin:.75rem 0 .4rem; }
+  .host-skel-caption.short{ width:55%; margin-top:0; }
+  .host-skel-media{ width:min(100%, 650px); aspect-ratio:1 / 1; border-radius:16px; margin:.75rem 0; }
+  .host-skel-actions{ display:flex; gap:.5rem; padding-top:.35rem; }
+  .host-skel-actions .skel{ width:58px; height:24px; border-radius:999px; }
+  @media (max-width:700px){ .host-home-skeleton{ padding:1rem 0 6rem; }.host-skel-card{ margin:.6rem 0; padding:.9rem 0 .8rem; border-left:0; border-right:0; border-radius:0; }.host-skel-media{ width:100%; } }
   .badge-row{ display:flex; flex-wrap:wrap; gap:.5rem; margin-bottom:.9rem; }
 
   .badge{ display:flex; align-items:center; gap:.3rem; font-size:.76rem; font-weight:600; padding:.3rem .65rem; border-radius:100px; }
@@ -1610,8 +1624,17 @@
     <div class="dash-body">
     <div class="dash-main is-loading">
     <div class="host-home-skeleton" id="host-home-skeleton" aria-label="Loading host dashboard" role="status">
-      <div class="host-skel-tabs"><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>
-      <div class="skel host-skel-card"></div><div class="skel host-skel-card"></div>
+      <div class="host-skel-tabs"><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>
+      <div class="host-skel-card">
+        <div class="host-skel-card-head"><div class="skel host-skel-avatar"></div><div class="host-skel-profile"><div class="skel host-skel-name"></div><div class="skel host-skel-location"></div></div><div class="skel host-skel-menu"></div></div>
+        <div class="skel host-skel-caption"></div><div class="skel host-skel-caption short"></div>
+        <div class="skel host-skel-media"></div><div class="host-skel-actions"><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>
+      </div>
+      <div class="host-skel-card">
+        <div class="host-skel-card-head"><div class="skel host-skel-avatar"></div><div class="host-skel-profile"><div class="skel host-skel-name"></div><div class="skel host-skel-location"></div></div><div class="skel host-skel-menu"></div></div>
+        <div class="skel host-skel-caption"></div><div class="skel host-skel-caption short"></div>
+        <div class="skel host-skel-media"></div><div class="host-skel-actions"><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>
+      </div>
     </div>
     <div class="dash-header">
       <div class="tabs" id="tabs">
@@ -1627,10 +1650,10 @@
 
     <div class="feed-area">
       <div class="property-news-mobile-slot">
-        <section class="property-news-card" id="property-news-mobile-card" aria-labelledby="property-news-mobile-title" style="display:none">
+        <section class="property-news-card" id="property-news-mobile-card" aria-labelledby="property-news-mobile-title">
           <div class="stats-head"><h2 id="property-news-mobile-title">Your Property News on VaRoom</h2></div>
-          <div class="property-news-list" id="property-news-mobile-list" aria-live="polite">
-            <div class="property-news-skeleton"></div><div class="property-news-skeleton"></div><div class="property-news-skeleton"></div>
+          <div class="property-news-list" id="property-news-mobile-list" aria-live="polite" data-loading="true">
+            <div class="home-widget-loader" role="status" aria-label="Loading Property News"><span class="home-widget-spinner" aria-hidden="true"></span></div>
           </div>
           <a class="property-news-view-all" href="/property-news">View all news →</a>
         </section>
@@ -1652,18 +1675,18 @@
         </a>
       </div>
 
-      <div class="sidebar-module listings-glance-card" id="listings-glance-card" style="display:none;">
+      <div class="sidebar-module listings-glance-card" id="listings-glance-card">
         <div class="stats-head">
           <h2>Your listings at a glance</h2>
           <a href="#" id="glance-view-all">View all</a>
         </div>
-        <div class="listings-glance-grid" id="listings-glance-grid"></div>
+        <div class="listings-glance-grid" id="listings-glance-grid" data-loading="true"><div class="home-widget-loader" role="status" aria-label="Loading your listings"><span class="home-widget-spinner" aria-hidden="true"></span></div></div>
       </div>
 
-      <section class="sidebar-module property-news-card" id="property-news-card" aria-labelledby="property-news-title" style="display:none">
+      <section class="sidebar-module property-news-card" id="property-news-card" aria-labelledby="property-news-title">
         <div class="stats-head"><h2 id="property-news-title">Your Property News on VaRoom</h2></div>
-        <div class="property-news-list" id="property-news-list" aria-live="polite">
-          <div class="property-news-skeleton"></div><div class="property-news-skeleton"></div><div class="property-news-skeleton"></div>
+        <div class="property-news-list" id="property-news-list" aria-live="polite" data-loading="true">
+          <div class="home-widget-loader" role="status" aria-label="Loading Property News"><span class="home-widget-spinner" aria-hidden="true"></span></div>
         </div>
         <a class="property-news-view-all" href="/property-news">View all news →</a>
       </section>
@@ -1672,9 +1695,8 @@
         <div class="stats-head">
           <h2>VaRoom Updates</h2>
         </div>
-        <div id="varoom-updates" style="display:flex;flex-direction:column;gap:.9rem;">
-          <div class="skel-update"><div class="skel skel-update-media"></div><div class="skel skel-update-line"></div><div class="skel skel-update-line short"></div></div>
-          <div class="skel-update"><div class="skel skel-update-media"></div><div class="skel skel-update-line"></div><div class="skel skel-update-line short"></div></div>
+        <div id="varoom-updates" class="home-widget-content" data-loading="true">
+          <div class="home-widget-loader" role="status" aria-label="Loading VaRoom Updates"><span class="home-widget-spinner" aria-hidden="true"></span></div>
         </div>
       </div>
 
@@ -1878,24 +1900,36 @@
     (async function initialiseHostDashboard(){
 
     // ---------- Your listings count (real) ----------
-    const { count: listingCount } = await supabaseClient
+      const { count: listingCount, error: listingCountError } = await supabaseClient
       .from('listings')
       .select('id', { count: 'exact', head: true })
       .eq('host_id', currentUser.id);
-    if (!listingCount) {
+    if (listingCountError) {
+      document.getElementById('listings-glance-grid').innerHTML = '<p class="home-widget-message">Your listings could not be loaded.</p>';
+      document.getElementById('listings-glance-grid').setAttribute('data-loading', 'false');
+      document.getElementById('listings-glance-card').style.display = 'block';
+    } else if (!listingCount) {
+      document.getElementById('listings-glance-card').style.display = 'none';
       document.getElementById('no-listings-card').style.display = 'block';
     }
 
     // Fetched once, shared by the listings-glance grid and the
     // "missing photos" check below — real category + photo data only.
     let hostListings = [];
-    if (listingCount > 0) {
-      const { data: hostListingsData } = await supabaseClient
+    let hostListingsError = null;
+    if (!listingCountError && listingCount > 0) {
+      const { data: hostListingsData, error } = await supabaseClient
         .from('listings')
         .select('id,title,description,category,location_text,availability_status,created_at,listing_photos(storage_path),listing_booking_details(price_amount,price_unit)')
         .eq('host_id', currentUser.id)
         .order('created_at', { ascending:false });
       hostListings = hostListingsData || [];
+      hostListingsError = error;
+      if (error) {
+        document.getElementById('listings-glance-grid').innerHTML = '<p class="home-widget-message">Your listings could not be loaded.</p>';
+        document.getElementById('listings-glance-grid').setAttribute('data-loading', 'false');
+        document.getElementById('listings-glance-card').style.display = 'block';
+      }
     }
 
     // ---------- Listings at a glance (real thumbnails + category, no invented stats) ----------
@@ -1946,6 +1980,7 @@
         : '';
 
       document.getElementById('listings-glance-grid').innerHTML = tilesHtml + addTileHtml;
+      document.getElementById('listings-glance-grid').setAttribute('data-loading', 'false');
       VaRoomHostListings.bind(document.getElementById('listings-glance-grid'));
       document.getElementById('listings-glance-card').style.display = 'block';
 
@@ -1954,6 +1989,10 @@
         showMyListingsView();
         document.querySelector('.feed-area').scrollIntoView({ behavior:'smooth' });
       });
+    } else if (listingCount > 0 && !hostListingsError) {
+      document.getElementById('listings-glance-grid').innerHTML = '<p class="home-widget-message">No active listings to show.</p>';
+      document.getElementById('listings-glance-grid').setAttribute('data-loading', 'false');
+      document.getElementById('listings-glance-card').style.display = 'block';
     }
 
     // ---------- Notifications (real data only — no invented signals) ----------
@@ -2193,10 +2232,12 @@
       const containers = [document.getElementById('property-news-list'), document.getElementById('property-news-mobile-list')];
       const sections = [document.getElementById('property-news-card'), document.getElementById('property-news-mobile-card')];
       const hasNews = Array.isArray(items) && items.length > 0;
-      sections.forEach(function(section){ if (section) section.style.display = hasNews ? '' : 'none'; });
+      sections.forEach(function(section){ if (section) section.style.display = ''; });
       containers.forEach(function(container){
         if (!container) return;
-        container.innerHTML = hasNews ? propertyNewsItemsHtml(items) : '';
+        const emptyMessage = state === 'error' ? 'Property News could not be loaded.' : 'No Property News is available right now.';
+        container.innerHTML = hasNews ? propertyNewsItemsHtml(items) : '<p class="home-widget-message">' + emptyMessage + '</p>';
+        container.setAttribute('data-loading', 'false');
         if (hasNews) wirePropertyNewsImages(container);
       });
     }
@@ -2229,7 +2270,7 @@
         if (!pageLifecycle.isActive()) return;
         console.warn('Property news notice:', error.message || error);
         if (!hostPropertyNewsCache.length) {
-          renderPropertyNews('ready', []);
+          renderPropertyNews('error', []);
         }
       }
     }
@@ -2257,7 +2298,7 @@
     // Local skeleton for the feed — mirrors the current .card shape exactly
     // (avatar + name/loc row, caption, media, actions), so the loading
     // state never mismatches the real card once data arrives.
-    function skeletonCards(n){
+    function skeletonCards(n, includeMobileWidget){
       var one = '<div class="skel-card">' +
         '<div class="skel-card-head">' +
           '<div class="skel skel-avatar"></div>' +
@@ -2265,13 +2306,19 @@
             '<div class="skel skel-name"></div>' +
             '<div class="skel skel-loc"></div>' +
           '</div>' +
+          '<div class="skel skel-menu"></div>' +
         '</div>' +
         '<div class="skel skel-line"></div>' +
         '<div class="skel skel-line short"></div>' +
         '<div class="skel skel-media"></div>' +
         '<div class="skel-actions"><div class="skel skel-pill"></div><div class="skel skel-pill"></div></div>' +
       '</div>';
-      return one.repeat(n);
+      var cards = '';
+      for (var i = 0; i < n; i++) {
+        cards += one;
+        if (i === 0 && includeMobileWidget) cards += mobileVaroomUpdatesBlock();
+      }
+      return cards;
     }
 
     function getVideoDuration(file){
@@ -3027,15 +3074,21 @@
       const wrap = document.getElementById(targetId);
       if (!wrap) return;
 
-      const { data, error } = await supabaseClient
-        .from('varoom_updates')
-        .select('id,body,image_url,image_urls,created_at')
-        .eq('status', 'published')
-        .order('created_at', { ascending:false })
-        .limit(3);
+      let data, error;
+      try {
+        ({ data, error } = await supabaseClient
+          .from('varoom_updates')
+          .select('id,body,image_url,image_urls,created_at')
+          .eq('status', 'published')
+          .order('created_at', { ascending:false })
+          .limit(3));
+      } catch (loadError) {
+        error = loadError;
+      }
 
       if (error || !data || data.length === 0){
-        wrap.innerHTML = '<p class="state-msg" style="padding:0;font-size:.85rem;">No updates yet.</p>';
+        wrap.innerHTML = '<p class="home-widget-message">' + (error ? 'VaRoom Updates could not be loaded.' : 'No updates yet.') + '</p>';
+        wrap.setAttribute('data-loading', 'false');
         return;
       }
 
@@ -3053,6 +3106,7 @@
           '</div>'
         );
       }).join('');
+      wrap.setAttribute('data-loading', 'false');
     }
 
     function mobileVaroomUpdatesBlock(){
@@ -3060,7 +3114,7 @@
         '<div class="mobile-widget-slot">' +
           '<div class="varoom-updates-card mobile-varoom-updates-card">' +
             '<div class="stats-head"><h2>VaRoom Updates</h2></div>' +
-            '<div id="varoom-updates-mobile" style="display:flex;flex-direction:column;gap:.9rem;"><div class="skel-update"><div class="skel skel-update-media"></div><div class="skel skel-update-line"></div><div class="skel skel-update-line short"></div></div></div>' +
+            '<div id="varoom-updates-mobile" class="home-widget-content" data-loading="true"><div class="home-widget-loader" role="status" aria-label="Loading VaRoom Updates"><span class="home-widget-spinner" aria-hidden="true"></span></div></div>' +
           '</div>' +
         '</div>'
       );
@@ -3365,7 +3419,9 @@
         return;
       }
 
-      feedList.innerHTML = skeletonCards(3);
+      const showMobileWidget = !showOnlyMine && currentCategory === 'all' && !searchTerm.trim() &&
+        window.matchMedia('(max-width:860px)').matches;
+      feedList.innerHTML = skeletonCards(3, showMobileWidget);
       try {
         snapshot = await window.VaRoomListingFeedCache.fetchPage(key, 0, fetcher);
         if (!pageLifecycle.isActive()) return;
@@ -3722,7 +3778,25 @@
         }
       });
     } catch (e) {}
-  })();
+  })().catch(function(error){
+    if (!pageLifecycle || !pageLifecycle.isActive()) return;
+    console.error('Host dashboard initialization failed:', error);
+    var dashMain = document.querySelector('.dash-main');
+    var skeleton = document.getElementById('host-home-skeleton');
+    if (dashMain) dashMain.classList.remove('is-loading');
+    if (skeleton) skeleton.hidden = true;
+    homeInitReady = true;
+    if (refreshedProfilePending) applyAuthoritativeProfile(refreshedProfilePending);
+    if (currentUser) loadFeed();
+    else {
+      var feed = document.getElementById('feed-list');
+      if (feed) feed.innerHTML = '<p class="state-msg">Could not load dashboard data. Please try again.</p>';
+    }
+    document.querySelectorAll('.host-rail [data-loading="true"], .property-news-mobile-slot [data-loading="true"]').forEach(function(container){
+      container.innerHTML = '<p class="home-widget-message">This section could not be loaded.</p>';
+      container.setAttribute('data-loading', 'false');
+    });
+  });
 
   // ---------- More button popover ----------
   (function initMoreMenu() {
