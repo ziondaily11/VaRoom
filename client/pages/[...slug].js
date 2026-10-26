@@ -135,6 +135,9 @@ export async function getStaticPaths() {
 
 export async function getStaticProps({ params }) {
   const slugKey = params && params.slug ? params.slug.join('/') : '';
+  if (slugKey === 'notifications' || slugKey === 'notifications.html') {
+    return { notFound: true };
+  }
   const isElieSlug = slugKey === 'elie' || slugKey === 'elie.html';
   const templateName = templateForSlug(params && params.slug);
   const source = fs.readFileSync(path.join(templateDirectory, templateName), 'utf8');

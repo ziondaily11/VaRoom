@@ -27,6 +27,7 @@ function getOrInitSupabaseClient(): SupabaseClient | null {
   try {
     const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     (window as any).supabaseClient = client;
+    window.dispatchEvent(new Event('varoom_supabase_ready'));
     return client;
   } catch (e) {
     console.error('Unable to create Supabase client in Notifications:', e);
@@ -120,9 +121,10 @@ export default function NotificationsPage() {
     if (typeof window === 'undefined') return;
     if ((window as any).VaroomSidebar && typeof (window as any).VaroomSidebar.open === 'function') {
       (window as any).VaroomSidebar.open();
-    } else {
-      window.dispatchEvent(new CustomEvent('varoom-toggle-sidebar'));
     }
+    window.dispatchEvent(new CustomEvent('varoom-toggle-sidebar'));
+    window.dispatchEvent(new CustomEvent('open-client-sidebar'));
+    window.dispatchEvent(new CustomEvent('open-host-sidebar'));
   };
 
   // Fetch notifications from Supabase
@@ -298,6 +300,24 @@ export default function NotificationsPage() {
     mountedRef.current = true;
     let cancelled = false;
 
+    // Immediately alert _app.js and environment of cached role
+    try {
+      const cachedRaw = localStorage.getItem('varoom_cached_profile');
+      if (cachedRaw) {
+        const parsed = JSON.parse(cachedRaw);
+        if (parsed && (parsed.role === 'host' || parsed.role === 'client')) {
+          document.documentElement.setAttribute('data-account-role', parsed.role);
+          window.dispatchEvent(new CustomEvent('varoom_role_change', { detail: { role: parsed.role } }));
+        }
+      } else {
+        const stored = localStorage.getItem('varoom_last_role') || sessionStorage.getItem('varoom_user_role');
+        if (stored === 'host' || stored === 'client') {
+          document.documentElement.setAttribute('data-account-role', stored);
+          window.dispatchEvent(new CustomEvent('varoom_role_change', { detail: { role: stored } }));
+        }
+      }
+    } catch (e) {}
+
     const initAuthAndData = async () => {
       let client = (window as any).supabaseClient || getOrInitSupabaseClient();
       if (!client || !client.auth) {
@@ -356,6 +376,12 @@ export default function NotificationsPage() {
 
       if (cancelled) return;
       setUserRole(role);
+      document.documentElement.setAttribute('data-account-role', role);
+      try {
+        sessionStorage.setItem('varoom_user_role', role);
+        localStorage.setItem('varoom_last_role', role);
+      } catch (e) {}
+      window.dispatchEvent(new CustomEvent('varoom_role_change', { detail: { role } }));
 
       // 1. Check cache for instant rendering
       const cached = getCachedNotifications(user.id);
@@ -801,6 +827,13 @@ export default function NotificationsPage() {
           background: var(--grey-bg);
           color: var(--text);
           font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+
+        .client-layout-active .notifications-page-main,
+        .host-layout-active .notifications-page-main {
+          min-height: 100%;
+          height: auto;
+          overflow-y: visible;
         }
 
         .main-inner {
