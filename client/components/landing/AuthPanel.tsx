@@ -227,9 +227,9 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, initialVi
             data-auth-scroll
             style={{ pointerEvents: contentAnimation === 'idle' ? 'auto' : 'none' }}
           >
-            <div className="mx-auto flex min-h-full w-full max-w-[480px] flex-col justify-center px-6 py-16 sm:px-8 lg:px-10">
+            <div className="mx-auto flex min-h-full w-full max-w-[480px] flex-col px-6 py-8 sm:px-8 sm:py-12 lg:px-10 lg:py-16">
               <div
-                className={`auth-content ${contentAnimation === 'exit-left' ? 'auth-content-exit-left' : ''} ${contentAnimation === 'enter-right' ? 'auth-content-enter-right' : ''}`}
+                className={`auth-content my-auto w-full ${contentAnimation === 'exit-left' ? 'auth-content-exit-left' : ''} ${contentAnimation === 'enter-right' ? 'auth-content-enter-right' : ''}`}
                 style={{ display: authView === 'login' ? undefined : 'none' }}
                 aria-hidden={authView !== 'login'}
               >
@@ -375,7 +375,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, initialVi
               </div>
 
               <div
-                className={`auth-content ${contentAnimation === 'exit-right' ? 'auth-content-exit-right' : ''} ${contentAnimation === 'enter-left' ? 'auth-content-enter-left' : ''}`}
+                className={`auth-content my-auto w-full ${contentAnimation === 'exit-right' ? 'auth-content-exit-right' : ''} ${contentAnimation === 'enter-left' ? 'auth-content-enter-left' : ''}`}
                 style={{ display: authView === 'signup' ? undefined : 'none' }}
                 aria-hidden={authView !== 'signup'}
               >
@@ -388,7 +388,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, initialVi
                 />
               </div>
               <div
-                className={`auth-content ${contentAnimation === 'exit-left' ? 'auth-content-exit-left' : ''} ${contentAnimation === 'enter-right' ? 'auth-content-enter-right' : ''}`}
+                className={`auth-content my-auto w-full ${contentAnimation === 'exit-left' ? 'auth-content-exit-left' : ''} ${contentAnimation === 'enter-right' ? 'auth-content-enter-right' : ''}`}
                 style={{ display: authView === 'recovery' ? undefined : 'none' }}
                 aria-hidden={authView !== 'recovery'}
               >
