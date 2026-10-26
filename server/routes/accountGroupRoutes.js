@@ -63,6 +63,20 @@ async function linkAccountGroupUsers(admin, currentUser, additionalUser) {
   return groupSnapshot(admin, currentUser);
 }
 
+async function removeAccountGroupUser(admin, currentUser, removedUserId) {
+  if (!currentUser || !currentUser.id || !removedUserId || currentUser.id === removedUserId) {
+    const error = new Error('cannot_remove_current_account');
+    error.code = 'cannot_remove_current_account';
+    throw error;
+  }
+  const { error } = await admin.rpc('varoom_remove_account_group_member', {
+    p_current_user: currentUser.id,
+    p_removed_user: removedUserId
+  });
+  if (error) throw error;
+  return groupSnapshot(admin, currentUser);
+}
+
 function linkFailure(error) {
   const message = String(error && error.message || '');
   if (message.includes('account_group_limit_reached')) {
@@ -71,7 +85,25 @@ function linkFailure(error) {
   if (message.includes('invalid_account_group_members')) {
     return { status: 400, error: 'Choose two different authenticated accounts.' };
   }
+  if (message.includes('cannot_remove_current_account')) {
+    return { status: 400, error: 'Switch accounts before removing the current account.' };
+  }
+  if (message.includes('account_group_member_not_linked')) {
+    return { status: 409, error: 'This account is no longer linked. Refresh and try again.' };
+  }
   return { status: 500, error: 'Unable to link this account right now.' };
+}
+
+function removalFailure(error) {
+  const failure = linkFailure(error);
+  return failure.status === 500
+    ? { status: 500, error: 'Unable to remove this saved account right now.' }
+    : failure;
+}
+
+function validUserId(value) {
+  return typeof value === 'string'
+    && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
 function createAccountGroupRoutes(admin) {
@@ -132,6 +164,23 @@ function createAccountGroupRoutes(admin) {
     }
   });
 
+  router.delete('/account-groups/:userId', async (req, res) => {
+    const currentUser = await authenticatedUser(admin, req);
+    if (!currentUser) return res.status(401).json({ error: 'Invalid or expired session' });
+    const removedUserId = req.params && req.params.userId;
+    if (!validUserId(removedUserId)) {
+      return res.status(400).json({ error: 'Choose a valid linked account to remove.' });
+    }
+
+    try {
+      return res.set('Cache-Control', 'no-store').json(await removeAccountGroupUser(admin, currentUser, removedUserId));
+    } catch (error) {
+      console.error('Account group removal failed:', error.message);
+      const failure = removalFailure(error);
+      return res.status(failure.status).json({ error: failure.error });
+    }
+  });
+
   return router;
 }
 
@@ -139,4 +188,6 @@ module.exports = createAccountGroupRoutes;
 module.exports.authenticatedUser = authenticatedUser;
 module.exports.groupSnapshot = groupSnapshot;
 module.exports.linkAccountGroupUsers = linkAccountGroupUsers;
+module.exports.removeAccountGroupUser = removeAccountGroupUser;
 module.exports.linkFailure = linkFailure;
+module.exports.removalFailure = removalFailure;

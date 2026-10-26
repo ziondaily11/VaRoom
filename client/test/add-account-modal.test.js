@@ -164,6 +164,19 @@ test('auth-callback.html supports in-app addAccount popup and redirect flow', ()
   assert.match(authCallbackCode, /VAROOM_ADD_ACCOUNT_SUCCESS/, 'Posts success message to opener window');
 });
 
+test('Settings keeps saved-account removal separate from permanent account deletion and sidebar menus', () => {
+  const settingsCode = fs.readFileSync(path.join(__dirname, '../legacy-pages/settings.html'), 'utf8');
+  assert.match(settingsCode, /Remove saved account\?/);
+  assert.match(settingsCode, /Remove account/);
+  assert.match(settingsCode, /The VaRoom account and its listings, bookings, chats, profile, and other data will remain available/);
+  assert.match(settingsCode, /removeLinkedAccount\(supabaseClient, account\.id\)/);
+  const accountRowRenderer = settingsCode.slice(settingsCode.indexOf('function createAccountRow'), settingsCode.indexOf('function renderDashboardAccounts'));
+  assert.match(accountRowRenderer, /if \(!isActive\)[\s\S]*?Remove account/);
+  assert.match(accountRowRenderer, /if \(isActive\)[\s\S]*?Delete account/);
+  assert.match(settingsCode, /fetch\('\/api\/delete-account'/);
+  assert.doesNotMatch(accountSwitcherCode, /Remove account/);
+});
+
 test('varoom-dark-theme.css contains dark mode glassmorphism rules for the modal', () => {
   assert.match(darkThemeCss, /\[data-theme="dark"\]\s+\.add-account-card/, 'Defines dark mode glass card');
   assert.match(darkThemeCss, /\[data-theme="dark"\]\s+\.add-account-input/, 'Defines dark mode inputs');

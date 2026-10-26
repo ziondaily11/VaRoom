@@ -10,6 +10,7 @@
  */
 (function () {
   var STORAGE_KEY = 'varoom_linked_accounts';
+  var MEMBERSHIP_SYNC_KEY = 'varoom_linked_accounts_membership_updated';
   var MAX_LINKED_ACCOUNTS = 3;
   var sessionWriteVersions = Object.create(null);
   var linkedAccounts = [];
@@ -74,6 +75,23 @@
     } catch (e) {}
   }
 
+  // A successful group mutation in another tab changes only a marker, never
+  // credentials. Refresh from the authenticated API before changing what that
+  // tab displays or can switch to.
+  if (window.addEventListener) {
+    window.addEventListener('storage', function (event) {
+      if (!event || event.key !== MEMBERSHIP_SYNC_KEY || !membershipLoaded || !window.supabaseClient) return;
+      window.supabaseClient.auth.getSession().then(function (result) {
+        var session = result && result.data && result.data.session;
+        if (!session || !session.user || session.user.id !== membershipUserId) return;
+        return loadLinkedAccounts(window.supabaseClient, session, { force: true });
+      }).catch(function () {
+        // Keep the last confirmed membership visible if the refresh cannot be
+        // completed. A later navigation or explicit refresh retries it.
+      });
+    });
+  }
+
   function installMembership(snapshot, userId, session) {
     var members = snapshot && snapshot.members;
     if (!Array.isArray(members) || !members.length || members.length > MAX_LINKED_ACCOUNTS
@@ -85,17 +103,21 @@
     var cached = readCachedAccounts();
     var allowedCache = cached.filter(function (account) { return memberIds.has(account.id); });
     var removedLegacyEntries = cached.length - allowedCache.length;
-    // Old browser-wide associations are deliberately not imported. Keep only
-    // local sessions whose IDs the authenticated backend confirms are members.
-    if (!saveLinkedAccounts(allowedCache)) {
-      throw new Error('Could not safely update saved sign-in details in this browser.');
-    }
-    linkedAccounts = members.map(function (member) {
+    var nextLinkedAccounts = members.map(function (member) {
       var localSession = allowedCache.find(function (account) { return account.id === member.id; });
       return Object.assign({}, member, localSession || {});
     });
+    // Old browser-wide associations are deliberately not imported. Keep only
+    // local sessions whose IDs the authenticated backend confirms are members.
+    // Apply the authorized membership in memory before writing storage: a
+    // storage failure must never leave a removed account switchable here.
+    linkedAccounts = nextLinkedAccounts;
     membershipUserId = userId;
     membershipLoaded = true;
+    if (!saveLinkedAccounts(allowedCache)) {
+      publishAccounts();
+      throw new Error('Could not safely update saved sign-in details in this browser.');
+    }
 
     if (removedLegacyEntries > 0 && !window.__varoomLegacyAccountNoticeShown) {
       window.__varoomLegacyAccountNoticeShown = true;
@@ -203,6 +225,57 @@
     }
     publishAccounts();
     return Object.assign({}, linkedMember, { session_cached: savedSession });
+  }
+
+  async function removeLinkedAccount(client, removedUserId) {
+    if (!client || !client.auth || !removedUserId) {
+      throw new Error('Choose a saved account to remove.');
+    }
+    var activeResult = await client.auth.getSession();
+    var currentSession = activeResult && activeResult.data && activeResult.data.session;
+    if (!currentSession || !currentSession.user || !currentSession.access_token) {
+      throw new Error('Sign in to your current VaRoom account before removing another account.');
+    }
+    if (currentSession.user.id === removedUserId) {
+      throw new Error('Switch accounts before removing the current account.');
+    }
+
+    await loadLinkedAccounts(client, currentSession, { force: true });
+    if (!linkedAccounts.some(function (member) { return member.id === removedUserId; })) {
+      throw new Error('This account is no longer linked. Refresh and try again.');
+    }
+
+    var fetcher = window.fetch || fetch;
+    var response = await fetcher('/api/account-groups/' + encodeURIComponent(removedUserId), {
+      method: 'DELETE',
+      headers: { Authorization: 'Bearer ' + currentSession.access_token }
+    });
+    var snapshot = await response.json().catch(function () { return {}; });
+    if (!response.ok) throw new Error(snapshot.error || 'Unable to remove this saved account.');
+
+    var activeResultAfterRemoval = await client.auth.getSession();
+    var activeSessionAfterRemoval = activeResultAfterRemoval && activeResultAfterRemoval.data && activeResultAfterRemoval.data.session;
+    if (!activeSessionAfterRemoval || !activeSessionAfterRemoval.user
+      || activeSessionAfterRemoval.user.id !== currentSession.user.id) {
+      throw new Error('The active account changed while removing the saved account. Please retry.');
+    }
+    try {
+      installMembership(snapshot, currentSession.user.id, activeSessionAfterRemoval);
+    } catch (error) {
+      if (!linkedAccounts.some(function (member) { return member.id === removedUserId; })) {
+        var cleanupError = new Error('The saved account was removed, but this browser could not clear its saved sign-in details. Refresh before switching accounts.');
+        cleanupError.removalSucceeded = true;
+        throw cleanupError;
+      }
+      throw error;
+    }
+    if (linkedAccounts.some(function (member) { return member.id === removedUserId; })) {
+      throw new Error('The saved account was not removed from the linked group.');
+    }
+    try {
+      localStorage.setItem(MEMBERSHIP_SYNC_KEY, String(Date.now()));
+    } catch (e) {}
+    return getLinkedAccounts();
   }
 
   function removeAccount(userId) {
@@ -781,6 +854,7 @@
     getLinkedAccounts: getLinkedAccounts,
     loadLinkedAccounts: loadLinkedAccounts,
     linkAdditionalSession: linkAdditionalSession,
+    removeLinkedAccount: removeLinkedAccount,
     getActiveAccountId: getActiveAccountId,
     getActiveAccount: getActiveAccount,
     upsertAccount: upsertAccount,

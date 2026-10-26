@@ -4,8 +4,9 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const fs = require('node:fs');
 const test = require('node:test');
+const express = require('express');
 const createAccountGroupRoutes = require('../routes/accountGroupRoutes');
-const { authenticatedUser, groupSnapshot, linkAccountGroupUsers, linkFailure } = createAccountGroupRoutes;
+const { authenticatedUser, groupSnapshot, linkAccountGroupUsers, removeAccountGroupUser, linkFailure, removalFailure } = createAccountGroupRoutes;
 
 function createMockAdmin() {
   const users = new Map(['x', 'y', 'z', 'f', 'a', 'b'].map((id) => [
@@ -48,6 +49,8 @@ function createMockAdmin() {
   }
 
   return {
+    users,
+    profiles,
     memberships,
     auth: {
       async getUser(token) {
@@ -59,8 +62,16 @@ function createMockAdmin() {
     },
     from: query,
     async rpc(name, args) {
-      assert.equal(name, 'varoom_link_account_group_users');
       const operation = transaction.then(() => {
+        if (name === 'varoom_remove_account_group_member') {
+          const currentGroup = memberships.get(args.p_current_user);
+          const removedGroup = memberships.get(args.p_removed_user);
+          if (args.p_current_user === args.p_removed_user) return { data: null, error: new Error('cannot_remove_current_account') };
+          if (!currentGroup || currentGroup !== removedGroup) return { data: null, error: new Error('account_group_member_not_linked') };
+          memberships.delete(args.p_removed_user);
+          return { data: null, error: null };
+        }
+        assert.equal(name, 'varoom_link_account_group_users');
         const a = args.p_user_a;
         const b = args.p_user_b;
         if (a === b) return { data: null, error: new Error('invalid_account_group_members') };
@@ -147,6 +158,63 @@ test('concurrent attempts cannot add two members to a group with one remaining s
   assert.equal([...admin.memberships.values()].filter((groupId) => groupId === 'group-x').length, 3);
 });
 
+test('removing a linked non-current account changes only that membership and retains its VaRoom data', async () => {
+  const admin = createMockAdmin();
+  admin.memberships.set('x', 'group-xyz');
+  admin.memberships.set('y', 'group-xyz');
+  admin.memberships.set('z', 'group-xyz');
+  admin.memberships.set('f', 'group-f');
+  const currentUser = await authenticatedUser(admin, { headers: { authorization: 'Bearer access-x' } });
+  const originalProfile = admin.from('profiles');
+
+  const snapshot = await removeAccountGroupUser(admin, currentUser, 'y');
+  assert.deepEqual(snapshot.members.map((member) => member.id), ['x', 'z']);
+  assert.equal(admin.memberships.has('y'), false);
+  assert.equal(admin.memberships.get('f'), 'group-f');
+  assert.equal((await originalProfile.in('id', ['y'])).data[0].id, 'y');
+  await assert.rejects(removeAccountGroupUser(admin, currentUser, 'x'), /cannot_remove_current_account/);
+  await assert.rejects(removeAccountGroupUser(admin, currentUser, 'y'), /account_group_member_not_linked/);
+  assert.equal(removalFailure(new Error('account_group_member_not_linked')).status, 409);
+});
+
+test('the removal endpoint requires the active user and removes only a valid same-group UUID member', async () => {
+  const admin = createMockAdmin();
+  const currentId = '11111111-1111-4111-8111-111111111111';
+  const removedId = '22222222-2222-4222-8222-222222222222';
+  const currentUser = { id: currentId, email: 'current@example.test', user_metadata: { full_name: 'Current' } };
+  const removedUser = { id: removedId, email: 'removed@example.test', user_metadata: { full_name: 'Removed' } };
+  admin.users.set('access-current', currentUser);
+  admin.users.set('access-removed', removedUser);
+  admin.profiles.set(currentId, { id: currentId, full_name: 'Current', username: 'current', role: 'client' });
+  admin.profiles.set(removedId, { id: removedId, full_name: 'Removed', username: 'removed', role: 'client' });
+  admin.memberships.set(currentId, 'group-uuid');
+  admin.memberships.set(removedId, 'group-uuid');
+
+  const app = express();
+  app.use(express.json());
+  app.use('/api', createAccountGroupRoutes(admin));
+  const server = app.listen(0, '127.0.0.1');
+  await new Promise((resolve) => server.once('listening', resolve));
+  try {
+    const response = await fetch(`http://127.0.0.1:${server.address().port}/api/account-groups/${removedId}`, {
+      method: 'DELETE',
+      headers: { authorization: 'Bearer access-current' }
+    });
+    assert.equal(response.status, 200);
+    assert.deepEqual((await response.json()).members.map((member) => member.id), [currentId]);
+    assert.equal(admin.memberships.has(removedId), false);
+
+    const selfResponse = await fetch(`http://127.0.0.1:${server.address().port}/api/account-groups/${currentId}`, {
+      method: 'DELETE',
+      headers: { authorization: 'Bearer access-current' }
+    });
+    assert.equal(selfResponse.status, 400);
+    assert.match((await selfResponse.json()).error, /switch accounts/i);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
 test('migration makes membership private and enforces an atomic three-member cap', () => {
   const migration = fs.readFileSync(path.join(__dirname, '../migrations/20261023_000049_linked_account_groups.sql'), 'utf8');
   assert.match(migration, /user_id uuid primary key references auth\.users\(id\) on delete cascade/i);
@@ -156,4 +224,14 @@ test('migration makes membership private and enforces an atomic three-member cap
   assert.match(migration, /pg_advisory_xact_lock\(hashtextextended\('varoom-account-group-membership'/i);
   assert.match(migration, /v_count > 3/i);
   assert.match(migration, /v_member_count >= 3/i);
+});
+
+test('saved-account removal migration deletes only a selected linked membership', () => {
+  const migration = fs.readFileSync(path.join(__dirname, '../migrations/20261026_000050_remove_linked_account_group_member.sql'), 'utf8');
+  assert.match(migration, /create or replace function public\.varoom_remove_account_group_member/i);
+  assert.match(migration, /p_current_user = p_removed_user/i);
+  assert.match(migration, /delete from public\.account_group_members/i);
+  assert.match(migration, /grant execute on function public\.varoom_remove_account_group_member[\s\S]*to service_role/i);
+  assert.doesNotMatch(migration, /delete from public\.(profiles|listings|bookings|chats)/i);
+  assert.doesNotMatch(migration, /delete_user/i);
 });
