@@ -292,7 +292,8 @@ export default function ClientLayout({ children, activeNav }) {
         '/support',
         '/marketplace',
         '/signup-host',
-        '/host/'
+        '/host/',
+        '/property-news'
       ];
 
       const isInternal = internalRoutes.some((route) => href === route || href.startsWith(`${route}/`) || href.startsWith(`${route}?`));
