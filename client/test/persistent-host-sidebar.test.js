@@ -3,6 +3,7 @@ const test = require('node:test');
 const fs = require('node:fs');
 const path = require('node:path');
 const { resolveAvatarUrl, resolveStoredPhotoUrl } = require('../components/resolveStoredPhotoUrl');
+const { getAccountLayout } = require('../lib/accountRoleLayout');
 
 const clientDir = path.join(__dirname, '..');
 
@@ -52,12 +53,19 @@ test('_app.js wraps designated host-facing routes with persistent HostLayout', (
   const appCode = fs.readFileSync(path.join(clientDir, 'pages', '_app.js'), 'utf8');
 
   assert.match(appCode, /import HostLayout from '\.\.\/components\/HostLayout';/, 'Imports HostLayout');
-  assert.match(appCode, /isHostHome/, 'Detects host-home route');
-  assert.match(appCode, /isAnalytics/, 'Detects analytics route');
-  assert.match(appCode, /isSharedRoute/, 'Detects shared host routes');
+  assert.match(appCode, /getAccountLayout\(path, asPath, role\)/, 'Uses the tested role-aware route selector');
   assert.match(appCode, /<HostLayout>\{pageElement\}<\/HostLayout>/, 'Mounts persistent HostLayout');
-  assert.match(appCode, /useState\('host'\)/, 'Uses the same initial role on server and client');
+  assert.match(appCode, /useState\(null\)/, 'Starts with an unresolved role rather than a host fallback');
+  assert.match(appCode, /varoom_supabase_ready/, 'Waits for the shared authenticated Supabase client');
   assert.doesNotMatch(appCode, /useState\(\(\) => \{[\s\S]*?sessionStorage/, 'Does not read browser storage during initial render');
+});
+
+test('confirmed client roles select ClientLayout on shared routes and never HostLayout', () => {
+  assert.equal(getAccountLayout('/[...slug]', '/bookings', 'client'), 'client');
+  assert.equal(getAccountLayout('/[...slug]', '/settings', 'client'), 'client');
+  assert.equal(getAccountLayout('/[...slug]', '/client-home', 'client'), 'client');
+  assert.notEqual(getAccountLayout('/[...slug]', '/bookings', 'client'), 'host');
+  assert.equal(getAccountLayout('/[...slug]', '/bookings', 'host'), 'host');
 });
 
 test('SharedHostSidebar defers browser-specific account data until after hydration', () => {

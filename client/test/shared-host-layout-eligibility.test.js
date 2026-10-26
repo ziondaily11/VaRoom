@@ -2,21 +2,25 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const fs = require('node:fs');
 const path = require('node:path');
+const { getAccountLayout } = require('../lib/accountRoleLayout');
 
 const appCode = fs.readFileSync(path.join(__dirname, '..', 'pages', '_app.js'), 'utf8');
-const sharedRoutes = appCode.match(/const isSharedRoute = \[([\s\S]*?)\]\.some/);
 
 test('Chats, Support, Marketplace, and Analytics retain their page layouts outside HostLayout', () => {
-  assert.ok(sharedRoutes, 'Defines the HostLayout shared-route allowlist');
-  assert.doesNotMatch(sharedRoutes[1], /['"]\/(?:chats|support|marketplace|analytics)['"]/);
-  assert.match(appCode, /isHostMode = !isClientHome && \(isHostRoute \|\| \(isSharedRoute && role !== 'client'\)\)/);
+  for (const route of ['/chats', '/support', '/marketplace', '/analytics']) {
+    assert.equal(getAccountLayout('/[...slug]', route, 'host'), 'none', `${route} remains outside HostLayout`);
+  }
+  assert.match(appCode, /getAccountLayout\(path, asPath, role\)/);
 });
 
-test('Host and intended shared routes remain eligible for HostLayout', () => {
-  assert.ok(sharedRoutes, 'Defines the HostLayout shared-route allowlist');
+test('Host and intended shared routes select HostLayout only for a confirmed host role', () => {
   for (const route of ['/bookings', '/notifications', '/profile', '/settings']) {
-    assert.ok(sharedRoutes[1].includes(`'${route}'`), `${route} remains a shared host route`);
+    assert.equal(getAccountLayout('/[...slug]', route, 'host'), 'host', `${route} remains available to hosts`);
+    assert.equal(getAccountLayout('/[...slug]', route, 'client'), 'client', `${route} selects client shell for clients`);
+    assert.equal(getAccountLayout('/[...slug]', route, null), 'pending', `${route} stays neutral until role resolves`);
   }
-  assert.match(appCode, /const isHostHome = path === '\/host-home'/);
-  assert.match(appCode, /const isClientHome = path === '\/client-home'/);
+  assert.equal(getAccountLayout('/[...slug]', '/host-home', 'host'), 'host');
+  assert.equal(getAccountLayout('/[...slug]', '/host-home', 'client'), 'pending');
+  assert.equal(getAccountLayout('/[...slug]', '/client-home', 'client'), 'client');
+  assert.equal(getAccountLayout('/[...slug]', '/client-home', 'host'), 'pending');
 });

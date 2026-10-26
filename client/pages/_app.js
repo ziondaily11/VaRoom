@@ -4,6 +4,7 @@ import { useState, useEffect, useLayoutEffect } from 'react';
 import HostLayout from '../components/HostLayout';
 import ClientLayout from '../components/ClientLayout';
 import AddAccountModal from '../components/AddAccountModal';
+const { getAccountLayout, getSessionBoundCachedRole } = require('../lib/accountRoleLayout');
 import '../styles/admin.css';
 import '../legacy-pages/privacy.css';
 
@@ -407,7 +408,7 @@ const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffec
 
 export default function App({ Component, pageProps }) {
   const router = useRouter();
-  const [role, setRole] = useState('host');
+  const [role, setRole] = useState(null);
 
   useEffect(() => {
     const applyThemeForRoute = (url) => {
@@ -436,104 +437,128 @@ export default function App({ Component, pageProps }) {
   }, [router]);
 
   useIsomorphicLayoutEffect(() => {
-    const updateRole = () => {
+    let disposed = false;
+    let requestVersion = 0;
+    let activeUserId = null;
+    let attachedClient = null;
+    let authSubscription = null;
+
+    const readCachedProfile = () => {
       try {
-        const docRole = document.documentElement.getAttribute('data-account-role');
-        if (docRole === 'client' || docRole === 'host') {
-          setRole(docRole);
-          return;
-        }
-        const cached = localStorage.getItem('varoom_cached_profile');
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (parsed && (parsed.role === 'client' || parsed.role === 'host')) {
-            setRole(parsed.role);
-            return;
-          }
-        }
-        const r = sessionStorage.getItem('varoom_user_role') || localStorage.getItem('varoom_last_role');
-        if (r === 'client' || r === 'host') {
-          setRole(r);
-          return;
-        }
-      } catch (e) {}
-    };
-
-    updateRole();
-
-    // Observe data-account-role attribute changes on documentElement
-    let observer = null;
-    if (typeof MutationObserver !== 'undefined') {
-      observer = new MutationObserver(() => {
-        const docRole = document.documentElement.getAttribute('data-account-role');
-        if (docRole === 'client' || docRole === 'host') {
-          setRole(docRole);
-        }
-      });
-      observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-account-role'] });
-    }
-
-    const handleRoleEvent = (e) => {
-      if (e.detail?.role) {
-        setRole(e.detail.role);
-      } else {
-        updateRole();
+        const raw = localStorage.getItem('varoom_cached_profile');
+        return raw ? JSON.parse(raw) : null;
+      } catch (e) {
+        return null;
       }
     };
 
-    window.addEventListener('storage', updateRole);
+    const readActiveSession = (client) => {
+      if (!client?.auth?.getSession) return;
+      client.auth.getSession().then(({ data }) => {
+        if (!disposed) resolveSessionRole(client, data?.session || null);
+      }).catch(() => {});
+    };
+
+    const resolveSessionRole = async (client, session) => {
+      const version = ++requestVersion;
+      const userId = session?.user?.id || null;
+      if (!userId) {
+        activeUserId = null;
+        setRole(null);
+        return;
+      }
+
+      const cachedProfile = readCachedProfile();
+      const cachedRole = getSessionBoundCachedRole(session, cachedProfile);
+      if (activeUserId !== userId) {
+        activeUserId = userId;
+        setRole(cachedRole);
+      } else if (cachedRole) {
+        setRole(cachedRole);
+      }
+
+      if (!client?.from) return;
+      try {
+        const { data: profile, error } = await client
+          .from('profiles')
+          .select('role')
+          .eq('id', userId)
+          .maybeSingle();
+        if (disposed || version !== requestVersion || activeUserId !== userId) return;
+
+        const latest = await client.auth.getSession();
+        const latestUserId = latest?.data?.session?.user?.id || null;
+        if (latestUserId !== userId) {
+          resolveSessionRole(client, latest?.data?.session || null);
+          return;
+        }
+        if (!error && (profile?.role === 'host' || profile?.role === 'client')) {
+          setRole(profile.role);
+        } else if (!error && !cachedRole) {
+          setRole(null);
+        }
+      } catch (e) {
+        // A matching account-bound cached role remains usable during a
+        // temporary profile-service failure. No role is inferred otherwise.
+      }
+    };
+
+    const attachAuthClient = (client) => {
+      if (!client?.auth || attachedClient === client) return;
+      if (authSubscription) authSubscription.unsubscribe();
+      attachedClient = client;
+      const result = client.auth.onAuthStateChange((event, session) => {
+        if (event === 'INITIAL_SESSION') return;
+        // Defer Supabase reads until after the auth callback has returned.
+        Promise.resolve().then(() => {
+          if (!disposed) resolveSessionRole(client, session || null);
+        });
+      });
+      authSubscription = result?.data?.subscription || null;
+      readActiveSession(client);
+    };
+
+    const refreshRoleForActiveSession = () => {
+      if (window.supabaseClient && attachedClient !== window.supabaseClient) {
+        attachAuthClient(window.supabaseClient);
+        return;
+      }
+      if (attachedClient) readActiveSession(attachedClient);
+    };
+
+    attachAuthClient(window.supabaseClient);
+    window.addEventListener('varoom_supabase_ready', refreshRoleForActiveSession);
+
+    // Page-level role hints are unscoped. Re-read the active authenticated
+    // session instead of trusting a DOM attribute or event payload.
+    let observer = null;
+    if (typeof MutationObserver !== 'undefined') {
+      observer = new MutationObserver(refreshRoleForActiveSession);
+      observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-account-role'] });
+    }
+    const handleRoleEvent = () => refreshRoleForActiveSession();
+    const handleStorage = (event) => {
+      if (!event.key || ['varoom_cached_profile', 'varoom_active_account_id', 'varoom_user_role', 'varoom_last_role'].includes(event.key)) {
+        refreshRoleForActiveSession();
+      }
+    };
+    window.addEventListener('storage', handleStorage);
     window.addEventListener('varoom_role_change', handleRoleEvent);
 
-    // If supabaseClient is available, verify authoritative profile role
-    if (typeof window !== 'undefined' && window.supabaseClient && window.supabaseClient.auth) {
-      window.supabaseClient.auth.getSession().then(({ data }) => {
-        const userId = data?.session?.user?.id;
-        if (userId) {
-          window.supabaseClient.from('profiles').select('role').eq('id', userId).maybeSingle().then(({ data: p }) => {
-            if (p?.role) {
-              try {
-                sessionStorage.setItem('varoom_user_role', p.role);
-                localStorage.setItem('varoom_last_role', p.role);
-              } catch (e) {}
-              setRole(p.role);
-            }
-          });
-        }
-      });
-    }
-
     return () => {
-      window.removeEventListener('storage', updateRole);
+      disposed = true;
+      requestVersion += 1;
+      window.removeEventListener('storage', handleStorage);
       window.removeEventListener('varoom_role_change', handleRoleEvent);
+      window.removeEventListener('varoom_supabase_ready', refreshRoleForActiveSession);
       if (observer) observer.disconnect();
+      if (authSubscription) authSubscription.unsubscribe();
     };
   }, []);
 
   const path = router.pathname || '';
   const asPath = router.asPath || '';
-  const isHostHome = path === '/host-home' || asPath.startsWith('/host-home');
-  const isAnalytics = path === '/analytics' || asPath.startsWith('/analytics');
-  const isClientHome = path === '/client-home' || asPath.startsWith('/client-home');
-
-  const isHostProfileRoute = path.startsWith('/host/') || asPath.startsWith('/host/');
-  // Explicit host routes that must always use HostLayout (analytics retains its own layout)
-  const isHostRoute = !isAnalytics && (isHostHome || (isHostProfileRoute && role !== 'client'));
-
-  // Shared routes that use HostLayout unless user explicitly switched to client role
-  const isSharedRoute = [
-    '/bookings',
-    '/notifications',
-    '/profile',
-    '/settings'
-  ].some((r) => path.startsWith(r) || asPath.startsWith(r));
-
-  // Determine whether this page should use the persistent HostLayout
-  const isHostMode = !isClientHome && (isHostRoute || (isSharedRoute && role !== 'client'));
-
-  // Client routes that use the persistent ClientLayout
-  const isClientSharedRoute = isSharedRoute && role === 'client';
-  const isClientHostProfile = isHostProfileRoute && role === 'client';
-  const isClientMode = !isHostMode && (isClientHome || isClientSharedRoute || isClientHostProfile);
+  const accountLayout = getAccountLayout(path, asPath, role);
 
   const pageElement = <Component {...pageProps} />;
 
@@ -551,9 +576,19 @@ export default function App({ Component, pageProps }) {
       </Head>
       {Component.getLayout ? (
         Component.getLayout(pageElement)
-      ) : isHostMode ? (
+      ) : accountLayout === 'pending' ? (
+        <div
+          role="status"
+          aria-live="polite"
+          aria-busy="true"
+          style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: 'var(--paper, #fff)', color: 'var(--ink, #24211e)' }}
+        >
+          <span>Loading your workspace…</span>
+          <div aria-hidden="true" style={{ display: 'none' }}>{pageElement}</div>
+        </div>
+      ) : accountLayout === 'host' ? (
         <HostLayout>{pageElement}</HostLayout>
-      ) : isClientMode ? (
+      ) : accountLayout === 'client' ? (
         <ClientLayout>{pageElement}</ClientLayout>
       ) : (
         pageElement
