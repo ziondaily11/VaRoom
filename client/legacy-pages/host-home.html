@@ -1738,6 +1738,9 @@
 <script src="js/property-news-api.js"></script>
 <script>
   (async function(){
+    const pageLifecycle = window.__VaRoomLegacyPageLifecycle;
+    let homeInitReady = false;
+    let refreshedProfilePending = null;
     let currentUser = null;
     let currentCategory = 'all';
     let searchTerm = '';
@@ -1756,14 +1759,21 @@
 
     // ---------- Auth guard ----------
     const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!pageLifecycle.isActive()) return;
     if (!session) { window.location.href = '/login'; return; }
     currentUser = session.user;
 
-    const { data: profile } = await supabaseClient
+    const profileRequest = supabaseClient
       .from('profiles')
       .select('role, full_name, verified, avatar_url, username, listing_categories, onboarding_completed')
       .eq('id', currentUser.id)
       .maybeSingle();
+    if (typeof profileRequest.abortSignal === 'function') profileRequest.abortSignal(pageLifecycle.signal);
+    const cachedHomeProfile = window.VaRoomAccountProfileCache
+      && window.VaRoomAccountProfileCache.readHomeState(currentUser.id, 'host');
+    const profileResult = cachedHomeProfile ? null : await profileRequest;
+    if (!pageLifecycle.isActive()) return;
+    const profile = cachedHomeProfile || (profileResult && profileResult.data);
 
     if (!profile) { window.location.href = '/login'; return; }
     if (!profile.onboarding_completed) { window.location.href = '/onboarding'; return; }
@@ -1773,6 +1783,52 @@
       localStorage.setItem('varoom_last_role', 'host');
     } catch (e) {}
     const hostNiches = Array.isArray(profile.listing_categories) ? profile.listing_categories : [];
+    function applyAuthoritativeProfile(result){
+      if (!result || !pageLifecycle || !pageLifecycle.isActive()) return;
+      if (result.error) return;
+      const fresh = result.data;
+      if (!fresh) { window.location.href = '/login'; return; }
+      if (fresh.role !== 'host') { window.location.href = fresh.role === 'client' ? '/client-home' : '/login'; return; }
+      if (!fresh.onboarding_completed) { window.location.href = '/onboarding'; return; }
+      if (window.VaRoomAccountProfileCache) {
+        window.VaRoomAccountProfileCache.writeHomeState(currentUser.id, {
+          accountId: currentUser.id,
+          role: 'host',
+          onboarding_completed: true,
+          listing_categories: Array.isArray(fresh.listing_categories) ? fresh.listing_categories : [],
+          verified: fresh.verified === true,
+        }, {
+          id: currentUser.id,
+          full_name: fresh.full_name || session.user.user_metadata?.full_name || 'VaRoom Host',
+          username: fresh.username || session.user.email?.split('@')[0] || 'host',
+          avatar_url: fresh.avatar_url || session.user.user_metadata?.avatar_url || null,
+          email: session.user.email || '',
+          role: 'host',
+        });
+      }
+    }
+    if (cachedHomeProfile) {
+      profileRequest.then(function(result){
+        if (!pageLifecycle.isActive()) return;
+        if (!homeInitReady) refreshedProfilePending = result;
+        else applyAuthoritativeProfile(result);
+      }).catch(function(){});
+    } else if (window.VaRoomAccountProfileCache) {
+      window.VaRoomAccountProfileCache.writeHomeState(currentUser.id, {
+        accountId: currentUser.id,
+        role: 'host',
+        onboarding_completed: true,
+        listing_categories: hostNiches,
+        verified: profile.verified === true,
+      }, {
+        id: currentUser.id,
+        full_name: profile.full_name || session.user.user_metadata?.full_name || 'VaRoom Host',
+        username: profile.username || session.user.email?.split('@')[0] || 'host',
+        avatar_url: profile.avatar_url || session.user.user_metadata?.avatar_url || null,
+        email: session.user.email || '',
+        role: 'host',
+      });
+    }
     if (hostNiches.length !== 1) {
       const nichePrompt = document.getElementById('host-niche-prompt');
       const nichePromptMsg = document.getElementById('host-niche-prompt-msg');
@@ -1804,10 +1860,11 @@
     // Account status is not part of the listing-cache key. Keep it in the
     // background so a return to Home is not delayed by this API request.
     let isSuspended = false;
-    const accountStatusPromise = fetch('/api/account-status', { headers: { Authorization: 'Bearer ' + session.access_token } })
+    const accountStatusPromise = fetch('/api/account-status', { headers: { Authorization: 'Bearer ' + session.access_token }, signal: pageLifecycle.signal })
       .then(function(response){ return response && response.ok ? response.json() : { suspended: false }; })
       .catch(function(){ return { suspended: false }; })
       .then(function(accountStatus){
+        if (!pageLifecycle.isActive()) return;
         isSuspended = accountStatus.suspended === true;
         if (activeFeedKey && document.getElementById('listing-feed-sentinel')) {
           renderFeedFromCache({ key: activeFeedKey, preserve: true });
@@ -2153,12 +2210,13 @@
 
     function startPropertyNewsTimers(){
       clearInterval(propertyNewsRefreshTimer);
-      propertyNewsRefreshTimer = setInterval(loadPropertyNews, PROPERTY_NEWS_REFRESH_MS);
+      propertyNewsRefreshTimer = window.__VaRoomLegacyPageLifecycle.interval(loadPropertyNews, PROPERTY_NEWS_REFRESH_MS);
     }
 
     async function loadPropertyNews(){
       try {
-        const news = await VaRoomPropertyNews.latest(5);
+        const news = await VaRoomPropertyNews.latest(5, { signal: pageLifecycle.signal });
+        if (!pageLifecycle.isActive()) return;
         if (Array.isArray(news) && news.length > 0) {
           hostPropertyNewsCache = news.slice(0, 5);
           renderFreshPropertyNews();
@@ -2168,6 +2226,7 @@
           renderPropertyNews('ready', []);
         }
       } catch (error) {
+        if (!pageLifecycle.isActive()) return;
         console.warn('Property news notice:', error.message || error);
         if (!hostPropertyNewsCache.length) {
           renderPropertyNews('ready', []);
@@ -2672,7 +2731,7 @@
 
     function scheduleDiscoverMediaResize(container){
       if (discoverMediaResizeFrame) return;
-      discoverMediaResizeFrame = requestAnimationFrame(function(){
+      discoverMediaResizeFrame = window.__VaRoomLegacyPageLifecycle.animationFrame(function(){
         discoverMediaResizeFrame = 0;
         if (!container || !container.classList.contains('discover-media-feed')) return;
         const width = container.clientWidth;
@@ -2686,17 +2745,21 @@
 
     function observeDiscoverMediaResize(container){
       if (!container || discoverMediaResizeTarget === container) return;
-      if (discoverMediaResizeObserver) discoverMediaResizeObserver.disconnect();
+      if (discoverMediaResizeObserver) window.__VaRoomLegacyPageLifecycle.disconnectObserver(discoverMediaResizeObserver);
       discoverMediaResizeTarget = container;
       if (typeof ResizeObserver !== 'undefined') {
-        discoverMediaResizeObserver = new ResizeObserver(function(){ scheduleDiscoverMediaResize(container); });
+        discoverMediaResizeObserver = window.__VaRoomLegacyPageLifecycle.trackObserver(new ResizeObserver(function(){ scheduleDiscoverMediaResize(container); }));
         discoverMediaResizeObserver.observe(container);
       }
-      window.addEventListener('resize', function(){ scheduleDiscoverMediaResize(container); }, { passive:true });
-      window.addEventListener('orientationchange', function(){ scheduleDiscoverMediaResize(container); }, { passive:true });
+      window.__VaRoomLegacyPageLifecycle.listen(window, 'resize', function(){ scheduleDiscoverMediaResize(container); }, { passive:true });
+      window.__VaRoomLegacyPageLifecycle.listen(window, 'orientationchange', function(){ scheduleDiscoverMediaResize(container); }, { passive:true });
       const breakpoint = window.matchMedia('(max-width:860px)');
-      if (breakpoint.addEventListener) breakpoint.addEventListener('change', function(){ scheduleDiscoverMediaResize(container); });
-      else if (breakpoint.addListener) breakpoint.addListener(function(){ scheduleDiscoverMediaResize(container); });
+      if (breakpoint.addEventListener) window.__VaRoomLegacyPageLifecycle.listen(breakpoint, 'change', function(){ scheduleDiscoverMediaResize(container); });
+      else if (breakpoint.addListener) {
+        const onChange = function(){ scheduleDiscoverMediaResize(container); };
+        breakpoint.addListener(onChange);
+        window.__VaRoomLegacyPageLifecycle.onCleanup(function(){ breakpoint.removeListener(onChange); });
+      }
     }
 
     function setDiscoverAmbientImage(target, source){
@@ -2912,7 +2975,7 @@
       VaRoomHostListings.bind(container);
     }
 
-    document.addEventListener('click', function(){
+    window.__VaRoomLegacyPageLifecycle.listen(document, 'click', function(){
       document.querySelectorAll('.card-menu-dropdown.open').forEach(function(d){ d.classList.remove('open'); });
     });
 
@@ -2957,7 +3020,7 @@
       msg.textContent = 'Report submitted. Thank you for helping keep VaRoom trustworthy.';
       msg.className = 'report-modal-msg success';
       btn.style.display = 'none';
-      setTimeout(closeReportModal, 1800);
+      window.__VaRoomLegacyPageLifecycle.timeout(closeReportModal, 1800);
     });
 
     async function loadVaroomUpdates(targetId){
@@ -3021,12 +3084,17 @@
     let lastFeedScrollPosition = -1;
     let lastLoadScrollPosition = -1;
 
+    function withPageSignal(query){
+      return query && typeof query.abortSignal === 'function' ? query.abortSignal(pageLifecycle.signal) : query;
+    }
+
     async function findListingVideoMediaId(listingId){
       const { data: { session } } = await supabaseClient.auth.getSession();
       const token = session && session.access_token ? session.access_token : null;
       try {
         const response = await fetch('/api/properties/' + encodeURIComponent(listingId) + '/media', {
-          headers: token ? { Authorization: 'Bearer ' + token } : {}
+          headers: token ? { Authorization: 'Bearer ' + token } : {},
+          signal: pageLifecycle.signal,
         });
         if (!response.ok) return null;
         const media = (await response.json()).media || [];
@@ -3065,12 +3133,13 @@
       listingVideoStates[listingId] = 'loading';
       pendingVideoMetadata.add(listingId);
       if (videoMetadataTimer) return;
-      videoMetadataTimer = window.setTimeout(async function(){
+      videoMetadataTimer = window.__VaRoomLegacyPageLifecycle.timeout(async function(){
         const ids = Array.from(pendingVideoMetadata); pendingVideoMetadata.clear(); videoMetadataTimer = null;
         try {
-          const response = await fetch('/api/discover/video-media?listingIds=' + encodeURIComponent(ids.join(',')));
+          const response = await fetch('/api/discover/video-media?listingIds=' + encodeURIComponent(ids.join(',')), { signal: pageLifecycle.signal });
           if (!response.ok) throw new Error('media lookup failed');
           const payload = await response.json();
+          if (!pageLifecycle.isActive()) return;
           const found = payload.videoMedia || {};
           const dimensions = payload.videoDimensions || {};
           await Promise.all(ids.map(function(id){
@@ -3081,6 +3150,7 @@
             return loadListingVideoPlayback(id);
           }));
         } catch (error) {
+          if (!pageLifecycle.isActive()) return;
           await Promise.all(ids.map(async function(id){
             const videoMedia = await findListingVideoMediaId(id);
             if (!videoMedia) { listingVideoStates[id] = 'no-media'; return; }
@@ -3089,12 +3159,13 @@
             await loadListingVideoPlayback(id);
           }));
         }
+        if (!pageLifecycle.isActive()) return;
         if (activeFeedKey) renderFeedFromCache({ key: activeFeedKey, preserve: true });
       }, 60);
     }
 
     function observeDiscoverMedia(container){
-      if (discoverMediaObserver) discoverMediaObserver.disconnect();
+      if (discoverMediaObserver) window.__VaRoomLegacyPageLifecycle.disconnectObserver(discoverMediaObserver);
       const cards = container.querySelectorAll('.card[data-listing-id]');
       if (!cards.length) return;
       const root = document.querySelector('.dash-main') || document.querySelector('.feed-area');
@@ -3102,13 +3173,13 @@
         cards.forEach(function(card){ queueVisibleVideoMetadata(card.getAttribute('data-listing-id')); });
         return;
       }
-      discoverMediaObserver = new IntersectionObserver(function(entries){
+      discoverMediaObserver = window.__VaRoomLegacyPageLifecycle.trackObserver(new IntersectionObserver(function(entries){
         entries.forEach(function(entry){
           if (!entry.isIntersecting) return;
           discoverMediaObserver.unobserve(entry.target);
           queueVisibleVideoMetadata(entry.target.getAttribute('data-listing-id'));
         });
-      }, { root: root, rootMargin: '350px 0px', threshold: .01 });
+      }, { root: root, rootMargin: '350px 0px', threshold: .01 }));
       cards.forEach(function(card){
         const id = card.getAttribute('data-listing-id');
         if (!listingVideoStates[id] || listingVideoStates[id] === 'unknown') discoverMediaObserver.observe(card);
@@ -3132,22 +3203,22 @@
 
       return async function(offset, limit){
         if (!term) {
-          return withFilters(supabaseClient.from('listings').select(FEED_SELECT)
+          return withPageSignal(withFilters(supabaseClient.from('listings').select(FEED_SELECT)
             .order('created_at', { ascending:false }).order('id', { ascending:false })
-            .range(offset, offset + limit - 1));
+            .range(offset, offset + limit - 1)));
         }
 
         if (offset > 0) return { data: [], hasMore: false };
-        const locQuery = withFilters(supabaseClient.from('listings').select(FEED_SELECT)
+        const locQuery = withPageSignal(withFilters(supabaseClient.from('listings').select(FEED_SELECT)
           .ilike('location_text', '%' + term + '%')
-          .order('created_at', { ascending:false }).order('id', { ascending:false }).limit(limit));
-        const hostResult = await supabaseClient.from('profiles').select('id')
-          .ilike('username', '%' + term + '%').limit(100);
+          .order('created_at', { ascending:false }).order('id', { ascending:false }).limit(limit)));
+        const hostResult = await withPageSignal(supabaseClient.from('profiles').select('id')
+          .ilike('username', '%' + term + '%').limit(100));
         if (hostResult.error) return { error: hostResult.error };
         const hostIds = (hostResult.data || []).map(function(profile){ return profile.id; });
         const hostQuery = hostIds.length > 0
-          ? withFilters(supabaseClient.from('listings').select(FEED_SELECT).in('host_id', hostIds)
-            .order('created_at', { ascending:false }).order('id', { ascending:false }).limit(limit))
+          ? withPageSignal(withFilters(supabaseClient.from('listings').select(FEED_SELECT).in('host_id', hostIds)
+            .order('created_at', { ascending:false }).order('id', { ascending:false }).limit(limit)))
           : Promise.resolve({ data: [], error: null });
         const results = await Promise.all([locQuery, hostQuery]);
         if (results[0].error) return { error: results[0].error };
@@ -3182,7 +3253,7 @@
       let position;
       try { position = JSON.parse(sessionStorage.getItem(feedScrollStateKey(key)) || 'null'); } catch (error) {}
       if (!position) return;
-      window.requestAnimationFrame(function(){
+      window.__VaRoomLegacyPageLifecycle.animationFrame(function(){
         const area = document.querySelector('.dash-main') || document.querySelector('.feed-area');
         if (area) area.scrollTop = position.areaY || 0;
         window.scrollTo(0, position.windowY || 0);
@@ -3206,13 +3277,13 @@
 
     function observeFeedEnd(){
       const sentinel = document.getElementById('listing-feed-sentinel');
-      if (feedObserver) feedObserver.disconnect();
+      if (feedObserver) window.__VaRoomLegacyPageLifecycle.disconnectObserver(feedObserver);
       if (!sentinel || !('IntersectionObserver' in window)) return;
-      feedObserver = new IntersectionObserver(function(entries){
+      feedObserver = window.__VaRoomLegacyPageLifecycle.trackObserver(new IntersectionObserver(function(entries){
         if (!entries[0].isIntersecting || lastFeedScrollPosition < 0 || lastFeedScrollPosition <= lastLoadScrollPosition) return;
         lastLoadScrollPosition = lastFeedScrollPosition;
         loadMoreListings();
-      }, { rootMargin: '700px 0px' });
+      }, { rootMargin: '700px 0px' }));
       feedObserver.observe(sentinel);
     }
 
@@ -3255,6 +3326,7 @@
       renderFeedFromCache({ key: activeFeedKey, preserve: true });
       try {
         snapshot = await window.VaRoomListingFeedCache.prefetchNext(activeFeedKey, activeFeedFetcher);
+        if (!pageLifecycle.isActive()) return;
         visibleListingCount = Math.min(visibleListingCount + FEED_PAGE_SIZE, snapshot.items.length);
         loadingMore = false;
         renderFeedFromCache({ key: activeFeedKey, preserve: true });
@@ -3283,6 +3355,7 @@
         restoreFeedScrollPosition(key);
         if (snapshot.isStale || options.revalidate) {
           window.VaRoomListingFeedCache.revalidate(key, fetcher).then(function(){
+            if (!pageLifecycle.isActive()) return;
             if (activeFeedKey !== key || version !== feedLoadVersion) return;
             const refreshed = window.VaRoomListingFeedCache.snapshot(key);
             visibleListingCount = Math.min(Math.max(visibleListingCount, FEED_PAGE_SIZE), refreshed.items.length);
@@ -3295,6 +3368,7 @@
       feedList.innerHTML = skeletonCards(3);
       try {
         snapshot = await window.VaRoomListingFeedCache.fetchPage(key, 0, fetcher);
+        if (!pageLifecycle.isActive()) return;
         if (activeFeedKey !== key || version !== feedLoadVersion) return;
         visibleListingCount = Math.min(FEED_PAGE_SIZE, snapshot.items.length);
         renderFeedFromCache({ key: key });
@@ -3305,8 +3379,8 @@
       }
     }
 
-    window.addEventListener('pagehide', saveFeedScrollPosition);
-    window.addEventListener('pageshow', function(event){
+    window.__VaRoomLegacyPageLifecycle.listen(window, 'pagehide', saveFeedScrollPosition);
+    window.__VaRoomLegacyPageLifecycle.listen(window, 'pageshow', function(event){
       if (!event.persisted) return;
       const listingIds = Array.from(new Set(Array.from(document.querySelectorAll('.like-btn')).map(function(button){
         return button.getAttribute('data-listing-id');
@@ -3320,7 +3394,7 @@
       });
       loadListingLikeSummaries(listingIds);
     });
-    window.addEventListener('scroll', recordFeedScroll, { passive:true });
+    window.__VaRoomLegacyPageLifecycle.listen(window, 'scroll', recordFeedScroll, { passive:true });
     (document.querySelector('.dash-main') || document.querySelector('.feed-area')).addEventListener('scroll', recordFeedScroll, { passive:true });
 
     tabsEl.querySelectorAll('.tab').forEach(function(tab){
@@ -3335,7 +3409,7 @@
     let searchDebounce;
     searchInput.addEventListener('input', function(){
       clearTimeout(searchDebounce);
-      searchDebounce = setTimeout(function(){ searchTerm = searchInput.value; loadFeed(); }, 350);
+      searchDebounce = window.__VaRoomLegacyPageLifecycle.timeout(function(){ searchTerm = searchInput.value; loadFeed(); }, 350);
     });
 
     // ---------- Account identity + switcher ----------
@@ -3451,14 +3525,14 @@
         e.stopPropagation();
         if (accountMenu.hasAttribute('hidden')) openMenu(); else closeMenu();
       });
-      document.addEventListener('click', function(e) {
+      window.__VaRoomLegacyPageLifecycle.listen(document, 'click', function(e) {
         if (!accountMenu.hasAttribute('hidden') &&
             !accountMenu.contains(e.target) &&
             !identityBtn.contains(e.target)) {
           closeMenu();
         }
       });
-      document.addEventListener('keydown', function(e) {
+      window.__VaRoomLegacyPageLifecycle.listen(document, 'keydown', function(e) {
         if (e.key === 'Escape' && !accountMenu.hasAttribute('hidden')) closeMenu();
       });
 
@@ -3518,11 +3592,12 @@
         }
 
         // Keep tokens fresh — update stored record whenever Supabase refreshes
-        supabaseClient.auth.onAuthStateChange(function(event, session) {
+        const authStateSubscription = supabaseClient.auth.onAuthStateChange(function(event, session) {
           if ((event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN') && session) {
             switcher.upsertFromSession(supabaseClient, session);
           }
         });
+        window.__VaRoomLegacyPageLifecycle.trackSubscription(authStateSubscription && authStateSubscription.data && authStateSubscription.data.subscription);
       })();
     })();
 
@@ -3533,7 +3608,7 @@
       clearTimeout(toastTimeout);
       toastEl.textContent = message;
       toastEl.classList.add('show');
-      toastTimeout = setTimeout(function(){ toastEl.classList.remove('show'); }, 2200);
+      toastTimeout = window.__VaRoomLegacyPageLifecycle.timeout(function(){ toastEl.classList.remove('show'); }, 2200);
     }
     document.querySelectorAll('[data-soon]').forEach(function(el){
       el.addEventListener('click', function(){
@@ -3629,6 +3704,8 @@
     document.querySelector('.dash-main').classList.remove('is-loading');
     document.getElementById('host-home-skeleton').hidden = true;
     loadFeed();
+    homeInitReady = true;
+    if (refreshedProfilePending) applyAuthoritativeProfile(refreshedProfilePending);
     loadVaroomUpdates('varoom-updates');
     loadPropertyNews();
     startPropertyNewsTimers();
@@ -3639,7 +3716,7 @@
       if (initView && viewHandlers[initView]) {
         viewHandlers[initView]();
       }
-      window.addEventListener('varoom-host-view-change', function(ev) {
+      window.__VaRoomLegacyPageLifecycle.listen(window, 'varoom-host-view-change', function(ev) {
         if (ev.detail && ev.detail.view && viewHandlers[ev.detail.view]) {
           viewHandlers[ev.detail.view]();
         }
@@ -3694,7 +3771,7 @@
       if (moreMenu.hasAttribute('hidden')) openMore(); else closeMore();
     });
 
-    document.addEventListener('click', function(e) {
+    window.__VaRoomLegacyPageLifecycle.listen(document, 'click', function(e) {
       if (!moreMenu.hasAttribute('hidden') &&
           !moreMenu.contains(e.target) &&
           !moreBtn.contains(e.target)) {
@@ -3702,7 +3779,7 @@
       }
     });
 
-    document.addEventListener('keydown', function(e) {
+    window.__VaRoomLegacyPageLifecycle.listen(document, 'keydown', function(e) {
       if (e.key === 'Escape' && !moreMenu.hasAttribute('hidden')) closeMore();
     });
 
@@ -3712,7 +3789,7 @@
     });
 
     // Re-position on scroll / resize so the menu tracks the button
-    window.addEventListener('resize', function() {
+    window.__VaRoomLegacyPageLifecycle.listen(window, 'resize', function() {
       if (!moreMenu.hasAttribute('hidden')) positionMoreMenu();
     });
   }());
