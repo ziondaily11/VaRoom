@@ -576,16 +576,6 @@ export default function App({ Component, pageProps }) {
       </Head>
       {Component.getLayout ? (
         Component.getLayout(pageElement)
-      ) : accountLayout === 'pending' ? (
-        <div
-          role="status"
-          aria-live="polite"
-          aria-busy="true"
-          style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: 'var(--paper, #fff)', color: 'var(--ink, #24211e)' }}
-        >
-          <span>Loading your workspace…</span>
-          <div aria-hidden="true" style={{ display: 'none' }}>{pageElement}</div>
-        </div>
       ) : accountLayout === 'host' ? (
         <HostLayout>{pageElement}</HostLayout>
       ) : accountLayout === 'client' ? (

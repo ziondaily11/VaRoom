@@ -10,14 +10,14 @@ test('role cache is usable only after the authenticated session matches its acco
   assert.equal(getSessionBoundCachedRole({ user: { id: 'client-a' } }, { id: 'client-a', role: 'admin' }), null);
 });
 
-test('shared and Home routes use a neutral layout until the active account role is known', () => {
-  assert.equal(getAccountLayout('/[...slug]', '/bookings', null), 'pending');
-  assert.equal(getAccountLayout('/[...slug]', '/client-home', null), 'pending');
-  assert.equal(getAccountLayout('/[...slug]', '/host-home', null), 'pending');
+test('shared and Home routes use the authenticated account role without a full-screen pending layout', () => {
+  assert.equal(getAccountLayout('/[...slug]', '/bookings', null), 'none');
+  assert.equal(getAccountLayout('/[...slug]', '/client-home', null), 'none');
+  assert.equal(getAccountLayout('/[...slug]', '/host-home', null), 'none');
   assert.equal(getAccountLayout('/[...slug]', '/bookings', 'client'), 'client');
   assert.equal(getAccountLayout('/[...slug]', '/bookings', 'host'), 'host');
-  assert.equal(getAccountLayout('/[...slug]', '/host-home', 'client'), 'pending');
-  assert.equal(getAccountLayout('/[...slug]', '/client-home', 'host'), 'pending');
+  assert.equal(getAccountLayout('/[...slug]', '/host-home', 'client'), 'client');
+  assert.equal(getAccountLayout('/[...slug]', '/client-home', 'host'), 'host');
 });
 
 test('client Home to Property News and back preserves the client shell; host Home remains host-only', () => {
@@ -34,7 +34,7 @@ test('switching accounts changes the shell only from the matching account role',
   assert.equal(getAccountLayout('/[...slug]', '/settings', getSessionBoundCachedRole(session, cached)), 'client');
 
   session = { user: { id: 'host-b' } };
-  assert.equal(getAccountLayout('/[...slug]', '/settings', getSessionBoundCachedRole(session, cached)), 'pending');
+  assert.equal(getAccountLayout('/[...slug]', '/settings', getSessionBoundCachedRole(session, cached)), 'none');
   cached = { id: 'host-b', role: 'host' };
   assert.equal(getAccountLayout('/[...slug]', '/settings', getSessionBoundCachedRole(session, cached)), 'host');
 });
