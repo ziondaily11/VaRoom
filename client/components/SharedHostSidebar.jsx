@@ -100,13 +100,22 @@ export default function SharedHostSidebar({ activeNav: explicitActiveNav }) {
     try {
       const { data } = await client.auth.getSession();
       const session = data?.session;
-      if (!session?.user) return true; // ready but no session
+      if (!session?.user) {
+        setUser({ full_name: 'VaRoom Host', username: 'host', avatar_url: null, email: '' });
+        return true; // ready but no session
+      }
+
+      const userId = session.user.id;
+
+      // Once the session establishes the account ID, show only that account's
+      // cached identity while the authoritative profile query is in flight.
+      const cachedProfile = window.VaRoomAccountProfileCache
+        && window.VaRoomAccountProfileCache.readForAccount(userId);
+      if (cachedProfile && cachedProfile.role === 'host') setUser(cachedProfile);
 
       if (window.VaRoomAccountSwitcher) {
         await window.VaRoomAccountSwitcher.upsertFromSession(client, session);
       }
-
-      const userId = session.user.id;
 
       // Record authoritative active account ID
       try { localStorage.setItem('varoom_active_account_id', userId); } catch (e) {}
@@ -128,7 +137,8 @@ export default function SharedHostSidebar({ activeNav: explicitActiveNav }) {
         };
         setUser(userData);
         try {
-          localStorage.setItem('varoom_cached_profile', JSON.stringify(userData));
+          if (window.VaRoomAccountProfileCache) window.VaRoomAccountProfileCache.write(userData);
+          else localStorage.setItem('varoom_cached_profile', JSON.stringify(userData));
         } catch (e) {}
       }
 
@@ -340,6 +350,7 @@ export default function SharedHostSidebar({ activeNav: explicitActiveNav }) {
   };
 
   const handleLogout = async () => {
+    setUser({ full_name: 'VaRoom Host', username: 'host', avatar_url: null, email: '' });
     try {
       if (typeof window !== 'undefined' && window.supabaseClient?.auth) {
         await window.supabaseClient.auth.signOut();

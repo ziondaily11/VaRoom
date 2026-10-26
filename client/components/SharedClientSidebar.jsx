@@ -95,13 +95,22 @@ export default function SharedClientSidebar({ activeNav: explicitActiveNav }) {
 
       const { data: sessionData } = await client.auth.getSession();
       const session = sessionData?.session;
-      if (!session || !session.user) return true; // ready but no session
+      if (!session || !session.user) {
+        if (!cancelled) setUser({ full_name: 'VaRoom Member', username: 'member', avatar_url: null, email: '' });
+        return true; // ready but no session
+      }
+
+      const userId = session.user.id;
+
+      // The authenticated session is the authority for selecting a cached
+      // identity; never hydrate the sidebar from another account's profile.
+      const cachedProfile = window.VaRoomAccountProfileCache
+        && window.VaRoomAccountProfileCache.readForAccount(userId);
+      if (!cancelled && cachedProfile && cachedProfile.role === 'client') setUser(cachedProfile);
 
       if (window.VaRoomAccountSwitcher) {
         await window.VaRoomAccountSwitcher.upsertFromSession(client, session);
       }
-
-      const userId = session.user.id;
 
       // Record active account ID now that we have an authoritative session
       try { localStorage.setItem('varoom_active_account_id', userId); } catch (e) {}
@@ -124,7 +133,8 @@ export default function SharedClientSidebar({ activeNav: explicitActiveNav }) {
         };
         if (!cancelled) setUser(userData);
         try {
-          localStorage.setItem('varoom_cached_profile', JSON.stringify(userData));
+          if (window.VaRoomAccountProfileCache) window.VaRoomAccountProfileCache.write(userData);
+          else localStorage.setItem('varoom_cached_profile', JSON.stringify(userData));
         } catch (e) {}
       }
 
@@ -168,7 +178,7 @@ export default function SharedClientSidebar({ activeNav: explicitActiveNav }) {
           const parsed = JSON.parse(e.newValue);
           const activeId = localStorage.getItem('varoom_active_account_id');
           // Only apply the new cached profile if it matches the active account
-          if (!activeId || parsed.id === activeId) {
+          if (activeId && parsed.id === activeId && parsed.role === 'client') {
             setUser(parsed);
           }
         } catch (err) {}
@@ -354,6 +364,7 @@ export default function SharedClientSidebar({ activeNav: explicitActiveNav }) {
   // Sign out handler
   const handleSignOut = async () => {
     setAccountOpen(false);
+    setUser({ full_name: 'VaRoom Member', username: 'member', avatar_url: null, email: '' });
     try {
       if (window.supabaseClient?.auth) {
         await window.supabaseClient.auth.signOut();

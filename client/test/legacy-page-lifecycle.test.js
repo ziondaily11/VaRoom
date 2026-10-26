@@ -201,9 +201,48 @@ test('cleanup registered after disposal runs immediately and disposal is idempot
   });
 });
 
+test('Home resource registration disposes global listeners, observers and subscriptions on re-entry', async () => {
+  const target = new EventTarget();
+  let events = 0;
+  let observerDisconnects = 0;
+  let unsubscribes = 0;
+
+  for (let entry = 0; entry < 3; entry += 1) {
+    const lifecycle = createLegacyPageLifecycle();
+    lifecycle.listen(target, 'home-event', () => { events += 1; });
+    lifecycle.trackObserver({ disconnect() { observerDisconnects += 1; } });
+    lifecycle.trackSubscription({ unsubscribe() { unsubscribes += 1; } });
+    await lifecycle.initialize(() => {});
+    target.dispatchEvent(new Event('home-event'));
+    lifecycle.dispose();
+    target.dispatchEvent(new Event('home-event'));
+  }
+
+  assert.equal(events, 3);
+  assert.equal(observerDisconnects, 3);
+  assert.equal(unsubscribes, 3);
+});
+
+test('page timers stop on disposal while the shared cache remains usable', async () => {
+  const lifecycle = createLegacyPageLifecycle();
+  let timerFired = false;
+  let intervalFired = false;
+  const sharedService = { available: true };
+
+  lifecycle.timeout(() => { timerFired = true; }, 10);
+  lifecycle.interval(() => { intervalFired = true; }, 5);
+  await lifecycle.initialize(() => {});
+  lifecycle.dispose();
+  await new Promise((resolve) => setTimeout(resolve, 25));
+
+  assert.equal(timerFired, false);
+  assert.equal(intervalFired, false);
+  assert.equal(sharedService.available, true);
+});
+
 test('catch-all wires the lifecycle only to the property news template', () => {
   assert.match(catchAllSource, /templateName === 'property-news\.html'[\s\S]*?createLegacyPageLifecycle\(\)/);
-  assert.match(catchAllSource, /runLegacyScripts\(containerRef\.current, scripts, pageLifecycle\)/);
+  assert.match(catchAllSource, /runLegacyScripts\(containerRef\.current, scripts, pageLifecycle, templateName\)/);
   assert.match(catchAllSource, /pageLifecycle\.initialize\(initializer,\s*\{[\s\S]*?container,[\s\S]*?search: window\.location\.search/);
   assert.match(catchAllSource, /pageLifecycle\?\.dispose\(\)/);
   assert.match(propertyNewsTemplate, /<script src="js\/property-news-api\.js"><\/script>/);

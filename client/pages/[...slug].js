@@ -145,7 +145,7 @@ export async function getStaticProps({ params }) {
   return { props: { ...parseTemplate(source, templateName === 'elie.html' || isElieSlug, isHostSlug), templateName } };
 }
 
-async function runLegacyScripts(container, scripts, pageLifecycle) {
+async function runLegacyScripts(container, scripts, pageLifecycle, templateName) {
   const pageWasLeft = () => pageLifecycle && !pageLifecycle.isActive();
   if (pageWasLeft()) return;
 
@@ -242,11 +242,15 @@ async function runLegacyScripts(container, scripts, pageLifecycle) {
       container.appendChild(script);
     }
   }
-  if (window.VaroomSidebar && window.VaroomSidebar.initCounts) {
+  // Home uses the persistent React sidebars. Keep the legacy sidebar's
+  // account-scoped realtime channel and refresh timer alive, but don't start
+  // an extra count refresh every time a Home page is revisited.
+  if (!['host-home.html', 'client-home.html'].includes(templateName)
+    && window.VaroomSidebar && window.VaroomSidebar.initCounts) {
     await window.VaroomSidebar.initCounts();
   }
 
-  if (pageLifecycle && pageLifecycle.isActive()) {
+  if (templateName === 'property-news.html' && pageLifecycle && pageLifecycle.isActive()) {
     const initializer = window.VaRoomLegacyPageInitializers
       && window.VaRoomLegacyPageInitializers.propertyNews;
     await pageLifecycle.initialize(initializer, {
@@ -262,9 +266,15 @@ export default function LegacyPage({ title, markup, scripts, templateName }) {
 
   useEffect(() => {
     let cancelled = false;
-    const pageLifecycle = templateName === 'property-news.html'
+    const pageLifecycle = ['property-news.html', 'host-home.html', 'client-home.html'].includes(templateName)
       ? createLegacyPageLifecycle()
       : null;
+    if (pageLifecycle) {
+      window.__VaRoomLegacyPageLifecycle = pageLifecycle;
+      if (templateName === 'host-home.html' || templateName === 'client-home.html') {
+        pageLifecycle.initialize(() => {});
+      }
+    }
     let composerActionsRoot;
     let elieComposerBeamRoot;
     const avatarRoots = new Map();
@@ -348,7 +358,7 @@ export default function LegacyPage({ title, markup, scripts, templateName }) {
     }
 
     const loadPageScripts = async () => {
-      await runLegacyScripts(containerRef.current, scripts, pageLifecycle);
+      await runLegacyScripts(containerRef.current, scripts, pageLifecycle, templateName);
       if (cancelled || title !== 'Messenger Dashboard' || document.querySelector('script[data-chat-data]')) return;
 
       let cacheScript = document.querySelector('script[data-chat-cache]');
@@ -389,6 +399,9 @@ export default function LegacyPage({ title, markup, scripts, templateName }) {
     return () => {
       cancelled = true;
       pageLifecycle?.dispose();
+      if (window.__VaRoomLegacyPageLifecycle === pageLifecycle) {
+        delete window.__VaRoomLegacyPageLifecycle;
+      }
       avatarObserver.disconnect();
       try { composerActionsRoot?.unmount(); } catch (e) {}
       try { elieComposerBeamRoot?.unmount(); } catch (e) {}
@@ -417,6 +430,7 @@ export default function LegacyPage({ title, markup, scripts, templateName }) {
         src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"
         strategy="beforeInteractive"
       />
+      <Script src="/js/varoom-account-profile-cache.js" strategy="beforeInteractive" />
       <Script src="/js/varoom-mobile-nav.js" strategy="afterInteractive" />
       <main key={router?.asPath || title} ref={containerRef} dangerouslySetInnerHTML={{ __html: markup }} />
     </>
