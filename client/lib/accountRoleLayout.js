@@ -23,12 +23,10 @@ function getAccountLayout(pathname, asPath, role) {
   const isHostProfile = paths.some((path) => path.startsWith('/host/'));
   const isSharedRoute = ['/bookings', '/notifications', '/profile', '/settings'].some(matches);
 
-  if (isClientHome) return role === 'client' ? 'client' : 'pending';
-  if (isHostHome) return role === 'host' ? 'host' : 'pending';
-  if (isHostProfile || isSharedRoute) {
+  if (isClientHome || isHostHome || isHostProfile || isSharedRoute) {
     if (role === 'client') return 'client';
     if (role === 'host') return 'host';
-    return 'pending';
+    return 'none';
   }
   return 'none';
 }
