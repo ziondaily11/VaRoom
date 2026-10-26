@@ -3018,6 +3018,14 @@
       }
     }
 
+    // Start the normal Home feed as soon as its renderer and account-scoped
+    // cache key are available. Cached cards render synchronously here; any
+    // stale-data refresh continues in the background while the rest of the
+    // page wires up its controls and shared widgets.
+    const initialView = new URLSearchParams(window.location.search).get('view');
+    const initialHomeFeedStarted = initialView !== 'saved';
+    if (initialHomeFeedStarted) loadFeed();
+
     window.__VaRoomLegacyPageLifecycle.listen(window, 'pagehide', saveFeedScrollPosition);
     window.__VaRoomLegacyPageLifecycle.listen(window, 'pageshow', function(event){
       if (!event.persisted) return;
@@ -3617,8 +3625,6 @@
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('view') === 'saved') {
       showSavedView();
-    } else {
-      loadFeed();
     }
     homeInitReady = true;
     if (refreshedProfilePending) applyAuthoritativeProfile(refreshedProfilePending);

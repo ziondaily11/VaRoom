@@ -121,4 +121,6 @@
       return result.notification || null;
     },
   };
+
+  window.dispatchEvent(new CustomEvent('varoom_supabase_ready'));
 })();
