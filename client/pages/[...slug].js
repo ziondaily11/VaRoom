@@ -11,7 +11,7 @@ import ElieIcon from '../components/ElieIcon';
 import ChatComposerActions from '../components/ChatComposerActions';
 import ElieComposerBeam from '../components/ElieComposerBeam';
 import { ThinkingOrb } from 'thinking-orbs';
-const { createLegacyPageLifecycle } = require('./legacyPageLifecycle');
+const { createLegacyPageLifecycle } = require('../lib/legacyPageLifecycle');
 
 const templateDirectory = path.join(process.cwd(), 'legacy-pages');
 const routeAliases = {

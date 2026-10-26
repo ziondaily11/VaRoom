@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { createLegacyPageLifecycle } = require('../pages/legacyPageLifecycle');
+const { createLegacyPageLifecycle } = require('../lib/legacyPageLifecycle');
 require('../public/js/property-news-page.js');
 
 const catchAllSource = fs.readFileSync(path.join(__dirname, '..', 'pages', '[...slug].js'), 'utf8');
