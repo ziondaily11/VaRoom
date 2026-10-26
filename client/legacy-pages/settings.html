@@ -1510,29 +1510,25 @@
       accountPendingRemoval = null;
       if (removeLinkedAccountDialog && typeof removeLinkedAccountDialog.close === 'function') removeLinkedAccountDialog.close();
     });
-    removeLinkedAccountConfirmButton?.addEventListener('click', async function(){
+    removeLinkedAccountConfirmButton?.addEventListener('click', function(){
       const account = accountPendingRemoval;
       if (!account || !window.VaRoomAccountSwitcher?.removeLinkedAccount) return;
-      removeLinkedAccountConfirmButton.disabled = true;
-      removeLinkedAccountConfirmButton.textContent = 'Removing...';
-      try {
-        await window.VaRoomAccountSwitcher.removeLinkedAccount(supabaseClient, account.id);
-        accountPendingRemoval = null;
-        if (removeLinkedAccountDialog && typeof removeLinkedAccountDialog.close === 'function') removeLinkedAccountDialog.close();
+      const removal = window.VaRoomAccountSwitcher.removeLinkedAccount(supabaseClient, account.id);
+      accountPendingRemoval = null;
+      if (removeLinkedAccountDialog && typeof removeLinkedAccountDialog.close === 'function') removeLinkedAccountDialog.close();
+      // removeLinkedAccount updates the local group before its first await, so
+      // the row disappears as soon as the user confirms.
+      renderDashboardAccounts();
+      removal.then(function(){
         renderDashboardAccounts();
         if (window.varoomShowToast) window.varoomShowToast('Saved account removed. Its VaRoom account and data were not deleted.');
-      } catch (error) {
+      }).catch(function(error){
         if (error && error.removalSucceeded) {
-          accountPendingRemoval = null;
-          if (removeLinkedAccountDialog && typeof removeLinkedAccountDialog.close === 'function') removeLinkedAccountDialog.close();
           renderDashboardAccounts();
-        } else {
-          removeLinkedAccountConfirmButton.disabled = false;
-          removeLinkedAccountConfirmButton.textContent = 'Remove account';
         }
         if (window.varoomShowToast) window.varoomShowToast(error.message || 'Unable to remove this saved account.');
         else alert(error.message || 'Unable to remove this saved account.');
-      }
+      });
     });
     window.addEventListener('varoom_linked_accounts_changed', renderDashboardAccounts);
     document.getElementById('delete-account-cancel-btn')?.addEventListener('click', function(){

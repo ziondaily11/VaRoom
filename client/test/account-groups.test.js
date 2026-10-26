@@ -159,7 +159,10 @@ test('removing a saved non-current account updates the authorized group and only
   context.api.upsertAccount(createAccount('y'));
   context.api.upsertAccount(createAccount('z'));
 
-  const remaining = await context.api.removeLinkedAccount(client, 'y');
+  const removal = context.api.removeLinkedAccount(client, 'y');
+  assert.deepEqual(context.api.getLinkedAccounts().map((member) => member.id), ['x', 'z']);
+  assert.equal(JSON.parse(context.storage.get('varoom_linked_accounts')).some((account) => account.id === 'y'), false);
+  const remaining = await removal;
   assert.deepEqual(remaining.map((member) => member.id), ['x', 'z']);
   assert.deepEqual(context.api.getLinkedAccounts().map((member) => member.id), ['x', 'z']);
   assert.equal((await client.auth.getSession()).data.session.user.id, 'x');
@@ -181,7 +184,10 @@ test('a failed saved-account removal preserves the displayed group, local creden
   context.api.upsertAccount(createAccount('x'));
   context.api.upsertAccount(createAccount('y'));
 
-  await assert.rejects(context.api.removeLinkedAccount(client, 'y'), /no longer linked/i);
+  const removal = context.api.removeLinkedAccount(client, 'y');
+  assert.deepEqual(context.api.getLinkedAccounts().map((member) => member.id), ['x']);
+  assert.equal(JSON.parse(context.storage.get('varoom_linked_accounts')).some((account) => account.id === 'y'), false);
+  await assert.rejects(removal, /no longer linked/i);
   assert.deepEqual(context.api.getLinkedAccounts().map((member) => member.id), ['x', 'y']);
   assert.equal(JSON.parse(context.storage.get('varoom_linked_accounts')).some((account) => account.id === 'y'), true);
   assert.equal((await client.auth.getSession()).data.session.user.id, 'x');
