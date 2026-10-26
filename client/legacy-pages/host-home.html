@@ -871,6 +871,11 @@
   .host-skel-media{ width:min(100%, 650px); aspect-ratio:1 / 1; border-radius:16px; margin:.75rem 0; }
   .host-skel-actions{ display:flex; gap:.5rem; padding-top:.35rem; }
   .host-skel-actions .skel{ width:58px; height:24px; border-radius:999px; }
+  @media (max-width:860px){
+    .host-home-skeleton .host-skel-media{
+      width:100%; height:clamp(220px, 52vw, 460px); aspect-ratio:auto;
+    }
+  }
   @media (max-width:700px){ .host-home-skeleton{ padding:1rem 0 6rem; }.host-skel-card{ margin:.6rem 0; padding:.9rem 0 .8rem; border-left:0; border-right:0; border-radius:0; }.host-skel-media{ width:100%; } }
   .badge-row{ display:flex; flex-wrap:wrap; gap:.5rem; margin-bottom:.9rem; }
 
@@ -1761,6 +1766,10 @@
 <script>
   (async function(){
     const pageLifecycle = window.__VaRoomLegacyPageLifecycle;
+    const homeSkeleton = document.getElementById('host-home-skeleton');
+    if (homeSkeleton) {
+      homeSkeleton.dataset.skeletonLayout = window.matchMedia('(max-width:860px)').matches ? 'mobile' : 'desktop';
+    }
     let homeInitReady = false;
     let refreshedProfilePending = null;
     let currentUser = null;
