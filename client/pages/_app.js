@@ -520,10 +520,21 @@ export default function App({ Component, pageProps }) {
 
     const refreshRoleForActiveSession = () => {
       if (window.supabaseClient && attachedClient !== window.supabaseClient) {
-        attachAuthClient(window.supabaseClient);
+        try {
+      const cached = readCachedProfile();
+      if (cached && (cached.role === 'host' || cached.role === 'client')) {
+        setRole(cached.role);
+      }
+    } catch (e) {}
+
+    attachAuthClient(window.supabaseClient);
         return;
       }
-      if (attachedClient) readActiveSession(attachedClient);
+      if (attachedClient) {
+        readActiveSession(attachedClient);
+      } else if (window.supabaseClient) {
+        attachAuthClient(window.supabaseClient);
+      }
     };
 
     attachAuthClient(window.supabaseClient);
@@ -536,7 +547,13 @@ export default function App({ Component, pageProps }) {
       observer = new MutationObserver(refreshRoleForActiveSession);
       observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-account-role'] });
     }
-    const handleRoleEvent = () => refreshRoleForActiveSession();
+    const handleRoleEvent = (event) => {
+      const eventRole = event?.detail?.role;
+      if (eventRole === 'host' || eventRole === 'client') {
+        setRole(eventRole);
+      }
+      refreshRoleForActiveSession();
+    };
     const handleStorage = (event) => {
       if (!event.key || ['varoom_cached_profile', 'varoom_active_account_id', 'varoom_user_role', 'varoom_last_role'].includes(event.key)) {
         refreshRoleForActiveSession();

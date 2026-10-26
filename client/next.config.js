@@ -26,6 +26,16 @@ module.exports = {
         permanent: true,
       },
       {
+        source: '/notifications.html',
+        destination: '/notifications',
+        permanent: true,
+      },
+      {
+        source: '/legacy-pages/notifications.html',
+        destination: '/notifications',
+        permanent: true,
+      },
+      {
         source: '/login',
         destination: '/?auth=login',
         permanent: true,

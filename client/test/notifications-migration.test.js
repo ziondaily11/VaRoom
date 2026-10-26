@@ -317,3 +317,46 @@ test('11. Regression checks for Property News and other shared routing/layout be
     assert.equal(getAccountLayout(route, route, null), 'none');
   }
 });
+
+test('12. Complete legacy unwiring verification', () => {
+  const nextConfigPath = path.join(root, 'next.config.js');
+  const profileHtmlPath = path.join(root, 'legacy-pages', 'profile.html');
+  const slugPath2 = path.join(root, 'pages', '[...slug].js');
+  const notifPageSource = fs.readFileSync(notificationsPagePath, 'utf8');
+
+  // 1. next.config.js has permanent redirects for both .html variants
+  const nextConfigSource = fs.readFileSync(nextConfigPath, 'utf8');
+  assert.match(nextConfigSource, /notifications\.html/, 'next.config.js must contain notifications.html redirect');
+  assert.match(nextConfigSource, /\/notifications/, 'next.config.js must redirect to /notifications');
+
+  // 2. [...slug].js getStaticProps guards against notifications slugs
+  const slugSource2 = fs.readFileSync(slugPath2, 'utf8');
+  assert.match(slugSource2, /notFound.*true/, 'getStaticProps must return notFound:true for notifications');
+  assert.match(slugSource2, /notifications/, 'getStaticProps guard must reference notifications');
+
+  // 3. profile.html no longer references legacy notifications.html path
+  const profileHtmlSource = fs.readFileSync(profileHtmlPath, 'utf8');
+  assert.doesNotMatch(
+    profileHtmlSource,
+    /['"]notifications\.html['"]/,
+    'profile.html must not contain legacy notifications.html references'
+  );
+  // profile.html should now use /notifications
+  assert.match(profileHtmlSource, /\/notifications/, 'profile.html must reference /notifications');
+
+  // 4. notifications.tsx dispatches varoom_role_change with detail
+  assert.match(notifPageSource, /varoom_role_change/, 'notifications.tsx must dispatch varoom_role_change');
+  assert.match(notifPageSource, /detail.*role|role.*detail/, 'varoom_role_change dispatch must include detail with role');
+
+  // 5. notifications.tsx has layout-specific CSS overrides for sidebar coexistence
+  assert.match(
+    notifPageSource,
+    /client-layout-active.*notifications-page-main|host-layout-active.*notifications-page-main/s,
+    'notifications.tsx must include .client-layout-active or .host-layout-active CSS overrides'
+  );
+
+  // 6. _app.js reads event.detail.role for instant layout resolution
+  const appJsPath = path.join(root, 'pages', '_app.js');
+  const appJsSource = fs.readFileSync(appJsPath, 'utf8');
+  assert.match(appJsSource, /event\.detail\.role|event\??\.detail\??\.role/, '_app.js must read event.detail.role from varoom_role_change');
+});
