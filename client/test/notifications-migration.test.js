@@ -360,3 +360,65 @@ test('12. Complete legacy unwiring verification', () => {
   const appJsSource = fs.readFileSync(appJsPath, 'utf8');
   assert.match(appJsSource, /event\.detail\.role|event\??\.detail\??\.role/, '_app.js must read event.detail.role from varoom_role_change');
 });
+
+test('13. Shared sidebar username and name contrast and visibility in Client and Host layouts', () => {
+  const hostLayoutSource = fs.readFileSync(hostLayoutPath, 'utf8');
+  const clientLayoutSource = fs.readFileSync(clientLayoutPath, 'utf8');
+  const notifPageSource = fs.readFileSync(notificationsPagePath, 'utf8');
+
+  // 1. HostLayout must use var(--layout-ink) and var(--layout-muted) for identity
+  assert.match(hostLayoutSource, /\.host-app-layout \.account-identity-name\s*\{[^}]*color:\s*var\(--layout-ink\)/);
+  assert.match(hostLayoutSource, /\.host-app-layout \.account-identity-username\s*\{[^}]*color:\s*var\(--layout-muted\)/);
+
+  // 2. HostLayout must not use faint fallback colors #F5EFEC or #B8ACA8 for identity
+  assert.doesNotMatch(hostLayoutSource, /\.host-app-layout \.account-identity-name[^}]*#F5EFEC/);
+  assert.doesNotMatch(hostLayoutSource, /\.host-app-layout \.account-identity-username[^}]*#B8ACA8/);
+
+  // 3. ClientLayout must use var(--layout-ink) and var(--layout-muted)
+  assert.match(clientLayoutSource, /\.client-app-layout \.account-identity-name\s*\{[^}]*color:\s*var\(--layout-ink\)/);
+  assert.match(clientLayoutSource, /\.client-app-layout \.account-identity-username\s*\{[^}]*color:\s*var\(--layout-muted\)/);
+
+  // 4. notifications.tsx defines --ink and --muted tokens in :root and dark mode
+  assert.match(notifPageSource, /--ink:\s*#0F1419/);
+  assert.match(notifPageSource, /--muted:\s*#536471/);
+  assert.match(notifPageSource, /--ink:\s*#FFFFFF/);
+  assert.match(notifPageSource, /--muted:\s*#71767b/);
+});
+
+test('14. Unbroken notifications navigation from Bookings and client-side sidebar routing', () => {
+  const bookingsHtmlPath = path.join(root, 'legacy-pages', 'bookings.html');
+  const hostSidebarPath = path.join(root, 'components', 'SharedHostSidebar.jsx');
+  const clientSidebarPath = path.join(root, 'components', 'SharedClientSidebar.jsx');
+  const hostHomeHtmlPath = path.join(root, 'legacy-pages', 'host-home.html');
+
+  // 1. bookings.html must not intercept #notif-nav-item with stopPropagation or notif-bell
+  const bookingsHtml = fs.readFileSync(bookingsHtmlPath, 'utf8');
+  assert.doesNotMatch(bookingsHtml, /getElementById\(['"]notif-nav-item['"]\)\?*\.addEventListener/);
+  assert.doesNotMatch(bookingsHtml, /notif-bell/);
+
+  // 2. SharedHostSidebar renders Notifications as an accessible <a> link with href="/notifications"
+  const hostSidebarSource = fs.readFileSync(hostSidebarPath, 'utf8');
+  assert.match(hostSidebarSource, /<a\b[^>]*href="\/notifications"[^>]*id="notif-nav-item"/);
+  assert.match(hostSidebarSource, /data-nav="notifications"/);
+
+  // 3. SharedClientSidebar renders Notifications as an accessible <a> link with href="/notifications"
+  const clientSidebarSource = fs.readFileSync(clientSidebarPath, 'utf8');
+  assert.match(clientSidebarSource, /<a\b[^>]*href="\/notifications"[^>]*id="notif-nav-item"/);
+  assert.match(clientSidebarSource, /data-nav="notifications"/);
+
+  // 4. host-home.html must not hijack shared sidebar #notif-nav-item with global getElementById
+  const hostHomeHtml = fs.readFileSync(hostHomeHtmlPath, 'utf8');
+  assert.doesNotMatch(hostHomeHtml, /document\.getElementById\(['"]notif-nav-item['"]\)/);
+});
+
+test('15. Instant synchronous cache presentation on mount and account switching isolation', () => {
+  const notifPageSource = fs.readFileSync(notificationsPagePath, 'utf8');
+
+  // 1. notifications.tsx checks cache early on mount for instant zero-skeleton presentation
+  assert.match(notifPageSource, /earlyUserId/);
+  assert.match(notifPageSource, /const earlyCached = getCachedNotifications\(earlyUserId\)/);
+
+  // 2. notifications.tsx listens for account changes to isolate cache per account
+  assert.match(notifPageSource, /varoom_active_account_changed/);
+  assert.match(notifPageSource, /varoom_linked_accounts_changed/);
+});

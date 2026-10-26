@@ -199,27 +199,27 @@ const hostLayoutStyles = `
     cursor: pointer;
     font-family: inherit;
     text-align: left;
-    color: var(--ink, #F5EFEC);
+    color: var(--layout-ink);
     flex-shrink: 0;
     position: relative;
     transition: background .15s ease;
   }
-  .host-app-layout .account-identity:hover { background: var(--control-hover, rgba(255, 255, 255, 0.1)); }
+  .host-app-layout .account-identity:hover { background: var(--layout-control-hover); }
   .host-app-layout .account-identity-avatar {
     width: 40px; height: 40px;
     border-radius: 50%;
-    background: var(--control-active, rgba(255, 255, 255, 0.16));
-    color: var(--ink, #F5EFEC);
+    background: var(--layout-control-active);
+    color: var(--layout-ink);
     display: flex; align-items: center; justify-content: center;
     font-weight: 700; font-size: .95rem;
     flex-shrink: 0; overflow: hidden;
   }
   .host-app-layout .account-identity-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .host-app-layout .account-identity-info { display: flex; flex-direction: column; gap: .05rem; min-width: 0; flex: 1; }
-  .host-app-layout .account-identity-name { font-size: .92rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink, #F5EFEC); }
-  .host-app-layout .account-identity-username { font-size: .8rem; color: var(--muted, #B8ACA8); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .host-app-layout .account-identity-dots { flex-shrink: 0; color: var(--muted, #B8ACA8); margin-left: auto; }
-  .host-app-layout .account-identity:hover .account-identity-dots { color: var(--ink, #F5EFEC); }
+  .host-app-layout .account-identity-name { font-size: .92rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--layout-ink); }
+  .host-app-layout .account-identity-username { font-size: .8rem; color: var(--layout-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .host-app-layout .account-identity-dots { flex-shrink: 0; color: var(--layout-muted); margin-left: auto; }
+  .host-app-layout .account-identity:hover .account-identity-dots { color: var(--layout-ink); }
 
   /* Mobile styles & drawer */
   .sidebar-backdrop { display: none; position: fixed; inset: 0; background: rgba(26, 18, 16, .45); z-index: 190; }
