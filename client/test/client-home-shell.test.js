@@ -7,6 +7,8 @@ const root = path.join(__dirname, '..');
 const pagePath = path.join(root, 'pages', 'client-home.tsx');
 const legacyHomePath = path.join(root, 'legacy-pages', 'client-home.html');
 const catchAllPath = path.join(root, 'pages', '[...slug].js');
+const { resolveClientHomeProfile } = require('../lib/clientHomeAccount');
+const { FALLBACK_ANON_KEY, getClientHomeSupabaseConfig } = require('../lib/clientHomeSupabase');
 
 test('native Client Home shell uses the shared ClientLayout without rendering a duplicate sidebar', () => {
   const source = fs.readFileSync(pagePath, 'utf8');
@@ -57,22 +59,38 @@ test('native Client Home preserves the legacy saved, likes, report, lazy media, 
 });
 
 test('Client Home redirects to onboarding only after an explicit successful profile result', () => {
-  const source = fs.readFileSync(pagePath, 'utf8');
+  const session = { user: { id: 'client-1' } };
+  const incomplete = resolveClientHomeProfile(session, {
+    data: { role: 'client', onboarding_completed: false },
+  });
+  const failed = resolveClientHomeProfile(session, { data: null, error: { code: '401' } });
 
-  assert.match(source, /if\(profile\.error\|\|!profile\.data\)/);
-  assert.match(source, /profile\.data\.onboarding_completed!==true/);
-  assert.match(source, /authEpoch/);
-  assert.match(source, /setReady\(false\)/);
-  assert.doesNotMatch(source, /if\(!p\.data\?\.onboarding_completed\)/);
+  assert.equal(incomplete.kind, 'onboarding');
+  assert.equal(failed.kind, 'profile-error');
 });
 
 test('Client Home uses the shared valid Supabase credentials and legacy R2 photo route', () => {
   const source = fs.readFileSync(pagePath, 'utf8');
+  const legacySource = fs.readFileSync(path.join(root, 'public', 'js', 'supabase-client.js'), 'utf8');
 
-  assert.match(source, /ImRlYXBoeW1pbWRheWdlYXZoeWVr/);
+  assert.match(legacySource, new RegExp(FALLBACK_ANON_KEY.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  assert.equal(getClientHomeSupabaseConfig({}).anonKey, FALLBACK_ANON_KEY);
   assert.match(source, /\/api\/photos\//);
   assert.match(source, /photoPath\('listing-photos',p\)/);
   assert.match(source, /aspectRatio/);
   assert.match(source, /blur\(24px\) saturate\(1\.12\)/);
-  assert.doesNotMatch(source, /ImRlYXBoeW1pbWRheWdlYXZoeWtz/);
+  assert.doesNotMatch(FALLBACK_ANON_KEY, /2102096444/);
+});
+
+test('an authenticated session with a failed profile query stays signed in and can retry', () => {
+  const session = { user: { id: 'client-1', email: 'client@example.com' } };
+  const failed = resolveClientHomeProfile(session, { data: null, error: { code: '401', message: 'Unauthorized' } });
+  const recovered = resolveClientHomeProfile(session, { data: { role: 'client', onboarding_completed: true } });
+  const source = fs.readFileSync(pagePath, 'utf8');
+
+  assert.deepEqual(failed, { kind: 'profile-error', user: session.user });
+  assert.equal(recovered.kind, 'ready');
+  assert.match(source, /setAuthRetry\(x=>x\+1\)/);
+  assert.match(source, /onClick=\{retryAccount\}/);
+  assert.doesNotMatch(source, /account\.kind==='profile-error'\)\{router\.replace/);
 });
