@@ -17,8 +17,7 @@ const templateDirectory = path.join(process.cwd(), 'legacy-pages');
 const routeAliases = {
   properties: 'list.html',
   'landing-page': 'landing page.html',
-  'login.html': 'login.html',
-  chat: 'chats.html'
+  'login.html': 'login.html'
 };
 
 function templateForSlug(slug) {
@@ -118,7 +117,7 @@ function parseTemplate(source, isEliePage) {
 export async function getStaticPaths() {
   const templates = fs.readdirSync(templateDirectory)
     .filter((file) => file.endsWith('.html') && file.replace(/\.html$/, '') !== 'privacy')
-    .filter((file) => !['signup-client.html', 'signup-host.html', 'forgot-password.html', 'analytics.html', 'property-news.html', 'notifications.html'].includes(file));
+    .filter((file) => !['signup-client.html', 'signup-host.html', 'forgot-password.html', 'analytics.html', 'property-news.html', 'notifications.html', 'chats.html'].includes(file));
   const paths = templates
     .filter((file) => file !== 'index.html' && file !== 'terms.html')
     .map((file) => ({
@@ -128,14 +127,13 @@ export async function getStaticPaths() {
   paths.push(
     { params: { slug: ['login.html'] } },
     { params: { slug: ['properties'] } },
-    { params: { slug: ['chat'] } }
   );
   return { paths, fallback: false };
 }
 
 export async function getStaticProps({ params }) {
   const slugKey = params && params.slug ? params.slug.join('/') : '';
-  if (slugKey === 'notifications' || slugKey === 'notifications.html') {
+  if (['notifications', 'notifications.html', 'property-news', 'property-news.html', 'chats', 'chats.html', 'chat'].includes(slugKey)) {
     return { notFound: true };
   }
   const isElieSlug = slugKey === 'elie' || slugKey === 'elie.html';
