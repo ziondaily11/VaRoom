@@ -17,6 +17,14 @@ export interface PropertyNewsItem {
   regulatory_status?: string;
   category?: string;
   image_url?: string;
+  images?: Array<string | { url: string; caption?: string; credit?: string }>;
+  image_urls?: string[];
+  video_url?: string;
+  video_thumbnail?: string;
+  poster?: string;
+  caption?: string;
+  credit?: string;
+  video_caption?: string;
   source?: PropertyNewsSource;
   hasFullBody?: boolean;
 }

@@ -36,6 +36,16 @@ module.exports = {
         permanent: true,
       },
       {
+        source: '/property-news.html',
+        destination: '/property-news',
+        permanent: true,
+      },
+      {
+        source: '/legacy-pages/property-news.html',
+        destination: '/property-news',
+        permanent: true,
+      },
+      {
         source: '/login',
         destination: '/?auth=login',
         permanent: true,
