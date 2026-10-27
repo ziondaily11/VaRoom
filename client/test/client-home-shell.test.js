@@ -62,13 +62,17 @@ test('native Client Home confines the ambient layer to a bounded, natural-ratio 
   const source = fs.readFileSync(pagePath, 'utf8');
 
   assert.match(source, /function mediaFrame\(/);
+  assert.match(source, /fallbackWidth=Math\.min\(available,414\)/);
   assert.match(source, /maxHeight=mobile\?Math\.min\(560,available\*1\.6\):460/);
-  assert.match(source, /className="listing-media-stage"/);
-  assert.match(source, /className="listing-media-ambient"/);
-  assert.match(source, /isolation:'isolate'/);
+  assert.match(source, /className="listing-media-stage client-home-carousel"/);
+  assert.match(source, /className="listing-media-ambient client-home-slide-ambient"/);
+  assert.match(source, /className="client-home-slide-track"/);
   assert.match(source, /\.listing-media-stage\{display:flex;align-items:center;justify-content:center;max-width:100%;touch-action:pan-y\}/);
   assert.match(source, /\.listing-media-ambient\{position:absolute;inset:-28px;z-index:0/);
   assert.match(source, /\.listing-media-image\{position:relative;z-index:1;display:block;max-width:100%;max-height:100%/);
+  assert.match(source, /className="card client-home-card"/);
+  assert.match(source, /className="client-home-card-head"/);
+  assert.match(source, /className="client-home-caption"/);
   assert.doesNotMatch(source, /<i aria-hidden style=\{ambient\}/);
 });
 
