@@ -96,9 +96,19 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   const photoInputRef = useRef<HTMLInputElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  // Active state synchronization refs to break cyclic dependencies
+  const sessionRef = useRef<any>(session);
+  sessionRef.current = session;
+  const userIdRef = useRef<string | null>(userId);
+  userIdRef.current = userId;
+  const activeIdRef = useRef<string | null>(activeId);
+  activeIdRef.current = activeId;
+  const routerRef = useRef(router);
+  routerRef.current = router;
+
   // Authenticated fetch helper
   const api = useCallback(async (url: string, options: any = {}) => {
-    const token = session?.access_token || ((window as any).supabaseClient ? (await (window as any).supabaseClient.auth.getSession())?.data?.session?.access_token : null);
+    const token = sessionRef.current?.access_token || ((window as any).supabaseClient ? (await (window as any).supabaseClient.auth.getSession())?.data?.session?.access_token : null);
     const res = await fetch(url, {
       ...options,
       headers: {
@@ -110,7 +120,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
     const body = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(body.error || 'Request failed');
     return body;
-  }, [session]);
+  }, []);
 
   const activeConversation = useMemo(() => {
     if (activeId === ELIE_ID) {
@@ -160,7 +170,11 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   }, []);
 
   // Fetch conversations list
-  const loadConversations = useCallback(async (currentUserId: string, currentSession: any) => {
+  const loadConversations = useCallback(async (targetUserId?: string, targetSession?: any) => {
+    const currentUserId = targetUserId || userIdRef.current;
+    const currentSession = targetSession || sessionRef.current;
+    if (!currentUserId) return;
+
     try {
       let list: ChatConversation[] = [];
       if (chatCache && typeof chatCache.syncInbox === 'function') {
@@ -184,33 +198,44 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   }, [api]);
 
   // Select conversation & establish Realtime channel
-  const selectConversation = useCallback(async (id: string) => {
+  const selectConversation = useCallback(async (id: string, updateRoute = true) => {
     if (!id) return;
     const client = (window as any).supabaseClient || getOrInitSupabaseClient();
     const selectionGen = ++selectionGenerationRef.current;
 
+    const isSameConversation = activeIdRef.current === id;
+    activeIdRef.current = id;
     setActiveId(id);
     setMobileView('conversation');
     setReplyTo(null);
 
-    // Update URL query without full page reload
-    if (router.query.c !== id && router.query.conversation !== id) {
-      const nextQuery: Record<string, any> = { ...router.query, c: id };
-      delete nextQuery.conversation;
-      router.replace({ pathname: '/chats', query: nextQuery }, undefined, { shallow: true });
+    // Update URL query without full page reload if requested
+    if (updateRoute) {
+      const currentQuery = routerRef.current.query;
+      if (currentQuery.c !== id && currentQuery.conversation !== id) {
+        const nextQuery: Record<string, any> = { ...currentQuery, c: id };
+        delete nextQuery.conversation;
+        routerRef.current.replace({ pathname: '/chats', query: nextQuery }, undefined, { shallow: true });
+      }
     }
 
     if (id === ELIE_ID) {
       // Elie assistant conversation
+      if (activeChannelRef.current) {
+        try {
+          if (client) client.removeChannel(activeChannelRef.current);
+        } catch {}
+        activeChannelRef.current = null;
+      }
       setMessagesState([]);
       setLoadingMessages(false);
       return;
     }
 
-    const currentUserId = userId || session?.user?.id;
+    const currentUserId = userIdRef.current;
     if (!currentUserId) return;
 
-    // 1. Instant Cache Read
+    // 1. Instant Cache Read (if not already active)
     let cached: ChatMessage[] | null = null;
     try {
       cached = await getMessages(currentUserId, id);
@@ -218,17 +243,17 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
         setMessagesState(cached);
         setLoadingMessages(false);
         setTimeout(() => scrollToBottom(false), 50);
-      } else {
+      } else if (!isSameConversation) {
         setLoadingMessages(true);
       }
     } catch (e) {
-      setLoadingMessages(true);
+      if (!isSameConversation) setLoadingMessages(true);
     }
 
     // 2. Clean up previous channel
     if (activeChannelRef.current) {
       try {
-        await activeChannelRef.current.unsubscribe();
+        if (client) client.removeChannel(activeChannelRef.current);
       } catch {}
       activeChannelRef.current = null;
     }
@@ -238,7 +263,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
       let finalMsgs: ChatMessage[] = [];
       if (chatCache && typeof chatCache.syncConversationMessages === 'function') {
         finalMsgs = await syncConversationMessages(currentUserId, id, {
-          accessToken: session?.access_token,
+          accessToken: sessionRef.current?.access_token,
           fetchFn: (url) => api(url),
         });
       } else {
@@ -329,9 +354,9 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
         channel.track({ user_id: currentUserId }).catch(() => {});
       }
     });
-  }, [userId, session, router, api, scrollToBottom, updateSidebarCounts]);
+  }, [api, scrollToBottom, updateSidebarCounts]);
 
-  // Main Authentication & Session Hydration
+  // 1. Main Authentication & Session Hydration (Runs once on mount + account switcher)
   useEffect(() => {
     mountedRef.current = true;
     let cancelled = false;
@@ -342,7 +367,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
 
       const { data: { session: currentSession } } = await client.auth.getSession();
       if (!currentSession || !currentSession.user) {
-        if (!cancelled) router.push('/login?next=/chats');
+        if (!cancelled) routerRef.current.push('/login?next=/chats');
         return;
       }
 
@@ -364,29 +389,11 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
 
       client.from('profiles').select('role').eq('id', curUserId).maybeSingle()
         .then(({ data }: any) => {
-          if (data?.role === 'host' || data?.role === 'client') {
+          if (!cancelled && (data?.role === 'host' || data?.role === 'client')) {
             setRole(data.role);
             document.documentElement.setAttribute('data-role', data.role);
           }
         }).catch(() => {});
-
-      // Instant cache render
-      try {
-        const cachedInbox = await getInbox(curUserId);
-        if (cachedInbox && cachedInbox.length > 0 && !cancelled) {
-          setConversations(cachedInbox);
-          setLoadingInbox(false);
-        }
-      } catch {}
-
-      // Background fresh sync
-      await loadConversations(curUserId, currentSession);
-
-      // Deep link requested conversation
-      const requested = (router.query.c as string) || (router.query.conversation as string) || (router.pathname === '/elie' ? ELIE_ID : null);
-      if (requested && !cancelled) {
-        selectConversation(requested);
-      }
     };
 
     initAuth();
@@ -394,12 +401,20 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
     // Listen for multi-account switcher events
     const handleAccountChange = () => {
       const activeAccount = localStorage.getItem('varoom_active_account_id');
-      if (activeAccount && activeAccount !== userId) {
+      if (activeAccount && activeAccount !== userIdRef.current) {
         setUserId(activeAccount);
         setConversations([]);
         setActiveId(null);
+        activeIdRef.current = null;
         setMessagesState([]);
         setLoadingInbox(true);
+        if (activeChannelRef.current) {
+          try {
+            const client = (window as any).supabaseClient;
+            if (client) client.removeChannel(activeChannelRef.current);
+          } catch {}
+          activeChannelRef.current = null;
+        }
         initAuth();
       }
     };
@@ -417,7 +432,41 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
         activeChannelRef.current = null;
       }
     };
-  }, [router, loadConversations, selectConversation, userId]);
+  }, []);
+
+  // 2. Inbox Loading & Background Sync (Triggered when authenticated user is resolved)
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+
+    // Instant cache render
+    getInbox(userId).then((cachedInbox) => {
+      if (!cancelled && cachedInbox && cachedInbox.length > 0) {
+        setConversations(cachedInbox);
+        setLoadingInbox(false);
+      }
+    }).catch(() => {});
+
+    // Fresh background sync
+    loadConversations(userId, sessionRef.current);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, loadConversations]);
+
+  // 3. Deep link & URL query conversation selection
+  const routerQueryC = router.query.c as string | undefined;
+  const routerQueryConversation = router.query.conversation as string | undefined;
+  const routerPathname = router.pathname;
+
+  useEffect(() => {
+    if (!userId) return;
+    const requested = routerQueryC || routerQueryConversation || (routerPathname === '/elie' ? ELIE_ID : null);
+    if (requested && requested !== activeIdRef.current) {
+      selectConversation(requested, false);
+    }
+  }, [userId, routerQueryC, routerQueryConversation, routerPathname, selectConversation]);
 
   // Send message handler
   const handleSendMessage = async (textToSend?: string) => {
