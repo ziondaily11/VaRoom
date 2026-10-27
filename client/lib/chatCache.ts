@@ -27,6 +27,7 @@ export interface ChatAttachment {
   original_filename?: string | null;
   mime_type?: string | null;
   file_size_bytes?: number | null;
+  file_size?: number | null;
   kind: 'photo' | 'file' | 'voice' | string;
   status: 'pending' | 'ready' | 'failed' | 'deleted' | string;
   storage_key?: string | null;
@@ -67,6 +68,7 @@ export interface ChatMessage {
   ciphertext?: string | null;
   iv?: string | null;
   key_version?: number | null;
+  reply_target_highlight?: boolean | null;
 }
 
 export interface ChatConversation {

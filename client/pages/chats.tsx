@@ -1261,7 +1261,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div className="file-name">{m.attachment.original_filename || 'Attachment'}</div>
-                          {m.attachment.file_size && <div className="file-sub">{Math.round(m.attachment.file_size / 1024)} KB</div>}
+                          {Boolean(m.attachment.file_size || m.attachment.file_size_bytes) && <div className="file-sub">{Math.round(((m.attachment.file_size || m.attachment.file_size_bytes) as number) / 1024)} KB</div>}
                         </div>
                         <a href={`/api/chat/attachments/${m.attachment.id}/download`} target="_blank" rel="noopener noreferrer" className="dl" aria-label="Download">
                           <svg className="icon"><use href="#i-paperclip" /></svg>
