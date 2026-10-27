@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
@@ -788,6 +788,45 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
     }
   };
 
+  // Generate clean, readable plain-text previews for inbox rows (no literal HTML tags)
+  const formatConversationPreview = useCallback((m?: ChatMessage | null): string => {
+    if (!m) return '';
+    if (m.deleted_at) return 'This message was deleted';
+
+    const raw = m.body || '';
+    let plain = '';
+    if (raw) {
+      if (typeof window !== 'undefined' && typeof DOMParser !== 'undefined') {
+        try {
+          const doc = new DOMParser().parseFromString(raw, 'text/html');
+          doc.querySelectorAll('script, style, template').forEach((el) => el.remove());
+          doc.querySelectorAll('br').forEach((el) => el.replaceWith(' '));
+          doc.querySelectorAll('p, div, li').forEach((el) => el.appendChild(doc.createTextNode(' ')));
+          plain = (doc.body.textContent || '').replace(/\s+/g, ' ').trim();
+        } catch {
+          plain = raw.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+        }
+      } else {
+        plain = raw.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+      }
+    }
+
+    if (plain) return plain;
+
+    // Handle media / attachment previews when there is no text caption
+    if (m.message_type === 'photo' || (m.attachment && m.attachment.kind === 'photo')) {
+      return 'Photo';
+    }
+    if (m.message_type === 'file' || (m.attachment && m.attachment.kind === 'file')) {
+      return m.attachment?.original_filename || 'Attachment';
+    }
+    if (m.attachment) {
+      return m.attachment.original_filename || 'Attachment';
+    }
+
+    return '';
+  }, []);
+
   // Filtered inbox contacts
   const filteredConversations = useMemo(() => {
     if (!searchQuery.trim()) return conversations;
@@ -795,10 +834,10 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
     return conversations.filter((c) => {
       const name = c.participant?.full_name?.toLowerCase() || '';
       const username = c.participant?.username?.toLowerCase() || '';
-      const last = c.lastMessage?.body?.toLowerCase() || '';
+      const last = formatConversationPreview(c.lastMessage).toLowerCase();
       return name.includes(q) || username.includes(q) || last.includes(q);
     });
-  }, [conversations, searchQuery]);
+  }, [conversations, searchQuery, formatConversationPreview]);
 
   // Safe message body renderer: plain text unless the body contains HTML markup
   // Only allowlists safe formatting tags; no external sanitizer needed.
@@ -964,7 +1003,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                 const participant = c.participant;
                 const name = participant?.full_name || participant?.username || 'User';
                 const timeStr = c.lastMessage?.created_at ? new Date(c.lastMessage.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-                const lastPreview = c.lastMessage?.body || (c.lastMessage?.message_type === 'photo' ? 'ðŸ“· Photo' : c.lastMessage?.message_type === 'file' ? 'ðŸ“Ž Attachment' : '');
+                const lastPreview = formatConversationPreview(c.lastMessage);
 
                 return (
                   <li
@@ -1496,6 +1535,70 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
               }}
             />
           </div>
+
+          {/* In-Conversation Media Preview / Composer Before Send */}
+          {pendingPreviewFile && (
+            <div
+              className="chat-media-preview-composer"
+              id="chatMediaPreviewModal"
+              role="dialog"
+              aria-label="Preview image to share"
+            >
+              <div className="chat-media-preview-header">
+                <button
+                  type="button"
+                  className="chat-media-preview-close"
+                  id="chatMediaPreviewClose"
+                  aria-label="Cancel image share"
+                  title="Cancel"
+                  onClick={() => {
+                    setPendingPreviewFile(null);
+                    setPreviewCaption('');
+                  }}
+                >
+                  <svg className="icon" aria-hidden="true"><use href="#i-close" /></svg>
+                </button>
+              </div>
+              <div className="chat-media-preview-body">
+                <img
+                  id="chatMediaPreviewImg"
+                  className="chat-media-preview-image"
+                  src={URL.createObjectURL(pendingPreviewFile)}
+                  alt="Selected image preview"
+                />
+              </div>
+              <div className="chat-media-preview-footer">
+                <div className="chat-media-preview-caption-wrap">
+                  <input
+                    type="text"
+                    id="chatMediaPreviewCaption"
+                    className="chat-media-preview-caption-input"
+                    placeholder="Type a message"
+                    aria-label="Type a message"
+                    value={previewCaption}
+                    onChange={(e) => setPreviewCaption(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleUploadAttachment(pendingPreviewFile, 'photo');
+                      }
+                    }}
+                  />
+                </div>
+                <button
+                  type="button"
+                  className="chat-media-preview-send-btn"
+                  id="chatMediaPreviewSend"
+                  aria-label="Send photo"
+                  title="Send photo"
+                  disabled={isUploading}
+                  onClick={() => handleUploadAttachment(pendingPreviewFile, 'photo')}
+                >
+                  <svg className="icon" aria-hidden="true"><use href="#i-send" /></svg>
+                </button>
+              </div>
+            </div>
+          )}
         </main>
 
         {/* 4. INFORMATION COLUMN (Collapsible) */}
@@ -1564,36 +1667,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
 
       </div>
 
-      {/* Media Preview / Caption Dialog Before Send */}
-      {pendingPreviewFile && (
-        <div className="chat-media-preview-composer" role="dialog" aria-label="Preview image to share" style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.85)', display: 'flex', flexDirection: 'column' }}>
-          <div className="chat-media-preview-header" style={{ padding: '16px', display: 'flex', justifyContent: 'flex-end' }}>
-            <button type="button" className="chat-media-preview-close" onClick={() => setPendingPreviewFile(null)} style={{ border: 'none', background: 'none', color: '#fff', cursor: 'pointer' }}>
-              <svg className="icon" style={{ width: 24, height: 24 }}><use href="#i-close" /></svg>
-            </button>
-          </div>
-          <div className="chat-media-preview-body" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-            <img src={URL.createObjectURL(pendingPreviewFile)} alt="Preview" style={{ maxWidth: '90%', maxHeight: '70vh', objectFit: 'contain' }} />
-          </div>
-          <div className="chat-media-preview-footer" style={{ padding: '16px 24px', display: 'flex', gap: '12px', background: '#111' }}>
-            <input
-              type="text"
-              placeholder="Add a caption..."
-              value={previewCaption}
-              onChange={(e) => setPreviewCaption(e.target.value)}
-              style={{ flex: 1, padding: '10px 14px', borderRadius: '8px', border: '1px solid #333', background: '#222', color: '#fff' }}
-            />
-            <button
-              type="button"
-              disabled={isUploading}
-              onClick={() => handleUploadAttachment(pendingPreviewFile, 'photo')}
-              style={{ padding: '10px 20px', borderRadius: '8px', background: '#bd2337', color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 600 }}
-            >
-              {isUploading ? 'Sending...' : 'Send'}
-            </button>
-          </div>
-        </div>
-      )}
+
 
       {/* Full Photo Modal Viewer */}
       {selectedPhotoPreview && (
