@@ -830,7 +830,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                   >
                     <div className="avatar-wrap">
                       {participant?.avatar_url ? (
-                        <img src={participant.avatar_url} alt={name} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                        <img src={participant.avatar_url} alt={name} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', display: 'block' }} />
                       ) : (
                         <div className="avatar-fallback" style={{ width: '100%', height: '100%', borderRadius: '50%', background: '#24211e', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
                           {name.slice(0, 2).toUpperCase()}
