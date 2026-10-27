@@ -55,3 +55,13 @@ test('native Client Home preserves the legacy saved, likes, report, lazy media, 
   assert.match(source, /ArrowLeft/);
   assert.match(source, /document\.body\.style\.overflow='hidden'/);
 });
+
+test('Client Home redirects to onboarding only after an explicit successful profile result', () => {
+  const source = fs.readFileSync(pagePath, 'utf8');
+
+  assert.match(source, /if\(profile\.error\|\|!profile\.data\)/);
+  assert.match(source, /profile\.data\.onboarding_completed!==true/);
+  assert.match(source, /authEpoch/);
+  assert.match(source, /setReady\(false\)/);
+  assert.doesNotMatch(source, /if\(!p\.data\?\.onboarding_completed\)/);
+});
