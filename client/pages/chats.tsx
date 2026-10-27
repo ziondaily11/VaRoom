@@ -192,6 +192,22 @@ function AuthedImage({
   );
 }
 
+
+function inferMimeType(file: File): string {
+  if (file.type && file.type !== 'application/octet-stream') return file.type;
+  const ext = (file.name.split('.').pop() || '').toLowerCase();
+  const extMap: Record<string, string> = {
+    jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
+    gif: 'image/gif', webp: 'image/webp', heic: 'image/heic', heif: 'image/heif',
+    pdf: 'application/pdf', txt: 'text/plain', zip: 'application/zip',
+    doc: 'application/msword',
+    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    xls: 'application/vnd.ms-excel',
+    xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  };
+  return extMap[ext] || 'application/octet-stream';
+}
+
 export default function ChatsPage({ initialConversationId }: { initialConversationId?: string } = {}) {
   const router = useRouter();
 
@@ -752,15 +768,43 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   // Upload attachment & send
   const handleUploadAttachment = async (file: File, kind: 'photo' | 'file') => {
     if (!activeId || isUploading) return;
-    setIsUploading(true);
 
+    // --- Optimistic: create a temporary message immediately ---
+    const tempId = `optimistic-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const captionAtSend = previewCaption.trim() || file.name;
+    const localObjectUrl = URL.createObjectURL(file);
+    const tempMsg: ChatMessage = {
+      id: tempId,
+      conversation_id: activeId,
+      sender_id: userId || '',
+      body: captionAtSend,
+      created_at: new Date().toISOString(),
+      message_type: kind,
+      // attachment is null initially; the image is shown via localObjectUrl below
+      attachment: kind === 'photo' ? {
+        id: tempId,
+        original_filename: file.name,
+        kind: 'photo',
+        status: 'pending',
+      } as any : null,
+      _optimistic: true,
+      _localUrl: localObjectUrl,
+    } as any;
+
+    setMessagesState((prev) => [...prev, tempMsg]);
+    setPendingPreviewFile(null);
+    setPreviewCaption('');
+    setTimeout(() => scrollToBottom(true), 50);
+
+    setIsUploading(true);
     try {
+      const fileMimeType = inferMimeType(file);
       // 1. Init upload
       const initRes = await api(`/api/chat/conversations/${encodeURIComponent(activeId)}/attachments/upload-init`, {
         method: 'POST',
         body: JSON.stringify({
           filename: file.name,
-          mimeType: file.type || 'application/octet-stream',
+          mimeType: fileMimeType,
           fileSize: file.size,
           kind: kind,
         }),
@@ -769,7 +813,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
       // 2. Direct PUT to Cloudflare R2
       const putRes = await fetch(initRes.uploadUrl, {
         method: 'PUT',
-        headers: { 'Content-Type': file.type || 'application/octet-stream' },
+        headers: { 'Content-Type': fileMimeType },
         body: file,
       });
       if (!putRes.ok) throw new Error('R2 direct upload failed');
@@ -781,20 +825,26 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
       });
 
       // 4. Send attachment message
-      const captionText = previewCaption.trim() || file.name;
       const res = await api(`/api/chat/conversations/${encodeURIComponent(activeId)}/messages`, {
         method: 'POST',
         body: JSON.stringify({
-          content: captionText,
+          content: captionAtSend,
           attachmentId: initRes.attachmentId,
           messageType: kind,
         }),
       });
 
       if (res?.message && mountedRef.current) {
+        // Cache the local object URL so the image can display immediately
+        // before AuthedImage fetches the signed URL
+        if (kind === 'photo') {
+          authedImageCache[res.message.attachment?.id || initRes.attachmentId] = localObjectUrl;
+        }
+        // Replace the optimistic message with the real one; dedup against Realtime
         setMessagesState((prev) => {
-          if (prev.some((m) => m.id === res.message.id)) return prev;
-          return [...prev, res.message];
+          const withoutTemp = prev.filter((m) => m.id !== tempId);
+          if (withoutTemp.some((m) => m.id === res.message.id)) return withoutTemp;
+          return [...withoutTemp, res.message];
         });
         if (userId) {
           appendMessage(userId, activeId, res.message).catch(() => {});
@@ -802,12 +852,13 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
         }
         setTimeout(() => scrollToBottom(true), 50);
       }
-
-      setPendingPreviewFile(null);
-      setPreviewCaption('');
     } catch (err) {
       console.error('Attachment upload failed:', err);
-      alert('Unable to send attachment. Please try again.');
+      // Mark optimistic message as failed
+      setMessagesState((prev) => prev.map((m) => m.id === tempId
+        ? { ...m, _failed: true } as any
+        : m
+      ));
     } finally {
       setIsUploading(false);
     }
@@ -1365,14 +1416,39 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                               })();
                             }
                           }}>
-                          <AuthedImage
-                            attachmentId={m.attachment!.id}
-                            alt={m.attachment!.original_filename || 'Photo'}
-                            style={{ display: 'block', maxWidth: '100%', maxHeight: '280px', objectFit: 'cover' }}
-                          />
+                          {(m as any)._localUrl ? (
+                            <img
+                              src={(m as any)._localUrl}
+                              alt={m.attachment?.original_filename || 'Photo'}
+                              style={{ display: 'block', maxWidth: '100%', maxHeight: '280px', objectFit: 'cover' }}
+                            />
+                          ) : (
+                            <AuthedImage
+                              attachmentId={m.attachment!.id}
+                              alt={m.attachment!.original_filename || 'Photo'}
+                              style={{ display: 'block', maxWidth: '100%', maxHeight: '280px', objectFit: 'cover' }}
+                            />
+                          )}
                         </div>
                         {m.body && m.body !== m.attachment?.original_filename && (
                           <div className="chat-message-caption">{renderMessageBody(m.body)}</div>
+                        )}
+                        {(m as any)._optimistic && !(m as any)._failed && (
+                          <div style={{ fontSize: 10, opacity: 0.6, padding: '2px 6px' }}>Sending…</div>
+                        )}
+                        {(m as any)._failed && (
+                          <div style={{ fontSize: 11, color: '#e53e3e', padding: '2px 6px', display: 'flex', alignItems: 'center', gap: 4 }}>
+                            Failed
+                            <button
+                              type="button"
+                              style={{ fontSize: 11, color: '#e53e3e', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
+                              onClick={() => {
+                                // Retry: remove the failed message and re-trigger upload
+                                setMessagesState((prev) => prev.filter((msg) => msg.id !== m.id));
+                                // Note: file is gone from the failed message so user must re-select
+                              }}
+                            >Dismiss</button>
+                          </div>
                         )}
                         <div className="msg-meta">{timeStr}</div>
                       </div>
@@ -1538,7 +1614,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
 
             {/* Input Toolbar */}
             <div className="input-toolbar">
-              <div className="format-icons" style={{ display: isElie ? 'none' : 'flex' }}>
+              <div className={`format-icons${isElie ? ' format-icons-hidden' : ''}`}>
                 <button type="button" className="fmt-b" aria-label="Bold"
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => { desktopEditorRef.current?.focus(); document.execCommand('bold', false); }}>B</button>
