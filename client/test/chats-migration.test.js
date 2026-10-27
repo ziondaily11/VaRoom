@@ -277,3 +277,23 @@ test('Stage 5B: Message rendering, context actions, and mobile nav suppression',
   assert.match(source, /classList\.add\('chat-page-context'\)/);
   assert.match(source, /classList\.remove\('chat-page-context'\)/);
 });
+
+test('Stage 5B.1: Clean inbox previews, opaque composer background, and in-conversation media preview layout', () => {
+  const source = fs.readFileSync(chatsPagePath, 'utf8');
+  const cssSource = fs.readFileSync(path.join(root, 'public', 'js', 'chats.css'), 'utf8');
+
+  // formatConversationPreview helper cleanly strips HTML tags and avoids literal HTML
+  assert.match(source, /formatConversationPreview/);
+  assert.match(source, /formatConversationPreview\(c\.lastMessage\)/);
+
+  // In-conversation media preview is inside chat-col (before </main>)
+  assert.match(source, /className="chat-media-preview-composer"[\s\S]*?<\/main>/);
+
+  // Does not use full-screen fixed positioning covering sidebar/inbox
+  assert.doesNotMatch(source, /className="chat-media-preview-composer"[^>]*?position:\s*'fixed'/);
+
+  // Composer has opaque background rules in both light and dark modes
+  assert.match(cssSource, /html:not\(\[data-theme="dark"\]\)\s+\.chat-input-area\s*\{[\s\S]*?background/);
+  assert.match(cssSource, /\[data-theme="dark"\]\s+\.chat-input-area\s*\{[\s\S]*?background/);
+});
+

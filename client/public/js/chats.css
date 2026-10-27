@@ -1723,18 +1723,33 @@
     background-color:var(--white) !important;
   }
   [data-theme="dark"] .messages,
-  html:not([data-theme="dark"]) .messages,
-  [data-theme="dark"] .chat-input-area,
+  html:not([data-theme="dark"]) .messages{
+    background-color:transparent !important;
+    background-image:none !important;
+  }
+
+  /* Stage 5B.1: Opaque theme-appropriate composer surfaces */
   html:not([data-theme="dark"]) .chat-input-area{
-    background-color:transparent !important;
-    background-image:none !important;
+    background:#ffffff !important;
+    background-color:#ffffff !important;
+    border-color:#cbd2db !important;
   }
-  [data-theme="dark"] .chat-input-area::before,
   html:not([data-theme="dark"]) .chat-input-area::before{
-    background-color:transparent !important;
-    background-image:none !important;
+    background:#ffffff !important;
+    background-color:#ffffff !important;
+    border-color:var(--border) !important;
   }
-</style>
+
+  [data-theme="dark"] .chat-input-area{
+    background:#18181b !important;
+    background-color:#18181b !important;
+    border-color:#27272a !important;
+  }
+  [data-theme="dark"] .chat-input-area::before{
+    background:#18181b !important;
+    background-color:#18181b !important;
+    border-color:#27272a !important;
+  }
 
 /* Stage 5B: message action button visibility */
 .msg-action-wrap { visibility: hidden; }
