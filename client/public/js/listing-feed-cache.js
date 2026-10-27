@@ -167,22 +167,43 @@
           return true;
         });
         var previousPage = entry.pages[offset] || [];
-        var receivedById = Object.create(null);
-        received.forEach(function (listing) { receivedById[listing.id] = listing; });
+        var previousIds = Object.create(null);
+        previousPage.forEach(function (listing) { previousIds[listing.id] = true; });
+        var receivedIds = Object.create(null);
+        received.forEach(function (listing) { receivedIds[listing.id] = true; });
+        if (options.force) {
+          var elsewhereIds = Object.create(null);
+          Object.keys(entry.pages).forEach(function (pageOffset) {
+            if (Number(pageOffset) === offset) return;
+            entry.pages[pageOffset].forEach(function (listing) {
+              elsewhereIds[listing.id] = true;
+            });
+          });
+          entry.itemOrder = entry.itemOrder.filter(function (id) {
+            return !previousIds[id] || receivedIds[id] || elsewhereIds[id];
+          });
+        }
         var knownIds = Object.create(null);
         entry.itemOrder.forEach(function (id) { knownIds[id] = true; });
         var newListings = shuffle(received.filter(function (listing) {
           return !knownIds[listing.id];
         }));
-        entry.pages[offset] = previousPage.map(function (listing) {
-          return receivedById[listing.id] || listing;
-        }).concat(newListings);
+        entry.pages[offset] = received;
         newListings.forEach(function (listing) {
           entry.itemOrder.push(listing.id);
           knownIds[listing.id] = true;
         });
-        if (parts.hasMore === false || entry.pages[offset].length < PAGE_SIZE) {
+        if (parts.hasMore === false || received.length < PAGE_SIZE) {
           entry.endOffset = offset;
+          var retainedIds = Object.create(null);
+          Object.keys(entry.pages).forEach(function (pageOffset) {
+            if (Number(pageOffset) > offset) {
+              delete entry.pages[pageOffset];
+              return;
+            }
+            entry.pages[pageOffset].forEach(function (listing) { retainedIds[listing.id] = true; });
+          });
+          entry.itemOrder = entry.itemOrder.filter(function (id) { return retainedIds[id]; });
         } else if (entry.endOffset !== null && offset <= entry.endOffset) {
           entry.endOffset = null;
         }
