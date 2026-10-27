@@ -91,8 +91,8 @@ function safeCssUrl(value: string) {
 }
 
 function calculateMediaFrames(
-  media: Array<{ width: number; height: number }>,
-  naturalSizes: Record<number, MediaFrame>,
+  media: Array<{ url?: string; width: number; height: number }>,
+  naturalSizes: Record<string, MediaFrame>,
   availableWidth: number,
   mobile: boolean,
 ) {
@@ -105,7 +105,7 @@ function calculateMediaFrames(
     height: fallbackHeight,
   };
   const frames = media.map((item, index) => {
-    const natural = naturalSizes[index];
+    const natural = naturalSizes[item.url || ''];
     const width = item.width > 0 ? item.width : natural?.width || 0;
     const height = item.height > 0 ? item.height : natural?.height || 0;
     if (!width || !height) return fallbackFrame;
@@ -178,9 +178,9 @@ function Gallery({
   const [activeIndex, setActiveIndex] = useState(0);
   const [availableWidth, setAvailableWidth] = useState(406);
   const [mobile, setMobile] = useState(false);
-  const [loaded, setLoaded] = useState<Record<number, boolean>>({});
-  const [failed, setFailed] = useState<Record<number, boolean>>({});
-  const [naturalSizes, setNaturalSizes] = useState<Record<number, MediaFrame>>({});
+  const [loaded, setLoaded] = useState<Record<string, boolean>>({});
+  const [failed, setFailed] = useState<Record<string, boolean>>({});
+  const [naturalSizes, setNaturalSizes] = useState<Record<string, MediaFrame>>({});
   const [videoReady, setVideoReady] = useState(false);
   const [videoFailed, setVideoFailed] = useState(false);
   const stage = useRef<HTMLDivElement>(null);
@@ -188,12 +188,56 @@ function Gallery({
 
   useEffect(() => {
     setActiveIndex(0);
-    setLoaded({});
-    setFailed({});
-    setNaturalSizes({});
     setVideoReady(false);
     setVideoFailed(false);
   }, [listing.id]);
+
+  useEffect(() => {
+    const photoUrls = new Set(media.map((photo) => photo.url));
+    const images = Array.from(
+      stage.current?.querySelectorAll<HTMLImageElement>('img[data-photo-url]') || [],
+    );
+    const successfulImages = images.filter((image) => image.complete && image.naturalWidth > 0);
+
+    setLoaded((current) => {
+      const next = Object.fromEntries(
+        Object.entries(current).filter(([url]) => photoUrls.has(url)),
+      ) as Record<string, boolean>;
+      let changed = Object.keys(next).length !== Object.keys(current).length;
+      successfulImages.forEach((image) => {
+        const url = image.dataset.photoUrl;
+        if (url && !next[url]) {
+          next[url] = true;
+          changed = true;
+        }
+      });
+      return changed ? next : current;
+    });
+
+    setFailed((current) => {
+      const next = Object.fromEntries(
+        Object.entries(current).filter(([url]) => photoUrls.has(url)),
+      ) as Record<string, boolean>;
+      return Object.keys(next).length === Object.keys(current).length ? current : next;
+    });
+
+    setNaturalSizes((current) => {
+      const next = Object.fromEntries(
+        Object.entries(current).filter(([url]) => photoUrls.has(url)),
+      ) as Record<string, MediaFrame>;
+      let changed = Object.keys(next).length !== Object.keys(current).length;
+      successfulImages.forEach((image) => {
+        const url = image.dataset.photoUrl;
+        const photo = media.find((item) => item.url === url);
+        if (!url || !photo || (photo.width && photo.height) || !image.naturalHeight) return;
+        const existing = next[url];
+        if (existing?.width === image.naturalWidth && existing.height === image.naturalHeight) return;
+        next[url] = { width: image.naturalWidth, height: image.naturalHeight };
+        changed = true;
+      });
+      return changed ? next : current;
+    });
+  }, [listing.id, media, video]);
 
   useEffect(() => {
     const parent = stage.current?.parentElement;
@@ -286,28 +330,37 @@ function Gallery({
                 aria-hidden="true"
                 style={{ backgroundImage: safeCssUrl(photo.url) }}
               />
-              {failed[index] ? (
+              {failed[photo.url] ? (
                 <div className={styles.photoUnavailable} role="status">Photo unavailable</div>
               ) : (
                 <>
-                  {!loaded[index] && <span className={styles.imageSkeleton} aria-label="Loading photo" />}
+                  {!loaded[photo.url] && <span className={styles.imageSkeleton} aria-label="Loading photo" />}
                   <img
                     className={styles.listingImage}
+                    data-photo-url={photo.url}
                     src={photo.url}
                     alt={listing.title || 'Listing'}
                     loading="lazy"
-                    style={{ width: frame.width, height: frame.height, opacity: loaded[index] ? 1 : 0 }}
+                    style={{ width: frame.width, height: frame.height, opacity: loaded[photo.url] ? 1 : 0 }}
                     onLoad={(event) => {
                       const image = event.currentTarget;
-                      setLoaded((current) => ({ ...current, [index]: true }));
+                      setLoaded((current) => current[photo.url]
+                        ? current
+                        : { ...current, [photo.url]: true });
                       if (image.naturalWidth && image.naturalHeight && (!photo.width || !photo.height)) {
-                        setNaturalSizes((current) => ({
-                          ...current,
-                          [index]: { width: image.naturalWidth, height: image.naturalHeight },
-                        }));
+                        setNaturalSizes((current) => {
+                          const existing = current[photo.url];
+                          if (existing?.width === image.naturalWidth && existing.height === image.naturalHeight) return current;
+                          return {
+                            ...current,
+                            [photo.url]: { width: image.naturalWidth, height: image.naturalHeight },
+                          };
+                        });
                       }
                     }}
-                    onError={() => setFailed((current) => ({ ...current, [index]: true }))}
+                    onError={() => setFailed((current) => current[photo.url]
+                      ? current
+                      : { ...current, [photo.url]: true })}
                     onClick={() => open(urls, index)}
                   />
                 </>
