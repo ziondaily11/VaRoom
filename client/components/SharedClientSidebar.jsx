@@ -28,6 +28,14 @@ function getInitialUser() {
 }
 
 function getStoredUser() {
+  if (typeof window === 'undefined') {
+    return {
+      full_name: 'VaRoom Member',
+      username: 'member',
+      avatar_url: null,
+      email: ''
+    };
+  }
   try {
     if (window.VaRoomAccountSwitcher) {
       const active = window.VaRoomAccountSwitcher.getActiveAccount?.();
@@ -42,7 +50,7 @@ function getStoredUser() {
   };
 }
 
-export default function SharedClientSidebar({ activeNav: explicitActiveNav }) {
+export default function SharedClientSidebar({ activeNav: explicitActiveNav } = {}) {
   const router = useRouter();
   const [user, setUser] = useState(getInitialUser);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -431,7 +439,7 @@ export default function SharedClientSidebar({ activeNav: explicitActiveNav }) {
               aria-hidden="true"
             >
               <path d="M3 11.5 12 4l9 7.5" />
-              <path d="M5.5 10v9a1 1 0 0 0 1 1H9v-4a1 1 0 0 1 1-1h2a1 0 0 0 1 1v4h2.5a1 1 0 0 0 1-1v-9" />
+              <path d="M5.5 10v9a1 1 0 0 0 1 1H9v-4a1 1 0 0 1 1-1h2a1 1 0 0 0 1 1v4h2.5a1 1 0 0 0 1-1v-9" />
             </svg>
             Home
           </a>

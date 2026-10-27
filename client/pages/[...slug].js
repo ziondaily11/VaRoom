@@ -16,8 +16,7 @@ const { createLegacyPageLifecycle } = require('../lib/legacyPageLifecycle');
 const templateDirectory = path.join(process.cwd(), 'legacy-pages');
 const routeAliases = {
   properties: 'list.html',
-  'landing-page': 'landing page.html',
-  'login.html': 'login.html'
+  'landing-page': 'landing page.html'
 };
 
 function templateForSlug(slug) {
@@ -127,10 +126,7 @@ export async function getStaticPaths() {
       params: { slug: [file.replace(/\.html$/, '').replace(/ /g, '-') ] }
     }));
 
-  paths.push(
-    { params: { slug: ['login.html'] } },
-    { params: { slug: ['properties'] } },
-  );
+  paths.push({ params: { slug: ['properties'] } });
   return { paths, fallback: false };
 }
 
