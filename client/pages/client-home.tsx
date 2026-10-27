@@ -788,6 +788,7 @@ export default function ClientHome() {
   const recommendedRequested = useRef(false);
   const [user, setUser] = useState<any>(null);
   const [ready, setReady] = useState(false);
+  const [feedReady, setFeedReady] = useState(false);
   const [interests, setInterests] = useState<string[]>([]);
   const [view, setView] = useState<View>('home');
   const [category, setCategory] = useState('all');
@@ -858,6 +859,9 @@ export default function ClientHome() {
       const epoch = ++authEpoch.current;
       loadVersion.current += 1;
       setReady(false);
+      setFeedReady(false);
+      setLoading(true);
+      setError('');
       setItems([]);
       setLikes({});
       setVideos({});
@@ -905,6 +909,7 @@ export default function ClientHome() {
         : [];
       setInterests(nextInterests);
 
+      setFeedReady(true);
       const bookmarkResult = await client.from('bookmarks').select('listing_id').eq('client_id', account.user.id);
       if (!active || epoch !== authEpoch.current) return;
       if (bookmarkResult.error) setError('Saved listings could not be loaded.');
@@ -923,14 +928,23 @@ export default function ClientHome() {
       });
     };
 
+    let initialSessionResolved = false;
+    let hasPendingInitialSession = false;
+    let pendingInitialSession: any = null;
     const { data: { subscription } } = client.auth.onAuthStateChange((_event, session) => {
+      if (!initialSessionResolved) {
+        hasPendingInitialSession = true;
+        pendingInitialSession = session;
+        return;
+      }
       void resolveSession(session);
     });
     Promise.all([loadListingFeedCache(), client.auth.getSession()])
       .then(([listingCache, result]) => {
         if (!active) return;
         cache.current = listingCache;
-        return resolveSession(result.data.session);
+        initialSessionResolved = true;
+        return resolveSession(hasPendingInitialSession ? pendingInitialSession : result.data.session);
       })
       .catch((loadError: Error) => {
         if (active) {
@@ -995,7 +1009,7 @@ export default function ClientHome() {
   }, [category, interests, term, view]);
 
   const loadFeed = useCallback(async (nextPage = false) => {
-    if (!ready || !user || !cache.current || !key || view === 'saved' || (nextPage && loadingMoreRef.current)) return;
+    if (!feedReady || !user || !cache.current || !key || view === 'saved' || (nextPage && loadingMoreRef.current)) return;
     if (!nextPage) {
       loadingMoreRef.current = false;
       setLoadingMore(false);
@@ -1044,14 +1058,14 @@ export default function ClientHome() {
         setLoadingMore(false);
       }
     }
-  }, [fetcher, key, ready, user, view]);
+  }, [feedReady, fetcher, key, user, view]);
 
   useEffect(() => {
     if (view !== 'saved') void loadFeed();
   }, [loadFeed, view]);
 
   useEffect(() => {
-    if (view !== 'saved' || !user) return;
+    if (view !== 'saved' || !user || !ready) return;
     let active = true;
     setLoading(true);
     setError('');
@@ -1073,7 +1087,7 @@ export default function ClientHome() {
         if (savedError) setError(savedError.message || 'Saved listings could not be loaded.');
       });
     return () => { active = false; };
-  }, [saved, user, view]);
+  }, [ready, saved, user, view]);
 
   useEffect(() => {
     if (items.length === 0 || !user) return;
@@ -1606,7 +1620,7 @@ export default function ClientHome() {
               ))}
             </div>
           )}
-          {!loading && !error && items.length === 0 && (
+          {(view === 'saved' ? ready : feedReady) && !loading && !error && items.length === 0 && (
             <p className={styles.stateMessage}>{view === 'saved' ? 'Nothing saved yet — tap the bookmark icon on a listing to save it here.' : emptyMessage}</p>
           )}
           {items.map((listing, index) => (
