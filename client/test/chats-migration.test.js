@@ -150,6 +150,33 @@ test('Stage 3: Avatar URL resolution and error fallback in chats.tsx', () => {
   assert.match(source, /<div className="profile-block"[\s\S]*?<ConversationAvatar\s+url=\{activeConversation\?\.participant\?\.avatar_url\}/);
 });
 
+test('Stage 4: CSS parity class names and mobile view toggling in chats.tsx', () => {
+  const source = fs.readFileSync(chatsPagePath, 'utf8');
+
+  // Correct class names
+  assert.match(source, /className="contact-body"/);
+  assert.match(source, /className="contact-time"/);
+  assert.match(source, /className="contact-preview"/);
+  assert.doesNotMatch(source, /className="contact-info"/);
+  assert.doesNotMatch(source, /className="msg-time"/);
+  assert.doesNotMatch(source, /className="last-msg"/);
+
+  // Unread badge
+  assert.match(source, /className="badge"/);
+  assert.match(source, /unread_count/);
+
+  // Conversation menu button
+  assert.match(source, /className="conversation-menu"/);
+
+  // Mobile class toggling
+  assert.match(source, /contacts-col.*mobile-hidden/);
+  assert.match(source, /chat-col.*mobile-visible/);
+
+  // Mobile back button updates URL
+  assert.match(source, /setMobileView\('inbox'\)/);
+  assert.match(source, /routerRef\.current\?\.replace\(\{ pathname: '\/chats' \}/);
+});
+
 test('Phase 4: Attachments and Elie workflows preserved in chats.tsx', () => {
   const source = fs.readFileSync(chatsPagePath, 'utf8');
 

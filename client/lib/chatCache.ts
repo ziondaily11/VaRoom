@@ -77,6 +77,7 @@ export interface ChatConversation {
   created_at?: string | null;
   participant?: ChatParticipant | null;
   lastMessage?: ChatMessage | null;
+  unread_count?: number | null;
   isElie?: boolean;
 }
 
