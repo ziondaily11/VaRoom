@@ -18,6 +18,12 @@ interface StatusResult {
   className: string;
 }
 
+interface ArticleImageItem {
+  url: string;
+  caption?: string;
+  credit?: string;
+}
+
 function uniqueLocations(news: PropertyNewsItem): string[] {
   const values = ([] as string[]).concat(news.counties || [], news.towns || []).filter(Boolean);
   return values.filter((value, index) => {
@@ -52,6 +58,17 @@ function formatDate(value?: string): string {
       });
 }
 
+function formatMastheadDate(value?: string): string {
+  const dateObj = value ? new Date(value) : new Date();
+  const valid = !Number.isNaN(dateObj.getTime()) ? dateObj : new Date();
+  return valid.toLocaleDateString('en-GB', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
 function getRegulatoryStatus(news: PropertyNewsItem): StatusResult | null {
   const value = String(news.regulatory_status || '').toLowerCase();
   const labels: Record<string, string> = {
@@ -79,6 +96,45 @@ function safeSourceUrl(value?: string): string {
   return /^https?:\/\//i.test(String(value || '')) ? String(value) : '';
 }
 
+function extractImages(item: PropertyNewsItem): ArticleImageItem[] {
+  const list: ArticleImageItem[] = [];
+  const seen = new Set<string>();
+
+  const add = (url?: string, caption?: string, credit?: string) => {
+    if (!url || typeof url !== 'string' || !url.trim()) return;
+    const cleanUrl = url.trim();
+    if (seen.has(cleanUrl)) return;
+    seen.add(cleanUrl);
+    list.push({
+      url: cleanUrl,
+      caption: caption || item.caption,
+      credit: credit || item.credit || (item.source?.name ? item.source.name : undefined),
+    });
+  };
+
+  if (Array.isArray(item.images)) {
+    for (const img of item.images) {
+      if (typeof img === 'string') {
+        add(img);
+      } else if (img && typeof img === 'object' && (img as any).url) {
+        add((img as any).url, (img as any).caption, (img as any).credit);
+      }
+    }
+  }
+
+  if (Array.isArray(item.image_urls)) {
+    for (const url of item.image_urls) {
+      add(url);
+    }
+  }
+
+  if (item.image_url) {
+    add(item.image_url);
+  }
+
+  return list;
+}
+
 function NewsCardImage({ src }: { src?: string }) {
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -100,24 +156,45 @@ function NewsCardImage({ src }: { src?: string }) {
   );
 }
 
-function DetailImage({ src }: { src?: string }) {
+function DetailImage({
+  src,
+  alt,
+  caption,
+  credit,
+  onFailed,
+}: {
+  src?: string;
+  alt?: string;
+  caption?: string;
+  credit?: string;
+  onFailed?: () => void;
+}) {
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
 
   if (failed || !src || !src.trim()) return null;
 
   return (
-    <div className={`detail-image-wrap ${loaded ? 'is-loaded' : ''}`}>
+    <figure className={`detail-image-wrap ${loaded ? 'is-loaded' : ''}`}>
       <img
         className="detail-image"
         src={src}
-        alt=""
+        alt={alt || ''}
         decoding="async"
         loading="lazy"
         onLoad={() => setLoaded(true)}
-        onError={() => setFailed(true)}
+        onError={() => {
+          setFailed(true);
+          if (onFailed) onFailed();
+        }}
       />
-    </div>
+      {(caption || credit) && (
+        <figcaption className="detail-image-caption">
+          {caption && <span className="caption-text">{caption}</span>}
+          {credit && <span className="caption-credit"> Photo: {credit}</span>}
+        </figcaption>
+      )}
+    </figure>
   );
 }
 
@@ -165,6 +242,8 @@ export default function PropertyNewsPage() {
   const [detailItem, setDetailItem] = useState<PropertyNewsItem | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState(false);
+
+  const [failedImageUrls, setFailedImageUrls] = useState<Record<string, boolean>>({});
 
   const scrollRestoredRef = useRef(false);
 
@@ -229,6 +308,7 @@ export default function PropertyNewsPage() {
 
   // Fetch or restore article detail
   const loadDetail = useCallback(async (id: string, signal?: AbortSignal) => {
+    setFailedImageUrls({});
     // 1. Check if we already have the complete article in cache
     const completeCached = getCachedArticle(id);
     if (completeCached && completeCached.body && completeCached.body.trim()) {
@@ -314,9 +394,21 @@ export default function PropertyNewsPage() {
     }
   };
 
+  const handleImageFail = (url: string) => {
+    setFailedImageUrls((prev) => ({ ...prev, [url]: true }));
+  };
+
+  // Compile available images and check conditional layout state
+  const candidateImages = detailItem ? extractImages(detailItem) : [];
+  const activeImages = candidateImages.filter((img) => !failedImageUrls[img.url]);
+  const hasVideo = Boolean(detailItem?.video_url);
+  const hasMedia = activeImages.length > 0 || hasVideo;
+
   const pageTitle = detailItem && articleId
-    ? `${detailItem.title} — Property News on VaRoom`
+    ? `${detailItem.title} — VaRoom Property News`
     : 'Property News on VaRoom';
+
+  const mastheadDate = detailItem?.source?.published_at || detailItem?.published_at;
 
   return (
     <>
@@ -325,140 +417,237 @@ export default function PropertyNewsPage() {
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
-          href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;0,9..144,900&family=Inter:wght@400;500;600;700&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;0,9..144,900;1,9..144,400;1,9..144,700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&family=Inter:wght@400;500;600;700;800&display=swap"
           rel="stylesheet"
         />
       </Head>
 
       <div className="property-news-root">
-        <header className="topbar">
-          <Link href={dashboardHref} className="brand" aria-label="VaRoom dashboard">
-            <span className="va">Va</span>
-            <span className="room">Room</span>
-          </Link>
-          {articleId ? (
-            <Link
-              href="/property-news"
-              className="back-link"
-              onClick={() => {
-                // Return to index view with preserved scroll
-              }}
-            >
-              ← Back to all news
+        {/* NEWSPAPER MASTHEAD */}
+        <header className="newspaper-masthead-container">
+          <div className="masthead-topbar">
+            <div className="masthead-edition">
+              <span>Original Country News Edition</span>
+              <span className="edition-sep">·</span>
+              <span>Nairobi, Kenya</span>
+            </div>
+            <div className="masthead-date-nav">
+              <span className="masthead-date-text">{formatMastheadDate(mastheadDate)}</span>
+              {articleId ? (
+                <Link href="/property-news" className="newspaper-nav-link" aria-label="Return to all property news">
+                  ← Front Page
+                </Link>
+              ) : (
+                <Link href={dashboardHref} className="newspaper-nav-link" aria-label="Return to VaRoom dashboard">
+                  ← Dashboard
+                </Link>
+              )}
+            </div>
+          </div>
+
+          <div className="masthead-rule-thick" />
+          <div className="masthead-rule-thin" />
+
+          <div className="masthead-center">
+            <Link href="/property-news" className="masthead-title-link">
+              <h1 className="masthead-title">DAILY NEWS</h1>
             </Link>
-          ) : (
-            <Link
-              href={dashboardHref}
-              className="back-link"
-              onClick={() => {
-                if (typeof window !== 'undefined') {
-                  saveScrollPosition(window.scrollY);
-                }
-              }}
-            >
-              ← Back to dashboard
-            </Link>
-          )}
+            <div className="masthead-sub-identity">
+              <span className="masthead-badge-va">Va</span>
+              <span className="masthead-badge-room">Room</span>
+              <span className="masthead-subtitle">Property Gazette · Official Kenyan Real Estate & Regulatory Intelligence</span>
+            </div>
+          </div>
+
+          <div className="masthead-rule-thin" />
+          <div className="masthead-rule-thick" />
         </header>
 
-        <main>
+        <main className="newspaper-main">
           {articleId ? (
             /* =================== ARTICLE DETAIL VIEW =================== */
             <article className="detail" id="news-detail" aria-live="polite">
               {detailError && !detailItem ? (
                 <EmptyState />
               ) : !detailItem ? (
-                <div className="skeleton" style={{ height: '320px' }}></div>
+                <div className="newspaper-skeleton-box">
+                  <div className="newspaper-skeleton-line" style={{ height: '36px', width: '80%', marginBottom: '1.2rem' }}></div>
+                  <div className="newspaper-skeleton-line" style={{ height: '20px', width: '40%', marginBottom: '2rem' }}></div>
+                  <div className="newspaper-skeleton-line" style={{ height: '240px', width: '100%' }}></div>
+                </div>
               ) : (
-                <div className="detail-card">
-                  <p className="eyebrow">Property Intelligence</p>
-                  <h1>{detailItem.title}</h1>
-                  <div className="article-meta meta">
-                    <span>{detailedLocation(detailItem)}</span>
-                    <span>•</span>
-                    <span>
-                      {formatDate(detailItem.source?.published_at || detailItem.published_at)}
-                    </span>
+                <div className="newspaper-article-container">
+                  {/* ARTICLE HEADER */}
+                  <header className="article-header">
+                    <div className="article-category-row">
+                      <p className="eyebrow">{detailItem.category ? detailItem.category.toUpperCase() : 'Property Intelligence'}</p>
+                      {(() => {
+                        const statusObj = getRegulatoryStatus(detailItem);
+                        return statusObj ? (
+                          <span className={`status ${statusObj.className}`}>{statusObj.label}</span>
+                        ) : null;
+                      })()}
+                    </div>
+
+                    <h1 className="article-headline">{detailItem.title}</h1>
+
+                    <div className="article-meta meta">
+                      <span className="meta-location">{detailedLocation(detailItem).toUpperCase()}</span>
+                      <span className="meta-bullet">•</span>
+                      <span className="meta-date">
+                        {formatDate(detailItem.source?.published_at || detailItem.published_at).toUpperCase()}
+                      </span>
+                      {detailItem.source?.name && (
+                        <>
+                          <span className="meta-bullet">•</span>
+                          <span className="meta-source">VIA {detailItem.source.name.toUpperCase()}</span>
+                        </>
+                      )}
+                    </div>
+                  </header>
+
+                  <div className="editorial-divider" />
+
+                  {/* TWO-COLUMN EDITORIAL ARTICLE BODY */}
+                  <div className={`editorial-columns ${hasMedia ? 'has-media' : 'no-media'}`}>
+                    {/* Left Column — Text trail */}
+                    <div className="text-trail">
+                      {(() => {
+                        const bodyText = (detailItem.body || '').trim();
+                        const summaryText = (detailItem.summary || '').trim();
+
+                        // If full body is actively loading while preview is shown
+                        if (detailLoading && !bodyText) {
+                          return (
+                            <div className="detail-content-area">
+                              {summaryText && <p className="detail-summary">{summaryText}</p>}
+                              <div className="detail-body-loading">
+                                <div className="newspaper-skeleton-line" style={{ width: '100%', marginBottom: '14px' }}></div>
+                                <div className="newspaper-skeleton-line" style={{ width: '94%', marginBottom: '14px' }}></div>
+                                <div className="newspaper-skeleton-line" style={{ width: '97%', marginBottom: '14px' }}></div>
+                                <div className="newspaper-skeleton-line" style={{ width: '82%', marginBottom: '14px' }}></div>
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        // When full article body is available
+                        if (bodyText) {
+                          const paragraphs = bodyText
+                            .split(/\n+/)
+                            .map((p) => p.trim())
+                            .filter(Boolean);
+
+                          // Avoid repeating exact summary if body begins with the same text
+                          const cleanSummaryPrefix = summaryText.replace(/[\.\s]+$/, '').slice(0, 50).toLowerCase();
+                          const firstParaPrefix = (paragraphs[0] || '').slice(0, 50).toLowerCase();
+                          const bodyStartsWithSummary = cleanSummaryPrefix && (
+                            firstParaPrefix.startsWith(cleanSummaryPrefix) ||
+                            cleanSummaryPrefix.startsWith(firstParaPrefix)
+                          );
+
+                          // If summary is distinct from body, display as editorial lead summary
+                          const showDistinctSummary = summaryText && !bodyStartsWithSummary;
+
+                          return (
+                            <div className="detail-content-area">
+                              {showDistinctSummary && (
+                                <p className="detail-summary">{summaryText}</p>
+                              )}
+                              <div className="detail-body">
+                                {paragraphs.map((paragraph, idx) => {
+                                  const isSubhead = paragraph.startsWith('# ') || paragraph.startsWith('## ') || paragraph.startsWith('### ');
+                                  const isQuote =
+                                    (paragraph.startsWith('"') && paragraph.endsWith('"')) ||
+                                    (paragraph.startsWith('“') && paragraph.endsWith('”')) ||
+                                    (paragraph.startsWith("'") && paragraph.endsWith("'")) ||
+                                    paragraph.startsWith('> ');
+
+                                  if (isSubhead) {
+                                    const clean = paragraph.replace(/^#+\s*/, '');
+                                    return (
+                                      <h2 key={idx} className="editorial-subhead">
+                                        {clean}
+                                      </h2>
+                                    );
+                                  }
+
+                                  if (isQuote) {
+                                    const clean = paragraph.replace(/^>\s*/, '');
+                                    return (
+                                      <blockquote key={idx} className="editorial-pullquote">
+                                        <p>{clean}</p>
+                                      </blockquote>
+                                    );
+                                  }
+
+                                  return (
+                                    <p
+                                      key={idx}
+                                      className={idx === 0 && !showDistinctSummary ? 'detail-lead' : 'detail-p'}
+                                    >
+                                      {paragraph}
+                                    </p>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        // Fallback when source genuinely provides only a summary excerpt
+                        return (
+                          <div className="detail-content-area">
+                            <p className="detail-summary">
+                              {summaryText || 'Read the full update at the source below.'}
+                            </p>
+                            <div className="detail-notice">
+                              Full report not syndicated. Please refer to the official publication source below.
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+
+                    {/* Right Column — Image trail (conditional) */}
+                    {hasMedia && (
+                      <aside className="image-trail" aria-label="Article Media">
+                        {hasVideo && (
+                          <div className="newspaper-video-box">
+                            <video
+                              className="newspaper-video"
+                              controls
+                              preload="metadata"
+                              src={detailItem.video_url}
+                              poster={detailItem.video_thumbnail || detailItem.poster || detailItem.image_url || undefined}
+                            >
+                              Your browser does not support video playback.
+                            </video>
+                            {(detailItem.video_caption || detailItem.source?.name) && (
+                              <figcaption className="detail-image-caption">
+                                {detailItem.video_caption || 'Video Coverage'}
+                                {detailItem.source?.name && <span className="caption-credit"> — {detailItem.source.name}</span>}
+                              </figcaption>
+                            )}
+                          </div>
+                        )}
+
+                        {activeImages.map((img, i) => (
+                          <DetailImage
+                            key={img.url + i}
+                            src={img.url}
+                            alt={detailItem.title}
+                            caption={img.caption}
+                            credit={img.credit}
+                            onFailed={() => handleImageFail(img.url)}
+                          />
+                        ))}
+                      </aside>
+                    )}
                   </div>
 
-                  {detailItem.image_url && <DetailImage src={detailItem.image_url} />}
-
-                  {(() => {
-                    const statusObj = getRegulatoryStatus(detailItem);
-                    return statusObj ? (
-                      <span className={`status ${statusObj.className}`}>{statusObj.label}</span>
-                    ) : null;
-                  })()}
-
-                  {/* Complete Article Content Rendering */}
-                  {(() => {
-                    const bodyText = (detailItem.body || '').trim();
-                    const summaryText = (detailItem.summary || '').trim();
-
-                    // If full body is actively loading while preview is shown
-                    if (detailLoading && !bodyText) {
-                      return (
-                        <div className="detail-content-area">
-                          {summaryText && <p className="detail-summary">{summaryText}</p>}
-                          <div className="detail-body-loading">
-                            <div className="skeleton" style={{ height: '16px', marginBottom: '12px', width: '100%' }}></div>
-                            <div className="skeleton" style={{ height: '16px', marginBottom: '12px', width: '94%' }}></div>
-                            <div className="skeleton" style={{ height: '16px', marginBottom: '12px', width: '97%' }}></div>
-                            <div className="skeleton" style={{ height: '16px', marginBottom: '12px', width: '82%' }}></div>
-                          </div>
-                        </div>
-                      );
-                    }
-
-                    // When full article body is available
-                    if (bodyText) {
-                      const paragraphs = bodyText
-                        .split(/\n+/)
-                        .map((p) => p.trim())
-                        .filter(Boolean);
-
-                      // Avoid repeating exact summary if body begins with the same text
-                      const cleanSummaryPrefix = summaryText.replace(/[\.\s]+$/, '').slice(0, 50).toLowerCase();
-                      const firstParaPrefix = (paragraphs[0] || '').slice(0, 50).toLowerCase();
-                      const bodyStartsWithSummary = cleanSummaryPrefix && (
-                        firstParaPrefix.startsWith(cleanSummaryPrefix) ||
-                        cleanSummaryPrefix.startsWith(firstParaPrefix)
-                      );
-
-                      // If summary is distinct from body (e.g. editorial analysis summary), display it as lead summary
-                      const showDistinctSummary = summaryText && !bodyStartsWithSummary;
-
-                      return (
-                        <div className="detail-content-area">
-                          {showDistinctSummary && (
-                            <p className="detail-summary">{summaryText}</p>
-                          )}
-                          <div className="detail-body">
-                            {paragraphs.map((paragraph, idx) => (
-                              <p
-                                key={idx}
-                                className={idx === 0 && !showDistinctSummary ? 'detail-lead' : 'detail-p'}
-                              >
-                                {paragraph}
-                              </p>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    }
-
-                    // Fallback when source genuinely provides only a summary excerpt
-                    return (
-                      <div className="detail-content-area">
-                        <p className="detail-summary">
-                          {summaryText || 'Read the full update at the source below.'}
-                        </p>
-                        <div className="detail-notice">
-                          Full report not syndicated. Please refer to the official publication source below.
-                        </div>
-                      </div>
-                    );
-                  })()}
+                  {/* FACT GRID AND SOURCE VERIFICATION */}
+                  <div className="editorial-divider" />
 
                   <div className="fact-grid">
                     <div>
@@ -504,75 +693,151 @@ export default function PropertyNewsPage() {
           ) : (
             /* =================== NEWS INDEX VIEW =================== */
             <section id="news-index" aria-live="polite">
-              <p className="eyebrow">Property Intelligence</p>
-              <h1>Property News on VaRoom</h1>
-              <p className="intro">
-                Relevant Kenyan property updates, presented with their source and regulatory status.
-              </p>
+              <header className="index-newspaper-header">
+                <p className="eyebrow">Property Intelligence</p>
+                <h1>Property News on VaRoom</h1>
+                <p className="intro">
+                  Relevant Kenyan property updates, presented with their source and regulatory status.
+                </p>
+              </header>
 
-              <div className="news-list" id="news-list">
-                {listLoading && !newsItems ? (
-                  <>
-                    <div className="skeleton"></div>
-                    <div className="skeleton"></div>
-                    <div className="skeleton"></div>
-                  </>
-                ) : listError || !newsItems || newsItems.length === 0 ? (
-                  <EmptyState />
-                ) : (
-                  newsItems.map((news) => {
-                    const source = news.source || {};
-                    const sourceUrl = safeSourceUrl(source.url);
-                    const statusObj = getRegulatoryStatus(news);
+              <div className="editorial-divider" />
+
+              {listLoading && !newsItems ? (
+                <div className="index-loading-grid">
+                  <div className="newspaper-skeleton-box" style={{ height: '220px' }}></div>
+                  <div className="newspaper-skeleton-box" style={{ height: '220px' }}></div>
+                  <div className="newspaper-skeleton-box" style={{ height: '220px' }}></div>
+                </div>
+              ) : listError || !newsItems || newsItems.length === 0 ? (
+                <EmptyState />
+              ) : (
+                <div className="newspaper-front-page">
+                  {/* Lead Featured Article (Newspaper Top Headline) */}
+                  {newsItems.length > 0 && (() => {
+                    const lead = newsItems[0];
+                    const leadSource = lead.source || {};
+                    const leadStatus = getRegulatoryStatus(lead);
+                    const leadSourceUrl = safeSourceUrl(leadSource.url);
 
                     return (
-                      <article className="news-card" key={news.id}>
-                        <Link
-                          className="news-card-main"
-                          href={`/property-news?id=${encodeURIComponent(news.id)}`}
-                          onClick={handleArticleClick}
-                        >
-                          <h2>{news.title}</h2>
-                          <p>
-                            {news.summary || 'Read the latest property update from VaRoom.'}
+                      <article className="frontpage-lead-article">
+                        <div className="lead-text-trail">
+                          <span className="lead-kicker">FRONT PAGE DISPATCH</span>
+                          <Link
+                            className="lead-headline-link"
+                            href={`/property-news?id=${encodeURIComponent(lead.id)}`}
+                            onClick={handleArticleClick}
+                          >
+                            <h2 className="lead-headline">{lead.title}</h2>
+                          </Link>
+                          <p className="lead-excerpt">
+                            {lead.summary || 'Read the lead Kenyan property and regulatory update on VaRoom.'}
                           </p>
                           <div className="meta">
-                            <span>{cardLocation(news)}</span>
+                            <span>{cardLocation(lead).toUpperCase()}</span>
                             <span>•</span>
-                            <span>
-                              {formatDate(source.published_at || news.published_at)}
+                            <span>{formatDate(leadSource.published_at || lead.published_at)}</span>
+                          </div>
+                          {leadStatus && (
+                            <span className={`status ${leadStatus.className}`}>
+                              {leadStatus.label}
                             </span>
-                          </div>
-                          {news.image_url && <NewsCardImage src={news.image_url} />}
-                        </Link>
+                          )}
+                          {leadSource.name && (
+                            <div className="news-card-source">
+                              {leadSourceUrl ? (
+                                <a
+                                  className="news-card-source-link"
+                                  href={leadSourceUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  Source · {leadSource.name}
+                                </a>
+                              ) : (
+                                `Source · ${leadSource.name}`
+                              )}
+                            </div>
+                          )}
+                        </div>
 
-                        {source.name && (
-                          <div className="news-card-source">
-                            {sourceUrl ? (
-                              <a
-                                className="news-card-source-link"
-                                href={sourceUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                              >
-                                Source · {source.name}
-                              </a>
-                            ) : (
-                              `Source · ${source.name}`
-                            )}
+                        {lead.image_url && (
+                          <div className="lead-image-trail">
+                            <Link
+                              href={`/property-news?id=${encodeURIComponent(lead.id)}`}
+                              onClick={handleArticleClick}
+                              className="lead-image-link"
+                            >
+                              <NewsCardImage src={lead.image_url} />
+                            </Link>
+                            <p className="frontpage-image-caption">
+                              {leadSource.name ? `Reported by ${leadSource.name}` : 'Kenya Property Report'}
+                            </p>
                           </div>
-                        )}
-
-                        {statusObj && (
-                          <span className={`status ${statusObj.className}`}>
-                            {statusObj.label}
-                          </span>
                         )}
                       </article>
                     );
-                  })
-                )}
-              </div>
+                  })()}
+
+                  <div className="editorial-divider" />
+
+                  {/* Multi-Column Newspaper Article Grid */}
+                  <div className="news-list" id="news-list">
+                    {newsItems.slice(1).map((news) => {
+                      const source = news.source || {};
+                      const sourceUrl = safeSourceUrl(source.url);
+                      const statusObj = getRegulatoryStatus(news);
+
+                      return (
+                        <article className="news-card" key={news.id}>
+                          <Link
+                            className="news-card-main"
+                            href={`/property-news?id=${encodeURIComponent(news.id)}`}
+                            onClick={handleArticleClick}
+                          >
+                            <h2>{news.title}</h2>
+                            <p>
+                              {news.summary || 'Read the latest property update from VaRoom.'}
+                            </p>
+                            <div className="meta">
+                              <span>{cardLocation(news)}</span>
+                              <span>•</span>
+                              <span>
+                                {formatDate(source.published_at || news.published_at)}
+                              </span>
+                            </div>
+                            {news.image_url && <NewsCardImage src={news.image_url} />}
+                          </Link>
+
+                          {source.name && (
+                            <div className="news-card-source">
+                              {sourceUrl ? (
+                                <a
+                                  className="news-card-source-link"
+                                  href={sourceUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  Source · {source.name}
+                                </a>
+                              ) : (
+                                `Source · ${source.name}`
+                              )}
+                            </div>
+                          )}
+
+                          {statusObj && (
+                            <span className={`status ${statusObj.className}`}>
+                              {statusObj.label}
+                            </span>
+                          )}
+                        </article>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </section>
           )}
         </main>
@@ -580,352 +845,709 @@ export default function PropertyNewsPage() {
 
       <style jsx global>{`
         :root {
-          --red: #c41e3a;
-          --red-deep: #8f1229;
-          --white: #fff;
-          --ink: #24211e;
-          --paper: #f7f6f3;
-          --muted: #5c584f;
-          --font-display: 'Helvetica Neue', Arial, sans-serif;
-          --font-body: 'Helvetica Neue', Arial, sans-serif;
-          --font-brand: 'Fraunces', Georgia, serif;
+          --newspaper-white: #ffffff;
+          --newspaper-ink: #111111;
+          --newspaper-body: #1c1c1c;
+          --newspaper-muted: #555555;
+          --newspaper-border: #111111;
+          --newspaper-rule-light: #dedede;
+          --newspaper-accent: #c41e3a;
+          --font-display: 'Fraunces', Georgia, 'Times New Roman', serif;
+          --font-serif-body: 'Newsreader', Georgia, 'Times New Roman', serif;
+          --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
+
         .property-news-root {
           margin: 0;
           min-height: 100vh;
-          font-family: var(--font-body);
-          background: var(--paper);
-          color: var(--ink);
+          background: var(--newspaper-white);
+          color: var(--newspaper-ink);
+          font-family: var(--font-sans);
+          -webkit-font-smoothing: antialiased;
         }
+
         .property-news-root a {
           color: inherit;
           text-decoration: none;
         }
+
         .property-news-root :focus-visible {
-          outline: 3px solid var(--red-deep);
+          outline: 2px solid var(--newspaper-ink);
           outline-offset: 3px;
         }
-        .topbar {
+
+        /* =================== NEWSPAPER MASTHEAD =================== */
+        .newspaper-masthead-container {
+          max-width: 1140px;
+          margin: 0 auto;
+          padding: 1.25rem 1.5rem 0;
+          background: var(--newspaper-white);
+        }
+
+        .masthead-topbar {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          font-size: 0.8rem;
+          font-weight: 600;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: var(--newspaper-muted);
+          padding-bottom: 0.5rem;
+        }
+
+        .masthead-edition {
           display: flex;
           align-items: center;
-          gap: 1rem;
-          padding: 1.15rem max(1.2rem, calc((100vw - 1040px) / 2));
-          background: var(--white);
-          border-bottom: 1px solid #e4e1da;
+          gap: 0.5rem;
         }
-        .brand {
+
+        .edition-sep {
+          color: #999;
+        }
+
+        .masthead-date-nav {
+          display: flex;
+          align-items: center;
+          gap: 1.2rem;
+        }
+
+        .newspaper-nav-link {
+          color: var(--newspaper-ink);
+          font-weight: 700;
+          font-size: 0.8rem;
+          letter-spacing: 0.05em;
+          text-decoration: underline;
+          text-underline-offset: 3px;
+          transition: color 0.15s ease;
+        }
+
+        .newspaper-nav-link:hover {
+          color: var(--newspaper-accent);
+        }
+
+        .masthead-rule-thick {
+          height: 3px;
+          background: var(--newspaper-border);
+          width: 100%;
+        }
+
+        .masthead-rule-thin {
+          height: 1px;
+          background: var(--newspaper-border);
+          width: 100%;
+          margin: 2px 0;
+        }
+
+        .masthead-center {
+          text-align: center;
+          padding: 1rem 0 0.85rem;
+        }
+
+        .masthead-title-link {
+          display: inline-block;
+        }
+
+        .masthead-title {
+          margin: 0;
           font-family: var(--font-display);
-          font-size: 1.45rem;
+          font-size: clamp(2.8rem, 7.8vw, 5.2rem);
+          font-weight: 900;
+          line-height: 0.95;
+          letter-spacing: -0.01em;
+          text-transform: uppercase;
+          color: var(--newspaper-ink);
+        }
+
+        .masthead-sub-identity {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.35rem;
+          margin-top: 0.6rem;
+          font-size: 0.76rem;
+          font-weight: 700;
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+          color: var(--newspaper-muted);
+        }
+
+        .masthead-badge-va {
+          color: var(--newspaper-accent);
           font-weight: 900;
         }
-        .brand .va {
-          color: var(--red);
+
+        .masthead-badge-room {
+          color: var(--newspaper-ink);
+          font-weight: 900;
         }
-        .back-link {
-          margin-left: auto;
-          color: var(--red);
-          font-size: 0.9rem;
-          font-weight: 600;
+
+        .masthead-subtitle {
+          margin-left: 0.4rem;
         }
-        .back-link:hover {
-          color: var(--red-deep);
-        }
-        .property-news-root main {
-          width: min(100%, 860px);
+
+        /* =================== MAIN EDITORIAL WRAPPER =================== */
+        .newspaper-main {
+          max-width: 1140px;
           margin: 0 auto;
-          padding: 2.4rem 1.2rem 4rem;
+          padding: 2rem 1.5rem 5rem;
         }
+
+        .editorial-divider {
+          height: 1px;
+          background: var(--newspaper-border);
+          margin: 1.5rem 0 2rem;
+          border: none;
+        }
+
         .eyebrow {
-          color: var(--red);
-          font-size: 0.72rem;
-          letter-spacing: 0.09em;
+          font-size: 0.78rem;
+          letter-spacing: 0.12em;
           text-transform: uppercase;
-          font-weight: 700;
-          margin: 0 0 0.45rem;
-        }
-        h1 {
+          font-weight: 800;
+          color: var(--newspaper-ink);
           margin: 0;
-          font: 700 clamp(1.9rem, 4vw, 2.65rem) / 1.12 var(--font-display);
         }
-        .intro {
-          max-width: 640px;
-          margin: 0.7rem 0 1.8rem;
-          color: var(--muted);
-          font-size: 0.96rem;
-          line-height: 1.55;
+
+        /* =================== ARTICLE DETAIL VIEW =================== */
+        .article-header {
+          padding-bottom: 0.5rem;
         }
-        .news-list {
-          display: grid;
-          gap: 1rem;
+
+        .article-category-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 0.8rem;
         }
-        .news-card {
-          display: block;
-          padding: 1.25rem 1.35rem;
-          background: var(--white);
-          border: 1px solid #e4e1da;
-          border-radius: 16px;
-          transition: transform 0.18s ease, box-shadow 0.18s ease;
+
+        .article-headline {
+          margin: 0 0 1rem;
+          font-family: var(--font-display);
+          font-size: clamp(2.1rem, 5vw, 3.5rem);
+          font-weight: 800;
+          line-height: 1.12;
+          letter-spacing: -0.02em;
+          color: var(--newspaper-ink);
         }
-        .news-card:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 12px 28px -18px rgba(26, 18, 16, 0.46);
-        }
-        .news-card h2 {
-          margin: 0;
-          font: 700 1.25rem / 1.28 var(--font-display);
-        }
-        .news-card p {
-          margin: 0.6rem 0 0.8rem;
-          color: var(--muted);
-          font-size: 0.9rem;
-          line-height: 1.5;
-        }
-        .meta {
+
+        .article-meta {
           display: flex;
           flex-wrap: wrap;
           align-items: center;
-          gap: 0.42rem;
-          color: var(--muted);
-          font-size: 0.78rem;
+          gap: 0.5rem;
+          font-size: 0.84rem;
+          font-weight: 600;
+          color: var(--newspaper-muted);
+          letter-spacing: 0.05em;
         }
+
+        .meta-bullet {
+          color: #999;
+        }
+
+        /* TWO-COLUMN EDITORIAL ARTICLE BODY */
+        .editorial-columns {
+          margin-bottom: 2.5rem;
+        }
+
+        .editorial-columns.has-media {
+          display: grid;
+          grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+          gap: 3rem;
+          align-items: start;
+        }
+
+        .editorial-columns.no-media {
+          display: block;
+          max-width: 780px;
+          margin: 0;
+        }
+
+        .text-trail {
+          min-width: 0;
+        }
+
+        .detail-summary {
+          font-family: var(--font-serif-body);
+          font-size: 1.25rem;
+          line-height: 1.65;
+          font-weight: 600;
+          font-style: italic;
+          color: var(--newspaper-ink);
+          margin: 0 0 1.6rem;
+          padding-bottom: 1.25rem;
+          border-bottom: 1px solid var(--newspaper-rule-light);
+        }
+
+        .detail-body {
+          font-family: var(--font-serif-body);
+          font-size: 1.1rem;
+          line-height: 1.8;
+          color: var(--newspaper-body);
+        }
+
+        .detail-lead {
+          font-size: 1.2rem;
+          line-height: 1.75;
+          font-weight: 600;
+          color: var(--newspaper-ink);
+          margin: 0 0 1.4rem;
+        }
+
+        .detail-lead::first-letter {
+          font-size: 3.4em;
+          float: left;
+          line-height: 0.8;
+          margin: 0.1em 0.12em 0 0;
+          font-family: var(--font-display);
+          font-weight: 900;
+          color: var(--newspaper-ink);
+        }
+
+        .detail-p {
+          margin: 0 0 1.35rem;
+        }
+
+        .detail-p:last-child {
+          margin-bottom: 0;
+        }
+
+        .editorial-subhead {
+          font-family: var(--font-display);
+          font-size: 1.45rem;
+          font-weight: 700;
+          line-height: 1.28;
+          color: var(--newspaper-ink);
+          margin: 2.2rem 0 0.85rem;
+        }
+
+        .editorial-pullquote {
+          margin: 1.8rem 0;
+          padding: 1.2rem 1.6rem;
+          border-left: 3px solid var(--newspaper-border);
+          border-top: 1px solid var(--newspaper-rule-light);
+          border-bottom: 1px solid var(--newspaper-rule-light);
+          background: #fbfbfb;
+          font-family: var(--font-display);
+          font-size: 1.25rem;
+          font-style: italic;
+          line-height: 1.55;
+          color: var(--newspaper-ink);
+        }
+
+        .editorial-pullquote p {
+          margin: 0;
+        }
+
+        .detail-notice {
+          margin: 1.2rem 0;
+          padding: 1rem 1.25rem;
+          border-left: 3px solid var(--newspaper-border);
+          background: #f8f8f8;
+          font-size: 0.9rem;
+          font-family: var(--font-sans);
+          color: var(--newspaper-muted);
+        }
+
+        /* Image Trail */
+        .image-trail {
+          display: flex;
+          flex-direction: column;
+          gap: 2rem;
+          min-width: 0;
+        }
+
+        .detail-image-wrap {
+          margin: 0;
+          opacity: 0;
+          transition: opacity 0.25s ease;
+        }
+
+        .detail-image-wrap.is-loaded {
+          opacity: 1;
+        }
+
+        .detail-image {
+          display: block;
+          width: 100%;
+          height: auto;
+          max-height: 520px;
+          object-fit: cover;
+          border: 1px solid var(--newspaper-border);
+        }
+
+        .detail-image-caption {
+          margin-top: 0.6rem;
+          font-family: var(--font-serif-body);
+          font-size: 0.88rem;
+          line-height: 1.45;
+          color: var(--newspaper-muted);
+          border-bottom: 1px solid var(--newspaper-rule-light);
+          padding-bottom: 0.5rem;
+        }
+
+        .caption-text {
+          font-weight: 700;
+          color: var(--newspaper-ink);
+        }
+
+        .caption-credit {
+          font-style: italic;
+          color: #777;
+        }
+
+        .newspaper-video-box {
+          border: 1px solid var(--newspaper-border);
+          padding: 4px;
+          background: #fff;
+        }
+
+        .newspaper-video {
+          display: block;
+          width: 100%;
+          max-height: 420px;
+          background: #000;
+        }
+
+        /* Fact Grid */
+        .fact-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 1.5rem;
+          margin: 2rem 0;
+          padding: 1.25rem 0;
+          border-top: 2px solid var(--newspaper-border);
+          border-bottom: 1px solid var(--newspaper-border);
+        }
+
+        .fact-label {
+          display: block;
+          margin-bottom: 0.25rem;
+          color: var(--newspaper-muted);
+          font-size: 0.72rem;
+          font-weight: 800;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+        }
+
+        .fact-value {
+          font-family: var(--font-serif-body);
+          font-size: 1.02rem;
+          font-weight: 600;
+          line-height: 1.35;
+          color: var(--newspaper-ink);
+        }
+
+        .source-box {
+          margin-top: 1.8rem;
+          padding: 1.2rem 1.4rem;
+          border: 1px solid var(--newspaper-border);
+          background: var(--newspaper-white);
+          font-size: 0.88rem;
+          line-height: 1.6;
+          color: #333;
+        }
+
+        .source-link {
+          display: inline-block;
+          font-weight: 700;
+          color: var(--newspaper-ink);
+          text-decoration: underline;
+          text-underline-offset: 3px;
+          margin-bottom: 0.3rem;
+        }
+
+        .source-link:hover {
+          color: var(--newspaper-accent);
+        }
+
+        /* Regulatory Status Tag */
+        .status {
+          display: inline-flex;
+          align-items: center;
+          padding: 0.2rem 0.6rem;
+          font-size: 0.7rem;
+          font-weight: 800;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          border: 1px solid var(--newspaper-border);
+          background: #fff;
+          color: var(--newspaper-ink);
+          border-radius: 0;
+        }
+
+        .status.approved,
+        .status.effective {
+          border-color: #111;
+          background: #f4f4f4;
+          color: #111;
+        }
+
+        .status.market {
+          border-color: #111;
+          background: #fff;
+          color: #111;
+        }
+
+        /* =================== NEWSPAPER INDEX VIEW =================== */
+        .index-newspaper-header {
+          padding-bottom: 0.5rem;
+        }
+
+        .index-newspaper-header h1 {
+          margin: 0.35rem 0 0.65rem;
+          font-family: var(--font-display);
+          font-size: clamp(2rem, 4.5vw, 2.85rem);
+          font-weight: 800;
+          letter-spacing: -0.02em;
+          color: var(--newspaper-ink);
+        }
+
+        .intro {
+          max-width: 680px;
+          margin: 0;
+          color: var(--newspaper-muted);
+          font-size: 1rem;
+          line-height: 1.55;
+          font-family: var(--font-serif-body);
+        }
+
+        .frontpage-lead-article {
+          display: grid;
+          grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+          gap: 2.8rem;
+          align-items: start;
+          padding-bottom: 1.5rem;
+        }
+
+        .lead-text-trail {
+          display: flex;
+          flex-direction: column;
+          gap: 0.65rem;
+        }
+
+        .lead-kicker {
+          font-size: 0.74rem;
+          font-weight: 800;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+          color: var(--newspaper-ink);
+        }
+
+        .lead-headline {
+          margin: 0;
+          font-family: var(--font-display);
+          font-size: clamp(1.8rem, 3.6vw, 2.65rem);
+          font-weight: 800;
+          line-height: 1.15;
+          letter-spacing: -0.02em;
+          color: var(--newspaper-ink);
+          transition: color 0.15s ease;
+        }
+
+        .lead-headline:hover {
+          color: var(--newspaper-accent);
+        }
+
+        .lead-excerpt {
+          font-family: var(--font-serif-body);
+          font-size: 1.12rem;
+          line-height: 1.65;
+          color: var(--newspaper-body);
+          margin: 0;
+        }
+
+        .lead-image-trail {
+          min-width: 0;
+        }
+
+        .lead-image-link {
+          display: block;
+        }
+
+        .frontpage-image-caption {
+          margin-top: 0.45rem;
+          font-family: var(--font-serif-body);
+          font-size: 0.82rem;
+          font-style: italic;
+          color: var(--newspaper-muted);
+          border-bottom: 1px solid var(--newspaper-rule-light);
+          padding-bottom: 0.4rem;
+        }
+
+        /* Front Page Columns Grid */
+        .news-list {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 2.2rem;
+        }
+
+        .news-card {
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          padding-right: 1.25rem;
+          border-right: 1px solid var(--newspaper-rule-light);
+          background: #fff;
+          border-radius: 0;
+        }
+
+        .news-card:nth-child(3n) {
+          border-right: none;
+          padding-right: 0;
+        }
+
         .news-card-main {
           display: block;
         }
+
+        .news-card h2 {
+          margin: 0 0 0.55rem;
+          font-family: var(--font-display);
+          font-size: 1.3rem;
+          font-weight: 700;
+          line-height: 1.25;
+          color: var(--newspaper-ink);
+          transition: color 0.15s ease;
+        }
+
+        .news-card h2:hover {
+          color: var(--newspaper-accent);
+        }
+
+        .news-card p {
+          margin: 0 0 0.8rem;
+          font-family: var(--font-serif-body);
+          font-size: 0.96rem;
+          line-height: 1.55;
+          color: var(--newspaper-body);
+        }
+
+        .news-card .meta {
+          margin-bottom: 0.6rem;
+        }
+
         .news-card-image-wrap {
           height: 0;
           overflow: hidden;
           margin: 0;
-          border-radius: 12px;
           opacity: 0;
           transition: opacity 0.25s ease;
         }
+
         .news-card-image-wrap.is-loaded {
-          height: 170px;
-          margin: 0.85rem 0 0.65rem;
+          height: 180px;
+          margin: 0.75rem 0 0.65rem;
           opacity: 1;
         }
+
         .news-card-image {
           display: block;
           width: 100%;
-          height: 170px;
+          height: 180px;
           object-fit: cover;
+          border: 1px solid var(--newspaper-border);
         }
+
         .news-card-source {
-          margin-top: 0.65rem;
-          color: var(--muted);
-          font-size: 0.74rem;
+          margin-top: 0.6rem;
+          color: var(--newspaper-muted);
+          font-size: 0.75rem;
           line-height: 1.35;
         }
+
         .news-card-source-link {
           color: inherit;
           text-decoration: underline;
-          text-decoration-color: rgba(196, 30, 58, 0.38);
           text-underline-offset: 2px;
         }
+
         .news-card-source-link:hover {
-          color: var(--red-deep);
-          text-decoration-color: currentColor;
+          color: var(--newspaper-accent);
         }
-        .status {
-          display: inline-flex;
-          width: max-content;
-          margin-top: 0.75rem;
-          padding: 0.22rem 0.52rem;
-          border-radius: 100px;
-          background: #fbe4e7;
-          color: var(--red-deep);
-          font-size: 0.67rem;
-          font-weight: 700;
-          letter-spacing: 0.05em;
-        }
-        .status.approved,
-        .status.effective {
-          background: #eaf4ee;
-          color: #1e6b3c;
-        }
-        .status.market {
-          background: #e9f0fb;
-          color: #1a4e8f;
-        }
-        .detail {
-          display: block;
-        }
-        .detail-card {
-          background: var(--white);
-          border: 1px solid #e4e1da;
-          border-radius: 18px;
-          padding: clamp(1.35rem, 4vw, 2.25rem);
-        }
-        .detail .article-meta {
-          margin: 1rem 0 1.25rem;
-        }
-        .detail-content-area {
-          margin: 1.25rem 0 1.5rem;
-        }
-        .detail-summary {
-          font-size: 1.05rem;
-          line-height: 1.62;
-          color: #3e302c;
-          margin: 0 0 1.25rem;
-        }
-        .detail-lead {
-          font-size: 1.05rem;
-          line-height: 1.65;
-          color: #24211e;
-          font-weight: 500;
-          margin: 0 0 1.2rem;
-        }
-        .detail-body {
-          color: #38302c;
-          font-size: 0.96rem;
-          line-height: 1.7;
-        }
-        .detail-body p {
-          margin: 0 0 1.15rem;
-        }
-        .detail-body p:last-child {
-          margin-bottom: 0;
-        }
-        .detail-notice {
-          margin: 1rem 0;
-          padding: 0.75rem 1rem;
-          background: rgba(196, 30, 58, 0.05);
-          border-left: 3px solid var(--red);
-          font-size: 0.85rem;
-          color: var(--muted);
-          border-radius: 0 8px 8px 0;
-        }
-        .detail-body-loading {
-          padding: 0.5rem 0;
-        }
-        .fact-grid {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 0.75rem;
-          margin: 1.5rem 0;
-          padding: 1rem 0;
-          border-top: 1px solid #e4e1da;
-          border-bottom: 1px solid #e4e1da;
-        }
-        .fact-label {
-          display: block;
-          margin-bottom: 0.16rem;
-          color: var(--muted);
-          font-size: 0.7rem;
-          font-weight: 700;
-          letter-spacing: 0.06em;
-          text-transform: uppercase;
-        }
-        .fact-value {
-          font-size: 0.86rem;
-          line-height: 1.35;
-        }
-        .source-box {
-          margin-top: 1.5rem;
-          padding: 1rem 1.1rem;
-          border-radius: 12px;
-          background: var(--paper);
-          font-size: 0.87rem;
-          line-height: 1.5;
-        }
-        .detail-image-wrap {
-          height: 0;
-          overflow: hidden;
-          margin: 0;
-          border-radius: 14px;
-          opacity: 0;
-          transition: opacity 0.25s ease;
-        }
-        .detail-image-wrap.is-loaded {
-          height: min(360px, 42vw);
-          margin: 1.15rem 0 0;
-          opacity: 1;
-        }
-        .detail-image {
-          display: block;
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-        }
-        .source-link {
-          display: inline-flex;
-          margin-top: 0.4rem;
-          color: var(--red);
-          font-weight: 600;
-        }
-        .source-link:hover {
-          color: var(--red-deep);
-        }
+
+        /* =================== STATES & SKELETONS =================== */
         .state {
-          padding: 3rem 1.5rem;
+          padding: 3.5rem 1.5rem;
           text-align: center;
-          border-radius: 18px;
-          background: var(--white);
-          border: 1px solid #e4e1da;
-          color: var(--muted);
+          border: 2px solid var(--newspaper-border);
+          background: var(--newspaper-white);
+          color: var(--newspaper-muted);
           line-height: 1.5;
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 0.5rem;
+          gap: 0.65rem;
+          margin: 2rem 0;
         }
+
         .state-icon-wrap {
           width: 48px;
           height: 48px;
-          border-radius: 50%;
-          background: rgba(196, 30, 58, 0.08);
-          color: var(--red);
+          border: 1px solid var(--newspaper-border);
+          color: var(--newspaper-ink);
           display: flex;
           align-items: center;
           justify-content: center;
           margin-bottom: 0.3rem;
         }
+
         .state-title {
-          font: 700 1.15rem / 1.3 var(--font-display);
-          color: var(--ink);
+          font-family: var(--font-display);
+          font-size: 1.35rem;
+          font-weight: 700;
+          color: var(--newspaper-ink);
         }
+
         .state-desc {
-          font-size: 0.88rem;
-          color: var(--muted);
-          max-width: 440px;
+          font-family: var(--font-serif-body);
+          font-size: 0.98rem;
+          color: var(--newspaper-muted);
+          max-width: 460px;
           margin: 0;
-          line-height: 1.5;
+          line-height: 1.6;
         }
+
         .state-badge {
           display: inline-flex;
           align-items: center;
           gap: 0.45rem;
-          font-size: 0.74rem;
-          font-weight: 600;
-          color: #1e6b3c;
-          background: #eaf4ee;
-          padding: 0.28rem 0.75rem;
-          border-radius: 100px;
-          margin-top: 0.5rem;
+          font-size: 0.75rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          color: var(--newspaper-ink);
+          border: 1px solid var(--newspaper-border);
+          padding: 0.3rem 0.8rem;
+          margin-top: 0.65rem;
         }
+
         .state-dot {
-          width: 7px;
-          height: 7px;
-          border-radius: 50%;
-          background: #28a745;
-          box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.25);
+          width: 6px;
+          height: 6px;
+          background: #111;
         }
-        .state.error {
-          color: var(--red-deep);
+
+        .newspaper-skeleton-box {
+          border: 1px solid var(--newspaper-rule-light);
+          padding: 1.5rem;
+          background: #fafafa;
         }
-        .skeleton {
-          height: 148px;
-          border-radius: 16px;
+
+        .newspaper-skeleton-line {
+          height: 14px;
           background: linear-gradient(
             90deg,
-            rgba(26, 18, 16, 0.05),
-            #e4e1da,
-            rgba(26, 18, 16, 0.05)
+            #eaeaea 0%,
+            #dfdfdf 50%,
+            #eaeaea 100%
           );
           background-size: 200% 100%;
-          animation: shimmer 1.35s ease-in-out infinite;
+          animation: newspaperShimmer 1.5s ease-in-out infinite;
         }
-        @keyframes shimmer {
+
+        @keyframes newspaperShimmer {
           0% {
             background-position: 200% 0;
           }
@@ -933,27 +1555,61 @@ export default function PropertyNewsPage() {
             background-position: -200% 0;
           }
         }
-        @media (max-width: 600px) {
-          .topbar {
-            padding: 1rem;
+
+        /* =================== RESPONSIVE DESIGN =================== */
+        @media (max-width: 900px) {
+          .news-list {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1.8rem;
           }
-          .property-news-root main {
-            padding: 1.8rem 1rem 3rem;
+          .news-card:nth-child(3n) {
+            border-right: 1px solid var(--newspaper-rule-light);
+            padding-right: 1.25rem;
+          }
+          .news-card:nth-child(2n) {
+            border-right: none;
+            padding-right: 0;
+          }
+          .frontpage-lead-article {
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+          }
+        }
+
+        @media (max-width: 768px) {
+          .newspaper-masthead-container {
+            padding: 1rem 1rem 0;
+          }
+          .masthead-topbar {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.4rem;
+          }
+          .masthead-date-nav {
+            width: 100%;
+            justify-content: space-between;
+          }
+          .newspaper-main {
+            padding: 1.5rem 1rem 3.5rem;
+          }
+          .editorial-columns.has-media {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+          }
+          .news-list {
+            grid-template-columns: 1fr;
+            gap: 1.6rem;
+          }
+          .news-card {
+            border-right: none;
+            border-bottom: 1px solid var(--newspaper-rule-light);
+            padding-right: 0;
+            padding-bottom: 1.5rem;
           }
           .fact-grid {
             grid-template-columns: 1fr;
-          }
-          .news-card {
-            padding: 1.1rem;
-          }
-          .news-card-image-wrap.is-loaded {
-            height: 150px;
-          }
-          .news-card-image {
-            height: 150px;
-          }
-          .detail-image-wrap.is-loaded {
-            height: 220px;
+            gap: 1rem;
           }
         }
       `}</style>
