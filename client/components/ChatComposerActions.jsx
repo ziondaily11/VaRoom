@@ -9,7 +9,7 @@ function Icon({ name }) {
   );
 }
 
-export default function ChatComposerActions({ isElie: initialIsElie } = {}) {
+export default function ChatComposerActions({ isElie: initialIsElie, onSend, onPhotoClick, onFileClick, onMobileAttach, canSend } = {}) {
   const [shareMenuOpen, setShareMenuOpen] = useState(false);
   const [isElie, setIsElie] = useState(() => {
     if (typeof initialIsElie === 'boolean') return initialIsElie;
@@ -104,7 +104,14 @@ export default function ChatComposerActions({ isElie: initialIsElie } = {}) {
         shadow="0 1px 2px rgba(20,22,28,.05)"
       >
         <Liquid.Item className="composer-mobile-send-item">
-          <button className="send-message" type="button" title="Send message" aria-label="Send message" aria-disabled="true">
+          <button
+            className="send-message"
+            type="button"
+            title="Send message"
+            aria-label="Send message"
+            aria-disabled={!canSend}
+            onClick={canSend ? onSend : undefined}
+          >
             <Icon name="send" />
           </button>
         </Liquid.Item>
@@ -121,7 +128,16 @@ export default function ChatComposerActions({ isElie: initialIsElie } = {}) {
       shadow="0 1px 2px rgba(20,22,28,.05)"
     >
       <Liquid.Item className="composer-mobile-attach-item">
-        <button className="mobile-attach" type="button" title="More actions" aria-label="Add photos" aria-haspopup="menu" aria-expanded="false" aria-controls="mobileAttachMenu">
+        <button
+          className="mobile-attach"
+          type="button"
+          title="More actions"
+          aria-label="Add photos"
+          aria-haspopup="menu"
+          aria-expanded={false}
+          aria-controls="mobileAttachMenu"
+          onClick={onMobileAttach}
+        >
           <Icon name="plus" />
         </button>
       </Liquid.Item>
@@ -152,24 +168,55 @@ export default function ChatComposerActions({ isElie: initialIsElie } = {}) {
             </button>
           </Liquid.Item>
           <Liquid.Item x={shareMenuOpen ? -54 : 0} y={shareMenuOpen ? -34 : 0} transition="bouncy" delay={10} style={{ position: 'absolute', left: 0, top: 0, pointerEvents: shareMenuOpen ? 'auto' : 'none' }}>
-            <button className="share-photo" type="button" role="menuitem" aria-label="Share photo" aria-hidden={!shareMenuOpen} tabIndex={shareMenuOpen ? 0 : -1} onClick={closeShareMenu}>
+            <button
+              className="share-photo"
+              type="button"
+              role="menuitem"
+              aria-label="Share photo"
+              aria-hidden={!shareMenuOpen}
+              tabIndex={shareMenuOpen ? 0 : -1}
+              onClick={() => { onPhotoClick?.(); closeShareMenu(); }}
+            >
               <Icon name="image" />
             </button>
           </Liquid.Item>
           <Liquid.Item x={0} y={shareMenuOpen ? -64 : 0} transition="bouncy" delay={40} style={{ position: 'absolute', left: 0, top: 0, pointerEvents: shareMenuOpen ? 'auto' : 'none' }}>
-            <button className="share-file" type="button" role="menuitem" aria-label="Share file" aria-hidden={!shareMenuOpen} tabIndex={shareMenuOpen ? 0 : -1} onClick={closeShareMenu}>
+            <button
+              className="share-file"
+              type="button"
+              role="menuitem"
+              aria-label="Share file"
+              aria-hidden={!shareMenuOpen}
+              tabIndex={shareMenuOpen ? 0 : -1}
+              onClick={() => { onFileClick?.(); closeShareMenu(); }}
+            >
               <Icon name="paperclip" />
             </button>
           </Liquid.Item>
           <Liquid.Item x={shareMenuOpen ? 54 : 0} y={shareMenuOpen ? -34 : 0} transition="bouncy" delay={80} style={{ position: 'absolute', left: 0, top: 0, pointerEvents: shareMenuOpen ? 'auto' : 'none' }}>
-            <button type="button" title="Share listing" aria-label="Share listing" role="menuitem" aria-hidden={!shareMenuOpen} tabIndex={shareMenuOpen ? 0 : -1} onClick={closeShareMenu}>
+            <button
+              type="button"
+              title="Share listing"
+              aria-label="Share listing"
+              role="menuitem"
+              aria-hidden={!shareMenuOpen}
+              tabIndex={shareMenuOpen ? 0 : -1}
+              onClick={closeShareMenu}
+            >
               <Icon name="share" />
             </button>
           </Liquid.Item>
         </Liquid>
       </div>
       <Liquid.Item className="composer-mobile-send-item">
-        <button className="send-message" type="button" title="Send message" aria-label="Send message" aria-disabled="true">
+        <button
+          className="send-message"
+          type="button"
+          title="Send message"
+          aria-label="Send message"
+          aria-disabled={!canSend}
+          onClick={canSend ? onSend : undefined}
+        >
           <Icon name="send" />
         </button>
       </Liquid.Item>
