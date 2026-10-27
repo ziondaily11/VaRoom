@@ -185,12 +185,32 @@ function Gallery({
   const [videoFailed, setVideoFailed] = useState(false);
   const stage = useRef<HTMLDivElement>(null);
   const pointerStart = useRef<number | null>(null);
+  const videoLoadTimeout = useRef<number | null>(null);
 
   useEffect(() => {
     setActiveIndex(0);
+  }, [listing.id]);
+
+  useEffect(() => {
     setVideoReady(false);
     setVideoFailed(false);
-  }, [listing.id]);
+    if (videoLoadTimeout.current !== null) {
+      window.clearTimeout(videoLoadTimeout.current);
+      videoLoadTimeout.current = null;
+    }
+    if (!video) return;
+
+    videoLoadTimeout.current = window.setTimeout(() => {
+      videoLoadTimeout.current = null;
+      setVideoFailed(true);
+    }, 20000);
+    return () => {
+      if (videoLoadTimeout.current !== null) {
+        window.clearTimeout(videoLoadTimeout.current);
+        videoLoadTimeout.current = null;
+      }
+    };
+  }, [listing.id, video?.url]);
 
   useEffect(() => {
     const photoUrls = new Set(media.map((photo) => photo.url));
@@ -271,6 +291,20 @@ function Gallery({
 
   if (video) {
     if (videoFailed) return <div className={`${styles.mediaStage} ${styles.mediaUnavailable}`} role="status">Video unavailable</div>;
+    const markVideoReady = () => {
+      if (videoLoadTimeout.current !== null) {
+        window.clearTimeout(videoLoadTimeout.current);
+        videoLoadTimeout.current = null;
+      }
+      setVideoReady(true);
+    };
+    const markVideoFailed = () => {
+      if (videoLoadTimeout.current !== null) {
+        window.clearTimeout(videoLoadTimeout.current);
+        videoLoadTimeout.current = null;
+      }
+      setVideoFailed(true);
+    };
     const frame = calculateMediaFrames(
       [{ width: video.width || 0, height: video.height || 0 }],
       {},
@@ -289,11 +323,13 @@ function Gallery({
           controls
           muted
           playsInline
-          preload="none"
+          preload="auto"
           poster={video.thumbnailUrl || undefined}
           src={video.url}
-          onLoadedData={() => setVideoReady(true)}
-          onError={() => setVideoFailed(true)}
+          onLoadedData={markVideoReady}
+          onCanPlay={markVideoReady}
+          onPlaying={markVideoReady}
+          onError={markVideoFailed}
         />
       </div>
     );
