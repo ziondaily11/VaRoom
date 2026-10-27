@@ -149,6 +149,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   // UI Views & Drawers
   const [mobileView, setMobileView] = useState<'inbox' | 'conversation' | 'info'>('inbox');
   const [convMenuId, setConvMenuId] = useState<string | null>(null);
+  const [msgMenuId, setMsgMenuId] = useState<string | null>(null);
   const [infoCollapsed, setInfoCollapsed] = useState<boolean>(true);
   const [chatSettingsEmbedded, setChatSettingsEmbedded] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -579,6 +580,22 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
     return () => window.removeEventListener('click', handleOutsideClick);
   }, [mobileAttachMenuOpen]);
 
+  // Add chat-page-context to body to hide global mobile bottom nav on chats
+  useEffect(() => {
+    document.body.classList.add('chat-page-context');
+    return () => {
+      document.body.classList.remove('chat-page-context');
+    };
+  }, []);
+
+  // Close message action menu when clicking outside
+  useEffect(() => {
+    if (!msgMenuId) return;
+    const handleOutsideClick = () => setMsgMenuId(null);
+    window.addEventListener('click', handleOutsideClick);
+    return () => window.removeEventListener('click', handleOutsideClick);
+  }, [msgMenuId]);
+
   // Send message handler
   const handleSendMessage = async (textToSend?: string) => {
     const content = (textToSend !== undefined ? textToSend : (desktopEditorRef.current?.innerHTML || composerText)).trim();
@@ -782,6 +799,22 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
       return name.includes(q) || username.includes(q) || last.includes(q);
     });
   }, [conversations, searchQuery]);
+
+  // Safe message body renderer: plain text unless the body contains HTML markup
+  // Only allowlists safe formatting tags; no external sanitizer needed.
+  const renderMessageBody = (body: string): React.ReactNode => {
+    if (!body) return null;
+    const hasMarkup = /<(b|strong|i|em|u|br|ul|ol|li)([\s>\/])/i.test(body);
+    if (!hasMarkup) {
+      return <span style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{body}</span>;
+    }
+    // Allowlist-sanitize: strip all tags except the safe set
+    const safe = body
+      .replace(/<(?!\/?(?:b|strong|i|em|u|br|ul|ol|li)(?:\s[^>]*)?>)[^>]+>/gi, '')
+      .replace(/on\w+="[^"]*"/gi, '')
+      .replace(/on\w+='[^']*'/gi, '');
+    return <span style={{ wordBreak: 'break-word' }} dangerouslySetInnerHTML={{ __html: safe }} />;
+  };
 
   return (
     <>
@@ -1170,56 +1203,146 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
             ) : (
               messages.map((m, idx) => {
                 const isOut = m.sender_id === (userId || session?.user?.id);
+                const isElieMsg = m.sender_id === 'elie';
+                const isSystem = m.message_type === 'system';
                 const prev = idx > 0 ? messages[idx - 1] : null;
                 const sameSender = prev && prev.sender_id === m.sender_id;
+                const isDeleted = !!m.deleted_at;
+                const timeStr = new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                const rowClass = [
+                  'msg-row',
+                  isSystem ? 'system' : isOut ? 'out' : 'in',
+                  isElieMsg && !isOut ? 'elie-message' : '',
+                  sameSender ? 'same-sender' : '',
+                  isDeleted ? 'msg-deleted' : '',
+                  m.reply_target_highlight ? 'reply-target-highlight' : '',
+                ].filter(Boolean).join(' ');
+
+                const hasMedia = m.attachment && m.attachment.kind === 'photo';
 
                 return (
                   <div
                     key={m.id}
                     data-message-id={m.id}
-                    className={`message-row ${isOut ? 'out' : 'in'} ${sameSender ? 'same-sender' : ''}`}
-                    style={{ position: 'relative', margin: '4px 0' }}
+                    className={rowClass}
+                    style={{ position: 'relative' }}
                   >
-                    <div className="message-bubble" style={{ maxWidth: '75%', padding: '10px 14px', borderRadius: '16px', background: isOut ? '#111' : '#f0ede6', color: isOut ? '#fff' : '#141414', alignSelf: isOut ? 'flex-end' : 'flex-start' }}>
-                      {/* Replied quote reference */}
-                      {m.reply_to_message && (
-                        <div style={{ borderLeft: '3px solid #bd2337', paddingLeft: '8px', marginBottom: '6px', fontSize: '12px', opacity: 0.85 }}>
-                          <strong>{m.reply_to_message.sender_id === userId ? 'You' : 'Reply'}:</strong> {m.reply_to_message.body || 'Message'}
-                        </div>
-                      )}
+                    {/* Reply reference */}
+                    {m.reply_to_message && (
+                      <div className="message-reply-reference">
+                        <strong>{m.reply_to_message.sender_id === userId ? 'You' : activeConversation?.participant?.full_name || 'User'}</strong>
+                        <span>{m.reply_to_message.body?.slice(0, 60) || 'Message'}</span>
+                      </div>
+                    )}
 
-                      {/* Photo Attachment */}
-                      {m.attachment && m.attachment.kind === 'photo' && (
-                        <div style={{ marginBottom: '6px', borderRadius: '8px', overflow: 'hidden', cursor: 'pointer' }}>
+                    {/* Photo attachment bubble */}
+                    {hasMedia ? (
+                      <div className="bubble bubble-media">
+                        <div className="chat-media-wrap" style={{ position: 'relative', cursor: 'pointer', borderRadius: '12px', overflow: 'hidden', display: 'inline-block', maxWidth: '280px' }}
+                          onClick={() => setSelectedPhotoPreview({ url: `/api/chat/attachments/${m.attachment!.id}/download`, alt: m.attachment!.original_filename || 'Photo' })}>
                           <img
-                            src={`/api/chat/attachments/${m.attachment.id}/download`}
-                            alt={m.attachment.original_filename || 'Photo'}
-                            style={{ maxWidth: '100%', maxHeight: '300px', display: 'block' }}
-                            onClick={() => setSelectedPhotoPreview({ url: `/api/chat/attachments/${m.attachment!.id}/download`, alt: m.attachment!.original_filename || 'Photo' })}
+                            src={`/api/chat/attachments/${m.attachment!.id}/download`}
+                            alt={m.attachment!.original_filename || 'Photo'}
+                            style={{ display: 'block', maxWidth: '100%', maxHeight: '280px', objectFit: 'cover' }}
+                            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                           />
                         </div>
-                      )}
-
-                      {/* File Attachment */}
-                      {m.attachment && m.attachment.kind === 'file' && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 0' }}>
-                          <svg className="icon" style={{ width: 20, height: 20 }}><use href="#i-file-text" /></svg>
-                          <a href={`/api/chat/attachments/${m.attachment.id}/download`} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'underline', fontSize: '13px' }}>
-                            {m.attachment.original_filename || 'Attachment'}
-                          </a>
+                        {m.body && m.body !== m.attachment?.original_filename && (
+                          <div className="chat-message-caption">{renderMessageBody(m.body)}</div>
+                        )}
+                        <div className="msg-meta">{timeStr}</div>
+                      </div>
+                    ) : m.attachment && m.attachment.kind === 'file' ? (
+                      /* File card */
+                      <div className="file-card">
+                        <div className="file-icon">
+                          <svg className="icon"><use href="#i-file-text" /></svg>
                         </div>
-                      )}
-
-                      {/* Message Content */}
-                      <div style={{ fontSize: '14.5px', lineHeight: 1.45, wordBreak: 'break-word' }}>
-                        {m.deleted_at ? <em>This message was deleted</em> : m.body}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div className="file-name">{m.attachment.original_filename || 'Attachment'}</div>
+                          {m.attachment.file_size && <div className="file-sub">{Math.round(m.attachment.file_size / 1024)} KB</div>}
+                        </div>
+                        <a href={`/api/chat/attachments/${m.attachment.id}/download`} target="_blank" rel="noopener noreferrer" className="dl" aria-label="Download">
+                          <svg className="icon"><use href="#i-paperclip" /></svg>
+                        </a>
+                        <div className="msg-meta" style={{ width: '100%', textAlign: 'right' }}>{timeStr}</div>
                       </div>
-
-                      {/* Timestamp & status */}
-                      <div style={{ fontSize: '11px', opacity: 0.65, marginTop: '4px', textAlign: 'right' }}>
-                        {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    ) : (
+                      /* Text bubble */
+                      <div className="bubble">
+                        {isDeleted ? (
+                          <>
+                            <svg className="icon" style={{ width: 14, height: 14 }}><use href="#i-trash" /></svg>
+                            <em>This message was deleted</em>
+                          </>
+                        ) : (
+                          renderMessageBody(m.body || '')
+                        )}
+                        <div className="msg-meta">{timeStr}</div>
                       </div>
-                    </div>
+                    )}
+
+                    {/* Message context menu trigger â€” visible on hover */}
+                    {!isDeleted && !isSystem && (
+                      <div className="msg-action-wrap" style={{ position: 'absolute', top: 0, [isOut ? 'left' : 'right']: '100%', display: 'flex', alignItems: 'center', paddingLeft: isOut ? 0 : 4, paddingRight: isOut ? 4 : 0 }}>
+                        <button
+                          type="button"
+                          className="msg-action-btn"
+                          aria-label="Message actions"
+                          onClick={(e) => { e.stopPropagation(); setMsgMenuId(msgMenuId === m.id ? null : m.id); }}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', borderRadius: 4, color: 'var(--text-gray)', opacity: 0.7 }}
+                        >
+                          <svg className="icon" style={{ width: 14, height: 14 }}><use href="#i-more" /></svg>
+                        </button>
+
+                        {msgMenuId === m.id && (
+                          <div
+                            role="menu"
+                            onClick={(e) => e.stopPropagation()}
+                            style={{
+                              position: 'absolute',
+                              top: '100%',
+                              [isOut ? 'left' : 'right']: 0,
+                              zIndex: 60,
+                              background: 'var(--bg-card, #fff)',
+                              border: '1px solid var(--border, #e6e8eb)',
+                              borderRadius: 10,
+                              boxShadow: '0 4px 16px rgba(0,0,0,.14)',
+                              minWidth: 140,
+                              overflow: 'hidden',
+                            }}
+                          >
+                            {[
+                              { label: 'Reply', action: () => { setReplyTo(m); setMsgMenuId(null); } },
+                              { label: 'Copy', action: () => { navigator.clipboard?.writeText(m.body || '').catch(() => {}); setMsgMenuId(null); } },
+                              { label: 'Pin', action: () => { handleMessageAction(m.id, 'pin'); setMsgMenuId(null); } },
+                              ...(isOut ? [{ label: 'Delete for me', action: () => { handleMessageAction(m.id, 'delete_for_me'); setMsgMenuId(null); }, danger: true }] : []),
+                            ].map((item: any) => (
+                              <button
+                                key={item.label}
+                                role="menuitem"
+                                type="button"
+                                onClick={item.action}
+                                style={{
+                                  display: 'block',
+                                  width: '100%',
+                                  padding: '9px 14px',
+                                  background: 'none',
+                                  border: 0,
+                                  textAlign: 'left',
+                                  fontSize: '13px',
+                                  cursor: 'pointer',
+                                  color: item.danger ? '#e53e3e' : 'var(--text-dark, #111)',
+                                }}
+                              >
+                                {item.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               })

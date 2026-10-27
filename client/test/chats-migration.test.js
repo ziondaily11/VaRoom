@@ -249,3 +249,31 @@ test('Stage 5A: Composer send wiring, attachment actions, and formatting control
   assert.match(actionsSource, /onFileClick/);
   assert.match(actionsSource, /onMobileAttach/);
 });
+
+test('Stage 5B: Message rendering, context actions, and mobile nav suppression', () => {
+  const source = fs.readFileSync(chatsPagePath, 'utf8');
+  const cssSource = fs.readFileSync(path.join(root, 'public', 'js', 'chats.css'), 'utf8');
+
+  // Uses correct CSS class msg-row (not message-row)
+  assert.match(source, /className=\{rowClass\}/);
+  assert.match(source, /'msg-row'/);
+
+  // Uses correct bubble class (not message-bubble)
+  assert.match(source, /className="bubble"/);
+
+  // renderMessageBody handles HTML safely
+  assert.match(source, /renderMessageBody/);
+  assert.match(source, /dangerouslySetInnerHTML/);
+  assert.match(source, /allowlist|hasMarkup/);
+
+  // Context menu wired to handleMessageAction
+  assert.match(source, /msgMenuId/);
+  assert.match(source, /handleMessageAction/);
+  assert.match(source, /'pin'/);
+  assert.match(source, /'delete_for_me'/);
+
+  // chat-page-context body class applied on mount
+  assert.match(source, /chat-page-context/);
+  assert.match(source, /classList\.add\('chat-page-context'\)/);
+  assert.match(source, /classList\.remove\('chat-page-context'\)/);
+});
