@@ -96,3 +96,23 @@ test('returning to Client Home rediscovers videos for the newly mounted feed car
   assert.match(source, /observer\.observe\(target\)/);
   assert.match(gallery, /\}, \[listing\.id, video\?\.url\]\);/);
 });
+
+test('video dimensions use supplied or intrinsic metadata and retain portrait, landscape, and square ratios', () => {
+  assert.match(gallery, /const naturalSize = videoNaturalSize\?\.url === video\.url/);
+  assert.match(gallery, /const videoWidth = naturalSize\?\.width \|\| video\.width \|\| 0/);
+  assert.match(gallery, /const videoHeight = naturalSize\?\.height \|\| video\.height \|\| 0/);
+  assert.match(gallery, /element\.videoWidth > 0 && element\.videoHeight > 0/);
+  assert.match(gallery, /width: element\.videoWidth,[\s\S]*?height: element\.videoHeight/);
+  assert.match(source, /const ratio = width \/ height/);
+  assert.match(gallery, /height: hasVideoDimensions \? frame\.height : undefined/);
+  assert.match(gallery, /style=\{\{ maxHeight: maxVideoHeight \}\}/);
+});
+
+test('video sizing does not force a 4:3 stage or crop media', () => {
+  const videoBranch = gallery.slice(gallery.indexOf('if (video) {'), gallery.indexOf('if (media.length === 0)'));
+  const videoStyles = styles.slice(styles.indexOf('.videoStage {'), styles.indexOf('.actions {'));
+  assert.doesNotMatch(videoBranch, /4\s*\/\s*3|aspectRatio:\s*['"]4\s*\/\s*3/);
+  assert.doesNotMatch(videoStyles, /aspect-ratio:\s*4\s*\/\s*3|object-fit:\s*cover/);
+  assert.match(videoStyles, /height:\s*auto/);
+  assert.match(videoStyles, /object-fit:\s*contain/);
+});
