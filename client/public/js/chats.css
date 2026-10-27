@@ -1735,3 +1735,11 @@
     background-image:none !important;
   }
 </style>
+
+/* Stage 5B: message action button visibility */
+.msg-action-wrap { visibility: hidden; }
+.msg-row:hover .msg-action-wrap,
+.msg-row:focus-within .msg-action-wrap { visibility: visible; }
+
+/* Stage 5B: ensure .msg-row display is flex column for correct layout */
+.messages { display: flex; flex-direction: column; }
