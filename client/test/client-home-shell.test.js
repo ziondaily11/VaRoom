@@ -58,6 +58,20 @@ test('native Client Home preserves the legacy saved, likes, report, lazy media, 
   assert.match(source, /document\.body\.style\.overflow='hidden'/);
 });
 
+test('native Client Home confines the ambient layer to a bounded, natural-ratio listing stage', () => {
+  const source = fs.readFileSync(pagePath, 'utf8');
+
+  assert.match(source, /function mediaFrame\(/);
+  assert.match(source, /maxHeight=mobile\?Math\.min\(560,available\*1\.6\):460/);
+  assert.match(source, /className="listing-media-stage"/);
+  assert.match(source, /className="listing-media-ambient"/);
+  assert.match(source, /isolation:'isolate'/);
+  assert.match(source, /\.listing-media-stage\{display:flex;align-items:center;justify-content:center;max-width:100%;touch-action:pan-y\}/);
+  assert.match(source, /\.listing-media-ambient\{position:absolute;inset:-28px;z-index:0/);
+  assert.match(source, /\.listing-media-image\{position:relative;z-index:1;display:block;max-width:100%;max-height:100%/);
+  assert.doesNotMatch(source, /<i aria-hidden style=\{ambient\}/);
+});
+
 test('Client Home redirects to onboarding only after an explicit successful profile result', () => {
   const session = { user: { id: 'client-1' } };
   const incomplete = resolveClientHomeProfile(session, {
@@ -77,7 +91,7 @@ test('Client Home uses the shared valid Supabase credentials and legacy R2 photo
   assert.equal(getClientHomeSupabaseConfig({}).anonKey, FALLBACK_ANON_KEY);
   assert.match(source, /\/api\/photos\//);
   assert.match(source, /photoPath\('listing-photos',p\)/);
-  assert.match(source, /aspectRatio/);
+  assert.match(source, /mediaFrame\(active\.width,active\.height/);
   assert.match(source, /blur\(24px\) saturate\(1\.12\)/);
   assert.doesNotMatch(FALLBACK_ANON_KEY, /2102096444/);
 });
