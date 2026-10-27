@@ -119,10 +119,35 @@ test('Stage 2: Avatar wrapper is strictly constrained to 46x46px with overflow h
   assert.match(cssSource, /\.avatar-wrap\s+img\s*\{[\s\S]*?object-fit:\s*cover;/);
   assert.match(cssSource, /\.avatar-wrap\s+img\s*\{[\s\S]*?display:\s*block;/);
 
-  // chats.tsx conversation item img properties
+  // chats.tsx conversation item img properties in ConversationAvatar
   const pageSource = fs.readFileSync(chatsPagePath, 'utf8');
-  assert.match(pageSource, /<img\s+src=\{participant\.avatar_url\}[\s\S]*?objectFit:\s*'cover'/);
-  assert.match(pageSource, /<img\s+src=\{participant\.avatar_url\}[\s\S]*?display:\s*'block'/);
+  assert.match(pageSource, /<ConversationAvatar\s+url=\{participant\?\.avatar_url\}/);
+  assert.match(pageSource, /objectFit:\s*'cover'/);
+  assert.match(pageSource, /display:\s*'block'/);
+});
+
+test('Stage 3: Avatar URL resolution and error fallback in chats.tsx', () => {
+  const source = fs.readFileSync(chatsPagePath, 'utf8');
+
+  // Integrates existing resolveStoredPhotoUrl module
+  assert.match(source, /resolveAvatarUrl/);
+  assert.match(source, /components\/resolveStoredPhotoUrl/);
+
+  // Handles data, blob, and storage keys through existing resolution mechanism
+  assert.match(source, /resolveChatAvatarUrl/);
+  assert.match(source, /\/\^\(data:\|blob:\)\/i/);
+
+  // ConversationAvatar provides reliable onError fallback preventing broken-image icons
+  assert.match(source, /function ConversationAvatar/);
+  assert.match(source, /onError=\{[\s\S]*?setHasError\(true\)/);
+
+  // Applied consistently to all three avatar locations
+  // 1. Conversation list
+  assert.match(source, /<div className="avatar-wrap">[\s\S]*?<ConversationAvatar\s+url=\{participant\?\.avatar_url\}/);
+  // 2. Chat header
+  assert.match(source, /<div className="chat-header-avatar-wrap">[\s\S]*?<ConversationAvatar\s+url=\{activeConversation\?\.participant\?\.avatar_url\}/);
+  // 3. Conversation info panel
+  assert.match(source, /<div className="profile-block"[\s\S]*?<ConversationAvatar\s+url=\{activeConversation\?\.participant\?\.avatar_url\}/);
 });
 
 test('Phase 4: Attachments and Elie workflows preserved in chats.tsx', () => {
