@@ -82,6 +82,25 @@ test('Phase 3: Lifecycle and Realtime safety patterns in chats.tsx', () => {
   assert.match(source, /varoom_active_account_changed/);
 });
 
+test('Stage 1: Lifecycle and routing separation protects against freeze and duplicate subscriptions', () => {
+  const source = fs.readFileSync(chatsPagePath, 'utf8');
+
+  // Auth initialization effect runs independently with empty dependency array
+  assert.match(source, /initAuth\(\);[\s\S]*?\}\s*,\s*\[\]\);/);
+
+  // Inbox loading runs separately on userId change
+  assert.match(source, /getInbox\(userId\)[\s\S]*?loadConversations\(userId[\s\S]*?\}\s*,\s*\[userId,\s*loadConversations\]\);/);
+
+  // Deep-link selection runs on primitive query changes without router in dependencies
+  assert.match(source, /requested !== activeIdRef\.current[\s\S]*?selectConversation\(requested,\s*false\)[\s\S]*?\}\s*,\s*\[userId,\s*routerQueryC,\s*routerQueryConversation,\s*routerPathname,\s*selectConversation\]\);/);
+
+  // selectConversation guards against duplicate subscription if already active
+  assert.match(source, /const isSameConversation = activeIdRef\.current === id;/);
+
+  // URL updating only triggers when query actually differs
+  assert.match(source, /currentQuery\.c !== id && currentQuery\.conversation !== id/);
+});
+
 test('Phase 4: Attachments and Elie workflows preserved in chats.tsx', () => {
   const source = fs.readFileSync(chatsPagePath, 'utf8');
 
