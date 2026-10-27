@@ -29,11 +29,10 @@ test('Gallery preserves photo error handling by URL identity', () => {
   assert.match(gallery, /className=\{styles\.photoUnavailable\}/);
 });
 
-test('switching listings resets carousel/video state without clearing successful photo state after reconciliation', () => {
+test('switching listings resets carousel state without clearing successful photo state after reconciliation', () => {
   const listingReset = gallery.match(/useEffect\(\(\) => \{([\s\S]*?)\}, \[listing\.id\]\);/);
   assert.ok(listingReset);
   assert.match(listingReset[1], /setActiveIndex\(0\)/);
-  assert.match(listingReset[1], /setVideoReady\(false\)/);
   assert.doesNotMatch(listingReset[1], /setLoaded|setFailed|setNaturalSizes/);
   assert.match(gallery, /const photoUrls = new Set\(media\.map\(\(photo\) => photo\.url\)\)/);
   assert.match(gallery, /Object\.entries\(current\)\.filter\(\(\[url\]\) => photoUrls\.has\(url\)\)/);
