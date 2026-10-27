@@ -2,7 +2,6 @@ const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const supabaseAdmin = require('../lib/supabaseClient');
 const mediaStorageService = require('../lib/mediaStorageService');
-const mediaOptimizationService = require('../lib/mediaOptimizationService');
 const { ValidationError, assertAllowedKeys, text, uuid, number, enumValue } = require('../lib/inputValidation');
 const { rejectSuspendedActivity } = require('../lib/accountAccess');
 
@@ -120,24 +119,9 @@ router.post('/chat/conversations/:conversationId/attachments/:attachmentId/compl
       return res.status(400).json({ error: 'Uploaded file was not found in R2' });
     }
 
-    let optimization = null;
-    try {
-      optimization = await mediaOptimizationService.optimizeStoredMediaObject(
-        attachment.storage_key,
-        attachment.mime_type,
-        attachment.original_filename || 'attachment'
-      );
-    } catch (error) {
-      console.error('Chat attachment optimization failed:', error);
-      await supabaseAdmin.from('message_attachments').update({ status: 'failed' }).eq('id', attachment.id);
-      return res.status(500).json({ error: 'Uploaded attachment could not be optimized. Please try again.' });
-    }
-
+    // Chat attachments are served directly from R2 via signed URL.
+    // Server-side re-compression adds latency without benefit for chat — skip it.
     const updatePayload = { status: 'ready' };
-    if (optimization && optimization.optimized) {
-      updatePayload.mime_type = optimization.outputContentType || attachment.mime_type;
-      updatePayload.file_size_bytes = optimization.optimizedSize || attachment.file_size_bytes;
-    }
 
     const { data: ready, error: updateError } = await supabaseAdmin.from('message_attachments')
       .update(updatePayload).eq('id', attachment.id).select().single();

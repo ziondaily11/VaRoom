@@ -186,13 +186,13 @@
     display:none !important;
   }
   [data-theme="dark"] .chat-media-preview-composer{
-    background-color:#000000 !important;
-    background-image:url("/assets/chatbackground.png") !important;
+    background-color:#1a1a1d !important;
+    background-image:none !important;
     color:var(--text-dark, #F5EFEC);
   }
   html:not([data-theme="dark"]) .chat-media-preview-composer{
-    background-color:var(--white, #ffffff) !important;
-    background-image:url("/assets/chatbackground-light.png") !important;
+    background-color:#ffffff !important;
+    background-image:none !important;
     color:var(--text-dark, #14161c);
   }
 
