@@ -1,7 +1,7 @@
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import type { CSSProperties, ReactElement, PointerEvent as ReactPointerEvent } from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { Music2, X } from 'lucide-react';
 import ClientLayout from '../components/ClientLayout';
@@ -10,6 +10,8 @@ import { loadListingFeedCache, type ListingFeedCache } from '../lib/listingFeedC
 
 const { resolveClientHomeProfile } = require('../lib/clientHomeAccount');
 const { getClientHomeSupabaseConfig } = require('../lib/clientHomeSupabase');
+const { captureScrollPosition, restoreScrollPosition } = require('../lib/clientHomeScroll');
+const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 const select = 'id,title,description,location_text,category,verified,availability_status,created_at,host_id,host:profiles!listings_host_id_fkey(full_name,verified,avatar_url,username),listing_photos(storage_path,width,height)';
 const categories = [
@@ -782,6 +784,12 @@ export default function ClientHome() {
   const cache = useRef<ListingFeedCache | null>(null);
   const loadVersion = useRef(0);
   const authEpoch = useRef(0);
+  const resolvedSessionUserId = useRef<string | null>(null);
+  const feedContextKey = useRef('');
+  const feedContextVersion = useRef(0);
+  const restoredScrollKey = useRef('');
+  const scrollRestorationVersion = useRef(0);
+  const scrollInteractionVersion = useRef(0);
   const pendingVideoIds = useRef(new Set<string>());
   const videoTimer = useRef<number | null>(null);
   const toastTimer = useRef<number | null>(null);
@@ -795,6 +803,7 @@ export default function ClientHome() {
   const [search, setSearch] = useState('');
   const [term, setTerm] = useState('');
   const [items, setItems] = useState<Listing[]>([]);
+  const [loadedFeedKey, setLoadedFeedKey] = useState('');
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -856,20 +865,24 @@ export default function ClientHome() {
     if (!client) return;
 
     const resolveSession = async (session: any) => {
+      const sessionUser = session?.user;
       const epoch = ++authEpoch.current;
       loadVersion.current += 1;
+      feedContextVersion.current += 1;
+      resolvedSessionUserId.current = sessionUser?.id || null;
+      restoredScrollKey.current = '';
       setReady(false);
       setFeedReady(false);
       setLoading(true);
       setError('');
       setItems([]);
+      setLoadedFeedKey('');
       setLikes({});
       setVideos({});
       setVideoStates({});
       setSaved(new Set());
       setInterests([]);
       setSuspended(false);
-      const sessionUser = session?.user;
       if (!sessionUser) {
         if (active && epoch === authEpoch.current) {
           router.replace({
@@ -931,12 +944,13 @@ export default function ClientHome() {
     let initialSessionResolved = false;
     let hasPendingInitialSession = false;
     let pendingInitialSession: any = null;
-    const { data: { subscription } } = client.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = client.auth.onAuthStateChange((event, session) => {
       if (!initialSessionResolved) {
         hasPendingInitialSession = true;
         pendingInitialSession = session;
         return;
       }
+      if (event === 'TOKEN_REFRESHED' && session?.user?.id === resolvedSessionUserId.current) return;
       void resolveSession(session);
     });
     Promise.all([loadListingFeedCache(), client.auth.getSession()])
@@ -967,6 +981,10 @@ export default function ClientHome() {
       : '',
     [category, interests, term, user, view],
   );
+  if (feedContextKey.current !== key) {
+    feedContextKey.current = key;
+    feedContextVersion.current += 1;
+  }
 
   const fetcher = useCallback(async (offset: number, limit: number) => {
     const client = getSupabaseClient();
@@ -1008,6 +1026,12 @@ export default function ClientHome() {
     return { data: matches.slice(0, limit), hasMore: false };
   }, [category, interests, term, view]);
 
+  const feedContextReady = view === 'saved' ? ready : feedReady;
+  const currentFeedLoading = loadedFeedKey === key
+    ? loading
+    : loading || feedContextReady;
+  const visibleItems = loadedFeedKey === key ? items : [];
+
   const loadFeed = useCallback(async (nextPage = false) => {
     if (!feedReady || !user || !cache.current || !key || view === 'saved' || (nextPage && loadingMoreRef.current)) return;
     if (!nextPage) {
@@ -1018,12 +1042,14 @@ export default function ClientHome() {
     const snapshot = cache.current.snapshot<Listing>(key) as any;
     if (!nextPage && snapshot.hasCachedPage) {
       setItems(snapshot.items as Listing[]);
+      setLoadedFeedKey(key);
       setHasMore(Boolean(snapshot.hasMore));
       setLoading(false);
       setError('');
       if (snapshot.isStale) {
+        const contextVersion = feedContextVersion.current;
         void cache.current.revalidate(key, fetcher).then((result: any) => {
-          if (currentVersion !== loadVersion.current) return;
+          if (contextVersion !== feedContextVersion.current || feedContextKey.current !== key) return;
           setItems((result.items || []) as Listing[]);
           setHasMore(Boolean(result.hasMore));
         }).catch((loadError: Error) => {
@@ -1037,7 +1063,12 @@ export default function ClientHome() {
       loadingMoreRef.current = true;
       setLoadingMore(true);
     }
-    else setLoading(true);
+    else {
+      setLoading(true);
+      setItems([]);
+      setLoadedFeedKey('');
+      setHasMore(false);
+    }
     setError('');
     try {
       const result = nextPage
@@ -1046,6 +1077,7 @@ export default function ClientHome() {
       const payload = result as any;
       if (currentVersion !== loadVersion.current) return;
       setItems((payload.items || []) as Listing[]);
+      setLoadedFeedKey(key);
       setHasMore(Boolean(payload.hasMore));
     } catch (loadError) {
       if (currentVersion === loadVersion.current) {
@@ -1060,7 +1092,7 @@ export default function ClientHome() {
     }
   }, [feedReady, fetcher, key, user, view]);
 
-  useEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     if (view !== 'saved') void loadFeed();
   }, [loadFeed, view]);
 
@@ -1071,6 +1103,7 @@ export default function ClientHome() {
     setError('');
     if (saved.size === 0) {
       setItems([]);
+      setLoadedFeedKey(key);
       setHasMore(false);
       setLoading(false);
       return () => { active = false; };
@@ -1082,15 +1115,16 @@ export default function ClientHome() {
       .then(({ data, error: savedError }: any) => {
         if (!active) return;
         setItems(data || []);
+        setLoadedFeedKey(key);
         setHasMore(false);
         setLoading(false);
         if (savedError) setError(savedError.message || 'Saved listings could not be loaded.');
       });
     return () => { active = false; };
-  }, [ready, saved, user, view]);
+  }, [key, ready, saved, user, view]);
 
   useEffect(() => {
-    if (items.length === 0 || !user) return;
+    if (items.length === 0 || !user || loadedFeedKey !== key) return;
     let active = true;
     const loadLikes = async () => {
       const client = getSupabaseClient();
@@ -1130,7 +1164,7 @@ export default function ClientHome() {
     };
     void loadLikes().catch((loadError) => console.error('Listing likes could not be loaded:', loadError));
     return () => { active = false; };
-  }, [items, user]);
+  }, [items, key, loadedFeedKey, user]);
 
   const requestVideoMedia = useCallback((listingId: string) => {
     if (pendingVideoIds.current.has(listingId) || videos[listingId] || videoStates[listingId]) return;
@@ -1234,7 +1268,7 @@ export default function ClientHome() {
   }, [videoStates, videos]);
 
   useEffect(() => {
-    if (items.length === 0) return;
+    if (items.length === 0 || loadedFeedKey !== key) return;
     const root = feed.current;
     const targets = Array.from(document.querySelectorAll<HTMLElement>('[data-media]'));
     if (!('IntersectionObserver' in window)) {
@@ -1251,20 +1285,49 @@ export default function ClientHome() {
     }, { root, rootMargin: '350px 0px', threshold: 0.01 });
     targets.forEach((target) => observer.observe(target));
     return () => observer.disconnect();
-  }, [items, requestVideoMedia]);
+  }, [items, key, loadedFeedKey, requestVideoMedia]);
 
   useEffect(() => {
+    const markScrollIntent = () => { scrollInteractionVersion.current += 1; };
+    const markKeyboardScrollIntent = (event: KeyboardEvent) => {
+      if (!['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', 'Home', 'End', ' '].includes(event.key)) return;
+      const target = event.target;
+      if (target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(target.tagName))) return;
+      markScrollIntent();
+    };
+    window.addEventListener('wheel', markScrollIntent, { passive: true });
+    window.addEventListener('touchstart', markScrollIntent, { passive: true });
+    window.addEventListener('keydown', markKeyboardScrollIntent);
+    return () => {
+      window.removeEventListener('wheel', markScrollIntent);
+      window.removeEventListener('touchstart', markScrollIntent);
+      window.removeEventListener('keydown', markKeyboardScrollIntent);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!feedReady || !key || loadedFeedKey !== key || loading || error || restoredScrollKey.current === key) return;
     const node = feed.current;
-    if (!node || !key) return;
     try {
-      const savedPosition = JSON.parse(sessionStorage.getItem(`varoom:listings:scroll:${key}`) || 'null');
-      if (savedPosition) {
-        requestAnimationFrame(() => { node.scrollTop = savedPosition.areaY || 0; });
-      }
+      const rawPosition = sessionStorage.getItem(`varoom:listings:scroll:${key}`);
+      restoredScrollKey.current = key;
+      if (!rawPosition) return;
+      const savedPosition = JSON.parse(rawPosition);
+      const interactionVersion = scrollInteractionVersion.current;
+      const restoreVersion = ++scrollRestorationVersion.current;
+      const contextVersion = feedContextVersion.current;
+      const frame = window.requestAnimationFrame(() => {
+        if (restoreVersion !== scrollRestorationVersion.current ||
+            interactionVersion !== scrollInteractionVersion.current ||
+            contextVersion !== feedContextVersion.current ||
+            feedContextKey.current !== key) return;
+        restoreScrollPosition(window, node, savedPosition);
+      });
+      return () => window.cancelAnimationFrame(frame);
     } catch (restoreError) {
       console.warn('Client Home scroll position could not be restored:', restoreError);
     }
-  }, [key, items.length]);
+  }, [error, feedReady, key, loadedFeedKey, loading]);
 
   useEffect(() => {
     const node = feed.current;
@@ -1272,17 +1335,19 @@ export default function ClientHome() {
     const saveScroll = () => {
       try {
         sessionStorage.setItem(`varoom:listings:scroll:${key}`, JSON.stringify({
-          windowY: window.scrollY,
-          areaY: node.scrollTop,
+          ...captureScrollPosition(window, node),
         }));
       } catch (saveError) {
         console.warn('Client Home scroll position could not be saved:', saveError);
       }
     };
     node.addEventListener('scroll', saveScroll, { passive: true });
+    window.addEventListener('scroll', saveScroll, { passive: true });
     window.addEventListener('pagehide', saveScroll);
     return () => {
+      saveScroll();
       node.removeEventListener('scroll', saveScroll);
+      window.removeEventListener('scroll', saveScroll);
       window.removeEventListener('pagehide', saveScroll);
     };
   }, [key]);
@@ -1602,7 +1667,7 @@ export default function ClientHome() {
           )}
 
           {error && !loading && <p className={styles.errorMessage} role="alert">{error} <button type="button" onClick={retryAccount}>Retry</button></p>}
-          {loading && items.length === 0 && (
+          {currentFeedLoading && !error && visibleItems.length === 0 && (
             <div aria-label="Loading listings">
               {[0, 1, 2].map((item) => (
                 <div key={item}>
@@ -1620,10 +1685,10 @@ export default function ClientHome() {
               ))}
             </div>
           )}
-          {(view === 'saved' ? ready : feedReady) && !loading && !error && items.length === 0 && (
+          {feedContextReady && loadedFeedKey === key && !currentFeedLoading && !error && visibleItems.length === 0 && (
             <p className={styles.stateMessage}>{view === 'saved' ? 'Nothing saved yet — tap the bookmark icon on a listing to save it here.' : emptyMessage}</p>
           )}
-          {items.map((listing, index) => (
+          {visibleItems.map((listing, index) => (
             <div key={listing.id} data-media={listing.id}>
               <ListingCard
                 listing={listing}
