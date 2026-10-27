@@ -148,6 +148,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
 
   // UI Views & Drawers
   const [mobileView, setMobileView] = useState<'inbox' | 'conversation' | 'info'>('inbox');
+  const [convMenuId, setConvMenuId] = useState<string | null>(null);
   const [infoCollapsed, setInfoCollapsed] = useState<boolean>(true);
   const [chatSettingsEmbedded, setChatSettingsEmbedded] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -555,6 +556,14 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
     }
   }, [userId, routerQueryC, routerQueryConversation, routerPathname, selectConversation]);
 
+  // Close conversation action menu when clicking outside
+  useEffect(() => {
+    if (!convMenuId) return;
+    const handleOutsideClick = () => setConvMenuId(null);
+    window.addEventListener('click', handleOutsideClick);
+    return () => window.removeEventListener('click', handleOutsideClick);
+  }, [convMenuId]);
+
   // Send message handler
   const handleSendMessage = async (textToSend?: string) => {
     const content = (textToSend !== undefined ? textToSend : (desktopEditorRef.current?.innerHTML || composerText)).trim();
@@ -833,7 +842,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
         </nav>
 
         {/* 2. CONTACTS / INBOX COLUMN */}
-        <aside className="contacts-col">
+        <aside className={`contacts-col${mobileView !== 'inbox' ? ' mobile-hidden' : ''}`}>
           <div className="mobile-inbox-title">
             Messages
             <button className="mobile-chat-settings" type="button" aria-label="Chat settings" title="Chat settings" onClick={() => router.push('/chat-settings?returnTo=/chats')}>
@@ -880,12 +889,12 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
               <div className="avatar-wrap" style={{ background: 'transparent' }}>
                 <ElieIcon size={34} state={activeId === ELIE_ID ? 'drop' : 'default'} />
               </div>
-              <div className="contact-info">
+              <div className="contact-body">
                 <div className="contact-top">
                   <div className="contact-name">Elie</div>
                 </div>
                 <div className="contact-bottom">
-                  <div className="last-msg">Ask me anything about homes on VaRoom</div>
+                  <div className="contact-preview">Ask me anything about homes on VaRoom</div>
                 </div>
               </div>
             </li>
@@ -911,6 +920,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                   <li
                     key={c.id}
                     className={`contact-item ${isActive ? 'active' : ''}`}
+                    style={{ position: 'relative' }}
                     role="button"
                     tabIndex={0}
                     onClick={() => selectConversation(c.id)}
@@ -919,15 +929,93 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                       <ConversationAvatar url={participant?.avatar_url} name={name} size={46} fontSize={14} />
                       {isItemOnline && <span className="online-indicator" style={{ position: 'absolute', bottom: 2, right: 2, width: 10, height: 10, borderRadius: '50%', background: '#4ec1a0', border: '2px solid #fff' }} />}
                     </div>
-                    <div className="contact-info">
+                    <div className="contact-body">
                       <div className="contact-top">
                         <div className="contact-name">{name}</div>
-                        <div className="msg-time">{timeStr}</div>
+                        <div className="contact-time">{timeStr}</div>
                       </div>
                       <div className="contact-bottom">
-                        <div className="last-msg">{lastPreview}</div>
+                        <div className="contact-preview">{lastPreview}</div>
+                        {(c.unread_count ?? 0) > 0 && (
+                          <span className="badge">{c.unread_count}</span>
+                        )}
                       </div>
                     </div>
+                    <button
+                      className="conversation-menu"
+                      type="button"
+                      aria-label="More options"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setConvMenuId(convMenuId === c.id ? null : c.id);
+                      }}
+                    >
+                      <svg className="icon"><use href="#i-more" /></svg>
+                    </button>
+                    {convMenuId === c.id && (
+                      <div
+                        className="conv-menu-dropdown"
+                        role="menu"
+                        style={{
+                          position: 'absolute',
+                          right: '8px',
+                          top: '100%',
+                          zIndex: 50,
+                          background: '#fff',
+                          border: '1px solid #e6e8eb',
+                          borderRadius: '10px',
+                          boxShadow: '0 4px 16px rgba(0,0,0,.12)',
+                          minWidth: '160px',
+                          overflow: 'hidden',
+                        }}
+                      >
+                        <button
+                          role="menuitem"
+                          style={{
+                            display: 'block',
+                            width: '100%',
+                            padding: '10px 14px',
+                            background: 'none',
+                            border: 0,
+                            textAlign: 'left',
+                            fontSize: '13px',
+                            cursor: 'pointer',
+                            color: 'var(--text-dark, #111)',
+                          }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setConversations((prev) =>
+                              prev.map((x) => (x.id === c.id ? { ...x, unread_count: 0 } : x))
+                            );
+                            setConvMenuId(null);
+                          }}
+                        >
+                          Mark as read
+                        </button>
+                        <button
+                          role="menuitem"
+                          className="danger"
+                          style={{
+                            display: 'block',
+                            width: '100%',
+                            padding: '10px 14px',
+                            background: 'none',
+                            border: 0,
+                            textAlign: 'left',
+                            fontSize: '13px',
+                            cursor: 'pointer',
+                            color: '#e53e3e',
+                          }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setConvMenuId(null);
+                            router.push(`/chat-settings?conversation=${c.id}&returnTo=/chats`);
+                          }}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    )}
                   </li>
                 );
               })
@@ -936,10 +1024,18 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
         </aside>
 
         {/* 3. CHAT COLUMN */}
-        <main className={`chat-col ${isElie ? 'is-elie' : ''}`}>
+        <main className={`chat-col${isElie ? ' is-elie' : ''}${mobileView === 'conversation' ? ' mobile-visible' : ''}`}>
           {/* Header */}
           <header className="chat-header">
-            <button className="mobile-back" aria-label="Back to inbox" title="Back" onClick={() => setMobileView('inbox')}>
+            <button
+              className="mobile-back"
+              aria-label="Back to inbox"
+              title="Back"
+              onClick={() => {
+                setMobileView('inbox');
+                routerRef.current?.replace({ pathname: '/chats' }, undefined, { shallow: true });
+              }}
+            >
               <svg className="icon"><use href="#i-chevron-left" /></svg>
             </button>
 
@@ -1217,10 +1313,10 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
         </main>
 
         {/* 4. INFORMATION COLUMN (Collapsible) */}
-        <aside className={`info-col ${infoCollapsed ? 'collapsed' : ''}`} id="infoCol">
+        <aside className={`info-col ${infoCollapsed ? 'collapsed' : ''}${mobileView === 'info' ? ' mobile-visible' : ''}`} id="infoCol">
           <div className="info-title-row">
             <div className="info-title">{chatSettingsEmbedded ? 'Chat Settings' : 'Information'}</div>
-            <button className="info-close-btn" title="Close" onClick={() => { setInfoCollapsed(true); setChatSettingsEmbedded(false); }}>
+            <button className="info-close-btn" title="Close" onClick={() => { setInfoCollapsed(true); setChatSettingsEmbedded(false); if (mobileView === 'info') setMobileView('conversation'); }}>
               <svg className="icon"><use href="#i-close" /></svg>
             </button>
           </div>
