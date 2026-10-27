@@ -177,6 +177,24 @@ test('Stage 4: CSS parity class names and mobile view toggling in chats.tsx', ()
   assert.match(source, /routerRef\.current\?\.replace\(\{ pathname: '\/chats' \}/);
 });
 
+
+test('Stage 4 extension: Compact mobile chat header layout and avatar sizing', () => {
+  const cssPath = path.join(root, 'public', 'js', 'chats.css');
+  const cssSource = fs.readFileSync(cssPath, 'utf8');
+
+  // Mobile chat-header-identity is horizontal flex with alignment
+  assert.match(cssSource, /\.chat-header-identity\s*\{[\s\S]*?flex-direction:\s*row;/);
+  assert.match(cssSource, /\.chat-header-identity\s*\{[\s\S]*?align-items:\s*center;/);
+
+  // Mobile chat-header-avatar-wrap is explicitly constrained to 38px
+  assert.match(cssSource, /\.chat-header-avatar-wrap\s*\{[\s\S]*?width:\s*38px;/);
+  assert.match(cssSource, /\.chat-header-avatar-wrap\s*\{[\s\S]*?height:\s*38px;/);
+  assert.match(cssSource, /\.chat-header-avatar-wrap\s*\{[\s\S]*?border-radius:\s*50%;/);
+  assert.match(cssSource, /\.chat-header-avatar-wrap\s*\{[\s\S]*?overflow:\s*hidden;/);
+
+  // Mobile chat-header-avatar-wrap img is contained
+  assert.match(cssSource, /\.chat-header-avatar-wrap\s+img\s*\{[\s\S]*?object-fit:\s*cover;/);
+});
 test('Phase 4: Attachments and Elie workflows preserved in chats.tsx', () => {
   const source = fs.readFileSync(chatsPagePath, 'utf8');
 
