@@ -1064,68 +1064,95 @@ export default function ClientHome() {
       const ids = Array.from(pendingVideoIds.current);
       pendingVideoIds.current.clear();
       videoTimer.current = null;
-      const client = getSupabaseClient();
-      if (!client) return;
-      const sessionResult = await client.auth.getSession();
-      const headers = sessionResult.data.session
-        ? { Authorization: `Bearer ${sessionResult.data.session.access_token}` }
-        : {};
-      let payload: any = null;
       try {
-        const response = await fetch(`/api/discover/video-media?listingIds=${encodeURIComponent(ids.join(','))}`, { headers });
-        if (!response.ok) throw new Error('Video media lookup failed.');
-        payload = await response.json();
-      } catch (lookupError) {
-        console.warn('Batched listing video lookup failed; trying the compatibility route:', lookupError);
-        await Promise.all(ids.map(async (id) => {
+        const client = getSupabaseClient();
+        if (!client) throw new Error('Supabase client is unavailable.');
+        const sessionResult = await client.auth.getSession();
+        const headers = sessionResult.data.session
+          ? { Authorization: `Bearer ${sessionResult.data.session.access_token}` }
+          : {};
+        const settle = (listingIds: string[], state: 'none' | 'unavailable') => {
+          setVideoStates((current) => {
+            const next = { ...current };
+            listingIds.forEach((id) => { next[id] = state; });
+            return next;
+          });
+        };
+        const loadPlayback = async (
+          id: string,
+          mediaId: string,
+          dimensions: { width?: number | null; height?: number | null },
+        ) => {
           try {
-            const response = await fetch(`/api/properties/${encodeURIComponent(id)}/media`, { headers });
-            if (!response.ok) throw new Error(`Video media lookup returned ${response.status}.`);
-            const result = await response.json();
-            const videoMedia = (result.media || []).find((mediaItem: any) => mediaItem?.type === 'video' && mediaItem.id);
-            if (!videoMedia) {
-              setVideoStates((current) => ({ ...current, [id]: 'none' }));
-              return;
-            }
-            const playbackResponse = await fetch(`/api/media/${encodeURIComponent(videoMedia.id)}/playback`, { headers });
+            const playbackResponse = await fetch(`/api/media/${encodeURIComponent(mediaId)}/playback`, { headers });
             if (!playbackResponse.ok) throw new Error(`Video playback lookup returned ${playbackResponse.status}.`);
             const playback = await playbackResponse.json();
             if (!playback?.url) throw new Error('Video playback did not include a URL.');
             setVideos((current) => ({
               ...current,
-              [id]: { url: playback.url, thumbnailUrl: playback.thumbnailUrl || null, width: videoMedia.width, height: videoMedia.height },
+              [id]: { url: playback.url, thumbnailUrl: playback.thumbnailUrl || null, width: dimensions.width || undefined, height: dimensions.height || undefined },
             }));
-            setVideoStates((current) => ({ ...current, [id]: 'none' }));
-          } catch (fallbackError) {
-            console.error(`Video media for listing ${id} could not be loaded:`, fallbackError);
-            setVideoStates((current) => ({ ...current, [id]: 'unavailable' }));
+            settle([id], 'none');
+          } catch (playbackError) {
+            console.error(`Video playback for listing ${id} could not be loaded:`, playbackError);
+            settle([id], 'unavailable');
           }
-        }));
-        return;
-      }
-
-      await Promise.all(ids.map(async (id) => {
-        const mediaId = payload?.videoMedia?.[id];
-        if (!mediaId) {
-          setVideoStates((current) => ({ ...current, [id]: 'none' }));
-          return;
-        }
-        try {
-          const playbackResponse = await fetch(`/api/media/${encodeURIComponent(mediaId)}/playback`, { headers });
-          if (!playbackResponse.ok) throw new Error(`Video playback lookup returned ${playbackResponse.status}.`);
-          const playback = await playbackResponse.json();
-          if (!playback?.url) throw new Error('Video playback did not include a URL.');
-          const dimensions = payload.videoDimensions?.[id] || {};
-          setVideos((current) => ({
-            ...current,
-            [id]: { url: playback.url, thumbnailUrl: playback.thumbnailUrl || null, width: dimensions.width, height: dimensions.height },
+        };
+        const loadCompatibility = async (listingIds: string[]) => {
+          console.warn('Video discovery endpoint is unavailable; using the compatibility route.');
+          await Promise.all(listingIds.map(async (id) => {
+            try {
+              const response = await fetch(`/api/properties/${encodeURIComponent(id)}/media`, { headers });
+              if (!response.ok) throw new Error(`Video media lookup returned ${response.status}.`);
+              const result = await response.json();
+              if (!Array.isArray(result?.media)) throw new Error('Video media response was invalid.');
+              const videoMedia = result.media.find((mediaItem: any) => mediaItem?.type === 'video' && typeof mediaItem.id === 'string');
+              if (!videoMedia) {
+                settle([id], 'none');
+                return;
+              }
+              await loadPlayback(id, videoMedia.id, videoMedia);
+            } catch (fallbackError) {
+              console.error(`Video media for listing ${id} could not be loaded:`, fallbackError);
+              settle([id], 'unavailable');
+            }
           }));
-          setVideoStates((current) => ({ ...current, [id]: 'none' }));
-        } catch (playbackError) {
-          console.error(`Video playback for listing ${id} could not be loaded:`, playbackError);
-          setVideoStates((current) => ({ ...current, [id]: 'unavailable' }));
+        };
+
+        for (let offset = 0; offset < ids.length; offset += 24) {
+          const batch = ids.slice(offset, offset + 24);
+          try {
+            const response = await fetch(`/api/discover/video-media?listingIds=${encodeURIComponent(batch.join(','))}`, { headers });
+            if (response.status === 404 || response.status === 405) {
+              await loadCompatibility(batch);
+              continue;
+            }
+            if (!response.ok) throw new Error(`Video media lookup returned ${response.status}.`);
+            const payload = await response.json();
+            if (!payload?.videoMedia || typeof payload.videoMedia !== 'object' || Array.isArray(payload.videoMedia)) {
+              throw new Error('Video media response was invalid.');
+            }
+            await Promise.all(batch.map(async (id) => {
+              const mediaId = payload.videoMedia[id];
+              if (typeof mediaId !== 'string' || !mediaId) {
+                settle([id], 'none');
+                return;
+              }
+              await loadPlayback(id, mediaId, payload.videoDimensions?.[id] || {});
+            }));
+          } catch (lookupError) {
+            console.error('Batched listing video lookup could not be completed:', lookupError);
+            settle(batch, 'unavailable');
+          }
         }
-      }));
+      } catch (lookupError) {
+        console.error('Listing video discovery could not be started:', lookupError);
+        setVideoStates((current) => {
+          const next = { ...current };
+          ids.forEach((id) => { next[id] = 'unavailable'; });
+          return next;
+        });
+      }
     }, 60);
   }, [videoStates, videos]);
 
