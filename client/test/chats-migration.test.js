@@ -207,3 +207,45 @@ test('Phase 4: Attachments and Elie workflows preserved in chats.tsx', () => {
   assert.match(source, /<ElieComposerBeam isElie=\{isElie\}/);
   assert.match(source, /ThinkingOrb/);
 });
+
+test('Stage 5A: Composer send wiring, attachment actions, and formatting controls', () => {
+  const source = fs.readFileSync(chatsPagePath, 'utf8');
+  const actionsSource = fs.readFileSync(path.join(root, 'components', 'ChatComposerActions.jsx'), 'utf8');
+
+  // Send button wired via onSend prop
+  assert.match(source, /onSend=\{handleSendMessage\}/);
+  assert.match(source, /canSend=\{!!/);
+
+  // Attachment callbacks passed
+  assert.match(source, /onPhotoClick=/);
+  assert.match(source, /onFileClick=/);
+  assert.match(source, /onMobileAttach=/);
+
+  // Mobile attach menu rendered in JSX
+  assert.match(source, /className="mobile-attach-menu"/);
+  assert.match(source, /className="mobile-attach-item"/);
+
+  // SVG symbols present
+  assert.match(source, /id="i-list-dot"/);
+  assert.match(source, /id="i-list-sq"/);
+
+  // Format buttons restored
+  assert.match(source, /className="fmt-ul"/);
+  assert.match(source, /className="fmt-ol"/);
+  assert.match(source, /className="divider"/);
+
+  // mobileAttachMenuOpen state present
+  assert.match(source, /mobileAttachMenuOpen/);
+
+  // ChatComposerActions has onSend and canSend props wired
+  assert.match(actionsSource, /onSend/);
+  assert.match(actionsSource, /canSend/);
+
+  // No hardcoded aria-disabled="true" remains
+  assert.doesNotMatch(actionsSource, /aria-disabled="true"/);
+
+  // Attachment callbacks consumed in ChatComposerActions
+  assert.match(actionsSource, /onPhotoClick/);
+  assert.match(actionsSource, /onFileClick/);
+  assert.match(actionsSource, /onMobileAttach/);
+});

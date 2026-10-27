@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+﻿import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
@@ -172,6 +172,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
 
   // Composer Text State
   const [composerText, setComposerText] = useState<string>('');
+  const [mobileAttachMenuOpen, setMobileAttachMenuOpen] = useState(false);
 
   // Refs for Realtime & Lifecycle Guards
   const selectionGenerationRef = useRef<number>(0);
@@ -564,6 +565,20 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
     return () => window.removeEventListener('click', handleOutsideClick);
   }, [convMenuId]);
 
+  // Close mobile attach menu when clicking outside
+  useEffect(() => {
+    if (!mobileAttachMenuOpen) return;
+    const handleOutsideClick = (e: MouseEvent) => {
+      const menu = document.getElementById('mobileAttachMenu');
+      const btn = document.querySelector('.mobile-attach');
+      if (menu && !menu.contains(e.target as Node) && btn && !btn.contains(e.target as Node)) {
+        setMobileAttachMenuOpen(false);
+      }
+    };
+    window.addEventListener('click', handleOutsideClick);
+    return () => window.removeEventListener('click', handleOutsideClick);
+  }, [mobileAttachMenuOpen]);
+
   // Send message handler
   const handleSendMessage = async (textToSend?: string) => {
     const content = (textToSend !== undefined ? textToSend : (desktopEditorRef.current?.innerHTML || composerText)).trim();
@@ -771,7 +786,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   return (
     <>
       <Head>
-        <title>{activeConversation?.participant?.full_name ? `${activeConversation.participant.full_name} · Messages` : 'Messenger Dashboard'}</title>
+        <title>{activeConversation?.participant?.full_name ? `${activeConversation.participant.full_name} Â· Messages` : 'Messenger Dashboard'}</title>
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <link rel="stylesheet" href="/js/varoom-dark-theme.css" />
         <link rel="stylesheet" href="/js/chats.css" />
@@ -806,6 +821,8 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
           <symbol id="i-chevron-left" viewBox="0 0 24 24"><path d="M15 5 8 12l7 7"/></symbol>
           <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
           <symbol id="i-pin" viewBox="0 0 24 24"><path d="m16 3 5 5-4 1-4 4v5l-2 2-2-6-6-2 2-2h5l4-4z"/><path d="m9 15-5 5"/></symbol>
+          <symbol id="i-list-dot" viewBox="0 0 24 24"><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/><path d="M9 6h11M9 12h11M9 18h11"/></symbol>
+          <symbol id="i-list-sq" viewBox="0 0 24 24"><rect x="3.7" y="5.2" width="1.6" height="1.6"/><rect x="3.7" y="11.2" width="1.6" height="1.6"/><rect x="3.7" y="17.2" width="1.6" height="1.6"/><path d="M9 6h11M9 12h11M9 18h11"/></symbol>
           <symbol id="i-reply" viewBox="0 0 24 24"><path d="M9 10 4 14l5 4v-3c6 0 8 2 10 5-1-6-4-10-10-10z"/></symbol>
           <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 14h12l1-14M9 7V4h6v3"/></symbol>
         </defs>
@@ -914,7 +931,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                 const participant = c.participant;
                 const name = participant?.full_name || participant?.username || 'User';
                 const timeStr = c.lastMessage?.created_at ? new Date(c.lastMessage.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-                const lastPreview = c.lastMessage?.body || (c.lastMessage?.message_type === 'photo' ? '📷 Photo' : c.lastMessage?.message_type === 'file' ? '📎 Attachment' : '');
+                const lastPreview = c.lastMessage?.body || (c.lastMessage?.message_type === 'photo' ? 'ðŸ“· Photo' : c.lastMessage?.message_type === 'file' ? 'ðŸ“Ž Attachment' : '');
 
                 return (
                   <li
@@ -1276,13 +1293,59 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
             {/* Input Toolbar */}
             <div className="input-toolbar">
               <div className="format-icons" style={{ display: isElie ? 'none' : 'flex' }}>
-                <button type="button" className="fmt-b" aria-label="Bold" onClick={() => document.execCommand('bold', false)}>B</button>
-                <button type="button" className="fmt-i" aria-label="Italic" onClick={() => document.execCommand('italic', false)}>I</button>
-                <button type="button" className="fmt-u" aria-label="Underline" onClick={() => document.execCommand('underline', false)}>U</button>
+                <button type="button" className="fmt-b" aria-label="Bold"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => { desktopEditorRef.current?.focus(); document.execCommand('bold', false); }}>B</button>
+                <button type="button" className="fmt-i" aria-label="Italic"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => { desktopEditorRef.current?.focus(); document.execCommand('italic', false); }}>I</button>
+                <button type="button" className="fmt-u" aria-label="Underline"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => { desktopEditorRef.current?.focus(); document.execCommand('underline', false); }}>U</button>
+                <span className="divider" />
+                <button type="button" className="fmt-ul" aria-label="Bulleted list"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => { desktopEditorRef.current?.focus(); document.execCommand('insertUnorderedList', false); }}>
+                  <svg className="icon"><use href="#i-list-dot" /></svg>
+                </button>
+                <button type="button" className="fmt-ol" aria-label="Numbered list"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => { desktopEditorRef.current?.focus(); document.execCommand('insertOrderedList', false); }}>
+                  <svg className="icon"><use href="#i-list-sq" /></svg>
+                </button>
               </div>
 
               <div className="attach-icons" data-chat-composer-actions>
-                <ChatComposerActions isElie={isElie} />
+                <ChatComposerActions
+                  isElie={isElie}
+                  canSend={!!composerText.trim()}
+                  onSend={handleSendMessage}
+                  onPhotoClick={() => photoInputRef.current?.click()}
+                  onFileClick={() => fileInputRef.current?.click()}
+                  onMobileAttach={() => setMobileAttachMenuOpen((prev) => !prev)}
+                />
+                {!isElie && (
+                  <div
+                    className="mobile-attach-menu"
+                    id="mobileAttachMenu"
+                    role="menu"
+                    aria-label="Attach"
+                    hidden={!mobileAttachMenuOpen}
+                  >
+                    <button type="button" className="mobile-attach-item" role="menuitem"
+                      onClick={() => { setMobileAttachMenuOpen(false); photoInputRef.current?.click(); }}>
+                      <span className="ico ico-photos"><svg className="icon"><use href="#i-image" /></svg></span>Photos
+                    </button>
+                    <button type="button" className="mobile-attach-item" role="menuitem"
+                      onClick={() => { setMobileAttachMenuOpen(false); fileInputRef.current?.click(); }}>
+                      <span className="ico ico-files"><svg className="icon"><use href="#i-file-text" /></svg></span>Files
+                    </button>
+                    <button type="button" className="mobile-attach-item" role="menuitem"
+                      onClick={() => { setMobileAttachMenuOpen(false); alert('Listing sharing coming soon.'); }}>
+                      <span className="ico ico-listing"><svg className="icon"><use href="#i-store" /></svg></span>Listing
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
