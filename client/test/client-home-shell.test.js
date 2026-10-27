@@ -65,3 +65,14 @@ test('Client Home redirects to onboarding only after an explicit successful prof
   assert.match(source, /setReady\(false\)/);
   assert.doesNotMatch(source, /if\(!p\.data\?\.onboarding_completed\)/);
 });
+
+test('Client Home uses the shared valid Supabase credentials and legacy R2 photo route', () => {
+  const source = fs.readFileSync(pagePath, 'utf8');
+
+  assert.match(source, /ImRlYXBoeW1pbWRheWdlYXZoeWVr/);
+  assert.match(source, /\/api\/photos\//);
+  assert.match(source, /photoPath\('listing-photos',p\)/);
+  assert.match(source, /aspectRatio/);
+  assert.match(source, /blur\(24px\) saturate\(1\.12\)/);
+  assert.doesNotMatch(source, /ImRlYXBoeW1pbWRheWdlYXZoeWtz/);
+});
