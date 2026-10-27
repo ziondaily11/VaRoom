@@ -130,6 +130,68 @@ function ConversationAvatar({
   );
 }
 
+// AuthedImage: fetches a signed download URL from our API endpoint, then renders the image.
+// The download endpoint returns { url, expiresAt } — it does NOT serve image bytes directly.
+const authedImageCache: Record<string, string> = {};
+
+function AuthedImage({
+  attachmentId,
+  alt,
+  style,
+  className,
+  onClick,
+  onError: onErrorProp,
+}: {
+  attachmentId: string;
+  alt?: string;
+  style?: React.CSSProperties;
+  className?: string;
+  onClick?: () => void;
+  onError?: () => void;
+}) {
+  const [src, setSrc] = React.useState<string | null>(authedImageCache[attachmentId] || null);
+  const [failed, setFailed] = React.useState(false);
+
+  React.useEffect(() => {
+    if (authedImageCache[attachmentId]) {
+      setSrc(authedImageCache[attachmentId]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const client = (window as any).supabaseClient;
+        const token = client ? (await client.auth.getSession())?.data?.session?.access_token : null;
+        const res = await fetch(`/api/chat/attachments/${encodeURIComponent(attachmentId)}/download`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (!res.ok) throw new Error('download auth failed');
+        const data = await res.json();
+        if (data?.url && !cancelled) {
+          authedImageCache[attachmentId] = data.url;
+          setSrc(data.url);
+        }
+      } catch {
+        if (!cancelled) setFailed(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [attachmentId]);
+
+  if (failed) return null;
+  if (!src) return <span style={{ display: 'inline-block', width: 60, height: 60, background: 'rgba(128,128,128,0.15)', borderRadius: 8 }} />;
+  return (
+    <img
+      src={src}
+      alt={alt || ''}
+      style={style}
+      className={className}
+      onClick={onClick}
+      onError={() => { setFailed(true); onErrorProp?.(); }}
+    />
+  );
+}
+
 export default function ChatsPage({ initialConversationId }: { initialConversationId?: string } = {}) {
   const router = useRouter();
 
@@ -730,7 +792,10 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
       });
 
       if (res?.message && mountedRef.current) {
-        setMessagesState((prev) => [...prev, res.message]);
+        setMessagesState((prev) => {
+          if (prev.some((m) => m.id === res.message.id)) return prev;
+          return [...prev, res.message];
+        });
         if (userId) {
           appendMessage(userId, activeId, res.message).catch(() => {});
           updateInboxConversation(userId, activeId, { lastMessage: res.message }).catch(() => {});
@@ -1279,12 +1344,31 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                     {hasMedia ? (
                       <div className="bubble bubble-media">
                         <div className="chat-media-wrap" style={{ position: 'relative', cursor: 'pointer', borderRadius: '12px', overflow: 'hidden', display: 'inline-block', maxWidth: '280px' }}
-                          onClick={() => setSelectedPhotoPreview({ url: `/api/chat/attachments/${m.attachment!.id}/download`, alt: m.attachment!.original_filename || 'Photo' })}>
-                          <img
-                            src={`/api/chat/attachments/${m.attachment!.id}/download`}
+                          onClick={() => {
+                            const cachedUrl = authedImageCache[m.attachment!.id];
+                            if (cachedUrl) {
+                              setSelectedPhotoPreview({ url: cachedUrl, alt: m.attachment!.original_filename || 'Photo' });
+                            } else {
+                              const client = (window as any).supabaseClient;
+                              (async () => {
+                                try {
+                                  const token = client ? (await client.auth.getSession())?.data?.session?.access_token : null;
+                                  const res = await fetch(`/api/chat/attachments/${encodeURIComponent(m.attachment!.id)}/download`, {
+                                    headers: token ? { Authorization: `Bearer ${token}` } : {},
+                                  });
+                                  const data = await res.json();
+                                  if (data?.url) {
+                                    authedImageCache[m.attachment!.id] = data.url;
+                                    setSelectedPhotoPreview({ url: data.url, alt: m.attachment!.original_filename || 'Photo' });
+                                  }
+                                } catch {}
+                              })();
+                            }
+                          }}>
+                          <AuthedImage
+                            attachmentId={m.attachment!.id}
                             alt={m.attachment!.original_filename || 'Photo'}
                             style={{ display: 'block', maxWidth: '100%', maxHeight: '280px', objectFit: 'cover' }}
-                            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                           />
                         </div>
                         {m.body && m.body !== m.attachment?.original_filename && (
@@ -1640,12 +1724,32 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                 </div>
                 <div className="media-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', padding: '10px 18px' }}>
                   {messages.filter((m) => m.attachment?.kind === 'photo').map((m) => (
-                    <img
+                    <AuthedImage
                       key={m.id}
-                      src={`/api/chat/attachments/${m.attachment!.id}/download`}
+                      attachmentId={m.attachment!.id}
                       alt="Media"
                       style={{ width: '100%', height: '70px', objectFit: 'cover', borderRadius: '6px', cursor: 'pointer' }}
-                      onClick={() => setSelectedPhotoPreview({ url: `/api/chat/attachments/${m.attachment!.id}/download`, alt: 'Shared Media' })}
+                      onClick={() => {
+                        const cachedUrl = authedImageCache[m.attachment!.id];
+                        if (cachedUrl) {
+                          setSelectedPhotoPreview({ url: cachedUrl, alt: 'Shared Media' });
+                        } else {
+                          const client = (window as any).supabaseClient;
+                          (async () => {
+                            try {
+                              const token = client ? (await client.auth.getSession())?.data?.session?.access_token : null;
+                              const res = await fetch(`/api/chat/attachments/${encodeURIComponent(m.attachment!.id)}/download`, {
+                                headers: token ? { Authorization: `Bearer ${token}` } : {},
+                              });
+                              const data = await res.json();
+                              if (data?.url) {
+                                authedImageCache[m.attachment!.id] = data.url;
+                                setSelectedPhotoPreview({ url: data.url, alt: 'Shared Media' });
+                              }
+                            } catch {}
+                          })();
+                        }
+                      }}
                     />
                   ))}
                 </div>
