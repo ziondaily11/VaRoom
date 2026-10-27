@@ -12,7 +12,7 @@ test('native Client Home shell uses the shared ClientLayout without rendering a 
   const source = fs.readFileSync(pagePath, 'utf8');
 
   assert.match(source, /import ClientLayout from '\.\.\/components\/ClientLayout';/);
-  assert.match(source, /ClientHome\.getLayout[\s\S]*?<ClientLayout>\{page\}<\/ClientLayout>/);
+  assert.match(source, /ClientHome\.getLayout[\s\S]*?<ClientLayout activeNav="home">\{page\}<\/ClientLayout>/);
   assert.doesNotMatch(source, /SharedClientSidebar/);
   assert.doesNotMatch(source, /<aside[^>]+(?:id|className)=["'][^"']*sidebar/);
 });
@@ -31,6 +31,7 @@ test('legacy Client Home remains present as the rollback reference during shell 
   assert.equal(fs.existsSync(legacyHomePath), true);
   const catchAll = fs.readFileSync(catchAllPath, 'utf8');
   assert.match(catchAll, /client-home\.html/);
+  assert.match(catchAll, /'client-home\.html'\]\.includes\(file\)/);
 });
 
 test('native Client Home delegates feed storage and pagination to the established cache contract', () => {
