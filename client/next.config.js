@@ -51,6 +51,16 @@ module.exports = {
         permanent: true,
       },
       {
+        source: '/login.html',
+        destination: '/?auth=login',
+        permanent: false,
+      },
+      {
+        source: '/legacy-pages/login.html',
+        destination: '/?auth=login',
+        permanent: false,
+      },
+      {
         source: '/forgot-password',
         destination: '/?auth=recovery',
         permanent: false,

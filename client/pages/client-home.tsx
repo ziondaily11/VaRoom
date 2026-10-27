@@ -1,100 +1,1615 @@
 import Head from 'next/head';
 import { useRouter } from 'next/router';
-import type { ReactElement } from 'react';
+import type { CSSProperties, ReactElement, PointerEvent as ReactPointerEvent } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
+import { Music2, X } from 'lucide-react';
 import ClientLayout from '../components/ClientLayout';
+import styles from './ClientHome.module.css';
 import { loadListingFeedCache, type ListingFeedCache } from '../lib/listingFeedCache';
+
 const { resolveClientHomeProfile } = require('../lib/clientHomeAccount');
 const { getClientHomeSupabaseConfig } = require('../lib/clientHomeSupabase');
 
-const select='id,title,description,location_text,category,availability_status,created_at,host_id,host:profiles!listings_host_id_fkey(full_name,verified,avatar_url,username),listing_photos(storage_path,width,height)';
-const cats=[['all','All'],['airbnb','Airbnbs'],['hotel','Hotels'],['venue','Event Venues'],['office','Offices'],['shop','Shops'],['property','Property']] as const;
-type View='home'|'marketplace'|'saved'; type Listing={id:string;title?:string;description?:string;location_text?:string;host_id:string;created_at?:string;host?:any;listing_photos?:{storage_path:string;width?:number;height?:number}[]}; type Like={liked:boolean;count:number;loading?:boolean;unavailable?:boolean;version?:number};
+const select = 'id,title,description,location_text,category,verified,availability_status,created_at,host_id,host:profiles!listings_host_id_fkey(full_name,verified,avatar_url,username),listing_photos(storage_path,width,height)';
+const categories = [
+  ['all', 'All'],
+  ['airbnb', 'Airbnbs'],
+  ['hotel', 'Hotels'],
+  ['venue', 'Event Venues'],
+  ['office', 'Offices'],
+  ['shop', 'Shops'],
+  ['property', 'Property'],
+] as const;
+const destinations = [
+  { city: 'Nairobi', image: '/assets/destinations/nairobi.jpg' },
+  { city: 'Mombasa', image: '/assets/destinations/mombasa.jpg' },
+  { city: 'Diani', image: '/assets/destinations/diani.jpg' },
+  { city: 'Kisumu', image: '/assets/destinations/kisumu.jpg' },
+  { city: 'Nakuru', image: '/assets/destinations/nakuru.jpg' },
+];
 
-const cardReferenceStyles = `
-  .client-home-card {
-    align-items: flex-start;
-    gap: 0.9rem;
-    padding: 2.15rem 1.45rem 1.4rem;
-    border-bottom: 1px solid var(--line, #202327);
-    color: var(--ink, #f7f9f9);
+type View = 'home' | 'marketplace' | 'saved';
+type Photo = { storage_path: string; width?: number; height?: number };
+type Host = { full_name?: string; verified?: boolean; avatar_url?: string | null; username?: string };
+type Listing = {
+  id: string;
+  title?: string;
+  description?: string;
+  location_text?: string;
+  category?: string;
+  verified?: boolean;
+  availability_status?: string;
+  created_at?: string;
+  host_id: string;
+  host?: Host | null;
+  listing_photos?: Photo[];
+};
+type Like = { liked: boolean; count: number; loading?: boolean; unavailable?: boolean; version?: number };
+type Video = { url: string; thumbnailUrl?: string | null; width?: number; height?: number };
+type MediaFrame = { width: number; height: number };
+type Update = { id: string; body: string; image_url?: string | null; image_urls?: string[] | null };
+type News = {
+  id: string;
+  title?: string;
+  source?: { name?: string; url?: string; published_at?: string };
+  published_at?: string;
+};
+type RecommendedListing = {
+  id: string;
+  title?: string;
+  location_text?: string;
+  listing_photos?: Photo[];
+};
+
+function getSupabaseClient() {
+  if (typeof window === 'undefined') return null;
+  const root = window as Window & { supabaseClient?: any };
+  if (root.supabaseClient?.auth) return root.supabaseClient;
+  const config = getClientHomeSupabaseConfig(root);
+  const client = createClient(config.url, config.anonKey) as any;
+  root.supabaseClient = client;
+  window.dispatchEvent(new Event('varoom_supabase_ready'));
+  return client;
+}
+
+function photoUrl(bucket: string, path: string) {
+  return `/api/photos/${encodeURIComponent(bucket)}/${path.split('/').map(encodeURIComponent).join('/')}`;
+}
+
+function listingPhoto(path?: string) {
+  return path ? photoUrl('listing-photos', path) : '';
+}
+
+function avatarPhoto(path?: string | null) {
+  if (!path) return '';
+  return /^https?:\/\//i.test(path) ? path : photoUrl('avatars', path);
+}
+
+function safeCssUrl(value: string) {
+  return `url("${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}")`;
+}
+
+function calculateMediaFrames(
+  media: Array<{ width: number; height: number }>,
+  naturalSizes: Record<number, MediaFrame>,
+  availableWidth: number,
+  mobile: boolean,
+) {
+  const available = Math.max(1, availableWidth);
+  const fallbackWidth = Math.min(available, 414);
+  const maxHeight = mobile ? Math.min(560, available * 1.6) : 460;
+  const fallbackHeight = Math.min(maxHeight, fallbackWidth / (4 / 3));
+  const fallbackFrame = {
+    width: Math.min(fallbackWidth, fallbackHeight * (4 / 3)),
+    height: fallbackHeight,
+  };
+  const frames = media.map((item, index) => {
+    const natural = naturalSizes[index];
+    const width = item.width > 0 ? item.width : natural?.width || 0;
+    const height = item.height > 0 ? item.height : natural?.height || 0;
+    if (!width || !height) return fallbackFrame;
+    const ratio = width / height;
+    const fittedHeight = Math.min(maxHeight, available / ratio);
+    return {
+      width: Math.min(available, fittedHeight * ratio),
+      height: fittedHeight,
+    };
+  });
+  if (frames.length === 0) frames.push(fallbackFrame);
+
+  return {
+    frames: frames.map((frame) => ({
+      width: Math.round(frame.width),
+      height: Math.round(frame.height),
+    })),
+    width: Math.round(Math.max(...frames.map((frame) => frame.width))),
+    height: Math.round(Math.max(...frames.map((frame) => frame.height))),
+  };
+}
+
+function timeAgo(value?: string) {
+  const diff = value ? Date.now() - new Date(value).getTime() : 0;
+  const minutes = Math.floor(diff / 60000);
+  if (!value || !Number.isFinite(minutes) || minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
+function CalendarIcon() {
+  return <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="16" rx="2" /><path d="M8 3v4M16 3v4M3.5 10h17" /></svg>;
+}
+
+function ChatIcon() {
+  return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z" /></svg>;
+}
+
+function HeartIcon({ filled }: { filled: boolean }) {
+  return <svg viewBox="0 0 24 24" aria-hidden="true" fill={filled ? 'currentColor' : 'none'}><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>;
+}
+
+function BookmarkIcon({ filled }: { filled: boolean }) {
+  return <svg viewBox="0 0 24 24" aria-hidden="true" fill={filled ? 'currentColor' : 'none'}><path d="M6 3.5h12a1 1 0 0 1 1 1V21l-7-4-7 4V4.5a1 1 0 0 1 1-1Z" /></svg>;
+}
+
+function Gallery({
+  listing,
+  video,
+  videoLoading,
+  videoUnavailable,
+  open,
+}: {
+  listing: Listing;
+  video?: Video;
+  videoLoading: boolean;
+  videoUnavailable: boolean;
+  open: (urls: string[], index: number) => void;
+}) {
+  const media = useMemo(
+    () => (listing.listing_photos || []).map((photo) => ({
+      url: listingPhoto(photo.storage_path),
+      width: Number(photo.width) || 0,
+      height: Number(photo.height) || 0,
+    })).filter((photo) => photo.url),
+    [listing.listing_photos],
+  );
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [availableWidth, setAvailableWidth] = useState(406);
+  const [mobile, setMobile] = useState(false);
+  const [loaded, setLoaded] = useState<Record<number, boolean>>({});
+  const [failed, setFailed] = useState<Record<number, boolean>>({});
+  const [naturalSizes, setNaturalSizes] = useState<Record<number, MediaFrame>>({});
+  const [videoReady, setVideoReady] = useState(false);
+  const [videoFailed, setVideoFailed] = useState(false);
+  const stage = useRef<HTMLDivElement>(null);
+  const pointerStart = useRef<number | null>(null);
+
+  useEffect(() => {
+    setActiveIndex(0);
+    setLoaded({});
+    setFailed({});
+    setNaturalSizes({});
+    setVideoReady(false);
+    setVideoFailed(false);
+  }, [listing.id]);
+
+  useEffect(() => {
+    const parent = stage.current?.parentElement;
+    if (!parent) return;
+    const updateSize = () => {
+      setAvailableWidth(Math.max(1, parent.clientWidth - 8));
+      setMobile(window.matchMedia('(max-width: 860px)').matches);
+    };
+    updateSize();
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(updateSize);
+    observer?.observe(parent);
+    window.addEventListener('resize', updateSize, { passive: true });
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', updateSize);
+    };
+  }, []);
+
+  const sizing = useMemo(
+    () => calculateMediaFrames(media, naturalSizes, availableWidth, mobile),
+    [availableWidth, media, mobile, naturalSizes],
+  );
+  const urls = media.map((photo) => photo.url);
+  const changeIndex = (next: number) => setActiveIndex(Math.max(0, Math.min(media.length - 1, next)));
+  const onPointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (pointerStart.current === null) return;
+    const delta = event.clientX - pointerStart.current;
+    if (Math.abs(delta) > 40) changeIndex(activeIndex + (delta < 0 ? 1 : -1));
+    pointerStart.current = null;
+  };
+
+  if (video) {
+    if (videoFailed) return <div className={`${styles.mediaStage} ${styles.mediaUnavailable}`} role="status">Video unavailable</div>;
+    const frame = calculateMediaFrames(
+      [{ width: video.width || 0, height: video.height || 0 }],
+      {},
+      availableWidth,
+      mobile,
+    );
+    return (
+      <div
+        className={`${styles.mediaStage} ${styles.videoStage}`}
+        style={{ width: frame.width, height: frame.height, '--ambient-image': safeCssUrl(video.thumbnailUrl || '') } as CSSProperties & { '--ambient-image': string }}
+      >
+        {video.thumbnailUrl && <span className={styles.mediaAmbient} aria-hidden="true" style={{ backgroundImage: safeCssUrl(video.thumbnailUrl) }} />}
+        {!videoReady && <span className={styles.videoLoadingOverlay} role="status" aria-label="Loading video" />}
+        <video
+          className={styles.video}
+          controls
+          muted
+          playsInline
+          preload="none"
+          poster={video.thumbnailUrl || undefined}
+          src={video.url}
+          onLoadedData={() => setVideoReady(true)}
+          onError={() => setVideoFailed(true)}
+        />
+      </div>
+    );
   }
-  .client-home-avatar { width: 56px; height: 56px; margin-top: .1rem; flex: 0 0 56px; }
-  .client-home-avatar img { width: 56px; height: 56px; }
-  .client-home-card-body { min-width: 0; max-width: 666px; }
-  .client-home-card-head { display: flex; align-items: flex-start; gap: .75rem; margin: .05rem 0 .75rem; }
-  .client-home-host-details { min-width: 0; flex: 1; }
-  .client-home-host { display: inline-flex; align-items: center; gap: .3rem; color: var(--ink, #f7f9f9); font-size: 1.05rem; font-weight: 800; line-height: 1.2; text-decoration: none; }
-  .client-home-verified { color: var(--red, #c41e3a); font-size: .78rem; }
-  .client-home-location { overflow: hidden; color: var(--muted, #71767b); font-size: .88rem; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
-  .client-home-location a { color: var(--red, #e11d48); font-weight: 650; text-decoration: none; }
-  .client-home-location a:hover { text-decoration: underline; }
-  .client-home-time { color: var(--muted, #71767b); font-size: .78rem; line-height: 1.35; padding-top: .15rem; white-space: nowrap; }
-  .client-home-menu { width: 28px; height: 28px; margin: -.22rem -.25rem 0 0; border: 0; border-radius: 50%; background: transparent; color: var(--muted, #71767b); font-size: 1.3rem; line-height: 1; cursor: pointer; }
-  .client-home-menu:hover { background: var(--control-hover, rgba(239,243,244,.1)); color: var(--ink, #f7f9f9); }
-  .client-home-caption { margin: 0 0 .85rem .7rem; max-width: 650px; color: var(--ink, #f7f9f9); font-size: 1.02rem; line-height: 1.45; }
-  .client-home-card .listing-media-stage,
-  .client-home-card .client-home-video { margin: 0 0 1.15rem .7rem; border: 1px solid rgba(255,255,255,.18); border-radius: 20px; }
-  .client-home-card .listing-media-stage { width: min(100%, 666px) !important; max-width: calc(100% - .7rem); }
-  .client-home-card .listing-media-image { border-radius: inherit; }
-  .client-home-card .client-home-media-index { top: .85rem; right: .85rem; padding: .35rem .62rem; border-radius: 999px; background: rgba(23, 20, 19, .78); font-size: .78rem; font-weight: 750; }
-  .client-home-card .client-home-carousel-arrow { top: 50%; width: 48px; height: 48px; display: grid; place-items: center; border: 0; background: rgba(23,20,19,.72); color: #fff; font-size: 2rem; transform: translateY(-50%); }
-  .client-home-card .client-home-actions { display: flex; align-items: center; gap: 1.15rem; min-height: 42px; padding: .2rem 0 0 .7rem; }
-  .client-home-action { display: inline-flex; align-items: center; gap: .45rem; min-height: 40px; padding: .4rem .78rem; border: 1px solid var(--line, #2f3336); border-radius: 999px; background: transparent; color: var(--ink, #f7f9f9); font: inherit; font-size: .92rem; font-weight: 750; line-height: 1; text-decoration: none; cursor: pointer; }
-  .client-home-action:hover { background: var(--control-hover, rgba(239,243,244,.1)); }
-  .client-home-action svg { width: 20px; height: 20px; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-  .client-home-like { margin-left: auto; }
-  .client-home-action.saved { color: var(--red, #e11d48) !important; }
-  @media (max-width: 860px) {
-    .client-home-card { padding: 1.1rem .7rem 1.15rem; gap: .65rem; }
-    .client-home-avatar { width: 42px; height: 42px; flex-basis: 42px; }
-    .client-home-avatar img { width: 42px; height: 42px; }
-    .client-home-host { font-size: .95rem; }
-    .client-home-location { font-size: .78rem; }
-    .client-home-time { display: none; }
-    .client-home-caption { margin-left: 0; font-size: .95rem; }
-    .client-home-card .listing-media-stage,
-    .client-home-card .client-home-video { margin-left: 0; max-width: 100%; border-radius: 14px; }
-    .client-home-card .client-home-actions { gap: .45rem; padding-left: 0; }
-    .client-home-action { gap: .3rem; padding: .4rem .56rem; font-size: .82rem; }
-    .client-home-action svg { width: 18px; height: 18px; }
+
+  if (media.length === 0) {
+    if (videoLoading) return <div className={`${styles.mediaStage} ${styles.mediaLoading}`} role="status" aria-label="Loading listing media" />;
+    if (videoUnavailable) return <div className={`${styles.mediaStage} ${styles.mediaUnavailable}`} role="status">Video unavailable</div>;
+    return <div className={`${styles.mediaStage} ${styles.mediaEmpty}`} role="img" aria-label="No media available for this listing" />;
   }
-`;
-function sb(){if(typeof window==='undefined')return null;const w=window as any;if(w.supabaseClient?.auth)return w.supabaseClient;const config=getClientHomeSupabaseConfig(w),client=createClient(config.url,config.anonKey);w.supabaseClient=client;window.dispatchEvent(new Event('varoom_supabase_ready'));return client}
-const photoPath=(bucket:string,path:string)=>`/api/photos/${encodeURIComponent(bucket)}/${path.split('/').map(encodeURIComponent).join('/')}`;
-// The legacy initializer rewrites listing and migrated R2 keys to this route.
-// Native Home must use the same route rather than an unpatched Storage client.
-const picture=(p?:string)=>p?photoPath('listing-photos',p):'';
-const face=(p?:string)=>!p?'':p.startsWith('http')?p:photoPath('avatars',p);
 
-function mediaFrame(sourceWidth:number,sourceHeight:number,availableWidth:number,mobile:boolean){const available=Math.max(1,availableWidth||666),fallbackWidth=Math.min(available,666),maxHeight=mobile?Math.min(560,available*1.6):500;if(!sourceWidth||!sourceHeight){const height=Math.min(maxHeight,fallbackWidth/(4/3));return{width:Math.round(Math.min(fallbackWidth,height*(4/3))),height:Math.round(height)}}const ratio=sourceWidth/sourceHeight,height=Math.min(maxHeight,available/ratio);return{width:Math.round(Math.min(available,height*ratio)),height:Math.round(height)}}
-function Gallery({listing,video,open}:{listing:Listing;video?:string;open:(x:string[],n:number)=>void}){const media=(listing.listing_photos||[]).map(x=>({url:picture(x.storage_path),width:x.width||0,height:x.height||0})).filter(x=>x.url),[n,setN]=useState(0),[bad,setBad]=useState(false),[available,setAvailable]=useState(414),stage=useRef<HTMLDivElement>(null),start=useRef<number|null>(null);useEffect(()=>{setN(0);setBad(false)},[listing.id]);useEffect(()=>{const parent=stage.current?.parentElement;if(!parent)return;const update=()=>setAvailable(Math.max(1,parent.clientWidth-8));update();const observer=typeof ResizeObserver==='undefined'?null:new ResizeObserver(update);observer?.observe(parent);return()=>observer?.disconnect()},[]);if(video)return <div className="video client-home-video"><video controls muted playsInline preload="metadata" src={video}/></div>;if(!media.length||bad)return <div className="media-state client-home-media-state">No media available</div>;const go=(d:number)=>setN(x=>(x+d+media.length)%media.length),active=media[n],frame=mediaFrame(active.width,active.height,available,typeof window!=='undefined'&&window.matchMedia('(max-width:860px)').matches),style={width:frame.width,height:frame.height};return <div ref={stage} className="listing-media-stage client-home-carousel" style={style} onPointerDown={e=>start.current=e.clientX} onPointerUp={e=>{if(start.current!==null&&Math.abs(e.clientX-start.current)>40)e.clientX<start.current?go(1):go(-1);start.current=null}}><div className="client-home-slide-track" style={{display:'flex',width:'100%',height:'100%',transform:`translateX(-${n*100}%)`,transition:'transform .28s ease'}}>{media.map((item,index)=><div className="client-home-slide" key={item.url} style={{position:'relative',flex:'0 0 100%',width:frame.width,height:frame.height,display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden'}}><div className="listing-media-ambient client-home-slide-ambient" aria-hidden style={{backgroundImage:`url("${item.url}")`}}/><img className="listing-media-image client-home-slide-image" src={item.url} loading="lazy" alt={listing.title||'Listing'} onError={()=>setBad(true)} onClick={()=>open(media.map(x=>x.url),index)}/></div>)}</div>{media.length>1&&<><span className="listing-media-count client-home-media-index">{n+1}/{media.length}</span><button className="prev client-home-carousel-arrow" onClick={()=>go(-1)}>‹</button><button className="next client-home-carousel-arrow" onClick={()=>go(1)}>›</button><div className="client-home-media-dots" style={{position:'absolute',zIndex:3,left:'50%',bottom:'.65rem',transform:'translateX(-50%)',display:'flex',gap:'.38rem'}}>{media.map((item,index)=><button key={item.url} className={index===n?'active':''} aria-label={`Show photo ${index+1}`} style={{width:6,height:6,padding:0,border:0,borderRadius:'50%',background:index===n?'var(--red)':'var(--line)'}} onClick={()=>setN(index)}/>)}</div></>}</div>}
-function Lightbox({value,close}:{value:{urls:string[];index:number};close:()=>void}){const[n,setN]=useState(value.index),start=useRef<number|null>(null),go=(d:number)=>setN(x=>(x+d+value.urls.length)%value.urls.length);useEffect(()=>{const k=(e:KeyboardEvent)=>{if(e.key==='Escape')close();if(e.key==='ArrowLeft')go(-1);if(e.key==='ArrowRight')go(1)};const old=document.body.style.overflow;document.body.style.overflow='hidden';document.addEventListener('keydown',k);return()=>{document.body.style.overflow=old;document.removeEventListener('keydown',k)}},[close]);return <div className="lightbox" onClick={close} onPointerDown={e=>start.current=e.clientX} onPointerUp={e=>{if(start.current!==null&&Math.abs(e.clientX-start.current)>40)e.clientX<start.current?go(1):go(-1);start.current=null}}><div onClick={e=>e.stopPropagation()}><button className="close" onClick={close}>×</button><img src={value.urls[n]} alt="Listing media"/>{value.urls.length>1&&<><button className="prev" onClick={()=>go(-1)}>‹</button><button className="next" onClick={()=>go(1)}>›</button><span>{n+1} / {value.urls.length}</span></>}</div></div>}
-function timeAgo(value?:string){if(!value)return'';const seconds=Math.max(0,Math.round((Date.now()-new Date(value).getTime())/1000));if(seconds<60)return'now';if(seconds<3600)return`${Math.floor(seconds/60)}m ago`;if(seconds<86400)return`${Math.floor(seconds/3600)}h ago`;return`${Math.floor(seconds/86400)}d ago`}
-function CalendarIcon(){return <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18"/></svg>}
-function ChatIcon(){return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a8 8 0 0 1-8.5 8A9.2 9.2 0 0 1 7 18.3L3.5 20l1.2-3.6A8 8 0 1 1 20 11.5Z"/></svg>}
-function HeartIcon({filled}:{filled:boolean}){return <svg viewBox="0 0 24 24" aria-hidden="true" fill={filled?'currentColor':'none'}><path d="M20.8 4.8a5.5 5.5 0 0 0-7.8 0L12 5.9l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.9-8.4a5.5 5.5 0 0 0-.1-7.8Z"/></svg>}
-function BookmarkIcon({filled}:{filled:boolean}){return <svg viewBox="0 0 24 24" aria-hidden="true" fill={filled?'currentColor':'none'}><path d="M6 3.8A1.8 1.8 0 0 1 7.8 2h8.4A1.8 1.8 0 0 1 18 3.8V22l-6-3.8L6 22V3.8Z"/></svg>}
-function Card({l,like,saved,video,save,toggle,chat,report,open}:{l:Listing;like:Like;saved:boolean;video?:string;save:()=>void;toggle:()=>void;chat:()=>void;report:()=>void;open:(x:string[],n:number)=>void}){const h=l.host||{},a=face(h.avatar_url),hasDescription=Boolean(l.description||l.title);return <article className="card client-home-card"><a className="avatar client-home-avatar" href={`/host/${encodeURIComponent(l.host_id)}`}>{a?<img src={a} alt="" onError={e=>e.currentTarget.style.display='none'}/>:((h.full_name||'?')[0])}</a><div className="cardbody client-home-card-body"><div className="client-home-card-head"><div className="client-home-host-details"><a className="host client-home-host" href={`/host/${encodeURIComponent(l.host_id)}`}>{h.full_name||'Host'} {h.verified&&<span className="client-home-verified">✔</span>}</a><div className="client-home-location">{h.username?`@${h.username} · `:''}{l.location_text||'Location unavailable'} · <a href={`/map?listing=${encodeURIComponent(l.id)}`}>View on Map</a></div></div><time className="client-home-time">{timeAgo(l.created_at)}</time><button className="client-home-menu" aria-label="More options" onClick={report}>⋮</button></div>{hasDescription&&<p className="client-home-caption">{l.description||l.title}</p>}<Gallery listing={l} video={video} open={open}/><div className="client-home-actions"><a className="client-home-action" href={`/booking?listing=${encodeURIComponent(l.id)}`}><CalendarIcon/>Book</a><button className="client-home-action" onClick={chat}><ChatIcon/>Chat</button><button className="client-home-action client-home-like" disabled={like.loading||like.unavailable} onClick={toggle}><HeartIcon filled={like.liked}/>{like.unavailable?'—':like.count}</button><button className={`client-home-action ${saved?'saved':''}`} onClick={save}><BookmarkIcon filled={saved}/>Save</button></div></div></article>}
+  return (
+    <div
+      ref={stage}
+      className={`${styles.mediaStage} ${styles.carousel} ${media.length === 1 ? styles.singleMedia : ''}`}
+      style={{ width: sizing.width, height: sizing.height }}
+      onPointerDown={(event) => {
+        if ((event.target as HTMLElement).closest('button')) return;
+        pointerStart.current = event.clientX;
+      }}
+      onPointerUp={onPointerUp}
+      onPointerCancel={() => { pointerStart.current = null; }}
+    >
+      <div
+        className={styles.slideTrack}
+        style={{ transform: `translateX(-${activeIndex * 100}%)` }}
+      >
+        {media.map((photo, index) => {
+          const frame = sizing.frames[index];
+          return (
+            <div className={styles.slide} key={photo.url}>
+              <span
+                className={styles.mediaAmbient}
+                aria-hidden="true"
+                style={{ backgroundImage: safeCssUrl(photo.url) }}
+              />
+              {failed[index] ? (
+                <div className={styles.photoUnavailable} role="status">Photo unavailable</div>
+              ) : (
+                <>
+                  {!loaded[index] && <span className={styles.imageSkeleton} aria-label="Loading photo" />}
+                  <img
+                    className={styles.listingImage}
+                    src={photo.url}
+                    alt={listing.title || 'Listing'}
+                    loading="lazy"
+                    style={{ width: frame.width, height: frame.height, opacity: loaded[index] ? 1 : 0 }}
+                    onLoad={(event) => {
+                      const image = event.currentTarget;
+                      setLoaded((current) => ({ ...current, [index]: true }));
+                      if (image.naturalWidth && image.naturalHeight && (!photo.width || !photo.height)) {
+                        setNaturalSizes((current) => ({
+                          ...current,
+                          [index]: { width: image.naturalWidth, height: image.naturalHeight },
+                        }));
+                      }
+                    }}
+                    onError={() => setFailed((current) => ({ ...current, [index]: true }))}
+                    onClick={() => open(urls, index)}
+                  />
+                </>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      {media.length > 1 && (
+        <>
+          <span className={styles.mediaIndex}>{activeIndex + 1}/{media.length}</span>
+          <button type="button" className={`${styles.carouselArrow} ${styles.previous}`} aria-label="Previous photo" onClick={() => changeIndex(activeIndex - 1)}>‹</button>
+          <button type="button" className={`${styles.carouselArrow} ${styles.next}`} aria-label="Next photo" onClick={() => changeIndex(activeIndex + 1)}>›</button>
+          <div className={styles.mediaDots} aria-label="Choose photo">
+            {media.map((photo, index) => (
+              <button
+                key={photo.url}
+                type="button"
+                className={index === activeIndex ? styles.activeDot : ''}
+                aria-label={`Show photo ${index + 1}`}
+                aria-current={index === activeIndex ? 'true' : undefined}
+                onClick={() => changeIndex(index)}
+              />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
-export default function ClientHome(){const router=useRouter(),feed=useRef<HTMLElement>(null),end=useRef<HTMLDivElement>(null),cache=useRef<ListingFeedCache|null>(null),v=useRef(0),authEpoch=useRef(0),pending=useRef(new Set<string>()),mediaTimer=useRef<number>(),[user,setUser]=useState<any>(null),[ready,setReady]=useState(false),[interests,setInterests]=useState<string[]>([]),[view,setView]=useState<View>('home'),[category,setCategory]=useState('all'),[search,setSearch]=useState(''),[term,setTerm]=useState(''),[items,setItems]=useState<Listing[]>([]),[more,setMore]=useState(false),[loading,setLoading]=useState(true),[loadingMore,setLoadingMore]=useState(false),[error,setError]=useState(''),[authRetry,setAuthRetry]=useState(0),[saved,setSaved]=useState(new Set<string>()),[likes,setLikes]=useState<Record<string,Like>>({}),[videos,setVideos]=useState<Record<string,string>>({}),[report,setReport]=useState<string|null>(null),[reason,setReason]=useState('fraudulent'),[details,setDetails]=useState(''),[message,setMessage]=useState(''),[submitting,setSubmitting]=useState(false),[box,setBox]=useState<{urls:string[];index:number}|null>(null);
-useEffect(()=>{const t=setTimeout(()=>setTerm(search.trim()),350);return()=>clearTimeout(t)},[search]);
-useEffect(()=>{let live=true;const s=sb()!;const reset=()=>{v.current++;setItems([]);setLikes({});setVideos({});setSaved(new Set());setInterests([]);setReady(false)};const resolve=async(session:any)=>{const epoch=++authEpoch.current;reset();const u=session?.user;if(!u){if(live&&epoch===authEpoch.current)router.replace('/login');return}const profileResult=await s.from('profiles').select('role,onboarding_completed,interested_categories,looking_timeline').eq('id',u.id).maybeSingle();if(!live||epoch!==authEpoch.current)return;const account=resolveClientHomeProfile(session,profileResult);if(account.kind==='profile-error'){setUser(account.user);setLoading(false);setError('Your account information could not be loaded. Please retry.');return}if(account.kind==='host'){router.replace('/host-home');return}if(account.kind==='onboarding'){router.replace('/onboarding');return}if(account.kind!=='ready')return;setUser(account.user);setInterests(account.profile.looking_timeline==='soon'?(account.profile.interested_categories||[]).map((x:string)=>x.trim().toLowerCase()).filter(Boolean):[]);const bookmarks=await s.from('bookmarks').select('listing_id').eq('client_id',account.user.id);if(!live||epoch!==authEpoch.current)return;if(bookmarks.error){setError('Saved listings could not be loaded.')}else setSaved(new Set((bookmarks.data||[]).map((x:any)=>x.listing_id)));setReady(true)};Promise.all([loadListingFeedCache(),s.auth.getSession()]).then(([c,result]:any)=>{cache.current=c;return resolve(result.data.session)}).catch(e=>{setLoading(false);setError(e.message||'Unable to start Home')});const {data:{subscription}}=s.auth.onAuthStateChange((_event,session)=>{resolve(session)});return()=>{live=false;subscription.unsubscribe()}},[router,authRetry]);
-useEffect(()=>setView(router.query.view==='saved'?'saved':'home'),[router.query.view]);
-const key=useMemo(()=>user?['client',user.id,view,category,interests.slice().sort().join(','),term.toLowerCase()].join(':'):'',[user,view,category,interests,term]);
-const fetcher=useCallback(async(offset:number,limit:number)=>{let q=sb()!.from('listings').select(select).eq('moderation_status','active').eq('availability_status','available');if(category!=='all')q=q.eq('category',category);else if(view==='home'&&interests.length)q=q.in('category',interests);if(!term)return q.order('created_at',{ascending:false}).order('id',{ascending:false}).range(offset,offset+limit-1);if(offset)return {data:[],hasMore:false};const [loc,hosts]=await Promise.all([q.ilike('location_text',`%${term}%`).order('created_at',{ascending:false}).limit(limit),sb()!.from('profiles').select('id').ilike('username',`%${term}%`).limit(100)]);if(loc.error||hosts.error)return {error:loc.error||hosts.error};const ids=(hosts.data||[]).map((x:any)=>x.id),byHost=ids.length?await q.in('host_id',ids).order('created_at',{ascending:false}).limit(limit):{data:[]};const seen=new Set<string>();return {data:[...(loc.data||[]),...(byHost.data||[])].filter((x:any)=>!seen.has(x.id)&&!!seen.add(x.id)).slice(0,limit),hasMore:false}},[category,interests,term,view]);
-const load=useCallback(async(next=false)=>{if(!ready||!user||!cache.current||!key||view==='saved'||(next&&loadingMore))return;const current=++v.current,snap=cache.current.snapshot<Listing>(key);if(!next&&snap.hasCachedPage){setItems(snap.items as Listing[]);setMore(snap.hasMore);setLoading(false);if(snap.isStale)cache.current.revalidate(key,fetcher).then(x=>{if(current===v.current){setItems(x.items as Listing[]);setMore(x.hasMore)}});return}next?setLoadingMore(true):setLoading(true);try{const result=next?await cache.current.prefetchNext(key,fetcher):await cache.current.fetchPage(key,0,fetcher);if(current===v.current){setItems(result.items as Listing[]);setMore(result.hasMore)}}catch(e:any){if(current===v.current)setError(e.message||'Could not load listings')}finally{if(current===v.current){setLoading(false);setLoadingMore(false)}}},[fetcher,key,loadingMore,ready,user,view]);
-useEffect(()=>{if(view!=='saved')load()},[load,view]);
-useEffect(()=>{if(view!=='saved'||!user)return;let live=true;setLoading(true);sb()!.from('listings').select(select).in('id',Array.from(saved)).eq('moderation_status','active').eq('availability_status','available').then(({data,error}:any)=>{if(live){setItems(data||[]);setMore(false);setLoading(false);setError(error?.message||'')}});return()=>{live=false}},[saved,user,view]);
-useEffect(()=>{if(!items.length||!user)return;let live=true;(async()=>{for(let i=0;i<items.length;i+=100){const ids=items.slice(i,i+100).map(x=>x.id),r=await sb()!.rpc('get_listing_like_summaries',{p_listing_ids:ids});if(!live)break;setLikes(old=>{const n={...old};if(r.error)ids.forEach(id=>n[id]={...(n[id]||{liked:false,count:0}),unavailable:true});else(r.data||[]).forEach((x:any)=>{if(!n[x.listing_id]?.loading)n[x.listing_id]={liked:!!x.liked_by_current_user,count:Number(x.like_count)||0}});return n})}})();return()=>{live=false}},[items,user]);
-useEffect(()=>{if(!more||view==='saved'||!end.current)return;const target=end.current,go=()=>load(true),o=typeof IntersectionObserver==='undefined'?null:new IntersectionObserver(x=>{if(x[0]?.isIntersecting)go()},{root:feed.current,rootMargin:'700px 0px'});o?.observe(target);const fallback=()=>target.getBoundingClientRect().top<innerHeight+700&&go();feed.current?.addEventListener('scroll',fallback,{passive:true});return()=>{o?.disconnect();feed.current?.removeEventListener('scroll',fallback)}},[load,more,view]);
-const media=useCallback((id:string)=>{if(pending.current.has(id)||videos[id])return;pending.current.add(id);if(mediaTimer.current)return;mediaTimer.current=window.setTimeout(async()=>{const ids=Array.from(pending.current);pending.current.clear();try{const sess=await sb()!.auth.getSession(),headers=sess.data.session?{Authorization:`Bearer ${sess.data.session.access_token}`}:{};const r=await fetch(`/api/discover/video-media?listingIds=${encodeURIComponent(ids.join(','))}`,{headers});const data=r.ok?await r.json():{};await Promise.all(ids.map(async id=>{const mediaId=data.videoMedia?.[id];if(!mediaId)return;const p=await fetch(`/api/media/${encodeURIComponent(mediaId)}/playback`,{headers});const b=p.ok?await p.json():null;if(b?.url)setVideos(x=>({...x,[id]:b.url}))}))}catch{}},60)},[videos]);
-useEffect(()=>{const o=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){media((e.target as HTMLElement).dataset.media||'');o.unobserve(e.target)}}),{root:feed.current,rootMargin:'350px 0px'});document.querySelectorAll<HTMLElement>('[data-media]').forEach(x=>o.observe(x));return()=>{o.disconnect();if(mediaTimer.current)clearTimeout(mediaTimer.current)}},[items,media]);
-const save=async(id:string)=>{if(!user)return;const was=saved.has(id);setSaved(x=>{const n=new Set(x);was?n.delete(id):n.add(id);return n});const r=was?await sb()!.from('bookmarks').delete().eq('client_id',user.id).eq('listing_id',id):await sb()!.from('bookmarks').insert({client_id:user.id,listing_id:id});if(r.error)setSaved(x=>{const n=new Set(x);was?n.add(id):n.delete(id);return n})};
-const like=async(id:string)=>{const before=likes[id]||{liked:false,count:0,version:0},version=(before.version||0)+1,target=!before.liked;setLikes(x=>({...x,[id]:{liked:target,count:Math.max(0,before.count+(target?1:-1)),loading:true,version}}));const r=await sb()!.rpc('set_listing_like',{p_listing_id:id,p_liked:target});let row=Array.isArray(r.data)?r.data[0]:r.data?.summary||r.data;if(r.error){const q=await sb()!.rpc('get_listing_like_summaries',{p_listing_ids:[id]});row=q.data?.[0]}setLikes(x=>x[id]?.version===version?{...x,[id]:row?{liked:!!row.liked_by_current_user,count:Number(row.like_count)||0,version}:{...before,unavailable:!!r.error,version}}:x)};
-const chat=async(l:Listing)=>{if(!user)return;const r=await sb()!.from('conversations').upsert({listing_id:l.id,host_id:l.host_id,client_id:user.id},{onConflict:'listing_id,client_id'}).select().single();if(r.error){setError(`Couldn't start that chat: ${r.error.message}`);return}router.push(`/chats?c=${encodeURIComponent(r.data.id)}`)};
-const submit=async()=>{if(!report||submitting)return;setSubmitting(true);setMessage('');const c=new AbortController(),t=setTimeout(()=>c.abort(),20000);try{const s=await sb()!.auth.getSession();if(!s.data.session)throw new Error('Please sign in again before submitting a report.');const r=await fetch('/api/listing-reports',{method:'POST',credentials:'same-origin',signal:c.signal,headers:{'Content-Type':'application/json',Authorization:`Bearer ${s.data.session.access_token}`},body:JSON.stringify({listing_id:report,reason,details:details||null})}),b=await r.json().catch(()=>({}));if(!r.ok)throw new Error(b.error||'Unable to submit report');setMessage('Report submitted. Thank you for helping keep VaRoom trustworthy.');setTimeout(()=>setReport(null),1800)}catch(e:any){setMessage(e.name==='AbortError'?'The report service took too long to respond. Please try again.':e.message||'Unable to submit report')}finally{clearTimeout(t);setSubmitting(false)}};
-const choose=(next:View)=>{setCategory('all');setSearch('');setView(next);router.replace(next==='saved'?'/client-home?view=saved':'/client-home',undefined,{shallow:true})};
-const retryAccount=()=>{setError('');setLoading(true);setAuthRetry(x=>x+1)};return <><Head><title>Home · VaRoom</title></Head><section className="home"><header><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search by location or @username"/></header><i/><main ref={feed as any}><h1>{view==='saved'?'Saved':view==='marketplace'?'Marketplace':'For you'}</h1><nav>{cats.map(([id,label])=><button key={id} disabled={view==='saved'} className={category===id?'active':''} onClick={()=>setCategory(id)}>{label}</button>)}</nav><nav><button onClick={()=>choose('home')}>Discover</button><button onClick={()=>choose('marketplace')}>Marketplace</button><button onClick={()=>choose('saved')}>Saved</button></nav>{loading?<p>Loading listings…</p>:error?<p>{error} <button onClick={retryAccount}>Retry</button></p>:items.map(l=><div key={l.id} data-media={l.id}><Card l={l} like={likes[l.id]||{liked:false,count:0}} saved={saved.has(l.id)} video={videos[l.id]} save={()=>save(l.id)} toggle={()=>like(l.id)} chat={()=>chat(l)} report={()=>{setReport(l.id);setReason('fraudulent');setDetails('');setMessage('')}} open={(urls,index)=>setBox({urls,index})}/></div>)}<div ref={end}>{loadingMore?'Loading more listings…':''}</div></main><aside><h2>Popular destinations</h2><p>Available after widget migration</p><h2>VaRoom Updates</h2><p>Available after widget migration</p><h2>Property News</h2><p>Available after widget migration</p></aside></section>{report&&<div className="modal"><div><h2>Report this listing</h2><label>Reason<select value={reason} onChange={e=>setReason(e.target.value)}><option value="fraudulent">Fraudulent or scam</option><option value="inappropriate">Inappropriate content</option><option value="misleading">Misleading information</option><option value="other">Other</option></select></label><label>Details<textarea value={details} onChange={e=>setDetails(e.target.value)}/></label><p>{message}</p><button disabled={submitting} onClick={()=>setReport(null)}>Cancel</button><button disabled={submitting} onClick={submit}>{submitting?'Submitting…':'Submit report'}</button></div></div>}{box&&<Lightbox value={box} close={()=>setBox(null)}/>}<style jsx>{`.home{display:grid;grid-template-columns:minmax(620px,1.3fr) 1px minmax(380px,1fr);grid-template-rows:auto 1fr;height:100vh;overflow:hidden}.home>header{grid-column:1;padding:.75rem 1rem;border-bottom:1px solid var(--line)}input{width:100%;padding:.55rem 1rem;border:1px solid var(--line);border-radius:999px;background:transparent}.home>i{grid-column:2;grid-row:1/-1;background:var(--line)}main{grid-column:1;overflow-y:auto;padding:.75rem 1rem}aside{grid-column:3;grid-row:2;overflow:auto;padding:0 1.25rem}nav{display:flex;gap:.5rem;flex-wrap:wrap;margin:1rem 0}nav button,.card button,.card footer a{border:0;background:none;padding:.4rem;color:var(--ink)}nav .active{border-radius:999px;background:var(--control-active)}.card{display:flex;gap:.65rem;padding:.7rem 0;border-bottom:1px solid var(--line)}.avatar{width:34px;height:34px;display:grid;place-items:center;overflow:hidden;border-radius:50%;background:var(--red);color:#fff}.avatar img{width:34px;height:34px;object-fit:cover}.cardbody{min-width:0;flex:1}.card header{display:flex}.host{font-weight:700}.card small{display:block;color:var(--muted)}.card header>button{margin-left:auto}.card p{color:var(--muted)}.listing-media-stage,.video{position:relative;margin:.5rem 0;overflow:hidden;border-radius:12px;background:#000}.listing-media-stage{display:flex;align-items:center;justify-content:center;max-width:100%;touch-action:pan-y}.listing-media-ambient{position:absolute;inset:-28px;z-index:0;background-position:center;background-size:cover;filter:blur(24px) saturate(1.12);opacity:.72;pointer-events:none}.listing-media-image{position:relative;z-index:1;display:block;max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;cursor:zoom-in}.video video{display:block;width:100%;height:clamp(220px,30vw,420px);object-fit:cover}.media-state{height:180px;display:grid;place-items:center;border:1px solid var(--line);border-radius:12px;color:var(--muted)}.listing-media-count{position:absolute;z-index:3;right:.5rem;top:.5rem;color:white}.prev,.next,.close{position:absolute;z-index:3;border:0;border-radius:50%;background:#0009;color:#fff;font-size:1.7rem}.prev{left:.5rem;top:50%}.next{right:.5rem;top:50%}.card footer{display:flex;gap:.5rem}.card footer button:nth-child(3){margin-left:auto}.saved{color:var(--red)!important}.modal,.lightbox{position:fixed;inset:0;z-index:50;display:grid;place-items:center;background:#0009}.modal>div{width:min(420px,90vw);padding:1.5rem;background:var(--white);border-radius:16px}.modal label{display:grid;gap:.4rem;margin:.6rem 0}.modal textarea,.modal select{padding:.5rem}.lightbox>div{position:relative}.lightbox img{max-width:92vw;max-height:82vh}.lightbox .close{right:0;top:0}@media(max-width:1180px){.home{grid-template-columns:minmax(0,760px)}.home>i,aside{display:none}}@media(max-width:860px){.home{display:block;height:auto}main{overflow:visible}.listing-media-stage{max-width:100%}.video video{height:clamp(250px,60vw,520px)}}`}</style></>}
-ClientHome.getLayout=(page:ReactElement)=><ClientLayout activeNav="home"><style jsx global>{cardReferenceStyles}</style>{page}</ClientLayout>;
+function ListingCard({
+  listing,
+  firstCard,
+  userId,
+  like,
+  saved,
+  video,
+  videoLoading,
+  videoUnavailable,
+  onSave,
+  onLike,
+  onChat,
+  onReport,
+  onOpenLightbox,
+}: {
+  listing: Listing;
+  firstCard: boolean;
+  userId: string;
+  like: Like;
+  saved: boolean;
+  video?: Video;
+  videoLoading: boolean;
+  videoUnavailable: boolean;
+  onSave: () => void;
+  onLike: () => void;
+  onChat: () => void;
+  onReport: () => void;
+  onOpenLightbox: (urls: string[], index: number) => void;
+}) {
+  const host = listing.host || {};
+  const hostName = host.full_name || 'Host';
+  const hostAvatar = avatarPhoto(host.avatar_url);
+  const ownListing = listing.host_id === userId;
+  const unavailable = listing.availability_status && listing.availability_status !== 'available';
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  return (
+    <article className={`${styles.card} ${firstCard ? styles.firstCard : ''}`} data-listing-id={listing.id}>
+      <a className={styles.avatar} href={`/host/${encodeURIComponent(listing.host_id)}`} aria-label={`View ${hostName}'s profile`}>
+        {hostAvatar
+          ? <img src={hostAvatar} alt="" />
+          : (hostName.charAt(0).toUpperCase() || '?')}
+      </a>
+      <div className={styles.cardBody}>
+        <div className={styles.cardHead}>
+          <div className={styles.hostDetails}>
+            <a className={styles.hostName} href={`/host/${encodeURIComponent(listing.host_id)}`}>
+              {hostName}{host.verified && <span className={styles.verified} aria-label="Verified host">✔</span>}
+            </a>
+            <div className={styles.location}>
+              {host.username ? `@${host.username} · ` : ''}{listing.location_text || ''}
+              {' · '}
+              <a href={`/map?listing=${encodeURIComponent(listing.id)}`} className={styles.mapLink}>View on Map</a>
+            </div>
+          </div>
+          <time className={styles.time}>{timeAgo(listing.created_at)}</time>
+          {!ownListing && (
+            <div className={styles.menuWrap}>
+              <button
+                type="button"
+                className={styles.menuButton}
+                aria-label="More options"
+                aria-expanded={menuOpen}
+                onClick={() => setMenuOpen((open) => !open)}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="12" cy="19" r="1.8" /></svg>
+              </button>
+              {menuOpen && <div className={styles.menuDropdown}><button type="button" onClick={() => { setMenuOpen(false); onReport(); }}>Report</button></div>}
+            </div>
+          )}
+        </div>
+        <p className={styles.caption}>{listing.description || listing.title || ''}</p>
+        {unavailable && <div className={styles.statusBanner}>Status: {listing.availability_status}</div>}
+        <Gallery
+          listing={listing}
+          video={video}
+          videoLoading={videoLoading}
+          videoUnavailable={videoUnavailable}
+          open={onOpenLightbox}
+        />
+        <div className={styles.actions}>
+          {ownListing || unavailable
+            ? <span className={`${styles.action} ${styles.disabledAction}`} title={ownListing ? 'This is your listing' : 'This listing is not available'}><CalendarIcon />Book</span>
+            : <a className={styles.action} href={`/booking?listing=${encodeURIComponent(listing.id)}`}><CalendarIcon />Book</a>}
+          {ownListing
+            ? <span className={`${styles.action} ${styles.disabledAction}`} title="This is your listing"><ChatIcon />Chat</span>
+            : <button type="button" className={styles.action} onClick={onChat}><ChatIcon />Chat</button>}
+          <button
+            type="button"
+            className={`${styles.action} ${styles.likeAction}`}
+            data-listing-id={listing.id}
+            aria-label={like.unavailable ? 'Like status unavailable' : like.liked ? 'Unlike listing' : 'Like listing'}
+            aria-pressed={like.unavailable ? undefined : like.liked}
+            title={like.unavailable ? 'Like information is temporarily unavailable' : undefined}
+            disabled={like.loading || like.unavailable}
+            onClick={onLike}
+          >
+            <HeartIcon filled={like.liked} />{like.unavailable ? '—' : like.count}
+          </button>
+          <button
+            type="button"
+            className={`${styles.action} ${styles.saveAction} ${saved ? styles.saved : ''}`}
+            aria-pressed={saved}
+            onClick={onSave}
+          >
+            <BookmarkIcon filled={saved} />{saved ? 'Saved' : 'Save'}
+          </button>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function FeedSkeleton() {
+  return (
+    <div className={styles.skeletonCard} aria-hidden="true">
+      <span className={`${styles.skeleton} ${styles.skeletonAvatar}`} />
+      <div className={styles.skeletonBody}>
+        <div className={styles.skeletonHeader}>
+          <div className={styles.skeletonProfile}>
+            <span className={`${styles.skeleton} ${styles.skeletonName}`} />
+            <span className={`${styles.skeleton} ${styles.skeletonLocation}`} />
+          </div>
+          <span className={`${styles.skeleton} ${styles.skeletonTime}`} />
+          <span className={`${styles.skeleton} ${styles.skeletonMenu}`} />
+        </div>
+        <span className={`${styles.skeleton} ${styles.skeletonLine}`} />
+        <span className={`${styles.skeleton} ${styles.skeletonLine} ${styles.shortLine}`} />
+        <span className={`${styles.skeleton} ${styles.skeletonMedia}`} />
+        <div className={styles.skeletonActions}>
+          {[0, 1, 2, 3].map((item) => <span className={`${styles.skeleton} ${styles.skeletonPill}`} key={item} />)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Lightbox({ value, close }: { value: { urls: string[]; index: number }; close: () => void }) {
+  const [index, setIndex] = useState(value.index);
+  const startX = useRef<number | null>(null);
+  const go = (delta: number) => setIndex((current) => (current + delta + value.urls.length) % value.urls.length);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') close();
+      if (event.key === 'ArrowLeft') go(-1);
+      if (event.key === 'ArrowRight') go(1);
+    };
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [close]);
+
+  return (
+    <div
+      className={styles.lightbox}
+      onClick={close}
+      onTouchStart={(event) => { startX.current = event.changedTouches[0].clientX; }}
+      onTouchEnd={(event) => {
+        if (startX.current === null) return;
+        const delta = event.changedTouches[0].clientX - startX.current;
+        if (Math.abs(delta) > 40) go(delta < 0 ? 1 : -1);
+        startX.current = null;
+      }}
+    >
+      <div className={styles.lightboxStage} onClick={(event) => event.stopPropagation()}>
+        <button type="button" className={styles.lightboxClose} aria-label="Close" onClick={close}>×</button>
+        <img className={styles.lightboxImage} src={value.urls[index]} alt="Listing media" />
+        {value.urls.length > 1 && (
+          <>
+            <button type="button" className={`${styles.lightboxNav} ${styles.previous}`} aria-label="Previous photo" onClick={() => go(-1)}>‹</button>
+            <button type="button" className={`${styles.lightboxNav} ${styles.next}`} aria-label="Next photo" onClick={() => go(1)}>›</button>
+            <span className={styles.lightboxCounter}>{index + 1} / {value.urls.length}</span>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function DestinationCard({
+  city,
+  image,
+  count,
+  mobile = false,
+  onSelect,
+}: {
+  city: string;
+  image: string;
+  count: number | null;
+  mobile?: boolean;
+  onSelect: (city: string) => void;
+}) {
+  const cardClass = mobile ? styles.mobileDestination : styles.destination;
+  return (
+    <button type="button" className={cardClass} onClick={() => onSelect(city)}>
+      <img src={image} alt="" loading="lazy" />
+      <span className={styles.destinationOverlay}>
+        <span className={styles.destinationName}>{city}</span>
+        <span className={styles.destinationCount}>
+          {count === null ? '—' : count > 0 ? `${count} ${count === 1 ? 'place' : 'places'}` : 'New'}
+        </span>
+      </span>
+    </button>
+  );
+}
+
+function PropertyNewsList({ items, loading, failed }: { items: News[]; loading: boolean; failed: boolean }) {
+  if (loading) return <div className={styles.widgetLoader} role="status" aria-label="Loading Property News"><span className={styles.spinner} /></div>;
+  if (items.length === 0) return <p className={styles.widgetMessage}>{failed ? 'Property News could not be loaded.' : 'No Property News is available right now.'}</p>;
+  return (
+    <div className={styles.newsList} aria-live="polite">
+      {items.slice(0, 5).map((news) => {
+        const dateValue = news.published_at || news.source?.published_at;
+        const date = dateValue && !Number.isNaN(new Date(dateValue).getTime())
+          ? new Date(dateValue).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' })
+          : 'Recently';
+        return (
+          <article className={styles.newsItem} key={news.id}>
+            <a href={`/property-news?id=${encodeURIComponent(news.id)}`} className={styles.newsTitle}>{news.title || 'Property update'}</a>
+            <div className={styles.newsMeta}><span>{news.source?.name || 'VaRoom'}</span><span>•</span><span>{date}</span></div>
+          </article>
+        );
+      })}
+    </div>
+  );
+}
+
+function WidgetLoader({ label }: { label: string }) {
+  return <div className={styles.widgetLoader} role="status" aria-label={label}><span className={styles.spinner} /></div>;
+}
+
+function MobileFeedWidgets({
+  recommended,
+  recommendedLoading,
+  updates,
+  updatesLoading,
+  updatesFailed,
+}: {
+  recommended: RecommendedListing[];
+  recommendedLoading: boolean;
+  updates: Update[];
+  updatesLoading: boolean;
+  updatesFailed: boolean;
+}) {
+  return (
+    <div className={styles.mobileWidgets}>
+      <section className={styles.mobileWidgetCard}>
+        <div className={styles.mobileWidgetHeading}><h2>Recommended for you</h2></div>
+        {recommendedLoading
+          ? <div className={styles.recommendedGrid}><span className={`${styles.skeleton} ${styles.recommendationSkeleton}`} /><span className={`${styles.skeleton} ${styles.recommendationSkeleton}`} /></div>
+          : recommended.length > 0 && (
+            <div className={styles.recommendedGrid}>
+              {recommended.slice(0, 6).map((item) => (
+                <a className={styles.recommendedCard} href={`/booking?listing=${encodeURIComponent(item.id)}`} key={item.id}>
+                  {item.listing_photos?.[0]?.storage_path && <img src={listingPhoto(item.listing_photos[0].storage_path)} alt="" loading="lazy" />}
+                  <span><strong>{item.title || 'Listing'}</strong><small>{item.location_text || ''}</small></span>
+                </a>
+              ))}
+            </div>
+          )}
+      </section>
+      <section className={`${styles.mobileWidgetCard} ${styles.updatesWidget}`}>
+        <div className={styles.mobileWidgetHeading}><h2>VaRoom Updates</h2></div>
+        <UpdateList items={updates} loading={updatesLoading} failed={updatesFailed} />
+      </section>
+    </div>
+  );
+}
+
+function ReportModal({
+  reason,
+  details,
+  message,
+  submitting,
+  onReason,
+  onDetails,
+  onCancel,
+  onSubmit,
+}: {
+  reason: string;
+  details: string;
+  message: string;
+  submitting: boolean;
+  onReason: (value: string) => void;
+  onDetails: (value: string) => void;
+  onCancel: () => void;
+  onSubmit: () => void;
+}) {
+  return (
+    <div className={styles.modalOverlay} onClick={onCancel}>
+      <div className={styles.reportModal} role="dialog" aria-modal="true" aria-labelledby="report-title" onClick={(event) => event.stopPropagation()}>
+        <h2 id="report-title">Report this listing</h2>
+        <p>Help us keep VaRoom trustworthy. Reports are reviewed by our team — false reports don&apos;t automatically penalize a host.</p>
+        <label>
+          Reason
+          <select value={reason} onChange={(event) => onReason(event.target.value)}>
+            <option value="fraudulent">Fraudulent — this host is scamming or misrepresenting</option>
+            <option value="misleading_info">Misleading information — details don&apos;t match reality</option>
+            <option value="other">Other</option>
+          </select>
+        </label>
+        <label>
+          Details (optional)
+          <textarea value={details} onChange={(event) => onDetails(event.target.value)} placeholder="Anything else we should know" />
+        </label>
+        {message && <p className={`${styles.reportMessage} ${message.startsWith('Report submitted') ? styles.reportSuccess : styles.reportError}`} role="status">{message}</p>}
+        <div className={styles.modalActions}>
+          <button type="button" onClick={onCancel} disabled={submitting}>Cancel</button>
+          <button type="button" className={styles.submitButton} onClick={onSubmit} disabled={submitting}>{submitting ? 'Submitting...' : 'Submit report'}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function ClientHome() {
+  const router = useRouter();
+  const feed = useRef<HTMLElement>(null);
+  const end = useRef<HTMLDivElement>(null);
+  const cache = useRef<ListingFeedCache | null>(null);
+  const loadVersion = useRef(0);
+  const authEpoch = useRef(0);
+  const pendingVideoIds = useRef(new Set<string>());
+  const videoTimer = useRef<number | null>(null);
+  const toastTimer = useRef<number | null>(null);
+  const recommendedRequested = useRef(false);
+  const [user, setUser] = useState<any>(null);
+  const [ready, setReady] = useState(false);
+  const [interests, setInterests] = useState<string[]>([]);
+  const [view, setView] = useState<View>('home');
+  const [category, setCategory] = useState('all');
+  const [search, setSearch] = useState('');
+  const [term, setTerm] = useState('');
+  const [items, setItems] = useState<Listing[]>([]);
+  const [hasMore, setHasMore] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const loadingMoreRef = useRef(false);
+  const [error, setError] = useState('');
+  const [authRetry, setAuthRetry] = useState(0);
+  const [saved, setSaved] = useState(new Set<string>());
+  const [likes, setLikes] = useState<Record<string, Like>>({});
+  const [videos, setVideos] = useState<Record<string, Video>>({});
+  const [videoStates, setVideoStates] = useState<Record<string, 'loading' | 'none' | 'unavailable'>>({});
+  const [suspended, setSuspended] = useState(false);
+  const [destCounts, setDestCounts] = useState<Record<string, number | null>>({});
+  const [destinationsLoading, setDestinationsLoading] = useState(true);
+  const [updates, setUpdates] = useState<Update[]>([]);
+  const [updatesLoading, setUpdatesLoading] = useState(true);
+  const [updatesFailed, setUpdatesFailed] = useState(false);
+  const [news, setNews] = useState<News[]>([]);
+  const [newsLoading, setNewsLoading] = useState(true);
+  const [newsFailed, setNewsFailed] = useState(false);
+  const [recommended, setRecommended] = useState<RecommendedListing[]>([]);
+  const [recommendedLoading, setRecommendedLoading] = useState(true);
+  const [report, setReport] = useState<string | null>(null);
+  const [reportReason, setReportReason] = useState('fraudulent');
+  const [reportDetails, setReportDetails] = useState('');
+  const [reportMessage, setReportMessage] = useState('');
+  const [submittingReport, setSubmittingReport] = useState(false);
+  const [lightbox, setLightbox] = useState<{ urls: string[]; index: number } | null>(null);
+  const [toastMessage, setToastMessage] = useState('');
+
+  const showToast = (message: string) => {
+    setToastMessage(message);
+    if (toastTimer.current !== null) window.clearTimeout(toastTimer.current);
+    toastTimer.current = window.setTimeout(() => {
+      setToastMessage('');
+      toastTimer.current = null;
+    }, 2200);
+  };
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setTerm(search.trim()), 350);
+    return () => window.clearTimeout(timeout);
+  }, [search]);
+
+  useEffect(() => {
+    const nextView = router.query.view === 'saved'
+      ? 'saved'
+      : router.query.view === 'marketplace' ? 'marketplace' : 'home';
+    setView(nextView);
+    if (nextView === 'home') {
+      setCategory('all');
+      setSearch('');
+      setTerm('');
+    }
+  }, [router.query.view]);
+
+  useEffect(() => {
+    let active = true;
+    const client = getSupabaseClient();
+    if (!client) return;
+
+    const resolveSession = async (session: any) => {
+      const epoch = ++authEpoch.current;
+      loadVersion.current += 1;
+      setReady(false);
+      setItems([]);
+      setLikes({});
+      setVideos({});
+      setVideoStates({});
+      setSaved(new Set());
+      setInterests([]);
+      setSuspended(false);
+      const sessionUser = session?.user;
+      if (!sessionUser) {
+        if (active && epoch === authEpoch.current) {
+          router.replace({
+            pathname: '/',
+            query: { auth: 'login', redirect: '/client-home' },
+          });
+        }
+        return;
+      }
+
+      const profileResult = await client
+        .from('profiles')
+        .select('role,onboarding_completed,interested_categories,looking_timeline')
+        .eq('id', sessionUser.id)
+        .maybeSingle();
+      if (!active || epoch !== authEpoch.current) return;
+      const account = resolveClientHomeProfile(session, profileResult);
+      if (account.kind === 'profile-error') {
+        setUser(account.user);
+        setLoading(false);
+        setError('Your account information could not be loaded. Please retry.');
+        return;
+      }
+      if (account.kind === 'host') {
+        router.replace('/host-home');
+        return;
+      }
+      if (account.kind === 'onboarding') {
+        router.replace('/onboarding');
+        return;
+      }
+      if (account.kind !== 'ready') return;
+
+      setUser(account.user);
+      const nextInterests = account.profile.looking_timeline === 'soon'
+        ? (account.profile.interested_categories || []).map((value: string) => value.trim().toLowerCase()).filter(Boolean)
+        : [];
+      setInterests(nextInterests);
+
+      const bookmarkResult = await client.from('bookmarks').select('listing_id').eq('client_id', account.user.id);
+      if (!active || epoch !== authEpoch.current) return;
+      if (bookmarkResult.error) setError('Saved listings could not be loaded.');
+      else setSaved(new Set((bookmarkResult.data || []).map((bookmark: { listing_id: string }) => bookmark.listing_id)));
+      setReady(true);
+
+      fetch('/api/account-status', {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      }).then(async (response) => {
+        if (!response.ok) throw new Error('Account status could not be loaded.');
+        return response.json();
+      }).then((status) => {
+        if (active && epoch === authEpoch.current) setSuspended(status.suspended === true);
+      }).catch((statusError) => {
+        console.warn('Account status could not be loaded:', statusError);
+      });
+    };
+
+    const { data: { subscription } } = client.auth.onAuthStateChange((_event, session) => {
+      void resolveSession(session);
+    });
+    Promise.all([loadListingFeedCache(), client.auth.getSession()])
+      .then(([listingCache, result]) => {
+        if (!active) return;
+        cache.current = listingCache;
+        return resolveSession(result.data.session);
+      })
+      .catch((loadError: Error) => {
+        if (active) {
+          setLoading(false);
+          setError(loadError.message || 'Unable to start Home.');
+        }
+      });
+
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+      if (videoTimer.current !== null) window.clearTimeout(videoTimer.current);
+      if (toastTimer.current !== null) window.clearTimeout(toastTimer.current);
+    };
+  }, [authRetry, router]);
+
+  const key = useMemo(
+    () => user
+      ? ['client', user.id, view, category, interests.slice().sort().join(','), term.toLowerCase()].join(':')
+      : '',
+    [category, interests, term, user, view],
+  );
+
+  const fetcher = useCallback(async (offset: number, limit: number) => {
+    const client = getSupabaseClient();
+    if (!client) throw new Error('Supabase is unavailable.');
+    const listingQuery = () => {
+      let query = client.from('listings').select(select)
+        .eq('moderation_status', 'active').eq('availability_status', 'available');
+      if (category !== 'all') query = query.eq('category', category);
+      else if (view === 'home' && interests.length > 0) query = query.in('category', interests);
+      return query;
+    };
+
+    if (!term) {
+      return listingQuery().order('created_at', { ascending: false }).order('id', { ascending: false })
+        .range(offset, offset + limit - 1);
+    }
+    if (offset > 0) return { data: [], hasMore: false };
+
+    const [locationResult, hostsResult] = await Promise.all([
+      listingQuery().ilike('location_text', `%${term}%`)
+        .order('created_at', { ascending: false }).order('id', { ascending: false }).limit(limit),
+      client.from('profiles').select('id').ilike('username', `%${term}%`).limit(100),
+    ]);
+    if (locationResult.error) return { error: locationResult.error };
+    if (hostsResult.error) return { error: hostsResult.error };
+    const hostIds = ((hostsResult.data || []) as Array<{ id: string }>).map((profile) => profile.id);
+    const hostResult = hostIds.length > 0
+      ? await listingQuery().in('host_id', hostIds).order('created_at', { ascending: false })
+        .order('id', { ascending: false }).limit(limit)
+      : { data: [], error: null };
+    if (hostResult.error) return { error: hostResult.error };
+
+    const seen = new Set<string>();
+    const matches = [...((locationResult.data || []) as Listing[]), ...((hostResult.data || []) as Listing[])].filter((listing: Listing) => {
+      if (seen.has(listing.id)) return false;
+      seen.add(listing.id);
+      return true;
+    });
+    return { data: matches.slice(0, limit), hasMore: false };
+  }, [category, interests, term, view]);
+
+  const loadFeed = useCallback(async (nextPage = false) => {
+    if (!ready || !user || !cache.current || !key || view === 'saved' || (nextPage && loadingMoreRef.current)) return;
+    if (!nextPage) {
+      loadingMoreRef.current = false;
+      setLoadingMore(false);
+    }
+    const currentVersion = ++loadVersion.current;
+    const snapshot = cache.current.snapshot<Listing>(key) as any;
+    if (!nextPage && snapshot.hasCachedPage) {
+      setItems(snapshot.items as Listing[]);
+      setHasMore(Boolean(snapshot.hasMore));
+      setLoading(false);
+      setError('');
+      if (snapshot.isStale) {
+        void cache.current.revalidate(key, fetcher).then((result: any) => {
+          if (currentVersion !== loadVersion.current) return;
+          setItems((result.items || []) as Listing[]);
+          setHasMore(Boolean(result.hasMore));
+        }).catch((loadError: Error) => {
+          console.warn('Client Home feed refresh failed:', loadError);
+        });
+      }
+      return;
+    }
+
+    if (nextPage) {
+      loadingMoreRef.current = true;
+      setLoadingMore(true);
+    }
+    else setLoading(true);
+    setError('');
+    try {
+      const result = nextPage
+        ? await cache.current.prefetchNext(key, fetcher)
+        : await cache.current.fetchPage(key, 0, fetcher);
+      const payload = result as any;
+      if (currentVersion !== loadVersion.current) return;
+      setItems((payload.items || []) as Listing[]);
+      setHasMore(Boolean(payload.hasMore));
+    } catch (loadError) {
+      if (currentVersion === loadVersion.current) {
+        setError(loadError instanceof Error ? loadError.message : 'Could not load listings.');
+      }
+    } finally {
+      if (currentVersion === loadVersion.current) {
+        loadingMoreRef.current = false;
+        setLoading(false);
+        setLoadingMore(false);
+      }
+    }
+  }, [fetcher, key, ready, user, view]);
+
+  useEffect(() => {
+    if (view !== 'saved') void loadFeed();
+  }, [loadFeed, view]);
+
+  useEffect(() => {
+    if (view !== 'saved' || !user) return;
+    let active = true;
+    setLoading(true);
+    setError('');
+    if (saved.size === 0) {
+      setItems([]);
+      setHasMore(false);
+      setLoading(false);
+      return () => { active = false; };
+    }
+    getSupabaseClient()!.from('listings').select(select)
+      .in('id', Array.from(saved))
+      .eq('moderation_status', 'active')
+      .eq('availability_status', 'available')
+      .then(({ data, error: savedError }: any) => {
+        if (!active) return;
+        setItems(data || []);
+        setHasMore(false);
+        setLoading(false);
+        if (savedError) setError(savedError.message || 'Saved listings could not be loaded.');
+      });
+    return () => { active = false; };
+  }, [saved, user, view]);
+
+  useEffect(() => {
+    if (items.length === 0 || !user) return;
+    let active = true;
+    const loadLikes = async () => {
+      const client = getSupabaseClient();
+      if (!client) return;
+      for (let offset = 0; offset < items.length; offset += 100) {
+        const ids = items.slice(offset, offset + 100).map((listing) => listing.id);
+        const result = await client.rpc('get_listing_like_summaries', { p_listing_ids: ids });
+        if (!active) return;
+        setLikes((current) => {
+          const next = { ...current };
+          const summaries = Array.isArray(result.data) ? result.data : [];
+          const byId = new Map(summaries.map((summary: any) => [summary.listing_id, summary]));
+          const complete = !result.error && ids.every((id) => {
+            const summary: any = byId.get(id);
+            return Number.isSafeInteger(Number(summary?.like_count))
+              && Number(summary.like_count) >= 0
+              && typeof summary?.liked_by_current_user === 'boolean';
+          });
+          if (!complete) {
+            ids.forEach((id) => {
+              next[id] = { ...(next[id] || { liked: false, count: 0 }), unavailable: true };
+            });
+          } else {
+            ids.forEach((id) => {
+              const summary: any = byId.get(id);
+              if (!next[summary.listing_id]?.loading) {
+                next[summary.listing_id] = {
+                  liked: summary.liked_by_current_user === true,
+                  count: Number(summary.like_count) || 0,
+                };
+              }
+            });
+          }
+          return next;
+        });
+      }
+    };
+    void loadLikes().catch((loadError) => console.error('Listing likes could not be loaded:', loadError));
+    return () => { active = false; };
+  }, [items, user]);
+
+  const requestVideoMedia = useCallback((listingId: string) => {
+    if (pendingVideoIds.current.has(listingId) || videos[listingId] || videoStates[listingId]) return;
+    pendingVideoIds.current.add(listingId);
+    setVideoStates((current) => ({ ...current, [listingId]: 'loading' }));
+    if (videoTimer.current !== null) return;
+    videoTimer.current = window.setTimeout(async () => {
+      const ids = Array.from(pendingVideoIds.current);
+      pendingVideoIds.current.clear();
+      videoTimer.current = null;
+      const client = getSupabaseClient();
+      if (!client) return;
+      const sessionResult = await client.auth.getSession();
+      const headers = sessionResult.data.session
+        ? { Authorization: `Bearer ${sessionResult.data.session.access_token}` }
+        : {};
+      let payload: any = null;
+      try {
+        const response = await fetch(`/api/discover/video-media?listingIds=${encodeURIComponent(ids.join(','))}`, { headers });
+        if (!response.ok) throw new Error('Video media lookup failed.');
+        payload = await response.json();
+      } catch (lookupError) {
+        console.warn('Batched listing video lookup failed; trying the compatibility route:', lookupError);
+        await Promise.all(ids.map(async (id) => {
+          try {
+            const response = await fetch(`/api/properties/${encodeURIComponent(id)}/media`, { headers });
+            if (!response.ok) throw new Error(`Video media lookup returned ${response.status}.`);
+            const result = await response.json();
+            const videoMedia = (result.media || []).find((mediaItem: any) => mediaItem?.type === 'video' && mediaItem.id);
+            if (!videoMedia) {
+              setVideoStates((current) => ({ ...current, [id]: 'none' }));
+              return;
+            }
+            const playbackResponse = await fetch(`/api/media/${encodeURIComponent(videoMedia.id)}/playback`, { headers });
+            if (!playbackResponse.ok) throw new Error(`Video playback lookup returned ${playbackResponse.status}.`);
+            const playback = await playbackResponse.json();
+            if (!playback?.url) throw new Error('Video playback did not include a URL.');
+            setVideos((current) => ({
+              ...current,
+              [id]: { url: playback.url, thumbnailUrl: playback.thumbnailUrl || null, width: videoMedia.width, height: videoMedia.height },
+            }));
+            setVideoStates((current) => ({ ...current, [id]: 'none' }));
+          } catch (fallbackError) {
+            console.error(`Video media for listing ${id} could not be loaded:`, fallbackError);
+            setVideoStates((current) => ({ ...current, [id]: 'unavailable' }));
+          }
+        }));
+        return;
+      }
+
+      await Promise.all(ids.map(async (id) => {
+        const mediaId = payload?.videoMedia?.[id];
+        if (!mediaId) {
+          setVideoStates((current) => ({ ...current, [id]: 'none' }));
+          return;
+        }
+        try {
+          const playbackResponse = await fetch(`/api/media/${encodeURIComponent(mediaId)}/playback`, { headers });
+          if (!playbackResponse.ok) throw new Error(`Video playback lookup returned ${playbackResponse.status}.`);
+          const playback = await playbackResponse.json();
+          if (!playback?.url) throw new Error('Video playback did not include a URL.');
+          const dimensions = payload.videoDimensions?.[id] || {};
+          setVideos((current) => ({
+            ...current,
+            [id]: { url: playback.url, thumbnailUrl: playback.thumbnailUrl || null, width: dimensions.width, height: dimensions.height },
+          }));
+          setVideoStates((current) => ({ ...current, [id]: 'none' }));
+        } catch (playbackError) {
+          console.error(`Video playback for listing ${id} could not be loaded:`, playbackError);
+          setVideoStates((current) => ({ ...current, [id]: 'unavailable' }));
+        }
+      }));
+    }, 60);
+  }, [videoStates, videos]);
+
+  useEffect(() => {
+    if (items.length === 0) return;
+    const root = feed.current;
+    const targets = Array.from(document.querySelectorAll<HTMLElement>('[data-media]'));
+    if (!('IntersectionObserver' in window)) {
+      targets.forEach((target) => requestVideoMedia(target.dataset.media || ''));
+      return;
+    }
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+        const target = entry.target as HTMLElement;
+        observer.unobserve(target);
+        requestVideoMedia(target.dataset.media || '');
+      });
+    }, { root, rootMargin: '350px 0px', threshold: 0.01 });
+    targets.forEach((target) => observer.observe(target));
+    return () => observer.disconnect();
+  }, [items, requestVideoMedia]);
+
+  useEffect(() => {
+    const node = feed.current;
+    if (!node || !key) return;
+    try {
+      const savedPosition = JSON.parse(sessionStorage.getItem(`varoom:listings:scroll:${key}`) || 'null');
+      if (savedPosition) {
+        requestAnimationFrame(() => { node.scrollTop = savedPosition.areaY || 0; });
+      }
+    } catch (restoreError) {
+      console.warn('Client Home scroll position could not be restored:', restoreError);
+    }
+  }, [key, items.length]);
+
+  useEffect(() => {
+    const node = feed.current;
+    if (!node || !key) return;
+    const saveScroll = () => {
+      try {
+        sessionStorage.setItem(`varoom:listings:scroll:${key}`, JSON.stringify({
+          windowY: window.scrollY,
+          areaY: node.scrollTop,
+        }));
+      } catch (saveError) {
+        console.warn('Client Home scroll position could not be saved:', saveError);
+      }
+    };
+    node.addEventListener('scroll', saveScroll, { passive: true });
+    window.addEventListener('pagehide', saveScroll);
+    return () => {
+      node.removeEventListener('scroll', saveScroll);
+      window.removeEventListener('pagehide', saveScroll);
+    };
+  }, [key]);
+
+  useEffect(() => {
+    if (!ready) return;
+    let active = true;
+    const loadWidgetData = async () => {
+      const client = getSupabaseClient();
+      if (!client) return;
+
+      const counts = await Promise.all(destinations.map(async ({ city }) => {
+        try {
+          const result = await client.from('listings').select('id', { count: 'exact', head: true })
+            .ilike('location_text', `%${city}%`);
+          if (result.error) throw result.error;
+          return [city, typeof result.count === 'number' ? result.count : null] as const;
+        } catch (widgetError) {
+          console.error(`Destination count for ${city} could not be loaded:`, widgetError);
+          return [city, null] as const;
+        }
+      }));
+      if (active) {
+        setDestCounts(Object.fromEntries(counts));
+        setDestinationsLoading(false);
+      }
+
+      try {
+        const result = await client.from('varoom_updates').select('id,body,image_url,image_urls,created_at')
+          .eq('status', 'published').order('created_at', { ascending: false }).limit(3);
+        if (result.error) throw result.error;
+        if (active) setUpdates(result.data || []);
+      } catch (widgetError) {
+        console.error('VaRoom Updates could not be loaded:', widgetError);
+        if (active) setUpdatesFailed(true);
+      } finally {
+        if (active) setUpdatesLoading(false);
+      }
+
+    };
+    void loadWidgetData();
+    return () => { active = false; };
+  }, [ready]);
+
+  useEffect(() => {
+    if (!ready) return;
+    let active = true;
+    const breakpoint = window.matchMedia('(max-width: 1180px)');
+    const loadRecommended = async () => {
+      if (!breakpoint.matches || recommendedRequested.current) return;
+      recommendedRequested.current = true;
+      try {
+        const result = await getSupabaseClient()!.from('listings')
+          .select('id,title,location_text,listing_photos(storage_path)')
+          .eq('is_promoted', true).eq('moderation_status', 'active')
+          .eq('availability_status', 'available').order('created_at', { ascending: false }).limit(6);
+        if (result.error) throw result.error;
+        if (active) setRecommended(result.data || []);
+      } catch (widgetError) {
+        console.error('Recommended listings could not be loaded:', widgetError);
+      } finally {
+        if (active) setRecommendedLoading(false);
+      }
+    };
+    void loadRecommended();
+    breakpoint.addEventListener('change', loadRecommended);
+    return () => {
+      active = false;
+      breakpoint.removeEventListener('change', loadRecommended);
+    };
+  }, [ready]);
+
+  const loadNews = useCallback(async () => {
+    setNewsLoading(true);
+    try {
+      const response = await fetch('/api/news/latest?limit=5', { headers: { Accept: 'application/json' } });
+      if (!response.ok) throw new Error(`Property News request returned ${response.status}.`);
+      const result = await response.json();
+      if (!Array.isArray(result)) throw new Error('Property News returned an invalid response.');
+      setNews(result);
+      setNewsFailed(false);
+    } catch (newsError) {
+      console.warn('Property News could not be loaded:', newsError);
+      setNews([]);
+      setNewsFailed(true);
+    } finally {
+      setNewsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!ready) return;
+    void loadNews();
+    const timer = window.setInterval(() => { void loadNews(); }, 5 * 60 * 1000);
+    return () => window.clearInterval(timer);
+  }, [loadNews, ready]);
+
+  useEffect(() => {
+    if (!hasMore || view === 'saved' || !end.current) return;
+    const sentinel = end.current;
+    const loadNext = () => { void loadFeed(true); };
+    const observer = typeof IntersectionObserver === 'undefined'
+      ? null
+      : new IntersectionObserver((entries) => {
+        if (entries[0]?.isIntersecting) loadNext();
+      }, { root: feed.current, rootMargin: '700px 0px' });
+    observer?.observe(sentinel);
+    const fallback = () => {
+      if (sentinel.getBoundingClientRect().top < window.innerHeight + 700) loadNext();
+    };
+    feed.current?.addEventListener('scroll', fallback, { passive: true });
+    return () => {
+      observer?.disconnect();
+      feed.current?.removeEventListener('scroll', fallback);
+    };
+  }, [hasMore, loadFeed, view]);
+
+  const onLike = async (listingId: string) => {
+    const before = likes[listingId] || { liked: false, count: 0, version: 0 };
+    const version = (before.version || 0) + 1;
+    const liked = !before.liked;
+    setLikes((current) => ({
+      ...current,
+      [listingId]: { ...before, liked, count: Math.max(0, before.count + (liked ? 1 : -1)), loading: true, version },
+    }));
+    const client = getSupabaseClient();
+    if (!client) return;
+    const result = await client.rpc('set_listing_like', { p_listing_id: listingId, p_liked: liked });
+    let summary = Array.isArray(result.data) ? result.data[0] : result.data?.summary || result.data;
+    if (result.error) {
+      console.error('Listing like update failed:', result.error);
+      const reconcile = await client.rpc('get_listing_like_summaries', { p_listing_ids: [listingId] });
+      summary = reconcile.data?.[0];
+      if (reconcile.error) console.error('Listing like state could not be reconciled:', reconcile.error);
+      setError('That like could not be updated. Please try again.');
+    }
+    setLikes((current) => {
+      if (current[listingId]?.version !== version) return current;
+      if (summary && Number.isSafeInteger(Number(summary.like_count)) && Number(summary.like_count) >= 0) {
+        return {
+          ...current,
+          [listingId]: { liked: summary.liked_by_current_user === true, count: Number(summary.like_count), version },
+        };
+      }
+      return {
+        ...current,
+        [listingId]: { ...before, loading: false, unavailable: true, version },
+      };
+    });
+  };
+
+  const onSave = async (listingId: string) => {
+    if (!user) return;
+    const wasSaved = saved.has(listingId);
+    setSaved((current) => {
+      const next = new Set(current);
+      if (wasSaved) next.delete(listingId);
+      else next.add(listingId);
+      return next;
+    });
+    const client = getSupabaseClient();
+    if (!client) return;
+    const result = wasSaved
+      ? await client.from('bookmarks').delete().eq('client_id', user.id).eq('listing_id', listingId)
+      : await client.from('bookmarks').insert({ client_id: user.id, listing_id: listingId });
+    if (result.error) {
+      console.error('Listing bookmark could not be updated:', result.error);
+      setSaved((current) => {
+        const next = new Set(current);
+        if (wasSaved) next.add(listingId);
+        else next.delete(listingId);
+        return next;
+      });
+      setError('That listing could not be saved. Please try again.');
+    }
+  };
+
+  const onChat = async (listing: Listing) => {
+    if (!user) return;
+    const result = await getSupabaseClient()!.from('conversations')
+      .upsert({ listing_id: listing.id, host_id: listing.host_id, client_id: user.id }, { onConflict: 'listing_id,client_id' })
+      .select().single();
+    if (result.error) {
+      setError(`Couldn't start that chat: ${result.error.message}`);
+      return;
+    }
+    await router.push(`/chats?c=${encodeURIComponent(result.data.id)}`);
+  };
+
+  const submitReport = async () => {
+    if (!report || submittingReport) return;
+    setSubmittingReport(true);
+    setReportMessage('');
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 20000);
+    try {
+      const sessionResult = await getSupabaseClient()!.auth.getSession();
+      const session = sessionResult.data.session;
+      if (!session) throw new Error('Please sign in again before submitting a report.');
+      const response = await fetch('/api/listing-reports', {
+        method: 'POST',
+        credentials: 'same-origin',
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          listing_id: report,
+          reason: reportReason,
+          details: reportDetails || null,
+        }),
+      });
+      const contentType = response.headers.get('content-type') || '';
+      const body = contentType.includes('application/json')
+        ? await response.json()
+        : { error: 'The report service returned an unexpected response. Please try again.' };
+      if (!response.ok) throw new Error(body.error || 'Unable to submit report.');
+      setReportMessage('Report submitted. Thank you for helping keep VaRoom trustworthy.');
+      window.setTimeout(() => setReport(null), 1800);
+    } catch (submitError: any) {
+      setReportMessage(submitError.name === 'AbortError'
+        ? 'The report service took too long to respond. Please try again.'
+        : submitError.message || 'Unable to submit report.');
+    } finally {
+      window.clearTimeout(timeout);
+      setSubmittingReport(false);
+    }
+  };
+
+  const selectDestination = (city: string) => {
+    setView('marketplace');
+    setCategory('all');
+    setSearch(city);
+    setTerm(city);
+    if (feed.current) feed.current.scrollTop = 0;
+  };
+
+  const retryAccount = () => {
+    setError('');
+    setLoading(true);
+    setAuthRetry((current) => current + 1);
+  };
+
+  const showWidgets = view === 'home' && category === 'all' && !term;
+  const emptyMessage = view === 'home' && category === 'all' && !term && interests.length > 0
+    ? 'Nothing matching your interests yet — try Marketplace to see everything.'
+    : 'No listings match yet — try a different category, location, or @username.';
+  const marketplaceQuery = new URLSearchParams();
+  if (term) marketplaceQuery.set('q', term);
+  if (category !== 'all') marketplaceQuery.set('category', category);
+  const marketplaceHref = `/marketplace${marketplaceQuery.toString() ? `?${marketplaceQuery.toString()}` : ''}`;
+
+  return (
+    <>
+      <Head>
+        <title>Home · VaRoom</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;0,9..144,900&display=swap" rel="stylesheet" />
+      </Head>
+      <section className={styles.home}>
+        <header className={styles.topbar}>
+          <button type="button" id="topbar-avatar-btn" className={styles.mobileMenu} aria-label="Open menu">
+            <span className={styles.mobileAvatar} aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <line x1="4" y1="7" x2="20" y2="7" /><line x1="4" y1="12" x2="20" y2="12" /><line x1="4" y1="17" x2="20" y2="17" />
+              </svg>
+            </span>
+          </button>
+          <div className={styles.searchWrap}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search by location or @username" aria-label="Search by location or username" />
+          </div>
+        </header>
+        <div className={styles.columnDivider} aria-hidden="true" />
+        <main className={styles.feedArea} ref={feed}>
+          <div className={styles.headingRow}>
+            <h1 className={styles.feedTitle}>
+              {view === 'saved' ? 'Saved' : view === 'marketplace' ? 'Marketplace' : interests.length > 0 ? 'For you' : 'Find the perfect space'}
+            </h1>
+            {(view === 'marketplace' || term) && <a className={styles.marketplaceSwitch} href={marketplaceHref}>Browse as Marketplace →</a>}
+          </div>
+          <nav className={styles.tabs} aria-label="Listing categories">
+            {categories.map(([id, label]) => (
+              <button
+                type="button"
+                key={id}
+                className={`${styles.tab} ${category === id ? styles.activeTab : ''}`}
+                aria-pressed={category === id}
+                onClick={() => setCategory(id)}
+              >
+                {label}
+              </button>
+            ))}
+          </nav>
+
+          {showWidgets && (
+            <section className={styles.mobileDestinations}>
+              <div className={styles.mobileWidgetHeading}><h2>Popular destinations</h2><button type="button" onClick={() => showToast('Browsing all destinations is coming soon.')}>View all</button></div>
+              <div className={styles.mobileDestinationRow} data-loading={destinationsLoading}>
+                {destinationsLoading
+                  ? <WidgetLoader label="Loading popular destinations" />
+                  : destinations.map(({ city, image }) => (
+                    <DestinationCard key={city} city={city} image={image} count={destCounts[city] ?? null} mobile onSelect={selectDestination} />
+                  ))}
+              </div>
+            </section>
+          )}
+
+          {suspended && (
+            <section className={styles.suspensionNotice} role="status">
+              <h2>Your account has been suspended</h2>
+              <p>You can still browse VaRoom and view listings. Posting, booking, messaging, and other account activity are unavailable while your account is suspended. If you think this is a mistake, you can submit an appeal.</p>
+              <a href="/support">Go to Support / Submit Appeal →</a>
+            </section>
+          )}
+
+          {error && !loading && <p className={styles.errorMessage} role="alert">{error} <button type="button" onClick={retryAccount}>Retry</button></p>}
+          {loading && items.length === 0 && (
+            <div aria-label="Loading listings">
+              {[0, 1, 2].map((item) => (
+                <div key={item}>
+                  <FeedSkeleton />
+                  {showWidgets && item === 0 && (
+                    <MobileFeedWidgets
+                      recommended={recommended}
+                      recommendedLoading={recommendedLoading}
+                      updates={updates}
+                      updatesLoading={updatesLoading}
+                      updatesFailed={updatesFailed}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          {!loading && !error && items.length === 0 && (
+            <p className={styles.stateMessage}>{view === 'saved' ? 'Nothing saved yet — tap the bookmark icon on a listing to save it here.' : emptyMessage}</p>
+          )}
+          {items.map((listing, index) => (
+            <div key={listing.id} data-media={listing.id}>
+              <ListingCard
+                listing={listing}
+                firstCard={index === 0}
+                userId={user?.id || ''}
+                like={likes[listing.id] || { liked: false, count: 0 }}
+                saved={saved.has(listing.id)}
+                video={videos[listing.id]}
+                videoLoading={!videoStates[listing.id] || videoStates[listing.id] === 'loading'}
+                videoUnavailable={videoStates[listing.id] === 'unavailable'}
+                onSave={() => { void onSave(listing.id); }}
+                onLike={() => { void onLike(listing.id); }}
+                onChat={() => { void onChat(listing); }}
+                onReport={() => {
+                  setReport(listing.id);
+                  setReportReason('fraudulent');
+                  setReportDetails('');
+                  setReportMessage('');
+                }}
+                onOpenLightbox={(urls, photoIndex) => setLightbox({ urls, index: photoIndex })}
+              />
+              {showWidgets && index === 0 && (
+                <MobileFeedWidgets
+                  recommended={recommended}
+                  recommendedLoading={recommendedLoading}
+                  updates={updates}
+                  updatesLoading={updatesLoading}
+                  updatesFailed={updatesFailed}
+                />
+              )}
+            </div>
+          ))}
+          {loadingMore && <p className={styles.stateMessage} role="status">Loading more listings…</p>}
+          <div ref={end} className={styles.feedSentinel} aria-hidden="true" />
+
+          {showWidgets && (
+            <section className={`${styles.mobileWidgetCard} ${styles.mobileNews}`}>
+              <div className={styles.newsHeading}>
+                <h2>Property News</h2>
+                <button type="button" onClick={() => { void loadNews(); }}>Refresh</button>
+              </div>
+              <PropertyNewsList items={news} loading={newsLoading} failed={newsFailed} />
+              <a className={styles.viewAllNews} href="/property-news">View all news →</a>
+            </section>
+          )}
+        </main>
+
+        <aside className={styles.rightRail}>
+          <section className={styles.railCard}>
+            <div className={styles.railCardHeading}><h2>Popular destinations</h2><button type="button" onClick={() => showToast('Browsing all destinations is coming soon.')}>View all</button></div>
+            {destinationsLoading
+              ? <WidgetLoader label="Loading popular destinations" />
+              : <div className={styles.destinationGrid}>
+                {destinations.map(({ city, image }) => (
+                  <DestinationCard key={city} city={city} image={image} count={destCounts[city] ?? null} onSelect={selectDestination} />
+                ))}
+              </div>}
+          </section>
+          <section className={styles.railCard}>
+            <div className={styles.railCardHeading}><h2>VaRoom Updates</h2></div>
+            <UpdateList items={updates} loading={updatesLoading} failed={updatesFailed} />
+          </section>
+          <section className={styles.railCard}>
+            <div className={styles.newsHeading}>
+              <h2>Property News</h2>
+              <button type="button" onClick={() => { void loadNews(); }}>Refresh</button>
+            </div>
+            <PropertyNewsList items={news} loading={newsLoading} failed={newsFailed} />
+            <a className={styles.viewAllNews} href="/property-news">View all news →</a>
+          </section>
+          <footer className={styles.railFooter} aria-label="Sidebar footer">
+            <div className={styles.socialLinks} aria-label="Social media">
+              <a href="https://www.instagram.com/varoom.co.ke?vrfl=ZmJzbGVkM3AwOWNu" target="_blank" rel="noopener noreferrer" aria-label="Instagram"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="4" /><circle cx="12" cy="12" r="4" /><circle cx="17.4" cy="6.6" r="1.1" /></svg></a>
+              <a href="https://www.tiktok.com/@varoom.co.ke?_r=1&_t=ZS-9AeSyJKRgM3" target="_blank" rel="noopener noreferrer" aria-label="TikTok"><Music2 aria-hidden="true" /></a>
+              <a href="#" aria-label="X (formerly Twitter)" onClick={(event) => event.preventDefault()}><X aria-hidden="true" /></a>
+              <a href="#" aria-label="Facebook" onClick={(event) => event.preventDefault()}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 21v-8.5h2.8l.4-3.2h-3.2V7.2c0-.9.3-1.6 1.7-1.6H16V2.6c-.3 0-1.3-.1-2.4-.1-2.4 0-4.1 1.5-4.1 4.3v2.4H7v3.2h2.5V21h4Z" /></svg></a>
+            </div>
+            <div className={styles.legalLinks}>
+              <a href="/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>
+              <span aria-hidden="true">|</span>
+              <a href="/terms" target="_blank" rel="noopener noreferrer">Terms &amp; Conditions</a>
+            </div>
+          </footer>
+        </aside>
+
+        <nav className={styles.bottomBar} aria-label="Mobile navigation">
+          <a className={view === 'home' ? styles.bottomActive : ''} href="/client-home">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5M5.5 10v9a1 1 0 0 0 1 1H9v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4h2.5a1 1 0 0 0 1-1v-9" /></svg>
+            Home
+          </a>
+          <a href="/marketplace">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="m15 9-2 6-6 2 2-6 6-2Z" /></svg>
+            Marketplace
+          </a>
+          <a href="/list">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z" /></svg>
+            Create
+          </a>
+          <a href="/chats">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7A8.4 8.4 0 0 1 4 11.5a8.5 8.5 0 0 1 4.7-7.6A8.4 8.4 0 0 1 12.5 3h.5a8.48 8.48 0 0 1 8 8v.5Z" /></svg>
+            Inbox
+          </a>
+          <a className={view === 'saved' ? styles.bottomActive : ''} href="/client-home?view=saved">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3.5h12a1 1 0 0 1 1 1V21l-7-4-7 4V4.5a1 1 0 0 1 1-1Z" /></svg>
+            Saved
+          </a>
+        </nav>
+        <div className={`${styles.toast} ${toastMessage ? styles.toastVisible : ''}`} role="status" aria-live="polite">{toastMessage}</div>
+      </section>
+
+      {report && (
+        <ReportModal
+          reason={reportReason}
+          details={reportDetails}
+          message={reportMessage}
+          submitting={submittingReport}
+          onReason={setReportReason}
+          onDetails={setReportDetails}
+          onCancel={() => setReport(null)}
+          onSubmit={() => { void submitReport(); }}
+        />
+      )}
+      {lightbox && <Lightbox value={lightbox} close={() => setLightbox(null)} />}
+    </>
+  );
+}
+
+function UpdateList({ items, loading, failed }: { items: Update[]; loading: boolean; failed: boolean }) {
+  if (loading) return <WidgetLoader label="Loading VaRoom Updates" />;
+  if (items.length === 0) return <p className={styles.widgetMessage}>{failed ? 'VaRoom Updates could not be loaded.' : 'No updates yet.'}</p>;
+  return (
+    <div className={styles.updateList}>
+      {items.map((update) => {
+        const photos = update.image_urls?.length ? update.image_urls : update.image_url ? [update.image_url] : [];
+        return (
+          <article className={styles.updateCard} key={update.id}>
+            {photos.length > 0 && <div className={styles.updatePhotos}>{photos.map((url) => <img src={url} alt="" loading="lazy" key={url} />)}</div>}
+            <p>{update.body}</p>
+          </article>
+        );
+      })}
+    </div>
+  );
+}
+
+ClientHome.getLayout = (page: ReactElement) => <ClientLayout className="client-home-layout">{page}</ClientLayout>;

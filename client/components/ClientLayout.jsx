@@ -26,6 +26,62 @@ const clientLayoutStyles = `
     font-family: var(--font-body, 'Helvetica Neue', Arial, sans-serif);
   }
 
+  .client-app-layout.client-home-layout {
+    --red: #C41E3A;
+    --white: #FFFFFF;
+    --ink: #0F1419;
+    --paper: #FFFFFF;
+    --surface-card: #F7F9F9;
+    --muted: #536471;
+    --line: #D4D8DA;
+    --line-soft: #DDE1E3;
+    --control-bg: #EFF3F4;
+    --control-active: #E1E8ED;
+    --control-hover: #F2F5F7;
+    --control-strong: #0F1419;
+    --control-strong-text: #FFFFFF;
+    --client-control-bg: #F7F6F3;
+    --client-control-active: #E9E7E2;
+    --client-control-hover: #EFEDE8;
+    --client-control-strong: #24211E;
+    --client-control-strong-text: #FFFFFF;
+    --client-neutral-icon: #5C584F;
+    --client-rail-outline: #C9C5BD;
+    --media-stage-fill: #F7F9F9;
+    --font-brand: 'Fraunces', serif;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  html[data-theme="light"] .client-app-layout.client-home-layout {
+    --muted: #374248;
+    --line: #BBBFC2;
+    --line-soft: #CBCFD2;
+  }
+
+  html[data-theme="dark"] .client-app-layout.client-home-layout {
+    --red: #C41E3A;
+    --white: #000000;
+    --ink: #E7E9EA;
+    --paper: #000000;
+    --surface-card: #0d0d0d;
+    --muted: #71767b;
+    --line: #2f3336;
+    --line-soft: #202327;
+    --control-bg: #202327;
+    --control-active: #2f3336;
+    --control-hover: rgba(239, 243, 244, 0.1);
+    --control-strong: #EFF3F4;
+    --control-strong-text: #0F1419;
+    --client-control-bg: #202327;
+    --client-control-active: rgba(255, 255, 255, 0.1);
+    --client-control-hover: rgba(255, 255, 255, 0.06);
+    --client-control-strong: #EFF3F4;
+    --client-control-strong-text: #000000;
+    --client-neutral-icon: #71767b;
+    --client-rail-outline: rgba(255, 255, 255, 0.12);
+    --media-stage-fill: #0a0a0a;
+  }
+
   html[data-theme="dark"] .client-app-layout {
     --layout-bg: #000000;
     --layout-ink: #FFFFFF;
@@ -258,7 +314,7 @@ const clientLayoutStyles = `
   }
 `;
 
-export default function ClientLayout({ children, activeNav }) {
+export default function ClientLayout({ children, activeNav = undefined, className = '' }) {
   const router = useRouter();
 
   // Intercept links inside legacy client page content to use client-side navigation
@@ -310,7 +366,7 @@ export default function ClientLayout({ children, activeNav }) {
   return (
     <>
       <style jsx global>{clientLayoutStyles}</style>
-      <div className="client-app-layout client-layout-active">
+      <div className={`client-app-layout client-layout-active ${className}`.trim()}>
         <SharedClientSidebar activeNav={activeNav} />
         <main className="client-page-content" id="client-main-content">
           {children}
