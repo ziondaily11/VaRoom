@@ -101,6 +101,30 @@ test('Stage 1: Lifecycle and routing separation protects against freeze and dupl
   assert.match(source, /currentQuery\.c !== id && currentQuery\.conversation !== id/);
 });
 
+test('Stage 2: Avatar wrapper is strictly constrained to 46x46px with overflow hidden', () => {
+  const cssPath = path.join(root, 'public', 'js', 'chats.css');
+  assert.ok(fs.existsSync(cssPath), 'chats.css must exist');
+  const cssSource = fs.readFileSync(cssPath, 'utf8');
+
+  // .avatar-wrap explicit dimensions and containment
+  assert.match(cssSource, /\.avatar-wrap\s*\{[\s\S]*?width:\s*46px;/);
+  assert.match(cssSource, /\.avatar-wrap\s*\{[\s\S]*?height:\s*46px;/);
+  assert.match(cssSource, /\.avatar-wrap\s*\{[\s\S]*?flex-shrink:\s*0;/);
+  assert.match(cssSource, /\.avatar-wrap\s*\{[\s\S]*?border-radius:\s*50%;/);
+  assert.match(cssSource, /\.avatar-wrap\s*\{[\s\S]*?overflow:\s*hidden;/);
+
+  // .avatar-wrap img containment
+  assert.match(cssSource, /\.avatar-wrap\s+img\s*\{[\s\S]*?width:\s*100%;/);
+  assert.match(cssSource, /\.avatar-wrap\s+img\s*\{[\s\S]*?height:\s*100%;/);
+  assert.match(cssSource, /\.avatar-wrap\s+img\s*\{[\s\S]*?object-fit:\s*cover;/);
+  assert.match(cssSource, /\.avatar-wrap\s+img\s*\{[\s\S]*?display:\s*block;/);
+
+  // chats.tsx conversation item img properties
+  const pageSource = fs.readFileSync(chatsPagePath, 'utf8');
+  assert.match(pageSource, /<img\s+src=\{participant\.avatar_url\}[\s\S]*?objectFit:\s*'cover'/);
+  assert.match(pageSource, /<img\s+src=\{participant\.avatar_url\}[\s\S]*?display:\s*'block'/);
+});
+
 test('Phase 4: Attachments and Elie workflows preserved in chats.tsx', () => {
   const source = fs.readFileSync(chatsPagePath, 'utf8');
 
