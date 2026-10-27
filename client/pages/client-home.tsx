@@ -183,6 +183,11 @@ function Gallery({
   const [naturalSizes, setNaturalSizes] = useState<Record<string, MediaFrame>>({});
   const [videoReady, setVideoReady] = useState(false);
   const [videoFailed, setVideoFailed] = useState(false);
+  const [videoNaturalSize, setVideoNaturalSize] = useState<{
+    url: string;
+    width: number;
+    height: number;
+  } | null>(null);
   const stage = useRef<HTMLDivElement>(null);
   const pointerStart = useRef<number | null>(null);
   const videoLoadTimeout = useRef<number | null>(null);
@@ -291,6 +296,12 @@ function Gallery({
 
   if (video) {
     if (videoFailed) return <div className={`${styles.mediaStage} ${styles.mediaUnavailable}`} role="status">Video unavailable</div>;
+    const naturalSize = videoNaturalSize?.url === video.url
+      ? videoNaturalSize
+      : null;
+    const videoWidth = naturalSize?.width || video.width || 0;
+    const videoHeight = naturalSize?.height || video.height || 0;
+    const hasVideoDimensions = videoWidth > 0 && videoHeight > 0;
     const markVideoReady = () => {
       if (videoLoadTimeout.current !== null) {
         window.clearTimeout(videoLoadTimeout.current);
@@ -306,15 +317,20 @@ function Gallery({
       setVideoFailed(true);
     };
     const frame = calculateMediaFrames(
-      [{ width: video.width || 0, height: video.height || 0 }],
+      [{ width: videoWidth, height: videoHeight }],
       {},
       availableWidth,
       mobile,
     );
+    const maxVideoHeight = mobile ? Math.min(560, availableWidth * 1.6) : 460;
     return (
       <div
         className={`${styles.mediaStage} ${styles.videoStage}`}
-        style={{ width: frame.width, height: frame.height, '--ambient-image': safeCssUrl(video.thumbnailUrl || '') } as CSSProperties & { '--ambient-image': string }}
+        style={{
+          width: frame.width,
+          height: hasVideoDimensions ? frame.height : undefined,
+          '--ambient-image': safeCssUrl(video.thumbnailUrl || ''),
+        } as CSSProperties & { '--ambient-image': string }}
       >
         {video.thumbnailUrl && <span className={styles.mediaAmbient} aria-hidden="true" style={{ backgroundImage: safeCssUrl(video.thumbnailUrl) }} />}
         {!videoReady && <span className={styles.videoLoadingOverlay} role="status" aria-label="Loading video" />}
@@ -326,6 +342,17 @@ function Gallery({
           preload="auto"
           poster={video.thumbnailUrl || undefined}
           src={video.url}
+          style={{ maxHeight: maxVideoHeight }}
+          onLoadedMetadata={(event) => {
+            const element = event.currentTarget;
+            if (element.videoWidth > 0 && element.videoHeight > 0) {
+              setVideoNaturalSize({
+                url: video.url,
+                width: element.videoWidth,
+                height: element.videoHeight,
+              });
+            }
+          }}
           onLoadedData={markVideoReady}
           onCanPlay={markVideoReady}
           onPlaying={markVideoReady}
