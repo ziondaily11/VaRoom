@@ -43,6 +43,93 @@ function getOrInitSupabaseClient(): SupabaseClient | null {
   }
 }
 
+const { resolveAvatarUrl } = require('../components/resolveStoredPhotoUrl');
+
+function resolveChatAvatarUrl(url?: string | null, client?: any): string | null {
+  if (!url) return null;
+  if (/^(data:|blob:)/i.test(url)) return url;
+  try {
+    const sb = client || (typeof window !== 'undefined' ? ((window as any).supabaseClient || getOrInitSupabaseClient()) : null);
+    return resolveAvatarUrl(url, sb) || url;
+  } catch {
+    return url;
+  }
+}
+
+function ConversationAvatar({
+  url,
+  name,
+  size = 46,
+  className = 'avatar-fallback',
+  fontSize = 14,
+}: {
+  url?: string | null;
+  name: string;
+  size?: number;
+  className?: string;
+  fontSize?: number;
+}) {
+  const [hasError, setHasError] = useState(false);
+
+  const resolvedUrl = useMemo(() => {
+    return resolveChatAvatarUrl(url);
+  }, [url]);
+
+  useEffect(() => {
+    setHasError(false);
+  }, [resolvedUrl]);
+
+  const initials = useMemo(() => {
+    if (!name) return 'VA';
+    const clean = name.replace(/[^\w\s]/gi, '').trim();
+    if (!clean) return name.slice(0, 2).toUpperCase();
+    const parts = clean.split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return clean.slice(0, 2).toUpperCase();
+  }, [name]);
+
+  if (resolvedUrl && !hasError) {
+    return (
+      <img
+        src={resolvedUrl}
+        alt={name}
+        onError={() => setHasError(true)}
+        style={{
+          width: '100%',
+          height: '100%',
+          borderRadius: '50%',
+          objectFit: 'cover',
+          display: 'block',
+        }}
+      />
+    );
+  }
+
+  return (
+    <div
+      className={className}
+      style={{
+        width: '100%',
+        height: '100%',
+        borderRadius: '50%',
+        background: '#24211e',
+        color: '#fff',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontWeight: 'bold',
+        fontSize: `${fontSize}px`,
+        flexShrink: 0,
+        userSelect: 'none',
+      }}
+    >
+      {initials}
+    </div>
+  );
+}
+
 export default function ChatsPage({ initialConversationId }: { initialConversationId?: string } = {}) {
   const router = useRouter();
 
@@ -829,13 +916,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                     onClick={() => selectConversation(c.id)}
                   >
                     <div className="avatar-wrap">
-                      {participant?.avatar_url ? (
-                        <img src={participant.avatar_url} alt={name} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', display: 'block' }} />
-                      ) : (
-                        <div className="avatar-fallback" style={{ width: '100%', height: '100%', borderRadius: '50%', background: '#24211e', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
-                          {name.slice(0, 2).toUpperCase()}
-                        </div>
-                      )}
+                      <ConversationAvatar url={participant?.avatar_url} name={name} size={46} fontSize={14} />
                       {isItemOnline && <span className="online-indicator" style={{ position: 'absolute', bottom: 2, right: 2, width: 10, height: 10, borderRadius: '50%', background: '#4ec1a0', border: '2px solid #fff' }} />}
                     </div>
                     <div className="contact-info">
@@ -879,12 +960,13 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
               <div className="chat-header-avatar-wrap">
                 {isElie ? (
                   <ElieIcon size={34} state={thinkingState !== null ? 'thinking' : 'default'} />
-                ) : activeConversation?.participant?.avatar_url ? (
-                  <img src={activeConversation.participant.avatar_url} alt="Avatar" style={{ width: 34, height: 34, borderRadius: '50%', objectFit: 'cover' }} />
                 ) : (
-                  <div className="avatar-fallback" style={{ width: 34, height: 34, borderRadius: '50%', background: '#24211e', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {activeConversation?.participant?.full_name?.slice(0, 2).toUpperCase() || 'VA'}
-                  </div>
+                  <ConversationAvatar
+                    url={activeConversation?.participant?.avatar_url}
+                    name={activeConversation?.participant?.full_name || activeConversation?.participant?.username || 'User'}
+                    size={34}
+                    fontSize={12}
+                  />
                 )}
               </div>
               <div>
@@ -1154,12 +1236,13 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
             <>
               {/* Profile details */}
               <div className="profile-block" style={{ padding: '24px 20px', textAlign: 'center' }}>
-                <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#24211e', color: '#fff', margin: '0 auto 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', fontWeight: 'bold' }}>
-                  {activeConversation?.participant?.avatar_url ? (
-                    <img src={activeConversation.participant.avatar_url} alt="Profile" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
-                  ) : (
-                    activeConversation?.participant?.full_name?.slice(0, 2).toUpperCase() || 'VA'
-                  )}
+                <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#24211e', color: '#fff', margin: '0 auto 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', fontWeight: 'bold', overflow: 'hidden' }}>
+                  <ConversationAvatar
+                    url={activeConversation?.participant?.avatar_url}
+                    name={activeConversation?.participant?.full_name || activeConversation?.participant?.username || 'User'}
+                    size={64}
+                    fontSize={20}
+                  />
                 </div>
                 <h4 style={{ margin: '0 0 4px', fontSize: '16px' }}>{activeConversation?.participant?.full_name || 'VaRoom User'}</h4>
                 <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-gray)' }}>@{activeConversation?.participant?.username || 'user'}</p>
