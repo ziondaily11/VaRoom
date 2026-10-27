@@ -1,0 +1,58 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+
+const root = path.join(__dirname, '..');
+const pagePath = path.join(root, 'pages', 'client-home.tsx');
+const legacyHomePath = path.join(root, 'legacy-pages', 'client-home.html');
+const catchAllPath = path.join(root, 'pages', '[...slug].js');
+
+test('native Client Home shell uses the shared ClientLayout without rendering a duplicate sidebar', () => {
+  const source = fs.readFileSync(pagePath, 'utf8');
+
+  assert.match(source, /import ClientLayout from '\.\.\/components\/ClientLayout';/);
+  assert.match(source, /ClientHome\.getLayout[\s\S]*?<ClientLayout activeNav="home">\{page\}<\/ClientLayout>/);
+  assert.doesNotMatch(source, /SharedClientSidebar/);
+  assert.doesNotMatch(source, /<aside[^>]+(?:id|className)=["'][^"']*sidebar/);
+});
+
+test('native Client Home shell preserves the legacy column and responsive breakpoints', () => {
+  const source = fs.readFileSync(pagePath, 'utf8');
+
+  assert.match(source, /grid-template-columns:minmax\(620px,1\.3fr\) 1px minmax\(380px,1fr\)/);
+  assert.match(source, /@media\(max-width:1360px\)/);
+  assert.match(source, /@media\(max-width:1100px\)/);
+  assert.match(source, /@media\(max-width:860px\)/);
+  assert.match(source, /overflow-y:auto/);
+});
+
+test('legacy Client Home remains present as the rollback reference during shell migration', () => {
+  assert.equal(fs.existsSync(legacyHomePath), true);
+  const catchAll = fs.readFileSync(catchAllPath, 'utf8');
+  assert.match(catchAll, /client-home\.html/);
+  assert.match(catchAll, /'client-home\.html'\]\.includes\(file\)/);
+});
+
+test('native Client Home delegates feed storage and pagination to the established cache contract', () => {
+  const source = fs.readFileSync(pagePath, 'utf8');
+  assert.match(source, /loadListingFeedCache/);
+  assert.match(source, /cacheRef\.current\.snapshot/);
+  assert.match(source, /cacheRef\.current\.fetchPage/);
+  assert.match(source, /cacheRef\.current\.prefetchNext/);
+  assert.match(source, /cacheRef\.current\.revalidate/);
+  assert.match(source, /\['client',user\.id,view,category,interests/);
+});
+
+test('native Client Home preserves the legacy saved, likes, report, lazy media, carousel, and lightbox contracts', () => {
+  const source = fs.readFileSync(pagePath, 'utf8');
+  assert.match(source, /\.in\('id',Array\.from\(saved\)\)/);
+  assert.match(source, /get_listing_like_summaries/);
+  assert.match(source, /set_listing_like/);
+  assert.match(source, /\/api\/listing-reports/);
+  assert.match(source, /\/api\/discover\/video-media/);
+  assert.match(source, /IntersectionObserver/);
+  assert.match(source, /onPointerDown/);
+  assert.match(source, /ArrowLeft/);
+  assert.match(source, /document\.body\.style\.overflow='hidden'/);
+});
