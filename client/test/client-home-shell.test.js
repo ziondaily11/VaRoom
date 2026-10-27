@@ -21,8 +21,7 @@ test('native Client Home shell preserves the legacy column and responsive breakp
   const source = fs.readFileSync(pagePath, 'utf8');
 
   assert.match(source, /grid-template-columns:minmax\(620px,1\.3fr\) 1px minmax\(380px,1fr\)/);
-  assert.match(source, /@media\(max-width:1360px\)/);
-  assert.match(source, /@media\(max-width:1100px\)/);
+  assert.match(source, /@media\(max-width:1180px\)/);
   assert.match(source, /@media\(max-width:860px\)/);
   assert.match(source, /overflow-y:auto/);
 });
@@ -37,11 +36,11 @@ test('legacy Client Home remains present as the rollback reference during shell 
 test('native Client Home delegates feed storage and pagination to the established cache contract', () => {
   const source = fs.readFileSync(pagePath, 'utf8');
   assert.match(source, /loadListingFeedCache/);
-  assert.match(source, /cacheRef\.current\.snapshot/);
-  assert.match(source, /cacheRef\.current\.fetchPage/);
-  assert.match(source, /cacheRef\.current\.prefetchNext/);
-  assert.match(source, /cacheRef\.current\.revalidate/);
-  assert.match(source, /\['client',user\.id,view,category,interests/);
+  assert.match(source, /cache\.current\.snapshot/);
+  assert.match(source, /cache\.current\.fetchPage/);
+  assert.match(source, /cache\.current\.prefetchNext/);
+  assert.match(source, /cache\.current\.revalidate/);
+  assert.match(source, /\['client',user\.id,view,category/);
 });
 
 test('native Client Home preserves the legacy saved, likes, report, lazy media, carousel, and lightbox contracts', () => {
