@@ -14,7 +14,7 @@ test('native Client Home shell uses the shared ClientLayout without rendering a 
   const source = fs.readFileSync(pagePath, 'utf8');
 
   assert.match(source, /import ClientLayout from '\.\.\/components\/ClientLayout';/);
-  assert.match(source, /ClientHome\.getLayout[\s\S]*?<ClientLayout activeNav="home">\{page\}<\/ClientLayout>/);
+  assert.match(source, /ClientHome\.getLayout[\s\S]*?<ClientLayout activeNav="home">[\s\S]*?\{page\}[\s\S]*?<\/ClientLayout>/);
   assert.doesNotMatch(source, /SharedClientSidebar/);
   assert.doesNotMatch(source, /<aside[^>]+(?:id|className)=["'][^"']*sidebar/);
 });
@@ -62,8 +62,8 @@ test('native Client Home confines the ambient layer to a bounded, natural-ratio 
   const source = fs.readFileSync(pagePath, 'utf8');
 
   assert.match(source, /function mediaFrame\(/);
-  assert.match(source, /fallbackWidth=Math\.min\(available,414\)/);
-  assert.match(source, /maxHeight=mobile\?Math\.min\(560,available\*1\.6\):460/);
+  assert.match(source, /fallbackWidth=Math\.min\(available,666\)/);
+  assert.match(source, /maxHeight=mobile\?Math\.min\(560,available\*1\.6\):500/);
   assert.match(source, /className="listing-media-stage client-home-carousel"/);
   assert.match(source, /className="listing-media-ambient client-home-slide-ambient"/);
   assert.match(source, /className="client-home-slide-track"/);
@@ -74,6 +74,20 @@ test('native Client Home confines the ambient layer to a bounded, natural-ratio 
   assert.match(source, /className="client-home-card-head"/);
   assert.match(source, /className="client-home-caption"/);
   assert.doesNotMatch(source, /<i aria-hidden style=\{ambient\}/);
+});
+
+test('native Client Home cards retain the approved middle-feed composition', () => {
+  const source = fs.readFileSync(pagePath, 'utf8');
+
+  assert.match(source, /client-home-card-body/);
+  assert.match(source, /client-home-caption/);
+  assert.match(source, /client-home-actions/);
+  assert.match(source, /client-home-action/);
+  assert.match(source, /CalendarIcon/);
+  assert.match(source, /ChatIcon/);
+  assert.match(source, /BookmarkIcon/);
+  assert.match(source, /width: min\(100%, 666px\)/);
+  assert.match(source, /border-radius: 20px/);
 });
 
 test('Client Home redirects to onboarding only after an explicit successful profile result', () => {
