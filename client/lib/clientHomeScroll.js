@@ -1,5 +1,16 @@
 const MOBILE_SCROLL_QUERY = '(max-width: 860px)';
 
+function isClientHomePageExit(currentUrl, nextUrl) {
+  const pathname = (value) => {
+    try {
+      return new URL(value, 'http://varoom.local').pathname.replace(/\/+$/, '') || '/';
+    } catch {
+      return '';
+    }
+  };
+  return pathname(currentUrl) === '/client-home' && pathname(nextUrl) !== '/client-home';
+}
+
 function isDocumentScroll(windowObject) {
   return windowObject.matchMedia(MOBILE_SCROLL_QUERY).matches;
 }
@@ -87,6 +98,7 @@ function preserveAnchorPosition(windowObject, feedElement, position, onUserScrol
 
 module.exports = {
   captureScrollPosition,
+  isClientHomePageExit,
   preserveAnchorPosition,
   restoreScrollPosition,
 };

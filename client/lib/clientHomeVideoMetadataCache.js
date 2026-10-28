@@ -1,8 +1,11 @@
 const STORAGE_PREFIX = 'varoom:client-home:video-metadata:v1:';
 const MAX_AGE_MS = 5 * 60 * 1000;
+const PLAYBACK_EXPIRY_MARGIN_MS = 30 * 1000;
 const memory = new Map();
+const playbackMemory = new Map();
 const MAX_ENTRIES = 250;
 const requests = new Map();
+const playbackRequests = new Map();
 
 function storageKey(accountId) {
   return `${STORAGE_PREFIX}${encodeURIComponent(accountId)}`;
@@ -107,8 +110,56 @@ function fetchClientHomeVideoMetadata(storage, accountId, listingIds, loader) {
   return request.then((metadata) => ({ ...cached, ...metadata }));
 }
 
+function getClientHomePlayback(accountId, mediaId) {
+  if (!accountId || !mediaId) return null;
+  const key = `${accountId}:${mediaId}`;
+  const entry = playbackMemory.get(key);
+  if (!entry || entry.expiresAt <= Date.now() + PLAYBACK_EXPIRY_MARGIN_MS) {
+    playbackMemory.delete(key);
+    return null;
+  }
+  playbackMemory.delete(key);
+  playbackMemory.set(key, entry);
+  return entry.playback;
+}
+
+function resolveClientHomePlayback(accountId, mediaId, loader) {
+  const cached = getClientHomePlayback(accountId, mediaId);
+  if (cached) return Promise.resolve(cached);
+  const key = `${accountId}:${mediaId}`;
+  let request = playbackRequests.get(key);
+  if (!request) {
+    request = Promise.resolve()
+      .then(loader)
+      .then((playback) => {
+        if (!playback || typeof playback.url !== 'string' || playback.url.length === 0) {
+          throw new Error('Video playback response did not include a URL.');
+        }
+        const expiresAt = Date.parse(playback.expiresAt);
+        if (Number.isFinite(expiresAt) && expiresAt > Date.now() + PLAYBACK_EXPIRY_MARGIN_MS) {
+          playbackMemory.set(key, {
+            playback,
+            expiresAt,
+          });
+          while (playbackMemory.size > MAX_ENTRIES) {
+            playbackMemory.delete(playbackMemory.keys().next().value);
+          }
+        }
+        return playback;
+      });
+    playbackRequests.set(key, request);
+    request.then(
+      () => { if (playbackRequests.get(key) === request) playbackRequests.delete(key); },
+      () => { if (playbackRequests.get(key) === request) playbackRequests.delete(key); },
+    );
+  }
+  return request;
+}
+
 module.exports = {
   fetchClientHomeVideoMetadata,
+  getClientHomePlayback,
   readClientHomeVideoMetadata,
+  resolveClientHomePlayback,
   writeClientHomeVideoMetadata,
 };

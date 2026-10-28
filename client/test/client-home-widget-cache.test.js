@@ -111,6 +111,19 @@ test('Property News reuses its existing list cache while explicit Refresh forces
   assert.match(source, /setCachedNewsList\(result as PropertyNewsItem\[\]\)/);
   assert.match(source, /onClick=\{\(\) => \{ void loadNews\(true\); \}\}>Refresh/);
   assert.match(source, /if \(cached\.isFresh && !force\) return/);
+  assert.match(source, /cache: force \? 'no-store' : 'default'/);
   assert.match(source, /requestVersion !== newsRequestVersion\.current \|\| resolvedSessionUserId\.current !== accountId/);
   assert.match(source, /useIsomorphicLayoutEffect\(\(\) => \{[\s\S]*?readClientHomeWidgetCache\(storage, 'destinations'\)[\s\S]*?getCachedNewsList\(\)/);
+});
+
+test('Property News failures preserve visible articles and explicit refresh is browser-local', () => {
+  const loadNewsStart = source.indexOf('const loadNews = useCallback(async (force = false) => {');
+  const loadNewsEnd = source.indexOf('\n  }, [user?.id]);', loadNewsStart);
+  const loadNews = source.slice(loadNewsStart, loadNewsEnd);
+  assert.ok(loadNewsStart >= 0 && loadNewsEnd > loadNewsStart);
+  assert.match(loadNews, /catch \(newsError\)[\s\S]*?setNewsFailed\(true\)/);
+  assert.doesNotMatch(loadNews, /catch \(newsError\)[\s\S]*?setNews\(\[\]\)/);
+  assert.match(loadNews, /if \(requestVersion !== newsRequestVersion\.current \|\| resolvedSessionUserId\.current !== accountId\) return/);
+  assert.match(loadNews, /setCachedNewsList\(result as PropertyNewsItem\[\]\)/);
+  assert.doesNotMatch(loadNews, /BroadcastChannel|dispatchEvent|localStorage\.removeItem|clearPropertyNewsCache/);
 });
