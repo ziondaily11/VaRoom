@@ -70,7 +70,7 @@ export function getCachedNewsList(currentUserId?: string | null): CachedNewsList
   const now = Date.now();
 
   // Check in-memory store first
-  if (inMemoryStore.items && inMemoryStore.items.length > 0) {
+  if (inMemoryStore.items) {
     if (!currentUserId || inMemoryStore.userId === currentUserId || !inMemoryStore.userId) {
       const age = now - inMemoryStore.timestamp;
       return {
