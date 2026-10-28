@@ -4,7 +4,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 const {
   fetchClientHomeVideoMetadata,
+  getClientHomePlayback,
   readClientHomeVideoMetadata,
+  resolveClientHomePlayback,
   writeClientHomeVideoMetadata,
 } = require('../lib/clientHomeVideoMetadataCache');
 
@@ -73,10 +75,62 @@ test('concurrent metadata discovery is deduplicated and failed discovery is not 
   assert.deepEqual(readClientHomeVideoMetadata(storage, 'account-failure', ['listing-f']), {});
 });
 
-test('Client Home reuses metadata but resolves a fresh playback URL for each mounted video', () => {
+test('a valid playback response is reused in memory for its account until shortly before expiry', async () => {
+  const originalNow = Date.now;
+  const now = 1_800_000_000_000;
+  let calls = 0;
+  const playback = {
+    url: 'https://signed.invalid/video?signature=secret',
+    thumbnailUrl: 'https://signed.invalid/thumbnail?signature=secret',
+    expiresAt: new Date(now + 4 * 60 * 1000).toISOString(),
+  };
+  try {
+    Date.now = () => now;
+    const first = await resolveClientHomePlayback('account-playback', 'media-playback', async () => {
+      calls += 1;
+      return playback;
+    });
+    const second = await resolveClientHomePlayback('account-playback', 'media-playback', async () => {
+      calls += 1;
+      return playback;
+    });
+    assert.equal(first.url, playback.url);
+    assert.equal(second.url, playback.url);
+    assert.equal(calls, 1);
+    assert.equal(getClientHomePlayback('account-other', 'media-playback'), null);
+    assert.equal(getClientHomePlayback('account-playback', 'media-playback').url, playback.url);
+
+    Date.now = () => now + 3 * 60 * 1000 + 31 * 1000;
+    assert.equal(getClientHomePlayback('account-playback', 'media-playback'), null);
+  } finally {
+    Date.now = originalNow;
+  }
+});
+
+test('playback responses without a safe expiry are usable but are not retained', async () => {
+  const originalNow = Date.now;
+  const now = 1_810_000_000_000;
+  let calls = 0;
+  try {
+    Date.now = () => now;
+    const loader = async () => {
+      calls += 1;
+      return { url: 'https://signed.invalid/no-expiry' };
+    };
+    await resolveClientHomePlayback('account-no-expiry', 'media-no-expiry', loader);
+    await resolveClientHomePlayback('account-no-expiry', 'media-no-expiry', loader);
+    assert.equal(calls, 2);
+  } finally {
+    Date.now = originalNow;
+  }
+});
+
+test('Client Home reuses metadata and resolves playback through the expiry-aware cache', () => {
   assert.match(source, /fetchClientHomeVideoMetadata\(\s*getSessionStorageSafe\(\),\s*accountId,\s*batch/);
+  assert.match(source, /resolveClientHomePlayback\(accountId, mediaId/);
   assert.match(source, /\/api\/media\/\$\{encodeURIComponent\(mediaId\)\}\/playback/);
   assert.match(source, /resolvedSessionUserId\.current === accountId/);
   assert.match(source, /authEpoch\.current === requestEpoch/);
   assert.doesNotMatch(fs.readFileSync(path.join(__dirname, '..', 'lib', 'clientHomeVideoMetadataCache.js'), 'utf8'), /playbackUrl|signedUrl/);
+  assert.match(fs.readFileSync(path.join(__dirname, '..', 'lib', 'clientHomeVideoMetadataCache.js'), 'utf8'), /PLAYBACK_EXPIRY_MARGIN_MS = 30 \* 1000/);
 });

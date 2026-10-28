@@ -4,11 +4,18 @@ const fs = require('node:fs');
 const path = require('node:path');
 const {
   captureScrollPosition,
+  isClientHomePageExit,
   preserveAnchorPosition,
   restoreScrollPosition,
 } = require('../lib/clientHomeScroll');
 
 const pageSource = fs.readFileSync(path.join(__dirname, '..', 'pages', 'client-home.tsx'), 'utf8');
+
+test('Client Home tab changes are distinct from leaving the page', () => {
+  assert.equal(isClientHomePageExit('/client-home?view=home', '/client-home?view=saved'), false);
+  assert.equal(isClientHomePageExit('/client-home', '/notifications'), true);
+  assert.equal(isClientHomePageExit('/client-home', '/bookings?status=upcoming'), true);
+});
 
 test('desktop restoration uses the independently scrolling feed container', () => {
   const feed = {
@@ -202,8 +209,16 @@ test('mobile document scrolling and desktop feed scrolling both persist their po
   assert.match(pageSource, /node\.addEventListener\('scroll', saveScroll/);
   assert.match(pageSource, /window\.addEventListener\('scroll', saveScroll/);
   assert.match(pageSource, /captureScrollPosition\(window, node\)/);
-  assert.match(pageSource, /return \(\) => \{\s*saveScroll\(\);\s*node\.removeEventListener\('scroll', saveScroll/);
-  assert.match(pageSource, /router\.events\.on\('routeChangeStart', saveBeforeNavigation\)/);
+  assert.match(pageSource, /return \(\) => \{\s*if \(!leavingClientHome\.current\) saveScroll\(\);\s*node\.removeEventListener\('scroll', saveScroll/);
+  assert.match(pageSource, /router\.events\.on\('routeChangeStart', handleRouteStart\)/);
+});
+
+test('a Next.js top-scroll during page departure cannot overwrite the saved mobile feed position', () => {
+  assert.match(pageSource, /const leavingClientHome = useRef\(false\)/);
+  assert.match(pageSource, /if \(leavingClientHome\.current\) return;\s*try \{\s*sessionStorage\.setItem/);
+  assert.match(pageSource, /saveBeforeNavigation\(\);\s*leavingClientHome\.current = isClientHomePageExit\(router\.asPath, nextUrl\)/);
+  assert.match(pageSource, /if \(!leavingClientHome\.current\) saveScroll\(\)/);
+  assert.match(pageSource, /router\.events\.on\('routeChangeError', handleRouteError\)/);
 });
 
 test('scroll intent cancels a late scheduled restoration', () => {

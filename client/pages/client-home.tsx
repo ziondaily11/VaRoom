@@ -12,10 +12,10 @@ import type { PropertyNewsItem } from '../lib/propertyNewsCache';
 
 const { resolveClientHomeProfile } = require('../lib/clientHomeAccount');
 const { getClientHomeSupabaseConfig } = require('../lib/clientHomeSupabase');
-const { captureScrollPosition, preserveAnchorPosition, restoreScrollPosition } = require('../lib/clientHomeScroll');
+const { captureScrollPosition, isClientHomePageExit, preserveAnchorPosition, restoreScrollPosition } = require('../lib/clientHomeScroll');
 const { readClientHomeProfileSnapshot, writeClientHomeProfileSnapshot } = require('../lib/clientHomeProfileSnapshot');
 const { fetchClientHomeWidget, readClientHomeWidgetCache, writeClientHomeWidgetCache } = require('../lib/clientHomeWidgetCache');
-const { fetchClientHomeVideoMetadata } = require('../lib/clientHomeVideoMetadataCache');
+const { fetchClientHomeVideoMetadata, resolveClientHomePlayback } = require('../lib/clientHomeVideoMetadataCache');
 const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 const select = 'id,title,description,location_text,category,verified,availability_status,created_at,host_id,host:profiles!listings_host_id_fkey(full_name,verified,avatar_url,username),listing_photos(storage_path,width,height)';
@@ -805,6 +805,7 @@ export default function ClientHome() {
   const scrollRestorationVersion = useRef(0);
   const scrollInteractionVersion = useRef(0);
   const anchorObserverCleanup = useRef<(() => void) | null>(null);
+  const leavingClientHome = useRef(false);
   const pendingVideoIds = useRef(new Set<string>());
   const videoTimer = useRef<number | null>(null);
   const toastTimer = useRef<number | null>(null);
@@ -1279,9 +1280,11 @@ export default function ClientHome() {
           dimensions: { width?: number | null; height?: number | null },
         ) => {
           try {
-            const playbackResponse = await fetch(`/api/media/${encodeURIComponent(mediaId)}/playback`, { headers });
-            if (!playbackResponse.ok) throw new Error(`Video playback lookup returned ${playbackResponse.status}.`);
-            const playback = await playbackResponse.json();
+            const playback = await resolveClientHomePlayback(accountId, mediaId, async () => {
+              const playbackResponse = await fetch(`/api/media/${encodeURIComponent(mediaId)}/playback`, { headers });
+              if (!playbackResponse.ok) throw new Error(`Video playback lookup returned ${playbackResponse.status}.`);
+              return playbackResponse.json();
+            });
             if (!playback?.url) throw new Error('Video playback did not include a URL.');
             if (!isCurrent()) return;
             setVideos((current) => ({
@@ -1454,6 +1457,7 @@ export default function ClientHome() {
     const node = feed.current;
     if (!node || !key) return;
     const saveScroll = () => {
+      if (leavingClientHome.current) return;
       try {
         sessionStorage.setItem(`varoom:listings:scroll:${key}`, JSON.stringify({
           ...captureScrollPosition(window, node),
@@ -1467,16 +1471,25 @@ export default function ClientHome() {
       anchorObserverCleanup.current = null;
       saveScroll();
     };
+    const handleRouteStart = (nextUrl: string) => {
+      saveBeforeNavigation();
+      leavingClientHome.current = isClientHomePageExit(router.asPath, nextUrl);
+    };
+    const handleRouteError = () => {
+      leavingClientHome.current = false;
+    };
     node.addEventListener('scroll', saveScroll, { passive: true });
     window.addEventListener('scroll', saveScroll, { passive: true });
     window.addEventListener('pagehide', saveScroll);
-    router.events.on('routeChangeStart', saveBeforeNavigation);
+    router.events.on('routeChangeStart', handleRouteStart);
+    router.events.on('routeChangeError', handleRouteError);
     return () => {
-      saveScroll();
+      if (!leavingClientHome.current) saveScroll();
       node.removeEventListener('scroll', saveScroll);
       window.removeEventListener('scroll', saveScroll);
       window.removeEventListener('pagehide', saveScroll);
-      router.events.off('routeChangeStart', saveBeforeNavigation);
+      router.events.off('routeChangeStart', handleRouteStart);
+      router.events.off('routeChangeError', handleRouteError);
     };
   }, [key, router]);
 
@@ -1632,6 +1645,7 @@ export default function ClientHome() {
       const response = await fetch('/api/news/latest?limit=5', {
         headers: { Accept: 'application/json' },
         signal: controller.signal,
+        cache: force ? 'no-store' : 'default',
       });
       if (!response.ok) throw new Error(`Property News request returned ${response.status}.`);
       const result = await response.json();
