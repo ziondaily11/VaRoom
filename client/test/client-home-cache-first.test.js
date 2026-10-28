@@ -22,8 +22,8 @@ test('returning to Client Home restores loading state before clearing the old fe
 test('the account and authoritative profile filters are known before cached feed access', () => {
   const userIndex = sessionResolution.indexOf('setUser(account.user)');
   const interestIndex = sessionResolution.indexOf('setInterests(nextInterests)');
-  const feedReadyIndex = sessionResolution.indexOf('setFeedReady(true)');
-  const bookmarkIndex = sessionResolution.indexOf("from('bookmarks')");
+  const feedReadyIndex = sessionResolution.indexOf('setFeedReady(true)', interestIndex);
+  const bookmarkIndex = sessionResolution.indexOf("from('bookmarks')", feedReadyIndex);
   assert.ok(userIndex >= 0 && interestIndex > userIndex);
   assert.ok(feedReadyIndex > interestIndex);
   assert.ok(bookmarkIndex > feedReadyIndex);

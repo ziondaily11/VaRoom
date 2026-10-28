@@ -10,7 +10,8 @@ import { loadListingFeedCache, type ListingFeedCache } from '../lib/listingFeedC
 
 const { resolveClientHomeProfile } = require('../lib/clientHomeAccount');
 const { getClientHomeSupabaseConfig } = require('../lib/clientHomeSupabase');
-const { captureScrollPosition, restoreScrollPosition } = require('../lib/clientHomeScroll');
+const { captureScrollPosition, preserveAnchorPosition, restoreScrollPosition } = require('../lib/clientHomeScroll');
+const { readClientHomeProfileSnapshot, writeClientHomeProfileSnapshot } = require('../lib/clientHomeProfileSnapshot');
 const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 const select = 'id,title,description,location_text,category,verified,availability_status,created_at,host_id,host:profiles!listings_host_id_fkey(full_name,verified,avatar_url,username),listing_photos(storage_path,width,height)';
@@ -790,6 +791,7 @@ export default function ClientHome() {
   const restoredScrollKey = useRef('');
   const scrollRestorationVersion = useRef(0);
   const scrollInteractionVersion = useRef(0);
+  const anchorObserverCleanup = useRef<(() => void) | null>(null);
   const pendingVideoIds = useRef(new Set<string>());
   const videoTimer = useRef<number | null>(null);
   const toastTimer = useRef<number | null>(null);
@@ -893,15 +895,33 @@ export default function ClientHome() {
         return;
       }
 
-      const profileResult = await client
+      let cachedProfile = null;
+      try {
+        cachedProfile = readClientHomeProfileSnapshot(window.sessionStorage, sessionUser.id);
+      } catch (cacheError) {
+        console.warn('Client Home profile snapshot could not be read:', cacheError);
+      }
+      if (cachedProfile) {
+        setUser(sessionUser);
+        setInterests(cachedProfile.looking_timeline === 'soon'
+          ? cachedProfile.interested_categories.map((value: string) => value.trim().toLowerCase()).filter(Boolean)
+          : []);
+        setFeedReady(true);
+      }
+
+      const profileRequest = client
         .from('profiles')
         .select('role,onboarding_completed,interested_categories,looking_timeline')
         .eq('id', sessionUser.id)
         .maybeSingle();
+      const profileResult = await profileRequest;
       if (!active || epoch !== authEpoch.current) return;
       const account = resolveClientHomeProfile(session, profileResult);
       if (account.kind === 'profile-error') {
         setUser(account.user);
+        setFeedReady(false);
+        setItems([]);
+        setLoadedFeedKey('');
         setLoading(false);
         setError('Your account information could not be loaded. Please retry.');
         return;
@@ -921,6 +941,11 @@ export default function ClientHome() {
         ? (account.profile.interested_categories || []).map((value: string) => value.trim().toLowerCase()).filter(Boolean)
         : [];
       setInterests(nextInterests);
+      try {
+        writeClientHomeProfileSnapshot(window.sessionStorage, account.user.id, account.profile);
+      } catch (cacheError) {
+        console.warn('Client Home profile snapshot could not be saved:', cacheError);
+      }
 
       setFeedReady(true);
       const bookmarkResult = await client.from('bookmarks').select('listing_id').eq('client_id', account.user.id);
@@ -1297,15 +1322,19 @@ export default function ClientHome() {
     };
     window.addEventListener('wheel', markScrollIntent, { passive: true });
     window.addEventListener('touchstart', markScrollIntent, { passive: true });
+    window.addEventListener('pointerdown', markScrollIntent, { passive: true });
     window.addEventListener('keydown', markKeyboardScrollIntent);
     return () => {
+      anchorObserverCleanup.current?.();
+      anchorObserverCleanup.current = null;
       window.removeEventListener('wheel', markScrollIntent);
       window.removeEventListener('touchstart', markScrollIntent);
+      window.removeEventListener('pointerdown', markScrollIntent);
       window.removeEventListener('keydown', markKeyboardScrollIntent);
     };
   }, []);
 
-  useEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     if (!feedReady || !key || loadedFeedKey !== key || loading || error || restoredScrollKey.current === key) return;
     const node = feed.current;
     try {
@@ -1322,8 +1351,19 @@ export default function ClientHome() {
             contextVersion !== feedContextVersion.current ||
             feedContextKey.current !== key) return;
         restoreScrollPosition(window, node, savedPosition);
+        anchorObserverCleanup.current?.();
+        anchorObserverCleanup.current = preserveAnchorPosition(
+          window,
+          node,
+          savedPosition,
+          () => interactionVersion !== scrollInteractionVersion.current,
+        );
       });
-      return () => window.cancelAnimationFrame(frame);
+      return () => {
+        window.cancelAnimationFrame(frame);
+        anchorObserverCleanup.current?.();
+        anchorObserverCleanup.current = null;
+      };
     } catch (restoreError) {
       console.warn('Client Home scroll position could not be restored:', restoreError);
     }
@@ -1341,16 +1381,23 @@ export default function ClientHome() {
         console.warn('Client Home scroll position could not be saved:', saveError);
       }
     };
+    const saveBeforeNavigation = () => {
+      anchorObserverCleanup.current?.();
+      anchorObserverCleanup.current = null;
+      saveScroll();
+    };
     node.addEventListener('scroll', saveScroll, { passive: true });
     window.addEventListener('scroll', saveScroll, { passive: true });
     window.addEventListener('pagehide', saveScroll);
+    router.events.on('routeChangeStart', saveBeforeNavigation);
     return () => {
       saveScroll();
       node.removeEventListener('scroll', saveScroll);
       window.removeEventListener('scroll', saveScroll);
       window.removeEventListener('pagehide', saveScroll);
+      router.events.off('routeChangeStart', saveBeforeNavigation);
     };
-  }, [key]);
+  }, [key, router]);
 
   useEffect(() => {
     if (!ready) return;
