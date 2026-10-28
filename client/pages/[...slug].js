@@ -16,8 +16,7 @@ const { createLegacyPageLifecycle } = require('../lib/legacyPageLifecycle');
 const templateDirectory = path.join(process.cwd(), 'legacy-pages');
 const routeAliases = {
   properties: 'list.html',
-  'landing-page': 'landing page.html',
-  'login.html': 'login.html'
+  'landing-page': 'landing page.html'
 };
 
 function templateForSlug(slug) {
@@ -117,17 +116,17 @@ function parseTemplate(source, isEliePage) {
 export async function getStaticPaths() {
   const templates = fs.readdirSync(templateDirectory)
     .filter((file) => file.endsWith('.html') && file.replace(/\.html$/, '') !== 'privacy')
-    .filter((file) => !['signup-client.html', 'signup-host.html', 'forgot-password.html', 'analytics.html', 'property-news.html', 'notifications.html', 'chats.html'].includes(file));
+    // Native Pages Router routes take ownership of these URLs. Keep their
+    // legacy templates on disk as rollback/reference material, but do not
+    // statically generate a duplicate catch-all route for them.
+    .filter((file) => !['signup-client.html', 'signup-host.html', 'forgot-password.html', 'analytics.html', 'property-news.html', 'notifications.html', 'chats.html', 'client-home.html'].includes(file));
   const paths = templates
     .filter((file) => file !== 'index.html' && file !== 'terms.html')
     .map((file) => ({
       params: { slug: [file.replace(/\.html$/, '').replace(/ /g, '-') ] }
     }));
 
-  paths.push(
-    { params: { slug: ['login.html'] } },
-    { params: { slug: ['properties'] } },
-  );
+  paths.push({ params: { slug: ['properties'] } });
   return { paths, fallback: false };
 }
 

@@ -109,6 +109,11 @@ app.get(['/terms.html', '/legacy-pages/terms.html'], (_req, res) => {
   res.redirect(301, '/terms');
 });
 
+app.get(['/property-news.html', '/legacy-pages/property-news.html'], (req, res) => {
+  const query = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+  res.redirect(301, `/property-news${query}`);
+});
+
 function bearerToken(req) {
   const authHeader = req.headers.authorization || '';
   return authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
@@ -328,7 +333,7 @@ const pageTemplates = {
   '/payments': 'payments.html',
   '/profile-public': 'profile-public.html',
   '/profile': 'profile.html',
-  '/property-news': 'property-news.html',
+
   '/pricing': 'pricing.html',
   '/pricing.html': 'pricing.html',
   '/settings': 'settings.html',

@@ -17,6 +17,14 @@ export interface PropertyNewsItem {
   regulatory_status?: string;
   category?: string;
   image_url?: string;
+  images?: Array<string | { url: string; caption?: string; credit?: string }>;
+  image_urls?: string[];
+  video_url?: string;
+  video_thumbnail?: string;
+  poster?: string;
+  caption?: string;
+  credit?: string;
+  video_caption?: string;
   source?: PropertyNewsSource;
   hasFullBody?: boolean;
 }
@@ -62,7 +70,7 @@ export function getCachedNewsList(currentUserId?: string | null): CachedNewsList
   const now = Date.now();
 
   // Check in-memory store first
-  if (inMemoryStore.items && inMemoryStore.items.length > 0) {
+  if (inMemoryStore.items) {
     if (!currentUserId || inMemoryStore.userId === currentUserId || !inMemoryStore.userId) {
       const age = now - inMemoryStore.timestamp;
       return {
