@@ -15,12 +15,12 @@ const gallery = source.slice(galleryStart, galleryEnd);
 test('video discovery divides queued listings into the server-supported batch limit', () => {
   assert.match(requestVideoMedia, /for \(let offset = 0; offset < ids\.length; offset \+= 24\)/);
   assert.match(requestVideoMedia, /const batch = ids\.slice\(offset, offset \+ 24\)/);
-  assert.match(requestVideoMedia, /batch\.join\(','\)/);
+  assert.match(requestVideoMedia, /missingBatch\.join\(','\)/);
 });
 
 test('compatibility media lookups are limited to an unavailable batch endpoint', () => {
   assert.match(requestVideoMedia, /response\.status === 404 \|\| response\.status === 405/);
-  assert.match(requestVideoMedia, /await loadCompatibility\(batch\)/);
+  assert.match(requestVideoMedia, /Object\.assign\(discovered, await loadCompatibility\(missingBatch\)\)/);
   assert.doesNotMatch(requestVideoMedia, /catch \(lookupError\) \{\s*console\.warn\([^)]*compatibility/);
   assert.doesNotMatch(requestVideoMedia, /response\.status === 400[\s\S]{0,80}loadCompatibility/);
   assert.doesNotMatch(requestVideoMedia, /response\.status === 429[\s\S]{0,80}loadCompatibility/);
@@ -36,7 +36,8 @@ test('batch failures and session initialization failures settle all affected car
 
 test('video discovery and playback responses are validated and each card reaches a terminal state', () => {
   assert.match(requestVideoMedia, /typeof payload\.videoMedia !== 'object' \|\| Array\.isArray\(payload\.videoMedia\)/);
-  assert.match(requestVideoMedia, /typeof mediaId !== 'string' \|\| !mediaId/);
+  assert.match(requestVideoMedia, /typeof mediaId === 'string' && mediaId/);
+  assert.match(requestVideoMedia, /if \(!videoMetadata \|\| !videoMetadata\.mediaId\)/);
   assert.match(requestVideoMedia, /settle\(\[id\], 'none'\)/);
   assert.match(requestVideoMedia, /settle\(\[id\], 'unavailable'\)/);
   assert.match(requestVideoMedia, /if \(!playback\?\.url\) throw new Error/);
@@ -51,7 +52,8 @@ test('successful discovery maps each listing to its media id and playback URL', 
 
 test('missing metadata settles as no video while malformed metadata is unavailable', () => {
   assert.match(requestVideoMedia, /if \(!payload\?\.videoMedia[\s\S]*?throw new Error\('Video media response was invalid\.'\)/);
-  assert.match(requestVideoMedia, /if \(typeof mediaId !== 'string' \|\| !mediaId\) \{\s*settle\(\[id\], 'none'\)/);
+  assert.match(requestVideoMedia, /typeof mediaId === 'string' && mediaId[\s\S]*?: \{ mediaId: null \}/);
+  assert.match(requestVideoMedia, /if \(!videoMetadata \|\| !videoMetadata\.mediaId\) \{\s*settle\(\[id\], 'none'\)/);
   assert.match(requestVideoMedia, /if \(!Array\.isArray\(result\?\.media\)\) throw new Error\('Video media response was invalid\.'\)/);
 });
 
@@ -89,11 +91,13 @@ test('videos that never become ready reach unavailable and timers are cleared on
   assert.match(gallery, /const markVideoFailed = \(\) => \{[\s\S]*?setVideoFailed\(true\)/);
 });
 
-test('returning to Client Home rediscovers videos for the newly mounted feed cards', () => {
+test('returning to Client Home reuses account-scoped metadata before resolving playback again', () => {
   assert.match(source, /const \[videos, setVideos\] = useState<Record<string, Video>>\(\{\}\)/);
   assert.match(source, /const \[videoStates, setVideoStates\] = useState<Record<string, 'loading' \| 'none' \| 'unavailable'>>\(\{\}\)/);
   assert.match(source, /targets\.forEach\(\(target\) => requestVideoMedia\(target\.dataset\.media \|\| ''\)\)/);
   assert.match(source, /observer\.observe\(target\)/);
+  assert.match(requestVideoMedia, /fetchClientHomeVideoMetadata\(/);
+  assert.match(requestVideoMedia, /\/api\/media\/\$\{encodeURIComponent\(mediaId\)\}\/playback/);
   assert.match(gallery, /\}, \[listing\.id, video\?\.url\]\);/);
 });
 

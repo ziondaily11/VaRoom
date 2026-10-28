@@ -87,6 +87,9 @@ test('Phase 4 & 5: State preservation, preview vs. complete article distinction,
 
   // Test initial empty state
   assert.equal(cache.getCachedNewsList(), null);
+  cache.setCachedNewsList([], 'user-empty');
+  assert.deepEqual(cache.getCachedNewsList('user-empty').items, [], 'a successful empty list remains cacheable');
+  cache.clearPropertyNewsCache();
 
   // Test caching list items (previews without full body)
   const mockItems = [
