@@ -132,7 +132,28 @@ function ConversationAvatar({
 
 // AuthedImage: fetches a signed download URL from our API endpoint, then renders the image.
 // The download endpoint returns { url, expiresAt } — it does NOT serve image bytes directly.
-const authedImageCache: Record<string, string> = {};
+//
+// Each entry stores the resolved URL plus an expiry timestamp.
+// Signed R2 URLs expire after ~1 hour; we use a 45-minute TTL to refresh before that happens.
+// Blob object-URLs (optimistic messages) are stored with Infinity so they never expire.
+interface AuthedImageCacheEntry { url: string; expiresAt: number }
+const authedImageCache: Record<string, AuthedImageCacheEntry> = {};
+
+/** Return the cached URL if it exists and has not yet expired; otherwise null. */
+function getCachedImageUrl(id: string): string | null {
+  const entry = authedImageCache[id];
+  if (!entry) return null;
+  if (Date.now() >= entry.expiresAt) { delete authedImageCache[id]; return null; }
+  return entry.url;
+}
+
+/** Persist a resolved URL. Blob URLs get Infinity expiry; signed URLs get a 45-min TTL. */
+function setCachedImageUrl(id: string, url: string): void {
+  authedImageCache[id] = {
+    url,
+    expiresAt: url.startsWith('blob:') ? Infinity : Date.now() + 45 * 60 * 1000,
+  };
+}
 
 function AuthedImage({
   attachmentId,
@@ -149,14 +170,14 @@ function AuthedImage({
   onClick?: () => void;
   onError?: () => void;
 }) {
-  const [src, setSrc] = React.useState<string | null>(authedImageCache[attachmentId] || null);
+  const [src, setSrc] = React.useState<string | null>(getCachedImageUrl(attachmentId));
   const [failed, setFailed] = React.useState(false);
 
   React.useEffect(() => {
-    if (authedImageCache[attachmentId]) {
-      setSrc(authedImageCache[attachmentId]);
-      return;
-    }
+    const cached = getCachedImageUrl(attachmentId);
+    setFailed(false);
+    setSrc(cached);
+    if (cached) return;
     let cancelled = false;
     (async () => {
       try {
@@ -168,7 +189,7 @@ function AuthedImage({
         if (!res.ok) throw new Error('download auth failed');
         const data = await res.json();
         if (data?.url && !cancelled) {
-          authedImageCache[attachmentId] = data.url;
+          setCachedImageUrl(attachmentId, data.url);
           setSrc(data.url);
         }
       } catch {
@@ -192,6 +213,37 @@ function AuthedImage({
   );
 }
 
+
+/** Extension-to-MIME-type map — defined at module level to avoid re-creation per call. */
+const MIME_EXT_MAP: Record<string, string> = {
+  jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
+  gif: 'image/gif', webp: 'image/webp', heic: 'image/heic', heif: 'image/heif',
+  pdf: 'application/pdf', txt: 'text/plain', zip: 'application/zip',
+  doc: 'application/msword',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  xls: 'application/vnd.ms-excel',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+};
+
+function inferMimeType(file: File): string {
+  if (file.type && file.type !== 'application/octet-stream') return file.type;
+  const ext = (file.name.split('.').pop() || '').toLowerCase();
+  return MIME_EXT_MAP[ext] || 'application/octet-stream';
+}
+
+/**
+ * Extends ChatMessage with fields present only during the optimistic-send window.
+ * The optimistic message is replaced by the server-confirmed message after upload.
+ */
+interface OptimisticChatMessage extends ChatMessage {
+  /** True while the upload / persistence request is in-flight. */
+  _optimistic?: boolean;
+  /** Local blob URL created from the selected file for instant display. */
+  _localUrl?: string;
+  /** True when the upload or persistence request failed. */
+  _failed?: boolean;
+}
+
 export default function ChatsPage({ initialConversationId }: { initialConversationId?: string } = {}) {
   const router = useRouter();
 
@@ -203,7 +255,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   // Conversations & Messages
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [activeId, setActiveId] = useState<string | null>(initialConversationId || null);
-  const [messages, setMessagesState] = useState<ChatMessage[]>([]);
+  const [messages, setMessagesState] = useState<(ChatMessage | OptimisticChatMessage)[]>([]);
   const [loadingInbox, setLoadingInbox] = useState<boolean>(true);
   const [loadingMessages, setLoadingMessages] = useState<boolean>(false);
   const [unreadCount, setUnreadCount] = useState<number>(0);
@@ -752,15 +804,43 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   // Upload attachment & send
   const handleUploadAttachment = async (file: File, kind: 'photo' | 'file') => {
     if (!activeId || isUploading) return;
-    setIsUploading(true);
 
+    // --- Optimistic: create a temporary message immediately ---
+    const tempId = `optimistic-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const captionAtSend = previewCaption.trim() || file.name;
+    const localObjectUrl = URL.createObjectURL(file);
+    const tempMsg: OptimisticChatMessage = {
+      id: tempId,
+      conversation_id: activeId,
+      sender_id: userId || '',
+      body: captionAtSend,
+      created_at: new Date().toISOString(),
+      message_type: kind,
+      // attachment is null initially; the image is shown via localObjectUrl below
+      attachment: kind === 'photo' ? ({
+        id: tempId,
+        original_filename: file.name,
+        kind: 'photo',
+        status: 'pending',
+      } as ChatAttachment) : null,
+      _optimistic: true,
+      _localUrl: localObjectUrl,
+    } satisfies OptimisticChatMessage;
+
+    setMessagesState((prev) => [...prev, tempMsg]);
+    setPendingPreviewFile(null);
+    setPreviewCaption('');
+    setTimeout(() => scrollToBottom(true), 50);
+
+    setIsUploading(true);
     try {
+      const fileMimeType = inferMimeType(file);
       // 1. Init upload
       const initRes = await api(`/api/chat/conversations/${encodeURIComponent(activeId)}/attachments/upload-init`, {
         method: 'POST',
         body: JSON.stringify({
           filename: file.name,
-          mimeType: file.type || 'application/octet-stream',
+          mimeType: fileMimeType,
           fileSize: file.size,
           kind: kind,
         }),
@@ -769,7 +849,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
       // 2. Direct PUT to Cloudflare R2
       const putRes = await fetch(initRes.uploadUrl, {
         method: 'PUT',
-        headers: { 'Content-Type': file.type || 'application/octet-stream' },
+        headers: { 'Content-Type': fileMimeType },
         body: file,
       });
       if (!putRes.ok) throw new Error('R2 direct upload failed');
@@ -781,33 +861,38 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
       });
 
       // 4. Send attachment message
-      const captionText = previewCaption.trim() || file.name;
       const res = await api(`/api/chat/conversations/${encodeURIComponent(activeId)}/messages`, {
         method: 'POST',
         body: JSON.stringify({
-          content: captionText,
+          content: captionAtSend,
           attachmentId: initRes.attachmentId,
           messageType: kind,
         }),
       });
 
       if (res?.message && mountedRef.current) {
+        // Replace the optimistic message with the real one; dedup against Realtime
         setMessagesState((prev) => {
-          if (prev.some((m) => m.id === res.message.id)) return prev;
-          return [...prev, res.message];
+          const withoutTemp = prev.filter((m) => m.id !== tempId);
+          if (withoutTemp.some((m) => m.id === res.message.id)) return withoutTemp;
+          return [...withoutTemp, res.message];
         });
         if (userId) {
           appendMessage(userId, activeId, res.message).catch(() => {});
           updateInboxConversation(userId, activeId, { lastMessage: res.message }).catch(() => {});
         }
+        // The persisted message fetches its own signed URL. It must not reuse this
+        // local blob URL, because it is about to be released.
+        URL.revokeObjectURL(localObjectUrl);
         setTimeout(() => scrollToBottom(true), 50);
       }
-
-      setPendingPreviewFile(null);
-      setPreviewCaption('');
     } catch (err) {
       console.error('Attachment upload failed:', err);
-      alert('Unable to send attachment. Please try again.');
+      // Mark optimistic message as failed so the user can dismiss it.
+      setMessagesState((prev) => prev.map((m) => m.id === tempId
+        ? { ...m, _failed: true } as OptimisticChatMessage
+        : m
+      ));
     } finally {
       setIsUploading(false);
     }
@@ -1345,7 +1430,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                       <div className="bubble bubble-media">
                         <div className="chat-media-wrap" style={{ position: 'relative', cursor: 'pointer', borderRadius: '12px', overflow: 'hidden', display: 'inline-block', maxWidth: '280px' }}
                           onClick={() => {
-                            const cachedUrl = authedImageCache[m.attachment!.id];
+                            const cachedUrl = getCachedImageUrl(m.attachment!.id);
                             if (cachedUrl) {
                               setSelectedPhotoPreview({ url: cachedUrl, alt: m.attachment!.original_filename || 'Photo' });
                             } else {
@@ -1358,21 +1443,47 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                                   });
                                   const data = await res.json();
                                   if (data?.url) {
-                                    authedImageCache[m.attachment!.id] = data.url;
+                                    setCachedImageUrl(m.attachment!.id, data.url);
                                     setSelectedPhotoPreview({ url: data.url, alt: m.attachment!.original_filename || 'Photo' });
                                   }
                                 } catch {}
                               })();
                             }
                           }}>
-                          <AuthedImage
-                            attachmentId={m.attachment!.id}
-                            alt={m.attachment!.original_filename || 'Photo'}
-                            style={{ display: 'block', maxWidth: '100%', maxHeight: '280px', objectFit: 'cover' }}
-                          />
+                          {(m as OptimisticChatMessage)._localUrl ? (
+                            <img
+                              src={(m as OptimisticChatMessage)._localUrl}
+                              alt={m.attachment?.original_filename || 'Photo'}
+                              style={{ display: 'block', maxWidth: '100%', maxHeight: '280px', objectFit: 'cover' }}
+                            />
+                          ) : (
+                            <AuthedImage
+                              attachmentId={m.attachment!.id}
+                              alt={m.attachment!.original_filename || 'Photo'}
+                              style={{ display: 'block', maxWidth: '100%', maxHeight: '280px', objectFit: 'cover' }}
+                            />
+                          )}
                         </div>
                         {m.body && m.body !== m.attachment?.original_filename && (
                           <div className="chat-message-caption">{renderMessageBody(m.body)}</div>
+                        )}
+                        {(m as OptimisticChatMessage)._optimistic && !(m as OptimisticChatMessage)._failed && (
+                          <div className="msg-sending">Sending…</div>
+                        )}
+                        {(m as OptimisticChatMessage)._failed && (
+                          <div className="msg-failed">
+                            Failed
+                            <button
+                              type="button"
+                              className="msg-failed-dismiss"
+                              onClick={() => {
+                                // Dismiss: release the blob URL and remove the failed message.
+                                const localUrl = (m as OptimisticChatMessage)._localUrl;
+                                if (localUrl) URL.revokeObjectURL(localUrl);
+                                setMessagesState((prev) => prev.filter((msg) => msg.id !== m.id));
+                              }}
+                            >Dismiss</button>
+                          </div>
                         )}
                         <div className="msg-meta">{timeStr}</div>
                       </div>
@@ -1538,7 +1649,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
 
             {/* Input Toolbar */}
             <div className="input-toolbar">
-              <div className="format-icons" style={{ display: isElie ? 'none' : 'flex' }}>
+              <div className={`format-icons${isElie ? ' format-icons-hidden' : ''}`}>
                 <button type="button" className="fmt-b" aria-label="Bold"
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => { desktopEditorRef.current?.focus(); document.execCommand('bold', false); }}>B</button>
@@ -1730,7 +1841,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                       alt="Media"
                       style={{ width: '100%', height: '70px', objectFit: 'cover', borderRadius: '6px', cursor: 'pointer' }}
                       onClick={() => {
-                        const cachedUrl = authedImageCache[m.attachment!.id];
+                        const cachedUrl = getCachedImageUrl(m.attachment!.id);
                         if (cachedUrl) {
                           setSelectedPhotoPreview({ url: cachedUrl, alt: 'Shared Media' });
                         } else {
@@ -1743,7 +1854,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                               });
                               const data = await res.json();
                               if (data?.url) {
-                                authedImageCache[m.attachment!.id] = data.url;
+                                setCachedImageUrl(m.attachment!.id, data.url);
                                 setSelectedPhotoPreview({ url: data.url, alt: 'Shared Media' });
                               }
                             } catch {}
