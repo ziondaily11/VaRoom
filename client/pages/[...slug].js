@@ -118,7 +118,7 @@ export async function getStaticPaths() {
     .filter((file) => file.endsWith('.html') && file.replace(/\.html$/, '') !== 'privacy')
     // Native Pages Router routes own these URLs. Exclude them from catch-all
     // generation while retaining legacy templates still used elsewhere.
-    .filter((file) => !['signup-client.html', 'signup-host.html', 'forgot-password.html', 'analytics.html', 'notifications.html', 'chats.html', 'client-home.html'].includes(file));
+    .filter((file) => !['signup-client.html', 'signup-host.html', 'forgot-password.html', 'analytics.html', 'chats.html', 'client-home.html'].includes(file));
   const paths = templates
     .filter((file) => file !== 'index.html' && file !== 'terms.html')
     .map((file) => ({
@@ -131,7 +131,7 @@ export async function getStaticPaths() {
 
 export async function getStaticProps({ params }) {
   const slugKey = params && params.slug ? params.slug.join('/') : '';
-  if (['notifications', 'notifications.html', 'property-news', 'chats', 'chats.html', 'chat'].includes(slugKey)) {
+  if (['notifications', 'property-news', 'chats', 'chats.html', 'chat'].includes(slugKey)) {
     return { notFound: true };
   }
   const isElieSlug = slugKey === 'elie' || slugKey === 'elie.html';
