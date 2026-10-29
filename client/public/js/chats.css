@@ -1311,54 +1311,43 @@
     .voice-card .play{ background:var(--rail-bg); }
     .voice-wave span{ background:#1c1c1e; }
 
-    /* ---------- MOBILE COMPOSER (WhatsApp-style interaction) ----------
-       Row 1: notice   Row 2: reply preview   Row 3: attachment tray
-       Row 4: [ text | actions | send ]
-       The rounded "pill" is drawn by ::before behind columns 1-2.               */
+    /* ---------- MOBILE COMPOSER ----------
+       One opaque grid surface owns the input and both action controls. */
     .chat-input-area{
       position:relative;
       display:grid;
       grid-template-columns:minmax(0,1fr) 40px 52px;
-      grid-template-rows:auto auto auto auto;
-      align-items:end;
-      column-gap:0;
+      grid-template-rows:auto auto auto;
+      align-items:center;
+      column-gap:4px;
       flex:0 0 auto;
       margin:0;
-      border:0;
-      background:#fbfbfc;
+      border:1px solid var(--border);
+      border-radius:16px;
+      background:#ffffff;
       padding:8px 10px calc(8px + env(safe-area-inset-bottom,0px));
+      box-shadow:0 1px 2px rgba(20,22,28,.05);
     }
     .chat-control-liquid{
-      grid-column:1 / -1;
-      grid-row:4;
-      display:grid;
-      grid-template-columns:minmax(0,1fr) 40px 52px;
-      align-items:end;
-      gap:0;
-      width:100%;
+      display:contents;
     }
     .chat-control-liquid > .composer-mobile-attach-item{
-      grid-column:2; grid-row:1; width:40px; height:44px; align-self:end;
+      grid-column:2; grid-row:3; width:40px; height:44px; align-self:center;
     }
     .chat-control-liquid > .composer-mobile-send-item{
-      grid-column:3; grid-row:1; justify-self:end; width:44px; height:44px; align-self:end;
+      grid-column:3; grid-row:3; justify-self:end; width:44px; height:44px; align-self:center;
     }
     .composer-desktop-action-anchor{ display:none; }
     /* keyboard is open: small visible gap between composer and keyboard */
     .app-shell.kb-open .chat-input-area{ padding-bottom:8px; }
 
-    .chat-input-area::before{
-      content:""; grid-column:1 / 3; grid-row:4; align-self:stretch; z-index:0;
-      background:#ffffff; border:1px solid var(--border); border-radius:24px;
-      box-shadow:0 1px 2px rgba(20,22,28,.05);
-      pointer-events:none; transition:border-color .15s;
-    }
-    .chat-input-area:focus-within::before{ border-color:var(--mint); }
+    .chat-input-area::before{ display:none; }
+    .chat-input-area:focus-within{ border-color:var(--mint); }
 
     .chat-input-area textarea{
-      grid-column:1; grid-row:4; align-self:end; z-index:1;
+      grid-column:1; grid-row:3; align-self:center; z-index:1;
       width:100%; min-width:0; min-height:44px; height:44px; max-height:min(132px,30dvh);
-      padding:11px 0; margin:0; border:0; outline:none; resize:none;
+      padding:11px 4px 11px 8px; margin:0; border:0; outline:none; resize:none;
       background:transparent; color:#1c1c1e;
       font-size:16px;              /* 16px stops iOS Safari zooming the page on focus */
       line-height:22px;
@@ -1385,7 +1374,7 @@
 
     .attach-icons .send-message{
       display:flex; align-items:center; justify-content:center;
-      grid-column:4; grid-row:1; justify-self:end; align-self:end;
+      grid-column:auto; grid-row:auto; justify-self:end; align-self:center;
       width:44px; height:44px; padding:0; border:0; border-radius:50%;
       background:#e6e8eb; color:#9aa0ab; font-size:19px; cursor:default;
       transition:background .15s,color .15s,transform .1s;
@@ -1439,9 +1428,9 @@
 
     /* host attachment menu (photos / files / listing) */
     .mobile-attach-menu{
-      position:absolute; right:10px; bottom:calc(100% + 6px); z-index:30;
+      position:absolute; right:62px; bottom:calc(100% + 8px); z-index:30;
       display:flex; flex-direction:column; gap:2px;
-      min-width:200px; max-width:calc(100vw - 20px); padding:6px;
+      min-width:200px; max-width:calc(100% - 72px); max-height:50dvh; overflow-y:auto; padding:6px;
       background:#ffffff; border:1px solid var(--border); border-radius:18px;
       box-shadow:0 10px 30px rgba(20,22,28,.16);
     }
