@@ -247,25 +247,11 @@ export default function PropertyNewsPage() {
 
   const scrollRestoredRef = useRef(false);
 
-  // Stage 1: Permanently enforce light theme on Property News regardless of global dark-mode.
-  // Runs on mount to prevent any flash of dark styling. On unmount, restores
-  // the user's saved preference so navigating away applies dark mode correctly.
+  // Stage 1: Enforce light theme while Property News is the active page.
+  // Route transitions to other pages are handled authoritatively by _app.js on routeChangeComplete.
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', 'light');
     document.documentElement.style.colorScheme = 'light';
-
-    return () => {
-      try {
-        const savedTheme = localStorage.getItem('varoom_theme') || 'system';
-        const resolvedTheme = savedTheme === 'system'
-          ? (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-          : savedTheme;
-        if (resolvedTheme !== 'light') {
-          document.documentElement.setAttribute('data-theme', resolvedTheme);
-          document.documentElement.style.colorScheme = resolvedTheme;
-        }
-      } catch { /* silently ignore */ }
-    };
   }, []);
 
   // Determine user dashboard link without altering layout

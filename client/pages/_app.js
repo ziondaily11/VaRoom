@@ -434,10 +434,8 @@ export default function App({ Component, pageProps }) {
     };
 
     applyThemeForRoute(router.asPath || router.pathname);
-    router.events.on('routeChangeStart', applyThemeForRoute);
     router.events.on('routeChangeComplete', applyThemeForRoute);
     return () => {
-      router.events.off('routeChangeStart', applyThemeForRoute);
       router.events.off('routeChangeComplete', applyThemeForRoute);
     };
   }, [router]);
