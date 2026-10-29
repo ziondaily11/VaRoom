@@ -36,7 +36,7 @@ test('native Client Home keeps lifecycle work page-scoped and avoids stale state
 
 test('Host Home retains its page lifecycle and valid inline initializer scripts', () => {
   const catchAll = fs.readFileSync(path.join(root, 'pages', '[...slug].js'), 'utf8');
-  assert.match(catchAll, /\['property-news\.html', 'host-home\.html', 'client-home\.html'\]/);
+  assert.match(catchAll, /\['host-home\.html', 'client-home\.html'\]/);
   assert.match(catchAll, /!\['host-home\.html', 'client-home\.html'\]\.includes\(templateName\)[\s\S]*?VaroomSidebar\.initCounts\(\)/);
   assert.match(catchAll, /pageLifecycle\?\.dispose\(\)/);
 

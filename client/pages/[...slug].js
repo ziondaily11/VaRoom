@@ -118,7 +118,7 @@ export async function getStaticPaths() {
     .filter((file) => file.endsWith('.html') && file.replace(/\.html$/, '') !== 'privacy')
     // Native Pages Router routes own these URLs. Exclude them from catch-all
     // generation while retaining legacy templates still used elsewhere.
-    .filter((file) => !['signup-client.html', 'signup-host.html', 'forgot-password.html', 'analytics.html', 'property-news.html', 'notifications.html', 'chats.html', 'client-home.html'].includes(file));
+    .filter((file) => !['signup-client.html', 'signup-host.html', 'forgot-password.html', 'analytics.html', 'notifications.html', 'chats.html', 'client-home.html'].includes(file));
   const paths = templates
     .filter((file) => file !== 'index.html' && file !== 'terms.html')
     .map((file) => ({
@@ -131,7 +131,7 @@ export async function getStaticPaths() {
 
 export async function getStaticProps({ params }) {
   const slugKey = params && params.slug ? params.slug.join('/') : '';
-  if (['notifications', 'notifications.html', 'property-news', 'property-news.html', 'chats', 'chats.html', 'chat'].includes(slugKey)) {
+  if (['notifications', 'notifications.html', 'property-news', 'chats', 'chats.html', 'chat'].includes(slugKey)) {
     return { notFound: true };
   }
   const isElieSlug = slugKey === 'elie' || slugKey === 'elie.html';
@@ -245,14 +245,6 @@ async function runLegacyScripts(container, scripts, pageLifecycle, templateName)
     await window.VaroomSidebar.initCounts();
   }
 
-  if (templateName === 'property-news.html' && pageLifecycle && pageLifecycle.isActive()) {
-    const initializer = window.VaRoomLegacyPageInitializers
-      && window.VaRoomLegacyPageInitializers.propertyNews;
-    await pageLifecycle.initialize(initializer, {
-      container,
-      search: window.location.search,
-    });
-  }
 }
 
 export default function LegacyPage({ title, markup, scripts, templateName }) {
@@ -261,7 +253,7 @@ export default function LegacyPage({ title, markup, scripts, templateName }) {
 
   useEffect(() => {
     let cancelled = false;
-    const pageLifecycle = ['property-news.html', 'host-home.html', 'client-home.html'].includes(templateName)
+    const pageLifecycle = ['host-home.html', 'client-home.html'].includes(templateName)
       ? createLegacyPageLifecycle()
       : null;
     if (pageLifecycle) {

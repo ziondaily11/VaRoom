@@ -5,6 +5,8 @@ const path = require('node:path');
 
 const root = path.join(__dirname, '..');
 const propertyNewsPath = path.join(root, 'pages', 'property-news.tsx');
+const legacyPropertyNewsPath = path.join(root, 'legacy-pages', 'property-news.html');
+const legacyPropertyNewsScriptPath = path.join(root, 'public', 'js', 'property-news-page.js');
 const clientLayoutPath = path.join(root, 'components', 'ClientLayout.jsx');
 const hostLayoutPath = path.join(root, 'components', 'HostLayout.jsx');
 const slugPath = path.join(root, 'pages', '[...slug].js');
@@ -54,10 +56,43 @@ test('Phase 3: ClientLayout and HostLayout include /property-news in internalRou
   assert.match(hostLayoutSource, /router\.push\(href\)/);
 });
 
-test('Phase 2 & 3: [...slug].js excludes property-news.html from getStaticPaths', () => {
+test('Property News is independent of the retired catch-all template and initializer', () => {
   const slugSource = fs.readFileSync(slugPath, 'utf8');
-  assert.match(slugSource, /'property-news\.html'/);
-  assert.match(slugSource, /!\[.*?property-news\.html.*?\]\.includes\(file\)/);
+  const pageSource = fs.readFileSync(propertyNewsPath, 'utf8');
+
+  assert.equal(fs.existsSync(legacyPropertyNewsPath), false);
+  assert.equal(fs.existsSync(legacyPropertyNewsScriptPath), false);
+  assert.doesNotMatch(slugSource, /property-news\.html/);
+  assert.doesNotMatch(slugSource, /VaRoomLegacyPageInitializers\.propertyNews/);
+  assert.match(pageSource, /export default function PropertyNewsPage/);
+  assert.match(pageSource, /fetch\('\/api\/news\?limit=50'/);
+  assert.match(pageSource, /fetch\(`\/api\/news\/\$\{encodeURIComponent\(id\)\}`/);
+});
+
+test('native Property News provides cached article navigation, loading/error states, and explicit refresh', () => {
+  const source = fs.readFileSync(propertyNewsPath, 'utf8');
+
+  assert.match(source, /getCachedNewsList\(\)/);
+  assert.match(source, /getCachedArticle\(id\)/);
+  assert.match(source, /getCachedPreview\(id\)/);
+  assert.match(source, /setCachedArticle\(id, fullItem\)/);
+  assert.match(source, /<Link[\s\S]*?href=\{`\/property-news\?id=\$\{encodeURIComponent\(/);
+  assert.match(source, /href=\{dashboardHref\}/);
+  assert.match(source, /className="index-loading-grid"/);
+  assert.match(source, /listError/);
+  assert.match(source, /detailError/);
+  assert.match(source, /onClick=\{\(\) => \{ void loadIndexNews\(undefined, true\); \}\}/);
+  assert.match(source, /cache: force \? 'no-store' : 'default'/);
+});
+
+test('Property News shared cache and Host Home API client remain in use', () => {
+  const propertyNewsSource = fs.readFileSync(propertyNewsPath, 'utf8');
+  const clientHomeSource = fs.readFileSync(path.join(root, 'pages', 'client-home.tsx'), 'utf8');
+  const hostHomeSource = fs.readFileSync(path.join(root, 'legacy-pages', 'host-home.html'), 'utf8');
+
+  assert.match(clientHomeSource, /from '\.\.\/lib\/propertyNewsCache'/);
+  assert.match(propertyNewsSource, /from '\.\.\/lib\/propertyNewsCache'/);
+  assert.match(hostHomeSource, /<script src="js\/property-news-api\.js"><\/script>/);
 });
 
 test('Phase 4 & 5: State preservation, preview vs. complete article distinction, and caching logic', async () => {
