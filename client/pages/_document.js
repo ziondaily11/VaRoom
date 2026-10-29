@@ -25,9 +25,11 @@ const themeBootScript = `
 export default class VaRoomDocument extends Document {
   static async getInitialProps(ctx) {
     const initialProps = await Document.getInitialProps(ctx);
+    const requestPath = (ctx.req?.url || ctx.asPath || ctx.pathname || '').split('?')[0];
     return {
       ...initialProps,
-      isChatsRoute: ctx.pathname === '/chats' || ctx.pathname === '/elie',
+      isChatsRoute: requestPath === '/chats' || requestPath === '/elie' ||
+        ctx.pathname === '/chats' || ctx.pathname === '/elie',
     };
   }
 
@@ -36,10 +38,14 @@ export default class VaRoomDocument extends Document {
     return (
       <Html lang="en">
         <Head>
-          {/* Warm the route stylesheet for client-side navigation, and attach it
-              in the initial document for a direct Chats load before React runs. */}
-          <link rel="preload" href="/js/chats.css" as="style" />
-          {isChatsRoute && <link rel="stylesheet" href="/js/chats.css" />}
+          {/* Attach the legacy route styles in the initial document so the first
+              Chats paint is styled before React's route head is hydrated. */}
+          {isChatsRoute && <>
+            <link rel="preload" href="/js/varoom-dark-theme.css" as="style" />
+            <link rel="stylesheet" href="/js/varoom-dark-theme.css" />
+            <link rel="preload" href="/js/chats.css" as="style" />
+            <link rel="stylesheet" href="/js/chats.css" />
+          </>}
           <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
           <style>{`html{background:#FFFFFF;color-scheme:light}html[data-theme="dark"]{background:#000000;color-scheme:dark}body{margin:0;background:#FFFFFF}html[data-theme="dark"] body{background:#000000}`}</style>
         </Head>

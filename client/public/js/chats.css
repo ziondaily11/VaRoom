@@ -1428,7 +1428,7 @@
 
     /* host attachment menu (photos / files / listing) */
     .mobile-attach-menu{
-      position:absolute; right:62px; bottom:calc(100% + 8px); z-index:30;
+      position:absolute; right:calc(52px + 10px); bottom:calc(100% + 8px); z-index:30;
       display:flex; flex-direction:column; gap:2px;
       min-width:200px; max-width:calc(100% - 72px); max-height:50dvh; overflow-y:auto; padding:6px;
       background:#ffffff; border:1px solid var(--border); border-radius:18px;
@@ -1437,11 +1437,15 @@
     .mobile-attach-menu[hidden]{ display:none; }
     .mobile-attach-item{
       display:flex; align-items:center; gap:12px; width:100%; min-height:48px; padding:0 12px 0 8px;
-      border:0; border-radius:12px; background:transparent; color:var(--text-dark);
+      border:0; border-radius:12px; background:transparent; color:var(--ink,#1f2937);
       font:inherit; font-size:14px; font-weight:600; text-align:left; cursor:pointer;
       -webkit-tap-highlight-color:transparent; touch-action:manipulation;
     }
-    .mobile-attach-item:active{ background:var(--bg-soft); }
+    .mobile-attach-item:hover,
+    .mobile-attach-item:focus-visible,
+    .mobile-attach-item:active{ background:var(--bg-soft); color:var(--ink,#111827); }
+    .mobile-attach-item:focus-visible{ outline:2px solid var(--mint); outline-offset:-2px; }
+    .mobile-attach-item:disabled{ color:var(--text-gray-2); cursor:not-allowed; opacity:1; }
     .mobile-attach-item[hidden]{ display:none; }
     .mobile-attach-item .ico{
       width:34px; height:34px; border-radius:50%; flex-shrink:0; font-size:17px;
@@ -1682,6 +1686,11 @@
     [data-theme="dark"] .chat-input-area::before,
     [data-theme="dark"] .mobile-attach-menu,
     [data-theme="dark"] .composer-file { background:#0d0d0d !important; border-color:var(--border) !important; }
+    [data-theme="dark"] .mobile-attach-menu .mobile-attach-item{ color:#f4f4f5; }
+    [data-theme="dark"] .mobile-attach-menu .mobile-attach-item:hover,
+    [data-theme="dark"] .mobile-attach-menu .mobile-attach-item:focus-visible,
+    [data-theme="dark"] .mobile-attach-menu .mobile-attach-item:active{ background:#27272a; color:#ffffff; }
+    [data-theme="dark"] .mobile-attach-menu .mobile-attach-item:disabled{ color:#a1a1aa; }
     [data-theme="dark"] .contact-item:active,
     [data-theme="dark"] .conversation-menu:active { background:rgba(255,255,255,.08) !important; }
     [data-theme="dark"] .chat-header-identity .chat-header-name,
