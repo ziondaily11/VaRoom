@@ -1,5 +1,6 @@
 import Document, { Html, Head, Main, NextScript } from 'next/document';
 import Script from 'next/script';
+const { chatsCssHref, chatsThemeCssHref } = require('../lib/chatsCssAssets');
 
 // This runs before React or a route's legacy markup is painted.  Keeping the
 // resolved theme on <html> avoids the browser painting its default white page
@@ -41,10 +42,10 @@ export default class VaRoomDocument extends Document {
           {/* Attach the legacy route styles in the initial document so the first
               Chats paint is styled before React's route head is hydrated. */}
           {isChatsRoute && <>
-            <link rel="preload" href="/js/varoom-dark-theme.css" as="style" />
-            <link rel="stylesheet" href="/js/varoom-dark-theme.css" />
-            <link rel="preload" href="/js/chats.css" as="style" />
-            <link rel="stylesheet" href="/js/chats.css" />
+            <link rel="preload" href={chatsThemeCssHref} as="style" />
+            <link rel="stylesheet" href={chatsThemeCssHref} />
+            <link rel="preload" href={chatsCssHref} as="style" />
+            <link rel="stylesheet" href={chatsCssHref} />
           </>}
           <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
           <style>{`html{background:#FFFFFF;color-scheme:light}html[data-theme="dark"]{background:#000000;color-scheme:dark}body{margin:0;background:#FFFFFF}html[data-theme="dark"] body{background:#000000}`}</style>

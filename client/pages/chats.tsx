@@ -22,6 +22,8 @@ import ElieComposerBeam from '../components/ElieComposerBeam';
 import ElieIcon from '../components/ElieIcon';
 import { ThinkingOrb } from 'thinking-orbs';
 
+const { chatsCssHref } = require('../lib/chatsCssAssets');
+
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://deaphymimdaygeavhyek.supabase.co';
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRlYXBoeW1pbWRheWdlYXZoeWVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY1MjAwNDQsImV4cCI6MjEwMjA5NjA0NH0.rbgVhuZCK1fZP7gKV5oO1OUvIT61ir23VhAYm8739SI';
 const ELIE_ID = 'elie';
@@ -1010,8 +1012,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
       <Head>
         <title>{activeConversation?.participant?.full_name ? `${activeConversation.participant.full_name} Â· Messages` : 'Messenger Dashboard'}</title>
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-        <link rel="stylesheet" href="/js/varoom-dark-theme.css" />
-        <link rel="stylesheet" href="/js/chats.css" />
+        <link rel="stylesheet" href={chatsCssHref} />
       </Head>
 
       {/* Inline SVG sprite for clean icon resolution */}

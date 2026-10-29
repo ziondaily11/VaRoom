@@ -7,6 +7,7 @@ import AddAccountModal from '../components/AddAccountModal';
 const { getAccountLayout, getSessionBoundCachedRole } = require('../lib/accountRoleLayout');
 import '../styles/admin.css';
 import '../legacy-pages/privacy.css';
+const { chatsThemeCssHref } = require('../lib/chatsCssAssets');
 
 const designTokensStyle = `
   :root {
@@ -575,6 +576,7 @@ export default function App({ Component, pageProps }) {
 
   const path = router.pathname || '';
   const asPath = router.asPath || '';
+  const isChatsRoute = path === '/chats' || path === '/elie';
   const accountLayout = getAccountLayout(path, asPath, role);
 
   const pageElement = <Component {...pageProps} />;
@@ -587,7 +589,7 @@ export default function App({ Component, pageProps }) {
         <link rel="icon" type="image/png" sizes="32x32" href="/favicon/favicon-32.png" />
         <link rel="icon" type="image/png" sizes="16x16" href="/favicon/favicon-16.png" />
         <link rel="apple-touch-icon" sizes="180x180" href="/favicon/favicon-180.png" />
-        <link rel="stylesheet" href="/js/varoom-dark-theme.css" />
+        <link rel="stylesheet" href={isChatsRoute ? chatsThemeCssHref : '/js/varoom-dark-theme.css'} />
         <style dangerouslySetInnerHTML={{ __html: designTokensStyle }} />
         <script dangerouslySetInnerHTML={{ __html: fontSizeScript }} />
       </Head>
