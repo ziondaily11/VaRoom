@@ -5,7 +5,9 @@
     "node": "24.x"
   },
   "scripts": {
+    "predev": "node scripts/generate-chats-css-assets.js",
     "dev": "next dev",
+    "prebuild": "node scripts/generate-chats-css-assets.js",
     "build": "next build",
     "start": "next start",
     "test": "node --test test/*.test.js"
