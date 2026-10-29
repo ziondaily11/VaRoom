@@ -176,11 +176,15 @@ test('media errors leave blocked autoplay and enter the existing error state', a
 });
 
 test('both feed loading overlays release on blocked autoplay and clear on playback or media errors', () => {
-  for (const page of ['client-home.html', 'host-home.html']) {
-    const html = fs.readFileSync(path.join(__dirname, '..', 'legacy-pages', page), 'utf8');
-    assert.match(html, /\.card-video\.is-autoplay-blocked \.media-loading-indicator\{ display:none; pointer-events:none; \}/);
-    assert.match(html, /varoomautoplayblocked[\s\S]*?is-autoplay-blocked/);
-    assert.match(html, /varoomvideoplaying[\s\S]*?remove\('is-autoplay-blocked'\)/);
-    assert.match(html, /function failVideoLoad\(\)\{ if \(stage\) \{ stage\.classList\.remove\('is-autoplay-blocked'\); stage\.classList\.add\('is-failed'\); \} \}/);
-  }
+  const hostHome = fs.readFileSync(path.join(__dirname, '..', 'legacy-pages', 'host-home.html'), 'utf8');
+  const clientHomeCss = fs.readFileSync(path.join(__dirname, '..', 'pages', 'ClientHome.module.css'), 'utf8');
+  assert.match(hostHome, /\.card-video\.is-autoplay-blocked \.media-loading-indicator\{ display:none; pointer-events:none; \}/);
+  assert.match(hostHome, /varoomautoplayblocked[\s\S]*?is-autoplay-blocked/);
+  assert.match(hostHome, /varoomvideoplaying[\s\S]*?remove\('is-autoplay-blocked'\)/);
+  assert.match(hostHome, /function failVideoLoad\(\)\{ if \(stage\) \{ stage\.classList\.remove\('is-autoplay-blocked'\); stage\.classList\.add\('is-failed'\); \} \}/);
+  assert.match(clientHomeCss, /\.mediaAmbient\s*\{|\.mediaLoading\s*\{|\.photoUnavailable\s*\{/);
+  assert.match(playerCss, /is-autoplay-blocked/);
+  assert.match(playerCss, /\.varoom-video-play-retry/);
+  assert.match(playerCss, /\.varoom-video-player\s*\{[\s\S]*?position:\s*relative;/);
+  assert.match(playerCss, /\.varoom-video-player\.is-autoplay-blocked/);
 });

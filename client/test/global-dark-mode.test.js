@@ -74,7 +74,6 @@ test('Legacy pages define consistent true black tokens', () => {
     'booking.html',
     'bookings.html',
     'chats.html',
-    'client-home.html',
     'host-home.html',
     'list.html',
     'map.html',
@@ -106,8 +105,8 @@ test('Light mode tokens remain intact and untouched', () => {
   const appJs = fs.readFileSync(path.join(clientRoot, 'pages', '_app.js'), 'utf8');
   assert.match(appJs, /:root\s*\{[\s\S]*--color-bg:\s*#f7f3ec;[\s\S]*--color-surface:\s*#fffdfb;/, 'Light mode design tokens in _app.js must remain intact');
 
-  const clientHome = fs.readFileSync(path.join(clientRoot, 'legacy-pages', 'client-home.html'), 'utf8');
-  assert.match(clientHome, /:root\{[\s\S]*--white:#FFFFFF;[\s\S]*--paper:#FFFFFF;/, 'Light mode client-home tokens must remain intact');
+  const clientHomeCss = fs.readFileSync(path.join(clientRoot, 'pages', 'ClientHome.module.css'), 'utf8');
+  assert.match(clientHomeCss, /--ink, #0f1419|--muted, #536471/, 'Native Client Home light mode tokens must remain intact');
 });
 
 test('Landing page is exempted from global dark mode and CTA buttons have high contrast', () => {

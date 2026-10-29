@@ -32,8 +32,8 @@ test('native Client Home shell preserves the legacy column and responsive breakp
   assert.match(source, /\.feedArea \{[\s\S]*?overflow-y: auto/);
 });
 
-test('legacy Client Home remains present as the rollback reference during shell migration', () => {
-  assert.equal(fs.existsSync(legacyHomePath), true);
+test('legacy Client Home is retired from disk but retained in catch-all compatibility exclusions', () => {
+  assert.equal(fs.existsSync(legacyHomePath), false);
   const catchAll = fs.readFileSync(catchAllPath, 'utf8');
   assert.match(catchAll, /client-home\.html/);
   assert.match(catchAll, /'client-home\.html'\]\.includes\(file\)/);
