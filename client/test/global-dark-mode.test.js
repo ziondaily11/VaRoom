@@ -89,7 +89,6 @@ test('Legacy pages define consistent true black tokens', () => {
     'list.html',
     'map.html',
     'marketplace.html',
-    'notifications.html',
     'pricing.html',
     'profile.html',
     'settings.html',

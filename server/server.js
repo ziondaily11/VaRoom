@@ -27,6 +27,7 @@ const { createPaystackWebhookRoutes } = require('./routes/paystackWebhookRoutes'
 const { sendRecoveryOtp, sendConfirmationOtp } = require('./lib/authEmail');
 const { permanentlyDeleteAccount } = require('./lib/accountDeletionService');
 const { resolveClientHomeRedirect } = require('./lib/clientHomeRoute');
+const { resolveNotificationsRedirect } = require('./lib/notificationsRoute');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -327,7 +328,6 @@ const pageTemplates = {
   '/elie': 'elie.html',
   '/map': 'map.html',
   '/marketplace': 'marketplace.html',
-  '/notifications': 'notifications.html',
   '/chat-settings': 'chat-settings.html',
   '/onboarding': 'onboarding.html',
   '/payments': 'payments.html',
@@ -345,6 +345,16 @@ const pageTemplates = {
 
 app.get(['/client-home', '/client-home.html'], (req, res) => {
   const redirect = resolveClientHomeRedirect({
+    frontendBaseUrl: process.env.PUBLIC_BASE_URL || process.env.CLIENT_BASE_URL,
+    requestHost: req.get('host'),
+    requestUrl: req.originalUrl,
+  });
+  if (redirect.location) return res.redirect(redirect.status, redirect.location);
+  return res.status(redirect.status).send(redirect.message);
+});
+
+app.get(['/notifications', '/notifications.html', '/legacy-pages/notifications.html'], (req, res) => {
+  const redirect = resolveNotificationsRedirect({
     frontendBaseUrl: process.env.PUBLIC_BASE_URL || process.env.CLIENT_BASE_URL,
     requestHost: req.get('host'),
     requestUrl: req.originalUrl,
