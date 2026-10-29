@@ -1056,3 +1056,13 @@ html:not([data-theme="dark"]) .va-button[data-variant='secondary'] {
 }
 
 
+
+/* ================================================================
+   PROPERTY NEWS EDITORIAL ISOLATION
+   ================================================================ */
+[data-theme="dark"] .property-news-root,
+[data-theme="dark"] .property-news-root main,
+[data-theme="dark"] .property-news-root .newspaper-main {
+  background: #ffffff !important;
+  color: #111111 !important;
+}

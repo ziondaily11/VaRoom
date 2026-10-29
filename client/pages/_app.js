@@ -361,7 +361,7 @@ const fontSizeScript = `
   (function () {
     try {
       var routePath = window.location.pathname.replace(/\/$/, '') || '/';
-      var isThemeExempt = routePath === '/' || routePath === '/payments';
+      var isThemeExempt = routePath === '/' || routePath === '/payments' || routePath === '/property-news' || routePath.startsWith('/property-news/');
       if (!isThemeExempt) {
         var savedTheme = localStorage.getItem('varoom_theme') || 'system';
         var resolvedTheme = savedTheme === 'system'
@@ -417,7 +417,7 @@ export default function App({ Component, pageProps }) {
     const applyThemeForRoute = (url) => {
       const targetPath = typeof url === 'string' ? url : router.pathname || '';
       const routePath = targetPath.split(/[?#]/)[0].replace(/\/$/, '') || '/';
-      const isThemeExempt = routePath === '/' || routePath === '/payments';
+      const isThemeExempt = routePath === '/' || routePath === '/payments' || routePath === '/property-news' || routePath.startsWith('/property-news/');
       if (isThemeExempt) {
         document.documentElement.setAttribute('data-theme', 'light');
         document.documentElement.style.colorScheme = 'light';
@@ -434,8 +434,10 @@ export default function App({ Component, pageProps }) {
     };
 
     applyThemeForRoute(router.asPath || router.pathname);
+    router.events.on('routeChangeStart', applyThemeForRoute);
     router.events.on('routeChangeComplete', applyThemeForRoute);
     return () => {
+      router.events.off('routeChangeStart', applyThemeForRoute);
       router.events.off('routeChangeComplete', applyThemeForRoute);
     };
   }, [router]);
