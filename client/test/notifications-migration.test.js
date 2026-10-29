@@ -54,10 +54,12 @@ test('1. Native React route resolution and legacy catch-all exclusion', () => {
   assert.match(pageSource, /import Head from 'next\/head'/);
   assert.match(pageSource, /import \{ useRouter \} from 'next\/router'/);
 
-  // Excluded from catch-all getStaticPaths
+  // The native route is guarded from legacy catch-all resolution.
   const slugSource = fs.readFileSync(slugPath, 'utf8');
-  assert.match(slugSource, /'notifications\.html'/);
-  assert.match(slugSource, /!\[.*?notifications\.html.*?\]\.includes\(file\)/);
+  assert.match(slugSource, /'notifications'/);
+  assert.doesNotMatch(slugSource, /notifications\.html/);
+  assert.equal(fs.existsSync(path.join(root, 'legacy-pages', 'notifications.html')), false);
+  assert.equal(fs.existsSync(path.join(root, 'public', 'js', 'notifications-page.js')), false);
 });
 
 test('2. Correct client/host layout selection with no duplicate shell', () => {
@@ -320,19 +322,26 @@ test('11. Regression checks for Property News and other shared routing/layout be
 
 test('12. Complete legacy unwiring verification', () => {
   const nextConfigPath = path.join(root, 'next.config.js');
+  const vercelConfigPath = path.join(root, 'vercel.json');
   const profileHtmlPath = path.join(root, 'legacy-pages', 'profile.html');
   const slugPath2 = path.join(root, 'pages', '[...slug].js');
   const notifPageSource = fs.readFileSync(notificationsPagePath, 'utf8');
 
-  // 1. next.config.js has permanent redirects for both .html variants
+  // 1. Next.js retains permanent compatibility redirects to the native route.
   const nextConfigSource = fs.readFileSync(nextConfigPath, 'utf8');
   assert.match(nextConfigSource, /notifications\.html/, 'next.config.js must contain notifications.html redirect');
   assert.match(nextConfigSource, /\/notifications/, 'next.config.js must redirect to /notifications');
+  assert.match(nextConfigSource, /source: '\/legacy-pages\/notifications\.html',\s*destination: '\/notifications'/);
+  const vercelConfig = JSON.parse(fs.readFileSync(vercelConfigPath, 'utf8'));
+  assert.ok(vercelConfig.redirects.some(({ source, destination }) => source === '/:page.html' && destination === '/:page'));
 
-  // 2. [...slug].js getStaticProps guards against notifications slugs
+  // 2. [...slug].js guards the native route without registering a legacy template.
   const slugSource2 = fs.readFileSync(slugPath2, 'utf8');
   assert.match(slugSource2, /notFound.*true/, 'getStaticProps must return notFound:true for notifications');
   assert.match(slugSource2, /notifications/, 'getStaticProps guard must reference notifications');
+  assert.doesNotMatch(slugSource2, /notifications\.html/);
+  assert.equal(fs.existsSync(path.join(root, 'legacy-pages', 'notifications.html')), false);
+  assert.equal(fs.existsSync(path.join(root, 'public', 'js', 'notifications-page.js')), false);
 
   // 3. profile.html no longer references legacy notifications.html path
   const profileHtmlSource = fs.readFileSync(profileHtmlPath, 'utf8');
@@ -421,4 +430,12 @@ test('15. Instant synchronous cache presentation on mount and account switching 
   // 2. notifications.tsx listens for account changes to isolate cache per account
   assert.match(notifPageSource, /varoom_active_account_changed/);
   assert.match(notifPageSource, /varoom_linked_accounts_changed/);
+});
+
+test('16. Bookings retains the shared notification widget after legacy page retirement', () => {
+  const bookingsHtml = fs.readFileSync(path.join(root, 'legacy-pages', 'bookings.html'), 'utf8');
+  const widgetPath = path.join(root, 'public', 'js', 'notifications-widget.js');
+
+  assert.ok(fs.existsSync(widgetPath));
+  assert.match(bookingsHtml, /<script src="js\/notifications-widget\.js"><\/script>/);
 });

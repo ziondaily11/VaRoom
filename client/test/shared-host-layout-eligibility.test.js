@@ -13,14 +13,14 @@ test('Chats, Support, Marketplace, and Analytics retain their page layouts outsi
   assert.match(appCode, /getAccountLayout\(path, asPath, role\)/);
 });
 
-test('Host and intended shared routes select HostLayout only for a confirmed host role', () => {
+test('Home and intended shared routes select the authenticated account layout', () => {
   for (const route of ['/bookings', '/notifications', '/profile', '/settings']) {
     assert.equal(getAccountLayout('/[...slug]', route, 'host'), 'host', `${route} remains available to hosts`);
     assert.equal(getAccountLayout('/[...slug]', route, 'client'), 'client', `${route} selects client shell for clients`);
-    assert.equal(getAccountLayout('/[...slug]', route, null), 'pending', `${route} stays neutral until role resolves`);
+    assert.equal(getAccountLayout('/[...slug]', route, null), 'none', `${route} does not add a layout before role resolves`);
   }
   assert.equal(getAccountLayout('/[...slug]', '/host-home', 'host'), 'host');
-  assert.equal(getAccountLayout('/[...slug]', '/host-home', 'client'), 'pending');
+  assert.equal(getAccountLayout('/[...slug]', '/host-home', 'client'), 'client');
   assert.equal(getAccountLayout('/[...slug]', '/client-home', 'client'), 'client');
-  assert.equal(getAccountLayout('/[...slug]', '/client-home', 'host'), 'pending');
+  assert.equal(getAccountLayout('/[...slug]', '/client-home', 'host'), 'host');
 });

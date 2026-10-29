@@ -101,7 +101,7 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
         <button
           type="button"
           onClick={cancelGoogleSignIn}
-          className="mt-2 text-xs text-white/70 underline underline-offset-2 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/70"
+          className="mt-2 border-0 bg-transparent p-0 text-xs text-white/70 underline underline-offset-2 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/70"
         >
           Cancel Google sign-in
         </button>

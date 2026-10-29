@@ -291,20 +291,25 @@ export default function PropertyNewsPage() {
   }, []);
 
   // Fetch or restore news index
-  const loadIndexNews = useCallback(async (signal?: AbortSignal) => {
+  const loadIndexNews = useCallback(async (signal?: AbortSignal, force = false) => {
     const cached = getCachedNewsList();
     if (cached && cached.items.length > 0) {
       setNewsItems(cached.items);
       setListLoading(false);
-      if (cached.isFresh) {
+      if (cached.isFresh && !force) {
         return;
       }
     }
 
+    if (force || !cached || cached.items.length === 0) {
+      setListLoading(true);
+    }
+    setListError(false);
     try {
       const response = await fetch('/api/news?limit=50', {
         headers: { Accept: 'application/json' },
         signal,
+        cache: force ? 'no-store' : 'default',
       });
       if (!response.ok) {
         throw new Error(`Failed to load property news: ${response.status}`);
@@ -320,9 +325,7 @@ export default function PropertyNewsPage() {
     } catch (err: any) {
       if (signal?.aborted) return;
       console.warn('Property news fetch notice:', err?.message || err);
-      if (!cached || !cached.items || cached.items.length === 0) {
-        setListError(true);
-      }
+      setListError(true);
       setListLoading(false);
     }
   }, []);
@@ -459,9 +462,19 @@ export default function PropertyNewsPage() {
                   ← Front Page
                 </Link>
               ) : (
-                <Link href={dashboardHref} className="newspaper-nav-link" aria-label="Return to VaRoom dashboard">
-                  ← Dashboard
-                </Link>
+                <>
+                  <button
+                    type="button"
+                    className="newspaper-nav-link"
+                    onClick={() => { void loadIndexNews(undefined, true); }}
+                    disabled={listLoading}
+                  >
+                    Refresh
+                  </button>
+                  <Link href={dashboardHref} className="newspaper-nav-link" aria-label="Return to VaRoom dashboard">
+                    ← Dashboard
+                  </Link>
+                </>
               )}
             </div>
           </div>
@@ -730,10 +743,15 @@ export default function PropertyNewsPage() {
                   <div className="newspaper-skeleton-box" style={{ height: '220px' }}></div>
                   <div className="newspaper-skeleton-box" style={{ height: '220px' }}></div>
                 </div>
-              ) : listError || !newsItems || newsItems.length === 0 ? (
+              ) : !newsItems || newsItems.length === 0 ? (
                 <EmptyState />
               ) : (
                 <div className="newspaper-front-page">
+                  {listError && (
+                    <p className="news-refresh-error" role="status">
+                      Property News could not be refreshed. Showing previously loaded articles.
+                    </p>
+                  )}
                   {/* Lead Featured Article (Newspaper Top Headline) */}
                   {newsItems.length > 0 && (() => {
                     const lead = newsItems[0];
@@ -988,8 +1006,28 @@ export default function PropertyNewsPage() {
           transition: color 0.15s ease;
         }
 
+        button.newspaper-nav-link {
+          padding: 0;
+          border: 0;
+          background: none;
+          font: inherit;
+          text-transform: inherit;
+          cursor: pointer;
+        }
+
+        button.newspaper-nav-link:disabled {
+          cursor: wait;
+          opacity: 0.6;
+        }
+
         .newspaper-nav-link:hover {
           color: var(--newspaper-accent);
+        }
+
+        .news-refresh-error {
+          grid-column: 1 / -1;
+          color: #8b1e2d;
+          font-size: 0.9rem;
         }
 
         .masthead-rule-thick {

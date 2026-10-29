@@ -39,17 +39,14 @@ test('switching accounts changes the shell only from the matching account role',
   assert.equal(getAccountLayout('/[...slug]', '/settings', getSessionBoundCachedRole(session, cached)), 'host');
 });
 
-test('legacy Home cache restoration starts before the remaining UI wiring and profile refresh completes', () => {
+test('native Client Home restores cache before profile refresh and keeps widget hydration later', () => {
   const fs = require('node:fs');
   const path = require('node:path');
-  const source = fs.readFileSync(path.join(__dirname, '..', 'legacy-pages', 'client-home.html'), 'utf8').replace(/\r\n/g, '\n');
-  const refreshIndex = source.indexOf('if (cachedHomeProfile) {');
-  const earlyFeedIndex = source.indexOf('if (initialHomeFeedStarted) loadFeed();');
-  const bottomViewIndex = source.indexOf("if (urlParams.get('view') === 'saved') {");
-  const laterWidgetIndex = source.indexOf('loadClientPropertyNews();', bottomViewIndex);
+  const source = fs.readFileSync(path.join(__dirname, '..', 'pages', 'client-home.tsx'), 'utf8').replace(/\r\n/g, '\n');
 
-  assert.ok(refreshIndex >= 0 && refreshIndex < earlyFeedIndex);
-  assert.ok(earlyFeedIndex < bottomViewIndex);
-  assert.ok(bottomViewIndex < laterWidgetIndex);
-  assert.match(source, /const profileResult = cachedHomeProfile \? null : await profileRequest;/);
+  assert.match(source, /readClientHomeProfileSnapshot\(window\.sessionStorage, sessionUser\.id\)/);
+  assert.match(source, /const profileResult = await profileRequest/);
+  assert.match(source, /setFeedReady\(true\);/);
+  assert.match(source, /PropertyNewsList items=\{news\} loading=\{newsLoading\} failed=\{newsFailed\}/);
+  assert.match(source, /cache\.current\.revalidate\(key, fetcher\)/);
 });

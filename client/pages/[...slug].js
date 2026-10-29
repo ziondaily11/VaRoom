@@ -16,9 +16,7 @@ const { createLegacyPageLifecycle } = require('../lib/legacyPageLifecycle');
 const templateDirectory = path.join(process.cwd(), 'legacy-pages');
 const routeAliases = {
   properties: 'list.html',
-  'landing-page': 'landing page.html',
-  'login.html': 'login.html',
-  chat: 'chats.html'
+  'landing-page': 'landing page.html'
 };
 
 function templateForSlug(slug) {
@@ -118,27 +116,22 @@ function parseTemplate(source, isEliePage) {
 export async function getStaticPaths() {
   const templates = fs.readdirSync(templateDirectory)
     .filter((file) => file.endsWith('.html') && file.replace(/\.html$/, '') !== 'privacy')
-    .filter((file) => !['signup-client.html', 'signup-host.html', 'forgot-password.html', 'analytics.html', 'property-news.html', 'notifications.html'].includes(file));
+    // Native Pages Router routes own these URLs. Exclude them from catch-all
+    // generation while retaining legacy templates still used elsewhere.
+    .filter((file) => !['signup-client.html', 'signup-host.html', 'forgot-password.html', 'analytics.html', 'chats.html', 'client-home.html'].includes(file));
   const paths = templates
     .filter((file) => file !== 'index.html' && file !== 'terms.html')
     .map((file) => ({
       params: { slug: [file.replace(/\.html$/, '').replace(/ /g, '-') ] }
     }));
 
-  paths.push(
-    { params: { slug: ['login.html'] } },
-    { params: { slug: ['properties'] } },
-    { params: { slug: ['chat'] } }
-  );
+  paths.push({ params: { slug: ['properties'] } });
   return { paths, fallback: false };
 }
 
 export async function getStaticProps({ params }) {
   const slugKey = params && params.slug ? params.slug.join('/') : '';
-  if (slugKey === 'notifications' || slugKey === 'notifications.html') {
-    return { notFound: true };
-  }
-  if (slugKey === 'property-news' || slugKey === 'property-news.html') {
+  if (['notifications', 'property-news', 'chats', 'chats.html', 'chat'].includes(slugKey)) {
     return { notFound: true };
   }
   const isElieSlug = slugKey === 'elie' || slugKey === 'elie.html';
@@ -252,14 +245,6 @@ async function runLegacyScripts(container, scripts, pageLifecycle, templateName)
     await window.VaroomSidebar.initCounts();
   }
 
-  if (templateName === 'property-news.html' && pageLifecycle && pageLifecycle.isActive()) {
-    const initializer = window.VaRoomLegacyPageInitializers
-      && window.VaRoomLegacyPageInitializers.propertyNews;
-    await pageLifecycle.initialize(initializer, {
-      container,
-      search: window.location.search,
-    });
-  }
 }
 
 export default function LegacyPage({ title, markup, scripts, templateName }) {
@@ -268,7 +253,7 @@ export default function LegacyPage({ title, markup, scripts, templateName }) {
 
   useEffect(() => {
     let cancelled = false;
-    const pageLifecycle = ['property-news.html', 'host-home.html', 'client-home.html'].includes(templateName)
+    const pageLifecycle = ['host-home.html', 'client-home.html'].includes(templateName)
       ? createLegacyPageLifecycle()
       : null;
     if (pageLifecycle) {

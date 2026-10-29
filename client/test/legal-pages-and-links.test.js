@@ -39,17 +39,17 @@ test('Landing Page SignupForm consent links to Privacy and Terms open in a new t
 });
 
 test('Client Home rail legal links open in a new tab', () => {
-  const clientHomePath = path.join(clientRoot, 'legacy-pages', 'client-home.html');
+  const clientHomePath = path.join(clientRoot, 'pages', 'client-home.tsx');
   const content = fs.readFileSync(clientHomePath, 'utf8');
 
   assert.match(
     content,
-    /<a\s+href="\/privacy"\s+target="_blank"\s+rel="noopener noreferrer"\s+class="rail-legal-link">Privacy Policy<\/a>/,
+    /<a href="\/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy<\/a>/,
     'Client Home Privacy Policy link must have target="_blank" and rel="noopener noreferrer"'
   );
   assert.match(
     content,
-    /<a\s+href="\/terms"\s+target="_blank"\s+rel="noopener noreferrer"\s+class="rail-legal-link">Terms &amp; Conditions<\/a>/,
+    /<a href="\/terms" target="_blank" rel="noopener noreferrer">Terms &amp; Conditions<\/a>/,
     'Client Home Terms link must have target="_blank" and rel="noopener noreferrer"'
   );
 });

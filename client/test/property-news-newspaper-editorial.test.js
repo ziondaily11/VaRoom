@@ -95,10 +95,9 @@ test('Section 6: Routing and Property News Links to Native TSX Page', () => {
   assert.match(nextConfig, /destination:\s*'\/property-news'/);
   assert.match(nextConfig, /source:\s*'\/legacy-pages\/property-news\.html'/);
 
-  // Check [...slug].js excludes and returns notFound
+  // The retired HTML template is not part of catch-all routing.
   const slugSource = fs.readFileSync(slugPath, 'utf8');
-  assert.match(slugSource, /'property-news'/);
-  assert.match(slugSource, /'property-news\.html'/);
+  assert.doesNotMatch(slugSource, /property-news\.html/);
   assert.match(slugSource, /return \{\s*notFound:\s*true\s*\}/);
 
   // Check server.js redirects legacy HTML to /property-news
@@ -106,7 +105,7 @@ test('Section 6: Routing and Property News Links to Native TSX Page', () => {
   assert.match(serverSource, /app\.get\(\['\/property-news\.html',\s*'\/legacy-pages\/property-news\.html'\]/);
   assert.match(serverSource, /res\.redirect\(301,\s*`\/property-news\$\{query\}`\)/);
 
-  // Ensure server.js does NOT map /property-news to legacy property-news.html
+  // The native route is not served through the legacy page-template registry.
   assert.doesNotMatch(serverSource, /'\/property-news':\s*'property-news\.html'/);
 });
 

@@ -1,5 +1,6 @@
-import { Html, Head, Main, NextScript } from 'next/document';
+import Document, { Html, Head, Main, NextScript } from 'next/document';
 import Script from 'next/script';
+const { chatsCssHref, chatsThemeCssHref } = require('../lib/chatsCssAssets');
 
 // This runs before React or a route's legacy markup is painted.  Keeping the
 // resolved theme on <html> avoids the browser painting its default white page
@@ -7,8 +8,8 @@ import Script from 'next/script';
 const themeBootScript = `
   (function () {
     try {
-      var pathname = window.location.pathname || '';
-      if (window.location.pathname === '/' || pathname === '' || pathname === '/property-news' || pathname.startsWith('/property-news')) {
+      var routePath = window.location.pathname.replace(/\/$/, '') || '/';
+      if (routePath === '/' || routePath === '/payments' || routePath === '/property-news' || routePath.startsWith('/property-news/')) {
         document.documentElement.setAttribute('data-theme', 'light');
         document.documentElement.style.colorScheme = 'light';
         return;
@@ -23,20 +24,41 @@ const themeBootScript = `
   })();
 `;
 
-export default function Document() {
-  return (
-    <Html lang="en">
-      <Head>
-        <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
-        <style>{`html{background:#FFFFFF;color-scheme:light}html[data-theme="dark"]{background:#000000;color-scheme:dark}body{margin:0;background:#FFFFFF}html[data-theme="dark"] body{background:#000000}`}</style>
-      </Head>
-      <body>
-        <Main />
-        <NextScript />
-        <Script src="/js/account-auth.js" strategy="beforeInteractive" />
-        <Script src="/js/account-switcher.js" strategy="beforeInteractive" />
-        <Script src="/js/google-sign-in.js" strategy="beforeInteractive" />
-      </body>
-    </Html>
-  );
+export default class VaRoomDocument extends Document {
+  static async getInitialProps(ctx) {
+    const initialProps = await Document.getInitialProps(ctx);
+    const requestPath = (ctx.req?.url || ctx.asPath || ctx.pathname || '').split('?')[0];
+    return {
+      ...initialProps,
+      isChatsRoute: requestPath === '/chats' || requestPath === '/elie' ||
+        ctx.pathname === '/chats' || ctx.pathname === '/elie',
+    };
+  }
+
+  render() {
+    const { isChatsRoute } = this.props;
+    return (
+      <Html lang="en">
+        <Head>
+          {/* Attach the legacy route styles in the initial document so the first
+              Chats paint is styled before React's route head is hydrated. */}
+          {isChatsRoute && <>
+            <link rel="preload" href={chatsThemeCssHref} as="style" />
+            <link rel="stylesheet" href={chatsThemeCssHref} />
+            <link rel="preload" href={chatsCssHref} as="style" />
+            <link rel="stylesheet" href={chatsCssHref} />
+          </>}
+          <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
+          <style>{`html{background:#FFFFFF;color-scheme:light}html[data-theme="dark"]{background:#000000;color-scheme:dark}body{margin:0;background:#FFFFFF}html[data-theme="dark"] body{background:#000000}`}</style>
+        </Head>
+        <body>
+          <Main />
+          <NextScript />
+          <Script src="/js/account-auth.js" strategy="beforeInteractive" />
+          <Script src="/js/account-switcher.js" strategy="beforeInteractive" />
+          <Script src="/js/google-sign-in.js" strategy="beforeInteractive" />
+        </body>
+      </Html>
+    );
+  }
 }

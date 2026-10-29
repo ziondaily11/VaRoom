@@ -7,6 +7,7 @@ import AddAccountModal from '../components/AddAccountModal';
 const { getAccountLayout, getSessionBoundCachedRole } = require('../lib/accountRoleLayout');
 import '../styles/admin.css';
 import '../legacy-pages/privacy.css';
+const { chatsThemeCssHref } = require('../lib/chatsCssAssets');
 
 const designTokensStyle = `
   :root {
@@ -359,9 +360,9 @@ const designTokensStyle = `
 const fontSizeScript = `
   (function () {
     try {
-      var isLanding = window.location.pathname === '/' || window.location.pathname === '';
-      var isPropertyNews = window.location.pathname === '/property-news' || (window.location.pathname && window.location.pathname.indexOf('/property-news') === 0);
-      if (!isLanding && !isPropertyNews) {
+      var routePath = window.location.pathname.replace(/\/$/, '') || '/';
+      var isThemeExempt = routePath === '/' || routePath === '/payments' || routePath === '/property-news' || routePath.startsWith('/property-news/');
+      if (!isThemeExempt) {
         var savedTheme = localStorage.getItem('varoom_theme') || 'system';
         var resolvedTheme = savedTheme === 'system'
           ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
@@ -369,6 +370,7 @@ const fontSizeScript = `
         document.documentElement.setAttribute('data-theme', resolvedTheme);
       } else {
         document.documentElement.setAttribute('data-theme', 'light');
+        document.documentElement.style.colorScheme = 'light';
       }
       var scales = { small: '0.9', default: '1', large: '1.1', xlarge: '1.2' };
       var choice = localStorage.getItem('varoom_font_size') || 'default';
@@ -414,9 +416,9 @@ export default function App({ Component, pageProps }) {
   useEffect(() => {
     const applyThemeForRoute = (url) => {
       const targetPath = typeof url === 'string' ? url : router.pathname || '';
-      const isLanding = targetPath === '/' || targetPath === '';
-      const isPropertyNews = targetPath === '/property-news' || targetPath.startsWith('/property-news');
-      if (isLanding || isPropertyNews) {
+      const routePath = targetPath.split(/[?#]/)[0].replace(/\/$/, '') || '/';
+      const isThemeExempt = routePath === '/' || routePath === '/payments' || routePath === '/property-news' || routePath.startsWith('/property-news/');
+      if (isThemeExempt) {
         document.documentElement.setAttribute('data-theme', 'light');
         document.documentElement.style.colorScheme = 'light';
         return;
@@ -579,6 +581,7 @@ export default function App({ Component, pageProps }) {
 
   const path = router.pathname || '';
   const asPath = router.asPath || '';
+  const isChatsRoute = path === '/chats' || path === '/elie';
   const accountLayout = getAccountLayout(path, asPath, role);
 
   const pageElement = <Component {...pageProps} />;
@@ -591,7 +594,7 @@ export default function App({ Component, pageProps }) {
         <link rel="icon" type="image/png" sizes="32x32" href="/favicon/favicon-32.png" />
         <link rel="icon" type="image/png" sizes="16x16" href="/favicon/favicon-16.png" />
         <link rel="apple-touch-icon" sizes="180x180" href="/favicon/favicon-180.png" />
-        <link rel="stylesheet" href="/js/varoom-dark-theme.css" />
+        <link rel="stylesheet" href={isChatsRoute ? chatsThemeCssHref : '/js/varoom-dark-theme.css'} />
         <style dangerouslySetInnerHTML={{ __html: designTokensStyle }} />
         <script dangerouslySetInnerHTML={{ __html: fontSizeScript }} />
       </Head>
