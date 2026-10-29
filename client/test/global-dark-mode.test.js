@@ -45,6 +45,17 @@ test('_document.js and _app.js avoid FOUC with true black background', () => {
   assert.match(appJs, /--color-bg:\s*#000000;/, '_app.js design tokens must include dark #000000');
 });
 
+test('deleted Payments route stays excluded from global dark mode', () => {
+  const docJs = fs.readFileSync(path.join(clientRoot, 'pages', '_document.js'), 'utf8');
+  const appJs = fs.readFileSync(path.join(clientRoot, 'pages', '_app.js'), 'utf8');
+
+  assert.match(docJs, /routePath === '\/' \|\| routePath === '\/payments'/);
+  assert.match(docJs, /document\.documentElement\.style\.colorScheme = 'light'/);
+  assert.match(appJs, /routePath === '\/' \|\| routePath === '\/payments'/);
+  assert.match(appJs, /const routePath = targetPath\.split\(\/\[\?\#\]\/\)\[0\]\.replace\(\/\\\/\$\/, ''\) \|\| '\/';\s*const isThemeExempt = routePath === '\/' \|\| routePath === '\/payments'/);
+  assert.match(appJs, /document\.documentElement\.setAttribute\('data-theme', 'light'\)/);
+});
+
 test('HostLayout and ClientLayout use X Lights Out tokens', () => {
   const hostLayout = fs.readFileSync(path.join(clientRoot, 'components', 'HostLayout.jsx'), 'utf8');
   assert.match(hostLayout, /--layout-bg:\s*#000000;/, 'HostLayout must use #000000');
@@ -79,7 +90,6 @@ test('Legacy pages define consistent true black tokens', () => {
     'map.html',
     'marketplace.html',
     'notifications.html',
-    'payments.html',
     'pricing.html',
     'profile.html',
     'settings.html',
@@ -111,10 +121,10 @@ test('Light mode tokens remain intact and untouched', () => {
 
 test('Landing page is exempted from global dark mode and CTA buttons have high contrast', () => {
   const docJs = fs.readFileSync(path.join(clientRoot, 'pages', '_document.js'), 'utf8');
-  assert.match(docJs, /window\.location\.pathname === '\/'/, '_document.js must check for landing page to force light mode');
+  assert.match(docJs, /routePath === '\/' \|\| routePath === '\/payments'/, '_document.js must check for light-theme routes');
 
   const appJs = fs.readFileSync(path.join(clientRoot, 'pages', '_app.js'), 'utf8');
-  assert.match(appJs, /var isLanding = window\.location\.pathname === '\/'/, '_app.js fontSizeScript must exempt landing page');
+  assert.match(appJs, /var isThemeExempt = routePath === '\/' \|\| routePath === '\/payments'/, '_app.js fontSizeScript must exempt light-theme routes');
   assert.match(appJs, /html\[data-theme="dark"\] \.va-button-primary[\s\S]*color:\s*#0F1419 !important;/, 'Dark primary buttons must have dark text');
   assert.match(appJs, /\.landing-cta:not\(\.landing-cta-secondary\),[\s\S]*background:\s*#111111 !important;/, 'Landing CTA must preserve vintage #111111');
 

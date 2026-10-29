@@ -29,16 +29,16 @@ test('Airbnb, hotel, and residential listings keep separate amenity catalogs', (
   assert.match(listingHtml, /if \(category === 'property'\) choices = PROPERTY_AMENITY_OPTIONS/);
 });
 
-test('policy PDF remains optional and visible only for residential property listings', () => {
+test('property policy documents remain optional and visible only for residential property listings', () => {
   assert.match(listingHtml, /id="property-policy-section" hidden/);
   assert.match(listingHtml, /propertyPolicySection\.hidden\s*=\s*cat !== 'property'/);
-  assert.match(listingHtml, /id="policy-input" accept="application\/pdf,\.pdf"/);
-  assert.match(listingHtml, /if \(hostNiche === 'property'\)[\s\S]{0,400}policy_storage_path/);
+  assert.match(listingHtml, /id="policy-input" accept="application\/pdf,image\/jpeg,image\/png,image\/webp,image\/gif,\.pdf,\.jpg,\.jpeg,\.png,\.webp,\.gif"/);
+  assert.match(listingHtml, /if \(hostNiche === 'property' && propertyPolicyFile\) \{\s*await uploadListingDocument\(propertyPolicyFile, 'property_policy', listingId\)/);
   assert.doesNotMatch(listingHtml, /policyInput\.required\s*=\s*true/);
 });
 
 test('office and shop amenities remain on their existing custom-field path', () => {
-  assert.match(listingHtml, /const officeShop = isOfficeShop\(cat\);\s*document\.getElementById\('amenities-field'\)\.style\.display = officeShop \? 'none' : '';/);
+  assert.match(listingHtml, /const officeShop = isOfficeShop\(cat\);[\s\S]{0,300}document\.getElementById\('amenities-field'\)\.style\.display = officeShop \? 'none' : '';/);
   assert.match(listingHtml, /renderOfficeShopFields\(\);/);
   assert.match(listingHtml, /id="office-shop-media-fields"/);
 });

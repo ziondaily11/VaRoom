@@ -116,9 +116,8 @@ function parseTemplate(source, isEliePage) {
 export async function getStaticPaths() {
   const templates = fs.readdirSync(templateDirectory)
     .filter((file) => file.endsWith('.html') && file.replace(/\.html$/, '') !== 'privacy')
-    // Native Pages Router routes take ownership of these URLs. Keep their
-    // legacy templates on disk as rollback/reference material, but do not
-    // statically generate a duplicate catch-all route for them.
+    // Native Pages Router routes own these URLs. Exclude them from catch-all
+    // generation while retaining legacy templates still used elsewhere.
     .filter((file) => !['signup-client.html', 'signup-host.html', 'forgot-password.html', 'analytics.html', 'property-news.html', 'notifications.html', 'chats.html', 'client-home.html'].includes(file));
   const paths = templates
     .filter((file) => file !== 'index.html' && file !== 'terms.html')

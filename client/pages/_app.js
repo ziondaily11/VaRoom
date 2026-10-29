@@ -360,8 +360,9 @@ const designTokensStyle = `
 const fontSizeScript = `
   (function () {
     try {
-      var isLanding = window.location.pathname === '/' || window.location.pathname === '';
-      if (!isLanding) {
+      var routePath = window.location.pathname.replace(/\/$/, '') || '/';
+      var isThemeExempt = routePath === '/' || routePath === '/payments';
+      if (!isThemeExempt) {
         var savedTheme = localStorage.getItem('varoom_theme') || 'system';
         var resolvedTheme = savedTheme === 'system'
           ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
@@ -369,6 +370,7 @@ const fontSizeScript = `
         document.documentElement.setAttribute('data-theme', resolvedTheme);
       } else {
         document.documentElement.setAttribute('data-theme', 'light');
+        document.documentElement.style.colorScheme = 'light';
       }
       var scales = { small: '0.9', default: '1', large: '1.1', xlarge: '1.2' };
       var choice = localStorage.getItem('varoom_font_size') || 'default';
@@ -414,8 +416,9 @@ export default function App({ Component, pageProps }) {
   useEffect(() => {
     const applyThemeForRoute = (url) => {
       const targetPath = typeof url === 'string' ? url : router.pathname || '';
-      const isLanding = targetPath === '/' || targetPath === '';
-      if (isLanding) {
+      const routePath = targetPath.split(/[?#]/)[0].replace(/\/$/, '') || '/';
+      const isThemeExempt = routePath === '/' || routePath === '/payments';
+      if (isThemeExempt) {
         document.documentElement.setAttribute('data-theme', 'light');
         document.documentElement.style.colorScheme = 'light';
         return;

@@ -192,16 +192,15 @@ test('removing the saved listing anchor falls back to the saved owner-specific s
   assert.equal(feed.scrollTop, 225);
 });
 
-test('restoration waits for the current feed context and does not rerun after media or page updates', () => {
+test('restoration runs synchronously after the current feed context is committed', () => {
   const start = pageSource.indexOf('if (!feedReady || !key || loadedFeedKey !== key || loading || error || restoredScrollKey.current === key)');
   const end = pageSource.indexOf('\n  }, [error, feedReady, key, loadedFeedKey, loading]);', start);
   const effect = pageSource.slice(start, end);
   assert.ok(start >= 0 && end > start);
   assert.match(effect, /restoredScrollKey\.current = key/);
-  assert.match(effect, /window\.requestAnimationFrame/);
-  assert.match(effect, /interactionVersion !== scrollInteractionVersion\.current/);
-  assert.match(effect, /contextVersion !== feedContextVersion\.current/);
-  assert.match(effect, /feedContextKey\.current !== key/);
+  assert.match(effect, /restoreScrollPosition\(window, node, savedPosition\)/);
+  assert.doesNotMatch(effect, /requestAnimationFrame/);
+  assert.ok(effect.indexOf('restoreScrollPosition(window, node, savedPosition)') < effect.indexOf('return () =>'));
   assert.doesNotMatch(effect, /items\.length/);
 });
 
@@ -221,11 +220,10 @@ test('a Next.js top-scroll during page departure cannot overwrite the saved mobi
   assert.match(pageSource, /router\.events\.on\('routeChangeError', handleRouteError\)/);
 });
 
-test('scroll intent cancels a late scheduled restoration', () => {
+test('scroll intent cancels late anchor adjustments after restoration', () => {
   assert.match(pageSource, /window\.addEventListener\('wheel', markScrollIntent/);
   assert.match(pageSource, /window\.addEventListener\('touchstart', markScrollIntent/);
   assert.match(pageSource, /window\.addEventListener\('pointerdown', markScrollIntent/);
   assert.match(pageSource, /window\.addEventListener\('keydown', markKeyboardScrollIntent/);
-  assert.match(pageSource, /interactionVersion !== scrollInteractionVersion\.current \|\|/);
-  assert.match(pageSource, /preserveAnchorPosition\(/);
+  assert.match(pageSource, /preserveAnchorPosition\([\s\S]*?\(\) => interactionVersion !== scrollInteractionVersion\.current/);
 });
