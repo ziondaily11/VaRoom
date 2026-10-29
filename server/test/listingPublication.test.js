@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const repositoryRoot = path.join(__dirname, '..', '..');
-const discoverPage = fs.readFileSync(path.join(repositoryRoot, 'client', 'legacy-pages', 'client-home.html'), 'utf8');
+const discoverPage = fs.readFileSync(path.join(repositoryRoot, 'client', 'pages', 'client-home.tsx'), 'utf8');
 const hostHomePage = fs.readFileSync(path.join(repositoryRoot, 'client', 'legacy-pages', 'host-home.html'), 'utf8');
 const marketplacePage = fs.readFileSync(path.join(repositoryRoot, 'client', 'legacy-pages', 'marketplace.html'), 'utf8');
 const landingPage = fs.readFileSync(path.join(repositoryRoot, 'client', 'pages', 'index.tsx'), 'utf8');
@@ -34,25 +34,17 @@ const finalizationMigration = fs.readFileSync(
 );
 
 test('all Discover feed branches require active moderation and available status', () => {
-  const categoryFilter = discoverPage.slice(
-    discoverPage.indexOf('function withCategory(query)'),
-    discoverPage.indexOf('return async function(offset, limit)', discoverPage.indexOf('function withCategory(query)'))
+  const listingQueryBlock = discoverPage.slice(
+    discoverPage.indexOf('const listingQuery = () => {'),
+    discoverPage.indexOf('if (!term) {', discoverPage.indexOf('const listingQuery = () => {'))
   );
-  assert.match(categoryFilter, /eq\('moderation_status', 'active'\)/);
-  assert.match(categoryFilter, /eq\('availability_status', 'available'\)/);
-  const recommendedStart = discoverPage.indexOf('async function loadRecommended()');
-  const recommendedEnd = discoverPage.indexOf('function mobileWidgetsBlock()', recommendedStart);
-  const recommendedFeed = discoverPage.slice(recommendedStart, recommendedEnd);
-  assert.match(recommendedFeed, /eq\('moderation_status', 'active'\)/);
-  assert.match(recommendedFeed, /eq\('availability_status', 'available'\)/);
-
-  const paginationAndSearch = discoverPage.slice(
-    discoverPage.indexOf('return async function(offset, limit)'),
-    discoverPage.indexOf('function feedScrollStateKey')
+  assert.match(listingQueryBlock, /\.eq\('moderation_status', 'active'\)/);
+  assert.match(listingQueryBlock, /\.eq\('availability_status', 'available'\)/);
+  assert.match(discoverPage, /\.range\(offset, offset \+ limit - 1\)/);
+  assert.match(
+    discoverPage,
+    /\.in\('id', Array\.from\(saved\)\)\s*\.eq\('moderation_status', 'active'\)\s*\.eq\('availability_status', 'available'\)/
   );
-  assert.match(paginationAndSearch, /\.range\(offset, offset \+ limit - 1\)/);
-  assert.match(paginationAndSearch, /withCategory\(supabaseClient\.from\('listings'\)/);
-  assert.match(discoverPage, /\.in\('id', Array\.from\(bookmarkedIds\)\)\s*\.eq\('moderation_status', 'active'\)\s*\.eq\('availability_status', 'available'\)/);
 
   const marketplaceFetch = marketplacePage.slice(
     marketplacePage.indexOf('async function fetchListings(offset)'),
