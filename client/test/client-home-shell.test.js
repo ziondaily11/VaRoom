@@ -9,6 +9,7 @@ const stylesPath = path.join(root, 'pages', 'ClientHome.module.css');
 const legacyHomePath = path.join(root, 'legacy-pages', 'client-home.html');
 const catchAllPath = path.join(root, 'pages', '[...slug].js');
 const nextConfigPath = path.join(root, 'next.config.js');
+const vercelConfigPath = path.join(root, 'vercel.json');
 const { resolveClientHomeProfile } = require('../lib/clientHomeAccount');
 const { FALLBACK_ANON_KEY, getClientHomeSupabaseConfig } = require('../lib/clientHomeSupabase');
 
@@ -35,8 +36,10 @@ test('native Client Home shell preserves the legacy column and responsive breakp
 test('legacy Client Home is retired from disk but retained in catch-all compatibility exclusions', () => {
   assert.equal(fs.existsSync(legacyHomePath), false);
   const catchAll = fs.readFileSync(catchAllPath, 'utf8');
+  const vercelConfig = fs.readFileSync(vercelConfigPath, 'utf8');
   assert.match(catchAll, /client-home\.html/);
   assert.match(catchAll, /'client-home\.html'\]\.includes\(file\)/);
+  assert.match(vercelConfig, /"source": "\/:page\.html", "destination": "\/:page", "permanent": true/);
 });
 
 test('Client Home opens the native AuthPanel and never routes through retired login HTML', () => {

@@ -802,7 +802,6 @@ export default function ClientHome() {
   const feedContextKey = useRef('');
   const feedContextVersion = useRef(0);
   const restoredScrollKey = useRef('');
-  const scrollRestorationVersion = useRef(0);
   const scrollInteractionVersion = useRef(0);
   const anchorObserverCleanup = useRef<(() => void) | null>(null);
   const leavingClientHome = useRef(false);
@@ -1427,24 +1426,15 @@ export default function ClientHome() {
       if (!rawPosition) return;
       const savedPosition = JSON.parse(rawPosition);
       const interactionVersion = scrollInteractionVersion.current;
-      const restoreVersion = ++scrollRestorationVersion.current;
-      const contextVersion = feedContextVersion.current;
-      const frame = window.requestAnimationFrame(() => {
-        if (restoreVersion !== scrollRestorationVersion.current ||
-            interactionVersion !== scrollInteractionVersion.current ||
-            contextVersion !== feedContextVersion.current ||
-            feedContextKey.current !== key) return;
-        restoreScrollPosition(window, node, savedPosition);
-        anchorObserverCleanup.current?.();
-        anchorObserverCleanup.current = preserveAnchorPosition(
-          window,
-          node,
-          savedPosition,
-          () => interactionVersion !== scrollInteractionVersion.current,
-        );
-      });
+      restoreScrollPosition(window, node, savedPosition);
+      anchorObserverCleanup.current?.();
+      anchorObserverCleanup.current = preserveAnchorPosition(
+        window,
+        node,
+        savedPosition,
+        () => interactionVersion !== scrollInteractionVersion.current,
+      );
       return () => {
-        window.cancelAnimationFrame(frame);
         anchorObserverCleanup.current?.();
         anchorObserverCleanup.current = null;
       };

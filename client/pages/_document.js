@@ -7,7 +7,8 @@ import Script from 'next/script';
 const themeBootScript = `
   (function () {
     try {
-      if (window.location.pathname === '/' || window.location.pathname === '') {
+      var routePath = window.location.pathname.replace(/\/$/, '') || '/';
+      if (routePath === '/' || routePath === '/payments') {
         document.documentElement.setAttribute('data-theme', 'light');
         document.documentElement.style.colorScheme = 'light';
         return;
