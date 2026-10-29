@@ -360,7 +360,8 @@ const fontSizeScript = `
   (function () {
     try {
       var isLanding = window.location.pathname === '/' || window.location.pathname === '';
-      if (!isLanding) {
+      var isPropertyNews = window.location.pathname === '/property-news' || (window.location.pathname && window.location.pathname.indexOf('/property-news') === 0);
+      if (!isLanding && !isPropertyNews) {
         var savedTheme = localStorage.getItem('varoom_theme') || 'system';
         var resolvedTheme = savedTheme === 'system'
           ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
@@ -414,7 +415,8 @@ export default function App({ Component, pageProps }) {
     const applyThemeForRoute = (url) => {
       const targetPath = typeof url === 'string' ? url : router.pathname || '';
       const isLanding = targetPath === '/' || targetPath === '';
-      if (isLanding) {
+      const isPropertyNews = targetPath === '/property-news' || targetPath.startsWith('/property-news');
+      if (isLanding || isPropertyNews) {
         document.documentElement.setAttribute('data-theme', 'light');
         document.documentElement.style.colorScheme = 'light';
         return;
@@ -430,8 +432,10 @@ export default function App({ Component, pageProps }) {
     };
 
     applyThemeForRoute(router.asPath || router.pathname);
+    router.events.on('routeChangeStart', applyThemeForRoute);
     router.events.on('routeChangeComplete', applyThemeForRoute);
     return () => {
+      router.events.off('routeChangeStart', applyThemeForRoute);
       router.events.off('routeChangeComplete', applyThemeForRoute);
     };
   }, [router]);

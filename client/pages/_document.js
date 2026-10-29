@@ -7,7 +7,8 @@ import Script from 'next/script';
 const themeBootScript = `
   (function () {
     try {
-      if (window.location.pathname === '/' || window.location.pathname === '') {
+      var pathname = window.location.pathname || '';
+      if (window.location.pathname === '/' || pathname === '' || pathname === '/property-news' || pathname.startsWith('/property-news')) {
         document.documentElement.setAttribute('data-theme', 'light');
         document.documentElement.style.colorScheme = 'light';
         return;

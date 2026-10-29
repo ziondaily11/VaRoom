@@ -138,6 +138,9 @@ export async function getStaticProps({ params }) {
   if (slugKey === 'notifications' || slugKey === 'notifications.html') {
     return { notFound: true };
   }
+  if (slugKey === 'property-news' || slugKey === 'property-news.html') {
+    return { notFound: true };
+  }
   const isElieSlug = slugKey === 'elie' || slugKey === 'elie.html';
   const templateName = templateForSlug(params && params.slug);
   const source = fs.readFileSync(path.join(templateDirectory, templateName), 'utf8');

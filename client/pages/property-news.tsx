@@ -247,6 +247,27 @@ export default function PropertyNewsPage() {
 
   const scrollRestoredRef = useRef(false);
 
+  // Stage 1: Permanently enforce light theme on Property News regardless of global dark-mode.
+  // Runs on mount to prevent any flash of dark styling. On unmount, restores
+  // the user's saved preference so navigating away applies dark mode correctly.
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', 'light');
+    document.documentElement.style.colorScheme = 'light';
+
+    return () => {
+      try {
+        const savedTheme = localStorage.getItem('varoom_theme') || 'system';
+        const resolvedTheme = savedTheme === 'system'
+          ? (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+          : savedTheme;
+        if (resolvedTheme !== 'light') {
+          document.documentElement.setAttribute('data-theme', resolvedTheme);
+          document.documentElement.style.colorScheme = resolvedTheme;
+        }
+      } catch { /* silently ignore */ }
+    };
+  }, []);
+
   // Determine user dashboard link without altering layout
   useEffect(() => {
     try {
@@ -874,6 +895,51 @@ export default function PropertyNewsPage() {
         .property-news-root :focus-visible {
           outline: 2px solid var(--newspaper-ink);
           outline-offset: 3px;
+        }
+
+        /* =================== DARK-MODE ISOLATION (Stage 1) =================== */
+        /* Prevent varoom-dark-theme.css rules from inverting Property News.
+           Scoped strictly to .property-news-root and descendants. */
+        html[data-theme="dark"] .property-news-root,
+        html[data-theme="dark"] .property-news-root .newspaper-main {
+          background: #ffffff !important;
+          color: #111111 !important;
+          color-scheme: light !important;
+        }
+
+        html[data-theme="dark"] .newspaper-masthead-container,
+        html[data-theme="dark"] .newspaper-article-container,
+        html[data-theme="dark"] .frontpage-lead-article,
+        html[data-theme="dark"] .news-card,
+        html[data-theme="dark"] .index-newspaper-header,
+        html[data-theme="dark"] .article-header,
+        html[data-theme="dark"] .text-trail,
+        html[data-theme="dark"] .image-trail,
+        html[data-theme="dark"] .editorial-columns,
+        html[data-theme="dark"] .fact-grid,
+        html[data-theme="dark"] .fact-item,
+        html[data-theme="dark"] .source-box {
+          background: transparent !important;
+          color: inherit !important;
+        }
+
+        html[data-theme="dark"] .masthead-rule-thick,
+        html[data-theme="dark"] .masthead-rule-thin,
+        html[data-theme="dark"] .editorial-divider {
+          background: #111111 !important;
+          border-color: #111111 !important;
+        }
+
+        html[data-theme="dark"] .masthead-topbar,
+        html[data-theme="dark"] .masthead-edition,
+        html[data-theme="dark"] .masthead-date-nav,
+        html[data-theme="dark"] .detail-image-caption,
+        html[data-theme="dark"] .caption-text,
+        html[data-theme="dark"] .caption-credit,
+        html[data-theme="dark"] .article-meta,
+        html[data-theme="dark"] .eyebrow,
+        html[data-theme="dark"] .meta {
+          color: #555555 !important;
         }
 
         /* =================== NEWSPAPER MASTHEAD =================== */
