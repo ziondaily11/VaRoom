@@ -4,10 +4,15 @@ import { useState, useEffect, useLayoutEffect } from 'react';
 import HostLayout from '../components/HostLayout';
 import ClientLayout from '../components/ClientLayout';
 import AddAccountModal from '../components/AddAccountModal';
+import { getSupabaseClient } from '../lib/supabase/client';
 const { getAccountLayout, getSessionBoundCachedRole } = require('../lib/accountRoleLayout');
 import '../styles/admin.css';
 import '../legacy-pages/privacy.css';
 const { chatsThemeCssHref } = require('../lib/chatsCssAssets');
+
+// Create the shared Supabase client before any page renders so pages and
+// legacy scripts adopt one instance instead of racing to create their own.
+getSupabaseClient();
 
 const designTokensStyle = `
   :root {
@@ -360,7 +365,7 @@ const designTokensStyle = `
 const fontSizeScript = `
   (function () {
     try {
-      var routePath = window.location.pathname.replace(/\/$/, '') || '/';
+      var routePath = window.location.pathname.replace(/\\/$/, '') || '/';
       var isThemeExempt = routePath === '/' || routePath === '/payments' || routePath === '/property-news' || routePath.startsWith('/property-news/');
       if (!isThemeExempt) {
         var savedTheme = localStorage.getItem('varoom_theme') || 'system';

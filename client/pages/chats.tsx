@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { getSupabaseClient } from '../lib/supabase/client';
+import { loginUrl } from '../lib/safeRedirect';
 import chatCache, {
   ChatConversation,
   ChatMessage,
@@ -24,26 +26,8 @@ import { ThinkingOrb } from 'thinking-orbs';
 
 const { chatsCssHref } = require('../lib/chatsCssAssets');
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://deaphymimdaygeavhyek.supabase.co';
-const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRlYXBoeW1pbWRheWdlYXZoeWVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY1MjAwNDQsImV4cCI6MjEwMjA5NjA0NH0.rbgVhuZCK1fZP7gKV5oO1OUvIT61ir23VhAYm8739SI';
 const ELIE_ID = 'elie';
 const ELIE_API_URL = 'https://elie1-0.onrender.com/elie/search';
-
-function getOrInitSupabaseClient(): SupabaseClient | null {
-  if (typeof window === 'undefined') return null;
-  if ((window as any).supabaseClient?.auth) {
-    return (window as any).supabaseClient;
-  }
-  try {
-    const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    (window as any).supabaseClient = client;
-    window.dispatchEvent(new Event('varoom_supabase_ready'));
-    return client;
-  } catch (e) {
-    console.error('Unable to initialize Supabase client in Chats:', e);
-    return null;
-  }
-}
 
 const { resolveAvatarUrl } = require('../components/resolveStoredPhotoUrl');
 
@@ -51,7 +35,7 @@ function resolveChatAvatarUrl(url?: string | null, client?: any): string | null 
   if (!url) return null;
   if (/^(data:|blob:)/i.test(url)) return url;
   try {
-    const sb = client || (typeof window !== 'undefined' ? ((window as any).supabaseClient || getOrInitSupabaseClient()) : null);
+    const sb = client || (typeof window !== 'undefined' ? (getSupabaseClient()) : null);
     return resolveAvatarUrl(url, sb) || url;
   } catch {
     return url;
@@ -406,7 +390,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   // Select conversation & establish Realtime channel
   const selectConversation = useCallback(async (id: string, updateRoute = true) => {
     if (!id) return;
-    const client = (window as any).supabaseClient || getOrInitSupabaseClient();
+    const client = getSupabaseClient();
     const selectionGen = ++selectionGenerationRef.current;
 
     const isSameConversation = activeIdRef.current === id;
@@ -568,12 +552,12 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
     let cancelled = false;
 
     const initAuth = async () => {
-      const client = (window as any).supabaseClient || getOrInitSupabaseClient();
+      const client = getSupabaseClient();
       if (!client?.auth) return;
 
       const { data: { session: currentSession } } = await client.auth.getSession();
       if (!currentSession || !currentSession.user) {
-        if (!cancelled) routerRef.current.push('/login?next=/chats');
+        if (!cancelled) routerRef.current.push(loginUrl('/chats'));
         return;
       }
 
@@ -599,7 +583,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
             setRole(data.role);
             document.documentElement.setAttribute('data-role', data.role);
           }
-        }).catch(() => {});
+        }).then(undefined, () => {});
     };
 
     initAuth();
