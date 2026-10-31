@@ -101,7 +101,9 @@ function parseTemplate(source, isEliePage) {
   source = replaceLegacyElieIcons(source);
   const title = (source.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [])[1] || 'VaRoom';
   const head = (source.match(/<head[^>]*>([\s\S]*?)<\/head>/i) || [])[1] || '';
-  const body = (source.match(/<body[^>]*>([\s\S]*?)<\/body>/i) || [])[1] || source;
+  // Greedy: inline scripts may contain "</body>" inside strings (list.html's
+  // policy preview srcdoc), so the document body ends at the LAST </body>.
+  const body = (source.match(/<body[^>]*>([\s\S]*)<\/body>/i) || [])[1] || source;
   const scripts = [];
   const withoutScripts = (markup) => markup.replace(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi, (_, attributes, content) => {
     scripts.push({ attributes, content });
