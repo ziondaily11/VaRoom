@@ -360,7 +360,7 @@ const designTokensStyle = `
 const fontSizeScript = `
   (function () {
     try {
-      var routePath = window.location.pathname.replace(/\/$/, '') || '/';
+      var routePath = window.location.pathname.replace(/\\/$/, '') || '/';
       var isThemeExempt = routePath === '/' || routePath === '/payments' || routePath === '/property-news' || routePath.startsWith('/property-news/');
       if (!isThemeExempt) {
         var savedTheme = localStorage.getItem('varoom_theme') || 'system';

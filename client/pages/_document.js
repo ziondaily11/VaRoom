@@ -8,7 +8,7 @@ const { chatsCssHref, chatsThemeCssHref } = require('../lib/chatsCssAssets');
 const themeBootScript = `
   (function () {
     try {
-      var routePath = window.location.pathname.replace(/\/$/, '') || '/';
+      var routePath = window.location.pathname.replace(/\\/$/, '') || '/';
       if (routePath === '/' || routePath === '/payments' || routePath === '/property-news' || routePath.startsWith('/property-news/')) {
         document.documentElement.setAttribute('data-theme', 'light');
         document.documentElement.style.colorScheme = 'light';
