@@ -5,6 +5,7 @@ import { useRouter } from 'next/router';
 import { PasswordRecovery } from './PasswordRecovery';
 import { SignupForm } from './SignupForm';
 import { GoogleSignInButton } from './GoogleSignInButton';
+import { getSafeRedirect } from '../../lib/safeRedirect';
 
 interface AuthPanelProps {
   isOpen: boolean;
@@ -33,10 +34,8 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, initialVi
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
 
-  const redirect = useMemo(() => {
-    const candidate = router.query.redirect;
-    return typeof candidate === 'string' ? candidate : '';
-  }, [router.query.redirect]);
+  // Only same-origin destinations; anything else falls back to the role home.
+  const redirect = useMemo(() => getSafeRedirect(router.query.redirect), [router.query.redirect]);
 
   const closePanel = useCallback(() => {
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();

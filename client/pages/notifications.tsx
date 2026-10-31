@@ -1,7 +1,9 @@
 import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { getSupabaseClient } from '../lib/supabase/client';
+import { loginUrl } from '../lib/safeRedirect';
 import {
   NotificationItem,
   NotificationDetails,
@@ -15,25 +17,6 @@ import {
   timeAgo,
   searchableText,
 } from '../lib/notificationsCache';
-
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://deaphymimdaygeavhyek.supabase.co';
-const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRlYXBoeW1pbWRheWdlYXZoeWVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY1MjAwNDQsImV4cCI6MjEwMjA5NjA0NH0.rbgVhuZCK1fZP7gKV5oO1OUvIT61ir23VhAYm8739SI';
-
-function getOrInitSupabaseClient(): SupabaseClient | null {
-  if (typeof window === 'undefined') return null;
-  if ((window as any).supabaseClient?.auth) {
-    return (window as any).supabaseClient;
-  }
-  try {
-    const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    (window as any).supabaseClient = client;
-    window.dispatchEvent(new Event('varoom_supabase_ready'));
-    return client;
-  } catch (e) {
-    console.error('Unable to create Supabase client in Notifications:', e);
-    return null;
-  }
-}
 
 function syncSidebarUnreadCount(count: number) {
   if (typeof window === 'undefined') return;
@@ -205,7 +188,7 @@ export default function NotificationsPage() {
       syncSidebarUnreadCount(nextUnread);
     }
 
-    const client = clientRef.current || (window as any).supabaseClient || getOrInitSupabaseClient();
+    const client = clientRef.current || getSupabaseClient();
     if (!client) return;
 
     try {
@@ -251,7 +234,7 @@ export default function NotificationsPage() {
       syncSidebarUnreadCount(0);
     }
 
-    const client = clientRef.current || (window as any).supabaseClient || getOrInitSupabaseClient();
+    const client = clientRef.current || getSupabaseClient();
     if (!client) return;
 
     try {
@@ -336,19 +319,19 @@ export default function NotificationsPage() {
     }
 
     const initAuthAndData = async () => {
-      let client = (window as any).supabaseClient || getOrInitSupabaseClient();
+      let client = getSupabaseClient();
       if (!client || !client.auth) {
         // Wait briefly if client is initializing
         for (let i = 0; i < 10; i++) {
           await new Promise((r) => setTimeout(r, 50));
-          client = (window as any).supabaseClient || getOrInitSupabaseClient();
+          client = getSupabaseClient();
           if (client && client.auth) break;
         }
       }
 
       if (!client || !client.auth) {
         if (!cancelled) {
-          router.push('/login?redirect=' + encodeURIComponent('/notifications'));
+          router.push(loginUrl('/notifications'));
         }
         return;
       }
@@ -358,7 +341,7 @@ export default function NotificationsPage() {
       const sessionResult = await client.auth.getSession();
       if (sessionResult.error || !sessionResult.data?.session?.user) {
         if (!cancelled) {
-          router.push('/login?redirect=' + encodeURIComponent('/notifications'));
+          router.push(loginUrl('/notifications'));
         }
         return;
       }

@@ -2,7 +2,7 @@ import Head from 'next/head';
 import { useRouter } from 'next/router';
 import type { CSSProperties, ReactElement, PointerEvent as ReactPointerEvent } from 'react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseClient } from '../lib/supabase/client';
 import { Music2, X } from 'lucide-react';
 import ClientLayout from '../components/ClientLayout';
 import styles from './ClientHome.module.css';
@@ -11,7 +11,6 @@ import { getCachedNewsList, setCachedNewsList } from '../lib/propertyNewsCache';
 import type { PropertyNewsItem } from '../lib/propertyNewsCache';
 
 const { resolveClientHomeProfile } = require('../lib/clientHomeAccount');
-const { getClientHomeSupabaseConfig } = require('../lib/clientHomeSupabase');
 const { captureScrollPosition, isClientHomePageExit, preserveAnchorPosition, restoreScrollPosition } = require('../lib/clientHomeScroll');
 const { readClientHomeProfileSnapshot, writeClientHomeProfileSnapshot } = require('../lib/clientHomeProfileSnapshot');
 const { fetchClientHomeWidget, readClientHomeWidgetCache, writeClientHomeWidgetCache } = require('../lib/clientHomeWidgetCache');
@@ -63,17 +62,6 @@ type RecommendedListing = {
   location_text?: string;
   listing_photos?: Photo[];
 };
-
-function getSupabaseClient() {
-  if (typeof window === 'undefined') return null;
-  const root = window as Window & { supabaseClient?: any };
-  if (root.supabaseClient?.auth) return root.supabaseClient;
-  const config = getClientHomeSupabaseConfig(root);
-  const client = createClient(config.url, config.anonKey) as any;
-  root.supabaseClient = client;
-  window.dispatchEvent(new Event('varoom_supabase_ready'));
-  return client;
-}
 
 function getSessionStorageSafe(): Storage | null {
   try {
@@ -1074,7 +1062,8 @@ export default function ClientHome() {
 
     if (!term) {
       return listingQuery().order('created_at', { ascending: false }).order('id', { ascending: false })
-        .range(offset, offset + limit - 1);
+        .range(offset, offset + limit - 1)
+        .overrideTypes<Listing[], { merge: false }>();
     }
     if (offset > 0) return { data: [], hasMore: false };
 

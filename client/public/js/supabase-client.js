@@ -15,8 +15,11 @@
       : (window.VaRoomAccountAuth && accountAuthFlow
         ? window.VaRoomAccountAuth.clientOptions({ usesRedirect: true, isCallback: true, flowId: accountAuthFlow })
         : { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: 'varoom-invalid-add-account-callback' } });
+    // In the Next app, lib/supabase/client.ts creates this client first and
+    // this branch is skipped. It still runs for pages served outside Next.
     window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, clientOptions);
     if (window.VaRoomDataCache) {
+      window.supabaseClient.__varoomDataCacheHookInstalled = true;
       window.supabaseClient.auth.onAuthStateChange(function (event, session) {
         var nextUserId = session && session.user ? session.user.id : null;
         if (window.__varoomCacheUserId && window.__varoomCacheUserId !== nextUserId) {

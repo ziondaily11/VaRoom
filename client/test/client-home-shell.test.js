@@ -11,7 +11,10 @@ const catchAllPath = path.join(root, 'pages', '[...slug].js');
 const nextConfigPath = path.join(root, 'next.config.js');
 const vercelConfigPath = path.join(root, 'vercel.json');
 const { resolveClientHomeProfile } = require('../lib/clientHomeAccount');
-const { FALLBACK_ANON_KEY, getClientHomeSupabaseConfig } = require('../lib/clientHomeSupabase');
+const { loadTs } = require('./helpers/loadTs');
+const { FALLBACK_SUPABASE_ANON_KEY: FALLBACK_ANON_KEY, SUPABASE_ANON_KEY } = loadTs(path.join(root, 'lib', 'supabase', 'config.ts'), {
+  globals: { process: { env: {} } },
+});
 
 test('native Client Home shell uses the shared ClientLayout without rendering a duplicate sidebar', () => {
   const source = fs.readFileSync(pagePath, 'utf8');
@@ -133,7 +136,8 @@ test('Client Home uses the shared valid Supabase credentials and legacy R2 photo
   const legacySource = fs.readFileSync(path.join(root, 'public', 'js', 'supabase-client.js'), 'utf8');
 
   assert.match(legacySource, new RegExp(FALLBACK_ANON_KEY.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
-  assert.equal(getClientHomeSupabaseConfig({}).anonKey, FALLBACK_ANON_KEY);
+  assert.equal(SUPABASE_ANON_KEY, FALLBACK_ANON_KEY);
+  assert.match(source, /import \{ getSupabaseClient \} from '\.\.\/lib\/supabase\/client';/);
   assert.match(source, /\/api\/photos\//);
   assert.match(source, /photoUrl\('listing-photos', path\)/);
   assert.match(source, /calculateMediaFrames\(/);

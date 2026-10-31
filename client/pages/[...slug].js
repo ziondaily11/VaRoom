@@ -205,7 +205,8 @@ async function runLegacyScripts(container, scripts, pageLifecycle, templateName)
         existing.addEventListener('error', fail, { once: true });
       } else {
         const supabaseScript = document.createElement('script');
-        supabaseScript.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+        // Fallback only: _app exposes the bundled SDK as window.supabase.
+        supabaseScript.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2';
         supabaseScript.async = false;
         supabaseScript.addEventListener('load', finish, { once: true });
         supabaseScript.addEventListener('error', fail, { once: true });
@@ -413,10 +414,6 @@ export default function LegacyPage({ title, markup, scripts, templateName }) {
         <link rel="icon" type="image/png" sizes="16x16" href="/favicon/favicon-16.png" />
         <link rel="apple-touch-icon" sizes="180x180" href="/favicon/favicon-180.png" />
       </Head>
-      <Script
-        src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"
-        strategy="beforeInteractive"
-      />
       <Script src="/js/varoom-account-profile-cache.js" strategy="beforeInteractive" />
       <Script src="/js/varoom-mobile-nav.js" strategy="afterInteractive" />
       <main key={router?.asPath || title} ref={containerRef} dangerouslySetInnerHTML={{ __html: markup }} />

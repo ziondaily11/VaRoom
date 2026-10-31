@@ -1,5 +1,4 @@
 import Head from 'next/head';
-import Script from 'next/script';
 import { useRouter } from 'next/router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { GetStaticProps } from 'next';
@@ -14,6 +13,8 @@ import { AuthPanel } from '../components/landing/AuthPanel';
 import { Listing } from '../components/landing/types';
 import { INITIAL_LISTINGS } from '../components/landing/initialListings';
 import { normalizeSignupRole } from '../public/js/auth-flow-utils';
+import { getSupabaseClient } from '../lib/supabase/client';
+import { SUPABASE_ANON_KEY, SUPABASE_URL } from '../lib/supabase/config';
 const { resolveStoredPhotoUrl } = require('../components/resolveStoredPhotoUrl');
 
 interface LandingPageProps {
@@ -81,14 +82,8 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
     let isMounted = true;
     async function loadRealListings() {
       try {
-        // @ts-expect-error window.supabaseClient is initialized by script
-        let sb = typeof window !== 'undefined' ? window.supabaseClient : null;
-        if (!sb) {
-          const { createClient } = await import('@supabase/supabase-js');
-          const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://deaphymimdaygeavhyek.supabase.co';
-          const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRlYXBoeW1pbWRheWdlYXZoeWVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY1MjAwNDQsImV4cCI6MjEwMjA5NjA0NH0.rbgVhuZCK1fZP7gKV5oO1OUvIT61ir23VhAYm8739SI';
-          sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        }
+        const sb = getSupabaseClient();
+        if (!sb) return;
 
         const baseSelect = 'id,title,description,location_text,category,verified,created_at,host_id,listing_photos(storage_path),listing_booking_details(*),host:profiles!listings_host_id_fkey(full_name,verified,avatar_url,username)';
 
@@ -142,8 +137,7 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
     event.preventDefault();
     const destination = '/signup-client';
 
-    // @ts-expect-error window.supabaseClient is initialized by script
-    const client = typeof window !== 'undefined' ? window.supabaseClient : null;
+    const client = getSupabaseClient();
     if (!client) {
       window.location.assign(destination);
       return;
@@ -622,10 +616,6 @@ export default function LandingPage({ initialListings }: LandingPageProps) {
         `}</style>
       </Head>
 
-      {/* Supabase scripts required for authentication and session check */}
-      <Script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" strategy="beforeInteractive" />
-      <Script src="/js/supabase-client.js" strategy="beforeInteractive" />
-
       <main className="landing-page min-h-screen w-full max-w-full overflow-x-hidden box-border bg-[#f7f3ec] text-[#181513] font-sans antialiased selection:bg-[#bd2337] selection:text-white">
         {/* Seamless 2-Page Stage: Page 1 (Hero) & Page 2 (Places worth discovering) */}
         <div className="relative w-full">
@@ -698,10 +688,8 @@ export const getStaticProps: GetStaticProps<LandingPageProps> = async () => {
   try {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { createClient } = require('@supabase/supabase-js');
-    const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://deaphymimdaygeavhyek.supabase.co';
-    const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRlYXBoeW1pbWRheWdlYXZoeWVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY1MjAwNDQsImV4cCI6MjEwMjA5NjA0NH0.rbgVhuZCK1fZP7gKV5oO1OUvIT61ir23VhAYm8739SI';
-
-    const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // Build-time (ISR) client: separate from the browser singleton by design.
+    const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false } });
     const { data, error } = await sb
       .from('listings')
       .select('id,title,description,location_text,category,verified,created_at,host_id,availability_status,listing_photos(storage_path),listing_booking_details(*),host:profiles!listings_host_id_fkey(full_name,verified,avatar_url,username)')

@@ -1,5 +1,4 @@
 import Head from 'next/head';
-import Script from 'next/script';
 import PublicHostProfile from '../../legacy-pages/public-profile';
 
 export default function PublicHostProfilePage() {
@@ -10,8 +9,6 @@ export default function PublicHostProfilePage() {
         <meta name="description" content="View a VaRoom host profile, listings, and reviews." />
         <style>{`html, body, #__next { margin: 0; min-height: 100%; }`}</style>
       </Head>
-      <Script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" strategy="beforeInteractive" />
-      <Script src="/js/supabase-client.js" strategy="beforeInteractive" />
       <PublicHostProfile />
     </>
   );
