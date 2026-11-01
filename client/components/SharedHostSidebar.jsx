@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { activeLinkedAccount, logout, switchAccount, useLinkedAccounts } from '../lib/account/accountActions';
 import { profileStore } from '../lib/auth/session';
 import { useRouter } from 'next/router';
 const { resolveAvatarUrl } = require('./resolveStoredPhotoUrl');
@@ -29,12 +30,8 @@ function getInitialUser() {
 }
 
 function getStoredUser() {
-  try {
-    if (window.VaRoomAccountSwitcher) {
-      const active = window.VaRoomAccountSwitcher.getActiveAccount?.();
-      if (active) return active;
-    }
-  } catch (e) {}
+  const active = activeLinkedAccount();
+  if (active) return active;
   return {
     full_name: 'VaRoom Host',
     username: 'host',
@@ -50,7 +47,7 @@ export default function SharedHostSidebar({ activeNav: explicitActiveNav }) {
   const [moreOpen, setMoreOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [linkedAccounts, setLinkedAccounts] = useState([]);
+  const linkedAccounts = useLinkedAccounts();
   const [hasMounted, setHasMounted] = useState(false);
 
   const moreBtnRef = useRef(null);
@@ -140,11 +137,6 @@ export default function SharedHostSidebar({ activeNav: explicitActiveNav }) {
         } catch (e) {}
       }
 
-      // Load linked accounts from switcher if available
-      if (window.VaRoomAccountSwitcher) {
-        setLinkedAccounts(window.VaRoomAccountSwitcher.getLinkedAccounts() || []);
-      }
-
       // Check notification unread count
       try {
         const { count } = await client
@@ -165,9 +157,6 @@ export default function SharedHostSidebar({ activeNav: explicitActiveNav }) {
   useEffect(() => {
     setHasMounted(true);
     setUser(getStoredUser());
-    if (window.VaRoomAccountSwitcher) {
-      setLinkedAccounts(window.VaRoomAccountSwitcher.getLinkedAccounts() || []);
-    }
 
     // Retry until window.supabaseClient is available (up to 3s, 50ms intervals)
     let cancelled = false;
@@ -183,29 +172,15 @@ export default function SharedHostSidebar({ activeNav: explicitActiveNav }) {
     };
     poll();
 
-    const handleAccountsChanged = (e) => {
-      if (e.detail?.accounts) {
-        setLinkedAccounts(e.detail.accounts);
-      } else if (e.key === 'varoom_linked_accounts' && window.VaRoomAccountSwitcher && window.supabaseClient) {
-        window.VaRoomAccountSwitcher.loadLinkedAccounts(window.supabaseClient)
-          .then(setLinkedAccounts).catch(() => setLinkedAccounts([]));
-      } else {
-        setLinkedAccounts(window.VaRoomAccountSwitcher?.getLinkedAccounts?.() || []);
-      }
-    };
-    window.addEventListener('storage', handleAccountsChanged);
     const handleCountUpdate = (e) => {
       if (typeof e?.detail?.count === 'number') setUnreadCount(e.detail.count);
     };
-    window.addEventListener('varoom_linked_accounts_changed', handleAccountsChanged);
     window.addEventListener('varoom_notification_count', handleCountUpdate);
 
     const interval = setInterval(refreshUser, 30000);
     return () => {
       cancelled = true;
       clearInterval(interval);
-      window.removeEventListener('storage', handleAccountsChanged);
-      window.removeEventListener('varoom_linked_accounts_changed', handleAccountsChanged);
       window.removeEventListener('varoom_notification_count', handleCountUpdate);
     };
   }, [refreshUser]);
@@ -352,24 +327,18 @@ export default function SharedHostSidebar({ activeNav: explicitActiveNav }) {
     router.push(path);
   };
 
+  // Shared logout: clears this account's private data, signs out, informs
+  // other tabs and goes to the login panel.
   const handleLogout = async () => {
     setUser({ full_name: 'VaRoom Host', username: 'host', avatar_url: null, email: '' });
-    try {
-      if (typeof window !== 'undefined' && window.supabaseClient?.auth) {
-        await window.supabaseClient.auth.signOut();
-        sessionStorage.removeItem('varoom_user_role');
-      }
-    } catch (e) {}
-    window.location.href = '/login';
+    try { sessionStorage.removeItem('varoom_user_role'); } catch (e) {}
+    await logout();
   };
 
   const handleSwitchAccount = async (targetAcct) => {
     if (!targetAcct || typeof window === 'undefined') return;
     try {
-      if (window.VaRoomAccountSwitcher && window.supabaseClient) {
-        await window.VaRoomAccountSwitcher.switchAccount(window.supabaseClient, targetAcct);
-        window.location.reload();
-      }
+      await switchAccount(targetAcct.id);
     } catch (err) {
       alert(err.message || 'Unable to switch account.');
     }

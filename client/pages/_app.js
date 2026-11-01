@@ -9,6 +9,7 @@ import { AuthProvider, useAuth } from '../lib/auth/AuthProvider';
 import { profileStore } from '../lib/auth/session';
 import { installDataCacheGlobal } from '../lib/cache/dataCache';
 import { getListingFeedCache } from '../lib/listingFeedCache';
+import { installAccountActions } from '../lib/account/accountActions';
 const { getAccountLayout, getSessionBoundCachedRole } = require('../lib/accountRoleLayout');
 import '../styles/admin.css';
 import '../legacy-pages/privacy.css';
@@ -24,6 +25,7 @@ if (typeof window !== 'undefined') {
   profileStore();
   installDataCacheGlobal();
   getListingFeedCache();
+  installAccountActions();
 }
 
 const designTokensStyle = `

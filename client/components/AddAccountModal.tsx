@@ -1,4 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import type { Session } from '@supabase/supabase-js';
+import { SUPABASE_ANON_KEY, SUPABASE_URL } from '../lib/supabase/config';
+
+// Message posted by legacy-pages/auth-callback.html from the Google popup.
+interface AddAccountMessage {
+  type?: string;
+  session?: Session;
+}
 
 export default function AddAccountModal() {
   const [isOpen, setIsOpen] = useState(false);
@@ -7,11 +15,14 @@ export default function AddAccountModal() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(null);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
-  const emailInputRef = useRef(null);
-  const cardRef = useRef(null);
+  const emailInputRef = useRef<HTMLInputElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  // Set when the Google popup reports success, so its closing is not mistaken
+  // for a cancellation while the account is still being linked.
+  const googleSucceededRef = useRef(false);
 
   const handleOpen = useCallback(() => {
     setEmail('');
@@ -38,15 +49,18 @@ export default function AddAccountModal() {
     const onOpenEvent = () => handleOpen();
     window.addEventListener('varoom:open-add-account', onOpenEvent);
 
-    if (window.VaRoomAccountSwitcher) {
-      window.VaRoomAccountSwitcher.openAddAccountModal = handleOpen;
+    const switcher = window.VaRoomAccountSwitcher;
+    const previousOpen = switcher ? switcher.openAddAccountModal : undefined;
+    if (switcher) {
+      switcher.openAddAccountModal = handleOpen;
     }
 
     return () => {
       window.__varoomAddAccountModalMounted = false;
       window.removeEventListener('varoom:open-add-account', onOpenEvent);
-      if (window.VaRoomAccountSwitcher && window.VaRoomAccountSwitcher.openAddAccountModal === handleOpen) {
-        delete window.VaRoomAccountSwitcher.openAddAccountModal;
+      // Give legacy callers back the switcher's own (vanilla) modal.
+      if (switcher && switcher.openAddAccountModal === handleOpen) {
+        switcher.openAddAccountModal = previousOpen;
       }
     };
   }, [handleOpen]);
@@ -62,7 +76,7 @@ export default function AddAccountModal() {
       emailInputRef.current?.focus();
     }, 50);
 
-    const onKeyDown = (e) => {
+    const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         handleClose();
       }
@@ -76,12 +90,15 @@ export default function AddAccountModal() {
     };
   }, [isOpen, handleClose]);
 
-  // Listen for OAuth postMessage from auth-callback popup
+  // Listen for the OAuth postMessage from the auth-callback popup while the
+  // modal is open (it cannot close while a Google sign-in is pending).
   useEffect(() => {
-    const handleMessage = async (e) => {
+    if (!isOpen) return undefined;
+    const handleMessage = async (e: MessageEvent<AddAccountMessage>) => {
       if (e.origin !== window.location.origin) return;
       if (e.data?.type === 'VAROOM_ADD_ACCOUNT_SUCCESS' && e.data?.session) {
         const session = e.data.session;
+        googleSucceededRef.current = true;
         setIsGoogleLoading(true);
         setError(null);
         try {
@@ -102,10 +119,10 @@ export default function AddAccountModal() {
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, []);
+  }, [isOpen]);
 
   // Helper to register an authenticated session into linked accounts
-  const registerAdditionalSession = async (session) => {
+  const registerAdditionalSession = async (session: Session, _tempClient?: unknown) => {
     const switcher = window.VaRoomAccountSwitcher;
     if (!switcher?.linkAdditionalSession || !window.supabaseClient) {
       throw new Error('Secure account linking is not available. Refresh the page and try again.');
@@ -125,6 +142,8 @@ export default function AddAccountModal() {
       if (!window.supabaseClient?.auth || !switcher) throw new Error('Your current account session is unavailable.');
       const { data: { session } } = await window.supabaseClient.auth.getSession();
       if (!session) throw new Error('Sign in to your current account before adding another.');
+      // Store the current session's latest tokens first, as the vanilla modal does.
+      if (switcher.upsertFromSession) await switcher.upsertFromSession(window.supabaseClient, session);
       await switcher.loadLinkedAccounts(window.supabaseClient, session, { force: true });
       if (!switcher.canAddAccount()) throw new Error('Account limit reached (3/3). This group cannot include another account.');
     } catch (e) {
@@ -132,8 +151,8 @@ export default function AddAccountModal() {
       return;
     }
 
-    const supabaseUrl = window.VAROOM_SUPABASE_URL || 'https://deaphymimdaygeavhyek.supabase.co';
-    const supabaseAnonKey = window.VAROOM_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRlYXBoeW1pbWRheWdlYXZoeWVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY1MjAwNDQsImV4cCI6MjEwMjA5NjA0NH0.rbgVhuZCK1fZP7gKV5oO1OUvIT61ir23VhAYm8739SI';
+    const supabaseUrl = window.VAROOM_SUPABASE_URL || SUPABASE_URL;
+    const supabaseAnonKey = window.VAROOM_SUPABASE_ANON_KEY || SUPABASE_ANON_KEY;
 
     if (!window.supabase) {
       setError('Authentication client is not available. Please try again.');
@@ -141,6 +160,7 @@ export default function AddAccountModal() {
     }
 
     setIsGoogleLoading(true);
+    googleSucceededRef.current = false;
 
     try {
       const accountAuthFlow = window.VaRoomAccountAuth.createFlowId();
@@ -184,14 +204,11 @@ export default function AddAccountModal() {
         const checkClosedTimer = setInterval(() => {
           if (popup.closed) {
             clearInterval(checkClosedTimer);
-            setIsGoogleLoading((current) => {
-              if (current) {
-                // If still loading and popup closed without postMessage, it was cancelled
-                setError('Google sign-in was cancelled.');
-                return false;
-              }
-              return false;
-            });
+            // The popup closes itself after posting success; only a close
+            // without that message is a cancellation.
+            if (googleSucceededRef.current) return;
+            setIsGoogleLoading(false);
+            setError('Google sign-in was cancelled.');
           }
         }, 800);
       } else {
@@ -204,7 +221,7 @@ export default function AddAccountModal() {
   };
 
   // Email / Password submit handler
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
     setSuccess(null);
@@ -228,8 +245,8 @@ export default function AddAccountModal() {
     setIsLoading(true);
 
     try {
-      const supabaseUrl = window.VAROOM_SUPABASE_URL || 'https://deaphymimdaygeavhyek.supabase.co';
-      const supabaseAnonKey = window.VAROOM_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRlYXBoeW1pbWRheWdlYXZoeWVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY1MjAwNDQsImV4cCI6MjEwMjA5NjA0NH0.rbgVhuZCK1fZP7gKV5oO1OUvIT61ir23VhAYm8739SI';
+      const supabaseUrl = window.VAROOM_SUPABASE_URL || SUPABASE_URL;
+      const supabaseAnonKey = window.VAROOM_SUPABASE_ANON_KEY || SUPABASE_ANON_KEY;
 
       if (!window.supabase) {
         throw new Error('Authentication service is initializing. Please try again.');

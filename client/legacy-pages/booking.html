@@ -1274,6 +1274,9 @@
     });
     document.addEventListener('click', function(){ avatarMenu.classList.remove('show'); });
     document.getElementById('menu-logout').addEventListener('click', async function(){
+      // Shared logout (clears this account's cached data first); the lines
+      // below remain for pages served outside the Next app.
+      if (window.VaRoomAccount) { await window.VaRoomAccount.logout(); return; }
       await supabaseClient.auth.signOut();
       window.location.href = '/';
     });
