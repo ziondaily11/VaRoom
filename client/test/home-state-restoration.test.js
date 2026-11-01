@@ -20,7 +20,7 @@ test('both sidebars hydrate only after the session identifies a matching cached 
     const source = fs.readFileSync(path.join(root, 'components', file), 'utf8');
     const sessionIndex = source.indexOf('const userId = session.user.id;');
     const cacheIndex = source.indexOf('readForAccount(userId);', sessionIndex);
-    const profileRefreshIndex = source.indexOf(".select('id,full_name,username,avatar_url,role')", sessionIndex);
+    const profileRefreshIndex = source.indexOf('profileStore().get(userId)', sessionIndex);
     assert.ok(sessionIndex >= 0 && cacheIndex > sessionIndex && profileRefreshIndex > cacheIndex);
     assert.match(source, /VaRoomAccountProfileCache\.write\(userData\)/);
   }

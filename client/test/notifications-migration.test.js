@@ -271,7 +271,7 @@ test('9. Subscription/listener cleanup without destroying shared services', () =
   const pageSource = fs.readFileSync(notificationsPagePath, 'utf8');
 
   // Channel is scoped specifically to notifications-page-${user.id}
-  assert.match(pageSource, /channel\(`notifications-page-\$\{user\.id\}`\)/);
+  assert.match(pageSource, /channel\(`notifications-page-\$\{authUserId\}`\)/);
   assert.match(pageSource, /realtimeChannelRef\.current/);
 
   // Cleanup unsubscribes only page channel, never sidebar-counts channel
@@ -353,9 +353,10 @@ test('12. Complete legacy unwiring verification', () => {
   // profile.html should now use /notifications
   assert.match(profileHtmlSource, /\/notifications/, 'profile.html must reference /notifications');
 
-  // 4. notifications.tsx dispatches varoom_role_change with detail
-  assert.match(notifPageSource, /varoom_role_change/, 'notifications.tsx must dispatch varoom_role_change');
-  assert.match(notifPageSource, /detail.*role|role.*detail/, 'varoom_role_change dispatch must include detail with role');
+  // 4. Role comes from the verified profile (AuthProvider); the page no longer
+  // broadcasts role hints, which made _app re-query the profile in a loop.
+  assert.match(notifPageSource, /accountRole\(auth\.profile\)/, 'notifications.tsx must take its role from AuthProvider');
+  assert.doesNotMatch(notifPageSource, /varoom_role_change/, 'notifications.tsx must not broadcast role hints');
 
   // 5. notifications.tsx has layout-specific CSS overrides for sidebar coexistence
   assert.match(
@@ -364,10 +365,12 @@ test('12. Complete legacy unwiring verification', () => {
     'notifications.tsx must include .client-layout-active or .host-layout-active CSS overrides'
   );
 
-  // 6. _app.js reads event.detail.role for instant layout resolution
+  // 6. _app.js resolves the layout role from the verified session, never from
+  // unscoped event payloads
   const appJsPath = path.join(root, 'pages', '_app.js');
   const appJsSource = fs.readFileSync(appJsPath, 'utf8');
-  assert.match(appJsSource, /event\.detail\.role|event\??\.detail\??\.role/, '_app.js must read event.detail.role from varoom_role_change');
+  assert.match(appJsSource, /const \{ session, profile \} = useAuth\(\);/, '_app.js must take the role from AuthProvider');
+  assert.doesNotMatch(appJsSource, /event\??\.detail\??\.role/, '_app.js must not trust role event payloads');
 });
 
 test('13. Shared sidebar username and name contrast and visibility in Client and Host layouts', () => {
@@ -420,16 +423,20 @@ test('14. Unbroken notifications navigation from Bookings and client-side sideba
   assert.doesNotMatch(hostHomeHtml, /document\.getElementById\(['"]notif-nav-item['"]\)/);
 });
 
-test('15. Instant synchronous cache presentation on mount and account switching isolation', () => {
+test('15. Instant cache presentation is limited to the verified account', () => {
   const notifPageSource = fs.readFileSync(notificationsPagePath, 'utf8');
 
-  // 1. notifications.tsx checks cache early on mount for instant zero-skeleton presentation
-  assert.match(notifPageSource, /earlyUserId/);
-  assert.match(notifPageSource, /const earlyCached = getCachedNotifications\(earlyUserId\)/);
+  // 1. Cached notifications render instantly, but only for the AuthProvider-verified user
+  assert.match(notifPageSource, /const authUserId = auth\.user\?\.id \|\| null;/);
+  assert.match(notifPageSource, /const cached = getCachedNotifications\(authUserId\)/);
 
-  // 2. notifications.tsx listens for account changes to isolate cache per account
-  assert.match(notifPageSource, /varoom_active_account_changed/);
-  assert.match(notifPageSource, /varoom_linked_accounts_changed/);
+  // 2. Never for an account id read from browser storage before the session resolves
+  assert.doesNotMatch(notifPageSource, /earlyUserId/);
+  assert.doesNotMatch(notifPageSource, /varoom_cached_profile/);
+  assert.doesNotMatch(notifPageSource, /varoom_active_account_id/);
+
+  // 3. Account changes re-run the effect through the verified user id
+  assert.match(notifPageSource, /\[auth\.status, authUserId, fetchNotifications, router\]/);
 });
 
 test('16. Bookings retains the shared notification widget after legacy page retirement', () => {

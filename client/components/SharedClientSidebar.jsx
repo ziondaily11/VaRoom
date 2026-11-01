@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { profileStore } from '../lib/auth/session';
 import { useRouter } from 'next/router';
 const { resolveAvatarUrl } = require('./resolveStoredPhotoUrl');
 
@@ -124,11 +125,8 @@ export default function SharedClientSidebar({ activeNav: explicitActiveNav } = {
       try { localStorage.setItem('varoom_active_account_id', userId); } catch (e) {}
 
       // Load profile
-      const { data: profile } = await client
-        .from('profiles')
-        .select('id,full_name,username,avatar_url,role')
-        .eq('id', userId)
-        .maybeSingle();
+      // Shared profile cache: no request while the row is fresh.
+      const { data: profile } = await profileStore().get(userId);
 
       if (!cancelled && profile) {
         const userData = {

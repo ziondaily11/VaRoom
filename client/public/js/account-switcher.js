@@ -706,7 +706,12 @@
 
   async function fetchProfileBasics(client, userId) {
     try {
-      var result = await client.from('profiles').select('id, full_name, avatar_url, role').eq('id', userId).maybeSingle();
+      // In the Next app the shared profile store serves this without a request.
+      // It only knows the primary client's user, so other clients query directly.
+      var store = window.VaRoomProfileStore;
+      var result = store && client === window.supabaseClient
+        ? await store.get(userId)
+        : await client.from('profiles').select('id, full_name, avatar_url, role').eq('id', userId).maybeSingle();
       return result.data || null;
     } catch (e) { return null; }
   }

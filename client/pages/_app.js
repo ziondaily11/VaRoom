@@ -1,10 +1,12 @@
 import Head from 'next/head';
 import { useRouter } from 'next/router';
-import { useState, useEffect, useLayoutEffect } from 'react';
+import { useEffect } from 'react';
 import HostLayout from '../components/HostLayout';
 import ClientLayout from '../components/ClientLayout';
 import AddAccountModal from '../components/AddAccountModal';
 import { getSupabaseClient } from '../lib/supabase/client';
+import { AuthProvider, useAuth } from '../lib/auth/AuthProvider';
+import { profileStore } from '../lib/auth/session';
 const { getAccountLayout, getSessionBoundCachedRole } = require('../lib/accountRoleLayout');
 import '../styles/admin.css';
 import '../legacy-pages/privacy.css';
@@ -13,6 +15,8 @@ const { chatsThemeCssHref } = require('../lib/chatsCssAssets');
 // Create the shared Supabase client before any page renders so pages and
 // legacy scripts adopt one instance instead of racing to create their own.
 getSupabaseClient();
+// Bind the shared profile store (and its profiles write hook) to that client.
+if (typeof window !== 'undefined') profileStore();
 
 const designTokensStyle = `
   :root {
@@ -412,11 +416,27 @@ if (typeof window !== 'undefined' && typeof Node !== 'undefined' && Node.prototy
   };
 }
 
-const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
+// Role comes from the verified session and its profile (AuthProvider), never
+// from page-level hints, so the layout choice cannot follow another account.
+function AccountLayout({ Component, pageProps }) {
+  const router = useRouter();
+  const { session, profile } = useAuth();
+  const role = getSessionBoundCachedRole(session, profile);
+  const path = router.pathname || '';
+  const asPath = router.asPath || '';
+  const accountLayout = getAccountLayout(path, asPath, role);
+  const pageElement = <Component {...pageProps} />;
+
+  if (Component.getLayout) return Component.getLayout(pageElement);
+  if (accountLayout === 'host') return <HostLayout>{pageElement}</HostLayout>;
+  if (accountLayout === 'client') return <ClientLayout>{pageElement}</ClientLayout>;
+  return pageElement;
+}
 
 export default function App({ Component, pageProps }) {
   const router = useRouter();
-  const [role, setRole] = useState(null);
+  const path = router.pathname || '';
+  const isChatsRoute = path === '/chats' || path === '/elie';
 
   useEffect(() => {
     const applyThemeForRoute = (url) => {
@@ -445,152 +465,8 @@ export default function App({ Component, pageProps }) {
     };
   }, [router]);
 
-  useIsomorphicLayoutEffect(() => {
-    let disposed = false;
-    let requestVersion = 0;
-    let activeUserId = null;
-    let attachedClient = null;
-    let authSubscription = null;
-
-    const readCachedProfile = () => {
-      try {
-        const raw = localStorage.getItem('varoom_cached_profile');
-        return raw ? JSON.parse(raw) : null;
-      } catch (e) {
-        return null;
-      }
-    };
-
-    const readActiveSession = (client) => {
-      if (!client?.auth?.getSession) return;
-      client.auth.getSession().then(({ data }) => {
-        if (!disposed) resolveSessionRole(client, data?.session || null);
-      }).catch(() => {});
-    };
-
-    const resolveSessionRole = async (client, session) => {
-      const version = ++requestVersion;
-      const userId = session?.user?.id || null;
-      if (!userId) {
-        activeUserId = null;
-        setRole(null);
-        return;
-      }
-
-      const cachedProfile = readCachedProfile();
-      const cachedRole = getSessionBoundCachedRole(session, cachedProfile);
-      if (activeUserId !== userId) {
-        activeUserId = userId;
-        setRole(cachedRole);
-      } else if (cachedRole) {
-        setRole(cachedRole);
-      }
-
-      if (!client?.from) return;
-      try {
-        const { data: profile, error } = await client
-          .from('profiles')
-          .select('role')
-          .eq('id', userId)
-          .maybeSingle();
-        if (disposed || version !== requestVersion || activeUserId !== userId) return;
-
-        const latest = await client.auth.getSession();
-        const latestUserId = latest?.data?.session?.user?.id || null;
-        if (latestUserId !== userId) {
-          resolveSessionRole(client, latest?.data?.session || null);
-          return;
-        }
-        if (!error && (profile?.role === 'host' || profile?.role === 'client')) {
-          setRole(profile.role);
-        } else if (!error && !cachedRole) {
-          setRole(null);
-        }
-      } catch (e) {
-        // A matching account-bound cached role remains usable during a
-        // temporary profile-service failure. No role is inferred otherwise.
-      }
-    };
-
-    const attachAuthClient = (client) => {
-      if (!client?.auth || attachedClient === client) return;
-      if (authSubscription) authSubscription.unsubscribe();
-      attachedClient = client;
-      const result = client.auth.onAuthStateChange((event, session) => {
-        if (event === 'INITIAL_SESSION') return;
-        // Defer Supabase reads until after the auth callback has returned.
-        Promise.resolve().then(() => {
-          if (!disposed) resolveSessionRole(client, session || null);
-        });
-      });
-      authSubscription = result?.data?.subscription || null;
-      readActiveSession(client);
-    };
-
-    const refreshRoleForActiveSession = () => {
-      if (window.supabaseClient && attachedClient !== window.supabaseClient) {
-        try {
-      const cached = readCachedProfile();
-      if (cached && (cached.role === 'host' || cached.role === 'client')) {
-        setRole(cached.role);
-      }
-    } catch (e) {}
-
-    attachAuthClient(window.supabaseClient);
-        return;
-      }
-      if (attachedClient) {
-        readActiveSession(attachedClient);
-      } else if (window.supabaseClient) {
-        attachAuthClient(window.supabaseClient);
-      }
-    };
-
-    attachAuthClient(window.supabaseClient);
-    window.addEventListener('varoom_supabase_ready', refreshRoleForActiveSession);
-
-    // Page-level role hints are unscoped. Re-read the active authenticated
-    // session instead of trusting a DOM attribute or event payload.
-    let observer = null;
-    if (typeof MutationObserver !== 'undefined') {
-      observer = new MutationObserver(refreshRoleForActiveSession);
-      observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-account-role'] });
-    }
-    const handleRoleEvent = (event) => {
-      const eventRole = event?.detail?.role;
-      if (eventRole === 'host' || eventRole === 'client') {
-        setRole(eventRole);
-      }
-      refreshRoleForActiveSession();
-    };
-    const handleStorage = (event) => {
-      if (!event.key || ['varoom_cached_profile', 'varoom_active_account_id', 'varoom_user_role', 'varoom_last_role'].includes(event.key)) {
-        refreshRoleForActiveSession();
-      }
-    };
-    window.addEventListener('storage', handleStorage);
-    window.addEventListener('varoom_role_change', handleRoleEvent);
-
-    return () => {
-      disposed = true;
-      requestVersion += 1;
-      window.removeEventListener('storage', handleStorage);
-      window.removeEventListener('varoom_role_change', handleRoleEvent);
-      window.removeEventListener('varoom_supabase_ready', refreshRoleForActiveSession);
-      if (observer) observer.disconnect();
-      if (authSubscription) authSubscription.unsubscribe();
-    };
-  }, []);
-
-  const path = router.pathname || '';
-  const asPath = router.asPath || '';
-  const isChatsRoute = path === '/chats' || path === '/elie';
-  const accountLayout = getAccountLayout(path, asPath, role);
-
-  const pageElement = <Component {...pageProps} />;
-
   return (
-    <>
+    <AuthProvider>
       <Head>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon/favicon.ico" sizes="any" />
@@ -601,16 +477,8 @@ export default function App({ Component, pageProps }) {
         <style dangerouslySetInnerHTML={{ __html: designTokensStyle }} />
         <script dangerouslySetInnerHTML={{ __html: fontSizeScript }} />
       </Head>
-      {Component.getLayout ? (
-        Component.getLayout(pageElement)
-      ) : accountLayout === 'host' ? (
-        <HostLayout>{pageElement}</HostLayout>
-      ) : accountLayout === 'client' ? (
-        <ClientLayout>{pageElement}</ClientLayout>
-      ) : (
-        pageElement
-      )}
+      <AccountLayout Component={Component} pageProps={pageProps} />
       <AddAccountModal />
-    </>
+    </AuthProvider>
   );
 }

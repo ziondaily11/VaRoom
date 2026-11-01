@@ -358,7 +358,10 @@
         countState.client = client;
         return refreshCounts();
       }
-      return client.from('profiles').select('role').eq('id', userId).maybeSingle().then(function (profileResult) {
+      var profileRequest = window.VaRoomProfileStore && client === window.supabaseClient
+        ? window.VaRoomProfileStore.get(userId)
+        : client.from('profiles').select('role').eq('id', userId).maybeSingle();
+      return profileRequest.then(function (profileResult) {
         if (profileResult.error) throw profileResult.error;
         countState.client = client;
         countState.userId = userId;

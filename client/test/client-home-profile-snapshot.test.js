@@ -70,7 +70,7 @@ test('profile snapshots reject expired, malformed, host, and incomplete account 
 
 test('cached filters enable exact-key feed lookup before waiting for authoritative profile refresh', () => {
   const cachedRead = pageSource.indexOf('readClientHomeProfileSnapshot(window.sessionStorage, sessionUser.id)');
-  const profileRequest = pageSource.indexOf('const profileRequest = client', cachedRead);
+  const profileRequest = pageSource.indexOf('const profileRequest = profileStore().get(sessionUser.id)', cachedRead);
   const profileAwait = pageSource.indexOf('const profileResult = await profileRequest', profileRequest);
   const feedReady = pageSource.indexOf('setFeedReady(true)', cachedRead);
   const bookmarkRequest = pageSource.indexOf("from('bookmarks')", profileAwait);

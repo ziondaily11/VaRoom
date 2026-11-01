@@ -12,6 +12,8 @@ import {
   saveScrollPosition,
   getScrollPosition,
 } from '../lib/propertyNewsCache';
+import { useAuth } from '../lib/auth/AuthProvider';
+import { accountRole } from '../lib/types/profile';
 
 interface StatusResult {
   label: string;
@@ -254,27 +256,21 @@ export default function PropertyNewsPage() {
     document.documentElement.style.colorScheme = 'light';
   }, []);
 
-  // Determine user dashboard link without altering layout
+  // Determine user dashboard link without altering layout. The verified
+  // account's role wins; the non-private last-role hint covers signed-out views.
+  const verifiedRole = accountRole(useAuth().profile);
   useEffect(() => {
+    if (verifiedRole) {
+      setDashboardHref(verifiedRole === 'client' ? '/client-home' : '/host-home');
+      return;
+    }
     try {
-      const cached = localStorage.getItem('varoom_cached_profile');
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (parsed?.role === 'client') {
-          setDashboardHref('/client-home');
-          return;
-        }
-      }
       const lastRole = localStorage.getItem('varoom_last_role') || localStorage.getItem('varoom_user_role');
-      if (lastRole === 'client') {
-        setDashboardHref('/client-home');
-      } else {
-        setDashboardHref('/host-home');
-      }
+      setDashboardHref(lastRole === 'client' ? '/client-home' : '/host-home');
     } catch {
       setDashboardHref('/host-home');
     }
-  }, []);
+  }, [verifiedRole]);
 
   // Fetch or restore news index
   const loadIndexNews = useCallback(async (signal?: AbortSignal, force = false) => {

@@ -4,6 +4,8 @@ import { useRouter } from 'next/router';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseClient } from '../lib/supabase/client';
 import { loginUrl } from '../lib/safeRedirect';
+import { useAuth } from '../lib/auth/AuthProvider';
+import { accountRole } from '../lib/types/profile';
 import {
   NotificationItem,
   NotificationDetails,
@@ -278,196 +280,78 @@ export default function NotificationsPage() {
     }
   };
 
-  // Main authentication, cache check, and realtime setup
+  // Identity comes from AuthProvider: cached notifications render only for the
+  // verified signed-in user, never for an id read from browser storage.
+  const auth = useAuth();
+  const authUserId = auth.user?.id || null;
+  const profileRole = accountRole(auth.profile);
+
   useEffect(() => {
-    mountedRef.current = true;
-    let cancelled = false;
+    if (profileRole) setUserRole(profileRole);
+  }, [profileRole]);
 
-    let earlyUserId: string | null = null;
-    // Immediately alert _app.js and environment of cached role & hydrate cache instantly
-    try {
-      const cachedRaw = localStorage.getItem('varoom_cached_profile');
-      if (cachedRaw) {
-        const parsed = JSON.parse(cachedRaw);
-        if (parsed?.id) earlyUserId = parsed.id;
-        if (parsed && (parsed.role === 'host' || parsed.role === 'client')) {
-          document.documentElement.setAttribute('data-account-role', parsed.role);
-          window.dispatchEvent(new CustomEvent('varoom_role_change', { detail: { role: parsed.role } }));
-        }
-      } else {
-        const stored = localStorage.getItem('varoom_last_role') || sessionStorage.getItem('varoom_user_role');
-        if (stored === 'host' || stored === 'client') {
-          document.documentElement.setAttribute('data-account-role', stored);
-          window.dispatchEvent(new CustomEvent('varoom_role_change', { detail: { role: stored } }));
-        }
-      }
-      if (!earlyUserId) {
-        earlyUserId = localStorage.getItem('varoom_active_account_id');
-      }
-    } catch (e) {}
-
-    // Instant cache presentation: if we have a known active user, display cached notifications immediately
-    if (earlyUserId) {
-      setUserId(earlyUserId);
-      const earlyCached = getCachedNotifications(earlyUserId);
-      if (earlyCached && earlyCached.items) {
-        setNotifications(earlyCached.items);
-        setUnreadCount(earlyCached.unreadCount);
-        setLoading(false);
-        syncSidebarUnreadCount(earlyCached.unreadCount);
-      }
+  // Cache check and realtime setup for the signed-in user
+  useEffect(() => {
+    if (auth.status === 'loading') return undefined;
+    if (auth.status === 'signed-out' || !authUserId) {
+      router.push(loginUrl('/notifications'));
+      return undefined;
     }
 
-    const initAuthAndData = async () => {
-      let client = getSupabaseClient();
-      if (!client || !client.auth) {
-        // Wait briefly if client is initializing
-        for (let i = 0; i < 10; i++) {
-          await new Promise((r) => setTimeout(r, 50));
-          client = getSupabaseClient();
-          if (client && client.auth) break;
-        }
+    const client = getSupabaseClient();
+    if (!client) return undefined;
+    mountedRef.current = true;
+    clientRef.current = client;
+    setUserId(authUserId);
+
+    // 1. Check cache for instant rendering
+    const cached = getCachedNotifications(authUserId);
+    if (cached && cached.items) {
+      setNotifications(cached.items);
+      setUnreadCount(cached.unreadCount);
+      setLoading(false);
+      syncSidebarUnreadCount(cached.unreadCount);
+
+      // Background refresh if cache is stale
+      if (!cached.isFresh) {
+        void fetchNotifications(authUserId, client, true);
       }
+    } else {
+      setLoading(true);
+      void fetchNotifications(authUserId, client, false);
+    }
 
-      if (!client || !client.auth) {
-        if (!cancelled) {
-          router.push(loginUrl('/notifications'));
+    // 2. Set up page-owned Realtime channel
+    const pageChannel = client
+      .channel(`notifications-page-${authUserId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'notifications',
+          filter: `recipient_user_id=eq.${authUserId}`,
+        },
+        () => {
+          void fetchNotifications(authUserId, client, true);
         }
-        return;
-      }
-
-      clientRef.current = client;
-
-      const sessionResult = await client.auth.getSession();
-      if (sessionResult.error || !sessionResult.data?.session?.user) {
-        if (!cancelled) {
-          router.push(loginUrl('/notifications'));
-        }
-        return;
-      }
-
-      const user = sessionResult.data.session.user;
-      if (cancelled) return;
-      setUserId(user.id);
-
-      // Determine role from profile or cache
-      let role: 'host' | 'client' = 'client';
-      try {
-        const cachedRaw = localStorage.getItem('varoom_cached_profile');
-        if (cachedRaw) {
-          const parsed = JSON.parse(cachedRaw);
-          if (parsed && parsed.id === user.id && (parsed.role === 'host' || parsed.role === 'client')) {
-            role = parsed.role;
-          }
-        }
-      } catch (e) {}
-
-      try {
-        const profileResult = await client
-          .from('profiles')
-          .select('role')
-          .eq('id', user.id)
-          .maybeSingle();
-
-        if (profileResult.data?.role === 'host' || profileResult.data?.role === 'client') {
-          role = profileResult.data.role;
-        }
-      } catch (e) {}
-
-      if (cancelled) return;
-      setUserRole(role);
-      document.documentElement.setAttribute('data-account-role', role);
-      try {
-        sessionStorage.setItem('varoom_user_role', role);
-        localStorage.setItem('varoom_last_role', role);
-      } catch (e) {}
-      window.dispatchEvent(new CustomEvent('varoom_role_change', { detail: { role } }));
-
-      // 1. Check cache for instant rendering
-      const cached = getCachedNotifications(user.id);
-      if (cached && cached.items) {
-        setNotifications(cached.items);
-        setUnreadCount(cached.unreadCount);
-        setLoading(false);
-        syncSidebarUnreadCount(cached.unreadCount);
-
-        // Background refresh if cache is stale
-        if (!cached.isFresh) {
-          void fetchNotifications(user.id, client, true);
-        }
-      } else {
-        setLoading(true);
-        void fetchNotifications(user.id, client, false);
-      }
-
-      // 2. Set up page-owned Realtime channel
-      if (realtimeChannelRef.current) {
-        try {
-          client.removeChannel(realtimeChannelRef.current);
-        } catch (e) {}
-      }
-
-      const pageChannel = client
-        .channel(`notifications-page-${user.id}`)
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'notifications',
-            filter: `recipient_user_id=eq.${user.id}`,
-          },
-          () => {
-            void fetchNotifications(user.id, client, true);
-          }
-        )
-        .subscribe();
-
-      realtimeChannelRef.current = pageChannel;
-    };
-
-    void initAuthAndData();
-
-    const handleAccountChange = () => {
-      const currentActiveId = localStorage.getItem('varoom_active_account_id');
-      if (currentActiveId && currentActiveId !== userId) {
-        setUserId(currentActiveId);
-        const nextCached = getCachedNotifications(currentActiveId);
-        if (nextCached && nextCached.items) {
-          setNotifications(nextCached.items);
-          setUnreadCount(nextCached.unreadCount);
-          setLoading(false);
-          syncSidebarUnreadCount(nextCached.unreadCount);
-        } else {
-          setNotifications([]);
-          setUnreadCount(0);
-          setLoading(true);
-        }
-        void initAuthAndData();
-      }
-    };
-    window.addEventListener('varoom_active_account_changed', handleAccountChange);
-    window.addEventListener('varoom_linked_accounts_changed', handleAccountChange);
+      )
+      .subscribe();
+    realtimeChannelRef.current = pageChannel;
 
     return () => {
       mountedRef.current = false;
-      cancelled = true;
       requestVersionRef.current += 1;
-      window.removeEventListener('varoom_active_account_changed', handleAccountChange);
-      window.removeEventListener('varoom_linked_accounts_changed', handleAccountChange);
 
       // Clean up ONLY the page-owned realtime channel
       if (realtimeChannelRef.current) {
         try {
-          const client = (window as any).supabaseClient;
-          if (client) {
-            client.removeChannel(realtimeChannelRef.current);
-          }
+          client.removeChannel(realtimeChannelRef.current);
         } catch (e) {}
         realtimeChannelRef.current = null;
       }
     };
-  }, [fetchNotifications, router]);
+  }, [auth.status, authUserId, fetchNotifications, router]);
 
   // Compute filtered notifications
   const filteredNotifications = useMemo(() => {
