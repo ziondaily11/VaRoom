@@ -187,7 +187,10 @@ test('a concurrent cross-tab switch is not overwritten by rollback from an older
   let reads = 0;
   client.auth.getSession = async () => {
     reads += 1;
-    if (reads === 2) client.setActiveSession(otherTabC);
+    // Read 1: the session before switching; read 2: the membership re-check
+    // that switchAccount now performs; read 3 happens after setSession, which
+    // is where another tab's switch must not be rolled back.
+    if (reads === 3) client.setActiveSession(otherTabC);
     return originalGetSession();
   };
 

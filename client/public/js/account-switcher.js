@@ -344,6 +344,21 @@
     }
     var previousResult = await client.auth.getSession();
     var previousSession = previousResult && previousResult.data && previousResult.data.session;
+    if (!previousSession || !previousSession.user || !previousSession.access_token) {
+      throw new Error('Sign in to your current VaRoom account before switching accounts.');
+    }
+
+    // The backend group is authoritative. Confirm the target is still a member
+    // before using any stored credentials, so a page loaded before a removal
+    // (in this browser or on another device) cannot switch back into a
+    // relationship that was removed.
+    // A failed lookup throws and blocks the switch; it never falls back to the
+    // browser's stored group.
+    var confirmedMembers = await loadLinkedAccounts(client, previousSession, { force: true });
+    if (!confirmedMembers.some(function (member) { return member.id === account.id; })) {
+      throw new Error('This account is no longer linked to this group.');
+    }
+
     var switchedSession = null;
     try {
       var switchResult = await client.auth.setSession({
