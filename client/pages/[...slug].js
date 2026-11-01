@@ -142,11 +142,34 @@ export async function getStaticProps({ params }) {
   return { props: { ...parseTemplate(source, templateName === 'elie.html' || isElieSlug), templateName } };
 }
 
+// Shared caches the Next bundle already defines as window globals; legacy
+// templates still reference the public/js copies, which are skipped here.
+const BUNDLED_SCRIPT_GLOBALS = {
+  '/js/listing-feed-cache.js': 'VaRoomListingFeedCache',
+  '/js/varoom-data-cache.js': 'VaRoomDataCache',
+  '/js/chat-cache.js': 'VaRoomChatCache',
+};
+
+function isProvidedByBundle(src) {
+  if (!src) return false;
+  let pathname = '';
+  try { pathname = new URL(src, window.location.origin).pathname; } catch (e) { return false; }
+  const globalName = BUNDLED_SCRIPT_GLOBALS[pathname];
+  return Boolean(globalName && window[globalName]);
+}
+
+function loadChatCache() {
+  return import('../lib/chatCache').catch((error) => {
+    console.warn('Chat cache could not be loaded:', error);
+  });
+}
+
 async function runLegacyScripts(container, scripts, pageLifecycle, templateName) {
   const pageWasLeft = () => pageLifecycle && !pageLifecycle.isActive();
   if (pageWasLeft()) return;
 
-  if (!document.querySelector('script[data-varoom-data-cache]')) {
+  // _app defines VaRoomDataCache from the bundle; the script is only a fallback.
+  if (!window.VaRoomDataCache && !document.querySelector('script[data-varoom-data-cache]')) {
     await new Promise((resolve, reject) => {
       const cacheScript = document.createElement('script');
       cacheScript.src = '/js/varoom-data-cache.js';
@@ -171,13 +194,9 @@ async function runLegacyScripts(container, scripts, pageLifecycle, templateName)
   }
   if (pageWasLeft()) return;
 
-  if (!document.querySelector('script[data-chat-cache]')) {
-    const chatCacheScript = document.createElement('script');
-    chatCacheScript.src = '/js/chat-cache.js';
-    chatCacheScript.dataset.chatCache = 'true';
-    chatCacheScript.async = true;
-    document.head.appendChild(chatCacheScript);
-  }
+  // One chat cache for the app: the bundled lib/chatCache.ts (it defines
+  // window.VaRoomChatCache). Loaded on demand, without blocking the page.
+  void loadChatCache();
 
   if (scripts.some(({ attributes }) => attributes.includes('@supabase/supabase-js'))) {
     await new Promise((resolve, reject) => {
@@ -228,6 +247,7 @@ async function runLegacyScripts(container, scripts, pageLifecycle, templateName)
       else script.src = match[2];
     }
     if (script.src.includes('@supabase/supabase-js')) continue;
+    if (isProvidedByBundle(script.src)) continue;
     script.async = false;
     script.text = content;
     if (script.src) {
@@ -351,14 +371,7 @@ export default function LegacyPage({ title, markup, scripts, templateName }) {
       await runLegacyScripts(containerRef.current, scripts, pageLifecycle, templateName);
       if (cancelled || title !== 'Messenger Dashboard' || document.querySelector('script[data-chat-data]')) return;
 
-      let cacheScript = document.querySelector('script[data-chat-cache]');
-      if (!cacheScript) {
-        cacheScript = document.createElement('script');
-        cacheScript.src = '/js/chat-cache.js';
-        cacheScript.dataset.chatCache = 'true';
-        cacheScript.async = false;
-        document.body.appendChild(cacheScript);
-      }
+      const chatCacheReady = loadChatCache();
 
       if (!document.querySelector('script[data-chat-supabase]')) {
         const supabaseScript = document.createElement('script');
@@ -378,12 +391,7 @@ export default function LegacyPage({ title, markup, scripts, templateName }) {
         }
       };
 
-      if (window.VaRoomChatCache) {
-        loadChatData();
-      } else {
-        cacheScript.addEventListener('load', loadChatData, { once: true });
-        cacheScript.addEventListener('error', loadChatData, { once: true });
-      }
+      chatCacheReady.then(loadChatData, loadChatData);
     };
     loadPageScripts().catch((error) => console.error('Legacy page initialization failed:', error));
     return () => {

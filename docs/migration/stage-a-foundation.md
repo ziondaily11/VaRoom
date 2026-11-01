@@ -361,7 +361,7 @@ What remains is each legacy page's own inline query. Those go with their page's 
 - `client-home` keeps its own auth subscription and epoch logic; only its profile read moved to the store.
 - There is no React render test for `AuthProvider`. The provider is covered by the signed-in runs, and its pure parts (store, `clearUserData`) have unit tests.
 
-#### A3 — detailed plan (approved 2026-11-01; A3a implemented)
+#### A3 — detailed plan (approved 2026-11-01; A3a merged, A3b implemented)
 
 ##### Findings
 
@@ -446,6 +446,35 @@ Plus `clientHomeProfileSnapshot.js` and two chat caches.
 - In this run host-home created no `VaRoomDataCache` account entries, so the encoded-prefix fix was verified by unit test only.
 
 **Deviation:** `clientHomeVideoMetadataCache` was ported to TS as-is rather than rebuilt on the core. Its per-account map with per-entry ages and expiring playback entries fits the generic primitive poorly; rebuilding it would add code without removing work. It is covered by the namespace list for sign-out clearing.
+
+##### A3b results (2026-11-01)
+
+**New:**
+- `lib/cache/dataCache.ts`: `window.VaRoomDataCache` built on the core, with the same API, prefix, key encoding and entry format.
+- `lib/listingFeedCache.ts`: a line-for-line TS port of `public/js/listing-feed-cache.js` (same API and stored format), replacing the script loader.
+- `_app` defines both globals from the bundle.
+
+**Changed:**
+- The `public/js` data and feed caches return early when the global already exists. They remain only for pages served outside Next.
+- `[...slug].js` no longer injects `varoom-data-cache.js` or `chat-cache.js`. It skips template `<script>` tags for caches the bundle provides, and loads `lib/chatCache.ts` with a dynamic `import()`, including before `chat-data.js` on `/elie`.
+- The chat prefetch cooldown is stored per user in sessionStorage (`varoom:chat:prefetch:v1:<id>`). The stamp is written when an attempt starts, so rate-limited attempts throttle too.
+- `createCache` gained `dropMemory()`.
+
+**Verification:**
+- 329/329 tests pass. The 7 feed-cache scenarios now run against both implementations; there are cross-implementation storage tests, data-cache parity tests against the JS fallback, and a prefetch-cooldown test across module reloads.
+- `tsc` is clean; `next build` succeeds.
+
+**Signed-in runs:**
+
+| Check | Branch | Production (`main`, A3a) |
+|---|---|---|
+| Cache-script downloads on host-home, bookings, settings, profile, marketplace, list | 0 | 2–3 per page (seen signed out: the sign-in did not complete in the headless run) |
+| `/api/chat/*` calls per legacy page | 0–3 | — |
+| 429 responses | 0 | — |
+
+The remaining chat calls are the sidebar unread count (A5). The client account (client-home twice, bookings, settings, chats) is clean.
+
+**Deviation:** the listing feed cache is a standalone TS port, not built on the core. Its paged format (`version/pages/itemOrder/endOffset`) must stay identical to the JS fallback and to feeds already stored in users' sessions.
 
 ### A3 — Shared cache layer (M)
 

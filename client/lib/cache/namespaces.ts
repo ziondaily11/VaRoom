@@ -11,6 +11,8 @@ export const CACHE_NAMESPACES = {
   propertyNewsArticles: 'varoom:property-news:articles:v2:',
   listingFeed: 'varoom:listings:feed:v1:',
   listingFeedScroll: 'varoom:listings:scroll:',
+  // Written by lib/chatCache.ts (kept import-free); per-user prefetch stamp.
+  chatPrefetch: 'varoom:chat:prefetch:v1:',
   // VaRoomDataCache stores "account:<id>:..." keys URL-encoded.
   dataCacheAccount: 'varoom:data-cache:v1:' + encodeURIComponent('account:'),
 } as const;
@@ -22,6 +24,7 @@ export const USER_SCOPED_SESSION_PREFIXES: string[] = [
   CACHE_NAMESPACES.notifications,
   CACHE_NAMESPACES.listingFeed,
   CACHE_NAMESPACES.listingFeedScroll,
+  CACHE_NAMESPACES.chatPrefetch,
   CACHE_NAMESPACES.dataCacheAccount,
   'varoom:client-home:',
   // Pre-A3 key formats, cleared until existing sessions age out.

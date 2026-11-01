@@ -1,6 +1,11 @@
 (function (window) {
   'use strict';
 
+  // Inside the Next app the bundled TypeScript implementation defines this
+  // global first (lib/cache, lib/listingFeedCache.ts); this file is the
+  // fallback for pages served outside it.
+  if (window.VaRoomDataCache) return;
+
   var PREFIX = 'varoom:data-cache:v1:';
   var memory = Object.create(null);
   var pending = Object.create(null);
