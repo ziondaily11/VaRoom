@@ -4,6 +4,8 @@ import { useRouter } from 'next/router';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseClient } from '../lib/supabase/client';
 import { loginUrl } from '../lib/safeRedirect';
+import { useAuth } from '../lib/auth/AuthProvider';
+import { accountRole } from '../lib/types/profile';
 import chatCache, {
   ChatConversation,
   ChatMessage,
@@ -546,6 +548,14 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
     });
   }, [api, scrollToBottom, updateSidebarCounts]);
 
+  // Role follows the verified account's profile from AuthProvider.
+  const verifiedRole = accountRole(useAuth().profile);
+  useEffect(() => {
+    if (!verifiedRole) return;
+    setRole(verifiedRole);
+    document.documentElement.setAttribute('data-role', verifiedRole);
+  }, [verifiedRole]);
+
   // 1. Main Authentication & Session Hydration (Runs once on mount + account switcher)
   useEffect(() => {
     mountedRef.current = true;
@@ -565,25 +575,6 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
       setSession(currentSession);
       const curUserId = currentSession.user.id;
       setUserId(curUserId);
-
-      // Check role
-      try {
-        const cachedRaw = localStorage.getItem('varoom_cached_profile');
-        if (cachedRaw) {
-          const parsed = JSON.parse(cachedRaw);
-          if (parsed && (parsed.role === 'host' || parsed.role === 'client')) {
-            setRole(parsed.role);
-          }
-        }
-      } catch {}
-
-      client.from('profiles').select('role').eq('id', curUserId).maybeSingle()
-        .then(({ data }: any) => {
-          if (!cancelled && (data?.role === 'host' || data?.role === 'client')) {
-            setRole(data.role);
-            document.documentElement.setAttribute('data-role', data.role);
-          }
-        }).then(undefined, () => {});
     };
 
     initAuth();

@@ -55,8 +55,9 @@ test('_app.js wraps designated host-facing routes with persistent HostLayout', (
   assert.match(appCode, /import HostLayout from '\.\.\/components\/HostLayout';/, 'Imports HostLayout');
   assert.match(appCode, /getAccountLayout\(path, asPath, role\)/, 'Uses the tested role-aware route selector');
   assert.match(appCode, /<HostLayout>\{pageElement\}<\/HostLayout>/, 'Mounts persistent HostLayout');
-  assert.match(appCode, /useState\(null\)/, 'Starts with an unresolved role rather than a host fallback');
-  assert.match(appCode, /varoom_supabase_ready/, 'Waits for the shared authenticated Supabase client');
+  assert.match(appCode, /const role = getSessionBoundCachedRole\(session, profile\);/, 'Role comes only from the verified session and its profile');
+  assert.match(appCode, /<AuthProvider>/, 'AuthProvider owns the session for every page');
+  assert.doesNotMatch(appCode, /varoom_role_change|attributeFilter/, 'Page-level role hints no longer trigger profile re-queries');
   assert.doesNotMatch(appCode, /useState\(\(\) => \{[\s\S]*?sessionStorage/, 'Does not read browser storage during initial render');
 });
 

@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import type { CSSProperties, ReactElement, PointerEvent as ReactPointerEvent } from 'react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { getSupabaseClient } from '../lib/supabase/client';
+import { profileStore } from '../lib/auth/session';
 import { Music2, X } from 'lucide-react';
 import ClientLayout from '../components/ClientLayout';
 import styles from './ClientHome.module.css';
@@ -947,11 +948,8 @@ export default function ClientHome() {
         setFeedReady(true);
       }
 
-      const profileRequest = client
-        .from('profiles')
-        .select('role,onboarding_completed,interested_categories,looking_timeline')
-        .eq('id', sessionUser.id)
-        .maybeSingle();
+      // Shared, deduplicated profile read (AuthProvider and the sidebar use it too).
+      const profileRequest = profileStore().get(sessionUser.id);
       const profileResult = await profileRequest;
       if (!active || epoch !== authEpoch.current) return;
       const account = resolveClientHomeProfile(session, profileResult);

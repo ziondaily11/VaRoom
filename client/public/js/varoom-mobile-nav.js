@@ -155,11 +155,13 @@
       var sessionResult = await window.supabaseClient.auth.getSession();
       var session = sessionResult && sessionResult.data && sessionResult.data.session;
       if (!session) return;
-      var profileResult = await window.supabaseClient
-        .from('profiles')
-        .select('role, onboarding_completed')
-        .eq('id', session.user.id)
-        .maybeSingle();
+      var profileResult = window.VaRoomProfileStore
+        ? await window.VaRoomProfileStore.get(session.user.id)
+        : await window.supabaseClient
+          .from('profiles')
+          .select('role, onboarding_completed')
+          .eq('id', session.user.id)
+          .maybeSingle();
       if (profileResult.error) throw profileResult.error;
       var role = profileResult.data && profileResult.data.role;
       if ((role !== 'host' && role !== 'client') ||

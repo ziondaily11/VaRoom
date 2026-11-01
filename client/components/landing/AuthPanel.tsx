@@ -6,6 +6,7 @@ import { PasswordRecovery } from './PasswordRecovery';
 import { SignupForm } from './SignupForm';
 import { GoogleSignInButton } from './GoogleSignInButton';
 import { getSafeRedirect } from '../../lib/safeRedirect';
+import { profileStore } from '../../lib/auth/session';
 
 interface AuthPanelProps {
   isOpen: boolean;
@@ -153,7 +154,8 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({ isOpen, onClose, initialVi
 
       if (error) throw error;
 
-      const profileResult = await client.from('profiles').select('role,onboarding_completed').eq('id', data.user.id).maybeSingle();
+      // A fresh read that also primes the shared profile cache for the next page.
+      const profileResult = await profileStore().get(data.user.id, { force: true });
       const profile = profileResult.data;
       const role = (profile && profile.role) || (data.user.user_metadata && data.user.user_metadata.role);
 

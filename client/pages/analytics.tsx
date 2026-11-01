@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseClient } from '../lib/supabase/client';
 import { loginUrl } from '../lib/safeRedirect';
+import { profileStore } from '../lib/auth/session';
 import HostAnalytics from '../legacy-pages/Analytics';
 import { supabaseHostAnalyticsApi } from '../legacy-pages/analyticsApi';
 import shell from '../legacy-pages/AnalyticsShell.module.css';
@@ -49,12 +50,9 @@ export default function AnalyticsPage() {
           window.location.assign(loginUrl('/analytics'));
           return;
         }
-        const { data: hostProfile, error: profileError } = await sharedClient
-          .from('profiles')
-          .select('role,verified')
-          .eq('id', data.session.user.id)
-          .single();
+        const { data: hostProfile, error: profileError } = await profileStore().get(data.session.user.id);
         if (profileError) throw profileError;
+        if (!hostProfile) throw new Error('Unable to verify your host account.');
         if (!hostProfile || hostProfile.role !== 'host') {
           window.location.assign('/');
           return;

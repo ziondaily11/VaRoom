@@ -254,6 +254,113 @@ Change:
 - Fix `notifications.tsx` so it doesn't render before the session is verified.
 - Fix the unscoped role reads in `chats.tsx` and `property-news.tsx`.
 
+#### A2 — detailed plan (approved and implemented 2026-11-01)
+
+##### Measured cause of the profile reads
+
+Signed-in hard loads, host account. Each request is identified by its `select=`:
+
+| Page | `profiles` reads | Breakdown |
+|---|---|---|
+| `/notifications` | 17 | 15 × `select=role`, 1 × sidebar, 1 × account switcher |
+| `/bookings` | 11 | 6 × `select=role`, plus the switcher, the sidebar, mobile-nav and the page's own query |
+| `/host-home` | 6 | 2 × `select=role`, plus mobile-nav, the switcher, the sidebar and the page's own query |
+
+**The `select=role` reads come from `_app.js`.** Its role resolver re-queries the profile on every `varoom_role_change` event and on every mutation of `html[data-account-role]`.
+- `notifications.tsx` fires both, twice.
+- When the role resolves, the layout changes from `none` to `host`, which remounts the page, which fires them again.
+- `varoom-sidebar.js initCounts` (`select=role`) adds to the count on legacy pages.
+
+**Consumers of the current user's profile:**
+
+| Area | Consumers |
+|---|---|
+| React pages | `_app` (role); `client-home` (role, onboarding_completed, interested_categories, looking_timeline); `notifications` (role); `chats` (role); `analytics` (role, verified); `AuthPanel` (role, onboarding_completed) |
+| Shared components | Both sidebars (id, full_name, username, avatar_url, role) |
+| Shared legacy scripts | `account-switcher.js fetchProfileBasics`; `varoom-mobile-nav.js` (role, onboarding_completed); `varoom-sidebar.js initCounts` (role) |
+
+Legacy pages write `profiles` directly through the shared client: `settings.html`, `profile.html` and `onboarding.html`.
+
+##### What A2 builds
+
+1. **`lib/types/profile.ts`**: a `Profile` type covering the union of the columns above.
+2. **`lib/auth/profileStore.ts`**: a framework-free store for the signed-in user's profile row.
+   - Selects every column the consumers need, in one query.
+   - Keyed by user id. Kept in memory and in sessionStorage (`varoom:profile:v1:<uid>`), so a hard load within the TTL needs no request.
+   - Fresh for 5 min; in-flight requests are deduplicated.
+   - Returns `{ data, error }`, so existing `resolveClientHomeProfile`-style code drops in.
+   - **Write-aware:** it wraps `client.from('profiles')` on the shared client, so any `update`/`upsert`/`insert`/`delete` from React or legacy pages invalidates the cached row once the write settles. Settings and profile edits therefore show up immediately, as they do today.
+   - Mirrors the result into `varoom_cached_profile`, keeping `homeState` when the id matches, so legacy readers keep working.
+   - Exposed as `window.VaRoomProfileStore`.
+3. **`lib/auth/AuthProvider.tsx`**, mounted once in `_app` above the layouts.
+   - Owns one `getSession` + `onAuthStateChange`, and exposes `useAuth()` → `{ status, session, user, profile, profileError, refreshProfile }`.
+   - Sets `html[data-account-role]` from the verified profile only.
+4. **`lib/auth/clearUserData.ts`**, called on `SIGNED_OUT`, on user change and on a resolved signed-out state. It is **not** called on the add-account callback page, whose client is isolated.
+   - Clears the profile store entry and `varoom_cached_profile` / `varoom_active_account_id` when they belong to the previous user.
+   - Clears the sessionStorage prefixes `varoom:data-cache:v1:account:`, `varoom:client-home:*`, `varoom:listings:feed:v1:`, `varoom:listings:scroll:`, the notifications cache and the property-news cache.
+   - Clears the chat IndexedDB for that user, including media.
+   - **Not cleared:** linked-account tokens (A4), listing drafts (host-keyed) and the theme.
+
+##### What changes in consumers
+
+Behaviour and UI stay the same; only the identity source changes.
+- **`_app.js`:** role comes from `useAuth()` → `getSessionBoundCachedRole`. Delete the event, attribute and storage re-query loop (lines 443–583).
+- **`notifications.tsx`:**
+  - **Remove the pre-session render of cached notifications.** Today it renders the cached notifications for a user id read from localStorage before the session is verified, so they could belong to another account. After this change it renders cached items only for the verified `user.id`.
+  - Drop its role query and role broadcasts. Redirect to login when `status === 'signed-out'`.
+- **`chats.tsx`, `property-news.tsx`:** role from `useAuth()` instead of the unscoped `varoom_cached_profile`.
+- **`client-home.tsx`, `analytics.tsx`, `AuthPanel.tsx`:** the profile read goes through the store. The client-home auth epoch and snapshot logic are unchanged.
+- **Both sidebars:** identity from `useAuth()`. The profile part of the host sidebar's 30 s refresh becomes a store read (no request within the TTL). The notification count stays as it is until A5.
+- **Guarded adapters in the shared legacy scripts:** `account-switcher.js fetchProfileBasics`, `varoom-mobile-nav.js` and `varoom-sidebar.js initCounts` use `window.VaRoomProfileStore` when present. Their existing code stays as the fallback for pages served outside Next.
+
+**Not in A2:**
+- Queries inside individual legacy pages; they go with their page's migration.
+- Notification and chat counts (A5).
+- The account-switch reload and linked-account handling (A4).
+- The layout remount on load (A5).
+
+##### Expected result and verification
+
+- **Expected:**
+  - About 1 `profiles` read per hard load on native pages, 0 within the TTL.
+  - Legacy pages drop to 1 store read plus their own page query.
+- **Verification:**
+  - Unit tests for the store: dedupe, TTL, invalidation on write, user isolation. Unit tests for `clearUserData` and the provider.
+  - Update the source-regex tests that encode the old sidebar, `_app` and notifications code.
+  - `tsc`, `next build`.
+  - The signed-in headless run on both accounts, comparing request counts with the baseline.
+  - Account-isolation check: log in as host → visit notifications → log out → log in as client in the same browser profile → nothing of the host's renders.
+
+##### A2 results (2026-11-01)
+
+**`profiles` REST reads per signed-in hard load** (before → after, counting CORS preflights as before):
+
+| Page | Host account | Client account |
+|---|---|---|
+| login | 13 → 4 | 11 → 2 |
+| notifications | 17 → **0** | 13 → **0** |
+| chats | 2 → **0** | 2 → **0** |
+| analytics | 3 → **0** | — |
+| client-home | — | 4 → **0** |
+| property-news | — | 3 → **0** |
+| host-home | 6 → 1 | — |
+| bookings | 11 → 2 | 11 → 2 |
+| settings | 12 → 2 | 12 → 2 |
+| profile | 13 → 4 | — |
+| marketplace | — | 6 → 2 |
+
+What remains is each legacy page's own inline query. Those go with their page's migration.
+
+**Isolation check** (host signs in, browses notifications and chats, signs out, then the client signs in in the same browser profile):
+- After the host signs out, nothing but `varoom_linked_accounts` mentions the host's id. That key is kept by design and belongs to A4.
+- The chat IndexedDB is empty after sign-out.
+- Nothing of the host's renders for the client.
+
+**Deviations from the plan:**
+- The sidebars read the profile through the store directly rather than `useAuth()`; same data source, smaller change. A5 rewrites the sidebars anyway.
+- `client-home` keeps its own auth subscription and epoch logic; only its profile read moved to the store.
+- There is no React render test for `AuthProvider`. The provider is covered by the signed-in runs, and its pure parts (store, `clearUserData`) have unit tests.
+
 ### A3 — Shared cache layer (M)
 
 Create **`lib/cache/`**, a namespaced store:
