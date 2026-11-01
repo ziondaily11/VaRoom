@@ -136,20 +136,35 @@ test('switching an expired account authenticates the selected user and persists 
   assert.equal(client.calls[2].refresh_token, 'refresh-b-rotated');
 });
 
-test('missing or rotated refresh tokens fail without changing the active session or saved membership', async () => {
+test('revoked refresh tokens ask for a new sign-in without changing the active session or saved membership', async () => {
   const context = createSwitcher(new Map(), ['account-a', 'account-b']);
   const currentA = session('account-a', 'access-a', 'refresh-a');
   const client = createMockClient(currentA, new Map([['refresh-a', currentA]]));
-  const staleB = account('account-b', 'access-b', 'refresh-b-rotated-away');
+  const revokedB = account('account-b', 'access-b', 'refresh-b-rotated-away');
   await context.api.loadLinkedAccounts(client, currentA);
   context.api.upsertAccount(account('account-a', 'access-a', 'refresh-a'));
-  context.api.upsertAccount(staleB);
+  context.api.upsertAccount(revokedB);
 
-  await assert.rejects(context.api.switchAccount(client, { ...staleB, refresh_token: '' }), /sign in again/i);
-  await assert.rejects(context.api.switchAccount(client, { ...staleB, access_token: '' }), /sign in again/i);
-  await assert.rejects(context.api.switchAccount(client, staleB), /Refresh Token Not Found/);
+  // A caller's incomplete copy falls back to the stored tokens; a revoked
+  // refresh token surfaces as a clear "sign in again", never a raw API error.
+  await assert.rejects(context.api.switchAccount(client, { ...revokedB, refresh_token: '' }), /needs you to sign in again/i);
+  await assert.rejects(context.api.switchAccount(client, { ...revokedB, access_token: '' }), /needs you to sign in again/i);
+  await assert.rejects(context.api.switchAccount(client, revokedB), (error) => {
+    assert.match(error.message, /needs you to sign in again/i);
+    assert.match(String(error.cause && error.cause.message), /Refresh Token Not Found/);
+    return true;
+  });
   assert.equal(client.getActiveSession().user.id, 'account-a');
   assert.equal(context.api.getLinkedAccounts().map((item) => item.id).join(','), 'account-a,account-b');
+});
+
+test('an account with no stored sign-in in this browser asks for a sign-in', async () => {
+  const context = createSwitcher(new Map(), ['account-a', 'account-b']);
+  const currentA = session('account-a', 'access-a', 'refresh-a');
+  const client = createMockClient(currentA, new Map([['refresh-a', currentA]]));
+  await context.api.loadLinkedAccounts(client, currentA);
+  await assert.rejects(context.api.switchAccount(client, { id: 'account-b' }), /needs you to sign in again/i);
+  assert.equal(client.calls.length, 0);
 });
 
 test('a localStorage failure after setSession restores the original session and keeps the saved account', async () => {

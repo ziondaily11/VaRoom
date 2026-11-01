@@ -338,9 +338,34 @@
     } catch (e) {}
   }
 
+  function needsSignInError(cause) {
+    var error = new Error('This account needs you to sign in again.');
+    if (cause) error.cause = cause;
+    return error;
+  }
+
+  function isRefreshTokenError(error) {
+    var text = String((error && (error.code || '')) + ' ' + (error && error.message || '')).toLowerCase();
+    return text.indexOf('refresh_token') >= 0 || text.indexOf('refresh token') >= 0;
+  }
+
+  function storedSessionFor(userId) {
+    var stored = readCachedAccounts().find(function (item) { return item.id === userId; });
+    return stored && stored.access_token && stored.refresh_token ? stored : null;
+  }
+
+  // Refresh tokens rotate; the copy that expires last is the newest one.
+  function freshestTokens(a, b) {
+    var candidates = [a, b].filter(function (item) { return item && item.access_token && item.refresh_token; });
+    if (!candidates.length) return null;
+    return candidates.reduce(function (best, item) {
+      return Number(item.expires_at || 0) > Number(best.expires_at || 0) ? item : best;
+    });
+  }
+
   async function switchAccount(client, account) {
-    if (!client || !account || !account.access_token || !account.refresh_token) {
-      throw new Error('This account needs you to sign in again.');
+    if (!client || !account || !account.id) {
+      throw needsSignInError();
     }
     var previousResult = await client.auth.getSession();
     var previousSession = previousResult && previousResult.data && previousResult.data.session;
@@ -359,12 +384,40 @@
       throw new Error('This account is no longer linked to this group.');
     }
 
+    // Save the outgoing account's current (possibly just rotated) tokens so
+    // switching back to it later does not need a new sign-in.
+    try {
+      await upsertFromSession(client, previousSession);
+    } catch (_saveError) {
+      // Switching can still proceed; the periodic and refresh-event saves
+      // keep retrying.
+    }
+
+    // Use the newest token pair known in this browser: another tab may have
+    // rotated it after the caller's copy was read.
+    var tokens = freshestTokens(storedSessionFor(account.id), account);
+    if (!tokens) throw needsSignInError();
+
     var switchedSession = null;
     try {
       var switchResult = await client.auth.setSession({
-        access_token: account.access_token,
-        refresh_token: account.refresh_token
+        access_token: tokens.access_token,
+        refresh_token: tokens.refresh_token
       });
+      if (switchResult.error && isRefreshTokenError(switchResult.error)) {
+        // A concurrent refresh in another tab may have just replaced the
+        // pair; retry once with what is stored now.
+        var latest = storedSessionFor(account.id);
+        if (latest && latest.refresh_token !== tokens.refresh_token) {
+          switchResult = await client.auth.setSession({
+            access_token: latest.access_token,
+            refresh_token: latest.refresh_token
+          });
+        }
+        if (switchResult.error && isRefreshTokenError(switchResult.error)) {
+          throw needsSignInError(switchResult.error);
+        }
+      }
       if (switchResult.error) throw switchResult.error;
 
       switchedSession = switchResult.data && switchResult.data.session;
@@ -847,6 +900,24 @@
    *   redirectPath: where "Add existing account" should return to after sign-in
    * }
    */
+  // Persist every refreshed or newly established session of the active
+  // account. Supabase rotates refresh tokens on each refresh and the previous
+  // one stops working shortly after, so the stored copy used for switching
+  // must follow every rotation. Installed once per client.
+  function watchSessionTokens(client) {
+    if (!client || !client.auth || client.__varoomTokenWatchInstalled) return;
+    client.__varoomTokenWatchInstalled = true;
+    client.auth.onAuthStateChange(function (event, session) {
+      if ((event !== 'TOKEN_REFRESHED' && event !== 'SIGNED_IN') || !session) return;
+      // Supabase calls must not run inside the auth callback; defer.
+      setTimeout(function () {
+        upsertFromSession(client, session).catch(function () {
+          // Storage or membership unavailable: the next refresh retries.
+        });
+      }, 0);
+    });
+  }
+
   function init(options) {
     var client = options.client;
     var toggleBtn = options.toggleButton;
@@ -926,6 +997,7 @@
     getLinkedAccounts: getLinkedAccounts,
     loadLinkedAccounts: loadLinkedAccounts,
     linkAdditionalSession: linkAdditionalSession,
+    watchSessionTokens: watchSessionTokens,
     removeLinkedAccount: removeLinkedAccount,
     getActiveAccountId: getActiveAccountId,
     getActiveAccount: getActiveAccount,
