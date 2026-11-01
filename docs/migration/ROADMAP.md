@@ -14,7 +14,7 @@ Statuses: `Not started` · `Investigating` · `Awaiting approval` · `In progres
 
 ## Current position
 
-**H1, A1–A3 merged to `main` (PR #501–#505). A4 committed (`c7b588e`, branch `agents/stage-a-foundation`). Current task: H2 (linked-account removal) — implemented on `fix/linked-account-removal`, awaiting a production end-to-end test with dedicated accounts. A5 waits until after H2.**
+**H1, A1–A3 merged to `main` (PR #501–#505). A4 committed (`c7b588e`, branch `agents/stage-a-foundation`). H2 committed (`75ff10f`, `fix/linked-account-removal`), awaiting a production end-to-end test with dedicated accounts. Current task: H3 (seamless switching) — done on `fix/seamless-account-switching` (stacked on H2), awaiting commit instructions. A5 waits.**
 
 ---
 
@@ -26,6 +26,7 @@ Statuses: `Not started` · `Investigating` · `Awaiting approval` · `In progres
 
 | H2 | Linked-account removal must be permanent (X/Y/Z → Y/Z → Y/Z/K). The server model was already correct: removal deletes only the `account_group_members` row and frees the slot, every link is an explicit sign-in, and stale browser data is filtered against server membership. The gap was in `public/js/account-switcher.js`: `switchAccount` trusted the group list loaded when the page opened, so a page opened before a removal (on any device) could switch back into the removed relationship using stored credentials. Fix: re-confirm membership with the server before every switch, and block the switch if the lookup fails. Branch `fix/linked-account-removal` (from `agents/stage-a-foundation`). Verified: 340/340 client tests, including `test/linked-account-removal.test.js`, which runs the full scenario across browsers and fresh logins against a backend model of the SQL rules and fails without the fix; server account-group tests 8/8; read-only Settings check. | XS | Done — awaiting production test |
 
+| H3 | Switching between linked accounts asked for a new sign-in. Cause: refresh tokens rotate on every refresh (`enable_refresh_token_rotation`; the old token is rejected after 10 s), but the stored copy used for switching was only re-saved when a sidebar mounted or a few legacy pages ran, so background refreshes left it stale ("Invalid Refresh Token: Already Used"). Fix in `account-switcher.js`: `watchSessionTokens` saves every refreshed or new session (installed from `_app`); `switchAccount` saves the outgoing account first, uses the freshest stored pair, retries once if another tab just rotated it, and maps a genuinely revoked token to "sign in again". No new tokens are minted and no API or database change. Verified: 346/346 tests, including `seamless-account-switching.test.js` (both directions across three accounts, expiry, browser restart, cross-tab rotation; 4 of 5 fail without the fix); real-browser check that the stored token follows each rotation on native and legacy pages. | S | Done — awaiting commit |
 ## Stage A — Shared foundation (branch `agents/stage-a-foundation`)
 
 The detailed plan and findings are in `docs/migration/stage-a-foundation.md`.
@@ -109,6 +110,7 @@ The detailed plan and findings are in `docs/migration/stage-a-foundation.md`.
 - 2026-10-31: Inventory and Stage A investigation done; plan approved. A1 implemented and verified signed in on both test accounts. `/list` outage found and split out as H1.
 - 2026-10-31: Roadmap created. The H1 fix was removed from the Stage A branch and implemented and verified on its own branch.
 - 2026-10-31: H1 committed and PR #501 opened. Theme fix (`3426034`) and A1 (`d05458e`) committed on `agents/stage-a-foundation` and the branch pushed. A2 is on hold until the go-ahead.
+- 2026-11-02: H2 committed (`75ff10f`). H3 found that stored sign-ins went stale on background token rotation; fixed and verified.
 - 2026-11-01: A4 committed (`c7b588e`). H2 started on `fix/linked-account-removal`: stale-page switching into a removed relationship found and fixed.
 - 2026-11-01: A4 implemented: 337/337 tests pass, `tsc` is clean, the build succeeds; logout, cross-tab and modal end-to-end checks pass. A test-script near miss (an attempted unlink of a real linked account, refused by the switcher; no change made) found a legacy-page switching regression, now fixed.
 - 2026-11-01: A3a merged (PR #504). A3b implemented: 329/329 tests pass, `tsc` is clean, the build succeeds; signed-in runs on both accounts show 0 cache-script downloads (production downloads 2–3 per legacy page) and no 429s.

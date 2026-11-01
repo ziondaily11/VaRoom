@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseClient } from '../supabase/client';
 import { browserClearOptions, clearUserData } from '../auth/clearUserData';
-import { profileStore } from '../auth/session';
+import { isAddAccountCallback, profileStore } from '../auth/session';
 
 // One logout and one account switch for the whole app, over the legacy
 // window.VaRoomAccountSwitcher (which keeps the token storage and its safety
@@ -44,6 +44,7 @@ export interface AccountSwitcher {
   upsertFromSession?(client: SupabaseClient, session: unknown): Promise<unknown>;
   canAddAccount?(): boolean;
   openAddAccountModal?: () => void;
+  watchSessionTokens?(client: SupabaseClient): void;
 }
 
 type AccountMessage = { type: 'signed-out' } | { type: 'switched'; userId: string };
@@ -155,6 +156,11 @@ export const switchAccount = browserActions.switchAccount;
 export function installAccountActions(): void {
   if (typeof window === 'undefined' || window.VaRoomAccount) return;
   window.VaRoomAccount = { logout, switchAccount };
+  // Keep the stored copy of the active account's tokens current through every
+  // refresh, so switching back to it never needs a new sign-in. Not on the
+  // add-account callback, whose client is a temporary isolated one.
+  const client = getSupabaseClient();
+  if (client && !isAddAccountCallback()) window.VaRoomAccountSwitcher?.watchSessionTokens?.(client);
   const shared = accountChannel();
   if (!shared) return;
   shared.onmessage = (event: MessageEvent<AccountMessage>) => {
