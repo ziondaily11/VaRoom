@@ -17,3 +17,12 @@ export interface Profile {
 export function accountRole(profile: Pick<Profile, 'role'> | null | undefined): AccountRole | null {
   return profile && (profile.role === 'host' || profile.role === 'client') ? profile.role : null;
 }
+
+export type CompletedClientProfile = Profile & { role: 'client'; looking_timeline: string; interested_categories: string[] };
+
+/** The profile of a client who finished onboarding and set their preferences, else null. */
+export function completedClientProfile(profile: Profile | null | undefined): CompletedClientProfile | null {
+  if (!profile || profile.role !== 'client' || profile.onboarding_completed !== true) return null;
+  if (typeof profile.looking_timeline !== 'string' || !Array.isArray(profile.interested_categories)) return null;
+  return profile as CompletedClientProfile;
+}

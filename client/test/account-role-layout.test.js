@@ -44,7 +44,7 @@ test('native Client Home restores cache before profile refresh and keeps widget 
   const path = require('node:path');
   const source = fs.readFileSync(path.join(__dirname, '..', 'pages', 'client-home.tsx'), 'utf8').replace(/\r\n/g, '\n');
 
-  assert.match(source, /readClientHomeProfileSnapshot\(window\.sessionStorage, sessionUser\.id\)/);
+  assert.match(source, /completedClientProfile\(profileStore\(\)\.peek\(sessionUser\.id\)\)/);
   assert.match(source, /const profileResult = await profileRequest/);
   assert.match(source, /setFeedReady\(true\);/);
   assert.match(source, /PropertyNewsList items=\{news\} loading=\{newsLoading\} failed=\{newsFailed\}/);

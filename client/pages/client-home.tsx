@@ -4,18 +4,18 @@ import type { CSSProperties, ReactElement, PointerEvent as ReactPointerEvent } f
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { getSupabaseClient } from '../lib/supabase/client';
 import { profileStore } from '../lib/auth/session';
+import { completedClientProfile } from '../lib/types/profile';
 import { Music2, X } from 'lucide-react';
 import ClientLayout from '../components/ClientLayout';
 import styles from './ClientHome.module.css';
 import { loadListingFeedCache, type ListingFeedCache } from '../lib/listingFeedCache';
-import { getCachedNewsList, setCachedNewsList } from '../lib/propertyNewsCache';
+import { getCachedNewsPreview, setCachedNewsPreview } from '../lib/propertyNewsCache';
 import type { PropertyNewsItem } from '../lib/propertyNewsCache';
 
 const { resolveClientHomeProfile } = require('../lib/clientHomeAccount');
 const { captureScrollPosition, isClientHomePageExit, preserveAnchorPosition, restoreScrollPosition } = require('../lib/clientHomeScroll');
-const { readClientHomeProfileSnapshot, writeClientHomeProfileSnapshot } = require('../lib/clientHomeProfileSnapshot');
-const { fetchClientHomeWidget, readClientHomeWidgetCache, writeClientHomeWidgetCache } = require('../lib/clientHomeWidgetCache');
-const { fetchClientHomeVideoMetadata, resolveClientHomePlayback } = require('../lib/clientHomeVideoMetadataCache');
+import { fetchClientHomeWidget, readClientHomeWidgetCache, writeClientHomeWidgetCache } from '../lib/clientHomeWidgetCache';
+import { fetchClientHomeVideoMetadata, resolveClientHomePlayback } from '../lib/clientHomeVideoMetadataCache';
 const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 const select = 'id,title,description,location_text,category,verified,availability_status,created_at,host_id,host:profiles!listings_host_id_fkey(full_name,verified,avatar_url,username),listing_photos(storage_path,width,height)';
@@ -850,11 +850,10 @@ export default function ClientHome() {
   };
 
   useIsomorphicLayoutEffect(() => {
-    const storage = getSessionStorageSafe();
-    const cachedDestinations = readClientHomeWidgetCache(storage, 'destinations');
-    const cachedUpdates = readClientHomeWidgetCache(storage, 'updates');
-    const cachedRecommended = readClientHomeWidgetCache(storage, 'recommended');
-    const cachedNews = getCachedNewsList();
+    const cachedDestinations = readClientHomeWidgetCache<Record<string, number | null>>('destinations');
+    const cachedUpdates = readClientHomeWidgetCache<Update[]>('updates');
+    const cachedRecommended = readClientHomeWidgetCache<RecommendedListing[]>('recommended');
+    const cachedNews = getCachedNewsPreview();
     if (cachedDestinations) {
       setDestCounts(cachedDestinations.value);
       setDestinationsLoading(false);
@@ -934,12 +933,9 @@ export default function ClientHome() {
       }
 
       setUser(sessionUser);
-      let cachedProfile = null;
-      try {
-        cachedProfile = readClientHomeProfileSnapshot(window.sessionStorage, sessionUser.id);
-      } catch (cacheError) {
-        console.warn('Client Home profile snapshot could not be read:', cacheError);
-      }
+      // Provisional first paint from the shared profile cache (A2) while the
+      // authoritative read below completes.
+      const cachedProfile = completedClientProfile(profileStore().peek(sessionUser.id));
       if (cachedProfile) {
         setUser(sessionUser);
         setInterests(cachedProfile.looking_timeline === 'soon'
@@ -977,11 +973,6 @@ export default function ClientHome() {
         ? (account.profile.interested_categories || []).map((value: string) => value.trim().toLowerCase()).filter(Boolean)
         : [];
       setInterests(nextInterests);
-      try {
-        writeClientHomeProfileSnapshot(window.sessionStorage, account.user.id, account.profile);
-      } catch (cacheError) {
-        console.warn('Client Home profile snapshot could not be saved:', cacheError);
-      }
 
       setFeedReady(true);
       const bookmarkResult = await client.from('bookmarks').select('listing_id').eq('client_id', account.user.id);
@@ -1473,8 +1464,7 @@ export default function ClientHome() {
   useEffect(() => {
     let active = true;
     if (!user?.id) return () => { active = false; };
-    const storage = getSessionStorageSafe();
-    const cachedDestinations = readClientHomeWidgetCache(storage, 'destinations');
+    const cachedDestinations = readClientHomeWidgetCache<Record<string, number | null>>('destinations');
     if (cachedDestinations) {
       setDestCounts(cachedDestinations.value);
       setDestinationsLoading(false);
@@ -1498,7 +1488,7 @@ export default function ClientHome() {
           }));
           return Object.fromEntries(counts);
         }).then((counts: Record<string, number | null>) => {
-          writeClientHomeWidgetCache(storage, 'destinations', counts);
+          writeClientHomeWidgetCache('destinations', counts);
           if (active) {
             setDestCounts(counts);
             setDestinationsFailed(false);
@@ -1512,7 +1502,7 @@ export default function ClientHome() {
       }
     }
 
-    const cachedUpdates = readClientHomeWidgetCache(storage, 'updates');
+    const cachedUpdates = readClientHomeWidgetCache<Update[]>('updates');
     if (cachedUpdates) {
       setUpdates(cachedUpdates.value);
       setUpdatesLoading(false);
@@ -1534,7 +1524,7 @@ export default function ClientHome() {
           if (!Array.isArray(result.data)) throw new Error('VaRoom Updates returned an invalid response.');
           return result.data;
         }).then((nextUpdates: Update[]) => {
-          writeClientHomeWidgetCache(storage, 'updates', nextUpdates);
+          writeClientHomeWidgetCache('updates', nextUpdates);
           if (active) {
             setUpdates(nextUpdates);
             setUpdatesFailed(false);
@@ -1555,7 +1545,7 @@ export default function ClientHome() {
     let active = true;
     const breakpoint = window.matchMedia('(max-width: 1180px)');
     let requestStarted = false;
-    const cached = readClientHomeWidgetCache(getSessionStorageSafe(), 'recommended');
+    const cached = readClientHomeWidgetCache<RecommendedListing[]>('recommended');
     if (cached) {
       setRecommended(cached.value);
       setRecommendedLoading(false);
@@ -1583,7 +1573,7 @@ export default function ClientHome() {
         if (!Array.isArray(result.data)) throw new Error('Recommended listings returned an invalid response.');
         return result.data;
       }).then((result: RecommendedListing[]) => {
-        writeClientHomeWidgetCache(getSessionStorageSafe(), 'recommended', result);
+        writeClientHomeWidgetCache('recommended', result);
         if (active) {
           setRecommended(result);
           setRecommendedFailed(false);
@@ -1605,7 +1595,7 @@ export default function ClientHome() {
 
   const loadNews = useCallback(async (force = false) => {
     const accountId = user?.id || null;
-    const cached = getCachedNewsList();
+    const cached = getCachedNewsPreview();
     if (cached) {
       setNews(cached.items);
       setNewsFailed(false);
@@ -1631,7 +1621,7 @@ export default function ClientHome() {
         throw new Error('Property News returned an invalid response.');
       }
       if (requestVersion !== newsRequestVersion.current || resolvedSessionUserId.current !== accountId) return;
-      setCachedNewsList(result as PropertyNewsItem[]);
+      setCachedNewsPreview(result as PropertyNewsItem[]);
       setNews(result);
       setNewsFailed(false);
     } catch (newsError) {

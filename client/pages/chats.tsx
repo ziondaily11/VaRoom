@@ -124,23 +124,31 @@ function ConversationAvatar({
 // Each entry stores the resolved URL plus an expiry timestamp.
 // Signed R2 URLs expire after ~1 hour; we use a 45-minute TTL to refresh before that happens.
 // Blob object-URLs (optimistic messages) are stored with Infinity so they never expire.
+// The map lives for the whole tab, so it keeps only the most recently used entries.
 interface AuthedImageCacheEntry { url: string; expiresAt: number }
-const authedImageCache: Record<string, AuthedImageCacheEntry> = {};
+const AUTHED_IMAGE_CACHE_LIMIT = 300;
+const authedImageCache = new Map<string, AuthedImageCacheEntry>();
 
 /** Return the cached URL if it exists and has not yet expired; otherwise null. */
 function getCachedImageUrl(id: string): string | null {
-  const entry = authedImageCache[id];
+  const entry = authedImageCache.get(id);
   if (!entry) return null;
-  if (Date.now() >= entry.expiresAt) { delete authedImageCache[id]; return null; }
+  authedImageCache.delete(id);
+  if (Date.now() >= entry.expiresAt) return null;
+  authedImageCache.set(id, entry);
   return entry.url;
 }
 
 /** Persist a resolved URL. Blob URLs get Infinity expiry; signed URLs get a 45-min TTL. */
 function setCachedImageUrl(id: string, url: string): void {
-  authedImageCache[id] = {
+  authedImageCache.delete(id);
+  authedImageCache.set(id, {
     url,
     expiresAt: url.startsWith('blob:') ? Infinity : Date.now() + 45 * 60 * 1000,
-  };
+  });
+  while (authedImageCache.size > AUTHED_IMAGE_CACHE_LIMIT) {
+    authedImageCache.delete(authedImageCache.keys().next().value as string);
+  }
 }
 
 function AuthedImage({

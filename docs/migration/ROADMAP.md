@@ -14,7 +14,7 @@ Statuses: `Not started` · `Investigating` · `Awaiting approval` · `In progres
 
 ## Current position
 
-**H1 and A1 are merged to `main` (PR #501, PR #502). A2 is done and verified, awaiting commit instructions. Next task: A3, waiting for the go-ahead.**
+**H1, A1 and A2 are merged to `main` (PR #501, #502, #503). A3a is done and verified, awaiting commit instructions; A3b is next and waits for the go-ahead.**
 
 ---
 
@@ -31,8 +31,8 @@ The detailed plan and findings are in `docs/migration/stage-a-foundation.md`.
 | ID | Task | Scope | Mag. | Status |
 |---|---|---|---|---|
 | A1 | Typed Supabase client, API helper, safe redirects | One browser client (`lib/supabase/*`); `apiFetch`; `getSafeRedirect`/`loginUrl` (fixes the AuthPanel open redirect); `Window` typings; remove 5 duplicate creators and CDN SDK loads. The approved theme boot-script fix is a separate commit, `3426034`. Commit `d05458e`; merged to `main` via PR #502. | S–M | Done — merged |
-| A2 | Auth and profile foundation | `AuthProvider` (one auth subscription, one deduplicated profile fetch per user, session-bound first paint); `clearUserData` on sign-out and user change; shared domain types (`lib/types`); `_app` takes its role from the provider; fix the cross-account render on notifications and the unscoped role reads in chats and property-news. Target: 1 `profiles` read per user per TTL (now 11–17 per page). Detailed plan and results in `stage-a-foundation.md` § A2. Result: 0 `profiles` reads on native pages; legacy pages keep only their own query (host notifications went from 17 to 0). | M | Done — awaiting commit |
-| A3 | Shared cache layer | `lib/cache` (namespaced user-scoped keys, SWR, dedupe, abort, size caps); `VaRoomDataCache`/`VaRoomListingFeedCache` become adapters over it; `lib/chatCache.ts` becomes the single owner of the chat DB, so legacy pages stop loading `public/js/chat-cache.js`; fix the news cache key collision; bound unbounded caches; convert the `lib/clientHome*.js` caches to TS. | M | Not started |
+| A2 | Auth and profile foundation | `AuthProvider` (one auth subscription, one deduplicated profile fetch per user, session-bound first paint); `clearUserData` on sign-out and user change; shared domain types (`lib/types`); `_app` takes its role from the provider; fix the cross-account render on notifications and the unscoped role reads in chats and property-news. Target: 1 `profiles` read per user per TTL (now 11–17 per page). Detailed plan and results in `stage-a-foundation.md` § A2. Result: 0 `profiles` reads on native pages; legacy pages keep only their own query (host notifications went from 17 to 0). Commit `c278d1b`, PR #503. | M | Done — merged |
+| A3 | Shared cache layer | `lib/cache` (namespaced user-scoped keys, SWR, dedupe, abort, size caps); `VaRoomDataCache`/`VaRoomListingFeedCache` become adapters over it; `lib/chatCache.ts` becomes the single owner of the chat DB, so legacy pages stop loading `public/js/chat-cache.js`; fix the news cache key collision; bound unbounded caches; convert the `lib/clientHome*.js` caches to TS. Detailed plan in `stage-a-foundation.md` § A3, split into A3a (core module and lib caches) and A3b (one owner for each legacy-global cache, including the chat prefetch cooldown). A3a done; A3b not started. | M+M | A3a done — awaiting commit |
 | A4 | Account switching | Typed `lib/account` over the switcher; one `logout()` to `/?auth=login` with cache cleanup; cross-tab notice; `AddAccountModal` to TSX (fix the popup race and the always-on listener). The switch keeps its page reload for now. | M | Not started |
 | A5 | Persistent shell | `AppShell` decided by route (no remount on load); `HostSidebar`/`ClientSidebar`/layouts to TSX, fed by providers (no per-mount fetches or polling); counts store with one realtime channel; `next/link`; one link interceptor; theme resolver; mobile nav in React; `_app`/`_document` to TS; legacy DOM contract preserved. | L | Not started |
 
@@ -101,5 +101,7 @@ The detailed plan and findings are in `docs/migration/stage-a-foundation.md`.
 - 2026-10-31: Inventory and Stage A investigation done; plan approved. A1 implemented and verified signed in on both test accounts. `/list` outage found and split out as H1.
 - 2026-10-31: Roadmap created. The H1 fix was removed from the Stage A branch and implemented and verified on its own branch.
 - 2026-10-31: H1 committed and PR #501 opened. Theme fix (`3426034`) and A1 (`d05458e`) committed on `agents/stage-a-foundation` and the branch pushed. A2 is on hold until the go-ahead.
+- 2026-11-01: A3 plan approved. A3a implemented: 312/312 tests pass, `tsc` is clean, the build succeeds; signed-in runs and the isolation check pass. Found and fixed a core bug where `clear()` missed loads still in flight.
+- 2026-11-01: A2 merged (PR #503). A3 investigated: found a gap in A2's sign-out clean-up (URL-encoded data-cache keys) and that legacy pages re-run the chat prefetch on every hard load.
 - 2026-11-01: A2 plan approved and implemented. 301/301 tests pass, `tsc` is clean, the build succeeds; signed-in runs on both accounts and the cross-account isolation check pass.
 - 2026-10-31: PR #501 merged into `main` (`d0f8d42`); `/list` fix shipped. Hotfix worktree and local branch removed.

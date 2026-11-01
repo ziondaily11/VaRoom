@@ -1,3 +1,6 @@
+import { createCache } from './cache/createCache';
+import { CACHE_NAMESPACES } from './cache/namespaces';
+
 export interface PropertyNewsSource {
   name?: string;
   url?: string;
@@ -35,27 +38,35 @@ export interface CachedNewsListResult {
   age: number;
 }
 
-const CACHE_KEY = 'varoom_property_news_react_cache_v1';
-const DETAILS_CACHE_KEY = 'varoom_property_news_article_details_v1';
 const SCROLL_KEY = 'varoom_property_news_scroll_v1';
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes fresh TTL
 const ARTICLE_DETAIL_TTL_MS = 30 * 60 * 1000; // 30 minutes for full articles
+const MAX_CACHED_ARTICLES = 100;
 
-interface InMemoryStore {
-  items: PropertyNewsItem[] | null;
-  timestamp: number;
+// The Property News page caches the full list under 'list'; Client Home's
+// short preview has its own key so neither overwrites the other.
+const LIST_KEY = 'list';
+const PREVIEW_KEY = 'preview';
+
+interface CachedList {
+  items: PropertyNewsItem[];
   userId: string | null;
-  details: Record<string, { item: PropertyNewsItem; timestamp: number }>;
-  scrollPosition: number;
 }
 
-const inMemoryStore: InMemoryStore = {
-  items: null,
-  timestamp: 0,
-  userId: null,
-  details: {},
-  scrollPosition: 0,
-};
+const listCache = createCache<CachedList>({
+  namespace: CACHE_NAMESPACES.propertyNews,
+  ttlMs: CACHE_TTL_MS,
+  validate: (value) => Boolean(value && Array.isArray((value as CachedList).items)),
+});
+
+const articleCache = createCache<PropertyNewsItem>({
+  namespace: CACHE_NAMESPACES.propertyNewsArticles,
+  ttlMs: ARTICLE_DETAIL_TTL_MS,
+  maxEntries: MAX_CACHED_ARTICLES,
+  validate: (value) => Boolean(value && typeof value === 'object' && 'id' in (value as object)),
+});
+
+let scrollPosition = 0;
 
 function getStorageSafe(): Storage | null {
   if (typeof window === 'undefined') return null;
@@ -66,71 +77,28 @@ function getStorageSafe(): Storage | null {
   }
 }
 
+function readList(key: string, currentUserId?: string | null): CachedNewsListResult | null {
+  const cached = listCache.read(key);
+  if (!cached) return null;
+  if (currentUserId && cached.value.userId && cached.value.userId !== currentUserId) return null;
+  return { items: cached.value.items, isFresh: cached.isFresh, age: cached.age };
+}
+
 export function getCachedNewsList(currentUserId?: string | null): CachedNewsListResult | null {
-  const now = Date.now();
-
-  // Check in-memory store first
-  if (inMemoryStore.items) {
-    if (!currentUserId || inMemoryStore.userId === currentUserId || !inMemoryStore.userId) {
-      const age = now - inMemoryStore.timestamp;
-      return {
-        items: inMemoryStore.items,
-        isFresh: age < CACHE_TTL_MS,
-        age,
-      };
-    }
-  }
-
-  // Fall back to sessionStorage
-  const storage = getStorageSafe();
-  if (!storage) return null;
-
-  try {
-    const raw = storage.getItem(CACHE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (parsed && Array.isArray(parsed.items) && typeof parsed.timestamp === 'number') {
-      if (currentUserId && parsed.userId && parsed.userId !== currentUserId) {
-        return null;
-      }
-      const age = now - parsed.timestamp;
-      inMemoryStore.items = parsed.items;
-      inMemoryStore.timestamp = parsed.timestamp;
-      inMemoryStore.userId = parsed.userId || null;
-      return {
-        items: parsed.items,
-        isFresh: age < CACHE_TTL_MS,
-        age,
-      };
-    }
-  } catch (error) {
-    console.warn('Unable to read property news cache:', error);
-  }
-
-  return null;
+  return readList(LIST_KEY, currentUserId);
 }
 
 export function setCachedNewsList(items: PropertyNewsItem[], currentUserId?: string | null): void {
-  const now = Date.now();
-  inMemoryStore.items = items;
-  inMemoryStore.timestamp = now;
-  inMemoryStore.userId = currentUserId || null;
+  listCache.write(LIST_KEY, { items, userId: currentUserId || null });
+}
 
-  const storage = getStorageSafe();
-  if (!storage) return;
+/** Client Home's short "latest news" preview. */
+export function getCachedNewsPreview(currentUserId?: string | null): CachedNewsListResult | null {
+  return readList(PREVIEW_KEY, currentUserId);
+}
 
-  try {
-    storage.setItem(
-      CACHE_KEY,
-      JSON.stringify({
-        items,
-        timestamp: now,
-        userId: currentUserId || null,
-      })
-    );
-  } catch (error) {
-    console.warn('Unable to write property news cache:', error);
-  }
+export function setCachedNewsPreview(items: PropertyNewsItem[], currentUserId?: string | null): void {
+  listCache.write(PREVIEW_KEY, { items, userId: currentUserId || null });
 }
 
 /**
@@ -138,36 +106,10 @@ export function setCachedNewsList(items: PropertyNewsItem[], currentUserId?: str
  * Does not confuse short listing previews for complete article records.
  */
 export function getCachedArticle(id: string | number): PropertyNewsItem | null {
-  const key = String(id);
-  const now = Date.now();
-
-  // Check in-memory details
-  const cached = inMemoryStore.details[key];
-  if (cached && cached.item) {
-    const hasBody = Boolean(cached.item.body && cached.item.body.trim());
-    const isFresh = (now - cached.timestamp) < ARTICLE_DETAIL_TTL_MS;
-    if (hasBody || isFresh) {
-      return cached.item;
-    }
-  }
-
-  // Check sessionStorage details
-  const storage = getStorageSafe();
-  if (storage) {
-    try {
-      const raw = storage.getItem(DETAILS_CACHE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed && parsed[key] && parsed[key].item) {
-          const detail = parsed[key];
-          inMemoryStore.details[key] = detail;
-          return detail.item;
-        }
-      }
-    } catch {}
-  }
-
-  return null;
+  const cached = articleCache.read(String(id));
+  if (!cached) return null;
+  const hasBody = Boolean(cached.value.body && cached.value.body.trim());
+  return hasBody || cached.isFresh ? cached.value : null;
 }
 
 /**
@@ -176,11 +118,8 @@ export function getCachedArticle(id: string | number): PropertyNewsItem | null {
  */
 export function getCachedPreview(id: string | number): PropertyNewsItem | null {
   const key = String(id);
-  if (inMemoryStore.items) {
-    const match = inMemoryStore.items.find((item) => String(item.id) === key);
-    if (match) return match;
-  }
-  return null;
+  const list = listCache.read(LIST_KEY);
+  return (list && list.value.items.find((item) => String(item.id) === key)) || null;
 }
 
 /**
@@ -189,45 +128,13 @@ export function getCachedPreview(id: string | number): PropertyNewsItem | null {
  */
 export function setCachedArticle(id: string | number, item: PropertyNewsItem): void {
   const key = String(id);
-  const now = Date.now();
-
-  const existing = inMemoryStore.details[key];
-  if (existing && existing.item?.body && !item.body) {
-    // Do not overwrite an existing full body with an empty or partial body
-    return;
-  }
-
-  const completeItem: PropertyNewsItem = {
-    ...item,
-    hasFullBody: Boolean(item.body && item.body.trim()),
-  };
-
-  inMemoryStore.details[key] = {
-    item: completeItem,
-    timestamp: now,
-  };
-
-  const storage = getStorageSafe();
-  if (storage) {
-    try {
-      let detailsMap: Record<string, { item: PropertyNewsItem; timestamp: number }> = {};
-      const raw = storage.getItem(DETAILS_CACHE_KEY);
-      if (raw) {
-        detailsMap = JSON.parse(raw) || {};
-      }
-      detailsMap[key] = {
-        item: completeItem,
-        timestamp: now,
-      };
-      storage.setItem(DETAILS_CACHE_KEY, JSON.stringify(detailsMap));
-    } catch (e) {
-      console.warn('Unable to persist article details cache:', e);
-    }
-  }
+  const existing = articleCache.read(key);
+  if (existing && existing.value.body && !item.body) return;
+  articleCache.write(key, { ...item, hasFullBody: Boolean(item.body && item.body.trim()) });
 }
 
 export function saveScrollPosition(position: number): void {
-  inMemoryStore.scrollPosition = position;
+  scrollPosition = position;
   const storage = getStorageSafe();
   if (storage) {
     try {
@@ -237,9 +144,7 @@ export function saveScrollPosition(position: number): void {
 }
 
 export function getScrollPosition(): number {
-  if (inMemoryStore.scrollPosition > 0) {
-    return inMemoryStore.scrollPosition;
-  }
+  if (scrollPosition > 0) return scrollPosition;
   const storage = getStorageSafe();
   if (storage) {
     try {
@@ -251,17 +156,12 @@ export function getScrollPosition(): number {
 }
 
 export function clearPropertyNewsCache(): void {
-  inMemoryStore.items = null;
-  inMemoryStore.timestamp = 0;
-  inMemoryStore.userId = null;
-  inMemoryStore.details = {};
-  inMemoryStore.scrollPosition = 0;
-
+  listCache.clear();
+  articleCache.clear();
+  scrollPosition = 0;
   const storage = getStorageSafe();
   if (storage) {
     try {
-      storage.removeItem(CACHE_KEY);
-      storage.removeItem(DETAILS_CACHE_KEY);
       storage.removeItem(SCROLL_KEY);
     } catch {}
   }
