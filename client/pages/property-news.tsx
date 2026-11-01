@@ -158,6 +158,24 @@ function NewsCardImage({ src }: { src?: string }) {
   );
 }
 
+// Fills the lead story's right trail; reports failure so the trail can be dropped.
+function LeadImage({ src, onFailed }: { src: string; onFailed: () => void }) {
+  const [loaded, setLoaded] = useState(false);
+
+  return (
+    <div className={`lead-image-frame ${loaded ? 'is-loaded' : ''}`}>
+      <img
+        className="lead-image"
+        src={src}
+        alt=""
+        decoding="async"
+        onLoad={() => setLoaded(true)}
+        onError={onFailed}
+      />
+    </div>
+  );
+}
+
 function DetailImage({
   src,
   alt,
@@ -497,12 +515,6 @@ export default function PropertyNewsPage() {
                   <header className="article-header">
                     <div className="article-category-row">
                       <p className="eyebrow">{detailItem.category ? detailItem.category.toUpperCase() : 'Property Intelligence'}</p>
-                      {(() => {
-                        const statusObj = getRegulatoryStatus(detailItem);
-                        return statusObj ? (
-                          <span className={`status ${statusObj.className}`}>{statusObj.label}</span>
-                        ) : null;
-                      })()}
                     </div>
 
                     <h1 className="article-headline">{detailItem.title}</h1>
@@ -738,11 +750,12 @@ export default function PropertyNewsPage() {
                   {newsItems.length > 0 && (() => {
                     const lead = newsItems[0];
                     const leadSource = lead.source || {};
-                    const leadStatus = getRegulatoryStatus(lead);
                     const leadSourceUrl = safeSourceUrl(leadSource.url);
+                    const leadImageUrl = (lead.image_url || '').trim();
+                    const leadHasImage = Boolean(leadImageUrl) && !failedImageUrls[leadImageUrl];
 
                     return (
-                      <article className="frontpage-lead-article">
+                      <article className={`frontpage-lead-article ${leadHasImage ? 'has-image' : 'no-image'}`}>
                         <div className="lead-text-trail">
                           <span className="lead-kicker">FRONT PAGE DISPATCH</span>
                           <Link
@@ -760,11 +773,6 @@ export default function PropertyNewsPage() {
                             <span>•</span>
                             <span>{formatDate(leadSource.published_at || lead.published_at)}</span>
                           </div>
-                          {leadStatus && (
-                            <span className={`status ${leadStatus.className}`}>
-                              {leadStatus.label}
-                            </span>
-                          )}
                           {leadSource.name && (
                             <div className="news-card-source">
                               {leadSourceUrl ? (
@@ -783,14 +791,14 @@ export default function PropertyNewsPage() {
                           )}
                         </div>
 
-                        {lead.image_url && (
+                        {leadHasImage && (
                           <div className="lead-image-trail">
                             <Link
                               href={`/property-news?id=${encodeURIComponent(lead.id)}`}
                               onClick={handleArticleClick}
                               className="lead-image-link"
                             >
-                              <NewsCardImage src={lead.image_url} />
+                              <LeadImage src={leadImageUrl} onFailed={() => handleImageFail(leadImageUrl)} />
                             </Link>
                             <p className="frontpage-image-caption">
                               {leadSource.name ? `Reported by ${leadSource.name}` : 'Kenya Property Report'}
@@ -808,7 +816,6 @@ export default function PropertyNewsPage() {
                     {newsItems.slice(1).map((news) => {
                       const source = news.source || {};
                       const sourceUrl = safeSourceUrl(source.url);
-                      const statusObj = getRegulatoryStatus(news);
 
                       return (
                         <article className="news-card" key={news.id}>
@@ -846,12 +853,6 @@ export default function PropertyNewsPage() {
                                 `Source · ${source.name}`
                               )}
                             </div>
-                          )}
-
-                          {statusObj && (
-                            <span className={`status ${statusObj.className}`}>
-                              {statusObj.label}
-                            </span>
                           )}
                         </article>
                       );
@@ -1139,8 +1140,8 @@ export default function PropertyNewsPage() {
 
         .editorial-columns.has-media {
           display: grid;
-          grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
-          gap: 3rem;
+          grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+          gap: 2.5rem;
           align-items: start;
         }
 
@@ -1157,28 +1158,28 @@ export default function PropertyNewsPage() {
         .detail-summary {
           font-family: var(--font-serif-body);
           font-size: 1.25rem;
-          line-height: 1.65;
+          line-height: 1.55;
           font-weight: 600;
           font-style: italic;
           color: var(--newspaper-ink);
-          margin: 0 0 1.6rem;
-          padding-bottom: 1.25rem;
+          margin: 0 0 1.35rem;
+          padding-bottom: 1.1rem;
           border-bottom: 1px solid var(--newspaper-rule-light);
         }
 
         .detail-body {
           font-family: var(--font-serif-body);
           font-size: 1.1rem;
-          line-height: 1.8;
+          line-height: 1.65;
           color: var(--newspaper-body);
         }
 
         .detail-lead {
           font-size: 1.2rem;
-          line-height: 1.75;
+          line-height: 1.6;
           font-weight: 600;
           color: var(--newspaper-ink);
-          margin: 0 0 1.4rem;
+          margin: 0 0 1rem;
         }
 
         .detail-lead::first-letter {
@@ -1192,7 +1193,7 @@ export default function PropertyNewsPage() {
         }
 
         .detail-p {
-          margin: 0 0 1.35rem;
+          margin: 0 0 0.95rem;
         }
 
         .detail-p:last-child {
@@ -1205,11 +1206,11 @@ export default function PropertyNewsPage() {
           font-weight: 700;
           line-height: 1.28;
           color: var(--newspaper-ink);
-          margin: 2.2rem 0 0.85rem;
+          margin: 1.8rem 0 0.7rem;
         }
 
         .editorial-pullquote {
-          margin: 1.8rem 0;
+          margin: 1.5rem 0;
           padding: 1.2rem 1.6rem;
           border-left: 3px solid var(--newspaper-border);
           border-top: 1px solid var(--newspaper-rule-light);
@@ -1258,7 +1259,7 @@ export default function PropertyNewsPage() {
           display: block;
           width: 100%;
           height: auto;
-          max-height: 520px;
+          max-height: 680px;
           object-fit: cover;
           border: 1px solid var(--newspaper-border);
         }
@@ -1348,34 +1349,6 @@ export default function PropertyNewsPage() {
           color: var(--newspaper-accent);
         }
 
-        /* Regulatory Status Tag */
-        .status {
-          display: inline-flex;
-          align-items: center;
-          padding: 0.2rem 0.6rem;
-          font-size: 0.7rem;
-          font-weight: 800;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-          border: 1px solid var(--newspaper-border);
-          background: #fff;
-          color: var(--newspaper-ink);
-          border-radius: 0;
-        }
-
-        .status.approved,
-        .status.effective {
-          border-color: #111;
-          background: #f4f4f4;
-          color: #111;
-        }
-
-        .status.market {
-          border-color: #111;
-          background: #fff;
-          color: #111;
-        }
-
         /* =================== NEWSPAPER INDEX VIEW =================== */
         .index-newspaper-header {
           padding-bottom: 0.5rem;
@@ -1403,8 +1376,12 @@ export default function PropertyNewsPage() {
           display: grid;
           grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
           gap: 2.8rem;
-          align-items: start;
+          align-items: stretch;
           padding-bottom: 1.5rem;
+        }
+
+        .frontpage-lead-article.no-image {
+          grid-template-columns: minmax(0, 1fr);
         }
 
         .lead-text-trail {
@@ -1445,15 +1422,46 @@ export default function PropertyNewsPage() {
         }
 
         .lead-image-trail {
+          display: flex;
+          flex-direction: column;
           min-width: 0;
         }
 
         .lead-image-link {
+          display: flex;
+          flex: 1 1 auto;
+        }
+
+        /* The frame takes the full height of the lead row, so the image
+           runs down to the divider; the img is absolute so its intrinsic
+           size never stretches the row. */
+        .lead-image-frame {
+          position: relative;
+          flex: 1 1 auto;
+          width: 100%;
+          min-height: 280px;
+          overflow: hidden;
+          border: 1px solid var(--newspaper-border);
+          opacity: 0;
+          transition: opacity 0.25s ease;
+        }
+
+        .lead-image-frame.is-loaded {
+          opacity: 1;
+        }
+
+        .lead-image {
+          position: absolute;
+          inset: 0;
           display: block;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
         }
 
         .frontpage-image-caption {
           margin-top: 0.45rem;
+          margin-bottom: 0;
           font-family: var(--font-serif-body);
           font-size: 0.82rem;
           font-style: italic;
@@ -1659,6 +1667,11 @@ export default function PropertyNewsPage() {
           .frontpage-lead-article {
             grid-template-columns: 1fr;
             gap: 1.5rem;
+          }
+          .lead-image-frame {
+            flex: none;
+            min-height: 0;
+            aspect-ratio: 16 / 10;
           }
         }
 
