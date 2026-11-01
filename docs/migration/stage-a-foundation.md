@@ -492,6 +492,113 @@ Fixes:
 - Give the client-home news preview its own key.
 - Bound `authedImageCache` and the news details map.
 
+#### A4 — detailed plan (approved and implemented 2026-11-01)
+
+##### Findings
+
+**Logout is implemented 7 ways and none clears caches reliably.**
+- The sidebars, `booking.html`, `bookings.html`, `host-home.html`, `profile.html`, `settings.html` and the dead `varoom-sidebar.js` each call `supabaseClient.auth.signOut()` and then navigate immediately.
+- A2's provider clears private data on `SIGNED_OUT`, but asynchronously. The navigation can cut that short, especially the IndexedDB chat clear.
+- Destinations differ: the host sidebar goes to `/login`, the client sidebar to `/`.
+
+**Scope:** all of these use the default `signOut()` scope, `'global'`, which ends the account's sessions on every device. Only the settings account-removal flows use `'local'`.
+
+**Switching:**
+- Both sidebars call `VaRoomAccountSwitcher.switchAccount` and then `location.reload()`, with no clean-up of the previous account's caches before the reload.
+- The client sidebar fails silently; the host sidebar shows `alert()`.
+- Other tabs are not told about a switch. The Supabase BroadcastChannel changes their session underneath them, while legacy content keeps showing the previous account.
+
+**Tokens in React state.** Both sidebars keep the full linked-account objects, including access and refresh tokens, in React state.
+
+**`AddAccountModal.jsx` (817 lines, JSX):**
+- **Google popup race (confirmed):** the popup-closed poller can report "Google sign-in was cancelled." while the link from the popup's `postMessage` is still running.
+- The `message` listener is always installed, even with the modal closed.
+- On unmount it deletes `VaRoomAccountSwitcher.openAddAccountModal` instead of restoring the switcher's own method.
+- It hard-codes the Supabase URL and anon key twice, still left over from before A1.
+
+##### Plan
+
+1. **`lib/account/accountActions.ts`**, also exposed as `window.VaRoomAccount`. Typed wrappers over the existing switcher, which stays JS because legacy pages and vm tests depend on it.
+   - **`logout()`:**
+     1. Await `clearUserData(currentUser)` (including the chat IndexedDB).
+     2. `signOut()` with the current default scope.
+     3. Notify other tabs.
+     4. Go to **`/?auth=login`** (the approved single destination).
+   - **`switchAccount(target)`:**
+     1. `VaRoomAccountSwitcher.switchAccount`, keeping all its safety rules: identity check, restoring the previous session on failure, never deleting an account on failure, the `expires_at` guard.
+     2. Await clearing the previous account's data.
+     3. Notify other tabs, then `location.reload()`.
+
+     Errors are thrown to the caller.
+   - **Cross-tab:** one `BroadcastChannel('varoom-account')`. Other tabs reload after a switch and go to the login page after a sign-out.
+   - **`useLinkedAccounts()`:** linked accounts without their tokens, updated by `varoom_linked_accounts_changed`.
+2. **Sidebars:** logout, switch and the linked-account list go through 1. The client sidebar shows switch failures the same way the host sidebar already does (`alert`); today it fails silently.
+3. **`AddAccountModal.tsx`** (port to TSX; markup and CSS unchanged).
+   - Fix the popup race with a "link in flight" ref.
+   - Listen for `message` only while the modal is open or a Google flow is pending.
+   - Restore the switcher's own `openAddAccountModal` on unmount.
+   - Take config from `lib/supabase/config`.
+   - The Google path refreshes the current session's stored tokens first (`upsertFromSession`), as the vanilla modal does.
+4. **Guarded legacy adapters:** the logout buttons in `booking`, `bookings`, `host-home`, `profile` and `settings` (the plain logout only, not the account-removal flows) call `window.VaRoomAccount.logout()` when present. Their existing code stays as the fallback.
+
+**Not in A4:**
+- switching without a page reload (revisit after Stage D)
+- `host-home.html` deleting an account when a switch fails (D2)
+- account deletion in `settings.html` wiping every linked account (C3)
+- plaintext linked-account tokens in localStorage (Backlog)
+- unread counts (A5)
+
+##### Verification
+
+- Unit tests for `logout`/`switchAccount` ordering (clear before navigate, errors surface, cross-tab message) and for token-free `useLinkedAccounts` data.
+- `tsc`, `next build`.
+- Signed-in runs:
+  - Logout from each sidebar lands on `/?auth=login`, and no private keys or chat records remain.
+  - The isolation check passes.
+  - The add-account modal opens and closes, and validation messages show.
+  - A second tab reloads after a sign-out in the first.
+- **Not exercised end-to-end** unless you allow it: linking the two test accounts and switching between them. That writes an account-group row in production; the link can be removed afterwards.
+
+##### A4 results (2026-11-01)
+
+**Decisions:** logout keeps Supabase's default `'global'` scope (all devices); a production link/unlink of the test accounts was permitted for testing.
+
+**New:** `lib/account/accountActions.ts`:
+- `logout`: clear, then sign out, notify other tabs, go to `/?auth=login`.
+- `switchAccount(id)`: tokens looked up inside the switcher, previous account's data cleared, reload.
+- `useLinkedAccounts` (no tokens) and `activeLinkedAccount`.
+- A `varoom-account` BroadcastChannel; installed as `window.VaRoomAccount` from `_app`.
+
+**Changed:**
+- **Both sidebars** use these actions, so no tokens are held in React state. Both log out to `/?auth=login`, and the client sidebar now reports switch failures.
+- **`AddAccountModal.jsx` → `.tsx`**, with markup and CSS unchanged:
+  - popup race fixed (`googleSucceededRef`)
+  - `message` listener only while open
+  - the switcher's own method restored on unmount
+  - config from `lib/supabase/config`; no hard-coded key
+  - `upsertFromSession` before the Google flow
+- **Guarded `window.VaRoomAccount.logout()` adapters** in `booking`, `bookings`, `host-home`, `profile` and `settings`.
+
+**Regression found during verification and fixed:** legacy pages re-run `account-switcher.js`, which replaces the global with an instance that has not loaded the account group. `switchAccount(id)` could not find the target ("This account is no longer linked"). It now reloads the group (`loadLinkedAccounts({ force: true })`) before giving up. A unit test covers this.
+
+**Test-script near miss (no production change):**
+- The first end-to-end script assumed the test accounts' groups were empty. Both are actually full 3/3 groups with real accounts.
+- The script treated a real linked account as "the client", tried to switch to it, then called `removeLinkedAccount` on it.
+- The switcher refused ("Choose a saved account to remove."), because there was no saved session in that browser. No request reached the server, and the group membership was re-read and confirmed unchanged.
+- Account-group writes were removed from all test scripts, and a memory note records that the test accounts are in real groups.
+
+**Verification:**
+- 337/337 tests pass (8 new account-action tests); `tsc` is clean; `next build` succeeds.
+- **End-to-end, signed in, write-free:**
+  - Host-sidebar logout lands on `/?auth=login`, and a second tab follows within seconds.
+  - No host private keys or chat records remain after logout.
+  - Client-sidebar logout lands on `/?auth=login` and signs out.
+  - A full group disables "add account" (3/3).
+  - The React add-account modal opens, shows the empty and invalid-email validation, and closes on Escape.
+  - The client's account menu matches the server's group membership exactly (no cross-account leak).
+  - No uncaught exceptions.
+- **Not verified end-to-end:** linking and switching. It needs dedicated unlinked test accounts; it is covered by unit tests and the existing switcher tests.
+
 ### A4 — Account switching (M)
 
 Create:

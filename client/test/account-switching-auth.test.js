@@ -13,7 +13,7 @@ const accountAuthSource = fs.readFileSync(
   'utf8'
 );
 const addAccountModalSource = fs.readFileSync(
-  path.join(__dirname, '../components/AddAccountModal.jsx'),
+  path.join(__dirname, '../components/AddAccountModal.tsx'),
   'utf8'
 );
 const loginSource = fs.readFileSync(

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { activeLinkedAccount, logout, switchAccount, useLinkedAccounts } from '../lib/account/accountActions';
 import { profileStore } from '../lib/auth/session';
 import { useRouter } from 'next/router';
 const { resolveAvatarUrl } = require('./resolveStoredPhotoUrl');
@@ -37,12 +38,8 @@ function getStoredUser() {
       email: ''
     };
   }
-  try {
-    if (window.VaRoomAccountSwitcher) {
-      const active = window.VaRoomAccountSwitcher.getActiveAccount?.();
-      if (active) return active;
-    }
-  } catch (e) {}
+  const active = activeLinkedAccount();
+  if (active) return active;
   return {
     full_name: 'VaRoom Member',
     username: 'member',
@@ -58,7 +55,7 @@ export default function SharedClientSidebar({ activeNav: explicitActiveNav } = {
   const [moreOpen, setMoreOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [linkedAccounts, setLinkedAccounts] = useState([]);
+  const linkedAccounts = useLinkedAccounts();
   const [hasMounted, setHasMounted] = useState(false);
 
   const moreBtnRef = useRef(null);
@@ -91,9 +88,6 @@ export default function SharedClientSidebar({ activeNav: explicitActiveNav } = {
   useEffect(() => {
     setHasMounted(true);
     setUser(getStoredUser());
-    if (window.VaRoomAccountSwitcher) {
-      setLinkedAccounts(window.VaRoomAccountSwitcher.getLinkedAccounts() || []);
-    }
 
     let cancelled = false;
 
@@ -144,11 +138,6 @@ export default function SharedClientSidebar({ activeNav: explicitActiveNav } = {
         } catch (e) {}
       }
 
-      // Load linked accounts from switcher if available
-      if (!cancelled && window.VaRoomAccountSwitcher) {
-        setLinkedAccounts(window.VaRoomAccountSwitcher.getLinkedAccounts() || []);
-      }
-
       // Check notification unread count
       try {
         const { count } = await client
@@ -189,28 +178,15 @@ export default function SharedClientSidebar({ activeNav: explicitActiveNav } = {
           }
         } catch (err) {}
       }
-      if (e.key === 'varoom_linked_accounts' && window.VaRoomAccountSwitcher && window.supabaseClient) {
-        window.VaRoomAccountSwitcher.loadLinkedAccounts(window.supabaseClient)
-          .then(setLinkedAccounts).catch(() => setLinkedAccounts([]));
-      }
-    };
-    const handleAccountsChanged = (e) => {
-      if (e.detail?.accounts) {
-        setLinkedAccounts(e.detail.accounts);
-      } else {
-        setLinkedAccounts(window.VaRoomAccountSwitcher?.getLinkedAccounts?.() || []);
-      }
     };
     window.addEventListener('storage', handleStorage);
     const handleCountUpdate = (e) => {
       if (typeof e?.detail?.count === 'number') setUnreadCount(e.detail.count);
     };
-    window.addEventListener('varoom_linked_accounts_changed', handleAccountsChanged);
     window.addEventListener('varoom_notification_count', handleCountUpdate);
     return () => {
       cancelled = true;
       window.removeEventListener('storage', handleStorage);
-      window.removeEventListener('varoom_linked_accounts_changed', handleAccountsChanged);
       window.removeEventListener('varoom_notification_count', handleCountUpdate);
     };
   }, []);
@@ -353,12 +329,10 @@ export default function SharedClientSidebar({ activeNav: explicitActiveNav } = {
   const handleSwitchAccount = async (targetAccount) => {
     if (!targetAccount || targetAccount.id === user?.id) return;
     try {
-      if (window.VaRoomAccountSwitcher && window.supabaseClient) {
-        await window.VaRoomAccountSwitcher.switchAccount(window.supabaseClient, targetAccount);
-        window.location.reload();
-      }
+      await switchAccount(targetAccount.id);
     } catch (err) {
       console.error('Account switch failed:', err);
+      alert(err.message || 'Unable to switch account.');
     }
   };
 
@@ -373,17 +347,12 @@ export default function SharedClientSidebar({ activeNav: explicitActiveNav } = {
   };
 
   // Sign out handler
+  // Shared logout: clears this account's private data, signs out, informs
+  // other tabs and goes to the login panel.
   const handleSignOut = async () => {
     setAccountOpen(false);
     setUser({ full_name: 'VaRoom Member', username: 'member', avatar_url: null, email: '' });
-    try {
-      if (window.supabaseClient?.auth) {
-        await window.supabaseClient.auth.signOut();
-      }
-    } catch (err) {
-      console.error('Sign out error:', err);
-    }
-    window.location.href = '/';
+    await logout();
   };
 
   const displayName = hasMounted ? (user?.full_name || 'VaRoom Member') : 'VaRoom Member';

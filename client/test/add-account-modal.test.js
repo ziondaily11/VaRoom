@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const addAccountModalCode = fs.readFileSync(
-  path.join(__dirname, '../components/AddAccountModal.jsx'),
+  path.join(__dirname, '../components/AddAccountModal.tsx'),
   'utf8'
 );
 const sharedClientSidebarCode = fs.readFileSync(
