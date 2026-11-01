@@ -12,6 +12,7 @@ import {
   saveScrollPosition,
   getScrollPosition,
 } from '../lib/propertyNewsCache';
+import { toExcerpt } from '../lib/propertyNewsExcerpt';
 import { useAuth } from '../lib/auth/AuthProvider';
 import { accountRole } from '../lib/types/profile';
 
@@ -766,7 +767,7 @@ export default function PropertyNewsPage() {
                             <h2 className="lead-headline">{lead.title}</h2>
                           </Link>
                           <p className="lead-excerpt">
-                            {lead.summary || 'Read the lead Kenyan property and regulatory update on VaRoom.'}
+                            {toExcerpt(lead.summary) || 'Read the lead Kenyan property and regulatory update on VaRoom.'}
                           </p>
                           <div className="meta">
                             <span>{cardLocation(lead).toUpperCase()}</span>
@@ -826,7 +827,7 @@ export default function PropertyNewsPage() {
                           >
                             <h2>{news.title}</h2>
                             <p>
-                              {news.summary || 'Read the latest property update from VaRoom.'}
+                              {toExcerpt(news.summary) || 'Read the latest property update from VaRoom.'}
                             </p>
                             <div className="meta">
                               <span>{cardLocation(news)}</span>
