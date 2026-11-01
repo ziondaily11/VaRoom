@@ -610,6 +610,103 @@ Change:
 - Account switch **keeps `location.reload()`** for now, because legacy pages can't re-key. Switching without a reload is revisited after Stage D.
 - Convert `AddAccountModal` to TSX. Fix the popup race and the always-on listener. Unmounting must not delete the switcher's method.
 
+#### A5 — detailed plan (approved 2026-11-02; A5a implemented)
+
+##### Measured on the current build (host account, signed in)
+
+**The shell is already persistent within a role layout.**
+- Client-side navigation between `/notifications`, `/bookings`, `/host-home` and `/settings` mounted the layout **once**.
+- Hard loads of `/bookings` and `/host-home` ran each legacy page script **once**. The earlier double execution no longer happens.
+
+**The waste:**
+- **Count polling is duplicated.**
+  - The React host sidebar re-runs its full refresh every 30 s: session, switcher upsert, profile, unread-notifications count.
+  - On legacy pages, `varoom-sidebar.js initCounts` adds its own unread query, a booking-notifications scan paged 1,000 at a time, `/api/chat/unread-count`, a realtime channel, a 60 s interval and a body-wide MutationObserver.
+  - Per navigation that means 1–2 notification-count requests, plus a chat count on legacy pages.
+- **The theme attribute is rewritten about twice per navigation**, always to the same value.
+- **No prefetching.** Sidebar links are `<a>` + `router.push`, not `next/link`.
+- **The shell remounts when navigation passes through a layout-less route:** marketplace, chats, support, list, analytics, property-news, pricing.
+  - These keep their own UI by design, so this is not changed: preserving the UI is a rule.
+  - The cost is reduced instead, because the remount no longer refetches anything (A5a).
+- **`varoom-mobile-nav.js`** appends a nav to `<body>` once and never updates its active item on client-side navigation. It overlaps Client Home's own bottom bar.
+
+**From the code inventory:**
+- The two layouts differ: 295 px vs 260 px; inline `<style>` vs styled-jsx; different link-interceptor whitelists. The host whitelist's `startsWith('/list')` also catches `/listing…`.
+- **Neither interceptor respects modifier keys, middle-click or `defaultPrevented`.**
+- Host "Premium" pushes `/pricing.html`, which is not a route.
+- Booking and chat counts are visible only in legacy DOM: the React sidebars show the notifications badge only.
+
+##### Plan (four increments, in this order)
+
+**A5a — One counts store (M)**
+- `lib/counts/countsStore.ts`, mounted once from `_app`:
+  - unread notifications, chat unread and booking counts for the signed-in user
+  - **one** realtime channel and one visibility-based refresh, no 30 s polling
+  - cleared on sign-out (A2)
+- Both sidebars read the notifications badge from it. The host sidebar's 30 s `refreshUser` loop is removed; its identity already comes from the A2 profile store.
+- `varoom-sidebar.js initCounts` and `chats.tsx updateSidebarCounts` use `window.VaRoomCounts` when present, so legacy pages share the same channel. Their own queries remain only as the fallback outside Next.
+- `varoom_notification_count` events keep working.
+
+**A5b — Navigation and theme (S–M)**
+- Sidebar links become `next/link`, with prefetch and the same markup.
+- One shared legacy-link interceptor, installed once in `_app` instead of per layout:
+  - skips modifier keys, middle-click, `defaultPrevented`, `target` and `download`
+  - fixes the `/list` prefix bug
+  - keeps both whitelists' routes
+- "Premium" goes to `/pricing`.
+- One `lib/theme.ts` resolver used by `_document` and `_app`. It writes `data-theme` only when the value changes, and on `routeChangeStart` instead of after paint. Add `data-scroll-behavior="smooth"` (Next 16).
+
+**A5c — Shell components to TypeScript (L)**
+- `HostLayout`, `ClientLayout`, `SharedHostSidebar` and `SharedClientSidebar` → TSX, with markup, CSS, ids and classes ported 1:1, since legacy pages and tests depend on them.
+- Shared logic (account menu, popovers, drawer, active-nav rule) is extracted once instead of duplicated.
+- `_app.js`/`_document.js` → TSX.
+- On shell routes, the layout renders from the route plus the session-bound cached role on the first client render. That removes the bare-then-wrapped remount without adding a pending screen.
+
+**A5d — Mobile navigation in React (M)**
+- The pill nav becomes a React component inside the shell, with the same items, styles and hide rules, and an active item that follows client-side navigation.
+- On shell routes `varoom-mobile-nav.js` stops being injected; the script stays for layout-less legacy pages.
+- Resolve the Client Home overlap so only one bottom bar shows, matching what the user saw before the pill nav was added there.
+
+**Not in A5:**
+- Wrapping layout-less routes in the shell; they keep their own UI.
+- `host-home.html` binding the React sidebar's `.nav-item[data-nav]`, which causes hard reloads and an uncaught `viewHandlers[...]` error. Fix it with host-home (D2).
+- Removing the `removeChild` patch (Stage E).
+
+##### Verification (each increment)
+
+- Unit tests; the source-text tests that lock today's JSX are updated in the same change.
+- `tsc`, `next build`.
+- Signed-in runs on both accounts with the shell probe: layout mounts, request counts (profiles, notification count, chat unread, account-groups) and theme writes per navigation, compared with the numbers above.
+- Mobile-width checks for the drawer and pill nav (A5d).
+
+##### A5a results (2026-11-02)
+
+**New:**
+- `lib/counts/countsStore.ts`: notifications, chats and bookings counts; one realtime channel `counts-<uid>` with a 150 ms debounce; shared in-flight refresh; a failed query keeps its previous value; `refreshIfStale` (30 s); a 60 s fallback poll only while realtime is down; reset on user change and sign-out.
+- `lib/counts/CountsBridge.tsx`:
+  - `installCounts()`: `window.VaRoomCounts`, the `varoom_notification_count` listener and a visibility catch-up.
+  - `<CountsBridge/>`: starts and stops the store with `useAuth()`.
+
+**Changed:**
+- Both sidebars read `useCounts().notifications`. Their count query, the host sidebar's 30 s `refreshUser` loop and their event listeners are removed.
+- `varoom-sidebar.js initCounts` draws legacy badges from `window.VaRoomCounts` and only calls `refreshIfStale()`. Its own queries, channel and 60 s interval remain only outside the app.
+- `chats.tsx` refreshes the store directly after reading messages.
+
+**Verification:**
+- 354/354 tests pass (8 new counts-store tests; the notifications-migration test updated); `tsc` is clean; `next build` succeeds.
+
+**Shell probe, host account:**
+
+| Measure | Before | After |
+|---|---|---|
+| Count requests during 70 s idle | Periodic (30 s and 60 s timers) | 0 |
+| Navigating to bookings or host-home | 1–2 notification counts + chat count | 0 |
+| Navigating to settings (> 30 s later) | — | One stale refresh, as designed |
+
+On the client account, the store matches the server's unread count; there were no uncaught errors.
+
+**Observed, pre-existing:** host-home's unguarded `listings-glance-grid` writes after navigating away (intermittent), and its `viewHandlers` binding. Both are on the D2 backlog.
+
 ### A5 — Persistent shell and sidebars (L)
 
 Create:

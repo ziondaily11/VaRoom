@@ -3,6 +3,7 @@ import type { SupabaseClient, SupabaseClientOptions } from '@supabase/supabase-j
 import type { LegacyProfileStoreApi } from '../lib/auth/profileStore';
 import type { DataCacheApi } from '../lib/cache/dataCache';
 import type { AccountSwitcher } from '../lib/account/accountActions';
+import type { LegacyCountsApi } from '../lib/counts/CountsBridge';
 
 // Browser globals shared between the React app and the legacy public/js
 // scripts. Extend this as more legacy globals gain typed React consumers.
@@ -34,6 +35,7 @@ declare global {
     };
     VaRoomProfileStore?: LegacyProfileStoreApi;
     VaRoomAccountSwitcher?: AccountSwitcher;
+    VaRoomCounts?: LegacyCountsApi;
     VaRoomAccount?: {
       logout(): Promise<void>;
       switchAccount(accountId: string): Promise<void>;

@@ -10,6 +10,7 @@ import { profileStore } from '../lib/auth/session';
 import { installDataCacheGlobal } from '../lib/cache/dataCache';
 import { getListingFeedCache } from '../lib/listingFeedCache';
 import { installAccountActions } from '../lib/account/accountActions';
+import { CountsBridge, installCounts } from '../lib/counts/CountsBridge';
 const { getAccountLayout, getSessionBoundCachedRole } = require('../lib/accountRoleLayout');
 import '../styles/admin.css';
 import '../legacy-pages/privacy.css';
@@ -26,6 +27,7 @@ if (typeof window !== 'undefined') {
   installDataCacheGlobal();
   getListingFeedCache();
   installAccountActions();
+  installCounts();
 }
 
 const designTokensStyle = `
@@ -487,6 +489,7 @@ export default function App({ Component, pageProps }) {
         <style dangerouslySetInnerHTML={{ __html: designTokensStyle }} />
         <script dangerouslySetInnerHTML={{ __html: fontSizeScript }} />
       </Head>
+      <CountsBridge />
       <AccountLayout Component={Component} pageProps={pageProps} />
       <AddAccountModal />
     </AuthProvider>

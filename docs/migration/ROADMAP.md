@@ -14,7 +14,7 @@ Statuses: `Not started` · `Investigating` · `Awaiting approval` · `In progres
 
 ## Current position
 
-**H1, A1–A3 merged to `main` (PR #501–#505). A4 committed (`c7b588e`, branch `agents/stage-a-foundation`). H2 committed (`75ff10f`, `fix/linked-account-removal`), awaiting a production end-to-end test with dedicated accounts. Current task: H3 (seamless switching) — done on `fix/seamless-account-switching` (stacked on H2), awaiting commit instructions. A5 waits.**
+**H1, A1–A4 and H2 are merged to `main` (PR #501–#507). H3 is committed (`5ecdced`) and included in `agents/stage-a-foundation`. Current task: A5 (approved). A5a (counts store) is done and verified, awaiting commit instructions; A5b–A5d follow.**
 
 ---
 
@@ -37,7 +37,7 @@ The detailed plan and findings are in `docs/migration/stage-a-foundation.md`.
 | A2 | Auth and profile foundation | `AuthProvider` (one auth subscription, one deduplicated profile fetch per user, session-bound first paint); `clearUserData` on sign-out and user change; shared domain types (`lib/types`); `_app` takes its role from the provider; fix the cross-account render on notifications and the unscoped role reads in chats and property-news. Target: 1 `profiles` read per user per TTL (now 11–17 per page). Detailed plan and results in `stage-a-foundation.md` § A2. Result: 0 `profiles` reads on native pages; legacy pages keep only their own query (host notifications went from 17 to 0). Commit `c278d1b`, PR #503. | M | Done — merged |
 | A3 | Shared cache layer | `lib/cache` (namespaced user-scoped keys, SWR, dedupe, abort, size caps); `VaRoomDataCache`/`VaRoomListingFeedCache` become adapters over it; `lib/chatCache.ts` becomes the single owner of the chat DB, so legacy pages stop loading `public/js/chat-cache.js`; fix the news cache key collision; bound unbounded caches; convert the `lib/clientHome*.js` caches to TS. Detailed plan in `stage-a-foundation.md` § A3, split into A3a (core module and lib caches) and A3b (one owner for each legacy-global cache, including the chat prefetch cooldown). A3a merged (PR #504); A3b merged (PR #505). | M+M | Done — merged |
 | A4 | Account switching | Typed `lib/account` over the switcher; one `logout()` to `/?auth=login` with cache cleanup; cross-tab notice; `AddAccountModal` to TSX (fix the popup race and the always-on listener). The switch keeps its page reload for now. Detailed plan and results in `stage-a-foundation.md` § A4. Commit `c7b588e`. | M | Done — committed (not merged) |
-| A5 | Persistent shell | `AppShell` decided by route (no remount on load); `HostSidebar`/`ClientSidebar`/layouts to TSX, fed by providers (no per-mount fetches or polling); counts store with one realtime channel; `next/link`; one link interceptor; theme resolver; mobile nav in React; `_app`/`_document` to TS; legacy DOM contract preserved. | L | Not started |
+| A5 | Persistent shell | `AppShell` decided by route (no remount on load); `HostSidebar`/`ClientSidebar`/layouts to TSX, fed by providers (no per-mount fetches or polling); counts store with one realtime channel; `next/link`; one link interceptor; theme resolver; mobile nav in React; `_app`/`_document` to TS; legacy DOM contract preserved. Detailed plan in `stage-a-foundation.md` § A5, split into A5a–A5d. A5a done; A5b–A5d not started. | L | A5a done — awaiting commit |
 
 **Stage A exit:** every Stage A task is Done, with signed-in regression on both test accounts across all routes, and before/after request counts recorded.
 
@@ -100,6 +100,8 @@ The detailed plan and findings are in `docs/migration/stage-a-foundation.md`.
 - Landing page ISR: `getStaticProps` resolves old-format listing photo keys with an unpatched client, so the pre-rendered HTML contains dead Supabase public URLs (blocked by ORB). The browser re-fetch corrects them. Fix: apply the R2 photo rule in `getStaticProps`.
 - Legacy pages re-run `account-switcher.js`, so `window.VaRoomAccountSwitcher` becomes a fresh instance without the group loaded and without the React add-account modal; those pages show the switcher's vanilla modal. A4 makes switching tolerate this. A single instance belongs with A5 or the page migrations.
 - End-to-end switching cannot be tested with the current test accounts: both are in full 3/3 groups with real accounts. Dedicated unlinked test accounts are needed.
+- `host-home.html` binds every `.nav-item[data-nav]` in the document, including the React sidebar's: Marketplace hard-reloads, and Notifications throws `viewHandlers[...] is not a function` (seen 2026-11-02). Fix with D2.
+- `host-home.html` sets `listings-glance-grid` attributes after an async load without a null check; navigating away mid-load throws `Cannot read properties of null (reading 'setAttribute')` (intermittent). Fix with D2.
 - Production first load sometimes takes longer than 6 s to hydrate (seen 2026-11-01 in headless runs). Measure in A5.
 - `server/test/photoUrlRouting.test.js`: 5 tests fail because their vm sandbox lacks `CustomEvent`/`dispatchEvent`, which `supabase-client.js` has always called (fails on `4dfff59`, before Stage A as well).
 - Cached credentials of other group members stay in a browser's localStorage until that browser next loads the group, which prunes them. The app can no longer use them after a removal (H2), but they remain valid tokens until then. Full revocation needs the affected account to sign out of all devices.
@@ -110,6 +112,7 @@ The detailed plan and findings are in `docs/migration/stage-a-foundation.md`.
 - 2026-10-31: Inventory and Stage A investigation done; plan approved. A1 implemented and verified signed in on both test accounts. `/list` outage found and split out as H1.
 - 2026-10-31: Roadmap created. The H1 fix was removed from the Stage A branch and implemented and verified on its own branch.
 - 2026-10-31: H1 committed and PR #501 opened. Theme fix (`3426034`) and A1 (`d05458e`) committed on `agents/stage-a-foundation` and the branch pushed. A2 is on hold until the go-ahead.
+- 2026-11-02: A5 plan approved. A5a implemented: 354/354 tests pass, `tsc` is clean, the build succeeds; 0 count requests over 70 s idle (previously 30 s and 60 s polling) and 0 on bookings and host-home navigations.
 - 2026-11-02: H2 committed (`75ff10f`). H3 found that stored sign-ins went stale on background token rotation; fixed and verified.
 - 2026-11-01: A4 committed (`c7b588e`). H2 started on `fix/linked-account-removal`: stale-page switching into a removed relationship found and fixed.
 - 2026-11-01: A4 implemented: 337/337 tests pass, `tsc` is clean, the build succeeds; logout, cross-tab and modal end-to-end checks pass. A test-script near miss (an attempted unlink of a real linked account, refused by the switcher; no change made) found a legacy-page switching regression, now fixed.

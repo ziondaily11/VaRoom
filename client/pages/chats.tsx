@@ -362,6 +362,12 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   // Sync unread counts with VaroomSidebar
   const updateSidebarCounts = useCallback(() => {
     if (typeof window === 'undefined') return;
+    // Reading or sending messages changes the unread counts: refresh the
+    // shared store now rather than waiting for it to go stale.
+    if (window.VaRoomCounts) {
+      void window.VaRoomCounts.refresh();
+      return;
+    }
     try {
       if ((window as any).VaroomSidebar && typeof (window as any).VaroomSidebar.initCounts === 'function') {
         (window as any).VaroomSidebar.initCounts({ supabaseClient: (window as any).supabaseClient });

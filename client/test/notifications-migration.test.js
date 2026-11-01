@@ -284,9 +284,13 @@ test('10. Existing sidebar unread-count behavior and synchronization', () => {
   assert.match(pageSource, /VaroomSidebar\.setUnreadCount\(count\)/);
   assert.match(pageSource, /varoom_notification_count/);
 
-  // Both sidebars listen for varoom_notification_count event
-  assert.match(sharedClientSidebarSource, /varoom_notification_count/);
-  assert.match(sharedHostSidebarSource, /varoom_notification_count/);
+  // The shared counts store receives varoom_notification_count; both sidebars
+  // read the badge from it instead of polling or listening separately.
+  const countsBridgeSource = fs.readFileSync(path.join(root, 'lib', 'counts', 'CountsBridge.tsx'), 'utf8');
+  assert.match(countsBridgeSource, /addEventListener\('varoom_notification_count'/);
+  assert.match(sharedClientSidebarSource, /const unreadCount = useCounts\(\)\.notifications;/);
+  assert.match(sharedHostSidebarSource, /const unreadCount = useCounts\(\)\.notifications;/);
+  assert.doesNotMatch(sharedHostSidebarSource, /setInterval\(refreshUser/);
 
   // Internal routes include /notifications
   assert.match(clientLayoutSource, /'\/notifications'/);
