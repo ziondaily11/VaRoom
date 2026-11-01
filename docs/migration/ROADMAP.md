@@ -14,7 +14,7 @@ Statuses: `Not started` · `Investigating` · `Awaiting approval` · `In progres
 
 ## Current position
 
-**H1: PR #501 open. A1: committed and pushed. Next task: A2. Waiting for the go-ahead.**
+**H1: merged. A1: committed and pushed. Next task: A2. Waiting for the go-ahead.**
 
 ---
 
@@ -22,7 +22,7 @@ Statuses: `Not started` · `Investigating` · `Awaiting approval` · `In progres
 
 | ID | Task | Mag. | Status |
 |---|---|---|---|
-| H1 | `/list` (listing wizard) is broken in production since 2026-10-23 (`b1fa8b2`). `parseTemplate` in `pages/[...slug].js` cuts the body at the first `</body>`, which sits inside a `srcdoc` string in `list.html`. That splits a `<script>`, and the page's JS never loads. Fix: match up to the last `</body>`, plus a regression test. Branch `fix/list-template-parsing` (worktree `../VaRoom-H1`). Verified: 284/284 tests pass and the build succeeds; signed-in host check on `/list` and `/properties` passes, plus 10 other legacy pages; parsing output is byte-identical for every template except `list.html`. Commit `30501df`, PR https://github.com/ziondaily11/VaRoom/pull/501. | XS | Done — PR #501 open |
+| H1 | `/list` (listing wizard) is broken in production since 2026-10-23 (`b1fa8b2`). `parseTemplate` in `pages/[...slug].js` cuts the body at the first `</body>`, which sits inside a `srcdoc` string in `list.html`. That splits a `<script>`, and the page's JS never loads. Fix: match up to the last `</body>`, plus a regression test. Branch `fix/list-template-parsing` (worktree `../VaRoom-H1`). Verified: 284/284 tests pass and the build succeeds; signed-in host check on `/list` and `/properties` passes, plus 10 other legacy pages; parsing output is byte-identical for every template except `list.html`. Commit `30501df`, PR https://github.com/ziondaily11/VaRoom/pull/501. | XS | Done — merged (PR #501, `d0f8d42`) |
 
 ## Stage A — Shared foundation (branch `agents/stage-a-foundation`)
 
@@ -101,3 +101,4 @@ The detailed plan and findings are in `docs/migration/stage-a-foundation.md`.
 - 2026-10-31: Inventory and Stage A investigation done; plan approved. A1 implemented and verified signed in on both test accounts. `/list` outage found and split out as H1.
 - 2026-10-31: Roadmap created. The H1 fix was removed from the Stage A branch and implemented and verified on its own branch.
 - 2026-10-31: H1 committed and PR #501 opened. Theme fix (`3426034`) and A1 (`d05458e`) committed on `agents/stage-a-foundation` and the branch pushed. A2 is on hold until the go-ahead.
+- 2026-10-31: PR #501 merged into `main` (`d0f8d42`); `/list` fix shipped. Hotfix worktree and local branch removed.
