@@ -79,7 +79,7 @@ test('Section 5: Responsive Design across Desktop, Tablet, and Mobile', () => {
   const source = fs.readFileSync(propertyNewsPath, 'utf8');
 
   // Desktop two-column grid
-  assert.match(source, /\.editorial-columns\.has-media\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1\.4fr\)\s*minmax\(0,\s*1fr\)/);
+  assert.match(source, /\.editorial-columns\.has-media\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1\.2fr\)\s*minmax\(0,\s*1fr\)/);
 
   // Tablet breakpoint (max-width: 900px)
   assert.match(source, /@media\s*\(max-width:\s*900px\)/);
