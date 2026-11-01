@@ -8,7 +8,7 @@ const {
   readClientHomeVideoMetadata,
   resolveClientHomePlayback,
   writeClientHomeVideoMetadata,
-} = require('../lib/clientHomeVideoMetadataCache');
+} = require('./helpers/loadTs').loadTs(path.join(__dirname, '..', 'lib', 'clientHomeVideoMetadataCache.ts'));
 
 const source = fs.readFileSync(path.join(__dirname, '..', 'pages', 'client-home.tsx'), 'utf8');
 
@@ -131,6 +131,6 @@ test('Client Home reuses metadata and resolves playback through the expiry-aware
   assert.match(source, /\/api\/media\/\$\{encodeURIComponent\(mediaId\)\}\/playback/);
   assert.match(source, /resolvedSessionUserId\.current === accountId/);
   assert.match(source, /authEpoch\.current === requestEpoch/);
-  assert.doesNotMatch(fs.readFileSync(path.join(__dirname, '..', 'lib', 'clientHomeVideoMetadataCache.js'), 'utf8'), /playbackUrl|signedUrl/);
-  assert.match(fs.readFileSync(path.join(__dirname, '..', 'lib', 'clientHomeVideoMetadataCache.js'), 'utf8'), /PLAYBACK_EXPIRY_MARGIN_MS = 30 \* 1000/);
+  assert.doesNotMatch(fs.readFileSync(path.join(__dirname, '..', 'lib', 'clientHomeVideoMetadataCache.ts'), 'utf8'), /playbackUrl|signedUrl/);
+  assert.match(fs.readFileSync(path.join(__dirname, '..', 'lib', 'clientHomeVideoMetadataCache.ts'), 'utf8'), /PLAYBACK_EXPIRY_MARGIN_MS = 30 \* 1000/);
 });

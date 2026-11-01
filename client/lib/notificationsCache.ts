@@ -1,3 +1,6 @@
+import { createCache } from './cache/createCache';
+import { CACHE_NAMESPACES } from './cache/namespaces';
+
 export interface NotificationItem {
   id: string;
   title?: string | null;
@@ -26,88 +29,38 @@ export interface NotificationDetails {
   iconKind: 'approved' | 'declined' | 'request';
 }
 
-const CACHE_KEY_PREFIX = 'varoom_notifications_cache_v1_';
 // Notifications are mutable and event-driven; 30 seconds fresh TTL
 export const NOTIFICATIONS_CACHE_TTL_MS = 30 * 1000;
 
-interface InMemoryStore {
-  items: NotificationItem[] | null;
-  unreadCount: number | null;
-  timestamp: number;
-  userId: string | null;
+interface NotificationsSnapshot {
+  items: NotificationItem[];
+  unreadCount: number;
 }
 
-const inMemoryStore: InMemoryStore = {
-  items: null,
-  unreadCount: null,
-  timestamp: 0,
-  userId: null,
-};
+// One entry per account (keyed by user id), cleared on sign-out.
+const cache = createCache<NotificationsSnapshot>({
+  namespace: CACHE_NAMESPACES.notifications,
+  ttlMs: NOTIFICATIONS_CACHE_TTL_MS,
+  maxEntries: 5,
+  userScoped: true,
+  validate: (value) => Boolean(value && Array.isArray((value as NotificationsSnapshot).items)),
+});
 
-function getStorageSafe(): Storage | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    return window.sessionStorage || null;
-  } catch {
-    return null;
-  }
+function unreadOf(items: NotificationItem[]): number {
+  return items.filter((item) => !item.read).length;
 }
 
 export function getCachedNotifications(currentUserId: string): CachedNotificationsResult | null {
   if (!currentUserId) return null;
-  const now = Date.now();
-
-  // 1. Check in-memory store (strictly scoped to currentUserId)
-  if (inMemoryStore.items && inMemoryStore.userId === currentUserId) {
-    const age = now - inMemoryStore.timestamp;
-    const computedUnread = inMemoryStore.unreadCount !== null
-      ? inMemoryStore.unreadCount
-      : inMemoryStore.items.filter((item) => !item.read).length;
-
-    return {
-      items: inMemoryStore.items,
-      unreadCount: computedUnread,
-      isFresh: age < NOTIFICATIONS_CACHE_TTL_MS,
-      age,
-    };
-  }
-
-  // 2. Fall back to sessionStorage (strictly scoped to currentUserId)
-  const storage = getStorageSafe();
-  if (!storage) return null;
-
-  try {
-    const key = `${CACHE_KEY_PREFIX}${currentUserId}`;
-    const raw = storage.getItem(key);
-    if (!raw) return null;
-
-    const parsed = JSON.parse(raw);
-    if (parsed && Array.isArray(parsed.items) && typeof parsed.timestamp === 'number') {
-      if (parsed.userId !== currentUserId) {
-        return null;
-      }
-      const age = now - parsed.timestamp;
-      const unreadCount = typeof parsed.unreadCount === 'number'
-        ? parsed.unreadCount
-        : parsed.items.filter((item: NotificationItem) => !item.read).length;
-
-      inMemoryStore.items = parsed.items;
-      inMemoryStore.unreadCount = unreadCount;
-      inMemoryStore.timestamp = parsed.timestamp;
-      inMemoryStore.userId = currentUserId;
-
-      return {
-        items: parsed.items,
-        unreadCount,
-        isFresh: age < NOTIFICATIONS_CACHE_TTL_MS,
-        age,
-      };
-    }
-  } catch (error) {
-    console.warn('Unable to read notifications cache:', error);
-  }
-
-  return null;
+  const cached = cache.read(currentUserId);
+  if (!cached) return null;
+  const { items, unreadCount } = cached.value;
+  return {
+    items,
+    unreadCount: typeof unreadCount === 'number' ? unreadCount : unreadOf(items),
+    isFresh: cached.isFresh,
+    age: cached.age,
+  };
 }
 
 export function setCachedNotifications(
@@ -116,116 +69,44 @@ export function setCachedNotifications(
   unreadCount?: number
 ): void {
   if (!currentUserId) return;
-  const now = Date.now();
-  const calculatedUnread = typeof unreadCount === 'number'
-    ? unreadCount
-    : items.filter((n) => !n.read).length;
-
-  inMemoryStore.items = items;
-  inMemoryStore.unreadCount = calculatedUnread;
-  inMemoryStore.timestamp = now;
-  inMemoryStore.userId = currentUserId;
-
-  const storage = getStorageSafe();
-  if (!storage) return;
-
-  try {
-    const key = `${CACHE_KEY_PREFIX}${currentUserId}`;
-    storage.setItem(
-      key,
-      JSON.stringify({
-        items,
-        unreadCount: calculatedUnread,
-        timestamp: now,
-        userId: currentUserId,
-      })
-    );
-  } catch (error) {
-    console.warn('Unable to write notifications cache:', error);
-  }
+  cache.write(currentUserId, { items, unreadCount: typeof unreadCount === 'number' ? unreadCount : unreadOf(items) });
 }
 
 export function markCachedNotificationRead(
   notificationId: string,
   currentUserId: string
 ): { items: NotificationItem[]; unreadCount: number } | null {
-  if (!currentUserId) return null;
-  let items = inMemoryStore.items;
-  let unreadCount = inMemoryStore.unreadCount;
-
-  if (!items || inMemoryStore.userId !== currentUserId) {
-    const cached = getCachedNotifications(currentUserId);
-    if (!cached) return null;
-    items = cached.items;
-    unreadCount = cached.unreadCount;
-  }
+  const cached = getCachedNotifications(currentUserId);
+  if (!cached) return null;
 
   let changed = false;
-  const updatedItems = items.map((item) => {
+  const updatedItems = cached.items.map((item) => {
     if (item.id === notificationId && !item.read) {
       changed = true;
       return { ...item, read: true };
     }
     return item;
   });
+  if (!changed) return { items: updatedItems, unreadCount: cached.unreadCount };
 
-  if (!changed) {
-    return {
-      items: updatedItems,
-      unreadCount: typeof unreadCount === 'number' ? unreadCount : 0,
-    };
-  }
-
-  const nextUnread = typeof unreadCount === 'number' ? Math.max(0, unreadCount - 1) : updatedItems.filter((i) => !i.read).length;
+  const nextUnread = Math.max(0, cached.unreadCount - 1);
   setCachedNotifications(updatedItems, currentUserId, nextUnread);
-
   return { items: updatedItems, unreadCount: nextUnread };
 }
 
 export function markAllCachedNotificationsRead(
   currentUserId: string
 ): { items: NotificationItem[]; unreadCount: number } | null {
-  if (!currentUserId) return null;
-  let items = inMemoryStore.items;
-
-  if (!items || inMemoryStore.userId !== currentUserId) {
-    const cached = getCachedNotifications(currentUserId);
-    if (!cached) return null;
-    items = cached.items;
-  }
-
-  const updatedItems = items.map((item) => ({ ...item, read: true }));
+  const cached = getCachedNotifications(currentUserId);
+  if (!cached) return null;
+  const updatedItems = cached.items.map((item) => ({ ...item, read: true }));
   setCachedNotifications(updatedItems, currentUserId, 0);
-
   return { items: updatedItems, unreadCount: 0 };
 }
 
 export function clearNotificationsCache(userId?: string): void {
-  if (!userId || inMemoryStore.userId === userId) {
-    inMemoryStore.items = null;
-    inMemoryStore.unreadCount = null;
-    inMemoryStore.timestamp = 0;
-    inMemoryStore.userId = null;
-  }
-
-  const storage = getStorageSafe();
-  if (storage) {
-    try {
-      if (userId) {
-        storage.removeItem(`${CACHE_KEY_PREFIX}${userId}`);
-      } else {
-        // Clear all notification cache keys
-        const keysToRemove: string[] = [];
-        for (let i = 0; i < storage.length; i++) {
-          const key = storage.key(i);
-          if (key && key.startsWith(CACHE_KEY_PREFIX)) {
-            keysToRemove.push(key);
-          }
-        }
-        keysToRemove.forEach((k) => storage.removeItem(k));
-      }
-    } catch {}
-  }
+  if (userId) cache.remove(userId);
+  else cache.clear();
 }
 
 export function detailsFor(type: string): NotificationDetails {

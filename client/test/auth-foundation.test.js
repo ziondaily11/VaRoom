@@ -150,8 +150,9 @@ test('clearUserData removes the previous account\'s private data and keeps draft
   });
   const session = memoryStorage({
     'varoom:profile:v1:a': '{}',
-    'varoom:data-cache:v1:account:a:bookings': '{}',
-    'varoom:data-cache:v1:public:listings': '{}',
+    // VaRoomDataCache URL-encodes its keys; this is the real stored form.
+    ['varoom:data-cache:v1:' + encodeURIComponent('account:a:bookings')]: '{}',
+    ['varoom:data-cache:v1:' + encodeURIComponent('public:listings')]: '{}',
     'varoom:client-home:profile:v1:a': '{}',
     'varoom:listings:feed:v1:client:a:home': '{}',
     varoom_notifications_cache_v1_a: '{}',
@@ -174,7 +175,7 @@ test('clearUserData removes the previous account\'s private data and keeps draft
   });
 
   assert.deepEqual(local.keys().sort(), ['varoom_linked_accounts', 'varoom_listing_draft_pointer:a', 'varoom_theme']);
-  assert.deepEqual(session.keys().sort(), ['varoom:data-cache:v1:public:listings', 'varoom_user_role']);
+  assert.deepEqual(session.keys().sort(), ['varoom:data-cache:v1:' + encodeURIComponent('public:listings'), 'varoom_user_role']);
   assert.deepEqual(profileStoreCalls, ['a']);
   assert.deepEqual(chatCalls, [['clearUser', 'a'], ['clearMedia']]);
   assert.equal(hasStaleAccountData(local), false);

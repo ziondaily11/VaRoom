@@ -1,6 +1,8 @@
 import { clearNotificationsCache } from '../notificationsCache';
 import { clearPropertyNewsCache } from '../propertyNewsCache';
 import type { ProfileStore } from './profileStore';
+import { clearUserScopedCaches } from '../cache/createCache';
+import { CACHE_NAMESPACES, USER_SCOPED_SESSION_PREFIXES } from '../cache/namespaces';
 
 // Private, per-account data cached in this browser. Cleared when the signed-in
 // user signs out or changes, so nothing from one account renders for another.
@@ -8,14 +10,10 @@ import type { ProfileStore } from './profileStore';
 // deliberately kept.
 
 export const PRIVATE_SESSION_PREFIXES = [
-  'varoom:profile:v1:',
-  'varoom:data-cache:v1:account:',
-  'varoom:client-home:',
-  'varoom:listings:feed:v1:',
-  'varoom:listings:scroll:',
-  'varoom_notifications_cache_v1_',
-  'varoom_property_news_react_cache_v1',
-  'varoom_property_news_article_details_v1',
+  ...USER_SCOPED_SESSION_PREFIXES,
+  // Property News stores the viewing account id with its list.
+  CACHE_NAMESPACES.propertyNews,
+  CACHE_NAMESPACES.propertyNewsArticles,
 ];
 
 const CACHED_PROFILE_KEY = 'varoom_cached_profile';
@@ -84,6 +82,8 @@ export async function clearUserData(userId: string | null, options: ClearUserDat
   }
 
   removeKeysWithPrefixes(sessionStorage, PRIVATE_SESSION_PREFIXES);
+  // In-memory copies held by caches loaded on this page.
+  clearUserScopedCaches();
   clearNotificationsCache();
   clearPropertyNewsCache();
 

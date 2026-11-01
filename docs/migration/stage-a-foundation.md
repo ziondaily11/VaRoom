@@ -361,6 +361,92 @@ What remains is each legacy page's own inline query. Those go with their page's 
 - `client-home` keeps its own auth subscription and epoch logic; only its profile read moved to the store.
 - There is no React render test for `AuthProvider`. The provider is covered by the signed-in runs, and its pure parts (store, `clearUserData`) have unit tests.
 
+#### A3 — detailed plan (approved 2026-11-01; A3a implemented)
+
+##### Findings
+
+**Six separate cache implementations.** Each has its own memory + sessionStorage + TTL + dedupe code:
+- `varoom-data-cache.js`
+- `listing-feed-cache.js`
+- `clientHomeWidgetCache.js`
+- `clientHomeVideoMetadataCache.js`
+- `notificationsCache.ts`
+- `propertyNewsCache.ts`
+
+Plus `clientHomeProfileSnapshot.js` and two chat caches.
+
+**Bugs and costs:**
+1. **A2's sign-out clean-up misses `VaRoomDataCache` entries.** That cache URL-encodes its keys (`account%3A<id>%3A…`), so the `varoom:data-cache:v1:account:` prefix never matches. It is cleared only when the legacy script happens to be loaded on the page, through `invalidate()`.
+2. **News key collision (verified).** Client Home writes its 5-item preview to the key Property News uses for the full list.
+3. **Two chat caches (`public/js/chat-cache.js` and `lib/chatCache.ts`) share one IndexedDB and one global.**
+   - `[...slug].js` injects the JS copy on every legacy page, even when the TS copy is already in memory from `/chats`.
+   - `varoom-sidebar.js initCounts` then calls `prefetch()` on every hard load of a legacy page. The 60 s cooldown lives in memory only, so each hard load re-syncs the inbox and recent conversations. This is a likely contributor to the 429s seen on the production API.
+4. **Client Home injects `/js/listing-feed-cache.js` as an extra script request** before it can render its feed.
+5. **Unbounded in-memory caches:** `chats.tsx authedImageCache` and the property-news article details map.
+6. **`clientHomeProfileSnapshot` duplicates data that A2's profile store now holds:** role, onboarding, interests and timeline.
+
+##### Proposed split (for tracking)
+
+**A3a — Core cache module and lib caches (M)**
+- **`lib/cache/createCache.ts`:** one typed primitive.
+  - Namespaced keys; memory, session or local storage; `ttl` (fresh) and `maxAge`; LRU `maxEntries`.
+  - Optional value validation; `read` → `{ value, isFresh }`; `load(key, loader, { force, signal })` with in-flight dedupe; `invalidate(prefix)`; quota-safe writes.
+  - A **registry of user-scoped namespaces**, which `clearUserData` clears. That fixes bug 1 and makes it hard to repeat.
+- **Rebuilt on the core, public APIs unchanged:**
+  - `clientHomeWidgetCache` and `clientHomeVideoMetadataCache`, moved to TS
+  - `notificationsCache` and `propertyNewsCache`
+- **Remove `clientHomeProfileSnapshot`:** Client Home uses `profileStore.peek()` for its first paint.
+- **Fixes:** a separate key for the Client Home news preview (bug 2); LRU bounds for `authedImageCache` and the news details map (bug 5).
+- **Tests:** unit tests for the core; update the cache tests that `eval` TS without `require` to use `test/helpers/loadTs.js`.
+
+**A3b — One owner for each legacy-global cache (M)**
+- **`VaRoomDataCache` and `VaRoomListingFeedCache`:** implemented in TS on the core, with the same API, key prefixes and storage format, and exposed from the bundle.
+  - The `public/js` scripts get an "already defined → return" guard and remain for pages served outside Next.
+  - `[...slug].js` and Client Home stop injecting those scripts (bug 4).
+- **Chat cache:** `lib/chatCache.ts` becomes the only implementation in the Next app.
+  - `[...slug].js` loads it with a dynamic `import()` instead of injecting `public/js/chat-cache.js`, and `chat-data.js` uses the existing global.
+  - The prefetch cooldown is kept in sessionStorage, so hard loads no longer re-prefetch within 60 s (bug 3).
+- **Tests:** TS tests for the ported APIs; the existing vm tests of the JS fallbacks stay.
+
+**Not in A3:**
+- unread counts and `varoom-sidebar initCounts` (A5)
+- the listing-draft cache (it moves with `/list` in D3)
+- the non-cache `lib/*.js` files (`accountRoleLayout`, `clientHomeAccount`, `clientHomeScroll`), which move to TS with their owners in A5
+
+##### Verification
+
+- Unit tests and the updated cache tests.
+- `tsc` and `next build`.
+- Signed-in runs on both accounts. Compare per page: API request counts (especially `/api/chat/*` on legacy pages), script requests (`listing-feed-cache.js`, `chat-cache.js`, `varoom-data-cache.js`), and no 429s in a normal browse.
+- Re-run the isolation check, including sessionStorage `varoom:data-cache:*` keys after sign-out from a native page.
+
+##### A3a results (2026-11-01)
+
+**New modules:**
+- `lib/cache/createCache.ts`: TTL and maxAge, LRU, validation, deduplicated `load` with `force` and `AbortSignal`, generation guard, a registry of user-scoped caches, quota-safe writes.
+- `lib/cache/namespaces.ts`: one list of cache namespaces and user-scoped prefixes, including the encoded `VaRoomDataCache` account prefix.
+
+**Rebuilt on the core:**
+- `notificationsCache.ts` (same API, `v2` key, user-scoped).
+- `propertyNewsCache.ts` (same API plus `get/setCachedNewsPreview`; articles capped at 100).
+- `clientHomeWidgetCache` (now TS; the API no longer takes a storage argument).
+
+**Removed:** `clientHomeProfileSnapshot.js`. Client Home now paints first from `profileStore.peek()`, through `completedClientProfile` in `lib/types/profile.ts`.
+
+**Other changes:**
+- `chats.tsx` image cache: an LRU of 300 entries.
+- `clearUserData` uses the namespace list and `clearUserScopedCaches()`.
+
+**Found and fixed during implementation:** `invalidate`/`clear` skipped keys whose first load was still in flight, so the late result was cached after a clear (a sign-out race). The core now invalidates in-flight keys too, and a unit test covers it.
+
+**Verification:**
+- 312/312 tests pass (11 new core tests); `tsc` is clean; `next build` succeeds.
+- Signed-in runs on both accounts: no uncaught errors and 0 `profiles` reads on native pages. `/property-news` now fetches its own list (1 request) instead of showing Client Home's 5-item preview as a fresh full list.
+- The isolation check passes: after sign-out only `varoom_linked_accounts` mentions the host.
+- In this run host-home created no `VaRoomDataCache` account entries, so the encoded-prefix fix was verified by unit test only.
+
+**Deviation:** `clientHomeVideoMetadataCache` was ported to TS as-is rather than rebuilt on the core. Its per-account map with per-entry ages and expiring playback entries fits the generic primitive poorly; rebuilding it would add code without removing work. It is covered by the namespace list for sign-out clearing.
+
 ### A3 — Shared cache layer (M)
 
 Create **`lib/cache/`**, a namespaced store:

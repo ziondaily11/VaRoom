@@ -35,15 +35,8 @@ function loadCacheModule() {
     }),
   };
 
-  const ts = require('typescript');
-  const cacheTsSource = fs.readFileSync(cacheModulePath, 'utf8');
-  const compiled = ts.transpileModule(cacheTsSource, {
-    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
-  }).outputText;
-
-  const m = { exports: {} };
-  const fn = new Function('module', 'exports', compiled);
-  fn(m, m.exports);
+  // The module imports the shared cache core; load it with relative imports resolved.
+  const m = { exports: require('./helpers/loadTs').loadTs(cacheModulePath, { globals: { window: global.window } }) };
   return { cache: m.exports, store };
 }
 

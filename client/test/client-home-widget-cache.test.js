@@ -6,7 +6,7 @@ const {
   fetchClientHomeWidget,
   readClientHomeWidgetCache,
   writeClientHomeWidgetCache,
-} = require('../lib/clientHomeWidgetCache');
+} = require('./helpers/loadTs').loadTs(path.join(__dirname, '..', 'lib', 'clientHomeWidgetCache.ts'), { globals: { window: undefined } });
 
 const source = fs.readFileSync(path.join(__dirname, '..', 'pages', 'client-home.tsx'), 'utf8');
 
@@ -20,26 +20,26 @@ function createStorage() {
 
 test('public destination, update, and recommendation snapshots are reusable from session storage', () => {
   const storage = createStorage();
-  assert.equal(writeClientHomeWidgetCache(storage, 'destinations', { Nairobi: 12, Mombasa: null }), true);
-  assert.deepEqual(readClientHomeWidgetCache(storage, 'destinations'), {
+  assert.equal(writeClientHomeWidgetCache('destinations', { Nairobi: 12, Mombasa: null }), true);
+  assert.deepEqual(readClientHomeWidgetCache('destinations'), {
     value: { Nairobi: 12, Mombasa: null },
     isFresh: true,
   });
-  assert.equal(writeClientHomeWidgetCache(storage, 'updates', []), true);
-  assert.deepEqual(readClientHomeWidgetCache(storage, 'updates').value, []);
-  assert.equal(writeClientHomeWidgetCache(storage, 'recommended', [{ id: 'listing-1' }]), true);
-  assert.equal(readClientHomeWidgetCache(storage, 'recommended').value[0].id, 'listing-1');
+  assert.equal(writeClientHomeWidgetCache('updates', []), true);
+  assert.deepEqual(readClientHomeWidgetCache('updates').value, []);
+  assert.equal(writeClientHomeWidgetCache('recommended', [{ id: 'listing-1' }]), true);
+  assert.equal(readClientHomeWidgetCache('recommended').value[0].id, 'listing-1');
 });
 
 test('invalid widget responses and failed requests are never cached as successful empty data', async () => {
   const storage = createStorage();
-  assert.equal(writeClientHomeWidgetCache(storage, 'updates', { data: [] }), false);
-  assert.equal(writeClientHomeWidgetCache(storage, 'destinations', { Nairobi: -1 }), false);
-  assert.equal(writeClientHomeWidgetCache(storage, 'destinations', {}), false);
+  assert.equal(writeClientHomeWidgetCache('updates', { data: [] }), false);
+  assert.equal(writeClientHomeWidgetCache('destinations', { Nairobi: -1 }), false);
+  assert.equal(writeClientHomeWidgetCache('destinations', {}), false);
   await assert.rejects(fetchClientHomeWidget('updates-error-test', async () => {
     throw new Error('request failed');
   }), /request failed/);
-  assert.equal(readClientHomeWidgetCache(storage, 'updates-error-test'), null);
+  assert.equal(readClientHomeWidgetCache('updates-error-test'), null);
 });
 
 test('stale widget data remains eligible for immediate display while marked for revalidation', () => {
@@ -47,9 +47,9 @@ test('stale widget data remains eligible for immediate display while marked for 
   const originalNow = Date.now;
   try {
     Date.now = () => 1_000_000;
-    writeClientHomeWidgetCache(storage, 'updates', [{ id: 'update-stale', body: 'Cached update' }]);
+    writeClientHomeWidgetCache('updates', [{ id: 'update-stale', body: 'Cached update' }]);
     Date.now = () => 1_000_000 + 6 * 60 * 1000;
-    const snapshot = readClientHomeWidgetCache(storage, 'updates');
+    const snapshot = readClientHomeWidgetCache('updates');
     assert.equal(snapshot.value[0].id, 'update-stale');
     assert.equal(snapshot.isFresh, false);
   } finally {
@@ -74,9 +74,9 @@ test('simultaneous consumers share an in-flight public widget request', async ()
 });
 
 test('sidebar panels hydrate cache before requests and do not wait for bookmarks', () => {
-  const widgetStart = source.indexOf("readClientHomeWidgetCache(storage, 'destinations')");
+  const widgetStart = source.indexOf("readClientHomeWidgetCache<Record<string, number | null>>('destinations')");
   const widgetFetch = source.indexOf("fetchClientHomeWidget('destinations'", widgetStart);
-  const updatesStart = source.indexOf("readClientHomeWidgetCache(storage, 'updates')");
+  const updatesStart = source.indexOf("readClientHomeWidgetCache<Update[]>('updates')");
   const updatesFetch = source.indexOf("fetchClientHomeWidget('updates'", updatesStart);
   assert.ok(widgetStart >= 0 && widgetFetch > widgetStart);
   assert.ok(updatesStart >= 0 && updatesFetch > updatesStart);
@@ -106,14 +106,14 @@ test('sidebar panels have terminal loading, empty, and error rendering branches'
 });
 
 test('Property News reuses its existing list cache while explicit Refresh forces a request', () => {
-  assert.match(source, /const cachedNews = getCachedNewsList\(\)/);
-  assert.match(source, /const cached = getCachedNewsList\(\)/);
-  assert.match(source, /setCachedNewsList\(result as PropertyNewsItem\[\]\)/);
+  assert.match(source, /const cachedNews = getCachedNewsPreview\(\)/);
+  assert.match(source, /const cached = getCachedNewsPreview\(\)/);
+  assert.match(source, /setCachedNewsPreview\(result as PropertyNewsItem\[\]\)/);
   assert.match(source, /onClick=\{\(\) => \{ void loadNews\(true\); \}\}>Refresh/);
   assert.match(source, /if \(cached\.isFresh && !force\) return/);
   assert.match(source, /cache: force \? 'no-store' : 'default'/);
   assert.match(source, /requestVersion !== newsRequestVersion\.current \|\| resolvedSessionUserId\.current !== accountId/);
-  assert.match(source, /useIsomorphicLayoutEffect\(\(\) => \{[\s\S]*?readClientHomeWidgetCache\(storage, 'destinations'\)[\s\S]*?getCachedNewsList\(\)/);
+  assert.match(source, /useIsomorphicLayoutEffect\(\(\) => \{[\s\S]*?readClientHomeWidgetCache<Record<string, number \| null>>\('destinations'\)[\s\S]*?getCachedNewsPreview\(\)/);
 });
 
 test('Property News failures preserve visible articles and explicit refresh is browser-local', () => {
@@ -124,6 +124,6 @@ test('Property News failures preserve visible articles and explicit refresh is b
   assert.match(loadNews, /catch \(newsError\)[\s\S]*?setNewsFailed\(true\)/);
   assert.doesNotMatch(loadNews, /catch \(newsError\)[\s\S]*?setNews\(\[\]\)/);
   assert.match(loadNews, /if \(requestVersion !== newsRequestVersion\.current \|\| resolvedSessionUserId\.current !== accountId\) return/);
-  assert.match(loadNews, /setCachedNewsList\(result as PropertyNewsItem\[\]\)/);
+  assert.match(loadNews, /setCachedNewsPreview\(result as PropertyNewsItem\[\]\)/);
   assert.doesNotMatch(loadNews, /BroadcastChannel|dispatchEvent|localStorage\.removeItem|clearPropertyNewsCache/);
 });
