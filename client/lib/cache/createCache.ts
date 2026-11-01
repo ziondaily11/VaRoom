@@ -45,6 +45,8 @@ export interface Cache<T> {
   read(key: string): CacheRead<T> | null;
   write(key: string, value: T): boolean;
   remove(key: string): void;
+  /** Drop only the in-memory copy, e.g. after another frame updated storage. */
+  dropMemory(key: string): void;
   /** Remove entries whose key starts with `prefix` (all entries when omitted). */
   invalidate(prefix?: string): void;
   clear(): void;
@@ -184,6 +186,10 @@ export function createCache<T>(options: CacheOptions<T>): Cache<T> {
     },
 
     remove: forget,
+
+    dropMemory(key) {
+      memory.delete(key);
+    },
 
     invalidate(prefix = '') {
       keysMatching(prefix).forEach(forget);

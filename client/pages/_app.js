@@ -7,6 +7,8 @@ import AddAccountModal from '../components/AddAccountModal';
 import { getSupabaseClient } from '../lib/supabase/client';
 import { AuthProvider, useAuth } from '../lib/auth/AuthProvider';
 import { profileStore } from '../lib/auth/session';
+import { installDataCacheGlobal } from '../lib/cache/dataCache';
+import { getListingFeedCache } from '../lib/listingFeedCache';
 const { getAccountLayout, getSessionBoundCachedRole } = require('../lib/accountRoleLayout');
 import '../styles/admin.css';
 import '../legacy-pages/privacy.css';
@@ -15,8 +17,14 @@ const { chatsThemeCssHref } = require('../lib/chatsCssAssets');
 // Create the shared Supabase client before any page renders so pages and
 // legacy scripts adopt one instance instead of racing to create their own.
 getSupabaseClient();
-// Bind the shared profile store (and its profiles write hook) to that client.
-if (typeof window !== 'undefined') profileStore();
+// Bind the shared profile store (and its profiles write hook) to that client,
+// and define the shared caches legacy scripts expect as globals, so pages
+// never download the public/js copies.
+if (typeof window !== 'undefined') {
+  profileStore();
+  installDataCacheGlobal();
+  getListingFeedCache();
+}
 
 const designTokensStyle = `
   :root {

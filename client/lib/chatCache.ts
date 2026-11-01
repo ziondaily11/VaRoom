@@ -987,6 +987,30 @@ export function isPrefetching(): boolean {
   return prefetchState.inProgress;
 }
 
+// The cooldown also lives in sessionStorage so hard page loads (legacy pages)
+// do not restart a full inbox + conversations sync every time. An attempt is
+// recorded when it starts, so failed (e.g. rate-limited) attempts throttle too.
+// Keep in sync with CACHE_NAMESPACES.chatPrefetch in lib/cache/namespaces.ts.
+const PREFETCH_STAMP_PREFIX = 'varoom:chat:prefetch:v1:';
+
+function readPrefetchStamp(userId: string): number {
+  try {
+    const raw = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(PREFETCH_STAMP_PREFIX + userId) : null;
+    const value = raw ? Number(raw) : 0;
+    return Number.isFinite(value) ? value : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function writePrefetchStamp(userId: string, time: number): void {
+  try {
+    if (typeof sessionStorage !== 'undefined') sessionStorage.setItem(PREFETCH_STAMP_PREFIX + userId, String(time));
+  } catch {
+    // Storage unavailable: the in-memory cooldown still applies.
+  }
+}
+
 export function prefetch(userId: string | number, options?: ChatSyncOptions): Promise<PrefetchResult> {
   if (!userId) return Promise.resolve({ success: false, reason: 'no-user' });
   const strUserId = String(userId);
@@ -999,9 +1023,12 @@ export function prefetch(userId: string | number, options?: ChatSyncOptions): Pr
   }
 
   const now = Date.now();
-  if (prefetchState.currentUserId === strUserId && (now - prefetchState.lastPrefetchTime) < cooldown) {
+  const memoryStamp = prefetchState.currentUserId === strUserId ? prefetchState.lastPrefetchTime : 0;
+  const lastAttempt = Math.max(memoryStamp, readPrefetchStamp(strUserId));
+  if (now - lastAttempt < cooldown) {
     return Promise.resolve({ success: true, skipped: true, reason: 'cooldown-active' });
   }
+  writePrefetchStamp(strUserId, now);
 
   prefetchState.cancelled = false;
   prefetchState.inProgress = true;

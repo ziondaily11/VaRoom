@@ -9,6 +9,11 @@
 (function (window) {
   'use strict';
 
+  // Inside the Next app the bundled TypeScript implementation defines this
+  // global first (lib/cache, lib/listingFeedCache.ts); this file is the
+  // fallback for pages served outside it.
+  if (window.VaRoomListingFeedCache) return;
+
   var STORAGE_PREFIX = 'varoom:listings:feed:v1:';
   var PAGE_SIZE = 12;
   var STALE_AFTER_MS = 5 * 60 * 1000;

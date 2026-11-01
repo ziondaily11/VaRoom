@@ -1,6 +1,7 @@
 import type * as SupabaseJs from '@supabase/supabase-js';
 import type { SupabaseClient, SupabaseClientOptions } from '@supabase/supabase-js';
 import type { LegacyProfileStoreApi } from '../lib/auth/profileStore';
+import type { DataCacheApi } from '../lib/cache/dataCache';
 
 // Browser globals shared between the React app and the legacy public/js
 // scripts. Extend this as more legacy globals gain typed React consumers.
@@ -19,9 +20,7 @@ declare global {
         storageKey?: string;
       }): SupabaseClientOptions<'public'>;
     };
-    VaRoomDataCache?: {
-      invalidate(prefix: string): void;
-    };
+    VaRoomDataCache?: DataCacheApi;
     VaRoomNotificationAPI?: {
       create(payload: Record<string, unknown>): Promise<Record<string, unknown> | null>;
     };
