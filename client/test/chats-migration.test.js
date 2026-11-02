@@ -160,12 +160,10 @@ test('Stage 4: CSS parity class names and mobile view toggling in chats.tsx', ()
   assert.doesNotMatch(source, /className="msg-time"/);
   assert.doesNotMatch(source, /className="last-msg"/);
 
-  // Unread badge
-  assert.match(source, /className="badge"/);
-  assert.match(source, /unread_count/);
-
-  // Conversation menu button
-  assert.match(source, /className="conversation-menu"/);
+  // The unread badge (the server sends no count) and the conversation menu
+  // stubs ("Mark as read" was local only, "Delete" deleted nothing) are removed.
+  assert.doesNotMatch(source, /unread_count/);
+  assert.doesNotMatch(source, /className="conversation-menu"/);
 
   // Mobile class toggling
   assert.match(source, /contacts-col.*mobile-hidden/);
@@ -268,11 +266,11 @@ test('Stage 5B: Message rendering, context actions, and mobile nav suppression',
   assert.doesNotMatch(source, /dangerouslySetInnerHTML/);
   assert.match(source, /allowlist|hasMarkup/);
 
-  // Context menu wired to handleMessageAction
-  assert.match(source, /msgMenuId/);
-  assert.match(source, /handleMessageAction/);
-  assert.match(source, /'pin'/);
-  assert.match(source, /'delete_for_me'/);
+  // Message menu: right-click, long-press and the ⋯ button open one menu
+  // (test/chat-message-actions.test.js covers the items and behaviour).
+  assert.match(source, /onContextMenu=\{actionable \? \(e\) => onMessageContextMenu\(e, m\) : undefined\}/);
+  assert.match(source, /onTouchStart=\{actionable \? \(e\) => onMessageTouchStart\(e, m\) : undefined\}/);
+  assert.match(source, /<MessageActionMenu/);
 
   // chat-page-context body class applied on mount
   assert.match(source, /chat-page-context/);
