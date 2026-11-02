@@ -364,7 +364,7 @@ export const BOOKINGS_STYLES = `
     .bookings-page .host-month-nav{ margin:1rem 0 1.2rem; width:100%; justify-content:flex-start; }
   }
   @media (max-width:520px){
-    .bookings-page.review-modal-open{ overflow:hidden; }
+    body.review-modal-open{ overflow:hidden; }
     .bookings-page .topbar{
       min-height:56px; padding:.65rem 1rem; gap:.7rem; flex-wrap:nowrap;
       background:#111; color:#fff;

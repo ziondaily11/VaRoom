@@ -206,3 +206,25 @@ test('legacy booking-approved.html is retired; old URLs reach the native page', 
   assert.match(server, /app\.get\(\['\/booking-approved', '\/booking-approved\.html', '\/legacy-pages\/booking-approved\.html'\]/);
   assert.doesNotMatch(server, /'\/booking-approved': 'booking-approved\.html'/);
 });
+
+test('client view: legacy tabs and wording; pending shown in Upcoming; review only on Past', () => {
+  const view = read('components', 'bookings', 'ClientBookingsView.tsx');
+  for (const text of ['My Bookings', 'Manage your verified stays, event venues, and workstations in Kenya.', 'Upcoming Bookings', 'Past Stays', 'Cancelled',
+    'No upcoming bookings — your next confirmed stay will show up here.', 'No past stays yet.', 'Nothing cancelled or expired.',
+    'Stats Summary', 'Total Bookings', 'Total Invested', 'Active Month', 'Back to summary', '★ Reviewed', 'Leave a review', 'View Details',
+    'This booking could not be found in your bookings.', 'Loading more bookings...']) {
+    assert.ok(view.includes(text), text);
+  }
+  assert.match(view, /const canReview = tab === 'past' && endMoment\(booking\) < now;/);
+  assert.match(view, /tab === 'upcoming' && isCancellable\(booking\)/);
+  assert.match(view, /window\.confirm\('Cancel this booking\? This can’t be undone\.'\)/);
+  assert.match(view, /href=\{`\/booking-approved\?id=\$\{encodeURIComponent\(booking\.id\)\}`\}/);
+  assert.match(view, /new IntersectionObserver\(/);
+  assert.doesNotMatch(view, /addEventListener\('scroll'/, 'no scroll listeners');
+  assert.match(view, /router\.push\(`\/booking-approved\?id=\$\{encodeURIComponent\(selectedId\)\}`\)/, 'narrowing moves open details to their page');
+  const hook = read('components', 'bookings', 'useClientBookings.ts');
+  assert.match(hook, /BOOKINGS_STALE_MS/);
+  assert.match(hook, /if \(inFlight\.current\) return inFlight\.current;/, 'no duplicate page requests');
+  const modal = read('components', 'bookings', 'ReviewModal.tsx');
+  for (const text of ['How was your experience?', 'Please select a rating.', 'Please write a review before submitting.', 'Thank you for sharing your experience.']) assert.ok(modal.includes(text), text);
+});
