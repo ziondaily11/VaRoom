@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { isModifiedClick } from '../lib/navigation/clicks';
 import { useCounts } from '../lib/counts/countsStore';
 import { activeLinkedAccount, logout, switchAccount, useLinkedAccounts } from '../lib/account/accountActions';
 import { profileStore } from '../lib/auth/session';
@@ -292,6 +293,8 @@ export default function SharedClientSidebar({ activeNav: explicitActiveNav } = {
 
   // Navigation click handler
   const handleNav = (e, path, navKey) => {
+    // Ctrl/Cmd/Shift/middle-clicks keep the browser's default (new tab/window).
+    if (isModifiedClick(e)) return;
     if (navKey === 'saved' && (router.pathname === '/client-home' || router.asPath.startsWith('/client-home'))) {
       e.preventDefault();
       setMobileOpen(false);

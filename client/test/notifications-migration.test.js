@@ -292,18 +292,20 @@ test('10. Existing sidebar unread-count behavior and synchronization', () => {
   assert.match(sharedHostSidebarSource, /const unreadCount = useCounts\(\)\.notifications;/);
   assert.doesNotMatch(sharedHostSidebarSource, /setInterval\(refreshUser/);
 
-  // Internal routes include /notifications
-  assert.match(clientLayoutSource, /'\/notifications'/);
-  assert.match(hostLayoutSource, /'\/notifications'/);
+  // Internal routes (shared link handler for both shells) include /notifications
+  const appLinksSource = fs.readFileSync(path.join(root, 'lib', 'navigation', 'appLinks.ts'), 'utf8');
+  assert.match(appLinksSource, /HOST_INTERNAL_ROUTES = \[[\s\S]*?'\/notifications'/);
+  assert.match(appLinksSource, /CLIENT_INTERNAL_ROUTES = \[[\s\S]*?'\/notifications'/);
 });
 
 test('11. Regression checks for Property News and other shared routing/layout behavior', () => {
   const clientLayoutSource = fs.readFileSync(clientLayoutPath, 'utf8');
   const hostLayoutSource = fs.readFileSync(hostLayoutPath, 'utf8');
 
-  // Property News remains in internalRoutes
-  assert.match(clientLayoutSource, /'\/property-news'/);
-  assert.match(hostLayoutSource, /'\/property-news'/);
+  // Property News remains a client-side route in both shells
+  const appLinksSource = fs.readFileSync(path.join(root, 'lib', 'navigation', 'appLinks.ts'), 'utf8');
+  assert.match(appLinksSource, /HOST_INTERNAL_ROUTES = \[[\s\S]*?'\/property-news'/);
+  assert.match(appLinksSource, /CLIENT_INTERNAL_ROUTES = \[[\s\S]*?'\/property-news'/);
 
   // Layout role assignment for Property News remains editorial (none)
   assert.equal(getAccountLayout('/property-news', '/property-news', 'client'), 'none');

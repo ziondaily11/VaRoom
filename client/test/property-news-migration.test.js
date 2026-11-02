@@ -41,19 +41,19 @@ test('Phase 2: Property News route resolves to none layout, preserving clean edi
   assert.equal(getAccountLayout('/[...slug]', '/property-news', 'host'), 'none');
 });
 
-test('Phase 3: ClientLayout and HostLayout include /property-news in internalRoutes for client-side navigation', () => {
-  const clientLayoutSource = fs.readFileSync(clientLayoutPath, 'utf8');
-  const hostLayoutSource = fs.readFileSync(hostLayoutPath, 'utf8');
-
-  // ClientLayout check
-  assert.match(clientLayoutSource, /'\/property-news'/);
-  assert.match(clientLayoutSource, /internalRoutes\.some\(\(route\) => href === route \|\| href\.startsWith\(`\$\{route\}\/`\) \|\| href\.startsWith\(`\$\{route\}\?`\)\)/);
-  assert.match(clientLayoutSource, /router\.push\(href\)/);
-
-  // HostLayout check
-  assert.match(hostLayoutSource, /'\/property-news'/);
-  assert.match(hostLayoutSource, /internalRoutes\.some\(\(route\) => href\.startsWith\(route\)\)/);
-  assert.match(hostLayoutSource, /router\.push\(href\)/);
+test('Phase 3: both shells navigate to /property-news client-side with exact route matching', () => {
+  const { HOST_INTERNAL_ROUTES, CLIENT_INTERNAL_ROUTES, isInternalHref } = require('./helpers/loadTs').loadTs(
+    path.join(root, 'lib', 'navigation', 'appLinks.ts'),
+  );
+  for (const routes of [HOST_INTERNAL_ROUTES, CLIENT_INTERNAL_ROUTES]) {
+    assert.equal(isInternalHref('/property-news', routes), true);
+    assert.equal(isInternalHref('/property-news/123', routes), true);
+    assert.equal(isInternalHref('/property-newsletter', routes), false);
+  }
+  // The host list no longer matches by bare prefix (/list must not catch /listings).
+  assert.equal(isInternalHref('/list', HOST_INTERNAL_ROUTES), true);
+  assert.equal(isInternalHref('/listings-guide', HOST_INTERNAL_ROUTES), false);
+  assert.equal(isInternalHref('/host/abc', HOST_INTERNAL_ROUTES), true);
 });
 
 test('Property News is independent of the retired catch-all template and initializer', () => {

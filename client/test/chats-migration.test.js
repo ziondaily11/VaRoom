@@ -49,15 +49,14 @@ test('Phase 2: Chats route resolves to none layout, preserving full-screen dashb
   assert.equal(getAccountLayout('/[...slug]', '/chats', 'host'), 'none');
 });
 
-test('Phase 2: ClientLayout and HostLayout include /chats in internalRoutes for client-side navigation', () => {
-  const clientLayoutSource = fs.readFileSync(clientLayoutPath, 'utf8');
-  const hostLayoutSource = fs.readFileSync(hostLayoutPath, 'utf8');
-
-  assert.match(clientLayoutSource, /'\/chats'/);
-  assert.match(clientLayoutSource, /router\.push\(href\)/);
-
-  assert.match(hostLayoutSource, /'\/chats'/);
-  assert.match(hostLayoutSource, /router\.push\(href\)/);
+test('Phase 2: both shells navigate to /chats client-side through the shared link handler', () => {
+  const { HOST_INTERNAL_ROUTES, CLIENT_INTERNAL_ROUTES, isInternalHref } = require('./helpers/loadTs').loadTs(
+    path.join(__dirname, '..', 'lib', 'navigation', 'appLinks.ts'),
+  );
+  assert.equal(isInternalHref('/chats', HOST_INTERNAL_ROUTES), true);
+  assert.equal(isInternalHref('/chats?id=1', CLIENT_INTERNAL_ROUTES), true);
+  const appSource = fs.readFileSync(path.join(__dirname, '..', 'pages', '_app.js'), 'utf8');
+  assert.match(appSource, /installAppLinks\(\{ doc: document, push: \(href\) => Router\.push\(href\)/);
 });
 
 test('Phase 3: Lifecycle and Realtime safety patterns in chats.tsx', () => {

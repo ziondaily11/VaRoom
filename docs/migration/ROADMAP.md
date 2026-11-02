@@ -14,7 +14,7 @@ Statuses: `Not started` · `Investigating` · `Awaiting approval` · `In progres
 
 ## Current position
 
-**H1, A1–A4 and H2 are merged to `main` (PR #501–#507). H3 is committed (`5ecdced`) and included in `agents/stage-a-foundation`. Current task: A5 (approved). A5a (counts store) is done and verified, awaiting commit instructions; A5b–A5d follow.**
+**H1, A1–A4 and H2 are merged to `main` (PR #501–#507). H3 is committed (`5ecdced`) and included in `agents/stage-a-foundation`. Current task: A5 (approved). A5a committed and in PR #511 (mergeable after merging `main`'s property-news cleanup). A5b (navigation and theme) is done and verified, awaiting commit instructions; A5c–A5d follow.**
 
 ---
 
@@ -37,7 +37,7 @@ The detailed plan and findings are in `docs/migration/stage-a-foundation.md`.
 | A2 | Auth and profile foundation | `AuthProvider` (one auth subscription, one deduplicated profile fetch per user, session-bound first paint); `clearUserData` on sign-out and user change; shared domain types (`lib/types`); `_app` takes its role from the provider; fix the cross-account render on notifications and the unscoped role reads in chats and property-news. Target: 1 `profiles` read per user per TTL (now 11–17 per page). Detailed plan and results in `stage-a-foundation.md` § A2. Result: 0 `profiles` reads on native pages; legacy pages keep only their own query (host notifications went from 17 to 0). Commit `c278d1b`, PR #503. | M | Done — merged |
 | A3 | Shared cache layer | `lib/cache` (namespaced user-scoped keys, SWR, dedupe, abort, size caps); `VaRoomDataCache`/`VaRoomListingFeedCache` become adapters over it; `lib/chatCache.ts` becomes the single owner of the chat DB, so legacy pages stop loading `public/js/chat-cache.js`; fix the news cache key collision; bound unbounded caches; convert the `lib/clientHome*.js` caches to TS. Detailed plan in `stage-a-foundation.md` § A3, split into A3a (core module and lib caches) and A3b (one owner for each legacy-global cache, including the chat prefetch cooldown). A3a merged (PR #504); A3b merged (PR #505). | M+M | Done — merged |
 | A4 | Account switching | Typed `lib/account` over the switcher; one `logout()` to `/?auth=login` with cache cleanup; cross-tab notice; `AddAccountModal` to TSX (fix the popup race and the always-on listener). The switch keeps its page reload for now. Detailed plan and results in `stage-a-foundation.md` § A4. Commit `c7b588e`. | M | Done — committed (not merged) |
-| A5 | Persistent shell | `AppShell` decided by route (no remount on load); `HostSidebar`/`ClientSidebar`/layouts to TSX, fed by providers (no per-mount fetches or polling); counts store with one realtime channel; `next/link`; one link interceptor; theme resolver; mobile nav in React; `_app`/`_document` to TS; legacy DOM contract preserved. Detailed plan in `stage-a-foundation.md` § A5, split into A5a–A5d. A5a done; A5b–A5d not started. | L | A5a done — awaiting commit |
+| A5 | Persistent shell | `AppShell` decided by route (no remount on load); `HostSidebar`/`ClientSidebar`/layouts to TSX, fed by providers (no per-mount fetches or polling); counts store with one realtime channel; `next/link`; one link interceptor; theme resolver; mobile nav in React; `_app`/`_document` to TS; legacy DOM contract preserved. Detailed plan in `stage-a-foundation.md` § A5, split into A5a–A5d. A5a committed (`d855843`); A5b done; A5c–A5d not started. | L | A5b done — awaiting commit |
 
 **Stage A exit:** every Stage A task is Done, with signed-in regression on both test accounts across all routes, and before/after request counts recorded.
 
@@ -112,6 +112,7 @@ The detailed plan and findings are in `docs/migration/stage-a-foundation.md`.
 - 2026-10-31: Inventory and Stage A investigation done; plan approved. A1 implemented and verified signed in on both test accounts. `/list` outage found and split out as H1.
 - 2026-10-31: Roadmap created. The H1 fix was removed from the Stage A branch and implemented and verified on its own branch.
 - 2026-10-31: H1 committed and PR #501 opened. Theme fix (`3426034`) and A1 (`d05458e`) committed on `agents/stage-a-foundation` and the branch pushed. A2 is on hold until the go-ahead.
+- 2026-11-02: `main` moved (property-news cleanup, PR #509/#510); merged into `agents/stage-a-foundation` without conflicts (`5f9a00c`), and PR #511 is mergeable again. A5b implemented: 367/367 tests pass; one `pushState` per sidebar click (the layouts' document handlers no longer double-push); theme writes down from about 2 to about 0.6 per navigation (the rest come from legacy pages' own inline scripts); Ctrl-click keeps the tab; hover prefetch confirmed.
 - 2026-11-02: A5 plan approved. A5a implemented: 354/354 tests pass, `tsc` is clean, the build succeeds; 0 count requests over 70 s idle (previously 30 s and 60 s polling) and 0 on bookings and host-home navigations.
 - 2026-11-02: H2 committed (`75ff10f`). H3 found that stored sign-ins went stale on background token rotation; fixed and verified.
 - 2026-11-01: A4 committed (`c7b588e`). H2 started on `fix/linked-account-removal`: stale-page switching into a removed relationship found and fixed.
