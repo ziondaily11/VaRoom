@@ -24,7 +24,7 @@ function loadCacheModule() {
       key: (i) => Array.from(store.keys())[i] || null,
     },
     matchMedia: (query) => ({
-      matches: query.includes('min-width: 1321px'),
+      matches: query.includes('min-width: 861px'),
       media: query,
       onchange: null,
       addListener: () => {},
@@ -234,7 +234,7 @@ test('7. Notification actions and their intended navigation destinations', () =>
   };
   assert.equal(cache.notificationTarget(reviewNotif, 'client'), '/profile');
 
-  // Client booking desktop target (min-width: 1321px matches in mock)
+  // Client booking laptop/desktop target (min-width: 861px matches in mock)
   const clientBooking = {
     id: 'n-cb',
     type: 'booking_approved',
