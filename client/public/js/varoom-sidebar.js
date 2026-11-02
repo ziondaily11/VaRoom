@@ -349,6 +349,32 @@
     options = options || {};
     var client = options.supabaseClient || window.supabaseClient;
     if (!client || !client.auth) return Promise.resolve();
+
+    // Inside the Next app the shared counts store (window.VaRoomCounts) owns
+    // the queries and the realtime channel; this script only draws the legacy
+    // badges. The code below remains for pages served outside the app.
+    if (window.VaRoomCounts && client === window.supabaseClient) {
+      var applyCounts = function (counts) {
+        setCount('bookings', counts.bookings);
+        setCount('notifications', counts.notifications);
+        setCount('chats', counts.chats);
+      };
+      if (!countState.bridged) {
+        countState.bridged = true;
+        window.VaRoomCounts.subscribe(applyCounts);
+        if (!countState.observer) {
+          countState.observer = new MutationObserver(ensureCountBadges);
+          countState.observer.observe(document.body, { childList: true, subtree: true });
+        }
+      }
+      var current = window.VaRoomCounts.get();
+      applyCounts(current);
+      if (current.userId && window.VaRoomChatCache && typeof window.VaRoomChatCache.prefetch === 'function') {
+        window.VaRoomChatCache.prefetch(current.userId, { supabaseClient: client });
+      }
+      return window.VaRoomCounts.refreshIfStale();
+    }
+
     return client.auth.getSession().then(function (sessionResult) {
       if (sessionResult.error) throw sessionResult.error;
       var session = sessionResult.data && sessionResult.data.session;

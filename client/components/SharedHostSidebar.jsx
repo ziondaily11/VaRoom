@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useCounts } from '../lib/counts/countsStore';
 import { activeLinkedAccount, logout, switchAccount, useLinkedAccounts } from '../lib/account/accountActions';
 import { profileStore } from '../lib/auth/session';
 import { useRouter } from 'next/router';
@@ -43,7 +44,8 @@ function getStoredUser() {
 export default function SharedHostSidebar({ activeNav: explicitActiveNav }) {
   const router = useRouter();
   const [user, setUser] = useState(getInitialUser);
-  const [unreadCount, setUnreadCount] = useState(0);
+  // Shared counts store (one realtime channel for the app); no sidebar polling.
+  const unreadCount = useCounts().notifications;
   const [moreOpen, setMoreOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -137,17 +139,6 @@ export default function SharedHostSidebar({ activeNav: explicitActiveNav }) {
         } catch (e) {}
       }
 
-      // Check notification unread count
-      try {
-        const { count } = await client
-          .from('notifications')
-          .select('id', { count: 'exact', head: true })
-          .eq('recipient_user_id', userId)
-          .eq('read', false);
-        if (typeof count === 'number') {
-          setUnreadCount(count);
-        }
-      } catch (e) {}
     } catch (err) {
       console.warn('Unable to load user profile in host sidebar:', err);
     }
@@ -172,16 +163,8 @@ export default function SharedHostSidebar({ activeNav: explicitActiveNav }) {
     };
     poll();
 
-    const handleCountUpdate = (e) => {
-      if (typeof e?.detail?.count === 'number') setUnreadCount(e.detail.count);
-    };
-    window.addEventListener('varoom_notification_count', handleCountUpdate);
-
-    const interval = setInterval(refreshUser, 30000);
     return () => {
       cancelled = true;
-      clearInterval(interval);
-      window.removeEventListener('varoom_notification_count', handleCountUpdate);
     };
   }, [refreshUser]);
 

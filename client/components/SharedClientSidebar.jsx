@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useCounts } from '../lib/counts/countsStore';
 import { activeLinkedAccount, logout, switchAccount, useLinkedAccounts } from '../lib/account/accountActions';
 import { profileStore } from '../lib/auth/session';
 import { useRouter } from 'next/router';
@@ -51,7 +52,8 @@ function getStoredUser() {
 export default function SharedClientSidebar({ activeNav: explicitActiveNav } = {}) {
   const router = useRouter();
   const [user, setUser] = useState(getInitialUser);
-  const [unreadCount, setUnreadCount] = useState(0);
+  // Shared counts store (one realtime channel for the app); no sidebar polling.
+  const unreadCount = useCounts().notifications;
   const [moreOpen, setMoreOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -138,17 +140,6 @@ export default function SharedClientSidebar({ activeNav: explicitActiveNav } = {
         } catch (e) {}
       }
 
-      // Check notification unread count
-      try {
-        const { count } = await client
-          .from('notifications')
-          .select('id', { count: 'exact', head: true })
-          .eq('recipient_user_id', userId)
-          .eq('read', false);
-        if (!cancelled && typeof count === 'number') {
-          setUnreadCount(count);
-        }
-      } catch (e) {}
 
       return true; // done
     };
@@ -180,14 +171,9 @@ export default function SharedClientSidebar({ activeNav: explicitActiveNav } = {
       }
     };
     window.addEventListener('storage', handleStorage);
-    const handleCountUpdate = (e) => {
-      if (typeof e?.detail?.count === 'number') setUnreadCount(e.detail.count);
-    };
-    window.addEventListener('varoom_notification_count', handleCountUpdate);
     return () => {
       cancelled = true;
       window.removeEventListener('storage', handleStorage);
-      window.removeEventListener('varoom_notification_count', handleCountUpdate);
     };
   }, []);
 
