@@ -17,6 +17,16 @@ module.exports = {
         permanent: false,
       },
       {
+        source: '/support.html',
+        destination: '/support',
+        permanent: true,
+      },
+      {
+        source: '/legacy-pages/support.html',
+        destination: '/support',
+        permanent: true,
+      },
+      {
         source: '/chats.html',
         destination: '/chats',
         permanent: false,

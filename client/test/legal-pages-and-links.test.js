@@ -71,7 +71,7 @@ test('Host Home rail legal links open in a new tab', () => {
 });
 
 test('Help & Support footer legal links open in a new tab', () => {
-  const supportPath = path.join(clientRoot, 'legacy-pages', 'support.html');
+  const supportPath = path.join(clientRoot, 'pages', 'support.tsx');
   const content = fs.readFileSync(supportPath, 'utf8');
 
   assert.match(
