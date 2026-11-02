@@ -28,6 +28,7 @@ const { permanentlyDeleteAccount } = require('./lib/accountDeletionService');
 const { resolveClientHomeRedirect } = require('./lib/clientHomeRoute');
 const { resolveNotificationsRedirect } = require('./lib/notificationsRoute');
 const { resolveChatsRedirect } = require('./lib/chatsRoute');
+const { resolveFrontendRouteRedirect } = require('./lib/frontendRoute');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -334,7 +335,6 @@ const pageTemplates = {
   '/pricing': 'pricing.html',
   '/pricing.html': 'pricing.html',
   '/settings': 'settings.html',
-  '/support': 'support.html',
   '/varoom-post': 'varoom-post.html',
   '/landing-page': 'landing page.html'
 };
@@ -354,6 +354,19 @@ app.get(['/notifications', '/notifications.html', '/legacy-pages/notifications.h
     frontendBaseUrl: process.env.PUBLIC_BASE_URL || process.env.CLIENT_BASE_URL,
     requestHost: req.get('host'),
     requestUrl: req.originalUrl,
+  });
+  if (redirect.location) return res.redirect(redirect.status, redirect.location);
+  return res.status(redirect.status).send(redirect.message);
+});
+
+// Support is a native frontend page.
+app.get(['/support', '/support.html', '/legacy-pages/support.html'], (req, res) => {
+  const redirect = resolveFrontendRouteRedirect({
+    frontendBaseUrl: process.env.PUBLIC_BASE_URL || process.env.CLIENT_BASE_URL,
+    requestHost: req.get('host'),
+    requestUrl: req.originalUrl,
+    destinationPath: '/support',
+    unavailableMessage: 'Support is not available from this server.',
   });
   if (redirect.location) return res.redirect(redirect.status, redirect.location);
   return res.status(redirect.status).send(redirect.message);

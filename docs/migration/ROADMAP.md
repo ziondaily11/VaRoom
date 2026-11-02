@@ -61,7 +61,7 @@ The detailed plan and findings are in `docs/migration/stage-a-foundation.md`.
 |---|---|---|---|---|
 | B1 | `/elie` → native Chats | XS | Moved to the Chats track (CH5) | Done in CH5 |
 | B2 | `transactions.html` | S | Discontinued: no sidebar linked to it and it only showed placeholder (mock) data. Deleted with its Express route and dark-theme styles; a real Transactions page will be built later | Removed |
-| B3 | `support.html` | S | | Not started |
+| B3 | `support.html` | S | Native `pages/support.tsx` (static), help articles as data in `lib/support/`, dialog in `components/support/`; identity and role from AuthProvider (no profile request); same ticket endpoint; focus moves into the dialog and back; the Account chip shows the user's initial; the reply-to email the user types is now used (legacy sent the account email). `support.html` deleted; `/support.html` and the Express `/support` redirect to the page | Done — awaiting push |
 | B4 | `map.html` | S | Replaces `varoom-maps.js` | Not started |
 | B5 | `booking-approved.html` | M | `listing-feed-cache` | Not started |
 | B6 | `pricing.html` | S | Paystack checkout, `listing-draft-cache` | Not started |
@@ -127,6 +127,7 @@ The detailed plan and findings are in `docs/migration/stage-a-foundation.md`.
 
 ## Log
 
+- 2026-11-02: B3 Support migrated: screenshots of production's legacy page and the native page match; search, the four dialogs, validation, sending, confirmation, Escape/backdrop close and focus return checked on the host and client accounts and signed out (tickets answered by the test, none created); no `profiles`, Supabase CDN or legacy script requests on load; the app's mobile navigation shows on phones as before.
 - 2026-11-02: CH5 merged (#523). B2: `transactions.html` deleted at the owner's request (it was unreachable from navigation and showed mock data); a native page will be built later.
 - 2026-11-02: CH5 done, completing the Chats track: `chats.html`, `elie.html`, `public/js/chat-data.js` and `public/js/chat-cache.js` (with its server test) are deleted; `/elie`, `/elie.html` → `/chats?c=elie` and `/chat`, `/chats.html` → `/chats` in Next and on the Express server (which no longer serves chat templates); `[...slug].js` no longer has the Elie/Messenger code paths (the Elie icon and thinking-orb mounting stays for other legacy pages); profile.html links to `/chats`. No database migration in the Chats track. Remaining: `ChatComposerActions`/`ElieComposerBeam` still carry fallback detection for the old markup (unused; removed with their TypeScript conversion in C7).
 - 2026-11-02: CH4 merged (#519); `main` also took property-news phase 2 (#520, no overlap with Chats). UI fixes from review: the information column's photo filled the whole column as an oval (it was not placed in the legacy 76px circle); the report form's select and textarea sat side by side unstyled (legacy styled them with a rule injected at runtime, never ported). The form is now a labelled column with full-width inputs and focus styles; the Phone and download icons were missing from the page's icon set.
