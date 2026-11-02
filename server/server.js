@@ -324,7 +324,6 @@ const pageTemplates = {
   '/booking-approved': 'booking-approved.html',
   '/analytics': 'analytics.html',
   '/auth-callback': 'auth-callback.html',
-  '/map': 'map.html',
   '/marketplace': 'marketplace.html',
   '/chat-settings': 'chat-settings.html',
   '/onboarding': 'onboarding.html',
@@ -354,6 +353,19 @@ app.get(['/notifications', '/notifications.html', '/legacy-pages/notifications.h
     frontendBaseUrl: process.env.PUBLIC_BASE_URL || process.env.CLIENT_BASE_URL,
     requestHost: req.get('host'),
     requestUrl: req.originalUrl,
+  });
+  if (redirect.location) return res.redirect(redirect.status, redirect.location);
+  return res.status(redirect.status).send(redirect.message);
+});
+
+// The property map is a native frontend page (the query is kept).
+app.get(['/map', '/map.html', '/legacy-pages/map.html'], (req, res) => {
+  const redirect = resolveFrontendRouteRedirect({
+    frontendBaseUrl: process.env.PUBLIC_BASE_URL || process.env.CLIENT_BASE_URL,
+    requestHost: req.get('host'),
+    requestUrl: req.originalUrl,
+    destinationPath: '/map',
+    unavailableMessage: 'The map is not available from this server.',
   });
   if (redirect.location) return res.redirect(redirect.status, redirect.location);
   return res.status(redirect.status).send(redirect.message);

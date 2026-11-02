@@ -17,6 +17,16 @@ module.exports = {
         permanent: false,
       },
       {
+        source: '/map.html',
+        destination: '/map',
+        permanent: true,
+      },
+      {
+        source: '/legacy-pages/map.html',
+        destination: '/map',
+        permanent: true,
+      },
+      {
         source: '/support.html',
         destination: '/support',
         permanent: true,
