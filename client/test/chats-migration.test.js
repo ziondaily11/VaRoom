@@ -212,7 +212,8 @@ test('Stage 5A: Composer send wiring, attachment actions, and formatting control
   const actionsSource = fs.readFileSync(path.join(root, 'components', 'ChatComposerActions.jsx'), 'utf8');
 
   // Send button wired via onSend prop
-  assert.match(source, /onSend=\{handleSendMessage\}/);
+  // The click event must not be passed as the message text.
+  assert.match(source, /onSend=\{\(\) => \{ void handleSendMessage\(\); \}\}/);
   assert.match(source, /canSend=\{!!/);
 
   // Attachment callbacks passed
@@ -262,7 +263,9 @@ test('Stage 5B: Message rendering, context actions, and mobile nav suppression',
 
   // renderMessageBody handles HTML safely
   assert.match(source, /renderMessageBody/);
-  assert.match(source, /dangerouslySetInnerHTML/);
+  // Rebuilt from allowlisted elements; never injected as HTML (test/chat-message-body.test.js).
+  assert.match(source, /parseMessageBody\(body\)/);
+  assert.doesNotMatch(source, /dangerouslySetInnerHTML/);
   assert.match(source, /allowlist|hasMarkup/);
 
   // Context menu wired to handleMessageAction
