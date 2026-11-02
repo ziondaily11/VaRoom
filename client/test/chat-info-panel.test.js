@@ -62,3 +62,18 @@ test('phones: the app navigation shows on the inbox and hides inside a conversat
   assert.match(source, /aria-label="Open conversation information"/);
   assert.match(source, /\(e\.key === 'Enter' \|\| e\.key === ' '\) && window\.matchMedia/);
 });
+
+test('the profile photo sits in the legacy 76px circle; the report form is a labelled column', () => {
+  assert.match(info, /<div className="avatar-fallback" style=\{\{ background: '#14161c', overflow: 'hidden' \}\}>\s*\{avatar \|\| initials\(name\)\}/);
+  assert.match(report, /<div className="chat-report-form">/);
+  assert.match(report, /<label className="chat-report-label" htmlFor="chatReportReason">Reason<\/label>/);
+  assert.match(report, /<label className="chat-report-label" htmlFor="chatReportDetails">Details \(optional\)<\/label>/);
+  const css = read('public', 'js', 'chats.css');
+  assert.match(css, /\.chat-report-form\{display:flex;flex-direction:column/);
+  assert.match(css, /\.chat-report-details\{display:block;width:100%/);
+  assert.match(css, /\.profile-block \.avatar-fallback\{ width:76px; height:76px;/);
+  // Icons used by the information column exist in the page's icon set.
+  for (const icon of ['i-phone', 'i-calendar', 'i-clock', 'i-download', 'i-file-text', 'i-flag', 'i-ban']) {
+    assert.match(source, new RegExp(`<symbol id="${icon}"`), icon);
+  }
+});

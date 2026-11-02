@@ -47,7 +47,10 @@ export default function ConversationInfo({ conversation, avatar, online, message
   return (
     <>
       <div className="profile-block">
-        {avatar || <div className="avatar-fallback" style={{ background: '#14161c' }}>{initials(name)}</div>}
+        {/* The legacy 76px circle; the avatar fills it. */}
+        <div className="avatar-fallback" style={{ background: '#14161c', overflow: 'hidden' }}>
+          {avatar || initials(name)}
+        </div>
         <div className="p-name">{name}</div>
         {person?.username && <div className="p-line">@{person.username}</div>}
         {online !== null && (

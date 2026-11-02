@@ -47,20 +47,26 @@ export default function ReportSheet({ open, personName, onClose, onSubmit }: {
             <span>Report User</span>
             <button className="chat-sheet-close" type="button" aria-label="Close" onClick={onClose}>×</button>
           </div>
-          <select className="chat-report-details" aria-label="Reason" value={reason} onChange={(event) => setReason(event.target.value)}>
-            <option value="">Select a reason</option>
-            {REPORT_REASONS.map((item) => <option key={item}>{item}</option>)}
-          </select>
-          <textarea
-            className="chat-report-details"
-            aria-label="Additional details"
-            placeholder={`Additional details about ${personName || 'this user'}`}
-            value={details}
-            onChange={(event) => setDetails(event.target.value)}
-          />
-          <button className="chat-sheet-action" type="button" disabled={!reason || submitting} onClick={() => { void submit(); }}>
-            Submit report
-          </button>
+          <div className="chat-report-form">
+            <label className="chat-report-label" htmlFor="chatReportReason">Reason</label>
+            <select id="chatReportReason" className="chat-report-details" value={reason} onChange={(event) => setReason(event.target.value)}>
+              <option value="">Select a reason</option>
+              {REPORT_REASONS.map((item) => <option key={item}>{item}</option>)}
+            </select>
+            <label className="chat-report-label" htmlFor="chatReportDetails">Details (optional)</label>
+            <textarea
+              id="chatReportDetails"
+              className="chat-report-details"
+              rows={4}
+              maxLength={2000}
+              placeholder={`Additional details about ${personName || 'this user'}`}
+              value={details}
+              onChange={(event) => setDetails(event.target.value)}
+            />
+            <button className="chat-sheet-action" type="button" disabled={!reason || submitting} onClick={() => { void submit(); }}>
+              {submitting ? 'Submitting…' : 'Submit report'}
+            </button>
+          </div>
         </>
       )}
     </section>
