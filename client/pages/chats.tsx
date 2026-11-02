@@ -26,6 +26,8 @@ import ElieComposerBeam from '../components/ElieComposerBeam';
 import ElieIcon from '../components/ElieIcon';
 import { hasMessageMarkup, messagePlainText, parseMessageBody, type MessageBodyNode } from '../lib/chat/messageBody';
 import MessageActionMenu, { messageActionItems, type MessageAction } from '../components/chat/MessageActionMenu';
+import { AttachmentThumb, ImagePreview, ListingCard, PhotoBubble, VoiceCard } from '../components/chat/MessageMedia';
+import { messageMetaText } from '../lib/chat/chatMedia';
 import { ThinkingOrb } from 'thinking-orbs';
 
 const { chatsCssHref } = require('../lib/chatsCssAssets');
@@ -120,98 +122,6 @@ function ConversationAvatar({
   );
 }
 
-// AuthedImage: fetches a signed download URL from our API endpoint, then renders the image.
-// The download endpoint returns { url, expiresAt } — it does NOT serve image bytes directly.
-//
-// Each entry stores the resolved URL plus an expiry timestamp.
-// Signed R2 URLs expire after ~1 hour; we use a 45-minute TTL to refresh before that happens.
-// Blob object-URLs (optimistic messages) are stored with Infinity so they never expire.
-// The map lives for the whole tab, so it keeps only the most recently used entries.
-interface AuthedImageCacheEntry { url: string; expiresAt: number }
-const AUTHED_IMAGE_CACHE_LIMIT = 300;
-const authedImageCache = new Map<string, AuthedImageCacheEntry>();
-
-/** Return the cached URL if it exists and has not yet expired; otherwise null. */
-function getCachedImageUrl(id: string): string | null {
-  const entry = authedImageCache.get(id);
-  if (!entry) return null;
-  authedImageCache.delete(id);
-  if (Date.now() >= entry.expiresAt) return null;
-  authedImageCache.set(id, entry);
-  return entry.url;
-}
-
-/** Persist a resolved URL. Blob URLs get Infinity expiry; signed URLs get a 45-min TTL. */
-function setCachedImageUrl(id: string, url: string): void {
-  authedImageCache.delete(id);
-  authedImageCache.set(id, {
-    url,
-    expiresAt: url.startsWith('blob:') ? Infinity : Date.now() + 45 * 60 * 1000,
-  });
-  while (authedImageCache.size > AUTHED_IMAGE_CACHE_LIMIT) {
-    authedImageCache.delete(authedImageCache.keys().next().value as string);
-  }
-}
-
-function AuthedImage({
-  attachmentId,
-  alt,
-  style,
-  className,
-  onClick,
-  onError: onErrorProp,
-}: {
-  attachmentId: string;
-  alt?: string;
-  style?: React.CSSProperties;
-  className?: string;
-  onClick?: () => void;
-  onError?: () => void;
-}) {
-  const [src, setSrc] = React.useState<string | null>(getCachedImageUrl(attachmentId));
-  const [failed, setFailed] = React.useState(false);
-
-  React.useEffect(() => {
-    const cached = getCachedImageUrl(attachmentId);
-    setFailed(false);
-    setSrc(cached);
-    if (cached) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const client = (window as any).supabaseClient;
-        const token = client ? (await client.auth.getSession())?.data?.session?.access_token : null;
-        const res = await fetch(`/api/chat/attachments/${encodeURIComponent(attachmentId)}/download`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        });
-        if (!res.ok) throw new Error('download auth failed');
-        const data = await res.json();
-        if (data?.url && !cancelled) {
-          setCachedImageUrl(attachmentId, data.url);
-          setSrc(data.url);
-        }
-      } catch {
-        if (!cancelled) setFailed(true);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [attachmentId]);
-
-  if (failed) return null;
-  if (!src) return <span style={{ display: 'inline-block', width: 60, height: 60, background: 'rgba(128,128,128,0.15)', borderRadius: 8 }} />;
-  return (
-    <img
-      src={src}
-      alt={alt || ''}
-      style={style}
-      className={className}
-      onClick={onClick}
-      onError={() => { setFailed(true); onErrorProp?.(); }}
-    />
-  );
-}
-
-
 /** Extension-to-MIME-type map — defined at module level to avoid re-creation per call. */
 const MIME_EXT_MAP: Record<string, string> = {
   jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
@@ -256,6 +166,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   const [messages, setMessagesState] = useState<(ChatMessage | OptimisticChatMessage)[]>([]);
   const [loadingInbox, setLoadingInbox] = useState<boolean>(true);
   const [loadingMessages, setLoadingMessages] = useState<boolean>(false);
+  const [messagesError, setMessagesError] = useState<boolean>(false);
 
   // UI Views & Drawers
   const [mobileView, setMobileView] = useState<'inbox' | 'conversation' | 'info'>('inbox');
@@ -344,6 +255,12 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
     return onlineUsers.has(activeId);
   }, [activeId, isElie, onlineUsers]);
 
+  const emptyCopy = role === 'host'
+    ? { heading: 'No conversations yet', detail: 'When clients reach out, your conversations will appear here.' }
+    : { heading: 'Start a conversation', detail: 'Chat with a host and your conversations will appear here.' };
+
+  const closePhotoPreview = useCallback(() => setSelectedPhotoPreview(null), []);
+
   const pinnedMessage = useMemo(() => {
     return messages.find((m) => m.pinned_at && !m.deleted_at) || null;
   }, [messages]);
@@ -419,6 +336,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
     setActiveId(id);
     setMobileView('conversation');
     setReplyTo(null);
+    setMessagesError(false);
 
     // Update URL query without full page reload if requested
     if (updateRoute) {
@@ -494,6 +412,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
       console.error('Message sync failed:', err);
       if (selectionGen === selectionGenerationRef.current && mountedRef.current) {
         setLoadingMessages(false);
+        if (!cached || cached.length === 0) setMessagesError(true);
       }
     }
 
@@ -1174,6 +1093,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
           <symbol id="i-list-sq" viewBox="0 0 24 24"><rect x="3.7" y="5.2" width="1.6" height="1.6"/><rect x="3.7" y="11.2" width="1.6" height="1.6"/><rect x="3.7" y="17.2" width="1.6" height="1.6"/><path d="M9 6h11M9 12h11M9 18h11"/></symbol>
           <symbol id="i-reply" viewBox="0 0 24 24"><path d="M9 10 4 14l5 4v-3c6 0 8 2 10 5-1-6-4-10-10-10z"/></symbol>
           <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 14h12l1-14M9 7V4h6v3"/></symbol>
+          <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 5.5v13l11-6.5Z"/></symbol>
           <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></symbol>
         </defs>
       </svg>
@@ -1261,15 +1181,26 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                   <div className="contact-name">Elie</div>
                 </div>
                 <div className="contact-bottom">
-                  <div className="contact-preview">Ask me anything about homes on VaRoom</div>
+                  <div className="contact-preview">Your VaRoom search assistant</div>
                 </div>
               </div>
             </li>
 
             {loadingInbox && conversations.length === 0 ? (
-              <div className="chat-skeleton-inbox" style={{ padding: '20px', color: 'var(--text-gray)' }}>
-                Loading conversations...
-              </div>
+              Array.from({ length: 6 }, (_, index) => (
+                <li key={`inbox-skeleton-${index}`} className="inbox-skeleton" aria-hidden="true">
+                  <span className="inbox-skeleton-avatar" />
+                  <span className="inbox-skeleton-copy">
+                    <span className="inbox-skeleton-line name" />
+                    <span className="inbox-skeleton-line preview" />
+                  </span>
+                </li>
+              ))
+            ) : conversations.length === 0 ? (
+              <li className="inbox-empty-state" aria-label={`${emptyCopy.heading}. ${emptyCopy.detail}`}>
+                <strong>{emptyCopy.heading}</strong>
+                <span>{emptyCopy.detail}</span>
+              </li>
             ) : filteredConversations.length === 0 && !loadingInbox ? (
               <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-gray)', fontSize: '14px' }}>
                 No messages found
@@ -1313,7 +1244,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
         </aside>
 
         {/* 3. CHAT COLUMN */}
-        <main className={`chat-col${isElie ? ' is-elie' : ''}${mobileView === 'conversation' ? ' mobile-visible' : ''}`}>
+        <main className={`chat-col${isElie ? ' is-elie' : ''}${!activeId ? ' empty-conversation' : ''}${mobileView === 'conversation' ? ' mobile-visible' : ''}`}>
           {/* Header */}
           <header className="chat-header">
             <button
@@ -1421,15 +1352,25 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
           )}
 
           {/* Messages Stream */}
-          <div className="messages">
+          <div
+            className={`messages${loadingMessages ? ' chat-loading' : ''}${!activeId ? ' empty-state' : ''}`}
+            aria-busy={loadingMessages || undefined}
+          >
             {loadingMessages ? (
-              <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-gray)' }}>
-                Loading conversation messages...
-              </div>
+              [['in', ['medium', 'short']], ['out', ['long', 'short']], ['in', ['long', 'medium', 'short']], ['out', ['medium', 'short']]].map(([side, widths], index) => (
+                <div key={`chat-skeleton-${index}`} className={`chat-skeleton-row ${side}`}>
+                  {(widths as string[]).map((width, lineIndex) => <span key={lineIndex} className={`chat-skeleton-line ${width}`} />)}
+                </div>
+              ))
+            ) : messagesError && !isElie && messages.length === 0 ? (
+              <div className="system-notice">Unable to load messages. Please check your connection.</div>
             ) : !activeId ? (
-              <div style={{ padding: '60px 20px', textAlign: 'center', color: 'var(--text-gray)' }}>
-                <p style={{ fontSize: '18px', fontWeight: 600, marginBottom: '8px' }}>Your Messages</p>
-                <p style={{ fontSize: '14px' }}>Select a conversation from the left to start messaging.</p>
+              <div className="chat-empty-state" role="status">
+                {!loadingInbox && conversations.length === 0 ? (
+                  <><h2>{emptyCopy.heading}</h2><p>{emptyCopy.detail}</p></>
+                ) : (
+                  <><h2>Select a conversation</h2><p>Choose a conversation from your inbox to view messages.</p></>
+                )}
               </div>
             ) : isElie && messages.length === 0 ? (
               <div style={{ padding: '40px 20px', textAlign: 'center' }}>
@@ -1440,14 +1381,15 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                 </p>
               </div>
             ) : (
-              messages.map((m, idx) => {
+              <>
+              {!isElie && <div className="system-notice">Your messages are encrypted and private.</div>}
+              {messages.map((m, idx) => {
                 const isOut = m.sender_id === (userId || session?.user?.id);
                 const isElieMsg = m.sender_id === 'elie';
                 const isSystem = m.message_type === 'system';
                 const prev = idx > 0 ? messages[idx - 1] : null;
                 const sameSender = prev && prev.sender_id === m.sender_id;
                 const isDeleted = !!m.deleted_at;
-                const timeStr = new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
                 const rowClass = [
                   'msg-row',
@@ -1458,7 +1400,10 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                   highlightedMessageId === m.id ? 'reply-target-highlight' : '',
                 ].filter(Boolean).join(' ');
 
-                const hasMedia = m.attachment && m.attachment.kind === 'photo';
+                const hasMedia = m.message_type === 'photo' || (m.attachment && m.attachment.kind === 'photo');
+                const attachmentId = m.attachment_id || m.attachment?.id || null;
+                const metaText = messageMetaText(m, isOut, (value) => new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+                const meta = <div className="msg-meta">{metaText}</div>;
                 const actionable = canActOnMessage(m);
 
                 // Quote of the replied-to message (legacy makeReplyReference).
@@ -1498,71 +1443,51 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                       <div className="bubble">
                         <svg className="icon" aria-hidden="true"><use href="#i-trash" /></svg>
                         <span>This message was deleted</span>
-                        <div className="msg-meta">{timeStr}</div>
+                        {meta}
                       </div>
+                    ) : m.message_type === 'listing' && m.listing ? (
+                      /* Shared listing */
+                      <ListingCard listing={m.listing} api={api} meta={meta} />
+                    ) : m.message_type === 'voice' && attachmentId ? (
+                      /* Voice note */
+                      <VoiceCard attachmentId={attachmentId} api={api} meta={meta} />
                     ) : hasMedia ? (
                       /* Photo attachment bubble */
-                      <div className="bubble bubble-media">
+                      <PhotoBubble
+                        attachmentId={(m as OptimisticChatMessage)._optimistic ? null : attachmentId}
+                        localUrl={(m as OptimisticChatMessage)._localUrl}
+                        alt={m.attachment?.original_filename || 'Shared image'}
+                        api={api}
+                        onOpen={(url, alt) => setSelectedPhotoPreview({ url, alt })}
+                        footer={(
+                          <>
+                            {m.body && m.body.trim() !== m.attachment?.original_filename && (
+                              <div className="chat-message-caption">{renderMessageBody(m.body)}</div>
+                            )}
+                            {(m as OptimisticChatMessage)._optimistic && !(m as OptimisticChatMessage)._failed && (
+                              <div className="msg-sending">Sending…</div>
+                            )}
+                            {(m as OptimisticChatMessage)._failed && (
+                              <div className="msg-failed">
+                                Failed
+                                <button
+                                  type="button"
+                                  className="msg-failed-dismiss"
+                                  onClick={() => {
+                                    // Dismiss: release the blob URL and remove the failed message.
+                                    const localUrl = (m as OptimisticChatMessage)._localUrl;
+                                    if (localUrl) URL.revokeObjectURL(localUrl);
+                                    setMessagesState((prev) => prev.filter((msg) => msg.id !== m.id));
+                                  }}
+                                >Dismiss</button>
+                              </div>
+                            )}
+                            {meta}
+                          </>
+                        )}
+                      >
                         {replyReference}
-                        <div className="chat-media-wrap" style={{ position: 'relative', cursor: 'pointer', borderRadius: '12px', overflow: 'hidden', display: 'inline-block', maxWidth: '280px' }}
-                          onClick={() => {
-                            const cachedUrl = getCachedImageUrl(m.attachment!.id);
-                            if (cachedUrl) {
-                              setSelectedPhotoPreview({ url: cachedUrl, alt: m.attachment!.original_filename || 'Photo' });
-                            } else {
-                              const client = (window as any).supabaseClient;
-                              (async () => {
-                                try {
-                                  const token = client ? (await client.auth.getSession())?.data?.session?.access_token : null;
-                                  const res = await fetch(`/api/chat/attachments/${encodeURIComponent(m.attachment!.id)}/download`, {
-                                    headers: token ? { Authorization: `Bearer ${token}` } : {},
-                                  });
-                                  const data = await res.json();
-                                  if (data?.url) {
-                                    setCachedImageUrl(m.attachment!.id, data.url);
-                                    setSelectedPhotoPreview({ url: data.url, alt: m.attachment!.original_filename || 'Photo' });
-                                  }
-                                } catch {}
-                              })();
-                            }
-                          }}>
-                          {(m as OptimisticChatMessage)._localUrl ? (
-                            <img
-                              src={(m as OptimisticChatMessage)._localUrl}
-                              alt={m.attachment?.original_filename || 'Photo'}
-                              style={{ display: 'block', maxWidth: '100%', maxHeight: '280px', objectFit: 'cover' }}
-                            />
-                          ) : (
-                            <AuthedImage
-                              attachmentId={m.attachment!.id}
-                              alt={m.attachment!.original_filename || 'Photo'}
-                              style={{ display: 'block', maxWidth: '100%', maxHeight: '280px', objectFit: 'cover' }}
-                            />
-                          )}
-                        </div>
-                        {m.body && m.body !== m.attachment?.original_filename && (
-                          <div className="chat-message-caption">{renderMessageBody(m.body)}</div>
-                        )}
-                        {(m as OptimisticChatMessage)._optimistic && !(m as OptimisticChatMessage)._failed && (
-                          <div className="msg-sending">Sending…</div>
-                        )}
-                        {(m as OptimisticChatMessage)._failed && (
-                          <div className="msg-failed">
-                            Failed
-                            <button
-                              type="button"
-                              className="msg-failed-dismiss"
-                              onClick={() => {
-                                // Dismiss: release the blob URL and remove the failed message.
-                                const localUrl = (m as OptimisticChatMessage)._localUrl;
-                                if (localUrl) URL.revokeObjectURL(localUrl);
-                                setMessagesState((prev) => prev.filter((msg) => msg.id !== m.id));
-                              }}
-                            >Dismiss</button>
-                          </div>
-                        )}
-                        <div className="msg-meta">{timeStr}</div>
-                      </div>
+                      </PhotoBubble>
                     ) : m.attachment && m.attachment.kind === 'file' ? (
                       /* File card */
                       <div className="file-card" onClick={() => { void openAttachment(m.attachment!.id); }}>
@@ -1581,14 +1506,14 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                         >
                           <svg className="icon"><use href="#i-paperclip" /></svg>
                         </a>
-                        <div className="msg-meta" style={{ width: '100%', textAlign: 'right' }}>{timeStr}</div>
+                        <div className="msg-meta" style={{ width: '100%', textAlign: 'right' }}>{metaText}</div>
                       </div>
                     ) : (
                       /* Text bubble */
                       <div className="bubble">
                         {replyReference}
                         {renderMessageBody(m.body || '')}
-                        <div className="msg-meta">{timeStr}</div>
+                        {meta}
                       </div>
                     )}
 
@@ -1615,7 +1540,8 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                     )}
                   </div>
                 );
-              })
+              })}
+              </>
             )}
 
             {thinkingState !== null && isElie && (
@@ -1890,32 +1816,13 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                 </div>
                 <div className="media-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', padding: '10px 18px' }}>
                   {messages.filter((m) => m.attachment?.kind === 'photo').map((m) => (
-                    <AuthedImage
+                    <AttachmentThumb
                       key={m.id}
                       attachmentId={m.attachment!.id}
                       alt="Media"
+                      api={api}
                       style={{ width: '100%', height: '70px', objectFit: 'cover', borderRadius: '6px', cursor: 'pointer' }}
-                      onClick={() => {
-                        const cachedUrl = getCachedImageUrl(m.attachment!.id);
-                        if (cachedUrl) {
-                          setSelectedPhotoPreview({ url: cachedUrl, alt: 'Shared Media' });
-                        } else {
-                          const client = (window as any).supabaseClient;
-                          (async () => {
-                            try {
-                              const token = client ? (await client.auth.getSession())?.data?.session?.access_token : null;
-                              const res = await fetch(`/api/chat/attachments/${encodeURIComponent(m.attachment!.id)}/download`, {
-                                headers: token ? { Authorization: `Bearer ${token}` } : {},
-                              });
-                              const data = await res.json();
-                              if (data?.url) {
-                                setCachedImageUrl(m.attachment!.id, data.url);
-                                setSelectedPhotoPreview({ url: data.url, alt: 'Shared Media' });
-                              }
-                            } catch {}
-                          })();
-                        }
-                      }}
+                      onOpen={(url) => setSelectedPhotoPreview({ url, alt: 'Shared Media' })}
                     />
                   ))}
                 </div>
@@ -1955,9 +1862,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
 
       {/* Full Photo Modal Viewer */}
       {selectedPhotoPreview && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setSelectedPhotoPreview(null)}>
-          <img src={selectedPhotoPreview.url} alt={selectedPhotoPreview.alt} style={{ maxWidth: '92vw', maxHeight: '92vh', objectFit: 'contain' }} />
-        </div>
+        <ImagePreview url={selectedPhotoPreview.url} alt={selectedPhotoPreview.alt} onClose={closePhotoPreview} />
       )}
 
       {/* User Report Modal */}
