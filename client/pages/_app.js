@@ -1,5 +1,5 @@
 import Head from 'next/head';
-import { useRouter } from 'next/router';
+import Router, { useRouter } from 'next/router';
 import { useEffect } from 'react';
 import HostLayout from '../components/HostLayout';
 import ClientLayout from '../components/ClientLayout';
@@ -11,6 +11,8 @@ import { installDataCacheGlobal } from '../lib/cache/dataCache';
 import { getListingFeedCache } from '../lib/listingFeedCache';
 import { installAccountActions } from '../lib/account/accountActions';
 import { CountsBridge, installCounts } from '../lib/counts/CountsBridge';
+import { installAppLinks } from '../lib/navigation/appLinks';
+import { applyTheme } from '../lib/theme';
 const { getAccountLayout, getSessionBoundCachedRole } = require('../lib/accountRoleLayout');
 import '../styles/admin.css';
 import '../legacy-pages/privacy.css';
@@ -28,6 +30,7 @@ if (typeof window !== 'undefined') {
   getListingFeedCache();
   installAccountActions();
   installCounts();
+  installAppLinks({ doc: document, push: (href) => Router.push(href), prefetch: (href) => Router.prefetch(href) });
 }
 
 const designTokensStyle = `
@@ -381,18 +384,6 @@ const designTokensStyle = `
 const fontSizeScript = `
   (function () {
     try {
-      var routePath = window.location.pathname.replace(/\\/$/, '') || '/';
-      var isThemeExempt = routePath === '/' || routePath === '/payments' || routePath === '/property-news' || routePath.startsWith('/property-news/');
-      if (!isThemeExempt) {
-        var savedTheme = localStorage.getItem('varoom_theme') || 'system';
-        var resolvedTheme = savedTheme === 'system'
-          ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-          : savedTheme;
-        document.documentElement.setAttribute('data-theme', resolvedTheme);
-      } else {
-        document.documentElement.setAttribute('data-theme', 'light');
-        document.documentElement.style.colorScheme = 'light';
-      }
       var scales = { small: '0.9', default: '1', large: '1.1', xlarge: '1.2' };
       var choice = localStorage.getItem('varoom_font_size') || 'default';
       document.documentElement.style.setProperty('--varoom-font-scale', scales[choice] || scales.default);
@@ -450,32 +441,22 @@ export default function App({ Component, pageProps }) {
   const path = router.pathname || '';
   const isChatsRoute = path === '/chats' || path === '/elie';
 
+  // Theme rules live in lib/theme.ts (also used by _document's pre-paint
+  // script). Apply the target route's theme as navigation starts, before the
+  // new page paints; applyTheme only writes when the value changes.
   useEffect(() => {
-    const applyThemeForRoute = (url) => {
-      const targetPath = typeof url === 'string' ? url : router.pathname || '';
-      const routePath = targetPath.split(/[?#]/)[0].replace(/\/$/, '') || '/';
-      const isThemeExempt = routePath === '/' || routePath === '/payments' || routePath === '/property-news' || routePath.startsWith('/property-news/');
-      if (isThemeExempt) {
-        document.documentElement.setAttribute('data-theme', 'light');
-        document.documentElement.style.colorScheme = 'light';
-        return;
-      }
-      try {
-        const savedTheme = localStorage.getItem('varoom_theme') || 'system';
-        const resolvedTheme = savedTheme === 'system'
-          ? (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-          : savedTheme;
-        document.documentElement.setAttribute('data-theme', resolvedTheme);
-        document.documentElement.style.colorScheme = resolvedTheme;
-      } catch (e) {}
-    };
-
-    applyThemeForRoute(router.asPath || router.pathname);
-    router.events.on('routeChangeComplete', applyThemeForRoute);
+    applyTheme(Router.asPath || Router.pathname || '/');
+    const onStart = (url) => applyTheme(url);
+    const onSettled = () => applyTheme(Router.asPath || '/');
+    Router.events.on('routeChangeStart', onStart);
+    Router.events.on('routeChangeComplete', onSettled);
+    Router.events.on('routeChangeError', onSettled);
     return () => {
-      router.events.off('routeChangeComplete', applyThemeForRoute);
+      Router.events.off('routeChangeStart', onStart);
+      Router.events.off('routeChangeComplete', onSettled);
+      Router.events.off('routeChangeError', onSettled);
     };
-  }, [router]);
+  }, []);
 
   return (
     <AuthProvider>

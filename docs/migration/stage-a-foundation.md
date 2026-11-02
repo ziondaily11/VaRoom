@@ -610,7 +610,7 @@ Change:
 - Account switch **keeps `location.reload()`** for now, because legacy pages can't re-key. Switching without a reload is revisited after Stage D.
 - Convert `AddAccountModal` to TSX. Fix the popup race and the always-on listener. Unmounting must not delete the switcher's method.
 
-#### A5 — detailed plan (approved 2026-11-02; A5a implemented)
+#### A5 — detailed plan (approved 2026-11-02; A5a and A5b implemented)
 
 ##### Measured on the current build (host account, signed in)
 
@@ -706,6 +706,39 @@ Change:
 On the client account, the store matches the server's unread count; there were no uncaught errors.
 
 **Observed, pre-existing:** host-home's unguarded `listings-glance-grid` writes after navigating away (intermittent), and its `viewHandlers` binding. Both are on the D2 backlog.
+
+##### A5b results (2026-11-02)
+
+**New:**
+- **`lib/navigation/appLinks.ts`:** one delegated handler installed from `_app` (it replaces the per-layout `document` listeners).
+  - Host and client route lists; exact, sub-path and query matching (fixes the host `/list` prefix bug); `#hash` links handled.
+  - Skips modifier keys, non-primary buttons, `defaultPrevented`, `target` and `download`.
+  - Intent prefetch: hovering or focusing an internal link calls `Router.prefetch` once.
+- **`lib/navigation/clicks.ts`:** `isModifiedClick`, used by both sidebars' `handleNav`, so Ctrl/Cmd/Shift/middle-clicks keep the browser's default.
+- **`lib/theme.ts`:** forced-light routes, `resolveTheme`, `applyTheme` (writes only on change) and the generated `_document` pre-paint script. `_app` applies the theme on `routeChangeStart` through the `Router` singleton, once. The effect previously depended on `router` and re-subscribed on every navigation. The duplicate theme block in `fontSizeScript` is removed.
+- **`<Html data-scroll-behavior="smooth">`** (Next 16).
+- **Host "Premium"** goes to `/pricing` instead of `/pricing.html`.
+
+**Found while measuring:** sidebar links called `router.push` and the layouts' document handlers pushed again, because they ignored `defaultPrevented`. That is fixed.
+
+**Verification:**
+- 367/367 tests pass. 5 new link-handler tests. The theme, chats, property-news and notifications tests were rewritten from source-text checks into behaviour checks on the new modules, including a test that runs the generated boot script for forced-light and saved-theme cases.
+- `tsc` is clean; `next build` succeeds.
+
+**Shell probe, host account:**
+
+| Measure | Before | After |
+|---|---|---|
+| `pushState` per sidebar click | — | 1 |
+| Theme attribute writes per navigation | ~2 | ~0.6 (from the legacy pages' own inline theme scripts) |
+
+- A Ctrl-click on a sidebar link keeps the current tab.
+- Hovering an unvisited link adds a `<link rel="prefetch">` for its page.
+- The uncaught errors seen are the known host-home ones (D2).
+
+**Deviation:** sidebar links stay `<a>` with intent-based `Router.prefetch`, not `next/link`.
+- Tests lock the literal anchors, and `handleNav` has view logic (`?view=saved`, `my-listings`) that `next/link` would bypass.
+- Hover prefetch also avoids downloading every legacy page's large static JSON up front.
 
 ### A5 — Persistent shell and sidebars (L)
 

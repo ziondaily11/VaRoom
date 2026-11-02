@@ -46,14 +46,15 @@ test('_document.js and _app.js avoid FOUC with true black background', () => {
 });
 
 test('deleted Payments route stays excluded from global dark mode', () => {
+  const { resolveTheme, FORCED_LIGHT_ROUTES } = require('./helpers/loadTs').loadTs(path.join(clientRoot, 'lib', 'theme.ts'));
+  assert.ok(FORCED_LIGHT_ROUTES.includes('/payments'));
+  assert.equal(resolveTheme('/payments', 'dark', true), 'light');
+  assert.equal(resolveTheme('/payments/', 'dark', true), 'light');
   const docJs = fs.readFileSync(path.join(clientRoot, 'pages', '_document.js'), 'utf8');
   const appJs = fs.readFileSync(path.join(clientRoot, 'pages', '_app.js'), 'utf8');
-
-  assert.match(docJs, /routePath === '\/' \|\| routePath === '\/payments'/);
-  assert.match(docJs, /document\.documentElement\.style\.colorScheme = 'light'/);
-  assert.match(appJs, /routePath === '\/' \|\| routePath === '\/payments'/);
-  assert.match(appJs, /const routePath = targetPath\.split\(\/\[\?\#\]\/\)\[0\]\.replace\(\/\\\/\$\/, ''\) \|\| '\/';\s*const isThemeExempt = routePath === '\/' \|\| routePath === '\/payments'/);
-  assert.match(appJs, /document\.documentElement\.setAttribute\('data-theme', 'light'\)/);
+  assert.match(docJs, /themeBootScript as buildThemeBootScript \} from '\.\.\/lib\/theme'/);
+  assert.match(appJs, /import \{ applyTheme \} from '\.\.\/lib\/theme';/);
+  assert.match(appJs, /Router\.events\.on\('routeChangeStart', onStart\)/);
 });
 
 test('HostLayout and ClientLayout use X Lights Out tokens', () => {
@@ -119,11 +120,14 @@ test('Light mode tokens remain intact and untouched', () => {
 });
 
 test('Landing page is exempted from global dark mode and CTA buttons have high contrast', () => {
-  const docJs = fs.readFileSync(path.join(clientRoot, 'pages', '_document.js'), 'utf8');
-  assert.match(docJs, /routePath === '\/' \|\| routePath === '\/payments'/, '_document.js must check for light-theme routes');
+  const { resolveTheme, isForcedLight } = require('./helpers/loadTs').loadTs(path.join(clientRoot, 'lib', 'theme.ts'));
+  assert.equal(isForcedLight('/'), true, 'the landing page must stay light');
+  assert.equal(resolveTheme('/', 'dark', true), 'light');
+  assert.equal(resolveTheme('/property-news/abc', 'dark', true), 'light');
+  assert.equal(resolveTheme('/bookings', 'dark', false), 'dark');
+  assert.equal(resolveTheme('/bookings', 'system', true), 'dark');
 
   const appJs = fs.readFileSync(path.join(clientRoot, 'pages', '_app.js'), 'utf8');
-  assert.match(appJs, /var isThemeExempt = routePath === '\/' \|\| routePath === '\/payments'/, '_app.js fontSizeScript must exempt light-theme routes');
   assert.match(appJs, /html\[data-theme="dark"\] \.va-button-primary[\s\S]*color:\s*#0F1419 !important;/, 'Dark primary buttons must have dark text');
   assert.match(appJs, /\.landing-cta:not\(\.landing-cta-secondary\),[\s\S]*background:\s*#111111 !important;/, 'Landing CTA must preserve vintage #111111');
 

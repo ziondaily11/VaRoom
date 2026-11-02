@@ -18,10 +18,24 @@ function inlineScript(file, name) {
   return new Function('return `' + source.slice(bodyStart, bodyEnd) + '`;')();
 }
 
-for (const [file, name] of [['_document.js', 'themeBootScript'], ['_app.js', 'fontSizeScript']]) {
-  test(`${file} ${name} is valid JavaScript after template evaluation`, () => {
-    const script = inlineScript(file, name);
-    assert.doesNotThrow(() => new Function(script), SyntaxError);
-    assert.match(script, /replace\(\/\\\/\$\/, ''\)/, 'trailing-slash regex survives as /\\/$/');
-  });
-}
+test('_app.js fontSizeScript is valid JavaScript after template evaluation', () => {
+  const script = inlineScript('_app.js', 'fontSizeScript');
+  assert.doesNotThrow(() => new Function(script), SyntaxError);
+});
+
+test('the pre-paint theme script generated from lib/theme.ts is valid and applies the theme', () => {
+  const { themeBootScript } = require('./helpers/loadTs').loadTs(path.join(root, 'lib', 'theme.ts'));
+  const script = themeBootScript();
+  assert.doesNotThrow(() => new Function(script), SyntaxError);
+  for (const [pathname, saved, expected] of [['/', 'dark', 'light'], ['/property-news/', 'dark', 'light'], ['/bookings', 'dark', 'dark'], ['/bookings', null, 'light']]) {
+    const attrs = {};
+    const documentElement = { style: {}, setAttribute: (key, value) => { attrs[key] = value; } };
+    new Function('window', 'document', 'localStorage', script)(
+      { location: { pathname }, matchMedia: () => ({ matches: false }) },
+      { documentElement },
+      { getItem: () => saved },
+    );
+    assert.equal(attrs['data-theme'], expected, `${pathname} (${saved})`);
+    assert.equal(documentElement.style.colorScheme, expected);
+  }
+});

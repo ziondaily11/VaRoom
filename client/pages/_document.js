@@ -1,28 +1,12 @@
 import Document, { Html, Head, Main, NextScript } from 'next/document';
 import Script from 'next/script';
 const { chatsCssHref, chatsThemeCssHref } = require('../lib/chatsCssAssets');
+import { themeBootScript as buildThemeBootScript } from '../lib/theme';
 
 // This runs before React or a route's legacy markup is painted.  Keeping the
 // resolved theme on <html> avoids the browser painting its default white page
-// between navigations and during hydration.
-const themeBootScript = `
-  (function () {
-    try {
-      var routePath = window.location.pathname.replace(/\\/$/, '') || '/';
-      if (routePath === '/' || routePath === '/payments' || routePath === '/property-news' || routePath.startsWith('/property-news/')) {
-        document.documentElement.setAttribute('data-theme', 'light');
-        document.documentElement.style.colorScheme = 'light';
-        return;
-      }
-      var saved = localStorage.getItem('varoom_theme') || 'system';
-      var theme = saved === 'system'
-        ? (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-        : saved;
-      document.documentElement.setAttribute('data-theme', theme === 'dark' ? 'dark' : 'light');
-      document.documentElement.style.colorScheme = theme === 'dark' ? 'dark' : 'light';
-    } catch (error) {}
-  })();
-`;
+// between navigations and during hydration. Generated from lib/theme.ts.
+const themeBootScript = buildThemeBootScript();
 
 export default class VaRoomDocument extends Document {
   static async getInitialProps(ctx) {
@@ -38,7 +22,7 @@ export default class VaRoomDocument extends Document {
   render() {
     const { isChatsRoute } = this.props;
     return (
-      <Html lang="en">
+      <Html lang="en" data-scroll-behavior="smooth">
         <Head>
           {/* Attach the legacy route styles in the initial document so the first
               Chats paint is styled before React's route head is hydrated. */}

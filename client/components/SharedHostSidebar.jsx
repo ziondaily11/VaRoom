@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { isModifiedClick } from '../lib/navigation/clicks';
 import { useCounts } from '../lib/counts/countsStore';
 import { activeLinkedAccount, logout, switchAccount, useLinkedAccounts } from '../lib/account/accountActions';
 import { profileStore } from '../lib/auth/session';
@@ -281,6 +282,8 @@ export default function SharedHostSidebar({ activeNav: explicitActiveNav }) {
 
   // Navigation handlers
   const handleNav = (e, path, viewName) => {
+    // Ctrl/Cmd/Shift/middle-clicks keep the browser's default (new tab/window).
+    if (isModifiedClick(e)) return;
     e.preventDefault();
     closeMobile();
     setMoreOpen(false);
@@ -662,10 +665,10 @@ export default function SharedHostSidebar({ activeNav: explicitActiveNav }) {
             Help &amp; Support
           </a>
           <a
-            href="pricing.html"
+            href="/pricing"
             className={`account-menu-action ${activeNav === 'upgrade' ? 'active' : ''}`}
             role="menuitem"
-            onClick={(e) => handleNav(e, '/pricing.html')}
+            onClick={(e) => handleNav(e, '/pricing')}
           >
             <svg
               width="16"

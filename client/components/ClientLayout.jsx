@@ -1,5 +1,4 @@
-import React, { useEffect } from 'react';
-import { useRouter } from 'next/router';
+import React from 'react';
 import SharedClientSidebar from './SharedClientSidebar';
 
 const clientLayoutStyles = `
@@ -315,53 +314,8 @@ const clientLayoutStyles = `
 `;
 
 export default function ClientLayout({ children, activeNav = undefined, className = '' }) {
-  const router = useRouter();
-
-  // Intercept links inside legacy client page content to use client-side navigation
-  useEffect(() => {
-    const handleContentLinkClick = (e) => {
-      const anchor = e.target.closest('a');
-      if (!anchor) return;
-
-      const href = anchor.getAttribute('href');
-      if (!href) return;
-
-      if (
-        href.startsWith('http') ||
-        href.startsWith('//') ||
-        href.startsWith('mailto:') ||
-        href.startsWith('tel:') ||
-        href.startsWith('#') ||
-        anchor.target === '_blank' ||
-        anchor.hasAttribute('download')
-      ) {
-        return;
-      }
-
-      const internalRoutes = [
-        '/client-home',
-        '/bookings',
-        '/chats',
-        '/notifications',
-        '/profile',
-        '/settings',
-        '/support',
-        '/marketplace',
-        '/signup-host',
-        '/host/',
-        '/property-news'
-      ];
-
-      const isInternal = internalRoutes.some((route) => href === route || href.startsWith(`${route}/`) || href.startsWith(`${route}?`));
-      if (isInternal) {
-        e.preventDefault();
-        router.push(href);
-      }
-    };
-
-    document.addEventListener('click', handleContentLinkClick);
-    return () => document.removeEventListener('click', handleContentLinkClick);
-  }, [router]);
+  // Links inside the shell navigate client-side through the single handler
+  // in lib/navigation/appLinks.ts (installed once from _app).
 
   return (
     <>
