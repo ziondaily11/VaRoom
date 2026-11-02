@@ -622,44 +622,6 @@
 }
 
 /* ================================================================
-   SUPPORT PAGES
-   ================================================================ */
-[data-theme="dark"] .support-page,
-[data-theme="dark"] body.support-page-body,
-[data-theme="dark"] .support-page main,
-[data-theme="dark"] .support-page .topbar {
-  background: #000000 !important;
-}
-
-[data-theme="dark"] .support-page .topbar {
-  border-bottom-color: var(--line-soft) !important;
-}
-
-[data-theme="dark"] .support-page .search {
-  background: rgba(255,255,255,.05) !important;
-  border-color: var(--line) !important;
-}
-
-[data-theme="dark"] .support-page .action,
-[data-theme="dark"] .support-page .write-card,
-[data-theme="dark"] .support-page .article {
-  background: rgba(255,255,255,.03) !important;
-  border-color: var(--line-soft) !important;
-  box-shadow: none !important;
-}
-
-[data-theme="dark"] .support-page .action-icon,
-[data-theme="dark"] .support-page .article-icon,
-[data-theme="dark"] .support-page .search button {
-  background: rgba(255,255,255,.06) !important;
-  border: 1px solid var(--line-soft);
-}
-
-[data-theme="dark"] .support-page footer {
-  border-top-color: var(--line-soft) !important;
-}
-
-/* ================================================================
    MOBILE RESPONSIVE
    ================================================================ */
 @media (max-width: 860px) {
@@ -677,23 +639,6 @@
 @media (max-width: 860px) {
   [data-theme="dark"] .topbar { backdrop-filter: none; -webkit-backdrop-filter: none; }
   [data-theme="dark"] .sidebar { box-shadow: none !important; }
-}
-
-@media (max-width: 800px) {
-  [data-theme="dark"] .support-page .topbar,
-  [data-theme="dark"] body.support-page-body,
-  [data-theme="dark"] .support-page main,
-  [data-theme="dark"] .support-page footer {
-    background: #000000 !important;
-  }
-
-  [data-theme="dark"] .support-page .search,
-  [data-theme="dark"] .support-page .action,
-  [data-theme="dark"] .support-page .write-card,
-  [data-theme="dark"] .support-page .article {
-    background: rgba(255,255,255,.03) !important;
-    border-color: var(--line-soft) !important;
-  }
 }
 
 @media (max-width: 1180px) {
