@@ -2301,6 +2301,84 @@ class Phase5SourceTests(unittest.IsolatedAsyncioTestCase):
                                            "https://news.example.test/story", recent, allow_evergreen=True))
 
 
+class PromotionalTextTests(unittest.IsolatedAsyncioTestCase):
+    """Publisher promos and paywalls found in published stories on 2026-11-02."""
+
+    TUKO_BODY = (
+        "- Justice Mande ruled that the Affordable Housing Act must govern all allocation decisions\n"
+        "PAY ATTENTION: Mark TUKO.co.ke as a preferred source, and our content will appear higher in your Google feed!\n"
+        "A Nairobi High Court has struck down two presidential directives on housing units.\n"
+        "PAY ATTENTION: TUKO is in WhatsApp Channels now! Subscribe and read news in your favourite messenger.\n"
+        "READ ALSO: Court of Appeal upholds the housing levy\n"
+        "Investors should pay attention. Of all the instruments issued, REITs performed best.\n"
+        "Follow us\n"
+        "Source: TUKO.co.ke"
+    )
+    STANDARD_PAYWALL = (
+        "The Court of Appeal has declined to scrap the Affordable Housing Programme.\n"
+        "Premium Article\nBold Reporting Takes Time, Courage and Investment. Stand With Us.\n"
+        "Continue Reading →\nWhat you get\n- Unlimited access to all premium content\n"
+        "Pay via\nSecure Payments\nAlready a subscriber? Log in to continue"
+    )
+
+    def test_promotional_lines_are_removed_and_ordinary_sentences_kept(self):
+        from app.normalizer import strip_promotional_text
+
+        cleaned = strip_promotional_text(self.TUKO_BODY)
+        for promo in ("PAY ATTENTION", "READ ALSO", "Source: TUKO", "Follow us"):
+            self.assertNotIn(promo, cleaned)
+        self.assertIn("A Nairobi High Court has struck down", cleaned)
+        self.assertIn("Investors should pay attention. Of all the instruments", cleaned)
+
+    def test_paywall_pages_are_recognised(self):
+        from app.normalizer import is_paywalled
+
+        self.assertTrue(is_paywalled(self.STANDARD_PAYWALL))
+        self.assertFalse(is_paywalled(self.TUKO_BODY))
+        self.assertFalse(is_paywalled("Readers can continue reading the full judgment online."))
+
+    async def test_a_paywalled_article_is_rejected_unless_its_feed_excerpt_is_enough(self):
+        repository = MemoryNewsRepository()
+        news_source = source(tier=2)
+        await repository.upsert_source(news_source)
+        published = datetime.now(timezone.utc) - timedelta(days=1)
+        url = "https://source2.example.test/court-upholds-housing-levy"
+        excerpt = CandidateArticle(source_id=news_source.id, source_url=url,
+                                   source_title="Court of Appeal upholds affordable housing levy",
+                                   source_published_at=published, clean_text="Short feed excerpt.")
+
+        async def discover(_collector, _source):
+            return [excerpt]
+
+        async def paywalled_fetch(_collector, _source, fetch_url, *_args, **_kwargs):
+            return CandidateArticle(source_id=news_source.id, source_url=fetch_url,
+                                    source_title="Court of Appeal upholds affordable housing levy",
+                                    source_published_at=published, clean_text=self.STANDARD_PAYWALL,
+                                    paywalled=True)
+
+        with patch.object(SourceCollector, "_discover", new=discover), \
+                patch.object(SourceCollector, "_fetch_article", new=paywalled_fetch):
+            result = await run_collection_job(repository, Settings(), analyzer=RulesBasedNewsAnalyzer())
+
+        self.assertEqual(result["articles_inserted"], 0)
+        self.assertEqual((repository.urls[url].state, repository.urls[url].reason), ("rejected", "PAYWALLED"))
+        self.assertFalse(any("Secure Payments" in item.clean_text for item in repository.items.values()))
+
+    async def test_feed_excerpts_are_cleaned_before_storage(self):
+        repository = MemoryNewsRepository()
+        news_source = source(tier=2)
+        await repository.upsert_source(news_source)
+        collector = SourceCollector(repository, Settings())
+        stored, _ = await collector._store_candidate(news_source, CandidateArticle(
+            source_id=news_source.id, source_url="https://source2.example.test/housing-ruling",
+            source_title="High Court strikes down affordable housing directives",
+            source_published_at=datetime.now(timezone.utc), clean_text=self.TUKO_BODY * 2,
+        ))
+        await collector.close()
+        self.assertIsNotNone(stored)
+        self.assertNotIn("PAY ATTENTION", stored.clean_text)
+
+
 class Phase3SupabaseRequestTests(unittest.IsolatedAsyncioTestCase):
     """The PostgREST requests the Supabase repository sends for Phase 3."""
 

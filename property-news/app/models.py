@@ -42,6 +42,8 @@ class CandidateArticle(BaseModel):
     clean_text: str = ""
     image_url: str | None = None
     external_post_id: str | None = Field(default=None, max_length=128)
+    # The downloaded page was a paywall box rather than the article.
+    paywalled: bool = False
 
 
 class NewsAnalysis(BaseModel):
