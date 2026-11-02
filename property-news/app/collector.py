@@ -26,7 +26,7 @@ import certifi
 from .config import Settings
 from .media import extract_article_image_url
 from .models import CandidateArticle, NewsEvent, NewsItem, NewsUrl, Source
-from .normalizer import canonicalise_url, clean_html, content_hash
+from .normalizer import canonicalise_url, clean_html, content_hash, is_paywalled, strip_promotional_text
 from .repository import MemoryNewsRepository, SupabaseNewsRepository
 from .quality import classify_quality, parse_source_date
 from .relevance import classify_property_relevance, classify_property_sales_content
@@ -54,7 +54,9 @@ SOURCE_GROUP_COUNT = 11
 MAX_URL_FETCH_ATTEMPTS = 3
 URL_FETCH_RETRY_BASE = timedelta(hours=1)
 URL_REJECTION_RETRY = timedelta(days=14)
-PERMANENT_URL_REJECTIONS = {"TOO_OLD", "DUPLICATE"}
+PERMANENT_URL_REJECTIONS = {"TOO_OLD", "DUPLICATE", "PAYWALLED"}
+# A paywalled article is kept only if its feed excerpt is at least this long.
+PAYWALL_MIN_EXCERPT_CHARS = 500
 # Prevent a source on a shared country-code suffix or hosting platform from
 # implicitly authorizing unrelated tenants on that same suffix.
 MULTI_LABEL_PUBLIC_SUFFIXES = {
@@ -478,6 +480,11 @@ class SourceCollector:
                     self._record_failure_kind(result, article)
                     logger.warning("Article failure for source=%s url=%s: %s", source.name, candidate.source_url, article)
                     record_outcome(candidate.source_url, "fetch_failed", self.classify_failure(article))
+                    continue
+                if article.paywalled and len(article.clean_text) < PAYWALL_MIN_EXCERPT_CHARS:
+                    result["articles_rejected"] += 1
+                    logger.info("PAYWALLED DISCARD source=%s url=%s", source.name, article.source_url)
+                    record_outcome(article.source_url, "rejected", "PAYWALLED")
                     continue
                 # STAGE 4b: Post-fetch full-text verification: ensure property is the central subject, not incidental
                 is_relevant, reason = classify_property_relevance(
@@ -1230,14 +1237,17 @@ class SourceCollector:
 
         return CandidateArticle(source_id=source.id, source_url=canonicalise_url(url), source_title=resolved_title,
                                 source_published_at=published_at or extracted_date or last_modified,
-                                original_content=html, clean_text=clean_text,
-                                image_url=image_url)
+                                original_content=html, clean_text=strip_promotional_text(clean_text),
+                                image_url=image_url, paywalled=is_paywalled(clean_text))
 
     async def _materialise_article(self, source: Source, candidate: CandidateArticle) -> CandidateArticle:
         """Fetch a discovered article when only a feed excerpt/link was available."""
         if len(candidate.clean_text) >= 500 and candidate.source_published_at is not None:
             return candidate
         article = await self._fetch_article(source, candidate.source_url, candidate.source_title, candidate.source_published_at)
+        if article.paywalled:
+            # Never use the paywall box as the article; keep the feed's own excerpt.
+            return article.model_copy(update={"clean_text": strip_promotional_text(candidate.clean_text)})
         return article if article.clean_text else candidate
 
     def _parse_feed(self, source: Source, body: str, base_url: str) -> list[CandidateArticle]:
@@ -1536,6 +1546,8 @@ class SourceCollector:
         return parse_source_date(value)
 
     async def _store_candidate(self, source: Source, candidate: CandidateArticle) -> tuple[NewsItem | None, bool]:
+        # Feed excerpts skip the download path, so promo lines are removed here too.
+        candidate = candidate.model_copy(update={"clean_text": strip_promotional_text(candidate.clean_text)})
         is_sales, sales_reason = classify_property_sales_content(
             candidate.source_title,
             candidate.source_url,
