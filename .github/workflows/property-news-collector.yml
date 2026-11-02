@@ -143,16 +143,13 @@ jobs:
               )
           if status == "partial":
               failure_rate = counts["sources_failed"] / counts["sources_attempted"]
+              # Reported, not fatal, while the source pool is being cleaned up
+              # (docs/property-news/ARCHITECTURE_UPGRADE_PLAN.md, task 1.9).
               print(
                   f"::warning::Collector group {os.environ['SOURCE_GROUP']} had "
                   f"{counts['sources_failed']} source failures "
                   f"({failure_rate:.0%})"
               )
-              if failure_rate >= 0.25:
-                  raise SystemExit(
-                      f"Collector group {os.environ['SOURCE_GROUP']} source failure rate "
-                      f"{failure_rate:.0%} meets/exceeds the 25% threshold"
-                  )
           elif status not in {"succeeded", "empty", "no_sources_due"}:
               raise SystemExit(f"Collector returned an unknown status: {status}")
           if counts["processing_failures"]:

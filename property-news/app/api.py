@@ -16,7 +16,7 @@ from fastapi.responses import JSONResponse
 
 import logging
 from .analysis import build_analyzer, format_location_display
-from .config import Settings, settings
+from .config import Settings, configure_logging, settings
 from .constants import ReviewStatus
 from .models import ReviewAction
 from .processing import ProcessingService
@@ -85,6 +85,7 @@ def create_app(config: Settings = settings, repository: Repository | None = None
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
+        configure_logging(config.log_level)
         app.state.services = services
         scheduler_task = None
 

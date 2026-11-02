@@ -1845,5 +1845,216 @@ class PreFetchPipelineStrictFilterTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(await self.repository.list_items()), 0)
 
 
+class Phase1QualityAndRiskTests(unittest.TestCase):
+    """Regressions for real articles the production pipeline wrongly rejected (2026-11-02 logs)."""
+
+    def setUp(self):
+        self.recent = datetime.now(timezone.utc) - timedelta(days=1)
+
+    def test_real_news_mentioning_commission_values_or_leadership_is_accepted(self):
+        cases = (
+            ("Tenants flee ten-storey Riruta building after loud bang, cracks spark alarm",
+             "https://citizen.digital/article/tenants-flee-ten-storey-riruta-building-n393122",
+             "Tenants fled a ten-storey building in Riruta after a loud bang and cracks in the walls. "
+             "The National Construction Authority and the county leadership said engineers would assess it. "),
+            ("Over 90 families displaced as Nairobi orders evacuation of apartment building",
+             "https://www.kenyans.co.ke/news/129057-over-90-families-displaced",
+             "More than 90 families were displaced after the county ordered an evacuation. "
+             "Residents said property values in the area had fallen since the structure was condemned. "),
+            ("Parliament dismisses viral claims on freehold land taxes in Finance Bill 2026",
+             "https://isk.or.ke/2026/05/26/parliament-dismisses-viral-claims-on-freehold-land-taxes",
+             "Parliament dismissed claims that the Finance Bill introduces taxes on freehold land. "
+             "The National Land Commission said the proposal was never part of its mission. "),
+            ("Land values around Government City set to rise",
+             "https://example.test/land-values-around-government-city-set-to-rise",
+             "Land values around the planned city are set to rise, analysts said, in line with Vision 2030. "),
+        )
+        for title, url, sentence in cases:
+            with self.subTest(title=title):
+                self.assertIsNone(classify_quality(title, sentence * 4, url, self.recent))
+
+    def test_building_collapse_story_is_newsworthy(self):
+        text = ("A family clings to hope as rescuers search the site where a building collapsed in Eastleigh. "
+                "Rescue teams continued to search through the rubble on Sunday. ") * 4
+        self.assertIsNone(classify_quality(
+            "Eastleigh building collapse: family clings to hope as missing woman's phone reachable",
+            text, "https://citizen.digital/article/eastleigh-building-collapse-n393110", self.recent,
+        ))
+
+    def test_about_pages_are_still_rejected(self):
+        text = ("About us. Who we are: a property firm. Our mission is to serve clients. "
+                "Our vision is growth. Contact us for our services. ") * 4
+        self.assertEqual(
+            classify_quality("Company profile", text, "https://example.test/company-profile", self.recent)[0],
+            "NON_NEWS_INSTITUTIONAL_PAGE",
+        )
+        self.assertEqual(
+            classify_quality("About Us", text, "https://example.test/company", self.recent)[0],
+            "NON_NEWS_INSTITUTIONAL_PAGE",
+        )
+
+    def test_risk_terms_match_whole_words_including_plurals(self):
+        from app.risk import assess_risk
+
+        def level(text):
+            return assess_risk(text, RegulatoryStatus.REPORTED, 2)[0]
+
+        self.assertNotEqual(level("The county will release the plan; please share feedback on the taxi stage."),
+                            RiskLevel.HIGH)
+        self.assertEqual(level("New taxes on rental income take effect"), RiskLevel.HIGH)
+        self.assertEqual(level("Banks raise mortgages for first-time buyers"), RiskLevel.HIGH)
+        self.assertEqual(level("Developer signs new leases with tenants"), RiskLevel.HIGH)
+        self.assertEqual(level("Evictions begin in Kibera"), RiskLevel.HIGH)
+        self.assertEqual(level("Police probe land fraud"), RiskLevel.CRITICAL)
+
+
+class Phase1PipelineTests(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        self.repository = MemoryNewsRepository()
+        self.source = source(tier=1)
+
+    def item(self, **overrides) -> NewsItem:
+        values = {
+            "source_id": self.source.id, "source_url": "https://source1.example.test/story",
+            "canonical_url": "https://source1.example.test/story", "source_title": "Land registry update",
+            "clean_text": "The ministry announced a land registry update for property owners in Nairobi. " * 6,
+            "source_tier": 1, "content_hash": "a" * 64,
+            "source_published_at": datetime.now(timezone.utc) - timedelta(days=1),
+        }
+        return NewsItem(**(values | overrides))
+
+    def test_ai_provider_defaults_to_gemini_only_when_its_key_is_set(self):
+        from app.config import resolve_ai_provider
+
+        self.assertEqual(resolve_ai_provider({"GEMINI_API_KEY": "set"}), "gemini")
+        self.assertEqual(resolve_ai_provider({}), "rules")
+        self.assertEqual(resolve_ai_provider({"NEWS_AI_PROVIDER": "rules", "GEMINI_API_KEY": "set"}), "rules")
+        self.assertEqual(resolve_ai_provider({"NEWS_AI_PROVIDER": "openai-compatible"}), "openai-compatible")
+
+    def test_rules_summary_never_cuts_a_word(self):
+        from app.analysis import SUMMARY_MAX_LENGTH, _excerpt
+
+        sentence = "The county proposed a public-private partnership for affordable housing projects in Nairobi"
+        cut = _excerpt(" ".join([sentence] * 5))
+        self.assertLessEqual(len(cut), SUMMARY_MAX_LENGTH)
+        self.assertTrue(cut.endswith("…"))
+        self.assertTrue(set(cut[:-1].split()) <= set(sentence.split()))
+        sentences = " ".join(f"Sentence {n} announced new land rates for property owners in the county." for n in range(8))
+        self.assertTrue(_excerpt(sentences).endswith("county."))
+        self.assertEqual(_excerpt("Short summary."), "Short summary.")
+
+    async def test_ai_failure_falls_back_to_rules_and_retries_rate_limits_once(self):
+        from app.analysis import FallbackNewsAnalyzer, RulesBasedNewsAnalyzer
+
+        request = httpx.Request("POST", "https://ai.example.test")
+
+        class Primary:
+            def __init__(self, statuses):
+                self.statuses, self.calls = list(statuses), 0
+
+            async def analyse(self, item, source):
+                self.calls += 1
+                status = self.statuses.pop(0)
+                if status:
+                    raise httpx.HTTPStatusError("error", request=request, response=httpx.Response(status, request=request))
+                return (await RulesBasedNewsAnalyzer().analyse(item, source)).model_copy(update={"model_provider": "ai"})
+
+        item = self.item()
+        recovered = Primary([429, None])
+        result = await FallbackNewsAnalyzer(recovered, retry_delay_seconds=0).analyse(item, self.source)
+        self.assertEqual((result.model_provider, recovered.calls), ("ai", 2))
+
+        broken = Primary([500, 500])
+        result = await FallbackNewsAnalyzer(broken, retry_delay_seconds=0).analyse(item, self.source)
+        self.assertEqual((result.model_provider, broken.calls), ("rules", 2))
+
+        class InvalidJson:
+            async def analyse(self, _item, _source):
+                raise ValueError("not JSON")
+
+        result = await FallbackNewsAnalyzer(InvalidJson(), retry_delay_seconds=0).analyse(item, self.source)
+        self.assertEqual(result.model_provider, "rules")
+
+    async def test_gemini_key_is_sent_in_a_header_not_the_url(self):
+        from app.analysis import GeminiNewsAnalyzer
+
+        seen = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            seen["url"], seen["header"] = str(request.url), request.headers.get("x-goog-api-key")
+            return httpx.Response(500, request=request)
+
+        analyzer = GeminiNewsAnalyzer("secret-key", "gemini-test")
+        analyzer._client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        with self.assertRaises(httpx.HTTPStatusError):
+            await analyzer.analyse(self.item(), self.source)
+        await analyzer.close()
+        self.assertNotIn("secret-key", seen["url"])
+        self.assertEqual(seen["header"], "secret-key")
+
+    async def test_failed_items_stop_retrying_after_the_attempt_cap(self):
+        from app.jobs import MAX_PROCESSING_ATTEMPTS
+        from app.models import NewsEvent
+
+        await self.repository.upsert_source(self.source)
+        capped = await self.repository.save_item(self.item(review_status=ReviewStatus.FAILED))
+        retryable = await self.repository.save_item(self.item(
+            source_url="https://source1.example.test/other", canonical_url="https://source1.example.test/other",
+            content_hash="b" * 64, review_status=ReviewStatus.FAILED,
+        ))
+        for _ in range(MAX_PROCESSING_ATTEMPTS):
+            await self.repository.add_event(NewsEvent(news_id=capped.id, source_id=self.source.id,
+                                                      event_type="item_processing_failed"))
+
+        result = await run_collection_job(self.repository, Settings(), analyzer=RulesBasedNewsAnalyzer())
+
+        self.assertEqual(result["retried"], 1)
+        self.assertEqual((await self.repository.get_item(capped.id)).review_status, ReviewStatus.ARCHIVED)
+        self.assertNotEqual((await self.repository.get_item(retryable.id)).review_status, ReviewStatus.FAILED)
+        self.assertTrue(any(event.event_type == "item_processing_abandoned" for event in self.repository.events))
+
+    async def test_abandoned_fetch_runs_are_marked_failed(self):
+        old = await self.repository.start_fetch_run(self.source.id, datetime.now(timezone.utc) - timedelta(hours=3))
+        current = await self.repository.start_fetch_run(self.source.id, datetime.now(timezone.utc))
+
+        await run_collection_job(self.repository, Settings(), analyzer=RulesBasedNewsAnalyzer())
+
+        self.assertEqual(self.repository.fetch_runs[old]["result"], "failed")
+        self.assertEqual(self.repository.fetch_runs[current]["result"], "running")
+
+    async def test_startup_seed_keeps_collection_history_and_disabled_sources(self):
+        from app.seed_sources import VERIFIED_SOURCES, seed_verified_sources
+
+        await seed_verified_sources(self.repository, activate=True)
+        existing = next(s for s in await self.repository.list_sources()
+                        if s.base_url == VERIFIED_SOURCES[0]["base_url"])
+        failed_at = datetime.now(timezone.utc) - timedelta(hours=2)
+        await self.repository.upsert_source(existing.model_copy(update={
+            "active": False, "consecutive_failures": 4, "failure_category": "timeout", "last_failed_fetch_at": failed_at,
+        }))
+
+        await seed_verified_sources(self.repository, activate=True)
+
+        reseeded = await self.repository.get_source(existing.id)
+        self.assertFalse(reseeded.active)
+        self.assertEqual((reseeded.consecutive_failures, reseeded.failure_category), (4, "timeout"))
+        self.assertEqual(reseeded.last_failed_fetch_at, failed_at)
+        self.assertEqual(reseeded.parser_config, VERIFIED_SOURCES[0]["parser_config"])
+
+    def test_logging_setup_keeps_http_client_urls_out_of_info_logs(self):
+        import logging
+        from app.config import configure_logging
+
+        root = logging.getLogger()
+        previous_level, previous_handlers = root.level, list(root.handlers)
+        try:
+            configure_logging("INFO")
+            self.assertEqual(root.level, logging.INFO)
+            self.assertGreaterEqual(logging.getLogger("httpx").level, logging.WARNING)
+        finally:
+            root.handlers[:] = previous_handlers
+            root.setLevel(previous_level)
+
+
 if __name__ == "__main__":
     unittest.main()

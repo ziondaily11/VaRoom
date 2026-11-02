@@ -1,11 +1,16 @@
 from __future__ import annotations
 
+import logging
 import os
+from collections.abc import Mapping
 from dataclasses import dataclass
+from pathlib import Path
 from dotenv import load_dotenv
 
 
-load_dotenv()
+# Only this service's own .env. A bare load_dotenv() searches parent folders
+# and would pick up the main VaRoom .env, including production credentials.
+load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
 
 def _int(name: str, default: int) -> int:
@@ -26,7 +31,33 @@ def _first_set(*names: str) -> str | None:
     return next((value for name in names if (value := os.getenv(name))), None)
 
 
-_default_ai_provider = os.getenv("NEWS_AI_PROVIDER") or "rules"
+def configure_logging(level: str) -> None:
+    """Send the service's own log records to stderr at `level`.
+
+    Uvicorn configures only its own loggers. Without this, records from the
+    collector and pipeline fall through to Python's last-resort handler, which
+    drops everything below WARNING.
+    """
+    root = logging.getLogger()
+    if not root.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter("%(levelname)s %(name)s: %(message)s"))
+        root.addHandler(handler)
+    root.setLevel(level.upper())
+    # HTTP client request logs repeat full URLs, which can carry API keys.
+    for name in ("httpx", "httpcore"):
+        logging.getLogger(name).setLevel(logging.WARNING)
+
+
+def resolve_ai_provider(env: Mapping[str, str]) -> str:
+    """An explicit provider wins; otherwise use Gemini when its key is present."""
+    explicit = (env.get("NEWS_AI_PROVIDER") or "").strip()
+    if explicit:
+        return explicit
+    return "gemini" if env.get("GEMINI_API_KEY") else "rules"
+
+
+_default_ai_provider = resolve_ai_provider(os.environ)
 _default_ai_model = _first_set("NEWS_AI_MODEL", "GEMINI_MODEL") or (
     "gemini-2.5-flash" if _default_ai_provider.lower() == "gemini" else None
 )
