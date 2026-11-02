@@ -29,13 +29,13 @@ import MessageActionMenu, { messageActionItems, type MessageAction } from '../co
 import { AttachmentThumb, ImagePreview, ListingCard, PhotoBubble, VoiceCard } from '../components/chat/MessageMedia';
 import { messageMetaText } from '../lib/chat/chatMedia';
 import ShareListingSheet from '../components/chat/ShareListingSheet';
+import { useElie } from '../components/chat/useElie';
+import { ElieHistoryPanel, ElieThread } from '../components/chat/ElieThread';
 import { KEEP_FOCUS_SELECTOR, useChatViewport } from '../components/chat/useChatViewport';
-import { ThinkingOrb } from 'thinking-orbs';
 
 const { chatsCssHref } = require('../lib/chatsCssAssets');
 
 const ELIE_ID = 'elie';
-const ELIE_API_URL = 'https://elie1-0.onrender.com/elie/search';
 
 const { resolveAvatarUrl } = require('../components/resolveStoredPhotoUrl');
 
@@ -195,8 +195,9 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   // Elie State
   const isElie = activeId === ELIE_ID;
   const [elieHistoryOpen, setElieHistoryOpen] = useState<boolean>(false);
-  const [elieHistorySessions, setElieHistorySessions] = useState<Array<{ id: string; title: string; date: string }>>([]);
-  const [thinkingState, setThinkingState] = useState<'searching' | 'working' | 'solving' | null>(null);
+  const elie = useElie(userId);
+  const elieResetRef = useRef(elie.reset);
+  elieResetRef.current = elie.reset;
 
   // Composer Text State
   const [composerText, setComposerText] = useState<string>('');
@@ -301,6 +302,11 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
       messagesEndRef.current.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'end' });
     }
   }, []);
+
+  // Keep the newest Elie entry in view.
+  useEffect(() => {
+    if (isElie) setTimeout(() => scrollToBottom(true), 50);
+  }, [isElie, elie.entries, elie.thinking, scrollToBottom]);
 
   // Update composer state classes & height
   const updateComposerUI = useCallback(() => {
@@ -408,7 +414,10 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
     }
 
     if (id === ELIE_ID) {
-      // Elie assistant conversation
+      // Elie assistant conversation: a new search each time it is opened.
+      if (!isSameConversation) elieResetRef.current();
+      setElieHistoryOpen(false);
+      setInfoCollapsed(true);
       if (activeChannelRef.current) {
         try {
           if (client) client.removeChannel(activeChannelRef.current);
@@ -693,54 +702,9 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
     if (!plainText && (activeId === ELIE_ID || !pendingFile)) return;
 
     if (activeId === ELIE_ID) {
-      // Send to Elie AI Assistant
-      const userMessage: ChatMessage = {
-        id: `elie-usr-${Date.now()}`,
-        conversation_id: ELIE_ID,
-        sender_id: userId || 'user',
-        body: plainText,
-        created_at: new Date().toISOString(),
-      };
-      setMessagesState((prev) => [...prev, userMessage]);
       setComposerText('');
-      if (desktopEditorRef.current) desktopEditorRef.current.innerHTML = '';
-      setThinkingState('searching');
-      setTimeout(() => scrollToBottom(true), 50);
-
-      try {
-        const token = session?.access_token || ((window as any).supabaseClient ? (await (window as any).supabaseClient.auth.getSession())?.data?.session?.access_token : null);
-        const res = await fetch(ELIE_API_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-            'X-Correlation-ID': `CLIENT-${Date.now().toString(36).toUpperCase()}`,
-          },
-          body: JSON.stringify({ message: plainText, history: [] }),
-        });
-        const data = await res.json().catch(() => ({}));
-        setThinkingState(null);
-        const assistantText = data.reply || data.response || data.message || 'I found some options for you.';
-        const assistantMessage: ChatMessage = {
-          id: `elie-bot-${Date.now()}`,
-          conversation_id: ELIE_ID,
-          sender_id: 'elie',
-          body: assistantText,
-          created_at: new Date().toISOString(),
-        };
-        setMessagesState((prev) => [...prev, assistantMessage]);
-        setTimeout(() => scrollToBottom(true), 50);
-      } catch (err: any) {
-        setThinkingState(null);
-        const errorMsg: ChatMessage = {
-          id: `elie-err-${Date.now()}`,
-          conversation_id: ELIE_ID,
-          sender_id: 'elie',
-          body: 'Sorry, I had trouble connecting. Please try asking again.',
-          created_at: new Date().toISOString(),
-        };
-        setMessagesState((prev) => [...prev, errorMsg]);
-      }
+      resetDesktopComposer();
+      void elie.send(plainText);
       return;
     }
 
@@ -1427,6 +1391,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                 id="elieHistoryToggle"
                 aria-label="Search history"
                 title="Search history"
+                aria-expanded={elieHistoryOpen}
                 onClick={() => setElieHistoryOpen((prev) => !prev)}
               >
                 <svg className="icon"><use href="#i-menu" /></svg>
@@ -1436,7 +1401,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
             <div className="chat-header-identity" onClick={() => { if (window.innerWidth <= 760) setMobileView('info'); }}>
               <div className="chat-header-avatar-wrap">
                 {isElie ? (
-                  <ElieIcon size={34} state={thinkingState !== null ? 'thinking' : 'default'} />
+                  <ElieIcon size={34} state={elie.thinking ? 'thinking' : 'default'} />
                 ) : (
                   <ConversationAvatar
                     url={activeConversation?.participant?.avatar_url}
@@ -1452,7 +1417,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                 </div>
                 <div className="chat-header-status">
                   <span className={`dot ${isCurrentOnline ? 'online' : ''}`} id="statusDot" style={{ background: isCurrentOnline ? '#4ec1a0' : '#c7cbd1' }} />
-                  <span id="statusText">{isElie ? 'VaRoom AI Assistant' : presenceKnownId === activeId ? (isCurrentOnline ? 'Online' : 'Offline') : ''}</span>
+                  <span id="statusText">{isElie ? 'Your VaRoom search assistant' : presenceKnownId === activeId ? (isCurrentOnline ? 'Online' : 'Offline') : ''}</span>
                 </div>
               </div>
             </div>
@@ -1474,34 +1439,38 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
               >
                 <svg className="icon"><use href="#i-panel" /></svg>
               </button>
-              <button
-                type="button"
-                title="More actions"
-                onClick={() => setReportModalOpen(true)}
-              >
-                <svg className="icon"><use href="#i-more" /></svg>
-              </button>
+              {isElie ? (
+                <button
+                  type="button"
+                  id="elieHistoryMore"
+                  title="Search history"
+                  aria-label="Search history"
+                  aria-expanded={elieHistoryOpen}
+                  onClick={() => setElieHistoryOpen((prev) => !prev)}
+                >
+                  <svg className="icon"><use href="#i-clock" /></svg>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  title="More actions"
+                  onClick={() => setReportModalOpen(true)}
+                >
+                  <svg className="icon"><use href="#i-more" /></svg>
+                </button>
+              )}
             </div>
           </header>
 
-          {/* Elie Search History Slide-out */}
-          {isElie && elieHistoryOpen && (
-            <section className="elie-history-panel open" id="elieHistoryPanel" aria-label="Search history">
-              <div className="elie-history-head">
-                <div className="elie-history-title">
-                  <svg className="icon"><use href="#i-clock" /></svg>
-                  <span>Search history</span>
-                </div>
-                <button type="button" className="elie-history-close" aria-label="Close search history" onClick={() => setElieHistoryOpen(false)}>
-                  <svg className="icon"><use href="#i-close" /></svg>
-                </button>
-              </div>
-              <div className="elie-history-list">
-                <div style={{ padding: '16px', fontSize: '13px', color: 'var(--text-gray)' }}>
-                  Recent search history is preserved on this device.
-                </div>
-              </div>
-            </section>
+          {/* Elie search history */}
+          {isElie && (
+            <ElieHistoryPanel
+              open={elieHistoryOpen}
+              onClose={() => setElieHistoryOpen(false)}
+              listSessions={elie.listSessions}
+              onOpenSession={(sessionId) => { void elie.loadSession(sessionId); }}
+              ignoreSelector="#elieHistoryToggle, #elieHistoryMore"
+            />
           )}
 
           {/* Pinned Message Banner */}
@@ -1534,14 +1503,8 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                   <><h2>Select a conversation</h2><p>Choose a conversation from your inbox to view messages.</p></>
                 )}
               </div>
-            ) : isElie && messages.length === 0 ? (
-              <div style={{ padding: '40px 20px', textAlign: 'center' }}>
-                <div style={{ marginBottom: '16px' }}><ElieIcon size={48} state="default" /></div>
-                <h3 style={{ marginBottom: '8px' }}>Hi, I'm Elie</h3>
-                <p style={{ color: 'var(--text-gray)', fontSize: '14px', maxWidth: '420px', margin: '0 auto' }}>
-                  Ask me about properties, neighborhoods, pricing, or amenities in Nairobi and beyond.
-                </p>
-              </div>
+            ) : isElie ? (
+              <ElieThread entries={elie.entries} thinking={elie.thinking} onPrompt={(prompt) => { void elie.send(prompt); }} onRetry={elie.retry} />
             ) : (
               <>
               {!isElie && <div className="system-notice">Your messages are encrypted and private.</div>}
@@ -1706,13 +1669,6 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                 );
               })}
               </>
-            )}
-
-            {thinkingState !== null && isElie && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 16px' }}>
-                <ThinkingOrb state={thinkingState || 'searching'} size={20} theme="dark" />
-                <span style={{ fontSize: '13px', color: 'var(--text-gray)' }}>Thinking...</span>
-              </div>
             )}
 
             <div ref={messagesEndRef} />
@@ -1986,6 +1942,20 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
               src={`/chat-settings?embedded=1&role=${encodeURIComponent(role)}`}
               style={{ width: '100%', height: 'calc(100% - 60px)', border: 'none' }}
             />
+          ) : isElie ? (
+            <>
+              <div className="profile-block" style={{ padding: '24px 20px', textAlign: 'center' }}>
+                <div className="avatar-fallback" style={{ background: '#f6f7f9', margin: '0 auto 12px' }}>
+                  <ElieIcon size={40} />
+                </div>
+                <div className="p-name">Elie</div>
+                <div className="p-line">Your VaRoom search assistant</div>
+              </div>
+              <section className="info-section elie-about">
+                <div className="info-section-head"><span className="label">About Elie</span></div>
+                <p>Elie helps you find real VaRoom spaces using natural language. Ask about stays, event venues, offices, locations, budgets, or guest capacity.</p>
+              </section>
+            </>
           ) : (
             <>
               {/* Profile details */}
