@@ -102,8 +102,24 @@ class NewsItem(BaseModel):
     image_url: str | None = None
     content_hash: str
     timeline_id: UUID | None = None
+    processing_attempts: int = Field(default=0, ge=0)
+    next_attempt_at: datetime | None = None
+    last_processing_error: str | None = Field(default=None, max_length=1000)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class NewsUrl(BaseModel):
+    """What the collector did with one canonical article URL (news_urls table)."""
+
+    canonical_url: str
+    source_id: UUID
+    state: str  # seen | rejected | fetch_failed | stored
+    reason: str | None = Field(default=None, max_length=200)
+    news_id: UUID | None = None
+    attempts: int = Field(default=0, ge=0)
+    last_attempt_at: datetime | None = None
+    next_attempt_at: datetime | None = None
 
 
 class PublicNewsItem(BaseModel):

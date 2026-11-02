@@ -11,98 +11,133 @@ from .analysis import NewsAnalyzer, build_analyzer
 from .collector import SourceCollector
 from .config import configure_logging, settings
 from .constants import ReviewStatus
-from .models import NewsEvent
-from .processing import ProcessingService
+from .processing import MAX_PROCESSING_ATTEMPTS, ProcessingService
 from .relevance import classify_property_relevance, classify_property_sales_content
 from .repository import build_repository
 
-# A failed item is retried on later runs at most this many times in total.
-MAX_PROCESSING_ATTEMPTS = 3
+logger = logging.getLogger(__name__)
 # No source run lasts this long, so a run still "running" after it was abandoned.
 STALE_FETCH_RUN_AGE = timedelta(hours=1)
-
-
-async def _retryable_failed_item_ids(store) -> list:
-    """Failed items still under the attempt cap. Items at the cap are archived
-    so they stop occupying the failed-item batch."""
-    item_ids = []
-    for item in await store.list_failed_items():
-        failures = await store.count_item_events(item.id, "item_processing_failed", MAX_PROCESSING_ATTEMPTS)
-        if failures < MAX_PROCESSING_ATTEMPTS:
-            item_ids.append(item.id)
-            continue
-        full_item = await store.get_item(item.id)
-        if full_item is None:
-            continue
-        full_item.review_status = ReviewStatus.ARCHIVED
-        await store.save_item(full_item)
-        await store.add_event(NewsEvent(news_id=item.id, source_id=item.source_id,
-                                        event_type="item_processing_abandoned",
-                                        payload={"failed_attempts": failures}))
-    return item_ids
+STALE_COLLECTION_RUN_AGE = timedelta(hours=2)
+# A claimed item is leased to this run; if the run dies, another run may take
+# it once the lease expires.
+PROCESSING_LEASE = timedelta(minutes=15)
+CLAIM_BATCH_SIZE = 25
+MAX_ITEMS_PER_RUN = 100
+COUNT_KEYS = (
+    "sources_active", "sources_due", "sources_deferred", "sources_checked",
+    "sources_attempted", "sources_successful", "sources_failed",
+    "candidates", "articles_discovered", "articles_rejected", "articles_parsed",
+    "articles_inserted", "new_items", "duplicates", "duplicates_skipped",
+    "failures", "article_failures", "urls_discovered", "urls_rejected",
+    "security_blocked_urls", "articles_fetched",
+    "timeouts", "http_403", "http_404", "oversized_responses", "known_urls_skipped",
+)
 
 
 async def run_collection_job(repository=None, config=settings, analyzer: NewsAnalyzer | None = None,
-                             source_group: int | None = None) -> dict[str, Any]:
-    """Collect due sources and process every newly discovered item in one run."""
+                             source_group: int | None = None, run_trigger: str = "api") -> dict[str, Any]:
+    """Collect due sources, then process every item that is ready, recording
+    the run in collection_runs."""
     store = repository or build_repository(config)
+    run_id = await _start_run(store, run_trigger)
+    try:
+        result = await _collect_and_process(store, config, analyzer, source_group)
+    except Exception as error:
+        await _finish_run(store, run_id, {"collection_status": "failed", "source_failures": []}, error)
+        raise
+    await _finish_run(store, run_id, result)
+    return result
+
+
+async def _start_run(store, run_trigger: str):
+    try:
+        abandoned = await store.abandon_stale_collection_runs(datetime.now(timezone.utc) - STALE_COLLECTION_RUN_AGE)
+        if abandoned:
+            logger.info("Marked %d abandoned collection runs", abandoned)
+        return await store.start_collection_run(run_trigger)
+    except Exception as error:
+        # Run records are telemetry; never let them stop collection.
+        logger.error("Could not record collection run start: %s", error)
+        return None
+
+
+async def _finish_run(store, run_id, result: dict[str, Any], error: Exception | None = None) -> None:
+    if run_id is None:
+        return
+    counts = {key: value for key, value in result.items()
+              if isinstance(value, int) and not isinstance(value, bool)}
+    try:
+        await store.finish_collection_run(
+            run_id, status=result.get("collection_status", "failed"), counts=counts,
+            source_failures=result.get("source_failures", []),
+            error_message=f"{type(error).__name__}: {error}" if error else None,
+        )
+    except Exception as finish_error:
+        logger.error("Could not record collection run result run_id=%s: %s", run_id, finish_error)
+
+
+async def _collect_and_process(store, config, analyzer: NewsAnalyzer | None,
+                               source_group: int | None) -> dict[str, Any]:
     collector = SourceCollector(store, config)
     processor = ProcessingService(store, analyzer or build_analyzer(config))
     try:
         try:
             released = await store.release_due_publications()
         except Exception as error:
-            logging.getLogger(__name__).error("Publication release failed; continuing collection: %s", error)
+            logger.error("Publication release failed; continuing collection: %s", error)
             released = 0
         try:
             abandoned = await store.fail_stale_fetch_runs(datetime.now(timezone.utc) - STALE_FETCH_RUN_AGE)
             if abandoned:
-                logging.getLogger(__name__).info("Marked %d abandoned fetch runs as failed", abandoned)
+                logger.info("Marked %d abandoned fetch runs as failed", abandoned)
         except Exception as error:
-            logging.getLogger(__name__).error("Stale fetch-run cleanup failed; continuing collection: %s", error)
+            logger.error("Stale fetch-run cleanup failed; continuing collection: %s", error)
         collected = await collector.collect_due_sources(source_group=source_group)
-        result = {key: int(collected.get(key, 0)) for key in (
-            "sources_active", "sources_due", "sources_deferred", "sources_checked",
-            "sources_attempted", "sources_successful", "sources_failed",
-            "candidates", "articles_discovered", "articles_rejected", "articles_parsed",
-            "articles_inserted", "new_items", "duplicates", "duplicates_skipped",
-            "failures", "article_failures", "urls_discovered", "urls_rejected",
-            "security_blocked_urls", "articles_fetched",
-            "timeouts", "http_403", "http_404", "oversized_responses",
-        )}
+        result = {key: int(collected.get(key, 0)) for key in COUNT_KEYS}
         result["source_failures"] = collected.get("source_failures", [])
         result["collection_status"] = _collection_status(result)
-        failed_item_ids = await _retryable_failed_item_ids(store)
-        item_ids = list(dict.fromkeys([*collected["new_item_ids"], *failed_item_ids]))
         result.update({"processed": 0, "published": released, "pending_review": 0, "archived": 0,
-                       "processing_failures": 0, "retried": len(failed_item_ids), "released": released})
-        
+                       "processing_failures": 0, "retried": 0, "released": released})
+        new_item_ids = set(collected["new_item_ids"])
+
         # Bounded concurrency for LLM/rule processing (up to 5 items concurrently)
         semaphore = asyncio.Semaphore(5)
-        
+
         async def _bounded_process(item_id):
             async with semaphore:
                 try:
                     return await processor.process(item_id)
                 except Exception as error:
-                    logging.getLogger(__name__).error(
+                    logger.error(
                         "Item processing failed item_id=%s error_type=%s",
                         item_id, type(error).__name__,
                     )
                     return None
 
-        processed_items = await asyncio.gather(*[_bounded_process(iid) for iid in item_ids])
-        for item in processed_items:
-            if item is None:
-                result["processing_failures"] += 1
-            else:
-                result["processed"] += 1
-                if item.review_status is ReviewStatus.PUBLISHED:
-                    result["published"] += 1
-                elif item.review_status is ReviewStatus.PENDING_REVIEW:
-                    result["pending_review"] += 1
-                elif item.review_status is ReviewStatus.ARCHIVED:
-                    result["archived"] += 1
+        # Process everything that is ready: this run's new items, and older
+        # items whose retry time has come or whose worker stopped mid-way.
+        claimed_total = 0
+        while claimed_total < MAX_ITEMS_PER_RUN:
+            batch = min(CLAIM_BATCH_SIZE, MAX_ITEMS_PER_RUN - claimed_total)
+            item_ids = await store.claim_items(batch, PROCESSING_LEASE, MAX_PROCESSING_ATTEMPTS)
+            if not item_ids:
+                break
+            claimed_total += len(item_ids)
+            result["retried"] += sum(1 for item_id in item_ids if item_id not in new_item_ids)
+            for item in await asyncio.gather(*[_bounded_process(item_id) for item_id in item_ids]):
+                if item is None:
+                    result["processing_failures"] += 1
+                else:
+                    result["processed"] += 1
+                    if item.review_status is ReviewStatus.PUBLISHED:
+                        result["published"] += 1
+                    elif item.review_status is ReviewStatus.PENDING_REVIEW:
+                        result["pending_review"] += 1
+                    elif item.review_status is ReviewStatus.ARCHIVED:
+                        result["archived"] += 1
+            if len(item_ids) < batch:
+                break
         return result
     finally:
         await collector.close()
@@ -212,11 +247,11 @@ async def run_reprocess_job(repository=None, config=settings, analyzer: NewsAnal
     return result
 
 
-async def run(collect_due: bool, health_check: bool) -> None:
+async def run(collect_due: bool, health_check: bool, run_trigger: str = "manual") -> None:
     repository = build_repository(settings)
     try:
         if collect_due:
-            print(json.dumps(await run_collection_job(repository, settings), default=str))
+            print(json.dumps(await run_collection_job(repository, settings, run_trigger=run_trigger), default=str))
         if health_check:
             print(json.dumps({"sources": await repository.source_health()}, default=str))
     finally:
@@ -228,11 +263,13 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Run isolated VaRoom property-news jobs.")
     parser.add_argument("--collect-due", action="store_true", help="Check sources that are due according to their database schedule.")
     parser.add_argument("--health-check", action="store_true", help="Print source-health data for a scheduler or monitor.")
+    parser.add_argument("--trigger", choices=("schedule", "manual"), default="manual",
+                        help="How this run was started; recorded in collection_runs.")
     args = parser.parse_args()
     if not args.collect_due and not args.health_check:
         parser.error("Choose --collect-due and/or --health-check")
     configure_logging(settings.log_level)
-    asyncio.run(run(args.collect_due, args.health_check))
+    asyncio.run(run(args.collect_due, args.health_check, args.trigger))
 
 
 if __name__ == "__main__":

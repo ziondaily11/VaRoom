@@ -9,7 +9,7 @@ import ssl
 import socket
 import time
 import xml.etree.ElementTree as ET
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 from html.parser import HTMLParser
 from typing import Any, Iterable
@@ -25,7 +25,7 @@ import certifi
 
 from .config import Settings
 from .media import extract_article_image_url
-from .models import CandidateArticle, NewsEvent, NewsItem, Source
+from .models import CandidateArticle, NewsEvent, NewsItem, NewsUrl, Source
 from .normalizer import canonicalise_url, clean_html, content_hash
 from .repository import MemoryNewsRepository, SupabaseNewsRepository
 from .quality import classify_quality, parse_source_date
@@ -41,6 +41,12 @@ SOURCE_HARD_TIMEOUT_SECONDS = 45
 MAX_SOURCES_PER_RUN = 200
 MAX_CONCURRENT_SOURCE_FETCHES = 10
 SOURCE_GROUP_COUNT = 11
+# URL frontier (news_urls): failed article fetches back off 1h, 2h, then become
+# a rejection; rejections are reconsidered after 14 days unless permanent.
+MAX_URL_FETCH_ATTEMPTS = 3
+URL_FETCH_RETRY_BASE = timedelta(hours=1)
+URL_REJECTION_RETRY = timedelta(days=14)
+PERMANENT_URL_REJECTIONS = {"TOO_OLD", "DUPLICATE"}
 # Prevent a source on a shared country-code suffix or hosting platform from
 # implicitly authorizing unrelated tenants on that same suffix.
 MULTI_LABEL_PUBLIC_SUFFIXES = {
@@ -255,7 +261,7 @@ class SourceCollector:
             "articles_inserted": 0, "new_items": 0, "duplicates": 0,
             "duplicates_skipped": 0, "failures": 0, "article_failures": 0,
             "urls_discovered": 0, "urls_rejected": 0, "security_blocked_urls": 0, "articles_fetched": 0,
-            "timeouts": 0, "http_403": 0, "http_404": 0, "oversized_responses": 0,
+            "timeouts": 0, "http_403": 0, "http_404": 0, "oversized_responses": 0, "known_urls_skipped": 0,
             "new_item_ids": [], "source_failures": [],
         }
         if not due_sources:
@@ -283,7 +289,7 @@ class SourceCollector:
                 "articles_inserted", "new_items", "duplicates", "duplicates_skipped",
                 "failures", "article_failures",
                 "urls_discovered", "urls_rejected", "security_blocked_urls", "articles_fetched",
-                "timeouts", "http_403", "http_404", "oversized_responses",
+                "timeouts", "http_403", "http_404", "oversized_responses", "known_urls_skipped",
             ):
                 totals[key] += int(result.get(key, 0))
             totals["new_item_ids"].extend(result["new_item_ids"])
@@ -355,7 +361,7 @@ class SourceCollector:
             "articles_inserted": 0, "new_items": 0, "duplicates": 0,
             "duplicates_skipped": 0, "failures": 0, "article_failures": 0,
             "urls_discovered": 0, "urls_rejected": 0, "security_blocked_urls": 0, "articles_fetched": 0,
-            "timeouts": 0, "http_403": 0, "http_404": 0, "oversized_responses": 0,
+            "timeouts": 0, "http_403": 0, "http_404": 0, "oversized_responses": 0, "known_urls_skipped": 0,
             "new_item_ids": [], "source_failures": [],
         }
         run_id: UUID | None = None
@@ -379,6 +385,24 @@ class SourceCollector:
                     "not_allowed_host",
                     f"All {security_blocked_count} discovered URLs were outside the approved source hosts",
                 )
+
+            # STAGE 1b: skip URLs whose outcome is already known (stored, rejected
+            # after a fetch, or a failed fetch still backing off), so nothing is
+            # downloaded twice.
+            known_urls = await self._known_url_records(source, raw_candidates)
+            now = datetime.now(timezone.utc)
+            fresh_candidates = []
+            for candidate in raw_candidates:
+                record = known_urls.get(canonicalise_url(candidate.source_url))
+                if record and self._url_is_settled(record, now):
+                    result["known_urls_skipped"] += 1
+                    continue
+                fresh_candidates.append(candidate)
+            raw_candidates = fresh_candidates
+            url_outcomes: list[NewsUrl] = []
+
+            def record_outcome(url: str, state: str, reason: str | None = None, news_id: UUID | None = None) -> None:
+                url_outcomes.append(self._url_outcome(source, canonicalise_url(url), known_urls, state, reason, news_id))
 
             # STAGE 2: Pre-fetch strict property relevance filter (cheapest & earliest stage)
             # Evaluates headline + source + short description/snippet + available category metadata
@@ -441,6 +465,7 @@ class SourceCollector:
                     result["articles_rejected"] += 1
                     self._record_failure_kind(result, article)
                     logger.warning("Article failure for source=%s url=%s: %s", source.name, candidate.source_url, article)
+                    record_outcome(candidate.source_url, "fetch_failed", self.classify_failure(article))
                     continue
                 # STAGE 4b: Post-fetch full-text verification: ensure property is the central subject, not incidental
                 is_relevant, reason = classify_property_relevance(
@@ -453,6 +478,7 @@ class SourceCollector:
                         "POST-FETCH DISCARD (not central property subject): source=%s url=%s reason=%s",
                         source.name, article.source_url, reason,
                     )
+                    record_outcome(article.source_url, "rejected", reason)
                     continue
                 is_sales, sales_reason = classify_property_sales_content(
                     article.source_title,
@@ -466,6 +492,7 @@ class SourceCollector:
                     result["articles_rejected"] += 1
                     logger.info("[Property News] Rejected sales content: %s reason=%s",
                                 article.source_title, sales_reason)
+                    record_outcome(article.source_url, "rejected", "SALES_LISTING")
                     continue
 
                 candidates.append(article)
@@ -487,6 +514,7 @@ class SourceCollector:
                         "REJECTED NEWS ITEM source=%s url=%s reason=%s details=%s",
                         source.name, candidate.source_url, reason, details,
                     )
+                    record_outcome(candidate.source_url, "rejected", reason)
                     continue
                 try:
                     stored, duplicate = await self._store_candidate(source, candidate)
@@ -498,9 +526,14 @@ class SourceCollector:
                 result["duplicates" if duplicate else "new_items"] += 1
                 if duplicate:
                     result["duplicates_skipped"] += 1
-                if stored:
+                    record_outcome(candidate.source_url, "rejected", "DUPLICATE")
+                elif stored:
                     result["new_item_ids"].append(stored.id)
                     result["articles_inserted"] += 1
+                    record_outcome(candidate.source_url, "stored", news_id=stored.id)
+                else:
+                    record_outcome(candidate.source_url, "rejected", "STORAGE_REJECTED")
+            await self._save_url_outcomes(source, url_outcomes)
             source.last_success_at = datetime.now(timezone.utc)
             source.last_successful_fetch_at = source.last_success_at
             if result["security_blocked_urls"]:
@@ -677,6 +710,56 @@ class SourceCollector:
         last_fail = SourceCollector._aware(source.last_failed_fetch_at)
         candidates = [value for value in (last_success, last_fail) if value is not None]
         return max(candidates) if candidates else datetime.min.replace(tzinfo=timezone.utc)
+
+    async def _known_url_records(self, source: Source, candidates: list[CandidateArticle]) -> dict[str, NewsUrl]:
+        if not candidates:
+            return {}
+        try:
+            return await self.repository.get_url_records(canonicalise_url(c.source_url) for c in candidates)
+        except Exception as error:
+            # Without the lookup every URL is treated as new, as before Phase 3.
+            logger.error("URL frontier lookup failed source=%s: %s", source.name, error)
+            return {}
+
+    async def _save_url_outcomes(self, source: Source, outcomes: list[NewsUrl]) -> None:
+        if not outcomes:
+            return
+        try:
+            await self.repository.save_url_records(outcomes)
+        except Exception as error:
+            logger.error("URL frontier save failed source=%s urls=%d: %s", source.name, len(outcomes), error)
+
+    @staticmethod
+    def _url_is_settled(record: NewsUrl, now: datetime) -> bool:
+        """True when the URL needs no fetch now: stored, or rejected/failed with
+        no retry due yet (a rejection without a retry time is permanent)."""
+        if record.state == "stored":
+            return True
+        if record.state in {"rejected", "fetch_failed"}:
+            retry_at = SourceCollector._aware(record.next_attempt_at)
+            return retry_at is None or retry_at > now
+        return False
+
+    @staticmethod
+    def _url_outcome(source: Source, canonical_url: str, known: dict[str, NewsUrl], state: str,
+                     reason: str | None, news_id: UUID | None) -> NewsUrl:
+        now = datetime.now(timezone.utc)
+        previous = known.get(canonical_url)
+        attempts = (previous.attempts if previous else 0) + 1
+        next_attempt_at: datetime | None = None
+        if state == "fetch_failed":
+            if attempts >= MAX_URL_FETCH_ATTEMPTS:
+                state, reason = "rejected", f"FETCH_FAILED_{reason or 'unknown'}".upper()
+                next_attempt_at = now + URL_REJECTION_RETRY
+            else:
+                next_attempt_at = now + URL_FETCH_RETRY_BASE * (2 ** (attempts - 1))
+        elif state == "rejected" and reason not in PERMANENT_URL_REJECTIONS:
+            # Filters improve over time (Phase 1 fixed false rejections), so most
+            # rejections are reconsidered after a while.
+            next_attempt_at = now + URL_REJECTION_RETRY
+        return NewsUrl(canonical_url=canonical_url, source_id=source.id, state=state,
+                       reason=reason[:200] if reason else None, news_id=news_id, attempts=attempts,
+                       last_attempt_at=now, next_attempt_at=next_attempt_at)
 
     async def _discover(self, source: Source) -> tuple[list[CandidateArticle], int, int] | list[CandidateArticle]:
         config = source.parser_config

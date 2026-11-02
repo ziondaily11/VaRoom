@@ -1,6 +1,6 @@
 # Property News — Architecture Upgrade Plan
 
-**Status:** Approved 2026-11-02 (decisions D1–D5 as recommended) · Phase 0 applied 2026-11-02 · Phase 1 implemented on `property-news-phase1`, not yet deployed
+**Status:** Approved 2026-11-02 (decisions D1–D5 as recommended) · Phase 0 applied · Phase 1 pushed (`property-news-phase1`) · Phase 2 pushed (`property-news-phase2`), awaiting Vercel preview check · Phase 3 implemented (`property-news-phase3`), migration applied · none merged or deployed yet
 
 This plan turns Property News from a best-effort side system into a service that can be relied on to publish news consistently. It keeps the parts that work (Python pipeline, Supabase, Gemini, the review workflow) and changes how they are connected, scheduled and monitored.
 
@@ -150,6 +150,13 @@ Small, targeted code changes. Each comes with a regression test built from a rea
 | 3.5 Analysis cache | Skip Gemini when the same `content_hash` was already analysed |
 
 **Done when:** a run killed halfway resumes on the next run without refetching, and repeated runs over the same feeds make no duplicate article downloads.
+
+**Implemented 2026-11-02 on `property-news-phase3`.** Migration `20261102_000002_durable_pipeline_state.sql` applied and verified in production (114 stored URLs seeded). Code:
+
+- 3.1/3.2 `news_urls` records only outcomes that cost a download (stored, rejected after fetching, failed fetch), so the cheap headline filter keeps applying rule changes immediately. Failed downloads back off 1 h then 2 h, then become a rejection; rejections are reconsidered after 14 days except `TOO_OLD`, `DUPLICATE` and `AI_NOT_RELEVANT`, which are permanent. If the frontier lookup or save fails, collection continues as before.
+- 3.3 Items are processed through `property_news_claim_items()` in batches of 25 (up to 100 per run) with a 15-minute lease. A failed item retries after 10 then 20 minutes and is archived after its third attempt. This replaces the Phase 1 event-counting retry cap.
+- 3.4 Each run writes a `collection_runs` row (trigger, status, counts, failures); runs left `running` for 2 hours are marked `abandoned`. The CLI takes `--trigger schedule|manual`.
+- 3.5 Covered by 3.2: items the AI rejects are recorded as `AI_NOT_RELEVANT` before deletion, so they are never fetched or analysed again, and stored content is deduplicated by hash at storage time. No separate analysis cache is needed.
 
 ### Phase 4 — Reliable scheduling and compute
 
