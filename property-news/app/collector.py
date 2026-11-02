@@ -36,7 +36,15 @@ Repository = MemoryNewsRepository | SupabaseNewsRepository
 FAILURE_RETRY_SECONDS = 15 * 60
 FAILURE_BACKOFF_SECONDS = 6 * 60 * 60
 MAX_CONSECUTIVE_FAILURES_BEFORE_BACKOFF = 5
+QUARANTINE_AFTER_FAILURES = 10
+QUARANTINE_RETRY_SECONDS = 7 * 24 * 60 * 60
 MAX_NEW_ITEMS_PER_SOURCE = 5
+# Article links taken from one HTML listing page (a source's max_articles may
+# lower it). Known URLs are skipped without a download (news_urls).
+MAX_HTML_DISCOVERY_LINKS = 30
+# Candidates downloaded per source per run, so one source stays within its
+# time limit; the rest are picked up on later runs.
+MAX_ARTICLE_CANDIDATES_PER_RUN = 10
 SOURCE_HARD_TIMEOUT_SECONDS = 45
 MAX_SOURCES_PER_RUN = 200
 MAX_CONCURRENT_SOURCE_FETCHES = 10
@@ -261,7 +269,7 @@ class SourceCollector:
             "articles_inserted": 0, "new_items": 0, "duplicates": 0,
             "duplicates_skipped": 0, "failures": 0, "article_failures": 0,
             "urls_discovered": 0, "urls_rejected": 0, "security_blocked_urls": 0, "articles_fetched": 0,
-            "timeouts": 0, "http_403": 0, "http_404": 0, "oversized_responses": 0, "known_urls_skipped": 0,
+            "timeouts": 0, "http_403": 0, "http_404": 0, "oversized_responses": 0, "known_urls_skipped": 0, "candidates_deferred": 0,
             "new_item_ids": [], "source_failures": [],
         }
         if not due_sources:
@@ -289,7 +297,7 @@ class SourceCollector:
                 "articles_inserted", "new_items", "duplicates", "duplicates_skipped",
                 "failures", "article_failures",
                 "urls_discovered", "urls_rejected", "security_blocked_urls", "articles_fetched",
-                "timeouts", "http_403", "http_404", "oversized_responses", "known_urls_skipped",
+                "timeouts", "http_403", "http_404", "oversized_responses", "known_urls_skipped", "candidates_deferred",
             ):
                 totals[key] += int(result.get(key, 0))
             totals["new_item_ids"].extend(result["new_item_ids"])
@@ -361,7 +369,7 @@ class SourceCollector:
             "articles_inserted": 0, "new_items": 0, "duplicates": 0,
             "duplicates_skipped": 0, "failures": 0, "article_failures": 0,
             "urls_discovered": 0, "urls_rejected": 0, "security_blocked_urls": 0, "articles_fetched": 0,
-            "timeouts": 0, "http_403": 0, "http_404": 0, "oversized_responses": 0, "known_urls_skipped": 0,
+            "timeouts": 0, "http_403": 0, "http_404": 0, "oversized_responses": 0, "known_urls_skipped": 0, "candidates_deferred": 0,
             "new_item_ids": [], "source_failures": [],
         }
         run_id: UUID | None = None
@@ -446,6 +454,10 @@ class SourceCollector:
                                 candidate.source_title, sales_reason)
                     continue
                 passing_candidates.append(candidate)
+
+            # Listings are newest first; later candidates wait for the next run.
+            result["candidates_deferred"] = max(0, len(passing_candidates) - MAX_ARTICLE_CANDIDATES_PER_RUN)
+            passing_candidates = passing_candidates[:MAX_ARTICLE_CANDIDATES_PER_RUN]
 
             # STAGE 4: Fetch full articles ONLY for candidates that passed pre-fetch filter
             semaphore = asyncio.Semaphore(5)
@@ -693,6 +705,9 @@ class SourceCollector:
         if last_fail and (not last_success or last_fail > last_success):
             if source.failure_category == "http_404":
                 retry_after = 7 * 24 * 60 * 60
+            elif source.consecutive_failures >= QUARANTINE_AFTER_FAILURES:
+                # Quarantined: a source that keeps failing is re-checked weekly.
+                retry_after = QUARANTINE_RETRY_SECONDS
             elif source.failure_category in {"blocked_403", "robots_disallowed", "dns_error"}:
                 retry_after = FAILURE_BACKOFF_SECONDS
             else:
@@ -850,6 +865,8 @@ class SourceCollector:
                     source.name, _redact_sensitive_query_parameters(feed_url), error.category,
                 )
                 continue
+            # The advertised feed is often site-wide; keep only this source's links.
+            candidates = [c for c in candidates if self._matches_source_filters(source, c.source_url)]
             if candidates:
                 logger.info(
                     "HTML source alternate feed succeeded source=%s url=%s candidates=%d",
@@ -1353,8 +1370,25 @@ class SourceCollector:
         return articles
 
     @staticmethod
+    def _source_url_regex(source: Source) -> re.Pattern[str] | None:
+        selectors = source.parser_config.get("selectors", {})
+        url_regex = source.parser_config.get("url_regex")
+        if not isinstance(url_regex, str) and isinstance(selectors, dict):
+            url_regex = selectors.get("url_regex")
+        return re.compile(url_regex) if isinstance(url_regex, str) and url_regex else None
+
+    @staticmethod
     def _matches_source_filters(source: Source, url: str) -> bool:
+        """A source's link filters, applied to every discovery method, so a
+        section page that advertises its site-wide feed still yields only
+        links from its own section."""
         config = source.parser_config
+        url_regex = SourceCollector._source_url_regex(source)
+        if url_regex and not url_regex.search(urlparse(url).path or url):
+            return False
+        url_contains = config.get("url_contains")
+        if isinstance(url_contains, str) and url_contains and url_contains not in url:
+            return False
         include = config.get("include_url_contains", [])
         exclude = config.get("exclude_url_contains", [])
         path = urlparse(url).path.lower()
@@ -1372,13 +1406,10 @@ class SourceCollector:
         parser = _ArticleHTMLParser()
         parser.feed(body)
         pattern = source.parser_config.get("url_contains", "")
-        selectors = source.parser_config.get("selectors", {})
-        url_regex = source.parser_config.get("url_regex")
-        if not isinstance(url_regex, str) and isinstance(selectors, dict):
-            url_regex = selectors.get("url_regex")
-        compiled_regex = re.compile(url_regex) if isinstance(url_regex, str) and url_regex else None
+        compiled_regex = self._source_url_regex(source)
         excluded = [value for value in source.parser_config.get("exclude_url_contains", []) if isinstance(value, str)]
-        max_articles = min(max(int(source.parser_config.get("max_articles", 100)), 1), MAX_NEW_ITEMS_PER_SOURCE)
+        max_articles = min(max(int(source.parser_config.get("max_articles", MAX_HTML_DISCOVERY_LINKS)), 1),
+                           MAX_HTML_DISCOVERY_LINKS)
         seen: set[str] = set()
         articles: list[CandidateArticle] = []
         rejected_count = 0
