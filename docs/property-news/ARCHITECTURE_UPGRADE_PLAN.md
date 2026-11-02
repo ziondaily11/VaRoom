@@ -137,6 +137,8 @@ Small, targeted code changes. Each comes with a regression test built from a rea
 
 **Done when:** `/api/news` serves from Vercel with the Render service stopped (tested), and the Property News page and host dashboard behave exactly as before.
 
+**Implemented 2026-11-02 on `property-news-phase2`:** `client/lib/propertyNewsFeed.ts`, `client/lib/propertyNewsApi.ts`, `client/pages/api/news/{index,latest,[id]}.ts`; the two `/api/news` rewrites are removed from `client/vercel.json`. Live parity against the Python API: 50-item list identical (same order, every field), latest identical, every article without a stored image identical (the Python HTML image fallback found no usable image for any of them, so no backfill is needed). Still to verify on a Vercel preview: the response carries `X-Property-News-Source: supabase-view`, which proves the Next routes take precedence over the `vercel.json` catch-all `/api/:path*` rewrite. 2.6: no code change needed once readers stop reaching the Python API.
+
 ### Phase 3 — Durable pipeline state
 
 | Task | Notes |
