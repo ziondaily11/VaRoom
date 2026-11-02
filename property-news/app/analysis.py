@@ -235,6 +235,18 @@ class GeminiNewsAnalyzer:
 
 
 RETRYABLE_PROVIDER_STATUS = {429, 500, 502, 503, 504}
+_GOOGLE_API_KEY_PATTERN = re.compile(r"AIza[0-9A-Za-z_\-]{20,}")
+
+
+def _provider_error_reason(response: httpx.Response) -> str:
+    """The provider's own explanation (e.g. Gemini's error.status and message),
+    so a 403 says whether the API is disabled, the key restricted or revoked."""
+    try:
+        error = response.json().get("error") or {}
+        reason = f"{error.get('status', '')}: {error.get('message', '')}".strip(": ")
+    except (ValueError, AttributeError):
+        reason = response.text
+    return _GOOGLE_API_KEY_PATTERN.sub("[redacted]", " ".join(str(reason).split()))[:300] or "unknown"
 PROVIDER_RETRY_DELAY_SECONDS = 2.0
 PROVIDER_MAX_RETRY_DELAY_SECONDS = 10.0
 
@@ -266,7 +278,8 @@ class FallbackNewsAnalyzer:
                 if attempt == 0 and status in RETRYABLE_PROVIDER_STATUS:
                     await asyncio.sleep(self._retry_delay(error.response))
                     continue
-                logger.warning("AI analysis failed item_id=%s status=%d; using rules fallback", item.id, status)
+                logger.warning("AI analysis failed item_id=%s status=%d reason=%s; using rules fallback",
+                               item.id, status, _provider_error_reason(error.response))
                 break
             except (httpx.TransportError, ValueError, KeyError, IndexError, TypeError) as error:
                 # ValueError covers invalid JSON and schema validation errors.
