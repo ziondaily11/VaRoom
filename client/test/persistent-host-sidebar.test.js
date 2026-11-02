@@ -111,7 +111,7 @@ test('Host Home keeps its template sidebar until the authenticated HostLayout mo
   assert.match(hostHome, /<aside class="sidebar" id="sidebar">/);
   assert.doesNotMatch(slugCode, /source\.replace\(\/<aside\\b[\s\S]*?class=[\s\S]*?sidebar/);
   assert.match(layoutCode, /\.host-layout-active \.host-page-content aside\.sidebar[\s\S]*?display:\s*none\s*!important/);
-  assert.match(slugCode, /parseTemplate\(source, templateName === 'elie\.html' \|\| isElieSlug\)/);
+  assert.match(slugCode, /parseTemplate\(source\)/);
 });
 
 test('R2 avatar keys use the application photo route rather than Supabase Storage', () => {

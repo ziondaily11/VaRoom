@@ -2,7 +2,6 @@ require('dotenv').config();
 
 const express = require('express');
 const crypto = require('crypto');
-const fs = require('fs');
 const path = require('path');
 const supabaseAdmin = require('./lib/supabaseClient');
 const { getListingLocation, getBookingLocation, getListingDistance } = require('./lib/locationAccess');
@@ -28,6 +27,7 @@ const { sendRecoveryOtp, sendConfirmationOtp } = require('./lib/authEmail');
 const { permanentlyDeleteAccount } = require('./lib/accountDeletionService');
 const { resolveClientHomeRedirect } = require('./lib/clientHomeRoute');
 const { resolveNotificationsRedirect } = require('./lib/notificationsRoute');
+const { resolveChatsRedirect } = require('./lib/chatsRoute');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -321,11 +321,8 @@ const pageTemplates = {
   '/host-home': 'host-home.html',
   '/booking': 'booking.html',
   '/booking-approved': 'booking-approved.html',
-  '/chats': 'chats.html',
-  '/chat': 'chats.html',
   '/analytics': 'analytics.html',
   '/auth-callback': 'auth-callback.html',
-  '/elie': 'elie.html',
   '/map': 'map.html',
   '/marketplace': 'marketplace.html',
   '/chat-settings': 'chat-settings.html',
@@ -363,20 +360,20 @@ app.get(['/notifications', '/notifications.html', '/legacy-pages/notifications.h
   return res.status(redirect.status).send(redirect.message);
 });
 
-Object.entries(pageTemplates).forEach(([route, template]) => {
-  app.get(route, (_req, res) => {
-    if (template !== 'chats.html') return res.sendFile(path.join(legacyPagesDirectory, template));
-    fs.readFile(path.join(legacyPagesDirectory, template), 'utf8', (error, html) => {
-      if (error) {
-        console.error('Chat page delivery failed:', error);
-        return res.sendStatus(500);
-      }
-      res.type('html').send(html.replace(
-        '</body>',
-        '<script src="/js/supabase-client.js"></script><script src="/js/chat-cache.js"></script><script src="/js/chat-data.js"></script></body>'
-      ));
-    });
+// Chats (and Elie, a conversation inside it) is a native frontend page.
+app.get(['/chats', '/chat', '/chats.html', '/legacy-pages/chats.html', '/elie', '/elie.html', '/legacy-pages/elie.html'], (req, res) => {
+  const redirect = resolveChatsRedirect({
+    frontendBaseUrl: process.env.PUBLIC_BASE_URL || process.env.CLIENT_BASE_URL,
+    requestHost: req.get('host'),
+    requestUrl: req.originalUrl,
+    elie: /^\/(?:legacy-pages\/)?elie(?:\.html)?(?:[?#]|$)/.test(req.originalUrl),
   });
+  if (redirect.location) return res.redirect(redirect.status, redirect.location);
+  return res.status(redirect.status).send(redirect.message);
+});
+
+Object.entries(pageTemplates).forEach(([route, template]) => {
+  app.get(route, (_req, res) => res.sendFile(path.join(legacyPagesDirectory, template)));
 });
 
 app.get('/forgot-password', (req, res) => {
