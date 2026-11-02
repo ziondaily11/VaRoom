@@ -13,7 +13,7 @@ import httpx
 
 from .config import Settings
 from .constants import ReviewStatus
-from .models import NewsAnalysis, NewsEvent, NewsItem, PublicNewsItem, Source
+from .models import NewsAnalysis, NewsEvent, NewsItem, NewsUrl, PublicNewsItem, Source
 from .normalizer import content_hash
 
 logger = logging.getLogger(__name__)
@@ -26,8 +26,12 @@ FULL_ITEM_FIELDS = (
     "original_content,clean_text,varoom_title,varoom_summary,varoom_body,category,topics,"
     "counties,towns,regulatory_status,affected_groups,key_facts,risk_level,confidence_score,"
     "source_tier,review_status,reviewed_by,published_at,scheduled_at,image_url,content_hash,"
-    "timeline_id,external_post_id,platform,created_at,updated_at"
+    "timeline_id,external_post_id,platform,processing_attempts,next_attempt_at,last_processing_error,"
+    "created_at,updated_at"
 )
+# Canonical URLs per news_urls lookup; keeps the GET query string short.
+URL_LOOKUP_BATCH = 40
+NEWS_URL_FIELDS = "canonical_url,source_id,state,reason,news_id,attempts,last_attempt_at,next_attempt_at"
 PUBLIC_ITEM_FIELDS = (
     "id,source_id,source_url,canonical_url,source_title,source_published_at,varoom_title,"
     "varoom_summary,category,topics,counties,towns,regulatory_status,affected_groups,"
@@ -60,6 +64,8 @@ class MemoryNewsRepository:
         self.analyses: dict[UUID, NewsAnalysis] = {}
         self.reviews: list[dict[str, Any]] = []
         self.fetch_runs: dict[UUID, dict[str, Any]] = {}
+        self.urls: dict[str, NewsUrl] = {}
+        self.collection_runs: dict[UUID, dict[str, Any]] = {}
 
     async def upsert_source(self, source: Source) -> Source:
         source.updated_at = _now()
@@ -175,8 +181,46 @@ class MemoryNewsRepository:
     async def add_review(self, review: dict[str, Any]) -> None:
         self.reviews.append(copy.deepcopy(review))
 
-    async def count_item_events(self, news_id: UUID, event_type: str, limit: int) -> int:
-        return min(limit, sum(1 for event in self.events if event.news_id == news_id and event.event_type == event_type))
+    async def get_url_records(self, canonical_urls: Iterable[str]) -> dict[str, NewsUrl]:
+        return {url: copy.deepcopy(self.urls[url]) for url in set(canonical_urls) if url in self.urls}
+
+    async def save_url_records(self, records: Iterable[NewsUrl]) -> None:
+        for record in records:
+            self.urls[record.canonical_url] = copy.deepcopy(record)
+
+    async def claim_items(self, limit: int, lease: timedelta, max_attempts: int) -> list[UUID]:
+        now = _now()
+        ready = sorted(
+            (item for item in self.items.values()
+             if item.processing_attempts < max_attempts and (
+                 item.review_status is ReviewStatus.DISCOVERED
+                 or (item.review_status in {ReviewStatus.FAILED, ReviewStatus.PROCESSING}
+                     and (item.next_attempt_at is None or item.next_attempt_at <= now)))),
+            key=lambda item: item.created_at,
+        )[:max(limit, 0)]
+        for item in ready:
+            item.review_status = ReviewStatus.PROCESSING
+            item.processing_attempts += 1
+            item.next_attempt_at = now + lease
+        return [item.id for item in ready]
+
+    async def start_collection_run(self, run_trigger: str) -> UUID:
+        run_id = uuid4()
+        self.collection_runs[run_id] = {"id": run_id, "run_trigger": run_trigger, "started_at": _now(),
+                                        "status": "running", "counts": {}, "source_failures": []}
+        return run_id
+
+    async def finish_collection_run(self, run_id: UUID, *, status: str, counts: dict[str, int],
+                                    source_failures: list[dict[str, str]], error_message: str | None = None) -> None:
+        self.collection_runs[run_id].update({"status": status, "finished_at": _now(), "counts": dict(counts),
+                                             "source_failures": list(source_failures), "error_message": error_message})
+
+    async def abandon_stale_collection_runs(self, older_than: datetime) -> int:
+        stale = [run for run in self.collection_runs.values()
+                 if run["status"] == "running" and run["started_at"] < older_than]
+        for run in stale:
+            run.update({"status": "abandoned", "finished_at": _now()})
+        return len(stale)
 
     async def fail_stale_fetch_runs(self, older_than: datetime) -> int:
         stale = [run for run in self.fetch_runs.values()
@@ -497,11 +541,54 @@ class SupabaseNewsRepository:
     async def add_review(self, review: dict[str, Any]) -> None:
         await self._request("POST", "news_reviews", payload=review, prefer="return=minimal")
 
-    async def count_item_events(self, news_id: UUID, event_type: str, limit: int) -> int:
-        rows = await self._request("GET", "news_events", params={
-            "select": "id", "news_id": f"eq.{news_id}", "event_type": f"eq.{event_type}", "limit": str(limit),
+    async def get_url_records(self, canonical_urls: Iterable[str]) -> dict[str, NewsUrl]:
+        urls = sorted(set(canonical_urls))
+        records: dict[str, NewsUrl] = {}
+        for start in range(0, len(urls), URL_LOOKUP_BATCH):
+            batch = urls[start:start + URL_LOOKUP_BATCH]
+            # PostgREST in.() list: quote each URL, since URLs can contain commas.
+            quoted = ",".join('"' + url.replace("\\", "\\\\").replace('"', '\\"') + '"' for url in batch)
+            rows = await self._request("GET", "news_urls", params={
+                "select": NEWS_URL_FIELDS, "canonical_url": f"in.({quoted})",
+            })
+            records.update({row["canonical_url"]: NewsUrl.model_validate(row) for row in rows})
+        return records
+
+    async def save_url_records(self, records: Iterable[NewsUrl]) -> None:
+        payload = [record.model_dump(mode="json") | {"last_seen_at": _now().isoformat()} for record in records]
+        if not payload:
+            return
+        await self._request("POST", "news_urls", params={"on_conflict": "canonical_url"}, payload=payload,
+                            prefer="resolution=merge-duplicates,return=minimal")
+
+    async def claim_items(self, limit: int, lease: timedelta, max_attempts: int) -> list[UUID]:
+        rows = await self._request("POST", "rpc/property_news_claim_items", payload={
+            "p_limit": limit, "p_lease": f"{int(lease.total_seconds())} seconds", "p_max_attempts": max_attempts,
         })
-        return len(rows)
+        # A set-returning scalar function comes back as a JSON array of values;
+        # accept the object form too.
+        return [UUID(row if isinstance(row, str) else row["property_news_claim_items"]) for row in rows or []]
+
+    async def start_collection_run(self, run_trigger: str) -> UUID:
+        rows = await self._request("POST", "collection_runs", payload={"run_trigger": run_trigger},
+                                   prefer="return=representation")
+        return UUID(rows[0]["id"])
+
+    async def finish_collection_run(self, run_id: UUID, *, status: str, counts: dict[str, int],
+                                    source_failures: list[dict[str, str]], error_message: str | None = None) -> None:
+        await self._request("PATCH", "collection_runs", params={"id": f"eq.{run_id}"}, payload={
+            "status": status, "finished_at": _now().isoformat(), "counts": counts,
+            "source_failures": source_failures, "error_message": error_message[:1000] if error_message else None,
+        }, prefer="return=minimal")
+
+    async def abandon_stale_collection_runs(self, older_than: datetime) -> int:
+        rows = await self._request(
+            "PATCH", "collection_runs",
+            params={"status": "eq.running", "started_at": f"lt.{older_than.isoformat()}", "select": "id"},
+            payload={"status": "abandoned", "finished_at": _now().isoformat()},
+            prefer="return=representation",
+        )
+        return len(rows) if isinstance(rows, list) else 0
 
     async def fail_stale_fetch_runs(self, older_than: datetime) -> int:
         rows = await self._request(

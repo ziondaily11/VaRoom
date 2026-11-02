@@ -1992,26 +1992,39 @@ class Phase1PipelineTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("secret-key", seen["url"])
         self.assertEqual(seen["header"], "secret-key")
 
-    async def test_failed_items_stop_retrying_after_the_attempt_cap(self):
-        from app.jobs import MAX_PROCESSING_ATTEMPTS
-        from app.models import NewsEvent
+    async def test_failed_items_retry_with_backoff_and_are_archived_at_the_attempt_cap(self):
+        from app.processing import MAX_PROCESSING_ATTEMPTS
 
         await self.repository.upsert_source(self.source)
-        capped = await self.repository.save_item(self.item(review_status=ReviewStatus.FAILED))
-        retryable = await self.repository.save_item(self.item(
-            source_url="https://source1.example.test/other", canonical_url="https://source1.example.test/other",
-            content_hash="b" * 64, review_status=ReviewStatus.FAILED,
-        ))
+        item = await self.repository.save_item(self.item())
+
+        class FailingAnalyzer:
+            async def analyse(self, _item, _source):
+                raise RuntimeError("Analyzer unavailable")
+
+        statuses = []
         for _ in range(MAX_PROCESSING_ATTEMPTS):
-            await self.repository.add_event(NewsEvent(news_id=capped.id, source_id=self.source.id,
-                                                      event_type="item_processing_failed"))
+            await run_collection_job(self.repository, Settings(), analyzer=FailingAnalyzer())
+            stored = await self.repository.get_item(item.id)
+            statuses.append(stored.review_status)
+            # Make the retry due now instead of waiting for the backoff.
+            self.repository.items[item.id].next_attempt_at = datetime.now(timezone.utc) - timedelta(seconds=1)
 
-        result = await run_collection_job(self.repository, Settings(), analyzer=RulesBasedNewsAnalyzer())
-
-        self.assertEqual(result["retried"], 1)
-        self.assertEqual((await self.repository.get_item(capped.id)).review_status, ReviewStatus.ARCHIVED)
-        self.assertNotEqual((await self.repository.get_item(retryable.id)).review_status, ReviewStatus.FAILED)
+        self.assertEqual(statuses, [ReviewStatus.FAILED, ReviewStatus.FAILED, ReviewStatus.ARCHIVED])
+        self.assertEqual(stored.processing_attempts, MAX_PROCESSING_ATTEMPTS)
+        self.assertIn("Analyzer unavailable", stored.last_processing_error)
+        result = await run_collection_job(self.repository, Settings(), analyzer=FailingAnalyzer())
+        self.assertEqual(result["processing_failures"], 0)
         self.assertTrue(any(event.event_type == "item_processing_abandoned" for event in self.repository.events))
+
+    async def test_failed_item_is_not_retried_before_its_backoff_expires(self):
+        await self.repository.upsert_source(self.source)
+        await self.repository.save_item(self.item(
+            review_status=ReviewStatus.FAILED, processing_attempts=1,
+            next_attempt_at=datetime.now(timezone.utc) + timedelta(minutes=5),
+        ))
+        result = await run_collection_job(self.repository, Settings(), analyzer=RulesBasedNewsAnalyzer())
+        self.assertEqual((result["processed"], result["retried"]), (0, 0))
 
     async def test_abandoned_fetch_runs_are_marked_failed(self):
         old = await self.repository.start_fetch_run(self.source.id, datetime.now(timezone.utc) - timedelta(hours=3))
@@ -2054,6 +2067,183 @@ class Phase1PipelineTests(unittest.IsolatedAsyncioTestCase):
         finally:
             root.handlers[:] = previous_handlers
             root.setLevel(previous_level)
+
+
+class Phase3DurableStateTests(unittest.IsolatedAsyncioTestCase):
+    """URL frontier, item claiming and collection-run records (Phase 3)."""
+
+    async def asyncSetUp(self):
+        self.repository = MemoryNewsRepository()
+        self.source = source(tier=1)
+        await self.repository.upsert_source(self.source)
+
+    def candidate(self, slug: str, *, days_old: int = 2, text: str | None = None) -> CandidateArticle:
+        return CandidateArticle(
+            source_id=self.source.id, source_url=f"https://source1.example.test/{slug}",
+            source_title=f"Ministry announces land registry update {slug}",
+            source_published_at=datetime.now(timezone.utc) - timedelta(days=days_old),
+            clean_text=text if text is not None else (
+                "The ministry announced a land registry update for property owners and developers in Nairobi. " * 8),
+        )
+
+    async def collect(self, candidates, *, fetch=None):
+        async def discover(_collector, _source):
+            return list(candidates)
+
+        async def no_fetch(*_args, **_kwargs):
+            raise AssertionError("article was downloaded")
+
+        # Make the source due again for every simulated run.
+        stored_source = self.repository.sources[self.source.id]
+        stored_source.last_success_at = stored_source.last_successful_fetch_at = None
+        stored_source.last_failed_fetch_at = None
+        with patch.object(SourceCollector, "_discover", new=discover), \
+                patch.object(SourceCollector, "_fetch_article", new=fetch or no_fetch):
+            return await run_collection_job(self.repository, Settings(), analyzer=RulesBasedNewsAnalyzer())
+
+    async def test_known_urls_are_skipped_before_any_download(self):
+        first = await self.collect([self.candidate("story")])
+        self.assertEqual(first["articles_inserted"], 1)
+        record = self.repository.urls["https://source1.example.test/story"]
+        self.assertEqual((record.state, record.news_id is not None), ("stored", True))
+
+        second = await self.collect([self.candidate("story")])
+        self.assertEqual((second["known_urls_skipped"], second["articles_inserted"]), (1, 0))
+
+    async def test_failed_downloads_back_off_then_become_a_rejection(self):
+        from app.collector import MAX_URL_FETCH_ATTEMPTS
+
+        async def failing_fetch(*_args, **_kwargs):
+            raise CollectionFailure("timeout", "read timed out")
+
+        short = self.candidate("slow", text="Short feed excerpt.")
+        url = "https://source1.example.test/slow"
+        first = await self.collect([short], fetch=failing_fetch)
+        record = self.repository.urls[url]
+        self.assertEqual((record.state, record.attempts, first["article_failures"]), ("fetch_failed", 1, 1))
+        self.assertGreater(record.next_attempt_at, datetime.now(timezone.utc))
+
+        skipped = await self.collect([short], fetch=failing_fetch)
+        self.assertEqual(skipped["known_urls_skipped"], 1)
+
+        for _ in range(MAX_URL_FETCH_ATTEMPTS - 1):
+            self.repository.urls[url].next_attempt_at = datetime.now(timezone.utc) - timedelta(seconds=1)
+            await self.collect([short], fetch=failing_fetch)
+        record = self.repository.urls[url]
+        self.assertEqual((record.state, record.reason), ("rejected", "FETCH_FAILED_TIMEOUT"))
+
+    async def test_rejections_are_remembered_and_only_permanent_ones_never_return(self):
+        await self.collect([self.candidate("old", days_old=400), self.candidate("about", text=(
+            "About us. Who we are: a land registry firm. Our mission is service. Contact us for our services. " * 8))])
+        old = self.repository.urls["https://source1.example.test/old"]
+        about = self.repository.urls["https://source1.example.test/about"]
+        self.assertEqual((old.state, old.reason, old.next_attempt_at), ("rejected", "TOO_OLD", None))
+        self.assertEqual((about.state, about.reason), ("rejected", "NON_NEWS_INSTITUTIONAL_PAGE"))
+        self.assertGreater(about.next_attempt_at, datetime.now(timezone.utc) + timedelta(days=13))
+
+        again = await self.collect([self.candidate("old", days_old=400)])
+        self.assertEqual(again["known_urls_skipped"], 1)
+
+    async def test_cheap_headline_rejections_are_not_recorded(self):
+        offtopic = self.candidate("football").model_copy(update={
+            "source_title": "Harambee Stars win football qualifier", "clean_text": ""})
+        await self.collect([offtopic])
+        self.assertNotIn("https://source1.example.test/football", self.repository.urls)
+
+    async def test_items_the_ai_rejects_are_remembered_so_they_are_not_fetched_again(self):
+        from app.models import NewsAnalysis
+
+        class Irrelevant:
+            async def analyse(self, _item, source):
+                return NewsAnalysis(relevant=False, confidence_score=0.9, source_tier=source.trust_tier)
+
+        async def discover(_collector, _source):
+            return [self.candidate("ai-reject")]
+
+        with patch.object(SourceCollector, "_discover", new=discover):
+            await run_collection_job(self.repository, Settings(), analyzer=Irrelevant())
+        record = self.repository.urls["https://source1.example.test/ai-reject"]
+        self.assertEqual((record.state, record.reason, record.next_attempt_at), ("rejected", "AI_NOT_RELEVANT", None))
+        self.assertEqual(len(self.repository.items), 0)
+
+        second = await self.collect([self.candidate("ai-reject")])
+        self.assertEqual(second["known_urls_skipped"], 1)
+
+    async def test_claims_never_hand_the_same_item_to_two_workers_and_expired_leases_return(self):
+        for index in range(3):
+            await self.repository.save_item(NewsItem(
+                source_id=self.source.id, source_url=f"https://source1.example.test/q{index}",
+                canonical_url=f"https://source1.example.test/q{index}", source_title=f"Item {index}",
+                source_tier=1, content_hash=f"{index}" * 64,
+            ))
+        first = await self.repository.claim_items(2, timedelta(minutes=15), 3)
+        second = await self.repository.claim_items(5, timedelta(minutes=15), 3)
+        self.assertEqual((len(first), len(second)), (2, 1))
+        self.assertFalse(set(first) & set(second))
+        self.assertEqual(await self.repository.claim_items(5, timedelta(minutes=15), 3), [])
+
+        self.repository.items[first[0]].next_attempt_at = datetime.now(timezone.utc) - timedelta(seconds=1)
+        self.assertEqual(await self.repository.claim_items(5, timedelta(minutes=15), 3), [first[0]])
+
+    async def test_each_run_is_recorded_and_stale_runs_are_abandoned(self):
+        stale = await self.repository.start_collection_run("schedule")
+        self.repository.collection_runs[stale]["started_at"] = datetime.now(timezone.utc) - timedelta(hours=3)
+
+        result = await self.collect([self.candidate("recorded")])
+
+        runs = list(self.repository.collection_runs.values())
+        self.assertEqual(self.repository.collection_runs[stale]["status"], "abandoned")
+        latest = runs[-1]
+        self.assertEqual((latest["run_trigger"], latest["status"]), ("api", result["collection_status"]))
+        self.assertEqual(latest["counts"]["articles_inserted"], 1)
+        self.assertIsNotNone(latest["finished_at"])
+
+    async def test_a_crashed_run_is_recorded_as_failed(self):
+        async def broken(*_args, **_kwargs):
+            raise RuntimeError("database unavailable")
+
+        with patch.object(SourceCollector, "collect_due_sources", new=broken):
+            with self.assertRaises(RuntimeError):
+                await run_collection_job(self.repository, Settings(), analyzer=RulesBasedNewsAnalyzer())
+        run = list(self.repository.collection_runs.values())[-1]
+        self.assertEqual(run["status"], "failed")
+        self.assertIn("database unavailable", run["error_message"])
+
+
+class Phase3SupabaseRequestTests(unittest.IsolatedAsyncioTestCase):
+    """The PostgREST requests the Supabase repository sends for Phase 3."""
+
+    async def asyncSetUp(self):
+        self.repository = SupabaseNewsRepository(Settings(supabase_url="https://db.example.test",
+                                                          supabase_service_role_key="service-key"))
+        self.calls = []
+
+    async def asyncTearDown(self):
+        await self.repository.close()
+
+    def respond_with(self, response):
+        async def fake_request(method, table, **kwargs):
+            self.calls.append((method, table, kwargs))
+            return response
+        return patch.object(self.repository, "_request", new=fake_request)
+
+    async def test_url_lookup_quotes_urls_containing_commas(self):
+        with self.respond_with([]):
+            await self.repository.get_url_records(["https://s.test/a,b", 'https://s.test/q"x'])
+        _, table, kwargs = self.calls[0]
+        self.assertEqual(table, "news_urls")
+        self.assertEqual(kwargs["params"]["canonical_url"], 'in.("https://s.test/a,b","https://s.test/q\\"x")')
+
+    async def test_claim_calls_the_rpc_and_accepts_both_response_shapes(self):
+        item_id = "6f1c2a9e-1b2c-4d3e-8f90-123456789abc"
+        for response in ([item_id], [{"property_news_claim_items": item_id}]):
+            self.calls.clear()
+            with self.respond_with(response):
+                claimed = await self.repository.claim_items(10, timedelta(minutes=15), 3)
+            self.assertEqual([str(value) for value in claimed], [item_id])
+            method, table, kwargs = self.calls[0]
+            self.assertEqual((method, table), ("POST", "rpc/property_news_claim_items"))
+            self.assertEqual(kwargs["payload"], {"p_limit": 10, "p_lease": "900 seconds", "p_max_attempts": 3})
 
 
 if __name__ == "__main__":
