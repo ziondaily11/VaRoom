@@ -51,13 +51,8 @@ export default function SupportPage() {
     || (user?.email ? user.email.split('@')[0] : 'VaRoom member');
   const initial = user ? (name.trim()[0] || 'A').toUpperCase() : 'A';
 
-  // The legacy dark-theme rules key on this body class.
-  useEffect(() => {
-    document.body.classList.add('support-page-body');
-    return () => {
-      document.body.classList.remove('support-page-body');
-      if (matchTimer.current) window.clearTimeout(matchTimer.current);
-    };
+  useEffect(() => () => {
+    if (matchTimer.current) window.clearTimeout(matchTimer.current);
   }, []);
 
   const search = (event: React.FormEvent) => {

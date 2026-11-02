@@ -59,7 +59,11 @@ test('page: legacy markup classes, identity from AuthProvider (no profile reques
   assert.doesNotMatch(page, /from\('profiles'\)|supabase-client\.js/);
   assert.match(page, /const homeHref = role === 'host' \? '\/host-home' : '\/client-home';/);
   assert.match(page, /<div className="page support-page">/);
-  assert.match(page, /document\.body\.classList\.add\('support-page-body'\)/);
+  // Nothing of the legacy page remains: its styles (including dark theme) live with the page.
+  assert.doesNotMatch(page, /support-page-body/);
+  const styles = fs.readFileSync(path.join(root, 'components', 'support', 'supportStyles.ts'), 'utf8');
+  assert.match(styles, /\[data-theme="dark"\] \.support-page \.action,/);
+  assert.doesNotMatch(fs.readFileSync(path.join(root, 'public', 'js', 'varoom-dark-theme.css'), 'utf8'), /support-page/);
   assert.match(page, /\.appNavigation = true;/);
   for (const text of ['How can we help you today?', 'Create a support ticket', 'Report a bug', 'Request a feature', 'Need help with account', 'Write to VaRoom Support', 'Things people are looking for', 'No matching help article yet. More support guidance will be added here soon.']) {
     assert.ok(page.includes(text), text);

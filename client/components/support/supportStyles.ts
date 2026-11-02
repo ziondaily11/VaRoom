@@ -1,7 +1,6 @@
 // Styles for the Support page, ported from legacy-pages/support.html and
-// scoped under .support-page (the legacy class names are kept, so the
-// .support-page rules in public/js/varoom-dark-theme.css still apply).
-// Rendered only while the page is mounted.
+// scoped under .support-page, including its dark-theme rules (formerly in
+// public/js/varoom-dark-theme.css). Rendered only while the page is mounted.
 
 export const SUPPORT_STYLES = `
   .support-page {
@@ -176,4 +175,27 @@ export const SUPPORT_STYLES = `
   .support-page .search button:hover { background:var(--red) !important; }
   .support-page .support-form input,
   .support-page .support-form textarea { background:rgba(10,12,14,.9) !important; border-color:#2f353b !important; }
+
+  /* Dark theme (formerly public/js/varoom-dark-theme.css "SUPPORT PAGES"). */
+  [data-theme="dark"] .support-page,
+  [data-theme="dark"] .support-page main,
+  [data-theme="dark"] .support-page .topbar { background:#000000 !important; }
+  [data-theme="dark"] .support-page .topbar { border-bottom-color:rgba(255,255,255,.07) !important; }
+  [data-theme="dark"] .support-page .search { background:rgba(255,255,255,.05) !important; border-color:rgba(255,255,255,.12) !important; }
+  [data-theme="dark"] .support-page .action,
+  [data-theme="dark"] .support-page .write-card,
+  [data-theme="dark"] .support-page .article { background:rgba(255,255,255,.03) !important; border-color:rgba(255,255,255,.07) !important; box-shadow:none !important; }
+  [data-theme="dark"] .support-page .action-icon,
+  [data-theme="dark"] .support-page .article-icon,
+  [data-theme="dark"] .support-page .search button { background:rgba(255,255,255,.06) !important; border:1px solid rgba(255,255,255,.07); }
+  [data-theme="dark"] .support-page footer { border-top-color:rgba(255,255,255,.07) !important; }
+  @media (max-width: 800px) {
+    [data-theme="dark"] .support-page .topbar,
+    [data-theme="dark"] .support-page main,
+    [data-theme="dark"] .support-page footer { background:#000000 !important; }
+    [data-theme="dark"] .support-page .search,
+    [data-theme="dark"] .support-page .action,
+    [data-theme="dark"] .support-page .write-card,
+    [data-theme="dark"] .support-page .article { background:rgba(255,255,255,.03) !important; border-color:rgba(255,255,255,.07) !important; }
+  }
 `;
