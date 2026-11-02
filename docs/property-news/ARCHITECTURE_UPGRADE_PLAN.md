@@ -183,6 +183,15 @@ Small, targeted code changes. Each comes with a regression test built from a rea
 
 **Done when:** ≥ 80% of active sources succeed daily and every active source has produced an item in the last 30 days or is quarantined.
 
+**Implemented 2026-11-02 on `property-news-phase5`** (audit of all 102 active sources with the production collector, `property-news/scripts/audit_sources.py`, plus 30 days of production `source_fetch_runs`):
+
+- Discovery bug fixed: a source's link filters (`url_regex`, `url_contains`, include/exclude) now apply to every discovery method. Section pages that advertise a site-wide feed (e.g. Business Daily's real-estate section) were reading the whole site's feed instead of their own links: 0 of 25 relevant before, 20 of 20 after.
+- HTML pages yield up to their configured `max_articles` (ceiling 30) instead of a hard 5; downloads are capped at 10 candidates per source per run, newest first.
+- 5.2 Quarantine: after 10 consecutive failures a source is re-checked weekly.
+- Evergreen guides, how-tos and listicles are rejected as `EVERGREEN_GUIDE` unless the source sets `allow_evergreen`.
+- Source data (`ops/2026-11-02-phase5-source-rebuild.sql`, rollback alongside): 30 sources with no successful production fetch in 30 days (or duplicates) deactivated; The Standard, Kenyans.co.ke and Capital FM moved to feeds that work; Tuko's business feed added.
+- Open: trust tiers (5.5) await the owner's decision. Kenya News Agency and the National Construction Authority are deactivated only because their servers send incomplete TLS certificate chains; worth re-adding if they fix them.
+
 ### Phase 6 — Observability and alerting
 
 | Task | Notes |

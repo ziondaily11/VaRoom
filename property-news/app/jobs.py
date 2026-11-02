@@ -32,6 +32,7 @@ COUNT_KEYS = (
     "failures", "article_failures", "urls_discovered", "urls_rejected",
     "security_blocked_urls", "articles_fetched",
     "timeouts", "http_403", "http_404", "oversized_responses", "known_urls_skipped",
+    "candidates_deferred",
 )
 
 

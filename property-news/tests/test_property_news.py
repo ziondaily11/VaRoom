@@ -2225,6 +2225,82 @@ class Phase4DiagnosticsTests(unittest.TestCase):
         self.assertEqual(_provider_error_reason(httpx.Response(403, request=request, text="Forbidden")), "Forbidden")
 
 
+class Phase5SourceTests(unittest.IsolatedAsyncioTestCase):
+    """Source discovery fixes and quality rules from the 2026-11-02 source audit."""
+
+    def section_source(self, **config) -> Source:
+        return Source(name="Business Daily Africa Real Estate", base_url="https://www.businessdailyafrica.com",
+                      trust_tier=2, fetch_method="html", schedule_minutes=60, active=True,
+                      parser_config={"discovery_url": "https://www.businessdailyafrica.com/bd/markets/real-estate",
+                                     "url_regex": r"^/bd/markets/real-estate/[a-z0-9-]+/?$", **config})
+
+    async def test_a_section_page_ignores_off_section_items_from_its_site_wide_feed(self):
+        section_html = (
+            '<link rel="alternate" type="application/rss+xml" href="/bd/rss.xml">'
+            '<a href="/bd/markets/real-estate/land-market-activity-posts-first-fall-5632128">Land market activity posts first fall</a>'
+            '<a href="/bd/markets/real-estate/investors-bet-on-kangundo-road-5629488">Investors bet on Kangundo Road</a>'
+        )
+        site_feed = (
+            '<rss><channel>'
+            '<item><title>Fake alcohol cuts KRA revenue</title><link>https://www.businessdailyafrica.com/bd/economy/fake-alcohol-5655170</link></item>'
+            '<item><title>Military-style fitness</title><link>https://www.businessdailyafrica.com/bd/lifestyle/fitness-5652896</link></item>'
+            '</channel></rss>'
+        )
+        collector = SourceCollector(MemoryNewsRepository(), Settings())
+
+        async def fake_fetch(_source, url, **_kwargs):
+            return site_feed if url.endswith("rss.xml") else section_html
+
+        with patch.object(collector, "_fetch", new=fake_fetch):
+            candidates, _, _ = await collector._discover(self.section_source())
+        await collector.close()
+        paths = [urlparse(candidate.source_url).path for candidate in candidates]
+        self.assertEqual(len(paths), 2)
+        self.assertTrue(all(path.startswith("/bd/markets/real-estate/") for path in paths))
+
+    async def test_html_pages_yield_up_to_their_configured_link_count(self):
+        from app.collector import MAX_HTML_DISCOVERY_LINKS
+
+        links = "".join(f'<a href="/bd/markets/real-estate/story-number-{index}-{index}">Property story {index}</a>'
+                        for index in range(40))
+        collector = SourceCollector(MemoryNewsRepository(), Settings())
+        configured, _ = collector._parse_html_discovery(self.section_source(max_articles=20), links,
+                                                         "https://www.businessdailyafrica.com/bd/markets/real-estate")
+        default, _ = collector._parse_html_discovery(self.section_source(), links,
+                                                      "https://www.businessdailyafrica.com/bd/markets/real-estate")
+        await collector.close()
+        self.assertEqual((len(configured), len(default)), (20, MAX_HTML_DISCOVERY_LINKS))
+
+    def test_sources_that_keep_failing_are_quarantined_for_a_week(self):
+        from app.collector import QUARANTINE_AFTER_FAILURES
+
+        failed = Source(name="Broken", base_url="https://broken.example.test", trust_tier=2, fetch_method="rss",
+                        schedule_minutes=60, active=True, consecutive_failures=QUARANTINE_AFTER_FAILURES,
+                        failure_category="timeout",
+                        last_failed_fetch_at=datetime.now(timezone.utc) - timedelta(days=2))
+        self.assertFalse(SourceCollector._is_due(failed))
+        failed.last_failed_fetch_at = datetime.now(timezone.utc) - timedelta(days=8)
+        self.assertTrue(SourceCollector._is_due(failed))
+
+    def test_evergreen_guides_are_not_news(self):
+        recent = datetime.now(timezone.utc) - timedelta(days=1)
+        text = "The county announced new zoning approvals for developers and buyers in Nairobi this week. " * 6
+        for title in (
+            "Waiyaki Way Nairobi: Property Investment & Living Guide",
+            "Real Estate Companies in Kenya: Off-Plan Buyer's Guide",
+            "Demystifying Zoning Laws in Kenya: A Guide for Developers & Buyers (2026)",
+            "How to Choose a Walkable Nairobi Location to Buy a Home",
+            "10 Mistakes First-Time Buyers Make",
+        ):
+            with self.subTest(title=title):
+                self.assertEqual(classify_quality(title, text, "https://vaal.example.test/story", recent)[0],
+                                 "EVERGREEN_GUIDE")
+        self.assertIsNone(classify_quality("Court halts Nairobi zoning guidelines for high-rise buildings", text,
+                                           "https://news.example.test/story", recent))
+        self.assertIsNone(classify_quality("Investor guide published as county approves new land rates", text,
+                                           "https://news.example.test/story", recent, allow_evergreen=True))
+
+
 class Phase3SupabaseRequestTests(unittest.IsolatedAsyncioTestCase):
     """The PostgREST requests the Supabase repository sends for Phase 3."""
 

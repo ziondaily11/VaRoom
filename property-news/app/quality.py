@@ -20,6 +20,18 @@ INSTITUTIONAL_PATTERN = re.compile(
 # phrases appear together, as on a real "about" page.
 MIN_INSTITUTIONAL_PHRASES_IN_TEXT = 3
 INSTITUTIONAL_PATHS = ("/about", "/contact", "/leadership", "/departments", "/services", "/history")
+# Evergreen marketing content (guides, how-tos, listicles) from developer and
+# agency blogs. Sources that publish evergreen material on purpose can set
+# parser_config.allow_evergreen.
+EVERGREEN_TITLE_PATTERN = re.compile(
+    r"\b(?:(?:ultimate|complete|beginner'?s?|buyer'?s?|investor'?s?|step-by-step)\s+guide|guide\s+(?:to|for)|"
+    r"a\s+guide\b|:\s*a\s+guide|how\s+to\s+(?:buy|choose|invest|find|get|own|avoid|start|build|rent|sell)|"
+    r"tips\s+(?:for|to|on)|\d+\s+(?:things|tips|reasons|ways|mistakes|steps)\b|"
+    r"everything\s+you\s+need\s+to\s+know|what\s+you\s+need\s+to\s+know\s+before)",
+    re.IGNORECASE,
+)
+# A title ending in "Guide" (e.g. "Off-Plan Buyer's Guide", "Living Guide").
+EVERGREEN_TITLE_SUFFIX = re.compile(r"\bguide\s*(?:\(\d{4}\))?\s*$", re.IGNORECASE)
 EVENT_TERMS = (
     "announce", "announced", "approve", "approved", "launch", "launched", "open", "opened",
     "sign", "signed", "award", "awarded", "issue", "issued", "plans to", "will build",
@@ -112,6 +124,8 @@ def classify_quality(title: str, text: str, url: str, published_at: datetime | N
         return "LOW_INFORMATION_DENSITY", f"word_count={len(words)} character_count={len(text.strip())}"
     if len(set(word.lower() for word in words)) < 12:
         return "BOILERPLATE_CONTENT", "insufficiently varied article content"
+    if not allow_evergreen and (EVERGREEN_TITLE_PATTERN.search(title_text) or EVERGREEN_TITLE_SUFFIX.search(title_text)):
+        return "EVERGREEN_GUIDE", "guide, how-to or listicle rather than news"
     if not EVENT_PATTERN.search(sample):
         return "NOT_NEWSWORTHY", "no identifiable event or development"
     return None
