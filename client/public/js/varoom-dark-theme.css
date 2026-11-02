@@ -878,25 +878,6 @@
 }
 
 /* ================================================================
-   TRANSACTIONS (transactions.html)
-   ================================================================ */
-[data-theme="dark"] .tx-card {
-  background: transparent !important;
-  border-color: var(--line) !important;
-  color: var(--ink) !important;
-}
-
-[data-theme="dark"] .tx-bottom {
-  border-top-color: var(--line-soft) !important;
-  color: var(--muted) !important;
-}
-
-[data-theme="dark"] .tx-icon {
-  background: var(--surface-elevated) !important;
-  color: var(--red) !important;
-}
-
-/* ================================================================
    MAP & LOCATION (map.html)
    ================================================================ */
 [data-theme="dark"] .sheet {

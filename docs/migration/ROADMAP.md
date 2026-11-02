@@ -60,7 +60,7 @@ The detailed plan and findings are in `docs/migration/stage-a-foundation.md`.
 | ID | Page / item | Mag. | Notes | Status |
 |---|---|---|---|---|
 | B1 | `/elie` → native Chats | XS | Moved to the Chats track (CH5) | Done in CH5 |
-| B2 | `transactions.html` | S | | Not started |
+| B2 | `transactions.html` | S | Discontinued: no sidebar linked to it and it only showed placeholder (mock) data. Deleted with its Express route and dark-theme styles; a real Transactions page will be built later | Removed |
 | B3 | `support.html` | S | | Not started |
 | B4 | `map.html` | S | Replaces `varoom-maps.js` | Not started |
 | B5 | `booking-approved.html` | M | `listing-feed-cache` | Not started |
@@ -127,6 +127,7 @@ The detailed plan and findings are in `docs/migration/stage-a-foundation.md`.
 
 ## Log
 
+- 2026-11-02: CH5 merged (#523). B2: `transactions.html` deleted at the owner's request (it was unreachable from navigation and showed mock data); a native page will be built later.
 - 2026-11-02: CH5 done, completing the Chats track: `chats.html`, `elie.html`, `public/js/chat-data.js` and `public/js/chat-cache.js` (with its server test) are deleted; `/elie`, `/elie.html` → `/chats?c=elie` and `/chat`, `/chats.html` → `/chats` in Next and on the Express server (which no longer serves chat templates); `[...slug].js` no longer has the Elie/Messenger code paths (the Elie icon and thinking-orb mounting stays for other legacy pages); profile.html links to `/chats`. No database migration in the Chats track. Remaining: `ChatComposerActions`/`ElieComposerBeam` still carry fallback detection for the old markup (unused; removed with their TypeScript conversion in C7).
 - 2026-11-02: CH4 merged (#519); `main` also took property-news phase 2 (#520, no overlap with Chats). UI fixes from review: the information column's photo filled the whole column as an oval (it was not placed in the legacy 76px circle); the report form's select and textarea sat side by side unstyled (legacy styled them with a rule injected at runtime, never ported). The form is now a labelled column with full-width inputs and focus styles; the Phone and download icons were missing from the page's icon set.
 - 2026-11-02: CH2 and CH3 merged (#516, #517); `main` also took the property-news phase 1 merge (#518), which touches only `property-news/` and `docs/property-news/`, so CH4 branched from it without conflicts. CH4 done: the information column (profile, phone / member since / local time, latest six photos, files, report and block) opens on desktop when a person is selected; the legacy report sheet with fixed reasons; chat settings embedded with its own header and close (and the legacy close message); rail links with unread badges for messages and bookings; on phones the app navigation shows on the inbox and hides inside a conversation, and the header identity opens information by keyboard too. The embedded chat-settings page has no back button of its own, so the close message is only for parity.

@@ -335,7 +335,6 @@ const pageTemplates = {
   '/pricing.html': 'pricing.html',
   '/settings': 'settings.html',
   '/support': 'support.html',
-  '/transactions': 'transactions.html',
   '/varoom-post': 'varoom-post.html',
   '/landing-page': 'landing page.html'
 };
