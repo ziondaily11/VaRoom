@@ -620,6 +620,13 @@ export const BOOKINGS_STYLES = `
     color:var(--ink) !important;
   }
 
+  /* Dark theme rules that lived in public/js/varoom-dark-theme.css. */
+  html[data-theme="dark"] .bookings-page .booking-card{ background:transparent !important; border-color:var(--line) !important; }
+  html[data-theme="dark"] .bookings-page .rail-card{
+    background:transparent !important; border-width:0 0 1px !important; border-color:var(--line-soft) !important;
+    border-radius:0 !important; box-shadow:none !important;
+  }
+
   /* ---- Native additions ---- */
 
   /* Every laptop (861–1320px) keeps the right rail beside the list instead of

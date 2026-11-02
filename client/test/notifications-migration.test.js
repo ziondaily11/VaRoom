@@ -438,7 +438,8 @@ test('15. Instant cache presentation is limited to the verified account', () => 
   assert.match(notifPageSource, /\[auth\.status, authUserId, fetchNotifications, router\]/);
 });
 
-test('16. Native Bookings does not load the legacy notification widget', () => {
+test('16. The legacy notification widget is retired with bookings.html', () => {
   const bookingsPage = fs.readFileSync(path.join(root, 'pages', 'bookings.tsx'), 'utf8');
   assert.doesNotMatch(bookingsPage, /notifications-widget/);
+  assert.equal(fs.existsSync(path.join(root, 'public', 'js', 'notifications-widget.js')), false);
 });

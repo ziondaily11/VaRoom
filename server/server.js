@@ -316,7 +316,6 @@ const pageTemplates = {
   '/register': 'signup-client.html',
   '/signup-client': 'signup-client.html',
   '/signup-host': 'signup-host.html',
-  '/bookings': 'bookings.html',
   '/properties': 'list.html',
   '/list': 'list.html',
   '/host-home': 'host-home.html',
@@ -352,6 +351,19 @@ app.get(['/notifications', '/notifications.html', '/legacy-pages/notifications.h
     frontendBaseUrl: process.env.PUBLIC_BASE_URL || process.env.CLIENT_BASE_URL,
     requestHost: req.get('host'),
     requestUrl: req.originalUrl,
+  });
+  if (redirect.location) return res.redirect(redirect.status, redirect.location);
+  return res.status(redirect.status).send(redirect.message);
+});
+
+// Bookings is a native frontend page (the query is kept).
+app.get(['/bookings', '/bookings.html', '/legacy-pages/bookings.html'], (req, res) => {
+  const redirect = resolveFrontendRouteRedirect({
+    frontendBaseUrl: process.env.PUBLIC_BASE_URL || process.env.CLIENT_BASE_URL,
+    requestHost: req.get('host'),
+    requestUrl: req.originalUrl,
+    destinationPath: '/bookings',
+    unavailableMessage: 'Bookings are not available from this server.',
   });
   if (redirect.location) return res.redirect(redirect.status, redirect.location);
   return res.status(redirect.status).send(redirect.message);

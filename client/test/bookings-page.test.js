@@ -293,3 +293,18 @@ test('/bookings is the native page inside the app shell', () => {
   assert.match(page, /id="topbar-avatar-btn"/, 'opens the shell drawer');
   assert.equal(fs.existsSync(path.join(root, 'legacy-pages', 'bookings.html')), false);
 });
+
+test('bookings.html and its notification widget are retired; old URLs reach the native page', () => {
+  const config = read('next.config.js');
+  assert.match(config, /source: '\/bookings\.html',\s*destination: '\/bookings'/);
+  assert.match(config, /source: '\/legacy-pages\/bookings\.html',\s*destination: '\/bookings'/);
+  const server = fs.readFileSync(path.join(root, '..', 'server', 'server.js'), 'utf8');
+  assert.match(server, /app\.get\(\['\/bookings', '\/bookings\.html', '\/legacy-pages\/bookings\.html'\]/);
+  assert.doesNotMatch(server, /'\/bookings': 'bookings\.html'/);
+  assert.ok(server.indexOf("app.get(['/bookings'") < server.indexOf('Object.entries(pageTemplates)'), 'registered before the template routes');
+  assert.equal(fs.existsSync(path.join(root, 'public', 'js', 'notifications-widget.js')), false);
+  const dark = read('public', 'js', 'varoom-dark-theme.css');
+  assert.doesNotMatch(dark, /\.rail-card|\.booking-card|booking-approved\.html|bookings\.html/);
+  const styles = read('components', 'bookings', 'bookingsStyles.ts');
+  assert.match(styles, /html\[data-theme="dark"\] \.bookings-page \.rail-card\{/);
+});
