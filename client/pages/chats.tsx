@@ -31,6 +31,10 @@ import { messageMetaText } from '../lib/chat/chatMedia';
 import ShareListingSheet from '../components/chat/ShareListingSheet';
 import { useElie } from '../components/chat/useElie';
 import { ElieHistoryPanel, ElieThread } from '../components/chat/ElieThread';
+import ConversationInfo from '../components/chat/ConversationInfo';
+import ReportSheet from '../components/chat/ReportSheet';
+import { useCounts } from '../lib/counts/countsStore';
+import { isModifiedClick } from '../lib/navigation/clicks';
 import { KEEP_FOCUS_SELECTOR, useChatViewport } from '../components/chat/useChatViewport';
 
 const { chatsCssHref } = require('../lib/chatsCssAssets');
@@ -188,9 +192,9 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   const [previewCaption, setPreviewCaption] = useState<string>('');
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [selectedPhotoPreview, setSelectedPhotoPreview] = useState<{ url: string; alt: string } | null>(null);
-  const [reportModalOpen, setReportModalOpen] = useState<boolean>(false);
-  const [reportReason, setReportReason] = useState<string>('');
-  const [reportDetails, setReportDetails] = useState<string>('');
+  const [reportSheetOpen, setReportSheetOpen] = useState<boolean>(false);
+  const [searchPlaceholder, setSearchPlaceholder] = useState<string>('Search conversations...');
+  const counts = useCounts();
 
   // Elie State
   const isElie = activeId === ELIE_ID;
@@ -402,6 +406,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
     setMessagesError(false);
     setPendingFile(null);
     setShareSheetOpen(false);
+    setReportSheetOpen(false);
 
     // Update URL query without full page reload if requested
     if (updateRoute) {
@@ -428,6 +433,8 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
       setLoadingMessages(false);
       return;
     }
+
+    if (window.matchMedia('(min-width: 761px)').matches) setInfoCollapsed(false);
 
     const currentUserId = userIdRef.current;
     if (!currentUserId) return;
@@ -674,12 +681,26 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
     return () => window.removeEventListener('click', handleOutsideClick);
   }, [mobileAttachMenuOpen]);
 
-  // Add chat-page-context to body to hide global mobile bottom nav on chats
+  // Phones: the app's bottom navigation shows on the inbox and hides inside a
+  // conversation or its information (legacy showMobileInbox/Conversation).
   useEffect(() => {
-    document.body.classList.add('chat-page-context');
-    return () => {
-      document.body.classList.remove('chat-page-context');
+    const inConversation = mobileView !== 'inbox' && window.matchMedia('(max-width: 760px)').matches;
+    document.body.classList.toggle('chat-page-context', inConversation);
+  }, [mobileView]);
+  useEffect(() => () => document.body.classList.remove('chat-page-context'), []);
+
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin || !event.data || event.data.type !== 'varoom:chat-settings-close') return;
+      setChatSettingsEmbedded(false);
     };
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, []);
+
+  // Search placeholder as legacy: "Search" on desktop.
+  useEffect(() => {
+    if (window.matchMedia('(min-width: 761px)').matches) setSearchPlaceholder('Search');
   }, []);
 
   // Timers for the reply highlight and the "Copied" note.
@@ -1077,26 +1098,32 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
 
   const closeMessageMenu = useCallback(() => setMessageMenu(null), []);
 
-  // Submit User Report
-  const handleSubmitReport = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!activeId || !reportReason) return;
+  // Report the other person (legacy openReportSheet).
+  const submitReport = async (reason: string, details: string) => {
+    const conversationId = activeIdRef.current;
+    if (!conversationId || conversationId === ELIE_ID) return;
     try {
       await api('/api/chat/reports', {
         method: 'POST',
-        body: JSON.stringify({
-          conversationId: activeId,
-          reason: reportReason,
-          details: reportDetails || undefined,
-        }),
+        body: JSON.stringify({ conversationId, reason, details: details || undefined }),
       });
-      alert('Thank you. Your report has been submitted to our safety team.');
-      setReportModalOpen(false);
-      setReportReason('');
-      setReportDetails('');
+      showStatusNote('Report submitted. Thank you.', 3500);
     } catch (err) {
-      alert('Unable to submit report. Please try again.');
+      console.error('Unable to submit report:', err);
+      showStatusNote('Unable to submit report. Please try again.', 3500);
+      throw err;
     }
+  };
+
+  // Chat settings: embedded in the information column on desktop, its own
+  // page on phones (returning to this conversation).
+  const openChatSettings = () => {
+    if (window.matchMedia('(max-width: 760px)').matches) {
+      void router.push(`/chat-settings?returnTo=${encodeURIComponent(router.asPath || '/chats')}`);
+      return;
+    }
+    setInfoCollapsed(false);
+    setChatSettingsEmbedded(true);
   };
 
   // Generate clean, readable plain-text previews for inbox rows (no literal HTML tags)
@@ -1228,28 +1255,38 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
         {/* 1. ICON RAIL (Fixed 78px navigation) */}
         <nav className="icon-rail" id="chatRoleNavigation" data-role={role} aria-label={role === 'host' ? 'Host navigation' : 'Client navigation'}>
           <div className="rail-top">
-            <button type="button" className="rail-btn" title="Home" aria-label="Home" onClick={() => router.push(role === 'host' ? '/host-home' : '/client-home')}>
-              <svg className="icon"><use href="#i-home" /></svg>
-            </button>
-            <button type="button" className="rail-btn active" title="Messages" aria-label="Messages" aria-current="page">
-              <svg className="icon"><use href="#i-chat" /></svg>
-            </button>
-            <button type="button" className="rail-btn" title="Calendar" aria-label="Calendar" onClick={() => router.push('/bookings')}>
-              <svg className="icon"><use href="#i-calendar" /></svg>
-            </button>
-            {role === 'host' && (
-              <button type="button" className="rail-btn" title="Analytics" aria-label="Analytics" onClick={() => router.push('/analytics')}>
-                <svg className="icon"><use href="#i-chart" /></svg>
-              </button>
-            )}
+            {railItems(role).map((item) => (
+              <a
+                key={item.href}
+                className={`rail-btn${item.href === '/chats' ? ' active' : ''}`}
+                href={item.href}
+                title={item.label}
+                aria-label={item.label}
+                aria-current={item.href === '/chats' ? 'page' : undefined}
+                onClick={(e) => {
+                  if (item.href === '/chats' || isModifiedClick(e)) { if (item.href === '/chats') e.preventDefault(); return; }
+                  e.preventDefault();
+                  void router.push(item.href);
+                }}
+              >
+                <svg className="icon"><use href={`#${item.icon}`} /></svg>
+                {item.count && counts[item.count] > 0 && (
+                  <span className="varoom-count-badge" data-count-kind={item.count} aria-label={`${counts[item.count]} ${item.count === 'chats' ? 'unread conversations' : 'new bookings'}`}>
+                    {counts[item.count]}
+                  </span>
+                )}
+              </a>
+            ))}
           </div>
           <div className="rail-bottom">
-            <button type="button" className="rail-btn settings-btn" title="Settings" aria-label="Settings" onClick={() => router.push('/settings')}>
+            <a className="rail-btn settings-btn" href="/settings" title="Settings" aria-label="Settings"
+              onClick={(e) => { if (isModifiedClick(e)) return; e.preventDefault(); void router.push('/settings'); }}>
               <svg className="icon"><use href="#i-gear" /></svg>
-            </button>
-            <button type="button" className="rail-btn" title="Profile" aria-label="Profile" onClick={() => router.push('/profile')}>
+            </a>
+            <a className="rail-btn" href="/profile" title="Profile" aria-label="Profile"
+              onClick={(e) => { if (isModifiedClick(e)) return; e.preventDefault(); void router.push('/profile'); }}>
               <svg className="icon"><use href="#i-user-circle" /></svg>
-            </button>
+            </a>
           </div>
         </nav>
 
@@ -1257,7 +1294,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
         <aside className={`contacts-col${mobileView !== 'inbox' ? ' mobile-hidden' : ''}`}>
           <div className="mobile-inbox-title">
             Messages
-            <button className="mobile-chat-settings" type="button" aria-label="Chat settings" title="Chat settings" onClick={() => router.push('/chat-settings?returnTo=/chats')}>
+            <button className="mobile-chat-settings" type="button" aria-label="Chat settings" title="Chat settings" onClick={openChatSettings}>
               <svg className="icon"><use href="#i-gear" /></svg>
             </button>
           </div>
@@ -1267,7 +1304,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
               <svg className="icon"><use href="#i-search" /></svg>
               <input
                 type="text"
-                placeholder="Search conversations..."
+                placeholder={searchPlaceholder}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -1277,14 +1314,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
               type="button"
               aria-label="Chat settings"
               title="Chat settings"
-              onClick={() => {
-                if (window.innerWidth <= 760) {
-                  router.push('/chat-settings?returnTo=/chats');
-                } else {
-                  setInfoCollapsed(false);
-                  setChatSettingsEmbedded((prev) => !prev);
-                }
-              }}
+              onClick={openChatSettings}
             >
               <svg className="icon"><use href="#i-gear" /></svg>
             </button>
@@ -1398,7 +1428,19 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
               </button>
             )}
 
-            <div className="chat-header-identity" onClick={() => { if (window.innerWidth <= 760) setMobileView('info'); }}>
+            <div
+              className="chat-header-identity"
+              role="button"
+              tabIndex={0}
+              aria-label="Open conversation information"
+              onClick={() => { if (window.matchMedia('(max-width: 760px)').matches) setMobileView('info'); }}
+              onKeyDown={(e) => {
+                if ((e.key === 'Enter' || e.key === ' ') && window.matchMedia('(max-width: 760px)').matches) {
+                  e.preventDefault();
+                  setMobileView('info');
+                }
+              }}
+            >
               <div className="chat-header-avatar-wrap">
                 {isElie ? (
                   <ElieIcon size={34} state={elie.thinking ? 'thinking' : 'default'} />
@@ -1454,7 +1496,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                 <button
                   type="button"
                   title="More actions"
-                  onClick={() => setReportModalOpen(true)}
+                  onClick={() => setReportSheetOpen(true)}
                 >
                   <svg className="icon"><use href="#i-more" /></svg>
                 </button>
@@ -1849,6 +1891,16 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
             />
           </div>
 
+          {/* Report the other person */}
+          {!isElie && (
+            <ReportSheet
+              open={reportSheetOpen}
+              personName={activeConversation?.participant?.full_name || activeConversation?.participant?.username || ''}
+              onClose={() => setReportSheetOpen(false)}
+              onSubmit={submitReport}
+            />
+          )}
+
           {/* Host: share listings into the conversation */}
           {isHost && !isElie && (
             <ShareListingSheet
@@ -1927,25 +1979,34 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
         </main>
 
         {/* 4. INFORMATION COLUMN (Collapsible) */}
-        <aside className={`info-col ${infoCollapsed ? 'collapsed' : ''}${mobileView === 'info' ? ' mobile-visible' : ''}`} id="infoCol">
+        <aside className={`info-col ${infoCollapsed ? 'collapsed' : ''}${chatSettingsEmbedded ? ' chat-settings-open' : ''}${mobileView === 'info' ? ' mobile-visible' : ''}`} id="infoCol">
+          {chatSettingsEmbedded ? (
+            <>
+              <div className="chat-settings-panel-head">
+                <span>Chat Settings</span>
+                <button type="button" className="info-close-btn" aria-label="Close Chat Settings" title="Close Chat Settings" onClick={() => setChatSettingsEmbedded(false)}>
+                  <svg className="icon"><use href="#i-close" /></svg>
+                </button>
+              </div>
+              <iframe
+                className="chat-settings-frame"
+                title="Chat Settings"
+                src={`/chat-settings?embedded=1&role=${encodeURIComponent(role)}`}
+              />
+            </>
+          ) : (
+          <>
           <div className="info-title-row">
-            <div className="info-title">{chatSettingsEmbedded ? 'Chat Settings' : 'Information'}</div>
-            <button className="info-close-btn" title="Close" onClick={() => { setInfoCollapsed(true); setChatSettingsEmbedded(false); if (mobileView === 'info') setMobileView('conversation'); }}>
+            <div className="info-title">Information</div>
+            <button className="info-close-btn" title="Close" onClick={() => { setInfoCollapsed(true); if (mobileView === 'info') setMobileView('conversation'); }}>
               <svg className="icon"><use href="#i-close" /></svg>
             </button>
           </div>
 
-          {chatSettingsEmbedded ? (
-            <iframe
-              className="chat-settings-frame"
-              title="Chat Settings"
-              src={`/chat-settings?embedded=1&role=${encodeURIComponent(role)}`}
-              style={{ width: '100%', height: 'calc(100% - 60px)', border: 'none' }}
-            />
-          ) : isElie ? (
+          {isElie ? (
             <>
-              <div className="profile-block" style={{ padding: '24px 20px', textAlign: 'center' }}>
-                <div className="avatar-fallback" style={{ background: '#f6f7f9', margin: '0 auto 12px' }}>
+              <div className="profile-block">
+                <div className="avatar-fallback" style={{ background: '#f6f7f9' }}>
                   <ElieIcon size={40} />
                 </div>
                 <div className="p-name">Elie</div>
@@ -1957,51 +2018,31 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
               </section>
             </>
           ) : (
-            <>
-              {/* Profile details */}
-              <div className="profile-block" style={{ padding: '24px 20px', textAlign: 'center' }}>
-                <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#24211e', color: '#fff', margin: '0 auto 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', fontWeight: 'bold', overflow: 'hidden' }}>
+            activeConversation && (
+              <ConversationInfo
+                conversation={activeConversation}
+                avatar={(
                   <ConversationAvatar
-                    url={activeConversation?.participant?.avatar_url}
-                    name={activeConversation?.participant?.full_name || activeConversation?.participant?.username || 'User'}
-                    size={64}
-                    fontSize={20}
+                    url={activeConversation.participant?.avatar_url}
+                    name={activeConversation.participant?.full_name || activeConversation.participant?.username || 'User'}
+                    size={40}
+                    fontSize={14}
                   />
-                </div>
-                <h4 style={{ margin: '0 0 4px', fontSize: '16px' }}>{activeConversation?.participant?.full_name || 'VaRoom User'}</h4>
-                <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-gray)' }}>@{activeConversation?.participant?.username || 'user'}</p>
-              </div>
-
-              {/* Media gallery */}
-              <div className="info-section info-media-section">
-                <div className="info-section-head">
-                  <span className="label">Shared Media</span>
-                </div>
-                <div className="media-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', padding: '10px 18px' }}>
-                  {messages.filter((m) => m.attachment?.kind === 'photo').map((m) => (
-                    <AttachmentThumb
-                      key={m.id}
-                      attachmentId={m.attachment!.id}
-                      alt="Media"
-                      api={api}
-                      style={{ width: '100%', height: '70px', objectFit: 'cover', borderRadius: '6px', cursor: 'pointer' }}
-                      onOpen={(url) => setSelectedPhotoPreview({ url, alt: 'Shared Media' })}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {/* Actions Section */}
-              <div className="info-section chat-actions" style={{ padding: '18px' }}>
-                <div className="info-section-head"><span className="label">Actions</span></div>
-                <button type="button" className="info-action info-action-report" style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '10px 0', border: 'none', background: 'none', color: 'var(--color-danger, #b42318)', cursor: 'pointer', fontSize: '14px' }} onClick={() => setReportModalOpen(true)}>
-                  <svg className="icon"><use href="#i-flag" /></svg> Report User
-                </button>
-                <button type="button" className="info-action info-action-block" style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '10px 0', border: 'none', background: 'none', color: 'var(--text-gray)', cursor: 'pointer', fontSize: '14px' }} onClick={() => alert('Blocking users will be available in the upcoming release.')}>
-                  <svg className="icon"><use href="#i-ban" /></svg> Block User
-                </button>
-              </div>
-            </>
+                )}
+                online={presenceKnownId === activeId ? isCurrentOnline : null}
+                messages={messages}
+                api={api}
+                onOpenImage={(url, alt) => setSelectedPhotoPreview({ url, alt })}
+                onOpenFile={(attachmentId) => { void openAttachment(attachmentId); }}
+                onReport={() => setReportSheetOpen(true)}
+                onBlock={() => {
+                  const person = activeConversation.participant;
+                  window.alert(`Blocking ${person?.full_name || person?.username || 'this user'} is not available yet.`);
+                }}
+              />
+            )
+          )}
+          </>
           )}
         </aside>
 
@@ -2028,43 +2069,23 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
         <ImagePreview url={selectedPhotoPreview.url} alt={selectedPhotoPreview.alt} onClose={closePhotoPreview} />
       )}
 
-      {/* User Report Modal */}
-      {reportModalOpen && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ background: '#fff', color: '#111', borderRadius: '12px', padding: '24px', width: '90%', maxWidth: '440px' }}>
-            <h3 style={{ margin: '0 0 12px' }}>Report User</h3>
-            <form onSubmit={handleSubmitReport}>
-              <div style={{ marginBottom: '14px' }}>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>Reason</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Inappropriate behavior, spam, fraud"
-                  value={reportReason}
-                  onChange={(e) => setReportReason(e.target.value)}
-                  style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #ccc' }}
-                />
-              </div>
-              <div style={{ marginBottom: '18px' }}>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>Details (optional)</label>
-                <textarea
-                  rows={3}
-                  value={reportDetails}
-                  onChange={(e) => setReportDetails(e.target.value)}
-                  style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #ccc' }}
-                />
-              </div>
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-                <button type="button" onClick={() => setReportModalOpen(false)} style={{ padding: '8px 16px', borderRadius: '6px', border: '1px solid #ccc', background: 'none', cursor: 'pointer' }}>Cancel</button>
-                <button type="submit" style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', background: '#bd2337', color: '#fff', cursor: 'pointer', fontWeight: 600 }}>Submit Report</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </>
   );
 }
+
+// The icon rail (legacy chats.html): Home, Messages, Calendar, and Analytics for hosts.
+type RailItem = { label: string; href: string; icon: string; count?: 'chats' | 'bookings' };
+function railItems(role: 'host' | 'client'): RailItem[] {
+  return [
+    { label: 'Home', href: role === 'host' ? '/host-home' : '/client-home', icon: 'i-home' },
+    { label: 'Messages', href: '/chats', icon: 'i-chat', count: 'chats' },
+    { label: 'Calendar', href: '/bookings', icon: 'i-calendar', count: 'bookings' },
+    ...(role === 'host' ? [{ label: 'Analytics', href: '/analytics', icon: 'i-chart' }] : []),
+  ];
+}
+
+// The app's mobile navigation shows on the inbox (legacy loaded it on Chats).
+(ChatsPage as unknown as { appNavigation: boolean }).appNavigation = true;
 
 // Preserve self-contained full-screen dashboard app shell outside ClientLayout and HostLayout
 ChatsPage.getLayout = function getLayout(page: React.ReactNode) {

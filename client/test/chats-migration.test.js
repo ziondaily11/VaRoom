@@ -146,7 +146,8 @@ test('Stage 3: Avatar URL resolution and error fallback in chats.tsx', () => {
   // 2. Chat header
   assert.match(source, /<div className="chat-header-avatar-wrap">[\s\S]*?<ConversationAvatar\s+url=\{activeConversation\?\.participant\?\.avatar_url\}/);
   // 3. Conversation info panel
-  assert.match(source, /<div className="profile-block"[\s\S]*?<ConversationAvatar\s+url=\{activeConversation\?\.participant\?\.avatar_url\}/);
+  // The information column's avatar is passed to ConversationInfo (components/chat).
+  assert.match(source, /<ConversationInfo[\s\S]*?avatar=\{\(\s*<ConversationAvatar\s+url=\{activeConversation\.participant\?\.avatar_url\}/);
 });
 
 test('Stage 4: CSS parity class names and mobile view toggling in chats.tsx', () => {
@@ -273,9 +274,8 @@ test('Stage 5B: Message rendering, context actions, and mobile nav suppression',
   assert.match(source, /onTouchStart=\{actionable \? \(e\) => onMessageTouchStart\(e, m\) : undefined\}/);
   assert.match(source, /<MessageActionMenu/);
 
-  // chat-page-context body class applied on mount
-  assert.match(source, /chat-page-context/);
-  assert.match(source, /classList\.add\('chat-page-context'\)/);
+  // Phones: the app's bottom navigation hides inside a conversation only (legacy).
+  assert.match(source, /document\.body\.classList\.toggle\('chat-page-context', inConversation\);/);
   assert.match(source, /classList\.remove\('chat-page-context'\)/);
 });
 
