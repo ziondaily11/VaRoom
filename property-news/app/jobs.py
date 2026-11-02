@@ -4,15 +4,42 @@ import argparse
 import asyncio
 import json
 import logging
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from .analysis import NewsAnalyzer, build_analyzer
 from .collector import SourceCollector
-from .config import settings
+from .config import configure_logging, settings
 from .constants import ReviewStatus
+from .models import NewsEvent
 from .processing import ProcessingService
 from .relevance import classify_property_relevance, classify_property_sales_content
 from .repository import build_repository
+
+# A failed item is retried on later runs at most this many times in total.
+MAX_PROCESSING_ATTEMPTS = 3
+# No source run lasts this long, so a run still "running" after it was abandoned.
+STALE_FETCH_RUN_AGE = timedelta(hours=1)
+
+
+async def _retryable_failed_item_ids(store) -> list:
+    """Failed items still under the attempt cap. Items at the cap are archived
+    so they stop occupying the failed-item batch."""
+    item_ids = []
+    for item in await store.list_failed_items():
+        failures = await store.count_item_events(item.id, "item_processing_failed", MAX_PROCESSING_ATTEMPTS)
+        if failures < MAX_PROCESSING_ATTEMPTS:
+            item_ids.append(item.id)
+            continue
+        full_item = await store.get_item(item.id)
+        if full_item is None:
+            continue
+        full_item.review_status = ReviewStatus.ARCHIVED
+        await store.save_item(full_item)
+        await store.add_event(NewsEvent(news_id=item.id, source_id=item.source_id,
+                                        event_type="item_processing_abandoned",
+                                        payload={"failed_attempts": failures}))
+    return item_ids
 
 
 async def run_collection_job(repository=None, config=settings, analyzer: NewsAnalyzer | None = None,
@@ -27,6 +54,12 @@ async def run_collection_job(repository=None, config=settings, analyzer: NewsAna
         except Exception as error:
             logging.getLogger(__name__).error("Publication release failed; continuing collection: %s", error)
             released = 0
+        try:
+            abandoned = await store.fail_stale_fetch_runs(datetime.now(timezone.utc) - STALE_FETCH_RUN_AGE)
+            if abandoned:
+                logging.getLogger(__name__).info("Marked %d abandoned fetch runs as failed", abandoned)
+        except Exception as error:
+            logging.getLogger(__name__).error("Stale fetch-run cleanup failed; continuing collection: %s", error)
         collected = await collector.collect_due_sources(source_group=source_group)
         result = {key: int(collected.get(key, 0)) for key in (
             "sources_active", "sources_due", "sources_deferred", "sources_checked",
@@ -39,7 +72,7 @@ async def run_collection_job(repository=None, config=settings, analyzer: NewsAna
         )}
         result["source_failures"] = collected.get("source_failures", [])
         result["collection_status"] = _collection_status(result)
-        failed_item_ids = [item.id for item in await store.list_failed_items()]
+        failed_item_ids = await _retryable_failed_item_ids(store)
         item_ids = list(dict.fromkeys([*collected["new_item_ids"], *failed_item_ids]))
         result.update({"processed": 0, "published": released, "pending_review": 0, "archived": 0,
                        "processing_failures": 0, "retried": len(failed_item_ids), "released": released})
@@ -198,7 +231,7 @@ def main() -> None:
     args = parser.parse_args()
     if not args.collect_due and not args.health_check:
         parser.error("Choose --collect-due and/or --health-check")
-    logging.basicConfig(level=settings.log_level)
+    configure_logging(settings.log_level)
     asyncio.run(run(args.collect_due, args.health_check))
 
 

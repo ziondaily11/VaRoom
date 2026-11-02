@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 MAX_NEWS_LIST_LIMIT = 100
 DEDUP_SCAN_LIMIT = 100
 PUBLICATION_BATCH_LIMIT = 100
+STALE_FETCH_RUN_MESSAGE = "Abandoned: the collector stopped before the run finished"
 FULL_ITEM_FIELDS = (
     "id,source_id,source_url,canonical_url,source_title,source_published_at,fetched_at,"
     "original_content,clean_text,varoom_title,varoom_summary,varoom_body,category,topics,"
@@ -174,6 +175,16 @@ class MemoryNewsRepository:
     async def add_review(self, review: dict[str, Any]) -> None:
         self.reviews.append(copy.deepcopy(review))
 
+    async def count_item_events(self, news_id: UUID, event_type: str, limit: int) -> int:
+        return min(limit, sum(1 for event in self.events if event.news_id == news_id and event.event_type == event_type))
+
+    async def fail_stale_fetch_runs(self, older_than: datetime) -> int:
+        stale = [run for run in self.fetch_runs.values()
+                 if run["result"] == "running" and run["started_at"] < older_than]
+        for run in stale:
+            run.update({"result": "failed", "ended_at": _now(), "error_message": STALE_FETCH_RUN_MESSAGE})
+        return len(stale)
+
     async def start_fetch_run(self, source_id: UUID, started_at: datetime) -> UUID:
         run_id = uuid4()
         self.fetch_runs[run_id] = {"id": run_id, "source_id": source_id, "started_at": started_at, "result": "running"}
@@ -283,7 +294,7 @@ class SupabaseNewsRepository:
             started = time.monotonic()
             try:
                 response = await self.client.request(method, url, params=params, json=payload, headers=headers)
-                logger.info(
+                logger.debug(
                     "Supabase request table=%s query=%s limit=%s elapsed_ms=%d status=%d retry=%d",
                     table, params or {}, (params or {}).get("limit"),
                     int((time.monotonic() - started) * 1000), response.status_code, attempt - 1,
@@ -485,6 +496,21 @@ class SupabaseNewsRepository:
 
     async def add_review(self, review: dict[str, Any]) -> None:
         await self._request("POST", "news_reviews", payload=review, prefer="return=minimal")
+
+    async def count_item_events(self, news_id: UUID, event_type: str, limit: int) -> int:
+        rows = await self._request("GET", "news_events", params={
+            "select": "id", "news_id": f"eq.{news_id}", "event_type": f"eq.{event_type}", "limit": str(limit),
+        })
+        return len(rows)
+
+    async def fail_stale_fetch_runs(self, older_than: datetime) -> int:
+        rows = await self._request(
+            "PATCH", "source_fetch_runs",
+            params={"result": "eq.running", "started_at": f"lt.{older_than.isoformat()}", "select": "id"},
+            payload={"result": "failed", "ended_at": _now().isoformat(), "error_message": STALE_FETCH_RUN_MESSAGE},
+            prefer="return=representation",
+        )
+        return len(rows) if isinstance(rows, list) else 0
 
     async def start_fetch_run(self, source_id: UUID, started_at: datetime) -> UUID:
         rows = await self._request("POST", "source_fetch_runs", payload={"source_id": str(source_id), "started_at": started_at.isoformat(), "result": "running"},

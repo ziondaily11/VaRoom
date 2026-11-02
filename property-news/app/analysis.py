@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 import json
+import logging
 import re
 from typing import Protocol
 
@@ -13,6 +15,7 @@ from .relevance import classify_property_relevance
 from .risk import assess_risk
 from .quality import EVENT_TERMS
 
+logger = logging.getLogger(__name__)
 
 KEYWORDS: dict[str, tuple[str, ...]] = {
     "land": ("title deed", "valuation roll", "leasehold", "freehold", "parcel of land", "land rates", "land registry", "land dispute", "ardhisasa"),
@@ -61,6 +64,23 @@ def _status_from_text(text: str) -> RegulatoryStatus:
 
 def _sentences(text: str) -> list[str]:
     return [sentence.strip() for sentence in re.split(r"(?<=[.!?])\s+", text) if sentence.strip()]
+
+
+SUMMARY_MAX_LENGTH = 280
+
+
+def _excerpt(text: str, max_length: int = SUMMARY_MAX_LENGTH) -> str:
+    """Shorten text without breaking a word: last whole sentence, else last word + ellipsis."""
+    clean = " ".join(text.split())
+    if len(clean) <= max_length:
+        return clean
+    sentence_end = max((match.end() for match in re.finditer(r"[.!?](?=\s|$)", clean[:max_length + 1])), default=0)
+    if sentence_end >= max_length * 0.4:
+        return clean[:sentence_end]
+    cut = clean[:max_length - 1]
+    if clean[max_length - 1] != " " and " " in cut:
+        cut = cut[:cut.rindex(" ")]
+    return cut.rstrip(" ,;:—–-") + "…"
 
 
 class NewsAnalyzer(Protocol):
@@ -136,7 +156,7 @@ class RulesBasedNewsAnalyzer:
             sentence for sentence in _sentences(item.clean_text)
             if any(term in sentence.lower() for term in EVENT_TERMS)
         ][:2]
-        summary = " ".join(summary_sentences)[:280] if summary_sentences else None
+        summary = _excerpt(" ".join(summary_sentences)) if summary_sentences else None
         body = item.clean_text[:4000].strip() if item.clean_text else None
         risk, reasons = assess_risk(text, status, source.trust_tier)
         confidence = 0.82 if relevant and source.trust_tier <= 2 else (0.62 if relevant else 0.95)
@@ -199,7 +219,8 @@ class GeminiNewsAnalyzer:
             "generationConfig": {"temperature": 0.1, "responseMimeType": "application/json"},
         }
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent"
-        response = await self._client.post(url, params={"key": self.api_key}, json=payload)
+        # Header rather than ?key= so the credential never appears in a URL.
+        response = await self._client.post(url, headers={"x-goog-api-key": self.api_key}, json=payload)
         response.raise_for_status()
         candidates = response.json().get("candidates") or []
         parts = candidates[0].get("content", {}).get("parts", []) if candidates else []
@@ -213,9 +234,61 @@ class GeminiNewsAnalyzer:
                                            "model_provider": "gemini", "model_version": self.model})
 
 
+RETRYABLE_PROVIDER_STATUS = {429, 500, 502, 503, 504}
+PROVIDER_RETRY_DELAY_SECONDS = 2.0
+PROVIDER_MAX_RETRY_DELAY_SECONDS = 10.0
+
+
+class FallbackNewsAnalyzer:
+    """Uses the AI provider, retrying once on rate limits or server errors.
+
+    If the provider still fails, the item is analysed by the rules analyser
+    instead of being marked failed and retried on every collection run.
+    """
+
+    def __init__(self, primary: NewsAnalyzer, fallback: NewsAnalyzer | None = None,
+                 retry_delay_seconds: float = PROVIDER_RETRY_DELAY_SECONDS) -> None:
+        self.primary = primary
+        self.fallback = fallback or RulesBasedNewsAnalyzer()
+        self.retry_delay_seconds = retry_delay_seconds
+
+    async def close(self) -> None:
+        close = getattr(self.primary, "close", None)
+        if close:
+            await close()
+
+    async def analyse(self, item: NewsItem, source: Source) -> NewsAnalysis:
+        for attempt in range(2):
+            try:
+                return await self.primary.analyse(item, source)
+            except httpx.HTTPStatusError as error:
+                status = error.response.status_code
+                if attempt == 0 and status in RETRYABLE_PROVIDER_STATUS:
+                    await asyncio.sleep(self._retry_delay(error.response))
+                    continue
+                logger.warning("AI analysis failed item_id=%s status=%d; using rules fallback", item.id, status)
+                break
+            except (httpx.TransportError, ValueError, KeyError, IndexError, TypeError) as error:
+                # ValueError covers invalid JSON and schema validation errors.
+                if attempt == 0 and isinstance(error, httpx.TransportError):
+                    await asyncio.sleep(self.retry_delay_seconds)
+                    continue
+                logger.warning("AI analysis failed item_id=%s error_type=%s; using rules fallback",
+                               item.id, type(error).__name__)
+                break
+        return await self.fallback.analyse(item, source)
+
+    def _retry_delay(self, response: httpx.Response) -> float:
+        try:
+            delay = float(response.headers.get("retry-after", self.retry_delay_seconds))
+        except ValueError:
+            delay = self.retry_delay_seconds
+        return max(0.0, min(delay, PROVIDER_MAX_RETRY_DELAY_SECONDS))
+
+
 def build_analyzer(config: Settings) -> NewsAnalyzer:
     if config.ai_provider == "gemini" and config.ai_api_key and config.ai_model:
-        return GeminiNewsAnalyzer(config.ai_api_key, config.ai_model)
+        return FallbackNewsAnalyzer(GeminiNewsAnalyzer(config.ai_api_key, config.ai_model))
     if config.ai_provider == "openai-compatible" and config.ai_base_url and config.ai_api_key and config.ai_model:
-        return OpenAICompatibleNewsAnalyzer(config.ai_base_url, config.ai_api_key, config.ai_model)
+        return FallbackNewsAnalyzer(OpenAICompatibleNewsAnalyzer(config.ai_base_url, config.ai_api_key, config.ai_model))
     return RulesBasedNewsAnalyzer()

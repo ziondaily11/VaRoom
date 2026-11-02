@@ -64,25 +64,29 @@ VERIFIED_SOURCES = [
 OFFICIAL_LANDS_SOURCE = VERIFIED_SOURCES[0]
 
 
+def _seeded_source(source_data: dict, existing: Source | None, active: bool) -> Source:
+    """Apply seed configuration while keeping an existing row's collection
+    history (last success/failure, error, failure count)."""
+    if existing is None:
+        return Source(**(source_data | {"active": active}))
+    return Source(**(existing.model_dump() | source_data | {"active": active}))
+
+
 async def upsert_official_lands_source(repository: Repository, *, activate: bool) -> Source:
     existing = next((source for source in await repository.list_sources()
                      if source.base_url.rstrip("/") == OFFICIAL_LANDS_SOURCE["base_url"].rstrip("/")), None)
-    values = OFFICIAL_LANDS_SOURCE | {"active": activate}
-    if existing:
-        values |= {"id": existing.id, "created_at": existing.created_at}
-    return await repository.upsert_source(Source(**values))
+    return await repository.upsert_source(_seeded_source(OFFICIAL_LANDS_SOURCE, existing, activate))
 
 
 async def seed_verified_sources(repository: Repository, *, activate: bool = True) -> list[Source]:
+    """Register the verified sources. A source that already exists keeps its
+    active flag, so a source an admin disabled stays disabled after a restart."""
     seeded = []
     existing_sources = await repository.list_sources()
     for source_data in VERIFIED_SOURCES:
         existing = next((s for s in existing_sources if s.base_url.rstrip("/") == source_data["base_url"].rstrip("/")), None)
-        values = source_data | {"active": activate}
-        if existing:
-            values |= {"id": existing.id, "created_at": existing.created_at}
-        source = await repository.upsert_source(Source(**values))
-        seeded.append(source)
+        active = existing.active if existing else activate
+        seeded.append(await repository.upsert_source(_seeded_source(source_data, existing, active)))
     return seeded
 
 
