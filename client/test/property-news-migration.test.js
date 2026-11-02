@@ -7,8 +7,8 @@ const root = path.join(__dirname, '..');
 const propertyNewsPath = path.join(root, 'pages', 'property-news.tsx');
 const legacyPropertyNewsPath = path.join(root, 'legacy-pages', 'property-news.html');
 const legacyPropertyNewsScriptPath = path.join(root, 'public', 'js', 'property-news-page.js');
-const clientLayoutPath = path.join(root, 'components', 'ClientLayout.jsx');
-const hostLayoutPath = path.join(root, 'components', 'HostLayout.jsx');
+const clientLayoutPath = path.join(root, 'components', 'shell', 'shellStyles.ts');
+const hostLayoutPath = path.join(root, 'components', 'shell', 'shellStyles.ts');
 const slugPath = path.join(root, 'pages', '[...slug].js');
 const { getAccountLayout } = require('../lib/accountRoleLayout');
 

@@ -41,6 +41,8 @@ declare global {
       switchAccount(accountId: string): Promise<void>;
     };
     __varoomAddAccountModalMounted?: boolean;
+    /** Client Home's Saved view, when that page defines it. */
+    showSavedView?: () => void;
     VaRoomChatCache?: {
       clearUser(userId: string): Promise<void>;
       clearMedia(): Promise<void>;

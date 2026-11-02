@@ -7,9 +7,9 @@ const { getAccountLayout } = require('../lib/accountRoleLayout');
 
 const clientDir = path.join(__dirname, '..');
 
-test('SharedHostSidebar and HostLayout exist and export React components', () => {
-  const sidebarCode = fs.readFileSync(path.join(clientDir, 'components', 'SharedHostSidebar.jsx'), 'utf8');
-  const layoutCode = fs.readFileSync(path.join(clientDir, 'components', 'HostLayout.jsx'), 'utf8');
+test('HostSidebar and the host shell styles exist', () => {
+  const sidebarCode = fs.readFileSync(path.join(clientDir, 'components', 'shell/HostSidebar.tsx'), 'utf8');
+  const layoutCode = fs.readFileSync(path.join(clientDir, 'components', 'shell', 'shellStyles.ts'), 'utf8');
 
   // Verify authoritative dimensions & layout classes
   assert.match(sidebarCode, /id="host-sidebar"/, 'Uses an id isolated from the legacy sidebar script');
@@ -17,11 +17,20 @@ test('SharedHostSidebar and HostLayout exist and export React components', () =>
   assert.match(layoutCode, /295px minmax\(0, 1fr\)/, 'HostLayout enforces 295px sidebar column');
   assert.match(layoutCode, /host-app-layout/, 'Contains host-app-layout class');
   assert.match(layoutCode, /host-page-content/, 'Contains host-page-content container');
-  assert.match(layoutCode, /<SharedHostSidebar/, 'HostLayout mounts SharedHostSidebar once');
+  const shellCode = fs.readFileSync(path.join(clientDir, 'components', 'shell', 'AppShell.tsx'), 'utf8');
+  assert.match(shellCode, /variant === 'host' \? <HostSidebar \/>/, 'AppShell mounts HostSidebar once');
+});
+
+test('AppShell keeps one element structure for every variant so pages are not remounted', () => {
+  const shellCode = fs.readFileSync(path.join(clientDir, 'components', 'shell', 'AppShell.tsx'), 'utf8');
+  const styles = fs.readFileSync(path.join(clientDir, 'components', 'shell', 'shellStyles.ts'), 'utf8');
+  assert.match(shellCode, /<main className=\{content\.className\} id=\{content\.id\}>\s*\{children\}\s*<\/main>/);
+  assert.match(shellCode, /data-shell-state=\{variant \|\| settled \? 'ready' : 'pending'\}/);
+  assert.match(styles, /\.app-shell-pending,\s*\.app-shell-pending > \.app-shell-pending-content \{\s*display: contents;/);
 });
 
 test('SharedHostSidebar has all reference navigation and account switcher elements', () => {
-  const sidebarCode = fs.readFileSync(path.join(clientDir, 'components', 'SharedHostSidebar.jsx'), 'utf8');
+  const sidebarCode = fs.readFileSync(path.join(clientDir, 'components', 'shell/HostSidebar.tsx'), 'utf8');
 
   // Nav items
   assert.match(sidebarCode, /Home/, 'Contains Home nav item');
@@ -49,13 +58,14 @@ test('SharedHostSidebar has all reference navigation and account switcher elemen
   assert.match(sidebarCode, /id="account-logout-btn"/, 'Contains log out button');
 });
 
-test('_app.js wraps designated host-facing routes with persistent HostLayout', () => {
-  const appCode = fs.readFileSync(path.join(clientDir, 'pages', '_app.js'), 'utf8');
+test('_app.tsx wraps designated account routes with the persistent AppShell', () => {
+  const appCode = fs.readFileSync(path.join(clientDir, 'pages', '_app.tsx'), 'utf8');
 
-  assert.match(appCode, /import HostLayout from '\.\.\/components\/HostLayout';/, 'Imports HostLayout');
+  assert.match(appCode, /import AppShell from '\.\.\/components\/shell\/AppShell';/, 'Imports AppShell');
   assert.match(appCode, /getAccountLayout\(path, asPath, role\)/, 'Uses the tested role-aware route selector');
-  assert.match(appCode, /<HostLayout>\{pageElement\}<\/HostLayout>/, 'Mounts persistent HostLayout');
-  assert.match(appCode, /const role = getSessionBoundCachedRole\(session, profile\);/, 'Role comes only from the verified session and its profile');
+  assert.match(appCode, /<AppShell variant=\{accountLayout === 'none' \? null : accountLayout\}>\{pageElement\}<\/AppShell>/, 'Mounts AppShell, pending until the role is known');
+  assert.match(appCode, /<MobileNav enabled=\{isShellRoute \|\| Boolean\(Component\.appNavigation\)\} \/>/, 'One persistent mobile navigation');
+  assert.match(appCode, /const role: ShellRole = getSessionBoundCachedRole\(session, profile\);/, 'Role comes only from the verified session and its profile');
   assert.match(appCode, /<AuthProvider>/, 'AuthProvider owns the session for every page');
   assert.doesNotMatch(appCode, /varoom_role_change|attributeFilter/, 'Page-level role hints no longer trigger profile re-queries');
   assert.doesNotMatch(appCode, /useState\(\(\) => \{[\s\S]*?sessionStorage/, 'Does not read browser storage during initial render');
@@ -69,20 +79,20 @@ test('confirmed client roles select ClientLayout on shared routes and never Host
   assert.equal(getAccountLayout('/[...slug]', '/bookings', 'host'), 'host');
 });
 
-test('SharedHostSidebar defers browser-specific account data until after hydration', () => {
-  const sidebarCode = fs.readFileSync(path.join(clientDir, 'components', 'SharedHostSidebar.jsx'), 'utf8');
-  const initialUser = sidebarCode.match(/function getInitialUser\(\) \{([\s\S]*?)\n\}/);
+test('HostSidebar defers browser-specific account data until after hydration', () => {
+  const sidebarCode = fs.readFileSync(path.join(clientDir, 'components', 'shell/HostSidebar.tsx'), 'utf8');
+  const chrome = fs.readFileSync(path.join(clientDir, 'components', 'shell', 'useShellChrome.ts'), 'utf8');
+  const initialUser = sidebarCode.match(/function getInitialUser\(\): ShellIdentity \{([\s\S]*?)\n\}/);
 
   assert.ok(initialUser, 'Has a deterministic initial account');
   assert.doesNotMatch(initialUser[1], /window|localStorage|sessionStorage/);
-  assert.match(sidebarCode, /function getStoredUser\(\)/, 'Reads the cached account separately');
-  assert.match(sidebarCode, /setUser\(getStoredUser\(\)\)/, 'Loads cached account in an effect');
+  assert.match(chrome, /useEffect\(\(\) => \{\s*setHasMounted\(true\);\s*const active = activeLinkedAccount\(\);/, 'Reads the stored account in an effect');
   assert.match(sidebarCode, /id="host-profile-nav-link"/);
   assert.doesNotMatch(sidebarCode, /id="profile-brand-link"/, 'Does not reuse the profile page brand-link ID');
 });
 
 test('Duplicate legacy sidebars are hidden without mutating legacy page DOM', () => {
-  const layoutCode = fs.readFileSync(path.join(clientDir, 'components', 'HostLayout.jsx'), 'utf8');
+  const layoutCode = fs.readFileSync(path.join(clientDir, 'components', 'shell', 'shellStyles.ts'), 'utf8');
   const slugCode = fs.readFileSync(path.join(clientDir, 'pages', '[...slug].js'), 'utf8');
 
   assert.match(layoutCode, /\.host-layout-active \.host-page-content aside\.sidebar/);
@@ -96,7 +106,7 @@ test('Duplicate legacy sidebars are hidden without mutating legacy page DOM', ()
 test('Host Home keeps its template sidebar until the authenticated HostLayout mounts', () => {
   const hostHome = fs.readFileSync(path.join(clientDir, 'legacy-pages', 'host-home.html'), 'utf8');
   const slugCode = fs.readFileSync(path.join(clientDir, 'pages', '[...slug].js'), 'utf8');
-  const layoutCode = fs.readFileSync(path.join(clientDir, 'components', 'HostLayout.jsx'), 'utf8');
+  const layoutCode = fs.readFileSync(path.join(clientDir, 'components', 'shell', 'shellStyles.ts'), 'utf8');
 
   assert.match(hostHome, /<aside class="sidebar" id="sidebar">/);
   assert.doesNotMatch(slugCode, /source\.replace\(\/<aside\\b[\s\S]*?class=[\s\S]*?sidebar/);
@@ -163,7 +173,7 @@ test('Legacy avatar keys and external avatar URLs keep their existing behavior',
 
 test('Host profile uses the shared sidebar without colliding or covering it while loading', () => {
   const profileCode = fs.readFileSync(path.join(clientDir, 'legacy-pages', 'profile.html'), 'utf8');
-  const layoutCode = fs.readFileSync(path.join(clientDir, 'components', 'HostLayout.jsx'), 'utf8');
+  const layoutCode = fs.readFileSync(path.join(clientDir, 'components', 'shell', 'shellStyles.ts'), 'utf8');
   const loadingRule = profileCode.match(/\.host-layout-active \.host-page-content #loading-state\{([^}]+)\}/);
 
   assert.doesNotMatch(profileCode, /<aside class="profile-sidebar" id="sidebar"/);
@@ -182,4 +192,15 @@ test('Video player treats pause-interrupted play requests separately from playba
 
   assert.match(playerCode, /video\.play\(\)\.catch\(function \(error\) \{\s*if \(error && error\.name === 'AbortError'\) return;/);
   assert.match(playerCode, /console\.warn\('Video playback was blocked or failed:', error\)/);
+});
+
+test('one mobile navigation: client items have no host tools and Client Home keeps its own bar', () => {
+  const navCode = fs.readFileSync(path.join(clientDir, 'components', 'shell', 'MobileNav.tsx'), 'utf8');
+  const clientItems = navCode.match(/export const CLIENT_MOBILE_ITEMS[\s\S]*?\];/)[0];
+  assert.doesNotMatch(clientItems, /\/list|create/);
+  assert.match(navCode, /\['\/booking', '\/chat-settings', '\/pricing', '\/list', '\/properties', '\/client-home'\]/);
+  const slugCode = fs.readFileSync(path.join(clientDir, 'pages', '[...slug].js'), 'utf8');
+  assert.doesNotMatch(slugCode, /varoom-mobile-nav\.js/, 'The legacy script nav is retired');
+  assert.match(slugCode, /LegacyPage\.appNavigation = true;/);
+  assert.match(slugCode, /await waitForShellReady\(document\);/, 'Legacy scripts wait for the shell to settle');
 });

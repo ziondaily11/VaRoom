@@ -36,11 +36,11 @@ test('varoom-sidebar.css and varoom-sidebar.js use Lights Out black tokens', () 
 });
 
 test('_document.js and _app.js avoid FOUC with true black background', () => {
-  const docJs = fs.readFileSync(path.join(clientRoot, 'pages', '_document.js'), 'utf8');
+  const docJs = fs.readFileSync(path.join(clientRoot, 'pages', '_document.tsx'), 'utf8');
   assert.match(docJs, /html\[data-theme="dark"\]\{background:#000000;color-scheme:dark\}/, '_document.js anti-FOUC must use #000000');
   assert.match(docJs, /html\[data-theme="dark"\] body\{background:#000000\}/, '_document.js body anti-FOUC must use #000000');
 
-  const appJs = fs.readFileSync(path.join(clientRoot, 'pages', '_app.js'), 'utf8');
+  const appJs = fs.readFileSync(path.join(clientRoot, 'pages', '_app.tsx'), 'utf8');
   assert.match(appJs, /html\[data-theme="dark"\],\s*html\[data-theme="dark"\] body,\s*html\[data-theme="dark"\] #__next\s*\{\s*background:\s*#000000;/, '_app.js must use #000000 for dark canvas');
   assert.match(appJs, /--color-bg:\s*#000000;/, '_app.js design tokens must include dark #000000');
 });
@@ -50,20 +50,20 @@ test('deleted Payments route stays excluded from global dark mode', () => {
   assert.ok(FORCED_LIGHT_ROUTES.includes('/payments'));
   assert.equal(resolveTheme('/payments', 'dark', true), 'light');
   assert.equal(resolveTheme('/payments/', 'dark', true), 'light');
-  const docJs = fs.readFileSync(path.join(clientRoot, 'pages', '_document.js'), 'utf8');
-  const appJs = fs.readFileSync(path.join(clientRoot, 'pages', '_app.js'), 'utf8');
+  const docJs = fs.readFileSync(path.join(clientRoot, 'pages', '_document.tsx'), 'utf8');
+  const appJs = fs.readFileSync(path.join(clientRoot, 'pages', '_app.tsx'), 'utf8');
   assert.match(docJs, /themeBootScript as buildThemeBootScript \} from '\.\.\/lib\/theme'/);
   assert.match(appJs, /import \{ applyTheme \} from '\.\.\/lib\/theme';/);
   assert.match(appJs, /Router\.events\.on\('routeChangeStart', onStart\)/);
 });
 
 test('HostLayout and ClientLayout use X Lights Out tokens', () => {
-  const hostLayout = fs.readFileSync(path.join(clientRoot, 'components', 'HostLayout.jsx'), 'utf8');
+  const hostLayout = fs.readFileSync(path.join(clientRoot, 'components', 'shell', 'shellStyles.ts'), 'utf8');
   assert.match(hostLayout, /--layout-bg:\s*#000000;/, 'HostLayout must use #000000');
   assert.match(hostLayout, /--layout-ink:\s*#FFFFFF;/, 'HostLayout text must be #FFFFFF');
   assert.match(hostLayout, /--layout-popover-bg:\s*#000000;/, 'HostLayout popovers must be #000000');
 
-  const clientLayout = fs.readFileSync(path.join(clientRoot, 'components', 'ClientLayout.jsx'), 'utf8');
+  const clientLayout = fs.readFileSync(path.join(clientRoot, 'components', 'shell', 'shellStyles.ts'), 'utf8');
   assert.match(clientLayout, /--layout-bg:\s*#000000;/, 'ClientLayout must use #000000');
   assert.match(clientLayout, /--layout-ink:\s*#FFFFFF;/, 'ClientLayout text must be #FFFFFF');
   assert.match(clientLayout, /--layout-popover-bg:\s*#000000;/, 'ClientLayout popovers must be #000000');
@@ -112,7 +112,7 @@ test('Light mode tokens remain intact and untouched', () => {
   const sidebarCss = fs.readFileSync(path.join(clientRoot, 'public', 'js', 'varoom-sidebar.css'), 'utf8');
   assert.match(sidebarCss, /:root\s*\{[\s\S]*--white:\s*#FFFFFF;[\s\S]*--paper:\s*#F7F6F3;/, 'Light mode sidebar tokens must remain intact');
 
-  const appJs = fs.readFileSync(path.join(clientRoot, 'pages', '_app.js'), 'utf8');
+  const appJs = fs.readFileSync(path.join(clientRoot, 'pages', '_app.tsx'), 'utf8');
   assert.match(appJs, /:root\s*\{[\s\S]*--color-bg:\s*#f7f3ec;[\s\S]*--color-surface:\s*#fffdfb;/, 'Light mode design tokens in _app.js must remain intact');
 
   const clientHomeCss = fs.readFileSync(path.join(clientRoot, 'pages', 'ClientHome.module.css'), 'utf8');
@@ -127,7 +127,7 @@ test('Landing page is exempted from global dark mode and CTA buttons have high c
   assert.equal(resolveTheme('/bookings', 'dark', false), 'dark');
   assert.equal(resolveTheme('/bookings', 'system', true), 'dark');
 
-  const appJs = fs.readFileSync(path.join(clientRoot, 'pages', '_app.js'), 'utf8');
+  const appJs = fs.readFileSync(path.join(clientRoot, 'pages', '_app.tsx'), 'utf8');
   assert.match(appJs, /html\[data-theme="dark"\] \.va-button-primary[\s\S]*color:\s*#0F1419 !important;/, 'Dark primary buttons must have dark text');
   assert.match(appJs, /\.landing-cta:not\(\.landing-cta-secondary\),[\s\S]*background:\s*#111111 !important;/, 'Landing CTA must preserve vintage #111111');
 

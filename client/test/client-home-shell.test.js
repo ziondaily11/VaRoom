@@ -16,12 +16,14 @@ const { FALLBACK_SUPABASE_ANON_KEY: FALLBACK_ANON_KEY, SUPABASE_ANON_KEY } = loa
   globals: { process: { env: {} } },
 });
 
-test('native Client Home shell uses the shared ClientLayout without rendering a duplicate sidebar', () => {
+test('native Client Home shell uses the shared AppShell without rendering a duplicate sidebar', () => {
   const source = fs.readFileSync(pagePath, 'utf8');
 
-  assert.match(source, /import ClientLayout from '\.\.\/components\/ClientLayout';/);
-  assert.match(source, /ClientHome\.getLayout[\s\S]*?<ClientLayout className="client-home-layout">\{page\}<\/ClientLayout>/);
-  assert.doesNotMatch(source, /SharedClientSidebar/);
+  assert.match(source, /import AppShell from '\.\.\/components\/shell\/AppShell';/);
+  assert.match(source, /ClientHome\.getLayout[\s\S]*?<AppShell variant="client" className="client-home-layout">\{page\}<\/AppShell>/);
+  assert.doesNotMatch(source, /ClientSidebar/);
+  // Client Home's own mobile bar has no host tools.
+  assert.doesNotMatch(source, /<a href="\/list">/);
   assert.match(source, /<aside className=\{styles\.rightRail\}>/);
   assert.doesNotMatch(source, /className=\{styles\.sidebar\}/);
   assert.doesNotMatch(source, /<nav[^>]*>[\s\S]*?Discover[\s\S]*?Marketplace[\s\S]*?Saved/);

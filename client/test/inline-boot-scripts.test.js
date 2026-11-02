@@ -19,7 +19,7 @@ function inlineScript(file, name) {
 }
 
 test('_app.js fontSizeScript is valid JavaScript after template evaluation', () => {
-  const script = inlineScript('_app.js', 'fontSizeScript');
+  const script = inlineScript('_app.tsx', 'fontSizeScript');
   assert.doesNotThrow(() => new Function(script), SyntaxError);
 });
 

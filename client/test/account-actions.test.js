@@ -101,14 +101,17 @@ test('linked accounts reach React without their tokens', () => {
 });
 
 test('both sidebars use the shared actions and keep no tokens in state', () => {
-  for (const file of ['SharedHostSidebar.jsx', 'SharedClientSidebar.jsx']) {
+  for (const file of ['shell/HostSidebar.tsx', 'shell/ClientSidebar.tsx']) {
     const source = fs.readFileSync(path.join(root, 'components', file), 'utf8');
     assert.match(source, /const linkedAccounts = useLinkedAccounts\(\);/, file);
     assert.match(source, /await logout\(\);/, file);
-    assert.match(source, /await switchAccount\((targetAcct|targetAccount)\.id\);/, file);
+    assert.match(source, /void switchToAccount\((targetAcct|targetAccount)\.id\);/, file);
     assert.doesNotMatch(source, /auth\.signOut\(\)/, file);
     assert.doesNotMatch(source, /VaRoomAccountSwitcher\.switchAccount|getLinkedAccounts\(\)|getActiveAccount/, file);
   }
+  const chrome = fs.readFileSync(path.join(root, 'components', 'shell', 'useShellChrome.ts'), 'utf8');
+  assert.match(chrome, /await switchAccount\(accountId\);/);
+  assert.match(chrome, /export \{ logout \};/);
 });
 
 test('AddAccountModal fixes: popup race, scoped message listener, restored method, shared config', () => {

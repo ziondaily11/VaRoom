@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { getAccountLayout } = require('../lib/accountRoleLayout');
 
-const appCode = fs.readFileSync(path.join(__dirname, '..', 'pages', '_app.js'), 'utf8');
+const appCode = fs.readFileSync(path.join(__dirname, '..', 'pages', '_app.tsx'), 'utf8');
 
 test('Chats, Support, Marketplace, and Analytics retain their page layouts outside HostLayout', () => {
   for (const route of ['/chats', '/support', '/marketplace', '/analytics']) {

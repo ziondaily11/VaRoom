@@ -1,8 +1,11 @@
+import type { ReactElement, ReactNode } from 'react';
+import type { NextPage } from 'next';
+import type { AppProps } from 'next/app';
 import Head from 'next/head';
 import Router, { useRouter } from 'next/router';
 import { useEffect } from 'react';
-import HostLayout from '../components/HostLayout';
-import ClientLayout from '../components/ClientLayout';
+import AppShell from '../components/shell/AppShell';
+import MobileNav from '../components/shell/MobileNav';
 import AddAccountModal from '../components/AddAccountModal';
 import { getSupabaseClient } from '../lib/supabase/client';
 import { AuthProvider, useAuth } from '../lib/auth/AuthProvider';
@@ -397,46 +400,64 @@ const fontSizeScript = `
 
 if (typeof window !== 'undefined' && typeof Node !== 'undefined' && Node.prototype) {
   const originalRemoveChild = Node.prototype.removeChild;
-  Node.prototype.removeChild = function (child) {
+  Node.prototype.removeChild = function <T extends Node>(this: Node, child: T): T {
     if (child && child.parentNode !== this) {
       if (typeof console !== 'undefined' && console.warn) {
         console.warn('Safely ignored removeChild on detached node:', child);
       }
       return child;
     }
-    return originalRemoveChild.apply(this, arguments);
+    return originalRemoveChild.call(this, child) as T;
   };
 
   const originalInsertBefore = Node.prototype.insertBefore;
-  Node.prototype.insertBefore = function (newNode, referenceNode) {
+  Node.prototype.insertBefore = function <T extends Node>(this: Node, newNode: T, referenceNode: Node | null): T {
     if (referenceNode && referenceNode.parentNode !== this) {
       if (typeof console !== 'undefined' && console.warn) {
         console.warn('Safely ignored insertBefore on detached reference node:', referenceNode);
       }
       return newNode;
     }
-    return originalInsertBefore.apply(this, arguments);
+    return originalInsertBefore.call(this, newNode, referenceNode) as T;
   };
 }
 
+type AppPage = NextPage & {
+  /** Replaces the account shell (full-screen pages, or a fixed shell variant). */
+  getLayout?: (page: ReactElement) => ReactNode;
+  /** Legacy app pages show the role mobile navigation. */
+  appNavigation?: boolean;
+};
+
+type ShellRole = 'host' | 'client' | null;
+
 // Role comes from the verified session and its profile (AuthProvider), never
 // from page-level hints, so the layout choice cannot follow another account.
-function AccountLayout({ Component, pageProps }) {
+// Shell routes always render AppShell, whose structure does not change when
+// the role resolves, so the page is mounted once.
+function AccountLayout({ Component, pageProps }: { Component: AppPage; pageProps: AppProps['pageProps'] }) {
   const router = useRouter();
   const { session, profile } = useAuth();
-  const role = getSessionBoundCachedRole(session, profile);
+  const role: ShellRole = getSessionBoundCachedRole(session, profile);
   const path = router.pathname || '';
   const asPath = router.asPath || '';
   const accountLayout = getAccountLayout(path, asPath, role);
+  const isShellRoute = getAccountLayout(path, asPath, 'host') !== 'none';
   const pageElement = <Component {...pageProps} />;
 
-  if (Component.getLayout) return Component.getLayout(pageElement);
-  if (accountLayout === 'host') return <HostLayout>{pageElement}</HostLayout>;
-  if (accountLayout === 'client') return <ClientLayout>{pageElement}</ClientLayout>;
-  return pageElement;
+  let layout: ReactNode = pageElement;
+  if (Component.getLayout) layout = Component.getLayout(pageElement);
+  else if (isShellRoute) layout = <AppShell variant={accountLayout === 'none' ? null : accountLayout}>{pageElement}</AppShell>;
+
+  return (
+    <>
+      {layout}
+      <MobileNav enabled={isShellRoute || Boolean(Component.appNavigation)} />
+    </>
+  );
 }
 
-export default function App({ Component, pageProps }) {
+export default function App({ Component, pageProps }: AppProps) {
   const router = useRouter();
   const path = router.pathname || '';
   const isChatsRoute = path === '/chats' || path === '/elie';
@@ -446,7 +467,7 @@ export default function App({ Component, pageProps }) {
   // new page paints; applyTheme only writes when the value changes.
   useEffect(() => {
     applyTheme(Router.asPath || Router.pathname || '/');
-    const onStart = (url) => applyTheme(url);
+    const onStart = (url: string) => applyTheme(url);
     const onSettled = () => applyTheme(Router.asPath || '/');
     Router.events.on('routeChangeStart', onStart);
     Router.events.on('routeChangeComplete', onSettled);
@@ -471,7 +492,7 @@ export default function App({ Component, pageProps }) {
         <script dangerouslySetInnerHTML={{ __html: fontSizeScript }} />
       </Head>
       <CountsBridge />
-      <AccountLayout Component={Component} pageProps={pageProps} />
+      <AccountLayout Component={Component as AppPage} pageProps={pageProps} />
       <AddAccountModal />
     </AuthProvider>
   );

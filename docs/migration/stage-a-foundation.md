@@ -610,7 +610,7 @@ Change:
 - Account switch **keeps `location.reload()`** for now, because legacy pages can't re-key. Switching without a reload is revisited after Stage D.
 - Convert `AddAccountModal` to TSX. Fix the popup race and the always-on listener. Unmounting must not delete the switcher's method.
 
-#### A5 — detailed plan (approved 2026-11-02; A5a and A5b implemented)
+#### A5 — detailed plan (approved 2026-11-02; A5a–A5d implemented)
 
 ##### Measured on the current build (host account, signed in)
 
@@ -739,6 +739,51 @@ On the client account, the store matches the server's unread count; there were n
 **Deviation:** sidebar links stay `<a>` with intent-based `Router.prefetch`, not `next/link`.
 - Tests lock the literal anchors, and `handleNav` has view logic (`?view=saved`, `my-listings`) that `next/link` would bypass.
 - Hover prefetch also avoids downloading every legacy page's large static JSON up front.
+
+##### A5c and A5d results (2026-11-02, one commit)
+
+**New, in `components/shell/`:**
+- **`AppShell.tsx`:** one component for host, client and "role not known yet".
+  - The element structure is the same for every variant (`div[data-app-shell]` > `style`, sidebar slot, `main`), so the page inside is never remounted when the role resolves after a hard load.
+  - While pending, the wrappers use `display: contents` and add no layout, so there is no pending screen.
+  - `data-shell-state="pending|ready"` tells legacy scripts when the shell is final.
+  - Saves the active account to the switcher once per account (`upsertFromSession`, `varoom_active_account_id`), which the old sidebars did on every mount.
+- **`HostSidebar.tsx` / `ClientSidebar.tsx`:** markup, ids, classes and handlers ported 1:1.
+- **`useShellChrome.ts`:** shared popovers, outside-click and Escape handling, the mobile drawer and its events, the displayed identity (from `AuthProvider`, no profile fetches) and the account actions.
+- **`shellStyles.ts`:** the former layout styles, unchanged, plus the pending and mobile-nav styles.
+- **`MobileNav.tsx`:** the pill nav in React. It is rendered once from `_app`, so it persists across routes and its active item follows client-side navigation. Same items, icons, classes, hide rules and scroll-hide.
+- **`shellReady.ts`:** `[...slug].js` waits (up to 4 s) for the shell to settle before running a legacy page's scripts, because host-home and settings check `.host-layout-active` once as they run.
+
+**Changed:**
+- `_app.js` and `_document.js` → `_app.tsx` and `_document.tsx`. Shell routes always render `AppShell`, with `variant` null until the role is known.
+- Client Home uses `<AppShell variant="client">`. Its own bottom bar no longer has "Create" (a host tool): Home, Marketplace, Inbox, Saved. The shared nav is hidden there, so Client Home shows a single bar.
+- Removed: `HostLayout.jsx`, `ClientLayout.jsx`, `SharedHostSidebar.jsx`, `SharedClientSidebar.jsx` and `public/js/varoom-mobile-nav.js`. Nothing else used them.
+
+**Deviations from the plan:**
+- The plan had the script keep serving layout-less legacy pages. Because it ran only once and appended its nav to `<body>`, that nav stayed behind on later routes with a stale active item. That is how Client Home showed two bars. The React nav now covers every page the script did (shell routes and legacy pages, signed in and onboarded), so the script is retired.
+- Instead of rendering the role on the first client render, the shell keeps one structure and switches the variant in place. The first client render must match the server render, which has no session.
+
+**Not done in A5, recorded for later stages:**
+- Keying the legacy `<main>` on pathname, and extending `legacyPageLifecycle` to every template. Both depend on each legacy page's internals; they belong with the page migrations (C/D).
+- `account-auth.js`, `account-switcher.js` and `supabase-client.js` are loaded a second time by the legacy pages' own script tags. This was already the case; it is on the backlog.
+
+**Verification:**
+- 369/369 client tests pass. The source-text tests are updated for the new files, with new checks for the stable shell structure, the mobile-nav rules and the shell wait.
+- `tsc` is clean; `next build` succeeds.
+
+**Shell probe (production build behind the local proxy), hard loads of home, bookings, settings, profile and notifications on both accounts:**
+
+| Measure | Result |
+|---|---|
+| Page content mounts per hard load | 1. The shell changes from pending to host/client in place |
+| React sidebars | 1; template sidebars hidden |
+| Legacy page scripts | Run once, after the shell is ready |
+| Mobile nav at 390 px | One nav; active item follows taps; host has Create, client does not |
+| Client Home at 390 px | One bar: Home, Marketplace, Inbox, Saved |
+| Notifications → Client Home | The shell is reused, not remounted |
+| Drawer (topbar button on `/bookings`) | Opens the React sidebar |
+| Signed out | No shell or nav; `/bookings` redirects to login as before |
+| Uncaught exceptions | None |
 
 ### A5 — Persistent shell and sidebars (L)
 

@@ -11,6 +11,7 @@ import ElieIcon from '../components/ElieIcon';
 import ChatComposerActions from '../components/ChatComposerActions';
 import ElieComposerBeam from '../components/ElieComposerBeam';
 import { ThinkingOrb } from 'thinking-orbs';
+import { waitForShellReady } from '../components/shell/shellReady';
 const { createLegacyPageLifecycle } = require('../lib/legacyPageLifecycle');
 
 const templateDirectory = path.join(process.cwd(), 'legacy-pages');
@@ -166,6 +167,11 @@ function loadChatCache() {
 
 async function runLegacyScripts(container, scripts, pageLifecycle, templateName) {
   const pageWasLeft = () => pageLifecycle && !pageLifecycle.isActive();
+  if (pageWasLeft()) return;
+
+  // Page scripts check the account shell as they run; on a hard load it is
+  // final once the account's role is known.
+  await waitForShellReady(document);
   if (pageWasLeft()) return;
 
   // _app defines VaRoomDataCache from the bundle; the script is only a fallback.
@@ -425,8 +431,10 @@ export default function LegacyPage({ title, markup, scripts, templateName }) {
         <link rel="apple-touch-icon" sizes="180x180" href="/favicon/favicon-180.png" />
       </Head>
       <Script src="/js/varoom-account-profile-cache.js" strategy="beforeInteractive" />
-      <Script src="/js/varoom-mobile-nav.js" strategy="afterInteractive" />
       <main key={router?.asPath || title} ref={containerRef} dangerouslySetInnerHTML={{ __html: markup }} />
     </>
   );
 }
+
+// The role mobile navigation (components/shell/MobileNav) shows on legacy app pages.
+LegacyPage.appNavigation = true;

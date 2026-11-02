@@ -149,7 +149,7 @@ test('native pages use the shared client instead of creating their own', () => {
     assert.doesNotMatch(source, /eyJhbGciOi/, page + ' must not hard-code the anon key');
     assert.doesNotMatch(source, /cdn\.jsdelivr\.net\/npm\/@supabase/, page + ' must not load the CDN SDK');
   }
-  assert.match(fs.readFileSync(path.join(root, 'pages', '_app.js'), 'utf8'), /^getSupabaseClient\(\);$/m);
+  assert.match(fs.readFileSync(path.join(root, 'pages', '_app.tsx'), 'utf8'), /^getSupabaseClient\(\);$/m);
 });
 
 test('AuthPanel only follows same-origin redirects', () => {
