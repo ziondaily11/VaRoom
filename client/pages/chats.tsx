@@ -24,7 +24,8 @@ import chatCache, {
 import ChatComposerActions from '../components/ChatComposerActions';
 import ElieComposerBeam from '../components/ElieComposerBeam';
 import ElieIcon from '../components/ElieIcon';
-import { hasMessageMarkup, parseMessageBody, type MessageBodyNode } from '../lib/chat/messageBody';
+import { hasMessageMarkup, messagePlainText, parseMessageBody, type MessageBodyNode } from '../lib/chat/messageBody';
+import MessageActionMenu, { messageActionItems, type MessageAction } from '../components/chat/MessageActionMenu';
 import { ThinkingOrb } from 'thinking-orbs';
 
 const { chatsCssHref } = require('../lib/chatsCssAssets');
@@ -255,12 +256,12 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   const [messages, setMessagesState] = useState<(ChatMessage | OptimisticChatMessage)[]>([]);
   const [loadingInbox, setLoadingInbox] = useState<boolean>(true);
   const [loadingMessages, setLoadingMessages] = useState<boolean>(false);
-  const [unreadCount, setUnreadCount] = useState<number>(0);
 
   // UI Views & Drawers
   const [mobileView, setMobileView] = useState<'inbox' | 'conversation' | 'info'>('inbox');
-  const [convMenuId, setConvMenuId] = useState<string | null>(null);
-  const [msgMenuId, setMsgMenuId] = useState<string | null>(null);
+  const [messageMenu, setMessageMenu] = useState<{ message: ChatMessage; x: number; y: number } | null>(null);
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+  const [copyNote, setCopyNote] = useState<string>('');
   const [infoCollapsed, setInfoCollapsed] = useState<boolean>(true);
   const [chatSettingsEmbedded, setChatSettingsEmbedded] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -296,6 +297,9 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   const mobileTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const photoInputRef = useRef<HTMLInputElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const longPressRef = useRef<{ timer: number; x: number; y: number } | null>(null);
+  const highlightTimerRef = useRef<number | null>(null);
+  const copyNoteTimerRef = useRef<number | null>(null);
 
   // Active state synchronization refs to break cyclic dependencies
   const sessionRef = useRef<any>(session);
@@ -664,14 +668,6 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
     }
   }, [userId, routerQueryC, routerQueryConversation, routerPathname, selectConversation]);
 
-  // Close conversation action menu when clicking outside
-  useEffect(() => {
-    if (!convMenuId) return;
-    const handleOutsideClick = () => setConvMenuId(null);
-    window.addEventListener('click', handleOutsideClick);
-    return () => window.removeEventListener('click', handleOutsideClick);
-  }, [convMenuId]);
-
   // Close mobile attach menu when clicking outside
   useEffect(() => {
     if (!mobileAttachMenuOpen) return;
@@ -694,13 +690,17 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
     };
   }, []);
 
-  // Close message action menu when clicking outside
+  // Timers for the reply highlight and the "Copied" note.
+  useEffect(() => () => {
+    if (highlightTimerRef.current) window.clearTimeout(highlightTimerRef.current);
+    if (copyNoteTimerRef.current) window.clearTimeout(copyNoteTimerRef.current);
+    if (longPressRef.current) window.clearTimeout(longPressRef.current.timer);
+  }, []);
+
+  // The menu belongs to one conversation.
   useEffect(() => {
-    if (!msgMenuId) return;
-    const handleOutsideClick = () => setMsgMenuId(null);
-    window.addEventListener('click', handleOutsideClick);
-    return () => window.removeEventListener('click', handleOutsideClick);
-  }, [msgMenuId]);
+    setMessageMenu(null);
+  }, [activeId]);
 
   // Send message handler
   const handleSendMessage = async (textToSend?: string) => {
@@ -890,23 +890,148 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
     }
   };
 
-  // Message Action Handlers (Pin, Delete for me, Delete for everyone)
-  const handleMessageAction = async (messageId: string, action: 'pin' | 'delete_for_me' | 'delete_for_everyone') => {
-    if (!activeId) return;
+  // ── Message actions (legacy chat-data.js performMessageAction) ──
+
+  // Text messages in person-to-person chats only: the server accepts actions
+  // on text messages, and Elie messages are not stored there.
+  const canActOnMessage = (m: ChatMessage): boolean => (
+    !isElie
+    && m.message_type === 'text'
+    && !m.deleted_at
+    && !(m as OptimisticChatMessage)._optimistic
+  );
+
+  const openMessageMenu = (message: ChatMessage, x: number, y: number) => {
+    if (!canActOnMessage(message)) return;
+    setMessageMenu({ message, x, y });
+  };
+
+  // Desktop right-click; on phones the long-press below opens the menu.
+  const onMessageContextMenu = (event: React.MouseEvent, message: ChatMessage) => {
+    if (!canActOnMessage(message)) return;
+    if (window.matchMedia('(max-width: 760px)').matches) {
+      event.preventDefault();
+      return;
+    }
+    if ((event.target as Element).closest('a,button,input,textarea,video,audio')) return;
+    event.preventDefault();
+    openMessageMenu(message, event.clientX, event.clientY);
+  };
+
+  const cancelLongPress = () => {
+    if (longPressRef.current) window.clearTimeout(longPressRef.current.timer);
+    longPressRef.current = null;
+  };
+
+  const onMessageTouchStart = (event: React.TouchEvent, message: ChatMessage) => {
+    if (event.touches.length !== 1 || !canActOnMessage(message)) return;
+    const touch = event.touches[0];
+    cancelLongPress();
+    const press = { x: touch.clientX, y: touch.clientY, timer: 0 };
+    press.timer = window.setTimeout(() => {
+      longPressRef.current = null;
+      openMessageMenu(message, press.x, press.y);
+    }, 500);
+    longPressRef.current = press;
+  };
+
+  const onMessageTouchMove = (event: React.TouchEvent) => {
+    const press = longPressRef.current;
+    if (!press || !event.touches.length) return;
+    const touch = event.touches[0];
+    if (Math.hypot(touch.clientX - press.x, touch.clientY - press.y) > 12) cancelLongPress();
+  };
+
+  // Scroll to a replied-to message and replay its highlight.
+  const scrollToMessage = (messageId: string) => {
+    const target = Array.from(document.querySelectorAll<HTMLElement>('.messages [data-message-id]'))
+      .find((row) => row.dataset.messageId === String(messageId));
+    if (!target) return;
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (highlightTimerRef.current) window.clearTimeout(highlightTimerRef.current);
+    setHighlightedMessageId(null);
+    window.requestAnimationFrame(() => setHighlightedMessageId(messageId));
+    highlightTimerRef.current = window.setTimeout(() => setHighlightedMessageId(null), 1600);
+  };
+
+  const replyKeyHandler = (messageId: string) => (event: React.KeyboardEvent) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    scrollToMessage(messageId);
+  };
+
+  const showCopyNote = (text: string) => {
+    if (copyNoteTimerRef.current) window.clearTimeout(copyNoteTimerRef.current);
+    setCopyNote(text);
+    copyNoteTimerRef.current = window.setTimeout(() => setCopyNote(''), 2000);
+  };
+
+  const copyMessage = async (message: ChatMessage) => {
+    const text = messagePlainText(message.body);
+    let copied = false;
     try {
-      await api(`/api/chat/conversations/${encodeURIComponent(activeId)}/messages/${encodeURIComponent(messageId)}/actions`, {
+      await navigator.clipboard.writeText(text);
+      copied = true;
+    } catch {
+      // Clipboard API unavailable or denied: fall back to a selected textarea.
+      const area = document.createElement('textarea');
+      area.value = text;
+      area.setAttribute('readonly', '');
+      area.style.position = 'fixed';
+      area.style.opacity = '0';
+      document.body.appendChild(area);
+      area.select();
+      try { copied = document.execCommand('copy'); } catch { copied = false; }
+      area.remove();
+    }
+    showCopyNote(copied ? 'Copied' : 'Unable to copy');
+  };
+
+  const startReply = (message: ChatMessage) => {
+    setReplyTo(message);
+    window.requestAnimationFrame(() => {
+      if (window.matchMedia('(min-width: 761px)').matches) desktopEditorRef.current?.focus();
+      else mobileTextareaRef.current?.focus();
+    });
+  };
+
+  // A full fetch: pins and deletions change existing messages, which the
+  // cache's `since` delta sync does not return. The cache is rewritten too.
+  const refreshConversation = async (conversationId: string) => {
+    const res = await api(`/api/chat/conversations/${encodeURIComponent(conversationId)}/messages`);
+    const list: ChatMessage[] = res.messages || [];
+    const currentUserId = userIdRef.current;
+    if (currentUserId) setMessages(currentUserId, conversationId, list).catch(() => {});
+    if (mountedRef.current && activeIdRef.current === conversationId) setMessagesState(list);
+  };
+
+  const performMessageAction = async (message: ChatMessage, action: MessageAction) => {
+    setMessageMenu(null);
+    if (action === 'reply') {
+      startReply(message);
+      return;
+    }
+    if (action === 'copy') {
+      await copyMessage(message);
+      return;
+    }
+    if (action === 'delete_for_everyone'
+      && !window.confirm('Delete this message for everyone? This cannot be undone.')) return;
+    const conversationId = activeIdRef.current;
+    if (!conversationId) return;
+    try {
+      await api(`/api/chat/conversations/${encodeURIComponent(conversationId)}/messages/${encodeURIComponent(message.id)}/actions`, {
         method: 'POST',
         body: JSON.stringify({ action }),
       });
-      // Refresh thread
-      const res = await api(`/api/chat/conversations/${encodeURIComponent(activeId)}/messages`);
-      if (mountedRef.current) {
-        setMessagesState(res.messages || []);
-      }
+      await refreshConversation(conversationId);
     } catch (err) {
-      console.error('Message action error:', err);
+      console.error('Unable to perform message action:', err);
+      window.alert((err instanceof Error && err.message) || 'Unable to update message');
     }
   };
+
+  const closeMessageMenu = useCallback(() => setMessageMenu(null), []);
 
   // Submit User Report
   const handleSubmitReport = async (e: React.FormEvent) => {
@@ -1049,6 +1174,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
           <symbol id="i-list-sq" viewBox="0 0 24 24"><rect x="3.7" y="5.2" width="1.6" height="1.6"/><rect x="3.7" y="11.2" width="1.6" height="1.6"/><rect x="3.7" y="17.2" width="1.6" height="1.6"/><path d="M9 6h11M9 12h11M9 18h11"/></symbol>
           <symbol id="i-reply" viewBox="0 0 24 24"><path d="M9 10 4 14l5 4v-3c6 0 8 2 10 5-1-6-4-10-10-10z"/></symbol>
           <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 14h12l1-14M9 7V4h6v3"/></symbol>
+          <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></symbol>
         </defs>
       </svg>
 
@@ -1177,86 +1303,8 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                       </div>
                       <div className="contact-bottom">
                         <div className="contact-preview">{lastPreview}</div>
-                        {(c.unread_count ?? 0) > 0 && (
-                          <span className="badge">{c.unread_count}</span>
-                        )}
                       </div>
                     </div>
-                    <button
-                      className="conversation-menu"
-                      type="button"
-                      aria-label="More options"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setConvMenuId(convMenuId === c.id ? null : c.id);
-                      }}
-                    >
-                      <svg className="icon"><use href="#i-more" /></svg>
-                    </button>
-                    {convMenuId === c.id && (
-                      <div
-                        className="conv-menu-dropdown"
-                        role="menu"
-                        style={{
-                          position: 'absolute',
-                          right: '8px',
-                          top: '100%',
-                          zIndex: 50,
-                          background: '#fff',
-                          border: '1px solid #e6e8eb',
-                          borderRadius: '10px',
-                          boxShadow: '0 4px 16px rgba(0,0,0,.12)',
-                          minWidth: '160px',
-                          overflow: 'hidden',
-                        }}
-                      >
-                        <button
-                          role="menuitem"
-                          style={{
-                            display: 'block',
-                            width: '100%',
-                            padding: '10px 14px',
-                            background: 'none',
-                            border: 0,
-                            textAlign: 'left',
-                            fontSize: '13px',
-                            cursor: 'pointer',
-                            color: 'var(--text-dark, #111)',
-                          }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setConversations((prev) =>
-                              prev.map((x) => (x.id === c.id ? { ...x, unread_count: 0 } : x))
-                            );
-                            setConvMenuId(null);
-                          }}
-                        >
-                          Mark as read
-                        </button>
-                        <button
-                          role="menuitem"
-                          className="danger"
-                          style={{
-                            display: 'block',
-                            width: '100%',
-                            padding: '10px 14px',
-                            background: 'none',
-                            border: 0,
-                            textAlign: 'left',
-                            fontSize: '13px',
-                            cursor: 'pointer',
-                            color: '#e53e3e',
-                          }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setConvMenuId(null);
-                            router.push(`/chat-settings?conversation=${c.id}&returnTo=/chats`);
-                          }}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    )}
                   </li>
                 );
               })
@@ -1368,7 +1416,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
           {pinnedMessage && (
             <div className="pinned-message" id="pinnedMessage" aria-live="polite">
               <svg className="icon" aria-hidden="true"><use href="#i-pin" /></svg>
-              <span>{pinnedMessage.body}</span>
+              <span>{messagePlainText(pinnedMessage.body) || 'Message'}</span>
             </div>
           )}
 
@@ -1407,10 +1455,31 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                   isElieMsg && !isOut ? 'elie-message' : '',
                   sameSender ? 'same-sender' : '',
                   isDeleted ? 'msg-deleted' : '',
-                  m.reply_target_highlight ? 'reply-target-highlight' : '',
+                  highlightedMessageId === m.id ? 'reply-target-highlight' : '',
                 ].filter(Boolean).join(' ');
 
                 const hasMedia = m.attachment && m.attachment.kind === 'photo';
+                const actionable = canActOnMessage(m);
+
+                // Quote of the replied-to message (legacy makeReplyReference).
+                const replyReference = m.reply_to_message_id ? (() => {
+                  const original = m.reply_to_message;
+                  const label = original && original.sender_id === userId ? 'You' : 'Reply';
+                  const body = original && !original.deleted_at ? messagePlainText(original.body) : 'This message is unavailable';
+                  return (
+                    <div
+                      className="message-reply-reference"
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`${label}: ${body}`}
+                      onClick={() => scrollToMessage(m.reply_to_message_id as string)}
+                      onKeyDown={replyKeyHandler(m.reply_to_message_id as string)}
+                    >
+                      <strong>{label}</strong>
+                      <span>{body}</span>
+                    </div>
+                  );
+                })() : null;
 
                 return (
                   <div
@@ -1418,18 +1487,23 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                     data-message-id={m.id}
                     className={rowClass}
                     style={{ position: 'relative' }}
+                    onContextMenu={actionable ? (e) => onMessageContextMenu(e, m) : undefined}
+                    onTouchStart={actionable ? (e) => onMessageTouchStart(e, m) : undefined}
+                    onTouchMove={actionable ? onMessageTouchMove : undefined}
+                    onTouchEnd={actionable ? cancelLongPress : undefined}
+                    onTouchCancel={actionable ? cancelLongPress : undefined}
                   >
-                    {/* Reply reference */}
-                    {m.reply_to_message && (
-                      <div className="message-reply-reference">
-                        <strong>{m.reply_to_message.sender_id === userId ? 'You' : activeConversation?.participant?.full_name || 'User'}</strong>
-                        <span>{m.reply_to_message.body?.slice(0, 60) || 'Message'}</span>
+                    {isDeleted ? (
+                      /* Deleted message, any type (legacy messageRow) */
+                      <div className="bubble">
+                        <svg className="icon" aria-hidden="true"><use href="#i-trash" /></svg>
+                        <span>This message was deleted</span>
+                        <div className="msg-meta">{timeStr}</div>
                       </div>
-                    )}
-
-                    {/* Photo attachment bubble */}
-                    {hasMedia ? (
+                    ) : hasMedia ? (
+                      /* Photo attachment bubble */
                       <div className="bubble bubble-media">
+                        {replyReference}
                         <div className="chat-media-wrap" style={{ position: 'relative', cursor: 'pointer', borderRadius: '12px', overflow: 'hidden', display: 'inline-block', maxWidth: '280px' }}
                           onClick={() => {
                             const cachedUrl = getCachedImageUrl(m.attachment!.id);
@@ -1512,76 +1586,31 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                     ) : (
                       /* Text bubble */
                       <div className="bubble">
-                        {isDeleted ? (
-                          <>
-                            <svg className="icon" style={{ width: 14, height: 14 }}><use href="#i-trash" /></svg>
-                            <em>This message was deleted</em>
-                          </>
-                        ) : (
-                          renderMessageBody(m.body || '')
-                        )}
+                        {replyReference}
+                        {renderMessageBody(m.body || '')}
                         <div className="msg-meta">{timeStr}</div>
                       </div>
                     )}
 
-                    {/* Message context menu trigger — visible on hover */}
-                    {!isDeleted && !isSystem && (
+                    {/* Message actions button (hover); right-click and long-press open the same menu */}
+                    {actionable && (
                       <div className="msg-action-wrap" style={{ position: 'absolute', top: 0, [isOut ? 'left' : 'right']: '100%', display: 'flex', alignItems: 'center', paddingLeft: isOut ? 0 : 4, paddingRight: isOut ? 4 : 0 }}>
                         <button
                           type="button"
                           className="msg-action-btn"
                           aria-label="Message actions"
-                          onClick={(e) => { e.stopPropagation(); setMsgMenuId(msgMenuId === m.id ? null : m.id); }}
+                          aria-haspopup="menu"
+                          aria-expanded={messageMenu?.message.id === m.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (messageMenu?.message.id === m.id) { setMessageMenu(null); return; }
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            openMessageMenu(m, rect.left, rect.bottom + 4);
+                          }}
                           style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', borderRadius: 4, color: 'var(--text-gray)', opacity: 0.7 }}
                         >
                           <svg className="icon" style={{ width: 14, height: 14 }}><use href="#i-more" /></svg>
                         </button>
-
-                        {msgMenuId === m.id && (
-                          <div
-                            role="menu"
-                            onClick={(e) => e.stopPropagation()}
-                            style={{
-                              position: 'absolute',
-                              top: '100%',
-                              [isOut ? 'left' : 'right']: 0,
-                              zIndex: 60,
-                              background: 'var(--bg-card, #fff)',
-                              border: '1px solid var(--border, #e6e8eb)',
-                              borderRadius: 10,
-                              boxShadow: '0 4px 16px rgba(0,0,0,.14)',
-                              minWidth: 140,
-                              overflow: 'hidden',
-                            }}
-                          >
-                            {[
-                              { label: 'Reply', action: () => { setReplyTo(m); setMsgMenuId(null); } },
-                              { label: 'Copy', action: () => { navigator.clipboard?.writeText(m.body || '').catch(() => {}); setMsgMenuId(null); } },
-                              { label: 'Pin', action: () => { handleMessageAction(m.id, 'pin'); setMsgMenuId(null); } },
-                              ...(isOut ? [{ label: 'Delete for me', action: () => { handleMessageAction(m.id, 'delete_for_me'); setMsgMenuId(null); }, danger: true }] : []),
-                            ].map((item: any) => (
-                              <button
-                                key={item.label}
-                                role="menuitem"
-                                type="button"
-                                onClick={item.action}
-                                style={{
-                                  display: 'block',
-                                  width: '100%',
-                                  padding: '9px 14px',
-                                  background: 'none',
-                                  border: 0,
-                                  textAlign: 'left',
-                                  fontSize: '13px',
-                                  cursor: 'pointer',
-                                  color: item.danger ? '#e53e3e' : 'var(--text-dark, #111)',
-                                }}
-                              >
-                                {item.label}
-                              </button>
-                            ))}
-                          </div>
-                        )}
                       </div>
                     )}
                   </div>
@@ -1598,19 +1627,6 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
 
             <div ref={messagesEndRef} />
           </div>
-
-          {/* Composer Reply Preview */}
-          {replyTo && (
-            <div className="composer-reply-preview" style={{ padding: '8px 16px', background: 'var(--bg-soft)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--border)' }}>
-              <div>
-                <strong>Replying: </strong>
-                <span style={{ fontSize: '13px', color: 'var(--text-gray)' }}>{replyTo.body?.slice(0, 50)}...</span>
-              </div>
-              <button type="button" onClick={() => setReplyTo(null)} style={{ border: 'none', background: 'none', cursor: 'pointer' }}>
-                <svg className="icon"><use href="#i-close" /></svg>
-              </button>
-            </div>
-          )}
 
           {/* Composer Input Area */}
           <div className={`chat-input-area ${isElie ? 'is-elie' : ''} ${composerText.trim() ? 'can-send has-text' : ''}`} style={{ position: 'relative' }}>
@@ -1630,6 +1646,10 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                 setComposerText(text);
               }}
               onKeyDown={(e) => {
+                if (e.key === 'Escape' && replyTo) {
+                  setReplyTo(null);
+                  return;
+                }
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
                   handleSendMessage();
@@ -1647,12 +1667,40 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                 updateComposerUI();
               }}
               onKeyDown={(e) => {
+                if (e.key === 'Escape' && replyTo) {
+                  setReplyTo(null);
+                  return;
+                }
                 if (e.key === 'Enter' && !e.shiftKey && window.matchMedia('(max-width: 760px)').matches) {
                   e.preventDefault();
                   handleSendMessage(e.currentTarget.value);
                 }
               }}
             />
+
+            {/* Reply preview (legacy position: the mobile grid places it on its own row) */}
+            {replyTo && (() => {
+              const label = replyTo.sender_id === userId ? 'Replying to you' : 'Replying to message';
+              const body = messagePlainText(replyTo.body) || 'This message is unavailable';
+              return (
+                <div className="composer-reply-preview" style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'default' }}>
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`${label}: ${body}`}
+                    style={{ flex: 1, minWidth: 0, cursor: 'pointer' }}
+                    onClick={() => scrollToMessage(replyTo.id)}
+                    onKeyDown={replyKeyHandler(replyTo.id)}
+                  >
+                    <strong>{label}</strong>
+                    <span>{body}</span>
+                  </div>
+                  <button type="button" aria-label="Cancel reply" onClick={() => setReplyTo(null)} style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 0, color: 'inherit' }}>
+                    <svg className="icon" aria-hidden="true" style={{ width: 14, height: 14 }}><use href="#i-close" /></svg>
+                  </button>
+                </div>
+              );
+            })()}
 
             {/* Input Toolbar */}
             <div className="input-toolbar">
@@ -1890,6 +1938,20 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
       </div>
 
 
+
+      {/* Message actions menu (one at a time) */}
+      {messageMenu && (
+        <MessageActionMenu
+          x={messageMenu.x}
+          y={messageMenu.y}
+          items={messageActionItems({ pinned: Boolean(messageMenu.message.pinned_at), ownMessage: messageMenu.message.sender_id === userId })}
+          onSelect={(action) => { void performMessageAction(messageMenu.message, action); }}
+          onClose={closeMessageMenu}
+        />
+      )}
+
+      {/* "Copied" note, announced to screen readers */}
+      <div className="chat-copy-note" role="status" aria-live="polite" hidden={!copyNote}>{copyNote}</div>
 
       {/* Full Photo Modal Viewer */}
       {selectedPhotoPreview && (

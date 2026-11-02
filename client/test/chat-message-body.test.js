@@ -38,8 +38,10 @@ test('event handlers, scripts and other markup cannot reach the page', () => {
     });
     walk(tree);
   }
-  // Disallowed tags are removed and their text kept as text (rendered by React, never as HTML).
-  assert.equal(serialise(parseMessageBody('<b>a</b><script>alert(1)</script>')), '<b>"a"</b>"alert(1)"');
+  // Disallowed tags are removed and their text kept; script/style/template content is dropped.
+  assert.equal(serialise(parseMessageBody('<b>a</b><script>alert(1)</script>after')), '<b>"a"</b>"after"');
+  assert.equal(serialise(parseMessageBody('<span>kept</span><style>b{}</style>')), '"kept"');
+  assert.equal(serialise(parseMessageBody('<b>x</b><script>never closed')), '<b>"x"</b>');
 });
 
 test('entities decode to text and stray "<" stays text', () => {

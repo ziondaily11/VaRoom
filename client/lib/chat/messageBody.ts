@@ -3,20 +3,22 @@
 // attribute is dropped and text is rendered by React as text, so a body can
 // never inject markup or script (the rule the legacy chat-data.js applied
 // with DOMParser). Tags outside the allowlist are removed and their content
-// kept.
+// kept, except script/style/template, whose content is dropped.
 
 export type MessageBodyTag = 'strong' | 'b' | 'em' | 'i' | 'u' | 'ul' | 'ol' | 'li' | 'p' | 'div' | 'br';
 export type MessageBodyNode = string | { tag: MessageBodyTag; children: MessageBodyNode[] };
 
 const ALLOWED = new Set<MessageBodyTag>(['strong', 'b', 'em', 'i', 'u', 'ul', 'ol', 'li', 'p', 'div', 'br']);
+const DROP_CONTENT = new Set(['script', 'style', 'template']);
 const VOID = new Set(['br', 'hr', 'img', 'input', 'meta', 'link', 'area', 'base', 'col', 'embed', 'source', 'track', 'wbr']);
+const NBSP = String.fromCharCode(0xa0);
 
 /** Same test as legacy: only bodies containing formatting tags are parsed. */
 export function hasMessageMarkup(body: string): boolean {
   return /<(?:strong|b|em|i|u|ul|ol|li|p|div|br)\b/i.test(body);
 }
 
-const NAMED_ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
+const NAMED_ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: NBSP };
 
 export function decodeEntities(text: string): string {
   return text.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (match, entity: string) => {
@@ -46,6 +48,13 @@ export function parseMessageBody(body: string): MessageBodyNode[] {
       current.children.push(decodeEntities(token));
       continue;
     }
+    if (DROP_CONTENT.has(name) && !token.startsWith('</')) {
+      // Skip to the matching close tag (or the end of the body).
+      const close = new RegExp(`</${name}\\s*>`, 'ig');
+      close.lastIndex = tokens.lastIndex;
+      tokens.lastIndex = close.exec(body) ? close.lastIndex : body.length;
+      continue;
+    }
     if (token.startsWith('</')) {
       // Close the nearest matching open element (and anything left open inside it).
       for (let index = stack.length - 1; index > 0; index -= 1) {
@@ -62,4 +71,23 @@ export function parseMessageBody(body: string): MessageBodyNode[] {
     if (!VOID.has(name) && !token.endsWith('/>')) stack.push(element);
   }
   return root.children;
+}
+
+/**
+ * Plain text of a message body, as the legacy previewText produced it: line
+ * breaks from <br> and block elements kept, formatting removed. Used for
+ * Copy, reply quotes and the pinned banner.
+ */
+export function messagePlainText(body: string | null | undefined): string {
+  const text = (nodes: MessageBodyNode[]): string => nodes.map((node) => {
+    if (typeof node === 'string') return node;
+    if (node.tag === 'br') return '\n';
+    const inner = text(node.children);
+    return node.tag === 'p' || node.tag === 'div' || node.tag === 'li' ? `${inner}\n` : inner;
+  }).join('');
+  return text(parseMessageBody(String(body || '')))
+    .split(NBSP).join(' ')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
