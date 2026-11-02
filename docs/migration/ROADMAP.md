@@ -14,7 +14,7 @@ Statuses: `Not started` · `Investigating` · `Awaiting approval` · `In progres
 
 ## Current position
 
-**Stage A is complete. H1, A1–A4, H2, H3, A5a (PR #511) and A5b (PR #512) are merged to `main`. A5c and A5d (shell and mobile navigation in React and TypeScript) are done and verified in one commit on `agents/stage-a-foundation`, awaiting merge. Next: Stage B, after the go-ahead.**
+**Stage A is complete and merged (PR #511–#513). Current work, before Stage B: the Chats track below. H4 (Chats send and XSS hotfix) is done and verified on `fix/chats-send-and-xss`, awaiting commit instructions; Chats 1 (message controls) follows.**
 
 ---
 
@@ -27,6 +27,20 @@ Statuses: `Not started` · `Investigating` · `Awaiting approval` · `In progres
 | H2 | Linked-account removal must be permanent (X/Y/Z → Y/Z → Y/Z/K). The server model was already correct: removal deletes only the `account_group_members` row and frees the slot, every link is an explicit sign-in, and stale browser data is filtered against server membership. The gap was in `public/js/account-switcher.js`: `switchAccount` trusted the group list loaded when the page opened, so a page opened before a removal (on any device) could switch back into the removed relationship using stored credentials. Fix: re-confirm membership with the server before every switch, and block the switch if the lookup fails. Branch `fix/linked-account-removal` (from `agents/stage-a-foundation`). Verified: 340/340 client tests, including `test/linked-account-removal.test.js`, which runs the full scenario across browsers and fresh logins against a backend model of the SQL rules and fails without the fix; server account-group tests 8/8; read-only Settings check. | XS | Done — awaiting production test |
 
 | H3 | Switching between linked accounts asked for a new sign-in. Cause: refresh tokens rotate on every refresh (`enable_refresh_token_rotation`; the old token is rejected after 10 s), but the stored copy used for switching was only re-saved when a sidebar mounted or a few legacy pages ran, so background refreshes left it stale ("Invalid Refresh Token: Already Used"). Fix in `account-switcher.js`: `watchSessionTokens` saves every refreshed or new session (installed from `_app`); `switchAccount` saves the outgoing account first, uses the freshest stored pair, retries once if another tab just rotated it, and maps a genuinely revoked token to "sign in again". No new tokens are minted and no API or database change. Verified: 346/346 tests, including `seamless-account-switching.test.js` (both directions across three accounts, expiry, browser restart, cross-tab rotation; 4 of 5 fail without the fix); real-browser check that the stored token follows each rotation on native and legacy pages. | S | Done — merged |
+| H4 | Native Chats (`/chats`): the send button throws (the click event is passed as the message text), mobile users cannot send text (Enter only sent above 760 px, the reverse of legacy), message formatting is rendered with `dangerouslySetInnerHTML` after a regex filter that lets unquoted event handlers through (XSS), file downloads link to a JSON route that needs the session token, and the tab title shows "Â·". Fix: `lib/chat/messageBody.ts` rebuilds allowlisted elements with no attributes (as legacy did) and React renders them as elements and text; send and Enter fixed; downloads open the signed URL. Branch `fix/chats-send-and-xss`. Verified: 374/374 tests (new `chat-message-body.test.js` with XSS payloads), `tsc`, build; send button (desktop) and Enter (390 px) send in the Elie conversation on both accounts; title correct; no uncaught errors. The download fix is not browser-verified: no file messages in the test accounts' recent conversations. | S | Done — awaiting commit |
+
+## Chats track — finish the native page, then retire `chats.html`
+
+Found 2026-11-02 by comparing `chats.html` + `public/js/chat-data.js` with `pages/chats.tsx`. `/elie` is the only route still rendering `chats.html`. `chats.css` already holds the legacy styles. Decisions: H4 first; the message menu opens by right-click, 500 ms long-press **and** the native "⋯" button, styled as the legacy `.chat-message-menu`; Copy shows a brief "Copied" note; the non-working stubs ("Mark as read", conversation "Delete", unread badges) are removed and moved to the backlog.
+
+| ID | Scope | Mag. | Status |
+|---|---|---|---|
+| CH1 | Message controls: Reply, Copy (plain text, line breaks kept), Pin/Unpin, Delete for me (any message), Delete for everyone (own, with confirm); text messages only, never Elie; errors shown; refresh through the chat cache keeping scroll. Clickable reply references with scroll + highlight and "This message is unavailable"; legacy composer reply preview (click scrolls, Escape cancels); pinned banner as plain text; deleted rendering for every message type. Remove the stubs | S–M | Not started |
+| CH2 | Thread and composer parity: listing cards (with video), voice playback, read receipts, encryption notice, skeletons, load-error and role-specific empty states, inbox re-sort and preview update, keep text on a failed send and guard double sends, role gating for attachments, share-listing sheet, `@reply`, mobile pending file, photo-preview Escape and object-URL leak, realtime double fetch, stale online dot, mobile keyboard handling | L | Not started |
+| CH3 | Elie parity: suggestion chips, last 6 turns of history, 25 s timeout, result cards (listings, news, suggestion), saved sessions (`elie_sessions`/`elie_messages`) and history panel, avatar, "About Elie" info panel | M | Not started |
+| CH4 | Info panel, mobile and chat settings: phone / member since / local time, files list, fixed report reasons, desktop auto-expand, chat-settings `postMessage` close, `returnTo` keeps the conversation, rail unread badges, mobile view details | M | Not started |
+| CH5 | Retire: redirect `/elie` → `/chats?c=elie` and `/chat` → `/chats` (Next and Express); delete `chats.html`, `elie.html`, `public/js/chat-data.js`, `public/js/chat-cache.js` (and its server test), the chat code paths in `[...slug].js` and the Express chat routes; replaces B1 | S | Not started |
+
 ## Stage A — Shared foundation (branch `agents/stage-a-foundation`)
 
 The detailed plan and findings are in `docs/migration/stage-a-foundation.md`.
@@ -45,7 +59,7 @@ The detailed plan and findings are in `docs/migration/stage-a-foundation.md`.
 
 | ID | Page / item | Mag. | Notes | Status |
 |---|---|---|---|---|
-| B1 | `/elie` → native Chats | XS | Redirect instead of rewriting; retire `chats.html`/`elie.html` from routing | Not started |
+| B1 | `/elie` → native Chats | XS | Moved to the Chats track (CH5) | Moved |
 | B2 | `transactions.html` | S | | Not started |
 | B3 | `support.html` | S | | Not started |
 | B4 | `map.html` | S | Replaces `varoom-maps.js` | Not started |
@@ -110,6 +124,7 @@ The detailed plan and findings are in `docs/migration/stage-a-foundation.md`.
 
 ## Log
 
+- 2026-11-02: Chats parity audit (legacy `chats.html` + `chat-data.js` vs `chats.tsx`): the native page is missing much of the legacy behaviour and has live bugs. Chats track (H4, CH1–CH5) added. H4 implemented and verified.
 - 2026-11-02: A5c and A5d implemented in one commit, completing Stage A: 369/369 tests pass, `tsc` is clean, the build succeeds. On both accounts, every hard load of a shell route mounts the page once (the shell changes from pending to host/client in place) and legacy scripts run once, after the shell is ready. The mobile nav is one React component with a live active item; Client Home shows only its own bar, without Create.
 - 2026-10-31: Inventory and Stage A investigation done; plan approved. A1 implemented and verified signed in on both test accounts. `/list` outage found and split out as H1.
 - 2026-10-31: Roadmap created. The H1 fix was removed from the Stage A branch and implemented and verified on its own branch.

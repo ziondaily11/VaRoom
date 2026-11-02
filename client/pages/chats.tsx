@@ -24,6 +24,7 @@ import chatCache, {
 import ChatComposerActions from '../components/ChatComposerActions';
 import ElieComposerBeam from '../components/ElieComposerBeam';
 import ElieIcon from '../components/ElieIcon';
+import { hasMessageMarkup, parseMessageBody, type MessageBodyNode } from '../lib/chat/messageBody';
 import { ThinkingOrb } from 'thinking-orbs';
 
 const { chatsCssHref } = require('../lib/chatsCssAssets');
@@ -980,26 +981,37 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
     });
   }, [conversations, searchQuery, formatConversationPreview]);
 
-  // Safe message body renderer: plain text unless the body contains HTML markup
-  // Only allowlists safe formatting tags; no external sanitizer needed.
+  // Message body: plain text unless it carries the editor's formatting, which
+  // is rebuilt from allowlisted elements with no attributes (lib/chat/messageBody).
   const renderMessageBody = (body: string): React.ReactNode => {
     if (!body) return null;
-    const hasMarkup = /<(b|strong|i|em|u|br|ul|ol|li)([\s>\/])/i.test(body);
-    if (!hasMarkup) {
+    if (!hasMessageMarkup(body)) {
       return <span style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{body}</span>;
     }
-    // Allowlist-sanitize: strip all tags except the safe set
-    const safe = body
-      .replace(/<(?!\/?(?:b|strong|i|em|u|br|ul|ol|li)(?:\s[^>]*)?>)[^>]+>/gi, '')
-      .replace(/on\w+="[^"]*"/gi, '')
-      .replace(/on\w+='[^']*'/gi, '');
-    return <span style={{ wordBreak: 'break-word' }} dangerouslySetInnerHTML={{ __html: safe }} />;
+    const renderNodes = (nodes: MessageBodyNode[]): React.ReactNode[] => nodes.map((node, index) => (
+      typeof node === 'string'
+        ? node
+        : React.createElement(node.tag, { key: index }, node.tag === 'br' ? undefined : renderNodes(node.children))
+    ));
+    return <span style={{ wordBreak: 'break-word' }}>{renderNodes(parseMessageBody(body))}</span>;
+  };
+
+  // Attachments are served through a short-lived signed URL; the download
+  // route needs the session token and returns that URL as JSON.
+  const openAttachment = async (attachmentId: string) => {
+    try {
+      const result = await api(`/api/chat/attachments/${encodeURIComponent(attachmentId)}/download`);
+      if (result?.url) window.open(result.url, '_blank', 'noopener');
+    } catch (err) {
+      console.error('Attachment unavailable:', err);
+      alert('Unable to open this file. Please try again.');
+    }
   };
 
   return (
     <>
       <Head>
-        <title>{activeConversation?.participant?.full_name ? `${activeConversation.participant.full_name} Â· Messages` : 'Messenger Dashboard'}</title>
+        <title>{activeConversation?.participant?.full_name ? `${activeConversation.participant.full_name} · Messages` : 'Messenger Dashboard'}</title>
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <link rel="stylesheet" href={chatsCssHref} />
       </Head>
@@ -1479,7 +1491,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                       </div>
                     ) : m.attachment && m.attachment.kind === 'file' ? (
                       /* File card */
-                      <div className="file-card">
+                      <div className="file-card" onClick={() => { void openAttachment(m.attachment!.id); }}>
                         <div className="file-icon">
                           <svg className="icon"><use href="#i-file-text" /></svg>
                         </div>
@@ -1487,7 +1499,12 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                           <div className="file-name">{m.attachment.original_filename || 'Attachment'}</div>
                           {Boolean(m.attachment.file_size || m.attachment.file_size_bytes) && <div className="file-sub">{Math.round(((m.attachment.file_size || m.attachment.file_size_bytes) as number) / 1024)} KB</div>}
                         </div>
-                        <a href={`/api/chat/attachments/${m.attachment.id}/download`} target="_blank" rel="noopener noreferrer" className="dl" aria-label="Download">
+                        <a
+                          href={`/api/chat/attachments/${m.attachment.id}/download`}
+                          className="dl"
+                          aria-label="Download"
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); void openAttachment(m.attachment!.id); }}
+                        >
                           <svg className="icon"><use href="#i-paperclip" /></svg>
                         </a>
                         <div className="msg-meta" style={{ width: '100%', textAlign: 'right' }}>{timeStr}</div>
@@ -1507,7 +1524,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                       </div>
                     )}
 
-                    {/* Message context menu trigger â€” visible on hover */}
+                    {/* Message context menu trigger — visible on hover */}
                     {!isDeleted && !isSystem && (
                       <div className="msg-action-wrap" style={{ position: 'absolute', top: 0, [isOut ? 'left' : 'right']: '100%', display: 'flex', alignItems: 'center', paddingLeft: isOut ? 0 : 4, paddingRight: isOut ? 4 : 0 }}>
                         <button
@@ -1630,7 +1647,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                 updateComposerUI();
               }}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey && window.innerWidth > 760) {
+                if (e.key === 'Enter' && !e.shiftKey && window.matchMedia('(max-width: 760px)').matches) {
                   e.preventDefault();
                   handleSendMessage(e.currentTarget.value);
                 }
@@ -1666,7 +1683,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                 <ChatComposerActions
                   isElie={isElie}
                   canSend={!!composerText.trim()}
-                  onSend={handleSendMessage}
+                  onSend={() => { void handleSendMessage(); }}
                   onPhotoClick={() => photoInputRef.current?.click()}
                   onFileClick={() => fileInputRef.current?.click()}
                   onMobileAttach={() => setMobileAttachMenuOpen((prev) => !prev)}
