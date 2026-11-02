@@ -228,3 +228,68 @@ test('client view: legacy tabs and wording; pending shown in Upcoming; review on
   const modal = read('components', 'bookings', 'ReviewModal.tsx');
   for (const text of ['How was your experience?', 'Please select a rating.', 'Please write a review before submitting.', 'Thank you for sharing your experience.']) assert.ok(modal.includes(text), text);
 });
+
+const host = loadTs(path.join(root, 'lib', 'bookings', 'hostBookings.ts'));
+
+test('host: tabs, month filter, dates and request age (legacy rules)', () => {
+  assert.equal(host.hostTabFor('approved'), 'confirmed');
+  assert.equal(host.hostTabFor('cancelled'), null);
+  const b = { ...booking({ start_date: '2026-10-28', end_date: '2026-10-31' }), client_id: 'c1', client: { full_name: 'Mentor Zion' } };
+  assert.equal(host.isBookingInMonth(b, new Date(2026, 9, 1)), true);
+  assert.equal(host.isBookingInMonth(b, new Date(2026, 10, 1)), false);
+  assert.equal(host.hostDateText(b), '28 Oct 2026 → 31 Oct 2026');
+  assert.equal(host.hostDurationText(b), '3 nights');
+  assert.equal(host.hostDateText({ ...b, start_date: null, end_date: null }), 'Dates to be confirmed');
+  const now = Date.parse('2026-11-02T12:00:00Z');
+  assert.equal(host.requestedTime('2026-11-02T11:59:50Z', now), 'Requested 1 min ago');
+  assert.equal(host.requestedTime('2026-11-02T09:00:00Z', now), 'Requested 3 hours ago');
+  assert.equal(host.requestedTime('2026-10-28T12:00:00Z', now), 'Requested 5 days ago');
+  assert.equal(host.requestedTime(null, now), 'Request received recently');
+  assert.equal(host.telHref('+254 700-123 456'), 'tel:+254700123456');
+});
+
+test('host: approve/decline only the host\'s own pending request; the guest is told the listing title', async () => {
+  const b = { ...booking(), status: 'pending', client_id: 'c1', client: null };
+  const client = fakeClient([{ data: { id: 'b1', client_id: 'c1' }, error: null }]);
+  const sent = [];
+  assert.deepEqual({ ...(await host.respondToBooking(client, { booking: b, userId: 'h1', decision: 'approve', notify: async (p) => { sent.push(p); } })) }, { status: 'approved' });
+  const ops = client.calls[0].ops;
+  assert.equal(ops.find((op) => op[0] === 'update')[1].status, 'approved');
+  assert.deepEqual(ops.filter((op) => op[0] === 'eq'), [['eq', 'id', 'b1'], ['eq', 'host_id', 'h1'], ['eq', 'status', 'pending']]);
+  assert.equal(sent[0].message, 'Your booking for "Garden Loft" has been confirmed.');
+  assert.equal(sent[0].metadata.listing_id, 'l1');
+  const declined = fakeClient([{ data: { id: 'b1', client_id: 'c1' }, error: null }]);
+  const sent2 = [];
+  await host.respondToBooking(declined, { booking: b, userId: 'h1', decision: 'decline', notify: async (p) => { sent2.push(p); } });
+  assert.equal(sent2[0].message, 'Your booking request for "Garden Loft" was declined.');
+  await assert.rejects(host.respondToBooking(fakeClient([{ data: null, error: null }]), { booking: b, userId: 'h1', decision: 'approve', notify: null }), /already been processed/);
+});
+
+test('host: listing video loads once per listing; videos are kept for less than their 5-minute URL', async () => {
+  const calls = [];
+  const fetchFn = async (url) => {
+    calls.push(url);
+    if (url.endsWith('/media')) return { ok: true, json: async () => ({ media: [{ id: 'm1', type: 'video' }] }) };
+    return { ok: true, json: async () => ({ url: 'https://v/1.mp4', thumbnailUrl: 'https://v/1.jpg' }) };
+  };
+  assert.deepEqual({ ...(await host.fetchListingVideo('l 1', 't', fetchFn)) }, { videoUrl: 'https://v/1.mp4', thumbnailUrl: 'https://v/1.jpg' });
+  assert.deepEqual(calls, ['/api/properties/l%201/media', '/api/media/m1/playback']);
+  assert.equal(await host.fetchListingVideo('l1', 't', async () => ({ ok: true, json: async () => ({ media: [{ id: 'p', type: 'photo' }] }) })), null);
+  cache.setCachedVideo('l1', null, 0);
+  assert.equal(cache.getCachedVideo('l1', cache.VIDEO_TTL_MS - 1), null);
+  assert.equal(cache.getCachedVideo('l1', cache.VIDEO_TTL_MS), undefined);
+  assert.ok(cache.VIDEO_TTL_MS < 5 * 60 * 1000);
+  const view = read('components', 'bookings', 'HostBookingsView.tsx');
+  assert.match(view, /new Set\(bookings\.map\(\(b\) => b\.listing && b\.listing\.id\)/, 'deduplicated by listing');
+  for (const text of ['Booking request', 'Review this guest request before taking action.', 'Approve booking', 'Location unavailable', 'Date to be confirmed', 'No pending requests', 'No table reservations yet.', 'Call Client', 'This month', 'Booking approved!', 'Booking declined.']) {
+    assert.ok(view.includes(text) || read('lib', 'bookings', 'hostBookings.ts').includes(text), text);
+  }
+});
+
+test('/bookings is the native page inside the app shell', () => {
+  const page = read('pages', 'bookings.tsx');
+  assert.match(page, /<HostBookingsView showToast=\{toast\.show\} \/>/);
+  assert.match(page, /<ClientBookingsView showToast=\{toast\.show\} \/>/);
+  assert.match(page, /id="topbar-avatar-btn"/, 'opens the shell drawer');
+  assert.equal(fs.existsSync(path.join(root, 'legacy-pages', 'bookings.html')), false);
+});

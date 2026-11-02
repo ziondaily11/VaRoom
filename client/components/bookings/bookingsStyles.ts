@@ -628,8 +628,25 @@ export const BOOKINGS_STYLES = `
     .bookings-page .content-row{ grid-template-columns:minmax(0, 1fr) clamp(320px, 36vw, 460px); }
     .bookings-page .right-rail{ display:flex; padding:.6rem .85rem 1rem; }
     .bookings-page .feed-area{ min-width:0; max-width:none; padding:.6rem 1.25rem 4rem; }
+    .bookings-page .right-rail.host-empty{ padding-left:1rem; border-left:1px solid var(--line); }
+  }
+  /* A narrow list column stacks the host cards and lets the tabs scroll. */
+  @container bookings-feed (max-width:620px){
+    .bookings-page .host-booking-card{ flex-direction:column; }
+    .bookings-page .host-booking-card .bk-thumb, .bookings-page .host-booking-card .bk-thumb-wrap .bk-thumb{ width:100%; height:150px; }
+    .bookings-page .host-booking-card .bk-thumb-wrap{ flex-basis:auto; width:100%; }
+    .bookings-page .host-booking-card .bk-actions{ align-self:stretch; }
+    .bookings-page .host-booking-card .bk-card-side{ border-left:0; border-top:1px solid var(--line); padding:.7rem 0 0; }
+    .bookings-page .host-bookings-tabs{ gap:1.35rem; overflow-x:auto; scrollbar-width:none; }
+    .bookings-page .host-header-row{ display:block; }
+    .bookings-page .host-month-nav{ margin:1rem 0 1.2rem; width:100%; justify-content:flex-start; }
+    .bookings-page .host-month-current{ white-space:nowrap; }
+    .bookings-page .host-bookings-auth-head{ display:block; }
   }
   .bookings-page .feed-area{ container:bookings-feed / inline-size; }
+  /* The message-host icon had a size only on phones (0px wide elsewhere). */
+  .bookings-page .bk-msg-link{ width:34px; height:34px; min-height:34px; padding:0; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .bookings-page .bk-msg-link svg{ width:18px; height:18px; display:block; }
   .bookings-page .booking-detail-content{ container:booking-detail / inline-size; }
 
   /* A narrow list column stacks the client cards as on phones. */
