@@ -27,8 +27,6 @@
     }
   ],
   "rewrites": [
-    { "source": "/api/news", "destination": "https://property-news-pnsj.onrender.com/api/news" },
-    { "source": "/api/news/:path*", "destination": "https://property-news-pnsj.onrender.com/api/news/:path*" },
     { "source": "/api/maps-config", "destination": "https://server-4jlx.onrender.com/api/maps-config" },
     { "source": "/api/listing-reports", "destination": "https://server-4jlx.onrender.com/api/listing-reports" },
     { "source": "/api/listings/:path*", "destination": "https://server-4jlx.onrender.com/api/listings/:path*" },
