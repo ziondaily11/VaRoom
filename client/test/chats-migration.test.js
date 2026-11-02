@@ -94,7 +94,7 @@ test('Stage 1: Lifecycle and routing separation protects against freeze and dupl
   assert.match(source, /requested !== activeIdRef\.current[\s\S]*?selectConversation\(requested,\s*false\)[\s\S]*?\}\s*,\s*\[userId,\s*routerQueryC,\s*routerQueryConversation,\s*routerPathname,\s*selectConversation\]\);/);
 
   // selectConversation guards against duplicate subscription if already active
-  assert.match(source, /const isSameConversation = activeIdRef\.current === id;/);
+  assert.match(source, /const previousConversationId = activeIdRef\.current;\s*const isSameConversation = previousConversationId === id;/);
 
   // URL updating only triggers when query actually differs
   assert.match(source, /currentQuery\.c !== id && currentQuery\.conversation !== id/);

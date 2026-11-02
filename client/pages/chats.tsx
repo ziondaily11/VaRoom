@@ -180,6 +180,8 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
+  // Presence has synced for this conversation (legacy left the status blank until then).
+  const [presenceKnownId, setPresenceKnownId] = useState<string | null>(null);
 
   // Attachments & Previews
   const [pendingPreviewFile, setPendingPreviewFile] = useState<File | null>(null);
@@ -229,6 +231,8 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   userIdRef.current = userId;
   const activeIdRef = useRef<string | null>(activeId);
   activeIdRef.current = activeId;
+  const messagesStateRef = useRef<(ChatMessage | OptimisticChatMessage)[]>(messages);
+  messagesStateRef.current = messages;
   const routerRef = useRef(router);
   routerRef.current = router;
 
@@ -351,13 +355,40 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
     }
   }, [api]);
 
+  // The inbox follows the newest message: preview updated, newest first
+  // (legacy updateConversationPreview). `null` when a thread is empty.
+  const bumpConversation = useCallback((conversationId: string, lastMessage: ChatMessage | null) => {
+    setConversations((prev) => {
+      const index = prev.findIndex((c) => c.id === conversationId);
+      if (index < 0) return prev;
+      const current = prev[index];
+      const unchanged = (current.lastMessage?.id || null) === (lastMessage?.id || null)
+        && (current.lastMessage?.deleted_at || null) === (lastMessage?.deleted_at || null);
+      if (unchanged) return prev;
+      const next = prev.slice();
+      next[index] = { ...current, lastMessage };
+      const time = (c: ChatConversation) => new Date(c.lastMessage?.created_at || c.created_at || 0).getTime();
+      return next.sort((a, b) => time(b) - time(a));
+    });
+  }, []);
+
   // Select conversation & establish Realtime channel
   const selectConversation = useCallback(async (id: string, updateRoute = true) => {
     if (!id) return;
     const client = getSupabaseClient();
     const selectionGen = ++selectionGenerationRef.current;
 
-    const isSameConversation = activeIdRef.current === id;
+    const previousConversationId = activeIdRef.current;
+    const isSameConversation = previousConversationId === id;
+    if (previousConversationId && !isSameConversation) {
+      setOnlineUsers((prev) => {
+        if (!prev.has(previousConversationId)) return prev;
+        const next = new Set(prev);
+        next.delete(previousConversationId);
+        return next;
+      });
+      setPresenceKnownId(null);
+    }
     activeIdRef.current = id;
     setActiveId(id);
     setMobileView('conversation');
@@ -434,6 +465,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
       if (selectionGen === selectionGenerationRef.current && mountedRef.current) {
         setMessagesState(finalMsgs);
         setLoadingMessages(false);
+        if (finalMsgs.length) bumpConversation(id, finalMsgs[finalMsgs.length - 1]);
         setTimeout(() => scrollToBottom(false), 50);
       }
     } catch (err) {
@@ -456,44 +488,43 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${id}` }, async (payload: any) => {
         if (selectionGen !== selectionGenerationRef.current || channelGen !== channelGenerationRef.current) return;
         const msgId = payload.new?.id;
-        if (!msgId) return;
+        // Messages this page already shows (our own sends) need no request.
+        if (!msgId || messagesStateRef.current.some((m) => m.id === msgId)) return;
 
         try {
-          const res = await api(`/api/chat/conversations/${encodeURIComponent(id)}/messages?since=${payload.new.created_at || ''}`);
-          const newMsg = (res.messages || []).find((m: ChatMessage) => m.id === msgId) || (await api(`/api/chat/conversations/${encodeURIComponent(id)}/messages`)).messages?.find((m: ChatMessage) => m.id === msgId);
-          if (!newMsg) return;
-
-          if (selectionGen === selectionGenerationRef.current && channelGen === channelGenerationRef.current && mountedRef.current) {
-            setMessagesState((prev) => {
-              if (prev.some((m) => m.id === newMsg.id)) return prev;
-              const next = [...prev, newMsg];
-              appendMessage(currentUserId, id, newMsg).catch(() => {});
-              return next;
-            });
-            setTimeout(() => scrollToBottom(true), 50);
-            updateInboxConversation(currentUserId, id, { lastMessage: newMsg }).catch(() => {});
-          }
+          // Everything after the newest message shown: one request.
+          const newest = [...messagesStateRef.current].reverse().find((m) => !(m as OptimisticChatMessage)._optimistic && m.created_at);
+          let url = `/api/chat/conversations/${encodeURIComponent(id)}/messages`;
+          if (newest) url += `?since=${encodeURIComponent(newest.created_at)}`;
+          const res = await api(url);
+          if (selectionGen !== selectionGenerationRef.current || channelGen !== channelGenerationRef.current || !mountedRef.current) return;
+          const incoming: ChatMessage[] = (res.messages || []).filter((m: ChatMessage) => !messagesStateRef.current.some((existing) => existing.id === m.id));
+          if (!incoming.length) return;
+          setMessagesState((prev) => [...prev, ...incoming.filter((m) => !prev.some((existing) => existing.id === m.id))]);
+          incoming.forEach((m) => { appendMessage(currentUserId, id, m).catch(() => {}); });
+          const latest = incoming[incoming.length - 1];
+          updateInboxConversation(currentUserId, id, { lastMessage: latest }).catch(() => {});
+          bumpConversation(id, latest);
+          setTimeout(() => scrollToBottom(true), 50);
         } catch (e) {
-          console.error('Error fetching decrypted realtime message:', e);
+          console.error('Unable to load new chat message:', e);
         }
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages', filter: `conversation_id=eq.${id}` }, async () => {
         if (selectionGen !== selectionGenerationRef.current || channelGen !== channelGenerationRef.current) return;
         try {
-          const res = await api(`/api/chat/conversations/${encodeURIComponent(id)}/messages`);
-          if (selectionGen === selectionGenerationRef.current && channelGen === channelGenerationRef.current && mountedRef.current) {
-            setMessagesState(res.messages || []);
-          }
-        } catch {}
+          await refreshConversation(id);
+        } catch (error) {
+          console.error('Unable to refresh changed chat message:', error);
+        }
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'message_user_deletions', filter: `conversation_id=eq.${id}` }, async () => {
         if (selectionGen !== selectionGenerationRef.current || channelGen !== channelGenerationRef.current) return;
         try {
-          const res = await api(`/api/chat/conversations/${encodeURIComponent(id)}/messages`);
-          if (selectionGen === selectionGenerationRef.current && channelGen === channelGenerationRef.current && mountedRef.current) {
-            setMessagesState(res.messages || []);
-          }
-        } catch {}
+          await refreshConversation(id);
+        } catch (error) {
+          console.error('Unable to refresh deleted chat message:', error);
+        }
       })
       .on('presence', { event: 'sync' }, () => {
         if (selectionGen !== selectionGenerationRef.current || channelGen !== channelGenerationRef.current) return;
@@ -504,15 +535,20 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
           if (isOnline) next.add(id); else next.delete(id);
           return next;
         });
+        setPresenceKnownId(id);
       });
 
     activeChannelRef.current = channel;
     channel.subscribe((status: string) => {
       if (status === 'SUBSCRIBED' && currentUserId) {
-        channel.track({ user_id: currentUserId }).catch(() => {});
+        channel.track({ user_id: currentUserId }).catch((error: unknown) => console.error('Chat presence failed:', error));
+      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        console.error(`Chat realtime subscription failed: ${status}`);
       }
     });
-  }, [api, scrollToBottom, updateSidebarCounts]);
+    // refreshConversation uses refs only, so a stale closure is safe.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [api, scrollToBottom, updateSidebarCounts, bumpConversation]);
 
   // Role follows the verified account's profile from AuthProvider.
   const verifiedRole = accountRole(useAuth().profile);
@@ -762,6 +798,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
         sent.forEach((m) => { appendMessage(userId, conversationId, m).catch(() => {}); });
         updateInboxConversation(userId, conversationId, { lastMessage: sent[sent.length - 1] }).catch(() => {});
       }
+      if (sent.length) bumpConversation(conversationId, sent[sent.length - 1]);
     } catch (err) {
       console.error('Failed to send chat message:', err);
       showStatusNote('Message not sent. Please try again.', 3500);
@@ -810,6 +847,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
           appendMessage(userId, conversationId, sent).catch(() => {});
           updateInboxConversation(userId, conversationId, { lastMessage: sent }).catch(() => {});
         }
+        bumpConversation(conversationId, sent);
       }
       setTimeout(() => scrollToBottom(true), 50);
     } catch (err) {
@@ -912,6 +950,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
           appendMessage(userId, activeId, res.message).catch(() => {});
           updateInboxConversation(userId, activeId, { lastMessage: res.message }).catch(() => {});
         }
+        bumpConversation(activeId, res.message);
         // The persisted message fetches its own signed URL. It must not reuse this
         // local blob URL, because it is about to be released.
         URL.revokeObjectURL(localObjectUrl);
@@ -1042,6 +1081,8 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
     const currentUserId = userIdRef.current;
     if (currentUserId) setMessages(currentUserId, conversationId, list).catch(() => {});
     if (mountedRef.current && activeIdRef.current === conversationId) setMessagesState(list);
+    bumpConversation(conversationId, list.length ? list[list.length - 1] : null);
+    if (currentUserId) updateInboxConversation(currentUserId, conversationId, { lastMessage: list.length ? list[list.length - 1] : null }).catch(() => {});
   };
 
   const performMessageAction = async (message: ChatMessage, action: MessageAction) => {
@@ -1411,7 +1452,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                 </div>
                 <div className="chat-header-status">
                   <span className={`dot ${isCurrentOnline ? 'online' : ''}`} id="statusDot" style={{ background: isCurrentOnline ? '#4ec1a0' : '#c7cbd1' }} />
-                  <span id="statusText">{isElie ? 'VaRoom AI Assistant' : isCurrentOnline ? 'Online' : 'Offline'}</span>
+                  <span id="statusText">{isElie ? 'VaRoom AI Assistant' : presenceKnownId === activeId ? (isCurrentOnline ? 'Online' : 'Offline') : ''}</span>
                 </div>
               </div>
             </div>
