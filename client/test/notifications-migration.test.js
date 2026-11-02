@@ -24,7 +24,7 @@ function loadCacheModule() {
       key: (i) => Array.from(store.keys())[i] || null,
     },
     matchMedia: (query) => ({
-      matches: query.includes('min-width: 1321px'),
+      matches: query.includes('min-width: 861px'),
       media: query,
       onchange: null,
       addListener: () => {},
@@ -234,7 +234,7 @@ test('7. Notification actions and their intended navigation destinations', () =>
   };
   assert.equal(cache.notificationTarget(reviewNotif, 'client'), '/profile');
 
-  // Client booking desktop target (min-width: 1321px matches in mock)
+  // Client booking laptop/desktop target (min-width: 861px matches in mock)
   const clientBooking = {
     id: 'n-cb',
     type: 'booking_approved',
@@ -397,15 +397,15 @@ test('13. Shared sidebar username and name contrast and visibility in Client and
 });
 
 test('14. Unbroken notifications navigation from Bookings and client-side sidebar routing', () => {
-  const bookingsHtmlPath = path.join(root, 'legacy-pages', 'bookings.html');
+  const bookingsPagePath = path.join(root, 'pages', 'bookings.tsx');
   const hostSidebarPath = path.join(root, 'components', 'shell/HostSidebar.tsx');
   const clientSidebarPath = path.join(root, 'components', 'shell/ClientSidebar.tsx');
   const hostHomeHtmlPath = path.join(root, 'legacy-pages', 'host-home.html');
 
-  // 1. bookings.html must not intercept #notif-nav-item with stopPropagation or notif-bell
-  const bookingsHtml = fs.readFileSync(bookingsHtmlPath, 'utf8');
-  assert.doesNotMatch(bookingsHtml, /getElementById\(['"]notif-nav-item['"]\)\?*\.addEventListener/);
-  assert.doesNotMatch(bookingsHtml, /notif-bell/);
+  // 1. The Bookings page must not intercept #notif-nav-item or render its own notif-bell
+  const bookingsPage = fs.readFileSync(bookingsPagePath, 'utf8');
+  assert.doesNotMatch(bookingsPage, /notif-nav-item/);
+  assert.doesNotMatch(bookingsPage, /notif-bell/);
 
   // 2. SharedHostSidebar renders Notifications as an accessible <a> link with href="/notifications"
   const hostSidebarSource = fs.readFileSync(hostSidebarPath, 'utf8');
@@ -438,10 +438,8 @@ test('15. Instant cache presentation is limited to the verified account', () => 
   assert.match(notifPageSource, /\[auth\.status, authUserId, fetchNotifications, router\]/);
 });
 
-test('16. Bookings retains the shared notification widget after legacy page retirement', () => {
-  const bookingsHtml = fs.readFileSync(path.join(root, 'legacy-pages', 'bookings.html'), 'utf8');
-  const widgetPath = path.join(root, 'public', 'js', 'notifications-widget.js');
-
-  assert.ok(fs.existsSync(widgetPath));
-  assert.match(bookingsHtml, /<script src="js\/notifications-widget\.js"><\/script>/);
+test('16. The legacy notification widget is retired with bookings.html', () => {
+  const bookingsPage = fs.readFileSync(path.join(root, 'pages', 'bookings.tsx'), 'utf8');
+  assert.doesNotMatch(bookingsPage, /notifications-widget/);
+  assert.equal(fs.existsSync(path.join(root, 'public', 'js', 'notifications-widget.js')), false);
 });

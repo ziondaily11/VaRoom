@@ -106,7 +106,7 @@ test('HostLayout and ClientLayout enforce non-red subtle grey active navigation 
 });
 
 test('Legacy pages define consistent non-red active navigation background tokens', () => {
-  const pages = ['bookings.html', 'settings.html', 'profile.html', 'marketplace.html', 'booking.html'];
+  const pages = ['settings.html', 'profile.html', 'marketplace.html', 'booking.html'];
   const legacyDir = path.join(clientRoot, 'legacy-pages');
 
   for (const page of pages) {

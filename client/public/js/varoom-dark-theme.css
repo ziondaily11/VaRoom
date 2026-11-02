@@ -122,7 +122,6 @@
   box-shadow: none !important;
 }
 
-[data-theme="dark"] .rail-card,
 [data-theme="dark"] .notif-panel-card,
 [data-theme="dark"] .property-news-card,
 [data-theme="dark"] .varoom-updates-card {
@@ -675,7 +674,6 @@
 /* Section wrappers stay flat; their bottom border carries the grouping. */
 [data-theme="dark"] .stats-card,
 [data-theme="dark"] .listings-glance-card,
-[data-theme="dark"] .rail-card,
 [data-theme="dark"] .notif-panel-card,
 [data-theme="dark"] .property-news-card,
 [data-theme="dark"] .varoom-updates-card,
@@ -820,16 +818,6 @@
 
 [data-theme="dark"] .toggle-pw:hover {
   color: #FFFFFF !important;
-}
-
-/* ================================================================
-   BOOKINGS & APPROVALS (booking.html, booking-approved.html)
-   ================================================================ */
-[data-theme="dark"] .booking-card,
-[data-theme="dark"] .booking-summary,
-[data-theme="dark"] .booking-box {
-  background: transparent !important;
-  border-color: var(--line) !important;
 }
 
 [data-theme="dark"] .hero {

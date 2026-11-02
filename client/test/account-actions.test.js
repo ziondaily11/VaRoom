@@ -126,7 +126,7 @@ test('AddAccountModal fixes: popup race, scoped message listener, restored metho
 });
 
 test('legacy logout buttons hand off to the shared logout when it is present', () => {
-  for (const file of ['booking.html', 'bookings.html', 'host-home.html', 'profile.html', 'settings.html']) {
+  for (const file of ['booking.html', 'host-home.html', 'profile.html', 'settings.html']) {
     const source = fs.readFileSync(path.join(root, 'legacy-pages', file), 'utf8');
     assert.match(source, /if \(window\.VaRoomAccount\) \{ await window\.VaRoomAccount\.logout\(\); return; \}\r?\n\s*await supabaseClient\.auth\.signOut\(\);/, file);
   }

@@ -82,9 +82,7 @@ test('admin.css and AnalyticsShell.module.css support dark mode with #000000 can
 test('Legacy pages define consistent true black tokens', () => {
   const legacyDir = path.join(clientRoot, 'legacy-pages');
   const pagesToCheck = [
-    'booking-approved.html',
     'booking.html',
-    'bookings.html',
     'host-home.html',
     'list.html',
     'marketplace.html',
