@@ -60,9 +60,9 @@ test('pinned banner and deleted messages match legacy', () => {
 });
 
 test('copy confirms with a status note', () => {
-  assert.match(source, /showCopyNote\(copied \? 'Copied' : 'Unable to copy'\)/);
-  assert.match(source, /className="chat-copy-note" role="status" aria-live="polite"/);
+  assert.match(source, /showStatusNote\(copied \? 'Copied' : 'Unable to copy'\)/);
+  assert.match(source, /className="chat-status-note" role="status" aria-live="polite"/);
   const css = fs.readFileSync(path.join(root, 'public', 'js', 'chats.css'), 'utf8');
-  assert.match(css, /\.chat-copy-note\{/);
+  assert.match(css, /\.chat-status-note\{/);
   assert.match(source, /<symbol id="i-copy"/);
 });

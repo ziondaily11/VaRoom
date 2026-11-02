@@ -9,7 +9,9 @@ function Icon({ name }) {
   );
 }
 
-export default function ChatComposerActions({ isElie: initialIsElie, onSend, onPhotoClick, onFileClick, onMobileAttach, canSend } = {}) {
+// Clients share photos only; hosts also share files and listings (legacy rule).
+export default function ChatComposerActions({ isElie: initialIsElie, onSend, onPhotoClick, onFileClick, onMobileAttach, onShareListing, canSend, role } = {}) {
+  const isHost = role === 'host';
   const [shareMenuOpen, setShareMenuOpen] = useState(false);
   const [isElie, setIsElie] = useState(() => {
     if (typeof initialIsElie === 'boolean') return initialIsElie;
@@ -132,7 +134,7 @@ export default function ChatComposerActions({ isElie: initialIsElie, onSend, onP
           className="mobile-attach"
           type="button"
           title="More actions"
-          aria-label="Add photos"
+          aria-label={isHost ? 'Attach photos, files or a listing' : 'Add photos'}
           aria-haspopup="menu"
           aria-expanded={false}
           aria-controls="mobileAttachMenu"
@@ -184,6 +186,7 @@ export default function ChatComposerActions({ isElie: initialIsElie, onSend, onP
             <button
               className="share-file"
               type="button"
+              hidden={!isHost}
               role="menuitem"
               aria-label="Share file"
               aria-hidden={!shareMenuOpen}
@@ -199,9 +202,10 @@ export default function ChatComposerActions({ isElie: initialIsElie, onSend, onP
               title="Share listing"
               aria-label="Share listing"
               role="menuitem"
+              hidden={!isHost}
               aria-hidden={!shareMenuOpen}
               tabIndex={shareMenuOpen ? 0 : -1}
-              onClick={closeShareMenu}
+              onClick={() => { onShareListing?.(); closeShareMenu(); }}
             >
               <Icon name="share" />
             </button>

@@ -28,6 +28,8 @@ import { hasMessageMarkup, messagePlainText, parseMessageBody, type MessageBodyN
 import MessageActionMenu, { messageActionItems, type MessageAction } from '../components/chat/MessageActionMenu';
 import { AttachmentThumb, ImagePreview, ListingCard, PhotoBubble, VoiceCard } from '../components/chat/MessageMedia';
 import { messageMetaText } from '../lib/chat/chatMedia';
+import ShareListingSheet from '../components/chat/ShareListingSheet';
+import { KEEP_FOCUS_SELECTOR, useChatViewport } from '../components/chat/useChatViewport';
 import { ThinkingOrb } from 'thinking-orbs';
 
 const { chatsCssHref } = require('../lib/chatsCssAssets');
@@ -172,7 +174,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   const [mobileView, setMobileView] = useState<'inbox' | 'conversation' | 'info'>('inbox');
   const [messageMenu, setMessageMenu] = useState<{ message: ChatMessage; x: number; y: number } | null>(null);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
-  const [copyNote, setCopyNote] = useState<string>('');
+  const [statusNote, setStatusNote] = useState<string>('');
   const [infoCollapsed, setInfoCollapsed] = useState<boolean>(true);
   const [chatSettingsEmbedded, setChatSettingsEmbedded] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -197,6 +199,10 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   // Composer Text State
   const [composerText, setComposerText] = useState<string>('');
   const [mobileAttachMenuOpen, setMobileAttachMenuOpen] = useState(false);
+  // A non-image file picked on a phone waits here and is sent with the text (legacy).
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [shareSheetOpen, setShareSheetOpen] = useState(false);
+  const isHost = role === 'host';
 
   // Refs for Realtime & Lifecycle Guards
   const selectionGenerationRef = useRef<number>(0);
@@ -210,7 +216,11 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const longPressRef = useRef<{ timer: number; x: number; y: number } | null>(null);
   const highlightTimerRef = useRef<number | null>(null);
-  const copyNoteTimerRef = useRef<number | null>(null);
+  const statusNoteTimerRef = useRef<number | null>(null);
+  const sendingRef = useRef<boolean>(false);
+  const appShellRef = useRef<HTMLDivElement | null>(null);
+  const messagesRef = useRef<HTMLDivElement | null>(null);
+  const composerRef = useRef<HTMLDivElement | null>(null);
 
   // Active state synchronization refs to break cyclic dependencies
   const sessionRef = useRef<any>(session);
@@ -255,11 +265,27 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
     return onlineUsers.has(activeId);
   }, [activeId, isElie, onlineUsers]);
 
+  useChatViewport({ shellRef: appShellRef, messagesRef, composerRef, textareaRef: mobileTextareaRef });
+
   const emptyCopy = role === 'host'
     ? { heading: 'No conversations yet', detail: 'When clients reach out, your conversations will appear here.' }
     : { heading: 'Start a conversation', detail: 'Chat with a host and your conversations will appear here.' };
 
   const closePhotoPreview = useCallback(() => setSelectedPhotoPreview(null), []);
+
+  // The photo waiting to be shared: one object URL, released when it changes.
+  const pendingPreviewUrl = useMemo(() => (pendingPreviewFile ? URL.createObjectURL(pendingPreviewFile) : null), [pendingPreviewFile]);
+  useEffect(() => () => { if (pendingPreviewUrl) URL.revokeObjectURL(pendingPreviewUrl); }, [pendingPreviewUrl]);
+  useEffect(() => {
+    if (!pendingPreviewFile) return undefined;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      setPendingPreviewFile(null);
+      setPreviewCaption('');
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [pendingPreviewFile]);
 
   const pinnedMessage = useMemo(() => {
     return messages.find((m) => m.pinned_at && !m.deleted_at) || null;
@@ -337,6 +363,8 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
     setMobileView('conversation');
     setReplyTo(null);
     setMessagesError(false);
+    setPendingFile(null);
+    setShareSheetOpen(false);
 
     // Update URL query without full page reload if requested
     if (updateRoute) {
@@ -612,7 +640,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   // Timers for the reply highlight and the "Copied" note.
   useEffect(() => () => {
     if (highlightTimerRef.current) window.clearTimeout(highlightTimerRef.current);
-    if (copyNoteTimerRef.current) window.clearTimeout(copyNoteTimerRef.current);
+    if (statusNoteTimerRef.current) window.clearTimeout(statusNoteTimerRef.current);
     if (longPressRef.current) window.clearTimeout(longPressRef.current.timer);
   }, []);
 
@@ -625,7 +653,8 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   const handleSendMessage = async (textToSend?: string) => {
     const content = (textToSend !== undefined ? textToSend : (desktopEditorRef.current?.innerHTML || composerText)).trim();
     const plainText = (desktopEditorRef.current?.textContent || content).trim();
-    if (!plainText || !activeId) return;
+    if (!activeId) return;
+    if (!plainText && (activeId === ELIE_ID || !pendingFile)) return;
 
     if (activeId === ELIE_ID) {
       // Send to Elie AI Assistant
@@ -679,46 +708,137 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
       return;
     }
 
-    // Standard conversation message send
+    // Standard conversation message send (legacy sendText). Text is cleared
+    // only after the server accepts it; one send at a time.
+    if (sendingRef.current) return;
+    sendingRef.current = true;
+    const conversationId = activeId;
     const currentReply = replyTo;
-    setReplyTo(null);
-    setComposerText('');
-    if (desktopEditorRef.current) desktopEditorRef.current.innerHTML = '';
-
+    const fileToSend = pendingFile;
+    const textareaHadFocus = document.activeElement === mobileTextareaRef.current;
     try {
-      const res = await api(`/api/chat/conversations/${encodeURIComponent(activeId)}/messages`, {
-        method: 'POST',
-        body: JSON.stringify({
-          content: content,
-          messageType: 'text',
-          replyToMessageId: currentReply?.id || undefined,
-        }),
-      });
-
-      if (res?.message && mountedRef.current) {
-        const sent = res.message;
-        setMessagesState((prev) => {
-          if (prev.some((m) => m.id === sent.id)) return prev;
-          return [...prev, sent];
+      let res: { message?: ChatMessage; messages?: ChatMessage[] } | null = null;
+      if (fileToSend) {
+        // The upload shows its own sending and failed states in the thread.
+        setPendingFile(null);
+        void handleUploadAttachment(fileToSend, 'file', plainText ? content : fileToSend.name);
+      } else if (!currentReply && plainText.toLowerCase() === '@reply') {
+        res = await api(`/api/chat/conversations/${encodeURIComponent(conversationId)}/reply`, {
+          method: 'POST',
+          body: JSON.stringify({ command: '@reply' }),
         });
-        if (userId) {
-          appendMessage(userId, activeId, sent).catch(() => {});
-          updateInboxConversation(userId, activeId, { lastMessage: sent }).catch(() => {});
-        }
+      } else {
+        res = await api(`/api/chat/conversations/${encodeURIComponent(conversationId)}/messages`, {
+          method: 'POST',
+          body: JSON.stringify({
+            content: content,
+            messageType: 'text',
+            replyToMessageId: currentReply?.id || undefined,
+          }),
+        });
+      }
+
+      // Accepted: clear the composer (also if the user has switched conversation).
+      setComposerText('');
+      resetDesktopComposer();
+      if (currentReply) setReplyTo(null);
+      if (textareaHadFocus) mobileTextareaRef.current?.focus();
+
+      const sent = res ? (res.messages || (res.message ? [res.message] : [])) : [];
+      if (sent.length && currentReply && res?.message) {
+        // Show the quote at once; the server row has only the id.
+        res.message.reply_to_message = {
+          id: currentReply.id,
+          sender_id: currentReply.sender_id,
+          body: currentReply.body,
+          deleted_at: currentReply.deleted_at,
+        };
+      }
+      if (sent.length && mountedRef.current && activeIdRef.current === conversationId) {
+        setMessagesState((prev) => [...prev, ...sent.filter((m) => !prev.some((existing) => existing.id === m.id))]);
         setTimeout(() => scrollToBottom(true), 50);
+      }
+      if (sent.length && userId) {
+        sent.forEach((m) => { appendMessage(userId, conversationId, m).catch(() => {}); });
+        updateInboxConversation(userId, conversationId, { lastMessage: sent[sent.length - 1] }).catch(() => {});
       }
     } catch (err) {
       console.error('Failed to send chat message:', err);
+      showStatusNote('Message not sent. Please try again.', 3500);
+    } finally {
+      sendingRef.current = false;
+    }
+  };
+
+  // Empty the desktop editor and turn off any formatting left active (legacy resetDesktopComposer).
+  const resetDesktopComposer = () => {
+    const editor = desktopEditorRef.current;
+    if (!editor) return;
+    editor.innerHTML = '';
+    editor.removeAttribute('style');
+    if (!window.matchMedia('(min-width: 761px)').matches) return;
+    editor.focus();
+    const selection = window.getSelection();
+    if (selection) {
+      selection.removeAllRanges();
+      const range = document.createRange();
+      range.selectNodeContents(editor);
+      range.collapse(true);
+      selection.addRange(range);
+    }
+    ['bold', 'italic', 'underline', 'insertUnorderedList', 'insertOrderedList'].forEach((command) => {
+      if (document.queryCommandState(command)) document.execCommand(command, false);
+    });
+  };
+
+  // Share listings (host): one listing message each, as legacy.
+  const shareListings = async (listings: ChatListingSummary[]) => {
+    const conversationId = activeIdRef.current;
+    if (!conversationId || conversationId === ELIE_ID || !isHost) return;
+    try {
+      for (const listing of listings) {
+        const res = await api(`/api/chat/conversations/${encodeURIComponent(conversationId)}/messages`, {
+          method: 'POST',
+          body: JSON.stringify({ content: listing.title, listingId: listing.id, messageType: 'listing' }),
+        });
+        const sent: ChatMessage | undefined = res?.message;
+        if (!sent) continue;
+        if (mountedRef.current && activeIdRef.current === conversationId) {
+          setMessagesState((prev) => (prev.some((m) => m.id === sent.id) ? prev : [...prev, sent]));
+        }
+        if (userId) {
+          appendMessage(userId, conversationId, sent).catch(() => {});
+          updateInboxConversation(userId, conversationId, { lastMessage: sent }).catch(() => {});
+        }
+      }
+      setTimeout(() => scrollToBottom(true), 50);
+    } catch (err) {
+      console.error('Unable to share listing:', err);
+      showStatusNote('Listing not shared. Please try again.', 3500);
+      throw err;
+    }
+  };
+
+  // Files chosen with the file button: images go to the photo preview; on
+  // phones other files wait for the send button; on desktop they upload at once.
+  const onFileChosen = (file: File) => {
+    if (!isHost) return;
+    if (/^image\//i.test(file.type || '') || /\.(jpe?g|png|gif|webp|heic|heif|avif|bmp)$/i.test(file.name || '')) {
+      setPendingPreviewFile(file);
+    } else if (window.matchMedia('(max-width: 760px)').matches) {
+      setPendingFile(file);
+    } else {
+      void handleUploadAttachment(file, 'file');
     }
   };
 
   // Upload attachment & send
-  const handleUploadAttachment = async (file: File, kind: 'photo' | 'file') => {
+  const handleUploadAttachment = async (file: File, kind: 'photo' | 'file', caption?: string) => {
     if (!activeId || isUploading) return;
 
     // --- Optimistic: create a temporary message immediately ---
     const tempId = `optimistic-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    const captionAtSend = previewCaption.trim() || file.name;
+    const captionAtSend = (caption ?? previewCaption).trim() || file.name;
     const localObjectUrl = URL.createObjectURL(file);
     const tempMsg: OptimisticChatMessage = {
       id: tempId,
@@ -879,10 +999,10 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
     scrollToMessage(messageId);
   };
 
-  const showCopyNote = (text: string) => {
-    if (copyNoteTimerRef.current) window.clearTimeout(copyNoteTimerRef.current);
-    setCopyNote(text);
-    copyNoteTimerRef.current = window.setTimeout(() => setCopyNote(''), 2000);
+  const showStatusNote = (text: string, ms = 2000) => {
+    if (statusNoteTimerRef.current) window.clearTimeout(statusNoteTimerRef.current);
+    setStatusNote(text);
+    statusNoteTimerRef.current = window.setTimeout(() => setStatusNote(''), ms);
   };
 
   const copyMessage = async (message: ChatMessage) => {
@@ -903,7 +1023,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
       try { copied = document.execCommand('copy'); } catch { copied = false; }
       area.remove();
     }
-    showCopyNote(copied ? 'Copied' : 'Unable to copy');
+    showStatusNote(copied ? 'Copied' : 'Unable to copy');
   };
 
   const startReply = (message: ChatMessage) => {
@@ -1098,7 +1218,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
         </defs>
       </svg>
 
-      <div className={`app-shell ${mobileView === 'conversation' ? 'view-chat' : mobileView === 'info' ? 'view-info' : 'view-inbox'}`}>
+      <div ref={appShellRef} className={`app-shell ${mobileView === 'conversation' ? 'view-chat' : mobileView === 'info' ? 'view-info' : 'view-inbox'}`}>
         
         {/* 1. ICON RAIL (Fixed 78px navigation) */}
         <nav className="icon-rail" id="chatRoleNavigation" data-role={role} aria-label={role === 'host' ? 'Host navigation' : 'Client navigation'}>
@@ -1353,6 +1473,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
 
           {/* Messages Stream */}
           <div
+            ref={messagesRef}
             className={`messages${loadingMessages ? ' chat-loading' : ''}${!activeId ? ' empty-state' : ''}`}
             aria-busy={loadingMessages || undefined}
           >
@@ -1404,6 +1525,24 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                 const attachmentId = m.attachment_id || m.attachment?.id || null;
                 const metaText = messageMetaText(m, isOut, (value) => new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
                 const meta = <div className="msg-meta">{metaText}</div>;
+                // Uploads in progress or failed (photos and files).
+                const optimistic = m as OptimisticChatMessage;
+                const uploadState = optimistic._optimistic ? (
+                  optimistic._failed ? (
+                    <div className="msg-failed">
+                      Failed
+                      <button
+                        type="button"
+                        className="msg-failed-dismiss"
+                        onClick={() => {
+                          // Dismiss: release the blob URL and remove the failed message.
+                          if (optimistic._localUrl) URL.revokeObjectURL(optimistic._localUrl);
+                          setMessagesState((prev) => prev.filter((msg) => msg.id !== m.id));
+                        }}
+                      >Dismiss</button>
+                    </div>
+                  ) : <div className="msg-sending">Sending…</div>
+                ) : null;
                 const actionable = canActOnMessage(m);
 
                 // Quote of the replied-to message (legacy makeReplyReference).
@@ -1464,24 +1603,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                             {m.body && m.body.trim() !== m.attachment?.original_filename && (
                               <div className="chat-message-caption">{renderMessageBody(m.body)}</div>
                             )}
-                            {(m as OptimisticChatMessage)._optimistic && !(m as OptimisticChatMessage)._failed && (
-                              <div className="msg-sending">Sending…</div>
-                            )}
-                            {(m as OptimisticChatMessage)._failed && (
-                              <div className="msg-failed">
-                                Failed
-                                <button
-                                  type="button"
-                                  className="msg-failed-dismiss"
-                                  onClick={() => {
-                                    // Dismiss: release the blob URL and remove the failed message.
-                                    const localUrl = (m as OptimisticChatMessage)._localUrl;
-                                    if (localUrl) URL.revokeObjectURL(localUrl);
-                                    setMessagesState((prev) => prev.filter((msg) => msg.id !== m.id));
-                                  }}
-                                >Dismiss</button>
-                              </div>
-                            )}
+                            {uploadState}
                             {meta}
                           </>
                         )}
@@ -1513,6 +1635,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                       <div className="bubble">
                         {replyReference}
                         {renderMessageBody(m.body || '')}
+                        {uploadState}
                         {meta}
                       </div>
                     )}
@@ -1555,7 +1678,19 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
           </div>
 
           {/* Composer Input Area */}
-          <div className={`chat-input-area ${isElie ? 'is-elie' : ''} ${composerText.trim() ? 'can-send has-text' : ''}`} style={{ position: 'relative' }}>
+          <div
+            ref={composerRef}
+            className={`chat-input-area ${isElie ? 'is-elie' : ''} ${composerText.trim() ? 'has-text' : ''} ${composerText.trim() || (pendingFile && !isElie) ? 'can-send' : ''}`}
+            style={{ position: 'relative' }}
+            onMouseDown={(e) => {
+              // Phones: tapping composer buttons keeps the keyboard open.
+              if (window.matchMedia('(max-width: 760px)').matches && (e.target as Element).closest(KEEP_FOCUS_SELECTOR)) e.preventDefault();
+            }}
+          >
+            {/* Phone: a file waiting to be sent with the text */}
+            <div className={`mobile-preview${pendingFile && !isElie ? ' has-content' : ''}`} id="mobileComposerPreview">
+              {pendingFile && !isElie ? `File: ${pendingFile.name}` : ''}
+            </div>
             <ElieComposerBeam isElie={isElie} />
 
             {/* Desktop WYSIWYG editor */}
@@ -1572,6 +1707,10 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                 setComposerText(text);
               }}
               onKeyDown={(e) => {
+                if (isElie && (e.ctrlKey || e.metaKey) && ['b', 'i', 'u'].includes(e.key.toLowerCase())) {
+                  e.preventDefault();
+                  return;
+                }
                 if (e.key === 'Escape' && replyTo) {
                   setReplyTo(null);
                   return;
@@ -1656,7 +1795,9 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
               <div className="attach-icons" data-chat-composer-actions>
                 <ChatComposerActions
                   isElie={isElie}
-                  canSend={!!composerText.trim()}
+                  canSend={!!composerText.trim() || (!!pendingFile && !isElie)}
+                  role={role}
+                  onShareListing={() => setShareSheetOpen(true)}
                   onSend={() => { void handleSendMessage(); }}
                   onPhotoClick={() => photoInputRef.current?.click()}
                   onFileClick={() => fileInputRef.current?.click()}
@@ -1674,12 +1815,12 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                       onClick={() => { setMobileAttachMenuOpen(false); photoInputRef.current?.click(); }}>
                       <span className="ico ico-photos"><svg className="icon"><use href="#i-image" /></svg></span>Photos
                     </button>
-                    <button type="button" className="mobile-attach-item" role="menuitem"
+                    <button type="button" className="mobile-attach-item" role="menuitem" hidden={!isHost} data-attach="files"
                       onClick={() => { setMobileAttachMenuOpen(false); fileInputRef.current?.click(); }}>
                       <span className="ico ico-files"><svg className="icon"><use href="#i-file-text" /></svg></span>Files
                     </button>
-                    <button type="button" className="mobile-attach-item" role="menuitem"
-                      onClick={() => { setMobileAttachMenuOpen(false); alert('Listing sharing coming soon.'); }}>
+                    <button type="button" className="mobile-attach-item" role="menuitem" hidden={!isHost} data-attach="listing"
+                      onClick={() => { setMobileAttachMenuOpen(false); setShareSheetOpen(true); }}>
                       <span className="ico ico-listing"><svg className="icon"><use href="#i-store" /></svg></span>Listing
                     </button>
                   </div>
@@ -1702,15 +1843,25 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
             <input
               type="file"
               ref={fileInputRef}
-              accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.zip"
               style={{ display: 'none' }}
               onChange={(e) => {
                 const file = e.target.files?.[0];
-                if (file) handleUploadAttachment(file, 'file');
+                if (file) onFileChosen(file);
                 e.target.value = '';
               }}
             />
           </div>
+
+          {/* Host: share listings into the conversation */}
+          {isHost && !isElie && (
+            <ShareListingSheet
+              open={shareSheetOpen}
+              userId={userId}
+              api={api}
+              onClose={() => setShareSheetOpen(false)}
+              onShare={shareListings}
+            />
+          )}
 
           {/* In-Conversation Media Preview / Composer Before Send */}
           {pendingPreviewFile && (
@@ -1739,7 +1890,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                 <img
                   id="chatMediaPreviewImg"
                   className="chat-media-preview-image"
-                  src={URL.createObjectURL(pendingPreviewFile)}
+                  src={pendingPreviewUrl || undefined}
                   alt="Selected image preview"
                 />
               </div>
@@ -1752,6 +1903,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                     placeholder="Type a message"
                     aria-label="Type a message"
                     value={previewCaption}
+                    autoFocus
                     onChange={(e) => setPreviewCaption(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && !e.shiftKey) {
@@ -1857,8 +2009,8 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
         />
       )}
 
-      {/* "Copied" note, announced to screen readers */}
-      <div className="chat-copy-note" role="status" aria-live="polite" hidden={!copyNote}>{copyNote}</div>
+      {/* Short status notes ("Copied", send failures), announced to screen readers */}
+      <div className="chat-status-note" role="status" aria-live="polite" hidden={!statusNote}>{statusNote}</div>
 
       {/* Full Photo Modal Viewer */}
       {selectedPhotoPreview && (
