@@ -6,7 +6,7 @@ import { getSupabaseClient } from '../lib/supabase/client';
 import { profileStore } from '../lib/auth/session';
 import { completedClientProfile } from '../lib/types/profile';
 import { Music2, X } from 'lucide-react';
-import ClientLayout from '../components/ClientLayout';
+import AppShell from '../components/shell/AppShell';
 import styles from './ClientHome.module.css';
 import { loadListingFeedCache, type ListingFeedCache } from '../lib/listingFeedCache';
 import { getCachedNewsPreview, setCachedNewsPreview } from '../lib/propertyNewsCache';
@@ -1990,10 +1990,6 @@ export default function ClientHome() {
             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="m15 9-2 6-6 2 2-6 6-2Z" /></svg>
             Marketplace
           </a>
-          <a href="/list">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z" /></svg>
-            Create
-          </a>
           <a href="/chats">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7A8.4 8.4 0 0 1 4 11.5a8.5 8.5 0 0 1 4.7-7.6A8.4 8.4 0 0 1 12.5 3h.5a8.48 8.48 0 0 1 8 8v.5Z" /></svg>
             Inbox
@@ -2044,4 +2040,4 @@ function UpdateList({ items, loading, failed }: { items: Update[]; loading: bool
   );
 }
 
-ClientHome.getLayout = (page: ReactElement) => <ClientLayout className="client-home-layout">{page}</ClientLayout>;
+ClientHome.getLayout = (page: ReactElement) => <AppShell variant="client" className="client-home-layout">{page}</AppShell>;

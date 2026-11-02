@@ -8,11 +8,11 @@ const addAccountModalCode = fs.readFileSync(
   'utf8'
 );
 const sharedClientSidebarCode = fs.readFileSync(
-  path.join(__dirname, '../components/SharedClientSidebar.jsx'),
+  path.join(__dirname, '../components/shell/ClientSidebar.tsx'),
   'utf8'
 );
 const sharedHostSidebarCode = fs.readFileSync(
-  path.join(__dirname, '../components/SharedHostSidebar.jsx'),
+  path.join(__dirname, '../components/shell/HostSidebar.tsx'),
   'utf8'
 );
 const accountSwitcherCode = fs.readFileSync(
@@ -24,7 +24,7 @@ const authCallbackCode = fs.readFileSync(
   'utf8'
 );
 const appJsCode = fs.readFileSync(
-  path.join(__dirname, '../pages/_app.js'),
+  path.join(__dirname, '../pages/_app.tsx'),
   'utf8'
 );
 const darkThemeCss = fs.readFileSync(

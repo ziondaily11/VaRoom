@@ -165,7 +165,7 @@ test('legacy varoom-sidebar.js and Chats use the shared store inside the app', (
   assert.match(legacy, /return window\.VaRoomCounts\.refreshIfStale\(\);/);
   const chats = fs.readFileSync(path.join(root, 'pages', 'chats.tsx'), 'utf8');
   assert.match(chats, /void window\.VaRoomCounts\.refresh\(\);/);
-  for (const file of ['SharedHostSidebar.jsx', 'SharedClientSidebar.jsx']) {
+  for (const file of ['shell/HostSidebar.tsx', 'shell/ClientSidebar.tsx']) {
     const sidebar = fs.readFileSync(path.join(root, 'components', file), 'utf8');
     assert.doesNotMatch(sidebar, /from\('notifications'\)/, `${file} no longer queries counts`);
   }

@@ -1,69 +1,58 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { isModifiedClick } from '../lib/navigation/clicks';
-import { useCounts } from '../lib/counts/countsStore';
-import { activeLinkedAccount, logout, switchAccount, useLinkedAccounts } from '../lib/account/accountActions';
-import { profileStore } from '../lib/auth/session';
+import React from 'react';
 import { useRouter } from 'next/router';
-const { resolveAvatarUrl } = require('./resolveStoredPhotoUrl');
+import { isModifiedClick } from '../../lib/navigation/clicks';
+import { useCounts } from '../../lib/counts/countsStore';
+import { useLinkedAccounts, type LinkedAccount } from '../../lib/account/accountActions';
+import { logout, openAddAccountModal, switchToAccount, useShellChrome, useShellIdentity, type ShellIdentity } from './useShellChrome';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { resolveAvatarUrl } = require('../resolveStoredPhotoUrl');
 
-function getInitial(name) {
+// The host sidebar (formerly components/SharedHostSidebar.jsx). Markup, ids
+// and classes are unchanged; identity, counts, linked accounts, menus and the
+// mobile drawer come from shared hooks and stores.
+
+function getInitial(name?: string | null): string {
   const str = String(name || '').trim();
   return str ? str.charAt(0).toUpperCase() : '?';
 }
 
-function resolveAvatar(url) {
-  if (!url) return null;
-  if (url.startsWith('http')) return url;
-  try {
-    if (typeof window !== 'undefined' && window.supabaseClient) {
-      return window.supabaseClient.storage.from('avatars').getPublicUrl(url).data.publicUrl;
-    }
-  } catch (e) {}
-  return url;
-}
-
-function getInitialUser() {
+// Server render and first client render: a fixed placeholder identity.
+function getInitialUser(): ShellIdentity {
   return {
     full_name: 'Amazing Stays 🌴',
     username: 'amazingstays',
     avatar_url: null,
-    email: 'host@varoom.co.ke'
+    email: 'host@varoom.co.ke',
   };
 }
 
-function getStoredUser() {
-  const active = activeLinkedAccount();
-  if (active) return active;
-  return {
-    full_name: 'VaRoom Host',
-    username: 'host',
-    avatar_url: null,
-    email: ''
-  };
-}
+const FALLBACK_USER: ShellIdentity = { full_name: 'VaRoom Host', username: 'host', avatar_url: null, email: '' };
 
-export default function SharedHostSidebar({ activeNav: explicitActiveNav }) {
+const DRAWER_EVENTS = {
+  toggleSelector: '#topbar-avatar-btn, #menu-toggle',
+  openEvents: ['open-host-sidebar'],
+  closeEvents: ['close-host-sidebar'],
+};
+
+export default function HostSidebar({ activeNav: explicitActiveNav }: { activeNav?: string }) {
   const router = useRouter();
-  const [user, setUser] = useState(getInitialUser);
+  const { user, hasMounted } = useShellIdentity(getInitialUser(), FALLBACK_USER);
   // Shared counts store (one realtime channel for the app); no sidebar polling.
   const unreadCount = useCounts().notifications;
-  const [moreOpen, setMoreOpen] = useState(false);
-  const [accountOpen, setAccountOpen] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
   const linkedAccounts = useLinkedAccounts();
-  const [hasMounted, setHasMounted] = useState(false);
-
-  const moreBtnRef = useRef(null);
-  const moreMenuRef = useRef(null);
-  const identityBtnRef = useRef(null);
-  const accountMenuRef = useRef(null);
+  const {
+    moreOpen, setMoreOpen,
+    accountOpen, setAccountOpen,
+    mobileOpen, setMobileOpen, closeMobile,
+    moreBtnRef, moreMenuRef, identityBtnRef, accountMenuRef,
+  } = useShellChrome(DRAWER_EVENTS);
 
   // Compute active navigation item from router or explicit prop
   const currentPath = router.pathname || '';
   const currentView = hasMounted ? router.query?.view || '' : '';
   const asPath = (router.asPath || '').split('?')[0];
 
-  let activeNav = explicitActiveNav || 'home';
+  let activeNav: string = explicitActiveNav || 'home';
   if (!explicitActiveNav) {
     if (currentView === 'my-listings') {
       activeNav = 'my-listings';
@@ -92,196 +81,8 @@ export default function SharedHostSidebar({ activeNav: explicitActiveNav }) {
 
   const isMoreActive = ['analytics', 'settings', 'support', 'upgrade'].includes(activeNav);
 
-  // Load user profile & session. Returns true if supabaseClient was ready (even if no session), false if not yet available.
-  const refreshUser = useCallback(async () => {
-    if (typeof window === 'undefined') return true;
-    const client = window.supabaseClient;
-    if (!client?.auth) return false; // not ready yet
-
-    try {
-      const { data } = await client.auth.getSession();
-      const session = data?.session;
-      if (!session?.user) {
-        setUser({ full_name: 'VaRoom Host', username: 'host', avatar_url: null, email: '' });
-        return true; // ready but no session
-      }
-
-      const userId = session.user.id;
-
-      // Once the session establishes the account ID, show only that account's
-      // cached identity while the authoritative profile query is in flight.
-      const cachedProfile = window.VaRoomAccountProfileCache
-        && window.VaRoomAccountProfileCache.readForAccount(userId);
-      if (cachedProfile && cachedProfile.role === 'host') setUser(cachedProfile);
-
-      if (window.VaRoomAccountSwitcher) {
-        await window.VaRoomAccountSwitcher.upsertFromSession(client, session);
-      }
-
-      // Record authoritative active account ID
-      try { localStorage.setItem('varoom_active_account_id', userId); } catch (e) {}
-
-      // Shared profile cache: no request while the row is fresh.
-      const { data: profile } = await profileStore().get(userId);
-
-      if (profile) {
-        const userData = {
-          id: profile.id,
-          full_name: profile.full_name || session.user.user_metadata?.full_name || 'VaRoom Host',
-          username: profile.username || session.user.email?.split('@')[0] || 'host',
-          avatar_url: profile.avatar_url || session.user.user_metadata?.avatar_url || null,
-          email: session.user.email,
-          role: profile.role || 'host',
-        };
-        setUser(userData);
-        try {
-          if (window.VaRoomAccountProfileCache) window.VaRoomAccountProfileCache.write(userData);
-          else localStorage.setItem('varoom_cached_profile', JSON.stringify(userData));
-        } catch (e) {}
-      }
-
-    } catch (err) {
-      console.warn('Unable to load user profile in host sidebar:', err);
-    }
-    return true;
-  }, []);
-
-  useEffect(() => {
-    setHasMounted(true);
-    setUser(getStoredUser());
-
-    // Retry until window.supabaseClient is available (up to 3s, 50ms intervals)
-    let cancelled = false;
-    let retries = 0;
-    const MAX_RETRIES = 60;
-    const poll = async () => {
-      if (cancelled) return;
-      const ready = await refreshUser();
-      if (!ready && retries < MAX_RETRIES) {
-        retries++;
-        setTimeout(poll, 50);
-      }
-    };
-    poll();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [refreshUser]);
-
-  // Position popover menus
-  const positionPopover = (btn, menu) => {
-    if (!btn || !menu) return;
-    const rect = btn.getBoundingClientRect();
-    const GAP = 8;
-    menu.style.position = 'fixed';
-    menu.style.zIndex = '99999';
-    menu.style.left = `${rect.left}px`;
-    menu.style.width = `${rect.right - rect.left}px`;
-    menu.style.right = 'auto';
-    const bottomFromViewport = window.innerHeight - rect.top + GAP;
-    menu.style.bottom = `${bottomFromViewport}px`;
-    menu.style.top = 'auto';
-    menu.style.maxHeight = `${Math.max(200, rect.top - GAP * 2)}px`;
-    menu.style.overflowY = 'auto';
-  };
-
-  useEffect(() => {
-    if (moreOpen && moreBtnRef.current && moreMenuRef.current) {
-      positionPopover(moreBtnRef.current, moreMenuRef.current);
-    }
-  }, [moreOpen]);
-
-  useEffect(() => {
-    if (accountOpen && identityBtnRef.current && accountMenuRef.current) {
-      positionPopover(identityBtnRef.current, accountMenuRef.current);
-    }
-  }, [accountOpen]);
-
-  useEffect(() => {
-    if (!moreOpen && !accountOpen) return;
-    const handleReposition = () => {
-      if (moreOpen && moreBtnRef.current && moreMenuRef.current) {
-        positionPopover(moreBtnRef.current, moreMenuRef.current);
-      }
-      if (accountOpen && identityBtnRef.current && accountMenuRef.current) {
-        positionPopover(identityBtnRef.current, accountMenuRef.current);
-      }
-    };
-    window.addEventListener('resize', handleReposition);
-    return () => window.removeEventListener('resize', handleReposition);
-  }, [moreOpen, accountOpen]);
-
-  // Close menus on outside click or Escape
-  useEffect(() => {
-    const handleDocumentClick = (e) => {
-      const path = typeof e.composedPath === 'function' ? e.composedPath() : [];
-      const target = e.target;
-
-      const isInsideMore =
-        path.includes(moreBtnRef.current) ||
-        path.includes(moreMenuRef.current) ||
-        moreBtnRef.current?.contains(target) ||
-        moreMenuRef.current?.contains(target);
-
-      const isInsideAccount =
-        path.includes(identityBtnRef.current) ||
-        path.includes(accountMenuRef.current) ||
-        identityBtnRef.current?.contains(target) ||
-        accountMenuRef.current?.contains(target);
-
-      if (!isInsideMore) {
-        setMoreOpen(false);
-      }
-      if (!isInsideAccount) {
-        setAccountOpen(false);
-      }
-    };
-
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        setMoreOpen(false);
-        setAccountOpen(false);
-        setMobileOpen(false);
-      }
-    };
-
-    document.addEventListener('pointerdown', handleDocumentClick);
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('pointerdown', handleDocumentClick);
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, []);
-
-  // Mobile drawer listener (responds to topbar hamburger/avatar button clicks)
-  useEffect(() => {
-    const handleTopbarClick = (e) => {
-      const trigger = e.target.closest('#topbar-avatar-btn, #menu-toggle');
-      if (trigger) {
-        e.preventDefault();
-        setMobileOpen((prev) => !prev);
-      }
-    };
-
-    const handleCustomOpen = () => setMobileOpen(true);
-    const handleCustomClose = () => setMobileOpen(false);
-
-    document.addEventListener('click', handleTopbarClick);
-    window.addEventListener('open-host-sidebar', handleCustomOpen);
-    window.addEventListener('close-host-sidebar', handleCustomClose);
-
-    return () => {
-      document.removeEventListener('click', handleTopbarClick);
-      window.removeEventListener('open-host-sidebar', handleCustomOpen);
-      window.removeEventListener('close-host-sidebar', handleCustomClose);
-    };
-  }, []);
-
-  const closeMobile = () => setMobileOpen(false);
-
   // Navigation handlers
-  const handleNav = (e, path, viewName) => {
+  const handleNav = (e: React.MouseEvent | React.KeyboardEvent, path: string, viewName?: string) => {
     // Ctrl/Cmd/Shift/middle-clicks keep the browser's default (new tab/window).
     if (isModifiedClick(e)) return;
     e.preventDefault();
@@ -292,7 +93,7 @@ export default function SharedHostSidebar({ activeNav: explicitActiveNav }) {
       if (router.pathname === '/host-home') {
         // Trigger page view handler directly without reload
         if (typeof window !== 'undefined') {
-          const navItem = document.querySelector(`.nav-item[data-nav="${viewName}"]`);
+          const navItem = document.querySelector<HTMLElement>(`.nav-item[data-nav="${viewName}"]`);
           if (navItem && !navItem.classList.contains('active')) {
             navItem.click();
           }
@@ -305,7 +106,7 @@ export default function SharedHostSidebar({ activeNav: explicitActiveNav }) {
     }
 
     if (path === '/host-home' && router.pathname === '/host-home' && !router.query.view) {
-      const dashMain = document.querySelector('.dash-main');
+      const dashMain = document.querySelector<HTMLElement>('.dash-main');
       if (dashMain) dashMain.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
@@ -316,29 +117,17 @@ export default function SharedHostSidebar({ activeNav: explicitActiveNav }) {
   // Shared logout: clears this account's private data, signs out, informs
   // other tabs and goes to the login panel.
   const handleLogout = async () => {
-    setUser({ full_name: 'VaRoom Host', username: 'host', avatar_url: null, email: '' });
-    try { sessionStorage.removeItem('varoom_user_role'); } catch (e) {}
+    try { sessionStorage.removeItem('varoom_user_role'); } catch { /* storage unavailable */ }
     await logout();
   };
 
-  const handleSwitchAccount = async (targetAcct) => {
-    if (!targetAcct || typeof window === 'undefined') return;
-    try {
-      await switchAccount(targetAcct.id);
-    } catch (err) {
-      alert(err.message || 'Unable to switch account.');
-    }
+  const handleSwitchAccount = (targetAcct: LinkedAccount) => {
+    if (targetAcct) void switchToAccount(targetAcct.id);
   };
 
   const handleAddAccount = () => {
     setAccountOpen(false);
-    if (typeof window !== 'undefined') {
-      if (window.VaRoomAccountSwitcher && typeof window.VaRoomAccountSwitcher.openAddAccountModal === 'function') {
-        window.VaRoomAccountSwitcher.openAddAccountModal();
-      } else {
-        window.dispatchEvent(new CustomEvent('varoom:open-add-account'));
-      }
-    }
+    openAddAccountModal();
   };
 
   const supabaseClient = typeof window !== 'undefined' ? window.supabaseClient : null;
@@ -742,7 +531,7 @@ export default function SharedHostSidebar({ activeNav: explicitActiveNav }) {
                     key={acct.id}
                     type="button"
                     className={`account-menu-row ${isActive ? 'active' : ''}`}
-                    onClick={() => !isActive && handleSwitchAccount(acct)}
+                    onClick={() => { if (!isActive) handleSwitchAccount(acct); }}
                   >
                     <span className="account-menu-row-avatar">
                       {acctAvatar ? (

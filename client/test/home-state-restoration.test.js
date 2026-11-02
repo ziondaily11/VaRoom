@@ -15,15 +15,15 @@ test('native Client Home uses account-scoped feed caches before revalidation', (
   assert.match(source, /feedContextKey\.current !== key/);
 });
 
-test('both sidebars hydrate only after the session identifies a matching cached account', () => {
-  for (const file of ['SharedHostSidebar.jsx', 'SharedClientSidebar.jsx']) {
+test('both sidebars show the verified profile only when it belongs to the session account', () => {
+  for (const file of ['shell/HostSidebar.tsx', 'shell/ClientSidebar.tsx']) {
     const source = fs.readFileSync(path.join(root, 'components', file), 'utf8');
-    const sessionIndex = source.indexOf('const userId = session.user.id;');
-    const cacheIndex = source.indexOf('readForAccount(userId);', sessionIndex);
-    const profileRefreshIndex = source.indexOf('profileStore().get(userId)', sessionIndex);
-    assert.ok(sessionIndex >= 0 && cacheIndex > sessionIndex && profileRefreshIndex > cacheIndex);
-    assert.match(source, /VaRoomAccountProfileCache\.write\(userData\)/);
+    assert.match(source, /useShellIdentity\(getInitialUser\(\), /, file);
+    assert.doesNotMatch(source, /profileStore\(\)\.get|from\('profiles'\)/, file);
   }
+  const chrome = fs.readFileSync(path.join(root, 'components', 'shell', 'useShellChrome.ts'), 'utf8');
+  assert.match(chrome, /if \(authUser && profile && profile\.id === authUser\.id\)/);
+  assert.match(chrome, /if \(!hasMounted\) return \{ user: initial, hasMounted \};/);
 });
 
 test('native Client Home keeps lifecycle work page-scoped and avoids stale state races', () => {

@@ -1688,7 +1688,7 @@
     display: grid;
     width: min(calc(100% - 1rem), 32rem);
     min-height: 3.7rem;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     align-items: center;
     padding: 0.3rem 0.35rem calc(0.3rem + env(safe-area-inset-bottom));
     transform: translateX(-50%);

@@ -81,8 +81,8 @@ test('varoom-sidebar.css provides consistent subtle grey active-state styling fo
 });
 
 test('HostLayout and ClientLayout enforce non-red subtle grey active navigation states', () => {
-  const hostLayout = fs.readFileSync(path.join(clientRoot, 'components', 'HostLayout.jsx'), 'utf8');
-  const clientLayout = fs.readFileSync(path.join(clientRoot, 'components', 'ClientLayout.jsx'), 'utf8');
+  const hostLayout = fs.readFileSync(path.join(clientRoot, 'components', 'shell', 'shellStyles.ts'), 'utf8');
+  const clientLayout = fs.readFileSync(path.join(clientRoot, 'components', 'shell', 'shellStyles.ts'), 'utf8');
 
   for (const [name, code] of [['HostLayout', hostLayout], ['ClientLayout', clientLayout]]) {
     // Light mode subtle grey token

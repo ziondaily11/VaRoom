@@ -6,8 +6,8 @@ const path = require('node:path');
 const root = path.join(__dirname, '..');
 const chatsPagePath = path.join(root, 'pages', 'chats.tsx');
 const slugPath = path.join(root, 'pages', '[...slug].js');
-const clientLayoutPath = path.join(root, 'components', 'ClientLayout.jsx');
-const hostLayoutPath = path.join(root, 'components', 'HostLayout.jsx');
+const clientLayoutPath = path.join(root, 'components', 'shell', 'shellStyles.ts');
+const hostLayoutPath = path.join(root, 'components', 'shell', 'shellStyles.ts');
 const { getAccountLayout } = require('../lib/accountRoleLayout');
 
 test('Phase 1 & 2: Chats is a native React page in client/pages/chats.tsx', () => {
@@ -55,7 +55,7 @@ test('Phase 2: both shells navigate to /chats client-side through the shared lin
   );
   assert.equal(isInternalHref('/chats', HOST_INTERNAL_ROUTES), true);
   assert.equal(isInternalHref('/chats?id=1', CLIENT_INTERNAL_ROUTES), true);
-  const appSource = fs.readFileSync(path.join(__dirname, '..', 'pages', '_app.js'), 'utf8');
+  const appSource = fs.readFileSync(path.join(__dirname, '..', 'pages', '_app.tsx'), 'utf8');
   assert.match(appSource, /installAppLinks\(\{ doc: document, push: \(href\) => Router\.push\(href\)/);
 });
 

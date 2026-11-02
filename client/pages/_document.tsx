@@ -1,4 +1,4 @@
-import Document, { Html, Head, Main, NextScript } from 'next/document';
+import Document, { Html, Head, Main, NextScript, type DocumentContext, type DocumentInitialProps } from 'next/document';
 import Script from 'next/script';
 const { chatsCssHref, chatsThemeCssHref } = require('../lib/chatsCssAssets');
 import { themeBootScript as buildThemeBootScript } from '../lib/theme';
@@ -8,8 +8,10 @@ import { themeBootScript as buildThemeBootScript } from '../lib/theme';
 // between navigations and during hydration. Generated from lib/theme.ts.
 const themeBootScript = buildThemeBootScript();
 
-export default class VaRoomDocument extends Document {
-  static async getInitialProps(ctx) {
+type VaRoomDocumentProps = DocumentInitialProps & { isChatsRoute: boolean };
+
+export default class VaRoomDocument extends Document<VaRoomDocumentProps> {
+  static async getInitialProps(ctx: DocumentContext): Promise<VaRoomDocumentProps> {
     const initialProps = await Document.getInitialProps(ctx);
     const requestPath = (ctx.req?.url || ctx.asPath || ctx.pathname || '').split('?')[0];
     return {

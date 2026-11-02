@@ -6,8 +6,8 @@ const path = require('node:path');
 const root = path.join(__dirname, '..');
 const notificationsPagePath = path.join(root, 'pages', 'notifications.tsx');
 const cacheModulePath = path.join(root, 'lib', 'notificationsCache.ts');
-const clientLayoutPath = path.join(root, 'components', 'ClientLayout.jsx');
-const hostLayoutPath = path.join(root, 'components', 'HostLayout.jsx');
+const clientLayoutPath = path.join(root, 'components', 'shell', 'shellStyles.ts');
+const hostLayoutPath = path.join(root, 'components', 'shell', 'shellStyles.ts');
 const slugPath = path.join(root, 'pages', '[...slug].js');
 const { getAccountLayout } = require('../lib/accountRoleLayout');
 
@@ -275,8 +275,8 @@ test('9. Subscription/listener cleanup without destroying shared services', () =
 test('10. Existing sidebar unread-count behavior and synchronization', () => {
   const clientLayoutSource = fs.readFileSync(clientLayoutPath, 'utf8');
   const hostLayoutSource = fs.readFileSync(hostLayoutPath, 'utf8');
-  const sharedClientSidebarSource = fs.readFileSync(path.join(root, 'components', 'SharedClientSidebar.jsx'), 'utf8');
-  const sharedHostSidebarSource = fs.readFileSync(path.join(root, 'components', 'SharedHostSidebar.jsx'), 'utf8');
+  const sharedClientSidebarSource = fs.readFileSync(path.join(root, 'components', 'shell/ClientSidebar.tsx'), 'utf8');
+  const sharedHostSidebarSource = fs.readFileSync(path.join(root, 'components', 'shell/HostSidebar.tsx'), 'utf8');
   const pageSource = fs.readFileSync(notificationsPagePath, 'utf8');
 
   // Page dispatches sync
@@ -366,7 +366,7 @@ test('12. Complete legacy unwiring verification', () => {
 
   // 6. _app.js resolves the layout role from the verified session, never from
   // unscoped event payloads
-  const appJsPath = path.join(root, 'pages', '_app.js');
+  const appJsPath = path.join(root, 'pages', '_app.tsx');
   const appJsSource = fs.readFileSync(appJsPath, 'utf8');
   assert.match(appJsSource, /const \{ session, profile \} = useAuth\(\);/, '_app.js must take the role from AuthProvider');
   assert.doesNotMatch(appJsSource, /event\??\.detail\??\.role/, '_app.js must not trust role event payloads');
@@ -398,8 +398,8 @@ test('13. Shared sidebar username and name contrast and visibility in Client and
 
 test('14. Unbroken notifications navigation from Bookings and client-side sidebar routing', () => {
   const bookingsHtmlPath = path.join(root, 'legacy-pages', 'bookings.html');
-  const hostSidebarPath = path.join(root, 'components', 'SharedHostSidebar.jsx');
-  const clientSidebarPath = path.join(root, 'components', 'SharedClientSidebar.jsx');
+  const hostSidebarPath = path.join(root, 'components', 'shell/HostSidebar.tsx');
+  const clientSidebarPath = path.join(root, 'components', 'shell/ClientSidebar.tsx');
   const hostHomeHtmlPath = path.join(root, 'legacy-pages', 'host-home.html');
 
   // 1. bookings.html must not intercept #notif-nav-item with stopPropagation or notif-bell
