@@ -200,9 +200,10 @@ test('Phase 4: Attachments and Elie workflows preserved in chats.tsx', () => {
   assert.match(source, /\/api\/chat\/conversations\/.*?\/attachments\/.*?\/complete/);
 
   // Elie assistant mode & composer beam
-  assert.match(source, /ELIE_API_URL/);
+  // Elie's request and thread live in lib/chat/elie.ts and components/chat (test/chat-elie.test.js).
+  assert.match(source, /<ElieThread entries=\{elie\.entries\}/);
   assert.match(source, /<ElieComposerBeam isElie=\{isElie\}/);
-  assert.match(source, /ThinkingOrb/);
+  assert.match(fs.readFileSync(path.join(root, 'components', 'chat', 'ElieThread.tsx'), 'utf8'), /ThinkingOrb/);
 });
 
 test('Stage 5A: Composer send wiring, attachment actions, and formatting controls', () => {
