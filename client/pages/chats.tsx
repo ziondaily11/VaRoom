@@ -657,15 +657,14 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   // 3. Deep link & URL query conversation selection
   const routerQueryC = router.query.c as string | undefined;
   const routerQueryConversation = router.query.conversation as string | undefined;
-  const routerPathname = router.pathname;
 
   useEffect(() => {
     if (!userId) return;
-    const requested = routerQueryC || routerQueryConversation || (routerPathname === '/elie' ? ELIE_ID : null);
+    const requested = routerQueryC || routerQueryConversation || null;
     if (requested && requested !== activeIdRef.current) {
       selectConversation(requested, false);
     }
-  }, [userId, routerQueryC, routerQueryConversation, routerPathname, selectConversation]);
+  }, [userId, routerQueryC, routerQueryConversation, selectConversation]);
 
   // Close mobile attach menu when clicking outside
   useEffect(() => {

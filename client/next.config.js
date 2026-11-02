@@ -5,6 +5,37 @@ module.exports = {
   },
   async redirects() {
     return [
+      // Elie is a conversation in Chats; /chat was the legacy alias.
+      {
+        source: '/elie',
+        destination: '/chats?c=elie',
+        permanent: false,
+      },
+      {
+        source: '/chat',
+        destination: '/chats',
+        permanent: false,
+      },
+      {
+        source: '/chats.html',
+        destination: '/chats',
+        permanent: false,
+      },
+      {
+        source: '/legacy-pages/chats.html',
+        destination: '/chats',
+        permanent: false,
+      },
+      {
+        source: '/elie.html',
+        destination: '/chats?c=elie',
+        permanent: false,
+      },
+      {
+        source: '/legacy-pages/elie.html',
+        destination: '/chats?c=elie',
+        permanent: false,
+      },
       {
         source: '/privacy.html',
         destination: '/privacy',

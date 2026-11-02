@@ -29,16 +29,22 @@ test('Phase 1 & 2: Chats is a native React page in client/pages/chats.tsx', () =
   assert.match(source, /import ElieIcon from '\.\.\/components\/ElieIcon'/);
 });
 
-test('Phase 2: Catch-all route [...slug].js excludes chats.html', () => {
+test('CH5: chats.html, elie.html and chat-data.js are retired; old URLs redirect to native Chats', () => {
   const slugSource = fs.readFileSync(slugPath, 'utf8');
-
-  // chats.html excluded from static template discovery
-  assert.match(slugSource, /'chats\.html'/);
-  assert.match(slugSource, /!\[.*?chats\.html.*?\]\.includes\(file\)/);
-
-  // chats and chat routes return notFound: true in getStaticProps
-  assert.match(slugSource, /'chats',\s*'chats\.html',\s*'chat'/);
-  assert.doesNotMatch(slugSource, /chat:\s*'chats\.html'/);
+  for (const file of ['legacy-pages/chats.html', 'legacy-pages/elie.html', 'public/js/chat-data.js', 'public/js/chat-cache.js']) {
+    assert.equal(fs.existsSync(path.join(root, file)), false, `${file} is deleted`);
+  }
+  assert.doesNotMatch(slugSource, /chats\.html|elie\.html|chat-data\.js|chat-cache\.js|Messenger Dashboard|ChatComposerActions|ElieComposerBeam/);
+  // The catch-all never serves these URLs.
+  assert.match(slugSource, /\['notifications', 'property-news', 'chats', 'chat', 'elie'\]\.includes\(slugKey\)/);
+  const config = fs.readFileSync(path.join(root, 'next.config.js'), 'utf8');
+  assert.match(config, /source: '\/elie',\s*destination: '\/chats\?c=elie'/);
+  assert.match(config, /source: '\/chat',\s*destination: '\/chats'/);
+  assert.match(config, /source: '\/chats\.html',\s*destination: '\/chats'/);
+  assert.match(config, /source: '\/elie\.html',\s*destination: '\/chats\?c=elie'/);
+  const vercel = JSON.parse(fs.readFileSync(path.join(root, 'vercel.json'), 'utf8'));
+  assert.ok(vercel.redirects.some((r) => r.source === '/:page.html' && r.destination === '/:page'), '/chats.html and /elie.html reach the routes above');
+  assert.doesNotMatch(fs.readFileSync(path.join(root, 'legacy-pages', 'profile.html'), 'utf8'), /chats\.html/);
 });
 
 test('Phase 2: Chats route resolves to none layout, preserving full-screen dashboard app shell', () => {
@@ -91,7 +97,7 @@ test('Stage 1: Lifecycle and routing separation protects against freeze and dupl
   assert.match(source, /getInbox\(userId\)[\s\S]*?loadConversations\(userId[\s\S]*?\}\s*,\s*\[userId,\s*loadConversations\]\);/);
 
   // Deep-link selection runs on primitive query changes without router in dependencies
-  assert.match(source, /requested !== activeIdRef\.current[\s\S]*?selectConversation\(requested,\s*false\)[\s\S]*?\}\s*,\s*\[userId,\s*routerQueryC,\s*routerQueryConversation,\s*routerPathname,\s*selectConversation\]\);/);
+  assert.match(source, /requested !== activeIdRef\.current[\s\S]*?selectConversation\(requested,\s*false\)[\s\S]*?\}\s*,\s*\[userId,\s*routerQueryC,\s*routerQueryConversation,\s*selectConversation\]\);/);
 
   // selectConversation guards against duplicate subscription if already active
   assert.match(source, /const previousConversationId = activeIdRef\.current;\s*const isSameConversation = previousConversationId === id;/);
