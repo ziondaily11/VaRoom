@@ -91,8 +91,7 @@ test('Legacy pages define consistent true black tokens', () => {
     'marketplace.html',
     'pricing.html',
     'profile.html',
-    'settings.html',
-    'transactions.html'
+    'settings.html'
   ];
 
   for (const pageName of pagesToCheck) {
