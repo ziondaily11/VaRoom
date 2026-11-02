@@ -1,6 +1,6 @@
 # Property News — Architecture Upgrade Plan
 
-**Status:** Approved 2026-11-02 (decisions D1–D5 as recommended) · Phase 0 applied · Phase 1 pushed (`property-news-phase1`) · Phase 2 pushed (`property-news-phase2`), awaiting Vercel preview check · Phase 3 implemented (`property-news-phase3`), migration applied · none merged or deployed yet
+**Status:** Approved 2026-11-02 · Phases 0–3 in production (Phase 3 merged in PR #522, Render deployed `c9a4495`; Phase 2 verified on the Vercel preview) · Phase 4 implemented on `property-news-phase4` (free tier) · Gemini returns HTTP 403, so analyses still use the rules fallback
 
 This plan turns Property News from a best-effort side system into a service that can be relied on to publish news consistently. It keeps the parts that work (Python pipeline, Supabase, Gemini, the review workflow) and changes how they are connected, scheduled and monitored.
 
@@ -169,6 +169,8 @@ Small, targeted code changes. Each comes with a regression test built from a rea
 
 **Done when:** a week of production shows every source attempted within its interval ±15 minutes.
 
+**Implemented 2026-11-02 on `property-news-phase4` (free tier, D1 revised):** the collector workflow runs `python -m app.jobs --collect-due --trigger schedule` on the GitHub runner with secrets from the `Production` environment, as one run (no 11-group matrix); cron-job.org starts it every 30 minutes via `workflow_dispatch`, GitHub's hourly schedule is a backup. The keep-alive workflow is removed in favour of a cron-job.org `/health` ping. Only a run where every source fails fails the workflow. 4.3 needs no extra work: every run releases due stories first. Also added: Gemini errors now log the provider's reason (e.g. `PERMISSION_DENIED: …`, key-shaped strings redacted) to diagnose the 403. Setup steps are in `DEPLOYMENT.md` → Scheduling.
+
 ### Phase 5 — Source registry and health
 
 | Task | Notes |
@@ -205,8 +207,8 @@ Small, targeted code changes. Each comes with a regression test built from a rea
 
 | ID | Decision | Options | Recommendation |
 |---|---|---|---|
-| D1 | Scheduler and worker host | (a) Render Cron Job, usage-billed; (b) Render Starter worker, always on; (c) Supabase `pg_cron` calling a protected endpoint | (a) Render Cron Job. It runs the existing Python entry point on time without keeping a web service awake |
-| D2 | Keep the Python web service on the free tier? | Free (sleeps) or Starter (always on) | Free is acceptable once Phase 2 removes readers' dependency on it. Elie search and admin review would still see cold starts |
+| D1 | Scheduler and worker host | (a) Render Cron Job, usage-billed; (b) Render Starter worker, always on; (c) Supabase `pg_cron` calling a protected endpoint; (d) GitHub Actions runner started by cron-job.org | **Revised 2026-11-02: (d)**, because the owner is not paying for services yet. Free and unlimited for the public repository, on time via cron-job.org. (a) remains the upgrade path with the same command |
+| D2 | Keep the Python web service on the free tier? | Free (sleeps) or Starter (always on) | **Free, kept warm by a cron-job.org `/health` ping every 10 minutes** (within Render's 750 free instance-hours), so Elie search and admin review avoid cold starts |
 | D3 | Auto-publish policy | Keep manual review for most stories, or auto-publish low/medium risk from reviewed tier-1–2 sources | Auto-publish low/medium risk from tier 1–2 after Phase 1 fixes; keep review for high/critical |
 | D4 | Geographic scope | Kenya only, or East Africa | Kenya only for now, matching the analyser and audience |
 | D5 | Alert channel | Email, Slack, WhatsApp | Email first (no new integration) |

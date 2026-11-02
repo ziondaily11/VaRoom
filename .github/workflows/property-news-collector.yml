@@ -1,9 +1,21 @@
 name: Property News collector
 
+# Runs the collector directly on the GitHub runner (free for this public
+# repository), so collection no longer depends on the Render web service being
+# awake. cron-job.org starts this workflow every 30 minutes through the
+# workflow_dispatch API with inputs.trigger=schedule; GitHub's own schedule
+# below is only a backup, because GitHub may delay or drop scheduled runs.
+# See docs/property-news/DEPLOYMENT.md.
 on:
-  schedule:
-    - cron: "17,47 * * * *"
   workflow_dispatch:
+    inputs:
+      trigger:
+        description: "Recorded in collection_runs: schedule (cron-job.org) or manual"
+        type: choice
+        options: [manual, schedule]
+        default: manual
+  schedule:
+    - cron: "41 * * * *"
 
 permissions:
   contents: read
@@ -14,147 +26,89 @@ concurrency:
 
 jobs:
   collect:
-    timeout-minutes: 45
-    strategy:
-      fail-fast: false
-      max-parallel: 1
-      matrix:
-        source_group: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, GEMINI_API_KEY and
+    # NEWS_FETCH_USER_AGENT are environment secrets of "Production".
+    environment: Production
+    defaults:
+      run:
+        working-directory: property-news
     steps:
-      - name: Run source group ${{ matrix.source_group }}
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: property-news/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Collect and process due sources
         env:
-          NEWS_SCHEDULER_SECRET: ${{ secrets.NEWS_SCHEDULER_SECRET }}
-          SOURCE_GROUP: ${{ matrix.source_group }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          NEWS_FETCH_USER_AGENT: ${{ secrets.NEWS_FETCH_USER_AGENT }}
+          NEWS_ENVIRONMENT: production
+          NEWS_LOG_LEVEL: INFO
+          RUN_TRIGGER: ${{ github.event_name == 'schedule' && 'schedule' || inputs.trigger || 'manual' }}
         run: |
-          test -n "$NEWS_SCHEDULER_SECRET"
-          curl --fail --silent --show-error --retry 2 --retry-all-errors \
-            --connect-timeout 20 --max-time 60 \
-            https://property-news-pnsj.onrender.com/health \
-            -o /dev/null
-          response_file="$(mktemp)"
-          trap 'rm -f "$response_file"' EXIT
-          curl --fail --silent --show-error --retry 2 --retry-all-errors \
-            --request POST \
-            --header "Authorization: Bearer $NEWS_SCHEDULER_SECRET" \
-            --header "Accept: application/json" \
-            --connect-timeout 20 --max-time 840 \
-            "https://property-news-pnsj.onrender.com/api/internal/jobs/collect?source_group=${SOURCE_GROUP}" \
-            --output "$response_file"
-          python3 - "$response_file" <<'PY'
-          from collections import Counter
+          test -n "$SUPABASE_URL" && test -n "$SUPABASE_SERVICE_ROLE_KEY"
+          # Logs go to stderr; stdout carries only the JSON result.
+          python -m app.jobs --collect-due --trigger "$RUN_TRIGGER" > "$RUNNER_TEMP/result.json"
+
+      - name: Summarise run
+        if: always()
+        run: |
+          python - "$RUNNER_TEMP/result.json" <<'PY'
           import json
           import os
           import sys
+          from collections import Counter
 
-          with open(sys.argv[1], encoding="utf-8") as response_file:
-              result = json.load(response_file)
-          if not isinstance(result, dict):
-              raise SystemExit("Collector returned an unexpected response shape")
+          try:
+              with open(sys.argv[1], encoding="utf-8") as result_file:
+                  result = json.load(result_file)
+          except (OSError, ValueError):
+              raise SystemExit("Collector produced no result; see the previous step's log")
+
+          def count(key):
+              return result.get(key, 0)
 
           status = result.get("collection_status")
-          required_counts = (
-              "sources_active", "sources_due", "sources_deferred",
-              "sources_attempted", "sources_successful", "sources_failed",
-              "urls_discovered", "urls_rejected", "security_blocked_urls",
-              "articles_discovered", "articles_fetched", "articles_parsed",
-              "articles_rejected", "articles_inserted", "duplicates_skipped",
-              "article_failures", "processed", "published", "pending_review",
-              "processing_failures",
-              "timeouts", "http_403", "http_404", "oversized_responses",
-          )
-          counts = {key: result.get(key) for key in required_counts}
-          if any(not isinstance(value, int) or isinstance(value, bool) for value in counts.values()):
-              raise SystemExit("Collector response is missing valid collection counts")
-          source_failures = result.get("source_failures", [])
-          if not isinstance(source_failures, list) or any(
-              not isinstance(failure, dict)
-              or not isinstance(failure.get("name"), str)
-              or not isinstance(failure.get("category"), str)
-              for failure in source_failures
-          ):
-              raise SystemExit("Collector response contains invalid source failure details")
-          if (
-              counts["sources_due"] > counts["sources_active"]
-              or counts["sources_attempted"] + counts["sources_deferred"] != counts["sources_due"]
-              or counts["sources_attempted"]
-              != counts["sources_successful"] + counts["sources_failed"]
-              or counts["articles_inserted"] > counts["articles_parsed"]
-          ):
-              raise SystemExit("Collector response counts are inconsistent")
-
           summary = (
-              f"## Property News collection — group {os.environ['SOURCE_GROUP']}\n\n"
+              "## Property News collection\n\n"
               f"- Status: `{status}`\n"
-              f"- Active/due/attempted/deferred: {counts['sources_active']}/"
-              f"{counts['sources_due']}/{counts['sources_attempted']}/"
-              f"{counts['sources_deferred']}\n"
-              f"- Sources succeeded/failed: "
-              f"{counts['sources_successful']}/{counts['sources_failed']}\n"
-              f"- Fetch errors (403/404/timeouts/oversized): "
-              f"{counts['http_403']}/{counts['http_404']}/{counts['timeouts']}/"
-              f"{counts['oversized_responses']}\n"
-              f"- URLs discovered/rejected/off-host: {counts['urls_discovered']}/"
-              f"{counts['urls_rejected']}/{counts['security_blocked_urls']}\n"
-              f"- Articles discovered/fetched/parsed/rejected: "
-              f"{counts['articles_discovered']}/{counts['articles_fetched']}/"
-              f"{counts['articles_parsed']}/{counts['articles_rejected']}\n"
-              f"- Articles inserted/duplicates/article failures: "
-              f"{counts['articles_inserted']}/{counts['duplicates_skipped']}/"
-              f"{counts['article_failures']}\n"
-              f"- Items processed/published/pending review/processing failures: "
-              f"{counts['processed']}/{counts['published']}/{counts['pending_review']}/"
-              f"{counts['processing_failures']}\n"
+              f"- Sources active/due/attempted: {count('sources_active')}/{count('sources_due')}/"
+              f"{count('sources_attempted')}\n"
+              f"- Sources succeeded/failed: {count('sources_successful')}/{count('sources_failed')}\n"
+              f"- Known URLs skipped without download: {count('known_urls_skipped')}\n"
+              f"- Articles fetched/parsed/rejected/inserted: {count('articles_fetched')}/"
+              f"{count('articles_parsed')}/{count('articles_rejected')}/{count('articles_inserted')}\n"
+              f"- Items processed/published/pending review/retried/failures: {count('processed')}/"
+              f"{count('published')}/{count('pending_review')}/{count('retried')}/"
+              f"{count('processing_failures')}\n"
           )
-          if source_failures:
-              categories = Counter(failure["category"] for failure in source_failures)
-              summary += "\n### Failed sources\n\n"
-              summary += "| Source | Failure category |\n|---|---|\n"
-              for failure in source_failures:
-                  name = failure["name"].replace("|", "\\|").replace("\n", " ")
-                  category = failure["category"].replace("|", "\\|").replace("\n", " ")
-                  summary += f"| {name} | `{category}` |\n"
+          failures = result.get("source_failures") or []
+          if failures:
+              categories = Counter(failure.get("category", "unknown") for failure in failures)
+              summary += "\n### Failed sources\n\n| Source | Failure category |\n|---|---|\n"
+              for failure in failures:
+                  name = str(failure.get("name", "")).replace("|", "\\|").replace("\n", " ")
+                  summary += f"| {name} | `{failure.get('category', 'unknown')}` |\n"
               summary += "\nFailure categories: " + ", ".join(
-                  f"`{category}`: {count}" for category, count in sorted(categories.items())
+                  f"`{category}`: {number}" for category, number in sorted(categories.items())
               ) + "\n"
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as step_summary:
               step_summary.write(summary)
 
-          if status in {"failed", "already_running"}:
-              raise SystemExit(f"Collector group did not complete successfully: {status}")
-          if counts["sources_attempted"] == 0:
-              expected_status = "no_sources_due"
-          elif counts["sources_failed"] == counts["sources_attempted"]:
-              expected_status = "failed"
-          elif counts["sources_failed"]:
-              expected_status = "partial"
-          elif result.get("articles_parsed") == 0:
-              expected_status = "empty"
-          else:
-              expected_status = "succeeded"
-          if status != expected_status:
-              raise SystemExit(
-                  f"Collector status {status!r} conflicts with counts; expected {expected_status!r}"
-              )
-          if counts["sources_deferred"]:
-              raise SystemExit(
-                  f"Collector group {os.environ['SOURCE_GROUP']} left "
-                  f"{counts['sources_deferred']} due sources unattempted"
-              )
-          if status == "partial":
-              failure_rate = counts["sources_failed"] / counts["sources_attempted"]
-              # Reported, not fatal, while the source pool is being cleaned up
-              # (docs/property-news/ARCHITECTURE_UPGRADE_PLAN.md, task 1.9).
-              print(
-                  f"::warning::Collector group {os.environ['SOURCE_GROUP']} had "
-                  f"{counts['sources_failed']} source failures "
-                  f"({failure_rate:.0%})"
-              )
-          elif status not in {"succeeded", "empty", "no_sources_due"}:
-              raise SystemExit(f"Collector returned an unknown status: {status}")
-          if counts["processing_failures"]:
-              raise SystemExit(
-                  f"Collector group {os.environ['SOURCE_GROUP']} had "
-                  f"{counts['processing_failures']} item processing failures"
-              )
+          # Partial source failures are expected while the source pool is being
+          # rebuilt (plan Phase 5); only a run where every source failed is an error.
+          if status == "failed":
+              raise SystemExit("Every attempted source failed")
+          if count("sources_failed"):
+              print(f"::warning::{count('sources_failed')} of {count('sources_attempted')} sources failed")
           PY

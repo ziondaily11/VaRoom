@@ -2210,6 +2210,21 @@ class Phase3DurableStateTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("database unavailable", run["error_message"])
 
 
+class Phase4DiagnosticsTests(unittest.TestCase):
+    def test_provider_error_reason_explains_a_403_without_leaking_a_key(self):
+        from app.analysis import _provider_error_reason
+
+        request = httpx.Request("POST", "https://ai.example.test")
+        response = httpx.Response(403, request=request, json={"error": {
+            "status": "PERMISSION_DENIED",
+            "message": "Your API key AIzaSyA1234567890abcdefghijklmnop was reported as leaked.",
+        }})
+        reason = _provider_error_reason(response)
+        self.assertTrue(reason.startswith("PERMISSION_DENIED: Your API key [redacted]"))
+        self.assertNotIn("AIza", reason)
+        self.assertEqual(_provider_error_reason(httpx.Response(403, request=request, text="Forbidden")), "Forbidden")
+
+
 class Phase3SupabaseRequestTests(unittest.IsolatedAsyncioTestCase):
     """The PostgREST requests the Supabase repository sends for Phase 3."""
 
