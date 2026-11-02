@@ -823,30 +823,6 @@
 }
 
 /* ================================================================
-   MAP & LOCATION (map.html)
-   ================================================================ */
-[data-theme="dark"] .sheet {
-  background: #000000 !important;
-  border-top: 1px solid var(--line) !important;
-}
-
-[data-theme="dark"] .sheet-status {
-  background: var(--surface-elevated) !important;
-  color: var(--ink) !important;
-}
-
-[data-theme="dark"] .sheet-status.unlocked {
-  background: rgba(30, 107, 60, .2) !important;
-  color: #7cc99a !important;
-}
-
-[data-theme="dark"] .btn {
-  background: transparent !important;
-  border-color: var(--line) !important;
-  color: var(--ink) !important;
-}
-
-/* ================================================================
    BOOKINGS & APPROVALS (booking.html, booking-approved.html)
    ================================================================ */
 [data-theme="dark"] .booking-card,
