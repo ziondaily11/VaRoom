@@ -17,6 +17,21 @@ module.exports = {
         permanent: false,
       },
       {
+        source: '/varoomadmin',
+        destination: '/admin',
+        permanent: true,
+      },
+      {
+        source: '/varoomadmin.html',
+        destination: '/admin',
+        permanent: true,
+      },
+      {
+        source: '/legacy-pages/varoomadmin.html',
+        destination: '/admin',
+        permanent: true,
+      },
+      {
         source: '/auth-callback.html',
         destination: '/auth-callback',
         permanent: true,

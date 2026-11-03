@@ -1,8 +1,8 @@
 const crypto = require('crypto');
 const express = require('express');
-const path = require('path');
 const { sendEmail, SECURITY_EMAIL_FROM } = require('../lib/email');
 const { createNotification } = require('../lib/notifications');
+const { resolveFrontendRouteRedirect } = require('../lib/frontendRoute');
 
 const SESSION_COOKIE = 'varoom_admin_session';
 const SESSION_TTL_SECONDS = 60 * 60 * 8;
@@ -186,8 +186,19 @@ function createAdminRoutes(supabaseAdmin) {
     return res.json({ success: true });
   });
 
-  router.get('/', (_req, res) => res.sendFile(path.join(__dirname, '../../client/legacy-pages/varoomadmin.html')));
-  router.get('/varoomadmin.js', (_req, res) => res.sendFile(path.join(__dirname, '../../client/legacy-pages/varoomadmin.js')));
+  // The admin dashboard is the frontend's React /admin page; the legacy
+  // varoomadmin.html is retired. The API routes below serve that page.
+  router.get('/', (req, res) => {
+    const redirect = resolveFrontendRouteRedirect({
+      frontendBaseUrl: process.env.PUBLIC_BASE_URL || process.env.CLIENT_BASE_URL,
+      requestHost: req.get('host'),
+      requestUrl: req.originalUrl,
+      destinationPath: '/admin',
+      unavailableMessage: 'The admin dashboard is not available from this server.',
+    });
+    if (redirect.location) return res.redirect(redirect.status, redirect.location);
+    return res.status(redirect.status).send(redirect.message);
+  });
 
   router.post('/login', async (req, res) => {
     const email = String(req.body && req.body.email || '').trim().toLowerCase();
