@@ -32,3 +32,14 @@ test('the landing page and its sign-in / sign-up redirect to the frontend', () =
   assert.equal(resolveFrontendRouteRedirect({ ...base, requestUrl: '/?auth=signup', query: { auth: 'login' } }).location, 'https://varoom.co.ke/?auth=login', 'the route decides the auth mode');
   assert.equal(resolveFrontendRouteRedirect({ ...base, requestUrl: '/' }).location, 'https://varoom.co.ke/');
 });
+
+test('the legacy admin page is retired; /admin is the React dashboard and its APIs stay', () => {
+  assert.equal(fs.existsSync(path.join(legacyDir, 'varoomadmin.html')), false);
+  const adminRoutes = fs.readFileSync(path.join(__dirname, '..', 'routes', 'adminRoutes.js'), 'utf8');
+  assert.doesNotMatch(adminRoutes, /sendFile\([^)]*varoomadmin/, 'the legacy page is no longer served');
+  assert.match(adminRoutes, /destinationPath: '\/admin'/, 'a direct visit to the API host goes to the frontend page');
+  for (const route of ["router.get('/session'", "router.post('/login'", "router.get('/overview'", "router.get('/users'"]) assert.ok(adminRoutes.includes(route), route);
+  const config = fs.readFileSync(path.join(__dirname, '..', '..', 'client', 'next.config.js'), 'utf8');
+  assert.match(config, /source: '\/varoomadmin',\s*destination: '\/admin'/);
+  assert.ok(fs.existsSync(path.join(__dirname, '..', '..', 'client', 'pages', 'admin.js')));
+});
