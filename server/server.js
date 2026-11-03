@@ -521,8 +521,17 @@ app.get('/forgot-password', (req, res) => {
   return res.redirect(302, destination.toString());
 });
 
-app.get('/u/:username', (_req, res) => {
-  res.sendFile(path.join(legacyPagesDirectory, 'profile-public.html'));
+// Public host profiles are a native frontend page (the file this served is gone).
+app.get('/u/:username', (req, res) => {
+  const redirect = resolveFrontendRouteRedirect({
+    frontendBaseUrl: process.env.PUBLIC_BASE_URL || process.env.CLIENT_BASE_URL,
+    requestHost: req.get('host'),
+    requestUrl: req.originalUrl,
+    destinationPath: `/u/${encodeURIComponent(req.params.username)}`,
+    unavailableMessage: 'Profiles are not available from this server.',
+  });
+  if (redirect.location) return res.redirect(redirect.status, redirect.location);
+  return res.status(redirect.status).send(redirect.message);
 });
 
 const otpRequestTracker = new Map();
