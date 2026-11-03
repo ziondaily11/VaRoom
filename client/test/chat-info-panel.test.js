@@ -33,14 +33,13 @@ test('report: legacy sheet with fixed reasons; submit enabled once a reason is c
   assert.doesNotMatch(source, /User Report Modal/);
 });
 
-test('chat settings: embedded on desktop with its own close, closed by the iframe message; phones return to this conversation', () => {
+test('chat settings: rendered in the desktop information column with its own close; phones return to this conversation', () => {
   assert.match(source, /className="chat-settings-panel-head"/);
   assert.match(source, /\$\{chatSettingsEmbedded \? ' chat-settings-open' : ''\}/);
-  assert.match(source, /event\.origin !== window\.location\.origin \|\| !event\.data \|\| event\.data\.type !== 'varoom:chat-settings-close'/);
+  assert.match(source, /<div className="cs-embedded">\s*<ChatSettings key=\{role\} role=\{role\} onOpenArchived=\{\(\) => setChatSettingsEmbedded\(false\)\} \/>/);
+  assert.doesNotMatch(source, /<iframe|chat-settings\?embedded=1/, 'no second copy of the app in a frame');
   assert.match(source, /\/chat-settings\?returnTo=\$\{encodeURIComponent\(router\.asPath \|\| '\/chats'\)\}/);
   assert.doesNotMatch(source, /returnTo=\/chats'/);
-  const settings = read('legacy-pages', 'chat-settings.html');
-  assert.match(settings, /window\.parent\.postMessage\(\{ type: 'varoom:chat-settings-close' \}, window\.location\.origin\)/);
 });
 
 test('selecting a person opens the information column on desktop; Elie keeps it closed', () => {
