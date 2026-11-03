@@ -112,6 +112,16 @@ module.exports = {
         permanent: true,
       },
       {
+        source: '/booking.html',
+        destination: '/booking',
+        permanent: true,
+      },
+      {
+        source: '/legacy-pages/booking.html',
+        destination: '/booking',
+        permanent: true,
+      },
+      {
         source: '/booking-approved.html',
         destination: '/booking-approved',
         permanent: true,
