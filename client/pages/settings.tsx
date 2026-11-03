@@ -11,6 +11,7 @@ import {
   completeGoogleVerification, deleteAccount, loadPreferences, VERIFICATION_ERROR_KEY, VERIFICATION_SESSION_KEY, type Preferences,
 } from '../lib/settings/settings';
 import AccountSection from '../components/settings/AccountSection';
+import PlansSection, { PLANS_STYLES } from '../components/settings/PlansSection';
 import {
   CategoryList, DeleteAccountDialog, DisplaySection, LoginAccountsSection, NotificationsSection, PrivacySection, SettingsSkeleton, SupportSection,
 } from '../components/settings/SettingsSections';
@@ -22,7 +23,7 @@ import { SETTINGS_STYLES } from '../components/settings/settingsStyles';
 // on phones the list, then the section. Identity comes from AuthProvider;
 // the profile's preferences are read once.
 
-type View = 'list' | 'account' | 'notifications' | 'display' | 'privacy' | 'support' | 'login-accounts';
+type View = 'list' | 'account' | 'plans' | 'notifications' | 'display' | 'privacy' | 'support' | 'login-accounts';
 
 const TOAST_STYLES = `
   .settings-toast{ position:fixed; left:50%; bottom:1.5rem; transform:translateX(-50%) translateY(20px); z-index:300; max-width:min(92vw, 30rem);
@@ -60,10 +61,17 @@ export default function SettingsPage() {
     if (status === 'signed-out') router.replace(loginUrl('/settings'));
   }, [status, router]);
 
-  // ?section=notifications opens that section.
+  // ?section=notifications (or plans, for hosts) opens that section.
   useEffect(() => {
-    if (router.isReady && router.query.section === 'notifications') { setView('notifications'); setMobileDetail(true); }
-  }, [router.isReady, router.query.section]);
+    if (!router.isReady) return;
+    const wanted = router.query.section;
+    if (wanted === 'notifications' || (wanted === 'plans' && role === 'host')) { setView(wanted); setMobileDetail(true); }
+  }, [router.isReady, router.query.section, role]);
+
+  // Plans & Billing is for hosts; another account type falls back to Your Account.
+  useEffect(() => {
+    if (view === 'plans' && profile && role !== 'host') setView('account');
+  }, [view, profile, role]);
 
   // The profile's preferences (the app's profile already has the rest).
   useEffect(() => {
@@ -173,6 +181,8 @@ export default function SettingsPage() {
           onDelete={() => setDeleting(true)}
         />
       );
+    } else if (view === 'plans' && role === 'host') {
+      section = <PlansSection userId={userId} token={token} billedTo={profile?.full_name || profile?.username || user?.email || ''} email={user?.email || ''} onBack={back} notify={notify} />;
     } else if (view === 'notifications') section = <NotificationsSection userId={userId} prefs={prefs} onBack={back} notify={notify} />;
     else if (view === 'display') section = <DisplaySection userId={userId} onBack={back} />;
     else if (view === 'privacy') section = <PrivacySection userId={userId} prefs={prefs} onBack={back} onPassword={() => { setOpenPassword(true); show('account'); }} />;
@@ -188,7 +198,7 @@ export default function SettingsPage() {
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;0,9..144,900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
       </Head>
-      <style dangerouslySetInnerHTML={{ __html: SETTINGS_STYLES + TOAST_STYLES }} />
+      <style dangerouslySetInnerHTML={{ __html: SETTINGS_STYLES + PLANS_STYLES + TOAST_STYLES }} />
       <div className="settings-page">
         <div className="app-shell">
           <div className="main-col">
@@ -199,7 +209,7 @@ export default function SettingsPage() {
             <main className="settings-main">
               <div id="settings-page" className={pageClass} style={{ display: 'grid' }}>
                 {!ready && <SettingsSkeleton />}
-                {ready && <CategoryList active={view} onOpen={(key) => show(key as View)} />}
+                {ready && <CategoryList active={view} isHost={role === 'host'} onOpen={(key) => show(key as View)} />}
                 {section}
               </div>
             </main>

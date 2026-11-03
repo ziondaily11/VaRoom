@@ -24,9 +24,12 @@ const CATEGORIES: Array<{ key: string; title: string; desc: string; href?: strin
   { key: 'support', title: 'Support & About', desc: 'Get help, view policies and learn more about VaRoom.', href: '/support' },
   { key: 'login-accounts', title: 'Login & Accounts', desc: 'Log out of VaRoom.' },
 ];
+// Hosts only, after Your Account.
+const PLANS_CATEGORY: (typeof CATEGORIES)[number] = { key: 'plans', title: 'Plans & Billing', desc: 'See your plan, listings left, payment method and invoices.' };
 
-export function CategoryList({ active, onOpen }: { active: string; onOpen: (key: string) => void }) {
+export function CategoryList({ active, onOpen, isHost = false }: { active: string; onOpen: (key: string) => void; isHost?: boolean }) {
   const [query, setQuery] = useState('');
+  const categories = isHost ? [CATEGORIES[0], PLANS_CATEGORY, ...CATEGORIES.slice(1)] : CATEGORIES;
   const q = query.trim().toLowerCase();
   const visible = (title: string) => !q || title.toLowerCase().includes(q);
   return (
@@ -37,7 +40,7 @@ export function CategoryList({ active, onOpen }: { active: string; onOpen: (key:
         <input type="search" id="settings-search-input" placeholder="Search Settings" aria-label="Search settings" value={query} onChange={(event) => setQuery(event.target.value)} />
       </div>
       <div className="cat-list">
-        {CATEGORIES.map((cat) => {
+        {categories.map((cat) => {
           const inner = (
             <>
               <span className="cat-icon">{CAT_ICONS[cat.key]}</span>

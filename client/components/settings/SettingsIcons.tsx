@@ -21,6 +21,7 @@ export const CAT_ICONS: Record<string, React.ReactNode> = {
   support: icon(20, <><circle cx="12" cy="12" r="9" /><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 1.7-2.5 2-2.5 3.5" /><path d="M12 17h.01" /></>),
   'login-accounts': icon(20, <><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="m16 17 5-5-5-5" /><path d="M21 12H9" /></>),
   payments: icon(20, <><rect x="3" y="6" width="18" height="13" rx="2" /><path d="M3 10h18" /></>),
+  plans: icon(20, <><path d="m12 2 10 5-10 5L2 7l10-5Z" /><path d="m2 17 10 5 10-5" /><path d="m2 12 10 5 10-5" /></>),
 };
 
 export const INFO_ICONS = {
@@ -35,6 +36,10 @@ export const INFO_ICONS = {
   warning: icon(16, <><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" /><path d="M12 9v4M12 17h.01" /></>),
   shield: icon(16, <path d="M12 2 4 5v6c0 5 3.5 8.5 8 11 4.5-2.5 8-6 8-11V5l-8-3Z" />),
   file: icon(16, <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" /><path d="M14 2v6h6" /></>),
+  card: icon(16, <><rect x="3" y="6" width="18" height="13" rx="2" /><path d="M3 10h18" /></>),
+  receipt: icon(16, <><path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2V3Z" /><path d="M9 8h6M9 12h6" /></>),
+  sparkle: icon(16, <path d="M12 3l1.9 5.6L19.5 10l-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.4L12 3Z" />),
+  listings: icon(16, <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M7 9h10M7 13h10M7 17h6" /></>),
 };
 
 export const LockLarge = () => icon(20, <><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></>);

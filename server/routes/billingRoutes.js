@@ -60,6 +60,53 @@ function calculateTransitionAllowance(previousLimit, activeListings, newLimit) {
   return { limit: remaining + granted, previous_remaining: remaining, newly_granted: granted };
 }
 
+const HISTORY_STATUSES = ['pending', 'succeeded', 'failed', 'refunded'];
+
+function safeText(value, max = 40) {
+  return typeof value === 'string' && value.trim() ? value.trim().slice(0, max) : null;
+}
+
+// Only display fields of Paystack's authorization; never its reusable
+// authorization_code, signature or customer details.
+function paymentMethodFrom(authorization) {
+  if (!authorization || typeof authorization !== 'object') return null;
+  const last4 = /^\d{4}$/.test(String(authorization.last4 || '')) ? String(authorization.last4) : null;
+  const channel = safeText(authorization.channel, 20);
+  if (!last4 && !channel) return null;
+  const month = /^\d{1,2}$/.test(String(authorization.exp_month || '')) ? String(authorization.exp_month).padStart(2, '0') : null;
+  const year = /^\d{2,4}$/.test(String(authorization.exp_year || '')) ? String(authorization.exp_year) : null;
+  return {
+    channel,
+    brand: safeText(authorization.brand) || safeText(authorization.card_type),
+    last4,
+    exp_month: month,
+    exp_year: year,
+    bank: safeText(authorization.bank),
+  };
+}
+
+function billingHistoryEntry(row) {
+  const planName = row.billing_plans && row.billing_plans.display_name || null;
+  const listingTitle = row.listings && row.listings.title || null;
+  const isListing = row.payment_kind === 'listing';
+  return {
+    id: row.id,
+    kind: isListing ? 'listing' : 'subscription',
+    description: isListing
+      ? `Pay as you list${listingTitle ? ` — ${listingTitle}` : ''}`
+      : `${planName || 'VaRoom'} plan — monthly`,
+    plan_name: planName,
+    listing_title: listingTitle,
+    amount_minor: row.amount_minor,
+    currency: row.currency,
+    status: row.status,
+    paid_at: row.paid_at || null,
+    created_at: row.created_at,
+    reference: row.provider_reference,
+    method: paymentMethodFrom(row.verified_authorization || row.renewal_authorization),
+  };
+}
+
 async function authenticatedHost(req, supabaseAdmin) {
   const header = req.headers.authorization || '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : null;
@@ -298,15 +345,58 @@ function createBillingRoutes({ supabaseAdmin = supabaseDefault, paystack = creat
     const { provider_payload: _privateProviderPayload, ...safePayment } = refreshed || verifiedPayment;
     return res.json({ payment: safePayment });
   });
+  // Subscription and pay-as-you-list payments, newest first, with the
+  // payment method of the latest successful one. Unfinished checkouts are left out.
+  router.get('/billing/payments', async (req, res) => {
+    const user = await requireHost(req, res); if (!user) return;
+    const { data, error } = await supabaseAdmin.from('billing_payments')
+      .select('id,payment_kind,amount_minor,currency,status,paid_at,created_at,provider_reference,verified_authorization:provider_payload->last_verification->authorization,renewal_authorization:provider_payload->authorization,billing_plans(display_name),listings(title)')
+      .eq('host_id', user.id).in('status', HISTORY_STATUSES)
+      .order('created_at', { ascending: false }).limit(100);
+    if (error) return res.status(500).json({ error: 'Unable to load billing history' });
+    const payments = (data || []).map(billingHistoryEntry);
+    const latestPaid = payments.find((payment) => payment.status === 'succeeded' && payment.method);
+    return res.json({ payments, payment_method: latestPaid ? latestPaid.method : null });
+  });
+  // The subscription's provider codes stay on the server.
+  const subscriptionCodes = async (subscriptionId) => {
+    const { data, error } = await supabaseAdmin.from('host_subscriptions')
+      .select('provider_subscription_code,provider_email_token').eq('id', subscriptionId).maybeSingle();
+    if (error) throw new Error('Unable to load subscription');
+    return data || {};
+  };
+  router.get('/billing/subscription/manage-link', async (req, res) => {
+    const user = await requireHost(req, res); if (!user) return;
+    let subscription; let codes;
+    try {
+      subscription = await getCurrentSubscription(supabaseAdmin, user.id);
+      codes = subscription ? await subscriptionCodes(subscription.id) : {};
+    } catch { return res.status(500).json({ error: 'Unable to load subscription' }); }
+    if (!subscription || !['active', 'past_due'].includes(subscription.status) || !codes.provider_subscription_code) {
+      return res.status(400).json({ error: 'No subscription card to update' });
+    }
+    try {
+      const result = await paystack.subscriptionManageLink(codes.provider_subscription_code);
+      if (!result || typeof result.link !== 'string' || !result.link.startsWith('https://')) throw new Error('Paystack did not return a link');
+      return res.json({ link: result.link });
+    } catch { return res.status(502).json({ error: 'Unable to open the card update page' }); }
+  });
   router.post('/billing/subscription/cancel', async (req, res) => {
     const user = await requireHost(req, res); if (!user) return;
-    const subscription = await getCurrentSubscription(supabaseAdmin, user.id);
-    if (!subscription || !subscription.provider_subscription_code || !subscription.provider_email_token) return res.status(400).json({ error: 'No cancellable subscription found' });
-    try { await paystack.disableSubscription({ code: subscription.provider_subscription_code, token: subscription.provider_email_token }); }
+    let subscription; let codes;
+    try {
+      subscription = await getCurrentSubscription(supabaseAdmin, user.id);
+      codes = subscription ? await subscriptionCodes(subscription.id) : {};
+    } catch { return res.status(500).json({ error: 'Unable to load subscription' }); }
+    if (subscription && subscription.status === 'cancel_requested') return res.status(409).json({ error: 'This subscription is already cancelled' });
+    if (!subscription || !codes.provider_subscription_code || !codes.provider_email_token) return res.status(400).json({ error: 'No cancellable subscription found' });
+    try { await paystack.disableSubscription({ code: codes.provider_subscription_code, token: codes.provider_email_token }); }
     catch (error) { return res.status(502).json({ error: error.message || 'Unable to cancel subscription' }); }
-    await supabaseAdmin.from('host_subscriptions').update({ status: 'cancel_requested', cancel_at_period_end: true }).eq('id', subscription.id);
+    const { error: updateError } = await supabaseAdmin.from('host_subscriptions').update({ status: 'cancel_requested', cancel_at_period_end: true }).eq('id', subscription.id);
+    // Paystack no longer renews it; its webhook records the same state if this write failed.
+    if (updateError) console.error('Unable to record subscription cancellation', { subscriptionId: subscription.id, message: updateError.message });
     return res.json({ subscription: { ...subscription, status: 'cancel_requested', cancel_at_period_end: true } });
   });
   return router;
 }
-module.exports = { createBillingRoutes, authenticatedHost, VALID_PLAN_IDS, normalizeRequestedPlan, resolvePaymentCallbackOrigin, buildPaymentCallbackUrl, isEligibleListingForHost, calculateTransitionAllowance };
+module.exports = { createBillingRoutes, authenticatedHost, paymentMethodFrom, billingHistoryEntry, VALID_PLAN_IDS, normalizeRequestedPlan, resolvePaymentCallbackOrigin, buildPaymentCallbackUrl, isEligibleListingForHost, calculateTransitionAllowance };
