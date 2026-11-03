@@ -395,7 +395,7 @@ test('14. Unbroken notifications navigation from Bookings and client-side sideba
   const bookingsPagePath = path.join(root, 'pages', 'bookings.tsx');
   const hostSidebarPath = path.join(root, 'components', 'shell/HostSidebar.tsx');
   const clientSidebarPath = path.join(root, 'components', 'shell/ClientSidebar.tsx');
-  const hostHomeHtmlPath = path.join(root, 'legacy-pages', 'host-home.html');
+  const hostHomePath = path.join(root, 'pages', 'host-home.tsx');
 
   // 1. The Bookings page must not intercept #notif-nav-item or render its own notif-bell
   const bookingsPage = fs.readFileSync(bookingsPagePath, 'utf8');
@@ -412,9 +412,10 @@ test('14. Unbroken notifications navigation from Bookings and client-side sideba
   assert.match(clientSidebarSource, /<a\b[^>]*href="\/notifications"[^>]*id="notif-nav-item"/);
   assert.match(clientSidebarSource, /data-nav="notifications"/);
 
-  // 4. host-home.html must not hijack shared sidebar #notif-nav-item with global getElementById
-  const hostHomeHtml = fs.readFileSync(hostHomeHtmlPath, 'utf8');
-  assert.doesNotMatch(hostHomeHtml, /document\.getElementById\(['"]notif-nav-item['"]\)/);
+  // 4. Host Home must not hijack the shared sidebar's items (it bound every .nav-item before D2)
+  const hostHome = fs.readFileSync(hostHomePath, 'utf8');
+  assert.doesNotMatch(hostHome, /notif-nav-item|\.nav-item/);
+  assert.doesNotMatch(hostSidebarSource, /navItem\.click\(\)/, 'the sidebar switches Host Home views through ?view=');
 });
 
 test('15. Instant cache presentation is limited to the verified account', () => {

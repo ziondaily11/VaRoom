@@ -10,7 +10,6 @@ import { useRouter } from 'next/router';
 import ElieIcon from '../components/ElieIcon';
 import { ThinkingOrb } from 'thinking-orbs';
 import { waitForShellReady } from '../components/shell/shellReady';
-const { createLegacyPageLifecycle } = require('../lib/legacyPageLifecycle');
 
 const templateDirectory = path.join(process.cwd(), 'legacy-pages');
 const routeAliases = {
@@ -132,8 +131,7 @@ function loadChatCache() {
   });
 }
 
-async function runLegacyScripts(container, scripts, pageLifecycle, templateName) {
-  const pageWasLeft = () => pageLifecycle && !pageLifecycle.isActive();
+async function runLegacyScripts(container, scripts, pageWasLeft) {
   if (pageWasLeft()) return;
 
   // Page scripts check the account shell as they run; on a hard load it is
@@ -233,11 +231,7 @@ async function runLegacyScripts(container, scripts, pageLifecycle, templateName)
       container.appendChild(script);
     }
   }
-  // Home uses the persistent React sidebars. Keep the legacy sidebar's
-  // account-scoped realtime channel and refresh timer alive, but don't start
-  // an extra count refresh every time a Home page is revisited.
-  if (!['host-home.html', 'client-home.html'].includes(templateName)
-    && window.VaroomSidebar && window.VaroomSidebar.initCounts) {
+  if (window.VaroomSidebar && window.VaroomSidebar.initCounts) {
     await window.VaroomSidebar.initCounts();
   }
 
@@ -249,15 +243,6 @@ export default function LegacyPage({ title, markup, scripts, templateName }) {
 
   useEffect(() => {
     let cancelled = false;
-    const pageLifecycle = ['host-home.html', 'client-home.html'].includes(templateName)
-      ? createLegacyPageLifecycle()
-      : null;
-    if (pageLifecycle) {
-      window.__VaRoomLegacyPageLifecycle = pageLifecycle;
-      if (templateName === 'host-home.html' || templateName === 'client-home.html') {
-        pageLifecycle.initialize(() => {});
-      }
-    }
     const avatarRoots = new Map();
     const orbRoots = new Map();
     const mountAvatars = (node) => {
@@ -328,14 +313,10 @@ export default function LegacyPage({ title, markup, scripts, templateName }) {
       mountOrbs(containerRef.current);
     }
 
-    const loadPageScripts = () => runLegacyScripts(containerRef.current, scripts, pageLifecycle, templateName);
+    const loadPageScripts = () => runLegacyScripts(containerRef.current, scripts, () => cancelled);
     loadPageScripts().catch((error) => console.error('Legacy page initialization failed:', error));
     return () => {
       cancelled = true;
-      pageLifecycle?.dispose();
-      if (window.__VaRoomLegacyPageLifecycle === pageLifecycle) {
-        delete window.__VaRoomLegacyPageLifecycle;
-      }
       avatarObserver.disconnect();
       avatarRoots.forEach((root) => {
         try { root.unmount(); } catch (e) {}

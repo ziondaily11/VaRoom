@@ -90,13 +90,7 @@ export default function HostSidebar({ activeNav: explicitActiveNav }: { activeNa
 
     if (viewName) {
       if (router.pathname === '/host-home') {
-        // Trigger page view handler directly without reload
-        if (typeof window !== 'undefined') {
-          const navItem = document.querySelector<HTMLElement>(`.nav-item[data-nav="${viewName}"]`);
-          if (navItem && !navItem.classList.contains('active')) {
-            navItem.click();
-          }
-        }
+        // Host home follows ?view= (no reload).
         router.push(`/host-home?view=${viewName}`, undefined, { shallow: true });
         return;
       }

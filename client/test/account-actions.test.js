@@ -125,10 +125,10 @@ test('AddAccountModal fixes: popup race, scoped message listener, restored metho
   assert.match(source, /switcher\.upsertFromSession\(window\.supabaseClient, session\)/);
 });
 
-test('legacy logout buttons hand off to the shared logout when it is present', () => {
-  for (const file of ['host-home.html']) {
-    const source = fs.readFileSync(path.join(root, 'legacy-pages', file), 'utf8');
-    assert.match(source, /if \(window\.VaRoomAccount\) \{ await window\.VaRoomAccount\.logout\(\); return; \}\r?\n\s*await supabaseClient\.auth\.signOut\(\);/, file);
+test('no legacy page keeps its own logout (Host Home logs out through the shell)', () => {
+  const legacyDir = path.join(root, 'legacy-pages');
+  for (const file of fs.readdirSync(legacyDir).filter((name) => name.endsWith('.html'))) {
+    assert.doesNotMatch(fs.readFileSync(path.join(legacyDir, file), 'utf8'), /auth\.signOut\(\)/, file);
   }
 });
 

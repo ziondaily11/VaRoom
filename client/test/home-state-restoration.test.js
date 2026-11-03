@@ -2,7 +2,6 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const vm = require('node:vm');
 
 const root = path.join(__dirname, '..');
 
@@ -34,19 +33,10 @@ test('native Client Home keeps lifecycle work page-scoped and avoids stale state
   assert.match(pageSource, /if \(contextVersion !== feedContextVersion\.current \|\| feedContextKey\.current !== key\) return;/);
 });
 
-test('Host Home retains its page lifecycle and valid inline initializer scripts', () => {
+test('Host Home is native; the legacy page lifecycle is retired', () => {
   const catchAll = fs.readFileSync(path.join(root, 'pages', '[...slug].js'), 'utf8');
-  assert.match(catchAll, /\['host-home\.html', 'client-home\.html'\]/);
-  assert.match(catchAll, /!\['host-home\.html', 'client-home\.html'\]\.includes\(templateName\)[\s\S]*?VaroomSidebar\.initCounts\(\)/);
-  assert.match(catchAll, /pageLifecycle\?\.dispose\(\)/);
-
-  const source = fs.readFileSync(path.join(root, 'legacy-pages', 'host-home.html'), 'utf8');
-  const inlineScripts = Array.from(source.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi))
-    .filter((match) => !/\bsrc\s*=/.test(match[1]))
-    .map((match) => match[2].trim())
-    .filter(Boolean);
-  assert.ok(inlineScripts.length > 0, 'Host Home should contain its inline page initializer');
-  inlineScripts.forEach((script, index) => {
-    assert.doesNotThrow(() => new vm.Script(script, { filename: `host-home.html inline script ${index + 1}` }));
-  });
+  assert.doesNotMatch(catchAll, /legacyPageLifecycle|__VaRoomLegacyPageLifecycle|host-home\.html/);
+  assert.match(catchAll, /runLegacyScripts\(containerRef\.current, scripts, \(\) => cancelled\)/, 'a page left mid-load stops its scripts');
+  for (const file of ['lib/legacyPageLifecycle.js', 'legacy-pages/host-home.html']) assert.equal(fs.existsSync(path.join(root, file)), false, file);
+  assert.ok(fs.existsSync(path.join(root, 'pages', 'host-home.tsx')));
 });

@@ -83,7 +83,7 @@ test('Legacy pages define consistent true black tokens', () => {
   const legacyDir = path.join(clientRoot, 'legacy-pages');
   const pagesToCheck = [
     path.join('..', 'components', 'booking', 'bookingStyles.ts'),
-    'host-home.html',
+    path.join('..', 'components', 'hostHome', 'hostHomeStyles.ts'),
     'list.html'
   ];
 
