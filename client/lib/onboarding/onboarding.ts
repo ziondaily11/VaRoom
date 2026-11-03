@@ -99,6 +99,30 @@ export const PHOTO_MAX_BYTES = 5 * 1024 * 1024;
 
 export const hostStepKey = (userId: string) => `varoom_host_onboarding_step_${userId}`;
 
+/** Step 2's choices, kept while the host goes back to step 1 (and across a reload). */
+export const listingDraftKey = (userId: string) => `varoom_host_onboarding_listing_${userId}`;
+
+type StorageLike = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> | null | undefined;
+
+export function readListingDraft(storage: StorageLike, userId: string): { niche: Category | null; name: string } | null {
+  try {
+    const raw = storage ? storage.getItem(listingDraftKey(userId)) : null;
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { niche?: unknown; name?: unknown };
+    return { niche: isCategory(parsed.niche) ? parsed.niche : null, name: typeof parsed.name === 'string' ? parsed.name.slice(0, 40) : '' };
+  } catch {
+    return null;
+  }
+}
+
+export function writeListingDraft(storage: StorageLike, userId: string, draft: { niche: Category | null; name: string } | null): void {
+  try {
+    if (!storage) return;
+    if (draft) storage.setItem(listingDraftKey(userId), JSON.stringify(draft));
+    else storage.removeItem(listingDraftKey(userId));
+  } catch { /* storage unavailable */ }
+}
+
 /** Hosts resume on step 2 only when step 1 was saved. */
 export function initialHostStep(stored: string | null, profile: { username?: string | null; phone?: string | null; city?: string | null }): 1 | 2 {
   return stored === '2' && profile.username && profile.phone && profile.city ? 2 : 1;

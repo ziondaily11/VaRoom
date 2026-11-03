@@ -123,7 +123,7 @@ test('page: AuthProvider profile, safe redirect, Split layout, legacy page and p
   assert.match(page, /!safe\.startsWith\('\/onboarding'\)/, 'never loops back here');
   assert.match(page, /await refreshProfile\(\)/, 'the app sees onboarding as done before moving on');
   const steps = read('components', 'onboarding', 'OnboardingSteps.tsx');
-  for (const text of ['A little more you.', "Let's set up your profile so people can put a face to your name.", 'What will you be listing?', 'What are you hoping to find?', 'When are you looking?', '← Back to profile setup', 'Finishing setup...', 'Uploading photo...', 'Continue without photo']) assert.ok(steps.includes(text), text);
+  for (const text of ['A little more you.', "Let's set up your profile so people can put a face to your name.", 'What will you be listing?', 'What are you hoping to find?', 'When are you looking?', '← Back to profile setup', 'Finishing setup...', 'Uploading your photo. You can keep going.', 'Try again', 'Continue without photo']) assert.ok(steps.includes(text), text);
   assert.match(steps, /disabled=\{!valid \|\| Boolean\(busy\)\}/, 'Continue waits for a valid form');
   const styles = read('components', 'onboarding', 'onboardingStyles.ts');
   assert.match(styles, /color-scheme:light/, 'the form side stays light in dark mode');
@@ -138,4 +138,25 @@ test('laptop screens: each step fits without scrolling (compact below 860 px and
   assert.match(styles, /@media \(min-width: 901px\) and \(max-height: 860px\)\{[\s\S]*?\.onb-input\{ height:46px; \}/);
   assert.match(styles, /@media \(min-width: 901px\) and \(max-height: 700px\)\{[\s\S]*?\.onb-photo-frame\{ width:60px; height:60px; \}/);
   assert.match(styles, /align-items:safe center/, 'a step taller than the screen is never cut off at the top');
+});
+
+test('photo uploads behind the scenes; step 2 is kept when going back', () => {
+  const steps = read('components', 'onboarding', 'OnboardingSteps.tsx');
+  const page = read('pages', 'onboarding.tsx');
+  assert.doesNotMatch(steps, /saveAvatar/, 'step 1 no longer waits for the upload');
+  assert.match(page, /startUpload\(newPhoto\.blob\)/);
+  assert.match(page, /await run\.done/, 'finishing waits for a photo still uploading');
+  assert.match(page, /initialPhoto=\{chosenPhoto\}/, 'the chosen photo is still there on going back');
+  assert.match(page, /initialNiche=\{listingDraft \? listingDraft\.niche/);
+  const store = new Map();
+  const fake = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, v), removeItem: (k) => store.delete(k) };
+  assert.equal(ob.listingDraftKey('u1'), 'varoom_host_onboarding_listing_u1');
+  assert.equal(ob.readListingDraft(fake, 'u1'), null);
+  ob.writeListingDraft(fake, 'u1', { niche: 'hotel', name: 'Palm View' });
+  assert.deepEqual({ ...ob.readListingDraft(fake, 'u1') }, { niche: 'hotel', name: 'Palm View' });
+  assert.equal(ob.readListingDraft(fake, 'u2'), null, 'kept per account');
+  store.set('varoom_host_onboarding_listing_u1', '{"niche":"bogus","name":5}');
+  assert.deepEqual({ ...ob.readListingDraft(fake, 'u1') }, { niche: null, name: '' });
+  ob.writeListingDraft(fake, 'u1', null);
+  assert.equal(store.size, 0);
 });
