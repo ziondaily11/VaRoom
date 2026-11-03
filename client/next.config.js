@@ -27,6 +27,16 @@ module.exports = {
         permanent: true,
       },
       {
+        source: '/chat-settings.html',
+        destination: '/chat-settings',
+        permanent: true,
+      },
+      {
+        source: '/legacy-pages/chat-settings.html',
+        destination: '/chat-settings',
+        permanent: true,
+      },
+      {
         source: '/varoomadmin',
         destination: '/admin',
         permanent: true,

@@ -1,4 +1,5 @@
 import { clearNotificationsCache } from '../notificationsCache';
+import { clearChatSettingsCache } from '../chat/chatSettings';
 import { clearPropertyNewsCache } from '../propertyNewsCache';
 import { clearBookingsCache } from '../bookings/bookingsCache';
 import { clearBookmarks } from '../bookmarks/bookmarks';
@@ -87,6 +88,7 @@ export async function clearUserData(userId: string | null, options: ClearUserDat
   // In-memory copies held by caches loaded on this page.
   clearUserScopedCaches();
   clearNotificationsCache();
+  clearChatSettingsCache();
   clearPropertyNewsCache();
   clearBookingsCache();
   clearBookmarks();

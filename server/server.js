@@ -318,7 +318,6 @@ const pageTemplates = {
   '/list': 'list.html',
   '/host-home': 'host-home.html',
   '/booking': 'booking.html',
-  '/chat-settings': 'chat-settings.html',
   '/onboarding': 'onboarding.html',
   '/profile': 'profile.html',
   '/settings': 'settings.html',
@@ -389,6 +388,19 @@ app.get(['/marketplace', '/marketplace.html', '/legacy-pages/marketplace.html'],
     requestUrl: req.originalUrl,
     destinationPath: '/marketplace',
     unavailableMessage: 'The marketplace is not available from this server.',
+  });
+  if (redirect.location) return res.redirect(redirect.status, redirect.location);
+  return res.status(redirect.status).send(redirect.message);
+});
+
+// Chat Settings is a native frontend page (the query is kept).
+app.get(['/chat-settings', '/chat-settings.html', '/legacy-pages/chat-settings.html'], (req, res) => {
+  const redirect = resolveFrontendRouteRedirect({
+    frontendBaseUrl: process.env.PUBLIC_BASE_URL || process.env.CLIENT_BASE_URL,
+    requestHost: req.get('host'),
+    requestUrl: req.originalUrl,
+    destinationPath: '/chat-settings',
+    unavailableMessage: 'Chat settings are not available from this server.',
   });
   if (redirect.location) return res.redirect(redirect.status, redirect.location);
   return res.status(redirect.status).send(redirect.message);

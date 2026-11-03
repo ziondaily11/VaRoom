@@ -33,6 +33,7 @@ import { useElie } from '../components/chat/useElie';
 import { ElieHistoryPanel, ElieThread } from '../components/chat/ElieThread';
 import ConversationInfo from '../components/chat/ConversationInfo';
 import ReportSheet from '../components/chat/ReportSheet';
+import ChatSettings, { ChatSettingsStyles } from '../components/chat/ChatSettings';
 import { useCounts } from '../lib/counts/countsStore';
 import { isModifiedClick } from '../lib/navigation/clicks';
 import { KEEP_FOCUS_SELECTOR, useChatViewport } from '../components/chat/useChatViewport';
@@ -687,15 +688,6 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
     document.body.classList.toggle('chat-page-context', inConversation);
   }, [mobileView]);
   useEffect(() => () => document.body.classList.remove('chat-page-context'), []);
-
-  useEffect(() => {
-    const onMessage = (event: MessageEvent) => {
-      if (event.origin !== window.location.origin || !event.data || event.data.type !== 'varoom:chat-settings-close') return;
-      setChatSettingsEmbedded(false);
-    };
-    window.addEventListener('message', onMessage);
-    return () => window.removeEventListener('message', onMessage);
-  }, []);
 
   // Search placeholder as legacy: "Search" on desktop.
   useEffect(() => {
@@ -1989,11 +1981,11 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                   <svg className="icon"><use href="#i-close" /></svg>
                 </button>
               </div>
-              <iframe
-                className="chat-settings-frame"
-                title="Chat Settings"
-                src={`/chat-settings?embedded=1&role=${encodeURIComponent(role)}`}
-              />
+              {/* Rendered here directly (it was an iframe of the settings page). */}
+              <ChatSettingsStyles />
+              <div className="cs-embedded">
+                <ChatSettings key={role} role={role} onOpenArchived={() => setChatSettingsEmbedded(false)} />
+              </div>
             </>
           ) : (
           <>
