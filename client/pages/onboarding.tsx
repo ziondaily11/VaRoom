@@ -4,6 +4,7 @@ import { useRouter } from 'next/router';
 import { useAuth } from '../lib/auth/AuthProvider';
 import { getSupabaseClient } from '../lib/supabase/client';
 import { getSafeRedirect, loginUrl } from '../lib/safeRedirect';
+import { accountRole } from '../lib/types/profile';
 import { resolveAvatarUrl } from '../components/resolveStoredPhotoUrl';
 import {
   destination, hostStepKey, initialCategories, initialHostStep, initialNiche, initialTimeline, loadHostExtras, phoneForInput, roleHome,
@@ -25,7 +26,9 @@ export default function OnboardingPage() {
   const router = useRouter();
   const { status, user, profile, profileError, refreshProfile } = useAuth();
   const userId = user?.id || null;
-  const role = profile?.role === 'host' || profile?.role === 'client' ? profile.role : null;
+  // As before the migration: the role chosen at sign-up stands in until the profile row has one.
+  const metadataRole: unknown = user?.user_metadata?.role;
+  const role = accountRole(profile) || (metadataRole === 'host' || metadataRole === 'client' ? metadataRole : null);
   const redirect = useMemo(() => {
     const safe = getSafeRedirect(router.query.redirect);
     return safe && !safe.startsWith('/onboarding') ? safe : null;
@@ -39,15 +42,27 @@ export default function OnboardingPage() {
   const [leaving, setLeaving] = useState(false);
   // Step 1's saved username (the auth profile refreshes only at the end).
   const [savedUsername, setSavedUsername] = useState<string | null>(null);
+  // Right after sign-up the cached profile can predate the row the sign-in
+  // callback just wrote, so a missing profile or role is read fresh once
+  // before sending anyone back to sign in.
+  const [recheck, setRecheck] = useState<'idle' | 'running' | 'done'>('idle');
 
   // Who may be here: signed in, a known role, not yet onboarded.
   useEffect(() => {
     if (!router.isReady || leaving) return;
     if (status === 'signed-out') { void router.replace(loginUrl(router.asPath)); return; }
     if (status !== 'signed-in' || (!profile && !profileError)) return;
-    if (!profile || !role) { void router.replace(loginUrl(router.asPath)); return; }
+    if (!profile || !role) {
+      if (recheck === 'idle') {
+        setRecheck('running');
+        refreshProfile().catch(() => {}).finally(() => setRecheck('done'));
+        return;
+      }
+      if (recheck === 'done') void router.replace(loginUrl(router.asPath));
+      return;
+    }
     if (profile.onboarding_completed) void router.replace(redirect || roleHome(role));
-  }, [router, router.isReady, status, profile, profileError, role, redirect, leaving]);
+  }, [router, router.isReady, status, profile, profileError, role, redirect, leaving, recheck, refreshProfile]);
 
   // Hosts: the rest of their profile, and which step to resume.
   useEffect(() => {
