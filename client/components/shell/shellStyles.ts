@@ -87,7 +87,7 @@ export const HOST_SHELL_STYLES = `
 
   .host-app-layout .nav-group { display: flex; flex-direction: column; gap: .35rem; }
   .host-app-layout .nav-group + .nav-group { border-top: 1px solid var(--line, var(--layout-line)); padding-top: .75rem; margin-top: .15rem; }
-  .host-app-layout .nav-label { font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted, var(--layout-muted)); padding: .25rem .75rem .1rem; }
+  .host-app-layout .nav-label { margin: 0; font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted, var(--layout-muted)); padding: .25rem .75rem .1rem; }
 
   .host-app-layout .nav-item {
     position: relative; display: flex; align-items: center; gap: 1rem;
@@ -424,7 +424,7 @@ export const CLIENT_SHELL_STYLES = `
 
   .client-app-layout .nav-group { display: flex; flex-direction: column; gap: .35rem; }
   .client-app-layout .nav-group + .nav-group { border-top: 1px solid var(--line, var(--layout-line)); padding-top: .75rem; margin-top: .15rem; }
-  .client-app-layout .nav-label { font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted, var(--layout-muted)); padding: .25rem .75rem .1rem; }
+  .client-app-layout .nav-label { margin: 0; font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted, var(--layout-muted)); padding: .25rem .75rem .1rem; }
 
   .client-app-layout .nav-item {
     position: relative; display: flex; align-items: center; gap: 1rem;

@@ -4,7 +4,11 @@ import {
   cachedHostBilling, cancelSubscription, cardUpdateLink, formatDate, formatKes, invalidateHostBilling, listingAllowance, loadHostBilling,
   methodLabel, PAYMENT_STATUS_LABELS, planSummary, type BillingPayment, type HostBilling,
 } from '../../lib/billing/hostBilling';
-import { ChevronRight, DetailHead, INFO_ICONS } from './SettingsIcons';
+import { DetailHead, INFO_ICONS } from './SettingsIcons';
+
+const ChevronDown = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+);
 
 // Settings → Plans & Billing (hosts): the current plan or pay-as-you-list,
 // plan listings left, the payment method, billing history with receipts, and
@@ -13,37 +17,61 @@ import { ChevronRight, DetailHead, INFO_ICONS } from './SettingsIcons';
 type Notify = (message: string) => void;
 
 export const PLANS_STYLES = `
-  .settings-page .plan-card{ padding:1.2rem; display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; flex-wrap:wrap; }
+  .settings-page{ --plan-box:#EEECE7; --plan-box-head:#E3E0DA; --plan-box-line:rgba(26,18,16,.08); }
+  html[data-theme="dark"] .settings-page{ --plan-box:#141414; --plan-box-head:#232323; --plan-box-line:rgba(255,255,255,.07); }
+  .settings-page .plan-box{ background:var(--plan-box); border-radius:16px; overflow:hidden; margin-bottom:1.1rem; }
+  .settings-page .plan-box-head{ display:flex; align-items:center; gap:.55rem; padding:.7rem 1.4rem; background:var(--plan-box-head); font-size:.9rem; font-weight:700; }
+  .settings-page .plan-box-head svg{ color:var(--muted); flex-shrink:0; }
+  .settings-page .plan-box-body{ padding:1.3rem 1.4rem 1.4rem; }
+  .settings-page .plan-row{ display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap; }
+  .settings-page .plan-row.top{ align-items:flex-start; }
+  .settings-page .plan-row-main{ min-width:0; flex:1; }
   .settings-page .plan-name{ font-size:1.25rem; font-weight:700; letter-spacing:-.01em; }
   .settings-page .plan-badge{ display:inline-block; margin-left:.55rem; vertical-align:middle; font-size:.66rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; padding:.18rem .5rem; border-radius:100px; border:1px solid var(--line); color:var(--muted); }
   .settings-page .plan-badge.warn{ color:var(--red-deep); border-color:rgba(196,30,58,.45); }
   .settings-page .plan-line{ color:var(--muted); font-size:.86rem; margin-top:.35rem; line-height:1.45; max-width:36rem; }
   .settings-page .plan-price{ font-size:.9rem; font-weight:600; margin-top:.5rem; }
-  .settings-page .plan-upgrade{ display:inline-flex; align-items:center; gap:.45rem; }
-  .settings-page .allowance{ padding:1.1rem 1.2rem 1.2rem; }
-  .settings-page .allowance-head{ display:flex; justify-content:space-between; align-items:baseline; gap:1rem; font-size:.86rem; }
-  .settings-page .allowance-head strong{ font-size:1.5rem; font-weight:700; display:block; margin-top:.15rem; }
-  .settings-page .allowance-bar{ height:6px; border-radius:100px; background:var(--line); margin-top:.9rem; overflow:hidden; }
+  .settings-page .plan-upgrade{ display:inline-flex; align-items:center; gap:.5rem; padding:.85rem 1.4rem; border-radius:12px; font-size:.95rem; }
+  .settings-page #view-plans .btn-danger{ color:#fff; }
+  .settings-page .allowance-label{ color:var(--muted); font-size:.9rem; }
+  .settings-page .allowance-count{ font-size:1.1rem; font-weight:700; margin-top:.35rem; }
+  .settings-page .allowance-side{ color:var(--muted); font-size:.86rem; }
+  .settings-page .allowance-bar{ height:7px; border-radius:100px; background:var(--plan-box-head); margin-top:1rem; overflow:hidden; }
   .settings-page .allowance-bar span{ display:block; height:100%; border-radius:inherit; background:var(--ink); }
   .settings-page .allowance-bar.full span{ background:var(--red); }
-  .settings-page .allowance-note{ color:var(--muted); font-size:.78rem; margin-top:.6rem; }
-  .settings-page .row-action{ flex-shrink:0; }
-  .settings-page .history{ list-style:none; margin:0; padding:0; }
-  .settings-page .history li{ display:grid; grid-template-columns:minmax(0,1fr) auto; gap:.25rem 1rem; padding:.85rem 0; border-top:1px solid var(--line); }
-  .settings-page .history li:first-child{ border-top:none; }
+  .settings-page .allowance-note{ color:var(--muted); font-size:.78rem; margin-top:.7rem; }
+  .settings-page .method{ display:flex; align-items:center; gap:.75rem; min-width:0; }
+  .settings-page .method-icon{ width:36px; height:36px; border-radius:10px; background:var(--plan-box-head); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .settings-page .method-title{ font-size:.8rem; color:var(--muted); }
+  .settings-page .method-detail{ font-size:.95rem; font-weight:600; }
+  .settings-page .method-detail.muted{ font-weight:500; color:var(--muted); }
+  .settings-page .box-title{ font-size:1.05rem; font-weight:700; }
+  .settings-page .box-sub{ color:var(--muted); font-size:.86rem; margin-top:.3rem; }
+  .settings-page .box-btn{ display:inline-flex; align-items:center; gap:.45rem; background:transparent; color:var(--ink); border:1px solid var(--line); padding:.7rem 1.15rem; border-radius:12px; font-weight:600; font-size:.88rem; }
+  .settings-page .box-btn:hover{ background:var(--plan-box-head); }
+  .settings-page .box-btn:disabled{ opacity:.5; cursor:wait; }
+  .settings-page .history{ list-style:none; margin:1.1rem 0 0; padding:0; border-top:1px solid var(--plan-box-line); }
+  .settings-page .history li{ display:grid; grid-template-columns:minmax(0,1fr) auto; gap:.25rem 1rem; padding:.85rem 0; border-bottom:1px solid var(--plan-box-line); }
+  .settings-page .history li:last-child{ border-bottom:none; padding-bottom:0; }
   .settings-page .history-desc{ font-size:.88rem; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .settings-page .history-meta{ color:var(--muted); font-size:.78rem; }
   .settings-page .history-amount{ font-size:.88rem; font-weight:600; text-align:right; }
   .settings-page .history-status{ font-size:.72rem; font-weight:700; text-align:right; color:var(--muted); }
   .settings-page .history-status.failed{ color:var(--red-deep); }
   .settings-page .history-receipt{ grid-column:1 / -1; justify-self:start; font-size:.78rem; font-weight:700; color:var(--ink); text-decoration:underline; text-underline-offset:2px; }
-  .settings-page .history-empty{ color:var(--muted); font-size:.85rem; padding:.2rem 0; }
-  .settings-page .danger-card .info-row .info-label{ color:var(--red-deep); font-weight:600; }
-  .settings-page .danger-chevron{ transition:transform .2s ease; display:flex; }
-  .settings-page .danger-chevron.open{ transform:rotate(90deg); }
+  .settings-page .history-empty{ color:var(--muted); font-size:.85rem; margin-top:1rem; }
+  .settings-page .danger-toggle{ width:100%; text-align:left; cursor:pointer; }
+  .settings-page .danger-chevron{ transition:transform .2s ease; display:flex; color:var(--muted); }
+  .settings-page .danger-chevron.open{ transform:rotate(180deg); }
+  .settings-page .danger-panel{ margin-top:1.1rem; padding-top:1.1rem; border-top:1px solid var(--plan-box-line); }
+  .settings-page .danger-panel .inline-msg{ margin-top:0; line-height:1.5; }
   .settings-page .cancel-actions{ display:flex; gap:.7rem; margin-top:.9rem; flex-wrap:wrap; }
-  .settings-page .plans-skeleton{ height:6.5rem; border-radius:10px; border:1px solid var(--line); margin-bottom:2.2rem; background:linear-gradient(90deg, transparent, var(--line), transparent); background-size:200% 100%; animation:plans-shimmer 1.4s ease infinite; }
+  .settings-page .plans-skeleton{ height:7.5rem; border-radius:16px; margin-bottom:1.1rem; background:linear-gradient(90deg, var(--plan-box), var(--plan-box-head), var(--plan-box)); background-size:200% 100%; animation:plans-shimmer 1.4s ease infinite; }
   @keyframes plans-shimmer{ from{ background-position:100% 0; } to{ background-position:-100% 0; } }
+  @media (max-width:600px){
+    .settings-page .plan-box-head, .settings-page .plan-box-body{ padding-left:1.1rem; padding-right:1.1rem; }
+    .settings-page .plan-upgrade{ width:100%; justify-content:center; }
+  }
   .settings-page .receipt-dialog{ width:min(480px, calc(100vw - 2rem)); border:1px solid var(--line); border-radius:14px; padding:1.6rem; background:var(--paper); color:var(--ink); box-shadow:0 20px 70px rgba(0,0,0,.6); }
   .settings-page .receipt-dialog::backdrop{ background:rgba(0,0,0,.72); }
   .settings-page .receipt-brand{ font-family:var(--font-brand); font-weight:900; font-size:1.4rem; }
@@ -178,7 +206,7 @@ export default function PlansSection({ userId, token, billedTo, email, onBack, n
       <DetailHead title="Plans & Billing" onBack={onBack} />
       <p className="detail-sub">Your plan, listings, payment method and billing history.</p>
 
-      {!billing && !error && <><div className="plans-skeleton" /><div className="plans-skeleton" /></>}
+      {!billing && !error && <><div className="plans-skeleton" /><div className="plans-skeleton" /><div className="plans-skeleton" /></>}
       {!billing && error && (
         <div className="settings-section">
           <p className="inline-msg error">{error}</p>
@@ -188,10 +216,10 @@ export default function PlansSection({ userId, token, billedTo, email, onBack, n
 
       {billing && summary && (
         <>
-          <div className="settings-section">
-            <p className="section-title">Current plan</p>
-            <div className="card plan-card" id="current-plan">
-              <div>
+          <section className="plan-box" id="current-plan">
+            <header className="plan-box-head">{INFO_ICONS.diamond}<span>Subscription</span></header>
+            <div className="plan-box-body plan-row top">
+              <div className="plan-row-main">
                 <div className="plan-name">
                   {summary.name}
                   {summary.status === 'past_due' && <span className="plan-badge warn">Payment due</span>}
@@ -204,17 +232,20 @@ export default function PlansSection({ userId, token, billedTo, email, onBack, n
                 <Link href="/pricing" className="btn btn-danger plan-upgrade">{INFO_ICONS.sparkle} Upgrade</Link>
               )}
             </div>
-          </div>
+          </section>
 
           {allowance && (
-            <div className="settings-section">
-              <p className="section-title">Listings</p>
-              <div className="card allowance" id="listing-allowance">
+            <section className="plan-box" id="listing-allowance">
+              <header className="plan-box-head">{INFO_ICONS.listings}<span>Listings</span></header>
+              <div className="plan-box-body">
                 {allowance.limit ? (
                   <>
-                    <div className="allowance-head">
-                      <span>Remaining listings<strong>{allowance.remaining}</strong></span>
-                      <span style={{ color: 'var(--muted)' }}>{allowance.active} of {allowance.limit} active</span>
+                    <div className="plan-row top">
+                      <div>
+                        <div className="allowance-label">Remaining listings</div>
+                        <div className="allowance-count">{allowance.remaining}</div>
+                      </div>
+                      <span className="allowance-side">{allowance.active} of {allowance.limit} active</span>
                     </div>
                     <div className={`allowance-bar${allowance.remaining === 0 ? ' full' : ''}`} role="progressbar" aria-valuemin={0} aria-valuemax={allowance.limit} aria-valuenow={allowance.active} aria-label="Plan listings in use">
                       <span style={{ width: `${allowance.percent}%` }} />
@@ -222,93 +253,98 @@ export default function PlansSection({ userId, token, billedTo, email, onBack, n
                     <p className="allowance-note">{allowance.remaining === 0 ? 'You’ve used every listing on your plan. Upgrade, or pay for extra listings one at a time.' : 'Listings you pay for one at a time aren’t counted here.'}</p>
                   </>
                 ) : (
-                  <div className="allowance-head"><span>{allowance.active} active listings</span><span style={{ color: 'var(--muted)' }}>No listing limit on this plan</span></div>
+                  <div className="plan-row">
+                    <div>
+                      <div className="allowance-label">Active listings</div>
+                      <div className="allowance-count">{allowance.active}</div>
+                    </div>
+                    <span className="allowance-side">No listing limit on this plan</span>
+                  </div>
                 )}
               </div>
-            </div>
+            </section>
           )}
 
-          <div className="settings-section">
-            <p className="section-title">Payment method</p>
-            <div className="card">
-              <div className="info-row" id="payment-method">
-                <span className="info-icon">{INFO_ICONS.card}</span>
-                <span className="info-main">
-                  <span className="info-label">{method ? method.title : 'No payment method yet'}</span>
-                  <span className="info-value" style={{ fontWeight: method ? 600 : 500 }}>{method ? method.detail || method.title : 'You choose how to pay at checkout.'}</span>
+          <section className="plan-box" id="payment-method">
+            <header className="plan-box-head">{INFO_ICONS.card}<span>Payment Method</span></header>
+            <div className="plan-box-body plan-row">
+              <div className="method">
+                <span className="method-icon">{INFO_ICONS.card}</span>
+                <span>
+                  <span className="method-title" style={{ display: 'block' }}>{method ? method.title : 'No payment method yet'}</span>
+                  <span className={`method-detail${method ? '' : ' muted'}`}>{method ? method.detail || method.title : 'You choose how to pay at checkout.'}</span>
                 </span>
-                {summary.canUpdateCard && billing.paymentMethod?.channel === 'card' && (
-                  <button type="button" className="btn btn-ghost row-action" onClick={() => { void updateCard(); }} disabled={openingCard}>{openingCard ? 'Opening...' : 'Update card'}</button>
-                )}
               </div>
+              {summary.canUpdateCard && billing.paymentMethod?.channel === 'card' && (
+                <button type="button" className="box-btn" onClick={() => { void updateCard(); }} disabled={openingCard}>{openingCard ? 'Opening...' : 'Update card'}</button>
+              )}
             </div>
-          </div>
+          </section>
 
-          <div className="settings-section">
-            <p className="section-title">Billing information</p>
-            <div className="card">
-              <div className="info-row">
-                <span className="info-icon">{INFO_ICONS.receipt}</span>
-                <span className="info-main">
-                  <span className="info-label">Billing history</span>
-                  <span className="info-value" style={{ fontWeight: 500 }}>Plan and pay-as-you-list payments, with receipts.</span>
-                </span>
-                <button type="button" className="btn btn-ghost row-action" aria-expanded={historyOpen} onClick={() => setHistoryOpen((open) => !open)}>{historyOpen ? 'Hide' : 'Invoices'}</button>
-              </div>
-              <div className={`expand-panel${historyOpen ? ' show' : ''}`} id="billing-history">
-                {payments === null && <p className="history-empty">Your billing history couldn’t be loaded. Try again later.</p>}
-                {payments && !payments.length && <p className="history-empty">No payments yet.</p>}
-                {payments && payments.length > 0 && (
-                  <ul className="history">
-                    {payments.map((payment) => (
-                      <li key={payment.id}>
-                        <span className="history-desc" title={payment.description}>{payment.description}</span>
-                        <span className="history-amount">{formatKes(payment.amount_minor)}</span>
-                        <span className="history-meta">{formatDate(payment.paid_at || payment.created_at)}</span>
-                        <span className={`history-status ${payment.status}`}>{PAYMENT_STATUS_LABELS[payment.status]}</span>
-                        {payment.status === 'succeeded' && (
-                          <button type="button" className="history-receipt" onClick={() => setReceipt(payment)}>View receipt</button>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {summary.canCancel && (
-            <div className="settings-section">
-              <p className="section-title">Danger zone</p>
-              <div className="card danger-card">
-                <div className="info-row clickable" id="danger-zone" role="button" tabIndex={0} aria-expanded={dangerOpen}
-                  onClick={() => { setDangerOpen((open) => !open); setConfirmCancel(false); }}
-                  onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setDangerOpen((open) => !open); setConfirmCancel(false); } }}>
-                  <span className="info-icon" style={{ color: 'var(--red-deep)' }}>{INFO_ICONS.warning}</span>
-                  <span className="info-main">
-                    <span className="info-label">Cancel subscription</span>
-                    <span className="info-value" style={{ fontWeight: 500 }}>Stop your {summary.name} plan from renewing.</span>
-                  </span>
-                  <span className={`danger-chevron${dangerOpen ? ' open' : ''}`}><ChevronRight size={16} /></span>
+          <section className="plan-box">
+            <div className="plan-box-body">
+              <div className="plan-row">
+                <div className="plan-row-main">
+                  <div className="box-title">Billing Information</div>
+                  <p className="box-sub">View your billing history and download receipts.</p>
                 </div>
-                <div className={`expand-panel${dangerOpen ? ' show' : ''}`} id="cancel-panel">
-                  {!confirmCancel ? (
-                    <>
-                      <p className="inline-msg neutral">You won’t be charged again. Your {summary.name} plan and its listings stay active until {formatDate(billing.entitlements.subscription?.current_period_end)}.</p>
-                      <button type="button" className="btn btn-danger" style={{ marginTop: '.9rem' }} onClick={() => setConfirmCancel(true)}>Cancel subscription</button>
-                    </>
-                  ) : (
-                    <>
-                      <p className="inline-msg neutral">Are you sure you want to cancel your {summary.name} subscription?</p>
-                      <div className="cancel-actions">
-                        <button type="button" className="btn btn-ghost" onClick={() => setConfirmCancel(false)} disabled={cancelling}>Keep my plan</button>
-                        <button type="button" className="btn btn-danger" onClick={() => { void cancel(); }} disabled={cancelling}>{cancelling ? 'Cancelling...' : 'Yes, cancel subscription'}</button>
-                      </div>
-                    </>
+                <button type="button" className="box-btn" aria-expanded={historyOpen} aria-controls="billing-history" onClick={() => setHistoryOpen((open) => !open)}>{INFO_ICONS.receipt} {historyOpen ? 'Hide' : 'Invoices'}</button>
+              </div>
+              {historyOpen && (
+                <div id="billing-history">
+                  {payments === null && <p className="history-empty">Your billing history couldn’t be loaded. Try again later.</p>}
+                  {payments && !payments.length && <p className="history-empty">No payments yet.</p>}
+                  {payments && payments.length > 0 && (
+                    <ul className="history">
+                      {payments.map((payment) => (
+                        <li key={payment.id}>
+                          <span className="history-desc" title={payment.description}>{payment.description}</span>
+                          <span className="history-amount">{formatKes(payment.amount_minor)}</span>
+                          <span className="history-meta">{formatDate(payment.paid_at || payment.created_at)}</span>
+                          <span className={`history-status ${payment.status}`}>{PAYMENT_STATUS_LABELS[payment.status]}</span>
+                          {payment.status === 'succeeded' && (
+                            <button type="button" className="history-receipt" onClick={() => setReceipt(payment)}>View receipt</button>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
                   )}
                 </div>
-              </div>
+              )}
             </div>
+          </section>
+
+          {summary.canCancel && (
+            <section className="plan-box">
+              <div className="plan-box-body">
+                <button type="button" className="plan-row danger-toggle" id="danger-zone" aria-expanded={dangerOpen} aria-controls="cancel-panel"
+                  onClick={() => { setDangerOpen((open) => !open); setConfirmCancel(false); }}>
+                  <span className="plan-row-main">
+                    <span className="box-title" style={{ display: 'block' }}>Danger Zone</span>
+                    <span className="box-sub" style={{ display: 'block' }}>Manage your subscription</span>
+                  </span>
+                  <span className={`danger-chevron${dangerOpen ? ' open' : ''}`} aria-hidden="true"><ChevronDown /></span>
+                </button>
+                {dangerOpen && (
+                  <div className="danger-panel" id="cancel-panel">
+                    {!confirmCancel ? (
+                      <>
+                        <p className="inline-msg neutral">You won’t be charged again. Your {summary.name} plan and its listings stay active until {formatDate(billing.entitlements.subscription?.current_period_end)}.</p>
+                        <button type="button" className="btn btn-danger" style={{ marginTop: '.9rem' }} onClick={() => setConfirmCancel(true)}>Cancel subscription</button>
+                      </>
+                    ) : (
+                      <>
+                        <p className="inline-msg neutral">Are you sure you want to cancel your {summary.name} subscription?</p>
+                        <div className="cancel-actions">
+                          <button type="button" className="btn btn-ghost" onClick={() => setConfirmCancel(false)} disabled={cancelling}>Keep my plan</button>
+                          <button type="button" className="btn btn-danger" onClick={() => { void cancel(); }} disabled={cancelling}>{cancelling ? 'Cancelling...' : 'Yes, cancel subscription'}</button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            </section>
           )}
         </>
       )}

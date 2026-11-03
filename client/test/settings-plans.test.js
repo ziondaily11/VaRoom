@@ -112,9 +112,15 @@ test('Plans & Billing: hosts only, after Your Account, with every part of the se
   assert.match(page, /view === 'plans' && role === 'host'/);
   assert.match(page, /wanted === 'plans' && role === 'host'/);
   const plans = read('components', 'settings', 'PlansSection.tsx');
-  for (const text of ['Current plan', 'Remaining listings', 'Payment method', 'Billing information', 'Invoices', 'Danger zone', 'Cancel subscription', 'Yes, cancel subscription', 'Keep my plan', 'Print or save as PDF', 'Update card']) {
+  for (const text of ['Subscription', 'Remaining listings', 'Payment Method', 'Billing Information', 'Invoices', 'Danger Zone', 'Cancel subscription', 'Yes, cancel subscription', 'Keep my plan', 'Print or save as PDF', 'Update card']) {
     assert.ok(plans.includes(text), text);
   }
   assert.match(plans, /href="\/pricing"/, 'Upgrade goes to the plans page');
   assert.match(plans, /invalidateHostBilling\(userId\)/, 'refreshed after cancelling');
+});
+
+test('shell sidebar labels have no browser paragraph margin (every page fits like host-home)', () => {
+  const shell = read('components', 'shell', 'shellStyles.ts');
+  assert.match(shell, /\.host-app-layout \.nav-label \{ margin: 0;/);
+  assert.match(shell, /\.client-app-layout \.nav-label \{ margin: 0;/);
 });
