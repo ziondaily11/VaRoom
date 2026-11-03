@@ -1,6 +1,7 @@
 import { clearNotificationsCache } from '../notificationsCache';
 import { clearPropertyNewsCache } from '../propertyNewsCache';
 import { clearBookingsCache } from '../bookings/bookingsCache';
+import { clearBookmarks } from '../bookmarks/bookmarks';
 import type { ProfileStore } from './profileStore';
 import { clearUserScopedCaches } from '../cache/createCache';
 import { CACHE_NAMESPACES, USER_SCOPED_SESSION_PREFIXES } from '../cache/namespaces';
@@ -88,6 +89,7 @@ export async function clearUserData(userId: string | null, options: ClearUserDat
   clearNotificationsCache();
   clearPropertyNewsCache();
   clearBookingsCache();
+  clearBookmarks();
 
   if (typeof window !== 'undefined') {
     try { window.VaRoomDataCache?.invalidate('account:'); } catch { /* ignore */ }

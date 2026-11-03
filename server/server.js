@@ -318,7 +318,6 @@ const pageTemplates = {
   '/list': 'list.html',
   '/host-home': 'host-home.html',
   '/booking': 'booking.html',
-  '/marketplace': 'marketplace.html',
   '/chat-settings': 'chat-settings.html',
   '/onboarding': 'onboarding.html',
   '/profile': 'profile.html',
@@ -377,6 +376,19 @@ app.get(['/auth-callback', '/auth-callback.html', '/legacy-pages/auth-callback.h
     requestUrl: req.originalUrl,
     destinationPath: '/auth-callback',
     unavailableMessage: 'Sign-in is not available from this server.',
+  });
+  if (redirect.location) return res.redirect(redirect.status, redirect.location);
+  return res.status(redirect.status).send(redirect.message);
+});
+
+// Marketplace is a native frontend page (the query is kept).
+app.get(['/marketplace', '/marketplace.html', '/legacy-pages/marketplace.html'], (req, res) => {
+  const redirect = resolveFrontendRouteRedirect({
+    frontendBaseUrl: process.env.PUBLIC_BASE_URL || process.env.CLIENT_BASE_URL,
+    requestHost: req.get('host'),
+    requestUrl: req.originalUrl,
+    destinationPath: '/marketplace',
+    unavailableMessage: 'The marketplace is not available from this server.',
   });
   if (redirect.location) return res.redirect(redirect.status, redirect.location);
   return res.status(redirect.status).send(redirect.message);

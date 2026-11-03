@@ -17,6 +17,16 @@ module.exports = {
         permanent: false,
       },
       {
+        source: '/marketplace.html',
+        destination: '/marketplace',
+        permanent: true,
+      },
+      {
+        source: '/legacy-pages/marketplace.html',
+        destination: '/marketplace',
+        permanent: true,
+      },
+      {
         source: '/varoomadmin',
         destination: '/admin',
         permanent: true,

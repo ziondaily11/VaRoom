@@ -8,7 +8,8 @@ const path = require('node:path');
 const repositoryRoot = path.join(__dirname, '..', '..');
 const discoverPage = fs.readFileSync(path.join(repositoryRoot, 'client', 'pages', 'client-home.tsx'), 'utf8');
 const hostHomePage = fs.readFileSync(path.join(repositoryRoot, 'client', 'legacy-pages', 'host-home.html'), 'utf8');
-const marketplacePage = fs.readFileSync(path.join(repositoryRoot, 'client', 'legacy-pages', 'marketplace.html'), 'utf8');
+// Marketplace is native; its listing query lives in lib/marketplace.
+const marketplacePage = fs.readFileSync(path.join(repositoryRoot, 'client', 'lib', 'marketplace', 'marketplace.ts'), 'utf8');
 const landingPage = fs.readFileSync(path.join(repositoryRoot, 'client', 'pages', 'index.tsx'), 'utf8');
 const profilePage = fs.readFileSync(path.join(repositoryRoot, 'client', 'legacy-pages', 'profile.html'), 'utf8');
 const publicHostProfile = fs.readFileSync(path.join(repositoryRoot, 'client', 'legacy-pages', 'public-profile.jsx'), 'utf8');
@@ -47,11 +48,12 @@ test('all Discover feed branches require active moderation and available status'
   );
 
   const marketplaceFetch = marketplacePage.slice(
-    marketplacePage.indexOf('async function fetchListings(offset)'),
-    marketplacePage.indexOf('async function loadListings(reset)')
+    marketplacePage.indexOf('export async function fetchListingPage('),
+    marketplacePage.indexOf('// Recent pages per search')
   );
-  assert.match(marketplaceFetch, /query\.eq\('moderation_status', 'active'\)/);
-  assert.match(marketplaceFetch, /query\.eq\('availability_status', 'available'\)/);
+  assert.match(marketplaceFetch, /\.eq\('moderation_status', 'active'\)/);
+  assert.match(marketplaceFetch, /\.eq\('availability_status', 'available'\)/);
+  assert.match(marketplaceFetch, /paid_listing_until\.is\.null,paid_listing_until\.gt\./);
   assert.doesNotMatch(marketplacePage, /isMissingAvailabilityStatusColumnError|fetchListings\(false/);
   assert.match(landingPage, /\.eq\('moderation_status', 'active'\)\s*\.eq\('availability_status', 'available'\)/);
   assert.doesNotMatch(landingPage, /missingColumnMessage|select\(baseSelect\)/);
