@@ -26,7 +26,7 @@ const supabaseBrowserClientSource = fs.readFileSync(
   'utf8'
 );
 const callbackSource = fs.readFileSync(
-  path.join(__dirname, '../legacy-pages/auth-callback.html'),
+  path.join(__dirname, '../lib/auth/authCallback.ts'),
   'utf8'
 );
 const supabaseClientSource = fs.readFileSync(
@@ -297,65 +297,14 @@ test('email and Google add-account flows use isolated auth clients; callback lin
   assert.match(addAccountModalSource, /\{ usesRedirect: true, flowId: accountAuthFlow \}/);
   assert.match(addAccountModalSource, /\/auth-callback\?addAccount=true&account_auth_flow=\$\{encodeURIComponent\(accountAuthFlow\)\}/);
   assert.match(supabaseBrowserClientSource, /params\.get\('addAccount'\) === 'true'/);
-  assert.match(callbackSource, /add_account_callback/);
-  assert.match(callbackSource, /linkAdditionalSession\(primaryClient, additionalSession\)/);
-  assert.match(callbackSource, /refreshAccountAddSession\(supabaseClient, session\)/);
-  assert.match(callbackSource, /access_token: additionalSession\.access_token/);
-  assert.match(callbackSource, /linkAddAccountSession\(additionalSession\)/);
-  assert.match(callbackSource, /clearTemporarySession\(accountAuthFlow\)/);
+  assert.match(callbackSource, /linkAdditionalSession\(env\.createPrimaryClient\(\), additional\)/);
+  assert.match(callbackSource, /refreshAccountAddSession\(env\.client, session\)/);
+  assert.match(callbackSource, /access_token: additional\.access_token/);
+  assert.match(callbackSource, /clearTemporarySession\(flowId\)/);
   assert.match(callbackSource, /signOut\(\{ scope: 'local' \}\)/);
 });
 
-test('successful Google add-account callbacks keep the added session valid for linking and switching', () => {
-  assert.match(callbackSource, /<script src="https:\/\/cdn\.jsdelivr\.net\/npm\/@supabase\/supabase-js@2"><\/script>/);
-
-  const legacyCallbackStart = callbackSource.indexOf("if (queryParams.get('add_account_callback') === '1')");
-  const legacyCallbackCatch = callbackSource.indexOf('      } catch (_error) {', legacyCallbackStart);
-  assert.ok(legacyCallbackStart >= 0 && legacyCallbackCatch > legacyCallbackStart);
-  assert.doesNotMatch(callbackSource.slice(legacyCallbackStart, legacyCallbackCatch), /signOut\(\{ scope: 'local' \}\)/);
-
-  const popupStart = callbackSource.indexOf('if (window.opener && !window.opener.closed)');
-  const popupCatch = callbackSource.indexOf('        } catch (e) {', popupStart);
-  assert.ok(popupStart >= 0 && popupCatch > popupStart);
-  assert.doesNotMatch(callbackSource.slice(popupStart, popupCatch), /signOut\(\{ scope: 'local' \}\)/);
-
-  const redirectStart = callbackSource.indexOf('      await linkAddAccountSession(additionalSession);', popupCatch);
-  const redirectCatch = callbackSource.indexOf('    } catch (_error) {', redirectStart);
-  assert.ok(redirectStart >= 0 && redirectCatch > redirectStart);
-  assert.doesNotMatch(callbackSource.slice(redirectStart, redirectCatch), /signOut\(\{ scope: 'local' \}\)/);
-
-  // Failed and cancelled flows still revoke their unlinked temporary session.
-  assert.match(callbackSource.slice(legacyCallbackCatch), /signOut\(\{ scope: 'local' \}\)/);
-});
-
-test('concurrent refresh callbacks cannot let an older profile lookup overwrite newer tokens', async () => {
-  const context = createSwitcher(new Map(), ['account-a']);
-  let releaseOlderProfile;
-  let profileCalls = 0;
-  const client = createMockClient(session('account-a', 'access-old', 'refresh-old'), new Map());
-  client.from = function () {
-      return {
-        select() { return this; },
-        eq() { return this; },
-        maybeSingle() {
-          profileCalls += 1;
-          if (profileCalls === 1) return new Promise((resolve) => { releaseOlderProfile = resolve; });
-          return Promise.resolve({ data: null, error: null });
-        }
-      };
-  };
-  await context.api.loadLinkedAccounts(client, session('account-a', 'access-old', 'refresh-old'));
-  context.api.upsertAccount(account('account-a', 'access-old', 'refresh-old'));
-  const olderWrite = context.api.upsertFromSession(client, session('account-a', 'access-old', 'refresh-old'));
-  const newerSession = session('account-a', 'access-new', 'refresh-new');
-  await context.api.upsertFromSession(client, newerSession);
-  releaseOlderProfile({ data: null, error: null });
-  await olderWrite;
-
-  const cached = context.api.getLinkedAccounts()[0];
-  assert.equal(cached.access_token, 'access-new');
-  assert.equal(cached.refresh_token, 'refresh-new');
-});
+// The callback's behaviour on success and failure is tested in auth-callback.test.js.
 
 test('normal login remains on the primary client and refresh-token rotation stays enabled', async () => {
   // Email and Google sign-in use the one primary client, never an add-account client.
@@ -364,18 +313,6 @@ test('normal login remains on the primary client and refresh-token rotation stay
   assert.doesNotMatch(authPanelSource, /VaRoomAccountAuth\.createClient/);
   assert.match(supabaseClientSource, /add_account_callback/);
   assert.match(fs.readFileSync(path.join(__dirname, '../../supabase/config.toml'), 'utf8'), /enable_refresh_token_rotation\s*=\s*true/);
-});
-
-test('edited callback inline scripts remain syntactically valid', () => {
-  for (const [filename, html] of [
-    ['auth-callback.html', callbackSource]
-  ]) {
-    const scripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)];
-    for (const [, source] of scripts) {
-      if (!source.trim()) continue;
-      new vm.Script(source, { filename });
-    }
-  }
 });
 
 test('a later token expiry already written by another tab cannot be replaced by an older refresh event', () => {

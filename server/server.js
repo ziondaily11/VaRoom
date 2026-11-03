@@ -318,7 +318,6 @@ const pageTemplates = {
   '/list': 'list.html',
   '/host-home': 'host-home.html',
   '/booking': 'booking.html',
-  '/auth-callback': 'auth-callback.html',
   '/marketplace': 'marketplace.html',
   '/chat-settings': 'chat-settings.html',
   '/onboarding': 'onboarding.html',
@@ -364,6 +363,20 @@ app.get(['/notifications', '/notifications.html', '/legacy-pages/notifications.h
     frontendBaseUrl: process.env.PUBLIC_BASE_URL || process.env.CLIENT_BASE_URL,
     requestHost: req.get('host'),
     requestUrl: req.originalUrl,
+  });
+  if (redirect.location) return res.redirect(redirect.status, redirect.location);
+  return res.status(redirect.status).send(redirect.message);
+});
+
+// The sign-in callback is a native frontend page. The query is kept; the
+// browser keeps the URL fragment (Supabase tokens) across the redirect.
+app.get(['/auth-callback', '/auth-callback.html', '/legacy-pages/auth-callback.html'], (req, res) => {
+  const redirect = resolveFrontendRouteRedirect({
+    frontendBaseUrl: process.env.PUBLIC_BASE_URL || process.env.CLIENT_BASE_URL,
+    requestHost: req.get('host'),
+    requestUrl: req.originalUrl,
+    destinationPath: '/auth-callback',
+    unavailableMessage: 'Sign-in is not available from this server.',
   });
   if (redirect.location) return res.redirect(redirect.status, redirect.location);
   return res.status(redirect.status).send(redirect.message);

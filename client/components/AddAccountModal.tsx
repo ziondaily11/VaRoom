@@ -2,10 +2,11 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from '../lib/supabase/config';
 
-// Message posted by legacy-pages/auth-callback.html from the Google popup.
+// Message posted by the /auth-callback popup (lib/auth/authCallback.ts).
 interface AddAccountMessage {
   type?: string;
   session?: Session;
+  message?: string;
 }
 
 export default function AddAccountModal() {
@@ -114,6 +115,11 @@ export default function AddAccountModal() {
         } finally {
           setIsGoogleLoading(false);
         }
+      } else if (e.data?.type === 'VAROOM_ADD_ACCOUNT_ERROR') {
+        // The popup closes itself after reporting; this is not a cancellation.
+        googleSucceededRef.current = true;
+        setIsGoogleLoading(false);
+        setError(e.data.message || 'Could not add that Google account. Please try again.');
       }
     };
 

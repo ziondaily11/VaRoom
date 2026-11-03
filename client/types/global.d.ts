@@ -1,5 +1,5 @@
 import type * as SupabaseJs from '@supabase/supabase-js';
-import type { SupabaseClient, SupabaseClientOptions } from '@supabase/supabase-js';
+import type { Session, SupabaseClient, SupabaseClientOptions } from '@supabase/supabase-js';
 import type { LegacyProfileStoreApi } from '../lib/auth/profileStore';
 import type { DataCacheApi } from '../lib/cache/dataCache';
 import type { AccountSwitcher } from '../lib/account/accountActions';
@@ -28,6 +28,10 @@ declare global {
         anonKey: string,
         options: { usesRedirect?: boolean; flowId?: string },
       ): SupabaseClient;
+      /** Refresh the added account's session (rejects if it is no longer that account). */
+      refreshAccountAddSession(client: SupabaseClient, session: Session): Promise<Session>;
+      /** Remove the temporary add-account session for this flow. */
+      clearTemporarySession(flowId: string): void;
     };
     VaRoomDataCache?: DataCacheApi;
     VaRoomNotificationAPI?: {

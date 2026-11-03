@@ -20,7 +20,7 @@ const accountSwitcherCode = fs.readFileSync(
   'utf8'
 );
 const authCallbackCode = fs.readFileSync(
-  path.join(__dirname, '../legacy-pages/auth-callback.html'),
+  path.join(__dirname, '../lib/auth/authCallback.ts'),
   'utf8'
 );
 const appJsCode = fs.readFileSync(
@@ -159,9 +159,13 @@ test('_app.js renders AddAccountModal globally across the application', () => {
   assert.match(appJsCode, /<AddAccountModal \/>/, 'Mounts AddAccountModal');
 });
 
-test('auth-callback.html supports in-app addAccount popup and redirect flow', () => {
+test('/auth-callback supports in-app addAccount popup and redirect flow; both dialogs show a failure', () => {
   assert.match(authCallbackCode, /isAddAccount/, 'Checks isAddAccount parameter');
   assert.match(authCallbackCode, /VAROOM_ADD_ACCOUNT_SUCCESS/, 'Posts success message to opener window');
+  assert.match(authCallbackCode, /VAROOM_ADD_ACCOUNT_ERROR/, 'Posts a failure to the opener window');
+  const modal = fs.readFileSync(path.join(__dirname, '../components/AddAccountModal.tsx'), 'utf8');
+  assert.match(modal, /e\.data\?\.type === 'VAROOM_ADD_ACCOUNT_ERROR'/);
+  assert.match(accountSwitcherCode, /evt\.data\.type === 'VAROOM_ADD_ACCOUNT_ERROR'/);
 });
 
 test('Settings keeps saved-account removal separate from permanent account deletion and sidebar menus', () => {
