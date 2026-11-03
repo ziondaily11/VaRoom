@@ -36,7 +36,7 @@ export const sections: Section[] = [
     title: "Who We Are",
     blocks: [
       p(
-        "Varoom, available at varoom.co.ke, is managed and operated by Varoom (\"Varoom\", \"we\", \"us\", or \"our\"). For the purposes of applicable data protection law, Varoom is the data controller of personal information collected through the platform."
+        "Varoom, available at varoom.co.ke, is managed and operated by Varoom Ltd (\"Varoom\", \"we\", \"us\", or \"our\"). For the purposes of applicable data protection law, Varoom Ltd is the data controller of personal information collected through the platform."
       ),
       {
         type: "contact",
@@ -67,7 +67,7 @@ export const sections: Section[] = [
         "Optional profile details, such as your name, profile picture, and phone number",
         "Property listings and related information, including descriptions, photos, pricing, and availability",
         "Booking requests and booking status information",
-        "Billing details for Varoom host plans, such as the plan selected and payment references",
+        "Billing details for Varoom listing fees, such as the plan or pay-as-you-list option selected and payment references",
         "Messages you send to other users and to Elie, our search assistant",
         "Reviews, ratings, and reports you submit",
         "Information you send us when you contact support"
@@ -108,7 +108,7 @@ export const sections: Section[] = [
         "Allow clients to discover and interact with listings, including through Elie",
         "Process and manage bookings",
         "Facilitate communication between users",
-        "Process subscription payments for Varoom host plans",
+        "Process listing fee payments from Hosts, including subscription plans and pay as you list",
         "Display reviews and ratings",
         "Investigate reports, abuse, fraud, or security issues",
         "Provide customer support",
@@ -171,10 +171,10 @@ export const sections: Section[] = [
         " Rent, deposits, booking payments, and purchase prices are paid directly between the parties, outside Varoom. Varoom does not offer escrow and does not collect or store payment details for these transactions. Any financial information you exchange with another user, and any paperwork relating to a property, is shared at your own discretion and is handled by the parties themselves."
       ),
       p(
-        "The only payments Varoom receives are fees for Varoom host plans. These are processed by our third-party payment provider (currently Paystack), which may offer mobile money and card payments and handles your payment details under its own terms and privacy policy. Varoom does not receive or store your full card number or mobile money PIN."
+        "The only payments Varoom receives are listing fees paid by Hosts, through subscription plans or pay as you list. These are processed by our third-party payment provider (currently Paystack), which may offer mobile money and card payments and handles your payment details under its own terms and privacy policy. Varoom does not receive or store your full card number or mobile money PIN."
       ),
       p(
-        "For host plans, we keep records such as the plan purchased, amount, payment reference, and payment status, for accounting, legal compliance, dispute resolution, and fraud prevention."
+        "For listing fees, we keep records such as the plan or listing paid for, amount, payment reference, and payment status, for accounting, legal compliance, dispute resolution, and fraud prevention."
       ),
     ],
   },
@@ -326,7 +326,7 @@ export const sections: Section[] = [
         "If you do not sign in at any point during the 30 days, Varoom will permanently delete your account and its related personal information, including your profile, listings, and messages. Permanent deletion cannot be undone."
       ),
       p(
-        "We may keep limited information for longer where we are required or permitted to do so for legal, accounting, security, fraud-prevention, or dispute-resolution purposes, for example billing records for Varoom host plans. Copies may also remain in secure backups for a limited period before they are overwritten. Messages you sent to other users may remain visible to them where this is needed to keep their conversations intact, and are no longer linked to your profile."
+        "We may keep limited information for longer where we are required or permitted to do so for legal, accounting, security, fraud-prevention, or dispute-resolution purposes, for example billing records for listing fees. Copies may also remain in secure backups for a limited period before they are overwritten. Messages you sent to other users may remain visible to them where this is needed to keep their conversations intact, and are no longer linked to your profile."
       ),
     ],
   },

@@ -7,13 +7,14 @@ export const LAST_UPDATED = "November 3, 2026";
 const b = (strong: string): Inline => ({ strong });
 const a = (text: string, href: string): Inline => ({ text, href });
 const p = (...content: Inline[]): Block => ({ type: "p", content });
+const h3 = (text: string): Block => ({ type: "h3", text });
 const ul = (...items: string[]): Block => ({ type: "ul", items });
 const notice = (...content: Inline[]): Block => ({ type: "notice", content });
 const contact = (title: string, ...lines: Inline[][]): Block => ({ type: "contact", title, lines });
 
 export const intro: Block[] = [
   p(
-    "Welcome to Varoom. These Terms of Service govern your access to and use of the Varoom website, platform, and related services."
+    "Welcome to Varoom. Varoom is operated by Varoom Ltd (\"Varoom\", \"we\", \"us\", or \"our\"). These Terms of Service govern your access to and use of the Varoom website, platform, and related services."
   ),
   p(
     "By creating an account or using Varoom, you agree to these Terms. If you do not agree with these Terms, you should not use Varoom."
@@ -195,16 +196,55 @@ export const sections: Section[] = [
   },
   {
     id: "varoom-fees",
-    title: "Varoom Fees and Host Plans",
+    title: "Varoom Fees and Listing Plans",
     blocks: [
       p(
-        "The only payments Varoom receives are fees for its own services, such as subscription plans that Hosts may purchase to unlock additional listing capacity, analytics, and promotion eligibility."
+        "The only payments Varoom receives are fees Hosts pay for Varoom's own services, namely keeping listings live on the platform. These fees are processed by Varoom's third-party payment provider, are shown to the Host before purchase, and are entirely separate from any money exchanged between Hosts and Clients."
       ),
       p(
-        "Plan fees are processed by Varoom's third-party payment provider and are shown to the Host before purchase. They are payments for Varoom's services and are entirely separate from any money exchanged between Hosts and Clients."
+        "Varoom does not charge Clients to browse listings, contact Hosts, or make bookings."
+      ),
+      h3("Ways to pay for listings"),
+      p(
+        "For properties to let or buy, offices, and shops, Hosts can keep listings live on Varoom in one of two ways:"
+      ),
+      ul(
+        "Pay as you list: a one-time payment for a single listing, which is live and visible in Marketplace and Discover for 30 days. It does not renew. When the 30 days end, the listing is discontinued from public view.",
+        "Subscription plan: a monthly plan that allows a set number of listings to be active in each billing month."
       ),
       p(
-        "Varoom does not charge Clients to browse listings, contact Hosts, or make bookings. Varoom may introduce or change fees in the future, and will communicate any new or changed fees before they apply."
+        "The payment options available for other listing categories will be shown in Varoom before purchase."
+      ),
+      h3("Subscription plans"),
+      ul(
+        "Subscription plans renew automatically every month, and the plan fee is charged at the start of each billing month until the plan is cancelled.",
+        "Only the number of listings included in the plan may be active in any billing month. At the end of a billing month, a Host may take listings down and replace them with others, provided the number of active listings stays within the plan's limit.",
+        "Where a plan includes eligibility for promotion, such as landing-page promotion, this does not guarantee that a listing will be featured."
+      ),
+      h3("Cancelling a subscription"),
+      p(
+        "Hosts can cancel a subscription at any time from Settings, under Plans & Billing, in the Danger Zone. After cancelling, the Host keeps the plan's benefits until the end of the current billing month and will not be charged for the next billing month."
+      ),
+      h3("Changing to a smaller plan"),
+      p(
+        "When a Host moves to a plan with fewer listings, for example from Pro to Basic, the change takes effect at the end of the current billing month. The Host must then choose which listings remain live, up to the new plan's limit."
+      ),
+      p(
+        "Listings above the limit are not deleted. They remain in the Host's account but are hidden from public profiles, Marketplace, and Discover until they are made active again within the plan's limit."
+      ),
+      h3("Failed payments"),
+      ul(
+        "Pay as you list: if payment fails, the listing is not published and remains a draft. Unpaid drafts are automatically deleted after 7 days together with all their details, and the listing must then be created again from the beginning.",
+        "Subscription plans: if a payment fails, the plan's features will not be available until payment is completed. Varoom will notify the Host and explain the steps needed to restore them."
+      ),
+      h3("Refunds"),
+      ul(
+        "Pay as you list fees are non-refundable once the listing goes live. The fee pays for 30 days of visibility in Marketplace and Discover, and no refund is given if the property is let, sold, or otherwise no longer available before that period ends.",
+        "A subscription plan fee may be refunded only if no listing has been published or made active under the plan in that billing month. Approved refunds are processed within 2 working days; the time it takes for funds to reach the Host depends on the payment provider."
+      ),
+      h3("Price changes"),
+      p(
+        "Varoom may change its prices. Hosts will be notified in advance by email and on the Notifications page in Varoom before any change takes effect. A price change does not affect a period that has already been paid for."
       ),
     ],
   },
@@ -294,7 +334,7 @@ export const sections: Section[] = [
         "Signing in to your account in the usual way at any time during the 30-day period reactivates it. If you do not sign in during that period, Varoom will permanently delete your account and its related information. Permanent deletion cannot be undone, and deleted accounts, listings, and content cannot be recovered."
       ),
       p(
-        "Deleting your account does not cancel obligations you have already entered into with other users, such as bookings, tenancies, or sales, and does not entitle you to a refund of fees already paid to Varoom for host plans. Varoom may retain certain information after deletion as described in our ",
+        "Deleting your account does not cancel obligations you have already entered into with other users, such as bookings, tenancies, or sales, and does not entitle you to a refund of fees already paid to Varoom, except as described in Varoom Fees and Listing Plans. Varoom may retain certain information after deletion as described in our ",
         a("Privacy Policy", "/privacy"),
         "."
       ),
@@ -415,6 +455,39 @@ export const sections: Section[] = [
     ],
   },
   {
+    id: "indemnity",
+    title: "Indemnity",
+    blocks: [
+      p(
+        "You agree to indemnify Varoom Ltd and its owners, employees, and agents against any claims, losses, liabilities, damages, and reasonable legal costs arising from:"
+      ),
+      ul("Your listings, content, or communications", "Your breach of these Terms or of applicable law", "Your agreements, payments, or dealings with other users", "Your infringement of another person's rights"),
+      p(
+        "This means that if Varoom is drawn into a claim, dispute, or legal proceedings that it did not cause and that arise from your actions or content, you must compensate Varoom for the resulting losses and costs. This does not apply to the extent that a loss was caused by Varoom's own fault."
+      ),
+    ],
+  },
+  {
+    id: "complaints-and-dispute-resolution",
+    title: "Complaints and Dispute Resolution",
+    blocks: [
+      p(
+        "If you have a complaint about Varoom or another user, please contact us first at ",
+        a("support@varoom.co.ke", "mailto:support@varoom.co.ke"),
+        "."
+      ),
+      p(
+        "Where a dispute arises between users, or between a user and Varoom, Varoom will make every reasonable effort to resolve it through discussion and mediation and to avoid escalation to court. You agree to raise any dispute with Varoom and to attempt in good faith to resolve it this way before starting legal proceedings against Varoom."
+      ),
+      p(
+        "If a dispute cannot be resolved through mediation, it may be referred to the courts of Kenya."
+      ),
+      p(
+        "Mediation by Varoom is voluntary and does not make Varoom a party to any agreement between users or responsible for its outcome. Taking part in mediation does not limit Varoom's right to suspend, restrict, or permanently close accounts that misuse the platform, as set out in Suspension and Termination."
+      ),
+    ],
+  },
+  {
     id: "changes-to-varoom",
     title: "Changes to Varoom",
     blocks: [
@@ -446,7 +519,7 @@ export const sections: Section[] = [
     title: "Governing Law",
     blocks: [
       p(
-        "Varoom currently operates in Kenya. These Terms are intended to be governed by the applicable laws of Kenya, subject to any mandatory legal requirements that may apply."
+        "Varoom currently operates in Kenya. These Terms are governed by the laws of Kenya, subject to any mandatory legal requirements that may apply."
       ),
     ],
   },
@@ -454,9 +527,9 @@ export const sections: Section[] = [
     id: "contact-us",
     title: "Contact Us",
     blocks: [
-      contact("Varoom",
-          ["Operated by Elvis Lwangu"],
-          ["Email: ", a("privacy@varoom.co.ke", "mailto:privacy@varoom.co.ke")],
+      contact("Varoom Ltd",
+          ["General support: ", a("support@varoom.co.ke", "mailto:support@varoom.co.ke")],
+          ["Privacy and data requests: ", a("privacy@varoom.co.ke", "mailto:privacy@varoom.co.ke")],
           ["Website: ", a("varoom.co.ke", "https://varoom.co.ke")],
       ),
     ],
