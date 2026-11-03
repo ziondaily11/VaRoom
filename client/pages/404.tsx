@@ -1,8 +1,11 @@
+import React, { useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useRouter } from 'next/router';
 
-const categories = [
+// The not-found page: a search into the listings and the main categories.
+
+const categories: Array<{ label: string; query: string }> = [
   { label: 'Hotels', query: 'hotel' },
   { label: 'Vacation Rentals', query: 'vacation rental' },
   { label: 'Studios', query: 'studio' },
@@ -64,12 +67,13 @@ function NeighborhoodIllustration() {
 }
 
 export default function Custom404() {
+  const router = useRouter();
   const [search, setSearch] = useState('');
 
-  function submitSearch(event) {
+  function submitSearch(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const query = search.trim();
-    window.location.href = query ? `/properties?search=${encodeURIComponent(query)}` : '/properties';
+    router.push(query ? `/properties?search=${encodeURIComponent(query)}` : '/properties');
   }
 
   return (
