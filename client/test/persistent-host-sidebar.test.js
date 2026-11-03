@@ -2,7 +2,8 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const fs = require('node:fs');
 const path = require('node:path');
-const { resolveAvatarUrl, resolveStoredPhotoUrl } = require('../components/resolveStoredPhotoUrl');
+const { loadTs } = require('./helpers/loadTs');
+const { resolveAvatarUrl, resolveStoredPhotoUrl } = loadTs(path.join(__dirname, '..', 'components', 'resolveStoredPhotoUrl.ts'));
 const { getAccountLayout } = require('../lib/accountRoleLayout');
 
 const clientDir = path.join(__dirname, '..');
