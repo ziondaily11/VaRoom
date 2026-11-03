@@ -14,8 +14,9 @@ const landingPage = fs.readFileSync(path.join(repositoryRoot, 'client', 'pages',
 // The native profile's listing query and labels (legacy profile.html is retired).
 const profilePage = fs.readFileSync(path.join(repositoryRoot, 'client', 'lib', 'profile', 'hostProfile.ts'), 'utf8');
 const profileLabels = fs.readFileSync(path.join(repositoryRoot, 'client', 'lib', 'profile', 'profilePage.ts'), 'utf8');
-const publicHostProfile = fs.readFileSync(path.join(repositoryRoot, 'client', 'legacy-pages', 'public-profile.jsx'), 'utf8');
-const hostProfileView = fs.readFileSync(path.join(repositoryRoot, 'client', 'legacy-pages', 'host-profile-view.jsx'), 'utf8');
+// The public host pages share the native profile data (legacy .jsx pages are retired).
+const publicHostProfile = fs.readFileSync(path.join(repositoryRoot, 'client', 'components', 'hostProfile', 'PublicHostProfile.tsx'), 'utf8');
+const hostProfileView = fs.readFileSync(path.join(repositoryRoot, 'client', 'components', 'hostProfile', 'HostProfileView.tsx'), 'utf8');
 const hostListingControls = fs.readFileSync(path.join(repositoryRoot, 'client', 'public', 'js', 'host-listing-controls.js'), 'utf8');
 const listingPage = fs.readFileSync(path.join(repositoryRoot, 'client', 'legacy-pages', 'list.html'), 'utf8');
 const listingRoutes = fs.readFileSync(path.join(__dirname, '..', 'routes', 'listingRoutes.js'), 'utf8');
@@ -76,8 +77,9 @@ test('all Discover feed branches require active moderation and available status'
   assert.match(profileListings, /if \(!owner\) query = query\.eq\('moderation_status', 'active'\)\.eq\('availability_status', 'available'\)/);
   assert.match(profileLabels, /value === 'draft'\) return \{ label: 'Draft'/);
 
-  assert.match(publicHostProfile, /\.eq\("moderation_status", "active"\)\s*\.eq\("availability_status", "available"\)/);
-  assert.match(hostProfileView, /if \(sessionResult\.data\.session\?\.user\?\.id !== hostId\)[\s\S]*\.eq\("moderation_status", "active"\)[\s\S]*\.eq\("availability_status", "available"\)/);
+  assert.match(publicHostProfile, /loadHostListings\(client, viewerId, hostId, false\)/, 'the public page reads only active, available listings');
+  assert.match(hostProfileView, /const isOwner = Boolean\(viewerId && hostId && viewerId === hostId\)/);
+  assert.match(hostProfileView, /loadHostListings\(client, viewerId, hostId, isOwner\)/, 'visitors read only active, available listings; the owner reads all');
   assert.match(hostListingControls, /data-status="draft"[^>]*>Save as draft/);
 
   assert.match(listingRoutes, /const STATUSES = new Set\(\['available', 'booked', 'unavailable', 'paused', 'draft'\]\)/);
