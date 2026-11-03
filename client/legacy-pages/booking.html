@@ -1888,7 +1888,7 @@
         '<div class="host-card">' +
           '<div style="display:flex; align-items:center; gap:.8rem;">' +
             '<div class="host-avatar">' + (hostAvatarUrl ? '<img src="' + hostAvatarUrl + '" alt="">' : escapeHtml(initials)) + '</div>' +
-            '<a class="host-name" href="/host/' + encodeURIComponent(listing.host_id) + '">' + (isHotel ? 'Managed by ' : 'Hosted by ') + escapeHtml(hostName) + (listing.host.verified ? ICON_VERIFIED : '') + '</a>' +
+            '<a class="host-name" href="/host/' + encodeURIComponent((listing.host && listing.host.username) || listing.host_id) + '">' + (isHotel ? 'Managed by ' : 'Hosted by ') + escapeHtml(hostName) + (listing.host.verified ? ICON_VERIFIED : '') + '</a>' +
           '</div>' +
           '<div class="contact-controls" role="group" aria-label="Contact host options">' +
             '<button type="button" class="contact-control" aria-disabled="true" aria-label="WhatsApp (display only)" title="WhatsApp — display only"><img src="/assets/whatsapp.svg" alt="" aria-hidden="true"></button>' +

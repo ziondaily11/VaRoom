@@ -119,7 +119,7 @@ test('categories: plan limits, save with listings, duplicate names', async () =>
 
 test('page: own profile only (?u= opens the host page), one profile read, retired legacy page', () => {
   const page = read('pages', 'profile.tsx');
-  assert.match(page, /void router\.replace\(`\/host\/\$\{encodeURIComponent\(host\.id\)\}`\)/);
+  assert.match(page, /void router\.replace\(hostProfilePath\(host\.id, host\.username\)\)/);
   assert.match(page, /loadOwnProfile\(client, userId\)/);
   assert.doesNotMatch(page, /notifications'\)\.select|channel\(/, 'no notification count or live subscription');
   const listings = read('components', 'profile', 'HostListings.tsx');
