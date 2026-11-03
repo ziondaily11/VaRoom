@@ -7,6 +7,9 @@ export type Theme = 'light' | 'dark';
 export const FORCED_LIGHT_ROUTES = ['/', '/payments', '/property-news'];
 const FORCED_LIGHT_PREFIXES = ['/property-news/'];
 
+/** Pages designed dark-first: dark unless the user chose Light in Settings. */
+export const DARK_FIRST_ROUTES = ['/pricing'];
+
 export function normalizePath(path: string): string {
   let routePath = (path || '/').split(/[?#]/)[0] || '/';
   if (routePath.length > 1 && routePath.endsWith('/')) routePath = routePath.slice(0, -1);
@@ -20,6 +23,7 @@ export function isForcedLight(path: string): boolean {
 
 export function resolveTheme(path: string, saved: string | null, prefersDark: boolean): Theme {
   if (isForcedLight(path)) return 'light';
+  if (DARK_FIRST_ROUTES.includes(normalizePath(path))) return saved === 'light' ? 'light' : 'dark';
   const preference = saved || 'system';
   const theme = preference === 'system' ? (prefersDark ? 'dark' : 'light') : preference;
   return theme === 'dark' ? 'dark' : 'light';
@@ -53,6 +57,7 @@ export function themeBootScript(): string {
     if (path.length > 1 && path.charAt(path.length - 1) === '/') path = path.slice(0, -1);
     var isForced = forced.indexOf(path) >= 0 || prefixes.some(function (prefix) { return path.indexOf(prefix) === 0; });
     var saved = isForced ? 'light' : (localStorage.getItem('varoom_theme') || 'system');
+    if (!isForced && ${JSON.stringify(DARK_FIRST_ROUTES)}.indexOf(path) >= 0 && saved !== 'light') saved = 'dark';
     var theme = saved === 'system'
       ? (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
       : saved;

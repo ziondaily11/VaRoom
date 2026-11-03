@@ -6,7 +6,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const listingPage = fs.readFileSync(path.join(__dirname, '..', '..', 'client', 'legacy-pages', 'list.html'), 'utf8');
-const pricingPage = fs.readFileSync(path.join(__dirname, '..', '..', 'client', 'legacy-pages', 'pricing.html'), 'utf8');
+// The native pricing page and its billing module (legacy pricing.html is retired).
+const pricingPage = ['pages/pricing.tsx', 'lib/billing/pricing.ts']
+  .map((file) => fs.readFileSync(path.join(__dirname, '..', '..', 'client', file), 'utf8')).join('\n');
 const listingEntitlementMigration = fs.readFileSync(path.join(__dirname, '..', 'migrations', '20261011_000036_listing_entitlement_activation.sql'), 'utf8');
 
 test('review payment actions are non-submit buttons with independent handlers', () => {
@@ -70,18 +72,18 @@ test('Go Pro checkpoints host-scoped state before subscription checkout and rest
   assert.match(listingPage, /method: existingSubmissionListingId \? 'PATCH' : 'POST'/);
   assert.match(listingPage, /await listingDraftCache\.clearForHost\(currentUser\.id\)/);
   assert.match(pricingPage, /pointer\.listingId/);
-  assert.match(pricingPage, /window\.location\.replace\('\/list\?subscription=return&reference=' \+ encodeURIComponent\(paymentReference\)\)/);
-  assert.match(pricingPage, /paymentReference && payment && payment\.status === 'succeeded'/);
+  assert.match(pricingPage, /\/list\?subscription=return&reference=\$\{encodeURIComponent\(reference\)\}/);
+  assert.match(pricingPage, /reference && payment && payment\.status === 'succeeded'/);
   assert.match(listingPage, /Your private draft and uploaded media are preserved/);
 });
 
 test('pricing callback verifies the returned reference and marks only the purchased active plan current', () => {
-  assert.match(pricingPage, /returnParams\.get\('reference'\) \|\| returnParams\.get\('trxref'\)/);
-  assert.ok(pricingPage.includes("fetch('/api/billing/payments/' + encodeURIComponent(paymentReference)"));
+  assert.match(pricingPage, /queryValue\(router\.query\.reference\) \|\| queryValue\(router\.query\.trxref\)/);
+  assert.ok(pricingPage.includes('`/api/billing/payments/${encodeURIComponent(reference)}`'));
   assert.match(pricingPage, /payment\.status === 'succeeded'/);
   assert.match(pricingPage, /entitlements\.active && subscription && subscription\.status === 'active'/);
   assert.match(pricingPage, /subscription\.plan_id === payment\.plan_id/);
-  assert.match(pricingPage, /currentPlanButton\.textContent = 'Current Plan'/);
+  assert.match(pricingPage, /\{current \? 'Current Plan' : card\.cta\}/);
 });
 
 test('review publication requires an active matching entitlement and preserves pay and upgrade actions otherwise', () => {
