@@ -24,6 +24,7 @@ import chatCache, {
 import ChatComposerActions from '../components/ChatComposerActions';
 import ElieComposerBeam from '../components/ElieComposerBeam';
 import ElieIcon from '../components/ElieIcon';
+import { resolveAvatarUrl } from '../components/resolveStoredPhotoUrl';
 import { hasMessageMarkup, messagePlainText, parseMessageBody, type MessageBodyNode } from '../lib/chat/messageBody';
 import MessageActionMenu, { messageActionItems, type MessageAction } from '../components/chat/MessageActionMenu';
 import { AttachmentThumb, ImagePreview, ListingCard, PhotoBubble, VoiceCard } from '../components/chat/MessageMedia';
@@ -41,8 +42,6 @@ import { KEEP_FOCUS_SELECTOR, useChatViewport } from '../components/chat/useChat
 const { chatsCssHref } = require('../lib/chatsCssAssets');
 
 const ELIE_ID = 'elie';
-
-const { resolveAvatarUrl } = require('../components/resolveStoredPhotoUrl');
 
 function resolveChatAvatarUrl(url?: string | null, client?: any): string | null {
   if (!url) return null;
@@ -1322,7 +1321,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
               onClick={() => selectConversation(ELIE_ID)}
             >
               <div className="avatar-wrap" style={{ background: 'transparent' }}>
-                <ElieIcon size={34} state={activeId === ELIE_ID ? 'drop' : 'default'} />
+                <ElieIcon size={34} state="default" />
               </div>
               <div className="contact-body">
                 <div className="contact-top">
@@ -1436,7 +1435,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
             >
               <div className="chat-header-avatar-wrap">
                 {isElie ? (
-                  <ElieIcon size={34} state={elie.thinking ? 'thinking' : 'default'} />
+                  <ElieIcon size={34} state={elie.thinking ? 'working' : 'default'} />
                 ) : (
                   <ConversationAvatar
                     url={activeConversation?.participant?.avatar_url}

@@ -6,7 +6,7 @@ const path = require('node:path');
 const root = path.join(__dirname, '..');
 const read = (...parts) => fs.readFileSync(path.join(root, ...parts), 'utf8');
 const source = read('pages', 'chats.tsx');
-const actions = read('components', 'ChatComposerActions.jsx');
+const actions = read('components', 'ChatComposerActions.tsx');
 const sheet = read('components', 'chat', 'ShareListingSheet.tsx');
 const viewport = read('components', 'chat', 'useChatViewport.ts');
 
@@ -39,7 +39,7 @@ test('after a send the desktop editor is emptied and formatting turned off (lega
 
 test('role gating: clients share photos only; hosts also files and listings', () => {
   assert.match(actions, /className="share-file"\s*type="button"\s*hidden=\{!isHost\}/);
-  assert.match(actions, /title="Share listing"[\s\S]*?hidden=\{!isHost\}[\s\S]*?onClick=\{\(\) => \{ onShareListing\?\.\(\); closeShareMenu\(\); \}\}/);
+  assert.match(actions, /title="Share listing"[\s\S]*?hidden=\{!isHost\}[\s\S]*?onClick=\{\(\) => \{ onShareListing\(\); closeShareMenu\(\); \}\}/);
   assert.match(actions, /aria-label=\{isHost \? 'Attach photos, files or a listing' : 'Add photos'\}/);
   assert.match(source, /hidden=\{!isHost\} data-attach="files"/);
   assert.match(source, /hidden=\{!isHost\} data-attach="listing"\s*onClick=\{\(\) => \{ setMobileAttachMenuOpen\(false\); setShareSheetOpen\(true\); \}\}/);

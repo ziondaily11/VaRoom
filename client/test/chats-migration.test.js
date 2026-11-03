@@ -215,7 +215,7 @@ test('Phase 4: Attachments and Elie workflows preserved in chats.tsx', () => {
 
 test('Stage 5A: Composer send wiring, attachment actions, and formatting controls', () => {
   const source = fs.readFileSync(chatsPagePath, 'utf8');
-  const actionsSource = fs.readFileSync(path.join(root, 'components', 'ChatComposerActions.jsx'), 'utf8');
+  const actionsSource = fs.readFileSync(path.join(root, 'components', 'ChatComposerActions.tsx'), 'utf8');
 
   // Send button wired via onSend prop
   // The click event must not be passed as the message text.

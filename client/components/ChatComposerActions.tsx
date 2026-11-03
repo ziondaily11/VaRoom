@@ -1,7 +1,7 @@
 import { Liquid } from 'liquid-gooey';
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
-function Icon({ name }) {
+function Icon({ name }: { name: string }) {
   return (
     <svg className="icon" aria-hidden="true">
       <use href={`#i-${name}`} />
@@ -9,78 +9,33 @@ function Icon({ name }) {
   );
 }
 
+export interface ChatComposerActionsProps {
+  isElie: boolean;
+  canSend: boolean;
+  role: 'host' | 'client' | null;
+  onSend: () => void;
+  onPhotoClick: () => void;
+  onFileClick: () => void;
+  onMobileAttach: () => void;
+  onShareListing: () => void;
+}
+
 // Clients share photos only; hosts also share files and listings (legacy rule).
-export default function ChatComposerActions({ isElie: initialIsElie, onSend, onPhotoClick, onFileClick, onMobileAttach, onShareListing, canSend, role } = {}) {
+export default function ChatComposerActions({ isElie, onSend, onPhotoClick, onFileClick, onMobileAttach, onShareListing, canSend, role }: ChatComposerActionsProps) {
   const isHost = role === 'host';
   const [shareMenuOpen, setShareMenuOpen] = useState(false);
-  const [isElie, setIsElie] = useState(() => {
-    if (typeof initialIsElie === 'boolean') return initialIsElie;
-    if (typeof window === 'undefined') return false;
-    return (
-      document.querySelector('.chat-input-area')?.classList.contains('is-elie') ||
-      document.querySelector('.chat-col')?.classList.contains('is-elie') ||
-      document.querySelector('.chat-col')?.getAttribute('data-conversation-type') === 'elie' ||
-      window.location.pathname === '/elie' ||
-      new URLSearchParams(window.location.search).get('c') === 'elie'
-    );
-  });
-  const shareMenuAnchorRef = useRef(null);
-  const shareMenuToggleRef = useRef(null);
-
-  useEffect(() => {
-    if (typeof initialIsElie === 'boolean') {
-      setIsElie(initialIsElie);
-      return;
-    }
-
-    const checkElieState = () => {
-      const active =
-        document.querySelector('.chat-input-area')?.classList.contains('is-elie') ||
-        document.querySelector('.chat-col')?.classList.contains('is-elie') ||
-        document.querySelector('.chat-col')?.getAttribute('data-conversation-type') === 'elie' ||
-        window.location.pathname === '/elie' ||
-        new URLSearchParams(window.location.search).get('c') === 'elie';
-      setIsElie(Boolean(active));
-    };
-
-    checkElieState();
-
-    const handleActiveConversationChanged = (event) => {
-      if (event?.detail && typeof event.detail.isElie === 'boolean') {
-        setIsElie(event.detail.isElie);
-      } else {
-        checkElieState();
-      }
-    };
-
-    window.addEventListener('varoom:active-conversation-changed', handleActiveConversationChanged);
-    window.addEventListener('popstate', checkElieState);
-
-    const chatCol = document.querySelector('.chat-col');
-    const composer = document.querySelector('.chat-input-area');
-    let observer;
-    if (typeof MutationObserver !== 'undefined' && (chatCol || composer)) {
-      observer = new MutationObserver(() => checkElieState());
-      if (chatCol) observer.observe(chatCol, { attributes: true, attributeFilter: ['class', 'data-conversation-type'] });
-      if (composer) observer.observe(composer, { attributes: true, attributeFilter: ['class', 'data-composer-mode'] });
-    }
-
-    return () => {
-      window.removeEventListener('varoom:active-conversation-changed', handleActiveConversationChanged);
-      window.removeEventListener('popstate', checkElieState);
-      if (observer) observer.disconnect();
-    };
-  }, [initialIsElie]);
+  const shareMenuAnchorRef = useRef<HTMLDivElement>(null);
+  const shareMenuToggleRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!shareMenuOpen) return undefined;
 
-    const closeOnOutsidePointer = (event) => {
-      if (!shareMenuAnchorRef.current?.contains(event.target)) {
+    const closeOnOutsidePointer = (event: PointerEvent) => {
+      if (!shareMenuAnchorRef.current?.contains(event.target as Node)) {
         setShareMenuOpen(false);
       }
     };
-    const closeOnEscape = (event) => {
+    const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
       setShareMenuOpen(false);
       shareMenuToggleRef.current?.focus();
@@ -177,7 +132,7 @@ export default function ChatComposerActions({ isElie: initialIsElie, onSend, onP
               aria-label="Share photo"
               aria-hidden={!shareMenuOpen}
               tabIndex={shareMenuOpen ? 0 : -1}
-              onClick={() => { onPhotoClick?.(); closeShareMenu(); }}
+              onClick={() => { onPhotoClick(); closeShareMenu(); }}
             >
               <Icon name="image" />
             </button>
@@ -191,7 +146,7 @@ export default function ChatComposerActions({ isElie: initialIsElie, onSend, onP
               aria-label="Share file"
               aria-hidden={!shareMenuOpen}
               tabIndex={shareMenuOpen ? 0 : -1}
-              onClick={() => { onFileClick?.(); closeShareMenu(); }}
+              onClick={() => { onFileClick(); closeShareMenu(); }}
             >
               <Icon name="paperclip" />
             </button>
@@ -205,7 +160,7 @@ export default function ChatComposerActions({ isElie: initialIsElie, onSend, onP
               hidden={!isHost}
               aria-hidden={!shareMenuOpen}
               tabIndex={shareMenuOpen ? 0 : -1}
-              onClick={() => { onShareListing?.(); closeShareMenu(); }}
+              onClick={() => { onShareListing(); closeShareMenu(); }}
             >
               <Icon name="share" />
             </button>
