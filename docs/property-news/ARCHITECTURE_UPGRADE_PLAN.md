@@ -214,6 +214,8 @@ Small, targeted code changes. Each comes with a regression test built from a rea
 
 **Done when:** Elie can find a relevant published story regardless of age.
 
+**Implemented 2026-11-03 on `property-news-phase7`:** migration `20261103_000001_property_news_search.sql` adds `property_news_search()`, full-text search over every published story using the existing `news_items_search_idx` expression (words combined with OR, ranked by `ts_rank`; county, category, status and age filters in SQL). `NewsRetrievalService.search` (used by `/api/news/search`, `/api/news/related/:id` and Elie's `/api/elie/news-search`) takes its candidates from it and keeps the existing ranking (relevance 55%, source authority 25%, recency 20%). Words in the question are now ranking boosts matched as whole words; previously they were hard filters matched as substrings ("act" in "impact" restricted results to law stories). If the function is unavailable, search falls back to the old scan of the newest 100 stories. Verified read-only on production before writing: "What is the impact of the housing levy?" finds the Court of Appeal levy rulings among 35 matches.
+
 ## 6. Decisions needed from the owner
 
 | ID | Decision | Options | Recommendation |
