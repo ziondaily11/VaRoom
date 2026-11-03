@@ -53,9 +53,18 @@ export const sections: Section[] = [
     title: "Information We Collect",
     blocks: [
       p("Depending on how you use Varoom, we may collect the following."),
+      h3("Required to create an account"),
+      p(
+        "The only information a Client must provide to create a Varoom account is an ",
+        b("email address"),
+        ". All other information on a Client account, such as a profile picture, display name, or phone number, is optional and provided voluntarily. You can choose not to provide it, and you can add, change, or remove it at any time in your account settings."
+      ),
+      p(
+        "Hosts provide additional information needed to list properties and to be contacted by Clients, as described below and in the Host Contact Details section."
+      ),
       h3("Information you provide"),
       ul(
-        "Account details: name, email address, profile picture, and phone number if you choose to provide it",
+        "Optional profile details, such as your name, profile picture, and phone number",
         "Property listings and related information, including descriptions, photos, pricing, and availability",
         "Booking requests and booking status information",
         "Billing details for Varoom host plans, such as the plan selected and payment references",
@@ -65,7 +74,7 @@ export const sections: Section[] = [
       ),
       h3("Information from Google"),
       p(
-        "If you sign in with Google, we receive your name, email address, profile picture, and Google account identifier, as described in the Google Sign-In section below."
+        "If you choose to sign in with Google, we receive your name, email address, profile picture, and Google account identifier, as described in the Google Sign-In section below. Signing in with Google is optional; you can create an account with an email address instead."
       ),
       h3("Information collected automatically"),
       p(
@@ -116,7 +125,7 @@ export const sections: Section[] = [
         "We process personal information only where we have a lawful basis to do so under applicable law, including the Kenya Data Protection Act, 2019. Depending on the activity, our basis is:"
       ),
       ul(
-        "Your consent, for example when you grant location permission or choose to provide an optional phone number",
+        "Your consent, for example when you grant location permission, choose to provide optional profile details such as a phone number or profile picture, or, as a Host, choose to show your contact details to Clients",
         "Performance of a contract with you, for example creating your account and processing bookings",
         "Compliance with a legal obligation, for example financial record keeping",
         "Our legitimate interests, for example keeping Varoom secure and preventing fraud and abuse"
@@ -177,6 +186,26 @@ export const sections: Section[] = [
         "Varoom may store messages sent through the platform so users can access their conversations and so we can provide messaging functionality, address reports, investigate abuse, maintain security, and comply with applicable legal requirements."
       ),
       p("We do not use private messages for advertising."),
+    ],
+  },
+  {
+    id: "host-contact-details",
+    title: "Host Contact Details",
+    blocks: [
+      p(
+        "In addition to messaging on Varoom, Clients may be able to contact Hosts by WhatsApp, phone call, or email. Hosts decide which of these contact methods are offered."
+      ),
+      ul(
+        "WhatsApp and calls: Varoom asks Hosts for a phone number to be used for WhatsApp and calls",
+        "Email: by default, Varoom uses the email address the Host used to create their account",
+        "Hosts can choose which contact methods to show, and change or turn them off at any time, in their account settings"
+      ),
+      p(
+        "Contact details a Host chooses to make available may be shown to Clients viewing that Host's profile or listings. Please consider this before enabling a contact method."
+      ),
+      p(
+        "Conversations held by WhatsApp, phone, or email take place outside Varoom. Varoom does not record, store, or monitor them, and they are governed by the terms and privacy policies of the relevant service providers. Varoom's ability to help with reports or disputes may be limited for communications that took place outside the platform."
+      ),
     ],
   },
   {
