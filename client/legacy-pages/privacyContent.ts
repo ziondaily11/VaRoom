@@ -12,7 +12,7 @@ export interface Section {
   blocks: Block[];
 }
 
-export const LAST_UPDATED = "September 30, 2026";
+export const LAST_UPDATED = "November 3, 2026";
 
 const b = (strong: string): Inline => ({ strong });
 const mail: Inline = { text: "privacy@varoom.co.ke", href: "mailto:privacy@varoom.co.ke" };
@@ -57,7 +57,8 @@ export const sections: Section[] = [
       ul(
         "Account details: name, email address, profile picture, and phone number if you choose to provide it",
         "Property listings and related information, including descriptions, photos, pricing, and availability",
-        "Booking information and related transaction records",
+        "Booking requests and booking status information",
+        "Billing details for Varoom host plans, such as the plan selected and payment references",
         "Messages you send to other users and to Elie, our search assistant",
         "Reviews, ratings, and reports you submit",
         "Information you send us when you contact support"
@@ -98,7 +99,7 @@ export const sections: Section[] = [
         "Allow clients to discover and interact with listings, including through Elie",
         "Process and manage bookings",
         "Facilitate communication between users",
-        "Process or record payments and related transactions",
+        "Process subscription payments for Varoom host plans",
         "Display reviews and ratings",
         "Investigate reports, abuse, fraud, or security issues",
         "Provide customer support",
@@ -157,10 +158,14 @@ export const sections: Section[] = [
     title: "Payments",
     blocks: [
       p(
-        "Varoom may use third-party payment service providers, which may include mobile money and card processors, to process payments. Payment information may be handled directly by those providers according to their own terms and privacy policies, and Varoom does not store your full card details or mobile money PIN."
+        b("Varoom does not handle payments between Hosts and Clients."),
+        " Rent, deposits, booking payments, and purchase prices are paid directly between the parties, outside Varoom. Varoom does not offer escrow and does not collect or store payment details for these transactions. Any financial information you exchange with another user, and any paperwork relating to a property, is shared at your own discretion and is handled by the parties themselves."
       ),
       p(
-        "Varoom may retain transaction records necessary for bookings, accounting, disputes, security, and operational purposes."
+        "The only payments Varoom receives are fees for Varoom host plans. These are processed by our third-party payment provider (currently Paystack), which may offer mobile money and card payments and handles your payment details under its own terms and privacy policy. Varoom does not receive or store your full card number or mobile money PIN."
+      ),
+      p(
+        "For host plans, we keep records such as the plan purchased, amount, payment reference, and payment status, for accounting, legal compliance, dispute resolution, and fraud prevention."
       ),
     ],
   },

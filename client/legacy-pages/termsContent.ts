@@ -2,7 +2,7 @@ import type { Block, Inline, Section } from "./LegalDocumentPage";
 
 export const TERMS_TITLE = "Terms of Service | Varoom";
 export const TERMS_DESCRIPTION = "Varoom Terms of Service governing the use of the Varoom property marketplace.";
-export const LAST_UPDATED = "August 18, 2026";
+export const LAST_UPDATED = "November 3, 2026";
 
 const b = (strong: string): Inline => ({ strong });
 const a = (text: string, href: string): Inline => ({ text, href });
@@ -30,7 +30,10 @@ export const sections: Section[] = [
       ),
       p("Varoom currently operates in Kenya."),
       p(
-        "Varoom itself does not own, sell, rent, lease, manage, or guarantee the properties listed by users. Varoom provides the technology and marketplace through which users can discover properties, communicate, arrange bookings, and, where available, use Varoom's payment services."
+        "Varoom itself does not own, sell, rent, lease, manage, or guarantee the properties listed by users. Varoom provides the technology and marketplace through which users can discover properties, communicate, and arrange bookings."
+      ),
+      p(
+        "Varoom is not a party to any agreement between a Host and a Client, does not act as an agent, broker, or representative of either party, and does not receive, hold, or transfer money on behalf of users."
       ),
       notice(b("Important:"), " A listing on Varoom does not mean that Varoom owns, manages, guarantees, or legally represents the property or the person listing it."),
     ],
@@ -129,41 +132,49 @@ export const sections: Section[] = [
     ],
   },
   {
-    id: "payments-through-varoom",
-    title: "Payments Through Varoom",
+    id: "payments-between-hosts-and-clients",
+    title: "Payments Between Hosts and Clients",
     blocks: [
-      p(
-        "Varoom may provide an optional payment service through which Clients can choose to have a payment processed through Varoom."
+      notice(
+        b("No money passes through Varoom."),
+        " Rent, deposits, booking payments, purchase prices, and any other sums relating to a property are paid directly between the Client and the Host. Varoom does not collect, receive, hold, or transfer these funds."
       ),
       p(
-        "Where this service is available and selected, Varoom may receive and temporarily hold funds associated with a booking before those funds become available to the Host."
+        "The Host and the Client are solely responsible for agreeing the amount, timing, method, and conditions of any payment, and for keeping their own records of payments made and received."
       ),
       p(
-        "Hosts may be able to request withdrawal of available funds through the Host tools provided by Varoom."
+        "Varoom does not process booking or property payments, does not issue receipts on behalf of Hosts, and does not verify that a payment has been made or received."
       ),
       p(
-        "Where applicable, a Varoom service fee may be deducted when funds are withdrawn or processed. Any applicable fees will be communicated to users through the relevant Varoom functionality."
-      ),
-      p(
-        "Varoom's payment functionality, payment providers, settlement periods, fees, refunds, and withdrawal procedures may change as the service develops."
+        "Clients should be cautious before making any payment, should satisfy themselves that the Host is entitled to receive it, and should avoid paying in advance for a property they have not been able to verify. Varoom will never ask a Client to send money for a property to a Varoom account or to a third party on Varoom's behalf."
       ),
     ],
   },
   {
-    id: "payments-directly-to-hosts",
-    title: "Payments Directly to Hosts",
+    id: "no-escrow",
+    title: "No Escrow or Payment Protection",
     blocks: [
       p(
-        "Where Varoom allows a Host to receive payment directly rather than through Varoom, the Client and Host may arrange payment according to the terms of the listing or booking."
+        "Varoom does not provide escrow, payment holding, guarantee, or payment protection services of any kind."
       ),
       p(
-        "For example, a Host may allow a Client to pay upon arrival at the property."
+        "Because Varoom never holds funds, it cannot release, withhold, reverse, or recover a payment made between users, and it does not compensate users for payments lost through a dispute, non-performance, or fraud by another user."
       ),
       p(
-        "Where a Client chooses to pay directly to a Host and subsequently becomes dissatisfied with the property or requests a refund, Varoom is generally not responsible for that payment or refund."
+        "Users who require independent protection for a transaction should arrange it themselves, for example through a licensed escrow provider, an advocate, or another appropriately qualified professional."
       ),
+    ],
+  },
+  {
+    id: "agreements-and-documentation",
+    title: "Agreements and Documentation",
+    blocks: [
       p(
-        "Varoom may investigate reports involving suspected payment abuse, fraud, scams, or violations of these Terms."
+        "All agreements and paperwork relating to a property are the responsibility of the Host and the Client. This includes, where applicable:"
+      ),
+      ul("Tenancy, lease, or booking agreements", "Sale agreements and transfer documents", "Deposit and payment receipts", "Inventories and condition reports", "Identity, ownership, and title verification", "Taxes, stamp duty, registrations, and other statutory obligations"),
+      p(
+        "Varoom does not prepare, review, witness, store on behalf of the parties, or enforce these documents. Users should seek independent legal or professional advice where appropriate."
       ),
     ],
   },
@@ -172,31 +183,28 @@ export const sections: Section[] = [
     title: "Cancellations and Refunds",
     blocks: [
       p(
-        "Cancellation and refund rules may vary depending on the property, booking conditions, Host, and payment method."
+        "Cancellation and refund terms for a property are set by the Host and agreed between the Host and the Client."
       ),
       p(
-        "Where Varoom processes and holds a Client's payment, Varoom may process a refund or cancellation in accordance with the applicable booking conditions and Varoom's procedures."
+        "Because Varoom does not handle payments between users, any refund of rent, deposits, booking payments, or other property-related sums must be requested from and settled by the party who received the payment. Varoom is not liable for such refunds."
       ),
       p(
-        "If a Client does not settle a required payment associated with a booking, Varoom may, where applicable, cancel the booking and refund funds according to the circumstances and applicable booking terms."
-      ),
-      p(
-        "Varoom is not responsible for refunds relating to transactions that occurred entirely outside Varoom's payment system, except where intervention is appropriate because of suspected fraud, payment abuse, or another violation of these Terms."
+        "Varoom may, at its discretion, investigate reports of suspected fraud, scams, or payment abuse, and may restrict or remove accounts or listings involved. Such action does not make Varoom responsible for recovering any funds."
       ),
     ],
   },
   {
     id: "varoom-fees",
-    title: "Varoom Fees",
+    title: "Varoom Fees and Host Plans",
     blocks: [
       p(
-        "Varoom is currently provided without mandatory platform fees for ordinary use."
+        "The only payments Varoom receives are fees for its own services, such as subscription plans that Hosts may purchase to unlock additional listing capacity, analytics, and promotion eligibility."
       ),
       p(
-        "Varoom may introduce service fees, transaction fees, listing fees, withdrawal fees, or other charges in the future."
+        "Plan fees are processed by Varoom's third-party payment provider and are shown to the Host before purchase. They are payments for Varoom's services and are entirely separate from any money exchanged between Hosts and Clients."
       ),
       p(
-        "Any applicable fees will be communicated before they apply to a transaction where required."
+        "Varoom does not charge Clients to browse listings, contact Hosts, or make bookings. Varoom may introduce or change fees in the future, and will communicate any new or changed fees before they apply."
       ),
     ],
   },
@@ -236,7 +244,7 @@ export const sections: Section[] = [
     title: "Prohibited Conduct",
     blocks: [
       p("Users must not use Varoom to:"),
-      ul("Post fraudulent or knowingly misleading property listings", "List property without appropriate authority or permission", "Impersonate another person or organization", "Commit fraud or facilitate scams", "Harass, threaten, or abuse other users", "Submit intentionally false reports or reviews", "Attempt to gain unauthorized access to another account", "Interfere with the operation or security of Varoom", "Use Varoom for unlawful activities", "Abuse payment or refund systems", "Attempt to bypass applicable Varoom fees through prohibited means"),
+      ul("Post fraudulent or knowingly misleading property listings", "List property without appropriate authority or permission", "Impersonate another person or organization", "Commit fraud or facilitate scams", "Harass, threaten, or abuse other users", "Submit intentionally false reports or reviews", "Attempt to gain unauthorized access to another account", "Interfere with the operation or security of Varoom", "Use Varoom for unlawful activities", "Request or collect payments under false pretences, or misrepresent that a payment is made to or guaranteed by Varoom", "Attempt to bypass applicable Varoom fees through prohibited means"),
     ],
   },
   {
@@ -277,7 +285,7 @@ export const sections: Section[] = [
         "Where a property is advertised for sale, Varoom may provide a platform for the interested parties to discover the property and communicate."
       ),
       p(
-        "Unless Varoom expressly provides a transaction service for a particular purchase, Varoom does not itself complete or guarantee the sale."
+        "Varoom does not participate in, complete, or guarantee any sale, and no part of the purchase price or any deposit is paid to or through Varoom."
       ),
       p(
         "Buyers and sellers are responsible for completing any required agreements, due diligence, legal procedures, ownership transfers, payments, taxes, registrations, and other requirements associated with a property transaction."
@@ -370,7 +378,7 @@ export const sections: Section[] = [
     title: "Changes to Varoom",
     blocks: [
       p(
-        "Varoom is an evolving platform. Features, services, payment options, fees, verification processes, AI tools, property categories, and other functionality may change over time."
+        "Varoom is an evolving platform. Features, services, plans, fees, verification processes, AI tools, property categories, and other functionality may change over time."
       ),
       p(
         "We may add, modify, suspend, or discontinue features as Varoom develops."
