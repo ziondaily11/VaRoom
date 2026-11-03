@@ -110,6 +110,39 @@ export const ONBOARDING_STYLES = `
     .onb-form{ gap:20px; }
   }
   @media (min-width: 901px){ .onb-mobile-step{ display:none; } }
+  /* Laptops (often 640–800 px tall with display scaling): each step fits without scrolling. */
+  @media (min-width: 901px) and (max-height: 860px){
+    .onb-panel{ padding:28px 40px; gap:24px; }
+    .onb-card-cover{ height:88px; }
+    .onb-main{ padding:24px 32px; align-items:safe center; }
+    .onb-form{ gap:16px; }
+    .onb-heading{ gap:6px; }
+    .onb-heading h1{ font-size:clamp(30px, 2.8vw, 36px); }
+    .onb-heading p{ font-size:15px; }
+    .onb-field{ gap:5px; }
+    .onb-input{ height:46px; }
+    .onb-photo{ padding:10px 14px; gap:14px; }
+    .onb-photo-frame{ width:72px; height:72px; }
+    .onb-option{ min-height:50px; padding:9px 12px; }
+    .onb-icon{ width:32px; height:32px; }
+    .onb-primary{ height:48px; }
+  }
+  @media (min-width: 901px) and (max-height: 700px){
+    .onb-panel{ padding:22px 36px; gap:18px; }
+    .onb-card-cover{ height:72px; }
+    .onb-main{ padding:16px 32px; }
+    .onb-form{ gap:12px; }
+    .onb-heading h1{ font-size:28px; }
+    .onb-heading p{ font-size:14px; }
+    .onb-input{ height:44px; }
+    .onb-photo{ padding:8px 12px; }
+    .onb-photo-frame{ width:60px; height:60px; }
+    .onb-option{ min-height:46px; padding:7px 12px; }
+    .onb-option-desc{ font-size:11.5px; }
+    .onb-help{ font-size:11.5px; }
+    .onb-primary{ height:46px; }
+    .onb-footnote{ margin-top:-6px; }
+  }
   @media (max-width: 520px){
     .onb-options{ grid-template-columns:minmax(0, 1fr); }
     .onb-photo-frame{ width:80px; height:80px; }

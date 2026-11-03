@@ -132,3 +132,10 @@ test('page: AuthProvider profile, safe redirect, Split layout, legacy page and p
   assert.match(read('next.config.js'), /source: '\/onboarding\.html',\s*destination: '\/onboarding'/);
   assert.match(fs.readFileSync(path.join(root, '..', 'server', 'server.js'), 'utf8'), /app\.get\(\['\/onboarding', '\/onboarding\.html', '\/legacy-pages\/onboarding\.html'\]/);
 });
+
+test('laptop screens: each step fits without scrolling (compact below 860 px and 700 px tall)', () => {
+  const styles = read('components', 'onboarding', 'onboardingStyles.ts');
+  assert.match(styles, /@media \(min-width: 901px\) and \(max-height: 860px\)\{[\s\S]*?\.onb-input\{ height:46px; \}/);
+  assert.match(styles, /@media \(min-width: 901px\) and \(max-height: 700px\)\{[\s\S]*?\.onb-photo-frame\{ width:60px; height:60px; \}/);
+  assert.match(styles, /align-items:safe center/, 'a step taller than the screen is never cut off at the top');
+});
