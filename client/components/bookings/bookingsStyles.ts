@@ -656,24 +656,21 @@ export const BOOKINGS_STYLES = `
   .bookings-page .bk-msg-link svg{ width:18px; height:18px; display:block; }
   .bookings-page .booking-detail-content{ container:booking-detail / inline-size; }
 
-  /* A narrow list column stacks the client cards as on phones. */
-  @container bookings-feed (max-width:560px){
-    .bookings-page #client-bookings-view .booking-card{ display:block; width:100%; padding:.75rem; margin-bottom:.85rem; border-radius:14px; overflow:visible; }
-    .bookings-page #client-bookings-view .bk-thumb{ width:100%; height:auto; aspect-ratio:16 / 9; border-radius:10px; font-size:.82rem; }
-    .bookings-page #client-bookings-view .bk-main{ width:100%; padding-top:.9rem; }
-    .bookings-page #client-bookings-view .bk-top-row{ gap:.5rem; }
-    .bookings-page #client-bookings-view .bk-top-row > div{ min-width:0; flex:1; }
-    .bookings-page #client-bookings-view .bk-title{ overflow-wrap:anywhere; }
-    .bookings-page #client-bookings-view .bk-loc{ overflow-wrap:anywhere; }
-    .bookings-page #client-bookings-view .bk-status{ flex:0 0 auto; max-width:42%; white-space:normal; text-align:center; }
-    .bookings-page #client-bookings-view .bk-bottom-row{ display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:.7rem .8rem; margin-top:.95rem; padding-top:.85rem; border-top:1px solid var(--line-soft); }
-    .bookings-page #client-bookings-view .bk-host{ min-width:0; }
-    .bookings-page #client-bookings-view .bk-host-name{ min-width:0; overflow-wrap:anywhere; }
-    .bookings-page #client-bookings-view .bk-actions{ grid-column:1 / -1; width:100%; min-width:0; margin:0; display:flex; justify-content:flex-end; align-items:center; flex-wrap:wrap; gap:.55rem; }
-    .bookings-page #client-bookings-view .bk-actions .bk-btn{ flex:1 1 130px; min-width:0; min-height:40px; text-align:center; white-space:normal; }
-    .bookings-page #client-bookings-view .reviewed-badge{ flex:1 1 130px; min-height:40px; display:flex; align-items:center; justify-content:center; }
-    .bookings-page .booking-skeleton .bk-thumb.skeleton-block{ width:100%; height:auto; aspect-ratio:16 / 9; }
-    .bookings-page .booking-skeleton .bk-main{ padding-top:.9rem; }
+  /* A narrow list column keeps the legacy row card (thumbnail beside the
+     details): the thumbnail shrinks and the buttons wrap under the host.
+     Only phones (the max-width:520px rules above) stack the card. */
+  @media (min-width:521px){
+    @container bookings-feed (max-width:520px){
+      .bookings-page #client-bookings-view .booking-card{ gap:.8rem; padding:.8rem; }
+      .bookings-page #client-bookings-view .bk-thumb, .bookings-page .booking-skeleton .bk-thumb.skeleton-block{ width:96px; height:96px; }
+      .bookings-page #client-bookings-view .bk-top-row > div{ min-width:0; flex:1; }
+      .bookings-page #client-bookings-view .bk-title, .bookings-page #client-bookings-view .bk-loc{ overflow-wrap:anywhere; }
+      .bookings-page #client-bookings-view .bk-status{ flex:0 0 auto; max-width:45%; white-space:normal; text-align:center; }
+      .bookings-page #client-bookings-view .bk-bottom-row{ flex-wrap:wrap; }
+      .bookings-page #client-bookings-view .bk-actions{ margin-left:0; width:100%; flex-wrap:wrap; }
+      .bookings-page #client-bookings-view .bk-actions .bk-btn, .bookings-page #client-bookings-view .reviewed-badge{ flex:1 1 120px; text-align:center; }
+      .bookings-page #client-bookings-view .reviewed-badge{ display:flex; align-items:center; justify-content:center; }
+    }
   }
 
   /* A narrow detail (small laptop rail, phones) stacks the property and rows. */

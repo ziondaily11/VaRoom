@@ -192,6 +192,8 @@ test('phones open the details page; larger screens hand it to the Bookings rail'
   assert.match(page, /\.appNavigation = true;/);
   const styles = read('components', 'bookings', 'bookingsStyles.ts');
   assert.match(styles, /@media \(min-width:861px\) and \(max-width:1320px\)\{\s*\.bookings-page \.content-row\{ grid-template-columns:minmax\(0, 1fr\) clamp\(320px, 36vw, 460px\); \}/);
+  assert.match(styles, /@media \(min-width:521px\)\{\s*@container bookings-feed \(max-width:520px\)\{/, 'laptops keep the row card');
+  assert.doesNotMatch(styles, /@container bookings-feed[^{]*\{\s*\.bookings-page #client-bookings-view \.booking-card\{ display:block/, 'no full-width image card outside phones');
   assert.match(styles, /@container booking-detail \(max-width:400px\)/);
   assert.doesNotMatch(styles, /#sidebar|\.nav-item/, 'the shell renders the sidebar');
   assert.match(read('lib', 'notificationsCache.ts'), /matchMedia\('\(min-width: 861px\)'\)/);
