@@ -170,7 +170,7 @@
       '  <a href="/analytics" class="account-menu-action" role="menuitem">' + ICONS.analytics + ' Analytics</a>',
       '  <a href="/settings" class="account-menu-action' + (activeNav === 'settings' ? ' active' : '') + '" role="menuitem">' + ICONS.settings + ' Settings</a>',
       '  <a href="/support" class="account-menu-action' + (activeNav === 'support' ? ' active' : '') + '" role="menuitem">' + ICONS.support + ' Help &amp; Support</a>',
-      '  <a href="pricing.html" class="account-menu-action' + (activeNav === 'upgrade' ? ' active' : '') + '" role="menuitem">' + ICONS.upgrade + ' Premium</a>',
+      '  <a href="/pricing" class="account-menu-action' + (activeNav === 'upgrade' ? ' active' : '') + '" role="menuitem">' + ICONS.upgrade + ' Premium</a>',
       '</div>',
 
       // More button

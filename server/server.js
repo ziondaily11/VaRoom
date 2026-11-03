@@ -310,29 +310,44 @@ app.post(['/support/tickets', '/api/support/tickets'], async (req, res) => {
   return res.status(201).json({ ticket: data });
 });
 
+// Legacy pages this server still serves directly. Pages that are native on
+// the frontend redirect there (below); entries whose files no longer exist
+// (analytics, payments, profile-public, varoom-post, landing page) are gone.
 const pageTemplates = {
-  '/': 'index.html',
-  '/login': 'login.html',
-  '/register': 'signup-client.html',
-  '/signup-client': 'signup-client.html',
-  '/signup-host': 'signup-host.html',
   '/properties': 'list.html',
   '/list': 'list.html',
   '/host-home': 'host-home.html',
   '/booking': 'booking.html',
-  '/analytics': 'analytics.html',
   '/auth-callback': 'auth-callback.html',
   '/marketplace': 'marketplace.html',
   '/chat-settings': 'chat-settings.html',
   '/onboarding': 'onboarding.html',
-  '/payments': 'payments.html',
-  '/profile-public': 'profile-public.html',
   '/profile': 'profile.html',
-
   '/settings': 'settings.html',
-  '/varoom-post': 'varoom-post.html',
-  '/landing-page': 'landing page.html'
 };
+
+// The landing page and its sign-in / sign-up are native on the frontend.
+const landingRoutes = [
+  { paths: ['/'], query: null },
+  { paths: ['/login', '/login.html'], query: { auth: 'login' } },
+  { paths: ['/register', '/signup-client', '/signup-client.html'], query: { auth: 'signup', role: 'client' } },
+  { paths: ['/signup-host', '/signup-host.html'], query: { auth: 'signup', role: 'host' } },
+];
+landingRoutes.forEach(({ paths, query }) => {
+  app.get(paths, (req, res) => {
+    const redirect = resolveFrontendRouteRedirect({
+      frontendBaseUrl: process.env.PUBLIC_BASE_URL || process.env.CLIENT_BASE_URL,
+      requestHost: req.get('host'),
+      requestUrl: req.originalUrl,
+      destinationPath: '/',
+      query,
+      unavailableMessage: 'VaRoom API',
+    });
+    if (redirect.location) return res.redirect(redirect.status, redirect.location);
+    // Without a configured frontend, the root still answers (health checks).
+    return req.path === '/' ? res.status(200).send('VaRoom API') : res.status(redirect.status).send(redirect.message);
+  });
+});
 
 app.get(['/client-home', '/client-home.html'], (req, res) => {
   const redirect = resolveClientHomeRedirect({
