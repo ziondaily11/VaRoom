@@ -84,8 +84,7 @@ test('Legacy pages define consistent true black tokens', () => {
   const pagesToCheck = [
     'booking.html',
     'host-home.html',
-    'list.html',
-    'profile.html'
+    'list.html'
   ];
 
   for (const pageName of pagesToCheck) {

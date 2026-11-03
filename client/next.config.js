@@ -27,6 +27,16 @@ module.exports = {
         permanent: true,
       },
       {
+        source: '/profile.html',
+        destination: '/profile',
+        permanent: true,
+      },
+      {
+        source: '/legacy-pages/profile.html',
+        destination: '/profile',
+        permanent: true,
+      },
+      {
         source: '/settings.html',
         destination: '/settings',
         permanent: true,

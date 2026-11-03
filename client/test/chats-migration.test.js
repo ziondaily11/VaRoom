@@ -44,7 +44,7 @@ test('CH5: chats.html, elie.html and chat-data.js are retired; old URLs redirect
   assert.match(config, /source: '\/elie\.html',\s*destination: '\/chats\?c=elie'/);
   const vercel = JSON.parse(fs.readFileSync(path.join(root, 'vercel.json'), 'utf8'));
   assert.ok(vercel.redirects.some((r) => r.source === '/:page.html' && r.destination === '/:page'), '/chats.html and /elie.html reach the routes above');
-  assert.doesNotMatch(fs.readFileSync(path.join(root, 'legacy-pages', 'profile.html'), 'utf8'), /chats\.html/);
+  assert.doesNotMatch(fs.readFileSync(path.join(root, 'pages', 'profile.tsx'), 'utf8'), /chats\.html/);
 });
 
 test('Phase 2: Chats route resolves to none layout, preserving full-screen dashboard app shell', () => {

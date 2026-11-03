@@ -11,7 +11,9 @@ const hostHomePage = fs.readFileSync(path.join(repositoryRoot, 'client', 'legacy
 // Marketplace is native; its listing query lives in lib/marketplace.
 const marketplacePage = fs.readFileSync(path.join(repositoryRoot, 'client', 'lib', 'marketplace', 'marketplace.ts'), 'utf8');
 const landingPage = fs.readFileSync(path.join(repositoryRoot, 'client', 'pages', 'index.tsx'), 'utf8');
-const profilePage = fs.readFileSync(path.join(repositoryRoot, 'client', 'legacy-pages', 'profile.html'), 'utf8');
+// The native profile's listing query and labels (legacy profile.html is retired).
+const profilePage = fs.readFileSync(path.join(repositoryRoot, 'client', 'lib', 'profile', 'hostProfile.ts'), 'utf8');
+const profileLabels = fs.readFileSync(path.join(repositoryRoot, 'client', 'lib', 'profile', 'profilePage.ts'), 'utf8');
 const publicHostProfile = fs.readFileSync(path.join(repositoryRoot, 'client', 'legacy-pages', 'public-profile.jsx'), 'utf8');
 const hostProfileView = fs.readFileSync(path.join(repositoryRoot, 'client', 'legacy-pages', 'host-profile-view.jsx'), 'utf8');
 const hostListingControls = fs.readFileSync(path.join(repositoryRoot, 'client', 'public', 'js', 'host-listing-controls.js'), 'utf8');
@@ -67,12 +69,12 @@ test('all Discover feed branches require active moderation and available status'
   assert.match(hostHomePage, /\.eq\('host_id', currentUser\.id\)\s*\.order\('created_at', \{ ascending:false \}\)/);
 
   const profileListings = profilePage.slice(
-    profilePage.indexOf('let listingsQuery = supabaseClient'),
-    profilePage.indexOf('const { data: listings, error: listingsError }', profilePage.indexOf('let listingsQuery = supabaseClient'))
+    profilePage.indexOf('export async function fetchHostListings'),
+    profilePage.indexOf('export async function fetchProfileCategories')
   );
-  assert.match(profileListings, /\.eq\('host_id', profileData\.id\)/);
-  assert.match(profileListings, /if \(!isOwner\)[\s\S]*\.eq\('moderation_status', 'active'\)[\s\S]*\.eq\('availability_status', 'available'\)/);
-  assert.match(profilePage, /s === 'draft'[\s\S]*>Draft</);
+  assert.match(profileListings, /\.eq\('host_id', hostId\)/);
+  assert.match(profileListings, /if \(!owner\) query = query\.eq\('moderation_status', 'active'\)\.eq\('availability_status', 'available'\)/);
+  assert.match(profileLabels, /value === 'draft'\) return \{ label: 'Draft'/);
 
   assert.match(publicHostProfile, /\.eq\("moderation_status", "active"\)\s*\.eq\("availability_status", "available"\)/);
   assert.match(hostProfileView, /if \(sessionResult\.data\.session\?\.user\?\.id !== hostId\)[\s\S]*\.eq\("moderation_status", "active"\)[\s\S]*\.eq\("availability_status", "available"\)/);
