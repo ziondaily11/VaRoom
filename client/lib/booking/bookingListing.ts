@@ -87,8 +87,13 @@ export const MESSAGES = {
 export async function fetchBookingListing(client: SupabaseClient, listingId: string): Promise<BookingListing | null> {
   const { data, error } = await client.from('listings').select(LISTING_SELECT).eq('id', listingId).maybeSingle();
   if (error) throw new Error(error.message);
-  return (data as unknown as BookingListing) || null;
+  return data ? withHost(data as unknown as BookingListing) : null;
 }
+
+const NO_HOST: ListingHost = { full_name: null, verified: null, avatar_url: null, username: null, phone: null };
+
+/** The host's profile can come back empty (deleted, or not visible to this account): show "Host". */
+export const withHost = (listing: BookingListing): BookingListing => (listing.host ? listing : { ...listing, host: NO_HOST });
 
 export async function fetchDiningConfig(listingId: string, fetchFn: typeof fetch = fetch): Promise<DiningConfig | null> {
   const response = await fetchFn(`/api/listings/${encodeURIComponent(listingId)}/dining-config`);
