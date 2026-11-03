@@ -55,17 +55,17 @@ test('Client Home rail legal links open in a new tab', () => {
 });
 
 test('Host Home rail legal links open in a new tab', () => {
-  const hostHomePath = path.join(clientRoot, 'legacy-pages', 'host-home.html');
+  const hostHomePath = path.join(clientRoot, 'components', 'hostHome', 'HostRail.tsx');
   const content = fs.readFileSync(hostHomePath, 'utf8');
 
   assert.match(
     content,
-    /<a\s+href="\/privacy"\s+target="_blank"\s+rel="noopener noreferrer"\s+class="rail-legal-link">Privacy Policy<\/a>/,
+    /<a\s+href="\/privacy"\s+target="_blank"\s+rel="noopener noreferrer"\s+className="rail-legal-link">Privacy Policy<\/a>/,
     'Host Home Privacy Policy link must have target="_blank" and rel="noopener noreferrer"'
   );
   assert.match(
     content,
-    /<a\s+href="\/terms"\s+target="_blank"\s+rel="noopener noreferrer"\s+class="rail-legal-link">Terms &amp; Conditions<\/a>/,
+    /<a\s+href="\/terms"\s+target="_blank"\s+rel="noopener noreferrer"\s+className="rail-legal-link">Terms &amp; Conditions<\/a>/,
     'Host Home Terms link must have target="_blank" and rel="noopener noreferrer"'
   );
 });

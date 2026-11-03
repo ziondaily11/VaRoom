@@ -88,11 +88,12 @@ test('native Property News provides cached article navigation, loading/error sta
 test('Property News shared cache and Host Home API client remain in use', () => {
   const propertyNewsSource = fs.readFileSync(propertyNewsPath, 'utf8');
   const clientHomeSource = fs.readFileSync(path.join(root, 'pages', 'client-home.tsx'), 'utf8');
-  const hostHomeSource = fs.readFileSync(path.join(root, 'legacy-pages', 'host-home.html'), 'utf8');
+  const hostHomeSource = fs.readFileSync(path.join(root, 'pages', 'host-home.tsx'), 'utf8');
 
   assert.match(clientHomeSource, /from '\.\.\/lib\/propertyNewsCache'/);
   assert.match(propertyNewsSource, /from '\.\.\/lib\/propertyNewsCache'/);
-  assert.match(hostHomeSource, /<script src="js\/property-news-api\.js"><\/script>/);
+  assert.match(hostHomeSource, /from '\.\.\/lib\/propertyNewsCache'/);
+  assert.equal(fs.existsSync(path.join(root, 'public', 'js', 'property-news-api.js')), false, 'retired with Host Home');
 });
 
 test('Phase 4 & 5: State preservation, preview vs. complete article distinction, and caching logic', async () => {

@@ -112,6 +112,16 @@ module.exports = {
         permanent: true,
       },
       {
+        source: '/host-home.html',
+        destination: '/host-home',
+        permanent: true,
+      },
+      {
+        source: '/legacy-pages/host-home.html',
+        destination: '/host-home',
+        permanent: true,
+      },
+      {
         source: '/booking.html',
         destination: '/booking',
         permanent: true,

@@ -41,5 +41,5 @@ test('the legacy admin page is retired; /admin is the React dashboard and its AP
   for (const route of ["router.get('/session'", "router.post('/login'", "router.get('/overview'", "router.get('/users'"]) assert.ok(adminRoutes.includes(route), route);
   const config = fs.readFileSync(path.join(__dirname, '..', '..', 'client', 'next.config.js'), 'utf8');
   assert.match(config, /source: '\/varoomadmin',\s*destination: '\/admin'/);
-  assert.ok(fs.existsSync(path.join(__dirname, '..', '..', 'client', 'pages', 'admin.js')));
+  assert.ok(fs.existsSync(path.join(__dirname, '..', '..', 'client', 'pages', 'admin.tsx')));
 });

@@ -4,7 +4,7 @@ import { useRouter } from 'next/router';
 import { useAuth } from '../../lib/auth/AuthProvider';
 import {
   changeListingStatus, deleteConfirmText, deleteLabel, deleteListing, duplicateListing, editHref, editLabel, invalidateListingFeeds,
-  isDraft, isStatusPending, listingShareUrl, publishListingDeleted, STATUS_ACTIONS, type ListingStatus, type MenuListing,
+  isDraft, isStatusPending, ListingActionError, listingShareUrl, publishListingDeleted, STATUS_ACTIONS, type ListingStatus, type MenuListing,
 } from '../../lib/listings/hostListingActions';
 
 // The ⋮ menu on a host's own listing card, replacing
@@ -152,6 +152,11 @@ export default function HostListingMenu({ listing, notify, onStatus, onDeleted, 
       notify(isDraft(listing) ? 'Draft listing permanently deleted' : 'Listing deleted');
     } catch (error) {
       setConfirming(false);
+      // The listing is gone even though its media cleanup failed (as host-listing-controls.js did).
+      if (error instanceof ListingActionError && error.code === 'LISTING_DELETED_MEDIA_CLEANUP_FAILED') {
+        publishListingDeleted(listing.id);
+        onDeleted?.(listing.id);
+      }
       notify((error as Error).message);
     } finally {
       setDeleting(false);

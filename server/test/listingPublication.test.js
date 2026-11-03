@@ -7,7 +7,7 @@ const path = require('node:path');
 
 const repositoryRoot = path.join(__dirname, '..', '..');
 const discoverPage = fs.readFileSync(path.join(repositoryRoot, 'client', 'pages', 'client-home.tsx'), 'utf8');
-const hostHomePage = fs.readFileSync(path.join(repositoryRoot, 'client', 'legacy-pages', 'host-home.html'), 'utf8');
+const hostHomePage = fs.readFileSync(path.join(repositoryRoot, 'client', 'lib', 'hostHome', 'hostHome.ts'), 'utf8');
 // Marketplace is native; its listing query lives in lib/marketplace.
 const marketplacePage = fs.readFileSync(path.join(repositoryRoot, 'client', 'lib', 'marketplace', 'marketplace.ts'), 'utf8');
 const landingPage = fs.readFileSync(path.join(repositoryRoot, 'client', 'pages', 'index.tsx'), 'utf8');
@@ -17,7 +17,7 @@ const profileLabels = fs.readFileSync(path.join(repositoryRoot, 'client', 'lib',
 // The public host pages share the native profile data (legacy .jsx pages are retired).
 const publicHostProfile = fs.readFileSync(path.join(repositoryRoot, 'client', 'components', 'hostProfile', 'PublicHostProfile.tsx'), 'utf8');
 const hostProfileView = fs.readFileSync(path.join(repositoryRoot, 'client', 'components', 'hostProfile', 'HostProfileView.tsx'), 'utf8');
-const hostListingControls = fs.readFileSync(path.join(repositoryRoot, 'client', 'public', 'js', 'host-listing-controls.js'), 'utf8');
+const hostListingControls = fs.readFileSync(path.join(repositoryRoot, 'client', 'lib', 'listings', 'hostListingActions.ts'), 'utf8');
 const listingPage = fs.readFileSync(path.join(repositoryRoot, 'client', 'legacy-pages', 'list.html'), 'utf8');
 const listingRoutes = fs.readFileSync(path.join(__dirname, '..', 'routes', 'listingRoutes.js'), 'utf8');
 const draftStatusMigration = fs.readFileSync(
@@ -61,13 +61,9 @@ test('all Discover feed branches require active moderation and available status'
   assert.match(landingPage, /\.eq\('moderation_status', 'active'\)\s*\.eq\('availability_status', 'available'\)/);
   assert.doesNotMatch(landingPage, /missingColumnMessage|select\(baseSelect\)/);
 
-  const hostFeedFilter = hostHomePage.slice(
-    hostHomePage.indexOf('function withFilters(query)'),
-    hostHomePage.indexOf('return async function(offset, limit)', hostHomePage.indexOf('function withFilters(query)'))
-  );
-  assert.match(hostFeedFilter, /if \(onlyMine\) query = query\.eq\('host_id', currentUser\.id\)/);
-  assert.match(hostFeedFilter, /else query = query\.eq\('moderation_status', 'active'\)\.eq\('availability_status', 'available'\)/);
-  assert.match(hostHomePage, /\.eq\('host_id', currentUser\.id\)\s*\.order\('created_at', \{ ascending:false \}\)/);
+  // Host home (native): visitors' feed is active and available; the host's own listings are all theirs.
+  assert.match(hostHomePage, /let next = onlyMine \? query\.eq\('host_id', userId\) : query\.eq\('moderation_status', 'active'\)\.eq\('availability_status', 'available'\);/);
+  assert.match(hostHomePage, /\.eq\('host_id', userId\)\.order\('created_at', \{ ascending: false \}\)/);
 
   const profileListings = profilePage.slice(
     profilePage.indexOf('export async function fetchHostListings'),
@@ -80,7 +76,7 @@ test('all Discover feed branches require active moderation and available status'
   assert.match(publicHostProfile, /loadHostListings\(client, viewerId, hostId, false\)/, 'the public page reads only active, available listings');
   assert.match(hostProfileView, /const isOwner = Boolean\(viewerId && hostId && viewerId === hostId\)/);
   assert.match(hostProfileView, /loadHostListings\(client, viewerId, hostId, isOwner\)/, 'visitors read only active, available listings; the owner reads all');
-  assert.match(hostListingControls, /data-status="draft"[^>]*>Save as draft/);
+  assert.match(hostListingControls, /\{ status: 'draft', label: 'Save as draft' \}/);
 
   assert.match(listingRoutes, /const STATUSES = new Set\(\['available', 'booked', 'unavailable', 'paused', 'draft'\]\)/);
   assert.match(draftStatusMigration, /availability_status in \('available', 'booked', 'unavailable', 'paused', 'draft'\)/);

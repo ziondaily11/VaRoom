@@ -71,7 +71,7 @@ test('video player: controls stop the click (no listing navigation), viewer fall
   assert.match(player, /rootMargin: '160px 0px', threshold: 0\.1/);
   for (const text of ['Tap play to start', 'Video unavailable', 'Retry', 'Close fullscreen video viewer', 'varoomautoplayblocked', 'varoomvideoplaying']) assert.ok(player.includes(text), text);
   const lf = (text) => text.split('\r\n').join('\n');
-  assert.equal(lf(read('components', 'media', 'videoPlayerStyles.ts')).includes(lf(read('public', 'js', 'varoom-video-player.css')).trim()), true, 'styles copied unchanged');
+  assert.match(read('components', 'media', 'videoPlayerStyles.ts'), /\.varoom-video-viewer-actions \{/, 'the player keeps its own styles (the legacy CSS is retired)');
 });
 
 // ---------- Host listing actions ----------

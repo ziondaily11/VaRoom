@@ -8,7 +8,8 @@ const root = path.join(__dirname, '..');
 test('native Client Home keeps widget containers mounted and settles their loading states', () => {
   const source = fs.readFileSync(path.join(root, 'pages', 'client-home.tsx'), 'utf8');
   const styles = fs.readFileSync(path.join(root, 'pages', 'ClientHome.module.css'), 'utf8');
-  const host = fs.readFileSync(path.join(root, 'legacy-pages', 'host-home.html'), 'utf8');
+  const rail = fs.readFileSync(path.join(root, 'components', 'hostHome', 'HostRail.tsx'), 'utf8');
+  const hostPage = fs.readFileSync(path.join(root, 'pages', 'host-home.tsx'), 'utf8');
 
   assert.match(source, /WidgetLoader label="Loading popular destinations"/);
   assert.match(source, /WidgetLoader label="Loading VaRoom Updates"/);
@@ -18,12 +19,11 @@ test('native Client Home keeps widget containers mounted and settles their loadi
   assert.match(styles, /\.skeletonCard\s*\{[\s\S]*?animation: skeletonPulse/);
   assert.match(styles, /@keyframes skeletonPulse/);
 
-  for (const id of ['listings-glance-grid', 'varoom-updates', 'property-news-list', 'property-news-mobile-list']) {
-    const openingTag = host.match(new RegExp(`<[^>]+id="${id}"[^>]*>`));
-    assert.ok(openingTag, `${id} should be present in the Host Home shell`);
-    assert.match(openingTag[0], /data-loading="true"/, `${id} should begin in a loading state`);
-  }
-  assert.match(host, /class="home-widget-loader" role="status"[^>]*aria-label="Loading/);
-  assert.match(host, /setAttribute\('data-loading', 'false'\)/);
-  assert.match(host, /homeSkeleton\.dataset\.skeletonLayout = window\.matchMedia\('\(max-width:860px\)'\)/);
+  // Host Home's rail blocks stay mounted and start loading (data-loading="true" until settled).
+  assert.match(rail, /id="listings-glance-grid" data-loading=\{listings === null \? 'true' : 'false'\}/);
+  assert.match(rail, /id=\{`property-news\$\{idSuffix\}-list`\} aria-live="polite" data-loading=\{news === null \? 'true' : 'false'\}/);
+  assert.match(rail, /className="home-widget-content" data-loading=\{updates === null \? 'true' : 'false'\}/);
+  assert.match(rail, /className="home-widget-loader" role="status" aria-label=\{label\}/);
+  assert.match(hostPage, /setSkeletonLayout\(isMobileNow\(\) \? 'mobile' : 'desktop'\)/);
+  assert.match(hostPage, /data-skeleton-layout=\{layout\}/);
 });

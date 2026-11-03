@@ -322,7 +322,7 @@ function PlayerCore({ src, poster = null, details = null, listingId, className =
 }
 
 function ViewerDetails({ details }: { details: VideoDetails | null }) {
-  if (!details || !(details.avatarUrl || details.hostName || details.username || details.caption)) return <div className="varoom-video-viewer-details" />;
+  if (!details || !(details.avatarUrl || details.hostName || details.username || details.caption || details.actions)) return <div className="varoom-video-viewer-details" />;
   return (
     <div className="varoom-video-viewer-details">
       <div className="varoom-video-viewer-identity">
@@ -333,6 +333,7 @@ function ViewerDetails({ details }: { details: VideoDetails | null }) {
         </div>
       </div>
       {details.caption && <p className="varoom-video-viewer-caption">{details.caption}</p>}
+      {details.actions ? <div className="varoom-video-viewer-actions">{details.actions}</div> : null}
     </div>
   );
 }

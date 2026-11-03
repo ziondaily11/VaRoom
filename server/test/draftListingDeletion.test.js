@@ -15,10 +15,9 @@ const lifecycleMigration = fs.readFileSync(
   'utf8'
 );
 const route = fs.readFileSync(path.join(__dirname, '..', 'routes', 'listingRoutes.js'), 'utf8');
-const controls = fs.readFileSync(
-  path.join(repositoryRoot, 'client', 'public', 'js', 'host-listing-controls.js'),
-  'utf8'
-);
+// The owner's listing menu (host-listing-controls.js is retired).
+const controls = ['components/listings/HostListingMenu.tsx', 'lib/listings/hostListingActions.ts']
+  .map((file) => fs.readFileSync(path.join(repositoryRoot, 'client', file), 'utf8')).join('\n');
 // The native profile (legacy profile.html is retired): its menu, the shared
 // listing events and the page's own state.
 const profile = ['components/listings/HostListingMenu.tsx', 'lib/listings/hostListingActions.ts', 'pages/profile.tsx']
@@ -46,8 +45,9 @@ test('host controls label draft deletion explicitly and remove deleted listings 
   assert.match(controls, /Delete draft permanently/);
   assert.match(controls, /including Discover and all profiles/);
   assert.match(controls, /LISTING_DELETED_MEDIA_CLEANUP_FAILED/);
-  assert.match(controls, /document\.body\.appendChild\(dropdown\)/);
-  assert.match(controls, /dropdown\.style\.overflowY = 'auto'/);
+  // The menu opens in a portal on the page body, scrolling when it is taller than the screen.
+  assert.match(controls, /createPortal\([\s\S]*?document\.body,/);
+  assert.match(controls, /\.vr-listing-menu\{ position:fixed;[^}]*overflow-y:auto;/);
   assert.match(profile, /\.vr-listing-menu\{ position:fixed;/);
   assert.match(profile, /overscroll-behavior:contain/);
   assert.match(profile, /varoom:listing-deleted/);

@@ -104,13 +104,12 @@ test('Duplicate legacy sidebars are hidden without mutating legacy page DOM', ()
   assert.doesNotMatch(slugCode, /querySelectorAll\(selector\)\.forEach\(\(el\) => el\.remove\(\)\)/);
 });
 
-test('Host Home keeps its template sidebar until the authenticated HostLayout mounts', () => {
-  const hostHome = fs.readFileSync(path.join(clientDir, 'legacy-pages', 'host-home.html'), 'utf8');
+test('Host Home renders only its content inside the persistent host shell', () => {
+  const hostHome = fs.readFileSync(path.join(clientDir, 'pages', 'host-home.tsx'), 'utf8');
   const slugCode = fs.readFileSync(path.join(clientDir, 'pages', '[...slug].js'), 'utf8');
   const layoutCode = fs.readFileSync(path.join(clientDir, 'components', 'shell', 'shellStyles.ts'), 'utf8');
-
-  assert.match(hostHome, /<aside class="sidebar" id="sidebar">/);
-  assert.doesNotMatch(slugCode, /source\.replace\(\/<aside\\b[\s\S]*?class=[\s\S]*?sidebar/);
+  assert.doesNotMatch(hostHome, /<aside className="sidebar"|account-identity|more-menu|bottom-bar/, 'the shell provides the sidebar, account menu and mobile nav');
+  assert.doesNotMatch(hostHome, /getLayout/, '_app wraps /host-home in the host shell');
   assert.match(layoutCode, /\.host-layout-active \.host-page-content aside\.sidebar[\s\S]*?display:\s*none\s*!important/);
   assert.match(slugCode, /parseTemplate\(source\)/);
 });

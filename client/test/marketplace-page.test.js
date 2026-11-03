@@ -166,5 +166,5 @@ test('page: legacy markup and wording; own icon sidebar; the hidden filters are 
   assert.match(read('next.config.js'), /source: '\/marketplace\.html',\s*destination: '\/marketplace'/);
   const server = fs.readFileSync(path.join(root, '..', 'server', 'server.js'), 'utf8');
   assert.match(server, /app\.get\(\['\/marketplace', '\/marketplace\.html', '\/legacy-pages\/marketplace\.html'\]/);
-  assert.ok(fs.existsSync(path.join(root, 'public', 'js', 'skeleton-loader.js')), 'host-home and profile still use it');
+  assert.equal(fs.existsSync(path.join(root, 'public', 'js', 'skeleton-loader.js')), false, 'retired with Host Home (nothing called it)');
 });

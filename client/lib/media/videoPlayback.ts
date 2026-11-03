@@ -1,7 +1,8 @@
 // Shared state for VideoPlayer (components/media/VideoPlayer.tsx), replacing
 // public/js/varoom-video-player.js: the session's mute choice, one video
 // playing at a time, the players on the page (for the full-screen viewer),
-// and pausing everything when the tab is hidden. Import-free.
+// and pausing everything when the tab is hidden. Import-free (types only).
+import type { ReactNode } from 'react';
 
 export const MUTE_KEY = 'varoom-video-muted';
 
@@ -31,6 +32,8 @@ export interface VideoDetails {
   hostName?: string | null;
   username?: string | null;
   caption?: string | null;
+  /** The card's action buttons, repeated under the caption in the phone viewer. */
+  actions?: ReactNode;
 }
 
 export interface PlayerEntry {
