@@ -697,6 +697,9 @@
             } catch(err) {
               showAlert(err.message || 'Error saving account.', true);
             }
+          } else if (evt.data && evt.data.type === 'VAROOM_ADD_ACCOUNT_ERROR') {
+            window.removeEventListener('message', onMsg);
+            showAlert(evt.data.message || 'Could not add that Google account. Please try again.', true);
           }
         };
         window.addEventListener('message', onMsg);

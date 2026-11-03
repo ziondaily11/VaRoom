@@ -3,6 +3,7 @@ import { useAuth } from '../../lib/auth/AuthProvider';
 import { getSupabaseClient } from '../../lib/supabase/client';
 import HostSidebar from './HostSidebar';
 import ClientSidebar from './ClientSidebar';
+import AddAccountNotice from './AddAccountNotice';
 import { CLIENT_SHELL_STYLES, HOST_SHELL_STYLES, PENDING_SHELL_STYLES } from './shellStyles';
 
 export type ShellVariant = 'host' | 'client' | null;
@@ -77,6 +78,7 @@ export default function AppShell({ variant, className = '', children }: {
       <main className={content.className} id={content.id}>
         {children}
       </main>
+      <AddAccountNotice />
     </div>
   );
 }

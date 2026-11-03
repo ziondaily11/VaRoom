@@ -17,6 +17,16 @@ module.exports = {
         permanent: false,
       },
       {
+        source: '/auth-callback.html',
+        destination: '/auth-callback',
+        permanent: true,
+      },
+      {
+        source: '/legacy-pages/auth-callback.html',
+        destination: '/auth-callback',
+        permanent: true,
+      },
+      {
         source: '/pricing.html',
         destination: '/pricing',
         permanent: true,
