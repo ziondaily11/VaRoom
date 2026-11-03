@@ -1,6 +1,7 @@
 import type { Booking } from './format';
 import type { BookingReview } from './clientBookings';
-import type { HostBooking, ListingVideo, TableReservation } from './hostBookings';
+import type { HostBooking, TableReservation } from './hostBookings';
+import { clearListingVideos } from '../media/listingVideo';
 
 // In-memory snapshot of the client's loaded bookings, kept for the session so
 // returning to Bookings, or opening a booking's detail page, renders at once
@@ -57,9 +58,9 @@ export function setCachedReview(bookingId: string, review: BookingReview | null)
   reviews.set(bookingId, review);
 }
 
-// The host's requests and table reservations, and listing videos. Playback
-// URLs expire after five minutes on the server, so videos are kept for four.
-export const VIDEO_TTL_MS = 4 * 60 * 1000;
+// The host's requests and table reservations. Listing videos live in
+// lib/media/listingVideo.ts (shared with Marketplace), re-exported here.
+export { VIDEO_TTL_MS, getCachedVideo, setCachedVideo } from '../media/listingVideo';
 
 export interface HostBookingsSnapshot {
   userId: string;
@@ -69,31 +70,19 @@ export interface HostBookingsSnapshot {
 }
 
 let hostSnapshot: HostBookingsSnapshot | null = null;
-const videos = new Map<string, { video: ListingVideo | null; expiresAt: number }>();
 
 export function getHostBookings(userId: string): HostBookingsSnapshot | null {
   return hostSnapshot && hostSnapshot.userId === userId ? hostSnapshot : null;
 }
 
 export function setHostBookings(next: HostBookingsSnapshot): void {
-  if (hostSnapshot && hostSnapshot.userId !== next.userId) videos.clear();
+  if (hostSnapshot && hostSnapshot.userId !== next.userId) clearListingVideos();
   hostSnapshot = next;
-}
-
-/** A listing's video if loaded recently (null = it has none); undefined otherwise. */
-export function getCachedVideo(listingId: string, now: number = Date.now()): ListingVideo | null | undefined {
-  const entry = videos.get(listingId);
-  if (!entry || entry.expiresAt <= now) return undefined;
-  return entry.video;
-}
-
-export function setCachedVideo(listingId: string, video: ListingVideo | null, now: number = Date.now()): void {
-  videos.set(listingId, { video, expiresAt: now + VIDEO_TTL_MS });
 }
 
 export function clearBookingsCache(): void {
   snapshot = null;
   reviews.clear();
   hostSnapshot = null;
-  videos.clear();
+  clearListingVideos();
 }

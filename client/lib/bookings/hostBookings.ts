@@ -116,21 +116,8 @@ export function hostDurationText(b: HostBooking): string {
   return '';
 }
 
-export interface ListingVideo { videoUrl: string | null; thumbnailUrl: string | null }
-
-/** The listing's video (playback URL and poster), or null when it has none. */
-export async function fetchListingVideo(listingId: string, token: string, fetchFn: typeof fetch = fetch): Promise<ListingVideo | null> {
-  const headers = { Authorization: `Bearer ${token}` };
-  const mediaResponse = await fetchFn(`/api/properties/${encodeURIComponent(listingId)}/media`, { headers });
-  if (!mediaResponse.ok) return null;
-  const mediaPayload = await mediaResponse.json() as { media?: Array<{ id: string; type: string }> };
-  const video = (Array.isArray(mediaPayload.media) ? mediaPayload.media : []).find((item) => item && item.type === 'video');
-  if (!video) return null;
-  const playbackResponse = await fetchFn(`/api/media/${encodeURIComponent(video.id)}/playback`, { headers });
-  if (!playbackResponse.ok) return null;
-  const playback = await playbackResponse.json() as { url?: string; thumbnailUrl?: string };
-  return { videoUrl: playback.url || null, thumbnailUrl: playback.thumbnailUrl || null };
-}
+// Listing videos are shared with Marketplace (lib/media/listingVideo.ts).
+export { fetchListingVideo, type ListingVideo } from '../media/listingVideo';
 
 export interface TableReservation {
   id?: string;
