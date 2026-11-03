@@ -87,19 +87,10 @@ test('Help & Support footer legal links open in a new tab', () => {
 });
 
 test('Settings page policy links open in a new tab', () => {
-  const settingsPath = path.join(clientRoot, 'legacy-pages', 'settings.html');
-  const content = fs.readFileSync(settingsPath, 'utf8');
-
-  assert.match(
-    content,
-    /<a\s+href="\/privacy"\s+target="_blank"\s+rel="noopener noreferrer"\s+class="info-row clickable">/,
-    'Settings Privacy Policy link must open in a new tab'
-  );
-  assert.match(
-    content,
-    /<a\s+href="\/terms"\s+target="_blank"\s+rel="noopener noreferrer"\s+class="info-row clickable">/,
-    'Settings Terms link must open in a new tab'
-  );
+  const content = fs.readFileSync(path.join(clientRoot, 'components', 'settings', 'SettingsSections.tsx'), 'utf8');
+  assert.match(content, /<LinkRow href="\/privacy" [^>]*external \/>/, 'Settings Privacy Policy link must open in a new tab');
+  assert.match(content, /<LinkRow href="\/terms" [^>]*external \/>/, 'Settings Terms link must open in a new tab');
+  assert.match(content, /external \? \{ target: '_blank', rel: 'noopener noreferrer' \}/);
 });
 
 test('Legacy signup pages consent links open in a new tab', () => {

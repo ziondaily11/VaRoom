@@ -320,7 +320,6 @@ const pageTemplates = {
   '/booking': 'booking.html',
   '/onboarding': 'onboarding.html',
   '/profile': 'profile.html',
-  '/settings': 'settings.html',
 };
 
 // The landing page and its sign-in / sign-up are native on the frontend.
@@ -401,6 +400,19 @@ app.get(['/chat-settings', '/chat-settings.html', '/legacy-pages/chat-settings.h
     requestUrl: req.originalUrl,
     destinationPath: '/chat-settings',
     unavailableMessage: 'Chat settings are not available from this server.',
+  });
+  if (redirect.location) return res.redirect(redirect.status, redirect.location);
+  return res.status(redirect.status).send(redirect.message);
+});
+
+// Settings is a native frontend page (the query is kept: Google re-verification returns here).
+app.get(['/settings', '/settings.html', '/legacy-pages/settings.html'], (req, res) => {
+  const redirect = resolveFrontendRouteRedirect({
+    frontendBaseUrl: process.env.PUBLIC_BASE_URL || process.env.CLIENT_BASE_URL,
+    requestHost: req.get('host'),
+    requestUrl: req.originalUrl,
+    destinationPath: '/settings',
+    unavailableMessage: 'Settings are not available from this server.',
   });
   if (redirect.location) return res.redirect(redirect.status, redirect.location);
   return res.status(redirect.status).send(redirect.message);

@@ -27,6 +27,16 @@ module.exports = {
         permanent: true,
       },
       {
+        source: '/settings.html',
+        destination: '/settings',
+        permanent: true,
+      },
+      {
+        source: '/legacy-pages/settings.html',
+        destination: '/settings',
+        permanent: true,
+      },
+      {
         source: '/chat-settings.html',
         destination: '/chat-settings',
         permanent: true,
