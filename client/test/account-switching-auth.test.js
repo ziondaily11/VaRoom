@@ -334,3 +334,49 @@ test('a later token expiry already written by another tab cannot be replaced by 
   assert.equal(stored.refresh_token, 'refresh-newer');
   });
 });
+
+test('switching while the session watcher reacts to SIGNED_IN does not fail on a superseded membership load', async () => {
+  // setSession emits SIGNED_IN, so the watcher saves the new session while the
+  // switch itself saves it: two membership loads for the same account race.
+  const storage = new Map();
+  const localStorage = {
+    getItem(key) { return storage.has(key) ? storage.get(key) : null; },
+    setItem(key, value) { storage.set(key, String(value)); },
+    removeItem(key) { storage.delete(key); }
+  };
+  let membershipRequests = 0;
+  const window = {
+    localStorage,
+    fetch: (url) => new Promise((resolve) => {
+      if (String(url).includes('/api/account-groups/current')) membershipRequests += 1;
+      setTimeout(() => resolve({ ok: true, async json() { return { members: ['account-a', 'account-b'].map((id) => ({ id, full_name: id, username: id })) }; } }), 5);
+    }),
+    dispatchEvent() {}
+  };
+  vm.runInNewContext(accountSwitcherSource, { window, localStorage, document: {}, alert() {}, setTimeout, clearTimeout, CustomEvent: class CustomEvent { constructor(type, options) { this.type = type; this.detail = options.detail; } } });
+  const api = window.VaRoomAccountSwitcher;
+
+  const currentA = session('account-a', 'access-a', 'refresh-a');
+  const sessionB = session('account-b', 'access-b', 'refresh-b');
+  const client = createMockClient(currentA, new Map([['refresh-b', sessionB], ['refresh-a', currentA]]));
+  const listeners = [];
+  client.auth.onAuthStateChange = (callback) => { listeners.push(callback); return { data: { subscription: { unsubscribe() {} } } }; };
+  const setSession = client.auth.setSession;
+  client.auth.setSession = async (tokens) => {
+    const result = await setSession(tokens);
+    if (result.data && result.data.session) listeners.forEach((listener) => listener('SIGNED_IN', result.data.session));
+    return result;
+  };
+  api.watchSessionTokens(client);
+
+  await api.loadLinkedAccounts(client, currentA);
+  api.upsertAccount(account('account-a', 'access-a', 'refresh-a'));
+  api.upsertAccount(account('account-b', 'access-b', 'refresh-b'));
+
+  const switched = await api.switchAccount(client, api.getLinkedAccounts().find((item) => item.id === 'account-b'));
+  assert.equal(switched.user.id, 'account-b');
+  assert.equal(client.getActiveSession().user.id, 'account-b', 'the switch is not rolled back');
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  assert.ok(api.getLinkedAccounts().some((item) => item.id === 'account-b'));
+  assert.ok(membershipRequests <= 3, `membership loads for one account are shared (${membershipRequests})`);
+});

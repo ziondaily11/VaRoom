@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { takeAddAccountNotice } from '../../lib/auth/authCallback';
+import { takeAddAccountNotice, takePendingAccountSwitch } from '../../lib/auth/authCallback';
+import { switchAccount } from '../../lib/account/accountActions';
 
-// The one-time notice left by /auth-callback when adding a Google account
-// failed after a full-page redirect: the user is back where they started and
-// still signed in to their current account.
+// What /auth-callback leaves after a full-page Google account add: on success
+// the page switches to the added account (which reloads it); on failure a
+// one-time notice, with the user back where they started and still signed in
+// to their current account.
 
 const SHOW_MS = 6000;
 
@@ -24,12 +26,23 @@ export default function AddAccountNotice() {
   useEffect(() => {
     let storage: Storage | null = null;
     try { storage = window.sessionStorage; } catch { /* Storage unavailable. */ }
+    const pendingSwitch = takePendingAccountSwitch(storage);
+    if (pendingSwitch) {
+      switchAccount(pendingSwitch).catch((error: unknown) => {
+        setMessage(`Account added, but switching failed: ${(error as Error)?.message || 'please try again from the account menu.'}`);
+      });
+      return undefined;
+    }
     const notice = takeAddAccountNotice(storage);
-    if (!notice) return undefined;
-    setMessage(notice);
+    if (notice) setMessage(notice);
+    return undefined;
+  }, []);
+
+  useEffect(() => {
+    if (!message) return undefined;
     const timer = window.setTimeout(() => setMessage(null), SHOW_MS);
     return () => window.clearTimeout(timer);
-  }, []);
+  }, [message]);
 
   if (!message) return null;
   return (
