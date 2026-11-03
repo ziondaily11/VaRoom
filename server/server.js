@@ -329,8 +329,6 @@ const pageTemplates = {
   '/profile-public': 'profile-public.html',
   '/profile': 'profile.html',
 
-  '/pricing': 'pricing.html',
-  '/pricing.html': 'pricing.html',
   '/settings': 'settings.html',
   '/varoom-post': 'varoom-post.html',
   '/landing-page': 'landing page.html'
@@ -351,6 +349,19 @@ app.get(['/notifications', '/notifications.html', '/legacy-pages/notifications.h
     frontendBaseUrl: process.env.PUBLIC_BASE_URL || process.env.CLIENT_BASE_URL,
     requestHost: req.get('host'),
     requestUrl: req.originalUrl,
+  });
+  if (redirect.location) return res.redirect(redirect.status, redirect.location);
+  return res.status(redirect.status).send(redirect.message);
+});
+
+// Pricing is a native frontend page (the query is kept: Paystack returns here).
+app.get(['/pricing', '/pricing.html', '/legacy-pages/pricing.html'], (req, res) => {
+  const redirect = resolveFrontendRouteRedirect({
+    frontendBaseUrl: process.env.PUBLIC_BASE_URL || process.env.CLIENT_BASE_URL,
+    requestHost: req.get('host'),
+    requestUrl: req.originalUrl,
+    destinationPath: '/pricing',
+    unavailableMessage: 'Pricing is not available from this server.',
   });
   if (redirect.location) return res.redirect(redirect.status, redirect.location);
   return res.status(redirect.status).send(redirect.message);

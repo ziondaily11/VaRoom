@@ -62,8 +62,8 @@ test('Paystack uses a verified per-listing save state and restores complete form
   assert.match(listingPage, /listingSubscriptionReturnReference/);
   assert.match(listingPage, /payment\.niche === \(hostNiche === 'property' \? 'property' : 'shops_offices'\)/);
   assert.match(listingPage, /Your plan is active\. Your saved listing has been restored for review and publishing\./);
-  const subscriptionReturn = fs.readFileSync(path.join(root, 'client', 'legacy-pages', 'pricing.html'), 'utf8');
-  assert.match(subscriptionReturn, /subscription=return&reference=' \+ encodeURIComponent\(paymentReference\)/);
+  const subscriptionReturn = fs.readFileSync(path.join(root, 'client', 'pages', 'pricing.tsx'), 'utf8');
+  assert.match(subscriptionReturn, /subscription=return&reference=\$\{encodeURIComponent\(reference\)\}/);
 });
 
 test('My Profile displays private saved drafts and Continue Listing opens their explicit draft id', () => {
