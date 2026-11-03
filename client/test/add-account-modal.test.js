@@ -169,15 +169,17 @@ test('/auth-callback supports in-app addAccount popup and redirect flow; both di
 });
 
 test('Settings keeps saved-account removal separate from permanent account deletion and sidebar menus', () => {
-  const settingsCode = fs.readFileSync(path.join(__dirname, '../legacy-pages/settings.html'), 'utf8');
+  // Native Settings (legacy settings.html is retired).
+  const settingsCode = fs.readFileSync(path.join(__dirname, '../components/settings/SettingsSections.tsx'), 'utf8');
+  const settingsLib = fs.readFileSync(path.join(__dirname, '../lib/settings/settings.ts'), 'utf8');
   assert.match(settingsCode, /Remove saved account\?/);
   assert.match(settingsCode, /Remove account/);
   assert.match(settingsCode, /The VaRoom account and its listings, bookings, chats, profile, and other data will remain available/);
-  assert.match(settingsCode, /removeLinkedAccount\(supabaseClient, account\.id\)/);
-  const accountRowRenderer = settingsCode.slice(settingsCode.indexOf('function createAccountRow'), settingsCode.indexOf('function renderDashboardAccounts'));
-  assert.match(accountRowRenderer, /if \(!isActive\)[\s\S]*?Remove account/);
-  assert.match(accountRowRenderer, /if \(isActive\)[\s\S]*?Delete account/);
-  assert.match(settingsCode, /fetch\('\/api\/delete-account'/);
+  assert.match(settingsCode, /removeLinkedAccount\(getSupabaseClient\(\), account\.id\)/);
+  const accountRow = settingsCode.slice(settingsCode.indexOf('const row = (account: LinkedAccount, isActive: boolean)'), settingsCode.indexOf("const name = removing"));
+  assert.match(accountRow, /\{!isActive && \([\s\S]*?Remove account/);
+  assert.match(accountRow, /\{isActive && <button[^>]*>Delete account/);
+  assert.match(settingsLib, /fetchFn\('\/api\/delete-account'/);
   assert.doesNotMatch(accountSwitcherCode, /Remove account/);
 });
 
