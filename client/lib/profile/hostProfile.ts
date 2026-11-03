@@ -100,10 +100,19 @@ export function toProfileListing(row: Row): ProfileListing {
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const isUuid = (value: string) => UUID.test(value);
 
-/** A host by id or username (null when there is no such host). */
+/** A host's in-app profile page: by username when there is one (usernames are unique, ignoring case). */
+export function hostProfilePath(hostId: string, username?: string | null): string {
+  const name = (username || '').replace(/^@/, '').trim();
+  return `/host/${encodeURIComponent(name || hostId)}`;
+}
+
+/** `value` matched literally by ilike (its own % _ \ are escaped). */
+export const literalIlike = (value: string) => value.replace(/[\\%_]/g, (char) => `\\${char}`);
+
+/** A host by id or username, ignoring the username's case (null when there is no such host). */
 export async function fetchHostProfile(client: SupabaseClient, by: { id?: string; username?: string }): Promise<HostProfileRow | null> {
   let query = client.from('profiles').select(HOST_PROFILE_COLUMNS).eq('role', 'host');
-  query = by.id ? query.eq('id', by.id) : query.eq('username', by.username || '');
+  query = by.id ? query.eq('id', by.id) : query.ilike('username', literalIlike((by.username || '').replace(/^@/, '')));
   const { data, error } = await query.maybeSingle();
   if (error) throw new Error(error.message);
   return (data as HostProfileRow | null) || null;
@@ -206,8 +215,23 @@ export const loadHostReviews = (viewerId: string | null, hostId: string, force =
 export const loadListingDrafts = (viewerId: string, token: string | null, force = false, fetchFn: FetchFn = fetch) =>
   cached(key(viewerId, viewerId, 'drafts'), () => fetchListingDrafts(token, fetchFn), force);
 
-export const loadHostProfile = (client: SupabaseClient, viewerId: string | null, by: { id?: string; username?: string }, force = false) =>
-  cached(key(viewerId, by.id || `@${(by.username || '').toLowerCase()}`, 'profile'), () => fetchHostProfile(client, by), force);
+const usernameKey = (username: string) => `@${username.replace(/^@/, '').toLowerCase()}`;
+
+/** Cached under both the id and the username, so either address reuses it. */
+export function loadHostProfile(client: SupabaseClient, viewerId: string | null, by: { id?: string; username?: string }, force = false): Promise<HostProfileRow | null> {
+  const lookup = by.id || usernameKey(by.username || '');
+  return cached(key(viewerId, lookup, 'profile'), () => fetchHostProfile(client, by), force).then((row) => {
+    if (row) {
+      if (by.id && row.username) cache.write(key(viewerId, usernameKey(row.username), 'profile'), row);
+      if (!by.id) cache.write(key(viewerId, row.id, 'profile'), row);
+    }
+    return row;
+  });
+}
+
+/** The cached profile for an id or username, if any. */
+export const peekHostProfile = (viewerId: string | null, by: { id?: string; username?: string }) =>
+  peek<HostProfileRow | null>(viewerId, by.id || usernameKey(by.username || ''), 'profile');
 
 export const loadOwnProfile = (client: SupabaseClient, userId: string, force = false) =>
   cached(key(userId, userId, 'own-profile'), () => fetchOwnProfile(client, userId), force);

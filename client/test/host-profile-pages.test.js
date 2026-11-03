@@ -28,7 +28,8 @@ test('/host/[hostId]: viewer from AuthProvider, shared cached data, owner banner
   const view = read('components', 'hostProfile', 'HostProfileView.tsx');
   assert.match(view, /useAuth\(\)/);
   assert.doesNotMatch(view, /window\.supabaseClient|\.select\("role"\)|select\('role'\)/, 'no second session or role lookup');
-  assert.match(view, /loadHostProfile\(client, viewerId, \{ id: hostId \}\)/);
+  assert.match(view, /const by = keyIsId \? \{ id: hostKey \} : \{ username: hostKey \};/);
+  assert.match(view, /loadHostProfile\(client, viewerId, by\)/);
   assert.match(view, /loadHostReviews\(viewerId, hostId, force\)/);
   assert.match(view, /return \(\) => \{ cancelled = true; void client\.removeChannel\(channel\); \};/, 'the realtime channel is always removed');
   assert.doesNotMatch(view + read('components', 'hostProfile', 'ProfileBanner.tsx'), /coverHeader/, 'the owner sees the same banner and identity as visitors');
@@ -55,4 +56,28 @@ test('legacy profile components are retired; routes are TypeScript', () => {
   const server = fs.readFileSync(path.join(root, '..', 'server', 'server.js'), 'utf8');
   assert.doesNotMatch(server, /profile-public\.html/);
   assert.match(server, /destinationPath: `\/u\/\$\{encodeURIComponent\(req\.params\.username\)\}`/);
+});
+
+test('host page addresses use the username (unique, any case); id addresses keep working', async () => {
+  const hp = loadTs(path.join(root, 'lib', 'profile', 'hostProfile.ts'));
+  assert.equal(hp.hostProfilePath('53f971b0-8489-4886-834f-bcc37a2469cd', 'amazingstays'), '/host/amazingstays');
+  assert.equal(hp.hostProfilePath('53f971b0-8489-4886-834f-bcc37a2469cd', '@Amazing Stays'), '/host/Amazing%20Stays');
+  assert.equal(hp.hostProfilePath('53f971b0-8489-4886-834f-bcc37a2469cd', null), '/host/53f971b0-8489-4886-834f-bcc37a2469cd');
+  assert.equal(hp.literalIlike('a_b%c'), 'a\\_b\\%c', 'no wildcards from the address');
+
+  const calls = [];
+  const row = { id: 'H1', role: 'host', username: 'amazingstays' };
+  const client = { from: () => { const entry = []; calls.push(entry); const chain = new Proxy({}, { get: (_t, prop) => (prop === 'maybeSingle' ? async () => ({ data: row, error: null }) : (...args) => { entry.push([prop, ...args]); return chain; }) }); return chain; } };
+  await hp.loadHostProfile(client, 'V1', { username: 'AmazingStays' });
+  assert.deepEqual(calls[0].filter((op) => op[0] === 'ilike'), [['ilike', 'username', 'AmazingStays']], 'matched ignoring case');
+  assert.equal(hp.peekHostProfile('V1', { id: 'H1' }), row, 'cached under the id too');
+  await hp.loadHostProfile(client, 'V2', { id: 'H1' });
+  assert.equal(hp.peekHostProfile('V2', { username: 'AMAZINGSTAYS' }), row, 'an id load is reused by the username address');
+  assert.equal(calls.length, 2);
+
+  const view = read('components', 'hostProfile', 'HostProfileView.tsx');
+  assert.match(view, /router\.replace\(hostProfilePath\(profile\.id, profile\.username\), undefined, \{ shallow: true, scroll: false \}\)/);
+  assert.match(read('pages', 'client-home.tsx'), /href=\{hostProfilePath\(listing\.host_id, host\.username\)\}/);
+  assert.match(read('legacy-pages', 'booking.html'), /encodeURIComponent\(\(listing\.host && listing\.host\.username\) \|\| listing\.host_id\)/);
+  assert.match(read('legacy-pages', 'host-home.html'), /'\/host\/' \+ encodeURIComponent\(host\.username \|\| listing\.host_id\)/);
 });

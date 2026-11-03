@@ -5,7 +5,7 @@ import { useAuth } from '../lib/auth/AuthProvider';
 import { getSupabaseClient } from '../lib/supabase/client';
 import { loginUrl } from '../lib/safeRedirect';
 import {
-  fetchHostProfile, invalidateHostProfile, isUuid, loadHostListings, loadHostReviews, loadListingDrafts, loadOwnProfile, loadProfileCategories, peek, primeHostProfile,
+  hostProfilePath, invalidateHostProfile, isUuid, loadHostListings, loadHostProfile, loadHostReviews, loadListingDrafts, loadOwnProfile, loadProfileCategories, peek, primeHostProfile,
   type HostProfileRow, type HostReview, type ListingDraft, type ProfileCategory, type ProfileListing,
 } from '../lib/profile/hostProfile';
 import { deleteCategory, displayName, loadClientBookingsCached, profileShareUrl, type ProfileBooking } from '../lib/profile/profilePage';
@@ -71,10 +71,10 @@ export default function ProfilePage() {
     (async () => {
       let host: HostProfileRow | null = null;
       try {
-        host = await fetchHostProfile(client, isUuid(visit) ? { id: visit } : { username: visit });
+        host = await loadHostProfile(client, userId, isUuid(visit) ? { id: visit } : { username: visit });
       } catch { host = null; }
       if (cancelled) return;
-      if (host && host.id !== userId) void router.replace(`/host/${encodeURIComponent(host.id)}`);
+      if (host && host.id !== userId) void router.replace(hostProfilePath(host.id, host.username));
       else { setResolvingVisit(false); toOwn(); }
     })();
     return () => { cancelled = true; };

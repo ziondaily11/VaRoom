@@ -2668,7 +2668,7 @@
       const isOwnProfile = listing.host_id === currentUser.id;
       const hostProfileHref = isOwnProfile
         ? '/profile'
-        : '/host/' + encodeURIComponent(listing.host_id);
+        : '/host/' + encodeURIComponent(host.username || listing.host_id);
       const hostProfileLabel = isOwnProfile
         ? 'Edit your profile'
         : 'View ' + (host.full_name || 'Host') + '\'s profile';

@@ -5,7 +5,7 @@ import { useAuth } from '../../lib/auth/AuthProvider';
 import { getSupabaseClient } from '../../lib/supabase/client';
 import { loginUrl } from '../../lib/safeRedirect';
 import {
-  loadHostListings, loadHostProfile, loadHostReviews, peek, type HostProfileRow, type HostReview, type ProfileListing, type ReviewSummary,
+  hostProfilePath, isUuid, loadHostListings, loadHostProfile, loadHostReviews, peek, peekHostProfile, type HostProfileRow, type HostReview, type ProfileListing, type ReviewSummary,
 } from '../../lib/profile/hostProfile';
 import { NICHE_LABELS } from '../../lib/profile/profilePage';
 import { hostChatPath } from '../../lib/profile/hostChat';
@@ -111,11 +111,12 @@ function ListingCard({ listing, token }: { listing: ProfileListing; token: strin
 export default function HostProfileView() {
   const router = useRouter();
   const { status, user, session, profile: viewerProfile } = useAuth();
-  const hostId = typeof router.query.hostId === 'string' ? router.query.hostId : null;
+  // /host/<username> or /host/<id>; opened by id, the address shows the username.
+  const hostKey = typeof router.query.hostId === 'string' ? router.query.hostId : null;
+  const keyIsId = Boolean(hostKey && isUuid(hostKey));
   const viewerId = user?.id || null;
   const token = session?.access_token || null;
   const authReady = status !== 'loading';
-  const isOwner = Boolean(viewerId && hostId && viewerId === hostId);
 
   const [tab, setTab] = useState<ProfileTab>('listings');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -128,22 +129,38 @@ export default function HostProfileView() {
   const [reviewsError, setReviewsError] = useState('');
   const [loadError, setLoadError] = useState('');
 
+  // The profile, by id or username.
   useEffect(() => {
-    if (!router.isReady || !hostId || !authReady) return undefined;
+    if (!router.isReady || !hostKey || !authReady) return undefined;
     const client = getSupabaseClient();
     if (!client) { setLoadError('Host profiles are unavailable right now.'); return undefined; }
     let cancelled = false;
+    const by = keyIsId ? { id: hostKey } : { username: hostKey };
     setLoadError('');
-    setReviewsError('');
-    const cachedProfile = peek<HostProfileRow | null>(viewerId, hostId, 'profile');
-    const cachedListings = peek<ProfileListing[]>(viewerId, hostId, isOwner ? 'listings:owner' : 'listings');
-    setProfile(cachedProfile || null);
-    setListings(cachedListings || null);
-
-    loadHostProfile(client, viewerId, { id: hostId }).then((row) => {
+    setProfile(peekHostProfile(viewerId, by) || null);
+    loadHostProfile(client, viewerId, by).then((row) => {
       if (cancelled) return;
       if (row) setProfile(row); else setLoadError('Could not load this host profile.');
     }).catch(() => { if (!cancelled) setLoadError('Could not load this host profile.'); });
+    return () => { cancelled = true; };
+  }, [router.isReady, hostKey, keyIsId, authReady, viewerId]);
+
+  // Opened by id: show the username in the address (no reload; the data stays).
+  useEffect(() => {
+    if (!keyIsId || !profile || !profile.username || profile.id !== hostKey) return;
+    void router.replace(hostProfilePath(profile.id, profile.username), undefined, { shallow: true, scroll: false });
+  }, [keyIsId, profile, hostKey, router]);
+
+  // Listings and reviews, keyed by the host's id (an id address starts them at once).
+  const hostId = keyIsId ? hostKey : (profile ? profile.id : null);
+  const isOwner = Boolean(viewerId && hostId && viewerId === hostId);
+  useEffect(() => {
+    if (!router.isReady || !hostId || !authReady) return undefined;
+    const client = getSupabaseClient();
+    if (!client) return undefined;
+    let cancelled = false;
+    setReviewsError('');
+    setListings(peek<ProfileListing[]>(viewerId, hostId, isOwner ? 'listings:owner' : 'listings') || null);
     loadHostListings(client, viewerId, hostId, isOwner).then((rows) => { if (!cancelled) setListings(rows); }).catch(() => { if (!cancelled) setListings([]); });
 
     const loadReviews = (force = false) => loadHostReviews(viewerId, hostId, force).then((result) => {

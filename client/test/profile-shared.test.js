@@ -162,7 +162,7 @@ test('host profile: by id or username, hosts only; categories with their listing
     profile_category_listings: { data: [{ category_id: 'C1', listing_id: 'L1' }, { category_id: 'C1', listing_id: 'L2' }], error: null },
   });
   await hp.fetchHostProfile(client, { username: 'amazingstays' });
-  assert.deepEqual(client.calls[0].ops.filter((op) => op[0] === 'eq'), [['eq', 'role', 'host'], ['eq', 'username', 'amazingstays']]);
+  assert.deepEqual(client.calls[0].ops.filter((op) => op[0] === 'eq' || op[0] === 'ilike'), [['eq', 'role', 'host'], ['ilike', 'username', 'amazingstays']], 'usernames match ignoring case');
   const categories = await hp.fetchProfileCategories(client, 'H1');
   assert.deepEqual(categories.map((c) => [c.name, c.listingIds]), [['Beach', ['L1', 'L2']], ['City', []]]);
   const reviews = await hp.fetchHostReviews('H1', async (url) => { assert.equal(url, '/api/hosts/H1/reviews'); return json(200, { reviews: [{ id: 'r', rating: 5 }], summary: { average_rating: 5, review_count: 1, distribution: [{ star: 5, count: 1 }] } }); });

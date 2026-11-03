@@ -1,5 +1,6 @@
 import Head from 'next/head';
 import { useRouter } from 'next/router';
+import { hostProfilePath } from '../lib/profile/hostProfile';
 import type { CSSProperties, ReactElement, PointerEvent as ReactPointerEvent } from 'react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { getSupabaseClient } from '../lib/supabase/client';
@@ -492,7 +493,7 @@ function ListingCard({
 
   return (
     <article className={`${styles.card} ${firstCard ? styles.firstCard : ''}`} data-listing-id={listing.id}>
-      <a className={styles.avatar} href={`/host/${encodeURIComponent(listing.host_id)}`} aria-label={`View ${hostName}'s profile`}>
+      <a className={styles.avatar} href={hostProfilePath(listing.host_id, host.username)} aria-label={`View ${hostName}'s profile`}>
         {hostAvatar
           ? <img src={hostAvatar} alt="" />
           : (hostName.charAt(0).toUpperCase() || '?')}
@@ -500,7 +501,7 @@ function ListingCard({
       <div className={styles.cardBody}>
         <div className={styles.cardHead}>
           <div className={styles.hostDetails}>
-            <a className={styles.hostName} href={`/host/${encodeURIComponent(listing.host_id)}`}>
+            <a className={styles.hostName} href={hostProfilePath(listing.host_id, host.username)}>
               {hostName}{host.verified && <span className={styles.verified} aria-label="Verified host">✔</span>}
             </a>
             <div className={styles.location}>
