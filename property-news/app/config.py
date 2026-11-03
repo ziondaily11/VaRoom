@@ -57,10 +57,23 @@ def resolve_ai_provider(env: Mapping[str, str]) -> str:
     return "gemini" if env.get("GEMINI_API_KEY") else "rules"
 
 
+# gemini-2.5-flash is no longer available to new API keys (Google returns 404
+# NOT_FOUND); Elie's chatbot made the same move.
+DEFAULT_GEMINI_MODEL = "gemini-3.8-flash"
+RETIRED_GEMINI_MODELS = {"gemini-1.5-flash", "gemini-2.5-flash"}
+
+
+def resolve_ai_model(env: Mapping[str, str], provider: str) -> str | None:
+    """An explicit model wins unless Google has retired it; Gemini gets a default."""
+    configured = next((value.strip() for name in ("NEWS_AI_MODEL", "GEMINI_MODEL")
+                       if (value := env.get(name)) and value.strip()), None)
+    if configured and not (provider == "gemini" and configured in RETIRED_GEMINI_MODELS):
+        return configured
+    return DEFAULT_GEMINI_MODEL if provider == "gemini" else None
+
+
 _default_ai_provider = resolve_ai_provider(os.environ)
-_default_ai_model = _first_set("NEWS_AI_MODEL", "GEMINI_MODEL") or (
-    "gemini-2.5-flash" if _default_ai_provider.lower() == "gemini" else None
-)
+_default_ai_model = resolve_ai_model(os.environ, _default_ai_provider.lower())
 
 
 @dataclass(frozen=True)

@@ -1931,6 +1931,16 @@ class Phase1PipelineTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(resolve_ai_provider({"NEWS_AI_PROVIDER": "rules", "GEMINI_API_KEY": "set"}), "rules")
         self.assertEqual(resolve_ai_provider({"NEWS_AI_PROVIDER": "openai-compatible"}), "openai-compatible")
 
+    def test_gemini_model_defaults_to_a_current_model_and_ignores_retired_ones(self):
+        from app.config import DEFAULT_GEMINI_MODEL, resolve_ai_model
+
+        self.assertEqual(resolve_ai_model({}, "gemini"), DEFAULT_GEMINI_MODEL)
+        self.assertEqual(resolve_ai_model({"NEWS_AI_MODEL": "gemini-2.5-flash"}, "gemini"), DEFAULT_GEMINI_MODEL)
+        self.assertEqual(resolve_ai_model({"NEWS_AI_MODEL": " "}, "gemini"), DEFAULT_GEMINI_MODEL)
+        self.assertEqual(resolve_ai_model({"GEMINI_MODEL": "gemini-4-pro"}, "gemini"), "gemini-4-pro")
+        self.assertIsNone(resolve_ai_model({}, "rules"))
+        self.assertEqual(resolve_ai_model({"NEWS_AI_MODEL": "gpt-x"}, "openai-compatible"), "gpt-x")
+
     def test_rules_summary_never_cuts_a_word(self):
         from app.analysis import SUMMARY_MAX_LENGTH, _excerpt
 
