@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useAuth } from '../lib/auth/AuthProvider';
@@ -7,11 +7,14 @@ import { getSafeRedirect, loginUrl } from '../lib/safeRedirect';
 import { accountRole } from '../lib/types/profile';
 import { resolveAvatarUrl } from '../components/resolveStoredPhotoUrl';
 import {
-  destination, hostStepKey, initialCategories, initialHostStep, initialNiche, initialTimeline, loadHostExtras, phoneForInput, roleHome,
+  destination, hostStepKey, initialCategories, initialHostStep, initialNiche, initialTimeline, loadHostExtras, phoneForInput, readListingDraft, roleHome,
+  saveAvatar, writeListingDraft,
   type Category, type HostExtras, type Timeline,
 } from '../lib/onboarding/onboarding';
-import { OnboardingLayout, type StepInfo } from '../components/onboarding/OnboardingParts';
-import { ClientPreview, ClientStep, HostListingStep, HostPreview, HostProfileStep, type ProfileDraft } from '../components/onboarding/OnboardingSteps';
+import { OnboardingLayout, type PhotoState, type StepInfo } from '../components/onboarding/OnboardingParts';
+import {
+  ClientPreview, ClientStep, HostListingStep, HostPreview, HostProfileStep, PhotoUploadNotice, type PhotoUpload, type ProfileDraft,
+} from '../components/onboarding/OnboardingSteps';
 import { ONBOARDING_STYLES } from '../components/onboarding/onboardingStyles';
 
 // Onboarding (migrated from legacy-pages/onboarding.html, redesigned in the
@@ -21,6 +24,9 @@ import { ONBOARDING_STYLES } from '../components/onboarding/onboardingStyles';
 // go back to the link they signed in from (if safe), else their role's home.
 
 const storage = () => { try { return window.localStorage; } catch { return null; } };
+const session = () => { try { return window.sessionStorage; } catch { return null; } };
+
+type ListingDraft = { niche: Category | null; name: string };
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -37,7 +43,8 @@ export default function OnboardingPage() {
   const [extras, setExtras] = useState<HostExtras | null>(null);
   const [step, setStep] = useState<1 | 2 | null>(null);
   const [profileDraft, setProfileDraft] = useState<ProfileDraft>({ username: '', phone: '', city: '', photo: null });
-  const [listingDraft, setListingDraft] = useState<{ niche: Category | null; name: string }>({ niche: null, name: '' });
+  // Step 2's choices; null until step 2 first opens (then kept while going back, and across a reload).
+  const [listingDraft, setListingDraft] = useState<ListingDraft | null>(null);
   const [clientDraft, setClientDraft] = useState<{ categories: Category[]; timeline: Timeline | null }>({ categories: [], timeline: null });
   const [leaving, setLeaving] = useState(false);
   // Step 1's saved username (the auth profile refreshes only at the end).
@@ -46,6 +53,11 @@ export default function OnboardingPage() {
   // callback just wrote, so a missing profile or role is read fresh once
   // before sending anyone back to sign in.
   const [recheck, setRecheck] = useState<'idle' | 'running' | 'done'>('idle');
+  // Step 1's photo uploads behind the scenes while the host fills in step 2.
+  const [chosenPhoto, setChosenPhoto] = useState<PhotoState | null>(null);
+  const [upload, setUpload] = useState<PhotoUpload>('idle');
+  const uploadBlob = useRef<Blob | null>(null);
+  const uploadRun = useRef<{ seq: number; done: Promise<PhotoUpload> } | null>(null);
 
   // Who may be here: signed in, a known role, not yet onboarded.
   useEffect(() => {
@@ -72,6 +84,7 @@ export default function OnboardingPage() {
     loadHostExtras(client, userId).then((row) => {
       if (cancelled) return;
       setExtras(row);
+      setListingDraft((current) => current || readListingDraft(session(), userId));
       let stored: string | null = null;
       try { stored = storage()?.getItem(hostStepKey(userId)) || null; } catch { stored = null; }
       setStep(initialHostStep(stored, { username: profile?.username, phone: row.phone, city: row.city }));
@@ -90,17 +103,58 @@ export default function OnboardingPage() {
     window.scrollTo({ top: 0 });
   }, [userId]);
 
+  const startUpload = useCallback((blob: Blob) => {
+    const client = getSupabaseClient();
+    if (!client || !userId) return;
+    uploadBlob.current = blob;
+    const seq = (uploadRun.current ? uploadRun.current.seq : 0) + 1;
+    setUpload('uploading');
+    const done = saveAvatar(client, userId, blob).then((): PhotoUpload => 'done', (uploadError: unknown): PhotoUpload => {
+      console.error('Onboarding photo upload failed:', uploadError);
+      return 'failed';
+    }).then((result) => {
+      // A newer photo replaces this one's outcome.
+      if (uploadRun.current && uploadRun.current.seq === seq) setUpload(result);
+      return result;
+    });
+    uploadRun.current = { seq, done };
+  }, [userId]);
+
+  const skipPhoto = useCallback(() => {
+    uploadRun.current = null;
+    uploadBlob.current = null;
+    setUpload('idle');
+    setChosenPhoto(null);
+    setProfileDraft((draft) => ({ ...draft, photo: null }));
+  }, []);
+
   const leave = useCallback(async (timeline: Timeline | null) => {
     if (!role) return;
     setLeaving(true);
-    if (userId && role === 'host') { try { storage()?.removeItem(hostStepKey(userId)); } catch { /* storage unavailable */ } }
+    if (userId && role === 'host') {
+      try { storage()?.removeItem(hostStepKey(userId)); } catch { /* storage unavailable */ }
+      writeListingDraft(session(), userId, null);
+    }
     // The app (navigation, home pages) must see onboarding as done.
     try { await refreshProfile(); } catch { /* the next page reads it anyway */ }
     void router.replace(destination(role, timeline, redirect));
   }, [role, userId, refreshProfile, router, redirect]);
 
   const onProfileDraft = useCallback((draft: ProfileDraft) => setProfileDraft(draft), []);
-  const onListingDraft = useCallback((draft: { niche: Category | null; name: string }) => setListingDraft(draft), []);
+  const onListingDraft = useCallback((draft: ListingDraft) => {
+    setListingDraft(draft);
+    if (userId) writeListingDraft(session(), userId, draft);
+  }, [userId]);
+
+  // Finish waits for a photo still uploading; a failed one keeps the host here to retry or skip it.
+  const finishHost = useCallback(async () => {
+    const run = uploadRun.current;
+    if (run) {
+      const result = await run.done;
+      if (result === 'failed' && uploadRun.current === run) return;
+    }
+    await leave(null);
+  }, [leave]);
   const onClientDraft = useCallback((draft: { categories: Category[]; timeline: Timeline | null }) => setClientDraft(draft), []);
 
   const head = (
@@ -161,12 +215,13 @@ export default function OnboardingPage() {
         mobileTitle={step === 1 ? 'A little more you.' : 'What will you be listing?'}
         preview={(
           <HostPreview
-            name={step === 2 ? listingDraft.name : (profile.full_name || '')}
+            name={step === 2 && listingDraft ? listingDraft.name : (profile.full_name || '')}
             username={profileDraft.username || profile.username || ''}
             city={profileDraft.city || hostExtras.city || ''}
-            niche={step === 2 ? listingDraft.niche : null}
+            niche={step === 2 && listingDraft ? listingDraft.niche : null}
             photo={profileDraft.photo}
             existingAvatar={existingAvatar}
+            upload={upload}
           />
         )}
         note="You can change any of this later in your profile."
@@ -177,21 +232,30 @@ export default function OnboardingPage() {
             currentUsername={savedUsername || profile.username || null}
             initial={{ username: savedUsername || profile.username || '', phone: phoneForInput(hostExtras.phone), city: hostExtras.city || '' }}
             existingAvatar={existingAvatar}
+            initialPhoto={chosenPhoto}
             onDraft={onProfileDraft}
-            onDone={() => {
+            onDone={(newPhoto) => {
               setExtras((current) => (current ? { ...current, city: profileDraft.city, phone: profileDraft.phone } : current));
               setSavedUsername(profileDraft.username);
+              if (newPhoto) { setChosenPhoto(newPhoto.photo); startUpload(newPhoto.blob); }
               goToStep(2);
             }}
           />
         ) : (
           <HostListingStep
             userId={userId}
-            initialNiche={initialNiche(hostExtras.listing_categories)}
-            initialName={profile.full_name || ''}
+            initialNiche={listingDraft ? listingDraft.niche : initialNiche(hostExtras.listing_categories)}
+            initialName={listingDraft ? listingDraft.name : (profile.full_name || '')}
+            photoNotice={(
+              <PhotoUploadNotice
+                upload={upload}
+                onRetry={() => { if (uploadBlob.current) startUpload(uploadBlob.current); }}
+                onSkip={skipPhoto}
+              />
+            )}
             onDraft={onListingDraft}
             onBack={() => goToStep(1)}
-            onDone={() => { void leave(null); }}
+            onDone={finishHost}
           />
         )}
       </OnboardingLayout>
