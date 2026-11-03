@@ -2015,6 +2015,24 @@ class Phase1PipelineTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(models_called, ["gemini-3.8-flash", "gemini-3.6-flash"])
         self.assertEqual((result.model_provider, result.model_version), ("gemini", "gemini-3.6-flash"))
 
+    async def test_gemini_categories_outside_the_database_list_become_property(self):
+        from app.analysis import GeminiNewsAnalyzer
+        from app.constants import PROPERTY_CATEGORIES
+
+        prompts = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            prompts.append(json.loads(request.content)["contents"][0]["parts"][0]["text"])
+            return httpx.Response(200, request=request, json={"candidates": [{"content": {"parts": [{"text": json.dumps(
+                {"relevant": True, "category": "Real Estate", "confidence_score": 0.9, "source_tier": 1})}]}}]})
+
+        analyzer = GeminiNewsAnalyzer("key", "gemini-test")
+        analyzer._client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        result = await analyzer.analyse(self.item(), self.source)
+        await analyzer.close()
+        self.assertEqual(result.category, "property")
+        self.assertIn(", ".join(sorted(PROPERTY_CATEGORIES)), prompts[0])
+
     def test_fallback_model_defaults_and_never_repeats_the_main_model(self):
         from app.config import DEFAULT_GEMINI_FALLBACK_MODEL, resolve_ai_fallback_model
 
