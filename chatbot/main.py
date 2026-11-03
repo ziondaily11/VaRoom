@@ -4,9 +4,10 @@ VaRoom Chatbot Service.
 Standalone microservice, separate from the Node/Express backend in
 server/. Hosts two related but independent features:
 
-- POST /reply       - host-side assistant, auto-replies to a client
-                       inquiry using whatever listing context is passed
-                       in.
+- POST /internal/reply/generate - host-side assistant for Away mode and
+                       the host's @reply command. Called only by the Express
+                       server (shared key), which saves the reply; this
+                       service only writes the text.
 - POST /elie/search  - "Elie", the client-side search assistant. Handles
                        both ordinary conversation (greetings, "what can
                        you do") and real listing searches. Search results
@@ -24,6 +25,7 @@ for listing search, profile verification, and history persistence.
 import os
 import sys
 import re
+import hmac
 import json
 import uuid
 import asyncio
@@ -34,10 +36,10 @@ from collections import defaultdict, deque
 import httpx
 from pathlib import Path
 from datetime import datetime, timezone, date, timedelta
-from fastapi import FastAPI, Header, HTTPException, Request, Response
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Literal
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -57,7 +59,7 @@ if configured_gemini_model in ("gemini-2.5-flash", "gemini-1.5-flash"):
         configured_gemini_model,
     )
     configured_gemini_model = ""
-PRIMARY_GEMINI_MODEL = "gemini-3.7-flash" or "gemini-3.8-flash"
+PRIMARY_GEMINI_MODEL = configured_gemini_model or "gemini-3.8-flash"
 
 configured_fallback_model = (os.getenv("GEMINI_FALLBACK_MODEL") or "").strip()
 if configured_fallback_model in ("gemini-2.5-flash", "gemini-1.5-flash"):
@@ -229,6 +231,7 @@ async def call_gemini(
     max_attempts_per_model: int = 2,
     total_time_budget: float = 18.0,
     per_attempt_timeout: float = 8.0,
+    thinking_level: Optional[str] = None,
 ) -> str:
     """
     Calls Google Generative Language API with bounded exponential backoff,
@@ -253,9 +256,10 @@ async def call_gemini(
         gen_config["responseMimeType"] = "application/json"
     if max_output_tokens is not None:
         gen_config["maxOutputTokens"] = max_output_tokens
-    if GEMINI_CAPACITY:
+    level = thinking_level or GEMINI_CAPACITY
+    if level:
         # Gemini 3.8 & 3.6 use thinkingLevel in thinkingConfig (minimal, low, medium, high)
-        gen_config["thinkingConfig"] = {"thinkingLevel": GEMINI_CAPACITY.lower()}
+        gen_config["thinkingConfig"] = {"thinkingLevel": level.lower()}
     if gen_config:
         request_body["generationConfig"] = gen_config
 
@@ -477,23 +481,42 @@ async def call_gemini(
 
 
 # ============================================================
-# /reply -- host-side assistant. It supports both Away mode and the host's
-# explicit @reply command, grounded in verified conversation/listing data.
-# Replies are posted as real messages marked is_auto_reply.
+# /internal/reply/generate -- host-side assistant for Away mode and the
+# host's @reply command. Called only by the Express server, which decrypts the
+# conversation, decides whether to reply, and saves the reply itself (chat
+# messages are encrypted and only Express holds the key). This service only
+# writes the text, grounded in verified listing data.
 # ============================================================
 
-class ReplyRequest(BaseModel):
+CHATBOT_INTERNAL_API_KEY = (os.getenv("CHATBOT_INTERNAL_API_KEY") or "").strip()
+REPLY_HISTORY_CHAR_BUDGET = 3000
+
+
+class ReplyHistoryTurn(BaseModel):
+    speaker: Literal["host", "guest"]
+    text: str
+
+
+class InternalReplyRequest(BaseModel):
     conversation_id: str
+    host_id: str
     listing_id: Optional[str] = None
-    message: Optional[str] = None
-    command: Optional[str] = None
+    trigger: Literal["away", "command"]
+    guest_message: str
+    guest_enquiry: Optional[str] = None
+    history: List[ReplyHistoryTurn] = []
 
 
-class ReplyResponse(BaseModel):
+class InternalReplyResponse(BaseModel):
     reply: str
-    skipped: bool = False  # true when the host isn't away — nothing was posted
-    message: Optional[dict] = None
-    messages: Optional[List[dict]] = None
+    alternative_listing_ids: List[str] = []
+
+
+def require_internal_key(provided: Optional[str]) -> None:
+    if not CHATBOT_INTERNAL_API_KEY:
+        raise HTTPException(status_code=503, detail="Internal replies are not configured.")
+    if not provided or not hmac.compare_digest(provided.encode(), CHATBOT_INTERNAL_API_KEY.encode()):
+        raise HTTPException(status_code=401, detail="Unauthorized.")
 
 
 def format_listing_facts(ctx: Optional[dict]) -> str:
@@ -562,13 +585,29 @@ async def generate_ai_reply(
     history_block: str = "",
     elie_command: bool = False,
     request_id: Optional[str] = None,
+    shared_listings: Optional[List[dict]] = None,
 ) -> Optional[dict]:
     """Returns {"reply": str} — or None if Gemini is unreachable."""
     req_id = request_id or get_or_create_correlation_id()
     facts = format_listing_facts(listing_ctx)
+    shared_block = ""
+    if shared_listings:
+        lines = []
+        for row in shared_listings:
+            booking = (row.get("listing_booking_details") or [{}])[0]
+            price = booking.get("price_amount")
+            unit = booking.get("price_unit") or "night"
+            title = re.sub(r"[<>]", "", str(row.get("title") or "Listing"))[:80]
+            lines.append(f"- {title}" + (f": KSh {price} per {unit}" if price is not None else ""))
+        shared_block = (
+            "These other listings from the same host will be shared with the guest as cards "
+            "right after your reply. Say briefly that you're sharing them; do not describe "
+            "them beyond this list:\n" + "\n".join(lines) + "\n\n"
+        )
     today = datetime.now(timezone.utc).date().isoformat()
     clean_message = re.sub(r"</?guest_message>", "", message).strip()[:1000]
-    clean_history = re.sub(r"</?conversation_history>", "", history_block).strip()[:2000]
+    # Keep the newest part of the conversation when it is long.
+    clean_history = re.sub(r"</?conversation_history>", "", history_block).strip()[-REPLY_HISTORY_CHAR_BUDGET:]
     clean_facts = re.sub(r"</?verified_listing_facts>", "", facts).strip()[:2000]
 
     prompt = (
@@ -599,12 +638,23 @@ async def generate_ai_reply(
         "confirm that personally rather than guessing.\n\n"
         + (f"<conversation_history>\n{clean_history}\n</conversation_history>\n\n" if clean_history else "")
         + f"Verified listing facts:\n<verified_listing_facts>\n{clean_facts}\n</verified_listing_facts>\n\n"
-        f"Guest's latest message:\n<guest_message>\n{clean_message}\n</guest_message>\n\n"
+        + shared_block
+        + f"Guest's latest message:\n<guest_message>\n{clean_message}\n</guest_message>\n\n"
         "Respond with ONLY a JSON object, nothing else:\n"
         '{"reply": your short reply text as described above}'
     )
     try:
-        raw = await call_gemini(prompt, request_id=req_id, stage="host_reply", response_json=True)
+        # Express waits up to 60 s for a reply (cold start included); a short
+        # reply needs little reasoning.
+        raw = await call_gemini(
+            prompt,
+            request_id=req_id,
+            stage="host_reply",
+            response_json=True,
+            total_time_budget=30.0,
+            per_attempt_timeout=12.0,
+            thinking_level="low",
+        )
     except Exception as exc:
         logger.warning("request_id=%s stage=host_reply_failed error=%s", req_id, type(exc).__name__)
         return None
@@ -620,124 +670,64 @@ async def generate_ai_reply(
     }
 
 
-@app.post("/reply", response_model=ReplyResponse)
-async def reply(payload: ReplyRequest, request: Request, response: Response, authorization: Optional[str] = Header(None)):
+async def internal_key_dependency(x_elie_internal_key: Optional[str] = Header(None)) -> None:
+    # A dependency runs before body validation, so callers without the key
+    # get 401 rather than a description of the request format.
+    require_internal_key(x_elie_internal_key)
+
+
+@app.post(
+    "/internal/reply/generate",
+    response_model=InternalReplyResponse,
+    dependencies=[Depends(internal_key_dependency)],
+)
+async def internal_reply_generate(
+    payload: InternalReplyRequest,
+    request: Request,
+    response: Response,
+):
     req_id = get_or_create_correlation_id(request)
     response.headers["X-Correlation-ID"] = req_id
-    client_ip = get_client_ip(request)
-    check_rate_limit(f"reply:ip:{client_ip}", max_requests=25, window_seconds=60)
 
-    if not authorization or not authorization.lower().startswith("bearer "):
-        logger.warning("request_id=%s stage=reply_auth error=missing_header", req_id)
-        raise HTTPException(status_code=401, detail="Missing or invalid Authorization header.")
+    guest_message = payload.guest_message.strip()
+    if not guest_message:
+        raise HTTPException(status_code=400, detail="A guest message is required.")
+    guest_enquiry = (payload.guest_enquiry or guest_message).strip()
 
-    token = authorization.split(" ", 1)[1]
-    user = await verify_supabase_user(token)
-    if not user:
-        logger.warning("request_id=%s stage=reply_auth error=invalid_token", req_id)
-        raise HTTPException(status_code=401, detail="Invalid or expired session — please log in again.")
-
-    check_rate_limit(f"reply:user:{user['id']}", max_requests=10, window_seconds=60)
-
-    conversation = await get_conversation(payload.conversation_id)
-    if not conversation:
-        logger.warning("request_id=%s stage=reply_get_conversation error=not_found", req_id)
-        raise HTTPException(status_code=404, detail="Conversation not found.")
-
-    if user["id"] not in (conversation.get("host_id"), conversation.get("client_id")):
-        logger.warning("request_id=%s stage=reply_auth error=forbidden_participant", req_id)
-        raise HTTPException(status_code=403, detail="You're not a participant in this conversation.")
-
-    is_elie_command = (payload.command or "").strip().lower() == "@reply"
-    if is_elie_command and user["id"] != conversation.get("host_id"):
-        raise HTTPException(status_code=403, detail="Only the host can use the @reply command.")
-    if not is_elie_command and not (payload.message or "").strip():
-        raise HTTPException(status_code=400, detail="A client message is required.")
-
-    host_profile = await get_profile(conversation["host_id"])
-    if not is_elie_command and (not host_profile or not host_profile.get("away_mode")):
-        # Host isn't away — Elie has no business answering on their behalf.
-        return ReplyResponse(reply="", skipped=True)
-
-    listing_id = conversation.get("listing_id") or payload.listing_id
+    listing_id = payload.listing_id
     listing_ctx = await get_listing_context(listing_id) if listing_id else None
-    if listing_ctx and listing_ctx.get("host_id") and listing_ctx["host_id"] != conversation.get("host_id"):
-        # The listing ID does not belong to this conversation's host. Drop it to prevent spoofing.
+    if listing_ctx and listing_ctx.get("host_id") != payload.host_id:
+        # The listing does not belong to this conversation's host.
         listing_ctx = None
         listing_id = None
 
-    conversation_messages = await get_conversation_messages(payload.conversation_id)
-    history_block = format_reply_history(conversation_messages, conversation["host_id"])
-    message = payload.message or ""
-    guest_enquiry_context = message
-    if is_elie_command:
-        logger.info("request_id=%s stage=elie_command_reply_invoked conversation_id=%s", req_id, payload.conversation_id)
-        guest_messages = [
-            (row.get("body") or "").strip()
-            for row in conversation_messages
-            if row.get("sender_id") != conversation["host_id"] and (row.get("body") or "").strip()
-        ]
-        if not guest_messages:
-            return ReplyResponse(
-                reply="There is no guest enquiry to reply to yet.",
-                skipped=True,
-            )
-        message = guest_messages[-1]
-        guest_enquiry_context = "\n".join(guest_messages)
+    # Found before writing the reply, so the text agrees with the cards shared after it.
+    alternatives: List[dict] = []
+    if is_listing_alternative_request(guest_enquiry):
+        alternatives = await get_host_alternative_listings(payload.host_id, listing_id, listing_ctx, guest_enquiry)
+    alternative_ids = [str(row["id"]) for row in alternatives if row.get("id")]
 
-    ai_result = await generate_ai_reply(message, listing_ctx, history_block, is_elie_command, request_id=req_id)
+    history_block = format_reply_history(payload.history)
+    ai_result = await generate_ai_reply(
+        guest_message,
+        listing_ctx,
+        history_block,
+        payload.trigger == "command",
+        request_id=req_id,
+        shared_listings=alternatives,
+    )
     if not ai_result:
         logger.error(
-            "request_id=%s stage=host_reply_failed conversation_id=%s command=%s",
-            req_id,
-            payload.conversation_id,
-            is_elie_command,
+            "request_id=%s stage=host_reply_failed conversation_id=%s trigger=%s",
+            req_id, payload.conversation_id, payload.trigger,
         )
-        raise HTTPException(
-            status_code=503,
-            detail="Elie is temporarily unavailable because Gemini did not return a response.",
-        )
-    reply_text = ai_result["reply"]
+        raise HTTPException(status_code=503, detail="Elie could not write a reply right now.")
+
     logger.info(
-        "request_id=%s stage=host_reply_generated conversation_id=%s command=%s",
-        req_id,
-        payload.conversation_id,
-        is_elie_command,
+        "request_id=%s stage=host_reply_generated conversation_id=%s trigger=%s alternatives=%d",
+        req_id, payload.conversation_id, payload.trigger, len(alternative_ids),
     )
-    alternative_listings = []
-    if is_listing_alternative_request(guest_enquiry_context):
-        alternative_listings = await get_host_alternative_listings(
-            conversation["host_id"],
-            listing_id,
-            listing_ctx,
-            guest_enquiry_context,
-        )
-
-    inserted = await insert_auto_reply(payload.conversation_id, conversation["host_id"], reply_text)
-    if not inserted and is_elie_command:
-        raise HTTPException(status_code=503, detail="Elie generated a reply but it could not be added to the conversation.")
-    if inserted:
-        await touch_conversation(payload.conversation_id)
-
-    inserted_messages = [inserted] if inserted else []
-    for alternative in alternative_listings:
-        listing_message = await insert_auto_reply(
-            payload.conversation_id,
-            conversation["host_id"],
-            f"Shared listing: {alternative.get('title') or 'VaRoom listing'}",
-            message_type="listing",
-            listing_id=alternative["id"],
-        )
-        if listing_message:
-            listing_message["listing"] = alternative
-            inserted_messages.append(listing_message)
-
-    return ReplyResponse(
-        reply=reply_text,
-        skipped=False,
-        message=inserted,
-        messages=inserted_messages,
-    )
+    return InternalReplyResponse(reply=ai_result["reply"], alternative_listing_ids=alternative_ids)
 
 
 # ============================================================
@@ -856,58 +846,23 @@ async def get_profile(user_id: str) -> Optional[dict]:
         return None
 
 
-async def get_conversation(conversation_id: str) -> Optional[dict]:
-    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
-        return None
-    try:
-        async with httpx.AsyncClient(timeout=8.0) as client:
-            response = await client.get(
-                f"{SUPABASE_URL}/rest/v1/conversations",
-                params={"id": f"eq.{conversation_id}", "select": "id,host_id,client_id,listing_id"},
-                headers={
-                    "apikey": SUPABASE_SERVICE_ROLE_KEY,
-                    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-                },
-            )
-            response.raise_for_status()
-            rows = response.json()
-            return rows[0] if rows else None
-    except Exception:
-        return None
-
-
-async def get_conversation_messages(conversation_id: str, limit: int = 100) -> list:
-    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
-        return []
-    try:
-        async with httpx.AsyncClient(timeout=8.0) as client:
-            response = await client.get(
-                f"{SUPABASE_URL}/rest/v1/messages",
-                params={
-                    "conversation_id": f"eq.{conversation_id}",
-                    "select": "sender_id,body,created_at",
-                    "order": "created_at.desc",
-                    "limit": str(limit),
-                },
-                headers={
-                    "apikey": SUPABASE_SERVICE_ROLE_KEY,
-                    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-                },
-            )
-            response.raise_for_status()
-            return list(reversed(response.json()))
-    except Exception:
-        return []
-
-
-def format_reply_history(messages: list, host_id: str) -> str:
-    if not messages:
+def format_reply_history(turns: List[ReplyHistoryTurn]) -> str:
+    """The conversation for the prompt, newest turns kept within the budget."""
+    lines: List[str] = []
+    used = 0
+    for turn in reversed(turns):
+        text = re.sub(r"</?(?:conversation_history|guest_message)>", "", turn.text).strip()[:500]
+        if not text:
+            continue
+        speaker = "You (the host)" if turn.speaker == "host" else "Guest"
+        line = f"{speaker}: {text}"
+        if used + len(line) + 1 > REPLY_HISTORY_CHAR_BUDGET - 40:
+            break
+        lines.append(line)
+        used += len(line) + 1
+    if not lines:
         return ""
-    lines = []
-    for row in messages:
-        speaker = "You (the host)" if row.get("sender_id") == host_id else "Guest"
-        lines.append(f"{speaker}: {row.get('body', '')}")
-    return "Full conversation so far:\n" + "\n".join(lines) + "\n\n"
+    return "Full conversation so far:\n" + "\n".join(reversed(lines)) + "\n\n"
 
 
 def filter_alternative_listings(
@@ -1000,48 +955,6 @@ async def get_listing_context(listing_id: str) -> Optional[dict]:
         return None
 
 
-async def insert_auto_reply(
-    conversation_id: str,
-    host_id: str,
-    body: str,
-    message_type: str = "text",
-    listing_id: Optional[str] = None,
-) -> Optional[dict]:
-    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
-        return None
-    try:
-        async with httpx.AsyncClient(timeout=8.0) as client:
-            response = await client.post(
-                f"{SUPABASE_URL}/rest/v1/messages",
-                params={"select": "id,conversation_id,sender_id,body,created_at,is_auto_reply,message_type,attachment_id,listing_id"},
-                json={
-                    "conversation_id": conversation_id,
-                    "sender_id": host_id,
-                    "body": body,
-                    "is_auto_reply": True,
-                    "message_type": message_type,
-                    "listing_id": listing_id,
-                },
-                headers={
-                    "apikey": SUPABASE_SERVICE_ROLE_KEY,
-                    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-                    "Content-Type": "application/json",
-                    "Prefer": "return=representation",
-                },
-            )
-            response.raise_for_status()
-            rows = response.json()
-            return rows[0] if rows else None
-    except Exception as error:
-        logger.exception(
-            "Elie response persistence failed (conversation_id=%s, message_type=%s, error=%s)",
-            conversation_id,
-            message_type,
-            type(error).__name__,
-        )
-        return None
-
-
 async def get_host_alternative_listings(
     host_id: str,
     current_listing_id: Optional[str],
@@ -1122,7 +1035,6 @@ async def get_host_alternative_listings(
     if not rows:
         return []
 
-    await attach_video_media(rows)
     return filter_alternative_listings(
         rows,
         host_id,
@@ -1131,57 +1043,6 @@ async def get_host_alternative_listings(
         current_listing_id,
         wants_cheaper,
     )
-
-
-async def attach_video_media(listings: list) -> None:
-    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY or not listings:
-        return
-    listing_ids = [str(row["id"]) for row in listings if row.get("id")]
-    try:
-        async with httpx.AsyncClient(timeout=8.0) as client:
-            response = await client.get(
-                f"{SUPABASE_URL}/rest/v1/property_media",
-                params={
-                    "select": "id,property_id",
-                    "property_id": "in.(" + ",".join(listing_ids) + ")",
-                    "media_type": "eq.video",
-                    "status": "eq.ready",
-                    "visibility": "eq.public",
-                    "deleted_at": "is.null",
-                    "order": "sort_order.asc",
-                },
-                headers={
-                    "apikey": SUPABASE_SERVICE_ROLE_KEY,
-                    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-                },
-            )
-            response.raise_for_status()
-            media_by_listing = {}
-            for media in response.json():
-                media_by_listing.setdefault(media["property_id"], media["id"])
-            for listing in listings:
-                listing["video_media_id"] = media_by_listing.get(listing.get("id"))
-    except Exception as error:
-        logger.warning("Listing video lookup failed: %s", type(error).__name__)
-
-
-async def touch_conversation(conversation_id: str) -> None:
-    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
-        return
-    try:
-        async with httpx.AsyncClient(timeout=8.0) as client:
-            await client.patch(
-                f"{SUPABASE_URL}/rest/v1/conversations",
-                params={"id": f"eq.{conversation_id}"},
-                json={"last_message_at": datetime.now(timezone.utc).isoformat()},
-                headers={
-                    "apikey": SUPABASE_SERVICE_ROLE_KEY,
-                    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-                    "Content-Type": "application/json",
-                },
-            )
-    except Exception:
-        pass
 
 
 def extract_first_json_object(text: str) -> Optional[dict]:

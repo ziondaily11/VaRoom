@@ -6,9 +6,9 @@ const { createNotification } = require('../lib/notifications');
 const { ValidationError, assertAllowedKeys, text, uuid, enumValue } = require('../lib/inputValidation');
 const { rejectSuspendedActivity } = require('../lib/accountAccess');
 const { encryptMessage, decryptMessage } = require('../lib/messageEncryptionService');
+const autoReply = require('../lib/autoReply');
 
 const router = express.Router();
-const chatbotApiUrl = (process.env.CHATBOT_API_URL || 'https://elie1-0.onrender.com').replace(/\/$/, '');
 
 async function authenticatedUser(req) {
   const header = req.headers.authorization || '';
@@ -26,51 +26,6 @@ async function memberConversation(conversationId, userId) {
     .maybeSingle();
   if (error || !data || (data.host_id !== userId && data.client_id !== userId)) return null;
   return data;
-}
-
-async function requestChatbotReply(conversationId, token, payload) {
-  console.info('Elie invoked:', {
-    conversationId,
-    trigger: payload.command || 'away_mode',
-  });
-  const response = await fetch(`${chatbotApiUrl}/reply`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({ conversation_id: conversationId, ...payload }),
-  });
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    console.error('Elie response generation failed:', {
-      conversationId,
-      trigger: payload.command || 'away_mode',
-      status: response.status,
-      detail: body.detail || body.error || null,
-      responseKeys: Object.keys(body),
-    });
-    const error = new Error(body.detail || body.error || `Chatbot reply failed (${response.status})`);
-    error.status = response.status;
-    throw error;
-  }
-  console.info('Elie response generated:', {
-    conversationId,
-    trigger: payload.command || 'away_mode',
-    responseKeys: Object.keys(body),
-    hasResponse: Boolean(body.reply || body.response || body.message || body.content),
-  });
-  console.info('Elie response persistence attempted:', {
-    conversationId,
-    trigger: payload.command || 'away_mode',
-    hasPersistedMessage: Boolean(body.message || (Array.isArray(body.messages) && body.messages.length)),
-  });
-  console.info('Elie response persisted:', {
-    conversationId,
-    trigger: payload.command || 'away_mode',
-    persistedMessage: Boolean(body.message || (Array.isArray(body.messages) && body.messages.length)),
-  });
-  return body;
 }
 
 async function profilesById(ids) {
@@ -445,6 +400,7 @@ router.post('/chat/conversations/:conversationId/reply', async (req, res) => {
   try {
     const user = await authenticatedUser(req);
     if (!user) return res.status(401).json({ error: 'Invalid or expired session' });
+    if (await rejectSuspendedActivity(res, user.id)) return;
     const conversationId = uuid(req.params.conversationId, 'conversation id');
     const conversation = await memberConversation(conversationId, user.id);
     if (!conversation) return res.status(403).json({ error: 'Conversation access denied' });
@@ -453,14 +409,14 @@ router.post('/chat/conversations/:conversationId/reply', async (req, res) => {
     if (command.toLowerCase() !== '@reply') {
       throw new ValidationError('Only the @reply command is supported');
     }
-    const token = (req.headers.authorization || '').slice(7);
-    const result = await requestChatbotReply(conversationId, token, { command });
-    return res.json(result);
+    if (conversation.host_id !== user.id) {
+      return res.status(403).json({ error: 'Only the host can use the @reply command.' });
+    }
+    return res.json(await autoReply.replyOnCommand(conversation));
   } catch (error) {
     if (error instanceof ValidationError) return res.status(400).json({ error: error.message });
-    console.error('Chatbot @reply request failed:', error);
-    return res.status(error.status && error.status >= 400 && error.status < 500 ? error.status : 502)
-      .json({ error: error.message || 'Unable to generate a reply' });
+    console.error('Chatbot @reply request failed:', { stage: error.stage || null, error: error.message });
+    return res.status(503).json({ error: 'Elie couldn’t write a reply right now. Please try again.' });
   }
 });
 
@@ -512,15 +468,19 @@ router.post('/chat/conversations/:conversationId/messages', async (req, res) => 
     if (messageType !== 'listing' && listingId) {
       throw new ValidationError('listingId is only valid for listing messages');
     }
+    // Attachment and listing rows are loaded here, before the insert, so
+    // nothing after the message is saved can fail the request.
+    let listing = null;
     if (listingId) {
-      const { data: listing, error: listingError } = await supabaseAdmin
+      const { data: ownListing, error: listingError } = await supabaseAdmin
         .from('listings')
-        .select('id')
+        .select('id,title,location_text,category,listing_photos(storage_path)')
         .eq('id', listingId)
         .eq('host_id', user.id)
         .maybeSingle();
       if (listingError) throw listingError;
-      if (!listing) return res.status(403).json({ error: 'Listing sharing is limited to your listings' });
+      if (!ownListing) return res.status(403).json({ error: 'Listing sharing is limited to your listings' });
+      listing = ownListing;
     }
     if (messageType !== 'text' && messageType !== 'listing' && !attachmentId) {
       throw new ValidationError('attachmentId is required for attachment messages');
@@ -528,21 +488,23 @@ router.post('/chat/conversations/:conversationId/messages', async (req, res) => 
     if (messageType === 'text' && attachmentId) {
       throw new ValidationError('attachmentId is not valid for text messages');
     }
+    let attachment = null;
     if (attachmentId) {
-      const { data: attachment, error: attachmentError } = await supabaseAdmin
+      const { data: readyAttachment, error: attachmentError } = await supabaseAdmin
         .from('message_attachments')
-        .select('id,status,kind')
+        .select('id,original_filename,mime_type,file_size_bytes,kind,status')
         .eq('id', attachmentId)
         .eq('conversation_id', conversationId)
         .maybeSingle();
-      if (attachmentError || !attachment || attachment.status !== 'ready') {
+      if (attachmentError || !readyAttachment || readyAttachment.status !== 'ready') {
         return res.status(400).json({ error: 'Attachment is not ready' });
       }
-      if ((messageType === 'photo' && attachment.kind !== 'photo')
-        || (messageType === 'file' && attachment.kind !== 'file')
-        || (messageType === 'voice' && attachment.kind !== 'voice')) {
+      if ((messageType === 'photo' && readyAttachment.kind !== 'photo')
+        || (messageType === 'file' && readyAttachment.kind !== 'file')
+        || (messageType === 'voice' && readyAttachment.kind !== 'voice')) {
         return res.status(400).json({ error: 'Attachment type does not match message type' });
       }
+      attachment = readyAttachment;
     }
     const encryptedMessage = encryptMessage(content);
     const { data, error } = await supabaseAdmin
@@ -571,11 +533,11 @@ router.post('/chat/conversations/:conversationId/messages', async (req, res) => 
       recipientResolved: Boolean(recipientUserId),
       recipientIsSender: recipientUserId === user.id,
     });
-    const { data: senderProfile } = await supabaseAdmin.from('profiles').select('full_name').eq('id', user.id).maybeSingle();
-    const listingTitle = listingId ? (await supabaseAdmin.from('listings').select('title').eq('id', listingId).maybeSingle()).data?.title : null;
-    const notificationMessage = listingTitle ? `${senderProfile?.full_name || 'Someone'} sent you a message about ${listingTitle}.` : `${senderProfile?.full_name || 'Someone'} sent you a message.`;
+    const listingTitle = listing ? listing.title : null;
     let notificationPersisted = true;
     try {
+      const { data: senderProfile } = await supabaseAdmin.from('profiles').select('full_name').eq('id', user.id).maybeSingle();
+      const notificationMessage = listingTitle ? `${senderProfile?.full_name || 'Someone'} sent you a message about ${listingTitle}.` : `${senderProfile?.full_name || 'Someone'} sent you a message.`;
       await createNotification({
         recipientUserId,
         actorUserId: user.id,
@@ -603,54 +565,9 @@ router.post('/chat/conversations/:conversationId/messages', async (req, res) => 
       });
     }
 
+    // Away mode: Elie may answer for the host in the background.
     if (conversation.client_id === user.id && messageType === 'text' && content) {
-      const { data: recipientProfile, error: recipientProfileError } = await supabaseAdmin
-        .from('profiles')
-        .select('away_mode')
-        .eq('id', recipientUserId)
-        .maybeSingle();
-      if (recipientProfileError) throw recipientProfileError;
-      const awayModeDetected = Boolean(recipientProfile && recipientProfile.away_mode);
-      const token = (req.headers.authorization || '').slice(7);
-      console.info('Away mode detected:', {
-        conversationId,
-        recipientUserId,
-        messageId: data.id,
-        detected: awayModeDetected,
-      });
-      if (awayModeDetected) {
-        requestChatbotReply(conversationId, token, {
-          message: content,
-          listing_id: conversation.listing_id || listingId || null,
-        }).catch((replyError) => {
-          console.error('Away-mode chatbot response/send failed:', {
-            conversationId,
-            error: replyError.message,
-            code: replyError.code,
-            status: replyError.status,
-          });
-        });
-      }
-    }
-    let attachment = null;
-    if (attachmentId) {
-      const attachmentResult = await supabaseAdmin
-        .from('message_attachments')
-        .select('id,original_filename,mime_type,file_size_bytes,kind,status')
-        .eq('id', attachmentId)
-        .single();
-      if (attachmentResult.error) throw attachmentResult.error;
-      attachment = attachmentResult.data;
-    }
-    let listing = null;
-    if (listingId) {
-      const listingResult = await supabaseAdmin
-        .from('listings')
-        .select('id,title,location_text,category,listing_photos(storage_path)')
-        .eq('id', listingId)
-        .single();
-      if (listingResult.error) throw listingResult.error;
-      listing = listingResult.data;
+      autoReply.handleGuestMessage(conversation);
     }
     return res.status(201).json({
       message: { ...withDecryptedBody(data), attachment, listing },
