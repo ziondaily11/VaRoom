@@ -20,6 +20,8 @@ test('every page this server still serves exists in legacy-pages', () => {
 });
 
 test('the landing page and its sign-in / sign-up redirect to the frontend', () => {
+  // Sign-in is the landing auth panel (components/landing/AuthPanel.tsx).
+  assert.equal(fs.existsSync(path.join(legacyDir, 'login.html')), false, 'login.html is retired');
   assert.match(serverSource, /\{ paths: \['\/login', '\/login\.html'\], query: \{ auth: 'login' \} \}/);
   assert.match(serverSource, /\{ paths: \['\/register', '\/signup-client', '\/signup-client\.html'\], query: \{ auth: 'signup', role: 'client' \} \}/);
   assert.match(serverSource, /\{ paths: \['\/signup-host', '\/signup-host\.html'\], query: \{ auth: 'signup', role: 'host' \} \}/);

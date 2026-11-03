@@ -763,7 +763,7 @@
 [data-theme="dark"] .msg-row.in .bubble { background: var(--surface-elevated) !important; }
 
 /* ================================================================
-   AUTHENTICATION & FORMS (login.html, signup, forgot-password)
+   AUTHENTICATION & FORMS (signup, forgot-password)
    ================================================================ */
 [data-theme="dark"] .form-panel {
   background: #000000 !important;

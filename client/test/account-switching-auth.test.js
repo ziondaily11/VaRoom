@@ -16,8 +16,13 @@ const addAccountModalSource = fs.readFileSync(
   path.join(__dirname, '../components/AddAccountModal.tsx'),
   'utf8'
 );
-const loginSource = fs.readFileSync(
-  path.join(__dirname, '../legacy-pages/login.html'),
+// Sign-in is the landing auth panel (legacy login.html is retired).
+const authPanelSource = fs.readFileSync(
+  path.join(__dirname, '../components/landing/AuthPanel.tsx'),
+  'utf8'
+);
+const supabaseBrowserClientSource = fs.readFileSync(
+  path.join(__dirname, '../lib/supabase/client.ts'),
   'utf8'
 );
 const callbackSource = fs.readFileSync(
@@ -287,11 +292,11 @@ test('Google add-account callback rejects missing, rejected, or cross-identity r
 });
 
 test('email and Google add-account flows use isolated auth clients; callback links accounts without replacing the active session', () => {
-  assert.match(loginSource, /createClient\(window\.supabase,[\s\S]*?\{ usesRedirect: false, flowId: window\.VaRoomAccountAuth\.createFlowId\(\) \}\)/);
   assert.match(addAccountModalSource, /VaRoomAccountAuth\.createClient\([\s\S]*?\{\s*usesRedirect: false,\s*flowId: accountAuthFlow\s*\}\s*\)/);
   assert.match(accountSwitcherSource, /VaRoomAccountAuth\.createClient\([\s\S]*?\{\s*usesRedirect: false,\s*flowId: window\.VaRoomAccountAuth\.createFlowId\(\)\s*\}\s*\)/);
-  assert.match(loginSource, /createClient\(window\.supabase,[\s\S]*?\{ usesRedirect: true, flowId: accountAuthFlow \}\)/);
-  assert.match(loginSource, /add_account_callback=1/);
+  assert.match(addAccountModalSource, /\{ usesRedirect: true, flowId: accountAuthFlow \}/);
+  assert.match(addAccountModalSource, /\/auth-callback\?addAccount=true&account_auth_flow=\$\{encodeURIComponent\(accountAuthFlow\)\}/);
+  assert.match(supabaseBrowserClientSource, /params\.get\('addAccount'\) === 'true'/);
   assert.match(callbackSource, /add_account_callback/);
   assert.match(callbackSource, /linkAdditionalSession\(primaryClient, additionalSession\)/);
   assert.match(callbackSource, /refreshAccountAddSession\(supabaseClient, session\)/);
@@ -353,18 +358,16 @@ test('concurrent refresh callbacks cannot let an older profile lookup overwrite 
 });
 
 test('normal login remains on the primary client and refresh-token rotation stays enabled', async () => {
-  assert.match(loginSource, /var authClient = supabaseClient/);
-  assert.match(loginSource, /authClient = window\.VaRoomAccountAuth\.createClient/);
-  assert.match(loginSource, /: supabaseClient/);
-  assert.match(loginSource, /oauthClient\.auth\.signInWithOAuth/);
-  assert.match(loginSource, /authClient\.auth\.signInWithPassword/);
+  // Email and Google sign-in use the one primary client, never an add-account client.
+  assert.match(authPanelSource, /const client = \(window as any\)\.supabaseClient;[\s\S]*?client\.auth\.signInWithPassword/);
+  assert.match(authPanelSource, /const googleClient = [\s\S]*?\.supabaseClient \|\| null;/);
+  assert.doesNotMatch(authPanelSource, /VaRoomAccountAuth\.createClient/);
   assert.match(supabaseClientSource, /add_account_callback/);
   assert.match(fs.readFileSync(path.join(__dirname, '../../supabase/config.toml'), 'utf8'), /enable_refresh_token_rotation\s*=\s*true/);
 });
 
-test('edited login and callback inline scripts remain syntactically valid', () => {
+test('edited callback inline scripts remain syntactically valid', () => {
   for (const [filename, html] of [
-    ['login.html', loginSource],
     ['auth-callback.html', callbackSource]
   ]) {
     const scripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)];

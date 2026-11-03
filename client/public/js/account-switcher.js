@@ -5,7 +5,7 @@
  * linked-account membership; this browser caches session tokens only for
  * members of the currently authenticated account's group.
  *
- * Account-add authentication is handled by login.html and auth-callback.html;
+ * Account-add authentication is handled by AddAccountModal and auth-callback.html;
  * this module stores sessions returned by those flows and by the main client.
  */
 (function () {
