@@ -81,13 +81,13 @@ export function CroppedImage({ photo, size, className }: { photo: PhotoState; si
 export interface PhotoPickerHandle { blob: () => Promise<Blob | null> }
 
 /** Choose a photo, then drag to position it and scroll or pinch to zoom (1–4×). */
-export const PhotoPicker = forwardRef<PhotoPickerHandle, { existingUrl: string | null; onChange: (photo: PhotoState | null) => void; error: string }>(
-  function PhotoPicker({ existingUrl, onChange, error }, ref) {
+export const PhotoPicker = forwardRef<PhotoPickerHandle, { existingUrl: string | null; initialPhoto?: PhotoState | null; onChange: (photo: PhotoState | null) => void; error: string }>(
+  function PhotoPicker({ existingUrl, initialPhoto = null, onChange, error }, ref) {
     const inputRef = useRef<HTMLInputElement | null>(null);
     const frameRef = useRef<HTMLDivElement | null>(null);
     const pointers = useRef(new Map<number, { x: number; y: number }>());
     const pinch = useRef<{ distance: number; zoom: number } | null>(null);
-    const [photo, setPhoto] = useState<PhotoState | null>(null);
+    const [photo, setPhoto] = useState<PhotoState | null>(initialPhoto);
     const [hint, setHint] = useState('');
     const [adjusting, setAdjusting] = useState(false);
     const [frameWidth, setFrameWidth] = useState(96);
@@ -103,7 +103,7 @@ export const PhotoPicker = forwardRef<PhotoPickerHandle, { existingUrl: string |
 
     useEffect(() => { onChange(photo); }, [photo, onChange]);
     // A replaced photo's URL is released; the last one stays valid for the preview.
-    const lastUrl = useRef<string | null>(null);
+    const lastUrl = useRef<string | null>(initialPhoto ? initialPhoto.url : null);
     useEffect(() => {
       if (lastUrl.current && lastUrl.current !== (photo && photo.url)) URL.revokeObjectURL(lastUrl.current);
       lastUrl.current = photo ? photo.url : null;

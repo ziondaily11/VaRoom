@@ -124,7 +124,8 @@ def _editor_prompt(item: NewsItem, source: Source) -> str:
         "- Generate a crisp, objective, 1-2 sentence summary (under 280 characters) explaining the direct impact on Kenyan property owners, buyers, tenants, or developers.\n"
         "- Use only source-supported facts. Never invent dates, locations, or regulations.\n"
         "- Accurately detect regulatory status (e.g. proposed, public_participation, approved, enacted, effective). Never state a proposal or draft bill as approved, enacted, or in effect.\n"
-        "- Extract specific Kenyan counties and towns mentioned. If the update applies nationally across all of Kenya or has more than 5 locations, identify it as national.\n\n"
+        "- Extract specific Kenyan counties and towns mentioned. If the update applies nationally across all of Kenya or has more than 5 locations, identify it as national.\n"
+        f"- category must be exactly one of: {', '.join(sorted(PROPERTY_CATEGORIES))}.\n\n"
         f"Source Tier: {source.trust_tier} | Source Name: {source.name}\n"
         f"Source Title: {item.source_title}\n"
         f"Article Content:\n{item.clean_text[:12000]}\n\n"
@@ -244,8 +245,19 @@ class GeminiNewsAnalyzer:
         analysis = NewsAnalysis.model_validate_json(content)
         risk, reasons = assess_risk(f"{item.source_title}\n{item.clean_text}", analysis.regulatory_status, source.trust_tier)
         return analysis.model_copy(update={"source_tier": source.trust_tier, "risk_level": risk, "risk_reasons": reasons,
+                                           "category": _allowed_category(analysis),
                                            "image_url": item.image_url or analysis.image_url,
                                            "model_provider": "gemini", "model_version": model})
+
+
+def _allowed_category(analysis: NewsAnalysis) -> str | None:
+    """news_items only accepts PROPERTY_CATEGORIES; a model's own label
+    (e.g. "real estate") would make saving the story fail."""
+    if analysis.category in PROPERTY_CATEGORIES:
+        return analysis.category
+    if analysis.category:
+        logger.warning("Gemini returned unsupported category %r; using 'property'", analysis.category)
+    return "property" if analysis.relevant else None
 
 
 RETRYABLE_PROVIDER_STATUS = {429, 500, 502, 503, 504}

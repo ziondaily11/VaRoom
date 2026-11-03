@@ -26,6 +26,7 @@ export const ONBOARDING_STYLES = `
   .onb-card-avatar{ position:relative; width:76px; height:76px; margin-top:-38px; border-radius:50%; border:4px solid #fff; background:#EAE7E1; overflow:hidden; display:flex; align-items:center; justify-content:center; }
   .onb-card-avatar img{ position:absolute; max-width:none; transform:translate(-50%,-50%); }
   .onb-card-avatar img.is-whole{ inset:0; width:100%; height:100%; object-fit:cover; transform:none; }
+  .onb-card-avatar.is-uploading::after{ content:''; position:absolute; inset:-1px; border-radius:50%; border:3px solid rgba(196,30,58,.25); border-top-color:#C41E3A; animation:onb-spin .9s linear infinite; }
   .onb-card-name{ font-family:Fraunces, Georgia, serif; font-weight:700; font-size:22px; overflow-wrap:anywhere; }
   .onb-card-handle{ font-size:14px; color:var(--soft); overflow-wrap:anywhere; }
   .onb-chips{ display:flex; gap:8px; flex-wrap:wrap; }
@@ -94,6 +95,8 @@ export const ONBOARDING_STYLES = `
   .onb-footnote{ margin:-10px 0 0; text-align:center; font-size:12px; color:var(--soft); }
   .onb-back{ align-self:center; }
   .onb-alert{ margin:0; padding:12px 14px; border-radius:12px; background:#fbe8eb; color:var(--bad); font-size:14px; font-weight:500; }
+  .onb-upload-note{ display:flex; align-items:center; gap:8px; }
+  .onb-upload-failed{ display:flex; flex-direction:column; gap:6px; }
   .onb-loading{ flex:1; display:flex; align-items:center; justify-content:center; }
 
   @media (max-width: 900px){

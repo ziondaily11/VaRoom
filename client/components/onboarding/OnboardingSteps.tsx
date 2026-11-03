@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { getSupabaseClient } from '../../lib/supabase/client';
 import {
-  CATEGORIES, CITY_SUGGESTIONS, cleanPhoneInput, discoverNameValid, locationValid, MESSAGES, normalizeUsername, phoneValid, saveAvatar,
+  CATEGORIES, CITY_SUGGESTIONS, cleanPhoneInput, discoverNameValid, locationValid, MESSAGES, normalizeUsername, phoneValid,
   saveClientPreferences, saveHostListing, saveHostProfile, takenMessage, TIMELINES, USERNAME_HELP, usernameFormatError, usernameTaken,
   type Category, type Timeline,
 } from '../../lib/onboarding/onboarding';
@@ -14,8 +14,10 @@ const categoryTitle = (value: Category | null) => (value ? (CATEGORIES.find((opt
 
 // ---------- Previews ----------
 
-export function HostPreview({ name, username, city, niche, photo, existingAvatar }: {
-  name: string; username: string; city: string; niche: Category | null; photo: PhotoState | null; existingAvatar: string | null;
+export type PhotoUpload = 'idle' | 'uploading' | 'done' | 'failed';
+
+export function HostPreview({ name, username, city, niche, photo, existingAvatar, upload = 'idle' }: {
+  name: string; username: string; city: string; niche: Category | null; photo: PhotoState | null; existingAvatar: string | null; upload?: PhotoUpload;
 }) {
   return (
     <>
@@ -23,7 +25,7 @@ export function HostPreview({ name, username, city, niche, photo, existingAvatar
       <div className="onb-card">
         <div className="onb-card-cover" />
         <div className="onb-card-body">
-          <div className="onb-card-avatar">
+          <div className={`onb-card-avatar${upload === 'uploading' ? ' is-uploading' : ''}`} aria-busy={upload === 'uploading'}>
             {photo ? <CroppedImage photo={photo} size={68} /> : existingAvatar ? <img className="is-whole" src={existingAvatar} alt="" /> : <PersonIcon />}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -65,23 +67,25 @@ type UsernameStatus = { kind: 'idle' | 'checking' | 'ok' | 'current' | 'taken' |
 
 export interface ProfileDraft { username: string; phone: string; city: string; photo: PhotoState | null }
 
-export function HostProfileStep({ userId, currentUsername, initial, existingAvatar, onDraft, onDone }: {
+export function HostProfileStep({ userId, currentUsername, initial, existingAvatar, initialPhoto, onDraft, onDone }: {
   userId: string;
   currentUsername: string | null;
   initial: { username: string; phone: string; city: string };
   existingAvatar: string | null;
+  /** The photo chosen earlier (coming back from step 2). */
+  initialPhoto: PhotoState | null;
   onDraft: (draft: ProfileDraft) => void;
-  onDone: () => void;
+  /** Step 1 is saved; a new photo's image is handed over to upload in the background. */
+  onDone: (newPhoto: { photo: PhotoState; blob: Blob } | null) => void;
 }) {
   const [username, setUsername] = useState(initial.username);
   const [phone, setPhone] = useState(initial.phone);
   const [city, setCity] = useState(initial.city);
-  const [photo, setPhoto] = useState<PhotoState | null>(null);
+  const [photo, setPhoto] = useState<PhotoState | null>(initialPhoto);
   const [status, setStatus] = useState<UsernameStatus>({ kind: initial.username && initial.username === currentUsername ? 'current' : 'idle', message: '' });
   const [touched, setTouched] = useState({ phone: false, city: false });
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
-  const [photoFailed, setPhotoFailed] = useState(false);
   const picker = useRef<PhotoPickerHandle | null>(null);
   const checkSeq = useRef(0);
 
@@ -111,27 +115,6 @@ export function HostProfileStep({ userId, currentUsername, initial, existingAvat
   const usernameOk = status.kind === 'ok' || status.kind === 'current';
   const valid = usernameOk && phoneValid(phone) && locationValid(city);
 
-  const finish = async (withPhoto: boolean) => {
-    const client = getSupabaseClient();
-    if (!client) return;
-    setError('');
-    setPhotoFailed(false);
-    if (withPhoto && photo) {
-      setBusy('Uploading photo...');
-      try {
-        const blob = picker.current ? await picker.current.blob() : null;
-        if (blob) await saveAvatar(client, userId, blob);
-      } catch (uploadError) {
-        console.error('Onboarding photo upload failed:', uploadError);
-        setBusy('');
-        setPhotoFailed(true);
-        return;
-      }
-    }
-    setBusy('');
-    onDone();
-  };
-
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!valid || busy) return;
@@ -153,7 +136,18 @@ export function HostProfileStep({ userId, currentUsername, initial, existingAvat
       setError(MESSAGES.saveProfile);
       return;
     }
-    await finish(true);
+    // A new photo uploads behind the scenes while the host carries on.
+    let newPhoto: { photo: PhotoState; blob: Blob } | null = null;
+    if (photo && photo !== initialPhoto) {
+      try {
+        const blob = picker.current ? await picker.current.blob() : null;
+        if (blob) newPhoto = { photo, blob };
+      } catch (photoError) {
+        console.error('Onboarding photo could not be prepared:', photoError);
+      }
+    }
+    setBusy('');
+    onDone(newPhoto);
   };
 
   const helpClass = status.kind === 'ok' || status.kind === 'current' ? ' is-ok' : status.kind === 'taken' || status.kind === 'invalid' || status.kind === 'error' ? ' is-error' : '';
@@ -163,7 +157,7 @@ export function HostProfileStep({ userId, currentUsername, initial, existingAvat
         <h1>A little more you.</h1>
         <p>Let's set up your profile so people can put a face to your name.</p>
       </div>
-      <PhotoPicker ref={picker} existingUrl={existingAvatar} onChange={setPhoto} error={photoFailed ? MESSAGES.photoUpload : ''} />
+      <PhotoPicker ref={picker} existingUrl={existingAvatar} initialPhoto={initialPhoto} onChange={setPhoto} error="" />
       <div className="onb-field">
         <label htmlFor="onb-username">Username</label>
         <div className={`onb-input${status.kind === 'taken' || status.kind === 'invalid' ? ' is-invalid' : ''}`}>
@@ -194,29 +188,44 @@ export function HostProfileStep({ userId, currentUsername, initial, existingAvat
         {touched.city && !locationValid(city) && <p className="onb-help is-error">{MESSAGES.location}</p>}
       </div>
       {error && <p className="onb-alert" role="alert">{error}</p>}
-      {photoFailed ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 }}>
-          <button type="button" className="onb-primary" onClick={() => { void finish(true); }}>Try again</button>
-          <button type="button" className="onb-primary" style={{ background: 'transparent', color: 'var(--ink)', border: '1.5px solid var(--line)' }} onClick={() => { void finish(false); }}>Continue without photo</button>
-        </div>
-      ) : (
-        <button type="submit" className="onb-primary" disabled={!valid || Boolean(busy)}>{busy || 'Continue'}</button>
-      )}
+      <button type="submit" className="onb-primary" disabled={!valid || Boolean(busy)}>{busy || 'Continue'}</button>
     </form>
   );
 }
 
 // ---------- Host step 2: what they list ----------
 
-export function HostListingStep({ userId, initialNiche, initialName, onDraft, onBack, onDone }: {
+/** Step 2's line about the photo uploading behind the scenes. */
+export function PhotoUploadNotice({ upload, onRetry, onSkip }: { upload: PhotoUpload; onRetry: () => void; onSkip: () => void }) {
+  if (upload === 'uploading') return <p className="onb-help onb-upload-note" role="status"><span className="onb-spinner" aria-hidden="true" /> Uploading your photo. You can keep going.</p>;
+  if (upload === 'done') return <p className="onb-help is-ok onb-upload-note" role="status"><CheckIcon size={12} /> Photo saved.</p>;
+  if (upload !== 'failed') return null;
+  return (
+    <div className="onb-alert onb-upload-failed" role="alert">
+      <span>{MESSAGES.photoUpload}</span>
+      <span className="onb-photo-actions">
+        <button type="button" className="onb-link-btn" onClick={onRetry}>Try again</button>
+        <button type="button" className="onb-link-btn" onClick={onSkip}>Continue without photo</button>
+      </span>
+    </div>
+  );
+}
+
+export function HostListingStep({ userId, initialNiche, initialName, photoNotice, onDraft, onBack, onDone }: {
   userId: string; initialNiche: Category | null; initialName: string;
-  onDraft: (draft: { niche: Category | null; name: string }) => void; onBack: () => void; onDone: () => void;
+  /** The background photo upload's status (shown above Continue). */
+  photoNotice: React.ReactNode;
+  onDraft: (draft: { niche: Category | null; name: string }) => void; onBack: () => void;
+  /** Saved: finish (waits for a photo still uploading); resolves if the host stays here. */
+  onDone: () => Promise<void>;
 }) {
   const [niche, setNiche] = useState<Category | null>(initialNiche);
   const [name, setName] = useState(initialName);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [touched, setTouched] = useState(false);
+  const mounted = useRef(true);
+  useEffect(() => () => { mounted.current = false; }, []);
   useEffect(() => { onDraft({ niche, name }); }, [niche, name, onDraft]);
   const valid = Boolean(niche) && discoverNameValid(name);
 
@@ -228,12 +237,14 @@ export function HostListingStep({ userId, initialNiche, initialName, onDraft, on
     setError('');
     try {
       await saveHostListing(client, userId, niche, name);
-      onDone();
     } catch (saveError) {
       console.error('Onboarding listing save failed:', saveError);
       setError(MESSAGES.finish);
       setBusy(false);
+      return;
     }
+    await onDone();
+    if (mounted.current) setBusy(false);
   };
 
   return (
@@ -260,6 +271,7 @@ export function HostListingStep({ userId, initialNiche, initialName, onDraft, on
         </div>
         {touched && !discoverNameValid(name) && <p className="onb-help is-error">{MESSAGES.discoverName}</p>}
       </div>
+      {photoNotice}
       {error && <p className="onb-alert" role="alert">{error}</p>}
       <button type="submit" className="onb-primary" disabled={!valid || busy}>{busy ? 'Finishing setup...' : 'Continue'}</button>
       <p className="onb-footnote">You can update these listing details anytime.</p>

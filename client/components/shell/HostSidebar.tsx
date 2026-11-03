@@ -4,8 +4,7 @@ import { isModifiedClick } from '../../lib/navigation/clicks';
 import { useCounts } from '../../lib/counts/countsStore';
 import { useLinkedAccounts, type LinkedAccount } from '../../lib/account/accountActions';
 import { logout, openAddAccountModal, switchToAccount, useShellChrome, useShellIdentity, type ShellIdentity } from './useShellChrome';
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const { resolveAvatarUrl } = require('../resolveStoredPhotoUrl');
+import { resolveAvatarUrl } from '../resolveStoredPhotoUrl';
 
 // The host sidebar (formerly components/SharedHostSidebar.jsx). Markup, ids
 // and classes are unchanged; identity, counts, linked accounts, menus and the

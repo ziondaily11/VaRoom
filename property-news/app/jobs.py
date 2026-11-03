@@ -8,6 +8,8 @@ import os
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+import httpx
+
 from .analysis import NewsAnalyzer, build_analyzer
 from .collector import SourceCollector
 from .config import configure_logging, settings
@@ -112,9 +114,13 @@ async def _collect_and_process(store, config, analyzer: NewsAnalyzer | None,
                 try:
                     return await processor.process(item_id)
                 except Exception as error:
+                    detail = ""
+                    if isinstance(error, httpx.HTTPStatusError):
+                        # The database's own message names the failing constraint.
+                        detail = f" status={error.response.status_code} body={' '.join(error.response.text.split())[:300]}"
                     logger.error(
-                        "Item processing failed item_id=%s error_type=%s",
-                        item_id, type(error).__name__,
+                        "Item processing failed item_id=%s error_type=%s%s",
+                        item_id, type(error).__name__, detail,
                     )
                     return None
 

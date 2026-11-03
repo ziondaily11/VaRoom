@@ -1,7 +1,9 @@
 import React from 'react';
-import { BotAvatar } from 'bot-avatars';
+import { BotAvatar, type BotAvatarProps } from 'bot-avatars';
 
-const ElieIcon = React.forwardRef(function ElieIcon(
+export type ElieIconProps = BotAvatarProps;
+
+const ElieIcon = React.forwardRef<HTMLCanvasElement, ElieIconProps>(function ElieIcon(
   {
     size = 24,
     className = 'elie-icon',

@@ -15,7 +15,7 @@ import { INITIAL_LISTINGS } from '../components/landing/initialListings';
 import { normalizeSignupRole } from '../public/js/auth-flow-utils';
 import { getSupabaseClient } from '../lib/supabase/client';
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from '../lib/supabase/config';
-const { resolveStoredPhotoUrl } = require('../components/resolveStoredPhotoUrl');
+import { resolveStoredPhotoUrl } from '../components/resolveStoredPhotoUrl';
 
 interface LandingPageProps {
   initialListings: Listing[];
