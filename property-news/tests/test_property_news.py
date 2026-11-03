@@ -1974,8 +1974,16 @@ class Phase1PipelineTests(unittest.IsolatedAsyncioTestCase):
         result = await FallbackNewsAnalyzer(recovered, retry_delay_seconds=0).analyse(item, self.source)
         self.assertEqual((result.model_provider, recovered.calls), ("ai", 2))
 
+        from app.analysis import ProviderTemporarilyUnavailable
+        from app.constants import MAX_PROCESSING_ATTEMPTS
+
+        # Still overloaded after the quick retry: hand the item back to the
+        # queue while it has attempts left, fall back to rules on the last one.
+        with self.assertRaises(ProviderTemporarilyUnavailable):
+            await FallbackNewsAnalyzer(Primary([503, 503]), retry_delay_seconds=0).analyse(item, self.source)
+        last_attempt = item.model_copy(update={"processing_attempts": MAX_PROCESSING_ATTEMPTS})
         broken = Primary([500, 500])
-        result = await FallbackNewsAnalyzer(broken, retry_delay_seconds=0).analyse(item, self.source)
+        result = await FallbackNewsAnalyzer(broken, retry_delay_seconds=0).analyse(last_attempt, self.source)
         self.assertEqual((result.model_provider, broken.calls), ("rules", 2))
 
         class InvalidJson:
@@ -1984,6 +1992,55 @@ class Phase1PipelineTests(unittest.IsolatedAsyncioTestCase):
 
         result = await FallbackNewsAnalyzer(InvalidJson(), retry_delay_seconds=0).analyse(item, self.source)
         self.assertEqual(result.model_provider, "rules")
+
+    async def test_gemini_tries_the_fallback_model_when_the_main_one_is_overloaded(self):
+        from app.analysis import GeminiNewsAnalyzer
+
+        models_called = []
+        analysis_json = json.dumps({"relevant": True, "confidence_score": 0.9, "source_tier": 1,
+                                    "varoom_title": "Title", "varoom_summary": "Summary."})
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            model = request.url.path.rsplit("/", 1)[-1].split(":")[0]
+            models_called.append(model)
+            if model == "gemini-3.8-flash":
+                return httpx.Response(503, request=request, json={"error": {"status": "UNAVAILABLE"}})
+            return httpx.Response(200, request=request, json={
+                "candidates": [{"content": {"parts": [{"text": analysis_json}]}}]})
+
+        analyzer = GeminiNewsAnalyzer("key", "gemini-3.8-flash", ("gemini-3.6-flash",))
+        analyzer._client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        result = await analyzer.analyse(self.item(), self.source)
+        await analyzer.close()
+        self.assertEqual(models_called, ["gemini-3.8-flash", "gemini-3.6-flash"])
+        self.assertEqual((result.model_provider, result.model_version), ("gemini", "gemini-3.6-flash"))
+
+    def test_fallback_model_defaults_and_never_repeats_the_main_model(self):
+        from app.config import DEFAULT_GEMINI_FALLBACK_MODEL, resolve_ai_fallback_model
+
+        self.assertEqual(resolve_ai_fallback_model({}, "gemini", "gemini-3.8-flash"), DEFAULT_GEMINI_FALLBACK_MODEL)
+        self.assertIsNone(resolve_ai_fallback_model({}, "gemini", DEFAULT_GEMINI_FALLBACK_MODEL))
+        self.assertEqual(resolve_ai_fallback_model({"NEWS_AI_FALLBACK_MODEL": "gemini-x"}, "gemini", "gemini-3.8-flash"),
+                         "gemini-x")
+        self.assertIsNone(resolve_ai_fallback_model({}, "rules", None))
+
+    async def test_an_overloaded_provider_retries_the_item_later_instead_of_using_rules(self):
+        from app.analysis import FallbackNewsAnalyzer
+
+        request = httpx.Request("POST", "https://ai.example.test")
+
+        class Overloaded:
+            async def analyse(self, _item, _source):
+                raise httpx.HTTPStatusError("busy", request=request, response=httpx.Response(503, request=request))
+
+        await self.repository.upsert_source(self.source)
+        item = await self.repository.save_item(self.item())
+        result = await run_collection_job(self.repository, Settings(),
+                                          analyzer=FallbackNewsAnalyzer(Overloaded(), retry_delay_seconds=0))
+        stored = await self.repository.get_item(item.id)
+        self.assertEqual(result["processing_failures"], 1)
+        self.assertEqual(stored.review_status, ReviewStatus.FAILED)
+        self.assertNotIn(item.id, self.repository.analyses)
 
     async def test_gemini_key_is_sent_in_a_header_not_the_url(self):
         from app.analysis import GeminiNewsAnalyzer

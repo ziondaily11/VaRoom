@@ -36,6 +36,9 @@ class ReviewStatus(StrEnum):
     ARCHIVED = "archived"
 
 
+# An item is processed at most this many times; after that it is archived.
+MAX_PROCESSING_ATTEMPTS = 3
+
 PROPERTY_CATEGORIES = {
     "land", "property", "housing", "construction", "development",
     "finance", "taxation", "law", "zoning", "planning",
