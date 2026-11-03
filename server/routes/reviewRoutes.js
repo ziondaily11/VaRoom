@@ -8,6 +8,8 @@ async function loadReviewsWithClients(column, value) {
   const { data: rows, error } = await supabaseAdmin.from('reviews')
     .select('id,rating,comment,created_at,client_id')
     .eq(column, value)
+    // Removed and pending (moderated) reviews are not shown.
+    .eq('status', 'published')
     .order('created_at', { ascending: false });
   if (error) throw error;
 
