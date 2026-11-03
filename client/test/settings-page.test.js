@@ -81,7 +81,7 @@ test('delete account: a reason (and details for Other), then the server; the ser
 test('page: in the shell, legacy wording, phone menu opens the app drawer, legacy page retired', () => {
   const page = read('pages', 'settings.tsx');
   assert.match(page, /window\.dispatchEvent\(new Event\(role === 'host' \? 'open-host-sidebar' : 'open-client-sidebar'\)\)/);
-  assert.match(page, /router\.query\.section === 'notifications'/);
+  assert.match(page, /wanted === 'notifications'/);
   const sections = read('components', 'settings', 'SettingsSections.tsx');
   for (const text of ['Search Settings', 'Your Account', 'Login & Accounts', 'Payments &amp; Payouts', 'No other accounts are stored on this dashboard.', 'Account limit reached (3/3).', 'Are you sure you want to log out?', 'Delete account permanently', 'Save privacy settings', 'Choose what VaRoom is allowed to send you.']) {
     assert.ok(sections.includes(text), text);

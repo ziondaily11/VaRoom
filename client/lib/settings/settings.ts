@@ -146,6 +146,7 @@ export async function deleteAccount(token: string, reason: string, details: stri
 /** The categories on the main list, for search (titles only, as before). */
 export const CATEGORY_TITLES: Record<string, string> = {
   account: 'Your Account',
+  plans: 'Plans & Billing',
   notifications: 'Notifications',
   display: 'Display',
   privacy: 'Privacy & Security',

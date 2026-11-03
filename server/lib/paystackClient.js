@@ -44,6 +44,8 @@ function createPaystackClient({ env = process.env, fetchImpl = global.fetch } = 
     verifyTransaction: (reference) => request(`/transaction/verify/${encodeURIComponent(reference)}`),
     fetchSubscription: (subscriptionCode) => request(`/subscription/${encodeURIComponent(subscriptionCode)}`),
     disableSubscription: ({ code, token }) => request('/subscription/disable', { method: 'POST', body: JSON.stringify({ code, token }) }),
+    // A Paystack-hosted page where the customer updates the card for a subscription.
+    subscriptionManageLink: (subscriptionCode) => request(`/subscription/${encodeURIComponent(subscriptionCode)}/manage/link`),
   };
 }
 
