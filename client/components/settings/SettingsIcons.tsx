@@ -21,7 +21,7 @@ export const CAT_ICONS: Record<string, React.ReactNode> = {
   support: icon(20, <><circle cx="12" cy="12" r="9" /><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 1.7-2.5 2-2.5 3.5" /><path d="M12 17h.01" /></>),
   'login-accounts': icon(20, <><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="m16 17 5-5-5-5" /><path d="M21 12H9" /></>),
   payments: icon(20, <><rect x="3" y="6" width="18" height="13" rx="2" /><path d="M3 10h18" /></>),
-  plans: icon(20, <><path d="m12 2 10 5-10 5L2 7l10-5Z" /><path d="m2 17 10 5 10-5" /><path d="m2 12 10 5 10-5" /></>),
+  plans: icon(20, <><path d="M6 3h12l4 6-10 12L2 9Z" /><path d="M11 3 8 9l4 12 4-12-3-6" /><path d="M2 9h20" /></>),
 };
 
 export const INFO_ICONS = {
@@ -38,6 +38,7 @@ export const INFO_ICONS = {
   file: icon(16, <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" /><path d="M14 2v6h6" /></>),
   card: icon(16, <><rect x="3" y="6" width="18" height="13" rx="2" /><path d="M3 10h18" /></>),
   receipt: icon(16, <><path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2V3Z" /><path d="M9 8h6M9 12h6" /></>),
+  diamond: icon(16, <><path d="M6 3h12l4 6-10 12L2 9Z" /><path d="M11 3 8 9l4 12 4-12-3-6" /><path d="M2 9h20" /></>),
   sparkle: icon(16, <path d="M12 3l1.9 5.6L19.5 10l-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.4L12 3Z" />),
   listings: icon(16, <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M7 9h10M7 13h10M7 17h6" /></>),
 };
