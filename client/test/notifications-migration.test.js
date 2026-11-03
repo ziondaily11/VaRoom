@@ -322,7 +322,7 @@ test('11. Regression checks for Property News and other shared routing/layout be
 test('12. Complete legacy unwiring verification', () => {
   const nextConfigPath = path.join(root, 'next.config.js');
   const vercelConfigPath = path.join(root, 'vercel.json');
-  const profileHtmlPath = path.join(root, 'legacy-pages', 'profile.html');
+  const profileTopbarPath = path.join(root, 'components', 'profile', 'ProfileTopbar.tsx');
   const slugPath2 = path.join(root, 'pages', '[...slug].js');
   const notifPageSource = fs.readFileSync(notificationsPagePath, 'utf8');
 
@@ -342,15 +342,10 @@ test('12. Complete legacy unwiring verification', () => {
   assert.equal(fs.existsSync(path.join(root, 'legacy-pages', 'notifications.html')), false);
   assert.equal(fs.existsSync(path.join(root, 'public', 'js', 'notifications-page.js')), false);
 
-  // 3. profile.html no longer references legacy notifications.html path
-  const profileHtmlSource = fs.readFileSync(profileHtmlPath, 'utf8');
-  assert.doesNotMatch(
-    profileHtmlSource,
-    /['"]notifications\.html['"]/,
-    'profile.html must not contain legacy notifications.html references'
-  );
-  // profile.html should now use /notifications
-  assert.match(profileHtmlSource, /\/notifications/, 'profile.html must reference /notifications');
+  // 3. The native profile's topbar opens /notifications (legacy profile.html is retired).
+  const profileTopbarSource = fs.readFileSync(profileTopbarPath, 'utf8');
+  assert.doesNotMatch(profileTopbarSource, /notifications\.html/, 'the profile topbar must not reference notifications.html');
+  assert.match(profileTopbarSource, /router\.push\('\/notifications'\)/, 'the profile topbar must open /notifications');
 
   // 4. Role comes from the verified profile (AuthProvider); the page no longer
   // broadcasts role hints, which made _app re-query the profile in a loop.

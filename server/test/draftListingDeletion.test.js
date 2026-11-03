@@ -19,10 +19,10 @@ const controls = fs.readFileSync(
   path.join(repositoryRoot, 'client', 'public', 'js', 'host-listing-controls.js'),
   'utf8'
 );
-const profile = fs.readFileSync(
-  path.join(repositoryRoot, 'client', 'legacy-pages', 'profile.html'),
-  'utf8'
-);
+// The native profile (legacy profile.html is retired): its menu, the shared
+// listing events and the page's own state.
+const profile = ['components/listings/HostListingMenu.tsx', 'lib/listings/hostListingActions.ts', 'pages/profile.tsx']
+  .map((file) => fs.readFileSync(path.join(repositoryRoot, 'client', file), 'utf8')).join('\n');
 
 test('draft deletion SQL is service-only and rejects non-drafts and retained history', () => {
   assert.match(migration, /availability_status in \('available', 'booked', 'unavailable', 'paused', 'draft'\)/);
@@ -48,8 +48,8 @@ test('host controls label draft deletion explicitly and remove deleted listings 
   assert.match(controls, /LISTING_DELETED_MEDIA_CLEANUP_FAILED/);
   assert.match(controls, /document\.body\.appendChild\(dropdown\)/);
   assert.match(controls, /dropdown\.style\.overflowY = 'auto'/);
-  assert.match(profile, /\.card-menu-dropdown\.open\.is-portaled/);
+  assert.match(profile, /\.vr-listing-menu\{ position:fixed;/);
   assert.match(profile, /overscroll-behavior:contain/);
   assert.match(profile, /varoom:listing-deleted/);
-  assert.match(profile, /categoryListingIds\[categoryId\].*filter/);
+  assert.match(profile, /listingIds: category\.listingIds\.filter\(\(listingId\) => listingId !== id\)/);
 });
