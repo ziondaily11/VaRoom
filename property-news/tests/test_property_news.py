@@ -2497,6 +2497,52 @@ class Phase6DailyCheckTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(any("rules fallback" in issue for issue in report["issues"]))
 
 
+class Phase7SearchTests(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self):
+        self.repository = MemoryNewsRepository()
+        self.source = source(tier=2)
+        await self.repository.upsert_source(self.source)
+
+    async def publish(self, slug: str, title: str, *, category: str = "property", counties=(), age_days: int = 1):
+        published = datetime.now(timezone.utc) - timedelta(days=age_days)
+        await self.repository.save_item(NewsItem(
+            source_id=self.source.id, source_url=f"https://source2.example.test/{slug}",
+            canonical_url=f"https://source2.example.test/{slug}", source_title=title, varoom_title=title,
+            varoom_summary=f"{title}.", category=category, counties=list(counties), source_tier=2,
+            content_hash=(slug * 64)[:64], review_status=ReviewStatus.PUBLISHED, published_at=published,
+            source_published_at=published,
+        ))
+
+    async def test_search_reaches_stories_older_than_the_newest_hundred(self):
+        await self.publish("old-levy", "Court upholds housing levy", category="housing", age_days=150)
+        for index in range(120):
+            await self.publish(f"recent-{index:03d}", f"Market note number {index}", age_days=1)
+        result = await NewsRetrievalService(self.repository).search("housing levy ruling")
+        self.assertEqual(result.evidence[0].title, "Court upholds housing levy")
+
+    async def test_words_in_the_question_boost_but_never_filter(self):
+        await self.publish("levy", "Court of Appeal upholds the housing levy", category="housing")
+        result = await NewsRetrievalService(self.repository).search("What is the impact of the housing levy?")
+        self.assertEqual([item.title for item in result.evidence], ["Court of Appeal upholds the housing levy"])
+
+    def test_question_hints_match_whole_words_only(self):
+        hints = NewsRetrievalService._implicit_hints
+        self.assertNotIn("category", hints("What is the impact on landlords?"))
+        self.assertEqual(hints("New land rates in Kiambu")["category"], "land")
+        self.assertEqual(hints("New land rates in Kiambu")["county"], "Kiambu")
+        self.assertEqual(hints("Is the Finance Act in effect?")["regulatory_status"], "effective")
+
+    async def test_search_falls_back_to_a_recent_scan_when_full_text_is_unavailable(self):
+        await self.publish("rates", "City Hall approves new land rates", category="land", counties=("Nairobi",))
+
+        async def broken(*_args, **_kwargs):
+            raise RuntimeError("function property_news_search does not exist")
+
+        with patch.object(self.repository, "search_published", new=broken):
+            result = await NewsRetrievalService(self.repository).search("land rates Nairobi")
+        self.assertEqual(result.evidence[0].title, "City Hall approves new land rates")
+
+
 class Phase3SupabaseRequestTests(unittest.IsolatedAsyncioTestCase):
     """The PostgREST requests the Supabase repository sends for Phase 3."""
 
@@ -2513,6 +2559,22 @@ class Phase3SupabaseRequestTests(unittest.IsolatedAsyncioTestCase):
             self.calls.append((method, table, kwargs))
             return response
         return patch.object(self.repository, "_request", new=fake_request)
+
+    async def test_search_calls_the_rpc_then_loads_the_ranked_stories(self):
+        item_id = "6f1c2a9e-1b2c-4d3e-8f90-123456789abc"
+        responses = iter([[{"id": item_id, "rank": 0.07}], []])
+
+        async def fake_request(method, table, **kwargs):
+            self.calls.append((method, table, kwargs))
+            return next(responses)
+
+        with patch.object(self.repository, "_request", new=fake_request):
+            await self.repository.search_published("housing levy", county="Nairobi", days=30)
+        method, table, kwargs = self.calls[0]
+        self.assertEqual((method, table), ("POST", "rpc/property_news_search"))
+        self.assertEqual(kwargs["payload"]["p_query"], "housing levy")
+        self.assertEqual((kwargs["payload"]["p_county"], kwargs["payload"]["p_days"]), ("Nairobi", 30))
+        self.assertEqual(self.calls[1][2]["params"]["id"], f"in.({item_id})")
 
     async def test_url_lookup_quotes_urls_containing_commas(self):
         with self.respond_with([]):

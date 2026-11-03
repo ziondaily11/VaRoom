@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import asyncio
 import logging
+import re
 import time
 from datetime import datetime, timedelta, timezone
 from difflib import SequenceMatcher
@@ -34,6 +35,8 @@ URL_LOOKUP_BATCH = 40
 NEWS_URL_FIELDS = "canonical_url,source_id,state,reason,news_id,attempts,last_attempt_at,next_attempt_at"
 # Daily monitoring counts a day of rows; far above real daily volumes.
 MONITORING_ROW_LIMIT = 1000
+# Full-text matches fetched for re-ranking by authority, recency and county.
+SEARCH_CANDIDATE_LIMIT = 50
 PUBLIC_ITEM_FIELDS = (
     "id,source_id,source_url,canonical_url,source_title,source_published_at,varoom_title,"
     "varoom_summary,category,topics,counties,towns,regulatory_status,affected_groups,"
@@ -177,6 +180,31 @@ class MemoryNewsRepository:
     async def save_analysis(self, news_id: UUID, analysis: NewsAnalysis) -> None:
         self.analyses[news_id] = copy.deepcopy(analysis)
         self.analysis_times[news_id] = _now()
+
+    async def search_published(self, query: str, *, county: str | None = None, category: str | None = None,
+                               regulatory_status: str | None = None, days: int | None = None,
+                               limit: int = SEARCH_CANDIDATE_LIMIT) -> list[tuple[NewsItem, float]]:
+        """Development stand-in for property_news_search(): any-word match over all published items."""
+        words = {word for word in re.findall(r"[a-z0-9]+", query.lower()) if len(word) > 2}
+        now = _now()
+        matches = []
+        for item in self.items.values():
+            if item.review_status is not ReviewStatus.PUBLISHED or not item.published_at or item.published_at > now:
+                continue
+            if county and county.lower() not in {value.lower() for value in item.counties}:
+                continue
+            if category and item.category != category.lower():
+                continue
+            if regulatory_status and item.regulatory_status.value != regulatory_status.lower():
+                continue
+            if days and item.published_at < now - timedelta(days=days):
+                continue
+            text = " ".join(filter(None, [item.varoom_title or item.source_title, item.varoom_summary, item.category])).lower()
+            hits = sum(1 for word in words if word in text)
+            if hits:
+                matches.append((copy.deepcopy(item), hits / max(len(words), 1)))
+        matches.sort(key=lambda match: (match[1], match[0].published_at), reverse=True)
+        return matches[:limit]
 
     async def count_items_created_since(self, since: datetime) -> int:
         return sum(1 for item in self.items.values() if item.created_at >= since)
@@ -534,6 +562,23 @@ class SupabaseNewsRepository:
             if SequenceMatcher(None, title.lower(), str(row.get("source_title", "")).lower()).ratio() >= threshold:
                 return await self.get_item(UUID(row["id"]))
         return None
+
+    async def search_published(self, query: str, *, county: str | None = None, category: str | None = None,
+                               regulatory_status: str | None = None, days: int | None = None,
+                               limit: int = SEARCH_CANDIDATE_LIMIT) -> list[tuple[NewsItem, float]]:
+        """Full-text search over every published story (property_news_search, migration 20261103_000001)."""
+        ranked = await self._request("POST", "rpc/property_news_search", payload={
+            "p_query": query, "p_county": county, "p_category": category,
+            "p_regulatory_status": regulatory_status, "p_days": days, "p_limit": limit,
+        }) or []
+        if not ranked:
+            return []
+        ids = [str(row["id"]) for row in ranked]
+        rows = await self._request("GET", "news_items", params={
+            "select": PUBLIC_ITEM_FIELDS, "id": f"in.({','.join(ids)})",
+        })
+        items = {str(row["id"]): self._item(row) for row in rows}
+        return [(items[str(row["id"])], float(row.get("rank") or 0)) for row in ranked if str(row["id"]) in items]
 
     async def count_items_created_since(self, since: datetime) -> int:
         rows = await self._request("GET", "news_items", params={

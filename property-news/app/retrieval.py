@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import re
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
@@ -11,6 +12,9 @@ from .repository import MAX_NEWS_LIST_LIMIT, PUBLIC_ITEM_FIELDS, MemoryNewsRepos
 Repository = MemoryNewsRepository | SupabaseNewsRepository
 
 
+logger = logging.getLogger(__name__)
+
+
 class NewsRetrievalService:
     def __init__(self, repository: Repository) -> None:
         self.repository = repository
@@ -18,39 +22,37 @@ class NewsRetrievalService:
     async def search(self, query: str, *, category: str | None = None, county: str | None = None,
                      town: str | None = None, regulatory_status: str | None = None, days: int | None = None,
                      limit: int = 20) -> RetrievalResponse:
+        """Rank published evidence for a question.
+
+        Explicit arguments are hard filters. Words in the question (a county,
+        "housing", "proposed", ...) only boost matching stories, because a
+        substring hint such as "act" in "impact" must not hide the answer.
+        """
         if not query.strip():
             raise ValueError("Search query is required")
-        implicit = self._implicit_filters(query)
-        category = category or implicit.get("category")
-        county = county or implicit.get("county")
-        regulatory_status = regulatory_status or implicit.get("regulatory_status")
-        tokens = {token for token in re.findall(r"[a-z0-9]+", query.lower()) if len(token) > 2}
-        scan_limit = min(max(limit * 10, 100), MAX_NEWS_LIST_LIMIT)
-        candidates = await self.repository.list_items(
-            published_only=True, limit=scan_limit, select_fields=PUBLIC_ITEM_FIELDS,
-        )
+        hints = self._implicit_hints(query)
+        candidates = await self._candidates(query, category=category, county=county,
+                                            regulatory_status=regulatory_status, days=days)
+        top_text_score = max((text_score for _, text_score in candidates), default=0) or 1
         scored: list[tuple[float, NewsItem]] = []
-        for item in candidates:
-            if category and item.category != category.lower():
-                continue
-            if county and county.lower() not in {value.lower() for value in item.counties}:
-                continue
+        for item, text_score in candidates:
             if town and town.lower() not in {value.lower() for value in item.towns}:
                 continue
-            if regulatory_status and item.regulatory_status.value != regulatory_status.lower():
-                continue
-            if days and item.published_at and item.published_at < datetime.now(timezone.utc) - timedelta(days=days):
-                continue
-            corpus = " ".join(filter(None, [item.source_title, item.varoom_title, item.varoom_summary, item.category, *item.topics, *item.counties, *item.towns])).lower()
-            keyword_score = sum(token in corpus for token in tokens) / max(len(tokens), 1)
+            item_counties = {value.lower() for value in item.counties}
             recency = self._recency_score(item.published_at)
             authority = (5 - item.source_tier) / 4
-            geography = 0.2 if county and county.lower() in {value.lower() for value in item.counties} else 0
-            scored.append((keyword_score * 0.55 + authority * 0.25 + recency * 0.20 + geography, item))
-        top_items = [item for _, item in sorted(scored, key=lambda row: row[0], reverse=True)[:min(max(limit, 1), 50)]]
-        sources_map = await self.repository.get_sources_map([item.source_id for item in top_items])
+            boost = 0.0
+            if (county or hints.get("county", "")).lower() in item_counties:
+                boost += 0.2
+            if hints.get("category") and item.category == hints["category"]:
+                boost += 0.1
+            if hints.get("regulatory_status") and item.regulatory_status.value == hints["regulatory_status"]:
+                boost += 0.1
+            scored.append(((text_score / top_text_score) * 0.55 + authority * 0.25 + recency * 0.20 + boost, item))
+        ranked = sorted(scored, key=lambda row: row[0], reverse=True)[:min(max(limit, 1), 50)]
+        sources_map = await self.repository.get_sources_map([item.source_id for _, item in ranked])
         evidence: list[RetrievalEvidence] = []
-        for (score, item) in sorted(scored, key=lambda row: row[0], reverse=True)[:len(top_items)]:
+        for score, item in ranked:
             source = sources_map.get(item.source_id)
             evidence.append(RetrievalEvidence(
                 id=item.id, title=item.varoom_title or item.source_title, summary=item.varoom_summary,
@@ -62,6 +64,36 @@ class NewsRetrievalService:
         return RetrievalResponse(query=query, evidence=evidence, applied_filters={"category": category, "county": county, "town": town,
             "regulatory_status": regulatory_status, "days": days})
 
+    async def _candidates(self, query: str, *, category: str | None, county: str | None,
+                          regulatory_status: str | None, days: int | None) -> list[tuple[NewsItem, float]]:
+        """Full-text matches over every published story; if the database search
+        is unavailable, a keyword scan of the newest stories."""
+        try:
+            return await self.repository.search_published(
+                query, county=county, category=category, regulatory_status=regulatory_status, days=days,
+            )
+        except Exception as error:
+            logger.warning("Full-text search unavailable, scanning recent stories: %s", error)
+        tokens = {token for token in re.findall(r"[a-z0-9]+", query.lower()) if len(token) > 2}
+        items = await self.repository.list_items(
+            published_only=True, limit=MAX_NEWS_LIST_LIMIT, select_fields=PUBLIC_ITEM_FIELDS,
+        )
+        now = datetime.now(timezone.utc)
+        matches = []
+        for item in items:
+            if category and item.category != category.lower():
+                continue
+            if county and county.lower() not in {value.lower() for value in item.counties}:
+                continue
+            if regulatory_status and item.regulatory_status.value != regulatory_status.lower():
+                continue
+            if days and item.published_at and item.published_at < now - timedelta(days=days):
+                continue
+            corpus = " ".join(filter(None, [item.source_title, item.varoom_title, item.varoom_summary, item.category,
+                                            *item.topics, *item.counties, *item.towns])).lower()
+            matches.append((item, sum(token in corpus for token in tokens) / max(len(tokens), 1)))
+        return matches
+
     @staticmethod
     def _recency_score(published_at: datetime | None) -> float:
         if not published_at:
@@ -71,23 +103,28 @@ class NewsRetrievalService:
         return max(0, 1 - ((now - value).days / 180))
 
     @staticmethod
-    def _implicit_filters(query: str) -> dict[str, str]:
+    def _implicit_hints(query: str) -> dict[str, str]:
+        """Ranking hints from whole words in the question (never filters)."""
         text = query.lower()
+
+        def has(*phrases: str) -> bool:
+            return any(re.search(r"\b" + re.escape(phrase) + r"\b", text) for phrase in phrases)
+
         result: dict[str, str] = {}
         for county in ("nairobi", "kiambu", "mombasa", "nakuru", "kisumu", "kajiado", "machakos"):
-            if county in text:
+            if has(county):
                 result["county"] = county.title()
                 break
-        if any(word in text for word in ("land rate", "title", "land")):
+        if has("land rate", "land rates", "title deed", "title deeds", "land"):
             result["category"] = "land"
-        elif "housing" in text:
+        elif has("housing"):
             result["category"] = "housing"
-        elif any(word in text for word in ("law", "regulation", "bill", "act")):
+        elif has("law", "regulation", "regulations", "bill", "act"):
             result["category"] = "law"
-        if "approved" in text:
+        if has("approved"):
             result["regulatory_status"] = RegulatoryStatus.APPROVED.value
-        elif any(word in text for word in ("effective", "in effect")):
+        elif has("effective", "in effect"):
             result["regulatory_status"] = RegulatoryStatus.EFFECTIVE.value
-        elif any(word in text for word in ("proposed", "proposal")):
+        elif has("proposed", "proposal"):
             result["regulatory_status"] = RegulatoryStatus.PROPOSED.value
         return result
