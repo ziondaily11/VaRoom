@@ -811,22 +811,22 @@
 <div id="profile-content" style="display:none;">
   <div class="profile-desktop-shell">
     <aside class="profile-sidebar">
-      <a href="client-home.html" class="brand-logo" id="profile-brand-link"><span class="va">Va</span><span class="room">Room</span></a>
+      <a href="/client-home" class="brand-logo" id="profile-brand-link"><span class="va">Va</span><span class="room">Room</span></a>
 
       <nav class="nav-group">
         <a class="nav-item" id="profile-home-link" href="/client-home">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1Z"/><path d="M9 21v-6h6v6"/></svg>
           Home
         </a>
-        <a class="nav-item" href="client-home.html">
+        <a class="nav-item" href="/client-home">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m15 9-2 6-6 2 2-6 6-2Z"/></svg>
           Marketplace
         </a>
-        <a class="nav-item" href="client-home.html#saved">
+        <a class="nav-item" href="/client-home?view=saved">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h12a1 1 0 0 1 1 1V21l-7-4-7 4V4.5a1 1 0 0 1 1-1Z"/></svg>
           Saved
         </a>
-        <a class="nav-item" href="signup-host.html">
+        <a class="nav-item" href="/signup-host">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7 13.5 14.5 9.5 10.5 3 17"/><path d="M21 7h-6M21 7v6"/></svg>
           Become a Host
         </a>
@@ -834,7 +834,7 @@
 
       <div class="nav-group nav-group-compact">
         <div class="nav-label">My Activity</div>
-        <a class="nav-item" href="bookings.html">
+        <a class="nav-item" href="/bookings">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="2"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>
           Bookings
         </a>
@@ -936,7 +936,7 @@
       <div class="content-section" id="upcoming-bookings-section">
         <div class="section-header">
           <h2>Upcoming Bookings</h2>
-          <a href="bookings.html">View all bookings <span>→</span></a>
+          <a href="/bookings">View all bookings <span>→</span></a>
         </div>
         <div id="upcoming-bookings" class="booking-list"></div>
       </div>
@@ -944,7 +944,7 @@
       <div class="content-section" id="past-trips-section">
         <div class="section-header">
           <h2>Past Trips</h2>
-          <a href="bookings.html">View all trips <span>→</span></a>
+          <a href="/bookings">View all trips <span>→</span></a>
         </div>
         <div id="past-trips" class="trip-grid"></div>
       </div>
@@ -1080,7 +1080,7 @@
     return;
   }
   const currentRole = currentProfile.role || 'client';
-  const dashboardHref = currentRole === 'host' ? 'host-home.html' : 'client-home.html';
+  const dashboardHref = currentRole === 'host' ? '/host-home' : '/client-home';
   document.documentElement.setAttribute('data-account-role', currentRole === 'host' ? 'host' : 'client');
   try {
     sessionStorage.setItem('varoom_user_role', currentRole === 'host' ? 'host' : 'client');
@@ -2069,7 +2069,7 @@
   /* ── Mobile bottom bar nav ── */
   const bottomNavMap = {
     home: dashboardHref,
-    bookings: 'bookings.html',
+    bookings: '/bookings',
     chats: '/chats'
   };
   document.querySelectorAll('.bottom-bar-item[data-nav]').forEach(function(btn){
@@ -2087,7 +2087,7 @@
     // below remain for pages served outside the Next app.
     if (window.VaRoomAccount) { await window.VaRoomAccount.logout(); return; }
     await supabaseClient.auth.signOut();
-    window.location.href = 'index.html';
+    window.location.href = '/';
   });
 
 })();

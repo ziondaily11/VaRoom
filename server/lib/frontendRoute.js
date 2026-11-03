@@ -5,6 +5,8 @@ function resolveFrontendRouteRedirect({
   requestHost,
   requestUrl,
   destinationPath,
+  // Parameters set on the destination after the request's own query.
+  query = null,
   unavailableMessage,
   sameOriginMessage = unavailableMessage,
   nodeEnv = process.env.NODE_ENV,
@@ -42,6 +44,7 @@ function resolveFrontendRouteRedirect({
   const destination = new URL(destinationPath, frontendUrl.origin);
   const queryIndex = typeof requestUrl === 'string' ? requestUrl.indexOf('?') : -1;
   if (queryIndex >= 0) destination.search = requestUrl.slice(queryIndex);
+  if (query) Object.entries(query).forEach(([key, value]) => destination.searchParams.set(key, value));
   return { status: 302, location: destination.toString() };
 }
 
