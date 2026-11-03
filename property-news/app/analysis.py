@@ -9,7 +9,7 @@ from typing import Protocol
 import httpx
 
 from .config import Settings
-from .constants import PROPERTY_CATEGORIES, RegulatoryStatus
+from .constants import MAX_PROCESSING_ATTEMPTS, PROPERTY_CATEGORIES, RegulatoryStatus
 from .models import NewsAnalysis, NewsItem, Source
 from .relevance import classify_property_relevance
 from .risk import assess_risk
@@ -204,10 +204,15 @@ class OpenAICompatibleNewsAnalyzer:
 
 
 class GeminiNewsAnalyzer:
-    """Gemini JSON-mode adapter using VaRoom's existing server-side Gemini credential."""
+    """Gemini JSON-mode adapter using VaRoom's existing server-side Gemini credential.
 
-    def __init__(self, api_key: str, model: str) -> None:
+    Tries the configured model, then each fallback model when one is
+    overloaded, rate-limited or unavailable (as Elie's chatbot does).
+    """
+
+    def __init__(self, api_key: str, model: str, fallback_models: tuple[str, ...] = ()) -> None:
         self.api_key, self.model = api_key, model
+        self.models = tuple(dict.fromkeys((model, *fallback_models)))
         self._client = httpx.AsyncClient(timeout=30.0, limits=httpx.Limits(max_keepalive_connections=10, max_connections=20))
 
     async def close(self) -> None:
@@ -218,10 +223,19 @@ class GeminiNewsAnalyzer:
             "contents": [{"role": "user", "parts": [{"text": _editor_prompt(item, source)}]}],
             "generationConfig": {"temperature": 0.1, "responseMimeType": "application/json"},
         }
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent"
-        # Header rather than ?key= so the credential never appears in a URL.
-        response = await self._client.post(url, headers={"x-goog-api-key": self.api_key}, json=payload)
-        response.raise_for_status()
+        for index, model in enumerate(self.models):
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+            # Header rather than ?key= so the credential never appears in a URL.
+            response = await self._client.post(url, headers={"x-goog-api-key": self.api_key}, json=payload)
+            if response.status_code in MODEL_FALLBACK_STATUS and index + 1 < len(self.models):
+                logger.warning("Gemini model %s returned %d; trying %s", model, response.status_code, self.models[index + 1])
+                continue
+            response.raise_for_status()
+            return self._parse(item, source, response, model)
+        raise RuntimeError("No Gemini model configured")
+
+    @staticmethod
+    def _parse(item: NewsItem, source: Source, response: httpx.Response, model: str) -> NewsAnalysis:
         candidates = response.json().get("candidates") or []
         parts = candidates[0].get("content", {}).get("parts", []) if candidates else []
         content = "".join(str(part.get("text", "")) for part in parts)
@@ -231,10 +245,18 @@ class GeminiNewsAnalyzer:
         risk, reasons = assess_risk(f"{item.source_title}\n{item.clean_text}", analysis.regulatory_status, source.trust_tier)
         return analysis.model_copy(update={"source_tier": source.trust_tier, "risk_level": risk, "risk_reasons": reasons,
                                            "image_url": item.image_url or analysis.image_url,
-                                           "model_provider": "gemini", "model_version": self.model})
+                                           "model_provider": "gemini", "model_version": model})
 
 
 RETRYABLE_PROVIDER_STATUS = {429, 500, 502, 503, 504}
+# Statuses for which another Gemini model is tried (404: model retired).
+MODEL_FALLBACK_STATUS = RETRYABLE_PROVIDER_STATUS | {404}
+
+
+class ProviderTemporarilyUnavailable(RuntimeError):
+    """The AI provider is overloaded or unreachable; retry the item later."""
+
+
 _GOOGLE_API_KEY_PATTERN = re.compile(r"AIza[0-9A-Za-z_\-]{20,}")
 
 
@@ -247,6 +269,8 @@ def _provider_error_reason(response: httpx.Response) -> str:
     except (ValueError, AttributeError):
         reason = response.text
     return _GOOGLE_API_KEY_PATTERN.sub("[redacted]", " ".join(str(reason).split()))[:300] or "unknown"
+
+
 PROVIDER_RETRY_DELAY_SECONDS = 2.0
 PROVIDER_MAX_RETRY_DELAY_SECONDS = 10.0
 
@@ -254,15 +278,20 @@ PROVIDER_MAX_RETRY_DELAY_SECONDS = 10.0
 class FallbackNewsAnalyzer:
     """Uses the AI provider, retrying once on rate limits or server errors.
 
-    If the provider still fails, the item is analysed by the rules analyser
-    instead of being marked failed and retried on every collection run.
+    A temporary failure (overload, rate limit, network) is handed back to the
+    processing queue while the item has attempts left, so it is retried with
+    the AI provider later instead of keeping a rules analysis for good. Only
+    the last attempt, or a failure that will not go away (bad key, invalid
+    JSON), falls back to the rules analyser.
     """
 
     def __init__(self, primary: NewsAnalyzer, fallback: NewsAnalyzer | None = None,
-                 retry_delay_seconds: float = PROVIDER_RETRY_DELAY_SECONDS) -> None:
+                 retry_delay_seconds: float = PROVIDER_RETRY_DELAY_SECONDS,
+                 max_attempts: int = MAX_PROCESSING_ATTEMPTS) -> None:
         self.primary = primary
         self.fallback = fallback or RulesBasedNewsAnalyzer()
         self.retry_delay_seconds = retry_delay_seconds
+        self.max_attempts = max_attempts
 
     async def close(self) -> None:
         close = getattr(self.primary, "close", None)
@@ -270,25 +299,30 @@ class FallbackNewsAnalyzer:
             await close()
 
     async def analyse(self, item: NewsItem, source: Source) -> NewsAnalysis:
+        temporary = False
         for attempt in range(2):
             try:
                 return await self.primary.analyse(item, source)
             except httpx.HTTPStatusError as error:
                 status = error.response.status_code
-                if attempt == 0 and status in RETRYABLE_PROVIDER_STATUS:
+                temporary = status in RETRYABLE_PROVIDER_STATUS
+                if attempt == 0 and temporary:
                     await asyncio.sleep(self._retry_delay(error.response))
                     continue
-                logger.warning("AI analysis failed item_id=%s status=%d reason=%s; using rules fallback",
-                               item.id, status, _provider_error_reason(error.response))
+                reason = f"status={status} reason={_provider_error_reason(error.response)}"
                 break
             except (httpx.TransportError, ValueError, KeyError, IndexError, TypeError) as error:
                 # ValueError covers invalid JSON and schema validation errors.
-                if attempt == 0 and isinstance(error, httpx.TransportError):
+                temporary = isinstance(error, httpx.TransportError)
+                if attempt == 0 and temporary:
                     await asyncio.sleep(self.retry_delay_seconds)
                     continue
-                logger.warning("AI analysis failed item_id=%s error_type=%s; using rules fallback",
-                               item.id, type(error).__name__)
+                reason = f"error_type={type(error).__name__}"
                 break
+        if temporary and item.processing_attempts < self.max_attempts:
+            logger.warning("AI analysis temporarily unavailable item_id=%s %s; retrying later", item.id, reason)
+            raise ProviderTemporarilyUnavailable(reason)
+        logger.warning("AI analysis failed item_id=%s %s; using rules fallback", item.id, reason)
         return await self.fallback.analyse(item, source)
 
     def _retry_delay(self, response: httpx.Response) -> float:
@@ -301,7 +335,8 @@ class FallbackNewsAnalyzer:
 
 def build_analyzer(config: Settings) -> NewsAnalyzer:
     if config.ai_provider == "gemini" and config.ai_api_key and config.ai_model:
-        return FallbackNewsAnalyzer(GeminiNewsAnalyzer(config.ai_api_key, config.ai_model))
+        fallback_models = (config.ai_fallback_model,) if config.ai_fallback_model else ()
+        return FallbackNewsAnalyzer(GeminiNewsAnalyzer(config.ai_api_key, config.ai_model, fallback_models))
     if config.ai_provider == "openai-compatible" and config.ai_base_url and config.ai_api_key and config.ai_model:
         return FallbackNewsAnalyzer(OpenAICompatibleNewsAnalyzer(config.ai_base_url, config.ai_api_key, config.ai_model))
     return RulesBasedNewsAnalyzer()

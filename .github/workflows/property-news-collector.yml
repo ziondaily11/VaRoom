@@ -55,6 +55,7 @@ jobs:
           # Optional repository/environment variable to switch Gemini models
           # without a code change; empty means the code default.
           NEWS_AI_MODEL: ${{ vars.NEWS_AI_MODEL }}
+          NEWS_AI_FALLBACK_MODEL: ${{ vars.NEWS_AI_FALLBACK_MODEL }}
           NEWS_ENVIRONMENT: production
           NEWS_LOG_LEVEL: INFO
           RUN_TRIGGER: ${{ github.event_name == 'schedule' && 'schedule' || inputs.trigger || 'manual' }}

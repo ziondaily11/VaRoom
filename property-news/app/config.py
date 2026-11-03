@@ -72,8 +72,22 @@ def resolve_ai_model(env: Mapping[str, str], provider: str) -> str | None:
     return DEFAULT_GEMINI_MODEL if provider == "gemini" else None
 
 
+# Tried when the main model is overloaded or unavailable (Elie uses the same).
+DEFAULT_GEMINI_FALLBACK_MODEL = "gemini-3.6-flash"
+
+
+def resolve_ai_fallback_model(env: Mapping[str, str], provider: str, model: str | None) -> str | None:
+    if provider != "gemini":
+        return None
+    configured = next((value.strip() for name in ("NEWS_AI_FALLBACK_MODEL", "GEMINI_FALLBACK_MODEL")
+                       if (value := env.get(name)) and value.strip()), None)
+    fallback = configured if configured and configured not in RETIRED_GEMINI_MODELS else DEFAULT_GEMINI_FALLBACK_MODEL
+    return fallback if fallback != model else None
+
+
 _default_ai_provider = resolve_ai_provider(os.environ)
 _default_ai_model = resolve_ai_model(os.environ, _default_ai_provider.lower())
+_default_ai_fallback_model = resolve_ai_fallback_model(os.environ, _default_ai_provider.lower(), _default_ai_model)
 
 
 @dataclass(frozen=True)
@@ -85,6 +99,7 @@ class Settings:
     ai_provider: str = _default_ai_provider.lower()
     ai_api_key: str | None = _first_set("NEWS_AI_API_KEY", "GEMINI_API_KEY")
     ai_model: str | None = _default_ai_model
+    ai_fallback_model: str | None = _default_ai_fallback_model
     ai_base_url: str | None = os.getenv("NEWS_AI_BASE_URL") or None
     fetch_timeout_seconds: int = _int("NEWS_FETCH_TIMEOUT_SECONDS", 20)
     fetch_max_bytes: int = _int("NEWS_FETCH_MAX_BYTES", 1_500_000)

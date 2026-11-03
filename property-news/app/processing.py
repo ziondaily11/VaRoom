@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from .analysis import NewsAnalyzer
-from .constants import ReviewStatus
+from .constants import MAX_PROCESSING_ATTEMPTS, ReviewStatus
 from .models import NewsEvent, NewsItem, NewsUrl
 from .repository import MemoryNewsRepository, SupabaseNewsRepository
 from .risk import allows_auto_publish
@@ -14,8 +14,6 @@ from .risk import allows_auto_publish
 Repository = MemoryNewsRepository | SupabaseNewsRepository
 logger = logging.getLogger(__name__)
 _SENSITIVE_URL_PARAMETER = re.compile(r"(?i)([?&](?:api[_-]?key|key|token|access_token)=)[^&\s'\"]+")
-# An item is processed at most this many times; after that it is archived.
-MAX_PROCESSING_ATTEMPTS = 3
 # Retry delays after a failed attempt: 10 min, then 20 min.
 PROCESSING_RETRY_BASE = timedelta(minutes=10)
 
