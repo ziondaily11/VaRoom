@@ -2389,6 +2389,57 @@ class PromotionalTextTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("PAY ATTENTION", stored.clean_text)
 
 
+class Phase6DailyCheckTests(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self):
+        self.repository = MemoryNewsRepository()
+        self.source = source(tier=3)
+        await self.repository.upsert_source(self.source)
+
+    async def add_item(self, slug: str, provider: str, status=ReviewStatus.PUBLISHED, age=timedelta(hours=2)):
+        from app.models import NewsAnalysis
+
+        item = await self.repository.save_item(NewsItem(
+            source_id=self.source.id, source_url=f"https://source3.example.test/{slug}",
+            canonical_url=f"https://source3.example.test/{slug}", source_title=slug, source_tier=3,
+            content_hash=(slug * 64)[:64], review_status=status,
+            created_at=datetime.now(timezone.utc) - age,
+        ))
+        await self.repository.save_analysis(item.id, NewsAnalysis(
+            relevant=True, confidence_score=0.8, source_tier=3, model_provider=provider))
+
+    async def add_runs(self, count: int):
+        for _ in range(count):
+            await self.repository.start_collection_run("schedule")
+
+    async def test_a_healthy_day_passes_and_reports_the_review_queue(self):
+        from app.monitoring import daily_health_report, format_report
+
+        await self.add_item("a", "gemini")
+        await self.add_item("b", "rules", status=ReviewStatus.PENDING_REVIEW, age=timedelta(hours=60))
+        await self.add_runs(40)
+        report = await daily_health_report(self.repository, "gemini")
+        self.assertTrue(report["healthy"], report["issues"])
+        self.assertEqual((report["new_items_24h"], report["ai_analyses_24h"]), (1, 1))
+        self.assertIn("1 stories are waiting for review", report["notes"][0])
+        self.assertIn("Status: healthy", format_report(report))
+
+    async def test_silent_ai_fallback_missing_stories_and_missed_runs_are_flagged(self):
+        from app.monitoring import daily_health_report
+
+        await self.add_item("c", "rules")
+        await self.add_item("d", "rules")
+        await self.add_runs(3)
+        report = await daily_health_report(self.repository, "gemini")
+        self.assertFalse(report["healthy"])
+        self.assertTrue(any("used the rules fallback" in issue for issue in report["issues"]))
+        self.assertTrue(any("Only 3 collection runs" in issue for issue in report["issues"]))
+
+        empty = MemoryNewsRepository()
+        report = await daily_health_report(empty, "rules")
+        self.assertTrue(any("No new stories" in issue for issue in report["issues"]))
+        self.assertFalse(any("rules fallback" in issue for issue in report["issues"]))
+
+
 class Phase3SupabaseRequestTests(unittest.IsolatedAsyncioTestCase):
     """The PostgREST requests the Supabase repository sends for Phase 3."""
 

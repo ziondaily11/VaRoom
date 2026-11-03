@@ -203,6 +203,8 @@ Small, targeted code changes. Each comes with a regression test built from a rea
 
 **Done when:** a deliberately stopped worker and a deliberately broken source both raise alerts within an hour.
 
+**Implemented 2026-11-03 on `property-news-phase6` (free tier):** instead of per-run alerts (GitHub emails on every failed run, up to 48 a day), a daily check (`app/monitoring.py`, `property-news-daily-check.yml`) emails at most once a day when no stories were collected, when the AI provider silently fell back to rules for every story (the failure that went unnoticed for weeks), or when the collector ran fewer than 12 times. Collector runs fail only when 3+ sources were attempted and all failed. 6.2 is covered by the daily run-count check plus cron-job.org's failure notifications; 6.4 (admin health page) is deferred.
+
 ### Phase 7 — Search and Elie
 
 | Task | Notes |

@@ -32,6 +32,8 @@ FULL_ITEM_FIELDS = (
 # Canonical URLs per news_urls lookup; keeps the GET query string short.
 URL_LOOKUP_BATCH = 40
 NEWS_URL_FIELDS = "canonical_url,source_id,state,reason,news_id,attempts,last_attempt_at,next_attempt_at"
+# Daily monitoring counts a day of rows; far above real daily volumes.
+MONITORING_ROW_LIMIT = 1000
 PUBLIC_ITEM_FIELDS = (
     "id,source_id,source_url,canonical_url,source_title,source_published_at,varoom_title,"
     "varoom_summary,category,topics,counties,towns,regulatory_status,affected_groups,"
@@ -62,6 +64,7 @@ class MemoryNewsRepository:
         self.items: dict[UUID, NewsItem] = {}
         self.events: list[NewsEvent] = []
         self.analyses: dict[UUID, NewsAnalysis] = {}
+        self.analysis_times: dict[UUID, datetime] = {}
         self.reviews: list[dict[str, Any]] = []
         self.fetch_runs: dict[UUID, dict[str, Any]] = {}
         self.urls: dict[str, NewsUrl] = {}
@@ -173,6 +176,17 @@ class MemoryNewsRepository:
 
     async def save_analysis(self, news_id: UUID, analysis: NewsAnalysis) -> None:
         self.analyses[news_id] = copy.deepcopy(analysis)
+        self.analysis_times[news_id] = _now()
+
+    async def count_items_created_since(self, since: datetime) -> int:
+        return sum(1 for item in self.items.values() if item.created_at >= since)
+
+    async def analysis_providers_since(self, since: datetime) -> list[str]:
+        return [analysis.model_provider for news_id, analysis in self.analyses.items()
+                if self.analysis_times.get(news_id, since) >= since]
+
+    async def count_collection_runs_since(self, since: datetime) -> int:
+        return sum(1 for run in self.collection_runs.values() if run["started_at"] >= since)
 
     async def add_event(self, event: NewsEvent) -> NewsEvent:
         self.events.append(copy.deepcopy(event))
@@ -520,6 +534,24 @@ class SupabaseNewsRepository:
             if SequenceMatcher(None, title.lower(), str(row.get("source_title", "")).lower()).ratio() >= threshold:
                 return await self.get_item(UUID(row["id"]))
         return None
+
+    async def count_items_created_since(self, since: datetime) -> int:
+        rows = await self._request("GET", "news_items", params={
+            "select": "id", "created_at": f"gte.{since.isoformat()}", "limit": str(MONITORING_ROW_LIMIT),
+        })
+        return len(rows)
+
+    async def analysis_providers_since(self, since: datetime) -> list[str]:
+        rows = await self._request("GET", "news_analysis", params={
+            "select": "model_provider", "created_at": f"gte.{since.isoformat()}", "limit": str(MONITORING_ROW_LIMIT),
+        })
+        return [str(row.get("model_provider") or "") for row in rows]
+
+    async def count_collection_runs_since(self, since: datetime) -> int:
+        rows = await self._request("GET", "collection_runs", params={
+            "select": "id", "started_at": f"gte.{since.isoformat()}", "limit": str(MONITORING_ROW_LIMIT),
+        })
+        return len(rows)
 
     async def save_analysis(self, news_id: UUID, analysis: NewsAnalysis) -> None:
         payload = analysis.model_dump(mode="json") | {"news_id": str(news_id)}
