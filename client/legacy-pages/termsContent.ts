@@ -225,6 +225,27 @@ export const sections: Section[] = [
     ],
   },
   {
+    id: "contacting-hosts-outside-varoom",
+    title: "Contacting Hosts Outside Varoom",
+    blocks: [
+      p(
+        "Hosts may choose to let Clients contact them by WhatsApp, phone call, or email, in addition to messaging on Varoom."
+      ),
+      p(
+        "Hosts control these options in their account settings. Varoom asks Hosts for a phone number for WhatsApp and calls, and uses the email address used to create the Host's account as the default email contact. Hosts may enable, change, or disable any contact method at any time."
+      ),
+      p(
+        "By enabling a contact method, a Host agrees that the related contact details may be shown to Clients on Varoom. Hosts must provide contact details that belong to them or that they are authorized to use."
+      ),
+      p(
+        "Communications by WhatsApp, phone, or email take place outside Varoom and are the responsibility of the parties involved. Varoom does not monitor these communications and is not responsible for their content or for any arrangement made through them. These Terms, including the prohibitions on fraud and harassment, continue to apply to users who make contact through Varoom."
+      ),
+      p(
+        "Users must not use contact details obtained through Varoom for spam, unsolicited marketing, harassment, or any purpose unrelated to a property enquiry."
+      ),
+    ],
+  },
+  {
     id: "reviews-complaints-and-reports",
     title: "Reviews, Complaints, and Reports",
     blocks: [
