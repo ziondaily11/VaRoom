@@ -274,9 +274,30 @@ export const sections: Section[] = [
     id: "account-deletion",
     title: "Account Deletion",
     blocks: [
-      p("You may request deletion of your Varoom account by contacting ", mail, " or ", support, "."),
       p(
-        "When an account deletion request is accepted, we will take reasonable steps to delete or anonymize associated personal information, subject to information we are required or permitted to retain for legal, security, fraud-prevention, dispute-resolution, or legitimate operational purposes."
+        "You can delete your Varoom account yourself from your account settings. You may also ask us to delete it by contacting ",
+        mail,
+        " or ",
+        support,
+        "."
+      ),
+      h3("30-day deactivation period"),
+      p(
+        "When you delete your account, it is first ",
+        b("deactivated, not immediately erased"),
+        ". For 30 days after deletion:"
+      ),
+      ul(
+        "Your profile, listings, and other content are no longer available to other users",
+        "We continue to store your account and its related information securely",
+        "Signing in to your account in the usual way reactivates it and restores your information"
+      ),
+      h3("Permanent deletion"),
+      p(
+        "If you do not sign in at any point during the 30 days, Varoom will permanently delete your account and its related personal information, including your profile, listings, and messages. Permanent deletion cannot be undone."
+      ),
+      p(
+        "We may keep limited information for longer where we are required or permitted to do so for legal, accounting, security, fraud-prevention, or dispute-resolution purposes, for example billing records for Varoom host plans. Copies may also remain in secure backups for a limited period before they are overwritten. Messages you sent to other users may remain visible to them where this is needed to keep their conversations intact, and are no longer linked to your profile."
       ),
     ],
   },
