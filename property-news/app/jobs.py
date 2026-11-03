@@ -4,6 +4,7 @@ import argparse
 import asyncio
 import json
 import logging
+import os
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -11,6 +12,7 @@ from .analysis import NewsAnalyzer, build_analyzer
 from .collector import SourceCollector
 from .config import configure_logging, settings
 from .constants import ReviewStatus
+from .monitoring import daily_health_report, format_report
 from .processing import MAX_PROCESSING_ATTEMPTS, ProcessingService
 from .relevance import classify_property_relevance, classify_property_sales_content
 from .repository import build_repository
@@ -248,29 +250,43 @@ async def run_reprocess_job(repository=None, config=settings, analyzer: NewsAnal
     return result
 
 
-async def run(collect_due: bool, health_check: bool, run_trigger: str = "manual") -> None:
+async def run(collect_due: bool, health_check: bool, run_trigger: str = "manual",
+              daily_check: bool = False) -> int:
+    """Run the requested jobs; returns the process exit code."""
     repository = build_repository(settings)
+    exit_code = 0
     try:
         if collect_due:
             print(json.dumps(await run_collection_job(repository, settings, run_trigger=run_trigger), default=str))
         if health_check:
             print(json.dumps({"sources": await repository.source_health()}, default=str))
+        if daily_check:
+            report = await daily_health_report(repository, settings.ai_provider)
+            print(json.dumps(report, default=str))
+            summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+            if summary_path:
+                with open(summary_path, "a", encoding="utf-8") as summary:
+                    summary.write(format_report(report))
+            exit_code = 0 if report["healthy"] else 1
     finally:
         if hasattr(repository, "close"):
             await repository.close()
+    return exit_code
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run isolated VaRoom property-news jobs.")
     parser.add_argument("--collect-due", action="store_true", help="Check sources that are due according to their database schedule.")
     parser.add_argument("--health-check", action="store_true", help="Print source-health data for a scheduler or monitor.")
+    parser.add_argument("--daily-check", action="store_true",
+                        help="Check the last 24 hours (new stories, AI analysis, collection runs); exit 1 if action is needed.")
     parser.add_argument("--trigger", choices=("schedule", "manual"), default="manual",
                         help="How this run was started; recorded in collection_runs.")
     args = parser.parse_args()
-    if not args.collect_due and not args.health_check:
-        parser.error("Choose --collect-due and/or --health-check")
+    if not (args.collect_due or args.health_check or args.daily_check):
+        parser.error("Choose --collect-due, --health-check and/or --daily-check")
     configure_logging(settings.log_level)
-    asyncio.run(run(args.collect_due, args.health_check, args.trigger))
+    raise SystemExit(asyncio.run(run(args.collect_due, args.health_check, args.trigger, args.daily_check)))
 
 
 if __name__ == "__main__":

@@ -108,9 +108,11 @@ jobs:
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as step_summary:
               step_summary.write(summary)
 
-          # Partial source failures are expected while the source pool is being
-          # rebuilt (plan Phase 5); only a run where every source failed is an error.
-          if status == "failed":
+          # Partial source failures are expected; only a run in which several
+          # sources were attempted and all failed points at an outage (a single
+          # due source timing out is not one). Daily health is checked by
+          # property-news-daily-check.yml.
+          if status == "failed" and count("sources_attempted") >= 3:
               raise SystemExit("Every attempted source failed")
           if count("sources_failed"):
               print(f"::warning::{count('sources_failed')} of {count('sources_attempted')} sources failed")
