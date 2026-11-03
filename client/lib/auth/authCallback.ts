@@ -14,6 +14,8 @@ import { getSafeRedirect } from '../safeRedirect';
 export const GOOGLE_AUTH_CHANNEL = 'varoom-google-auth';
 export const ADD_ACCOUNT_REDIRECT_KEY = 'varoom_add_account_redirect';
 export const ADD_ACCOUNT_NOTICE_KEY = 'varoom_add_account_notice';
+/** Set after a full-page account add: the returned page switches to that account. */
+export const ADD_ACCOUNT_SWITCH_KEY = 'varoom_add_account_switch';
 export const INTENDED_ROLE_KEY = 'varoom_intended_role';
 export const ADD_ACCOUNT_FAILED_MESSAGE = 'We couldn’t add that Google account. Please try again.';
 
@@ -34,7 +36,7 @@ export interface AuthCallbackEnv {
     refreshAccountAddSession(client: SupabaseClient, session: Session): Promise<Session>;
     clearTemporarySession(flowId: string): void;
   } | null;
-  accountSwitcher: { linkAdditionalSession(client: SupabaseClient, session: Session): Promise<unknown> } | null;
+  accountSwitcher: { linkAdditionalSession(client: SupabaseClient, session: Session): Promise<{ session_cached?: boolean } | unknown> } | null;
   storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> | null;
   opener: PopupOpener | null;
   /** Post on the Google sign-in BroadcastChannel; false when unavailable. */
@@ -149,9 +151,15 @@ export async function runAuthCallback(env: AuthCallbackEnv): Promise<void> {
       if (!env.accountSwitcher || !flowId) throw new Error('The temporary account sign-in has expired. Please try again.');
       // Keep the added account's session: the linked-account cache needs its
       // refresh token for a later switch. Only the temporary storage goes.
-      await env.accountSwitcher.linkAdditionalSession(env.createPrimaryClient(), additional);
+      const linked = await env.accountSwitcher.linkAdditionalSession(env.createPrimaryClient(), additional) as { session_cached?: boolean } | null;
       clearTemporary();
       remove(env.storage, ADD_ACCOUNT_REDIRECT_KEY);
+      // The added account becomes the active one once its sign-in is saved.
+      if (linked && linked.session_cached && additional.user && additional.user.id) {
+        try {
+          env.storage?.setItem(ADD_ACCOUNT_SWITCH_KEY, JSON.stringify({ id: additional.user.id, at: (env.now || Date.now)() }));
+        } catch { /* The account stays linked; the user can switch from the menu. */ }
+      }
       env.replace(returnTo);
     } catch {
       await addFailed();
@@ -206,6 +214,20 @@ export async function runAuthCallback(env: AuthCallbackEnv): Promise<void> {
   }
   remove(env.storage, INTENDED_ROLE_KEY);
   finish(roleDestination(intendedRole, false, redirect));
+}
+
+/** The account to switch to after a full-page account add (within five minutes), once. */
+export function takePendingAccountSwitch(storage: AuthCallbackEnv['storage'], now: number = Date.now()): string | null {
+  const raw = read(storage, ADD_ACCOUNT_SWITCH_KEY);
+  if (!raw) return null;
+  remove(storage, ADD_ACCOUNT_SWITCH_KEY);
+  try {
+    const pending = JSON.parse(raw) as { id?: string; at?: number };
+    if (!pending.id || !Number.isFinite(pending.at) || now - (pending.at as number) > 5 * 60 * 1000) return null;
+    return pending.id;
+  } catch {
+    return null;
+  }
 }
 
 /** A one-time notice left by a failed account add (shown within five minutes). */

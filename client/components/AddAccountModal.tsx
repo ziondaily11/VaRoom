@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from '../lib/supabase/config';
+import { switchAccount, type LinkResult } from '../lib/account/accountActions';
 
 // Message posted by the /auth-callback popup (lib/auth/authCallback.ts).
 interface AddAccountMessage {
@@ -104,12 +105,7 @@ export default function AddAccountModal() {
         setError(null);
         try {
           const linked = await registerAdditionalSession(session);
-          setSuccess(linked.session_cached
-            ? 'Account added! You can now switch to this account anytime.'
-            : 'Account linked. Sign in again on this browser before switching to it.');
-          setTimeout(() => {
-            setIsOpen(false);
-          }, 1200);
+          await finishAdded(linked, session.user?.id);
         } catch (err) {
           setError(err.message || 'Could not link Google account.');
         } finally {
@@ -126,6 +122,27 @@ export default function AddAccountModal() {
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
   }, [isOpen]);
+
+  // An added account becomes the active one when its sign-in was saved in this
+  // browser; switching reloads the page on the new account.
+  const finishAdded = async (linked: LinkResult, addedUserId: string | undefined) => {
+    if (linked.session_cached && addedUserId) {
+      setSuccess('Account added! Switching to it…');
+      try {
+        await switchAccount(addedUserId);
+      } catch (switchError) {
+        setSuccess(null);
+        setError(`Account added, but switching failed: ${(switchError as Error)?.message || 'please try again from the account menu.'}`);
+      }
+      return;
+    }
+    setSuccess(linked.session_cached
+      ? 'Account added! You can now switch to this account anytime.'
+      : 'Account linked. Sign in again on this browser before switching to it.');
+    setTimeout(() => {
+      setIsOpen(false);
+    }, 1200);
+  };
 
   // Helper to register an authenticated session into linked accounts
   const registerAdditionalSession = async (session: Session, _tempClient?: unknown) => {
@@ -288,13 +305,7 @@ export default function AddAccountModal() {
       }
 
       const linked = await registerAdditionalSession(data.session, tempClient);
-
-      setSuccess(linked.session_cached
-        ? 'Account added! You can now switch to this account anytime.'
-        : 'Account linked. Sign in again on this browser before switching to it.');
-      setTimeout(() => {
-        setIsOpen(false);
-      }, 1200);
+      await finishAdded(linked, data.user.id);
     } catch (err) {
       setError(err?.message || 'Failed to add account. Please check your credentials.');
     } finally {

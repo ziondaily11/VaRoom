@@ -61,6 +61,7 @@ async function run(search, options = {}) {
       linkAdditionalSession: async (primary, s) => {
         if (options.linkFails) throw new Error('This account is already linked.');
         log.linked.push({ primary, s });
+        return { session_cached: options.cached !== false };
       },
     },
     storage: options.storage || memoryStorage(),
@@ -210,4 +211,27 @@ test('page: native, no shell, same loading orb; legacy file retired with redirec
   const shell = fs.readFileSync(path.join(root, 'components', 'shell', 'AppShell.tsx'), 'utf8');
   assert.match(shell, /<AddAccountNotice \/>/);
   assert.doesNotMatch(fs.readFileSync(path.join(root, 'lib', 'auth', 'authCallback.ts'), 'utf8'), /add_account_callback|varoonhq|varoom-post/);
+});
+
+test('after a full-page account add the returned page switches to the added account, once', async () => {
+  const storage = memoryStorage({ varoom_add_account_redirect: '/settings' });
+  await run('?addAccount=true&account_auth_flow=flow1', { storage });
+  assert.equal(cb.takePendingAccountSwitch(storage, 2000), 'added');
+  assert.equal(cb.takePendingAccountSwitch(storage, 2000), null, 'only once');
+  const notSaved = memoryStorage();
+  await run('?addAccount=true&account_auth_flow=flow1', { storage: notSaved, cached: false });
+  assert.equal(cb.takePendingAccountSwitch(notSaved, 2000), null, 'no switch without a saved sign-in');
+  const stale = memoryStorage({ varoom_add_account_switch: JSON.stringify({ id: 'added', at: 0 }) });
+  assert.equal(cb.takePendingAccountSwitch(stale, 10 * 60 * 1000), null);
+  const notice = fs.readFileSync(path.join(root, 'components', 'shell', 'AddAccountNotice.tsx'), 'utf8');
+  assert.match(notice, /switchAccount\(pendingSwitch\)/);
+});
+
+test('both add-account dialogs switch to the added account when its sign-in was saved', () => {
+  const modal = fs.readFileSync(path.join(root, 'components', 'AddAccountModal.tsx'), 'utf8');
+  assert.match(modal, /if \(linked\.session_cached && addedUserId\) \{[\s\S]*?await switchAccount\(addedUserId\)/);
+  assert.equal((modal.match(/await finishAdded\(/g) || []).length, 2, 'Google popup and email');
+  const legacy = fs.readFileSync(path.join(root, 'public', 'js', 'account-switcher.js'), 'utf8');
+  assert.match(legacy, /account\.switchAccount\(addedUserId\)/);
+  assert.equal((legacy.match(/[^n] finishAdded\(result, /g) || []).length, 2, 'Google popup and email calls');
 });

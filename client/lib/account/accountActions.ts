@@ -31,6 +31,7 @@ interface StoredLinkedAccount extends Partial<LinkedAccount> {
 }
 
 export interface LinkResult {
+  id?: string;
   session_cached?: boolean;
 }
 

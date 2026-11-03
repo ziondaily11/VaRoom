@@ -16,6 +16,8 @@
   var linkedAccounts = [];
   var membershipUserId = null;
   var membershipLoaded = false;
+  // The membership request in flight: { userId, version, promise }.
+  var membershipInFlight = null;
   var membershipRequestVersion = 0;
 
   function getLinkedAccounts() {
@@ -146,6 +148,12 @@
 
     var userId = session.user.id;
     if (!options.force && membershipLoaded && membershipUserId === userId) return getLinkedAccounts();
+    // Callers that arrive together (an account switch and the SIGNED_IN it
+    // triggers) share the request already loading this account's group.
+    if (!options.force && membershipInFlight && membershipInFlight.userId === userId
+      && membershipInFlight.version === membershipRequestVersion) {
+      return membershipInFlight.promise;
+    }
     var requestVersion = ++membershipRequestVersion;
     if (membershipUserId !== userId) {
       linkedAccounts = [];
@@ -154,21 +162,36 @@
       publishAccounts();
     }
 
-    var fetcher = window.fetch || fetch;
-    var response = await fetcher('/api/account-groups/current', {
-      headers: { Authorization: 'Bearer ' + session.access_token, Accept: 'application/json' },
-      cache: 'no-store'
-    });
-    var snapshot = await response.json().catch(function () { return {}; });
-    if (!response.ok) throw new Error(snapshot.error || 'Unable to load linked accounts.');
+    var request = (async function () {
+      var fetcher = window.fetch || fetch;
+      var response = await fetcher('/api/account-groups/current', {
+        headers: { Authorization: 'Bearer ' + session.access_token, Accept: 'application/json' },
+        cache: 'no-store'
+      });
+      var snapshot = await response.json().catch(function () { return {}; });
+      if (!response.ok) throw new Error(snapshot.error || 'Unable to load linked accounts.');
 
-    var activeResultAfterFetch = await client.auth.getSession();
-    var activeSessionAfterFetch = activeResultAfterFetch && activeResultAfterFetch.data && activeResultAfterFetch.data.session;
-    if (!activeSessionAfterFetch || !activeSessionAfterFetch.user || activeSessionAfterFetch.user.id !== userId) {
-      throw new Error('The active account changed while loading linked accounts. Please retry.');
+      var activeResultAfterFetch = await client.auth.getSession();
+      var activeSessionAfterFetch = activeResultAfterFetch && activeResultAfterFetch.data && activeResultAfterFetch.data.session;
+      if (!activeSessionAfterFetch || !activeSessionAfterFetch.user || activeSessionAfterFetch.user.id !== userId) {
+        throw new Error('The active account changed while loading linked accounts. Please retry.');
+      }
+      if (requestVersion !== membershipRequestVersion) {
+        // A newer load superseded this one. For the same account, its result
+        // is the membership: wait for it rather than return a list that may
+        // still be empty.
+        var newer = membershipInFlight;
+        if (newer && newer.version !== requestVersion && newer.userId === userId) return newer.promise;
+        return getLinkedAccounts();
+      }
+      return installMembership(snapshot, userId, activeSessionAfterFetch);
+    })();
+    membershipInFlight = { userId: userId, version: requestVersion, promise: request };
+    try {
+      return await request;
+    } finally {
+      if (membershipInFlight && membershipInFlight.version === requestVersion) membershipInFlight = null;
     }
-    if (requestVersion !== membershipRequestVersion) return getLinkedAccounts();
-    return installMembership(snapshot, userId, activeSessionAfterFetch);
   }
 
   async function linkAdditionalSession(client, additionalSession) {
@@ -622,6 +645,22 @@
       window.removeEventListener('keydown', onKey);
     }
 
+    // An added account becomes the active one when its sign-in was saved here.
+    function finishAdded(result, addedUserId) {
+      var account = window.VaRoomAccount;
+      if (result && result.session_cached && addedUserId && account && account.switchAccount) {
+        showAlert('Account added! Switching to it…', false);
+        account.switchAccount(addedUserId).catch(function (err) {
+          showAlert('Account added, but switching failed: ' + ((err && err.message) || 'please try again from the account menu.'), true);
+        });
+        return;
+      }
+      showAlert(result && result.session_cached
+        ? 'Account added! You can now switch to this account anytime.'
+        : 'Account linked. Sign in again on this browser before switching to it.', false);
+      setTimeout(closeModal, 1200);
+    }
+
     function onKey(e) {
       if (e.key === 'Escape') closeModal();
     }
@@ -690,10 +729,7 @@
             try {
               var s = evt.data.session;
               var result = await linkAdditionalSession(sup, s);
-              showAlert(result.session_cached
-                ? 'Account added! You can now switch to this account anytime.'
-                : 'Account linked. Sign in again on this browser before switching to it.', false);
-              setTimeout(closeModal, 1200);
+              finishAdded(result, s.user && s.user.id);
             } catch(err) {
               showAlert(err.message || 'Error saving account.', true);
             }
@@ -740,10 +776,7 @@
         var sup = window.supabaseClient;
         if (!sup) throw new Error('Your current account session is unavailable. Sign in again and retry.');
         var result = await linkAdditionalSession(sup, session);
-        showAlert(result.session_cached
-          ? 'Account added! You can now switch to this account anytime.'
-          : 'Account linked. Sign in again on this browser before switching to it.', false);
-        setTimeout(closeModal, 1200);
+        finishAdded(result, user.id);
       } catch(err) {
         showAlert(err.message || 'Failed to add account.', true);
         submitBtn.disabled = false;
