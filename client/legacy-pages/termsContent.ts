@@ -260,6 +260,26 @@ export const sections: Section[] = [
     ],
   },
   {
+    id: "account-deletion",
+    title: "Account Deletion",
+    blocks: [
+      p(
+        "You may delete your Varoom account at any time from your account settings."
+      ),
+      p(
+        "When you delete your account, it is deactivated for a period of ", b("30 days"), " before it is permanently deleted. During this period your profile and listings are no longer available to other users, but your account and its related information are retained."
+      ),
+      p(
+        "Signing in to your account in the usual way at any time during the 30-day period reactivates it. If you do not sign in during that period, Varoom will permanently delete your account and its related information. Permanent deletion cannot be undone, and deleted accounts, listings, and content cannot be recovered."
+      ),
+      p(
+        "Deleting your account does not cancel obligations you have already entered into with other users, such as bookings, tenancies, or sales, and does not entitle you to a refund of fees already paid to Varoom for host plans. Varoom may retain certain information after deletion as described in our ",
+        a("Privacy Policy", "/privacy"),
+        "."
+      ),
+    ],
+  },
+  {
     id: "property-transactions-and-user-relationships",
     title: "Property Transactions and User Relationships",
     blocks: [
