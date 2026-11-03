@@ -317,7 +317,6 @@ const pageTemplates = {
   '/properties': 'list.html',
   '/list': 'list.html',
   '/host-home': 'host-home.html',
-  '/booking': 'booking.html',
 };
 
 // The landing page and its sign-in / sign-up are native on the frontend.
@@ -463,6 +462,19 @@ app.get(['/bookings', '/bookings.html', '/legacy-pages/bookings.html'], (req, re
     requestUrl: req.originalUrl,
     destinationPath: '/bookings',
     unavailableMessage: 'Bookings are not available from this server.',
+  });
+  if (redirect.location) return res.redirect(redirect.status, redirect.location);
+  return res.status(redirect.status).send(redirect.message);
+});
+
+// Booking a listing is a native frontend page (the query is kept).
+app.get(['/booking', '/booking.html', '/legacy-pages/booking.html'], (req, res) => {
+  const redirect = resolveFrontendRouteRedirect({
+    frontendBaseUrl: process.env.PUBLIC_BASE_URL || process.env.CLIENT_BASE_URL,
+    requestHost: req.get('host'),
+    requestUrl: req.originalUrl,
+    destinationPath: '/booking',
+    unavailableMessage: 'Booking is not available from this server.',
   });
   if (redirect.location) return res.redirect(redirect.status, redirect.location);
   return res.status(redirect.status).send(redirect.message);

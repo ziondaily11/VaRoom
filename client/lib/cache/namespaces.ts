@@ -10,6 +10,8 @@ export const CACHE_NAMESPACES = {
   propertyNews: 'varoom:property-news:v2:',
   propertyNewsArticles: 'varoom:property-news:articles:v2:',
   listingFeed: 'varoom:listings:feed:v1:',
+  // Memory only: the booking page's listing, per account.
+  bookingListing: 'varoom:booking:listing:v1:',
   listingFeedScroll: 'varoom:listings:scroll:',
   // Written by lib/chatCache.ts (kept import-free); per-user prefetch stamp.
   chatPrefetch: 'varoom:chat:prefetch:v1:',

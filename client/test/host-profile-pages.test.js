@@ -78,6 +78,6 @@ test('host page addresses use the username (unique, any case); id addresses keep
   const view = read('components', 'hostProfile', 'HostProfileView.tsx');
   assert.match(view, /router\.replace\(hostProfilePath\(profile\.id, profile\.username\), undefined, \{ shallow: true, scroll: false \}\)/);
   assert.match(read('pages', 'client-home.tsx'), /href=\{hostProfilePath\(listing\.host_id, host\.username\)\}/);
-  assert.match(read('legacy-pages', 'booking.html'), /encodeURIComponent\(\(listing\.host && listing\.host\.username\) \|\| listing\.host_id\)/);
+  assert.match(read('components', 'booking', 'ListingDetails.tsx'), /href=\{`\/host\/\$\{encodeURIComponent\(\(listing\.host && listing\.host\.username\) \|\| listing\.host_id\)\}`\}/);
   assert.match(read('legacy-pages', 'host-home.html'), /'\/host\/' \+ encodeURIComponent\(host\.username \|\| listing\.host_id\)/);
 });
