@@ -29,9 +29,11 @@ async function getHostEntitlements(supabaseAdmin, hostId) {
     subscription,
     planId: active ? planId : null,
     active,
-    hasGrowth: active && planAtLeast(planId, 'growth'),
-    hasPro: active && planAtLeast(planId, 'pro'),
-    canUploadPremiumVideo: active && planAtLeast(planId, 'growth'),
+    // Legacy plans rank by id; niche plans (Airbnb, Hotel, Venue) declare
+    // their video and Elie features in billing_plans.features.
+    hasGrowth: active && (planAtLeast(planId, 'growth') || features.video_listings === true),
+    hasPro: active && (planAtLeast(planId, 'pro') || features.elie === true),
+    canUploadPremiumVideo: active && (planAtLeast(planId, 'growth') || features.video_listings === true),
     canPromoteLandingPage: active && features.landing_page_promotion === true,
     canCreateAnotherListing: { allowed: true, limit: listingLimit, reason: listingLimit ? null : 'No listing limit is defined for this plan.' },
   };

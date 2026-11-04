@@ -37,6 +37,35 @@ test('legacy niche plans fill cards in order with the original wording', () => {
   assert.equal(cards[2].features[1], 'Elie');
 });
 
+test('Airbnb, Hotel and Venue plans use their own cards, priced and listed by the server', () => {
+  const hotel = pricing.applyPlans(pricing.DEFAULT_PLAN_CARDS, [
+    { id: 'hotel_dining', display_name: 'Dining', monthly_amount_minor: 200000, niche: 'hotel', features: { included_rooms: 0 } },
+    { id: 'hotel_boutique', display_name: 'Boutique', monthly_amount_minor: 400000, niche: 'hotel', features: { included_rooms: 20 } },
+    { id: 'hotel_standard', display_name: 'Hotel', monthly_amount_minor: 800000, niche: 'hotel', features: { included_rooms: 60 } },
+    { id: 'hotel_plus', display_name: 'Hotel Plus', monthly_amount_minor: 1500000, niche: 'hotel', features: { included_rooms: null } },
+  ]);
+  assert.deepEqual(hotel.map((c) => [c.id, c.name, c.monthly]), [
+    ['hotel_dining', 'Dining', 2000], ['hotel_boutique', 'Boutique', 4000], ['hotel_standard', 'Hotel', 8000], ['hotel_plus', 'Hotel Plus', 15000],
+  ]);
+  assert.equal(hotel[1].features[0], 'Up to 20 rooms');
+  assert.equal(hotel[2].featured, true);
+
+  const airbnb = pricing.applyPlans(pricing.DEFAULT_PLAN_CARDS, [
+    { id: 'airbnb_starter', display_name: 'Starter', monthly_amount_minor: 150000, niche: 'airbnb' },
+    { id: 'airbnb_business', display_name: 'Business', monthly_amount_minor: 750000, niche: 'airbnb' },
+    { id: 'unknown_plan', display_name: 'Unknown', monthly_amount_minor: 100, niche: 'airbnb' },
+  ]);
+  assert.deepEqual(airbnb.map((c) => c.id), ['airbnb_starter', 'airbnb_business'], 'only plans the server offers, unknown ids dropped');
+  assert.equal(airbnb[0].features[0], 'Up to 2 active listings');
+
+  const venue = pricing.applyPlans(pricing.DEFAULT_PLAN_CARDS, pricing.NICHE_PLAN_CARDS.venue.map((card) => (
+    { id: card.id, display_name: card.name, monthly_amount_minor: card.monthly * 100, niche: 'venue' }
+  )));
+  assert.deepEqual(venue.map((c) => [c.name, c.monthly]), [['Venue', 2500], ['Venue Pro', 5000], ['Venue Premium', 10000]]);
+  assert.equal(pricing.NICHE_PLAN_CARDS.airbnb[0].features.length, 3, 'niche defaults are not mutated');
+  assert.match(read('pages', 'pricing.tsx'), /plans--four/);
+});
+
 test('plans, entitlements and checkout send the token; errors carry the server message', async () => {
   let seen;
   const plans = await pricing.fetchPlans('tok', async (url, init) => { seen = init; return json(200, { plans: [{ id: 'p' }] }); });

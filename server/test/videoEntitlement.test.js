@@ -34,7 +34,7 @@ test('legacy video niches preserve their existing premium-subscription requireme
   };
   const result = await canUploadPropertyVideo(supabase, { id: 'host-1' }, { category: 'hotel' }, 0);
   assert.equal(result.allowed, false);
-  assert.match(result.reason, /active Growth or Pro subscription/);
+  assert.match(result.reason, /active plan that includes video listings/);
 });
 
 test('legacy Growth/Pro subscribers retain premium video access', async () => {

@@ -180,6 +180,11 @@ export const PRICING_STYLES = `
   
   /* ---------- Responsive: desktop is the target; below this the cards simply stack ---------- */
   
+  /* Hotel hosts have four plans: one row on wide screens, two rows on laptops. */
+  .pricing-page .plans.plans--four{ grid-template-columns:repeat(4, minmax(0, 1fr)); gap:1.2em; }
+  @media (max-width:1180px){
+    .pricing-page .plans.plans--four{ grid-template-columns:repeat(2, minmax(0, 1fr)); }
+  }
   @media (max-width:980px){
     .pricing-page{ font-size:15px; overflow-x:hidden; overflow-y:auto; }
     .pricing-page .pricing-top{ padding:1.1rem 1.3rem; }
