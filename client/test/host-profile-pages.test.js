@@ -8,20 +8,13 @@ const root = path.join(__dirname, '..');
 const read = (...parts) => fs.readFileSync(path.join(root, ...parts), 'utf8');
 const chat = loadTs(path.join(root, 'lib', 'profile', 'hostChat.ts'));
 
-test('Message opens (or creates) the visitor’s chat about one of the host’s listings', async () => {
-  let upserted;
-  const client = {
-    from: (table) => ({
-      upsert(row, options) { upserted = { table, row, options }; return this; },
-      select() { return this; },
-      single: async () => ({ data: { id: 'conv 1' }, error: null }),
-    }),
-  };
-  assert.equal(await chat.hostChatPath(client, 'H1', 'C1', 'L1'), '/chats?c=conv%201');
-  assert.deepEqual(upserted, { table: 'conversations', row: { listing_id: 'L1', host_id: 'H1', client_id: 'C1' }, options: { onConflict: 'listing_id,client_id' } });
-  assert.equal(await chat.hostChatPath(client, 'H1', 'C1', null), '/chats?host=H1', 'no listing: Chats');
-  const failing = { from: () => ({ upsert() { return this; }, select() { return this; }, single: async () => ({ data: null, error: { message: 'denied' } }) }) };
-  assert.equal(await chat.hostChatPath(failing, 'H1', 'C1', 'L1'), '/chats?host=H1');
+test('Message opens the visitor’s chat with the host, ready to ask about one of the host’s listings', async () => {
+  const asked = [];
+  const start = async (listingId) => { asked.push(listingId); return `/chats?c=conv%201&listing=${listingId}`; };
+  assert.equal(await chat.hostChatPath('H1', 'L1', start), '/chats?c=conv%201&listing=L1');
+  assert.deepEqual(asked, ['L1']);
+  assert.equal(await chat.hostChatPath('H1', null, start), '/chats?host=H1', 'no listing: Chats');
+  assert.equal(await chat.hostChatPath('H1', 'L1', async () => { throw new Error('denied'); }), '/chats?host=H1');
 });
 
 test('/host/[hostId]: viewer from AuthProvider, shared cached data, owner banner in place, reviews channel cleaned up', () => {

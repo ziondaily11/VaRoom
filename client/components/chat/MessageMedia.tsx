@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import { getSupabaseClient } from '../../lib/supabase/client';
 import type { ChatListingSummary } from '../../lib/chatCache';
 import { attachmentUrl, cachedImageUrl, listingVideo, type ChatApi, type ListingVideo } from '../../lib/chat/chatMedia';
+import { listingPriceText, listingSubtitle } from '../../lib/chat/listingEnquiry';
 
 // Media message parts, ported from public/js/chat-data.js messageRow: same
 // classes as legacy so chats.css styles them unchanged.
@@ -208,6 +209,56 @@ export function AttachmentThumb({ attachmentId, alt, api, onOpen, className, sty
 function listingPhotoUrl(storagePath: string): string {
   const client = getSupabaseClient();
   return client ? client.storage.from('listing-photos').getPublicUrl(storagePath).data.publicUrl : '';
+}
+
+/**
+ * The listing a message asks about ("Chat" on a listing), Marketplace style:
+ * the photo with the title, place and kind over it, and the price. Above the
+ * message in the thread (the message reads as a reply to it); compact above
+ * the composer before sending. Opens the listing.
+ */
+export function ListingEnquiryCard({ listing, compact = false }: { listing: ChatListingSummary; compact?: boolean }) {
+  const router = useRouter();
+  const photo = listing.listing_photos && listing.listing_photos[0];
+  const fallbackUrl = photo ? listingPhotoUrl(photo.storage_path) : '';
+  const [photoUrl, setPhotoUrl] = useState(fallbackUrl);
+  useEffect(() => {
+    let cancelled = false;
+    if (photo && fallbackUrl) cachedImageUrl(`listing-photo:${photo.storage_path}`, fallbackUrl).then((url) => { if (!cancelled) setPhotoUrl(url); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listing.id, photo && photo.storage_path]);
+  const title = listing.title || 'VaRoom listing';
+  const open = () => { void router.push(`/booking?id=${encodeURIComponent(listing.id)}`); };
+  return (
+    <div
+      className={`chat-enquiry-card${compact ? ' is-compact' : ''}`}
+      role="link"
+      tabIndex={0}
+      aria-label={`Listing: ${title}`}
+      onClick={(event) => { event.stopPropagation(); open(); }}
+      onKeyDown={(event) => { if (event.key === 'Enter') open(); }}
+    >
+      <span className="chat-enquiry-media">
+        {photoUrl ? <img src={photoUrl} alt="" loading="lazy" /> : <span className="chat-enquiry-empty" aria-hidden="true" />}
+        {!compact && (
+          <span className="chat-enquiry-overlay">
+            <strong>{title}</strong>
+            <small>{listingSubtitle(listing)}</small>
+          </span>
+        )}
+      </span>
+      {compact ? (
+        <span className="chat-enquiry-text">
+          <em>Asking about this listing</em>
+          <strong>{title}</strong>
+          <small>{listingSubtitle(listing)} · {listingPriceText(listing)}</small>
+        </span>
+      ) : (
+        <span className="chat-enquiry-price">{listingPriceText(listing)}</span>
+      )}
+    </div>
+  );
 }
 
 /** A shared listing: photo (or its video), title, "location · category"; opens the booking page. */

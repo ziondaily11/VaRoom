@@ -43,6 +43,9 @@ export interface ChatListingSummary {
   category?: string | null;
   thumbnail_url?: string | null;
   listing_photos?: Array<{ storage_path: string }>;
+  host_id?: string | null;
+  /** Price, as the Marketplace card shows it. */
+  listing_booking_details?: Record<string, unknown> | Array<Record<string, unknown>> | null;
 }
 
 export interface ChatReplyMessage {

@@ -56,16 +56,14 @@ export function useBookingActions(showToast: (message: string) => void, onCancel
   }, [userId, guestName, showToast, onCancelled]);
 
   const messageHost = useCallback(async (booking: Booking) => {
-    const client = getSupabaseClient();
     const listingId = booking.listing?.id;
     const hostId = booking.host?.id;
-    if (!client || !userId || !listingId || !hostId) {
+    if (!userId || !listingId || !hostId) {
       showToast("Couldn't open that chat: booking details are incomplete.");
       return;
     }
     try {
-      const conversationId = await openBookingConversation(client, { listingId, hostId, clientId: userId });
-      router.push(`/chats?c=${encodeURIComponent(conversationId)}`);
+      router.push(await openBookingConversation(listingId));
     } catch (error) {
       showToast(`Couldn't open that chat: ${errorText(error)}`);
     }

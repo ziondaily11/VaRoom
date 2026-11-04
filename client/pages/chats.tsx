@@ -29,7 +29,8 @@ import { hasMessageMarkup, parseMessageBody, type MessageBodyNode } from '../lib
 import MessageActionMenu, { messageActionItems, type MessageAction } from '../components/chat/MessageActionMenu';
 import { messageCopyText, messageSummary, pastedImage, photoCaption } from '../lib/chat/messageActions';
 import { localUrls, mergeServerMessages, messageKey, reconcileThread, type OptimisticChatMessage } from '../lib/chat/optimisticMessages';
-import { AttachmentThumb, ImagePreview, ListingCard, PhotoAlbum, PhotoBubble, ReplyThumb, VoiceCard, type ViewerImage } from '../components/chat/MessageMedia';
+import { AttachmentThumb, ImagePreview, ListingCard, ListingEnquiryCard, PhotoAlbum, PhotoBubble, ReplyThumb, VoiceCard, type ViewerImage } from '../components/chat/MessageMedia';
+import { loadEnquiryListing } from '../lib/chat/listingEnquiry';
 import { ALBUM_MAX, addToSelection, albumAt, albumCaption, albumStatus, isImageFile } from '../lib/chat/photoAlbums';
 import MessageMeta from '../components/chat/MessageMeta';
 import MediaPreviewComposer from '../components/chat/MediaPreviewComposer';
@@ -740,6 +741,29 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   useEffect(() => { if (routerQueryArchived) setInboxView('archived'); }, [routerQueryArchived]);
 
   const routerQueryC = router.query.c as string | undefined;
+
+  // "Chat" on a listing (?c=…&listing=…): the person is asking about that
+  // listing. Its card shows above the composer and travels with the next
+  // message, so the host and Elie see which listing the question is about.
+  const [enquiry, setEnquiry] = useState<{ conversationId: string; listing: ChatListingSummary } | null>(null);
+  const routerQueryListing = typeof router.query.listing === 'string' ? router.query.listing : null;
+  useEffect(() => {
+    if (!routerQueryListing || !routerQueryC) return undefined;
+    const conversationId = routerQueryC;
+    let cancelled = false;
+    loadEnquiryListing(getSupabaseClient(), routerQueryListing)
+      .then((listing) => { if (!cancelled && listing) setEnquiry({ conversationId, listing }); })
+      .catch(() => { /* No card: the chat still opens. */ });
+    return () => { cancelled = true; };
+  }, [routerQueryListing, routerQueryC]);
+  // The card is used (sent with a message) or removed: the URL keeps just the conversation.
+  const dropEnquiry = () => {
+    setEnquiry(null);
+    if (routerRef.current?.query.listing) {
+      routerRef.current.replace({ pathname: '/chats', query: activeIdRef.current ? { c: activeIdRef.current } : {} }, undefined, { shallow: true });
+    }
+  };
+  const enquiryHere = enquiry && enquiry.conversationId === activeId && !isElie ? enquiry : null;
   const routerQueryConversation = router.query.conversation as string | undefined;
 
   useEffect(() => {
@@ -809,6 +833,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
     sendingRef.current = true;
     const conversationId = activeId;
     const currentReply = replyTo;
+    const currentEnquiry = enquiry && enquiry.conversationId === activeId ? enquiry : null;
     const fileToSend = pendingFile;
     const textareaHadFocus = document.activeElement === mobileTextareaRef.current;
     try {
@@ -829,11 +854,13 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
             content: content,
             messageType: 'text',
             replyToMessageId: currentReply?.id || undefined,
+            listingId: currentEnquiry ? currentEnquiry.listing.id : undefined,
           }),
         });
       }
 
       // Accepted: clear the composer (also if the user has switched conversation).
+      if (currentEnquiry) dropEnquiry();
       setComposerText('');
       resetDesktopComposer();
       if (currentReply) setReplyTo(null);
@@ -2080,8 +2107,9 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                         {meta}
                       </div>
                     ) : (
-                      /* Text bubble */
-                      <div className="bubble bubble-text">
+                      /* Text bubble (a question about a listing shows its card above it, as a reply) */
+                      <div className={`bubble bubble-text${m.listing ? ' has-enquiry' : ''}`}>
+                        {m.listing && <ListingEnquiryCard listing={m.listing} />}
                         {replyReference}
                         {renderMessageBody(m.body || '')}
                         {uploadState}
@@ -2204,6 +2232,16 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                 }
               }}
             />
+
+            {/* The listing this chat was opened from: sent with the next message */}
+            {enquiryHere && (
+              <div className="composer-listing-preview">
+                <ListingEnquiryCard listing={enquiryHere.listing} compact />
+                <button type="button" aria-label="Don't ask about this listing" title="Remove" onClick={dropEnquiry}>
+                  <svg className="icon" aria-hidden="true"><use href="#i-close" /></svg>
+                </button>
+              </div>
+            )}
 
             {/* Reply preview (legacy position: the mobile grid places it on its own row) */}
             {replyTo && (() => {

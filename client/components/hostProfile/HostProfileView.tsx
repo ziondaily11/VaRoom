@@ -200,7 +200,7 @@ export default function HostProfileView() {
     if (!hostId) return;
     if (!viewerId) { void router.push(loginUrl(router.asPath)); return; }
     const listing = (listings || [])[0];
-    void router.push(await hostChatPath(getSupabaseClient(), hostId, viewerId, listing ? listing.id : null));
+    void router.push(await hostChatPath(hostId, listing ? listing.id : null));
   };
 
   return (

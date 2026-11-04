@@ -87,6 +87,18 @@ function unansweredGuestMessages(history, conversation, answeredUpTo) {
     && (!answeredUpTo || row.created_at > answeredUpTo));
 }
 
+/**
+ * The listing the guest is asking about: the one their latest question was
+ * sent about ("Chat" on a listing), else the listing the conversation began with.
+ */
+function enquiryListingId(history, conversation) {
+  for (let index = history.length - 1; index >= 0; index -= 1) {
+    const row = history[index];
+    if (row.sender_id === conversation.client_id && row.message_type === 'text' && row.listing_id) return row.listing_id;
+  }
+  return conversation.listing_id || null;
+}
+
 function historyForPrompt(history, conversation) {
   return history
     .filter((row) => row.text)
@@ -108,7 +120,7 @@ async function requestGeneration({ conversation, trigger, guestMessage, guestEnq
       body: JSON.stringify({
         conversation_id: conversation.id,
         host_id: conversation.host_id,
-        listing_id: conversation.listing_id || null,
+        listing_id: enquiryListingId(history, conversation),
         trigger,
         guest_message: guestMessage,
         guest_enquiry: guestEnquiry,
@@ -379,6 +391,7 @@ function handleGuestMessage(conversation) {
 
 module.exports = {
   AutoReplyError,
+  enquiryListingId,
   DEFAULT_AWAY_MESSAGE,
   awayMessageText,
   awayMessageSent,

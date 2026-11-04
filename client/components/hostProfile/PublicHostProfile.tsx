@@ -262,7 +262,7 @@ export default function PublicHostProfile() {
   const startChat = async () => {
     if (!profile || !viewerId) { signIn(); return; }
     const listing = (listings || [])[0];
-    void router.push(await hostChatPath(getSupabaseClient(), profile.id, viewerId, listing ? listing.id : null));
+    void router.push(await hostChatPath(profile.id, listing ? listing.id : null));
   };
 
   if (loadError) {

@@ -85,7 +85,7 @@ test('message ticks: sending, sent, delivered, read', () => {
 test("bubbles show the time on every message and ticks only on the user's own", () => {
   const source = fs.readFileSync(path.join(root, 'pages', 'chats.tsx'), 'utf8');
   assert.match(source, /status=\{isOut && !isDeleted && !optimistic\._failed \? messageStatus\(m, sending\) : null\}/);
-  assert.match(source, /className="bubble bubble-text"/);
+  assert.match(source, /className=\{`bubble bubble-text\$\{m\.listing \? ' has-enquiry' : ''\}`\}/);
   assert.doesNotMatch(source, /Read \$\{|msg-sending/);
   const meta = fs.readFileSync(path.join(root, 'components', 'chat', 'MessageMeta.tsx'), 'utf8');
   for (const label of ["sending: 'Sending'", "sent: 'Sent'", "delivered: 'Delivered'", "read: 'Read'"]) assert.ok(meta.includes(label), label);

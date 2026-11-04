@@ -11,7 +11,7 @@ const { removeChatAttachment } = require('../lib/chatAttachmentCleanup');
 const mediaStorageService = require('../lib/mediaStorageService');
 const { notifyNewMessage } = require('../lib/chatNotifications');
 const { previewsFor } = require('../lib/chatPreviews');
-const { clearedAtByConversation, visibleAfterClear, clearChat } = require('../lib/chatClears');
+const { clearedAtByConversation, visibleAfterClear, clearChat, conversationsBetween } = require('../lib/chatClears');
 
 const router = express.Router();
 
@@ -43,6 +43,10 @@ async function profilesById(ids) {
   // Return contact fields used elsewhere in the product — never expose auth emails to other conversation participants.
   return Object.fromEntries((data || []).map((profile) => [profile.id, profile]));
 }
+
+// A listing in a chat (shared, or the one a message asks about): what its
+// card shows, with the price as the Marketplace shows it.
+const CHAT_LISTING_COLUMNS = 'id,host_id,title,location_text,category,listing_photos(storage_path),listing_booking_details(price_amount,price_unit,listing_purpose,sale_price_amount,sale_price_mode)';
 
 /** The most photos sent together as one album. */
 const ALBUM_MAX = 4;
@@ -318,7 +322,7 @@ router.get('/chat/conversations/:conversationId/messages', async (req, res) => {
     if (listingIds.length) {
       const listingResult = await supabaseAdmin
         .from('listings')
-        .select('id,title,location_text,category,listing_photos(storage_path)')
+        .select(CHAT_LISTING_COLUMNS)
         .in('id', listingIds);
       if (listingResult.error) throw listingResult.error;
       listingsById = Object.fromEntries((listingResult.data || []).map((listing) => [listing.id, listing]));
@@ -422,6 +426,57 @@ router.post('/chat/conversations/:conversationId/messages/:messageId/actions', a
     if (error instanceof ValidationError) return res.status(400).json({ error: error.message });
     console.error('Chat message action failed:', error);
     return res.status(502).json({ error: 'Unable to update message' });
+  }
+});
+
+// "Chat" on a listing: the signed-in person's conversation with its host.
+// One conversation per pair of people: an existing one is reused (the one
+// with the latest message), otherwise one is created for this listing. The
+// listing travels with the first message (listingId), so each question shows
+// which listing it is about.
+router.post('/chat/conversations/start', async (req, res) => {
+  try {
+    const user = await authenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Invalid or expired session' });
+    if (await rejectSuspendedActivity(res, user.id)) return;
+    assertAllowedKeys(req.body, ['listingId']);
+    const listingId = uuid(req.body.listingId, 'listingId');
+    const { data: listing, error: listingError } = await supabaseAdmin
+      .from('listings').select('id,host_id').eq('id', listingId).maybeSingle();
+    if (listingError) throw listingError;
+    if (!listing || !listing.host_id) return res.status(404).json({ error: 'Listing not found' });
+    if (listing.host_id === user.id) return res.status(400).json({ error: 'This is your own listing' });
+
+    const existing = await conversationsBetween(supabaseAdmin, user.id, listing.host_id);
+    if (existing.length) {
+      const { data: latest, error: latestError } = await supabaseAdmin
+        .from('messages').select('conversation_id')
+        .in('conversation_id', existing)
+        .order('created_at', { ascending: false })
+        .limit(1);
+      if (latestError) throw latestError;
+      let conversationId = latest && latest[0] ? latest[0].conversation_id : null;
+      if (!conversationId) {
+        const { data: newest, error: newestError } = await supabaseAdmin
+          .from('conversations').select('id').in('id', existing)
+          .order('created_at', { ascending: false }).limit(1);
+        if (newestError) throw newestError;
+        conversationId = newest && newest[0] ? newest[0].id : existing[0];
+      }
+      return res.json({ conversationId, created: false });
+    }
+
+    const { data: created, error: createError } = await supabaseAdmin
+      .from('conversations')
+      .upsert({ listing_id: listingId, host_id: listing.host_id, client_id: user.id }, { onConflict: 'listing_id,client_id' })
+      .select('id')
+      .single();
+    if (createError) throw createError;
+    return res.status(201).json({ conversationId: created.id, created: true });
+  } catch (error) {
+    if (error instanceof ValidationError) return res.status(400).json({ error: error.message });
+    console.error('Chat start failed:', error);
+    return res.status(502).json({ error: 'Unable to open the chat' });
   }
 });
 
@@ -595,22 +650,25 @@ router.post('/chat/conversations/:conversationId/messages', async (req, res) => 
     if (messageType === 'listing' && !listingId) {
       throw new ValidationError('listingId is required for listing messages');
     }
-    if (messageType !== 'listing' && listingId) {
-      throw new ValidationError('listingId is only valid for listing messages');
+    // On a text message, listingId is the listing it asks about ("Chat" on a listing).
+    if (messageType !== 'listing' && messageType !== 'text' && listingId) {
+      throw new ValidationError('listingId is only valid for listing and text messages');
     }
     // Attachment and listing rows are loaded here, before the insert, so
     // nothing after the message is saved can fail the request.
     let listing = null;
     if (listingId) {
-      const { data: ownListing, error: listingError } = await supabaseAdmin
-        .from('listings')
-        .select('id,title,location_text,category,listing_photos(storage_path)')
-        .eq('id', listingId)
-        .eq('host_id', user.id)
-        .maybeSingle();
+      let listingQuery = supabaseAdmin.from('listings').select(CHAT_LISTING_COLUMNS).eq('id', listingId);
+      // Shared listings are the sender's own; a question may be about either person's listing.
+      listingQuery = messageType === 'listing'
+        ? listingQuery.eq('host_id', user.id)
+        : listingQuery.in('host_id', [conversation.host_id, conversation.client_id]);
+      const { data: foundListing, error: listingError } = await listingQuery.maybeSingle();
       if (listingError) throw listingError;
-      if (!ownListing) return res.status(403).json({ error: 'Listing sharing is limited to your listings' });
-      listing = ownListing;
+      if (!foundListing) {
+        return res.status(403).json({ error: messageType === 'listing' ? 'Listing sharing is limited to your listings' : 'That listing is not part of this conversation' });
+      }
+      listing = foundListing;
     }
     if (messageType !== 'text' && messageType !== 'listing' && !attachmentId) {
       throw new ValidationError('attachmentId is required for attachment messages');

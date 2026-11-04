@@ -486,8 +486,7 @@ export default function HostHomePage() {
   const startChat = useCallback(async (listing: FeedListing) => {
     if (!client || !userId) return;
     try {
-      const id = await openChat(client, listing.id, listing.host_id, userId);
-      void router.push(`/chats?c=${id}`);
+      void router.push(await openChat(listing.id));
     } catch (error) {
       notify(`Couldn't start that chat: ${error instanceof Error ? error.message : String(error)}`);
     }

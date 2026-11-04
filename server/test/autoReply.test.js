@@ -420,3 +420,52 @@ test('auto-replies do not notify a guest who turned message notifications off', 
     assert.equal(db.notifications.filter((n) => n.recipient_user_id === GUEST).length, 0);
   });
 });
+
+// --- Questions about a listing ("Chat" on a listing) ----------------------------
+
+test('a question can carry the listing it is about: one of the conversation\'s listings, never someone else\'s', async () => {
+  await withServer(makeDb({ awayMode: false }), () => jsonResponse(200, { reply: 'x' }), async ({ call }) => {
+    const asked = await call(`/chat/conversations/${CONVERSATION}/messages`, 'guest-token', { content: 'Is the studio free?', listingId: OWN_ALTERNATIVE });
+    assert.equal(asked.status, 201);
+    assert.equal(asked.body.message.listing_id, OWN_ALTERNATIVE);
+    assert.equal(asked.body.message.listing.title, 'Studio', 'the card shows at once');
+    const foreign = await call(`/chat/conversations/${CONVERSATION}/messages`, 'guest-token', { content: 'And this?', listingId: FOREIGN_LISTING });
+    assert.equal(foreign.status, 403);
+    assert.equal(foreign.body.error, 'That listing is not part of this conversation');
+    const shareForeign = await call(`/chat/conversations/${CONVERSATION}/messages`, 'guest-token', { content: 'Studio', listingId: OWN_ALTERNATIVE, messageType: 'listing' });
+    assert.equal(shareForeign.status, 403, 'sharing stays limited to the sender\'s own listings');
+  });
+});
+
+test('Elie answers about the listing the guest\'s latest question is about', async () => {
+  const db = makeDb();
+  await withServer(db, () => jsonResponse(200, { reply: 'Yes.', alternative_listing_ids: [] }), async ({ call, chatbot }) => {
+    assert.equal((await call(`/chat/conversations/${CONVERSATION}/messages`, 'guest-token', { content: 'Is the studio free?', listingId: OWN_ALTERNATIVE })).status, 201);
+    await waitForIdle();
+    assert.equal(chatbot.calls[0].body.listing_id, OWN_ALTERNATIVE);
+  });
+  const conversation = { host_id: HOST, client_id: GUEST, listing_id: LISTING };
+  assert.equal(autoReply.enquiryListingId([{ sender_id: GUEST, message_type: 'text', text: 'Hi' }], conversation), LISTING, 'otherwise the listing the chat began with');
+});
+
+test('"Chat" on a listing reuses the conversation with that host; a new one only when there is none', async () => {
+  const db = makeDb({ awayMode: false });
+  await withServer(db, () => jsonResponse(200, { reply: 'x' }), async ({ call }) => {
+    const reused = await call('/chat/conversations/start', 'guest-token', { listingId: OWN_ALTERNATIVE });
+    assert.equal(reused.status, 200);
+    assert.deepEqual(reused.body, { conversationId: CONVERSATION, created: false });
+    assert.equal(db.conversations.length, 1, 'no second conversation with the same host');
+    const own = await call('/chat/conversations/start', 'host-token', { listingId: LISTING });
+    assert.equal(own.status, 400);
+    const missing = await call('/chat/conversations/start', 'guest-token', { listingId: '99999999-9999-4999-8999-999999999999' });
+    assert.equal(missing.status, 404);
+  });
+  const fresh = makeDb({ awayMode: false });
+  fresh.conversations = [];
+  await withServer(fresh, () => jsonResponse(200, { reply: 'x' }), async ({ call }) => {
+    const created = await call('/chat/conversations/start', 'guest-token', { listingId: LISTING });
+    assert.equal(created.status, 201);
+    assert.equal(created.body.created, true);
+    assert.deepEqual(fresh.conversations.map((c) => [c.listing_id, c.host_id, c.client_id]), [[LISTING, HOST, GUEST]]);
+  });
+});
