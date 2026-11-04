@@ -1842,15 +1842,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                 >
                   <svg className="icon"><use href="#i-clock" /></svg>
                 </button>
-              ) : (
-                <button
-                  type="button"
-                  title="More actions"
-                  onClick={() => setReportSheetOpen(true)}
-                >
-                  <svg className="icon"><use href="#i-more" /></svg>
-                </button>
-              )}
+              ) : null}
             </div>
           </header>
           )}

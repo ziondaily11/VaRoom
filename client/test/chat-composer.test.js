@@ -57,12 +57,12 @@ test('files: images go to the photo preview, phones hold other files for the sen
 test('share-listing sheet: account-scoped listings, multi-select, one message per listing, stays open on failure', () => {
   assert.match(sheet, /const listingsByUser = new Map<string, Promise<ChatListingSummary\[\]>>\(\);/);
   assert.match(sheet, /api(?:<[^>]+>)?\('\/api\/chat\/listings'\)/);
-  assert.match(sheet, /No listings available/);
-  assert.match(sheet, /disabled=\{!selected\.size \|\| sharing\}/);
-  assert.match(sheet, /catch \{\s*\/\/ The page reports the failure; the sheet stays open to retry\./);
+  assert.match(sheet, /You have no listings to share yet\./);
+  assert.match(sheet, /disabled=\{!count \|\| sharing\}/);
+  assert.match(sheet, /catch \{\s*\/\/ The page reports the failure; the dialog stays open to retry\./);
   assert.match(source, /body: JSON\.stringify\(\{ content: listing\.title, listingId: listing\.id, messageType: 'listing' \}\)/);
   const css = read('public', 'js', 'chats.css');
-  assert.match(css, /\.chat-sheet\.open\{transform:translateY\(0\)\}/);
+  assert.match(css, /\.chat-share\{ max-width:760px;/);
 });
 
 test('photo preview: one object URL released on change, caption focused, Escape closes', () => {
