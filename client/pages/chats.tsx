@@ -29,7 +29,8 @@ import { hasMessageMarkup, parseMessageBody, type MessageBodyNode } from '../lib
 import MessageActionMenu, { messageActionItems, type MessageAction } from '../components/chat/MessageActionMenu';
 import { messageCopyText, messageSummary, pastedImage, photoCaption } from '../lib/chat/messageActions';
 import { localUrls, mergeServerMessages, messageKey, reconcileThread, type OptimisticChatMessage } from '../lib/chat/optimisticMessages';
-import { AttachmentThumb, ImagePreview, ListingCard, PhotoBubble, ReplyThumb, VoiceCard } from '../components/chat/MessageMedia';
+import { AttachmentThumb, ImagePreview, ListingCard, PhotoAlbum, PhotoBubble, ReplyThumb, VoiceCard, type ViewerImage } from '../components/chat/MessageMedia';
+import { ALBUM_MAX, addToSelection, albumAt, albumCaption, albumStatus, isImageFile } from '../lib/chat/photoAlbums';
 import MessageMeta from '../components/chat/MessageMeta';
 import MediaPreviewComposer from '../components/chat/MediaPreviewComposer';
 import { useProfileChatSettings } from '../components/chat/useProfileChatSettings';
@@ -203,9 +204,11 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   const [presenceKnownId, setPresenceKnownId] = useState<string | null>(null);
 
   // Attachments & Previews
-  const [pendingPreviewFile, setPendingPreviewFile] = useState<File | null>(null);
+  // Photos waiting in the preview to be sent together (up to ALBUM_MAX).
+  const [pendingPreviewFiles, setPendingPreviewFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState<boolean>(false);
-  const [selectedPhotoPreview, setSelectedPhotoPreview] = useState<{ url: string; alt: string } | null>(null);
+  // The photo viewer: one photo, or an album to page through.
+  const [selectedPhotoPreview, setSelectedPhotoPreview] = useState<{ items: ViewerImage[]; index: number } | null>(null);
   const [reportSheetOpen, setReportSheetOpen] = useState<boolean>(false);
   const [searchPlaceholder, setSearchPlaceholder] = useState<string>('Search conversations...');
   const counts = useCounts();
@@ -318,17 +321,32 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   const closePhotoPreview = useCallback(() => setSelectedPhotoPreview(null), []);
 
   // The photo waiting to be shared: one object URL, released when it changes.
-  const pendingPreviewUrl = useMemo(() => (pendingPreviewFile ? URL.createObjectURL(pendingPreviewFile) : null), [pendingPreviewFile]);
-  useEffect(() => () => { if (pendingPreviewUrl) URL.revokeObjectURL(pendingPreviewUrl); }, [pendingPreviewUrl]);
+  const previewUrlsRef = useRef(new Map<File, string>());
+  const pendingPreviewUrls = useMemo(() => pendingPreviewFiles.map((file) => {
+    const known = previewUrlsRef.current.get(file);
+    if (known) return known;
+    const url = URL.createObjectURL(file);
+    previewUrlsRef.current.set(file, url);
+    return url;
+  }), [pendingPreviewFiles]);
   useEffect(() => {
-    if (!pendingPreviewFile) return undefined;
+    previewUrlsRef.current.forEach((url, file) => {
+      if (!pendingPreviewFiles.includes(file)) { URL.revokeObjectURL(url); previewUrlsRef.current.delete(file); }
+    });
+  }, [pendingPreviewFiles]);
+  useEffect(() => {
+    const urls = previewUrlsRef.current;
+    return () => { urls.forEach((url) => URL.revokeObjectURL(url)); urls.clear(); };
+  }, []);
+  useEffect(() => {
+    if (!pendingPreviewFiles.length) return undefined;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
-      setPendingPreviewFile(null);
+      setPendingPreviewFiles([]);
     };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [pendingPreviewFile]);
+  }, [pendingPreviewFiles.length]);
 
   const pinnedMessage = useMemo(() => {
     return messages.find((m) => m.pinned_at && !m.deleted_at) || null;
@@ -905,8 +923,8 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   // phones other files wait for the send button; on desktop they upload at once.
   const onFileChosen = (file: File) => {
     if (!isHost) return;
-    if (/^image\//i.test(file.type || '') || /\.(jpe?g|png|gif|webp|heic|heif|avif|bmp)$/i.test(file.name || '')) {
-      setPendingPreviewFile(file);
+    if (isImageFile(file)) {
+      addPreviewImages([file]);
     } else if (window.matchMedia('(max-width: 760px)').matches) {
       setPendingFile(file);
     } else {
@@ -1088,6 +1106,13 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
   };
   const closeInboxMenu = useCallback(() => setInboxMenu(null), []);
 
+  // Adds photos to the preview (up to ALBUM_MAX sent together).
+  const addPreviewImages = (files: File[]) => {
+    const { files: next, dropped } = addToSelection(pendingPreviewFiles, files);
+    setPendingPreviewFiles(next);
+    if (dropped) showStatusNote(`Up to ${ALBUM_MAX} photos can be sent at a time.`, 3500);
+  };
+
   // Ctrl+V of a screenshot or a copied image opens the photo preview, as
   // choosing a photo does; text pastes are left to the composer.
   const onComposerPaste = (event: React.ClipboardEvent) => {
@@ -1095,25 +1120,34 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
     const image = pastedImage(event.clipboardData);
     if (!image) return;
     event.preventDefault();
-    setPendingPreviewFile(image);
+    addPreviewImages([image]);
   };
 
-  // Upload attachment & send
-  const handleUploadAttachment = async (file: File, kind: 'photo' | 'file', caption?: string) => {
-    if (!activeId || isUploading) return;
-
-    // --- Optimistic: create a temporary message immediately ---
-    const tempId = `optimistic-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    const captionAtSend = (caption || '').trim() || file.name;
-    const localObjectUrl = URL.createObjectURL(file);
-    const tempMsg: OptimisticChatMessage = {
+  // Upload attachments & send. Photos chosen together (up to ALBUM_MAX) share
+  // an album id: they upload in parallel and are saved in order, so the album
+  // keeps its order and notifies once. Each shows at once (optimistic) and
+  // keeps its place and image when the server's copy arrives.
+  const sendAttachments = async (files: File[], kind: 'photo' | 'file', caption?: string) => {
+    if (!activeId || isUploading || !files.length) return;
+    const conversationId = activeId;
+    const albumId = kind === 'photo' && files.length > 1 ? crypto.randomUUID() : undefined;
+    const uploads = files.map((file, index) => ({
+      file,
+      tempId: `optimistic-${Date.now()}-${index}-${Math.random().toString(36).slice(2)}`,
+      // The caption belongs to the first photo; the others carry their file name.
+      content: (index === 0 ? (caption || '').trim() : '') || file.name,
+      localUrl: URL.createObjectURL(file),
+    }));
+    const createdAt = Date.now();
+    setMessagesState((prev) => [...prev, ...uploads.map(({ file, tempId, content, localUrl }, index): OptimisticChatMessage => ({
       id: tempId,
-      conversation_id: activeId,
+      conversation_id: conversationId,
       sender_id: userId || '',
-      body: captionAtSend,
-      created_at: new Date().toISOString(),
+      body: content,
+      created_at: new Date(createdAt + index).toISOString(),
       message_type: kind,
-      // attachment is null initially; the image is shown via localObjectUrl below
+      album_id: albumId || null,
+      // attachment is null initially; the image is shown via its local URL
       attachment: kind === 'photo' ? ({
         id: tempId,
         original_filename: file.name,
@@ -1121,18 +1155,19 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
         status: 'pending',
       } as ChatAttachment) : null,
       _optimistic: true,
-      _localUrl: localObjectUrl,
-    } satisfies OptimisticChatMessage;
-
-    setMessagesState((prev) => [...prev, tempMsg]);
-    setPendingPreviewFile(null);
+      _localUrl: localUrl,
+    }))]);
+    setPendingPreviewFiles([]);
     setTimeout(() => scrollToBottom(true), 50);
 
-    setIsUploading(true);
-    try {
+    const markFailed = (tempId: string) => setMessagesState((prev) => prev.map((m) => (m.id === tempId
+      ? { ...m, _failed: true } as OptimisticChatMessage
+      : m)));
+
+    // 1–3: each file uploads straight to storage, all at once.
+    const uploaded = uploads.map(async ({ file, tempId }) => {
       const fileMimeType = inferMimeType(file);
-      // 1. Init upload
-      const initRes = await api<{ uploadUrl: string; attachmentId: string }>(`/api/chat/conversations/${encodeURIComponent(activeId)}/attachments/upload-init`, {
+      const initRes = await api<{ uploadUrl: string; attachmentId: string }>(`/api/chat/conversations/${encodeURIComponent(conversationId)}/attachments/upload-init`, {
         method: 'POST',
         body: JSON.stringify({
           filename: file.name,
@@ -1141,57 +1176,62 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
           kind: kind,
         }),
       });
-
       // The server's copy of this message is recognised by its attachment.
       setMessagesState((prev) => prev.map((m) => (m.id === tempId ? { ...m, attachment_id: initRes.attachmentId } : m)));
-
-      // 2. Direct PUT to Cloudflare R2
       const putRes = await fetch(initRes.uploadUrl, {
         method: 'PUT',
         headers: { 'Content-Type': fileMimeType },
         body: file,
       });
       if (!putRes.ok) throw new Error('R2 direct upload failed');
-
-      // 3. Finalize upload
-      await api(`/api/chat/conversations/${encodeURIComponent(activeId)}/attachments/${encodeURIComponent(initRes.attachmentId)}/complete`, {
+      await api(`/api/chat/conversations/${encodeURIComponent(conversationId)}/attachments/${encodeURIComponent(initRes.attachmentId)}/complete`, {
         method: 'POST',
         body: '{}',
       });
+      return initRes.attachmentId;
+    });
+    // Nothing waits on a failed upload before its turn below.
+    uploaded.forEach((promise) => { promise.catch(() => {}); });
 
-      // 4. Send attachment message
-      const res = await api<{ message?: ChatMessage }>(`/api/chat/conversations/${encodeURIComponent(activeId)}/messages`, {
-        method: 'POST',
-        body: JSON.stringify({
-          content: captionAtSend,
-          attachmentId: initRes.attachmentId,
-          messageType: kind,
-        }),
-      });
-
-      const sent = res?.message;
-      if (sent && mountedRef.current) {
-        // The real message takes the optimistic one's place (or Realtime already
-        // put it there), keeping the local image so the photo holds its size.
-        if (activeIdRef.current === activeId) setMessagesState((prev) => mergeServerMessages(prev, [sent]));
-        if (userId) {
-          appendMessage(userId, activeId, sent).catch(() => {});
-          updateInboxConversation(userId, activeId, { lastMessage: sent }).catch(() => {});
+    setIsUploading(true);
+    try {
+      // 4: the messages are saved in the chosen order.
+      for (let index = 0; index < uploads.length; index += 1) {
+        const { tempId, content } = uploads[index];
+        try {
+          const attachmentId = await uploaded[index];
+          const res = await api<{ message?: ChatMessage }>(`/api/chat/conversations/${encodeURIComponent(conversationId)}/messages`, {
+            method: 'POST',
+            body: JSON.stringify({
+              content,
+              attachmentId,
+              messageType: kind,
+              ...(albumId ? { albumId } : {}),
+            }),
+          });
+          const sent = res?.message;
+          if (sent && mountedRef.current) {
+            // The real message takes the optimistic one's place (or Realtime already
+            // put it there), keeping the local image so the photo holds its size.
+            if (activeIdRef.current === conversationId) setMessagesState((prev) => mergeServerMessages(prev, [sent]));
+            if (userId) {
+              appendMessage(userId, conversationId, sent).catch(() => {});
+              updateInboxConversation(userId, conversationId, { lastMessage: sent }).catch(() => {});
+            }
+            bumpConversation(conversationId, sent);
+          }
+        } catch (err) {
+          console.error('Attachment upload failed:', err);
+          // Marked failed so the user can dismiss it.
+          markFailed(tempId);
         }
-        bumpConversation(activeId, sent);
-        setTimeout(() => scrollToBottom(true), 50);
       }
-    } catch (err) {
-      console.error('Attachment upload failed:', err);
-      // Mark optimistic message as failed so the user can dismiss it.
-      setMessagesState((prev) => prev.map((m) => m.id === tempId
-        ? { ...m, _failed: true } as OptimisticChatMessage
-        : m
-      ));
+      setTimeout(() => scrollToBottom(true), 50);
     } finally {
       setIsUploading(false);
     }
   };
+  const handleUploadAttachment = (file: File, kind: 'photo' | 'file', caption?: string) => sendAttachments([file], kind, caption);
 
   // ── Message actions (legacy chat-data.js performMessageAction) ──
 
@@ -1873,6 +1913,9 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
               <>
               {!isElie && <div className="system-notice">Your messages are encrypted and private.</div>}
               {messages.map((m, idx) => {
+                // Photos sent together show once, as a collage, on their first message.
+                const album = albumAt(messages as OptimisticChatMessage[], idx);
+                if (album === 'member') return null;
                 const isOut = m.sender_id === (userId || session?.user?.id);
                 const isElieMsg = m.sender_id === 'elie';
                 const isSystem = m.message_type === 'system';
@@ -1966,6 +2009,45 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                     ) : m.message_type === 'voice' && attachmentId ? (
                       /* Voice note */
                       <VoiceCard attachmentId={attachmentId} api={api} meta={meta} />
+                    ) : album ? (
+                      /* Photos sent together: one collage; each tile is its own message */
+                      (() => {
+                        const caption = albumCaption(album);
+                        const albumMeta = (
+                          <MessageMeta
+                            time={new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            status={isOut ? albumStatus(album.map((photo) => (photo._failed ? null : messageStatus(photo, Boolean(photo._optimistic))))) : null}
+                          />
+                        );
+                        const captionMessage = album.find((photo) => photoCaption(photo)) || m;
+                        return (
+                          <PhotoAlbum
+                            photos={album.map((photo) => ({
+                              id: photo.id,
+                              attachmentId: photo._optimistic ? null : (photo.attachment_id || photo.attachment?.id || null),
+                              localUrl: photo._localUrl,
+                              alt: photo.attachment?.original_filename || 'Shared image',
+                              state: photo._failed ? 'failed' : photo._optimistic ? 'sending' : null,
+                            }))}
+                            api={api}
+                            onOpen={(items, index) => setSelectedPhotoPreview({ items, index })}
+                            onDismiss={(id) => setMessagesState((prev) => prev.filter((msg) => msg.id !== id))}
+                            tileProps={(id) => {
+                              const photo = album.find((item) => item.id === id);
+                              if (!photo || !canActOnMessage(photo)) return {};
+                              // Right-click or long-press on a tile acts on that photo.
+                              return {
+                                onContextMenu: (e: React.MouseEvent) => { e.stopPropagation(); onMessageContextMenu(e, photo); },
+                                onTouchStart: (e: React.TouchEvent) => { e.stopPropagation(); onMessageTouchStart(e, photo); },
+                              };
+                            }}
+                            overlay={caption ? undefined : albumMeta}
+                            footer={caption ? (
+                              <div className="chat-message-caption">{renderMessageBody(captionMessage.body || '')}{albumMeta}</div>
+                            ) : undefined}
+                          />
+                        );
+                      })()
                     ) : hasMedia ? (
                       /* Photo attachment bubble */
                       <PhotoBubble
@@ -1973,7 +2055,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                         localUrl={(m as OptimisticChatMessage)._localUrl}
                         alt={m.attachment?.original_filename || 'Shared image'}
                         api={api}
-                        onOpen={(url, alt) => setSelectedPhotoPreview({ url, alt })}
+                        onOpen={(url, alt) => setSelectedPhotoPreview({ items: [{ url, alt }], index: 0 })}
                         // With a caption the time sits on its last line; without one it sits over the image.
                         footer={photoCaption(m) ? (
                           <>
@@ -2223,10 +2305,11 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
               type="file"
               ref={photoInputRef}
               accept="image/*"
+              multiple
               style={{ display: 'none' }}
               onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) setPendingPreviewFile(file);
+                const files = Array.from(e.target.files || []);
+                if (files.length) addPreviewImages(files);
                 e.target.value = '';
               }}
             />
@@ -2264,12 +2347,15 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
           )}
 
           {/* In-Conversation Media Preview / Composer Before Send */}
-          {pendingPreviewFile && (
+          {pendingPreviewFiles.length > 0 && (
             <MediaPreviewComposer
-              imageUrl={pendingPreviewUrl}
+              images={pendingPreviewUrls}
+              maxImages={ALBUM_MAX}
               sending={isUploading}
-              onCancel={() => setPendingPreviewFile(null)}
-              onSend={(caption) => { void handleUploadAttachment(pendingPreviewFile, 'photo', caption); }}
+              onCancel={() => setPendingPreviewFiles([])}
+              onRemove={(index) => setPendingPreviewFiles((current) => current.filter((_, i) => i !== index))}
+              onAdd={() => photoInputRef.current?.click()}
+              onSend={(caption) => { void sendAttachments(pendingPreviewFiles, 'photo', caption); }}
             />
           )}
         </main>
@@ -2328,7 +2414,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
                 online={presenceKnownId === activeId ? isCurrentOnline : null}
                 messages={messages}
                 api={api}
-                onOpenImage={(url, alt) => setSelectedPhotoPreview({ url, alt })}
+                onOpenImage={(url, alt) => setSelectedPhotoPreview({ items: [{ url, alt }], index: 0 })}
                 onOpenFile={(attachmentId) => { void openAttachment(attachmentId); }}
                 archived={Boolean(activeConversation.archived)}
                 onArchive={() => { void setConversationArchived(activeConversation.id, !activeConversation.archived); }}
@@ -2387,7 +2473,7 @@ export default function ChatsPage({ initialConversationId }: { initialConversati
 
       {/* Full Photo Modal Viewer */}
       {selectedPhotoPreview && (
-        <ImagePreview url={selectedPhotoPreview.url} alt={selectedPhotoPreview.alt} onClose={closePhotoPreview} />
+        <ImagePreview key={`${selectedPhotoPreview.items[0]?.url}:${selectedPhotoPreview.index}`} items={selectedPhotoPreview.items} index={selectedPhotoPreview.index} onClose={closePhotoPreview} />
       )}
 
     </>

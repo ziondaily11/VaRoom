@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import { getSupabaseClient } from '../../lib/supabase/client';
 import type { ChatListingSummary } from '../../lib/chatCache';
@@ -82,6 +82,101 @@ export function PhotoBubble({ attachmentId, localUrl, alt, api, onOpen, children
             onClick={() => onOpen(src, alt)}
           />
         )}
+        {overlay}
+      </div>
+      {footer}
+    </div>
+  );
+}
+
+/** A photo in an album collage. */
+export interface AlbumPhoto {
+  id: string;
+  /** null while the photo is still uploading (its local image shows). */
+  attachmentId: string | null;
+  localUrl?: string;
+  alt: string;
+  state: 'sending' | 'failed' | null;
+}
+
+function AlbumTile({ photo, index, api, onUrl, onOpen, onDismiss, tileProps }: {
+  photo: AlbumPhoto;
+  index: number;
+  api: ChatApi;
+  onUrl: (index: number, url: string) => void;
+  onOpen: (index: number) => void;
+  onDismiss: (id: string) => void;
+  tileProps?: (id: string) => React.HTMLAttributes<HTMLElement>;
+}) {
+  const remote = useAttachmentUrl(photo.localUrl ? null : photo.attachmentId, api);
+  const src = photo.localUrl || remote.url;
+  const [loaded, setLoaded] = useState(false);
+  useEffect(() => { setLoaded(false); }, [src]);
+  useEffect(() => { if (src) onUrl(index, src); }, [src, index, onUrl]);
+  return (
+    <div
+      className="chat-album-tile"
+      data-message-id={photo.id}
+      role="button"
+      tabIndex={0}
+      aria-label={photo.alt}
+      onClick={() => { if (photo.state === 'failed') onDismiss(photo.id); else if (src) onOpen(index); }}
+      onKeyDown={(event) => { if ((event.key === 'Enter' || event.key === ' ') && src) { event.preventDefault(); onOpen(index); } }}
+      {...(tileProps ? tileProps(photo.id) : {})}
+    >
+      {src && <img src={src} alt={photo.alt} onLoad={() => setLoaded(true)} onError={() => setLoaded(true)} />}
+      {((!loaded && !remote.failed) || photo.state === 'sending') && <MediaLoader />}
+      {photo.state === 'failed' && <span className="chat-album-failed">Failed · Dismiss</span>}
+    </div>
+  );
+}
+
+/**
+ * Photos sent together (up to 4) as one collage: 2 side by side, 3 as one
+ * large and two stacked, 4 in a grid. Tiles fill their cell (cropped only
+ * here); tapping one opens the viewer, which shows them whole and pages
+ * through the album.
+ */
+export function PhotoAlbum({ photos, api, onOpen, onDismiss, tileProps, overlay, footer }: {
+  photos: AlbumPhoto[];
+  api: ChatApi;
+  onOpen: (items: ViewerImage[], index: number) => void;
+  /** Removes a photo whose upload failed. */
+  onDismiss: (id: string) => void;
+  /** Handlers on each tile (right-click, long-press: that photo's actions). */
+  tileProps?: (id: string) => React.HTMLAttributes<HTMLElement>;
+  /** Over the collage's corner (time and ticks without a caption). */
+  overlay?: React.ReactNode;
+  /** Below the collage (caption, failed state). */
+  footer?: React.ReactNode;
+}) {
+  const [urls, setUrls] = useState<(string | null)[]>(() => photos.map(() => null));
+  const onUrl = useCallback((index: number, url: string) => {
+    setUrls((current) => {
+      if (current[index] === url) return current;
+      const next = [...current];
+      next[index] = url;
+      return next;
+    });
+  }, []);
+  const open = (index: number) => {
+    const items: ViewerImage[] = [];
+    let start = 0;
+    photos.forEach((photo, i) => {
+      const url = urls[i];
+      if (!url) return;
+      if (i === index) start = items.length;
+      items.push({ url, alt: photo.alt });
+    });
+    if (items.length) onOpen(items, start);
+  };
+  const count = Math.min(photos.length, 4);
+  return (
+    <div className="bubble bubble-media bubble-album">
+      <div className={`chat-album chat-album-${count}`}>
+        {photos.slice(0, 4).map((photo, index) => (
+          <AlbumTile key={photo.id} photo={photo} index={index} api={api} onUrl={onUrl} onOpen={open} onDismiss={onDismiss} tileProps={tileProps} />
+        ))}
         {overlay}
       </div>
       {footer}
@@ -204,20 +299,55 @@ export function VoiceCard({ attachmentId, api, meta }: { attachmentId: string; a
 }
 
 /** Full-screen image viewer (legacy `.chat-image-preview`): closes on the backdrop or Escape. */
-export function ImagePreview({ url, alt, onClose }: { url: string; alt: string; onClose: () => void }) {
+export interface ViewerImage {
+  url: string;
+  alt: string;
+}
+
+/** The full-size photo viewer; with an album it pages through it (arrows, arrow keys, swipe). */
+export function ImagePreview({ items, index: startIndex = 0, onClose }: { items: ViewerImage[]; index?: number; onClose: () => void }) {
+  const [index, setIndex] = useState(startIndex);
+  const touchStartRef = useRef<number | null>(null);
+  const count = items.length;
+  const go = useCallback((step: number) => setIndex((current) => (current + step + count) % count), [count]);
   useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+      else if (count > 1 && event.key === 'ArrowRight') go(1);
+      else if (count > 1 && event.key === 'ArrowLeft') go(-1);
+    };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [onClose]);
+  }, [onClose, go, count]);
+  const current = items[Math.min(index, count - 1)];
+  if (!current) return null;
   return (
     <div
       className="chat-image-preview"
       role="dialog"
-      aria-label="Image preview"
+      aria-label={count > 1 ? `Image ${index + 1} of ${count}` : 'Image preview'}
       onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}
+      onTouchStart={(event) => { touchStartRef.current = event.touches[0]?.clientX ?? null; }}
+      onTouchEnd={(event) => {
+        const start = touchStartRef.current;
+        touchStartRef.current = null;
+        const end = event.changedTouches[0]?.clientX;
+        if (count < 2 || start === null || end === undefined || Math.abs(end - start) < 40) return;
+        go(end < start ? 1 : -1);
+      }}
     >
-      <img src={url} alt={alt} />
+      <img src={current.url} alt={current.alt} />
+      {count > 1 && (
+        <>
+          <button type="button" className="chat-image-preview-nav prev" aria-label="Previous photo" onClick={() => go(-1)}>
+            <svg className="icon" aria-hidden="true"><use href="#i-chevron-left" /></svg>
+          </button>
+          <button type="button" className="chat-image-preview-nav next" aria-label="Next photo" onClick={() => go(1)}>
+            <svg className="icon" aria-hidden="true"><use href="#i-chevron-right" /></svg>
+          </button>
+          <span className="chat-image-preview-count" aria-hidden="true">{index + 1} / {count}</span>
+        </>
+      )}
     </div>
   );
 }

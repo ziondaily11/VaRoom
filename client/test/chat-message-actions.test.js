@@ -49,7 +49,7 @@ test('a pasted screenshot or copied image is picked up; a paste with text stays 
   assert.equal(pastedImage(clip({ text: 'Quarterly report', files: [image] })), null, 'office apps add a picture of copied text');
   assert.equal(pastedImage(clip({ files: [{ name: 'a.pdf', type: 'application/pdf' }] })), null);
   assert.equal(pastedImage(null), null);
-  assert.match(source, /const image = pastedImage\(event\.clipboardData\);\s*if \(!image\) return;\s*event\.preventDefault\(\);\s*setPendingPreviewFile\(image\);/);
+  assert.match(source, /const image = pastedImage\(event\.clipboardData\);\s*if \(!image\) return;\s*event\.preventDefault\(\);\s*addPreviewImages\(\[image\]\);/);
   assert.match(source, /if \(isElie \|\| !activeId\) return;/);
   assert.equal((source.match(/onPaste=\{onComposerPaste\}/g) || []).length, 2, 'desktop editor and phone textarea');
 });

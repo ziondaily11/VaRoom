@@ -48,7 +48,7 @@ test('role gating: clients share photos only; hosts also files and listings', ()
 });
 
 test('files: images go to the photo preview, phones hold other files for the send button, desktop uploads at once', () => {
-  assert.match(source, /setPendingPreviewFile\(file\);\s*\} else if \(window\.matchMedia\('\(max-width: 760px\)'\)\.matches\) \{\s*setPendingFile\(file\);\s*\} else \{\s*void handleUploadAttachment\(file, 'file'\);/);
+  assert.match(source, /addPreviewImages\(\[file\]\);\s*\} else if \(window\.matchMedia\('\(max-width: 760px\)'\)\.matches\) \{\s*setPendingFile\(file\);\s*\} else \{\s*void handleUploadAttachment\(file, 'file'\);/);
   assert.match(source, /`File: \$\{pendingFile\.name\}`/);
   assert.match(source, /void handleUploadAttachment\(fileToSend, 'file', plainText \? content : fileToSend\.name\);/);
   assert.doesNotMatch(source, /accept="\.pdf,\.doc/, 'any file type, as legacy');
@@ -66,15 +66,16 @@ test('share-listing sheet: account-scoped listings, multi-select, one message pe
 });
 
 test('photo preview: one object URL released on change, caption focused, Escape closes', () => {
-  assert.match(source, /const pendingPreviewUrl = useMemo\(\(\) => \(pendingPreviewFile \? URL\.createObjectURL\(pendingPreviewFile\) : null\), \[pendingPreviewFile\]\);/);
-  assert.match(source, /useEffect\(\(\) => \(\) => \{ if \(pendingPreviewUrl\) URL\.revokeObjectURL\(pendingPreviewUrl\); \}, \[pendingPreviewUrl\]\);/);
+  // One object URL per chosen photo, released when it leaves the preview or the page closes.
+  assert.match(source, /const known = previewUrlsRef\.current\.get\(file\);\s*if \(known\) return known;\s*const url = URL\.createObjectURL\(file\);/);
+  assert.match(source, /if \(!pendingPreviewFiles\.includes\(file\)\) \{ URL\.revokeObjectURL\(url\); previewUrlsRef\.current\.delete\(file\); \}/);
   assert.doesNotMatch(source, /src=\{URL\.createObjectURL\(/);
   // The caption lives in the preview, so typing does not re-render the conversation.
   assert.doesNotMatch(source, /previewCaption/);
   const preview = read('components', 'chat', 'MediaPreviewComposer.tsx');
   assert.match(preview, /const \[caption, setCaption\] = useState\(''\);/);
   assert.match(preview, /value=\{caption\}\s*autoFocus\s*onChange=\{\(e\) => setCaption\(e\.target\.value\)\}/);
-  assert.match(source, /onSend=\{\(caption\) => \{ void handleUploadAttachment\(pendingPreviewFile, 'photo', caption\); \}\}/);
+  assert.match(source, /onSend=\{\(caption\) => \{ void sendAttachments\(pendingPreviewFiles, 'photo', caption\); \}\}/);
 });
 
 test('Elie: Ctrl/Cmd+B/I/U do nothing (legacy)', () => {

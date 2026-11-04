@@ -259,6 +259,16 @@
     pointer-events:none;
   }
 
+  /* The photos chosen to send together: pick, remove, add (up to 4). */
+  .chat-media-preview-strip{ display:flex; justify-content:center; gap:8px; padding:4px 24px 0; flex-shrink:0; }
+  .chat-media-preview-thumb{ position:relative; width:56px; height:56px; border-radius:10px; }
+  .chat-media-preview-thumb-view{ width:100%; height:100%; padding:0; border:2px solid transparent; border-radius:10px; overflow:hidden; background:none; cursor:pointer; }
+  .chat-media-preview-thumb.is-selected .chat-media-preview-thumb-view{ border-color:var(--mint); }
+  .chat-media-preview-thumb-view img{ display:block; width:100%; height:100%; object-fit:cover; }
+  .chat-media-preview-thumb-remove{ position:absolute; top:-6px; right:-6px; width:20px; height:20px; padding:0; border:0; border-radius:50%; display:flex; align-items:center; justify-content:center; background:rgba(20,22,28,.8); color:#fff; cursor:pointer; }
+  .chat-media-preview-thumb-remove .icon{ width:12px; height:12px; stroke-width:2.4; }
+  .chat-media-preview-add{ width:56px; height:56px; border:1.5px dashed #9ca3af; border-radius:10px; display:flex; align-items:center; justify-content:center; background:transparent; color:inherit; cursor:pointer; }
+  .chat-media-preview-add .icon{ width:20px; height:20px; }
   .chat-media-preview-footer{
     display:flex;
     align-items:center;
@@ -425,7 +435,21 @@
   .chat-message-caption > .msg-meta .msg-time,
   .chat-message-caption > .msg-meta:not(.msg-status-read) .msg-status{ opacity:.68; }
   .msg-row.out .chat-message-caption > .msg-meta{ --msg-read-tick:var(--bubble-read-tick); }
+  /* Photos sent together: a collage in the same box as one photo (330 wide on
+     desktop, phones as below). Tiles fill their cell; the viewer shows them whole. */
+  .chat-album{ position:relative; display:grid; gap:2px; width:330px; max-width:100%; border-radius:12px; overflow:hidden; }
+  .chat-album-2{ grid-template-columns:1fr 1fr; aspect-ratio:330 / 200; }
+  .chat-album-3,
+  .chat-album-4{ grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr; aspect-ratio:1; }
+  .chat-album-3 > .chat-album-tile:first-child{ grid-row:1 / span 2; }
+  .chat-album-tile{ position:relative; min-width:0; min-height:0; overflow:hidden; background:rgba(0,0,0,.06); cursor:zoom-in; }
+  .chat-album-tile img{ display:block; width:100%; height:100%; object-fit:cover; user-select:none; }
+  .chat-album-tile .chat-media-loader{ top:50%; left:50%; margin:-17px 0 0 -17px; color:#fff; }
+  .chat-album-tile:focus-visible{ outline:2px solid var(--mint); outline-offset:-2px; }
+  .chat-album-failed{ position:absolute; inset:auto 6px 6px 6px; padding:3px 6px; border-radius:8px; background:rgba(185,28,28,.85); color:#fff; font-size:11px; font-weight:600; text-align:center; }
+  [data-theme="dark"] .chat-album-tile{ background:rgba(255,255,255,.06); }
   /* No caption: time and ticks over the image's corner. */
+  .chat-album > .msg-meta,
   .chat-media-wrap > .msg-meta{
     position:absolute; z-index:2; right:6px; bottom:6px; margin:0;
     padding:3px 7px; border-radius:10px;
@@ -448,6 +472,7 @@
       max-width:min(340px, 78vw);
       max-height:420px;
     }
+    .chat-album{ width:min(340px, 78vw); }
   }
   @media (max-width:760px){
     .chat-media-preview-header{
@@ -595,6 +620,13 @@
   .chat-listing-card{max-width:320px;overflow:hidden;border-radius:10px;background:#f7f8f9;cursor:pointer}.chat-listing-card img{display:block;width:100%;height:150px;object-fit:cover;background:#eceff1}.chat-listing-card-body{padding:10px 12px}.chat-listing-card-title{font-weight:700;color:#14161c}.chat-listing-card-sub{margin-top:4px;color:#626b78;font-size:12px}
   .chat-image-preview{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;padding:32px;background:rgba(20,22,28,.86);cursor:zoom-out}
   .chat-image-preview img{max-width:90vw;max-height:90vh;width:auto;height:auto;object-fit:contain;border-radius:8px;cursor:default}
+  /* Albums in the viewer: previous / next and the position. */
+  .chat-image-preview-nav{position:absolute;top:50%;width:44px;height:44px;margin-top:-22px;border:0;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.16);color:#fff;cursor:pointer}
+  .chat-image-preview-nav:hover{background:rgba(255,255,255,.28)}
+  .chat-image-preview-nav.prev{left:16px}
+  .chat-image-preview-nav.next{right:16px}
+  .chat-image-preview-nav .icon{width:22px;height:22px;stroke-width:2.2}
+  .chat-image-preview-count{position:absolute;top:18px;left:50%;transform:translateX(-50%);padding:4px 10px;border-radius:999px;background:rgba(0,0,0,.45);color:#fff;font-size:12px;font-weight:600}
   .chat-actions .info-action-report{color:inherit}
   /* Unread badges on the rail (formerly injected by public/js/varoom-sidebar.js). */
   :root{--nav-badge-bg:#E9E7E2;--nav-badge-color:#24211E;}

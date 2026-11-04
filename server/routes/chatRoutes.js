@@ -44,6 +44,9 @@ async function profilesById(ids) {
   return Object.fromEntries((data || []).map((profile) => [profile.id, profile]));
 }
 
+/** The most photos sent together as one album. */
+const ALBUM_MAX = 4;
+
 // The conversations this person archived (for them only).
 async function archivedConversationIds(userId) {
   const { data, error } = await supabaseAdmin.from('conversation_archives').select('conversation_id').eq('user_id', userId);
@@ -241,7 +244,7 @@ router.get('/chat/conversations/:conversationId/messages', async (req, res) => {
 
     let query = supabaseAdmin
       .from('messages')
-      .select('id,conversation_id,sender_id,ciphertext,iv,key_version,created_at,delivered_at,read_at,message_type,attachment_id,listing_id,reply_to_message_id,deleted_at,pinned_at')
+      .select('id,conversation_id,sender_id,ciphertext,iv,key_version,created_at,delivered_at,read_at,message_type,attachment_id,listing_id,reply_to_message_id,album_id,deleted_at,pinned_at')
       .eq('conversation_id', conversationId);
 
     if (since) {
@@ -287,7 +290,7 @@ router.get('/chat/conversations/:conversationId/messages', async (req, res) => {
     if (missingReplyIds.length) {
       const replyResult = await supabaseAdmin
         .from('messages')
-        .select('id,conversation_id,sender_id,ciphertext,iv,key_version,created_at,delivered_at,read_at,message_type,attachment_id,listing_id,reply_to_message_id,deleted_at,pinned_at')
+        .select('id,conversation_id,sender_id,ciphertext,iv,key_version,created_at,delivered_at,read_at,message_type,attachment_id,listing_id,reply_to_message_id,album_id,deleted_at,pinned_at')
         .in('id', missingReplyIds);
       if (!replyResult.error && replyResult.data) {
         replyResult.data.forEach((replyMsg) => {
@@ -535,7 +538,7 @@ router.post('/chat/conversations/:conversationId/messages', async (req, res) => 
     const conversationId = uuid(req.params.conversationId, 'conversation id');
     const conversation = await memberConversation(conversationId, user.id);
     if (!conversation) return res.status(403).json({ error: 'Conversation access denied' });
-    assertAllowedKeys(req.body, ['content', 'attachmentId', 'messageType', 'listingId', 'replyToMessageId']);
+    assertAllowedKeys(req.body, ['content', 'attachmentId', 'messageType', 'listingId', 'replyToMessageId', 'albumId']);
     const content = text(req.body.content, 'content', { required: false, max: 10_000 }) || '';
     const messageType = req.body.messageType === undefined
       ? 'text'
@@ -549,6 +552,25 @@ router.post('/chat/conversations/:conversationId/messages', async (req, res) => 
       : uuid(req.body.replyToMessageId, 'replyToMessageId');
     if (replyToMessageId && messageType !== 'text') {
       throw new ValidationError('Replies must be text messages');
+    }
+    // Photos sent together (up to 4) share an album id; the chat shows them as one collage.
+    const albumId = req.body.albumId === undefined ? undefined : uuid(req.body.albumId, 'albumId');
+    if (albumId && messageType !== 'photo') {
+      throw new ValidationError('Only photos can be sent as an album');
+    }
+    let albumSoFar = 0;
+    if (albumId) {
+      const { data: albumRows, error: albumError } = await supabaseAdmin
+        .from('messages')
+        .select('id,sender_id')
+        .eq('conversation_id', conversationId)
+        .eq('album_id', albumId);
+      if (albumError) throw albumError;
+      if ((albumRows || []).some((row) => row.sender_id !== user.id)) {
+        throw new ValidationError('That album belongs to someone else');
+      }
+      albumSoFar = (albumRows || []).length;
+      if (albumSoFar >= ALBUM_MAX) throw new ValidationError(`An album holds at most ${ALBUM_MAX} photos`);
     }
     if (replyToMessageId) {
       const { data: repliedMessage, error: repliedMessageError } = await supabaseAdmin
@@ -625,8 +647,9 @@ router.post('/chat/conversations/:conversationId/messages', async (req, res) => 
         attachment_id: attachmentId || null,
         listing_id: listingId || null,
         reply_to_message_id: replyToMessageId || null,
+        album_id: albumId || null,
       })
-        .select('id,conversation_id,sender_id,ciphertext,iv,key_version,created_at,message_type,attachment_id,listing_id,reply_to_message_id')
+        .select('id,conversation_id,sender_id,ciphertext,iv,key_version,created_at,message_type,attachment_id,listing_id,reply_to_message_id,album_id')
         .single();
       if (error) throw error;
       console.info('Chat message persisted:', {
@@ -643,33 +666,36 @@ router.post('/chat/conversations/:conversationId/messages', async (req, res) => 
     });
     const listingTitle = listing ? listing.title : null;
     let notificationPersisted = true;
-    try {
-      const { data: senderProfile } = await supabaseAdmin.from('profiles').select('full_name').eq('id', user.id).maybeSingle();
-      const notificationMessage = listingTitle ? `${senderProfile?.full_name || 'Someone'} sent you a message about ${listingTitle}.` : `${senderProfile?.full_name || 'Someone'} sent you a message.`;
-      // Skipped when the recipient turned Message notifications off.
-      await notifyNewMessage({
-        recipientUserId,
-        actorUserId: user.id,
-        message: notificationMessage,
-        relatedEntityType: 'conversation',
-        relatedEntityId: conversationId,
-        metadata: {
-          conversation_id: conversationId,
-          sender_id: user.id,
-          message_id: data.id,
-          listing_id: listingId || conversation.listing_id || null,
-          listing_title: listingTitle,
-        },
-        eventKey: `message:${conversationId}:${data.id}`,
-      });
-    } catch (notificationError) {
-      notificationPersisted = false;
-      console.error('Notification persistence failed after chat message persisted:', {
-        conversationId,
-        messageId: data.id,
-        code: notificationError.code,
-        message: notificationError.message,
-      });
+    // An album notifies once, for its first photo (the client saves them in order).
+    if (!albumSoFar) {
+      try {
+        const { data: senderProfile } = await supabaseAdmin.from('profiles').select('full_name').eq('id', user.id).maybeSingle();
+        const notificationMessage = listingTitle ? `${senderProfile?.full_name || 'Someone'} sent you a message about ${listingTitle}.` : `${senderProfile?.full_name || 'Someone'} sent you a message.`;
+        // Skipped when the recipient turned Message notifications off.
+        await notifyNewMessage({
+          recipientUserId,
+          actorUserId: user.id,
+          message: notificationMessage,
+          relatedEntityType: 'conversation',
+          relatedEntityId: conversationId,
+          metadata: {
+            conversation_id: conversationId,
+            sender_id: user.id,
+            message_id: data.id,
+            listing_id: listingId || conversation.listing_id || null,
+            listing_title: listingTitle,
+          },
+          eventKey: `message:${conversationId}:${data.id}`,
+        });
+      } catch (notificationError) {
+        notificationPersisted = false;
+        console.error('Notification persistence failed after chat message persisted:', {
+          conversationId,
+          messageId: data.id,
+          code: notificationError.code,
+          message: notificationError.message,
+        });
+      }
     }
 
     // Away mode: Elie may answer for the host in the background.
