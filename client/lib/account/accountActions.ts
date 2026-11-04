@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseClient } from '../supabase/client';
 import { browserClearOptions, clearUserData } from '../auth/clearUserData';
 import { isAddAccountCallback, profileStore } from '../auth/session';
+import { clearListingDrafts } from '../listWizard/draftCache';
 
 // One logout and one account switch for the whole app, over the legacy
 // window.VaRoomAccountSwitcher (which keeps the token storage and its safety
@@ -54,6 +55,8 @@ export interface AccountActionDeps {
   getClient: () => SupabaseClient | null;
   getSwitcher: () => AccountSwitcher | null;
   clear: (userId: string | null) => Promise<void>;
+  /** Sign-out only: the host's on-device listing drafts. */
+  clearDrafts?: (userId: string | null) => Promise<void>;
   navigate: (path: string) => void;
   reload: () => void;
   post: (message: AccountMessage) => void;
@@ -88,6 +91,11 @@ export function createAccountActions(deps: AccountActionDeps) {
       const userId = client ? await currentUserId(client) : null;
       // Clear before navigating: the page unload would cut an async clear short.
       await deps.clear(userId);
+      // Signing out (not switching accounts) also removes this host's listing
+      // drafts from the browser: they hold the chosen photos and videos.
+      if (deps.clearDrafts) {
+        try { await deps.clearDrafts(userId); } catch { /* storage unavailable */ }
+      }
       try {
         if (client) await client.auth.signOut();
       } catch (error) {
@@ -136,6 +144,7 @@ const browserActions = createAccountActions({
   getClient: getSupabaseClient,
   getSwitcher: () => (typeof window === 'undefined' ? null : window.VaRoomAccountSwitcher || null),
   clear: (userId) => clearUserData(userId, browserClearOptions(profileStore())),
+  clearDrafts: (userId) => clearListingDrafts(userId),
   navigate: (path) => window.location.assign(path),
   reload: () => window.location.reload(),
   post: (message) => {

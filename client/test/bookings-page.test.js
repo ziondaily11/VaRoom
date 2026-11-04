@@ -303,7 +303,7 @@ test('bookings.html and its notification widget are retired; old URLs reach the 
   const server = fs.readFileSync(path.join(root, '..', 'server', 'server.js'), 'utf8');
   assert.match(server, /app\.get\(\['\/bookings', '\/bookings\.html', '\/legacy-pages\/bookings\.html'\]/);
   assert.doesNotMatch(server, /'\/bookings': 'bookings\.html'/);
-  assert.ok(server.indexOf("app.get(['/bookings'") < server.indexOf('Object.entries(pageTemplates)'), 'registered before the template routes');
+  assert.doesNotMatch(server, /pageTemplates/, 'the server serves no legacy templates');
   assert.equal(fs.existsSync(path.join(root, 'public', 'js', 'notifications-widget.js')), false);
   const dark = read('public', 'js', 'varoom-dark-theme.css');
   assert.doesNotMatch(dark, /\.rail-card|\.booking-card|booking-approved\.html|bookings\.html/);

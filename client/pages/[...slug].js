@@ -13,7 +13,6 @@ import { waitForShellReady } from '../components/shell/shellReady';
 
 const templateDirectory = path.join(process.cwd(), 'legacy-pages');
 const routeAliases = {
-  properties: 'list.html',
   'landing-page': 'landing page.html'
 };
 
@@ -69,7 +68,7 @@ function parseTemplate(source) {
   source = replaceLegacyElieIcons(source);
   const title = (source.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [])[1] || 'VaRoom';
   const head = (source.match(/<head[^>]*>([\s\S]*?)<\/head>/i) || [])[1] || '';
-  // Greedy: inline scripts may contain "</body>" inside strings (list.html's
+  // Greedy: inline scripts may contain "</body>" inside strings (the old
   // policy preview srcdoc), so the document body ends at the LAST </body>.
   const body = (source.match(/<body[^>]*>([\s\S]*)<\/body>/i) || [])[1] || source;
   const scripts = [];
@@ -95,7 +94,6 @@ export async function getStaticPaths() {
       params: { slug: [file.replace(/\.html$/, '').replace(/ /g, '-') ] }
     }));
 
-  paths.push({ params: { slug: ['properties'] } });
   return { paths, fallback: false };
 }
 

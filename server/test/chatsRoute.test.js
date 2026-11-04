@@ -12,7 +12,7 @@ const base = { frontendBaseUrl: 'https://varoom.co.ke', requestHost: 'server-4jl
 test('Chats Express paths redirect to the native frontend page; the legacy templates are gone', () => {
   const routeStart = serverSource.indexOf("app.get(['/chats', '/chat', '/chats.html'");
   assert.ok(routeStart >= 0);
-  const route = serverSource.slice(routeStart, serverSource.indexOf('Object.entries(pageTemplates)', routeStart));
+  const route = serverSource.slice(routeStart, serverSource.indexOf("app.get('/forgot-password'", routeStart));
   assert.match(route, /resolveChatsRedirect\(\{/);
   assert.match(route, /'\/elie', '\/elie\.html', '\/legacy-pages\/elie\.html'/);
   assert.match(route, /res\.redirect\(redirect\.status, redirect\.location\)/);

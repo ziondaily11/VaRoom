@@ -5,72 +5,76 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const listingPage = fs.readFileSync(path.join(__dirname, '..', '..', 'client', 'legacy-pages', 'list.html'), 'utf8');
+// The native listing wizard (legacy list.html is retired).
+const clientFile = (file) => fs.readFileSync(path.join(__dirname, '..', '..', 'client', file), 'utf8');
+const listingPage = clientFile('pages/list.tsx') + clientFile('lib/listWizard/startup.ts');
+const wizardApi = clientFile('lib/listWizard/api.ts');
+const wizardDrafts = clientFile('lib/listWizard/drafts.ts');
+const wizardStyles = clientFile('components/listWizard/listWizardStyles.ts');
+const between = (source, start, end) => source.slice(source.indexOf(start), source.indexOf(end, source.indexOf(start)));
 // The native pricing page and its billing module (legacy pricing.html is retired).
-const pricingPage = ['pages/pricing.tsx', 'lib/billing/pricing.ts']
-  .map((file) => fs.readFileSync(path.join(__dirname, '..', '..', 'client', file), 'utf8')).join('\n');
+const pricingPage = ['pages/pricing.tsx', 'lib/billing/pricing.ts'].map(clientFile).join('\n');
 const listingEntitlementMigration = fs.readFileSync(path.join(__dirname, '..', 'migrations', '20261011_000036_listing_entitlement_activation.sql'), 'utf8');
 
 test('review payment actions are non-submit buttons with independent handlers', () => {
-  assert.match(listingPage, /\.submit-row \[hidden\]\{ display:none !important; \}/);
-  assert.match(listingPage, /<button type="button" class="pay-to-list-btn" id="pay-to-list-btn"/);
-  assert.match(listingPage, /<button type="button" class="submit-btn" id="go-pro-btn"/);
-  assert.match(listingPage, /<button type="submit" class="submit-btn" id="submit-btn"/);
+  assert.match(wizardStyles, /\.submit-row \[hidden\]\{ display:none !important; \}/);
+  assert.match(listingPage, /<button type="button" className="pay-to-list-btn" id="pay-to-list-btn"/);
+  assert.match(listingPage, /<button type="button" className="submit-btn" id="go-pro-btn"/);
+  assert.match(listingPage, /<button type="submit" className="submit-btn" id="submit-btn"/);
+  assert.match(listingPage, /id="pay-to-list-btn"[^\n]*onClick=\{\(event\) => \{ event\.preventDefault\(\); void payToList\(\); \}\}/);
+  assert.match(listingPage, /id="go-pro-btn"[^\n]*onClick=\{\(event\) => \{ event\.preventDefault\(\); void goPro\(\); \}\}/);
 
-  const goProStart = listingPage.indexOf("document.getElementById('go-pro-btn').addEventListener('click'");
-  assert.notEqual(goProStart, -1);
-  const goProHandler = listingPage.slice(goProStart, listingPage.indexOf('</script>', goProStart));
-  assert.match(goProHandler, /window\.location\.assign\('\/pricing\?/);
-  assert.doesNotMatch(goProHandler, /requestSubmit|\/api\/listings|listing-checkout|uploadVideoToR2/);
-
-  const payClickStart = listingPage.indexOf("document.getElementById('pay-to-list-btn').addEventListener");
-  const payClickEnd = listingPage.indexOf("document.getElementById('go-pro-btn').addEventListener", payClickStart);
-  const payClickHandler = listingPage.slice(payClickStart, payClickEnd);
-  assert.match(payClickHandler, /startPayToListFlow\(\)/);
-  assert.doesNotMatch(payClickHandler, /requestSubmit|\/pricing/);
+  const goPro = between(listingPage, 'const goPro = async', '// ---------- Publish');
+  assert.match(goPro, /router\.push\(`\/pricing\?niche=/);
+  assert.doesNotMatch(goPro, /requestSubmit|saveListing\(|startListingCheckout|uploadListingVideo/);
+  const payFlow = between(listingPage, 'const payToList = async', 'const goPro = async');
+  assert.doesNotMatch(payFlow, /requestSubmit|\/pricing/);
 });
 
 test('one-time checkout uses same-tab navigation and reveals Publish Listing only after server verification', () => {
-  const flowStart = listingPage.indexOf('async function startPayToListFlow()');
-  const flowEnd = listingPage.indexOf("document.getElementById('pay-to-list-btn').addEventListener", flowStart);
-  const flow = listingPage.slice(flowStart, flowEnd);
-
-  assert.match(flow, /\/api\/billing\/listing-checkout/);
-  assert.match(listingPage, /payment_draft: true/);
-  assert.doesNotMatch(flow, /uploadVideoToR2|storage\.from\('listing-photos'\)\.upload/);
-  assert.match(flow, /paymentFlowInProgress \|\| publishInProgress/);
-  assert.match(flow, /window\.location\.assign\(checkout\.authorization_url\)/);
+  const flow = between(listingPage, 'const payToList = async', 'const goPro = async');
+  assert.match(wizardApi, /\/api\/billing\/listing-checkout/);
+  assert.match(wizardApi, /payment_draft: true/);
+  assert.doesNotMatch(flow, /uploadListingVideo|uploadListingPhoto/);
+  assert.match(flow, /if \(paying\.current \|\| publishing\.current\) return/);
+  assert.match(flow, /window\.location\.assign\(url\)/);
   assert.doesNotMatch(flow, /window\.open|checkoutWindow|requestSubmit\(\)/,
     'checkout must not use a popup or submit the listing automatically');
-  assert.match(listingPage, /async function verifyReturnedListingPayment/);
-  assert.match(listingPage, /payment\.payment_kind === 'listing' && payment\.listing_id/);
-  assert.match(listingPage, /listingPaymentVerified = true/);
-  assert.match(listingPage, /checkingAuth\.textContent = 'Confirming your payment\.\.\.'/);
+  assert.match(wizardApi, /export async function verifyReturnedPayment/);
+  assert.match(listingPage, /payment\.payment_kind === 'listing' && payment\.listing_id\) \{/);
+  assert.match(listingPage, /flags\.paymentVerified = true/);
+  assert.match(listingPage, /deps\.onChecking\('Confirming your payment\.\.\.'\)/);
   assert.match(listingPage, /Payment confirmed\. Review your listing, then select Publish Listing/);
-  assert.doesNotMatch(listingPage, /window\.location\.replace\('\/list\?edit=/,
+  assert.doesNotMatch(listingPage, /\/list\?edit=/,
     'a verified listing payment must return to the restored review page, not edit mode');
 });
 
+test('a signed-out payment check stops instead of polling for a minute', () => {
+  const verify = between(wizardApi, 'export async function verifyReturnedPayment', '\n}\n');
+  assert.match(verify, /if \(response\.status === 401 \|\| response\.status === 403\) throw new Error\(SESSION_EXPIRED_PAYMENT\)/);
+  // The throw is outside the network try/catch, so it is never retried.
+  assert.ok(verify.indexOf('} catch (error) {') < verify.indexOf('SESSION_EXPIRED_PAYMENT'));
+});
+
 test('listing video client matches server duration validation and uses the proxied completion route', () => {
-  assert.match(listingPage, /durationSeconds > 60\).*Videos must be 60 seconds or less/);
-  assert.match(listingPage, /\/api\/properties\/'\s*\+\s*encodeURIComponent\(listingId\)\s*\+\s*'\/videos\/'\s*\+\s*encodeURIComponent\(mediaId\)\s*\+\s*'\/complete/);
-  assert.match(listingPage, /body: JSON\.stringify\(\{ uploadId: initPayload\.uploadId \}\)/);
+  assert.match(wizardApi, /if \(durationSeconds > 60\) throw new Error\('Videos must be 60 seconds or less\.'\)/);
+  assert.match(wizardApi, /const base = `\/api\/properties\/\$\{encodeURIComponent\(listingId\)\}\/videos`/);
+  assert.match(wizardApi, /fetch\(`\$\{base\}\/\$\{encodeURIComponent\(mediaId\)\}\/complete`/);
+  assert.match(wizardApi, /body: JSON\.stringify\(\{ uploadId: init\.uploadId \}\)/);
 });
 
 test('Go Pro checkpoints host-scoped state before subscription checkout and restores the verified listing return', () => {
-  const goProStart = listingPage.indexOf("document.getElementById('go-pro-btn').addEventListener");
-  const goProHandler = listingPage.slice(goProStart, listingPage.indexOf('</script>', goProStart));
-  assert.ok(goProHandler.indexOf('persistBeforeCheckout(session, { saveProfileDraft: true })') < goProHandler.indexOf("window.location.assign('/pricing?"));
-  assert.match(listingPage, /mediaFiles: selectedFiles\.slice\(\)/);
-  assert.match(listingPage, /policyFile: null/);
-  assert.match(listingPage, /uploadedDocumentRefs: listingUploadedDocumentRefs/);
-  assert.match(listingPage, /await listingDraftCache\.load\(cacheKey\)/);
+  const goPro = between(listingPage, 'const goPro = async', '// ---------- Publish');
+  assert.ok(goPro.indexOf('await persistBeforeCheckout(accessToken, true)') < goPro.indexOf('router.push(`/pricing?'));
+  assert.match(wizardDrafts, /mediaFiles: media\.mediaFiles\.slice\(\)/);
+  assert.match(wizardDrafts, /policyFile: null/);
+  assert.match(wizardDrafts, /uploadedDocumentRefs: media\.documentRefs/);
+  assert.match(listingPage, /snapshot = await draftCache\.load<DraftSnapshot>\(cacheKey\)/);
   assert.match(listingPage, /!Number\.isFinite\(snapshot\.createdAt\)/);
-  assert.match(listingPage, /preparedPaymentListingId = serverDraft\.listing_id \|\| null/);
-  assert.doesNotMatch(listingPage, /preparedPaymentListingId = preparedPaymentListingId \|\| pointer\.listingId/);
-  assert.match(listingPage, /requestedDraftId \|\| listingRecoveryReturnReference/);
-  assert.match(listingPage, /method: existingSubmissionListingId \? 'PATCH' : 'POST'/);
-  assert.match(listingPage, /await listingDraftCache\.clearForHost\(currentUser\.id\)/);
+  assert.match(listingPage, /session\.listingId = remote\.listing_id \|\| null/);
+  assert.match(listingPage, /params\.draft \|\| recoveryReference/);
+  assert.match(wizardApi, /method: listingId \? 'PATCH' : 'POST'/);
+  assert.match(listingPage, /await draftCache\.clearForHost\(userId\)/);
   assert.match(pricingPage, /pointer\.listingId/);
   assert.match(pricingPage, /\/list\?subscription=return&reference=\$\{encodeURIComponent\(reference\)\}/);
   assert.match(pricingPage, /reference && payment && payment\.status === 'succeeded'/);
@@ -87,17 +91,20 @@ test('pricing callback verifies the returned reference and marks only the purcha
 });
 
 test('review publication requires an active matching entitlement and preserves pay and upgrade actions otherwise', () => {
-  assert.match(listingPage, /entitlement\.subscription\.status === 'active'/);
-  assert.match(listingPage, /entitlement\.subscription\.niche === expectedNiche/);
-  assert.match(listingPage, /listingAllowance && listingAllowance\.allowed/);
-  assert.match(listingPage, /if \(!entitlementResponse\.ok\) throw new Error\('Unable to confirm your listing allowance'\)/);
-  assert.match(listingPage, /else if \(needsListingPayment\)[\s\S]*Unable to confirm your listing allowance/);
-  assert.match(listingPage, /document\.getElementById\('pay-to-list-btn'\)\.hidden = false/);
-  assert.match(listingPage, /document\.getElementById\('go-pro-btn'\)\.hidden = false/);
-  assert.match(listingPage, /document\.getElementById\('submit-btn'\)\.hidden = false/);
-  assert.match(listingPage, /id="submit-btn">Publish Listing/);
-  assert.match(listingPage, /window\.location\.assign\('\/pricing\?/);
-  assert.match(listingPage, /\/api\/billing\/listing-checkout/);
+  assert.match(wizardApi, /entitlement\.subscription\.status === 'active'/);
+  assert.match(wizardApi, /entitlement\.subscription\.niche === expectedNiche/);
+  assert.match(wizardApi, /allowance && allowance\.allowed/);
+  assert.match(wizardApi, /if \(!response\.ok\) throw new Error\('Unable to confirm your listing allowance'\)/);
+  // A failed check shows the note and neither Publish nor Pay.
+  assert.match(listingPage, /const showPay = paymentNeeded && flags\.entitlementChecked/);
+  assert.match(listingPage, /hidden=\{!\(paymentNeeded && !flags\.entitlementChecked\)\}/);
+  assert.match(listingPage, /Unable to confirm your listing allowance\. Refresh this page to try again before publishing or paying\./);
+  assert.match(listingPage, /id="pay-to-list-btn" hidden=\{!showPay\}/);
+  assert.match(listingPage, /id="go-pro-btn" hidden=\{!showPay\}/);
+  assert.match(listingPage, /id="submit-btn" hidden=\{submitHidden\}/);
+  assert.match(listingPage, /editMode \? 'Save changes' : 'Publish Listing'/);
+  assert.match(listingPage, /router\.push\(`\/pricing\?/);
+  assert.match(wizardApi, /\/api\/billing\/listing-checkout/);
   assert.match(listingEntitlementMigration, /hs\.status = 'active'/);
   assert.match(listingEntitlementMigration, /if v_active_count >= v_limit then/);
 });
