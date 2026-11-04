@@ -162,7 +162,7 @@ export default function PricingPage() {
           <p className="eyebrow">Host plans</p>
           <h1 className="pricing-title">Pricing</h1>
 
-          <div className="plans">
+          <div className={`plans${cards.length === 4 ? ' plans--four' : ''}`}>
             {cards.map((card, index) => {
               const current = card.id === currentId;
               const nameId = `plan-${['basic', 'growth', 'pro'][index] || index}-name`;

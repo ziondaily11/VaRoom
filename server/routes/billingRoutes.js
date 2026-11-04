@@ -7,7 +7,25 @@ const { getCurrentSubscription, getHostEntitlements } = require('../lib/billingE
 const { applyVerifiedTransaction, cancelReplacedSubscription } = require('../lib/billingService');
 const { ValidationError, assertAllowedKeys, text, uuid } = require('../lib/inputValidation');
 
-const VALID_PLAN_IDS = new Set(['basic', 'growth', 'pro', 'property_basic', 'property_pro', 'property_premium', 'shops_basic', 'shops_pro', 'shops_premium']);
+const VALID_PLAN_IDS = new Set([
+  'basic', 'growth', 'pro', 'property_basic', 'property_pro', 'property_premium', 'shops_basic', 'shops_pro', 'shops_premium',
+  'airbnb_starter', 'airbnb_pro', 'airbnb_business',
+  'hotel_dining', 'hotel_boutique', 'hotel_standard', 'hotel_plus',
+  'venue_basic', 'venue_pro', 'venue_premium',
+]);
+
+// Niches whose plans cap published listings (activate_listing_with_entitlement).
+const LISTING_ALLOWANCE_NICHES = new Set(['property', 'shops_offices']);
+// Niches whose plans unlock features only; publishing is not capped yet.
+const FEATURE_PLAN_NICHES = new Set(['airbnb', 'hotel', 'venue']);
+
+/** The billing_plans.niche for a host's posting niche. */
+function billingNicheFor(hostNiche) {
+  if (hostNiche === 'property') return 'property';
+  if (['shop', 'office'].includes(hostNiche)) return 'shops_offices';
+  if (FEATURE_PLAN_NICHES.has(hostNiche)) return hostNiche;
+  return 'legacy';
+}
 
 function isEligibleListingForHost(listing, hostId, categories) {
   if (!listing || listing.host_id !== hostId) return false;
@@ -131,7 +149,7 @@ function createBillingRoutes({ supabaseAdmin = supabaseDefault, paystack = creat
     const user = await requireHost(req, res); if (!user) return;
     const { data: profile } = await supabaseAdmin.from('profiles').select('listing_categories').eq('id', user.id).maybeSingle();
     const hostNiche = Array.isArray(profile?.listing_categories) ? profile.listing_categories[0] : null;
-    const niche = hostNiche === 'property' ? 'property' : (['shop', 'office'].includes(hostNiche) ? 'shops_offices' : 'legacy');
+    const niche = billingNicheFor(hostNiche);
     const { data, error } = await supabaseAdmin.from('billing_plans').select('id,display_name,currency,monthly_amount_minor,billing_interval,features,niche').eq('active', true).eq('niche', niche).order('monthly_amount_minor');
     if (error) return res.status(500).json({ error: 'Unable to load billing plans' });
     return res.json({ plans: data || [] });
@@ -177,10 +195,10 @@ function createBillingRoutes({ supabaseAdmin = supabaseDefault, paystack = creat
     if (planError || !plan) return res.status(400).json({ error: 'Unknown billing plan' });
     const { data: profile } = await supabaseAdmin.from('profiles').select('listing_categories').eq('id', user.id).maybeSingle();
     const hostNiche = Array.isArray(profile?.listing_categories) ? profile.listing_categories[0] : null;
-    const niche = hostNiche === 'property' ? 'property' : (['shop', 'office'].includes(hostNiche) ? 'shops_offices' : 'legacy');
+    const niche = billingNicheFor(hostNiche);
     if (plan.niche !== niche) return res.status(403).json({ error: 'This plan is not available for your posting niche' });
     let pendingListing = null;
-    if (req.body.listing_id) {
+    if (req.body.listing_id && LISTING_ALLOWANCE_NICHES.has(niche)) {
       const { data: listing } = await supabaseAdmin.from('listings').select('id,host_id,category,availability_status').eq('id', req.body.listing_id).maybeSingle();
       const categoryMatches = niche === 'property' ? listing?.category === 'property' : ['shop', 'office'].includes(listing?.category);
       if (!listing || listing.host_id !== user.id || !categoryMatches || listing.availability_status !== 'paused') return res.status(400).json({ error: 'Pending listing does not match this plan' });
@@ -206,14 +224,21 @@ function createBillingRoutes({ supabaseAdmin = supabaseDefault, paystack = creat
     let replacingSubscription = null;
     let activeListingCount = 0;
     if (existing) {
-      if (existing.status !== 'active' || existing.niche !== niche || !existing.provider_subscription_code || !existing.provider_email_token) {
+      // A legacy subscriber of a feature-plan niche may move onto that niche's new plans.
+      const legacyToNichePlan = existing.niche === 'legacy' && FEATURE_PLAN_NICHES.has(niche);
+      if (existing.status !== 'active' || (existing.niche !== niche && !legacyToNichePlan) || !existing.provider_subscription_code || !existing.provider_email_token) {
         return res.status(409).json({ error: 'Your current subscription cannot be upgraded yet.' });
       }
       const currentFeatures = existing.billing_plans && existing.billing_plans.features || {};
       const targetFeatures = plan.features || {};
       const currentLimit = Number(existing.listing_allowance_limit ?? currentFeatures.max_active_listings ?? 0);
       const targetLimit = Number(targetFeatures.max_active_listings || 0);
-      if (targetLimit <= currentLimit) return res.status(409).json({ error: 'Choose a plan with a higher listing allowance to upgrade.' });
+      if (FEATURE_PLAN_NICHES.has(niche)) {
+        const currentAmount = Number(existing.billing_plans && existing.billing_plans.monthly_amount_minor || 0);
+        if (!legacyToNichePlan && Number(plan.monthly_amount_minor) <= currentAmount) {
+          return res.status(409).json({ error: 'Choose a higher plan to upgrade.' });
+        }
+      } else if (targetLimit <= currentLimit) return res.status(409).json({ error: 'Choose a plan with a higher listing allowance to upgrade.' });
       if (currentLimit > 0 && targetLimit > 0) {
         const activeListingsQuery = supabaseAdmin.from('listings').select('id', { count: 'exact', head: true })
           .eq('host_id', user.id).eq('availability_status', 'available').is('paid_listing_until', null);
@@ -399,4 +424,4 @@ function createBillingRoutes({ supabaseAdmin = supabaseDefault, paystack = creat
   });
   return router;
 }
-module.exports = { createBillingRoutes, authenticatedHost, paymentMethodFrom, billingHistoryEntry, VALID_PLAN_IDS, normalizeRequestedPlan, resolvePaymentCallbackOrigin, buildPaymentCallbackUrl, isEligibleListingForHost, calculateTransitionAllowance };
+module.exports = { createBillingRoutes, authenticatedHost, billingNicheFor, paymentMethodFrom, billingHistoryEntry, VALID_PLAN_IDS, normalizeRequestedPlan, resolvePaymentCallbackOrigin, buildPaymentCallbackUrl, isEligibleListingForHost, calculateTransitionAllowance };

@@ -44,6 +44,42 @@ const LEGACY_FEATURES = [
 ];
 const LEGACY_CTAS = ['Get Started', 'Upgrade to Growth', 'Upgrade to Pro'];
 
+// Airbnb, Hotel and Event Venue plans unlock features; the included listings,
+// rooms or spaces are shown here but not enforced on publishing yet. The
+// server's plans (matched by id) set the price and which cards appear.
+const nicheCard = (id: string, name: string, monthly: number, description: string, features: string[], cta: string, featured = false): PlanCard => (
+  { id, name, description, features, cta, monthly, yearly: null, featured }
+);
+
+export const NICHE_PLAN_CARDS: Record<string, PlanCard[]> = {
+  airbnb: [
+    nicheCard('airbnb_starter', 'Starter', 1500, 'For hosts with one or two short-stay units.',
+      ['Up to 2 active listings', 'Core host tools', 'Analytics included'], 'Get Started'),
+    nicheCard('airbnb_pro', 'Pro', 3500, 'For growing hosts who want more guests to find them.',
+      ['Up to 6 active listings', 'Everything in Starter', 'Video listings', 'Showcased to clients searching your niche', 'Eligible for landing-page promotion; featuring is not guaranteed'], 'Go Pro', true),
+    nicheCard('airbnb_business', 'Business', 7500, 'For operators running a portfolio of short-stay units.',
+      ['Up to 15 active listings', 'Everything in Pro', 'Elie', 'Showcased in Marketplace and Discover'], 'Choose Business'),
+  ],
+  hotel: [
+    nicheCard('hotel_dining', 'Dining', 2000, 'For hotel restaurants taking table reservations only.',
+      ['Restaurant only, no rooms', 'Table reservations and menu', 'Analytics included'], 'Get Started'),
+    nicheCard('hotel_boutique', 'Boutique', 4000, 'For guest houses and boutique hotels.',
+      ['Up to 20 rooms', 'Stays and table reservations', 'Video listings', 'Analytics included'], 'Choose Boutique'),
+    nicheCard('hotel_standard', 'Hotel', 8000, 'For mid-size hotels that want more direct bookings.',
+      ['21 to 60 rooms', 'Everything in Boutique', 'Showcased to clients searching your niche', 'Eligible for landing-page promotion; featuring is not guaranteed'], 'Choose Hotel', true),
+    nicheCard('hotel_plus', 'Hotel Plus', 15000, 'For large hotels with maximum visibility.',
+      ['61 rooms or more', 'Everything in Hotel', 'Elie', 'Showcased in Marketplace and Discover'], 'Choose Hotel Plus'),
+  ],
+  venue: [
+    nicheCard('venue_basic', 'Venue', 2500, 'For venues with one or two bookable spaces.',
+      ['Up to 2 bookable spaces', 'Core host tools', 'Analytics included'], 'Get Started'),
+    nicheCard('venue_pro', 'Venue Pro', 5000, 'For venues that want more events booked.',
+      ['Up to 5 bookable spaces', 'Everything in Venue', 'Video listings', 'Showcased to clients searching your niche', 'Eligible for landing-page promotion; featuring is not guaranteed'], 'Go Pro', true),
+    nicheCard('venue_premium', 'Venue Premium', 10000, 'For large venues and multi-space event centres.',
+      ['Up to 12 bookable spaces', 'Everything in Venue Pro', 'Elie', 'Showcased in Marketplace and Discover'], 'Choose Premium'),
+  ],
+};
+
 export const formatPrice = (value: number) => Number(value).toLocaleString('en-KE');
 
 /** Yearly billing switches on only when every plan has a yearly price. */
@@ -51,6 +87,13 @@ export const yearlyReady = (cards: PlanCard[]) => cards.every((card) => Number(c
 
 /** Fill the cards from the server's plans for the host's niche. */
 export function applyPlans(cards: PlanCard[], plans: BillingPlan[]): PlanCard[] {
+  const nicheCards = plans.length > 0 ? NICHE_PLAN_CARDS[plans[0].niche] : undefined;
+  if (nicheCards) {
+    return plans.flatMap((serverPlan) => {
+      const card = nicheCards.find((item) => item.id === serverPlan.id);
+      return card ? [{ ...card, features: [...card.features], name: serverPlan.display_name || card.name, monthly: serverPlan.monthly_amount_minor / 100 }] : [];
+    });
+  }
   const next = cards.map((card) => ({ ...card, features: [...card.features] }));
   const isLegacy = plans.length > 0 && plans[0].niche === 'legacy';
   plans.forEach((plan, index) => {

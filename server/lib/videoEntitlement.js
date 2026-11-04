@@ -59,7 +59,7 @@ async function canUploadPropertyVideo(supabaseAdmin, user, property, currentVide
     if (!entitlements.canUploadPremiumVideo) {
       return {
         allowed: false,
-        reason: 'Video uploads require an active Growth or Pro subscription.',
+        reason: 'Video uploads require an active plan that includes video listings.',
       };
     }
   }
